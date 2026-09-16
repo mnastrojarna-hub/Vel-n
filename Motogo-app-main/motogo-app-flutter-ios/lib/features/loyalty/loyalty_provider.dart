@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/pending_booking_fab_provider.dart';
 import '../../core/supabase_client.dart';
 import '../auth/auth_provider.dart';
 
@@ -169,20 +170,104 @@ Color colorFromHex(String hex, {Color fallback = const Color(0xFF74FB71)}) {
 /// Gradient Legendy MotoGo (level 20) — zlato → oranžová.
 const legendGradientColors = [Color(0xFFFFD700), Color(0xFFFF6B00)];
 
+/// Poslední ÚSPĚŠNĚ načtený status daného uživatele (per-uid, aby se rank
+/// nikdy nepřelil mezi účty). Slouží jako záchytná síť při selhání RPC.
+String? _lastStatusUid;
+LoyaltyStatus? _lastGoodStatus;
+
+/// Zapomene nacachovaný status — volat při odhlášení / přepnutí účtu.
+void clearLoyaltyStatusCache() {
+  _lastStatusUid = null;
+  _lastGoodStatus = null;
+}
+
 /// Aktuální věrnostní status přihlášeného zákazníka.
 ///
-/// Fail-open: pokud RPC `get_loyalty_status` v DB ještě neexistuje
-/// (pořadí nasazení app vs. SQL) nebo selže, vrací null a celá
-/// loyalty feature se v UI tiše skryje — appka funguje jako dřív.
+/// Fail-open vůči NEEXISTUJÍCÍMU RPC: když `get_loyalty_status` v DB ještě
+/// není (pořadí nasazení app vs. SQL), vrátí null a celá loyalty feature se
+/// v UI tiše skryje — appka funguje jako dřív.
+///
+/// Fail-SAFE vůči SÍTI: při selhání dotazu vrací POSLEDNÍ ÚSPĚŠNÝ status
+/// téhož uživatele, ne null. Bez toho by jeden výpadek na LTE shodil rank na
+/// 0 → placená výbava by v půlce rezervace přestala být zdarma a zákazníkovi
+/// by před očima vyskočila vyšší cena. Kontrola ranku se navíc od 4.0.0 dělá
+/// při každém dotyku, takže by takový výpadek byl kdykoli k mání.
 final loyaltyStatusProvider = FutureProvider<LoyaltyStatus?>((ref) async {
   // Obnovuje se spolu s profilem (login / logout / refresh profilu).
   ref.watch(profileProvider);
-  if (MotoGoSupabase.currentUser == null) return null;
-  try {
-    final res = await MotoGoSupabase.client.rpc('get_loyalty_status');
-    if (res is! Map || res['level'] == null) return null;
-    return LoyaltyStatus.fromJson(res);
-  } catch (_) {
+  final uid = MotoGoSupabase.currentUser?.id;
+  if (uid == null) {
+    clearLoyaltyStatusCache();
     return null;
   }
+  // Jiný účet → zahoď cache, ať se rank nepřelije mezi uživateli.
+  if (_lastStatusUid != uid) clearLoyaltyStatusCache();
+  // Cache se vrací VÝHRADNĚ vlastníkovi. Riverpod staré tělo providera při
+  // invalidaci neruší, takže dotaz spuštěný ještě pod uživatelem A může
+  // dobíhat, když je už přihlášený B — bez téhle kontroly by A-ův rank
+  // (a jeho sleva i výbava zdarma) skončil u B.
+  LoyaltyStatus? cached() => _lastStatusUid == uid ? _lastGoodStatus : null;
+  try {
+    final res = await MotoGoSupabase.client.rpc('get_loyalty_status');
+    // Během dotazu se mohl přepnout účet → tohle pokračování už nic neplatí.
+    if (MotoGoSupabase.currentUser?.id != uid) return null;
+    if (res is! Map || res['level'] == null) {
+      // Validní odpověď „loyalty není k dispozici" — cache NEplníme.
+      return cached();
+    }
+    final status = LoyaltyStatus.fromJson(res);
+    _lastStatusUid = uid;
+    _lastGoodStatus = status;
+    return status;
+  } catch (_) {
+    // Síť/RPC selhalo → drž posledně známý rank TOHOTO uživatele
+    // (null, když žádný nemáme).
+    if (MotoGoSupabase.currentUser?.id != uid) return null;
+    return cached();
+  }
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// KONTROLA POVÝŠENÍ NA REÁLNOU INTERAKCI
+// Rank se mění SERVER-SIDE (obsluha dokončí rezervaci, admin přidá bonusové
+// body, výhra v měsíčním žebříčku) — tedy typicky ve chvíli, kdy appka nic
+// nedělá. Aby zákazník oslavu VŽDY viděl, kontroluje se rank i při běžném
+// používání appky (každý dotyk), ne jen při návratu z pozadí.
+// ═══════════════════════════════════════════════════════════════════
+
+/// Jak často nejvíc smí dotyk vyvolat dotaz na rank (ochrana RPC).
+const loyaltyPollInterval = Duration(seconds: 45);
+
+DateTime? _lastLoyaltyPoll;
+
+/// `true` po dobu běžící level-up oslavy — během ní se rank NEobnovuje
+/// (jinak by `ref.listen` mohl rozjet druhou oslavu přes tu první).
+bool loyaltyPollPaused = false;
+
+/// Levná kontrola ranku vyvolaná interakcí uživatele.
+///
+/// Bezpečná při odhlášení (RPC se vůbec nezavolá), během oslavy (pauza)
+/// i při „bušení" do displeje (throttle [loyaltyPollInterval]).
+/// [force] obejde throttle — pro návrat z pozadí a periodickou pojistku.
+void maybeRefreshLoyalty(WidgetRef ref, {bool force = false}) {
+  if (loyaltyPollPaused) return;
+  if (MotoGoSupabase.currentUser == null) return;
+  // POKLADNA JE ZAMČENÁ: na platební obrazovce rank NEobnovujeme. Cena
+  // rezervace je tam už spočítaná a rozpracovaná do payloadu (`total_price`,
+  // `extras_price`, `booking_extras`) — kdyby se rank změnil uprostřed, mohla
+  // by se účtovaná částka rozejít s tou uloženou. Povýšení se dožene hned po
+  // odchodu z platby (oslava se během platby beztak neukazuje).
+  if (ref.read(paymentScreenActiveProvider)) return;
+  final now = DateTime.now();
+  if (!force &&
+      _lastLoyaltyPoll != null &&
+      now.difference(_lastLoyaltyPoll!) < loyaltyPollInterval) {
+    return;
+  }
+  _lastLoyaltyPoll = now;
+  ref.invalidate(loyaltyStatusProvider);
+}
+
+/// Vynuluje throttle — návrat z pozadí, přihlášení, dokončená platba.
+/// Bez toho by nově přihlášený uživatel čekal až 45 s na první kontrolu.
+void resetLoyaltyPollClock() => _lastLoyaltyPoll = null;

@@ -364,8 +364,9 @@ const defaultExtras = [
 ];
 
 /// Od tohoto věrnostního ranku (loyalty level) má zákazník veškerou placenou
-/// výbavu — výbavu spolujezdce i veškerou obuv — ZDARMA. Platí v appce i na
-/// webu (web zjistí rank po přihlášení). Základní výbava řidiče je zdarma vždy.
+/// výbavu — výbavu i obuv řidiče a spolujezdce — ZDARMA. Platí VÝHRADNĚ
+/// v aplikaci (`bookings.booking_source = 'app'`); web žádnou věrnostní
+/// výhodu nedává. Základní výbava řidiče je zdarma vždy a všem.
 const loyaltyFreeGearLevel = 3;
 
 /// ID placených gear extras, které jsou od [loyaltyFreeGearLevel] zdarma.
@@ -374,3 +375,31 @@ const freeGearExtraIds = {
   'extra-boty-ridic',
   'extra-boty-spolu',
 };
+
+/// true = zákazník s tímto rankem má placenou výbavu zdarma.
+bool isGearFreeAt(int loyaltyLevel) => loyaltyLevel >= loyaltyFreeGearLevel;
+
+/// Efektivní cena doplňku dle ranku — gear v [freeGearExtraIds] je od
+/// [loyaltyFreeGearLevel] za 0 Kč, ostatní doplňky (vozík…) beze změny.
+double effectiveExtraPrice(String id, double price, int loyaltyLevel) =>
+    (isGearFreeAt(loyaltyLevel) && freeGearExtraIds.contains(id)) ? 0.0 : price;
+
+/// Přepočítá ceny UŽ vybraných doplňků dle aktuálního ranku.
+/// [SelectedExtra.price] je `final`, takže vrací NOVÉ instance — `id`, `name`,
+/// `quantity` i `size` MUSÍ zůstat zachované (ze `size` se při platbě parsují
+/// velikosti výbavy spolujezdce do `bookings.passenger_*_size`).
+List<SelectedExtra> repriceGearExtras(
+    List<SelectedExtra> extras, int loyaltyLevel) {
+  if (!isGearFreeAt(loyaltyLevel)) return extras;
+  return extras
+      .map((e) => freeGearExtraIds.contains(e.id) && e.price != 0
+          ? SelectedExtra(
+              id: e.id,
+              name: e.name,
+              price: 0,
+              quantity: e.quantity,
+              size: e.size,
+            )
+          : e)
+      .toList();
+}

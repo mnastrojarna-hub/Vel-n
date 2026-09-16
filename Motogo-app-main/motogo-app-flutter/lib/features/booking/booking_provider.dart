@@ -31,6 +31,16 @@ final returnDelivFeeProvider = StateProvider<double>((_) => 0);
 /// Return distance in km.
 final returnDistKmProvider = StateProvider<double>((_) => 0);
 
+/// Vybrané doplňky s cenami dle aktuálního věrnostního ranku — od
+/// [loyaltyFreeGearLevel] je placená výbava (spolujezdec + obuv řidiče
+/// i spolujezdce) ZDARMA. JEDINÝ zdroj pravdy pro cenu doplňků v appce:
+/// čte ho výpočet ceny, souhrn v formuláři, souhrn na platbě i `booking_extras`.
+final effectiveExtrasProvider = Provider<List<SelectedExtra>>((ref) {
+  final draft = ref.watch(bookingDraftProvider);
+  final level = ref.watch(loyaltyStatusProvider).valueOrNull?.level ?? 0;
+  return repriceGearExtras(draft.extras, level);
+});
+
 /// Price breakdown — recalculated whenever inputs change.
 /// Mirrors recalcTotal() from cart-booking-price.js.
 final priceBreakdownProvider = Provider<PriceBreakdown>((ref) {
@@ -45,7 +55,7 @@ final priceBreakdownProvider = Provider<PriceBreakdown>((ref) {
     prices: moto?.prices,
     startDate: draft.startDate,
     endDate: draft.endDate,
-    extras: draft.extras,
+    extras: ref.watch(effectiveExtrasProvider),
     pickupDeliveryFee: draft.pickupMethod == 'delivery' ? pickupFee : 0,
     returnDeliveryFee: draft.returnMethod == 'delivery' ? returnFee : 0,
     discounts: draft.discounts,

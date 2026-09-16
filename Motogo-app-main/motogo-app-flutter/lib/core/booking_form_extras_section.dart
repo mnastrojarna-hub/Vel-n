@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
 import '../features/booking/booking_ui_helpers.dart';
+import '../features/loyalty/loyalty_provider.dart';
 import 'booking_size_dialogs.dart';
 import 'i18n/i18n_provider.dart';
 import 'currency.dart';
@@ -27,6 +28,9 @@ class BookingFormExtrasSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Věrnostní rank — od [loyaltyFreeGearLevel] je placená výbava zdarma.
+    final lvl = ref.watch(loyaltyStatusProvider).valueOrNull?.level ?? 0;
+    final gearFree = isGearFreeAt(lvl);
     return bookingCard(
       6,
       t(context).tr('gearAndAddons'),
@@ -113,6 +117,35 @@ class BookingFormExtrasSection extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: 10),
+          // Od [loyaltyFreeGearLevel]: veškerá výbava i obuv zdarma
+          // (řidič i spolujezdec). Stejný banner jako při úpravě rezervace.
+          if (gearFree)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8FFE8),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0x8074FB71)),
+                ),
+                child: Row(children: [
+                  const Text('🏅', style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t(context).tr('loyaltyGearBenefit'),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A8A18),
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
           ...(isKids
                   ? defaultExtras.where((e) =>
                       e.id != 'extra-spolujezdec' &&
@@ -142,7 +175,9 @@ class BookingFormExtrasSection extends ConsumerWidget {
                 } else {
                   final ne = List<SelectedExtra>.from(draft.extras);
                   ne.add(SelectedExtra(
-                      id: item.id, name: item.name, price: item.price));
+                      id: item.id,
+                      name: item.name,
+                      price: effectiveExtraPrice(item.id, item.price, lvl)));
                   onUpd((d) => d.copyWith(extras: ne));
                 }
               },
@@ -214,7 +249,9 @@ class BookingFormExtrasSection extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    '+${Money.czk(item.price)}',
+                    effectiveExtraPrice(item.id, item.price, lvl) == 0
+                        ? t(context).tr('gearFree')
+                        : '+${Money.czk(item.price)}',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,

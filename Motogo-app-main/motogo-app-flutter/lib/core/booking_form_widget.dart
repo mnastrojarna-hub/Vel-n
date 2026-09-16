@@ -340,6 +340,8 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
 
     final draft = ref.watch(bookingDraftProvider);
     final bd = ref.watch(priceBreakdownProvider);
+    // Doplňky s cenami dle ranku — od [loyaltyFreeGearLevel] je gear zdarma.
+    final pricedExtras = ref.watch(effectiveExtrasProvider);
     final err = ref.watch(bookingValidationErrorProvider);
     // Povinné údaje profilu (adresa; ŘP u motorek s ŘP) — bez nich appka
     // rezervaci NEPUSTÍ; foto dokladů lze doplnit dodatečně (2026-08-22).
@@ -386,7 +388,11 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                 BookingFormPickupSection(draft: draft, onUpd: _upd),
                 BookingFormReturnSection(draft: draft, onUpd: _upd),
                 BookingFormExtrasSection(draft: draft, onUpd: _upd, isKids: isKids),
-                BookingFormPriceSection(draft: draft, bd: bd, dayCount: dc),
+                BookingFormPriceSection(
+                    draft: draft,
+                    bd: bd,
+                    dayCount: dc,
+                    pricedExtras: pricedExtras),
                 BookingFormPromoSection(draft: draft, onUpd: _upd),
                 _buildNoteSection(context),
                 // SOUHLASY — VOP + GDPR jsou POVINNÉ vždy (parita s webem;
