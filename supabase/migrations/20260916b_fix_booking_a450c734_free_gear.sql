@@ -27,7 +27,10 @@ SELECT net.http_post(
                  (SELECT value #>> '{}' FROM app_settings WHERE key = 'service_role_key')),
   body    := jsonb_build_object(
                'booking_id', (SELECT id FROM bookings WHERE right(id::text, 8) = 'a450c734'),
-               'amount', 980, 'reason', 'gear_edit', 'source', 'edit')
+               'amount', 980, 'reason', 'gear_edit', 'source', 'edit'),
+  -- process-refund dela Stripe vratku + dobropis + PDF + mail; default
+  -- 5 000 ms pg_net na to nestaci a odpoved se ztrati (status_code NULL).
+  timeout_milliseconds := 60000
 )
  WHERE EXISTS (SELECT 1 FROM bookings
                 WHERE right(id::text, 8) = 'a450c734'
