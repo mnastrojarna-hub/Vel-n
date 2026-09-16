@@ -85,12 +85,19 @@ class RideCard extends StatelessWidget {
                       runSpacing: 4,
                       children: [
                         _meta(Icons.event, rideDate(ride.startedAt)),
-                        _meta(Icons.straighten,
-                            '${ride.distanceKm.toStringAsFixed(ride.distanceKm < 10 ? 1 : 0)} km'),
-                        if (ride.durationMin != null)
-                          _meta(Icons.schedule, rideDuration(ride.durationMin!)),
+                        _meta(Icons.straighten, rideKm(ride.distanceKm)),
+                        if (ride.totalMin > 0)
+                          _meta(Icons.schedule, rideDuration(ride.totalMin)),
+                        if (ride.movingSec > 0)
+                          _meta(Icons.motorcycle_outlined,
+                              rideDuration(ride.movingMin)),
+                        if ((ride.avgSpeedKmh ?? ride.avgOverallKmh) != null)
+                          _meta(Icons.speed,
+                              rideSpeed(ride.avgSpeedKmh ?? ride.avgOverallKmh)),
                         if (ride.stops.isNotEmpty)
                           _meta(Icons.place, '${ride.stops.length}'),
+                        if (ride.photoCount > 0)
+                          _meta(Icons.photo_camera, '${ride.photoCount}'),
                         if ((ride.motoName ?? '').isNotEmpty)
                           _meta(Icons.motorcycle, ride.motoName!),
                       ],
@@ -151,9 +158,23 @@ class RideCard extends StatelessWidget {
 
 String rideDate(DateTime d) => '${d.day}. ${d.month}. ${d.year}';
 
+/// Datum a čas jízdy („16. 9. 2026 8:23").
+String rideDateTime(DateTime d) {
+  final local = d.toLocal();
+  final mm = local.minute.toString().padLeft(2, '0');
+  return '${rideDate(local)} ${local.hour}:$mm';
+}
+
 String rideDuration(int min) {
   if (min < 60) return '$min min';
   final h = min ~/ 60;
   final m = min % 60;
   return m == 0 ? '$h h' : '$h h $m min';
 }
+
+/// Vzdálenost — pod 10 km s jedním desetinným místem, jinak celé km.
+String rideKm(double km) => '${km.toStringAsFixed(km < 10 ? 1 : 0)} km';
+
+/// Rychlost v km/h; neznámá (stopa bez časů) se nevymýšlí.
+String rideSpeed(double? kmh) =>
+    kmh == null || kmh <= 0 ? '—' : '${kmh.toStringAsFixed(0)} km/h';

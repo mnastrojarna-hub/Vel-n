@@ -6,7 +6,8 @@ import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
-import 'ride_card.dart' show rideDate, rideDuration;
+import 'ride_card.dart'
+    show rideDate, rideDateTime, rideDuration, rideKm, rideSpeed;
 import 'ride_map.dart';
 import 'ride_model.dart';
 import 'ride_point_sheet.dart';
@@ -355,18 +356,59 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                _stat('📏',
-                    '${ride.distanceKm.toStringAsFixed(ride.distanceKm < 10 ? 1 : 0)} km',
-                    t(context).tr('rideStatDistance')),
-                _stat(
-                    '⏱️',
-                    ride.durationMin != null ? rideDuration(ride.durationMin!) : '—',
-                    t(context).tr('rideStatDuration')),
-                _stat('📍', '${ride.stops.length}', t(context).tr('rideStatStops')),
-              ],
+            // Kompletní přehled jízdy — km, časy (celkem / v sedle / stání),
+            // rychlosti, nastoupáno, zastávky a fotky.
+            _statRow([
+              _stat('📏', rideKm(ride.distanceKm), t(context).tr('rideStatDistance')),
+              _stat('⏱️', rideDuration(ride.totalMin), t(context).tr('rideStatDuration')),
+              _stat('🏍️', ride.movingSec > 0 ? rideDuration(ride.movingMin) : '—',
+                  t(context).tr('rideStatMoving')),
+            ]),
+            const SizedBox(height: 12),
+            _statRow([
+              _stat('⏸️', ride.idleSec > 0 ? rideDuration(ride.idleMin) : '—',
+                  t(context).tr('rideStatIdle')),
+              _stat('📊', rideSpeed(ride.avgSpeedKmh ?? ride.avgOverallKmh),
+                  t(context).tr('rideStatAvg')),
+              _stat('🚀', rideSpeed(ride.maxSpeedKmh), t(context).tr('rideStatMax')),
+            ]),
+            const SizedBox(height: 12),
+            _statRow([
+              _stat('⛰️', ride.elevationGainM > 0 ? '${ride.elevationGainM} m' : '—',
+                  t(context).tr('rideStatClimb')),
+              _stat('📍', '${ride.stops.length}', t(context).tr('rideStatStops')),
+              _stat('📷', '${ride.photoCount}', t(context).tr('rideStatPhotos')),
+            ]),
+            const SizedBox(height: 12),
+            // Kdy se jelo — od kdy do kdy (u rozjeté jízdy jen start).
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: MotoGoColors.g100,
+                borderRadius: BorderRadius.circular(MotoGoRadius.xl),
+              ),
+              child: Text(
+                '🕘 ${t(context).tr('rideStatStart')} ${rideDateTime(ride.startedAt)}'
+                '${ride.endedAt != null ? '   →   ${t(context).tr('rideStatEnd')} ${rideDateTime(ride.endedAt!)}' : ''}',
+                style: const TextStyle(
+                    fontSize: MotoGoTypo.sizeMd,
+                    fontWeight: MotoGoTypo.w700,
+                    color: MotoGoColors.g600,
+                    decoration: TextDecoration.none),
+              ),
             ),
+            if ((ride.motoName ?? '').isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                '🏍️ ${ride.motoName}',
+                style: const TextStyle(
+                    fontSize: MotoGoTypo.sizeBase,
+                    fontWeight: MotoGoTypo.w700,
+                    color: MotoGoColors.g600,
+                    decoration: TextDecoration.none),
+              ),
+            ],
             if ((ride.description ?? '').isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
@@ -382,6 +424,9 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
           ],
         ),
       );
+
+  /// Řádek tří statistik (stejně široké sloupce).
+  Widget _statRow(List<Widget> children) => Row(children: children);
 
   Widget _stat(String emoji, String value, String label) => Expanded(
         child: Column(

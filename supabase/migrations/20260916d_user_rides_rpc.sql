@@ -6,6 +6,8 @@
 --   create_manual_ride / update_user_ride / delete_user_ride
 --   save_ride_point / delete_ride_point
 --   get_my_rides / get_booking_rides / get_public_rides
+-- Statistiky jizdy (km, cas jizdy vs. stani, prumer, nastoupano) pocita
+-- pomocna `_ride_stats` PRIRUSTKOVE po davkach — viz komentar u tabulky.
 -- Idempotentní (create or replace).
 -- ════════════════════════════════════════════════════════════════════
 
@@ -31,6 +33,76 @@ begin
     v_prev_lat := v_lat; v_prev_lng := v_lng;
   end loop;
   return round(v_sum::numeric, 1);
+end;
+$$;
+
+-- Pomocná: statistiky ÚSEKU stopy [[lat,lng,ts,kmh,alt],…] — vzdálenost,
+-- čas jízdy vs. čas stání, nastoupáno a maximální rychlost. Časy se berou
+-- z časové značky bodu (3. prvek, epoch v sekundách); bod pod 3 km/h se
+-- počítá jako STÁNÍ (semafor, zastávka, foto). Výsledek se PŘIČÍTÁ ke
+-- sloupcům jízdy, takže pozdější prořídnutí stopy statistiky nezkreslí.
+create or replace function public._ride_stats(p_track jsonb)
+returns jsonb language plpgsql immutable as $$
+declare
+  v_pt jsonb;
+  v_lat double precision; v_lng double precision;
+  v_ts double precision; v_alt double precision; v_kmh double precision;
+  v_plat double precision; v_plng double precision;
+  v_pts double precision; v_palt double precision;
+  v_d double precision; v_dt double precision; v_v double precision;
+  v_dist double precision := 0; v_move double precision := 0;
+  v_idle double precision := 0; v_gain double precision := 0;
+  v_max double precision := 0;
+begin
+  if jsonb_typeof(p_track) is distinct from 'array' then
+    return jsonb_build_object('dist_km', 0, 'moving_sec', 0, 'idle_sec', 0,
+                              'gain_m', 0, 'max_kmh', 0);
+  end if;
+
+  for v_pt in select * from jsonb_array_elements(p_track) loop
+    if jsonb_typeof(v_pt) <> 'array' or jsonb_array_length(v_pt) < 2 then continue; end if;
+    v_lat := (v_pt->>0)::double precision;
+    v_lng := (v_pt->>1)::double precision;
+    v_ts  := case when jsonb_array_length(v_pt) > 2 then (v_pt->>2)::double precision end;
+    v_kmh := case when jsonb_array_length(v_pt) > 3 then (v_pt->>3)::double precision end;
+    v_alt := case when jsonb_array_length(v_pt) > 4 then (v_pt->>4)::double precision end;
+    if v_kmh is not null and v_kmh > v_max and v_kmh < 300 then v_max := v_kmh; end if;
+
+    if v_plat is not null then
+      v_d := 6371 * 2 * asin(sqrt(
+        power(sin(radians(v_lat - v_plat) / 2), 2) +
+        cos(radians(v_plat)) * cos(radians(v_lat)) *
+        power(sin(radians(v_lng - v_plng) / 2), 2)));
+      v_dist := v_dist + v_d;
+
+      if v_ts is not null and v_pts is not null then
+        v_dt := v_ts - v_pts;
+        -- Záporný / absurdní skok (přenastavené hodiny) se do časů nepočítá.
+        if v_dt > 0 and v_dt < 86400 then
+          v_v := v_d / (v_dt / 3600);
+          if v_v >= 3 then v_move := v_move + v_dt; else v_idle := v_idle + v_dt; end if;
+          -- Maximum i z dopočtené rychlosti, když ji klient neposlal.
+          if v_kmh is null and v_v > v_max and v_v < 300 then v_max := v_v; end if;
+        end if;
+      end if;
+
+      -- Nastoupáno: jen změny nad 5 m (pod tím je to šum GPS výškoměru).
+      if v_alt is not null and v_palt is not null and v_alt - v_palt >= 5 then
+        v_gain := v_gain + (v_alt - v_palt);
+      end if;
+    end if;
+
+    v_plat := v_lat; v_plng := v_lng;
+    if v_ts is not null then v_pts := v_ts; end if;
+    if v_alt is not null then v_palt := v_alt; end if;
+  end loop;
+
+  return jsonb_build_object(
+    'dist_km', round(v_dist::numeric, 3),
+    'moving_sec', round(v_move)::int,
+    'idle_sec', round(v_idle)::int,
+    'gain_m', round(v_gain)::int,
+    'max_kmh', round(v_max::numeric, 1));
 end;
 $$;
 
@@ -61,8 +133,12 @@ returns jsonb language sql stable as $$
     'start_lat', p_ride.start_lat, 'start_lng', p_ride.start_lng,
     'end_lat', p_ride.end_lat, 'end_lng', p_ride.end_lng,
     'started_at', p_ride.started_at, 'ended_at', p_ride.ended_at,
-    'distance_km', p_ride.distance_km, 'duration_min', p_ride.duration_min,
-    'max_speed_kmh', p_ride.max_speed_kmh, 'is_recording', p_ride.is_recording,
+    'distance_km', round(p_ride.distance_km, 1),
+    'duration_min', p_ride.duration_min,
+    'moving_sec', p_ride.moving_sec, 'idle_sec', p_ride.idle_sec,
+    'avg_speed_kmh', p_ride.avg_speed_kmh, 'max_speed_kmh', p_ride.max_speed_kmh,
+    'elevation_gain_m', p_ride.elevation_gain_m,
+    'is_recording', p_ride.is_recording,
     'visibility', p_ride.visibility, 'status', p_ride.status,
     'cover_image', p_ride.cover_image, 'created_at', p_ride.created_at,
     'points', (
@@ -129,36 +205,58 @@ create or replace function public.append_ride_track(
   p_ride_id uuid, p_points jsonb,
   p_max_speed_kmh numeric default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare v_track jsonb; v_last jsonb; v_km numeric;
+declare
+  v_r user_rides; v_track jsonb; v_last jsonb; v_seg jsonb; v_st jsonb;
+  v_dist numeric; v_move int; v_idle int;
 begin
   if auth.uid() is null then return jsonb_build_object('success', false, 'error', 'not_authenticated'); end if;
   if jsonb_typeof(p_points) is distinct from 'array' then
     return jsonb_build_object('success', false, 'error', 'points_required');
   end if;
 
-  select track into v_track from user_rides
+  select * into v_r from user_rides
    where id = p_ride_id and user_id = auth.uid() for update;
-  if v_track is null then return jsonb_build_object('success', false, 'error', 'ride_not_found'); end if;
+  if v_r.id is null then return jsonb_build_object('success', false, 'error', 'ride_not_found'); end if;
 
-  v_track := _ride_track_cap(v_track || p_points);
-  v_km := _ride_track_km(v_track);
+  -- Statistiky ÚSEKU: nové body + poslední už uložený bod (aby se nezahodil
+  -- kousek mezi dávkami). Přičtou se k dosavadním součtům.
+  if jsonb_array_length(v_r.track) > 0 then
+    v_seg := jsonb_build_array(v_r.track -> (jsonb_array_length(v_r.track) - 1)) || p_points;
+  else
+    v_seg := p_points;
+  end if;
+  v_st := _ride_stats(v_seg);
+
+  v_dist := v_r.distance_km + (v_st->>'dist_km')::numeric;
+  v_move := v_r.moving_sec + (v_st->>'moving_sec')::int;
+  v_idle := v_r.idle_sec + (v_st->>'idle_sec')::int;
+
+  v_track := _ride_track_cap(v_r.track || p_points);
   if jsonb_array_length(v_track) > 0 then
     v_last := v_track -> (jsonb_array_length(v_track) - 1);
   end if;
 
   update user_rides set
     track = v_track,
-    distance_km = v_km,
+    distance_km = v_dist,
+    moving_sec = v_move,
+    idle_sec = v_idle,
+    avg_speed_kmh = case when v_move > 0
+                    then least(round((v_dist / (v_move::numeric / 3600)), 1), 200.0) end,
+    elevation_gain_m = elevation_gain_m + (v_st->>'gain_m')::int,
     end_lat = coalesce((v_last->>0)::double precision, end_lat),
     end_lng = coalesce((v_last->>1)::double precision, end_lng),
     start_lat = coalesce(start_lat, (v_track->0->>0)::double precision),
     start_lng = coalesce(start_lng, (v_track->0->>1)::double precision),
     duration_min = greatest(0, (extract(epoch from (now() - started_at)) / 60)::int),
-    max_speed_kmh = greatest(coalesce(max_speed_kmh, 0), coalesce(p_max_speed_kmh, 0))
-  where id = p_ride_id and user_id = auth.uid();
+    max_speed_kmh = greatest(coalesce(max_speed_kmh, 0),
+                             coalesce(p_max_speed_kmh, 0),
+                             coalesce((v_st->>'max_kmh')::numeric, 0))
+  where id = p_ride_id;
 
   return jsonb_build_object('success', true, 'points', jsonb_array_length(v_track),
-                            'distance_km', v_km);
+                            'distance_km', round(v_dist, 1),
+                            'moving_sec', v_move, 'idle_sec', v_idle);
 end;
 $$;
 grant execute on function public.append_ride_track(uuid, jsonb, numeric) to authenticated;
@@ -169,26 +267,67 @@ grant execute on function public.append_ride_track(uuid, jsonb, numeric) to auth
 create or replace function public.finish_user_ride(
   p_ride_id uuid, p_points jsonb default null, p_name text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare v_r user_rides; v_track jsonb; v_km numeric; v_last jsonb;
+declare
+  v_r user_rides; v_track jsonb; v_last jsonb; v_seg jsonb; v_st jsonb;
+  v_km numeric; v_move int; v_idle int; v_gain int; v_dur int;
 begin
   if auth.uid() is null then return jsonb_build_object('success', false, 'error', 'not_authenticated'); end if;
 
   select * into v_r from user_rides where id = p_ride_id and user_id = auth.uid() for update;
   if v_r.id is null then return jsonb_build_object('success', false, 'error', 'ride_not_found'); end if;
 
+  v_km := v_r.distance_km; v_move := v_r.moving_sec;
+  v_idle := v_r.idle_sec; v_gain := v_r.elevation_gain_m;
   v_track := v_r.track;
-  if jsonb_typeof(p_points) = 'array' then v_track := _ride_track_cap(v_track || p_points); end if;
-  v_km := _ride_track_km(v_track);
+
+  -- Poslední dávka bodů — statistiky se přičtou stejně jako v append.
+  if jsonb_typeof(p_points) = 'array' and jsonb_array_length(p_points) > 0 then
+    if jsonb_array_length(v_track) > 0 then
+      v_seg := jsonb_build_array(v_track -> (jsonb_array_length(v_track) - 1)) || p_points;
+    else
+      v_seg := p_points;
+    end if;
+    v_st := _ride_stats(v_seg);
+    v_km := v_km + (v_st->>'dist_km')::numeric;
+    v_move := v_move + (v_st->>'moving_sec')::int;
+    v_idle := v_idle + (v_st->>'idle_sec')::int;
+    v_gain := v_gain + (v_st->>'gain_m')::int;
+    v_track := _ride_track_cap(v_track || p_points);
+  end if;
+
+  -- Stopa bez časových značek (starý klient) → km aspoň ze stopy.
+  if v_km = 0 then v_km := _ride_track_km(v_track); end if;
 
   if v_km < 1.0 then
     delete from user_rides where id = p_ride_id;
-    return jsonb_build_object('success', true, 'discarded', true, 'distance_km', v_km);
+    return jsonb_build_object('success', true, 'discarded', true,
+                              'distance_km', round(v_km, 1));
   end if;
+
+  -- Celkový čas = od startu záznamu do teď, nejméně však doba pokrytá
+  -- stopou (appka mohla běžet kratší dobu než sama jízda).
+  v_dur := greatest(1,
+             (extract(epoch from (now() - v_r.started_at)) / 60)::int,
+             ceil((v_move + v_idle)::numeric / 60)::int);
+  -- Čas stání dopočítáme ze zbytku celkového času (pauzy, kdy appka
+  -- nedostávala fixy, jsou také stání).
+  if v_move + v_idle < v_dur * 60 then v_idle := v_dur * 60 - v_move; end if;
 
   v_last := v_track -> (jsonb_array_length(v_track) - 1);
   update user_rides set
     track = v_track, distance_km = v_km, is_recording = false, ended_at = now(),
-    duration_min = greatest(1, (extract(epoch from (now() - started_at)) / 60)::int),
+    duration_min = v_dur,
+    moving_sec = v_move,
+    idle_sec = greatest(v_idle, 0),
+    elevation_gain_m = v_gain,
+    -- Průměr z času jízdy; bez časových značek (starý klient) z celkového
+    -- času. Nesmyslnou hodnotu (přes 200 km/h) raději nevykazujeme vůbec.
+    avg_speed_kmh = nullif(least(case when v_move > 0
+                    then round((v_km / (v_move::numeric / 3600)), 1)
+                    else round((v_km / greatest(v_dur, 1)::numeric * 60), 1) end,
+                    200.1), 200.1),
+    max_speed_kmh = greatest(coalesce(max_speed_kmh, 0),
+                             coalesce((v_st->>'max_kmh')::numeric, 0)),
     end_lat = coalesce((v_last->>0)::double precision, end_lat),
     end_lng = coalesce((v_last->>1)::double precision, end_lng),
     name = case when coalesce(trim(p_name), '') <> '' then left(trim(p_name), 120)
@@ -210,7 +349,8 @@ begin
     and not exists (select 1 from user_ride_points where ride_id = p_ride_id and kind = 'end');
 
   return jsonb_build_object('success', true, 'discarded', false,
-                            'id', p_ride_id, 'distance_km', v_km);
+                            'id', p_ride_id, 'distance_km', round(v_km, 1),
+                            'moving_sec', v_move, 'idle_sec', greatest(v_idle, 0));
 end;
 $$;
 grant execute on function public.finish_user_ride(uuid, jsonb, text) to authenticated;

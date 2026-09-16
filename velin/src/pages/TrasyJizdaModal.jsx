@@ -10,6 +10,8 @@ import TrasyJizdaMapa from './TrasyJizdaMapa'
 
 const fmtDate = (v) => v ? new Date(v).toLocaleString('cs-CZ', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
 const fmtDur = (min) => min == null ? '—' : (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`)
+const fmtSec = (sec) => !sec ? '—' : fmtDur(Math.round(sec / 60))
+const fmtSpeed = (v) => v == null || Number(v) <= 0 ? '—' : `${Math.round(Number(v))} km/h`
 const kindLabel = (k) => k === 'start' ? 'Start' : k === 'end' ? 'Cíl' : 'Zastávka'
 
 export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }) {
@@ -93,18 +95,35 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
 
           <TrasyJizdaMapa track={track} points={points} />
 
-          {/* statistiky */}
-          <div className="flex gap-3 flex-wrap text-sm font-bold" style={{ color: '#1a2e22' }}>
-            <span>📏 {Number(ride.distance_km || 0).toFixed(1)} km</span>
-            <span>⏱️ {fmtDur(ride.duration_min)}</span>
-            <span>📍 {points.filter(p => p.kind === 'stop').length} zastávek</span>
-            <span>🛰️ {track.length} bodů stopy</span>
-            {ride.max_speed_kmh ? <span>⚡ max {Number(ride.max_speed_kmh).toFixed(0)} km/h</span> : null}
-            {ride.booking_id && (
-              <a href={`/rezervace/${ride.booking_id}`} className="font-extrabold"
-                style={{ color: '#1a8a18' }}>🔗 rezervace</a>
-            )}
+          {/* statistiky jízdy — kompletní přehled */}
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+            {[
+              ['📏', 'Celkem ujeto', `${Number(ride.distance_km || 0).toFixed(1)} km`],
+              ['⏱️', 'Celkový čas', fmtDur(ride.duration_min)],
+              ['🏍️', 'Čas jízdy', fmtSec(ride.moving_sec)],
+              ['⏸️', 'Čas stání', fmtSec(ride.idle_sec)],
+              ['📊', 'Ø rychlost', fmtSpeed(ride.avg_speed_kmh)],
+              ['🚀', 'Max. rychlost', fmtSpeed(ride.max_speed_kmh)],
+              ['⛰️', 'Nastoupáno', ride.elevation_gain_m ? `${ride.elevation_gain_m} m` : '—'],
+              ['📍', 'Zastávek', String(points.filter(p => p.kind === 'stop').length)],
+              ['📷', 'Fotek', String(points.reduce((n, p) => n + (Array.isArray(p.photos) ? p.photos.length : 0), 0))],
+              ['🛰️', 'Bodů stopy', String(track.length)],
+              ['🚦', 'Start', fmtDate(ride.started_at)],
+              ['🏁', 'Konec', ride.ended_at ? fmtDate(ride.ended_at) : 'nahrává se'],
+            ].map(([emoji, label, value]) => (
+              <div key={label} className="rounded-card"
+                style={{ background: '#f1faf7', border: '1px solid #d4e8e0', padding: '8px 10px' }}>
+                <div className="text-[10px] font-extrabold uppercase" style={{ color: '#6b8f7b' }}>
+                  {emoji} {label}
+                </div>
+                <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{value}</div>
+              </div>
+            ))}
           </div>
+          {ride.booking_id && (
+            <a href={`/rezervace/${ride.booking_id}`} className="text-sm font-extrabold"
+              style={{ color: '#1a8a18' }}>🔗 Otevřít rezervaci této výpůjčky</a>
+          )}
 
           {/* editace jízdy */}
           <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>

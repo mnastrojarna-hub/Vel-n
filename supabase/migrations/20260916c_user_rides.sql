@@ -23,16 +23,24 @@ create table if not exists public.user_rides (
   description   text,
   source        text not null default 'auto'
                 check (source in ('auto','manual')),  -- auto = záznam GPS při výpůjčce
-  track         jsonb not null default '[]'::jsonb,   -- [[lat,lng],…] zjednodušená stopa
+  -- Stopa: [[lat, lng, ts_epoch_s, kmh, alt_m], …] — první dva prvky jsou
+  -- povinné, zbytek volitelný (starší klient posílá jen [lat,lng]).
+  track         jsonb not null default '[]'::jsonb,
   start_lat     double precision,
   start_lng     double precision,
   end_lat       double precision,
   end_lng       double precision,
   started_at    timestamptz not null default now(),
   ended_at      timestamptz,
-  distance_km   numeric(7,1) not null default 0,
-  duration_min  int,
+  -- Statistiky se NEPOČÍTAJÍ ze stopy (ta se nad 4000 body prořídne, tím by
+  -- se km zkrátily), ale PŘIČÍTAJÍ se po dávkách z původních bodů.
+  distance_km   numeric(9,3) not null default 0,   -- celkem km
+  duration_min  int,                               -- celkový čas (start → konec)
+  moving_sec    int not null default 0,            -- čas jízdy (v pohybu)
+  idle_sec      int not null default 0,            -- čas stání (pauzy, zastávky)
+  avg_speed_kmh numeric(5,1),                      -- průměr z času jízdy
   max_speed_kmh numeric(5,1),
+  elevation_gain_m int not null default 0,         -- nastoupáno
   is_recording  boolean not null default false,       -- právě se nahrává
   visibility    text not null default 'private'
                 check (visibility in ('private','public')),
@@ -42,6 +50,15 @@ create table if not exists public.user_rides (
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
+-- Doplnění sloupců statistik, kdyby tabulka vznikla dřívější verzí migrace.
+alter table public.user_rides
+  add column if not exists moving_sec int not null default 0,
+  add column if not exists idle_sec int not null default 0,
+  add column if not exists avg_speed_kmh numeric(5,1),
+  add column if not exists elevation_gain_m int not null default 0;
+alter table public.user_rides
+  alter column distance_km type numeric(9,3);
+
 create index if not exists idx_user_rides_user
   on public.user_rides(user_id, started_at desc);
 create index if not exists idx_user_rides_booking

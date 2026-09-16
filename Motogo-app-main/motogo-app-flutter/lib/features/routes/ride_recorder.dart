@@ -85,7 +85,10 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
         if (list is List) {
           for (final e in list) {
             if (e is List && e.length >= 2) {
-              _buffer.add([(e[0] as num).toDouble(), (e[1] as num).toDouble()]);
+              _buffer.add([
+                for (final v in e)
+                  if (v is num) v.toDouble(),
+              ]);
             }
           }
         }
@@ -156,14 +159,24 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
     }
   }
 
+  /// Bod stopy = `[lat, lng, čas (epoch s), rychlost km/h, výška m]`.
+  /// Čas a rychlost potřebuje server na statistiky (čas jízdy vs. čas stání,
+  /// průměrná rychlost, nastoupáno). Výška se posílá jen když ji GPS zná —
+  /// nula = přijímač výšku nemá a falešně by nafoukla stoupání.
   void _onPosition(Position pos) {
     if (!state.recording) return;
-    _buffer.add([
+    var kmh = pos.speed * 3.6;
+    if (!kmh.isFinite || kmh < 0 || kmh > 300) kmh = 0;
+    final alt = pos.altitude;
+    final point = <double>[
       double.parse(pos.latitude.toStringAsFixed(5)),
       double.parse(pos.longitude.toStringAsFixed(5)),
-    ]);
-    final kmh = pos.speed * 3.6;
-    if (kmh.isFinite && kmh > _maxSpeedKmh && kmh < 300) _maxSpeedKmh = kmh;
+      (DateTime.now().millisecondsSinceEpoch / 1000).roundToDouble(),
+      double.parse(kmh.toStringAsFixed(1)),
+      if (alt.isFinite && alt != 0) double.parse(alt.toStringAsFixed(1)),
+    ];
+    _buffer.add(point);
+    if (kmh > _maxSpeedKmh) _maxSpeedKmh = kmh;
     state = state.copyWith(points: state.points + 1);
     _persistBuffer();
     if (_buffer.length >= _kFlushPoints) flush();

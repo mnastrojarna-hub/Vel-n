@@ -75,8 +75,12 @@ class UserRide {
   final DateTime startedAt;
   final DateTime? endedAt;
   final double distanceKm;
-  final int? durationMin;
+  final int? durationMin; // celkový čas (start → konec)
+  final int movingSec; // čas v pohybu
+  final int idleSec; // čas stání (pauzy, zastávky, semafory)
+  final double? avgSpeedKmh; // průměr z času jízdy
   final double? maxSpeedKmh;
+  final int elevationGainM; // nastoupáno
   final bool isRecording;
   final String visibility; // private / public
   final String status; // approved / hidden (moderace Velínem)
@@ -96,7 +100,11 @@ class UserRide {
     this.endedAt,
     this.distanceKm = 0,
     this.durationMin,
+    this.movingSec = 0,
+    this.idleSec = 0,
+    this.avgSpeedKmh,
     this.maxSpeedKmh,
+    this.elevationGainM = 0,
     this.isRecording = false,
     this.visibility = 'private',
     this.status = 'approved',
@@ -105,6 +113,28 @@ class UserRide {
   });
 
   bool get isPublic => visibility == 'public';
+
+  /// Čas jízdy v minutách (0 = stopa bez časových značek).
+  int get movingMin => (movingSec / 60).round();
+
+  /// Čas stání v minutách — pauzy, zastávky, semafory.
+  int get idleMin => (idleSec / 60).round();
+
+  /// Celkový čas jízdy v minutách (fallback ze součtu jízda + stání).
+  int get totalMin => durationMin ?? ((movingSec + idleSec) / 60).round();
+
+  /// Průměrná rychlost za celý čas (včetně stání) — km/h.
+  double? get avgOverallKmh {
+    final t = totalMin;
+    if (t <= 0 || distanceKm <= 0) return null;
+    final v = distanceKm / (t / 60);
+    return v.isFinite && v < 200 ? v : null;
+  }
+
+  /// Počet fotek napříč zastávkami.
+  int get photoCount =>
+      points.fold<int>(0, (s, p) => s + p.photos.length);
+
   bool get isHidden => status == 'hidden';
 
   /// Zastávky (bez krajních bodů) v pořadí, jak je jezdec projel.
@@ -163,7 +193,11 @@ class UserRide {
       endedAt: DateTime.tryParse(j['ended_at']?.toString() ?? ''),
       distanceKm: _toD(j['distance_km']) ?? 0,
       durationMin: _toI(j['duration_min']),
+      movingSec: _toI(j['moving_sec']) ?? 0,
+      idleSec: _toI(j['idle_sec']) ?? 0,
+      avgSpeedKmh: _toD(j['avg_speed_kmh']),
       maxSpeedKmh: _toD(j['max_speed_kmh']),
+      elevationGainM: _toI(j['elevation_gain_m']) ?? 0,
       isRecording: j['is_recording'] == true,
       visibility: j['visibility']?.toString() ?? 'private',
       status: j['status']?.toString() ?? 'approved',

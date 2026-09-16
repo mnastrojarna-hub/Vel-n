@@ -21,6 +21,8 @@ const FILTERS = [
 
 const fmtDate = (v) => v ? new Date(v).toLocaleString('cs-CZ', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
 const fmtDur = (min) => min == null ? '—' : (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`)
+const fmtSec = (sec) => !sec ? '—' : fmtDur(Math.round(sec / 60))
+const fmtSpeed = (v) => v == null || Number(v) <= 0 ? '—' : `${Math.round(Number(v))} km/h`
 
 export default function TrasyJizdy({ onChanged }) {
   const [rides, setRides] = useState([])
@@ -124,6 +126,7 @@ export default function TrasyJizdy({ onChanged }) {
   const publicCount = rides.filter(r => r.visibility === 'public' && r.status === 'approved').length
   const hiddenCount = rides.filter(r => r.status === 'hidden').length
   const totalKm = Math.round(rides.reduce((s, r) => s + Number(r.distance_km || 0), 0))
+  const totalMovingSec = rides.reduce((s, r) => s + Number(r.moving_sec || 0), 0)
 
   return (
     <div>
@@ -142,7 +145,7 @@ export default function TrasyJizdy({ onChanged }) {
           ))}
         </div>
         <span className="ml-auto text-xs font-bold" style={{ color: '#6b8f7b' }}>
-          {rides.length} jízd · {publicCount} veřejných · {hiddenCount} skrytých · {totalKm} km celkem
+          {rides.length} jízd · {publicCount} veřejných · {hiddenCount} skrytých · {totalKm} km · {fmtSec(totalMovingSec)} v sedle
         </span>
       </div>
 
@@ -198,11 +201,16 @@ export default function TrasyJizdy({ onChanged }) {
                 </div>
 
                 <div className="flex gap-3 flex-wrap text-xs font-bold mb-2" style={{ color: '#4a6357' }}>
-                  <span>📏 {Number(ride.distance_km || 0).toFixed(1)} km</span>
-                  <span>⏱️ {fmtDur(ride.duration_min)}</span>
+                  <span title="Celkem ujeto">📏 {Number(ride.distance_km || 0).toFixed(1)} km</span>
+                  <span title="Celkový čas (start → konec)">⏱️ {fmtDur(ride.duration_min)}</span>
+                  <span title="Čas jízdy (v pohybu)">🏍️ {fmtSec(ride.moving_sec)}</span>
+                  <span title="Čas stání (pauzy, zastávky)">⏸️ {fmtSec(ride.idle_sec)}</span>
+                  <span title="Průměrná rychlost z času jízdy">📊 {fmtSpeed(ride.avg_speed_kmh)}</span>
+                  <span title="Maximální rychlost">🚀 {fmtSpeed(ride.max_speed_kmh)}</span>
+                  {ride.elevation_gain_m > 0 && <span title="Nastoupáno">⛰️ {ride.elevation_gain_m} m</span>}
                   <span>📍 {stops} zastávek</span>
                   <span>📷 {photoCount(ride.id)} fotek</span>
-                  {ride.moto_name && <span>🏍️ {ride.moto_name}</span>}
+                  {ride.moto_name && <span>🛵 {ride.moto_name}</span>}
                   {ride.booking_id && (
                     <a href={`/rezervace/${ride.booking_id}`} style={{ color: '#1a8a18' }}>🔗 rezervace</a>
                   )}
