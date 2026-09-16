@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════════════
--- MotoGo24 — RPC pro „Moje jízdy" (tabulky viz 20260916b_user_rides.sql).
+-- MotoGo24 — RPC pro „Moje jízdy" (tabulky viz 20260916c_user_rides.sql).
 -- Appka NIKDY nesahá na tabulky přímo — všechno jde přes tyto SECURITY
 -- DEFINER funkce (ověření vlastníka + rezervace server-side).
 --   start_user_ride / append_ride_track / finish_user_ride

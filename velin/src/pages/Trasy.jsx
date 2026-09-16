@@ -65,6 +65,8 @@ function Trasy() {
   const [pendingPois, setPendingPois] = useState([])
   const [reviewStats, setReviewStats] = useState({})
   const [reviewTotals, setReviewTotals] = useState({ count: 0, comments: 0 }) // všechny recenze (i skryté)
+  const [geoIds, setGeoIds] = useState(() => new Set())        // trasy, které UŽ mají spočítanou mapu
+  const [openingRoute, setOpeningRoute] = useState(null)       // id trasy, jejíž detail se dotahuje
   const [reviewsFor, setReviewsFor] = useState(null)
   const [selected, setSelected] = useState(new Set())          // hromadný výběr tras
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
@@ -72,85 +74,152 @@ function Trasy() {
 
   useEffect(() => { load() }, [])
 
+  /** Stránkovaný select (PostgREST vrací max 1000 řádků). Počet zjistí jedním
+   *  `head` dotazem a stránky stáhne PARALELNĚ — sériový řetěz dotazů dělal ze
+   *  stránky Trasy několikavteřinové čekání. `tweak` přidá filtry/řazení. */
+  async function fetchAllRows(table, columns, tweak = q => q) {
+    const { count, error: ce } = await tweak(
+      supabase.from(table).select(columns, { count: 'exact', head: true }))
+    if (ce) throw ce
+    const total = count ?? 0
+    if (total === 0) return []
+    const pages = []
+    for (let from = 0; from < total; from += 1000) pages.push(from)
+    const results = await Promise.all(
+      pages.map(from => tweak(supabase.from(table).select(columns)).range(from, from + 999)))
+    const out = []
+    for (const r of results) {
+      if (r.error) throw r.error
+      out.push(...(r.data || []))
+    }
+    return out
+  }
+
+  // Seznam tras záměrně BEZ těžkých sloupců (geometry, waypoints, images,
+  // translations) — u ~1400 tras to byly megabajty dat na každé otevření.
+  // Plný řádek se dotahuje až při otevření detailu ([openRoute]).
+  const ROUTE_LIST_COLUMNS =
+    'id, name, description, route_type, distance_km, duration_min, difficulty, ' +
+    'cover_image, countries, is_active, status, sort_order, created_at, mapy_url'
+
+  /** Agregace recenzí tras: průměr/počet jen ze SCHVÁLENÝCH (dva sloupce),
+   *  souhrnná čísla do dlaždice přes `head` počty (bez přenosu řádků).
+   *  Volá se i po moderaci recenze — bez načítání zbytku stránky. */
+  async function loadReviewStats() {
+    try {
+      const [rows, totalRes, commentsRes] = await Promise.all([
+        fetchAllRows('route_reviews', 'route_id, rating', q => q.eq('status', 'approved')),
+        supabase.from('route_reviews').select('id', { count: 'exact', head: true }),
+        supabase.from('route_reviews').select('id', { count: 'exact', head: true })
+          .not('review_text', 'is', null).neq('review_text', ''),
+      ])
+      setReviewTotals({ count: totalRes.count ?? 0, comments: commentsRes.count ?? 0 })
+      const agg = {}
+      rows.forEach(r => {
+        const a = agg[r.route_id] || { sum: 0, count: 0 }
+        a.sum += r.rating; a.count += 1; agg[r.route_id] = a
+      })
+      const stats = {}
+      Object.entries(agg).forEach(([id, a]) => { stats[id] = { avg: Math.round((a.sum / a.count) * 10) / 10, count: a.count } })
+      setReviewStats(stats)
+    } catch (e) { console.warn('[Trasy] route_reviews failed:', e.message) }
+  }
+
   async function load() {
     setLoading(true)
     setError(null)
-    try {
-      // Trasy stránkovaně — PostgREST vrací max 1000 řádků na dotaz, jediný
-      // select bez range uřízl seznam i „Tras celkem" na 1000.
-      const allRoutes = []
-      for (let from = 0; ; from += 1000) {
-        const routesRes = await supabase.from('routes').select('*')
-          .order('sort_order').order('distance_km').range(from, from + 999)
-        if (routesRes.error) {
-          const e = routesRes.error
-          throw new Error(
-            `Načtení tras selhalo: ${e.message || 'neznámá chyba'}` +
-            (e.code === '42P01' || (e.message || '').includes('does not exist')
-              ? '\n\nTabulka "routes" zatím v databázi neexistuje — spusťte prosím SQL migraci tras.'
-              : e.code === '42501' ? '\n\nChybí RLS politika pro tabulku "routes".' : '')
-          )
-        }
-        allRoutes.push(...(routesRes.data || []))
-        if (!routesRes.data || routesRes.data.length < 1000) break
-      }
-      setRoutes(allRoutes)
-
-      // POI counts per route — stránkovaně: PostgREST vrací max 1000 řádků
-      // na dotaz, takže jediný select bez range uřízl součet na 1000.
+    // Nezávislé bloky běží PARALELNĚ — recenze už nečekají na trasy ani body zájmu.
+    const routesTask = (async () => {
       try {
-        const c = {}
-        for (let from = 0; ; from += 1000) {
-          const { data: pois, error: pe } = await supabase
-            .from('route_pois').select('route_id').range(from, from + 999)
-          if (pe) throw pe
-          ;(pois || []).forEach(p => { c[p.route_id] = (c[p.route_id] || 0) + 1 })
-          if (!pois || pois.length < 1000) break
+        const rows = await fetchAllRows('routes', ROUTE_LIST_COLUMNS,
+          q => q.order('sort_order').order('distance_km'))
+        setRoutes(rows)
+      } catch (e) {
+        throw new Error(
+          `Načtení tras selhalo: ${e.message || 'neznámá chyba'}` +
+          (e.code === '42P01' || (e.message || '').includes('does not exist')
+            ? '\n\nTabulka "routes" zatím v databázi neexistuje — spusťte prosím SQL migraci tras.'
+            : e.code === '42501' ? '\n\nChybí RLS politika pro tabulku "routes".' : '')
+        )
+      }
+    })()
+
+    // Které trasy už mají spočítanou mapu — vrací se JEN id (geometry samotná
+    // je obrovská a v seznamu není k ničemu jinému potřeba).
+    const geoTask = (async () => {
+      try {
+        let rows
+        try {
+          rows = await fetchAllRows('routes', 'id', q => q.not('geometry->coordinates', 'is', null))
+        } catch {
+          rows = await fetchAllRows('routes', 'id', q => q.not('geometry', 'is', null))
         }
+        setGeoIds(new Set(rows.map(r => r.id)))
+      } catch (e) { console.warn('[Trasy] geometry ids failed:', e.message) }
+    })()
+
+    // Počty bodů zájmu na trasu (stránky paralelně).
+    const poiTask = (async () => {
+      try {
+        const rows = await fetchAllRows('route_pois', 'route_id')
+        const c = {}
+        rows.forEach(p => { c[p.route_id] = (c[p.route_id] || 0) + 1 })
         setPoiCounts(c)
       } catch (e) { console.warn('[Trasy] POI counts failed:', e.message) }
+    })()
 
-      // Katalog samostatných zajímavých míst (points_of_interest) — jen počet
+    // Katalog samostatných zajímavých míst (points_of_interest) — jen počet
+    const catalogTask = (async () => {
       try {
         const { count } = await supabase
           .from('points_of_interest').select('id', { count: 'exact', head: true })
         setCatalogCount(count ?? 0)
       } catch (e) { console.warn('[Trasy] catalog count failed:', e.message) }
+    })()
 
-      // Komunitní (uživatelské) body zájmu ke schválení
+    // Komunitní (uživatelské) body zájmu ke schválení
+    const pendingTask = (async () => {
       try {
         const { data: up } = await supabase.from('user_pois').select('*').eq('status', 'pending').order('created_at', { ascending: false })
         setPendingPois(up || [])
       } catch (e) { console.warn('[Trasy] user_pois failed:', e.message) }
+    })()
 
-      // Agregace recenzí tras (počet + průměr, jen schválené) — stránkovaně
-      try {
-        const revs = []
-        for (let from = 0; ; from += 1000) {
-          const { data: page, error: re } = await supabase
-            .from('route_reviews').select('route_id, rating, status, review_text').range(from, from + 999)
-          if (re) throw re
-          revs.push(...(page || []))
-          if (!page || page.length < 1000) break
-        }
-        setReviewTotals({ count: revs.length, comments: revs.filter(r => r.review_text?.trim()).length })
-        const agg = {}
-        ;(revs || []).forEach(r => {
-          if (r.status !== 'approved') return
-          const a = agg[r.route_id] || { sum: 0, count: 0 }
-          a.sum += r.rating; a.count += 1; agg[r.route_id] = a
-        })
-        const stats = {}
-        Object.entries(agg).forEach(([id, a]) => { stats[id] = { avg: Math.round((a.sum / a.count) * 10) / 10, count: a.count } })
-        setReviewStats(stats)
-      } catch (e) { console.warn('[Trasy] route_reviews failed:', e.message) }
+    const reviewsTask = loadReviewStats()
 
-      // Projeté jízdy zákazníků (appka) — jen počty pro statistiku a záložku
-      await loadRideTotals()
+    // Projeté jízdy zákazníků (appka) — jen počty pro statistiku a záložku
+    const ridesTask = loadRideTotals()
+
+    try {
+      await routesTask
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
+    }
+    // Doplňková data doběhnou na pozadí — tabulka je zobrazená hned.
+    await Promise.allSettled([geoTask, poiTask, catalogTask, pendingTask, reviewsTask, ridesTask])
+  }
+
+  /** Otevření detailu trasy — plný řádek (geometry, waypoints, galerie,
+   *  překlady) se dotáhne AŽ TEĎ, seznam ho nenosí.
+   *
+   *  POZOR: modal ukládá waypoints/images/geometry zpět z předaného řádku, takže
+   *  se NIKDY nesmí otevřít nad odlehčeným řádkem ze seznamu — uložení by trase
+   *  ta data vymazalo. Když se detail nedotáhne, modal se neotevře a vypíše se chyba. */
+  async function openRoute(route) {
+    if (!route?.id) return
+    setOpeningRoute(route.id)
+    try {
+      const { data, error: err } = await supabase.from('routes').select('*').eq('id', route.id).maybeSingle()
+      if (err) throw err
+      if (!data) throw new Error('Trasa už v databázi není (mezitím smazána?).')
+      setEditing(data)
+      setShowModal(true)
+    } catch (e) {
+      setError(`Otevření trasy selhalo: ${e.message || 'neznámá chyba'}`)
+    } finally {
+      setOpeningRoute(null)
     }
   }
 
@@ -267,9 +336,15 @@ function Trasy() {
    *  Přeskakuje trasy, které už geometrii mají nebo nemají aspoň 2 waypointy.
    *  Ukládá i reálnou délku/čas z routingu (zpřesní odhady generátoru). */
   async function bulkComputeMaps() {
-    const targets = routes.filter(r => selected.has(r.id)
-      && !(r.geometry && r.geometry.coordinates)
-      && Array.isArray(r.waypoints) && r.waypoints.length >= 2)
+    // Waypointy nese jen plný řádek — dotáhnou se pro VYBRANÉ trasy bez mapy.
+    const candidates = [...selected].filter(id => !geoIds.has(id))
+    let targets = []
+    if (candidates.length > 0) {
+      const { data, error: err } = await supabase.from('routes')
+        .select('id, name, route_type, waypoints').in('id', candidates)
+      if (err) { setError(`Načtení bodů tras selhalo: ${err.message}`); return }
+      targets = (data || []).filter(r => Array.isArray(r.waypoints) && r.waypoints.length >= 2)
+    }
     if (targets.length === 0) { setError('Vybrané trasy už mapu mají (nebo nemají dost bodů).'); return }
     setBulkGeo({ done: 0, total: targets.length })
     let okCount = 0
@@ -375,8 +450,8 @@ function Trasy() {
       ) : tab === 'reviews' ? (
         <TrasyRecenze
           routes={routes}
-          onOpenRoute={r => { setEditing(r); setShowModal(true) }}
-          onChanged={load}
+          onOpenRoute={openRoute}
+          onChanged={loadReviewStats}
         />
       ) : (
       <>
@@ -450,7 +525,7 @@ function Trasy() {
                 <div className="text-sm font-bold truncate" style={{ color: '#1a2e22' }}>{r.name}</div>
                 {r.mapy_url && <a href={r.mapy_url} target="_blank" rel="noreferrer" className="text-xs underline truncate block" style={{ color: '#2563eb' }}>{r.mapy_url}</a>}
               </div>
-              <Button small onClick={() => { setEditing(r); setShowModal(true) }}>Otevřít & doplnit</Button>
+              <Button small onClick={() => openRoute(r)}>Otevřít & doplnit</Button>
               <button onClick={() => rejectRoute(r)} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>Zamítnout</button>
             </div>
           ))}
@@ -507,7 +582,7 @@ function Trasy() {
               <tr key={r.id}
                 className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                 style={{ borderBottom: '1px solid #d4e8e0', opacity: r.is_active ? 1 : 0.5 }}
-                onClick={() => { setEditing(r); setShowModal(true) }}>
+                onClick={() => openRoute(r)}>
                 <TD>
                   <input type="checkbox" checked={selected.has(r.id)}
                     onClick={e => e.stopPropagation()}
@@ -555,7 +630,9 @@ function Trasy() {
                 </TD>
                 <TD>
                   <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                    <SmallBtn color="#2563eb" onClick={() => { setEditing(r); setShowModal(true) }}>Upravit</SmallBtn>
+                    <SmallBtn color="#2563eb" onClick={() => openRoute(r)}>
+                      {openingRoute === r.id ? 'Otevírám…' : 'Upravit'}
+                    </SmallBtn>
                     <SmallBtn color={r.is_active ? '#b45309' : '#1a8a18'} onClick={() => toggleActive(r)}>
                       {r.is_active ? 'Skrýt' : 'Publikovat'}
                     </SmallBtn>
@@ -585,7 +662,7 @@ function Trasy() {
         <TrasyReviewsModal
           route={reviewsFor}
           onClose={() => setReviewsFor(null)}
-          onChanged={load}
+          onChanged={loadReviewStats}
         />
       )}
 

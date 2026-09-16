@@ -9,7 +9,7 @@
 -- Soukromí: `visibility` default 'private' — jízda se NIKOMU nezobrazuje,
 -- dokud ji jezdec sám nezveřejní (`public`); admin může skrýt (`status`).
 -- Idempotentní. RLS: vlastník + admin; zveřejněné jízdy jen přes RPC.
--- RPC jsou v 20260916c_user_rides_rpc.sql.
+-- RPC jsou v 20260916d_user_rides_rpc.sql.
 -- ════════════════════════════════════════════════════════════════════
 
 -- 1) JÍZDY -------------------------------------------------------------
