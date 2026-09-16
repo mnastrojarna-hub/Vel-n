@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -7,7 +8,9 @@ import 'package:latlong2/latlong.dart';
 
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/router.dart' show Routes;
 import '../../core/widgets/moto_fx.dart';
+import 'country_codes.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_image.dart';
@@ -35,27 +38,43 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   late final AnimationController _quickOrder = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 420),
+    lowerBound: 0,
+    upperBound: 3, // = _quickCount
   );
 
+  static const int _quickCount = 3; // Místa / Mapa / Moje zážitky
+
   void _cycleQuickLinks() {
-    final target = _quickOrder.value < 0.5 ? 1.0 : 0.0;
-    _quickOrder.animateTo(target, curve: Curves.easeOutCubic);
+    final next = (_quickOrder.value + 1) % _quickCount;
+    if (next == 0) {
+      // Návrat na začátek cyklu — bez animace zpět přes všechny sloty.
+      _quickOrder.animateTo(_quickCount.toDouble(), curve: Curves.easeOutCubic)
+          .then((_) {
+        if (mounted) _quickOrder.value = 0;
+      });
+      return;
+    }
+    _quickOrder.animateTo(next, curve: Curves.easeOutCubic);
   }
 
   // Hloubkové vyhledávání — název, popis, města na cestě i body zájmu trasy.
   String _query = '';
   final TextEditingController _searchCtl = TextEditingController();
+  Timer? _searchDebounce;
   final Set<String> _precachedCovers = {}; // covers už poslané do precache
 
   // Rozšířené filtry (prázdné = bez omezení).
-  final Set<String> _fType = {}; // 'loop' | 'poi'
-  final Set<String> _fDiff = {}; // 'easy' | 'medium' | 'hard'
-  final Set<String> _fCountry = {}; // ISO kódy + sentinel '__abroad__'
-  RangeValues? _fDist; // km
-  RangeValues? _fDur; // minuty
-  RangeValues? _fFromMe; // km dojezdu od aktuální polohy (odhad)
-
-  static const _kAbroad = '__abroad__';
+  //
+  // ZRUŠENO 2026-09-16 (zadání uživatele): filtr typu trasy (okruh /
+  // za body zájmu), filtr obtížnosti a samostatný filtr „dojezd od tebe".
+  // Sloupce `route_type` a `difficulty` v DB ZŮSTÁVAJÍ — `route_type` řídí
+  // ve Velíně uzavření okruhu při výpočtu geometrie a detail trasy je dál
+  // zobrazuje. Dojezd od polohy je nově volitelně započítaný do délky trasy.
+  final Set<String> _fCountry = {}; // ISO kódy zemí
+  RangeValues? _fDist; // km (volitelně včetně dojezdu od mé polohy)
+  RangeValues? _fDur; // minuty — drží se s _fDist přes průměrnou rychlost
+  /// Počítat do délky i cestu od mojí polohy na start trasy.
+  bool _withApproach = false;
 
   // Náhodné pořadí tras — losuje se jen JEDNOU za běh appky (static), takže se
   // pořadí nemění při přepínání tabů ani při návratu na obrazovku. Nové
@@ -65,28 +84,42 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   // Řazení seznamu tras (výchozí náhodně = stabilní seed za běh).
   _RouteSort _sort = _RouteSort.random;
 
+  /// Kolik filtrů je aktivních. Počítá i hledání a řazení — bez toho se
+  /// tlačítko „Zrušit filtry" nezobrazilo, když byl seznam zúžený jen
+  /// napsaným textem, a uživatel neměl čím filtr zrušit.
   int get _activeFilterCount =>
-      (_fType.isEmpty ? 0 : 1) +
-      (_fDiff.isEmpty ? 0 : 1) +
       (_fCountry.isEmpty ? 0 : 1) +
       (_fDist == null ? 0 : 1) +
-      (_fDur == null ? 0 : 1) +
-      (_fFromMe == null ? 0 : 1);
+      (_withApproach ? 1 : 0) +
+      (_query.trim().isEmpty ? 0 : 1) +
+      (_sort == _RouteSort.random ? 0 : 1);
 
   void _clearFilters() => setState(() {
-        _fType.clear();
-        _fDiff.clear();
         _fCountry.clear();
         _fDist = null;
         _fDur = null;
-        _fFromMe = null;
+        _withApproach = false;
         _sort = _RouteSort.random;
         _query = '';
         _searchCtl.clear();
+        _searchDebounce?.cancel();
+        ref.read(placesSearchProvider.notifier).state = '';
       });
 
   @override
+  void initState() {
+    super.initState();
+    // Hledání je sdílené s Místy — dotaz se mezi obrazovkami nese s sebou.
+    final shared = ref.read(placesSearchProvider);
+    if (shared.isNotEmpty) {
+      _query = shared;
+      _searchCtl.text = shared;
+    }
+  }
+
+  @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchCtl.dispose();
     _quickOrder.dispose();
     super.dispose();
@@ -110,38 +143,52 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     });
   }
 
+  /// Celková délka trasy pro filtr — volitelně včetně odhadu cesty od mojí
+  /// polohy na start. Nahrazuje zrušený samostatný filtr „Dojezd od tebe":
+  /// zákazníka zajímá, kolik toho dneska najezdí CELKEM, ne dva rozpojené údaje.
+  static double? _totalKm(RouteItem r, LatLng? me, bool withApproach) {
+    final base = r.distanceKm;
+    if (base == null) return null;
+    if (!withApproach || me == null) return base;
+    final est = approachEstimate(me, r);
+    // Tam i zpět — jezdec se na start musí dostat a pak se vrátit domů.
+    return est == null ? base : base + est.km * 2;
+  }
+
   /// Vyhovuje trasa zadané kombinaci filtrů? (statické parametry — sdílí seznam i náhled v sheetu)
+  ///
+  /// Délka a čas jsou v UI svázané přes průměrnou rychlost, ale filtruje se
+  /// MĚKCE: stačí, aby trasa vyhověla délce NEBO času. Poměr km/min je totiž
+  /// napříč daty nekonzistentní (část tras má přepočtených 42 km/h, starší
+  /// ruční ~33 km/h včetně zastávek), takže tvrdé AND by u stejně dlouhých
+  /// tras vyhazovalo ty „pomalejší" bez zjevného důvodu.
   static bool _routeMatches(
     RouteItem r,
-    Set<String> types,
-    Set<String> diffs,
     Set<String> countries,
     RangeValues? dist,
     RangeValues? dur,
     LatLng? me,
-    RangeValues? fromMe,
+    bool withApproach,
   ) {
-    if (types.isNotEmpty && !types.contains(r.routeType)) return false;
-    if (diffs.isNotEmpty && (r.difficulty == null || !diffs.contains(r.difficulty))) return false;
-    // Vzdálenost/čas filtrujeme jen u tras, které hodnotu mají (neznámé nevyřazujeme).
-    if (dist != null && r.distanceKm != null &&
-        (r.distanceKm! < dist.start - 0.5 || r.distanceKm! > dist.end + 0.5)) return false;
-    if (dur != null && r.durationMin != null &&
-        (r.durationMin! < dur.start - 0.5 || r.durationMin! > dur.end + 0.5)) return false;
-    // Dojezd od polohy jezdce (odhad) — bez polohy / bez GPS trasy nevyřazujeme.
-    if (fromMe != null && me != null) {
-      final est = approachEstimate(me, r);
-      if (est != null &&
-          (est.km < fromMe.start - 0.5 || est.km > fromMe.end + 0.5)) return false;
+    if (dist != null || dur != null) {
+      final km = _totalKm(r, me, withApproach);
+      final min = r.durationMin;
+      // Neznámé hodnoty nevyřazujeme — trasa bez km/min projde vždy.
+      final kmChecked = dist != null && km != null;
+      final minChecked = dur != null && min != null;
+      if (kmChecked || minChecked) {
+        final okKm = dist != null &&
+            km != null &&
+            km >= dist.start - 0.5 &&
+            km <= dist.end + 0.5;
+        final okMin = dur != null &&
+            min != null &&
+            min >= dur.start - 0.5 &&
+            min <= dur.end + 0.5;
+        if (!okKm && !okMin) return false;
+      }
     }
-    if (countries.isNotEmpty) {
-      final wantAbroad = countries.contains(_kAbroad);
-      final specific = countries.where((c) => c != _kAbroad).toSet();
-      var ok = false;
-      if (wantAbroad && r.isAbroad) ok = true;
-      if (!ok && specific.isNotEmpty && r.countries.any(specific.contains)) ok = true;
-      if (!ok) return false;
-    }
+    if (countries.isNotEmpty && !r.countries.any(countries.contains)) return false;
     return true;
   }
 
@@ -266,7 +313,19 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                 Expanded(
                   child: TextField(
                     controller: _searchCtl,
-                    onChanged: (v) => setState(() => _query = v),
+                    // Debounce: bez něj se při psaní přefiltrovávalo přes
+                    // 1 300 tras na každé písmeno.
+                    onChanged: (v) {
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(
+                        const Duration(milliseconds: 280),
+                        () {
+                          if (!mounted) return;
+                          setState(() => _query = v);
+                          ref.read(placesSearchProvider.notifier).state = v;
+                        },
+                      );
+                    },
                     decoration: InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
@@ -276,6 +335,20 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                     style: const TextStyle(fontSize: MotoGoTypo.sizeLg, color: MotoGoColors.black),
                   ),
                 ),
+                if (_query.isNotEmpty || _searchCtl.text.isNotEmpty)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      _searchDebounce?.cancel();
+                      _searchCtl.clear();
+                      setState(() => _query = '');
+                      ref.read(placesSearchProvider.notifier).state = '';
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                      child: Icon(Icons.close, size: 18, color: MotoGoColors.g400),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -287,7 +360,6 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   Widget _body(BuildContext context, RoutesData data, String lang) {
     if (data.routes.isEmpty) return _emptyState(context);
 
-    final branches = data.branchesWithRoutes;
     // Filtr poboček zrušen — trasy se neváží na pobočku, poloha jezdce je GPS.
     final byBranch = data.routes;
     // Náhodné pořadí (stálé po dobu života obrazovky) → hledání → filtr.
@@ -297,7 +369,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     final me = ref.watch(currentLocationProvider).valueOrNull;
     final routes = shuffled
         .where((r) => (q.isEmpty || searchMatches(r.searchBlob, q)) &&
-            _routeMatches(r, _fType, _fDiff, _fCountry, _fDist, _fDur, me, _fFromMe))
+            _routeMatches(r, _fCountry, _fDist, _fDur, me, _withApproach))
         .toList();
 
     // Řazení (poloha jezdce / od zvolené trasy).
@@ -319,16 +391,35 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
       onRefresh: () async => ref.invalidate(routesDataProvider),
       child: CustomScrollView(
         slivers: [
-          // Připnuté rychlé vstupy: „Všechny body zájmu" + „Moje zážitky" —
-          // při scrollování zůstávají vidět (plné karty → kompaktní lišta),
-          // swipe do strany je prohodí, tap otevře.
+          // Připnuté rychlé vstupy. Trasy jsou nově SEKUNDÁRNÍ obrazovka,
+          // takže odtud se odkazuje zpět na Místa (primární), na mapu míst
+          // a na Moje zážitky. Při scrollování zůstávají vidět (plné karty →
+          // kompaktní lišta), swipe do strany posune pořadí, tap otevře.
           SliverPersistentHeader(
             pinned: true,
             delegate: QuickLinksHeaderDelegate(
               order: _quickOrder,
               onCycle: _cycleQuickLinks,
-              onOpenPois: () => context.push('/pois'),
-              onOpenMyExp: () => context.push('/my-experiences'),
+              links: [
+                QuickLink.light(
+                  emoji: '📍',
+                  titleKey: 'poiBrowseAll',
+                  subtitleKey: 'poiBrowseSub',
+                  onTap: () => context.go(Routes.routes),
+                ),
+                QuickLink.light(
+                  emoji: '🧭',
+                  titleKey: 'placesMapTitle',
+                  subtitleKey: 'placesMapSub',
+                  onTap: () => context.push(Routes.placesMap),
+                ),
+                QuickLink.dark(
+                  emoji: '🏍️',
+                  titleKey: 'myExpEntryTitle',
+                  subtitleKey: 'myExpEntrySub',
+                  onTap: () => context.push('/my-experiences'),
+                ),
+              ],
             ),
           ),
           // Rozšířené filtry (typ, obtížnost, délka, čas, země, dojezd) + řazení
@@ -641,9 +732,14 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   }
 
   // ── Bottom sheet se všemi filtry ──
+  //
+  // Přepracováno 2026-09-16: zrušen filtr typu trasy, obtížnosti i samostatný
+  // „dojezd od tebe"; délka a čas jsou svázané (posun jednoho dopočítá druhý);
+  // státy jsou NAHOŘE (dřív až pod třemi posuvníky, takže vlajky nebyly vidět)
+  // s CZ/SK/AT/HU/IT/HR/SI napevno první a zbytkem pod rozbalovačem.
   void _openFilterSheet(BuildContext context, RoutesData data, LatLng? me) {
-    // Základ pro náhled počtu = trasy aktuálně zvolené pobočky.
     final base = data.routes;
+    final q = _query.trim();
 
     // Meze posuvníků z dat.
     final dists = base.map((r) => r.distanceKm).whereType<double>().toList()..sort();
@@ -656,30 +752,30 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     final tMin = hasDur ? durs.first.toDouble() : 0.0;
     final tMax = hasDur ? durs.last.toDouble() : 0.0;
 
-    // Dojezd od aktuální polohy (odhad) — jen s povolenou polohou.
-    final fromKms = <double>[];
-    if (me != null) {
-      for (final r in base) {
-        final e = approachEstimate(me, r);
-        if (e != null) fromKms.add(e.km);
-      }
-      fromKms.sort();
+    // Průměrná rychlost pro přepočet km ↔ čas. Bere se MEDIÁN ze skutečných
+    // dvojic v datech, ne konstanta — část tras má přepočtených 42 km/h,
+    // starší ruční hodnoty vycházejí kolem 33 km/h (včetně zastávek).
+    final speeds = <double>[];
+    for (final r in base) {
+      final km = r.distanceKm;
+      final mn = r.durationMin;
+      if (km != null && mn != null && km > 0 && mn > 0) speeds.add(km / (mn / 60));
     }
-    final hasFromMe = fromKms.length >= 2 && fromKms.last > 1;
-    const fMin = 0.0;
-    final fMax = hasFromMe ? fromKms.last.ceilToDouble() : 0.0;
+    speeds.sort();
+    final kmh = speeds.isEmpty ? 42.0 : speeds[speeds.length ~/ 2];
 
-    // Země přítomné v datech.
-    final countryCodes = <String>{for (final r in base) ...r.countries}.toList()..sort();
-    final anyAbroad = base.any((r) => r.isAbroad);
+    // Země přítomné v datech, rozdělené na připnuté a ostatní.
+    final split = splitByPriority(<String>{for (final r in base) ...r.countries});
 
     // Pracovní kopie (potvrdí se tlačítkem).
-    final tType = {..._fType};
-    final tDiff = {..._fDiff};
     final tCountry = {..._fCountry};
     var tDist = _fDist;
     var tDur = _fDur;
-    var tFromMe = _fFromMe;
+    var tApproach = _withApproach;
+    var moreCountries = tCountry.any(split.rest.contains);
+
+    double clampD(double v) => v.clamp(dMin, dMax);
+    double clampT(double v) => v.clamp(tMin, tMax);
 
     showModalBottomSheet(
       context: context,
@@ -693,10 +789,35 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
           builder: (sheetCtx, setSheet) {
             final count = base
                 .where((r) =>
-                    _routeMatches(r, tType, tDiff, tCountry, tDist, tDur, me, tFromMe))
+                    (q.isEmpty || searchMatches(r.searchBlob, q)) &&
+                    _routeMatches(r, tCountry, tDist, tDur, me, tApproach))
                 .length;
-            void toggle(Set<String> s, String v) =>
-                setSheet(() => s.contains(v) ? s.remove(v) : s.add(v));
+
+            // Posun délky dopočítá čas a naopak — hodnoty spolu korelují,
+            // takže dvě nezávislá nastavení si jen protiřečila.
+            void setDist(RangeValues v) => setSheet(() {
+                  tDist = v;
+                  if (hasDur) {
+                    tDur = RangeValues(
+                      clampT(v.start / kmh * 60),
+                      clampT(v.end / kmh * 60),
+                    );
+                  }
+                });
+            void setDur(RangeValues v) => setSheet(() {
+                  tDur = v;
+                  if (hasDist) {
+                    tDist = RangeValues(
+                      clampD(v.start / 60 * kmh),
+                      clampD(v.end / 60 * kmh),
+                    );
+                  }
+                });
+            void toggleCountry(String c) => setSheet(
+                () => tCountry.contains(c) ? tCountry.remove(c) : tCountry.add(c));
+
+            final dv = tDist ?? RangeValues(dMin, dMax);
+            final tv = tDur ?? RangeValues(tMin, tMax);
 
             return SafeArea(
               top: false,
@@ -705,7 +826,6 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Držadlo
                     Container(
                       margin: const EdgeInsets.only(top: 10, bottom: 6),
                       width: 40, height: 4,
@@ -728,22 +848,33 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                             ),
                           ),
                           const Spacer(),
-                          GestureDetector(
-                            onTap: () => setSheet(() {
-                              tType.clear();
-                              tDiff.clear();
-                              tCountry.clear();
-                              tDist = null;
-                              tDur = null;
-                              tFromMe = null;
-                            }),
-                            child: Text(
-                              t(sheetCtx).tr('routesFilterClear'),
-                              style: const TextStyle(
-                                fontSize: MotoGoTypo.sizeBase,
-                                fontWeight: MotoGoTypo.w700,
-                                color: MotoGoColors.greenDark,
-                                decoration: TextDecoration.none,
+                          // Reset teď filtry i APLIKUJE a sheet zavře. Dřív
+                          // vynuloval jen pracovní kopie, takže po zavření
+                          // gestem zůstaly filtry beze změny a vypadalo to,
+                          // že „zrušit filtry" nefunguje.
+                          PressableScale(
+                            pressedScale: 0.94,
+                            onTap: () {
+                              _clearFilters();
+                              Navigator.of(sheetCtx).pop();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.close, size: 16, color: MotoGoColors.greenDark),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    t(sheetCtx).tr('routesFilterClear'),
+                                    style: const TextStyle(
+                                      fontSize: MotoGoTypo.sizeBase,
+                                      fontWeight: MotoGoTypo.w700,
+                                      color: MotoGoColors.greenDark,
+                                      decoration: TextDecoration.none,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -753,123 +884,120 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                     Flexible(
                       child: ListView(
                         shrinkWrap: true,
-                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
                         children: [
-                          // Typ trasy
-                          _sheetSection(t(sheetCtx).tr('routesFilterType')),
-                          Wrap(spacing: 8, runSpacing: 8, children: [
-                            _selChip('🔄 ${t(sheetCtx).tr('routeTypeLoop')}', tType.contains('loop'),
-                                () => toggle(tType, 'loop')),
-                            _selChip('📍 ${t(sheetCtx).tr('routeTypePoi')}', tType.contains('poi'),
-                                () => toggle(tType, 'poi')),
-                          ]),
-                          const SizedBox(height: 18),
-                          // Obtížnost
-                          _sheetSection(t(sheetCtx).tr('routesFilterDifficulty')),
-                          Wrap(spacing: 8, runSpacing: 8, children: [
-                            _selChip('🟢 ${t(sheetCtx).tr('routeDiffEasy')}', tDiff.contains('easy'),
-                                () => toggle(tDiff, 'easy')),
-                            _selChip('🟠 ${t(sheetCtx).tr('routeDiffMedium')}', tDiff.contains('medium'),
-                                () => toggle(tDiff, 'medium')),
-                            _selChip('🔴 ${t(sheetCtx).tr('routeDiffHard')}', tDiff.contains('hard'),
-                                () => toggle(tDiff, 'hard')),
-                          ]),
-                          // Délka
-                          if (hasDist) ...[
+                          // ── Země (nahoře, ať jsou vlajky vidět bez scrollu) ──
+                          if (split.top.isNotEmpty || split.rest.isNotEmpty) ...[
+                            _sheetSection(t(sheetCtx).tr('routesFilterCountry')),
+                            Wrap(spacing: 8, runSpacing: 8, children: [
+                              for (final c in split.top)
+                                _selChip(countryChipLabel(c), tCountry.contains(c),
+                                    () => toggleCountry(c)),
+                              if (split.rest.isNotEmpty)
+                                _selChip(
+                                  '${moreCountries ? '▲' : '▼'} ${t(sheetCtx).tr('routesFilterMoreCountries')} (${split.rest.length})',
+                                  false,
+                                  () => setSheet(() => moreCountries = !moreCountries),
+                                ),
+                            ]),
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                              alignment: Alignment.topCenter,
+                              child: moreCountries
+                                  ? Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Wrap(spacing: 8, runSpacing: 8, children: [
+                                        for (final c in split.rest)
+                                          _selChip(countryFullLabel(c), tCountry.contains(c),
+                                              () => toggleCountry(c)),
+                                      ]),
+                                    )
+                                  : const SizedBox(width: double.infinity),
+                            ),
                             const SizedBox(height: 18),
+                          ],
+                          // ── Délka trasy (svázaná s časem) ──
+                          if (hasDist) ...[
                             _sheetSection(
-                                '${t(sheetCtx).tr('routesFilterDistance')}  ·  ${(tDist?.start ?? dMin).round()}–${(tDist?.end ?? dMax).round()} km'),
+                                '${t(sheetCtx).tr('routesFilterDistance')}  ·  ${dv.start.round()}–${dv.end.round()} km'),
                             RangeSlider(
                               min: dMin,
                               max: dMax,
-                              values: tDist ?? RangeValues(dMin, dMax),
+                              values: dv,
                               activeColor: MotoGoColors.greenDark,
                               inactiveColor: MotoGoColors.g200,
-                              labels: RangeLabels(
-                                '${(tDist?.start ?? dMin).round()}',
-                                '${(tDist?.end ?? dMax).round()}',
-                              ),
-                              onChanged: (v) => setSheet(() => tDist = v),
+                              labels: RangeLabels('${dv.start.round()}', '${dv.end.round()}'),
+                              onChanged: setDist,
                             ),
                           ],
-                          // Čas jízdy
+                          // ── Čas jízdy (svázaný s délkou) ──
                           if (hasDur) ...[
                             const SizedBox(height: 6),
                             _sheetSection(
-                                '${t(sheetCtx).tr('routesFilterDuration')}  ·  ${_fmtDur((tDur?.start ?? tMin).round())}–${_fmtDur((tDur?.end ?? tMax).round())}'),
+                                '${t(sheetCtx).tr('routesFilterDuration')}  ·  ${_fmtDur(tv.start.round())}–${_fmtDur(tv.end.round())}'),
                             RangeSlider(
                               min: tMin,
                               max: tMax,
-                              values: tDur ?? RangeValues(tMin, tMax),
+                              values: tv,
                               activeColor: MotoGoColors.greenDark,
                               inactiveColor: MotoGoColors.g200,
                               labels: RangeLabels(
-                                _fmtDur((tDur?.start ?? tMin).round()),
-                                _fmtDur((tDur?.end ?? tMax).round()),
+                                  _fmtDur(tv.start.round()), _fmtDur(tv.end.round())),
+                              onChanged: setDur,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2, bottom: 2),
+                              child: Text(
+                                t(sheetCtx).tr('routesFilterLinkedHint'),
+                                style: const TextStyle(
+                                  fontSize: MotoGoTypo.sizeSm,
+                                  fontWeight: MotoGoTypo.w600,
+                                  color: MotoGoColors.g500,
+                                  decoration: TextDecoration.none,
+                                ),
                               ),
-                              onChanged: (v) => setSheet(() => tDur = v),
                             ),
                           ],
-                          // Dojezd od aktuální polohy (odhad ~) — jen s polohou
-                          if (hasFromMe) ...[
-                            const SizedBox(height: 6),
-                            _sheetSection(
-                                '${t(sheetCtx).tr('routesFilterFromMe')}  ·  ~${(tFromMe?.start ?? fMin).round()}–${(tFromMe?.end ?? fMax).round()} km'),
-                            RangeSlider(
-                              min: fMin,
-                              max: fMax,
-                              values: tFromMe ?? RangeValues(fMin, fMax),
-                              activeColor: MotoGoColors.greenDark,
-                              inactiveColor: MotoGoColors.g200,
-                              labels: RangeLabels(
-                                '${(tFromMe?.start ?? fMin).round()}',
-                                '${(tFromMe?.end ?? fMax).round()}',
-                              ),
-                              onChanged: (v) => setSheet(() => tFromMe = v),
+                          // ── Započítat cestu od mojí polohy do délky ──
+                          if (hasDist) ...[
+                            const SizedBox(height: 14),
+                            _selChip(
+                              '🏍️ ${t(sheetCtx).tr('routesFilterWithApproach')}',
+                              tApproach,
+                              () async {
+                                if (!tApproach && me == null) {
+                                  final ok = await ensureLocation(ref);
+                                  if (!ok) return;
+                                }
+                                setSheet(() => tApproach = !tApproach);
+                              },
                             ),
-                          ],
-                          // Země
-                          if (countryCodes.isNotEmpty || anyAbroad) ...[
-                            const SizedBox(height: 18),
-                            _sheetSection(t(sheetCtx).tr('routesFilterCountry')),
-                            Wrap(spacing: 8, runSpacing: 8, children: [
-                              if (anyAbroad)
-                                _selChip('✈️ ${t(sheetCtx).tr('routesFilterAbroad')}',
-                                    tCountry.contains(_kAbroad), () => toggle(tCountry, _kAbroad)),
-                              ...countryCodes.map((c) =>
-                                  _selChip(_countryLabel(c), tCountry.contains(c), () => toggle(tCountry, c))),
-                            ]),
                           ],
                         ],
                       ),
                     ),
-                    // Potvrzení
+                    // Jemný oddělovač — ať je poznat, že obsah nahoře pokračuje.
+                    Container(height: 1, color: MotoGoColors.g200),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
                       child: PressableScale(
                         pressedScale: 0.98,
                         onTap: () {
                           setState(() {
-                            _fType
-                              ..clear()
-                              ..addAll(tType);
-                            _fDiff
-                              ..clear()
-                              ..addAll(tDiff);
                             _fCountry
                               ..clear()
                               ..addAll(tCountry);
                             // Plný rozsah = žádný filtr.
-                            _fDist = (tDist == null || (tDist!.start <= dMin && tDist!.end >= dMax))
+                            final td = tDist;
+                            final tt = tDur;
+                            _fDist = (td == null || (td.start <= dMin && td.end >= dMax))
                                 ? null
-                                : tDist;
-                            _fDur = (tDur == null || (tDur!.start <= tMin && tDur!.end >= tMax))
+                                : td;
+                            _fDur = (tt == null || (tt.start <= tMin && tt.end >= tMax))
                                 ? null
-                                : tDur;
-                            _fFromMe = (tFromMe == null ||
-                                    (tFromMe!.start <= fMin && tFromMe!.end >= fMax))
-                                ? null
-                                : tFromMe;
+                                : tt;
+                            _withApproach = tApproach;
                           });
                           Navigator.of(sheetCtx).pop();
                         },
@@ -950,20 +1078,6 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     );
   }
 
-  /// Vlaječka + kód země (jazykově neutrální).
-  String _countryLabel(String code) {
-    const flags = {
-      'CZ': '🇨🇿', 'DE': '🇩🇪', 'AT': '🇦🇹', 'PL': '🇵🇱', 'SK': '🇸🇰',
-      'HU': '🇭🇺', 'IT': '🇮🇹', 'CH': '🇨🇭', 'SI': '🇸🇮', 'HR': '🇭🇷',
-      'FR': '🇫🇷', 'ES': '🇪🇸', 'PT': '🇵🇹', 'NL': '🇳🇱', 'BE': '🇧🇪',
-      'LU': '🇱🇺', 'DK': '🇩🇰', 'SE': '🇸🇪', 'NO': '🇳🇴', 'FI': '🇫🇮',
-      'GB': '🇬🇧', 'IE': '🇮🇪', 'RO': '🇷🇴', 'BG': '🇧🇬', 'RS': '🇷🇸',
-      'GR': '🇬🇷', 'ME': '🇲🇪', 'BA': '🇧🇦', 'MK': '🇲🇰', 'AL': '🇦🇱',
-      'AD': '🇦🇩', 'LI': '🇱🇮', 'IS': '🇮🇸', 'MD': '🇲🇩', 'LT': '🇱🇹',
-      'LV': '🇱🇻', 'EE': '🇪🇪',
-    };
-    return '${flags[code] ?? '🏳️'} $code';
-  }
 
   String _fmtDur(int minutes) {
     final h = minutes ~/ 60;

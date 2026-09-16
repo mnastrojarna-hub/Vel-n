@@ -58,7 +58,11 @@ Widget _menuItem(BuildContext c, IconData icon, String label, VoidCallback onTap
 
 /// Obrazovka návrhu bodu zájmu — poloha (mapa / GPS), název, popis, foto.
 class PoiSubmitScreen extends StatefulWidget {
-  const PoiSubmitScreen({super.key});
+  /// Výchozí bod z mapy míst (dlouhý stisk). Když je zadaný, formulář ho
+  /// použije místo aktuální GPS polohy — uživatel přidává místo tam, kam
+  /// na mapě ukázal, ne tam, kde zrovna stojí.
+  final LatLng? initialPoint;
+  const PoiSubmitScreen({super.key, this.initialPoint});
   @override
   State<PoiSubmitScreen> createState() => _PoiSubmitScreenState();
 }
@@ -76,6 +80,20 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
   @override
   void initState() {
     super.initState();
+    final start = widget.initialPoint;
+    if (start != null) {
+      _point = start;
+      _located = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        _ctrl.move(_point, 14);
+        final name = await reverseGeocode(_point);
+        if (mounted && name != null && _nameCtrl.text.isEmpty) {
+          _nameCtrl.text = name;
+        }
+      });
+      return;
+    }
     _initLocation();
   }
 

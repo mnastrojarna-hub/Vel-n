@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
+import '../../core/native/gps_service.dart';
 import '../../core/supabase_client.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
@@ -211,6 +212,27 @@ class PoiEntry {
   String get key => route != null
       ? '${route!.id}:${poi.id}'
       : (catalog ? 'catalog:${poi.id}' : 'user:${poi.id}');
+
+  /// ISO kód země bodu pro filtr států. Katalogové body mají zemi přímo
+  /// z backendu; trasové ji dědí po trase (route_pois sloupec `country`
+  /// nemá). Dřív se země brala VÝHRADNĚ z trasy, takže zaškrtnutí jakékoli
+  /// vlajky vyhodilo všechny katalogové i komunitní body ze seznamu.
+  String? get countryCode {
+    final own = poi.country;
+    if (own != null && own.isNotEmpty) return own;
+    final cs = route?.countries ?? const <String>[];
+    return cs.length == 1 ? cs.first : null;
+  }
+
+  /// Vyhovuje bod filtru států? Bod bez známé země se u trasy posoudí podle
+  /// všech zemí trasy (přeshraniční trasa má v poli víc států).
+  bool matchesCountries(Set<String> want) {
+    if (want.isEmpty) return true;
+    final own = poi.country;
+    if (own != null && own.isNotEmpty) return want.contains(own);
+    final cs = route?.countries ?? const <String>[];
+    return cs.any(want.contains);
+  }
 }
 
 /// Katalog samostatných bodů zájmu (přehrady, jezera, hrady, rozhledny,
@@ -283,6 +305,25 @@ final userPoisProvider = FutureProvider<List<RoutePoi>>((ref) async {
   } catch (_) {
     return const [];
   }
+});
+
+/// Sdílený vyhledávací dotaz pro Místa i Trasy. Co uživatel napíše na jedné
+/// obrazovce, platí i na druhé — hledá se napříč místy i trasami, ne zvlášť
+/// v každém seznamu (bod 6 zadání z 2026-09-16).
+final placesSearchProvider = StateProvider<String>((ref) => '');
+
+/// VŠECHNA místa napříč zdroji (trasové body + katalog + komunitní) v jednom
+/// seznamu. Mapa míst i seznam tak kreslí totéž; dřív si merge dělala každá
+/// obrazovka sama ve svém State a nešlo ho sdílet.
+final allPlacesProvider = Provider<List<PoiEntry>>((ref) {
+  final routePois = ref.watch(allPoisProvider);
+  final catalog = ref.watch(catalogPoisProvider).valueOrNull ?? const <RoutePoi>[];
+  final user = ref.watch(userPoisProvider).valueOrNull ?? const <RoutePoi>[];
+  return <PoiEntry>[
+    ...routePois,
+    ...catalog.map((p) => PoiEntry(p, null, null, catalog: true)),
+    ...user.map((p) => PoiEntry(p, null, null)),
+  ];
 });
 
 /// Všechny body zájmu napříč všemi (aktivními) trasami — pro katalog v appce.
@@ -480,6 +521,25 @@ class RouteDisplay {
     this.start,
     this.origin = RouteOrigin.routeBranch,
   });
+}
+
+/// Vyžádá oprávnění k poloze (systémový dialog) a nechá
+/// [currentLocationProvider] načíst polohu znovu. Volá se AŽ ve chvíli, kdy
+/// si uživatel sám vyžádá funkci závislou na poloze — filtr „v okolí mě"
+/// nebo řazení „nejblíž mně". Dřív si o polohu nikdo neřekl, takže na
+/// čerstvé instalaci byly obě funkce trvale mrtvé.
+/// Vrací true, když je poloha po volání k dispozici.
+Future<bool> ensureLocation(WidgetRef ref) async {
+  final already = ref.read(currentLocationProvider).valueOrNull;
+  if (already != null) return true;
+  final ok = await GpsService.ensurePermission();
+  if (!ok) return false;
+  ref.invalidate(currentLocationProvider);
+  try {
+    return await ref.read(currentLocationProvider.future) != null;
+  } catch (_) {
+    return false;
+  }
 }
 
 /// Aktuální poloha — JEN pokud je oprávnění už uděleno (bez vyžádání systémového

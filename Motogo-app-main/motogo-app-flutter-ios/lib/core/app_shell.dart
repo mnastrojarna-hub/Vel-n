@@ -34,7 +34,13 @@ class AppShell extends ConsumerWidget {
   ];
 
   int _currentIndex(String location) {
-    if (location.startsWith('/routes')) return 3;
+    // Celá sekce Místa/Trasy drží 4. tab: /routes (Místa), /routes-list
+    // (seznam tras), /places-map (mapa míst), /pois (výběr bodů z editoru).
+    if (location.startsWith('/routes') ||
+        location.startsWith('/places-map') ||
+        location.startsWith('/pois')) {
+      return 3;
+    }
     if (location.startsWith('/reservations') || location.startsWith('/sos') ||
         location == Routes.aiAgent) return 2;
     if (location == Routes.search || location.startsWith('/moto') ||
