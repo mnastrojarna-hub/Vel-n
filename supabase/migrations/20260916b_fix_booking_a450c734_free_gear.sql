@@ -14,7 +14,10 @@ UPDATE bookings
        extras_price = 0
  WHERE right(id::text, 8) = 'a450c734';
 
--- 3) Stripe vratka 980 Kč -> dobropis „Úprava výbavy" + mail zákazníkovi
+-- 3) Stripe vratka 980 Kč -> dobropis „Úprava výbavy" + mail zákazníkovi.
+--    Podmínka payment_status='paid' je ochrana proti DVOJÍ vratce: jakmile
+--    process-refund vratku vystaví, přepne rezervaci na 'partial_refund',
+--    takže druhé spuštění (nebo ruční puštění v SQL editoru) neposlané nic.
 SELECT net.http_post(
   url     := (SELECT value #>> '{}' FROM app_settings WHERE key = 'supabase_url')
              || '/functions/v1/process-refund',
@@ -25,4 +28,7 @@ SELECT net.http_post(
   body    := jsonb_build_object(
                'booking_id', (SELECT id FROM bookings WHERE right(id::text, 8) = 'a450c734'),
                'amount', 980, 'reason', 'gear_edit', 'source', 'edit')
-);
+)
+ WHERE EXISTS (SELECT 1 FROM bookings
+                WHERE right(id::text, 8) = 'a450c734'
+                  AND payment_status = 'paid');
