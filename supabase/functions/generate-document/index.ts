@@ -9,6 +9,7 @@ const DOC_TRANSLATE_MODEL = 'claude-sonnet-4-6'
 const DOC_LANG_NAMES: Record<string, string> = {
   en: 'English', de: 'German (Deutsch)', es: 'Spanish (Español)',
   fr: 'French (Français)', nl: 'Dutch (Nederlands)', pl: 'Polish (Polski)',
+  uk: 'Ukrainian (Українська)',
 }
 
 /** Strojový překlad RAW šablony dokumentu (název + content_html s {{placeholdery}})
@@ -93,7 +94,7 @@ const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFracti
 // ── i18n: jazyk + doména zákazníka ─────────────────────────────────────────
 // Stejný vzor jako process-payment/stripe-customer.ts: cs → motogo24.cz,
 // ostatní podporované jazyky → motogo24.com. CZ chování zůstává beze změny.
-const SUPPORTED_LANGS = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl']
+const SUPPORTED_LANGS = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl', 'uk']
 const DOMAIN_INTL = 'https://motogo24.com'
 
 /** Normalizuj jazyk na podporovaný kód (cs/en/de/es/fr/nl/pl), jinak 'cs'. */

@@ -18,9 +18,23 @@
 //   pokud existuje pro daný (slug, lang), použije se DB, jinak hardcoded fallback níže.
 // =============================================================================
 
-export type Lang = 'cs' | 'en' | 'de' | 'nl' | 'es' | 'fr' | 'pl'
-export const SUPPORTED_LANGS: Lang[] = ['cs', 'en', 'de', 'nl', 'es', 'fr', 'pl']
+export type Lang = 'cs' | 'en' | 'de' | 'nl' | 'es' | 'fr' | 'pl' | 'uk'
+export const SUPPORTED_LANGS: Lang[] = ['cs', 'en', 'de', 'nl', 'es', 'fr', 'pl', 'uk']
 export const DEFAULT_LANG: Lang = 'cs'
+
+/**
+ * Je vratka kladná? Částka do šablon přichází UŽ NAFORMÁTOVANÁ
+ * (`Number(x).toLocaleString('cs-CZ')`), takže od 1 000 Kč obsahuje
+ * nezlomitelnou mezeru U+00A0 jako oddělovač tisíců. Prosté
+ * `Number("1 000")` proto vrací NaN a `NaN > 0` je false — e-mail pak
+ * u KAŽDÉ vratky od 1 000 Kč tvrdil „nárok na vrácení nevzniká".
+ */
+export function refundIsPositive(v: unknown): boolean {
+  if (v === null || v === undefined || v === '') return false
+  if (typeof v === 'number') return v > 0
+  const n = Number(String(v).replace(/[\s\u00A0\u202F]/g, '').replace(',', '.'))
+  return Number.isFinite(n) && n > 0
+}
 
 export function normalizeLang(lang: string | null | undefined): Lang {
   if (!lang) return DEFAULT_LANG
@@ -53,6 +67,7 @@ const SIGN: Record<Lang, string> = {
   es: 'Equipo MOTO GO 24',
   fr: 'Équipe MOTO GO 24',
   pl: 'Zespół MOTO GO 24',
+  uk: 'Команда MOTO GO 24',
 }
 const HELLO: Record<Lang, string> = {
   cs: 'Dobrý den,',
@@ -62,6 +77,7 @@ const HELLO: Record<Lang, string> = {
   es: 'Hola,',
   fr: 'Bonjour,',
   pl: 'Dzień dobry,',
+  uk: 'Доброго дня,',
 }
 
 // =============================================================================
@@ -79,6 +95,7 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     es: v => `Tu reserva de moto nº ${v.booking_number} en MOTO GO 24 está confirmada`,
     fr: v => `Votre réservation moto n° ${v.booking_number} chez MOTO GO 24 est confirmée`,
     pl: v => `Twoja rezerwacja motocykla nr ${v.booking_number} w MOTO GO 24 została potwierdzona`,
+    uk: v => `Ваше бронювання мотоцикла № ${v.booking_number} у MOTO GO 24 підтверджено`,
   },
   booking_completed: {
     cs: () => 'Děkujeme za využití služeb MotoGo24',
@@ -88,6 +105,7 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     es: () => 'Gracias por elegir MOTO GO 24',
     fr: () => 'Merci d\'avoir choisi MOTO GO 24',
     pl: () => 'Dziękujemy za wybór MOTO GO 24',
+    uk: () => 'Дякуємо, що обрали MOTO GO 24',
   },
   booking_modified: {
     cs: v => {
@@ -132,6 +150,12 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
       if (pd < 0) return `Rezerwacja nr ${v.booking_number} zmieniona — zwrot — MOTO GO 24`
       return `Rezerwacja nr ${v.booking_number} zmieniona — MOTO GO 24`
     },
+    uk: v => {
+      const pd = Number((v.price_difference || '0').toString().replace(/\s/g, '').replace(',', '.')) || 0
+      if (pd > 0) return `Бронювання № ${v.booking_number} змінено — доплата ${v.price_difference} CZK — MOTO GO 24`
+      if (pd < 0) return `Бронювання № ${v.booking_number} змінено — оформлено повернення — MOTO GO 24`
+      return `Бронювання № ${v.booking_number} змінено — MOTO GO 24`
+    },
   },
   booking_cancelled: {
     cs: v => `Vaše rezervace č. ${v.booking_number} motocyklu u MotoGo24 byla úspěšně stornována`,
@@ -141,6 +165,7 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     es: v => `Tu reserva de moto nº ${v.booking_number} en MOTO GO 24 ha sido cancelada`,
     fr: v => `Votre réservation moto n° ${v.booking_number} chez MOTO GO 24 a été annulée`,
     pl: v => `Twoja rezerwacja motocykla nr ${v.booking_number} w MOTO GO 24 została anulowana`,
+    uk: v => `Ваше бронювання мотоцикла № ${v.booking_number} у MOTO GO 24 скасовано`,
   },
   booking_abandoned: {
     cs: v => `Dokončete svou rezervaci č. ${v.booking_number} motocyklu u MotoGo24`,
@@ -150,6 +175,7 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     es: v => `Finaliza tu reserva de moto nº ${v.booking_number} en MOTO GO 24`,
     fr: v => `Finalisez votre réservation moto n° ${v.booking_number} chez MOTO GO 24`,
     pl: v => `Dokończ swoją rezerwację motocykla nr ${v.booking_number} w MOTO GO 24`,
+    uk: v => `Завершіть бронювання мотоцикла № ${v.booking_number} у MOTO GO 24`,
   },
   booking_abandoned_full: {
     cs: v => `Dokončete rezervaci č. ${v.booking_number} — chybí platba a doklady`,
@@ -159,6 +185,7 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     es: v => `Finaliza la reserva nº ${v.booking_number} — falta pago y documentos`,
     fr: v => `Terminez la réservation n° ${v.booking_number} — paiement et documents manquants`,
     pl: v => `Dokończ rezerwację nr ${v.booking_number} — brak płatności i dokumentów`,
+    uk: v => `Завершіть бронювання № ${v.booking_number} — бракує оплати та документів`,
   },
   booking_missing_docs: {
     cs: v => `Nahrajte doklady k rezervaci č. ${v.booking_number} — MotoGo24`,
@@ -168,6 +195,7 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     es: v => `Sube los documentos para la reserva nº ${v.booking_number} — MOTO GO 24`,
     fr: v => `Téléchargez vos documents pour la réservation n° ${v.booking_number} — MOTO GO 24`,
     pl: v => `Prześlij dokumenty do rezerwacji nr ${v.booking_number} — MOTO GO 24`,
+    uk: v => `Надішліть документи до бронювання № ${v.booking_number} — MOTO GO 24`,
   },
   voucher_purchased: {
     cs: () => 'Váš dárkový poukaz od MotoGo24',
@@ -177,6 +205,7 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     es: () => 'Tu cheque regalo de MOTO GO 24',
     fr: () => 'Votre bon cadeau MOTO GO 24',
     pl: () => 'Twój voucher prezentowy od MOTO GO 24',
+    uk: () => 'Ваш подарунковий сертифікат від MOTO GO 24',
   },
   sos_incident: {
     cs: () => 'SOS — MotoGo24 je na cestě',
@@ -186,6 +215,7 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     es: () => 'SOS — MOTO GO 24 está en camino',
     fr: () => 'SOS — MOTO GO 24 arrive',
     pl: () => 'SOS — MOTO GO 24 już jedzie',
+    uk: () => 'SOS — MOTO GO 24 вже їде',
   },
   door_codes: {
     cs: v => `Přístupové kódy k pobočce — rezervace č. ${v.booking_number}`,
@@ -195,6 +225,7 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     es: v => `Códigos de acceso de sucursal — reserva nº ${v.booking_number}`,
     fr: v => `Codes d'accès succursale — réservation n° ${v.booking_number}`,
     pl: v => `Kody dostępu do oddziału — rezerwacja nr ${v.booking_number}`,
+    uk: v => `Коди доступу до філії — бронювання № ${v.booking_number}`,
   },
   shop_order_confirmed: {
     cs: v => `Objednávka č. ${v.order_number} přijata — MOTO GO 24`,
@@ -204,6 +235,7 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     es: v => `Pedido nº ${v.order_number} recibido — MOTO GO 24`,
     fr: v => `Commande n° ${v.order_number} reçue — MOTO GO 24`,
     pl: v => `Zamówienie nr ${v.order_number} przyjęte — MOTO GO 24`,
+    uk: v => `Замовлення № ${v.order_number} прийнято — MOTO GO 24`,
   },
   shop_order_shipped: {
     cs: v => `Objednávka č. ${v.order_number} odeslána — MOTO GO 24`,
@@ -213,6 +245,7 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     es: v => `Pedido nº ${v.order_number} enviado — MOTO GO 24`,
     fr: v => `Commande n° ${v.order_number} expédiée — MOTO GO 24`,
     pl: v => `Zamówienie nr ${v.order_number} wysłane — MOTO GO 24`,
+    uk: v => `Замовлення № ${v.order_number} відправлено — MOTO GO 24`,
   },
 }
 
@@ -229,6 +262,7 @@ const DIFF_LABELS: Record<Lang, { uda: string; old: string; new: string; moto: s
   es: { uda: 'Campo',    old: 'Original',  new: 'Nuevo',    moto: 'Motocicleta', from: 'Inicio',   to: 'Fin',    pickup: 'Recogida',       ret: 'Devolución',       total: 'Precio total' },
   fr: { uda: 'Champ',    old: 'Original',  new: 'Nouveau',  moto: 'Moto',        from: 'Début',    to: 'Fin',    pickup: 'Retrait',        ret: 'Retour',           total: 'Prix total'   },
   pl: { uda: 'Pole',     old: 'Pierwotne', new: 'Nowe',     moto: 'Motocykl',    from: 'Początek', to: 'Koniec', pickup: 'Odbiór',         ret: 'Zwrot',            total: 'Cena całkowita' },
+  uk: { uda: 'Поле',     old: 'Було',      new: 'Стало',    moto: 'Мотоцикл',    from: 'Початок',  to: 'Кінець', pickup: 'Отримання',      ret: 'Повернення',       total: 'Загальна ціна' },
 }
 
 // =============================================================================
@@ -250,6 +284,7 @@ const DOOR_CODES_BLOCK_LABELS: Record<Lang, { title: string; moto: string; gear:
   es: { title: 'Códigos de acceso de sucursal',  moto: 'Código de la moto',     gear: 'Código del equipo',      valid: 'Los códigos son válidos durante el alquiler.' },
   fr: { title: 'Codes d\'accès succursale',      moto: 'Code de la moto',       gear: 'Code de l\'équipement',  valid: 'Les codes sont valables pendant la location.' },
   pl: { title: 'Kody dostępu do oddziału',       moto: 'Kod do motocykla',      gear: 'Kod do wyposażenia',     valid: 'Kody są ważne przez czas trwania wypożyczenia.' },
+  uk: { title: 'Коди доступу до філії',          moto: 'Код до мотоцикла',      gear: 'Код до спорядження',     valid: 'Коди дійсні протягом усього строку оренди.' },
 }
 
 export function renderDoorCodesReleasedBlock(lang: Lang, moto: string, gear: string): string {
@@ -305,6 +340,12 @@ const DOCS_REQUIRED_BLOCK_LABELS: Record<Lang, { title: string; intro: string; c
     intro:    'Aby automatycznie wysłać kody dostępu (motocykl + wyposażenie), potrzebujemy ważnego dowodu osobistego (lub paszportu) oraz prawa jazdy. Skan przez telefon zajmuje około 30 sekund.',
     cta:      'Prześlij dokumenty',
     inPerson: 'Jeśli wolisz pokazać dokumenty osobiście, nie ma problemu — sprawdzimy je przy odbiorze motocykla. Bez weryfikacji nie możemy wydać kodów.',
+  },
+  uk: {
+    title:    'Ще бракує документів — поки не можемо видати коди доступу',
+    intro:    'Щоб автоматично надіслати коди доступу (мотоцикл + спорядження), нам потрібен чинний документ, що посвідчує особу (або паспорт), і посвідчення водія. Сканування телефоном займає близько 30 секунд.',
+    cta:      'Надіслати документи',
+    inPerson: 'Волієте показати документи особисто? Не проблема — перевіримо їх під час видачі мотоцикла. Без перевірки коди видати не можемо.',
   },
 }
 
@@ -411,6 +452,16 @@ ${v.door_codes_block || ''}
 <ul><li>ważny dokument tożsamości (wskazany w formularzu rezerwacji),</li><li>ważne prawo jazdy.</li></ul>
 <p>Na miejscu sprawdzimy dokumenty, przekażemy motocykl i wynajęte wyposażenie oraz podpiszemy protokół zdawczo-odbiorczy.</p>
 <p>${SIGN.pl}</p>`,
+    uk: v => `<p>${HELLO.uk}</p>
+<p>дякуємо за довіру та бронювання № <strong>${v.booking_number}</strong> у MOTO GO 24.</p>
+<p>Ваше бронювання успішно прийнято й оплачено.</p>
+<p>Повний перелік заброньованих послуг і спорядження знайдете в доданому договорі оренди та рахунку-проформі.</p>
+${v.door_codes_block || ''}
+<h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Інформація щодо отримання</h3>
+<p>Щоб видача пройшла швидко, підготуйте, будь ласка:</p>
+<ul><li>чинний документ, що посвідчує особу (той, який ви вказали у формі бронювання),</li><li>чинне посвідчення водія.</li></ul>
+<p>На місці разом перевіримо документи, передамо мотоцикл і орендоване спорядження та підпишемо акт приймання-передачі.</p>
+<p>${SIGN.uk}</p>`,
   },
 
   // -------- booking_completed (poděkování + slevový kód) --------
@@ -464,6 +515,13 @@ ${v.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:1
 <p>W załączeniu znajdziesz fakturę końcową za Twoją rezerwację.</p>
 <p>Czekamy na kolejną przygodę razem!</p>
 <p>Pozdrawiamy,<br>${SIGN.pl}</p>`,
+    uk: v => `<p>${HELLO.uk}</p>
+<p>дякуємо, що обрали MOTO GO 24.</p>
+<p>Ваш відгук для нас дуже важливий — залиште його на <a href="${v.google_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Google</a>, <a href="${v.facebook_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Facebook</a> або <a href="${v.instagram_review_url || '#'}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Instagram</a>.</p>
+${v.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">На знак подяки додаємо <strong>знижковий код на 200 CZK</strong> для вашого наступного бронювання: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${v.discount_code}</strong></p></div>` : ''}
+<p>У вкладенні знайдете остаточний рахунок за ваше бронювання.</p>
+<p>Чекаємо на наступну пригоду разом!</p>
+<p>З повагою,<br>${SIGN.uk}</p>`,
   },
 
   // -------- booking_modified (s diff tabulkou per-jazyk) --------
@@ -475,6 +533,7 @@ ${v.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:1
     es: v => renderModifiedBody('es', v),
     fr: v => renderModifiedBody('fr', v),
     pl: v => renderModifiedBody('pl', v),
+    uk: v => renderModifiedBody('uk', v),
   },
 
   // -------- booking_abandoned (web nedokončená rezervace, jen platba chybí) --------
@@ -535,6 +594,14 @@ ${v.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${v.res
 <p style="color:#dc2626;font-weight:700;font-style:italic">Uwaga: link jest ważny 4 godziny. Po tym czasie motocykl wraca do dostępnej puli.</p>
 <p>Czekamy na Ciebie.</p>
 <p>${SIGN.pl}</p>`,
+    uk: v => `<p>${HELLO.uk}</p>
+<p>дякуємо за інтерес до нашого прокату мотоциклів.</p>
+<p>Схоже, що бронювання № <strong>${v.booking_number}</strong> ви не завершили.</p>
+<p>Щоб його завершити, натисніть посилання нижче:</p>
+${v.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${v.resume_link}" style="background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px;display:inline-block">Завершити бронювання</a></div>` : ''}
+<p style="color:#dc2626;font-weight:700;font-style:italic">Увага: посилання дійсне 4 години. Після цього мотоцикл повертається у вільний доступ.</p>
+<p>Чекаємо на вас.</p>
+<p>${SIGN.uk}</p>`,
   },
 
   // -------- booking_abandoned_full (chybí platba i doklady) --------
@@ -546,6 +613,7 @@ ${v.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${v.res
     es: v => renderAbandonedFullBody('es', v),
     fr: v => renderAbandonedFullBody('fr', v),
     pl: v => renderAbandonedFullBody('pl', v),
+    uk: v => renderAbandonedFullBody('uk', v),
   },
 
   // -------- booking_missing_docs (paid, chybí doklady) --------
@@ -557,6 +625,7 @@ ${v.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${v.res
     es: v => renderMissingDocsBody('es', v),
     fr: v => renderMissingDocsBody('fr', v),
     pl: v => renderMissingDocsBody('pl', v),
+    uk: v => renderMissingDocsBody('uk', v),
   },
 
   // -------- voucher_purchased (dárkový poukaz) --------
@@ -568,6 +637,7 @@ ${v.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${v.res
     es: v => renderVoucherBody('es', v),
     fr: v => renderVoucherBody('fr', v),
     pl: v => renderVoucherBody('pl', v),
+    uk: v => renderVoucherBody('uk', v),
   },
 
   // -------- sos_incident (SOS hlášení) --------
@@ -607,6 +677,11 @@ ${v.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${v.res
 <p><strong>Przepraszamy za niedogodności — już jedziemy.</strong></p>
 <p>Nasz zespół skontaktuje się w ciągu kilku minut. Jeśli potrzebujesz natychmiastowej pomocy, zadzwoń pod <a href="tel:+420774256271" style="color:#2563eb;font-weight:700">+420 774 256 271</a>.</p>
 <p>${SIGN.pl}</p>`,
+    uk: v => `<p>${HELLO.uk}</p>
+<p>ми отримали ваш сигнал SOS до бронювання № <strong>${v.booking_number}</strong>.</p>
+<p><strong>Перепрошуємо за незручності — ми вже їдемо.</strong></p>
+<p>Наша команда зв’яжеться з вами за кілька хвилин. Якщо потрібна негайна допомога, телефонуйте <a href="tel:+420774256271" style="color:#2563eb;font-weight:700">+420 774 256 271</a>.</p>
+<p>${SIGN.uk}</p>`,
   },
 
   // -------- door_codes (přístupové kódy) --------
@@ -653,6 +728,12 @@ ${v.door_codes_block || `<p style="color:#dc2626">Kody zostaną udostępnione po
 <p>Znajdziesz je też w aplikacji MOTO GO 24 w szczegółach rezerwacji i w Wiadomościach.</p>
 <p>Do zobaczenia.</p>
 <p>${SIGN.pl}</p>`,
+    uk: v => `<p>${HELLO.uk}</p>
+<p>коди доступу до бронювання № <strong>${v.booking_number}</strong> уже готові.</p>
+${v.door_codes_block || `<p style="color:#dc2626">Коди буде видано після перевірки документів.</p>`}
+<p>Ви знайдете їх також у застосунку MOTO GO 24 — у деталях бронювання та в Повідомленнях.</p>
+<p>До зустрічі.</p>
+<p>${SIGN.uk}</p>`,
   },
 
   // -------- shop_order_confirmed (e-shop platba přijata) --------
@@ -664,6 +745,7 @@ ${v.door_codes_block || `<p style="color:#dc2626">Kody zostaną udostępnione po
     es: v => renderShopConfirmedBody('es', v),
     fr: v => renderShopConfirmedBody('fr', v),
     pl: v => renderShopConfirmedBody('pl', v),
+    uk: v => renderShopConfirmedBody('uk', v),
   },
 
   // -------- shop_order_shipped (e-shop odesláno + KF) --------
@@ -675,52 +757,59 @@ ${v.door_codes_block || `<p style="color:#dc2626">Kody zostaną udostępnione po
     es: v => renderShopShippedBody('es', v),
     fr: v => renderShopShippedBody('fr', v),
     pl: v => renderShopShippedBody('pl', v),
+    uk: v => renderShopShippedBody('uk', v),
   },
 
   // -------- booking_cancelled (storno) --------
   booking_cancelled: {
     cs: v => `<p>${HELLO.cs}</p>
 <p>vaše rezervace č. <strong>${v.booking_number}</strong> motocyklu byla úspěšně stornována.</p>
-${v.refund_amount && Number(v.refund_amount) > 0 ? `<p>Refund <strong>${v.refund_amount} Kč</strong> (${v.refund_percent || 0} %) byl zpracován a vrácen na původní platební kartu — peníze obvykle dorazí do 5–7 pracovních dnů. V příloze najdete dobropis.</p>` : '<p>Dle storno podmínek nárok na vrácení částky bohužel nevzniká.</p>'}
+${refundIsPositive(v.refund_amount) ? `<p>Refund <strong>${v.refund_amount} Kč</strong> (${v.refund_percent || 0} %) byl zpracován a vrácen na původní platební kartu — peníze obvykle dorazí do 5–7 pracovních dnů. V příloze najdete dobropis.</p>` : '<p>Dle storno podmínek nárok na vrácení částky bohužel nevzniká.</p>'}
 <p>${v.cancellation_reason ? `<strong>Důvod:</strong> ${v.cancellation_reason}</p><p>` : ''}Pokud je to omyl nebo si rezervaci chcete obnovit, kontaktujte nás na <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Děkujeme za pochopení.</p>
 <p>${SIGN.cs}</p>`,
     en: v => `<p>${HELLO.en}</p>
 <p>your booking <strong>#${v.booking_number}</strong> has been cancelled.</p>
-${v.refund_amount && Number(v.refund_amount) > 0 ? `<p>A refund of <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) has been processed back to your original payment card — funds typically arrive within 5–7 business days. The credit note is attached.</p>` : '<p>According to our cancellation policy, no refund is due.</p>'}
+${refundIsPositive(v.refund_amount) ? `<p>A refund of <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) has been processed back to your original payment card — funds typically arrive within 5–7 business days. The credit note is attached.</p>` : '<p>According to our cancellation policy, no refund is due.</p>'}
 <p>${v.cancellation_reason ? `<strong>Reason:</strong> ${v.cancellation_reason}</p><p>` : ''}If this was a mistake or you wish to restore your booking, contact us at <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Thank you for understanding.</p>
 <p>${SIGN.en}</p>`,
     de: v => `<p>${HELLO.de}</p>
 <p>Ihre Buchung Nr. <strong>${v.booking_number}</strong> wurde storniert.</p>
-${v.refund_amount && Number(v.refund_amount) > 0 ? `<p>Eine Rückerstattung von <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) wurde auf Ihre ursprüngliche Zahlungskarte veranlasst — der Betrag erscheint in der Regel innerhalb von 5–7 Werktagen. Die Gutschrift finden Sie im Anhang.</p>` : '<p>Gemäß unseren Stornobedingungen besteht kein Anspruch auf Rückerstattung.</p>'}
+${refundIsPositive(v.refund_amount) ? `<p>Eine Rückerstattung von <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) wurde auf Ihre ursprüngliche Zahlungskarte veranlasst — der Betrag erscheint in der Regel innerhalb von 5–7 Werktagen. Die Gutschrift finden Sie im Anhang.</p>` : '<p>Gemäß unseren Stornobedingungen besteht kein Anspruch auf Rückerstattung.</p>'}
 <p>${v.cancellation_reason ? `<strong>Grund:</strong> ${v.cancellation_reason}</p><p>` : ''}War das ein Versehen oder möchten Sie die Buchung wiederherstellen, kontaktieren Sie uns unter <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Danke für Ihr Verständnis.</p>
 <p>${SIGN.de}</p>`,
     nl: v => `<p>${HELLO.nl}</p>
 <p>je boeking nr. <strong>${v.booking_number}</strong> is geannuleerd.</p>
-${v.refund_amount && Number(v.refund_amount) > 0 ? `<p>Een terugbetaling van <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) is teruggeboekt op je oorspronkelijke betaalkaart — het bedrag verschijnt doorgaans binnen 5–7 werkdagen. De creditnota vind je in de bijlage.</p>` : '<p>Volgens ons annuleringsbeleid is geen terugbetaling van toepassing.</p>'}
+${refundIsPositive(v.refund_amount) ? `<p>Een terugbetaling van <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) is teruggeboekt op je oorspronkelijke betaalkaart — het bedrag verschijnt doorgaans binnen 5–7 werkdagen. De creditnota vind je in de bijlage.</p>` : '<p>Volgens ons annuleringsbeleid is geen terugbetaling van toepassing.</p>'}
 <p>${v.cancellation_reason ? `<strong>Reden:</strong> ${v.cancellation_reason}</p><p>` : ''}Was dit een vergissing of wil je je boeking herstellen, neem contact op via <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Bedankt voor je begrip.</p>
 <p>${SIGN.nl}</p>`,
     es: v => `<p>${HELLO.es}</p>
 <p>tu reserva nº <strong>${v.booking_number}</strong> ha sido cancelada.</p>
-${v.refund_amount && Number(v.refund_amount) > 0 ? `<p>Se ha procesado un reembolso de <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) a tu tarjeta original — el importe suele llegar en 5–7 días hábiles. La nota de crédito está adjunta.</p>` : '<p>Según nuestra política de cancelación, no procede reembolso.</p>'}
+${refundIsPositive(v.refund_amount) ? `<p>Se ha procesado un reembolso de <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) a tu tarjeta original — el importe suele llegar en 5–7 días hábiles. La nota de crédito está adjunta.</p>` : '<p>Según nuestra política de cancelación, no procede reembolso.</p>'}
 <p>${v.cancellation_reason ? `<strong>Motivo:</strong> ${v.cancellation_reason}</p><p>` : ''}Si fue un error o deseas restaurar tu reserva, contáctanos en <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Gracias por tu comprensión.</p>
 <p>${SIGN.es}</p>`,
     fr: v => `<p>${HELLO.fr}</p>
 <p>votre réservation n° <strong>${v.booking_number}</strong> a été annulée.</p>
-${v.refund_amount && Number(v.refund_amount) > 0 ? `<p>Un remboursement de <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) a été émis sur votre carte d'origine — la somme arrive généralement sous 5 à 7 jours ouvrés. L'avoir est joint.</p>` : '<p>Selon nos conditions d\'annulation, aucun remboursement n\'est applicable.</p>'}
+${refundIsPositive(v.refund_amount) ? `<p>Un remboursement de <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) a été émis sur votre carte d'origine — la somme arrive généralement sous 5 à 7 jours ouvrés. L'avoir est joint.</p>` : '<p>Selon nos conditions d\'annulation, aucun remboursement n\'est applicable.</p>'}
 <p>${v.cancellation_reason ? `<strong>Motif :</strong> ${v.cancellation_reason}</p><p>` : ''}En cas d'erreur ou si vous souhaitez rétablir la réservation, contactez-nous à <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Merci pour votre compréhension.</p>
 <p>${SIGN.fr}</p>`,
     pl: v => `<p>${HELLO.pl}</p>
 <p>Twoja rezerwacja nr <strong>${v.booking_number}</strong> została anulowana.</p>
-${v.refund_amount && Number(v.refund_amount) > 0 ? `<p>Zwrot w wysokości <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) został przekazany na pierwotną kartę płatniczą — środki zwykle pojawiają się w ciągu 5–7 dni roboczych. Notę kredytową znajdziesz w załączniku.</p>` : '<p>Zgodnie z polityką anulowania nie przysługuje zwrot.</p>'}
+${refundIsPositive(v.refund_amount) ? `<p>Zwrot w wysokości <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) został przekazany na pierwotną kartę płatniczą — środki zwykle pojawiają się w ciągu 5–7 dni roboczych. Notę kredytową znajdziesz w załączniku.</p>` : '<p>Zgodnie z polityką anulowania nie przysługuje zwrot.</p>'}
 <p>${v.cancellation_reason ? `<strong>Powód:</strong> ${v.cancellation_reason}</p><p>` : ''}Jeśli to pomyłka lub chcesz przywrócić rezerwację, napisz na <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Dziękujemy za zrozumienie.</p>
 <p>${SIGN.pl}</p>`,
+    uk: v => `<p>${HELLO.uk}</p>
+<p>ваше бронювання № <strong>${v.booking_number}</strong> скасовано.</p>
+${refundIsPositive(v.refund_amount) ? `<p>Повернення <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) оброблено на вашу початкову платіжну картку — кошти зазвичай надходять протягом 5–7 робочих днів. Кредит-ноту знайдете у вкладенні.</p>` : '<p>Згідно з умовами скасування повернення коштів не передбачено.</p>'}
+<p>${v.cancellation_reason ? `<strong>Причина:</strong> ${v.cancellation_reason}</p><p>` : ''}Якщо це помилка або ви хочете відновити бронювання, напишіть на <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
+<p>Дякуємо за розуміння.</p>
+<p>${SIGN.uk}</p>`,
   },
 }
 
@@ -766,6 +855,11 @@ function renderAbandonedFullBody(lang: Lang, v: Vars): string {
           backText: 'Wróć do rezerwacji i dokończ obie rzeczy — wszystkie dane są zapisane.',
           warn: 'Bez płatności i dokumentów system nie wyda kodu dostępu. Termin możemy utrzymać tylko przez ograniczony czas.',
           payCta: 'Przejdź do płatności', docsCta: 'Prześlij dokumenty' },
+    uk: { intro: `бачимо, що ви почали бронювання № <strong>${v.booking_number}</strong> мотоцикла <strong>${v.motorcycle}</strong> на <strong>${v.start_date} – ${v.end_date}</strong>, але не завершили його. Бракує двох речей:`,
+          needs: ['<strong>Оплатити</strong> через захищений шлюз Stripe', '<strong>Надіслати документи</strong> (посвідчення особи + права) — сканування Mindee OCR з телефона триває 30 секунд'],
+          backText: 'Поверніться до бронювання й завершіть обидва кроки — усі дані збережено.',
+          warn: 'Без оплати та документів система не видасть код доступу. Термін можемо утримувати лише обмежений час.',
+          payCta: 'Перейти до оплати', docsCta: 'Надіслати документи' },
   }
   const t = T[lang]
   return `<p>${HELLO[lang]}</p>
@@ -804,6 +898,9 @@ function renderMissingDocsBody(lang: Lang, v: Vars): string {
     pl: { paid: `Twoja rezerwacja nr <strong>${v.booking_number}</strong> motocykla <strong>${v.motorcycle}</strong> na <strong>${v.start_date} – ${v.end_date}</strong> jest opłacona — dziękujemy!`,
           ask: 'Aby zwolnić <strong>kod dostępu do motocykla</strong>, potrzebujemy jeszcze skanu dokumentów (dowód/paszport + prawo jazdy). Skan Mindee OCR z telefonu zajmie 30 sekund.',
           cta: 'Prześlij dokumenty', warn: 'Bez przesłanych dokumentów system nie zwolni kodów — szkoda płacić za coś, czego nie można odebrać.' },
+    uk: { paid: `Ваше бронювання № <strong>${v.booking_number}</strong> мотоцикла <strong>${v.motorcycle}</strong> на <strong>${v.start_date} – ${v.end_date}</strong> оплачено — дякуємо!`,
+          ask: 'Щоб видати <strong>код доступу до мотоцикла</strong>, нам ще потрібне сканування документів (посвідчення особи/паспорт + права). Сканування Mindee OCR з телефона займе 30 секунд.',
+          cta: 'Надіслати документи', warn: 'Без надісланих документів система коди не видасть — шкода платити за те, що не можна забрати.' },
   }
   const t = T[lang]
   return `<p>${HELLO[lang]}</p>
@@ -886,6 +983,16 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
                   'Vouchery można łączyć i jednocześnie wymieniać kilka kodów. Voucher trzeba wykorzystać w całości w ramach jednej rezerwacji.',
                   'Polecamy rezerwować z wyprzedzeniem, zwłaszcza w wysokim sezonie.'],
           close: 'Dziękujemy za zaufanie i życzymy obdarowanemu wspaniałych wrażeń!' },
+    uk: { intro: 'дякуємо, що обрали MOTO GO 24 як подарунок.',
+          received: `Ми отримали замовлення № <strong>${v.order_number}</strong>, оплату зараховано.`,
+          attached: ['подарунковий сертифікат,', 'підтвердження купівлі сертифіката.'],
+          printed: 'Якщо ви замовили друковану версію, ми її готуємо. Найближчими днями чекайте на неї у поштовій скриньці.',
+          usageH: 'Як скористатися сертифікатом',
+          usage: ['Сертифікат дійсний 3 роки від дати видачі й діє на оренду будь-якого мотоцикла. Обдарований бронює термін заздалегідь через форму на <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.',
+                  'Під час бронювання введіть унікальний код із сертифіката в поле «Знижковий код». Суму буде автоматично віднято від ціни. Якщо ціна перевищує номінал сертифіката, різницю можна доплатити онлайн.',
+                  'Сертифікати можна поєднувати й використати кілька кодів одночасно. Сертифікат треба використати повністю в межах одного бронювання.',
+                  'Радимо бронювати заздалегідь, особливо у високий сезон.'],
+          close: 'Дякуємо за довіру й бажаємо обдарованому чудових вражень!' },
   }
   const t = T[lang]
 
@@ -893,11 +1000,11 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
   // (formát z webhook-receiver/payment-confirmers.ts confirmShopPayment).
   const codeLabel: Record<Lang, string> = {
     cs: 'Kód poukazu', en: 'Voucher code', de: 'Gutscheincode', nl: 'Bon code',
-    es: 'Código', fr: 'Code', pl: 'Kod vouchera',
+    es: 'Código', fr: 'Code', pl: 'Kod vouchera', uk: 'Код сертифіката',
   }
   const validUntilLabel: Record<Lang, string> = {
     cs: 'Platnost do', en: 'Valid until', de: 'Gültig bis', nl: 'Geldig tot',
-    es: 'Válido hasta', fr: 'Valable jusqu\'au', pl: 'Ważny do',
+    es: 'Válido hasta', fr: 'Valable jusqu\'au', pl: 'Ważny do', uk: 'Дійсний до',
   }
   const codesRaw = (v.voucher_code || '').trim()
   let codesBlock = ''
@@ -968,6 +1075,11 @@ function renderShopConfirmedBody(lang: Lang, v: Vars): string {
           attached: 'W załączniku znajdziesz <strong>potwierdzenie wpłaty</strong>.',
           followup: 'Po wysyłce otrzymasz e-mail z numerem przesyłki i fakturą końcową.',
           help: 'W razie pytań jesteśmy do dyspozycji.', closing: 'Pozdrawiamy,' },
+    uk: { intro: 'дякуємо за замовлення в магазині MOTO GO 24. Вашу оплату прийнято.',
+          orderNum: 'Номер замовлення:', total: 'Разом:', ship: 'Доставка:',
+          attached: 'У вкладенні знайдете <strong>підтвердження оплати</strong>.',
+          followup: 'Після відправлення ви отримаєте e-mail із номером посилки та остаточним рахунком.',
+          help: 'Якщо виникнуть питання, ми до ваших послуг.', closing: 'З повагою,' },
   }
   const t = T[lang]
   return `<p>${HELLO[lang]}</p>
@@ -1013,6 +1125,10 @@ function renderShopShippedBody(lang: Lang, v: Vars): string {
           trackNum: 'Numer przesyłki:', trackUrl: 'Śledzenie:',
           attached: 'W załączniku znajdziesz <strong>fakturę końcową</strong> do tego zamówienia.',
           thanks: 'Dziękujemy za zakupy w MOTO GO 24 — mamy nadzieję, że będziesz zadowolony.', closing: 'Pozdrawiamy,' },
+    uk: { intro: `Ваше замовлення № <strong>${v.order_number}</strong> відправлено й невдовзі надійде.`,
+          trackNum: 'Номер посилки:', trackUrl: 'Відстеження:',
+          attached: 'У вкладенні знайдете <strong>остаточний рахунок</strong> до цього замовлення.',
+          thanks: 'Дякуємо за покупку в MOTO GO 24 — сподіваємося, ви будете задоволені.', closing: 'З повагою,' },
   }
   const t = T[lang]
   return `<p>${HELLO[lang]}</p>
@@ -1036,6 +1152,7 @@ const METHOD_LABELS: Record<Lang, { branch: string; delivery: string }> = {
   es: { branch: 'En la sucursal', delivery: 'Entrega a domicilio' },
   fr: { branch: 'En agence', delivery: "Livraison à l'adresse" },
   pl: { branch: 'W oddziale', delivery: 'Dostawa na adres' },
+  uk: { branch: 'У філії', delivery: 'Доставка на адресу' },
 }
 
 function renderModifiedBody(lang: Lang, v: Vars): string {
@@ -1057,6 +1174,7 @@ function renderModifiedBody(lang: Lang, v: Vars): string {
     es: `tu reserva nº <strong>${v.booking_number}</strong> ha sido actualizada. A continuación el resumen completo de los cambios — los valores originales aparecen tachados y los nuevos resaltados en verde.`,
     fr: `votre réservation n° <strong>${v.booking_number}</strong> a été modifiée. Ci-dessous le récapitulatif complet — les valeurs originales sont barrées, les nouvelles surlignées en vert.`,
     pl: `Twoja rezerwacja nr <strong>${v.booking_number}</strong> została zmieniona. Poniżej pełne podsumowanie zmian — pierwotne wartości są przekreślone, nowe wyróżnione na zielono.`,
+    uk: `Ваше бронювання № <strong>${v.booking_number}</strong> змінено. Нижче повний огляд змін — початкові значення закреслені, нові виділені зеленим.`,
   }
   // Vratka: cíl peněz dle způsobu platby — Stripe → zpět na kartu; bez Stripe
   // platby (QR/převod/hotově; v.refund_manual='true' nastavuje index.ts) →
@@ -1071,6 +1189,7 @@ function renderModifiedBody(lang: Lang, v: Vars): string {
         es: 'El importe se devolverá mediante transferencia bancaria a tu cuenta en un plazo de 14 días.',
         fr: 'La somme sera remboursée par virement sur votre compte sous 14 jours.',
         pl: 'Kwotę zwrócimy przelewem na Twoje konto w ciągu 14 dni.',
+        uk: 'Суму повернемо банківським переказом на ваш рахунок протягом 14 днів.',
       }
     : {
         cs: 'Refund jde zpět na původní platební kartu.',
@@ -1080,6 +1199,7 @@ function renderModifiedBody(lang: Lang, v: Vars): string {
         es: 'El importe vuelve a tu tarjeta original.',
         fr: 'La somme retourne sur votre carte d\'origine.',
         pl: 'Środki wracają na pierwotną kartę.',
+        uk: 'Кошти повертаються на початкову картку.',
       }
   const priceMsgs: Record<Lang, { plus: string; minus: string }> = {
     cs: { plus: `K úpravě se vztahuje <strong>doplatek ${v.price_difference}</strong>. Po platbě dorazí doklad k přijaté platbě.`,                  minus: `K úpravě se vztahuje <strong>vrácení ${v.price_difference}</strong> formou dobropisu, který najdete v příloze. ${refundTail.cs}` },
@@ -1089,6 +1209,7 @@ function renderModifiedBody(lang: Lang, v: Vars): string {
     es: { plus: `Se aplica un pago adicional de <strong>${v.price_difference}</strong>. El comprobante llegará tras el pago.`,             minus: `Se aplica un reembolso de <strong>${v.price_difference}</strong> mediante nota de crédito (adjunta) — ${refundTail.es}` },
     fr: { plus: `Un supplément de <strong>${v.price_difference}</strong> s'applique. Le justificatif suivra après paiement.`,              minus: `Un remboursement de <strong>${v.price_difference}</strong> est émis sous forme d'avoir (joint) — ${refundTail.fr}` },
     pl: { plus: `Wymagana jest dopłata <strong>${v.price_difference}</strong>. Potwierdzenie płatności nadejdzie po płatności.`,                 minus: `Zwrot <strong>${v.price_difference}</strong> w formie noty kredytowej (załącznik) — ${refundTail.pl}` },
+    uk: { plus: `Потрібна доплата <strong>${v.price_difference}</strong>. Підтвердження оплати надійде після платежу.`,                          minus: `Повернення <strong>${v.price_difference}</strong> у формі кредит-ноти (у вкладенні) — ${refundTail.uk}` },
   }
   const attachInfo: Record<Lang, string> = {
     cs: `V příloze najdete <strong>aktualizovanou nájemní smlouvu, VOP</strong> a všechny <strong>nové doklady</strong> (zálohová faktura, doklad o platbě, případně dobropis).`,
@@ -1098,6 +1219,7 @@ function renderModifiedBody(lang: Lang, v: Vars): string {
     es: `Adjuntamos el <strong>contrato de alquiler actualizado, condiciones</strong> y todos los <strong>nuevos documentos</strong> (factura proforma, recibo de pago o nota de crédito).`,
     fr: `Vous trouverez en pièce jointe le <strong>contrat de location mis à jour, CGV</strong> et tous les <strong>nouveaux justificatifs</strong> (facture proforma, reçu, ou avoir).`,
     pl: `W załączniku znajdziesz <strong>zaktualizowaną umowę najmu, regulamin</strong> i wszystkie <strong>nowe dokumenty</strong> (faktura proforma, dowód wpłaty lub nota kredytowa).`,
+    uk: `У вкладенні знайдете <strong>оновлений договір оренди, умови</strong> та всі <strong>нові документи</strong> (рахунок-проформа, підтвердження оплати або кредит-нота).`,
   }
   const verify: Record<Lang, string> = {
     cs: `Pokud změnu neiniciovali jste vy a jde o nesrovnalost, ihned nás kontaktujte na`,
@@ -1107,10 +1229,11 @@ function renderModifiedBody(lang: Lang, v: Vars): string {
     es: `Si no iniciaste este cambio y parece sospechoso, contáctanos de inmediato en`,
     fr: `Si vous n'êtes pas à l'origine de ce changement et qu'il semble suspect, contactez-nous immédiatement à`,
     pl: `Jeśli to nie Ty zainicjowałeś tę zmianę i wygląda podejrzanie, skontaktuj się z nami natychmiast pod`,
+    uk: `Якщо цю зміну ініціювали не ви й вона виглядає підозріло, негайно зв’яжіться з нами:`,
   }
   const closing: Record<Lang, string> = {
     cs: 'S pozdravem,', en: 'Best regards,', de: 'Mit freundlichen Grüßen,',
-    nl: 'Met vriendelijke groet,', es: 'Saludos cordiales,', fr: 'Cordialement,', pl: 'Pozdrawiamy,',
+    nl: 'Met vriendelijke groet,', es: 'Saludos cordiales,', fr: 'Cordialement,', pl: 'Pozdrawiamy,', uk: 'З повагою,',
   }
 
   let priceMessage = ''
@@ -1174,6 +1297,7 @@ export function helpCardLabels(lang: Lang): { title: string; body: string; cta: 
     es: { title: '¿Tienes preguntas?',    body: 'Si tienes alguna pregunta, estamos para ayudarte.',             cta: 'info@motogo24.cz' },
     fr: { title: 'Une question ?',        body: 'Pour toute question, nous sommes à votre disposition.',         cta: 'info@motogo24.cz' },
     pl: { title: 'Masz pytanie?',         body: 'W razie pytań jesteśmy do dyspozycji.',                         cta: 'info@motogo24.cz' },
+    uk: { title: 'Маєте питання?',        body: 'Якщо виникнуть питання, ми до ваших послуг.',                   cta: 'info@motogo24.cz' },
   }
   return map[lang] || map.cs
 }
@@ -1187,13 +1311,13 @@ export function helpCardLabels(lang: Lang): { title: string; body: string; cta: 
 /** Per-lang label pro typ faktury (zálohová / konečná / doklad / e-shop). */
 export function invoiceTypeLabel(invType: string, lang: Lang): string {
   const map: Record<string, Record<Lang, string>> = {
-    advance:         { cs: 'Zálohová faktura', en: 'Proforma invoice',  de: 'Vorausrechnung', nl: 'Proforma factuur', es: 'Factura proforma',  fr: 'Facture proforma',   pl: 'Faktura proforma' },
-    proforma:        { cs: 'Zálohová faktura', en: 'Proforma invoice',  de: 'Vorausrechnung', nl: 'Proforma factuur', es: 'Factura proforma',  fr: 'Facture proforma',   pl: 'Faktura proforma' },
-    final:           { cs: 'Konečná faktura',  en: 'Final invoice',     de: 'Endrechnung',    nl: 'Eindfactuur',      es: 'Factura final',     fr: 'Facture finale',     pl: 'Faktura końcowa' },
-    issued:          { cs: 'Faktura vydaná',   en: 'Invoice',           de: 'Rechnung',       nl: 'Factuur',          es: 'Factura',           fr: 'Facture',            pl: 'Faktura' },
-    payment_receipt: { cs: 'Doklad o platbě',  en: 'Payment receipt',   de: 'Zahlungsbeleg',  nl: 'Betalingsbewijs',  es: 'Recibo de pago',    fr: 'Reçu de paiement',   pl: 'Potwierdzenie płatności' },
-    shop_final:      { cs: 'Faktura — e-shop', en: 'Invoice — shop',    de: 'Rechnung — Shop',nl: 'Factuur — shop',   es: 'Factura — tienda',  fr: 'Facture — boutique', pl: 'Faktura — sklep' },
-    shop_proforma:   { cs: 'Proforma — e-shop',en: 'Proforma — shop',   de: 'Proforma — Shop',nl: 'Proforma — shop',  es: 'Proforma — tienda', fr: 'Proforma — boutique',pl: 'Proforma — sklep' },
+    advance:         { cs: 'Zálohová faktura', en: 'Proforma invoice',  de: 'Vorausrechnung', nl: 'Proforma factuur', es: 'Factura proforma',  fr: 'Facture proforma',   pl: 'Faktura proforma', uk: 'Рахунок-проформа' },
+    proforma:        { cs: 'Zálohová faktura', en: 'Proforma invoice',  de: 'Vorausrechnung', nl: 'Proforma factuur', es: 'Factura proforma',  fr: 'Facture proforma',   pl: 'Faktura proforma', uk: 'Рахунок-проформа' },
+    final:           { cs: 'Konečná faktura',  en: 'Final invoice',     de: 'Endrechnung',    nl: 'Eindfactuur',      es: 'Factura final',     fr: 'Facture finale',     pl: 'Faktura końcowa', uk: 'Остаточний рахунок' },
+    issued:          { cs: 'Faktura vydaná',   en: 'Invoice',           de: 'Rechnung',       nl: 'Factuur',          es: 'Factura',           fr: 'Facture',            pl: 'Faktura', uk: 'Рахунок' },
+    payment_receipt: { cs: 'Doklad o platbě',  en: 'Payment receipt',   de: 'Zahlungsbeleg',  nl: 'Betalingsbewijs',  es: 'Recibo de pago',    fr: 'Reçu de paiement',   pl: 'Potwierdzenie płatności', uk: 'Підтвердження оплати' },
+    shop_final:      { cs: 'Faktura — e-shop', en: 'Invoice — shop',    de: 'Rechnung — Shop',nl: 'Factuur — shop',   es: 'Factura — tienda',  fr: 'Facture — boutique', pl: 'Faktura — sklep', uk: 'Рахунок — магазин' },
+    shop_proforma:   { cs: 'Proforma — e-shop',en: 'Proforma — shop',   de: 'Proforma — Shop',nl: 'Proforma — shop',  es: 'Proforma — tienda', fr: 'Proforma — boutique',pl: 'Proforma — sklep', uk: 'Проформа — магазин' },
   }
   return map[invType]?.[lang] || map[invType]?.cs || 'Faktura'
 }
@@ -1211,6 +1335,7 @@ export function invoiceEmailSnippets(invType: string, lang: Lang, vars: Vars): {
     es: `${label} nº ${vars.invoice_number} — MOTO GO 24`,
     fr: `${label} n° ${vars.invoice_number} — MOTO GO 24`,
     pl: `${label} nr ${vars.invoice_number} — MOTO GO 24`,
+    uk: `${label} № ${vars.invoice_number} — MOTO GO 24`,
   }
   const INTRO: Record<Lang, string> = {
     cs: `${HELLO.cs}\nzasíláme Vám ${label.toLowerCase()} č. <strong>${vars.invoice_number}</strong>.`,
@@ -1220,6 +1345,7 @@ export function invoiceEmailSnippets(invType: string, lang: Lang, vars: Vars): {
     es: `${HELLO.es}\nadjuntamos tu ${label.toLowerCase()} nº <strong>${vars.invoice_number}</strong>.`,
     fr: `${HELLO.fr}\nveuillez trouver ci-jointe votre ${label.toLowerCase()} n° <strong>${vars.invoice_number}</strong>.`,
     pl: `${HELLO.pl}\nw załączeniu ${label.toLowerCase()} nr <strong>${vars.invoice_number}</strong>.`,
+    uk: `${HELLO.uk}\nу вкладенні ${label.toLowerCase()} № <strong>${vars.invoice_number}</strong>.`,
   }
   const TABLE: Record<Lang, { num: string; issue: string; due: string; vs: string; total: string }> = {
     cs: { num: 'Číslo:',     issue: 'Datum vystavení:', due: 'Splatnost:',     vs: 'VS:',  total: 'Celkem:' },
@@ -1229,6 +1355,7 @@ export function invoiceEmailSnippets(invType: string, lang: Lang, vars: Vars): {
     es: { num: 'Número:',    issue: 'Fecha emisión:',   due: 'Vencimiento:',   vs: 'VS:',  total: 'Total:'  },
     fr: { num: 'Numéro :',   issue: 'Date d\'émission :', due: 'Échéance :',   vs: 'VS :', total: 'Total :' },
     pl: { num: 'Numer:',     issue: 'Data wystawienia:', due: 'Termin:',       vs: 'VS:',  total: 'Razem:'  },
+    uk: { num: 'Номер:',     issue: 'Дата виставлення:', due: 'Термін:',       vs: 'VS:',  total: 'Разом:'  },
   }
   const OUTRO: Record<Lang, string> = {
     cs: 'Faktura je v příloze (PDF / HTML). V případě dotazů se na nás obraťte.',
@@ -1238,6 +1365,7 @@ export function invoiceEmailSnippets(invType: string, lang: Lang, vars: Vars): {
     es: 'La factura está adjunta (PDF / HTML). Para cualquier consulta, contáctanos.',
     fr: 'La facture est en pièce jointe (PDF / HTML). Pour toute question, contactez-nous.',
     pl: 'Faktura jest w załączniku (PDF / HTML). W razie pytań prosimy o kontakt.',
+    uk: 'Рахунок у вкладенні (PDF / HTML). Якщо виникнуть питання, зв’яжіться з нами.',
   }
   const CLOSING: Record<Lang, string> = {
     cs: `S pozdravem,<br>${SIGN.cs}`,
@@ -1247,6 +1375,7 @@ export function invoiceEmailSnippets(invType: string, lang: Lang, vars: Vars): {
     es: `Saludos cordiales,<br>${SIGN.es}`,
     fr: `Cordialement,<br>${SIGN.fr}`,
     pl: `Pozdrawiamy,<br>${SIGN.pl}`,
+    uk: `З повагою,<br>${SIGN.uk}`,
   }
   return {
     subject: SUBJ[lang],

@@ -30,7 +30,7 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 
 // ── i18n: jazyk + doména zákazníka (cs → .cz, ostatní → .com) ───────────────
-const SUPPORTED_LANGS = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl']
+const SUPPORTED_LANGS = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl', 'uk']
 function normLang(l: unknown): string {
   const s = String(l || '').toLowerCase().slice(0, 2)
   return SUPPORTED_LANGS.includes(s) ? s : 'cs'
@@ -47,6 +47,7 @@ const OTP_L: Record<string, { subject: string; title: string; intro: string; hou
   es: { subject: 'Restablecer contraseña — código de verificación', title: 'Restablecer contraseña', intro: 'Para restablecer tu contraseña, introduce el siguiente código de verificación en el sitio web de MotoGo24. Luego podrás establecer una nueva contraseña. El código es válido durante', hour: '1 hora', ignore: 'Si no solicitaste restablecer la contraseña, ignora este correo. Tu contraseña no cambiará.', team: 'El equipo de MotoGo24', auto: 'Este mensaje se generó automáticamente.' },
   fr: { subject: 'Réinitialisation du mot de passe — code de vérification', title: 'Réinitialisation du mot de passe', intro: 'Pour réinitialiser votre mot de passe, saisissez le code de vérification suivant sur le site MotoGo24. Vous pourrez ensuite définir un nouveau mot de passe. Le code est valable', hour: '1 heure', ignore: "Si vous n'avez pas demandé de réinitialisation, ignorez cet e-mail. Votre mot de passe restera inchangé.", team: "L'équipe MotoGo24", auto: 'Ce message a été généré automatiquement.' },
   pl: { subject: 'Resetowanie hasła — kod weryfikacyjny', title: 'Resetowanie hasła', intro: 'Aby zresetować hasło, wpisz poniższy kod weryfikacyjny na stronie MotoGo24. Następnie od razu ustawisz nowe hasło. Kod jest ważny', hour: '1 godzinę', ignore: 'Jeśli nie prosiłeś o zresetowanie hasła, zignoruj tę wiadomość. Twoje hasło pozostanie bez zmian.', team: 'Zespół MotoGo24', auto: 'Ta wiadomość została wygenerowana automatycznie.' },
+  uk: { subject: 'Скидання пароля — код підтвердження', title: 'Скидання пароля', intro: 'Щоб скинути пароль, введіть наведений нижче код підтвердження на сайті MotoGo24. Одразу після цього ви встановите новий пароль. Код дійсний', hour: '1 годину', ignore: 'Якщо ви не просили скинути пароль, просто проігноруйте цей лист. Ваш пароль залишиться без змін.', team: 'Команда MotoGo24', auto: 'Цей лист згенеровано автоматично.' },
 }
 
 function jsonResponse(payload: unknown, status = 200) {
