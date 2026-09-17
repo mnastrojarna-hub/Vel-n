@@ -297,17 +297,8 @@ async function createCreditNoteForExistingRefund(
     const originalInvoiceId = origInvs?.[0]?.id || null
     const originalInvoiceNumber = origInvs?.[0]?.number || null
 
-    // Generuj číslo dobropisu (DB-YYYY-NNNN) — automatická řada < 5000 (>= 5000 = ruční řada z Velína)
-    const year = new Date().getFullYear()
-    const { data: lastCN } = await supabase.from('invoices')
-      .select('number').like('number', `DB-${year}-%`).lt('number', `DB-${year}-5000`)
-      .order('number', { ascending: false }).limit(1)
-    let seq = 1
-    if (lastCN?.length) {
-      const m = lastCN[0].number.match(/-(\d+)$/)
-      if (m) seq = parseInt(m[1], 10) + 1
-    }
-    const cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
+    // Číslo dobropisu (DB-YYYY-NNNN) — atomicky, automatická řada < 5000.
+    const cnNumber = await nextDocNumber(supabase, 'DB')
     const issueDate = new Date().toISOString().slice(0, 10)
     const motoModel = (bkRow as any).motorcycles?.model || 'motorky'
     const reasonText = 'Storno rezervace'
@@ -391,6 +382,34 @@ async function createCreditNoteForExistingRefund(
 const FIO_REFUND_TOKEN = Deno.env.get('FIO_PAYMENT_TOKEN') || Deno.env.get('FIO_API_TOKEN') || ''
 const FIO_IMPORT_URL = 'https://fioapi.fio.cz/v1/rest/import/'
 const OPS_EMAIL = 'info@motogo24.cz'
+
+/** Atomicky přidělí další číslo dokladové řady (PREFIX-YYYY-NNNN).
+ *
+ *  Primárně přes RPC `next_document_number` — ta drží row-lock nad
+ *  `document_number_counters`, takže dvě souběžné invokace nikdy nedostanou
+ *  totéž číslo. Dřív se tu skládalo `MAX+1` read-then-write bez zámku; nad
+ *  `invoices.number` je UNIQUE index, takže souběh nekončil duplicitou, ale
+ *  SPADLÝM zápisem — a zákazníkovi doklad prostě nevznikl (viz DB-2026-0001 2×).
+ *
+ *  Fallback na původní MAX+1 zůstává jen pro případ, že RPC selže — ať
+ *  výpadek číselníku nezablokuje fakturaci úplně.
+ */
+async function nextDocNumber(supabase: any, prefix: string): Promise<string> {
+  try {
+    const { data, error } = await supabase.rpc('next_document_number', { p_prefix: prefix })
+    if (!error && typeof data === 'string' && /^[A-Z]{2}-\d{4}-\d{4}$/.test(data)) return data
+    if (error) console.warn(`[doc-number] RPC next_document_number selhala (${error.message}) — fallback MAX+1`)
+  } catch (e) {
+    console.warn('[doc-number] RPC next_document_number nedostupná — fallback MAX+1:', (e as Error).message)
+  }
+  const year = new Date().getFullYear()
+  const { data: last } = await supabase.from('invoices').select('number')
+    .like('number', `${prefix}-${year}-%`).lt('number', `${prefix}-${year}-5000`)
+    .order('number', { ascending: false }).limit(1)
+  let seq = 1
+  if (last?.length) { const m = last[0].number.match(/-(\d+)$/); if (m) seq = parseInt(m[1], 10) + 1 }
+  return `${prefix}-${year}-${String(seq).padStart(4, '0')}`
+}
 
 const xmlEscape = (s: string) =>
   s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c] || c))
@@ -598,19 +617,10 @@ async function manualBookingRefund(
       .eq('booking_id', booking_id).neq('status', 'cancelled')
       .in('type', ['final', 'payment_receipt', 'advance', 'proforma'])
       .order('issue_date', { ascending: false }).limit(1)
-    const year = new Date().getFullYear()
-    const { data: lastCN } = await supabase.from('invoices')
-      .select('number').like('number', `DB-${year}-%`).lt('number', `DB-${year}-5000`)
-      .order('number', { ascending: false }).limit(1)
-    let seq = 1
-    if (lastCN?.length) {
-      const m = lastCN[0].number.match(/-(\d+)$/)
-      if (m) seq = parseInt(m[1], 10) + 1
-    }
-    cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
+    cnNumber = await nextDocNumber(supabase, 'DB')
     const issueDate = new Date().toISOString().slice(0, 10)
 
-    const { data: cnInv } = await supabase.from('invoices').insert({
+    const { data: cnInv, error: manCnErr } = await supabase.from('invoices').insert({
       number: cnNumber,
       type: 'credit_note',
       customer_id: bkFull?.user_id || null,
@@ -633,7 +643,18 @@ async function manualBookingRefund(
       stripe_refund_id: null,
     }).select('id').single()
     cnId = cnInv?.id || null
-    await dlog('manual_credit_note_inserted', cnId ? 'info' : 'error', { credit_note_id: cnId, number: cnNumber, amount: manAmount })
+    await dlog('manual_credit_note_inserted', cnId ? 'info' : 'error',
+      { credit_note_id: cnId, number: cnNumber, amount: manAmount, error: manCnErr?.message || null })
+    if (!cnId) {
+      // Vratka je domluvená, ale doklad k ní nevznikl — bez upozornění by to
+      // nikdo nezjistil, dokud si zákazník neřekne o dobropis.
+      await sendOpsMail(
+        '⚠️ Dobropis k ruční vratce se nevystavil',
+        `<p>Rezervace <strong>${booking_id}</strong>: ruční vratka <strong>${manAmount} Kč</strong>, `
+        + `ale zápis dobropisu <strong>${cnNumber}</strong> selhal: ${manCnErr?.message || 'prázdná odpověď'}.</p>`
+        + '<p>Vystavte dobropis ručně ve Velíně.</p>',
+      )
+    }
 
     if (cnId) {
       await supabase.from('accounting_entries').insert({
@@ -1189,20 +1210,8 @@ Deno.serve(async (req: Request) => {
             cnId = existingCn[0].id
             cnNumber = existingCn[0].number
           } else {
-            // Generate credit note number (DB-YYYY-NNNN) — automatická řada < 5000
-            const year = new Date().getFullYear()
-            const { data: lastCN } = await supabase.from('invoices')
-              .select('number')
-              .like('number', `DB-${year}-%`)
-              .lt('number', `DB-${year}-5000`)
-              .order('number', { ascending: false })
-              .limit(1)
-            let seq = 1
-            if (lastCN?.length) {
-              const m = lastCN[0].number.match(/-(\d+)$/)
-              if (m) seq = parseInt(m[1], 10) + 1
-            }
-            cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
+            // Číslo dobropisu (DB-YYYY-NNNN) — atomicky, automatická řada < 5000.
+            cnNumber = await nextDocNumber(supabase, 'DB')
 
             const issueDate = new Date().toISOString().slice(0, 10)
             const motoModel = (bk as any).motorcycles?.model || 'motorky'
