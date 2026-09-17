@@ -7,11 +7,11 @@ import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../catalog/catalog_provider.dart';
 import '../catalog/widgets/moto_card.dart';
+import '../catalog/widgets/moto_filter_panel.dart';
 import '../loyalty/loyalty_rank_card.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
 import '../routes/routes_provider.dart';
-import 'widgets/home_filter_section.dart';
 import 'widgets/home_header.dart';
 import 'widgets/home_reservations_section.dart';
 
@@ -25,9 +25,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  RangeValues _powerRange = const RangeValues(0, 1); // 0.0–1.0 (× 200 kW)
-  bool _showAvailableToday = false;
-  String _sortOption = 'default';
   final ScrollController _scrollCtrl = ScrollController();
   bool _showScrollToTop = false;
 
@@ -55,25 +52,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  List<dynamic> _sortMotorcycles(List<dynamic> motos) {
-    final list = List.of(motos);
-    switch (_sortOption) {
-      case 'price_asc':
-        list.sort((a, b) => (a.prices?.cheapest ?? 0).compareTo(b.prices?.cheapest ?? 0));
-      case 'price_desc':
-        list.sort((a, b) => (b.prices?.cheapest ?? 0).compareTo(a.prices?.cheapest ?? 0));
-      case 'power_asc':
-        list.sort((a, b) => (a.powerKw ?? 0).compareTo(b.powerKw ?? 0));
-      case 'power_desc':
-        list.sort((a, b) => (b.powerKw ?? 0).compareTo(a.powerKw ?? 0));
-    }
-    return list;
-  }
-
   @override
   Widget build(BuildContext context) {
     final motosAsync = ref.watch(filteredMotorcyclesProvider);
-    final filter = ref.watch(catalogFilterProvider);
     final reservations = ref.watch(reservationsProvider);
 
     // Get active/upcoming reservations — only paid (mirrors apiGetActiveLoan)
@@ -116,23 +97,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: HomeReservationsSection(activeReservations: activeReservations),
               ),
 
-              // ===== FILTER SECTION =====
-              SliverToBoxAdapter(
-                child: HomeFilterSection(
-                  powerRange: _powerRange,
-                  showAvailableToday: _showAvailableToday,
-                  sortOption: _sortOption,
-                  onPowerRangeChanged: (v) => setState(() => _powerRange = v),
-                  onAvailableTodayChanged: (v) => setState(() => _showAvailableToday = v),
-                  onSortChanged: (v) => setState(() => _sortOption = v),
-                  onReset: () {
-                    ref.read(catalogFilterProvider.notifier).state = const CatalogFilter();
-                    setState(() {
-                      _powerRange = const RangeValues(0, 1);
-                      _showAvailableToday = false;
-                      _sortOption = 'default';
-                    });
-                  },
+              // ===== FILTR MOTOREK (sdílený s Rezervovat; tady i s kalendářem) =====
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 20, 16, 0),
+                  child: MotoFilterPanel(showDates: true),
                 ),
               ),
 
@@ -164,7 +133,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // ===== MOTORCYCLE LISTING =====
               motosAsync.when(
                 data: (motos) {
-                  final sorted = _sortMotorcycles(motos);
+                  final sorted =
+                      sortMotorcycles(motos, ref.watch(catalogSortProvider));
                   return SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                     sliver: SliverList(

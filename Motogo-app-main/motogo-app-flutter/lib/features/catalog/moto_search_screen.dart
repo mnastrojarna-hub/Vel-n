@@ -10,7 +10,7 @@ import 'widgets/availability_calendar.dart';
 import 'widgets/date_tabs_section.dart';
 import 'widgets/menu_line.dart';
 import 'widgets/moto_card.dart';
-import 'widgets/search_filters_section.dart';
+import 'widgets/moto_filter_panel.dart';
 import '../../core/date_days.dart';
 
 /// Search screen — 1:1 replica of Capacitor "Vyhledávání" screen.
@@ -207,7 +207,9 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: const SearchFiltersSection(),
+            // Stejný filtr jako na Domů, jen BEZ kalendáře — ten je na téhle
+            // stránce nahoře nad filtrem.
+            child: const MotoFilterPanel(),
           ),
         ),
 
@@ -230,7 +232,10 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
 
         // ===== RESULTS GRID =====
         motosAsync.when(
-          data: (motos) => motos.isEmpty
+          // Řazení řídí sdílený panel filtrů (stejně jako na Domů).
+          data: (all) {
+            final motos = sortMotorcycles(all, ref.watch(catalogSortProvider));
+            return motos.isEmpty
               ? SliverFillRemaining(
                   child: Padding(
                     padding: const EdgeInsets.all(40),
@@ -277,7 +282,8 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
                       childCount: motos.length,
                     ),
                   ),
-                ),
+                );
+          },
           loading: () => const SliverFillRemaining(
             child: Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
           ),
