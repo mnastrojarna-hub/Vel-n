@@ -18,6 +18,7 @@ import 'route_image.dart';
 import 'route_reviews.dart';
 import 'community_submit.dart';
 import 'animated_route_icon.dart';
+import 'collapsing_header.dart';
 import 'routes_quick_links.dart';
 
 /// Řazení seznamu tras.
@@ -58,6 +59,9 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   // Hloubkové vyhledávání — název, popis, města na cestě i body zájmu trasy.
   String _query = '';
   final TextEditingController _searchCtl = TextEditingController();
+  // Vlastní controller seznamu — hlavička se scrollem sbaluje a lupa
+  // v sbalené hlavičce vrací obsah nahoru.
+  final ScrollController _scroll = ScrollController();
   Timer? _searchDebounce;
   final Set<String> _precachedCovers = {}; // covers už poslané do precache
 
@@ -117,8 +121,16 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   void dispose() {
     _searchDebounce?.cancel();
     _searchCtl.dispose();
+    _scroll.dispose();
     _quickOrder.dispose();
     super.dispose();
+  }
+
+  /// Vrátí seznam na začátek (a tím zase rozbalí hlavičku s hledáním).
+  void _scrollToTop() {
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(0,
+        duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
   }
 
   /// Přednačte náhledové fotky prvních tras, ať se v seznamu nezobrazují
@@ -227,23 +239,28 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
         bottom: false,
         child: Stack(
           children: [
-            Column(
-              children: [
-                _header(
-                  context,
-                  dataAsync.valueOrNull?.routes.length,
-                  ref.watch(catalogPoisProvider).valueOrNull?.length,
-                ),
-                Expanded(
-                  child: dataAsync.when(
-                    data: (data) => _body(context, data, lang),
-                    loading: () => const Center(
-                      child: CircularProgressIndicator(color: MotoGoColors.greenDark),
+            // Hlavička je součástí scrollovaného obsahu (sbalí se při
+            // scrollu); ve stavech bez seznamu (načítání, chyba) se vykreslí
+            // staticky rozbalená.
+            dataAsync.when(
+              data: (data) => _body(context, data, lang),
+              loading: () => Column(
+                children: [
+                  _headerDelegate(context, null, null).expanded(),
+                  const Expanded(
+                    child: Center(
+                      child: CircularProgressIndicator(
+                          color: MotoGoColors.greenDark),
                     ),
-                    error: (e, _) => _errorState(context, e),
                   ),
-                ),
-              ],
+                ],
+              ),
+              error: (e, _) => Column(
+                children: [
+                  _headerDelegate(context, null, null).expanded(),
+                  Expanded(child: _errorState(context, e)),
+                ],
+              ),
             ),
             // „+" — navrhnout trasu / bod zájmu (komunitní obsah)
             Positioned(
@@ -279,7 +296,9 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     return buf.toString();
   }
 
-  Widget _header(BuildContext context, int? routeCount, int? poiCount) {
+  /// Sbalitelná hlavička (nadpis + statistika + hledání) — sdílená s Místy.
+  CollapsingSearchHeader _headerDelegate(
+      BuildContext context, int? routeCount, int? poiCount) {
     // Dynamický, poutavější podtitulek — počet tras i zajímavých míst, ať čísla
     // zákazníka upoutají (např. „Přes 1 370 tras a 37 000 zajímavých míst").
     final subtitle = (routeCount != null && routeCount > 0)
@@ -287,111 +306,88 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
             .replaceFirst('{routes}', _fmtCount(routeCount, 1370, 10))
             .replaceFirst('{pois}', _fmtCount(poiCount, 37000, 1000))
         : t(context).tr('routesSubtitle');
+    return CollapsingSearchHeader(
+      leading: const AnimatedRouteIcon(size: 28),
+      title: t(context).tr('routesTitle'),
+      subtitle: subtitle,
+      search: _searchField(context),
+      onBack: Navigator.of(context).canPop()
+          ? () => context.backOr(Routes.routes)
+          : null,
+      onSearchTap: _scrollToTop,
+      padding: const EdgeInsets.fromLTRB(16, 12, 20, 12),
+    );
+  }
+
+  /// Pole hloubkového hledání — název, popis, města na cestě i body zájmu.
+  Widget _searchField(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
-      decoration: const BoxDecoration(
-        color: MotoGoColors.dark,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(MotoGoRadius.hdr)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(MotoGoRadius.pill),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
         children: [
-          Row(
-            children: [
-              if (Navigator.of(context).canPop()) ...[
-                GestureDetector(
-                  onTap: () => context.backOr(Routes.routes),
-                  child: const Padding(
-                    padding: EdgeInsets.only(right: 8, top: 4, bottom: 4),
-                    child: Icon(Icons.arrow_back, color: Colors.white, size: 22),
-                  ),
-                ),
-              ],
-              const AnimatedRouteIcon(size: 28),
-              const SizedBox(width: 10),
-              Text(
-                t(context).tr('routesTitle'),
-                style: const TextStyle(
-                  fontSize: MotoGoTypo.sizeH1,
-                  fontWeight: MotoGoTypo.w900,
-                  color: Colors.white,
-                  decoration: TextDecoration.none,
-                ),
+          const Icon(Icons.search, size: 18, color: MotoGoColors.g400),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: _searchCtl,
+              // Debounce: bez něj se při psaní přefiltrovávalo přes
+              // 1 300 tras na každé písmeno.
+              onChanged: (v) {
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(
+                  const Duration(milliseconds: 280),
+                  () {
+                    if (!mounted) return;
+                    setState(() => _query = v);
+                    ref.read(placesSearchProvider.notifier).state = v;
+                  },
+                );
+              },
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText: t(context).tr('routesSearch'),
+                hintStyle: const TextStyle(
+                    color: MotoGoColors.g400, fontSize: MotoGoTypo.sizeBase),
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: MotoGoTypo.sizeBase,
-              fontWeight: MotoGoTypo.w600,
-              color: Color(0xFF8AAB99),
-              decoration: TextDecoration.none,
+              style: const TextStyle(
+                  fontSize: MotoGoTypo.sizeLg, color: MotoGoColors.black),
             ),
           ),
-          const SizedBox(height: 12),
-          // Hloubkové hledání — trasa, místo, město na cestě, bod zájmu…
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+          if (_query.isNotEmpty || _searchCtl.text.isNotEmpty)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                _searchDebounce?.cancel();
+                _searchCtl.clear();
+                setState(() => _query = '');
+                ref.read(placesSearchProvider.notifier).state = '';
+              },
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                child: Icon(Icons.close, size: 18, color: MotoGoColors.g400),
+              ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              children: [
-                const Icon(Icons.search, size: 18, color: MotoGoColors.g400),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtl,
-                    // Debounce: bez něj se při psaní přefiltrovávalo přes
-                    // 1 300 tras na každé písmeno.
-                    onChanged: (v) {
-                      _searchDebounce?.cancel();
-                      _searchDebounce = Timer(
-                        const Duration(milliseconds: 280),
-                        () {
-                          if (!mounted) return;
-                          setState(() => _query = v);
-                          ref.read(placesSearchProvider.notifier).state = v;
-                        },
-                      );
-                    },
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: t(context).tr('routesSearch'),
-                      hintStyle: const TextStyle(color: MotoGoColors.g400, fontSize: MotoGoTypo.sizeBase),
-                    ),
-                    style: const TextStyle(fontSize: MotoGoTypo.sizeLg, color: MotoGoColors.black),
-                  ),
-                ),
-                if (_query.isNotEmpty || _searchCtl.text.isNotEmpty)
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      _searchDebounce?.cancel();
-                      _searchCtl.clear();
-                      setState(() => _query = '');
-                      ref.read(placesSearchProvider.notifier).state = '';
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-                      child: Icon(Icons.close, size: 18, color: MotoGoColors.g400),
-                    ),
-                  ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
   Widget _body(BuildContext context, RoutesData data, String lang) {
-    if (data.routes.isEmpty) return _emptyState(context);
+    if (data.routes.isEmpty) {
+      return Column(
+        children: [
+          _headerDelegate(context, data.routes.length,
+                  ref.watch(catalogPoisProvider).valueOrNull?.length)
+              .expanded(),
+          Expanded(child: _emptyState(context)),
+        ],
+      );
+    }
 
     // Filtr poboček zrušen — trasy se neváží na pobočku, poloha jezdce je GPS.
     final byBranch = data.routes;
@@ -423,7 +419,15 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
       color: MotoGoColors.greenDark,
       onRefresh: () async => ref.invalidate(routesDataProvider),
       child: CustomScrollView(
+        controller: _scroll,
         slivers: [
+          // Hlavička: při scrollu se složí podtitulek i pole hledání a nahoře
+          // zůstane jen nadpis s lupou (tap = zpět nahoru).
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _headerDelegate(context, data.routes.length,
+                ref.watch(catalogPoisProvider).valueOrNull?.length),
+          ),
           // Připnuté rychlé vstupy. Trasy jsou nově SEKUNDÁRNÍ obrazovka,
           // takže odtud se odkazuje zpět na Místa (primární), na mapu míst
           // a na Moje zážitky. Při scrollování zůstávají vidět (plné karty →

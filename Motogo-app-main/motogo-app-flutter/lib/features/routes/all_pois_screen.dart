@@ -10,6 +10,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav, Routes;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import 'collapsing_header.dart';
 import 'community_submit.dart';
 import 'country_codes.dart';
 import 'places_filter.dart';
@@ -387,7 +388,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
             // míst pod filtrem a mapou nezbývalo místo.
             SliverPersistentHeader(
               pinned: true,
-              delegate: PlacesHeaderDelegate(
+              delegate: CollapsingSearchHeader(
+                leading: const Text('📍', style: TextStyle(fontSize: 22)),
                 title: t(context).tr('poiBrowseAll'),
                 subtitle: t(context).tr('poiBrowseSub'),
                 search: _searchField(context),
@@ -1801,142 +1803,6 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
               fontWeight: MotoGoTypo.w800,
               color: MotoGoColors.black,
               decoration: TextDecoration.none,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Hlavička Míst, která se při scrollu SBALÍ: nadpis zůstane připnutý nahoře,
-/// podtitulek i pole hledání se plynule složí a zmizí, takže na seznam míst
-/// zbude celá obrazovka. Klepnutím na lupu v sbalené hlavičce se obsah vrátí
-/// nahoru a hledání se zase rozbalí.
-class PlacesHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final String title;
-  final String subtitle;
-  final Widget search;
-  final VoidCallback? onBack; // null = kořen tabu (bez tlačítka zpět)
-  final VoidCallback onSearchTap;
-
-  const PlacesHeaderDelegate({
-    required this.title,
-    required this.subtitle,
-    required this.search,
-    required this.onBack,
-    required this.onSearchTap,
-  });
-
-  static const double _titleH = 34; // řádek s nadpisem
-  static const double _padTop = 8;
-  static const double _padBottom = 10;
-  static const double _collapsible = 74; // podtitulek + mezera + hledání
-
-  @override
-  double get minExtent => _padTop + _titleH + _padBottom;
-
-  @override
-  double get maxExtent => minExtent + _collapsible;
-
-  @override
-  bool shouldRebuild(covariant PlacesHeaderDelegate old) =>
-      old.title != title || old.subtitle != subtitle || old.search != search;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlaps) {
-    final t = (shrinkOffset / _collapsible).clamp(0.0, 1.0);
-    return Container(
-      decoration: const BoxDecoration(
-        color: MotoGoColors.dark,
-        borderRadius:
-            BorderRadius.vertical(bottom: Radius.circular(MotoGoRadius.hdr)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      padding: const EdgeInsets.fromLTRB(12, _padTop, 16, _padBottom),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: _titleH,
-            child: Row(
-              children: [
-                if (onBack != null) ...[
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onBack,
-                    child: const Padding(
-                      padding: EdgeInsets.all(6),
-                      child:
-                          Icon(Icons.arrow_back, color: Colors.white, size: 22),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                ] else
-                  const SizedBox(width: 6),
-                const Text('📍', style: TextStyle(fontSize: 22)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: MotoGoTypo.sizeH1,
-                      fontWeight: MotoGoTypo.w900,
-                      color: Colors.white,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ),
-                // Lupa se objeví, teprve když je hledání složené — tapem
-                // se obsah vrátí nahoru a pole je zase po ruce.
-                if (t > 0.5)
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onSearchTap,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                      child: Icon(Icons.search, color: Colors.white, size: 22),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          // Sbalitelná část — výšku určuje zbytek hlavičky, obsah se ořízne
-          // (žádné přetečení ani při větším písmu v systému).
-          Expanded(
-            child: ClipRect(
-              child: OverflowBox(
-                alignment: Alignment.topLeft,
-                minHeight: 0,
-                maxHeight: _collapsible,
-                child: Opacity(
-                  opacity: 1 - t,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 6, top: 2),
-                        child: Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: MotoGoTypo.sizeBase,
-                            fontWeight: MotoGoTypo.w600,
-                            color: Color(0xFF8AAB99),
-                            decoration: TextDecoration.none,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      search,
-                    ],
-                  ),
-                ),
-              ),
             ),
           ),
         ],
