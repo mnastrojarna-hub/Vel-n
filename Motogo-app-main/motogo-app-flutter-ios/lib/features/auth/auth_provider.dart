@@ -88,6 +88,10 @@ class AuthService {
   /// Jazyk pro chybové hlášky. Přepínač jazyka v appce ukládá `mg_language`,
   /// uvítací overlay při prvním spuštění `mg_locale` — čteme obojí, ať zákazník
   /// dostane chybu ve svém jazyce bez ohledu na to, kudy si ho zvolil.
+  /// Veřejné, aby si stejný jazyk vzaly i obrazovky, které sáhnou přímo na
+  /// [AuthErrorMapper] (registrační formulář).
+  static Future<String> currentLang() => _lang();
+
   static Future<String> _lang() async {
     try {
       final prefs = await SharedPreferences.getInstance();
