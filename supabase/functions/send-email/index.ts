@@ -19,12 +19,13 @@ const IG_URL = 'https://www.instagram.com/moto.go24/'
 // _translations[lang] + __src_<lang> hash; non-cz se přeloží přes Anthropic a
 // zacachuje. Při JAKÉMKOLI selhání → CZ (mail vždy odejde — nic se nerozbije).
 // =============================================================================
-const SUPPORTED_LANGS = ['cs', 'en', 'de', 'nl', 'es', 'fr', 'pl']
+const SUPPORTED_LANGS = ['cs', 'en', 'de', 'nl', 'es', 'fr', 'pl', 'uk']
 const DEFAULT_LANG = 'cs'
 const TRANSLATE_MODEL = 'claude-haiku-4-5-20251001'
 const LANG_NAMES: Record<string, string> = {
   en: 'English', de: 'German (Deutsch)', es: 'Spanish (Español)',
   fr: 'French (Français)', nl: 'Dutch (Nederlands)', pl: 'Polish (Polski)',
+  uk: 'Ukrainian (Українська)',
 }
 
 function normalizeLang(lang: string | null | undefined): string {

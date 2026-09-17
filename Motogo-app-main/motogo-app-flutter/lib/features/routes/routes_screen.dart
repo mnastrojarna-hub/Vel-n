@@ -574,7 +574,9 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                   : null,
               onTap: enabled
                   ? () {
-                      setState(() => _sort = s);
+                      // Stejná pojistka jako u filtru — sheet může přežít
+                      // odpojení obrazovky a setState by pak padl.
+                      if (mounted) setState(() => _sort = s);
                       Navigator.of(sc).pop();
                     }
                   : null,
@@ -1069,6 +1071,16 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                       child: PressableScale(
                         pressedScale: 0.98,
                         onTap: () {
+                          // Sheet přežije odpojení obrazovky (typicky návrat
+                          // appky z pozadí), takže tohle `setState` mohlo
+                          // běžet nad už uvolněným State → pád
+                          // „Null check operator used on a null value"
+                          // (hlášeno z 4.0.0+103). Sheet zavřeme vždy,
+                          // stav měníme jen když je obrazovka živá.
+                          if (!mounted) {
+                            Navigator.of(sheetCtx).pop();
+                            return;
+                          }
                           ref
                               .read(placesFilterProvider.notifier)
                               .update((f) => f.copyWith(countries: {...tCountry}));

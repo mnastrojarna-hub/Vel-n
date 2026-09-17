@@ -13,7 +13,7 @@ export const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 
 export type PaymentType = 'booking' | 'shop' | 'extension' | 'sos'
 
-const SUPPORTED_LANGS = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl'] as const
+const SUPPORTED_LANGS = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl', 'uk'] as const
 const DOMAIN_CS = 'https://www.motogo24.cz'
 const DOMAIN_INTL = 'https://motogo24.com'
 
