@@ -397,3 +397,23 @@ List<RoutePoi> resolveSelected(
   }
   return out;
 }
+
+/// Okno sousedů kolem vybrané položky pro listování v detailu.
+///
+/// Předávat do detailu celý vyfiltrovaný katalog (desítky tisíc míst) nemá
+/// smysl — nikdo jím neprolistuje a je to zbytečná alokace při každém otevření.
+/// Vrátí se proto jen [radius] položek na každou stranu.
+List<T> siblingWindow<T>(List<T> all, int at, {int radius = 150}) {
+  if (all.length <= radius * 2 + 1) return all;
+  var from = at - radius;
+  var to = at + radius + 1;
+  if (from < 0) {
+    to -= from;
+    from = 0;
+  }
+  if (to > all.length) {
+    from -= to - all.length;
+    to = all.length;
+  }
+  return all.sublist(from < 0 ? 0 : from, to);
+}

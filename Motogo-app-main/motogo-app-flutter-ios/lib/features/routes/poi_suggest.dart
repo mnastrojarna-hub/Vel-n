@@ -125,7 +125,8 @@ class _NearbyPoiPanelState extends ConsumerState<NearbyPoiPanel> {
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                   itemCount: cards.length,
                   itemBuilder: (context, i) =>
-                      _card(context, cards[i].e, cards[i].m, lang),
+                      _card(context, cards[i].e, cards[i].m, lang,
+                          [for (final c in cards) c.e]),
                 ),
               ),
           ],
@@ -265,7 +266,8 @@ class _NearbyPoiPanelState extends ConsumerState<NearbyPoiPanel> {
   }
 
   // Karta návrhu: náhled + název + vzdálenost; klepnutí = přidat do trasy.
-  Widget _card(BuildContext context, PoiEntry e, double meters, String lang) {
+  Widget _card(BuildContext context, PoiEntry e, double meters, String lang,
+      List<PoiEntry> siblings) {
     final distTxt = meters >= 1000
         ? '${(meters / 1000).toStringAsFixed(1)} km'
         : '${meters.round()} m';
@@ -334,7 +336,10 @@ class _NearbyPoiPanelState extends ConsumerState<NearbyPoiPanel> {
                           const Spacer(),
                           GestureDetector(
                             onTap: () =>
-                                showRoutePoiSheet(context, e.poi, lang),
+                                showRoutePoiSheet(context, e.poi, lang,
+                                    siblings: [
+                                      for (final x in siblings) x.poi
+                                    ]),
                             behavior: HitTestBehavior.opaque,
                             child: const Padding(
                               padding: EdgeInsets.all(2),

@@ -142,7 +142,11 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
               initialZoom: me == null ? 7.2 : 11,
               onPlaceTap: (e) =>
                   ref.read(placesSelectionProvider.notifier).toggle(e.key),
-              onPlaceLongPress: (e) => showRoutePoiSheet(context, e.poi, lang),
+              onPlaceLongPress: (e) => showRoutePoiSheet(context, e.poi, lang,
+                  siblings: [
+                    for (final x in siblingWindow(places, places.indexOf(e)))
+                      x.poi
+                  ]),
               onLongPress: _addPlaceAt,
             ),
           ),

@@ -533,7 +533,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                             sliver: SliverList.builder(
                               itemCount: list.length,
                               itemBuilder: (context, i) =>
-                                  _poiCard(context, list[i], lang, me),
+                                  _poiCard(context, list[i], lang, me, list),
                             ),
                           ),
                       ],
@@ -1459,7 +1459,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     return m == 0 ? '${h}h' : '${h}h ${m}m';
   }
 
-  Widget _poiCard(BuildContext context, PoiEntry e, String lang, LatLng? me) {
+  Widget _poiCard(BuildContext context, PoiEntry e, String lang, LatLng? me,
+      List<PoiEntry> siblings) {
     final selected = _selected.contains(e.key);
     String? distTxt;
     if (me != null && e.latLng != null) {
@@ -1587,7 +1588,12 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: PressableScale(
                   pressedScale: 0.9,
-                  onTap: () => showRoutePoiSheet(context, e.poi, lang),
+                  onTap: () => showRoutePoiSheet(context, e.poi, lang,
+                      siblings: [
+                        for (final x in siblingWindow(
+                            siblings, siblings.indexOf(e)))
+                          x.poi
+                      ]),
                   child: Container(
                     width: 40,
                     height: 40,

@@ -485,7 +485,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                         onTap: () {
                           // Zapamatuj zvolenou trasu pro řazení „od zvolené trasy".
                           ref.read(lastOpenedRouteProvider.notifier).state = r.id;
-                          context.push('/routes/${r.id}');
+                          // Sousedi pro listování swipem = právě vyfiltrovaný
+                          // seznam v tom pořadí, v jakém ho uživatel vidí.
+                          context.push('/routes/${r.id}',
+                              extra: [for (final x in routes) x.id]);
                         },
                       ),
                     ),
