@@ -142,11 +142,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
               initialZoom: me == null ? 7.2 : 11,
               onPlaceTap: (e) =>
                   ref.read(placesSelectionProvider.notifier).toggle(e.key),
-              onPlaceLongPress: (e) => showRoutePoiSheet(context, e.poi, lang,
-                  siblings: [
-                    for (final x in siblingWindow(places, places.indexOf(e)))
-                      x.poi
-                  ]),
+              onPlaceLongPress: (e) => _openDetail(context, e, places, lang),
               onLongPress: _addPlaceAt,
             ),
           ),
@@ -188,6 +184,29 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
         ],
       ),
       bottomSheet: selected.isEmpty ? null : _selectionBar(context, me),
+    );
+  }
+
+  /// Detail místa i s tlačítkem „Přidat do mé cesty" (podržení / dvojklik
+  /// na markeru). Klíče výběru se dohledají podle bodu, protože detail
+  /// listuje mezi sousedy.
+  void _openDetail(BuildContext context, PoiEntry e, List<PoiEntry> places,
+      String lang) {
+    final window = siblingWindow(places, places.indexOf(e));
+    final keyOf = <String, String>{for (final x in window) x.poi.id: x.key};
+    showRoutePoiSheet(
+      context,
+      e.poi,
+      lang,
+      siblings: [for (final x in window) x.poi],
+      isSelected: (p) {
+        final k = keyOf[p.id];
+        return k != null && ref.read(placesSelectionProvider).contains(k);
+      },
+      onToggleSelect: (p) {
+        final k = keyOf[p.id];
+        if (k != null) ref.read(placesSelectionProvider.notifier).toggle(k);
+      },
     );
   }
 

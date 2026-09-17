@@ -29,8 +29,13 @@ class PlacesMapView extends StatefulWidget {
   /// Tap na konkrétní místo (marker shluku se místo toho přiblíží).
   final void Function(PoiEntry entry)? onPlaceTap;
 
-  /// Dlouhý stisk NA MÍSTĚ — otevře jeho detail (krátký tap přepíná výběr).
+  /// Dlouhý stisk NA MÍSTĚ (nebo dvojklik) — otevře jeho detail; krátký tap
+  /// přepíná výběr.
   final void Function(PoiEntry entry)? onPlaceLongPress;
+
+  /// Klepnutí do mapy MIMO místo — náhled nad seznamem tím otevře mapu přes
+  /// celou obrazovku (dřív to uměla jen malá ikonka v rohu).
+  final VoidCallback? onMapTap;
 
   /// Dlouhý stisk do prázdné mapy — nabídne přidání nového místa.
   final void Function(LatLng point)? onLongPress;
@@ -61,6 +66,7 @@ class PlacesMapView extends StatefulWidget {
     this.routeLines = const [],
     this.onPlaceTap,
     this.onPlaceLongPress,
+    this.onMapTap,
     this.onLongPress,
     this.me,
     this.initialCenter,
@@ -208,6 +214,7 @@ class PlacesMapViewState extends State<PlacesMapView> {
                       InteractiveFlag.doubleTapZoom |
                       InteractiveFlag.scrollWheelZoom),
         ),
+        onTap: widget.onMapTap == null ? null : (_, __) => widget.onMapTap!(),
         onLongPress: widget.onLongPress == null
             ? null
             : (_, p) => widget.onLongPress!(p),
@@ -350,7 +357,11 @@ class PlacesMapViewState extends State<PlacesMapView> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onPlaceTap == null ? null : () => widget.onPlaceTap!(e),
+        // Detail místa: podržením i dvojklikem (obojí, jak si zvykne ruka).
         onLongPress: widget.onPlaceLongPress == null
+            ? null
+            : () => widget.onPlaceLongPress!(e),
+        onDoubleTap: widget.onPlaceLongPress == null
             ? null
             : () => widget.onPlaceLongPress!(e),
         child: Container(

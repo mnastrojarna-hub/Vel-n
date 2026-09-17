@@ -32,7 +32,7 @@ class PlacesFilter {
     this.nearbyOn = false,
     this.nearbyKm = 10,
     this.routeId,
-    this.sort = PoiSort.random,
+    this.sort = PoiSort.nearMe,
   });
 
   PlacesFilter copyWith({
@@ -84,7 +84,10 @@ class PlacesFilter {
       (minRating > 0 ? 1 : 0) +
       (nearbyOn ? 1 : 0) +
       (routeId == null ? 0 : 1) +
-      (sort == PoiSort.random ? 0 : 1);
+      // Výchozí řazení je „od mé polohy" (viz PlacesFilter()), takže se
+      // NEPOČÍTÁ jako zapnutý filtr — jinak by odznak i tlačítko „Zrušit
+      // filtry" svítily hned po otevření Míst, kde uživatel nic nenastavil.
+      (sort == PoiSort.nearMe ? 0 : 1);
 
   /// Krátký popis aktivního filtru pro hlavičku mapy („CZ · 🏰 · do 25 km").
   List<String> summary() {
@@ -97,7 +100,7 @@ class PlacesFilter {
     if (nearbyOn) out.add('${nearbyKm.round()} km');
     if (minRating > 0) out.add('★ $minRating+');
     if (routeId != null) out.add('🗺️');
-    if (sort != PoiSort.random) out.add('↕');
+    if (sort != PoiSort.nearMe) out.add('↕');
     return out;
   }
 }
@@ -187,6 +190,10 @@ List<PoiEntry> applyPlacesFilter(
   LatLng? routeAnchor,
   LatLng? nearbyAnchor,
   int Function(PoiEntry)? stableOrder,
+  /// false = výsledek se NEŘADÍ (volající ho použije jen na počty kategorií).
+  /// Řazení podle vzdálenosti nad desítkami tisíc bodů není zadarmo, a pro
+  /// počty je pořadí k ničemu.
+  bool ordered = true,
 }) {
   const dist = Distance();
   final q = f.query.trim();
@@ -233,30 +240,45 @@ List<PoiEntry> applyPlacesFilter(
   // where().toList(), takže následné list.sort() nikdy nemutuje `base`
   // (a tím ani memoizovanou deduplikaci v seznamu Míst).
 
+  if (!ordered) return list;
+
   // 5) Řazení — „v okolí" má přednost (nejbližší návrhy nahoru).
-  if (anchor != null) {
-    list.sort((a, b) => distTo(anchor, a).compareTo(distTo(anchor, b)));
-  } else {
-    switch (f.sort) {
-      case PoiSort.random:
-        if (stableOrder != null) {
-          list.sort((a, b) => stableOrder(a).compareTo(stableOrder(b)));
-        }
-        break;
-      case PoiSort.nearMe:
-        if (me != null) {
-          list.sort((a, b) => distTo(me, a).compareTo(distTo(me, b)));
-        }
-        break;
-      case PoiSort.nearRoute:
-        if (routeAnchor != null) {
-          list.sort(
-              (a, b) => distTo(routeAnchor, a).compareTo(distTo(routeAnchor, b)));
-        }
-        break;
-    }
+  final from = anchor ??
+      switch (f.sort) {
+        PoiSort.nearMe => me,
+        PoiSort.nearRoute => routeAnchor,
+        PoiSort.random => null,
+      };
+  if (from != null) {
+    sortByDistance(list, from);
+  } else if (stableOrder != null) {
+    // Bez kotvy (např. výchozí „od mé polohy" ještě bez povolené polohy)
+    // se pořadí drží stabilně náhodné — jinak by se seznam přeskládal
+    // pokaždé, když doběhne další zdroj bodů.
+    list.sort((a, b) => stableOrder(a).compareTo(stableOrder(b)));
   }
   return list;
+}
+
+/// Seřadí místa podle vzdálenosti od [from] — vzdálenost se počítá JEDNOU
+/// na bod (decorate–sort–undecorate). Naivní `sort` s výpočtem uvnitř
+/// porovnání dělal nad katalogem desítek tisíc bodů miliony haversinů při
+/// každém překreslení a seznam Míst kvůli tomu sekal.
+void sortByDistance(List<PoiEntry> list, LatLng from) {
+  const dist = Distance();
+  final decorated = <({PoiEntry e, double d})>[
+    for (final e in list)
+      (
+        e: e,
+        d: e.latLng == null
+            ? double.infinity
+            : dist.as(LengthUnit.Meter, from, e.latLng!)
+      ),
+  ];
+  decorated.sort((a, b) => a.d.compareTo(b.d));
+  for (var i = 0; i < decorated.length; i++) {
+    list[i] = decorated[i].e;
+  }
 }
 
 /// Trasy, které obsahují některé z [selectedKeys] míst.
