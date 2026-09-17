@@ -56,6 +56,34 @@ async function loadCustomerCompany(supabase: any, customer: any) {
   }
 }
 
+/** Atomicky přidělí další číslo dokladové řady (PREFIX-YYYY-NNNN).
+ *
+ *  Primárně přes RPC `next_document_number` — ta drží row-lock nad
+ *  `document_number_counters`, takže dvě souběžné invokace nikdy nedostanou
+ *  totéž číslo. Dřív se tu skládalo `MAX+1` read-then-write bez zámku; nad
+ *  `invoices.number` je UNIQUE index, takže souběh nekončil duplicitou, ale
+ *  SPADLÝM zápisem — a zákazníkovi doklad prostě nevznikl (viz DB-2026-0001 2×).
+ *
+ *  Fallback na původní MAX+1 zůstává jen pro případ, že RPC selže — ať
+ *  výpadek číselníku nezablokuje fakturaci úplně.
+ */
+async function nextDocNumber(supabase: any, prefix: string): Promise<string> {
+  try {
+    const { data, error } = await supabase.rpc('next_document_number', { p_prefix: prefix })
+    if (!error && typeof data === 'string' && /^[A-Z]{2}-\d{4}-\d{4}$/.test(data)) return data
+    if (error) console.warn(`[doc-number] RPC next_document_number selhala (${error.message}) — fallback MAX+1`)
+  } catch (e) {
+    console.warn('[doc-number] RPC next_document_number nedostupná — fallback MAX+1:', (e as Error).message)
+  }
+  const year = new Date().getFullYear()
+  const { data: last } = await supabase.from('invoices').select('number')
+    .like('number', `${prefix}-${year}-%`).lt('number', `${prefix}-${year}-5000`)
+    .order('number', { ascending: false }).limit(1)
+  let seq = 1
+  if (last?.length) { const m = last[0].number.match(/-(\d+)$/); if (m) seq = parseInt(m[1], 10) + 1 }
+  return `${prefix}-${year}-${String(seq).padStart(4, '0')}`
+}
+
 const COMPANY_FALLBACK = {
   name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Pelhřimov',
   ico: '21874263', dic: null, vat_payer: false,
@@ -696,13 +724,8 @@ serve(async (req) => {
     if (reuseInvoice) {
       number = reuseInvoice.number
     } else {
-      // Automatická řada = 0001–4999; čísla >= 5000 patří ruční řadě z Velína — ignorovat
-      const { data: lastInv } = await supabase.from('invoices').select('number')
-        .like('number', `${prefix}-${year}-%`).lt('number', `${prefix}-${year}-5000`)
-        .order('number', { ascending: false }).limit(1)
-      let seq = 1
-      if (lastInv?.length) { const m = lastInv[0].number.match(/-(\d+)$/); if (m) seq = parseInt(m[1], 10) + 1 }
-      number = `${prefix}-${year}-${String(seq).padStart(4, '0')}`
+      // Automatická řada = 0001–4999; čísla >= 5000 patří ruční řadě z Velína.
+      number = await nextDocNumber(supabase, prefix)
     }
 
     // VS musí být ČÍSELNÝ — textový VS („ZF-2026-0204") banka nepřijme a platba
