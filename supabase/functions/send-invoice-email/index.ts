@@ -349,13 +349,19 @@ serve(async (req) => {
     let html = ''
     const attachments: { content: string; filename: string }[] = []
     const attachmentsMeta: { filename: string; storage_path: string | null }[] = []
+    // Proč se to hlídá: dřív se `attachmentsMeta` zapisovalo JEŠTĚ PŘED stažením
+    // souboru a chyba se spolkla prázdným catch. Mail pak odešel bez dokladu,
+    // ale v `sent_emails` stálo, že přílohu vezl — reklamace „nepřišla mi
+    // faktura" se tak nedala dohledat.
+    let attachmentFailed: string | null = null
     if (invoice.pdf_path) {
       const isPdfPath = /\.pdf$/i.test(invoice.pdf_path)
       const metaFilename = `${invoiceLabel.replace(/ /g, '-')}-${invoice.number}.${isPdfPath ? 'pdf' : 'html'}`
-      attachmentsMeta.push({ filename: metaFilename, storage_path: invoice.pdf_path })
       try {
         const { data: blob } = await supabase.storage.from('documents').download(invoice.pdf_path)
+        if (!blob) attachmentFailed = 'soubor ve storage nenalezen'
         if (blob) {
+          attachmentsMeta.push({ filename: metaFilename, storage_path: invoice.pdf_path })
           const bytes = new Uint8Array(await blob.arrayBuffer())
           // Detekuj formát podle přípony (přechodné období: může být .pdf nebo .html)
           const isPdf = /\.pdf$/i.test(invoice.pdf_path)
@@ -367,7 +373,20 @@ serve(async (req) => {
           const ext = isPdf ? 'pdf' : 'html'
           attachments.push({ content: b64, filename: `${invoiceLabel.replace(/ /g, '-')}-${invoice.number}.${ext}` })
         }
-      } catch { /* ignore */ }
+      } catch (e) { attachmentFailed = (e as Error).message }
+    } else {
+      attachmentFailed = 'faktura nemá pdf_path (generování PDF neproběhlo)'
+    }
+    if (attachmentFailed) {
+      console.error(`[send-invoice-email] ${invoice.number}: příloha nepřipojena — ${attachmentFailed}`)
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'send-invoice-email',
+          action: 'attachment_missing',
+          status: 'error',
+          request_data: { invoice_number: invoice.number, invoice_id: invoice.id, reason: attachmentFailed },
+        })
+      } catch { /* log nesmí shodit odeslání */ }
     }
     // Pro KF z e-shopu (shop_final) přidej Google review CTA tlačítko
     if (invoice.type === 'shop_final') {

@@ -15,6 +15,7 @@ import '../../core/data/legal_texts.dart';
 import 'booking_doc_viewer.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
+import '../../core/date_days.dart';
 
 /// Company constant — mirrors COMPANY from documents.js.
 const _company = (
@@ -334,7 +335,7 @@ class ContractsScreen extends ConsumerWidget {
     final startDate = DateTime.tryParse(b['start_date'] as String? ?? '');
     final endDate = DateTime.tryParse(b['end_date'] as String? ?? '');
     final days = (startDate != null && endDate != null)
-        ? (endDate.difference(startDate).inDays + 1).clamp(1, 9999)
+        ? calendarDaysInclusive(startDate, endDate).clamp(1, 9999)
         : 1;
     final totalPrice = (b['total_price'] as num?)?.toDouble() ?? 0;
     final dailyRate = (totalPrice / days).round();

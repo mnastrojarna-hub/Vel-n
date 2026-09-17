@@ -553,6 +553,7 @@ class _BookingFab extends ConsumerWidget {
               bookingId: booking.id,
               amount: booking.totalPrice,
               label: t(context).tr('bookingReservation'),
+              bookingCreatedAt: booking.createdAt,
             );
             context.push(Routes.payment);
           },
@@ -586,8 +587,37 @@ class _BookingFab extends ConsumerWidget {
         // Red dismiss button (right pill)
         GestureDetector(
           onTap: () async {
-            await cancelPendingBooking(booking.id);
-            ref.invalidate(pendingBookingFabProvider);
+            // Tlačítko sedí hned vedle „zaplatit" a zrušení je nevratné —
+            // bez potvrzení stačil překlep a rozdělaná rezervace byla pryč.
+            final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text(t(ctx).tr('cancelReservationQ')),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(t(ctx).tr('back')),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text(t(ctx).tr('cancelReservationBtn'),
+                            style: const TextStyle(color: MotoGoColors.red)),
+                      ),
+                    ],
+                  ),
+                ) ??
+                false;
+            if (!ok || !context.mounted) return;
+            try {
+              await cancelPendingBooking(booking.id);
+              ref.invalidate(pendingBookingFabProvider);
+            } catch (_) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(t(context).tr('cancelError'))),
+                );
+              }
+            }
           },
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),

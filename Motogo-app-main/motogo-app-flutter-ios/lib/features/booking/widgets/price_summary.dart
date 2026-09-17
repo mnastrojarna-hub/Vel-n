@@ -70,13 +70,6 @@ class PriceSummaryCard extends StatelessWidget {
               value: '+${Money.czk(breakdown.returnDeliveryFee)}',
             ),
 
-          // Insurance
-          if (breakdown.insuranceFee > 0)
-            _PriceRow(
-              label: 'Pojištění',
-              value: '+${Money.czk(breakdown.insuranceFee)}',
-            ),
-
           // Upsell items from "Doporučujeme k rezervaci"
           for (final item in upsellItems)
             _PriceRow(

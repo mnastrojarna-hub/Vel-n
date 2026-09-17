@@ -11,6 +11,7 @@ import 'widgets/date_tabs_section.dart';
 import 'widgets/menu_line.dart';
 import 'widgets/moto_card.dart';
 import 'widgets/search_filters_section.dart';
+import '../../core/date_days.dart';
 
 /// Search screen — 1:1 replica of Capacitor "Vyhledávání" screen.
 /// Shows date tabs (VYZVEDNUTÍ/VRÁCENÍ), calendar, filters, and results.
@@ -50,7 +51,7 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
 
   int get _dayCount {
     if (_startDate == null || _endDate == null) return 0;
-    return _endDate!.difference(_startDate!).inDays + 1;
+    return calendarDaysInclusive(_startDate!, _endDate!);
   }
 
   @override

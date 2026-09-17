@@ -603,7 +603,9 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                     final consentsOk = draft.consentVop &&
                         draft.consentGdpr &&
                         (!isKids || draft.consentKids);
-                    final canProceed = missingSizes.isEmpty &&
+                    final canProceed = draft.startDate != null &&
+                        draft.endDate != null &&
+                        missingSizes.isEmpty &&
                         err == null &&
                         profileErr == null &&
                         consentsOk;

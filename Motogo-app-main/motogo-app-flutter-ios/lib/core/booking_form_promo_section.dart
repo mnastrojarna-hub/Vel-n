@@ -37,6 +37,10 @@ class BookingFormPromoSection extends StatelessWidget {
                 autofocus: true,
                 textCapitalization: TextCapitalization.characters,
                 onSubmitted: (_) async {
+                  // Stejná ochrana jako u tlačítka „Použít" — bez ní dvojí
+                  // Enter spustil dvě souběžné validace a fixní sleva
+                  // (voucher) se přičetla dvakrát.
+                  if (loading) return;
                   final code = ctrl.text.trim();
                   if (code.isEmpty) return;
                   ss(() { loading = true; error = null; });
@@ -205,7 +209,7 @@ class BookingFormPromoSection extends StatelessWidget {
                         child: Text(
                           d.type == DiscountType.percent
                               ? '${d.code} (−${d.value.toStringAsFixed(0)}%)'
-                              : '${d.code} (−${Money.czk(d.value)})',
+                              : '${d.code} (−${Money.czk(d.calculatedAmount > 0 ? d.calculatedAmount : d.value)})',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,

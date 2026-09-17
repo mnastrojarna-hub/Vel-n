@@ -101,7 +101,7 @@ const translationsExt1CsPl = <String, Map<String, String>>{
     'specNo': 'Ne',
     // Pricing table
     'pricingCurrencyPerDay': 'Kč/den',
-    'pricingNote': 'Cena bez DPH. Víkend Pá–Ne. 1 den = 24 h.',
+    'pricingNote': 'Ceny jsou konečné. 1 den = kalendářní den (0:01–24:00), ne 24 h od převzetí.',
     // Price footer
     'priceFrom': 'CENA OD',
     'pricePerDay': '/den',
@@ -283,7 +283,7 @@ const translationsExt1CsPl = <String, Map<String, String>>{
     'specNo': 'Nie',
     // Pricing table
     'pricingCurrencyPerDay': 'CZK/dzień',
-    'pricingNote': 'Cena bez VAT. Weekend Pt–Nd. 1 dzień = 24 h.',
+    'pricingNote': 'Ceny są ostateczne. 1 dzień = dzień kalendarzowy (0:01–24:00), nie 24 h od odbioru.',
     // Price footer
     'priceFrom': 'CENA OD',
     'pricePerDay': '/dzień',

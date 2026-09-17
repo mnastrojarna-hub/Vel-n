@@ -20,6 +20,7 @@ import 'widgets/price_footer.dart';
 import 'widgets/pricing_table.dart';
 import 'widgets/specs_section.dart';
 import 'widgets/validation_banner.dart';
+import '../../core/date_days.dart';
 
 /// Detail content for a single motorcycle.
 /// Used inside the pager (MotoDetailScreen) — one page per motorcycle.
@@ -106,7 +107,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
         .join(', ');
     final hasDates = _selStart != null && _selEnd != null;
     final dayCount =
-        hasDates ? _selEnd!.difference(_selStart!).inDays + 1 : 0;
+        hasDates ? calendarDaysInclusive(_selStart!, _selEnd!) : 0;
     final totalPrice = hasDates && moto.prices != null
         ? moto.prices!.totalForRange(_selStart!, _selEnd!)
         : 0.0;

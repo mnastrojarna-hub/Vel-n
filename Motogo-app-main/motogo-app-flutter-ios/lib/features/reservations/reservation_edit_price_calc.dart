@@ -1,6 +1,7 @@
 import '../booking/booking_models.dart';
 import '../catalog/moto_model.dart';
 import 'reservation_models.dart';
+import '../../core/date_days.dart';
 
 /// Pure price calculation logic for reservation editing.
 class EditPriceCalc {
@@ -109,7 +110,7 @@ class EditPriceCalc {
   int get origDays => booking.dayCount;
   int get newDays {
     if (newStart == null || newEnd == null) return origDays;
-    return newEnd!.difference(newStart!).inDays + 1;
+    return calendarDaysInclusive(newStart!, newEnd!);
   }
   int get diffDays => newDays - origDays;
 
@@ -131,7 +132,7 @@ class EditPriceCalc {
   /// průměrná zaplacená denní cena, když ceník není načtený).
   double _oldGrossFor(DateTime start, DateTime end) => motoPrices != null
       ? motoPrices!.totalForRange(start, end)
-      : origDailyPrice * (end.difference(start).inDays + 1);
+      : origDailyPrice * calendarDaysInclusive(start, end);
 
   /// Hrubá cena pronájmu původního rozsahu (ceník staré motorky).
   double get _rentalGrossOld => _oldGrossFor(booking.startDate, booking.endDate);
@@ -252,7 +253,7 @@ class EditPriceCalc {
 
   double _lateFor(DayPrices? prices, DateTime start, DateTime end, String? time) {
     if (prices == null) return 0;
-    final d = end.difference(start).inDays + 1;
+    final d = calendarDaysInclusive(start, end);
     if (d < 2 || !_isLatePickup(time)) return 0;
     return (prices.forWeekday(start.weekday) * 0.5).roundToDouble();
   }

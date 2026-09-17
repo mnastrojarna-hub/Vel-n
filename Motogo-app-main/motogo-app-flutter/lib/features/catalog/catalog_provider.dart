@@ -231,8 +231,13 @@ class CatalogFilter {
       }
 
       // Výkon od–do (posuvník na domů = rozsah, dropdown v hledání = jen max).
-      if (minPowerKw != null && (m.powerKw ?? 0) < minPowerKw!) return false;
-      if (maxPowerKw != null && (m.powerKw ?? 0) > maxPowerKw!) return false;
+      // Motorka s NEVYPLNĚNÝM výkonem filtrem projde — stejně jako u ceny na
+      // webu. Dřív se brala jako 0 kW a při pohnutí spodní hranicí tiše zmizela.
+      final kw = m.powerKw;
+      if (kw != null) {
+        if (minPowerKw != null && kw < minPowerKw!) return false;
+        if (maxPowerKw != null && kw > maxPowerKw!) return false;
+      }
       if (branch != null && m.branchId != branch) return false;
 
       return true;

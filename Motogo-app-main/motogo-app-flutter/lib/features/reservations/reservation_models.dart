@@ -1,4 +1,6 @@
 import 'dart:ui' show Color;
+import '../../core/date_days.dart';
+import '../../core/booking_rules.dart';
 
 /// Reservation status — mirrors _mapStatus() from reservations-ui.js.
 enum ResStatus {
@@ -238,8 +240,12 @@ class Reservation {
   ResStatus get displayStatus {
     if (status == 'cancelled') return ResStatus.cancelled;
     if (status == 'pending' && paymentStatus == 'unpaid') {
+      // Musí sedět se serverovým oknem auto_cancel_expired_pending()
+      // (app = 30 min, mig. 20260904b). Dřív tu bylo 10 min z původního
+      // okna, takže appka mezi 10. a 30. minutou tvrdila „zrušeno“,
+      // zatímco server rezervaci pořád držel a FAB nabízel doplacení.
       final age = DateTime.now().difference(createdAt);
-      if (age.inMinutes >= 10) return ResStatus.cancelled;
+      if (age >= paymentTimeoutDuration) return ResStatus.cancelled;
     }
     if (status == 'completed' || endedBySos) return ResStatus.dokoncene;
     final now = DateTime.now();
@@ -253,7 +259,7 @@ class Reservation {
     return ResStatus.nadchazejici;
   }
 
-  int get dayCount => endDate.difference(startDate).inDays + 1;
+  int get dayCount => calendarDaysInclusive(startDate, endDate);
 
   String get shortId => '#${id.substring(id.length - 8).toUpperCase()}';
 
@@ -501,8 +507,8 @@ class ModDescription {
     final te = _nd(toEnd);
     final sd = ts.difference(fs).inDays;
     final ed = te.difference(fe).inDays;
-    final origD = fe.difference(fs).inDays + 1;
-    final newD = te.difference(ts).inDays + 1;
+    final origD = calendarDaysInclusive(fs, fe);
+    final newD = calendarDaysInclusive(ts, te);
     final dd = newD - origD;
 
     final parts = <String>[];

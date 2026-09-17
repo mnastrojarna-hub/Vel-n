@@ -101,7 +101,7 @@ const translationsExt1EsFr = <String, Map<String, String>>{
     'specNo': 'No',
     // Pricing table
     'pricingCurrencyPerDay': 'CZK/día',
-    'pricingNote': 'Precio sin IVA. Fin de semana Vi–Do. 1 día = 24 h.',
+    'pricingNote': 'Precios finales. 1 día = día natural (0:01–24:00), no 24 h desde la recogida.',
     // Price footer
     'priceFrom': 'PRECIO DESDE',
     'pricePerDay': '/día',
@@ -283,7 +283,7 @@ const translationsExt1EsFr = <String, Map<String, String>>{
     'specNo': 'Non',
     // Pricing table
     'pricingCurrencyPerDay': 'CZK/jour',
-    'pricingNote': 'Prix HT. Weekend ven–dim. 1 jour = 24 h.',
+    'pricingNote': 'Prix définitifs. 1 jour = jour calendaire (0h01–24h00), pas 24 h après la prise en charge.',
     // Price footer
     'priceFrom': 'PRIX À PARTIR DE',
     'pricePerDay': '/jour',

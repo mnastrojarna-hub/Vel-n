@@ -80,6 +80,18 @@ class BookingFormPriceSection extends StatelessWidget {
                 '−${Money.czk(bd.discountTotal)}',
                 color: const Color(0xFF1A8A18),
               ),
+            // Věrnostní sleva — total ji odečítal, ale řádek chyběl, takže
+            // se položky nesčítaly na výslednou částku (a zákazník o svém
+            // hlavním benefitu za používání appky vůbec nevěděl).
+            if (bd.loyaltyDiscount > 0)
+              bookingPriceRow(
+                t(context)
+                    .tr('loyaltyDiscountLabel')
+                    .replaceAll('{rank}', bd.loyaltyRankName ?? '')
+                    .replaceAll('{pct}', '${bd.loyaltyPercent}'),
+                '−${Money.czk(bd.loyaltyDiscount)}',
+                color: const Color(0xFF1A8A18),
+              ),
             // Sleva 50 % na 1. den (pozdní vyzvednutí >=12:00, >=2 dny) —
             // total ji vždy obsahoval, řádek chyběl a rozpis neseděl na součet.
             if (bd.latePickupDiscount > 0)

@@ -1,4 +1,5 @@
 import '../../core/currency.dart';
+import '../../core/date_days.dart';
 /// Motorcycle data model — mirrors the MOTOS object from data/motos.js.
 class Motorcycle {
   final String id;
@@ -58,7 +59,6 @@ class Motorcycle {
   /// výbavy (boty, oblečení…) — rezervační flow pak krok s výbavou skryje.
   final bool isTrailer;
   final double? depositAmount;
-  final double? insurancePrice;
   final int? minRentalDays;
   final int? maxRentalDays;
   final int? mileage;
@@ -111,7 +111,6 @@ class Motorcycle {
     this.branchType,
     this.isTrailer = false,
     this.depositAmount,
-    this.insurancePrice,
     this.minRentalDays,
     this.maxRentalDays,
     this.mileage,
@@ -170,7 +169,6 @@ class Motorcycle {
       branchType: branch?['type'] as String?,
       isTrailer: json['is_trailer'] as bool? ?? false,
       depositAmount: (json['deposit_amount'] as num?)?.toDouble(),
-      insurancePrice: (json['insurance_price'] as num?)?.toDouble(),
       minRentalDays: (json['min_rental_days'] as num?)?.toInt(),
       maxRentalDays: (json['max_rental_days'] as num?)?.toInt(),
       mileage: (json['mileage'] as num?)?.toInt(),
@@ -197,7 +195,7 @@ class Motorcycle {
     manualExternalUrl: manualExternalUrl, status: status,
     branchId: branchId, branchName: branchName, branchCity: branchCity,
     branchType: branchType, isTrailer: isTrailer,
-    depositAmount: depositAmount, insurancePrice: insurancePrice,
+    depositAmount: depositAmount,
     minRentalDays: minRentalDays, maxRentalDays: maxRentalDays,
     mileage: mileage, prices: prices, availableToday: value,
   );
@@ -495,10 +493,11 @@ class DayPrices {
   /// Mirrors calc_booking_price_v2 logic.
   double totalForRange(DateTime start, DateTime end) {
     double total = 0;
-    var d = start;
-    while (!d.isAfter(end)) {
+    var d = DateTime(start.year, start.month, start.day);
+    final last = DateTime(end.year, end.month, end.day);
+    while (!d.isAfter(last)) {
       total += forWeekday(d.weekday);
-      d = d.add(const Duration(days: 1));
+      d = nextCalendarDay(d);
     }
     return total;
   }
