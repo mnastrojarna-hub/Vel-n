@@ -1,6 +1,10 @@
 import 'package:latlong2/latlong.dart';
 
+import 'country_codes.dart';
 import 'route_nav_motion.dart' show RouteGeoCache;
+
+/// Normalizace kódu země na ISO-2 (sloupec je volný text — viz country_codes.dart).
+String? _iso2(dynamic v) => countryIso2(v);
 
 /// Pomocné parsování čísla z dynamic (DB vrací num/string).
 double? _toD(dynamic v) {
@@ -93,6 +97,10 @@ class RoutePoi {
   final bool isUserPoi; // bod zájmu od uživatele (komunitní)
   final bool isCatalogPoi; // samostatný bod z katalogu points_of_interest
   final String? category; // explicitní kategorie z backendu (food/castle/…), jinak null
+  /// ISO kód země bodu (CZ, AT, …). Katalogové body ho mají z backendu
+  /// (`get_pois_catalog`), u trasových/komunitních bodů může být null —
+  /// pak se země odvodí z nadřazené trasy (viz PoiEntry.countryCode).
+  final String? country;
 
   const RoutePoi({
     required this.id,
@@ -109,6 +117,7 @@ class RoutePoi {
     this.isUserPoi = false,
     this.isCatalogPoi = false,
     this.category,
+    this.country,
   });
 
   LatLng? get latLng => (lat != null && lng != null) ? LatLng(lat!, lng!) : null;
@@ -150,6 +159,7 @@ class RoutePoi {
       category: (j['category']?.toString().trim().isNotEmpty ?? false)
           ? j['category'].toString().trim()
           : null,
+      country: _iso2(j['country']),
     );
   }
 
@@ -166,6 +176,10 @@ class RoutePoi {
       avgRating: _toD(j['avg_rating']),
       ratingCount: _toI(j['rating_count']) ?? 0,
       isUserPoi: true,
+      category: (j['category']?.toString().trim().isNotEmpty ?? false)
+          ? j['category'].toString().trim()
+          : null,
+      country: _iso2(j['country']),
     );
   }
 }
@@ -313,8 +327,9 @@ class RouteItem {
       reviewAvg: _toD(j['review_avg']),
       reviewCount: _toI(j['review_count']) ?? 0,
       countries: (j['countries'] as List?)
-              ?.map((e) => e.toString().toUpperCase())
-              .where((e) => e.isNotEmpty)
+              ?.map(_iso2)
+              .whereType<String>()
+              .toSet()
               .toList() ??
           const [],
     );

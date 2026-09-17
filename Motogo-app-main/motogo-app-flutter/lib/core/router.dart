@@ -56,6 +56,7 @@ import '../features/routes/routes_screen.dart';
 import '../features/routes/route_detail_screen.dart';
 import '../features/routes/route_navigation_screen.dart';
 import '../features/routes/all_pois_screen.dart';
+import '../features/routes/places_map_screen.dart';
 import '../features/routes/route_builder_screen.dart';
 import '../features/routes/routes_model.dart' show RouteItem;
 import '../features/routes/routes_provider.dart' show CustomNavArgs;
@@ -106,7 +107,13 @@ class Routes {
   static const String permissions = '/permissions';
   static const String protocol = '/protocol';
   static const String loyalty = '/loyalty';
+  /// PRIMÁRNÍ obrazovka sekce — od 2026-09-16 zobrazuje MÍSTA (dřív seznam
+  /// tras). Spodní lišta na ni odkazuje beze změny.
   static const String routes = '/routes';
+  /// Seznam doporučených tras — nově sekundární, dostupný z rozcestníku Míst.
+  static const String routesList = '/routes-list';
+  /// Mapa všech míst.
+  static const String placesMap = '/places-map';
   static const String routeDetail = '/routes/:id';
   static const String routeNav = '/route-nav/:id';
 }
@@ -433,11 +440,26 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: Routes.loyalty,
             builder: (context, state) => const LoyaltyRanksScreen(),
           ),
+          // PROHOZENO 2026-09-16 (zadání uživatele): tab v hlavním menu
+          // otevírá MÍSTA jako primární obsah; seznam tras se přesunul na
+          // /routes-list, tedy tam, kde byl dřív vstup do bodů zájmu.
+          // Obě obrazovky jsou UVNITŘ shellu, takže si drží spodní lištu —
+          // dřív byl katalog bodů zájmu mimo shell a lišta na něm mizela.
           GoRoute(
             path: Routes.routes,
             pageBuilder: (context, state) => const NoTransitionPage(
+              child: AllPoisScreen(asTab: true),
+            ),
+          ),
+          GoRoute(
+            path: Routes.routesList,
+            pageBuilder: (context, state) => const NoTransitionPage(
               child: RoutesScreen(),
             ),
+          ),
+          GoRoute(
+            path: Routes.placesMap,
+            builder: (context, state) => const PlacesMapScreen(),
           ),
           GoRoute(
             path: '/routes/:id',

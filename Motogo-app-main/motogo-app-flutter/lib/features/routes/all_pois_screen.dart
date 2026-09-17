@@ -7,18 +7,76 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/theme.dart';
-import '../../core/router.dart' show MotoGoBackNav;
+import '../../core/router.dart' show MotoGoBackNav, Routes;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import 'community_submit.dart';
+import 'country_codes.dart';
+import 'places_map.dart';
 import 'poi_categories.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_image.dart';
 import 'route_poi_sheet.dart';
+import 'routes_quick_links.dart';
 
 /// Řazení seznamu bodů zájmu. (Délka/čas se u samostatných bodů neuplatní —
 /// smysluplné je náhodně, od polohy a od zvolené trasy.)
 enum _PoiSort { random, nearMe, nearRoute }
+
+// ── Slučování duplicitních míst — sdílí seznam Míst i mapa míst, aby obě
+// ukazovaly stejný počet a mapa nekreslila dva markery na jedno místo. ──
+
+/// Normalizovaný název místa pro slučování duplicit — malá písmena, sloučené
+/// mezery a bez vedoucího druhového slova (zámek/hrad/…), aby „Zámek Žirovnice"
+/// a „zámek Žirovnice" (i „Zámek Kamenice nad Lipou" vs „Kamenice nad Lipou")
+/// spadly na stejný klíč.
+String _placeName(String raw) {
+  var s = raw.trim().toLowerCase();
+  const prefixes = [
+    'zřícenina hradu ', 'zřícenina ', 'zámek ', 'hrad ', 'klášter ',
+    'burgruine ', 'schloss ', 'burg ', 'château ', 'castle ',
+  ];
+  for (final p in prefixes) {
+    if (s.startsWith(p)) {
+      s = s.substring(p.length);
+      break;
+    }
+  }
+  return s.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
+/// Sloučí body, které představují STEJNÉ fyzické místo (shodný normalizovaný
+/// název + poloha v ~5 km rastru), do JEDNÉ položky. V katalogu „napříč
+/// trasami" se tak místo ležící na více trasách (Kamenice nad Lipou, zámek
+/// Žirovnice, Orlík…) ukáže jen jednou. Data tras se NEMĚNÍ — jde čistě o
+/// zobrazení. Jako reprezentanta upřednostní bod s fotkou, pak katalogový.
+List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
+  String bucket(double v) => (v / 0.05).round().toString();
+  final index = <String, int>{};
+  final out = <PoiEntry>[];
+  for (final e in src) {
+    final ll = e.latLng;
+    // Body bez GPS nikdy neslučuj (nedají se spolehlivě ztotožnit).
+    final key = ll == null
+        ? 'id:${e.key}'
+        : 'p:${_placeName(e.poi.name)}@${bucket(ll.latitude)},${bucket(ll.longitude)}';
+    final at = index[key];
+    if (at == null) {
+      index[key] = out.length;
+      out.add(e);
+    } else {
+      final cur = out[at];
+      final curCover = cur.poi.cover != null;
+      final candCover = e.poi.cover != null;
+      final replace = curCover != candCover
+          ? candCover // bod s fotkou vyhrává
+          : (cur.catalog != e.catalog ? e.catalog : false); // katalog je kanonický
+      if (replace) out[at] = e;
+    }
+  }
+  return out;
+}
 
 /// Katalog VŠECH bodů zájmu napříč trasami. Trasa je jen doporučení — tady si
 /// zákazník vybere zastávky z různých tras (i ze dvou tras najednou) a sestaví
@@ -29,15 +87,45 @@ class AllPoisScreen extends ConsumerStatefulWidget {
   /// Režim výběru pro editor trasy: spodní tlačítko vrátí vybrané body
   /// (Navigator.pop) místo přechodu na sestavení/navigaci.
   final bool pickMode;
-  const AllPoisScreen({super.key, this.initialSelected, this.pickMode = false});
+  /// Obrazovka je kořenem 4. tabu (primární „Místa") — schová tlačítko zpět
+  /// a přidá připnutý rozcestník Trasy / Mapa / Moje zážitky.
+  final bool asTab;
+  const AllPoisScreen({
+    super.key,
+    this.initialSelected,
+    this.pickMode = false,
+    this.asTab = false,
+  });
 
   @override
   ConsumerState<AllPoisScreen> createState() => _AllPoisScreenState();
 }
 
-class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
+class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
+    with SingleTickerProviderStateMixin {
+  // Pořadí dlaždic rozcestníku (Trasy / Mapa / Moje zážitky) — swipe po liště
+  // je cyklicky posune.
+  static const int _quickCount = 3;
+  late final AnimationController _quickOrder = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  );
+
+  // Pořadí drží CELÉ číslo; controller je jen 0→1 přechod mezi starým
+  // a novým pořadím. Dřív se cíl počítal ze SUROVÉ hodnoty controlleru,
+  // takže druhý swipe během animace (value např. 1.4) zanesl do pořadí
+  // desetinnou část a dlaždice zůstaly natrvalo rozjeté mezi sloty.
+  int _quickIndex = 0;
+
+  void _cycleQuickLinks() {
+    if (_quickOrder.isAnimating) return; // swipe během přechodu ignoruj
+    setState(() => _quickIndex = (_quickIndex + 1) % _quickCount);
+    _quickOrder.forward(from: 0);
+  }
+
   final Set<String> _selected = {};
   String _query = '';
+  final TextEditingController _searchCtl = TextEditingController();
   String? _routeFilter; // null = všechny body, jinak id konkrétní zvolené trasy
   final Set<String> _cats = {}; // aktivní kategorie (prázdné = všechny)
   final Set<String> _precachedUrls = {}; // náhledy už poslané do precache
@@ -47,8 +135,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   // krátké pauze v psaní; napsaný text v poli zůstává responzivní hned.
   Timer? _searchDebounce;
 
-  // Filtr „v okolí výběru" — nabídne další body do X km od PRVNÍHO vybraného
-  // bodu (stabilní kotva, aby se okruh s přibývajícím výběrem nerozrůstal).
+  // Filtr „v okolí" — poloměr kolem kotvy. Kotva je PRIMÁRNĚ aktuální poloha
+  // jezdce; teprve když poloha není k dispozici, použije se první vybraný bod
+  // s GPS (stabilní střed vyjížďky). Dřív byla kotva VÝHRADNĚ první vybraný
+  // bod, takže filtr nešlo zapnout bez zaškrtnutí a nikdy neměřil od jezdce.
   bool _nearbyOn = false;
   double _nearbyKm = 10;
   static const List<double> _nearbyKmOptions = [5, 10, 25, 50];
@@ -62,12 +152,37 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   int get _extraFilterCount =>
       (_fCountry.isEmpty ? 0 : 1) + (_minRating > 0 ? 1 : 0) + (_onlyPhoto ? 1 : 0);
 
-  void _clearTools() => setState(() {
-        _sort = _PoiSort.random;
-        _fCountry.clear();
-        _minRating = 0;
-        _onlyPhoto = false;
-      });
+  /// Vynuluje ÚPLNĚ VŠECHNY filtry obrazovky včetně hledání, kategorií,
+  /// „v okolí" a výběru trasy. Dřív tahle metoda pokrývala jen čtyři z nich
+  /// a nikde se nevolala (mrtvý kód), takže „zrušit filtry" fakticky
+  /// neexistovalo.
+  void clearAllFilters() {
+    _searchDebounce?.cancel();
+    _searchCtl.clear();
+    ref.read(placesSearchProvider.notifier).state = '';
+    setState(() {
+      _sort = _PoiSort.random;
+      _fCountry.clear();
+      _minRating = 0;
+      _onlyPhoto = false;
+      _query = '';
+      _cats.clear();
+      _routeFilter = null;
+      _nearbyOn = false;
+      _nearbyKm = 10;
+    });
+  }
+
+  /// Kolik filtrů je aktivních — řídí zobrazení tlačítka „Zrušit filtry"
+  /// a odznak u „Řadit a filtrovat". Počítá i hledání, kategorie, „v okolí"
+  /// a trasu, aby reset nezmizel, když je seznam zúžený jen textem.
+  int get _allFilterCount =>
+      _extraFilterCount +
+      (_query.trim().isEmpty ? 0 : 1) +
+      (_cats.isEmpty ? 0 : 1) +
+      (_routeFilter == null ? 0 : 1) +
+      (_nearbyOn ? 1 : 0) +
+      (_sort == _PoiSort.random ? 0 : 1);
 
   // Náhodné pořadí bodů — losuje se jen JEDNOU za běh appky (static), takže se
   // nemění při návratu na obrazovku; nové promíchání až po restartu appky.
@@ -83,6 +198,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _searchCtl.dispose();
+    _quickOrder.dispose();
     super.dispose();
   }
 
@@ -131,10 +248,70 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
 
   List<PoiEntry> _dedupAll(List<PoiEntry> all) {
     if (_dedupCache != null && identical(_dedupSrc, all)) return _dedupCache!;
-    final deduped = _dedupPlaces(all);
+    final deduped = dedupPlaces(all);
     _dedupCache = deduped;
     _dedupSrc = all;
     return deduped;
+  }
+
+  // Počet bodů na trasu — spočítá se JEDNÍM průchodem a memoizuje stejně jako
+  // _mergedAll. Dřív se pro každou z ~1 200 tras procházel celý sloučený seznam
+  // (~45 tis. položek), takže otevření výběru trasy znamenalo desítky milionů
+  // porovnání na UI vlákně a appka na několik sekund ztuhla.
+  Map<String, int>? _routeCountCache;
+  List<PoiEntry>? _routeCountSrc;
+
+  // Země přítomné v datech — memoizace přes identitu zdroje, stejně jako
+  // _mergedAll. Bez ní se při každém setState procházel celý katalog.
+  List<String>? _countriesCache;
+  List<PoiEntry>? _countriesSrc;
+
+  List<String> _countriesIn(List<PoiEntry> all) {
+    if (_countriesCache != null && identical(_countriesSrc, all)) {
+      return _countriesCache!;
+    }
+    final out = <String>{
+      for (final e in all)
+        if (e.countryCode != null)
+          e.countryCode!
+        else
+          ...(e.route?.countries ?? const <String>[])
+    }.toList();
+    _countriesCache = out;
+    _countriesSrc = all;
+    return out;
+  }
+
+  // Počty kategorií nad aktuálním zdrojem — memoizace jako výše.
+  Map<String, int>? _catCountCache;
+  List<PoiEntry>? _catCountSrc;
+
+  Map<String, int> _catCounts(List<PoiEntry> src) {
+    if (_catCountCache != null && identical(_catCountSrc, src)) {
+      return _catCountCache!;
+    }
+    final counts = <String, int>{};
+    for (final e in src) {
+      final c = poiCategoryOf(e.poi);
+      counts[c] = (counts[c] ?? 0) + 1;
+    }
+    _catCountCache = counts;
+    _catCountSrc = src;
+    return counts;
+  }
+
+  Map<String, int> _routePoiCounts(List<PoiEntry> all) {
+    if (_routeCountCache != null && identical(_routeCountSrc, all)) {
+      return _routeCountCache!;
+    }
+    final counts = <String, int>{};
+    for (final e in all) {
+      final id = e.route?.id;
+      if (id != null) counts[id] = (counts[id] ?? 0) + 1;
+    }
+    _routeCountCache = counts;
+    _routeCountSrc = all;
+    return counts;
   }
 
   /// Vzdálenost bodu od zadaného místa (∞ pro body bez GPS — spadnou dolů).
@@ -143,61 +320,12 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     return ll == null ? double.infinity : dist.as(LengthUnit.Meter, from, ll);
   }
 
-  /// Normalizovaný název místa pro slučování duplicit — malá písmena, sloučené
-  /// mezery a bez vedoucího druhového slova (zámek/hrad/…), aby „Zámek Žirovnice"
-  /// a „zámek Žirovnice" (i „Zámek Kamenice nad Lipou" vs „Kamenice nad Lipou")
-  /// spadly na stejný klíč.
-  static String _placeName(String raw) {
-    var s = raw.trim().toLowerCase();
-    const prefixes = [
-      'zřícenina hradu ', 'zřícenina ', 'zámek ', 'hrad ', 'klášter ',
-      'burgruine ', 'schloss ', 'burg ', 'château ', 'castle ',
-    ];
-    for (final p in prefixes) {
-      if (s.startsWith(p)) {
-        s = s.substring(p.length);
-        break;
-      }
-    }
-    return s.replaceAll(RegExp(r'\s+'), ' ').trim();
-  }
 
-  /// Sloučí body, které představují STEJNÉ fyzické místo (shodný normalizovaný
-  /// název + poloha v ~5 km rastru), do JEDNÉ položky. V katalogu „napříč
-  /// trasami" se tak místo ležící na více trasách (Kamenice nad Lipou, zámek
-  /// Žirovnice, Orlík…) ukáže jen jednou. Data tras se NEMĚNÍ — jde čistě o
-  /// zobrazení. Jako reprezentanta upřednostní bod s fotkou, pak katalogový.
-  static List<PoiEntry> _dedupPlaces(List<PoiEntry> src) {
-    String bucket(double v) => (v / 0.05).round().toString();
-    final index = <String, int>{};
-    final out = <PoiEntry>[];
-    for (final e in src) {
-      final ll = e.latLng;
-      // Body bez GPS nikdy neslučuj (nedají se spolehlivě ztotožnit).
-      final key = ll == null
-          ? 'id:${e.key}'
-          : 'p:${_placeName(e.poi.name)}@${bucket(ll.latitude)},${bucket(ll.longitude)}';
-      final at = index[key];
-      if (at == null) {
-        index[key] = out.length;
-        out.add(e);
-      } else {
-        final cur = out[at];
-        final curCover = cur.poi.cover != null;
-        final candCover = e.poi.cover != null;
-        final replace = curCover != candCover
-            ? candCover // bod s fotkou vyhrává
-            : (cur.catalog != e.catalog ? e.catalog : false); // katalog je kanonický
-        if (replace) out[at] = e;
-      }
-    }
-    return out;
-  }
 
   /// Kotva (start / první bod) naposledy zvolené trasy — pro řazení „od zvolené
   /// trasy". null = žádná trasa dosud otevřená / trasy nenačteny.
   LatLng? _selectedRouteAnchor() {
-    final lastId = ref.read(lastOpenedRouteProvider);
+    final lastId = _routeFilter ?? ref.watch(lastOpenedRouteProvider);
     if (lastId == null) return null;
     final data = ref.read(routesDataProvider).valueOrNull;
     if (data == null) return null;
@@ -227,6 +355,20 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Sdílený dotaz mezi Místy a Trasami — hlídá se v obou směrech, aby se
+    // napsaný text přenesl i při NÁVRATU na už existující obrazovku
+    // (initState by se podruhé nespustil).
+    ref.listen<String>(placesSearchProvider, (prev, next) {
+      if (!mounted || next == _query) return;
+      _searchDebounce?.cancel();
+      _searchCtl.text = next;
+      setState(() => _query = next);
+    });
+    final shared = ref.read(placesSearchProvider);
+    if (shared != _query) {
+      _query = shared;
+      _searchCtl.text = shared;
+    }
     final lang = ref.watch(localeProvider).languageCode;
     // Body z tras + komunitní (uživatelské) body zájmu.
     final routePois = ref.watch(allPoisProvider);
@@ -237,7 +379,11 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     // Dokud se katalog / komunitní body teprve načítají, NErenderuj seznam
     // „po dávkách" — jinak se po otevření několikrát přeskládá (uživatel viděl
     // 3 rychlé změny po sobě). Počkej na zdroje a zobraz je naráz.
-    final sourcesLoading = catalogAsync.isLoading || userAsync.isLoading;
+    // Spinner JEN dokud nemáme co ukázat. `isLoading` je v Riverpodu true
+    // i při obnově s daty v ruce, takže dřív po přidání místa (invalidate)
+    // zmizel celý seznam i pozice scrollu.
+    final sourcesLoading = (catalogAsync.isLoading && catalogPois.isEmpty) ||
+        (userAsync.isLoading && userPois.isEmpty);
     final all = _mergedAll(routePois, catalogPois, userPois);
     final me = ref.watch(currentLocationProvider).valueOrNull;
 
@@ -266,18 +412,24 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     //    Vybrané body zůstávají vidět vždy; kategorie se filtrují až nad tím.
     const dist = Distance();
     LatLng? nearbyAnchor;
-    if (_nearbyOn && _selected.isNotEmpty) {
-      final anchorKey = _selected.first; // Set literál = pořadí vkládání
-      for (final e in all) {
-        if (e.key == anchorKey) {
-          nearbyAnchor = e.latLng;
-          break;
+    if (_nearbyOn) {
+      // 1) moje aktuální poloha, 2) první VYBRANÝ bod, který má GPS.
+      nearbyAnchor = me;
+      if (nearbyAnchor == null && _selected.isNotEmpty) {
+        for (final k in _selected) {
+          for (final e in all) {
+            if (e.key == k && e.latLng != null) {
+              nearbyAnchor = e.latLng;
+              break;
+            }
+          }
+          if (nearbyAnchor != null) break;
         }
       }
     }
     double distToAnchor(PoiEntry e) => (nearbyAnchor == null || e.latLng == null)
         ? double.infinity
-        : dist.as(LengthUnit.Meter, nearbyAnchor!, e.latLng!);
+        : dist.as(LengthUnit.Meter, nearbyAnchor, e.latLng!);
     final nearFiltered = nearbyAnchor == null
         ? sourceFiltered
         : sourceFiltered
@@ -295,10 +447,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
         if (_onlyPhoto && e.poi.cover == null) return false;
         if (_minRating > 0 &&
             (e.poi.avgRating == null || e.poi.avgRating! < _minRating)) return false;
-        if (_fCountry.isNotEmpty) {
-          final cs = e.route?.countries ?? const <String>[];
-          if (!cs.any(_fCountry.contains)) return false;
-        }
+        if (!e.matchesCountries(_fCountry)) return false;
         return true;
       }).toList();
     }
@@ -327,17 +476,23 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     }
     _precacheThumbs(context, list);
 
+    // Kolik tras odpovídá stejnému dotazu — pro pruh jednotného hledání.
+    var routeHits = 0;
+    if (q.isNotEmpty) {
+      final allRoutes = ref.watch(routesDataProvider).valueOrNull?.routes ??
+          const <RouteItem>[];
+      for (final r in allRoutes) {
+        if (searchMatches(r.searchBlob, q)) routeHits++;
+      }
+    }
+
     // Trasy, které mají aspoň jeden POI (pro filtr).
     final routesWithPois = <String, RouteItem>{};
     for (final e in routePois) {
       if (e.route != null) routesWithPois[e.route!.id] = e.route!;
     }
     // Země přítomné v datech (z tras, ke kterým body patří) — pro filtr země.
-    final availableCountries = <String>{
-      for (final e in all)
-        if (e.route != null) ...e.route!.countries
-    }.toList()
-      ..sort();
+    final availableCountries = _countriesIn(all);
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -346,20 +501,177 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
         child: Column(
           children: [
             _header(context),
-            _filters(context, lang, routesWithPois.values.toList(), all, nearFiltered,
-                me != null, selRouteAnchor != null, availableCountries),
+            _filters(context, lang, routesWithPois.values.toList(), all, base,
+                nearFiltered, me != null, selRouteAnchor != null,
+                availableCountries, nearbyAnchor),
             Expanded(
               child: sourcesLoading
                   ? const Center(
                       child: CircularProgressIndicator(color: MotoGoColors.greenDark))
-                  : list.isEmpty
-                      ? _empty(context)
-                      : ListView.builder(
-                          padding: EdgeInsets.fromLTRB(16, 8, 16, _selected.isEmpty ? 24 : 110),
-                          itemCount: list.length,
-                          itemBuilder: (context, i) =>
-                              _poiCard(context, list[i], lang, me),
-                        ),
+                  : CustomScrollView(
+                      slivers: [
+                        // Rozcestník jen v režimu tabu — v pick-mode z editoru
+                        // trasy by odvedl pozornost od výběru bodů.
+                        if (widget.asTab && !widget.pickMode)
+                          SliverPersistentHeader(
+                            pinned: true,
+                            delegate: QuickLinksHeaderDelegate(
+                              order: _quickOrder,
+                              index: _quickIndex,
+                              onCycle: _cycleQuickLinks,
+                              links: [
+                                QuickLink.light(
+                                  emoji: '🗺️',
+                                  titleKey: 'routesEntryTitle',
+                                  subtitleKey: 'routesEntrySub',
+                                  onTap: () => context.push(Routes.routesList),
+                                ),
+                                QuickLink.light(
+                                  emoji: '🧭',
+                                  titleKey: 'placesMapTitle',
+                                  subtitleKey: 'placesMapSub',
+                                  onTap: () => context.push(Routes.placesMap),
+                                ),
+                                QuickLink.dark(
+                                  emoji: '🏍️',
+                                  titleKey: 'myExpEntryTitle',
+                                  subtitleKey: 'myExpEntrySub',
+                                  onTap: () => context.push('/my-experiences'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // Jednotné hledání: když dotaz sedí i na trasy,
+                        // nabídneme přechod do jejich seznamu se stejným
+                        // dotazem (hledá se v místech I v trasách).
+                        if (q.isNotEmpty && routeHits > 0)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                              child: PressableScale(
+                                pressedScale: 0.98,
+                                onTap: () => context.push(Routes.routesList),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: MotoGoColors.greenPale,
+                                    borderRadius: BorderRadius.circular(
+                                        MotoGoRadius.card),
+                                    border: Border.all(
+                                        color: MotoGoColors.green, width: 1.5),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Text('🗺️',
+                                          style: TextStyle(fontSize: 18)),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          '${t(context).tr('searchAlsoRoutes')} · '
+                                          '$routeHits',
+                                          style: const TextStyle(
+                                            fontSize: MotoGoTypo.sizeBase,
+                                            fontWeight: MotoGoTypo.w800,
+                                            color: MotoGoColors.black,
+                                            decoration: TextDecoration.none,
+                                          ),
+                                        ),
+                                      ),
+                                      const Icon(Icons.arrow_forward_ios,
+                                          size: 13,
+                                          color: MotoGoColors.greenDark),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        // Mapa míst nad seznamem: ukazuje PRÁVĚ vyfiltrovaná
+                        // místa, tapem se přepíná výběr, dlouhým stiskem se
+                        // přidá nové místo na daném bodě.
+                        if (widget.asTab && !widget.pickMode)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                              child: ClipRRect(
+                                borderRadius:
+                                    BorderRadius.circular(MotoGoRadius.card),
+                                child: SizedBox(
+                                  height: 210,
+                                  child: Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: PlacesMapView(
+                                          places: list,
+                                          lang: lang,
+                                          selected: _selected,
+                                          me: me,
+                                          initialCenter: me,
+                                          initialZoom: me == null ? 7.2 : 10.5,
+                                          // Uvnitř scrollovaného seznamu se
+                                          // mapou neposouvá — jinak by si
+                                          // vzala svislý drag a seznamem by
+                                          // přes ni nešlo scrollovat. Posun
+                                          // a přiblížení až po rozbalení.
+                                          allowDrag: false,
+                                          onPlaceTap: (e) => setState(() =>
+                                              _selected.contains(e.key)
+                                                  ? _selected.remove(e.key)
+                                                  : _selected.add(e.key)),
+                                          onLongPress: (p) async {
+                                            await Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                    builder: (_) => PoiSubmitScreen(
+                                                        initialPoint: p)));
+                                            if (mounted) {
+                                              ref.invalidate(userPoisProvider);
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      // Rozbalení na celou obrazovku.
+                                      Positioned(
+                                        right: 8,
+                                        top: 8,
+                                        child: PressableScale(
+                                          pressedScale: 0.92,
+                                          onTap: () =>
+                                              context.push(Routes.placesMap),
+                                          child: Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.white,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(Icons.open_in_full,
+                                                size: 18,
+                                                color: MotoGoColors.greenDark),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (list.isEmpty)
+                          SliverFillRemaining(
+                              hasScrollBody: false, child: _empty(context))
+                        else
+                          SliverPadding(
+                            padding: EdgeInsets.fromLTRB(
+                                16, 8, 16, _selected.isEmpty ? 24 : 110),
+                            sliver: SliverList.builder(
+                              itemCount: list.length,
+                              itemBuilder: (context, i) =>
+                                  _poiCard(context, list[i], lang, me),
+                            ),
+                          ),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -382,16 +694,19 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
         children: [
           Row(
             children: [
-              GestureDetector(
-                onTap: () => widget.pickMode
-                    ? Navigator.of(context).pop()
-                    : context.backOr('/routes'),
-                child: const Padding(
-                  padding: EdgeInsets.all(6),
-                  child: Icon(Icons.arrow_back, color: Colors.white, size: 22),
+              if (!widget.asTab || widget.pickMode) ...[
+                GestureDetector(
+                  onTap: () => widget.pickMode
+                      ? Navigator.of(context).pop()
+                      : context.backOr(Routes.routes),
+                  child: const Padding(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
+                const SizedBox(width: 4),
+              ] else
+                const SizedBox(width: 6),
               const Text('📍', style: TextStyle(fontSize: 22)),
               const SizedBox(width: 8),
               Expanded(
@@ -433,12 +748,15 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
+                    controller: _searchCtl,
                     onChanged: (v) {
                       _searchDebounce?.cancel();
                       _searchDebounce = Timer(
                         const Duration(milliseconds: 280),
                         () {
-                          if (mounted) setState(() => _query = v);
+                          if (!mounted) return;
+                          setState(() => _query = v);
+                          ref.read(placesSearchProvider.notifier).state = v;
                         },
                       );
                     },
@@ -451,6 +769,21 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                     style: const TextStyle(fontSize: MotoGoTypo.sizeLg, color: MotoGoColors.black),
                   ),
                 ),
+                // Křížek — bez něj šel napsaný text smazat jen mazáním po písmenech.
+                if (_query.isNotEmpty || _searchCtl.text.isNotEmpty)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      _searchDebounce?.cancel();
+                      _searchCtl.clear();
+                      setState(() => _query = '');
+                      ref.read(placesSearchProvider.notifier).state = '';
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                      child: Icon(Icons.close, size: 18, color: MotoGoColors.g400),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -461,18 +794,15 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
 
   // ── Filtry: řádek nástrojů (řazení/filtry, „v okolí", trasa) + řádek kategorií ──
   Widget _filters(BuildContext context, String lang, List<RouteItem> routes,
-      List<PoiEntry> all, List<PoiEntry> sourceFiltered,
-      bool meAvail, bool routeAvail, List<String> availableCountries) {
+      List<PoiEntry> all, List<PoiEntry> base, List<PoiEntry> sourceFiltered,
+      bool meAvail, bool routeAvail, List<String> availableCountries,
+      LatLng? nearAnchor) {
     if (routes.length < 2 && all.isEmpty && _selected.isEmpty) {
       return const SizedBox(height: 8);
     }
 
     // Počty kategorií z aktuálního zdroje (bez zapnutých kategorií).
-    final catCounts = <String, int>{};
-    for (final e in sourceFiltered) {
-      final c = poiCategoryOf(e.poi);
-      catCounts[c] = (catCounts[c] ?? 0) + 1;
-    }
+    final catCounts = _catCounts(sourceFiltered);
 
     RouteItem? selRoute;
     if (_routeFilter != null) {
@@ -497,21 +827,28 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
               _srcChip(
                 _sortLabel(context, _sort),
                 Icons.tune,
-                _sort != _PoiSort.random || _extraFilterCount > 0,
-                _extraFilterCount > 0 ? _extraFilterCount : null,
-                () => _openPoiToolsSheet(context, meAvail, routeAvail, availableCountries),
+                _allFilterCount > 0,
+                _allFilterCount > 0 ? _allFilterCount : null,
+                () => _openPoiToolsSheet(context, meAvail, routeAvail,
+                    availableCountries, base, nearAnchor),
                 trailing: Icons.arrow_drop_down,
               ),
-              // „V okolí výběru" — objeví se, jakmile je vybraný aspoň 1 bod.
-              if (_selected.isNotEmpty)
-                _srcChip(
-                  '${t(context).tr('poiNearby')} ${_nearbyKm.round()} km',
-                  Icons.radar,
-                  _nearbyOn,
-                  null,
-                  () => setState(() => _nearbyOn = !_nearbyOn),
-                ),
-              if (_selected.isNotEmpty && _nearbyOn)
+              // „V okolí" — dostupné HNED, měří od aktuální polohy. Když poloha
+              // ještě není povolená, tap si o ni nejdřív řekne.
+              _srcChip(
+                '${t(context).tr('poiNearby')} ${_nearbyKm.round()} km',
+                Icons.radar,
+                _nearbyOn,
+                null,
+                () async {
+                  if (!_nearbyOn && !meAvail && _selected.isEmpty) {
+                    final ok = await ensureLocation(ref);
+                    if (!ok || !mounted) return;
+                  }
+                  setState(() => _nearbyOn = !_nearbyOn);
+                },
+              ),
+              if (_nearbyOn)
                 for (final km in _nearbyKmOptions)
                   _srcChip('${km.round()} km', Icons.circle_outlined,
                       _nearbyKm == km, null,
@@ -521,27 +858,41 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                 selRoute != null ? selRoute.nameFor(lang) : t(context).tr('poiRoutePick'),
                 Icons.route,
                 selRoute != null,
-                selRoute != null
-                    ? all.where((e) => e.route?.id == selRoute!.id).length
-                    : null,
+                selRoute != null ? _routePoiCounts(all)[selRoute.id] : null,
                 () => _openRoutePicker(context, lang, routes, all),
                 trailing: Icons.arrow_drop_down,
               ),
+              // Zrušit všechny filtry — dřív na obrazovce vůbec nebylo.
+              if (_allFilterCount > 0)
+                _srcChip(
+                  t(context).tr('routesFilterClear'),
+                  Icons.close,
+                  false,
+                  null,
+                  clearAllFilters,
+                ),
             ],
           ),
         ),
         // Kategorie (jen ty, co mají v aktuálním zdroji aspoň 1 bod).
-        SizedBox(
-          height: 44,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
+        // Wrap místo vodorovného scrolleru: 11 kategorií se do jednoho řádku
+        // nevejde a ty za okrajem nikdo nenašel. AnimatedSize drží plynulý
+        // přechod, když se počet řádků při filtrování změní.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-            children: [
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
               for (final c in kPoiCats)
                 if ((catCounts[c.key] ?? 0) > 0 || _cats.contains(c.key))
                   _catChip(context, c, catCounts[c.key] ?? 0),
-            ],
+              ],
+            ),
           ),
         ),
       ],
@@ -559,30 +910,29 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
     }
   }
 
-  /// Vlaječka + kód země (jazykově neutrální).
-  String _countryLabel(String code) {
-    const flags = {
-      'CZ': '🇨🇿', 'DE': '🇩🇪', 'AT': '🇦🇹', 'PL': '🇵🇱', 'SK': '🇸🇰',
-      'HU': '🇭🇺', 'IT': '🇮🇹', 'CH': '🇨🇭', 'SI': '🇸🇮', 'HR': '🇭🇷',
-      'FR': '🇫🇷', 'ES': '🇪🇸', 'PT': '🇵🇹', 'NL': '🇳🇱', 'BE': '🇧🇪',
-      'LU': '🇱🇺', 'DK': '🇩🇰', 'SE': '🇸🇪', 'NO': '🇳🇴', 'FI': '🇫🇮',
-      'GB': '🇬🇧', 'IE': '🇮🇪', 'RO': '🇷🇴', 'BG': '🇧🇬', 'RS': '🇷🇸',
-      'GR': '🇬🇷', 'ME': '🇲🇪', 'BA': '🇧🇦', 'MK': '🇲🇰', 'AL': '🇦🇱',
-      'AD': '🇦🇩', 'LI': '🇱🇮', 'IS': '🇮🇸', 'MD': '🇲🇩', 'LT': '🇱🇹',
-      'LV': '🇱🇻', 'EE': '🇪🇪',
-    };
-    return '${flags[code] ?? '🏳️'} $code';
-  }
 
-  // ── Bottom sheet: řazení + rozšířené filtry bodů zájmu ──
+  // ── Bottom sheet: řadit a filtrovat místa ──
+  //
+  // Přepracováno 2026-09-16 (zadání uživatele): přibylo hledání a filtr
+  // kategorií, zrušeno „jen s fotkou", hodnocení je schované pod rozbalovačem,
+  // vlajky států mají stejné pořadí jako u tras (CZ/SK/AT/HU/IT/HR/SI první,
+  // zbytek pod „Další státy"), řazení začíná vzdáleností a přibyl reset
+  // i živý počet výsledků na potvrzovacím tlačítku.
   void _openPoiToolsSheet(BuildContext context, bool meAvail, bool routeAvail,
-      List<String> availableCountries) {
+      List<String> availableCountries, List<PoiEntry> base, LatLng? nearAnchor) {
+    final lang = ref.read(localeProvider).languageCode;
     // Pracovní kopie (potvrdí se tlačítkem).
     var tSort = _sort;
     final tCountry = {..._fCountry};
+    final tCats = {..._cats};
     var tMin = _minRating;
-    var tPhoto = _onlyPhoto;
+    var tQuery = _query;
     const ratingOptions = <double>[3, 4, 4.5];
+    final split = splitByPriority(availableCountries);
+    final qCtl = TextEditingController(text: _query);
+    var moreCountries = tCountry.any(split.rest.contains);
+    var showRating = tMin > 0; // hodnocení je ve výchozím stavu schované
+    Timer? deb;
 
     showModalBottomSheet(
       context: context,
@@ -593,11 +943,40 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
       builder: (sheetCtx) {
         return StatefulBuilder(
           builder: (sheetCtx, setSheet) {
+            // Živý počet výsledků pro zvolenou kombinaci.
+            final qq = tQuery.trim();
+            const dist = Distance();
+            var count = 0;
+            for (final e in base) {
+              // „V okolí" se v sheetu nenastavuje, ale výsledek ovlivňuje — bez
+              // něj tlačítko slibovalo jiné číslo, než se pak v seznamu ukázalo.
+              if (nearAnchor != null) {
+                final p = e.latLng;
+                if (p == null ||
+                    dist.as(LengthUnit.Meter, nearAnchor, p) > _nearbyKm * 1000) {
+                  continue;
+                }
+              }
+              if (_routeFilter != null && e.route?.id != _routeFilter) continue;
+              if (qq.isNotEmpty &&
+                  !(searchMatches(e.poi.searchBlob, qq) ||
+                      (e.route != null && searchMatches(e.route!.nameBlob, qq)))) {
+                continue;
+              }
+              if (tCats.isNotEmpty && !tCats.contains(poiCategoryOf(e.poi))) continue;
+              if (tMin > 0 && (e.poi.avgRating == null || e.poi.avgRating! < tMin)) {
+                continue;
+              }
+              if (!e.matchesCountries(tCountry)) continue;
+              count++;
+            }
+
             Widget chip(String label, bool active, VoidCallback? onTap) {
               final enabled = onTap != null;
               return PressableScale(
                 pressedScale: 0.94,
-                onTap: onTap ?? () {},
+                onTap: onTap,
+                enabled: enabled,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 160),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
@@ -625,7 +1004,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
             }
 
             Widget section(String label) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10, top: 4),
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: Text(
                     label,
                     style: const TextStyle(
@@ -648,14 +1027,15 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                       margin: const EdgeInsets.only(top: 10, bottom: 6),
                       width: 40, height: 4,
                       decoration: BoxDecoration(
-                          color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
+                          color: MotoGoColors.g200,
+                          borderRadius: BorderRadius.circular(2)),
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
                       child: Row(
                         children: [
                           Text(
-                            t(sheetCtx).tr('poiFilterTitle'),
+                            t(sheetCtx).tr('poiToolsTitle'),
                             style: const TextStyle(
                               fontSize: MotoGoTypo.sizeH2,
                               fontWeight: MotoGoTypo.w900,
@@ -664,20 +1044,30 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                             ),
                           ),
                           const Spacer(),
-                          GestureDetector(
-                            onTap: () => setSheet(() {
-                              tSort = _PoiSort.random;
-                              tCountry.clear();
-                              tMin = 0;
-                              tPhoto = false;
-                            }),
-                            child: Text(
-                              t(sheetCtx).tr('poiFilterClear'),
-                              style: const TextStyle(
-                                fontSize: MotoGoTypo.sizeBase,
-                                fontWeight: MotoGoTypo.w700,
-                                color: MotoGoColors.greenDark,
-                                decoration: TextDecoration.none,
+                          PressableScale(
+                            pressedScale: 0.94,
+                            onTap: () {
+                              clearAllFilters();
+                              Navigator.of(sheetCtx).pop();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.close,
+                                      size: 16, color: MotoGoColors.greenDark),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    t(sheetCtx).tr('routesFilterClear'),
+                                    style: const TextStyle(
+                                      fontSize: MotoGoTypo.sizeBase,
+                                      fontWeight: MotoGoTypo.w700,
+                                      color: MotoGoColors.greenDark,
+                                      decoration: TextDecoration.none,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -687,65 +1077,183 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                     Flexible(
                       child: ListView(
                         shrinkWrap: true,
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                         children: [
-                          // Řazení
+                          // ── Hledání ──
+                          Container(
+                            decoration: BoxDecoration(
+                              color: MotoGoColors.g100,
+                              borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.search,
+                                    size: 18, color: MotoGoColors.g400),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: qCtl,
+                                    onChanged: (v) {
+                                      deb?.cancel();
+                                      deb = Timer(
+                                        const Duration(milliseconds: 220),
+                                        () => setSheet(() => tQuery = v),
+                                      );
+                                    },
+                                    decoration: InputDecoration(
+                                      isDense: true,
+                                      border: InputBorder.none,
+                                      hintText: t(sheetCtx).tr('poiSearch'),
+                                      hintStyle: const TextStyle(
+                                          color: MotoGoColors.g400,
+                                          fontSize: MotoGoTypo.sizeBase),
+                                    ),
+                                    style: const TextStyle(
+                                        fontSize: MotoGoTypo.sizeLg,
+                                        color: MotoGoColors.black),
+                                  ),
+                                ),
+                                if (tQuery.isNotEmpty)
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () {
+                                      deb?.cancel();
+                                      qCtl.clear();
+                                      setSheet(() => tQuery = '');
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 10),
+                                      child: Icon(Icons.close,
+                                          size: 18, color: MotoGoColors.g400),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          // ── Řazení (vzdálenost první) ──
                           section(t(sheetCtx).tr('sortTitle')),
                           Wrap(spacing: 8, runSpacing: 8, children: [
+                            chip(_sortLabel(sheetCtx, _PoiSort.nearMe),
+                                tSort == _PoiSort.nearMe, () async {
+                              if (!meAvail) {
+                                final ok = await ensureLocation(ref);
+                                // Sheet mohl mezitím zmizet — setSheet na
+                                // odpojeném StatefulBuilderu shodí appku.
+                                if (!ok || !sheetCtx.mounted) return;
+                              }
+                              setSheet(() => tSort = _PoiSort.nearMe);
+                            }),
+                            chip(_sortLabel(sheetCtx, _PoiSort.nearRoute),
+                                tSort == _PoiSort.nearRoute,
+                                routeAvail
+                                    ? () => setSheet(() => tSort = _PoiSort.nearRoute)
+                                    : null),
                             chip(_sortLabel(sheetCtx, _PoiSort.random),
                                 tSort == _PoiSort.random,
                                 () => setSheet(() => tSort = _PoiSort.random)),
-                            chip(_sortLabel(sheetCtx, _PoiSort.nearMe),
-                                tSort == _PoiSort.nearMe,
-                                meAvail ? () => setSheet(() => tSort = _PoiSort.nearMe) : null),
-                            chip(_sortLabel(sheetCtx, _PoiSort.nearRoute),
-                                tSort == _PoiSort.nearRoute,
-                                routeAvail ? () => setSheet(() => tSort = _PoiSort.nearRoute) : null),
                           ]),
                           const SizedBox(height: 18),
-                          // Jen s fotkou
-                          section(t(sheetCtx).tr('poiFilterMinRating')),
+                          // ── Kategorie ──
+                          section(t(sheetCtx).tr('poiFilterCategory')),
                           Wrap(spacing: 8, runSpacing: 8, children: [
-                            chip(t(sheetCtx).tr('poiFilterAny'), tMin == 0,
-                                () => setSheet(() => tMin = 0)),
-                            for (final r in ratingOptions)
-                              chip('★ ${r % 1 == 0 ? r.toStringAsFixed(0) : r.toStringAsFixed(1)}+',
-                                  tMin == r, () => setSheet(() => tMin = r)),
+                            for (final c in kPoiCats)
+                              chip('${c.emoji} ${t(sheetCtx).tr(c.i18nKey)}',
+                                  tCats.contains(c.key), () {
+                                setSheet(() => tCats.contains(c.key)
+                                    ? tCats.remove(c.key)
+                                    : tCats.add(c.key));
+                              }),
                           ]),
-                          const SizedBox(height: 18),
-                          Wrap(spacing: 8, runSpacing: 8, children: [
-                            chip('📷 ${t(sheetCtx).tr('poiFilterOnlyPhoto')}', tPhoto,
-                                () => setSheet(() => tPhoto = !tPhoto)),
-                          ]),
-                          // Země
-                          if (availableCountries.isNotEmpty) ...[
+                          // ── Země ──
+                          if (split.top.isNotEmpty || split.rest.isNotEmpty) ...[
                             const SizedBox(height: 18),
                             section(t(sheetCtx).tr('poiFilterCountry')),
                             Wrap(spacing: 8, runSpacing: 8, children: [
-                              for (final c in availableCountries)
-                                chip(_countryLabel(c), tCountry.contains(c), () {
-                                  setSheet(() =>
-                                      tCountry.contains(c) ? tCountry.remove(c) : tCountry.add(c));
+                              for (final c in split.top)
+                                chip(countryChipLabel(c), tCountry.contains(c), () {
+                                  setSheet(() => tCountry.contains(c)
+                                      ? tCountry.remove(c)
+                                      : tCountry.add(c));
                                 }),
+                              if (split.rest.isNotEmpty)
+                                chip(
+                                  '${moreCountries ? '▲' : '▼'} ${t(sheetCtx).tr('routesFilterMoreCountries')} (${split.rest.length})',
+                                  false,
+                                  () => setSheet(() => moreCountries = !moreCountries),
+                                ),
                             ]),
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                              alignment: Alignment.topCenter,
+                              child: moreCountries
+                                  ? Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Wrap(spacing: 8, runSpacing: 8, children: [
+                                        for (final c in split.rest)
+                                          chip(countryFullLabel(c, lang),
+                                              tCountry.contains(c), () {
+                                            setSheet(() => tCountry.contains(c)
+                                                ? tCountry.remove(c)
+                                                : tCountry.add(c));
+                                          }),
+                                      ]),
+                                    )
+                                  : const SizedBox(width: double.infinity),
+                            ),
                           ],
+                          // ── Hodnocení (ve výchozím stavu schované) ──
+                          const SizedBox(height: 18),
+                          chip(
+                            '${showRating ? '▲' : '▼'} ${t(sheetCtx).tr('poiFilterMinRating')}',
+                            false,
+                            () => setSheet(() => showRating = !showRating),
+                          ),
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                            alignment: Alignment.topCenter,
+                            child: showRating
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 10),
+                                    child: Wrap(spacing: 8, runSpacing: 8, children: [
+                                      chip(t(sheetCtx).tr('poiFilterAny'), tMin == 0,
+                                          () => setSheet(() => tMin = 0)),
+                                      for (final r in ratingOptions)
+                                        chip(
+                                            '★ ${r % 1 == 0 ? r.toStringAsFixed(0) : r.toStringAsFixed(1)}+',
+                                            tMin == r,
+                                            () => setSheet(() => tMin = r)),
+                                    ]),
+                                  )
+                                : const SizedBox(width: double.infinity),
+                          ),
                         ],
                       ),
                     ),
-                    // Potvrzení
+                    Container(height: 1, color: MotoGoColors.g200),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
                       child: PressableScale(
                         pressedScale: 0.98,
                         onTap: () {
+                          _searchDebounce?.cancel();
+                          if (_searchCtl.text != tQuery) _searchCtl.text = tQuery;
                           setState(() {
                             _sort = tSort;
                             _fCountry
                               ..clear()
                               ..addAll(tCountry);
+                            _cats
+                              ..clear()
+                              ..addAll(tCats);
                             _minRating = tMin;
-                            _onlyPhoto = tPhoto;
+                            _query = tQuery;
                           });
+                          ref.read(placesSearchProvider.notifier).state = tQuery;
                           Navigator.of(sheetCtx).pop();
                         },
                         child: Container(
@@ -762,7 +1270,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                           ),
                           child: Center(
                             child: Text(
-                              t(sheetCtx).tr('poiFilterApply'),
+                              '${t(sheetCtx).tr('poiFilterApply')} ($count)',
                               style: const TextStyle(
                                 fontSize: MotoGoTypo.sizeXl,
                                 fontWeight: MotoGoTypo.w800,
@@ -781,7 +1289,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
           },
         );
       },
-    );
+    ).whenComplete(() {
+      deb?.cancel();
+      qCtl.dispose();
+    });
   }
 
   Widget _srcChip(String label, IconData icon, bool active, int? count, VoidCallback onTap,
@@ -849,9 +1360,8 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
 
   Widget _catChip(BuildContext context, PoiCat c, int count) {
     final active = _cats.contains(c.key);
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: PressableScale(
+    // Bez vlastního odsazení — rozestupy řeší Wrap (spacing/runSpacing).
+    return PressableScale(
         pressedScale: 0.94,
         onTap: () => setState(() => active ? _cats.remove(c.key) : _cats.add(c.key)),
         child: AnimatedContainer(
@@ -891,8 +1401,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   // ── Sheet s výběrem trasy (hledání + počty bodů) ──
@@ -900,6 +1409,13 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
       BuildContext context, String lang, List<RouteItem> routes, List<PoiEntry> all) {
     final sorted = List<RouteItem>.from(routes)
       ..sort((a, b) => a.nameFor(lang).compareTo(b.nameFor(lang)));
+    final counts = _routePoiCounts(all);
+    // Držáky MIMO builder sheetu: builder se volá znovu při každé změně
+    // viewInsets (vyjetí klávesnice), takže lokální `var q` se pokaždé
+    // vynulovalo — uživatel psal a seznam se nefiltroval.
+    final qCtl = TextEditingController();
+    var q = '';
+    Timer? deb;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -907,7 +1423,6 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
       builder: (sheetCtx) {
-        var q = '';
         return StatefulBuilder(
           builder: (sheetCtx, setSheet) {
             final qq = q.trim();
@@ -959,7 +1474,16 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                             Expanded(
                               child: TextField(
                                 autofocus: false,
-                                onChanged: (v) => setSheet(() => q = v),
+                                controller: qCtl,
+                                // Debounce jako na hlavní obrazovce — bez něj se
+                                // celý seznam tras přestavoval na každé písmeno.
+                                onChanged: (v) {
+                                  deb?.cancel();
+                                  deb = Timer(
+                                    const Duration(milliseconds: 220),
+                                    () => setSheet(() => q = v),
+                                  );
+                                },
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: InputBorder.none,
@@ -976,28 +1500,34 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
                       ),
                     ),
                     Flexible(
-                      child: ListView(
+                      // ListView.builder = líné stavění. Dřív se stavěly všechny
+                      // dlaždice (~1 200) najednou ještě před prvním snímkem.
+                      child: ListView.builder(
                         shrinkWrap: true,
                         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                        children: [
-                          _routePickTile(sheetCtx, Icons.apps, t(sheetCtx).tr('poiAllRoutes'),
-                              all.length, _routeFilter == null, () {
-                            setState(() => _routeFilter = null);
-                            Navigator.of(sheetCtx).pop();
-                          }),
-                          for (final r in filtered)
-                            _routePickTile(
-                              sheetCtx,
-                              Icons.route,
-                              r.nameFor(lang),
-                              all.where((e) => e.route?.id == r.id).length,
-                              _routeFilter == r.id,
-                              () {
-                                setState(() => _routeFilter = r.id);
-                                Navigator.of(sheetCtx).pop();
-                              },
-                            ),
-                        ],
+                        itemCount: filtered.length + 1,
+                        itemBuilder: (ctx, i) {
+                          if (i == 0) {
+                            return _routePickTile(
+                                sheetCtx, Icons.apps, t(sheetCtx).tr('poiAllRoutes'),
+                                all.length, _routeFilter == null, () {
+                              setState(() => _routeFilter = null);
+                              Navigator.of(sheetCtx).pop();
+                            });
+                          }
+                          final r = filtered[i - 1];
+                          return _routePickTile(
+                            sheetCtx,
+                            Icons.route,
+                            r.nameFor(lang),
+                            counts[r.id] ?? 0,
+                            _routeFilter == r.id,
+                            () {
+                              setState(() => _routeFilter = r.id);
+                              Navigator.of(sheetCtx).pop();
+                            },
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -1007,7 +1537,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
           },
         );
       },
-    );
+    ).whenComplete(() {
+      deb?.cancel();
+      qCtl.dispose();
+    });
   }
 
   Widget _routePickTile(BuildContext context, IconData icon, String label, int count,
@@ -1056,12 +1589,27 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen> {
   }
 
   // ── Karta POI ──
+  /// Minuty na „1 h 20 m" / „45 m" — u vzdálenosti místa od jezdce.
+  static String _fmtMin(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h <= 0) return '${m}m';
+    return m == 0 ? '${h}h' : '${h}h ${m}m';
+  }
+
   Widget _poiCard(BuildContext context, PoiEntry e, String lang, LatLng? me) {
     final selected = _selected.contains(e.key);
     String? distTxt;
     if (me != null && e.latLng != null) {
       final m = const Distance().as(LengthUnit.Meter, me, e.latLng!);
       distTxt = m >= 1000 ? '${(m / 1000).toStringAsFixed(1)} km' : '${m.round()} m';
+      // Vzdálenost propojená s časem — kolik je to zhruba jízdy. Vzdušná čára
+      // se přepočte koeficientem 1,3 (klikatost silnic) a průměrem 60 km/h,
+      // stejně jako odhad dojezdu k trase (approachEstimate).
+      if (m >= 1500) {
+        final min = (m / 1000 * 1.3 / 60 * 60).round();
+        if (min >= 1) distTxt = '$distTxt · ${_fmtMin(min)}';
+      }
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
