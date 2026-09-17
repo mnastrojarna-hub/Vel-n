@@ -16,10 +16,16 @@ class AuthErrorInfo {
   /// Technický kód pro `app_debug_logs` (v UI se nezobrazuje).
   final String code;
 
+  /// Krok registračního průvodce, ve kterém je vadné pole (1–3), nebo null,
+  /// když chyba k žádnému poli nepatří (síť, server, rate limit). Formulář se
+  /// na tento krok vrátí — zákazník tak vidí, KDE problém je, ne jen ŽE je.
+  final int? step;
+
   const AuthErrorInfo({
     required this.title,
     required this.message,
     this.code = 'unknown',
+    this.step,
   });
 }
 
@@ -47,6 +53,7 @@ class AuthErrorMapper {
         title: _t(lang, 'emailTakenTitle'),
         message: _t(lang, 'emailTakenBody'),
         code: 'email_taken',
+        step: 1,
       );
 
   static AuthErrorInfo _map(Object? error, String lang, {required bool isSignUp}) {
@@ -90,6 +97,7 @@ class AuthErrorMapper {
         title: _t(lang, 'weakPasswordTitle'),
         message: _t(lang, 'weakPasswordBody'),
         code: 'weak_password',
+        step: 1,
       );
     }
 
@@ -102,6 +110,7 @@ class AuthErrorMapper {
         title: _t(lang, 'invalidEmailTitle'),
         message: _t(lang, 'invalidEmailBody'),
         code: 'invalid_email',
+        step: 1,
       );
     }
 

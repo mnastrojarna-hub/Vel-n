@@ -50,18 +50,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _consentVop = false;
   bool _consentGdpr = false;
 
-  void _next() {
-    if (_step == 1 && !_validateStep1()) return;
+  Future<void> _next() async {
+    if (_step == 1) {
+      if (!_validateStep1()) return;
+      // E-mail ověřujeme HNED v kroku 1, ne až po vyplnění všech tří kroků.
+      // Nejčastější důvod odmítnuté registrace je „e-mail už u nás účet má"
+      // (účet vzniká i automaticky při rezervaci na webu) — server ho ale
+      // odmítne až při odeslání, takže zákazník marně vyplnil celý formulář
+      // a dostal chybu bez souvislosti s polem, kde problém je.
+      // Stejné RPC i stejná hláška jako web (`pages-rezervace-auth.js`).
+      if (!await _checkEmailFree()) return;
+    }
     if (_step == 2 && !_validateStep2()) return;
     if (_step == 3) {
       if (!_validateStep3()) return;
-      _doRegister();
+      await _doRegister();
       return;
     }
+    if (!mounted) return;
     setState(() {
       _goingForward = true;
       _step++;
     });
+  }
+
+  /// `true` = e-mail je volný (nebo to teď nejde ověřit → nikdy neblokujeme
+  /// registraci kvůli výpadku sítě). `false` = e-mail už účet má, zákazníkovi
+  /// jsme to řekli a nabídli přihlášení.
+  Future<bool> _checkEmailFree() async {
+    setState(() => _loading = true);
+    final taken = await AuthService.emailExists(_emailCtrl.text.trim());
+    if (!mounted) return false;
+    setState(() => _loading = false);
+    if (taken != true) return true; // false = volný, null = neověřitelné
+    final info = AuthErrorMapper.emailTaken(await AuthService.currentLang());
+    if (!mounted) return false;
+    await _showEmailTakenDialog(info);
+    return false;
+  }
+
+  /// Existující e-mail → vysvětlení + rovnou cesta na přihlášení.
+  Future<void> _showEmailTakenDialog(AuthErrorInfo info) {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(info.title,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(info.message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(t(context).cancel),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.go(Routes.login);
+            },
+            child: Text(t(context).login,
+                style: const TextStyle(
+                    color: MotoGoColors.greenDark, fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _back() {
@@ -257,6 +309,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _loading = false);
 
     if (error != null) {
+      // Chyba vázaná na konkrétní pole (e-mail, heslo) → vrátíme průvodce na
+      // krok, kde to pole je. Zákazník tak vidí, KDE problém je; dosud se
+      // hláška ukázala nad krokem 3, i když šlo o e-mail z kroku 1.
+      if (error.step != null && error.step != _step) {
+        setState(() {
+          _goingForward = false;
+          _step = error.step!;
+        });
+      }
       // Konkrétní titulek i návod přímo z mapperu — místo holého „Chyba
       // registrace" zákazník vidí, CO je špatně a co s tím. Delší zobrazení,
       // aby se stihl text dočíst (a případně nahlásit).
