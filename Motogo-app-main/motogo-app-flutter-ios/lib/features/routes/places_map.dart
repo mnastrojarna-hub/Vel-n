@@ -36,6 +36,13 @@ class PlacesMapView extends StatefulWidget {
   /// celou obrazovku (dřív to uměla jen malá ikonka v rohu).
   final VoidCallback? onMapTap;
 
+  /// Odlišit body ležící NA TRASE (mapa tras) — zeleně, ostatní místa bíle.
+  final bool markRouteStops;
+
+  /// Trasa poskládaná uživatelem v editoru („Tvoje trasa") — kreslí se
+  /// výrazně a nad ostatními čarami.
+  final List<LatLng> draftLine;
+
   /// Dlouhý stisk do prázdné mapy — nabídne přidání nového místa.
   final void Function(LatLng point)? onLongPress;
 
@@ -67,6 +74,8 @@ class PlacesMapView extends StatefulWidget {
     this.onPlaceLongPress,
     this.onMapTap,
     this.onLongPress,
+    this.markRouteStops = false,
+    this.draftLine = const [],
     this.me,
     this.initialCenter,
     this.initialZoom = 7.2,
@@ -247,6 +256,17 @@ class PlacesMapViewState extends State<PlacesMapView> {
                   ),
             ],
           ),
+        // „Tvoje trasa" z editoru — silná tmavá čára nad ostatními.
+        if (widget.draftLine.length >= 2)
+          PolylineLayer(
+            polylines: [
+              Polyline(
+                points: widget.draftLine,
+                strokeWidth: 6,
+                color: MotoGoColors.greenDarker,
+              ),
+            ],
+          ),
         if (widget.me != null)
           MarkerLayer(markers: [
             Marker(
@@ -358,6 +378,9 @@ class PlacesMapViewState extends State<PlacesMapView> {
 
   Marker _placeMarker(PoiEntry e) {
     final sel = widget.selected.contains(e.key);
+    // Body tras mají na mapě tras VLASTNÍ barvu, aby šly odlišit od ostatních
+    // míst (zadání uživatele).
+    final onRoute = widget.markRouteStops && e.onRoute;
     return Marker(
       point: e.latLng!,
       width: 34,
@@ -373,11 +396,15 @@ class PlacesMapViewState extends State<PlacesMapView> {
             : () => widget.onPlaceLongPress!(e),
         child: Container(
           decoration: BoxDecoration(
-            color: sel ? MotoGoColors.green : Colors.white,
+            color: sel
+                ? MotoGoColors.green
+                : (onRoute ? MotoGoColors.greenPale : Colors.white),
             shape: BoxShape.circle,
             border: Border.all(
-              color: sel ? MotoGoColors.greenDarker : MotoGoColors.g300,
-              width: 2,
+              color: sel
+                  ? MotoGoColors.greenDarker
+                  : (onRoute ? MotoGoColors.greenDark : MotoGoColors.g300),
+              width: onRoute && !sel ? 2.5 : 2,
             ),
             boxShadow: [
               BoxShadow(

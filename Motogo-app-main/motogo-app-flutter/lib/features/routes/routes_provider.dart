@@ -205,7 +205,17 @@ class PoiEntry {
   final RouteItem? route; // null = bod bez trasy (katalog / komunitní)
   final RouteBranch? branch;
   final bool catalog; // samostatný bod z katalogu „zajímavá místa" (ne od uživatele)
-  const PoiEntry(this.poi, this.route, this.branch, {this.catalog = false});
+  /// Leží tohle místo na některé trase? U bodu s `route` je to samozřejmé,
+  /// ale po sloučení duplicit (dedupPlaces) může být reprezentantem
+  /// katalogový bod TÉHOŽ místa — příznak se proto přenáší přes celou
+  /// skupinu, aby mapa tras poznala, co je zastávka trasy.
+  final bool onRoute;
+  const PoiEntry(this.poi, this.route, this.branch,
+      {this.catalog = false, bool? onRoute})
+      : onRoute = onRoute ?? (route != null);
+
+  PoiEntry copyWith({bool? onRoute}) => PoiEntry(poi, route, branch,
+      catalog: catalog, onRoute: onRoute ?? this.onRoute);
   LatLng? get latLng => poi.latLng;
   /// Komunitní = navržený uživatelem (bez trasy a mimo katalog).
   bool get isCommunity => route == null && !catalog;

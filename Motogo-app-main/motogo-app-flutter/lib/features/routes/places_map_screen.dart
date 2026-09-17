@@ -12,6 +12,7 @@ import 'places_filter.dart';
 import 'routes_model.dart';
 import 'places_map.dart';
 import 'route_poi_sheet.dart';
+import 'routes_map_provider.dart';
 import 'routes_provider.dart';
 
 /// Celoobrazovková mapa MÍST — trasy se sem nekreslí.
@@ -107,6 +108,8 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
     final selected = ref.watch(placesSelectionProvider);
     final me = ref.watch(currentLocationProvider).valueOrNull;
     final loading = ref.watch(catalogPoisProvider).isLoading;
+    // Trasa poskládaná v editoru — po návratu „zpět" musí být vidět i tady.
+    final draft = ref.watch(draftRouteProvider);
 
     // Stejný zdroj i stejný filtr jako seznam Míst — mapa tak nikdy neukáže
     // jiný počet ani jiné klíče. Při filtru na konkrétní trasu se (stejně
@@ -137,6 +140,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
               lang: lang,
               selected: selected,
               routeLines: lines,
+              draftLine: draft?.geometry ?? const [],
               me: me,
               initialCenter: me,
               initialZoom: me == null ? 7.2 : 11,
@@ -272,6 +276,30 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            // Přepnutí na mapu TRAS (jen body tras + trasa po klepnutí).
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => context.pushReplacement(Routes.routesMap),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.alt_route, size: 16, color: MotoGoColors.green),
+                    const SizedBox(width: 4),
+                    Text(
+                      t(context).tr('routesMapBtn'),
+                      style: const TextStyle(
+                        fontSize: MotoGoTypo.sizeSm,
+                        fontWeight: MotoGoTypo.w800,
+                        color: MotoGoColors.green,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             // Zrušit filtr přímo z mapy — jinak by se uživatel musel vracet

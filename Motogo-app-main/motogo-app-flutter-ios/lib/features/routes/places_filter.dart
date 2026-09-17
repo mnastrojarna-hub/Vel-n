@@ -362,6 +362,10 @@ List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
   String bucket(double v) => (v / 0.05).round().toString();
   final index = <String, int>{};
   final out = <PoiEntry>[];
+  // Leží některý bod skupiny na trase? Reprezentantem bývá katalogový bod
+  // (má fotku), takže by se jinak vazba na trasu ztratila a mapa tras by
+  // místo nepoznala.
+  final onRouteOf = <int, bool>{};
   for (final e in src) {
     final ll = e.latLng;
     // Body bez GPS nikdy neslučuj (nedají se spolehlivě ztotožnit).
@@ -371,8 +375,10 @@ List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
     final at = index[key];
     if (at == null) {
       index[key] = out.length;
+      onRouteOf[out.length] = e.onRoute;
       out.add(e);
     } else {
+      onRouteOf[at] = (onRouteOf[at] ?? false) || e.onRoute;
       // Reprezentanta skupiny vybíráme DETERMINISTICKY — dřív rozhodovalo
       // pořadí vstupu, takže seznam (pseudonáhodně přeskládaný) a mapa
       // (přirozené pořadí) zvolily pro totéž místo jiný bod, a tím i jiný
@@ -384,8 +390,17 @@ List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
       }
     }
   }
+  for (var i = 0; i < out.length; i++) {
+    if ((onRouteOf[i] ?? false) && !out[i].onRoute) {
+      out[i] = out[i].copyWith(onRoute: true);
+    }
+  }
   return out;
 }
+
+/// Jen místa, která leží na některé trase — základ pro MAPU TRAS.
+List<PoiEntry> onlyRoutePlaces(List<PoiEntry> src) =>
+    [for (final e in src) if (e.onRoute) e];
 
 /// Sloučená místa — JEDEN zdroj pro seznam i mapu, aby obě pracovaly se
 /// stejnými klíči a sdílený výběr si odpovídal. Riverpod ho přepočítá jen
@@ -393,6 +408,11 @@ List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
 /// desítky tisíc bodů při každém klepnutí na marker).
 final dedupedPlacesProvider = Provider<List<PoiEntry>>(
     (ref) => dedupPlaces(ref.watch(allPlacesProvider)));
+
+/// Sloučená místa LEŽÍCÍ NA TRASE — zdroj pro mapu tras (uživatel na ní chce
+/// vidět jen body tras, ne celý katalog 37 tis. míst).
+final dedupedRoutePlacesProvider = Provider<List<PoiEntry>>(
+    (ref) => onlyRoutePlaces(ref.watch(dedupedPlacesProvider)));
 
 /// Dohledá body podle klíčů výběru. Hledá nejdřív ve sloučeném seznamu,
 /// pak v úplném (klíč může pocházet z pohledu s filtrem na trasu, kde se

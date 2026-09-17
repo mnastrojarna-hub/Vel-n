@@ -13,6 +13,7 @@ import '../../core/widgets/moto_fx.dart';
 import 'poi_suggest.dart';
 import 'map_fit.dart';
 import 'routes_model.dart';
+import 'routes_map_provider.dart';
 import 'routes_provider.dart';
 import 'submit_common.dart';
 import 'all_pois_screen.dart';
@@ -165,6 +166,19 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
       _distanceM = info?.lengthM ?? polylineLengthM(g);
       _computing = false;
     });
+    // Poskládanou trasu si zapamatuje mapa — po „zpět" se na ní vykreslí
+    // (a to po silnici, ne vzdušnou čarou). Publikuje se při PŘEPOČTU, ne na
+    // tlačítku zpět, takže to pokryje i systémové zpět a swipe zpět na iOS.
+    if (info?.geometry != null && info!.geometry.length >= 2) {
+      ref.read(draftRouteProvider.notifier).set(DraftRoute(
+            name: widget.route.name,
+            stops: pts,
+            geometry: info.geometry,
+            profile: _profile.name,
+            lengthM: _distanceM,
+            durationS: info.durationS,
+          ));
+    }
   }
 
   void _fit() {
@@ -183,6 +197,8 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
       waypoints: _stops.map((s) => s.point).toList(),
       pois: pois,
     );
+    // Jede se — koncept trasy na mapě už je zbytečný.
+    ref.read(draftRouteProvider.notifier).clear();
     context.push('/route-nav-custom', extra: CustomNavArgs(route, _profile));
   }
 

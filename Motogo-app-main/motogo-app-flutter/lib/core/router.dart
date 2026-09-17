@@ -57,6 +57,7 @@ import '../features/routes/route_detail_screen.dart';
 import '../features/routes/route_navigation_screen.dart';
 import '../features/routes/all_pois_screen.dart';
 import '../features/routes/places_map_screen.dart';
+import '../features/routes/routes_map_screen.dart';
 import '../features/routes/route_builder_screen.dart';
 import '../features/routes/routes_model.dart' show RouteItem;
 import '../features/routes/routes_provider.dart' show CustomNavArgs;
@@ -114,6 +115,7 @@ class Routes {
   static const String routesList = '/routes-list';
   /// Mapa všech míst.
   static const String placesMap = '/places-map';
+  static const String routesMap = '/routes-map';
   static const String routeDetail = '/routes/:id';
   static const String routeNav = '/route-nav/:id';
 }
@@ -464,6 +466,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.placesMap,
             builder: (context, state) => const PlacesMapScreen(),
+          ),
+          GoRoute(
+            path: Routes.routesMap,
+            builder: (context, state) => const RoutesMapScreen(),
           ),
           GoRoute(
             path: '/routes/:id',

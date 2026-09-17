@@ -460,10 +460,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                   onTap: () => context.backOr(Routes.routes),
                 ),
                 QuickLink.light(
-                  emoji: '🧭',
-                  titleKey: 'placesMapTitle',
-                  subtitleKey: 'placesMapSub',
-                  onTap: () => context.push(Routes.placesMap),
+                  emoji: '🗺️',
+                  titleKey: 'routesMapTitle',
+                  subtitleKey: 'routesMapSub',
+                  onTap: () => context.push(Routes.routesMap),
                 ),
                 QuickLink.dark(
                   emoji: '🏍️',
@@ -730,16 +730,16 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
             on: _sort != _RouteSort.nearMe,
             onTap: () => _openSortSheet(context, me != null, routeAvail),
           ),
-          // Mapa míst — otevře se s AKTUÁLNÍM filtrem a dá se v ní klikáním
-          // poskládat trasa z vybraných míst.
+          // Mapa TRAS — jen body ležící na trasách; klepnutím na bod se
+          // dokreslí jeho trasa po silnici.
           pill(
             icon: Icons.map_outlined,
-            label: t(context).tr('placesMapBtn'),
+            label: t(context).tr('routesMapBtn'),
             on: false,
             bg: MotoGoColors.greenPale,
             border: MotoGoColors.green,
             fg: MotoGoColors.black,
-            onTap: () => context.push(Routes.placesMap),
+            onTap: () => context.push(Routes.routesMap),
           ),
           if (active)
             GestureDetector(
