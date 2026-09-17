@@ -11,6 +11,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/router.dart' show MotoGoBackNav, Routes;
 import '../../core/widgets/moto_fx.dart';
 import 'country_codes.dart';
+import 'places_filter.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_image.dart';
@@ -67,7 +68,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   // Sloupce `route_type` a `difficulty` v DB ZŮSTÁVAJÍ — `route_type` řídí
   // ve Velíně uzavření okruhu při výpočtu geometrie a detail trasy je dál
   // zobrazuje. Dojezd od polohy je nově volitelně započítaný do délky trasy.
-  final Set<String> _fCountry = {}; // ISO kódy zemí
+  /// Výběr států je SDÍLENÝ s Místy (places_filter.dart) — je to jeden a týž
+  /// filtr pro celou sekci, takže mapa míst otevřená z Tras ukáže právě to,
+  /// co má uživatel nastavené tady.
+  Set<String> get _fCountry => ref.read(placesFilterProvider).countries;
   RangeValues? _fDist; // km (volitelně včetně dojezdu od mé polohy)
   RangeValues? _fDur; // minuty — drží se s _fDist přes průměrnou rychlost
   /// Počítat do délky i cestu od mojí polohy na start trasy.
@@ -91,17 +95,23 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
       (_query.trim().isEmpty ? 0 : 1) +
       (_sort == _RouteSort.random ? 0 : 1);
 
-  void _clearFilters() => setState(() {
-        _fCountry.clear();
+  void _clearFilters() {
+    // Z Tras se ruší jen to, co Trasy samy nastavují — státy a hledání.
+    // Kategorie, „v okolí" ani hodnocení patří Místům a nesmí tím zmizet.
+    ref.read(placesFilterProvider.notifier).update(
+          (f) => f.copyWith(countries: const {}, query: ''),
+        );
+    setState(() {
         _fDist = null;
         _fDur = null;
         _withApproach = false;
         _sort = _RouteSort.random;
-        _query = '';
-        _searchCtl.clear();
-        _searchDebounce?.cancel();
-        ref.read(placesSearchProvider.notifier).state = '';
-      });
+      _query = '';
+      _searchCtl.clear();
+      _searchDebounce?.cancel();
+      ref.read(placesSearchProvider.notifier).state = '';
+    });
+  }
 
   @override
   void dispose() {
@@ -192,6 +202,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Sdílený filtr států — změna z Míst nebo z mapy musí překreslit i tady.
+    ref.watch(placesFilterProvider);
     // Sdílený dotaz mezi Místy a Trasami — hlídá se v obou směrech, aby se
     // napsaný text přenesl i při NÁVRATU na už existující obrazovku
     // (initState by se podruhé nespustil).
@@ -589,43 +601,59 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   }
 
   // ── Lišta rozšířených filtrů (tlačítko + řazení + rychlé zrušení) ──
+  // ── Lišta nad seznamem: filtry / řazení / mapa míst / zrušit ──
+  //
+  // Vodorovně scrollovatelná: tři pilulky + reset se na šířku telefonu
+  // nevejdou a pevný Row by přetekl (reset by se ořízl mimo obrazovku
+  // a nešel by kliknout), hlavně v němčině s delšími popisky.
   Widget _filterBar(BuildContext context, RoutesData data, LatLng? me, bool routeAvail) {
     final n = _activeFilterCount;
     final active = n > 0;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-      child: Row(
-        children: [
-          PressableScale(
+
+    Widget pill({
+      required IconData icon,
+      required String label,
+      required bool on,
+      required VoidCallback onTap,
+      int? badge,
+      Color? bg,
+      Color? border,
+      Color? fg,
+    }) =>
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: PressableScale(
             pressedScale: 0.96,
-            onTap: () => _openFilterSheet(context, data, me),
+            onTap: onTap,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
-                color: active ? MotoGoColors.greenDark : Colors.white,
+                color: bg ?? (on ? MotoGoColors.greenDark : Colors.white),
                 borderRadius: BorderRadius.circular(MotoGoRadius.pill),
                 border: Border.all(
-                  color: active ? MotoGoColors.greenDark : MotoGoColors.g200,
+                  color: border ?? (on ? MotoGoColors.greenDark : MotoGoColors.g200),
                   width: 1.5,
                 ),
-                boxShadow: active ? MotoGoShadows.cardSmall : null,
+                boxShadow: on ? MotoGoShadows.cardSmall : null,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.tune, size: 16, color: active ? Colors.white : MotoGoColors.greenDark),
+                  Icon(icon,
+                      size: 16,
+                      color: fg ?? (on ? Colors.white : MotoGoColors.greenDark)),
                   const SizedBox(width: 7),
                   Text(
-                    t(context).tr('routesFilter'),
+                    label,
                     style: TextStyle(
                       fontSize: MotoGoTypo.sizeLg,
                       fontWeight: MotoGoTypo.w800,
-                      color: active ? Colors.white : MotoGoColors.black,
+                      color: fg ?? (on ? Colors.white : MotoGoColors.black),
                       decoration: TextDecoration.none,
                     ),
                   ),
-                  if (active) ...[
+                  if (badge != null) ...[
                     const SizedBox(width: 7),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
@@ -634,7 +662,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                         borderRadius: BorderRadius.circular(MotoGoRadius.pill),
                       ),
                       child: Text(
-                        '$n',
+                        '$badge',
                         style: const TextStyle(
                           fontSize: MotoGoTypo.sizeSm,
                           fontWeight: MotoGoTypo.w800,
@@ -648,48 +676,44 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          // Řazení
-          PressableScale(
-            pressedScale: 0.96,
-            onTap: () => _openSortSheet(context, me != null, routeAvail),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                color: _sort != _RouteSort.random ? MotoGoColors.greenDark : Colors.white,
-                borderRadius: BorderRadius.circular(MotoGoRadius.pill),
-                border: Border.all(
-                  color: _sort != _RouteSort.random ? MotoGoColors.greenDark : MotoGoColors.g200,
-                  width: 1.5,
-                ),
-                boxShadow: _sort != _RouteSort.random ? MotoGoShadows.cardSmall : null,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.swap_vert, size: 16,
-                      color: _sort != _RouteSort.random ? Colors.white : MotoGoColors.greenDark),
-                  const SizedBox(width: 6),
-                  Text(
-                    _sortLabel(context, _sort),
-                    style: TextStyle(
-                      fontSize: MotoGoTypo.sizeBase,
-                      fontWeight: MotoGoTypo.w800,
-                      color: _sort != _RouteSort.random ? Colors.white : MotoGoColors.black,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        );
+
+    return SizedBox(
+      height: 52,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+        children: [
+          pill(
+            icon: Icons.tune,
+            label: t(context).tr('routesFilter'),
+            on: active,
+            badge: active ? n : null,
+            onTap: () => _openFilterSheet(context, data, me),
           ),
-          const Spacer(),
+          pill(
+            icon: Icons.swap_vert,
+            label: _sortLabel(context, _sort),
+            on: _sort != _RouteSort.random,
+            onTap: () => _openSortSheet(context, me != null, routeAvail),
+          ),
+          // Mapa míst — otevře se s AKTUÁLNÍM filtrem a dá se v ní klikáním
+          // poskládat trasa z vybraných míst.
+          pill(
+            icon: Icons.map_outlined,
+            label: t(context).tr('placesMapBtn'),
+            on: false,
+            bg: MotoGoColors.greenPale,
+            border: MotoGoColors.green,
+            fg: MotoGoColors.black,
+            onTap: () => context.push(Routes.placesMap),
+          ),
           if (active)
             GestureDetector(
               onTap: _clearFilters,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -808,7 +832,12 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     final kmh = speeds.isEmpty ? 42.0 : speeds[speeds.length ~/ 2];
 
     // Země přítomné v datech, rozdělené na připnuté a ostatní.
-    final split = splitByPriority(<String>{for (final r in base) ...r.countries});
+    final split = splitByPriority(<String>{
+      for (final r in base) ...r.countries,
+      // + státy, které jsou zrovna zaškrtnuté (mohly přijít z Míst, kde je
+      // katalog bohatší než trasy) — jinak by nešly odškrtnout.
+      ..._fCountry,
+    });
 
     // Pracovní kopie (potvrdí se tlačítkem).
     final tCountry = {..._fCountry};
@@ -1037,10 +1066,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                       child: PressableScale(
                         pressedScale: 0.98,
                         onTap: () {
+                          ref
+                              .read(placesFilterProvider.notifier)
+                              .update((f) => f.copyWith(countries: {...tCountry}));
                           setState(() {
-                            _fCountry
-                              ..clear()
-                              ..addAll(tCountry);
                             // Plný rozsah = žádný filtr.
                             final td = tDist;
                             final tt = tDur;

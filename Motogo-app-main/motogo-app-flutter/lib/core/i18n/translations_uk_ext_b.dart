@@ -155,6 +155,8 @@ const translationsUkExt11 = <String, Map<String, String>>{
     'routesEntryTitle': 'Рекомендовані маршрути',
     'routesEntrySub': 'Готові поїздки від досвідчених мотоциклістів',
     'placesMapTitle': 'Мапа місць',
+    'placesMapBtn': 'Мапа',
+    'placesMapRoutes': 'Маршрути з обраними місцями',
     'placesMapSub': 'Переглянь усі місця на мапі',
     'placesMapLoading': 'Завантажую місця…',
     'placesMapCount': 'Місць на мапі',
