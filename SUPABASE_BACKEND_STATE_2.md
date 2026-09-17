@@ -45,6 +45,7 @@
 - **signed_contract** — podepsaná smlouva (boolean)
 - **mileage_start, mileage_end** — nájezd km. **2026-06-28:** `mileage_start` = stav tachometru z **předávacího protokolu** (zapisuje edge `submit-handover-protocol` v `mode=customer` + Velín `ElectronicProtocolModal`); trigger `trg_booking_mileage_to_moto` z něj bumpne `motorcycles.mileage` (GREATEST). `mileage_end` = volitelně z protokolu o poškození (jen pro „Najeto" v `BookingSummary`, motorku neovlivní). „Najeto za půjčení" se v analytice dopočítává z rozdílu po sobě jdoucích `mileage_start` téže motorky (RPC `analytics_moto_rental_km`).
 - **damage_report** — hlášení poškození
+- **damage_flag** (BOOLEAN NOT NULL DEFAULT false), **damage_note** (TEXT), **damage_flagged_at** (TIMESTAMPTZ), **damage_flagged_by** (UUID) — **NEW 2026-09-17** (`20260917_loyalty_points_rank_floor_leaderboard.sql`). **Ruční** zápis poškození/nehody z Velína (detail rezervace → panel „Poškození / nehoda“, RPC `admin_set_booking_damage`). Jediný efekt: zapůjčení se NEPOČÍTÁ do „km bez nehody a škrábnutí“ ve věrnostním žebříčku. Rank tím sám o sobě neklesá — degradace je samostatné tlačítko u zákazníka. Partial index `idx_bookings_damage_flag` (jen `true`).
 - **promo_code** — promo kód (text)
 - **stripe_payment_intent_id** — Stripe Payment Intent ID (pro refundy)
 - **stripe_refund_id** (TEXT DEFAULT NULL, **NEW 2026-05-08**) — Stripe Refund ID posledního refundu k rezervaci. Plní `process-refund` po úspěšném Stripe refundu (vedle credit_note dobropisu). Velín booking detail z toho generuje odkaz na `dashboard.stripe.com/refunds/<id>`.
@@ -150,7 +151,9 @@
 - **phone_e164** (TEXT) — telefon v normalizovaném E.164 formátu (pro SMS/WhatsApp odesílání).
 - **loyalty_nickname** (TEXT, ověřeno 2026-06-24) — přezdívka zákazníka pro věrnostní žebříček (zobrazuje se v leaderboardu místo jména).
 - **loyalty_leaderboard_opt_in** (BOOLEAN NOT NULL DEFAULT true) — zákazník souhlasí s účastí ve veřejném věrnostním žebříčku.
-- **loyalty_bonus_points** (INTEGER NOT NULL DEFAULT 0) — ručně/akcí přidělené bonusové body do věrnostního skóre.
+- **loyalty_bonus_points** (INTEGER NOT NULL DEFAULT 0) — ručně/akcí přidělené bonusové body do věrnostního skóre (výhra v žebříčku +4 = +2 ranky; 2026-09-17 sem šlo i jednorázové dorovnání při změně bodového pravidla, aby nikdo neklesl).
+- **loyalty_points_floor** (INTEGER NOT NULL DEFAULT 0, **NEW 2026-09-17** — `20260917_loyalty_points_rank_floor_leaderboard.sql`) — **rank navždy**: nejvyšší dosažené hrubé body. `_loyalty_qualifying_count` bere `GREATEST(hrubé, floor)`, takže rank NIKDY neklesne (ani po smazání/překlopení staré rezervace). Udržuje trigger `trg_loyalty_floor` (při přechodu rezervace na `completed`) a hromadně funkce `loyalty_refresh_points_floor(NULL)`.
+- **loyalty_points_penalty** (INTEGER NOT NULL DEFAULT 0, **NEW 2026-09-17**) — ruční degradace ranku z Velína (např. po nehodě). 1 rank = 2 body, nikdy pod 0. Odečítá se v `_loyalty_qualifying_count`, takže se propíše i do SLEVY (degradovaný zákazník má nižší rank i nižší %). Nastavuje RPC `admin_loyalty_adjust_rank`, historie v `loyalty_rank_adjustments`.
 
 ### payment_methods
 - id (UUID PK), user_id (UUID FK→profiles ON DELETE CASCADE)
