@@ -10,7 +10,10 @@ publish_to: 'none'
 #        by spadl. versionName pro release se bere ODSUD (pubspec = jediný
 #        zdroj pravdy — viz codemagic.yaml, hardcoded --build-name byl zrušen);
 #        build number v CI přepisuje Codemagic přes --build-number=$BUILD_NUMBER.
-version: 4.0.1+44
+# Build number (+104) je jen výchozí pro lokální buildy — v CI ho přepisuje
+# codemagic.yaml (Android: nejvyšší versionCode v Google Play + 1, iOS: max
+# z TestFlightu/App Store + 1). Verze 4.0.1 je JEDINÝ zdroj pravdy pro versionName.
+version: 4.0.1+104
 
 environment:
   sdk: '>=3.6.0 <4.0.0'

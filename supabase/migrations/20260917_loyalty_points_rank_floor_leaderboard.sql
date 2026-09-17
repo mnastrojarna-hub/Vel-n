@@ -283,7 +283,7 @@ BEGIN
     SELECT bs.id,
            COALESCE(
              NULLIF(bs.nick_set, ''),
-             NULLIF(split_part(bs.full_name, ' ', 1), '') || ' #' ||
+             NULLIF(initcap(split_part(bs.full_name, ' ', 1)), '') || ' #' ||
                (100 + (abs(hashtext(bs.id::text)::bigint) % 900))::text,
              'Pilot #' || (100 + (abs(hashtext(bs.id::text)::bigint) % 900))::text
            ) AS nick,
@@ -369,7 +369,7 @@ BEGIN
     SELECT p.id,
            COALESCE(
              NULLIF(btrim(COALESCE(p.loyalty_nickname,'')), ''),
-             NULLIF(split_part(btrim(COALESCE(p.full_name,'')), ' ', 1), '') || ' #' ||
+             NULLIF(initcap(split_part(btrim(COALESCE(p.full_name,'')), ' ', 1)), '') || ' #' ||
                (100 + (abs(hashtext(p.id::text)::bigint) % 900))::text,
              'Pilot #' || (100 + (abs(hashtext(p.id::text)::bigint) % 900))::text
            ) AS nick,

@@ -195,12 +195,24 @@ workflows:
       - name: Build signed IPA (App Store)
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter-ios
-          # CFBundleVersion = Codemagic $BUILD_NUMBER (vždy unikátní a rostoucí),
-          # CFBundleShortVersionString = verze z pubspec.yaml (JEDINÝ zdroj pravdy
-          # pro versionName — dřívější hardcoded --build-name tady způsobil, že
-          # buildy ignorovaly bump verze v pubspec a hlásily starou verzi).
+          # CFBundleVersion musi byt VYSSI nez cokoliv uz nahraneho v App Store
+          # Connectu, jinak upload skonci "The bundle version must be higher".
+          # $BUILD_NUMBER je jen citac workflow (po zalozeni/prejmenovani zacina
+          # od 1), proto se bere maximum z TestFlightu a App Store + 1 a na
+          # $BUILD_NUMBER se padá jen jako na zachranu, kdyz ASC nic nevrati.
+          APP_ID=6806045151
+          TF=$(app-store-connect get-latest-testflight-build-number "$APP_ID" 2>/dev/null | tr -dc '0-9')
+          AS=$(app-store-connect get-latest-app-store-build-number "$APP_ID" 2>/dev/null | tr -dc '0-9')
+          NEXT=$BUILD_NUMBER
+          for N in "$TF" "$AS"; do
+            if [ -n "$N" ] && [ "$((N + 1))" -gt "$NEXT" ]; then NEXT=$((N + 1)); fi
+          done
+          echo "TestFlight: ${TF:-?}, App Store: ${AS:-?}, BUILD_NUMBER: $BUILD_NUMBER -> pouziju $NEXT"
+          # CFBundleShortVersionString = verze z pubspec.yaml (JEDINY zdroj pravdy
+          # pro versionName — drivejsi hardcoded --build-name tady zpusobil, ze
+          # buildy ignorovaly bump verze v pubspec a hlasily starou verzi).
           flutter build ipa --release \
-            --build-number=$BUILD_NUMBER \
+            --build-number=$NEXT \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - Motogo-app-main/motogo-app-flutter-ios/build/ios/ipa/*.ipa
@@ -258,21 +270,48 @@ workflows:
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
           flutter pub get
+      - name: Zjisti dalsi versionCode z Google Play
+        script: |
+          # POZOR: $BUILD_NUMBER je citac JEDNOHO workflow v Codemagicu. Kdyz se
+          # workflow zalozi znovu nebo prejmenuje, zacne zase od 1 — a Play pak
+          # release odmitne hlaskou "Tuto verzi nelze vydat, protoze zadnym
+          # existujicim uzivatelum neumoznuje upgradovat na nove pridane balicky
+          # aplikaci" (= versionCode neni vyssi nez ten, ktery uzivatele uz maji).
+          # Proto se versionCode bere PRIMO z Play: nejvyssi napric vsemi tracky + 1.
+          if [ -n "$VERSION_CODE" ]; then
+            # Rucni prepis z env skupiny (zachranna brzda, kdyz Play API nejede).
+            NEXT="$VERSION_CODE"
+            echo "versionCode z env VERSION_CODE: $NEXT"
+          else
+            LATEST=$(google-play get-latest-build-number \
+              --credentials @env:GCLOUD_SERVICE_ACCOUNT_CREDENTIALS \
+              --package-name "com.motogo24.app" 2>/dev/null | tr -dc '0-9')
+            if [ -z "$LATEST" ]; then
+              echo "CHYBA: Google Play nevratil nejvyssi versionCode."
+              echo "Bez nej hrozi, ze se nahraje AAB s nizsim versionCode a Play release odmitne."
+              echo "Rozhodnuti: bud oprav pristup service accountu (GCLOUD_SERVICE_ACCOUNT_CREDENTIALS,"
+              echo "role Release manager), nebo docasne nastav v env skupine 'goole_play'"
+              echo "promennou VERSION_CODE na (nejvyssi versionCode v Play + 1)."
+              exit 1
+            fi
+            NEXT=$((LATEST + 1))
+            echo "Nejvyssi versionCode v Play: $LATEST -> pouziju $NEXT"
+          fi
+          echo "VERSION_CODE=$NEXT" >> $CM_ENV
       - name: Build release APK
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
-          # versionCode = Codemagic build number ($BUILD_NUMBER), který se automaticky
-          # zvyšuje s každým buildem → je vždy unikátní a rostoucí, takže Google Play už
-          # nikdy neodmítne "verze byla použita". versionName = verze z pubspec.yaml
-          # (JEDINÝ zdroj pravdy — dřívější hardcoded --build-name tady způsobil,
-          # že buildy ignorovaly bump verze v pubspec a hlásily starou verzi).
-          flutter build apk --release --build-number=$BUILD_NUMBER
+          # versionCode = $VERSION_CODE z predchoziho kroku (Play + 1), takze je vzdy
+          # vyssi nez to, co maji uzivatele. versionName = verze z pubspec.yaml
+          # (JEDINY zdroj pravdy — drivejsi hardcoded --build-name tady zpusobil,
+          # ze buildy ignorovaly bump verze v pubspec a hlasily starou verzi).
+          flutter build apk --release --build-number=$VERSION_CODE
       - name: Build release AAB (Play Store)
         script: |
           cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
-          # Stejný build number jako u APK (jeden release = jeden versionCode).
-          # versionName = verze z pubspec.yaml (viz výše).
-          flutter build appbundle --release --build-number=$BUILD_NUMBER
+          # Stejny versionCode jako u APK (jeden release = jeden versionCode).
+          # versionName = verze z pubspec.yaml (viz vyse).
+          flutter build appbundle --release --build-number=$VERSION_CODE
       - name: Generate QR code for APK download
         script: |
           brew install qrencode
