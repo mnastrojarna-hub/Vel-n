@@ -6,6 +6,7 @@ import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/date_dropdown_field.dart';
+import 'auth_error_mapper.dart';
 import 'auth_provider.dart';
 import 'widgets/toast_helper.dart';
 
@@ -220,7 +221,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final fullName = '${_fnameCtrl.text.trim()} ${_lnameCtrl.text.trim()}';
     final phone = _phoneCtrl.text.trim();
 
-    final error = await AuthService.signUp(
+    final AuthErrorInfo? error = await AuthService.signUp(
       email: _emailCtrl.text.trim(),
       password: _passCtrl.text,
       metadata: {
@@ -256,7 +257,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _loading = false);
 
     if (error != null) {
-      showMotoGoToast(context, icon: '✗', title: t(context).tr('registerError'), message: error);
+      // Konkrétní titulek i návod přímo z mapperu — místo holého „Chyba
+      // registrace" zákazník vidí, CO je špatně a co s tím. Delší zobrazení,
+      // aby se stihl text dočíst (a případně nahlásit).
+      showMotoGoToast(context,
+          icon: '✗',
+          title: error.title,
+          message: error.message,
+          duration: const Duration(seconds: 9));
     } else {
       // Uvítací oslava (motorka + jiskry) místo pouhého toastu — první dojem
       // z appky. Po doběhnutí/tapnutí pokračujeme na domovskou obrazovku.

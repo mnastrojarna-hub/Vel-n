@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import 'auth_error_mapper.dart';
 import 'auth_provider.dart';
 import 'biometric_service.dart';
 import 'widgets/toast_helper.dart';
@@ -65,7 +66,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     setState(() => _loading = true);
-    final error = await AuthService.signIn(email, pass);
+    final AuthErrorInfo? error = await AuthService.signIn(email, pass);
     if (!mounted) return;
 
     if (error != null) {
@@ -78,7 +79,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (known == false) {
         _showUnknownEmailDialog();
       } else {
-        showMotoGoToast(context, icon: '✗', title: t(context).tr('loginError'), message: error);
+        showMotoGoToast(context,
+            icon: '✗',
+            title: error.title,
+            message: error.message,
+            duration: const Duration(seconds: 7));
       }
     } else {
       setState(() => _loading = false);

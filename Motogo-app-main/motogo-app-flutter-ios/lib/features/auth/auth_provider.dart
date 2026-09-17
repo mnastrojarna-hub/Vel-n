@@ -10,6 +10,7 @@ import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
 import '../../core/debug_logger.dart';
 import '../../core/i18n/translations.dart';
+import 'auth_error_mapper.dart';
 
 /// Watches Supabase auth state changes (login/logout/token refresh).
 /// When token refresh fails, forces sign-out so the router redirects to login.
@@ -78,14 +79,30 @@ class AuthService {
 
   static SupabaseClient get _client => MotoGoSupabase.client;
 
-  /// Translation helper (no BuildContext available).
-  static String _tr(String key) {
-    return translations['cs']?[key] ?? key;
+  /// Translation helper (no BuildContext available). [lang] je kód jazyka
+  /// appky (viz [_lang]); když v něm klíč chybí, spadne na češtinu.
+  static String _tr(String key, [String lang = 'cs']) {
+    return translations[lang]?[key] ?? translations['cs']?[key] ?? key;
+  }
+
+  /// Jazyk pro chybové hlášky. Přepínač jazyka v appce ukládá `mg_language`,
+  /// uvítací overlay při prvním spuštění `mg_locale` — čteme obojí, ať zákazník
+  /// dostane chybu ve svém jazyce bez ohledu na to, kudy si ho zvolil.
+  static Future<String> _lang() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('mg_language') ?? prefs.getString('mg_locale');
+      if (raw == null || raw.isEmpty) return 'cs';
+      return raw.split(RegExp(r'[-_]')).first;
+    } catch (_) {
+      return 'cs';
+    }
   }
 
   // ===== LOGIN =====
-  /// Sign in with email + password. Returns error message or null on success.
-  static Future<String?> signIn(String email, String password) async {
+  /// Sign in with email + password. Returns [AuthErrorInfo] or null on success.
+  static Future<AuthErrorInfo?> signIn(String email, String password) async {
+    final lang = await _lang();
     try {
       final res = await _client.auth.signInWithPassword(
         email: email,
@@ -96,23 +113,35 @@ class AuthService {
         // gone) → credentials still authenticate but the app has no data.
         // Reject the login and push the customer to re-register.
         if (!await _profileExists(res.user!.id)) {
-          await _client.auth.signOut();
-          return _tr('accountNoLongerExists');
+          try {
+            await _client.auth.signOut();
+          } catch (_) {/* i tak zákazníka posíláme na registraci */}
+          return AuthErrorInfo(
+            title: _tr('loginError', lang),
+            message: _tr('accountNoLongerExists', lang),
+            code: 'profile_missing',
+          );
         }
-        await _storeBioUser(
+        // Biometrie a zapamatovaný e-mail jsou POHODLÍ, ne podmínka přihlášení.
+        // Když zápis do Keychainu / SharedPreferences selže, uživatel je už
+        // přihlášený — nesmíme to hlásit jako chybu přihlášení.
+        await _storeBioUserSafe(
           userId: res.user!.id,
           email: email,
           refreshToken: res.session!.refreshToken,
           password: password,
         );
-        await _saveEmail(email);
         return null; // success
       }
-      return _tr('loginFailed');
-    } on AuthException catch (e) {
-      return e.message;
+      return AuthErrorInfo(
+        title: _tr('loginError', lang),
+        message: _tr('loginFailed', lang),
+        code: 'no_session',
+      );
     } catch (e) {
-      return '${_tr('loginError')}: $e';
+      final info = AuthErrorMapper.signIn(e, lang);
+      AppDebugLogger.instance.auth('signin_failed', data: {'reason': info.code});
+      return info;
     }
   }
 
@@ -134,20 +163,27 @@ class AuthService {
   /// Guard against duplicate signUp calls (e.g. double-tap).
   static bool _signUpInProgress = false;
 
-  /// Register new user. Returns error message or null on success.
+  /// Register new user. Returns [AuthErrorInfo] or null on success.
   ///
   /// [metadata] is stored on auth.users (consumed by the handle_new_user
   /// trigger). [profile] holds the personal/address/license fields written
   /// directly to the profiles row — the trigger only copies a subset, so these
   /// would otherwise be lost.
-  static Future<String?> signUp({
+  static Future<AuthErrorInfo?> signUp({
     required String email,
     required String password,
     required Map<String, dynamic> metadata,
     Map<String, dynamic>? profile,
   }) async {
+    final lang = await _lang();
     // Prevent duplicate registration calls
-    if (_signUpInProgress) return _tr('signUpInProgress');
+    if (_signUpInProgress) {
+      return AuthErrorInfo(
+        title: _tr('registerError', lang),
+        message: _tr('signUpInProgress', lang),
+        code: 'in_progress',
+      );
+    }
     _signUpInProgress = true;
 
     try {
@@ -166,7 +202,32 @@ class AuthService {
         data: signUpData,
       );
 
-      if (res.user == null) return _tr('signUpFailed');
+      if (res.user == null) {
+        AppDebugLogger.instance.auth('signup_failed', data: {'reason': 'no_user'});
+        AppDebugLogger.instance.flushNow();
+        return AuthErrorInfo(
+          title: _tr('registerError', lang),
+          message: _tr('signUpFailed', lang),
+          code: 'no_user',
+        );
+      }
+
+      // Supabase při ZAPNUTÉM potvrzení e-mailu duplicitu nehlásí chybou
+      // (anti-enumeration) — vrátí „nového" uživatele s PRÁZDNÝM `identities`.
+      // Bez této kontroly appka takovému zákazníkovi ukázala uvítání, ale
+      // session nevznikla a router ho vzápětí vyhodil zpět na přihlášení.
+      // Podmínka je ZÁMĚRNĚ konjunkce: skutečně nový účet má buď rovnou session
+      // (potvrzení e-mailu vypnuté), nebo aspoň jednu identitu. Prázdné
+      // `identities` BEZ session = duplicita. Falešný poplach by novému
+      // zákazníkovi registraci zablokoval, proto obě podmínky naráz.
+      final identities = res.user!.identities;
+      if (_client.auth.currentSession == null &&
+          identities != null &&
+          identities.isEmpty) {
+        AppDebugLogger.instance.auth('signup_failed', data: {'reason': 'email_taken'});
+        AppDebugLogger.instance.flushNow();
+        return AuthErrorMapper.emailTaken(lang);
+      }
 
       // Diagnostika do app_debug_logs (vidí Velín) — ground truth, jestli má
       // appka po signUp session. Bez session = potvrzení e-mailu je ZAPNUTÉ
@@ -196,15 +257,13 @@ class AuthService {
       // (same pattern as frontend auth.js – 500ms delay)
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Jazyk z uloženého locale appky → uloží se do profiles.language při
-      // registraci, aby maily (potvrzení, úprava, dokončení) chodily přeložené
-      // i bez rezervace. detect_customer_language čte profiles.language jako
-      // první v pořadí (před bookings/shop_orders). Fallback 'cs'.
-      String regLang = 'cs';
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        regLang = (prefs.getString('mg_locale') ?? 'cs').split(RegExp(r'[-_]')).first;
-      } catch (_) {/* ponech 'cs' */}
+      // Jazyk appky ([_lang]) → uloží se do profiles.language při registraci,
+      // aby maily (potvrzení, úprava, dokončení) chodily přeložené i bez
+      // rezervace. detect_customer_language čte profiles.language jako první
+      // v pořadí (před bookings/shop_orders). Fallback 'cs'.
+      // POZOR: dřív se četl JEN klíč `mg_locale`, který plní pouze uvítací
+      // overlay při prvním spuštění — kdo si jazyk přepnul až v Nastavení
+      // (klíč `mg_language`), dostal do profilu 'cs'. [_lang] čte obojí.
 
       // Ulož profil STEJNĚ JAKO WEB — přes jeden SECURITY DEFINER RPC
       // `app_save_full_profile`. Důvod: přímý PostgREST zápis z appky padal
@@ -215,7 +274,7 @@ class AuthService {
       // skupina ŘP, jazyk) — přesně jako `create_web_booking` na webu.
       final pData = <String, dynamic>{
         if (profile != null) ...profile, // vč. license_group jako pole stringů
-        'language': regLang,
+        'language': lang,
       };
 
       bool savedProfile = false;
@@ -277,21 +336,54 @@ class AuthService {
       }
       AppDebugLogger.instance.flushNow();
 
-      await _storeBioUser(
+      // POZOR: účet v tuto chvíli UŽ EXISTUJE. Uložení biometrie (iOS Keychain)
+      // a zapamatovaného e-mailu je jen pohodlí — když selže (chybějící
+      // keychain entitlement, plné úložiště), NESMÍ to shodit celou registraci
+      // do „Chyba registrace". Proto vlastní try/catch mimo hlavní blok.
+      await _storeBioUserSafe(
         userId: res.user!.id,
         email: email,
         refreshToken: res.session?.refreshToken,
         password: password,
       );
-      await _saveEmail(email);
       return null; // success
-    } on AuthException catch (e) {
-      return e.message;
     } catch (e) {
-      return '${_tr('registerError')}: $e';
+      final info = AuthErrorMapper.signUp(e, lang);
+      // Důvod selhání do `app_debug_logs` → ve Velíně (AI Copilot, tabulka
+      // app_debug_logs) je pak vidět PŘESNĚ, na čem registrace spadla.
+      AppDebugLogger.instance.auth('signup_failed', data: {
+        'reason': info.code,
+        'detail': e.toString(),
+      });
+      AppDebugLogger.instance.flushNow();
+      return info;
     } finally {
       _signUpInProgress = false;
     }
+  }
+
+  /// [_storeBioUser] + [_saveEmail], které nikdy nevyhodí výjimku. Zápis do
+  /// Keychainu (iOS) / Keystore (Android) může selhat nezávisle na tom, že
+  /// přihlášení i registrace proběhly v pořádku.
+  static Future<void> _storeBioUserSafe({
+    required String userId,
+    required String email,
+    String? refreshToken,
+    String? password,
+  }) async {
+    try {
+      await _storeBioUser(
+        userId: userId,
+        email: email,
+        refreshToken: refreshToken,
+        password: password,
+      );
+    } catch (e) {
+      AppDebugLogger.instance.auth('bio_store_failed', detail: e.toString());
+    }
+    try {
+      await _saveEmail(email);
+    } catch (_) {/* zapamatovaný e-mail je jen pohodlí */}
   }
 
   // ===== LOGOUT =====
