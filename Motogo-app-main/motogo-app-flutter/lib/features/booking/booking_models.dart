@@ -1,4 +1,7 @@
 /// Booking draft — collects all data during booking flow.
+
+import '../../core/date_days.dart';
+
 class BookingDraft {
   String? motoId;
   String? motoName;
@@ -21,7 +24,6 @@ class BookingDraft {
   String? returnZip;
   double? returnLat;
   double? returnLng;
-  String? insuranceType;
 
   /// Přiřazený kus vozíku (motorcycles.id, is_trailer=true) když si zákazník
   /// přidá vozík jako příslušenství. Zapisuje se do bookings.trailer_moto_id
@@ -65,7 +67,6 @@ class BookingDraft {
     this.returnZip,
     this.returnLat,
     this.returnLng,
-    this.insuranceType,
     this.trailerMotoId,
     this.extras = const [],
     this.discounts = const [],
@@ -86,7 +87,7 @@ class BookingDraft {
 
   int get dayCount {
     if (startDate == null || endDate == null) return 0;
-    return endDate!.difference(startDate!).inDays + 1; // inclusive
+    return calendarDaysInclusive(startDate!, endDate!); // inkluzivně, odolné vůči změně času
   }
 
   /// Creates a new BookingDraft with updated fields.
@@ -111,7 +112,6 @@ class BookingDraft {
     String? Function()? returnZip,
     double? Function()? returnLat,
     double? Function()? returnLng,
-    String? Function()? insuranceType,
     String? Function()? trailerMotoId,
     List<SelectedExtra>? extras,
     List<AppliedDiscount>? discounts,
@@ -149,7 +149,6 @@ class BookingDraft {
       returnZip: returnZip != null ? returnZip() : this.returnZip,
       returnLat: returnLat != null ? returnLat() : this.returnLat,
       returnLng: returnLng != null ? returnLng() : this.returnLng,
-      insuranceType: insuranceType != null ? insuranceType() : this.insuranceType,
       trailerMotoId: trailerMotoId != null ? trailerMotoId() : this.trailerMotoId,
       extras: extras ?? this.extras,
       discounts: discounts ?? this.discounts,
@@ -218,7 +217,6 @@ class PriceBreakdown {
   final double extrasTotal;
   final double pickupDeliveryFee;
   final double returnDeliveryFee;
-  final double insuranceFee;
   final double discountTotal;
   final double total;
   final int days;
@@ -240,7 +238,6 @@ class PriceBreakdown {
     required this.extrasTotal,
     required this.pickupDeliveryFee,
     required this.returnDeliveryFee,
-    this.insuranceFee = 0,
     required this.discountTotal,
     required this.total,
     required this.days,
@@ -254,7 +251,7 @@ class PriceBreakdown {
   double get deliveryFee => pickupDeliveryFee + returnDeliveryFee;
 
   double get subtotalBeforeDiscount =>
-      basePrice + extrasTotal + deliveryFee + insuranceFee;
+      basePrice + extrasTotal + deliveryFee;
 }
 
 /// Extras catalog item — from extras_catalog Supabase table.

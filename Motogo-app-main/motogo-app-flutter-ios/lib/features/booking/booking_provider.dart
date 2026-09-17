@@ -10,6 +10,7 @@ import 'booking_models.dart';
 import 'booking_validator.dart';
 import 'price_calculator.dart';
 import '../../core/currency.dart';
+import '../../core/date_days.dart';
 
 /// Central booking state — mirrors global vars from booking-logic.js.
 final bookingDraftProvider = StateProvider<BookingDraft>(
@@ -234,7 +235,7 @@ final rentalLengthValidationProvider = Provider<String?>((ref) {
   if (moto == null || draft.startDate == null || draft.endDate == null) {
     return null;
   }
-  final days = draft.endDate!.difference(draft.startDate!).inDays + 1;
+  final days = calendarDaysInclusive(draft.startDate!, draft.endDate!);
   final lang = ref.watch(localeProvider).languageCode;
   String msg(String key, int n) =>
       (translations[lang]?[key] ?? translations['cs']?[key] ?? '')

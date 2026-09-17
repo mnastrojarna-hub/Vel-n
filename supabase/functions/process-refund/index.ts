@@ -183,10 +183,15 @@ async function ensureCreditNotePdf(
 
     // Regenerate PDF — load booking + customer for the template
     const { data: bk2 } = await supabase.from('bookings')
-      .select('start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
+      .select('total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
       .eq('id', bookingId).single()
     const refundedAmount = Math.abs(Number(cn.total || 0))
-    const refundPercent = 100 // unknown without booking.total_price comparison; default 100%
+    // Procento dopočítat z ceny rezervace — natvrdo 100 tisklo i u částečné
+    // vratky „Procento vrácení: 100 %", takže přegenerovaný dobropis lhal.
+    const bk2Total = Number((bk2 as any)?.total_price || 0)
+    const refundPercent = bk2Total > 0
+      ? Math.min(100, Math.round((refundedAmount / bk2Total) * 100))
+      : 100
     const reasonText = (cn.notes || '').includes('Storno') ? 'Storno rezervace'
       : (cn.notes || '').includes('Zkrácení') ? 'Zkrácení rezervace'
       : 'Vrácení platby zákazníkovi'
@@ -1201,7 +1206,7 @@ Deno.serve(async (req: Request) => {
 
             const issueDate = new Date().toISOString().slice(0, 10)
             const motoModel = (bk as any).motorcycles?.model || 'motorky'
-            const { data: cnInv } = await supabase.from('invoices').insert({
+            const { data: cnInv, error: cnErr } = await supabase.from('invoices').insert({
               number: cnNumber,
               type: 'credit_note',
               customer_id: bk.user_id,
@@ -1225,7 +1230,23 @@ Deno.serve(async (req: Request) => {
             }).select('id').single()
 
             cnId = cnInv?.id || null
-            await dlog('credit_note_inserted', 'info', { credit_note_id: cnId, number: cnNumber })
+            if (cnErr || !cnId) {
+              // Stripe refund UŽ PROBĚHL — bez dobropisu by k vrácené částce
+              // nebyl daňový doklad a dřív se to tiše zalogovalo jako úspěch.
+              await dlog('credit_note_insert_failed', 'error', {
+                booking_id, number: cnNumber, error: cnErr?.message || 'insert vrátil prázdno',
+              })
+              await sendOpsMail(
+                '⚠️ Dobropis se nevystavil — vratka ale odešla',
+                `<p>Rezervace <strong>${booking_id}</strong>: Stripe refund <code>${refund.id}</code> `
+                + `proběhl na <strong>${refundedAmountCZK} Kč</strong>, ale zápis dobropisu `
+                + `<strong>${cnNumber}</strong> selhal: ${cnErr?.message || 'prázdná odpověď'}.</p>`
+                + '<p>Peníze zákazníkovi odešly, daňový doklad k nim ale chybí — '
+                + 'vystavte dobropis ručně ve Velíně.</p>',
+              )
+            } else {
+              await dlog('credit_note_inserted', 'info', { credit_note_id: cnId, number: cnNumber })
+            }
 
             // Create negative accounting entry only on first creation
             await supabase.from('accounting_entries').insert({

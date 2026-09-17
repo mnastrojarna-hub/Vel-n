@@ -23,6 +23,19 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
   int _amount = 1000;
   bool _printed = false;
   final _customCtrl = TextEditingController();
+
+  /// Srovná zadanou částku do povoleného rozsahu a ZAPÍŠE ji zpět do pole,
+  /// aby se zobrazené číslo nikdy nerozešlo s tím, co se opravdu koupí.
+  void _normalizeAmount() {
+    final parsed = int.tryParse(_customCtrl.text.trim()) ?? 0;
+    final fixed = parsed < 100 ? 100 : (parsed > 99999 ? 99999 : parsed);
+    if (fixed != parsed || _customCtrl.text.trim().isEmpty) {
+      _customCtrl.text = '$fixed';
+      _customCtrl.selection =
+          TextSelection.collapsed(offset: _customCtrl.text.length);
+    }
+    setState(() => _amount = fixed);
+  }
   bool _customMode = false;
 
   double get _total => _amount + (_printed ? printedVoucherShipping : 0);
@@ -107,10 +120,14 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
               controller: _customCtrl,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(labelText: tr.tr('amountMin'), suffixText: 'Kč'),
+              // Ořez AŽ při odchodu z pole — clamp na každý stisk klávesy
+              // nechával v poli původní číslo, zatímco se kupovala jiná částka.
               onChanged: (v) {
-                final parsed = int.tryParse(v) ?? 100;
-                setState(() => _amount = parsed.clamp(100, 99999));
+                final parsed = int.tryParse(v);
+                setState(() => _amount = parsed ?? 0);
               },
+              onEditingComplete: () => _normalizeAmount(),
+              onTapOutside: (_) => _normalizeAmount(),
             ),
           ],
           const SizedBox(height: 20),

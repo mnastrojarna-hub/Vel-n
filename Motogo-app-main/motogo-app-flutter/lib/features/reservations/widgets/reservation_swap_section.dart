@@ -15,6 +15,7 @@ import '../../booking/booking_validator.dart';
 import '../../payment/payment_provider.dart';
 import '../reservation_models.dart';
 import 'reservation_edit_widgets.dart';
+import '../../../core/date_days.dart';
 
 /// Výměna motorky uprostřed rezervace.
 /// Zákazník od zvoleného data (a času) přejede na novou motorku. Na pozadí vznikne
@@ -79,7 +80,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
     // Default: den po začátku dostupného rozsahu (výměna „uprostřed"),
     // clamp do rozsahu; u jednodenního rozsahu = první den.
     final first = _rangeStart;
-    var d = first.add(const Duration(days: 1));
+    var d = nextCalendarDay(first);
     if (d.isAfter(_rangeEnd)) d = first;
     _swapDate = d;
   }

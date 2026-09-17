@@ -101,7 +101,7 @@ const translationsExt1EnDeNl = <String, Map<String, String>>{
     'specNo': 'No',
     // Pricing table
     'pricingCurrencyPerDay': 'CZK/day',
-    'pricingNote': 'Price excl. VAT. Weekend Fri–Sun. 1 day = 24 h.',
+    'pricingNote': 'Prices are final. 1 day = calendar day (00:01–24:00), not 24 h from pickup.',
     // Price footer
     'priceFrom': 'PRICE FROM',
     'pricePerDay': '/day',
@@ -283,7 +283,7 @@ const translationsExt1EnDeNl = <String, Map<String, String>>{
     'specNo': 'Nein',
     // Pricing table
     'pricingCurrencyPerDay': 'CZK/Tag',
-    'pricingNote': 'Preis ohne MwSt. Wochenende Fr–So. 1 Tag = 24 Std.',
+    'pricingNote': 'Endpreise. 1 Tag = Kalendertag (0:01–24:00 Uhr), nicht 24 Std. ab Übernahme.',
     // Price footer
     'priceFrom': 'PREIS AB',
     'pricePerDay': '/Tag',
@@ -465,7 +465,7 @@ const translationsExt1EnDeNl = <String, Map<String, String>>{
     'specNo': 'Nee',
     // Pricing table
     'pricingCurrencyPerDay': 'CZK/dag',
-    'pricingNote': 'Prijs excl. BTW. Weekend vr–zo. 1 dag = 24 u.',
+    'pricingNote': 'Prijzen zijn definitief. 1 dag = kalenderdag (0:01–24:00), niet 24 u vanaf ophalen.',
     // Price footer
     'priceFrom': 'PRIJS VANAF',
     'pricePerDay': '/dag',

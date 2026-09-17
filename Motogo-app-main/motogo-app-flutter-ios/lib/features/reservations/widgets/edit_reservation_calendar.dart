@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../catalog/moto_model.dart';
+import '../../../core/date_days.dart';
 
 /// Calendar widget for editing reservations (extend/shorten).
 /// Mirrors pickE() + buildECal() + highlightEditResDates() from
@@ -88,7 +89,7 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
     final end = _d(to);
     while (!d.isAfter(end)) {
       if (_isOccupiedOrPending(d) && !_isInOrigRange(d)) return false;
-      d = d.add(const Duration(days: 1));
+      d = nextCalendarDay(d);
     }
     return true;
   }
@@ -191,7 +192,7 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
 
     // Click AFTER original end → extend end (keep current start)
     if (d.isAfter(origE)) {
-      if (!_isRangeFree(origE.add(const Duration(days: 1)), d)) {
+      if (!_isRangeFree(nextCalendarDay(origE), d)) {
         widget.onError(
             t(context).tr('occupiedDaysBeforeEnd'));
         return;
@@ -244,7 +245,7 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
       }
       widget.onDatesChanged(origS, d);
     } else {
-      final totalDays = origE.difference(origS).inDays + 1;
+      final totalDays = calendarDaysInclusive(origS, origE);
       if (totalDays <= 1) {
         widget.onError(t(context).tr('reservationMinimum'));
         return;

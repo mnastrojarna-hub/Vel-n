@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
 import '../moto_model.dart';
+import '../../../core/date_days.dart';
 
 /// Interactive availability calendar — mirrors genCal() + pickS/pickD
 /// from booking-search-cal.js and router.js.
@@ -134,7 +135,7 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
           ));
           return;
         }
-        d = d.add(const Duration(days: 1));
+        d = nextCalendarDay(d);
       }
       setState(() {
         _end = date;

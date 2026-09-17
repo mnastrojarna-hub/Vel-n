@@ -101,7 +101,7 @@ const translationsUkExt1 = <String, Map<String, String>>{
     'specNo': 'Ні',
     // Pricing table
     'pricingCurrencyPerDay': 'Kč/день',
-    'pricingNote': 'Ціна без ПДВ. Вихідні Пт–Нд. 1 день = 24 год.',
+    'pricingNote': 'Ціни остаточні. 1 день = календарний день (0:01–24:00), а не 24 год від отримання.',
     // Price footer
     'priceFrom': 'ЦІНА ВІД',
     'pricePerDay': '/день',
@@ -282,6 +282,8 @@ const translationsUkExt8 = <String, Map<String, String>>{
     'gpsErrorManual': 'Помилка GPS — введіть адресу вручну',
     'gpsUnavailableManual': 'GPS недоступний — введіть адресу вручну або з карти',
     'insuranceLabel': 'Страхування',
+    'regConsentTitle': 'Згоди (обов’язково)',
+    'consentRequiredMsg': 'Щоб завершити реєстрацію, потрібно погодитися з умовами та обробкою персональних даних. Згоду можна відкликати пізніше в Налаштуваннях.',
     'languageChanged': 'Мову змінено',
     'licenseShort': 'Посв.',
     'localityType': 'Тип місцевості',

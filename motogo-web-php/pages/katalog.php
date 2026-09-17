@@ -229,7 +229,11 @@ if ($getBranch !== '') {
 }
 if ($getKwMin > $kwBoundMin || $getKwMax < $kwBoundMax) {
     $filtered = array_filter($filtered, function ($m) use ($getKwMin, $getKwMax) {
-        $kw = (float)($m['power_kw'] ?? 0);
+        // Nevyplněný výkon filtrem PROJDE — stejně jako u ceny níž. Dřív se
+        // bral jako 0 kW, takže při posunu spodní hranice takové motorky
+        // z nabídky tiše zmizely.
+        if (!isset($m['power_kw']) || $m['power_kw'] === null || $m['power_kw'] === '') return true;
+        $kw = (float)$m['power_kw'];
         return $kw >= $getKwMin && $kw <= $getKwMax;
     });
 }

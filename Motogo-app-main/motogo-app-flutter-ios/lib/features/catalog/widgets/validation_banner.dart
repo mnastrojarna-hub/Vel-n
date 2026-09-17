@@ -6,6 +6,7 @@ import '../../auth/auth_provider.dart';
 import '../../booking/booking_validator.dart';
 import '../../reservations/reservation_provider.dart';
 import '../moto_model.dart';
+import '../../../core/date_days.dart';
 
 /// Red warning banner shown when license or overlap validation fails.
 class ValidationBanner extends ConsumerWidget {
@@ -49,7 +50,7 @@ class ValidationBanner extends ConsumerWidget {
     // Délka pronájmu (min/max z DB) — vynucováno na CTA rezervace, tady jen
     // včasné upozornění. Lokalizováno do zvoleného jazyka.
     String? lengthErr;
-    final days = endDate.difference(startDate).inDays + 1;
+    final days = calendarDaysInclusive(startDate, endDate);
     final min = moto.minRentalDays;
     final max = moto.maxRentalDays;
     if (min != null && min > 1 && days < min) {

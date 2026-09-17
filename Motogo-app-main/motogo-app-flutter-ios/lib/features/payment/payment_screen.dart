@@ -48,8 +48,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   int _attempts = 0;
   Timer? _countdownTimer;
   late DateTime _deadline;
-  String _timeRemaining = '10:00';
-  bool _insuranceSelected = false;
+  String _timeRemaining = '';
   // Idempotentní pojistka — flow se smí dokončit (děkovací stránka) jen jednou,
   // i kdyby se sešel úspěch z Payment Sheetu a recovery po app-resume zároveň.
   bool _completed = false;
@@ -67,11 +66,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _deadline = DateTime.now().add(paymentTimeoutDuration);
-    _startCountdown();
     _fabNotifier = ref.read(paymentScreenActiveProvider.notifier);
     _ctxNotifier = ref.read(paymentContextProvider.notifier);
     _ctx = ref.read(paymentContextProvider);
+    // Návrat k ROZDĚLANÉ rezervaci musí dopočítat zbytek serverového okna,
+    // ne spustit nových 30 minut — jinak appka slibuje čas, který server
+    // už nedrží, a rezervaci mezitím zruší cron.
+    final createdAt = _ctx?.bookingCreatedAt;
+    _deadline = createdAt != null
+        ? createdAt.add(paymentTimeoutDuration)
+        : DateTime.now().add(paymentTimeoutDuration);
+    _timeRemaining = _fmtRemaining(_deadline.difference(DateTime.now()));
+    _startCountdown();
     if (_ctx != null) {
       _pendingBookingId = _ctx!.bookingId;
       _pendingOrderId = _ctx!.orderId;
@@ -218,10 +224,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         ? _ctx!.amount
         : ref.read(priceBreakdownProvider).total;
     double total = base;
-    if (_insuranceSelected && _isNewBooking) {
-      final moto = ref.read(bookingMotoProvider);
-      total += moto?.insurancePrice ?? 0;
-    }
     if (_isNewBooking) {
       total += ref.read(bookingUpsellProvider.notifier).total;
     }
@@ -233,6 +235,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     return t(context).tr('bookingReservation');
   }
 
+  /// „M:SS“ ze zbývajícího času (záporný = 0:00).
+  static String _fmtRemaining(Duration d) {
+    if (d.isNegative) return '0:00';
+    return '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
+  }
+
   void _startCountdown() {
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       final remaining = _deadline.difference(DateTime.now());
@@ -242,11 +250,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         _onTimeout();
         return;
       }
-      final min = remaining.inMinutes;
-      final sec = remaining.inSeconds % 60;
-      setState(() {
-        _timeRemaining = '$min:${sec.toString().padLeft(2, '0')}';
-      });
+      setState(() => _timeRemaining = _fmtRemaining(remaining));
     });
   }
 
@@ -522,10 +526,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     } catch (e) {
       final msg = e.toString();
       if (msg.contains('Booking overlap') ||
-          msg.contains('overlapping booking')) {
+          msg.contains('overlapping booking') ||
+          msg.contains('exclusion constraint') ||
+          msg.contains('check_booking_overlap')) {
         _draftError = t(context).tr('bookingOverlapError');
       } else {
-        _draftError = '$e';
+        // Syrový text výjimky z PostgREST/PostgreSQL zákazníkovi nic neřekne
+        // (a může prozradit vnitřnosti) — do UI jde srozumitelná hláška,
+        // podrobnosti zůstanou v logu.
+        debugPrint('[Payment] createDraftBooking failed: $e');
+        _draftError = null;
       }
       return null;
     }
@@ -568,7 +578,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     if (_isNewBooking) {
       _draftError = null;
       _pendingBookingId ??= await _createDraftBooking();
-      if (_pendingBookingId == null && mounted) {
+      if (_pendingBookingId == null) {
+        // Return MUSÍ platit vždy — dřív byl podmíněný `mounted`, takže při
+        // selhání s odpojeným widgetem kód propadl dál a pokusil se strhnout
+        // kartu bez existující rezervace.
+        if (!mounted) return;
         setState(() => _processing = false);
         _showError(
           title: t(context).tr('bookingCreateFailed'),
@@ -1336,11 +1350,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                     // Upsell section (new booking only)
                     if (_isNewBooking && moto != null)
                       UpsellSection(
-                        insurancePrice: moto.insurancePrice,
                         showProducts: ref.watch(reservationUpsellEnabledProvider).maybeWhen(data: (v) => v, orElse: () => false),
-                        insuranceSelected: _insuranceSelected,
-                        onInsuranceChanged: (v) =>
-                            setState(() => _insuranceSelected = v),
                       ),
                     if (_isNewBooking && moto != null)
                       const SizedBox(height: 12),

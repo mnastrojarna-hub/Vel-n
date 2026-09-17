@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../catalog/moto_model.dart';
 import 'booking_models.dart';
+import '../../core/date_days.dart';
 
 /// Branch coordinates (Mezná 9, 393 01 Pelhřimov).
 /// Mezná leží ~9 km jižně od Pelhřimova (obec, okres Pelhřimov).
@@ -201,7 +202,6 @@ class PriceCalculator {
     required double pickupDeliveryFee,
     required double returnDeliveryFee,
     required List<AppliedDiscount> discounts,
-    double insuranceFee = 0,
     // Věrnostní rank — sleva platí JEN pro rezervace v aplikaci.
     int loyaltyPercent = 0,
     int loyaltyLevel = 0,
@@ -221,7 +221,7 @@ class PriceCalculator {
       );
     }
 
-    final days = endDate.difference(startDate).inDays + 1; // inclusive
+    final days = calendarDaysInclusive(startDate, endDate); // inkluzivně, odolné vůči změně času
     final basePrice = calcBasePrice(prices, startDate, endDate);
     // Extras = flat price per rental (NOT multiplied by days)
     // Matches Capacitor: extraTotal = sum of data-price for checked items
@@ -243,7 +243,7 @@ class PriceCalculator {
         (basePrice - lateDiscount).clamp(0, double.infinity).toDouble();
 
     // Full base PO late slevě (z této částky se počítají procenta).
-    final fullBase = rentalAfterLate + extrasTotal + deliveryTotal + insuranceFee;
+    final fullBase = rentalAfterLate + extrasTotal + deliveryTotal;
 
     // ── Věrnostní sleva (ranky, JEN app rezervace) ──
     // Základ: pronájem (po late) + příslušenství (bez přistavení a pojištění).
@@ -268,7 +268,6 @@ class PriceCalculator {
       extrasTotal: extrasTotal,
       pickupDeliveryFee: pickupDeliveryFee,
       returnDeliveryFee: returnDeliveryFee,
-      insuranceFee: insuranceFee,
       discountTotal: discountTotal,
       total: total.toDouble(),
       days: days,

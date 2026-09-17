@@ -10,21 +10,15 @@ import '../booking_upsell_provider.dart';
 import '../../../core/currency.dart';
 
 /// Upsell/cross-sell section for the payment summary screen.
-/// Shows featured shop products and optional insurance add-on.
+/// Shows featured shop products.
 /// Products are added to bookingUpsellProvider (NOT the cart)
 /// so the cart FAB never appears.
 class UpsellSection extends ConsumerWidget {
-  final double? insurancePrice;
-  final bool insuranceSelected;
-  final ValueChanged<bool> onInsuranceChanged;
   /// Doprodej (e-shopové produkty) — řízeno feature flagem reservation_upsell.
   final bool showProducts;
 
   const UpsellSection({
     super.key,
-    this.insurancePrice,
-    required this.insuranceSelected,
-    required this.onInsuranceChanged,
     this.showProducts = true,
   });
 
@@ -32,9 +26,8 @@ class UpsellSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(productsProvider);
     final upsellItems = ref.watch(bookingUpsellProvider);
-    final hasInsurance = insurancePrice != null && insurancePrice! > 0;
-    // Když je doprodej vypnutý a není pojištění, sekci vůbec nevykreslíme.
-    if (!showProducts && !hasInsurance) return const SizedBox.shrink();
+    // Když je doprodej vypnutý, sekci vůbec nevykreslíme.
+    if (!showProducts) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -59,17 +52,6 @@ class UpsellSection extends ConsumerWidget {
             ),
           ]),
           const SizedBox(height: 12),
-
-          // Insurance add-on
-          if (insurancePrice != null && insurancePrice! > 0)
-            _InsuranceTile(
-              price: insurancePrice!,
-              selected: insuranceSelected,
-              onChanged: onInsuranceChanged,
-            ),
-
-          if (insurancePrice != null && insurancePrice! > 0)
-            const SizedBox(height: 10),
 
           // Featured shop products (max 3) — jen když je doprodej zapnutý
           if (showProducts) productsAsync.when(
@@ -120,85 +102,6 @@ class UpsellSection extends ConsumerWidget {
             error: (_, __) => const SizedBox.shrink(),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Insurance add-on toggle tile.
-class _InsuranceTile extends StatelessWidget {
-  final double price;
-  final bool selected;
-  final ValueChanged<bool> onChanged;
-
-  const _InsuranceTile({
-    required this.price,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onChanged(!selected),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: selected ? MotoGoColors.greenPale : MotoGoColors.g100,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? MotoGoColors.green : MotoGoColors.g200,
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Row(children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: selected
-                  ? MotoGoColors.green.withValues(alpha: 0.2)
-                  : MotoGoColors.g200,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.shield,
-              size: 20,
-              color: selected ? MotoGoColors.greenDarker : MotoGoColors.g400,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  t(context).tr('extendedInsurance'),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: MotoGoColors.black,
-                  ),
-                ),
-                Text(
-                  t(context).tr('reducedDeductible'),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: MotoGoColors.g400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            '+${Money.czk(price)}',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: selected ? MotoGoColors.greenDarker : MotoGoColors.black,
-            ),
-          ),
-        ]),
       ),
     );
   }

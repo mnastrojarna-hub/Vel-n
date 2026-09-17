@@ -69,6 +69,13 @@ class BookingValidator {
         continue;
       }
 
+      // Vlastní ROZDĚLANÝ koncept (pending + nezaplaceno) se sám se sebou
+      // překrývat nesmí. Rezervace vzniká až na platební obrazovce, takže
+      // po návratu zpět do formuláře tu leží záznam s týmiž daty — bez téhle
+      // výjimky se překryv nahlásí a tlačítko „Pokračovat k platbě" zůstane
+      // zašedlé, dokud rezervaci nezruší cron.
+      if (res.status == 'pending' && res.paymentStatus == 'unpaid') continue;
+
       // Skip children's motorcycle reservations — they don't block
       if (res.motoLicenseRequired == 'N') continue;
 

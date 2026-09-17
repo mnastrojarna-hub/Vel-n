@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/supabase_client.dart';
+import '../../core/booking_rules.dart';
+export '../../core/booking_rules.dart' show paymentTimeoutDuration;
 
 /// Payment methods from Supabase payment_methods table.
 /// Mirrors apiFetchPaymentMethods() from api-payment-methods.js.
@@ -155,9 +157,7 @@ Future<String?> setupNewCard() async {
   }
 }
 
-/// Auto-cancel timer constant (30 minutes) — musí sedět se serverovým oknem
-/// v auto_cancel_expired_pending() (app = 30 min, mig. 20260904b).
-const paymentTimeoutDuration = Duration(minutes: 30);
+// paymentTimeoutDuration žije v core/booking_rules.dart (jeden zdroj pravdy).
 
 /// Max payment attempts before auto-cancel.
 const maxPaymentAttempts = 3;
@@ -186,6 +186,12 @@ class PaymentContext {
   /// Mirrors window._pendingEditChanges from Capacitor app.
   final Map<String, dynamic>? pendingEditChanges;
 
+  /// Kdy rezervace VZNIKLA — jen u návratu k rozdělané platbě.
+  /// Serverový cron `auto_cancel_expired_pending()` odpočítává od vzniku,
+  /// takže odpočet na platební obrazovce se musí odvíjet od téhož okamžiku.
+  /// Když je null, jde o novou rezervaci a odpočet běží od otevření obrazovky.
+  final DateTime? bookingCreatedAt;
+
   const PaymentContext({
     required this.flowType,
     this.bookingId,
@@ -196,6 +202,7 @@ class PaymentContext {
     this.sosBreakdown,
     this.sosDepositNote,
     this.pendingEditChanges,
+    this.bookingCreatedAt,
   });
 }
 
