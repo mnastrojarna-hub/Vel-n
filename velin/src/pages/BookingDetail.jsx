@@ -20,6 +20,7 @@ import BookingCancelModal from './booking/BookingCancelModal'
 import RefundConfirmModal from './booking/RefundConfirmModal'
 import PaymentConfirmModal from './booking/PaymentConfirmModal'
 import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
+import BookingDamagePanel from './booking/BookingDamagePanel'
 
 export default function BookingDetail() {
   const debugMode = useDebugMode()
@@ -735,6 +736,7 @@ export default function BookingDetail() {
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
       )}
+      {tab === 'Detail' && <BookingDamagePanel booking={booking} onSaved={loadBooking} />}
       {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actionsAll} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
       {showModifyModal && booking && <BookingModifyModal booking={booking} onClose={() => setShowModifyModal(false)} onSaved={() => { setShowModifyModal(false); loadBooking() }} />}
       {tab === 'Kalendář motorky' && booking.motorcycles?.id && <BookingsCalendar motoId={booking.motorcycles.id} />}

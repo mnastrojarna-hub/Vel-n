@@ -13,7 +13,13 @@ import 'loyalty_provider.dart' show colorFromHex, loyaltyStatusProvider;
 class LeaderboardEntry {
   final int position;
   final String nickname;
-  final int days; // rezervované dny v aktuálním měsíci
+  final int days; // rezervované dny v měsíci (ponecháno kvůli starší odpovědi RPC)
+  /// Km bez nehody a škrábnutí za měsíc — z předávacích protokolů
+  /// (`analytics_moto_rental_km`: rozdíl po sobě jdoucích `mileage_start`
+  /// téže motorky, tedy km PATŘÍ té výpůjčce, která je najela).
+  final double km;
+  /// O kolik ranků jezdec v tomto měsíci postoupil.
+  final int rankGain;
   final int level; // aktuální rank jezdce
   final int percent;
   final String colorHex;
@@ -23,6 +29,8 @@ class LeaderboardEntry {
     required this.position,
     required this.nickname,
     required this.days,
+    this.km = 0,
+    this.rankGain = 0,
     required this.level,
     required this.percent,
     required this.colorHex,
@@ -36,6 +44,8 @@ class LeaderboardEntry {
         position: (j['rank_pos'] as num?)?.toInt() ?? 0,
         nickname: j['nickname'] as String? ?? 'Pilot',
         days: (j['days'] as num?)?.toInt() ?? 0,
+        km: (j['km'] as num?)?.toDouble() ?? 0,
+        rankGain: (j['rank_gain'] as num?)?.toInt() ?? 0,
         level: (j['level'] as num?)?.toInt() ?? 1,
         percent: (j['percent'] as num?)?.toInt() ?? 1,
         colorHex: j['color_hex'] as String? ?? '#9CA3AF',

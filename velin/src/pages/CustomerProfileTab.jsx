@@ -168,34 +168,66 @@ function PlatformChip({ userId, fallback }) {
   return <Chip label="Platforma" value={val} tone={val === '—' ? undefined : (val.includes('WEB') ? 'blue' : 'green')} />
 }
 
-/// Věrnostní rank — body sbírají dokončené rezervace z appky I webu
-/// (1 bod; delší než 7 dní = 4 body), sleva se ale uplatňuje jen v appce.
-/// Stejný výpočet jako RPC get_loyalty_status: pct = min(20, ceil((body+1)/2)).
-/// Když tabulka loyalty_levels neexistuje (backend ještě nenasazen), chip se skryje.
+/// Věrnostní rank — jeden zdroj pravdy je RPC `admin_loyalty_status`
+/// (body: dokončená rezervace 1–6 dní = 1 bod, 7 a více dní = 2 body,
+/// z appky I z webu; sleva se uplatňuje jen v appce). Rank zůstává
+/// napořád — body nikdy neklesnou pod dosažené maximum. Po nehodě lze
+/// zákazníka ručně degradovat (a stejně tak degradaci vrátit).
+/// Když RPC ještě neexistuje (SQL nenasazen), chip se skryje.
 function LoyaltyChip({ userId }) {
-  const [rank, setRank] = useState(null)
-  useEffect(() => {
+  const [st, setSt] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+
+  async function load() {
     if (!userId) return
-    ;(async () => {
-      try {
-        const { data: rows, error } = await supabase.from('bookings')
-          .select('start_date, end_date, is_test')
-          .eq('user_id', userId).eq('status', 'completed')
-        if (error) return
-        const points = (rows || []).reduce((sum, b) => {
-          if (b.is_test) return sum
-          const days = Math.round((new Date(b.end_date) - new Date(b.start_date)) / 86400000) + 1
-          return sum + (days > 7 ? 4 : 1)
-        }, 0)
-        const pct = Math.min(20, Math.ceil((points + 1) / 2))
-        const { data } = await supabase.from('loyalty_levels')
-          .select('name, discount_percent, color_hex').eq('level', pct).maybeSingle()
-        if (data) setRank(data)
-      } catch { /* loyalty_levels nemusí existovat */ }
-    })()
-  }, [userId])
-  if (!rank) return null
-  return <Chip label="Věrnostní rank (app)" value={`${rank.name} · ${rank.discount_percent} %`} tone="green" />
+    try {
+      const { data, error } = await supabase.rpc('admin_loyalty_status', { p_user_id: userId })
+      if (!error && data && !data.error) setSt(data)
+    } catch { /* RPC nemusí existovat */ }
+  }
+  useEffect(() => { load() }, [userId])
+
+  async function adjust(ranks) {
+    const what = ranks < 0 ? 'Degradovat' : 'Vrátit'
+    const reason = window.prompt(`${what} rank o ${Math.abs(ranks)} — důvod (např. nehoda 12.9.):`, '')
+    if (reason === null) return
+    setBusy(true); setErr(null)
+    const { error } = await supabase.rpc('admin_loyalty_adjust_rank', {
+      p_user_id: userId, p_ranks: ranks, p_reason: reason,
+    })
+    setBusy(false)
+    if (error) { setErr(error.message); return }
+    load()
+  }
+
+  if (!st) return null
+  const penalty = Number(st.penalty_points) || 0
+  return (
+    <div className="rounded-xl px-3 py-2 min-w-0" style={{ background: penalty > 0 ? '#fee2e2' : '#dcfce7' }}>
+      <div className="text-[10px] font-bold uppercase tracking-wide truncate"
+        style={{ color: penalty > 0 ? C.red : '#16a34a', opacity: 0.65 }}>
+        Věrnostní rank{penalty > 0 ? ' · degradován' : ''}
+      </div>
+      <div className="text-sm font-extrabold truncate" style={{ color: penalty > 0 ? C.red : '#16a34a' }}
+        title={`Body: ${st.points} (základ ${st.raw_points}, bonus ${st.bonus_points}, strop ${st.floor_points}, penalizace ${penalty})`}>
+        {st.rank_name} · {st.percent} %
+      </div>
+      <div className="flex gap-1 mt-1">
+        <button onClick={() => adjust(-1)} disabled={busy}
+          className="text-[10px] font-extrabold uppercase cursor-pointer rounded-btn"
+          style={{ padding: '2px 6px', background: '#fff', color: C.red, border: '1px solid #fca5a5' }}
+          title="Ruční degradace o 1 rank (např. po nehodě). Zapíše se do historie úprav.">−1 rank</button>
+        {penalty > 0 && (
+          <button onClick={() => adjust(1)} disabled={busy}
+            className="text-[10px] font-extrabold uppercase cursor-pointer rounded-btn"
+            style={{ padding: '2px 6px', background: '#fff', color: '#16a34a', border: '1px solid #86efac' }}
+            title="Vrátit zpět 1 rank z dřívější degradace.">+1 rank</button>
+        )}
+      </div>
+      {err && <div className="text-[10px] mt-1" style={{ color: C.red }}>{err}</div>}
+    </div>
+  )
 }
 
 export default function ProfileTab({ customer, set, error, saving, onSave, onDelete, onBlock }) {

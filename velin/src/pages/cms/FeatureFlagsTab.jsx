@@ -19,6 +19,12 @@ const KNOWN_FLAGS = {
     on: 'Zákazníkovi se v rezervaci nabízí doprodej zboží z e-shopu (přidá k objednávce, samostatná faktura).',
     off: 'Doprodej je skrytý — rezervace nenabízí žádné e-shopové doplňky. Doporučený stav, dokud doprodej nedoplníme.',
   },
+  loyalty_leaderboard: {
+    title: 'Žebříček jezdců v aplikaci',
+    controls: 'Mobilní aplikace — stránka Věrnostní ranky, sekce „Žebříček jezdců".',
+    on: 'Zákazník vidí anonymní měsíční žebříček (přezdívka nebo křestní jméno s číslem, postup ranků, km bez nehody) a může se z něj odhlásit.',
+    off: 'Žebříček se v appce NEZOBRAZUJE. Backend data dál sbírá a vyhodnocuje (ranky, km z protokolů, měsíční vítěz) — jen se neukazují. Doporučený stav.',
+  },
   debug_mode: {
     title: 'Debug režim Velínu',
     controls: 'Tento administrační panel (Velín).',
