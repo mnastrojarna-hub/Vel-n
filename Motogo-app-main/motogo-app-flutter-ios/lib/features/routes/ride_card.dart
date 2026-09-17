@@ -13,8 +13,15 @@ import 'ride_map.dart';
 class RideCard extends StatelessWidget {
   final UserRide ride;
   final VoidCallback? onTap;
+  /// Id jízd v pořadí seznamu — detail pak jde listovat do stran.
+  final List<String> siblingIds;
 
-  const RideCard({super.key, required this.ride, this.onTap});
+  const RideCard({
+    super.key,
+    required this.ride,
+    this.onTap,
+    this.siblingIds = const [],
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +30,10 @@ class RideCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: PressableScale(
         pressedScale: 0.98,
-        onTap: onTap ?? () => context.push('/ride/${ride.id}'),
+        onTap: onTap ??
+            () => context.push('/ride/${ride.id}',
+                // Sousedi pro listování swipem v detailu jízdy.
+                extra: siblingIds),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,

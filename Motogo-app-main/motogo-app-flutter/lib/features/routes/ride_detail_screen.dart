@@ -18,15 +18,52 @@ import 'route_image.dart';
 /// Detail projeté jízdy — mapa se stopou, statistiky, zastávky s fotkami
 /// a popisky (přidat / upravit / smazat), přepínač sdílení a export na
 /// sociální sítě. Jízda je soukromá, dokud ji jezdec sám nezveřejní.
-class RideDetailScreen extends ConsumerWidget {
+class RideDetailScreen extends ConsumerStatefulWidget {
   final String rideId;
+  /// Id jízd v pořadí seznamu — swipem do stran se mezi nimi listuje.
+  final List<String> siblingIds;
 
-  const RideDetailScreen({super.key, required this.rideId});
+  const RideDetailScreen({
+    super.key,
+    required this.rideId,
+    this.siblingIds = const [],
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RideDetailScreen> createState() => _RideDetailScreenState();
+}
+
+class _RideDetailScreenState extends ConsumerState<RideDetailScreen> {
+  late String _id = widget.rideId;
+  double _dx = 0; // ušlá vzdálenost tažení
+
+  void _swipe(int delta) {
+    final ids = widget.siblingIds;
+    if (ids.length < 2) return;
+    final cur = ids.indexOf(_id);
+    if (cur < 0) return;
+    final next = cur + delta;
+    if (next < 0 || next >= ids.length) return;
+    setState(() => _id = ids[next]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final rides = ref.watch(myRidesProvider);
-    return rides.when(
+    final many = widget.siblingIds.length > 1;
+    return GestureDetector(
+      // Swipe do stran listuje mezi jízdami tak, jak jsou v seznamu.
+      onHorizontalDragStart: !many ? null : (_) => _dx = 0,
+      onHorizontalDragUpdate: !many ? null : (d) => _dx += d.delta.dx,
+      onHorizontalDragEnd: !many
+          ? null
+          : (d) {
+              final v = d.primaryVelocity ?? 0;
+              final far = _dx.abs() > 60;
+              if (v.abs() < 140 && !far) return;
+              _swipe((v.abs() >= 140 ? v < 0 : _dx < 0) ? 1 : -1);
+            },
+      child: rides.when(
       loading: () => const Scaffold(
         backgroundColor: MotoGoColors.bg,
         body: Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
@@ -35,11 +72,12 @@ class RideDetailScreen extends ConsumerWidget {
       data: (list) {
         UserRide? ride;
         for (final r in list) {
-          if (r.id == rideId) ride = r;
+          if (r.id == _id) ride = r;
         }
         if (ride == null) return _missing(context);
-        return _RideDetailBody(ride: ride);
+        return _RideDetailBody(key: ValueKey(ride.id), ride: ride);
       },
+      ),
     );
   }
 
@@ -89,7 +127,7 @@ class RideDetailScreen extends ConsumerWidget {
 
 class _RideDetailBody extends ConsumerStatefulWidget {
   final UserRide ride;
-  const _RideDetailBody({required this.ride});
+  const _RideDetailBody({super.key, required this.ride});
 
   @override
   ConsumerState<_RideDetailBody> createState() => _RideDetailBodyState();

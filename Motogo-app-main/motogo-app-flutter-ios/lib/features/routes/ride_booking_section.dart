@@ -35,7 +35,8 @@ class BookingRidesSection extends ConsumerWidget {
             ),
           ),
         ),
-        for (final r in rides) RideCard(ride: r),
+        for (final r in rides)
+        RideCard(ride: r, siblingIds: [for (final x in rides) x.id]),
       ],
     );
   }

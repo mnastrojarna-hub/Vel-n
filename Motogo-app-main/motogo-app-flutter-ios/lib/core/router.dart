@@ -281,7 +281,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/ride/:id',
         builder: (context, state) =>
-            RideDetailScreen(rideId: state.pathParameters['id'] ?? ''),
+            RideDetailScreen(
+          rideId: state.pathParameters['id'] ?? '',
+          siblingIds:
+              state.extra is List<String> ? state.extra as List<String> : const [],
+        ),
       ),
 
       // Navigace přes vlastní (zákazníkem složenou) trasu z vybraných POI
@@ -464,7 +468,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/routes/:id',
             builder: (context, state) =>
-                RouteDetailScreen(routeId: state.pathParameters['id']!),
+                RouteDetailScreen(
+              routeId: state.pathParameters['id']!,
+              // Sousedi pro listování swipem — seznam je posílá přes extra,
+              // takže odpovídá tomu, co měl uživatel zrovna vyfiltrované.
+              siblingIds:
+                  state.extra is List<String> ? state.extra as List<String> : const [],
+            ),
           ),
         ],
       ),

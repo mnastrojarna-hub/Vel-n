@@ -29,8 +29,16 @@ class PlacesMapView extends StatefulWidget {
   /// Tap na konkrétní místo (marker shluku se místo toho přiblíží).
   final void Function(PoiEntry entry)? onPlaceTap;
 
-  /// Dlouhý stisk do mapy — nabídne přidání nového místa na daném bodě.
+  /// Dlouhý stisk NA MÍSTĚ — otevře jeho detail (krátký tap přepíná výběr).
+  final void Function(PoiEntry entry)? onPlaceLongPress;
+
+  /// Dlouhý stisk do prázdné mapy — nabídne přidání nového místa.
   final void Function(LatLng point)? onLongPress;
+
+  /// Trasy k vykreslení. Mapa míst je ve výchozím stavu BEZ tras — čáry se
+  /// objeví až tehdy, když uživatel označí místo, a jen u tras, které to
+  /// místo obsahují.
+  final List<List<LatLng>> routeLines;
 
   /// Poloha jezdce — vykreslí se jako modrý bod a použije pro tlačítko
   /// „vycentrovat na mě".
@@ -50,7 +58,9 @@ class PlacesMapView extends StatefulWidget {
     required this.places,
     required this.lang,
     this.selected = const {},
+    this.routeLines = const [],
     this.onPlaceTap,
+    this.onPlaceLongPress,
     this.onLongPress,
     this.me,
     this.initialCenter,
@@ -151,11 +161,18 @@ class PlacesMapViewState extends State<PlacesMapView> {
 
     final markers = <Marker>[];
     if (showClusters) {
+      // Vybraná místa se kreslí VŽDY samostatně — jinak zmizí ve shluku
+      // a uživatel nevidí, co má v rozdělané trase.
+      final picked = <PoiEntry>[];
       final cell = _cellSize(_zoom);
       // Klíč buňky → (počet, součet souřadnic pro těžiště).
       final buckets = <String, ({int n, double lat, double lng})>{};
       for (final e in visible) {
         final p = e.latLng!;
+        if (widget.selected.contains(e.key)) {
+          picked.add(e);
+          continue;
+        }
         final key = '${(p.latitude / cell).floor()}:${(p.longitude / cell).floor()}';
         final cur = buckets[key];
         buckets[key] = cur == null
@@ -165,6 +182,9 @@ class PlacesMapViewState extends State<PlacesMapView> {
       for (final b in buckets.values) {
         final center = LatLng(b.lat / b.n, b.lng / b.n);
         markers.add(_clusterMarker(center, b.n));
+      }
+      for (final e in picked) {
+        markers.add(_placeMarker(e));
       }
     } else {
       for (final e in visible) {
@@ -202,6 +222,19 @@ class PlacesMapViewState extends State<PlacesMapView> {
           userAgentPackageName: 'com.motogo24.app',
           maxZoom: 19,
         ),
+        // Trasy pod markery, ať body zůstanou čitelné.
+        if (widget.routeLines.isNotEmpty)
+          PolylineLayer(
+            polylines: [
+              for (final pts in widget.routeLines)
+                if (pts.length >= 2)
+                  Polyline(
+                    points: pts,
+                    strokeWidth: 4,
+                    color: MotoGoColors.greenDark.withValues(alpha: 0.85),
+                  ),
+            ],
+          ),
         if (widget.me != null)
           MarkerLayer(markers: [
             Marker(
@@ -277,6 +310,7 @@ class PlacesMapViewState extends State<PlacesMapView> {
       width: size,
       height: size,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => _ctrl.move(center, math.min(_zoom + 2.5, 17)),
         child: Container(
           decoration: BoxDecoration(
@@ -314,7 +348,11 @@ class PlacesMapViewState extends State<PlacesMapView> {
       width: 34,
       height: 34,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: widget.onPlaceTap == null ? null : () => widget.onPlaceTap!(e),
+        onLongPress: widget.onPlaceLongPress == null
+            ? null
+            : () => widget.onPlaceLongPress!(e),
         child: Container(
           decoration: BoxDecoration(
             color: sel ? MotoGoColors.green : Colors.white,

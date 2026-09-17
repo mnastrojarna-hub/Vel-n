@@ -28,7 +28,17 @@ Widget _poiSectionTitle(String s) => Padding(
 /// panel (rozbalitelný na skoro celou výšku). Pořadí sekcí: titulní fotka +
 /// galerie → název + kategorie → popis → Okolí → hvězdy → recenze/komentáře.
 /// Fotky lze zvětšit přes celou obrazovku s přibližováním.
-void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? index}) {
+/// [siblings] = místa, mezi kterými jde v detailu listovat swipem do stran
+/// (u trasy její body v pořadí, jinak právě vyfiltrovaný seznam). Když je
+/// prázdné nebo jednoprvkové, detail se chová jako dřív.
+void showRoutePoiSheet(
+  BuildContext context,
+  RoutePoi poi,
+  String lang, {
+  int? index,
+  List<RoutePoi> siblings = const [],
+  void Function(int index)? onIndexChanged,
+}) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -38,14 +48,147 @@ void showRoutePoiSheet(BuildContext context, RoutePoi poi, String lang, {int? in
       minChildSize: 0.5,
       maxChildSize: 0.97,
       expand: false,
-      builder: (c, scrollController) => _PoiSheetContent(
+      builder: (c, scrollController) => _PoiPager(
         poi: poi,
         lang: lang,
         index: index,
+        siblings: siblings,
+        onIndexChanged: onIndexChanged,
         controller: scrollController,
       ),
     ),
   );
+}
+
+/// Listování mezi detaily míst swipem do stran.
+///
+/// Záměrně NEpoužívá PageView: `DraggableScrollableSheet` potřebuje svůj
+/// scroll controller připojený k právě zobrazenému obsahu, a s několika
+/// stránkami najednou by se rozbilo tažení panelu za obsah. Místo toho se
+/// překresluje jeden detail a přechod obstará posuvná animace.
+class _PoiPager extends StatefulWidget {
+  final RoutePoi poi;
+  final String lang;
+  final int? index;
+  final List<RoutePoi> siblings;
+  final void Function(int index)? onIndexChanged;
+  final ScrollController controller;
+  const _PoiPager({
+    required this.poi,
+    required this.lang,
+    required this.index,
+    required this.siblings,
+    required this.onIndexChanged,
+    required this.controller,
+  });
+
+  @override
+  State<_PoiPager> createState() => _PoiPagerState();
+}
+
+class _PoiPagerState extends State<_PoiPager> {
+  late List<RoutePoi> _items = widget.siblings.length > 1
+      ? widget.siblings
+      : <RoutePoi>[widget.poi];
+  late int _at = () {
+    final i = _items.indexWhere((e) => e.id == widget.poi.id);
+    return i < 0 ? 0 : i;
+  }();
+  int _dir = 1; // směr poslední změny — kvůli animaci
+  double _dx = 0; // ušlá vzdálenost tažení
+
+  void _go(int delta) {
+    final next = _at + delta;
+    if (next < 0 || next >= _items.length) return;
+    setState(() {
+      _dir = delta;
+      _at = next;
+    });
+    // Skok na začátek až po překreslení — v okamžiku setState je na
+    // controlleru panelu připojený ještě starý seznam a ten by uskočil.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.controller.hasClients) {
+        widget.controller.jumpTo(0);
+      }
+    });
+    widget.onIndexChanged?.call(_at);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final poi = _items[_at];
+    final many = _items.length > 1;
+    return GestureDetector(
+      // Swipe doleva = další, doprava = předchozí. Vodorovný PageView
+      // galerie uvnitř si gesto vezme dřív, takže listování fotek zůstává.
+      onHorizontalDragStart: !many ? null : (_) => _dx = 0,
+      onHorizontalDragUpdate: !many ? null : (d) => _dx += d.delta.dx,
+      onHorizontalDragEnd: !many
+          ? null
+          : (d) {
+              // Projde švihnutí i pomalé přetažení přes třetinu obrazovky —
+              // jen na rychlost reagovat nestačí, pomalý tah nic neudělal.
+              final v = d.primaryVelocity ?? 0;
+              final far = _dx.abs() > 60;
+              if (v.abs() < 120 && !far) return;
+              _go((v.abs() >= 120 ? v < 0 : _dx < 0) ? 1 : -1);
+            },
+      child: Stack(
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOutCubic,
+            transitionBuilder: (child, anim) => SlideTransition(
+              position: Tween<Offset>(
+                begin: Offset(_dir > 0 ? 0.25 : -0.25, 0),
+                end: Offset.zero,
+              ).animate(anim),
+              child: FadeTransition(opacity: anim, child: child),
+            ),
+            child: _PoiSheetContent(
+              key: ValueKey(poi.id),
+              poi: poi,
+              lang: widget.lang,
+              // Číslo zastávky patří jen bodům NA TRASE — volající ho
+              // pošle jen odtud. V katalogu míst by z pozice v seznamu
+              // vzniklo nesmyslné pořadí („4238").
+              index: widget.index == null ? null : (many ? _at : widget.index),
+              controller: widget.controller,
+            ),
+          ),
+          if (many)
+            Positioned(
+              // Mimo osu — uprostřed nahoře sedí táhlo panelu.
+              top: 8,
+              left: 12,
+              child: IgnorePointer(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.62),
+                      borderRadius:
+                          BorderRadius.circular(MotoGoRadius.pill),
+                    ),
+                    child: Text(
+                      '${_at + 1} / ${_items.length}',
+                      style: const TextStyle(
+                        fontSize: MotoGoTypo.sizeSm,
+                        fontWeight: MotoGoTypo.w800,
+                        color: Colors.white,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Obsah detailu bodu. Katalogové body se do seznamu načítají odlehčené (bez
@@ -58,6 +201,7 @@ class _PoiSheetContent extends StatefulWidget {
   final int? index;
   final ScrollController controller;
   const _PoiSheetContent({
+    super.key,
     required this.poi,
     required this.lang,
     required this.index,

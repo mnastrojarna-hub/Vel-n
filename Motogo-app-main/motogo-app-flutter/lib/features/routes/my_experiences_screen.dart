@@ -289,16 +289,22 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
       itemCount: items.length,
       itemBuilder: (c, i) => _historyCard(context, items[i],
-          isActive: st.active != null && i == 0),
+          isActive: st.active != null && i == 0, siblings: items),
     );
   }
 
   /// Detail projeté jízdy: trasa z DB → detail trasy, vlastní trasa →
   /// náhled v editoru (mapa + zastávky).
-  void _openRideDetail(BuildContext context, ActiveRide r) {
+  void _openRideDetail(BuildContext context, ActiveRide r,
+      [List<ActiveRide> siblings = const []]) {
     final id = r.routeId;
     if (id != null && id.isNotEmpty) {
-      context.push('/routes/$id');
+      // Listování swipem mezi trasami ostatních jízd z historie.
+      final ids = [
+        for (final x in siblings)
+          if (x.routeId != null && x.routeId!.isNotEmpty) x.routeId!
+      ];
+      context.push('/routes/$id', extra: ids);
       return;
     }
     final item = r.customRouteItem();
@@ -330,13 +336,13 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
   }
 
   Widget _historyCard(BuildContext context, ActiveRide r,
-      {required bool isActive}) {
+      {required bool isActive, List<ActiveRide> siblings = const []}) {
     final chipLabel = isActive
         ? t(context).tr('myExpRideActive')
         : (r.done ? t(context).tr('myExpRideDone') : null);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => _openRideDetail(context, r),
+      onTap: () => _openRideDetail(context, r, siblings),
       child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -536,7 +542,8 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
           ),
         ),
       ),
-      for (final r in rides) RideCard(ride: r),
+      for (final r in rides)
+        RideCard(ride: r, siblingIds: [for (final x in rides) x.id]),
     ];
   }
 
@@ -753,7 +760,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
           itemCount: places.length,
-          itemBuilder: (c, i) => _placeCard(context, places[i]),
+          itemBuilder: (c, i) => _placeCard(context, places[i], places),
         );
       },
     );
@@ -770,12 +777,14 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
         isCatalogPoi: p.poiId != null,
       );
 
-  Widget _placeCard(BuildContext context, VisitedPlace p) {
+  Widget _placeCard(
+      BuildContext context, VisitedPlace p, List<VisitedPlace> siblings) {
     final lang = ref.watch(localeProvider).languageCode;
     // Tap na kartu = detail místa (popis, fotky, hodnocení a komentáře).
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => showRoutePoiSheet(context, _placePoi(p), lang),
+      onTap: () => showRoutePoiSheet(context, _placePoi(p), lang,
+          siblings: [for (final x in siblings) _placePoi(x)]),
       child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(

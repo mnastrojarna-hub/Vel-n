@@ -1323,7 +1323,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
           width: 34,
           height: 34,
           child: GestureDetector(
-            onTap: () => showRoutePoiSheet(context, poi, lang, index: idx),
+            onTap: () =>
+                showRoutePoiSheet(context, poi, lang,
+                    index: idx, siblings: route.pois),
             child: NavNumPin(index: idx, visited: _visitSent.contains(poi.id)),
           ),
         ));
@@ -1615,7 +1617,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                       final poi = _reachedCard!.poi!;
                       final idx = route.pois.indexOf(poi);
                       showRoutePoiSheet(context, poi, lang,
-                          index: idx >= 0 ? idx : null);
+                          index: idx >= 0 ? idx : null,
+                          siblings: route.pois);
                     },
               // Zavření karty bod NEpotvrzuje — zůstane neodškrtnutý.
               onClose: () => setState(() => _reachedCard = null),

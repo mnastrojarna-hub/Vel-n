@@ -18,7 +18,14 @@ import 'route_reviews.dart';
 
 class RouteDetailScreen extends ConsumerStatefulWidget {
   final String routeId;
-  const RouteDetailScreen({super.key, required this.routeId});
+  /// Id tras, mezi kterými jde v detailu listovat swipem do stran — pořadí
+  /// odpovídá tomu, jak je uživatel viděl v (vyfiltrovaném) seznamu.
+  final List<String> siblingIds;
+  const RouteDetailScreen({
+    super.key,
+    required this.routeId,
+    this.siblingIds = const [],
+  });
 
   @override
   ConsumerState<RouteDetailScreen> createState() => _RouteDetailScreenState();
@@ -48,19 +55,52 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
     });
   }
 
+  /// Aktuálně zobrazená trasa — mění se swipem, výchozí je ta otevřená.
+  late String _id = widget.routeId;
+  double _dx = 0; // ušlá vzdálenost tažení
+
+  void _swipe(int delta) {
+    final ids = widget.siblingIds;
+    if (ids.length < 2) return;
+    final cur = ids.indexOf(_id);
+    if (cur < 0) return;
+    final next = cur + delta;
+    if (next < 0 || next >= ids.length) return;
+    setState(() {
+      _id = ids[next];
+      _activePoi = null;
+    });
+    ref.read(lastOpenedRouteProvider.notifier).state = _id;
+  }
+
   @override
   Widget build(BuildContext context) {
     final lang = ref.watch(localeProvider).languageCode;
     final dataAsync = ref.watch(routesDataProvider);
+    final many = widget.siblingIds.length > 1;
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
-      body: dataAsync.when(
+      body: GestureDetector(
+        // Swipe do stran listuje mezi trasami tak, jak byly v seznamu.
+        // Mapa a vodorovné karusely uvnitř si tažení vezmou samy, takže
+        // listuje se tahem po zbytku obsahu.
+        onHorizontalDragStart: !many ? null : (_) => _dx = 0,
+        onHorizontalDragUpdate: !many ? null : (d) => _dx += d.delta.dx,
+        onHorizontalDragEnd: !many
+            ? null
+            : (d) {
+                final v = d.primaryVelocity ?? 0;
+                final far = _dx.abs() > 60;
+                if (v.abs() < 140 && !far) return;
+                _swipe((v.abs() >= 140 ? v < 0 : _dx < 0) ? 1 : -1);
+              },
+        child: dataAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
         error: (e, _) => _missing(context),
         data: (data) {
           final listRoute = data.routes.firstWhere(
-            (r) => r.id == widget.routeId,
+            (r) => r.id == _id,
             orElse: () => const RouteItem(id: '', name: ''),
           );
           if (listRoute.id.isEmpty) return _missing(context);
@@ -68,11 +108,12 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
           // dotáhnou přes routeFullProvider; do té doby se hned vykreslí
           // lite verze (název, mapa, body) bez čekání.
           final route =
-              ref.watch(routeFullProvider(widget.routeId)).valueOrNull ??
+              ref.watch(routeFullProvider(_id)).valueOrNull ??
                   listRoute;
           final branch = route.branchId != null ? data.branches[route.branchId] : null;
           return _content(context, route, branch, lang);
         },
+        ),
       ),
     );
   }
@@ -112,7 +153,11 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                     activePoi: _activePoi,
                     onPoiTap: (i) {
                       setState(() => _activePoi = i);
-                      showRoutePoiSheet(context, pois[i], lang, index: i);
+                      showRoutePoiSheet(context, pois[i], lang,
+                          index: i,
+                          siblings: pois,
+                          onIndexChanged: (n) =>
+                              setState(() => _activePoi = n));
                     },
                   ),
                 ),
@@ -294,7 +339,10 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
             pressedScale: 0.96,
             onTap: () {
               setState(() => _activePoi = i);
-              showRoutePoiSheet(context, p, lang, index: i);
+              showRoutePoiSheet(context, p, lang,
+                  index: i,
+                  siblings: pois,
+                  onIndexChanged: (n) => setState(() => _activePoi = n));
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 220),
@@ -558,7 +606,8 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                 geometry: geometry,
                 start: start,
                 pois: poiMarkers,
-                onPoiTap: (i) => showRoutePoiSheet(ctx, pois[i], lang, index: i),
+                onPoiTap: (i) => showRoutePoiSheet(ctx, pois[i], lang,
+                    index: i, siblings: pois),
               ),
             ),
             Positioned(
