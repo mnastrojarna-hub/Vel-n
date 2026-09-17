@@ -24,6 +24,7 @@ const translationsUkExt1 = <String, Map<String, String>>{
     'homeFilterLicenseGroup': 'КАТЕГОРІЯ ПОСВІДЧЕННЯ',
     'homeFilterLicenseAll': 'Усе',
     'homeFilterLicenseA1': 'A1 (до 125 см³)',
+    'homeFilterLicenseAM': 'AM (мопед)',
     'homeFilterLicenseA2': 'A2 (до 35 кВт)',
     'homeFilterLicenseA': 'A (повна)',
     'homeFilterLicenseB': 'B (авто)',

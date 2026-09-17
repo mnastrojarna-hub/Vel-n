@@ -72,7 +72,10 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
         oldWidget.selectedEnd != widget.selectedEnd) {
       _start = widget.selectedStart;
       _end = widget.selectedEnd;
-      if (_start != null && _end != null) _step = 1;
+      // Když termín zvenčí zmizí (reset filtru) uprostřed výběru, musí se
+      // vrátit i krok — jinak zůstane „vyber vrácení" bez začátku a další
+      // klepnutí na den spadne na `_start!`.
+      if (_start == null || _end != null) _step = 1;
     }
   }
 

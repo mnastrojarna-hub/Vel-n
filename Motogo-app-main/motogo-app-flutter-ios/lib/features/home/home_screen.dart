@@ -110,6 +110,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
                   child: motosAsync.when(
+                    // Při změně filtru se výpis jen přepočítá — nesmí zmizet
+                    // pod celoobrazovkový spinner.
+                    skipLoadingOnReload: true,
                     data: (motos) => Text(
                       t(context).tr('homeMotorcycleCount').replaceAll('{n}', '${motos.length}'),
                       style: const TextStyle(
@@ -132,6 +135,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
               // ===== MOTORCYCLE LISTING =====
               motosAsync.when(
+                skipLoadingOnReload: true,
                 data: (motos) {
                   final sorted =
                       sortMotorcycles(motos, ref.watch(catalogSortProvider));
@@ -145,7 +149,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             moto: sorted[index],
                             onTap: () {
                               ref.read(filteredMotoIdsProvider.notifier).state =
-                                  sorted.map((m) => m.id as String).toList();
+                                  sorted.map((m) => m.id).toList();
                               context.push('/moto/${sorted[index].id}');
                             },
                           ),

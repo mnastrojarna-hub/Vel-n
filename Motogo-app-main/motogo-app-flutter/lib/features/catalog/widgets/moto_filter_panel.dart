@@ -27,13 +27,22 @@ class MotoFilterPanel extends ConsumerStatefulWidget {
 
 class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
   bool _open = false;
+  /// Živé hodnoty posuvníků během tažení (klíč = popisek posuvníku). Do
+  /// filtru se zapisují až po puštění jezdce.
+  final Map<String, RangeValues> _drag = {};
 
   CatalogFilter get _f => ref.read(catalogFilterProvider);
   void _set(CatalogFilter next) =>
       ref.read(catalogFilterProvider.notifier).state = next;
 
   void _reset() {
-    _set(const CatalogFilter());
+    // Termín patří kalendáři. Když je kalendář MIMO panel (Rezervovat), reset
+    // ho nesmí smazat — obrazovka nahoře by dál ukazovala vybrané dny, ale
+    // výpis by se podle nich už nefiltroval.
+    final keep = _f;
+    _set(widget.showDates
+        ? const CatalogFilter()
+        : CatalogFilter(startDate: keep.startDate, endDate: keep.endDate));
     ref.read(catalogSortProvider.notifier).state = 'default';
   }
 
@@ -90,12 +99,16 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
               children: [
                 const Icon(Icons.tune, size: 18, color: MotoGoColors.greenDark),
                 const SizedBox(width: 8),
-                Text(
-                  t(context).tr('homeFilterTitle'),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: MotoGoColors.black,
+                Flexible(
+                  child: Text(
+                    t(context).tr('homeFilterTitle'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: MotoGoColors.black,
+                    ),
                   ),
                 ),
                 if (active > 0) ...[
@@ -125,6 +138,8 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       child: Text(
                         t(context).tr('homeFilterReset'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -154,6 +169,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
 
   Widget _body(BuildContext context, CatalogFilter filter) {
     final ranges = ref.watch(motoRangesProvider);
+    final branches = ref.watch(branchesProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -196,7 +212,8 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
                   ),
                 ),
                 child: Text(
-                  e.value,
+                  // Lokalizovaně — MotoCategory.labels jsou české literály.
+                  t(context).tr(MotoCategory.labelKey(e.key)),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -218,6 +235,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
           children: [
             for (final g in const [
               (null, 'homeFilterLicenseAll'),
+              ('AM', 'homeFilterLicenseAM'),
               ('A1', 'homeFilterLicenseA1'),
               ('A2', 'homeFilterLicenseA2'),
               ('A', 'homeFilterLicenseA'),
@@ -247,7 +265,11 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String?>(
-              value: filter.branch,
+              // Pobočka, která (ještě) není v seznamu — např. než dojedou data
+              // — by shodila DropdownButton assertem „value must be in items".
+              value: branches.any((b) => b['id'] == filter.branch)
+                  ? filter.branch
+                  : null,
               isExpanded: true,
               dropdownColor: Colors.white,
               icon: const Icon(Icons.keyboard_arrow_down, color: MotoGoColors.g400),
@@ -273,7 +295,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
                     ],
                   ),
                 ),
-                ...ref.watch(branchesProvider).map((b) => DropdownMenuItem(
+                ...branches.map((b) => DropdownMenuItem(
                       value: b['id'] as String,
                       child: Text(b['name'] as String),
                     )),
@@ -329,7 +351,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
         // ── Dnes volné + řazení ──
         Row(
           children: [
-            Flexible(
+            Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => _set(
@@ -373,7 +395,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
                 ),
               ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
@@ -446,12 +468,24 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
     if (!bounds.valid) return const SizedBox.shrink();
     final min = bounds.min.toDouble();
     final max = bounds.max.toDouble();
-    final start = (lo ?? bounds.min).toDouble().clamp(min, max);
-    final end = (hi ?? bounds.max).toDouble().clamp(min, max);
+    // Uložená hodnota mimo aktuální meze (data dorazila až po nastavení
+    // filtru) by ukazovala jiný rozsah, než jaký se filtruje → bereme ji
+    // jako „bez omezení".
+    final loIn = (lo != null && lo >= bounds.min && lo <= bounds.max) ? lo : null;
+    final hiIn = (hi != null && hi >= bounds.min && hi <= bounds.max) ? hi : null;
+    final drag = _drag[labelKey];
+    final values = drag ??
+        RangeValues((loIn ?? bounds.min).toDouble(), (hiIn ?? bounds.max).toDouble());
+    // Během tažení ukazuje popisek živou hodnotu, do filtru se zapíše až po
+    // puštění (jinak by každý snímek tahu přepočítával dostupnost všech
+    // motorek = desítky dotazů za vteřinu).
+    final shownLo = drag == null ? loIn : (drag.start <= min ? null : drag.start.round());
+    final shownHi = drag == null ? hiIn : (drag.end >= max ? null : drag.end.round());
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label(context, labelKey, value: _rangeLabel(context, lo, hi, unit)),
+        _label(context, labelKey,
+            value: _rangeLabel(context, shownLo, shownHi, unit)),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             activeTrackColor: MotoGoColors.green,
@@ -462,13 +496,19 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
             rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 8),
           ),
           child: RangeSlider(
-            values: RangeValues(start, end),
+            values: values,
             min: min,
             max: max,
-            onChanged: (v) => onChanged(
-              v.start <= min ? null : v.start.round(),
-              v.end >= max ? null : v.end.round(),
-            ),
+            onChanged: (v) => setState(() => _drag[labelKey] = v),
+            onChangeEnd: (v) {
+              setState(() => _drag.remove(labelKey));
+              // Krajní poloha (i po zaokrouhlení) = BEZ omezení, ať se do
+              // filtru nezapisuje hodnota, která nic nefiltruje, ale svítí
+              // v odznaku aktivních filtrů.
+              final a = v.start.round();
+              final b = v.end.round();
+              onChanged(a <= bounds.min ? null : a, b >= bounds.max ? null : b);
+            },
           ),
         ),
         const SizedBox(height: 8),

@@ -254,7 +254,10 @@ class CatalogFilter {
   /// Hodnota, kterou motorka nemá vyplněnou, filtrem VŽDY projde — stejně
   /// jako u výkonu. Jinak by zmizela hned, jak se posuvníkem hne.
   static bool _inRange(int? value, int? lo, int? hi) {
-    if (value == null) return true;
+    // Nevyplněno = projde. Nula se bere jako NEVYPLNĚNO — `seat_height_mm`
+    // má v DB DEFAULT 0, takže by jinak všechny takové motorky zmizely hned
+    // po prvním pohnutí spodním jezdcem.
+    if (value == null || value <= 0) return true;
     if (lo != null && value < lo) return false;
     if (hi != null && value > hi) return false;
     return true;
