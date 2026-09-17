@@ -86,8 +86,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   // promíchání až po restartu appky.
   static final int _shuffleSeed = Random().nextInt(0x7fffffff);
 
-  // Řazení seznamu tras (výchozí náhodně = stabilní seed za běh).
-  _RouteSort _sort = _RouteSort.random;
+  // Řazení seznamu tras. VÝCHOZÍ je „od mé polohy" (zadání uživatele:
+  // nejbližší trasy nahoře); bez povolené polohy zůstane stabilní náhodné
+  // pořadí ze seedu výše.
+  _RouteSort _sort = _RouteSort.nearMe;
 
   /// Kolik filtrů je aktivních. Počítá i hledání a řazení — bez toho se
   /// tlačítko „Zrušit filtry" nezobrazilo, když byl seznam zúžený jen
@@ -97,7 +99,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
       (_fDist == null ? 0 : 1) +
       (_withApproach ? 1 : 0) +
       (_query.trim().isEmpty ? 0 : 1) +
-      (_sort == _RouteSort.random ? 0 : 1);
+      // Výchozí řazení „od mé polohy" se nepočítá jako zapnutý filtr.
+      (_sort == _RouteSort.nearMe ? 0 : 1);
 
   void _clearFilters() {
     // Z Tras se ruší jen to, co Trasy samy nastavují — státy a hledání.
@@ -109,11 +112,22 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
         _fDist = null;
         _fDur = null;
         _withApproach = false;
-        _sort = _RouteSort.random;
+        _sort = _RouteSort.nearMe;
       _query = '';
       _searchCtl.clear();
       _searchDebounce?.cancel();
       ref.read(placesSearchProvider.notifier).state = '';
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Výchozí řazení tras je „od mé polohy" — o polohu se nenápadně řekneme
+    // hned po otevření (requestLocationQuietly nikdy neotevře systémové
+    // nastavení; bez povolené polohy zůstane náhodné pořadí).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) requestLocationQuietly(ref);
     });
   }
 
@@ -541,17 +555,24 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
             (a.durationMin ?? 1 << 30).compareTo(b.durationMin ?? 1 << 30));
         break;
       case _RouteSort.nearMe:
-        if (me != null) {
-          routes.sort((a, b) =>
-              _routeDistFrom(dist, me, a).compareTo(_routeDistFrom(dist, me, b)));
-        }
+        if (me != null) _sortByDistanceFrom(routes, dist, me);
         break;
       case _RouteSort.nearRoute:
-        if (selAnchor != null) {
-          routes.sort((a, b) => _routeDistFrom(dist, selAnchor, a)
-              .compareTo(_routeDistFrom(dist, selAnchor, b)));
-        }
+        if (selAnchor != null) _sortByDistanceFrom(routes, dist, selAnchor);
         break;
+    }
+  }
+
+  /// Seřadí trasy podle vzdálenosti jejich startu od [from]. Vzdálenost se
+  /// počítá JEDNOU na trasu (decorate–sort–undecorate) — uvnitř porovnání by
+  /// se nad ~1 300 trasami (a s dohledáním kotvy) počítala tisíckrát zbytečně.
+  void _sortByDistanceFrom(List<RouteItem> routes, Distance dist, LatLng from) {
+    final decorated = <({RouteItem r, double d})>[
+      for (final r in routes) (r: r, d: _routeDistFrom(dist, from, r)),
+    ];
+    decorated.sort((a, b) => a.d.compareTo(b.d));
+    for (var i = 0; i < decorated.length; i++) {
+      routes[i] = decorated[i].r;
     }
   }
 
@@ -703,8 +724,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
           ),
           pill(
             icon: Icons.swap_vert,
-            label: _sortLabel(context, _sort),
-            on: _sort != _RouteSort.random,
+            // S prefixem „Řadit:" — samotné „Náhodně / Délka / Čas" uživateli
+            // neřeklo, že jde o řazení (filtry vedle mají popisek „Filtry").
+            label: '${t(context).tr('sortTitle')}: ${_sortLabel(context, _sort)}',
+            on: _sort != _RouteSort.nearMe,
             onTap: () => _openSortSheet(context, me != null, routeAvail),
           ),
           // Mapa míst — otevře se s AKTUÁLNÍM filtrem a dá se v ní klikáním

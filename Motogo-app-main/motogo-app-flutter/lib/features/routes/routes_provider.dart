@@ -658,7 +658,10 @@ final routeDisplayProvider =
   final routeBranchLatLng = routeBranch?.latLng;
 
   // Aktuální poloha (jen když už je oprávnění uděleno — bez dialogu).
-  final myLoc = await ref.watch(currentLocationProvider.future);
+  // NEČEKÁ se na ni: dokud nedorazí, spočítá se trasa od pobočky a jakmile
+  // poloha přijde, provider se přepočítá sám. Dřív se tu čekalo až 8 s na
+  // GPS fix, než se v detailu trasy vůbec začalo kreslit.
+  final myLoc = ref.watch(currentLocationProvider).valueOrNull;
 
   if (route.routeType == 'poi') {
     // 1) Od aktuální polohy (jen když už je povolená a je poblíž trasy) —

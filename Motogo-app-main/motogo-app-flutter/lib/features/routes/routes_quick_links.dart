@@ -88,7 +88,7 @@ class QuickLinksHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.links,
   });
 
-  static const double _cardH = 62; // plná karta
+  static const double _cardH = 50; // plná karta (nižší = víc místa na seznam)
   static const double _pillH = 44; // kompaktní pilulka
   static const double _topPad = 10;
   static const double _gap = 8;

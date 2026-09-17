@@ -113,6 +113,13 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   /// Je panel filtrů rozbalený? Ve výchozím stavu NE — na telefonu zabíral
   /// filtr s kategoriemi půlku obrazovky a na místa samotná nezbylo místo.
   bool _filtersOpen = false;
+  /// Pozice scrollu v okamžiku rozbalení filtru. Sbalení se počítá RELATIVNĚ
+  /// od ní: absolutní práh zavíral panel i při scrollu, kterým se k jeho
+  /// spodním chipům uživatel teprve snažil dostat.
+  double _filtersOpenAt = 0;
+  /// Klíč panelu filtrů — po rozbalení se na něj doscrolluje, aby byly
+  /// kategorie vidět i na malém displeji.
+  final GlobalKey _filtersKey = GlobalKey();
 
   // Debounce vyhledávání — filtr běží nad desítkami tisíc bodů, takže
   // přefiltrovat při KAŽDÉM stisku klávesy sekalo. Přefiltruje se až po
@@ -163,7 +170,30 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
 
   void _onScroll() {
     if (!_filtersOpen || !_scroll.hasClients) return;
-    if (_scroll.position.pixels > 24) setState(() => _filtersOpen = false);
+    // Sbalit až při odscrollování DOLŮ od místa, kde se filtr otevřel —
+    // scroll nahoru ani dolaďování pozice panel nezavře.
+    if (_scroll.position.pixels - _filtersOpenAt > 140) {
+      setState(() => _filtersOpen = false);
+    }
+  }
+
+  void _toggleFilters() {
+    setState(() {
+      _filtersOpen = !_filtersOpen;
+      _filtersOpenAt = _scroll.hasClients ? _scroll.position.pixels : 0;
+    });
+    if (!_filtersOpen) return;
+    // Rozbalený panel je vysoký; na telefonu by zůstal pod okrajem, tak na
+    // něj rovnou doscrollujeme.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _filtersKey.currentContext;
+      if (!mounted || ctx == null) return;
+      Scrollable.ensureVisible(ctx,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          alignment: 0.05);
+      if (_scroll.hasClients) _filtersOpenAt = _scroll.position.pixels;
+    });
   }
 
   @override
@@ -208,6 +238,76 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     _countriesCache = out;
     _countriesSrc = all;
     return out;
+  }
+
+  // Memoizace CELÉ filtrovací pipeline. Bez ní se při každém překreslení
+  // (i při pouhém klepnutí na „+" u místa) znovu filtrovaly a řadily desítky
+  // tisíc bodů a znovu se počítaly kategorie.
+  List<PoiEntry>? _resList;
+  List<PoiEntry>? _resSource;
+  List<PoiEntry>? _resBase;
+  PlacesFilter? _resFilter;
+  LatLng? _resMe;
+  LatLng? _resNear;
+  LatLng? _resRoute;
+  Set<String>? _resSel;
+
+  static bool _sameSet(Set<String>? a, Set<String>? b) {
+    if (a == null || b == null) return a == null && b == null;
+    return a.length == b.length && a.containsAll(b);
+  }
+
+  /// Vrátí (vyfiltrovaný seznam, podklad pro počty kategorií) — přepočítá se
+  /// jen při skutečné změně vstupů. Výběr je součástí klíče jen se zapnutým
+  /// „v okolí" (jen tam ovlivňuje, co se zobrazí).
+  ({List<PoiEntry> list, List<PoiEntry> source}) _filtered(
+    List<PoiEntry> base,
+    List<PoiEntry> all,
+    PlacesFilter f,
+    LatLng? me,
+    LatLng? routeAnchor,
+    LatLng? nearbyAnchor,
+  ) {
+    final selKey = f.nearbyOn ? _selected : null;
+    if (_resList != null &&
+        identical(_resBase, base) &&
+        _resFilter == f &&
+        _resMe == me &&
+        _resNear == nearbyAnchor &&
+        _resRoute == routeAnchor &&
+        _sameSet(_resSel, selKey)) {
+      return (list: _resList!, source: _resSource!);
+    }
+    final source = applyPlacesFilter(
+      base,
+      f.copyWith(cats: const {}),
+      all: all,
+      selected: _selected,
+      me: me,
+      routeAnchor: routeAnchor,
+      nearbyAnchor: nearbyAnchor,
+      // Jen podklad pro počty u kategorií — pořadí je tu k ničemu.
+      ordered: false,
+    );
+    final list = applyPlacesFilter(
+      base,
+      f,
+      all: all,
+      selected: _selected,
+      me: me,
+      routeAnchor: routeAnchor,
+      nearbyAnchor: nearbyAnchor,
+      stableOrder: _stableOrder,
+    );
+    _resList = list;
+    _resSource = source;
+    _resBase = base;
+    _resFilter = f;
+    _resMe = me;
+    _resNear = nearbyAnchor;
+    _resRoute = routeAnchor;
+    _resSel = selKey == null ? null : {...selKey};
+    return (list: list, source: source);
   }
 
   // Počty kategorií nad aktuálním zdrojem — memoizace jako výše.
@@ -292,12 +392,14 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     // napsaný text přenesl i při NÁVRATU na už existující obrazovku
     // (initState by se podruhé nespustil).
     ref.listen<String>(placesSearchProvider, (prev, next) {
-      if (!mounted || next == _f.query) return;
+      // V pick-mode (výběr bodů pro editor trasy) je filtr LOKÁLNÍ — dotaz
+      // napsaný v Místech sem nesmí propadnout a naopak.
+      if (!mounted || _localSel || next == _f.query) return;
       _searchDebounce?.cancel();
       _searchCtl.text = next;
       _setFilter((f) => f.copyWith(query: next));
     });
-    final shared = ref.read(placesSearchProvider);
+    final shared = _localSel ? _f.query : ref.read(placesSearchProvider);
     if (shared != _f.query) {
       _searchCtl.text = shared;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -335,27 +437,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     // Základ pro počty kategorií = po trase, hledání I „v okolí", jen bez
     // kategorií samotných. Jinak chip hlásí desítky míst a po zaškrtnutí
     // se ukáže prázdno.
-    final sourceFiltered = applyPlacesFilter(
-      base,
-      _f.copyWith(cats: const {}),
-      all: all,
-      selected: _selected,
-      me: me,
-      routeAnchor: selRouteAnchor,
-      nearbyAnchor: nearbyAnchor,
-      // Jen podklad pro počty u kategorií — pořadí je tu k ničemu.
-      ordered: false,
-    );
-    final list = applyPlacesFilter(
-      base,
-      _f,
-      all: all,
-      selected: _selected,
-      me: me,
-      routeAnchor: selRouteAnchor,
-      nearbyAnchor: nearbyAnchor,
-      stableOrder: _stableOrder,
-    );
+    final res =
+        _filtered(base, all, _f, me, selRouteAnchor, nearbyAnchor);
+    final sourceFiltered = res.source;
+    final list = res.list;
     _precacheThumbs(context, list);
 
     // Kolik tras odpovídá stejnému dotazu — pro pruh jednotného hledání.
@@ -440,6 +525,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                         color: MotoGoColors.greenDark)),
               )
             else ...[
+              // Bez povolené polohy se místa řadit „od tebe" nedají — řekneme
+              // si o ni viditelně, ne jen schovaným chipem ve filtru.
+              if (widget.asTab && !widget.pickMode && me == null)
+                SliverToBoxAdapter(child: _locationPrompt(context)),
               // Mapa míst nad seznamem: ukazuje PRÁVĚ vyfiltrovaná místa,
               // tapem do mapy se otevře na celou obrazovku, tapem na místo
               // se přepne výběr a podržením (či dvojklikem) se otevře detail.
@@ -527,15 +616,65 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
         duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
   }
 
+  /// Výzva k povolení polohy — výchozí řazení „od mé polohy" jinak tiše
+  /// spadne na náhodné pořadí a uživatel neví proč.
+  Widget _locationPrompt(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+      child: PressableScale(
+        pressedScale: 0.98,
+        onTap: () => ensureLocation(ref),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: MotoGoColors.greenPale,
+            borderRadius: BorderRadius.circular(MotoGoRadius.card),
+            border: Border.all(color: MotoGoColors.green, width: 1.5),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.my_location, size: 18, color: MotoGoColors.greenDark),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  t(context).tr('poiLocationPrompt'),
+                  style: const TextStyle(
+                    fontSize: MotoGoTypo.sizeBase,
+                    fontWeight: MotoGoTypo.w700,
+                    color: MotoGoColors.black,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                t(context).tr('poiLocationEnable'),
+                style: const TextStyle(
+                  fontSize: MotoGoTypo.sizeBase,
+                  fontWeight: MotoGoTypo.w900,
+                  color: MotoGoColors.greenDark,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Mapa míst nad seznamem ──
   Widget _mapPreview(
       BuildContext context, String lang, List<PoiEntry> list, LatLng? me) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(MotoGoRadius.card),
         child: SizedBox(
-          height: 210,
+          height: 160,
           child: Stack(
             children: [
               Positioned.fill(
@@ -595,6 +734,24 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
           ),
         ),
       ),
+        ),
+        // Nápověda ke gestům — bez ní se o klepnutí do mapy ani o podržení
+        // místa nikdo nedozví (překlad existoval, ale nikde se nezobrazoval).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
+          child: Text(
+            t(context).tr('placesMapOpenHint'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: MotoGoTypo.sizeSm,
+              fontWeight: MotoGoTypo.w600,
+              color: MotoGoColors.g400,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -707,6 +864,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     final active = _allFilterCount;
 
     return Column(
+      key: _filtersKey,
       children: [
         // Ovládací řádek — vždy vidět.
         Padding(
@@ -721,7 +879,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                   Icons.tune,
                   _filtersOpen || active > 0,
                   active > 0 ? active : null,
-                  () => setState(() => _filtersOpen = !_filtersOpen),
+                  _toggleFilters,
                   trailing: _filtersOpen
                       ? Icons.keyboard_arrow_up
                       : Icons.keyboard_arrow_down,
@@ -1447,9 +1605,13 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                         itemCount: filtered.length + 1,
                         itemBuilder: (ctx, i) {
                           if (i == 0) {
+                            // POZOR: počet u „Všechny trasy" musí být počet
+                            // TRAS. Dřív se tu posílal `all.length`, což je
+                            // počet MÍST (desítky tisíc) — u popisku „trasy"
+                            // to vypadalo, že tras je 45 000.
                             return _routePickTile(
                                 sheetCtx, Icons.apps, t(sheetCtx).tr('poiAllRoutes'),
-                                all.length, _f.routeId == null, () {
+                                sorted.length, _f.routeId == null, () {
                               _setFilter((f) => f.copyWith(clearRouteId: true));
                               Navigator.of(sheetCtx).pop();
                             });

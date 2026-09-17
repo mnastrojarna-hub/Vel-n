@@ -29,8 +29,7 @@ class PlacesMapView extends StatefulWidget {
   /// Tap na konkrétní místo (marker shluku se místo toho přiblíží).
   final void Function(PoiEntry entry)? onPlaceTap;
 
-  /// Dlouhý stisk NA MÍSTĚ (nebo dvojklik) — otevře jeho detail; krátký tap
-  /// přepíná výběr.
+  /// Dlouhý stisk NA MÍSTĚ — otevře jeho detail; krátký tap přepíná výběr.
   final void Function(PoiEntry entry)? onPlaceLongPress;
 
   /// Klepnutí do mapy MIMO místo — náhled nad seznamem tím otevře mapu přes
@@ -218,9 +217,15 @@ class PlacesMapViewState extends State<PlacesMapView> {
         onLongPress: widget.onLongPress == null
             ? null
             : (_, p) => widget.onLongPress!(p),
-        onPointerDown: (_, __) => _userMoved = true,
         onMapReady: _syncCamera,
-        onPositionChanged: (_, __) => _scheduleSync(),
+        onPositionChanged: (_, hasGesture) {
+          // Jen skutečný posun/zoom prstem znamená „uživatel si mapu srovnal
+          // sám". Dřív stačil pointerDown, který chodí i při scrollu seznamu
+          // přes náhled mapy — kamera se pak na dodatečně zjištěnou polohu
+          // už nikdy neposunula a mapa zůstala nad středem ČR.
+          if (hasGesture) _userMoved = true;
+          _scheduleSync();
+        },
       ),
       children: [
         TileLayer(
@@ -319,6 +324,9 @@ class PlacesMapViewState extends State<PlacesMapView> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => _ctrl.move(center, math.min(_zoom + 2.5, 17)),
+        // I podržení shluku jen přiblíží — bez toho propadlo na mapu a otevřelo
+        // „přidat nové místo", ačkoli uživatel chtěl detail bodu pod prstem.
+        onLongPress: () => _ctrl.move(center, math.min(_zoom + 2.5, 17)),
         child: Container(
           decoration: BoxDecoration(
             color: MotoGoColors.greenDark.withValues(alpha: 0.92),
@@ -357,11 +365,10 @@ class PlacesMapViewState extends State<PlacesMapView> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onPlaceTap == null ? null : () => widget.onPlaceTap!(e),
-        // Detail místa: podržením i dvojklikem (obojí, jak si zvykne ruka).
+        // Detail místa = PODRŽENÍ. Dvojklik tu záměrně NENÍ: gesture detektor
+        // by pak musel u každého klepnutí čekat ~300 ms, jestli nepřijde druhé,
+        // a výběr místa by působil, že mapa nereaguje.
         onLongPress: widget.onPlaceLongPress == null
-            ? null
-            : () => widget.onPlaceLongPress!(e),
-        onDoubleTap: widget.onPlaceLongPress == null
             ? null
             : () => widget.onPlaceLongPress!(e),
         child: Container(

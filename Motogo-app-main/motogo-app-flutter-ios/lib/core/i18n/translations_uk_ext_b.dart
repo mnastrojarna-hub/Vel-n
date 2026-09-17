@@ -161,6 +161,8 @@ const translationsUkExt11 = <String, Map<String, String>>{
     'poiAddToTrip': 'Додати до моєї подорожі',
     'poiRemoveFromTrip': 'Прибрати з моєї подорожі',
     'placesMapOpenHint': 'Торкнись мапи, щоб збільшити · утримуй місце для деталей',
+    'poiLocationPrompt': 'Увімкни геолокацію і ми впорядкуємо місця за відстанню',
+    'poiLocationEnable': 'ДОЗВОЛИТИ',
     'placesMapTitle': 'Мапа місць',
     'placesMapBtn': 'Мапа',
     'placesMapRoutes': 'Маршрути з обраними місцями',

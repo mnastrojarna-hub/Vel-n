@@ -125,6 +125,10 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
     // Než doběhne routing (poloha + Mapy.com API), vykresli trasu aspoň
     // z jejích zastávek — mapa tak není několik vteřin prázdná a jezdec
     // hned vidí, kudy se jede.
+    // Dokud nedoběhne routing, kreslíme NÁHRADNÍ čáru přes zastávky (rovné
+    // úseky) — mapa tak není několik vteřin prázdná. Že to ještě není trasa
+    // po silnici, říká indikátor „Počítám trasu" níž.
+    final preview = display == null;
     final geometry = display?.geometry ??
         (route.geometry.length >= 2
             ? route.geometry
@@ -169,7 +173,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                     },
                   ),
                 ),
-                if (displayAsync.isLoading && geometry.length < 2)
+                if (displayAsync.isLoading && preview)
                   Positioned(
                     top: 12,
                     right: 12,
