@@ -10,6 +10,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav, Routes;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import 'collapsing_header.dart';
 import 'community_submit.dart';
 import 'country_codes.dart';
 import 'places_filter.dart';
@@ -106,7 +107,19 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   }
 
   final TextEditingController _searchCtl = TextEditingController();
+  final ScrollController _scroll = ScrollController();
   final Set<String> _precachedUrls = {}; // náhledy už poslané do precache
+
+  /// Je panel filtrů rozbalený? Ve výchozím stavu NE — na telefonu zabíral
+  /// filtr s kategoriemi půlku obrazovky a na místa samotná nezbylo místo.
+  bool _filtersOpen = false;
+  /// Pozice scrollu v okamžiku rozbalení filtru. Sbalení se počítá RELATIVNĚ
+  /// od ní: absolutní práh zavíral panel i při scrollu, kterým se k jeho
+  /// spodním chipům uživatel teprve snažil dostat.
+  double _filtersOpenAt = 0;
+  /// Klíč panelu filtrů — po rozbalení se na něj doscrolluje, aby byly
+  /// kategorie vidět i na malém displeji.
+  final GlobalKey _filtersKey = GlobalKey();
 
   // Debounce vyhledávání — filtr běží nad desítkami tisíc bodů, takže
   // přefiltrovat při KAŽDÉM stisku klávesy sekalo. Přefiltruje se až po
@@ -142,12 +155,53 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     super.initState();
     final pre = widget.initialSelected;
     if (pre != null) _own.addAll(pre);
+    // Scrollem se rozbalený filtr sbalí sám — uživatel chce při procházení
+    // míst co nejvíc prostoru pro seznam.
+    _scroll.addListener(_onScroll);
+    // Výchozí řazení je „od mé polohy", takže si o polohu řekneme hned při
+    // otevření Míst (jen v režimu tabu — v pick-mode z editoru trasy by
+    // systémový dialog přišel z ničeho nic).
+    if (widget.asTab && !widget.pickMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) requestLocationQuietly(ref);
+      });
+    }
+  }
+
+  void _onScroll() {
+    if (!_filtersOpen || !_scroll.hasClients) return;
+    // Sbalit až při odscrollování DOLŮ od místa, kde se filtr otevřel —
+    // scroll nahoru ani dolaďování pozice panel nezavře.
+    if (_scroll.position.pixels - _filtersOpenAt > 140) {
+      setState(() => _filtersOpen = false);
+    }
+  }
+
+  void _toggleFilters() {
+    setState(() {
+      _filtersOpen = !_filtersOpen;
+      _filtersOpenAt = _scroll.hasClients ? _scroll.position.pixels : 0;
+    });
+    if (!_filtersOpen) return;
+    // Rozbalený panel je vysoký; na telefonu by zůstal pod okrajem, tak na
+    // něj rovnou doscrollujeme.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _filtersKey.currentContext;
+      if (!mounted || ctx == null) return;
+      Scrollable.ensureVisible(ctx,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          alignment: 0.05);
+      if (_scroll.hasClients) _filtersOpenAt = _scroll.position.pixels;
+    });
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
     _searchCtl.dispose();
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
     _quickOrder.dispose();
     super.dispose();
   }
@@ -184,6 +238,76 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     _countriesCache = out;
     _countriesSrc = all;
     return out;
+  }
+
+  // Memoizace CELÉ filtrovací pipeline. Bez ní se při každém překreslení
+  // (i při pouhém klepnutí na „+" u místa) znovu filtrovaly a řadily desítky
+  // tisíc bodů a znovu se počítaly kategorie.
+  List<PoiEntry>? _resList;
+  List<PoiEntry>? _resSource;
+  List<PoiEntry>? _resBase;
+  PlacesFilter? _resFilter;
+  LatLng? _resMe;
+  LatLng? _resNear;
+  LatLng? _resRoute;
+  Set<String>? _resSel;
+
+  static bool _sameSet(Set<String>? a, Set<String>? b) {
+    if (a == null || b == null) return a == null && b == null;
+    return a.length == b.length && a.containsAll(b);
+  }
+
+  /// Vrátí (vyfiltrovaný seznam, podklad pro počty kategorií) — přepočítá se
+  /// jen při skutečné změně vstupů. Výběr je součástí klíče jen se zapnutým
+  /// „v okolí" (jen tam ovlivňuje, co se zobrazí).
+  ({List<PoiEntry> list, List<PoiEntry> source}) _filtered(
+    List<PoiEntry> base,
+    List<PoiEntry> all,
+    PlacesFilter f,
+    LatLng? me,
+    LatLng? routeAnchor,
+    LatLng? nearbyAnchor,
+  ) {
+    final selKey = f.nearbyOn ? _selected : null;
+    if (_resList != null &&
+        identical(_resBase, base) &&
+        _resFilter == f &&
+        _resMe == me &&
+        _resNear == nearbyAnchor &&
+        _resRoute == routeAnchor &&
+        _sameSet(_resSel, selKey)) {
+      return (list: _resList!, source: _resSource!);
+    }
+    final source = applyPlacesFilter(
+      base,
+      f.copyWith(cats: const {}),
+      all: all,
+      selected: _selected,
+      me: me,
+      routeAnchor: routeAnchor,
+      nearbyAnchor: nearbyAnchor,
+      // Jen podklad pro počty u kategorií — pořadí je tu k ničemu.
+      ordered: false,
+    );
+    final list = applyPlacesFilter(
+      base,
+      f,
+      all: all,
+      selected: _selected,
+      me: me,
+      routeAnchor: routeAnchor,
+      nearbyAnchor: nearbyAnchor,
+      stableOrder: _stableOrder,
+    );
+    _resList = list;
+    _resSource = source;
+    _resBase = base;
+    _resFilter = f;
+    _resMe = me;
+    _resNear = nearbyAnchor;
+    _resRoute = routeAnchor;
+    _resSel = selKey == null ? null : {...selKey};
+    return (list: list, source: source);
   }
 
   // Počty kategorií nad aktuálním zdrojem — memoizace jako výše.
@@ -268,12 +392,14 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     // napsaný text přenesl i při NÁVRATU na už existující obrazovku
     // (initState by se podruhé nespustil).
     ref.listen<String>(placesSearchProvider, (prev, next) {
-      if (!mounted || next == _f.query) return;
+      // V pick-mode (výběr bodů pro editor trasy) je filtr LOKÁLNÍ — dotaz
+      // napsaný v Místech sem nesmí propadnout a naopak.
+      if (!mounted || _localSel || next == _f.query) return;
       _searchDebounce?.cancel();
       _searchCtl.text = next;
       _setFilter((f) => f.copyWith(query: next));
     });
-    final shared = ref.read(placesSearchProvider);
+    final shared = _localSel ? _f.query : ref.read(placesSearchProvider);
     if (shared != _f.query) {
       _searchCtl.text = shared;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -311,25 +437,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     // Základ pro počty kategorií = po trase, hledání I „v okolí", jen bez
     // kategorií samotných. Jinak chip hlásí desítky míst a po zaškrtnutí
     // se ukáže prázdno.
-    final sourceFiltered = applyPlacesFilter(
-      base,
-      _f.copyWith(cats: const {}),
-      all: all,
-      selected: _selected,
-      me: me,
-      routeAnchor: selRouteAnchor,
-      nearbyAnchor: nearbyAnchor,
-    );
-    final list = applyPlacesFilter(
-      base,
-      _f,
-      all: all,
-      selected: _selected,
-      me: me,
-      routeAnchor: selRouteAnchor,
-      nearbyAnchor: nearbyAnchor,
-      stableOrder: _stableOrder,
-    );
+    final res =
+        _filtered(base, all, _f, me, selRouteAnchor, nearbyAnchor);
+    final sourceFiltered = res.source;
+    final list = res.list;
     _precacheThumbs(context, list);
 
     // Kolik tras odpovídá stejnému dotazu — pro pruh jednotného hledání.
@@ -354,191 +465,143 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
       backgroundColor: MotoGoColors.bg,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            _header(context),
-            _filters(context, lang, routesWithPois.values.toList(), all, base,
-                sourceFiltered, me != null, selRouteAnchor != null,
-                availableCountries, nearbyAnchor),
-            Expanded(
-              child: sourcesLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: MotoGoColors.greenDark))
-                  : CustomScrollView(
-                      slivers: [
-                        // Rozcestník jen v režimu tabu — v pick-mode z editoru
-                        // trasy by odvedl pozornost od výběru bodů.
-                        if (widget.asTab && !widget.pickMode)
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: QuickLinksHeaderDelegate(
-                              order: _quickOrder,
-                              index: _quickIndex,
-                              onCycle: _cycleQuickLinks,
-                              links: [
-                                QuickLink.light(
-                                  emoji: '🗺️',
-                                  titleKey: 'routesEntryTitle',
-                                  subtitleKey: 'routesEntrySub',
-                                  onTap: () => context.push(Routes.routesList),
-                                ),
-                                QuickLink.light(
-                                  emoji: '🧭',
-                                  titleKey: 'placesMapTitle',
-                                  subtitleKey: 'placesMapSub',
-                                  onTap: () => context.push(Routes.placesMap),
-                                ),
-                                QuickLink.dark(
-                                  emoji: '🏍️',
-                                  titleKey: 'myExpEntryTitle',
-                                  subtitleKey: 'myExpEntrySub',
-                                  onTap: () => context.push('/my-experiences'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        // Jednotné hledání: když dotaz sedí i na trasy,
-                        // nabídneme přechod do jejich seznamu se stejným
-                        // dotazem (hledá se v místech I v trasách).
-                        if (q.isNotEmpty && routeHits > 0)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                              child: PressableScale(
-                                pressedScale: 0.98,
-                                onTap: () => context.push(Routes.routesList),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: MotoGoColors.greenPale,
-                                    borderRadius: BorderRadius.circular(
-                                        MotoGoRadius.card),
-                                    border: Border.all(
-                                        color: MotoGoColors.green, width: 1.5),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Text('🗺️',
-                                          style: TextStyle(fontSize: 18)),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          '${t(context).tr('searchAlsoRoutes')} · '
-                                          '$routeHits',
-                                          style: const TextStyle(
-                                            fontSize: MotoGoTypo.sizeBase,
-                                            fontWeight: MotoGoTypo.w800,
-                                            color: MotoGoColors.black,
-                                            decoration: TextDecoration.none,
-                                          ),
-                                        ),
-                                      ),
-                                      const Icon(Icons.arrow_forward_ios,
-                                          size: 13,
-                                          color: MotoGoColors.greenDark),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        // Mapa míst nad seznamem: ukazuje PRÁVĚ vyfiltrovaná
-                        // místa, tapem se přepíná výběr, dlouhým stiskem se
-                        // přidá nové místo na daném bodě.
-                        if (widget.asTab && !widget.pickMode)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                              child: ClipRRect(
-                                borderRadius:
-                                    BorderRadius.circular(MotoGoRadius.card),
-                                child: SizedBox(
-                                  height: 210,
-                                  child: Stack(
-                                    children: [
-                                      Positioned.fill(
-                                        child: PlacesMapView(
-                                          places: list,
-                                          lang: lang,
-                                          selected: _selected,
-                                          // Trasy až po označení místa,
-                                          // a jen ty, které ho obsahují.
-                                          routeLines: [
-                                            for (final r in routesContaining(
-                                                ref
-                                                        .watch(routesDataProvider)
-                                                        .valueOrNull
-                                                        ?.routes ??
-                                                    const <RouteItem>[],
-                                                list,
-                                                _selected))
-                                              routeLine(r),
-                                          ],
-                                          me: me,
-                                          initialCenter: me,
-                                          initialZoom: me == null ? 7.2 : 10.5,
-                                          // Uvnitř scrollovaného seznamu se
-                                          // mapou neposouvá — jinak by si
-                                          // vzala svislý drag a seznamem by
-                                          // přes ni nešlo scrollovat. Posun
-                                          // a přiblížení až po rozbalení.
-                                          allowDrag: false,
-                                          onPlaceTap: (e) => _toggleSel(e.key),
-                                          onLongPress: (p) async {
-                                            await Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                    builder: (_) => PoiSubmitScreen(
-                                                        initialPoint: p)));
-                                            if (mounted) {
-                                              ref.invalidate(userPoisProvider);
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                      // Rozbalení na celou obrazovku.
-                                      Positioned(
-                                        right: 8,
-                                        top: 8,
-                                        child: PressableScale(
-                                          pressedScale: 0.92,
-                                          onTap: () =>
-                                              context.push(Routes.placesMap),
-                                          child: Container(
-                                            width: 36,
-                                            height: 36,
-                                            decoration: const BoxDecoration(
-                                              color: Colors.white,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(Icons.open_in_full,
-                                                size: 18,
-                                                color: MotoGoColors.greenDark),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        if (list.isEmpty)
-                          SliverFillRemaining(
-                              hasScrollBody: false, child: _empty(context))
-                        else
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(
-                                16, 8, 16, _selected.isEmpty ? 24 : 110),
-                            sliver: SliverList.builder(
-                              itemCount: list.length,
-                              itemBuilder: (context, i) =>
-                                  _poiCard(context, list[i], lang, me, list),
-                            ),
-                          ),
-                      ],
-                    ),
+        child: CustomScrollView(
+          controller: _scroll,
+          slivers: [
+            // Hlavička se při scrollu SBALÍ (nadpis zůstane, podtitulek
+            // i pole hledání se sroluje pryč) — na telefonu jinak na seznam
+            // míst pod filtrem a mapou nezbývalo místo.
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: CollapsingSearchHeader(
+                leading: const Text('📍', style: TextStyle(fontSize: 22)),
+                title: t(context).tr('poiBrowseAll'),
+                subtitle: t(context).tr('poiBrowseSub'),
+                search: _searchField(context),
+                onBack: (!widget.asTab || widget.pickMode)
+                    ? () => widget.pickMode
+                        ? Navigator.of(context).pop()
+                        : context.backOr(Routes.routes)
+                    : null,
+                onSearchTap: _scrollToTop,
+              ),
             ),
+            // Rozcestník jen v režimu tabu — v pick-mode z editoru
+            // trasy by odvedl pozornost od výběru bodů.
+            if (widget.asTab && !widget.pickMode)
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: QuickLinksHeaderDelegate(
+                  order: _quickOrder,
+                  index: _quickIndex,
+                  onCycle: _cycleQuickLinks,
+                  links: [
+                    QuickLink.light(
+                      emoji: '🗺️',
+                      titleKey: 'routesEntryTitle',
+                      subtitleKey: 'routesEntrySub',
+                      onTap: () => context.push(Routes.routesList),
+                    ),
+                    QuickLink.light(
+                      emoji: '🧭',
+                      titleKey: 'placesMapTitle',
+                      subtitleKey: 'placesMapSub',
+                      onTap: () => context.push(Routes.placesMap),
+                    ),
+                    QuickLink.dark(
+                      emoji: '🏍️',
+                      titleKey: 'myExpEntryTitle',
+                      subtitleKey: 'myExpEntrySub',
+                      onTap: () => context.push('/my-experiences'),
+                    ),
+                  ],
+                ),
+              ),
+            if (sourcesLoading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                    child: CircularProgressIndicator(
+                        color: MotoGoColors.greenDark)),
+              )
+            else ...[
+              // Bez povolené polohy se místa řadit „od tebe" nedají — řekneme
+              // si o ni viditelně, ne jen schovaným chipem ve filtru.
+              if (widget.asTab && !widget.pickMode && me == null)
+                SliverToBoxAdapter(child: _locationPrompt(context)),
+              // Mapa míst nad seznamem: ukazuje PRÁVĚ vyfiltrovaná místa,
+              // tapem do mapy se otevře na celou obrazovku, tapem na místo
+              // se přepne výběr a podržením (či dvojklikem) se otevře detail.
+              if (widget.asTab && !widget.pickMode)
+                SliverToBoxAdapter(child: _mapPreview(context, lang, list, me)),
+              // Filtr: ve výchozím stavu SBALENÝ (jen tlačítko), rozbalí se
+              // klepnutím a při scrollu seznamu se zase sbalí sám.
+              SliverToBoxAdapter(
+                child: _filters(context, lang, routesWithPois.values.toList(),
+                    all, base, sourceFiltered, me != null,
+                    selRouteAnchor != null, availableCountries, nearbyAnchor),
+              ),
+              // Jednotné hledání: když dotaz sedí i na trasy, nabídneme
+              // přechod do jejich seznamu se stejným dotazem.
+              if (q.isNotEmpty && routeHits > 0)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                    child: PressableScale(
+                      pressedScale: 0.98,
+                      onTap: () => context.push(Routes.routesList),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: MotoGoColors.greenPale,
+                          borderRadius:
+                              BorderRadius.circular(MotoGoRadius.card),
+                          border: Border.all(
+                              color: MotoGoColors.green, width: 1.5),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text('🗺️', style: TextStyle(fontSize: 18)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '${t(context).tr('searchAlsoRoutes')} · '
+                                '$routeHits',
+                                style: const TextStyle(
+                                  fontSize: MotoGoTypo.sizeBase,
+                                  fontWeight: MotoGoTypo.w800,
+                                  color: MotoGoColors.black,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_ios,
+                                size: 13, color: MotoGoColors.greenDark),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (list.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 48),
+                    child: _empty(context),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                      16, 8, 16, _selected.isEmpty ? 24 : 110),
+                  sliver: SliverList.builder(
+                    itemCount: list.length,
+                    itemBuilder: (context, i) =>
+                        _poiCard(context, list[i], lang, me, list),
+                  ),
+                ),
+            ],
           ],
         ),
       ),
@@ -546,119 +609,238 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     );
   }
 
-  // ── Header ──
-  Widget _header(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 8, 16, 16),
-      decoration: const BoxDecoration(
-        color: MotoGoColors.dark,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(MotoGoRadius.hdr)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+  /// Vrátí obsah na začátek (a tím zase rozbalí hlavičku s hledáním).
+  void _scrollToTop() {
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(0,
+        duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+  }
+
+  /// Výzva k povolení polohy — výchozí řazení „od mé polohy" jinak tiše
+  /// spadne na náhodné pořadí a uživatel neví proč.
+  Widget _locationPrompt(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+      child: PressableScale(
+        pressedScale: 0.98,
+        onTap: () => ensureLocation(ref),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: MotoGoColors.greenPale,
+            borderRadius: BorderRadius.circular(MotoGoRadius.card),
+            border: Border.all(color: MotoGoColors.green, width: 1.5),
+          ),
+          child: Row(
             children: [
-              if (!widget.asTab || widget.pickMode) ...[
-                GestureDetector(
-                  onTap: () => widget.pickMode
-                      ? Navigator.of(context).pop()
-                      : context.backOr(Routes.routes),
-                  child: const Padding(
-                    padding: EdgeInsets.all(6),
-                    child: Icon(Icons.arrow_back, color: Colors.white, size: 22),
-                  ),
-                ),
-                const SizedBox(width: 4),
-              ] else
-                const SizedBox(width: 6),
-              const Text('📍', style: TextStyle(fontSize: 22)),
-              const SizedBox(width: 8),
+              const Icon(Icons.my_location, size: 18, color: MotoGoColors.greenDark),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  t(context).tr('poiBrowseAll'),
+                  t(context).tr('poiLocationPrompt'),
                   style: const TextStyle(
-                    fontSize: MotoGoTypo.sizeH1,
-                    fontWeight: MotoGoTypo.w900,
-                    color: Colors.white,
+                    fontSize: MotoGoTypo.sizeBase,
+                    fontWeight: MotoGoTypo.w700,
+                    color: MotoGoColors.black,
                     decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                t(context).tr('poiLocationEnable'),
+                style: const TextStyle(
+                  fontSize: MotoGoTypo.sizeBase,
+                  fontWeight: MotoGoTypo.w900,
+                  color: MotoGoColors.greenDark,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Mapa míst nad seznamem ──
+  Widget _mapPreview(
+      BuildContext context, String lang, List<PoiEntry> list, LatLng? me) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(MotoGoRadius.card),
+        child: SizedBox(
+          height: 160,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: PlacesMapView(
+                  places: list,
+                  lang: lang,
+                  selected: _selected,
+                  // Trasy až po označení místa, a jen ty, které ho obsahují.
+                  routeLines: [
+                    for (final r in routesContaining(
+                        ref.watch(routesDataProvider).valueOrNull?.routes ??
+                            const <RouteItem>[],
+                        list,
+                        _selected))
+                      routeLine(r),
+                  ],
+                  me: me,
+                  initialCenter: me,
+                  initialZoom: me == null ? 7.2 : 10.5,
+                  // Uvnitř scrollovaného seznamu se mapou neposouvá — jinak
+                  // by si vzala svislý drag a seznamem by přes ni nešlo
+                  // scrollovat. Posun a přiblížení až po rozbalení.
+                  allowDrag: false,
+                  // Klepnutí do mapy (mimo místo) ji otevře přes celou
+                  // obrazovku — dřív to uměla jen malá ikonka v rohu.
+                  onMapTap: () => context.push(Routes.placesMap),
+                  onPlaceTap: (e) => _toggleSel(e.key),
+                  // Podržení / dvojklik na místě = jeho detail.
+                  onPlaceLongPress: (e) => _openPoiDetail(context, e, lang, list),
+                  onLongPress: (p) async {
+                    await Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => PoiSubmitScreen(initialPoint: p)));
+                    if (mounted) ref.invalidate(userPoisProvider);
+                  },
+                ),
+              ),
+              // Rozbalení na celou obrazovku.
+              Positioned(
+                right: 8,
+                top: 8,
+                child: PressableScale(
+                  pressedScale: 0.92,
+                  onTap: () => context.push(Routes.placesMap),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.open_in_full,
+                        size: 18, color: MotoGoColors.greenDark),
                   ),
                 ),
               ),
             ],
           ),
-          Padding(
-            padding: const EdgeInsets.only(left: 6, top: 2),
-            child: Text(
-              t(context).tr('poiBrowseSub'),
+        ),
+      ),
+        ),
+        // Nápověda ke gestům — bez ní se o klepnutí do mapy ani o podržení
+        // místa nikdo nedozví (překlad existoval, ale nikde se nezobrazoval).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 16, 6),
+          child: Text(
+            t(context).tr('placesMapOpenHint'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: MotoGoTypo.sizeSm,
+              fontWeight: MotoGoTypo.w600,
+              color: MotoGoColors.g400,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Detail místa + tlačítko „Přidat do mé cesty" přímo v něm.
+  void _openPoiDetail(BuildContext context, PoiEntry e, String lang,
+      List<PoiEntry> siblings) {
+    final window = siblingWindow(siblings, siblings.indexOf(e));
+    // Klíč výběru podle bodu — detail listuje mezi sousedy, takže se musí
+    // dohledat pro každý zobrazený bod zvlášť.
+    final keyOf = <String, String>{for (final x in window) x.poi.id: x.key};
+    showRoutePoiSheet(
+      context,
+      e.poi,
+      lang,
+      siblings: [for (final x in window) x.poi],
+      isSelected: (p) {
+        final k = keyOf[p.id];
+        return k != null && _selected.contains(k);
+      },
+      onToggleSelect: (p) {
+        final k = keyOf[p.id];
+        if (k != null) _toggleSel(k);
+      },
+    );
+  }
+
+  // ── Pole hledání (v hlavičce) ──
+  Widget _searchField(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
+        children: [
+          const Icon(Icons.search, size: 18, color: MotoGoColors.g400),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: _searchCtl,
+              onChanged: (v) {
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(
+                  const Duration(milliseconds: 280),
+                  () {
+                    if (!mounted) return;
+                    _setFilter((f) => f.copyWith(query: v));
+                    ref.read(placesSearchProvider.notifier).state = v;
+                  },
+                );
+              },
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText: t(context).tr('poiSearch'),
+                hintStyle: const TextStyle(
+                    color: MotoGoColors.g400, fontSize: MotoGoTypo.sizeBase),
+              ),
               style: const TextStyle(
-                fontSize: MotoGoTypo.sizeBase,
-                fontWeight: MotoGoTypo.w600,
-                color: Color(0xFF8AAB99),
-                decoration: TextDecoration.none,
+                  fontSize: MotoGoTypo.sizeLg, color: MotoGoColors.black),
+            ),
+          ),
+          // Křížek — bez něj šel napsaný text smazat jen mazáním po písmenech.
+          if (_f.query.isNotEmpty || _searchCtl.text.isNotEmpty)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                _searchDebounce?.cancel();
+                _searchCtl.clear();
+                _setFilter((f) => f.copyWith(query: ''));
+                ref.read(placesSearchProvider.notifier).state = '';
+              },
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                child: Icon(Icons.close, size: 18, color: MotoGoColors.g400),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          // Hledání
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(MotoGoRadius.pill),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              children: [
-                const Icon(Icons.search, size: 18, color: MotoGoColors.g400),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtl,
-                    onChanged: (v) {
-                      _searchDebounce?.cancel();
-                      _searchDebounce = Timer(
-                        const Duration(milliseconds: 280),
-                        () {
-                          if (!mounted) return;
-                          _setFilter((f) => f.copyWith(query: v));
-                          ref.read(placesSearchProvider.notifier).state = v;
-                        },
-                      );
-                    },
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: t(context).tr('poiSearch'),
-                      hintStyle: const TextStyle(color: MotoGoColors.g400, fontSize: MotoGoTypo.sizeBase),
-                    ),
-                    style: const TextStyle(fontSize: MotoGoTypo.sizeLg, color: MotoGoColors.black),
-                  ),
-                ),
-                // Křížek — bez něj šel napsaný text smazat jen mazáním po písmenech.
-                if (_f.query.isNotEmpty || _searchCtl.text.isNotEmpty)
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      _searchDebounce?.cancel();
-                      _searchCtl.clear();
-                      _setFilter((f) => f.copyWith(query: ''));
-                      ref.read(placesSearchProvider.notifier).state = '';
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-                      child: Icon(Icons.close, size: 18, color: MotoGoColors.g400),
-                    ),
-                  ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-  // ── Filtry: řádek nástrojů (řazení/filtry, „v okolí", trasa) + řádek kategorií ──
+  // ── Filtry: sbalitelný panel (tlačítko „Filtry a řazení") ──
+  //
+  // Dřív byl celý filtr (řádek nástrojů + 11 kategorií) natvrdo nad seznamem
+  // a zabíral půlku obrazovky, takže na samotná místa nezbylo místo. Teď je
+  // ve výchozím stavu SBALENÝ, rozbaluje se tlačítkem a při scrollu seznamu
+  // se zase sbalí. „Zrušit filtry" je vidět vždy, když je něco zapnuté.
   Widget _filters(BuildContext context, String lang, List<RouteItem> routes,
       List<PoiEntry> all, List<PoiEntry> base, List<PoiEntry> sourceFiltered,
       bool meAvail, bool routeAvail, List<String> availableCountries,
@@ -679,87 +861,122 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
         }
       }
     }
+    final active = _allFilterCount;
 
     return Column(
+      key: _filtersKey,
       children: [
-        SizedBox(
-          height: 50,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+        // Ovládací řádek — vždy vidět.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
+          child: Row(
             children: [
-              // Řazení + rozšířené filtry (země / hodnocení / jen s fotkou).
-              _srcChip(
-                _sortLabel(context, _f.sort),
-                Icons.tune,
-                _allFilterCount > 0,
-                _allFilterCount > 0 ? _allFilterCount : null,
-                () => _openPoiToolsSheet(context, meAvail, routeAvail,
-                    availableCountries, base, nearAnchor),
-                trailing: Icons.arrow_drop_down,
+              Expanded(
+                child: _srcChip(
+                  _filtersOpen
+                      ? t(context).tr('poiFiltersClose')
+                      : t(context).tr('poiFiltersOpen'),
+                  Icons.tune,
+                  _filtersOpen || active > 0,
+                  active > 0 ? active : null,
+                  _toggleFilters,
+                  trailing: _filtersOpen
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  expand: true,
+                ),
               ),
-              // „V okolí" — dostupné HNED, měří od aktuální polohy. Když poloha
-              // ještě není povolená, tap si o ni nejdřív řekne.
-              _srcChip(
-                '${t(context).tr('poiNearby')} ${_f.nearbyKm.round()} km',
-                Icons.radar,
-                _f.nearbyOn,
-                null,
-                () async {
-                  if (!_f.nearbyOn && !meAvail && _selected.isEmpty) {
-                    final ok = await ensureLocation(ref);
-                    if (!ok || !mounted) return;
-                  }
-                  _setFilter((f) => f.copyWith(nearbyOn: !f.nearbyOn));
-                },
-              ),
-              if (_f.nearbyOn)
-                for (final km in _nearbyKmOptions)
-                  _srcChip('${km.round()} km', Icons.circle_outlined,
-                      _f.nearbyKm == km, null,
-                      () => _setFilter((f) => f.copyWith(nearbyKm: km))),
-              // Výběr konkrétní trasy — otevře sheet s hledáním (923 bodů ≠ řada chipů).
-              _srcChip(
-                selRoute != null ? selRoute.nameFor(lang) : t(context).tr('poiRoutePick'),
-                Icons.route,
-                selRoute != null,
-                selRoute != null ? _routePoiCounts(all)[selRoute.id] : null,
-                () => _openRoutePicker(context, lang, routes, all),
-                trailing: Icons.arrow_drop_down,
-              ),
-              // Zrušit všechny filtry — dřív na obrazovce vůbec nebylo.
-              if (_allFilterCount > 0)
+              // Zrušit všechny filtry — výrazně a na stálém místě, aby se
+              // zapnutá kategorie dala odznačit bez hledání.
+              if (active > 0)
                 _srcChip(
                   t(context).tr('routesFilterClear'),
                   Icons.close,
                   false,
                   null,
                   clearAllFilters,
+                  danger: true,
                 ),
             ],
           ),
         ),
-        // Kategorie (jen ty, co mají v aktuálním zdroji aspoň 1 bod).
-        // Wrap místo vodorovného scrolleru: 11 kategorií se do jednoho řádku
-        // nevejde a ty za okrajem nikdo nenašel. AnimatedSize drží plynulý
-        // přechod, když se počet řádků při filtrování změní.
         AnimatedSize(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-              for (final c in kPoiCats)
-                if ((catCounts[c.key] ?? 0) > 0 || _f.cats.contains(c.key))
-                  _catChip(context, c, catCounts[c.key] ?? 0),
-              ],
-            ),
-          ),
+          child: !_filtersOpen
+              ? const SizedBox(width: double.infinity, height: 4)
+              : Column(
+                  children: [
+                    SizedBox(
+                      height: 50,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        clipBehavior: Clip.none,
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+                        children: [
+                          // Řazení + rozšířené filtry (země / hodnocení).
+                          _srcChip(
+                            _sortLabel(context, _f.sort),
+                            Icons.swap_vert,
+                            _f.sort != PoiSort.nearMe,
+                            null,
+                            () => _openPoiToolsSheet(context, meAvail,
+                                routeAvail, availableCountries, base, nearAnchor),
+                            trailing: Icons.arrow_drop_down,
+                          ),
+                          // „V okolí" — dostupné HNED, měří od aktuální polohy.
+                          // Když poloha ještě není povolená, tap si o ni řekne.
+                          _srcChip(
+                            '${t(context).tr('poiNearby')} ${_f.nearbyKm.round()} km',
+                            Icons.radar,
+                            _f.nearbyOn,
+                            null,
+                            () async {
+                              if (!_f.nearbyOn && !meAvail && _selected.isEmpty) {
+                                final ok = await ensureLocation(ref);
+                                if (!ok || !mounted) return;
+                              }
+                              _setFilter((f) => f.copyWith(nearbyOn: !f.nearbyOn));
+                            },
+                          ),
+                          if (_f.nearbyOn)
+                            for (final km in _nearbyKmOptions)
+                              _srcChip('${km.round()} km', Icons.circle_outlined,
+                                  _f.nearbyKm == km, null,
+                                  () => _setFilter((f) => f.copyWith(nearbyKm: km))),
+                          // Výběr konkrétní trasy — sheet s hledáním.
+                          _srcChip(
+                            selRoute != null
+                                ? selRoute.nameFor(lang)
+                                : t(context).tr('poiRoutePick'),
+                            Icons.route,
+                            selRoute != null,
+                            selRoute != null
+                                ? _routePoiCounts(all)[selRoute.id]
+                                : null,
+                            () => _openRoutePicker(context, lang, routes, all),
+                            trailing: Icons.arrow_drop_down,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Kategorie (jen ty, co mají v aktuálním zdroji aspoň 1 bod).
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final c in kPoiCats)
+                            if ((catCounts[c.key] ?? 0) > 0 ||
+                                _f.cats.contains(c.key))
+                              _catChip(context, c, catCounts[c.key] ?? 0),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ],
     );
@@ -1158,7 +1375,13 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   }
 
   Widget _srcChip(String label, IconData icon, bool active, int? count, VoidCallback onTap,
-      {IconData? trailing}) {
+      {IconData? trailing, bool expand = false, bool danger = false}) {
+    final fg = danger
+        ? MotoGoColors.red
+        : (active ? Colors.white : MotoGoColors.black);
+    final iconFg = danger
+        ? MotoGoColors.red
+        : (active ? Colors.white : MotoGoColors.greenDark);
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: PressableScale(
@@ -1168,30 +1391,29 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: active ? MotoGoColors.greenDark : Colors.white,
+            color: active && !danger ? MotoGoColors.greenDark : Colors.white,
             borderRadius: BorderRadius.circular(MotoGoRadius.pill),
-            border: Border.all(color: active ? MotoGoColors.greenDark : MotoGoColors.g200, width: 1.5),
+            border: Border.all(
+                color: danger
+                    ? MotoGoColors.red
+                    : (active ? MotoGoColors.greenDark : MotoGoColors.g200),
+                width: 1.5),
             boxShadow: active ? MotoGoShadows.cardSmall : null,
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
             children: [
-              Icon(icon, size: 15, color: active ? Colors.white : MotoGoColors.greenDark),
+              Icon(icon, size: 15, color: iconFg),
               const SizedBox(width: 6),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 180),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: MotoGoTypo.sizeBase,
-                    fontWeight: active ? MotoGoTypo.w800 : MotoGoTypo.w600,
-                    color: active ? Colors.white : MotoGoColors.black,
-                    decoration: TextDecoration.none,
-                  ),
+              // Roztažený chip (tlačítko filtrů) nechá text zabrat celý
+              // zbytek řádku; úzké chipy se drží do 180 px.
+              if (expand)
+                Expanded(child: _chipLabel(label, active, fg))
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: _chipLabel(label, active, fg),
                 ),
-              ),
               if (count != null) ...[
                 const SizedBox(width: 6),
                 Container(
@@ -1212,13 +1434,26 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                 ),
               ],
               if (trailing != null)
-                Icon(trailing, size: 18, color: active ? Colors.white : MotoGoColors.g500),
+                Icon(trailing,
+                    size: 18, color: active ? Colors.white : MotoGoColors.g500),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _chipLabel(String label, bool active, Color fg) => Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: MotoGoTypo.sizeBase,
+          fontWeight: active ? MotoGoTypo.w800 : MotoGoTypo.w600,
+          color: fg,
+          decoration: TextDecoration.none,
+        ),
+      );
 
   Widget _catChip(BuildContext context, PoiCat c, int count) {
     final active = _f.cats.contains(c.key);
@@ -1370,9 +1605,13 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                         itemCount: filtered.length + 1,
                         itemBuilder: (ctx, i) {
                           if (i == 0) {
+                            // POZOR: počet u „Všechny trasy" musí být počet
+                            // TRAS. Dřív se tu posílal `all.length`, což je
+                            // počet MÍST (desítky tisíc) — u popisku „trasy"
+                            // to vypadalo, že tras je 45 000.
                             return _routePickTile(
                                 sheetCtx, Icons.apps, t(sheetCtx).tr('poiAllRoutes'),
-                                all.length, _f.routeId == null, () {
+                                sorted.length, _f.routeId == null, () {
                               _setFilter((f) => f.copyWith(clearRouteId: true));
                               Navigator.of(sheetCtx).pop();
                             });
@@ -1476,9 +1715,16 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: PressableScale(
+      // Podržení karty = přidat/odebrat z vyjížďky (druhá cesta k témuž,
+      // co dělá kolečko vpravo). PressableScale dlouhý stisk sám neumí.
+      child: GestureDetector(
+        onLongPress: () => _toggleSel(e.key),
+        child: PressableScale(
         pressedScale: 0.98,
-        onTap: () => _toggleSel(e.key),
+        // Klepnutí = DETAIL místa (to uživatel chce nejčastěji), přidání do
+        // vyjížďky je na kolečku vpravo nebo podržením karty. Dřív tap místo
+        // rovnou přidával a detail se otevíral jen z malé ikonky (i).
+        onTap: () => _openPoiDetail(context, e, lang, siblings),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -1583,56 +1829,37 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                   ),
                 ),
               ),
-              // Detail (i) — výrazné zelené tlačítko + výběr
+              // Přidat do vyjížďky / odebrat — jediné tlačítko na kartě
+              // (klepnutí na kartu otevírá detail).
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.only(right: 10, left: 4),
                 child: PressableScale(
                   pressedScale: 0.9,
-                  onTap: () => showRoutePoiSheet(context, e.poi, lang,
-                      siblings: [
-                        for (final x in siblingWindow(
-                            siblings, siblings.indexOf(e)))
-                          x.poi
-                      ]),
-                  child: Container(
-                    width: 40,
-                    height: 40,
+                  onTap: () => _toggleSel(e.key),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
-                      color: MotoGoColors.greenDark,
+                      color: selected ? MotoGoColors.greenDark : Colors.white,
                       shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: MotoGoColors.greenDark.withValues(alpha: 0.35),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
+                      border: Border.all(
+                        color: selected
+                            ? MotoGoColors.greenDark
+                            : MotoGoColors.green,
+                        width: 2,
+                      ),
                     ),
-                    child: const Icon(Icons.info_outline, size: 24, color: Colors.white),
+                    child: Icon(selected ? Icons.check : Icons.add,
+                        size: 20,
+                        color:
+                            selected ? Colors.white : MotoGoColors.greenDark),
                   ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 10, left: 2),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: selected ? MotoGoColors.greenDark : Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: selected ? MotoGoColors.greenDark : MotoGoColors.g200,
-                      width: 2,
-                    ),
-                  ),
-                  child: selected
-                      ? const Icon(Icons.check, size: 16, color: Colors.white)
-                      : null,
                 ),
               ),
             ],
           ),
+        ),
         ),
       ),
     );

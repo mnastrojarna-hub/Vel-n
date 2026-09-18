@@ -542,9 +542,99 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
           ),
         ),
       ),
+      _manualRideCard(context, rec),
       for (final r in rides)
         RideCard(ride: r, siblingIds: [for (final x in rides) x.id]),
     ];
+  }
+
+  /// Ruční záznam jízdy — pro vlastní motorku, BEZ výpůjčky. Automatika se
+  /// rozjede jen při běžící rezervaci, takže bez tohoto tlačítka si jezdec
+  /// vlastní vyjížďku zaznamenat nemohl.
+  Widget _manualRideCard(BuildContext context, RideRecorderState rec) {
+    final running = rec.recording && rec.manual;
+    // Během automatického záznamu (běžící výpůjčka) tlačítko nedává smysl —
+    // jízda se už nahrává sama.
+    if (rec.recording && !rec.manual) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: PressableScale(
+        pressedScale: 0.97,
+        onTap: () => _toggleManualRide(context, running),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: running ? MotoGoColors.redBg : Colors.white,
+            borderRadius: BorderRadius.circular(MotoGoRadius.card),
+            border: Border.all(
+                color: running ? MotoGoColors.red : MotoGoColors.greenDark,
+                width: 1.6),
+            boxShadow: MotoGoShadows.cardSmall,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: running
+                      ? MotoGoColors.red.withValues(alpha: 0.14)
+                      : MotoGoColors.greenPale,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(running ? Icons.stop : Icons.fiber_manual_record,
+                    size: 20,
+                    color: running ? MotoGoColors.red : MotoGoColors.greenDark),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t(context).tr(running ? 'rideManualStop' : 'rideManualStart'),
+                      style: TextStyle(
+                          fontSize: MotoGoTypo.sizeXl,
+                          fontWeight: MotoGoTypo.w900,
+                          color: running ? MotoGoColors.red : MotoGoColors.black,
+                          decoration: TextDecoration.none),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      t(context).tr(running ? 'rideManualRunning' : 'rideManualHint'),
+                      style: const TextStyle(
+                          fontSize: MotoGoTypo.sizeMd,
+                          fontWeight: MotoGoTypo.w600,
+                          color: MotoGoColors.g500,
+                          height: 1.35,
+                          decoration: TextDecoration.none),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleManualRide(BuildContext context, bool running) async {
+    final n = ref.read(rideRecorderProvider.notifier);
+    final msg = ScaffoldMessenger.of(context);
+    if (running) {
+      final kept = await n.stop();
+      if (!mounted) return;
+      msg.showSnackBar(SnackBar(
+        content: Text(t(context).tr(kept ? 'rideManualSaved' : 'rideManualTooShort')),
+      ));
+      return;
+    }
+    final ok = await n.startManual();
+    if (!mounted) return;
+    msg.showSnackBar(SnackBar(
+      content: Text(t(context).tr(ok ? 'rideManualStarted' : 'rideManualFailed')),
+    ));
   }
 
   /// Výrazné tlačítko „Vytvořit novou trasu" → otevře editor s prázdnou

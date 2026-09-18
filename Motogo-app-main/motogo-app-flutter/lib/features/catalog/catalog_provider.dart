@@ -170,6 +170,17 @@ class CatalogFilter {
   final String? branch;
   final int? minPowerKw;
   final int? maxPowerKw;
+  // Výška sedla (mm), točivý moment (Nm) a hmotnost (kg) — posuvníky od–do
+  // ve filtru motorek. null = bez omezení na dané straně.
+  final int? minSeatMm;
+  final int? maxSeatMm;
+  final int? minTorqueNm;
+  final int? maxTorqueNm;
+  final int? minWeightKg;
+  final int? maxWeightKg;
+  /// „Jen dnes volné" — dřív to bylo mrtvé zaškrtávátko, které jen leželo
+  /// ve stavu obrazovky a nic nefiltrovalo.
+  final bool availableTodayOnly;
   final List<String> usageTags;
   final DateTime? startDate;
   final DateTime? endDate;
@@ -180,6 +191,13 @@ class CatalogFilter {
     this.branch,
     this.minPowerKw,
     this.maxPowerKw,
+    this.minSeatMm,
+    this.maxSeatMm,
+    this.minTorqueNm,
+    this.maxTorqueNm,
+    this.minWeightKg,
+    this.maxWeightKg,
+    this.availableTodayOnly = false,
     this.usageTags = const [],
     this.startDate,
     this.endDate,
@@ -191,6 +209,13 @@ class CatalogFilter {
     String? Function()? branch,
     int? Function()? minPowerKw,
     int? Function()? maxPowerKw,
+    int? Function()? minSeatMm,
+    int? Function()? maxSeatMm,
+    int? Function()? minTorqueNm,
+    int? Function()? maxTorqueNm,
+    int? Function()? minWeightKg,
+    int? Function()? maxWeightKg,
+    bool? availableTodayOnly,
     List<String>? usageTags,
     DateTime? Function()? startDate,
     DateTime? Function()? endDate,
@@ -201,10 +226,41 @@ class CatalogFilter {
       branch: branch != null ? branch() : this.branch,
       minPowerKw: minPowerKw != null ? minPowerKw() : this.minPowerKw,
       maxPowerKw: maxPowerKw != null ? maxPowerKw() : this.maxPowerKw,
+      minSeatMm: minSeatMm != null ? minSeatMm() : this.minSeatMm,
+      maxSeatMm: maxSeatMm != null ? maxSeatMm() : this.maxSeatMm,
+      minTorqueNm: minTorqueNm != null ? minTorqueNm() : this.minTorqueNm,
+      maxTorqueNm: maxTorqueNm != null ? maxTorqueNm() : this.maxTorqueNm,
+      minWeightKg: minWeightKg != null ? minWeightKg() : this.minWeightKg,
+      maxWeightKg: maxWeightKg != null ? maxWeightKg() : this.maxWeightKg,
+      availableTodayOnly: availableTodayOnly ?? this.availableTodayOnly,
       usageTags: usageTags ?? this.usageTags,
       startDate: startDate != null ? startDate() : this.startDate,
       endDate: endDate != null ? endDate() : this.endDate,
     );
+  }
+
+  /// Kolik filtrů je zapnutých — pro odznak u sbaleného panelu filtrů.
+  int get activeCount =>
+      (category == null ? 0 : 1) +
+      (licenseGroup == null ? 0 : 1) +
+      (branch == null ? 0 : 1) +
+      (minPowerKw == null && maxPowerKw == null ? 0 : 1) +
+      (minSeatMm == null && maxSeatMm == null ? 0 : 1) +
+      (minTorqueNm == null && maxTorqueNm == null ? 0 : 1) +
+      (minWeightKg == null && maxWeightKg == null ? 0 : 1) +
+      (availableTodayOnly ? 1 : 0) +
+      (startDate == null && endDate == null ? 0 : 1);
+
+  /// Hodnota, kterou motorka nemá vyplněnou, filtrem VŽDY projde — stejně
+  /// jako u výkonu. Jinak by zmizela hned, jak se posuvníkem hne.
+  static bool _inRange(int? value, int? lo, int? hi) {
+    // Nevyplněno = projde. Nula se bere jako NEVYPLNĚNO — `seat_height_mm`
+    // má v DB DEFAULT 0, takže by jinak všechny takové motorky zmizely hned
+    // po prvním pohnutí spodním jezdcem.
+    if (value == null || value <= 0) return true;
+    if (lo != null && value < lo) return false;
+    if (hi != null && value > hi) return false;
+    return true;
   }
 
   /// Apply filter to motorcycle list — mirrors applyFilters() from booking-calendar.js.
@@ -240,6 +296,14 @@ class CatalogFilter {
       }
       if (branch != null && m.branchId != branch) return false;
 
+      // Výška sedla / točivý moment / hmotnost — posuvníky od–do.
+      if (!_inRange(m.seatHeightMm, minSeatMm, maxSeatMm)) return false;
+      if (!_inRange(m.torqueNm, minTorqueNm, maxTorqueNm)) return false;
+      if (!_inRange(m.weightKg, minWeightKg, maxWeightKg)) return false;
+
+      // „Jen dnes volné" — motorka bez známé dostupnosti se nepočítá.
+      if (availableTodayOnly && m.availableToday != true) return false;
+
       return true;
     }).toList();
   }
@@ -248,6 +312,74 @@ class CatalogFilter {
 final catalogFilterProvider = StateProvider<CatalogFilter>(
   (_) => const CatalogFilter(),
 );
+
+/// Řazení výpisu motorek — sdílené mezi Domů a Rezervovat (obě obrazovky
+/// používají stejný panel filtrů).
+final catalogSortProvider = StateProvider<String>((_) => 'default');
+
+/// Seřadí motorky podle volby z filtru.
+List<Motorcycle> sortMotorcycles(List<Motorcycle> motos, String sort) {
+  final list = List<Motorcycle>.from(motos);
+  switch (sort) {
+    case 'price_asc':
+      list.sort((a, b) => (a.prices?.cheapest ?? 0).compareTo(b.prices?.cheapest ?? 0));
+    case 'price_desc':
+      list.sort((a, b) => (b.prices?.cheapest ?? 0).compareTo(a.prices?.cheapest ?? 0));
+    case 'power_asc':
+      list.sort((a, b) => (a.powerKw ?? 0).compareTo(b.powerKw ?? 0));
+    case 'power_desc':
+      list.sort((a, b) => (b.powerKw ?? 0).compareTo(a.powerKw ?? 0));
+  }
+  return list;
+}
+
+/// Meze posuvníků odvozené z DAT (ne napevno), aby se do rozsahu vešla každá
+/// motorka ve skladu — jinak by krajní poloha posuvníku některé tiše vyřadila.
+class MotoRange {
+  final int min;
+  final int max;
+  const MotoRange(this.min, this.max);
+  bool get valid => max > min;
+}
+
+class MotoRanges {
+  final MotoRange power; // kW
+  final MotoRange seat; // mm
+  final MotoRange torque; // Nm
+  final MotoRange weight; // kg
+  const MotoRanges({
+    required this.power,
+    required this.seat,
+    required this.torque,
+    required this.weight,
+  });
+}
+
+MotoRange _rangeOf(List<Motorcycle> motos, int? Function(Motorcycle) get,
+    int fbLo, int fbHi, int step) {
+  int? lo, hi;
+  for (final m in motos) {
+    final v = get(m);
+    if (v == null || v <= 0) continue;
+    if (lo == null || v < lo) lo = v;
+    if (hi == null || v > hi) hi = v;
+  }
+  if (lo == null || hi == null || hi <= lo) return MotoRange(fbLo, fbHi);
+  // Zaokrouhlení na „hezké" hodnoty ven z rozsahu, ať krajní motorka nevypadne.
+  final rLo = (lo / step).floor() * step;
+  final rHi = (hi / step).ceil() * step;
+  return MotoRange(rLo, rHi > rLo ? rHi : rLo + step);
+}
+
+final motoRangesProvider = Provider<MotoRanges>((ref) {
+  final motos = ref.watch(motorcyclesProvider).valueOrNull ?? const <Motorcycle>[];
+  return MotoRanges(
+    power: _rangeOf(motos, (m) => m.powerKw, 0, 200, 5),
+    seat: _rangeOf(motos, (m) => m.seatHeightMm, 600, 950, 10),
+    torque: _rangeOf(motos, (m) => m.torqueNm, 0, 200, 5),
+    weight: _rangeOf(motos, (m) => m.weightKg, 80, 400, 10),
+  );
+});
 
 /// Filtered motorcycles — combines provider + filter + availability check.
 final filteredMotorcyclesProvider = FutureProvider<List<Motorcycle>>((ref) async {

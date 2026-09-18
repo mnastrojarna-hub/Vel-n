@@ -31,6 +31,9 @@ Widget _poiSectionTitle(String s) => Padding(
 /// [siblings] = místa, mezi kterými jde v detailu listovat swipem do stran
 /// (u trasy její body v pořadí, jinak právě vyfiltrovaný seznam). Když je
 /// prázdné nebo jednoprvkové, detail se chová jako dřív.
+/// [isSelected]/[onToggleSelect] zapnou v detailu spodní tlačítko „Přidat do
+/// mé cesty" (resp. „Odebrat"). Volající je předá tam, kde se z míst skládá
+/// vyjížďka (seznam Míst, mapa míst) — jinde se tlačítko nevykreslí.
 void showRoutePoiSheet(
   BuildContext context,
   RoutePoi poi,
@@ -38,6 +41,8 @@ void showRoutePoiSheet(
   int? index,
   List<RoutePoi> siblings = const [],
   void Function(int index)? onIndexChanged,
+  bool Function(RoutePoi poi)? isSelected,
+  void Function(RoutePoi poi)? onToggleSelect,
 }) {
   showModalBottomSheet(
     context: context,
@@ -55,6 +60,8 @@ void showRoutePoiSheet(
         siblings: siblings,
         onIndexChanged: onIndexChanged,
         controller: scrollController,
+        isSelected: isSelected,
+        onToggleSelect: onToggleSelect,
       ),
     ),
   );
@@ -73,6 +80,8 @@ class _PoiPager extends StatefulWidget {
   final List<RoutePoi> siblings;
   final void Function(int index)? onIndexChanged;
   final ScrollController controller;
+  final bool Function(RoutePoi poi)? isSelected;
+  final void Function(RoutePoi poi)? onToggleSelect;
   const _PoiPager({
     required this.poi,
     required this.lang,
@@ -80,6 +89,8 @@ class _PoiPager extends StatefulWidget {
     required this.siblings,
     required this.onIndexChanged,
     required this.controller,
+    this.isSelected,
+    this.onToggleSelect,
   });
 
   @override
@@ -149,6 +160,7 @@ class _PoiPagerState extends State<_PoiPager> {
               key: ValueKey(poi.id),
               poi: poi,
               lang: widget.lang,
+              bottomInset: widget.onToggleSelect == null ? 0 : 72,
               // Číslo zastávky patří jen bodům NA TRASE — volající ho
               // pošle jen odtud. V katalogu míst by z pozice v seznamu
               // vzniklo nesmyslné pořadí („4238").
@@ -156,6 +168,21 @@ class _PoiPagerState extends State<_PoiPager> {
               controller: widget.controller,
             ),
           ),
+          // Přidat do vyjížďky přímo z detailu — hledaná akce, kvůli které
+          // se detail nejčastěji otevírá.
+          if (widget.onToggleSelect != null)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: MediaQuery.of(context).padding.bottom + 12,
+              child: _AddToTripButton(
+                selected: widget.isSelected?.call(poi) ?? false,
+                onTap: () {
+                  widget.onToggleSelect!(poi);
+                  setState(() {});
+                },
+              ),
+            ),
           if (many)
             Positioned(
               // Mimo osu — uprostřed nahoře sedí táhlo panelu.
@@ -200,12 +227,15 @@ class _PoiSheetContent extends StatefulWidget {
   final String lang;
   final int? index;
   final ScrollController controller;
+  /// Rezerva dole na plovoucí tlačítko „Přidat do mé cesty".
+  final double bottomInset;
   const _PoiSheetContent({
     super.key,
     required this.poi,
     required this.lang,
     required this.index,
     required this.controller,
+    this.bottomInset = 0,
   });
 
   @override
@@ -358,7 +388,8 @@ class _PoiSheetContentState extends State<_PoiSheetContent> {
               ),
 
             Padding(
-              padding: EdgeInsets.fromLTRB(20, 18, 20, MediaQuery.of(context).padding.bottom + 28),
+              padding: EdgeInsets.fromLTRB(20, 18, 20,
+                  MediaQuery.of(context).padding.bottom + 28 + widget.bottomInset),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -477,6 +508,58 @@ class _PoiSheetContentState extends State<_PoiSheetContent> {
           ],
         ),
       );
+  }
+}
+
+/// Spodní tlačítko detailu: přidat místo do skládané vyjížďky / odebrat ho.
+class _AddToTripButton extends StatelessWidget {
+  final bool selected;
+  final VoidCallback onTap;
+  const _AddToTripButton({required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : MotoGoColors.green,
+          borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+          border: Border.all(
+              color: selected ? MotoGoColors.greenDark : MotoGoColors.green,
+              width: 1.6),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(selected ? Icons.check_circle : Icons.add_location_alt,
+                  size: 19,
+                  color: selected ? MotoGoColors.greenDark : MotoGoColors.black),
+              const SizedBox(width: 8),
+              Text(
+                t(context).tr(selected ? 'poiRemoveFromTrip' : 'poiAddToTrip'),
+                style: TextStyle(
+                  fontSize: MotoGoTypo.sizeXl,
+                  fontWeight: MotoGoTypo.w800,
+                  color: selected ? MotoGoColors.greenDark : MotoGoColors.black,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

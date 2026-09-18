@@ -205,7 +205,17 @@ class PoiEntry {
   final RouteItem? route; // null = bod bez trasy (katalog / komunitní)
   final RouteBranch? branch;
   final bool catalog; // samostatný bod z katalogu „zajímavá místa" (ne od uživatele)
-  const PoiEntry(this.poi, this.route, this.branch, {this.catalog = false});
+  /// Leží tohle místo na některé trase? U bodu s `route` je to samozřejmé,
+  /// ale po sloučení duplicit (dedupPlaces) může být reprezentantem
+  /// katalogový bod TÉHOŽ místa — příznak se proto přenáší přes celou
+  /// skupinu, aby mapa tras poznala, co je zastávka trasy.
+  final bool onRoute;
+  const PoiEntry(this.poi, this.route, this.branch,
+      {this.catalog = false, bool? onRoute})
+      : onRoute = onRoute ?? (route != null);
+
+  PoiEntry copyWith({bool? onRoute}) => PoiEntry(poi, route, branch,
+      catalog: catalog, onRoute: onRoute ?? this.onRoute);
   LatLng? get latLng => poi.latLng;
   /// Komunitní = navržený uživatelem (bez trasy a mimo katalog).
   bool get isCommunity => route == null && !catalog;
@@ -547,6 +557,26 @@ Future<bool> ensureLocation(WidgetRef ref) async {
   }
 }
 
+/// Nenápadné vyžádání polohy při otevření obrazovky, která na ní stojí
+/// (Místa se řadí „od mé polohy"). Na rozdíl od [ensureLocation] NIKDY
+/// neotevře systémové nastavení ani stránku appky — když je poloha vypnutá
+/// nebo trvale zamítnutá, prostě se nic nestane a obrazovka jede bez ní.
+Future<void> requestLocationQuietly(WidgetRef ref) async {
+  if (ref.read(currentLocationProvider).valueOrNull != null) return;
+  try {
+    if (!await Geolocator.isLocationServiceEnabled()) return;
+    var perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+    }
+    if (perm != LocationPermission.whileInUse &&
+        perm != LocationPermission.always) {
+      return;
+    }
+    ref.invalidate(currentLocationProvider);
+  } catch (_) {}
+}
+
 /// Aktuální poloha — JEN pokud je oprávnění už uděleno (bez vyžádání systémového
 /// dialogu). Vrací null, když poloha není povolená/dostupná → výchozí náhled trasy
 /// pak vychází z pobočky vyzvednutí, ne z polohy.
@@ -558,14 +588,29 @@ final currentLocationProvider = FutureProvider<LatLng?>((ref) async {
       return null;
     }
     if (!await Geolocator.isLocationServiceEnabled()) return null;
+    // ČERSTVÁ poslední známá poloha se vrátí OKAMŽITĚ — čekání na nový fix
+    // (až 8 s) jinak brzdilo všechno, co na poloze visí: řazení míst „od mé
+    // polohy" i vykreslení trasy v detailu. Starší než 5 minut ignorujeme,
+    // ať se jezdci neřadí místa podle toho, kde byl včera.
     Position? pos;
     try {
-      pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 8),
-      );
-    } catch (_) {
-      pos = await Geolocator.getLastKnownPosition();
+      final last = await Geolocator.getLastKnownPosition();
+      final ts = last?.timestamp;
+      if (last != null &&
+          ts != null &&
+          DateTime.now().difference(ts).inMinutes.abs() <= 5) {
+        pos = last;
+      }
+    } catch (_) {}
+    if (pos == null) {
+      try {
+        pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 8),
+        );
+      } catch (_) {
+        pos = await Geolocator.getLastKnownPosition();
+      }
     }
     if (pos == null) return null;
     return LatLng(pos.latitude, pos.longitude);
@@ -623,7 +668,10 @@ final routeDisplayProvider =
   final routeBranchLatLng = routeBranch?.latLng;
 
   // Aktuální poloha (jen když už je oprávnění uděleno — bez dialogu).
-  final myLoc = await ref.watch(currentLocationProvider.future);
+  // NEČEKÁ se na ni: dokud nedorazí, spočítá se trasa od pobočky a jakmile
+  // poloha přijde, provider se přepočítá sám. Dřív se tu čekalo až 8 s na
+  // GPS fix, než se v detailu trasy vůbec začalo kreslit.
+  final myLoc = ref.watch(currentLocationProvider).valueOrNull;
 
   if (route.routeType == 'poi') {
     // 1) Od aktuální polohy (jen když už je povolená a je poblíž trasy) —
@@ -756,9 +804,26 @@ Future<List<LatLng>?> fetchMapyRoute(List<LatLng> points,
 /// Volání Mapy.com routing API. Vrací dekódovanou polyline + reálnou délku
 /// a čas po silnici (pole `length`/`duration` z odpovědi), nebo null.
 /// `profile` určuje typ trasy (doporučené bez dálnic / nejrychlejší / nejkratší).
+/// Paměťová cache odpovědí routingu (v rámci běhu appky). Otevření detailu
+/// trasy, návrat zpět a otevření znovu dřív pokaždé znamenalo nové volání
+/// API i s několikasekundovým čekáním, přestože body byly beze změny.
+final Map<String, MapyRouteInfo> _mapyRouteCache = {};
+const int _kMapyCacheMax = 60;
+
+String _mapyCacheKey(List<LatLng> pts, RouteProfile profile) {
+  final b = StringBuffer(profile.name);
+  for (final p in pts) {
+    b.write('|${p.latitude.toStringAsFixed(4)},${p.longitude.toStringAsFixed(4)}');
+  }
+  return b.toString();
+}
+
 Future<MapyRouteInfo?> fetchMapyRouteInfo(List<LatLng> points,
     {RouteProfile profile = RouteProfile.recommended}) async {
   if (points.length < 2) return null;
+  final cacheKey = _mapyCacheKey(points, profile);
+  final cached = _mapyRouteCache[cacheKey];
+  if (cached != null) return cached;
   final start = points.first;
   final end = points.last;
   final middle = points.sublist(1, points.length - 1);
@@ -793,11 +858,16 @@ Future<MapyRouteInfo?> fetchMapyRouteInfo(List<LatLng> points,
       }
     }
     if (out.length < 2) return null;
-    return MapyRouteInfo(
+    final info = MapyRouteInfo(
       out,
       lengthM: _numField(data, 'length'),
       durationS: _numField(data, 'duration')?.round(),
     );
+    if (_mapyRouteCache.length >= _kMapyCacheMax) {
+      _mapyRouteCache.remove(_mapyRouteCache.keys.first);
+    }
+    _mapyRouteCache[cacheKey] = info;
+    return info;
   } catch (e) {
     debugPrint('[routes] Mapy routing selhalo: $e');
     return null;

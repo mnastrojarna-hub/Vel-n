@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/supabase_client.dart';
+import '../../core/native/gps_service.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
 import 'ride_provider.dart';
@@ -25,6 +26,9 @@ import 'ride_provider.dart';
 const String kRideAutoRecordKey = 'mg_ride_autorecord'; // přepínač jezdce
 const String kRideRecIdKey = 'mg_ride_rec_id'; // id rozjeté nahrávky
 const String kRideRecBufKey = 'mg_ride_rec_buf'; // neodeslané GPS body
+/// Rozjetá nahrávka je RUČNÍ (vlastní motorka, bez výpůjčky) — hlídač ji pak
+/// neukončí jen proto, že zákazník nemá běžící rezervaci.
+const String kRideRecManualKey = 'mg_ride_rec_manual';
 
 const int _kFlushPoints = 20; // dávka bodů
 const Duration _kFlushEvery = Duration(seconds: 90);
@@ -36,6 +40,9 @@ class RideRecorderState {
   final String? rideId;
   final String? bookingId;
   final int points; // body poslané + čekající v dávce
+  /// Ruční záznam (vlastní motorka, bez výpůjčky) — spustil ho jezdec
+  /// tlačítkem v „Mých zážitcích" a ukončí ho zase jen on.
+  final bool manual;
 
   const RideRecorderState({
     this.enabled = true,
@@ -43,6 +50,7 @@ class RideRecorderState {
     this.rideId,
     this.bookingId,
     this.points = 0,
+    this.manual = false,
   });
 
   RideRecorderState copyWith({
@@ -51,6 +59,7 @@ class RideRecorderState {
     String? rideId,
     String? bookingId,
     int? points,
+    bool? manual,
     bool clearRide = false,
   }) =>
       RideRecorderState(
@@ -59,6 +68,7 @@ class RideRecorderState {
         rideId: clearRide ? null : (rideId ?? this.rideId),
         bookingId: clearRide ? null : (bookingId ?? this.bookingId),
         points: points ?? this.points,
+        manual: clearRide ? false : (manual ?? this.manual),
       );
 }
 
@@ -79,6 +89,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       final p = await SharedPreferences.getInstance();
       final enabled = p.getBool(kRideAutoRecordKey) ?? true;
       final id = p.getString(kRideRecIdKey);
+      final manual = p.getBool(kRideRecManualKey) ?? false;
       final raw = p.getString(kRideRecBufKey);
       if (raw != null && raw.isNotEmpty) {
         final list = jsonDecode(raw);
@@ -93,7 +104,14 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
           }
         }
       }
-      state = state.copyWith(enabled: enabled, rideId: id);
+      state = state.copyWith(enabled: enabled, rideId: id, manual: manual);
+      // RUČNÍ jízdu po restartu appky nikdo jiný neobnoví (hlídač řeší jen
+      // výpůjčky), takže se stopa rozjede rovnou tady — jinak by nahrávání
+      // po zavření appky tiše skončilo a jezdec by přišel o zbytek vyjížďky.
+      if (manual && id != null && await hasLocationPermission()) {
+        _attachStream();
+        state = state.copyWith(recording: true);
+      }
     } catch (_) {/* poškozený cache → začneme načisto */}
   }
 
@@ -104,7 +122,25 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       final p = await SharedPreferences.getInstance();
       await p.setBool(kRideAutoRecordKey, value);
     } catch (_) {}
-    if (!value) await stop();
+    // Přepínač řídí AUTOMATICKÝ záznam při výpůjčce — ručně rozjetou jízdu
+    // ukončí jen tlačítko „Ukončit záznam" (jinak by ji vypnutí automatiky
+    // zahodilo uprostřed vyjížďky).
+    if (!value && !state.manual) await stop();
+  }
+
+  /// Ruční spuštění záznamu BEZ vypůjčené motorky („Zaznamenat vlastní jízdu").
+  /// Na rozdíl od automatického startu si o polohu sám řekne — jezdec tuhle
+  /// funkci vyvolal klepnutím, takže je systémový dialog očekávaný.
+  /// Vrací false, když se záznam nepodařilo rozjet (nepřihlášený / bez polohy).
+  Future<bool> startManual() async {
+    if (state.recording) return true;
+    if (MotoGoSupabase.currentUser == null) return false;
+    if (!await hasLocationPermission()) {
+      if (!await GpsService.ensurePermission()) return false;
+      if (!await hasLocationPermission()) return false;
+    }
+    await _start(null, manual: true);
+    return state.recording;
   }
 
   /// Má zákazník polohu povolenou? (NEŽÁDÁ o ni — jen se ptá systému.)
@@ -124,7 +160,12 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
     if (!state.enabled || state.recording || _starting) return;
     if (MotoGoSupabase.currentUser == null) return;
     if (!await hasLocationPermission()) return;
+    await _start(bookingId);
+  }
 
+  /// Společné rozjetí nahrávky (automatické i ruční).
+  Future<void> _start(String? bookingId, {bool manual = false}) async {
+    if (state.recording || _starting) return;
     _starting = true;
     try {
       Position? first;
@@ -141,22 +182,29 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       try {
         final p = await SharedPreferences.getInstance();
         await p.setString(kRideRecIdKey, id);
+        await p.setBool(kRideRecManualKey, manual);
       } catch (_) {}
 
-      _sub?.cancel();
-      _sub = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: _kDistanceFilterM,
-        ),
-      ).listen(_onPosition, onError: (_) {});
-      _timer?.cancel();
-      _timer = Timer.periodic(_kFlushEvery, (_) => flush());
+      _attachStream();
 
-      state = state.copyWith(recording: true, rideId: id, bookingId: bookingId);
+      state = state.copyWith(
+          recording: true, rideId: id, bookingId: bookingId, manual: manual);
     } finally {
       _starting = false;
     }
+  }
+
+  /// Připojí GPS stream + časovač odesílání dávek.
+  void _attachStream() {
+    _sub?.cancel();
+    _sub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: _kDistanceFilterM,
+      ),
+    ).listen(_onPosition, onError: (_) {});
+    _timer?.cancel();
+    _timer = Timer.periodic(_kFlushEvery, (_) => flush());
   }
 
   /// Bod stopy = `[lat, lng, čas (epoch s), rychlost km/h, výška m]`.
@@ -223,6 +271,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       final p = await SharedPreferences.getInstance();
       await p.remove(kRideRecIdKey);
       await p.remove(kRideRecBufKey);
+      await p.remove(kRideRecManualKey);
     } catch (_) {}
     _ref.invalidate(myRidesProvider);
     return kept;
@@ -295,7 +344,7 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
       final n = ref.read(rideRecorderProvider.notifier);
       if (bookingId != null) {
         n.ensureRecording(bookingId);
-      } else if (st.recording || st.rideId != null) {
+      } else if (!st.manual && (st.recording || st.rideId != null)) {
         // Výpůjčka skončila (i když appka mezitím neběžela) → jízdu uzavři.
         n.stop();
       }

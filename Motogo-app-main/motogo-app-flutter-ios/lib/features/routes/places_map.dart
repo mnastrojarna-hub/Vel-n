@@ -29,8 +29,19 @@ class PlacesMapView extends StatefulWidget {
   /// Tap na konkrétní místo (marker shluku se místo toho přiblíží).
   final void Function(PoiEntry entry)? onPlaceTap;
 
-  /// Dlouhý stisk NA MÍSTĚ — otevře jeho detail (krátký tap přepíná výběr).
+  /// Dlouhý stisk NA MÍSTĚ — otevře jeho detail; krátký tap přepíná výběr.
   final void Function(PoiEntry entry)? onPlaceLongPress;
+
+  /// Klepnutí do mapy MIMO místo — náhled nad seznamem tím otevře mapu přes
+  /// celou obrazovku (dřív to uměla jen malá ikonka v rohu).
+  final VoidCallback? onMapTap;
+
+  /// Odlišit body ležící NA TRASE (mapa tras) — zeleně, ostatní místa bíle.
+  final bool markRouteStops;
+
+  /// Trasa poskládaná uživatelem v editoru („Tvoje trasa") — kreslí se
+  /// výrazně a nad ostatními čarami.
+  final List<LatLng> draftLine;
 
   /// Dlouhý stisk do prázdné mapy — nabídne přidání nového místa.
   final void Function(LatLng point)? onLongPress;
@@ -61,7 +72,10 @@ class PlacesMapView extends StatefulWidget {
     this.routeLines = const [],
     this.onPlaceTap,
     this.onPlaceLongPress,
+    this.onMapTap,
     this.onLongPress,
+    this.markRouteStops = false,
+    this.draftLine = const [],
     this.me,
     this.initialCenter,
     this.initialZoom = 7.2,
@@ -208,12 +222,19 @@ class PlacesMapViewState extends State<PlacesMapView> {
                       InteractiveFlag.doubleTapZoom |
                       InteractiveFlag.scrollWheelZoom),
         ),
+        onTap: widget.onMapTap == null ? null : (_, __) => widget.onMapTap!(),
         onLongPress: widget.onLongPress == null
             ? null
             : (_, p) => widget.onLongPress!(p),
-        onPointerDown: (_, __) => _userMoved = true,
         onMapReady: _syncCamera,
-        onPositionChanged: (_, __) => _scheduleSync(),
+        onPositionChanged: (_, hasGesture) {
+          // Jen skutečný posun/zoom prstem znamená „uživatel si mapu srovnal
+          // sám". Dřív stačil pointerDown, který chodí i při scrollu seznamu
+          // přes náhled mapy — kamera se pak na dodatečně zjištěnou polohu
+          // už nikdy neposunula a mapa zůstala nad středem ČR.
+          if (hasGesture) _userMoved = true;
+          _scheduleSync();
+        },
       ),
       children: [
         TileLayer(
@@ -233,6 +254,17 @@ class PlacesMapViewState extends State<PlacesMapView> {
                     strokeWidth: 4,
                     color: MotoGoColors.greenDark.withValues(alpha: 0.85),
                   ),
+            ],
+          ),
+        // „Tvoje trasa" z editoru — silná tmavá čára nad ostatními.
+        if (widget.draftLine.length >= 2)
+          PolylineLayer(
+            polylines: [
+              Polyline(
+                points: widget.draftLine,
+                strokeWidth: 6,
+                color: MotoGoColors.greenDarker,
+              ),
             ],
           ),
         if (widget.me != null)
@@ -312,6 +344,9 @@ class PlacesMapViewState extends State<PlacesMapView> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => _ctrl.move(center, math.min(_zoom + 2.5, 17)),
+        // I podržení shluku jen přiblíží — bez toho propadlo na mapu a otevřelo
+        // „přidat nové místo", ačkoli uživatel chtěl detail bodu pod prstem.
+        onLongPress: () => _ctrl.move(center, math.min(_zoom + 2.5, 17)),
         child: Container(
           decoration: BoxDecoration(
             color: MotoGoColors.greenDark.withValues(alpha: 0.92),
@@ -343,6 +378,9 @@ class PlacesMapViewState extends State<PlacesMapView> {
 
   Marker _placeMarker(PoiEntry e) {
     final sel = widget.selected.contains(e.key);
+    // Body tras mají na mapě tras VLASTNÍ barvu, aby šly odlišit od ostatních
+    // míst (zadání uživatele).
+    final onRoute = widget.markRouteStops && e.onRoute;
     return Marker(
       point: e.latLng!,
       width: 34,
@@ -350,16 +388,23 @@ class PlacesMapViewState extends State<PlacesMapView> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onPlaceTap == null ? null : () => widget.onPlaceTap!(e),
+        // Detail místa = PODRŽENÍ. Dvojklik tu záměrně NENÍ: gesture detektor
+        // by pak musel u každého klepnutí čekat ~300 ms, jestli nepřijde druhé,
+        // a výběr místa by působil, že mapa nereaguje.
         onLongPress: widget.onPlaceLongPress == null
             ? null
             : () => widget.onPlaceLongPress!(e),
         child: Container(
           decoration: BoxDecoration(
-            color: sel ? MotoGoColors.green : Colors.white,
+            color: sel
+                ? MotoGoColors.green
+                : (onRoute ? MotoGoColors.greenPale : Colors.white),
             shape: BoxShape.circle,
             border: Border.all(
-              color: sel ? MotoGoColors.greenDarker : MotoGoColors.g300,
-              width: 2,
+              color: sel
+                  ? MotoGoColors.greenDarker
+                  : (onRoute ? MotoGoColors.greenDark : MotoGoColors.g300),
+              width: onRoute && !sel ? 2.5 : 2,
             ),
             boxShadow: [
               BoxShadow(

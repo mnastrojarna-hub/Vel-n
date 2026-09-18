@@ -10,7 +10,7 @@ import 'widgets/availability_calendar.dart';
 import 'widgets/date_tabs_section.dart';
 import 'widgets/menu_line.dart';
 import 'widgets/moto_card.dart';
-import 'widgets/search_filters_section.dart';
+import 'widgets/moto_filter_panel.dart';
 import '../../core/date_days.dart';
 
 /// Search screen — 1:1 replica of Capacitor "Vyhledávání" screen.
@@ -23,25 +23,16 @@ class MotoSearchScreen extends ConsumerStatefulWidget {
 }
 
 class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
-  DateTime? _startDate;
-  DateTime? _endDate;
   bool _pickingStart = true; // true = picking start date, false = picking end
 
-  @override
-  void initState() {
-    super.initState();
-    // Sync local date state from catalog filter (e.g. when coming from booking form)
-    final filter = ref.read(catalogFilterProvider);
-    _startDate = filter.startDate;
-    _endDate = filter.endDate;
-  }
+  // Termín má JEDEN zdroj pravdy — `catalogFilterProvider`. Dřív si ho
+  // obrazovka držela i ve vlastních polích a po resetu filtru (z panelu)
+  // nahoře dál svítil termín, podle kterého se už nefiltrovalo.
+  DateTime? get _startDate => ref.watch(catalogFilterProvider).startDate;
+  DateTime? get _endDate => ref.watch(catalogFilterProvider).endDate;
 
   void _onRangeSelected(DateTime start, DateTime end) {
-    setState(() {
-      _startDate = start;
-      _endDate = end;
-      _pickingStart = true;
-    });
+    setState(() => _pickingStart = true);
     final filter = ref.read(catalogFilterProvider);
     ref.read(catalogFilterProvider.notifier).state = filter.copyWith(
       startDate: () => start,
@@ -50,8 +41,9 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
   }
 
   int get _dayCount {
-    if (_startDate == null || _endDate == null) return 0;
-    return calendarDaysInclusive(_startDate!, _endDate!);
+    final s = _startDate, e = _endDate;
+    if (s == null || e == null) return 0;
+    return calendarDaysInclusive(s, e);
   }
 
   @override
@@ -182,11 +174,7 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
                   AvailabilityCalendar(
                     onRangeSelected: _onRangeSelected,
                     onReset: () {
-                      setState(() {
-                        _startDate = null;
-                        _endDate = null;
-                        _pickingStart = true;
-                      });
+                      setState(() => _pickingStart = true);
                       final filter = ref.read(catalogFilterProvider);
                       ref.read(catalogFilterProvider.notifier).state =
                           filter.copyWith(
@@ -207,7 +195,9 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: const SearchFiltersSection(),
+            // Stejný filtr jako na Domů, jen BEZ kalendáře — ten je na téhle
+            // stránce nahoře nad filtrem.
+            child: const MotoFilterPanel(),
           ),
         ),
 
@@ -216,6 +206,9 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
             child: motosAsync.when(
+                    // Při změně filtru se výpis jen přepočítá — nesmí zmizet
+                    // pod celoobrazovkový spinner.
+                    skipLoadingOnReload: true,
               data: (motos) => Text(
                 _dayCount > 0
                   ? '${t(context).tr('searchAvailableMotorcycles').replaceAll('{n}', '${motos.length}')} · $_dayCount ${_dayCount == 1 ? t(context).tr('day1') : _dayCount < 5 ? t(context).tr('days24') : t(context).tr('days5')}'
@@ -230,7 +223,11 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
 
         // ===== RESULTS GRID =====
         motosAsync.when(
-          data: (motos) => motos.isEmpty
+          skipLoadingOnReload: true,
+          // Řazení řídí sdílený panel filtrů (stejně jako na Domů).
+          data: (all) {
+            final motos = sortMotorcycles(all, ref.watch(catalogSortProvider));
+            return motos.isEmpty
               ? SliverFillRemaining(
                   child: Padding(
                     padding: const EdgeInsets.all(40),
@@ -271,13 +268,21 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
                         padding: const EdgeInsets.only(bottom: 16),
                         child: MotoCard(
                           moto: motos[index],
-                          onTap: () => context.push('/moto/${motos[index].id}'),
+                          onTap: () {
+                            // Pořadí pro listování mezi motorkami v detailu —
+                            // musí odpovídat právě zobrazenému (seřazenému)
+                            // výpisu, jinak swipe jede podle jiného seznamu.
+                            ref.read(filteredMotoIdsProvider.notifier).state =
+                                motos.map((m) => m.id).toList();
+                            context.push('/moto/${motos[index].id}');
+                          },
                         ),
                       ),
                       childCount: motos.length,
                     ),
                   ),
-                ),
+                );
+          },
           loading: () => const SliverFillRemaining(
             child: Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
           ),
