@@ -276,7 +276,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                 ],
               ),
             ),
-            // „+" — navrhnout trasu / bod zájmu (komunitní obsah)
+            // „+" — záznam vlastní jízdy, návrh trasy, přidání místa
             Positioned(
               right: 16,
               bottom: 16,

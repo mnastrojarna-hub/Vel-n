@@ -198,6 +198,7 @@ const translationsUkExt11 = <String, Map<String, String>>{
     'poiRateHint': 'Торкніться зірочок і оцініть',
     'poiNoRatings': 'Поки що без оцінок',
     'poiSubmitPoi': 'Запропонувати точку інтересу',
+    'poiAddPlace': 'Додати місце',
     'poiSubmitRoute': 'Запропонувати маршрут (посилання з Mapy.com)',
     'poiAddMenu': 'Додати',
     'poiSubmitName': 'Назва',
