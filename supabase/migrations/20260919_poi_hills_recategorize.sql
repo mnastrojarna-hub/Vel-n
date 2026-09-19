@@ -1,5 +1,5 @@
 -- MotoGo24 — vrcholy, které už v katalogu JSOU, přeřadit z `nature` do `lookout`
--- (chip „Rozhledny a kopce"). Bez toho by Sněžka zůstala v „Přírodě", zatímco
+-- (chip „Rozhledny a vrcholy"). Bez toho by Sněžka zůstala v „Přírodě", zatímco
 -- nově doplněné vrcholy by byly jinde.
 -- Výběr je ZÁMĚRNĚ konzervativní: jen body, které jsou dnes v `nature`, mají
 -- shodný název s vrcholem ve Wikidatech do 500 m a nejsou to sedla, plesa,

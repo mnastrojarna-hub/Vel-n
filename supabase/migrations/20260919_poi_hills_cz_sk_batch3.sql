@@ -2,7 +2,7 @@
 -- Zdroj dat: Wikidata (P625 souřadnice, P2044 nadmořská výška, P18 foto), staženo 2026-09-19.
 -- Výběr: rozhledny (Q1440300) všechny; vrcholy (Q8502/Q54050/Q207326) s článkem
 -- na cs/sk Wikipedii NEBO s nadmořskou výškou ≥ 800 m.
--- Kategorie: vše jde do `lookout` = chip „Rozhledny a kopce" (zadání uživatele).
+-- Kategorie: vše jde do `lookout` = chip „Rozhledny a vrcholy" (zadání uživatele).
 -- Idempotentní: smaže vlastní dávku podle `source` a vloží znovu; vkládá JEN body,
 -- u kterých v katalogu ještě není nic se stejným názvem do ~170 m ani cokoli do ~70 m.
 
