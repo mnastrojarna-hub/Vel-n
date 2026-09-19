@@ -14,217 +14,260 @@
  *
  * Body trasy = Mapy.cz `rc` delta-kódování (custom base64, čteno odzadu,
  * přesnost 2^28). Algoritmus ověřen proti reálnému odkazu.
- */
-
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
-
+ */ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), {
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
+const json = (data, status = 200)=>new Response(JSON.stringify(data), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
-  })
-
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json'
+    }
+  });
 // ── Dekodér Mapy.cz `rc` (port z velin/src/lib/mapyRoute.js) ──
-const ALPHABET = '0ABCD2EFGH4IJKLMN6OPQRST8UVWXYZ-1abcd3efgh5ijklmn7opqrst9uvwxyz.'
-
-function parseNumber(arr: string[], count: number): number {
-  let result = 0
-  let i = count
-  while (i) {
-    if (!arr.length) throw new Error('Neplatná data trasy (rc)')
-    const ch = arr.pop() as string
-    const index = ALPHABET.indexOf(ch)
-    if (index === -1) continue
-    result = (result << 6) + index
-    i--
+const ALPHABET = '0ABCD2EFGH4IJKLMN6OPQRST8UVWXYZ-1abcd3efgh5ijklmn7opqrst9uvwxyz.';
+function parseNumber(arr, count) {
+  let result = 0;
+  let i = count;
+  while(i){
+    if (!arr.length) throw new Error('Neplatná data trasy (rc)');
+    const ch = arr.pop();
+    const index = ALPHABET.indexOf(ch);
+    if (index === -1) continue;
+    result = (result << 6) + index;
+    i--;
   }
-  return result
+  return result;
 }
-
-function decodeRouteCoords(rc: string): Array<{ lat: number; lng: number }> {
-  if (!rc) return []
-  const FIVE = (1 + 2) << 4
-  const THREE = 1 << 5
-  const results: Array<{ lat: number; lng: number }> = []
-  const coords = [0, 0]
-  let ci = 0
-  const arr = String(rc).trim().split('').reverse()
-  while (arr.length) {
-    let num = parseNumber(arr, 1)
+function decodeRouteCoords(rc) {
+  if (!rc) return [];
+  const FIVE = 1 + 2 << 4;
+  const THREE = 1 << 5;
+  const results = [];
+  const coords = [
+    0,
+    0
+  ];
+  let ci = 0;
+  const arr = String(rc).trim().split('').reverse();
+  while(arr.length){
+    let num = parseNumber(arr, 1);
     if ((num & FIVE) === FIVE) {
-      num -= FIVE
-      num = ((num & 15) << 24) + parseNumber(arr, 4)
-      coords[ci] = num
+      num -= FIVE;
+      num = ((num & 15) << 24) + parseNumber(arr, 4);
+      coords[ci] = num;
     } else if ((num & THREE) === THREE) {
-      num = ((num & 15) << 12) + parseNumber(arr, 2)
-      num -= 1 << 15
-      coords[ci] += num
+      num = ((num & 15) << 12) + parseNumber(arr, 2);
+      num -= 1 << 15;
+      coords[ci] += num;
     } else {
-      num = ((num & 31) << 6) + parseNumber(arr, 1)
-      num -= 1 << 10
-      coords[ci] += num
+      num = ((num & 31) << 6) + parseNumber(arr, 1);
+      num -= 1 << 10;
+      coords[ci] += num;
     }
     if (ci) {
-      const lng = (coords[0] * 360) / (1 << 28) - 180
-      const lat = (coords[1] * 180) / (1 << 28) - 90
-      results.push({ lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 })
+      const lng = coords[0] * 360 / (1 << 28) - 180;
+      const lat = coords[1] * 180 / (1 << 28) - 90;
+      results.push({
+        lat: Math.round(lat * 1e6) / 1e6,
+        lng: Math.round(lng * 1e6) / 1e6
+      });
     }
-    ci = (ci + 1) % 2
+    ci = (ci + 1) % 2;
   }
-  return results
+  return results;
 }
-
-function rcFromUrl(url: string): string | null {
+function rcFromUrl(url) {
   try {
-    return new URL(url).searchParams.get('rc')
-  } catch {
-    return null
+    return new URL(url).searchParams.get('rc');
+  } catch  {
+    return null;
   }
 }
-
-const r6 = (v: number) => Math.round(v * 1e6) / 1e6
-
-function isGoogle(url: string): boolean {
-  return /(?:google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(url)
+const r6 = (v)=>Math.round(v * 1e6) / 1e6;
+function isGoogle(url) {
+  return /(?:google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(url);
 }
-
-function isGoogleShort(url: string): boolean {
-  return /(?:maps\.app\.goo\.gl|goo\.gl\/maps)\//i.test(url)
+function isGoogleShort(url) {
+  return /(?:maps\.app\.goo\.gl|goo\.gl\/maps)\//i.test(url);
 }
-
-/** Body trasy z PLNÉ Google Maps URL (port z velin/src/lib/mapyRoute.js). */
-function decodeGoogleRouteCoords(url: string): Array<{ lat: number; lng: number }> {
-  const out: Array<{ lat: number; lng: number }> = []
+/** Body trasy z PLNÉ Google Maps URL (port z velin/src/lib/mapyRoute.js). */ function decodeGoogleRouteCoords(url) {
+  const out = [];
   // 1) data param: !1d<lng>!2d<lat>
-  const re = /!1d(-?\d+(?:\.\d+)?)!2d(-?\d+(?:\.\d+)?)/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(url)) !== null) {
-    const lng = Number(m[1]); const lat = Number(m[2])
-    if (isFinite(lat) && isFinite(lng)) out.push({ lat: r6(lat), lng: r6(lng) })
+  const re = /!1d(-?\d+(?:\.\d+)?)!2d(-?\d+(?:\.\d+)?)/g;
+  let m;
+  while((m = re.exec(url)) !== null){
+    const lng = Number(m[1]);
+    const lat = Number(m[2]);
+    if (isFinite(lat) && isFinite(lng)) out.push({
+      lat: r6(lat),
+      lng: r6(lng)
+    });
   }
-  if (out.length) return out
+  if (out.length) return out;
   // 2) api=1 query
   try {
-    const q = new URL(url).searchParams
-    const pushLL = (val: string | null) => {
-      if (!val) return
-      const p = val.split(',').map((x) => Number(x.trim()))
-      if (p.length >= 2 && isFinite(p[0]) && isFinite(p[1])) out.push({ lat: r6(p[0]), lng: r6(p[1]) })
+    const q = new URL(url).searchParams;
+    const pushLL = (val)=>{
+      if (!val) return;
+      const p = val.split(',').map((x)=>Number(x.trim()));
+      if (p.length >= 2 && isFinite(p[0]) && isFinite(p[1])) out.push({
+        lat: r6(p[0]),
+        lng: r6(p[1])
+      });
+    };
+    pushLL(q.get('origin'));
+    const wp = q.get('waypoints');
+    if (wp) wp.split('|').forEach(pushLL);
+    pushLL(q.get('destination'));
+    if (out.length) return out;
+    const at = url.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+    if (at) {
+      const lat = Number(at[1]);
+      const lng = Number(at[2]);
+      if (isFinite(lat) && isFinite(lng)) out.push({
+        lat: r6(lat),
+        lng: r6(lng)
+      });
     }
-    pushLL(q.get('origin'))
-    const wp = q.get('waypoints')
-    if (wp) wp.split('|').forEach(pushLL)
-    pushLL(q.get('destination'))
-    if (out.length) return out
-    const at = url.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)
-    if (at) { const lat = Number(at[1]); const lng = Number(at[2]); if (isFinite(lat) && isFinite(lng)) out.push({ lat: r6(lat), lng: r6(lng) }) }
-    const pl = url.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)
-    if (!out.length && pl) { const lat = Number(pl[1]); const lng = Number(pl[2]); if (isFinite(lat) && isFinite(lng)) out.push({ lat: r6(lat), lng: r6(lng) }) }
-  } catch { /* neplatná URL */ }
-  return out
+    const pl = url.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+    if (!out.length && pl) {
+      const lat = Number(pl[1]);
+      const lng = Number(pl[2]);
+      if (isFinite(lat) && isFinite(lng)) out.push({
+        lat: r6(lat),
+        lng: r6(lng)
+      });
+    }
+  } catch  {}
+  return out;
 }
-
 const BROWSER_HEADERS = {
-  'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
   'Accept-Language': 'cs,en;q=0.8',
-  'Accept': 'text/html,application/xhtml+xml',
-}
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  if (req.method !== 'POST') return json({ success: false, error: 'Method not allowed' }, 405)
-
+  'Accept': 'text/html,application/xhtml+xml'
+};
+serve(async (req)=>{
+  if (req.method === 'OPTIONS') return new Response('ok', {
+    headers: CORS
+  });
+  if (req.method !== 'POST') return json({
+    success: false,
+    error: 'Method not allowed'
+  }, 405);
   try {
     // ── Auth: jen přihlášený admin ──
-    const authHeader = req.headers.get('Authorization') || ''
-    if (!authHeader) return json({ success: false, error: 'Chybí autorizace' }, 401)
+    const authHeader = req.headers.get('Authorization') || '';
+    if (!authHeader) return json({
+      success: false,
+      error: 'Chybí autorizace'
+    }, 401);
     const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    })
-    const { data: { user } } = await supa.auth.getUser()
-    if (!user) return json({ success: false, error: 'Neautorizováno' }, 401)
-    const { data: isAdmin } = await supa.rpc('is_admin')
-    if (!isAdmin) return json({ success: false, error: 'Přístup jen pro administrátory' }, 403)
-
-    const { url } = await req.json().catch(() => ({}))
-    if (!url || typeof url !== 'string') return json({ success: false, error: 'Chybí odkaz (url)' }, 400)
-
+      global: {
+        headers: {
+          Authorization: authHeader
+        }
+      }
+    });
+    const { data: { user } } = await supa.auth.getUser();
+    if (!user) return json({
+      success: false,
+      error: 'Neautorizováno'
+    }, 401);
+    const { data: isAdmin } = await supa.rpc('is_admin');
+    if (!isAdmin) return json({
+      success: false,
+      error: 'Přístup jen pro administrátory'
+    }, 403);
+    const { url } = await req.json().catch(()=>({}));
+    if (!url || typeof url !== 'string') return json({
+      success: false,
+      error: 'Chybí odkaz (url)'
+    }, 400);
     // ── Google Maps větev ──────────────────────────────────────────────
     if (isGoogle(url)) {
-      let gUrl = url
+      let gUrl = url;
       if (isGoogleShort(url)) {
         // Zkrácený maps.app.goo.gl → následuj redirect na plnou URL.
         try {
-          const res = await fetch(url, { redirect: 'follow', headers: BROWSER_HEADERS })
-          gUrl = res.url || url
+          const res = await fetch(url, {
+            redirect: 'follow',
+            headers: BROWSER_HEADERS
+          });
+          gUrl = res.url || url;
           if (!/[!@]/.test(gUrl) || !decodeGoogleRouteCoords(gUrl).length) {
             // Někdy je plná URL až v těle (JS redirect / consent stránka).
-            const body = await res.text().catch(() => '')
-            const mm = body.match(/https?:\/\/www\.google\.[a-z.]+\/maps\/[^\s"'\\<]+/)
-            if (mm) gUrl = mm[0].replace(/\\u003d/g, '=').replace(/\\u0026/g, '&')
+            const body = await res.text().catch(()=>'');
+            const mm = body.match(/https?:\/\/www\.google\.[a-z.]+\/maps\/[^\s"'\\<]+/);
+            if (mm) gUrl = mm[0].replace(/\\u003d/g, '=').replace(/\\u0026/g, '&');
           }
-        } catch { /* necháme gUrl = url */ }
+        } catch  {}
       }
-      const gWaypoints = decodeGoogleRouteCoords(gUrl)
+      const gWaypoints = decodeGoogleRouteCoords(gUrl);
       if (!gWaypoints.length) {
         return json({
           success: false,
-          error: 'V Google odkazu se nepodařilo najít body trasy. Otevři odkaz v Google Maps, přepni na „Trasu" (dir) a zkopíruj plnou URL z adresního řádku.',
-        }, 422)
+          error: 'V Google odkazu se nepodařilo najít body trasy. Otevři odkaz v Google Maps, přepni na „Trasu" (dir) a zkopíruj plnou URL z adresního řádku.'
+        }, 422);
       }
-      return json({ success: true, provider: 'google', url: gUrl, waypoints: gWaypoints })
+      return json({
+        success: true,
+        provider: 'google',
+        url: gUrl,
+        waypoints: gWaypoints
+      });
     }
-
     // Plná URL už rc obsahuje — dekódovat rovnou (bez fetche).
-    let finalUrl = url
-    let rc = rcFromUrl(url)
-
+    let finalUrl = url;
+    let rc = rcFromUrl(url);
     if (!rc) {
       // Zkrácený odkaz → následuj redirect (browser UA, ať mapy neodmítnou).
       const res = await fetch(url, {
         redirect: 'follow',
         headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
           'Accept-Language': 'cs,en;q=0.8',
-          'Accept': 'text/html,application/xhtml+xml',
-        },
-      })
-      finalUrl = res.url || url
-      rc = rcFromUrl(finalUrl)
+          'Accept': 'text/html,application/xhtml+xml'
+        }
+      });
+      finalUrl = res.url || url;
+      rc = rcFromUrl(finalUrl);
       // Fallback: někdy je rc až v těle stránky (canonical/redirect meta).
       if (!rc) {
-        const body = await res.text().catch(() => '')
-        const m = body.match(/[?&]rc=([^&"'\\\s]+)/)
-        if (m) rc = decodeURIComponent(m[1])
+        const body = await res.text().catch(()=>'');
+        const m = body.match(/[?&]rc=([^&"'\\\s]+)/);
+        if (m) rc = decodeURIComponent(m[1]);
       }
     }
-
     if (!rc) {
       return json({
         success: false,
-        error: 'V odkazu se nepodařilo najít body trasy (rc). Otevři odkaz v Mapy.com, zkopíruj plnou URL z adresního řádku a vlož ji sem.',
-      }, 422)
+        error: 'V odkazu se nepodařilo najít body trasy (rc). Otevři odkaz v Mapy.com, zkopíruj plnou URL z adresního řádku a vlož ji sem.'
+      }, 422);
     }
-
-    const waypoints = decodeRouteCoords(rc)
+    const waypoints = decodeRouteCoords(rc);
     if (!waypoints.length) {
-      return json({ success: false, error: 'Body trasy se nepodařilo dekódovat.' }, 422)
+      return json({
+        success: false,
+        error: 'Body trasy se nepodařilo dekódovat.'
+      }, 422);
     }
-
-    return json({ success: true, url: finalUrl, rc, waypoints })
+    return json({
+      success: true,
+      url: finalUrl,
+      rc,
+      waypoints
+    });
   } catch (e) {
-    return json({ success: false, error: (e as Error).message || 'Chyba serveru' }, 500)
+    return json({
+      success: false,
+      error: e.message || 'Chyba serveru'
+    }, 500);
   }
-})
+});
