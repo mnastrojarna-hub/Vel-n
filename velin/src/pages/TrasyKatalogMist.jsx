@@ -13,7 +13,7 @@ import PoiReviewsModal from './PoiReviewsModal'
 // filtry (kategorie / země / zdroj / hledání), edit, aktivace, mazání.
 
 const CAT = {
-  food: '🍽️ Jídlo a pití', castle: '🏰 Hrady a zámky', lookout: '🗼 Rozhledny',
+  food: '🍽️ Jídlo a pití', castle: '🏰 Hrady a zámky', lookout: '🗼 Rozhledny a kopce',
   water: '🌊 Voda', sights: '⛪ Památky', nature: '🌳 Příroda',
   military: '🪖 Vojenství', aviation: '✈️ Letectví', tech: '🏭 Technika',
   moto: '🏁 Motorismus', other: '📍 Ostatní',

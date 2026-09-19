@@ -59,7 +59,7 @@ const translationsUkFill = <String, Map<String, String>>{
     'poiCatAviation': 'Авіація',
     'poiCatCastle': 'Замки та палаци',
     'poiCatFood': 'Їжа та напої',
-    'poiCatLookout': 'Оглядові вежі',
+    'poiCatLookout': 'Оглядові точки та вершини',
     'poiCatMilitary': 'Військове',
     'poiCatMoto': 'Мотоспорт',
     'poiCatNature': 'Природа',
