@@ -68,6 +68,17 @@ const APP_TOOLS = [
     },
   },
   {
+    name: 'get_access_status',
+    description: 'Stav PŘÍSTUPOVÝCH KÓDŮ a dokladů k rezervaci zákazníka na samoobslužné pobočce — jestli kódy existují, jestli už byly odeslané, jestli jsou zadržené a PROČ (chybějící doklady, „vraťte nejdřív původní motorku"), od kdy do kdy platí, plus číslo kóje a název pobočky. VOLEJ VŽDY, když zákazník řeší „nepřišly mi kódy", „nemůžu se dostat do kóje", „co mi ještě chybí", „kde mám kód" nebo „do které kóje jdu". SAMOTNÝ KÓD tool NEVRACÍ a ty ho NIKDY nevyslovíš ani neuhodneš — zákazník ho najde v appce (detail rezervace / Zprávy), v e-mailu, SMS nebo WhatsApp.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        booking_id: { type: 'string', description: 'UUID rezervace (volitelné — bez něj vezme aktivní/nejbližší nadcházející)' },
+      },
+      required: [],
+    },
+  },
+  {
     name: 'get_fleet_overview',
     description: 'Vrátí přehled všech dostupných motorek ve flotile — značka, model, kategorie, objem motoru, ABS. Volej když se zákazník ptá na nabídku nebo srovnání.',
     input_schema: {

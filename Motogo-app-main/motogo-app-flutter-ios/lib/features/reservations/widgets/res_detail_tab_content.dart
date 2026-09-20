@@ -426,7 +426,12 @@ class ResDetailTabContent extends ConsumerWidget {
           ],
 
           // ===== UPCOMING ACTIONS =====
-          if (st == ResStatus.nadchazejici) ...[
+          // Zobrazují se i v DEN vyzvednutí, dokud si zákazník motorku nepřevzal
+          // (rezervace je pořád 'reserved' — na samoobslužné pobočce ji překlápí
+          // teprve zadání kódu do boxu, na obslužné předávací protokol).
+          // Datumový `st` je v ten den už `aktivni`, proto ta druhá podmínka —
+          // ostatní akce (dveřní kódy, SOS, protokol) zůstávají beze změny.
+          if (st == ResStatus.nadchazejici || (st == ResStatus.aktivni && res.status == 'reserved')) ...[
             ResDetailButton.primary(
               emoji: '✏️',
               label: t(context).tr('editReservation'),

@@ -100,7 +100,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     if (res != null && mounted) {
       setState(() {
         _booking = res;
-        _isActive = res.displayStatus == ResStatus.aktivni;
+        // POZOR: _isActive se řídí DB stavem, NE kalendářem (2026-09-20).
+        // Server zamyká začátek a motorku až při status='active' (= motorka je
+        // fyzicky převzatá: kód do boxu / předávací protokol). Dokud je rezervace
+        // 'reserved', smí zákazník měnit i začátek — a to i v DEN vyzvednutí.
+        // (displayStatus je datumový a překlápěl obrazovku o půlnoci.)
+        _isActive = res.status == 'active';
         _newStart = res.startDate;
         _newEnd = res.endDate;
         // DB hodnoty metod nejsou jednotné ('store'/'pickup'/'branch'/'rental'/
@@ -865,10 +870,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               const SizedBox(width: 6),
               EditTabBtn(label: t(context).tr('shortenChangePlace'), active: _tab == 'shorten',
                 onTap: () => setState(() { _tab = 'shorten'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),
-              // Posun termínu zdarma — jen nadcházející a zaplacené (jako web).
-              if (!_isActive &&
-                  _booking!.displayStatus == ResStatus.nadchazejici &&
-                  _booking!.paymentStatus == 'paid') ...[
+              // Posun termínu zdarma — dokud motorka NENÍ převzatá (status 'reserved')
+              // a nejpozději v den začátku termínu; parita se serverem
+              // (reschedule_booking_free) i s webem.
+              if (_booking!.status == 'reserved' &&
+                  _booking!.paymentStatus == 'paid' &&
+                  !_booking!.startDateInPast) ...[
                 const SizedBox(width: 6),
                 EditTabBtn(label: t(context).tr('moveChangePlace'), active: _tab == 'move',
                   onTap: () => setState(() { _tab = 'move'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),

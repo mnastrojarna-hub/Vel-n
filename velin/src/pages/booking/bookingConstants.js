@@ -6,6 +6,12 @@ export const ACTIONS = {
     { label: 'Zrušit', status: 'cancelled', danger: true },
   ],
   reserved: [
+    // „Přijmout zpět" i u rezervace, která zůstala Nadcházející, protože překlopení
+    // na Probíhá dělá až skutečné převzetí (kód do boxu / předávací protokol).
+    // Zobrazuje se jen když termín už začal (filtr `started` v BookingDetail) —
+    // jinak měla obsluha u běžícího pronájmu k dispozici POUZE „Zrušit" (= storno
+    // s vratkou), což je u fyzicky vydané motorky špatně.
+    { label: 'Přijmout zpět', status: 'completed', green: true, started: true },
     { label: 'Zrušit', status: 'cancelled', danger: true },
   ],
   active: [

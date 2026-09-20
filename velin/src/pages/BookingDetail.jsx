@@ -615,7 +615,10 @@ export default function BookingDetail() {
   // „Obnovit" u zrušené rezervace jen když termín zapůjčení není v minulosti
   // (dnešek a budoucnost OK) — jinak nemá obnovení smysl a tlačítko se skryje.
   const todayLocal = new Date().toLocaleDateString('sv-SE')
-  const actions = actionsRaw.filter(a => !a.restore || (booking.start_date || '').slice(0, 10) >= todayLocal)
+  const actions = actionsRaw
+    .filter(a => !a.restore || (booking.start_date || '').slice(0, 10) >= todayLocal)
+    // „Přijmout zpět" u Nadcházející rezervace jen když termín už začal (viz ACTIONS)
+    .filter(a => !a.started || (booking.start_date || '').slice(0, 10) <= todayLocal)
   // Nezaplacený doplatek za úpravu (zaplacená rezervace) → samostatná akce.
   const surchargeDue = Number(booking.mod_surcharge_due) || 0
   const actionsWithSurcharge = (surchargeDue > 0 && ['reserved', 'active'].includes(booking.status))

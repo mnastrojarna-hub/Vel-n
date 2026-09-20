@@ -108,15 +108,20 @@ serve(async (req) => {
     // -- Pre-fetch booking context --
     let bookingContext = ''
     try {
+      // POBOČKA + KÓJE + časy + stav převzetí (2026-09-20): agent dosud nevěděl, NA KTERÉ
+      // pobočce a v KTERÉ kóji motorka stojí, ani jestli už je převzatá — na „kam si pro ni
+      // mám přijet / ke kterým dveřím jdu / do kdy můžu měnit termín" musel hádat.
       const bookingFields = `
-        id, status, payment_status, start_date, end_date, pickup_time,
+        id, status, payment_status, start_date, end_date, pickup_time, return_time,
         total_price, extras_price, pickup_method, return_method, pickup_address, return_address,
         mileage_start, mileage_end, notes, insurance_type,
+        picked_up_at, handover_protocol_started_at, handover_protocol_filled_at,
         motorcycles!moto_id(
           id, model, brand, spz, engine_type, engine_cc, power_kw, power_hp,
           weight_kg, has_abs, has_asc, features, manual_url, manual_external_url, description,
           ideal_usage, category, fuel_tank_l, seat_height_mm, color, mileage,
-          year, license_required, image_url
+          year, license_required, image_url, box_number, branch_id,
+          branches!branch_id(id, name, address, city, phone, type, is_open, notes, gps_lat, gps_lng)
         )
       `
 

@@ -136,4 +136,62 @@
       if (cta) { cta.disabled = false; cta.textContent = orig; }
     }
   };
+
+  // ---- Záložka „Posunout termín" i v DEN vyzvednutí (2026-09-20) ----
+  // Jádro (minifikované) ukazuje tab jen při _displayStatus(b)==='upcoming', což se
+  // počítá z DATUMŮ — v den začátku termínu tedy záložka zmizela, přestože motorka
+  // ještě nebyla převzatá a server (reschedule_booking_free) posun normálně pustí.
+  // Rozhoduje PŘEVZETÍ (status zůstává 'reserved', dokud zákazník nezadá kód do boxu
+  // / obsluha nepodepíše protokol), ne kalendář. Doplňujeme tab zvenčí stejnou
+  // technikou jako swap — bez zásahu do jádra.
+  var TAB = 'move';
+
+  function todayIso() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function shouldInject() {
+    var b = ER.selectedBooking;
+    if (!b || b.status !== 'reserved' || b.payment_status !== 'paid') return false;
+    var start = ER._normIso(b.start_date);
+    // Posun zdarma jen dokud termín nezačal (den začátku včetně) — po něm se
+    // nevyzvednutá rezervace řeší stornem dle podmínek (parita se serverem).
+    if (start < todayIso()) return false;
+    // Jádro tab vykresluje samo u termínů začínajících v budoucnu — pak neduplikuj.
+    return start === todayIso();
+  }
+
+  function injectTab() {
+    if (!shouldInject()) return;
+    var nav = document.querySelector('#edit-rez-app .edit-rez-tabs');
+    if (!nav) return;
+    if (nav.querySelector('.edit-rez-tab[data-tab="' + TAB + '"]')) return;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'edit-rez-tab' + (ER.tab === TAB ? ' active' : '');
+    btn.setAttribute('data-tab', TAB);
+    btn.textContent = MG.t('editRez.tab.move');
+
+    var detailBtn = nav.querySelector('.edit-rez-tab[data-tab="detail"]');
+    if (detailBtn) nav.insertBefore(btn, detailBtn.nextSibling);
+    else nav.insertBefore(btn, nav.firstChild);
+
+    btn.addEventListener('click', function () {
+      ER.tab = TAB;
+      nav.querySelectorAll('.edit-rez-tab').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      ER._renderTabMove();
+    });
+  }
+
+  function startObserver() {
+    var app = document.getElementById('edit-rez-app');
+    if (!app) { setTimeout(startObserver, 200); return; }
+    new MutationObserver(function () { injectTab(); }).observe(app, { childList: true, subtree: true });
+    injectTab();
+  }
+
+  startObserver();
 })();
