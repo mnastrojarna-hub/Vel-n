@@ -570,7 +570,7 @@ Future<String?> saveOcrToProfile(
     try {
       current = await MotoGoSupabase.client
           .from('profiles')
-          .select('license_number, license_group')
+          .select('license_number, license_group, license_expiry')
           .eq('id', user.id)
           .maybeSingle();
     } catch (e) {
@@ -624,7 +624,16 @@ Future<String?> saveOcrToProfile(
       if (result.expiryDate != null) {
         final isoExp = _czDateToIso(result.expiryDate);
         if (isoExp != null) {
-          updates['license_expiry'] = isoExp;
+          // PLATNOST ŘP ROZHODUJE ZÁKAZNÍK: `license_expiry` je jeho údaj
+          // z registrace / profilu a sken ho NEPŘEPISUJE — OCR se plete
+          // (špatně přečtený rok pak držel přístupové kódy s hláškou
+          // „ŘP propadlý"). Doplní se jen do prázdného pole.
+          // `license_verified_until` = co přečetlo OCR (záznam pro úřady,
+          // tiskne se do smlouvy) — to se ukládá vždy.
+          final curExp = (current?['license_expiry'] as String?)?.trim();
+          if (curExp == null || curExp.isEmpty) {
+            updates['license_expiry'] = isoExp;
+          }
           updates['license_verified_until'] = isoExp;
         }
       }
