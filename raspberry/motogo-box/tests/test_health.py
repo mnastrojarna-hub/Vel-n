@@ -44,7 +44,8 @@ def test_parse_mmcli_modem_garbage_and_missing():
                                                               "signal-quality": {"value": "--"}},
                                                   "3gpp": {"operator-name": "--"}}}))
     assert m == {"state": "searching", "signal_quality": None, "operator": None,
-                 "access_tech": None, "registration": None, "failed_reason": None}
+                 "access_tech": None, "registration": None, "failed_reason": None,
+                 "unlock_required": None, "unlock_retries": None}
 
 
 def test_parse_mmcli_modem_failed_reason_and_lte_error():
@@ -58,6 +59,24 @@ def test_parse_mmcli_modem_failed_reason_and_lte_error():
     assert lte_error({"state": "connected"}) is None
     assert parse_mmcli_modem(json.dumps({"modem": {"generic": {"state": "connected",
                                                                 "state-failed-reason": "none"}}}))["failed_reason"] is None
+
+
+def test_parse_mmcli_modem_sim_pin_beats_state():
+    """Zamčená SIM se po restartu modemu umí tvářit jako `searching` — rozhodovat musí `unlock-required`."""
+    locked = json.dumps({"modem": {"generic": {
+        "state": "searching", "unlock-required": "sim-pin", "unlock-retries": ["sim-pin (3)"]}}})
+    m = parse_mmcli_modem(locked)
+    assert m["state"] == "searching" and m["unlock_required"] == "sim-pin" and m["unlock_retries"] == 3
+    assert lte_error(m) == "sim_locked"      # politika obnovy se zastaví — USB reset ani reboot PIN nezadá
+
+    puk = parse_mmcli_modem(json.dumps({"modem": {"generic": {
+        "state": "locked", "unlock-required": "sim-puk", "unlock-retries": {"sim-puk": 10}}}}))
+    assert lte_error(puk) == "sim_puk" and puk["unlock_retries"] == 10
+
+    # SIM bez PINu: mmcli hlásí "--"/none → žádná chyba, obnova běží normálně
+    free = parse_mmcli_modem(json.dumps({"modem": {"generic": {"state": "connected", "unlock-required": "--"}}}))
+    assert free["unlock_required"] is None and free["unlock_retries"] is None and lte_error(free) is None
+    assert lte_error({"state": "searching"}) is None
 
 
 def test_parse_mmcli_signal():

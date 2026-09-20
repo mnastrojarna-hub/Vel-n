@@ -15,6 +15,12 @@ HINTS = {
     "dns_missing": "Bez DNS serveru nefunguje Velín — zkontrolujte profil LTE (DNS z operátora) nebo nastavte 1.1.1.1.",
     "iface_down": "Rozhraní {name} nemá adresu/spojení — zkontrolujte kabel do switche modulů a profil motogo-lan.",
     "lte": "Zkontrolujte SIM (PIN vypnutý, kredit), anténu a profil motogo-lte; stav: mmcli -m any.",
+    "sim_pin": "Vypněte PIN přímo na SIM (vložit do mobilu → Nastavení → SIM → PIN vypnout) — to je u pobočky "
+               "nejspolehlivější, modem se pak po restartu připojí sám. Jinak musí PIN sedět v profilu: "
+               "sudo nmcli con modify motogo-lte gsm.pin <PIN> && sudo nmcli con up motogo-lte. "
+               "POZOR: špatný uložený PIN po 3 pokusech SIM zablokuje a bude potřeba PUK.",
+    "sim_puk": "SIM je zablokovaná — odemkne ji jen PUK (karta/účet u operátora), v mobilu. Potom PIN rovnou "
+               "vypněte a SIM vraťte do jednotky; do profilu motogo-lte pak žádný pin= nepatří.",
     "internet": "Internet nedostupný — zkontrolujte LTE (signál, SIM) a výchozí bránu; DNS: resolvectl status.",
     "not_paired": "Spárujte jednotku ve Velíně (Pobočky → Samoobsluha → Zařízení) — report se odešle po spárování.",
     "heartbeat": "Velín neodpovídá — zkontrolujte internet a párování (token zařízení); log: journalctl -u motogo-controller.",

@@ -162,7 +162,19 @@ def _lte(r: dict) -> dict:
                                      lte.get("access_tech")) if x)
     msg = "" if ok else "ModemManager nevidí žádný modem (mmcli) — LTE nedostupné." if st == "unavailable" else \
         f"LTE modem není připojen (stav: {st}, NM: {lte.get('nm_state')})."
-    return section("lte", "LTE", [item("lte.state", "Stav LTE modemu", "ok" if ok else "fail", val or st, msg, hint("lte"))])
+    it = [item("lte.state", "Stav LTE modemu", "ok" if ok else "fail", val or st, msg, hint("lte"))]
+    # Zamčená SIM (PIN/PUK) — vlastní řádek, protože z „state: searching" ji nikdo nepozná a modem
+    # se o PIN hlásí až po restartu (Pohořelice 2026-09-19: LTE po rebootu nenaskočilo kvůli PINu).
+    err, unlock = lte.get("error"), lte.get("unlock_required")
+    if err in ("sim_locked", "sim_puk") or unlock:
+        retries = lte.get("unlock_retries")
+        puk = err == "sim_puk"
+        it.append(item("lte.sim_lock", "Zámek SIM karty", "fail",
+                       f"{unlock or err}" + (f", zbývá {retries} pokusů" if retries is not None else ""),
+                       "SIM karta je zablokovaná a čeká na PUK — PIN už ji neodemkne."
+                       if puk else "SIM karta vyžaduje PIN — modem si o něj řekne po každém restartu, takže LTE "
+                                   "po rebootu samo nenaskočí.", hint("sim_puk" if puk else "sim_pin")))
+    return section("lte", "LTE", it)
 
 
 def _internet(r: dict) -> dict:

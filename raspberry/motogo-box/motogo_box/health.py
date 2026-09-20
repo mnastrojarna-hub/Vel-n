@@ -402,8 +402,11 @@ class HealthMonitor:
             # SIM PIN / chybějící SIM: reconnect, USB reset ani reboot nepomůže → politika stojí, jen hlásit.
             actions: list[str] = []
             if error != self._lte_error:
-                log.error("LTE: modem hlásí %s (stav %s) — obnova pozastavena; PIN zadej do NM profilu "
-                          "(install.sh, MOTOGO_SIM_PIN) nebo zkontroluj SIM", error, lte.get("state"))
+                retries = lte.get("unlock_retries")
+                log.error("LTE: modem hlásí %s (stav %s, unlock %s%s) — obnova pozastavena; nejlépe PIN na SIM "
+                          "VYPNOUT, jinak ho ulož do profilu motogo-lte (install.sh, MOTOGO_SIM_PIN)",
+                          error, lte.get("state"), lte.get("unlock_required"),
+                          f", zbývá {retries} pokusů" if retries is not None else "")
         else:
             actions = self.policy.step(internet, uptime if uptime is not None else 0.0)
         self._lte_error = error
