@@ -193,3 +193,26 @@ Odběr IBFM 9500 není doložený — hodnotu pojistky **neodhadovat**:
 - [ ] LTE watchdog vyzkoušen (vyjmout anténu → `journalctl -u motogo-health` ukáže reconnect)
 - [ ] Rozvaděč: oddělené 230 V / SELV, PE, popisky všech kabelů a svorek, větrání, zakrytovaný zesilovač
 - [ ] Hudba nahrána ve Velíně (Samoobsluha → „Hudba pobočky“, přiřazená kójím / šatně / venku, žádný cíl „0 — nehraje nic“) a jednotka hlásí „Jednotka: n/n staženo“ (`/var/lib/motogo/music/tracks`); servisní heslo nastaveno ve Velíně a vyzkoušeno na displeji
+
+## Známá závada: SIM7600E-H zamrzá na USB (`Unexpected error -71`)
+
+Pohořelice, 2026-09-20 (firmware `LE20B04SIM7600M22` / `SIM7600M22_V2.0.1`, Vodafone CZ 230-03,
+EUTRAN band 20, RSRP −101 dBm, RSRQ −8,6 dB, SNR 15 — signál slabší, ale použitelný):
+
+Síť pošle `network reject: implicitly-detached` a ve stejné sekundě kernel hlásí
+`qmi_wwan 1-1:1.5: Unexpected error -71`. Modem zůstane na USB (`lsusb` ho vidí, `ttyUSB0-4` existují),
+ale QMI kanál je mrtvý → ModemManager „port cdc-wdm0 no longer controllable" → „modem is unusable",
+`mmcli -L` prázdné, NM dá cdc-wdm0 do unmanaged. Opakuje se po ~10–12 minutách provozu.
+
+**Vyloučené příčiny:** napájení (EXT5V 5,12 V, `throttled=0x0`, `usb_max_current_enable=1`),
+USB autosuspend (`power/control=on`), spánek modemu (`AT+CSCLK?` = 0), PIN SIM (trvale vypnutý).
+Modul, SIM i anténa ověřeny samostatně na PC (registrace LTE, CSQ 17). Mód modemu
+`AT+CUSBPIDSWITCH?` = 9001 (QMI), `AT+CNMP?` = 2 (auto).
+
+**Obnova (ověřená ručně, dělá ji `motogo-usbreset`):** unbind/bind portu `1-1` → počkat na
+re-enumeraci (~20 s) → `systemctl restart ModemManager` → počkat až 60 s, než MM modem nasonduje.
+Bez restartu MM skončí spojení v PPP fallbacku na `ttyUSB2`.
+
+**Netestované hypotézy k dalšímu ladění:** (a) jiný fyzický USB port Pi 5 nebo jiný kabel,
+(b) přepnout modem z QMI na MBIM/ECM (`AT+CUSBPIDSWITCH`) — vyžaduje i jiný NM profil, nejdřív na dev Pi,
+(c) chování QMI klienta v jádře vs. firmware modemu při „implicitly-detached".

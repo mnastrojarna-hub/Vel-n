@@ -182,6 +182,11 @@ if ! command -v unattended-upgrade >/dev/null 2>&1; then
   fi
 fi
 
+# ── provizorní watchdog LTE z 2026-09-20 pryč (obnovu umí motogo-health sám; dva by si překážely) ──
+for f in /etc/cron.d/motogo-lte-tmpwatch /usr/local/sbin/motogo-lte-tmpwatch; do
+  [[ -e "$f" ]] && rm -f "$f" && log "odstraněno provizorium $f"
+done
+
 # ── skupina pro čtení logů (servisní terminál §27) — boxy instalované dřív ji nemají ────
 if getent group systemd-journal >/dev/null && ! id -nG "$APP_USER" 2>/dev/null | tr ' ' '\n' | grep -qx systemd-journal; then
   usermod -a -G systemd-journal "$APP_USER" && log "uživatel $APP_USER přidán do skupiny systemd-journal"

@@ -50,10 +50,13 @@ health:
   nm_connection: motogo-lte
   modem_vid_pid: "1e0e:9001"      # SIM7600E-H
   usb_reset_script: /usr/local/sbin/motogo-usbreset
-  reconnect_after: 5              # neúspěšných kontrol internetu → nmcli con up
-  usb_reset_after: 5              # neúspěšných reconnectů → USB reset modemu
+  reconnect_after: 3              # neúspěšných kontrol internetu → nmcli con up
+  usb_reset_after: 2              # neúspěšných reconnectů → mmcli --reset, pak USB reset modemu
+  missing_modem_after: 2          # sond bez modemu v ModemManageru (ale na USB je) → rovnou USB reset
   reboot_after: 3                 # USB resetů bez obnovy → reboot (max 1× za min_uptime_before_reboot_s)
   min_uptime_before_reboot_s: 1800
+  action_cooldown_s: 120          # po akci se jen sonduje (USB reset + restart ModemManageru trvá ~90 s)
+  usb_reset_timeout_s: 180        # limit běhu motogo-usbreset (čeká na re-enumeraci i na ModemManager)
   lan_connection: motogo-lan      # I/O síť (SPEC §4): profil, který health nahodí, když eth0 nemá adresu
   lan_interface: eth0
   lan_recover_s: 300              # jak často nejvýš zkusit `nmcli con up` (0 = neopravovat, jen hlásit)

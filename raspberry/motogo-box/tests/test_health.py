@@ -11,8 +11,8 @@ from motogo_box.config import HealthCfg
 from motogo_box import health as health_mod
 from motogo_box.health import HealthMonitor, LtePolicy, lte_error, run_cmd
 from motogo_box.health_probe import (
-    disk_free_pct, mem_free_pct, parse_meminfo, parse_mmcli_modem, parse_mmcli_signal,
-    parse_nmcli_connection, parse_throttled, read_cpu_temp,
+    disk_free_pct, mem_free_pct, modem_gone, parse_meminfo, parse_mmcli_modem, parse_mmcli_signal,
+    parse_nmcli_connection, parse_throttled, read_cpu_temp, usb_device_present,
 )
 
 MMCLI_MODEM = json.dumps({"modem": {
@@ -130,17 +130,18 @@ class FakeClock:
 
 
 def _cfg(**kw) -> HealthCfg:
+    # `action_cooldown_s=0`: žebříček se testuje bez čekání, cooldown má vlastní testy níž.
     base = dict(check_interval_s=30, reconnect_after=5, usb_reset_after=5, reboot_after=3,
-                min_uptime_before_reboot_s=1800)
+                min_uptime_before_reboot_s=1800, action_cooldown_s=0)
     base.update(kw)
     return HealthCfg(**base)
 
 
-def _drive(policy: LtePolicy, failures: int, uptime: float) -> list[str]:
+def _drive(policy: LtePolicy, failures: int, uptime: float, *, gone: bool = False) -> list[str]:
     """Nechá politiku projít `failures` neúspěšnými kroky a vrátí všechny vydané akce."""
     out: list[str] = []
     for _ in range(failures):
-        out += policy.step(False, uptime)
+        out += policy.step(False, uptime, modem_gone=gone)
     return out
 
 
@@ -156,29 +157,37 @@ def test_policy_online_resets_everything():
     assert _drive(p, 1, 100.0) == ["reconnect"]
 
 
-def test_policy_ladder_reconnect_usb_reset_reboot():
+def test_policy_ladder_reconnect_modem_reset_usb_reset_reboot():
     p = LtePolicy(_cfg(), FakeClock())
     actions = _drive(p, 5 * 5, 5000.0)          # 5 reconnectů
     assert actions == ["reconnect"] * 5
     assert p.reconnects == 5 and p.reconnect_failures == 5 and p.usb_resets == 0
-    assert _drive(p, 5, 5000.0) == ["usb_reset"]  # 6. dávka → USB reset
+    # 6. dávka → nejdřív levnější reset modemu (modem v MM je), teprve pak USB reset
+    assert _drive(p, 5, 5000.0) == ["modem_reset"]
+    assert p.modem_resets == 1 and p.usb_resets == 0 and p.modem_reset_done is True
+    # když ani reset modemu nepomohl, jde USB reset hned další dávkou — ne po dalších pěti reconnectech
+    assert _drive(p, 5, 5000.0) == ["usb_reset"]
     assert p.usb_resets == 1 and p.reconnect_failures == 0 and p.usb_resets_pending == 1
-    # další dva cykly (5 reconnectů + reset) → 3 resety
+    # mmcli reset se v jednom výpadku zkouší jen jednou → další dvě dávky končí USB resetem
     for _ in range(2):
         a = _drive(p, 30, 5000.0)
-        assert a.count("reconnect") == 5 and a.count("usb_reset") == 1
+        assert a.count("reconnect") == 5 and a.count("usb_reset") == 1 and "modem_reset" not in a
     assert p.usb_resets == 3 and p.usb_resets_pending == 3
     # hned další výpadek s dostatečným uptime → reboot; počítadla obnovy vynulovaná
     assert p.step(False, 5000.0) == ["reboot"]
     assert p.reboots == 1 and p.usb_resets_pending == 0 and p.reconnect_failures == 0
     assert p.last_action == "reboot"
+    assert p.counts_24h() == {"reconnect": 15, "modem_reset": 1, "usb_reset": 3, "reboot": 1}
 
 
 def test_policy_no_reboot_before_min_uptime():
     p = LtePolicy(_cfg(), FakeClock())
-    _drive(p, 30 * 3, 100.0)
-    assert p.usb_resets_pending == 3
-    # uptime 100 s < 1800 s → místo rebootu pokračuje žebříček (reconnecty)
+    for _ in range(500):              # uptime 100 s < 1800 s → reboot se nesmí spustit ani po 3 resetech
+        if p.usb_resets_pending >= 3:
+            break
+        p.step(False, 100.0)
+    assert p.usb_resets_pending == 3 and p.reboots == 0
+    # žebříček pokračuje dál (další dávka → reconnect), pořád bez rebootu
     assert _drive(p, 5, 100.0) == ["reconnect"]
     assert p.reboots == 0
     # jakmile uptime dovolí, další výpadek → reboot
@@ -188,9 +197,11 @@ def test_policy_no_reboot_before_min_uptime():
 def test_policy_recovery_after_usb_reset_clears_pending():
     p = LtePolicy(_cfg(reconnect_after=1, usb_reset_after=1, reboot_after=2), FakeClock())
     assert p.step(False, 5000.0) == ["reconnect"]
+    assert p.step(False, 5000.0) == ["modem_reset"]
     assert p.step(False, 5000.0) == ["usb_reset"]
     assert p.step(True, 5000.0) == []
     assert p.usb_resets_pending == 0 and p.usb_resets == 1   # lifetime počítadlo zůstává
+    assert p.modem_reset_done is False                       # po návratu internetu se mmcli reset smí znovu
 
 
 def test_policy_persist_roundtrip():
@@ -200,9 +211,75 @@ def test_policy_persist_roundtrip():
     q = LtePolicy(_cfg(), FakeClock(60.0))
     q.load(d)
     assert q.to_dict() == d
-    q.load({"reconnects": "x", "usb_resets": -4, "last_online": "??"})
+    q.load({"reconnects": "x", "usb_resets": -4, "last_online": "??", "history": "nesmysl"})
     assert q.reconnects == 5 and q.usb_resets == 0 and q.last_online is None   # vadné ignoruje, záporné ořeže
+    assert q.history == []
     q.load(None)
+
+
+def test_policy_modem_gone_skips_reconnects():
+    """Modem zmizel z ModemManageru (ale na USB je): `nmcli con up` vrací „No suitable device found",
+    takže se reconnecty přeskočí a po 2 sondách (~1 min) jde rovnou USB reset."""
+    p = LtePolicy(_cfg(), FakeClock())
+    assert p.step(False, 5000.0, modem_gone=True) == []          # 1. sonda
+    assert p.step(False, 5000.0, modem_gone=True) == ["usb_reset"]
+    assert p.reconnects == 0 and p.usb_resets == 1 and p.usb_resets_pending == 1
+    # po třech resetech (a dostatečném uptime) přijde reboot i v tomhle režimu
+    assert _drive(p, 2, 5000.0, gone=True) == ["usb_reset"]
+    assert _drive(p, 2, 5000.0, gone=True) == ["usb_reset"]
+    assert p.step(False, 5000.0, modem_gone=True) == ["reboot"]
+    assert p.counts_24h() == {"reconnect": 0, "modem_reset": 0, "usb_reset": 3, "reboot": 1}
+
+
+def test_policy_modem_gone_but_usb_empty_uses_normal_ladder():
+    """Modem není ani na USB → `modem_gone=False` (reset nemá co resetovat) → běžný žebříček."""
+    p = LtePolicy(_cfg(reconnect_after=1), FakeClock())
+    assert p.step(False, 5000.0, modem_gone=False) == ["reconnect"]
+
+
+def test_policy_cooldown_blocks_actions_until_it_passes():
+    """Po akci se jen sonduje — USB reset s restartem ModemManageru trvá ~90 s."""
+    clock = FakeClock()
+    p = LtePolicy(_cfg(reconnect_after=1, usb_reset_after=1, action_cooldown_s=120), clock)
+    assert p.step(False, 5000.0) == ["reconnect"]
+    clock.advance(30)
+    assert p.step(False, 5000.0) == []            # cooldown běží
+    clock.advance(30)
+    assert p.step(False, 5000.0) == []
+    clock.advance(61)                              # 121 s od akce
+    assert p.step(False, 5000.0) == ["modem_reset"]
+
+
+def test_counts_24h_forgets_older_entries():
+    clock = FakeClock(1_000_000.0)
+    p = LtePolicy(_cfg(reconnect_after=1), clock)
+    p.step(False, 5000.0)
+    assert p.counts_24h()["reconnect"] == 1
+    clock.advance(86400 + 60)
+    assert p.counts_24h() == {"reconnect": 0, "modem_reset": 0, "usb_reset": 0, "reboot": 0}
+    assert p.reconnects == 1                       # celkové počítadlo zůstává
+
+
+# ─── detekce modemu na USB ───────────────────────────────────────────────────
+def test_usb_device_present(tmp_path):
+    base = tmp_path / "usb"
+    (base / "1-1").mkdir(parents=True)
+    (base / "1-1" / "idVendor").write_text("1e0e\n")
+    (base / "1-1" / "idProduct").write_text("9001\n")
+    (base / "usb1").mkdir()                        # zařízení bez id souborů se přeskočí
+    assert usb_device_present("1e0e:9001", str(base)) is True
+    assert usb_device_present("1E0E:9001", str(base)) is True      # velikost písmen nerozhoduje
+    assert usb_device_present("dead:beef", str(base)) is False
+    assert usb_device_present("nesmysl", str(base)) is None
+    assert usb_device_present("1e0e:9001", str(tmp_path / "nic")) is None
+
+
+def test_modem_gone_rules():
+    assert modem_gone({"state": "no_modem"}, True) is True
+    assert modem_gone({"state": "unavailable"}, None) is True      # o USB nevíme → radši resetovat
+    assert modem_gone({"state": "no_modem"}, False) is False       # na sběrnici není → reset nemá co dělat
+    assert modem_gone({"state": "connected"}, True) is False
+    assert modem_gone({"state": "searching"}, True) is False       # modem MM má, jen se nepřipojil
 
 
 # ─── monitor s falešným prostředím ───────────────────────────────────────────
@@ -292,6 +369,9 @@ async def test_cycle_failures_run_actions_without_real_sudo(tmp_path):
     assert p1["actions"] == ["reconnect"]
     assert ("sudo", "-n", "nmcli", "con", "down", "motogo-lte") in env.cmds
     assert ("sudo", "-n", "nmcli", "-w", "30", "con", "up", "motogo-lte") in env.cmds
+    pm = await mon.cycle()
+    assert pm["actions"] == ["modem_reset"]
+    assert ("sudo", "-n", "mmcli", "-m", "any", "--reset") in env.cmds
     p2 = await mon.cycle()
     assert p2["actions"] == ["usb_reset"]
     # sudoers povoluje skript jen BEZ argumentů (VID:PID čte z /etc/motogo/modem_vidpid)

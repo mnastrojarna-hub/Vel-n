@@ -7,6 +7,9 @@
 #          3) výchozí 1e0e:9001.
 # Postup: najde zařízení v /sys/bus/usb/devices podle idVendor/idProduct, unbind + bind
 # přes /sys/bus/usb/drivers/usb; záloha: authorized 0/1 JEN na tom zařízení (vynutí re-enumeraci).
+# Pak počká na re-enumeraci, RESTARTUJE ModemManager a počká, až modem uvidí (ověřený ruční postup
+# z 2026-09-20 — bez restartu MM skončí v PPP fallbacku na ttyUSB2). Celý běh trvá až ~90 s,
+# proto health volá skript s timeoutem `usb_reset_timeout_s` (180 s) a drží cooldown.
 # Modem, který na sběrnici vůbec není, se NEřeší resetem celé USB (odpojilo by to dotyk EDATEC
 # a USB zvukovou kartu) — skript skončí kódem 3 a politika health eskaluje na reboot.
 # Stav (sysfs port z posledního nálezu) leží v /run/motogo-usbreset/ (root, tmpfs) — nikdy
@@ -97,9 +100,49 @@ if (( found == 0 )); then
   fi
   exit 3
 fi
-# Modem se po resetu znovu enumeruje ~10–20 s; ModemManager + NM (autoconnect) LTE obnoví sami.
-sleep 10
-if command -v mmcli >/dev/null 2>&1; then
-  log "stav ModemManageru: $(mmcli -L 2>&1 | tr -s ' \n' ' ' | cut -c1-160)"
+# ── po resetu: počkat na re-enumeraci a PŘEKOPNOUT ModemManager ──────────────
+# Ověřeno na pobočce (2026-09-20): po samotném unbind/bind ModemManager cdc-wdm0 neuchopí
+# („unhandled port type") a spojí se náhradně přes PPP na ttyUSB2 — pomalé a nestabilní.
+# Teprve restart MM ho nechá nasondovat QMI (primary port cdc-wdm0) a NM pak sám nahodí motogo-lte.
+if (( ok == 0 )); then
+  log "reset se nepovedl u žádné instance modemu"
+  exit 1
 fi
-(( ok > 0 )) && exit 0 || exit 1
+
+wait_for() {  # wait_for <sekundy> <popis> <příkaz…> — čeká, než příkaz uspěje
+  local deadline=$(( SECONDS + $1 )) desc="$2"; shift 2
+  while (( SECONDS < deadline )); do
+    "$@" >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  log "UPOZORNĚNÍ: $desc se nedostavil do ${deadline} s"
+  return 1
+}
+
+# 1) re-enumerace USB (cdc-wdm* nebo ttyUSB* — co se objeví dřív), max 20 s
+wait_for 20 "re-enumerace modemu" bash -c 'compgen -G "/dev/cdc-wdm*" >/dev/null || compgen -G "/dev/ttyUSB*" >/dev/null' || true
+
+# 2) restart ModemManageru — bez něj zůstane MM v PPP fallbacku
+if command -v systemctl >/dev/null 2>&1; then
+  if systemctl restart ModemManager 2>>"$LOG"; then
+    log "ModemManager restartován"
+  else
+    log "UPOZORNĚNÍ: restart ModemManageru selhal"
+  fi
+fi
+
+# 3) čekat, až MM modem uvidí (sondování trvá i ~45 s)
+if command -v mmcli >/dev/null 2>&1; then
+  if wait_for 60 "modem v ModemManageru" bash -c 'mmcli -L 2>/dev/null | grep -q Modem'; then
+    port="$(mmcli -m any 2>/dev/null | grep -i 'primary port' | head -n1 | sed 's/.*: *//' | tr -d ' ')"
+    log "ModemManager vidí modem, primary port: ${port:-?}"
+    case "$port" in
+      cdc-wdm*) : ;;   # QMI, správně
+      "")       log "UPOZORNĚNÍ: primary port se nepodařilo zjistit" ;;
+      *)        log "UPOZORNĚNÍ: primary port $port (ne cdc-wdm) — MM jede v PPP fallbacku, LTE bude pomalé" ;;
+    esac
+  else
+    log "UPOZORNĚNÍ: ModemManager modem nenašel ani po 60 s"
+  fi
+fi
+exit 0

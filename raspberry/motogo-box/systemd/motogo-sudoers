@@ -17,7 +17,7 @@ Defaults:motogo env_reset
 Cmnd_Alias MOTOGO_POWER   = /usr/bin/systemctl reboot
 Cmnd_Alias MOTOGO_SERVICE = /usr/bin/systemctl restart motogo-controller, /usr/bin/systemctl restart motogo-health, /usr/bin/systemctl restart motogo-ui, /usr/bin/systemctl restart motogo-controller motogo-health
 Cmnd_Alias MOTOGO_SCRIPTS = /usr/local/sbin/motogo-usbreset "", /usr/local/sbin/motogo-update "", /usr/local/sbin/motogo-sysupdate ""
-Cmnd_Alias MOTOGO_LTE     = /usr/bin/nmcli -w 30 con up motogo-lte, /usr/bin/nmcli con up motogo-lte, /usr/bin/nmcli con down motogo-lte, /usr/bin/mmcli -m any --signal-setup=30
+Cmnd_Alias MOTOGO_LTE     = /usr/bin/nmcli -w 30 con up motogo-lte, /usr/bin/nmcli con up motogo-lte, /usr/bin/nmcli con down motogo-lte, /usr/bin/mmcli -m any --signal-setup=30, /usr/bin/mmcli -m any --reset
 # I/O síť: health smí profil `motogo-lan` jen NAHODIT (žádné `con down` — to by shodilo funkční LAN
 # a moduly by přestaly odpovídat). Argumenty jsou přibité včetně `-w 20` (health.LAN_UP_WAIT_S).
 Cmnd_Alias MOTOGO_LAN     = /usr/bin/nmcli -w 20 con up motogo-lan
