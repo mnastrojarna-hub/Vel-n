@@ -64,12 +64,20 @@ def parse_mmcli_modem(text: str) -> dict:
     """Z `mmcli -m any -J` vytáhne stav, kvalitu signálu, operátora a technologii.
 
     Vrací `{"state": str, "signal_quality": int|None, "operator": str|None,
-    "access_tech": str|None, "registration": str|None, "failed_reason": str|None}`;
+    "access_tech": str|None, "registration": str|None, "failed_reason": str|None,
+    "unlock_required": str|None, "unlock_retries": int|None}`;
     nečitelný vstup → state `unknown`. `failed_reason` = mmcli `state-failed-reason`
     (`sim-missing`, `sim-error`, …) — health podle něj pozná, že obnova LTE nemá smysl.
+
+    `unlock_required` (mmcli `unlock-required`: `sim-pin`, `sim-puk`, …) se čte ZVLÁŠŤ od `state`:
+    SIM si o PIN řekne jen při startu modemu, takže se to projeví až po restartu — a modem se přitom
+    umí tvářit jako `searching` místo `locked` (Pohořelice 2026-09-19: LTE po rebootu nenaskočilo,
+    na displeji svítilo jen „searching“ a skutečnou příčinu — zamčenou SIM — nikdo nepoznal).
+    `unlock_retries` = kolik pokusů o PIN zbývá (po vyčerpání je potřeba PUK).
     """
     out: dict[str, Any] = {"state": "unknown", "signal_quality": None, "operator": None,
-                           "access_tech": None, "registration": None, "failed_reason": None}
+                           "access_tech": None, "registration": None, "failed_reason": None,
+                           "unlock_required": None, "unlock_retries": None}
     data = _load_json(text)
     if data is None:
         return out
@@ -90,7 +98,26 @@ def parse_mmcli_modem(text: str) -> dict:
     reason = generic.get("state-failed-reason")
     if isinstance(reason, str) and reason.strip().lower() not in ("", "--", "none"):
         out["failed_reason"] = reason.strip().lower()
+    unlock = generic.get("unlock-required")
+    if isinstance(unlock, str) and unlock.strip().lower() not in ("", "--", "none"):
+        out["unlock_required"] = unlock.strip().lower()
+        out["unlock_retries"] = _unlock_retries(generic.get("unlock-retries"), out["unlock_required"])
     return out
+
+
+def _unlock_retries(raw: Any, kind: str) -> int | None:
+    """Počet zbývajících pokusů z mmcli `unlock-retries` (`["sim-pin (3)"]`, případně dict/číslo)."""
+    items: list[Any] = raw if isinstance(raw, list) else [raw] if raw is not None else []
+    if isinstance(raw, dict):
+        items = [f"{k} ({v})" for k, v in raw.items()]
+    for entry in items:
+        text = str(entry).strip().lower()
+        if kind not in text:
+            continue
+        digits = "".join(ch for ch in text.split("(")[-1] if ch.isdigit())
+        if digits:
+            return int(digits)
+    return None
 
 
 def parse_mmcli_signal(text: str) -> dict:
@@ -117,10 +144,20 @@ def parse_mmcli_signal(text: str) -> dict:
 
 
 SIM_FAILED_REASONS = {"sim-missing": "sim_missing", "sim-error": "sim_error"}
+# mmcli `unlock-required` → chyba; PUK je zvlášť, protože ho žádný uložený PIN nevyřeší (nutný zásah u operátora)
+SIM_UNLOCK_ERRORS = {"sim-pin": "sim_locked", "sim-pin2": "sim_locked",
+                     "sim-puk": "sim_puk", "sim-puk2": "sim_puk"}
 
 
 def lte_error(modem: dict) -> str | None:
-    """`sim_locked` (PIN), `sim_missing`/`sim_error` — stavy, kdy reconnect/USB reset/reboot nepomůže."""
+    """`sim_locked` (PIN), `sim_puk`, `sim_missing`/`sim_error` — kdy reconnect/USB reset/reboot nepomůže.
+
+    `unlock_required` má přednost před `state`: zamčená SIM se po restartu modemu umí tvářit
+    jako `searching`, a pak by politika zbytečně resetovala modem a nakonec rebootovala box.
+    """
+    unlock = SIM_UNLOCK_ERRORS.get(str(modem.get("unlock_required") or ""))
+    if unlock:
+        return unlock
     state = modem.get("state")
     if state == "locked":
         return "sim_locked"

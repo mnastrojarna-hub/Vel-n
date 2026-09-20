@@ -681,6 +681,11 @@ nm_connection ('motogo-lte'), modem_vid_pid ('1e0e:9001'), usb_reset_script, rec
 usb_reset_after, reboot_after, min_uptime_before_reboot_s, lan_connection ('motogo-lan'),
 lan_interface ('eth0'), lan_recover_s (300)`.
 
+**`health.lte` (2026-09-20):** navíc `unlock_required` (mmcli `unlock-required`: `sim-pin`, `sim-puk`, …) a
+`unlock_retries` (zbývající pokusy). `lte_error()` je bere PŘED `state` → `sim_locked` / `sim_puk`, takže
+politika obnovy stojí i tehdy, když se zamčený modem tváří jako `searching` (po restartu si SIM řekne o PIN).
+Protokol diagnostiky má vlastní řádek „Zámek SIM karty“ s radou (`sim_pin` / `sim_puk` v `diag_hints`).
+
 **`health.lan` (NEW 2026-09-20)** = `{interface, state, ipv4, ok, problem, action}` — hlídka I/O sítě.
 `problem`: `no_link` (rozhraní bez linku — mrtvý kabel / vypnutý switch / vadný port; software to neopraví,
 jen hlásí), `no_address` (link je, ale chybí IPv4 → jednotka zkusí `nmcli con up motogo-lan`, `action` =
