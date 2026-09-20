@@ -96,8 +96,12 @@ def issue_token(ctrl: "BoxController") -> str | None:
             tokens = ctrl.shell_tokens = {}
         except Exception:  # noqa: BLE001 — controller bez tohoto atributu (starší/omezená instance)
             return None
+    now = time.time()
+    for t, exp in list(tokens.items()):
+        if exp <= now:
+            tokens.pop(t, None)        # ať se prošlé tokeny nehromadí (kód se zadává často)
     token = secrets.token_urlsafe(24)
-    tokens[token] = time.time() + TOKEN_MINUTES * 60
+    tokens[token] = now + TOKEN_MINUTES * 60
     return token
 
 
@@ -180,6 +184,7 @@ async def run(ctrl: "BoxController", *, preset_id: str | None = None,
     Vrací `{ok, rc, output, truncated, label, free_s}`; chyba → `{ok:false, error}`
     (`unknown_preset` | `invalid_arg` | `locked` | `empty`).
     """
+    auth = "service_code" if service else "diag_code"
     if preset_id:
         preset = _BY_ID.get(str(preset_id).strip())
         if preset is None:
@@ -188,16 +193,19 @@ async def run(ctrl: "BoxController", *, preset_id: str | None = None,
         if preset.get("arg"):
             value = str(arg or "").strip()
             if not _arg_ok(value):
+                await _rejected(ctrl, f"{preset['label']} (parametr)", preset_id, "invalid_arg", auth)
                 return {"ok": False, "error": "invalid_arg"}
             argv = [value if a == "{arg}" else a for a in argv]
         label, shown, shell_text = preset["label"], " ".join(argv), None
     else:
         text = str(command or "").strip()
         if not text:
-            return {"ok": False, "error": "empty"}
+            return {"ok": False, "error": "empty"}   # prázdné pole: nic se nestalo, není co auditovat
         if not service and free_seconds(ctrl) <= 0:
             # Diagnostický kód sám na volné psaní nestačí — potřebuje odemčení z Velína.
             # Servisní heslo (`service=True`) ho má rovnou, aby šel terminál použít i offline.
+            # Odmítnutý pokus se ZAPISUJE: ve Velíně má být vidět, že někdo zkoušel psát příkazy.
+            await _rejected(ctrl, text, None, "locked", auth)
             return {"ok": False, "error": "locked"}
         argv, label, shown, shell_text = [], "volný příkaz", text, text
 
@@ -206,10 +214,21 @@ async def run(ctrl: "BoxController", *, preset_id: str | None = None,
     took_ms = int((time.monotonic() - started) * 1000)
     truncated = len(output) > OUTPUT_LIMIT
     output = output[:OUTPUT_LIMIT] + ("\n… (výstup zkrácen)" if truncated else "")
-    await _audit(ctrl, shown, preset_id, rc, output, took_ms,
-                 "service_code" if service else "diag_code")
+    await _audit(ctrl, shown, preset_id, rc, output, took_ms, auth)
     return {"ok": rc == 0, "rc": rc, "output": output, "truncated": truncated,
             "label": label, "command": shown, "took_ms": took_ms, "free_s": free_seconds(ctrl)}
+
+
+async def _rejected(ctrl: "BoxController", shown: str, preset_id: str | None,
+                    error: str, auth: str) -> None:
+    """Odmítnutý pokus (zamčené volné psaní, nesmyslný parametr) — do `kiosk_logs` jako varování."""
+    try:
+        await ctrl.emit(Event(
+            kind=EventKind.SHELL, level="warn", success=False,
+            message=f"Servisní terminál ODMÍTNUT ({error}): {shown[:200]}",
+            detail={"preset": preset_id, "free_text": preset_id is None, "error": error, "auth": auth}))
+    except Exception:  # noqa: BLE001
+        log.exception("Audit odmítnutého pokusu selhal")
 
 
 async def _audit(ctrl: "BoxController", shown: str, preset_id: str | None,

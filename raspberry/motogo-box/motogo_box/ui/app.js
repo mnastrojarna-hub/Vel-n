@@ -209,7 +209,9 @@ window.MG = window.MG || {};
       return;
     }
     if (res.kind === 'service') { hideStatus(); MG.Panel.show(res.service_token); return; }
-    if (res.kind === 'diagnostics') { hideStatus(); MG.Diag.open({ started: true }); return; }
+    // `shell_token` (§27) musí projít dál — bez něj by se po zadání diagnostického kódu na klávesnici
+    // neukázalo tlačítko „⌨ Terminál", tedy přesně v situaci, kvůli které terminál vznikl.
+    if (res.kind === 'diagnostics') { hideStatus(); MG.Diag.open({ started: true, shellToken: res.shell_token }); return; }
     const z = res.zone != null ? (S.state && (S.state.zones || []).find((x) => x.zone === res.zone)) : null;
     const name = z ? MG.i18n.zoneName(z) : (res.kind === 'accessories' ? MG.i18n.t('acc') : MG.i18n.t('opened'));
     showStatus('success', MG.i18n.t('opened'), (cz && res.message) || MG.i18n.successSubtitle(res.kind, name), true);
