@@ -89,6 +89,17 @@ async def test_free_text_needs_unlock(ctrl):
     res = await shell.run(ctrl, command="echo ahoj")
     assert res["ok"] is True and res["output"].strip() == "ahoj" and res["free_s"] > 0
     assert ctrl.events[-1].detail["free_text"] is True and "echo ahoj" in ctrl.events[-1].message
+    assert ctrl.events[-1].detail["auth"] == "diag_code"
+
+
+async def test_service_password_writes_freely_offline(ctrl):
+    """Servisní heslo (`service=True`) nepotřebuje Velín — terminál musí fungovat i na offline pobočce."""
+    assert shell.state(ctrl)["free"] is False            # nic odemčeného z Velína
+    res = await shell.run(ctrl, command="echo offline", service=True)
+    assert res["ok"] is True and res["output"].strip() == "offline"
+    assert ctrl.events[-1].detail["auth"] == "service_code"
+    # diagnostický kód na tomtéž boxu volné psaní pořád nemá
+    assert (await shell.run(ctrl, command="echo ne"))["error"] == "locked"
 
 
 async def test_free_text_reports_failures_and_trims_output(ctrl):

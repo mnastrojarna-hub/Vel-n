@@ -350,12 +350,16 @@ async def test_service_shell(env):
     assert any(p["id"] == "net.addr" for p in body["menu"])
     assert all("argv" not in p for p in body["menu"])
 
-    # volné psaní bez odemčení neprojde ani s platným tokenem
-    r = await client.post("/api/service/shell", json={"service_token": SERVICE_TOKEN, "command": "echo ne"})
-    assert (await r.json())["error"] == "locked"
+    # servisní heslo smí volné psaní i bez odemčení z Velína (offline pobočka)
+    r = await client.post("/api/service/shell", json={"service_token": SERVICE_TOKEN, "command": "echo ahoj"})
+    body = await r.json()
+    assert body["ok"] is True and body["service"] is True and body["output"].strip() == "ahoj"
 
-    # token terminálu z diagnostického kódu funguje místo servisního tokenu
+    # token terminálu z diagnostického kódu volné psaní NEMÁ, dokud ho nepovolí Velín
     token = shell.issue_token(ctrl)
+    r = await client.post("/api/service/shell", json={"shell_token": token, "command": "echo ne"})
+    body = await r.json()
+    assert body["error"] == "locked" and body["service"] is False
     r = await client.post("/api/service/shell", json={"shell_token": token, "preset": "sys.disk"})
     body = await r.json()
     assert body["ok"] is True and body["rc"] == 0

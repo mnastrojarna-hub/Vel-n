@@ -1154,7 +1154,15 @@ klávesnicí připojenou k Raspberry). Displej ji proto nabízí sám — ve dvo
 | úroveň | kdy | co spustí |
 |---|---|---|
 | **připravené příkazy** (`shell.PRESETS`) | vždy po zadání diagnostického kódu / servisního hesla | pevné `argv`, BEZ shellu (`ip`, `nmcli`, `mmcli`, `systemctl`, `journalctl`, `ping`, nahození `motogo-lan`/`motogo-lte`, USB reset, restart služeb, reboot) |
-| **volné psaní** | jen když ho Velín odemkl příkazem `shell_unlock` (5–240 min, výchozí 30) | `bash -c <text>` pod uživatelem `motogo` |
+| **volné psaní** | po zadání **servisního hesla** (i OFFLINE), nebo když ho Velín odemkl příkazem `shell_unlock` (5–240 min, výchozí 30) — samotný diagnostický kód nestačí | `bash -c <text>` pod uživatelem `motogo` |
+
+**Offline je hlavní případ použití (rozhodnutí uživatele 2026-09-20).** Terminál je potřeba přesně tehdy,
+když pobočka nevidí Velín — příkaz `shell_unlock` by tam nikdy nedorazil. Servisní heslo se proto počítá
+jako oprávnění samo o sobě: ověří se i offline z HMAC cache (nejvýš 3 dny bez synchronizace,
+`SERVICE_CACHE_MAX_AGE_S`) a kdo ho zná, už teď umí servisním panelem otevřít každou kóji, takže shell
+BEZ rootu jeho oprávnění nerozšiřuje. Když je pobočka offline déle než 3 dny (cache hesel propadla),
+zůstává lokální `diagnostics.code` a s ním **připravené příkazy** — a ty obnovu sítě pokrývají
+(`nmcli con up motogo-lan`/`motogo-lte`, `mmcli`, USB reset, restart služeb, reboot, `journalctl`).
 
 ```python
 menu() -> list[dict]                      # nabídka pro displej — BEZ argv
@@ -1176,7 +1184,8 @@ metaznak. Displej posílá `preset` (id), nikdy `argv`.
 heslo) používá svůj `service_token`.
 
 **Endpoint** `POST /api/service/shell` `{service_token|shell_token, preset?, arg?, command?}`;
-bez `preset`/`command` vrátí `{ok, menu, free, free_s}`. Limity: `CMD_TIMEOUT_S` 25 s (pak `rc=124`),
+bez `preset`/`command` vrátí `{ok, menu, service, free, free_s}` (`service` = přihlášeno servisním
+heslem → volné psaní i bez `free`). Limity: `CMD_TIMEOUT_S` 25 s (pak `rc=124`),
 výstup `OUTPUT_LIMIT` 8000 znaků na displej a 2000 do logu.
 
 **Audit:** každé spuštění → `EventKind.SHELL` → `kiosk_logs` (`source='shell'`, level `warn` při nenulovém
