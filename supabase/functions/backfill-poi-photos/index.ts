@@ -117,8 +117,59 @@ async function getJson(url: string): Promise<Record<string, unknown> | null> {
   }
 }
 
-type Poi = { id: string; name: string; lat: number; lng: number; country: string | null; alt?: string }
+type Poi = { id: string; name: string; lat: number; lng: number; country: string | null; alt?: string; qid?: string | null }
 type Hit = { url: string; source: string; score: number } | null
+
+/// 0) NEJSILNĚJŠÍ ZE VŠECH: bod VÍ, která wikidatová entita to je
+///    (`points_of_interest.wikidata_id`, doplněno migrací 20260920l).
+///    Bere se `wdt:P18` TÉ entity, a když ji nemá, její kategorie na Commons
+///    (`wdt:P373` nebo sitelink `commonswiki`) → první soubor v kategorii.
+///    Tohle je jediná cesta, která u izolovaných vrcholů něco najde: hledání
+///    „co je do 600 m a jmenuje se podobně" na nich měřeně vrací 0/20, protože
+///    jediná entita v okolí je ten vrchol sám — a ten P18 nemá. Fotky ale
+///    většinou existují, jen leží v jeho kategorii na Commons.
+async function viaWikidataId(p: Poi): Promise<Hit> {
+  const qid = (p.qid || '').trim()
+  if (!/^Q[0-9]+$/.test(qid)) return null
+
+  const sparql = `SELECT ?img ?cat ?sitelink WHERE {
+    OPTIONAL { wd:${qid} wdt:P18 ?img }
+    OPTIONAL { wd:${qid} wdt:P373 ?cat }
+    OPTIONAL { ?sitelink schema:about wd:${qid} ; schema:isPartOf <https://commons.wikimedia.org/> }
+  } LIMIT 1`
+  const data = await getJson(
+    `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(sparql)}`)
+  const rows = ((data?.results as Record<string, unknown> | undefined)
+    ?.bindings as Array<Record<string, { value?: unknown }>> | undefined) || []
+  const row = rows[0]
+  if (!row) return null
+
+  // a) entita má vlastní hlavní fotku — nejjistější, co může být
+  const img = row.img?.value != null ? String(row.img.value) : ''
+  if (img) return { url: img.startsWith('http://') ? 'https://' + img.slice(7) : img,
+                    source: 'wikidata-id-p18', score: 1 }
+
+  // b) kategorie na Commons → první soubor v ní
+  let category = row.cat?.value != null ? String(row.cat.value) : ''
+  if (!category && row.sitelink?.value != null) {
+    const m = String(row.sitelink.value).match(/\/wiki\/Category:(.+)$/)
+    if (m) category = decodeURIComponent(m[1]).replace(/_/g, ' ')
+  }
+  if (!category) return null
+
+  const listUrl = 'https://commons.wikimedia.org/w/api.php?origin=*&format=json&action=query' +
+    '&list=categorymembers&cmtype=file&cmlimit=5&cmtitle=' +
+    encodeURIComponent('Category:' + category)
+  const cm = await getJson(listUrl)
+  const members = ((cm?.query as Record<string, unknown> | undefined)
+    ?.categorymembers as Array<{ title?: string }> | undefined) || []
+  for (const m of members) {
+    const title = m.title || ''
+    if (!/\.(jpe?g|png|tiff?|webp)$/i.test(title)) continue
+    return { url: filePathUrl(title), source: 'wikidata-id-commons-cat', score: 0.9 }
+  }
+  return null
+}
 
 /// 1) NEJSILNĚJŠÍ kontrola: Wikidata entita S FOTKOU (P18) ležící PŘÍMO na místě
 ///    bodu (do WD_RADIUS_KM) a se sedícím názvem → fotka je vázaná na konkrétní
@@ -221,8 +272,9 @@ function haversine(la1: number, lo1: number, la2: number, lo2: number): number {
 }
 
 async function findPhoto(p: Poi): Promise<Hit> {
-  // Od nejsilnější kontroly (Wikidata entita na místě) po nejslabší (geosearch).
-  return (await viaWikidata(p)) || (await viaWikipedia(p)) || (await viaCommonsGeo(p))
+  // Od nejsilnější kontroly (známá identita bodu) po nejslabší (geosearch).
+  return (await viaWikidataId(p)) || (await viaWikidata(p)) ||
+    (await viaWikipedia(p)) || (await viaCommonsGeo(p))
 }
 
 serve(async (req) => {
@@ -302,7 +354,7 @@ async function runBatch(
   // začátku řazení a nikdy nepostoupila dál. Každý bod se po pokusu označí jako
   // „zkoušený", takže se okno posouvá a backfill monotónně dojede.
   const { data, error } = await sb.from('points_of_interest')
-    .select('id, name, lat, lng, country, translations')
+    .select('id, name, lat, lng, country, translations, wikidata_id')
     .is('image_url', null).is('photo_checked_at', null).eq('is_active', true)
     .order('sort_order', { ascending: true, nullsFirst: false })
     .order('id', { ascending: true })
@@ -312,7 +364,7 @@ async function runBatch(
   const pois: Poi[] = (data || []).map((r) => {
     const tr = r.translations as Record<string, Record<string, unknown>> | null
     const alt = tr?.en?.name ? String(tr.en.name) : undefined
-    return { id: String(r.id), name: String(r.name), lat: Number(r.lat), lng: Number(r.lng), country: r.country as string | null, alt }
+    return { id: String(r.id), name: String(r.name), lat: Number(r.lat), lng: Number(r.lng), country: r.country as string | null, alt, qid: (r.wikidata_id as string | null) ?? null }
   }).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && p.name)
 
   const proposals: Array<{ id: string; name: string; url: string; source: string; score: number }> = []

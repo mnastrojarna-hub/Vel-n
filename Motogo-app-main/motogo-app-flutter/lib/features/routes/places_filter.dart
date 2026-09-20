@@ -477,29 +477,30 @@ List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
   String cellKey(int gy, int gx) => '$gy,$gx';
 
   for (final e in src) {
+    // Bod bez GPS se nikdy neslučuje (nedá se spolehlivě ztotožnit) — dostane
+    // vlastní skupinu a do rastru ani do rejstříku názvů se nezapíše.
     final ll = e.latLng;
     final name = _placeName(e.poi.name);
+    final sig = _sigWords(e.poi.name);
+    final cat = poiCategoryOf(e.poi);
     var at = -1;
 
-    if (ll == null) {
-      // Body bez GPS nikdy neslučuj (nedají se spolehlivě ztotožnit).
-      at = -1;
-    } else {
+    if (ll != null) {
       // 1) shodný název do 5 km
-      for (final g in name.isEmpty ? const <int>[] : (byName[name] ?? const <int>[])) {
-        final a = anchor[g];
-        final limit = (e.catalog && aCatalog[g])
-            ? _kSameNameCatalogM
-            : _kSameNameM;
-        if (a != null && _metersApart(a, ll) <= limit) {
-          at = g;
-          break;
+      if (name.isNotEmpty) {
+        for (final g in byName[name] ?? const <int>[]) {
+          final a = anchor[g];
+          final limit = (e.catalog && aCatalog[g])
+              ? _kSameNameCatalogM
+              : _kSameNameM;
+          if (a != null && _metersApart(a, ll) <= limit) {
+            at = g;
+            break;
+          }
         }
       }
       if (at < 0) {
         // 2) + 3) blízké body v okolí 3×3 buněk
-        final sig = _sigWords(e.poi.name);
-        final cat = poiCategoryOf(e.poi);
         final gy = (ll.latitude / cellDeg).floor();
         final gx = (ll.longitude / cellDeg).floor();
         outer:
@@ -527,8 +528,8 @@ List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
       final g = out.length;
       out.add(e);
       anchor.add(ll);
-      aSig.add(_sigWords(e.poi.name));
-      aCat.add(poiCategoryOf(e.poi));
+      aSig.add(sig);
+      aCat.add(cat);
       aCatalog.add(e.catalog);
       onRouteOf.add(e.onRoute);
       namesOf.add(<String>[e.poi.name]);
