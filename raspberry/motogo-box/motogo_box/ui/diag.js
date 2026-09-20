@@ -284,11 +284,12 @@ MG.Diag = (function () {
   function onBackspace() { if (busy) return; code = code.slice(0, -1); paintCode(); }
   function onClear() { if (busy) return; code = ''; paintCode(); }
 
-  /** opts: { token? (servisní), askCode? (bez oprávnění → zadat kód), started? (běh už spuštěn přes /api/pin) } */
+  /** opts: { token? (servisní), shellToken? (§27 z /api/pin), askCode? (bez oprávnění → zadat kód),
+      started? (běh už spuštěn přes /api/pin) } */
   function open(opts) {
     opts = opts || {};
     token = opts.token || null;
-    shellToken = null;
+    shellToken = opts.shellToken || null;
     visible = true;
     $('diag').hidden = false;
     msg('');

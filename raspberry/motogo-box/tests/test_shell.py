@@ -79,12 +79,23 @@ async def test_unknown_preset_and_bad_arg(ctrl):
     assert (await shell.run(ctrl, preset_id="rm.all"))["error"] == "unknown_preset"
     for bad in ("", "8.8.8.8; rm -rf /", "$(whoami)", "a" * (shell.ARG_MAX + 1)):
         assert (await shell.run(ctrl, preset_id="net.ping", arg=bad))["error"] == "invalid_arg"
-    assert ctrl.events == []                                     # odmítnuté se nespouští, tedy ani neloguje
+    # nic se nespustilo, ale pokus je vidět ve Velíně (kiosk_logs) — ať je poznat sondování
+    assert [e.detail["error"] for e in ctrl.events] == ["invalid_arg"] * 4
+    assert all(e.level == "warn" and e.success is False for e in ctrl.events)
+
+
+async def test_rejected_free_text_is_audited(ctrl):
+    assert (await shell.run(ctrl, command="cat /etc/motogo/config.yaml"))["error"] == "locked"
+    assert len(ctrl.events) == 1 and ctrl.events[0].detail["error"] == "locked"
+    assert "config.yaml" in ctrl.events[0].message and ctrl.events[0].detail["auth"] == "diag_code"
+    assert (await shell.run(ctrl, command="   "))["error"] == "empty"
+    assert len(ctrl.events) == 1                                 # prázdné pole se neloguje
 
 
 async def test_free_text_needs_unlock(ctrl):
     assert (await shell.run(ctrl, command="echo ahoj"))["error"] == "locked"
     assert (await shell.run(ctrl, command="   "))["error"] == "empty"
+    ctrl.events.clear()
     shell.unlock(ctrl, 30)
     res = await shell.run(ctrl, command="echo ahoj")
     assert res["ok"] is True and res["output"].strip() == "ahoj" and res["free_s"] > 0

@@ -19,6 +19,9 @@ from .storage import Storage
 
 log = logging.getLogger("motogo.api")
 
+CODE_TIMEOUT_S = 6.0            # ověření kódu online (zákazník čeká u boxu)
+CODE_TIMEOUT_OFFLINE_S = 2.5    # poslední RPC selhalo → jen ťuknout a jít do offline cache
+
 # kind v outboxu → název RPC
 OUTBOX_RPC: dict[str, str] = {
     "log_open": "kiosk_log_open",
@@ -144,9 +147,16 @@ class SupabaseApi:
             return None
 
     async def resolve_code(self, code: str) -> dict | None:
-        """``kiosk_resolve_code`` → dict i při ``ok:false``; None JEN při síti/5xx."""
+        """``kiosk_resolve_code`` → dict i při ``ok:false``; None JEN při síti/5xx (→ offline cache).
+
+        Timeout je KRATŠÍ než u ostatních RPC: u boxu stojí zákazník a kouká na „Ověřuji kód…“.
+        Když poslední volání selhalo (``online is False``, typicky probíhající výpadek LTE), zkusí se
+        spojení jen krátce a hned se jde do offline cache — jinak by každý kód platil 10 s čekání
+        (krátký výpadek 1–2 min nesmí zákazníka u boxu zastavit).
+        """
+        timeout = CODE_TIMEOUT_S if self.online else CODE_TIMEOUT_OFFLINE_S
         try:
-            res = await self.rpc("kiosk_resolve_code", {**self._auth(), "p_code": code})
+            res = await self.rpc("kiosk_resolve_code", {**self._auth(), "p_code": code}, timeout_s=timeout)
         except ApiError as exc:
             if exc.is_transient:
                 log.warning("resolve_code: server nedostupný (%s) → offline cache", exc)
