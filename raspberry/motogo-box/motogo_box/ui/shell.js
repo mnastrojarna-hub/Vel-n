@@ -1,7 +1,8 @@
 /* MotoGo24 kiosk — servisní terminál na displeji (CONTRACT §27, POST /api/service/shell).
    Otevírá se z diagnostiky (po zadání diagnostického kódu → `shell_token`) nebo ze servisního panelu
-   (`service_token`). Připravená tlačítka jsou vždy; volné psaní jen když ho odemkl Velín
-   (příkaz `shell_unlock`) — jinak je pole s klávesnicí skryté a jednotka volný text stejně odmítne. */
+   (`service_token`). Připravená tlačítka jsou vždy. Volné psaní má rovnou servisní heslo — i když je
+   pobočka OFFLINE, kvůli čemuž terminál vznikl; s pouhým diagnostickým kódem ho musí povolit Velín
+   (`shell_unlock`) a do té doby je pole s klávesnicí skryté a jednotka volný text stejně odmítne. */
 'use strict';
 window.MG = window.MG || {};
 
@@ -10,6 +11,7 @@ MG.Shell = (function () {
   let deps = null;                 // { post }
   let visible = false, auth = null, busy = false, kb = null;
   let cmd = '', freeS = 0, menu = [], tick = null;
+  let service = false;        // přihlášeno servisním heslem → volné psaní i offline (§27)
 
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = String(text); return e; };
 
@@ -23,15 +25,17 @@ MG.Shell = (function () {
   /** „volné psaní: 28 min" / „volné psaní zamčené" — odpočet běží i bez dalšího dotazu na jednotku. */
   function renderState() {
     const s = $('shell-state');
-    if (freeS > 0) {
-      const mins = Math.ceil(freeS / 60);
-      s.textContent = 'volné psaní: zbývá ' + mins + ' min';
+    if (service) {
+      s.textContent = 'volné psaní: servisní heslo';
+      s.className = 'diag-state ok';
+    } else if (freeS > 0) {
+      s.textContent = 'volné psaní: zbývá ' + Math.ceil(freeS / 60) + ' min';
       s.className = 'diag-state ok';
     } else {
-      s.textContent = 'volné psaní zamčené (odemkne Velín)';
+      s.textContent = 'volné psaní zamčené (servisní heslo, nebo povolí Velín)';
       s.className = 'diag-state';
     }
-    $('shell-input').hidden = freeS <= 0;
+    $('shell-input').hidden = !service && freeS <= 0;
   }
 
   function renderMenu() {
@@ -64,12 +68,14 @@ MG.Shell = (function () {
     msg('Spouštím…');
     const res = await deps.post('/api/service/shell', Object.assign({}, auth, body || {}), 40000);
     busy = false;
-    if (res && typeof res.free_s === 'number') { freeS = res.free_s; renderState(); }
+    if (res && typeof res.service === 'boolean') service = res.service;
+    if (res && typeof res.free_s === 'number') freeS = res.free_s;
+    if (res) renderState();
     return res;
   }
 
   const ERRORS = {
-    locked: 'Volné psaní není odemčené — zapněte ho ve Velíně (Samoobsluha → Terminál na displeji).',
+    locked: 'Volné psaní vyžaduje servisní heslo — zadejte ho místo diagnostického kódu, nebo ho povolte ve Velíně (Samoobsluha → Terminál na displeji).',
     invalid_arg: 'Neplatná hodnota — povolená jsou písmena, číslice a . : - _',
     unknown_preset: 'Neznámý příkaz.',
     empty: 'Napište příkaz.',
@@ -112,7 +118,9 @@ MG.Shell = (function () {
   /** opts: { token? (service_token ze servisního panelu), shellToken? (z diagnostického kódu) } */
   async function open(opts) {
     opts = opts || {};
-    auth = opts.shellToken ? { shell_token: opts.shellToken } : { service_token: opts.token || '' };
+    // Servisní token (servisní heslo) má přednost — nese s sebou právo na volné psaní i offline.
+    auth = opts.token ? { service_token: opts.token } : { shell_token: opts.shellToken || '' };
+    service = false;
     visible = true;
     $('shell').hidden = false;
     cmd = ''; renderCmd(); out(''); msg('');
@@ -121,7 +129,7 @@ MG.Shell = (function () {
     else if (res && res.error) msg(ERRORS[res.error] || ('Chyba: ' + res.error), true);
     else msg('');
     if (tick) clearInterval(tick);
-    tick = setInterval(() => { if (freeS > 0) { freeS = Math.max(0, freeS - 10); renderState(); } }, 10000);
+    tick = setInterval(() => { if (!service && freeS > 0) { freeS = Math.max(0, freeS - 10); renderState(); } }, 10000);
   }
 
   function close() {
@@ -138,6 +146,6 @@ MG.Shell = (function () {
     $('shell-clear').addEventListener('click', () => out(''));
   }
 
-  return { init, open, close, isVisible: () => visible, wantsKeys: () => visible && freeS > 0,
+  return { init, open, close, isVisible: () => visible, wantsKeys: () => visible && (service || freeS > 0),
     keys: { onChar, onBackspace, onEnter: submit, onClear, onEscape: close } };
 })();

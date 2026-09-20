@@ -206,25 +206,30 @@ async def diagnostics_run(srv: Any, request: web.Request) -> web.Response:
 
 
 async def service_shell(srv: Any, request: web.Request) -> web.Response:
-    """Servisní terminál (§27): `{service_token, preset?, arg?, command?}`.
+    """Servisní terminál (§27): `{service_token|shell_token, preset?, arg?, command?}`.
 
-    Bez těla (jen token) vrátí nabídku a stav odemčení — displej si podle toho vykreslí
-    tlačítka a případně klávesnici. Volné psaní (`command`) odmítne `{error: locked}`,
-    dokud ho pro pobočku neodemkne Velín příkazem `shell_unlock`.
+    Bez `preset`/`command` vrátí nabídku a stav — displej si podle toho vykreslí tlačítka
+    a případně klávesnici. Volné psaní smí **servisní heslo** (`service_token`, funguje i offline);
+    s pouhým diagnostickým kódem (`shell_token`) ho musí povolit Velín (`shell_unlock`), jinak
+    `{error: locked}`.
     """
     body = await srv.read_body(request)
-    # Servisní panel má `service_token`, displej po zadání diagnostického kódu `shell_token`.
+    # Servisní panel má `service_token` (servisní heslo = smí i volné psaní), displej po zadání
+    # diagnostického kódu jen `shell_token` (připravené příkazy; volné psaní až po `shell_unlock`).
+    service = False
     if not shell.check_token(srv.ctrl, body.get("shell_token")):
         denied = service_denied(srv, body)
         if denied is not None:
             return denied
+        service = True
     preset, command = body.get("preset"), body.get("command")
     if not preset and not command:
-        return srv.json({"ok": True, "menu": shell.menu(), **shell.state(srv.ctrl)})
+        return srv.json({"ok": True, "menu": shell.menu(), "service": service, **shell.state(srv.ctrl)})
     res = await shell.run(srv.ctrl, preset_id=preset if isinstance(preset, str) else None,
                           command=command if isinstance(command, str) else None,
-                          arg=body.get("arg") if isinstance(body.get("arg"), str) else None)
-    return srv.json(res)
+                          arg=body.get("arg") if isinstance(body.get("arg"), str) else None,
+                          service=service)
+    return srv.json({**res, "service": service})
 
 
 async def service_restart(srv: Any, request: web.Request) -> web.Response:

@@ -4,9 +4,16 @@ Po zadání servisního kódu s účelem `diagnostics` nabídne displej vedle di
 
 * **připravené příkazy** (`PRESETS`) — vždy dostupné, spouští se BEZ shellu (`exec` s pevným argv),
   takže z nich nejde nic „vyrobit“; pokrývají to, co se u skříně řeší nejčastěji (síť, LTE, služby, logy),
-* **volné psaní** — jen když ho pro pobočku odemkne Velín příkazem `shell_unlock` (výchozí 30 min,
-  pak se samo zamkne). Běží jako `bash -c` pod uživatelem `motogo` — tedy BEZ rootu; jediné, co smí
-  přes `sudo`, je pevný seznam v `systemd/motogo-sudoers`. Root shell z displeje udělat nejde.
+* **volné psaní** — po zadání **servisního hesla** (z Velína, `branch_service_codes`), nebo když ho pro
+  pobočku odemkne Velín příkazem `shell_unlock` (výchozí 30 min, pak se samo zamkne). Běží jako `bash -c`
+  pod uživatelem `motogo` — tedy BEZ rootu; jediné, co smí přes `sudo`, je pevný seznam v
+  `systemd/motogo-sudoers`. Root shell z displeje udělat nejde.
+
+**Proč servisní heslo stačí samo (rozhodnutí uživatele 2026-09-20):** terminál je potřeba hlavně tehdy,
+když je pobočka OFFLINE — a tam žádný příkaz z Velína nedorazí (Pohořelice 2026-09-19). Servisní heslo
+se ověří i offline (HMAC cache, nejvýš 3 dny bez synchronizace) a kdo ho zná, stejně už umí servisním
+panelem otevřít každou kóji — shell bez rootu tedy jeho oprávnění nerozšiřuje. Cesta přes `shell_unlock`
+zůstává pro případ, kdy má technik u sebe jen diagnostický kód (ten dveře neotevírá) a pobočka je online.
 
 Každé spuštění (i odmítnuté) jde do `kiosk_logs` přes `EventKind.SHELL` — ve Velíně je tedy vidět,
 kdo co na pobočce pouštěl. Výstup se ořezává (`OUTPUT_LIMIT`), aby nezahltil displej ani tabulku logů.
@@ -126,7 +133,11 @@ def free_seconds(ctrl: "BoxController") -> int:
 
 
 def state(ctrl: "BoxController") -> dict:
-    """`{free, free_s}` — do snapshotu (Velín) i do odpovědi displeji."""
+    """`{free, free_s}` — do snapshotu (Velín) i do odpovědi displeji.
+
+    `free` = odemčeno z Velína. Servisní heslo si volné psaní nese samo (viz `run(service=True)`),
+    ve stavu se proto neprojeví — Velín tím hlásí jen to, co sám povolil.
+    """
     left = free_seconds(ctrl)
     return {"free": left > 0, "free_s": left}
 
@@ -160,8 +171,11 @@ async def _exec(argv: tuple[str, ...] | list[str], shell_text: str | None = None
 
 
 async def run(ctrl: "BoxController", *, preset_id: str | None = None,
-              command: str | None = None, arg: str | None = None) -> dict:
+              command: str | None = None, arg: str | None = None, service: bool = False) -> dict:
     """Spustí připravený příkaz (`preset_id`) nebo volný text (`command`).
+
+    `service=True` = volající se prokázal SERVISNÍM HESLEM (ne jen diagnostickým kódem) → volné psaní
+    smí i bez odemčení z Velína; jinak je potřeba `shell_unlock` (offline pobočka ho nedostane).
 
     Vrací `{ok, rc, output, truncated, label, free_s}`; chyba → `{ok:false, error}`
     (`unknown_preset` | `invalid_arg` | `locked` | `empty`).
@@ -181,8 +195,9 @@ async def run(ctrl: "BoxController", *, preset_id: str | None = None,
         text = str(command or "").strip()
         if not text:
             return {"ok": False, "error": "empty"}
-        if free_seconds(ctrl) <= 0:
-            # Volné psaní odemyká výhradně Velín (příkaz `shell_unlock`) — displej si ho sám nezapne.
+        if not service and free_seconds(ctrl) <= 0:
+            # Diagnostický kód sám na volné psaní nestačí — potřebuje odemčení z Velína.
+            # Servisní heslo (`service=True`) ho má rovnou, aby šel terminál použít i offline.
             return {"ok": False, "error": "locked"}
         argv, label, shown, shell_text = [], "volný příkaz", text, text
 
@@ -191,19 +206,20 @@ async def run(ctrl: "BoxController", *, preset_id: str | None = None,
     took_ms = int((time.monotonic() - started) * 1000)
     truncated = len(output) > OUTPUT_LIMIT
     output = output[:OUTPUT_LIMIT] + ("\n… (výstup zkrácen)" if truncated else "")
-    await _audit(ctrl, shown, preset_id, rc, output, took_ms)
+    await _audit(ctrl, shown, preset_id, rc, output, took_ms,
+                 "service_code" if service else "diag_code")
     return {"ok": rc == 0, "rc": rc, "output": output, "truncated": truncated,
             "label": label, "command": shown, "took_ms": took_ms, "free_s": free_seconds(ctrl)}
 
 
 async def _audit(ctrl: "BoxController", shown: str, preset_id: str | None,
-                 rc: int, output: str, took_ms: int) -> None:
+                 rc: int, output: str, took_ms: int, auth: str = "diag_code") -> None:
     """Zápis do `kiosk_logs` — co se na pobočce pustilo a jak to dopadlo (fire-and-forget přes outbox)."""
     try:
         await ctrl.emit(Event(
             kind=EventKind.SHELL, level="warn" if rc else "info", success=rc == 0,
             message=f"Servisní terminál: {shown}",
-            detail={"preset": preset_id, "free_text": preset_id is None, "rc": rc,
+            detail={"preset": preset_id, "free_text": preset_id is None, "rc": rc, "auth": auth,
                     "took_ms": took_ms, "output": output[:LOG_OUTPUT_LIMIT]}))
     except Exception:  # noqa: BLE001 — audit nesmí shodit odpověď displeji
         log.exception("Audit servisního terminálu selhal")

@@ -214,7 +214,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
         <Btn tone={shellFree ? 'red' : 'gray'}
           title={shellFree
             ? 'Zamkne volné psaní příkazů na displeji pobočky (připravená tlačítka terminálu zůstanou).'
-            : 'Povolí na 30 minut psaní libovolných příkazů v servisním terminálu na displeji pobočky — pro technika, který je u skříně a řeší závadu. Terminál se otevře po zadání diagnostického kódu nebo servisního hesla, běží pod uživatelem motogo (ne root) a každý příkaz jde do Hlášení a chyb. Po 30 minutách se sám zamkne.'}
+            : 'Povolí na 30 minut psaní libovolných příkazů technikovi, který má u sebe jen DIAGNOSTICKÝ kód. Se servisním heslem terminál píše rovnou (a funguje i když je pobočka offline — příkaz odsud by tam stejně nedorazil). Běží pod uživatelem motogo (ne root), každý příkaz jde do Hlášení a chyb. Po 30 minutách se sám zamkne.'}
           onClick={() => confirmSend(shellFree
             ? 'Zamknout volné psaní příkazů na displeji pobočky?'
             : 'Povolit na 30 minut psaní libovolných příkazů na displeji pobočky? Kdo zná diagnostický kód, dostane na místě příkazovou řádku jednotky.',
