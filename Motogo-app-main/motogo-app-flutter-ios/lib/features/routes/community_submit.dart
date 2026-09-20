@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -8,51 +9,101 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/native/gps_service.dart';
 import 'routes_provider.dart' show mapyApiKey, reverseGeocode;
+import 'ride_recorder.dart';
 import 'route_submit_screen.dart';
 import 'submit_common.dart';
 
-/// Menu „Přidat" (z FAB v Trasách) — uživatel navrhne trasu (odkaz z Mapy.com)
-/// nebo bod zájmu. Návrhy jdou do moderace (status='pending'); admin ve Velíně
-/// jen potvrdí.
+/// Menu „Přidat" (z FAB v Trasách) — jezdec si zaznamená vlastní jízdu,
+/// navrhne trasu (odkaz z Mapy.com) nebo přidá místo. Návrhy jdou do moderace
+/// (status='pending'); admin ve Velíně jen potvrdí.
 void showCommunityAddMenu(BuildContext context) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (c) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 12),
-          _menuItem(c, Icons.route, t(c).tr('routeSubmitTitle'), () {
-            Navigator.pop(c);
-            if (MotoGoSupabase.currentUser == null) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiRateLogin'))));
-              return;
-            }
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RouteSubmitScreen()));
-          }),
-          _menuItem(c, Icons.add_location_alt, t(c).tr('poiSubmitPoi'), () {
-            Navigator.pop(c);
-            if (MotoGoSupabase.currentUser == null) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiRateLogin'))));
-              return;
-            }
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PoiSubmitScreen()));
-          }),
-          const SizedBox(height: 12),
-        ],
+      child: Consumer(
+        builder: (c, ref, _) {
+          final rec = ref.watch(rideRecorderProvider);
+          final manual = rec.recording && rec.manual; // ruční nahrávka běží
+          // Automatický záznam (běžící výpůjčka) si jezdec neřídí — jízda se
+          // nahrává sama, takže tlačítko v menu nemá co nabídnout.
+          final auto = rec.recording && !rec.manual;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 12),
+              if (!auto)
+                _menuItem(
+                  c,
+                  manual ? Icons.stop_circle : Icons.fiber_manual_record,
+                  t(c).tr(manual ? 'rideManualStop' : 'rideManualStart'),
+                  () {
+                    Navigator.pop(c);
+                    _toggleManualRide(context, ref, manual);
+                  },
+                  subtitle: t(c).tr(manual ? 'rideManualRunning' : 'rideManualHint'),
+                  danger: manual,
+                ),
+              _menuItem(c, Icons.route, t(c).tr('routeSubmitTitle'), () {
+                Navigator.pop(c);
+                if (MotoGoSupabase.currentUser == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiRateLogin'))));
+                  return;
+                }
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RouteSubmitScreen()));
+              }),
+              _menuItem(c, Icons.add_location_alt, t(c).tr('poiAddPlace'), () {
+                Navigator.pop(c);
+                if (MotoGoSupabase.currentUser == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiRateLogin'))));
+                  return;
+                }
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PoiSubmitScreen()));
+              }),
+              const SizedBox(height: 12),
+            ],
+          );
+        },
       ),
     ),
   );
 }
 
-Widget _menuItem(BuildContext c, IconData icon, String label, VoidCallback onTap) => ListTile(
-      leading: Icon(icon, color: MotoGoColors.greenDarker),
+/// Zapnutí/vypnutí ručního záznamu jízdy z menu „Přidat". Stejná logika jako
+/// karta v „Mých zážitcích" — jízda kratší než 1 km se zahodí.
+Future<void> _toggleManualRide(BuildContext context, WidgetRef ref, bool running) async {
+  final n = ref.read(rideRecorderProvider.notifier);
+  final msg = ScaffoldMessenger.of(context);
+  final tr = t(context);
+  if (running) {
+    final kept = await n.stop();
+    msg.showSnackBar(SnackBar(content: Text(tr.tr(kept ? 'rideManualSaved' : 'rideManualTooShort'))));
+    return;
+  }
+  final ok = await n.startManual();
+  msg.showSnackBar(SnackBar(content: Text(tr.tr(ok ? 'rideManualStarted' : 'rideManualFailed'))));
+}
+
+Widget _menuItem(BuildContext c, IconData icon, String label, VoidCallback onTap,
+        {String? subtitle, bool danger = false}) =>
+    ListTile(
+      leading: Icon(icon, color: danger ? MotoGoColors.red : MotoGoColors.greenDarker),
       title: Text(label,
-          style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w800, color: MotoGoColors.black)),
+          style: TextStyle(
+              fontSize: MotoGoTypo.sizeXl,
+              fontWeight: MotoGoTypo.w800,
+              color: danger ? MotoGoColors.red : MotoGoColors.black)),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle,
+              style: const TextStyle(
+                  fontSize: MotoGoTypo.sizeMd,
+                  fontWeight: MotoGoTypo.w600,
+                  color: MotoGoColors.g500,
+                  height: 1.35)),
       onTap: onTap,
     );
 
