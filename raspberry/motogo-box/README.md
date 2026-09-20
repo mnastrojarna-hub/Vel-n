@@ -404,6 +404,13 @@ odmítne; červený běh = chyba psql (issue se nezakládá).
   ignoruje: čeká dál na hlášenou novou verzi). `motogo-sysupdate` a
   `unattended-upgrades` se nainstalují až dalším během — „Aktualizovat OS“ do té doby hlásí `sysupdate_missing` → spusťte
   znovu „Aktualizovat software“.
+- **Cokoli, co dělá SÁM `update.sh`, se projeví až DRUHÝM během.** Běžící (starý) `motogo-update` sice nainstaluje nový
+  skript, ale pracuje podle své vlastní staré kopie. Týká se to úklidu provizorního LTE watchdogu
+  (`/etc/cron.d/motogo-lte-tmpwatch` + `/usr/local/sbin/motogo-lte-tmpwatch`, 2026-09-20) i přidání uživatele `motogo` do
+  skupiny `systemd-journal` (logy v servisním terminálu). Buď pusťte „Aktualizovat software“ **dvakrát**, nebo to po prvním
+  běhu dorovnejte ručně (`sudo rm -f /etc/cron.d/motogo-lte-tmpwatch /usr/local/sbin/motogo-lte-tmpwatch`,
+  `sudo usermod -a -G systemd-journal motogo`). Věci z `install.sh` (např. `usb_max_current_enable=1` v `config.txt`)
+  aktualizace nedělá vůbec — ty patří do běhu `sudo ./scripts/install.sh`.
 
 ## Řešení problémů
 
