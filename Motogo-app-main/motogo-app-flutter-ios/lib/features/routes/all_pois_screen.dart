@@ -1772,18 +1772,27 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          Icon(
-                              e.route != null
-                                  ? Icons.route
-                                  : (e.catalog ? Icons.place : Icons.groups),
-                              size: 12,
-                              color: MotoGoColors.greenDark),
+                          // U katalogového místa ukazujeme KATEGORII (ikonku
+                          // i popisek) — dřív tu u všech 40 tis. míst stálo
+                          // jen „Z katalogu", takže z karty nešlo poznat, jestli
+                          // je to rozhledna, studánka, nebo bunkr. Kategorie je
+                          // přitom jediné, podle čeho se dá v seznamu filtrovat.
+                          if (e.route == null && e.catalog)
+                            Text(poiCatEmoji(e.poi),
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    decoration: TextDecoration.none))
+                          else
+                            Icon(
+                                e.route != null ? Icons.route : Icons.groups,
+                                size: 12,
+                                color: MotoGoColors.greenDark),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
                               e.route?.nameFor(lang) ??
                                   (e.catalog
-                                      ? t(context).tr('poiCatalog')
+                                      ? _catLabel(context, e.poi)
                                       : t(context).tr('poiCommunityPoint')),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1863,6 +1872,16 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
         ),
       ),
     );
+  }
+
+  /// Lokalizovaný název kategorie místa (chip „Rozhledny a vrcholy",
+  /// „Studánky a prameny"…) — používá se jako podtitulek karty.
+  String _catLabel(BuildContext context, RoutePoi poi) {
+    final k = poiCategoryOf(poi);
+    for (final c in kPoiCats) {
+      if (c.key == k) return t(context).tr(c.i18nKey);
+    }
+    return t(context).tr('poiCatOther');
   }
 
   Widget _thumbFallback([RoutePoi? poi]) => Container(

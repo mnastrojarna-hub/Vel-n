@@ -31,10 +31,10 @@ const List<PoiCat> kPoiCats = [
 final RegExp _reHrad = RegExp(r'\bhrad');
 
 /// Známé klíče kategorií (pro validaci explicitní hodnoty z backendu).
-const Set<String> kPoiCatKeys = {
-  'food', 'castle', 'lookout', 'water', 'spring', 'sights', 'nature', 'other',
-  'military', 'aviation', 'tech', 'moto'
-};
+/// ODVOZENO z `kPoiCats`, ne psáno ručně — dva ručně udržované seznamy se
+/// rozejdou a kategorie pak buď má chip a backend ji zahodí, nebo naopak
+/// projde a chip pro ni neexistuje.
+final Set<String> kPoiCatKeys = {for (final c in kPoiCats) c.key};
 
 // Klíčová slova (bez diakritiky, malá písmena). Kryjí i SK/PL/DE/AT varianty.
 const List<String> _kwFood = [
@@ -150,8 +150,9 @@ String _catByText(String n, {required bool allowFood}) {
   if (has(_kwMoto)) return 'moto';
   if (has(_kwTech)) return 'tech';
   if (_reHrad.hasMatch(n) || has(_kwCastle)) return 'castle';
-  // Studánky před rozhlednami i vodou: „Studánkový vrch" je kopec, ale
-  // „Pramen Vltavy" ani „Zlatá studánka" nejsou ani rozhledna, ani rybník.
+  // Studánky se kontrolují až ZA rozhlednami („Studánkový vrch" je kopec),
+  // ale PŘED vodou a přírodou — „Pramen Vltavy" není rybník a „Zlatá
+  // studánka" není les.
   if (has(_kwLookout)) return 'lookout';
   if (has(_kwSpring)) return 'spring';
   if (has(_kwWater)) return 'water';
