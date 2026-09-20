@@ -517,9 +517,9 @@ bool _catsMergeable(String a, String b) {
   return _compatibleCats.contains(a.compareTo(b) <= 0 ? '$a|$b' : '$b|$a');
 }
 
-/// Pořadí přednosti reprezentanta skupiny: bod s fotkou > katalogový >
-/// s popisem > KONKRÉTNĚJŠÍ KATEGORIE > s konkrétnějším (delším) názvem >
-/// nejmenší klíč.
+/// Kolik informací bod nese — fotka > katalogový > popis. První kritérium
+/// výběru reprezentanta (celé pořadí je u `_pickRepresentative`), protože
+/// právě tohle uživatel na kartě a na špendlíku uvidí.
 int _rank(PoiEntry e) =>
     (e.poi.cover != null ? 4 : 0) +
     (e.catalog ? 2 : 0) +
@@ -569,6 +569,11 @@ const Map<String, int> _catSpecificity = {
 ///      než „Mariánská věž" → „marianska vez"), pak kratší původní
 ///      („Velký Blaník" před „rozhledna Velký Blaník"),
 ///   6. klíč — aby byl výsledek deterministický.
+///
+/// Kritérium 4 se ptá na dvojici (souvisí ta jména?), takže porovnání není
+/// úplné uspořádání a výsledek závisí na pořadí členů. To je v pořádku:
+/// vstup `dedupPlaces` si srovnává sám, takže pořadí je dané daty, ne tím,
+/// jak je zrovna vrátil Postgres.
 PoiEntry _pickRepresentative(List<PoiEntry> members) {
   if (members.length == 1) return members.first;
   final keys = [for (final m in members) _nameKeys(m.poi.name)];
