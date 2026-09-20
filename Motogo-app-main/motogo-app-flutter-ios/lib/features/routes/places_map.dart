@@ -331,9 +331,12 @@ class PlacesMapViewState extends State<PlacesMapView> {
               ),
             ),
           ]),
-        // Povinná atribuce podkladu. Roh si volí každá obrazovka sama —
-        // vpravo dole sedí kulatá tlačítka („moje poloha", „přidat místo"),
-        // vlevo dole zase odznak „Tvoje trasa" na mapě tras.
+        // Povinná atribuce: podklad je z Mapy.com, část katalogu míst
+        // (studánky, prameny a vyhlídky, dávky `osm-springs-cz-sk-*`)
+        // pochází z OpenStreetMap a licence ODbL uvedení zdroje vyžaduje.
+        // Roh si volí každá obrazovka sama — vpravo dole sedí kulatá
+        // tlačítka („moje poloha", „přidat místo"), vlevo dole zase odznak
+        // „Tvoje trasa" na mapě tras.
         if (widget.showAttribution)
           RichAttributionWidget(
             alignment: widget.attributionOnLeft
@@ -341,7 +344,9 @@ class PlacesMapViewState extends State<PlacesMapView> {
                 : AttributionAlignment.bottomRight,
             // Bez loga flutter_map — do zákaznické obrazovky cizí branding nepatří.
             showFlutterMapAttribution: false,
-            attributions: const [TextSourceAttribution('Mapy.com')],
+            attributions: const [
+              TextSourceAttribution('Mapy.com · © OpenStreetMap'),
+            ],
           ),
       ],
     );
