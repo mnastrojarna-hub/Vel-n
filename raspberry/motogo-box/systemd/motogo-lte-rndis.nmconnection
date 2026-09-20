@@ -1,0 +1,31 @@
+# MotoGo Box — NM profil pro modem v režimu RNDIS (SIM7600E-H, PID 9011).
+# ⚠ NEOTESTOVÁNO NA HARDWARU — k ověření na dev Pi (viz HARDWARE.md, scripts/lte-rndis.sh).
+# Nasazuje se RUČNĚ místo QMI profilu motogo-lte, až se RNDIS osvědčí:
+#   sudo install -m 600 -o root -g root motogo-lte-rndis.nmconnection \
+#     /etc/NetworkManager/system-connections/motogo-lte.nmconnection
+#   sudo nmcli connection reload && sudo nmcli con up motogo-lte
+# Jméno profilu je schválně `motogo-lte` — health, sudoers i servisní terminál na něj sahají
+# pod tímhle jménem, takže se v režimu RNDIS nic dalšího nepřenastavuje.
+# Modem je tu obyčejná síťová karta s DHCP serverem; datové spojení startuje AT$QCRMCALL=1,1
+# (scripts/lte-rndis.sh start, po bootu motogo-lte-rndis.service).
+[connection]
+id=motogo-lte
+type=ethernet
+interface-name=usb0
+autoconnect=true
+autoconnect-retries=0
+autoconnect-priority=10
+
+[ethernet]
+
+[ipv4]
+method=auto
+# Výchozí trasa jen tudy (I/O síť motogo-lan má never-default a metriku 500)
+route-metric=100
+may-fail=false
+
+[ipv6]
+method=ignore
+addr-gen-mode=default
+
+[proxy]

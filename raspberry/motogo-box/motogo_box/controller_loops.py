@@ -237,14 +237,30 @@ async def tick_loop(ctrl: "BoxController") -> None:
 
 
 # ─── síťové smyčky ───────────────────────────────────────────────────────────
+async def resync_on_reconnect(ctrl: "BoxController", was_online: bool) -> bool:
+    """Po návratu spojení hned dotáhne konfiguraci a kódy; vrací aktuální `online`.
+
+    Bez tohohle by se po výpadku čekalo na `sync_loop` (až 60 s) a zákazník u boxu by mohl mít
+    v jednotce starý kód — třeba po výměně motorky. Takhle je offline cache aktuální do několika
+    sekund od obnovení spojení (požadavek: výpadek do 2 minut nesmí být na pobočce poznat).
+    """
+    online = bool(getattr(ctrl.api, "online", False))
+    if online and not was_online:
+        log.info("Spojení obnoveno → okamžitá synchronizace konfigurace a kódů")
+        await ctrl.resync()
+    return online
+
+
 async def heartbeat_loop(ctrl: "BoxController") -> None:
-    """`kiosk_heartbeat` → název pobočky + konfigurace power pollingu."""
+    """`kiosk_heartbeat` → název pobočky + konfigurace power pollingu (+ resync po výpadku)."""
+    was_online = True
     while True:
         try:
             if _paired(ctrl):
                 res = await ctrl.api.heartbeat()
                 if isinstance(res, dict) and res.get("ok", True):
                     ctrl.apply_heartbeat(res)
+                was_online = await resync_on_reconnect(ctrl, was_online)
         except Exception:  # noqa: BLE001
             log.exception("heartbeat_loop: selhal")
         await asyncio.sleep(max(5, ctrl.local.intervals.heartbeat_s))

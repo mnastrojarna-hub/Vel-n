@@ -1,0 +1,20 @@
+# MotoGo Box — start datového spojení v režimu RNDIS (AT$QCRMCALL=1,1) po bootu.
+# ⚠ NEOTESTOVÁNO NA HARDWARU a install.sh ho ZÁMĚRNĚ neinstaluje ani nezapíná: v režimu QMI
+# je zbytečný. Ruční zapnutí po ověření na dev Pi:
+#   sudo install -m 644 -o root -g root motogo-lte-rndis.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now motogo-lte-rndis.service
+[Unit]
+Description=MotoGo Box - LTE data call (SIM7600 RNDIS)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Modem se po bootu enumeruje se zpožděním; skript si AT port najde sám a start je idempotentní.
+ExecStartPre=/bin/sleep 15
+ExecStart=/usr/local/sbin/motogo-lte-rndis start
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

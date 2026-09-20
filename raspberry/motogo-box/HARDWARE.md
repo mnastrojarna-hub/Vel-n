@@ -216,9 +216,37 @@ Bez restartu MM skončí spojení v PPP fallbacku na `ttyUSB2`.
 **Netestované hypotézy k dalšímu ladění:** (a) jiný fyzický USB port Pi 5 nebo jiný kabel,
 (b) přepnout modem z QMI na MBIM/ECM (`AT+CUSBPIDSWITCH`) — vyžaduje i jiný NM profil, nejdřív na dev Pi,
 (c) chování QMI klienta v jádře vs. firmware modemu při „implicitly-detached".
-20. 9. ve 14:15 byl modem přepojen z portu `1-1` (řadič 1) do černého USB 2.0 portu `3-2` (řadič 3) —
-test hypotézy (a). Doba do dalšího `-71` rozhodne: žádný výpadek ≈ vadný port/řadič 1; opakování
-v rytmu ~10–15 min ≈ modem/QMI (pak zkusit RNDIS/MBIM).
+**Test portu — VYLOUČENO (20. 9. 14:40).** Po přepojení na jiný řadič (`3-2`, černý USB 2.0, jiný
+kabel) přišel `-71` znovu ve 14:32:02, ~15 min po navázání. Časová řada výpadků: 13:38:36, 13:54:30,
+14:09:28, 14:32:02 — vždy 10–15 min po (re)connectu, bez ohledu na port, kabel i řadič.
+
+### Směr opravy: RNDIS místo QMI (k ověření na dev Pi)
+
+Protože závada sedí na QMI kanálu (`qmi_wwan`/`cdc-wdm0`), hlavní směr je tuhle závislost odstranit:
+přepnout SIM7600E-H do **RNDIS** (`AT+CUSBPIDSWITCH=9011,1,1`, zpět `9001,1,1`), kde je modem obyčejná
+síťová karta `usb0` s DHCP od modemu a datové spojení startuje `AT$QCRMCALL=1,1`. Připraveno v repu,
+**nikam nezadrátováno a neotestováno na hardwaru** — dev Pi nejdřív:
+
+| soubor | co je |
+|---|---|
+| `scripts/lte-rndis.sh` | `probe` / `enable` / `disable` / `start` / `status` — AT port si najde sám (`/dev/motogo-lte-at`, jinak zkouší ttyUSB2/3/1/0) |
+| `systemd/motogo-lte-rndis.nmconnection` | NM profil **pojmenovaný `motogo-lte`** (ethernet na `usb0`, DHCP, route-metric 100) — health, sudoers i terminál na něj sahají pod stejným jménem, takže se nic dalšího nepřenastavuje |
+| `systemd/99-motogo-lte-rndis.rules` | udev pro PID 9011: symlink AT portu + jméno rozhraní `usb0`. **Číslo AT rozhraní ověřit** (`udevadm info -a /dev/ttyUSB*`) |
+| `systemd/motogo-lte-rndis.service` | start datového spojení po bootu (oneshot, 15 s po startu) |
+| `health.lte_mode: rndis` v `/etc/motogo/config.yaml` | přepne hlídku: mmcli se vůbec nevolá, zdraví se čte z rozhraní `usb0` (bez IPv4 + modem na USB = mrtvá cesta → USB reset), krok `mmcli --reset` se přeskočí |
+
+**Postup na dev Pi:** `sudo ./scripts/lte-rndis.sh probe` → `enable` (modem se restartuje) → ověřit
+`lsusb` (PID 9011) a `ip -br addr show usb0` → nasadit NM profil a udev pravidlo → `start` →
+`ip route` musí mít `default … dev usb0` → zapnout `lte_mode: rndis` a nechat běžet přes hodinu,
+jestli `-71` zmizí. Návrat: `sudo ./scripts/lte-rndis.sh disable` a původní QMI profil.
+Pokud RNDIS na Pi 5 nebude stabilní, druhá volba je ECM/NCM.
+
+**Pozor při testu na dev Pi:** když je na něm domácí Wi-Fi (`default via wlan0`, metrika 600),
+maskuje výpadek LTE — sondy internetu projdou a hlídka nic neudělá. Na testování LTE ji vypnout
+(`nmcli con down <wifi>`), na pobočce Wi-Fi není.
+
+**Sekundárně:** aktualizace firmwaru modemu (Waveshare, přes Windows PC s ovladačem) a lepší
+umístění / externí anténa (RSRP −101 dBm je slabší konec použitelného).
 
 ### Doporučené rozložení USB na Pi 5
 
