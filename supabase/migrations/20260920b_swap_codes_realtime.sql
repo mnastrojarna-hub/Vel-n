@@ -113,11 +113,20 @@ BEGIN
   LOOP
     IF r.docs_reason IS NOT NULL THEN
       -- Motorka je vrácená, ale kód drží doklady → přepiš důvod, ať zákazník
-      -- i Velín vidí, na čem to stojí (uvolní ho pak standardní doklad-flow).
+      -- i Velín vidí, na čem to stojí (appka ho ukazuje místo kódu; uvolní ho
+      -- pak standardní doklad-flow — nahrání dokladu kódy pustí automaticky).
       UPDATE branch_door_codes
          SET withheld_reason = r.docs_reason
        WHERE booking_id = r.booking_id AND is_active = true
          AND withheld_reason = 'Vraťte nejdřív původní motorku';
+      -- Zákazník stojí u kóje a čeká na kód — řekni mu rovnou, PROČ nepřišel
+      -- a co s tím (bez tohohle by jen koukal na prázdné místo po kódu).
+      BEGIN
+        INSERT INTO admin_messages (user_id, booking_id, type, title, message)
+        VALUES (r.user_id, r.booking_id, 'info', 'Kód k nové motorce zatím držíme',
+          'Původní motorku máme vrácenou, ale kód k nové zatím nemůžeme vydat: ' || r.docs_reason || E'\n' ||
+          'Nahrajte prosím doklad v aplikaci (Profil → Dokumenty) — kód se uvolní automaticky hned po nahrání.');
+      EXCEPTION WHEN OTHERS THEN NULL; END;
       CONTINUE;
     END IF;
 
