@@ -10,6 +10,7 @@ import { StatCard, SmallBtn } from './BranchHelpers'
 import TrasyModal, { computeGeometry } from './TrasyModal'
 import TrasyReviewsModal from './TrasyReviewsModal'
 import TrasyKatalogMist from './TrasyKatalogMist'
+import TrasyPoiDuplicates from './TrasyPoiDuplicates'
 import TrasyRecenze from './TrasyRecenze'
 import TrasyJizdy from './TrasyJizdy'
 
@@ -426,6 +427,7 @@ function Trasy() {
         {[
           { id: 'routes', label: `🛣️ Trasy (${routes.length})` },
           { id: 'catalog', label: `📍 Katalog míst (${catalogCount ?? '…'})` },
+          { id: 'duplicates', label: '♊ Duplicitní místa' },
           { id: 'reviews', label: `💬 Recenze tras (${reviewTotals.count})` },
           { id: 'rides', label: `🏍️ Jízdy zákazníků (${rideTotals.count})` },
         ].map(t => (
@@ -445,6 +447,8 @@ function Trasy() {
 
       {tab === 'catalog' ? (
         <TrasyKatalogMist />
+      ) : tab === 'duplicates' ? (
+        <TrasyPoiDuplicates />
       ) : tab === 'rides' ? (
         <TrasyJizdy onChanged={loadRideTotals} />
       ) : tab === 'reviews' ? (

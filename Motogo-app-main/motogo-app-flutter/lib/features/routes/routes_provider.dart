@@ -210,12 +210,22 @@ class PoiEntry {
   /// katalogový bod TÉHOŽ místa — příznak se proto přenáší přes celou
   /// skupinu, aby mapa tras poznala, co je zastávka trasy.
   final bool onRoute;
+
+  /// Normalizované názvy OSTATNÍCH zápisů téhož místa, které se do této
+  /// položky slily (dedupPlaces). Bez toho by po sloučení „Křemešník" +
+  /// „Pípalka" přestalo hledání na „Pípalka" cokoli nacházet — reprezentantem
+  /// skupiny je jen jeden název.
+  final String? aliasBlob;
+
   const PoiEntry(this.poi, this.route, this.branch,
-      {this.catalog = false, bool? onRoute})
+      {this.catalog = false, bool? onRoute, this.aliasBlob})
       : onRoute = onRoute ?? (route != null);
 
-  PoiEntry copyWith({bool? onRoute}) => PoiEntry(poi, route, branch,
-      catalog: catalog, onRoute: onRoute ?? this.onRoute);
+  PoiEntry copyWith({bool? onRoute, String? aliasBlob}) => PoiEntry(
+      poi, route, branch,
+      catalog: catalog,
+      onRoute: onRoute ?? this.onRoute,
+      aliasBlob: aliasBlob ?? this.aliasBlob);
   LatLng? get latLng => poi.latLng;
   /// Komunitní = navržený uživatelem (bez trasy a mimo katalog).
   bool get isCommunity => route == null && !catalog;

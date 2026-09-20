@@ -121,6 +121,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
         children: [
           Positioned.fill(
             child: PlacesMapView(
+              attributionOnLeft: true,
               key: _mapKey,
               places: places,
               lang: lang,

@@ -258,8 +258,15 @@ serve(async (req) => {
   const dryRun = ['1', 'true'].includes(params.get('dry_run') || '')
   const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(params.get('limit') || '', 10) || DEFAULT_LIMIT))
   const wait = ['1', 'true'].includes(params.get('wait') || '')
+  // Rozpočet dávky. Cron ho posílá krátký (20 s), aby se synchronní běh
+  // (`?wait=1`) vešel do pg_net timeoutu 28 s — bez toho by spojení spadlo
+  // uprostřed a dávka se nezapsala. Bez parametru platí původních 120 s.
+  const budgetMs = Math.min(
+    TIME_BUDGET_MS,
+    Math.max(3_000, parseInt(params.get('budget_ms') || '', 10) || TIME_BUDGET_MS),
+  )
 
-  const task = runBatch(sb, { dryRun, limit }).catch(async (e) => {
+  const task = runBatch(sb, { dryRun, limit, budgetMs }).catch(async (e) => {
     await sb.from('debug_log').insert({
       source: 'backfill-poi-photos', action: 'batch', component: 'edge_function',
       status: 'error', request_data: { error: String(e) },
@@ -276,7 +283,7 @@ serve(async (req) => {
 
 async function runBatch(
   sb: ReturnType<typeof createClient>,
-  opts: { dryRun: boolean; limit: number },
+  opts: { dryRun: boolean; limit: number; budgetMs?: number },
 ) {
   const t0 = Date.now()
 
@@ -315,7 +322,8 @@ async function runBatch(
 
   const nowIso = new Date().toISOString()
   const worker = async () => {
-    while (idx < pois.length && Date.now() - t0 < TIME_BUDGET_MS) {
+    const budget = opts.budgetMs ?? TIME_BUDGET_MS
+    while (idx < pois.length && Date.now() - t0 < budget) {
       const p = pois[idx++]
       const hit = await findPhoto(p)
       if (hit) {

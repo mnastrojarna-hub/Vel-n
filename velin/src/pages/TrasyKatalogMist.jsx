@@ -6,27 +6,17 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import SearchInput from '../components/ui/SearchInput'
 import { SmallBtn, Spinner, EmptyState } from './BranchHelpers'
 import PoiReviewsModal from './PoiReviewsModal'
+import PoiEditModal from './TrasyKatalogMistModal'
+import { POI_CATS, POI_SOURCES, POI_COUNTRIES, catLabel, poiPhoto } from '../lib/poiCategories'
 
 // Sekce „Zajímavá místa (katalog)" v záložce Trasy — správa tabulky
-// points_of_interest (~20k samostatných bodů zájmu pro appku: přehrady,
-// hrady, rozhledny, památky, rezervace…). Server-side stránkování +
-// filtry (kategorie / země / zdroj / hledání), edit, aktivace, mazání.
+// points_of_interest (~40 tis. samostatných bodů zájmu pro appku: přehrady,
+// hrady, rozhledny, vrcholy, studánky, památky, rezervace…).
+// Server-side stránkování + filtry, edit včetně GPS, zakládání nových míst
+// a HROMADNÉ akce (bez nich nešlo přetřídit tisíce řádků jinak než migrací).
 
-const CAT = {
-  food: '🍽️ Jídlo a pití', castle: '🏰 Hrady a zámky', lookout: '🗼 Rozhledny a vrcholy',
-  water: '🌊 Voda', sights: '⛪ Památky', nature: '🌳 Příroda',
-  military: '🪖 Vojenství', aviation: '✈️ Letectví', tech: '🏭 Technika',
-  moto: '🏁 Motorismus', other: '📍 Ostatní',
-}
-const SOURCES = [
-  ['all', 'Všechny zdroje'],
-  ['curated-', 'Ruční (curated)'],
-  ['wikidata-batch', 'Wikidata CZ/SK/PL/AT'],
-  ['wikidata-eu-', 'Wikidata Evropa'],
-  ['wikidata-cilovka-', 'Wikidata cílovka (military/aviation/tech/moto)'],
-]
-const COUNTRIES = ['CZ','SK','PL','AT','DE','FR','IT','ES','GB','NL','BE','CH','SI','HR','HU','RO','RS','GR','PT','IE','DK','SE','NO','FI']
 const PAGE = 50
+const SELECT_COLS = 'id, name, description, surroundings, category, country, lat, lng, image_url, images, source, is_active, created_at'
 
 export default function TrasyKatalogMist() {
   const [rows, setRows] = useState([])
@@ -37,8 +27,9 @@ export default function TrasyKatalogMist() {
   const [country, setCountry] = useState('all')
   const [source, setSource] = useState('all')
   const [sortBy, setSortBy] = useState('default')     // default | name | newest | rating
-  const [onlyPhoto, setOnlyPhoto] = useState(false)   // jen s fotkou (server-side)
-  const [onlySurroundings, setOnlySurroundings] = useState(false) // jen s popisem okolí (server-side)
+  const [photo, setPhoto] = useState('all')           // all | with | without
+  const [active, setActive] = useState('all')         // all | yes | no
+  const [onlySurroundings, setOnlySurroundings] = useState(false)
   const [minRating, setMinRating] = useState('all')   // min. hodnocení (client-side nad stránkou)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -46,27 +37,36 @@ export default function TrasyKatalogMist() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [reviewsFor, setReviewsFor] = useState(null)
   const [stats, setStats] = useState({})
+  const [selected, setSelected] = useState(() => new Set())
+  const [bulk, setBulk] = useState(null)              // { kind, value, count }
+  const [busy, setBusy] = useState(false)
+
+  // Jeden filtr = jeden dotaz; používá ho i „vybrat vše dle filtru".
+  const applyFilters = useCallback((q) => {
+    if (cat !== 'all') q = q.eq('category', cat)
+    if (country !== 'all') q = q.eq('country', country)
+    if (source !== 'all') q = q.like('source', `${source}%`)
+    // Hledá se i v popisu — jinak se duplicitní bod pod jiným názvem
+    // („Rozhledna Pípalka na Křemešníku" vs „Pípalka") nedá dohledat.
+    if (search) q = q.or(`name.ilike.%${search}%,description.ilike.%${search}%`)
+    if (photo === 'with') q = q.not('image_url', 'is', null)
+    else if (photo === 'without') q = q.is('image_url', null)
+    if (active === 'yes') q = q.eq('is_active', true)
+    else if (active === 'no') q = q.eq('is_active', false)
+    if (onlySurroundings) q = q.not('surroundings', 'is', null)
+    return q
+  }, [cat, country, source, search, photo, active, onlySurroundings])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      let q = supabase.from('points_of_interest')
-        .select('id, name, description, surroundings, category, country, lat, lng, image_url, source, is_active, created_at', { count: 'exact' })
-      if (cat !== 'all') q = q.eq('category', cat)
-      if (country !== 'all') q = q.eq('country', country)
-      if (source !== 'all') q = q.like('source', `${source}%`)
-      if (search) q = q.ilike('name', `%${search}%`)
-      if (onlyPhoto) q = q.not('image_url', 'is', null)
-      if (onlySurroundings) q = q.not('surroundings', 'is', null)
-      // Server-side řazení. „Hodnocení" (rating) se řadí client-side nad
-      // aktuální stránkou v derivaci `displayRows` (poi_ratings se počítají
-      // až po načtení), takže na serveru zůstává výchozí pořadí.
+      let q = applyFilters(
+        supabase.from('points_of_interest').select(SELECT_COLS, { count: 'exact' }))
       if (sortBy === 'name') q = q.order('name')
       else if (sortBy === 'newest') q = q.order('created_at', { ascending: false })
       else q = q.order('sort_order').order('name')
-      const { data, count, error: err } = await q
-        .range(page * PAGE, page * PAGE + PAGE - 1)
+      const { data, count, error: err } = await q.range(page * PAGE, page * PAGE + PAGE - 1)
       if (err) throw err
       setRows(data || [])
       setTotal(count ?? 0)
@@ -76,13 +76,13 @@ export default function TrasyKatalogMist() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, cat, country, source, onlyPhoto, onlySurroundings, sortBy])
+  }, [applyFilters, page, sortBy])
 
   useEffect(() => { load() }, [load])
-  // Změna filtru → zpět na první stránku
-  useEffect(() => { setPage(0) }, [search, cat, country, source, onlyPhoto, onlySurroundings, sortBy])
+  // Změna filtru → zpět na první stránku a pryč s výběrem (týkal se jiných řádků)
+  useEffect(() => { setPage(0); setSelected(new Set()) },
+    [search, cat, country, source, photo, active, onlySurroundings, sortBy])
 
-  // Spočítá průměr a počet hodnocení (poi_ratings) pro aktuálně zobrazené body.
   async function loadStats(list) {
     const ids = list.map(p => p.id)
     if (!ids.length) { setStats({}); return }
@@ -127,24 +127,61 @@ export default function TrasyKatalogMist() {
     } catch (e) { setError(`Smazání selhalo: ${e.message}`); setDeleteConfirm(null) }
   }
 
-  async function saveEdit() {
+  // ── Hromadné akce ────────────────────────────────────────────────────────
+  const allOnPage = rows.length > 0 && rows.every(r => selected.has(r.id))
+  function toggleRow(id) {
+    setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  function togglePage() {
+    setSelected(s => {
+      const n = new Set(s)
+      if (allOnPage) rows.forEach(r => n.delete(r.id))
+      else rows.forEach(r => n.add(r.id))
+      return n
+    })
+  }
+  // Vybrat VŠE dle filtru, ne jen viditelných 50 — přetřídění tisíců řádků
+  // je přesně to, kvůli čemu hromadné akce vznikly.
+  async function selectAllFiltered() {
+    setBusy(true)
     try {
-      const { id, name, description, surroundings, category, country: ctry, image_url, is_active } = editing
-      const { error: err } = await supabase.from('points_of_interest')
-        .update({ name, description, surroundings: surroundings || null, category, country: ctry, image_url: image_url || null, is_active, updated_at: new Date().toISOString() })
-        .eq('id', id)
-      if (err) throw err
-      await logAudit('catalog_poi_updated', { name })
-      setEditing(null)
-      load()
-    } catch (e) { setError(`Uložení selhalo: ${e.message}`) }
+      const ids = []
+      for (let from = 0; ; from += 1000) {
+        const { data, error: err } = await applyFilters(
+          supabase.from('points_of_interest').select('id')).range(from, from + 999)
+        if (err) throw err
+        ids.push(...(data || []).map(r => r.id))
+        if (!data || data.length < 1000) break
+      }
+      setSelected(new Set(ids))
+    } catch (e) { setError(`Výběr dle filtru selhal: ${e.message}`) } finally { setBusy(false) }
+  }
+
+  async function runBulk() {
+    if (!bulk) return
+    setBusy(true)
+    const ids = [...selected]
+    try {
+      const patch = { updated_at: new Date().toISOString() }
+      if (bulk.kind === 'category') patch.category = bulk.value
+      else if (bulk.kind === 'country') patch.country = bulk.value || null
+      else if (bulk.kind === 'active') patch.is_active = bulk.value === 'yes'
+      // PostgREST má limit na délku URL → po 500 id
+      for (let i = 0; i < ids.length; i += 500) {
+        const chunk = ids.slice(i, i + 500)
+        const { error: err } = bulk.kind === 'delete'
+          ? await supabase.from('points_of_interest').delete().in('id', chunk)
+          : await supabase.from('points_of_interest').update(patch).in('id', chunk)
+        if (err) throw err
+      }
+      await logAudit(`catalog_poi_bulk_${bulk.kind}`, { count: ids.length, value: bulk.value })
+      setSelected(new Set()); setBulk(null); load()
+    } catch (e) { setError(`Hromadná akce selhala: ${e.message}`); setBulk(null) } finally { setBusy(false) }
   }
 
   const pages = Math.max(1, Math.ceil(total / PAGE))
   const sel = { padding: '7px 10px', borderRadius: 8, border: '1px solid #d6ddd8', fontSize: 13, background: '#fff' }
 
-  // Řazení dle hodnocení a filtr min. hodnocení běží client-side JEN nad
-  // aktuální stránkou (poi_ratings se agregují až po načtení řádků).
   let displayRows = rows
   if (minRating !== 'all') {
     displayRows = displayRows.filter(p => Number(stats[p.id]?.avg || 0) >= Number(minRating))
@@ -157,18 +194,22 @@ export default function TrasyKatalogMist() {
     <Card className="mt-6">
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <h2 className="font-bold" style={{ fontSize: 16 }}>📍 Zajímavá místa (katalog) — {total.toLocaleString('cs-CZ')}</h2>
+        <SmallBtn color="#1a8a18" onClick={() => setEditing({
+          _new: true, name: '', description: '', surroundings: '', category: 'lookout',
+          country: 'CZ', lat: '', lng: '', image_url: '', is_active: true,
+        })}>+ Nové místo</SmallBtn>
         <div className="flex-1" />
-        <SearchInput value={search} onChange={setSearch} placeholder="Hledat místo…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Hledat v názvu i popisu…" />
         <select style={sel} value={cat} onChange={e => setCat(e.target.value)}>
           <option value="all">Všechny kategorie</option>
-          {Object.entries(CAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {Object.entries(POI_CATS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <select style={sel} value={country} onChange={e => setCountry(e.target.value)}>
           <option value="all">Všechny země</option>
-          {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+          {POI_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <select style={sel} value={source} onChange={e => setSource(e.target.value)}>
-          {SOURCES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {POI_SOURCES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <select style={sel} value={sortBy} onChange={e => setSortBy(e.target.value)} title="Řadit dle">
           <option value="default">↕ Řadit dle…</option>
@@ -182,15 +223,43 @@ export default function TrasyKatalogMist() {
           <option value="4">★ 4+</option>
           <option value="4.5">★ 4,5+</option>
         </select>
-        <label className="flex items-center gap-1 text-sm font-semibold cursor-pointer" style={{ color: '#374151' }}>
-          <input type="checkbox" checked={onlyPhoto} onChange={e => setOnlyPhoto(e.target.checked)} />
-          🖼 s fotkou
-        </label>
+        <select style={sel} value={photo} onChange={e => setPhoto(e.target.value)} title="Fotka">
+          <option value="all">🖼 fotka: vše</option>
+          <option value="with">🖼 s fotkou</option>
+          <option value="without">🚫 bez fotky</option>
+        </select>
+        <select style={sel} value={active} onChange={e => setActive(e.target.value)} title="Stav">
+          <option value="all">stav: vše</option>
+          <option value="yes">jen aktivní</option>
+          <option value="no">jen skryté</option>
+        </select>
         <label className="flex items-center gap-1 text-sm font-semibold cursor-pointer" style={{ color: '#374151' }}>
           <input type="checkbox" checked={onlySurroundings} onChange={e => setOnlySurroundings(e.target.checked)} />
           🧭 s popisem okolí
         </label>
       </div>
+
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 p-3 mb-3 rounded-card" style={{ background: '#ecfdf5', border: '1px solid #bbf7d0' }}>
+          <span className="text-sm font-bold">Vybráno {selected.size.toLocaleString('cs-CZ')} míst</span>
+          <select style={sel} defaultValue="" disabled={busy}
+            onChange={e => { if (e.target.value) { setBulk({ kind: 'category', value: e.target.value, count: selected.size }); e.target.value = '' } }}>
+            <option value="">Změnit kategorii…</option>
+            {Object.entries(POI_CATS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <select style={sel} defaultValue="" disabled={busy}
+            onChange={e => { if (e.target.value) { setBulk({ kind: 'country', value: e.target.value, count: selected.size }); e.target.value = '' } }}>
+            <option value="">Změnit zemi…</option>
+            {POI_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <SmallBtn color="#1a8a18" onClick={() => setBulk({ kind: 'active', value: 'yes', count: selected.size })}>Aktivovat</SmallBtn>
+          <SmallBtn color="#b45309" onClick={() => setBulk({ kind: 'active', value: 'no', count: selected.size })}>Skrýt</SmallBtn>
+          <SmallBtn color="#dc2626" onClick={() => setBulk({ kind: 'delete', value: null, count: selected.size })}>Smazat</SmallBtn>
+          <div className="flex-1" />
+          <SmallBtn color="#374151" onClick={selectAllFiltered}>Vybrat vše dle filtru ({total.toLocaleString('cs-CZ')})</SmallBtn>
+          <SmallBtn color="#6b7280" onClick={() => setSelected(new Set())}>Zrušit výběr</SmallBtn>
+        </div>
+      )}
 
       {error && (
         <div className="p-3 mb-3 rounded-card text-sm" style={{ background: '#fee2e2', color: '#dc2626', whiteSpace: 'pre-wrap' }}>{error}</div>
@@ -202,20 +271,22 @@ export default function TrasyKatalogMist() {
         <>
           <Table>
             <TRow header>
+              <TH><input type="checkbox" checked={allOnPage} onChange={togglePage} title="Vybrat stránku" /></TH>
               <TH>Foto</TH><TH>Název</TH><TH>Kategorie</TH><TH>Země</TH><TH>GPS</TH><TH>Zdroj</TH><TH>Stav</TH><TH>Akce</TH>
             </TRow>
             {displayRows.map(p => (
               <TRow key={p.id}>
+                <TD><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleRow(p.id)} /></TD>
                 <TD>
-                  {p.image_url
-                    ? <img src={p.image_url} alt="" loading="lazy" style={{ width: 46, height: 34, objectFit: 'cover', borderRadius: 6 }} />
+                  {poiPhoto(p)
+                    ? <img src={poiPhoto(p)} alt="" loading="lazy" style={{ width: 46, height: 34, objectFit: 'cover', borderRadius: 6 }} />
                     : <span style={{ opacity: 0.4 }}>—</span>}
                 </TD>
                 <TD>
                   <div className="font-semibold">{p.name}</div>
                   {p.description && <div className="text-xs" style={{ color: '#6b7280', maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>}
                 </TD>
-                <TD>{CAT[p.category] || p.category}</TD>
+                <TD>{catLabel(p.category)}</TD>
                 <TD>{p.country || '—'}</TD>
                 <TD className="text-xs" style={{ whiteSpace: 'nowrap' }}>{p.lat?.toFixed(4)}, {p.lng?.toFixed(4)}</TD>
                 <TD className="text-xs">{p.source || '—'}</TD>
@@ -243,8 +314,13 @@ export default function TrasyKatalogMist() {
 
           <div className="flex items-center justify-between mt-3 text-sm">
             <span style={{ color: '#6b7280' }}>Stránka {page + 1} / {pages} ({total.toLocaleString('cs-CZ')} míst)</span>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <SmallBtn color="#374151" onClick={() => setPage(p => Math.max(0, p - 1))}>‹ Předchozí</SmallBtn>
+              <input type="number" min={1} max={pages} value={page + 1} style={{ ...sel, width: 80 }}
+                onChange={e => {
+                  const n = Number(e.target.value)
+                  if (n >= 1 && n <= pages) setPage(n - 1)
+                }} title="Skočit na stránku" />
               <SmallBtn color="#374151" onClick={() => setPage(p => Math.min(pages - 1, p + 1))}>Další ›</SmallBtn>
             </div>
           </div>
@@ -252,50 +328,12 @@ export default function TrasyKatalogMist() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }} onClick={() => setEditing(null)}>
-          <div className="bg-white rounded-card p-5" style={{ width: 520, maxWidth: '92vw', maxHeight: '88vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-            <h3 className="font-bold mb-3" style={{ fontSize: 15 }}>Upravit místo</h3>
-            <label className="block text-xs font-bold mb-1">Název</label>
-            <input style={{ ...sel, width: '100%', marginBottom: 10 }} value={editing.name || ''}
-              onChange={e => setEditing(s => ({ ...s, name: e.target.value }))} />
-            <label className="block text-xs font-bold mb-1">Popis (česky)</label>
-            <textarea style={{ ...sel, width: '100%', minHeight: 90, marginBottom: 10 }} value={editing.description || ''}
-              onChange={e => setEditing(s => ({ ...s, description: e.target.value }))} />
-            <label className="block text-xs font-bold mb-1">Popis okolí (česky)</label>
-            <textarea style={{ ...sel, width: '100%', minHeight: 70, marginBottom: 10 }} value={editing.surroundings || ''}
-              placeholder="Co je v okolí — tipy na zastávky, občerstvení, výhledy…"
-              onChange={e => setEditing(s => ({ ...s, surroundings: e.target.value }))} />
-            <div className="flex gap-3 mb-3">
-              <div style={{ flex: 1 }}>
-                <label className="block text-xs font-bold mb-1">Kategorie</label>
-                <select style={{ ...sel, width: '100%' }} value={editing.category}
-                  onChange={e => setEditing(s => ({ ...s, category: e.target.value }))}>
-                  {Object.entries(CAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-              </div>
-              <div style={{ width: 110 }}>
-                <label className="block text-xs font-bold mb-1">Země</label>
-                <select style={{ ...sel, width: '100%' }} value={editing.country || ''}
-                  onChange={e => setEditing(s => ({ ...s, country: e.target.value }))}>
-                  <option value="">—</option>
-                  {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-            <label className="block text-xs font-bold mb-1">URL titulní fotky</label>
-            <input style={{ ...sel, width: '100%', marginBottom: 10 }} value={editing.image_url || ''}
-              onChange={e => setEditing(s => ({ ...s, image_url: e.target.value }))} />
-            <label className="flex items-center gap-2 text-sm mb-4">
-              <input type="checkbox" checked={!!editing.is_active}
-                onChange={e => setEditing(s => ({ ...s, is_active: e.target.checked }))} />
-              Aktivní (zobrazuje se v appce)
-            </label>
-            <div className="flex justify-end gap-2">
-              <SmallBtn color="#6b7280" onClick={() => setEditing(null)}>Zrušit</SmallBtn>
-              <SmallBtn color="#1a8a18" onClick={saveEdit}>Uložit</SmallBtn>
-            </div>
-          </div>
-        </div>
+        <PoiEditModal
+          poi={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(action, name) => { logAudit(action, { name }); setEditing(null); load() }}
+          onError={setError}
+        />
       )}
 
       {reviewsFor && (
@@ -313,6 +351,25 @@ export default function TrasyKatalogMist() {
           message={`Opravdu chcete smazat "${deleteConfirm.name}" z katalogu?`}
           danger onConfirm={() => handleDelete(deleteConfirm)}
           onCancel={() => setDeleteConfirm(null)}
+        />
+      )}
+
+      {bulk && (
+        <ConfirmDialog
+          open
+          title={bulk.kind === 'delete' ? 'Smazat vybraná místa?' : 'Hromadná změna'}
+          danger={bulk.kind === 'delete'}
+          message={
+            bulk.kind === 'delete'
+              ? `Nenávratně smazat ${bulk.count.toLocaleString('cs-CZ')} míst z katalogu? Smažou se i jejich hodnocení.`
+              : bulk.kind === 'category'
+                ? `Přeřadit ${bulk.count.toLocaleString('cs-CZ')} míst do kategorie ${catLabel(bulk.value)}?`
+                : bulk.kind === 'country'
+                  ? `Nastavit ${bulk.count.toLocaleString('cs-CZ')} místům zemi ${bulk.value}?`
+                  : `${bulk.value === 'yes' ? 'Aktivovat' : 'Skrýt'} ${bulk.count.toLocaleString('cs-CZ')} míst?`
+          }
+          onConfirm={runBulk}
+          onCancel={() => setBulk(null)}
         />
       )}
     </Card>

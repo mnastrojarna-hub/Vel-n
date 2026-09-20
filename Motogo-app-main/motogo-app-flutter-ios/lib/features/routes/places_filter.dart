@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -203,6 +205,7 @@ List<PoiEntry> applyPlacesFilter(
     if (f.routeId != null && e.route?.id != f.routeId) return false;
     if (q.isEmpty) return true;
     return searchMatches(e.poi.searchBlob, q) ||
+        (e.aliasBlob != null && searchMatches(e.aliasBlob!, q)) ||
         (e.route != null && searchMatches(e.route!.nameBlob, q));
   }).toList();
 
@@ -330,70 +333,230 @@ List<LatLng> routeLine(RouteItem r) =>
 // ── Slučování duplicitních míst — sdílí seznam Míst i mapa míst, aby obě
 // ukazovaly stejný počet a mapa nekreslila dva markery na jedno místo. ──
 
-/// Normalizovaný název místa pro slučování duplicit — malá písmena, sloučené
-/// mezery a bez vedoucího druhového slova (zámek/hrad/…), aby „Zámek Žirovnice"
-/// a „zámek Žirovnice" (i „Zámek Kamenice nad Lipou" vs „Kamenice nad Lipou")
-/// spadly na stejný klíč.
-String _placeName(String raw) {
-  var s = raw.trim().toLowerCase();
-  const prefixes = [
-    'zřícenina hradu ', 'zřícenina ', 'zámek ', 'hrad ', 'klášter ',
-    'burgruine ', 'schloss ', 'burg ', 'château ', 'castle ',
-  ];
-  for (final p in prefixes) {
-    if (s.startsWith(p)) {
-      s = s.substring(p.length);
-      break;
-    }
+/// Obecná (druhová) slova v názvech míst. O KONKRÉTNÍM místě neříkají nic, a
+/// tak se zahazují jak ze začátku názvu, tak z množiny významových slov —
+/// jinak „Hrad Křivoklát" a „Křivoklát" nebo „Rozhledna a televizní vysílač
+/// Praděd" a „Praděd — vysílač a rozhledna" vypadají jako dvě různá místa.
+const Set<String> _genericWords = {
+  // stavby
+  'hrad', 'hradu', 'hradby', 'zamek', 'zamku', 'zamecek', 'zricenina',
+  'zriceniny', 'tvrz', 'pevnost', 'klaster', 'klastera', 'kostel', 'kostela',
+  'kostelik', 'kaple', 'kaplicka', 'bazilika', 'katedrala', 'synagoga',
+  'rozhledna', 'rozhledny', 'vyhlidka', 'vyhlidkova', 'vez', 'veze', 'vysilac',
+  'muzeum', 'muzea', 'pamatnik', 'pomnik', 'skanzen', 'mlyn', 'mlyna',
+  'burg', 'burgruine', 'schloss', 'castle', 'chateau', 'ruine', 'tower',
+  // příroda
+  'vrch', 'vrchol', 'hora', 'hory', 'kopec', 'sedlo', 'skala', 'skaly',
+  'prehrada', 'prehradni', 'nadrz', 'rybnik', 'jezero', 'jezirko', 'vodopad',
+  'jeskyne', 'jaskyna', 'propast', 'studanka', 'studna', 'pramen', 'prameny',
+  'park', 'rezervace', 'udoli', 'les', 'louka', 'louky',
+  // spojky a předložky
+  'a', 'i', 'na', 'nad', 'pod', 'u', 'v', 've', 'se', 's', 'z', 'ze', 'do',
+  'the', 'of', 'in', 'and', 'der', 'die', 'das', 'von', 'bei', 'am',
+};
+
+/// Název bez diakritiky a interpunkce, malými písmeny, jedním oddělovačem.
+String _foldName(String raw) {
+  const from = 'áäàâãåčćçďđéěèêëíìîïľĺłňñóöòôõøřšśşťúůüûýÿžźż';
+  const to = 'aaaaaacccddeeeeeiiiilllnnoooooorsssstuuuuyyzzz';
+  final b = StringBuffer();
+  for (final ch in raw.toLowerCase().split('')) {
+    final i = from.indexOf(ch);
+    final c = i >= 0 ? to[i] : ch;
+    final ok = (c.compareTo('a') >= 0 && c.compareTo('z') <= 0) ||
+        (c.compareTo('0') >= 0 && c.compareTo('9') <= 0);
+    b.write(ok ? c : ' ');
   }
-  return s.replaceAll(RegExp(r'\s+'), ' ').trim();
+  return b.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
-/// Sloučí body, které představují STEJNÉ fyzické místo (shodný normalizovaný
-/// název + poloha v ~5 km rastru), do JEDNÉ položky. V katalogu „napříč
-/// trasami" se tak místo ležící na více trasách (Kamenice nad Lipou, zámek
-/// Žirovnice, Orlík…) ukáže jen jednou. Data tras se NEMĚNÍ — jde čistě o
-/// zobrazení. Jako reprezentanta upřednostní bod s fotkou, pak katalogový.
-/// Pořadí přednosti reprezentanta: bod s fotkou > katalogový > ostatní.
-int _rank(PoiEntry e) =>
-    (e.poi.cover != null ? 2 : 0) + (e.catalog ? 1 : 0);
+/// Normalizovaný název místa pro slučování duplicit — bez diakritiky a bez
+/// VEDOUCÍCH druhových slov, aby „Zámek Žirovnice" a „zámek Žirovnice"
+/// (i „Zřícenina hradu Kumburk" vs „Kumburk") spadly na stejný klíč.
+String _placeName(String raw) {
+  final parts = _foldName(raw).split(' ');
+  var i = 0;
+  while (i < parts.length - 1 && _genericWords.contains(parts[i])) {
+    i++;
+  }
+  return parts.sublist(i).join(' ');
+}
 
+/// Významová slova názvu (bez druhových a spojovacích). Když by nezbylo nic,
+/// vrátí se všechna slova — jinak by „Kaple" odpovídala čemukoli.
+Set<String> _sigWords(String raw) {
+  final all = _foldName(raw).split(' ').where((w) => w.length > 1).toSet();
+  final sig = all.difference(_genericWords);
+  return sig.isEmpty ? all : sig;
+}
+
+/// Je jedna množina slov podmnožinou druhé? („Velký Blaník" ⊆ „Hradiště Velký
+/// Blaník" → stejné místo.)
+///
+/// Jedno jediné společné slovo NESTAČÍ, pokud množiny nejsou shodné: po
+/// vyhození druhových slov zbude z „Oświęcim Castle" jen „oswiecim", což je
+/// podmnožina každé jiné pamětihodnosti v tomtéž městě — hrad by se slil se
+/// synagogou. Proto: buď jsou množiny shodné, nebo mají obě aspoň dvě slova.
+bool _subsetNames(Set<String> a, Set<String> b) {
+  if (a.isEmpty || b.isEmpty) return false;
+  final sub = a.length <= b.length ? b.containsAll(a) : a.containsAll(b);
+  if (!sub) return false;
+  return a.length == b.length || (a.length >= 2 && b.length >= 2);
+}
+
+/// Vzdálenost v metrech — rovinná aproximace. Katalog má desítky tisíc bodů
+/// a počítá se tu statisíce vzdáleností; přesnost na metry bohatě stačí
+/// a je to řádově rychlejší než haversine z `Distance()`.
+double _metersApart(LatLng a, LatLng b) {
+  const mPerDeg = 111320.0;
+  final dy = (a.latitude - b.latitude) * mPerDeg;
+  final dx = (a.longitude - b.longitude) *
+      mPerDeg *
+      math.cos((a.latitude + b.latitude) / 2 * math.pi / 180);
+  return math.sqrt(dx * dx + dy * dy);
+}
+
+/// Shodný název = totéž místo, i když se souřadnice z různých zdrojů liší
+/// o kilometry (tentýž zámek má u každé trasy trochu jinou značku; měřeno na
+/// seedu: 90 % skupin do 53 m, ale Roštejn se u devíti tras liší o 4,8 km).
+const double _kSameNameM = 5000;
+
+/// Mezi DVĚMA katalogovými body ale platí přísný limit: katalog pochází
+/// z Wikidat a má souřadnice na metry, takže dva stejně pojmenované body
+/// kilometry od sebe jsou dva RŮZNÉ kopce („Ptačí vrch" je v Česku třikrát,
+/// 7 km od sebe; „Holý vrch", „Komáří vrch"… stejně tak). Volný limit by je
+/// slil do jednoho a významné kopce by ze seznamu zmizely.
+const double _kSameNameCatalogM = 400;
+
+/// Název jednoho je podmnožinou druhého („Hrad Křivoklát" ↔ „Křivoklát").
+const double _kSubsetNameM = 150;
+
+/// Dvě místa TÉŽE kategorie prakticky na jednom bodě — rozhledna Pípalka
+/// stojí na vrcholu Křemešník (64 m), v seznamu i na mapě to musí být
+/// JEDNO místo, ne dvě položky přes sebe.
+const double _kSameCatM = 120;
+
+/// Pořadí přednosti reprezentanta skupiny: bod s fotkou > katalogový >
+/// s popisem > s konkrétnějším (delším) názvem > nejmenší klíč.
+int _rank(PoiEntry e) =>
+    (e.poi.cover != null ? 4 : 0) +
+    (e.catalog ? 2 : 0) +
+    ((e.poi.description ?? '').trim().isNotEmpty ? 1 : 0);
+
+bool _better(PoiEntry a, PoiEntry b) {
+  final ra = _rank(a), rb = _rank(b);
+  if (ra != rb) return ra > rb;
+  final la = a.poi.name.trim().length, lb = b.poi.name.trim().length;
+  if (la != lb) return la > lb;
+  return a.key.compareTo(b.key) < 0;
+}
+
+/// Sloučí body, které představují STEJNÉ fyzické místo, do JEDNÉ položky.
+///
+/// Slučuje se ve třech krocích (od nejjistějšího k nejvolnějšímu):
+///   1. shodný normalizovaný název do 5 km — místo ležící na dvaceti trasách
+///      („Čermákovy louky" je jako `route_poi` u 20 tras) se ukáže jednou,
+///   2. název jednoho je podmnožinou druhého do 150 m,
+///   3. stejná kategorie do 120 m — dva zápisy téhož kopce/rozhledny.
+///
+/// Data tras se NEMĚNÍ — jde čistě o zobrazení. Skupina se drží kolem prvního
+/// bodu (kotvy), takže se řetězením nespojí půl kraje; reprezentanta vybírá
+/// `_better` DETERMINISTICKY, aby seznam i mapa ukázaly tentýž klíč.
 List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
-  String bucket(double v) => (v / 0.05).round().toString();
-  final index = <String, int>{};
+  const cellDeg = 0.0025; // ~278 m — na pravidla 2 a 3 stačí okolí 3×3
   final out = <PoiEntry>[];
-  // Leží některý bod skupiny na trase? Reprezentantem bývá katalogový bod
-  // (má fotku), takže by se jinak vazba na trasu ztratila a mapa tras by
-  // místo nepoznala.
-  final onRouteOf = <int, bool>{};
+  final anchor = <LatLng?>[]; // kotva skupiny (první viděný bod)
+  final aSig = <Set<String>>[];
+  final aCat = <String>[];
+  final aCatalog = <bool>[];
+  final onRouteOf = <bool>[];
+  final byName = <String, List<int>>{}; // normalizovaný název → skupiny
+  final byCell = <String, List<int>>{}; // buňka rastru → skupiny
+  final namesOf = <List<String>>[];     // všechny názvy ve skupině (aliasy)
+
+  String cellKey(int gy, int gx) => '$gy,$gx';
+
   for (final e in src) {
     final ll = e.latLng;
-    // Body bez GPS nikdy neslučuj (nedají se spolehlivě ztotožnit).
-    final key = ll == null
-        ? 'id:${e.key}'
-        : 'p:${_placeName(e.poi.name)}@${bucket(ll.latitude)},${bucket(ll.longitude)}';
-    final at = index[key];
-    if (at == null) {
-      index[key] = out.length;
-      onRouteOf[out.length] = e.onRoute;
-      out.add(e);
+    final name = _placeName(e.poi.name);
+    var at = -1;
+
+    if (ll == null) {
+      // Body bez GPS nikdy neslučuj (nedají se spolehlivě ztotožnit).
+      at = -1;
     } else {
-      onRouteOf[at] = (onRouteOf[at] ?? false) || e.onRoute;
-      // Reprezentanta skupiny vybíráme DETERMINISTICKY — dřív rozhodovalo
-      // pořadí vstupu, takže seznam (pseudonáhodně přeskládaný) a mapa
-      // (přirozené pořadí) zvolily pro totéž místo jiný bod, a tím i jiný
-      // klíč. Vybrané místo se pak na druhé obrazovce tvářilo jako nevybrané.
-      final cur = out[at];
-      if (_rank(e) > _rank(cur) ||
-          (_rank(e) == _rank(cur) && e.key.compareTo(cur.key) < 0)) {
-        out[at] = e;
+      // 1) shodný název do 5 km
+      for (final g in name.isEmpty ? const <int>[] : (byName[name] ?? const <int>[])) {
+        final a = anchor[g];
+        final limit = (e.catalog && aCatalog[g])
+            ? _kSameNameCatalogM
+            : _kSameNameM;
+        if (a != null && _metersApart(a, ll) <= limit) {
+          at = g;
+          break;
+        }
+      }
+      if (at < 0) {
+        // 2) + 3) blízké body v okolí 3×3 buněk
+        final sig = _sigWords(e.poi.name);
+        final cat = poiCategoryOf(e.poi);
+        final gy = (ll.latitude / cellDeg).floor();
+        final gx = (ll.longitude / cellDeg).floor();
+        outer:
+        for (var dy = -1; dy <= 1; dy++) {
+          for (var dx = -1; dx <= 1; dx++) {
+            for (final g in byCell[cellKey(gy + dy, gx + dx)] ?? const <int>[]) {
+              final a = anchor[g];
+              if (a == null) continue;
+              final d = _metersApart(a, ll);
+              if (d <= _kSubsetNameM && _subsetNames(sig, aSig[g])) {
+                at = g;
+                break outer;
+              }
+              if (d <= _kSameCatM && cat == aCat[g]) {
+                at = g;
+                break outer;
+              }
+            }
+          }
+        }
       }
     }
-  }
-  for (var i = 0; i < out.length; i++) {
-    if ((onRouteOf[i] ?? false) && !out[i].onRoute) {
-      out[i] = out[i].copyWith(onRoute: true);
+
+    if (at < 0) {
+      final g = out.length;
+      out.add(e);
+      anchor.add(ll);
+      aSig.add(_sigWords(e.poi.name));
+      aCat.add(poiCategoryOf(e.poi));
+      aCatalog.add(e.catalog);
+      onRouteOf.add(e.onRoute);
+      namesOf.add(<String>[e.poi.name]);
+      if (ll != null) {
+        if (name.isNotEmpty) (byName[name] ??= <int>[]).add(g);
+        (byCell[cellKey((ll.latitude / cellDeg).floor(),
+                (ll.longitude / cellDeg).floor())] ??= <int>[])
+            .add(g);
+      }
+    } else {
+      onRouteOf[at] = onRouteOf[at] || e.onRoute;
+      namesOf[at].add(e.poi.name);
+      if (_better(e, out[at])) out[at] = e;
     }
+  }
+
+  for (var i = 0; i < out.length; i++) {
+    final onRoute = onRouteOf[i] && !out[i].onRoute ? true : null;
+    // Aliasy jen tam, kde se opravdu něco slilo a název se liší od toho,
+    // který ve skupině zvítězil.
+    final rep = out[i].poi.name;
+    final others =
+        namesOf[i].where((n) => n != rep).toSet().toList(growable: false);
+    if (onRoute == null && others.isEmpty) continue;
+    out[i] = out[i].copyWith(
+      onRoute: onRoute,
+      aliasBlob: others.isEmpty ? null : searchNorm(others.join(' ')),
+    );
   }
   return out;
 }

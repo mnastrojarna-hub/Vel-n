@@ -67,6 +67,7 @@ const translationsUkFill = <String, Map<String, String>>{
     'poiCatSights': 'Пам’ятки',
     'poiCatTech': 'Техніка',
     'poiCatWater': 'Вода',
+    'poiCatSpring': 'Джерела та криниці',
     'poiRateErr': 'Не вдалося зберегти оцінку — спробуйте ще раз',
     'poiRateSaved': 'Оцінку збережено ⭐',
     'routeNavOffRoute': 'Поза маршрутом — перераховую…',
