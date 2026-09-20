@@ -74,14 +74,16 @@ export async function executeTool(
       const { data, error } = await supabaseAdmin
         .from('bookings')
         .select(`
-          id, status, payment_status, start_date, end_date, pickup_time,
+          id, status, payment_status, start_date, end_date, pickup_time, return_time,
           total_price, extras_price, pickup_method, return_method,
           mileage_start, mileage_end, notes, booking_source,
+          picked_up_at, handover_protocol_started_at, handover_protocol_filled_at,
           motorcycles!moto_id(
             id, model, brand, spz, engine_type, engine_cc, power_kw, power_hp,
             weight_kg, has_abs, has_asc, features, manual_url, manual_external_url, description,
             ideal_usage, category, fuel_tank_l, seat_height_mm, color, mileage,
-            year, license_required, image_url
+            year, license_required, image_url, box_number, branch_id,
+            branches!branch_id(id, name, address, city, phone, type, is_open, notes, gps_lat, gps_lng)
           )
         `)
         .eq('user_id', userId)
@@ -95,6 +97,59 @@ export async function executeTool(
       if (active) return active
       if (data.length > 1) return { multiple_bookings: data, message: 'Zákazník má více rezervací. Zeptej se, o kterou motorku jde.' }
       return data[0]
+    }
+
+    case 'get_access_status': {
+      // Stav přístupových kódů + dokladů (NIKDY samotný kód — viz description).
+      // Zdroj pravdy: branch_door_codes (is_active / sent_to_customer / withheld_reason
+      // / valid_from / valid_until) + pobočka a kóje z motorcycles.
+      const bid = typeof input.booking_id === 'string' ? input.booking_id : null
+      let q = supabaseAdmin
+        .from('bookings')
+        .select(`
+          id, status, payment_status, start_date, end_date,
+          motorcycles!moto_id(id, brand, model, box_number, branch_id,
+            branches!branch_id(name, address, city, type, phone))
+        `)
+        .eq('user_id', userId)
+      q = bid ? q.eq('id', bid) : q.in('status', ['active', 'reserved'])
+      const { data: bks, error: bErr } = await q.order('start_date', { ascending: true }).limit(5)
+      if (bErr) return { error: bErr.message }
+      if (!bks || bks.length === 0) return { message: 'Zákazník nemá rezervaci, ke které by kódy existovaly.' }
+      const bk = (bks.find(b => b.status === 'active') || bks[0]) as Record<string, unknown>
+      const moto = bk.motorcycles as Record<string, unknown> | null
+      const branch = (moto?.branches as Record<string, unknown> | null) || null
+
+      const { data: codes, error: cErr } = await supabaseAdmin
+        .from('branch_door_codes')
+        .select('code_type, is_active, sent_to_customer, sent_at, withheld_reason, valid_from, valid_until')
+        .eq('booking_id', bk.id)
+        .eq('is_active', true)
+      if (cErr) return { error: cErr.message }
+
+      const rows = (codes || []) as Array<Record<string, unknown>>
+      const withheld = rows.filter(c => c.sent_to_customer !== true)
+      return {
+        booking_id: bk.id,
+        booking_status: bk.status,
+        branch: branch ? { name: branch.name, address: [branch.address, branch.city].filter(Boolean).join(', '), type: branch.type, phone: branch.phone } : null,
+        box_number: moto?.box_number ?? null,
+        self_service: branch?.type === 'samoobslužná',
+        codes: rows.map(c => ({
+          code_type: c.code_type,                    // motorcycle = kóje s motorkou, accessories = šatna s výbavou
+          delivered: c.sent_to_customer === true,    // odeslán zákazníkovi (appka + mail + SMS/WhatsApp)
+          sent_at: c.sent_at ?? null,
+          withheld_reason: c.withheld_reason ?? null,
+          valid_from: c.valid_from ?? null,
+          valid_until: c.valid_until ?? null,
+        })),
+        summary: rows.length === 0
+          ? 'K rezervaci zatím nejsou vygenerované žádné přístupové kódy (typicky nezaplacená rezervace nebo obslužná pobočka).'
+          : withheld.length > 0
+            ? `Kódy existují, ale ${withheld.length} z nich je ZADRŽENÝCH: ${withheld.map(c => c.withheld_reason || 'důvod neuveden').join('; ')}. Vysvětli zákazníkovi PŘESNĚ tenhle důvod a jak ho odstranit (doplnit doklady v appce → kódy se uvolní automaticky).`
+            : 'Všechny kódy jsou vydané a odeslané — zákazník je má v appce (detail rezervace / Zprávy), v e-mailu, SMS i WhatsApp.',
+        never_reveal: 'Samotné číslice kódu tool nevrací a agent je NIKDY nesděluje ani neodhaduje.',
+      }
     }
 
     case 'get_booking_history': {
