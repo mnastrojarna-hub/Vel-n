@@ -21,6 +21,15 @@ const STATE_CZ = {
 const STATE_BG = {
   SECURED: '#f1faf7', WAITING_FOR_OPEN: '#fef3c7', DOOR_OPEN: '#dcfce7', CLOSED_CONFIRMATION: '#dbeafe', FAULT: '#fee2e2',
 }
+// Stav I/O sítě (eth0) z health monitoru jednotky — `status.health.lan` (kontrakt §17).
+// Bez tohohle bylo ve Velíně vidět jen „moduly červené" a nešlo poznat, jestli je vadný modul,
+// nebo celá síťová cesta k nim (mrtvý kabel / vypnutý switch) — viz Pohořelice 2026-09-19.
+const LAN_PROBLEM = {
+  no_link: { text: 'I/O síť: eth0 bez linku', title: 'Raspberry nemá na ethernetu link — moduly Waveshare a Shelly jsou proto nedostupné VŠECHNY naráz. Zkontrolujte kabel z Raspberry do switche a napájení switche; tohle není závada modulů ani softwaru.' },
+  no_address: { text: 'I/O síť: eth0 bez adresy', title: 'Ethernet má link, ale rozhraní nemá IP adresu (profil motogo-lan nenaskočil). Jednotka se ho sama pokouší nahodit; když to nepomůže, na Raspberry: sudo nmcli con up motogo-lan.' },
+  missing: { text: 'I/O síť: eth0 chybí', title: 'Rozhraní eth0 na systému vůbec není (přejmenované nebo mrtvý ethernetový port). Bez něj se pobočka neovládá — je potřeba servisní zásah.' },
+}
+
 const FAULT_CZ = {
   io_offline: 'I/O modul nedostupný',
   forced_open: 'Násilné otevření',
@@ -105,6 +114,8 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
   const modules = st.modules && typeof st.modules === 'object' && !Array.isArray(st.modules) ? Object.entries(st.modules) : []
   const health = st.health && typeof st.health === 'object' ? st.health : {}
   const lte = health.lte && typeof health.lte === 'object' ? health.lte : {}
+  const lan = health.lan && typeof health.lan === 'object' ? health.lan : {}
+  const lanBad = lan.ok === false ? (LAN_PROBLEM[txt(lan.problem)] || LAN_PROBLEM.no_link) : null
   const sys = health.sys && typeof health.sys === 'object' ? health.sys : {}
   const problems = arr(st.config_problems)
   const doorMap = Object.fromEntries(arr(doors).map(d => [d.id, d]))
@@ -136,6 +147,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
         {hasStatus && <span className="text-[11px]" style={{ color: '#6b8c7a' }}>v{txt(st.version ?? dev.app_version ?? '?')} · běží {formatUptime(st.uptime_s)}</span>}
         {st.ready === false && <Chip tone="amber">Nepřipraveno</Chip>}
         {hasStatus && <Chip tone={st.internet ? 'green' : 'red'} title="Připojení k internetu (LTE)">{st.internet ? 'Internet OK' : 'Bez internetu'}</Chip>}
+        {lanBad && <Chip tone="red" title={lanBad.title}>{lanBad.text}{lan.state ? ` (${txt(lan.state)})` : ''}</Chip>}
         {lte.state != null && (
           <Chip tone={lte.state === 'connected' ? 'blue' : 'amber'} title={`LTE ${txt(lte.state)} · RSRP ${txt(lte.rsrp)} dBm · reconnectů ${txt(lte.reconnects ?? 0)} · USB resetů ${txt(lte.usb_resets ?? 0)}`}>
             LTE {txt(lte.operator ?? lte.state)}{num(lte.rssi) != null ? ` ${num(lte.rssi)} dBm` : ''}

@@ -54,5 +54,8 @@ health:
   usb_reset_after: 5              # neúspěšných reconnectů → USB reset modemu
   reboot_after: 3                 # USB resetů bez obnovy → reboot (max 1× za min_uptime_before_reboot_s)
   min_uptime_before_reboot_s: 1800
+  lan_connection: motogo-lan      # I/O síť (SPEC §4): profil, který health nahodí, když eth0 nemá adresu
+  lan_interface: eth0
+  lan_recover_s: 300              # jak často nejvýš zkusit `nmcli con up` (0 = neopravovat, jen hlásit)
 
 log_level: INFO

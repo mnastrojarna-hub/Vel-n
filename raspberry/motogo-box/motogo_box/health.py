@@ -4,10 +4,11 @@ Smyčka každých `cfg.check_interval_s`:
 1. sonda internetu: 3 nezávislé cíle souběžně (HTTP `cfg.probe_url`, HTTP google `generate_204`,
    TCP 1.1.1.1:443) — „down“ jen když selžou VŠECHNY (výpadek Supabase/DNS ≠ výpadek LTE),
 2. LTE info z ModemManageru (`mmcli -J`) + stav NM profilu (`nmcli`),
-3. systémové metriky (teplota, throttling, disk, RAM, load, uptime),
-4. politika obnovy LTE (`LtePolicy`): reconnect → USB reset modemu → reboot; při `locked` (SIM PIN)
+3. stav I/O sítě (`lan_state`): eth0 musí mít adresu, jinak se hlásí `no_link` / `no_address`,
+4. systémové metriky (teplota, throttling, disk, RAM, load, uptime),
+5. politika obnovy LTE (`LtePolicy`): reconnect → USB reset modemu → reboot; při `locked` (SIM PIN)
    nebo `failed` kvůli SIM politika STOJÍ a chyba jde do `lte.error` + logu (reboot PIN nezadá),
-5. `POST <controller>/api/health` (3 s, chyby se ignorují) + `sd_notify WATCHDOG=1`.
+6. `POST <controller>/api/health` (3 s, chyby se ignorují) + `sd_notify WATCHDOG=1`.
 
 Počítadla politiky přežívají restart služby v `<paths.data_dir>/health.json`. Procesy jdou přes
 injektovatelné `run_cmd`, TCP sonda přes `tcp_probe` (testy bez sudo/sítě); sudo argv odpovídají
@@ -58,10 +59,12 @@ PROBE_TCP = ("1.1.1.1", 443)                          # TCP connect bez DNS (vý
 POST_TIMEOUT_S = 3.0
 MMCLI_TIMEOUT_S = 15.0
 SIGNAL_SETUP_RATE_S = 30
+LAN_UP_WAIT_S = 20           # `nmcli -w 20 con up motogo-lan` — hodnota MUSÍ sedět s aliasem v motogo-sudoers
 KILL_WAIT_S = 5.0            # po timeoutu: jak dlouho čekat na konec (ne)zabitého potomka
 
 RunCmd = Callable[..., Awaitable[tuple[int, str]]]
 TcpProbe = Callable[..., Awaitable[bool]]
+Interfaces = Callable[[], Awaitable[list[dict]]]
 
 
 async def run_cmd(*args: str, timeout: float = 20) -> tuple[int, str]:
@@ -172,7 +175,8 @@ class HealthMonitor:
                  run_cmd: RunCmd = run_cmd, clock: Callable[[], float] = time.time,
                  state_path: str = DEFAULT_STATE_PATH, http: httpx.AsyncClient | None = None,
                  uptime: Callable[[], float | None] = read_uptime_s,
-                 tcp_probe: TcpProbe = tcp_probe) -> None:
+                 tcp_probe: TcpProbe = tcp_probe,
+                 interfaces: Interfaces | None = None) -> None:
         self.cfg = cfg
         self.controller_url = controller_url.rstrip("/")
         self.run_cmd = run_cmd
@@ -181,6 +185,9 @@ class HealthMonitor:
         self._http = http
         self._uptime = uptime
         self._tcp_probe = tcp_probe
+        self._interfaces = interfaces      # None = `net_scan.interfaces` (lazy import, viz `_list_interfaces`)
+        self._lan_try_at: float | None = None      # poslední pokus o `nmcli con up` (rate limit)
+        self._lan_problem: str | None = None       # poslední hlášený problém — log jen při ZMĚNĚ, ne každých 30 s
         self.policy = LtePolicy(cfg, clock)
         self.policy.load(self._load_state())
         self.last_payload: dict | None = None
@@ -264,6 +271,82 @@ class HealthMonitor:
                 "internet_failures": p.internet_failures, "last_action": p.last_action,
                 "error": lte_error(modem)}
 
+    # ─── I/O síť (eth0) ──────────────────────────────────────────────────────
+    async def lan_state(self) -> dict:
+        """Stav I/O sítě: `{interface, state, ipv4, ok, problem, action}` (`ok=None` = nezjištěno).
+
+        `problem`:
+          * `no_link` — rozhraní nemá link (mrtvý kabel, vypnutý switch, vadný port). Software s tím
+            NIC nezmůže, jen to hlásí do stavu a jednou do logu — jinak by se maskovala HW závada.
+          * `no_address` — link je, ale rozhraní nemá IPv4 (profil `motogo-lan` nenaskočil). Tohle
+            opravit jde → `nmcli con up`, nejvýš jednou za `cfg.lan_recover_s`.
+          * `missing` — rozhraní na systému vůbec není (přejmenované / mrtvý PHY).
+        """
+        name = (self.cfg.lan_interface or "").strip()
+        if not name:
+            return {"interface": None, "state": None, "ipv4": None, "ok": None, "problem": None, "action": None}
+        try:
+            ifaces = await self._list_interfaces()
+        except Exception as exc:  # noqa: BLE001 — výpis rozhraní nesmí shodit cyklus health
+            log.debug("lan_state: seznam rozhraní selhal: %s", exc)
+            return {"interface": name, "state": None, "ipv4": None, "ok": None, "problem": None, "action": None}
+        entry = next((i for i in ifaces if isinstance(i, dict) and i.get("name") == name), None)
+        if entry is None:
+            state, ipv4, problem = None, None, "missing"
+        else:
+            state = str(entry.get("state") or "").lower() or None
+            addrs = [a.get("addr") for a in (entry.get("ipv4") or []) if isinstance(a, dict) and a.get("addr")]
+            ipv4 = addrs[0] if addrs else None
+            problem = None if ipv4 else ("no_address" if state == "up" else "no_link")
+        action = await self._lan_recover() if problem == "no_address" else None
+        self._log_lan_change(problem, state)
+        return {"interface": name, "state": state, "ipv4": ipv4,
+                "ok": problem is None, "problem": problem, "action": action}
+
+    async def _list_interfaces(self) -> list[dict]:
+        """Rozhraní ze `net_scan` (import až tady — `net_scan` bere `run_cmd` z tohoto modulu)."""
+        if self._interfaces is not None:
+            return await self._interfaces()
+        from . import net_scan
+        return await net_scan.interfaces()
+
+    async def _lan_recover(self) -> str | None:
+        """`nmcli con up <lan_connection>`, nejvýš jednou za `cfg.lan_recover_s` (0 = vypnuto)."""
+        every = int(self.cfg.lan_recover_s or 0)
+        if every <= 0:
+            return None
+        now = self.clock()
+        if self._lan_try_at is not None and now - self._lan_try_at < every:
+            return None
+        self._lan_try_at = now
+        con = self.cfg.lan_connection
+        log.warning("I/O síť: %s má link, ale nemá adresu → nahazuji profil %s", self.cfg.lan_interface, con)
+        sd_notify("WATCHDOG=1")   # nmcli čeká až LAN_UP_WAIT_S — watchdog nesmí zabít obnovu
+        rc, out = await self.run_cmd("sudo", "-n", "nmcli", "-w", str(LAN_UP_WAIT_S), "con", "up", con,
+                                     timeout=LAN_UP_WAIT_S + 15)
+        if rc != 0:
+            log.error("nmcli con up %s selhal (rc=%s): %s", con, rc, out.strip()[:300])
+            return "lan_up_failed"
+        return "lan_up"
+
+    def _log_lan_change(self, problem: str | None, state: str | None) -> None:
+        """Loguje JEN přechody (cyklus běží každých 30 s — jinak by log zaplavilo jedno mrtvé eth0)."""
+        if problem == self._lan_problem:
+            return
+        iface = self.cfg.lan_interface
+        if problem is None:
+            if self._lan_problem is not None:
+                log.warning("I/O síť: %s je zpět (adresa přidělena)", iface)
+        elif problem == "no_link":
+            log.error("I/O síť: %s nemá link (stav %s) — moduly Waveshare/Shelly jsou nedostupné. "
+                      "Zkontroluj kabel do switche a napájení switche; tohle software neopraví.", iface, state or "?")
+        elif problem == "missing":
+            log.error("I/O síť: rozhraní %s na systému neexistuje", iface)
+        else:
+            log.error("I/O síť: %s nemá IPv4 adresu (stav %s) — profil %s nenaskočil",
+                      iface, state or "?", self.cfg.lan_connection)
+        self._lan_problem = problem
+
     # ─── akce politiky ───────────────────────────────────────────────────────
     async def perform(self, action: str, payload: dict) -> None:
         """Provede akci z `LtePolicy.step`; `reboot` nejdřív ohlásí controlleru."""
@@ -311,6 +394,7 @@ class HealthMonitor:
         """Jeden průchod: sondy → politika → akce → POST → watchdog. Vrací payload."""
         internet = await self.probe_internet()
         lte = await self.lte_info()
+        lan = await self.lan_state()
         sysm = sys_metrics()
         uptime = self._uptime()
         error = lte.get("error")
@@ -324,7 +408,8 @@ class HealthMonitor:
             actions = self.policy.step(internet, uptime if uptime is not None else 0.0)
         self._lte_error = error
         self._save_state()
-        payload = {"internet": internet, "lte": lte, "sys": sysm, "ts": now_iso(), "actions": actions}
+        payload = {"internet": internet, "lte": lte, "lan": lan, "sys": sysm, "ts": now_iso(),
+                   "actions": actions}
         for action in actions:
             await self.perform(action, payload)
         if "reboot" not in actions:

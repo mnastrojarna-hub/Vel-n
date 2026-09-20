@@ -261,8 +261,12 @@ class SupabaseApi:
                 if not self.status_rpc_missing:
                     log.info("kiosk_report_status není nasazená — status se nehlásí")
                 self.status_rpc_missing = True
+            elif exc.is_network:
+                log.debug("report_status selhal (offline): %s", exc)
             else:
-                log.debug("report_status selhal: %s", exc)
+                # Odmítnutí SERVEREM (špatný token, příliš velký snapshot, chyba RPC) je tichá díra:
+                # Velín pak ukazuje jednotku jako online (heartbeat chodí) se starým stavem a nikde není proč.
+                log.warning("report_status odmítnut serverem: %s", exc)
 
     async def report_power(self, payload: dict) -> None:
         try:
