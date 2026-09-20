@@ -110,17 +110,24 @@ if (( ok == 0 )); then
 fi
 
 wait_for() {  # wait_for <sekundy> <popis> <příkaz…> — čeká, než příkaz uspěje
-  local deadline=$(( SECONDS + $1 )) desc="$2"; shift 2
+  local limit="$1" desc="$2"; shift 2
+  local deadline=$(( SECONDS + limit ))
   while (( SECONDS < deadline )); do
     "$@" >/dev/null 2>&1 && return 0
     sleep 1
   done
-  log "UPOZORNĚNÍ: $desc se nedostavil do ${deadline} s"
+  log "UPOZORNĚNÍ: $desc se nedostavil do ${limit} s"
   return 1
 }
 
-# 1) re-enumerace USB (cdc-wdm* nebo ttyUSB* — co se objeví dřív), max 20 s
-wait_for 20 "re-enumerace modemu" bash -c 'compgen -G "/dev/cdc-wdm*" >/dev/null || compgen -G "/dev/ttyUSB*" >/dev/null' || true
+# 1) re-enumerace USB — čekáme cíleně na QMI uzel cdc-wdm*, ne na ttyUSB*: ttyUSB se objeví dřív
+# a restart MM v půlce enumerace je přesně to, po čem ModemManager skončí v PPP fallbacku.
+# Ověřený ruční postup má v tomhle místě `sleep 20` (2026-09-20), tady je to čekání s limitem 20 s.
+if wait_for 20 "QMI uzel cdc-wdm" bash -c 'compgen -G "/dev/cdc-wdm*" >/dev/null'; then
+  sleep 3     # ať doběhne zbytek rozhraní (wwan0) — MM sonduje celé zařízení, ne jen jeden uzel
+else
+  log "UPOZORNĚNÍ: cdc-wdm se po resetu neobjevil do 20 s — restartuji ModemManager i tak"
+fi
 
 # 2) restart ModemManageru — bez něj zůstane MM v PPP fallbacku
 if command -v systemctl >/dev/null 2>&1; then
@@ -131,7 +138,7 @@ if command -v systemctl >/dev/null 2>&1; then
   fi
 fi
 
-# 3) čekat, až MM modem uvidí (sondování trvá i ~45 s)
+# 3) čekat, až MM modem uvidí (ověřeno: sondování trvá i ~45 s)
 if command -v mmcli >/dev/null 2>&1; then
   if wait_for 60 "modem v ModemManageru" bash -c 'mmcli -L 2>/dev/null | grep -q Modem'; then
     port="$(mmcli -m any 2>/dev/null | grep -i 'primary port' | head -n1 | sed 's/.*: *//' | tr -d ' ')"

@@ -216,3 +216,16 @@ Bez restartu MM skončí spojení v PPP fallbacku na `ttyUSB2`.
 **Netestované hypotézy k dalšímu ladění:** (a) jiný fyzický USB port Pi 5 nebo jiný kabel,
 (b) přepnout modem z QMI na MBIM/ECM (`AT+CUSBPIDSWITCH`) — vyžaduje i jiný NM profil, nejdřív na dev Pi,
 (c) chování QMI klienta v jádře vs. firmware modemu při „implicitly-detached".
+20. 9. ve 14:15 byl modem přepojen z portu `1-1` (řadič 1) do černého USB 2.0 portu `3-2` (řadič 3) —
+test hypotézy (a). Doba do dalšího `-71` rozhodne: žádný výpadek ≈ vadný port/řadič 1; opakování
+v rytmu ~10–15 min ≈ modem/QMI (pak zkusit RNDIS/MBIM).
+
+### Doporučené rozložení USB na Pi 5
+
+- **LTE modem sám na jednom řadiči** — černý USB 2.0 port (`3-x` v `/sys/bus/usb/devices`).
+  Sdílet řadič s dotykem a zvukovkou se neosvědčilo.
+- **Dotykový displej EDATEC + USB zvuková karta na druhém řadiči** (`1-x`).
+- Na kterém řadiči co visí, se ověří `ls -l /sys/bus/usb/devices/` (prefix `1-`, `3-`) nebo
+  `lsusb -t`. Po přepojení se změní i jméno portu — skript `motogo-usbreset` si ho **hledá dynamicky
+  podle `idVendor=1e0e`**, takže se nic nepřenastavuje.
+- Anténu a kabel modemu vést dál od USB 3.0 kabelů (rušení v pásmu 2,4 GHz i na LTE).

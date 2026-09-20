@@ -7,6 +7,7 @@ import pytest
 from aiohttp import web
 
 from motogo_box.storage import Storage
+from motogo_box import supabase_api as api_mod
 from motogo_box.supabase_api import ApiError, SupabaseApi
 
 DEVICE_ID = "6f1c2b8e-3a4d-4e5f-9a0b-1c2d3e4f5a6b"
@@ -147,6 +148,28 @@ async def test_resolve_code(server, storage):
         assert bad == {"ok": False, "error": "invalid_code"}
         server.fail_all = True
         assert await api.resolve_code("123456") is None       # 5xx → None (offline cache)
+    finally:
+        await api.close()
+
+
+async def test_resolve_code_timeout_shrinks_when_offline(server, storage):
+    """Zákazník u boxu nesmí při výpadku čekat na plný timeout — po selhání se jen ťukne a jde cache."""
+    api = make_api(server, storage)
+    seen: list[float] = []
+    real_rpc = api.rpc
+
+    async def spy(name, params, timeout_s=10):
+        seen.append(timeout_s)
+        return await real_rpc(name, params, timeout_s)
+
+    api.rpc = spy
+    try:
+        api.online = True
+        await api.resolve_code("123456")
+        assert seen[-1] == api_mod.CODE_TIMEOUT_S
+        api.online = False                       # probíhající výpadek LTE
+        await api.resolve_code("123456")
+        assert seen[-1] == api_mod.CODE_TIMEOUT_OFFLINE_S < api_mod.CODE_TIMEOUT_S
     finally:
         await api.close()
 
