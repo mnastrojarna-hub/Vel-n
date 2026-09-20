@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 import httpx
 
+from . import shell
 from .models import Signal
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -264,6 +265,15 @@ async def _diagnostics(ctrl: "BoxController", params: dict) -> tuple[bool, dict]
     return bool(res.get("ok")), res
 
 
+async def _shell_unlock(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Odemkne volné psaní v servisním terminálu na displeji (§27); `params {minutes?}`, 0 = zamknout.
+
+    Připravené příkazy terminálu jsou na displeji vždy — tímhle se pouští JEN volné psaní,
+    a jen dokud odemčení neprojde (výchozí 30 min). Displej si ho sám zapnout nemůže.
+    """
+    return True, shell.unlock(ctrl, params.get("minutes"))
+
+
 async def _http_get(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     url = str(params.get("url") or "").strip()
     if not url.lower().startswith(("http://", "https://")):
@@ -296,6 +306,7 @@ HANDLERS: dict[str, Handler] = {
     "http_get": _http_get,
     "camera_control": _http_get,
     "diagnostics": _diagnostics,
+    "shell_unlock": _shell_unlock,
 }
 
 # Příkazy, které ukončí proces — controller je dokončí v Supabase PŘED spuštěním.

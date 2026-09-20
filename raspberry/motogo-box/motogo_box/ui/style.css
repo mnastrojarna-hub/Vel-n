@@ -177,3 +177,15 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .status-sub { margin-top: clamp(6px, 1.2vh, 12px); font-size: clamp(14px, 2vh, 20px); color: var(--muted); line-height: 1.45; white-space: pre-line; }
 .status-sub:empty { display: none; }
 .status-dismiss { margin-top: clamp(10px, 2.5vh, 28px); font-size: clamp(12px, 1.5vh, 15px); color: var(--muted); }
+
+/* ─── Servisní terminál (§27) ─────────────────────────────────────────────── */
+.shell-menu { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.shell-group { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+.shell-group-name { min-width: 72px; font-size: 12px; font-weight: 800; text-transform: uppercase; color: #6b8c7a; padding-top: 6px; }
+.shell-btns { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+.shell-out { flex: 1; min-height: 180px; max-height: 42vh; overflow: auto; margin: 0 0 8px; padding: 10px 12px;
+  background: #0f1a14; color: #d6f5e3; border-radius: 12px; font-family: ui-monospace, "DejaVu Sans Mono", monospace;
+  font-size: 13px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.shell-input { display: flex; flex-direction: column; gap: 6px; }
+.shell-cmd { font-family: ui-monospace, "DejaVu Sans Mono", monospace; text-align: left; }
+.diag-state.ok { color: #1a8a18; }

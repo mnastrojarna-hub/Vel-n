@@ -8,6 +8,7 @@ MG.Diag = (function () {
   const $ = (id) => document.getElementById(id);
   let deps = null;            // { post, getState }
   let visible = false, askCode = false, token = null, code = '', busy = false, kb = null;
+  let shellToken = null;      // §27 — vrací ho jednotka po platném diagnostickém kódu (terminál, NE dveře)
   let shownId = null;         // id reportu, který je vykreslený
   let lastStatus = null;
 
@@ -266,6 +267,7 @@ MG.Diag = (function () {
     msg('Spouštím diagnostiku…');
     const res = await deps.post('/api/diagnostics/run', Object.assign({ mode: 'full' }, body || {}));
     busy = false;
+    if (res && res.shell_token) { shellToken = res.shell_token; updateShellBtn(); }
     if (res && (res.ok || res.error === 'already_running')) {
       showAuth(false);
       msg(res.error === 'already_running' ? 'Diagnostika už běží.' : 'Diagnostika spuštěna — trvá 1–4 min.', 'ok');
@@ -286,11 +288,13 @@ MG.Diag = (function () {
   function open(opts) {
     opts = opts || {};
     token = opts.token || null;
+    shellToken = null;
     visible = true;
     $('diag').hidden = false;
     msg('');
     shownId = null;
     showAuth(!!opts.askCode && !token && !opts.started);
+    updateShellBtn();
     if (!askCode) fetchReport();
     if (token) run({ service_token: token });
     onState(deps.getState());
@@ -303,7 +307,11 @@ MG.Diag = (function () {
     $('diag-close').addEventListener('click', close);
     $('diag-close2').addEventListener('click', close);
     $('diag-rerun').addEventListener('click', () => run(token ? { service_token: token } : { code: code.trim() || '' }).then((ok) => { if (!ok && !token) showAuth(true); }));
+    $('diag-shell').addEventListener('click', () => MG.Shell.open({ token, shellToken }));
   }
+
+  /** Tlačítko „⌨ Terminál" má smysl jen s přístupem — servisní token, nebo token z diagnostického kódu. */
+  function updateShellBtn() { $('diag-shell').hidden = !(token || shellToken); }
 
   window.__diagRender = renderReport;   // jen pro statický náhled/screenshot (harness), appka to nepoužívá
   return { init, open, close, onState, isVisible: () => visible, wantsKeys: () => visible && askCode,

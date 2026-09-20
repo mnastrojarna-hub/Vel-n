@@ -68,6 +68,7 @@ class EventKind(str, Enum):
     REMOTE_COMMAND = "REMOTE_COMMAND"
     RPC_ERROR = "RPC_ERROR"                      # ověření kódu selhalo na straně serveru/párování (ne neplatný PIN)
     DIAGNOSTICS = "DIAGNOSTICS"                  # dokončená diagnostika sítě (souhrn; celý report → kiosk_diagnostics)
+    SHELL = "SHELL"                              # servisní terminál na displeji — spuštěný příkaz (§27)
 
 
 @dataclass(frozen=True)

@@ -182,6 +182,11 @@ if ! command -v unattended-upgrade >/dev/null 2>&1; then
   fi
 fi
 
+# ── skupina pro čtení logů (servisní terminál §27) — boxy instalované dřív ji nemají ────
+if getent group systemd-journal >/dev/null && ! id -nG "$APP_USER" 2>/dev/null | tr ' ' '\n' | grep -qx systemd-journal; then
+  usermod -a -G systemd-journal "$APP_USER" && log "uživatel $APP_USER přidán do skupiny systemd-journal"
+fi
+
 # ── změněné unity/sudoers/polkit (jen aktualizace souborů, enable zůstává) ───
 for unit in motogo-controller.service motogo-health.service motogo-ui.service; do
   if [[ -f "$APP_DIR/systemd/$unit" ]] && ! cmp -s "$APP_DIR/systemd/$unit" "/etc/systemd/system/$unit"; then

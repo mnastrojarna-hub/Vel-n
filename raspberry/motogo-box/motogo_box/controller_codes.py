@@ -10,6 +10,7 @@ import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from . import shell
 from .models import ACCESSORIES_NAME, Event, EventKind, ResolveResult, ServiceDoor
 from .pins import hmac_code, mask, normalize_code
 
@@ -32,6 +33,7 @@ LOG_EVENT_SOURCES: dict[EventKind, str] = {
     EventKind.LTE_RESET: "lte", EventKind.REBOOT: "lte", EventKind.CONFIG_PROBLEM: "config",
     EventKind.RPC_ERROR: "rpc",
     EventKind.DIAGNOSTICS: "diagnostics",
+    EventKind.SHELL: "shell",
 }
 # Události, které se zobrazí jako upozornění v UI
 NOTICE_KINDS = frozenset({EventKind.FORCED_OPEN, EventKind.SESSION_OVERTIME, EventKind.SESSION_OVERTIME_ALERT})
@@ -169,9 +171,11 @@ def start_diagnostics(ctrl: "BoxController", base: dict, source: str, reason: st
     res = ctrl.diagnostics.start(source=reason, reason=source,
                                  mode=getattr(ctrl.diagnostics, "pending_mode", None) or "full")
     running = bool(res.get("started")) or res.get("error") == "already_running"
+    # `shell_token` (§27) — displej s ním otevře servisní terminál. Dveře s ním otevřít NEJDE
+    # (to umí jen `service_token` ze servisního hesla), takže diagnostický kód zůstává neškodný.
     return {**base, "ok": running, "kind": "diagnostics", "error": None if running else res.get("error"),
             "message": "Diagnostika pobočky spuštěna" if res.get("started") else "Diagnostika pobočky už běží",
-            "diagnostics": res}
+            "diagnostics": res, "shell_token": shell.issue_token(ctrl)}
 
 
 def _cache_age_s(ctrl: "BoxController") -> float | None:

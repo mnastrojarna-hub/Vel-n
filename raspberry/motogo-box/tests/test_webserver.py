@@ -7,7 +7,7 @@ import json
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from motogo_box import webserver, webserver_service
+from motogo_box import shell, webserver, webserver_service
 from motogo_box.config import LocalConfig
 from motogo_box.config_outdoor import OutdoorCfg
 from motogo_box.models import EventKind, HwRef
@@ -169,7 +169,7 @@ async def test_state_and_static(env):
     r = await client.get("/")
     assert r.status == 200 and "Zadejte přístupový kód" in await r.text()
     # všechny soubory, na které se odkazuje index.html (redesign 2026-09-10: diag/i18n/overlays/logo-light/logo-icon)
-    for f in ("app.js", "diag.js", "i18n.js", "keyboard.js", "panel.js", "style.css", "style-overlays.css",
+    for f in ("app.js", "diag.js", "i18n.js", "keyboard.js", "panel.js", "shell.js", "style.css", "style-overlays.css",
               "logo.svg", "logo-light.svg", "logo-icon.svg"):
         assert (await client.get(f"/static/{f}")).status == 200, f
     assert (await client.get("/static/../config.py")).status in (403, 404)
@@ -192,7 +192,7 @@ async def test_pin(env):
 
 async def test_service_token_required(env):
     client, ctrl, *_ = env
-    for path in ("open", "music", "light", "all_off", "restart"):
+    for path in ("open", "music", "light", "all_off", "restart", "shell"):
         r = await client.post(f"/api/service/{path}", json={"service_token": "spatny", "zone": 1})
         assert r.status == 403, path
         assert (await r.json()) == {"ok": False, "error": "forbidden"}
@@ -337,3 +337,35 @@ async def test_handler_exception_is_json(env):
     r = await client.post("/api/pin", json={"code": "123456"})
     assert r.status == 500
     assert (await r.json()) == {"ok": False, "error": "internal"}
+
+
+async def test_service_shell(env):
+    """Servisní terminál (§27): nabídka, připravený příkaz, volné psaní jen po odemčení z Velína."""
+    client, ctrl, *_ = env
+    ctrl.shell_until, ctrl.shell_tokens = 0.0, {}
+
+    r = await client.post("/api/service/shell", json={"service_token": SERVICE_TOKEN})
+    body = await r.json()
+    assert body["ok"] is True and body["free"] is False
+    assert any(p["id"] == "net.addr" for p in body["menu"])
+    assert all("argv" not in p for p in body["menu"])
+
+    # volné psaní bez odemčení neprojde ani s platným tokenem
+    r = await client.post("/api/service/shell", json={"service_token": SERVICE_TOKEN, "command": "echo ne"})
+    assert (await r.json())["error"] == "locked"
+
+    # token terminálu z diagnostického kódu funguje místo servisního tokenu
+    token = shell.issue_token(ctrl)
+    r = await client.post("/api/service/shell", json={"shell_token": token, "preset": "sys.disk"})
+    body = await r.json()
+    assert body["ok"] is True and body["rc"] == 0
+
+    shell.unlock(ctrl, 30)
+    r = await client.post("/api/service/shell", json={"shell_token": token, "command": "echo ahoj"})
+    body = await r.json()
+    assert body["ok"] is True and body["output"].strip() == "ahoj" and body["free_s"] > 0
+
+    # prošlý / cizí token → 403 jako u ostatních servisních endpointů
+    ctrl.shell_tokens.clear()
+    r = await client.post("/api/service/shell", json={"shell_token": token, "preset": "sys.disk"})
+    assert r.status == 403

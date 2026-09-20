@@ -22,7 +22,7 @@ APP_DIR="/opt/motogo"
 ETC_DIR="/etc/motogo"
 DATA_DIR="/var/lib/motogo"
 APP_USER="motogo"
-APP_GROUPS="audio,video,input,render,dialout,plugdev,netdev"
+APP_GROUPS="audio,video,input,render,dialout,plugdev,netdev,systemd-journal"   # systemd-journal = čtení logů v servisním terminálu (§27)
 NM_DIR="/etc/NetworkManager/system-connections"
 LTE_PROF="$NM_DIR/motogo-lte.nmconnection"
 POLKIT_RULE="50-motogo-kiosk.rules"

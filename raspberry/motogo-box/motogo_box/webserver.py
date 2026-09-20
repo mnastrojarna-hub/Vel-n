@@ -134,7 +134,8 @@ class WebServer:
         r.add_post("/api/diagnostics/run", self._delegate(svc.diagnostics_run))
         for name, handler in (("open", svc.service_open), ("music", svc.service_music),
                               ("light", svc.service_light), ("all_off", svc.service_all_off),
-                              ("pair", svc.service_pair), ("restart", svc.service_restart)):
+                              ("pair", svc.service_pair), ("restart", svc.service_restart),
+                              ("shell", svc.service_shell)):
             r.add_post(f"/api/service/{name}", self._delegate(handler))
         if os.path.isdir(UI_DIR):
             r.add_static("/static/", UI_DIR, show_index=False, follow_symlinks=False)
