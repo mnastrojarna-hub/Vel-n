@@ -667,7 +667,8 @@ class HealthMonitor:
         # internet = HTTP GET cfg.probe_url (timeout 8 s) ; LTE info: `mmcli -m any -J` (signal/operator/state), `nmcli -t -f GENERAL.STATE dev show <iface>`;
         # sys: /sys/class/thermal/thermal_zone0/temp, `vcgencmd get_throttled`, shutil.disk_usage('/'), /proc/meminfo, os.getloadavg(), /proc/uptime ;
         #      OS (2026-09-10): /run/reboot-required, PRETTY_NAME z /etc/os-release, os.uname().release, mtime /var/lib/apt/periodic/upgrade-stamp
-        # politika: failures>=cfg.reconnect_after (5) → `nmcli con up <cfg.nm_connection>` ; reconnect_failures>=cfg.usb_reset_after (5) → `sudo <cfg.usb_reset_script>` (bez argumentů; VID:PID bere skript z `/etc/motogo/modem_vidpid`) ; SIM locked/missing → `lte.error`, politika se přeskočí ;
+        # politika (2026-09-20): failures>=cfg.reconnect_after (3) → `nmcli con up <cfg.nm_connection>` ; reconnect_failures>=cfg.usb_reset_after (2) → nejdřív `sudo mmcli -m any --reset`, pak `sudo <cfg.usb_reset_script>` (bez argumentů; VID:PID bere skript z `/etc/motogo/modem_vidpid`) ; SIM locked/missing → `lte.error`, politika se přeskočí ;
+        # modem chybí v MM, ale na USB je (`modem_gone`) → reconnecty se PŘESKOČÍ a po cfg.missing_modem_after (2) sondách jde rovnou usb_reset ; po každé akci cooldown cfg.action_cooldown_s (120 s), kdy se jen sonduje ;
         # dále >= cfg.reboot_after (3 USB resety bez úspěchu) a uptime > cfg.min_uptime_before_reboot_s (1800) → `sudo systemctl reboot`
         # I/O síť (2026-09-20): lan_state() — cfg.lan_interface (eth0) musí mít IPv4; `no_address` (link je, adresa ne)
         #      → `sudo nmcli -w 20 con up <cfg.lan_connection>` nejvýš 1× za cfg.lan_recover_s (300; 0 = vypnuto),
@@ -677,9 +678,18 @@ def read_cpu_temp() -> float | None ; def read_throttled() -> str | None ; def d
 async def run_cmd(*args, timeout: float = 20) -> tuple[int, str]   # subprocess, nikdy nevyhazuje
 ```
 `HealthCfg` v `config.py` (sekce `health` v config.yaml): `check_interval_s, probe_url,
-nm_connection ('motogo-lte'), modem_vid_pid ('1e0e:9001'), usb_reset_script, reconnect_after,
-usb_reset_after, reboot_after, min_uptime_before_reboot_s, lan_connection ('motogo-lan'),
+nm_connection ('motogo-lte'), modem_vid_pid ('1e0e:9001'), usb_reset_script, reconnect_after (3),
+usb_reset_after (2), missing_modem_after (2), reboot_after (3), min_uptime_before_reboot_s,
+action_cooldown_s (120), usb_reset_timeout_s (180), lan_connection ('motogo-lan'),
 lan_interface ('eth0'), lan_recover_s (300)`.
+
+**Sondy (2026-09-20):** o „internet down" rozhodují jen `DECIDING_TARGETS` = google `generate_204`
+a TCP 1.1.1.1; `probe_url` (Supabase) se měří a hlásí, ale nerozhoduje.
+
+**`health.lte` navíc:** `usb_present` (`health_probe.usb_device_present`, sysfs `/sys/bus/usb/devices`),
+`modem_gone` (`modem_gone()` = stav `no_modem`/`unavailable` a zároveň modem NENÍ pryč ze sběrnice),
+`modem_resets`, `last24h` = `{reconnect, modem_reset, usb_reset, reboot}` z `LtePolicy.history`
+(24 h, max `HISTORY_MAX` 200 položek, persistuje v `health.json`).
 
 **`health.lte` (2026-09-20):** navíc `unlock_required` (mmcli `unlock-required`: `sim-pin`, `sim-puk`, …) a
 `unlock_retries` (zbývající pokusy). `lte_error()` je bere PŘED `state` → `sim_locked` / `sim_puk`, takže

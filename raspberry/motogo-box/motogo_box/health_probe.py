@@ -201,6 +201,48 @@ async def tcp_probe(host: str, port: int, timeout: float = 8.0) -> bool:
 
 
 # ─── Systémové metriky ───────────────────────────────────────────────────────
+USB_DEVICES = "/sys/bus/usb/devices"
+
+
+def usb_device_present(vid_pid: str, base: str = USB_DEVICES) -> bool | None:
+    """Visí `1e0e:9001` na USB sběrnici? `None` = sysfs nejde přečíst (nevíme).
+
+    Rozlišuje dva zcela jiné výpadky: modem JE na USB, ale ModemManager ho nemá (zamrzlý QMI kanál
+    po `Unexpected error -71` — pomůže USB reset), versus modem ze sběrnice úplně zmizel (reset
+    nemá co resetovat, řeší až reboot).
+    """
+    vid, _, pid = (vid_pid or "").strip().lower().partition(":")
+    if not vid or not pid:
+        return None
+    try:
+        names = os.listdir(base)
+    except OSError:
+        return None
+    for name in names:
+        try:
+            with open(f"{base}/{name}/idVendor", "r", encoding="ascii") as f:
+                if f.read().strip().lower() != vid:
+                    continue
+            with open(f"{base}/{name}/idProduct", "r", encoding="ascii") as f:
+                if f.read().strip().lower() == pid:
+                    return True
+        except OSError:
+            continue
+    return False
+
+
+# Stavy, ve kterých ModemManager modem NEMÁ (mmcli -L prázdné / rc != 0) — `nmcli con up` v nich
+# vrací „No suitable device found" a nemůže nikdy uspět, ať se opakuje kolikrát chce.
+MODEM_GONE_STATES = frozenset({"no_modem", "unavailable"})
+
+
+def modem_gone(modem: dict, usb_present: bool | None) -> bool:
+    """Modem chybí v ModemManageru, ale na USB je (nebo o USB nevíme) → reconnecty jsou zbytečné."""
+    if usb_present is False:
+        return False
+    return str(modem.get("state") or "") in MODEM_GONE_STATES
+
+
 def parse_meminfo(text: str) -> float | None:
     """Procento volné paměti z obsahu `/proc/meminfo` (MemAvailable/MemTotal, fallback MemFree)."""
     values: dict[str, float] = {}

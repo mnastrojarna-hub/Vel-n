@@ -27,8 +27,9 @@ import httpx
 
 from .config import HealthCfg
 from .health_probe import (  # noqa: F401 — veřejné API dle kontraktu §17
-    disk_free_pct, lte_error, mem_free_pct, parse_meminfo, parse_mmcli_modem, parse_mmcli_signal,
-    parse_nmcli_connection, read_cpu_temp, read_throttled, read_uptime_s, sys_metrics, tcp_probe,
+    disk_free_pct, lte_error, mem_free_pct, modem_gone, parse_meminfo, parse_mmcli_modem,
+    parse_mmcli_signal, parse_nmcli_connection, read_cpu_temp, read_throttled, read_uptime_s,
+    sys_metrics, tcp_probe, usb_device_present,
 )
 from .models import now_iso
 
@@ -56,8 +57,10 @@ DEFAULT_STATE_PATH = "/var/lib/motogo/health.json"
 PROBE_TIMEOUT_S = 8.0
 PROBE_URL_2 = "https://www.google.com/generate_204"   # nezávislý HTTP cíl mimo Supabase
 PROBE_TCP = ("1.1.1.1", 443)                          # TCP connect bez DNS (výpadek DNS operátora ≠ výpadek LTE)
+DECIDING_TARGETS = ("google_204", "tcp_1.1.1.1")      # jen tyhle rozhodují o „internet down" (viz probe_internet)
 POST_TIMEOUT_S = 3.0
 MMCLI_TIMEOUT_S = 15.0
+HISTORY_MAX = 200            # položek historie akcí (24 h) v /var/lib/motogo/health.json
 SIGNAL_SETUP_RATE_S = 30
 LAN_UP_WAIT_S = 20           # `nmcli -w 20 con up motogo-lan` — hodnota MUSÍ sedět s aliasem v motogo-sudoers
 KILL_WAIT_S = 5.0            # po timeoutu: jak dlouho čekat na konec (ne)zabitého potomka
@@ -106,20 +109,33 @@ class LtePolicy:
         self.reconnects = 0             # celkem (přežívá restart služby)
         self.usb_resets = 0
         self.reboots = 0
+        self.modem_resets = 0           # mmcli -m any --reset (levnější krok před USB resetem)
+        self.modem_reset_done = False   # už zkoušen v tomto výpadku? (po návratu internetu se nuluje)
         self.last_online: float | None = None
         self.last_action: str | None = None
         self.last_action_at: float | None = None
+        self.history: list[list] = []   # [[ts, akce], …] za posledních 24 h — do Velína, ať je vidět četnost
 
-    def step(self, internet_ok: bool, uptime_s: float) -> list[str]:
-        """Jeden krok politiky; vrací seznam akcí k provedení (`reconnect`/`usb_reset`/`reboot`)."""
+    def step(self, internet_ok: bool, uptime_s: float, modem_gone: bool = False) -> list[str]:
+        """Jeden krok politiky; vrací akce (`reconnect`/`modem_reset`/`usb_reset`/`reboot`).
+
+        `modem_gone=True` (modem chybí v ModemManageru, ale na USB visí) přeskočí reconnecty —
+        `nmcli con up` v tomhle stavu vrací „No suitable device found" a nemůže nikdy uspět.
+        Po akci platí `action_cooldown_s`, během kterého se jen sonduje: USB reset s restartem
+        ModemManageru trvá ~90 s a další zásah do něj by obnovu rozbil.
+        """
+        now = self.clock()
         if internet_ok:
             self.internet_failures = 0
             self.reconnect_failures = 0
             self.usb_resets_pending = 0
-            self.last_online = self.clock()
+            self.modem_reset_done = False
+            self.last_online = now
             return []
         self.internet_failures += 1
         cfg = self.cfg
+        if self.last_action_at is not None and now - self.last_action_at < max(0, cfg.action_cooldown_s):
+            return []       # předchozí akce ještě dobíhá
         if (self.usb_resets_pending >= max(1, cfg.reboot_after)
                 and uptime_s >= cfg.min_uptime_before_reboot_s):
             self.usb_resets_pending = 0
@@ -127,26 +143,62 @@ class LtePolicy:
             self.internet_failures = 0
             self.reboots += 1
             return self._mark("reboot")
+        if modem_gone:
+            if self.internet_failures < max(1, cfg.missing_modem_after):
+                return []
+            self.internet_failures = 0
+            self.reconnect_failures = 0
+            return self._usb_reset()
         if self.internet_failures < max(1, cfg.reconnect_after):
             return []
         self.internet_failures = 0
         if self.reconnect_failures >= max(1, cfg.usb_reset_after):
+            if not self.modem_reset_done:
+                self.modem_reset_done = True        # levnější krok, dokud modem v MM je
+                self.modem_resets += 1
+                # `reconnect_failures` ZŮSTÁVÁ: když ani reset modemu nepomohl, jde hned USB reset
+                # (cíl zadání: obnova do ~2 min, ne další kolo marných reconnectů)
+                return self._mark("modem_reset")
             self.reconnect_failures = 0
-            self.usb_resets_pending += 1
-            self.usb_resets += 1
-            return self._mark("usb_reset")
+            return self._usb_reset()
         self.reconnect_failures += 1
         self.reconnects += 1
         return self._mark("reconnect")
 
+    def _usb_reset(self) -> list[str]:
+        self.usb_resets_pending += 1
+        self.usb_resets += 1
+        return self._mark("usb_reset")
+
     def _mark(self, action: str) -> list[str]:
-        self.last_action, self.last_action_at = action, self.clock()
+        now = self.clock()
+        self.last_action, self.last_action_at = action, now
+        self.history.append([now, action])
+        self._prune(now)
         return [action]
+
+    def _prune(self, now: float) -> None:
+        """Historie jen za posledních 24 h a nejvýš `HISTORY_MAX` položek (stav se ukládá na disk)."""
+        cut = now - 86400
+        self.history = [h for h in self.history if isinstance(h, list) and len(h) == 2
+                        and isinstance(h[0], (int, float)) and h[0] >= cut][-HISTORY_MAX:]
+
+    def counts_24h(self) -> dict:
+        """Kolikrát se za posledních 24 h co dělalo — celková počítadla rostou donekonečna (1584 reconnectů
+        v Pohořelicích nikomu nic neřeklo), tohle jde do Velína jako `lte.last24h`."""
+        self._prune(self.clock())
+        out = {"reconnect": 0, "modem_reset": 0, "usb_reset": 0, "reboot": 0}
+        for _, action in self.history:
+            if action in out:
+                out[action] += 1
+        return out
 
     def to_dict(self) -> dict:
         return {
             "internet_failures": self.internet_failures, "reconnect_failures": self.reconnect_failures,
             "usb_resets_pending": self.usb_resets_pending, "reconnects": self.reconnects,
+            "modem_resets": self.modem_resets, "modem_reset_done": self.modem_reset_done,
+            "history": self.history,
             "usb_resets": self.usb_resets, "reboots": self.reboots, "last_online": self.last_online,
             "last_action": self.last_action, "last_action_at": self.last_action_at,
         }
@@ -156,7 +208,7 @@ class LtePolicy:
         if not isinstance(d, dict):
             return
         for key in ("internet_failures", "reconnect_failures", "usb_resets_pending",
-                    "reconnects", "usb_resets", "reboots"):
+                    "reconnects", "modem_resets", "usb_resets", "reboots"):
             try:
                 setattr(self, key, max(0, int(d.get(key, 0) or 0)))
             except (TypeError, ValueError):
@@ -166,6 +218,10 @@ class LtePolicy:
             setattr(self, key, float(v) if isinstance(v, (int, float)) else None)
         la = d.get("last_action")
         self.last_action = la if isinstance(la, str) else None
+        self.modem_reset_done = bool(d.get("modem_reset_done"))
+        hist = d.get("history")
+        self.history = [list(h) for h in hist if isinstance(h, (list, tuple)) and len(h) == 2] if isinstance(hist, list) else []
+        self._prune(self.clock())
 
 
 class HealthMonitor:
@@ -219,17 +275,23 @@ class HealthMonitor:
 
     # ─── sondy ───────────────────────────────────────────────────────────────
     async def probe_internet(self) -> bool:
-        """≥ 2 nezávislé cíle souběžně; internet je „down“ jen když selžou všechny."""
+        """3 cíle souběžně; o výpadku rozhodují jen `DECIDING_TARGETS`.
+
+        `probe_url` (Supabase) se měří dál, ale do rozhodnutí NEVSTUPUJE: hlásila „nedostupné“
+        i ve chvílích, kdy internet fungoval (Pohořelice 2026-09-20), a výpadek Supabase nebo DNS
+        k ní není důvod resetovat modem. Zůstává v `last_probe` a v diagnostice.
+        """
         targets = {"probe_url": self._http_probe(self.cfg.probe_url),
                    "google_204": self._http_probe(PROBE_URL_2),
                    "tcp_1.1.1.1": self._tcp_probe(*PROBE_TCP, timeout=PROBE_TIMEOUT_S)}
         results = await asyncio.gather(*targets.values())
         self.last_probe = dict(zip(targets, (bool(r) for r in results)))
+        ok = any(self.last_probe.get(t) for t in DECIDING_TARGETS)
         failed = [k for k, v in self.last_probe.items() if not v]
         if failed:
             log.info("Sonda internetu: nedostupné %s%s", ", ".join(failed),
-                     "" if len(failed) == len(targets) else " — internet OK (ostatní cíle odpověděly)")
-        return len(failed) < len(targets)
+                     "" if not ok else " — internet OK (rozhodující cíl odpověděl)")
+        return ok
 
     async def _http_probe(self, url: str) -> bool:
         """HTTP GET; jakákoli HTTP odpověď (i 4xx/5xx) = spojení do internetu funguje."""
@@ -266,8 +328,11 @@ class HealthMonitor:
                                        "con", "show", self.cfg.nm_connection, timeout=10)
         nm = parse_nmcli_connection(rc3, out3)
         p = self.policy
+        usb = usb_device_present(self.cfg.modem_vid_pid)
         return {**modem, **{k: v for k, v in signal.items() if k != "refresh_rate"}, **nm,
-                "reconnects": p.reconnects, "usb_resets": p.usb_resets, "reboots": p.reboots,
+                "usb_present": usb, "modem_gone": modem_gone(modem, usb),
+                "reconnects": p.reconnects, "modem_resets": p.modem_resets,
+                "usb_resets": p.usb_resets, "reboots": p.reboots, "last24h": p.counts_24h(),
                 "internet_failures": p.internet_failures, "last_action": p.last_action,
                 "error": lte_error(modem)}
 
@@ -352,18 +417,28 @@ class HealthMonitor:
         """Provede akci z `LtePolicy.step`; `reboot` nejdřív ohlásí controlleru."""
         nm = self.cfg.nm_connection
         sd_notify("WATCHDOG=1")      # dlouhé akce (nmcli up až 30 s, USB reset až 60 s) — watchdog nesmí zabít obnovu
-        if action == "reconnect":
+        if action == "modem_reset":
+            # Modem v ModemManageru JE, jen se zasekl — `mmcli --reset` je levnější a rychlejší
+            # než odpojení celého USB zařízení (nepřetrhne ttyUSB ani cdc-wdm pro ostatní).
+            log.warning("LTE: reconnecty nepomohly → reset modemu (mmcli --reset, celkem %d)",
+                        self.policy.modem_resets)
+            rc, out = await self.run_cmd("sudo", "-n", "mmcli", "-m", "any", "--reset", timeout=60)
+            if rc != 0:
+                log.error("mmcli --reset selhal (rc=%s): %s", rc, out.strip()[:300])
+        elif action == "reconnect":
             log.warning("LTE: internet nedostupný → reconnect profilu %s (celkem %d)", nm, self.policy.reconnects)
             await self.run_cmd("sudo", "-n", "nmcli", "con", "down", nm, timeout=30)
             rc, out = await self.run_cmd("sudo", "-n", "nmcli", "-w", "30", "con", "up", nm, timeout=45)
             if rc != 0:
                 log.error("nmcli con up %s selhal (rc=%s): %s", nm, rc, out.strip()[:300])
         elif action == "usb_reset":
-            log.warning("LTE: reconnecty nepomohly → USB reset modemu %s (celkem %d)",
-                        self.cfg.modem_vid_pid, self.policy.usb_resets)
+            log.warning("LTE: → USB reset modemu %s (celkem %d, za 24 h %d)",
+                        self.cfg.modem_vid_pid, self.policy.usb_resets,
+                        self.policy.counts_24h()["usb_reset"])
             # sudoers povoluje skript JEN bez argumentů; VID:PID čte skript z root-owned
             # /etc/motogo/modem_vidpid (install.sh, MOTOGO_MODEM_VIDPID) — má odpovídat cfg.modem_vid_pid.
-            rc, out = await self.run_cmd("sudo", "-n", self.cfg.usb_reset_script, timeout=60)
+            rc, out = await self.run_cmd("sudo", "-n", self.cfg.usb_reset_script,
+                                         timeout=max(60, int(self.cfg.usb_reset_timeout_s)))
             if rc != 0:
                 log.error("USB reset selhal (rc=%s): %s", rc, out.strip()[:300])
         elif action == "reboot":
@@ -408,7 +483,8 @@ class HealthMonitor:
                           error, lte.get("state"), lte.get("unlock_required"),
                           f", zbývá {retries} pokusů" if retries is not None else "")
         else:
-            actions = self.policy.step(internet, uptime if uptime is not None else 0.0)
+            actions = self.policy.step(internet, uptime if uptime is not None else 0.0,
+                                       modem_gone=bool(lte.get("modem_gone")))
         self._lte_error = error
         self._save_state()
         payload = {"internet": internet, "lte": lte, "lan": lan, "sys": sysm, "ts": now_iso(),

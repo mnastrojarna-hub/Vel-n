@@ -382,7 +382,7 @@ fi
 systemctl set-default multi-user.target >/dev/null 2>&1 || true
 
 # ── 13. RTC + firmware ─────────────────────────────────────────────────────────
-step "13/14 RTC baterie (dobíjení) v config.txt"
+step "13/14 RTC baterie (dobíjení) + USB proud v config.txt"
 BOOT_CFG=/boot/firmware/config.txt; [[ -f "$BOOT_CFG" ]] || BOOT_CFG=/boot/config.txt
 if [[ -f "$BOOT_CFG" ]]; then
   if grep -q '^dtparam=rtc_bbat_vchg=3000000' "$BOOT_CFG"; then
@@ -395,6 +395,22 @@ if [[ -f "$BOOT_CFG" ]]; then
 else
   warn "config.txt nenalezen — RTC dobíjení nastav ručně"
 fi
+# Plný proud na USB (Pi 5 jinak omezuje 600 mA na port) — LTE modem SIM7600 má špičky přes 2 A.
+if [[ -f "$BOOT_CFG" ]]; then
+  if grep -q '^usb_max_current_enable=1' "$BOOT_CFG"; then
+    ok "usb_max_current_enable už nastaveno"
+  else
+    sed -i '/^usb_max_current_enable=/d' "$BOOT_CFG"
+    printf '\n# MotoGo Box: plný proud na USB (LTE modem SIM7600 má proudové špičky)\nusb_max_current_enable=1\n' >> "$BOOT_CFG"
+    ok "přidáno usb_max_current_enable=1 (platí po restartu)"
+  fi
+fi
+
+# Provizorní watchdog LTE (/usr/local/sbin/motogo-lte-tmpwatch + cron) nasazený 2026-09-20 ručně,
+# než uměl obnovu sám motogo-health — dva watchdogy by si při resetu modemu překážely.
+for f in /etc/cron.d/motogo-lte-tmpwatch /usr/local/sbin/motogo-lte-tmpwatch; do
+  [[ -e "$f" ]] && rm -f "$f" && ok "odstraněno provizorium $f"
+done
 
 # ── 14. souborový systém ──────────────────────────────────────────────────────
 step "14/14 Souborový systém: rw root, BEZ overlay (rozhodnutí k SPEC §11)"

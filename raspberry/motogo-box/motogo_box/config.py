@@ -73,10 +73,16 @@ class HealthCfg:
     nm_connection: str = "motogo-lte"
     modem_vid_pid: str = "1e0e:9001"
     usb_reset_script: str = "/usr/local/sbin/motogo-usbreset"
-    reconnect_after: int = 5
-    usb_reset_after: int = 5
+    # Žebříček obnovy LTE. Zkráceno 2026-09-20 podle reálného výpadku (Pohořelice: modem zamrzl na USB
+    # po „implicitly-detached" + kernel `Unexpected error -71`; reconnecty vracely „No suitable device
+    # found" a USB reset by přišel až po ~15 min).
+    reconnect_after: int = 3        # neúspěšných sond → nmcli con down/up (jen když modem v MM JE)
+    usb_reset_after: int = 2        # neúspěšných reconnectů → mmcli --reset, pak USB reset
+    missing_modem_after: int = 2    # sond bez modemu v MM (ale na USB je) → rovnou USB reset (~1 min)
     reboot_after: int = 3
     min_uptime_before_reboot_s: int = 1800
+    action_cooldown_s: int = 120    # po akci se jen sonduje (USB reset + restart MM trvá ~90 s)
+    usb_reset_timeout_s: int = 180  # skript čeká na re-enumeraci a na ModemManager
     # I/O síť (SPEC §4): profil `motogo-lan` na eth0 — statická 192.168.50.10/24 bez výchozí brány.
     # Health hlídá, že rozhraní má adresu; když má LINK, ale ne adresu (profil nenaskočil), zkusí ho
     # nahodit nejvýš jednou za `lan_recover_s` (0 = obnova vypnutá, jen hlášení). Chybějící LINK
