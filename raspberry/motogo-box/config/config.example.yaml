@@ -57,6 +57,8 @@ health:
   min_uptime_before_reboot_s: 1800
   action_cooldown_s: 120          # po akci se jen sonduje (USB reset + restart ModemManageru trvá ~90 s)
   usb_reset_timeout_s: 180        # limit běhu motogo-usbreset (čeká na re-enumeraci i na ModemManager)
+  lte_mode: qmi                   # qmi (SIM7600 přes ModemManager) | rndis (modem = síťovka usb0, viz HARDWARE.md)
+  lte_interface: ''               # prázdné = wwan0 (qmi) / usb0 (rndis)
   lan_connection: motogo-lan      # I/O síť (SPEC §4): profil, který health nahodí, když eth0 nemá adresu
   lan_interface: eth0
   lan_recover_s: 300              # jak často nejvýš zkusit `nmcli con up` (0 = neopravovat, jen hlásit)

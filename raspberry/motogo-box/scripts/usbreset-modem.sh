@@ -129,17 +129,23 @@ else
   log "UPOZORNĚNÍ: cdc-wdm se po resetu neobjevil do 20 s — restartuji ModemManager i tak"
 fi
 
-# 2) restart ModemManageru — bez něj zůstane MM v PPP fallbacku
-if command -v systemctl >/dev/null 2>&1; then
+# 2) restart ModemManageru — bez něj zůstane MM v PPP fallbacku.
+# V režimu RNDIS (modem = síťová karta usb0) ModemManager neběží; restartovat ho nemá co a
+# čekání na `mmcli` níž by zbytečně žralo 60 s, proto se oba kroky přeskočí.
+MM_ACTIVE=0
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet ModemManager; then
+  MM_ACTIVE=1
   if systemctl restart ModemManager 2>>"$LOG"; then
     log "ModemManager restartován"
   else
     log "UPOZORNĚNÍ: restart ModemManageru selhal"
   fi
+else
+  log "ModemManager neběží (režim RNDIS / služba vypnutá) — restart přeskočen"
 fi
 
 # 3) čekat, až MM modem uvidí (ověřeno: sondování trvá i ~45 s)
-if command -v mmcli >/dev/null 2>&1; then
+if (( MM_ACTIVE )) && command -v mmcli >/dev/null 2>&1; then
   if wait_for 60 "modem v ModemManageru" bash -c 'mmcli -L 2>/dev/null | grep -q Modem'; then
     port="$(mmcli -m any 2>/dev/null | grep -i 'primary port' | head -n1 | sed 's/.*: *//' | tr -d ' ')"
     log "ModemManager vidí modem, primary port: ${port:-?}"

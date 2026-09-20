@@ -83,6 +83,12 @@ class HealthCfg:
     min_uptime_before_reboot_s: int = 1800
     action_cooldown_s: int = 120    # po akci se jen sonduje (USB reset + restart MM trvá ~90 s)
     usb_reset_timeout_s: int = 180  # skript čeká na re-enumeraci a na ModemManager
+    # Režim modemu: `qmi` (výchozí — SIM7600 přes qmi_wwan/cdc-wdm0 + ModemManager) nebo `rndis`
+    # (modem je síťová karta usb0, ModemManager se nepoužívá — zvažováno kvůli opakovanému
+    # `Unexpected error -71`, viz HARDWARE.md). V `rndis` se zdraví pozná z rozhraní, ne z mmcli —
+    # BEZ tohohle přepínače by `modem_gone` bylo trvale pravdivé a jednotka by se resetovala pořád.
+    lte_mode: str = "qmi"
+    lte_interface: str = ""         # prázdné = wwan0 (qmi) / usb0 (rndis)
     # I/O síť (SPEC §4): profil `motogo-lan` na eth0 — statická 192.168.50.10/24 bez výchozí brány.
     # Health hlídá, že rozhraní má adresu; když má LINK, ale ne adresu (profil nenaskočil), zkusí ho
     # nahodit nejvýš jednou za `lan_recover_s` (0 = obnova vypnutá, jen hlášení). Chybějící LINK

@@ -626,3 +626,56 @@ async def test_cycle_payload_carries_lan(tmp_path):
     payload = await _lan_monitor(env, tmp_path).cycle()
     assert payload["lan"]["problem"] == "no_link"
     assert env.posted[-1]["lan"]["ok"] is False     # dorazí do controlleru → status → Velín
+
+
+# ─── režim RNDIS (modem jako síťová karta, bez ModemManageru) ────────────────
+def _rndis_monitor(env: FakeEnv, tmp_path, **kw) -> HealthMonitor:
+    cfg = _cfg(lte_mode="rndis", **kw)
+    return HealthMonitor(cfg, "http://127.0.0.1:8080", run_cmd=env.run_cmd, clock=FakeClock(),
+                         state_path=str(tmp_path / "health.json"), http=env.client(),
+                         uptime=lambda: 5000.0, tcp_probe=env.tcp_probe, interfaces=env.interfaces)
+
+
+async def test_rndis_healthy_interface_is_not_modem_gone(tmp_path, monkeypatch):
+    """usb0 má adresu → zdravé. BEZ přepínače by `modem_gone` bylo trvale True (mmcli modem nemá)
+    a jednotka by se resetovala pořád dokola."""
+    env = FakeEnv(lan=[{"name": "eth0", "state": "up", "ipv4": [{"addr": "192.168.50.10", "prefix": 24}]},
+                       {"name": "usb0", "state": "up", "ipv4": [{"addr": "10.1.2.3", "prefix": 24}]}])
+    monkeypatch.setattr(health_mod, "usb_device_present", lambda *a, **k: True)
+    mon = _rndis_monitor(env, tmp_path)
+    lte = await mon.lte_info()
+    assert lte["mode"] == "rndis" and lte["iface"] == "usb0" and lte["ipv4"] == "10.1.2.3"
+    assert lte["modem_gone"] is False and lte["state"] == "connected"
+    assert not any(c and c[0] == "mmcli" for c in env.cmds)      # ModemManager se vůbec nevolá
+
+
+async def test_rndis_dead_interface_escalates_to_usb_reset(tmp_path, monkeypatch):
+    env = FakeEnv(internet_ok=False, lan=[{"name": "usb0", "state": "down", "ipv4": []}])
+    monkeypatch.setattr(health_mod, "usb_device_present", lambda *a, **k: True)
+    mon = _rndis_monitor(env, tmp_path, action_cooldown_s=0)
+    assert (await mon.cycle())["lte"]["modem_gone"] is True
+    p2 = await mon.cycle()
+    assert p2["actions"] == ["usb_reset"]                        # rovnou reset, žádné mmcli --reset
+    assert mon.policy.modem_resets == 0
+    assert ("sudo", "-n", mon.cfg.usb_reset_script) in env.cmds
+
+
+# ─── návrat spojení: okamžitý resync kódů ────────────────────────────────────
+async def test_resync_on_reconnect():
+    """Po výpadku se kódy dotáhnou hned, ne až dalším sync_loopem (jinak by u boxu mohl platit starý kód)."""
+    from motogo_box.controller_loops import resync_on_reconnect
+
+    class Ctrl:
+        def __init__(self, online):
+            self.api = type("A", (), {"online": online})()
+            self.resyncs = 0
+
+        async def resync(self):
+            self.resyncs += 1
+
+    back = Ctrl(online=True)
+    assert await resync_on_reconnect(back, was_online=False) is True and back.resyncs == 1
+    steady = Ctrl(online=True)
+    assert await resync_on_reconnect(steady, was_online=True) is True and steady.resyncs == 0
+    down = Ctrl(online=False)
+    assert await resync_on_reconnect(down, was_online=True) is False and down.resyncs == 0

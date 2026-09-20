@@ -110,6 +110,7 @@ class LtePolicy:
         self.usb_resets = 0
         self.reboots = 0
         self.modem_resets = 0           # mmcli -m any --reset (levnější krok před USB resetem)
+        self.skip_modem_reset = False   # RNDIS: žádný modem v ModemManageru → `mmcli --reset` nemá co resetovat
         self.modem_reset_done = False   # už zkoušen v tomto výpadku? (po návratu internetu se nuluje)
         self.last_online: float | None = None
         self.last_action: str | None = None
@@ -153,7 +154,7 @@ class LtePolicy:
             return []
         self.internet_failures = 0
         if self.reconnect_failures >= max(1, cfg.usb_reset_after):
-            if not self.modem_reset_done:
+            if not self.modem_reset_done and not self.skip_modem_reset:
                 self.modem_reset_done = True        # levnější krok, dokud modem v MM je
                 self.modem_resets += 1
                 # `reconnect_failures` ZŮSTÁVÁ: když ani reset modemu nepomohl, jde hned USB reset
@@ -245,6 +246,7 @@ class HealthMonitor:
         self._lan_try_at: float | None = None      # poslední pokus o `nmcli con up` (rate limit)
         self._lan_problem: str | None = None       # poslední hlášený problém — log jen při ZMĚNĚ, ne každých 30 s
         self.policy = LtePolicy(cfg, clock)
+        self.policy.skip_modem_reset = self.rndis
         self.policy.load(self._load_state())
         self.last_payload: dict | None = None
         self.last_probe: dict[str, bool] = {}   # výsledek posledních sond per cíl
@@ -302,8 +304,52 @@ class HealthMonitor:
             log.debug("Sonda %s selhala: %s", url, exc)
             return False
 
+    def lte_iface(self) -> str:
+        """Síťové rozhraní modemu: `cfg.lte_interface`, jinak wwan0 (qmi) / usb0 (rndis)."""
+        return (self.cfg.lte_interface or "").strip() or ("usb0" if self.rndis else "wwan0")
+
+    @property
+    def rndis(self) -> bool:
+        return str(getattr(self.cfg, "lte_mode", "qmi") or "qmi").strip().lower() == "rndis"
+
+    async def _iface_state(self, name: str) -> tuple[str | None, str | None]:
+        """`(operstate, první IPv4)` daného rozhraní; `(None, None)` když ho nevidíme."""
+        try:
+            for it in await self._list_interfaces():
+                if isinstance(it, dict) and it.get("name") == name:
+                    addrs = [a.get("addr") for a in (it.get("ipv4") or [])
+                             if isinstance(a, dict) and a.get("addr")]
+                    return (str(it.get("state") or "").lower() or None), (addrs[0] if addrs else None)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("_iface_state(%s) selhalo: %s", name, exc)
+        return None, None
+
+    async def lte_info_rndis(self) -> dict:
+        """RNDIS/ECM režim: modem je síťová karta, ModemManager se NEPOUŽÍVÁ.
+
+        Signál a operátor jsou tu za AT příkazy (`/dev/ttyUSB*`) a health je nečte — zdraví se pozná
+        z rozhraní: modem visí na USB, ale `usb0` nemá IPv4 → datová cesta je mrtvá, pomůže USB reset.
+        """
+        iface = self.lte_iface()
+        state, ipv4 = await self._iface_state(iface)
+        usb = usb_device_present(self.cfg.modem_vid_pid)
+        gone = bool(usb is not False and not ipv4)
+        p = self.policy
+        return {"state": "connected" if ipv4 else ("no_modem" if usb is False else "no_address"),
+                "signal_quality": None, "operator": None, "access_tech": None, "registration": None,
+                "failed_reason": None, "unlock_required": None, "unlock_retries": None,
+                "rssi": None, "rsrp": None, "rsrq": None, "snr": None,
+                "nm_connection": self.cfg.nm_connection, "nm_state": state, "nm_device": iface,
+                "mode": "rndis", "iface": iface, "ipv4": ipv4,
+                "usb_present": usb, "modem_gone": gone,
+                "reconnects": p.reconnects, "modem_resets": p.modem_resets,
+                "usb_resets": p.usb_resets, "reboots": p.reboots, "last24h": p.counts_24h(),
+                "internet_failures": p.internet_failures, "last_action": p.last_action, "error": None}
+
     async def lte_info(self) -> dict:
         """Sloučí `mmcli -m any -J`, `--signal-get -J`, stav NM profilu a `error` (viz `lte_error`)."""
+        if self.rndis:
+            return await self.lte_info_rndis()
         rc, out = await self.run_cmd("mmcli", "-m", "any", "-J", timeout=MMCLI_TIMEOUT_S)
         modem = parse_mmcli_modem(out) if rc == 0 else {
             "state": "no_modem", "signal_quality": None, "operator": None,
@@ -329,7 +375,10 @@ class HealthMonitor:
         nm = parse_nmcli_connection(rc3, out3)
         p = self.policy
         usb = usb_device_present(self.cfg.modem_vid_pid)
+        iface = self.lte_iface()
+        _, ipv4 = await self._iface_state(iface)
         return {**modem, **{k: v for k, v in signal.items() if k != "refresh_rate"}, **nm,
+                "mode": "qmi", "iface": iface, "ipv4": ipv4,
                 "usb_present": usb, "modem_gone": modem_gone(modem, usb),
                 "reconnects": p.reconnects, "modem_resets": p.modem_resets,
                 "usb_resets": p.usb_resets, "reboots": p.reboots, "last24h": p.counts_24h(),

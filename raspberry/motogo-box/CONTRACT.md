@@ -680,8 +680,14 @@ async def run_cmd(*args, timeout: float = 20) -> tuple[int, str]   # subprocess,
 `HealthCfg` v `config.py` (sekce `health` v config.yaml): `check_interval_s, probe_url,
 nm_connection ('motogo-lte'), modem_vid_pid ('1e0e:9001'), usb_reset_script, reconnect_after (3),
 usb_reset_after (2), missing_modem_after (2), reboot_after (3), min_uptime_before_reboot_s,
-action_cooldown_s (120), usb_reset_timeout_s (180), lan_connection ('motogo-lan'),
-lan_interface ('eth0'), lan_recover_s (300)`.
+action_cooldown_s (120), usb_reset_timeout_s (180), lte_mode ('qmi'|'rndis'), lte_interface
+(prázdné = wwan0/usb0), lan_connection ('motogo-lan'), lan_interface ('eth0'), lan_recover_s (300)`.
+
+**Režim `rndis` (2026-09-20, připraveno k ověření):** modem je síťová karta, ModemManager se nevolá
+vůbec — `lte_info_rndis()` čte stav z rozhraní (`usb0`), `modem_gone` = modem na USB je, ale rozhraní
+nemá IPv4, a krok `mmcli --reset` se přeskakuje (`LtePolicy.skip_modem_reset`). Bez tohohle přepínače
+by `modem_gone` bylo v RNDIS trvale pravdivé a jednotka by se resetovala dokola. `usbreset-modem.sh`
+restartuje ModemManager jen když běží.
 
 **Sondy (2026-09-20):** o „internet down" rozhodují jen `DECIDING_TARGETS` = google `generate_204`
 a TCP 1.1.1.1; `probe_url` (Supabase) se měří a hlásí, ale nerozhoduje.
@@ -704,6 +710,11 @@ jen hlásí), `no_address` (link je, ale chybí IPv4 → jednotka zkusí `nmcli 
 výhradně `nmcli -w 20 con up motogo-lan` (žádné `con down` — to by shodilo funkční LAN). Velín z toho
 kreslí červený chip „I/O síť: eth0 bez linku“ (`BranchRpiZones.jsx`), takže je na první pohled vidět rozdíl
 mezi vadným modulem a mrtvou cestou ke všem modulům.
+
+**Resync po návratu spojení (2026-09-20):** `controller_loops.resync_on_reconnect()` — jakmile
+`api.online` přejde z False na True, heartbeat smyčka hned zavolá `ctrl.resync()`. Offline cache kódů
+je tím aktuální do několika sekund po obnovení spojení, ne až dalším `sync_loop` (60 s): požadavek
+uživatele „výpadek do 2 minut nesmí být na pobočce poznat, výměna motorky se propíše do 2 minut".
 
 `health_probe.sys_metrics()` = `health.sys` `{cpu_temp, throttled, disk_free_pct, mem_free_pct, load1, uptime_s, reboot_required,
 os, kernel, last_unattended_at}` — OS pole se čtou jen ze souborů (bez rootu, bez apt): `reboot_required` = existuje

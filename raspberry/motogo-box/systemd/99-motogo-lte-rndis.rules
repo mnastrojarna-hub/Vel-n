@@ -1,0 +1,7 @@
+# MotoGo Box — udev pro SIM7600E-H v režimu RNDIS (PID 9011).
+# ⚠ NEOTESTOVÁNO NA HARDWARU: číslo AT rozhraní (ATTRS{bInterfaceNumber}) se u jiné USB kompozice
+# mění — na dev Pi ověřit `udevadm info -a /dev/ttyUSB*` a hodnotu níž případně opravit.
+# Symlink /dev/motogo-lte-at používá scripts/lte-rndis.sh (jinak zkouší ttyUSB2/3/1/0).
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1e0e", ATTRS{idProduct}=="9011", ATTRS{bInterfaceNumber}=="02", SYMLINK+="motogo-lte-at", MODE="0660", GROUP="dialout"
+# Síťová karta modemu ať se jmenuje vždy usb0 (NM profil motogo-lte je na ni vázaný jménem).
+SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1e0e", ATTRS{idProduct}=="9011", NAME="usb0"
