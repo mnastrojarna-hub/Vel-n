@@ -2,14 +2,14 @@ name: motogo_app
 description: MotoGo24 — Motorcycle rental app (iOS / App Store release)
 publish_to: 'none'
 # version: <CFBundleShortVersionString>+<CFBundleVersion>
-# 4.0.2 = uživatelsky viditelná verze (App Store), měň ji ručně pro skutečné releasy.
+# 4.0.3 = uživatelsky viditelná verze (App Store), měň ji ručně pro skutečné releasy.
 # +1    = JEN fallback pro lokální build. V CI (Codemagic) se PŘEPISUJE automaticky
 #         přes --build-number=$BUILD_NUMBER, aby byl CFBundleVersion vždy unikátní
 #         a rostoucí → App Store Connect nikdy neodmítne "build už existuje".
-# Build number (+105) je jen výchozí pro lokální buildy — v CI ho přepisuje
+# Build number (+106) je jen výchozí pro lokální buildy — v CI ho přepisuje
 # codemagic.yaml (Android: nejvyšší versionCode v Google Play + 1, iOS: max
-# z TestFlightu/App Store + 1). Verze 4.0.2 je JEDINÝ zdroj pravdy pro versionName.
-version: 4.0.2+105
+# z TestFlightu/App Store + 1). Verze 4.0.3 je JEDINÝ zdroj pravdy pro versionName.
+version: 4.0.3+106
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
