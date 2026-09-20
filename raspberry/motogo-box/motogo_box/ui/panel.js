@@ -162,6 +162,7 @@ MG.Panel = (function () {
     $('service-all-off').addEventListener('click', () => call('/api/service/all_off', {}, 'Vše vypnuto.'));
     $('service-pair').addEventListener('click', () => MG.Setup.show({ cancelable: true, token }));
     $('service-diag').addEventListener('click', () => MG.Diag.open({ token }));
+    $('service-shell').addEventListener('click', () => MG.Shell.open({ token }));
     $('service-restart').addEventListener('click', () => {
       const now = Date.now();
       if (now - restartArmed > 6000) { restartArmed = now; msg('Opravdu restartovat? Stiskněte znovu do 6 s.', 'err'); return; }

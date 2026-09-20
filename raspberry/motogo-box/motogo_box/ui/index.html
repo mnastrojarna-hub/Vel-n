@@ -97,6 +97,7 @@
       </div>
       <div class="service-row service-actions">
         <button id="service-diag" class="btn btn-ghost" type="button">🔍 Diagnostika pobočky</button>
+        <button id="service-shell" class="btn btn-ghost" type="button">⌨ Servisní terminál</button>
         <button id="service-pair" class="btn btn-ghost" type="button">🔗 Přepárovat</button>
         <button id="service-restart" class="btn btn-amber" type="button">↻ Restart řídicí jednotky</button>
         <button id="service-close2" class="btn btn-ghost" type="button">Zavřít</button>
@@ -152,7 +153,30 @@
       <div class="service-row service-actions">
         <span id="diag-msg" class="service-msg"></span>
         <button id="diag-rerun" class="btn btn-amber" type="button" hidden>↻ Spustit znovu</button>
+        <button id="diag-shell" class="btn btn-ghost" type="button" hidden>⌨ Terminál</button>
         <button id="diag-close2" class="btn btn-ghost" type="button">Zavřít</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="shell" class="overlay overlay-dark" hidden>
+    <div class="service-panel diag-panel">
+      <div class="service-head">
+        <span class="service-icon">⌨</span>
+        <span class="service-title">Servisní terminál</span>
+        <span id="shell-state" class="diag-state"></span>
+        <button id="shell-close" class="icon-btn" type="button" aria-label="Zavřít">✕</button>
+      </div>
+      <div id="shell-menu" class="shell-menu"></div>
+      <pre id="shell-out" class="shell-out"></pre>
+      <div id="shell-input" class="shell-input" hidden>
+        <div id="shell-cmd" class="field-input active shell-cmd" data-placeholder="příkaz"></div>
+        <div id="shell-keys" class="diag-keys"></div>
+      </div>
+      <div class="service-row service-actions">
+        <span id="shell-msg" class="service-msg"></span>
+        <button id="shell-clear" class="btn btn-ghost" type="button">Smazat výpis</button>
+        <button id="shell-close2" class="btn btn-ghost" type="button">Zavřít</button>
       </div>
     </div>
   </div>
@@ -161,6 +185,7 @@
 <script src="/static/keyboard.js"></script>
 <script src="/static/panel.js"></script>
 <script src="/static/diag.js"></script>
+<script src="/static/shell.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

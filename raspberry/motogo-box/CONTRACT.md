@@ -1145,3 +1145,49 @@ Bezpečnost: relé světla nikdy na cívce zámku/světla/audia zóny (`validate
 venkovního světla (`_drop_reserved_relays`), změna relé světla z Velína = bezpečná přestavba (`hw_signature`). Žádné nové `EventKind`.
 Příkazy §13, servisní endpointy §16, testy `tests/test_outdoor.py` (§21). Šablony `config/brno-9zone.yaml` + `sim-9zone.yaml`: 8 zón
 + `outdoor: {zone: 9, light: {dev: wav617b, coil: 0}, light_after_close_s: null}` (audio zakomentované jako vzor multi).
+
+## 27. `shell.py` — servisní terminál na displeji (rozhodnutí uživatele 2026-09-20)
+
+Technik u skříně potřeboval příkazovou řádku (Pohořelice: mrtvá I/O síť + zamčená SIM se řešily
+klávesnicí připojenou k Raspberry). Displej ji proto nabízí sám — ve dvou úrovních:
+
+| úroveň | kdy | co spustí |
+|---|---|---|
+| **připravené příkazy** (`shell.PRESETS`) | vždy po zadání diagnostického kódu / servisního hesla | pevné `argv`, BEZ shellu (`ip`, `nmcli`, `mmcli`, `systemctl`, `journalctl`, `ping`, nahození `motogo-lan`/`motogo-lte`, USB reset, restart služeb, reboot) |
+| **volné psaní** | jen když ho Velín odemkl příkazem `shell_unlock` (5–240 min, výchozí 30) | `bash -c <text>` pod uživatelem `motogo` |
+
+```python
+menu() -> list[dict]                      # nabídka pro displej — BEZ argv
+issue_token(ctrl) -> str | None ; check_token(ctrl, token) -> bool
+unlock(ctrl, minutes) -> dict ; free_seconds(ctrl) -> int ; state(ctrl) -> {"free": bool, "free_s": int}
+async run(ctrl, *, preset_id=None, command=None, arg=None) -> dict
+#   → {ok, rc, output, truncated, label, command, took_ms, free_s} | {ok: False, error: …}
+#   error: unknown_preset | invalid_arg | locked | empty
+```
+
+**Hranice oprávnění:** terminál běží jako `motogo`, tedy BEZ rootu — root smí jen to, co je vyjmenované
+v `systemd/motogo-sudoers`. Root shell z displeje udělat nejde. Parametr připraveného příkazu (jediný,
+`{arg}`) projde `_arg_ok()`: písmena, číslice a `.:-_`, max 64 znaků — tedy žádná mezera ani shell
+metaznak. Displej posílá `preset` (id), nikdy `argv`.
+
+**Token:** diagnostický kód vrací z `submit_code` / `POST /api/diagnostics/run` nový **`shell_token`**
+(20 min, `ctrl.shell_tokens`), který platí VÝHRADNĚ pro `POST /api/service/shell`. Záměrně to není
+`service_token` — ten otevírá kóje a diagnostický kód dveře otevřít nesmí. Servisní panel (servisní
+heslo) používá svůj `service_token`.
+
+**Endpoint** `POST /api/service/shell` `{service_token|shell_token, preset?, arg?, command?}`;
+bez `preset`/`command` vrátí `{ok, menu, free, free_s}`. Limity: `CMD_TIMEOUT_S` 25 s (pak `rc=124`),
+výstup `OUTPUT_LIMIT` 8000 znaků na displej a 2000 do logu.
+
+**Audit:** každé spuštění → `EventKind.SHELL` → `kiosk_logs` (`source='shell'`, level `warn` při nenulovém
+`rc`), v detailu `preset`, `free_text`, `rc`, `took_ms` a začátek výstupu. Ve Velíně je to v bloku
+„Diagnostika (chyby & události)“.
+
+**Stav ve Velíně:** `snapshot().shell` = `{free, free_s}` → `kiosk_devices.status.shell`; `BranchRpiZones.jsx`
+kreslí chip „⌨ Terminál odemčen (N min)“ a tlačítko, které pošle `shell_unlock` (`{minutes: 30}` /
+`{minutes: 0}` = zamknout). **Příkaz `shell_unlock` musí být v CHECK `kiosk_commands.command`** —
+bez migrace ho Velín do fronty nevloží.
+
+**Displej:** `ui/shell.js` (overlay `#shell`), otevírá se tlačítkem „⌨ Terminál“ v patičce diagnostiky
+a „⌨ Servisní terminál“ v servisním panelu; klávesnice `MG.Keyboard` v režimu `shell` (písmena, číslice
+a řádek `-_./:|>*~` + mezera). Fyzická klávesnice míří do terminálu, dokud je otevřený (`app.js`).

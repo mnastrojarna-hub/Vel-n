@@ -15,7 +15,7 @@ from typing import Any
 
 from aiohttp import web
 
-from . import controller_codes as cc
+from . import controller_codes as cc, shell
 
 log = logging.getLogger("motogo.web")
 
@@ -199,9 +199,32 @@ async def diagnostics_run(srv: Any, request: web.Request) -> web.Response:
         diag.pending_mode = None
     res = res if isinstance(res, dict) else {}
     if res.get("ok") and res.get("kind") == "diagnostics":
-        return srv.json({"ok": True, **(res.get("diagnostics") or {})})
+        # `shell_token` (§27) — displej s ním otevře servisní terminál; dveře s ním otevřít nejde.
+        return srv.json({"ok": True, **(res.get("diagnostics") or {}), "shell_token": res.get("shell_token")})
     return srv.json({"ok": False, "error": res.get("error") or "invalid_code",
                      "message": res.get("message") or "", "locked_until": res.get("locked_until")}, 403)
+
+
+async def service_shell(srv: Any, request: web.Request) -> web.Response:
+    """Servisní terminál (§27): `{service_token, preset?, arg?, command?}`.
+
+    Bez těla (jen token) vrátí nabídku a stav odemčení — displej si podle toho vykreslí
+    tlačítka a případně klávesnici. Volné psaní (`command`) odmítne `{error: locked}`,
+    dokud ho pro pobočku neodemkne Velín příkazem `shell_unlock`.
+    """
+    body = await srv.read_body(request)
+    # Servisní panel má `service_token`, displej po zadání diagnostického kódu `shell_token`.
+    if not shell.check_token(srv.ctrl, body.get("shell_token")):
+        denied = service_denied(srv, body)
+        if denied is not None:
+            return denied
+    preset, command = body.get("preset"), body.get("command")
+    if not preset and not command:
+        return srv.json({"ok": True, "menu": shell.menu(), **shell.state(srv.ctrl)})
+    res = await shell.run(srv.ctrl, preset_id=preset if isinstance(preset, str) else None,
+                          command=command if isinstance(command, str) else None,
+                          arg=body.get("arg") if isinstance(body.get("arg"), str) else None)
+    return srv.json(res)
 
 
 async def service_restart(srv: Any, request: web.Request) -> web.Response:

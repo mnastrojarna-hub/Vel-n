@@ -242,22 +242,25 @@ window.MG = window.MG || {};
     MG.Panel.init({ post, showStatus, getState: () => S.state });
     MG.Setup.init({ post, onPaired: () => { showStatus('success', 'Spárováno', 'Zařízení je připojeno k pobočce.', true); pollFallback(); } });
     MG.Diag.init({ post, getState: () => S.state });
+    MG.Shell.init({ post });
     buildKeys();
     paintEntry();
     $('status').addEventListener('click', () => { if (!$('status-dismiss').hidden) hideStatus(); });
-    // Fyzická klávesnice: diagnostika (zadání kódu) > setup > hlavní zadávání kódu.
-    // Otevřený report diagnostiky (bez zadávání) klávesy POLYKÁ — Enter nesmí odeslat skrytý PIN.
+    // Fyzická klávesnice: terminál (§27) > diagnostika (zadání kódu) > setup > hlavní zadávání kódu.
+    // Otevřený report diagnostiky i terminál bez volného psaní klávesy POLYKAJÍ — Enter nesmí odeslat skrytý PIN.
     const SWALLOW = { onChar() {}, onBackspace() {}, onEnter() {}, onClear() {} };
-    const target = () => (MG.Diag.wantsKeys() ? MG.Diag.keys : MG.Diag.isVisible() ? SWALLOW
+    const target = () => (MG.Shell.wantsKeys() ? MG.Shell.keys : MG.Shell.isVisible() ? SWALLOW
+      : MG.Diag.wantsKeys() ? MG.Diag.keys : MG.Diag.isVisible() ? SWALLOW
       : MG.Setup.isVisible() ? MG.Setup.keys : null);
     MG.Keyboard.bindPhysical({
-      isActive: () => !MG.Panel.isOpen() || MG.Setup.isVisible() || MG.Diag.isVisible(),
+      isActive: () => !MG.Panel.isOpen() || MG.Setup.isVisible() || MG.Diag.isVisible() || MG.Shell.isVisible(),
       onChar: (c) => { const t = target(); if (t) t.onChar(c); else if (/[0-9a-z]/.test(c)) onChar(c); },
       onBackspace: () => { const t = target(); if (t) t.onBackspace(); else onBackspace(); },
       onEnter: () => { const t = target(); if (t) t.onEnter(); else submit(); },
       onClear: () => { const t = target(); if (t) t.onClear(); else onClear(); },
       onEscape: () => {
-        if (MG.Diag.isVisible()) MG.Diag.keys.onEscape();
+        if (MG.Shell.isVisible()) MG.Shell.keys.onEscape();
+        else if (MG.Diag.isVisible()) MG.Diag.keys.onEscape();
         else if (MG.Setup.isVisible()) MG.Setup.keys.onEscape();
         else if (!$('status').hidden && !S.busy) hideStatus();
         else onClear();

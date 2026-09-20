@@ -121,6 +121,10 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
   const doorMap = Object.fromEntries(arr(doors).map(d => [d.id, d]))
   const cpuTemp = num(sys.cpu_temp), diskFree = num(sys.disk_free_pct)
   const playingZone = st.audio && typeof st.audio === 'object' ? num(st.audio.playing_zone) : null
+  // Servisní terminál na displeji (kontrakt §27): připravená tlačítka má technik vždy, VOLNÉ psaní
+  // příkazů jen dokud ho odsud nepovolíme (pak se samo zamkne) — displej si ho zapnout nemůže.
+  const shellFree = st.shell && typeof st.shell === 'object' && st.shell.free === true
+  const shellMin = shellFree ? Math.max(1, Math.ceil((num(st.shell.free_s) ?? 0) / 60)) : 0
   const updateLine = updateLineOf(st.update)
   // Název pobočky na DISPLEJI jednotky (status.branch_name) — jednotka ho bere výhradně z Velína (branches.name)
   // přes kiosk_heartbeat. Po přejmenování pobočky se propíše do 30 s; do té doby (nebo když je jednotka offline)
@@ -178,6 +182,8 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
           <span className="text-[11px] font-extrabold uppercase ml-2" style={{ color: '#6b8c7a' }}>Konfigurace:</span>
           <Chip tone={st.config_source === 'remote' ? 'blue' : 'amber'}>{st.config_source === 'remote' ? 'Velín' : st.config_source === 'local' ? 'lokální YAML' : '—'}</Chip>
           {playingZone != null && <Chip tone="green">♪ hraje zóna {playingZone}</Chip>}
+        {shellFree && <Chip tone="amber" title="Na displeji pobočky jde teď psát libovolné příkazy (servisní terminál). Každý příkaz se zapisuje do Hlášení a chyb.">
+          ⌨ Terminál odemčen ({shellMin} min)</Chip>}
         </div>
       )}
       {updateLine && (
@@ -205,6 +211,15 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
         <Btn tone="amber" onClick={() => confirmSend('Aktualizovat software řídicí jednotky (git pull + restart)? Naplánuje se a provede se, až bude kóje volná (nikdo uprostřed relace). Výsledek poznáte podle hlášené verze a řádku „Aktualizace“ níže.', 'update_software', {}, 'Aktualizovat software')}>Aktualizovat software</Btn>
         <Btn tone="red" title="Restartuje celý počítač na pobočce. Cca minutu nejde zadat kód ani otevřít dveře — nedělejte, když je někdo v kóji."
           onClick={() => confirmSend('Rebootovat Raspberry Pi? Pobočka bude cca 1 minutu nedostupná.', 'reboot', {}, 'Reboot RPi')}>Reboot RPi</Btn>
+        <Btn tone={shellFree ? 'red' : 'gray'}
+          title={shellFree
+            ? 'Zamkne volné psaní příkazů na displeji pobočky (připravená tlačítka terminálu zůstanou).'
+            : 'Povolí na 30 minut psaní libovolných příkazů v servisním terminálu na displeji pobočky — pro technika, který je u skříně a řeší závadu. Terminál se otevře po zadání diagnostického kódu nebo servisního hesla, běží pod uživatelem motogo (ne root) a každý příkaz jde do Hlášení a chyb. Po 30 minutách se sám zamkne.'}
+          onClick={() => confirmSend(shellFree
+            ? 'Zamknout volné psaní příkazů na displeji pobočky?'
+            : 'Povolit na 30 minut psaní libovolných příkazů na displeji pobočky? Kdo zná diagnostický kód, dostane na místě příkazovou řádku jednotky.',
+            'shell_unlock', { minutes: shellFree ? 0 : 30 }, shellFree ? 'Zamknout terminál' : 'Odemknout terminál')}>
+          {shellFree ? 'Zamknout terminál' : '⌨ Terminál na displeji'}</Btn>
         {sent && (now - sent.ts) < 60000 && <span className="text-[11px] font-bold" style={{ color: '#1a8a18' }}>{sent.text}</span>}
       </div>
 

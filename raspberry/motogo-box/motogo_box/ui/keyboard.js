@@ -54,7 +54,8 @@ MG.Keyboard = (function () {
 
   /**
    * Postaví klávesnici do kontejneru.
-   * opts: { mode: 'num'|'qwerty'|'text', onChar, onBackspace, onEnter, onClear, onToggle, enterLabel, clearLabel }
+   * opts: { mode: 'num'|'qwerty'|'text'|'shell', onChar, onBackspace, onEnter, onClear, onToggle, enterLabel, clearLabel }
+   * `shell` = jako 'text', navíc řádek se znaky, bez kterých se příkaz nenapíše (mezera, / . : - _ | > * ~).
    */
   function build(container, opts) {
     const o = Object.assign({ mode: 'num', onChar() {}, onBackspace() {}, onEnter() {}, onClear() {}, onToggle() {}, clearLabel: 'SMAZAT' }, opts || {});
@@ -79,6 +80,10 @@ MG.Keyboard = (function () {
     } else {
       const rows = [row('1234567890'.split('').map((n) => key(n, 'small', () => o.onChar(n))))];
       rows.push(...letterRows(o));
+      if (o.mode === 'shell') {
+        rows.push(row('-_./:|>*~'.split('').map((ch) => key(ch, 'small', () => o.onChar(ch)))
+          .concat([key('␣', 'small f2', () => o.onChar(' '))])));
+      }
       rows.push(row([
         key('-', 'small', () => o.onChar('-')),
         key(o.clearLabel, 'small amber f2', o.onClear),

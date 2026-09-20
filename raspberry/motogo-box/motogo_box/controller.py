@@ -13,7 +13,7 @@ import json
 import logging
 import time
 
-from . import commands, controller_codes as cc, controller_hw as chw, controller_loops as loops, sdnotify
+from . import commands, controller_codes as cc, controller_hw as chw, controller_loops as loops, sdnotify, shell
 from .audio import AudioController
 from .audio_build import audio_signature, build_audio, make_music_library
 from .config import WARNING_PREFIX, HardwareConfig, LocalConfig, blocking_problems, validate_hardware
@@ -57,6 +57,8 @@ class BoxController:
         self.wake = asyncio.Event()
         self._last_wake = 0.0
         self.handled_commands: set[str] = set()
+        self.shell_until: float = 0.0          # do kdy (unix čas) smí displej pouštět volné příkazy (§27)
+        self.shell_tokens: dict[str, float] = {}   # tokeny servisního terminálu (jen /api/service/shell)
         self.last_poll: float = 0.0
         self.power_status_url: str | None = None
         self.power_poll_s: int = 60
@@ -386,6 +388,7 @@ class BoxController:
             "notice": copy.deepcopy(notice) if notice else None,
             "diagnostics": self.diagnostics.status(),
             "update": self.updater.status(),
+            "shell": shell.state(self),          # servisní terminál: je volné psaní odemčené? (§27)
         }
 
     async def all_off(self) -> None:
