@@ -45,8 +45,12 @@ const List<String> _kwCastle = [
   'zamek', 'zamec', 'zamok', 'zricen', 'tvrz', 'palac', 'castle', 'schloss',
   'pevnost', 'hradisk', 'hradisc', 'burg', 'chateau', 'castel', 'citadel'
 ];
+// Kategorie „Rozhledny a vrcholy" — kromě rozhleden sem patří i vrcholy a hory
+// (zadání uživatele: vrcholy se mají hledat pohromadě s rozhlednami, ne
+// v „Přírodě" mezi rybníky a sedly).
 const List<String> _kwLookout = [
-  'rozhled', 'vyhlid', 'vyhled', 'vez', 'aussicht', 'panorama'
+  'rozhled', 'vyhlid', 'vyhled', 'vez', 'aussicht', 'panorama',
+  'vrch', 'hora', 'kopec'
 ];
 const List<String> _kwWater = [
   'prehrad', 'priehrad', 'rybnik', 'jezer', 'jazer', 'vodopad', 'nadrz',
@@ -76,10 +80,12 @@ const List<String> _kwMoto = [
   'autodrom', 'zavodni okruh', 'racing', 'circuit', 'rennstreck',
   'motocyklov', 'automobilov', 'automuseum', 'veteran', 'motokros'
 ];
+// Pozn.: 'vrch', 'hora' a 'kopec' se přesunuly do _kwLookout („Rozhledny
+// a vrcholy"); tady zůstává jen to, co je opravdu příroda bez výhledu.
 const List<String> _kwNature = [
-  'jeskyn', 'jaskyn', 'propast', 'skal', 'prales', 'park', 'vrch', 'hora',
+  'jeskyn', 'jaskyn', 'propast', 'skal', 'prales', 'park',
   'sedlo', 'prusmyk', 'priesmyk', 'soutesk', 'udol', 'dolin', 'pramen',
-  'zahrad', 'steny', 'stena', 'kamen', 'ostrov', 'pleso', 'plesa', 'kopec',
+  'zahrad', 'steny', 'stena', 'kamen', 'ostrov', 'pleso', 'plesa',
   'klamm', 'kanon', 'rezerv', 'jezirk', 'diery'
 ];
 
