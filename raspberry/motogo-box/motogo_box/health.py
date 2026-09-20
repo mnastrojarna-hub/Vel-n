@@ -135,7 +135,11 @@ class LtePolicy:
             return []
         self.internet_failures += 1
         cfg = self.cfg
-        if self.last_action_at is not None and now - self.last_action_at < max(0, cfg.action_cooldown_s):
+        # `0 <= delta`: skok hodin ZPĚT (box bez internetu nemá NTP, po výpadku napájení bez RTC
+        # baterie skočí fake-hwclock do minulosti) nesmí cooldown natáhnout na hodiny — obnova by
+        # stála, dokud reálný čas nedožene uloženou značku, a ta přežívá i reboot (health.json).
+        delta = now - self.last_action_at if self.last_action_at is not None else None
+        if delta is not None and 0 <= delta < max(0, cfg.action_cooldown_s):
             return []       # předchozí akce ještě dobíhá
         if (self.usb_resets_pending >= max(1, cfg.reboot_after)
                 and uptime_s >= cfg.min_uptime_before_reboot_s):
@@ -181,8 +185,10 @@ class LtePolicy:
     def _prune(self, now: float) -> None:
         """Historie jen za posledních 24 h a nejvýš `HISTORY_MAX` položek (stav se ukládá na disk)."""
         cut = now - 86400
+        # Záznamy z BUDOUCNOSTI (hodiny se posunuly zpět) taky pryč — jinak by `last24h` nafukovaly
+        # počty donekonečna a nikdy nevypadly.
         self.history = [h for h in self.history if isinstance(h, list) and len(h) == 2
-                        and isinstance(h[0], (int, float)) and h[0] >= cut][-HISTORY_MAX:]
+                        and isinstance(h[0], (int, float)) and cut <= h[0] <= now + 60][-HISTORY_MAX:]
 
     def counts_24h(self) -> dict:
         """Kolikrát se za posledních 24 h co dělalo — celková počítadla rostou donekonečna (1584 reconnectů
@@ -214,9 +220,11 @@ class LtePolicy:
                 setattr(self, key, max(0, int(d.get(key, 0) or 0)))
             except (TypeError, ValueError):
                 pass
+        now = self.clock()
         for key in ("last_online", "last_action_at"):
             v = d.get(key)
-            setattr(self, key, float(v) if isinstance(v, (int, float)) else None)
+            # Značka z budoucnosti (posun hodin) by zmrazila cooldown — ořízneme ji na „teď".
+            setattr(self, key, min(float(v), now) if isinstance(v, (int, float)) else None)
         la = d.get("last_action")
         self.last_action = la if isinstance(la, str) else None
         self.modem_reset_done = bool(d.get("modem_reset_done"))
@@ -430,7 +438,8 @@ class HealthMonitor:
         if every <= 0:
             return None
         now = self.clock()
-        if self._lan_try_at is not None and now - self._lan_try_at < every:
+        since = now - self._lan_try_at if self._lan_try_at is not None else None
+        if since is not None and 0 <= since < every:      # 0 <= : posun hodin zpět nesmí blokovat obnovu
             return None
         self._lan_try_at = now
         con = self.cfg.lan_connection
@@ -522,8 +531,9 @@ class HealthMonitor:
         sysm = sys_metrics()
         uptime = self._uptime()
         error = lte.get("error")
-        if error:
-            # SIM PIN / chybějící SIM: reconnect, USB reset ani reboot nepomůže → politika stojí, jen hlásit.
+        if error and not internet:
+            # SIM PIN1 / chybějící SIM: reconnect, USB reset ani reboot nepomůže → politika stojí, jen hlásit.
+            # Když internet JEDE, politika běží i tak — musí si srovnat počítadla a `last_online`.
             actions: list[str] = []
             if error != self._lte_error:
                 retries = lte.get("unlock_retries")

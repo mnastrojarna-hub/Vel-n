@@ -61,6 +61,55 @@ def test_parse_mmcli_modem_failed_reason_and_lte_error():
                                                                 "state-failed-reason": "none"}}}))["failed_reason"] is None
 
 
+def test_pin2_never_blocks_recovery():
+    """PIN2/PUK2 chrání jen FDN — data nebrání. Brát je jako chybu = vypnutá obnova (živě 2026-09-20)."""
+    connected_pin2 = parse_mmcli_modem(json.dumps({"modem": {"generic": {
+        "state": "connected", "unlock-required": "sim-pin2", "unlock-retries": ["sim-pin2 (3)"]}}}))
+    assert connected_pin2["unlock_required"] == "sim-pin2"      # zůstává jako informace
+    assert lte_error(connected_pin2) is None                    # ale NENÍ to blokátor
+    assert lte_error({"state": "searching", "unlock_required": "sim-puk2"}) is None
+    # PIN1/PUK1 blokují dál
+    assert lte_error({"state": "connected", "unlock_required": "sim-pin"}) == "sim_locked"
+    assert lte_error({"state": "searching", "unlock_required": "sim-puk"}) == "sim_puk"
+
+
+async def test_cycle_with_pin2_still_runs_recovery(tmp_path):
+    """Modem s PIN2 a mrtvým internetem MUSÍ projít žebříčkem obnovy, ne stát na „obnova pozastavena"."""
+    env = FakeEnv(internet_ok=False, modem_state="connected")
+    d = json.loads(env.modem_json)
+    d["modem"]["generic"]["unlock-required"] = "sim-pin2"
+    env.modem_json = json.dumps(d)
+    mon = _monitor(env, tmp_path, _cfg(reconnect_after=1))
+    payload = await mon.cycle()
+    assert payload["lte"]["unlock_required"] == "sim-pin2" and payload["lte"]["error"] is None
+    assert payload["actions"] == ["reconnect"]
+
+
+async def test_policy_runs_on_success_even_with_blocking_sim_error(tmp_path):
+    """I s blokující chybou SIM se při funkčním internetu musí srovnat počítadla (jinak last_online None)."""
+    env = FakeEnv(internet_ok=True, modem_state="locked")
+    mon = _monitor(env, tmp_path)
+    mon.policy.internet_failures = 5
+    payload = await mon.cycle()
+    assert payload["lte"]["error"] == "sim_locked"
+    assert mon.policy.internet_failures == 0 and mon.policy.last_online is not None
+
+
+def test_cooldown_survives_clock_jump_backwards():
+    """Posun hodin zpět (bez NTP, fake-hwclock po výpadku) nesmí zmrazit obnovu na hodiny."""
+    clock = FakeClock(2_000_000.0)
+    p = LtePolicy(_cfg(reconnect_after=1, usb_reset_after=1, action_cooldown_s=120), clock)
+    assert p.step(False, 5000.0) == ["reconnect"]
+    clock.t = 1_900_000.0                       # hodiny skočily o den zpět
+    assert p.step(False, 5000.0) == ["modem_reset"]      # obnova běží dál, ne prázdno
+    # stará značka z budoucnosti se navíc po načtení stavu ořízne
+    q = LtePolicy(_cfg(), FakeClock(1_000.0))
+    q.load({"last_action_at": 9_999_999.0, "last_online": 9_999_999.0,
+            "history": [[9_999_999.0, "reconnect"]]})
+    assert q.last_action_at == 1_000.0 and q.last_online == 1_000.0
+    assert q.counts_24h()["reconnect"] == 0     # budoucí záznamy se nezapočítávají
+
+
 def test_parse_mmcli_modem_sim_pin_beats_state():
     """Zamčená SIM se po restartu modemu umí tvářit jako `searching` — rozhodovat musí `unlock-required`."""
     locked = json.dumps({"modem": {"generic": {

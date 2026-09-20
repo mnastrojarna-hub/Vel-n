@@ -144,9 +144,13 @@ def parse_mmcli_signal(text: str) -> dict:
 
 
 SIM_FAILED_REASONS = {"sim-missing": "sim_missing", "sim-error": "sim_error"}
-# mmcli `unlock-required` → chyba; PUK je zvlášť, protože ho žádný uložený PIN nevyřeší (nutný zásah u operátora)
-SIM_UNLOCK_ERRORS = {"sim-pin": "sim_locked", "sim-pin2": "sim_locked",
-                     "sim-puk": "sim_puk", "sim-puk2": "sim_puk"}
+# mmcli `unlock-required` → chyba; PUK je zvlášť, protože ho žádný uložený PIN nevyřeší (nutný zásah u operátora).
+# **JEN PIN1/PUK1.** PIN2/PUK2 chrání FDN a servisní funkce SIM, data NEBLOKUJÍ — ModemManager je hlásí
+# i na modemu, který je `connected` a normálně přenáší. Brát je jako chybu znamenalo vypnout CELOU
+# politiku obnovy (`cycle()` při `error` politiku přeskakuje): ověřeno živě na pobočce 2026-09-20,
+# modem hlásil `unlock: sim-pin2`, health psal „obnova pozastavena" a žádný z šesti výpadků toho dne
+# neřešil. PIN2 zůstává viditelný v `lte.unlock_required` jako informace, ne jako blokátor.
+SIM_UNLOCK_ERRORS = {"sim-pin": "sim_locked", "sim-puk": "sim_puk"}
 
 
 def lte_error(modem: dict) -> str | None:
@@ -154,6 +158,7 @@ def lte_error(modem: dict) -> str | None:
 
     `unlock_required` má přednost před `state`: zamčená SIM se po restartu modemu umí tvářit
     jako `searching`, a pak by politika zbytečně resetovala modem a nakonec rebootovala box.
+    Platí to ale JEN pro PIN1/PUK1 (viz `SIM_UNLOCK_ERRORS`) — PIN2/PUK2 data nebrání.
     """
     unlock = SIM_UNLOCK_ERRORS.get(str(modem.get("unlock_required") or ""))
     if unlock:

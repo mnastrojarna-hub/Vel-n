@@ -182,6 +182,18 @@ if ! command -v unattended-upgrade >/dev/null 2>&1; then
   fi
 fi
 
+# ── migrace prahů LTE v config.yaml (2026-09-20) ────────────────────────────────────────────────
+# `update.sh` config ZÁMĚRNĚ nepřepisuje — jenže jednotky instalované dřív mají v `health:` natvrdo
+# STARÉ výchozí hodnoty (reconnect_after: 5, usb_reset_after: 5) a nová rychlá eskalace by se nikdy
+# nespustila (ověřeno na pobočce 2026-09-20: software aktuální, chování staré). Smažeme JEN řádky,
+# které se rovnají starým defaultům — vlastní hodnoty zůstávají a platí dál.
+CFG_FILE="/etc/motogo/config.yaml"
+if [[ -f "$CFG_FILE" ]] && grep -qE '^[[:space:]]+(reconnect_after:[[:space:]]*5|usb_reset_after:[[:space:]]*5)[[:space:]]*(#.*)?$' "$CFG_FILE"; then
+  cp -a "$CFG_FILE" "$CFG_FILE.bak-$(date +%Y%m%d%H%M%S)"
+  sed -i -E '/^[[:space:]]+(reconnect_after:[[:space:]]*5|usb_reset_after:[[:space:]]*5)[[:space:]]*(#.*)?$/d' "$CFG_FILE"
+  log "config.yaml: odstraněny staré prahy LTE (reconnect_after/usb_reset_after = 5) → platí nové výchozí 3/2; záloha .bak-*"
+fi
+
 # ── provizorní watchdog LTE z 2026-09-20 pryč (obnovu umí motogo-health sám; dva by si překážely) ──
 for f in /etc/cron.d/motogo-lte-tmpwatch /usr/local/sbin/motogo-lte-tmpwatch; do
   [[ -e "$f" ]] && rm -f "$f" && log "odstraněno provizorium $f"
