@@ -29,6 +29,11 @@
 -- ho znovu nevloží, protože si ho sám podchytí guard níž.
 delete from public.points_of_interest p
  where p.source like 'wikidata-peaks-cz-sk%'
+   -- Bod, který admin ručně sloučil (a tím skryl), se NESMÍ smazat a vložit
+   -- znovu — ručním re-applyem (Actions → force) by se duplicita, kterou už
+   -- někdo vyřešil, vrátila zpátky jako aktivní řádek s novým id.
+   and p.is_active
+   and p.source not like '%merged-into:%'
    and not exists (select 1 from public.poi_ratings r where r.poi_id = p.id)
    and not exists (select 1 from public.user_visited_places v where v.poi_id = p.id);
 

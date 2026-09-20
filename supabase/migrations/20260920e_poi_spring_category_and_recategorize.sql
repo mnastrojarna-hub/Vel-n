@@ -49,7 +49,12 @@ update public.points_of_interest
    set category = 'spring', updated_at = now()
  where category in ('nature','water','lookout','sights','other','tech','castle')
    and name ~* '(studánk|studánc|prameništ|pramenisk|kyselk|vývěr|\mpramen\M|\mprameny\M|\mpramene\M|žriedl|minerální pramen)'
-   and name !~* '(řop\M|\mr-s ?[0-9]|srub|bunkr|pramenitá|pramenice|rozhledna|\mvrch\M|\mhora\M|\mkopec\M)';
+   -- Negativní pojistka se MUSÍ dívat i do popisu: u bodů z Wikidat je druh
+   -- objektu skoro vždy jen tam („Vrchol v Česku, 604 m n. m."), takže
+   -- „Nad Zlatou studánkou" (vrchol) ani „Sedlo nad Karlovou Studánkou"
+   -- (průsmyk) do studánek nepatří — jsou po studánce jen pojmenované.
+   and (name || ' ' || coalesce(description,'')) !~*
+       '(řop\M|\mr-s ?[0-9]|srub|bunkr|pramenitá|pramenice|rozhledna|\mvrch\M|\mvrchol|\mhora\M|\mkopec\M|\msedlo|průsmyk|priesmyk)';
 
 -- 2d) Vodopády → water -------------------------------------------------------
 update public.points_of_interest
@@ -61,8 +66,14 @@ update public.points_of_interest
 update public.points_of_interest
    set category = 'tech', updated_at = now()
  where category in ('nature','water','lookout','castle','sights','other')
-   and name ~* '(větrný mlýn|veterný mlyn|vodní mlýn|vodný mlyn|\mhamr\M|\mštola\M|\mštoly\M|vápenka|viadukt|úzkokolejk|sklárna|papírna|koksovna|vysoká pec|železárn|těžní věž|hornické muzeum|hornická muzeum|technické muzeum|železniční muzeum)'
-   and name !~* '(přehrada|nádrž|vodní dílo|rybník|jezero)';
+   -- „Hamr" je i název OBCE (Hamr na Jezeře) a „viadukt" se objevuje
+   -- v názvech přírodních památek („U Banínského viaduktu"), proto u obou
+   -- vyžadujeme upřesnění.
+   and name ~* '(větrný mlýn|veterný mlyn|vodní mlýn|vodný mlyn|vodní hamr|starý hamr|\mhamr [a-zá-ž]|\mštola\M|\mštoly\M|vápenka|železniční viadukt|kamenný viadukt|úzkokolejk|sklárna|papírna|koksovna|vysoká pec|železárn|těžní věž|hornické muzeum|hornická muzeum|technické muzeum|železniční muzeum)'
+   and name !~* '(přehrada|nádrž|vodní dílo|rybník|jezero|^tvrz|^zámek|^zámeček|^hrad)'
+   -- Popis prozradí, že jde o vrchol / památku / obec, ne o technický cíl.
+   and (name || ' ' || coalesce(description,'')) !~*
+       '(\mvrchol v |přírodní památka|prírodná pamiatka|chráněn|chránen)';
 
 -- 2f) Pojmenované vrchy a hory, které zůstaly v přírodě → lookout ------------
 --     (chip „Rozhledny a vrcholy"; navazuje na 20260919_poi_hills_recategorize.sql,
@@ -71,4 +82,10 @@ update public.points_of_interest
    set category = 'lookout', updated_at = now()
  where category = 'nature'
    and name ~* '(\mvrch\M|\mvrchu\M|\mvrchy\M|\mhora\M|\mhory\M|\mkopec\M|\mkopce\M|\mvrchol\M|\mštít\M|\mhůrka\M|\mvršek\M|\mhoľa\M)'
-   and name !~* '(sedlo|průsmyk|priesmyk|pleso|jeskyn|jaskyn|rezervac|národní park|přírodní park|chko|chránen|chráněn|hrad|zámek|kostel|kaple|klášter|rybník|jezero|vodopád|studánk|pramen|synagog|muzeum|údolí|dolina|potok|\mpod\M)';
+   -- KLÍČOVÉ: negativní pojistka se musí dívat i do POPISU. U bodů z Wikidat
+   -- je druh objektu skoro vždy jen tam („Přírodní památka v Česku…"), takže
+   -- samotný název nic neprozradí a do „Rozhleden a vrcholů" by spadlo
+   -- 142 chráněných území — „Přírodní památka Mařský vrch", „Arboretum
+   -- Borová hora" i lom „Lom Janičův vrch".
+   and (name || ' ' || coalesce(description,'')) !~*
+       '(sedlo|průsmyk|priesmyk|pleso|jeskyn|jaskyn|rezervac|národní park|přírodní park|přírodní památk|prírodná pamiatk|chráněný areál|chránený areál|arboretum|\mlom\M|chko|chránen|chráněn|hrad|zámek|kostel|kaple|klášter|rybník|jezero|vodopád|studánk|pramen|synagog|muzeum|údolí|dolina|potok|\mpod\M)';

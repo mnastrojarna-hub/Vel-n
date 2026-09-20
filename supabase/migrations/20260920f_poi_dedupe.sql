@@ -26,6 +26,10 @@
 -- druhý běh nenajde nic.
 
 create index if not exists idx_poi_catalog_lat on public.points_of_interest(lat);
+-- Složený index, aby se souřadnicové okno dalo uspokojit bez sáhnutí na
+-- primární klíč; bez něj plánovač u hledání duplicit sáhl po pkey a jeden
+-- průchod všemi zeměmi trval 51 s (na krok od vlastního timeoutu).
+create index if not exists idx_poi_catalog_latlng on public.points_of_interest(lat, lng);
 
 -- 1) Normalizace názvu -------------------------------------------------------
 create or replace function public.poi_norm_name(txt text)
@@ -41,9 +45,13 @@ returns text language sql immutable parallel safe as $fn$
             -- a „Krkonošský" se normalizovalo na „krkonossku" („ý"→„u",
             -- „ť"→„s", „ú"→„t", „ž"→„y"). Stejná tabulka je v appce
             -- (places_filter.dart, _foldName).
-            lower(translate(coalesce(txt, ''),
+            -- `lower()` MUSÍ být UVNITŘ: tabulka obsahuje jen malá písmena,
+            -- takže při opačném pořadí velká písmena s diakritikou nic
+            -- nenahradí a následný scrub `[^a-z0-9]` je zahodí úplně
+            -- („Špičák" → „picak", „Říp" → „ip", „Ústí" → „sti").
+            translate(lower(coalesce(txt, '')),
               'áäàâãåąăčćçďđéěèêëęėēíìîïīľĺłňñńóöòôõøőřŕšśşșťțúůüûűùūýÿžźż',
-              'aaaaaaaacccddeeeeeeeeiiiiilllnnnooooooorrssssttuuuuuuuyyzzz')),
+              'aaaaaaaacccddeeeeeeeeiiiiilllnnnooooooorrssssttuuuuuuuyyzzz'),
             '^(zricenina hradu |zricenina |zamek |zamecek |hrad |klaster |kostel |kaple |rozhledna |vyhlidka |vez |vrch |hora |kopec |prehrada |rybnik |jezero |vodopad |jeskyne |studanka |pramen |muzeum |burgruine |schloss |burg |chateau |castle |ruine |tower )',
             ''),
           '[^a-z0-9]+', ' ', 'g'),
@@ -64,87 +72,10 @@ create index if not exists idx_poi_catalog_norm_name
   on public.points_of_interest(norm_name);
 
 -- 2) Jednorázové sloučení jistých duplicit -----------------------------------
-do $do$
-declare
-  r      record;
-  merged int := 0;
-begin
-  for r in
-    -- Ke každému poraženému právě JEDEN — ten NEJLEPŠÍ — vítěz. Rozsahové
-    -- podmínky `b.lat between …` jsou schválně psané takhle (ne přes abs()),
-    -- aby je nested loop uměl vzít z indexu idx_poi_catalog_lat; přes abs()
-    -- by to byl seq scan 40k × 40k.
-    select distinct on (b.id)
-           b.id as drop_id, a.id as keep_id
-      from public.points_of_interest a
-      join public.points_of_interest b
-        on b.id <> a.id
-       and b.lat between a.lat - 0.00225 and a.lat + 0.00225       -- ~250 m
-       and b.lng between a.lng - 0.00225 / greatest(cos(radians(a.lat)), 0.2)
-                     and a.lng + 0.00225 / greatest(cos(radians(a.lat)), 0.2)
-       and b.is_active
-       and b.norm_name = a.norm_name
-     where a.is_active
-       and a.norm_name is not null
-       -- vítěz musí být OSTŘE lepší: má fotku > má popis > nižší sort_order > menší id.
-       -- Pořadí je úplné (id je unikátní), takže z každé dvojice je vítězem
-       -- právě jeden — nikdy se nesloučí „oba do sebe".
-       and case
-             when (a.image_url is not null) <> (b.image_url is not null)
-               then (a.image_url is not null)
-             when (a.description is not null) <> (b.description is not null)
-               then (a.description is not null)
-             when a.sort_order <> b.sort_order then a.sort_order < b.sort_order
-             else a.id < b.id
-           end
-     order by b.id,
-              (a.image_url is not null) desc,
-              (a.description is not null) desc,
-              a.sort_order, a.id
-  loop
-    -- poražený mohl být mezitím sám sloučen jako vítěz jiné dvojice → přeskoč
-    continue when not exists (select 1 from public.points_of_interest
-                               where id = r.keep_id and is_active);
-    continue when not exists (select 1 from public.points_of_interest
-                               where id = r.drop_id and is_active);
-
-    update public.points_of_interest k set
-      image_url    = coalesce(k.image_url, d.image_url),
-      description  = coalesce(k.description, d.description),
-      surroundings = coalesce(k.surroundings, d.surroundings),
-      country      = coalesce(k.country, d.country),
-      region       = coalesce(k.region, d.region),
-      images       = case when coalesce(array_length(k.images, 1), 0) = 0
-                          then d.images else k.images end,
-      image_alts   = case when coalesce(array_length(k.image_alts, 1), 0) = 0
-                          then d.image_alts else k.image_alts end,
-      translations = coalesce(k.translations, '{}'::jsonb) || coalesce(d.translations, '{}'::jsonb),
-      updated_at   = now()
-      from public.points_of_interest d
-     where k.id = r.keep_id and d.id = r.drop_id;
-
-    -- hodnocení a „navštíveno" přenést tam, kde to neporuší UNIQUE(user, poi)
-    update public.poi_ratings x set poi_id = r.keep_id
-     where x.poi_id = r.drop_id
-       and not exists (select 1 from public.poi_ratings y
-                        where y.user_id = x.user_id and y.poi_id = r.keep_id);
-    delete from public.poi_ratings where poi_id = r.drop_id;
-
-    update public.user_visited_places x set poi_id = r.keep_id
-     where x.poi_id = r.drop_id
-       and not exists (select 1 from public.user_visited_places y
-                        where y.user_id = x.user_id and y.poi_id = r.keep_id);
-    delete from public.user_visited_places where poi_id = r.drop_id;
-
-    update public.points_of_interest
-       set is_active  = false,
-           source     = coalesce(source, '') || ' merged-into:' || r.keep_id,
-           updated_at = now()
-     where id = r.drop_id;
-    merged := merged + 1;
-  end loop;
-  raise notice 'poi dedupe: slouceno % duplicitnich mist', merged;
-end $do$;
+-- POZOR: samotné slučování NEBĚŽÍ TADY, ale až v `20260920m_poi_dedupe_run.sql`.
+-- Soubory se aplikují v bytovém pořadí názvu (e < f < g < h < i < j < k < l < m),
+-- takže kdyby se slučovalo tady, proběhlo by PŘED seed dávkami h–k a nově
+-- vložené body by zůstaly nesloučené (změřeno: 32 čerstvých dvojic).
 
 -- 3) Nástroje pro Velín ------------------------------------------------------
 -- Skupiny podezřelých duplicit: aktivní body do `p_radius_m` metrů od sebe,
@@ -176,14 +107,17 @@ begin
              power((a.lng - b.lng) * cos(radians((a.lat + b.lat) / 2)), 2)))::numeric, 0) as m
       from public.points_of_interest a
       join public.points_of_interest b
-        on b.id > a.id
-       -- rozsahové podmínky (ne abs()) kvůli indexu idx_poi_catalog_lat
-       and b.lat between a.lat - d and a.lat + d
+        -- Jen souřadnicové okno (rozsahy, ne abs()), ať ho plánovač vezme
+        -- z idx_poi_catalog_latlng. `b.id > a.id` schválně AŽ ve WHERE —
+        -- v JOIN podmínce z něj plánovač udělal přístupovou cestu přes pkey
+        -- a dotaz spadl z 2 s na 51 s.
+        on b.lat between a.lat - d and a.lat + d
        and b.lng between a.lng - d / greatest(cos(radians(a.lat)), 0.2)
                      and a.lng + d / greatest(cos(radians(a.lat)), 0.2)
        and b.is_active
-       and (b.norm_name = a.norm_name or b.category = a.category)
      where a.is_active
+       and b.id > a.id
+       and (b.norm_name = a.norm_name or b.category = a.category)
        and (p_country is null or a.country = p_country)
   ), lim as (
     select * from pairs where m <= p_radius_m order by m limit greatest(p_limit, 1)
