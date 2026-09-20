@@ -259,6 +259,15 @@ class Reservation {
     return ResStatus.nadchazejici;
   }
 
+  /// True když termín už začal (začátek je před dnešním dnem). Bezplatný posun
+  /// termínu jde jen do konce dne začátku — po něm se nevyzvednutá rezervace
+  /// řeší stornem dle podmínek (parita se serverem).
+  bool get startDateInPast {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return DateTime(startDate.year, startDate.month, startDate.day).isBefore(today);
+  }
+
   int get dayCount => calendarDaysInclusive(startDate, endDate);
 
   String get shortId => '#${id.substring(id.length - 8).toUpperCase()}';

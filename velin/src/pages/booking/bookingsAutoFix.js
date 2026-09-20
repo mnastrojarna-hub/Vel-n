@@ -51,13 +51,22 @@ export async function autoActivateReserved() { return _once('activate', _autoAct
 async function _autoActivateReserved() {
   try {
     const today = localIso(new Date())
-    const { data: ready } = await supabase.from('bookings').select('id, user_id')
+    const { data: ready } = await supabase.from('bookings')
+      .select('id, user_id, motorcycles!moto_id(branch_id, branches!branch_id(type))')
       .eq('status', 'reserved').eq('payment_status', 'paid')
       .not('is_test', 'is', true) // testovací rezervace se nikdy neaktivují (parita se SQL cronem)
       .lte('start_date', today)
     if (!ready || !ready.length) return
 
     for (const b of ready) {
+      // Pobočkové rezervace aktivuje až SKUTEČNÉ převzetí motorky — na samoobslužné
+      // pobočce zadání kódu do boxu, na obslužné předávací protokol (parita se SQL
+      // cronem auto_activate_reserved_bookings i s triggery). Kdyby je překlopil
+      // Velín z prohlížeče, zákazník by v den vyzvednutí přišel o bezplatný posun
+      // termínu a rezervace by tvrdila „vyzvednuto", i kdyby motorka stála v kóji.
+      const branchType = b.motorcycles?.branches?.type
+      if (branchType === 'samoobslužná' || branchType === 'obslužná') continue
+
       // Kontrola dokladů — zákazník MUSÍ mít nahrané doklady před aktivací
       const { data: prof } = await supabase.from('profiles')
         .select('license_group, docs_verified_at, docs_verification_status')

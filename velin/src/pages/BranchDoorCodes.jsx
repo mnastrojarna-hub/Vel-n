@@ -40,11 +40,15 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
           moto_id: booking.moto_id,
           code_type: 'motorcycle',
           door_code: generateDoorCode(),
-          is_active: booking.status === 'active',
+          // Parita s DB triggerem auto_generate_door_codes: kódy platí od potvrzení
+          // rezervace (reserved), ne až od aktivace — rezervace se nově překlápí na
+          // 'active' teprve zadáním kódu do boxu, takže vazba na 'active' by tu
+          // vyrobila mrtvé kódy a zákazník by se do kóje nedostal.
+          is_active: true,
           valid_from: booking.start_date,
           valid_until: booking.end_date,
-          sent_to_customer: hasDocuments && booking.status === 'active',
-          sent_at: hasDocuments && booking.status === 'active' ? new Date().toISOString() : null,
+          sent_to_customer: !!hasDocuments,
+          sent_at: hasDocuments ? new Date().toISOString() : null,
           withheld_reason: withheldReason,
         },
         {
@@ -53,11 +57,15 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
           moto_id: booking.moto_id,
           code_type: 'accessories',
           door_code: generateDoorCode(),
-          is_active: booking.status === 'active',
+          // Parita s DB triggerem auto_generate_door_codes: kódy platí od potvrzení
+          // rezervace (reserved), ne až od aktivace — rezervace se nově překlápí na
+          // 'active' teprve zadáním kódu do boxu, takže vazba na 'active' by tu
+          // vyrobila mrtvé kódy a zákazník by se do kóje nedostal.
+          is_active: true,
           valid_from: booking.start_date,
           valid_until: booking.end_date,
-          sent_to_customer: hasDocuments && booking.status === 'active',
-          sent_at: hasDocuments && booking.status === 'active' ? new Date().toISOString() : null,
+          sent_to_customer: !!hasDocuments,
+          sent_at: hasDocuments ? new Date().toISOString() : null,
           withheld_reason: withheldReason,
         },
       ]
