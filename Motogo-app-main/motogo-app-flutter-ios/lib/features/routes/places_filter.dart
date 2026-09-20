@@ -495,8 +495,14 @@ const double _kSameNameCatalogSameCatM = 1200;
 /// rozhledna na vrcholu, zřícenina na kopci, přehrada a její jezero.
 /// U památek, techniky, jídla a vojenských objektů je hustý shluk RŮZNÝCH
 /// objektů normální stav (synagogy, kostely, muzea, řopíky v linii).
+///
+/// STUDÁNKY sem SCHVÁLNĚ nepatří, ačkoli by se to nabízelo: lázeňská
+/// kolonáda má deset pojmenovaných pramenů vedle sebe (Karlovy Vary:
+/// Rusalka, Libuše, Kníže Václav, Mlýnský pramen) a ty patří do seznamu
+/// každý zvlášť. To, co je opravdu na jednom bodě, sloučí pravidlo 0
+/// (do 35 m) — a tam se dvě jména na mapě stejně nevejdou.
 const Set<String> _mergeableByCategory = {
-  'lookout', 'castle', 'water', 'nature', 'spring'
+  'lookout', 'castle', 'water', 'nature'
 };
 
 /// Dvojice kategorií, které o jednom bodě mluví jen jinými slovy. `nature`
@@ -506,7 +512,7 @@ const Set<String> _mergeableByCategory = {
 /// a „Křemešník" (nature) 64 m od sebe. Hrady, památky ani technika tu
 /// schválně nejsou: tam je hustý shluk RŮZNÝCH objektů normální stav.
 const Set<String> _compatibleCats = {
-  'nature|lookout', 'nature|water', 'nature|spring', 'spring|water',
+  'nature|lookout', 'nature|water',
 };
 
 bool _catsMergeable(String a, String b) {
