@@ -204,7 +204,20 @@ serve(async (req) => {
     if (meta.dbType === 'passport' && idNum) { upd.id_number = idNum; upd.passport_verified_at = nowIso }
     if (meta.dbType === 'drivers_license') {
       if (licNum) { upd.license_number = licNum; upd.license_verified_at = nowIso }
-      if (dateRe.test(licExp)) upd.license_expiry = licExp
+      if (dateRe.test(licExp)) {
+        // PLATNOST ŘP ROZHODUJE ZÁKAZNÍK (2026-09-20): `license_expiry` je jeho
+        // údaj z registrace / profilu a sken ho NEPŘEPISUJE — špatně přečtený
+        // rok jinak držel přístupové kódy s hláškou „ŘP propadlý". Doplní se
+        // jen do prázdného pole; `license_verified_until` = hodnota z OCR
+        // (záznam pro úřady, tiskne se do smlouvy) se ukládá vždy.
+        upd.license_verified_until = licExp
+        let curExp = ''
+        try {
+          const { data: prof } = await sb.from('profiles').select('license_expiry').eq('id', userId).maybeSingle()
+          curExp = String((prof as Record<string, unknown> | null)?.license_expiry ?? '').trim()
+        } catch { /* profil se nenačetl → raději nepřepisovat */ curExp = 'x' }
+        if (!curExp) upd.license_expiry = licExp
+      }
     }
     if (dateRe.test(dob)) upd.date_of_birth = dob
 
