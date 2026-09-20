@@ -209,7 +209,7 @@
 - **brake_type** (TEXT) — popis brzdové soustavy (např. „kotoučové (ABS)"). Spec tabulka.
 - **seats_count** (INTEGER) — počet míst k sezení (1 nebo 2). Spec tabulka.
 - **suitable_for** (TEXT) — HTML/text sekce „Pro koho je motorka vhodná?" (vykresluje se přes `sanitizeHtml()` v levém sloupci moto-info, mezi Krátkým popisem a Výbavou).
-- **box_number** (INTEGER, ověřeno 2026-06-24) — číslo boxu/stání na samoobslužné pobočce, kde kus stojí.
+- **box_number** (INTEGER, ověřeno 2026-06-24) — číslo boxu/kóje na samoobslužné pobočce, kde kus stojí. **UPDATE 2026-09-20 (jen Velín, BEZ SQL):** samoobslužná pobočka (`branches.type='samoobslužná'`) má VŽDY pevnou sestavu **7 kójí motorek + šatna + venek** (shodně s HW šablonou `BranchRpiHardwareDefaults.js` a `raspberry/motogo-box/config/brno-9zone.yaml`: 8 zón = 7 kójí + šatna, zóna 9 = venek) → `box_number` smí být 1–7 a na pobočku se vejde max 7 motorek (konstanty `SELF_SERVICE_MOTO_BAYS`/`maxMotosForBranch` v `BranchHelpers.jsx`; obslužná pobočka dál `MAX_MOTOS=24`). Velín → Pobočky → detail → „Motorky & Koje“ nově umožňuje číslo kóje u každé motorky kdykoliv **přepsat i vymazat** (dřív šlo vyplnit jen u kusu bez kóje, jinak se posouvalo šipkami) a hlásí překročení počtu kójí, duplicitní kóji i číslo mimo rozsah.
 - **unavailable_until** (TIMESTAMPTZ, ověřeno 2026-06-24) — do kdy je kus dočasně nedostupný (vazba na `status='unavailable'` + `unavailable_reason`).
 - **short_desc_fields** (TEXT[] NOT NULL DEFAULT '{}', ověřeno 2026-06-24) — výběr polí, která se mají skládat do „Krátkého popisu" na webu (spec klíče jako engine/transmission/...).
 - **image_alts** (TEXT[] DEFAULT '{}', **NEW 2026-05-17**) — paralelní pole SEO alt popisků k `images[]` (stejný index). Admin ve Velíně Fleet detail → fotky vyplňuje krátký popisek (např. „zepředu", „detail palubky"), PHP `katalog-detail.php` skládá finální alt jako `"{model} {color} – {popisek}"`. Pokud `image_alts[i]` prázdný/NULL → fallback na `"motorka {model} – půjčovna motogo24"` (původní chování). Migrace `20260517_image_alts.sql`.
@@ -362,7 +362,7 @@ Servisní zakázky navázané na motorky/servisní záznamy.
 
 ### branches (nové sloupce)
 - **branch_code** (TEXT UNIQUE) — unikátní kód pobočky (6 číslic, např. "000126")
-- **is_open** (BOOLEAN DEFAULT false) — otevřená (nonstop provoz) / zavřená
+- **is_open** (BOOLEAN DEFAULT false) — otevřená (nonstop provoz) / zavřená. **ZMĚNA VÝZNAMU 2026-09-20 (`20260920d_branch_closures.sql`):** dosud šlo jen o zobrazovaný štítek; nově `is_open=false` **znemožní rezervaci VŠECH motorek pobočky v jakémkoli termínu** (`branch_is_closed()` → kalendář, kontroly dostupnosti, trigger na `bookings`). POZOR na DEFAULT false — pobočka omylem vedená jako zavřená nic nepronajme; Velín → Pobočky proto nově hlásí červeným pruhem „zavřené pobočky s motorkami“ a přepnutí na zavřeno se potvrzuje dialogem. Sezónní zavření (od–do) se zadává do `branch_closures` (STATE_1), ne tímto přepínačem.
 - **type** (TEXT DEFAULT NULL) — REŽIM pobočky: `'samoobslužná'` (výdej/vrácení 24/7 kódem) / `'obslužná'` (předává obsluha, servisní místo) — jediné hodnoty, které ukládá Velín (`BranchModal.jsx`); podle nich se řídí missing-docs maily, handover protokol i `ai-public-agent` (oprava 2026-08-03: dřívější popis „turistická/městská/…" neodpovídal realitě)
 - **translations** (JSONB DEFAULT '{}') — auto-překlady pro web (notes), plní `translate-content`
 

@@ -167,6 +167,12 @@ function Branches() {
 
   async function toggleOpen(branch) {
     const newOpen = !branch.is_open
+    // Zavření pobočky znemožní rezervaci VŠECH jejích motorek (DB branch_is_closed)
+    if (!newOpen) {
+      const cnt = stats[branch.id]?.total || 0
+      const msg = `Zavřít pobočku „${branch.name}“?\n\nŽádnou z jejích motorek${cnt ? ` (${cnt} ks)` : ''} nepůjde zarezervovat — v žádném termínu.\nPro sezónní zavření (např. zima) použijte detail pobočky → Zavírací období.`
+      if (!window.confirm(msg)) return
+    }
     try {
       const { error: err } = await supabase
         .from('branches')
@@ -220,6 +226,9 @@ function Branches() {
   const activeMotos = Object.values(stats).reduce((s, v) => s + v.active, 0)
   const totalBookings = Object.values(bookingStats).reduce((s, v) => s + v, 0)
   const openCount = branches.filter(b => b.is_open).length
+  // Zavřená pobočka = její motorky nelze rezervovat (DB branch_is_closed).
+  // Když na takové pobočce motorky jsou, je to ušlý pronájem — hlásíme nahoře.
+  const blockedBranches = branches.filter(b => !b.is_open && (stats[b.id]?.total || 0) > 0)
 
   return (
     <div>
@@ -257,6 +266,15 @@ function Branches() {
           <Button green onClick={() => { setEditing(null); setShowModal(true) }}>+ Nová pobočka</Button>
         </div>
       </div>
+
+      {blockedBranches.length > 0 && (
+        <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>
+          <strong>Zavřené pobočky s motorkami — tyto motorky nejdou zarezervovat:</strong>{' '}
+          {blockedBranches.map(b => `${b.name} (${stats[b.id]?.total || 0})`).join(', ')}.
+          {' '}Pokud pobočka normálně funguje, přepněte ji ve sloupci Provoz na „Otevřená“. Sezónní zavření
+          zadejte v detailu pobočky → Zavírací období.
+        </div>
+      )}
 
       {/* Hromadná aktualizace řídicích jednotek (software + OS) — sbalený blok, kontrakt §6 */}
       <FleetUpdatesBlock />
