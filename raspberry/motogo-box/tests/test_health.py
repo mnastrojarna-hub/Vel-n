@@ -192,8 +192,11 @@ class FakeEnv:
 
     def __init__(self, internet_ok: bool = True, modem_ok: bool = True, *, tcp_ok: bool | None = None,
                  failing_hosts: set[str] | None = None, modem_state: str = "connected",
-                 failed_reason: str | None = None) -> None:
+                 failed_reason: str | None = None, lan: list[dict] | None = None) -> None:
         self.internet_ok, self.modem_ok = internet_ok, modem_ok
+        # výchozí stav I/O sítě: eth0 s adresou (zdravá pobočka) — testy si ho přepíšou
+        self.ifaces = [{"name": "eth0", "state": "up", "ipv4": [{"addr": "192.168.50.10", "prefix": 24}]}] \
+            if lan is None else lan
         self.tcp_ok = internet_ok if tcp_ok is None else tcp_ok
         self.failing_hosts = failing_hosts or set()   # HTTP cíle, které selžou i při internet_ok
         d = json.loads(MMCLI_MODEM)
@@ -202,6 +205,9 @@ class FakeEnv:
         self.cmds: list[tuple[str, ...]] = []
         self.posted: list[dict] = []
         self.tcp_probes = 0
+
+    async def interfaces(self) -> list[dict]:
+        return self.ifaces
 
     async def tcp_probe(self, host: str, port: int, timeout: float = 8.0) -> bool:
         self.tcp_probes += 1
@@ -234,7 +240,8 @@ class FakeEnv:
 def _monitor(env: FakeEnv, tmp_path, cfg: HealthCfg | None = None, uptime: float = 5000.0) -> HealthMonitor:
     return HealthMonitor(cfg or _cfg(), "http://127.0.0.1:8080", run_cmd=env.run_cmd,
                          clock=FakeClock(), state_path=str(tmp_path / "health.json"),
-                         http=env.client(), uptime=lambda: uptime, tcp_probe=env.tcp_probe)
+                         http=env.client(), uptime=lambda: uptime, tcp_probe=env.tcp_probe,
+                         interfaces=env.interfaces)
 
 
 async def test_cycle_online_posts_payload(tmp_path):
@@ -294,7 +301,7 @@ async def test_cycle_survives_controller_down(tmp_path):
     mon = HealthMonitor(_cfg(), "http://127.0.0.1:8080", run_cmd=env.run_cmd, clock=FakeClock(),
                         state_path=str(tmp_path / "h.json"),
                         http=httpx.AsyncClient(transport=httpx.MockTransport(down)), uptime=lambda: 1.0,
-                        tcp_probe=env.tcp_probe)
+                        tcp_probe=env.tcp_probe, interfaces=env.interfaces)
     payload = await mon.cycle()
     assert payload["internet"] is True and mon.last_payload is payload
 
@@ -440,3 +447,83 @@ def test_sys_metrics_os_fields(tmp_path, monkeypatch):
     (tmp_path / "junk").write_text("garbage\nPRETTY_NAME=\n")
     assert hp.read_os_name(str(tmp_path / "junk")) is None
     assert hp.file_mtime_iso(str(tmp_path / "missing")) is None
+
+
+# ─── I/O síť (eth0) — hlídka a obnova profilu motogo-lan ─────────────────────
+def _lan_monitor(env: FakeEnv, tmp_path, clock: FakeClock | None = None, **cfg_kw) -> HealthMonitor:
+    return HealthMonitor(_cfg(**cfg_kw), "http://127.0.0.1:8080", run_cmd=env.run_cmd,
+                         clock=clock or FakeClock(), state_path=str(tmp_path / "health.json"),
+                         http=env.client(), uptime=lambda: 5000.0, tcp_probe=env.tcp_probe,
+                         interfaces=env.interfaces)
+
+
+def _lan_cmds(env: FakeEnv) -> list[tuple[str, ...]]:
+    return [c for c in env.cmds if "motogo-lan" in c]
+
+
+async def test_lan_ok_nothing_happens(tmp_path):
+    env = FakeEnv()
+    lan = await _lan_monitor(env, tmp_path).lan_state()
+    assert lan == {"interface": "eth0", "state": "up", "ipv4": "192.168.50.10",
+                   "ok": True, "problem": None, "action": None}
+    assert _lan_cmds(env) == []
+
+
+async def test_lan_no_link_is_reported_but_never_touched(tmp_path):
+    """Mrtvý kabel/switch (stav down): software to neopraví → žádné nmcli, jen hlášení."""
+    env = FakeEnv(lan=[{"name": "eth0", "state": "down", "ipv4": []}])
+    mon = _lan_monitor(env, tmp_path)
+    lan = await mon.lan_state()
+    assert lan["problem"] == "no_link" and lan["ok"] is False and lan["ipv4"] is None
+    assert lan["action"] is None and _lan_cmds(env) == []
+
+
+async def test_lan_no_address_triggers_nmcli_up_once_per_window(tmp_path):
+    """Link je, adresa ne (profil nenaskočil) → `nmcli con up`, ale nejvýš jednou za lan_recover_s."""
+    clock = FakeClock()
+    env = FakeEnv(lan=[{"name": "eth0", "state": "up", "ipv4": []}])
+    mon = _lan_monitor(env, tmp_path, clock=clock, lan_recover_s=300)
+    first = await mon.lan_state()
+    assert first["problem"] == "no_address" and first["action"] == "lan_up"
+    assert _lan_cmds(env) == [("sudo", "-n", "nmcli", "-w", "20", "con", "up", "motogo-lan")]
+    clock.advance(299)
+    assert (await mon.lan_state())["action"] is None     # okno ještě běží
+    assert len(_lan_cmds(env)) == 1
+    clock.advance(2)
+    assert (await mon.lan_state())["action"] == "lan_up"
+    assert len(_lan_cmds(env)) == 2
+
+
+async def test_lan_recover_disabled_and_failed_nmcli(tmp_path):
+    env = FakeEnv(lan=[{"name": "eth0", "state": "up", "ipv4": []}])
+    off = await _lan_monitor(env, tmp_path, lan_recover_s=0).lan_state()
+    assert off["problem"] == "no_address" and off["action"] is None and _lan_cmds(env) == []
+
+    class Failing(FakeEnv):
+        async def run_cmd(self, *args: str, timeout: float = 20) -> tuple[int, str]:
+            self.cmds.append(args)
+            if "motogo-lan" in args:
+                return 4, "Error: Connection activation failed: device not ready"
+            return await FakeEnv.run_cmd(self, *args, timeout=timeout)
+
+    bad = Failing(lan=[{"name": "eth0", "state": "up", "ipv4": []}])
+    assert (await _lan_monitor(bad, tmp_path).lan_state())["action"] == "lan_up_failed"
+
+
+async def test_lan_missing_interface_and_unreadable_list(tmp_path):
+    env = FakeEnv(lan=[{"name": "wlan0", "state": "up", "ipv4": []}])
+    assert (await _lan_monitor(env, tmp_path).lan_state())["problem"] == "missing"
+
+    class Broken(FakeEnv):
+        async def interfaces(self) -> list[dict]:
+            raise OSError("ip: not found")
+
+    unknown = await _lan_monitor(Broken(), tmp_path).lan_state()
+    assert unknown["ok"] is None and unknown["problem"] is None   # nezjištěno ≠ porucha (žádný falešný poplach)
+
+
+async def test_cycle_payload_carries_lan(tmp_path):
+    env = FakeEnv(lan=[{"name": "eth0", "state": "down", "ipv4": []}])
+    payload = await _lan_monitor(env, tmp_path).cycle()
+    assert payload["lan"]["problem"] == "no_link"
+    assert env.posted[-1]["lan"]["ok"] is False     # dorazí do controlleru → status → Velín

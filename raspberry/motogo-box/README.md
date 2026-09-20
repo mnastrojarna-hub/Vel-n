@@ -209,6 +209,12 @@ ls /run/reboot-required* 2>/dev/null        # existuje = OS čeká na restart (V
 ```
 Watchdog: controller posílá `WATCHDOG=1` jen pokud běží čtení kontaktů (jinak restart do 60 s,
 `WatchdogSec=60`); health má `WatchdogSec=300` (jeden cyklus s nmcli/USB resetem trvá až ~100 s).
+
+**Hlídka I/O sítě (health, NEW 2026-09-20):** každý cyklus se kontroluje, že `health.lan_interface` (eth0) má
+IPv4. Když má LINK, ale ne adresu (`no_address` — profil `motogo-lan` nenaskočil), health ho zkusí nahodit
+(`sudo nmcli -w 20 con up motogo-lan`, nejvýš 1× za `lan_recover_s`, výchozí 300 s; `0` = jen hlásit).
+Chybějící LINK (`no_link`) je HW závada — kabel, switch, port — a **nic se nespouští**, aby se neutápěla
+skutečná příčina; jde jen hlášení do `health.lan` (a tím do Velína) a JEDEN řádek do logu při změně stavu.
 Při startu program VŽDY vypne všechna relé, Shelly a audio, načte kontakty, zavřeným zónám rozsvítí
 červenou a teprve pak povolí zadávání kódů (SPEC §12).
 
@@ -395,6 +401,7 @@ odmítne; červený běh = chyba psql (issue se nezakládá).
 
 | projev | příčina | co dělat |
 |---|---|---|
+| **VŠECHNY** moduly offline naráz, diagnostika hlásí u všech `Network is unreachable`, „zařízení v LAN: 0“, „bez podsítě“ | Raspberry nemá IP na I/O síti — `eth0` je `down` (mrtvý kabel do switche, vypnutý switch nebo jeho zdroj, vadný port), nebo nenaskočil profil `motogo-lan` | `ip -br addr` (eth0 musí mít `192.168.50.10/24`), `nmcli dev status` (`unavailable` = chybí LINK → hardware; `disconnected`/`unmanaged` = profil → `sudo nmcli con up motogo-lan`), LED na RJ45 RPi i na portu switche, napájení switche (štítek TSW202 — může mít vlastní zdroj); test portu RPi = kabel přímo do notebooku, link musí naskočit. Health to hlásí sám do `health.lan` (chip ve Velíně „I/O síť: eth0 bez linku“) a `no_address` si zkusí opravit sám, `no_link` neopraví nikdo jiný než technik |
 | zóna bliká **červená i zelená** (BOTH_BLINK), UI hlásí `io_offline`, kódy pro zónu odmítá | Modbus modul zóny (WAV645/WAV617) nebo Shelly nedostupné | `ping 192.168.50.20/21/22`, `curl http://192.168.50.31/rpc/Shelly.GetStatus`, kabel/switch/napájení 24 V; po návratu modulu se zóna sama obnoví (`IO_ONLINE`) |
 | **červená bliká** (RED_BLINK), `forced_open` / `open_at_startup` | dveře otevřené bez přístupu, přerušený kabel kontaktu, špatná polarita (`closed_level`) | zkontrolovat dveře a kontakt; ověřit polaritu podle `HARDWARE.md`; po zavření se zóna vrátí do SECURED |
 | kód odmítnut „Chyba spojení" | není internet ani cache | `journalctl -u motogo-health`, `mmcli -m any`; cache se plní po prvním úspěšném `kiosk_sync_config` |

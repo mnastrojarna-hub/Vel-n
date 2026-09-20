@@ -669,13 +669,26 @@ class HealthMonitor:
         #      OS (2026-09-10): /run/reboot-required, PRETTY_NAME z /etc/os-release, os.uname().release, mtime /var/lib/apt/periodic/upgrade-stamp
         # politika: failures>=cfg.reconnect_after (5) → `nmcli con up <cfg.nm_connection>` ; reconnect_failures>=cfg.usb_reset_after (5) → `sudo <cfg.usb_reset_script>` (bez argumentů; VID:PID bere skript z `/etc/motogo/modem_vidpid`) ; SIM locked/missing → `lte.error`, politika se přeskočí ;
         # dále >= cfg.reboot_after (3 USB resety bez úspěchu) a uptime > cfg.min_uptime_before_reboot_s (1800) → `sudo systemctl reboot`
-        # každý cyklus POST controller_url/api/health {internet, lte, sys, ts, actions:[…]} ; sd_notify WATCHDOG=1
+        # I/O síť (2026-09-20): lan_state() — cfg.lan_interface (eth0) musí mít IPv4; `no_address` (link je, adresa ne)
+        #      → `sudo nmcli -w 20 con up <cfg.lan_connection>` nejvýš 1× za cfg.lan_recover_s (300; 0 = vypnuto),
+        #      `no_link` / `missing` = HW závada (kabel, switch, port) — jen se hlásí, nic se nespouští
+        # každý cyklus POST controller_url/api/health {internet, lte, lan, sys, ts, actions:[…]} ; sd_notify WATCHDOG=1
 def read_cpu_temp() -> float | None ; def read_throttled() -> str | None ; def disk_free_pct(path='/') -> float ; def mem_free_pct() -> float
 async def run_cmd(*args, timeout: float = 20) -> tuple[int, str]   # subprocess, nikdy nevyhazuje
 ```
 `HealthCfg` v `config.py` (sekce `health` v config.yaml): `check_interval_s, probe_url,
 nm_connection ('motogo-lte'), modem_vid_pid ('1e0e:9001'), usb_reset_script, reconnect_after,
-usb_reset_after, reboot_after, min_uptime_before_reboot_s`.
+usb_reset_after, reboot_after, min_uptime_before_reboot_s, lan_connection ('motogo-lan'),
+lan_interface ('eth0'), lan_recover_s (300)`.
+
+**`health.lan` (NEW 2026-09-20)** = `{interface, state, ipv4, ok, problem, action}` — hlídka I/O sítě.
+`problem`: `no_link` (rozhraní bez linku — mrtvý kabel / vypnutý switch / vadný port; software to neopraví,
+jen hlásí), `no_address` (link je, ale chybí IPv4 → jednotka zkusí `nmcli con up motogo-lan`, `action` =
+`lan_up` \| `lan_up_failed`), `missing` (rozhraní neexistuje). `ok=null` = nezjištěno (výpis rozhraní selhal)
+— Velín to NEbere jako poruchu. Do logu jde jen ZMĚNA stavu (cyklus běží každých 30 s). Sudoers povoluje
+výhradně `nmcli -w 20 con up motogo-lan` (žádné `con down` — to by shodilo funkční LAN). Velín z toho
+kreslí červený chip „I/O síť: eth0 bez linku“ (`BranchRpiZones.jsx`), takže je na první pohled vidět rozdíl
+mezi vadným modulem a mrtvou cestou ke všem modulům.
 
 `health_probe.sys_metrics()` = `health.sys` `{cpu_temp, throttled, disk_free_pct, mem_free_pct, load1, uptime_s, reboot_required,
 os, kernel, last_unattended_at}` — OS pole se čtou jen ze souborů (bez rootu, bez apt): `reboot_required` = existuje

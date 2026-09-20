@@ -36,6 +36,7 @@ function TabSelfService({ branchId, branchName, motos }) {
   const [ota, setOta] = useState({})
   const [diags, setDiags] = useState([])
   const [busy, setBusy] = useState(false)
+  const [liveError, setLiveError] = useState(null)   // chyba tichého přenačítání zařízení (viz efekt níže)
   const [now, setNow] = useState(Date.now())
 
   // Tik hodin + TICHÉ přenačtení zařízení. Bez druhé části ukazoval Velín po 70 s „Offline“ i u jednotky,
@@ -46,7 +47,11 @@ function TabSelfService({ branchId, branchName, motos }) {
     let alive = true
     async function refreshDevices() {
       const { data, error } = await supabase.from('kiosk_devices').select('*').eq('branch_id', branchId).order('created_at')
-      if (alive && !error && data) setDevices(data)
+      if (!alive) return
+      // Selhaný dotaz (vypršelá session, výpadek sítě prohlížeče) se NESMÍ tvářit jako ticho jednotky:
+      // `now` běží dál, takže by zařízení po 70 s spadlo do „Offline", i kdyby se normálně hlásilo.
+      setLiveError(error ? error.message : null)
+      if (!error && data) setDevices(data)
     }
     function tick() {
       setNow(Date.now())
@@ -77,16 +82,28 @@ function TabSelfService({ branchId, branchName, motos }) {
         supabase.from('kiosk_diagnostics').select('id, device_id, report_id, source, ok, problems, summary, app_version, started_at, finished_at, created_at')
           .eq('branch_id', branchId).order('created_at', { ascending: false }).limit(15),
       ])
-      setCfg(c.data || null)
-      setDevices(dev.data || [])
-      setDoors(d.data || [])
-      setCodes(s.data || [])
-      setEvents(ev.data || [])
-      setCameras(cam.data || [])
-      setPower(pw.data || null)
-      setLogs(lg.data || [])
-      setOta(otaRow.data?.value || {})
+      // supabase-js chybu NEVYHAZUJE — vrací ji v objektu. Bez téhle kontroly se selhaný dotaz
+      // (vypršelá admin session, RLS, výpadek sítě) tvářil jako prázdná pobočka: blok „Řídicí jednotka
+      // (Raspberry)" zmizel a nikde nebyla hláška (oprava 2026-09-20). Data z minula radši necháme
+      // na obrazovce — starý stav s chybovou hláškou je použitelnější než prázdno.
+      const failed = []
+      const use = (res, label, apply) => {
+        if (res.error) { failed.push(`${label} (${res.error.message})`); return }
+        apply(res.data)
+      }
+      use(c, 'nastavení', v => setCfg(v || null))
+      use(dev, 'zařízení', v => setDevices(v || []))
+      use(d, 'dveře', v => setDoors(v || []))
+      use(s, 'servisní hesla', v => setCodes(v || []))
+      use(ev, 'log otevření', v => setEvents(v || []))
+      use(cam, 'kamery', v => setCameras(v || []))
+      use(pw, 'stav elektrárny', v => setPower(v || null))
+      use(lg, 'hlášení jednotky', v => setLogs(v || []))
+      use(otaRow, 'verze appky', v => setOta(v?.value || {}))
       setDiags(dg.error ? [] : (dg.data || []))   // tabulka nemusí být ještě nasazená (migrace) → prázdný blok
+      setError(failed.length
+        ? `Část dat se z databáze nenačetla: ${failed.join(', ')}. Zobrazený stav může být starý — zkuste Obnovit, případně se znovu přihlaste.`
+        : null)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -252,6 +269,12 @@ function TabSelfService({ branchId, branchName, motos }) {
   return (
     <div className="space-y-5">
       {error && <div className="p-2 rounded-card text-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>}
+      {liveError && (
+        <div className="p-2 rounded-card text-sm" style={{ background: '#fef3c7', color: '#b45309' }}
+          title="Velín se nemůže doptat databáze na stav zařízení — údaje Online/Offline a „stav před…“ níže proto nemusí odpovídat skutečnosti.">
+          Živé načítání stavu zařízení selhává: {liveError} — stav níže je z posledního úspěšného načtení.
+        </div>
+      )}
 
       {!cfg ? (
         <div className="p-4 rounded-card text-center" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>

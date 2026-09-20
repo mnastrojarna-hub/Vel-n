@@ -77,6 +77,13 @@ class HealthCfg:
     usb_reset_after: int = 5
     reboot_after: int = 3
     min_uptime_before_reboot_s: int = 1800
+    # I/O síť (SPEC §4): profil `motogo-lan` na eth0 — statická 192.168.50.10/24 bez výchozí brány.
+    # Health hlídá, že rozhraní má adresu; když má LINK, ale ne adresu (profil nenaskočil), zkusí ho
+    # nahodit nejvýš jednou za `lan_recover_s` (0 = obnova vypnutá, jen hlášení). Chybějící LINK
+    # (mrtvý kabel/switch/port) software neopraví — jen se hlásí do stavu a do logu.
+    lan_connection: str = "motogo-lan"
+    lan_interface: str = "eth0"
+    lan_recover_s: int = 300
 
 
 @dataclass
