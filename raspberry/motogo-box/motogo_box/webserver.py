@@ -25,6 +25,19 @@ from .models import Event, EventKind
 
 log = logging.getLogger("motogo.web")
 
+
+def _safe(fn):
+    """Zavolá `fn()` a JAKOUKOLI chybu spolkne — stav se nesmí rozbít kvůli jednomu údaji navíc.
+
+    Volá se s lambdou, ne s navázanou metodou: u staršího/falešného `Storage` by chybějící metoda
+    vyhodila AttributeError ještě před vstupem do `try` a `/api/state` by vrátilo 500.
+    """
+    try:
+        return fn()
+    except Exception:  # noqa: BLE001
+        log.debug("state: údaj se nepodařilo zjistit", exc_info=True)
+        return None
+
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 LOCAL_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "::ffff:127.0.0.1"})
 WS_PUSH_INTERVAL_S = 1.0       # pravidelný push i beze změny
@@ -214,7 +227,17 @@ class WebServer:
             snap["timings"] = {k: getattr(timings, k) for k in ("pin_entry_timeout_s", "door_open_timeout_s",
                                                                  "maximum_session_s") if hasattr(timings, k)}
         snap.setdefault("last_error", getattr(self.ctrl, "last_error", None))
+        snap.setdefault("code_cache", self._code_cache())
+        snap.setdefault("outbox_pending", _safe(lambda: self.storage.outbox_count()))
         return snap
+
+    def _code_cache(self) -> dict:
+        """Kolik kódů má jednotka v offline cache a jak je stará — zdálky jinak není poznat,
+        jestli má při výpadku čím ověřovat (audit 2026-09-20 to ve `/api/state` hledal marně)."""
+        cache = _safe(lambda: self.storage.load_code_cache()) or {}
+        saved_at = _safe(lambda: self.storage.code_cache_saved_at())
+        return {"codes": len(cache.get("codes") or []), "service_codes": len(cache.get("service_codes") or []),
+                "saved_at": saved_at, "age_s": None if saved_at is None else round(time.time() - saved_at)}
 
     def _state_message(self) -> tuple[str, str]:
         """(JSON zpráva pro WS, hash bez proměnlivých klíčů)."""

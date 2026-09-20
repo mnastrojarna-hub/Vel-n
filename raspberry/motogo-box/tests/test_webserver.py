@@ -144,6 +144,15 @@ class FakeStorage:
     def events_recent(self, limit: int = 100) -> list[dict]:
         return [{"kind": "STARTUP", "limit": limit}]
 
+    def outbox_count(self) -> int:
+        return 3
+
+    def load_code_cache(self) -> dict:
+        return {"codes": [{"h": "x"}, {"h": "y"}], "service_codes": [{"h": "s"}]}
+
+    def code_cache_saved_at(self) -> float:
+        return 1_000_000.0
+
 
 @pytest.fixture
 async def env():
@@ -166,6 +175,10 @@ async def test_state_and_static(env):
     st = await r.json()
     assert st["branch_name"] == "Brno" and st["paired"] is True and st["device_id"] == "dev-1"
     assert st["zones"][0]["zone"] == 1
+    # offline cache a outbox musí být vidět zdálky (audit 2026-09-20 je ve /api/state hledal marně)
+    assert st["outbox_pending"] == 3
+    assert st["code_cache"]["codes"] == 2 and st["code_cache"]["service_codes"] == 1
+    assert st["code_cache"]["age_s"] is not None
     r = await client.get("/")
     assert r.status == 200 and "Zadejte přístupový kód" in await r.text()
     # všechny soubory, na které se odkazuje index.html (redesign 2026-09-10: diag/i18n/overlays/logo-light/logo-icon)

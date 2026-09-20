@@ -716,6 +716,10 @@ mezi vadným modulem a mrtvou cestou ke všem modulům.
 je tím aktuální do několika sekund po obnovení spojení, ne až dalším `sync_loop` (60 s): požadavek
 uživatele „výpadek do 2 minut nesmí být na pobočce poznat, výměna motorky se propíše do 2 minut".
 
+**`/api/state` navíc (2026-09-20):** `code_cache {codes, service_codes, saved_at, age_s}` a `outbox_pending`
+— zdálky jinak nebylo poznat, jestli má jednotka při výpadku čím ověřovat kódy. Čte se přes `_safe()`,
+takže chybějící metoda ve `Storage` stav neshodí.
+
 `health_probe.sys_metrics()` = `health.sys` `{cpu_temp, throttled, disk_free_pct, mem_free_pct, load1, uptime_s, reboot_required,
 os, kernel, last_unattended_at}` — OS pole se čtou jen ze souborů (bez rootu, bez apt): `reboot_required` = existuje
 `/run/reboot-required`, `os` = `PRETTY_NAME` z `/etc/os-release`, `kernel` = `os.uname().release`, `last_unattended_at` = ISO mtime

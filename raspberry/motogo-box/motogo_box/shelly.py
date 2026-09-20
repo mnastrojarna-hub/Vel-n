@@ -83,32 +83,43 @@ class ShellyRgbww:
                 except Exception:  # noqa: BLE001 — callback nesmí shodit I/O vrstvu
                     log.exception("on_online_change selhal (%s)", self.name)
 
+    def _fail(self, was_online: bool, method: str, msg: str, *args: Any) -> None:
+        """Selhání volání: při PRVNÍM (přechod do offline) warning, u dál nedostupného zařízení debug.
+
+        Nedostupné Shelly se dotazuje pořád dokola (obnova signalizace, tick zón) — bez tohohle
+        zaplaví journal několika hláškami za sekundu a skutečné chyby v něm zaniknou
+        (pozorováno 2026-09-20 na jednotce bez připojeného hardwaru).
+        """
+        (log.warning if was_online else log.debug)("Shelly %s %s: " + msg, self.name, method, *args)
+
     async def rpc(self, method: str, params: dict[str, Any]) -> Any:
         """Obecné RPC volání; vrací `result` nebo None při chybě (chybu loguje)."""
         self._req_id += 1
         body = {"id": self._req_id, "method": method, "params": params}
+        was_online = self.online
         try:
             resp = await self._get_client().post("/rpc", json=body)
         except httpx.HTTPError as exc:
             self._mark(False)
-            log.warning("Shelly %s %s: síťová chyba: %s", self.name, method, exc)
+            self._fail(was_online, method, "síťová chyba: %s", exc)
             return None
         except Exception as exc:  # noqa: BLE001 — httpx může vyhodit i jiné výjimky
             self._mark(False)
-            log.warning("Shelly %s %s: chyba: %s", self.name, method, exc)
+            self._fail(was_online, method, "chyba: %s", exc)
             return None
         if resp.status_code < 200 or resp.status_code >= 300:
             # 4xx = zařízení odpovědělo a příkaz odmítlo (špatné id/parametry) → je ONLINE, jen chyba
             # konfigurace; jako výpadek se počítá až síťová chyba / 5xx (jinak by 3 odmítnutí shodila
             # celé Shelly do offline a všechny jeho zóny do poruchy io_offline).
             self._mark(400 <= resp.status_code < 500)
-            log.warning("Shelly %s %s: HTTP %s %s", self.name, method, resp.status_code, resp.text[:200])
+            self._fail(was_online or 400 <= resp.status_code < 500, method,
+                       "HTTP %s %s", resp.status_code, resp.text[:200])
             return None
         try:
             data = resp.json()
         except ValueError:
             self._mark(False)
-            log.warning("Shelly %s %s: neplatná JSON odpověď", self.name, method)
+            self._fail(was_online, method, "neplatná JSON odpověď")
             return None
         if isinstance(data, dict) and data.get("error"):
             # Zařízení odpovědělo — je online, ale příkaz odmítlo (např. špatné id).
