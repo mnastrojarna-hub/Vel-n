@@ -40,6 +40,7 @@ export default function TrasyKatalogMist() {
   const [selected, setSelected] = useState(() => new Set())
   const [bulk, setBulk] = useState(null)              // { kind, value, count }
   const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState(null)
 
   // Jeden filtr = jeden dotaz; používá ho i „vybrat vše dle filtru".
   const applyFilters = useCallback((q) => {
@@ -48,7 +49,10 @@ export default function TrasyKatalogMist() {
     if (source !== 'all') q = q.like('source', `${source}%`)
     // Hledá se i v popisu — jinak se duplicitní bod pod jiným názvem
     // („Rozhledna Pípalka na Křemešníku" vs „Pípalka") nedá dohledat.
-    if (search) q = q.or(`name.ilike.%${search}%,description.ilike.%${search}%`)
+    // Čárka, závorka a uvozovka jsou v PostgREST filtru ODDĚLOVAČE — kdyby
+    // prošly, rozpadl by se dotaz na nesmyslné podmínky (nebo by vrátil 400).
+    const safe = search.replace(/[,()"'%_*\\]/g, ' ').trim()
+    if (safe) q = q.or(`name.ilike.%${safe}%,description.ilike.%${safe}%`)
     if (photo === 'with') q = q.not('image_url', 'is', null)
     else if (photo === 'without') q = q.is('image_url', null)
     if (active === 'yes') q = q.eq('is_active', true)
@@ -144,39 +148,57 @@ export default function TrasyKatalogMist() {
   // je přesně to, kvůli čemu hromadné akce vznikly.
   async function selectAllFiltered() {
     setBusy(true)
+    setProgress('Vybírám…')
     try {
       const ids = []
+      // `.order('id')` je POVINNÉ: bez něj je LIMIT/OFFSET nad tabulkou bez
+      // ORDER BY nedeterministický a dvě po sobě jdoucí stránky můžou vrátit
+      // úplně jiné řádky (ověřeno na 43 tis. řádcích — dvě identické dávky
+      // neměly ani jeden společný řádek).
       for (let from = 0; ; from += 1000) {
         const { data, error: err } = await applyFilters(
-          supabase.from('points_of_interest').select('id')).range(from, from + 999)
+          supabase.from('points_of_interest').select('id')).order('id')
+          .range(from, from + 999)
         if (err) throw err
         ids.push(...(data || []).map(r => r.id))
+        setProgress(`Vybírám… ${ids.length.toLocaleString('cs-CZ')} / ${total.toLocaleString('cs-CZ')}`)
         if (!data || data.length < 1000) break
       }
       setSelected(new Set(ids))
-    } catch (e) { setError(`Výběr dle filtru selhal: ${e.message}`) } finally { setBusy(false) }
+    } catch (e) {
+      setError(`Výběr dle filtru selhal: ${e.message}`)
+    } finally { setBusy(false); setProgress(null) }
   }
 
   async function runBulk() {
     if (!bulk) return
     setBusy(true)
     const ids = [...selected]
+    let done = 0
     try {
       const patch = { updated_at: new Date().toISOString() }
       if (bulk.kind === 'category') patch.category = bulk.value
       else if (bulk.kind === 'country') patch.country = bulk.value || null
       else if (bulk.kind === 'active') patch.is_active = bulk.value === 'yes'
-      // PostgREST má limit na délku URL → po 500 id
-      for (let i = 0; i < ids.length; i += 500) {
-        const chunk = ids.slice(i, i + 500)
+      // 500 uuid = skoro 20 kB dlouhé URL, což brány (nginx/Kong) běžně
+      // useknou chybou 414. 200 je pod 8 kB a odpovídá zbytku Velína.
+      for (let i = 0; i < ids.length; i += 200) {
+        const chunk = ids.slice(i, i + 200)
         const { error: err } = bulk.kind === 'delete'
           ? await supabase.from('points_of_interest').delete().in('id', chunk)
           : await supabase.from('points_of_interest').update(patch).in('id', chunk)
         if (err) throw err
+        done += chunk.length
+        setProgress(`Zpracováno ${done.toLocaleString('cs-CZ')} / ${ids.length.toLocaleString('cs-CZ')}`)
       }
       await logAudit(`catalog_poi_bulk_${bulk.kind}`, { count: ids.length, value: bulk.value })
       setSelected(new Set()); setBulk(null); load()
-    } catch (e) { setError(`Hromadná akce selhala: ${e.message}`); setBulk(null) } finally { setBusy(false) }
+    } catch (e) {
+      // Předchozí dávky jsou v DB už zapsané — bez load() by admin koukal
+      // na zastaralou tabulku a netušil, kolik se toho reálně provedlo.
+      setError(`Hromadná akce selhala po ${done.toLocaleString('cs-CZ')} z ${ids.length.toLocaleString('cs-CZ')} míst: ${e.message}`)
+      setBulk(null); setSelected(new Set()); load()
+    } finally { setBusy(false); setProgress(null) }
   }
 
   const pages = Math.max(1, Math.ceil(total / PAGE))
@@ -239,6 +261,16 @@ export default function TrasyKatalogMist() {
         </label>
       </div>
 
+      {/* Výběr dle filtru je vidět VŽDY — dřív byl schovaný v panelu, který se
+          objevil až po ručním zaškrtnutí řádku, takže funkce, kvůli které
+          hromadné akce vznikly, nešla vůbec najít. */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <SmallBtn color="#374151" disabled={busy || total === 0} onClick={selectAllFiltered}>
+          ☑ Vybrat vše dle filtru ({total.toLocaleString('cs-CZ')})
+        </SmallBtn>
+        {progress && <span className="text-sm" style={{ color: '#6b7280' }}>{progress}</span>}
+      </div>
+
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 p-3 mb-3 rounded-card" style={{ background: '#ecfdf5', border: '1px solid #bbf7d0' }}>
           <span className="text-sm font-bold">Vybráno {selected.size.toLocaleString('cs-CZ')} míst</span>
@@ -252,12 +284,12 @@ export default function TrasyKatalogMist() {
             <option value="">Změnit zemi…</option>
             {POI_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          <SmallBtn color="#1a8a18" onClick={() => setBulk({ kind: 'active', value: 'yes', count: selected.size })}>Aktivovat</SmallBtn>
-          <SmallBtn color="#b45309" onClick={() => setBulk({ kind: 'active', value: 'no', count: selected.size })}>Skrýt</SmallBtn>
-          <SmallBtn color="#dc2626" onClick={() => setBulk({ kind: 'delete', value: null, count: selected.size })}>Smazat</SmallBtn>
+          <SmallBtn color="#1a8a18" disabled={busy} onClick={() => setBulk({ kind: 'active', value: 'yes', count: selected.size })}>Aktivovat</SmallBtn>
+          <SmallBtn color="#b45309" disabled={busy} onClick={() => setBulk({ kind: 'active', value: 'no', count: selected.size })}>Skrýt</SmallBtn>
+          <SmallBtn color="#dc2626" disabled={busy} onClick={() => setBulk({ kind: 'delete', value: null, count: selected.size })}>Smazat</SmallBtn>
           <div className="flex-1" />
-          <SmallBtn color="#374151" onClick={selectAllFiltered}>Vybrat vše dle filtru ({total.toLocaleString('cs-CZ')})</SmallBtn>
-          <SmallBtn color="#6b7280" onClick={() => setSelected(new Set())}>Zrušit výběr</SmallBtn>
+          {progress && <span className="text-sm" style={{ color: '#166534' }}>{progress}</span>}
+          <SmallBtn color="#6b7280" disabled={busy} onClick={() => setSelected(new Set())}>Zrušit výběr</SmallBtn>
         </div>
       )}
 
@@ -361,14 +393,14 @@ export default function TrasyKatalogMist() {
           danger={bulk.kind === 'delete'}
           message={
             bulk.kind === 'delete'
-              ? `Nenávratně smazat ${bulk.count.toLocaleString('cs-CZ')} míst z katalogu? Smažou se i jejich hodnocení.`
+              ? `Nenávratně smazat ${bulk.count.toLocaleString('cs-CZ')} míst z katalogu? Smažou se i jejich hodnocení, recenze a zákaznické značky „navštíveno“. Bezpečnější je místa SKRÝT.`
               : bulk.kind === 'category'
                 ? `Přeřadit ${bulk.count.toLocaleString('cs-CZ')} míst do kategorie ${catLabel(bulk.value)}?`
                 : bulk.kind === 'country'
                   ? `Nastavit ${bulk.count.toLocaleString('cs-CZ')} místům zemi ${bulk.value}?`
                   : `${bulk.value === 'yes' ? 'Aktivovat' : 'Skrýt'} ${bulk.count.toLocaleString('cs-CZ')} míst?`
           }
-          onConfirm={runBulk}
+          onConfirm={busy ? undefined : runBulk}
           onCancel={() => setBulk(null)}
         />
       )}

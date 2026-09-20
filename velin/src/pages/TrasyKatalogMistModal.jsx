@@ -25,12 +25,30 @@ export default function PoiEditModal({ poi, onClose, onSaved, onError }) {
     lat: poi.lat ?? '', lng: poi.lng ?? '',
   })
   const [saving, setSaving] = useState(false)
+  // Nové místo ještě nemá id — fotky by jinak všechna nová místa sypala do
+  // jedné společné složky `poi/new`.
+  const [newId] = useState(() =>
+    (globalThis.crypto?.randomUUID?.() || `n${Date.now()}`))
   const set = (patch) => setF(s => ({ ...s, ...patch }))
   const sel = { padding: '7px 10px', borderRadius: 8, border: '1px solid #d6ddd8', fontSize: 13, background: '#fff' }
 
+  /// „49,4039" i „49.4039" projde; vložení celého páru „49.4039, 15.3278"
+  /// do pole šířky ho rozdělí do obou polí (přesně tak se souřadnice kopírují
+  /// z Mapy.com i Google Maps).
+  function setCoord(which, raw) {
+    const m = String(raw).match(/^\s*(-?\d+[.,]?\d*)\s*[,; ]\s*(-?\d+[.,]?\d*)\s*$/)
+    if (m) {
+      set({ lat: m[1].replace(',', '.'), lng: m[2].replace(',', '.') })
+      return
+    }
+    set({ [which]: raw })
+  }
+
+  const num = (v) => Number(String(v).trim().replace(',', '.'))
+
   async function save() {
-    const lat = Number(String(f.lat).replace(',', '.'))
-    const lng = Number(String(f.lng).replace(',', '.'))
+    const lat = num(f.lat)
+    const lng = num(f.lng)
     if (!f.name?.trim()) { onError?.('Název je povinný.'); return }
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
       onError?.('Zadej platné souřadnice (např. 49.4039 a 15.3278).'); return
@@ -55,7 +73,7 @@ export default function PoiEditModal({ poi, onClose, onSaved, onError }) {
       let saved
       if (isNew) {
         const { data, error: err } = await supabase.from('points_of_interest')
-          .insert({ ...payload, source: 'velin-manual' }).select('id, name, description, surroundings, translations').single()
+          .insert({ ...payload, id: newId, source: 'velin-manual' }).select('id, name, description, surroundings, translations').single()
         if (err) throw err
         saved = data
       } else {
@@ -114,16 +132,18 @@ export default function PoiEditModal({ poi, onClose, onSaved, onError }) {
           <div style={{ flex: 1 }}>
             <label className="block text-xs font-bold mb-1">Šířka (lat)</label>
             <input style={{ ...sel, width: '100%' }} value={f.lat} inputMode="decimal" placeholder="49.4039"
-              onChange={e => set({ lat: e.target.value })} />
+              onChange={e => setCoord('lat', e.target.value)} />
           </div>
           <div style={{ flex: 1 }}>
             <label className="block text-xs font-bold mb-1">Délka (lng)</label>
             <input style={{ ...sel, width: '100%' }} value={f.lng} inputMode="decimal" placeholder="15.3278"
-              onChange={e => set({ lng: e.target.value })} />
+              onChange={e => setCoord('lng', e.target.value)} />
           </div>
         </div>
         <p className="text-xs mb-3" style={{ color: '#6b7280' }}>
-          Souřadnice se dají zkopírovat z Mapy.com / Google Maps (formát 49.4039, 15.3278).
+          Souřadnice se dají zkopírovat z Mapy.com / Google Maps. Celý pár
+          „49.4039, 15.3278" můžeš vložit do pole Šířka — rozdělí se sám.
+          Desetinná čárka i tečka fungují.
         </p>
 
         <label className="block text-xs font-bold mb-1">Fotky (první = titulní)</label>
@@ -131,7 +151,7 @@ export default function PoiEditModal({ poi, onClose, onSaved, onError }) {
           <ImageUploader
             value={f.images}
             onChange={(urls) => set({ images: urls })}
-            folder={`poi/${f.id || 'new'}`}
+            folder={`poi/${f.id || newId}`}
             helperText="Nahrané fotky jdou do bucketu media. První fotka je titulní a zobrazí se v seznamu i na kartě místa."
           />
         </div>

@@ -51,14 +51,14 @@ where not exists (
   select 1 from public.points_of_interest p
    where p.lat between v.lat - 0.00225 and v.lat + 0.00225
      and p.lng between v.lng - 0.0035 and v.lng + 0.0035
-     and ( -- dvojník: stejný normalizovaný název do ~250 m
-           (p.norm_name = public.poi_norm_name(v.name)
-            and 111320.0 * sqrt(power(p.lat - v.lat, 2)
-                + power((p.lng - v.lng) * cos(radians(v.lat)), 2)) <= 250)
-        or -- cokoli prakticky na stejném pixelu
-           (111320.0 * sqrt(power(p.lat - v.lat, 2)
-                + power((p.lng - v.lng) * cos(radians(v.lat)), 2)) <= 40)
-     )
+     -- Dvojník = STEJNÝ normalizovaný název do ~250 m. Žádné plošné „cokoli
+     -- do X metrů": právě to v dávce z 19. 9. vyhodilo Sněžku, protože na
+     -- jejím vrcholu má Wikidata bod „Krkonošský národní park" s TOTOŽNÝMI
+     -- souřadnicemi. Dva různé objekty na jednom bodě jsou legitimní data;
+     -- na jeden špendlík je v seznamu i na mapě slučuje appka.
+     and p.norm_name = public.poi_norm_name(v.name)
+     and 111320.0 * sqrt(power(p.lat - v.lat, 2)
+           + power((p.lng - v.lng) * cos(radians(v.lat)), 2)) <= 250
 );
 
 -- POZNÁMKA KE STUDÁNKÁM (ať to příště nikdo nehledá znovu):

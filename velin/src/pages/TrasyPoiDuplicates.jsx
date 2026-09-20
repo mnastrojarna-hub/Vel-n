@@ -58,6 +58,10 @@ export default function TrasyPoiDuplicates() {
       } catch {}
       setDone(s => new Set(s).add(drop.id))
       setMerging(null)
+      // Seznam je jen snímek — po sloučení se načte znovu, aby z něj zmizely
+      // dvojice, kterých se právě skrytý bod týká (jinak by šlo „sloučit"
+      // podruhé do bodu, který už není aktivní).
+      load()
     } catch (e) { setError(`Sloučení selhalo: ${e.message}`); setMerging(null) }
   }
 
@@ -121,7 +125,8 @@ export default function TrasyPoiDuplicates() {
                             </div>
                             <div className="text-xs" style={{ color: '#9ca3af' }}>{me.source || '—'}</div>
                             {!gone && (
-                              <SmallBtn color="#1a8a18" onClick={() => setMerging({ keep: me, drop: other })}>
+                              <SmallBtn color="#1a8a18" disabled={loading}
+                                onClick={() => setMerging({ keep: me, drop: other })}>
                                 Nechat tenhle
                               </SmallBtn>
                             )}

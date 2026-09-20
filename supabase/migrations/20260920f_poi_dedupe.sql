@@ -36,9 +36,14 @@ returns text language sql immutable parallel safe as $fn$
         regexp_replace(
           -- vedoucí druhové slovo pryč: „Zřícenina hradu Kumburk" → „kumburk"
           regexp_replace(
+            -- POZOR: obě tabulky MUSÍ být stejně dlouhé. První verze měla
+            -- o jedno „s" navíc, takže se od indexu 35 všechno posunulo
+            -- a „Krkonošský" se normalizovalo na „krkonossku" („ý"→„u",
+            -- „ť"→„s", „ú"→„t", „ž"→„y"). Stejná tabulka je v appce
+            -- (places_filter.dart, _foldName).
             lower(translate(coalesce(txt, ''),
-              'áäàâãåčćçďđéěèêëíìîïľĺłňñóöòôõøřšśşťúůüûýÿžźż',
-              'aaaaaacccddeeeeeiiiilllnnoooooorsssstuuuuyyzzz')),
+              'áäàâãåąăčćçďđéěèêëęėēíìîïīľĺłňñńóöòôõøőřŕšśşșťțúůüûűùūýÿžźż',
+              'aaaaaaaacccddeeeeeeeeiiiiilllnnnooooooorrssssttuuuuuuuyyzzz')),
             '^(zricenina hradu |zricenina |zamek |zamecek |hrad |klaster |kostel |kaple |rozhledna |vyhlidka |vez |vrch |hora |kopec |prehrada |rybnik |jezero |vodopad |jeskyne |studanka |pramen |muzeum |burgruine |schloss |burg |chateau |castle |ruine |tower )',
             ''),
           '[^a-z0-9]+', ' ', 'g'),
@@ -206,6 +211,18 @@ begin
   end if;
   if p_keep = p_drop then
     raise exception 'Vítěz a poražený nemohou být tentýž bod';
+  end if;
+  -- Seznam duplicit ve Velíně je jen snímek; mezitím mohl někdo (nebo druhá
+  -- záložka) jednu stranu sloučit jinam. Bez téhle kontroly by šlo sloučit
+  -- do už SKRYTÉHO bodu a místo by z appky zmizelo úplně.
+  if not exists (select 1 from public.points_of_interest
+                  where id = p_keep and is_active) then
+    raise exception 'Ponechávaný bod už není aktivní — obnov seznam duplicit';
+  end if;
+  if not exists (select 1 from public.points_of_interest
+                  where id = p_drop and is_active) then
+    return jsonb_build_object('ok', true, 'keep', p_keep, 'dropped', p_drop,
+                              'noop', true);
   end if;
 
   update public.points_of_interest k set
