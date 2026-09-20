@@ -30,7 +30,9 @@ export const catLabel = (k) => POI_CATS[k] || k || '—'
 // Prefixy sloupce `source` ze seed migrací. Filtr ve Velíně je hledá přes
 // `like(source, '<prefix>%')`, takže MUSÍ pokrýt všechny reálné hodnoty —
 // dřív chyběly 'wikidata-cs-' (7 191 řádků) a 'wikidata-hills-cz-sk-' (3 295),
-// tedy 27,8 % katalogu bylo přes filtr nedosažitelných.
+// tedy 27,8 % katalogu bylo přes filtr nedosažitelných. Stejná past sklapla
+// podruhé u dávek z 20. 9. — prefixy se sem MUSÍ doplnit zároveň se seed
+// migrací, jinak jsou nové řádky přes filtr zdroje nedosažitelné.
 export const POI_SOURCES = [
   ['all', 'Všechny zdroje'],
   ['curated-', 'Ruční (curated)'],
@@ -39,7 +41,11 @@ export const POI_SOURCES = [
   ['wikidata-eu-', 'Wikidata Evropa'],
   ['wikidata-cilovka', 'Wikidata cílovka (military/aviation/tech/moto)'],
   ['wikidata-hills-cz-sk-', 'Wikidata hory a rozhledny CZ/SK'],
-  ['wikidata-nature-cz-sk-', 'Wikidata příroda a technika CZ/SK'],
+  ['wikidata-peaks-cz-sk-', 'Wikidata vrcholy a rozhledny CZ/SK (09/2026)'],
+  ['wikidata-nature-cz-sk-', 'Wikidata příroda CZ/SK'],
+  ['wikidata-springs-cz-sk-', 'Wikidata studánky a prameny CZ/SK'],
+  ['wikidata-tech-cz-sk-', 'Wikidata technika a historie CZ/SK'],
+  ['osm-', 'OpenStreetMap CZ/SK'],
   ['velin-', 'Založeno ve Velíně'],
 ]
 

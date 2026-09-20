@@ -465,6 +465,13 @@ const double _kSameNameM = 5000;
 /// sebe jsou dva RŮZNÉ kopce („Ptačí vrch" je v Česku třikrát, 7 km od sebe).
 const double _kSameNameCatalogM = 400;
 
+/// Trasový bod × katalogový bod: volných 5 km je moc. Reprezentantem skupiny
+/// se stane katalogový bod (má fotku) a skupina se kreslí na JEHO
+/// souřadnicích — u 71 zastávek to znamenalo špendlík přes kilometr od
+/// skutečné zastávky (hrad Landštejn 4 km). 1,5 km stačí: rozptyl souřadnic
+/// téhož místa napříč trasami je v 90 % případů do 53 m.
+const double _kSameNameMixedM = 1500;
+
 /// Název jednoho je podmnožinou druhého („Hradiště Velký Blaník" ↔ „Velký Blaník").
 const double _kSubsetNameM = 150;
 
@@ -475,6 +482,15 @@ const double _kSubsetNameM = 150;
 const double _kSameCatM = 120;
 const double _kSameCatCatalogM = 70;
 
+/// Dva KATALOGOVÉ body se shodným názvem, u kterých je jasné, že popisují
+/// týž objekt — buď mají i STEJNOU KATEGORII, nebo se jmenují doslova
+/// stejně. Přísných 400 m tu nestačí: „Lysá hora" je v katalogu jako vrchol
+/// i jako přírodní rezervace 621 m od sebe a v seznamu i na mapě to byly dvě
+/// položky (takových dvojic je 81). Naopak „Katedrála Uppsala" × „Hrad
+/// Uppsala" (511 m, obojí normalizovaně „uppsala") tímhle NEPROJDE — jiná
+/// kategorie i jiný doslovný název, takže zůstanou dvě různé památky.
+const double _kSameNameCatalogSameCatM = 1200;
+
 /// Kategorie, u kterých „stojí to na sobě" opravdu znamená „je to totéž":
 /// rozhledna na vrcholu, zřícenina na kopci, přehrada a její jezero.
 /// U památek, techniky, jídla a vojenských objektů je hustý shluk RŮZNÝCH
@@ -483,19 +499,118 @@ const Set<String> _mergeableByCategory = {
   'lookout', 'castle', 'water', 'nature', 'spring'
 };
 
+/// Dvojice kategorií, které o jednom bodě mluví jen jinými slovy. `nature`
+/// je sběrná kategorie přírodních cílů, takže tentýž kopec je v katalogu
+/// jednou jako vrchol (`lookout`) a podruhé jako přírodní rezervace
+/// (`nature`) — přesně případ ze screenshotu uživatele: „Pípalka" (lookout)
+/// a „Křemešník" (nature) 64 m od sebe. Hrady, památky ani technika tu
+/// schválně nejsou: tam je hustý shluk RŮZNÝCH objektů normální stav.
+const Set<String> _compatibleCats = {
+  'nature|lookout', 'nature|water', 'nature|spring', 'spring|water',
+};
+
+bool _catsMergeable(String a, String b) {
+  if (!_mergeableByCategory.contains(a) || !_mergeableByCategory.contains(b)) {
+    return false;
+  }
+  if (a == b) return true;
+  return _compatibleCats.contains(a.compareTo(b) <= 0 ? '$a|$b' : '$b|$a');
+}
+
 /// Pořadí přednosti reprezentanta skupiny: bod s fotkou > katalogový >
-/// s popisem > s konkrétnějším (delším) názvem > nejmenší klíč.
+/// s popisem > KONKRÉTNĚJŠÍ KATEGORIE > s konkrétnějším (delším) názvem >
+/// nejmenší klíč.
 int _rank(PoiEntry e) =>
     (e.poi.cover != null ? 4 : 0) +
     (e.catalog ? 2 : 0) +
     ((e.poi.description ?? '').trim().isNotEmpty ? 1 : 0);
 
-bool _better(PoiEntry a, PoiEntry b) {
-  final ra = _rank(a), rb = _rank(b);
-  if (ra != rb) return ra > rb;
-  final la = a.poi.name.trim().length, lb = b.poi.name.trim().length;
-  if (la != lb) return la > lb;
-  return a.key.compareTo(b.key) < 0;
+/// Má název aspoň jedno VLASTNÍ slovo? Holá „Rozhledna" ani „studna" skupinu
+/// nepojmenují — reprezentantem má být „Rozhledna Bohdanka".
+bool _hasIdentity(String raw) {
+  for (final w in _foldName(raw).split(' ')) {
+    if (w.length > 1 && !_genericWords.contains(w)) return true;
+  }
+  return false;
+}
+
+/// Mluví ta dvě jména o TÉMŽE objektu? („Velký Blaník" × „rozhledna Velký
+/// Blaník" × „Hradiště Velký Blaník" ano; „Sněžka" × „Krkonošský národní
+/// park" ne — ty jen leží na jednom bodě.)
+bool _relatedNames(
+        ({String name, Set<String> sig}) a, ({String name, Set<String> sig}) b) =>
+    (a.name.isNotEmpty && a.name == b.name) || _subsetNames(a.sig, b.sig);
+
+/// Jak KONKRÉTNÍ je kategorie. Rozhoduje u bodů na jednom místě: na vrcholu
+/// Sněžky leží wikidatový bod „Krkonošský národní park" s TOTOŽNÝMI
+/// souřadnicemi — obojí má fotku i popis, takže bez tohohle kritéria
+/// rozhodovala délka názvu a skupina se jmenovala po národním parku.
+/// Sněžka tím z chipu „Rozhledny a vrcholy" zmizela hned poté, co ji tam
+/// data doplnila; totéž potkalo Ještěd, Macochu i Karlštejn.
+const Map<String, int> _catSpecificity = {
+  'lookout': 3, 'castle': 3, 'spring': 3, 'military': 3, 'aviation': 3,
+  'moto': 3, 'water': 2, 'tech': 2, 'food': 2, 'sights': 1,
+  'nature': 0, 'other': 0,
+};
+
+/// Jméno, pod kterým se sloučená skupina ukáže.
+///
+/// Rozhoduje se AŽ NAD CELOU skupinou, ne postupně při přidávání — bez
+/// znalosti ostatních členů nejde poznat, které jméno je to SPOLEČNÉ:
+/// u Macochy („Macocha", „Propast Macocha", „Horní macošské jezírko")
+/// mluví o témže dva členy ze tří a právě jejich jméno má skupinu zastupovat.
+///
+/// Pořadí kritérií:
+///   1. víc informací (fotka > katalogový > popis) — to je, co uvidí uživatel,
+///   2. jméno musí mít vlastní slovo (holá „Rozhledna" nikdy),
+///   3. CENTRALITA — o kolika RŮZNÝCH jménech ve skupině to jméno mluví,
+///   4. u NESOUVISEJÍCÍCH jmen konkrétnější kategorie (vrchol > národní park),
+///   5. kratší normalizované jméno („Hrad Karlštejn" → „karlstejn" je kratší
+///      než „Mariánská věž" → „marianska vez"), pak kratší původní
+///      („Velký Blaník" před „rozhledna Velký Blaník"),
+///   6. klíč — aby byl výsledek deterministický.
+PoiEntry _pickRepresentative(List<PoiEntry> members) {
+  if (members.length == 1) return members.first;
+  final keys = [for (final m in members) _nameKeys(m.poi.name)];
+  final ident = [for (final m in members) _hasIdentity(m.poi.name)];
+  // Centralita se počítá přes RŮZNÁ jména, ne přes členy: jinak vyhraje to,
+  // které je v katalogu dvakrát — na vrcholu Sněžky leží „Krkonošský národní
+  // park" hned ve dvou řádcích a Sněžka by z chipu vypadla znovu.
+  final firstOf = <String, int>{};
+  for (var i = 0; i < members.length; i++) {
+    firstOf.putIfAbsent(members[i].poi.name, () => i);
+  }
+  final central = List<int>.filled(members.length, 0);
+  for (var i = 0; i < members.length; i++) {
+    for (final j in firstOf.values) {
+      if (_relatedNames(keys[i], keys[j])) central[i]++;
+    }
+  }
+
+  bool better(int a, int b) {
+    final ra = _rank(members[a]), rb = _rank(members[b]);
+    if (ra != rb) return ra > rb;
+    if (ident[a] != ident[b]) return ident[a];
+    if (central[a] != central[b]) return central[a] > central[b];
+    if (!_relatedNames(keys[a], keys[b])) {
+      final sa = _catSpecificity[poiCategoryOf(members[a].poi)] ?? 0;
+      final sb = _catSpecificity[poiCategoryOf(members[b].poi)] ?? 0;
+      if (sa != sb) return sa > sb;
+    }
+    if (keys[a].name.length != keys[b].name.length) {
+      return keys[a].name.length < keys[b].name.length;
+    }
+    final la = members[a].poi.name.trim().length;
+    final lb = members[b].poi.name.trim().length;
+    if (la != lb) return la < lb;
+    return members[a].key.compareTo(members[b].key) < 0;
+  }
+
+  var best = 0;
+  for (var i = 1; i < members.length; i++) {
+    if (better(i, best)) best = i;
+  }
+  return members[best];
 }
 
 /// Sloučí body, které představují STEJNÉ fyzické místo, do JEDNÉ položky.
@@ -507,13 +622,18 @@ bool _better(PoiEntry a, PoiEntry b) {
 ///   1. shodný normalizovaný název do 5 km (mezi katalogovými do 400 m) —
 ///      místo ležící na dvaceti trasách se ukáže jednou,
 ///   2. významová slova jednoho názvu jsou podmnožinou druhého do 150 m,
-///   3. stejná „slučitelná" kategorie do 120 m (mezi katalogovými do 70 m).
+///   3. mezi KATALOGOVÝMI shodný název + shodná kategorie (nebo doslova
+///      shodný název) do 1,2 km — tentýž kopec vedený jednou jako vrchol
+///      a podruhé jako rezervace,
+///   4. slučitelná (nebo příbuzná) kategorie do 120 m, mezi katalogovými
+///      do 70 m.
 /// Skupina se navíc nesmí roztáhnout přes limit pravidla, které ji drží
 /// pohromadě, takže se řetězením nespojí půl kraje.
 ///
-/// Data tras se NEMĚNÍ — jde čistě o zobrazení. Reprezentanta vybírá `_better`
-/// DETERMINISTICKY a vstup se před slučováním srovná, aby seznam i mapa
-/// ukázaly tentýž klíč bez ohledu na pořadí, v jakém data dorazila z DB.
+/// Data tras se NEMĚNÍ — jde čistě o zobrazení. Reprezentanta vybírá
+/// `_pickRepresentative` DETERMINISTICKY nad celou skupinou a vstup se před
+/// slučováním srovná, aby seznam i mapa ukázaly tentýž klíč bez ohledu na
+/// pořadí, v jakém data dorazila z DB.
 List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
   const cellDeg = 0.0025; // ~278 m na výšku; na šířku se okno dopočítá dle zeměpisné šířky
 
@@ -534,7 +654,9 @@ List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
   final gCatalog = <bool>[];
   final gOnRoute = <bool>[];
   final gNames = <List<String>>[];   // normalizované názvy (rejstřík)
+  final gMemName = <List<String>>[]; // normalizovaný název PO ČLENECH
   final gRaw = <List<String>>[];     // původní názvy (aliasy pro hledání)
+  final gMem = <List<PoiEntry>>[];   // členové skupiny (výběr reprezentanta)
   final byName = <Object, List<int>>{};
   final byCell = <Object, List<int>>{};
 
@@ -598,16 +720,34 @@ List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
         if (near >= best) continue;
 
         final bothCatalog = e.catalog && gCatalog[g];
-        final nameLimit = bothCatalog ? _kSameNameCatalogM : _kSameNameM;
+        final nameLimit = bothCatalog
+            ? _kSameNameCatalogM
+            : (e.catalog || gCatalog[g])
+                ? _kSameNameMixedM
+                : _kSameNameM;
         final catLimit = bothCatalog ? _kSameCatCatalogM : _kSameCatM;
         // `far` = průměr skupiny po přidání bodu; drží ji pohromadě, aby se
         // řetězením nespojil půl kraje.
+        // Týž katalogový objekt pod dvěma záznamy: shodný název A kategorie,
+        // nebo doslova shodný název. Prochází se po ČLENECH, protože
+        // stejnojmenný člen nemusí být ten nejbližší.
+        bool sameObject() {
+          if (!bothCatalog || far > _kSameNameCatalogSameCatM) return false;
+          final names = gMemName[g], cats = gCat[g], raws = gRaw[g];
+          for (var i = 0; i < names.length; i++) {
+            if (name.isNotEmpty && names[i] == name && cats[i] == cat) {
+              return true;
+            }
+            if (raws[i] == e.poi.name) return true;
+          }
+          return false;
+        }
+
         final match = near <= _kSamePlaceM
             || (name.isNotEmpty && far <= nameLimit && gNames[g].contains(name))
+            || sameObject()
             || (far <= _kSubsetNameM && _subsetNames(sig, gSig[g][nearIdx]))
-            || (far <= catLimit &&
-                _mergeableByCategory.contains(cat) &&
-                cat == gCat[g][nearIdx]);
+            || (far <= catLimit && _catsMergeable(cat, gCat[g][nearIdx]));
         if (match) {
           at = g;
           best = near;
@@ -624,7 +764,9 @@ List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
       gSig.add(<Set<String>>[sig]);
       gCat.add(<String>[cat]);
       gNames.add(<String>[name]);
+      gMemName.add(<String>[name]);
       gRaw.add(<String>[e.poi.name]);
+      gMem.add(<PoiEntry>[e]);
       gCatalog.add(e.catalog);
       gOnRoute.add(e.onRoute);
       if (ll != null) {
@@ -640,7 +782,9 @@ List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
       gSig[at].add(sig);
       gCat[at].add(cat);
       if (!gNames[at].contains(name)) gNames[at].add(name);
+      gMemName[at].add(name);
       gRaw[at].add(e.poi.name);
+      gMem[at].add(e);
       gCatalog[at] = gCatalog[at] || e.catalog;
       gOnRoute[at] = gOnRoute[at] || e.onRoute;
       // Skupina musí být dohledatelná i podle názvu a buňky PŘIDANÉHO bodu,
@@ -648,11 +792,11 @@ List<PoiEntry> dedupPlaces(List<PoiEntry> src) {
       if (name.isNotEmpty) index(byName, name, at);
       index(byCell, (p.latitude / cellDeg).floor() * 4194304 +
           (p.longitude / cellDeg).floor(), at);
-      if (_better(e, out[at])) out[at] = e;
     }
   }
 
   for (var i = 0; i < out.length; i++) {
+    if (gMem[i].length > 1) out[i] = _pickRepresentative(gMem[i]);
     final onRoute = gOnRoute[i] && !out[i].onRoute ? true : null;
     // Aliasy jen tam, kde se opravdu něco slilo a název se liší od toho,
     // který ve skupině zvítězil — jinak by hledání na „Pípalka" po sloučení

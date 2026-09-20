@@ -75,10 +75,12 @@ class _NearbyPoiPanelState extends ConsumerState<NearbyPoiPanel> {
       if (ll == null) continue;
       if (widget.excludedPoiIds.contains(e.poi.id)) continue;
       if (!seen.add(e.poi.id)) continue; // pojistka, sloučený seznam už je bez duplicit
+      // Pozn.: žádné plošné „bod do 120 m od zastávky nenabízet" — sloučený
+      // seznam duplicity nemá a `excludedPoiIds` odfiltruje to, co v trase
+      // opravdu je. Plošný ořez by z nabídky vyhodil 296 skutečných míst
+      // (rozhledna Milada 42 m od zastávky Lichnice, klášter Svatý Jan pod
+      // Skalou 41 m od Jeskyně svatého Ivana).
       final m = nearest(ll);
-      // Bod prakticky NA zastávce už v trase je — jen pod jiným uuid (katalogový
-      // dvojník trasového bodu). Nabízet ho k přidání nedává smysl.
-      if (m <= 120) continue;
       if (m <= _radiusKm * 1000) inRadius.add((e: e, m: m));
     }
     inRadius.sort((a, b) => a.m.compareTo(b.m));

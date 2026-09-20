@@ -28,6 +28,13 @@ class PlacesMapView extends StatefulWidget {
   /// místo"), takže by je ⓘ atribuce podlézala.
   final bool attributionOnLeft;
 
+  final bool showAttribution;
+
+  /// Zobrazit atribuci vůbec. V 160px náhledovém pruhu nad seznamem Míst se
+  /// NEZOBRAZUJE: celý pruh je jedno velké tlačítko „otevři mapu na celou
+  /// obrazovku" a ⓘ tlačítko atribuce by to kliknutí v rohu spolklo.
+  /// Celoobrazovková mapa, kterou pruh otevírá, atribuci má.
+
   /// Klíče vybraných míst — vykreslí se zeleně a s fajfkou.
   final Set<String> selected;
 
@@ -74,6 +81,7 @@ class PlacesMapView extends StatefulWidget {
     required this.places,
     required this.lang,
     this.attributionOnLeft = false,
+    this.showAttribution = true,
     this.selected = const {},
     this.routeLines = const [],
     this.onPlaceTap,
@@ -326,12 +334,15 @@ class PlacesMapViewState extends State<PlacesMapView> {
         // Povinná atribuce podkladu. Roh si volí každá obrazovka sama —
         // vpravo dole sedí kulatá tlačítka („moje poloha", „přidat místo"),
         // vlevo dole zase odznak „Tvoje trasa" na mapě tras.
-        RichAttributionWidget(
-          alignment: widget.attributionOnLeft
-              ? AttributionAlignment.bottomLeft
-              : AttributionAlignment.bottomRight,
-          attributions: const [TextSourceAttribution('Mapy.com')],
-        ),
+        if (widget.showAttribution)
+          RichAttributionWidget(
+            alignment: widget.attributionOnLeft
+                ? AttributionAlignment.bottomLeft
+                : AttributionAlignment.bottomRight,
+            // Bez loga flutter_map — do zákaznické obrazovky cizí branding nepatří.
+            showFlutterMapAttribution: false,
+            attributions: const [TextSourceAttribution('Mapy.com')],
+          ),
       ],
     );
   }

@@ -679,6 +679,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
             children: [
               Positioned.fill(
                 child: PlacesMapView(
+                  showAttribution: false,
                   places: list,
                   lang: lang,
                   selected: _selected,

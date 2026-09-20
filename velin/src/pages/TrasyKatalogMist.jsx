@@ -170,6 +170,13 @@ export default function TrasyKatalogMist() {
     } finally { setBusy(false); setProgress(null) }
   }
 
+  // Hromadné akce ZÁMĚRNĚ neumí mazat. `poi_ratings.poi_id`
+  // i `user_visited_places.poi_id` visí na katalogu přes FK s ON DELETE
+  // CASCADE, takže jedno kliknutí nad výběrem „všechny vyfiltrované" (a ten
+  // umí mít i celý katalog) by nenávratně smazalo hodnocení, fotky a značky
+  // „navštíveno" od zákazníků. Legitimní potřebu pokrývá hromadné „Skrýt"
+  // (is_active = false) — místo zmizí z appky a data zůstanou. Mazání
+  // jednotlivého bodu zůstalo po řádcích, jak bylo.
   async function runBulk() {
     if (!bulk) return
     setBusy(true)
@@ -184,9 +191,8 @@ export default function TrasyKatalogMist() {
       // useknou chybou 414. 200 je pod 8 kB a odpovídá zbytku Velína.
       for (let i = 0; i < ids.length; i += 200) {
         const chunk = ids.slice(i, i + 200)
-        const { error: err } = bulk.kind === 'delete'
-          ? await supabase.from('points_of_interest').delete().in('id', chunk)
-          : await supabase.from('points_of_interest').update(patch).in('id', chunk)
+        const { error: err } = await supabase.from('points_of_interest')
+          .update(patch).in('id', chunk)
         if (err) throw err
         done += chunk.length
         setProgress(`Zpracováno ${done.toLocaleString('cs-CZ')} / ${ids.length.toLocaleString('cs-CZ')}`)
@@ -286,7 +292,6 @@ export default function TrasyKatalogMist() {
           </select>
           <SmallBtn color="#1a8a18" disabled={busy} onClick={() => setBulk({ kind: 'active', value: 'yes', count: selected.size })}>Aktivovat</SmallBtn>
           <SmallBtn color="#b45309" disabled={busy} onClick={() => setBulk({ kind: 'active', value: 'no', count: selected.size })}>Skrýt</SmallBtn>
-          <SmallBtn color="#dc2626" disabled={busy} onClick={() => setBulk({ kind: 'delete', value: null, count: selected.size })}>Smazat</SmallBtn>
           <div className="flex-1" />
           {progress && <span className="text-sm" style={{ color: '#166534' }}>{progress}</span>}
           <SmallBtn color="#6b7280" disabled={busy} onClick={() => setSelected(new Set())}>Zrušit výběr</SmallBtn>
@@ -389,16 +394,13 @@ export default function TrasyKatalogMist() {
       {bulk && (
         <ConfirmDialog
           open
-          title={bulk.kind === 'delete' ? 'Smazat vybraná místa?' : 'Hromadná změna'}
-          danger={bulk.kind === 'delete'}
+          title="Hromadná změna"
           message={
-            bulk.kind === 'delete'
-              ? `Nenávratně smazat ${bulk.count.toLocaleString('cs-CZ')} míst z katalogu? Smažou se i jejich hodnocení, recenze a zákaznické značky „navštíveno“. Bezpečnější je místa SKRÝT.`
-              : bulk.kind === 'category'
-                ? `Přeřadit ${bulk.count.toLocaleString('cs-CZ')} míst do kategorie ${catLabel(bulk.value)}?`
-                : bulk.kind === 'country'
-                  ? `Nastavit ${bulk.count.toLocaleString('cs-CZ')} místům zemi ${bulk.value}?`
-                  : `${bulk.value === 'yes' ? 'Aktivovat' : 'Skrýt'} ${bulk.count.toLocaleString('cs-CZ')} míst?`
+            bulk.kind === 'category'
+              ? `Přeřadit ${bulk.count.toLocaleString('cs-CZ')} míst do kategorie ${catLabel(bulk.value)}?`
+              : bulk.kind === 'country'
+                ? `Nastavit ${bulk.count.toLocaleString('cs-CZ')} místům zemi ${bulk.value}?`
+                : `${bulk.value === 'yes' ? 'Aktivovat' : 'Skrýt'} ${bulk.count.toLocaleString('cs-CZ')} míst?`
           }
           onConfirm={busy ? undefined : runBulk}
           onCancel={() => setBulk(null)}

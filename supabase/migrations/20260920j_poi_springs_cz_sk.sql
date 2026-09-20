@@ -54,16 +54,19 @@ from (values
        image_url, wikidata_id, translations)
 where not exists (
   select 1 from public.points_of_interest p
-   where p.lat between v.lat - 0.00225 and v.lat + 0.00225
-     and p.lng between v.lng - 0.0035 and v.lng + 0.0035
-     -- Dvojník = STEJNÝ normalizovaný název do ~250 m. Žádné plošné „cokoli
+   where p.lat between v.lat - 0.0108 and v.lat + 0.0108
+     and p.lng between v.lng - 0.0168 and v.lng + 0.0168
+     -- Dvojník = STEJNÝ normalizovaný název do 1 200 m. Žádné plošné „cokoli
      -- do X metrů": právě to v dávce z 19. 9. vyhodilo Sněžku, protože na
      -- jejím vrcholu má Wikidata bod „Krkonošský národní park" s TOTOŽNÝMI
      -- souřadnicemi. Dva různé objekty na jednom bodě jsou legitimní data;
      -- na jeden špendlík je v seznamu i na mapě slučuje appka.
+     -- 1 200 m, ne 250: appka slučuje dva katalogové body se shodným názvem
+     -- do 400 m, takže dvojník ve vzdálenosti 250–400 m sice guardem prošel,
+     -- ale v seznamu i na mapě se ukázal DVAKRÁT.
      and p.norm_name = public.poi_norm_name(v.name)
      and 111320.0 * sqrt(power(p.lat - v.lat, 2)
-           + power((p.lng - v.lng) * cos(radians(v.lat)), 2)) <= 250
+           + power((p.lng - v.lng) * cos(radians(v.lat)), 2)) <= 1200
 );
 
 -- POZNÁMKA KE STUDÁNKÁM (ať to příště nikdo nehledá znovu):
