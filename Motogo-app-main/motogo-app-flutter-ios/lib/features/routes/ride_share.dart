@@ -17,7 +17,10 @@ import 'route_export.dart';
 
 /// Zjednodušená stopa pro odkaz do map (max ~12 bodů — delší URL nevezmou).
 List<LatLng> rideShareWaypoints(UserRide ride) {
-  final pts = ride.mapPoints;
+  // JEN nejdelší souvislý úsek — odkaz do map vedený přes mezeru
+  // (appka byla na pozadí) by příjemci nakreslil cestu, kterou jezdec
+  // neprojel. Sdílet vymyšlenou trasu je horší než sdílet kratší.
+  final pts = ride.longestSegment;
   if (pts.length <= 12) return pts;
   final step = (pts.length / 11).ceil();
   final out = <LatLng>[];

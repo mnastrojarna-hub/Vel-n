@@ -101,6 +101,8 @@ custom scheme `motogo24://payment`, který je v Info.plist).
 | Kamera | document_camera/scanner (`enableAudio: false`), image_picker (SOS) | `NSCameraUsageDescription` | `PERMISSION_CAMERA=1` |
 | Fotky (galerie) | image_picker — nahrání dokladu/SOS fotky | `NSPhotoLibraryUsageDescription` (+ `...AddUsageDescription`) | `PERMISSION_PHOTOS=1` |
 | Poloha (when-in-use) | GpsService (SOS, mapa, vzdálenost přistavení) | `NSLocationWhenInUseUsageDescription` | `PERMISSION_LOCATION=1` |
+| Poloha na pozadí | **NEW 2026-09-21** RideRecorder — záznam projeté trasy během výpůjčky (`AppleSettings.allowBackgroundLocationUpdates`) | `UIBackgroundModes: location` (+ `showBackgroundLocationIndicator`) | `PERMISSION_LOCATION=1` (stále jen **when-in-use**, „Always" NEŽÁDÁME) |
+| Dočasné zpřesnění polohy | **NEW 2026-09-21** RideRecorder — `requestTemporaryFullAccuracy(purposeKey: 'rideTracking')`, když má jezdec vypnutou „Přesnou polohu" | `NSLocationTemporaryUsageDescriptionDictionary` → klíč `rideTracking` | — |
 | Face ID | biometric_service (local_auth) | `NSFaceIDUsageDescription` | — (mimo permission_handler) |
 | Mikrofon | **nepoužívá se** (kamera má enableAudio:false) | klíč přítomen jen pro statickou analýzu camera pluginu | `PERMISSION_MICROPHONE=0` |
 | Apple Pay | card_payment_sheet (PlatformPayButton) | — | entitlement `com.apple.developer.in-app-payments` |
@@ -117,6 +119,74 @@ vypnuto (`=0`) → nedostane se do binárky a App Review se na to nemůže ptát
 - **Privacy manifest (2024+):** `ios/Runner/PrivacyInfo.xcprivacy` přibalen
   (žádný tracking; required-reason API kryjí manifesty pluginů).
 - **Šifrování:** `ITSAppUsesNonExemptEncryption=false` (jen standardní HTTPS).
+- **Poloha na pozadí (2.5.4 / 5.1.1):** od 2026-09-21 appka zaznamenává projetou
+  trasu i na pozadí. Vyžaduje `UIBackgroundModes: location`. Text pro App Review
+  je níž — **zkopíruj ho do App Store Connect → Review Notes u každého buildu.**
+
+## Text pro App Review — poloha na pozadí
+
+> **Kam:** App Store Connect → verze → **App Review Information → Notes**.
+> **Kdy:** u každého buildu, který obsahuje `UIBackgroundModes: location`.
+> Bez tohoto vysvětlení Apple background-location běžně odmítá (guideline 2.5.4:
+> poloha na pozadí musí mít přímý přínos pro uživatele a musí být zjevná).
+
+### Anglicky (to vložit do Review Notes)
+
+```
+Background location — why this app needs it
+
+MotoGo24 is a motorcycle rental service. During an active rental the app records
+the route the customer rides, so they can see it afterwards as a trip diary
+("My experiences" > recorded rides), share it, and add photo stops to it.
+
+A motorcycle ride means the phone is in a pocket or a handlebar mount with the
+screen off, so foreground-only location produces a useless track: we were getting
+roughly 11 GPS points across a 33-hour rental, drawn as straight lines across the
+map. Continuous background location is the only way to record the actual route.
+
+How it works:
+- The recording runs ONLY while the customer has an active rental AND has left the
+  "Record my rides" switch on in My experiences. They can turn it off at any time
+  in that same screen, and they can delete any recorded ride.
+- We request WHEN-IN-USE authorization only. We do NOT request "Always".
+- showBackgroundLocationIndicator is enabled, so the blue status-bar indicator is
+  visible the whole time the app is recording.
+- Recording stops when the rental ends. A server-side job closes any recording
+  that has received no GPS fix for 3 hours, so tracking cannot silently continue.
+- The route is private to the customer. It is visible to other users only if the
+  customer publishes it themselves. During an active rental the rental operator
+  can also see it, for the operation and safety of the rental; this is disclosed
+  in the app's GDPR text and in the hint next to the recording switch.
+
+How to reproduce in review:
+1. Sign in with the demo account provided below.
+2. The demo account has an active rental, so recording starts automatically.
+   (Make sure location permission is granted and the "Record my rides" switch in
+   My experiences is on.)
+3. Lock the phone and move a few hundred metres; the blue location indicator
+   stays visible.
+4. Open My experiences > recorded rides: the ride is there with the route drawn
+   on the map. Turning the switch off ends the recording immediately.
+
+We also call requestTemporaryFullAccuracy (purpose key "rideTracking") when the
+user has Precise Location turned off, because a reduced-accuracy track is not a
+usable route. Declining it is fine — we keep recording at lower accuracy.
+```
+
+### Česky (pracovní překlad, do App Store Connect NEvkládat)
+
+Appka je půjčovna motorek. Během aktivní výpůjčky zaznamenává projetou trasu jako
+zážitkový deník zákazníka. Telefon je při jízdě v kapse nebo v držáku se zhasnutým
+displejem, takže sběr polohy jen na popředí dává nepoužitelnou stopu (reálně 11
+bodů za 33 hodin, na mapě rovné čáry). Žádáme jen **when-in-use**, „Always" ne;
+modrý indikátor polohy svítí po celou dobu; záznam si zákazník kdykoli vypne
+a jízdu smaže; server zavře nahrávku, do které 3 hodiny nic nepřišlo.
+
+> **Ještě před odesláním:** v App Store Connect → App Privacy doplň, že se poloha
+> sbírá i **na pozadí** a je **vázaná na identitu** (Precise Location → App
+> Functionality; účel „Product Personalization" NEuvádět — nic personalizujeme).
+> A do Review Notes připoj přihlašovací údaje demo účtu s aktivní výpůjčkou,
+> jinak recenzent záznam nerozjede a build spadne na „nešlo ověřit".
 
 ## Backend — ověřeno, beze změn
 - `push_tokens.platform` už podporuje `ios` (PushService ho posílá).

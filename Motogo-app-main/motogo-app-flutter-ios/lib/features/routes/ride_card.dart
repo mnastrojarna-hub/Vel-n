@@ -52,6 +52,7 @@ class RideCard extends StatelessWidget {
                       Positioned.fill(
                         child: RideTrackMap(
                           track: ride.track,
+                          segments: ride.segments,
                           points: ride.points,
                         ),
                       ),
@@ -69,6 +70,24 @@ class RideCard extends StatelessWidget {
                           child: _badge('🌍 ${t(context).tr('rideShared')}',
                               MotoGoColors.green, MotoGoColors.black),
                         ),
+                    ],
+                  ),
+                ),
+              // Čerstvě spuštěná jízda má zatím jediný bod, takže se mapa
+              // nekreslí — odznaky ale patří i tam, jinak jezdec nepozná,
+              // že se nahrává, a vypadá to jako prázdná karta.
+              if (!hasMap && (ride.isRecording || ride.isPublic))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      if (ride.isRecording)
+                        _badge('⏺ ${t(context).tr('rideRecording')}',
+                            MotoGoColors.red, Colors.white),
+                      if (ride.isPublic)
+                        _badge('🌍 ${t(context).tr('rideShared')}',
+                            MotoGoColors.green, MotoGoColors.black),
                     ],
                   ),
                 ),

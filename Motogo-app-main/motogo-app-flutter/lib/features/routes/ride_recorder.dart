@@ -126,6 +126,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       // výpůjčky), takže se stopa rozjede rovnou tady — jinak by nahrávání
       // po zavření appky tiše skončilo a jezdec by přišel o zbytek vyjížďky.
       if (manual && id != null && await hasLocationPermission()) {
+        await _ensurePreciseOnIos();
         _attachStream();
         state = state.copyWith(recording: true);
       }
@@ -209,12 +210,33 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
         await p.setBool(kRideRecManualKey, manual);
       } catch (_) {}
 
+      await _ensurePreciseOnIos();
       _attachStream();
 
       state = state.copyWith(
           recording: true, rideId: id, bookingId: bookingId, manual: manual);
     } finally {
       _starting = false;
+    }
+  }
+
+  /// iOS 14+: zákazník může mít polohu povolenou, ale jen „přibližnou"
+  /// (Nastavení → Přesná poloha = vypnuto). `checkPermission()` v tom případě
+  /// vrátí `whileInUse`, záznam se rozjede — ale fixy chodí s přesností
+  /// v řádu kilometrů a ve stopě z toho zůstanou zubaté čáry přes kraj,
+  /// tedy přesně ten problém, kvůli kterému se tohle celé opravovalo.
+  /// Požádáme proto o DOČASNÉ zpřesnění (klíč `rideTracking` v Info.plist).
+  /// Když ho jezdec nedá, nahráváme dál — hrubá stopa je pořád lepší než
+  /// žádná a Velín si řídkou stopu sám označí.
+  Future<void> _ensurePreciseOnIos() async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) return;
+    try {
+      final acc = await Geolocator.getLocationAccuracy();
+      if (acc == LocationAccuracyStatus.reduced) {
+        await Geolocator.requestTemporaryFullAccuracy(purposeKey: 'rideTracking');
+      }
+    } catch (_) {
+      // Starší iOS bez tohohle API / Android → přesnost neřešíme.
     }
   }
 

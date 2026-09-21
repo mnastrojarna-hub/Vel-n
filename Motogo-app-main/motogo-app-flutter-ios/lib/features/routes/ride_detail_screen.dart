@@ -376,6 +376,7 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
           height: 260,
           child: RideTrackMap(
             track: ride.track,
+            segments: ride.segments,
             points: ride.points,
             interactive: true,
             onMapTap: _addStop,
@@ -417,6 +418,39 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
               _stat('📍', '${ride.stops.length}', t(context).tr('rideStatStops')),
               _stat('📷', '${ride.photoCount}', t(context).tr('rideStatPhotos')),
             ]),
+            // Čas bez signálu — bez něj se u děravé stopy hodiny prostě
+            // ztratí a čísla spolu nesedí (celkem ≠ jízda + stání).
+            if (ride.gapSec > 0) ...[
+              const SizedBox(height: 12),
+              _statRow([
+                _stat('📵', rideDuration(ride.gapMin), t(context).tr('rideStatGap')),
+                _stat('🛰️', '${ride.track.length}', t(context).tr('rideStatPoints')),
+                _stat('✂️', '${ride.segments.where((s) => s.gapBefore != null).length}',
+                    t(context).tr('rideStatBreaks')),
+              ]),
+            ],
+            // Poctivé vysvětlení děravé stopy. Bez něj jezdec vidí trasu
+            // slepenou z rovných čar a myslí si, že appka lže o tom, kudy jel.
+            if (ride.hasGaps) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: MotoGoColors.amberBg,
+                  border: Border.all(color: MotoGoColors.amberBorder),
+                  borderRadius: BorderRadius.circular(MotoGoRadius.xl),
+                ),
+                child: Text(
+                  '📵 ${t(context).tr('rideGapNotice')}',
+                  style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeSm,
+                      fontWeight: MotoGoTypo.w700,
+                      color: MotoGoColors.amber,
+                      decoration: TextDecoration.none),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             // Kdy se jelo — od kdy do kdy (u rozjeté jízdy jen start).
             Container(
