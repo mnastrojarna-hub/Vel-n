@@ -8,6 +8,7 @@ import Button from '../components/ui/Button'
 import { seasonDaysBetween, SEASON_MONTHS, ServiceScheduleCard, SOSIncidentsCard } from './FleetDetailServiceCard'
 import { PhotoGallery } from './FleetDetailPhotos'
 import RichTextEditor from '../components/ui/RichTextEditor'
+import { confirmTrailerBranchMove } from './BranchHelpers'
 
 // Skupiny ŘP, které lze přiřadit vozidlu (OR — stačí, aby zákazník měl kteroukoliv).
 // 'N' = bez ŘP (dětské). Vícenásobný výběr: skútr může být A1 i B, přívěs B atd.
@@ -105,7 +106,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           setAvgKm(Math.round(driven / seasonMonths))
         }
       })
-    supabase.from('branches').select('id, name').order('name').then(({ data }) => setBranches(data || []))
+    supabase.from('branches').select('id, name, type').order('name').then(({ data }) => setBranches(data || []))
     // Přesné km průměry (na kalendářní i půjčovní den) z protokolových čtení.
     supabase.rpc('analytics_moto_km').then(({ data }) => {
       const row = (data || []).find(r => r.moto_id === moto.id)
@@ -179,8 +180,11 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
 
   async function handleMigrate() {
     if (!migrateTo) return
-    setMigrating(true)
     const targetBranch = branches.find(b => b.id === migrateTo)
+    // Samoobslužná pobočka vozík nevydává — živé rezervace s vozíkem potvrdit.
+    // PŘED setMigrating/debugAction, ať se zrušený přesun nezaloguje jako akce.
+    if (!(await confirmTrailerBranchMove(supabase, targetBranch, [moto.id]))) return
+    setMigrating(true)
     await debugAction('fleet.migrate', 'FleetDetail', async () => {
       await supabase.from('motorcycles').update({ branch_id: migrateTo }).eq('id', moto.id)
       const { data: { user } } = await supabase.auth.getUser()

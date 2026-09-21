@@ -303,6 +303,17 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
     }
   }
 
+  /// Plná výměna (REPLACE) = od PRVNÍHO dne rezervace a stav 'reserved' —
+  /// jen tehdy server přepíše `moto_id` na řádku, který nese vozík.
+  /// Shoda s `v_replace` v `split_booking_moto_swap` (20260921d).
+  bool get _isReplaceSwap {
+    final d = _swapDate;
+    if (d == null) return false;
+    final b = widget.booking.startDate;
+    return d.year == b.year && d.month == b.month && d.day == b.day &&
+        widget.booking.status == 'reserved';
+  }
+
   String _fmt(DateTime? d) => d == null ? '–' : '${d.day}.${d.month}.${d.year}';
 
   @override
@@ -442,7 +453,13 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
                   // nelze přejet na motorku ze samoobslužné. Bez téhle zábrany
                   // by dry-run prošel, zákazník zaplatil doplatek na Stripe
                   // a teprve server-side commit spadl na trg_check_trailer_overlap.
-                  final trailerBlocked = widget.booking.trailerMotoId != null &&
+                  // JEN u plné výměny (REPLACE): u SPLITu (výměna uprostřed
+                  // rezervace) si původní rezervace motorku i vozík ponechá
+                  // a nová rezervace vozík nedostane, což server záměrně
+                  // povoluje (split_booking_moto_swap rev.9, 20260921d).
+                  // Shodná podmínka jako v SQL: v_replace.
+                  final trailerBlocked = _isReplaceSwap &&
+                      widget.booking.trailerMotoId != null &&
                       m.branchType == 'samoobslužná';
                   final selectable = free == true && !trailerBlocked;
                   final selected = _newMotoId == m.id;

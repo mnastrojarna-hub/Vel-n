@@ -384,7 +384,8 @@ Deno.serve(async (req: Request) => {
     //   p_new_* klíče (web) → apply_booking_changes.
     // Vrátí-li dry-run chybu (overlap po závodě, wrong_status…), platbu
     // odmítneme rovnou — zákazník by platil změnu, která se nedá aplikovat.
-    // App formát (DB názvy sloupců) zatím validovat neumíme → beze změny chování.
+    // App formát (DB názvy sloupců): validujeme částku proti aktuální ceně
+    // a navíc vozík × samoobslužná pobočka (appka žádné z těch RPC nevolá).
     if (paymentType === 'extension' && booking_id && change && typeof change === 'object') {
       const c = change as Record<string, unknown>
       let expected: number | null = null
@@ -446,13 +447,25 @@ Deno.serve(async (req: Request) => {
           // doplatek MUSÍ sedět na rozdíl vůči AKTUÁLNÍ ceně v DB. Dřív se app
           // částka vůbec nevalidovala (klient mohl zaplatit cokoliv).
           const { data: curB } = await supabase.from('bookings')
-            .select('total_price').eq('id', booking_id).maybeSingle()
+            .select('total_price, trailer_moto_id').eq('id', booking_id).maybeSingle()
           if (curB) expected = Math.round(Number(c.total_price) - Number(curB.total_price || 0))
+          // Vozík vydává jen OBSLUŽNÁ pobočka (20260921b–f). Appka mění motorku
+          // PŘÍMÝM UPDATE, takže `_apply_booking_changes_core` ani jeho guard
+          // nikdy nezavolá — jediné místo PŘED platbou, kudy tahle cesta projde,
+          // je tenhle validátor. Bez něj by se doplatek strhl a teprve zápis
+          // (resp. DB trigger) by změnu odmítl.
+          if (curB?.trailer_moto_id && typeof c.moto_id === 'string' && c.moto_id) {
+            const { data: selfSvc } = await supabase.rpc('moto_is_self_service', { p_moto_id: c.moto_id })
+            if (selfSvc === true) dryErr = 'trailer_staffed_only'
+          }
         }
       } catch (_e) { /* dry-run nedostupný → kompatibilně bez validace */ }
       if (dryErr) {
+        const dryMsg = dryErr === 'trailer_staffed_only'
+          ? 'Vozík lze půjčit jen k motorce z obslužné pobočky — samoobslužná ho nevydává. Vyberte motorku z obslužné pobočky, nebo z rezervace odeberte vozík. Platba doplatku zrušena.'
+          : `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
         return new Response(
-          JSON.stringify({ success: false, error: `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`, code: dryErr }),
+          JSON.stringify({ success: false, error: dryMsg, code: dryErr }),
           { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }

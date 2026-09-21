@@ -132,7 +132,7 @@ $keys = [
     // (pages-upravit-rezervaci-swap.js je používá, ve whitelistu chyběly →
     // MG.t() vypisovalo syrový název klíče).
     'editRez.swap.net.surcharge','editRez.swap.net.refund','editRez.swap.net.same',
-    'editRez.refund.manualNote',
+    'editRez.refund.manualNote','editRez.reset.same',
     'editRez.moto.unavailable','editRez.moto.selectThis','editRez.moto.diffUp',
     'editRez.moto.priceTotal','editRez.moto.priceVs','editRez.moto.backToDetail',
     'editRez.moto.confirmTitle','editRez.moto.confirmYes','editRez.moto.confirmNo',
