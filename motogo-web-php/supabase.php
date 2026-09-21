@@ -234,6 +234,11 @@ class SupabaseClient {
                     $mid = $m['id'] ?? null;
                     if ($mid && array_key_exists($mid, $byId)) {
                         $m['next_available_date'] = $byId[$mid];
+                        // NULL z RPC = v horizontu 400 dní NENÍ volný den (např.
+                        // trvale zavřená pobočka). Bez tohoto příznaku by karta
+                        // prázdné datum vyložila jako „Dostupné dnes" — přesný
+                        // opak pravdy (nález 2026-09-21).
+                        $m['available_unknown'] = ($byId[$mid] === null);
                     }
                 }
                 unset($m);
