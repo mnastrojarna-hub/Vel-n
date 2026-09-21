@@ -2,11 +2,15 @@
 /// `translations_ext_18_rides.dart`).
 const translationsExt19RidesB = <String, Map<String, String>>{
   'es': {
+    'rideStatGap': 'sin señal',
+    'rideStatPoints': 'puntos de ruta',
+    'rideStatBreaks': 'interrupciones',
+    'rideGapNotice': 'No conocemos parte de la ruta — tu teléfono dejó de enviar la ubicación un rato (señal débil, ubicación desactivada o una versión antigua de la app). Los tramos punteados grises del mapa son solo conexiones; puede que no pasaras por ahí y no cuentan en los kilómetros.',
     'rideNotifTitle': 'MotoGo24 está grabando tu ruta',
     'rideNotifText': 'La ruta se guarda en Mis experiencias. Puedes desactivarlo en la app.',
     'rideRecordTitle': 'Registro de ruta',
     'rideRecordHint':
-        'Con la ubicación activada, la ruta de tu alquiler se guarda sola — incluida la moto que condujiste.',
+        'Con la ubicación activada, la ruta de tu alquiler se guarda sola — incluida la moto que condujiste. También graba en segundo plano con el teléfono bloqueado y, durante el alquiler, el alquilador ve tu posición. Puedes desactivarlo aquí cuando quieras.',
     'rideRecording': 'Grabando',
     'rideManualStart': 'Grabar tu propia ruta',
     'rideManualStop': 'Detener la grabación',
@@ -61,11 +65,15 @@ const translationsExt19RidesB = <String, Map<String, String>>{
     'rideShareFooter': 'Recorrido con MotoGo24 🏍️',
   },
   'fr': {
+    'rideStatGap': 'sans signal',
+    'rideStatPoints': 'points du trajet',
+    'rideStatBreaks': 'interruptions',
+    'rideGapNotice': 'Une partie du trajet nous est inconnue — ton téléphone n\'a plus envoyé sa position pendant un moment (signal faible, localisation coupée ou ancienne version de l\'app). Les portions pointillées grises ne sont que des raccords ; tu n\'es peut-être pas passé par là et elles ne comptent pas dans les kilomètres.',
     'rideNotifTitle': 'MotoGo24 enregistre votre trajet',
     'rideNotifText': 'L\'itinéraire est enregistré dans Mes expériences. Vous pouvez le désactiver dans l\'app.',
     'rideRecordTitle': 'Enregistrement du trajet',
     'rideRecordHint':
-        'Avec la localisation autorisée, le trajet de ta location est enregistré tout seul — avec la moto utilisée.',
+        'Avec la localisation autorisée, le trajet de ta location est enregistré tout seul — avec la moto utilisée. L\'enregistrement continue en arrière-plan, téléphone verrouillé, et pendant la location le loueur voit ta position. Tu peux le désactiver ici à tout moment.',
     'rideRecording': 'Enregistrement',
     'rideManualStart': 'Enregistrer ta propre sortie',
     'rideManualStop': 'Arrêter l\'enregistrement',
@@ -120,11 +128,15 @@ const translationsExt19RidesB = <String, Map<String, String>>{
     'rideShareFooter': 'Parcouru avec MotoGo24 🏍️',
   },
   'nl': {
+    'rideStatGap': 'geen signaal',
+    'rideStatPoints': 'routepunten',
+    'rideStatBreaks': 'onderbrekingen',
+    'rideGapNotice': 'Een deel van de route kennen we niet — je telefoon stuurde even geen locatie door (zwak signaal, locatie uit of een oudere app-versie). De grijze stippellijnen op de kaart zijn alleen verbindingen; daar heb je misschien niet gereden en ze tellen niet mee in de kilometers.',
     'rideNotifTitle': 'MotoGo24 neemt je rit op',
     'rideNotifText': 'De route wordt opgeslagen in Mijn belevenissen. Je kunt dit in de app uitzetten.',
     'rideRecordTitle': 'Ritregistratie',
     'rideRecordHint':
-        'Met locatie aan wordt de route van je huur vanzelf bewaard — inclusief de motor waarop je reed.',
+        'Met locatie aan wordt de route van je huur vanzelf bewaard — inclusief de motor waarop je reed. Hij neemt ook op de achtergrond op met een vergrendelde telefoon, en tijdens de huur ziet de verhuurder je positie. Je kunt het hier altijd uitzetten.',
     'rideRecording': 'Opnemen',
     'rideManualStart': 'Eigen rit opnemen',
     'rideManualStop': 'Opname stoppen',
@@ -179,11 +191,15 @@ const translationsExt19RidesB = <String, Map<String, String>>{
     'rideShareFooter': 'Gereden met MotoGo24 🏍️',
   },
   'uk': {
+    'rideStatGap': 'без сигналу',
+    'rideStatPoints': 'точок маршруту',
+    'rideStatBreaks': 'перерв',
+    'rideGapNotice': 'Частину маршруту ми не знаємо — телефон певний час не надсилав місцезнаходження (слабкий сигнал, вимкнена геолокація або стара версія застосунку). Сірі пунктирні ділянки на карті — лише з’єднання; там ти міг і не їхати, і в кілометри вони не рахуються.',
     'rideNotifTitle': 'MotoGo24 записує вашу поїздку',
     'rideNotifText': 'Маршрут зберігається у «Моїх враженнях». Вимкнути можна в застосунку.',
     'rideRecordTitle': 'Запис поїздки',
     'rideRecordHint':
-        'Якщо дозволено геолокацію, маршрут оренди зберігається сам — разом із мотоциклом, яким ти їхав.',
+        'Якщо дозволено геолокацію, маршрут оренди зберігається сам — разом із мотоциклом, яким ти їхав. Запис триває і у фоні із заблокованим телефоном, а протягом оренди твоє місцезнаходження бачить і прокат. Вимкнути можна будь-коли тут.',
     'rideRecording': 'Записую',
     'rideManualStart': 'Записати власну поїздку',
     'rideManualStop': 'Зупинити запис поїздки',

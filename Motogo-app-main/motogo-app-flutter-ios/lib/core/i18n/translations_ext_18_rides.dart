@@ -2,11 +2,15 @@
 /// s fotkami a popisky, sdílení na sociální sítě. Část 1/2: cs, en, de, pl.
 const translationsExt18Rides = <String, Map<String, String>>{
   'cs': {
+    'rideStatGap': 'bez signálu',
+    'rideStatPoints': 'bodů stopy',
+    'rideStatBreaks': 'přerušení',
+    'rideGapNotice': 'Část trasy neznáme — telefon chvílemi neposílal polohu (slabý signál, vypnutá poloha nebo starší verze appky). Šedé tečkované úseky v mapě jsou jen spojnice, tudy jsi jet nemusel, a do ujetých kilometrů se nepočítají.',
     'rideNotifTitle': 'MotoGo24 zaznamenává jízdu',
     'rideNotifText': 'Trasa se ukládá do Mých zážitků. Vypnout jde v appce.',
     'rideRecordTitle': 'Záznam jízdy',
     'rideRecordHint':
-        'Když máš povolenou polohu, trasa z tvé výpůjčky se ukládá sama — i s motorkou, kterou jsi jel.',
+        'Když máš povolenou polohu, trasa z tvé výpůjčky se ukládá sama — i s motorkou, kterou jsi jel. Nahrává se i na pozadí se zamčeným telefonem a po dobu výpůjčky vidí tvoji polohu i půjčovna. Kdykoli to vypneš tímhle přepínačem.',
     'rideRecording': 'Nahrávám',
     'rideManualStart': 'Zaznamenat vlastní jízdu',
     'rideManualStop': 'Ukončit záznam jízdy',
@@ -61,11 +65,15 @@ const translationsExt18Rides = <String, Map<String, String>>{
     'rideShareFooter': 'Projeto s MotoGo24 🏍️',
   },
   'en': {
+    'rideStatGap': 'no signal',
+    'rideStatPoints': 'track points',
+    'rideStatBreaks': 'breaks',
+    'rideGapNotice': 'Part of the route is unknown — your phone stopped sending its location for a while (weak signal, location off, or an older app version). The grey dotted parts of the map are just connectors; you may not have ridden that way, and they are not counted in the distance.',
     'rideNotifTitle': 'MotoGo24 is recording your ride',
     'rideNotifText': 'Your route is being saved to My experiences. You can turn it off in the app.',
     'rideRecordTitle': 'Ride recording',
     'rideRecordHint':
-        'With location turned on, the route of your rental is saved automatically — including the bike you rode.',
+        'With location turned on, the route of your rental is saved automatically — including the bike you rode. It keeps recording in the background with the phone locked, and during the rental the rental company can see your position. You can switch it off here anytime.',
     'rideRecording': 'Recording',
     'rideManualStart': 'Record your own ride',
     'rideManualStop': 'Stop ride recording',
@@ -120,11 +128,15 @@ const translationsExt18Rides = <String, Map<String, String>>{
     'rideShareFooter': 'Ridden with MotoGo24 🏍️',
   },
   'de': {
+    'rideStatGap': 'ohne Signal',
+    'rideStatPoints': 'Streckenpunkte',
+    'rideStatBreaks': 'Unterbrechungen',
+    'rideGapNotice': 'Einen Teil der Strecke kennen wir nicht — dein Handy hat zeitweise keinen Standort gesendet (schwaches Signal, Standort aus oder ältere App-Version). Die grau gepunkteten Abschnitte sind nur Verbindungen; dort bist du vielleicht gar nicht gefahren, und sie zählen nicht zu den Kilometern.',
     'rideNotifTitle': 'MotoGo24 zeichnet deine Fahrt auf',
     'rideNotifText': 'Die Route wird in Meine Erlebnisse gespeichert. Du kannst es in der App abschalten.',
     'rideRecordTitle': 'Fahrtaufzeichnung',
     'rideRecordHint':
-        'Bei erlaubtem Standort wird die Strecke deiner Miete automatisch gespeichert — samt gefahrenem Motorrad.',
+        'Bei erlaubtem Standort wird die Strecke deiner Miete automatisch gespeichert — samt gefahrenem Motorrad. Die Aufzeichnung läuft auch im Hintergrund bei gesperrtem Telefon, und während der Miete sieht auch der Vermieter deinen Standort. Du kannst sie hier jederzeit ausschalten.',
     'rideRecording': 'Zeichne auf',
     'rideManualStart': 'Eigene Fahrt aufzeichnen',
     'rideManualStop': 'Aufzeichnung beenden',
@@ -179,11 +191,15 @@ const translationsExt18Rides = <String, Map<String, String>>{
     'rideShareFooter': 'Gefahren mit MotoGo24 🏍️',
   },
   'pl': {
+    'rideStatGap': 'bez sygnału',
+    'rideStatPoints': 'punktów trasy',
+    'rideStatBreaks': 'przerwy',
+    'rideGapNotice': 'Części trasy nie znamy — telefon przez chwilę nie wysyłał lokalizacji (słaby sygnał, wyłączona lokalizacja lub starsza wersja aplikacji). Szare kropkowane odcinki na mapie to tylko łączniki; tamtędy wcale nie musiałeś jechać i nie liczą się do kilometrów.',
     'rideNotifTitle': 'MotoGo24 zapisuje Twoją trasę',
     'rideNotifText': 'Trasa zapisuje się w Moich przeżyciach. Możesz to wyłączyć w aplikacji.',
     'rideRecordTitle': 'Zapis przejazdu',
     'rideRecordHint':
-        'Gdy lokalizacja jest włączona, trasa z wypożyczenia zapisuje się sama — razem z motocyklem, którym jechałeś.',
+        'Gdy lokalizacja jest włączona, trasa Twojego wynajmu zapisuje się sama — razem z motocyklem, którym jechałeś. Nagrywa się też w tle przy zablokowanym telefonie, a przez czas wynajmu Twoją pozycję widzi również wypożyczalnia. W każdej chwili możesz to tutaj wyłączyć.',
     'rideRecording': 'Nagrywam',
     'rideManualStart': 'Zapisz własny przejazd',
     'rideManualStop': 'Zakończ zapis przejazdu',

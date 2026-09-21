@@ -12,6 +12,11 @@ import 'routes_provider.dart' show mapyApiKey;
 /// v detailu jízdy (interaktivní, klepnutí do mapy přidá zastávku).
 class RideTrackMap extends StatefulWidget {
   final List<LatLng> track;
+
+  /// Stopa rozdělená na souvislé úseky (viz `UserRide.segments`). Když je
+  /// prázdná, kreslí se `track` jako jedna čára — to je správně u ručně
+  /// poskládaných jízd, které žádné časy nemají.
+  final List<RideSegment> segments;
   final List<RidePoint> points;
   final bool interactive;
   final int? activePoint; // zvýrazněná zastávka (index v `points`)
@@ -21,6 +26,7 @@ class RideTrackMap extends StatefulWidget {
   const RideTrackMap({
     super.key,
     required this.track,
+    this.segments = const [],
     this.points = const [],
     this.interactive = false,
     this.activePoint,
@@ -40,6 +46,40 @@ class _RideTrackMapState extends State<RideTrackMap> {
         ...widget.track,
         ...widget.points.map((p) => p.latLng),
       ];
+
+  /// Čáry ke kreslení — souvislé úseky, jinak celá stopa vcelku.
+  List<List<LatLng>> get _lines {
+    if (widget.segments.isEmpty) {
+      return widget.track.length >= 2 ? [widget.track] : const [];
+    }
+    return [
+      for (final s in widget.segments)
+        if (s.points.length >= 2) s.points,
+    ];
+  }
+
+  /// Mezery mezi úseky (tečkovaná spojnice).
+  List<RideGap> get _gaps => [
+        for (final s in widget.segments)
+          if (s.gapBefore != null) s.gapBefore!,
+      ];
+
+  /// Body start / cíl. Vznikají až ukončením jízdy, takže u PRÁVĚ NAHRÁVANÉ
+  /// jízdy je `points` prázdné a mapa by neměla ani jednu značku — jezdec by
+  /// nepoznal, kde vyjel. Dopočítáme je proto z krajů stopy.
+  ({LatLng? start, LatLng? end}) get _ends {
+    final hasStart = widget.points.any((p) => p.isStart);
+    final hasEnd = widget.points.any((p) => p.isEnd);
+    if (hasStart && hasEnd) return (start: null, end: null);
+    final line = _lines;
+    if (line.isEmpty) return (start: null, end: null);
+    final first = line.first.first;
+    final last = line.last.last;
+    return (
+      start: hasStart ? null : first,
+      end: (hasEnd || last == first) ? null : last,
+    );
+  }
 
   LatLng get _center {
     final pts = _all;
@@ -102,23 +142,50 @@ class _RideTrackMapState extends State<RideTrackMap> {
           userAgentPackageName: 'com.motogo24.rental',
           maxZoom: 19,
         ),
-        if (widget.track.length >= 2)
+        // Souvislé úseky = plná zelená čára. Mezery (appka na pozadí / bez
+        // signálu) = šedá tečkovaná spojnice: tudy jezdec MOŽNÁ jel, ale
+        // nevíme to, takže to nekreslíme jako projetou trasu.
+        if (_lines.isNotEmpty)
           PolylineLayer(
             polylines: [
-              Polyline(
-                points: widget.track,
-                strokeWidth: 7,
-                color: MotoGoColors.dark.withValues(alpha: 0.35),
-              ),
-              Polyline(
-                points: widget.track,
-                strokeWidth: 4,
-                color: MotoGoColors.greenDark,
-              ),
+              for (final seg in _lines)
+                Polyline(
+                  points: seg,
+                  strokeWidth: 7,
+                  color: MotoGoColors.dark.withValues(alpha: 0.35),
+                ),
+              for (final seg in _lines)
+                Polyline(
+                  points: seg,
+                  strokeWidth: 4,
+                  color: MotoGoColors.greenDark,
+                ),
+              for (final gap in _gaps)
+                Polyline(
+                  points: [gap.from, gap.to],
+                  strokeWidth: 3,
+                  color: MotoGoColors.g400,
+                  isDotted: true,
+                ),
             ],
           ),
         MarkerLayer(
           markers: [
+            // Dopočtené kraje stopy (běžící jízda ještě nemá body start/cíl).
+            if (_ends.start != null)
+              Marker(
+                point: _ends.start!,
+                width: 30,
+                height: 30,
+                child: _pin('🏁', MotoGoColors.green),
+              ),
+            if (_ends.end != null)
+              Marker(
+                point: _ends.end!,
+                width: 30,
+                height: 30,
+                child: _pin('📍', MotoGoColors.dark, fg: Colors.white),
+              ),
             for (final s in start)
               Marker(
                 point: s.latLng,

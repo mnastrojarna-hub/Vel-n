@@ -86,6 +86,15 @@
 	<string>Ukládání pořízených fotografií dokladů a SOS incidentů do galerie.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Polohu používáme pro zobrazení vaší pozice na mapě, výpočet vzdálenosti přistavení motorky, při SOS hlášení a pro záznam projeté trasy během výpůjčky (i když máte telefon zamčený v kapse). Záznam trasy si můžete kdykoli vypnout v Mých zážitcích.</string>
+	<!-- iOS 14+: když má zákazník vypnutou „Přesnou polohu", fixy chodí
+	     s přesností v kilometrech a ze zaznamenané trasy zbydou zubaté čáry.
+	     Při spuštění záznamu jízdy proto požádáme o DOČASNÉ zpřesnění;
+	     klíč `rideTracking` odpovídá purposeKey v ride_recorder.dart. -->
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>rideTracking</key>
+		<string>Přesnou polohu potřebujeme jen po dobu záznamu jízdy, aby se projetá trasa uložila jako skutečná cesta. S přibližnou polohou by ve vašem deníku zůstaly jen rovné čáry mezi vzdálenými body.</string>
+	</dict>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Polohu na pozadí využíváme pouze při aktivním SOS hlášení, abychom mohli sdílet vaši polohu se zákaznickou podporou a asistenční službou.</string>
 	<key>NSFaceIDUsageDescription</key>

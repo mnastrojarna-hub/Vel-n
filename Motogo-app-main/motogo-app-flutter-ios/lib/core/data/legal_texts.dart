@@ -57,7 +57,7 @@ Zpracovávané údaje:
 - Jméno, e-mail, telefon, adresa
 - Datum narození, číslo ŘP, skupina ŘP
 - Číslo dokladu totožnosti (OP/pas)
-- GPS poloha — při SOS hlášení a, máte-li zapnutý záznam jízd, po dobu výpůjčky
+- GPS poloha (při SOS a při zapnutém záznamu jízd)
 - Platební údaje (zpracovává Stripe)
 
 Účel zpracování:
@@ -66,23 +66,14 @@ Zpracovávané údaje:
 - Komunikace se zákazníkem
 - Vystavování faktur a dokladů
 - SOS asistence (GPS, fotodokumentace)
-- Záznam projeté trasy (jen se zapnutým záznamem jízd — viz níže)
 
-Záznam projeté trasy (Moje zážitky):
-Máte-li v Mých zážitcích zapnutý záznam jízd a povolenou polohu, appka po dobu
-výpůjčky zaznamenává projetou trasu — i na pozadí se zamčeným telefonem.
-Na Androidu o tom po celou dobu informuje trvalá notifikace, na iPhonu modrý
-indikátor polohy ve stavovém řádku.
-Trasa slouží jako váš zážitkový deník. Vidíte ji jen vy; ostatním se zobrazí
-teprve tehdy, když ji sami zveřejníte. Po dobu AKTIVNÍ VÝPŮJČKY do ní a do
-aktuální polohy motorky vidí také provozovatel půjčovny, a to kvůli provozu
-a bezpečnosti výpůjčky (oprávněný zájem správce, čl. 6 odst. 1 písm. f) GDPR;
-po skončení výpůjčky se poloha v reálném čase nesleduje).
-Záznam můžete kdykoli vypnout přepínačem v Mých zážitcích nebo odebráním
-oprávnění k poloze v nastavení telefonu; jednotlivou jízdu můžete smazat.
+Záznam jízd: Máte-li v Mých zážitcích zapnutý záznam jízd, appka po dobu výpůjčky
+zaznamenává projetou trasu, a to i na pozadí. Po dobu aktivní výpůjčky vidí trasu
+i aktuální polohu také provozovatel (oprávněný zájem, čl. 6 odst. 1 písm. f GDPR);
+po jejím skončení už polohu nesledujeme. Záznam kdykoli vypnete přepínačem
+v Mých zážitcích a jednotlivou jízdu můžete smazat.
 
 Doba uchování: Po dobu trvání smluvního vztahu + 3 roky.
-Záznamy jízd se uchovávají, dokud je sami nesmažete.
 Předání třetím stranám: Stripe (platby), Twilio (SMS/WhatsApp), Resend (email), Mindee (OCR).
 
 Práva subjektu: Přístup, oprava, výmaz, omezení zpracování, přenositelnost, námitka.
