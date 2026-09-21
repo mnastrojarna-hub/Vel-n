@@ -23,6 +23,18 @@ class PlacesMapView extends StatefulWidget {
   final List<PoiEntry> places;
   final String lang;
 
+  /// Vykreslit atribuci Mapy.com vlevo dole místo vpravo dole. Celoobrazovkové
+  /// mapy mají v pravém dolním rohu kulatá tlačítka („moje poloha", „přidat
+  /// místo"), takže by je ⓘ atribuce podlézala.
+  final bool attributionOnLeft;
+
+  final bool showAttribution;
+
+  /// Zobrazit atribuci vůbec. V 160px náhledovém pruhu nad seznamem Míst se
+  /// NEZOBRAZUJE: celý pruh je jedno velké tlačítko „otevři mapu na celou
+  /// obrazovku" a ⓘ tlačítko atribuce by to kliknutí v rohu spolklo.
+  /// Celoobrazovková mapa, kterou pruh otevírá, atribuci má.
+
   /// Klíče vybraných míst — vykreslí se zeleně a s fajfkou.
   final Set<String> selected;
 
@@ -68,6 +80,8 @@ class PlacesMapView extends StatefulWidget {
     super.key,
     required this.places,
     required this.lang,
+    this.attributionOnLeft = false,
+    this.showAttribution = true,
     this.selected = const {},
     this.routeLines = const [],
     this.onPlaceTap,
@@ -174,13 +188,21 @@ class PlacesMapViewState extends State<PlacesMapView> {
     final showClusters = visible.length > _kMaxMarkers;
 
     final markers = <Marker>[];
+    // Body, u kterých se na velkém přiblížení vypíše i název. Bez popisků byla
+    // mapa jen řada bílých koleček s emoji — uživatel z ní nepoznal, na co se
+    // dívá, dokud na špendlík nepodržel prst.
+    final labelled = <PoiEntry>[];
     if (showClusters) {
       // Vybraná místa se kreslí VŽDY samostatně — jinak zmizí ve shluku
       // a uživatel nevidí, co má v rozdělané trase.
       final picked = <PoiEntry>[];
       final cell = _cellSize(_zoom);
-      // Klíč buňky → (počet, součet souřadnic pro těžiště).
-      final buckets = <String, ({int n, double lat, double lng})>{};
+      // Klíč buňky → (počet, součet souřadnic pro těžiště, první bod).
+      // `first` se drží kvůli osamoceným buňkám: dřív se i JEDINÉ místo v buňce
+      // nakreslilo jako zelená bublina s číslicí „1" — na běžném zoomu tak byla
+      // většina mapy jen číslíčka místo špendlíků, což je půlka toho, proč
+      // mapa „vypadá stroze".
+      final buckets = <String, ({int n, double lat, double lng, PoiEntry first})>{};
       for (final e in visible) {
         final p = e.latLng!;
         if (widget.selected.contains(e.key)) {
@@ -190,19 +212,30 @@ class PlacesMapViewState extends State<PlacesMapView> {
         final key = '${(p.latitude / cell).floor()}:${(p.longitude / cell).floor()}';
         final cur = buckets[key];
         buckets[key] = cur == null
-            ? (n: 1, lat: p.latitude, lng: p.longitude)
-            : (n: cur.n + 1, lat: cur.lat + p.latitude, lng: cur.lng + p.longitude);
+            ? (n: 1, lat: p.latitude, lng: p.longitude, first: e)
+            : (n: cur.n + 1, lat: cur.lat + p.latitude, lng: cur.lng + p.longitude, first: cur.first);
       }
       for (final b in buckets.values) {
-        final center = LatLng(b.lat / b.n, b.lng / b.n);
+        if (b.n == 1) {
+          markers.add(_placeMarker(b.first));
+          labelled.add(b.first);
+          continue;
+        }
+        // Těžiště dvou vzdálených bodů padá doprostřed pole, kde žádné místo
+        // není. U malých shluků proto bublinu posadíme na skutečný bod.
+        final center = b.n <= 3
+            ? b.first.latLng!
+            : LatLng(b.lat / b.n, b.lng / b.n);
         markers.add(_clusterMarker(center, b.n));
       }
       for (final e in picked) {
         markers.add(_placeMarker(e));
+        labelled.add(e);
       }
     } else {
       for (final e in visible) {
         markers.add(_placeMarker(e));
+        labelled.add(e);
       }
     }
 
@@ -267,6 +300,16 @@ class PlacesMapViewState extends State<PlacesMapView> {
               ),
             ],
           ),
+        MarkerLayer(markers: markers),
+        // Popisky až od zoomu 12 a jen když jich není moc — jinak by se
+        // překrývaly. `IgnorePointer` je nutný, aby popisek nekradl klepnutí
+        // určené špendlíku pod ním.
+        if (_zoom >= 12 && labelled.length <= 45)
+          MarkerLayer(markers: [
+            for (final e in labelled) _labelMarker(e),
+          ]),
+        // Vlastní poloha až NAD místy — dřív ji v hustém okolí překryl
+        // kterýkoli 34px špendlík a jezdec nevěděl, kde je.
         if (widget.me != null)
           MarkerLayer(markers: [
             Marker(
@@ -288,10 +331,65 @@ class PlacesMapViewState extends State<PlacesMapView> {
               ),
             ),
           ]),
-        MarkerLayer(markers: markers),
+        // Povinná atribuce: podklad je z Mapy.com, část katalogu míst
+        // (studánky, prameny a vyhlídky, dávky `osm-springs-cz-sk-*`)
+        // pochází z OpenStreetMap a licence ODbL uvedení zdroje vyžaduje.
+        // Roh si volí každá obrazovka sama — vpravo dole sedí kulatá
+        // tlačítka („moje poloha", „přidat místo"), vlevo dole zase odznak
+        // „Tvoje trasa" na mapě tras.
+        if (widget.showAttribution)
+          RichAttributionWidget(
+            alignment: widget.attributionOnLeft
+                ? AttributionAlignment.bottomLeft
+                : AttributionAlignment.bottomRight,
+            // Bez loga flutter_map — do zákaznické obrazovky cizí branding nepatří.
+            showFlutterMapAttribution: false,
+            attributions: const [
+              TextSourceAttribution('Mapy.com · © OpenStreetMap'),
+            ],
+          ),
       ],
     );
   }
+
+  /// Popisek místa pod špendlíkem (jen na velkém přiblížení).
+  ///
+  /// `Alignment.bottomCenter` znamená v flutter_map „celý rámeček je POD
+  /// bodem" (viz marker_layer.dart: `top = 0.5*h*(y+1)`, `bottom = h - top`,
+  /// `Positioned(top: pos.y - bottom)`) — opak toho, co by člověk čekal.
+  /// S `topCenter` by popisek skončil nad špendlíkem a překryl ho.
+  Marker _labelMarker(PoiEntry e) => Marker(
+        point: e.latLng!,
+        width: 148,
+        height: 40,
+        alignment: Alignment.bottomCenter,
+        child: IgnorePointer(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.88),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  e.poi.nameFor(widget.lang),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: MotoGoTypo.w900,
+                    color: MotoGoColors.greenDarker,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 
   /// Naplánuje přepočet výřezu nejvýš ~8× za sekundu.
   void _scheduleSync() {

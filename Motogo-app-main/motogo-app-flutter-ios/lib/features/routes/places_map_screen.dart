@@ -135,6 +135,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
         children: [
           Positioned.fill(
             child: PlacesMapView(
+              attributionOnLeft: true,
               key: _mapKey,
               places: places,
               lang: lang,

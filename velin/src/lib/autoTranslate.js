@@ -24,7 +24,12 @@ const FIELD_MAP = {
   branches: ['notes'],
   faq_items: ['question', 'answer'],
   routes: ['name', 'description'],
-  route_pois: ['name', 'description'],
+  route_pois: ['name', 'description', 'surroundings'],
+  // Katalog míst (~40 tis. bodů). Edge funkce `translate-content` tabulku
+  // povoluje od začátku (ALLOWED_TABLES v supabase/functions/translate-content),
+  // chyběl jen tenhle řádek — proto se místo uložené ve Velíně nikdy
+  // nepřeložilo a v cizích jazycích zůstalo česky.
+  points_of_interest: ['name', 'description', 'surroundings'],
 }
 
 /**

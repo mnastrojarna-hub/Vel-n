@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import 'places_filter.dart';
 import 'poi_categories.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
@@ -48,15 +49,13 @@ class _NearbyPoiPanelState extends ConsumerState<NearbyPoiPanel> {
     if (widget.stops.isEmpty) return const SizedBox.shrink();
     final lang = ref.watch(localeProvider).languageCode;
 
-    // Stejné zdroje jako katalog bodů: body z tras + katalog + komunitní.
-    final routePois = ref.watch(allPoisProvider);
-    final userPois = ref.watch(userPoisProvider).valueOrNull ?? const [];
-    final catalogPois = ref.watch(catalogPoisProvider).valueOrNull ?? const [];
-    final all = <PoiEntry>[
-      ...routePois,
-      ...catalogPois.map((p) => PoiEntry(p, null, null, catalog: true)),
-      ...userPois.map((p) => PoiEntry(p, null, null)),
-    ];
+    // SLOUČENÝ katalog — přesně ten, ze kterého čerpá seznam Míst i mapa.
+    // Dřív si panel merge dělal sám z `allPoisProvider` + katalogu + komunitních
+    // bodů, takže sem tekl NESLOUČENÝ seznam: „Čermákovy louky" jsou u dvaceti
+    // tras jako `route_poi` (a jednou v katalogu) a nabídka je ukazovala vedle
+    // sebe třikrát — každý řádek má vlastní uuid, takže je `seen` na `poi.id`
+    // nikdy nezachytil.
+    final all = ref.watch(dedupedPlacesProvider);
 
     // Kandidáti v okruhu: min. vzdálenost k libovolné zastávce ≤ X km.
     const dist = Distance();
@@ -75,7 +74,12 @@ class _NearbyPoiPanelState extends ConsumerState<NearbyPoiPanel> {
       final ll = e.latLng;
       if (ll == null) continue;
       if (widget.excludedPoiIds.contains(e.poi.id)) continue;
-      if (!seen.add(e.poi.id)) continue; // stejný bod ve víc trasách jen 1×
+      if (!seen.add(e.poi.id)) continue; // pojistka, sloučený seznam už je bez duplicit
+      // Pozn.: žádné plošné „bod do 120 m od zastávky nenabízet" — sloučený
+      // seznam duplicity nemá a `excludedPoiIds` odfiltruje to, co v trase
+      // opravdu je. Plošný ořez by z nabídky vyhodil 296 skutečných míst
+      // (rozhledna Milada 42 m od zastávky Lichnice, klášter Svatý Jan pod
+      // Skalou 41 m od Jeskyně svatého Ivana).
       final m = nearest(ll);
       if (m <= _radiusKm * 1000) inRadius.add((e: e, m: m));
     }

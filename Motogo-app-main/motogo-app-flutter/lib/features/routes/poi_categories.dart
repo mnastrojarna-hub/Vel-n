@@ -17,6 +17,7 @@ const List<PoiCat> kPoiCats = [
   PoiCat('castle', '🏰', 'poiCatCastle'),
   PoiCat('lookout', '🗼', 'poiCatLookout'),
   PoiCat('water', '🌊', 'poiCatWater'),
+  PoiCat('spring', '⛲', 'poiCatSpring'),
   PoiCat('sights', '⛪', 'poiCatSights'),
   PoiCat('nature', '🌳', 'poiCatNature'),
   PoiCat('military', '🪖', 'poiCatMilitary'),
@@ -30,10 +31,10 @@ const List<PoiCat> kPoiCats = [
 final RegExp _reHrad = RegExp(r'\bhrad');
 
 /// Známé klíče kategorií (pro validaci explicitní hodnoty z backendu).
-const Set<String> kPoiCatKeys = {
-  'food', 'castle', 'lookout', 'water', 'sights', 'nature', 'other',
-  'military', 'aviation', 'tech', 'moto'
-};
+/// ODVOZENO z `kPoiCats`, ne psáno ručně — dva ručně udržované seznamy se
+/// rozejdou a kategorie pak buď má chip a backend ji zahodí, nebo naopak
+/// projde a chip pro ni neexistuje.
+final Set<String> kPoiCatKeys = {for (final c in kPoiCats) c.key};
 
 // Klíčová slova (bez diakritiky, malá písmena). Kryjí i SK/PL/DE/AT varianty.
 const List<String> _kwFood = [
@@ -51,6 +52,14 @@ const List<String> _kwCastle = [
 const List<String> _kwLookout = [
   'rozhled', 'vyhlid', 'vyhled', 'vez', 'aussicht', 'panorama',
   'vrch', 'hora', 'kopec'
+];
+// Studánky a prameny — vlastní kategorie (zadání uživatele 2026-09-20:
+// „chybí studánky"). Kontroluje se PŘED vodou i přírodou, jinak by „Koňský
+// pramen" spadl mezi rybníky a „Studánka U Tří lip" by neodpovídala ničemu
+// (slovo „studánk" dřív nebylo v ŽÁDNÉM seznamu a končilo v „Ostatní").
+const List<String> _kwSpring = [
+  'studank', 'studanc', 'pramenist', 'pramenisk', 'kyselk', 'vyver',
+  'zriedl', 'mineralni pramen', 'quelle', 'brunnen', 'zridlo', 'pramen'
 ];
 const List<String> _kwWater = [
   'prehrad', 'priehrad', 'rybnik', 'jezer', 'jazer', 'vodopad', 'nadrz',
@@ -84,7 +93,8 @@ const List<String> _kwMoto = [
 // a vrcholy"); tady zůstává jen to, co je opravdu příroda bez výhledu.
 const List<String> _kwNature = [
   'jeskyn', 'jaskyn', 'propast', 'skal', 'prales', 'park',
-  'sedlo', 'prusmyk', 'priesmyk', 'soutesk', 'udol', 'dolin', 'pramen',
+  // 'pramen' se přesunul do _kwSpring („Studánky a prameny").
+  'sedlo', 'prusmyk', 'priesmyk', 'soutesk', 'udol', 'dolin',
   'zahrad', 'steny', 'stena', 'kamen', 'ostrov', 'pleso', 'plesa',
   'klamm', 'kanon', 'rezerv', 'jezirk', 'diery'
 ];
@@ -106,7 +116,15 @@ String poiFold(String s) {
 /// a teprve když název mlčí, z popisu. „Jídlo a pití" se z popisu NEODVOZUJE:
 /// skoro každý popis zmiňuje kavárnu/restauraci poblíž, což dřív házelo hrady
 /// a rozhledny do kategorie jídla (např. zámek Jindřichův Hradec).
-String poiCategoryOf(RoutePoi p) {
+/// Výsledky se cachují na instanci bodu — `poiCategoryOf` se volá pro KAŽDÝ
+/// špendlík i popisek při každém překreslení mapy a bez cache to je pokaždé
+/// dvojí `poiFold` (znak po znaku) plus ~90 `contains`. Stejný vzorec používá
+/// `RoutePoi.searchBlob` (routes_model.dart).
+final Expando<String> _poiCatCache = Expando<String>();
+
+String poiCategoryOf(RoutePoi p) => _poiCatCache[p] ??= _computeCategory(p);
+
+String _computeCategory(RoutePoi p) {
   final explicit = p.category?.toLowerCase();
   if (explicit != null && kPoiCatKeys.contains(explicit)) return explicit;
   final byName = _catByText(poiFold(p.name), allowFood: true);
@@ -132,7 +150,11 @@ String _catByText(String n, {required bool allowFood}) {
   if (has(_kwMoto)) return 'moto';
   if (has(_kwTech)) return 'tech';
   if (_reHrad.hasMatch(n) || has(_kwCastle)) return 'castle';
+  // Studánky se kontrolují až ZA rozhlednami („Studánkový vrch" je kopec),
+  // ale PŘED vodou a přírodou — „Pramen Vltavy" není rybník a „Zlatá
+  // studánka" není les.
   if (has(_kwLookout)) return 'lookout';
+  if (has(_kwSpring)) return 'spring';
   if (has(_kwWater)) return 'water';
   if (has(_kwSights)) return 'sights';
   if (has(_kwNature)) return 'nature';
