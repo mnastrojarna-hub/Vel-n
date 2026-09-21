@@ -75,13 +75,37 @@ async function resolveBranch(supabase, target) {
   const obj = typeof target === 'string' ? { id: target } : target
   if (typeof obj.type === 'string') return obj
   if (!obj.id) return obj
-  const { data } = await supabase.from('branches').select('id, name, type').eq('id', obj.id).maybeSingle()
-  return data ? { ...obj, ...data } : obj
+  const { data, error } = await supabase.from('branches').select('id, name, type').eq('id', obj.id).maybeSingle()
+  // Nedohledatelná pobočka = nevíme → označit, volající se pak zeptá (fail closed).
+  if (error || !data) return { ...obj, _unresolved: true }
+  return { ...obj, ...data }
+}
+
+// Je mezi přesouvanými kusy samotný VOZÍK (is_trailer)? Ten na samoobslužné
+// pobočce nikdo nevydá ani při samostatném půjčení.
+async function countTrailerUnits(supabase, motoIds) {
+  const ids = (motoIds || []).filter(Boolean)
+  if (!ids.length) return 0
+  const { data, error } = await supabase.from('motorcycles').select('id').in('id', ids).eq('is_trailer', true)
+  if (error) return -1
+  return (data || []).length
 }
 
 export async function confirmTrailerBranchMove(supabase, target, motoIds) {
   const targetBranch = await resolveBranch(supabase, target)
+  if (targetBranch?._unresolved) {
+    return window.confirm(
+      'Nepodařilo se ověřit typ cílové pobočky (chyba dotazu). Pokud je samoobslužná, ' +
+      'vozík tam nikdo nevydá a živé rezervace s vozíkem přijdou o krytí.\n\nPřesun přesto provést?'
+    )
+  }
   if (!isSelfService(targetBranch)) return true
+  const units = await countTrailerUnits(supabase, motoIds)
+  if (units !== 0 && !window.confirm(
+    (units < 0 ? 'Nepodařilo se ověřit, jestli mezi přesouvanými kusy není vozík (chyba dotazu).'
+               : `Pozor: ${units === 1 ? 'přesouvaný kus je VOZÍK' : units + ' přesouvané kusy jsou VOZÍKY'}.`) +
+    ` Na SAMOOBSLUŽNÉ pobočce „${targetBranch?.name || ''}“ ho nikdo nevydá — ani při samostatném půjčení.\n\nPřesun přesto provést?`
+  )) return false
   const n = await countTrailerBookings(supabase, motoIds)
   if (n === 0) return true
   if (n < 0) {

@@ -35,8 +35,8 @@ function BranchModal({ existing, onClose, onSaved }) {
     // živou rezervaci s vozíkem — samoobsluha vozík nevydává a web ani appka by
     // tu kombinaci zákazníkovi vůbec nenabídly. Neblokujeme, ale ptáme se.
     if (isEdit && form.type?.trim() === SELF_SERVICE_TYPE && existing?.type !== SELF_SERVICE_TYPE) {
-      const { data: bm } = await supabase.from('motorcycles').select('id').eq('branch_id', existing.id)
-      const n = await countTrailerBookings(supabase, (bm || []).map(m => m.id))
+      const { data: bm, error: bmErr } = await supabase.from('motorcycles').select('id').eq('branch_id', existing.id)
+      const n = bmErr ? -1 : await countTrailerBookings(supabase, (bm || []).map(m => m.id))
       // n < 0 = dotaz selhal (RLS, síť) → ptáme se tak jako tak, fail closed.
       const head = n < 0
         ? `Nepodařilo se ověřit, jestli některá živá rezervace na pobočce „${form.name.trim()}“ veze vozík (chyba dotazu).`

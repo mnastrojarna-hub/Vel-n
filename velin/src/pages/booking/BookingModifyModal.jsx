@@ -32,6 +32,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const [selectedMotoId, setSelectedMotoId] = useState(booking.moto_id)
   const [overlappingBookings, setOverlappingBookings] = useState([])
   const [branches, setBranches] = useState([])
+  const [branchesFailed, setBranchesFailed] = useState(false) // varování o vozíku nesmí zmizet jen proto, že dotaz selhal
   const [branchFilter, setBranchFilter] = useState('')
 
   // Přistavení/svoz se předvyplňuje podle SKUTEČNÉHO stavu rezervace. DB hodnoty
@@ -82,6 +83,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
       const pm = {}; (pricesRes.data || []).forEach(p => { pm[p.moto_id] = p })
       setMotoPrices(pm)
       setBranches(branchesRes.data || [])
+      setBranchesFailed(!!branchesRes.error)
       setLoadingMotos(false)
       // Přistavení/svoz účtované přes booking_extras (bookings.delivery_fee = 0):
       // dopředvyplní metody + poplatek podle reálného stavu rezervace.
@@ -159,6 +161,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   // vozík přiveze sama). POZOR: uživatel bez řádku v admin_users by tu
   // narazil na 23514.
   const trailerToSelfService = !!booking.trailer_moto_id && motoChanged && (() => {
+    if (branchesFailed) return true   // typ neověřen → radši varovat (fail closed)
     const br = branches.find(b => b.id === selectedMoto?.branch_id)
     return br?.type === SELF_SERVICE_TYPE
   })()
@@ -417,9 +420,11 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
 
         {/* Vozík × samoobslužná pobočka — jen varování, obsluhu neblokujeme */}
         {trailerToSelfService && (
-          <div className="mx-4 mb-3 p-3 rounded-lg" style={{ background: '#FEF3C7', border: '1px solid #F59E0B' }}>
+          <div className="mb-5 p-3 rounded-lg" style={{ background: '#FEF3C7', border: '1px solid #F59E0B' }}>
             <div className="text-sm font-bold" style={{ color: '#92400E' }}>
-              🛻 Pozor: rezervace má vozík, ale vybraná motorka stojí na samoobslužné pobočce
+              {branchesFailed
+                ? '🛻 Pozor: rezervace má vozík a typ pobočky vybrané motorky se nepodařilo ověřit'
+                : '🛻 Pozor: rezervace má vozík, ale vybraná motorka stojí na samoobslužné pobočce'}
             </div>
             <div className="text-sm mt-1" style={{ color: '#92400E' }}>
               Samoobslužná pobočka vozík nevydává (7 kójí + šatna, výdej 24/7 kódem bez obsluhy).

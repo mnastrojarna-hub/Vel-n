@@ -13,10 +13,13 @@
 --      volajícího a při přímém insertu z appky nevidí pending rezervace jiných
 --      účtů → dvojrezervace vozíku projde (stejná třída jako incident
 --      2026-08-23 u check_booking_overlap, 20260823_check_booking_overlap_rls_fix).
---   2) INKLUZIVNÍ DNY (`::date <= / >=`) — opsané tělo mělo `tstzrange(...,'[]')`,
---      u něhož je jednodenní rezervace prázdný rozsah a nikdy nekoliduje
---      (přesně chyba incidentu CRF 1000 8J6873, 20260911_booking_overlap_
---      inclusive_days).
+--   2) POROVNÁNÍ PO DNECH (`::date <= / >=`) — opsané tělo mělo
+--      `tstzrange(...,'[]')` nad timestamptz. (Oprava původního tvrzení: uzavřený
+--      rozsah '[]' jednodenní rezervaci NEvyprazdňuje — to byla chyba '[)' z
+--      20260911.) Rozdíl je jiný: `tstzrange` porovnává i čas, takže dvě rezervace
+--      téhož dne s nepřekrývajícími se hodinami by nekolidovaly, zatímco
+--      půjčovné je denní a živé tělo správně bere kolizi na úrovni kalendářního
+--      dne. Vracíme živou (denní) sémantiku.
 --   3) SAMOSTATNÉ půjčení vozíku — živé tělo přidává do kontroly i `NEW.moto_id`,
 --      když je ten kus sám vozík (`is_trailer`), takže standalone × gear kolize
 --      se hlídá v OBOU směrech; opsané tělo hlídalo jen `trailer_moto_id`.

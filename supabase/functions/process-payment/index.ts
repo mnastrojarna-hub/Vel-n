@@ -429,18 +429,21 @@ Deno.serve(async (req: Request) => {
           })
           if (!error && data?.success === true) expected = Number(data.net || 0)
           else if (!error && data?.error) dryErr = String(data.error)
+          else if (error) dryErr = 'validation_unavailable'   // fail closed: bez dry-runu nevíme, zda změna projde
         } else if (gear && typeof gear === 'object') {
           const { data, error } = await userClient.rpc('update_booking_gear', {
             p_booking_id: booking_id, p_sizes: gear.sizes || {}, p_dry_run: true,
           })
           if (!error && data?.success === true) expected = Number(data.net_diff || 0)
           else if (!error && data?.error) dryErr = String(data.error)
+          else if (error) dryErr = 'validation_unavailable'
         } else if (Object.keys(c).some((k) => k.startsWith('p_new_'))) {
           const params: Record<string, unknown> = { p_booking_id: booking_id, p_dry_run: true }
           for (const [k, v] of Object.entries(c)) if (k.startsWith('p_new_')) params[k] = v
           const { data, error } = await userClient.rpc('apply_booking_changes', params)
           if (!error && data?.success === true) expected = Number(data.net_diff || 0)
           else if (!error && data?.error) dryErr = String(data.error)
+          else if (error) dryErr = 'validation_unavailable'
         } else if (c.total_price != null && Number.isFinite(Number(c.total_price))) {
           // App formát (DB názvy sloupců, payment_screen.dart): appka účtuje
           // effectivePriceDiff = nová total_price − total_price rezervace, takže
@@ -470,12 +473,38 @@ Deno.serve(async (req: Request) => {
           }
         }
       } catch (_e) { /* dry-run nedostupný → kompatibilně bez validace */ }
+      // Posun termínu u rezervace S VOZÍKEM: obsazenost kusu vozíku se dosud
+      // zjistila až triggerem (trailer_unavailable) na zápisu PO zaplacení —
+      // stejná třída jako incident #EEC9CA33. Ověřit PŘED PaymentIntentem přes
+      // trailer_unit_busy (20260921h). Fail closed. `_swap` rezervaci A jen
+      // zkracuje, nový překryv vozíku tam vzniknout nemůže.
+      if (!dryErr) {
+        try {
+          const ns = (c.p_new_start ?? c.start_date) as string | undefined
+          const ne = (c.p_new_end ?? c.end_date) as string | undefined
+          if ((ns || ne) && !c._swap) {
+            const { data: tb, error: tbErr } = await supabase.from('bookings')
+              .select('trailer_moto_id, start_date, end_date').eq('id', booking_id).maybeSingle()
+            if (tbErr || !tb) dryErr = 'trailer_check_unavailable'
+            else if (tb.trailer_moto_id) {
+              const day = (v: unknown) => String(v ?? '').slice(0, 10)
+              const { data: busy, error: busyErr } = await supabase.rpc('trailer_unit_busy', {
+                p_unit: tb.trailer_moto_id, p_start: day(ns ?? tb.start_date), p_end: day(ne ?? tb.end_date), p_exclude: booking_id,
+              })
+              if (busyErr || typeof busy !== 'boolean') dryErr = 'trailer_check_unavailable'
+              else if (busy) dryErr = 'trailer_unavailable'
+            }
+          }
+        } catch (_te) { dryErr = 'trailer_check_unavailable' }
+      }
       if (dryErr) {
-        const dryMsg = dryErr === 'trailer_staffed_only'
-          ? 'Vozík lze půjčit jen k motorce z obslužné pobočky — samoobslužná ho nevydává. Vyberte motorku z obslužné pobočky, nebo z rezervace odeberte vozík. Platba doplatku zrušena.'
-          : dryErr === 'trailer_check_unavailable'
-            ? 'Nepodařilo se ověřit vozík u rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.'
-            : `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
+        const dryMsgs: Record<string, string> = {
+          trailer_staffed_only: 'Vozík lze půjčit jen k motorce z obslužné pobočky — samoobslužná ho nevydává. Vyberte motorku z obslužné pobočky, nebo z rezervace odeberte vozík. Platba doplatku zrušena.',
+          trailer_unavailable: 'Vozík je v novém termínu už obsazený jinou rezervací. Zvolte jiný termín, nebo z rezervace odeberte vozík. Platba doplatku zrušena.',
+          trailer_check_unavailable: 'Nepodařilo se ověřit vozík u rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
+          validation_unavailable: 'Nepodařilo se ověřit změnu rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
+        }
+        const dryMsg = dryMsgs[dryErr] ?? `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
         return new Response(
           JSON.stringify({ success: false, error: dryMsg, code: dryErr }),
           { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
