@@ -21,6 +21,11 @@ class EditMotoChangeSection extends ConsumerStatefulWidget {
   final String? newMotoId;
   final bool expanded;
   final String? userLicense;
+  /// Rezervace má přiřazený vozík (`bookings.trailer_moto_id`). Pak nelze
+  /// přejet na motorku ze SAMOOBSLUŽNÉ pobočky — vozík tam nikdo nevydá.
+  /// Bez téhle zábrany by zápis spadl až PO zaplacení doplatku na Stripe
+  /// (změnu aplikuje server z `PaymentContext.pendingEditChanges`).
+  final bool hasTrailer;
   final ValueChanged<String?> onMotoSelected;
   final VoidCallback onToggleExpanded;
 
@@ -34,6 +39,7 @@ class EditMotoChangeSection extends ConsumerStatefulWidget {
     required this.newMotoId,
     required this.expanded,
     required this.userLicense,
+    this.hasTrailer = false,
     required this.onMotoSelected,
     required this.onToggleExpanded,
   });
@@ -179,14 +185,17 @@ class _EditMotoChangeSectionState extends ConsumerState<EditMotoChangeSection> {
             }).toList();
             return Column(children: available.map((m) {
               final free = _avail[m.id];
-              final selectable = free == true;
+              // Vozík jen na obslužné pobočce — kus ze samoobsluhy nenabízej.
+              final trailerBlocked =
+                  widget.hasTrailer && m.branchType == 'samoobslužná';
+              final selectable = free == true && !trailerBlocked;
               final selected = widget.newMotoId == m.id;
               return GestureDetector(
                 onTap: selectable
                     ? () => widget.onMotoSelected(selected ? null : m.id)
                     : null,
                 child: Opacity(
-                  opacity: (free == false) ? 0.45 : 1,
+                  opacity: (free == false || trailerBlocked) ? 0.45 : 1,
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 6),
                     padding: const EdgeInsets.all(8),
@@ -207,7 +216,15 @@ class _EditMotoChangeSectionState extends ConsumerState<EditMotoChangeSection> {
                           style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
                       ])),
                       const SizedBox(width: 6),
-                      if (free == false)
+                      if (trailerBlocked)
+                        Flexible(
+                            child: Text(t(context).tr('swap.trailerStaffedOnly'),
+                                textAlign: TextAlign.end,
+                                style: const TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: MotoGoColors.red)))
+                      else if (free == false)
                         Text(t(context).tr('swap.occupied'),
                             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.red))
                       else if (free == null && _availLoading)

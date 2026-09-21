@@ -127,7 +127,7 @@ $keys = [
 
     // Moto tab
     'editRez.moto.intro','editRez.moto.loading','editRez.moto.licPill','editRez.moto.noLicPill',
-    'editRez.moto.samePrice','editRez.moto.diffRefund','editRez.moto.reasonLicense','editRez.moto.reasonOccupied',
+    'editRez.moto.samePrice','editRez.moto.diffRefund','editRez.moto.reasonLicense','editRez.moto.reasonOccupied','editRez.moto.reasonTrailerBranch',
     'editRez.moto.unavailable','editRez.moto.selectThis','editRez.moto.diffUp',
     'editRez.moto.priceTotal','editRez.moto.priceVs','editRez.moto.backToDetail',
     'editRez.moto.confirmTitle','editRez.moto.confirmYes','editRez.moto.confirmNo',

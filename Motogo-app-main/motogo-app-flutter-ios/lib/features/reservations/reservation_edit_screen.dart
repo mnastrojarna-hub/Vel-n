@@ -793,7 +793,14 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         }
       }
     } catch (e) {
-      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: '$e');
+      // Pojistka z DB „vozík jen na obslužné pobočce" (trg_check_trailer_overlap)
+      // chodí jako text uvnitř PostgrestException — bez tohohle by se do toastu
+      // vypsala celá nepřeložená hláška včetně UUID motorky.
+      final raw = '$e';
+      final msg = (raw.contains('obslužné pobočky') || raw.contains('trailer_moto_id'))
+          ? t(context).tr('swap.trailerStaffedOnly')
+          : raw;
+      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: msg);
     }
     if (mounted) setState(() => _saving = false);
   }
@@ -993,6 +1000,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               newMotoId: _newMotoId,
               expanded: _motoExpanded,
               userLicense: userLicense,
+              // S vozíkem nelze přejet na motorku ze samoobslužné pobočky.
+              hasTrailer: _booking!.trailerMotoId != null,
               onMotoSelected: (id) => setState(() => _newMotoId = id),
               onToggleExpanded: () => setState(() => _motoExpanded = !_motoExpanded),
             ),
