@@ -450,10 +450,33 @@ double _metersApart(LatLng a, LatLng b) {
   return math.sqrt(dx * dx + dy * dy);
 }
 
-/// Dva body prakticky na jednom pixelu = jedno místo, ať se jmenují jakkoli
-/// („Říp" a „Říp (rotunda sv. Jiří)" 13 m, „Štramberk (Trúba)" a „Štramberk"
-/// 10 m).
-const double _kSamePlaceM = 35;
+/// Dva body prakticky na jednom místě — na mapě by to byl jeden špendlík
+/// a v seznamu dva řádky téhož. Název se tu NEŘEŠÍ vůbec, a právě v tom je
+/// síla pravidla: „Dukliansky priesmyk" × „Dukelský průsmyk", „Bezodná
+/// ľadnica" × „Bezedná lednice" nebo „Diviačia priepasť" × „Kančí propast"
+/// jsou dvojjazyčné zápisy TÉHOŽ místa a žádné pravidlo nad názvy je nikdy
+/// nespojí — nesdílejí ani písmeno. Spojí je jedině poloha.
+///
+/// Proč 14 a ne 35 metrů: všech 513 katalogových dvojic do 35 m, jejichž
+/// názvy spolu nijak nesouvisejí, bylo posouzeno kus po kuse. Podíl dvojic,
+/// které jsou ve skutečnosti DVĚ RŮZNÁ místa, se láme kolem 14 m:
+///     0,0–0,7 m  27 %      14,5–21,5 m  77 %
+///     0,7–6,7 m  30 %      21,5–28,8 m  79 %
+///     7,0–14,5 m 26 %      28,9–34,9 m  83 %
+/// Nad tou hranicí tedy pravidlo slučovalo převážně různá místa (hrad
+/// a vedlejší kostel, dva tatranské štíty, dvě synagogy) a mazalo je tím
+/// z appky. Snížení na 14 m vrátí do seznamu a na mapu 275 míst a žádný
+/// z kontrolních případů nerozbije (Sněžka × KNP i Macocha jsou na 0 m).
+///
+/// Pod 14 m zbývá ~27 % dvojic, které jsou taky dvě různá místa — těm
+/// Wikidata daly stejné souřadnice („Šugovský vrch" × „Ďurkova skala",
+/// „Stará" × „Nová synagoga v Liberci"). Ty vzdálenost nerozliší a pojistka
+/// na druhové slovo v názvu (sedlo × štít, zámek × klášter) se NEOSVĚDČILA:
+/// nad ručními štítky rozdělila 7 správných sloučení a jen 2 chybná,
+/// protože věž patřící k hradu a klášter v zámeckém areálu jsou pro
+/// uživatele jeden cíl. Zbytek je práce pro člověka ve Velíně (záložka
+/// „Duplicitní místa", kde se řadí od nejbližších).
+const double _kSamePlaceM = 14;
 
 /// Shodný název = totéž místo, i když se souřadnice z různých zdrojů liší
 /// o kilometry (tentýž zámek má u každé trasy trochu jinou značku; měřeno na
