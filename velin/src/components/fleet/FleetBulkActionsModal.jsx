@@ -5,6 +5,7 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { UNAVAILABLE_REASONS } from './motoActionConstants'
 import { fetchBlockingBookings, fetchOverlappingBookings, blockingBookingsMessage } from './bookingGuard'
+import { confirmTrailerBranchMove } from '../../pages/BranchHelpers'
 
 const CATEGORIES = [
   { value: 'cestovni', label: 'Cestovní' },
@@ -38,7 +39,7 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
 
   useEffect(() => {
     if (open) {
-      supabase.from('branches').select('id, name').order('name').then(({ data }) => setBranches(data || []))
+      supabase.from('branches').select('id, name, type').order('name').then(({ data }) => setBranches(data || []))
       setMode(null); setError(null); setSuccess(null)
       setTargetBranch(''); setTargetCategory(''); setReason(''); setCustomReason(''); setUnavailableUntil('')
       setBookingFrom(''); setBookingTo(''); setBookingNote(''); setPriceField('all'); setPriceValue('')
@@ -70,6 +71,10 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
   async function handleMigrate() {
     if (!targetBranch) { setError('Vyber pobočku'); return }
     const target = branches.find(b => b.id === targetBranch)
+    // Samoobslužná pobočka vozík nevydává — živé rezervace s vozíkem potvrdit.
+    // MUSÍ být PŘED run(): předčasný return uvnitř callbacku by run nezastavil
+    // a ohlásil by „Přesunuto…“, přestože se nic nestalo.
+    if (!(await confirmTrailerBranchMove(supabase, target, ids))) return
     await run(`Přesunuto na ${target?.name} · zákazníkům s rezervací byly vygenerovány nové kódy a znovu odeslány`, async () => {
       const { error: err } = await supabase.from('motorcycles').update({ branch_id: targetBranch }).in('id', ids)
       if (err) throw err

@@ -8,6 +8,7 @@ import ServiceChecklistView from './ServiceChecklistView'
 import { UNAVAILABLE_REASONS } from './motoActionConstants'
 import MotoStatusPanel from './MotoStatusPanel'
 import { fetchBlockingBookings, fetchActiveBookings, blockingBookingsMessage } from './bookingGuard'
+import { confirmTrailerBranchMove } from '../../pages/BranchHelpers'
 
 export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [branches, setBranches] = useState([])
@@ -57,9 +58,11 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
 
   async function handleMigrate() {
     if (!selectedBranch) return
+    const target = branches.find(b => b.id === selectedBranch)
+    // Samoobslužná pobočka vozík nevydává — živé rezervace s vozíkem potvrdit.
+    if (!(await confirmTrailerBranchMove(supabase, target, [moto.id]))) return
     setBusy(true); setError(null)
     try {
-      const target = branches.find(b => b.id === selectedBranch)
       const { error: err } = await supabase.from('motorcycles').update({ branch_id: selectedBranch }).eq('id', moto.id)
       if (err) throw err
       await logAudit('motorcycle_migrated', { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: target?.name })
