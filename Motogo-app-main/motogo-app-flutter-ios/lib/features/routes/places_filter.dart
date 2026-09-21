@@ -345,10 +345,22 @@ const Set<String> _genericWords = {
   'rozhledna', 'rozhledny', 'vyhlidka', 'vyhlidkova', 'vez', 'veze', 'vysilac',
   'muzeum', 'muzea', 'pamatnik', 'pomnik', 'skanzen', 'mlyn', 'mlyna',
   'burg', 'burgruine', 'schloss', 'castle', 'chateau', 'ruine', 'tower',
+  // SLOVENSKÉ tvary téhož — katalog vede slovenská místa česky i slovensky
+  // („Bojnický zámek" × „Bojnický zámok", „Rozhľadňa Kloptaň" × „Kloptaň")
+  // a seznam byl psaný jen česky, takže appka viděla dva různé názvy.
+  // POZOR, co sem NEPATŘÍ: sakrální stavby (klastor, kostol, kaplnka)
+  // a letiště. Po jejich odstranění zbude z názvu jen JMÉNO MĚSTA a slije
+  // se, co nemá — změřeno: s „klastor" spadla „Synagoga v Malackách"
+  // dohromady s „kláštor v Malackách", s anglickým „synagogue" dokonce
+  // město „Wadowice" se svou synagogou.
+  'zamok', 'zamocek', 'hradny', 'veza', 'rozhladna', 'vyhliadka',
+  'vyhliadkova',
   // příroda
   'vrch', 'vrchol', 'hora', 'hory', 'kopec', 'sedlo', 'skala', 'skaly',
   'prehrada', 'prehradni', 'nadrz', 'rybnik', 'jezero', 'jezirko', 'vodopad',
   'jeskyne', 'jaskyna', 'propast', 'studanka', 'studna', 'pramen', 'prameny',
+  'jaskyne', 'priepast', 'studnicka', 'pramene', 'jazero', 'jazierko',
+  'priehrada', 'nadrze', 'vodopady',
   'park', 'rezervace', 'udoli', 'les', 'louka', 'louky',
   // spojky a předložky
   'a', 'i', 'na', 'nad', 'pod', 'u', 'v', 've', 'se', 's', 'z', 'ze', 'do',
