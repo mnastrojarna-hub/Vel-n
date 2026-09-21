@@ -29,8 +29,17 @@ const Map<String, String> kRouteImageHeaders = {
 /// přepíše na server-side zmenšeninu přes `render/image` endpoint (mgThumbUrl);
 /// při nedostupné transformaci RouteImage automaticky spadne na originál.
 /// Ostatní URL vrací beze změny.
-String mgImageUrl(String url, {int width = 800}) {
-  if (url.isEmpty) return url;
+String mgImageUrl(String rawUrl, {int width = 800}) {
+  if (rawUrl.isEmpty) return rawUrl;
+  // Katalog míst má adresy fotek přímo z Wikidat, a ty jsou zapsané jako
+  // `http://commons.wikimedia.org/…`. Přes http to jde na tři přesměrování
+  // (http → https → upload → thumb), což u seznamu s desítkami náhledů znamená
+  // desítky zbytečných spojení. Backend je přepisuje migrací
+  // 20260920g_poi_photos_https_and_cron.sql, tohle je pojistka pro řádky,
+  // které přijdou odjinud (Velín, komunitní body).
+  final url = rawUrl.startsWith('http://')
+      ? 'https://${rawUrl.substring(7)}'
+      : rawUrl;
   final lower = url.toLowerCase();
   final isWiki = lower.contains('wikimedia.org') || lower.contains('wikipedia.org');
   if (isWiki && lower.contains('special:filepath')) {

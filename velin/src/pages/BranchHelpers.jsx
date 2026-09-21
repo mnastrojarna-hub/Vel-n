@@ -114,10 +114,15 @@ function StatCard({ label, value, color }) {
   )
 }
 
-function SmallBtn({ children, color, onClick }) {
+function SmallBtn({ children, color, onClick, disabled }) {
   return (
-    <button onClick={onClick} className="text-sm font-bold cursor-pointer"
-      style={{ color, background: 'none', border: 'none', padding: '4px 6px' }}>
+    <button onClick={disabled ? undefined : onClick} disabled={!!disabled}
+      className="text-sm font-bold"
+      style={{
+        color, background: 'none', border: 'none', padding: '4px 6px',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.45 : 1,
+      }}>
       {children}
     </button>
   )

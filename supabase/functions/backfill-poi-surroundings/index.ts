@@ -39,7 +39,8 @@ const CORS = {
 
 const CAT_LABEL: Record<string, string> = {
   food: 'restaurace / občerstvení', castle: 'hrad / zámek', lookout: 'rozhledna / vyhlídka',
-  water: 'vodní plocha (přehrada/jezero/rybník)', sights: 'památka / zajímavost',
+  water: 'vodní plocha (přehrada/jezero/rybník)', spring: 'studánka / pramen / minerální vývěr',
+  sights: 'památka / zajímavost',
   nature: 'přírodní lokalita', military: 'vojenská památka / opevnění',
   aviation: 'letecká památka / muzeum', tech: 'technická / průmyslová památka',
   moto: 'motoristická zajímavost (okruh, muzeum)', other: 'zajímavé místo',
