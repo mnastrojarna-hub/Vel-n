@@ -35,7 +35,8 @@
 | `profiles` | Zákaznické profily (vazba na auth.users) |
 | `motorcycles` | Flotila motorek |
 | `bookings` | Rezervace |
-| `branches` | Pobočky (autonomní, branch_code, is_open toggle) |
+| `branches` | Pobočky (autonomní, branch_code, is_open toggle — **od 2026-09-20 `is_open=false` BLOKUJE rezervace všech motorek pobočky**) |
+| `branch_closures` | **NEW 2026-09-20 (`20260920d_branch_closures.sql`, APLIKUJE AUTO-DEPLOY po merge)** — Zavírací období pobočky (zimní sezona, rekonstrukce, dovolená). Sloupce: `id`, `branch_id` FK→branches ON DELETE CASCADE, `closed_from` date NOT NULL, `closed_to` date NOT NULL (CHECK `closed_to >= closed_from`), `reason` (jen pro Velín, zákazníkovi se nezobrazuje), `created_by`, `created_at`, `updated_at` (trigger `trg_branch_closures_touch` → `touch_updated_at`). Index `idx_branch_closures_branch` (branch_id, closed_from, closed_to). Rozsah je **INKLUZIVNÍ** (1. 11. – 31. 3. blokuje oba krajní dny) — shodně s dny pronájmu. RLS: `branch_closures_public_read` FOR SELECT USING (true) (kalendáře webu/appky běží pod anon) + `branch_closures_admin` FOR ALL `is_admin()`. V termínu **nelze rezervovat žádnou motorku dané pobočky** — vyhodnocuje `branch_is_closed()` (STATE_3), kterou používá kalendář (`get_moto_booked_dates` → status `branch_closed`), `check_moto_availability`, `get_available_motos`, `get_trailer_availability` i trigger `trg_check_booking_branch_open` (STATE_4). Spravuje Velín → Pobočky → detail → záložka „Zavírací období“ (`BranchClosures.jsx`); stávající rezervace v termínu se NERUŠÍ, Velín na ně při uložení období upozorní. |
 | `branch_accessories` | Příslušenství na pobočce (boty, helmy, kukly, rukavice, kalhoty) — typ+velikost+počet |
 | `branch_door_codes` | Přístupové kódy ke dveřím (motorka / příslušenství) — per booking, auto-generované |
 | `admin_users` | Admin uživatelé (role: admin_role ENUM, branch_access uuid[], permissions jsonb) |

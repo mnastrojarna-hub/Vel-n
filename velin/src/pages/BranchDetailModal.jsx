@@ -3,10 +3,11 @@ import { supabase } from '../lib/supabase'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import { mapyLinkUrl } from '../lib/mapyCz'
-import { DETAIL_TABS, MAX_MOTOS, Spinner, EmptyState, DRow } from './BranchHelpers'
+import { DETAIL_TABS, maxMotosForBranch, isSelfService, SELF_SERVICE_LAYOUT_NOTE, Spinner, EmptyState, DRow } from './BranchHelpers'
 import { TabAccessories } from './BranchAccessories'
 import { TabDoorCodes } from './BranchDoorCodes'
 import { TabSelfService } from './BranchSelfService'
+import { TabClosures } from './BranchClosures'
 
 function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEdit, onRefresh }) {
   const [tab, setTab] = useState(0)
@@ -156,7 +157,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
         <TabInfo branch={branch} branchStats={branchStats} bookings={bookings} />
       )}
       {tab === 1 && (
-        <TabMotorcycles motos={motos} loading={loadingMotos} statusLabels={MOTO_STATUS} branchId={branch.id} onRefresh={loadMotos} />
+        <TabMotorcycles motos={motos} loading={loadingMotos} statusLabels={MOTO_STATUS} branch={branch} onRefresh={loadMotos} />
       )}
       {tab === 2 && (
         <TabAccessories accessories={accessories} loading={loadingAccessories} branchId={branch.id} branchName={branch.name} onRefresh={loadAccessories} />
@@ -173,6 +174,9 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
       )}
       {tab === 4 && (
         <TabSelfService branchId={branch.id} branchName={branch.name} motos={motos} />
+      )}
+      {tab === 5 && (
+        <TabClosures branch={branch} />
       )}
 
       <div className="flex justify-end gap-3 mt-5">
@@ -232,8 +236,10 @@ function TabInfo({ branch, branchStats, bookings }) {
   )
 }
 
-function TabMotorcycles({ motos, loading, statusLabels, branchId, onRefresh }) {
+function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
   const [saving, setSaving] = useState(false)
+  const selfService = isSelfService(branch)
+  const maxMotos = maxMotosForBranch(branch)
 
   if (loading) return <Spinner />
   if (motos.length === 0) return <EmptyState text="Žádné motorky na této pobočce" />
@@ -246,7 +252,13 @@ function TabMotorcycles({ motos, loading, statusLabels, branchId, onRefresh }) {
     return a.box_number - b.box_number
   })
 
+  // Číslo kóje jde u motorky kdykoliv přepsat (i změnit, nejen doplnit).
+  // Prázdná hodnota = motorka bez přiřazené kóje.
   async function setBoxNumber(motoId, num) {
+    if (num != null && (num < 1 || num > maxMotos)) {
+      alert(`Číslo kóje musí být 1–${maxMotos}.`)
+      return
+    }
     setSaving(true)
     try {
       const { error } = await supabase.from('motorcycles').update({ box_number: num }).eq('id', motoId)
@@ -257,6 +269,14 @@ function TabMotorcycles({ motos, loading, statusLabels, branchId, onRefresh }) {
     } finally {
       setSaving(false)
     }
+  }
+
+  function commitBoxInput(motoId, raw) {
+    const txt = String(raw ?? '').trim()
+    if (txt === '') { setBoxNumber(motoId, null); return }
+    const val = parseInt(txt, 10)
+    if (Number.isNaN(val)) return
+    setBoxNumber(motoId, val)
   }
 
   async function swapBoxNumbers(indexA, indexB) {
@@ -280,6 +300,10 @@ function TabMotorcycles({ motos, loading, statusLabels, branchId, onRefresh }) {
   }
 
   async function autoAssignBoxNumbers() {
+    if (motos.length > maxMotos) {
+      alert(`Na pobočce je ${motos.length} motorek, ale jen ${maxMotos} kójí — auto-přiřazení by nemělo kam ty navíc dát. Přesuňte přebytečné motorky na jinou pobočku.`)
+      return
+    }
     if (!window.confirm(`Automaticky přiřadit čísla kojí 1–${motos.length} všem motorkám na pobočce?`)) return
     setSaving(true)
     try {
@@ -296,12 +320,24 @@ function TabMotorcycles({ motos, loading, statusLabels, branchId, onRefresh }) {
   }
 
   const hasUnassigned = sorted.some(m => m.box_number == null)
+  const overLimit = motos.length > maxMotos
+  // Dvě motorky ve stejné kóji = špatné kódy i špatné dveře na samoobsluze
+  const dupBoxes = new Set(
+    sorted.map(m => m.box_number).filter(n => n != null)
+      .filter((n, i, arr) => arr.indexOf(n) !== i)
+  )
+  const outOfRange = new Set(
+    sorted.filter(m => m.box_number != null && (m.box_number < 1 || m.box_number > maxMotos)).map(m => m.box_number)
+  )
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm" style={{ color: '#1a2e22' }}>
-          <strong>{motos.length}</strong> motorek na pobočce (max {MAX_MOTOS})
+          <strong>{motos.length}</strong> {selfService ? `z ${maxMotos} kójí motorek` : `motorek na pobočce (max ${maxMotos})`}
+          {selfService && (
+            <span className="ml-1" style={{ color: '#6b7280' }}>({SELF_SERVICE_LAYOUT_NOTE} — kóje 1–{maxMotos})</span>
+          )}
           <div className="text-xs" style={{ color: '#6b7280' }}>Změna kóje vygeneruje zákazníkům s rezervací nové kódy a znovu je odešle.</div>
         </div>
         <div className="flex gap-2">
@@ -314,6 +350,22 @@ function TabMotorcycles({ motos, loading, statusLabels, branchId, onRefresh }) {
           )}
         </div>
       </div>
+
+      {overLimit && (
+        <div className="rounded-lg mb-2 text-sm" style={{ padding: '8px 10px', background: '#fee2e2', color: '#dc2626' }}>
+          Na pobočce je {motos.length} motorek, ale jen {maxMotos} kójí{selfService ? ` (${SELF_SERVICE_LAYOUT_NOTE})` : ''}. Přebytečné kusy přesuňte na jinou pobočku.
+        </div>
+      )}
+      {dupBoxes.size > 0 && (
+        <div className="rounded-lg mb-2 text-sm" style={{ padding: '8px 10px', background: '#fef3c7', color: '#b45309' }}>
+          Kóje {[...dupBoxes].map(n => `#${n}`).join(', ')} má přiřazeno víc motorek — zákazník by dostal kód k cizím dveřím. Opravte čísla kójí.
+        </div>
+      )}
+      {outOfRange.size > 0 && (
+        <div className="rounded-lg mb-2 text-sm" style={{ padding: '8px 10px', background: '#fef3c7', color: '#b45309' }}>
+          Kóje {[...outOfRange].map(n => `#${n}`).join(', ')} je mimo rozsah 1–{maxMotos} této pobočky.
+        </div>
+      )}
 
       <div className="space-y-1 max-h-96 overflow-y-auto">
         {sorted.map((m, i) => {
@@ -359,23 +411,27 @@ function TabMotorcycles({ motos, loading, statusLabels, branchId, onRefresh }) {
                 style={{ padding: '2px 6px', background: st.bg, color: st.color }}>
                 {st.label}
               </span>
-              {/* Manual box number edit */}
-              {m.box_number == null && (
-                <input type="number" min="1" max={MAX_MOTOS} placeholder="Koje"
-                  className="rounded-btn text-sm outline-none font-mono ml-1"
-                  style={{ width: 50, padding: '2px 4px', background: '#fffbeb', border: '1px solid #fbbf24', textAlign: 'center' }}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      const val = parseInt(e.target.value)
-                      if (val >= 1 && val <= MAX_MOTOS) setBoxNumber(m.id, val)
-                    }
-                  }}
-                  onBlur={e => {
-                    const val = parseInt(e.target.value)
-                    if (val >= 1 && val <= MAX_MOTOS) setBoxNumber(m.id, val)
-                  }}
-                />
-              )}
+              {/* Číslo kóje — vždy přepsatelné (prázdné = bez kóje) */}
+              <input
+                key={`box-${m.id}-${m.box_number ?? 'x'}`}
+                type="number" min="1" max={maxMotos} placeholder="Kóje"
+                defaultValue={m.box_number ?? ''}
+                disabled={saving}
+                title={`Kóje motorky na pobočce (1–${maxMotos}). Prázdné = bez přiřazené kóje.`}
+                className="rounded-btn text-sm outline-none font-mono ml-1"
+                style={{
+                  width: 54, padding: '2px 4px', textAlign: 'center',
+                  background: m.box_number == null ? '#fffbeb' : '#f1faf7',
+                  border: `1px solid ${m.box_number == null ? '#fbbf24' : '#d4e8e0'}`,
+                }}
+                onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
+                onBlur={e => {
+                  const txt = String(e.target.value ?? '').trim()
+                  const cur = m.box_number == null ? '' : String(m.box_number)
+                  if (txt === cur) return
+                  commitBoxInput(m.id, txt)
+                }}
+              />
             </div>
           )
         })}
