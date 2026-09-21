@@ -10,6 +10,7 @@ import BookingDeliverySection from './BookingDeliverySection'
 import { isoDate, toDate, fmtDate, fmtCZK, fmtTimeHM, countDays, calcDayBreakdown } from './bookingModifyHelpers'
 import { findFeeExtra, feeAmount } from './DetailTabSections'
 import { latePickupDiscount } from '../../lib/latePickup'
+import { SELF_SERVICE_TYPE } from '../BranchHelpers'
 
 export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const origStart = toDate(booking.start_date)
@@ -157,7 +158,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   // nechceme, může mít důvod (vozík přiveze sama).
   const trailerToSelfService = !!booking.trailer_moto_id && motoChanged && (() => {
     const br = branches.find(b => b.id === selectedMoto?.branch_id)
-    return br?.type === 'samoobslužná'
+    return br?.type === SELF_SERVICE_TYPE
   })()
   const datesChanged = isoDate(startDate) !== isoDate(origStart) || isoDate(endDate) !== isoDate(origEnd)
   const deliveryChanged = pickupMethod !== origDelivery.pickup || returnMethod !== origDelivery.ret || pickupAddress !== (booking.pickup_address || '') || returnAddress !== (booking.return_address || '') || newDeliveryFee !== origDelivery.fee

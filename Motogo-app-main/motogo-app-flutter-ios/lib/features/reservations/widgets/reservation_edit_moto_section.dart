@@ -186,6 +186,10 @@ class _EditMotoChangeSectionState extends ConsumerState<EditMotoChangeSection> {
             return Column(children: available.map((m) {
               final free = _avail[m.id];
               // Vozík jen na obslužné pobočce — kus ze samoobsluhy nenabízej.
+              // Tady jde VŽDY o přepis moto_id na řádku s vozíkem (na rozdíl od
+              // „Výměny motorky", kde SPLIT rezervaci s vozíkem nechává být),
+              // takže se blokuje bez další podmínky. Serverová pojistka:
+              // process-payment (doplatek) + trg_check_trailer_overlap (20260921f).
               final trailerBlocked =
                   widget.hasTrailer && m.branchType == 'samoobslužná';
               final selectable = free == true && !trailerBlocked;

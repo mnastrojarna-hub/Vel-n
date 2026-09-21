@@ -46,13 +46,19 @@ export function isSelfService(branch) {
 export async function countTrailerBookings(supabase, motoIds) {
   const ids = (motoIds || []).filter(Boolean)
   if (!ids.length) return 0
+  const today = new Date().toLocaleDateString('sv-SE')
   const { data, error } = await supabase
     .from('bookings')
     .select('id')
     .in('moto_id', ids)
     .not('trailer_moto_id', 'is', null)
     .in('status', ['pending', 'reserved', 'active'])
-  if (error) return 0
+    // Dávno skončené rezervace, které nikdo nepřeklopil do 'completed', nejsou
+    // „živé" — bez tohohle by varování strašilo i tam, kde není co řešit.
+    .gte('end_date', today)
+  // Chyba dotazu (RLS, síť, token) NESMÍ varování tiše vypnout — vrátíme -1
+  // a volající se zeptá tak jako tak. Fail closed.
+  if (error) return -1
   return (data || []).length
 }
 
@@ -62,7 +68,14 @@ export async function countTrailerBookings(supabase, motoIds) {
 export async function confirmTrailerBranchMove(supabase, targetBranch, motoIds) {
   if (!isSelfService(targetBranch)) return true
   const n = await countTrailerBookings(supabase, motoIds)
-  if (!n) return true
+  if (n === 0) return true
+  if (n < 0) {
+    return window.confirm(
+      'Nepodařilo se ověřit, jestli některá živá rezervace veze vozík ' +
+      `(chyba dotazu). Přesouváš motorku na SAMOOBSLUŽNOU pobočku „${targetBranch?.name || ''}“, ` +
+      'která vozík nevydává.\n\nPřesun přesto provést?'
+    )
+  }
   return window.confirm(
     `Pozor: ${n === 1 ? '1 živá rezervace veze' : n + ' živých rezervací veze'} vozík ` +
     `a přesouváš motorku na SAMOOBSLUŽNOU pobočku „${targetBranch?.name || ''}“, ` +
