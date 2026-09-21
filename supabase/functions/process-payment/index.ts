@@ -455,15 +455,22 @@ Deno.serve(async (req: Request) => {
           // je tenhle validátor. Bez něj by se doplatek strhl a teprve zápis
           // (resp. DB trigger) by změnu odmítl.
           if (curB?.trailer_moto_id && typeof c.moto_id === 'string' && c.moto_id) {
-            const { data: selfSvc } = await supabase.rpc('moto_is_self_service', { p_moto_id: c.moto_id })
-            if (selfSvc === true) dryErr = 'trailer_staffed_only'
+            // FAIL CLOSED: když se kontrola nepovede (RPC chyba, výpadek), platbu
+            // radši odmítneme — po stržení peněz by změnu odmítl trigger
+            // (20260921f) a zákazník by zaplatil za nic. Týká se jen rezervací
+            // s vozíkem, které mění motorku — úzká populace.
+            const { data: selfSvc, error: selfErr } = await supabase.rpc('moto_is_self_service', { p_moto_id: c.moto_id })
+            if (selfErr || typeof selfSvc !== 'boolean') dryErr = 'trailer_check_unavailable'
+            else if (selfSvc === true) dryErr = 'trailer_staffed_only'
           }
         }
       } catch (_e) { /* dry-run nedostupný → kompatibilně bez validace */ }
       if (dryErr) {
         const dryMsg = dryErr === 'trailer_staffed_only'
           ? 'Vozík lze půjčit jen k motorce z obslužné pobočky — samoobslužná ho nevydává. Vyberte motorku z obslužné pobočky, nebo z rezervace odeberte vozík. Platba doplatku zrušena.'
-          : `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
+          : dryErr === 'trailer_check_unavailable'
+            ? 'Nepodařilo se ověřit vozík u rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.'
+            : `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
         return new Response(
           JSON.stringify({ success: false, error: dryMsg, code: dryErr }),
           { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }

@@ -28,7 +28,7 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
     // Náhrada se stěhuje NA pobočku servisovaného kusu — když je samoobslužná,
     // přijdou její živé rezervace s vozíkem o krytí.
     if (moto.branch_id && replacementMoto.id &&
-        !(await confirmTrailerBranchMove(supabase, moto.branches, [replacementMoto.id]))) return
+        !(await confirmTrailerBranchMove(supabase, moto.branch_id, [replacementMoto.id]))) return
     setBusy(true)
     // Move replacement to this moto's branch
     if (moto.branch_id && replacementMoto.id) {
