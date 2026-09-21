@@ -8,6 +8,7 @@ import ServiceChecklistView from './ServiceChecklistView'
 import { UNAVAILABLE_REASONS } from './motoActionConstants'
 import MotoStatusPanel from './MotoStatusPanel'
 import { fetchBlockingBookings, fetchActiveBookings, blockingBookingsMessage } from './bookingGuard'
+import { confirmTrailerBranchMove } from '../../pages/BranchHelpers'
 
 export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [branches, setBranches] = useState([])
@@ -57,9 +58,11 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
 
   async function handleMigrate() {
     if (!selectedBranch) return
+    const target = branches.find(b => b.id === selectedBranch)
+    // Samoobslužná pobočka vozík nevydává — živé rezervace s vozíkem potvrdit.
+    if (!(await confirmTrailerBranchMove(supabase, target, [moto.id]))) return
     setBusy(true); setError(null)
     try {
-      const target = branches.find(b => b.id === selectedBranch)
       const { error: err } = await supabase.from('motorcycles').update({ branch_id: selectedBranch }).eq('id', moto.id)
       if (err) throw err
       await logAudit('motorcycle_migrated', { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: target?.name })
@@ -215,6 +218,11 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       setShowDeactReplace(false)
       return
     }
+    // Náhrada se stěhuje NA pobočku servisovaného kusu — když je samoobslužná,
+    // přijdou její živé rezervace s vozíkem o krytí (stejná úvaha jako u ručního
+    // přesunu výše).
+    if (moto.branch_id && replacement?.id &&
+        !(await confirmTrailerBranchMove(supabase, moto.branches, [replacement.id]))) return
     setBusy(true)
     if (moto.branch_id && replacement?.id) {
       await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', replacement.id)
@@ -269,7 +277,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         <div className="p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
           <div className="text-sm font-bold mb-2" style={{ color: '#b45309' }}>Servis &gt;3 dny v sezóně — vyberte náhradu na {moto.branches?.name || '—'}:</div>
           <ReplacementMotoPicker branchId={moto.branch_id} excludeMotoId={moto.id}
-            onSelect={async (r) => { if (r?.id && moto.branch_id) { await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', r.id); if (pendingLogId) await supabase.from('maintenance_log').update({ replacement_moto_id: r.id }).eq('id', pendingLogId); await logAudit('moto_replaced_long_service', { moto_id: moto.id, replacement_id: r.id }) }; setShowReplacement(false); setSuccess('Motorka v servisu, náhrada přiřazena'); refresh() }}
+            onSelect={async (r) => { if (r?.id && moto.branch_id) { if (!(await confirmTrailerBranchMove(supabase, moto.branches, [r.id]))) return; await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', r.id); if (pendingLogId) await supabase.from('maintenance_log').update({ replacement_moto_id: r.id }).eq('id', pendingLogId); await logAudit('moto_replaced_long_service', { moto_id: moto.id, replacement_id: r.id }) }; setShowReplacement(false); setSuccess('Motorka v servisu, náhrada přiřazena'); refresh() }}
             onCancel={() => { setShowReplacement(false); setSuccess('Motorka v servisu (bez náhrady)'); refresh() }} />
         </div>
       ) : showDeactReplace ? (

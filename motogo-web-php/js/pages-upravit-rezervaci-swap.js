@@ -58,7 +58,6 @@
       '</div>';
 
     var dateInput = document.getElementById('erez-swap-date');
-    dateInput.addEventListener('change', function () { renderMotos(); });
 
     // Veze rezervace vozík? Minifikované jádro `trailer_moto_id` do svého
     // selectu nedává a neupravuje se, tak se doptáme zvlášť (jeden lehký dotaz
@@ -71,6 +70,10 @@
       var _tr = await window.sb.from('bookings').select('trailer_moto_id').eq('id', b.id).maybeSingle();
       hasTrailer = !!(_tr && !_tr.error && _tr.data && _tr.data.trailer_moto_id);
     } catch (e) { /* nezjištěno → chová se jako bez vozíku, pojistkou zůstává DB */ }
+
+    // Listener AŽ TEĎ: navěšený před await by při rychlé změně data vykreslil
+    // seznam ještě s hasTrailer=false a kusy ze samoobsluhy by šly vybrat.
+    dateInput.addEventListener('change', function () { renderMotos(); });
 
     async function renderMotos() {
       var grid = document.getElementById('erez-swap-motos');
@@ -121,7 +124,14 @@
           // Dostupnost nové motorky POUZE od data výměny do konce rezervace.
           var free = !ER._rangeOverlapsOccupied(swapDate, origEnd, x.occupied);
           // Rezervace s vozíkem nesmí přejet na motorku ze samoobslužné pobočky.
-          var trailerBlocked = hasTrailer && m.branches && 'samoobslužná' === m.branches.type;
+          // JEN u plné výměny (REPLACE) — tam se přepíše moto_id na řádku, který
+          // vozík nese. U SPLITu (výměna uprostřed) si rezervace A motorku
+          // i vozík ponechá a nová rezervace B vozík nedostane, takže to
+          // `split_booking_moto_swap` rev.9 záměrně povoluje (20260921d) a
+          // klient to blokovat nesmí. Shodná podmínka jako v SQL:
+          // v_replace = (p_swap_date = start_date) AND status = 'reserved'.
+          var isReplace = swapDate === origStart && 'reserved' === b.status;
+          var trailerBlocked = isReplace && hasTrailer && m.branches && 'samoobslužná' === m.branches.type;
           var disabled = !allowed || !free || trailerBlocked;
 
           var img = (m.images && m.images.length ? m.images[0] : m.image_url) || '';
@@ -232,7 +242,10 @@
     // Pojistka z DB (trg_check_trailer_overlap, ERRCODE 23514) chodí jako
     // hláška, ne jako kód — bez tohohle by se do UI vypsala nepřeložená
     // včetně UUID motorky.
-    if (!key && /obslužné pobočky|trailer_moto_id/.test(String(code))) {
+    // POZOR: matchovat JEN na text o pobočce. Tentýž trigger hlásí i „Vozík je
+    // v tomto termínu již obsazen (trailer_moto_id=…)" — na `trailer_moto_id`
+    // se tedy chytat nesmí, jinak se obsazený vozík hlásí jako špatná pobočka.
+    if (!key && /obslužné pobočky/.test(String(code))) {
       key = 'editRez.moto.reasonTrailerBranch';
     }
     ER._showError(key ? MG.t(key) : (code || MG.t('editRez.err.generic')));

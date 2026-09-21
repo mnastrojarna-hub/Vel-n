@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
-import { FormField, generateBranchCode, SELF_SERVICE_LAYOUT_NOTE } from './BranchHelpers'
+import { FormField, generateBranchCode, SELF_SERVICE_LAYOUT_NOTE, SELF_SERVICE_TYPE, countTrailerBookings } from './BranchHelpers'
 import { autoTranslateRow } from '../lib/autoTranslate'
 
 function BranchModal({ existing, onClose, onSaved }) {
@@ -30,6 +30,18 @@ function BranchModal({ existing, onClose, onSaved }) {
     if (!form.name?.trim()) {
       setErr('Název pobočky je povinný.')
       return
+    }
+    // Přepnutí existující pobočky na SAMOOBSLUŽNOU zpětně zneplatní každou její
+    // živou rezervaci s vozíkem — samoobsluha vozík nevydává a web ani appka by
+    // tu kombinaci zákazníkovi vůbec nenabídly. Neblokujeme, ale ptáme se.
+    if (isEdit && form.type?.trim() === SELF_SERVICE_TYPE && existing?.type !== SELF_SERVICE_TYPE) {
+      const { data: bm } = await supabase.from('motorcycles').select('id').eq('branch_id', existing.id)
+      const n = await countTrailerBookings(supabase, (bm || []).map(m => m.id))
+      if (n && !window.confirm(
+        `Pozor: na pobočce „${form.name.trim()}“ ${n === 1 ? 'je 1 živá rezervace, která veze' : 'je ' + n + ' živých rezervací, které vezou'} vozík.\n\n` +
+        'Samoobslužná pobočka vozík nevydává (7 kójí + šatna, výdej 24/7 kódem bez obsluhy). ' +
+        'Přepnout režim? Vozík u těch rezervací zůstane a bude ho potřeba vyřešit ručně.'
+      )) return
     }
     setSaving(true); setErr(null)
     try {
