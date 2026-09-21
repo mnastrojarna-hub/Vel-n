@@ -349,6 +349,22 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
     final hasDates = draft.startDate != null && draft.endDate != null;
     final dc = hasDates ? draft.dayCount : 0;
     final isKids = moto.licenseRequired == 'N';
+    // Samoobslužná pobočka vozík nevydává (výdej 24/7 kódem, bez obsluhy).
+    final selfService = moto.branchType == 'samoobslužná';
+    // Vozík zbylý z dříve vybrané motorky z OBSLUŽNÉ pobočky — jinak by se
+    // skrytá dlaždice propsala do rezervace a DB ji odmítla
+    // (trg_check_trailer_overlap).
+    if (selfService &&
+        (draft.trailerMotoId != null ||
+            draft.extras.any((e) => e.id == 'extra-vozik'))) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _upd((d) => d.copyWith(
+              extras:
+                  d.extras.where((e) => e.id != 'extra-vozik').toList(),
+              trailerMotoId: () => null,
+            ));
+      });
+    }
     // Dětská motorka nikdy nemá spolujezdce — odstraň případnou výbavu
     // spolujezdce, pokud zůstala z dříve vybrané dospělácké motorky.
     if (isKids &&
@@ -387,7 +403,14 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                 ),
                 BookingFormPickupSection(draft: draft, onUpd: _upd),
                 BookingFormReturnSection(draft: draft, onUpd: _upd),
-                BookingFormExtrasSection(draft: draft, onUpd: _upd, isKids: isKids),
+                BookingFormExtrasSection(
+                  draft: draft,
+                  onUpd: _upd,
+                  isKids: isKids,
+                  // Samoobslužná pobočka vozík nevydává → sekce ho nenabídne.
+                  selfService: selfService,
+                  motoId: moto.id,
+                ),
                 BookingFormPriceSection(
                     draft: draft,
                     bd: bd,
