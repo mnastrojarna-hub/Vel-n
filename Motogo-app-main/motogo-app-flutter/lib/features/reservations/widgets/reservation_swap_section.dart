@@ -178,6 +178,15 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
 
   bool _rpcOk(dynamic res) => res is Map && res['success'] == true;
 
+  /// Hláška DB pojistky „vozík jen na obslužné pobočce" (ERRCODE 23514,
+  /// `trg_check_trailer_overlap`). Do klienta nechodí jako kód, jen jako text.
+  /// POZOR: `trg_check_trailer_overlap` hlásí DVĚ různé věci a jen tahle je
+  /// o pobočce — druhá („Vozík je v tomto termínu již obsazen
+  /// (trailer_moto_id=…)") obsahuje řetězec `trailer_moto_id`, takže se na něj
+  /// NESMÍ matchovat, jinak se zákazníkovi obsazený vozík hlásí jako špatná
+  /// pobočka.
+  static bool _isTrailerBranchError(String e) => e.contains('obslužné pobočky');
+
   /// Namapuje chybový kód RPC na hlášku a zobrazí toast.
   void _showSwapError(dynamic res) {
     if (!mounted) return;
@@ -191,8 +200,15 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
           'swap_date_out_of_range': t(context).tr('swap.err.dateRange'),
           'already_split': t(context).tr('swap.err.alreadySplit'),
           'new_moto_unavailable': t(context).tr('swap.err.unavailable'),
+          // 20260921d: rezervace s vozíkem nesmí přejet na samoobslužnou
+          // pobočku — RPC to vrátí už v dry-runu, tedy PŘED platbou.
+          'trailer_staffed_only': t(context).tr('swap.trailerStaffedOnly'),
         }[code] ??
-        t(context).error;
+        // Pojistka z DB (trg_check_trailer_overlap) chodí jako text, ne kód —
+        // bez tohohle by se do toastu vypsalo nepřeložené hlášení s UUID.
+        (_isTrailerBranchError('$res')
+            ? t(context).tr('swap.trailerStaffedOnly')
+            : t(context).error);
     showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: msg);
   }
 
@@ -272,7 +288,15 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
       }
     } catch (e) {
       if (mounted) {
-        showMotoGoToast(context, icon: '✗', title: t(context).error, message: '$e');
+        // Výjimka z DB pojistky chodí jako PostgrestException s českým textem —
+        // bez tohohle by se do toastu vypsala syrová včetně UUID motorky.
+        final raw = '$e';
+        showMotoGoToast(context,
+            icon: '✗',
+            title: t(context).error,
+            message: _isTrailerBranchError(raw)
+                ? t(context).tr('swap.trailerStaffedOnly')
+                : raw);
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -414,7 +438,13 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
               return Column(
                 children: cands.map((m) {
                   final free = _avail[m.id];
-                  final selectable = free == true;
+                  // Vozík vydává jen OBSLUŽNÁ pobočka → s přiřazeným vozíkem
+                  // nelze přejet na motorku ze samoobslužné. Bez téhle zábrany
+                  // by dry-run prošel, zákazník zaplatil doplatek na Stripe
+                  // a teprve server-side commit spadl na trg_check_trailer_overlap.
+                  final trailerBlocked = widget.booking.trailerMotoId != null &&
+                      m.branchType == 'samoobslužná';
+                  final selectable = free == true && !trailerBlocked;
                   final selected = _newMotoId == m.id;
                   return GestureDetector(
                     onTap: selectable
@@ -424,7 +454,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
                           }
                         : null,
                     child: Opacity(
-                      opacity: (free == false) ? 0.45 : 1,
+                      opacity: (free == false || trailerBlocked) ? 0.45 : 1,
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 6),
                         padding: const EdgeInsets.all(8),
@@ -458,7 +488,15 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
                             ),
                           ])),
                           const SizedBox(width: 6),
-                          if (free == false)
+                          if (trailerBlocked)
+                            Flexible(
+                                child: Text(t(context).tr('swap.trailerStaffedOnly'),
+                                    textAlign: TextAlign.end,
+                                    style: const TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: MotoGoColors.red)))
+                          else if (free == false)
                             Text(t(context).tr('swap.occupied'),
                                 style: const TextStyle(
                                     fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.red))

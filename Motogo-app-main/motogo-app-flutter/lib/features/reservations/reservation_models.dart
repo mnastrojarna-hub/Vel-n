@@ -59,6 +59,10 @@ class Reservation {
   final double? branchLat;
   final double? branchLng;
   final String? branchType; // 'samoobslužná' | 'obslužná'
+  /// Přiřazený kus vozíku (`bookings.trailer_moto_id`). Když není null,
+  /// nesmí jít rezervace přehodit na motorku ze SAMOOBSLUŽNÉ pobočky —
+  /// ta vozík nevydává (`trg_check_trailer_overlap`, 20260921b/c).
+  final String? trailerMotoId;
   final double? stornoFee;
   final double? refundAmount;
   final String? motoLicenseRequired; // A, A2, A1, AM, B, N
@@ -126,6 +130,7 @@ class Reservation {
     this.branchLat,
     this.branchLng,
     this.branchType,
+    this.trailerMotoId,
     this.stornoFee,
     this.refundAmount,
     this.motoLicenseRequired,
@@ -162,6 +167,7 @@ class Reservation {
       branchLat: (branch?['gps_lat'] as num?)?.toDouble(),
       branchLng: (branch?['gps_lng'] as num?)?.toDouble(),
       branchType: branch?['type'] as String?,
+      trailerMotoId: json['trailer_moto_id'] as String?,
       status: json['status'] as String? ?? 'pending',
       paymentStatus: json['payment_status'] as String? ?? 'unpaid',
       // tryParse + fallback — žádné chybějící/nestandardní datum nesmí shodit

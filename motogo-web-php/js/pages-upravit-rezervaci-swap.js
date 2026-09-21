@@ -60,6 +60,18 @@
     var dateInput = document.getElementById('erez-swap-date');
     dateInput.addEventListener('change', function () { renderMotos(); });
 
+    // Veze rezervace vozík? Minifikované jádro `trailer_moto_id` do svého
+    // selectu nedává a neupravuje se, tak se doptáme zvlášť (jeden lehký dotaz
+    // na vlastní rezervaci). Vozík se vydává jen na OBSLUŽNÉ pobočce, takže
+    // s ním nelze přejet na motorku ze samoobslužné — bez téhle zábrany by
+    // dry-run prošel, zákazník zaplatil na Stripe a teprve commit by spadl na
+    // trg_check_trailer_overlap (23514).
+    var hasTrailer = false;
+    try {
+      var _tr = await window.sb.from('bookings').select('trailer_moto_id').eq('id', b.id).maybeSingle();
+      hasTrailer = !!(_tr && !_tr.error && _tr.data && _tr.data.trailer_moto_id);
+    } catch (e) { /* nezjištěno → chová se jako bez vozíku, pojistkou zůstává DB */ }
+
     async function renderMotos() {
       var grid = document.getElementById('erez-swap-motos');
       if (!grid) return;
@@ -71,7 +83,7 @@
       try {
         var res = await Promise.all([
           window.sb.from('motorcycles')
-            .select('id,model,brand,image_url,images,license_required,license_groups,engine_cc,power_kw,year,branch_id,branches(name,city)')
+            .select('id,model,brand,image_url,images,license_required,license_groups,engine_cc,power_kw,year,branch_id,branches(name,city,type)')
             .in('status', ['active', 'maintenance']).order('model'),
           window.sb.from('profiles').select('license_group').eq('id', ER.user.id).maybeSingle()
         ]);
@@ -108,7 +120,9 @@
           var allowed = licGroups.some(function (g) { return ER._licenseAllows(lic, g); });
           // Dostupnost nové motorky POUZE od data výměny do konce rezervace.
           var free = !ER._rangeOverlapsOccupied(swapDate, origEnd, x.occupied);
-          var disabled = !allowed || !free;
+          // Rezervace s vozíkem nesmí přejet na motorku ze samoobslužné pobočky.
+          var trailerBlocked = hasTrailer && m.branches && 'samoobslužná' === m.branches.type;
+          var disabled = !allowed || !free || trailerBlocked;
 
           var img = (m.images && m.images.length ? m.images[0] : m.image_url) || '';
           var src = (typeof MG.imgUrl === 'function') ? MG.imgUrl(img) : img;
@@ -132,6 +146,7 @@
           var reasons = [];
           if (!allowed) reasons.push(MG.t('editRez.moto.reasonLicense'));
           if (!free) reasons.push(MG.t('editRez.moto.reasonOccupied'));
+          if (trailerBlocked) reasons.push(MG.t('editRez.moto.reasonTrailerBranch'));
           var reasonsHtml = reasons.length ? '<div class="erez-moto-reasons">' + reasons.join(' · ') + '</div>' : '';
 
           var cta = disabled
@@ -209,9 +224,17 @@
       new_moto_unavailable: 'editRez.swap.err.unavailable',
       license_insufficient: 'editRez.moto.licenseInsufficient',
       swap_date_out_of_range: 'editRez.swap.err.dateRange',
-      already_split: 'editRez.swap.err.dateRange'
+      already_split: 'editRez.swap.err.dateRange',
+      // 20260921d: rezervace s vozíkem nesmí přejet na samoobslužnou pobočku.
+      trailer_staffed_only: 'editRez.moto.reasonTrailerBranch'
     };
     var key = map[code];
+    // Pojistka z DB (trg_check_trailer_overlap, ERRCODE 23514) chodí jako
+    // hláška, ne jako kód — bez tohohle by se do UI vypsala nepřeložená
+    // včetně UUID motorky.
+    if (!key && /obslužné pobočky|trailer_moto_id/.test(String(code))) {
+      key = 'editRez.moto.reasonTrailerBranch';
+    }
     ER._showError(key ? MG.t(key) : (code || MG.t('editRez.err.generic')));
   }
 

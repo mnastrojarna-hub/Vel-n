@@ -1281,6 +1281,7 @@ return [
     'editRez.moto.priceVs' => 'vs.',
     'editRez.moto.reasonLicense' => '🚫 Carnet insuficiente',
     'editRez.moto.reasonOccupied' => '📅 Reservada en estas fechas',
+    'editRez.moto.reasonTrailerBranch' => '🛻 Remolque: solo sucursales con personal',
     'editRez.moto.unavailable' => 'No disponible',
     'editRez.moto.selectThis' => 'Elegir esta moto →',
     'editRez.moto.backToDetail' => '← Volver al detalle',

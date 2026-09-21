@@ -1158,6 +1158,7 @@ return [
     'editRez.moto.diffRefund' => '{amount} (vrátíme)',
     'editRez.moto.reasonLicense' => '🚫 Nedostatečné ŘP',
     'editRez.moto.reasonOccupied' => '📅 V termínu obsazené',
+    'editRez.moto.reasonTrailerBranch' => '🛻 Vozík jen na obslužné pobočce',
     'editRez.moto.unavailable' => 'Nedostupné',
     'editRez.moto.selectThis' => 'Vybrat tuto motorku →',
     'editRez.moto.diffUp' => '+{amount} za celou rezervaci',
