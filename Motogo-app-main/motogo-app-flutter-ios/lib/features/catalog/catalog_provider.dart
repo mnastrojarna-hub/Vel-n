@@ -11,7 +11,7 @@ Future<List<Motorcycle>> _fetchMotorcycles() async {
   // volné dny jdou normálně rezervovat. unavailable/retired se nezobrazují.
   final res = await MotoGoSupabase.client
       .from('motorcycles')
-      .select('*, branches(name, address, city, type)')
+      .select('*, branches(name, address, city, type, is_open)')
       .inFilter('status', ['active', 'maintenance'])
       // Pořadí = ruční „Pořadí zobrazení (1-X)" z Velína (motorcycles.sort_order),
       // stejné jako web (fetchMotos: sort_order asc nulls last, model asc) a
@@ -383,7 +383,15 @@ final motoRangesProvider = Provider<MotoRanges>((ref) {
 
 /// Filtered motorcycles — combines provider + filter + availability check.
 final filteredMotorcyclesProvider = FutureProvider<List<Motorcycle>>((ref) async {
-  final motos = await ref.watch(motorcyclesProvider.future);
+  final all = await ref.watch(motorcyclesProvider.future);
+  // Trvale zavřená pobočka (branches.is_open = false) se nikde nenabízí — a s ní
+  // ani její motorky: zarezervovat je nelze v žádném termínu (DB
+  // `branch_is_closed`), v katalogu by jen visely s natrvalo obsazeným
+  // kalendářem. Kus BEZ pobočky zůstává. Filtruje se AŽ TADY (browse/hledání),
+  // ne v `motorcyclesProvider` — ten drží i motorku z existující rezervace,
+  // kterou musí jít dál zobrazit a spravovat. Sezónní zavření (od–do,
+  // `branch_closures`) kusy NESKRÝVÁ, blokuje jen dny v kalendáři.
+  final motos = all.where((m) => m.branchIsOpen != false).toList();
   final filter = ref.watch(catalogFilterProvider);
   final filtered = filter.apply(motos);
 
@@ -416,6 +424,10 @@ final branchesProvider = Provider<List<Map<String, dynamic>>>((ref) {
       final seen = <String>{};
       final branches = <Map<String, dynamic>>[];
       for (final m in list) {
+        // Trvale zavřená pobočka (is_open = false) se nenabízí — zákazník tam
+        // stejně nic nezarezervuje (DB `branch_is_closed`). Sezónní zavření
+        // od–do pobočku neskrývá, blokuje jen dny v kalendáři motorky.
+        if (m.branchIsOpen == false) continue;
         if (m.branchId != null && !seen.contains(m.branchId)) {
           seen.add(m.branchId!);
           branches.add({

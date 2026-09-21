@@ -25,7 +25,25 @@ export async function loadAccessoryTypes() {
 }
 
 export const MAX_MOTOS = 24
-export const DETAIL_TABS = ['Info', 'Motorky & Koje', 'Příslušenství', 'Přístupové kódy', 'Samoobsluha']
+
+// Samoobslužná pobočka má VŽDY pevnou sestavu zón: 7 kójí na motorky
+// + 1 šatna (dveře door_kind='accessories') + 1 venek (zóna bez dveří).
+// Shodné s HW šablonou v BranchRpiHardwareDefaults.js a raspberry/motogo-box
+// (config/brno-9zone.yaml: 8 zón = 7 kójí + šatna, zóna 9 = venek).
+export const SELF_SERVICE_TYPE = 'samoobslužná'
+export const SELF_SERVICE_MOTO_BAYS = 7
+export const SELF_SERVICE_LAYOUT_NOTE = '7 kójí motorek + šatna + venek'
+
+export function isSelfService(branch) {
+  return (branch?.type || '') === SELF_SERVICE_TYPE
+}
+
+// Kolik motorek se na pobočku vejde = kolik má kójí.
+export function maxMotosForBranch(branch) {
+  return isSelfService(branch) ? SELF_SERVICE_MOTO_BAYS : MAX_MOTOS
+}
+
+export const DETAIL_TABS = ['Info', 'Motorky & Koje', 'Příslušenství', 'Přístupové kódy', 'Samoobsluha', 'Zavírací období']
 
 export function generateDoorCode() {
   return String(Math.floor(100000 + Math.random() * 900000))

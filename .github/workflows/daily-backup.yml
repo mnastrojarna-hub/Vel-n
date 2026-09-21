@@ -50,7 +50,11 @@ concurrency:
 jobs:
   backup:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # 2026-09-21: bylo 120 min a Storage krok do nej narazil (viz nize) -> job
+    # skoncil jako `cancelled`, tedy ANI jako failure -> issue backup-failed se
+    # nezalozilo a tichy vypadek zalohy nikdo nevidel. Nyni 240 min + krok
+    # "Pri selhani" reaguje i na cancelled().
+    timeout-minutes: 240
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://vnwnqteskbykeucanlhk.supabase.co' }}
@@ -138,8 +142,14 @@ jobs:
           supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy --schema auth,storage -f _backup/db/data_system.sql || true
           ls -lh _backup/db/
 
+      # FIX 2026-09-21: skript stahoval objekty striktne sekvencne (~0,9 s/soubor).
+      # `documents` (2003 objektu) trval 29 min, `media` (39 471 objektu) by trval
+      # ~9,5 h -> job vzdy narazil do timeoutu (behy 207/208, 20. 9. 2026).
+      # Nyni paralelne (pool), s retry na docasne chyby a prubehem v logu.
       - name: Zaloha Storage bucketu (vsechny soubory)
         if: steps.guard.outputs.run == 'true' && steps.secrets.outputs.storage == 'true'
+        env:
+          STORAGE_BACKUP_CONCURRENCY: "16"
         run: |
           set -e
           node backup/storage-backup.mjs _backup/storage
@@ -234,8 +244,11 @@ jobs:
 
       # Pri selhani se automaticky zalozi (nebo doplni) GitHub issue s labelem
       # `backup-failed` - CLAUDE.md prikazuje toto issue resit prioritne.
+      # `cancelled()` je tu zamerne: pri prekroceni timeout-minutes GitHub job
+      # NEoznaci jako failure, ale jako cancelled -> tento krok se driv preskocil
+      # a vypadek zalohy zustal tichy (20. 9. 2026 dva behy za sebou).
       - name: Pri selhani zaloz issue backup-failed
-        if: failure() && steps.guard.outputs.run == 'true'
+        if: (failure() || cancelled()) && steps.guard.outputs.run == 'true'
         uses: actions/github-script@v7
         with:
           script: |

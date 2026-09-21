@@ -5,7 +5,7 @@ export const KNOWLEDGE_APPS: Record<string, string> = {
 
   'web-rezervace': `WEB motogo24.cz — REZERVAČNÍ FLOW (/rezervace, 7 jazyků cs/en/de/es/fr/nl/pl, anonymní bez registrace):
 KROK 1: výběr stroje (katalog s filtrem ŘP, dynamický ceník per den, sort_order) + termín + čas vyzvednutí/vrácení (pozdní vyzvednutí ≥12:00 u 2+ dnů = sleva 50 % na 1. den) → create_web_booking (kontrola překryvů, „1 e-mail = max 1 rezervace na den").
-KROK 2: přehled + výbava (velikosti dle skladu pobočky, vozík 400 Kč/den, spolujezdec) + doprava (vyzvednutí na pobočce/přistavení s GPS) + slevy (promo kód/voucher/dárkový poukaz — max 1 procentní) + VOLBA PLATBY: karta (Stripe Checkout) NEBO QR/převod (VS ze sekvence, ZF mailem, splatnost 4 h, ruční potvrzení ve Velíně). Zákazník může přepnout metodu (zpět z brány).
+KROK 2: přehled + výbava (velikosti dle skladu pobočky, vozík 400 Kč/den — JEN u motorek z obslužné pobočky, samoobslužná ho nenabízí, spolujezdec) + doprava (vyzvednutí na pobočce/přistavení s GPS) + slevy (promo kód/voucher/dárkový poukaz — max 1 procentní) + VOLBA PLATBY: karta (Stripe Checkout) NEBO QR/převod (VS ze sekvence, ZF mailem, splatnost 4 h, ruční potvrzení ve Velíně). Zákazník může přepnout metodu (zpět z brány).
 KROK 3 (PO platbě — flow „platba před doklady" od 6.7.2026): doklady — povinná ČÍSLA dokladů (OP/pas + ŘP), scan nepovinný (Mindee OCR ověření), heslo k účtu (poslední 4 znaky slouží AI agentovi jako 3. faktor). Resume: /rezervace?resume=<id> (i cross-device PC→mobil přes QR).
 MAILY: web_booking_reserved (smlouva+VOP po dokladech), invoice_payment_receipt (DP+ZF po platbě), abandoned po 15 min, missing_docs po 30 min, booking_qr_payment (QR pokyny). Nezaplacená web rezervace se ruší po 4 h.`,
 

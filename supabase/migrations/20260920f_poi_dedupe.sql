@@ -21,9 +21,7 @@
 --      hodnocení zákazníků),
 --   3) RPC `admin_poi_duplicate_groups()` / `admin_poi_merge()` — Velín nad
 --      nimi má záložku „Duplicity", aby šly dořešit i případy s různým
---      názvem (Křemešník × Pípalka) ručně a bezpečně. Přepínač `p_all`
---      ukáže i dvojice s jiným názvem I jinou kategorií — bez něj jich
---      polovina propadne (viz komentář u funkce).
+--      názvem (Křemešník × Pípalka) ručně a bezpečně.
 -- Idempotentní: po sloučení už nejsou obě strany dvojice aktivní, takže
 -- druhý běh nenajde nic.
 
@@ -80,35 +78,18 @@ create index if not exists idx_poi_catalog_norm_name
 -- vložené body by zůstaly nesloučené (změřeno: 32 čerstvých dvojic).
 
 -- 3) Nástroje pro Velín ------------------------------------------------------
--- Skupiny podezřelých duplicit: aktivní body do `p_radius_m` metrů od sebe.
--- (Křemešník × Pípalka: 64 m, oba `lookout`, jiný název → admin rozhodne,
---  co je vítěz.)
---
--- `p_all` = ukázat i dvojice, které mají JINÝ název I JINOU kategorii.
--- Proč to tu je: filtr „shodný normalizovaný název NEBO shodná kategorie"
--- vypadá rozumně, ale přesně ten typ dvojice, na který si uživatel stěžuje,
--- skrz něj propadne — „Rozhledna Doubravka" (lookout) × „Doubravská Hora"
--- (castle) 36 m od sebe má jiný název i jinou kategorii. Změřeno nad reálným
--- katalogem (CZ): do 60 m je 608 dvojic, filtr jich vrátí 309, tedy POLOVINU.
--- U ručního slučování rozhoduje ÚPLNOST, ne přesnost — vybírá člověk a
--- poražený se jen deaktivuje. Automatické slučování je jiná věc a zůstává
--- přísné (20260920m): tam se shoda názvu i kategorie vyžaduje.
---
--- Pozn. k výkonu: nad 50 tis. body trvá jedna země do 150 m ~0,4 s (i s
--- `p_all`), všechny země ~4 s. Supabase má pro roli `authenticated`
--- statement_timeout 8 s, proto si funkce limit zvedá sama (jen po dobu svého
--- běhu) a Velín standardně posílá konkrétní zemi.
---
--- POZOR: starou třífázovou signaturu je nutné DROPNOUT, jinak by v DB zůstaly
--- dvě funkce stejného jména a PostgREST by si vybíral podle toho, kolik
--- argumentů zrovna dorazí.
-drop function if exists public.admin_poi_duplicate_groups(int, text, int);
-
+-- Skupiny podezřelých duplicit: aktivní body do `p_radius_m` metrů od sebe,
+-- u kterých je buď shodný normalizovaný název, nebo shodná kategorie.
+-- (Křemešník × Pípalka: 64 m, oba `lookout`, jiný název → chytne pravidlo
+--  na kategorii a admin rozhodne, co je vítěz.)
+-- Pozn. k výkonu: nad 40 tis. body trvá průchod všemi zeměmi ~7 s, jedna země
+-- ~2 s. Supabase má pro roli `authenticated` statement_timeout 8 s, proto si
+-- funkce zvedá limit sama (platí jen po dobu jejího běhu) a Velín standardně
+-- posílá konkrétní zemi.
 create or replace function public.admin_poi_duplicate_groups(
   p_radius_m int default 150,
   p_country  text default 'CZ',
-  p_limit    int default 200,
-  p_all      boolean default false
+  p_limit    int default 200
 ) returns jsonb language plpgsql stable security definer
   set search_path = public
   set statement_timeout to '55s' as $fn$
@@ -136,7 +117,7 @@ begin
        and b.is_active
      where a.is_active
        and b.id > a.id
-       and (p_all or b.norm_name = a.norm_name or b.category = a.category)
+       and (b.norm_name = a.norm_name or b.category = a.category)
        and (p_country is null or a.country = p_country)
   ), lim as (
     select * from pairs where m <= p_radius_m order by m limit greatest(p_limit, 1)
@@ -152,7 +133,7 @@ begin
     join public.points_of_interest pb on pb.id = l.b_id;
   return res;
 end $fn$;
-grant execute on function public.admin_poi_duplicate_groups(int, text, int, boolean) to authenticated;
+grant execute on function public.admin_poi_duplicate_groups(int, text, int) to authenticated;
 
 -- Sloučení dvou míst z Velína: vítěz si vezme, co mu chybí; hodnocení
 -- a „navštíveno" se přepojí; poražený se deaktivuje (nikdy nemaže).

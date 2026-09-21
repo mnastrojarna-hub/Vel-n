@@ -212,7 +212,7 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
       sb.from('motorcycles')
         // branches!branch_id (2026-09-20): bez pobočky u KONKRÉTNÍHO stroje nešlo splnit
         // pravidlo „režim výdeje urči podle typu té pobočky" — agent při více pobočkách hádal.
-        .select('id, brand, model, category, license_required, status, power_kw, engine_cc, weight_kg, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, branch_id, branches!branch_id(name, type)')
+        .select('id, brand, model, category, license_required, status, power_kw, engine_cc, weight_kg, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, branch_id, branches!branch_id(name, type, is_open)')
         .in('status', ['active', 'maintenance', 'unavailable'])
         .order('brand', { ascending: true })
         .order('model', { ascending: true }),
@@ -225,9 +225,14 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
     return {
       cfg: (cfgRes.data?.value as WebAgentConfig) || {},
       company: (ciRes.data?.value as CompanyInfo) || {},
-      fleet: (fleetRes.data as FleetMoto[]) || [],
+      // Kus na TRVALE zavřené pobočce (is_open=false) agent nenabízí — pobočka
+      // se zákazníkovi nezobrazuje a rezervovat tam nelze nic (DB `branch_is_closed`).
+      fleet: (((fleetRes.data || []) as Array<Record<string, unknown>>)
+        .filter((m) => (m.branches as Record<string, unknown> | null)?.is_open !== false) as unknown as FleetMoto[]),
       branches: (((brRes.data || []) as Array<Record<string, unknown>>)
-        .filter((b) => b.active !== false) as unknown as BranchRow[]),
+        // Trvale zavřená pobočka (is_open=false) se zákazníkovi NENABÍZÍ — nelze
+        // na ni nic zarezervovat v žádném termínu (DB `branch_is_closed`).
+        .filter((b) => b.active !== false && b.is_open !== false) as unknown as BranchRow[]),
     }
   } catch {
     return { cfg: {}, company: {}, fleet: [], branches: [] }
@@ -721,7 +726,7 @@ async function resolveBookingRef(raw: unknown): Promise<{ id?: string; error?: s
 async function execPublicTool(name: string, args: Record<string, unknown>, lang: string = 'cs'): Promise<unknown> {
   switch (name) {
     case 'search_motorcycles': {
-      let q = sb.from('motorcycles').select('id, model, brand, year, category, engine_cc, engine_type, power_kw, power_hp, torque_nm, weight_kg, seat_height_mm, top_speed_kmh, fuel_tank_l, fuel_consumption_l100km, fuel_type, transmission, drivetrain, brake_type, has_abs, has_asc, seats_count, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, description, features, suitable_for, min_rental_days, max_rental_days, image_url, manual_url, manual_external_url, branch_id, branches!branch_id(name, address, city, type, phone)')
+      let q = sb.from('motorcycles').select('id, model, brand, year, category, engine_cc, engine_type, power_kw, power_hp, torque_nm, weight_kg, seat_height_mm, top_speed_kmh, fuel_tank_l, fuel_consumption_l100km, fuel_type, transmission, drivetrain, brake_type, has_abs, has_asc, seats_count, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, description, features, suitable_for, min_rental_days, max_rental_days, image_url, manual_url, manual_external_url, branch_id, branches!branch_id(name, address, city, type, phone, is_open)')
         .eq('status', 'active').order('model')
       if (args.category) q = q.ilike('category', `%${args.category}%`)
       // ŘP je hierarchické: kdo má vyšší skupinu, smí legálně řídit i nižší
@@ -746,6 +751,10 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       if (args.model_query) q = q.ilike('model', `%${String(args.model_query)}%`)
       const { data } = await q
       let result = data || []
+      // Kus na TRVALE zavřené pobočce (is_open=false) se nenabízí — pobočku
+      // zákazník nevidí a rezervovat tam nelze nic (DB `branch_is_closed`).
+      result = result.filter((m: Record<string, unknown>) =>
+        (m.branches as Record<string, unknown> | null)?.is_open !== false)
       // Skupina B: z přibraných A1 strojů nech jen ty s automatickou převodovkou (skútry) —
       // jen ty smí držitel B v ČR řídit. Manuální A1 pro B nenabízíme.
       const isAutomatic = (m: Record<string, unknown>) =>
@@ -1308,7 +1317,11 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       // neexistují (zip, lat, lng, email, opening_hours) → PostgREST 42703, chyba se
       // tiše zahodila a tool vrátil prázdný seznam („pobočky nemáme"). Incident 2026-08-05.
       const { data, error } = await sb.from('branches').select('*').order('name')
-      const rows = ((data || []) as Array<Record<string, unknown>>).filter((b) => b.active !== false)
+      // is_open === false = trvale zavřená pobočka: nenabízet (zákazník tam nic
+      // nezarezervuje). Když tím seznam vyjde prázdný, projde se fallback níž —
+      // agent NIKDY netvrdí „pobočky nemáme" (incident 2026-08-05).
+      const rows = ((data || []) as Array<Record<string, unknown>>)
+        .filter((b) => b.active !== false && b.is_open !== false)
       if (error || rows.length === 0) {
         const { data: ci } = await sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
         const c = (ci?.value || {}) as Record<string, unknown>

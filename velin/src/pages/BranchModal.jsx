@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
-import { FormField, generateBranchCode } from './BranchHelpers'
+import { FormField, generateBranchCode, SELF_SERVICE_LAYOUT_NOTE } from './BranchHelpers'
 import { autoTranslateRow } from '../lib/autoTranslate'
 
 function BranchModal({ existing, onClose, onSaved }) {
@@ -94,7 +94,7 @@ function BranchModal({ existing, onClose, onSaved }) {
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Typ pobočky</label>
           <select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
             <option value="">—</option>
-            <option value="samoobslužná">Samoobslužná (max 8 motorek)</option>
+            <option value="samoobslužná">Samoobslužná ({SELF_SERVICE_LAYOUT_NOTE})</option>
             <option value="obslužná">Obslužná — servisní místo (max 24 motorek)</option>
           </select>
         </div>
@@ -111,7 +111,7 @@ function BranchModal({ existing, onClose, onSaved }) {
             className="w-full rounded-btn text-sm outline-none"
             style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: 60, resize: 'vertical' }} />
         </div>
-        <div className="col-span-2 flex items-center gap-4">
+        <div className="col-span-2 flex items-center gap-4 flex-wrap">
           <label className="flex items-center gap-2 cursor-pointer">
             <div onClick={() => set('is_open', !form.is_open)}
               className="rounded-btn font-extrabold text-sm cursor-pointer border-none"
@@ -128,6 +128,11 @@ function BranchModal({ existing, onClose, onSaved }) {
             <input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)} />
             <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Pobočka je aktivní</span>
           </label>
+          <div className="w-full text-sm" style={{ color: form.is_open ? '#6b7280' : '#dc2626' }}>
+            {form.is_open
+              ? 'Zavřená pobočka = žádnou její motorku nelze zarezervovat (v žádném termínu). Sezónní zavření od–do se nastavuje v detailu pobočky → Zavírací období.'
+              : 'POZOR: pobočka je ZAVŘENÁ — žádnou její motorku nelze zarezervovat v žádném termínu. Pro sezónní zavření (např. zima) nechte pobočku otevřenou a zadejte období v detailu → Zavírací období.'}
+          </div>
         </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626', whiteSpace: 'pre-wrap' }}>{err}</p>}

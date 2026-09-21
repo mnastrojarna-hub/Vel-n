@@ -352,15 +352,18 @@ class TrailerAvailability {
   bool get hasFree => count > 0 && trailerId != null;
 }
 
+/// `motoId` = motorka, ke které se vozík přidává. RPC podle ní pozná pobočku:
+/// ze SAMOOBSLUŽNÉ pobočky vrací 0 (vozík nemá kdo vydat) — viz migrace
+/// `20260921b_trailer_only_on_staffed_branches.sql`.
 final trailerAvailabilityProvider = FutureProvider.family<TrailerAvailability,
-    ({DateTime? start, DateTime? end})>((ref, range) async {
+    ({DateTime? start, DateTime? end, String? motoId})>((ref, range) async {
   final s = range.start, e = range.end;
   if (s == null || e == null) return const TrailerAvailability(0, null);
   String d(DateTime x) =>
       '${x.year.toString().padLeft(4, '0')}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
   try {
     final res = await MotoGoSupabase.client.rpc('get_trailer_availability',
-        params: {'p_start': d(s), 'p_end': d(e)});
+        params: {'p_start': d(s), 'p_end': d(e), 'p_moto_id': range.motoId});
     final m = res as Map<String, dynamic>?;
     if (m == null) return const TrailerAvailability(0, null);
     return TrailerAvailability(

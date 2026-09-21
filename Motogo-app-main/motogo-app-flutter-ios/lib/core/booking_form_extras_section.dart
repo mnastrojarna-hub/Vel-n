@@ -16,12 +16,24 @@ class BookingFormExtrasSection extends ConsumerWidget {
     required this.draft,
     required this.onUpd,
     this.isKids = false,
+    this.selfService = false,
+    this.motoId,
   });
 
   final BookingDraft draft;
 
   /// Dětská motorka (license_required='N') — bez spolujezdce, dětské velikosti.
   final bool isKids;
+
+  /// Motorka stojí na SAMOOBSLUŽNÉ pobočce (`branches.type='samoobslužná'`).
+  /// Taková pobočka vozík nevydává (pevná sestava 7 kójí + šatna, výdej 24/7
+  /// kódem bez obsluhy) → dlaždice „Vozík" se vůbec nenabídne. Vozík je jen
+  /// na obslužné pobočce; backend to hlídá i sám (`get_trailer_availability`
+  /// s `p_moto_id` + trigger `trg_check_trailer_overlap`).
+  final bool selfService;
+
+  /// Motorka, ke které se vozík přidává — jde do `get_trailer_availability`.
+  final String? motoId;
 
   /// Applies a mutation to the current [BookingDraft].
   final void Function(BookingDraft Function(BookingDraft) fn) onUpd;
@@ -264,8 +276,9 @@ class BookingFormExtrasSection extends ConsumerWidget {
             );
           }),
           // Vozík (přívěs) — zdarma v appce; přiřadí volný kus a blokuje jeho
-          // kalendář. Skryté u dětských motorek i když není volný kus.
-          if (!isKids) _buildTrailerTile(context, ref),
+          // kalendář. Skryté u dětských motorek, u SAMOOBSLUŽNÉ pobočky
+          // (nemá ho kdo vydat) i když není volný kus.
+          if (!isKids && !selfService) _buildTrailerTile(context, ref),
         ],
       ),
     );
@@ -273,8 +286,8 @@ class BookingFormExtrasSection extends ConsumerWidget {
 
   Widget _buildTrailerTile(BuildContext context, WidgetRef ref) {
     final selected = draft.trailerMotoId != null;
-    final avail = ref
-        .watch(trailerAvailabilityProvider((start: draft.startDate, end: draft.endDate)));
+    final avail = ref.watch(trailerAvailabilityProvider(
+        (start: draft.startDate, end: draft.endDate, motoId: motoId)));
     final candidate = avail.valueOrNull;
     // Skryj, pokud vozík není vybraný a žádný volný kus není dostupný.
     if (!selected && (candidate == null || !candidate.hasFree)) {
