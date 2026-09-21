@@ -618,7 +618,11 @@ export async function execPublicReadTool(
       // chyba se tiše zahodila a tool vrátil prázdný seznam. Reálný incident 2026-08-05:
       // zákazník v appce bez rezervace dostal „seznam poboček je prázdný, adresy nedostupné".
       const { data, error } = await sb.from('branches').select('*').order('name')
-      const rows = ((data || []) as Array<Record<string, unknown>>).filter((b) => b.active !== false)
+      // is_open === false = trvale zavřená pobočka: nenabízet (zákazník tam nic
+      // nezarezervuje). Když tím seznam vyjde prázdný, projde se fallback níž —
+      // agent NIKDY netvrdí „pobočky nemáme" (incident 2026-08-05).
+      const rows = ((data || []) as Array<Record<string, unknown>>)
+        .filter((b) => b.active !== false && b.is_open !== false)
       if (error || rows.length === 0) {
         // Prázdno/chyba NIKDY nesmí vést k „pobočky nemáme" — dej agentovi fallback adresu firmy.
         const { data: ci } = await sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()

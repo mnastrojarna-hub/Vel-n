@@ -55,6 +55,11 @@ class Motorcycle {
   final String? branchCity;
   final String? branchType; // 'obslužná' (staffed) / 'samoobslužná' (self-service)
 
+  /// Pobočka je v provozu (`branches.is_open`). FALSE = trvale zavřená —
+  /// nesmí se nikde nabízet a její motorky nejdou rezervovat v žádném termínu
+  /// (DB `branch_is_closed`). Sezónní zavření od–do se řeší kalendářem.
+  final bool? branchIsOpen;
+
   /// Vozík/přívěs za auto (motorcycles.is_trailer). Půjčuje se samostatně bez
   /// výbavy (boty, oblečení…) — rezervační flow pak krok s výbavou skryje.
   final bool isTrailer;
@@ -109,6 +114,7 @@ class Motorcycle {
     this.branchName,
     this.branchCity,
     this.branchType,
+    this.branchIsOpen,
     this.isTrailer = false,
     this.depositAmount,
     this.minRentalDays,
@@ -167,6 +173,7 @@ class Motorcycle {
       branchName: branch?['name'] as String?,
       branchCity: branch?['city'] as String?,
       branchType: branch?['type'] as String?,
+      branchIsOpen: branch?['is_open'] as bool?,
       isTrailer: json['is_trailer'] as bool? ?? false,
       depositAmount: (json['deposit_amount'] as num?)?.toDouble(),
       minRentalDays: (json['min_rental_days'] as num?)?.toInt(),
@@ -194,7 +201,7 @@ class Motorcycle {
     images: images, videos: videos, color: color, manualUrl: manualUrl,
     manualExternalUrl: manualExternalUrl, status: status,
     branchId: branchId, branchName: branchName, branchCity: branchCity,
-    branchType: branchType, isTrailer: isTrailer,
+    branchType: branchType, branchIsOpen: branchIsOpen, isTrailer: isTrailer,
     depositAmount: depositAmount,
     minRentalDays: minRentalDays, maxRentalDays: maxRentalDays,
     mileage: mileage, prices: prices, availableToday: value,

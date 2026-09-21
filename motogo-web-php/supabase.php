@@ -205,6 +205,20 @@ class SupabaseClient {
             'sort_order.asc.nullslast,model.asc'
         );
 
+        // Trvale zavřená pobočka (branches.is_open = false) na webu vůbec není —
+        // a s ní ani její motorky: stejně je nelze zarezervovat v žádném termínu
+        // (DB `branch_is_closed`, migrace 20260920d_branch_closures.sql), takže
+        // by v katalogu jen visely s natrvalo obsazeným kalendářem a nesly název
+        // pobočky, která se zobrazovat nemá. Kus BEZ pobočky (branch_id NULL)
+        // zůstává. Sezónní zavření (od–do, `branch_closures`) kusy NESKRÝVÁ —
+        // blokují se jen dotčené dny v kalendáři.
+        if (is_array($data)) {
+            $data = array_values(array_filter($data, function ($m) {
+                $br = $m['branches'] ?? null;
+                return !(is_array($br) && array_key_exists('is_open', $br) && $br['is_open'] === false);
+            }));
+        }
+
         // Sjednotit s nejbližším volným datem (RPC bypassuje RLS na bookings).
         // Pokud RPC chybí nebo selže, motorky se zobrazí bez data → fallback "Dostupné dnes".
         if (!empty($data)) {
@@ -475,11 +489,19 @@ class SupabaseClient {
     }
 
     // ===== POBOČKY =====
-    public function fetchBranches() {
-        $cached = $this->cacheGet('branches');
+    // Vrací jen pobočky, kam zákazník reálně může (is_open = true).
+    // Trvale zavřená pobočka (Velín → Pobočky → přepínač ZAVŘENÁ) se na webu
+    // NEZOBRAZUJE vůbec — její motorky navíc nejdou zarezervovat v žádném
+    // termínu (DB `branch_is_closed`, migrace 20260920d_branch_closures.sql).
+    // Sezónní zavření (od–do, tabulka `branch_closures`) pobočku NESKRÝVÁ —
+    // ta zůstává vidět a blokují se jen dotčené dny v kalendáři.
+    public function fetchBranches($includeClosed = false) {
+        $key = $includeClosed ? 'branches_all' : 'branches';
+        $cached = $this->cacheGet($key);
         if ($cached !== null) return $cached;
-        $data = $this->query('branches', '*', [], 'name.asc');
-        $this->cacheSet('branches', $data);
+        $filters = $includeClosed ? [] : ['is_open=eq.true'];
+        $data = $this->query('branches', '*', $filters, 'name.asc');
+        $this->cacheSet($key, $data);
         return $data;
     }
 

@@ -8,6 +8,12 @@ import 'branch_detail_card.dart';
 
 /// Shows a draggable bottom sheet listing all active branches.
 /// Each branch is an expandable card with detailed info + motorcycles.
+///
+/// Trvale zavřená pobočka (`is_open = false`, přepínač ve Velíně) se NEZOBRAZUJE
+/// vůbec — zákazník na ni stejně nemůže nic zarezervovat v žádném termínu
+/// (DB `branch_is_closed`, migrace 20260920d_branch_closures.sql). Sezónní
+/// zavření (od–do, tabulka `branch_closures`) pobočku NESKRÝVÁ: zůstává vidět
+/// a blokují se jen dotčené dny v kalendářích motorek.
 Future<void> showBranchesSheet(BuildContext context) async {
   try {
     // Fetch branches and motorcycles in parallel
@@ -16,6 +22,7 @@ Future<void> showBranchesSheet(BuildContext context) async {
           .from('branches')
           .select('*')
           .eq('active', true)
+          .eq('is_open', true)
           .order('name'),
       MotoGoSupabase.client
           .from('motorcycles')
