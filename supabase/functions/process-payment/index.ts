@@ -449,21 +449,33 @@ Deno.serve(async (req: Request) => {
           const { data: curB } = await supabase.from('bookings')
             .select('total_price, trailer_moto_id').eq('id', booking_id).maybeSingle()
           if (curB) expected = Math.round(Number(c.total_price) - Number(curB.total_price || 0))
-          // Vozík vydává jen OBSLUŽNÁ pobočka (20260921b–f). Appka mění motorku
+          // Vozík vydává jen OBSLUŽNÁ pobočka (20260921b–g). Appka mění motorku
           // PŘÍMÝM UPDATE, takže `_apply_booking_changes_core` ani jeho guard
           // nikdy nezavolá — jediné místo PŘED platbou, kudy tahle cesta projde,
           // je tenhle validátor. Bez něj by se doplatek strhl a teprve zápis
-          // (resp. DB trigger) by změnu odmítl.
-          if (curB?.trailer_moto_id && typeof c.moto_id === 'string' && c.moto_id) {
-            const { data: selfSvc } = await supabase.rpc('moto_is_self_service', { p_moto_id: c.moto_id })
-            if (selfSvc === true) dryErr = 'trailer_staffed_only'
+          // (resp. DB trigger 20260921g) by změnu odmítl.
+          // FAIL CLOSED pro CELOU kontrolu: nenačtená rezervace, chyba RPC
+          // i vyhozená výjimka → platbu odmítnout (vnější catch níže by ji jinak
+          // tiše propustil „kompatibilně bez validace"). Týká se jen změny
+          // motorky u rezervace s vozíkem — úzká populace.
+          if (typeof c.moto_id === 'string' && c.moto_id) {
+            try {
+              if (!curB) dryErr = 'trailer_check_unavailable'
+              else if (curB.trailer_moto_id) {
+                const { data: selfSvc, error: selfErr } = await supabase.rpc('moto_is_self_service', { p_moto_id: c.moto_id })
+                if (selfErr || typeof selfSvc !== 'boolean') dryErr = 'trailer_check_unavailable'
+                else if (selfSvc === true) dryErr = 'trailer_staffed_only'
+              }
+            } catch (_te) { dryErr = 'trailer_check_unavailable' }
           }
         }
       } catch (_e) { /* dry-run nedostupný → kompatibilně bez validace */ }
       if (dryErr) {
         const dryMsg = dryErr === 'trailer_staffed_only'
           ? 'Vozík lze půjčit jen k motorce z obslužné pobočky — samoobslužná ho nevydává. Vyberte motorku z obslužné pobočky, nebo z rezervace odeberte vozík. Platba doplatku zrušena.'
-          : `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
+          : dryErr === 'trailer_check_unavailable'
+            ? 'Nepodařilo se ověřit vozík u rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.'
+            : `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
         return new Response(
           JSON.stringify({ success: false, error: dryMsg, code: dryErr }),
           { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }

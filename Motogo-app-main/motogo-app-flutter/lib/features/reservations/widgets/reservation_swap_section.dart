@@ -187,6 +187,10 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
   /// pobočka.
   static bool _isTrailerBranchError(String e) => e.contains('obslužné pobočky');
 
+  /// Dvojí rezervace téhož kusu vozíku (`trailer_unavailable: <uuid>`, 23505) —
+  /// bez mapování by se zákazníkovi ukázal kód s UUID.
+  static bool _isTrailerOccupiedError(String e) => e.contains('trailer_unavailable');
+
   /// Namapuje chybový kód RPC na hlášku a zobrazí toast.
   void _showSwapError(dynamic res) {
     if (!mounted) return;
@@ -296,7 +300,9 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
             title: t(context).error,
             message: _isTrailerBranchError(raw)
                 ? t(context).tr('swap.trailerStaffedOnly')
-                : raw);
+                : _isTrailerOccupiedError(raw)
+                    ? t(context).tr('swap.trailerOccupied')
+                    : raw);
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -506,7 +512,10 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
                           ])),
                           const SizedBox(width: 6),
                           if (trailerBlocked)
-                            Flexible(
+                            // Pevný strop místo Flexible — Flexible by si ve Flex
+                            // vzal polovinu řádku a stlačil sloupec s názvem motorky.
+                            ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 120),
                                 child: Text(t(context).tr('swap.trailerStaffedOnly'),
                                     textAlign: TextAlign.end,
                                     style: const TextStyle(
