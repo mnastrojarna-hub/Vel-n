@@ -221,7 +221,10 @@ class _EditMotoChangeSectionState extends ConsumerState<EditMotoChangeSection> {
                       ])),
                       const SizedBox(width: 6),
                       if (trailerBlocked)
-                        Flexible(
+                        // Pevný strop místo Flexible — Flexible by si ve Flex
+                        // vzal polovinu řádku a stlačil sloupec s názvem motorky.
+                        ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 120),
                             child: Text(t(context).tr('swap.trailerStaffedOnly'),
                                 textAlign: TextAlign.end,
                                 style: const TextStyle(

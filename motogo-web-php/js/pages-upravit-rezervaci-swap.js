@@ -248,6 +248,10 @@
     if (!key && /obslužné pobočky/.test(String(code))) {
       key = 'editRez.moto.reasonTrailerBranch';
     }
+    // Dvojí rezervace téhož kusu vozíku (`trailer_unavailable: <uuid>`, 23505).
+    if (!key && /trailer_unavailable/.test(String(code))) {
+      key = 'editRez.moto.trailerOccupied';
+    }
     ER._showError(key ? MG.t(key) : (code || MG.t('editRez.err.generic')));
   }
 

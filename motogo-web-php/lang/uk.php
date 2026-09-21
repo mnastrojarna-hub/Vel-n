@@ -1156,6 +1156,7 @@ return [
     'editRez.moto.reasonLicense' => '🚫 Недостатнє посвідчення',
     'editRez.moto.reasonOccupied' => '📅 Зайнято на дату',
     'editRez.moto.reasonTrailerBranch' => '🛻 Причіп: лише відділення з персоналом',
+    'editRez.moto.trailerOccupied' => '🛻 Причіп уже зайнятий на ці дати',
     'editRez.moto.unavailable' => 'Недоступно',
     'editRez.moto.selectThis' => 'Вибрати цей мотоцикл →',
     'editRez.moto.diffUp' => '+{amount} за все бронювання',

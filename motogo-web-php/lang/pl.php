@@ -1260,6 +1260,7 @@ return [
     'editRez.moto.reasonLicense' => '🚫 Niewystarczające prawo jazdy',
     'editRez.moto.reasonOccupied' => '📅 Niedostępny w tym terminie',
     'editRez.moto.reasonTrailerBranch' => '🛻 Przyczepa: tylko oddziały obsługiwane',
+    'editRez.moto.trailerOccupied' => '🛻 Przyczepa jest już zajęta w tym terminie',
     'editRez.moto.unavailable' => 'Niedostępny',
     'editRez.moto.selectThis' => 'Wybierz ten motocykl →',
     'editRez.moto.backToDetail' => '← Powrót do szczegółów',

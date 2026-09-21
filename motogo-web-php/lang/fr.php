@@ -1281,6 +1281,7 @@ return [
     'editRez.moto.reasonLicense' => '🚫 Permis insuffisant',
     'editRez.moto.reasonOccupied' => '📅 Indisponible à ces dates',
     'editRez.moto.reasonTrailerBranch' => '🛻 Remorque : agences avec personnel',
+    'editRez.moto.trailerOccupied' => '🛻 La remorque est déjà réservée à ces dates',
     'editRez.moto.unavailable' => 'Indisponible',
     'editRez.moto.selectThis' => 'Choisir cette moto →',
     'editRez.moto.backToDetail' => '← Retour au détail',

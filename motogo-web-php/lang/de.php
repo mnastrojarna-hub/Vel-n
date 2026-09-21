@@ -1295,6 +1295,7 @@ return [
     'editRez.moto.reasonLicense' => '🚫 Unzureichender Führerschein',
     'editRez.moto.reasonOccupied' => '📅 Im Zeitraum belegt',
     'editRez.moto.reasonTrailerBranch' => '🛻 Anhänger: nur Filialen mit Personal',
+    'editRez.moto.trailerOccupied' => '🛻 Der Anhänger ist in diesem Zeitraum bereits belegt',
     'editRez.moto.unavailable' => 'Nicht verfügbar',
     'editRez.moto.selectThis' => 'Dieses Motorrad wählen →',
     'editRez.moto.backToDetail' => '← Zurück zum Detail',
