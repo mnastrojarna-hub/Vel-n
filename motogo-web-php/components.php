@@ -648,10 +648,12 @@ function renderMotoCard($m) {
         if ($nextAvail && $nextAvail > $today) {
             $dateFmt = date('d.m.Y', strtotime($nextAvail));
             $badge = '<span class="moto-card-badge">' . te('card.availableFrom', ['date' => $dateFmt]) . '</span>';
-        } elseif ($mStatus === 'active') {
+        } elseif ($mStatus === 'active' && empty($m['available_unknown'])) {
             // "Dostupné dnes" jen pro plně aktivní motorky. Motorka v servisu
             // (maintenance) zůstává v nabídce, ale bez známého příštího volného
             // data badge vynecháme, ať web netvrdí, že je dnes volná.
+            // `available_unknown` = RPC nenašla volný den v horizontu (zavřená
+            // pobočka) → taky bez odznaku, jinak by web lhal.
             $badge = '<span class="moto-card-badge">' . te('card.availableToday') . '</span>';
         }
     }

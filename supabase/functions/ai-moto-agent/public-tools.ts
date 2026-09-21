@@ -134,7 +134,7 @@ export async function execPublicReadTool(
 ): Promise<unknown | undefined> {
   switch (name) {
     case 'search_motorcycles': {
-      let q = sb.from('motorcycles').select('id, model, brand, year, category, engine_cc, engine_type, power_kw, power_hp, torque_nm, weight_kg, seat_height_mm, top_speed_kmh, fuel_tank_l, fuel_consumption_l100km, fuel_type, transmission, drivetrain, brake_type, has_abs, has_asc, seats_count, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, description, features, suitable_for, min_rental_days, max_rental_days, image_url, manual_url, manual_external_url')
+      let q = sb.from('motorcycles').select('id, model, brand, year, category, engine_cc, engine_type, power_kw, power_hp, torque_nm, weight_kg, seat_height_mm, top_speed_kmh, fuel_tank_l, fuel_consumption_l100km, fuel_type, transmission, drivetrain, brake_type, has_abs, has_asc, seats_count, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, description, features, suitable_for, min_rental_days, max_rental_days, image_url, manual_url, manual_external_url, branch_id, branches!branch_id(is_open)')
         .eq('status', 'active').order('model')
       if (args.category) q = q.ilike('category', `%${args.category}%`)
       // ŘP je hierarchické (AM < A1 < A2 < A) — kdo má vyšší, smí i nižší.
@@ -158,6 +158,10 @@ export async function execPublicReadTool(
       if (args.model_query) q = q.ilike('model', `%${String(args.model_query)}%`)
       const { data } = await q
       let result = data || []
+      // Kus na TRVALE zavřené pobočce (is_open=false) se nenabízí — pobočku
+      // zákazník nevidí a rezervovat tam nelze nic (DB `branch_is_closed`).
+      result = result.filter((m: Record<string, unknown>) =>
+        (m.branches as Record<string, unknown> | null)?.is_open !== false)
       // Skupina B: z přibraných A1 strojů nech jen ty s automatickou převodovkou (skútry) —
       // jen ty smí držitel B v ČR řídit. Manuální A1 pro B nenabízíme.
       const isAutomatic = (m: Record<string, unknown>) =>
