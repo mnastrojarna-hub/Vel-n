@@ -227,7 +227,9 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
       company: (ciRes.data?.value as CompanyInfo) || {},
       fleet: (fleetRes.data as FleetMoto[]) || [],
       branches: (((brRes.data || []) as Array<Record<string, unknown>>)
-        .filter((b) => b.active !== false) as unknown as BranchRow[]),
+        // Trvale zavřená pobočka (is_open=false) se zákazníkovi NENABÍZÍ — nelze
+        // na ni nic zarezervovat v žádném termínu (DB `branch_is_closed`).
+        .filter((b) => b.active !== false && b.is_open !== false) as unknown as BranchRow[]),
     }
   } catch {
     return { cfg: {}, company: {}, fleet: [], branches: [] }
@@ -1308,7 +1310,11 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       // neexistují (zip, lat, lng, email, opening_hours) → PostgREST 42703, chyba se
       // tiše zahodila a tool vrátil prázdný seznam („pobočky nemáme"). Incident 2026-08-05.
       const { data, error } = await sb.from('branches').select('*').order('name')
-      const rows = ((data || []) as Array<Record<string, unknown>>).filter((b) => b.active !== false)
+      // is_open === false = trvale zavřená pobočka: nenabízet (zákazník tam nic
+      // nezarezervuje). Když tím seznam vyjde prázdný, projde se fallback níž —
+      // agent NIKDY netvrdí „pobočky nemáme" (incident 2026-08-05).
+      const rows = ((data || []) as Array<Record<string, unknown>>)
+        .filter((b) => b.active !== false && b.is_open !== false)
       if (error || rows.length === 0) {
         const { data: ci } = await sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
         const c = (ci?.value || {}) as Record<string, unknown>
