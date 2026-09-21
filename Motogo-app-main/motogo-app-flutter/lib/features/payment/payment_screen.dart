@@ -279,7 +279,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     // mezi čtením breakdownu a zápisem řádků (insert je await), rozešly by se
     // `bookings.extras_price` a SUM(`booking_extras.unit_price`) a faktury by
     // vykázaly jinou cenu pronájmu.
-    final pricedExtras = ref.read(effectiveExtrasProvider);
+    final pricedExtrasAll = ref.read(effectiveExtrasProvider);
     final user = MotoGoSupabase.currentUser;
     if (user == null) {
       _draftError = t(context).tr('notLoggedIn');
@@ -289,6 +289,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       _draftError = t(context).tr('noMotoSelected');
       return null;
     }
+    // Samoobslužná pobočka vozík nevydává → do rezervace se nesmí dostat, ani
+    // kdyby zbyl v draftu (formulář ho maže, dlaždice se nenabízí). Bez téhle
+    // pojistky by DB trigger `trg_check_trailer_overlap` odmítl CELOU rezervaci.
+    final selfService = moto.branchType == 'samoobslužná';
+    // Vozík je v appce vždy za 0 Kč, takže jeho vynechání nemění `extras_price`
+    // ani součet řádků v `booking_extras` (musí si odpovídat — viz výše).
+    final pricedExtras = selfService
+        ? pricedExtrasAll.where((e) => e.id != 'extra-vozik').toList()
+        : pricedExtrasAll;
     if (draft.startDate == null || draft.endDate == null) {
       // Bez termínu nesmí vzniknout rezervace s prázdnými daty (insert by
       // spadl na invalid date). Stane se jen při otevření platby s
@@ -432,7 +441,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         'passenger_boots_size': passengerBoots,
         // Vozík (příslušenství) — přiřazený volný kus blokuje kalendář vozíku.
         // BEFORE INSERT trigger check_trailer_overlap odmítne už obsazený kus.
-        'trailer_moto_id': draft.trailerMotoId,
+        'trailer_moto_id': selfService ? null : draft.trailerMotoId,
       }).select().single();
 
       final bookingId = res['id'] as String?;
