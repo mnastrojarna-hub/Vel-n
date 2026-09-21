@@ -10,6 +10,15 @@
     <!-- GPS (geolocator + flutter_map) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Záznam projeté trasy během výpůjčky běží ve foreground service, jinak
+         Android po zhasnutí displeje přestane posílat fixy a ze stopy zbude
+         pár bodů spojených rovnou čarou. Stačí k tomu oprávnění „při
+         používání" — ACCESS_BACKGROUND_LOCATION ZÁMĚRNĚ NEŽÁDÁME (Play ho
+         posílá do zvláštního schvalování a appka ho nepotřebuje).
+         FOREGROUND_SERVICE_LOCATION je povinné od Androidu 14 (API 34);
+         samotnou službu deklaruje manifest geolocator_android. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <!-- Camera (image_picker for SOS photos + document scan) -->
     <uses-permission android:name="android.permission.CAMERA" />

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { SmallBtn } from './BranchHelpers'
 import TrasyJizdaMapa from './TrasyJizdaMapa'
+import { trackQuality, fmtGap } from '../lib/rideTrack'
 
 // Detail projeté jízdy zákazníka — mapa se stopou, statistiky a EDITACE:
 // název, popis, sdílení (soukromá/veřejná), moderace (zobrazit/skrýt),
@@ -23,21 +24,64 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
+  // Stopa se dotahuje až tady — seznam jízd ji záměrně nenačítá (jsonb
+  // s tisíci body × stovky jízd = zbytečné megabajty na každé otevření).
+  const [track, setTrack] = useState(Array.isArray(ride.track) ? ride.track : null)
+  const [closing, setClosing] = useState(false)
 
-  const track = Array.isArray(ride.track) ? ride.track : []
+  useEffect(() => {
+    if (track !== null) return
+    let alive = true
+    supabase.from('user_rides').select('track').eq('id', ride.id).maybeSingle()
+      .then(({ data, error }) => {
+        if (!alive) return
+        if (error) { setErr(error.message); setTrack([]); return }
+        setTrack(Array.isArray(data?.track) ? data.track : [])
+      })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ride.id])
+
+  const q = trackQuality(ride, track || [])
+  // „Visí" = pořád se tváří jako nahrávané, ale hodiny nepřišel žádný bod.
+  const stuck = !!ride.is_recording && Date.now() -
+    new Date(ride.last_fix_at || ride.started_at).getTime() > 3 * 3600 * 1000
 
   async function saveRide() {
     setSaving(true); setErr(null)
-    const { error } = await supabase.from('user_rides').update({
+    const patch = {
       name: (name || '').trim().slice(0, 120),
       description: (description || '').trim() || null,
-      visibility, status,
+      status,
       updated_at: new Date().toISOString(),
-    }).eq('id', ride.id)
+    }
+    // Sdílení nastavuje ZÁKAZNÍK. Posíláme ho jen když s ním operátor
+    // opravdu hnul — jinak by uložení názvu přepsalo hodnotu, kterou si
+    // zákazník mezitím v appce změnil, tou z okamžiku otevření modalu.
+    if (visibility !== (ride.visibility || 'private')) patch.visibility = visibility
+
+    const { error } = await supabase.from('user_rides').update(patch).eq('id', ride.id)
     setSaving(false)
     if (error) { setErr(error.message); return }
     onChanged?.()
     onClose?.()
+  }
+
+  /** Uzavře zaseknutou nahrávku stejnou cestou jako appka i cron. */
+  async function closeStuck() {
+    setClosing(true); setErr(null)
+    try {
+      const { data, error } = await supabase
+        .rpc('admin_finish_user_ride', { p_ride_id: ride.id })
+      if (error) throw error
+      if (data?.success === false) throw new Error(data.error)
+      onChanged?.()
+      onClose?.()
+    } catch (e) {
+      setErr(e.message || String(e))
+    } finally {
+      setClosing(false)
+    }
   }
 
   async function savePoint(p, patch) {
@@ -93,7 +137,54 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
         <div className="p-4 flex flex-col gap-4">
           {err && <p className="text-sm" style={{ color: '#dc2626' }}>{err}</p>}
 
-          <TrasyJizdaMapa track={track} points={points} />
+          {track === null ? (
+            <div className="rounded-card flex justify-center items-center"
+              style={{ border: '1px solid #d4e8e0', height: 320, background: '#f1faf7' }}>
+              <div className="animate-spin rounded-full h-7 w-7 border-t-2 border-brand-gd" />
+            </div>
+          ) : (
+            <TrasyJizdaMapa
+              track={track}
+              points={points}
+              fitKey={ride.id}
+              live={ride.is_recording && ride.end_lat != null ? {
+                lat: ride.end_lat, lng: ride.end_lng,
+                isLive: !stuck,
+                label: stuck
+                  ? `Naposledy viděn ${fmtDate(ride.last_fix_at)}`
+                  : 'Poslední známá poloha',
+              } : null}
+            />
+          )}
+
+          {q.points > 0 && q.sparse && (
+            <p className="text-xs rounded-card" style={{
+              background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', padding: '8px 10px',
+            }}>
+              ⚠️ <b>Řídká stopa</b> — {q.points} bodů na {Number(ride.distance_km || 0).toFixed(1)} km
+              {q.gaps > 0 && `, ${q.gaps}× výpadek signálu`}
+              {ride.gap_sec > 0 && ` (celkem ${fmtGap(ride.gap_sec)} bez signálu)`}.
+              Šedé přerušované úseky na mapě jsou místa, kde appka polohu
+              neposílala — tudy zákazník jet nemusel a nepočítají se ani do
+              kilometrů. Typicky starší verze appky bez záznamu na pozadí.
+            </p>
+          )}
+
+          {stuck && (
+            <div className="rounded-card" style={{
+              background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 12px',
+            }}>
+              <p className="text-xs mb-2" style={{ color: '#991b1b' }}>
+                <b>Záznam visí.</b> Tváří se jako běžící, ale poslední GPS bod
+                dorazil {fmtDate(ride.last_fix_at)}. Dokud je otevřený,
+                nevznikne zákazníkovi žádná další jízda. Server ho uklidí sám
+                do tří hodin — tímhle to uzavřete hned.
+              </p>
+              <SmallBtn color="#dc2626" onClick={closeStuck}>
+                {closing ? 'Ukončuji…' : 'Ukončit záznam'}
+              </SmallBtn>
+            </div>
+          )}
 
           {/* statistiky jízdy — kompletní přehled */}
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
@@ -104,12 +195,14 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
               ['⏸️', 'Čas stání', fmtSec(ride.idle_sec)],
               ['📊', 'Ø rychlost', fmtSpeed(ride.avg_speed_kmh)],
               ['🚀', 'Max. rychlost', fmtSpeed(ride.max_speed_kmh)],
+              ['📵', 'Bez signálu', ride.gap_sec ? fmtGap(ride.gap_sec) : '—'],
               ['⛰️', 'Nastoupáno', ride.elevation_gain_m ? `${ride.elevation_gain_m} m` : '—'],
               ['📍', 'Zastávek', String(points.filter(p => p.kind === 'stop').length)],
               ['📷', 'Fotek', String(points.reduce((n, p) => n + (Array.isArray(p.photos) ? p.photos.length : 0), 0))],
-              ['🛰️', 'Bodů stopy', String(track.length)],
+              ['🛰️', 'Bodů stopy', track === null ? '…' : String(q.points)],
               ['🚦', 'Start', fmtDate(ride.started_at)],
-              ['🏁', 'Konec', ride.ended_at ? fmtDate(ride.ended_at) : 'nahrává se'],
+              ['🏁', 'Konec', ride.ended_at ? fmtDate(ride.ended_at)
+                : (stuck ? 'záznam visí' : 'nahrává se')],
             ].map(([emoji, label, value]) => (
               <div key={label} className="rounded-card"
                 style={{ background: '#f1faf7', border: '1px solid #d4e8e0', padding: '8px 10px' }}>

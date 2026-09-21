@@ -80,6 +80,11 @@ dependencies:
 
   # GPS
   geolocator: ^10.0.0
+  # AndroidSettings / AppleSettings (foreground service, background updates)
+  # nejsou v `geolocator.dart` — platformní balíčky se musí uvést zvlášť.
+  # Verze odpovídají PINU geolocatoru v tomhle stromu (10.x), ne Androidu.
+  geolocator_android: ^4.3.0
+  geolocator_apple: ^2.3.0
 
   # Displej nesmí zhasnout během navigace (route_navigation_screen).
   # 1.3.x = poslední řada kompatibilní se zdejším pinem package_info_plus ^8

@@ -24,6 +24,12 @@ const RADII = [60, 100, 150, 250, 400]
 export default function TrasyPoiDuplicates() {
   const [radius, setRadius] = useState(150)
   const [country, setCountry] = useState('CZ')
+  // Výchozí je ZAPNUTO. Filtr „shodný název nebo kategorie" vypadá
+  // rozumně, ale propadne skrz něj přesně ten typ dvojice, kvůli kterému
+  // tahle záložka vznikla: „Rozhledna Doubravka" (lookout) × „Doubravská
+  // Hora" (castle) 36 m od sebe. Změřeno nad katalogem CZ: do 60 m je
+  // 608 dvojic a filtr jich vrátí 309 — tedy polovinu.
+  const [showAll, setShowAll] = useState(true)
   const [pairs, setPairs] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -35,6 +41,7 @@ export default function TrasyPoiDuplicates() {
     try {
       const { data, error: err } = await supabase.rpc('admin_poi_duplicate_groups', {
         p_radius_m: radius, p_country: country === 'all' ? null : country, p_limit: 300,
+        p_all: showAll,
       })
       if (err) throw err
       setPairs(Array.isArray(data) ? data : [])
@@ -43,7 +50,7 @@ export default function TrasyPoiDuplicates() {
       setError(`Hledání duplicit selhalo: ${e.message}`)
       setPairs([])
     } finally { setLoading(false) }
-  }, [radius, country])
+  }, [radius, country, showAll])
 
   async function merge(keep, drop) {
     try {
@@ -81,12 +88,18 @@ export default function TrasyPoiDuplicates() {
         <select style={sel} value={radius} onChange={e => setRadius(Number(e.target.value))} title="Maximální vzdálenost dvojice">
           {RADII.map(r => <option key={r} value={r}>do {r} m</option>)}
         </select>
+        <label className="flex items-center gap-2 text-sm" title="Bez tohohle se ukážou jen dvojice se shodným názvem nebo kategorií — a to je zhruba polovina">
+          <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} />
+          i jiný název a kategorie
+        </label>
         <SmallBtn color="#1a8a18" onClick={load}>Najít duplicity</SmallBtn>
       </div>
 
       <p className="text-xs mb-3" style={{ color: '#6b7280' }}>
-        Hledají se AKTIVNÍ body do zvolené vzdálenosti, které mají buď shodný normalizovaný název
-        (bez diakritiky a bez slov typu „hrad / rozhledna / vrch"), nebo stejnou kategorii.
+        Hledají se AKTIVNÍ body do zvolené vzdálenosti. Se zaškrtnutým „i jiný název a kategorie"
+        se ukáže VŠECHNO v daném okruhu — bez toho jen dvojice se shodným normalizovaným názvem
+        (bez diakritiky a bez slov typu „hrad / rozhledna / vrch") nebo shodnou kategorií, což je
+        zhruba polovina (a chybí mezi nimi případy jako „Rozhledna Doubravka" × „Doubravská Hora").
         Sloučením si vítěz vezme, co mu chybí (fotka, popis, okolí, galerie, překlady), převezme
         hodnocení a značky „navštíveno" a poražený se skryje — nemaže se.
       </p>

@@ -1,4 +1,4 @@
-export const TABS = ['Detail', 'Kalendář motorky', 'Dokumenty', 'Platby', 'Reklamace']
+export const TABS = ['Detail', 'Mapa a poloha', 'Kalendář motorky', 'Dokumenty', 'Platby', 'Reklamace']
 
 export const ACTIONS = {
   pending: [
