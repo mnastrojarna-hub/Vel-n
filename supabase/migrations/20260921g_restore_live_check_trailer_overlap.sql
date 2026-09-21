@@ -20,8 +20,10 @@
 --   3) SAMOSTATNÉ půjčení vozíku — živé tělo přidává do kontroly i `NEW.moto_id`,
 --      když je ten kus sám vozík (`is_trailer`), takže standalone × gear kolize
 --      se hlídá v OBOU směrech; opsané tělo hlídalo jen `trailer_moto_id`.
--- Živé tělo také hlásí `trailer_unavailable: <uuid>` s ERRCODE 23505; žádný
--- klient na to nematchuje (ověřeno grepem), vracíme původní podobu kvůli věrnosti.
+-- Živé tělo také hlásí `trailer_unavailable: <uuid>` s ERRCODE 23505 — vracíme
+-- původní podobu kvůli věrnosti. Klienti na ni od téže větve matchují a překládají
+-- (app `swap.trailerOccupied`, web `editRez.moto.trailerOccupied`); do té doby
+-- se zákazníkovi zobrazovala syrově včetně UUID.
 --
 -- CO ZŮSTÁVÁ Z 20260921f: kontrola „vozík jen k motorce z OBSLUŽNÉ pobočky"
 -- při přiřazení vozíku i při výměně motorky pod ním, s výjimkou `is_admin()`
