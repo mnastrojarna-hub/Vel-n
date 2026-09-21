@@ -1259,6 +1259,7 @@ return [
     'editRez.moto.priceVs' => 'vs.',
     'editRez.moto.reasonLicense' => '🚫 Onvoldoende rijbewijs',
     'editRez.moto.reasonOccupied' => '📅 Bezet in deze periode',
+    'editRez.moto.reasonTrailerBranch' => '🛻 Aanhanger: alleen bemande vestigingen',
     'editRez.moto.unavailable' => 'Niet beschikbaar',
     'editRez.moto.selectThis' => 'Deze motor kiezen →',
     'editRez.moto.backToDetail' => '← Terug naar detail',

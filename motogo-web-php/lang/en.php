@@ -1305,6 +1305,7 @@ return [
     'editRez.moto.priceVs' => 'vs.',
     'editRez.moto.reasonLicense' => '🚫 Insufficient licence',
     'editRez.moto.reasonOccupied' => '📅 Booked for these dates',
+    'editRez.moto.reasonTrailerBranch' => '🛻 Trailer: staffed branches only',
     'editRez.moto.unavailable' => 'Unavailable',
     'editRez.moto.selectThis' => 'Pick this motorcycle →',
     'editRez.moto.backToDetail' => '← Back to detail',
