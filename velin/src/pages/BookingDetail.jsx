@@ -8,6 +8,7 @@ import Button from '../components/ui/Button'
 import StatusBadge, { getDisplayStatus } from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
+import BookingLiveMap from './booking/BookingLiveMap'
 import BookingDocumentsTab from './booking/BookingDocumentsTab'
 import BookingPaymentsTab from './booking/BookingPaymentsTab'
 import BookingsCalendar from '../components/fleet/BookingsCalendar'
@@ -742,6 +743,7 @@ export default function BookingDetail() {
       {tab === 'Detail' && <BookingDamagePanel booking={booking} onSaved={loadBooking} />}
       {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actionsAll} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
       {showModifyModal && booking && <BookingModifyModal booking={booking} onClose={() => setShowModifyModal(false)} onSaved={() => { setShowModifyModal(false); loadBooking() }} />}
+      {tab === 'Mapa a poloha' && <BookingLiveMap bookingId={id} booking={booking} />}
       {tab === 'Kalendář motorky' && booking.motorcycles?.id && <BookingsCalendar motoId={booking.motorcycles.id} />}
       {tab === 'Dokumenty' && <BookingDocumentsTab bookingId={id} userId={booking?.user_id} />}
       {tab === 'Platby' && <BookingPaymentsTab bookingId={id} />}

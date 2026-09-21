@@ -38,6 +38,52 @@ export function isSelfService(branch) {
   return (branch?.type || '') === SELF_SERVICE_TYPE
 }
 
+// Vozík vydává jen OBSLUŽNÁ pobočka (SQL `branch_is_self_service`, migrace
+// 20260921b/c/d/e). Přesun motorky NA samoobslužnou pobočku proto rozbije
+// každou její živou rezervaci, která veze vozík — web ani appka by takovou
+// kombinaci zákazníkovi vůbec nenabídly. Velín obsluhu neblokuje (může mít
+// důvod), ale MUSÍ se zeptat. Vrací počet dotčených rezervací.
+export async function countTrailerBookings(supabase, motoIds) {
+  const ids = (motoIds || []).filter(Boolean)
+  if (!ids.length) return 0
+  const today = new Date().toLocaleDateString('sv-SE')
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('id')
+    .in('moto_id', ids)
+    .not('trailer_moto_id', 'is', null)
+    .in('status', ['pending', 'reserved', 'active'])
+    // Dávno skončené rezervace, které nikdo nepřeklopil do 'completed', nejsou
+    // „živé" — bez tohohle by varování strašilo i tam, kde není co řešit.
+    .gte('end_date', today)
+  // Chyba dotazu (RLS, síť, token) NESMÍ varování tiše vypnout — vrátíme -1
+  // a volající se zeptá tak jako tak. Fail closed.
+  if (error) return -1
+  return (data || []).length
+}
+
+// Společné potvrzení pro všechna tři místa, odkud jde motorku přesunout
+// (MotoActionModal, FleetBulkActionsModal, FleetDetailInfoTab).
+// Vrací true = pokračovat.
+export async function confirmTrailerBranchMove(supabase, targetBranch, motoIds) {
+  if (!isSelfService(targetBranch)) return true
+  const n = await countTrailerBookings(supabase, motoIds)
+  if (n === 0) return true
+  if (n < 0) {
+    return window.confirm(
+      'Nepodařilo se ověřit, jestli některá živá rezervace veze vozík ' +
+      `(chyba dotazu). Přesouváš motorku na SAMOOBSLUŽNOU pobočku „${targetBranch?.name || ''}“, ` +
+      'která vozík nevydává.\n\nPřesun přesto provést?'
+    )
+  }
+  return window.confirm(
+    `Pozor: ${n === 1 ? '1 živá rezervace veze' : n + ' živých rezervací veze'} vozík ` +
+    `a přesouváš motorku na SAMOOBSLUŽNOU pobočku „${targetBranch?.name || ''}“, ` +
+    'která vozík nevydává (7 kójí + šatna, výdej 24/7 kódem bez obsluhy).\n\n' +
+    'Přesun provést? Vozík u těch rezervací zůstane a bude ho potřeba vyřešit ručně.'
+  )
+}
+
 // Kolik motorek se na pobočku vejde = kolik má kójí.
 export function maxMotosForBranch(branch) {
   return isSelfService(branch) ? SELF_SERVICE_MOTO_BAYS : MAX_MOTOS

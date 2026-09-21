@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 import ReplacementMotoPicker from '../../components/fleet/ReplacementMotoPicker'
+import { confirmTrailerBranchMove } from '../BranchHelpers'
 
 const SEASON_START = 3, SEASON_END = 9
 
@@ -24,6 +25,10 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
 
   // Deactivate moto → must pick replacement for branch
   async function handleReplace(replacementMoto) {
+    // Náhrada se stěhuje NA pobočku servisovaného kusu — když je samoobslužná,
+    // přijdou její živé rezervace s vozíkem o krytí.
+    if (moto.branch_id && replacementMoto.id &&
+        !(await confirmTrailerBranchMove(supabase, moto.branches, [replacementMoto.id]))) return
     setBusy(true)
     // Move replacement to this moto's branch
     if (moto.branch_id && replacementMoto.id) {

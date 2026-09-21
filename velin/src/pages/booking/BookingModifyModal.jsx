@@ -10,6 +10,7 @@ import BookingDeliverySection from './BookingDeliverySection'
 import { isoDate, toDate, fmtDate, fmtCZK, fmtTimeHM, countDays, calcDayBreakdown } from './bookingModifyHelpers'
 import { findFeeExtra, feeAmount } from './DetailTabSections'
 import { latePickupDiscount } from '../../lib/latePickup'
+import { SELF_SERVICE_TYPE } from '../BranchHelpers'
 
 export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const origStart = toDate(booking.start_date)
@@ -74,7 +75,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
       const [motosRes, pricesRes, branchesRes, extrasRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, spz, category, image_url, status, branch_id, license_required, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun').order('model'),
         supabase.from('moto_day_prices').select('*'),
-        supabase.from('branches').select('id, name').order('name'),
+        supabase.from('branches').select('id, name, type').order('name'),
         supabase.from('booking_extras').select('*, extras_catalog(name, price_per_day)').eq('booking_id', booking.id),
       ])
       setAllMotos(motosRes.data || [])
@@ -150,6 +151,15 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
 
   const selectedMoto = allMotos.find(m => m.id === selectedMotoId)
   const motoChanged = selectedMotoId !== booking.moto_id
+  // Vozík vydává jen OBSLUŽNÁ pobočka. Velín mění moto_id PŘÍMÝM UPDATE (ne přes
+  // apply_booking_changes), takže se ho serverové kontroly z 20260921d/e netýkají
+  // a trigger na moto_id nereaguje (20260921c ho odebralo kvůli platbě před
+  // zápisem na webu). Obsluhu proto jen VAROVÁNÍM upozorníme — blokovat ji
+  // nechceme, může mít důvod (vozík přiveze sama).
+  const trailerToSelfService = !!booking.trailer_moto_id && motoChanged && (() => {
+    const br = branches.find(b => b.id === selectedMoto?.branch_id)
+    return br?.type === SELF_SERVICE_TYPE
+  })()
   const datesChanged = isoDate(startDate) !== isoDate(origStart) || isoDate(endDate) !== isoDate(origEnd)
   const deliveryChanged = pickupMethod !== origDelivery.pickup || returnMethod !== origDelivery.ret || pickupAddress !== (booking.pickup_address || '') || returnAddress !== (booking.return_address || '') || newDeliveryFee !== origDelivery.fee
   const timesChanged = pickupTime !== origPickupTime || returnTime !== origReturnTime
@@ -402,6 +412,21 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
 
         {/* MOTORCYCLE */}
         <BookingMotoSelector changingMoto={changingMoto} setChangingMoto={setChangingMoto} branchFilter={branchFilter} setBranchFilter={setBranchFilter} branches={branches} availableMotos={availableMotos} unavailableMotos={unavailableMotos} loadingMotos={loadingMotos} selectedMotoId={selectedMotoId} setSelectedMotoId={setSelectedMotoId} booking={booking} motoChanged={motoChanged} selectedMoto={selectedMoto} calcMotoPrice={calcMotoPrice} newDeliveryFee={newDeliveryFee} origCalcPrice={origCalcPrice} origDeliveryFee={origDeliveryFee} fmtCZK={fmtCZK} />
+
+        {/* Vozík × samoobslužná pobočka — jen varování, obsluhu neblokujeme */}
+        {trailerToSelfService && (
+          <div className="mx-4 mb-3 p-3 rounded-lg" style={{ background: '#FEF3C7', border: '1px solid #F59E0B' }}>
+            <div className="text-sm font-bold" style={{ color: '#92400E' }}>
+              🛻 Pozor: rezervace má vozík, ale vybraná motorka stojí na samoobslužné pobočce
+            </div>
+            <div className="text-sm mt-1" style={{ color: '#92400E' }}>
+              Samoobslužná pobočka vozík nevydává (7 kójí + šatna, výdej 24/7 kódem bez obsluhy).
+              Web ani appka by tuhle kombinaci zákazníkovi vůbec nenabídly. Pokud uložíš, vozík
+              u rezervace zůstane a bude ho potřeba vyřešit ručně — jinak vyber motorku
+              z obslužné pobočky, nebo vozík z rezervace odeber.
+            </div>
+          </div>
+        )}
 
         {/* PICKUP & RETURN */}
         <BookingDeliverySection pickupMethod={pickupMethod} setPickupMethod={setPickupMethod} pickupAddress={pickupAddress} setPickupAddress={setPickupAddress} returnMethod={returnMethod} setReturnMethod={setReturnMethod} returnAddress={returnAddress} setReturnAddress={setReturnAddress} deliveryFee={deliveryFee} setDeliveryFee={setDeliveryFee} setShowMapPicker={setShowMapPicker} />
