@@ -15,8 +15,9 @@
 --      'samoobslužná' nemusel opakovat v každém dotazu.
 --   2) get_trailer_availability — nový argument `p_moto_id`: pro motorku ze
 --      samoobslužné pobočky vrací {available_count: 0, trailer_id: null}
---      → dlaždice „Vozík" se nikde nezobrazí. Zároveň se do poolu nedostane
---      vozík, který sám STOJÍ na samoobslužné pobočce (nikdo ho tam nevydá).
+--      → dlaždice „Vozík" se nikde nezobrazí. Rozhoduje VÝHRADNĚ pobočka
+--      rezervované motorky; pool kusů zůstává společný pro celou firmu
+--      (beze změny od 20260616), aby se na obslužné pobočce vozík nabídl vždy.
 --   3) check_trailer_overlap — TVRDÁ POJISTKA na zápisu. Appka vkládá do
 --      `bookings` přímým insertem (payment_screen.dart) a starší verze z obchodů
 --      `p_moto_id` neposílají, takže jediné místo, které pokryje všechny klienty,
@@ -96,8 +97,10 @@ AS $$
     WHERE is_trailer = true
       AND COALESCE(status,'active') = 'active'
       AND NOT COALESCE(public.branch_is_closed(branch_id, p_start, p_end), false)
-      -- Vozík stojící na samoobslužné pobočce nikdo nevydá → není v poolu.
-      AND NOT public.branch_is_self_service(branch_id)
+      -- POZOR: pool vozíků zůstává SPOLEČNÝ pro celou firmu (beze změny od
+      -- 20260616). Rozhoduje VÝHRADNĚ pobočka rezervované motorky (p_moto_id
+      -- níže) — na obslužné pobočce se vozík nabídnout MÁ, i kdyby konkrétní
+      -- kus byl v evidenci veden na jiné (třeba samoobslužné) pobočce.
   ),
   busy AS (
     SELECT t.id
