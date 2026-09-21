@@ -37,8 +37,12 @@ function BranchModal({ existing, onClose, onSaved }) {
     if (isEdit && form.type?.trim() === SELF_SERVICE_TYPE && existing?.type !== SELF_SERVICE_TYPE) {
       const { data: bm } = await supabase.from('motorcycles').select('id').eq('branch_id', existing.id)
       const n = await countTrailerBookings(supabase, (bm || []).map(m => m.id))
-      if (n && !window.confirm(
-        `Pozor: na pobočce „${form.name.trim()}“ ${n === 1 ? 'je 1 živá rezervace, která veze' : 'je ' + n + ' živých rezervací, které vezou'} vozík.\n\n` +
+      // n < 0 = dotaz selhal (RLS, síť) → ptáme se tak jako tak, fail closed.
+      const head = n < 0
+        ? `Nepodařilo se ověřit, jestli některá živá rezervace na pobočce „${form.name.trim()}“ veze vozík (chyba dotazu).`
+        : `Pozor: na pobočce „${form.name.trim()}“ ${n === 1 ? 'je 1 živá rezervace, která veze' : 'je ' + n + ' živých rezervací, které vezou'} vozík.`
+      if (n !== 0 && !window.confirm(
+        head + '\n\n' +
         'Samoobslužná pobočka vozík nevydává (7 kójí + šatna, výdej 24/7 kódem bez obsluhy). ' +
         'Přepnout režim? Vozík u těch rezervací zůstane a bude ho potřeba vyřešit ručně.'
       )) return

@@ -65,7 +65,22 @@ export async function countTrailerBookings(supabase, motoIds) {
 // Společné potvrzení pro všechna tři místa, odkud jde motorku přesunout
 // (MotoActionModal, FleetBulkActionsModal, FleetDetailInfoTab).
 // Vrací true = pokračovat.
-export async function confirmTrailerBranchMove(supabase, targetBranch, motoIds) {
+// `target` může být objekt pobočky NEBO jen její id. Když objekt nenese `type`
+// (většina selectů v repu tahá jen `branches(name)` / `branches(id, name)`),
+// dohledáme ho — jinak by `isSelfService({name})` bylo tiše false a kontrola
+// by se u těch volajících NIKDY nespustila (přesně to se stalo u „náhradní
+// motorky" otevřené z výpisu flotily).
+async function resolveBranch(supabase, target) {
+  if (!target) return null
+  const obj = typeof target === 'string' ? { id: target } : target
+  if (typeof obj.type === 'string') return obj
+  if (!obj.id) return obj
+  const { data } = await supabase.from('branches').select('id, name, type').eq('id', obj.id).maybeSingle()
+  return data ? { ...obj, ...data } : obj
+}
+
+export async function confirmTrailerBranchMove(supabase, target, motoIds) {
+  const targetBranch = await resolveBranch(supabase, target)
   if (!isSelfService(targetBranch)) return true
   const n = await countTrailerBookings(supabase, motoIds)
   if (n === 0) return true

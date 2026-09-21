@@ -36,6 +36,10 @@ class CacheCleanupService {
     'mg_ride_autorecord', // přepínač automatického záznamu jízd
     'mg_ride_rec_id', // rozjetý záznam jízdy (pokračuje po restartu appky)
     'mg_ride_rec_buf', // neodeslané GPS body rozjetého záznamu
+    // Příznak RUČNÍ jízdy (vlastní motorka, bez výpůjčky). Bez něj úklid
+    // z ruční jízdy udělal automatickou a hlídač ji uprostřed vyjížďky
+    // ukončil, protože k ní nenašel běžící rezervaci.
+    'mg_ride_rec_manual',
     _versionKey, // app version marker (update detection)
   };
 

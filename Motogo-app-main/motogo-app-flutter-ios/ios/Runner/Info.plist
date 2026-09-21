@@ -69,6 +69,12 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<!-- Záznam projeté trasy během výpůjčky. Bez tohohle iOS po zamčení
+		     telefonu stopu utne a ve Velíně z vyjížďky zbude pár bodů
+		     spojených rovnou čarou. Běží jen s oprávněním „při používání"
+		     (NSLocationWhenInUse) a uživatel o tom po celou dobu ví —
+		     appka drží modrý indikátor polohy ve stavovém řádku. -->
+		<string>location</string>
 	</array>
 
 	<!-- ═══ Oprávnění — popisy pro iOS systémové dialogy a App Review ═══ -->
@@ -79,7 +85,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Ukládání pořízených fotografií dokladů a SOS incidentů do galerie.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Polohu používáme pro zobrazení vaší pozice na mapě, výpočet vzdálenosti přistavení motorky a při SOS hlášení.</string>
+	<string>Polohu používáme pro zobrazení vaší pozice na mapě, výpočet vzdálenosti přistavení motorky, při SOS hlášení a pro záznam projeté trasy během výpůjčky (i když máte telefon zamčený v kapse). Záznam trasy si můžete kdykoli vypnout v Mých zážitcích.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Polohu na pozadí využíváme pouze při aktivním SOS hlášení, abychom mohli sdílet vaši polohu se zákaznickou podporou a asistenční službou.</string>
 	<key>NSFaceIDUsageDescription</key>

@@ -2,6 +2,8 @@
 /// `translations_ext_18_rides.dart`).
 const translationsExt19RidesB = <String, Map<String, String>>{
   'es': {
+    'rideNotifTitle': 'MotoGo24 está grabando tu ruta',
+    'rideNotifText': 'La ruta se guarda en Mis experiencias. Puedes desactivarlo en la app.',
     'rideRecordTitle': 'Registro de ruta',
     'rideRecordHint':
         'Con la ubicación activada, la ruta de tu alquiler se guarda sola — incluida la moto que condujiste.',
@@ -59,6 +61,8 @@ const translationsExt19RidesB = <String, Map<String, String>>{
     'rideShareFooter': 'Recorrido con MotoGo24 🏍️',
   },
   'fr': {
+    'rideNotifTitle': 'MotoGo24 enregistre votre trajet',
+    'rideNotifText': 'L\'itinéraire est enregistré dans Mes expériences. Vous pouvez le désactiver dans l\'app.',
     'rideRecordTitle': 'Enregistrement du trajet',
     'rideRecordHint':
         'Avec la localisation autorisée, le trajet de ta location est enregistré tout seul — avec la moto utilisée.',
@@ -116,6 +120,8 @@ const translationsExt19RidesB = <String, Map<String, String>>{
     'rideShareFooter': 'Parcouru avec MotoGo24 🏍️',
   },
   'nl': {
+    'rideNotifTitle': 'MotoGo24 neemt je rit op',
+    'rideNotifText': 'De route wordt opgeslagen in Mijn belevenissen. Je kunt dit in de app uitzetten.',
     'rideRecordTitle': 'Ritregistratie',
     'rideRecordHint':
         'Met locatie aan wordt de route van je huur vanzelf bewaard — inclusief de motor waarop je reed.',
@@ -173,6 +179,8 @@ const translationsExt19RidesB = <String, Map<String, String>>{
     'rideShareFooter': 'Gereden met MotoGo24 🏍️',
   },
   'uk': {
+    'rideNotifTitle': 'MotoGo24 записує вашу поїздку',
+    'rideNotifText': 'Маршрут зберігається у «Моїх враженнях». Вимкнути можна в застосунку.',
     'rideRecordTitle': 'Запис поїздки',
     'rideRecordHint':
         'Якщо дозволено геолокацію, маршрут оренди зберігається сам — разом із мотоциклом, яким ти їхав.',

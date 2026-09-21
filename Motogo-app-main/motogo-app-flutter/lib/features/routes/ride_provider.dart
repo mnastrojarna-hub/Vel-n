@@ -62,20 +62,34 @@ Future<String?> startUserRide({String? bookingId, double? lat, double? lng}) asy
   return null;
 }
 
-/// Pošle dávku GPS bodů `[[lat,lng],…]` do rozjeté jízdy.
-Future<bool> appendRideTrack(String rideId, List<List<double>> points,
+/// Výsledek odeslání dávky bodů.
+///   [ok]       – uloženo, dávku můžeme zahodit
+///   [retry]    – výpadek sítě / serveru, body si necháme na příště
+///   [finished] – server jízdu mezitím uzavřel (noční úklid zatuhlých
+///                nahrávek). Do hotové jízdy se už nepřidává, takže má
+///                smysl lokální záznam zapomenout a začít nový.
+enum RideAppendResult { ok, retry, finished }
+
+/// Pošle dávku GPS bodů `[[lat,lng,ts,kmh,alt],…]` do rozjeté jízdy.
+Future<RideAppendResult> appendRideTrack(String rideId, List<List<double>> points,
     {double? maxSpeedKmh}) async {
-  if (points.isEmpty) return true;
+  if (points.isEmpty) return RideAppendResult.ok;
   try {
     final res = await MotoGoSupabase.client.rpc('append_ride_track', params: {
       'p_ride_id': rideId,
       'p_points': points,
       'p_max_speed_kmh': maxSpeedKmh,
     });
-    return res is Map && res['success'] == true;
+    if (res is Map && res['success'] == true) return RideAppendResult.ok;
+    final err = res is Map ? res['error']?.toString() : null;
+    if (err == 'ride_finished' || err == 'ride_not_found') {
+      debugPrint('[rides] append_ride_track: jízda už není rozjetá ($err)');
+      return RideAppendResult.finished;
+    }
+    return RideAppendResult.retry;
   } catch (e) {
     debugPrint('[rides] append_ride_track selhalo: $e');
-    return false;
+    return RideAppendResult.retry;
   }
 }
 

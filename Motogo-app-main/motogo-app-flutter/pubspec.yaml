@@ -84,6 +84,11 @@ dependencies:
 
   # GPS
   geolocator: ^14.0.3
+  # AndroidSettings / AppleSettings (foreground service, background updates)
+  # nejsou v `geolocator.dart` — platformní balíčky se musí uvést zvlášť.
+  # Verze odpovídají tomu, co si táhne geolocator 14.x (iOS strom má svoje).
+  geolocator_android: ^5.0.3
+  geolocator_apple: ^2.3.14
 
   # Displej nesmí zhasnout během navigace (route_navigation_screen)
   wakelock_plus: ^1.6.1
