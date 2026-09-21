@@ -151,33 +151,39 @@ GRANT EXECUTE ON FUNCTION public.get_trailer_availability(date, date, uuid, uuid
 -- deploy-sql.yml nehlídá) + nová kontrola pobočky; zbytek funkce BEZE ZMĚNY.
 -- Kontrolu pobočky dělá SECURITY DEFINER helper moto_is_self_service, takže
 -- nezávisí na RLS volajícího ani u přímého insertu z appky.
+--
+-- ÚZKÝ ZÁBĚR — ZÁMĚRNĚ. Kontrola se spustí VÝHRADNĚ ve chvíli, kdy se vozík
+-- PRÁVĚ přiřazuje (INSERT s vozíkem, nebo UPDATE, který `trailer_moto_id`
+-- nastavuje/mění). Účel je zabránit NOVÉMU přiřazení z klienta, který
+-- `p_moto_id` neposílá (appky z obchodů) — ne revidovat už existující data.
+-- Širší záběr (kontrola i při změně termínu / statusu / výměně motorky) by
+-- rozbil provoz: rezervace, které vozík na samoobslužné pobočce dostaly ještě
+-- PŘED tímto pravidlem (právě to byla ta chyba), by nešlo posunout, stornovat,
+-- obnovit ani u nich vyměnit motorku — a u placených úprav (web
+-- `pages-upravit-rezervaci-swap.js`, appka `reservation_edit_screen.dart`)
+-- se změna zapisuje až PO zaplacení přes Stripe, takže by se peníze strhly
+-- a zápis pak spadl. Tyto cesty proto necháváme projít; zbývající mezeru
+-- (výměna motorky pod existujícím vozíkem na samoobslužnou pobočku) je třeba
+-- řešit ve výběru motorek v těch flow, ne tvrdým pádem v DB.
 CREATE OR REPLACE FUNCTION public.check_trailer_overlap()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  -- Přidává/mění se právě teď vozík, motorka nebo termín? Jen tehdy se kontroluje
-  -- pobočka — rezervace vzniklé PŘED tímto pravidlem musí jít dál normálně
-  -- odbavit (změna statusu, doplacení, storno…).
-  v_check_branch boolean;
+  -- Přiřazuje se vozík právě teď? Jen tehdy se kontroluje pobočka.
+  v_assigning boolean;
 BEGIN
   IF NEW.trailer_moto_id IS NOT NULL
      AND NEW.status IN ('pending','reserved','active') THEN
 
-    -- a) Vozík jen k motorce z OBSLUŽNÉ pobočky.
+    -- a) NOVÝ vozík jen k motorce z OBSLUŽNÉ pobočky.
     IF TG_OP = 'INSERT' THEN
-      v_check_branch := true;
-    ELSIF OLD.trailer_moto_id IS DISTINCT FROM NEW.trailer_moto_id
-       OR OLD.moto_id         IS DISTINCT FROM NEW.moto_id
-       OR OLD.start_date      IS DISTINCT FROM NEW.start_date
-       OR OLD.end_date        IS DISTINCT FROM NEW.end_date
-       OR OLD.status NOT IN ('pending','reserved','active') THEN
-      v_check_branch := true;
+      v_assigning := true;
     ELSE
-      v_check_branch := false;
+      v_assigning := OLD.trailer_moto_id IS DISTINCT FROM NEW.trailer_moto_id;
     END IF;
 
-    IF v_check_branch AND public.moto_is_self_service(NEW.moto_id) THEN
+    IF v_assigning AND public.moto_is_self_service(NEW.moto_id) THEN
       RAISE EXCEPTION 'Vozík lze půjčit jen k motorce z obslužné pobočky — tato stojí na samoobslužné (moto_id=%).',
         NEW.moto_id
         USING ERRCODE = '23514';
@@ -200,11 +206,11 @@ BEGIN
 END;
 $$;
 
--- Do UPDATE OF přibyl `moto_id`: výměna motorky za kus ze samoobslužné pobočky
--- u rezervace s vozíkem se jinak triggeru vyhnula.
+-- Sloupce v UPDATE OF jsou ZÁMĚRNĚ shodné s 20260616 (moto_id tu být NESMÍ —
+-- viz poznámka výše o výměně motorky po zaplacení).
 DROP TRIGGER IF EXISTS trg_check_trailer_overlap ON public.bookings;
 CREATE TRIGGER trg_check_trailer_overlap
-  BEFORE INSERT OR UPDATE OF trailer_moto_id, moto_id, start_date, end_date, status
+  BEFORE INSERT OR UPDATE OF trailer_moto_id, start_date, end_date, status
   ON public.bookings
   FOR EACH ROW
   EXECUTE FUNCTION public.check_trailer_overlap();
