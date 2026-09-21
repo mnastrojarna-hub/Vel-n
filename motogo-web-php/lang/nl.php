@@ -374,6 +374,8 @@ return [
     'rez.alert.returnTime' => 'Voer de retourtijd in.',
     'rez.alert.bookingOverlap' => 'Een andere klant heeft deze motor zojuist voor dezelfde datums geboekt. Kies andere datums of een andere motor.',
     'rez.alert.bookingOverlapOwn' => 'U heeft al een andere actieve reservering op deze datums.',
+    'rez.alert.trailerStaffedOnly' => 'De aanhanger is alleen beschikbaar bij motoren van een bemande vestiging. Kies een motor van zo’n vestiging of verwijder de aanhanger.',
+    'rez.alert.trailerOccupied' => 'De aanhanger is in deze periode al bezet. Probeer andere data of verwijder de aanhanger.',
     'rez.alert.error' => 'Fout: {msg}',
     'rez.alert.saveError' => 'Opslaan mislukt: {msg}',
     'rez.alert.selectSize' => 'Kies eerst een maat.',

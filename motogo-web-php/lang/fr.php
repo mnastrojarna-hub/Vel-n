@@ -388,6 +388,8 @@ return [
     'rez.alert.returnTime' => 'Veuillez saisir l\'heure de retour.',
     'rez.alert.bookingOverlap' => 'Un autre client vient de réserver cette moto sur ces dates. Choisissez d\'autres dates ou une autre moto.',
     'rez.alert.bookingOverlapOwn' => 'Vous avez déjà une autre réservation active sur ces dates.',
+    'rez.alert.trailerStaffedOnly' => 'La remorque n’est disponible qu’avec les motos d’une agence avec personnel. Choisissez une moto de ce type d’agence ou retirez la remorque.',
+    'rez.alert.trailerOccupied' => 'La remorque est déjà réservée à ces dates. Essayez d’autres dates ou retirez la remorque.',
     'rez.alert.error' => 'Erreur : {msg}',
     'rez.alert.saveError' => 'Erreur d\'enregistrement : {msg}',
     'rez.alert.selectSize' => 'Veuillez d\'abord choisir une taille.',

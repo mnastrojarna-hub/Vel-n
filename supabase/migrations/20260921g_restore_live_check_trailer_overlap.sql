@@ -107,4 +107,19 @@ CREATE TRIGGER trg_check_trailer_overlap
   FOR EACH ROW
   EXECUTE FUNCTION public.check_trailer_overlap();
 
+-- ─── Parita GRANTů se živou DB (nález 4. kola) ──────────────────────────────
+-- Živá DB má na split_booking_moto_swap EXECUTE i pro service_role (volá ho
+-- webhook-receiver při commitu výměny po zaplacení). Zdroj rev.8 v repu i
+-- 20260921d grantují jen anon+authenticated; na produkci to CREATE OR REPLACE
+-- zachovává (grant přežije), ale obnova čistě z git migrací by webhook rozbila
+-- (permission denied). Idempotentní.
+GRANT EXECUTE ON FUNCTION public.split_booking_moto_swap(uuid, uuid, date, text, boolean, boolean)
+  TO service_role;
+-- Totéž u _apply_booking_changes_core: živá DB grantuje service_role, zdroj
+-- 20260912 ani 20260921e ne. Signatura dle 20260921e.
+GRANT EXECUTE ON FUNCTION public._apply_booking_changes_core(
+  uuid, uuid, date, date, uuid, text, text, double precision, double precision, numeric,
+  text, text, double precision, double precision, numeric, text, boolean, text, time)
+  TO service_role;
+
 NOTIFY pgrst, 'reload schema';

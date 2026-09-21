@@ -374,6 +374,8 @@ return [
     'rez.alert.returnTime' => 'Wpisz czas zwrotu motocykla.',
     'rez.alert.bookingOverlap' => 'Inny klient właśnie zarezerwował ten motocykl na te same daty. Wybierz inny termin lub motocykl.',
     'rez.alert.bookingOverlapOwn' => 'Masz już inną aktywną rezerwację w tym terminie.',
+    'rez.alert.trailerStaffedOnly' => 'Przyczepa jest dostępna tylko z motocyklami z oddziału obsługiwanego. Wybierz motocykl z takiego oddziału lub usuń przyczepę.',
+    'rez.alert.trailerOccupied' => 'Przyczepa jest już zajęta w tym terminie. Wybierz inny termin lub usuń przyczepę.',
     'rez.alert.error' => 'Błąd: {msg}',
     'rez.alert.saveError' => 'Błąd zapisywania: {msg}',
     'rez.alert.selectSize' => 'Najpierw wybierz rozmiar.',

@@ -388,6 +388,8 @@ return [
     'rez.alert.returnTime' => 'Please enter the motorcycle return time.',
     'rez.alert.bookingOverlap' => 'Another customer has just booked this motorcycle for the same dates. Please pick different dates or another motorcycle.',
     'rez.alert.bookingOverlapOwn' => 'You already have an active booking on these dates.',
+    'rez.alert.trailerStaffedOnly' => 'The trailer is only available with motorcycles from a staffed branch — self-service branches do not hand it over. Choose a bike from a staffed branch or remove the trailer.',
+    'rez.alert.trailerOccupied' => 'The trailer is already booked for these dates. Try other dates or remove the trailer.',
     'rez.alert.error' => 'Error: {msg}',
     'rez.alert.saveError' => 'Save error: {msg}',
     'rez.alert.selectSize' => 'Please select a size first.',

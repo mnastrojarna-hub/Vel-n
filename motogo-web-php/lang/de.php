@@ -388,6 +388,8 @@ return [
     'rez.alert.returnTime' => 'Bitte geben Sie die Rückgabezeit an.',
     'rez.alert.bookingOverlap' => 'Ein anderer Kunde hat dieses Motorrad gerade für denselben Termin reserviert. Bitte wählen Sie einen anderen Termin oder ein anderes Motorrad.',
     'rez.alert.bookingOverlapOwn' => 'Sie haben in diesem Zeitraum bereits eine andere aktive Reservierung.',
+    'rez.alert.trailerStaffedOnly' => 'Der Anhänger ist nur bei Motorrädern aus einer Filiale mit Personal verfügbar. Wählen Sie ein Motorrad aus einer solchen Filiale oder entfernen Sie den Anhänger.',
+    'rez.alert.trailerOccupied' => 'Der Anhänger ist in diesem Zeitraum bereits belegt. Wählen Sie einen anderen Zeitraum oder entfernen Sie den Anhänger.',
     'rez.alert.error' => 'Fehler: {msg}',
     'rez.alert.saveError' => 'Fehler beim Speichern: {msg}',
     'rez.alert.selectSize' => 'Bitte wählen Sie zuerst eine Größe.',

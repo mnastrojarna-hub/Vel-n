@@ -152,10 +152,12 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const selectedMoto = allMotos.find(m => m.id === selectedMotoId)
   const motoChanged = selectedMotoId !== booking.moto_id
   // Vozík vydává jen OBSLUŽNÁ pobočka. Velín mění moto_id PŘÍMÝM UPDATE (ne přes
-  // apply_booking_changes), takže se ho serverové kontroly z 20260921d/e netýkají
-  // a trigger na moto_id nereaguje (20260921c ho odebralo kvůli platbě před
-  // zápisem na webu). Obsluhu proto jen VAROVÁNÍM upozorníme — blokovat ji
-  // nechceme, může mít důvod (vozík přiveze sama).
+  // apply_booking_changes), takže se ho RPC kontroly z 20260921d/e netýkají.
+  // Trigger trg_check_trailer_overlap (20260921f/g) na změnu motorky pod vozíkem
+  // REAGUJE, ale přihlášeného admina (is_admin()) záměrně vyjímá — obsluhu
+  // proto jen VAROVÁNÍM upozorníme, blokovat ji nechceme (může mít důvod,
+  // vozík přiveze sama). POZOR: uživatel bez řádku v admin_users by tu
+  // narazil na 23514.
   const trailerToSelfService = !!booking.trailer_moto_id && motoChanged && (() => {
     const br = branches.find(b => b.id === selectedMoto?.branch_id)
     return br?.type === SELF_SERVICE_TYPE
