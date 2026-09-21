@@ -83,6 +83,8 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   final List<List<double>> _buffer = [];
   double _maxSpeedKmh = 0;
   bool _starting = false;
+  /// Právě probíhající odeslání dávky (pojistka proti souběhu — viz `flush`).
+  Future<void>? _flushing;
 
   Future<void> _restore() async {
     try {
@@ -239,14 +241,45 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
 
   /// Odešle nasbíranou dávku bodů (volá se po dávkách, časovačem a při
   /// přechodu appky do pozadí).
+  ///
+  /// Běží VŽDY JEN JEDNOU NARÁZ. Spouštěčů je víc (plná dávka, časovač,
+  /// a při odchodu do pozadí `inactive` i `paused` hned po sobě) a dvě
+  /// souběžná odeslání si po návratu ze serveru sahala na stejnou dávku:
+  /// první odeslané body odebral, druhý pak mazal z prázdné →
+  /// „RangeError (end): Invalid value: Only valid value is 0" (pád hlášený
+  /// z 4.0.2+107 při přechodu appky do pozadí). Další volání proto počká na
+  /// to rozjeté a skončí.
   Future<void> flush() async {
+    final running = _flushing;
+    if (running != null) return running;
+    final done = Completer<void>();
+    _flushing = done.future;
+    try {
+      await _flushOnce();
+    } catch (e) {
+      // Nikdy nepropadne ven — flush se volá bez `await` (časovač, lifecycle)
+      // a neodchycená chyba by skončila jako pád appky.
+      debugPrint('[rides] flush selhal: $e');
+    } finally {
+      _flushing = null;
+      done.complete();
+    }
+  }
+
+  Future<void> _flushOnce() async {
     final id = state.rideId;
     if (id == null || _buffer.isEmpty) return;
     final batch = List<List<double>>.from(_buffer);
     final ok = await appendRideTrack(id, batch,
         maxSpeedKmh: _maxSpeedKmh > 0 ? _maxSpeedKmh : null);
     if (!ok) return; // neposlané body zůstanou v dávce na příště
-    _buffer.removeRange(0, batch.length);
+    // Mezitím mohla jízda skončit (a v dávce už být body jízdy jiné) — pak
+    // se odeslaných bodů nedotýkáme.
+    if (state.rideId != id) return;
+    // Nové body během odesílání přibývají NA KONEC dávky, odepředu tedy
+    // odebíráme jen tolik, kolik jich v dávce doopravdy zůstalo.
+    final sent = batch.length < _buffer.length ? batch.length : _buffer.length;
+    if (sent > 0) _buffer.removeRange(0, sent);
     await _persistBuffer();
   }
 
@@ -258,6 +291,11 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
     _sub = null;
     _timer?.cancel();
     _timer = null;
+    // Rozjeté odeslání dávky necháme doběhnout DŘÍV, než sáhneme na dávku —
+    // jinak by body, které server právě přebírá, poslalo `finishUserRide`
+    // podruhé (zdvojená stopa) nebo by je odeslání odebralo až po ukončení.
+    final pending = _flushing;
+    if (pending != null) await pending;
     state = state.copyWith(recording: false, points: 0, clearRide: true);
 
     var kept = false;

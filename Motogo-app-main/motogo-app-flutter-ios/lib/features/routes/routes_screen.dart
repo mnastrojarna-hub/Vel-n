@@ -103,6 +103,12 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
       (_sort == _RouteSort.nearMe ? 0 : 1);
 
   void _clearFilters() {
+    // Sheet s filtry (i ten řadicí) PŘEŽIJE odpojení obrazovky — typicky když
+    // se appka vrátí z pozadí a strom se přestaví. Klepnutí na „Zrušit filtry"
+    // pak sahalo na už uvolněný State → pád „Null check operator used on a
+    // null value" v `State.setState` (hlášeno z 4.0.0+103). Na mrtvé obrazovce
+    // není co přenastavovat; sheet si zavře volající.
+    if (!mounted) return;
     // Z Tras se ruší jen to, co Trasy samy nastavují — státy a hledání.
     // Kategorie, „v okolí" ani hodnocení patří Místům a nesmí tím zmizet.
     ref.read(placesFilterProvider.notifier).update(
@@ -1075,6 +1081,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                               tApproach,
                               () async {
                                 if (!tApproach && me == null) {
+                                  // Stejná pojistka jako u „Zrušit filtry":
+                                  // na odpojené obrazovce už `ref` nesmí nikdo
+                                  // použít (sheet ji přežije).
+                                  if (!mounted) return;
                                   final ok = await ensureLocation(ref);
                                   if (!ok || !sheetCtx.mounted) return;
                                 }
