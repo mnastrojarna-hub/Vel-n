@@ -15,7 +15,9 @@
 -- Správné místo je proto RANÁ VALIDACE uvnitř `split_booking_moto_swap`, která
 -- se vyhodnocuje i v dry-runu — zákazník dostane chybu PŘED platbou.
 -- Nový chybový kód: `trailer_staffed_only` (web i appka ho mají namapovaný na
--- hlášku „Vozík jen na obslužné pobočce").
+-- hlášku „Vozík jen na obslužné pobočce"). Blokuje se JEN větev REPLACE —
+-- u SPLITu si rezervace A svou motorku i vozík ponechá a nová rezervace B
+-- vozík nedostane, takže tam zakazovat není co.
 --
 -- Tělo funkce je PŘEVZATO BEZE ZMĚNY z 20260904_late_pickup_gaps.sql (rev.8);
 -- jediný rozdíl je vložený blok IF b.trailer_moto_id IS NOT NULL ... níže.
@@ -84,16 +86,6 @@ BEGIN
   IF p_new_moto_id IS NULL OR p_new_moto_id = b.moto_id THEN
     RETURN jsonb_build_object('success', false, 'error', 'invalid_new_moto');
   END IF;
-  -- rev.9 2026-09-21: vozík vydává jen OBSLUŽNÁ pobočka. Rezervace s přiřazeným
-  -- vozíkem proto nesmí přejet na motorku ze samoobslužné. Kontrola je ZÁMĚRNĚ
-  -- tady, mezi ranými validacemi: vrací se i v `p_dry_run`, tedy DŘÍV, než web
-  -- (`pages-upravit-rezervaci-swap.js`) a appka (`reservation_swap_section.dart`)
-  -- pošlou zákazníka zaplatit doplatek na Stripe. Kdyby se to řešilo až
-  -- triggerem na zápisu, commit běží AŽ PO platbě → peníze strženy, výměna ne
-  -- (proto 20260921c `moto_id` z `trg_check_trailer_overlap` odebralo).
-  IF b.trailer_moto_id IS NOT NULL AND public.moto_is_self_service(p_new_moto_id) THEN
-    RETURN jsonb_build_object('success', false, 'error', 'trailer_staffed_only');
-  END IF;
   -- Povolený rozsah: KTERÝKOLI den rezervace včetně prvního a posledního.
   IF p_swap_date < b.start_date::date OR p_swap_date > b.end_date::date THEN
     RETURN jsonb_build_object('success', false, 'error', 'swap_date_out_of_range');
@@ -104,6 +96,23 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'swap_date_out_of_range');
   END IF;
   v_replace := v_full_swap AND b.status = 'reserved';
+  -- rev.9 2026-09-21: vozík vydává jen OBSLUŽNÁ pobočka, takže rezervace
+  -- s přiřazeným vozíkem nesmí skončit na motorce ze samoobslužné.
+  -- POZOR na umístění: kontrola je AŽ ZA výpočtem `v_replace`, ale pořád PŘED
+  -- jakýmkoli zápisem i před `IF p_dry_run THEN RETURN`. Dvě věci zároveň:
+  --  * blokuje se JEN větev REPLACE (`v_replace`), protože jen ta přepisuje
+  --    `moto_id` na řádku, KTERÝ vozík nese. U SPLITu si původní rezervace A
+  --    svou motorku i vozík ponechá a vzniká nová rezervace B (bez vozíku) —
+  --    tu blokovat netřeba a dřívější umístění ji blokovalo zbytečně;
+  --  * vrací se i v `p_dry_run`, tedy DŘÍV, než web
+  --    (`pages-upravit-rezervaci-swap.js`) a appka (`reservation_swap_section.dart`)
+  --    pošlou zákazníka zaplatit doplatek na Stripe. Kdyby to řešil až trigger
+  --    na zápisu, commit běží AŽ PO platbě → peníze strženy, výměna ne (přesně
+  --    proto `20260921c` `moto_id` z `trg_check_trailer_overlap` odebralo).
+  IF v_replace AND b.trailer_moto_id IS NOT NULL
+     AND public.moto_is_self_service(p_new_moto_id) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'trailer_staffed_only');
+  END IF;
   -- Plná výměna u aktivní (převzato dnes): A si nechá den jako den předání,
   -- jinak standardně den před výměnou.
   v_a_end := CASE WHEN v_full_swap THEN p_swap_date ELSE p_swap_date - 1 END;

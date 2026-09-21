@@ -180,8 +180,12 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
 
   /// Hláška DB pojistky „vozík jen na obslužné pobočce" (ERRCODE 23514,
   /// `trg_check_trailer_overlap`). Do klienta nechodí jako kód, jen jako text.
-  static bool _isTrailerBranchError(String e) =>
-      e.contains('obslužné pobočky') || e.contains('trailer_moto_id');
+  /// POZOR: `trg_check_trailer_overlap` hlásí DVĚ různé věci a jen tahle je
+  /// o pobočce — druhá („Vozík je v tomto termínu již obsazen
+  /// (trailer_moto_id=…)") obsahuje řetězec `trailer_moto_id`, takže se na něj
+  /// NESMÍ matchovat, jinak se zákazníkovi obsazený vozík hlásí jako špatná
+  /// pobočka.
+  static bool _isTrailerBranchError(String e) => e.contains('obslužné pobočky');
 
   /// Namapuje chybový kód RPC na hlášku a zobrazí toast.
   void _showSwapError(dynamic res) {
@@ -284,7 +288,15 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
       }
     } catch (e) {
       if (mounted) {
-        showMotoGoToast(context, icon: '✗', title: t(context).error, message: '$e');
+        // Výjimka z DB pojistky chodí jako PostgrestException s českým textem —
+        // bez tohohle by se do toastu vypsala syrová včetně UUID motorky.
+        final raw = '$e';
+        showMotoGoToast(context,
+            icon: '✗',
+            title: t(context).error,
+            message: _isTrailerBranchError(raw)
+                ? t(context).tr('swap.trailerStaffedOnly')
+                : raw);
       }
     } finally {
       if (mounted) setState(() => _saving = false);

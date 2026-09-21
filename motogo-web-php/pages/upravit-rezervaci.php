@@ -128,6 +128,11 @@ $keys = [
     // Moto tab
     'editRez.moto.intro','editRez.moto.loading','editRez.moto.licPill','editRez.moto.noLicPill',
     'editRez.moto.samePrice','editRez.moto.diffRefund','editRez.moto.reasonLicense','editRez.moto.reasonOccupied','editRez.moto.reasonTrailerBranch',
+    // Cenový rozdíl v potvrzovacím dialogu výměny + poznámka o ruční vratce
+    // (pages-upravit-rezervaci-swap.js je používá, ve whitelistu chyběly →
+    // MG.t() vypisovalo syrový název klíče).
+    'editRez.swap.net.surcharge','editRez.swap.net.refund','editRez.swap.net.same',
+    'editRez.refund.manualNote',
     'editRez.moto.unavailable','editRez.moto.selectThis','editRez.moto.diffUp',
     'editRez.moto.priceTotal','editRez.moto.priceVs','editRez.moto.backToDetail',
     'editRez.moto.confirmTitle','editRez.moto.confirmYes','editRez.moto.confirmNo',
