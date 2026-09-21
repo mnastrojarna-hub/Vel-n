@@ -19,6 +19,21 @@ const FILTERS = [
   { id: 'photos', label: '📷 S fotkami' },
 ]
 
+// Seznam NEČTE sloupec `track` — u stovek jízd po tisících bodů to byly
+// megabajty jsonb na každé otevření stránky. Stopu si načte až detail jízdy.
+const RIDE_LIST_COLS = [
+  'id', 'user_id', 'booking_id', 'moto_id', 'moto_name', 'name', 'description',
+  'source', 'start_lat', 'start_lng', 'end_lat', 'end_lng', 'started_at',
+  'ended_at', 'distance_km', 'duration_min', 'moving_sec', 'idle_sec',
+  'gap_sec', 'last_fix_at', 'avg_speed_kmh', 'max_speed_kmh',
+  'elevation_gain_m', 'is_recording', 'visibility', 'status', 'cover_image',
+  'created_at', 'updated_at',
+].join(',')
+
+/** Nahrávka, do které hodiny nic nepřiteklo — „visí". */
+const isStuck = (r) => r.is_recording && Date.now() -
+  new Date(r.last_fix_at || r.started_at).getTime() > 3 * 3600 * 1000
+
 const fmtDate = (v) => v ? new Date(v).toLocaleString('cs-CZ', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
 const fmtDur = (min) => min == null ? '—' : (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`)
 const fmtSec = (sec) => !sec ? '—' : fmtDur(Math.round(sec / 60))
@@ -44,7 +59,11 @@ export default function TrasyJizdy({ onChanged }) {
       const all = []
       for (let from = 0; ; from += 1000) {
         const { data, error } = await supabase.from('user_rides')
-          .select('*').order('started_at', { ascending: false }).range(from, from + 999)
+          .select(RIDE_LIST_COLS)
+          // `id` jako druhé řazení: bez jednoznačného klíče může stránkování
+          // přes hranici 1000 řádků některé jízdy zdvojit a jiné vynechat.
+          .order('started_at', { ascending: false }).order('id')
+          .range(from, from + 999)
         if (error) {
           throw new Error(
             `Načtení jízd selhalo: ${error.message || 'neznámá chyba'}` +
@@ -61,7 +80,7 @@ export default function TrasyJizdy({ onChanged }) {
       const byRide = {}
       for (let from = 0; ; from += 1000) {
         const { data, error } = await supabase.from('user_ride_points')
-          .select('*').order('sort_order').range(from, from + 999)
+          .select('*').order('sort_order').order('id').range(from, from + 999)
         if (error) throw error
         ;(data || []).forEach(p => {
           (byRide[p.ride_id] = byRide[p.ride_id] || []).push(p)
@@ -188,9 +207,14 @@ export default function TrasyJizdy({ onChanged }) {
                       <span className="text-[9px] font-extrabold uppercase rounded-btn"
                         style={{ padding: '2px 6px', background: '#e8ffe8', color: '#1a8a18' }}>Veřejná</span>
                     )}
-                    {ride.is_recording && (
+                    {ride.is_recording && !isStuck(ride) && (
                       <span className="text-[9px] font-extrabold uppercase rounded-btn"
-                        style={{ padding: '2px 6px', background: '#fef3c7', color: '#b45309' }}>Nahrává se</span>
+                        style={{ padding: '2px 6px', background: '#dcfce7', color: '#15803d' }}>● Nahrává se</span>
+                    )}
+                    {isStuck(ride) && (
+                      <span className="text-[9px] font-extrabold uppercase rounded-btn"
+                        title={`Poslední GPS bod: ${fmtDate(ride.last_fix_at)}. Dokud záznam visí, nevznikne zákazníkovi další jízda.`}
+                        style={{ padding: '2px 6px', background: '#fee2e2', color: '#dc2626' }}>Záznam visí</span>
                     )}
                     {isHidden && (
                       <span className="text-[9px] font-extrabold uppercase rounded-btn"
@@ -207,6 +231,10 @@ export default function TrasyJizdy({ onChanged }) {
                   <span title="Čas stání (pauzy, zastávky)">⏸️ {fmtSec(ride.idle_sec)}</span>
                   <span title="Průměrná rychlost z času jízdy">📊 {fmtSpeed(ride.avg_speed_kmh)}</span>
                   <span title="Maximální rychlost">🚀 {fmtSpeed(ride.max_speed_kmh)}</span>
+                  {ride.gap_sec > 0 && (
+                    <span title="Čas bez GPS signálu — tyhle úseky trasy neznáme a nepočítají se do kilometrů"
+                      style={{ color: '#b45309' }}>📵 {fmtSec(ride.gap_sec)} bez signálu</span>
+                  )}
                   {ride.elevation_gain_m > 0 && <span title="Nastoupáno">⛰️ {ride.elevation_gain_m} m</span>}
                   <span>📍 {stops} zastávek</span>
                   <span>📷 {photoCount(ride.id)} fotek</span>
