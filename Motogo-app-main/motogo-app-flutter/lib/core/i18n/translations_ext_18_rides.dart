@@ -2,6 +2,8 @@
 /// s fotkami a popisky, sdílení na sociální sítě. Část 1/2: cs, en, de, pl.
 const translationsExt18Rides = <String, Map<String, String>>{
   'cs': {
+    'rideNotifTitle': 'MotoGo24 zaznamenává jízdu',
+    'rideNotifText': 'Trasa se ukládá do Mých zážitků. Vypnout jde v appce.',
     'rideRecordTitle': 'Záznam jízdy',
     'rideRecordHint':
         'Když máš povolenou polohu, trasa z tvé výpůjčky se ukládá sama — i s motorkou, kterou jsi jel.',
@@ -59,6 +61,8 @@ const translationsExt18Rides = <String, Map<String, String>>{
     'rideShareFooter': 'Projeto s MotoGo24 🏍️',
   },
   'en': {
+    'rideNotifTitle': 'MotoGo24 is recording your ride',
+    'rideNotifText': 'Your route is being saved to My experiences. You can turn it off in the app.',
     'rideRecordTitle': 'Ride recording',
     'rideRecordHint':
         'With location turned on, the route of your rental is saved automatically — including the bike you rode.',
@@ -116,6 +120,8 @@ const translationsExt18Rides = <String, Map<String, String>>{
     'rideShareFooter': 'Ridden with MotoGo24 🏍️',
   },
   'de': {
+    'rideNotifTitle': 'MotoGo24 zeichnet deine Fahrt auf',
+    'rideNotifText': 'Die Route wird in Meine Erlebnisse gespeichert. Du kannst es in der App abschalten.',
     'rideRecordTitle': 'Fahrtaufzeichnung',
     'rideRecordHint':
         'Bei erlaubtem Standort wird die Strecke deiner Miete automatisch gespeichert — samt gefahrenem Motorrad.',
@@ -173,6 +179,8 @@ const translationsExt18Rides = <String, Map<String, String>>{
     'rideShareFooter': 'Gefahren mit MotoGo24 🏍️',
   },
   'pl': {
+    'rideNotifTitle': 'MotoGo24 zapisuje Twoją trasę',
+    'rideNotifText': 'Trasa zapisuje się w Moich przeżyciach. Możesz to wyłączyć w aplikacji.',
     'rideRecordTitle': 'Zapis przejazdu',
     'rideRecordHint':
         'Gdy lokalizacja jest włączona, trasa z wypożyczenia zapisuje się sama — razem z motocyklem, którym jechałeś.',
