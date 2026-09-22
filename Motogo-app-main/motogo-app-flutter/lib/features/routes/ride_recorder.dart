@@ -5,11 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-// Platformní nastavení polohy (foreground service / background updates)
-// NENÍ součástí `geolocator.dart` — musí se importovat z platformních
-// balíčků. Oba stromy je mají v pubspec.yaml (iOS ve verzi ke svému pinu).
-import 'package:geolocator_android/geolocator_android.dart';
-import 'package:geolocator_apple/geolocator_apple.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/i18n/i18n_provider.dart';
