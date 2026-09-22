@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { isServiceRole } from '../_shared/auth.ts'
 
 /**
  * Edge Function: send-push (redeploy 2026-07-03 — FCM v1 notification_priority fix)
@@ -113,19 +114,8 @@ async function getAccessToken(serviceAccount: {
  * injected into this function are both valid yet differ as strings, so a strict
  * string compare would reject legitimate server-side callers.
  */
-function isServiceRole(token: string): boolean {
-  if (!token) return false
-  if (SUPABASE_SERVICE_KEY && token === SUPABASE_SERVICE_KEY) return true
-  try {
-    const parts = token.split('.')
-    if (parts.length !== 3) return false
-    const json = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
-    const payload = JSON.parse(json)
-    return payload?.role === 'service_role'
-  } catch {
-    return false
-  }
-}
+// service_role se ověřuje sdíleným helperem (_shared/auth.ts): claim v payloadu
+// nestačí, podpis ověří PostgREST — 2026-09-22 (nepodepsaný token dřív prošel).
 
 /** Send FCM v1 push notification */
 async function sendFCM(
@@ -187,7 +177,7 @@ serve(async (req) => {
     // Auth: only service_role allowed (exact env match or a service_role JWT)
     const authHeader = req.headers.get('authorization') || ''
     const token = authHeader.replace('Bearer ', '').trim()
-    if (!isServiceRole(token)) {
+    if (!(await isServiceRole(token))) {
       return jsonResponse({ success: false, error: 'Unauthorized — service_role only' }, 401)
     }
 

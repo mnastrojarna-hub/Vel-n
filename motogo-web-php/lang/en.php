@@ -1320,6 +1320,7 @@ return [
     'editRez.pay.amountMismatch' => 'The surcharge amount does not match the server calculation ({amount}). Reload the page and try again.',
     'editRez.pay.motoUnavailable' => 'The motorcycle is already booked for the new dates, or the branch is closed — the surcharge payment was cancelled. Choose different dates or another motorcycle.',
     'editRez.pay.wrongStatus' => 'A booking in this state can no longer be changed (cancelled or completed) — the surcharge payment was cancelled.',
+    'editRez.pay.authRequired' => 'You are not signed in or your session has expired — please sign in again and repeat the change.',
     'editRez.moto.unavailable' => 'Unavailable',
     'editRez.moto.selectThis' => 'Pick this motorcycle →',
     'editRez.moto.backToDetail' => '← Back to detail',

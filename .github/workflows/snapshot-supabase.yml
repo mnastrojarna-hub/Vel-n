@@ -110,8 +110,19 @@ jobs:
           git config user.email "noreply@motogo24.cz"
           git checkout -B supabase-live-snapshot
           git add -A supabase/functions supabase/_snapshot
-          git commit -m "snapshot: kompletni zivy stav Supabase (funkce + schema)" || echo "Zadne rozdily."
-          git push -f origin supabase-live-snapshot
+          # Vetev se kazdy beh staví znovu nad main (push -f), takze starsi zive
+          # stavy z ni mizi — kazdy novy snapshot proto dostane i tag
+          # snapshot/<UTC cas>, aby sel dohledat stav pred/po kazde migraci
+          # (incident 2026-09-21: repo prepsalo zivou funkci, o ktere nevedelo).
+          if git commit -m "snapshot: kompletni zivy stav Supabase (funkce + schema)"; then
+            SNAP_TAG="snapshot/$(date -u +%Y%m%d-%H%M%S)"
+            git tag "$SNAP_TAG"
+            git push -f origin supabase-live-snapshot
+            git push origin "$SNAP_TAG" || echo "::warning::tag $SNAP_TAG se nepodarilo pushnout"
+          else
+            echo "Zadne rozdily."
+            git push -f origin supabase-live-snapshot
+          fi
 
       - name: Jak porovnat
         run: |

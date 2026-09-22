@@ -423,6 +423,17 @@ Deno.serve(async (req: Request) => {
       // smí vždy; zákazník jen svou rezervaci.
       if (!dryErr && cur) {
         const who = await authClassify(req)
+        if (who.kind === 'none') {
+          // Chybějící / neplatný / expirovaný token → 401 (appka spustí re-login
+          // flow authExpired a rezervaci si nechá; web ukáže výzvu k přihlášení).
+          // 403 níže je jen pro PŘIHLÁŠENÉHO ne-vlastníka.
+          return new Response(
+            JSON.stringify({ success: false, error: 'Přihlášení chybí nebo vypršelo — přihlaste se prosím znovu a úpravu zopakujte.', code: 'auth_required' }),
+            { status: 401, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
+        }
+        // `service` = podepsaný service_role JWT (isServiceRole ověřuje podpis
+        // přes PostgREST; pouhý claim v payloadu by šel podvrhnout).
         const owner = who.kind === 'service' || who.kind === 'admin' ||
           (who.kind === 'user' && !!who.userId && who.userId === cur.user_id)
         if (!owner) {

@@ -35,6 +35,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { isServiceRole } from '../_shared/auth.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -55,17 +56,8 @@ const fmtAmount = (n: number) => (Math.round((Number(n) || 0) * 100) / 100).toFi
 
 /// Je token service_role JWT? Jen claim, bez ověření podpisu (viz send-push /
 /// mirror-route-images — po rotaci klíčů může platit víc service klíčů zároveň).
-function isServiceRole(token: string): boolean {
-  try {
-    const p = token.split('.')
-    if (p.length !== 3) return false
-    const pad = '='.repeat((4 - (p[1].length % 4)) % 4)
-    const payload = JSON.parse(atob(p[1].replace(/-/g, '+').replace(/_/g, '/') + pad))
-    return payload.role === 'service_role'
-  } catch (_) {
-    return false
-  }
-}
+// service_role se ověřuje sdíleným helperem (_shared/auth.ts): claim v payloadu
+// nestačí, podpis ověří PostgREST — 2026-09-22 (nepodepsaný token dřív prošel).
 
 type FioColumn = { value: unknown } | null
 type FioTx = Record<string, FioColumn>
@@ -123,7 +115,7 @@ serve(async (req) => {
   let bearer = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim()
   if (bearer.length > 1 && bearer.startsWith('"') && bearer.endsWith('"')) bearer = bearer.slice(1, -1)
   const svcMatch = bearer.length > 0 && bearer === SERVICE_KEY
-  const roleMatch = !svcMatch && isServiceRole(bearer)
+  const roleMatch = !svcMatch && await isServiceRole(bearer)
   let appMatch = false
   if (!svcMatch && !roleMatch && bearer.length > 0) {
     const { data: row } = await sb.from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()

@@ -23,6 +23,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { isServiceRole } from '../_shared/auth.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -54,15 +55,8 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 
 /** Je token service_role JWT? Kontroluje claim `role` (ne přesnou shodu) —
  *  projekt může mít nový formát klíčů sb_secret_ / víc platných klíčů. */
-function isServiceRole(token: string): boolean {
-  try {
-    const p = token.split('.')
-    if (p.length !== 3) return false
-    const pad = '='.repeat((4 - (p[1].length % 4)) % 4)
-    const payload = JSON.parse(atob(p[1].replace(/-/g, '+').replace(/_/g, '/') + pad))
-    return payload.role === 'service_role'
-  } catch (_) { return false }
-}
+// service_role se ověřuje sdíleným helperem (_shared/auth.ts): claim v payloadu
+// nestačí, podpis ověří PostgREST — 2026-09-22 (nepodepsaný token dřív prošel).
 
 function buildSystemPrompt(targetLang: string, langName: string): string {
   return [
@@ -171,7 +165,7 @@ serve(async (req: Request): Promise<Response> => {
     // (sb_secret_…) se app_settings klíč NEROVNÁ env klíči → striktní shoda
     // dávala 401 při přímém volání z pg_net (dopřeklad okolí). Fallback = user
     // JWT (Velín admin volá s admin user tokenem).
-    let authOk = token === SUPABASE_SERVICE_KEY || isServiceRole(token)
+    let authOk = token === SUPABASE_SERVICE_KEY || await isServiceRole(token)
     if (!authOk) {
       const { data: row } = await supabaseAdmin.from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()
       if (row?.value && token === String(row.value).replace(/^"|"$/g, '').trim()) authOk = true
