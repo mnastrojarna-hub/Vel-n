@@ -23,7 +23,11 @@ List<RideSegment> _splitOnGaps(List<LatLng> track, List<int?> times) {
   if (track.isEmpty) return const [];
   if (track.length == 1) return [RideSegment(List.unmodifiable(track))];
 
-  const dist = Distance();
+  // Haversine, ne výchozí Vincenty: stejný vzorec jako server (_ride_stats)
+  // a Velín (rideTrack.js), takže hranice 50 m padne u všech tří stejně —
+  // a na 4000 bodech × 100 jízd při každém parsování seznamu je i řádově
+  // levnější.
+  const dist = Distance(calculator: Haversine());
   final out = <RideSegment>[];
   var current = <LatLng>[track.first];
   RideGap? pendingGap;

@@ -149,7 +149,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
     )
   }
 
-  const q = trackQuality(data, data.track)
+  const q = trackQuality(data, data.track, Number(data.points || 0))
   // Stáří fixu počítá server při každém dotazu — nepřepočítáváme ho v UI,
   // ať nehlásíme „před 2 s" pro bod, který je ve skutečnosti hodinu starý.
   const ageSec = Number(data.age_sec || 0)

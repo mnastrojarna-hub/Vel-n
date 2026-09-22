@@ -100,9 +100,11 @@ export function splitTrackOnGaps(track, gapSec = GAP_SEC, stillKm = STILL_KM) {
  * Posouzení kvality stopy — Velín podle toho pozná, jestli má co zobrazit,
  * nebo jestli jde o „trasu" slepenou z pár náhodných fixů.
  */
-export function trackQuality(ride, track) {
+export function trackQuality(ride, track, pointCount) {
   const t = Array.isArray(track) ? track : (Array.isArray(ride?.track) ? ride.track : [])
-  const points = t.length
+  // RPC pro živou mapu stopu prořídne na 1200 bodů, ale skutečný počet posílá
+  // zvlášť — bez něj by dlouhá jízda (> ~240 km) vypadala jako „řídká".
+  const points = Number.isFinite(pointCount) && pointCount > 0 ? pointCount : t.length
   const km = Number(ride?.distance_km || 0)
   const gapSec = Number(ride?.gap_sec || 0)
   const segments = splitTrackOnGaps(t)
