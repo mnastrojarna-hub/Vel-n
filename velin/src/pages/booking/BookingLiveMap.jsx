@@ -68,7 +68,9 @@ export default function BookingLiveMap({ bookingId, booking }) {
     }
   }, [bookingId])
 
-  useEffect(() => { load(false) }, [load])
+  // Přepnutí na jinou rezervaci: nejdřív zahodit data té předchozí, jinak
+  // operátor chvíli vidí polohu JINÉHO zákazníka pod novou hlavičkou.
+  useEffect(() => { setData(null); setErr(null); load(false) }, [load])
 
   // Polling — rychleji jen dokud se opravdu nahrává.
   useEffect(() => {
@@ -90,6 +92,12 @@ export default function BookingLiveMap({ bookingId, booking }) {
         .rpc('admin_finish_user_ride', { p_ride_id: data.ride_id })
       if (error) throw error
       if (res?.success === false) throw new Error(res.error)
+      // Jízda pod 1 km se uzavřením SMAŽE — operátor to musí vidět, jinak
+      // klikne, dostane zelenou a záznam beze slova zmizí.
+      if (res?.discarded) {
+        window.alert('Záznam ukončen. Jízda měla méně než 1 km ověřené trasy, '
+          + 'takže byla podle pravidel smazána (parkování se do deníku neukládá).')
+      }
       await load(true)
     } catch (e) {
       setErr(e.message || String(e))
@@ -141,7 +149,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
     )
   }
 
-  const q = trackQuality(data, data.track)
+  const q = trackQuality(data, data.track, Number(data.points || 0))
   // Stáří fixu počítá server při každém dotazu — nepřepočítáváme ho v UI,
   // ať nehlásíme „před 2 s" pro bod, který je ve skutečnosti hodinu starý.
   const ageSec = Number(data.age_sec || 0)
@@ -251,7 +259,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
 
         <p className="text-xs mt-3" style={{ color: '#6b8f7b' }}>
           Trasa je zákazníkův soukromý zápisník — ve Velíně ji vidíte kvůli
-          provozu výpůjčky. Detail a moderace: <a href="/trasy"
+          provozu výpůjčky. Detail a moderace: <a href="/trasy?tab=rides"
             style={{ color: '#1a8a18', fontWeight: 700 }}>Trasy → Jízdy zákazníků</a>.
         </p>
       </div>

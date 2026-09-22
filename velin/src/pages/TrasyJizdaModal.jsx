@@ -75,6 +75,13 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
         .rpc('admin_finish_user_ride', { p_ride_id: ride.id })
       if (error) throw error
       if (data?.success === false) throw new Error(data.error)
+      // Uzavření jízdy pod 1 km ji SMAŽE (stejné pravidlo jako v appce).
+      // Operátor to musí vidět — jinak klikne, dostane zelenou a jízda
+      // beze slova zmizí ze seznamu.
+      if (data?.discarded) {
+        window.alert('Záznam ukončen. Jízda měla méně než 1 km ověřené trasy, '
+          + 'takže byla podle pravidel smazána (parkování se do deníku neukládá).')
+      }
       onChanged?.()
       onClose?.()
     } catch (e) {

@@ -46,16 +46,25 @@ List<UserRide> _parseRides(dynamic res) {
   return out;
 }
 
+/// Výsledek startu záznamu: id jízdy + jestli server pokračuje v už rozjeté
+/// nahrávce (`resumed`), nebo založil novou.
+typedef RideStart = ({String id, bool resumed});
+
 /// Zahájí (nebo obnoví po restartu appky) záznam jízdy. Rezervaci a motorku
-/// si dohledá server podle běžící výpůjčky. Vrací id jízdy, jinak null.
-Future<String?> startUserRide({String? bookingId, double? lat, double? lng}) async {
+/// si dohledá server podle běžící výpůjčky. Vrací null, když start selhal.
+Future<RideStart?> startUserRide({String? bookingId, double? lat, double? lng}) async {
   try {
     final res = await MotoGoSupabase.client.rpc('start_user_ride', params: {
       'p_booking_id': bookingId,
       'p_lat': lat,
       'p_lng': lng,
     });
-    if (res is Map && res['success'] == true) return res['id']?.toString();
+    if (res is Map && res['success'] == true) {
+      final id = res['id']?.toString();
+      if (id != null && id.isNotEmpty) {
+        return (id: id, resumed: res['resumed'] == true);
+      }
+    }
   } catch (e) {
     debugPrint('[rides] start_user_ride selhalo: $e');
   }
@@ -113,6 +122,12 @@ Future<RideFinish?> finishUserRide(String rideId,
         discarded: res['discarded'] == true,
         distanceKm: (res['distance_km'] as num?)?.toDouble() ?? 0,
       );
+    }
+    // Server jízdu už nezná (smazal ji jako krátkou, nebo ji zahodil úklid).
+    // Pro klienta je to UZAVŘENO — kdyby se vrátilo null, `stop()` by si
+    // lokální id nechal a zkoušel to každé dvě minuty navždy.
+    if (res is Map && res['error'] == 'ride_not_found') {
+      return const RideFinish(discarded: true, distanceKm: 0);
     }
   } catch (e) {
     debugPrint('[rides] finish_user_ride selhalo: $e');
