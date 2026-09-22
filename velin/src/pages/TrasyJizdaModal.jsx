@@ -75,6 +75,13 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
         .rpc('admin_finish_user_ride', { p_ride_id: ride.id })
       if (error) throw error
       if (data?.success === false) throw new Error(data.error)
+      // Uzavření jízdy pod 1 km ji SMAŽE (stejné pravidlo jako v appce).
+      // Operátor to musí vidět — jinak klikne, dostane zelenou a jízda
+      // beze slova zmizí ze seznamu.
+      if (data?.discarded) {
+        window.alert('Záznam ukončen. Jízda měla méně než 1 km ověřené trasy, '
+          + 'takže byla podle pravidel smazána (parkování se do deníku neukládá).')
+      }
       onChanged?.()
       onClose?.()
     } catch (e) {
@@ -157,7 +164,9 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
             />
           )}
 
-          {q.points > 0 && q.sparse && (
+          {/* Ručně poskládaná jízda má pár bodů z principu — varování o
+              „staré appce" by u ní operátora jen mátlo. */}
+          {q.points > 0 && q.sparse && ride.source !== 'manual' && (
             <p className="text-xs rounded-card" style={{
               background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', padding: '8px 10px',
             }}>

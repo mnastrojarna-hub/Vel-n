@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MAPY_CZ_API_KEY } from '../lib/mapyCz'
 import { splitTrackOnGaps } from '../lib/rideTrack'
 
@@ -24,6 +24,7 @@ export default function TrasyJizdaMapa({
 }) {
   const iframeRef = useRef(null)
   const readyRef = useRef(false)
+  const [failed, setFailed] = useState(false)
 
   // Rozdělení stopy na souvislé úseky + mezery počítáme jen při změně stopy.
   const segments = useMemo(() => splitTrackOnGaps(track), [track])
@@ -91,7 +92,7 @@ export default function TrasyJizdaMapa({
   const srcDoc = useMemo(() => `<!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onerror="parent.postMessage({__mg:'jizda-map',type:'error',what:'leaflet'},'*')"><\/script>
 <style>html,body{margin:0;padding:0;height:100%}#m{height:100%;width:100%}
 .pin{display:flex;align-items:center;justify-content:center;border-radius:50%;border:2px solid #fff;
   box-shadow:0 1px 4px rgba(0,0,0,.4);font-weight:800;color:#fff;font-size:12px;font-family:sans-serif}
@@ -181,7 +182,12 @@ send({type:'ready'});
       // (seznam jízd + detail) a jinak by si navzájem kradly handshake.
       if (e.source !== iframeRef.current?.contentWindow) return
       const d = e.data
-      if (!d || d.__mg !== 'jizda-map' || d.type !== 'ready') return
+      if (!d || d.__mg !== 'jizda-map') return
+      // Leaflet se z CDN nenačetl (výpadek unpkg, blokovaná síť) — bez tohohle
+      // by operátor koukal na bílý obdélník a nevěděl, jestli chybí data,
+      // nebo mapa.
+      if (d.type === 'error') { setFailed(true); return }
+      if (d.type !== 'ready') return
       readyRef.current = true
       push()
     }
@@ -191,6 +197,18 @@ send({type:'ready'});
     push()
     return () => window.removeEventListener('message', onMsg)
   }, [segments, markers, livePoint, fitKey])
+
+  if (failed) {
+    return (
+      <div className="rounded-card flex items-center justify-center text-center"
+        style={{ border: '1px solid #fecaca', background: '#fef2f2', height, padding: 16 }}>
+        <p className="text-sm font-bold" style={{ color: '#991b1b' }}>
+          Mapu se nepodařilo načíst (knihovna Leaflet z unpkg.com je nedostupná).
+          Data jízdy jsou v pořádku — zkuste stránku obnovit nebo zkontrolovat připojení.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-card overflow-hidden" style={{ border: '1px solid #d4e8e0' }}>

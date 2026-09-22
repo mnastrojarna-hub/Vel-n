@@ -5,11 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-// Platformní nastavení polohy (foreground service / background updates)
-// NENÍ součástí `geolocator.dart` — musí se importovat z platformních
-// balíčků. Oba stromy je mají v pubspec.yaml (iOS ve verzi ke svému pinu).
-import 'package:geolocator_android/geolocator_android.dart';
-import 'package:geolocator_apple/geolocator_apple.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/i18n/i18n_provider.dart';
@@ -47,6 +42,14 @@ const Duration _kMinInterval = Duration(seconds: 5);
 const Duration _kLastKnownMaxAge = Duration(minutes: 5);
 /// Jak dlouho počkat, než se po neúspěchu zkusí jízdu ukončit znovu.
 const Duration _kStopRetryAfter = Duration(minutes: 2);
+/// Horší přesnost fixu (m) při STÁNÍ do stopy nebereme — na silnici má
+/// telefon 5–15 m, přes 50 m je to typicky drift uvnitř budovy.
+const double _kMaxAccuracyM = 50;
+/// Přesnost v řádu kilometrů (iOS „přibližná poloha") je k ničemu vždy.
+const double _kGarbageAccuracyM = 500;
+/// Body v dávce starší než tohle patří k předchozí jízdě (stejné okno má
+/// server v append_ride_track).
+const Duration _kStaleBufferAge = Duration(hours: 1);
 
 class RideRecorderState {
   final bool enabled; // přepínač „zaznamenávat jízdy"
@@ -102,6 +105,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   Future<void>? _flushing;
   bool _stopping = false;
   DateTime? _lastStopFail;
+  bool _preciseDeclined = false; // iOS: odmítl dočasné zpřesnění polohy
 
   Future<void> _restore() async {
     try {
@@ -188,6 +192,9 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
     if (state.recording || _starting) return;
     _starting = true;
     try {
+      // Bez přesné polohy se nerozjíždí ani serverová jízda — neměla by
+      // co dostat. (Ruční start pak vrátí false → hláška v UI.)
+      if (!await _ensurePreciseOnIos()) return;
       // Startovní bod bereme z poslední známé polohy — ale JEN když je
       // čerstvá. Systém tu drží i polohu z včerejška z jiného města; ta by
       // se stala začátkem stopy a vyrobila první „úsek" přes půl republiky.
@@ -199,12 +206,27 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
           first = last;
         }
       } catch (_) {}
-      final id = await startUserRide(
+      final started = await startUserRide(
         bookingId: bookingId,
         lat: first?.latitude,
         lng: first?.longitude,
       );
-      if (id == null) return;
+      if (started == null) return;
+      final id = started.id;
+
+      // Server založil NOVOU jízdu (tu starou mezitím uzavřel úklid, nebo
+      // skončila vrácením). Body, které v dávce zbyly z té staré — třeba po
+      // vracení bez signálu — do nové nepatří: server by je viděl jako
+      // hodiny starý start a jízda by začínala „15 h bez signálu".
+      if (!started.resumed) {
+        final cutoff = DateTime.now().subtract(_kStaleBufferAge)
+                .millisecondsSinceEpoch / 1000;
+        // Čerstvé body (dávka, která odhalila uzavření staré jízdy) patří
+        // sem; staré patřily té staré. Server má stejné okno.
+        _buffer.removeWhere((p) => p.length > 2 && p[2] < cutoff);
+        _maxSpeedKmh = 0;
+        await _persistBuffer();
+      }
 
       try {
         final p = await SharedPreferences.getInstance();
@@ -212,7 +234,6 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
         await p.setBool(kRideRecManualKey, manual);
       } catch (_) {}
 
-      await _ensurePreciseOnIos();
       _attachStream();
 
       state = state.copyWith(
@@ -230,15 +251,27 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// Požádáme proto o DOČASNÉ zpřesnění (klíč `rideTracking` v Info.plist).
   /// Když ho jezdec nedá, nahráváme dál — hrubá stopa je pořád lepší než
   /// žádná a Velín si řídkou stopu sám označí.
-  Future<void> _ensurePreciseOnIos() async {
-    if (defaultTargetPlatform != TargetPlatform.iOS) return;
+  ///
+  /// Vrací false, když jezdec zpřesnění odmítl: s přesností v kilometrech
+  /// by se nenahrálo nic použitelného (filtr fixů to všechno zahodí) a
+  /// jízda by se na konci jako prázdná tiše smazala — lepší ji vůbec
+  /// nerozjet. Odmítnutí si pamatujeme do restartu appky, ať se dialog
+  /// neukazuje při každém překreslení.
+  Future<bool> _ensurePreciseOnIos() async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) return true;
+    if (_preciseDeclined) return false;
     try {
-      final acc = await Geolocator.getLocationAccuracy();
+      var acc = await Geolocator.getLocationAccuracy();
       if (acc == LocationAccuracyStatus.reduced) {
-        await Geolocator.requestTemporaryFullAccuracy(purposeKey: 'rideTracking');
+        acc = await Geolocator.requestTemporaryFullAccuracy(purposeKey: 'rideTracking');
       }
+      if (acc == LocationAccuracyStatus.reduced) {
+        _preciseDeclined = true;
+        return false;
+      }
+      return true;
     } catch (_) {
-      // Starší iOS bez tohohle API / Android → přesnost neřešíme.
+      return true; // starší iOS bez tohohle API → přesnost neřešíme
     }
   }
 
@@ -313,8 +346,23 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// nula = přijímač výšku nemá a falešně by nafoukla stoupání.
   void _onPosition(Position pos) {
     if (!state.recording) return;
+    // Nepřesný fix (uvnitř budovy, tunel, městský kaňon) do stopy nepatří:
+    // při stání v kavárně GPS „skáče" o desítky metrů a každý skok by se
+    // počítal jako pár metrů jízdy — po hodině je z toho kilometr, který se
+    // nejel. Radši mezera než vymyšlená trasa.
     var kmh = pos.speed * 3.6;
-    if (!kmh.isFinite || kmh < 0 || kmh > 300) kmh = 0;
+    if (!kmh.isFinite || kmh < 0) kmh = 0;
+    // Nepřesný fix zahazujeme JEN při stání (drift v kavárně = vymyšlené
+    // metry). Za jízdy ho necháme — v městském kaňonu nebo tunelu má fix
+    // 60–100 m a pořád kreslí správnou silnici; zahodit 3 minuty takových
+    // fixů by vyrobilo „mezeru" a km z ní by se nepočítaly. Přesnost v řádu
+    // kilometrů (iOS „přibližná poloha") je nepoužitelná vždy.
+    if (pos.accuracy.isFinite &&
+        (pos.accuracy > _kGarbageAccuracyM ||
+            (pos.accuracy > _kMaxAccuracyM && kmh < 3))) {
+      return;
+    }
+    if (kmh > 300) kmh = 0;
     final alt = pos.altitude;
     final point = <double>[
       double.parse(pos.latitude.toStringAsFixed(5)),
@@ -333,18 +381,22 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// Zahodí lokální stopu po jízdě, kterou server už nepřijímá (uzavřel ji
   /// úklid, nebo byla smazaná jako příliš krátká). Nahrávání zastaví —
   /// hlídač ho při běžící výpůjčce rozjede znovu, už do nové jízdy.
-  Future<void> _forgetRide() async {
+  ///
+  /// [keepBuffer]: dávku, která uzavření odhalila, si necháme — jsou to
+  /// čerstvé body (≤ 90 s) a patří do jízdy, kterou hlídač rozjede vzápětí;
+  /// staré body z ní `_start` odfiltruje podle času.
+  Future<void> _forgetRide({bool keepBuffer = false}) async {
     await _sub?.cancel();
     _sub = null;
     _timer?.cancel();
     _timer = null;
-    _buffer.clear();
+    if (!keepBuffer) _buffer.clear();
     _maxSpeedKmh = 0;
     state = state.copyWith(recording: false, points: 0, clearRide: true);
     try {
       final p = await SharedPreferences.getInstance();
       await p.remove(kRideRecIdKey);
-      await p.remove(kRideRecBufKey);
+      if (!keepBuffer) await p.remove(kRideRecBufKey);
       await p.remove(kRideRecManualKey);
     } catch (_) {}
     _ref.invalidate(myRidesProvider);
@@ -395,7 +447,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       // Server jízdu mezitím uzavřel (úklid zatuhlých nahrávek) nebo
       // smazal. Držet se jí dál by znamenalo zahazovat body do prázdna —
       // zapomeneme ji a hlídač při další výpůjčce rozjede novou.
-      await _forgetRide();
+      await _forgetRide(keepBuffer: true);
       return;
     }
     // Mezitím mohla jízda skončit a v dávce už být body jízdy JINÉ — ty nám
@@ -410,11 +462,22 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
 
   /// Ukončí jízdu — zbytek dávky se pošle s ukončením, krátkou jízdu server
   /// zahodí. Vrací true, když jízda zůstala uložená.
-  Future<bool> stop() async {
+  /// Vrací true = jízda uložená, false = server ji zahodil (krátká),
+  /// null = NEUZAVŘENO (offline, výpadek) — lokální id zůstává a zkusí se
+  /// to znovu; UI to nesmí hlásit jako „příliš krátká".
+  Future<bool?> stop() async {
     final id = state.rideId;
-    if (_stopping) return false;
+    if (_stopping) return null;
     _stopping = true;
     try {
+      // Po odhlášení nemá kdo jízdu uzavřít (RPC vrátí not_authenticated) a
+      // hlídač by to zkoušel každé 2 minuty bez uživatele. Lokální stav
+      // zahodíme celý — včetně dávky, ať ji nezdědí jiný účet; serverovou
+      // jízdu uklidí cron.
+      if (MotoGoSupabase.currentUser == null) {
+        await _forgetRide();
+        return null;
+      }
       await _sub?.cancel();
       _sub = null;
       _timer?.cancel();
@@ -442,7 +505,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
         // zkusíme to znovu; server má navíc vlastní úklid (cron).
         _lastStopFail = DateTime.now();
         state = state.copyWith(recording: false);
-        return false;
+        return null;
       }
 
       state = state.copyWith(recording: false, points: 0, clearRide: true);
@@ -513,12 +576,33 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
     }
   }
 
-  /// Právě běžící (aktivní) rezervace zákazníka, jinak null.
+  /// Rezervace, u které se má PRÁVĚ TEĎ nahrávat, jinak null.
+  ///
+  /// Dřív stačil kalendářní den v rozsahu termínu — jenže to je od PŮLNOCI
+  /// dne vyzvednutí do půlnoci po vrácení. Do stopy tak šla i cesta autem na
+  /// pobočku a domů (v hustých fixech, tedy jako ujeté kilometry motorkou).
+  /// Nahrává se proto až od skutečného PŘEVZETÍ (`picked_up_at` — předávací
+  /// protokol na obsluhované pobočce, kód do boxu na samoobslužné) do VRÁCENÍ
+  /// (`returned_at`). Pojistka pro rezervaci aktivovanou jen nočním cronem bez
+  /// odbavení: od naplánovaného času vyzvednutí.
   String? _activeBookingId(List<Reservation> list) {
+    final now = DateTime.now();
     for (final r in list) {
-      if (r.displayStatus == ResStatus.aktivni) return r.id;
+      if (r.displayStatus != ResStatus.aktivni) continue;
+      if (r.returnedAt != null) continue; // vráceno → dál se nenahrává
+      if (r.pickedUpAt != null) return r.id; // převzato → nahrávat
+      if (r.status == 'active' && !now.isBefore(_pickupAt(r))) return r.id;
     }
     return null;
+  }
+
+  /// Naplánované vyzvednutí = den začátku + `pickup_time` (HH:MM); bez času
+  /// se bere konec dne, aby se bez odbavení nenahrávalo předčasně.
+  static DateTime _pickupAt(Reservation r) {
+    final d = r.startDate;
+    final m = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(r.pickupTime ?? '');
+    if (m == null) return DateTime(d.year, d.month, d.day, 23, 59);
+    return DateTime(d.year, d.month, d.day, int.parse(m.group(1)!), int.parse(m.group(2)!));
   }
 
   @override
@@ -536,6 +620,12 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
       final n = ref.read(rideRecorderProvider.notifier);
       if (bookingId != null) {
         n.ensureRecording(bookingId);
+      } else if (st.manual && st.rideId != null && !st.recording &&
+          n.canRetryStop) {
+        // Ruční jízdu jezdec ukončil, ale server to nevzal (offline) —
+        // dokud ji nikdo neuloží, zkoušíme to dál. Jinak by lokálně visela
+        // navždy a jezdec viděl „příliš krátká", i když jel 80 km.
+        n.stop();
       } else if (!st.manual &&
           (st.recording || st.rideId != null) &&
           n.canRetryStop) {

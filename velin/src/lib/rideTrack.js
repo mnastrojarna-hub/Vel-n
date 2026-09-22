@@ -7,12 +7,14 @@
 // nechodily a mezi dvěma sousedními body je klidně hodina a 40 kilometrů.
 // Spojit takové body plnou čarou znamená tvrdit, že tudy zákazník jel.
 // Mapa i statistiky proto musí takový úsek umět oddělit — stejnou hranicí,
-// jakou používá server (`_ride_stats` v 20260921f_user_rides_real_track.sql).
+// jakou používá server (`_ride_stats`, naposledy 20260922b_user_rides_gap_threshold.sql).
 
 /** Delší pauza mezi fixy už není souvislá jízda (shodné se serverem). */
 export const GAP_SEC = 180
-/** Posun do 50 m bereme jako „stál na místě", ne jako mezeru v trase. */
-export const STILL_KM = 0.05
+/** Posun do 300 m bereme jako „stál na místě", ne jako mezeru v trase.
+ *  (Při filtru 20 m + intervalu 5 s je první fix po rozjezdu 40–100 m od
+ *  posledního; 50 m dělalo mezeru i z tříminutového tankování.) */
+export const STILL_KM = 0.3
 
 /** Vzdálenost dvou bodů v km (haversine). */
 export function distKm(a, b) {
@@ -100,9 +102,11 @@ export function splitTrackOnGaps(track, gapSec = GAP_SEC, stillKm = STILL_KM) {
  * Posouzení kvality stopy — Velín podle toho pozná, jestli má co zobrazit,
  * nebo jestli jde o „trasu" slepenou z pár náhodných fixů.
  */
-export function trackQuality(ride, track) {
+export function trackQuality(ride, track, pointCount) {
   const t = Array.isArray(track) ? track : (Array.isArray(ride?.track) ? ride.track : [])
-  const points = t.length
+  // RPC pro živou mapu stopu prořídne na 1200 bodů, ale skutečný počet posílá
+  // zvlášť — bez něj by dlouhá jízda (> ~240 km) vypadala jako „řídká".
+  const points = Number.isFinite(pointCount) && pointCount > 0 ? pointCount : t.length
   const km = Number(ride?.distance_km || 0)
   const gapSec = Number(ride?.gap_sec || 0)
   const segments = splitTrackOnGaps(t)
@@ -110,7 +114,9 @@ export function trackQuality(ride, track) {
   // Slušná stopa má při 20m filtru desítky bodů na kilometr. Pod 5 už to
   // není trasa, ale spojnice náhodných fixů.
   const perKm = km > 0 ? points / km : null
-  const sparse = points < 10 || (perKm != null && perKm < 5)
+  // Stopa s tisícem a víc bodů není „pár náhodných fixů" — u dlouhé jízdy
+  // ji server prořídne (strop 4000 / 1200) a bodů na km ubude přirozeně.
+  const sparse = points < 10 || (perKm != null && perKm < 5 && points < 1000)
   return { points, gaps, gapSec, segments, perKm, sparse, hasTimestamps: t.some(p => Array.isArray(p) && p.length > 2) }
 }
 

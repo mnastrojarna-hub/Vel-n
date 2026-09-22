@@ -30,9 +30,16 @@ const RIDE_LIST_COLS = [
   'created_at', 'updated_at',
 ].join(',')
 
+/** Tytéž sloupce bez těch z migrace 20260921g — záložní dotaz, když DB ještě
+ *  (nebo už) nové sloupce nemá. Seznam pak jen neukáže „bez signálu". */
+const RIDE_LIST_COLS_LEGACY = RIDE_LIST_COLS.split(',')
+  .filter(c => c !== 'gap_sec' && c !== 'last_fix_at').join(',')
+
 /** Nahrávka, do které hodiny nic nepřiteklo — „visí". */
+// `updated_at` se mění s každou dávkou bodů, takže je dobrý náhradník i tam,
+// kde `last_fix_at` chybí (stará data, záložní dotaz bez nových sloupců).
 const isStuck = (r) => r.is_recording && Date.now() -
-  new Date(r.last_fix_at || r.started_at).getTime() > 3 * 3600 * 1000
+  new Date(r.last_fix_at || r.updated_at || r.started_at).getTime() > 3 * 3600 * 1000
 
 const fmtDate = (v) => v ? new Date(v).toLocaleString('cs-CZ', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
 const fmtDur = (min) => min == null ? '—' : (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`)
@@ -58,18 +65,25 @@ export default function TrasyJizdy({ onChanged }) {
       // Jízdy — stránkovaně (PostgREST vrací max 1000 řádků na dotaz).
       const all = []
       for (let from = 0; ; from += 1000) {
-        const { data, error } = await supabase.from('user_rides')
-          .select(RIDE_LIST_COLS)
-          // `id` jako druhé řazení: bez jednoznačného klíče může stránkování
-          // přes hranici 1000 řádků některé jízdy zdvojit a jiné vynechat.
-          .order('started_at', { ascending: false }).order('id')
-          .range(from, from + 999)
+        // `id` jako druhé řazení: bez jednoznačného klíče může stránkování
+        // přes hranici 1000 řádků některé jízdy zdvojit a jiné vynechat.
+        const page = (cols) => supabase.from('user_rides').select(cols)
+          .order('started_at', { ascending: false }).order('id').range(from, from + 999)
+        let { data, error } = await page(RIDE_LIST_COLS)
+        // Velín se nasazuje přes Vercel a SQL přes GitHub Actions nezávisle:
+        // v okně mezi nimi (nebo po rollbacku) nové sloupce ještě nemusí
+        // existovat. Seznam se pak načte bez nich místo prázdné stránky s chybou.
+        if (error && (error.code === '42703' || /column .* does not exist/.test(error.message || ''))) {
+          ;({ data, error } = await page(RIDE_LIST_COLS_LEGACY))
+        }
         if (error) {
           throw new Error(
             `Načtení jízd selhalo: ${error.message || 'neznámá chyba'}` +
-            (error.code === '42P01' || (error.message || '').includes('does not exist')
+            (error.code === '42P01' || /relation .* does not exist/.test(error.message || '')
               ? '\n\nTabulka "user_rides" zatím v databázi neexistuje — spusťte prosím SQL migraci jízd.'
-              : ''))
+              : error.code === '42703'
+                ? '\n\nV databázi chybí sloupec jízd — SQL migrace 20260921g ještě neproběhla, nebo byla vrácena.'
+                : ''))
         }
         all.push(...(data || []))
         if (!data || data.length < 1000) break

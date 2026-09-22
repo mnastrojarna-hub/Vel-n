@@ -47,6 +47,10 @@ export default function BookingLiveMap({ bookingId, booking }) {
   const [err, setErr] = useState(null)
   const [loading, setLoading] = useState(true)
   const [closing, setClosing] = useState(false)
+  // Operátor právě ukončil záznam a server jízdu zahodil (< 1 km). Bez tohohle
+  // by se hned po jeho kliknutí ukázalo „Poloha není zapnutá — je to jeho
+  // volba", což není pravda.
+  const [justDiscarded, setJustDiscarded] = useState(false)
   const timerRef = useRef(null)
 
   const load = useCallback(async (silent) => {
@@ -68,7 +72,9 @@ export default function BookingLiveMap({ bookingId, booking }) {
     }
   }, [bookingId])
 
-  useEffect(() => { load(false) }, [load])
+  // Přepnutí na jinou rezervaci: nejdřív zahodit data té předchozí, jinak
+  // operátor chvíli vidí polohu JINÉHO zákazníka pod novou hlavičkou.
+  useEffect(() => { setData(null); setErr(null); setJustDiscarded(false); load(false) }, [load])
 
   // Polling — rychleji jen dokud se opravdu nahrává.
   useEffect(() => {
@@ -90,6 +96,13 @@ export default function BookingLiveMap({ bookingId, booking }) {
         .rpc('admin_finish_user_ride', { p_ride_id: data.ride_id })
       if (error) throw error
       if (res?.success === false) throw new Error(res.error)
+      // Jízda pod 1 km se uzavřením SMAŽE — operátor to musí vidět, jinak
+      // klikne, dostane zelenou a záznam beze slova zmizí.
+      if (res?.discarded) {
+        setJustDiscarded(true)
+        window.alert('Záznam ukončen. Jízda měla méně než 1 km ověřené trasy, '
+          + 'takže byla podle pravidel smazána (parkování se do deníku neukládá).')
+      }
       await load(true)
     } catch (e) {
       setErr(e.message || String(e))
@@ -124,7 +137,13 @@ export default function BookingLiveMap({ bookingId, booking }) {
 
   // ── Zákazník polohu nesdílí ───────────────────────────────────────────
   if (!data?.has_ride) {
-    const r = REASONS[data?.reason] || REASONS.no_location
+    const r = justDiscarded
+      ? {
+        title: 'Záznam ukončen a smazán',
+        hint: 'Jízda měla méně než 1 km ověřené trasy, takže byla podle pravidel smazána. '
+          + 'Jakmile zákazník znovu vyjede, záznam se rozjede sám a objeví se tady.',
+      }
+      : (REASONS[data?.reason] || REASONS.no_location)
     return (
       <div className="rounded-card" style={card}>
         <h3 className="font-extrabold text-base mb-1" style={{ color: '#0f1a14' }}>📍 {r.title}</h3>
@@ -141,7 +160,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
     )
   }
 
-  const q = trackQuality(data, data.track)
+  const q = trackQuality(data, data.track, Number(data.points || 0))
   // Stáří fixu počítá server při každém dotazu — nepřepočítáváme ho v UI,
   // ať nehlásíme „před 2 s" pro bod, který je ve skutečnosti hodinu starý.
   const ageSec = Number(data.age_sec || 0)
@@ -251,7 +270,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
 
         <p className="text-xs mt-3" style={{ color: '#6b8f7b' }}>
           Trasa je zákazníkův soukromý zápisník — ve Velíně ji vidíte kvůli
-          provozu výpůjčky. Detail a moderace: <a href="/trasy"
+          provozu výpůjčky. Detail a moderace: <a href="/trasy?tab=rides"
             style={{ color: '#1a8a18', fontWeight: 700 }}>Trasy → Jízdy zákazníků</a>.
         </p>
       </div>

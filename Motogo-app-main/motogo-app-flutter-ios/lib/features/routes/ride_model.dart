@@ -23,7 +23,14 @@ List<RideSegment> _splitOnGaps(List<LatLng> track, List<int?> times) {
   if (track.isEmpty) return const [];
   if (track.length == 1) return [RideSegment(List.unmodifiable(track))];
 
-  const dist = Distance();
+  // Haversine, ne výchozí Vincenty: stejný vzorec jako server (_ride_stats)
+  // a Velín (rideTrack.js), takže hranice 300 m padne u všech tří stejně —
+  // a na 4000 bodech × 100 jízd při každém parsování seznamu je i řádově
+  // levnější.
+  // roundResult: false je NUTNÉ — výchozí true zaokrouhlí výsledek v km na
+  // CELÉ kilometry, takže 0,08 km vyšlo 0 a 0,6 km vyšlo 1: appka pak dělila
+  // stopu až od 500 m, zatímco server a Velín od 300 m.
+  const dist = Distance(roundResult: false, calculator: Haversine());
   final out = <RideSegment>[];
   var current = <LatLng>[track.first];
   RideGap? pendingGap;
@@ -84,7 +91,10 @@ class RideSegment {
 /// v `20260921g_user_rides_real_track.sql`), jinak by appka ukazovala jiné
 /// mezery, než z jakých server počítá kilometry.
 const int kRideGapSec = 180; // delší pauza = už ne souvislá jízda
-const double kRideStillKm = 0.05; // posun do 50 m = stál na místě, ne mezera
+/// Posun do 300 m = stál na místě, ne mezera. Při filtru 20 m + intervalu
+/// 5 s je první fix po rozjezdu 40–100 m od posledního, takže 50 m dělalo
+/// mezeru i z tříminutového tankování.
+const double kRideStillKm = 0.3;
 
 /// Bod na jízdě: `start` / `end` (krajní body stopy) nebo `stop` (zastávka).
 class RidePoint {
@@ -271,7 +281,9 @@ class UserRide {
           final lng = _toD(p[1]);
           if (lat == null || lng == null) continue;
           track.add(LatLng(lat, lng));
-          times.add(p.length > 2 ? _toI(p[2]) : null);
+          // Čas může přijít i jako desetinné číslo (1758000000.4) — `_toI`
+          // by ho zahodil a mezery by se v appce přestaly poznávat.
+          times.add(p.length > 2 ? _toD(p[2])?.floor() : null);
         }
       }
     }

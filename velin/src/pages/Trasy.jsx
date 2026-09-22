@@ -55,7 +55,12 @@ function Trasy() {
   const [catalogCount, setCatalogCount] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [tab, setTab] = useState('routes')              // 'routes' | 'catalog' | 'reviews' | 'rides'
+  // Záložku jde otevřít i odkazem (?tab=rides — proklik z detailu rezervace
+  // na „Jízdy zákazníků"); bez parametru se otevírají trasy jako dřív.
+  const [tab, setTab] = useState(() => {              // 'routes' | 'catalog' | 'reviews' | 'rides'
+    const t = new URLSearchParams(window.location.search).get('tab')
+    return ['routes', 'catalog', 'reviews', 'rides', 'duplicates'].includes(t) ? t : 'routes'
+  })
   const [rideTotals, setRideTotals] = useState({ count: 0, public: 0 }) // jízdy zákazníků
   const [search, setSearch] = useState('')
   const [countryFilter, setCountryFilter] = useState('all')
