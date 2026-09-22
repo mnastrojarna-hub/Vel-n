@@ -840,7 +840,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     final calc = _calc;
     final bookedAsync = ref.watch(bookedDatesProvider(_booking!.motoId ?? ''));
     final profile = ref.watch(profileProvider);
-    final userLicense = profile.valueOrNull?['license_type'] as String?;
+    // Skupiny ŘP zákazníka. Dřív se četl neexistující sloupec `license_type`
+    // (vždy null → filtr motorek podle ŘP byl mrtvý a RPC pak vracelo
+    // license_insufficient); správně `profiles.license_group[]` jako všude jinde.
+    final userLicenseGroups = ((profile.valueOrNull?['license_group'] as List?) ?? const [])
+        .map((e) => e.toString().trim().toUpperCase())
+        .where((e) => e.isNotEmpty)
+        .toList();
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -908,7 +914,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           if (_tab == 'swap')
             SwapMotoSection(
               booking: _booking!,
-              userLicense: userLicense,
+              userLicenseGroups: userLicenseGroups,
               onSwapped: (swapDate, swapTime, newMotoName) {
                 ref.invalidate(reservationsProvider);
                 ref.invalidate(reservationByIdProvider(widget.bookingId));
@@ -1007,7 +1013,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               currentMotoId: _booking!.motoId,
               newMotoId: _newMotoId,
               expanded: _motoExpanded,
-              userLicense: userLicense,
+              userLicenseGroups: userLicenseGroups,
               // S vozíkem nelze přejet na motorku ze samoobslužné pobočky.
               hasTrailer: _booking!.trailerMotoId != null,
               onMotoSelected: (id) => setState(() => _newMotoId = id),

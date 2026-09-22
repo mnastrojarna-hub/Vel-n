@@ -20,7 +20,8 @@ class EditMotoChangeSection extends ConsumerStatefulWidget {
   final String? currentMotoId;
   final String? newMotoId;
   final bool expanded;
-  final String? userLicense;
+  /// Skupiny ŘP zákazníka (`profiles.license_group[]`); prázdné = nefiltrovat.
+  final List<String> userLicenseGroups;
   /// Rezervace má přiřazený vozík (`bookings.trailer_moto_id`). Pak nelze
   /// přejet na motorku ze SAMOOBSLUŽNÉ pobočky — vozík tam nikdo nevydá.
   /// Bez téhle zábrany by zápis spadl až PO zaplacení doplatku na Stripe
@@ -38,7 +39,7 @@ class EditMotoChangeSection extends ConsumerStatefulWidget {
     required this.currentMotoId,
     required this.newMotoId,
     required this.expanded,
-    required this.userLicense,
+    required this.userLicenseGroups,
     this.hasTrailer = false,
     required this.onMotoSelected,
     required this.onToggleExpanded,
@@ -174,9 +175,9 @@ class _EditMotoChangeSectionState extends ConsumerState<EditMotoChangeSection> {
               if (m.id == widget.currentMotoId) return false;
               if (_branch != null && m.branchId != _branch) return false;
               // OR-match přes přijímané skupiny ŘP vozidla (vč. B pro skútry/přívěs).
-              if (widget.userLicense != null) {
+              if (widget.userLicenseGroups.isNotEmpty) {
                 final ok = BookingValidator.checkLicense(
-                  userLicenseGroups: [widget.userLicense!],
+                  userLicenseGroups: widget.userLicenseGroups,
                   motoLicenseGroups: m.licenseGroupsOrFallback,
                 ) == null;
                 if (!ok) return false;

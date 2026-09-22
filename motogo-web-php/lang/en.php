@@ -1318,6 +1318,8 @@ return [
     'editRez.pay.forbidden' => 'This booking cannot be edited from this account. Please sign in with the account that created it.',
     'editRez.pay.stale' => 'The booking has changed in the meantime (another device or the website). Please reload it and repeat the change.',
     'editRez.pay.amountMismatch' => 'The surcharge amount does not match the server calculation ({amount}). Reload the page and try again.',
+    'editRez.pay.motoUnavailable' => 'The motorcycle is already booked for the new dates, or the branch is closed — the surcharge payment was cancelled. Choose different dates or another motorcycle.',
+    'editRez.pay.wrongStatus' => 'A booking in this state can no longer be changed (cancelled or completed) — the surcharge payment was cancelled.',
     'editRez.moto.unavailable' => 'Unavailable',
     'editRez.moto.selectThis' => 'Pick this motorcycle →',
     'editRez.moto.backToDetail' => '← Back to detail',

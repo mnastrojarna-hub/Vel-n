@@ -118,6 +118,8 @@ class PaymentErrorMapper {
       'forbidden': 'refForbidden',
       'stale_booking': 'refStale',
       'amount_mismatch': 'refAmountMismatch',
+      'moto_unavailable': 'refMotoUnavailable',
+      'wrong_status': 'refWrongStatus',
     };
     final k = keys[code ?? ''];
     return k == null ? null : _t(lang, k);
@@ -223,6 +225,10 @@ class PaymentErrorMapper {
   static const Map<String, Map<String, String>> _strings = {
     'cs': {
       // Odmítnutí doplatkové změny serverem před platbou (serverRefusal).
+      'refMotoUnavailable':
+          'Motorka je v novém termínu už obsazená, nebo je pobočka zavřená — platba doplatku zrušena. Zvolte jiný termín nebo motorku.',
+      'refWrongStatus':
+          'Rezervaci v tomto stavu už nelze upravit (stornovaná nebo ukončená) — platba doplatku zrušena.',
       'refTrailerStaffedOnly':
           'Vozík lze půjčit jen k motorce z obslužné pobočky — samoobslužná ho nevydává. Vyberte motorku z obslužné pobočky, nebo z rezervace odeberte vozík. Platba doplatku zrušena.',
       'refTrailerOccupied':
@@ -287,6 +293,10 @@ class PaymentErrorMapper {
     },
     'en': {
       // Odmítnutí doplatkové změny serverem před platbou (serverRefusal).
+      'refMotoUnavailable':
+          'The motorcycle is already booked for the new dates, or the branch is closed — the surcharge payment was cancelled. Choose different dates or another motorcycle.',
+      'refWrongStatus':
+          'A booking in this state can no longer be changed (cancelled or completed) — the surcharge payment was cancelled.',
       'refTrailerStaffedOnly':
           'The trailer is only available with a motorcycle from a staffed branch — the self-service branch does not hand it out. Choose a motorcycle from a staffed branch or remove the trailer from the booking. The surcharge payment was cancelled.',
       'refTrailerOccupied':
@@ -350,6 +360,10 @@ class PaymentErrorMapper {
     },
     'de': {
       // Odmítnutí doplatkové změny serverem před platbou (serverRefusal).
+      'refMotoUnavailable':
+          'Das Motorrad ist im neuen Zeitraum bereits gebucht oder die Filiale ist geschlossen — die Nachzahlung wurde abgebrochen. Wählen Sie einen anderen Zeitraum oder ein anderes Motorrad.',
+      'refWrongStatus':
+          'Eine Buchung in diesem Status kann nicht mehr geändert werden (storniert oder abgeschlossen) — die Nachzahlung wurde abgebrochen.',
       'refTrailerStaffedOnly':
           'Der Anhänger ist nur zu einem Motorrad einer Filiale mit Personal erhältlich — die Selbstbedienungsfiliale gibt ihn nicht aus. Wählen Sie ein Motorrad aus einer Filiale mit Personal oder entfernen Sie den Anhänger aus der Buchung. Die Nachzahlung wurde abgebrochen.',
       'refTrailerOccupied':

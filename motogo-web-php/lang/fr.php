@@ -1293,6 +1293,8 @@ return [
     'editRez.pay.forbidden' => 'Cette réservation ne peut pas être modifiée depuis ce compte. Connectez-vous avec le compte qui l’a créée.',
     'editRez.pay.stale' => 'La réservation a changé entre-temps (autre appareil ou site web). Rechargez-la et répétez la modification.',
     'editRez.pay.amountMismatch' => 'Le montant du supplément ne correspond pas au calcul du serveur ({amount}). Rechargez la page et réessayez.',
+    'editRez.pay.motoUnavailable' => 'La moto est déjà réservée aux nouvelles dates ou l’agence est fermée — le paiement du supplément a été annulé. Choisissez d’autres dates ou une autre moto.',
+    'editRez.pay.wrongStatus' => 'Une réservation dans cet état ne peut plus être modifiée (annulée ou terminée) — le paiement du supplément a été annulé.',
     'editRez.moto.unavailable' => 'Indisponible',
     'editRez.moto.selectThis' => 'Choisir cette moto →',
     'editRez.moto.backToDetail' => '← Retour au détail',

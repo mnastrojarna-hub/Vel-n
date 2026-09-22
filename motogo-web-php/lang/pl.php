@@ -1272,6 +1272,8 @@ return [
     'editRez.pay.forbidden' => 'Tej rezerwacji nie można edytować z tego konta. Zaloguj się na konto, którym została utworzona.',
     'editRez.pay.stale' => 'Rezerwacja w międzyczasie się zmieniła (inne urządzenie lub strona WWW). Wczytaj ją ponownie i powtórz zmianę.',
     'editRez.pay.amountMismatch' => 'Kwota dopłaty nie zgadza się z obliczeniem serwera ({amount}). Odśwież stronę i spróbuj ponownie.',
+    'editRez.pay.motoUnavailable' => 'Motocykl jest w nowym terminie już zarezerwowany lub oddział jest zamknięty — płatność dopłaty została anulowana. Wybierz inny termin lub motocykl.',
+    'editRez.pay.wrongStatus' => 'Rezerwacji w tym stanie nie można już zmienić (anulowana lub zakończona) — płatność dopłaty została anulowana.',
     'editRez.moto.unavailable' => 'Niedostępny',
     'editRez.moto.selectThis' => 'Wybierz ten motocykl →',
     'editRez.moto.backToDetail' => '← Powrót do szczegółów',
