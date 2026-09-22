@@ -47,6 +47,10 @@ export default function BookingLiveMap({ bookingId, booking }) {
   const [err, setErr] = useState(null)
   const [loading, setLoading] = useState(true)
   const [closing, setClosing] = useState(false)
+  // Operátor právě ukončil záznam a server jízdu zahodil (< 1 km). Bez tohohle
+  // by se hned po jeho kliknutí ukázalo „Poloha není zapnutá — je to jeho
+  // volba", což není pravda.
+  const [justDiscarded, setJustDiscarded] = useState(false)
   const timerRef = useRef(null)
 
   const load = useCallback(async (silent) => {
@@ -70,7 +74,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
 
   // Přepnutí na jinou rezervaci: nejdřív zahodit data té předchozí, jinak
   // operátor chvíli vidí polohu JINÉHO zákazníka pod novou hlavičkou.
-  useEffect(() => { setData(null); setErr(null); load(false) }, [load])
+  useEffect(() => { setData(null); setErr(null); setJustDiscarded(false); load(false) }, [load])
 
   // Polling — rychleji jen dokud se opravdu nahrává.
   useEffect(() => {
@@ -95,6 +99,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
       // Jízda pod 1 km se uzavřením SMAŽE — operátor to musí vidět, jinak
       // klikne, dostane zelenou a záznam beze slova zmizí.
       if (res?.discarded) {
+        setJustDiscarded(true)
         window.alert('Záznam ukončen. Jízda měla méně než 1 km ověřené trasy, '
           + 'takže byla podle pravidel smazána (parkování se do deníku neukládá).')
       }
@@ -132,7 +137,13 @@ export default function BookingLiveMap({ bookingId, booking }) {
 
   // ── Zákazník polohu nesdílí ───────────────────────────────────────────
   if (!data?.has_ride) {
-    const r = REASONS[data?.reason] || REASONS.no_location
+    const r = justDiscarded
+      ? {
+        title: 'Záznam ukončen a smazán',
+        hint: 'Jízda měla méně než 1 km ověřené trasy, takže byla podle pravidel smazána. '
+          + 'Jakmile zákazník znovu vyjede, záznam se rozjede sám a objeví se tady.',
+      }
+      : (REASONS[data?.reason] || REASONS.no_location)
     return (
       <div className="rounded-card" style={card}>
         <h3 className="font-extrabold text-base mb-1" style={{ color: '#0f1a14' }}>📍 {r.title}</h3>

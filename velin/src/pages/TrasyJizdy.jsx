@@ -36,8 +36,10 @@ const RIDE_LIST_COLS_LEGACY = RIDE_LIST_COLS.split(',')
   .filter(c => c !== 'gap_sec' && c !== 'last_fix_at').join(',')
 
 /** Nahrávka, do které hodiny nic nepřiteklo — „visí". */
+// `updated_at` se mění s každou dávkou bodů, takže je dobrý náhradník i tam,
+// kde `last_fix_at` chybí (stará data, záložní dotaz bez nových sloupců).
 const isStuck = (r) => r.is_recording && Date.now() -
-  new Date(r.last_fix_at || r.started_at).getTime() > 3 * 3600 * 1000
+  new Date(r.last_fix_at || r.updated_at || r.started_at).getTime() > 3 * 3600 * 1000
 
 const fmtDate = (v) => v ? new Date(v).toLocaleString('cs-CZ', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
 const fmtDur = (min) => min == null ? '—' : (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`)

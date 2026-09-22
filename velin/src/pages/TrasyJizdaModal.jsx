@@ -164,7 +164,9 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
             />
           )}
 
-          {q.points > 0 && q.sparse && (
+          {/* Ručně poskládaná jízda má pár bodů z principu — varování o
+              „staré appce" by u ní operátora jen mátlo. */}
+          {q.points > 0 && q.sparse && ride.source !== 'manual' && (
             <p className="text-xs rounded-card" style={{
               background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', padding: '8px 10px',
             }}>
