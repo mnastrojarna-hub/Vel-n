@@ -625,8 +625,12 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     if (running) {
       final kept = await n.stop();
       if (!mounted) return;
+      // null = server jízdu nevzal (offline) → zkusí se to znovu, NENÍ
+      // to „příliš krátká".
       msg.showSnackBar(SnackBar(
-        content: Text(t(context).tr(kept ? 'rideManualSaved' : 'rideManualTooShort')),
+        content: Text(t(context).tr(kept == null
+            ? 'rideManualStopFailed'
+            : (kept ? 'rideManualSaved' : 'rideManualTooShort'))),
       ));
       return;
     }

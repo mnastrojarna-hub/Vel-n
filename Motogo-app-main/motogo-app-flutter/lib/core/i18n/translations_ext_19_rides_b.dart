@@ -2,6 +2,7 @@
 /// `translations_ext_18_rides.dart`).
 const translationsExt19RidesB = <String, Map<String, String>>{
   'es': {
+    'rideManualStopFailed': 'No se pudo guardar la ruta (sin conexión). Lo intentaré de nuevo en cuanto haya señal.',
     'rideStatGap': 'sin señal',
     'rideStatPoints': 'puntos de ruta',
     'rideStatBreaks': 'interrupciones',
@@ -65,6 +66,7 @@ const translationsExt19RidesB = <String, Map<String, String>>{
     'rideShareFooter': 'Recorrido con MotoGo24 🏍️',
   },
   'fr': {
+    'rideManualStopFailed': 'Impossible d\'enregistrer le trajet (pas de connexion). Je réessaierai dès qu\'il y aura du réseau.',
     'rideStatGap': 'sans signal',
     'rideStatPoints': 'points du trajet',
     'rideStatBreaks': 'interruptions',
@@ -128,6 +130,7 @@ const translationsExt19RidesB = <String, Map<String, String>>{
     'rideShareFooter': 'Parcouru avec MotoGo24 🏍️',
   },
   'nl': {
+    'rideManualStopFailed': 'De rit kon niet worden opgeslagen (geen verbinding). Ik probeer het opnieuw zodra er signaal is.',
     'rideStatGap': 'geen signaal',
     'rideStatPoints': 'routepunten',
     'rideStatBreaks': 'onderbrekingen',
@@ -191,6 +194,7 @@ const translationsExt19RidesB = <String, Map<String, String>>{
     'rideShareFooter': 'Gereden met MotoGo24 🏍️',
   },
   'uk': {
+    'rideManualStopFailed': 'Не вдалося зберегти поїздку (немає з’єднання). Спробую ще раз, щойно з’явиться сигнал.',
     'rideStatGap': 'без сигналу',
     'rideStatPoints': 'точок маршруту',
     'rideStatBreaks': 'перерв',
