@@ -113,7 +113,7 @@ export async function confirmTrailerBranchMove(supabase, target, motoIds) {
   if (units !== 0 && !window.confirm(
     (units < 0 ? 'Nepodařilo se ověřit, jestli mezi přesouvanými kusy není vozík (chyba dotazu).'
                : `Pozor: ${pluralCs(units, 'přesouvaný kus je VOZÍK', units + ' přesouvané kusy jsou VOZÍKY', units + ' přesouvaných kusů jsou VOZÍKY')}.`) +
-    ` Na SAMOOBSLUŽNÉ pobočce „${targetBranch?.name || ''}“ ho nikdo nevydá — ani při samostatném půjčení.\n\nPřesun přesto provést?`
+    ` Na SAMOOBSLUŽNÉ pobočce „${targetBranch?.name || ''}“ ${units === 1 || units < 0 ? 'ho' : 'je'} nikdo nevydá — ani při samostatném půjčení.\n\nPřesun přesto provést?`
   )) return false
   const n = await countTrailerBookings(supabase, motoIds)
   if (n === 0) return true

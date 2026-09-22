@@ -24,7 +24,8 @@ import '../../../core/date_days.dart';
 /// motorky se po zaplacení vrátí. Switch proběhne předávacím protokolem na pobočce.
 class SwapMotoSection extends ConsumerStatefulWidget {
   final Reservation booking;
-  final String? userLicense;
+  /// Skupiny ŘP zákazníka (`profiles.license_group[]`); prázdné = nefiltrovat.
+  final List<String> userLicenseGroups;
 
   /// Volá se po úspěšné výměně — parent zobrazí potvrzení / refresh.
   final void Function(DateTime swapDate, String swapTime, String newMotoName) onSwapped;
@@ -32,7 +33,7 @@ class SwapMotoSection extends ConsumerStatefulWidget {
   const SwapMotoSection({
     super.key,
     required this.booking,
-    required this.userLicense,
+    required this.userLicenseGroups,
     required this.onSwapped,
   });
 
@@ -86,10 +87,9 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
   }
 
   bool _licenseOk(Motorcycle m) {
-    final lic = widget.userLicense;
-    if (lic == null) return true;
+    if (widget.userLicenseGroups.isEmpty) return true;
     return BookingValidator.checkLicense(
-          userLicenseGroups: [lic],
+          userLicenseGroups: widget.userLicenseGroups,
           motoLicenseGroups: m.licenseGroupsOrFallback,
         ) ==
         null;
@@ -201,6 +201,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
           'swap_date_out_of_range': t(context).tr('swap.err.dateRange'),
           'already_split': t(context).tr('swap.err.alreadySplit'),
           'new_moto_unavailable': t(context).tr('swap.err.unavailable'),
+          'license_insufficient': t(context).tr('swap.err.licenseInsufficient'),
           // 20260921d: rezervace s vozíkem nesmí přejet na samoobslužnou
           // pobočku — RPC to vrátí už v dry-runu, tedy PŘED platbou.
           'trailer_staffed_only': t(context).tr('swap.trailerStaffedOnly'),

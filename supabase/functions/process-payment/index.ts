@@ -398,14 +398,14 @@ Deno.serve(async (req: Request) => {
       // všechny kontroly níže. Nenačtená / neexistující → platbu odmítnout
       // (fail closed) — bez řádku nevíme nic o vlastníkovi, ceně ani vozíku.
       type CurRow = {
-        user_id: string | null; total_price: number | null; trailer_moto_id: string | null
+        user_id: string | null; status: string | null; total_price: number | null; trailer_moto_id: string | null
         moto_id: string | null; start_date: string | null; end_date: string | null; pickup_time: string | null
         motorcycles: { is_trailer: boolean | null } | { is_trailer: boolean | null }[] | null
       }
       let cur: CurRow | null = null
       try {
         const { data, error } = await supabase.from('bookings')
-          .select('user_id, total_price, trailer_moto_id, moto_id, start_date, end_date, pickup_time, motorcycles!moto_id(is_trailer)')
+          .select('user_id, status, total_price, trailer_moto_id, moto_id, start_date, end_date, pickup_time, motorcycles!moto_id(is_trailer)')
           .eq('id', booking_id).maybeSingle()
         if (error) dryErr = 'validation_unavailable'
         else if (!data) dryErr = 'booking_not_found'
@@ -432,6 +432,11 @@ Deno.serve(async (req: Request) => {
           )
         }
       }
+
+      // Stornovaná / ukončená rezervace se neupravuje (a nesmí se za ni platit —
+      // confirm_payment by ji jinak „oživil“). RPC větve to hlídají samy
+      // (wrong_status), app formát dosud ne.
+      if (!dryErr && cur && ['cancelled', 'completed'].includes(String(cur.status || ''))) dryErr = 'wrong_status'
 
       // ── 2) Výchozí stav klienta (`_base`: s/e = termín, t = čas vyzvednutí,
       // p = cena) musí odpovídat AKTUÁLNÍ rezervaci. Změna naceněná proti
@@ -503,6 +508,22 @@ Deno.serve(async (req: Request) => {
               if (selfErr || typeof selfSvc !== 'boolean') dryErr = 'trailer_check_unavailable'
               else if (selfSvc === true) dryErr = 'trailer_staffed_only'
             }
+            // Proveditelnost změny pro app formát (5. kolo): appka žádný dry-run
+            // RPC nevolá, takže překryv NOVÉ motorky / termínu (jiný zákazník
+            // mezitím rezervoval) nebo zavřenou pobočku odhalil až trigger na
+            // zápisu PO zaplacení (třída incidentu #EEC9CA33). Stejná kontrola,
+            // jakou appka dělá klientsky před nacením — tady těsně před
+            // PaymentIntentem. check_moto_availability = SECURITY DEFINER,
+            // hlídá i moto_branch_closed. Fail closed.
+            const nm = (typeof c.moto_id === 'string' && c.moto_id) ? c.moto_id : cur.moto_id
+            if (!dryErr && nm && (c.moto_id !== undefined || c.start_date !== undefined || c.end_date !== undefined)) {
+              const { data: free, error: freeErr } = await supabase.rpc('check_moto_availability', {
+                p_moto_id: nm, p_start: day(c.start_date ?? cur.start_date), p_end: day(c.end_date ?? cur.end_date),
+                p_exclude_booking_id: booking_id,
+              })
+              if (freeErr || typeof free !== 'boolean') dryErr = 'validation_unavailable'
+              else if (free === false) dryErr = 'moto_unavailable'
+            }
           }
         } catch (_e) { dryErr = dryErr || 'validation_unavailable' }
       }
@@ -542,6 +563,8 @@ Deno.serve(async (req: Request) => {
           trailer_check_unavailable: 'Nepodařilo se ověřit vozík u rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
           validation_unavailable: 'Nepodařilo se ověřit změnu rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
           booking_not_found: 'Rezervace nebyla nalezena — platba doplatku zrušena. Obnovte stránku a zkuste znovu.',
+          moto_unavailable: 'Motorka je v novém termínu už obsazená, nebo je pobočka zavřená — platba doplatku zrušena. Zvolte jiný termín nebo motorku.',
+          wrong_status: 'Rezervaci v tomto stavu už nelze upravit (stornovaná nebo ukončená) — platba doplatku zrušena.',
         }
         const dryMsg = dryMsgs[dryErr] ?? `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
         return new Response(

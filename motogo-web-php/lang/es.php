@@ -1294,6 +1294,8 @@ return [
     'editRez.pay.forbidden' => 'Esta reserva no se puede editar desde esta cuenta. Inicie sesión con la cuenta con la que se creó.',
     'editRez.pay.stale' => 'La reserva ha cambiado mientras tanto (otro dispositivo o la web). Vuelva a cargarla y repita el cambio.',
     'editRez.pay.amountMismatch' => 'El importe del suplemento no coincide con el cálculo del servidor ({amount}). Recargue la página e inténtelo de nuevo.',
+    'editRez.pay.motoUnavailable' => 'La moto ya está reservada en las nuevas fechas o la sucursal está cerrada — el pago del suplemento se ha cancelado. Elija otras fechas u otra moto.',
+    'editRez.pay.wrongStatus' => 'Una reserva en este estado ya no se puede modificar (cancelada o finalizada) — el pago del suplemento se ha cancelado.',
     'editRez.moto.unavailable' => 'No disponible',
     'editRez.moto.selectThis' => 'Elegir esta moto →',
     'editRez.moto.backToDetail' => '← Volver al detalle',
