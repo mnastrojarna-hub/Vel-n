@@ -25,6 +25,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { isServiceRole } from '../_shared/auth.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -87,15 +88,8 @@ async function processTable(db: any, table: string, rows: any[], langs: string[]
 
 /** Je token service_role JWT? Kontroluje claim `role` (ne přesnou shodu) —
  *  projekt může mít nový formát klíčů sb_secret_ / víc platných klíčů. */
-function isServiceRole(token: string): boolean {
-  try {
-    const p = token.split('.')
-    if (p.length !== 3) return false
-    const pad = '='.repeat((4 - (p[1].length % 4)) % 4)
-    const payload = JSON.parse(atob(p[1].replace(/-/g, '+').replace(/_/g, '/') + pad))
-    return payload.role === 'service_role'
-  } catch (_) { return false }
-}
+// service_role se ověřuje sdíleným helperem (_shared/auth.ts): claim v payloadu
+// nestačí, podpis ověří PostgREST — 2026-09-22 (nepodepsaný token dřív prošel).
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
@@ -108,7 +102,7 @@ serve(async (req) => {
   // se nedoplňovaly. Přijmi env klíč, JWT service_role, nebo app_settings klíč.
   let bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
   if (bearer.length > 1 && bearer.startsWith('"') && bearer.endsWith('"')) bearer = bearer.slice(1, -1)
-  let authOk = bearer.length > 0 && (bearer === SUPABASE_SERVICE_KEY || isServiceRole(bearer))
+  let authOk = bearer.length > 0 && (bearer === SUPABASE_SERVICE_KEY || await isServiceRole(bearer))
   if (!authOk && bearer.length > 0) {
     const { data: row } = await db.from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()
     if (row?.value && bearer === String(row.value).replace(/^"|"$/g, '').trim()) authOk = true

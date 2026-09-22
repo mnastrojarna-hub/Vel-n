@@ -1296,6 +1296,7 @@ return [
     'editRez.pay.amountMismatch' => 'El importe del suplemento no coincide con el cálculo del servidor ({amount}). Recargue la página e inténtelo de nuevo.',
     'editRez.pay.motoUnavailable' => 'La moto ya está reservada en las nuevas fechas o la sucursal está cerrada — el pago del suplemento se ha cancelado. Elija otras fechas u otra moto.',
     'editRez.pay.wrongStatus' => 'Una reserva en este estado ya no se puede modificar (cancelada o finalizada) — el pago del suplemento se ha cancelado.',
+    'editRez.pay.authRequired' => 'No ha iniciado sesión o su sesión ha caducado — vuelva a iniciar sesión y repita el cambio.',
     'editRez.moto.unavailable' => 'No disponible',
     'editRez.moto.selectThis' => 'Elegir esta moto →',
     'editRez.moto.backToDetail' => '← Volver al detalle',

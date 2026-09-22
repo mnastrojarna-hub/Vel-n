@@ -1172,6 +1172,7 @@ return [
     'editRez.pay.amountMismatch' => 'Částka doplatku neodpovídá výpočtu serveru ({amount}). Obnovte stránku a zkuste znovu.',
     'editRez.pay.motoUnavailable' => 'Motorka je v novém termínu už obsazená, nebo je pobočka zavřená — platba doplatku zrušena. Zvolte jiný termín nebo motorku.',
     'editRez.pay.wrongStatus' => 'Rezervaci v tomto stavu už nelze upravit (stornovaná nebo ukončená) — platba doplatku zrušena.',
+    'editRez.pay.authRequired' => 'Přihlášení chybí nebo vypršelo — přihlaste se prosím znovu a úpravu zopakujte.',
     'editRez.moto.unavailable' => 'Nedostupné',
     'editRez.moto.selectThis' => 'Vybrat tuto motorku →',
     'editRez.moto.diffUp' => '+{amount} za celou rezervaci',

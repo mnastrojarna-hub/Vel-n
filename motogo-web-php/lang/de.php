@@ -1309,6 +1309,7 @@ return [
     'editRez.pay.amountMismatch' => 'Der Nachzahlungsbetrag stimmt nicht mit der Serverberechnung überein ({amount}). Laden Sie die Seite neu und versuchen Sie es erneut.',
     'editRez.pay.motoUnavailable' => 'Das Motorrad ist im neuen Zeitraum bereits gebucht oder die Filiale ist geschlossen — die Nachzahlung wurde abgebrochen. Wählen Sie einen anderen Zeitraum oder ein anderes Motorrad.',
     'editRez.pay.wrongStatus' => 'Eine Buchung in diesem Status kann nicht mehr geändert werden (storniert oder abgeschlossen) — die Nachzahlung wurde abgebrochen.',
+    'editRez.pay.authRequired' => 'Sie sind nicht angemeldet oder Ihre Sitzung ist abgelaufen — bitte melden Sie sich erneut an und wiederholen Sie die Änderung.',
     'editRez.moto.unavailable' => 'Nicht verfügbar',
     'editRez.moto.selectThis' => 'Dieses Motorrad wählen →',
     'editRez.moto.backToDetail' => '← Zurück zum Detail',

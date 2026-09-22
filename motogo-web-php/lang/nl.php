@@ -1274,6 +1274,7 @@ return [
     'editRez.pay.amountMismatch' => 'Het bedrag van de bijbetaling komt niet overeen met de berekening van de server ({amount}). Vernieuw de pagina en probeer het opnieuw.',
     'editRez.pay.motoUnavailable' => 'De motor is in de nieuwe periode al geboekt of de vestiging is gesloten — de bijbetaling is geannuleerd. Kies een andere periode of motor.',
     'editRez.pay.wrongStatus' => 'Een boeking in deze status kan niet meer worden gewijzigd (geannuleerd of afgerond) — de bijbetaling is geannuleerd.',
+    'editRez.pay.authRequired' => 'U bent niet aangemeld of uw sessie is verlopen — meld u opnieuw aan en herhaal de wijziging.',
     'editRez.moto.unavailable' => 'Niet beschikbaar',
     'editRez.moto.selectThis' => 'Deze motor kiezen →',
     'editRez.moto.backToDetail' => '← Terug naar detail',
