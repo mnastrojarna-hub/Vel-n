@@ -73,7 +73,9 @@ export async function countTrailerBookings(supabase, motoIds) {
 async function resolveBranch(supabase, target) {
   if (!target) return null
   const obj = typeof target === 'string' ? { id: target } : target
-  if (typeof obj.type === 'string') return obj
+  // Klíč `type` přítomný (i NULL = pobočka bez typu) → pobočka je rozhodnutá,
+  // dohledávat jen když select `type` vůbec netahal (undefined).
+  if (obj.type !== undefined) return obj
   if (!obj.id) return obj
   const { data, error } = await supabase.from('branches').select('id, name, type').eq('id', obj.id).maybeSingle()
   // Nedohledatelná pobočka = nevíme → označit, volající se pak zeptá (fail closed).
@@ -91,6 +93,13 @@ async function countTrailerUnits(supabase, motoIds) {
   return (data || []).length
 }
 
+// České množné číslo: 1 / 2–4 / 5+ (a 0).
+export function pluralCs(n, one, few, many) {
+  if (n === 1) return one
+  if (n >= 2 && n <= 4) return few
+  return many
+}
+
 export async function confirmTrailerBranchMove(supabase, target, motoIds) {
   const targetBranch = await resolveBranch(supabase, target)
   if (targetBranch?._unresolved) {
@@ -103,7 +112,7 @@ export async function confirmTrailerBranchMove(supabase, target, motoIds) {
   const units = await countTrailerUnits(supabase, motoIds)
   if (units !== 0 && !window.confirm(
     (units < 0 ? 'Nepodařilo se ověřit, jestli mezi přesouvanými kusy není vozík (chyba dotazu).'
-               : `Pozor: ${units === 1 ? 'přesouvaný kus je VOZÍK' : units + ' přesouvané kusy jsou VOZÍKY'}.`) +
+               : `Pozor: ${pluralCs(units, 'přesouvaný kus je VOZÍK', units + ' přesouvané kusy jsou VOZÍKY', units + ' přesouvaných kusů jsou VOZÍKY')}.`) +
     ` Na SAMOOBSLUŽNÉ pobočce „${targetBranch?.name || ''}“ ho nikdo nevydá — ani při samostatném půjčení.\n\nPřesun přesto provést?`
   )) return false
   const n = await countTrailerBookings(supabase, motoIds)
@@ -116,7 +125,7 @@ export async function confirmTrailerBranchMove(supabase, target, motoIds) {
     )
   }
   return window.confirm(
-    `Pozor: ${n === 1 ? '1 živá rezervace veze' : n + ' živých rezervací veze'} vozík ` +
+    `Pozor: ${pluralCs(n, '1 živá rezervace veze', n + ' živé rezervace vezou', n + ' živých rezervací veze')} vozík ` +
     `a přesouváš motorku na SAMOOBSLUŽNOU pobočku „${targetBranch?.name || ''}“, ` +
     'která vozík nevydává (7 kójí + šatna, výdej 24/7 kódem bez obsluhy).\n\n' +
     'Přesun provést? Vozík u těch rezervací zůstane a bude ho potřeba vyřešit ručně.'

@@ -186,15 +186,24 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
     if (migrating) return
     setMigrating(true)  // dvojklik během await confirm by spustil přesun dvakrát
     if (!(await confirmTrailerBranchMove(supabase, targetBranch, [moto.id]))) { setMigrating(false); return }
-    await debugAction('fleet.migrate', 'FleetDetail', async () => {
-      await supabase.from('motorcycles').update({ branch_id: migrateTo }).eq('id', moto.id)
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'motorcycle_migrated',
-        details: { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: targetBranch?.name },
-      })
-      return { data: { migrated: true } }
-    }, { moto_id: moto.id, to_branch: targetBranch?.name })
+    try {
+      await debugAction('fleet.migrate', 'FleetDetail', async () => {
+        // Selhaný UPDATE (RLS, síť) se dřív tiše spolkl a UI hlásilo přesun jako
+        // hotový — chybu propagovat (debugAction ji zaloguje a vyhodí dál).
+        const { error: uErr } = await supabase.from('motorcycles').update({ branch_id: migrateTo }).eq('id', moto.id)
+        if (uErr) throw uErr
+        const { data: { user } } = await supabase.auth.getUser()
+        await supabase.from('admin_audit_log').insert({
+          admin_id: user?.id, action: 'motorcycle_migrated',
+          details: { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: targetBranch?.name },
+        })
+        return { data: { migrated: true } }
+      }, { moto_id: moto.id, to_branch: targetBranch?.name })
+    } catch (e) {
+      setMigrating(false)
+      window.alert('Přesun motorky se nezdařil: ' + (e?.message || e))
+      return
+    }
     purgeWebCache()
     setMigrating(false)
     setShowMigrate(false)

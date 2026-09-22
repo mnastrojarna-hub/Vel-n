@@ -205,11 +205,10 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
           // pobočku — RPC to vrátí už v dry-runu, tedy PŘED platbou.
           'trailer_staffed_only': t(context).tr('swap.trailerStaffedOnly'),
         }[code] ??
-        // Pojistka z DB (trg_check_trailer_overlap) chodí jako text, ne kód —
-        // bez tohohle by se do toastu vypsalo nepřeložené hlášení s UUID.
-        (_isTrailerBranchError('$res')
-            ? t(context).tr('swap.trailerStaffedOnly')
-            : t(context).error);
+        // RPC vrací jen KÓDY; texty triggeru (trg_check_trailer_overlap) chodí
+        // jako PostgrestException a mapuje je vnější catch přes
+        // _isTrailerBranchError / _isTrailerOccupiedError.
+        t(context).error;
     showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: msg);
   }
 
