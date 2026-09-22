@@ -271,7 +271,9 @@ class UserRide {
           final lng = _toD(p[1]);
           if (lat == null || lng == null) continue;
           track.add(LatLng(lat, lng));
-          times.add(p.length > 2 ? _toI(p[2]) : null);
+          // Čas může přijít i jako desetinné číslo (1758000000.4) — `_toI`
+          // by ho zahodil a mezery by se v appce přestaly poznávat.
+          times.add(p.length > 2 ? _toD(p[2])?.floor() : null);
         }
       }
     }

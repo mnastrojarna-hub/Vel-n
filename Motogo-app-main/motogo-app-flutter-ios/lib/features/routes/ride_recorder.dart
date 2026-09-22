@@ -42,6 +42,9 @@ const Duration _kMinInterval = Duration(seconds: 5);
 const Duration _kLastKnownMaxAge = Duration(minutes: 5);
 /// Jak dlouho počkat, než se po neúspěchu zkusí jízdu ukončit znovu.
 const Duration _kStopRetryAfter = Duration(minutes: 2);
+/// Horší přesnost fixu (m) už do stopy nebereme — na silnici má telefon
+/// 5–15 m, přes 50 m je to typicky drift uvnitř budovy.
+const double _kMaxAccuracyM = 50;
 
 class RideRecorderState {
   final bool enabled; // přepínač „zaznamenávat jízdy"
@@ -194,12 +197,23 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
           first = last;
         }
       } catch (_) {}
-      final id = await startUserRide(
+      final started = await startUserRide(
         bookingId: bookingId,
         lat: first?.latitude,
         lng: first?.longitude,
       );
-      if (id == null) return;
+      if (started == null) return;
+      final id = started.id;
+
+      // Server založil NOVOU jízdu (tu starou mezitím uzavřel úklid, nebo
+      // skončila vrácením). Body, které v dávce zbyly z té staré — třeba po
+      // vracení bez signálu — do nové nepatří: server by je viděl jako
+      // hodiny starý start a jízda by začínala „15 h bez signálu".
+      if (!started.resumed && (_buffer.isNotEmpty || state.rideId != id)) {
+        _buffer.clear();
+        _maxSpeedKmh = 0;
+        await _persistBuffer();
+      }
 
       try {
         final p = await SharedPreferences.getInstance();
@@ -308,6 +322,11 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// nula = přijímač výšku nemá a falešně by nafoukla stoupání.
   void _onPosition(Position pos) {
     if (!state.recording) return;
+    // Nepřesný fix (uvnitř budovy, tunel, městský kaňon) do stopy nepatří:
+    // při stání v kavárně GPS „skáče" o desítky metrů a každý skok by se
+    // počítal jako pár metrů jízdy — po hodině je z toho kilometr, který se
+    // nejel. Radši mezera než vymyšlená trasa.
+    if (pos.accuracy.isFinite && pos.accuracy > _kMaxAccuracyM) return;
     var kmh = pos.speed * 3.6;
     if (!kmh.isFinite || kmh < 0 || kmh > 300) kmh = 0;
     final alt = pos.altitude;
@@ -508,12 +527,33 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
     }
   }
 
-  /// Právě běžící (aktivní) rezervace zákazníka, jinak null.
+  /// Rezervace, u které se má PRÁVĚ TEĎ nahrávat, jinak null.
+  ///
+  /// Dřív stačil kalendářní den v rozsahu termínu — jenže to je od PŮLNOCI
+  /// dne vyzvednutí do půlnoci po vrácení. Do stopy tak šla i cesta autem na
+  /// pobočku a domů (v hustých fixech, tedy jako ujeté kilometry motorkou).
+  /// Nahrává se proto až od skutečného PŘEVZETÍ (`picked_up_at` — předávací
+  /// protokol na obsluhované pobočce, kód do boxu na samoobslužné) do VRÁCENÍ
+  /// (`returned_at`). Pojistka pro rezervaci aktivovanou jen nočním cronem bez
+  /// odbavení: od naplánovaného času vyzvednutí.
   String? _activeBookingId(List<Reservation> list) {
+    final now = DateTime.now();
     for (final r in list) {
-      if (r.displayStatus == ResStatus.aktivni) return r.id;
+      if (r.displayStatus != ResStatus.aktivni) continue;
+      if (r.returnedAt != null) continue; // vráceno → dál se nenahrává
+      if (r.pickedUpAt != null) return r.id; // převzato → nahrávat
+      if (r.status == 'active' && !now.isBefore(_pickupAt(r))) return r.id;
     }
     return null;
+  }
+
+  /// Naplánované vyzvednutí = den začátku + `pickup_time` (HH:MM); bez času
+  /// se bere konec dne, aby se bez odbavení nenahrávalo předčasně.
+  static DateTime _pickupAt(Reservation r) {
+    final d = r.startDate;
+    final m = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(r.pickupTime ?? '');
+    if (m == null) return DateTime(d.year, d.month, d.day, 23, 59);
+    return DateTime(d.year, d.month, d.day, int.parse(m.group(1)!), int.parse(m.group(2)!));
   }
 
   @override
