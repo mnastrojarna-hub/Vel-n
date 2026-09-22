@@ -74,7 +74,9 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
     // Samoobslužná pobočka vozík nevydává — živé rezervace s vozíkem potvrdit.
     // MUSÍ být PŘED run(): předčasný return uvnitř callbacku by run nezastavil
     // a ohlásil by „Přesunuto…“, přestože se nic nestalo.
-    if (!(await confirmTrailerBranchMove(supabase, target, ids))) return
+    if (busy) return
+    setBusy(true)  // dvojklik během await confirm by spustil přesun dvakrát
+    if (!(await confirmTrailerBranchMove(supabase, target, ids))) { setBusy(false); return }
     await run(`Přesunuto na ${target?.name} · zákazníkům s rezervací byly vygenerovány nové kódy a znovu odeslány`, async () => {
       const { error: err } = await supabase.from('motorcycles').update({ branch_id: targetBranch }).in('id', ids)
       if (err) throw err

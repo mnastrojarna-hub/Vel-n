@@ -183,8 +183,9 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
     const targetBranch = branches.find(b => b.id === migrateTo)
     // Samoobslužná pobočka vozík nevydává — živé rezervace s vozíkem potvrdit.
     // PŘED setMigrating/debugAction, ať se zrušený přesun nezaloguje jako akce.
-    if (!(await confirmTrailerBranchMove(supabase, targetBranch, [moto.id]))) return
-    setMigrating(true)
+    if (migrating) return
+    setMigrating(true)  // dvojklik během await confirm by spustil přesun dvakrát
+    if (!(await confirmTrailerBranchMove(supabase, targetBranch, [moto.id]))) { setMigrating(false); return }
     await debugAction('fleet.migrate', 'FleetDetail', async () => {
       await supabase.from('motorcycles').update({ branch_id: migrateTo }).eq('id', moto.id)
       const { data: { user } } = await supabase.auth.getUser()

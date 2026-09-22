@@ -60,8 +60,9 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     if (!selectedBranch) return
     const target = branches.find(b => b.id === selectedBranch)
     // Samoobslužná pobočka vozík nevydává — živé rezervace s vozíkem potvrdit.
-    if (!(await confirmTrailerBranchMove(supabase, target, [moto.id]))) return
-    setBusy(true); setError(null)
+    if (busy) return
+    setBusy(true); setError(null)  // dvojklik během await confirm by spustil přesun dvakrát
+    if (!(await confirmTrailerBranchMove(supabase, target, [moto.id]))) { setBusy(false); return }
     try {
       const { error: err } = await supabase.from('motorcycles').update({ branch_id: selectedBranch }).eq('id', moto.id)
       if (err) throw err

@@ -6,11 +6,15 @@
 // Backend: RPC split_booking_moto_swap(p_booking_id, p_new_moto_id, p_swap_date, p_swap_time).
 // Dostupnost nové motorky od data výměny do konce: MG.fetchMotoBookings(id) (RPC get_moto_booked_dates).
 //
-// POZOR: hlavní soubor js/pages-upravit-rezervaci.js je MINIFIKOVANÝ a NEUPRAVUJE se.
+// POZOR: hlavní soubor js/pages-upravit-rezervaci.js je MINIFIKOVANÝ — upravuje se jen
+// CHIRURGICKY (grep -o + přesná náhrada řetězce, nikdy prettify/cat; od 2026-09-21 tam
+// takto žijí lokály `_tr`/`_ht`/`_tb` a mapa `trailer_staffed_only` pro záložku „Změna
+// motorky“; po každé úpravě ověřit zpětným odstraněním, že vyjde původní soubor).
 // Tab bar i dispatch tabů se staví v jádru (_renderDetail) — proto tuto záložku přidáváme
-// bezpečně zvenčí: MutationObserverem hlídáme překreslení tab baru (#edit-rez-app .edit-rez-tabs)
+// zvenčí: MutationObserverem hlídáme překreslení tab baru (#edit-rez-app .edit-rez-tabs)
 // a doplňujeme do něj vlastní tlačítko "Výměna motorky", jehož klik vyrenderuje _renderTabSwap.
-// Díky tomu není potřeba žádný zásah do minifikovaného jádra.
+// Jádro `trailer_moto_id` do svého selectu rezervací nedává — tahle záložka i jádro
+// se na něj doptávají zvlášť (jeden lehký dotaz na vlastní rezervaci).
 (function () {
   var ER = (window.MG && MG._editRez) ? MG._editRez : null;
   if (!ER) return;
@@ -123,15 +127,12 @@
           var allowed = licGroups.some(function (g) { return ER._licenseAllows(lic, g); });
           // Dostupnost nové motorky POUZE od data výměny do konce rezervace.
           var free = !ER._rangeOverlapsOccupied(swapDate, origEnd, x.occupied);
-          // Rezervace s vozíkem nesmí přejet na motorku ze samoobslužné pobočky.
-          // JEN u plné výměny (REPLACE) — tam se přepíše moto_id na řádku, který
-          // vozík nese. U SPLITu (výměna uprostřed) si rezervace A motorku
-          // i vozík ponechá a nová rezervace B vozík nedostane, takže to
-          // `split_booking_moto_swap` rev.9 záměrně povoluje (20260921d) a
-          // klient to blokovat nesmí. Shodná podmínka jako v SQL:
-          // v_replace = (p_swap_date = start_date) AND status = 'reserved'.
-          var isReplace = swapDate === origStart && 'reserved' === b.status;
-          var trailerBlocked = isReplace && hasTrailer && m.branches && 'samoobslužná' === m.branches.type;
+          // Rezervace s vozíkem nesmí přejet na motorku ze samoobslužné pobočky —
+          // u REPLACE i u SPLITu. Datově sice u SPLITu vozík zůstává na rezervaci A,
+          // ale FYZICKY s ním zákazník dojede na samoobslužnou pobočku, kde ho
+          // nemá kdo převzít (pevná sestava 7 kójí + šatna, bez obsluhy).
+          // Shodně se `split_booking_moto_swap` rev.10 (20260921h).
+          var trailerBlocked = hasTrailer && m.branches && 'samoobslužná' === m.branches.type;
           var disabled = !allowed || !free || trailerBlocked;
 
           var img = (m.images && m.images.length ? m.images[0] : m.image_url) || '';

@@ -796,9 +796,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       // Pojistka z DB „vozík jen na obslužné pobočce" (trg_check_trailer_overlap)
       // chodí jako text uvnitř PostgrestException — bez tohohle by se do toastu
       // vypsala celá nepřeložená hláška včetně UUID motorky.
-      // JEN hláška o pobočce. Tentýž trigger hlásí i „Vozík je v tomto termínu
-      // již obsazen (trailer_moto_id=…)" — na `trailer_moto_id` se proto
-      // matchovat NESMÍ, jinak by se obsazený vozík hlásil jako špatná pobočka.
+      // Dvě hlášky téhož triggeru (trg_check_trailer_overlap, 20260921g):
+      // „…z obslužné pobočky…" (23514) → swap.trailerStaffedOnly,
+      // `trailer_unavailable: <uuid>` (23505) → swap.trailerOccupied.
       // `context` až ZA kontrolou mounted (po await může být widget odpojený).
       if (mounted) {
         final raw = '$e';

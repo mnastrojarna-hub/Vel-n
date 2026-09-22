@@ -60,8 +60,10 @@ class Reservation {
   final double? branchLng;
   final String? branchType; // 'samoobslužná' | 'obslužná'
   /// Přiřazený kus vozíku (`bookings.trailer_moto_id`). Když není null,
-  /// nesmí jít rezervace přehodit na motorku ze SAMOOBSLUŽNÉ pobočky —
-  /// ta vozík nevydává (`trg_check_trailer_overlap`, 20260921b/c).
+  /// nesmí jít rezervace přehodit na motorku ze SAMOOBSLUŽNÉ pobočky — ta
+  /// vozík nevydává (`trg_check_trailer_overlap` od 20260921f/g; 20260921c
+  /// tuto kontrolu dočasně odebralo; RPC `split_booking_moto_swap` rev.10 a
+  /// `_apply_booking_changes_core` ji vrací už v dry-runu, před platbou).
   final String? trailerMotoId;
   final double? stornoFee;
   final double? refundAmount;

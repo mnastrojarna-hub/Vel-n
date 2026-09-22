@@ -179,12 +179,9 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
   bool _rpcOk(dynamic res) => res is Map && res['success'] == true;
 
   /// Hláška DB pojistky „vozík jen na obslužné pobočce" (ERRCODE 23514,
-  /// `trg_check_trailer_overlap`). Do klienta nechodí jako kód, jen jako text.
-  /// POZOR: `trg_check_trailer_overlap` hlásí DVĚ různé věci a jen tahle je
-  /// o pobočce — druhá („Vozík je v tomto termínu již obsazen
-  /// (trailer_moto_id=…)") obsahuje řetězec `trailer_moto_id`, takže se na něj
-  /// NESMÍ matchovat, jinak se zákazníkovi obsazený vozík hlásí jako špatná
-  /// pobočka.
+  /// `trg_check_trailer_overlap`, 20260921g). Do klienta nechodí jako kód, jen
+  /// jako text. Tentýž trigger hlásí ještě obsazenost kusu vozíku —
+  /// `trailer_unavailable: <uuid>` (23505), viz `_isTrailerOccupiedError`.
   static bool _isTrailerBranchError(String e) => e.contains('obslužné pobočky');
 
   /// Dvojí rezervace téhož kusu vozíku (`trailer_unavailable: <uuid>`, 23505) —
@@ -307,17 +304,6 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-
-  /// Plná výměna (REPLACE) = od PRVNÍHO dne rezervace a stav 'reserved' —
-  /// jen tehdy server přepíše `moto_id` na řádku, který nese vozík.
-  /// Shoda s `v_replace` v `split_booking_moto_swap` (20260921d).
-  bool get _isReplaceSwap {
-    final d = _swapDate;
-    if (d == null) return false;
-    final b = widget.booking.startDate;
-    return d.year == b.year && d.month == b.month && d.day == b.day &&
-        widget.booking.status == 'reserved';
   }
 
   String _fmt(DateTime? d) => d == null ? '–' : '${d.day}.${d.month}.${d.year}';
@@ -456,16 +442,12 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
                 children: cands.map((m) {
                   final free = _avail[m.id];
                   // Vozík vydává jen OBSLUŽNÁ pobočka → s přiřazeným vozíkem
-                  // nelze přejet na motorku ze samoobslužné. Bez téhle zábrany
-                  // by dry-run prošel, zákazník zaplatil doplatek na Stripe
-                  // a teprve server-side commit spadl na trg_check_trailer_overlap.
-                  // JEN u plné výměny (REPLACE): u SPLITu (výměna uprostřed
-                  // rezervace) si původní rezervace motorku i vozík ponechá
-                  // a nová rezervace vozík nedostane, což server záměrně
-                  // povoluje (split_booking_moto_swap rev.9, 20260921d).
-                  // Shodná podmínka jako v SQL: v_replace.
-                  final trailerBlocked = _isReplaceSwap &&
-                      widget.booking.trailerMotoId != null &&
+                  // nelze přejet na motorku ze samoobslužné — u REPLACE i SPLITu.
+                  // Datově sice u SPLITu vozík zůstává na původní rezervaci,
+                  // ale FYZICKY s ním zákazník dojede na samoobslužnou pobočku,
+                  // kde ho nemá kdo převzít. Server to vrací už v dry-runu
+                  // (split_booking_moto_swap rev.10, 20260921h), tedy PŘED platbou.
+                  final trailerBlocked = widget.booking.trailerMotoId != null &&
                       m.branchType == 'samoobslužná';
                   final selectable = free == true && !trailerBlocked;
                   final selected = _newMotoId == m.id;
