@@ -80,7 +80,10 @@ Future<void> _toggleManualRide(BuildContext context, WidgetRef ref, bool running
   final tr = t(context);
   if (running) {
     final kept = await n.stop();
-    msg.showSnackBar(SnackBar(content: Text(tr.tr(kept ? 'rideManualSaved' : 'rideManualTooShort'))));
+    // null = server jízdu nevzal (offline) → zkusí se to znovu, NENÍ „krátká".
+    msg.showSnackBar(SnackBar(content: Text(tr.tr(kept == null
+        ? 'rideManualStopFailed'
+        : (kept ? 'rideManualSaved' : 'rideManualTooShort')))));
     return;
   }
   final ok = await n.startManual();

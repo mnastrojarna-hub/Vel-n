@@ -2,6 +2,7 @@
 /// s fotkami a popisky, sdílení na sociální sítě. Část 1/2: cs, en, de, pl.
 const translationsExt18Rides = <String, Map<String, String>>{
   'cs': {
+    'rideManualStopFailed': 'Jízdu se nepodařilo uložit (bez připojení). Zkusím to znovu, jakmile bude signál.',
     'rideStatGap': 'bez signálu',
     'rideStatPoints': 'bodů stopy',
     'rideStatBreaks': 'přerušení',
@@ -65,6 +66,7 @@ const translationsExt18Rides = <String, Map<String, String>>{
     'rideShareFooter': 'Projeto s MotoGo24 🏍️',
   },
   'en': {
+    'rideManualStopFailed': 'The ride could not be saved (no connection). I will retry as soon as there is signal.',
     'rideStatGap': 'no signal',
     'rideStatPoints': 'track points',
     'rideStatBreaks': 'breaks',
@@ -128,6 +130,7 @@ const translationsExt18Rides = <String, Map<String, String>>{
     'rideShareFooter': 'Ridden with MotoGo24 🏍️',
   },
   'de': {
+    'rideManualStopFailed': 'Die Fahrt konnte nicht gespeichert werden (keine Verbindung). Ich versuche es erneut, sobald Signal da ist.',
     'rideStatGap': 'ohne Signal',
     'rideStatPoints': 'Streckenpunkte',
     'rideStatBreaks': 'Unterbrechungen',
@@ -191,6 +194,7 @@ const translationsExt18Rides = <String, Map<String, String>>{
     'rideShareFooter': 'Gefahren mit MotoGo24 🏍️',
   },
   'pl': {
+    'rideManualStopFailed': 'Nie udało się zapisać trasy (brak połączenia). Spróbuję ponownie, gdy będzie sygnał.',
     'rideStatGap': 'bez sygnału',
     'rideStatPoints': 'punktów trasy',
     'rideStatBreaks': 'przerwy',
