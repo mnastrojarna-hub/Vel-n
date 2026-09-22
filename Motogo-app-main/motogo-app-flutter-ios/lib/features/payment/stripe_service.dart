@@ -129,6 +129,9 @@ class StripeService {
             'Server vrátil neočekávanou odpověď (HTTP ${response.statusCode}). '
                 'Zkuste to prosím znovu.',
         code: PaymentErrorCode.serverError,
+        // Stabilní kód odmítnutí (409/403 u doplatkové změny: trailer_staffed_only,
+        // trailer_unavailable, stale_booking, forbidden…) → klient překládá.
+        serverCode: data['code'] as String?,
       );
     } on TimeoutException {
       return PaymentResult.error(
@@ -347,6 +350,8 @@ class PaymentResult {
   final String? bookingId;
   final PaymentErrorCode? errorCode;
   final String? declineCode;
+  /// `code` z odpovědi process-payment (odmítnutí změny před platbou).
+  final String? serverCode;
 
   const PaymentResult._({
     required this.type,
@@ -358,6 +363,7 @@ class PaymentResult {
     this.bookingId,
     this.errorCode,
     this.declineCode,
+    this.serverCode,
   });
 
   factory PaymentResult.intent({
@@ -379,11 +385,13 @@ class PaymentResult {
   factory PaymentResult.free({String? bookingId}) =>
       PaymentResult._(type: PaymentResultType.free, bookingId: bookingId);
 
-  factory PaymentResult.error(String message, {PaymentErrorCode? code}) =>
+  factory PaymentResult.error(String message,
+          {PaymentErrorCode? code, String? serverCode}) =>
       PaymentResult._(
         type: PaymentResultType.error,
         errorMessage: message,
         errorCode: code,
+        serverCode: serverCode,
       );
 
   /// Off-session charge proběhl, Stripe vrátil status='succeeded'.

@@ -211,33 +211,54 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   }
 
   async function handleDeactivateReplace(replacement) {
-    // Deaktivace NESMÍ osiřet zákaznickou rezervaci — pokud nějaká existuje,
-    // admin ji vyřeší individuálně (úprava rezervace) ještě před deaktivací.
-    const blocking = await fetchBlockingBookings(moto.id)
-    if (blocking.length > 0) {
-      window.alert(blockingBookingsMessage(blocking))
-      setShowDeactReplace(false)
-      return
-    }
-    // Náhrada se stěhuje NA pobočku servisovaného kusu — když je samoobslužná,
-    // přijdou její živé rezervace s vozíkem o krytí (stejná úvaha jako u ručního
-    // přesunu výše).
-    if (moto.branch_id && replacement?.id &&
-        !(await confirmTrailerBranchMove(supabase, moto.branch_id, [replacement.id]))) return
-    setBusy(true)
-    if (moto.branch_id && replacement?.id) {
-      await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', replacement.id)
-    }
-    const now = new Date()
-    const maxYear = now.getMonth() <= 1 ? now.getFullYear() : now.getFullYear() + 1
-    const reasonText = reason === 'other' ? customReason : UNAVAILABLE_REASONS.find(r => r.value === reason)?.label
-    await supabase.from('motorcycles').update({
-      status: 'unavailable',
-      unavailable_reason: reasonText || 'Deaktivováno — náhrada',
-      unavailable_until: unavailableUntil || `${maxYear}-02-28T23:59:59`,
-    }).eq('id', moto.id)
-    await logAudit('moto_deactivated_replaced', { moto_id: moto.id, replacement_id: replacement?.id, branch_id: moto.branch_id })
-    setBusy(false); setSuccess('Deaktivováno, náhrada přiřazena'); refresh()
+    if (busy) return
+    setBusy(true); setError(null)  // dvojklik během await níže by deaktivoval/přesouval dvakrát
+    try {
+      // Deaktivace NESMÍ osiřet zákaznickou rezervaci — pokud nějaká existuje,
+      // admin ji vyřeší individuálně (úprava rezervace) ještě před deaktivací.
+      const blocking = await fetchBlockingBookings(moto.id)
+      if (blocking.length > 0) {
+        window.alert(blockingBookingsMessage(blocking))
+        setShowDeactReplace(false)
+        return
+      }
+      // Náhrada se stěhuje NA pobočku servisovaného kusu — když je samoobslužná,
+      // přijdou její živé rezervace s vozíkem o krytí (stejná úvaha jako u ručního
+      // přesunu výše).
+      if (moto.branch_id && replacement?.id &&
+          !(await confirmTrailerBranchMove(supabase, moto.branch_id, [replacement.id]))) return
+      if (moto.branch_id && replacement?.id) {
+        const { error: rErr } = await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', replacement.id)
+        if (rErr) throw rErr
+      }
+      const now = new Date()
+      const maxYear = now.getMonth() <= 1 ? now.getFullYear() : now.getFullYear() + 1
+      const reasonText = reason === 'other' ? customReason : UNAVAILABLE_REASONS.find(r => r.value === reason)?.label
+      const { error: dErr } = await supabase.from('motorcycles').update({
+        status: 'unavailable',
+        unavailable_reason: reasonText || 'Deaktivováno — náhrada',
+        unavailable_until: unavailableUntil || `${maxYear}-02-28T23:59:59`,
+      }).eq('id', moto.id)
+      if (dErr) throw dErr
+      await logAudit('moto_deactivated_replaced', { moto_id: moto.id, replacement_id: replacement?.id, branch_id: moto.branch_id })
+      setSuccess('Deaktivováno, náhrada přiřazena'); refresh()
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
+  }
+
+  // Náhrada za kus poslaný do dlouhého servisu (>3 dny v sezóně).
+  async function handleServiceReplace(r) {
+    if (busy) return
+    setBusy(true); setError(null)  // dvojklik během await confirm by přesunul dvakrát
+    try {
+      if (r?.id && moto.branch_id) {
+        if (!(await confirmTrailerBranchMove(supabase, moto.branch_id, [r.id]))) return
+        const { error: rErr } = await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', r.id)
+        if (rErr) throw rErr
+        if (pendingLogId) await supabase.from('maintenance_log').update({ replacement_moto_id: r.id }).eq('id', pendingLogId)
+        await logAudit('moto_replaced_long_service', { moto_id: moto.id, replacement_id: r.id })
+      }
+      setShowReplacement(false); setSuccess('Motorka v servisu, náhrada přiřazena'); refresh()
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
   async function handleDeactivateSimple() {
@@ -278,7 +299,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         <div className="p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
           <div className="text-sm font-bold mb-2" style={{ color: '#b45309' }}>Servis &gt;3 dny v sezóně — vyberte náhradu na {moto.branches?.name || '—'}:</div>
           <ReplacementMotoPicker branchId={moto.branch_id} excludeMotoId={moto.id}
-            onSelect={async (r) => { if (r?.id && moto.branch_id) { if (!(await confirmTrailerBranchMove(supabase, moto.branch_id, [r.id]))) return; await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', r.id); if (pendingLogId) await supabase.from('maintenance_log').update({ replacement_moto_id: r.id }).eq('id', pendingLogId); await logAudit('moto_replaced_long_service', { moto_id: moto.id, replacement_id: r.id }) }; setShowReplacement(false); setSuccess('Motorka v servisu, náhrada přiřazena'); refresh() }}
+            onSelect={handleServiceReplace}
             onCancel={() => { setShowReplacement(false); setSuccess('Motorka v servisu (bez náhrady)'); refresh() }} />
         </div>
       ) : showDeactReplace ? (

@@ -187,7 +187,8 @@
         if (!resp.ok || !url) {
           console.error('[editRez] gear payment err', resp.status, pay);
           try { localStorage.removeItem('editRez_pending_' + b.id); } catch (e) {}
-          return void ER._showError(pay && pay.error ? pay.error : MG.t('editRez.err.generic'));
+          // `code` → přeložená hláška (jádro `_payErr`, editRez.pay.*), jinak text serveru.
+          return void ER._showError(ER._payErr ? ER._payErr(pay) : (pay && pay.error ? pay.error : MG.t('editRez.err.generic')));
         }
         window.location.href = url;
         return;

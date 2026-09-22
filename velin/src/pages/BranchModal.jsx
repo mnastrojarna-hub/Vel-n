@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
-import { FormField, generateBranchCode, SELF_SERVICE_LAYOUT_NOTE, SELF_SERVICE_TYPE, countTrailerBookings } from './BranchHelpers'
+import { FormField, generateBranchCode, SELF_SERVICE_LAYOUT_NOTE, SELF_SERVICE_TYPE, countTrailerBookings, pluralCs } from './BranchHelpers'
 import { autoTranslateRow } from '../lib/autoTranslate'
 
 function BranchModal({ existing, onClose, onSaved }) {
@@ -34,20 +34,21 @@ function BranchModal({ existing, onClose, onSaved }) {
     // Přepnutí existující pobočky na SAMOOBSLUŽNOU zpětně zneplatní každou její
     // živou rezervaci s vozíkem — samoobsluha vozík nevydává a web ani appka by
     // tu kombinaci zákazníkovi vůbec nenabídly. Neblokujeme, ale ptáme se.
+    if (saving) return
+    setSaving(true); setErr(null)  // dvojklik během await dotazu níže by uložil dvakrát
     if (isEdit && form.type?.trim() === SELF_SERVICE_TYPE && existing?.type !== SELF_SERVICE_TYPE) {
       const { data: bm, error: bmErr } = await supabase.from('motorcycles').select('id').eq('branch_id', existing.id)
       const n = bmErr ? -1 : await countTrailerBookings(supabase, (bm || []).map(m => m.id))
       // n < 0 = dotaz selhal (RLS, síť) → ptáme se tak jako tak, fail closed.
       const head = n < 0
         ? `Nepodařilo se ověřit, jestli některá živá rezervace na pobočce „${form.name.trim()}“ veze vozík (chyba dotazu).`
-        : `Pozor: na pobočce „${form.name.trim()}“ ${n === 1 ? 'je 1 živá rezervace, která veze' : 'je ' + n + ' živých rezervací, které vezou'} vozík.`
+        : `Pozor: na pobočce „${form.name.trim()}“ ${pluralCs(n, 'je 1 živá rezervace, která veze', 'jsou ' + n + ' živé rezervace, které vezou', 'je ' + n + ' živých rezervací, které vezou')} vozík.`
       if (n !== 0 && !window.confirm(
         head + '\n\n' +
         'Samoobslužná pobočka vozík nevydává (7 kójí + šatna, výdej 24/7 kódem bez obsluhy). ' +
         'Přepnout režim? Vozík u těch rezervací zůstane a bude ho potřeba vyřešit ručně.'
-      )) return
+      )) { setSaving(false); return }
     }
-    setSaving(true); setErr(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const payload = {

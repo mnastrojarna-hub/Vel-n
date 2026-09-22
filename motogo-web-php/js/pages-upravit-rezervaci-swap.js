@@ -243,9 +243,10 @@
     // Pojistka z DB (trg_check_trailer_overlap, ERRCODE 23514) chodí jako
     // hláška, ne jako kód — bez tohohle by se do UI vypsala nepřeložená
     // včetně UUID motorky.
-    // POZOR: matchovat JEN na text o pobočce. Tentýž trigger hlásí i „Vozík je
-    // v tomto termínu již obsazen (trailer_moto_id=…)" — na `trailer_moto_id`
-    // se tedy chytat nesmí, jinak se obsazený vozík hlásí jako špatná pobočka.
+    // POZOR: matchovat JEN na text o pobočce („…z obslužné pobočky — tato stojí
+    // na samoobslužné (moto_id=…)", 23514). Obsazenost kusu hlásí tentýž trigger
+    // jako `trailer_unavailable: <uuid>` (23505) — na UUID ani na `trailer_moto_id`
+    // se chytat nesmí, jinak se obsazený vozík hlásí jako špatná pobočka.
     if (!key && /obslužné pobočky/.test(String(code))) {
       key = 'editRez.moto.reasonTrailerBranch';
     }
@@ -327,7 +328,8 @@
         if (!pr.ok || !checkout) {
           console.error('[editRez] swap payment err', pr.status, pj);
           try { localStorage.removeItem(SWAP_KEY + b.id); } catch (e) {}
-          ER._showError(pj && pj.error ? pj.error : MG.t('editRez.err.generic'));
+          // `code` → přeložená hláška (jádro `_payErr`, editRez.pay.*), jinak text serveru.
+          ER._showError(ER._payErr ? ER._payErr(pj) : (pj && pj.error ? pj.error : MG.t('editRez.err.generic')));
           return;
         }
         window.location.href = checkout;

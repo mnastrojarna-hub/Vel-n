@@ -107,6 +107,24 @@ class PaymentErrorMapper {
 
   static PaymentErrorInfo generic(String lang) => _generic(lang);
 
+  /// Odmítnutí doplatkové změny serverem PŘED platbou (process-payment 409/403,
+  /// pole `code`). Vrací přeloženou hlášku, pro neznámý kód null → volající
+  /// ukáže text serveru. Kódy: viz `dryMsgs` v process-payment/index.ts.
+  static String? serverRefusal(String lang, String? code) {
+    const keys = <String, String>{
+      'trailer_staffed_only': 'refTrailerStaffedOnly',
+      'trailer_unavailable': 'refTrailerOccupied',
+      'trailer_check_unavailable': 'refCheckUnavailable',
+      'validation_unavailable': 'refValidationUnavailable',
+      'booking_not_found': 'refNotFound',
+      'forbidden': 'refForbidden',
+      'stale_booking': 'refStale',
+      'amount_mismatch': 'refAmountMismatch',
+    };
+    final k = keys[code ?? ''];
+    return k == null ? null : _t(lang, k);
+  }
+
   // ── interní ──────────────────────────────────────────────────────────────
 
   static PaymentErrorInfo? _fromCodes({
@@ -215,6 +233,23 @@ class PaymentErrorMapper {
 
   static const Map<String, Map<String, String>> _strings = {
     'cs': {
+      // Odmítnutí doplatkové změny serverem před platbou (serverRefusal).
+      'refTrailerStaffedOnly':
+          'Vozík lze půjčit jen k motorce z obslužné pobočky — samoobslužná ho nevydává. Vyberte motorku z obslužné pobočky, nebo z rezervace odeberte vozík. Platba doplatku zrušena.',
+      'refTrailerOccupied':
+          'Vozík je v novém termínu už obsazený jinou rezervací. Zvolte jiný termín, nebo z rezervace odeberte vozík. Platba doplatku zrušena.',
+      'refCheckUnavailable':
+          'Nepodařilo se ověřit vozík u rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
+      'refValidationUnavailable':
+          'Nepodařilo se ověřit změnu rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
+      'refNotFound':
+          'Rezervace nebyla nalezena — platba doplatku zrušena. Načtěte rezervaci znovu a zkuste to znovu.',
+      'refForbidden':
+          'Tuto rezervaci nelze upravit z tohoto účtu. Přihlaste se prosím účtem, kterým byla vytvořena.',
+      'refStale':
+          'Rezervace se mezitím změnila (jiné zařízení nebo web). Načtěte ji prosím znovu a úpravu zopakujte.',
+      'refAmountMismatch':
+          'Částka doplatku neodpovídá výpočtu serveru. Načtěte rezervaci znovu a zkuste to znovu.',
       'cardDeclinedTitle': 'Platba kartou zamítnuta',
       'fundsTitle': 'Nedostatek prostředků',
       'fundsBody':
@@ -262,6 +297,23 @@ class PaymentErrorMapper {
           'Zkuste platbu znovu, použijte jinou kartu, nebo zaplaťte přes Google Pay.',
     },
     'en': {
+      // Odmítnutí doplatkové změny serverem před platbou (serverRefusal).
+      'refTrailerStaffedOnly':
+          'The trailer is only available with a motorcycle from a staffed branch — the self-service branch does not hand it out. Choose a motorcycle from a staffed branch or remove the trailer from the booking. The surcharge payment was cancelled.',
+      'refTrailerOccupied':
+          'The trailer is already booked by another reservation for the new dates. Choose different dates or remove the trailer from the booking. The surcharge payment was cancelled.',
+      'refCheckUnavailable':
+          'We could not verify the trailer on this booking — the surcharge payment was cancelled, please try again in a moment.',
+      'refValidationUnavailable':
+          'We could not verify the booking change — the surcharge payment was cancelled, please try again in a moment.',
+      'refNotFound':
+          'The booking was not found — the surcharge payment was cancelled. Reload the booking and try again.',
+      'refForbidden':
+          'This booking cannot be edited from this account. Please sign in with the account that created it.',
+      'refStale':
+          'The booking has changed in the meantime (another device or the website). Please reload it and repeat the change.',
+      'refAmountMismatch':
+          'The surcharge amount does not match the server calculation. Reload the booking and try again.',
       'cardDeclinedTitle': 'Card payment declined',
       'fundsTitle': 'Insufficient funds',
       'fundsBody':
@@ -308,6 +360,23 @@ class PaymentErrorMapper {
           'Try again, use another card, or pay with Google Pay.',
     },
     'de': {
+      // Odmítnutí doplatkové změny serverem před platbou (serverRefusal).
+      'refTrailerStaffedOnly':
+          'Der Anhänger ist nur zu einem Motorrad einer Filiale mit Personal erhältlich — die Selbstbedienungsfiliale gibt ihn nicht aus. Wählen Sie ein Motorrad aus einer Filiale mit Personal oder entfernen Sie den Anhänger aus der Buchung. Die Nachzahlung wurde abgebrochen.',
+      'refTrailerOccupied':
+          'Der Anhänger ist im neuen Zeitraum bereits durch eine andere Buchung belegt. Wählen Sie einen anderen Zeitraum oder entfernen Sie den Anhänger aus der Buchung. Die Nachzahlung wurde abgebrochen.',
+      'refCheckUnavailable':
+          'Der Anhänger dieser Buchung konnte nicht überprüft werden — die Nachzahlung wurde abgebrochen, bitte versuchen Sie es gleich noch einmal.',
+      'refValidationUnavailable':
+          'Die Buchungsänderung konnte nicht überprüft werden — die Nachzahlung wurde abgebrochen, bitte versuchen Sie es gleich noch einmal.',
+      'refNotFound':
+          'Die Buchung wurde nicht gefunden — die Nachzahlung wurde abgebrochen. Laden Sie die Buchung neu und versuchen Sie es erneut.',
+      'refForbidden':
+          'Diese Buchung kann mit diesem Konto nicht bearbeitet werden. Bitte melden Sie sich mit dem Konto an, mit dem sie erstellt wurde.',
+      'refStale':
+          'Die Buchung hat sich inzwischen geändert (anderes Gerät oder Website). Bitte laden Sie sie neu und wiederholen Sie die Änderung.',
+      'refAmountMismatch':
+          'Der Nachzahlungsbetrag stimmt nicht mit der Serverberechnung überein. Laden Sie die Buchung neu und versuchen Sie es erneut.',
       'cardDeclinedTitle': 'Kartenzahlung abgelehnt',
       'fundsTitle': 'Nicht genügend Guthaben',
       'fundsBody':

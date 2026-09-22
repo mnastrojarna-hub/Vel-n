@@ -539,6 +539,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           msg.contains('exclusion constraint') ||
           msg.contains('check_booking_overlap')) {
         _draftError = t(context).tr('bookingOverlapError');
+      } else if (msg.contains('obslužné pobočky')) {
+        // trg_check_trailer_overlap (23514): vozík k motorce ze samoobslužné
+        // pobočky — sem dojde jen starý build bez `p_moto_id` nebo závod
+        // (přesun motorky mezi výběrem a zápisem).
+        _draftError = mounted ? t(context).tr('swap.trailerStaffedOnly') : null;
+      } else if (msg.contains('trailer_unavailable')) {
+        // trg_check_trailer_overlap (23505): kus vozíku mezitím obsadil jiný.
+        _draftError = mounted ? t(context).tr('swap.trailerOccupied') : null;
       } else {
         // Syrový text výjimky z PostgREST/PostgreSQL zákazníkovi nic neřekne
         // (a může prozradit vnitřnosti) — do UI jde srozumitelná hláška,
@@ -916,7 +924,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     }
 
     final code = result.errorCode;
-    final msg = result.errorMessage ?? '';
+    // Odmítnutí změny serverem PŘED platbou (409/403 s `code`) → přeložená
+    // hláška podle kódu; jinak by zákazník viděl český text serveru.
+    final msg = PaymentErrorMapper.serverRefusal(t(context).lang, result.serverCode) ??
+        (result.errorMessage ?? '');
 
     if (code == PaymentErrorCode.authExpired) {
       _showError(

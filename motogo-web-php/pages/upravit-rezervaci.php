@@ -128,6 +128,8 @@ $keys = [
     // Moto tab
     'editRez.moto.intro','editRez.moto.loading','editRez.moto.licPill','editRez.moto.noLicPill',
     'editRez.moto.samePrice','editRez.moto.diffRefund','editRez.moto.reasonLicense','editRez.moto.reasonOccupied','editRez.moto.reasonTrailerBranch','editRez.moto.trailerOccupied',
+    'editRez.pay.trailerStaffedOnly','editRez.pay.trailerOccupied','editRez.pay.checkUnavailable','editRez.pay.validationUnavailable',
+    'editRez.pay.notFound','editRez.pay.forbidden','editRez.pay.stale','editRez.pay.amountMismatch',
     // Cenový rozdíl v potvrzovacím dialogu výměny + poznámka o ruční vratce
     // (pages-upravit-rezervaci-swap.js je používá, ve whitelistu chyběly →
     // MG.t() vypisovalo syrový název klíče).

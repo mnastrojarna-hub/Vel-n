@@ -4,6 +4,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
 import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentType, PaymentRequest, getOrCreateStripeCustomer } from './stripe-customer.ts'
+import { authClassify } from '../_shared/auth.ts'
 import { handleWebBookingCheckout, handleWebShopCheckout, handleSosPaymentLink } from './payment-flows.ts'
 
 Deno.serve(async (req: Request) => {
@@ -390,119 +391,157 @@ Deno.serve(async (req: Request) => {
       const c = change as Record<string, unknown>
       let expected: number | null = null
       let dryErr: string | null = null
-      // Výchozí stav klienta (`_base`: s/e = termín, t = čas vyzvednutí, p = cena)
-      // musí odpovídat AKTUÁLNÍ rezervaci. Změna naceněná proti zastaralému stavu
-      // (mezitím posun z webu / jiného zařízení — incident 0DC12164) se nesmí
-      // zaplatit: klient rezervaci znovu načte a úpravu zopakuje.
-      const base = c._base as { s?: string; e?: string; t?: string | null; p?: number } | undefined
-      if (base && typeof base === 'object') {
-        try {
-          const { data: cur } = await supabase.from('bookings')
-            .select('start_date, end_date, pickup_time, total_price').eq('id', booking_id).maybeSingle()
-          const day = (v: unknown) => String(v || '').slice(0, 10)
-          const hm = (v: unknown) => (v == null ? '' : String(v).slice(0, 5))
-          if (cur && (
-            (base.s && day(base.s) !== day(cur.start_date)) ||
-            (base.e && day(base.e) !== day(cur.end_date)) ||
-            (base.t !== undefined && hm(base.t) !== hm(cur.pickup_time)) ||
-            (base.p != null && Math.round(Number(base.p)) !== Math.round(Number(cur.total_price || 0)))
-          )) {
-            return new Response(
-              JSON.stringify({ success: false, error: 'Rezervace se mezitím změnila (jiné zařízení nebo web). Načtěte ji prosím znovu a úpravu zopakujte.', code: 'stale_booking' }),
-              { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
-            )
-          }
-        } catch (_e) { /* kontrola základu je best-effort */ }
+      const day = (v: unknown) => String(v || '').slice(0, 10)
+      const hm = (v: unknown) => (v == null ? '' : String(v).slice(0, 5))
+
+      // ── 0) Rezervace se načte JEDNOU (service client, nezávisle na RLS) pro
+      // všechny kontroly níže. Nenačtená / neexistující → platbu odmítnout
+      // (fail closed) — bez řádku nevíme nic o vlastníkovi, ceně ani vozíku.
+      type CurRow = {
+        user_id: string | null; total_price: number | null; trailer_moto_id: string | null
+        moto_id: string | null; start_date: string | null; end_date: string | null; pickup_time: string | null
+        motorcycles: { is_trailer: boolean | null } | { is_trailer: boolean | null }[] | null
       }
+      let cur: CurRow | null = null
       try {
-        const userClient = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-          { global: { headers: { Authorization: req.headers.get('Authorization') || '' } } }
-        )
-        const sw = c._swap as { m?: string; d?: string; t?: string } | undefined
-        const gear = c._gear as { sizes?: Record<string, unknown> } | undefined
-        if (sw && typeof sw === 'object' && sw.m && sw.d) {
-          const { data, error } = await userClient.rpc('split_booking_moto_swap', {
-            p_booking_id: booking_id, p_new_moto_id: sw.m, p_swap_date: sw.d,
-            p_swap_time: sw.t || null, p_dry_run: true,
-          })
-          if (!error && data?.success === true) expected = Number(data.net || 0)
-          else if (!error && data?.error) dryErr = String(data.error)
-          else if (error) dryErr = 'validation_unavailable'   // fail closed: bez dry-runu nevíme, zda změna projde
-        } else if (gear && typeof gear === 'object') {
-          const { data, error } = await userClient.rpc('update_booking_gear', {
-            p_booking_id: booking_id, p_sizes: gear.sizes || {}, p_dry_run: true,
-          })
-          if (!error && data?.success === true) expected = Number(data.net_diff || 0)
-          else if (!error && data?.error) dryErr = String(data.error)
-          else if (error) dryErr = 'validation_unavailable'
-        } else if (Object.keys(c).some((k) => k.startsWith('p_new_'))) {
-          const params: Record<string, unknown> = { p_booking_id: booking_id, p_dry_run: true }
-          for (const [k, v] of Object.entries(c)) if (k.startsWith('p_new_')) params[k] = v
-          const { data, error } = await userClient.rpc('apply_booking_changes', params)
-          if (!error && data?.success === true) expected = Number(data.net_diff || 0)
-          else if (!error && data?.error) dryErr = String(data.error)
-          else if (error) dryErr = 'validation_unavailable'
-        } else if (c.total_price != null && Number.isFinite(Number(c.total_price))) {
-          // App formát (DB názvy sloupců, payment_screen.dart): appka účtuje
-          // effectivePriceDiff = nová total_price − total_price rezervace, takže
-          // doplatek MUSÍ sedět na rozdíl vůči AKTUÁLNÍ ceně v DB. Dřív se app
-          // částka vůbec nevalidovala (klient mohl zaplatit cokoliv).
-          const { data: curB } = await supabase.from('bookings')
-            .select('total_price, trailer_moto_id').eq('id', booking_id).maybeSingle()
-          if (curB) expected = Math.round(Number(c.total_price) - Number(curB.total_price || 0))
-          // Vozík vydává jen OBSLUŽNÁ pobočka (20260921b–g). Appka mění motorku
-          // PŘÍMÝM UPDATE, takže `_apply_booking_changes_core` ani jeho guard
-          // nikdy nezavolá — jediné místo PŘED platbou, kudy tahle cesta projde,
-          // je tenhle validátor. Bez něj by se doplatek strhl a teprve zápis
-          // (resp. DB trigger 20260921g) by změnu odmítl.
-          // FAIL CLOSED pro CELOU kontrolu: nenačtená rezervace, chyba RPC
-          // i vyhozená výjimka → platbu odmítnout (vnější catch níže by ji jinak
-          // tiše propustil „kompatibilně bez validace"). Týká se jen změny
-          // motorky u rezervace s vozíkem — úzká populace.
-          if (typeof c.moto_id === 'string' && c.moto_id) {
-            try {
-              if (!curB) dryErr = 'trailer_check_unavailable'
-              else if (curB.trailer_moto_id) {
-                const { data: selfSvc, error: selfErr } = await supabase.rpc('moto_is_self_service', { p_moto_id: c.moto_id })
-                if (selfErr || typeof selfSvc !== 'boolean') dryErr = 'trailer_check_unavailable'
-                else if (selfSvc === true) dryErr = 'trailer_staffed_only'
-              }
-            } catch (_te) { dryErr = 'trailer_check_unavailable' }
-          }
+        const { data, error } = await supabase.from('bookings')
+          .select('user_id, total_price, trailer_moto_id, moto_id, start_date, end_date, pickup_time, motorcycles!moto_id(is_trailer)')
+          .eq('id', booking_id).maybeSingle()
+        if (error) dryErr = 'validation_unavailable'
+        else if (!data) dryErr = 'booking_not_found'
+        else cur = data as unknown as CurRow
+      } catch (_e) { dryErr = 'validation_unavailable' }
+
+      // ── 1) Vlastnictví rezervace (5. kolo review, 2026-09-22) ──────────────
+      // verify_jwt=false → gateway neověřuje nic. RPC větve (_swap/_gear/p_new_*)
+      // si vlastníka hlídají samy (běží pod JWT volajícího), ale app formát
+      // (DB názvy sloupců) šel dosud rovnou přes service klienta: kdokoli, kdo
+      // zná UUID cizí rezervace, mohl za 1 Kč koupit server-side zápis změny
+      // do ní (webhook-receiver aplikuje metadata.chg pod service_role).
+      // Podepsaný JWT ověřuje authClassify přes auth.getUser — nepodepsaný
+      // `sub` z hlavičky by šel podvrhnout. service_role / admin (Velín)
+      // smí vždy; zákazník jen svou rezervaci.
+      if (!dryErr && cur) {
+        const who = await authClassify(req)
+        const owner = who.kind === 'service' || who.kind === 'admin' ||
+          (who.kind === 'user' && !!who.userId && who.userId === cur.user_id)
+        if (!owner) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Tuto rezervaci nelze upravit z tohoto účtu. Přihlaste se prosím účtem, kterým byla vytvořena.', code: 'forbidden' }),
+            { status: 403, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
         }
-      } catch (_e) { /* dry-run nedostupný → kompatibilně bez validace */ }
-      // Posun termínu u rezervace S VOZÍKEM: obsazenost kusu vozíku se dosud
-      // zjistila až triggerem (trailer_unavailable) na zápisu PO zaplacení —
-      // stejná třída jako incident #EEC9CA33. Ověřit PŘED PaymentIntentem přes
-      // trailer_unit_busy (20260921h). Fail closed. `_swap` rezervaci A jen
-      // zkracuje, nový překryv vozíku tam vzniknout nemůže.
-      if (!dryErr) {
+      }
+
+      // ── 2) Výchozí stav klienta (`_base`: s/e = termín, t = čas vyzvednutí,
+      // p = cena) musí odpovídat AKTUÁLNÍ rezervaci. Změna naceněná proti
+      // zastaralému stavu (mezitím posun z webu / jiného zařízení — incident
+      // 0DC12164) se nesmí zaplatit: klient rezervaci znovu načte a úpravu zopakuje.
+      const base = c._base as { s?: string; e?: string; t?: string | null; p?: number } | undefined
+      if (!dryErr && cur && base && typeof base === 'object') {
+        if (
+          (base.s && day(base.s) !== day(cur.start_date)) ||
+          (base.e && day(base.e) !== day(cur.end_date)) ||
+          (base.t !== undefined && hm(base.t) !== hm(cur.pickup_time)) ||
+          (base.p != null && Math.round(Number(base.p)) !== Math.round(Number(cur.total_price || 0)))
+        ) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Rezervace se mezitím změnila (jiné zařízení nebo web). Načtěte ji prosím znovu a úpravu zopakujte.', code: 'stale_booking' }),
+            { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
+        }
+      }
+
+      // ── 3) Dry-run RPC pod JWT volajícího (částka + proveditelnost změny) ──
+      // FAIL CLOSED ve všech větvích: chyba RPC, vyhozená výjimka i odpověď,
+      // která není ani success, ani error → `validation_unavailable`. Dřív
+      // vnější catch platbu „kompatibilně bez validace" pustil.
+      if (!dryErr && cur) {
+        try {
+          const userClient = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+            { global: { headers: { Authorization: req.headers.get('Authorization') || '' } } }
+          )
+          const sw = c._swap as { m?: string; d?: string; t?: string } | undefined
+          const gear = c._gear as { sizes?: Record<string, unknown> } | undefined
+          if (sw && typeof sw === 'object' && sw.m && sw.d) {
+            const { data, error } = await userClient.rpc('split_booking_moto_swap', {
+              p_booking_id: booking_id, p_new_moto_id: sw.m, p_swap_date: sw.d,
+              p_swap_time: sw.t || null, p_dry_run: true,
+            })
+            if (!error && data?.success === true) expected = Number(data.net || 0)
+            else if (!error && data?.error) dryErr = String(data.error)
+            else dryErr = 'validation_unavailable'
+          } else if (gear && typeof gear === 'object') {
+            const { data, error } = await userClient.rpc('update_booking_gear', {
+              p_booking_id: booking_id, p_sizes: gear.sizes || {}, p_dry_run: true,
+            })
+            if (!error && data?.success === true) expected = Number(data.net_diff || 0)
+            else if (!error && data?.error) dryErr = String(data.error)
+            else dryErr = 'validation_unavailable'
+          } else if (Object.keys(c).some((k) => k.startsWith('p_new_'))) {
+            const params: Record<string, unknown> = { p_booking_id: booking_id, p_dry_run: true }
+            for (const [k, v] of Object.entries(c)) if (k.startsWith('p_new_')) params[k] = v
+            const { data, error } = await userClient.rpc('apply_booking_changes', params)
+            if (!error && data?.success === true) expected = Number(data.net_diff || 0)
+            else if (!error && data?.error) dryErr = String(data.error)
+            else dryErr = 'validation_unavailable'
+          } else if (c.total_price != null && Number.isFinite(Number(c.total_price))) {
+            // App formát (DB názvy sloupců, payment_screen.dart): appka účtuje
+            // effectivePriceDiff = nová total_price − total_price rezervace, takže
+            // doplatek MUSÍ sedět na rozdíl vůči AKTUÁLNÍ ceně v DB.
+            expected = Math.round(Number(c.total_price) - Number(cur.total_price || 0))
+            // Vozík vydává jen OBSLUŽNÁ pobočka (20260921b–h). Appka mění motorku
+            // PŘÍMÝM UPDATE, takže `_apply_booking_changes_core` ani jeho guard
+            // nikdy nezavolá — jediné místo PŘED platbou, kudy tahle cesta projde,
+            // je tenhle validátor. Jen při SKUTEČNÉ změně motorky u rezervace
+            // s vozíkem (legacy rezervace s vozíkem na samoobsluze jde dál
+            // prodloužit). Fail closed.
+            if (typeof c.moto_id === 'string' && c.moto_id && c.moto_id !== cur.moto_id && cur.trailer_moto_id) {
+              const { data: selfSvc, error: selfErr } = await supabase.rpc('moto_is_self_service', { p_moto_id: c.moto_id })
+              if (selfErr || typeof selfSvc !== 'boolean') dryErr = 'trailer_check_unavailable'
+              else if (selfSvc === true) dryErr = 'trailer_staffed_only'
+            }
+          }
+        } catch (_e) { dryErr = dryErr || 'validation_unavailable' }
+      }
+
+      // ── 4) Posun termínu u rezervace s VOZÍKOVÝM KUSEM: obsazenost kusu se
+      // dosud zjistila až triggerem (trailer_unavailable) na zápisu PO
+      // zaplacení — stejná třída jako incident #EEC9CA33. Ověřit PŘED
+      // PaymentIntentem přes trailer_unit_busy (20260921h). Kusy jako v
+      // check_trailer_overlap: gear add-on (trailer_moto_id) I samostatně
+      // půjčený vozík (moto_id s is_trailer — 5. kolo). `_swap` rezervaci A
+      // jen zkracuje, nový překryv vozíku tam vzniknout nemůže. Fail closed.
+      if (!dryErr && cur) {
         try {
           const ns = (c.p_new_start ?? c.start_date) as string | undefined
           const ne = (c.p_new_end ?? c.end_date) as string | undefined
           if ((ns || ne) && !c._swap) {
-            const { data: tb, error: tbErr } = await supabase.from('bookings')
-              .select('trailer_moto_id, start_date, end_date').eq('id', booking_id).maybeSingle()
-            if (tbErr || !tb) dryErr = 'trailer_check_unavailable'
-            else if (tb.trailer_moto_id) {
-              const day = (v: unknown) => String(v ?? '').slice(0, 10)
+            const mt = Array.isArray(cur.motorcycles) ? cur.motorcycles[0] : cur.motorcycles
+            const units = [cur.trailer_moto_id, mt?.is_trailer === true ? cur.moto_id : null]
+              .filter((u): u is string => typeof u === 'string' && u.length > 0)
+            for (const unit of units) {
               const { data: busy, error: busyErr } = await supabase.rpc('trailer_unit_busy', {
-                p_unit: tb.trailer_moto_id, p_start: day(ns ?? tb.start_date), p_end: day(ne ?? tb.end_date), p_exclude: booking_id,
+                p_unit: unit, p_start: day(ns ?? cur.start_date), p_end: day(ne ?? cur.end_date), p_exclude: booking_id,
               })
-              if (busyErr || typeof busy !== 'boolean') dryErr = 'trailer_check_unavailable'
-              else if (busy) dryErr = 'trailer_unavailable'
+              if (busyErr || typeof busy !== 'boolean') { dryErr = 'trailer_check_unavailable'; break }
+              if (busy) { dryErr = 'trailer_unavailable'; break }
             }
           }
         } catch (_te) { dryErr = 'trailer_check_unavailable' }
       }
+
       if (dryErr) {
+        // Kód (`code`) je stabilní API pro klienty → web i appka ho překládají
+        // (editRez.pay.* / PaymentErrorMapper); `error` je český fallback.
         const dryMsgs: Record<string, string> = {
           trailer_staffed_only: 'Vozík lze půjčit jen k motorce z obslužné pobočky — samoobslužná ho nevydává. Vyberte motorku z obslužné pobočky, nebo z rezervace odeberte vozík. Platba doplatku zrušena.',
           trailer_unavailable: 'Vozík je v novém termínu už obsazený jinou rezervací. Zvolte jiný termín, nebo z rezervace odeberte vozík. Platba doplatku zrušena.',
           trailer_check_unavailable: 'Nepodařilo se ověřit vozík u rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
           validation_unavailable: 'Nepodařilo se ověřit změnu rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
+          booking_not_found: 'Rezervace nebyla nalezena — platba doplatku zrušena. Obnovte stránku a zkuste znovu.',
         }
         const dryMsg = dryMsgs[dryErr] ?? `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
         return new Response(
