@@ -515,11 +515,15 @@ Deno.serve(async (req: Request) => {
             // jakou appka dělá klientsky před nacením — tady těsně před
             // PaymentIntentem. check_moto_availability = SECURITY DEFINER,
             // hlídá i moto_branch_closed. Fail closed.
+            // Jen když se motorka nebo termín SKUTEČNĚ mění (stejný záběr jako
+            // triggery check_booking_overlap / check_booking_branch_open) — appka
+            // posílá end_date vždy, i u čistě výbavové změny.
             const nm = (typeof c.moto_id === 'string' && c.moto_id) ? c.moto_id : cur.moto_id
-            if (!dryErr && nm && (c.moto_id !== undefined || c.start_date !== undefined || c.end_date !== undefined)) {
+            const ns2 = day(c.start_date ?? cur.start_date), ne2 = day(c.end_date ?? cur.end_date)
+            const motoOrDatesChanged = nm !== cur.moto_id || ns2 !== day(cur.start_date) || ne2 !== day(cur.end_date)
+            if (!dryErr && nm && motoOrDatesChanged) {
               const { data: free, error: freeErr } = await supabase.rpc('check_moto_availability', {
-                p_moto_id: nm, p_start: day(c.start_date ?? cur.start_date), p_end: day(c.end_date ?? cur.end_date),
-                p_exclude_booking_id: booking_id,
+                p_moto_id: nm, p_start: ns2, p_end: ne2, p_exclude_booking_id: booking_id,
               })
               if (freeErr || typeof free !== 'boolean') dryErr = 'validation_unavailable'
               else if (free === false) dryErr = 'moto_unavailable'
