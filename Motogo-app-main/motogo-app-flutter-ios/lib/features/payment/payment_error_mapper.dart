@@ -94,6 +94,20 @@ class PaymentErrorMapper {
     );
   }
 
+  /// Peněženka se otevřela, ale platbu nezpracoval Stripe/Apple (např. chyba
+  /// certifikátu merchant ID) — peníze neodešly (ověřeno stavem PaymentIntentu
+  /// v card_payment_sheet). Na rozdíl od [wallet] zákazníka neposílá
+  /// kontrolovat kartu v peněžence (ta je v pořádku), ale rovnou ke kartě.
+  static PaymentErrorInfo walletFailed(String lang, {String? rawCode}) {
+    final extra = (rawCode != null && rawCode.trim().isNotEmpty)
+        ? '\n\n(${rawCode.trim()})'
+        : '';
+    return PaymentErrorInfo(
+      title: _t(lang, 'walletFailedTitle'),
+      message: _t(lang, 'walletFailedBody') + extra,
+    );
+  }
+
   static PaymentErrorInfo network(String lang) => PaymentErrorInfo(
         title: _t(lang, 'networkTitle'),
         message: _t(lang, 'networkBody'),
@@ -287,6 +301,9 @@ class PaymentErrorMapper {
       'walletTitle': 'Google Pay teď nelze použít',
       'walletBody':
           'Platbu přes Google Pay se nepodařilo dokončit. Zkontrolujte, že máte v Google Pay přidanou platnou kartu, nebo zaplaťte přímo kartou — funguje vždy.',
+      'walletFailedTitle': 'Platba přes Google Pay neprošla',
+      'walletFailedBody':
+          'Platbu přes Google Pay se nepodařilo zpracovat — nic nebylo strženo. Zaplaťte prosím kartou tady níže, nebo to zkuste později znovu.',
       'networkTitle': 'Bez připojení k internetu',
       'networkBody':
           'Nepodařilo se spojit s platebním serverem. Zkontrolujte připojení k internetu a zkuste platbu znovu — žádné peníze zatím nebyly strženy.',
@@ -354,6 +371,9 @@ class PaymentErrorMapper {
       'walletTitle': 'Google Pay unavailable',
       'walletBody':
           'The Google Pay payment could not be completed. Make sure you have a valid card in Google Pay, or pay by card directly — that always works.',
+      'walletFailedTitle': 'Google Pay payment failed',
+      'walletFailedBody':
+          'The Google Pay payment could not be processed — nothing was charged. Please pay by card below, or try again later.',
       'networkTitle': 'No internet connection',
       'networkBody':
           'Could not reach the payment server. Check your connection and try again — no money has been charged yet.',
@@ -422,6 +442,9 @@ class PaymentErrorMapper {
       'walletTitle': 'Google Pay nicht verfügbar',
       'walletBody':
           'Die Google-Pay-Zahlung konnte nicht abgeschlossen werden. Stellen Sie sicher, dass Sie eine gültige Karte in Google Pay haben, oder zahlen Sie direkt mit Karte — das funktioniert immer.',
+      'walletFailedTitle': 'Google-Pay-Zahlung fehlgeschlagen',
+      'walletFailedBody':
+          'Die Google-Pay-Zahlung konnte nicht verarbeitet werden — es wurde nichts abgebucht. Bitte zahlen Sie unten mit Karte oder versuchen Sie es später erneut.',
       'networkTitle': 'Keine Internetverbindung',
       'networkBody':
           'Der Zahlungsserver war nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut — es wurde noch nichts abgebucht.',

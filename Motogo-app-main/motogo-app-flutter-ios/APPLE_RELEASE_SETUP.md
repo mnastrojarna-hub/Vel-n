@@ -28,7 +28,9 @@ jiný účet, proto strategie „nový iOS Bundle ID" — Android/Google Play se
 | Verze | 4.0.7, build = $BUILD_NUMBER | **4.0.7**, build = $BUILD_NUMBER (Codemagic) |
 
 Změněné soubory oproti Android kopii: `lib/features/payment/widgets/card_payment_sheet.dart`
-(Apple Pay větev), `lib/core/update_check_provider.dart` (App Store URL), `pubspec.yaml` (komentáře).
+(Apple Pay větev), `lib/features/payment/widgets/apple_pay_failure.dart` (JEN iOS — selhání
+Apple Pay), `lib/core/update_check_provider.dart` (App Store URL), `pubspec.yaml` (komentáře)
+a další záměrné rozdíly vyjmenované v kořenovém `CLAUDE.md`.
 Zbytek `lib/` + `assets/` je 1:1 kopie z 4.0.7.
 
 ## Jednorázové kroky před prvním buildem (ručně)
@@ -49,6 +51,28 @@ Settings → Payments → **Apple Pay** → *iOS certificates* → Add new appli
    **Apple Pay Payment Processing Certificate** z toho CSR,
 3. vzniklý `.cer` nahraj zpět do Stripe.
 Bez tohoto kroku Apple Pay platby selžou (karta v sheetu funguje i bez něj).
+
+> ⚠️ **Ověřit po incidentu 2026-09-23** (zákazník: „nejde platit přes Apple Pay"):
+> v repu ani v logu NENÍ záznam, že tento krok pro NOVÉ merchant ID
+> `merchant.cz.motogo24.rental` (od 28. 8. 2026) proběhl, ani že by v appce
+> někdy prošla ostrá platba Apple Pay. Stripe: „If you switch your Apple
+> Merchant ID, you must … obtain a new CSR and certificate." Web (Stripe
+> Checkout) certifikát NEpotřebuje — že Apple Pay funguje na webu, nic nedokazuje.
+> - Kontrola: https://dashboard.stripe.com/settings/ios_certificates — musí tam být
+>   AKTIVNÍ certifikát pro `merchant.cz.motogo24.rental` (v účtu s klíčem `pk_live_51TBLT…`).
+> - V Apple portálu u merchant ID smí být aktivní jen Payment Processing
+>   certifikát ze Stripe CSR (ne „Merchant Identity"); ostatní revokovat.
+> - Nový build není potřeba (Apple přepne klíč cca do 5 min po aktivaci).
+> - Test: iPhone s kartou ve Walletu, účet BEZ uložené karty (nebo „Zaplatit jinou
+>   kartou"), malá platba v e-shopu → ve Stripe PaymentIntent s
+>   `card.wallet.type = apple_pay` a stavem succeeded → refund.
+> - Diagnostika: od 4.0.7 appka zapisuje každý pokus o Apple Pay do
+>   `app_debug_logs` (category `payment`, akce `apple_pay_start` / `_result` /
+>   `_error` / `_pi_check`). Ve Stripe → Developers → Logs: neúspěšný
+>   `POST /v1/tokens` („You haven't added your Apple merchant account to Stripe")
+>   = certifikát. Chybí-li certifikát úplně, Apple sheet po Face ID ukáže
+>   „Platba nebyla dokončena" a do Stripe nedorazí nic.
+> - Platnost certifikátu je 25 měsíců — sem zapiš datum vytvoření a expirace.
 
 ### 3. Firebase console (projekt `motogo24-518b4`)
 1. Project settings → **Add app → iOS**, bundle ID **`com.motogo24.rental`**
