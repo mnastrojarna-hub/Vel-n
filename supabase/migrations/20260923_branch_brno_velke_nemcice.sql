@@ -13,8 +13,12 @@
 --
 -- OPRAVA:
 --   * `branches`: řádky s „Pohořelic…“ v názvu nebo městě → název
---     s „Velké Němčice“ místo „Pohořelice“, city, address a GPS nové;
---     každý dotčený řádek se vypíše do logu deploye (RAISE NOTICE).
+--     s „Velké Němčice“ místo „Pohořelice“; adresa = ulice Boudky,
+--     691 63 Velké Němčice (ověřeno reverzním geokódováním souřadnic),
+--     GPS nové, `coordinates` (point, v repu se nečte) přepočteno ve stejném
+--     pořadí os jako dosud; každý dotčený řádek se vypíše do logu deploye.
+--     `zip` se MUSÍ změnit taky — web (kontakt.php) i AI agenti skládají
+--     adresu jako „address, zip city“ a stará PSČ by zůstala viset.
 --   * `kiosk_devices.name`: stejná náhrada (guard na existenci tabulky).
 --   * Volné texty (branches.notes/translations, FAQ, CMS, šablony) se
 --     NEPŘEPISUJÍ — české skloňování by se rozbilo; jejich výskyty vypíše
@@ -22,7 +26,11 @@
 --     opravě ve Velíně.
 --
 -- Idempotentní: po první aplikaci už nic nevyhoví WHERE → „no branch matched“.
--- Nikdy nesmí spadnout (chyba by zablokovala všechny další migrace).
+-- Sloupce ověřeny proti živému schématu (supabase-live-snapshot 2026-09-23:
+-- branches.name/address/city NOT NULL, zip, coordinates point, gps numeric(10,7),
+-- trigger jen trg_branches_updated; kiosk_devices.name + trg_kiosk_devices_touch).
+-- Chyby se záměrně NEPOLYKAJÍ: tichý „skip“ by nechal starý název a nikdo
+-- by se to nedozvěděl — pád deploye založí issue sql-deploy-failed.
 -- =============================================================================
 
 DO $$
@@ -32,22 +40,30 @@ DECLARE
 BEGIN
   -- Log starého stavu — deploy log tak dokumentuje, co se přesně změnilo.
   FOR r IN
-    SELECT id, name, city, address, gps_lat, gps_lng
+    SELECT id, name, city, address, zip, gps_lat, gps_lng
     FROM public.branches
-    WHERE name ILIKE '%pohořelic%' OR city ILIKE '%pohořelic%'
+    WHERE name ~* 'poho[řr]elic' OR city ~* 'poho[řr]elic'
   LOOP
-    RAISE NOTICE 'branches %: "%" | city "%" | address "%" | gps %,% → Brno Velké Němčice',
-      r.id, r.name, r.city, r.address, r.gps_lat, r.gps_lng;
+    RAISE NOTICE 'branches %: "%" | "%, % %" | gps %,% → Boudky, 691 63 Velké Němčice',
+      r.id, r.name, r.address, r.zip, r.city, r.gps_lat, r.gps_lng;
   END LOOP;
 
   UPDATE public.branches
-  SET name       = regexp_replace(name, 'Pohořelice', 'Velké Němčice', 'gi'),
+  SET name       = regexp_replace(name, 'Poho[řr]elice', 'Velké Němčice', 'gi'),
       city       = 'Velké Němčice',
-      address    = 'Velké Němčice – samoobslužné boxy (GPS 49.0046725, 16.6721528)',
+      address    = 'Boudky',
+      zip        = '691 63',
+      -- point bez pevné konvence os: zachovat pořadí, které řádek už měl
+      -- (v ČR je šířka ~48–51, délka ~12–19 → x > 40 znamená (lat, lng)).
+      coordinates = CASE
+                      WHEN coordinates IS NULL THEN NULL
+                      WHEN coordinates[0] > 40 THEN point(49.0046725, 16.6721528)
+                      ELSE point(16.6721528, 49.0046725)
+                    END,
       gps_lat    = 49.0046725,
       gps_lng    = 16.6721528,
       updated_at = now()
-  WHERE name ILIKE '%pohořelic%' OR city ILIKE '%pohořelic%';
+  WHERE name ~* 'poho[řr]elic' OR city ~* 'poho[řr]elic';
   GET DIAGNOSTICS n_cnt = ROW_COUNT;
 
   IF n_cnt = 0 THEN
@@ -59,14 +75,11 @@ BEGIN
   -- Jméno řídicí jednotky samoobsluhy (Velín → Samoobsluha) nese název pobočky.
   IF to_regclass('public.kiosk_devices') IS NOT NULL THEN
     UPDATE public.kiosk_devices
-    SET name = replace(name, 'Pohořelice', 'Velké Němčice')
-    WHERE name ILIKE '%pohořelic%';
+    SET name = regexp_replace(name, 'Poho[řr]elice', 'Velké Němčice', 'gi')
+    WHERE name ~* 'poho[řr]elic';
     GET DIAGNOSTICS n_cnt = ROW_COUNT;
     RAISE NOTICE 'kiosk_devices renamed: % row(s)', n_cnt;
   END IF;
-EXCEPTION WHEN OTHERS THEN
-  -- Datová oprava nesmí zablokovat frontu migrací — jen zalogovat.
-  RAISE WARNING 'branch rename skipped: % (%)', SQLERRM, SQLSTATE;
 END $$;
 
 -- =============================================================================
