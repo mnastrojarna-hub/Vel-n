@@ -580,7 +580,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "founder": {"@type":"Person","name":"Bc. Petra Semorádová"},
         "priceRange": "990 – 5000 Kč/den",
         "currenciesAccepted": "CZK, EUR, USD",
-        "paymentAccepted": "Cash, Credit Card, Debit Card, Apple Pay, Google Pay",
+        "paymentAccepted": "Credit Card, Debit Card, Apple Pay, Google Pay, Bank Transfer",
         "knowsLanguage": ["cs","en","de","es","fr","nl","pl","uk"],
         "keywords": "motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, pronájem motorek, půjčovna motocyklů, motorka bez kauce, MotoGo24",
         "address": {"@type":"PostalAddress","streetAddress":"Mezná 9","addressLocality":"Pelhřimov","postalCode":"393 01","addressRegion":"Vysočina","addressCountry":"CZ"},
