@@ -40,6 +40,8 @@
     var origStart = ER._normIso(b.start_date);
     var origEnd = ER._normIso(b.end_date);
     var defTime = (b.pickup_time || '').toString().slice(0, 5) || '09:00';
+    // samoobsluha ukládá 00:01 (= celý den) — jako výchozí čas výměny nabídnout běžných 09:00
+    if (defTime === '00:01') defTime = '09:00';
 
     content.innerHTML =
       '<h3>' + MG.t('editRez.swap.title') + '</h3>' +
@@ -90,11 +92,12 @@
       try {
         var res = await Promise.all([
           window.sb.from('motorcycles')
-            .select('id,model,brand,image_url,images,license_required,license_groups,engine_cc,power_kw,year,branch_id,branches(name,city,type)')
+            .select('id,model,brand,image_url,images,license_required,license_groups,engine_cc,power_kw,year,branch_id,branches(name,city,type,is_open)')
             .in('status', ['active', 'maintenance']).order('model'),
           window.sb.from('profiles').select('license_group').eq('id', ER.user.id).maybeSingle()
         ]);
-        var motos = ((res[0] && res[0].data) || []).filter(function (m) { return m.id !== b.moto_id; });
+        // trvale zavřená pobočka se nikde nenabízí
+        var motos = ((res[0] && res[0].data) || []).filter(function (m) { return m.id !== b.moto_id && !(m.branches && m.branches.is_open === false); });
         var lic = (res[1] && res[1].data && res[1].data.license_group) || [];
 
         if (!motos.length) { grid.innerHTML = '<p class="muted">' + MG.t('editRez.swap.noOptions') + '</p>'; return; }

@@ -345,7 +345,7 @@ if (is_array($branches) && !empty($branches)) {
         if (!empty($br['address'])) echo "**Adresa:** " . llmStrip($br['address']) . (!empty($br['city']) ? ', ' . llmStrip($br['city']) : '') . (!empty($br['zip']) ? ' ' . llmStrip($br['zip']) : '') . "\n";
         if (!empty($br['phone']))   echo "**Telefon:** " . llmStrip($br['phone']) . "\n";
         if (!empty($br['email']))   echo "**E-mail:** " . llmStrip($br['email']) . "\n";
-        if (isset($br['latitude']) && isset($br['longitude'])) echo "**GPS:** {$br['latitude']}, {$br['longitude']}\n";
+        if (isset($br['gps_lat']) && isset($br['gps_lng'])) echo "**GPS:** {$br['gps_lat']}, {$br['gps_lng']}\n";
         if (!empty($br['type']))    echo "**Typ:** " . llmStrip($br['type']) . "\n";
         echo "**Provoz:** " . (!empty($br['is_open']) ? '24/7 nonstop' : '08:00 – 20:00') . "\n";
         $notes = trim((string)localized($br, 'notes'));

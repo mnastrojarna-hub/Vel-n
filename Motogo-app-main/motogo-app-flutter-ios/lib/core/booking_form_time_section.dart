@@ -12,60 +12,75 @@ import 'widgets/time_dropdown_field.dart';
 /// There is intentionally only ONE time per direction here — when the customer
 /// chooses delivery (přistavení) no extra / duplicate time field is added; this
 /// pickup time doubles as the delivery time.
+///
+/// Samoobslužná pobočka (výdej/vrácení 24/7 kódem): čas se u pobočky nevolí
+/// ([showPickup]/[showReturn] = false, hodnoty 00:01/23:59 doplní formulář),
+/// zobrazí se jen u přistavení / vrácení na adresu. Bez obou částí se karta
+/// nevykreslí vůbec (číslování ostatních karet se záměrně nemění).
 class BookingFormTimeSection extends StatelessWidget {
   const BookingFormTimeSection({
     super.key,
     required this.draft,
     required this.onTimeChanged,
     required this.onReturnTimeChanged,
+    this.showPickup = true,
+    this.showReturn = true,
   });
 
   final BookingDraft draft;
   final void Function(String newTime) onTimeChanged;
   final void Function(String newTime) onReturnTimeChanged;
+  final bool showPickup;
+  final bool showReturn;
 
   @override
   Widget build(BuildContext context) {
+    if (!showPickup && !showReturn) return const SizedBox.shrink();
     final pickupLabel = draft.pickupTime ?? '09:00';
     final returnLabel = draft.returnTime ?? '19:00';
 
     return bookingCard(
       3,
-      t(context).tr('pickupTimeLabel'),
+      t(context).tr(showPickup ? 'pickupTimeLabel' : 'returnTimeLabel'),
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TimeDropdownField(
-            value: pickupLabel,
-            onChanged: onTimeChanged,
-          ),
-          const SizedBox(height: 6),
-          // Hint: pozdní vyzvednutí = 50 % sleva na 1. den (>=12:00, >=2 dny)
-          Text(
-            '🌗 ${t(context).tr('latePickupHint12')}',
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF4A6357),
-              decoration: TextDecoration.none,
+          if (showPickup) ...[
+            TimeDropdownField(
+              value: pickupLabel,
+              onChanged: onTimeChanged,
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            t(context).tr('returnTimeLabel'),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF4A6357),
-              letterSpacing: 0.5,
-              decoration: TextDecoration.none,
+            const SizedBox(height: 6),
+            // Hint: pozdní vyzvednutí = 50 % sleva na 1. den (>=12:00, >=2 dny)
+            Text(
+              '🌗 ${t(context).tr('latePickupHint12')}',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF4A6357),
+                decoration: TextDecoration.none,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          TimeDropdownField(
-            value: returnLabel,
-            onChanged: onReturnTimeChanged,
-          ),
+          ],
+          if (showPickup && showReturn) ...[
+            const SizedBox(height: 12),
+            Text(
+              t(context).tr('returnTimeLabel'),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF4A6357),
+                letterSpacing: 0.5,
+                decoration: TextDecoration.none,
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
+          if (showReturn)
+            TimeDropdownField(
+              value: returnLabel,
+              onChanged: onReturnTimeChanged,
+            ),
         ],
       ),
     );

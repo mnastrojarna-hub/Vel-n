@@ -217,8 +217,9 @@ if (is_array($branches)) {
         $brZip  = (string)($br['zip'] ?? '');
         $brPhone= (string)($br['phone'] ?? PHONE);
         $brEmail= (string)($br['email'] ?? EMAIL_FULL);
-        $brLat  = isset($br['latitude'])  ? (float)$br['latitude']  : null;
-        $brLng  = isset($br['longitude']) ? (float)$br['longitude'] : null;
+        // Živé schéma má gps_lat/gps_lng (latitude/longitude neexistují → geo se nikdy nevypsalo).
+        $brLat  = isset($br['gps_lat']) ? (float)$br['gps_lat'] : (isset($br['latitude'])  ? (float)$br['latitude']  : null);
+        $brLng  = isset($br['gps_lng']) ? (float)$br['gps_lng'] : (isset($br['longitude']) ? (float)$br['longitude'] : null);
         $isOpen = !empty($br['is_open']);
         $brType = (string)($br['type'] ?? '');
         $brNotes = trim((string)localized($br, 'notes'));

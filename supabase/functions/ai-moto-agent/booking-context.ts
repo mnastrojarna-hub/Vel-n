@@ -307,6 +307,13 @@ Výchozí jazyk je čeština; když zákazník píše jiným jazykem, odpověz J
 // poboček, ne tu SVOU — na „kam si pro ni přijedu / ke kterým dveřím jdu" hádal.
 // `box_number` = číslo kóje na samoobslužné pobočce (branch_doors.box_number),
 // zákazník ho dosud viděl až na displeji jednotky PO zadání kódu.
+// Samoobsluha bez přistavení/odvozu: čas se nevolí, uložené 00:01/23:59 = celý den.
+// Web/AI přistavení má method 'store' + adresu (create_web_booking method nevyplňuje).
+export function ssTime(m: Record<string, unknown> | null, method: unknown, address: unknown): boolean {
+  const br = (m?.branches as Record<string, unknown> | null) || null
+  return br?.type === 'samoobslužná' && method !== 'delivery' && !address
+}
+
 export function formatBranchLines(m: Record<string, unknown> | null): string {
   const br = (m?.branches as Record<string, unknown> | null) || null
   if (!br) return '- Pobočka: nepodařilo se načíst (použij get_branches a zeptej se, odkud si motorku bere)'
@@ -362,7 +369,7 @@ Zákazník má rezervaci #${(b.id as string).slice(-8).toUpperCase()} (stav: ${b
 - Návod: ${m.manual_url || m.manual_external_url || 'N/A'}
 - Nájezd: ${m.mileage || '?'}km
 - Období: ${b.start_date} – ${b.end_date}
-- Čas vyzvednutí: ${b.pickup_time ? String(b.pickup_time).slice(0, 5) : 'neuveden'} | Čas vrácení: ${b.return_time ? String(b.return_time).slice(0, 5) : 'neuveden'}
+- Čas vyzvednutí: ${ssTime(m, b.pickup_method, b.pickup_address) ? 'bez času — kdykoli během prvního dne 24/7 kódem (ve smlouvě 00:01)' : (b.pickup_time ? String(b.pickup_time).slice(0, 5) : 'neuveden')} | Čas vrácení: ${ssTime(m, b.return_method, b.return_address) ? 'bez času — kdykoli během posledního dne 24/7 kódem (ve smlouvě 23:59)' : (b.return_time ? String(b.return_time).slice(0, 5) : 'neuveden')}
 - Vyzvednutí: ${b.pickup_method || '?'} ${b.pickup_address ? '(' + b.pickup_address + ')' : ''}
 - Vrácení: ${b.return_method || '?'} ${b.return_address ? '(' + b.return_address + ')' : ''}
 - Pojištění: ${b.insurance_type || 'N/A'}

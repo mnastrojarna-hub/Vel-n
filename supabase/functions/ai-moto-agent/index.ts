@@ -189,7 +189,8 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
     let branchesContext = ''
     try {
       const { data: brData, error: brErr } = await supabaseAdmin.from('branches').select('*').order('name')
-      const brRows = ((brData || []) as Array<Record<string, unknown>>).filter((b) => b.active !== false)
+      // Zavřená pobočka (is_open=false) se nikde nenabízí — stejně jako get_branches.
+      const brRows = ((brData || []) as Array<Record<string, unknown>>).filter((b) => b.active !== false && b.is_open !== false)
       if (!brErr && brRows.length > 0) {
         const brLines = brRows.map((b, i) => {
           const addr = [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', ')

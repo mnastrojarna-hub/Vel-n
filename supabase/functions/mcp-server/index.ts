@@ -187,7 +187,7 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
   switch (name) {
     case 'motogo_search_motorcycles': {
       let q = sb.from('motorcycles')
-        .select('id, model, brand, category, engine_cc, power_kw, license_required, color, image_url, branch_id, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage')
+        .select('id, model, brand, category, engine_cc, power_kw, license_required, color, image_url, branch_id, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, branches(is_open)')
         .eq('status', 'active')
         .order('model')
       if (args.category) q = q.ilike('category', `%${args.category}%`)
@@ -196,7 +196,9 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
       if (args.kw_max) q = q.lte('power_kw', Number(args.kw_max))
       const { data, error } = await q
       if (error) throw new Error(error.message)
-      let result = data || []
+      // Trvale zavřená pobočka (is_open=false) se nikde nenabízí — ani její motorky.
+      let result = (data || []).filter((m: Record<string, unknown>) =>
+        (m.branches as Record<string, unknown> | null)?.is_open !== false)
       if (args.price_max) {
         const maxP = Number(args.price_max)
         result = result.filter((m: Record<string, unknown>) => {
@@ -221,12 +223,16 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
     }
 
     case 'motogo_get_motorcycle': {
+      // branches má jen gps_lat/gps_lng (latitude/longitude neexistují → dotaz padal).
       const { data, error } = await sb.from('motorcycles')
-        .select('*, branches(name, address, city, latitude, longitude)')
+        .select('*, branches(name, address, city, gps_lat, gps_lng, is_open)')
         .eq('id', args.moto_id)
         .maybeSingle()
       if (error) throw new Error(error.message)
-      if (!data) throw new Error('Motorcycle not found')
+      // Motorka na zavřené pobočce se navenek nenabízí → jako neexistující.
+      if (!data || (data.branches as Record<string, unknown> | null)?.is_open === false) {
+        throw new Error('Motorcycle not found')
+      }
       return data
     }
 
@@ -275,12 +281,16 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
 
     case 'motogo_create_booking': {
       const a = args as Record<string, unknown>
+      // Parita s webem/appkou: samoobsluha na pobočce bez času → 00:01/23:59
+      // (bez slevy za pozdní vyzvednutí, kterou by dal výchozí čas 12:00).
+      const { data: mb } = await sb.from('motorcycles').select('branches(type)').eq('id', a.moto_id).maybeSingle()
+      const ssBranch = ((mb as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.type === 'samoobslužná'
       const { data, error } = await sb.rpc('create_web_booking', {
         p_moto_id: a.moto_id, p_start_date: a.start_date, p_end_date: a.end_date,
         p_name: a.customer_name, p_email: a.customer_email, p_phone: a.customer_phone,
         p_street: a.street ?? '', p_city: a.city ?? '', p_zip: a.zip ?? '', p_country: a.country ?? 'CZ',
         p_note: a.note ?? null,
-        p_pickup_time: a.pickup_time ?? '12:00',
+        p_pickup_time: (ssBranch && !a.delivery_address) ? '00:01' : (a.pickup_time ?? '12:00'),
         p_delivery_address: a.delivery_address ?? null,
         p_return_address: a.return_address ?? null,
         p_extras: a.extras ?? [],
@@ -291,7 +301,7 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
         p_boots_size: null, p_gloves_size: null,
         p_passenger_helmet_size: null, p_passenger_jacket_size: null,
         p_passenger_gloves_size: null, p_passenger_boots_size: null,
-        p_return_time: null,
+        p_return_time: (ssBranch && !a.return_address && !a.delivery_address) ? '23:59' : null,
       })
       if (error) throw new Error(error.message)
       const r = data as Record<string, unknown>
@@ -305,7 +315,9 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
     case 'motogo_get_branches': {
       const { data, error } = await sb.from('branches').select('*').order('name')
       if (error) throw new Error(error.message)
-      return { count: data?.length ?? 0, branches: data || [] }
+      // Neaktivní / zavřená pobočka se nikde nenabízí (stejně jako web a AI agent).
+      const branches = (data || []).filter((b: Record<string, unknown>) => b.active !== false && b.is_open !== false)
+      return { count: branches.length, branches }
     }
 
     case 'motogo_get_faq': {
@@ -364,12 +376,17 @@ Web: https://www.motogo24.cz`,
     }
   }
   if (uri === 'motogo://motorcycles') {
-    const { data } = await sb.from('motorcycles').select('id, model, brand, category, power_kw, engine_cc, license_required, status').eq('status', 'active')
-    return { uri, mimeType: 'application/json', text: JSON.stringify(data || []) }
+    const { data } = await sb.from('motorcycles').select('id, model, brand, category, power_kw, engine_cc, license_required, status, branches(is_open)').eq('status', 'active')
+    // Motorky zavřené pobočky vynech; embed branches jen pro filtr, ven se nevrací.
+    const motos = (data || [])
+      .filter((m: Record<string, unknown>) => (m.branches as Record<string, unknown> | null)?.is_open !== false)
+      .map(({ branches: _b, ...m }: Record<string, unknown>) => m)
+    return { uri, mimeType: 'application/json', text: JSON.stringify(motos) }
   }
   if (uri === 'motogo://branches') {
     const { data } = await sb.from('branches').select('*')
-    return { uri, mimeType: 'application/json', text: JSON.stringify(data || []) }
+    const branches = (data || []).filter((b: Record<string, unknown>) => b.active !== false && b.is_open !== false)
+    return { uri, mimeType: 'application/json', text: JSON.stringify(branches) }
   }
   if (uri === 'motogo://faq') {
     const faqs = await execTool('motogo_get_faq', {}) as { faqs: Array<{q:string;a:string}> }

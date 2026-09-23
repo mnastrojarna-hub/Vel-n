@@ -18,6 +18,7 @@ import '../booking/widgets/price_summary.dart';
 import '../reservations/reservation_provider.dart' show releaseDoorCodes, reservationsProvider, reservationByIdProvider;
 import 'booking_upsell_provider.dart';
 import '../../core/feature_flags.dart';
+import '../../core/booking_rules.dart';
 import 'stripe_service.dart';
 import 'payment_provider.dart';
 import 'payment_error_mapper.dart';
@@ -376,9 +377,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         'moto_id': moto.id,
         'start_date': draft.startDate != null ? _fmtDate(draft.startDate!) : '',
         'end_date': draft.endDate != null ? _fmtDate(draft.endDate!) : '',
-        'pickup_time': draft.pickupTime ?? '09:00',
+        // Samoobslužná pobočka bez volby času → vždy 00:01 / 23:59 (pojistka,
+        // formulář draft normalizuje; do smlouvy jde celý den).
+        'pickup_time': selfServiceHidesPickupTime(
+                branchType: moto.branchType, pickupMethod: draft.pickupMethod)
+            ? selfServicePickupTime
+            : (draft.pickupTime ?? '09:00'),
         // Předpokládaný čas návratu (povinné pole, parita s webem). Default 19:00.
-        'return_time': draft.returnTime ?? '19:00',
+        'return_time': selfServiceHidesReturnTime(
+                branchType: moto.branchType, returnMethod: draft.returnMethod)
+            ? selfServiceReturnTime
+            : (draft.returnTime ?? '19:00'),
         'total_price': breakdown.total,
         'extras_price': breakdown.extrasTotal,
         'delivery_fee': breakdown.deliveryFee,

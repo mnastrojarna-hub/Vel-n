@@ -8,6 +8,7 @@ import '../../core/router.dart';
 import '../../core/supabase_client.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../../core/booking_rules.dart';
 import '../booking/booking_provider.dart';
 import '../catalog/catalog_provider.dart';
 import '../reservations/reservation_provider.dart';
@@ -234,14 +235,22 @@ class _PaymentConfirmationScreenState
                             moto!.branchName!,
                           ),
                         ],
-                        if (draft.pickupTime != null) ...[
+                        // Samoobslužná pobočka: čas na pobočce se nevolí
+                        // (00:01/23:59) → řádek se neukazuje.
+                        if (draft.pickupTime != null &&
+                            !selfServiceHidesPickupTime(
+                                branchType: moto?.branchType,
+                                pickupMethod: draft.pickupMethod)) ...[
                           const SizedBox(height: 8),
                           _detailRow(
                             '⏰',
                             '${tr.tr('pickupTimeLabel')}: ${draft.pickupTime}',
                           ),
                         ],
-                        if (draft.returnTime != null) ...[
+                        if (draft.returnTime != null &&
+                            !selfServiceHidesReturnTime(
+                                branchType: moto?.branchType,
+                                returnMethod: draft.returnMethod)) ...[
                           const SizedBox(height: 8),
                           _detailRow(
                             '⏰',

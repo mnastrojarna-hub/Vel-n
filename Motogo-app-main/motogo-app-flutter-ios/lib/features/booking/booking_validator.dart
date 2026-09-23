@@ -108,15 +108,30 @@ class BookingValidator {
   ///    future (no backwards booking, no minimum buffer).
   ///
   /// [pickupTime] is "HH:MM" (defaults to 09:00, matching the booking insert).
+  /// [pickupTimeHidden] — samoobslužná pobočka bez volby času (uloží se 00:01):
+  /// kontroluje se JEN, že datum začátku není před dneškem (rezervace na dnešek
+  /// musí projít i odpoledne, žádná „hodina předem").
   /// Returns null if OK, or a localized error message.
   static String? checkPickupLeadTime({
     required DateTime? startDate,
     required String? pickupTime,
     required bool isDelivery,
     String? branchType,
+    bool pickupTimeHidden = false,
     String lang = 'cs',
   }) {
     if (startDate == null) return null;
+
+    if (pickupTimeHidden) {
+      final n = DateTime.now();
+      final today = DateTime(n.year, n.month, n.day);
+      final start = DateTime(startDate.year, startDate.month, startDate.day);
+      if (start.isBefore(today)) {
+        const key = 'validationPastPickup';
+        return translations[lang]?[key] ?? translations['cs']?[key] ?? '';
+      }
+      return null;
+    }
 
     var hh = 9, mm = 0;
     final parts = (pickupTime ?? '').split(':');

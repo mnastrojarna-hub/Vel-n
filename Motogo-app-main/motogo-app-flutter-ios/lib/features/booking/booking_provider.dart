@@ -11,6 +11,7 @@ import 'booking_validator.dart';
 import 'price_calculator.dart';
 import '../../core/currency.dart';
 import '../../core/date_days.dart';
+import '../../core/booking_rules.dart';
 
 /// Central booking state — mirrors global vars from booking-logic.js.
 final bookingDraftProvider = StateProvider<BookingDraft>(
@@ -261,6 +262,9 @@ final pickupLeadTimeValidationProvider = Provider<String?>((ref) {
     pickupTime: draft.pickupTime,
     isDelivery: draft.pickupMethod == 'delivery',
     branchType: moto?.branchType,
+    // Samoobslužná pobočka bez volby času → jen datum ne před dneškem.
+    pickupTimeHidden: selfServiceHidesPickupTime(
+        branchType: moto?.branchType, pickupMethod: draft.pickupMethod),
     lang: lang,
   );
 });

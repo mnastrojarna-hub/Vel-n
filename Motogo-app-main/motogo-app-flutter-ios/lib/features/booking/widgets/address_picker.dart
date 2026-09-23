@@ -16,6 +16,9 @@ class AddressPickerWidget extends StatefulWidget {
   final ValueChanged<AddressResult> onAddressChanged;
   final ValueChanged<double> onDeliveryFeeChanged;
 
+  /// Název + město pobočky motorky (null = starý výchozí text).
+  final String? branchLabel;
+
   const AddressPickerWidget({
     super.key,
     required this.label,
@@ -23,6 +26,7 @@ class AddressPickerWidget extends StatefulWidget {
     required this.onMethodChanged,
     required this.onAddressChanged,
     required this.onDeliveryFeeChanged,
+    this.branchLabel,
   });
 
   @override
@@ -99,7 +103,7 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
       children: [
         _RadioOption(
           label: 'Na pobočce',
-          sublabel: 'Mezná 9, Pelhřimov',
+          sublabel: widget.branchLabel ?? 'Mezná 9, Pelhřimov',
           price: 'Zdarma',
           selected: widget.method == 'store',
           onTap: () => widget.onMethodChanged('store'),

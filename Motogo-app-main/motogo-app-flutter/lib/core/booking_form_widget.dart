@@ -11,6 +11,7 @@ import 'booking_form_return_section.dart';
 import 'booking_form_extras_section.dart';
 import 'booking_form_price_section.dart';
 import 'booking_form_promo_section.dart';
+import 'booking_rules.dart';
 import 'i18n/i18n_provider.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
@@ -365,6 +366,33 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
             ));
       });
     }
+    // Samoobslužná pobočka: čas vyzvednutí / návratu NA pobočce se nevolí,
+    // do rezervace jde celý den 00:01–23:59 (čas zůstává jen u přistavení /
+    // vrácení na adresu). Draft se normalizuje tady, aby cena, validace,
+    // insert i potvrzení viděly efektivní hodnoty; při zviditelnění pole se
+    // vrací výchozí čas, aby nabídka nezačínala na 00:01 / 23:59.
+    final hidePickupTime = selfServiceHidesPickupTime(
+        branchType: moto.branchType, pickupMethod: draft.pickupMethod);
+    final hideReturnTime = selfServiceHidesReturnTime(
+        branchType: moto.branchType, returnMethod: draft.returnMethod);
+    final String? pickupFix = hidePickupTime
+        ? (draft.pickupTime != selfServicePickupTime
+            ? selfServicePickupTime
+            : null)
+        : (draft.pickupTime == selfServicePickupTime ? '09:00' : null);
+    final String? returnFix = hideReturnTime
+        ? (draft.returnTime != selfServiceReturnTime
+            ? selfServiceReturnTime
+            : null)
+        : (draft.returnTime == selfServiceReturnTime ? '19:00' : null);
+    if (pickupFix != null || returnFix != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _upd((d) => d.copyWith(
+              pickupTime: pickupFix != null ? () => pickupFix : null,
+              returnTime: returnFix != null ? () => returnFix : null,
+            ));
+      });
+    }
     // Dětská motorka nikdy nemá spolujezdce — odstraň případnou výbavu
     // spolujezdce, pokud zůstala z dříve vybrané dospělácké motorky.
     if (isKids &&
@@ -381,6 +409,13 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
       });
     }
     final missingSizes = _missingGearSizes(context, draft);
+    // „Na pobočce“ u samoobsluhy = adresa pobočky VYBRANÉ motorky z DB
+    // (kus v Brně se vydává tam); obslužná pobočka má text beze změny.
+    final String? branchLabel = selfServiceBranchLabel(
+        branchType: moto.branchType,
+        name: moto.branchName,
+        address: moto.branchAddress,
+        city: moto.branchCity);
     String f(DateTime d) => '${d.day}.${d.month}.${d.year}';
 
     return Material(
@@ -400,9 +435,13 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                       _upd((d) => d.copyWith(pickupTime: () => t)),
                   onReturnTimeChanged: (t) =>
                       _upd((d) => d.copyWith(returnTime: () => t)),
+                  showPickup: !hidePickupTime,
+                  showReturn: !hideReturnTime,
                 ),
-                BookingFormPickupSection(draft: draft, onUpd: _upd),
-                BookingFormReturnSection(draft: draft, onUpd: _upd),
+                BookingFormPickupSection(
+                    draft: draft, onUpd: _upd, branchLabel: branchLabel),
+                BookingFormReturnSection(
+                    draft: draft, onUpd: _upd, branchLabel: branchLabel),
                 BookingFormExtrasSection(
                   draft: draft,
                   onUpd: _upd,

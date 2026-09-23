@@ -52,6 +52,7 @@ class Motorcycle {
   final String? status; // active, maintenance, unavailable, retired
   final String? branchId;
   final String? branchName;
+  final String? branchAddress;
   final String? branchCity;
   final String? branchType; // 'obslužná' (staffed) / 'samoobslužná' (self-service)
 
@@ -112,6 +113,7 @@ class Motorcycle {
     this.status,
     this.branchId,
     this.branchName,
+    this.branchAddress,
     this.branchCity,
     this.branchType,
     this.branchIsOpen,
@@ -171,6 +173,7 @@ class Motorcycle {
       status: json['status'] as String?,
       branchId: json['branch_id'] as String?,
       branchName: branch?['name'] as String?,
+      branchAddress: branch?['address'] as String?,
       branchCity: branch?['city'] as String?,
       branchType: branch?['type'] as String?,
       branchIsOpen: branch?['is_open'] as bool?,
@@ -200,7 +203,8 @@ class Motorcycle {
     shortDescFields: shortDescFields, imageUrl: imageUrl,
     images: images, videos: videos, color: color, manualUrl: manualUrl,
     manualExternalUrl: manualExternalUrl, status: status,
-    branchId: branchId, branchName: branchName, branchCity: branchCity,
+    branchId: branchId, branchName: branchName,
+    branchAddress: branchAddress, branchCity: branchCity,
     branchType: branchType, branchIsOpen: branchIsOpen, isTrailer: isTrailer,
     depositAmount: depositAmount,
     minRentalDays: minRentalDays, maxRentalDays: maxRentalDays,
