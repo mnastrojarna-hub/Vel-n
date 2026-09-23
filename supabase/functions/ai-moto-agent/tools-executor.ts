@@ -94,12 +94,12 @@ export async function executeTool(
 
       if (error) return { error: error.message }
       if (!data || data.length === 0) return { message: 'Zákazník nemá žádnou aktivní ani nadcházející rezervaci.' }
-      // Samoobsluha bez přistavení/odvozu: uložené 00:01/23:59 = celý den, ne čas
-      // schůzky — agent nesmí zákazníkovi říct „přijďte v 00:01“.
+      // Samoobsluha bez odvozu: uložené 23:59 = konec dne, ne čas schůzky;
+      // 00:01 = stará hodnota „bez času“ — agent nesmí říct „přijďte v 00:01“.
       const rows = (data as Array<Record<string, unknown>>).map((b) => {
         const m = b.motorcycles as Record<string, unknown> | null
         const out = { ...b }
-        if (ssTime(m, b.pickup_method, b.pickup_address)) out.pickup_time = 'bez času — kdykoli během prvního dne 24/7 kódem (ve smlouvě 00:01)'
+        if (String(b.pickup_time || '').startsWith('00:01')) out.pickup_time = null // stará hodnota „bez času“
         if (ssTime(m, b.return_method, b.return_address)) out.return_time = 'bez času — kdykoli během posledního dne 24/7 kódem (ve smlouvě 23:59)'
         return out
       })

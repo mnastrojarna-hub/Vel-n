@@ -16,16 +16,13 @@ const paymentTimeoutDuration = Duration(minutes: 30);
 /// NULL/neznámý typ = chovat se jako obslužná).
 const selfServiceBranchType = 'samoobslužná';
 
-/// Samoobslužná pobočka vydává 24/7 kódem — zákazník čas nevolí, do rezervace
-/// (a smlouvy) se zapíše celý den 00:01–23:59 (zadání 2026-09-23).
+/// Samoobslužná pobočka vrací 24/7 kódem — čas VRÁCENÍ na pobočku zákazník
+/// nevolí, do rezervace (a smlouvy) se zapíše 23:59 (zadání 2026-09-23).
+/// Čas VYZVEDNUTÍ se volí vždy — řídí slevu za pozdní vyzvednutí (upřesnění
+/// zadání 2026-09-23); 00:01 je jen stará hodnota z krátkého období, kdy se
+/// skrýval i ten (rezervace přes AI) → všude se bere jako „bez času“.
 const selfServicePickupTime = '00:01';
 const selfServiceReturnTime = '23:59';
-
-/// Čas vyzvednutí se skrývá jen při vyzvednutí NA samoobslužné pobočce;
-/// přistavení (delivery) čas potřebuje vždy (min. teď + 6 h).
-bool selfServiceHidesPickupTime(
-        {String? branchType, required String pickupMethod}) =>
-    branchType == selfServiceBranchType && pickupMethod != 'delivery';
 
 /// Popisek volby „Na pobočce“: u SAMOOBSLUŽNÉ pobočky adresa + město z DB
 /// (Brno Velké Němčice → „Boudky, Velké Němčice“); u obslužné / neznámé

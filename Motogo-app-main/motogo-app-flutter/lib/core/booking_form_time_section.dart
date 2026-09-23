@@ -13,10 +13,11 @@ import 'widgets/time_dropdown_field.dart';
 /// chooses delivery (přistavení) no extra / duplicate time field is added; this
 /// pickup time doubles as the delivery time.
 ///
-/// Samoobslužná pobočka (výdej/vrácení 24/7 kódem): čas se u pobočky nevolí
-/// ([showPickup]/[showReturn] = false, hodnoty 00:01/23:59 doplní formulář),
-/// zobrazí se jen u přistavení / vrácení na adresu. Bez obou částí se karta
-/// nevykreslí vůbec (číslování ostatních karet se záměrně nemění).
+/// Samoobslužná pobočka (vrácení 24/7 kódem): čas VRÁCENÍ na pobočku se
+/// nevolí ([showReturn] = false, hodnotu 23:59 doplní formulář), zobrazí se
+/// jen u vrácení na adresu. Čas vyzvednutí je vidět vždy (sleva za pozdní
+/// vyzvednutí). [showPickup] zůstává pro úplnost; bez obou částí se karta
+/// nevykreslí.
 class BookingFormTimeSection extends StatelessWidget {
   const BookingFormTimeSection({
     super.key,

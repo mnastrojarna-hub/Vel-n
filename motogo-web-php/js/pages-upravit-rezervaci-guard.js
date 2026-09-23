@@ -228,8 +228,6 @@
 
   function injectTimeField(formEl, anchorEl, inputId, booking) {
     if (!formEl || !anchorEl || document.getElementById(inputId)) return null;
-    // samoobsluha + převzetí na pobočce: čas se nevolí (smlouva 00:01), jinak by šla získat sleva za pozdní vyzvednutí; web/AI přistavení má method 'store' + adresu → čas zůstává
-    if (booking && booking.pickup_method !== 'delivery' && !booking.pickup_address && booking.motorcycles && booking.motorcycles.branches && booking.motorcycles.branches.type === 'samoobslužná') return null;
     var lbl = document.createElement('label');
     lbl.className = 'erez-loc-time';
     lbl.innerHTML = '<span class="erez-loc-time-label">⏰ ' + MG.t('editRez.loc.pickupTime') +

@@ -355,10 +355,6 @@ class ContractsScreen extends ConsumerWidget {
           .where((e) => e.isNotEmpty)
           .join(' '),
     ].whereType<String>().where((e) => e.isNotEmpty).join(', ');
-    final ssPickup = selfServiceHidesPickupTime(
-        branchType: brType,
-        pickupMethod: bookingMethodWithAddress(
-            b['pickup_method'] as String?, b['pickup_address'] as String?));
     final ssReturn = selfServiceHidesReturnTime(
         branchType: brType,
         returnMethod: bookingMethodWithAddress(
@@ -384,12 +380,11 @@ class ContractsScreen extends ConsumerWidget {
       'end_date': fmtDate(endDate),
       'date_from': fmtDate(startDate),
       'date_to': fmtDate(endDate),
-      'start_time': ssPickup
-          ? selfServicePickupTime
-          // 00:01 u obslužné = zbytek po výměně ze samoobsluhy → bez času.
-          : ((b['pickup_time'] as String? ?? '').startsWith(selfServicePickupTime)
-              ? ''
-              : (b['pickup_time'] as String? ?? '')),
+      // 00:01 = stará hodnota „bez času“ (krátce 2026-09-23) → prázdné.
+      'start_time': (b['pickup_time'] as String? ?? '')
+              .startsWith(selfServicePickupTime)
+          ? ''
+          : (b['pickup_time'] as String? ?? ''),
       'end_time': ssReturn ? selfServiceReturnTime : '24:00',
       'days': '$days',
       'rental_period': '${fmtDate(startDate)} — ${fmtDate(endDate)} ($days dní)',

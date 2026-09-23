@@ -235,18 +235,15 @@ class _PaymentConfirmationScreenState
                             moto!.branchName!,
                           ),
                         ],
-                        // Samoobslužná pobočka: čas na pobočce se nevolí
-                        // (00:01/23:59) → řádek se neukazuje.
-                        if (draft.pickupTime != null &&
-                            !selfServiceHidesPickupTime(
-                                branchType: moto?.branchType,
-                                pickupMethod: draft.pickupMethod)) ...[
+                        if (draft.pickupTime != null) ...[
                           const SizedBox(height: 8),
                           _detailRow(
                             '⏰',
                             '${tr.tr('pickupTimeLabel')}: ${draft.pickupTime}',
                           ),
                         ],
+                        // Samoobslužná pobočka: čas vrácení na pobočku se
+                        // nevolí (23:59) → řádek se neukazuje.
                         if (draft.returnTime != null &&
                             !selfServiceHidesReturnTime(
                                 branchType: moto?.branchType,
