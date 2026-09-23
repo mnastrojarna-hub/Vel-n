@@ -293,8 +293,11 @@ serve(async (req) => {
     // DEFAULT 'store'; přistavení/odvoz poznáme i podle adresy (stejně jako místo níže).
     const pickupAtBranch = booking.pickup_method !== 'delivery' && !booking.pickup_address
     const returnAtBranch = booking.return_method !== 'delivery' && !booking.return_address
+    // 00:01 mimo samoobsluhu = zbytek po výměně motorky ze samoobslužné na
+    // obslužnou (web/AI „Změna motorky“ čas nemění) → jako bez času.
+    const storedPickup = String(booking.pickup_time || '').startsWith('00:01') ? '' : (booking.pickup_time || '')
     const contractStartTime = branchSelfService && pickupAtBranch
-      ? '00:01' : (booking.pickup_time || '10:00')
+      ? '00:01' : (storedPickup || '10:00')
     const contractEndTime = branchSelfService && returnAtBranch
       ? '23:59' : (booking.return_time || '24:00')
 
@@ -339,7 +342,7 @@ serve(async (req) => {
       // Booking
       start_date: fmtDate(booking.start_date),
       end_date: fmtDate(booking.end_date),
-      pickup_time: branchSelfService && pickupAtBranch ? '00:01' : (booking.pickup_time || ''),
+      pickup_time: branchSelfService && pickupAtBranch ? '00:01' : storedPickup,
       days: String(days),
       total_price: fmtPrice(booking.total_price || 0),
       daily_rate: fmtPrice(days > 0 ? Math.round(baseRental / days) : 0),

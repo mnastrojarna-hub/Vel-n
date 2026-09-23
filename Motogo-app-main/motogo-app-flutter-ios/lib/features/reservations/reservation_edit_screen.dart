@@ -892,12 +892,20 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     // na pobočku neuloží — žádná sleva za pozdní vyzvednutí ani falešná změna).
     final storedPickup = _booking!.pickupTime ?? '09:00';
     final storedReturn = _booking!.returnTime ?? '19:00';
+    // 00:01/23:59 → výchozí čas jen u rezervace ze samoobsluhy (i po výměně na
+    // obslužnou); ručně zadaný čas u čistě obslužné rezervace se nemění.
+    final ssOrigin = _booking!.branchType == selfServiceBranchType ||
+        _effBranchType == selfServiceBranchType;
     final String? pickupFix = hidePickupTime
         ? (_hm(_pickupTime) != _hm(storedPickup) ? storedPickup : null)
-        : (_hm(_pickupTime) == selfServicePickupTime ? '09:00' : null);
+        : (ssOrigin && _hm(_pickupTime) == selfServicePickupTime
+            ? '09:00'
+            : null);
     final String? returnFix = hideReturnTime
         ? (_hm(_returnTime) != _hm(storedReturn) ? storedReturn : null)
-        : (_hm(_returnTime) == selfServiceReturnTime ? '19:00' : null);
+        : (ssOrigin && _hm(_returnTime) == selfServiceReturnTime
+            ? '19:00'
+            : null);
     if (pickupFix != null || returnFix != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

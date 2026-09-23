@@ -377,7 +377,10 @@ class ContractsScreen extends ConsumerWidget {
       'date_to': fmtDate(endDate),
       'start_time': ssPickup
           ? selfServicePickupTime
-          : (b['pickup_time'] as String? ?? ''),
+          // 00:01 u obslužné = zbytek po výměně ze samoobsluhy → bez času.
+          : ((b['pickup_time'] as String? ?? '').startsWith(selfServicePickupTime)
+              ? ''
+              : (b['pickup_time'] as String? ?? '')),
       'end_time': ssReturn ? selfServiceReturnTime : '24:00',
       'days': '$days',
       'rental_period': '${fmtDate(startDate)} — ${fmtDate(endDate)} ($days dní)',

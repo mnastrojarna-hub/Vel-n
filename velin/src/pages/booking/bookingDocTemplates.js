@@ -93,7 +93,8 @@ export function buildDocVars(booking, customer, bookingId) {
     daily_rate: fmtPrice(Math.round((booking.total_price || 0) / days)),
     booking_id: bookingId.slice(-8).toUpperCase(), booking_number: bookingId.slice(-8).toUpperCase(),
     today: fmtDate(new Date().toISOString()),
-    start_time: ssPickup ? '00:01' : (booking.pickup_time || ''), end_time: ssReturn ? '23:59' : '24:00',
+    // 00:01 u obslužné = zbytek po výměně ze samoobsluhy → bez času
+    start_time: ssPickup ? '00:01' : (String(booking.pickup_time || '').startsWith('00:01') ? '' : (booking.pickup_time || '')), end_time: ssReturn ? '23:59' : '24:00',
     rental_period: `${fmtDate(booking.start_date)} \u2014 ${fmtDate(booking.end_date)} (${days} dni)`,
     total_price_words: '',
     pickup_location: booking.pickup_address || 'Mezna 9, 393 01 Mezna',
