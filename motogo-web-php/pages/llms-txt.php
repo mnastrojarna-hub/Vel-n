@@ -58,7 +58,7 @@ $titles = [
             'Bez kauce — žádná blokace na kartě.',
             'Motorkářská výbava (helma, bunda, kalhoty, rukavice) v ceně pronájmu.',
             'Nonstop provoz — vyzvednutí 24/7 přes přístupové kódy.',
-            'Online rezervace přes web s platbou kartou (Stripe).',
+            'Online rezervace na webu nebo v mobilní aplikaci MotoGo24 (iPhone – App Store, Android – Google Play); platba předem kartou, Apple Pay / Google Pay, na webu i QR / bankovním převodem.',
             'Vyzvednutí v Mezné u Pelhřimova nebo přistavení kamkoliv v ČR.',
             'Vrácení v půjčovně nebo na jiném místě po domluvě.',
             'Sjezd do zahraničí povolen (zelená karta v ceně).',
@@ -91,7 +91,7 @@ $titles = [
             'No deposit — no hold on your card.',
             'Riding gear (helmet, jacket, pants, gloves) included in price.',
             '24/7 nonstop operation — pickup via access codes any time.',
-            'Online booking with card payment (Stripe).',
+            'Online booking on the web or in the MotoGo24 app (iPhone – App Store, Android – Google Play); prepaid by card, Apple Pay / Google Pay, on the web also QR / bank transfer.',
             'Pickup in Mezná near Pelhřimov or delivery anywhere in Czechia.',
             'Return at the rental or at a different location upon agreement.',
             'Travel abroad allowed (green card included).',
@@ -110,7 +110,8 @@ echo "# {$T['h1']}\n\n";
 echo "> {$T['intro']}\n\n";
 echo "**{$T['languages']}:** cs, en, de, es, fr, nl, pl  \n";
 echo "**{$T['currencies']}:** CZK, EUR, USD a další (auto-konverze ČNB)  \n";
-echo "**{$T['payment']}:** Stripe (Visa, Mastercard, Amex, Apple Pay, Google Pay), platba předem online  \n";
+echo "**{$T['payment']}:** Stripe (Visa, Mastercard, Amex, Apple Pay, Google Pay) + na webu QR / bankovní převod; platba předem online, bez hotovosti  \n";
+echo "**App:** iOS " . APP_STORE_LIVE_URL . " · Android " . PLAY_STORE_LIVE_URL . "  \n";
 echo "**{$T['hours']}:** 24/7 nonstop  \n\n";
 
 echo "## {$T['features']}\n\n";
