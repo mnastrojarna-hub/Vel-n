@@ -16,6 +16,7 @@ import '../../payment/payment_provider.dart';
 import '../reservation_models.dart';
 import 'reservation_edit_widgets.dart';
 import '../../../core/date_days.dart';
+import '../../../core/booking_rules.dart';
 
 /// Výměna motorky uprostřed rezervace.
 /// Zákazník od zvoleného data (a času) přejede na novou motorku. Na pozadí vznikne
@@ -77,7 +78,10 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
   @override
   void initState() {
     super.initState();
-    _swapTime = widget.booking.pickupTime ?? '09:00';
+    // Samoobsluha ukládá 00:01 (celý den) — jako výchozí čas výměny nedává
+    // smysl, nabídnout běžných 09:00.
+    final pt = widget.booking.pickupTime ?? '09:00';
+    _swapTime = pt.startsWith(selfServicePickupTime) ? '09:00' : pt;
     // Default: den po začátku dostupného rozsahu (výměna „uprostřed"),
     // clamp do rozsahu; u jednodenního rozsahu = první den.
     final first = _rangeStart;

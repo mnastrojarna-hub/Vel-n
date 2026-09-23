@@ -148,7 +148,7 @@ async function handleListMotorcycles(req: Request): Promise<Response> {
   const priceMax = url.searchParams.get('price_max')
 
   let q = sb.from('motorcycles')
-    .select('id, model, brand, category, engine_cc, power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, has_abs, license_required, color, year, ideal_usage, image_url, images, branch_id, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, min_rental_days, max_rental_days, status, branches(name, address, city)')
+    .select('id, model, brand, category, engine_cc, power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, has_abs, license_required, color, year, ideal_usage, image_url, images, branch_id, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, min_rental_days, max_rental_days, status, branches(name, address, city, is_open)')
     .eq('status', 'active')
     .order('model')
 
@@ -160,7 +160,9 @@ async function handleListMotorcycles(req: Request): Promise<Response> {
   const { data, error } = await q
   if (error) return jsonResponse({ error: error.message }, 500)
 
-  let result = data || []
+  // Trvale zavřená pobočka (is_open=false) se nikde nenabízí — ani její motorky.
+  let result = (data || []).filter((m: Record<string, unknown>) =>
+    (m.branches as Record<string, unknown> | null)?.is_open !== false)
   if (priceMax) {
     const maxP = Number(priceMax)
     result = result.filter((m: Record<string, unknown>) => {
@@ -175,12 +177,16 @@ async function handleListMotorcycles(req: Request): Promise<Response> {
 }
 
 async function handleMotorcycleDetail(id: string): Promise<Response> {
+  // branches má jen gps_lat/gps_lng (latitude/longitude neexistují → dotaz padal).
   const { data, error } = await sb.from('motorcycles')
-    .select('*, branches(id, name, address, city, latitude, longitude)')
+    .select('*, branches(id, name, address, city, gps_lat, gps_lng, is_open)')
     .eq('id', id)
     .maybeSingle()
   if (error) return jsonResponse({ error: error.message }, 500)
-  if (!data) return jsonResponse({ error: 'Not found' }, 404)
+  // Motorka na zavřené pobočce se navenek nenabízí → jako neexistující.
+  if (!data || (data.branches as Record<string, unknown> | null)?.is_open === false) {
+    return jsonResponse({ error: 'Not found' }, 404)
+  }
   return jsonResponse(data)
 }
 
@@ -193,7 +199,9 @@ async function handleAvailability(id: string): Promise<Response> {
 async function handleBranches(): Promise<Response> {
   const { data, error } = await sb.from('branches').select('*').order('name')
   if (error) return jsonResponse({ error: error.message }, 500)
-  return jsonResponse({ count: data?.length ?? 0, branches: data || [] })
+  // Neaktivní / zavřená pobočka se nikde nenabízí (stejně jako web a AI agent).
+  const branches = (data || []).filter((b: Record<string, unknown>) => b.active !== false && b.is_open !== false)
+  return jsonResponse({ count: branches.length, branches })
 }
 
 async function handleExtras(): Promise<Response> {

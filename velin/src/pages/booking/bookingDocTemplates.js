@@ -76,6 +76,11 @@ export function buildDocVars(booking, customer, bookingId) {
   const days = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '\u2014'
   const fmtPrice = (n) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
+  // Samoobsluha: převzetí/vrácení NA pobočce bez času → 00:01 / 23:59 (shodně s edge
+  // generate-document; web/AI přistavení má method 'store' + adresu → čas zůstává).
+  const selfService = moto.branches?.type === 'samoobslužná'
+  const ssPickup = selfService && booking.pickup_method !== 'delivery' && !booking.pickup_address
+  const ssReturn = selfService && booking.return_method !== 'delivery' && !booking.return_address
   return {
     customer_name: customer.full_name || '\u2014', customer_email: customer.email || '',
     customer_phone: customer.phone || '', customer_address: [customer.street, customer.city, customer.zip, customer.country].filter(Boolean).join(', ') || '',
@@ -88,7 +93,7 @@ export function buildDocVars(booking, customer, bookingId) {
     daily_rate: fmtPrice(Math.round((booking.total_price || 0) / days)),
     booking_id: bookingId.slice(-8).toUpperCase(), booking_number: bookingId.slice(-8).toUpperCase(),
     today: fmtDate(new Date().toISOString()),
-    start_time: booking.pickup_time || '', end_time: '24:00',
+    start_time: ssPickup ? '00:01' : (booking.pickup_time || ''), end_time: ssReturn ? '23:59' : '24:00',
     rental_period: `${fmtDate(booking.start_date)} \u2014 ${fmtDate(booking.end_date)} (${days} dni)`,
     total_price_words: '',
     pickup_location: booking.pickup_address || 'Mezna 9, 393 01 Mezna',

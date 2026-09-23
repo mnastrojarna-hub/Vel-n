@@ -13,6 +13,7 @@ import '../../core/native/gps_service.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
 import 'ride_provider.dart';
+import '../../core/booking_rules.dart';
 
 /// Automatický záznam jízdy během výpůjčky („Moje jízdy").
 ///
@@ -601,7 +602,11 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
   static DateTime _pickupAt(Reservation r) {
     final d = r.startDate;
     final m = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(r.pickupTime ?? '');
-    if (m == null) return DateTime(d.year, d.month, d.day, 23, 59);
+    // Samoobsluha bez přistavení ukládá 00:01 (= celý den, ne plán) → jako bez času.
+    final noPlan = selfServiceHidesPickupTime(
+        branchType: r.branchType,
+        pickupMethod: bookingMethodWithAddress(r.pickupMethod, r.pickupAddress));
+    if (m == null || noPlan) return DateTime(d.year, d.month, d.day, 23, 59);
     return DateTime(d.year, d.month, d.day, int.parse(m.group(1)!), int.parse(m.group(2)!));
   }
 

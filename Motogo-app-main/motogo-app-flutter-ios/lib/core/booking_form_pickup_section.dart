@@ -18,8 +18,8 @@ class BookingFormPickupSection extends ConsumerWidget {
 
   final BookingDraft draft;
 
-  /// Popisek pobočky motorky („Brno Velké Němčice, Velké Němčice“) z DB —
-  /// bez něj zůstává historická adresa hlavní pobočky.
+  /// Adresa samoobslužné pobočky motorky z DB („Boudky, Velké Němčice“) —
+  /// null (obslužná pobočka) = dosavadní adresa hlavní pobočky.
   final String? branchLabel;
 
   /// Applies a mutation to the current [BookingDraft].

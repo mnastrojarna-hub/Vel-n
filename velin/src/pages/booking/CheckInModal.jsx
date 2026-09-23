@@ -22,7 +22,9 @@ const fmtDT = (s) => (s ? new Date(s).toLocaleString('cs-CZ', { day: 'numeric', 
 function schedPickupMs(b) {
   const d = (b?.start_date || '').split('T')[0]
   if (!d) return null
-  const t = (b?.pickup_time || '09:00').slice(0, 5)
+  // 00:01 = samoobsluha bez času (celý den) — plánem není, bere se dřívější výchozí 09:00.
+  const raw = (b?.pickup_time || '').slice(0, 5)
+  const t = raw && raw !== '00:01' ? raw : '09:00'
   const dt = new Date(`${d}T${t}:00`)
   return isNaN(dt.getTime()) ? null : dt.getTime()
 }

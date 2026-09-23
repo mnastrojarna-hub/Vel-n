@@ -409,12 +409,13 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
       });
     }
     final missingSizes = _missingGearSizes(context, draft);
-    // „Na pobočce“ = pobočka VYBRANÉ motorky (název + město z DB), ne vždy
-    // hlavní pobočka — kus ze samoobsluhy v Brně se vydává tam.
-    final String? branchLabel = moto.branchName == null
-        ? null
-        : '${moto.branchName}'
-            '${moto.branchCity != null ? ", ${moto.branchCity}" : ""}';
+    // „Na pobočce“ u samoobsluhy = adresa pobočky VYBRANÉ motorky z DB
+    // (kus v Brně se vydává tam); obslužná pobočka má text beze změny.
+    final String? branchLabel = selfServiceBranchLabel(
+        branchType: moto.branchType,
+        name: moto.branchName,
+        address: moto.branchAddress,
+        city: moto.branchCity);
     String f(DateTime d) => '${d.day}.${d.month}.${d.year}';
 
     return Material(

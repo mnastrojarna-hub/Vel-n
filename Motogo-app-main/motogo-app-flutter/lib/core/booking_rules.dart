@@ -27,6 +27,35 @@ bool selfServiceHidesPickupTime(
         {String? branchType, required String pickupMethod}) =>
     branchType == selfServiceBranchType && pickupMethod != 'delivery';
 
+/// Popisek volby „Na pobočce“: u SAMOOBSLUŽNÉ pobočky adresa + město z DB
+/// (Brno Velké Němčice → „Boudky, Velké Němčice“); u obslužné / neznámé
+/// pobočky null = volající nechá dosavadní text (UI obslužné beze změny).
+String? selfServiceBranchLabel({
+  String? branchType,
+  String? name,
+  String? address,
+  String? city,
+}) {
+  if (branchType != selfServiceBranchType) return null;
+  final parts = [address, city]
+      .whereType<String>()
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
+  if (parts.isNotEmpty) return parts.join(', ');
+  final n = (name ?? '').trim();
+  return n.isEmpty ? null : n;
+}
+
+/// Rezervace z webu / AI (RPC create_web_booking) pickup_method/return_method
+/// nevyplňují — přistavení/odvoz tam zůstává DEFAULT 'store' s vyplněnou
+/// adresou. U ULOŽENÉ rezervace se proto bere v potaz i adresa (shodně
+/// s generate-document), jinak by se skryl skutečný čas přistavení.
+String bookingMethodWithAddress(String? method, String? address) =>
+    method == 'delivery' || (address ?? '').trim().isNotEmpty
+        ? 'delivery'
+        : (method ?? 'store');
+
 /// Čas návratu se skrývá jen při vrácení NA samoobslužnou pobočku.
 bool selfServiceHidesReturnTime(
         {String? branchType, required String returnMethod}) =>

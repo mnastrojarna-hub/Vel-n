@@ -16,6 +16,7 @@ import 'booking_doc_viewer.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
 import '../../core/date_days.dart';
+import '../../core/booking_rules.dart';
 
 /// Company constant — mirrors COMPANY from documents.js.
 const _company = (
@@ -274,7 +275,7 @@ class ContractsScreen extends ConsumerWidget {
       try {
         final bRes = await MotoGoSupabase.client
             .from('bookings')
-            .select('*, motorcycles!moto_id(*), profiles(*)')
+            .select('*, motorcycles!moto_id(*, branches(type)), profiles(*)')
             .eq('id', doc.bookingId!)
             .maybeSingle();
         if (bRes != null) {
@@ -342,6 +343,17 @@ class ContractsScreen extends ConsumerWidget {
 
     String fmtDate(DateTime? d) => d != null ? '${d.day}.${d.month}.${d.year}' : '—';
     final now = DateTime.now();
+    // Samoobsluha: převzetí/vrácení NA pobočce bez času → 00:01 / 23:59
+    // (shodně s edge generate-document, i pro starší rezervace).
+    final brType = (m?['branches'] as Map<String, dynamic>?)?['type'] as String?;
+    final ssPickup = selfServiceHidesPickupTime(
+        branchType: brType,
+        pickupMethod: bookingMethodWithAddress(
+            b['pickup_method'] as String?, b['pickup_address'] as String?));
+    final ssReturn = selfServiceHidesReturnTime(
+        branchType: brType,
+        returnMethod: bookingMethodWithAddress(
+            b['return_method'] as String?, b['return_address'] as String?));
 
     return {
       ..._companyVars(),
@@ -363,8 +375,10 @@ class ContractsScreen extends ConsumerWidget {
       'end_date': fmtDate(endDate),
       'date_from': fmtDate(startDate),
       'date_to': fmtDate(endDate),
-      'start_time': b['pickup_time'] as String? ?? '',
-      'end_time': '24:00',
+      'start_time': ssPickup
+          ? selfServicePickupTime
+          : (b['pickup_time'] as String? ?? ''),
+      'end_time': ssReturn ? selfServiceReturnTime : '24:00',
       'days': '$days',
       'rental_period': '${fmtDate(startDate)} — ${fmtDate(endDate)} ($days dní)',
       'total_price': '${totalPrice.round()}',

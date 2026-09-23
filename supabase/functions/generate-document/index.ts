@@ -289,9 +289,13 @@ serve(async (req) => {
     // Časy ve smlouvě: na samoobsluze je převzetí/vrácení NA POBOČCE bez času →
     // 00:01 / 23:59 (pravidlo 2026-09-23; pokrývá i starší rezervace s uloženým
     // časem). Přistavení / odvoz na adresu zákazníka čas ponechávají.
-    const contractStartTime = branchSelfService && booking.pickup_method !== 'delivery'
+    // Web (create_web_booking) nevyplňuje pickup_method/return_method → zůstává
+    // DEFAULT 'store'; přistavení/odvoz poznáme i podle adresy (stejně jako místo níže).
+    const pickupAtBranch = booking.pickup_method !== 'delivery' && !booking.pickup_address
+    const returnAtBranch = booking.return_method !== 'delivery' && !booking.return_address
+    const contractStartTime = branchSelfService && pickupAtBranch
       ? '00:01' : (booking.pickup_time || '10:00')
-    const contractEndTime = branchSelfService && booking.return_method !== 'delivery'
+    const contractEndTime = branchSelfService && returnAtBranch
       ? '23:59' : (booking.return_time || '24:00')
 
     const moto = booking.motorcycles || {} as any
@@ -335,7 +339,7 @@ serve(async (req) => {
       // Booking
       start_date: fmtDate(booking.start_date),
       end_date: fmtDate(booking.end_date),
-      pickup_time: branchSelfService && booking.pickup_method !== 'delivery' ? '00:01' : (booking.pickup_time || ''),
+      pickup_time: branchSelfService && pickupAtBranch ? '00:01' : (booking.pickup_time || ''),
       days: String(days),
       total_price: fmtPrice(booking.total_price || 0),
       daily_rate: fmtPrice(days > 0 ? Math.round(baseRental / days) : 0),

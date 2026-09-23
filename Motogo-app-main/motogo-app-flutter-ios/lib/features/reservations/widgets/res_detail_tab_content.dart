@@ -145,7 +145,7 @@ class ResDetailTabContent extends ConsumerWidget {
             ResDetailRow(label: t(context).tr('resDurationTotal'), value: '${res.dayCount} ${t(context).tr("days5")}'),
             // Samoobslužná pobočka: čas na pobočce se nevolí (00:01) → neukazovat.
             if (res.pickupTime != null &&
-                !selfServiceHidesPickupTime(branchType: res.branchType, pickupMethod: res.pickupMethod))
+                !selfServiceHidesPickupTime(branchType: res.branchType, pickupMethod: bookingMethodWithAddress(res.pickupMethod, res.pickupAddress)))
               ResDetailRow(label: t(context).pickupTime, value: res.pickupTime!),
             // Navigace na pobočku VŽDY přes GPS — textová adresa „Mezná 9" je
             // nejednoznačná (obec Mezná existuje i u Hřenska → mapy navigovaly

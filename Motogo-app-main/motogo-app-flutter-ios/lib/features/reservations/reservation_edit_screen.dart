@@ -252,6 +252,25 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     return _booking!.branchType;
   }
 
+  /// „Na pobočce“ = adresa samoobslužné pobočky motorky, se kterou se
+  /// rezervace uloží (i po výměně); obslužná pobočka = dosavadní text.
+  String? get _effBranchLabel {
+    String? n = _booking!.branchName,
+        a = _booking!.branchAddress,
+        c = _booking!.branchCity;
+    if (_newMotoId != null && _newMotoId != _booking!.motoId) {
+      final motos = ref.read(motorcyclesProvider).valueOrNull ?? [];
+      final m = motos.where((mm) => mm.id == _newMotoId).firstOrNull;
+      if (m != null) {
+        n = m.branchName;
+        a = m.branchAddress;
+        c = m.branchCity;
+      }
+    }
+    return selfServiceBranchLabel(
+        branchType: _effBranchType, name: n, address: a, city: c);
+  }
+
   EditPriceCalc get _calc {
     DayPrices? newMotoPrices;
     if (_newMotoId != null && _newMotoId != _booking!.motoId) {
@@ -856,14 +875,29 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     // z formuláře a do smlouvy jde u samoobsluhy celý den vždy
     // (generate-document). Po přepnutí na adresu se konstanta vrací na
     // výchozí čas, aby nabídka nezačínala na 00:01 / 23:59.
+    // Nezměněná „pobočka“ u web/AI rezervace s adresou = ve skutečnosti
+    // přistavení/odvoz (viz bookingMethodWithAddress) → čas nechat vidět.
+    final effPickup = _pickupMethod == 'store' && _booking!.pickupMethod != 'delivery'
+        ? bookingMethodWithAddress(_booking!.pickupMethod, _booking!.pickupAddress)
+        : _pickupMethod;
+    final effReturn = _returnMethod == 'store' && _booking!.returnMethod != 'delivery'
+        ? bookingMethodWithAddress(_booking!.returnMethod, _booking!.returnAddress)
+        : _returnMethod;
     final hidePickupTime = selfServiceHidesPickupTime(
-        branchType: _effBranchType, pickupMethod: _pickupMethod);
+        branchType: _effBranchType, pickupMethod: effPickup);
     final hideReturnTime = selfServiceHidesReturnTime(
-        branchType: _effBranchType, returnMethod: _returnMethod);
-    final String? pickupFix =
-        !hidePickupTime && _pickupTime == selfServicePickupTime ? '09:00' : null;
-    final String? returnFix =
-        !hideReturnTime && _returnTime == selfServiceReturnTime ? '19:00' : null;
+        branchType: _effBranchType, returnMethod: effReturn);
+    // DB (sloupec time) vrací HH:MM:SS — porovnávat jen HH:MM. Skryté pole
+    // vrací ULOŽENOU hodnotu (čas zvolený při přistavení se po přepnutí zpět
+    // na pobočku neuloží — žádná sleva za pozdní vyzvednutí ani falešná změna).
+    final storedPickup = _booking!.pickupTime ?? '09:00';
+    final storedReturn = _booking!.returnTime ?? '19:00';
+    final String? pickupFix = hidePickupTime
+        ? (_hm(_pickupTime) != _hm(storedPickup) ? storedPickup : null)
+        : (_hm(_pickupTime) == selfServicePickupTime ? '09:00' : null);
+    final String? returnFix = hideReturnTime
+        ? (_hm(_returnTime) != _hm(storedReturn) ? storedReturn : null)
+        : (_hm(_returnTime) == selfServiceReturnTime ? '19:00' : null);
     if (pickupFix != null || returnFix != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -1012,6 +1046,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               ]),
               const SizedBox(height: 8),
               AddressPickerWidget(label: t(context).pickup, method: _pickupMethod,
+                branchLabel: _effBranchLabel,
                 onMethodChanged: (m) => setState(() => _pickupMethod = m),
                 onAddressChanged: (_) {},
                 onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f)),
@@ -1032,6 +1067,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ]),
             const SizedBox(height: 8),
             AddressPickerWidget(label: t(context).returnLabel, method: _returnMethod,
+              branchLabel: _effBranchLabel,
               onMethodChanged: (m) => setState(() => _returnMethod = m),
               onAddressChanged: (_) {},
               onDeliveryFeeChanged: (f) => setState(() => _returnDelivFee = f)),
