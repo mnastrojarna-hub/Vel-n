@@ -1253,6 +1253,8 @@ return [
     'editRez.detail.priceTotal' => 'Total payé',
     'editRez.detail.deliveryAddr' => 'Livraison à l\'adresse :',
     'editRez.detail.pickupAtRental' => 'Retrait à l\'agence :',
+    'editRez.pickup.title' => 'Lieu de retrait',
+    'editRez.pickup.openMap' => 'Ouvrir dans la carte',
     'editRez.detail.returnAtAddr' => 'Retour à l\'adresse :',
     'editRez.detail.returnAtRental' => 'Retour à l\'agence :',
     'editRez.detail.licenseRequired' => 'Permis requis : {lic}',

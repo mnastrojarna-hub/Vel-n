@@ -1267,6 +1267,8 @@ return [
     'editRez.detail.priceTotal' => 'Insgesamt bezahlt',
     'editRez.detail.deliveryAddr' => 'Lieferung an Adresse:',
     'editRez.detail.pickupAtRental' => 'Abholung in der Vermietung:',
+    'editRez.pickup.title' => 'Abholort',
+    'editRez.pickup.openMap' => 'In Karte öffnen',
     'editRez.detail.returnAtAddr' => 'Rückgabe an der Adresse:',
     'editRez.detail.returnAtRental' => 'Rückgabe in der Vermietung:',
     'editRez.detail.licenseRequired' => 'Erforderlicher Führerschein: {lic}',

@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../../core/widgets/pickup_location_link.dart';
 import 'payment_provider.dart';
 
 /// Univerzální potvrzovací obrazovka pro platební flow, která nemají vlastní
@@ -130,6 +131,15 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
                       ),
                     ),
                   if (lines.isNotEmpty) const SizedBox(height: 16),
+
+                  // „K vyzvednutí“ — pobočka motorky po zaplacené úpravě.
+                  if (outcome?.pickup != null) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: PickupLocationLink(info: outcome!.pickup!),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   if (nextStep != null) ...[
                     StaggeredReveal(

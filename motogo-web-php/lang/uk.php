@@ -1129,6 +1129,8 @@ return [
     'editRez.detail.priceDelivery' => 'Доставка / повернення',
     'editRez.detail.deliveryAddr' => 'Доставка на адресу:',
     'editRez.detail.pickupAtRental' => 'Отримання у прокаті:',
+    'editRez.pickup.title' => 'Місце отримання',
+    'editRez.pickup.openMap' => 'Відкрити на карті',
     'editRez.detail.returnAtAddr' => 'Повернення за адресою:',
     'editRez.detail.returnAtRental' => 'Повернення у прокаті:',
     'editRez.detail.licenseRequired' => 'Потрібне посвідчення: {lic}',

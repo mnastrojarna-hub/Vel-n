@@ -1131,6 +1131,8 @@ return [
     'editRez.detail.priceDelivery' => 'Přistavení / vrácení',
     'editRez.detail.deliveryAddr' => 'Přistavení na adresu:',
     'editRez.detail.pickupAtRental' => 'Vyzvednutí v půjčovně:',
+    'editRez.pickup.title' => 'K vyzvednutí',
+    'editRez.pickup.openMap' => 'Otevřít v mapě',
     'editRez.detail.returnAtAddr' => 'Vrácení na adrese:',
     'editRez.detail.returnAtRental' => 'Vrácení v půjčovně:',
     'editRez.detail.licenseRequired' => 'Vyžaduje ŘP: {lic}',

@@ -1254,6 +1254,8 @@ return [
     'editRez.detail.priceTotal' => 'Total pagado',
     'editRez.detail.deliveryAddr' => 'Entrega en dirección:',
     'editRez.detail.pickupAtRental' => 'Recogida en la tienda:',
+    'editRez.pickup.title' => 'Lugar de recogida',
+    'editRez.pickup.openMap' => 'Abrir en el mapa',
     'editRez.detail.returnAtAddr' => 'Devolución en dirección:',
     'editRez.detail.returnAtRental' => 'Devolución en la tienda:',
     'editRez.detail.licenseRequired' => 'Carnet requerido: {lic}',

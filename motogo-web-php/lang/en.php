@@ -1278,6 +1278,8 @@ return [
     'editRez.detail.priceTotal' => 'Total paid',
     'editRez.detail.deliveryAddr' => 'Delivery to address:',
     'editRez.detail.pickupAtRental' => 'Pick-up at rental:',
+    'editRez.pickup.title' => 'Pickup location',
+    'editRez.pickup.openMap' => 'Open in map',
     'editRez.detail.returnAtAddr' => 'Return at address:',
     'editRez.detail.returnAtRental' => 'Return at rental:',
     'editRez.detail.licenseRequired' => 'Requires licence: {lic}',

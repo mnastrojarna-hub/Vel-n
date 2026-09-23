@@ -19,6 +19,7 @@ import '../reservations/reservation_provider.dart' show releaseDoorCodes, reserv
 import 'booking_upsell_provider.dart';
 import '../../core/feature_flags.dart';
 import '../../core/booking_rules.dart';
+import '../../core/widgets/pickup_location_link.dart';
 import 'stripe_service.dart';
 import 'payment_provider.dart';
 import 'payment_error_mapper.dart';
@@ -1196,6 +1197,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             if (_pendingBookingId != null) {
               ref.invalidate(reservationByIdProvider(_pendingBookingId!));
             }
+            // „K vyzvednutí“ — pobočka NOVÉ motorky (může stát jinde).
+            final pickup =
+                await loadMotoPickupInfo(swapCommit['p_new_moto_id']?.toString());
             if (!mounted) return;
             goResult(
               PaymentOutcome(
@@ -1205,6 +1209,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                 nextStepNote: tr.tr('successEmailSent'),
                 ctaLabel: tr.tr('successCta'),
                 ctaRoute: Routes.reservations,
+                pickup: pickup,
               ),
             );
             return;
@@ -1251,9 +1256,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                 _pendingBookingId!, _ctx!.amount);
             InvoiceService.generateBookingDocs(_pendingBookingId!);
           }
+          // „K vyzvednutí“ — pobočka motorky po úpravě (znovu z DB).
+          final editPickup = await loadBookingPickupInfo(_pendingBookingId);
           if (!mounted) return;
           goResult(
             PaymentOutcome(
+              pickup: editPickup,
               title: tr.tr('paid'),
               subtitle: tr.tr('bookingChangesConfirmed'),
               lines: [PaymentOutcomeLine('\ud83d\udcb3', '${_ctx!.label}: $amountStr')],

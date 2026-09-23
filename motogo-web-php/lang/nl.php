@@ -1232,6 +1232,8 @@ return [
     'editRez.detail.priceTotal' => 'Totaal betaald',
     'editRez.detail.deliveryAddr' => 'Levering aan adres:',
     'editRez.detail.pickupAtRental' => 'Ophalen bij verhuur:',
+    'editRez.pickup.title' => 'Ophaallocatie',
+    'editRez.pickup.openMap' => 'Openen in kaart',
     'editRez.detail.returnAtAddr' => 'Inleveren op adres:',
     'editRez.detail.returnAtRental' => 'Inleveren bij verhuur:',
     'editRez.detail.licenseRequired' => 'Vereist rijbewijs: {lic}',

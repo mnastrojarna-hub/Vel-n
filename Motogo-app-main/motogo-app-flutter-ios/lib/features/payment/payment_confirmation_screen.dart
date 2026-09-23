@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart';
@@ -10,6 +9,7 @@ import '../../core/supabase_client.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/booking_rules.dart';
+import '../../core/widgets/pickup_location_link.dart';
 import '../booking/booking_provider.dart';
 import '../catalog/catalog_provider.dart';
 import '../reservations/reservation_provider.dart';
@@ -53,54 +53,16 @@ class _PaymentConfirmationScreenState
 
   // „K vyzvednutí“ (2026-09-23): pobočka, kde motorka stojí — název, adresa
   // a GPS pro odkaz na mapu. U přistavení se blok nezobrazuje.
-  String? _pickupName;
-  String? _pickupAddr;
-  double? _pickupLat;
-  double? _pickupLng;
+  PickupInfo? _pickup;
   bool _pickupIsDelivery = true;
 
   void _setPickup(Map<String, dynamic>? br, String? method, String? address) {
-    String? s(Object? v) {
-      final t = (v as String?)?.trim();
-      return (t == null || t.isEmpty) ? null : t;
-    }
-
-    final zipCity = [s(br?['zip']), s(br?['city'])].whereType<String>().join(' ');
-    _pickupName = s(br?['name']);
-    _pickupAddr = [s(br?['address']), zipCity.isEmpty ? null : zipCity]
-        .whereType<String>()
-        .join(', ');
-    _pickupLat = (br?['gps_lat'] as num?)?.toDouble();
-    _pickupLng = (br?['gps_lng'] as num?)?.toDouble();
+    _pickup = PickupInfo.fromBranch(br);
     _pickupIsDelivery = bookingMethodWithAddress(method, address) == 'delivery';
   }
 
   bool get _hasPickupBlock =>
-      !_pickupIsDelivery &&
-      ((_pickupName ?? '').isNotEmpty || (_pickupAddr ?? '').isNotEmpty);
-
-  Future<void> _openPickupMap() async {
-    final lat = _pickupLat, lng = _pickupLng;
-    if (lat != null && lng != null) {
-      // geo: nabídne mapovou appku (Android); jinde padá na Google Maps.
-      try {
-        if (await launchUrl(Uri.parse('geo:$lat,$lng?q=$lat,$lng'),
-            mode: LaunchMode.externalApplication)) {
-          return;
-        }
-      } catch (_) {}
-    }
-    final q = (lat != null && lng != null)
-        ? '$lat,$lng'
-        : [_pickupName, _pickupAddr].whereType<String>().join(', ');
-    if (q.isEmpty) return;
-    try {
-      await launchUrl(
-          Uri.parse('https://www.google.com/maps/search/?api=1&query='
-              '${Uri.encodeComponent(q)}'),
-          mode: LaunchMode.externalApplication);
-    } catch (_) {}
-  }
+      !_pickupIsDelivery && _pickup != null && !_pickup!.isEmpty;
 
   @override
   void initState() {
@@ -298,8 +260,7 @@ class _PaymentConfirmationScreenState
                         // zůstává jen název pobočky jako dřív).
                         if (_hasPickupBlock) ...[
                           const SizedBox(height: 8),
-                          _pickupBlock(tr.tr('confirmPickupTitle'),
-                              tr.tr('openInMap')),
+                          PickupLocationLink(info: _pickup!),
                         ] else if (moto?.branchName != null) ...[
                           const SizedBox(height: 8),
                           _detailRow(
@@ -482,36 +443,6 @@ class _PaymentConfirmationScreenState
         ),
       ),
       ),
-    );
-  }
-
-  Widget _pickupBlock(String title, String openMap) {
-    final lines = [_pickupName, _pickupAddr]
-        .whereType<String>()
-        .where((e) => e.isNotEmpty)
-        .join('\n');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _detailRow('📍', '$title:\n$lines'),
-        const SizedBox(height: 6),
-        Padding(
-          padding: const EdgeInsets.only(left: 26),
-          child: GestureDetector(
-            onTap: _openPickupMap,
-            child: Text(
-              '🗺️ $openMap',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: MotoGoColors.green,
-                decoration: TextDecoration.underline,
-                decorationColor: MotoGoColors.green,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 

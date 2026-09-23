@@ -261,7 +261,7 @@
   }
 
   // Úspěšná obrazovka po commitu (inline, net<=0).
-  function swapSuccessUI(swapDate, manualRefund) {
+  function swapSuccessUI(swapDate, manualRefund, newMotoId) {
     var msg = MG.t('editRez.swap.success', { date: MG.formatDate(swapDate) });
     if (manualRefund) {
       msg += '<br><span class="muted" style="font-size:.9em">' + MG.t('editRez.refund.manualNote') + '</span>';
@@ -270,6 +270,8 @@
     if (!content) return;
     content.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + msg + '</p>' +
       '<button type="button" class="btn btngreen-small" id="edit-rez-swap-back">' + MG.t('editRez.list.title') + '</button></div>';
+    // „K vyzvednutí“ — pobočka NOVÉ motorky (výměna může být i na jinou pobočku).
+    if (newMotoId && ER._appendPickup) ER._appendPickup(null, content.querySelector('.edit-rez-success-box'), newMotoId);
     var back = document.getElementById('edit-rez-swap-back');
     if (back) back.addEventListener('click', async function () {
       ER.selectedBooking = null;
@@ -348,7 +350,7 @@
       // refund_manual = rezervace bez Stripe platby → dobropis vystaven, peníze
       // vrátí obsluha převodem na účet (do 14 dnů) — řekneme to zákazníkovi.
       var manualRefund = Number(done.data.refund_amount || 0) > 0 && done.data.refund_manual === true;
-      swapSuccessUI(swapDate, manualRefund);
+      swapSuccessUI(swapDate, manualRefund, base.p_new_moto_id);
     } catch (e) {
       console.error('[editRez] swap exception', e);
       ER._showError(MG.t('editRez.err.generic'));
@@ -385,6 +387,8 @@
           console.error('[editRez] swap commit after payment failed', done.error, done.data);
           return false;
         }
+        // Po návratu na seznam ukáže jádro (_paidPickup) pobočku NOVÉ motorky.
+        ER._lastSwapMoto = pend.base.p_new_moto_id || null;
         return true;
       } catch (e) {
         console.error('[editRez] swap commit after payment exception', e);

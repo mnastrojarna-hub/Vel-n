@@ -1232,6 +1232,8 @@ return [
     'editRez.detail.priceTotal' => 'Łącznie zapłacono',
     'editRez.detail.deliveryAddr' => 'Dostawa pod adres:',
     'editRez.detail.pickupAtRental' => 'Odbiór w wypożyczalni:',
+    'editRez.pickup.title' => 'Miejsce odbioru',
+    'editRez.pickup.openMap' => 'Otwórz na mapie',
     'editRez.detail.returnAtAddr' => 'Zwrot pod adresem:',
     'editRez.detail.returnAtRental' => 'Zwrot w wypożyczalni:',
     'editRez.detail.licenseRequired' => 'Wymagane prawo jazdy: {lic}',

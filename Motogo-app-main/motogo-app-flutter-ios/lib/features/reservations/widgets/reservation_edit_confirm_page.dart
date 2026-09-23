@@ -4,12 +4,15 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
+import '../../../core/widgets/pickup_location_link.dart';
 
 /// Confirmation page shown after successful edit save.
 class EditConfirmPage extends StatelessWidget {
   final String title, message;
   final bool isRefund;
-  const EditConfirmPage({super.key, required this.title, required this.message, this.isRefund = false});
+  /// „K vyzvednutí“ — pobočka motorky po úpravě (null = nezobrazovat).
+  final PickupInfo? pickup;
+  const EditConfirmPage({super.key, required this.title, required this.message, this.isRefund = false, this.pickup});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -31,6 +34,10 @@ class EditConfirmPage extends StatelessWidget {
           const SizedBox(height: 12),
           Text(message, textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13, height: 1.6, color: MotoGoColors.g600)),
+          if (pickup != null) ...[
+            const SizedBox(height: 16),
+            PickupLocationLink(info: pickup!, dark: false, center: true),
+          ],
           const SizedBox(height: 28),
           SizedBox(width: double.infinity, height: 52,
             child: ElevatedButton(

@@ -26,6 +26,7 @@ import 'widgets/reservation_edit_calendar_section.dart';
 import 'widgets/reservation_swap_section.dart';
 import '../../core/currency.dart';
 import '../../core/booking_rules.dart';
+import '../../core/widgets/pickup_location_link.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
 /// Calendar supports both extend and shorten in one view.
@@ -85,6 +86,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   String _confirmTitle = '';
   String _confirmMessage = '';
   bool _confirmIsRefund = false;
+  PickupInfo? _confirmPickup;
 
   @override
   void initState() {
@@ -843,7 +845,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     if (mounted) setState(() => _saving = false);
   }
 
-  void _showConfirmation({required String title, required String message, bool isRefund = false}) {
+  void _showConfirmation({required String title, required String message, bool isRefund = false, String? pickupMotoId}) {
     // Render the confirmation page inline (see _confirmed in build) instead of
     // an imperative Navigator.pushReplacement — keeps the "back to reservations"
     // CTA working under go_router.
@@ -852,6 +854,15 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       _confirmTitle = title;
       _confirmMessage = message;
       _confirmIsRefund = isRefund;
+      _confirmPickup = null;
+    });
+    // „K vyzvednutí“: pobočka motorky po úpravě (u výměny pobočka NOVÉ motorky)
+    // — načte se znovu, po změně motorky je jiná.
+    final load = pickupMotoId != null
+        ? loadMotoPickupInfo(pickupMotoId)
+        : loadBookingPickupInfo(widget.bookingId);
+    load.then((p) {
+      if (mounted && p != null) setState(() => _confirmPickup = p);
     });
   }
 
@@ -862,6 +873,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         title: _confirmTitle,
         message: _confirmMessage,
         isRefund: _confirmIsRefund,
+        pickup: _confirmPickup,
       );
     }
     if (_booking == null) {
@@ -890,8 +902,18 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _effBranchType == selfServiceBranchType;
     final String? pickupFix =
         ssOrigin && _hm(_pickupTime) == selfServicePickupTime ? '09:00' : null;
+    // Vrácení se úpravou přesunulo NA samoobslužnou pobočku (jiný způsob
+    // vrácení nebo výměna motorky) → automaticky 23:59; rezervace, která
+    // tam už vracela, si nechává uloženou hodnotu (žádná falešná změna).
+    final wasSelfServiceAtBranch =
+        _booking!.branchType == selfServiceBranchType &&
+            bookingMethodWithAddress(
+                    _booking!.returnMethod, _booking!.returnAddress) !=
+                'delivery';
+    final hiddenReturn =
+        wasSelfServiceAtBranch ? storedReturn : selfServiceReturnTime;
     final String? returnFix = hideReturnTime
-        ? (_hm(_returnTime) != _hm(storedReturn) ? storedReturn : null)
+        ? (_hm(_returnTime) != _hm(hiddenReturn) ? hiddenReturn : null)
         : (ssOrigin && _hm(_returnTime) == selfServiceReturnTime
             ? '19:00'
             : null);
@@ -981,7 +1003,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             SwapMotoSection(
               booking: _booking!,
               userLicenseGroups: userLicenseGroups,
-              onSwapped: (swapDate, swapTime, newMotoName) {
+              onSwapped: (swapDate, swapTime, newMotoName, newMotoId) {
                 ref.invalidate(reservationsProvider);
                 ref.invalidate(reservationByIdProvider(widget.bookingId));
                 ref.invalidate(doorCodesProvider(widget.bookingId));
@@ -992,6 +1014,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                       .replaceAll('{date}', _fmt(swapDate))
                       .replaceAll('{time}', swapTime)
                       .replaceAll('{moto}', newMotoName),
+                  pickupMotoId: newMotoId,
                 );
               },
             ),
