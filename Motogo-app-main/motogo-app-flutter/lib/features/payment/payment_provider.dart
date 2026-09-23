@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/supabase_client.dart';
 import '../../core/booking_rules.dart';
+import '../../core/widgets/pickup_location_link.dart';
 export '../../core/booking_rules.dart' show paymentTimeoutDuration;
 
 /// Payment methods from Supabase payment_methods table.
@@ -237,6 +238,8 @@ class PaymentOutcome {
   final String ctaLabel;
   /// Route, kam vede primární tlačítko (Routes.reservations / shop / sosDone…).
   final String ctaRoute;
+  /// „K vyzvednutí“ po zaplacené úpravě / výměně motorky (null = nezobrazovat).
+  final PickupInfo? pickup;
 
   const PaymentOutcome({
     required this.title,
@@ -245,6 +248,7 @@ class PaymentOutcome {
     this.nextStepNote,
     required this.ctaLabel,
     required this.ctaRoute,
+    this.pickup,
   });
 }
 

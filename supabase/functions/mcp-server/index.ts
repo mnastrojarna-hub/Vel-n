@@ -281,8 +281,8 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
 
     case 'motogo_create_booking': {
       const a = args as Record<string, unknown>
-      // Parita s webem/appkou: samoobsluha na pobočce bez času → 00:01/23:59
-      // (bez slevy za pozdní vyzvednutí, kterou by dal výchozí čas 12:00).
+      // Parita s webem/appkou: samoobsluha — vrácení na pobočce bez času → 23:59
+      // (čas vyzvednutí se zadává vždy, řídí slevu za pozdní vyzvednutí).
       const { data: mb } = await sb.from('motorcycles').select('branches(type)').eq('id', a.moto_id).maybeSingle()
       const ssBranch = ((mb as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.type === 'samoobslužná'
       const { data, error } = await sb.rpc('create_web_booking', {
@@ -290,7 +290,7 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
         p_name: a.customer_name, p_email: a.customer_email, p_phone: a.customer_phone,
         p_street: a.street ?? '', p_city: a.city ?? '', p_zip: a.zip ?? '', p_country: a.country ?? 'CZ',
         p_note: a.note ?? null,
-        p_pickup_time: (ssBranch && !a.delivery_address) ? '00:01' : (a.pickup_time ?? '12:00'),
+        p_pickup_time: a.pickup_time ?? '12:00',
         p_delivery_address: a.delivery_address ?? null,
         p_return_address: a.return_address ?? null,
         p_extras: a.extras ?? [],

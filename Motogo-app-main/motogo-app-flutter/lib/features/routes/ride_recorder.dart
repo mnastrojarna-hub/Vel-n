@@ -602,10 +602,8 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
   static DateTime _pickupAt(Reservation r) {
     final d = r.startDate;
     final m = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(r.pickupTime ?? '');
-    // Samoobsluha bez přistavení ukládá 00:01 (= celý den, ne plán) → jako bez času.
-    final noPlan = selfServiceHidesPickupTime(
-        branchType: r.branchType,
-        pickupMethod: bookingMethodWithAddress(r.pickupMethod, r.pickupAddress));
+    // 00:01 = stará hodnota „bez času“ (krátce 2026-09-23) → jako bez plánu.
+    final noPlan = (r.pickupTime ?? '').startsWith(selfServicePickupTime);
     if (m == null || noPlan) return DateTime(d.year, d.month, d.day, 23, 59);
     return DateTime(d.year, d.month, d.day, int.parse(m.group(1)!), int.parse(m.group(2)!));
   }

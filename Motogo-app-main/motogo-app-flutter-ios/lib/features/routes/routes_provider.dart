@@ -127,14 +127,17 @@ class RoutesDataNotifier extends AsyncNotifier<RoutesData> {
   }
 
   /// Pobočky (jen ty, na které trasy odkazují — ale načteme všechny aktivní,
-  /// je to levné a pokryje to i budoucí přiřazení).
+  /// je to levné a pokryje to i budoucí přiřazení). Trvale zavřená pobočka
+  /// (is_open=false) se nikde nezobrazuje — její trasy zůstávají, jen bez
+  /// štítku a startu z pobočky (všechna místa čtou mapu přes null-safe lookup).
   Future<Map<String, RouteBranch>> _branches() async {
     final branches = <String, RouteBranch>{};
     try {
       final bRes = await MotoGoSupabase.client
           .from('branches')
           .select('id, name, city, gps_lat, gps_lng')
-          .eq('active', true);
+          .eq('active', true)
+          .eq('is_open', true);
       for (final b in (bRes as List)) {
         final rb = RouteBranch.fromJson(Map<String, dynamic>.from(b as Map));
         branches[rb.id] = rb;

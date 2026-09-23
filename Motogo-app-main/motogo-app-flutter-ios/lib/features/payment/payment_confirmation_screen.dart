@@ -9,6 +9,7 @@ import '../../core/supabase_client.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/booking_rules.dart';
+import '../../core/widgets/pickup_location_link.dart';
 import '../booking/booking_provider.dart';
 import '../catalog/catalog_provider.dart';
 import '../reservations/reservation_provider.dart';
@@ -50,6 +51,19 @@ class _PaymentConfirmationScreenState
     isChildBike: false,
   );
 
+  // „K vyzvednutí“ (2026-09-23): pobočka, kde motorka stojí — název, adresa
+  // a GPS pro odkaz na mapu. U přistavení se blok nezobrazuje.
+  PickupInfo? _pickup;
+  bool _pickupIsDelivery = true;
+
+  void _setPickup(Map<String, dynamic>? br, String? method, String? address) {
+    _pickup = PickupInfo.fromBranch(br);
+    _pickupIsDelivery = bookingMethodWithAddress(method, address) == 'delivery';
+  }
+
+  bool get _hasPickupBlock =>
+      !_pickupIsDelivery && _pickup != null && !_pickup!.isEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -63,8 +77,16 @@ class _PaymentConfirmationScreenState
       // z booking flow, ale moto neumíme — bez bookingId nemůžeme zjistit doklady.
       final moto = ref.read(bookingMotoProvider);
       final isChild = (moto?.licenseRequired ?? '').toUpperCase() == 'N';
+      final draft = ref.read(bookingDraftProvider);
       if (!mounted) return;
       setState(() {
+        // Bez rezervace z DB: pobočka z vybrané motorky (bez GPS → mapa
+        // hledá podle názvu a adresy).
+        _setPickup({
+          'name': moto?.branchName,
+          'address': moto?.branchAddress,
+          'city': moto?.branchCity,
+        }, draft.pickupMethod, draft.pickupAddress);
         _info = _ConfirmInfo(
           docsStatus: isChild ? _DocsStatus.verified : _DocsStatus.unknown,
           missingReason: null,
@@ -79,7 +101,9 @@ class _PaymentConfirmationScreenState
       //    vlastníkovi přes bookings_user_select policy).
       final res = await MotoGoSupabase.client
           .from('bookings')
-          .select('id, user_id, moto_id, end_date, motorcycles!moto_id(license_required)')
+          .select('id, user_id, moto_id, end_date, pickup_method, pickup_address, '
+              'motorcycles!moto_id(license_required, '
+              'branches(name, address, zip, city, gps_lat, gps_lng))')
           .eq('id', bookingId)
           .maybeSingle();
 
@@ -94,6 +118,10 @@ class _PaymentConfirmationScreenState
       }
 
       final moto = res['motorcycles'] as Map<String, dynamic>?;
+      if (mounted) {
+        setState(() => _setPickup(moto?['branches'] as Map<String, dynamic>?,
+            res['pickup_method'] as String?, res['pickup_address'] as String?));
+      }
       final license = (moto?['license_required'] as String?)?.toUpperCase() ?? '';
       final isChild = license == 'N';
 
@@ -228,25 +256,27 @@ class _PaymentConfirmationScreenState
                             '${dateFmt.format(draft.startDate!)} – ${dateFmt.format(draft.endDate!)}',
                           ),
                         ],
-                        if (moto?.branchName != null) ...[
+                        // „K vyzvednutí“: pobočka motorky + mapa (u přistavení
+                        // zůstává jen název pobočky jako dřív).
+                        if (_hasPickupBlock) ...[
+                          const SizedBox(height: 8),
+                          PickupLocationLink(info: _pickup!),
+                        ] else if (moto?.branchName != null) ...[
                           const SizedBox(height: 8),
                           _detailRow(
                             '📍',
                             moto!.branchName!,
                           ),
                         ],
-                        // Samoobslužná pobočka: čas na pobočce se nevolí
-                        // (00:01/23:59) → řádek se neukazuje.
-                        if (draft.pickupTime != null &&
-                            !selfServiceHidesPickupTime(
-                                branchType: moto?.branchType,
-                                pickupMethod: draft.pickupMethod)) ...[
+                        if (draft.pickupTime != null) ...[
                           const SizedBox(height: 8),
                           _detailRow(
                             '⏰',
                             '${tr.tr('pickupTimeLabel')}: ${draft.pickupTime}',
                           ),
                         ],
+                        // Samoobslužná pobočka: čas vrácení na pobočku se
+                        // nevolí (23:59) → řádek se neukazuje.
                         if (draft.returnTime != null &&
                             !selfServiceHidesReturnTime(
                                 branchType: moto?.branchType,

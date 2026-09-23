@@ -29,7 +29,7 @@ class SwapMotoSection extends ConsumerStatefulWidget {
   final List<String> userLicenseGroups;
 
   /// Volá se po úspěšné výměně — parent zobrazí potvrzení / refresh.
-  final void Function(DateTime swapDate, String swapTime, String newMotoName) onSwapped;
+  final void Function(DateTime swapDate, String swapTime, String newMotoName, String newMotoId) onSwapped;
 
   const SwapMotoSection({
     super.key,
@@ -289,7 +289,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
       if (mounted) {
         final motos = ref.read(motorcyclesProvider).valueOrNull ?? const [];
         final newMoto = motos.where((m) => m.id == motoId).firstOrNull;
-        widget.onSwapped(date, _swapTime, newMoto?.model ?? '');
+        widget.onSwapped(date, _swapTime, newMoto?.model ?? '', motoId);
       }
     } catch (e) {
       if (mounted) {

@@ -44,7 +44,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   async function load() {
     setLoading(true); setError(null)
     try {
-      const { data: booking, error: bErr } = await supabase.from('bookings').select('*, motorcycles!moto_id(model, spz, vin, year, license_required, branches(type))').eq('id', bookingId).single()
+      const { data: booking, error: bErr } = await supabase.from('bookings').select('*, motorcycles!moto_id(model, spz, vin, year, license_required, branches(type, address, zip, city))').eq('id', bookingId).single()
       if (bErr || !booking) throw new Error('Rezervace nenalezena: ' + (bErr?.message || 'no data'))
       let customer = {}
       if (booking.user_id) { const { data: prof } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry').eq('id', booking.user_id).single(); if (prof) customer = prof }
