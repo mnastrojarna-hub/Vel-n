@@ -331,7 +331,8 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
         { q: 'Můžu jet do zahraničí?', a: 'Ano, sjezd do zahraničí povolen. Zelená karta v ceně.' },
         { q: 'Kde si motorku vyzvednu?', a: 'Mezná 9, Pelhřimov, Vysočina. Volitelně přistavení kamkoliv v ČR za příplatek.' },
         { q: 'Můžu storno?', a: 'Bezplatné storno minimálně 7 dní před převzetím. Později individuálně.' },
-        { q: 'Jak platím?', a: 'Online platební kartou přes Stripe. Visa, Mastercard, Amex, Apple Pay, Google Pay.' },
+        { q: 'Jak platím?', a: 'Předem online přes Stripe: karta (Visa, Mastercard, Amex), Apple Pay, Google Pay; na webu i QR platba / bankovní převod. V mobilní aplikaci karta + Apple Pay (iPhone) / Google Pay (Android). Hotovost nepřijímáme.' },
+        { q: 'Máte mobilní aplikaci?', a: 'Ano — iPhone: https://apps.apple.com/cz/app/id6806045151, Android: https://play.google.com/store/apps/details?id=com.motogo24.app' },
         { q: 'Otevírací doba?', a: '24/7 nonstop, 365 dní v roce. Vyzvednutí přes přístupové kódy.' },
         { q: 'Minimální věk?', a: '18 let pro dospělé motorky. Dětské motorky bez věkového limitu (ručí rodič).' },
       ]

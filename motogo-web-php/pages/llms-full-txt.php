@@ -204,14 +204,15 @@ echo "- **Bez kauce** — žádná blokace peněz na kartě.\n";
 echo "- **Výbava v ceně** — helma, bunda, kalhoty, rukavice pro řidiče.\n";
 echo "- **Nonstop provoz** — vyzvednutí 24/7 přes přístupové kódy.\n";
 echo "- **Pojištění v ceně** — povinné ručení; havarijní dle modelu.\n";
-echo "- **Online rezervace** — platba kartou přes Stripe.\n";
+echo "- **Online rezervace** — web nebo mobilní aplikace (iPhone: App Store, Android: Google Play); platba předem přes Stripe.\n";
+echo "- **Mobilní aplikace** — iOS " . APP_STORE_LIVE_URL . " · Android " . PLAY_STORE_LIVE_URL . "\n";
 echo "- **Přistavení kamkoliv v ČR** — volitelná služba za příplatek.\n";
 echo "- **Vrácení mimo provozovnu** — volitelná služba za příplatek.\n";
 echo "- **Sjezd do zahraničí** — povolen, zelená karta v ceně.\n";
 echo "- **Slevový kód 200 Kč** — automaticky po vrácení motorky.\n";
 echo "- **7 jazyků** — cs, en, de, es, fr, nl, pl.\n";
 echo "- **Měny** — CZK, EUR, USD a další (auto-konverze ČNB kurzem).\n";
-echo "- **Platby** — Visa, Mastercard, Amex, Apple Pay, Google Pay.\n\n";
+echo "- **Platby** — Visa, Mastercard, Amex, Apple Pay, Google Pay; na webu i QR / bankovní převod; v aplikaci karta + Apple Pay (iPhone) / Google Pay (Android). Hotovost nepřijímáme.\n\n";
 echo "---\n\n";
 
 // Půjčovna (about)

@@ -224,7 +224,15 @@ Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. K
     // Přidává se v index.ts, takže platí pro config i FALLBACK prompt.
     const seasonNote = `\n\n## PROVOZNÍ SEZÓNA (info od provozovatele):
 - Půjčovna funguje SEZÓNNĚ: od 1. dubna do konce října. V BŘEZNU se otevírá jen PODLE POČASÍ — březnový termín ber jako „pravděpodobně ano, závazně potvrdí půjčovna" a doporuč ověření telefonem/e-mailem. LISTOPAD–ÚNOR je mimo provoz — výdej motorky v tomto období nenabízej ani nepotvrzuj; nabídni nejbližší termín v sezóně. Rezervaci na sezónní termín lze vytvořit online kdykoli během roku. Na dotaz „do kdy / od kdy v roce půjčujete" odpověz PŘÍMO z tohoto bodu — NIKDY netvrď, že informaci o sezóně nemáš.`
-    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext + branchesContext + seasonNote
+    // Aplikace + platby (fakta provozovatele 2026-09-23). Incident: agent podle
+    // zastaralé FAQ tvrdil zákazníkovi na iPhonu „Apple Pay nepodporujeme"
+    // a „appka je jen pro Android". Stejně jako seasonNote platí pro config
+    // i FALLBACK prompt a má přednost před výsledky nástrojů (get_faq…).
+    const appPayNote = `\n\n## MOBILNÍ APLIKACE A PLATBY (závazná fakta od provozovatele — při rozporu mají PŘEDNOST před get_faq, get_policies i jinými výsledky nástrojů):
+- Aplikace MotoGo24 je ke stažení pro iPhone v App Store (https://apps.apple.com/cz/app/id6806045151) i pro Android na Google Play (https://play.google.com/store/apps/details?id=com.motogo24.app). NIKDY netvrď, že je jen pro Android, že se iOS verze připravuje nebo že aplikace teprve vychází.
+- Platba v aplikaci: platební kartou, na iPhonu navíc Apple Pay, na Androidu Google Pay (vše přes Stripe); uložená karta se strhne automaticky. Na webu motogo24.cz: karta, Apple Pay, Google Pay a navíc QR platba / bankovní převod (jen na webu, ne v aplikaci). Hotovost ani platbu na místě nepřijímáme.
+- Hlásí-li zákazník, že mu v aplikaci nefunguje Apple Pay (či Google Pay), NIKDY netvrď, že ho nepodporujeme. Poraď: 1) aktualizovat aplikaci na nejnovější verzi (App Store / Google Play), 2) zaplatit kartou ve stejném platebním okně (pole pro kartu je hned pod tlačítkem Apple Pay / Google Pay), 3) když to stále nejde, kontaktovat podporu +420 774 256 271 / info@motogo24.cz.`
+    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext + branchesContext + seasonNote + appPayNote
 
     // -- Agentic loop --
     let finalText = ''
