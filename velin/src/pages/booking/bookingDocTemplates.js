@@ -79,6 +79,7 @@ export function buildDocVars(booking, customer, bookingId) {
   // Samoobsluha: převzetí/vrácení NA pobočce bez času → 00:01 / 23:59 (shodně s edge
   // generate-document; web/AI přistavení má method 'store' + adresu → čas zůstává).
   const selfService = moto.branches?.type === 'samoobslužná'
+  const brAddr = [moto.branches?.address, [moto.branches?.zip, moto.branches?.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
   const ssPickup = selfService && booking.pickup_method !== 'delivery' && !booking.pickup_address
   const ssReturn = selfService && booking.return_method !== 'delivery' && !booking.return_address
   return {
@@ -97,8 +98,9 @@ export function buildDocVars(booking, customer, bookingId) {
     start_time: ssPickup ? '00:01' : (String(booking.pickup_time || '').startsWith('00:01') ? '' : (booking.pickup_time || '')), end_time: ssReturn ? '23:59' : '24:00',
     rental_period: `${fmtDate(booking.start_date)} \u2014 ${fmtDate(booking.end_date)} (${days} dni)`,
     total_price_words: '',
-    pickup_location: booking.pickup_address || 'Mezna 9, 393 01 Mezna',
-    return_location: booking.return_address || 'Mezna 9, 393 01 Mezna',
+    // místo převzetí/vrácení na pobočce = pobočka motorky (Brno Velké Němčice ≠ Mezná)
+    pickup_location: booking.pickup_address || brAddr || 'Mezna 9, 393 01 Mezna',
+    return_location: booking.return_address || brAddr || 'Mezna 9, 393 01 Mezna',
     mileage: String(booking.mileage_start || ''),
     technical_state: '',
     accessories_block: accessories.html,

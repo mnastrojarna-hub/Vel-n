@@ -275,7 +275,7 @@ class ContractsScreen extends ConsumerWidget {
       try {
         final bRes = await MotoGoSupabase.client
             .from('bookings')
-            .select('*, motorcycles!moto_id(*, branches(type)), profiles(*)')
+            .select('*, motorcycles!moto_id(*, branches(type, address, zip, city)), profiles(*)')
             .eq('id', doc.bookingId!)
             .maybeSingle();
         if (bRes != null) {
@@ -345,7 +345,16 @@ class ContractsScreen extends ConsumerWidget {
     final now = DateTime.now();
     // Samoobsluha: převzetí/vrácení NA pobočce bez času → 00:01 / 23:59
     // (shodně s edge generate-document, i pro starší rezervace).
-    final brType = (m?['branches'] as Map<String, dynamic>?)?['type'] as String?;
+    final br = m?['branches'] as Map<String, dynamic>?;
+    final brType = br?['type'] as String?;
+    // Místo na pobočce = pobočka motorky (Brno Velké Němčice ≠ Mezná).
+    final brAddr = [
+      br?['address'] as String?,
+      [br?['zip'] as String?, br?['city'] as String?]
+          .whereType<String>()
+          .where((e) => e.isNotEmpty)
+          .join(' '),
+    ].whereType<String>().where((e) => e.isNotEmpty).join(', ');
     final ssPickup = selfServiceHidesPickupTime(
         branchType: brType,
         pickupMethod: bookingMethodWithAddress(
@@ -395,8 +404,10 @@ class ContractsScreen extends ConsumerWidget {
       'booking_id': resNum,
       'today': fmtDate(now),
       'today_time': '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-      'pickup_location': b['pickup_address'] as String? ?? 'Mezná 9, 393 01 Pelhřimov',
-      'return_location': b['return_address'] as String? ?? 'Mezná 9, 393 01 Pelhřimov',
+      'pickup_location': b['pickup_address'] as String? ??
+          (brAddr.isNotEmpty ? brAddr : 'Mezná 9, 393 01 Pelhřimov'),
+      'return_location': b['return_address'] as String? ??
+          (brAddr.isNotEmpty ? brAddr : 'Mezná 9, 393 01 Pelhřimov'),
       'mileage': '${b['mileage_start'] ?? ''}',
       'fuel_state': '',
       'technical_state': '',
