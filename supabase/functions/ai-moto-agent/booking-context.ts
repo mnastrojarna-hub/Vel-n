@@ -309,7 +309,7 @@ Výchozí jazyk je čeština; když zákazník píše jiným jazykem, odpověz J
 // zákazník ho dosud viděl až na displeji jednotky PO zadání kódu.
 // Samoobsluha bez přistavení/odvozu: čas se nevolí, uložené 00:01/23:59 = celý den.
 // Web/AI přistavení má method 'store' + adresu (create_web_booking method nevyplňuje).
-function ssTime(m: Record<string, unknown> | null, method: unknown, address: unknown): boolean {
+export function ssTime(m: Record<string, unknown> | null, method: unknown, address: unknown): boolean {
   const br = (m?.branches as Record<string, unknown> | null) || null
   return br?.type === 'samoobslužná' && method !== 'delivery' && !address
 }

@@ -3,6 +3,7 @@
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { execPublicReadTool, PUBLIC_READ_TOOL_NAMES } from './public-tools.ts'
+import { ssTime } from './booking-context.ts'
 import { readManual } from '../_shared/manual-reader.ts'
 import { getBundledManualText } from '../_shared/manual-texts/index.ts'
 
@@ -75,7 +76,7 @@ export async function executeTool(
         .from('bookings')
         .select(`
           id, status, payment_status, start_date, end_date, pickup_time, return_time,
-          total_price, extras_price, pickup_method, return_method,
+          total_price, extras_price, pickup_method, return_method, pickup_address, return_address,
           mileage_start, mileage_end, notes, booking_source,
           picked_up_at, handover_protocol_started_at, handover_protocol_filled_at,
           motorcycles!moto_id(
@@ -93,10 +94,19 @@ export async function executeTool(
 
       if (error) return { error: error.message }
       if (!data || data.length === 0) return { message: 'Zákazník nemá žádnou aktivní ani nadcházející rezervaci.' }
-      const active = data.find(b => b.status === 'active')
+      // Samoobsluha bez přistavení/odvozu: uložené 00:01/23:59 = celý den, ne čas
+      // schůzky — agent nesmí zákazníkovi říct „přijďte v 00:01“.
+      const rows = (data as Array<Record<string, unknown>>).map((b) => {
+        const m = b.motorcycles as Record<string, unknown> | null
+        const out = { ...b }
+        if (ssTime(m, b.pickup_method, b.pickup_address)) out.pickup_time = 'bez času — kdykoli během prvního dne 24/7 kódem (ve smlouvě 00:01)'
+        if (ssTime(m, b.return_method, b.return_address)) out.return_time = 'bez času — kdykoli během posledního dne 24/7 kódem (ve smlouvě 23:59)'
+        return out
+      })
+      const active = rows.find(b => b.status === 'active')
       if (active) return active
-      if (data.length > 1) return { multiple_bookings: data, message: 'Zákazník má více rezervací. Zeptej se, o kterou motorku jde.' }
-      return data[0]
+      if (rows.length > 1) return { multiple_bookings: rows, message: 'Zákazník má více rezervací. Zeptej se, o kterou motorku jde.' }
+      return rows[0]
     }
 
     case 'get_access_status': {
