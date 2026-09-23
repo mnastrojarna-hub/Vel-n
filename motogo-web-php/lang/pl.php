@@ -763,6 +763,8 @@ return [
     'confirm.success.nextBookingCodes' => 'Po weryfikacji dokumentów otrzymasz 6-cyfrowe kody dostępu do motocykla i wyposażenia e-mailem, SMS-em i WhatsAppem.',
     'confirm.success.nextBookingCodesDone' => '6-cyfrowe kody dostępu do motocykla i wyposażenia wyślemy Ci e-mailem, SMS-em i WhatsAppem przed rozpoczęciem rezerwacji.',
     'confirm.success.nextBookingPickup' => 'W dniu odbioru przyjedź do oddziału — kody otwierają drzwi, motocykl i wyposażenie są gotowe.',
+    'confirm.success.pickupTitle' => 'Miejsce odbioru',
+    'confirm.success.openMap' => 'Otwórz na mapie',
     'confirm.success.nextOrderShip' => 'Jeśli wybrałeś dostawę, paczka dotrze w ciągu 1–3 dni roboczych.',
     'confirm.success.nextVoucherEmail' => 'Kod bonu znajdziesz w e-mailu — wykorzystaj go przy rezerwacji na motogo24.cz / .com lub w aplikacji.',
     'confirm.success.nextVoucherPrint' => 'Jeśli zamówiłeś bon drukowany, dotrze pocztą w ciągu 2–3 dni roboczych.',

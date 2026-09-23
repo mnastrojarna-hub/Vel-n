@@ -1549,6 +1549,8 @@ return [
     'confirm.success.nextBookingCodes' => 'Після перевірки документів ви отримаєте 6-значні коди доступу до мотоцикла та екіпірування (електронною поштою, SMS та WhatsApp).',
     'confirm.success.nextBookingCodesDone' => '6-значні коди доступу до мотоцикла та екіпірування ми надішлемо вам електронною поштою, SMS та WhatsApp перед початком бронювання.',
     'confirm.success.nextBookingPickup' => 'У день отримання приїдьте до філії — коди відімкнуть двері, мотоцикл та екіпірування готові.',
+    'confirm.success.pickupTitle' => 'Місце отримання',
+    'confirm.success.openMap' => 'Відкрити на карті',
     'confirm.success.nextOrderShip' => 'Якщо ви обрали доставку, посилка надійде протягом 1–3 робочих днів.',
     'confirm.success.nextVoucherEmail' => 'Код сертифіката ви знайдете в e-mail — використаєте його при бронюванні на motogo24.cz / .com або в застосунку.',
     'confirm.success.nextVoucherPrint' => 'Якщо ви обрали друкований сертифікат, він надійде поштою протягом 2–3 робочих днів.',

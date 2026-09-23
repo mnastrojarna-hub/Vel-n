@@ -785,6 +785,8 @@ return [
     'confirm.success.nextBookingCodes' => 'Una vez verificados los documentos, recibirás códigos de acceso de 6 dígitos para la moto y el equipo por correo, SMS y WhatsApp.',
     'confirm.success.nextBookingCodesDone' => 'Te enviaremos los códigos de acceso de 6 dígitos para la moto y el equipo por correo, SMS y WhatsApp antes del inicio de la reserva.',
     'confirm.success.nextBookingPickup' => 'El día de la recogida, ven a la sucursal — los códigos abren la puerta y la moto y el equipo están listos.',
+    'confirm.success.pickupTitle' => 'Lugar de recogida',
+    'confirm.success.openMap' => 'Abrir en el mapa',
     'confirm.success.nextOrderShip' => 'Si elegiste envío, el paquete llegará en 1–3 días laborables.',
     'confirm.success.nextVoucherEmail' => 'Encontrarás el código del vale en tu correo — úsalo al reservar en motogo24.cz / .com o en la app.',
     'confirm.success.nextVoucherPrint' => 'Si pediste un vale impreso, llegará por correo en 2–3 días laborables.',

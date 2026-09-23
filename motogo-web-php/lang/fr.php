@@ -784,6 +784,8 @@ return [
     'confirm.success.nextBookingCodes' => 'Une fois les documents vérifiés, vous recevrez des codes d\'accès à 6 chiffres pour la moto et l\'équipement par e-mail, SMS et WhatsApp.',
     'confirm.success.nextBookingCodesDone' => 'Nous vous enverrons les codes d\'accès à 6 chiffres pour la moto et l\'équipement par e-mail, SMS et WhatsApp avant le début de la réservation.',
     'confirm.success.nextBookingPickup' => 'Le jour du retrait, rendez-vous à l\'agence — les codes ouvrent la porte, moto et équipement sont prêts.',
+    'confirm.success.pickupTitle' => 'Lieu de retrait',
+    'confirm.success.openMap' => 'Ouvrir dans la carte',
     'confirm.success.nextOrderShip' => 'Si vous avez choisi la livraison, votre colis arrivera sous 1 à 3 jours ouvrés.',
     'confirm.success.nextVoucherEmail' => 'Vous trouverez le code du bon dans votre e-mail — utilisez-le lors de votre réservation sur motogo24.cz / .com ou dans l\'application.',
     'confirm.success.nextVoucherPrint' => 'Si vous avez commandé un bon imprimé, il arrivera par la poste sous 2 à 3 jours ouvrés.',
