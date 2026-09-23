@@ -3,9 +3,10 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
+import '../../../core/debug_logger.dart';
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
-import '../payment_error_mapper.dart';
+import 'apple_pay_failure.dart';
 
 /// Výsledek vlastního platebního sheetu s kartou.
 enum CardSheetStatus { paid, processing, cancelled, failed }
@@ -137,6 +138,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
   }
 
   /// Apple Pay (iOS) / Google Pay (Android) — jen na podporovaných zařízeních.
+  /// Na iOS hodnota jen do logu: tlačítko Apple Pay je vidět vždy a nic neblokuje.
   Future<void> _checkPlatformPay() async {
     try {
       final ok = await Stripe.instance.isPlatformPaySupported();
@@ -146,22 +148,38 @@ class _CardSheetBodyState extends State<_CardSheetBody>
     }
   }
 
-  /// App Review 2.1 (build 38): `isPlatformPaySupported()` vrací false na
-  /// zařízení bez karty ve Walletu (typicky recenzní zařízení Apple) → tlačítko
-  /// se skrylo a recenzent Apple Pay integraci „neviděl". Na iOS proto tlačítko
-  /// zobrazujeme VŽDY a nedostupnost řešíme až při tapnutí: živý re-check, a
-  /// když peněženka opravdu není k dispozici, srozumitelná hláška (mapper
-  /// substituuje Google Pay → Apple Pay) místo prázdné obrazovky.
+  /// Apple Pay: tapnutí rovnou otevírá nativní Apple Pay sheet (tlačítko je na
+  /// iOS vždy vidět — App Review 2.1). INCIDENT 2026-09-23: dřívější blokující
+  /// předkontrola `isPlatformPaySupported()` byla přísnější než Stripe a
+  /// stripe-ios ji cachuje na celý běh appky → jednou „ne" = Apple Pay mrtvé
+  /// do restartu. Rozhoduje Stripe/PassKit, selhání řeší [_handleApplePayFailure].
   Future<void> _tapApplePay() async {
     if (_processing) return;
-    if (!_platformPayReady) {
-      bool ok = false;
-      try {
-        ok = await Stripe.instance.isPlatformPaySupported();
-      } catch (_) {}
-      if (!mounted) return;
-      if (!ok) {
-        final info = PaymentErrorMapper.wallet(t(context).lang);
+    await _payWithPlatformPay();
+  }
+
+  /// Částka v Apple Pay sheetu = přesně částka PaymentIntentu (volající ho
+  /// zakládá z `amount.round()`); nezaokrouhlená by v sheetu ukázala a
+  /// autorizovala jinou sumu, než se strhne.
+  String get _applePayAmount => widget.amount.round().toStringAsFixed(2);
+
+  /// Selhání Apple Pay (ne zrušení) — logika v apple_pay_failure.dart.
+  Future<void> _handleApplePayFailure(StripeException e) async {
+    final o = await resolveApplePayFailure(e,
+        clientSecret: widget.clientSecret, lang: t(context).lang);
+    if (!mounted) return;
+    switch (o.action) {
+      case ApplePayFailureAction.declined:
+        Navigator.of(context)
+            .pop(CardSheetResult(CardSheetStatus.failed, stripeError: e));
+      case ApplePayFailureAction.paid:
+        Navigator.of(context).pop(const CardSheetResult(CardSheetStatus.paid));
+      case ApplePayFailureAction.processing:
+        Navigator.of(context)
+            .pop(const CardSheetResult(CardSheetStatus.processing));
+      case ApplePayFailureAction.stay:
+        setState(() => _processing = false);
+        final info = o.info!;
         await showDialog<void>(
           context: context,
           builder: (dctx) => AlertDialog(
@@ -175,11 +193,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
             ],
           ),
         );
-        return;
-      }
-      setState(() => _platformPayReady = true);
     }
-    await _payWithPlatformPay();
   }
 
   /// Mapuje finální stav PaymentIntentu na výsledek sheetu.
@@ -243,6 +257,9 @@ class _CardSheetBodyState extends State<_CardSheetBody>
     // Stejně jako u karty — Apple/Google Pay překryje appku nativním sheetem,
     // fokus na CardFieldu by se po návratu obnovoval na mrtvém kanálu.
     FocusManager.instance.primaryFocus?.unfocus();
+    final wallet = Platform.isIOS ? 'apple_pay' : 'google_pay';
+    AppDebugLogger.instance.payment('${wallet}_start',
+        data: {'supported': _platformPayReady, 'amount': widget.amount});
     try {
       final confirmParams = Platform.isIOS
           ? PlatformPayConfirmParams.applePay(
@@ -254,7 +271,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
                 cartItems: [
                   ApplePayCartSummaryItem.immediate(
                     label: 'MotoGo24',
-                    amount: widget.amount.toStringAsFixed(2),
+                    amount: _applePayAmount,
                   ),
                 ],
               ),
@@ -271,19 +288,28 @@ class _CardSheetBodyState extends State<_CardSheetBody>
         clientSecret: widget.clientSecret,
         confirmParams: confirmParams,
       );
+      AppDebugLogger.instance.payment('${wallet}_result',
+          data: {'status': intent.status.name});
       if (!mounted) return;
       Navigator.of(context).pop(
         _resultFor(intent.status, 'platform pay'),
       );
     } on StripeException catch (e) {
+      logWalletError(wallet, e, supported: _platformPayReady);
       if (!mounted) return;
       if (e.error.code == FailureCode.Canceled) {
         setState(() => _processing = false);
         return;
       }
+      if (Platform.isIOS) {
+        await _handleApplePayFailure(e);
+        return;
+      }
       Navigator.of(context)
           .pop(CardSheetResult(CardSheetStatus.failed, stripeError: e));
     } catch (e) {
+      AppDebugLogger.instance.payment('${wallet}_exception',
+          data: {'error': e.toString()});
       if (!mounted) return;
       Navigator.of(context)
           .pop(CardSheetResult(CardSheetStatus.failed, otherError: e));
