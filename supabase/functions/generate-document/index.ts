@@ -267,19 +267,32 @@ serve(async (req) => {
     // Load branch info
     let branchName = ''
     let branchAddress = ''
-    if (booking.pickup_address) {
-      branchAddress = booking.pickup_address
-    } else {
-      try {
-        const { data: motoWithBranch } = await supabase.from('motorcycles')
-          .select('branch_id, branches(name, address, city)').eq('id', booking.moto_id).single()
-        if (motoWithBranch?.branches) {
-          const br = motoWithBranch.branches as any
+    // Samoobslužná pobočka (branches.type) — výdej i vrácení 24/7 kódem, čas se
+    // v rezervaci nevyplňuje; načítá se VŽDY (i u přistavení, kdy se adresa
+    // pobočky nepoužije), protože řídí časy ve smlouvě níže.
+    let branchSelfService = false
+    try {
+      const { data: motoWithBranch } = await supabase.from('motorcycles')
+        .select('branch_id, branches(name, address, city, type)').eq('id', booking.moto_id).single()
+      if (motoWithBranch?.branches) {
+        const br = motoWithBranch.branches as any
+        branchSelfService = br.type === 'samoobslužná'
+        if (!booking.pickup_address) {
           branchName = br.name || ''
           branchAddress = [br.address, br.city].filter(Boolean).join(', ')
         }
-      } catch { /* ignore */ }
+      }
+    } catch { /* ignore */ }
+    if (booking.pickup_address) {
+      branchAddress = booking.pickup_address
     }
+    // Časy ve smlouvě: na samoobsluze je převzetí/vrácení NA POBOČCE bez času →
+    // 00:01 / 23:59 (pravidlo 2026-09-23; pokrývá i starší rezervace s uloženým
+    // časem). Přistavení / odvoz na adresu zákazníka čas ponechávají.
+    const contractStartTime = branchSelfService && booking.pickup_method !== 'delivery'
+      ? '00:01' : (booking.pickup_time || '10:00')
+    const contractEndTime = branchSelfService && booking.return_method !== 'delivery'
+      ? '23:59' : (booking.return_time || '24:00')
 
     const moto = booking.motorcycles || {} as any
     const accessories = buildAccessoriesBlock(booking, moto)
@@ -322,7 +335,7 @@ serve(async (req) => {
       // Booking
       start_date: fmtDate(booking.start_date),
       end_date: fmtDate(booking.end_date),
-      pickup_time: booking.pickup_time || '',
+      pickup_time: branchSelfService && booking.pickup_method !== 'delivery' ? '00:01' : (booking.pickup_time || ''),
       days: String(days),
       total_price: fmtPrice(booking.total_price || 0),
       daily_rate: fmtPrice(days > 0 ? Math.round(baseRental / days) : 0),
@@ -357,9 +370,10 @@ serve(async (req) => {
       company_bank: 'mBank',
       company_account: '670100-2225851630/6210',
       // Time & period — start_time = pickup_time, end_time = return_time
-      // (return_time je NULL pokud zákazník vrací v půjčovně → smlouva platí do konce dne 24:00)
-      start_time: booking.pickup_time || '10:00',
-      end_time: booking.return_time || '24:00',
+      // (return_time je NULL pokud zákazník vrací v půjčovně → smlouva platí do konce dne 24:00;
+      // samoobslužná pobočka → 00:01 / 23:59, viz contractStartTime/contractEndTime)
+      start_time: contractStartTime,
+      end_time: contractEndTime,
       rental_period: days === 1 ? '1 den' : days < 5 ? `${days} dny` : `${days} dní`,
       // Price in words
       total_price_words: numberToWordsCZ(booking.total_price || 0),
