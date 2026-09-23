@@ -25,6 +25,7 @@ import 'widgets/reservation_edit_extras_section.dart';
 import 'widgets/reservation_edit_calendar_section.dart';
 import 'widgets/reservation_swap_section.dart';
 import '../../core/currency.dart';
+import '../../core/booking_rules.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
 /// Calendar supports both extend and shorten in one view.
@@ -239,6 +240,16 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     } catch (e) {
       debugPrint('[Edit] extras replace failed: $e');
     }
+  }
+
+  /// Typ pobočky motorky, se kterou se rezervace uloží (i po výměně motorky).
+  String? get _effBranchType {
+    if (_newMotoId != null && _newMotoId != _booking!.motoId) {
+      final motos = ref.read(motorcyclesProvider).valueOrNull ?? [];
+      final m = motos.where((mm) => mm.id == _newMotoId).firstOrNull;
+      if (m != null) return m.branchType;
+    }
+    return _booking!.branchType;
   }
 
   EditPriceCalc get _calc {
@@ -838,6 +849,30 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator(color: MotoGoColors.green)));
     }
     final calc = _calc;
+    // Samoobslužná pobočka: čas vyzvednutí / návratu NA pobočce se nevolí —
+    // výběr se jen SKRYJE, uložená hodnota se NEPŘEPISUJE (starší rezervace
+    // mohla mít slevu za pozdní vyzvednutí; přepis na 00:01 by ji smazal =
+    // doplatek bez zásahu zákazníka). Nové rezervace mají 00:01/23:59 už
+    // z formuláře a do smlouvy jde u samoobsluhy celý den vždy
+    // (generate-document). Po přepnutí na adresu se konstanta vrací na
+    // výchozí čas, aby nabídka nezačínala na 00:01 / 23:59.
+    final hidePickupTime = selfServiceHidesPickupTime(
+        branchType: _effBranchType, pickupMethod: _pickupMethod);
+    final hideReturnTime = selfServiceHidesReturnTime(
+        branchType: _effBranchType, returnMethod: _returnMethod);
+    final String? pickupFix =
+        !hidePickupTime && _pickupTime == selfServicePickupTime ? '09:00' : null;
+    final String? returnFix =
+        !hideReturnTime && _returnTime == selfServiceReturnTime ? '19:00' : null;
+    if (pickupFix != null || returnFix != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          if (pickupFix != null) _pickupTime = pickupFix;
+          if (returnFix != null) _returnTime = returnFix;
+        });
+      });
+    }
     final bookedAsync = ref.watch(bookedDatesProvider(_booking!.motoId ?? ''));
     final profile = ref.watch(profileProvider);
     // Skupiny ŘP zákazníka. Dřív se četl neexistující sloupec `license_type`
@@ -980,9 +1015,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 onMethodChanged: (m) => setState(() => _pickupMethod = m),
                 onAddressChanged: (_) {},
                 onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f)),
-              const SizedBox(height: 8),
-              EditTimePicker(label: t(context).tr('pickupTimeEdit'), value: _pickupTime,
-                onChanged: (v) => setState(() => _pickupTime = v)),
+              if (!hidePickupTime) ...[
+                const SizedBox(height: 8),
+                EditTimePicker(label: t(context).tr('pickupTimeEdit'), value: _pickupTime,
+                  onChanged: (v) => setState(() => _pickupTime = v)),
+              ],
             ])),
 
           // === VRÁCENÍ MOTORKY ===
@@ -998,9 +1035,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               onMethodChanged: (m) => setState(() => _returnMethod = m),
               onAddressChanged: (_) {},
               onDeliveryFeeChanged: (f) => setState(() => _returnDelivFee = f)),
-            const SizedBox(height: 8),
-            EditTimePicker(label: t(context).tr('returnTimeEdit'), value: _returnTime,
-              onChanged: (v) => setState(() => _returnTime = v)),
+            if (!hideReturnTime) ...[
+              const SizedBox(height: 8),
+              EditTimePicker(label: t(context).tr('returnTimeEdit'), value: _returnTime,
+                onChanged: (v) => setState(() => _returnTime = v)),
+            ],
           ])),
 
           // === ZMĚNA MOTORKY (collapsible, only for upcoming) ===

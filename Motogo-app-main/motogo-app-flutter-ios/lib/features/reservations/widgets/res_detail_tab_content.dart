@@ -21,6 +21,7 @@ import 'res_detail_button.dart';
 import 'res_location_row.dart';
 import 'res_modification_history.dart';
 import '../../../core/currency.dart';
+import '../../../core/booking_rules.dart';
 
 /// Sliver list content for the "Podrobnosti" tab in reservation detail.
 class ResDetailTabContent extends ConsumerWidget {
@@ -142,7 +143,10 @@ class ResDetailTabContent extends ConsumerWidget {
             ResDetailRow(label: t(context).date, value: res.dateRange),
             ResDetailRow(label: t(context).tr('resDuration'), value: '${res.dayCount} ${res.dayCount == 1 ? t(context).tr("day1") : res.dayCount < 5 ? t(context).tr("days24") : t(context).tr("days5")}'),
             ResDetailRow(label: t(context).tr('resDurationTotal'), value: '${res.dayCount} ${t(context).tr("days5")}'),
-            if (res.pickupTime != null) ResDetailRow(label: t(context).pickupTime, value: res.pickupTime!),
+            // Samoobslužná pobočka: čas na pobočce se nevolí (00:01) → neukazovat.
+            if (res.pickupTime != null &&
+                !selfServiceHidesPickupTime(branchType: res.branchType, pickupMethod: res.pickupMethod))
+              ResDetailRow(label: t(context).pickupTime, value: res.pickupTime!),
             // Navigace na pobočku VŽDY přes GPS — textová adresa „Mezná 9" je
             // nejednoznačná (obec Mezná existuje i u Hřenska → mapy navigovaly
             // špatně). Když pobočka nemá GPS v DB, použijí se souřadnice

@@ -13,9 +13,14 @@ class BookingFormReturnSection extends ConsumerWidget {
     super.key,
     required this.draft,
     required this.onUpd,
+    this.branchLabel,
   });
 
   final BookingDraft draft;
+
+  /// Popisek pobočky motorky („Brno Velké Němčice, Velké Němčice“) z DB —
+  /// bez něj zůstává historická adresa hlavní pobočky.
+  final String? branchLabel;
 
   /// Applies a mutation to the current [BookingDraft].
   final void Function(BookingDraft Function(BookingDraft) fn) onUpd;
@@ -30,7 +35,7 @@ class BookingFormReturnSection extends ConsumerWidget {
         children: [
           bookingRadio(
             t(context).tr('atBranch'),
-            'Mezná 9, Pelhřimov',
+            branchLabel ?? 'Mezná 9, Pelhřimov',
             t(context).free,
             draft.returnMethod == 'store',
             () => onUpd((d) => d.copyWith(returnMethod: 'store')),
