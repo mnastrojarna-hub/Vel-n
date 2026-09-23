@@ -459,7 +459,7 @@ function DevicesBlock({ devices, doors, cfg, now, busy, onAdd, onSave, onDelete,
       hint="Každé zařízení má unikátní ID + token — zadejte je na displeji řídicí jednotky (setup obrazovka nebo servisní panel → Přepárovat), u tabletu v appce při párování. Platforma se doplní po prvním ozvání. Online = poslední ozvání < 70 s.">
       <div className="flex items-end gap-2 mb-3 flex-wrap">
         <label className="flex flex-col gap-0.5" style={{ width: 220 }}>
-          <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }} title="Jak se zařízení jmenuje ve Velíně — ať poznáte, která jednotka je která (např. „Pohořelice — řídicí jednotka“). Po přidání dostane ID a token, které zadáte na displeji jednotky.">Název nového zařízení</span>
+          <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }} title="Jak se zařízení jmenuje ve Velíně — ať poznáte, která jednotka je která (např. „Velké Němčice — řídicí jednotka“). Po přidání dostane ID a token, které zadáte na displeji jednotky.">Název nového zařízení</span>
           <input value={name} onChange={e => setName(e.target.value)} placeholder="např. Brno — řídicí jednotka"
             className="rounded-btn text-sm outline-none" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
         </label>
