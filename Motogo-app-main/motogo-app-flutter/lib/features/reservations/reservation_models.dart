@@ -2,6 +2,9 @@ import 'dart:ui' show Color;
 import '../../core/date_days.dart';
 import '../../core/booking_rules.dart';
 
+/// Zaplacená rezervace i po vratce z úpravy (`partial_refund`/`refund_pending`).
+const sosPaidStates = {'paid', 'partial_refund', 'refund_pending'};
+
 /// Reservation status — mirrors _mapStatus() from reservations-ui.js.
 enum ResStatus {
   aktivni,      // Active — current date between start and end
@@ -266,6 +269,13 @@ class Reservation {
     }
     return ResStatus.nadchazejici;
   }
+
+  /// SOS jen při aktivní rezervaci: vyzvednutá (`active`), nebo zaplacená
+  /// a dnes probíhající. Vratka po úpravě zaplacenost neruší.
+  bool get sosAllowed =>
+      !endedBySos &&
+      (status == 'active' ||
+          (displayStatus == ResStatus.aktivni && sosPaidStates.contains(paymentStatus)));
 
   /// True když termín už začal (začátek je před dnešním dnem). Bezplatný posun
   /// termínu jde jen do konce dne začátku — po něm se nevyzvednutá rezervace

@@ -398,12 +398,14 @@ class ResDetailTabContent extends ConsumerWidget {
               label: t(context).edit,
               onTap: () => context.push('/reservations/${res.id}/edit'),
             ),
-            const SizedBox(height: 8),
-            ResDetailButton.sos(
-              emoji: '🆘',
-              label: t(context).sosTitle,
-              onTap: () => context.push(Routes.sos),
-            ),
+            if (res.sosAllowed) ...[
+              const SizedBox(height: 8),
+              ResDetailButton.sos(
+                emoji: '🆘',
+                label: t(context).sosTitle,
+                onTap: () => context.push(Routes.sos),
+              ),
+            ],
             // Předávací protokol: samoobslužná pobočka → zákazník vyplní sám v appce.
             // Obslužná → protokol řeší obsluha ve Velíně (tlačítko se nezobrazuje).
             if (res.branchType == 'samoobslužná') ...[

@@ -105,7 +105,7 @@ class HomeReservationsSection extends StatelessWidget {
         ),
 
         // ===== SOS BUTTON (only when an active reservation exists) =====
-        if (activeReservations.any((r) => r.displayStatus == ResStatus.aktivni))
+        if (activeReservations.any((r) => r.sosAllowed))
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: GestureDetector(
