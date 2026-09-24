@@ -10,6 +10,7 @@ import '../../core/supabase_client.dart';
 import '../auth/auth_provider.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../booking/booking_models.dart';
+import '../booking/booking_validator.dart';
 import '../booking/widgets/address_picker.dart';
 import '../catalog/moto_model.dart';
 import '../catalog/catalog_provider.dart';
@@ -324,6 +325,25 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     return s.length >= 5 ? s.substring(0, 5) : s;
   }
 
+  /// Přistavení na adresu = vyzvednutí min. +6 h od teď (parita s rezervačním
+  /// formulářem, [BookingValidator.checkPickupLeadTime]). Hlídá se jen, když
+  /// úprava mění začátek, čas vyzvednutí nebo přepíná na přistavení — dřív
+  /// rezervovaný termín tak jiná úprava (prodloužení konce…) nezablokuje.
+  String? _deliveryLeadError(
+      {required DateTime start, required String? time, required String method}) {
+    final b = _booking!;
+    final methodChanged = (method == 'delivery') != (b.pickupMethod == 'delivery');
+    final delivery = method == 'delivery' ||
+        (!methodChanged && (b.pickupAddress ?? '').trim().isNotEmpty);
+    if (_isActive || !delivery) return null;
+    final changed = !_sameDay(start, b.startDate) || methodChanged ||
+        _hm(time ?? '09:00') != _hm(b.pickupTime ?? '09:00');
+    if (!changed) return null;
+    return BookingValidator.checkPickupLeadTime(
+        startDate: start, pickupTime: _hm(time ?? '09:00'), isDelivery: true,
+        lang: ref.read(localeProvider).languageCode);
+  }
+
   /// Před placenou úpravou ověří, že rezervace v DB je stále ta, proti které
   /// byl doplatek naceněn (termín, čas vyzvednutí, motorka, cena, late sleva).
   /// Změnila-li se mezitím (web / jiné zařízení), načte nový stav a úpravu
@@ -466,6 +486,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   /// fires the booking_modified trigger (mail + updated contract).
   Future<void> _saveMove() async {
     if (_booking == null || _newStart == null || _newEnd == null || !_moveChanged) return;
+    final leadErr = _deliveryLeadError(start: _newStart!,
+        time: _booking!.pickupTime, method: _booking!.pickupMethod);
+    if (leadErr != null) {
+      showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: leadErr);
+      return;
+    }
     setState(() => _saving = true);
     try {
       final res = await MotoGoSupabase.client.rpc('reschedule_booking_free', params: {
@@ -521,6 +547,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: t(context).tr('cannotChangePickupActive'));
         return;
       }
+    }
+    final leadErr = _deliveryLeadError(
+        start: _newStart!, time: _pickupTime, method: _pickupMethod);
+    if (leadErr != null) {
+      showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: leadErr);
+      return;
     }
     final missingSizes = _missingGearSizes();
     if (missingSizes.isNotEmpty) {
