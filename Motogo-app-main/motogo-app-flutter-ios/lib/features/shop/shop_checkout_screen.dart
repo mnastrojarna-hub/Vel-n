@@ -280,7 +280,14 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       if (!mounted) return;
       switch (sheetResult.status) {
         case CardSheetStatus.paid:
-          await confirmShopPayment(orderId, 'card');
+          // Stripe platbu potvrdil; objednávku označí jako zaplacenou webhook
+          // (service role) — klient ji sám potvrdit nesmí (confirm_shop_payment
+          // je od 2026-09-24 jen pro server/admina). Krátce počkej na webhook,
+          // ať děkovací stránka ukáže „potvrzeno"; když nestihne, ukáže
+          // „platba zpracována" a potvrzení dorazí e-mailem.
+          await StripeService.pollOrderPaymentStatus(orderId,
+              maxAttempts: 8, interval: const Duration(seconds: 1));
+          if (!mounted) break;
           _onSuccess(orderId);
           break;
         case CardSheetStatus.processing:

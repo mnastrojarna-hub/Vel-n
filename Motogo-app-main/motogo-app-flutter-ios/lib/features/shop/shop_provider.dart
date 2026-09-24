@@ -126,19 +126,9 @@ Future<String?> createShopOrder({
   }
 }
 
-/// Confirm shop payment after successful Stripe transaction.
-/// Mirrors confirm_shop_payment() from cart-checkout.js.
-Future<bool> confirmShopPayment(String orderId, String method) async {
-  try {
-    await MotoGoSupabase.client.rpc('confirm_shop_payment', params: {
-      'p_order_id': orderId,
-      'p_method': method,
-    });
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
+// Pozn.: klientské potvrzení platby (confirmShopPayment → rpc
+// confirm_shop_payment) odstraněno 2026-09-24 — zaplacenou objednávku označuje
+// VÝHRADNĚ webhook (service role); viz shop_checkout_screen.dart.
 
 /// Mark applied voucher codes as redeemed after successful payment.
 /// Mirrors voucher status update from cart-checkout.js.
