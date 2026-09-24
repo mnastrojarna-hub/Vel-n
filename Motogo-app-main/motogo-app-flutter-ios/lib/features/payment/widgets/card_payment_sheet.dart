@@ -48,6 +48,7 @@ class CardPaymentSheet {
     required double amount,
     bool allowGooglePay = true,
   }) async {
+    final guard = _WalletGuard();
     final result = await showModalBottomSheet<CardSheetResult>(
       context: context,
       isScrollControlled: true,
@@ -64,22 +65,36 @@ class CardPaymentSheet {
           // Parametr se historicky jmenuje allowGooglePay (volá ho payment_screen),
           // na iOS ovládá Apple Pay — význam je „povolit platformní peněženku".
           allowPlatformPay: allowGooglePay,
+          guard: guard,
         ),
       ),
     );
+    // Zákazník zavřel sheet, zatímco výsledek Apple Pay ještě nebyl ověřený
+    // (platba mohla projít) → NE „zrušeno" (volající by nabídl novou platbu =
+    // riziko dvojí platby), ale čekat na serverové potvrzení.
+    if (result == null && guard.uncertain) {
+      return const CardSheetResult(CardSheetStatus.processing);
+    }
     return result ?? const CardSheetResult(CardSheetStatus.cancelled);
   }
+}
+
+/// Běží potvrzení Apple Pay, jehož výsledek ještě není ověřený.
+class _WalletGuard {
+  bool uncertain = false;
 }
 
 class _CardSheetBody extends StatefulWidget {
   final String clientSecret;
   final double amount;
   final bool allowPlatformPay;
+  final _WalletGuard guard;
 
   const _CardSheetBody({
     required this.clientSecret,
     required this.amount,
     required this.allowPlatformPay,
+    required this.guard,
   });
 
   @override
@@ -178,6 +193,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
         Navigator.of(context)
             .pop(const CardSheetResult(CardSheetStatus.processing));
       case ApplePayFailureAction.stay:
+        widget.guard.uncertain = false; // ověřeno: peníze neodešly
         setState(() => _processing = false);
         final info = o.info!;
         await showDialog<void>(
@@ -289,6 +305,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
               ),
             );
 
+      widget.guard.uncertain = true;
       final intent = await Stripe.instance.confirmPlatformPayPaymentIntent(
         clientSecret: widget.clientSecret,
         confirmParams: confirmParams,
@@ -308,6 +325,8 @@ class _CardSheetBodyState extends State<_CardSheetBody>
           extra: {'pi': pi, 'ms': sw.elapsedMilliseconds});
       if (!mounted) return;
       if (e.error.code == FailureCode.Canceled) {
+        // Zrušeno před odesláním (STPApplePayContext po odeslání zrušit nejde).
+        widget.guard.uncertain = false;
         setState(() => _processing = false);
         return;
       }

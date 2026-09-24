@@ -75,39 +75,47 @@ Future<ApplePayFailureOutcome> resolveApplePayFailure(
   final notPresented = err.code == FailureCode.Failed &&
       (err.stripeErrorCode ?? '').isEmpty &&
       err.message == 'Payment not completed';
-  final pi = await _retrieveWithRetry(clientSecret);
+  if (notPresented) {
+    // Nic se neodeslalo → ověřovat PI netřeba (jen by zdrželo zákazníka).
+    return ApplePayFailureOutcome(ApplePayFailureAction.stay,
+        info: PaymentErrorMapper.wallet(lang));
+  }
+  final sw = Stopwatch()..start();
+  final (pi, attempts) = await _retrieveWithRetry(clientSecret);
   final s = pi?.status;
-  AppDebugLogger.instance
-      .payment('apple_pay_pi_check', data: {'piStatus': s?.name});
+  AppDebugLogger.instance.payment('apple_pay_pi_check', data: {
+    'piStatus': s?.name,
+    'pi': paymentIntentId(clientSecret),
+    'attempts': attempts,
+    'ms': sw.elapsedMilliseconds,
+  });
   if (s == PaymentIntentsStatus.Succeeded ||
       s == PaymentIntentsStatus.RequiresCapture) {
     return const ApplePayFailureOutcome(ApplePayFailureAction.paid);
   }
-  if (s == PaymentIntentsStatus.Processing || (pi == null && !notPresented)) {
+  if (s == PaymentIntentsStatus.Processing || pi == null) {
     return const ApplePayFailureOutcome(ApplePayFailureAction.processing);
   }
-  // Stav ověřen jako nezaplacený (nebo sheet se neotevřel): Stripe/Apple
-  // platbu nezpracoval — „zkontrolujte kartu" by zákazníka jen mátlo.
-  return ApplePayFailureOutcome(
-    ApplePayFailureAction.stay,
-    info: notPresented
-        ? PaymentErrorMapper.wallet(lang)
-        : PaymentErrorMapper.walletFailed(lang, rawCode: _supportCode(err)),
-  );
+  // Stav ověřen jako nezaplacený: Stripe/Apple platbu nezpracoval —
+  // „zkontrolujte kartu" by zákazníka jen mátlo.
+  return ApplePayFailureOutcome(ApplePayFailureAction.stay,
+      info: PaymentErrorMapper.walletFailed(lang, rawCode: _supportCode(err)));
 }
 
 /// Stav PI až 3× (s timeoutem — bez sítě by jeden pokus visel až 60 s).
-Future<PaymentIntent?> _retrieveWithRetry(String clientSecret) async {
+/// Vrací (PI nebo null, počet pokusů).
+Future<(PaymentIntent?, int)> _retrieveWithRetry(String clientSecret) async {
   for (var i = 0; i < 3; i++) {
     try {
-      return await Stripe.instance
+      final pi = await Stripe.instance
           .retrievePaymentIntent(clientSecret)
           .timeout(const Duration(seconds: 8));
+      return (pi, i + 1);
     } catch (_) {
       if (i < 2) await Future.delayed(Duration(milliseconds: 700 * (i + 1)));
     }
   }
-  return null;
+  return (null, 3);
 }
 
 /// Krátký kód pro podporu (celý text chyby jde jen do app_debug_logs).
