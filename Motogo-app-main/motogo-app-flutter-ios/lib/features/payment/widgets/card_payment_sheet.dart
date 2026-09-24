@@ -258,8 +258,13 @@ class _CardSheetBodyState extends State<_CardSheetBody>
     // fokus na CardFieldu by se po návratu obnovoval na mrtvém kanálu.
     FocusManager.instance.primaryFocus?.unfocus();
     final wallet = Platform.isIOS ? 'apple_pay' : 'google_pay';
-    AppDebugLogger.instance.payment('${wallet}_start',
-        data: {'supported': _platformPayReady, 'amount': widget.amount});
+    final pi = paymentIntentId(widget.clientSecret);
+    final sw = Stopwatch()..start();
+    AppDebugLogger.instance.payment('${wallet}_start', data: {
+      'supported': _platformPayReady,
+      'amount': widget.amount,
+      'pi': pi,
+    });
     try {
       final confirmParams = Platform.isIOS
           ? PlatformPayConfirmParams.applePay(
@@ -288,14 +293,19 @@ class _CardSheetBodyState extends State<_CardSheetBody>
         clientSecret: widget.clientSecret,
         confirmParams: confirmParams,
       );
-      AppDebugLogger.instance.payment('${wallet}_result',
-          data: {'status': intent.status.name});
+      AppDebugLogger.instance.payment('${wallet}_result', data: {
+        'status': intent.status.name,
+        'pi': pi,
+        'ms': sw.elapsedMilliseconds,
+      });
       if (!mounted) return;
       Navigator.of(context).pop(
         _resultFor(intent.status, 'platform pay'),
       );
     } on StripeException catch (e) {
-      logWalletError(wallet, e, supported: _platformPayReady);
+      logWalletError(wallet, e,
+          supported: _platformPayReady,
+          extra: {'pi': pi, 'ms': sw.elapsedMilliseconds});
       if (!mounted) return;
       if (e.error.code == FailureCode.Canceled) {
         setState(() => _processing = false);
@@ -309,7 +319,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
           .pop(CardSheetResult(CardSheetStatus.failed, stripeError: e));
     } catch (e) {
       AppDebugLogger.instance.payment('${wallet}_exception',
-          data: {'error': e.toString()});
+          data: {'error': e.toString(), 'pi': pi});
       if (!mounted) return;
       Navigator.of(context)
           .pop(CardSheetResult(CardSheetStatus.failed, otherError: e));

@@ -68,10 +68,15 @@ Bez tohoto kroku Apple Pay platby selžou (karta v sheetu funguje i bez něj).
 >   `card.wallet.type = apple_pay` a stavem succeeded → refund.
 > - Diagnostika: od 4.0.7 appka zapisuje každý pokus o Apple Pay do
 >   `app_debug_logs` (category `payment`, akce `apple_pay_start` / `_result` /
->   `_error` / `_pi_check`). Ve Stripe → Developers → Logs: neúspěšný
->   `POST /v1/tokens` („You haven't added your Apple merchant account to Stripe")
->   = certifikát. Chybí-li certifikát úplně, Apple sheet po Face ID ukáže
->   „Platba nebyla dokončena" a do Stripe nedorazí nic.
+>   `_error` / `_pi_check`; `data.pi` = ID PaymentIntentu pro dohledání ve
+>   Stripe, `data.ms` = doba od tapnutí). Ve Stripe → Developers → Logs:
+>   neúspěšný `POST /v1/tokens` („You haven't added your Apple merchant account
+>   to Stripe") = certifikát z cizího CSR/účtu (zákazník vidí „Platba přes Apple
+>   Pay neprošla … AP-…"). Chybí-li certifikát ÚPLNĚ, Apple sheet po Face ID
+>   ukáže „Platba nebyla dokončena", appka mlčí (plugin vrací Canceled jako při
+>   zrušení zákazníkem) a do Stripe nedorazí nic → v logu řada
+>   `apple_pay_error` s `code=Canceled` bez `apple_pay_result` a PI zůstává
+>   `requires_payment_method` = zkontroluj certifikát, ne zákazníky.
 > - Platnost certifikátu je 25 měsíců — sem zapiš datum vytvoření a expirace.
 
 ### 3. Firebase console (projekt `motogo24-518b4`)
