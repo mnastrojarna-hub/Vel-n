@@ -1016,7 +1016,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       let discount = 0
       let promoApplied: { type: string; value: number; kind?: string } | null = null
       if (promo_code) {
-        const { data: pr } = await sb.rpc('validate_promo_code', { code: promo_code })
+        const { data: pr } = await sb.rpc('validate_promo_code', { p_code: promo_code })
         if (pr && (pr as Record<string, unknown>).valid) {
           const p = pr as Record<string, unknown>
           const v = Number(p.value)
@@ -1357,7 +1357,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
     case 'validate_promo_or_voucher': {
       const code = String(args.code || '').trim()
       if (!code) return { valid: false, error: 'Prázdný kód' }
-      const { data: promo } = await sb.rpc('validate_promo_code', { code })
+      const { data: promo } = await sb.rpc('validate_promo_code', { p_code: code })
       if (promo && (promo as Record<string, unknown>).valid) {
         return { valid: true, kind: 'promo', ...(promo as Record<string, unknown>) }
       }

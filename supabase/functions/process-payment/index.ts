@@ -156,14 +156,37 @@ Deno.serve(async (req: Request) => {
         }
         const session = await stripe.checkout.sessions.retrieve(sid)
         const md = (session.metadata || {}) as Record<string, string>
-        if (!orderId) orderId = md.order_id || (session.client_reference_id as string | null) || null
+        // BEZPEČNOST 2026-09-24: objednávku určuje VÝHRADNĚ zaplacená session
+        // (metadata.order_id / client_reference_id), ne order_id z požadavku —
+        // jinak by šla jednou zaplacenou session potvrdit libovolná jiná
+        // objednávka. order_id z požadavku smí jen souhlasit.
+        const sessionOrderId = md.order_id || (session.client_reference_id as string | null) || null
+        if (sessionOrderId) {
+          if (orderId && orderId !== sessionOrderId) {
+            return new Response(JSON.stringify({ success: false, error: 'order_mismatch' }),
+              { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+          }
+          orderId = sessionOrderId
+        } else if (orderId && sessionId) {
+          // Session bez vazby na objednávku → přijmi jen, když ji má u sebe
+          // uloženou sama objednávka (web ji zapisuje při vytvoření session).
+          const { data: ord } = await supabaseAdmin.from('shop_orders')
+            .select('stripe_session_id').eq('id', orderId).maybeSingle()
+          if ((ord?.stripe_session_id as string | null) !== sid) {
+            return new Response(JSON.stringify({ success: false, error: 'order_mismatch' }),
+              { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+          }
+        }
         if (!orderId) {
           return new Response(JSON.stringify({ success: false, error: 'No order_id in session' }),
             { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
         }
         // Dokud Stripe platbu nepotvrdil, vrátíme pending — klient pollne znovu
-        // (webhook může dorazit mezitím). Potvrzujeme jen reálně zaplacenou session.
-        if (session.payment_status !== 'paid' && session.status !== 'complete') {
+        // (webhook může dorazit mezitím). Potvrzujeme JEN reálně zaplacenou
+        // session (dřív stačilo status 'complete', které nastane i bez platby).
+        const freeSession = session.payment_status === 'no_payment_required' &&
+          (session.amount_total ?? 0) === 0  // web objednávka celá pokrytá slevou
+        if (session.payment_status !== 'paid' && !freeSession) {
           return new Response(JSON.stringify({ success: false, payment_status: session.payment_status, status: session.status }),
             { headers: { ...CORS, 'Content-Type': 'application/json' } })
         }
