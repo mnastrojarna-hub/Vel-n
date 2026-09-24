@@ -76,6 +76,11 @@
   ER._submitMove = async function (newStart, newEnd) {
     if (ER.busy) return;
     var b = ER.selectedBooking;
+    // Přistavení na adresu: posunutý začátek min. +6 h od teď (parita s rezervací).
+    if (ER._deliveryLeadOk && newStart !== ER._normIso(b.start_date) && !ER._deliveryLeadOk(b, newStart)) {
+      ER._showError(MG.t('rez.alert.minTimeDelivery'));
+      return;
+    }
     var cta = document.getElementById('edit-rez-move-cta');
     var orig = cta ? cta.textContent : '';
     if (cta) { cta.disabled = true; cta.textContent = MG.t('editRez.move.confirming'); }
