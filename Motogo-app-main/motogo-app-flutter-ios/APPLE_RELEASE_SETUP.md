@@ -52,32 +52,39 @@ Settings → Payments → **Apple Pay** → *iOS certificates* → Add new appli
 3. vzniklý `.cer` nahraj zpět do Stripe.
 Bez tohoto kroku Apple Pay platby selžou (karta v sheetu funguje i bez něj).
 
-> ⚠️ **Ověřit po incidentu 2026-09-23** (zákazník: „nejde platit přes Apple Pay"):
-> v repu ani v logu NENÍ záznam, že tento krok pro NOVÉ merchant ID
-> `merchant.cz.motogo24.rental` (od 28. 8. 2026) proběhl, ani že by v appce
-> někdy prošla ostrá platba Apple Pay. Stripe: „If you switch your Apple
-> Merchant ID, you must … obtain a new CSR and certificate." Web (Stripe
-> Checkout) certifikát NEpotřebuje — že Apple Pay funguje na webu, nic nedokazuje.
-> - Kontrola: https://dashboard.stripe.com/settings/ios_certificates — musí tam být
->   AKTIVNÍ certifikát pro `merchant.cz.motogo24.rental` (v účtu s klíčem `pk_live_51TBLT…`).
-> - V Apple portálu u merchant ID smí být aktivní jen Payment Processing
->   certifikát ze Stripe CSR (ne „Merchant Identity"); ostatní revokovat.
-> - Nový build není potřeba (Apple přepne klíč cca do 5 min po aktivaci).
-> - Test: iPhone s kartou ve Walletu, účet BEZ uložené karty (nebo „Zaplatit jinou
->   kartou"), malá platba v e-shopu → ve Stripe PaymentIntent s
->   `card.wallet.type = apple_pay` a stavem succeeded → refund.
-> - Diagnostika: od 4.0.7 appka zapisuje každý pokus o Apple Pay do
->   `app_debug_logs` (category `payment`, akce `apple_pay_start` / `_result` /
->   `_error` / `_pi_check`; `data.pi` = ID PaymentIntentu pro dohledání ve
->   Stripe, `data.ms` = doba od tapnutí). Ve Stripe → Developers → Logs:
->   neúspěšný `POST /v1/tokens` („You haven't added your Apple merchant account
->   to Stripe") = certifikát z cizího CSR/účtu (zákazník vidí „Platba přes Apple
->   Pay neprošla … AP-…"). Chybí-li certifikát ÚPLNĚ, Apple sheet po Face ID
->   ukáže „Platba nebyla dokončena", appka mlčí (plugin vrací Canceled jako při
->   zrušení zákazníkem) a do Stripe nedorazí nic → v logu řada
->   `apple_pay_error` s `code=Canceled` bez `apple_pay_result` a PI zůstává
->   `requires_payment_method` = zkontroluj certifikát, ne zákazníky.
-> - Platnost certifikátu je 25 měsíců — sem zapiš datum vytvoření a expirace.
+> ✅ **Stav: certifikát AKTIVNÍ od 2026-09-24, platí do 2028-10-23** (Stripe LIVE
+> účet s `pk_live_51TBLT…` → iOS certificates; Apple tým YP7TF3APAV → merchant ID →
+> Payment Processing Certificate). Do té doby chyběl (incident 2026-09-23 „nejde
+> platit přes Apple Pay“ — web Stripe Checkout certifikát nepotřebuje, proto šel).
+> - **Obnova ~září 2028** (platnost 25 měsíců; po vypršení Apple Pay v appce opět
+>   selže): stejné 3 kroky výše (nový CSR ze Stripe → certifikát u merchant ID →
+>   `.cer` do Stripe), pak starý certifikát revokovat. Nový build netřeba (Apple
+>   přepne do ~5 min). Aktivní smí být jen Payment Processing certifikát ze Stripe
+>   CSR (ne „Merchant Identity“). Nové datum zapiš sem.
+> - **Test:** iPhone s Visa/MC ve Walletu iPhonu (ne jen v hodinkách; po přidání
+>   karty appku úplně restartovat). E-shop → 1 fyzický produkt ≥ 15 Kč, doprava
+>   **Osobní odběr** (výchozí je pošta +99), bez kódu a bez poukazu; „Potvrdit &
+>   Zaplatit“ ťuknout JEN JEDNOU (každé ťuknutí založí objednávku a odečte sklad).
+>   Rezervace netestuj — s uloženou kartou se strhne bez sheetu a Apple Pay se neukáže.
+> - **Výsledek:** (a) sheet „MotoGo24 X Kč“ → Face ID → zaplaceno, ve Stripe PI
+>   succeeded s `card.wallet.type = apple_pay` = OK. (b) hláška IHNED po ťuknutí,
+>   bez sheetu a Face ID = předkontrola appky ≤ 4.0.6, NE certifikát (4.0.7 ji nemá).
+>   (c) po Face ID „Platba nebyla dokončena“, appka mlčí, ve Stripe nic = certifikát
+>   (ještě) neplatí / jiné merchant ID. (d) „Platba přes Apple Pay neprošla … AP-…“
+>   (4.0.7) nebo zamítnutí: Stripe → Developers → Logs — neúspěšný `POST /v1/tokens`
+>   = certifikát z cizího CSR/účtu; `decline_code` = banka. (e) sheet se neotevře,
+>   točí se kolečko = PassKit sheet nezobrazil (příprava sheetu, ne certifikát).
+> - **Diagnostika (od 4.0.7):** `app_debug_logs` (category `payment`, akce
+>   `apple_pay_start` / `_result` / `_error` / `_pi_check`; `data.pi` = PaymentIntent,
+>   `data.ms`, `data.supported`) — čti přes Velín → AI Copilot (query_table) nebo SQL
+>   editor. Logy se odesílají dávkou po ~10 s / při přechodu appky na pozadí.
+>   Chybějící certifikát = `apple_pay_error code=Canceled` bez `apple_pay_result`,
+>   PI zůstává `requires_payment_method`.
+> - **Refund testovací platby:** refund ve Stripe e-shop objednávku NEUKLIDÍ (webhook
+>   `charge.refunded` páruje jen rezervace; zapíše nespárovaný záporný financial_event).
+>   Ručně: Velín → E-shop → Objednávky → „Zrušit“ (ne Odesláno/Doručeno — vystaví FV),
+>   E-shop → Produkty → vrátit sklad, DP řeší účetní (storno DP; firma není plátce DPH),
+>   `payment_status` → `refunded` jen SQL editorem. Zkontrolovat Finanční události.
 
 ### 3. Firebase console (projekt `motogo24-518b4`)
 1. Project settings → **Add app → iOS**, bundle ID **`com.motogo24.rental`**
