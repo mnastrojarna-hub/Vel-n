@@ -3,6 +3,20 @@ import { debugAction } from '../../lib/debugLog'
 import { STATUS_COLORS } from './SOSDetailConstants'
 import { TYPE_LABELS } from '../SOSPanel'
 
+// Ukončit lze jen probíhající rezervaci a jen po výslovném potvrzení operátora;
+// nadcházející (reserved) rezervace se vyřešením SOS nikdy neukončuje.
+export async function askEndBookingOnResolve(bookingId, incidentId) {
+  const { data: bk } = await supabase.from('bookings').select('id, status').eq('id', bookingId).maybeSingle()
+  if (bk?.status !== 'active') return
+  const ref = `#${bk.id.slice(-8).toUpperCase()}`
+  if (!window.confirm(`Incident je vyřešen. Ukončit i rezervaci ${ref}?\n\nOK = ukončit rezervaci (SOS)\nZrušit = rezervace pokračuje`)) return
+  await supabase.from('bookings').update({
+    status: 'completed',
+    ended_by_sos: true,
+    sos_incident_id: incidentId,
+  }).eq('id', bk.id)
+}
+
 export async function handleUpdateIncidentStatus(incident, newStatus, onRefresh) {
     if (newStatus === 'resolved') {
       const pendingRepl = ['selecting', 'pending_payment', 'admin_review', 'approved', 'dispatched']
@@ -59,14 +73,9 @@ export async function handleUpdateIncidentStatus(incident, newStatus, onRefresh)
         }).eq('id', replBookingId)
       }
 
-      // 4. If no replacement but incident has a booking, complete it with SOS flag
-      //    ONLY if customer is NOT continuing to ride (e.g. end_ride, immobile motorcycle)
-      if (!replBookingId && incident?.booking_id && incident?.customer_decision !== 'continue') {
-        await supabase.from('bookings').update({
-          status: 'completed',
-          ended_by_sos: true,
-          sos_incident_id: incident.id,
-        }).eq('id', incident.booking_id)
+      // 4. Vyřešení uzavírá JEN incident — o ukončení rezervace rozhoduje operátor
+      if (!replBookingId && incident?.booking_id) {
+        await askEndBookingOnResolve(incident.booking_id, incident.id)
       }
 
       // 5. Send confirmation message to customer

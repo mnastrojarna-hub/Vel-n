@@ -4,6 +4,14 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
+import '../reservations/reservation_models.dart';
+import '../reservations/reservation_provider.dart';
+
+/// SOS je v appce vidět JEN při aktivní rezervaci (`Reservation.sosAllowed`).
+final hasActiveRentalProvider = Provider<bool>((ref) {
+  final list = ref.watch(reservationsProvider).valueOrNull ?? const <Reservation>[];
+  return list.any((r) => r.sosAllowed);
+});
 
 /// SOS incident types — matches CHECK constraint on sos_incidents.type.
 class SosType {
@@ -254,13 +262,31 @@ Future<String> createSosIncident({
   return res['id'] as String;
 }
 
+/// Jen právě probíhající pronájem (stejně jako `Reservation.sosAllowed`) —
+/// nikdy nadcházející rezervace.
 Future<String?> _findActiveBookingId(String userId) async {
   final res = await MotoGoSupabase.client.from('bookings')
-      .select('id').eq('user_id', userId)
+      .select('id, status, payment_status, start_date, end_date, ended_by_sos')
+      .eq('user_id', userId)
       .inFilter('status', ['active', 'reserved'])
-      .eq('payment_status', 'paid')
-      .order('created_at', ascending: false).limit(1).maybeSingle();
-  return res?['id'] as String?;
+      .order('created_at', ascending: false);
+  final rows = (res as List).cast<Map<String, dynamic>>()
+      .where((b) => b['ended_by_sos'] != true).toList();
+  final picked = rows.where((b) => b['status'] == 'active');
+  if (picked.isNotEmpty) return picked.first['id'] as String?;
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  for (final b in rows) {
+    if (!sosPaidStates.contains(b['payment_status'])) continue;
+    final s = DateTime.tryParse(b['start_date']?.toString() ?? '');
+    final e = DateTime.tryParse(b['end_date']?.toString() ?? '');
+    if (s == null || e == null) continue;
+    if (!today.isBefore(DateTime(s.year, s.month, s.day)) &&
+        !today.isAfter(DateTime(e.year, e.month, e.day))) {
+      return b['id'] as String?;
+    }
+  }
+  return null;
 }
 
 Future<String?> _findMotoId(String bookingId) async {

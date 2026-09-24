@@ -157,7 +157,8 @@ class ReservationCard extends StatelessWidget {
         return [
           _ActionBtn(label: '📋 ${t(context).detail}', onTap: onTap, primary: true),
           if (onEdit != null) _ActionBtn(label: '✏️ ${t(context).edit}', onTap: onEdit!, primary: true),
-          _ActionBtn(label: '🆘 ${t(context).tr('breakdownBtn')}', onTap: () => context.push(Routes.sos), danger: true),
+          if (reservation.sosAllowed)
+            _ActionBtn(label: '🆘 ${t(context).tr('breakdownBtn')}', onTap: () => context.push(Routes.sos), danger: true),
         ];
       case ResStatus.nadchazejici:
         return [

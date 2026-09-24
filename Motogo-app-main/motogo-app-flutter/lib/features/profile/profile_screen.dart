@@ -21,6 +21,7 @@ import '../catalog/catalog_provider.dart';
 import '../loyalty/loyalty_rank_card.dart';
 import '../loyalty/loyalty_provider.dart';
 import '../payment/payment_methods_screen.dart';
+import '../sos/sos_provider.dart' show hasActiveRentalProvider;
 import 'widgets/profile_field.dart';
 import 'widgets/profile_section_title.dart';
 import 'widgets/profile_menu_item.dart';
@@ -253,7 +254,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
               const SizedBox(height: 12),
               ProfileSectionTitle(title: t(context).tr('helpAndSupport')),
-              ProfileMenuItem(icon: '🆘', label: t(context).sosTitle, onTap: () => context.push(Routes.sos), bgColor: MotoGoColors.redBg),
+              if (ref.watch(hasActiveRentalProvider))
+                ProfileMenuItem(icon: '🆘', label: t(context).sosTitle, onTap: () => context.push(Routes.sos), bgColor: MotoGoColors.redBg),
               ProfileMenuItem(icon: '❓', label: t(context).tr('helpFaq'), onTap: () => launchUrl(Uri.parse(WebLinks.faq(ref.read(localeProvider).languageCode)), mode: LaunchMode.externalApplication)),
               ProfileMenuItem(icon: '📍', label: t(context).tr('branchesLabel'), onTap: () => _showBranches(context)),
 

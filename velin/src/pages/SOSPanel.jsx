@@ -6,6 +6,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import SOSDetailPanel from './sos/SOSDetailPanel'
 import NewIncidentModal from './sos/NewIncidentModal'
+import { askEndBookingOnResolve } from './sos/SOSDetailHandlers'
 import { IncidentCard, SOSMap } from './SOSIncidentCard'
 import { TYPE_LABELS, SEVERITY_MAP, STATUS_COLORS, LIGHT_AUTO_ACK, TYPE_FILTERS, SUB_FILTERS } from './SOSConstants'
 
@@ -183,13 +184,9 @@ export default function SOSPanel() {
           }).eq('id', replBookingId)
         }
 
-        // 4. If no replacement but incident has a booking, complete it with SOS flag
+        // 4. Vyřešení uzavírá JEN incident — o ukončení rezervace rozhoduje operátor
         if (!replBookingId && inc?.booking_id) {
-          await supabase.from('bookings').update({
-            status: 'completed',
-            ended_by_sos: true,
-            sos_incident_id: id,
-          }).eq('id', inc.booking_id)
+          await askEndBookingOnResolve(inc.booking_id, id)
         }
 
         // 5. Send confirmation message to customer
