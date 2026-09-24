@@ -87,9 +87,23 @@ async function listObjects(bucket, prefix = '') {
   return out;
 }
 
+// FIX 2026-09-24 (běh 215, issue #2085): 11 z 45 269 souborů skončilo chybou
+// „terminated“ — spojení spadlo až při čtení TĚLA odpovědi (res.arrayBuffer()),
+// a to už api() neopakuje (retry kryl jen fetch/hlavičky). Opakuje se proto
+// celé stažení včetně těla.
 async function downloadObject(bucket, path, dest) {
-  const res = await api(`/storage/v1/object/${bucket}/${encodeURIComponent(path).replace(/%2F/g, '/')}`);
-  const buf = Buffer.from(await res.arrayBuffer());
+  const url = `/storage/v1/object/${bucket}/${encodeURIComponent(path).replace(/%2F/g, '/')}`;
+  let buf;
+  for (let attempt = 0; ; attempt += 1) {
+    const res = await api(url);
+    try {
+      buf = Buffer.from(await res.arrayBuffer());
+      break;
+    } catch (e) {
+      if (attempt >= RETRIES) throw new Error(`GET ${url} (tělo) -> ${e.message}`);
+      await sleep(Math.min(8000, 500 * 2 ** attempt) + Math.floor(Math.random() * 250));
+    }
+  }
   await mkdir(dirname(dest), { recursive: true });
   await writeFile(dest, buf);
   return buf.length;
@@ -130,6 +144,7 @@ for (const b of buckets) {
     console.log(`[${b.name}] ${done}/${objects.length} souborů, ${(totalBytes / 1024 / 1024).toFixed(0)} MB, ${min} min`);
   }, 60000);
 
+  const retryLater = [];
   try {
     await runPool(objects, async (obj) => {
       try {
@@ -137,14 +152,30 @@ for (const b of buckets) {
         totalFiles += 1;
         totalBytes += size;
       } catch (e) {
-        failed += 1;
-        if (failures.length < 20) failures.push(`${b.name}/${obj}: ${e.message}`);
+        retryLater.push(obj);
       } finally {
         done += 1;
       }
     }, CONCURRENCY);
   } finally {
     clearInterval(beat);
+  }
+
+  // Dohánění: výpadky přicházejí v dávkách (běh 215: 10 souborů během pár
+  // sekund), proto po chvíli ještě jednou s nízkou souběžností.
+  if (retryLater.length > 0) {
+    console.log(`[${b.name}] dohánění ${retryLater.length} neuložených souborů…`);
+    await sleep(5000);
+    await runPool(retryLater, async (obj) => {
+      try {
+        const size = await downloadObject(b.name, obj, join(OUT, b.name, obj));
+        totalFiles += 1;
+        totalBytes += size;
+      } catch (e) {
+        failed += 1;
+        if (failures.length < 20) failures.push(`${b.name}/${obj}: ${e.message}`);
+      }
+    }, Math.min(4, CONCURRENCY));
   }
 
   console.log(`[${b.name}] hotovo: ${done} souborů za ${((Date.now() - t0) / 60000).toFixed(1)} min`);
