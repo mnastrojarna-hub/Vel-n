@@ -251,7 +251,7 @@ async function handleQuote(req: Request): Promise<Response> {
   // Promo
   let discount = 0, promoMessage: string | null = null
   if (body.promo_code) {
-    const { data: promoRes } = await sb.rpc('validate_promo_code', { code: body.promo_code })
+    const { data: promoRes } = await sb.rpc('validate_promo_code', { p_code: body.promo_code })
     if (promoRes && (promoRes as Record<string, unknown>).valid) {
       const p = promoRes as Record<string, unknown>
       if (p.type === 'percent') discount = Math.round(total * Number(p.value) / 100)
@@ -326,7 +326,7 @@ async function handleCreateBooking(req: Request): Promise<Response> {
 async function handleValidatePromo(req: Request): Promise<Response> {
   const { code } = await req.json() as { code?: string }
   if (!code) return jsonResponse({ error: 'Missing code' }, 400)
-  const { data, error } = await sb.rpc('validate_promo_code', { code })
+  const { data, error } = await sb.rpc('validate_promo_code', { p_code: code })
   if (error) return jsonResponse({ error: error.message }, 500)
   return jsonResponse(data || { valid: false })
 }

@@ -12,7 +12,8 @@
 --   3) RLS: shop_orders_customer_update (zákazník mohl přímo přepsat
 --      payment_status/total/…), shop_orders_customer_insert
 --      a shop_order_items_customer_insert (vlastní objednávky/položky mimo
---      RPC), invoices_customer_insert (vlastní „faktury“).
+--      RPC), invoices_customer_insert (vlastní „faktury“),
+--      promo_usage_customer_insert; use_promo_code volatelná anon (mrtvý kód).
 --
 -- LEGITIMNÍ VOLAJÍCÍ (grep repa): confirm_shop_payment — webhook-receiver
 -- a process-payment verify_shop_session (service_role), Velín jako admin;
@@ -236,3 +237,19 @@ DROP POLICY IF EXISTS "shop_orders_customer_update" ON public.shop_orders;
 DROP POLICY IF EXISTS "shop_orders_customer_insert" ON public.shop_orders;
 DROP POLICY IF EXISTS "shop_order_items_customer_insert" ON public.shop_order_items;
 DROP POLICY IF EXISTS "invoices_customer_insert" ON public.invoices;
+-- promo_code_usage zapisuje jen SECURITY DEFINER kód (use_promo_code,
+-- trigger redeem_booking_discounts_on_paid) — přímý zákaznický INSERT netřeba.
+DROP POLICY IF EXISTS "promo_usage_customer_insert" ON public.promo_code_usage;
+
+-- use_promo_code: žádný živý volající (jen mrtvý InvoiceService.usePromoCode),
+-- přitom ji kdokoli s anon klíčem mohl volat a „vypotřebovat“ cizí promo kód.
+REVOKE EXECUTE ON FUNCTION public.use_promo_code(text, uuid, numeric) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.use_promo_code(text, uuid, numeric) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.use_promo_code(text, uuid, numeric) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.use_promo_code(text, uuid, numeric) TO service_role;
+
+-- create_shop_order: volá jen přihlášená appka (tělo anon beztak odmítá).
+REVOKE EXECUTE ON FUNCTION public.create_shop_order(jsonb, text, jsonb, text, text) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.create_shop_order(jsonb, text, jsonb, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.create_shop_order(jsonb, text, jsonb, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_shop_order(jsonb, text, jsonb, text, text) TO service_role;
