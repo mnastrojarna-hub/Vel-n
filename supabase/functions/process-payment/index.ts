@@ -367,6 +367,45 @@ Deno.serve(async (req: Request) => {
       )
     }
 
+    // ── E-shop z appky: částku určuje SERVER (2026-09-24) ─────────────────
+    // Dřív se strhla částka poslaná appkou a k libovolnému order_id — cenu
+    // tak určoval klient. Nově: jen vlastník, jen čekající objednávka a částka
+    // MUSÍ odpovídat shop_orders.total (počítá create_shop_order ze serverových
+    // cen, 20260924b). Jiná částka = odmítnuto (nedoplatek se nesmí stát).
+    // Web (source 'web' + customer_email) sem nechodí — handleWebShopCheckout
+    // výše si cenu bere z DB sám.
+    if (paymentType === 'shop') {
+      const json = (status: number, payload: Record<string, unknown>) => new Response(
+        JSON.stringify({ success: false, ...payload }),
+        { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
+      const who = await authClassify(req)
+      if (who.kind === 'none') {
+        return json(401, { error: 'Přihlášení chybí nebo vypršelo — přihlaste se prosím znovu.', code: 'auth_required' })
+      }
+      const sbShop = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+      const { data: ord } = await sbShop.from('shop_orders')
+        .select('id, customer_id, payment_status, total')
+        .eq('id', order_id!).maybeSingle()
+      if (!ord) return json(404, { error: 'Objednávka nenalezena.', code: 'order_not_found' })
+      const owner = who.kind === 'service' || who.kind === 'admin' ||
+        (who.kind === 'user' && !!who.userId && who.userId === ord.customer_id)
+      if (!owner) return json(403, { error: 'Tuto objednávku nelze zaplatit z tohoto účtu.', code: 'forbidden' })
+      if (ord.payment_status === 'paid') return json(409, { error: 'Objednávka je už zaplacená.', code: 'already_paid' })
+      if (ord.payment_status !== 'pending') return json(409, { error: 'Tuto objednávku už nelze zaplatit.', code: 'wrong_status' })
+      const serverCzk = Math.round(Number(ord.total) || 0)
+      if (serverCzk <= 0) return json(409, { error: 'Objednávka nevyžaduje platbu.', code: 'no_payment_needed' })
+      if (serverCzk < 15) return json(400, { error: 'Minimální částka platby kartou je 15 Kč.', code: 'below_minimum' })
+      if (Math.round(Number(amount)) !== serverCzk) {
+        return json(409, {
+          error: `Cena objednávky se přepočítala na ${serverCzk} Kč. Vraťte se prosím do košíku a objednávku odešlete znovu.`,
+          code: 'amount_mismatch', server_total: serverCzk,
+        })
+      }
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''

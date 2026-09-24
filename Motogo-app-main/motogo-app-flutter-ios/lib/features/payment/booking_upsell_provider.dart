@@ -73,9 +73,10 @@ Future<String?> createBookingUpsellOrder(
   final cartItems = items
       .map((i) => CartItem(id: i.id, name: i.name, price: i.price))
       .toList();
-  return createShopOrder(
+  final order = await createShopOrder(
     items: cartItems,
     shipping: ShipMode.pickup,
     language: language,
   );
+  return order.orderId;
 }

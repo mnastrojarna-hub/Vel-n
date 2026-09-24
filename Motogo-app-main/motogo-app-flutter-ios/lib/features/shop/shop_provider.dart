@@ -71,8 +71,20 @@ final shopAppliedCodesProvider =
 /// Shop discount total in Kč (calculated from applied codes).
 final shopDiscountProvider = StateProvider<double>((_) => 0);
 
+/// Výsledek založení objednávky. Cenu počítá SERVER (create_shop_order v2,
+/// 2026-09-24) — platí se `total` ze serveru, ne součet z košíku.
+class ShopOrderResult {
+  final String? orderId;
+  final double? total;
+  final bool autoConfirmed; // objednávka za 0 Kč — server ji rovnou potvrdil
+  final String? error; // kód chyby ze serveru (voucher_not_allowed, out_of_stock…)
+  final String? code; // kód slevy, ke kterému se chyba vztahuje
+  const ShopOrderResult(
+      {this.orderId, this.total, this.autoConfirmed = false, this.error, this.code});
+}
+
 /// Create shop order via RPC.
-Future<String?> createShopOrder({
+Future<ShopOrderResult> createShopOrder({
   required List<CartItem> items,
   required ShipMode shipping,
   Map<String, String>? address,
@@ -118,36 +130,47 @@ Future<String?> createShopOrder({
           'p_language': language,
         });
       } catch (_) { /* ignore — log only, neni kritické */ }
-      return orderId;
+      return ShopOrderResult(
+        orderId: orderId,
+        total: (res['total'] as num?)?.toDouble(),
+        autoConfirmed: res['auto_confirmed'] == true,
+      );
     }
-    return null;
+    if (res is Map) {
+      return ShopOrderResult(
+          error: res['error']?.toString(), code: res['code']?.toString());
+    }
+    return const ShopOrderResult();
   } catch (e) {
-    return null;
+    return const ShopOrderResult();
   }
+}
+
+/// E-shop: platí JEN promo kódy (rozhodnutí provozovatele 2026-09-24) —
+/// dárkový poukaz ani poukaz ze Slevomatu v e-shopu neplatí, server
+/// (create_shop_order) je odmítne. Záměrně NEvolá slevomat-voucher (ta při
+/// kontrole rovnou zakládá voucher v DB).
+Future<AppliedDiscount?> validateShopPromoCode(String code) async {
+  try {
+    final r = await MotoGoSupabase.client
+        .rpc('validate_promo_code', params: {'p_code': code});
+    if (r is Map && r['valid'] == true) {
+      return AppliedDiscount(
+        code: code,
+        promoId: r['id'] as String?,
+        type: r['type'] == 'percent' ? DiscountType.percent : DiscountType.fixed,
+        value: (r['value'] as num?)?.toDouble() ?? 0,
+      );
+    }
+  } catch (_) {}
+  return null;
 }
 
 // Pozn.: klientské potvrzení platby (confirmShopPayment → rpc
-// confirm_shop_payment) odstraněno 2026-09-24 — zaplacenou objednávku označuje
-// VÝHRADNĚ webhook (service role); viz shop_checkout_screen.dart.
-
-/// Mark applied voucher codes as redeemed after successful payment.
-/// Mirrors voucher status update from cart-checkout.js.
-Future<void> markVouchersRedeemed(List<AppliedDiscount> codes) async {
-  final userId = MotoGoSupabase.currentUser?.id;
-  if (userId == null) return;
-
-  for (final code in codes) {
-    if (code.promoId == null) continue;
-    // Only mark voucher-type (fixed amount with promoId from voucher table)
-    try {
-      await MotoGoSupabase.client.from('vouchers').update({
-        'status': 'redeemed',
-        'redeemed_at': DateTime.now().toUtc().toIso8601String(),
-        'redeemed_by': userId,
-      }).eq('id', code.promoId!);
-    } catch (_) {}
-  }
-}
+// confirm_shop_payment) a označení poukazů jako uplatněných
+// (markVouchersRedeemed — RLS ho stejně blokovalo) odstraněny 2026-09-24:
+// zaplacenou objednávku označuje VÝHRADNĚ server (webhook / create_shop_order
+// u objednávky za 0 Kč), poukazy v e-shopu neplatí.
 
 /// Check if cart is digital-only (vouchers).
 bool isCartDigitalOnly(List<CartItem> items) {
