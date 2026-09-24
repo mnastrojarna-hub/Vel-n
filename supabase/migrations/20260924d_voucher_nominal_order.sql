@@ -14,8 +14,10 @@
 --   * create_shop_order: tištěný poukaz = položka N Kč + položka „Tisk
 --     a poštovné“ 180 Kč (jako web). Celková cena, platba ani appka se nemění.
 --   * auto_process_voucher_order + regen_voucher_for_order: u položek z appky
---     (SKU voucher_<N>_<p|d>_<ts>) je hodnota poukazu N — pokryje i čekající
---     objednávky založené dřív (jedna položka N+180), zaplacené až po nasazení.
+--     (SKU voucher_<N>_<p|d>_<ts>) je hodnota poukazu N, nejvýš cena položky
+--     (LEAST — staré objednávky mohly mít cenu od klienta) — pokryje i čekající
+--     objednávky založené dřív (jedna položka N+180), zaplacené až po nasazení
+--     (jen s cs/en názvem položky — poukaz se pozná podle „poukaz/voucher“).
 --     Web / Velín (bez takového SKU) beze změny: hodnota = cena položky.
 --   Už vydané poukazy se NEMĚNÍ (zákazník dostal kód s hodnotou e-mailem).
 --
