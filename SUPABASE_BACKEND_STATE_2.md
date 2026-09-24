@@ -302,6 +302,9 @@ Centrální účetní událost (jednotná vrstva nad fakturami/DL/refundy/výpla
 - **source** (text) — zdroj voucheru. Plní `auto_process_voucher_order` hodnotou `'eshop'` (poukaz z e-shop objednávky); admin poukazy z Velína mají NULL nebo hodnotu vybranou v modálu. **Velín filtr (2026-06-20):** Slevomat=`slevomat`, E-shop=`eshop`, Spolupráce=`spoluprace`, Vrácení=`vraceni`, Ostatní=`ostatni` (filtr „Ostatní" zahrnuje i NULL).
 - **slevomat_apply_status, slevomat_applied_at, slevomat_apply_error, slevomat_apply_attempts (DEFAULT 0), slevomat_apply_last_at** (**NEW 2026-06-30**) — sledování automatického uplatnění Slevomat poukazů přes Partner API. Plní edge `slevomat-voucher` (`action='apply'`, volaná triggerem `redeem_booking_discounts` po zaplacení rezervace + pojistným triggerem `trg_slevomat_auto_apply` na `vouchers`). `slevomat_apply_status` ∈ `applied`/`already_redeemed`/`invalid`/`not_paid`/`cancelled`/`failed`; `slevomat_applied_at` se nastaví u `applied`/`already_redeemed` (= idempotence, znovu se Slevomat nevolá). Velín záložka **Slevomat** (`/slevomat`) tyto sloupce živě zobrazuje. Browser-fallback (`slevomat-bot/`) čte stejné sloupce. SQL: `ALTER TABLE vouchers ADD COLUMN IF NOT EXISTS slevomat_applied_at timestamptz; … slevomat_apply_status text; … slevomat_apply_error text; … slevomat_apply_attempts int NOT NULL DEFAULT 0; … slevomat_apply_last_at timestamptz;`
 
+### promo_code_usage (nové sloupce)
+- **shop_order_id** (uuid FK→shop_orders ON DELETE SET NULL, **NEW 2026-09-24**, `20260924b_eshop_server_pricing.sql`) — použití promo kódu v e-shopu appky (index `idx_promo_code_usage_shop_order`, partial). Řádek zakládá `record_shop_promo_usage_on_paid` při přechodu objednávky na `paid`; `validate_promo_code` z tabulky počítá použití → `max_uses` platí i pro e-shop.
+
 ### promo_codes
 - id (uuid PK), code (text UNIQUE), type (text CHECK percent/fixed), value (numeric)
 - valid_from, valid_to (date), max_uses (int), used_count (int NOT NULL DEFAULT 0)
@@ -342,6 +345,7 @@ Servisní zakázky navázané na motorky/servisní záznamy.
 - payment_method (text)
 - subtotal, shipping_cost, discount, total (numeric(10,2))
 - promo_code_id (uuid FK→promo_codes), notes, tracking_number
+- **discount_codes** (jsonb, **NEW 2026-09-24**, `20260924b_eshop_server_pricing.sql`) — uplatněné promo kódy objednávky z appky `[{code, promo_code_id, type percent|fixed, value, amount}]`; plní `create_shop_order` v2 (serverový výpočet ceny), čte trigger `trg_shop_promo_usage_on_paid` (evidence použití až při zaplacení). NULL = bez kódu / web objednávka.
 - shipped_at, delivered_at, cancelled_at (timestamptz)
 - **confirmed_at** — datum potvrzení (přidáno migrací)
 - **stripe_payment_intent_id** — Stripe Payment Intent ID (pro refundy)

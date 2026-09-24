@@ -10,7 +10,6 @@ import '../../core/supabase_client.dart';
 import '../auth/auth_provider.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../booking/booking_models.dart';
-import '../booking/booking_provider.dart';
 import '../booking/price_calculator.dart';
 import '../payment/stripe_service.dart';
 import '../payment/payment_provider.dart';
@@ -72,17 +71,25 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     super.dispose();
   }
 
-  /// Apply promo / voucher code inline.
+  /// Apply promo code inline. V e-shopu platí JEN promo kódy (2026-09-24):
+  /// dárkový poukaz / poukaz ze Slevomatu ne, a na nákup poukazu žádný kód.
   Future<void> _applyPromo() async {
-    final code = _promoCtrl.text.trim();
+    final code = _promoCtrl.text.trim().toUpperCase();
     if (code.isEmpty) return;
 
     final appliedCodes = ref.read(shopAppliedCodesProvider);
 
     // Already applied?
-    if (appliedCodes.any((d) => d.code == code.toUpperCase())) {
+    if (appliedCodes.any((d) => d.code == code)) {
       setState(() {
-        _promoMsg = t(context).tr('promoAlreadyUsed').replaceAll('{code}', code.toUpperCase());
+        _promoMsg = t(context).tr('promoAlreadyUsed').replaceAll('{code}', code);
+        _promoOk = false;
+      });
+      return;
+    }
+    if (ref.read(cartProvider).any((i) => i.id.startsWith('voucher'))) {
+      setState(() {
+        _promoMsg = t(context).tr('shopCodeNotForVoucher');
         _promoOk = false;
       });
       return;
@@ -90,28 +97,53 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
 
     setState(() { _promoLoading = true; _promoMsg = null; });
 
-    final result = await validateAndApplyCode(code);
+    final d = await validateShopPromoCode(code);
     if (!mounted) return;
     setState(() => _promoLoading = false);
 
-    if (result.success && result.discount != null) {
-      final d = result.discount!;
-      // Can't combine two percentage codes
-      if (d.type == DiscountType.percent &&
-          appliedCodes.any((c) => c.type == DiscountType.percent)) {
-        setState(() {
-          _promoMsg = t(context).tr('promoNoCombinePercent');
-          _promoOk = false;
-        });
-        return;
-      }
-      _promoCtrl.clear();
-      ref.read(shopAppliedCodesProvider.notifier).state = [...appliedCodes, d];
-      _recalcShopDiscount();
-      setState(() { _promoMsg = result.message(t(context).tr); _promoOk = true; });
-    } else {
-      setState(() { _promoMsg = result.message(t(context).tr); _promoOk = false; });
+    if (d == null) {
+      setState(() {
+        _promoMsg = t(context).tr('shopCodeInvalid').replaceAll('{code}', code);
+        _promoOk = false;
+      });
+      return;
     }
+    // Can't combine two percentage codes
+    if (d.type == DiscountType.percent &&
+        appliedCodes.any((c) => c.type == DiscountType.percent)) {
+      setState(() {
+        _promoMsg = t(context).tr('promoNoCombinePercent');
+        _promoOk = false;
+      });
+      return;
+    }
+    _promoCtrl.clear();
+    ref.read(shopAppliedCodesProvider.notifier).state = [...appliedCodes, d];
+    _recalcShopDiscount();
+    setState(() {
+      _promoMsg = t(context).tr('discountApplied').replaceAll('{value}',
+          d.type == DiscountType.percent ? '${d.value}%' : Money.czk(d.value));
+      _promoOk = true;
+    });
+  }
+
+  /// Srozumitelná hláška k chybě ze serveru při založení objednávky.
+  String _orderErrorText(ShopOrderResult o) {
+    final tr = t(context);
+    switch (o.error) {
+      case 'voucher_not_allowed':
+        return tr.tr('shopVoucherNotAllowed');
+      case 'code_not_allowed_for_voucher':
+        return tr.tr('shopCodeNotForVoucher');
+      case 'code_invalid':
+        return tr.tr('shopCodeInvalid').replaceAll('{code}', o.code ?? '');
+      case 'out_of_stock':
+        return tr.tr('shopOutOfStock');
+      case 'product_not_found':
+      case 'bad_size':
+        return tr.tr('shopProductUnavailable');
+    }
+    return tr.tr('error');
   }
 
   /// Remove an applied code.
@@ -140,11 +172,6 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
   }
 
   Future<void> _onSuccess(String orderId) async {
-    // Mark applied voucher codes as redeemed
-    final codes = ref.read(shopAppliedCodesProvider);
-    if (codes.isNotEmpty) {
-      markVouchersRedeemed(codes);
-    }
     ref.read(cartProvider.notifier).clear();
     ref.read(shopAppliedCodesProvider.notifier).state = [];
     ref.read(shopDiscountProvider.notifier).state = 0;
@@ -222,7 +249,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
             'city': _cityCtrl.text.trim(),
           };
 
-    final orderId = await createShopOrder(
+    final order = await createShopOrder(
       items: cart,
       shipping: digitalOnly ? ShipMode.digital : shipMode,
       address: address,
@@ -235,27 +262,27 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       language: ref.read(localeProvider).languageCode,
     );
 
+    final orderId = order.orderId;
     if (orderId == null) {
       if (mounted) {
         showMotoGoToast(context,
             icon: '✗',
             title: t(context).tr('error'),
-            message: t(context).tr('error'));
+            message: _orderErrorText(order));
       }
       setState(() => _processing = false);
       return;
     }
 
+    // Cenu počítá SERVER (create_shop_order v2) — platí se jeho částka;
+    // objednávku za 0 Kč server rovnou potvrdil.
     final subtotal = ref.read(cartProvider.notifier).subtotal;
     final shipping =
         digitalOnly ? 0.0 : (shipMode == ShipMode.post ? shippingCost : 0.0);
-    final total = (subtotal + shipping - discount).clamp(0.0, double.infinity);
+    final total = order.total ??
+        (subtotal + shipping - discount).clamp(0.0, double.infinity);
 
-    if (total <= 0) {
-      try {
-        await MotoGoSupabase.client.rpc('confirm_shop_payment',
-            params: {'p_order_id': orderId, 'p_method': 'voucher'});
-      } catch (_) {}
+    if (order.autoConfirmed || total <= 0) {
       _onSuccess(orderId);
       return;
     }
@@ -491,7 +518,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(
-            '🏷️ ${t(context).tr('discountCode').toUpperCase()} / ${t(context).tr('giftVoucher').toUpperCase()}',
+            '🏷️ ${t(context).tr('discountCode').toUpperCase()}',
             style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,

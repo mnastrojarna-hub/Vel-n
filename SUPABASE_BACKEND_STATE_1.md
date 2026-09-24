@@ -118,7 +118,7 @@
 | Tabulka | Popis |
 |---------|-------|
 | `promo_codes` | Slevové kódy (type: percent/fixed; **`source` text NEW 2026-06-20** — slevomat/eshop/spoluprace/vraceni/ostatni pro Velín filtr) |
-| `promo_code_usage` | Použití slevových kódů |
+| `promo_code_usage` | Použití slevových kódů (rezervace přes `booking_id`, e-shop přes `shop_order_id` — **NEW 2026-09-24**, `20260924b_eshop_server_pricing.sql`; zapisuje trigger `trg_shop_promo_usage_on_paid` až při zaplacení) |
 | `vouchers` | Dárkové poukazy (status: active/redeemed/expired/cancelled, order_id FK→shop_orders, source — vč. `slevomat`) |
 | `booking_discounts` | **NEW 2026-06-25 (`20260625_00_multi_discount_helpers.sql`)** — Víc slev/voucherů na jednu rezervaci (booking_id FK→bookings ON DELETE CASCADE, kind promo_code/voucher, code, promo_code_id, voucher_id, discount_type percent/fixed, value [% nebo nominální Kč], amount [skutečně odečtená Kč], created_at). Pravidlo: max JEDNA procentní sleva. Zdroj pravdy pro rozpad slev na ZF/DP/KF **i pro uplatnění (used_count / voucher redeemed)**. Plní `create_web_booking` (od 2026-06-30 znovu — přepisy 26./29. 6. zápis omylem zahodily, viz STATE_3/STATE_6; derivuje z `p_discount_code`/`p_promo_code`/`p_voucher_id`, ne z `p_discounts`), `realloc_booking_discounts` po úpravě ceny, uplatnění `redeem_booking_discounts_on_paid`. |
 | `loyalty_levels` | **NEW 2026-06-11** — Věrnostní ranky pro APP rezervace (20 řádků: level PK 1–20 = % slevy, discount_percent, min_booking_order = od kolikáté app rezervace, name [Startér…Legenda MotoGo], color_hex [barva ringu MG loga v appce], translations jsonb). RLS: Public read + Admin write. Sleva platí JEN pro `booking_source='app'`. Mig. `20260611_loyalty_ranks.sql` |
