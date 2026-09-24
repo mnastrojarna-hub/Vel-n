@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme.dart';
 import '../router.dart';
+import '../../features/reservations/reservation_provider.dart' show reservationsProvider;
+import '../../features/sos/sos_provider.dart' show hasActiveRentalProvider;
 import 'push_service.dart';
 
 /// Notification handler — connects PushService to UI.
@@ -92,6 +95,17 @@ class NotificationHandler {
   }
 
   /// Handle notification tap — route to appropriate screen.
+  /// SOS jen při aktivní rezervaci — jinak Zprávy (odpověď centrály je i tam).
+  static Future<void> _openSos(BuildContext context) async {
+    final container = ProviderScope.containerOf(context, listen: false);
+    try {
+      await container.read(reservationsProvider.future).timeout(const Duration(seconds: 5));
+    } catch (_) {}
+    final ctx = _navKey?.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    ctx.push(container.read(hasActiveRentalProvider) ? Routes.sos : Routes.messages);
+  }
+
   /// Mirrors deep link routing from native-bridge.js.
   static void _handleDeepLink(Map<String, dynamic> data) {
     final context = _navKey?.currentContext;
@@ -113,7 +127,7 @@ class NotificationHandler {
         context.push(Routes.messages);
         break;
       case 'sos':
-        context.push(Routes.sos);
+        _openSos(context);
         break;
       case 'message':
         if (id != null) {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -9,6 +10,7 @@ import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../auth/widgets/toast_helper.dart';
+import '../sos/sos_provider.dart' show hasActiveRentalProvider;
 
 /// AI Moto Agent chat — mirrors s-ai-agent from ai-agent-ui.js + ai-agent-send.js.
 /// Calls ai-moto-agent edge function with booking context.
@@ -119,10 +121,12 @@ class _AiAgentState extends State<AiAgentScreen> {
       final suggestSos = data?['suggest_sos'] as bool? ?? false;
 
       if (mounted) {
+        final canSos = ProviderScope.containerOf(context, listen: false)
+            .read(hasActiveRentalProvider);
         final reply = replyData ?? t(context).tr('aiProcessError');
         setState(() {
           _messages.add(_ChatMsg(text: reply, isBot: true));
-          if (suggestSos) {
+          if (suggestSos && canSos) {
             _messages.add(_ChatMsg(
               text: t(context).tr('aiSuggestSos'),
               isBot: true,
