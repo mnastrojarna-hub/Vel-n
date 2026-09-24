@@ -48,6 +48,7 @@ class CardPaymentSheet {
     required double amount,
     bool allowGooglePay = true,
   }) async {
+    final guard = _WalletGuard();
     final result = await showModalBottomSheet<CardSheetResult>(
       context: context,
       isScrollControlled: true,
@@ -64,22 +65,36 @@ class CardPaymentSheet {
           // Parametr se historicky jmenuje allowGooglePay (volá ho payment_screen),
           // na iOS ovládá Apple Pay — význam je „povolit platformní peněženku".
           allowPlatformPay: allowGooglePay,
+          guard: guard,
         ),
       ),
     );
+    // Zákazník zavřel sheet, zatímco výsledek Apple Pay ještě nebyl ověřený
+    // (platba mohla projít) → NE „zrušeno" (volající by nabídl novou platbu =
+    // riziko dvojí platby), ale čekat na serverové potvrzení.
+    if (result == null && guard.uncertain) {
+      return const CardSheetResult(CardSheetStatus.processing);
+    }
     return result ?? const CardSheetResult(CardSheetStatus.cancelled);
   }
+}
+
+/// Běží potvrzení Apple Pay, jehož výsledek ještě není ověřený.
+class _WalletGuard {
+  bool uncertain = false;
 }
 
 class _CardSheetBody extends StatefulWidget {
   final String clientSecret;
   final double amount;
   final bool allowPlatformPay;
+  final _WalletGuard guard;
 
   const _CardSheetBody({
     required this.clientSecret,
     required this.amount,
     required this.allowPlatformPay,
+    required this.guard,
   });
 
   @override
@@ -178,6 +193,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
         Navigator.of(context)
             .pop(const CardSheetResult(CardSheetStatus.processing));
       case ApplePayFailureAction.stay:
+        widget.guard.uncertain = false; // ověřeno: peníze neodešly
         setState(() => _processing = false);
         final info = o.info!;
         await showDialog<void>(
@@ -258,8 +274,13 @@ class _CardSheetBodyState extends State<_CardSheetBody>
     // fokus na CardFieldu by se po návratu obnovoval na mrtvém kanálu.
     FocusManager.instance.primaryFocus?.unfocus();
     final wallet = Platform.isIOS ? 'apple_pay' : 'google_pay';
-    AppDebugLogger.instance.payment('${wallet}_start',
-        data: {'supported': _platformPayReady, 'amount': widget.amount});
+    final pi = paymentIntentId(widget.clientSecret);
+    final sw = Stopwatch()..start();
+    AppDebugLogger.instance.payment('${wallet}_start', data: {
+      'supported': _platformPayReady,
+      'amount': widget.amount,
+      'pi': pi,
+    });
     try {
       final confirmParams = Platform.isIOS
           ? PlatformPayConfirmParams.applePay(
@@ -284,20 +305,28 @@ class _CardSheetBodyState extends State<_CardSheetBody>
               ),
             );
 
+      widget.guard.uncertain = true;
       final intent = await Stripe.instance.confirmPlatformPayPaymentIntent(
         clientSecret: widget.clientSecret,
         confirmParams: confirmParams,
       );
-      AppDebugLogger.instance.payment('${wallet}_result',
-          data: {'status': intent.status.name});
+      AppDebugLogger.instance.payment('${wallet}_result', data: {
+        'status': intent.status.name,
+        'pi': pi,
+        'ms': sw.elapsedMilliseconds,
+      });
       if (!mounted) return;
       Navigator.of(context).pop(
         _resultFor(intent.status, 'platform pay'),
       );
     } on StripeException catch (e) {
-      logWalletError(wallet, e, supported: _platformPayReady);
+      logWalletError(wallet, e,
+          supported: _platformPayReady,
+          extra: {'pi': pi, 'ms': sw.elapsedMilliseconds});
       if (!mounted) return;
       if (e.error.code == FailureCode.Canceled) {
+        // Zrušeno před odesláním (STPApplePayContext po odeslání zrušit nejde).
+        widget.guard.uncertain = false;
         setState(() => _processing = false);
         return;
       }
@@ -309,7 +338,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
           .pop(CardSheetResult(CardSheetStatus.failed, stripeError: e));
     } catch (e) {
       AppDebugLogger.instance.payment('${wallet}_exception',
-          data: {'error': e.toString()});
+          data: {'error': e.toString(), 'pi': pi});
       if (!mounted) return;
       Navigator.of(context)
           .pop(CardSheetResult(CardSheetStatus.failed, otherError: e));

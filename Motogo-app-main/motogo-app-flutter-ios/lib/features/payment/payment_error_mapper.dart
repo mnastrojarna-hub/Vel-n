@@ -94,9 +94,10 @@ class PaymentErrorMapper {
     );
   }
 
-  /// Peněženka se otevřela, ale platbu nezpracoval Stripe/Apple (např. chyba
-  /// certifikátu merchant ID) — peníze neodešly (ověřeno stavem PaymentIntentu
-  /// v card_payment_sheet). Na rozdíl od [wallet] zákazníka neposílá
+  /// Peněženka se otevřela, ale platbu nezpracoval Stripe/Apple (např.
+  /// certifikát merchant ID z cizího CSR/účtu) — peníze neodešly (ověřeno
+  /// stavem PaymentIntentu v apple_pay_failure.dart; neověřitelný stav tuto
+  /// hlášku NIKDY nedostane). Na rozdíl od [wallet] zákazníka neposílá
   /// kontrolovat kartu v peněžence (ta je v pořádku), ale rovnou ke kartě.
   static PaymentErrorInfo walletFailed(String lang, {String? rawCode}) {
     final extra = (rawCode != null && rawCode.trim().isNotEmpty)
