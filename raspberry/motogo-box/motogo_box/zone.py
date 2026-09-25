@@ -133,6 +133,7 @@ class ZoneController:
             session_started_at=self.session_started_at, booking_id=self.booking_id,
             last_event=self.last_event, latch_released=self.latch_released, degraded=self.degraded,
             music_enabled=self.music_enabled,
+            io_problems=self.io_problems(), signal_offline=self.signal_problems(),
         )
 
     def _music_playing(self) -> bool:
@@ -141,10 +142,12 @@ class ZoneController:
         return bool(is_playing(self.number)) if is_playing is not None else self.audio.playing_zone == self.number
 
     def io_problems(self) -> list[str]:
-        """Nedostupné/chybějící I/O zóny (prázdný seznam = vše online): zámek, kontakt, světlo, Shelly.
+        """Nedostupné/chybějící I/O zóny (prázdný seznam = vše online): zámek, kontakt, světlo.
 
         Povinné jsou jen zámek a kontakt (stejně jako `validate_hardware`); nenastavené světlo
-        ani signalizace přístup neblokují — nastavené, ale offline ano (§12).
+        přístup neblokuje — nastavené, ale offline ano (§12). Shelly signalizace (2026-09-25) NENÍ
+        bezpečnostní prvek: její výpadek zóna jen hlásí (`signal_problems`, status `signal_offline`),
+        dveře se otevírají dál — jinak by nezapojené/vypadlé neony blokovaly výdej motorek.
         """
         z = self.zone.hw
         out: list[str] = []
@@ -154,13 +157,16 @@ class ZoneController:
                     out.append(f"{role} nenastaven")
             elif not self.io.is_online(ref.dev) and ref.dev not in out:
                 out.append(ref.dev)
-        for ref in (z.red, z.green):
-            if ref is not None and not self.signals.online(ref.dev) and ref.dev not in out:
-                out.append(ref.dev)
         return out
 
+    def signal_problems(self) -> list[str]:
+        """Nedostupná Shelly signalizace zóny (jen informace pro Velín/diagnostiku, přístup neblokuje)."""
+        z = self.zone.hw
+        return list(dict.fromkeys(ref.dev for ref in (z.red, z.green)
+                                  if ref is not None and not self.signals.online(ref.dev)))
+
     def io_ready(self) -> bool:
-        """Online zámkový modul, modul kontaktu, modul světla a Shelly signalizace (pokud jsou definované)."""
+        """Online zámkový modul, modul kontaktu a modul světla (pokud je definované)."""
         return not self.io_problems()
 
     async def emit_event(self, kind: EventKind, *, success: bool = True, level: str = "info",
