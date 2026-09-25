@@ -1,5 +1,5 @@
 """Kroky kompletní diagnostiky pobočky mimo síť (kontrakt §24, režim `full`):
-`software`, `config`, `zones`, `power`, `cameras`. Každý krok je izolovaný — volá ho
+`software`, `config`, `zones`, `power`, `cameras`; `provision` (auto-IP modulů) běží v obou režimech. Každý krok je izolovaný — volá ho
 `NetworkDiagnostics.run` s limitem a chyba jednoho neshodí běh. Vše čitelné bez rootu.
 Venek (zóna bez dveří): `diag_outdoor.py` — krok `zones` doplní `report["outdoor"]`, `config` klíč `outdoor`.
 
@@ -116,6 +116,49 @@ async def software(diag: "NetworkDiagnostics", report: dict) -> dict:
         "reboot_required": _try(lambda: os.path.exists(REBOOT_REQUIRED)),
         "health_age_s": _age_s(health.get("ts")) if health.get("ts") else None,
     }
+
+
+# ─── provision — automatické zřízení modulů Waveshare (io_provision.py) ─────────
+# Odpovídá na „proč modul neodpovídá": má jednotka adresu v síti modulů i v tovární síti (192.168.1.253)?
+# Odpovídá vůbec nějaký modul na vyhledávání ZLAN (UDP 1092)? Na jaké IP a je v HW mapě? Vyhledávání je jen
+# čtení (broadcast dotaz), nic se nepřepisuje — přepis dělá výhradně provision_loop. Běží v obou režimech.
+DISCOVER_TIMEOUT_S = 6.0
+
+
+async def provision(diag: "NetworkDiagnostics", report: dict) -> dict:
+    from . import io_provision
+    ctrl = diag.ctrl
+    prov = getattr(ctrl, "provisioner", None)
+    devices = _try(lambda: ctrl.hardware.modbus_devices(), {}) or {}
+    online = {n: bool(_try(lambda: ctrl.io.is_online(n), False)) for n in devices}
+    nets = await _try_await(prov._networks() if prov is not None else io_provision.lan_networks(), [])
+    nets = nets or []
+    factory = _try(lambda: any(str(n) == io_provision.FACTORY_ADDR for n in nets), False)
+    out: dict[str, Any] = {
+        "iface": io_provision.LAN_IFACE, "lan_addrs": [str(n) for n in nets], "factory_addr": bool(factory),
+        "devices": {n: {"host": d.host, "type": d.type, "online": online.get(n, False)} for n, d in sorted(devices.items())},
+        "missing": sorted(n for n, o in online.items() if not o),
+        "remembered": _try(lambda: prov._remembered(), {}) if prov is not None else {},
+        "last_found": list(getattr(prov, "last_found", None) or []) if prov is not None else [],
+        "found": None, "error": None,
+    }
+    if prov is None or not nets:
+        out["error"] = "no_provisioner" if prov is None else "no_lan_address"
+        return out
+    broadcasts = sorted({str(n.network.broadcast_address) for n in nets} | {"255.255.255.255"})
+    try:
+        found = await asyncio.wait_for(prov._discover(broadcasts), DISCOVER_TIMEOUT_S)
+        out["found"] = [dict(f.as_dict(), source=getattr(f, "source", None)) for f in found]
+    except Exception as exc:  # noqa: BLE001
+        out["error"] = str(exc)[:200] or exc.__class__.__name__
+    return out
+
+
+async def _try_await(aw, default=None):
+    try:
+        return await aw
+    except Exception:  # noqa: BLE001
+        return default
 
 
 # ─── config ──────────────────────────────────────────────────────────────────

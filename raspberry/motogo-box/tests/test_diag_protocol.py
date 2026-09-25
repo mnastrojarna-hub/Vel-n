@@ -16,7 +16,7 @@ from motogo_box.shelly import ShellyRgbww
 from tests.diag_fakes import FakeCtrl, FakeSignals, FakeZone, zone_hw
 from tests.test_diagnostics import hw_for, sim  # noqa: F401 — fixture
 
-SECTIONS = ["system", "software", "network", "lte", "internet", "velin", "modules", "config", "zones", "power", "cameras", "lan", "steps"]
+SECTIONS = ["system", "software", "network", "lte", "internet", "velin", "modules", "provision", "config", "zones", "power", "cameras", "lan", "steps"]
 
 
 @pytest.fixture
@@ -232,7 +232,7 @@ def test_section_status_and_items():
 
 def test_build_protocol_on_empty_and_hints():
     proto = dp.build_protocol({})
-    assert [s["key"] for s in proto] == ["system", "network", "lte", "internet", "velin", "modules", "lan", "steps"]
+    assert [s["key"] for s in proto] == ["system", "network", "lte", "internet", "velin", "modules", "provision", "lan", "steps"]
     ids = {i["id"]: i for s in proto for i in s["items"]}
     assert ids["network.gateway"]["status"] == "fail" and ids["velin.paired"]["status"] == "fail"
     assert all(i["hint"] for s in proto for i in s["items"] if i["status"] in ("warn", "fail"))
@@ -241,7 +241,7 @@ def test_build_protocol_on_empty_and_hints():
     rep = {"mode": "full", "software": None, "config": None, "zones": None, "power": None, "cameras": None,
            "steps": {"zones": {"ok": False, "error": "timeout"}}}
     proto = dp.build_protocol(rep)
-    assert [s["key"] for s in proto] == ["system", "software", "network", "lte", "internet", "velin", "modules", "config", "zones", "power", "cameras", "lan", "steps"]
+    assert [s["key"] for s in proto] == ["system", "software", "network", "lte", "internet", "velin", "modules", "provision", "config", "zones", "power", "cameras", "lan", "steps"]
     zsec = next(s for s in proto if s["key"] == "zones")
     assert zsec["status"] == "skip" and "timeout" in zsec["items"][0]["message"]
     assert next(i for s in proto for i in s["items"] if i["id"] == "step.zones")["status"] == "warn"
@@ -304,3 +304,31 @@ def test_summary_zones_total_after_zones_timeout():
     assert s["zones_total"] == 9 and s["zones_ok"] == 1 and s["zones_tested"] == 1
     rep["steps"]["zones"] = {"ok": True}
     assert dp.build_summary(rep, dp.build_protocol(rep))["zones_total"] == 1
+
+
+def test_provision_section_explains_why_modules_are_missing():
+    base = {"iface": "eth0", "lan_addrs": ["192.168.50.10/24"], "factory_addr": False,
+            "devices": {"wav645": {"host": "192.168.50.20", "type": "wav645", "online": False}}, "missing": ["wav645"],
+            "remembered": {}, "last_found": [], "found": [], "error": None}
+    sec = dp._provision({"provision": base})
+    by = {i["id"]: i for i in sec["items"]}
+    assert by["provision.addr"]["status"] == "fail" and "192.168.1.253" in by["provision.addr"]["message"]
+    assert by["provision.found"]["status"] == "fail" and by["provision.found"]["hint"]
+    # modul nalezený mimo mapu → čeká na automatické přiřazení (warn), s pomocnou adresou OK
+    mod = {"mac": "AA:BB", "ip": "192.168.1.254", "port": 4196, "protocol": "rtu", "dhcp": False}
+    sec = dp._provision({"provision": dict(base, factory_addr=True, lan_addrs=["192.168.50.10/24", "192.168.1.253/24"], found=[mod])})
+    by = {i["id"]: i for i in sec["items"]}
+    assert by["provision.addr"]["status"] == "ok" and by["provision.mod.AA:BB"]["status"] == "warn" and "wav645" in by["provision.mod.AA:BB"]["message"]
+    # modul na adrese z mapy → ok; chybějící bez volného modulu → fail
+    mod2 = dict(mod, mac="CC:DD", ip="192.168.50.20", protocol="tcp", port=502)
+    sec = dp._provision({"provision": dict(base, factory_addr=True, found=[mod2], missing=["wav645"])})
+    by = {i["id"]: i for i in sec["items"]}
+    assert by["provision.mod.CC:DD"]["status"] == "ok" and by["provision.missing.wav645"]["status"] == "fail"
+    assert dp._provision({})["status"] == "skip"
+
+
+def test_lte_without_modem_is_warning_when_internet_ok():
+    sec = dp._lte({"lte": {"state": "unavailable"}, "internet": {"ok": True}})
+    assert sec["items"][0]["status"] == "warn"
+    sec = dp._lte({"lte": {"state": "unavailable"}, "internet": {"ok": False}})
+    assert sec["items"][0]["status"] == "fail"

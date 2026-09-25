@@ -67,6 +67,15 @@ HINTS = {
     "power": "Zkontrolujte měnič/monitor FV (power_status_url) — URL musí vracet JSON v LAN jednotky.",
     "power_soc": "Nízké nabití baterie — zkontrolujte FV výrobu a spotřebu.",
     "camera": "Kamera {name} neodpovídá — zkontrolujte napájení, LAN a URL ({url_kind}) ve Velíně (Samoobsluha → Kamery).",
+    "provision_addr": "Jednotka nemá na {iface} pomocnou adresu 192.168.1.253 (tovární síť Waveshare) — moduly z výroby (192.168.1.254) "
+                      "nenajde a nenastaví jim IP. Aktualizujte software z Velína (instaluje dispečer 50-motogo-lan-addr) a restartujte jednotku.",
+    "provision_no_lan": "Rozhraní {iface} nemá žádnou IPv4 adresu — zkontrolujte kabel do switche modulů; profil motogo-lan / dispečer 50-motogo-lan-addr.",
+    "provision_none": "Žádný modul Waveshare neodpověděl na vyhledávání (UDP 1092): zkontrolujte napájení modulů (LED PWR), kabel a LED LINK "
+                      "na modulu i switchi, případně že switch nefiltruje broadcast. Modul se hlásí i z tovární adresy 192.168.1.254.",
+    "provision_pending": "Modul {mac} na {ip} není na žádné adrese z HW mapy — jednotka mu nastaví IP chybějícího zařízení automaticky "
+                         "(do ~1 min; stejný modul nejvýš jednou za 5 min). Přetrvává-li, zkontrolujte typ modulu v mapě (WAV617 = 8 vstupů, WAV645 = 16 relé).",
+    "provision_extra": "Modul {mac} na {ip} není v HW mapě a žádné zařízení nechybí — nadbytečný/cizí modul, nebo v mapě chybí jeho zařízení (Velín → Samoobsluha).",
+    "provision_missing": "Zařízení {name} ({host}) neodpovídá a na LAN není žádný volný modul k přiřazení — modul chybí, je bez napájení, nebo ho drží jiná adresa mimo síť jednotky.",
     "lan_unknown": "V LAN je Modbus/Shelly zařízení mimo HW mapu — cizí/ nové zařízení nebo špatná IP v mapě.",
     "lan_subnet": "Podsíť je pro scan příliš velká/neplatná — upravte diagnostics.scan_subnets (max /22).",
     "step": "Krok diagnostiky selhal/vypršel — spusťte znovu; opakuje-li se, zkontrolujte log motogo-controller.",
