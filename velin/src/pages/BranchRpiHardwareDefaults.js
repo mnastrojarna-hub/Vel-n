@@ -383,6 +383,21 @@ export function pickAccessoriesZone(usedZones, template = BRNO_DEFAULT_ZONES) {
   return free.length ? Math.max(...free) : null
 }
 
+// Výchozí HW mapa dveří podle čísla kóje (zapojení Brno: zámek R{n} + kontakt DI{n} na Relay (B) `wav617a`, světlo R{n} na
+// `wav645`): kóje = box_number 1–8, šatna = nejvyšší volná zóna šablony (světlo drží do kódu motorky). null = mimo šablonu
+// (kóje 9+, Relay (B) má jen 8 kanálů). Používá se při zakládání dveří (ensureDoors) a jako předvyplnění editoru bez mapy.
+export function defaultDoorHw(door, doors) {
+  const kind = door?.door_kind
+  if (kind === 'motorcycle') {
+    const n = parseInt(door?.box_number, 10)
+    return n >= 1 && n <= BRNO_DEFAULT_ZONES.length ? JSON.parse(JSON.stringify(BRNO_DEFAULT_ZONES[n - 1])) : null
+  }
+  if (kind !== 'accessories') return null
+  const used = (doors || []).filter(d => d?.door_kind === 'motorcycle' && d.box_number != null).map(d => d.box_number)
+  const zone = pickAccessoriesZone(used)
+  return zone ? z(zone, { light_until_moto_code: true }) : null
+}
+
 // Editorový draft → čisté `hw` pro uložení (neúplné odkazy = null, prázdný zone = chyba).
 // `devices` (hardware.devices) → kontrola typů zařízení jako v jednotce; bez něj se typy nekontrolují.
 // `audio` (hardware.audio, volitelné) → v režimu multi kontrola, že výstup `audio.out` existuje v audio.outputs
