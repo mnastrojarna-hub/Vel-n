@@ -324,6 +324,12 @@ if [[ "$(nmcli -g ipv4.method con show motogo-lan 2>/dev/null)" != "auto" ]]; th
     ipv4.ignore-auto-routes no ipv4.route-metric 50 ipv4.dns-priority 0 2>/dev/null \
     && ok "motogo-lan: hybrid (DHCP z routeru + statické adresy I/O sítě)" || warn "motogo-lan: přepnutí na hybrid selhalo"
 fi
+# Záložní veřejné DNS na obou profilech (starší profily je nemají; DNS operátora občas neodpovídá).
+for prof in motogo-lte motogo-lan; do
+  if ! nmcli -g ipv4.dns con show "$prof" 2>/dev/null | tr ',' '\n' | grep -qx "1.1.1.1"; then
+    nmcli con modify "$prof" +ipv4.dns 1.1.1.1 +ipv4.dns 8.8.8.8 2>/dev/null && ok "$prof: záložní DNS 1.1.1.1, 8.8.8.8" || warn "$prof: záložní DNS nejde doplnit"
+  fi
+done
 # I/O síť vždy dostupná (i když eth0 jede na DHCP kvůli internetu): NM dispatcher přidá 192.168.50.10/24 + 192.168.1.253/24
 mkdir -p /etc/NetworkManager/dispatcher.d
 install -m 755 -o root -g root "$APP_DIR/systemd/50-motogo-lan-addr" /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr

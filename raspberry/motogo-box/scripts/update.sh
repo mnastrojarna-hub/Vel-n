@@ -229,6 +229,21 @@ if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | g
   fi
 fi
 
+# ── záložní veřejné DNS (2026-09-26): DNS operátora/routeru občas neodpovídá → Velín i GitHub nedosažitelné ──
+if command -v nmcli >/dev/null 2>&1; then
+  for prof in motogo-lte motogo-lan; do
+    nmcli -t -f NAME con show 2>/dev/null | grep -qx "$prof" || continue
+    if ! nmcli -g ipv4.dns con show "$prof" 2>/dev/null | tr ',' '\n' | grep -qx "1.1.1.1"; then
+      if nmcli con modify "$prof" +ipv4.dns 1.1.1.1 +ipv4.dns 8.8.8.8; then
+        log "$prof: doplněno záložní DNS 1.1.1.1, 8.8.8.8"
+        [[ "$prof" == motogo-lan ]] && { nmcli device reapply eth0 >/dev/null 2>&1 || true; }   # LTE se neshazuje (platí od dalšího connectu)
+      else
+        log "UPOZORNĚNÍ: $prof — záložní DNS se nepodařilo doplnit"
+      fi
+    fi
+  done
+fi
+
 # ── I/O síť vždy dostupná: NM dispatcher přidá 192.168.50.10/24 (+ tovární 192.168.1.253/24) na eth0 i při DHCP ──
 LAN_ADDR="50-motogo-lan-addr"
 if [[ -f "$APP_DIR/systemd/$LAN_ADDR" ]]; then

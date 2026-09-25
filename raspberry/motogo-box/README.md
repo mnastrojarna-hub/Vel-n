@@ -200,7 +200,8 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    Ruční nasazení: `sudo /opt/motogo/scripts/set-static-lan.sh` (NM nahradí aktivní profil atomicky, konkurenčním
    profilům vypne autoconnect). **Přes SSH na eth0 spojení spadne** (IP se
    mění) — skript se sám odpojí od terminálu, doběhne a výstup nechá v `/var/log/motogo-set-static-lan.log`;
-   připoj se znovu na `192.168.50.10`. Kontrola LTE: `mmcli -m any`, `nmcli con show motogo-lte`
+   připoj se znovu na `192.168.50.10`. Oba profily mají záložní DNS 1.1.1.1/8.8.8.8 (doplňuje update.sh).
+   Kontrola LTE: `mmcli -m any`, `nmcli con show motogo-lte`
    (stav `locked` = chybí PIN → `sudo ./scripts/install.sh`; PIN SIM je u všech poboček **1234** — výchozí hodnota install.sh,
    jiný PIN = `MOTOGO_SIM_PIN`).
 6. **Waveshare (SPEC §4/§6)** — ve webovém rozhraní modulu (výchozí IP viz manuál Waveshare):

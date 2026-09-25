@@ -24,6 +24,8 @@ method=auto
 route-metric=100
 never-default=false
 dns-priority=10
+# záložní veřejné DNS (2026-09-26): DNS operátora (Vodafone 31.30.90.x) občas neodpovídá → Velín/GitHub nedosažitelné
+dns=1.1.1.1;8.8.8.8;
 
 [ipv6]
 method=ignore

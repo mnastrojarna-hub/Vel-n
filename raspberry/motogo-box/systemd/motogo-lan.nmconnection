@@ -24,6 +24,8 @@ never-default=false
 ignore-auto-dns=false
 ignore-auto-routes=false
 route-metric=50
+# záložní veřejné DNS (2026-09-26) k DNS z DHCP routeru
+dns=1.1.1.1;8.8.8.8;
 
 [ipv6]
 method=ignore

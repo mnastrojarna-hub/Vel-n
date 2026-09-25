@@ -23,6 +23,8 @@ HINTS = {
     "sim_puk": "SIM je zablokovaná — odemkne ji jen PUK (karta/účet u operátora), v mobilu. Potom PIN rovnou "
                "vypněte a SIM vraťte do jednotky; do profilu motogo-lte pak žádný pin= nepatří.",
     "internet": "Internet nedostupný — zkontrolujte LTE (signál, SIM) a výchozí bránu; DNS: resolvectl status.",
+    "dns_fail": "DNS neodpovídá (server operátora/routeru) — záložní 1.1.1.1/8.8.8.8 doplňuje aktualizace software; ručně: "
+                "nmcli con modify motogo-lte +ipv4.dns 1.1.1.1 (a motogo-lan), pak Nahodit LTE. Když nejde ani TCP 1.1.1.1:443, je to výpadek internetu, ne DNS.",
     "not_paired": "Spárujte jednotku ve Velíně (Pobočky → Samoobsluha → Zařízení) — report se odešle po spárování.",
     "heartbeat": "Velín neodpovídá — zkontrolujte internet a párování (token zařízení); log: journalctl -u motogo-controller.",
     "realtime": "Realtime kanál nespojen — příkazy z Velína dorazí až pollingem (do 10 s); zkontrolujte internet.",
