@@ -222,6 +222,7 @@ class TimingsCfg:
     forced_open_debounce_ms: int = 500
     pin_entry_timeout_s: int = 20
     overtime_alert_minutes: list = field(default_factory=lambda: [10, 20, 30])
+    handover_idle_s: int = 120     # předávací protokol na displeji bez dotyku → skrýt (handover.py, 2026-09-25)
 
 
 @dataclass

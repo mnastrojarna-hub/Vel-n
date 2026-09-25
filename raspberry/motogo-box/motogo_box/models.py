@@ -70,6 +70,11 @@ class EventKind(str, Enum):
     DIAGNOSTICS = "DIAGNOSTICS"                  # dokončená diagnostika sítě (souhrn; celý report → kiosk_diagnostics)
     SHELL = "SHELL"                              # servisní terminál na displeji — spuštěný příkaz (§27)
     IO_PROVISIONED = "IO_PROVISIONED"            # modul Waveshare automaticky přeadresován dle HW mapy (io_provision.py)
+    # Předávací protokol na displeji (handover.py, 2026-09-25): zobrazen (→ kiosk_log_open, DB nastaví
+    # started_at/prompted_at + push do appky), podepsán prstem na kiosku, odeslání trvale odmítnuto edge funkcí.
+    PROTOCOL_SHOWN = "PROTOCOL_SHOWN"
+    PROTOCOL_SIGNED = "PROTOCOL_SIGNED"
+    PROTOCOL_UPLOAD_FAILED = "PROTOCOL_UPLOAD_FAILED"
 
 
 @dataclass(frozen=True)
@@ -283,6 +288,10 @@ class ResolveResult:
     doors: list[ServiceDoor] = field(default_factory=list)
     offline: bool = False           # ověřeno z lokální cache
     action: str = "service"         # u servisního hesla: service (panel) | diagnostics (jen diagnostika sítě)
+    # Předávací protokol rezervace (`_kiosk_protocol` v RPC / `protocols[]` v sync cache):
+    # {booking_id, required, filled_at, needs_locker, gear_collected_at, prompted_at, is_child, data{…}}.
+    # None = stav neznámý (starší DB / stará cache) → hradlo se NEuplatní (fail-open, handover.py).
+    protocol: dict | None = None
 
     @property
     def is_service(self) -> bool:
@@ -317,6 +326,7 @@ class ResolveResult:
             door_configured=bool(m.get("door_configured")) or bool(door),
             doors=doors,
             action=str(m.get("action") or "service"),
+            protocol=m.get("protocol") if isinstance(m.get("protocol"), dict) else None,
         )
 
 

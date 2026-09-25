@@ -1,0 +1,110 @@
+/* MotoGo24 kiosk UI — předávací protokol na displeji: overlay #handover (modální, světlý — zákazník) a pruh šatny
+   #wardrobe-hint (nemodální, nad polem kódu). Základ (proměnné, .key, .kb-*, .code-box, .spinner) → style.css.
+   Karta = mřížka [hlavička] / [výbava | podpis | kód] / [patička]; na nízkém displeji se zmenšují jen rozměry, ne kroky. */
+
+/* ── Pruh šatny (dveře otevřené se zákaznickou relací) — klávesnice zůstává aktivní ─────────────────── */
+.wardrobe-hint { display: flex; align-items: center; gap: clamp(8px, .8vw, 14px); border-radius: 12px;
+  padding: clamp(6px, 1vh, 10px) 12px; background: var(--green-pale); border: 1.5px solid var(--green-mid); color: var(--ink-2); }
+.wardrobe-ico { flex: 0 0 auto; font-family: var(--emoji); font-size: clamp(18px, 3vh, 30px); }
+.wardrobe-title { font-size: clamp(13px, 1.9vh, 18px); font-weight: 800; line-height: 1.25; }
+.wardrobe-sub { font-size: clamp(11px, 1.6vh, 15px); color: var(--muted); font-weight: 600; margin-top: 2px; line-height: 1.3; }
+
+/* ── Overlay protokolu: nad #status (40), pod servisem/terminálem (50), setupem (60) a diagnostikou (70) ── */
+#handover { z-index: 45; padding: 1.2vh 1.2vw; }
+.ho-card { position: relative; width: min(97.6vw, 1760px); height: min(97.6vh, 1000px); border-radius: 22px; background: var(--bg);
+  border: 2px solid var(--line); box-shadow: 0 20px 60px rgba(15,26,20,.35); color: var(--ink);
+  padding: clamp(8px, 1.4vh, 20px) clamp(10px, 1.6vw, 26px); display: grid; gap: clamp(6px, 1.1vh, 14px) clamp(10px, 1.4vw, 24px);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "head head head" "gear sign code" "foot foot foot"; }
+#handover.no-code .ho-card { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-areas: "head head" "gear sign" "foot foot"; }
+.ho-head { grid-area: head; display: flex; align-items: center; gap: clamp(8px, 1.2vw, 20px); flex-wrap: wrap; min-width: 0; }
+.ho-title-wrap { display: flex; align-items: center; gap: 8px; }
+.ho-ico { font-family: var(--emoji); font-size: clamp(20px, 3.2vh, 32px); }
+.ho-title { font-size: clamp(18px, 3vh, 32px); font-weight: 900; white-space: nowrap; }
+.ho-meta { flex: 1 1 auto; min-width: 0; display: flex; gap: clamp(8px, 1.4vw, 28px); flex-wrap: wrap; }
+.ho-meta-item { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.ho-meta-item .k { font-size: clamp(10px, 1.4vh, 13px); font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: var(--muted-2); }
+.ho-meta-item .v { font-size: clamp(13px, 2vh, 20px); font-weight: 800; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 34vw; }
+.ho-timer { flex: 0 0 auto; margin-left: auto; font-size: clamp(11px, 1.6vh, 15px); font-weight: 700; color: var(--muted); white-space: nowrap; }
+.ho-timer:empty { display: none; }
+
+/* výbava (roluje) */
+.ho-gear { grid-area: gear; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: clamp(4px, .8vh, 10px); }
+.ho-intro { font-size: clamp(12px, 1.8vh, 17px); color: var(--muted); font-weight: 600; line-height: 1.35; }
+.ho-gear-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+  display: flex; flex-direction: column; gap: clamp(4px, .8vh, 8px); padding-right: 4px; }
+.ho-group { font-size: clamp(11px, 1.6vh, 14px); font-weight: 800; letter-spacing: .8px; text-transform: uppercase; color: var(--green-deep); margin-top: 4px; }
+.ho-row { display: flex; align-items: center; gap: clamp(6px, .8vw, 12px); padding: clamp(4px, .8vh, 8px) clamp(6px, .8vw, 12px);
+  border-radius: 12px; background: var(--bg-2); border: 1.5px solid var(--line); min-width: 0; }
+.ho-row-ico { font-family: var(--emoji); font-size: clamp(18px, 2.8vh, 28px); flex: 0 0 auto; }
+.ho-row-name { flex: 0 0 clamp(64px, 6.5vw, 120px); font-size: clamp(13px, 1.9vh, 18px); font-weight: 800; color: var(--ink-2); }
+.ho-chips { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: clamp(4px, .6vh, 8px); }
+.ho-chip { min-width: clamp(40px, 5vh, 56px); height: clamp(34px, 5vh, 46px); padding: 0 clamp(8px, .8vw, 14px); border-radius: 10px;
+  background: var(--bg); border: 1.5px solid var(--line); font-size: clamp(13px, 1.9vh, 18px); font-weight: 800; color: var(--ink); }
+.ho-chip:active { background: var(--bg-3); }
+.ho-chip.on { background: var(--green); border-color: var(--green-mid); }
+.ho-size-na { color: var(--muted-2); font-weight: 700; padding: 0 6px; }
+.ho-nogear { font-size: clamp(13px, 2vh, 18px); font-weight: 700; color: var(--muted); padding: clamp(6px, 1vh, 12px);
+  border-radius: 12px; background: var(--bg-2); border: 1.5px dashed var(--line); }
+
+/* podpis */
+.ho-sign { grid-area: sign; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: clamp(4px, .8vh, 8px); }
+.ho-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: clamp(12px, 1.8vh, 16px);
+  font-weight: 800; color: var(--ink-2); }
+.ho-link { min-height: clamp(32px, 4.5vh, 44px); padding: 0 10px; border-radius: 10px; font-size: clamp(11px, 1.6vh, 14px); font-weight: 800;
+  color: var(--red-ink); background: var(--red-bg); border: 1px solid var(--red); }
+.ho-sig-wrap { position: relative; flex: 1 1 auto; min-height: clamp(70px, 16vh, 260px); border-radius: 14px; background: #FFFFFF;
+  border: 2px dashed var(--green-mid); overflow: hidden; }
+#ho-sig { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+.ho-sig-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none;
+  font-size: clamp(13px, 2vh, 20px); font-weight: 700; color: var(--muted-2); text-align: center; padding: 0 12px; }
+.ho-sig-line { position: absolute; left: 8%; right: 8%; bottom: 18%; border-bottom: 1.5px solid var(--line); pointer-events: none; }
+
+/* kód motorky (jen bez then_open) — pole + číselný blok pod sebou; na nízkém displeji vedle sebe */
+.ho-code { grid-area: code; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(4px, .8vh, 8px);
+  align-content: start; width: clamp(200px, 15vw, 300px); }
+.ho-code-box { height: clamp(40px, 6.5vh, 64px); font-size: clamp(20px, 3.6vh, 36px); padding: 0 8px; letter-spacing: .12em; }
+.ho-code-hint { font-size: clamp(11px, 1.6vh, 14px); color: var(--muted); font-weight: 600; line-height: 1.3; }
+.ho-keys { min-height: 0; display: flex; justify-content: center; }
+.kb-mode-pin { --k: clamp(40px, 6.4vh, 66px); width: calc(3 * var(--k) + 2 * var(--gap)); }
+
+/* patička: hláška + Zpět + Potvrdit a podepsat */
+.ho-foot { grid-area: foot; display: flex; align-items: center; gap: clamp(8px, 1vw, 16px); }
+.ho-msg { flex: 1 1 auto; min-width: 0; font-size: clamp(12px, 1.8vh, 17px); font-weight: 700; color: var(--red-ink); line-height: 1.3;
+  padding: clamp(4px, .8vh, 8px) 12px; border-radius: 10px; background: var(--red-bg); border: 1.5px solid var(--red);
+  white-space: pre-line; }   /* lockout: titulek + „zkuste za N min“ + podpora na řádcích jako v #status */
+.ho-msg[hidden] { display: none; }
+.ho-foot .ho-spacer { flex: 1 1 auto; }
+.ho-btn { flex: 0 0 auto; min-height: clamp(44px, 7vh, 66px); padding: 0 clamp(14px, 1.6vw, 28px); border-radius: 14px;
+  font-size: clamp(14px, 2.1vh, 20px); font-weight: 900; border: 2px solid var(--line); background: var(--bg-2); color: var(--ink);
+  box-shadow: 0 2px 0 var(--line); white-space: nowrap; }
+.ho-btn:active { background: var(--bg-3); box-shadow: none; transform: translateY(1px); }
+.ho-btn-primary { background: var(--green); border-color: var(--green-mid); }
+.ho-btn[disabled] { opacity: .4; pointer-events: none; }
+.ho-saving { position: absolute; inset: 0; z-index: 2; border-radius: 20px; background: rgba(255,255,255,.88); display: flex;
+  flex-direction: column; align-items: center; justify-content: center; gap: 14px; font-size: clamp(16px, 2.6vh, 26px); font-weight: 900; }
+.ho-saving .spinner { width: clamp(48px, 9vh, 90px); height: clamp(48px, 9vh, 90px); border-width: 6px; border-color: var(--bg-3); border-top-color: var(--green-mid); }
+
+/* ── Nízký displej: kód vedle číselníku, kratší texty, chipy těsnější ────────────────────────────────── */
+@media (max-height: 820px) {
+  .ho-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .ho-code { width: auto; grid-template-columns: minmax(150px, 1fr) auto; grid-template-areas: "lbl keys" "box keys" "hint keys"; align-items: start; }
+  .ho-code > .ho-label { grid-area: lbl; } .ho-code > .ho-code-box { grid-area: box; } .ho-code > .ho-code-hint { grid-area: hint; } .ho-code > .ho-keys { grid-area: keys; }
+  .kb-mode-pin { --k: clamp(40px, 9.5vh, 60px); }
+}
+@media (max-height: 520px) {
+  .wardrobe-sub { display: none; }   /* sloupec A s dlouhým hint2 (de/fr/uk) + pruh: titulek pruhu stačí, protokol přijde sám */
+  .wardrobe-hint { padding: 4px 10px; }
+  #handover { padding: 0; }
+  .ho-card { width: 100vw; height: 100vh; border-radius: 0; border: 0; padding: 6px 10px; gap: 4px 10px; }
+  .ho-intro, .ho-code-hint { display: none; }   /* kroky zůstávají (popisky, hint v rámečku podpisu), jen bez úvodní věty */
+  .ho-row { padding: 2px 6px; } .ho-group { margin-top: 0; }
+  .ho-sig-wrap { min-height: 64px; }
+  .kb-mode-pin { --k: 40px; }
+}
+@media (max-width: 1100px) {
+  .ho-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "head head" "gear sign" "gear code" "foot foot"; }
+  .ho-code { width: auto; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "lbl keys" "box keys" "hint keys"; }
+  .ho-code > .ho-label { grid-area: lbl; } .ho-code > .ho-code-box { grid-area: box; } .ho-code > .ho-code-hint { grid-area: hint; } .ho-code > .ho-keys { grid-area: keys; }
+}

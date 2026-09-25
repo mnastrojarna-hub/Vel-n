@@ -151,7 +151,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         </Card>
       )}
 
-      {doorCodes.length > 0 && <DoorCodesSection doorCodes={doorCodes} />}
+      {doorCodes.length > 0 && <DoorCodesSection doorCodes={doorCodes} booking={booking} />}
 
       <DatesAndPaymentSection booking={booking} bookingExtras={bookingExtras} sosIncidents={sosIncidents} onModify={onModify} error={error} actions={actions} onAction={onAction} />
 

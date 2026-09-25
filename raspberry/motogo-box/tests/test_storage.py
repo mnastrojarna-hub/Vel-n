@@ -1,6 +1,7 @@
 """Testy storage.py: kv, cache kódů, outbox, PIN pokusy, ring buffer událostí."""
 from __future__ import annotations
 
+import sqlite3
 import time
 
 import pytest
@@ -109,3 +110,46 @@ def test_event_add_serializes_detail(storage):
     row = storage.events_recent(1)[0]
     assert row["success"] is False and row["level"] == "error" and row["zone"] == 2
     assert row["detail"]["event"] == "FORCED_OPEN" and row["ts"] == ev.ts
+
+
+def test_protocol_queue_never_drops_signatures(storage):
+    """Fronta podepsaných protokolů (handover.py): put/pending/fail/done/retry + kv v téže transakci."""
+    assert storage.protocol_queue_status() == {"pending": [], "failed": []}
+    storage.protocol_queue_put("b1", {"booking_id": "b1", "signature": "data:image/png;base64,AAAA"},
+                               kv=("handover", {"items": [], "signed": {}}))
+    assert storage.kv_get("handover") == {"items": [], "signed": {}}
+    time.sleep(0.01)
+    storage.protocol_queue_put("b2", {"booking_id": "b2"})
+    rows = storage.protocol_queue_pending()
+    assert [r["booking_id"] for r in rows] == ["b1", "b2"] and rows[0]["payload"]["signature"].startswith("data:")
+    assert rows[0]["attempts"] == 0
+    for _ in range(OUTBOX_MAX_ATTEMPTS + 5):        # limit pokusů outboxu se na protokoly NEvztahuje
+        storage.protocol_queue_fail("b1", "network", permanent=False)
+    assert storage.protocol_queue_pending()[0]["attempts"] == OUTBOX_MAX_ATTEMPTS + 5
+    storage.protocol_queue_fail("b1", "forbidden", permanent=True)
+    assert storage.protocol_queue_status() == {"pending": ["b2"], "failed": ["b1"]}
+    assert [r["booking_id"] for r in storage.protocol_queue_pending()] == ["b2"]
+    assert storage.protocol_queue_retry_failed() == 1
+    assert storage.protocol_queue_status() == {"pending": ["b1", "b2"], "failed": []}
+    storage.protocol_queue_put("b1", {"booking_id": "b1", "v": 2})     # nový podpis přepíše starý, čítač od nuly
+    row = next(r for r in storage.protocol_queue_pending() if r["booking_id"] == "b1")
+    assert row["payload"]["v"] == 2 and row["attempts"] == 0
+    storage.protocol_queue_done("b1")
+    storage.protocol_queue_done("b2")
+    assert storage.protocol_queue_pending() == [] and storage.protocol_queue_status() == {"pending": [], "failed": []}
+
+
+def test_protocol_queue_put_never_leaves_transaction_open(storage):
+    """Chyba mimo sqlite (neserializovatelný payload) nesmí nechat na sdíleném autocommit spojení otevřený BEGIN,
+    do kterého by potichu spadly všechny další zápisy; ani sqlite chyba uvnitř transakce."""
+    circular: dict = {}
+    circular["self"] = circular
+    with pytest.raises(ValueError):
+        storage.protocol_queue_put("b1", circular, kv=("handover", {"items": []}))
+    assert storage._db.in_transaction is False
+    assert storage.protocol_queue_status() == {"pending": [], "failed": []} and storage.kv_get("handover") is None
+    with pytest.raises(sqlite3.Error):
+        storage.protocol_queue_put("b1", {"x": 1}, kv=(object(), {}))   # nebindovatelný klíč → chyba až v transakci
+    assert storage._db.in_transaction is False and storage.protocol_queue_status()["pending"] == []
+    storage.kv_set("x", 1)
+    assert storage.kv_get("x") == 1

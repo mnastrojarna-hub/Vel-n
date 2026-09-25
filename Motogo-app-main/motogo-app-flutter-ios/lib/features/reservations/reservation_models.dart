@@ -80,6 +80,19 @@ class Reservation {
   final String? passengerJacketSize;
   final String? passengerPantsSize;
   final String? passengerBootsSize;
+  final String? passengerGlovesSize;
+  /// „Mám vlastní výbavu“ (`bookings.own_gear`, od 2026-09-25): true/false =
+  /// explicitní volba zákazníka, NULL = neuvedeno (starší rezervace — backend
+  /// odvozuje z prázdných velikostí řidiče). Rozhoduje o kódu šatny.
+  final bool? ownGear;
+  /// Předávací protokol (samoobslužná pobočka): začátek okna (historie),
+  /// čas podpisu (NULL = nepodepsáno → motorka se na kiosku neotevře),
+  /// poslední výzva z displeje pobočky (každá nová hodnota = appka otevře
+  /// protokol přes celou obrazovku) a první zavření šatny.
+  final DateTime? handoverProtocolStartedAt;
+  final DateTime? handoverProtocolFilledAt;
+  final DateTime? handoverProtocolPromptedAt;
+  final DateTime? gearCollectedAt;
   final DateTime? originalStartDate;
   final DateTime? originalEndDate;
   final List<ModificationEntry> modificationHistory;
@@ -148,6 +161,12 @@ class Reservation {
     this.passengerJacketSize,
     this.passengerPantsSize,
     this.passengerBootsSize,
+    this.passengerGlovesSize,
+    this.ownGear,
+    this.handoverProtocolStartedAt,
+    this.handoverProtocolFilledAt,
+    this.handoverProtocolPromptedAt,
+    this.gearCollectedAt,
     this.originalStartDate,
     this.originalEndDate,
     this.modificationHistory = const [],
@@ -223,6 +242,12 @@ class Reservation {
       passengerJacketSize: json['passenger_jacket_size'] as String?,
       passengerPantsSize: json['passenger_pants_size'] as String?,
       passengerBootsSize: json['passenger_boots_size'] as String?,
+      passengerGlovesSize: json['passenger_gloves_size'] as String?,
+      ownGear: json['own_gear'] as bool?,
+      handoverProtocolStartedAt: _ts(json['handover_protocol_started_at']),
+      handoverProtocolFilledAt: _ts(json['handover_protocol_filled_at']),
+      handoverProtocolPromptedAt: _ts(json['handover_protocol_prompted_at']),
+      gearCollectedAt: _ts(json['gear_collected_at']),
       originalStartDate: json['original_start_date'] != null
           ? DateTime.tryParse(json['original_start_date'] as String)
           : null,
@@ -237,6 +262,23 @@ class Reservation {
           : null,
     );
   }
+
+  /// Tolerantní timestamp — chybějící/nestandardní hodnota nesmí shodit seznam.
+  static DateTime? _ts(dynamic v) =>
+      v == null ? null : DateTime.tryParse(v.toString());
+
+  /// Samoobslužná pobočka (kiosk, kódy, předávací protokol v appce).
+  bool get isSelfService => branchType == 'samoobslužná';
+
+  /// Předávací protokol už je podepsaný (v appce, na displeji nebo ve Velíně).
+  bool get protocolSigned => handoverProtocolFilledAt != null;
+
+  /// Vlastní výbava řidiče včetně odvození pro starší rezervace bez `own_gear`
+  /// (NULL = všechny velikosti základní výbavy řidiče prázdné) — stejné
+  /// pravidlo jako DB `_booking_needs_locker` (boty/spolujezdec se řeší zvlášť).
+  bool get ownGearEffective =>
+      ownGear ??
+      [helmetSize, jacketSize, pantsSize, glovesSize].every((s) => (s ?? '').trim().isEmpty);
 
   static List<ModificationEntry> _parseModHistory(dynamic raw) {
     if (raw == null || raw is! List) return [];

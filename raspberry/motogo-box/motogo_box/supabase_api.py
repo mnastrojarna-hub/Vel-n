@@ -21,6 +21,8 @@ log = logging.getLogger("motogo.api")
 
 CODE_TIMEOUT_S = 6.0            # ověření kódu online (zákazník čeká u boxu)
 CODE_TIMEOUT_OFFLINE_S = 2.5    # poslední RPC selhalo → jen ťuknout a jít do offline cache
+PROTOCOL_TIMEOUT_S = 45.0       # edge submit-handover-protocol renderuje PDF (sekundy) — kratší timeout = duplicitní podpisy
+PROTOCOL_EDGE = "/functions/v1/submit-handover-protocol"
 
 # kind v outboxu → název RPC
 OUTBOX_RPC: dict[str, str] = {
@@ -226,6 +228,35 @@ class SupabaseApi:
     async def report_diagnostics(self, report: dict) -> None:
         """``kiosk_report_diagnostics`` — celý report diagnostiky sítě (přes outbox; nespárované → jen fronta)."""
         await self._send_or_queue("report_diagnostics", {"p_report": report or {}})
+
+    # ─── předávací protokol (edge funkce, mimo outbox — vlastní fronta `protocol_queue`) ───
+    async def submit_protocol(self, payload: dict) -> dict:
+        """POST edge `submit-handover-protocol` v režimu kiosk (identita = device_id + token).
+
+        Vrací ``{ok, permanent, error, already_filled}``: ``ok`` = uloženo (i ``already_filled`` —
+        podepsáno mezitím jinde), ``permanent`` = 4xx mimo 404/408/429 (kiosk NIKDY neopakuje, položka
+        zůstává ve frontě jako `failed`), jinak síť/5xx = zkusit později. 404 = edge ještě nenasazená.
+        """
+        body = {"mode": "kiosk", "device_id": self.device_id, "device_token": self.device_token, **(payload or {})}
+        try:
+            resp = await self._client.post(PROTOCOL_EDGE, json=body, timeout=PROTOCOL_TIMEOUT_S)
+        except httpx.HTTPError as exc:
+            self.online = False
+            return {"ok": False, "permanent": False, "error": f"network: {type(exc).__name__}", "already_filled": False}
+        self.online = True
+        try:
+            data = resp.json() if resp.content and resp.content.strip() else {}
+        except ValueError:
+            data = {}
+        data = data if isinstance(data, dict) else {}
+        error = str(data.get("error") or "") or f"http_{resp.status_code}"
+        if 200 <= resp.status_code < 300:
+            if data.get("success") is True:
+                return {"ok": True, "permanent": False, "error": None, "already_filled": bool(data.get("already_filled"))}
+            return {"ok": False, "permanent": True, "error": error, "already_filled": False}
+        permanent = 400 <= resp.status_code < 500 and resp.status_code not in (404, 408, 429)
+        log.warning("submit_protocol: HTTP %d %s (%s)", resp.status_code, error, "trvalé" if permanent else "dočasné")
+        return {"ok": False, "permanent": permanent, "error": error, "already_filled": False}
 
     async def flush_outbox(self) -> int:
         """Odešle čekající položky; vrací počet odeslaných. Při výpadku sítě končí hned."""

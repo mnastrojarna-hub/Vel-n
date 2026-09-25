@@ -327,11 +327,35 @@ pin_entry_timeout_s: 20
 
 **Platný PIN:** 1. Ověřit kód dle Velína (`kiosk_resolve_code`, offline HMAC cache): rezervace = 6 číslic, servisní a diagnostické kódy alfanumerické — délku jednotka nekontroluje (`pin_length` odstraněno, §13 rozhodnutí 2026-09-11). 2. Ověřit rezervaci a časové okno. 3. Zjistit zone_id. 4. Ověřit dostupnost WAV645, příslušného WAV617 a Shelly. 5. Ověřit, že dveře nejsou už otevřené. 6. Zapnout bílé světlo. 7. Přepnout signalizaci červená → zelená. 8. Vybrat reproduktor. 9. Spustit hudbu. 10. Poslat zámku 800ms hardware impulz. 11. Zapsat událost ACCESS_GRANTED. 12. Čekat na otevření kontaktu.
 
+**Platný PIN — krok 2b (2026-09-25, kód motorky = hradlo předávacího protokolu):** odpověď `kiosk_resolve_code` (i offline
+cache z `kiosk_sync_config`) nese u zákaznického kódu objekt `protocol` (§10). Je-li `kind = motorcycle`, `protocol.required = true`
+(protokol dosud nepodepsán) a jednotka ho sama ještě nepodepsala, kóje se NEOTEVŘE: `submit_code` vrátí `error: protocol_required`
+(bez události `ACCESS_DENIED`, bez PIN lockoutu) a displej přes celý displej ukáže předávací protokol s příznakem `then_open` — po
+podpisu pokračují kroky 3–12 samy (kóje se otevře bez dalšího zadávání). `protocol` chybí (`None` — starší cache nebo backend)
+→ hradlo se NEuplatní (fail-open, log `protocol_state_unknown`); `required = false` → kroky 3–12 jako dosud. Servisní kódy
+(39301A–H, servisní heslo, `open_door` z Velína) protokol nikdy nespouští ani nevyžadují (`booking_id = None`).
+
 **Dveře se do 30 sekund neotevřou:** zámek už nesmí být napájen; vypnout hudbu; po 30 sekundách vypnout bílé světlo; vrátit červenou signalizaci; ukončit relaci; stejný PIN může být podle rezervace znovu použit.
 
 **Dveře se otevřou:** zapsat přesný čas; zámek musí být bez napětí; ponechat světlo; ponechat zelenou signalizaci; spustit maximální čas otevření.
 
 **Dveře se zavřou:** vyžadovat stabilní NC stav alespoň 1 sekundu; IBFM se po zavření mechanicky znovu zajistí; zastavit hudbu po 10 sekundách; vypnout bílé světlo po 30 sekundách; rozsvítit červenou; zapsat SESSION_COMPLETED.
+
+**Šatna (zóna `kind: accessories`) — vedený tok šatna → protokol → motorka (rozhodnutí 2026-09-25):** kód šatny dostane jen
+rezervace, která má v šatně co vyzvednout (půjčená výbava řidiče, boty nebo výbava spolujezdce — rozhoduje DB `_booking_needs_locker`,
+§10); čistě vlastní výbava = žádný kód šatny, šatna nejde otevřít. Po otevření šatny displej vede NEmodálně — pruh nad polem kódu
+(klávesnice zůstává aktivní, ostatní zákazníci zadávají dál): „Šatna: vezměte si výbavu a zavřete dveře — protokol se zobrazí po
+zavření.“ Pruh se odvozuje ŽIVĚ ze stavu zóny (`DOOR_OPEN` + `booking_id`), ne z uložené fáze (restart jednotky ho tedy nikdy
+nenechá viset). Přechod DOOR_OPEN → CLOSED_CONFIRMATION se `booking_id` (událost `DOOR_CLOSED`): protokol nepodepsán → modální
+overlay PROTOCOL přes celý displej (hlavička: jméno zkráceně, motorka, období; výbava řidič/spolujezdec s velikostmi — chipy z
+číselníku, upravitelné; podpis prstem; „Potvrdit a podepsat“ + pole „Kód motorky“ = identita podepisujícího, bez správného kódu
+motorky téže rezervace nejde podepsat); podepsán dřív v appce → jen hláška „Teď zadejte kód motorky.“ (5 s). Overlay zmizí bez
+dotyku po `handover_idle_s` (120 s) nebo tlačítkem „Zpět“ (dismiss = jiný zákazník) — položka zůstává NEVYŘÍZENÁ a znovu se ukáže
+JEN kódem motorky téže rezervace nebo dalším zavřením šatny téže rezervace; `then_open` platí výhradně dokud je overlay viditelný
+(dismiss/idle/restart ho ruší — kóje se nikdy neotevře bez zákazníka u displeje). Zákazník s vlastní výbavou (bez šatny) dostane
+protokol po zadání kódu motorky, PŘED otevřením (krok 2b). Nikdo nedostane motorku bez podepsaného protokolu; podpis se NIKDY
+neztratí (trvalá fronta `protocol_queue`, odeslání i po výpadku LTE); po podpisu kdekoli (kiosk / appka / Velín) protokol zmizí
+z displeje i appky real-time (příkaz `protocol_signed`, pojistka `protocols[]` při syncu). Automatické vyplnění po 1 h je zrušeno.
 
 **Dveře zůstanou otevřené déle než 10 minut:** hudbu vypnout; bílé světlo lze ponechat; zelenou rozblikat; zobrazit chybu na displeji; odeslat vzdálené upozornění; opakovat upozornění například po 10, 20 a 30 minutách.
 
@@ -344,6 +368,22 @@ Minimální odpověď serveru:
 ```
 
 Raspberry musí mít lokální cache aktuálních rezervací, aby šlo dveře otevřít při výpadku LTE.
+
+**Dva kódy a předávací protokol (2026-09-25):** rezervace má kód motorky (`kind: motorcycle`) a — jen má-li v šatně co
+vyzvednout — kód šatny (`kind: accessories`; jinak řádek `branch_door_codes` s `withheld_reason = 'Vlastní výbava'` a kiosk
+dostane `invalid_code`). Kód se nespotřebovává: platí opakovaně po celé okno `valid_from`–`valid_until` (= do půlnoci po posledním
+dni). Zákaznická odpověď `kiosk_resolve_code` i položka `protocols[]` z `kiosk_sync_config` nesou JEDINÝ tvar objektu `protocol`
+(DB `_kiosk_protocol`): `{booking_id, required (= nepodepsán), filled_at, needs_locker, gear_collected_at, prompted_at, is_child,
+data: {customer_name (jméno + iniciála, nikdy prázdné), moto_model, moto_spz, start_date, end_date, mileage, gear: [{key: helmet|
+jacket|pants|boots|gloves, who: rider|passenger, field: <sloupec bookings>, size}]}}`; číselník velikostí `gear_sizes {adult:
+{helmet: […], jacket, pants, boots, gloves}, child: {…}}` z `accessory_types` (dětská motorka → `child`). Cache `protocols[]`
+obsahuje jen rezervace s nepodepsaným protokolem, stavem reserved/active a `valid_from ≤ now + 1 den` (osobní údaje na zařízení
+minimalizovat); do kv `remote_config` se `protocols`/`gear_sizes` neukládají. Podpis z displeje = PNG (≤ 150 kB) do edge funkce
+`submit-handover-protocol` (`mode: kiosk`, auth `device_id` + `device_token`, rezervace musí mít vydaný kód motorky téže pobočky;
+stav reserved/active/completed — podpis pořízený při výpadku dorazí i po nočním dokončení rezervace); 4xx MIMO 404/408/429 = trvalé
+odmítnutí (položka `failed`, Velín vidí `PROTOCOL_UPLOAD_FAILED`; kóje se po podpisu přesto otevře — fail-open; náprava = oprava
+na serveru + Velín „Znovu synchronizovat“), 404 (edge nenasazená)/408/429/5xx/síť = opakovat bez limitu pokusů; `already_filled`
+= úspěch (podepsáno mezitím jinde).
 
 PIN neukládat v čistém textu. Protože šest číslic lze snadno projet hrubou silou, nestačí obyčejný hash. Použít například `HMAC-SHA256(secret_key, terminal_id + PIN)`.
 
@@ -452,3 +492,21 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
 - **Limit Storage 200 MB na soubor hudby potvrzen.**
 - **Secrety zálohy (GitHub Actions) doplní uživatel sám.**
 - **Jedna služba místo sedmi (§11)** zůstává otevřené — uživatel si vyžádal seznam služeb.
+
+### Rozhodnutí uživatele (2026-09-25) — vedený tok šatna → protokol → motorka
+
+1. **Kód šatny** dostane každý, kdo má v šatně co vyzvednout (půjčená výbava řidiče NEBO boty NEBO výbava spolujezdce). Čistě
+   „mám svoje“ bez doplňků = žádný kód šatny, šatna mu nejde otevřít. Pojmenování všude „šatna / kód šatny“ (místo „příslušenství /
+   kód k příslušenství“).
+2. **Zákazník s vlastní výbavou** (bez šatny): protokol se ukáže po zadání kódu motorky, PŘED otevřením; po podpisu se kóje otevře.
+   Nikdo nedostane motorku bez podepsaného protokolu.
+3. **Podpis na kiosku = kresba prstem** (PNG), jako v appce a Velíně; potvrzení je vázané na kód motorky téže rezervace (identita
+   podepisujícího — protokol na displeji nemůže podepsat cizí zákazník).
+4. **Automatické vyplnění protokolu po 1 h** (cron `autofill-handover-protocols`, edge `mode=auto`) se RUŠÍ.
+
+Zásady: kiosk vede zákazníka krok za krokem, špatné pořadí nepustí (§9 krok 2b, odstavec „Šatna“); protokol po podpisu zmizí
+z kiosku i appky real-time, podepsané PDF v Dokumentech zůstává; aktivace rezervace (reserved → active) zůstává při otevření kóje
+motorky (`ACCESS_GRANTED` kind motorcycle), ne při podpisu; PDF česky, kiosk/appka vícejazyčně (8 jazyků); offline filosofie
+zůstává fail-open (jednotka otevírá i bez LTE, `protocol` bez dat = bez hradla), ale podpis se NIKDY neztratí (trvalá fronta,
+§10). Známé okno nasazení: starší software jednotky po nasazení DB/edge NEhradluje (motorka bez protokolu) až do hromadné
+aktualizace z Velína (§25 CONTRACT) — SQL/edge jsou pro něj aditivní.

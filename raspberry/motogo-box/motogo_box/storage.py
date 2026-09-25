@@ -7,6 +7,8 @@ Jedna databáze `<data_dir>/motogo.db` (WAL) s tabulkami:
 - ``outbox``        — fronta neodeslaných RPC (log_open, log_event, complete_command)
 - ``pin_attempts``  — historie pokusů o PIN (lockout dle §10)
 - ``events``        — lokální audit událostí, ring buffer (max ``EVENTS_MAX``)
+- ``protocol_queue`` — podepsané předávací protokoly z displeje čekající na odeslání (handover.py);
+  NIKDY se nemaže limitem pokusů ani přetečením — podpis se nesmí ztratit (trvalé odmítnutí = ``failed``)
 
 Modul je synchronní (``sqlite3``); volání jsou krátká a chráněná zámkem, takže je
 lze bezpečně volat i z různých vláken (``check_same_thread=False``).
@@ -65,6 +67,14 @@ CREATE TABLE IF NOT EXISTS events (
     level       TEXT NOT NULL DEFAULT 'info',
     message     TEXT NOT NULL DEFAULT '',
     detail_json TEXT NOT NULL DEFAULT '{}'
+);
+CREATE TABLE IF NOT EXISTS protocol_queue (
+    booking_id   TEXT PRIMARY KEY,
+    payload_json TEXT NOT NULL,
+    created_at   REAL NOT NULL,
+    attempts     INTEGER NOT NULL DEFAULT 0,
+    last_error   TEXT,
+    status       TEXT NOT NULL DEFAULT 'pending'
 );
 """
 
@@ -187,6 +197,80 @@ class Storage:
             if row is not None and int(row["attempts"]) > OUTBOX_MAX_ATTEMPTS:
                 self._db.execute("DELETE FROM outbox WHERE id = ?", (int(oid),))
                 log.warning("Outbox #%d zahozen po %d pokusech", oid, row["attempts"])
+
+    # ─── fronta podepsaných protokolů (handover.py) ─────────────────────────
+    def protocol_queue_put(self, booking_id: str, payload: dict, kv: tuple[str, Any] | None = None) -> None:
+        """Uloží podepsaný protokol (jeden na rezervaci; nový podpis přepíše starý) a volitelně
+        v TÉŽE transakci zapíše kv položku (stav HandoverManageru) — pád mezi oběma zápisy
+        nesmí nechat podpis bez stavu ani stav bez podpisu."""
+        # serializace PŘED transakcí: chyba json (cyklický payload) nesmí nechat na sdíleném autocommit
+        # spojení otevřený BEGIN, do kterého by potichu spadly všechny další zápisy
+        payload_json = _dumps(payload)
+        kv_json = None if kv is None else _dumps(kv[1])
+        with self._lock:
+            self._db.execute("BEGIN")
+            try:
+                self._db.execute(
+                    "INSERT INTO protocol_queue (booking_id, payload_json, created_at, attempts, last_error, status) "
+                    "VALUES (?, ?, ?, 0, NULL, 'pending') ON CONFLICT(booking_id) DO UPDATE SET "
+                    "payload_json = excluded.payload_json, created_at = excluded.created_at, attempts = 0, "
+                    "last_error = NULL, status = 'pending'",
+                    (str(booking_id), payload_json, time.time()),
+                )
+                if kv is not None:
+                    self._db.execute(
+                        "INSERT INTO kv (key, value_json) VALUES (?, ?) "
+                        "ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json",
+                        (kv[0], kv_json),
+                    )
+                self._db.execute("COMMIT")
+            except BaseException:          # i CancelledError/KeyboardInterrupt — transakci vždy uzavřít
+                try:
+                    self._db.execute("ROLLBACK")
+                except sqlite3.Error:
+                    pass
+                raise
+
+    def protocol_queue_pending(self, limit: int = 20) -> list[dict]:
+        """Čekající protokoly (nejstarší první): ``{booking_id, payload, attempts, created_at}``."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT booking_id, payload_json, attempts, created_at FROM protocol_queue "
+                "WHERE status = 'pending' ORDER BY created_at LIMIT ?", (int(limit),)
+            ).fetchall()
+        out: list[dict] = []
+        for r in rows:
+            payload = _loads(r["payload_json"], {})
+            out.append({"booking_id": str(r["booking_id"]), "payload": payload if isinstance(payload, dict) else {},
+                        "attempts": int(r["attempts"]), "created_at": float(r["created_at"])})
+        return out
+
+    def protocol_queue_done(self, booking_id: str) -> None:
+        with self._lock:
+            self._db.execute("DELETE FROM protocol_queue WHERE booking_id = ?", (str(booking_id),))
+
+    def protocol_queue_fail(self, booking_id: str, error: str, permanent: bool) -> None:
+        """Neúspěšný pokus: čítač + chyba; trvalé odmítnutí (4xx) → ``failed`` (zůstává pro diagnostiku)."""
+        with self._lock:
+            self._db.execute(
+                "UPDATE protocol_queue SET attempts = attempts + 1, last_error = ?, status = ? WHERE booking_id = ?",
+                (str(error or "")[:500], "failed" if permanent else "pending", str(booking_id)),
+            )
+
+    def protocol_queue_retry_failed(self) -> int:
+        """Trvale odmítnuté protokoly znovu do fronty (Velín „Znovu synchronizovat“ po opravě)."""
+        with self._lock:
+            cur = self._db.execute("UPDATE protocol_queue SET status = 'pending' WHERE status = 'failed'")
+            return int(cur.rowcount or 0)
+
+    def protocol_queue_status(self) -> dict:
+        """``{pending: [booking_id…], failed: [booking_id…]}`` pro snapshot / Velín."""
+        with self._lock:
+            rows = self._db.execute("SELECT booking_id, status FROM protocol_queue ORDER BY created_at").fetchall()
+        out: dict[str, list[str]] = {"pending": [], "failed": []}
+        for r in rows:
+            out.setdefault("failed" if r["status"] == "failed" else "pending", []).append(str(r["booking_id"]))
+        return out
 
     # ─── PIN pokusy / lockout ───────────────────────────────────────────────
     def pin_attempt(self, ok: bool, masked: str, ts: float | None = None) -> None:

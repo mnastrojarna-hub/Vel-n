@@ -23,6 +23,8 @@ class FakePostgrest:
         self.sync_config_missing = True
         self.status_missing = False
         self.fail_all = False
+        self.edge_status = 200            # odpověď edge submit-handover-protocol (viz `_edge`)
+        self.edge_body: dict = {"success": True}
         self._runner: web.AppRunner | None = None
         self.port = 0
 
@@ -75,9 +77,18 @@ class FakePostgrest:
             return web.Response(status=204)
         return web.json_response({"code": "PGRST202", "message": f"Could not find the function public.{name}"}, status=404)
 
+    async def _edge(self, request: web.Request) -> web.Response:
+        """Edge `submit-handover-protocol` (mode kiosk): tělo + hlavičky do `calls`, odpověď dle `edge_*`."""
+        body = await request.json()
+        self.calls.append(("submit-handover-protocol", body, dict(request.headers)))
+        if self.edge_body is None:
+            return web.Response(status=self.edge_status, text="not json")
+        return web.json_response(self.edge_body, status=self.edge_status)
+
     async def start(self, port: int = 0) -> None:
         app = web.Application()
         app.router.add_post("/rest/v1/rpc/{name}", self._rpc)
+        app.router.add_post("/functions/v1/submit-handover-protocol", self._edge)
         self._runner = web.AppRunner(app)
         await self._runner.setup()
         site = web.TCPSite(self._runner, "127.0.0.1", port)
@@ -310,5 +321,45 @@ async def test_flush_retries_rate_limited_report_later(server, storage):
         pending = storage.outbox_pending()
         assert [k for _, k, _ in pending] == ["report_diagnostics", "log_event"]
         assert pending[0][2]["p_report"]["id"] == "b"
+    finally:
+        await api.close()
+
+
+async def test_submit_protocol_edge_contract(server, storage):
+    """Edge submit-handover-protocol: tělo mode=kiosk + identita zařízení, anon hlavičky; klasifikace odpovědí."""
+    api = make_api(server, storage)
+    try:
+        payload = {"booking_id": "b1", "form": {"mileage": "1"}, "signature": "data:image/png;base64,AA==",
+                   "signed_at": "2026-09-25T10:00:00+00:00"}
+        res = await api.submit_protocol(payload)
+        assert res == {"ok": True, "permanent": False, "error": None, "already_filled": False} and api.online
+        name, body, headers = server.calls[-1]
+        assert name == "submit-handover-protocol" and body["mode"] == "kiosk"
+        assert body["device_id"] == DEVICE_ID and body["device_token"] == TOKEN and body["booking_id"] == "b1"
+        assert body["signature"] == payload["signature"] and body["form"] == {"mileage": "1"}
+        assert headers["apikey"] == ANON and headers["Authorization"] == f"Bearer {ANON}"
+        server.edge_body = {"success": True, "already_filled": True}
+        assert (await api.submit_protocol(payload))["already_filled"] is True
+        server.edge_status, server.edge_body = 403, {"success": False, "error": "forbidden"}
+        res = await api.submit_protocol(payload)
+        assert res["ok"] is False and res["permanent"] is True and res["error"] == "forbidden"
+        server.edge_status, server.edge_body = 413, {"error": "signature_too_large"}
+        assert (await api.submit_protocol(payload))["permanent"] is True
+        for status in (404, 408, 429, 500, 503):        # nenasazená edge, timeout, rate limit, server → později
+            server.edge_status, server.edge_body = status, None
+            res = await api.submit_protocol(payload)
+            assert res["ok"] is False and res["permanent"] is False and res["error"] == f"http_{status}", status
+        server.edge_status, server.edge_body = 200, {"success": False, "error": "wrong_status"}
+        res = await api.submit_protocol(payload)
+        assert res["ok"] is False and res["permanent"] is True and res["error"] == "wrong_status"
+    finally:
+        await api.close()
+
+
+async def test_submit_protocol_network_error_is_transient(storage):
+    api = SupabaseApi("http://127.0.0.1:1", ANON, DEVICE_ID, TOKEN, storage, "1.0.0+test")
+    try:
+        res = await api.submit_protocol({"booking_id": "b1"})
+        assert res["ok"] is False and res["permanent"] is False and res["error"].startswith("network") and not api.online
     finally:
         await api.close()

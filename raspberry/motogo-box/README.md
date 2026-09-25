@@ -12,21 +12,37 @@ Zadání: `SPEC.md`; rozhraní modulů: `CONTRACT.md`; zapojení a tabulky I/O: 
 
 ## Co program dělá
 
-1. Zákazník zadá **kód k oblečení** → otevře se kóje s oblečením (kind `accessories`).
-2. Po zavření zadá **kód k motorce** → otevře se kóje konkrétní motorky (`box_number` → zóna).
-3. Při otevření se v kóji **rozsvítí bílé světlo, signalizace přejde na zelenou a začne hrát hudba**
+Vedený tok **šatna → předávací protokol → motorka** (rozhodnutí uživatele 2026-09-25, SPEC §9/§13, CONTRACT §28):
+
+1. Zákazník, který má v šatně co vyzvednout (půjčená výbava řidiče, boty nebo výbava spolujezdce), zadá **kód šatny** →
+   otevře se šatna (kind `accessories`); displej ho nemodálně vede pruhem „Šatna: vezměte si výbavu a zavřete dveře — protokol
+   se zobrazí po zavření“ (klávesnice zůstává volná pro ostatní). Zákazník s vlastní výbavou kód šatny nedostane (šatna mu
+   nejde otevřít) a začíná rovnou kódem motorky.
+2. Po zavření dveří šatny se přes celý displej ukáže **předávací protokol**: výbava s velikostmi (upravitelné chipy z číselníku),
+   podpis prstem a potvrzení **kódem motorky** téže rezervace (identita podepisujícího). Bez podepsaného protokolu se kóje
+   motorky NEOTEVŘE — kód motorky bez podpisu protokol zobrazí a po podpisu kóji otevře sám (`then_open`). Bez dotyku 120 s
+   nebo tlačítkem „Zpět“ protokol zmizí a znovu ho vyvolá jen kód motorky (nebo další zavření šatny) téže rezervace. Podpis se
+   nikdy neztratí (trvalá fronta `protocol_queue`, odešle se i po výpadku LTE); podpis v appce/Velíně protokol z displeje
+   odstraní real-time (příkaz `protocol_signed`). Automatické vyplnění po 1 h je zrušeno.
+3. Zadá **kód k motorce** → otevře se kóje konkrétní motorky (`box_number` → zóna). Rezervace se aktivuje při otevření kóje
+   (jako dosud), ne podpisem.
+4. Při otevření se v kóji **rozsvítí bílé světlo, signalizace přejde na zelenou a začne hrát hudba**
    (skladby přiřazené té kóji ve Velíně → „Hudba pobočky“; v režimu `multi` hraje zároveň i venek).
    Po zavření dveří hudba doběhne (10 s) a světlo zhasne (30 s), svítí červená.
-4. **Servisní heslo** (Velín → Samoobsluha → Servisní hesla) otevře servisní panel: otevřít
+5. **Servisní heslo** (Velín → Samoobsluha → Servisní hesla) otevře servisní panel: otevřít
    libovolné dveře, světlo/hudba per zóna, Vše vypnout, stav zařízení, přepárování, restart.
-5. **Pevné servisní kódy dveří** (natvrdo v programu, `motogo_box/fixed_codes.py`): `39301A` → kóje 1 …
+6. **Pevné servisní kódy dveří** (natvrdo v programu, `motogo_box/fixed_codes.py`): `39301A` → kóje 1 …
    `39301G` → kóje 7, `39301H` → šatna (zóna `kind: accessories`, jinak zóna 8). Otevřou dveře kdykoli — bez
    rezervace, Velína i internetu — plnou sekvencí zóny jako „Otevřít" v servisním panelu (audit `kind=service`,
-   `source=fixed_service_code`). Platí pro ně PIN lockout; v okně diagnostiky nic neotevřou.
+   `source=fixed_service_code`). Platí pro ně PIN lockout; v okně diagnostiky nic neotevřou. Servisní kódy, servisní heslo ani
+   `open_door` z Velína předávací protokol nespouští ani nevyžadují.
 
-Kódy zákazníků jsou existující `branch_door_codes` (generují se při aktivaci rezervace).
-Program je ověří přes RPC `kiosk_resolve_code`; při výpadku internetu proti **lokální cache**
-(hashe HMAC z `kiosk_sync_config`) — otevírání funguje i bez LTE.
+Kódy zákazníků jsou existující `branch_door_codes` (generují se při aktivaci rezervace; kód šatny jen když má rezervace
+v šatně co vyzvednout — DB `_booking_needs_locker`). Kód se nespotřebovává: platí opakovaně po celý termín včetně
+posledního dne do 24:00. Program je ověří přes RPC `kiosk_resolve_code` (zákaznický kód nese i objekt `protocol` — zda je
+předávací protokol podepsán + data pro displej); při výpadku internetu proti **lokální cache** (hashe HMAC + `protocols[]`
+z `kiosk_sync_config`) — otevírání funguje i bez LTE. Chybí-li `protocol` úplně (starší backend / cache), hradlo protokolu se
+neuplatní (fail-open); podpis pořízený offline odejde z fronty po obnovení spojení.
 
 ### Stavový automat zóny (SPEC §9)
 
@@ -82,7 +98,8 @@ relé světla, hudba venku; světlo nikdy nespíná při relaci) a nepočítá h
 | `motogo-ui.service` | `cage -- chromium --kiosk http://127.0.0.1:8080/` | Dotykové UI na EDATEC (responzivní 100vw×100vh, světlé téma MotoGo24 — viz „Displej“; Wayland kiosk na tty7, skript `scripts/kiosk-ui.sh`) |
 
 Lokální data: SQLite `/var/lib/motogo/motogo.db` (cache kódů, fronta neodeslaných událostí,
-PIN lockout, posledních 5000 událostí), stav health `/var/lib/motogo/health.json`.
+PIN lockout, posledních 5000 událostí, trvalá fronta podepsaných protokolů `protocol_queue` — nikdy se nemaže
+limitem pokusů), stav health `/var/lib/motogo/health.json`.
 
 ## Displej (dotykové UI)
 
@@ -90,13 +107,23 @@ PIN lockout, posledních 5000 událostí), stav health `/var/lib/motogo/health.j
 dotykové displeje (žádné pevné 1920×1080; ověřeno 1920×1080, 2560×1080, 1920×720, 3840×1080, 1280×400) a **světlý
 design MotoGo24** (barvy webu/appky, logo `ui/logo-light.svg`). Hlavička: logo, lišta 8 jazyků (vždy viditelná, návrat
 do češtiny po nečinnosti), **název pobočky** a tečka online. Tělo ve třech sloupcích: výzva + vysvětlivky („Kód najdete
-v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.“ / „Kód k výbavě otevře šatnu ·
-kód k motorce otevře vaši garáž s vaší motorkou.“) + pole kódu (**zadávané znaky jsou viditelné** — žádné maskování tečkami,
-rozhodnutí 2026-09-11; platí pro kód rezervace, servisní heslo i diagnostický kód) | klávesnice (numerická / „ABC“ pro servisní hesla,
-velikost kláves podle místa, vždy ≥ 48 px, nic se nepřekrývá) | dlaždice zón („Šatna“, „Kóje N“; 1–2 sloupce).
+v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.“ / od 2026-09-25 „Berete si oblečení?
+Zadejte nejdřív kód šatny, potom kód motorky. Máte vlastní výbavu? Zadejte rovnou kód motorky.“) + pole kódu (**zadávané znaky
+jsou viditelné** — žádné maskování tečkami, rozhodnutí 2026-09-11; platí pro kód rezervace, servisní heslo i diagnostický kód)
+| klávesnice (numerická / „ABC“ pro servisní hesla, velikost kláves podle místa, vždy ≥ 48 px, nic se nepřekrývá) | dlaždice zón
+(„Šatna“, „Kóje N“; 1–2 sloupce). **Vedený tok (2026-09-25):** dokud jsou dveře šatny otevřené, nad polem kódu svítí nemodální
+pruh „Šatna: vezměte si výbavu a zavřete dveře — protokol se zobrazí po zavření“ (klávesnice funguje dál); po zavření (nebo po
+kódu motorky bez podpisu) se přes celý displej otevře **předávací protokol** — hlavička (jméno zkráceně, motorka, období), výbava
+řidič/spolujezdec s chipy velikostí, podpisový canvas, pole „Kód motorky“ (jen když kód nebyl právě zadán), „Potvrdit a podepsat“,
+„Zpět“; odpočet 120 s bez dotyku („Zavře se za N s“). Po podpisu: „Otevřeno“ + „Protokol podepsán.“ (kóje se otevře sama), nebo
+„Protokol potvrzen“ + „Teď zadejte kód motorky.“ (kóji se nepodařilo otevřít → „Kóji se nepodařilo otevřít — zadejte kód motorky
+znovu.“). Po otevření šatny hlásí overlay „Vezměte si výbavu a zavřete dveře šatny.“ Soubory protokolu: `ui/handover.js`
+(overlay, `MG.Handover`), `ui/signature.js` (podpis prstem, PNG 800×260 ≤ 150 kB), `ui/style-handover.css` a texty `ho.*`/`g.*`
+v 8 jazycích v `ui/i18n-handover.js` (slučuje se do `MG.i18n`; v `i18n.js` jsou jen `hint2`, `okAcc` a chyby `protocol_required`/
+`protocol_failed`); PDF protokolu je česky.
 Servisní panel, setup a diagnostika zůstávají tmavé overlaye (`ui/style-overlays.css`), použitelné i na nízkém displeji.
 **Název pobočky se bere VÝHRADNĚ z Velína → Pobočky (`name`)** — není-li vyplněný, zůstává místo v hlavičce prázdné
-(žádný náhradní text). Texty všech 8 jazyků: `ui/i18n.js`.
+(žádný náhradní text). Texty všech 8 jazyků: `ui/i18n.js` + `ui/i18n-handover.js`.
 
 ## Co se nastavuje kde (Velín vs. Raspberry)
 
@@ -298,13 +325,14 @@ k selhalo“** a tlačítko **„Znovu synchronizovat“** (= `sync_config`, sel
 | `audio_test` | `zone`, `seconds?` | hudba v zóně na N s |
 | `all_off` | – | vše vypnout (relé, Shelly, audio), zóny zabezpečit |
 | `identify` | `label?` | „Tady jsem" na displeji + 3× bliknutí zelené |
-| `reload` / `sync_config` | – | stáhnout konfiguraci, cache kódů a seznam hudby (sync knihovny na pozadí; selhané stahování zkusí hned — Velín „Znovu synchronizovat“) |
+| `reload` / `sync_config` | – | stáhnout konfiguraci, cache kódů a seznam hudby (sync knihovny na pozadí; selhané stahování zkusí hned — Velín „Znovu synchronizovat“); zároveň vrátí trvale odmítnuté podpisy protokolů (`protocol_queue` `failed`) do fronty a hned je zkusí odeslat |
 | `restart` | – | restart procesu controlleru |
 | `reboot` | `wait_idle?`, `wait_idle_s?` | `systemctl reboot`; s `wait_idle:true` (Velín „Restart OS“ v bloku Aktualizace) až když je box volný — hned vrací `{scheduled}`, průběh v `status.update` |
 | `update_software` | `ref?` (sha 7–40), `rollout_id?`, `wait_idle_s?` (výchozí 1800) | naplánuje `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: git fetch + ff-merge na `ref` / větev, pip, restart) — provede se, až je box volný; hned vrací `{scheduled}`; odmítne `invalid_ref` / `update_in_progress` |
 | `update_system` | `rollout_id?`, `wait_idle_s?`, `auto_reboot?` | naplánuje `sudo /usr/local/sbin/motogo-sysupdate` (apt full-upgrade, bez restartu); `auto_reboot` = po novém jádru `systemctl reboot`, až je box volný |
 | `http_get` / `camera_control` | `url` | HTTP GET na LAN (kamery, měnič) |
 | `diagnostics` | `mode?` (`full` výchozí / `network` = jen síť), `cameras?` (seznam z Velína), `reason?` | kompletní diagnostika pobočky na pozadí (1–4 min; `network` 10–60 s); report + protokol → `kiosk_report_diagnostics` (Velín blok „Kompletní diagnostika pobočky") |
+| `protocol_signed` | `booking_id` | předávací protokol podepsán jinde (appka / Velín — vkládá DB trigger po podpisu): jednotka ho sundá z displeje; kóji otevře jen když zákazník právě u displeje čeká s právě zadaným kódem motorky. Pojistka = `protocols[]` při dalším `sync_config`. Starší software hlásí `unknown_command` — není to porucha |
 
 Příkazy chodí přes Supabase Realtime (broadcast) s pojistkou pollingu každých 10 s; výsledek
 se hlásí přes `kiosk_complete_command`. Živý stav zón vidí Velín z `kiosk_report_status` (30 s).
@@ -433,6 +461,9 @@ odmítne; červený běh = chyba psql (issue se nezakládá).
 | zákazník u boxu čeká na ověření kódu při výpadku LTE | RPC `kiosk_resolve_code` čeká na timeout, než se sáhne do offline cache | Od 2026-09-20 je timeout ověření **6 s**, a když poslední volání selhalo (probíhá výpadek), jen **2,5 s** → pak hned offline cache. Displej po celou dobu hlásí „Ověřuji kód…“ (všech 8 jazyků). Kód v cache tedy otevře i při výpadku; cache se plní z `kiosk_sync_config` (kódy aktivní + vydané + platné, sync á 60 s). |
 | kód odmítnut „Chyba spojení" | není internet ani cache | `journalctl -u motogo-health`, `mmcli -m any`; cache se plní po prvním úspěšném `kiosk_sync_config` |
 | „Příliš mnoho neplatných pokusů" | PIN lockout (5 pokusů / 5 min → 15 min) | počkat nebo restart controlleru (lockout je v SQLite — přežije restart) |
+| kód motorky kóji neotevře, na displeji se objeví předávací protokol | rezervace nemá podepsaný protokol (`protocol.required`) — správné chování vedeného toku (CONTRACT §28) | zákazník podepíše na displeji (potvrdí kódem motorky) nebo v appce; po podpisu se kóje otevře sama / další kód motorky projde. Servisní kódy 39301A–H a `open_door` z Velína protokol obcházejí |
+| protokol se po zavření šatny neukázal | restart jednotky uprostřed relace šatny (zóna bez `booking_id`), šatna otevřená servisním kódem, nebo `protocol` chybí (starší backend / cache → fail-open) | nic nehrozí: kód motorky protokol vynutí sám (`protocol_required`); nevyřízené (skryté) položky = `api/state → handover.waiting[]` (`pending[]` jsou naopak už PODEPSANÉ podpisy čekající na odeslání), `journalctl -u motogo-controller \| grep motogo.handover` |
+| Velín: „Podpis z kiosku se nepodařilo uložit“ (`status.handover.failed`, událost `PROTOCOL_UPLOAD_FAILED`) | edge `submit-handover-protocol` podpis TRVALE odmítla (4xx MIMO 404/408/429: 400 rezervace mimo reserved/active/completed, 403 kód motorky jiné pobočky nebo nevydaný, 401 deaktivované zařízení, 410 rezervace neexistuje, 413 podpis > 150 kB) | podpis je uložen v SQLite `protocol_queue` (status `failed`, neztrácí se); příčinu ukáže `last_error`; kóje se přesto otevřela (fail-open). Po nápravě na serveru Velín → „Znovu synchronizovat“ (`reload`) vrátí položku do fronty a odešle ji; jinak protokol doplnit v appce / Velíně (`already_filled` fronta bere jako úspěch). 404 (edge ještě nenasazená), 408/429, síťové chyby a 5xx se opakují samy každých 30 s bez limitu — položka zůstává v `pending` |
 | **LTE spadne po pár minutách provozu, v `dmesg` je `qmi_wwan … Unexpected error -71`** (typicky hned po `network reject: implicitly-detached`), `mmcli -L` = „No modems were found", ale `lsusb` modem VIDÍ | Modem zůstal enumerovaný na USB, ale QMI kanál (cdc-wdm0) je mrtvý → ModemManager ho zahodí („port no longer controllable" → „modem is unusable") a NM dá cdc-wdm0 do unmanaged. **Reconnect (`nmcli con up`) v tomhle stavu NIKDY neuspěje** — vrací „No suitable device found". Pozorováno v Pohořelicích 2026-09-20 opakovaně (~10–12 min po startu i po obnově). Vyloučeno: napájení (5,12 V, throttled 0x0, `usb_max_current_enable=1`), USB autosuspend (`power/control=on`), spánek modemu (`AT+CSCLK?`=0), PIN SIM | **Health to od 2026-09-20 řeší sám:** pozná „modem je na USB, ale v MM není" (`lte.modem_gone`), přeskočí reconnecty a po 2 sondách (~1 min) pustí USB reset, jehož součástí je restart ModemManageru — obnova do ~2 min bez rebootu Pi. Ručně: `sudo /usr/local/sbin/motogo-usbreset`. **Bez restartu MM** po unbind/bind skončí ModemManager v PPP fallbacku (primary port `ttyUSB2`, „unhandled port type" pro cdc-wdm0) — pomalé a nestabilní; skript proto restart dělá sám a `primary port` loguje. Trvalé řešení se ještě hledá — netestované hypotézy: jiný fyzický USB port / kabel (modem je na `1-1`), přepnutí modemu z QMI na MBIM/ECM (`AT+CUSBPIDSWITCH`, nutná i změna NM profilu — nejdřív na dev Pi) |
 | LTE offline dlouhodobě | slabý signál / modem zamrzl | health sám (žebříček zkrácen 2026-09-20): 3× výpadek → `nmcli con up`, 2× reconnect → `mmcli -m any --reset`, pak USB reset modemu (s restartem ModemManageru), 3× reset → reboot (jen při uptime ≥ 30 min). Po každé akci platí **cooldown 120 s**, během kterého se jen sonduje. Chybí-li modem v ModemManageru, jdou reconnecty stranou (viz řádek výš). Ručně: `sudo /usr/local/sbin/motogo-usbreset` (VID:PID z `/etc/motogo/modem_vidpid`; jako root přímo lze `usbreset-modem.sh 1e0e:9001`); `mmcli -m any --signal-get` |
 | **LTE nenaskočí PO RESTARTU** (předtím jelo), diagnostika hlásí „Zámek SIM karty“ / `lte.error=sim_locked` | SIM má zapnutý PIN a profil `motogo-lte` ho nezná nebo je špatný. **SIM si o PIN řekne jen při startu modemu**, takže se to projeví až po rebootu — a modem se přitom tváří jako `searching`, ne `locked` (Pohořelice 2026-09-19) | **Nejlépe PIN na SIM úplně VYPNOUT** (SIM do mobilu → Nastavení → SIM → PIN vypnout) a v profilu nechat `pin=` prázdné (`install.sh` s `MOTOGO_SIM_PIN=`) — jednotka pak po každém restartu naběhne sama. Jinak musí PIN sedět: `sudo nmcli con modify motogo-lte gsm.pin <PIN> && sudo nmcli con up motogo-lte`. **Špatný uložený PIN po 3 pokusech SIM zablokuje** (pak PUK — `lte.error=sim_puk`). Health v tomto stavu záměrně nedělá reconnect/USB reset/reboot |

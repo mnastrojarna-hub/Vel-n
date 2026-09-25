@@ -331,6 +331,12 @@ class ResModificationHistory extends StatelessWidget {
     // Gear size changes {field: {from, to}}
     if (mod.hasGearChange) {
       mod.gearChanges.forEach((key, v) {
+        // „Mám vlastní výbavu“ (own_gear: 'true'/'false'/null) — Ano/Ne místo velikosti.
+        if (key == 'own_gear') {
+          String yn(String? b) => b == 'true' ? t(context).tr('yes') : b == 'false' ? t(context).tr('no') : '—';
+          changes.add(_changeRow(t(context).tr('ownGear'), yn(v['from']), yn(v['to']), null, const Color(0xFF0891B2)));
+          return;
+        }
         final isPassenger = key.startsWith('passenger_');
         final base = isPassenger ? key.substring('passenger_'.length) : key;
         final label = t(context).tr(base) +

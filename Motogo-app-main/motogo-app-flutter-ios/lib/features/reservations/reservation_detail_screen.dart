@@ -38,21 +38,9 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
   int _rating = 0;
   String _activeTab = 'detail'; // 'detail' or 'card'
   Timer? _refreshTimer;
-  bool _protocolWindowKicked = false;
-
-  // Samoobslužná pobočka: jakmile zákazník otevře aktivní/rezervovanou rezervaci
-  // (na tabletu po zadání kódu ke dveřím), spustí se 1h okno pro samovyplnění
-  // předávacího protokolu. Idempotentní (server nastaví start jen poprvé), proto
-  // stačí jediný „kick" za zobrazení detailu.
-  void _maybeStartProtocolWindow(Reservation res) {
-    if (_protocolWindowKicked) return;
-    if (res.branchType != 'samoobslužná') return;
-    if (res.status != 'active' && res.status != 'reserved') return;
-    _protocolWindowKicked = true;
-    unawaited(MotoGoSupabase.client
-        .rpc('start_handover_protocol_window', params: {'p_booking_id': res.id})
-        .catchError((_) => null));
-  }
+  // Okno protokolu už NEspouští otevření detailu (start_handover_protocol_window
+  // zrušeno 2026-09-25) — výzvu k podpisu dává výhradně kiosk (zavření šatny /
+  // kód motorky), appka na ni reaguje přes HandoverPromptWatcher.
 
   @override
   void initState() {
@@ -71,22 +59,13 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
   }
 
   // Výrazné upozornění na detailu aktivní samoobslužné rezervace — dokud zákazník
-  // protokol nevyplní (can_fill). Po vyplnění/auto-fillu zmizí. Odpočet se obnovuje
-  // přes 5s refresh timer (invaliduje handoverProtocolStateProvider).
+  // protokol nepodepíše (can_fill). Po podpisu (appka/kiosk/Velín) zmizí hned:
+  // stream rezervací nese `handover_protocol_filled_at`, stav RPC se invaliduje.
   Widget _protocolBanner(BuildContext context, Reservation res) {
+    if (res.protocolSigned) return const SizedBox.shrink();
     final async = ref.watch(handoverProtocolStateProvider(res.id));
     final s = async.asData?.value ?? const <String, dynamic>{};
     if (s['can_fill'] != true) return const SizedBox.shrink();
-    String remaining = '';
-    final deadline = DateTime.tryParse('${s['deadline'] ?? ''}')?.toLocal();
-    if (deadline != null) {
-      final d = deadline.difference(DateTime.now());
-      if (d.inMinutes >= 1) {
-        remaining = '${d.inMinutes} min';
-      } else if (d.inSeconds > 0) {
-        remaining = '<1 min';
-      }
-    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: GestureDetector(
@@ -99,15 +78,11 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Vyplňte předávací protokol',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black)),
+                Text(t(context).tr('protocolBannerTitle'),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black)),
                 const SizedBox(height: 2),
-                Text(
-                  remaining.isNotEmpty
-                      ? 'Zbývá $remaining — jinak ho vyplníme automaticky.'
-                      : 'Klepněte pro vyplnění protokolu o převzetí.',
-                  style: const TextStyle(fontSize: 12, color: Colors.black87),
-                ),
+                Text(t(context).tr('protocolBannerSub'),
+                    style: const TextStyle(fontSize: 12, color: Colors.black87)),
               ]),
             ),
             const Icon(Icons.chevron_right, color: Colors.black),
@@ -119,13 +94,19 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Real-time: změna řádku bookings (podpis protokolu, aktivace kódem, výzva
+    // z kiosku) → detail i stav protokolu hned znovu (5s timer je jen záloha).
+    ref.listen(reservationsProvider, (prev, next) {
+      if (!next.hasValue || prev?.valueOrNull == next.valueOrNull) return;
+      ref.invalidate(reservationByIdProvider(widget.bookingId));
+      ref.invalidate(handoverProtocolStateProvider(widget.bookingId));
+    });
     final resAsync = ref.watch(reservationByIdProvider(widget.bookingId));
     final doorCodesAsync = ref.watch(doorCodesProvider(widget.bookingId));
 
     return resAsync.when(
       data: (res) {
         if (res == null) return _error(t(context).tr('reservationNotFound'));
-        _maybeStartProtocolWindow(res);
         return _buildDetail(context, res, doorCodesAsync);
       },
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator(color: MotoGoColors.green))),

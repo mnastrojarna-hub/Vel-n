@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { EmptyState } from './BranchHelpers'
 import { RpiSection, Btn, Chip, ErrorBoundary, formatUptime, ageSeconds, formatAge, txt, num, arr, isRpiDevice, ACCESSORIES_LABEL, boxLabel, isGeneratedZoneLabel } from './BranchRpiUi'
 import { OutdoorTile } from './BranchRpiOutdoorTile'
+import { parseHandover, HandoverDeviceInfo, ZoneHandoverInfo } from './BranchRpiHandover'
 
 // ─── Řídicí jednotka (Raspberry) — živý stav zón + příkazy ──────────────────
 // Zdroj: kiosk_devices.status (snapshot z kontraktu §14, RPC kiosk_report_status),
@@ -126,6 +127,8 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
   const shellFree = st.shell && typeof st.shell === 'object' && st.shell.free === true
   const shellMin = shellFree ? Math.max(1, Math.ceil((num(st.shell.free_s) ?? 0) / 60)) : 0
   const updateLine = updateLineOf(st.update)
+  // Předávací protokol na displeji (status.handover: active / pending[] / failed[]) — viz BranchRpiHandover.jsx
+  const handover = parseHandover(st)
   // Název pobočky na DISPLEJI jednotky (status.branch_name) — jednotka ho bere výhradně z Velína (branches.name)
   // přes kiosk_heartbeat. Po přejmenování pobočky se propíše do 30 s; do té doby (nebo když je jednotka offline)
   // na displeji svítí starý název. Tady je vidět, co zákazník na pobočce právě čte, a jestli to sedí s Velínem.
@@ -197,6 +200,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
           {problems.map((p, i) => <div key={i}>• {txt(p)}</div>)}
         </div>
       )}
+      <HandoverDeviceInfo handover={handover} now={now} />
 
       {/* Globální příkazy */}
       <div className="flex items-center gap-2 flex-wrap mt-2 pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
@@ -233,7 +237,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
           <EmptyState text="Jednotka nehlásí žádné zóny — zkontrolujte „Mapování dveří → zóny“ v bloku Řídicí jednotka (Raspberry) — hardware níže." />
         ) : (
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
-            {zones.map((z, i) => <ZoneTile key={`${txt(z.zone)}-${txt(z.door_id)}-${i}`} z={z} door={doorMap[z.door_id]} onSend={send} onConfirm={confirmSend} />)}
+            {zones.map((z, i) => <ZoneTile key={`${txt(z.zone)}-${txt(z.door_id)}-${i}`} z={z} door={doorMap[z.door_id]} handover={handover} onSend={send} onConfirm={confirmSend} />)}
           </div>
         )}
         {/* Venek (zóna bez dveří) — za mřížkou zón, jen když je v HW mapě nastaven */}
@@ -259,7 +263,7 @@ function zoneName(z, door) {
   return `Zóna ${txt(z.zone)}`
 }
 
-function ZoneTile({ z, door, onSend, onConfirm }) {
+function ZoneTile({ z, door, handover, onSend, onConfirm }) {
   const [sig, setSig] = useState('')
   const state = txt(z.state ?? '').toUpperCase()
   const bg = STATE_BG[state] || '#f1faf7'
@@ -303,6 +307,7 @@ function ZoneTile({ z, door, onSend, onConfirm }) {
           {z.booking_id ? `rezervace ${txt(z.booking_id).slice(0, 8)}…` : 'relace'}{started ? ` od ${started.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}` : ''}
         </div>
       )}
+      <ZoneHandoverInfo handover={handover} zoneNo={zoneNo} bookingId={z.booking_id} />
       {z.last_event != null && <div className="text-[10px] mt-0.5" style={{ color: '#6b8c7a' }}>posl. událost: {txt(z.last_event)}</div>}
       <div className="flex items-center gap-1 flex-wrap mt-2 pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
         <Btn tone="dark" small

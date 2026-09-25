@@ -219,8 +219,24 @@ async def _reload(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     music = getattr(ctrl, "music", None)
     if music is not None and hasattr(music, "retry_failed"):
         music.retry_failed()          # „Znovu synchronizovat“ z Velína = i skladby v backoffu hned znovu
+    handover = getattr(ctrl, "handover", None)
+    if handover is not None and hasattr(handover, "retry_failed"):
+        handover.retry_failed()       # trvale odmítnuté podpisy protokolů znovu do fronty (po opravě na serveru)
     res = await ctrl.resync()
     return bool(res.get("ok", True)), res
+
+
+async def _protocol_signed(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Protokol podepsán v appce/Velíně (DB trigger po `handover_protocol_filled_at`) → položku z displeje
+    odstranit; je-li overlay právě vidět s platným `then_open` (kód motorky zadán před chvílí), kóje se otevře.
+    Zdroj pravdy je `protocols[]` ze sync (příkaz po 10 min offline zanikne) — handler je jen urychlení; kóji
+    ale smí otevřít JEN tento příkaz (`may_open=True`), sync/boot nikdy (CONTRACT §28 pravidlo 1)."""
+    handover = getattr(ctrl, "handover", None)
+    booking_id = str(params.get("booking_id") or "").strip()
+    if handover is None or not booking_id:
+        return False, {"error": "missing_booking_id"}
+    opened = await handover.mark_signed_remote(booking_id, may_open=True)
+    return True, {"booking_id": booking_id, "opened": opened}
 
 
 async def _restart(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
@@ -307,6 +323,7 @@ HANDLERS: dict[str, Handler] = {
     "camera_control": _http_get,
     "diagnostics": _diagnostics,
     "shell_unlock": _shell_unlock,
+    "protocol_signed": _protocol_signed,
 }
 
 # Příkazy, které ukončí proces — controller je dokončí v Supabase PŘED spuštěním.

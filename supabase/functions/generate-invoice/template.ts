@@ -294,8 +294,8 @@ export function generateInvoiceHtml(p: TemplateParams): string {
 
   ${dc.length > 0 ? `<div style="margin:0 32px 8px;padding:10px;background:#e0f2fe;border-radius:6px;border:1px solid #0284c7">
     <div style="font-size:11px;font-weight:800;color:#0c4a6e;letter-spacing:1.5px;margin-bottom:4px">PŘÍSTUPOVÉ KÓDY K POBOČCE</div>
-    ${dc.filter((c: any) => !c.withheld_reason).map((d: any) => `<div style="font-size:12px;font-weight:700;color:#0c4a6e;padding:2px 0">${d.code_type === 'motorcycle' ? 'Kód k motorce' : 'Kód k příslušenství'}: <span style="font-size:16px;letter-spacing:3px;color:#0369a1;font-family:'Courier New',monospace">${d.door_code}</span></div>`).join('')}
-    ${dc.some((c: any) => c.withheld_reason) ? '<div style="font-size:11px;font-weight:600;color:#b45309;margin-top:4px">Kódy budou zaslány po ověření dokladů (OP/pas/ŘP).</div>' : '<div style="font-size:10px;color:#164e63;margin-top:4px">Kódy jsou platné pouze po dobu trvání pronájmu.</div>'}
+    ${dc.filter((c: any) => !c.withheld_reason).map((d: any) => `<div style="font-size:12px;font-weight:700;color:#0c4a6e;padding:2px 0">${d.code_type === 'motorcycle' ? 'Kód k motorce' : 'Kód šatny'}: <span style="font-size:16px;letter-spacing:3px;color:#0369a1;font-family:'Courier New',monospace">${d.door_code}</span></div>`).join('')}
+    ${dc.some((c: any) => c.withheld_reason) ? '<div style="font-size:11px;font-weight:600;color:#b45309;margin-top:4px">Kódy budou zaslány po ověření dokladů (OP/pas/ŘP).</div>' : `<div style="font-size:10px;color:#164e63;margin-top:4px">${dc.filter((c: any) => !c.withheld_reason).length > 1 ? 'Kódy jsou platné' : 'Kód je platný'} pouze po dobu trvání pronájmu.</div>`}
   </div>` : ''}
 
   ${p.isProforma ? `<div style="margin:0 32px 8px;padding:7px 12px;background:#fef3c7;border-left:3px solid #f59e0b;font-size:11px;color:#78350f">Tento doklad není dokladem o přijaté platbě. Po přijetí platby Vám bude vystaven doklad k přijaté platbě.</div>` : ''}

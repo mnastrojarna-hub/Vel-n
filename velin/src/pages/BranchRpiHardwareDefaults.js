@@ -35,6 +35,7 @@ export const BRNO_DEFAULT_HARDWARE = {
     forced_open_debounce_ms: 500,
     pin_entry_timeout_s: 20,
     overtime_alert_minutes: [10, 20, 30],
+    handover_idle_s: 120,
   },
   polling: {
     door_input_poll_ms: 100,
@@ -148,6 +149,8 @@ export const HW_SECTIONS = [
       hint: 'Za jak dlouho se na displeji smaže rozepsaný kód, když zákazník přestane ťukat. Aby po odchozím zákazníkovi nezůstal na obrazovce půlka kódu. Typicky 20 s.' },
     { key: 'overtime_alert_minutes', label: 'Upozornění při překročení', unit: 'min, čárkami', type: 'list',
       hint: 'Po kolika minutách otevřených dveří se opakuje upozornění do Velína. Zadejte čísla oddělená čárkou, např. 10, 20, 30.' },
+    { key: 'handover_idle_s', label: 'Protokol bez dotyku', unit: 's', type: 'int',
+      hint: 'Jak dlouho zůstane předávací protokol na displeji, když se ho zákazník nedotkne. Pak se skryje, ať mohou ostatní zadávat kódy; protokol zůstává nevyřízený a znovu se ukáže kódem motorky té samé rezervace. Typicky 120 s.' },
   ] },
   { key: 'polling', title: 'Polling (Modbus)',
     hint: 'Jak často a jak trpělivě se jednotka ptá relé modulů Waveshare po síti LAN. Měňte jen při problémech se sítí — výchozí hodnoty jsou ověřené.',

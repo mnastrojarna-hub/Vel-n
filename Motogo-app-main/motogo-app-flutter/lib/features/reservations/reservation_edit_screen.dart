@@ -70,8 +70,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   String? _passengerJacketSize;
   String? _passengerPantsSize;
   String? _passengerBootsSize;
-  // „Mám vlastní výbavu" — skryje výběr velikostí základní výbavy řidiče a
-  // přeskočí jejich povinnost při přistavení (UI-only, neukládá se do DB).
+  // „Mám vlastní výbavu" — skryje výběr velikostí základní výbavy řidiče.
+  // Od 2026-09-25 se načítá z `bookings.own_gear` a při uložení zapisuje
+  // (rozhoduje o kódu šatny; trigger `trg_sync_locker_code` kód přidá/odebere).
   bool _ownGear = false;
   DayPrices? _motoPrices;
 
@@ -127,6 +128,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _passengerJacketSize = res.passengerJacketSize;
         _passengerPantsSize = res.passengerPantsSize;
         _passengerBootsSize = res.passengerBootsSize;
+        _ownGear = res.ownGear ?? false;
       });
       _loadDiscountType(res);
       _loadOriginalExtras();
@@ -472,6 +474,15 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     return missing;
   }
 
+  /// Změna přepínače „Mám vlastní výbavu" oproti rezervaci — sama o sobě
+  /// zapne tlačítko uložení (cenu nemění, mění nárok na kód šatny).
+  bool get _ownGearChanged => _ownGear != (_booking?.ownGear ?? false);
+
+  /// Při vlastní výbavě se velikosti základní výbavy řidiče NEukládají
+  /// (parita s rezervačním formulářem, kde je přepínač nuluje) — protokol i
+  /// šatna pak neukazují výbavu, kterou si zákazník nebere.
+  String? _riderSize(String? v) => _ownGear ? null : v;
+
   /// True when the move tab has shifted the start date (length is preserved
   /// by construction, so a changed start = a real reschedule).
   bool get _moveChanged {
@@ -597,11 +608,14 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if (!_isActive && _newMotoId != null && _newMotoId != _booking!.motoId) {
         changes['moto_id'] = _newMotoId;
       }
-      if (_helmetSize != _booking!.helmetSize) changes['helmet_size'] = _helmetSize;
-      if (_jacketSize != _booking!.jacketSize) changes['jacket_size'] = _jacketSize;
-      if (_pantsSize != _booking!.pantsSize) changes['pants_size'] = _pantsSize;
+      if (_riderSize(_helmetSize) != _booking!.helmetSize) changes['helmet_size'] = _riderSize(_helmetSize);
+      if (_riderSize(_jacketSize) != _booking!.jacketSize) changes['jacket_size'] = _riderSize(_jacketSize);
+      if (_riderSize(_pantsSize) != _booking!.pantsSize) changes['pants_size'] = _riderSize(_pantsSize);
       if (_bootsSize != _booking!.bootsSize) changes['boots_size'] = _bootsSize;
-      if (_glovesSize != _booking!.glovesSize) changes['gloves_size'] = _glovesSize;
+      if (_riderSize(_glovesSize) != _booking!.glovesSize) changes['gloves_size'] = _riderSize(_glovesSize);
+      // Vlastní výbava — zapisuje se JEN při změně (jinak by každá úprava
+      // přepsala NULL starší rezervace na false a spustila sync kódu šatny).
+      if (_ownGearChanged) changes['own_gear'] = _ownGear;
       if (_passengerHelmetSize != _booking!.passengerHelmetSize) changes['passenger_helmet_size'] = _passengerHelmetSize;
       if (_passengerJacketSize != _booking!.passengerJacketSize) changes['passenger_jacket_size'] = _passengerJacketSize;
       if (_passengerPantsSize != _booking!.passengerPantsSize) changes['passenger_pants_size'] = _passengerPantsSize;
@@ -680,11 +694,17 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       void trackGear(String key, String? from, String? to) {
         if ((from ?? '') != (to ?? '')) gearChanges[key] = {'from': from, 'to': to};
       }
-      trackGear('helmet', _booking!.helmetSize, _helmetSize);
-      trackGear('jacket', _booking!.jacketSize, _jacketSize);
-      trackGear('pants', _booking!.pantsSize, _pantsSize);
+      trackGear('helmet', _booking!.helmetSize, _riderSize(_helmetSize));
+      trackGear('jacket', _booking!.jacketSize, _riderSize(_jacketSize));
+      trackGear('pants', _booking!.pantsSize, _riderSize(_pantsSize));
       trackGear('boots', _booking!.bootsSize, _bootsSize);
-      trackGear('gloves', _booking!.glovesSize, _glovesSize);
+      trackGear('gloves', _booking!.glovesSize, _riderSize(_glovesSize));
+      // Vlastní výbava — do historie jako 'true'/'false' (stejný tvar zapisuje
+      // DB trigger track_booking_content_changes; ten ale náš vlastní záznam
+      // NEdoplňuje, proto musí být own_gear i tady).
+      if (_ownGearChanged) {
+        gearChanges['own_gear'] = {'from': _booking!.ownGear?.toString(), 'to': _ownGear.toString()};
+      }
       trackGear('passenger_helmet', _booking!.passengerHelmetSize, _passengerHelmetSize);
       trackGear('passenger_jacket', _booking!.passengerJacketSize, _passengerJacketSize);
       trackGear('passenger_pants', _booking!.passengerPantsSize, _passengerPantsSize);
@@ -1252,7 +1272,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               child: ElevatedButton(
               onPressed: _tab == 'move'
                   ? ((!_saving && _moveChanged) ? _saveMove : null)
-                  : ((!_saving && calc.hasChanges && _missingGearSizes().isEmpty) ? _save : null),
+                  : ((!_saving && (calc.hasChanges || _ownGearChanged) && _missingGearSizes().isEmpty) ? _save : null),
               style: ElevatedButton.styleFrom(
                 backgroundColor: MotoGoColors.green, foregroundColor: Colors.black,
                 disabledBackgroundColor: MotoGoColors.g200,

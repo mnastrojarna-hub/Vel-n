@@ -24,6 +24,7 @@ SUPPORT = "+420 774 256 271"
 LOG_OPEN_KINDS = frozenset({
     EventKind.ACCESS_GRANTED, EventKind.ACCESS_DENIED, EventKind.DOOR_OPENED, EventKind.DOOR_CLOSED,
     EventKind.SESSION_COMPLETED, EventKind.OPEN_TIMEOUT, EventKind.FORCED_OPEN, EventKind.PIN_INVALID,
+    EventKind.PROTOCOL_SHOWN,      # DB trigger nastaví started_at/prompted_at rezervace + push do appky (§2b)
 })
 # Události zapisované přes kiosk_log_event (kiosk_logs) → zdroj
 LOG_EVENT_SOURCES: dict[EventKind, str] = {
@@ -35,6 +36,7 @@ LOG_EVENT_SOURCES: dict[EventKind, str] = {
     EventKind.DIAGNOSTICS: "diagnostics",
     EventKind.SHELL: "shell",
     EventKind.IO_PROVISIONED: "modbus",
+    EventKind.PROTOCOL_SIGNED: "protocol", EventKind.PROTOCOL_UPLOAD_FAILED: "protocol",
 }
 # Události, které se zobrazí jako upozornění v UI
 NOTICE_KINDS = frozenset({EventKind.FORCED_OPEN, EventKind.SESSION_OVERTIME, EventKind.SESSION_OVERTIME_ALERT})
@@ -58,6 +60,8 @@ def error_text(error: str | None) -> str:
         return "Řídicí jednotka právě startuje. Zkuste to prosím za chvíli."
     if error == "service_cache_expired":
         return "Servisní heslo nelze ověřit bez spojení (offline cache je starší než 3 dny)."
+    if error == "protocol_required":
+        return "Nejdřív prosím podepište předávací protokol na displeji — kóje se pak otevře sama."
     return "Zkuste to prosím znovu."
 
 
@@ -91,8 +95,9 @@ def hash_legacy_payload(payload: dict, device_id: str, device_token: str) -> dic
 
 
 def config_part(payload: dict) -> dict:
-    """Část sync payloadu bez kódů (do kv `remote_config`) — kódy patří jen do code cache."""
-    return {k: v for k, v in payload.items() if k not in ("codes", "service_codes")}
+    """Část sync payloadu bez kódů (do kv `remote_config`) — kódy patří jen do code cache;
+    `protocols[]` (osobní údaje zákazníků) a `gear_sizes` také jen do cache (handover.py)."""
+    return {k: v for k, v in payload.items() if k not in ("codes", "service_codes", "protocols", "gear_sizes")}
 
 
 def door_name(kind: str, zc: "ZoneController | None", box_number: int | None) -> str:
@@ -114,7 +119,7 @@ def open_result_text(ok: bool, reason: str, kind: str, name: str) -> str:
     """Text overlay po pokusu o otevření (úspěch dle druhu kódu, jinak důvod)."""
     if ok:
         if kind == "accessories":
-            return f"Otevřeno — {name}. Po vyzvednutí oblečení zavřete dveře a zadejte kód k motorce."
+            return f"Otevřeno — {name}. Vezměte si výbavu a zavřete dveře šatny."
         if kind == "motorcycle":
             return f"Otevřeno — {name}. Příjemnou cestu! 🏍️"
         return f"Otevřeno — {name}."
@@ -184,6 +189,21 @@ def _cache_age_s(ctrl: "BoxController") -> float | None:
     return None if saved is None else max(0.0, time.time() - float(saved))
 
 
+async def resolve_code(ctrl: "BoxController", code: str) -> ResolveResult:
+    """Ověření zákaznického/servisního kódu: online RPC, při výpadku offline HMAC cache.
+    Sdílí ho `submit_code` a podpis protokolu (`handover_submit` — kód motorky = identita podepisujícího)."""
+    raw = await ctrl.api.resolve_code(code)
+    if isinstance(raw, dict):
+        return ResolveResult.from_rpc(raw)
+    cache = ctrl.storage.load_code_cache()
+    rr = ctrl.resolver.resolve(code, cache, datetime.now(timezone.utc)) if cache else None
+    if rr is None:
+        return ResolveResult(ok=False, error="invalid_code" if cache else "network", offline=True)
+    if rr.is_service and (_cache_age_s(ctrl) or 0) > SERVICE_CACHE_MAX_AGE_S:
+        return ResolveResult(ok=False, error="service_cache_expired", offline=True)
+    return rr
+
+
 async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnostics_only: bool = False) -> dict:
     """Ověří kód (online RPC → offline cache), servisní heslo vydá token, zákaznický otevře zónu.
 
@@ -211,16 +231,7 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
     if letter:                      # pevný servisní kód 39301A–H (kóje 1–7, šatna) — i offline
         ctrl.pin_guard.register_success(masked)
         return await fixed_codes.open_fixed(ctrl, letter, base, source)
-    raw = await ctrl.api.resolve_code(code)
-    if isinstance(raw, dict):
-        rr = ResolveResult.from_rpc(raw)
-    else:
-        cache = ctrl.storage.load_code_cache()
-        rr = ctrl.resolver.resolve(code, cache, datetime.now(timezone.utc)) if cache else None
-        if rr is None:
-            rr = ResolveResult(ok=False, error="invalid_code" if cache else "network", offline=True)
-        elif rr.is_service and (_cache_age_s(ctrl) or 0) > SERVICE_CACHE_MAX_AGE_S:
-            rr = ResolveResult(ok=False, error="service_cache_expired", offline=True)
+    rr = await resolve_code(ctrl, code)
     if diagnostics_only and rr.ok and not rr.is_service:
         rr = ResolveResult(ok=False, error="invalid_code", offline=rr.offline)   # zákaznický kód zde neotevírá
     if not rr.ok:
@@ -258,7 +269,15 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
                               message=f"Kód platný, ale zóna není nastavena ({name})",
                               detail={"source": source, "reason": "door_not_configured"}))
         return {**base, "kind": rr.kind, "error": "zone_not_configured", "message": not_configured_text(name)}
+    handover = getattr(ctrl, "handover", None)      # hradlo protokolem (§4): kóje motorky až po podpisu
+    if handover is not None and rr.kind == "motorcycle" and await handover.require_before_open(rr, zc, source):
+        # Bez ACCESS_DENIED a bez lockoutu (není v INVALID_CODE_ERRORS) — kód je platný, jen chybí podpis;
+        # overlay protokolu přijde na displej přes snapshot (`handover.active`), kóje se po podpisu otevře sama.
+        return {**base, "kind": "motorcycle", "error": "protocol_required", "zone": zc.number,
+                "booking_id": rr.booking_id, "message": error_text("protocol_required")}
     ok, reason = await zc.grant_access(booking_id=rr.booking_id, kind=rr.kind, source=source)
+    if ok and handover is not None and rr.kind == "accessories":
+        handover.remember(rr)                 # protokol k rezervaci pro okamžik zavření šatny
     if not ok:
         await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="warn", code_kind=rr.kind,
                               zone=zc.number, door_id=zc.zone.door_id, booking_id=rr.booking_id,

@@ -224,6 +224,12 @@ class SoftwareUpdater:
             log.exception("_sessions_active selhalo")
         if getattr(getattr(self.ctrl, "diagnostics", None), "running", False):
             reasons.append("diagnostics")
+        busy = getattr(getattr(self.ctrl, "handover", None), "busy", None)   # zákazník podepisuje protokol
+        try:
+            if callable(busy) and busy():
+                reasons.append("protocol")
+        except Exception:  # noqa: BLE001
+            log.exception("handover.busy selhalo")
         return reasons
 
     async def _wait_idle(self, max_s: int) -> bool:

@@ -87,6 +87,9 @@ class ZoneController:
         self._busy = asyncio.Lock()                    # serializuje všechny přechody stavu
         self._timings_base = None                      # cache pro `timings` (override zóny nad globálním časováním)
         self._timings_cache = None
+        # Hook controlleru po DOOR_OPEN→CLOSED_CONFIRMATION (zavření šatny → předávací protokol, handover.py);
+        # volá se POD `_busy` ještě s `booking_id` relace, chyba hooku automat nikdy neshodí.
+        self.on_session_closed: Callable[["ZoneController"], Awaitable[None]] | None = None
 
     # ─── pomocné ─────────────────────────────────────────────────────────────
     @property
@@ -309,6 +312,11 @@ class ZoneController:
                 await self.emit_event(EventKind.DOOR_CLOSED, message=f"{self.zone.display_name}: dveře zavřeny")
                 await self.emit_event(EventKind.SESSION_COMPLETED, overtime=self.overtime,
                                       message=f"{self.zone.display_name}: relace dokončena")
+                if self.on_session_closed is not None:
+                    try:
+                        await self.on_session_closed(self)
+                    except Exception:  # noqa: BLE001
+                        log.exception("Zóna %s: hook po zavření dveří selhal", self.number)
         elif self.state == ZoneState.CLOSED_CONFIRMATION and not closed:
             self.state = ZoneState.DOOR_OPEN     # stejná relace pokračuje
             self.closed_at = None

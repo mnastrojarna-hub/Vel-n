@@ -10,7 +10,12 @@ const _bookingSelect =
     '*, motorcycles!moto_id(*, branches(name, address, city, gps_lat, gps_lng, type))';
 
 /// Stav předávacího protokolu (samoobslužná pobočka) — `get_handover_protocol_state`.
-/// Vrací `{is_self_service, started_at, deadline, filled_at, autofilled, locked, can_fill}`.
+/// Vrací `{is_self_service, started_at, deadline (od 2026-09-25 vždy NULL —
+/// automatické vyplnění zrušeno), filled_at, autofilled, locked, can_fill,
+/// needs_locker, gear_collected_at, prompted_at, start_date}`. `can_fill` =
+/// samoobsluha, reserved/active, nepodepsáno a (výzva z kiosku NEBO den
+/// vyzvednutí). Real-time podnět dává stream rezervací (`reservationsProvider`,
+/// sloupce `handover_protocol_*`), tenhle provider se po něm invaliduje.
 final handoverProtocolStateProvider =
     FutureProvider.family<Map<String, dynamic>, String>((ref, bookingId) async {
   try {

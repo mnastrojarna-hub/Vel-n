@@ -36,6 +36,11 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   const [codeInput, setCodeInput] = useState('')      // co zadal operátor dle zákazníka
   const [codeVerified, setCodeVerified] = useState(false)
   const [codeChecked, setCodeChecked] = useState(false)
+  // Samoobslužná pobočka (branches.type = 'samoobslužná', shodně s DB _is_self_service_booking): podpis
+  // ve Velíně nastaví bookings.handover_protocol_filled_at (hradlo kódu motorky na displeji, §1 návrhu);
+  // už podepsaný protokol (appka / displej) se podruhé nevystavuje — `alreadySigned` modal zablokuje.
+  const [selfService, setSelfService] = useState(false)
+  const [alreadySigned, setAlreadySigned] = useState(null)
   const custSig = useRef(null)
   const operSig = useRef(null)
 
@@ -51,6 +56,9 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       const v = buildDocVars(booking, customer, bookingId)
       v._customer_id = customer.id || booking.user_id || null
       setVars(v)
+      const self = booking.motorcycles?.branches?.type === 'samoobslužná'
+      setSelfService(self)
+      setAlreadySigned(!isDamage && self && booking.handover_protocol_filled_at ? booking.handover_protocol_filled_at : null)
       setMileage(isDamage ? '' : (booking.mileage_start ? String(booking.mileage_start) : ''))
       // origSize drží velikost z rezervace — při uložení se propíše jen skutečná změna
       setAccessories(listAccessoryItems(booking, booking.motorcycles || {}).map(i => ({ ...i, checked: true, origSize: i.size })))
@@ -122,6 +130,19 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       try { pdfPath = await uploadHtmlAsPdf(supabase, `generated/${bookingId}/${type}-${docId}.pdf`, html) } catch {}
       const { error: gErr } = await supabase.from('generated_documents').insert({ id: docId, template_id: null, booking_id: bookingId, customer_id: vars._customer_id, filled_data: filled, pdf_path: pdfPath })
       if (gErr) throw gErr
+      // Samoobslužná pobočka: podpis ve Velíně = stav protokolu na rezervaci. Trigger
+      // trg_handover_signed_notify_kiosk pak jednotce pošle protocol_signed (overlay na
+      // displeji zmizí / kóje se otevře) a appka přestane protokol vynucovat. `.is(null)`:
+      // kdyby mezitím podepsal zákazník, jeho čas se nepřepíše. Obslužnou pobočku řeší
+      // DB trigger _activate_on_handover_protocol_doc (aktivace + filled_at) — tam nic.
+      let protocolStateSet = null
+      if (!isDamage && selfService) {
+        const { error: fErr } = await supabase.from('bookings')
+          .update({ handover_protocol_filled_at: filled._signed_at, handover_protocol_autofilled: false })
+          .eq('id', bookingId).is('handover_protocol_filled_at', null)
+        protocolStateSet = !fErr
+        if (fErr) console.warn('[ElectronicProtocolModal] handover_protocol_filled_at update failed:', fErr.message)
+      }
       // Propsat stav tachometru z protokolu do dat. Předávací protokol → mileage_start
       // (trigger zvedne motorcycles.mileage). Protokol o poškození → jen mileage_end
       // (pro „Najeto" v souhrnu, motorku neovlivní). Best-effort, neblokuje uložení.
@@ -140,8 +161,14 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       if (info.customerEmail) {
         try { emailResult = await sendProtocolEmail(info) } catch (e) { emailResult = { sent: false, error: e.message || String(e) } }
       }
-      onSaved && onSaved({ ...info, emailSent: emailResult.sent, emailError: emailResult.error })
-    } catch (e) { setError('Uložení selhalo: ' + e.message) }
+      onSaved && onSaved({ ...info, emailSent: emailResult.sent, emailError: emailResult.error, protocolStateSet })
+    } catch (e) {
+      // 23505 = unikátní index generated_documents_handover_once (protokol ze samoobsluhy už existuje)
+      const dup = e?.code === '23505' || /handover_once/.test(e?.message || '')
+      setError(dup
+        ? 'Předávací protokol už je podepsán (aplikace / displej pobočky) — najdete ho v Dokumentech. Druhý se nevystavuje.'
+        : 'Uložení selhalo: ' + e.message)
+    }
     setSaving(false)
   }
 
@@ -154,6 +181,20 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
     <Modal open={open} title={title} onClose={onClose} wide>
       {loading ? (
         <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
+      ) : alreadySigned ? (
+        // Samoobsluha: protokol se podepisuje právě jednou (appka / displej / Velín) — podruhé se nevystavuje
+        <div className="space-y-4">
+          {vars && (
+            <div className="p-3 rounded-card" style={{ background: '#f1faf7', fontSize: 13, color: '#1a2e22' }}>
+              <strong>{vars.customer_name}</strong> · {vars.moto_model} ({vars.moto_spz}) · {vars.rental_period}
+            </div>
+          )}
+          <div className="p-3 rounded-card" style={{ background: '#dcfce7', color: '#166534', fontSize: 13 }}>
+            <strong>Předávací protokol už je podepsán</strong> ({new Date(alreadySigned).toLocaleString('cs-CZ')}) — zákazník ho podepsal
+            v aplikaci nebo na displeji pobočky. Podepsané PDF je v Dokumentech; na samoobslužné pobočce se protokol podepisuje jen jednou.
+          </div>
+          <div className="flex justify-end"><Button onClick={onClose}>Zavřít</Button></div>
+        </div>
       ) : (
         <div className="space-y-5">
           {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}

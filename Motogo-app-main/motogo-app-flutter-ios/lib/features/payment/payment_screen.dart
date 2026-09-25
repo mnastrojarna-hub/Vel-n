@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../../core/theme.dart';
 import '../../core/currency.dart';
@@ -272,6 +273,22 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
   String? _draftError;
 
+  /// INSERT bookings. Sloupec `own_gear` (migrace 20260925a) nemusí být na
+  /// živé DB ještě nasazený (deploy-sql může zablokovat starší migrace) —
+  /// PostgREST pak celý INSERT odmítne (PGRST204 neznámý sloupec). Rezervace
+  /// nesmí kvůli tomu spadnout: zopakovat bez `own_gear` (NULL → DB si nárok
+  /// na šatnu odvodí z prázdných velikostí řidiče, stejný výsledek).
+  Future<Map<String, dynamic>> _insertBooking(Map<String, dynamic> row) async {
+    try {
+      return await MotoGoSupabase.client.from('bookings').insert(row).select().single();
+    } on PostgrestException catch (e) {
+      final unknownOwnGear = e.code == 'PGRST204' && row.containsKey('own_gear') && e.message.contains('own_gear');
+      if (!unknownOwnGear) rethrow;
+      row.remove('own_gear');
+      return await MotoGoSupabase.client.from('bookings').insert(row).select().single();
+    }
+  }
+
   Future<String?> _createDraftBooking() async {
     final draft = ref.read(bookingDraftProvider);
     final moto = ref.read(bookingMotoProvider);
@@ -373,7 +390,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
     try {
       // Direct insert into bookings table (matches original Capacitor app)
-      final res = await MotoGoSupabase.client.from('bookings').insert({
+      final row = <String, dynamic>{
         'user_id': user.id,
         'moto_id': moto.id,
         'start_date': draft.startDate != null ? _fmtDate(draft.startDate!) : '',
@@ -431,6 +448,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         // Poznámka zákazníka z rezervačního formuláře → Velín (BookingDetail).
         if ((draft.notes ?? '').trim().isNotEmpty)
           'notes': draft.notes!.trim(),
+        // „Mám vlastní výbavu“ — explicitně (true/false). Rozhoduje o kódu
+        // šatny: bez šatny, pokud řidič nic nepůjčuje a nemá boty ani výbavu
+        // spolujezdce (`_booking_needs_locker`, 2026-09-25).
+        'own_gear': draft.ownGear,
         // Driver gear sizes (5 columns)
         'helmet_size': draft.helmetSize,
         'jacket_size': draft.jacketSize,
@@ -449,7 +470,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         // Vozík (příslušenství) — přiřazený volný kus blokuje kalendář vozíku.
         // BEFORE INSERT trigger check_trailer_overlap odmítne už obsazený kus.
         'trailer_moto_id': selfService ? null : draft.trailerMotoId,
-      }).select().single();
+      };
+      final res = await _insertBooking(row);
 
       final bookingId = res['id'] as String?;
       if (bookingId == null) {

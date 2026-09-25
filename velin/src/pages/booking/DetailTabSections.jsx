@@ -175,26 +175,60 @@ export function AddressBlock({ label, method, address, branchName, lat, lng, fee
   )
 }
 
-export function DoorCodesSection({ doorCodes }) {
+// Důvod zadržení kódu šatny u rezervace s vlastní výbavou (zapisuje DB trigger _sync_locker_code) —
+// není to chyba ani „zadržený“ kód, jen informace, že šatna se nevydává.
+const OWN_GEAR_REASON = 'Vlastní výbava'
+
+export function DoorCodesSection({ doorCodes, booking }) {
+  const b = booking || {}
   const motoCode = doorCodes.find(c => c.code_type === 'motorcycle')
   const gearCode = doorCodes.find(c => c.code_type === 'accessories')
-  const allSent = doorCodes.every(c => c.sent_to_customer)
-  const anyWithheld = doorCodes.some(c => c.withheld_reason)
+  // Kód šatny dostane jen ten, kdo má v šatně co vyzvednout (§0 návrhu). Bez aktivního kódu šatny:
+  // vlastní výbava (příznak own_gear nebo zadržený řádek) → text místo pomlčky
+  const gearActive = !!gearCode?.is_active
+  const ownGearNoLocker = !gearActive && (b.own_gear === true || gearCode?.withheld_reason === OWN_GEAR_REASON)
+  const liveCodes = doorCodes.filter(c => c.is_active)
+  const forState = liveCodes.length ? liveCodes : doorCodes
+  const allSent = forState.every(c => c.sent_to_customer)
+  const withheld = forState.find(c => c.withheld_reason && c.withheld_reason !== OWN_GEAR_REASON)?.withheld_reason
+  // Stav předávacího protokolu (hradlo kódu motorky na displeji pobočky) — sloupce z migrace 20260925.
+  // Hradlo má jen SAMOOBSLUŽNÁ pobočka (motorcycles.branches.type); na obslužné kódy vznikají také,
+  // ale protokol podepisuje obsluha → „Čeká na protokol“ tam nesvítí.
+  const selfService = b.motorcycles?.branches?.type === 'samoobslužná'
+  const signed = b.handover_protocol_filled_at
+  const awaitsProtocol = selfService && !signed && ['reserved', 'active'].includes(b.status) && !!motoCode?.is_active
+  const dt = v => v ? new Date(v).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
 
   return (
     <Card className="col-span-2">
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Pristupove kody k pobocce</h3>
-      <div className="p-4 rounded-lg" style={{ background: allSent ? '#dcfce7' : anyWithheld ? '#fef3c7' : '#f1faf7', border: `1px solid ${allSent ? '#86efac' : anyWithheld ? '#fcd34d' : '#d4e8e0'}` }}>
+      <div className="p-4 rounded-lg" style={{ background: allSent ? '#dcfce7' : withheld ? '#fef3c7' : '#f1faf7', border: `1px solid ${allSent ? '#86efac' : withheld ? '#fcd34d' : '#d4e8e0'}` }}>
         <div className="grid grid-cols-2 gap-4 mb-3">
           <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kod k motorce</div><div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{motoCode?.door_code || '—'}</div></div>
-          <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kod k prislusenstvi</div><div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{gearCode?.door_code || '—'}</div></div>
+          <div>
+            <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kód šatny</div>
+            {gearActive
+              ? <div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{gearCode.door_code}</div>
+              : ownGearNoLocker
+                ? <div className="text-sm font-extrabold" style={{ color: '#b45309' }} title="Zákazník má vlastní výbavu (žádná půjčená výbava řidiče, boty ani výbava spolujezdce) — kód šatny se nevydává a šatna mu nejde otevřít. Změní se sám při změně výbavy nebo volby „Vlastní výbava“ v úpravě rezervace.">Vlastní výbava — bez kódu šatny</div>
+                : <div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>—</div>}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: allSent ? '#dcfce7' : '#fee2e2', color: allSent ? '#1a8a18' : '#dc2626' }}>{allSent ? 'Odeslano zakaznikovi' : 'Neodeslano'}</span>
           {motoCode?.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dbeafe', color: '#2563eb' }}>Aktivní</span>}
           {motoCode && !motoCode.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#f3f4f6', color: '#6b7280' }}>Neaktivní</span>}
-          {anyWithheld && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#b45309' }}>Zadrzeno: {motoCode?.withheld_reason || gearCode?.withheld_reason}</span>}
+          {withheld && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#b45309' }}>Zadrzeno: {withheld}</span>}
+          {signed && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dcfce7', color: '#1a8a18' }} title={selfService ? 'Předávací protokol je podepsaný — kód motorky kóji otevře. PDF je v Dokumentech.' : 'Předávací protokol je podepsaný (odbavení obsluhou). PDF je v Dokumentech.'}>📝 Protokol podepsán {dt(signed)}</span>}
+          {awaitsProtocol && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#ede9fe', color: '#6d28d9' }} title="Kód motorky se na displeji ověří, ale kóje se otevře až po podpisu předávacího protokolu — na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky) nebo v aplikaci.">📝 Čeká na protokol</span>}
         </div>
+        {(b.gear_collected_at || (b.handover_protocol_prompted_at && !signed)) && (
+          <div className="text-xs mt-2" style={{ color: '#4a5a52' }}>
+            {b.gear_collected_at && <span>Šatna zavřena (výbava vyzvednuta) {dt(b.gear_collected_at)}</span>}
+            {b.gear_collected_at && b.handover_protocol_prompted_at && !signed && <span> · </span>}
+            {b.handover_protocol_prompted_at && !signed && <span>poslední výzva k podpisu z displeje {dt(b.handover_protocol_prompted_at)}</span>}
+          </div>
+        )}
       </div>
     </Card>
   )

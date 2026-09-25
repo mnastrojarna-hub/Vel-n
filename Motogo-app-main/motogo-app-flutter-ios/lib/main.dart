@@ -32,6 +32,7 @@ import 'core/widgets/logo_header.dart' show initAppVersion;
 import 'core/pending_booking_fab_provider.dart'
     show onboardingOverlayActiveProvider;
 import 'features/loyalty/loyalty_levelup_overlay.dart';
+import 'features/reservations/handover_prompt_watcher.dart';
 import 'features/routes/ride_recorder.dart';
 import 'features/loyalty/loyalty_provider.dart' show maybeRefreshLoyalty;
 import 'features/routes/active_ride_provider.dart'
@@ -382,6 +383,10 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
                 // Záznam projeté jízdy — při aktivní výpůjčce a povolené
                 // poloze sbírá stopu do „Mých zážitků". Nic nevykresluje.
                 const RideRecorderWatcher(),
+                // Předávací protokol vynucený z kiosku (samoobsluha) — hlídá
+                // `handover_protocol_prompted_at` ve streamu rezervací a otevře
+                // protokol přes celou obrazovku z jakékoli obrazovky.
+                const HandoverPromptWatcher(),
                 // Language selection overlay (first launch)
                 if (_onboardingChecked && _showLangOverlay)
                   LanguageOverlay(onDone: _onLangDone),

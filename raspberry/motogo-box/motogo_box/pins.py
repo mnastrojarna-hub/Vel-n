@@ -165,6 +165,26 @@ class LocalResolver:
             ))
         return doors
 
+    @staticmethod
+    def protocol_for(cache: dict | None, booking_id: str | None) -> dict | None:
+        """Předávací protokol rezervace z `protocols[]` sync cache (2026-09-25).
+
+        None = stav neznámý (stará cache bez seznamu `protocols` → hradlo se neuplatní, fail-open).
+        Seznam nese JEN nepodepsané protokoly rezervací reserved/active s kódem v `codes[]` a
+        `valid_from <= now()+1 den` (§2b); rezervace, která v přítomném seznamu chybí, je NEJSPÍŠ podepsána
+        jinde, ale může být i zrušená / s odebraným kódem / mimo okno zastaralé cache → ``{required: False,
+        absent: True}`` = fail-open bez hradla, které si handover.py NIKDY nepamatuje jako podpis.
+        """
+        if not isinstance(cache, dict) or not booking_id:
+            return None
+        rows = cache.get("protocols")
+        if not isinstance(rows, list):
+            return None
+        for p in rows:
+            if isinstance(p, dict) and str(p.get("booking_id") or "") == str(booking_id):
+                return p
+        return {"booking_id": str(booking_id), "required": False, "absent": True}
+
     def resolve(self, code: str, cache: dict | None, now: datetime) -> ResolveResult | None:
         """Vrátí výsledek ověření z cache; None = kód v cache není (neznámý)."""
         if not isinstance(cache, dict):
@@ -202,7 +222,7 @@ class LocalResolver:
             return ResolveResult(
                 ok=True, kind=kind, booking_id=row.get("booking_id"),
                 door_id=door_id, box_number=box, door_configured=bool(door_id or box is not None),
-                offline=True,
+                offline=True, protocol=self.protocol_for(cache, row.get("booking_id")),
             )
         if matched_expired:
             return ResolveResult(ok=False, error=matched_expired, offline=True)

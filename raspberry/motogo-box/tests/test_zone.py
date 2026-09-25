@@ -757,3 +757,32 @@ async def test_music_enabled_not_in_hw_signature():
     zone = r.hw.zone_by_number(1)
     zone.hw = ZoneHw.from_dict({**zone.hw.to_dict(), "music_enabled": False})
     assert hw_signature(r.hw) == before
+
+
+async def test_session_closed_hook_called_with_booking_and_survives_errors():
+    """Hook `on_session_closed` (zavření šatny → protokol, handover.py): volá se při DOOR_OPEN→CLOSED_CONFIRMATION
+    ještě s booking_id relace; jeho chyba automat nezastaví. Bez hooku se nic nemění."""
+    r = await rig_door_open()
+    seen: list[tuple[int, str | None, str]] = []
+
+    async def hook(zc) -> None:
+        seen.append((zc.number, zc.booking_id, zc.state.value))
+        raise RuntimeError("hook spadl")
+
+    r.zc.on_session_closed = hook
+    await r.zc.on_input(True)
+    r.clock.advance(1.1)
+    await r.zc.tick()
+    assert r.zc.state == ZoneState.CLOSED_CONFIRMATION
+    assert seen == [(1, "b-1", "CLOSED_CONFIRMATION")]
+    assert r.kinds()[-2:] == [EventKind.DOOR_CLOSED, EventKind.SESSION_COMPLETED]
+    await r.zc.on_input(False)                              # znovu otevřeno v téže relaci a zavřeno → hook podruhé
+    r.clock.advance(1.1)
+    await r.zc.on_input(True)
+    r.clock.advance(1.1)
+    await r.zc.tick()
+    assert len(seen) == 2 and seen[1][1] == "b-1"
+    r.clock.advance(31)
+    await r.zc.tick()
+    assert r.zc.state == ZoneState.SECURED                  # doběh světla/hudby hook nevolá
+    assert len(seen) == 2

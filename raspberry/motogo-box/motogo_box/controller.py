@@ -18,6 +18,7 @@ from .audio import AudioController
 from .audio_build import audio_signature, build_audio, make_music_library
 from .config import WARNING_PREFIX, HardwareConfig, LocalConfig, blocking_problems, validate_hardware
 from .diagnostics import NetworkDiagnostics
+from .handover import HandoverManager
 from .io_devices import IoBus
 from .models import Event, EventKind, Signal, now_iso
 from .outdoor import OutdoorController
@@ -78,6 +79,7 @@ class BoxController:
         self.resolver = LocalResolver(self._device_id(), self._device_token())
         self.diagnostics = NetworkDiagnostics(self)      # diagnostika sítě (kód z displeje / Velín / servis)
         self.updater = SoftwareUpdater(self)             # aktualizace software/OS z Velína (§25) — běží v klidu
+        self.handover = HandoverManager(self)            # předávací protokol na displeji (§4, handover.py)
 
     # ─── konfigurace ─────────────────────────────────────────────────────────
     def _device_id(self) -> str:
@@ -137,8 +139,15 @@ class BoxController:
         for z in hw.zones:
             zc = ZoneController(z, self.io, self.signals, self.audio, hw, self.emit)
             zc.lock_gate = self.lock_gate
+            zc.on_session_closed = self._session_closed     # zavření šatny → protokol na displeji
             self.zones[z.number] = zc
         self.pin_guard.sec = hw.security
+
+    async def _session_closed(self, zc: ZoneController) -> None:
+        """DOOR_OPEN→CLOSED_CONFIRMATION zákaznické relace šatny (kind accessories + booking_id) → HandoverManager.
+        Servisní otevření (booking_id None) ani kóje motorek protokol nespouští."""
+        if zc.zone.kind == "accessories" and zc.booking_id:
+            await self.handover.on_wardrobe_closed(zc.number, zc.booking_id)
 
     async def _hw_startup(self) -> None:
         """§12: all relays off → Shelly off → audio off → načíst kontakty → stav zón."""
@@ -331,11 +340,13 @@ class BoxController:
             await self.emit(Event(kind=EventKind.CONFIG_PROBLEM, success=False, level="error",
                                   message="Konfigurace z Velína nejde načíst", detail={"error": str(exc)}))
             self.storage.save_code_cache(payload)      # kódy na HW mapě nezávisí — cache aktualizovat
+            await self._reconcile_handover(payload)
             return {"ok": False, "error": "config_invalid", "changed": False, "problems": [str(exc)]}
         problems = validate_hardware(hw)
         sig = self._signature(hw)
         changed = sig != self._hw_signature
         self.storage.save_code_cache(payload)
+        await self._reconcile_handover(payload)
         if payload.get("branch_name"):
             self.apply_heartbeat({"branch_name": payload["branch_name"], "power_status_url": self.power_status_url,
                                   "power_poll_seconds": self.power_poll_s})
@@ -345,11 +356,15 @@ class BoxController:
                                   message="Konfigurace z Velína je neplatná", detail={"problems": problems}))
             return {"ok": False, "error": "config_invalid", "changed": False, "problems": problems}
         active = self._sessions_active() if changed else []
-        if active:
+        signing = changed and self.handover.busy()
+        if active or signing:
             # Přestavba = all_off (zhasnutí světla v obsazené kóji, konec relací) → počkat, až všechny
-            # relace skončí; další sync (60 s) to zkusí znovu. Nová cache kódů už platí.
-            log.warning("Změna HW mapy odložena — běží relace v zónách %s", active)
-            return {"ok": True, "changed": False, "deferred": True, "active_zones": active, "problems": problems}
+            # relace skončí (a zákazník dopodepíše protokol na displeji); další sync (60 s) to zkusí znovu.
+            # Nová cache kódů už platí.
+            log.warning("Změna HW mapy odložena — běží relace v zónách %s%s", active,
+                        ", podpis protokolu na displeji" if signing else "")
+            return {"ok": True, "changed": False, "deferred": True, "active_zones": active, "problems": problems,
+                    "handover_busy": signing}
         self.storage.kv_set("remote_config", cc.config_part(payload))   # až po validaci, bez kódů
         if "music" in payload and self.music is not None:
             music = payload.get("music")
@@ -368,6 +383,13 @@ class BoxController:
                 if zc is not None:
                     zc.hw, zc.zone = hw, z
         return {"ok": True, "changed": changed, "problems": problems}
+
+    async def _reconcile_handover(self, payload: dict) -> None:
+        """Po každém syncu (hned po `save_code_cache`): protokoly podepsané jinde zmizí z displeje, velikosti se obnoví."""
+        try:
+            await self.handover.reconcile(payload.get("protocols"), payload.get("gear_sizes"))
+        except Exception:  # noqa: BLE001 — protokol nesmí shodit synchronizaci konfigurace
+            log.exception("handover: reconcile po syncu selhal")
 
     # ─── stav, události, pomocné ─────────────────────────────────────────────
     def snapshot(self) -> dict:
@@ -391,6 +413,7 @@ class BoxController:
             "diagnostics": self.diagnostics.status(),
             "update": self.updater.status(),
             "shell": shell.state(self),          # servisní terminál: je volné psaní odemčené? (§27)
+            "handover": self.handover.status(),  # předávací protokol na displeji (§4) — bez podpisů/formulářů
         }
 
     async def all_off(self) -> None:

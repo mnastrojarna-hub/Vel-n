@@ -103,7 +103,7 @@ export default function BookingDetail() {
     setLoading(true)
     const result = await debugAction('booking.load', 'BookingDetail', () =>
       supabase.from('bookings')
-        .select('*, motorcycles!moto_id(id, model, spz, status, branch_id, branches(name)), profiles(id, full_name, email, phone, city)')
+        .select('*, motorcycles!moto_id(id, model, spz, status, branch_id, branches(name, type)), profiles(id, full_name, email, phone, city)')
         .eq('id', id).single()
     , { booking_id: id })
     if (result?.error) setError(result.error.message)

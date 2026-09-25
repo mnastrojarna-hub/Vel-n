@@ -382,3 +382,19 @@ async def test_reboot_kind_failure_reported(tmp_path):
     await u.wait()
     assert u.state == "failed" and u.error == "reboot_failed: rc=1"
     assert ctrl.api.events[-1][0] == "error" and u.last is None
+
+
+async def test_wait_idle_counts_protocol_signing(tmp_path):
+    """Zákazník podepisuje protokol na displeji (`handover.busy()`) = box není volný (§25)."""
+    from types import SimpleNamespace
+
+    ctrl = FakeCtrl(tmp_path)
+    flags = {"busy": True}
+    ctrl.handover = SimpleNamespace(busy=lambda: flags["busy"])
+    up = SoftwareUpdater(ctrl)
+    assert up._busy() == ["protocol"]  # noqa: SLF001
+    flags["busy"] = False
+    assert up._busy() == []  # noqa: SLF001
+    ctrl.handover = SimpleNamespace(busy=lambda: (_ for _ in ()).throw(RuntimeError("x")))
+    assert up._busy() == []  # noqa: SLF001 — chyba hlídání nesmí zablokovat aktualizaci
+    ctrl.storage.close()
