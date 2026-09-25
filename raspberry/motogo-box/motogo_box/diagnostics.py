@@ -44,7 +44,7 @@ STEPS = ("system", "interfaces", "lte", "internet", "supabase", "devices", "prov
 FULL_ONLY = ("software", "config", "zones", "power", "cameras")
 MODES = ("full", "network")
 INTERNET_TCP = ("1.1.1.1", 443)
-MODBUS_PORTS = (502,)                  # identifikace Waveshare (FC01/FC02)
+MODBUS_PORTS = (502, 4196)             # identifikace Waveshare (FC01/FC02): Modbus TCP 502, tovární RTU přes TCP 4196
 WEB_PORTS = (80, 8080, 443, 8443)      # identifikace Shelly (RPC) / HTTP banner
 MAX_CAMERAS = 20
 
@@ -311,14 +311,22 @@ class NetworkDiagnostics:
         for name, dev in self.ctrl.hardware.devices.items():
             port = dev.port if dev.type != "shelly_rgbww" or dev.port != 502 else 80
             open_, ms, err = await net_scan.tcp_probe(dev.host, port, timeout_s=max(0.3, polling.modbus_timeout_ms / 1000))
+            protocol = "tcp"
+            if not open_ and dev.type in ("wav645", "wav617") and port == 502:
+                # tovární transparentní režim Waveshare = Modbus RTU přes TCP 4196 (klient `framing: auto` ho umí)
+                open_rtu, ms_rtu, _ = await net_scan.tcp_probe(dev.host, 4196, timeout_s=max(0.3, polling.modbus_timeout_ms / 1000))
+                if open_rtu:
+                    open_, ms, err, port, protocol = True, ms_rtu, None, 4196, "rtu"
             item: dict[str, Any] = {"name": name, "type": dev.type, "host": dev.host, "port": port, "reachable": open_,
+                                    "protocol": protocol,
                                     "ms": ms, "error": err, "ping_ms": await net_scan.ping(dev.host), "identified": None,
                                     "online": (self.ctrl.io.is_online(name) if dev.type != "shelly_rgbww" else self.ctrl.signals.online(name))}
             if open_:
                 if dev.type == "shelly_rgbww":
                     item["identified"] = await net_scan.shelly_identify(dev.host, port)
                 else:
-                    item["identified"] = await net_scan.modbus_identify(dev.host, port, dev.unit_id, polling.modbus_timeout_ms)
+                    item["identified"] = await net_scan.modbus_identify(dev.host, port, dev.unit_id, polling.modbus_timeout_ms,
+                                                                        framing="rtu" if protocol == "rtu" else "auto")
             out.append(item)
         return out
 
@@ -372,7 +380,7 @@ class NetworkDiagnostics:
             async with sem:
                 mb_port = next((p for p in MODBUS_PORTS if p in open_ports), None)
                 if mb_port is not None:
-                    item["modbus"] = await net_scan.modbus_identify(ip, mb_port)
+                    item["modbus"] = await net_scan.modbus_identify(ip, mb_port, framing="rtu" if mb_port == 4196 else "auto")
                 web_port = next((p for p in WEB_PORTS if p in open_ports), None)
                 if web_port is not None:
                     item["shelly"] = await net_scan.shelly_identify(ip, web_port) if web_port not in (443, 8443) else None

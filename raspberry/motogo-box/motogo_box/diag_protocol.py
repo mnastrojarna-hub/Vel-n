@@ -245,7 +245,8 @@ def _modules(r: dict) -> dict:
             st, msg, hk = "warn", f"{name} odpovídá na síti, ale program ho má offline / v obnově.", "module_offline_in_program"
         else:
             st, msg = "ok", ""
-        val = f"ping {d.get('ping_ms')} ms, TCP {d.get('ms')} ms" if d.get("reachable") else d.get("error")
+        val = (f"ping {d.get('ping_ms')} ms, TCP {d.get('ms')} ms" + (" (RTU přes TCP 4196 — tovární režim)" if d.get("protocol") == "rtu" else "")
+               if d.get("reachable") else d.get("error"))
         it.append(item(f"modules.{name}", f"{name} ({typ}, {host})", st, val, msg, hint(hk, name=name, host=host, type=typ)))
     for ip, names in by_ip.items():
         if len(names) > 1:
