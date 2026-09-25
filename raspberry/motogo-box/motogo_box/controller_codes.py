@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from . import shell
+from . import fixed_codes, shell
 from .models import ACCESSORIES_NAME, Event, EventKind, ResolveResult, ServiceDoor
 from .pins import hmac_code, mask, normalize_code
 
@@ -206,6 +206,10 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
     if not ctrl.ready:              # §12 krok 8: PIN až po dokončení startu / přestavby HW
         return {**base, "error": "not_ready", "message": error_text("not_ready")}
     masked = mask(code)
+    letter = None if diagnostics_only else fixed_codes.target(code)
+    if letter:                      # pevný servisní kód 39301A–H (kóje 1–7, šatna) — i offline
+        ctrl.pin_guard.register_success(masked)
+        return await fixed_codes.open_fixed(ctrl, letter, base, source)
     raw = await ctrl.api.resolve_code(code)
     if isinstance(raw, dict):
         rr = ResolveResult.from_rpc(raw)
