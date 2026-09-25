@@ -103,10 +103,11 @@ export const BRNO_AUDIO_OUTDOOR_EXAMPLE = { out: 'out9' }
 
 // Role kanálů v `branch_doors.hw`: klíč indexu + druh kanálu (pro detekci duplicit).
 // `types` = povolené typy zařízení 1:1 s validate_hardware() v jednotce (config.py):
-// zámek VÝHRADNĚ WAV645 (HW flash-on — nezůstane pod napětím ani při pádu procesu), kontakt jen vstup WAV617.
+// zámek jen relé Waveshare s HW flash-on (WAV645 i WAV617 = Relay (B) — nezůstane pod napětím ani při pádu procesu),
+// kontakt jen vstup WAV617.
 export const ZONE_REFS = [
-  { key: 'lock', label: 'Zámek', idx: 'coil', kind: 'coil', types: ['wav645'],
-    hint: 'Elektrický zámek těchto dveří: na kterém modulu WAV645 a na kterém relé je zapojený (coil 0 = relé R1). Jednotka sem po zadání kódu pošle krátký impulz. POVINNÉ — bez toho se dveře neotevřou.' },
+  { key: 'lock', label: 'Zámek', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'],
+    hint: 'Elektrický zámek těchto dveří: na kterém modulu Waveshare (WAV645 nebo WAV617 = Relay (B)) a na kterém relé je zapojený (coil 0 = relé R1). Jednotka sem po zadání kódu pošle krátký impulz. POVINNÉ — bez toho se dveře neotevřou.' },
   { key: 'contact', label: 'Kontakt', idx: 'input', kind: 'input', types: ['wav617'],
     hint: 'Dveřní čidlo, podle kterého jednotka pozná, jestli jsou dveře otevřené: na kterém modulu WAV617 a na kterém vstupu je zapojené (input 0 = DI1). POVINNÉ — bez něj by relace nikdy neskončila.' },
   { key: 'light', label: 'Světlo', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'],
@@ -295,7 +296,7 @@ export function roleTypeError(zone, role, dev, devices) {
   const d = devices?.[dev]
   if (!d) return `Zóna ${zone}: ${role.key} odkazuje na neznámé zařízení '${dev}'.`
   if (role.types.includes(d.type)) return null
-  if (role.key === 'lock') return `Zóna ${zone}: lock musí být relé WAV645 s HW flash-on (je ${d.type}).`
+  if (role.key === 'lock') return `Zóna ${zone}: lock musí být relé Waveshare s HW flash-on (je ${d.type}).`
   if (role.key === 'contact') return `Zóna ${zone}: contact musí být vstup WAV617 (je ${d.type}).`
   if (role.kind === 'light') return `Zóna ${zone}: ${role.key} musí být na Shelly (je ${d.type}).`
   return `Zóna ${zone}: ${role.key} musí být relé Waveshare (je ${d.type}).`

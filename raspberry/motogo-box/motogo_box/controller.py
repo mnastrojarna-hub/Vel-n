@@ -23,6 +23,7 @@ from .models import Event, EventKind, Signal, now_iso
 from .outdoor import OutdoorController
 from .pins import LocalResolver, PinGuard
 from .realtime import RealtimeListener
+from .io_provision import IoProvisioner
 from .shelly import ShellyRgbww, SignalController
 from .storage import Storage
 from .supabase_api import SupabaseApi
@@ -63,6 +64,7 @@ class BoxController:
         self.power_status_url: str | None = None
         self.power_poll_s: int = 60
         self.config_problems: list[str] = []
+        self.provisioner = IoProvisioner(storage)   # automatické IP modulů Waveshare (io_provision.py)
         self._local_hw_raw: dict = {}
         self._hw_signature: str = ""
         self._hw_tasks: list[asyncio.Task] = []

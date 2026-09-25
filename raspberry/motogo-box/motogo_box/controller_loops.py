@@ -25,6 +25,7 @@ import httpx
 
 from . import sdnotify
 from .modbus import ModbusError
+from .models import Event, EventKind
 
 if TYPE_CHECKING:  # pragma: no cover
     from .controller import BoxController
@@ -40,6 +41,8 @@ MAX_HANDLED_IDS = 500
 KV_HANDLED_COMMANDS = "handled_commands"
 BUS_RECOVERY_S = 1.0          # perioda `read_all_inputs` pro obnovu nezdravých modulů (sondy, reinit)
 OUTBOX_SCAN_LIMIT = 500
+PROVISION_FIRST_S = 5.0       # první kolo automatického zřízení modulů po startu
+PROVISION_S = 30.0            # další kola (jen když některý modul z HW mapy neodpovídá)
 
 
 @dataclass
@@ -437,8 +440,23 @@ async def watchdog_loop(ctrl: "BoxController") -> None:
         interval, lambda: bool(getattr(ctrl, "rebuilding", False)) or time.monotonic() - ctrl.last_poll < POLL_HEALTHY_S)
 
 
+async def provision_loop(ctrl: "BoxController") -> None:
+    """Nedostupný modul Waveshare z HW mapy → najít ho na LAN (ZLAN) a nastavit mu IP (`io_provision.py`)."""
+    await asyncio.sleep(PROVISION_FIRST_S)
+    while True:
+        try:
+            if ctrl.ready and not getattr(ctrl, "rebuilding", False):
+                for a in await ctrl.provisioner.run(ctrl.hardware, ctrl.io.is_online):
+                    await ctrl.emit(Event(kind=EventKind.IO_PROVISIONED, level="warn", detail=a,
+                                          message=f"Modul Waveshare {a['mac']} přeadresován {a['from_ip']} → "
+                                                  f"{a['to_ip']} ({a['device']})"))
+        except Exception:  # noqa: BLE001
+            log.exception("provision_loop: kolo selhalo")
+        await asyncio.sleep(PROVISION_S)
+
+
 HW_LOOPS = (poll_loop, tick_loop)
-NET_LOOPS = (heartbeat_loop, sync_loop, command_loop, status_loop, outbox_loop, watchdog_loop)
+NET_LOOPS = (heartbeat_loop, sync_loop, command_loop, status_loop, outbox_loop, watchdog_loop, provision_loop)
 
 
 def spawn(loops, ctrl: "BoxController") -> list[asyncio.Task]:

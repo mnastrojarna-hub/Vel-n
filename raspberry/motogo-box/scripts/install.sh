@@ -312,6 +312,12 @@ else
 fi
 chmod 600 "$NM_DIR"/motogo-*.nmconnection; chown root:root "$NM_DIR"/motogo-*.nmconnection
 nmcli connection reload || warn "nmcli reload selhal (NetworkManager neběží?)"
+# Starší profil (ponechaný výše) doplnit o pomocnou adresu tovární sítě Waveshare (automatické zřízení modulů).
+if ! nmcli -g ipv4.addresses con show motogo-lan 2>/dev/null | tr ',' '\n' | tr -d ' ' | grep -qx "192.168.1.253/24"; then
+  nmcli con modify motogo-lan +ipv4.addresses 192.168.1.253/24 2>/dev/null \
+    && ok "motogo-lan: pomocná adresa 192.168.1.253/24 (tovární síť Waveshare)" \
+    || warn "motogo-lan: pomocnou adresu 192.168.1.253/24 nejde přidat"
+fi
 # Profil, který NM odmítne (chyba v souboru), se tiše nenačte → LTE by nikdy nenaběhlo; ověřit hned.
 for prof in motogo-lte motogo-lan; do
   if nmcli -t -f NAME con show 2>/dev/null | grep -qx "$prof"; then ok "NM profil $prof načten"

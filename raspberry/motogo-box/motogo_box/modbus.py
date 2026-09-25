@@ -4,6 +4,11 @@ Waveshare moduly používají nestandardní FC05 (flash-on s časovou hodnotou,
 0x00FF pro všechna relé), proto je klient napsaný přímo nad PDU. Framování
 (`build_mbap`, `parse_response`, `bits_from_bytes`) jsou čisté funkce
 testovatelné bez sítě.
+
+Framování (`framing`): `tcp` = Modbus TCP (MBAP), `rtu` = Modbus RTU přes TCP (transparentní
+režim Waveshare z výroby, `modbus_rtu.py`), `auto` (výchozí) = Modbus TCP na `port`; když modul
+spojení na něm ODMÍTNE (port zavřený, modul je v továrním transparentním režimu), zkusí RTU na
+`rtu_port` (4196). Úspěšná varianta se pamatuje a zkouší se při dalším připojení jako první.
 """
 from __future__ import annotations
 
@@ -11,6 +16,8 @@ import asyncio
 import logging
 import struct
 from typing import Callable, Sequence
+
+from .modbus_rtu import RTU_DEFAULT_PORT, build_rtu, read_rtu_reply
 
 log = logging.getLogger("motogo.modbus")
 
@@ -113,7 +120,8 @@ class ModbusTcpClient:
 
     def __init__(self, host: str, port: int = 502, unit_id: int = 1, *,
                  timeout_ms: int = 500, retry_delays_ms: Sequence[int] = (100, 250, 500),
-                 offline_after: int = 3, name: str = "") -> None:
+                 offline_after: int = 3, name: str = "", framing: str = "auto",
+                 rtu_port: int = RTU_DEFAULT_PORT) -> None:
         self.host = host
         self.port = int(port)
         self.unit_id = int(unit_id)
@@ -121,6 +129,10 @@ class ModbusTcpClient:
         self.retry_delays_s = [max(0, int(d)) / 1000.0 for d in retry_delays_ms]
         self.offline_after = max(1, int(offline_after))
         self.name = name or f"{host}:{port}"
+        self.framing = framing if framing in ("tcp", "rtu", "auto") else "auto"
+        self.rtu_port = int(rtu_port)
+        self.rtu = self.framing == "rtu"            # aktuálně použité framování (auto: dle posledního úspěchu)
+        self.active_port = self.rtu_port if self.rtu and self.port == 502 else self.port
         self.online = True
         self.failures = 0
         self.on_online_change: Callable[[str, bool], None] | None = None
@@ -143,12 +155,31 @@ class ModbusTcpClient:
         except (OSError, asyncio.TimeoutError) as exc:
             log.debug("%s: připojení k %s:%s selhalo: %s", self.name, self.host, self.port, exc)
 
+    def _candidates(self) -> list[tuple[int, bool]]:
+        """(port, rtu) k vyzkoušení: tcp/rtu pevně, auto = Modbus TCP a pak RTU (poslední úspěch první)."""
+        if self.framing == "tcp":
+            return [(self.port, False)]
+        if self.framing == "rtu":
+            return [(self.rtu_port if self.port == 502 else self.port, True)]
+        pair = [(self.port, False), (self.rtu_port, True)]
+        return pair[::-1] if self.rtu else pair
+
     async def _open(self) -> None:
         await self.close()
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(self.host, self.port), self.timeout_s)
-        self._reader, self._writer = reader, writer
-        log.debug("%s: připojeno k %s:%s", self.name, self.host, self.port)
+        candidates = self._candidates()
+        for i, (port, rtu) in enumerate(candidates):
+            try:
+                reader, writer = await asyncio.wait_for(asyncio.open_connection(self.host, port), self.timeout_s)
+            except ConnectionRefusedError:
+                if i + 1 < len(candidates):
+                    continue            # port zavřený (modul žije) → druhé framování; timeout = modul nedostupný
+                raise
+            if rtu != self.rtu or port != self.active_port:
+                log.info("%s: komunikace přes %s na portu %s", self.name, "Modbus RTU přes TCP" if rtu else "Modbus TCP", port)
+            self.rtu, self.active_port = rtu, port
+            self._reader, self._writer = reader, writer
+            log.debug("%s: připojeno k %s:%s", self.name, self.host, port)
+            return
 
     async def close(self) -> None:
         writer, self._reader, self._writer = self._writer, None, None
@@ -219,6 +250,17 @@ class ModbusTcpClient:
         if not self.connected:
             await self._open()
         assert self._reader is not None and self._writer is not None
+        if self.rtu:
+            async with asyncio.timeout(self.timeout_s):
+                self._writer.write(build_rtu(self.unit_id, pdu))
+                await self._writer.drain()
+                try:
+                    resp = await read_rtu_reply(self._reader, self.unit_id)
+                except ValueError as exc:
+                    raise ModbusError(str(exc)) from exc
+            if resp[0] & 0x80:
+                raise ModbusExceptionResponse(resp[0] & 0x7F, resp[1] if len(resp) > 1 else 0)
+            return resp
         self._tid = (self._tid + 1) & 0xFFFF
         tid = self._tid
         async with asyncio.timeout(self.timeout_s):

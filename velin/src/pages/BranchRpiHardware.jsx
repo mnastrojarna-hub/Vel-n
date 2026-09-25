@@ -98,7 +98,7 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }
         <AudioOutputsEditor hardware={hardware} doors={doors} disabled={disabled} onSave={audio => onSaveCfg({ hardware: { ...hardware, audio } })} />
         <OutdoorHwEditor hardware={hardware} doors={doors} disabled={disabled} onSave={saveOutdoor} />
         <SubBlock title="Mapování dveří → zóny (branch_doors.hw)"
-          hint="Zóna = číslo kóje (šatna = volné číslo, v šabloně 8). Zámek = coil VÝHRADNĚ na WAV645 (HW flash-on), kontakt = vstup WAV617 (input), světlo/audio = coil WAV645/WAV617, červená/zelená = Shelly light id (0–4). Audio v režimu multi = výstup ze seznamu výše (+ volitelné enable relé zesilovače). Zámek a kontakt jsou povinné; čísla zón, kanály i audio výstupy musí být unikátní (i vůči venku) — jinak jednotka celou mapu odmítne.">
+          hint="Zóna = číslo kóje (šatna = volné číslo, v šabloně 8). Zámek = coil na WAV645 nebo WAV617 (HW flash-on), kontakt = vstup WAV617 (input), světlo/audio = coil WAV645/WAV617, červená/zelená = Shelly light id (0–4). Audio v režimu multi = výstup ze seznamu výše (+ volitelné enable relé zesilovače). Zámek a kontakt jsou povinné; čísla zón, kanály i audio výstupy musí být unikátní (i vůči venku) — jinak jednotka celou mapu odmítne.">
           {(doors || []).length === 0
             ? <EmptyState text="Žádné dveře. Nejdřív vytvořte dveře z kojí (blok „Dveře“ výše)." />
             : <DoorHwEditor doors={doors} devices={hardware.devices || {}} audio={hardware.audio} outdoor={outdoor} busy={disabled} onSaveDoor={onSaveDoor} />}
@@ -188,12 +188,12 @@ function DevicesEditor({ hardware, disabled, onSave }) {
                     : 'Vlastní zkratka zařízení, kterou se na něj odkazuje mapování dveří níže (např. wav645, shelly1). Malá písmena, číslice, - a _.'}
                   onChange={v => edit(i, { name: v })} />
                 <Select label="Typ" width={200} value={r.type} options={DEVICE_TYPES}
-                  title="Druh modulu. WAV645 (16 relé) = VÝHRADNĚ zámky a další relé; WAV617 (8 relé + 8 vstupů) = dveřní kontakty, světla a audio; Shelly Pro RGBWW PM = barevná signalizace u kójí."
+                  title="Druh modulu. WAV645 (16 relé) = zámky a další relé; WAV617 = Modbus POE ETH Relay (B) (8 relé + 8 vstupů) = dveřní kontakty, světla, audio i zámky; Shelly Pro RGBWW PM = barevná signalizace u kójí."
                   onChange={v => edit(i, { type: v })} />
                 <Input label="Host (IP)" width={140} value={r.host} placeholder="192.168.50.20" invalid={!r.host.trim()}
-                  title="Pevná IP adresa modulu v pobočkové síti LAN. Musí být stálá (rezervace v routeru nebo statická v modulu) — po změně adresy jednotka modul nenajde a zóny hlásí „I/O modul nedostupný“."
+                  title="IP adresa modulu v pobočkové síti LAN (192.168.50.x). Waveshare ji nastavovat ručně NEMUSÍTE: když modul na této adrese neodpovídá, jednotka ho na síti sama najde (i z výroby 192.168.1.254) a tuto IP mu nastaví. Shelly musí mít adresu nastavenou ručně."
                   onChange={v => edit(i, { host: v })} />
-                {!isShelly && <Input label="Port" type="number" width={70} value={r.port} title="Síťový port Modbus TCP na relé modulu. Standardně 502 — měňte jen když jste ho v modulu přenastavili." onChange={v => edit(i, { port: v })} />}
+                {!isShelly && <Input label="Port" type="number" width={70} value={r.port} title="Síťový port Modbus TCP na relé modulu. Standardně 502 — měňte jen když jste ho v modulu přenastavili. Modul v továrním režimu (Modbus RTU přes TCP, port 4196) jednotka pozná a obslouží sama." onChange={v => edit(i, { port: v })} />}
                 {!isShelly && <Input label="Unit ID" type="number" width={70} value={r.unit_id} title="Adresa zařízení v protokolu Modbus (na štítku/v konfiguraci modulu). U modulů Waveshare standardně 1." onChange={v => edit(i, { unit_id: v })} />}
                 {isShelly && <Chip tone="blue" title="HTTP RPC, port 80">HTTP /rpc</Chip>}
                 <Btn tone="red" small onClick={() => remove(i)} disabled={disabled} style={{ alignSelf: 'center', marginLeft: 'auto' }}>Smazat</Btn>

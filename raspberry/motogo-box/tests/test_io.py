@@ -52,7 +52,7 @@ async def test_make_module_types(sims):
     m645 = make_module("wav645", hw.devices["wav645"], hw.polling)
     m617 = make_module("wav617a", hw.devices["wav617a"], hw.polling)
     assert isinstance(m645, Wav645) and m645.coils == 16 and m645.inputs == 0 and m645.HW_FLASH
-    assert isinstance(m617, Wav617) and m617.coils == 8 and m617.inputs == 8 and not m617.HW_FLASH
+    assert isinstance(m617, Wav617) and m617.coils == 8 and m617.inputs == 8 and m617.HW_FLASH
     assert m645.client.timeout_s == 0.1 and m645.client.offline_after == 3
     assert not m645.client.connected                                    # líné připojení
     with pytest.raises(ValueError):

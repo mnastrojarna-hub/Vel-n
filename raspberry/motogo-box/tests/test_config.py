@@ -120,11 +120,11 @@ def test_validate_rejects_shared_channel_between_zones():
     assert any("Zóna 8: audio wav645[9] už používá zóna 5 (light)" in p for p in problems)
 
 
-def test_validate_requires_lock_on_wav645():
-    """Nález: zámek na WAV617 = softwarový pulz → při pádu procesu zůstane pod napětím."""
-    hw = _with_zone1(lock={"dev": "wav617a", "coil": 3})
-    problems = validate_hardware(hw)
-    assert len(problems) == 1 and "lock musí být relé WAV645" in problems[0]
+def test_validate_lock_on_waveshare_with_hw_flash():
+    """Zámek smí být na WAV645 i WAV617 (Relay (B) umí HW flash-on), nikdy na Shelly."""
+    assert validate_hardware(_with_zone1(lock={"dev": "wav617a", "coil": 3})) == []
+    problems = validate_hardware(_with_zone1(lock={"dev": "shelly1", "coil": 3}))
+    assert any("lock musí být relé Waveshare" in p for p in problems)
     # light/audio smí být na WAV645 i WAV617, contact jen WAV617, red/green jen Shelly
     assert validate_hardware(_with_zone1(audio={"dev": "wav645", "coil": 11})) == []
     assert any("contact musí být vstup WAV617" in p

@@ -343,6 +343,16 @@ async def test_light_failure_is_not_blocking():
     assert r.events[-1].detail.get("light_failed") is True and r.zc.light_on is False
 
 
+async def test_zone_without_light_or_signals_opens():
+    """Test/malá pobočka: jen zámek + kontakt (jeden Relay (B), bez Shelly a světla) → přístup projde."""
+    r = Rig()
+    r.zone = r.zc.zone = replace(r.zone, hw=replace(r.zone.hw, light=None, red=None, green=None))
+    await r.zc.startup(True)
+    assert r.zc.io_problems() == [] and r.zc.state == ZoneState.SECURED
+    ok, reason = await r.zc.grant_access(booking_id=None, kind="service", source="ui")
+    assert (ok, reason) == (True, "ok") and r.io.pulses[-1][0] == r.zone.hw.lock
+
+
 async def test_force_secure_resets_zone():
     r = await rig_door_open()
     await r.zc.force_secure()

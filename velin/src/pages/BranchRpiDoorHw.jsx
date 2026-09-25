@@ -177,7 +177,7 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
       </div>
       {isAcc && !configured && (
         <div className="text-[11px] font-bold mt-1" style={{ color: '#dc2626' }}>
-          Šatna nemá HW zónu — kód k výbavě na displeji nebude fungovat (jednotka hlásí „relé pro tyto dveře není ve Velíně nastaveno“). Zadejte volné číslo zóny, zámek (WAV645) a kontakt (WAV617) a uložte.
+          Šatna nemá HW zónu — kód k výbavě na displeji nebude fungovat (jednotka hlásí „relé pro tyto dveře není ve Velíně nastaveno“). Zadejte volné číslo zóny, zámek (WAV645/WAV617) a kontakt (WAV617) a uložte.
         </div>
       )}
       {msg && <div className="text-[11px] font-bold mt-1" style={{ color: msg.tone === 'red' ? '#dc2626' : msg.tone === 'amber' ? '#b45309' : '#1a8a18' }}>{msg.text}</div>}

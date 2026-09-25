@@ -137,12 +137,17 @@ class ZoneController:
         return bool(is_playing(self.number)) if is_playing is not None else self.audio.playing_zone == self.number
 
     def io_problems(self) -> list[str]:
-        """Nedostupné/chybějící I/O zóny (prázdný seznam = vše online): zámek, kontakt, světlo, Shelly."""
+        """Nedostupné/chybějící I/O zóny (prázdný seznam = vše online): zámek, kontakt, světlo, Shelly.
+
+        Povinné jsou jen zámek a kontakt (stejně jako `validate_hardware`); nenastavené světlo
+        ani signalizace přístup neblokují — nastavené, ale offline ano (§12).
+        """
         z = self.zone.hw
         out: list[str] = []
         for role, ref in (("lock", z.lock), ("contact", z.contact), ("light", z.light)):
             if ref is None:
-                out.append(f"{role} nenastaven")
+                if role != "light":
+                    out.append(f"{role} nenastaven")
             elif not self.io.is_online(ref.dev) and ref.dev not in out:
                 out.append(ref.dev)
         for ref in (z.red, z.green):

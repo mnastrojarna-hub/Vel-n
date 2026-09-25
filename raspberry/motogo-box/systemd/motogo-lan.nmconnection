@@ -1,5 +1,6 @@
 # MotoGo Box — LAN profil pro I/O síť (Teltonika switch, Waveshare, Shelly). SPEC §4:
-# statická 192.168.50.10/24, BEZ výchozí brány (never-default) a BEZ DNS, aby internet
+# statická 192.168.50.10/24 (+ pomocná 192.168.1.253/24 = tovární síť Waveshare 192.168.1.254 — jednotka
+# nový modul najde a sama mu nastaví IP z Velína, io_provision.py), BEZ výchozí brány (never-default) a BEZ DNS, aby internet
 # vedl výhradně přes LTE a I/O síť fungovala i bez internetu.
 # Umístění: /etc/NetworkManager/system-connections/motogo-lan.nmconnection (chmod 600, root).
 [connection]
@@ -13,7 +14,7 @@ autoconnect-priority=20
 
 [ipv4]
 method=manual
-addresses=192.168.50.10/24
+addresses=192.168.50.10/24,192.168.1.253/24
 never-default=true
 ignore-auto-dns=true
 ignore-auto-routes=true
