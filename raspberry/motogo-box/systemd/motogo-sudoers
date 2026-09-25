@@ -22,6 +22,6 @@ Cmnd_Alias MOTOGO_LTE     = /usr/bin/nmcli -w 30 con up motogo-lte, /usr/bin/nmc
 # a moduly by přestaly odpovídat). Argumenty jsou přibité včetně `-w 20` (health.LAN_UP_WAIT_S).
 # Pomocná adresa tovární sítě Waveshare (192.168.1.254) — controller ji doplní sám (io_provision.py), protože
 # aktualizaci z Velína provádí STARÁ kopie update.sh; pevná adresa i rozhraní, nic jiného nejde.
-Cmnd_Alias MOTOGO_LAN     = /usr/bin/nmcli -w 20 con up motogo-lan, /usr/bin/nmcli con modify motogo-lan +ipv4.addresses 192.168.1.253/24, /usr/bin/nmcli device reapply eth0
+Cmnd_Alias MOTOGO_LAN     = /usr/bin/nmcli -w 20 con up motogo-lan, /usr/bin/nmcli con modify motogo-lan +ipv4.addresses 192.168.1.253/24, /usr/bin/nmcli device reapply eth0, /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr eth0 manual
 
 motogo ALL=(root) NOPASSWD: MOTOGO_POWER, MOTOGO_SERVICE, MOTOGO_SCRIPTS, MOTOGO_LTE, MOTOGO_LAN

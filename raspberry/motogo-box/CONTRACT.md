@@ -839,10 +839,10 @@ Protokol diagnostiky má vlastní řádek „Zámek SIM karty“ s radou (`sim_p
 
 **`health.lan` (NEW 2026-09-20)** = `{interface, state, ipv4, ok, problem, action}` — hlídka I/O sítě.
 `problem`: `no_link` (rozhraní bez linku — mrtvý kabel / vypnutý switch / vadný port; software to neopraví,
-jen hlásí), `no_address` (link je, ale chybí IPv4 → jednotka zkusí `nmcli con up motogo-lan`, `action` =
+jen hlásí), `no_address` (link je, ale chybí IPv4 → jednotka nejdřív doplní adresy dispečerem `50-motogo-lan-addr` a pak zkusí `nmcli con up motogo-lan`, `action` =
 `lan_up` \| `lan_up_failed`), `missing` (rozhraní neexistuje). `ok=null` = nezjištěno (výpis rozhraní selhal)
 — Velín to NEbere jako poruchu. Do logu jde jen ZMĚNA stavu (cyklus běží každých 30 s). Sudoers povoluje
-výhradně `nmcli -w 20 con up motogo-lan` (žádné `con down` — to by shodilo funkční LAN). Velín z toho
+výhradně `nmcli -w 20 con up motogo-lan` a dispečer `50-motogo-lan-addr eth0 manual` (žádné `con down` — to by shodilo funkční LAN). Od 2026-09-26 je `motogo-lan` hybridní (DHCP z routeru = internet kabelem, LTE záloha); brána přes eth0 je v diagnostice OK. Velín z toho
 kreslí červený chip „I/O síť: eth0 bez linku“ (`BranchRpiZones.jsx`), takže je na první pohled vidět rozdíl
 mezi vadným modulem a mrtvou cestou ke všem modulům.
 

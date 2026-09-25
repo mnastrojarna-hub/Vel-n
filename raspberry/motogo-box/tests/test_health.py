@@ -606,7 +606,7 @@ def _lan_monitor(env: FakeEnv, tmp_path, clock: FakeClock | None = None, **cfg_k
 
 
 def _lan_cmds(env: FakeEnv) -> list[tuple[str, ...]]:
-    return [c for c in env.cmds if "motogo-lan" in c]
+    return [c for c in env.cmds if any("motogo-lan" in str(x) for x in c)]
 
 
 async def test_lan_ok_nothing_happens(tmp_path):
@@ -633,13 +633,15 @@ async def test_lan_no_address_triggers_nmcli_up_once_per_window(tmp_path):
     mon = _lan_monitor(env, tmp_path, clock=clock, lan_recover_s=300)
     first = await mon.lan_state()
     assert first["problem"] == "no_address" and first["action"] == "lan_up"
-    assert _lan_cmds(env) == [("sudo", "-n", "nmcli", "-w", "20", "con", "up", "motogo-lan")]
+    # nejdřív dispečer (adresy I/O sítě hned), pak profil
+    assert _lan_cmds(env) == [("sudo", "-n", "/etc/NetworkManager/dispatcher.d/50-motogo-lan-addr", "eth0", "manual"),
+                              ("sudo", "-n", "nmcli", "-w", "20", "con", "up", "motogo-lan")]
     clock.advance(299)
     assert (await mon.lan_state())["action"] is None     # okno ještě běží
-    assert len(_lan_cmds(env)) == 1
+    assert len(_lan_cmds(env)) == 2
     clock.advance(2)
     assert (await mon.lan_state())["action"] == "lan_up"
-    assert len(_lan_cmds(env)) == 2
+    assert len(_lan_cmds(env)) == 4
 
 
 async def test_lan_recover_disabled_and_failed_nmcli(tmp_path):

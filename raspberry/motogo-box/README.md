@@ -194,10 +194,11 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    berou z lokální `hardware.yaml`). Viz níže.
 4. **Párování:** ve Velíně → Samoobsluha → Řídicí jednotka → přidat zařízení → ID + token.
    Zadej do `config.yaml` (`device.id/token`) nebo na dotykovém UI (setup obrazovka / servisní panel → Přepárovat).
-5. **Síť (SPEC §4):** `sudo /opt/motogo/scripts/set-static-lan.sh` — eth0 = `192.168.50.10/24`
-   **bez výchozí brány**, internet výhradně přes LTE (`motogo-lte`, route-metric 100). Skript nejdřív
-   aktivuje `motogo-lan` (NM nahradí DHCP profil atomicky), pak konkurenčním profilům vypne autoconnect
-   a ověří, že `ip route` nemá `default via … dev eth0`. **Přes SSH na eth0 spojení spadne** (IP se
+5. **Síť (SPEC §4):** profil `motogo-lan` je od 2026-09-26 **hybridní**: eth0 = statické `192.168.50.10/24`
+   + `192.168.1.253/24` (moduly) **a zároveň DHCP** — je-li na kabelu router (Velké Němčice: Teltonika), dá bránu
+   s metrikou 50 a **internet jde kabelem**, LTE (`motogo-lte`, metrika 100) je záloha; bez routeru jede jen LTE.
+   Ruční nasazení: `sudo /opt/motogo/scripts/set-static-lan.sh` (NM nahradí aktivní profil atomicky, konkurenčním
+   profilům vypne autoconnect). **Přes SSH na eth0 spojení spadne** (IP se
    mění) — skript se sám odpojí od terminálu, doběhne a výstup nechá v `/var/log/motogo-set-static-lan.log`;
    připoj se znovu na `192.168.50.10`. Kontrola LTE: `mmcli -m any`, `nmcli con show motogo-lte`
    (stav `locked` = chybí PIN → `sudo ./scripts/install.sh`; PIN SIM je u všech poboček **1234** — výchozí hodnota install.sh,
@@ -242,8 +243,9 @@ Watchdog: controller posílá `WATCHDOG=1` jen pokud běží čtení kontaktů (
 `WatchdogSec=60`); health má `WatchdogSec=300` (jeden cyklus s nmcli/USB resetem trvá až ~100 s).
 
 **Hlídka I/O sítě (health, NEW 2026-09-20):** každý cyklus se kontroluje, že `health.lan_interface` (eth0) má
-IPv4. Když má LINK, ale ne adresu (`no_address` — profil `motogo-lan` nenaskočil), health ho zkusí nahodit
-(`sudo nmcli -w 20 con up motogo-lan`, nejvýš 1× za `lan_recover_s`, výchozí 300 s; `0` = jen hlásit).
+IPv4. Když má LINK, ale ne adresu (`no_address` — profil `motogo-lan` nenaskočil), health nejdřív doplní adresy
+I/O sítě dispečerem (`sudo /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr eth0 manual`) a pak profil nahodí
+(`sudo nmcli -w 20 con up motogo-lan`), nejvýš 1× za `lan_recover_s`, výchozí 300 s; `0` = jen hlásit.
 Chybějící LINK (`no_link`) je HW závada — kabel, switch, port — a **nic se nespouští**, aby se neutápěla
 skutečná příčina; jde jen hlášení do `health.lan` (a tím do Velína) a JEDEN řádek do logu při změně stavu.
 Při startu program VŽDY vypne všechna relé, Shelly a audio, načte kontakty, zavřeným zónám rozsvítí

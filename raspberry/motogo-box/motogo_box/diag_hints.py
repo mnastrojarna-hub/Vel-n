@@ -10,8 +10,9 @@ HINTS = {
     "device_mismatch": "Zařízení {name} na {host} neodpovídá jako {type} — zkontrolujte IP v HW mapě (Velín → Samoobsluha) a typ modulu.",
     "module_offline_in_program": "Modul {name} je na síti, ale program ho má offline/v obnově — počkejte 30 s, případně restartujte službu motogo-controller.",
     "ip_conflict": "Dvě zařízení mají v HW mapě stejnou IP a port — opravte adresy ve Velíně (Pobočky → Samoobsluha).",
-    "gateway_missing": "Zkontrolujte LTE profil motogo-lte (nmcli con up motogo-lte) — bez výchozí brány není internet.",
-    "gateway_eth": "Výchozí brána vede přes LAN modulů — v profilu motogo-lan nastavte never-default (ipv4.never-default yes).",
+    "gateway_missing": "Bez výchozí brány není internet: kabel z routeru (motogo-lan, DHCP) nebo LTE (nmcli con up motogo-lte). "
+                       "Terminál na displeji: „Nahodit I/O síť“ / „Nahodit LTE“.",
+    "gateway_eth": "Internet jde kabelem z routeru (hybridní motogo-lan). Chcete-li jen LTE: nmcli con modify motogo-lan ipv4.never-default yes.",
     "dns_missing": "Bez DNS serveru nefunguje Velín — zkontrolujte profil LTE (DNS z operátora) nebo nastavte 1.1.1.1.",
     "iface_down": "Rozhraní {name} nemá adresu/spojení — zkontrolujte kabel do switche modulů a profil motogo-lan.",
     "lte": "Zkontrolujte SIM (PIN vypnutý, kredit), anténu a profil motogo-lte; stav: mmcli -m any.",
