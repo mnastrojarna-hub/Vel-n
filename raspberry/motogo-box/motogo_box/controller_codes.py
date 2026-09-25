@@ -34,6 +34,7 @@ LOG_EVENT_SOURCES: dict[EventKind, str] = {
     EventKind.RPC_ERROR: "rpc",
     EventKind.DIAGNOSTICS: "diagnostics",
     EventKind.SHELL: "shell",
+    EventKind.IO_PROVISIONED: "modbus",
 }
 # Události, které se zobrazí jako upozornění v UI
 NOTICE_KINDS = frozenset({EventKind.FORCED_OPEN, EventKind.SESSION_OVERTIME, EventKind.SESSION_OVERTIME_ALERT})

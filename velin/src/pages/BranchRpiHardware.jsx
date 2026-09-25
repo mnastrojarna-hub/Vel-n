@@ -191,9 +191,9 @@ function DevicesEditor({ hardware, disabled, onSave }) {
                   title="Druh modulu. WAV645 (16 relé) = zámky a další relé; WAV617 = Modbus POE ETH Relay (B) (8 relé + 8 vstupů) = dveřní kontakty, světla, audio i zámky; Shelly Pro RGBWW PM = barevná signalizace u kójí."
                   onChange={v => edit(i, { type: v })} />
                 <Input label="Host (IP)" width={140} value={r.host} placeholder="192.168.50.20" invalid={!r.host.trim()}
-                  title="Pevná IP adresa modulu v pobočkové síti LAN. Musí být stálá (rezervace v routeru nebo statická v modulu) — po změně adresy jednotka modul nenajde a zóny hlásí „I/O modul nedostupný“."
+                  title="IP adresa modulu v pobočkové síti LAN (192.168.50.x). Waveshare ji nastavovat ručně NEMUSÍTE: když modul na této adrese neodpovídá, jednotka ho na síti sama najde (i z výroby 192.168.1.254) a tuto IP mu nastaví. Shelly musí mít adresu nastavenou ručně."
                   onChange={v => edit(i, { host: v })} />
-                {!isShelly && <Input label="Port" type="number" width={70} value={r.port} title="Síťový port Modbus TCP na relé modulu. Standardně 502 — měňte jen když jste ho v modulu přenastavili." onChange={v => edit(i, { port: v })} />}
+                {!isShelly && <Input label="Port" type="number" width={70} value={r.port} title="Síťový port Modbus TCP na relé modulu. Standardně 502 — měňte jen když jste ho v modulu přenastavili. Modul v továrním režimu (Modbus RTU přes TCP, port 4196) jednotka pozná a obslouží sama." onChange={v => edit(i, { port: v })} />}
                 {!isShelly && <Input label="Unit ID" type="number" width={70} value={r.unit_id} title="Adresa zařízení v protokolu Modbus (na štítku/v konfiguraci modulu). U modulů Waveshare standardně 1." onChange={v => edit(i, { unit_id: v })} />}
                 {isShelly && <Chip tone="blue" title="HTTP RPC, port 80">HTTP /rpc</Chip>}
                 <Btn tone="red" small onClick={() => remove(i)} disabled={disabled} style={{ alignSelf: 'center', marginLeft: 'auto' }}>Smazat</Btn>

@@ -208,6 +208,7 @@ class DeviceCfg:
     host: str
     port: int = 502
     unit_id: int = 1
+    protocol: str = "auto"    # Waveshare: auto (Modbus TCP 502, jinak RTU přes TCP 4196) | tcp | rtu
 
 
 @dataclass
@@ -321,6 +322,7 @@ class HardwareConfig:
             devices[str(name)] = DeviceCfg(
                 name=str(name), type=str(dv.get("type") or ""), host=str(dv.get("host") or ""),
                 port=int(dv.get("port") or 502), unit_id=int(dv.get("unit_id") or 1),
+                protocol=str(dv.get("protocol") or "auto").lower(),
             )
         zones = zones_from_doors(doors) if doors else []
         if not zones:

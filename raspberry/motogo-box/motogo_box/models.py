@@ -69,6 +69,7 @@ class EventKind(str, Enum):
     RPC_ERROR = "RPC_ERROR"                      # ověření kódu selhalo na straně serveru/párování (ne neplatný PIN)
     DIAGNOSTICS = "DIAGNOSTICS"                  # dokončená diagnostika sítě (souhrn; celý report → kiosk_diagnostics)
     SHELL = "SHELL"                              # servisní terminál na displeji — spuštěný příkaz (§27)
+    IO_PROVISIONED = "IO_PROVISIONED"            # modul Waveshare automaticky přeadresován dle HW mapy (io_provision.py)
 
 
 @dataclass(frozen=True)

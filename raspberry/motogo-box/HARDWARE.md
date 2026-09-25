@@ -13,15 +13,21 @@ v `config/brno-9zone.yaml` a ve Velíně (Samoobsluha → Řídicí jednotka →
 | zařízení | IP | pozn. |
 |---|---|---|
 | Teltonika TSW202 (switch) | 192.168.50.2 | PoE se nepoužívá; napájení dle štítku kusu |
-| Raspberry Pi 5 — eth0 | 192.168.50.10 | **bez výchozí brány**, profil `motogo-lan` |
+| Raspberry Pi 5 — eth0 | 192.168.50.10 (+ 192.168.1.253) | **bez výchozí brány**, profil `motogo-lan`; pomocná adresa = tovární síť Waveshare |
 | WAV645 | 192.168.50.20 | Modbus TCP 502, unit 1 |
 | WAV617-A | 192.168.50.21 | Modbus TCP 502, unit 1 |
 | WAV617-B | 192.168.50.22 | Modbus TCP 502, unit 1 |
 | Shelly 1–4 | 192.168.50.31–34 | HTTP RPC, profil Lights ×5 |
 | internet | LTE SIM7600E-H (USB) | profil `motogo-lte`, výchozí trasa jen tudy; PIN SIM u všech poboček **1234** (výchozí install.sh; jiný = `MOTOGO_SIM_PIN`) → profil `[gsm] pin=` |
 
-Waveshare: `TCP server`, `Modbus TCP`, port `502`, unit id `1`, gateway `multi-host non-storage`,
-interní sériovka `115200-8-N-1`. Shelly: režim Lights ×5, cloud/BT vypnout, statická IP.
+Waveshare se **nenastavuje ručně** (automatické zřízení, `io_provision.py`): modul z HW mapy, který na
+své IP neodpovídá, jednotka každých 30 s hledá protokolem ZLAN/VirCom (UDP 1092, broadcast i do tovární
+sítě 192.168.1.0/24) a nalezenému modulu bez adresy z mapy nastaví IP z Velína (párování: dřív přiřazená
+MAC → typ podle sondy: 8 vstupů = WAV617/Relay (B), 16 relé = WAV645 → jediný kandidát). Moduly s adresou
+z mapy nemění nikdy; změnu zapíše do logu Velína (`IO_PROVISIONED`, zdroj modbus). Protokol modulu se nemění:
+klient mluví Modbus TCP (502) i tovární Modbus RTU přes TCP (4196) — `devices.<x>.protocol`: `auto`
+(výchozí) | `tcp` | `rtu`. Ručně (VirCom) jen v nouzi: `TCP server`, `Modbus TCP`, port `502`, unit id `1`,
+gateway `multi-host non-storage`, interní sériovka `115200-8-N-1`. Shelly se zatím adresuje ručně. Shelly: režim Lights ×5, cloud/BT vypnout, statická IP.
 
 ## 2. Mapa I/O (SPEC §5) a Modbus adresy (SPEC §6)
 
@@ -67,9 +73,9 @@ Povinné jsou jen **zámek + kontakt**; světlo a červená/zelená jsou volitel
 nedostupné zařízení (např. Shelly ještě nezapojené) **blokuje přístup** (zóna `io_offline`, na displeji
 bliká červená i zelená) — v testu je ve Velíně u dveří **smaž** (i nepoužitá zařízení ze seznamu).
 
-1. IP modulu: výchozí z výroby **192.168.1.254** — RPi (192.168.50.10, bez brány) na ni nedosáhne.
-   Přes Vircom / web modulu nastav `192.168.50.21` (nebo jinou volnou .50.x), TCP server, Modbus TCP, port 502, unit 1.
-2. Velín → Samoobsluha → hardware: zařízení `wav617a` typ WAV617 s touto IP; u dveří šatny
+1. IP modulu nastavovat NEMUSÍŠ: modul z výroby (192.168.1.254) jednotka do 30 s sama najde a přeadresuje
+   na IP zařízení z mapy (kap. 1). Stačí ho zapojit do switche.
+2. Velín → Samoobsluha → hardware: zařízení `wav617a` typ WAV617 (IP z šablony .21); u dveří šatny
    `lock {wav617a, coil 7}`, `contact {wav617a, input 7}`, světlo/signalizaci nech prázdné.
 3. Zapojení zámku přes relé: +12 V → COM chX, NO chX → + zámku, − zámku → 0 V (NC nepoužívat).
 4. Bez magnetického kontaktu na DI8 se dveře jeví jako otevřené (`door_open`, dveře se neodjistí) —

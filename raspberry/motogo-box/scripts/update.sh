@@ -204,6 +204,18 @@ if getent group systemd-journal >/dev/null && ! id -nG "$APP_USER" 2>/dev/null |
   usermod -a -G systemd-journal "$APP_USER" && log "uživatel $APP_USER přidán do skupiny systemd-journal"
 fi
 
+# ── pomocná adresa tovární sítě Waveshare na eth0 (jednotka nový modul sama přeadresuje, io_provision.py) ──
+FACTORY_ADDR="192.168.1.253/24"
+if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | grep -qx motogo-lan \
+   && ! nmcli -g ipv4.addresses con show motogo-lan 2>/dev/null | tr ',' '\n' | tr -d ' ' | grep -qx "$FACTORY_ADDR"; then
+  if nmcli con modify motogo-lan +ipv4.addresses "$FACTORY_ADDR"; then
+    nmcli device reapply eth0 >/dev/null 2>&1 || ip addr add "$FACTORY_ADDR" dev eth0 2>/dev/null || true
+    log "motogo-lan: přidána pomocná adresa $FACTORY_ADDR (tovární síť Waveshare 192.168.1.254)"
+  else
+    log "UPOZORNĚNÍ: pomocnou adresu $FACTORY_ADDR se nepodařilo přidat (moduly z výroby zřiď ručně)"
+  fi
+fi
+
 # ── změněné unity/sudoers/polkit (jen aktualizace souborů, enable zůstává) ───
 for unit in motogo-controller.service motogo-health.service motogo-ui.service; do
   if [[ -f "$APP_DIR/systemd/$unit" ]] && ! cmp -s "$APP_DIR/systemd/$unit" "/etc/systemd/system/$unit"; then

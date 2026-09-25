@@ -262,7 +262,7 @@ def make_module(name: str, dev: DeviceCfg, polling: PollingCfg) -> RelayModule:
         timeout_ms=polling.modbus_timeout_ms,
         retry_delays_ms=tuple(polling.retry_delays_ms or ()),
         offline_after=polling.device_offline_after_failures,
-        name=name,
+        name=name, framing=dev.protocol,
     )
     return cls(name, client)
 

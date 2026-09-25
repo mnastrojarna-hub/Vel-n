@@ -212,9 +212,11 @@ async def ping(host: str, timeout_s: float = 1.5) -> float | None:
 
 
 # ─── identifikace zařízení ───────────────────────────────────────────────────
-async def modbus_identify(host: str, port: int = 502, unit_id: int = 1, timeout_ms: int = 800) -> dict | None:
+async def modbus_identify(host: str, port: int = 502, unit_id: int = 1, timeout_ms: int = 800,
+                          framing: str = "auto") -> dict | None:
     """Zkusí FC01/FC02: `{modbus:true, coils, inputs, guess}`; guess wav645 (16 relé) / wav617 (8 relé + 8 DI)."""
-    client = ModbusTcpClient(host, port, unit_id, timeout_ms=timeout_ms, retry_delays_ms=(), offline_after=1)
+    client = ModbusTcpClient(host, port, unit_id, timeout_ms=timeout_ms, retry_delays_ms=(), offline_after=1,
+                             framing=framing)
     coils = inputs = 0
     try:
         for n in (16, 8):
