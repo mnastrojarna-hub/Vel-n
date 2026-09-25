@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Spinner, EmptyState } from './BranchHelpers'
 import { RpiStatusBlock } from './BranchRpiZones'
 import { RpiHardwareBlock } from './BranchRpiHardware'
+import { defaultDoorHw } from './BranchRpiHardwareDefaults'
 import { RpiDiagnosticsBlock } from './BranchRpiDiagnostics'
 import { BranchMusicBlock } from './BranchMusic'
 import { isRpiDevice, platformLabel, ACCESSORIES_LABEL, doorKindLabel, doorLabel, doorEventLabel, isProtocolEvent } from './BranchRpiUi'
@@ -174,11 +175,13 @@ function TabSelfService({ branchId, branchName, motos }) {
       const rows = []
       ;(motos || []).filter(m => m.box_number != null).forEach(m => {
         if (!existing.has(m.box_number)) {
-          rows.push({ branch_id: branchId, door_kind: 'motorcycle', box_number: m.box_number, label: `Kóje ${m.box_number} — ${m.model || ''}`.trim() })
+          const row = { door_kind: 'motorcycle', box_number: m.box_number, label: `Kóje ${m.box_number} — ${m.model || ''}`.trim() }
+          rows.push({ branch_id: branchId, ...row, hw: defaultDoorHw(row) || {} })   // výchozí HW mapa podle čísla kóje
         }
       })
       if (!doors.some(d => d.door_kind === 'accessories')) {
-        rows.push({ branch_id: branchId, door_kind: 'accessories', box_number: null, label: ACCESSORIES_LABEL })
+        const row = { door_kind: 'accessories', box_number: null, label: ACCESSORIES_LABEL }
+        rows.push({ branch_id: branchId, ...row, hw: defaultDoorHw(row, [...doors, ...rows]) || {} })
       }
       if (rows.length) {
         const { error } = await supabase.from('branch_doors').insert(rows)

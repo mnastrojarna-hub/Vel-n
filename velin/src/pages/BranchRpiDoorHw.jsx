@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Btn, Chip, Input, Select, Label, doorKindLabel } from './BranchRpiUi'
 import { DoorAudioCell } from './BranchRpiAudioHw'
 import {
-  ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, ZONE_LIGHT_OPTIONS, audioMode, channelKey, channelLabel, toPhysical, fromPhysical, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
+  ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, ZONE_LIGHT_OPTIONS, audioMode, channelKey, channelLabel, defaultDoorHw, toPhysical, fromPhysical, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
 } from './BranchRpiHardwareDefaults'
 import { outdoorRefs } from './BranchRpiOutdoorHelpers'
 
@@ -29,10 +29,16 @@ function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
   const [msg, setMsg] = useState({})
 
   // Při změně dveří z DB obnov drafty (jen řádky bez rozpracovaných změn)
+  // Dveře bez mapy dostanou předvyplněný draft podle čísla kóje (defaultDoorHw: wav617a R/DI n, wav645 R n) — stačí Uložit.
   useEffect(() => {
     setDrafts(prev => {
       const next = {}
-      doors.forEach(d => { next[d.id] = prev[d.id]?.dirty ? prev[d.id] : { ...hwToDraft(d.hw, d.box_number), dirty: false } })
+      doors.forEach(d => {
+        if (prev[d.id]?.dirty) { next[d.id] = prev[d.id]; return }
+        const empty = !(d.hw && typeof d.hw === 'object' && Object.keys(d.hw).length)
+        const def = empty ? defaultDoorHw(d, doors) : null
+        next[d.id] = def ? { ...hwToDraft(def, d.box_number), dirty: true, prefilled: true } : { ...hwToDraft(d.hw, d.box_number), dirty: false }
+      })
       return next
     })
   }, [doors])
@@ -63,7 +69,7 @@ function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
     if (usedChannel) { setMsg(m => ({ ...m, [d.id]: { text: `Kanál ${channelLabel(usedChannel)} už používá jiná zóna/role nebo venek.`, tone: 'red' } })); return }
     const ok = await onSaveDoor(d.id, { hw })
     if (ok === false) { setMsg(m => ({ ...m, [d.id]: { text: 'Uložení selhalo (viz chyba nahoře).', tone: 'red' } })); return }
-    setDrafts(prev => ({ ...prev, [d.id]: { ...prev[d.id], dirty: false } }))
+    setDrafts(prev => ({ ...prev, [d.id]: { ...prev[d.id], dirty: false, prefilled: false } }))
     setMsg(m => ({ ...m, [d.id]: { text: 'Uloženo — jednotka si mapu stáhne při dalším syncu.', tone: 'green' } }))
   }
 
@@ -179,7 +185,12 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
           )
         })}
       </div>
-      {isAcc && !configured && (
+      {!configured && draft.prefilled && !msg && (
+        <div className="text-[11px] font-bold mt-1" style={{ color: '#b45309' }}>
+          Předvyplněno podle čísla kóje (zámek a kontakt na Relay (B), světlo na 16CH) — zkontrolujte zapojení a klikněte Uložit.
+        </div>
+      )}
+      {isAcc && !configured && !draft.prefilled && (
         <div className="text-[11px] font-bold mt-1" style={{ color: '#dc2626' }}>
           Šatna nemá HW zónu — kód k výbavě na displeji nebude fungovat (jednotka hlásí „relé pro tyto dveře není ve Velíně nastaveno“). Zadejte volné číslo zóny, zámek (WAV645/WAV617) a kontakt (WAV617) a uložte.
         </div>
