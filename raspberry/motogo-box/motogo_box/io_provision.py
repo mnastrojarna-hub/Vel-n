@@ -13,6 +13,7 @@ kandidát pro jediné chybějící zařízení. Stejný modul se přepisuje nejv
 """
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import logging
 import time
@@ -24,6 +25,7 @@ from .config import HardwareConfig
 log = logging.getLogger("motogo.provision")
 
 LAN_IFACE = "eth0"
+FACTORY_ADDR = "192.168.1.253/24"       # pomocná adresa v tovární síti Waveshare (192.168.1.254)
 KV_KEY = "io_provision"                 # {mac: jméno zařízení} — poslední přiřazení
 REWRITE_GUARD_S = 300.0
 
@@ -41,6 +43,19 @@ async def lan_networks(iface: str = LAN_IFACE) -> list[ipaddress.IPv4Interface]:
     return out
 
 
+async def ensure_factory_address(nets: list[ipaddress.IPv4Interface]) -> bool:
+    """Doplní pomocnou adresu do profilu motogo-lan (sudo, pevné argumenty v motogo-sudoers). True = změněno."""
+    if ipaddress.IPv4Interface(FACTORY_ADDR) in nets:
+        return False
+    rc, out = await net_scan.run_cmd("sudo", "-n", "nmcli", "con", "modify", "motogo-lan", "+ipv4.addresses", FACTORY_ADDR)
+    if rc != 0:
+        log.warning("Pomocnou adresu %s nejde přidat (rc=%s): %s", FACTORY_ADDR, rc, (out or "").strip()[:200])
+        return False
+    rc, out = await net_scan.run_cmd("sudo", "-n", "nmcli", "device", "reapply", LAN_IFACE)
+    log.warning("motogo-lan: přidána pomocná adresa %s (tovární síť Waveshare), reapply rc=%s", FACTORY_ADDR, rc)
+    return True
+
+
 def _guess(info: dict | None) -> str | None:
     if not info:
         return None
@@ -52,10 +67,11 @@ def _guess(info: dict | None) -> str | None:
 class IoProvisioner:
     def __init__(self, storage=None, *, discover=zlan.discover, write=zlan.write,
                  identify=net_scan.modbus_identify, networks: Callable[[], Awaitable[list]] = lan_networks,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+                 clock: Callable[[], float] = time.monotonic, ensure_address=ensure_factory_address) -> None:
         self.storage = storage
         self._discover, self._write, self._identify, self._networks = discover, write, identify, networks
         self.clock = clock
+        self._ensure_address, self._address_tried = ensure_address, False
         self._written: dict[str, float] = {}
         self.last_found: list[dict] = []      # poslední nalezené moduly (diagnostika / log)
 
@@ -94,6 +110,11 @@ class IoProvisioner:
         nets = await self._networks()
         if not nets:
             return []
+        if not self._address_tried:          # jednou za běh procesu (bez adresy tovární moduly nedosáhneme)
+            self._address_tried = True
+            if await self._ensure_address(nets):
+                await asyncio.sleep(2)
+                nets = await self._networks() or nets
         found = await self._discover(sorted({str(n.network.broadcast_address) for n in nets} | {"255.255.255.255"}))
         self.last_found = [f.as_dict() for f in found]
         hosts = {d.host for d in devices.values()}

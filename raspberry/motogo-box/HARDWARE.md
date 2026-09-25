@@ -13,7 +13,7 @@ v `config/brno-9zone.yaml` a ve Velíně (Samoobsluha → Řídicí jednotka →
 | zařízení | IP | pozn. |
 |---|---|---|
 | Teltonika TSW202 (switch) | 192.168.50.2 | PoE se nepoužívá; napájení dle štítku kusu |
-| Raspberry Pi 5 — eth0 | 192.168.50.10 (+ 192.168.1.253) | **bez výchozí brány**, profil `motogo-lan`; pomocná adresa = tovární síť Waveshare |
+| Raspberry Pi 5 — eth0 | 192.168.50.10 (+ 192.168.1.253) | **bez výchozí brány**, profil `motogo-lan`; pomocná adresa = tovární síť Waveshare (doplní ji sám controller přes pevný příkaz v `motogo-sudoers` — stačí jedna aktualizace z Velína) |
 | WAV645 | 192.168.50.20 | Modbus TCP 502, unit 1 |
 | WAV617-A | 192.168.50.21 | Modbus TCP 502, unit 1 |
 | WAV617-B | 192.168.50.22 | Modbus TCP 502, unit 1 |

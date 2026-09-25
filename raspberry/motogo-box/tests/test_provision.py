@@ -127,7 +127,11 @@ def _prov(found, identify_result, storage=None):
     async def networks():
         return NETS
 
-    return IoProvisioner(storage, discover=discover, write=write, identify=identify, networks=networks), writes
+    async def ensure_address(nets):
+        return False
+
+    return IoProvisioner(storage, discover=discover, write=write, identify=identify, networks=networks,
+                         ensure_address=ensure_address), writes
 
 
 async def test_factory_relay_b_gets_address_of_missing_wav617():
@@ -169,3 +173,17 @@ async def test_zlan_discover_over_udp_loopback():
     finally:
         transport.close()
     assert [f.mac for f in found] == ["AA:BB:CC:DD:EE:FF"] and found[0].source == "127.0.0.1"
+
+
+async def test_factory_address_added_via_pinned_sudo(monkeypatch):
+    from motogo_box import io_provision
+    calls = []
+
+    async def run_cmd(*args, timeout=20):
+        calls.append(args)
+        return 0, ""
+    monkeypatch.setattr(io_provision.net_scan, "run_cmd", run_cmd)
+    assert await io_provision.ensure_factory_address([ipaddress.IPv4Interface("192.168.50.10/24")]) is True
+    assert calls == [("sudo", "-n", "nmcli", "con", "modify", "motogo-lan", "+ipv4.addresses", "192.168.1.253/24"),
+                     ("sudo", "-n", "nmcli", "device", "reapply", "eth0")]
+    assert await io_provision.ensure_factory_address(NETS) is False        # adresa už je → nic
