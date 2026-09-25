@@ -19,6 +19,10 @@ Zadání: `SPEC.md`; rozhraní modulů: `CONTRACT.md`; zapojení a tabulky I/O: 
    Po zavření dveří hudba doběhne (10 s) a světlo zhasne (30 s), svítí červená.
 4. **Servisní heslo** (Velín → Samoobsluha → Servisní hesla) otevře servisní panel: otevřít
    libovolné dveře, světlo/hudba per zóna, Vše vypnout, stav zařízení, přepárování, restart.
+5. **Pevné servisní kódy dveří** (natvrdo v programu, `motogo_box/fixed_codes.py`): `39301A` → kóje 1 …
+   `39301G` → kóje 7, `39301H` → šatna (zóna `kind: accessories`, jinak zóna 8). Otevřou dveře kdykoli — bez
+   rezervace, Velína i internetu — plnou sekvencí zóny jako „Otevřít" v servisním panelu (audit `kind=service`,
+   `source=fixed_service_code`). Platí pro ně PIN lockout; v okně diagnostiky nic neotevřou.
 
 Kódy zákazníků jsou existující `branch_door_codes` (generují se při aktivaci rezervace).
 Program je ověří přes RPC `kiosk_resolve_code`; při výpadku internetu proti **lokální cache**
