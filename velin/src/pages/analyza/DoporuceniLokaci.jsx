@@ -82,20 +82,27 @@ export default function DoporuceniLokaci() {
     }
   }
 
-  // Per-branch economics using calcLocationEconomics
+  // Per-branch economics using calcLocationEconomics.
+  // Pobočka BEZ realizovaných rezervací (nikdy neotevřená / nová) se v přehledu
+  // NEodhaduje z benchmarků — odhad by se tvářil jako obrat a hodnocení
+  // (viz Velké Němčice: 233 600 Kč, 40 %, „Výkonná" bez jediného pronájmu).
+  // Benchmark zůstává jen v Kalkulátoru nové pobočky níže.
+  const NO_DATA = { totalRevenue: 0, totalProfit: 0, totalInvestment: 0, revenuePerSlot: 0, paybackMonths: null, avgUtilization: 0, breakdown: [] }
   const locStats = locations.map(loc => {
     const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
     const bt = loc.location || 'turistická'
     const econ = calcLocationEconomics(locMotos, completed, bt, null, realUtilByType)
-    return { ...loc, ...econ, motoCount: locMotos.length }
+    return { ...loc, ...(econ.hasRealData ? econ : { ...econ, ...NO_DATA }), motoCount: locMotos.length }
   }).sort((a, b) => b.totalRevenue - a.totalRevenue)
 
-  const totalRevenue = locStats.reduce((s, l) => s + l.totalRevenue, 0)
-  const avgUtil = locStats.length > 0 ? locStats.reduce((s, l) => s + l.avgUtilization, 0) / locStats.length * 100 : 0
-  const totalMotos = locStats.reduce((s, l) => s + l.motoCount, 0)
+  const rated = locStats.filter(l => l.hasRealData)
+  const noDataCount = locStats.length - rated.length
+  const totalRevenue = rated.reduce((s, l) => s + l.totalRevenue, 0)
+  const avgUtil = rated.length > 0 ? rated.reduce((s, l) => s + l.avgUtilization, 0) / rated.length * 100 : 0
+  const totalMotos = rated.reduce((s, l) => s + l.motoCount, 0)
   const avgRevPerSlot = totalMotos > 0 ? totalRevenue / totalMotos : 0
 
-  for (const l of locStats) {
+  for (const l of rated) {
     if (avgRevPerSlot === 0) { l.stars = 3; continue }
     const r = l.revenuePerSlot / avgRevPerSlot
     l.stars = r >= 1.5 ? 5 : r >= 1.2 ? 4 : r >= 0.8 ? 3 : r >= 0.5 ? 2 : 1
@@ -120,7 +127,7 @@ export default function DoporuceniLokaci() {
       {/* Branch cards */}
       <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: '2px solid #e5e7eb' }}>
         <div className="text-lg font-extrabold mb-2" style={{ color: '#1a2e22' }}>Přehled poboček</div>
-        <div className="text-sm mb-5" style={{ color: '#888' }}>{locStats.length} poboček, prům. obsazenost {avgUtil.toFixed(1)}%, celkový obrat {Math.round(totalRevenue).toLocaleString('cs-CZ')} Kč</div>
+        <div className="text-sm mb-5" style={{ color: '#888' }}>{locStats.length} poboček{noDataCount > 0 ? ` (${noDataCount} bez dat)` : ''}, prům. obsazenost {avgUtil.toFixed(1)}%, celkový obrat {Math.round(totalRevenue).toLocaleString('cs-CZ')} Kč</div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {locStats.map(l => {
             const status = l.stars >= 4 ? { icon: '🟢', text: 'Výkonná' } : l.stars >= 3 ? { icon: '🟡', text: 'Průměrná' } : { icon: '🔴', text: 'Podvýkonná' }
@@ -130,7 +137,9 @@ export default function DoporuceniLokaci() {
                   <div><div className="font-bold text-sm" style={{ color: '#1a2e22' }}>{l.name}</div><div className="text-xs" style={{ color: '#888' }}>{l.city}</div></div>
                   <span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 8, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>{l.type || '⚠️ Nenastaveno'}</span>
                 </div>
-                {l.motoCount === 0 ? <div className="text-sm" style={{ color: '#888' }}>Žádná data</div> : (
+                {l.motoCount === 0 ? <div className="text-sm" style={{ color: '#888' }}>Žádná data</div> : !l.hasRealData ? (
+                  <div className="text-sm" style={{ color: '#888' }}>Žádná data — {l.motoCount} motorek, zatím bez realizovaných rezervací</div>
+                ) : (
                   <>
                     <div className="text-xl font-extrabold mb-1" style={{ color: '#166534' }}>{Math.round(l.totalRevenue).toLocaleString('cs-CZ')} Kč</div>
                     <div className="text-xs mb-1" style={{ color: '#854d0e' }}>Zisk / motorku: {Math.round(l.totalProfit / l.motoCount).toLocaleString('cs-CZ')} Kč/rok</div>
