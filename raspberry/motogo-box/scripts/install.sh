@@ -318,6 +318,11 @@ if ! nmcli -g ipv4.addresses con show motogo-lan 2>/dev/null | tr ',' '\n' | tr 
     && ok "motogo-lan: pomocná adresa 192.168.1.253/24 (tovární síť Waveshare)" \
     || warn "motogo-lan: pomocnou adresu 192.168.1.253/24 nejde přidat"
 fi
+# I/O síť vždy dostupná (i když eth0 jede na DHCP kvůli internetu): NM dispatcher přidá 192.168.50.10/24 + 192.168.1.253/24
+mkdir -p /etc/NetworkManager/dispatcher.d
+install -m 755 -o root -g root "$APP_DIR/systemd/50-motogo-lan-addr" /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr
+/etc/NetworkManager/dispatcher.d/50-motogo-lan-addr eth0 manual || true
+ok "NM dispatcher 50-motogo-lan-addr (adresy I/O sítě na eth0 za všech okolností)"
 # Profil, který NM odmítne (chyba v souboru), se tiše nenačte → LTE by nikdy nenaběhlo; ověřit hned.
 for prof in motogo-lte motogo-lan; do
   if nmcli -t -f NAME con show 2>/dev/null | grep -qx "$prof"; then ok "NM profil $prof načten"

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# MotoGo Box — I/O síť VŽDY dostupná (2026-09-25): ať už je eth0 na profilu motogo-lan (statická
+# 192.168.50.10), nebo na DHCP z routeru (internet přes kabel), Raspberry musí mít adresu v síti modulů
+# Waveshare (192.168.50.0/24) i v jejich tovární síti (192.168.1.0/24 — automatické zřízení, io_provision.py).
+# Dřív se statická LAN aplikovala jen ručně (set-static-lan.sh) → moduly „Network is unreachable“, zóny io_offline.
+# Instaluje update.sh/install.sh jako /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr (root, 755):
+# NetworkManager ho volá při každé změně rozhraní; `ip addr replace` je idempotentní. Lze spustit i ručně bez argumentů.
+IFACE="${MOTOGO_LAN_IFACE:-eth0}"
+ADDRS=("192.168.50.10/24" "192.168.1.253/24")
+
+dev="${1:-$IFACE}"; action="${2:-manual}"
+[[ "$dev" == "$IFACE" ]] || exit 0
+case "$action" in up|dhcp4-change|connectivity-change|manual) ;; *) exit 0 ;; esac
+ip link show "$IFACE" >/dev/null 2>&1 || exit 0
+for a in "${ADDRS[@]}"; do
+  if ! ip -4 addr show dev "$IFACE" | grep -q " ${a} "; then
+    ip addr replace "$a" dev "$IFACE" 2>/dev/null && logger -t motogo-lan-addr "$IFACE: zajištěna adresa $a ($action)"
+  fi
+done
+exit 0
