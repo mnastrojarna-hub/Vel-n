@@ -297,6 +297,7 @@ BEGIN
 
   RETURN jsonb_build_object(
     'ok', true, 'synced_at', now(), 'branch_name', v_branch.name,
+    'branch_is_open', coalesce(v_branch.is_open, false),   -- venek v režimu `branch` svítí, dokud je pobočka otevřená
     'hardware', coalesce(v_cfg.hardware, '{}'::jsonb),
     'timings', jsonb_build_object(
       'door_open_seconds', COALESCE(v_cfg.door_open_seconds, 8),
@@ -417,6 +418,32 @@ CREATE TRIGGER trg_handover_signed_notify_kiosk
   FOR EACH ROW
   WHEN (OLD.handover_protocol_filled_at IS NULL AND NEW.handover_protocol_filled_at IS NOT NULL)
   EXECUTE FUNCTION public._handover_signed_notify_kiosk();
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 6b) Otevření/zavření pobočky ve Velíně → jednotky si hned stáhnou branch_is_open
+--     (venkovní osvětlení v režimu `branch` zhasne zavřením pobočky, ne až za 60 s)
+-- ─────────────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public._branch_open_kiosk_sync()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  PERFORM kiosk_request_sync(NEW.id);
+  RETURN NULL;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING '_branch_open_kiosk_sync failed for branch %: %', NEW.id, SQLERRM;
+  RETURN NULL;
+END;
+$$;
+REVOKE ALL ON FUNCTION public._branch_open_kiosk_sync() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_branch_open_kiosk_sync ON public.branches;
+CREATE TRIGGER trg_branch_open_kiosk_sync
+  AFTER UPDATE OF is_open ON public.branches
+  FOR EACH ROW
+  WHEN (OLD.is_open IS DISTINCT FROM NEW.is_open)
+  EXECUTE FUNCTION public._branch_open_kiosk_sync();
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- 7) Stav protokolu pro appku — bez 1h okna; start_* jen čte (staré appky)

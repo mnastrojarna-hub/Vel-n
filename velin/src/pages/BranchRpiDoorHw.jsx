@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Btn, Chip, Input, Select, Label, doorKindLabel } from './BranchRpiUi'
 import { DoorAudioCell } from './BranchRpiAudioHw'
 import {
-  ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, audioMode, channelKey, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
+  ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, ZONE_LIGHT_OPTIONS, audioMode, channelKey, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
 } from './BranchRpiHardwareDefaults'
 import { outdoorRefs } from './BranchRpiOutdoorHelpers'
 
@@ -165,6 +165,9 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
           warn={draft.music_enabled === '0'}
           title="Hraje v této kóji / šatně hudba po zadání kódu? „Podle pobočky“ = řídí se hlavním vypínačem v sekci Audio (výchozí, nechte u kójí 1–7). „Nehraje“ umlčí jen tuhle zónu, ostatní hrají dál. Dveří se to nijak netýká, otevírají se vždy."
           onChange={v => onPatch(p => ({ ...p, music_enabled: v }))} />
+        <Select label="Světlo" width={214} value={draft.light_until_moto_code ?? ''} options={ZONE_LIGHT_OPTIONS}
+          title="Kdy zhasne bílé světlo zóny. „Jako kóje“ = zhasne po zavření dveří (doběh „Světlo po zavření“, u kójí 0 s = hned). „Šatna“ = po zavření dveří svítí dál a zhasne ho až kód motorky, který zákazník zadá po podpisu protokolu (pojistka: max. doba relace zóny)."
+          onChange={v => onPatch(p => ({ ...p, light_until_moto_code: v }))} />
         {ZONE_TIMING_FIELDS.map(f => {
           const v = draft.timings?.[f.key] ?? ''
           const bad = v !== '' && !(parseInt(v, 10) >= 0)

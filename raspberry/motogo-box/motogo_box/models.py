@@ -149,6 +149,8 @@ class ZoneHw:
     audio_out: str | None = None   # režim multi: název výstupu z `audio.outputs` (`audio: {out: out1}`)
     timings: dict | None = None    # override globálního `timings` jen pro tuto zónu (ZONE_TIMING_KEYS)
     music_enabled: bool | None = None   # hudba v této zóně: None = dle pobočky (`audio.music_enabled`), True/False = přepis
+    light_until_moto_code: bool | None = None  # šatna (2026-09-25): světlo po zavření dveří NEzhasne, zhasne ho až kód
+                                               # motorky (fallback `maximum_session_s` zóny); None/False = jako kóje
 
     @classmethod
     def from_dict(cls, d: dict, default_zone: int | None = None) -> "ZoneHw | None":
@@ -176,6 +178,7 @@ class ZoneHw:
             audio_out=str(out).strip() or None if out not in (None, "") else None,
             timings=zone_timings(d.get("timings")),
             music_enabled=_opt_bool(d.get("music_enabled")),
+            light_until_moto_code=_opt_bool(d.get("light_until_moto_code")),
         )
 
     def to_dict(self) -> dict:
@@ -198,6 +201,8 @@ class ZoneHw:
             out["timings"] = dict(self.timings)
         if self.music_enabled is not None:
             out["music_enabled"] = self.music_enabled
+        if self.light_until_moto_code is not None:
+            out["light_until_moto_code"] = self.light_until_moto_code
         return out
 
 

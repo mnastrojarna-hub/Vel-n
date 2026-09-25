@@ -37,6 +37,7 @@ class OutdoorController:
         self.light_on: bool = False
         self.active: bool = False
         self.manual: bool | None = None
+        self.branch_open: bool = False       # režim `branch`: pobočka otevřená (Velín → kiosk_sync_config.branch_is_open)
         self.off_at: float | None = None
         self._retry_at: float | None = None
         self._testing: bool = False          # běží test_sequence (druhý souběžný test → busy)
@@ -119,7 +120,8 @@ class OutdoorController:
         drží, dokud ho někdo nezruší nebo jednotka nerestartuje. `_set` si sám hlídá backoff po chybě relé."""
         self.active = bool(active_zones)
         self.off_at = None
-        want = self.manual if self.manual is not None else self.cfg.light_always
+        auto_want = self.cfg.light_always or (self.cfg.light_by_branch and self.branch_open)
+        want = self.manual if self.manual is not None else auto_want
         if self.light_on != want:
             await self._set(want)
 
@@ -179,7 +181,7 @@ class OutdoorController:
         V režimu `always` (nonstop) by ho další tick za 250 ms hned rozsvítil a tlačítko „Vše vypnout“
         by venku nic neudělalo — proto se tam uloží ruční vypnutí (`manual=False`), které drží do dalšího
         `light_on` z Velína/servisu nebo do restartu jednotky (po startu platí zase nastavený režim)."""
-        self.manual = False if self.cfg.light_always else None
+        self.manual = False if (self.cfg.light_always or self.cfg.light_by_branch) else None
         self.music_manual, self._music_retry_at = None, None
         self.off_at, self.active = None, False
         if self.cfg.light is not None and self.light_on:
@@ -252,7 +254,8 @@ class OutdoorController:
                 "manual": self.manual, "audio_out": cfg.audio_out,
                 "music": CHANNEL in (getattr(self.audio, "channels_playing", None) or []),
                 "light_ref": cfg.light_ref(), "off_in_s": off_in,
-                "light_mode": cfg.light_mode, "music_mode": cfg.music_mode, "music_manual": self.music_manual}
+                "light_mode": cfg.light_mode, "music_mode": cfg.music_mode, "music_manual": self.music_manual,
+                "branch_open": self.branch_open}
 
 
 __all__ = ["OutdoorController", "RETRY_S"]

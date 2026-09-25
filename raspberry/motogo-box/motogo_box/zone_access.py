@@ -103,10 +103,21 @@ async def tick_locked(zc: "ZoneController") -> None:
             zc.state = ZoneState.SECURED
             zc.reset_session()
             await zc.music_stop()
-            await zc.set_light(False)
+            if zc.light_until_moto_code and zc.light_on:
+                zc.light_hold_since = now        # šatna: světlo drží, zhasne ho kód motorky (nebo pojistka níže)
+            else:
+                await zc.set_light(False)
             await zc.signal(Signal.RED)          # idempotentní — jistota, že SECURED = červená
             log.info("Zóna %s: relace uzavřena, SECURED", zc.number)
             await zc.evaluate_locked()           # modul offline během relace (degraded) → teď už porucha
+    elif zc.state == ZoneState.SECURED and zc.light_hold_since is not None:
+        # Pojistka drženého světla šatny: zákazník kód motorky nezadal (odešel) → po maximum_session_s zhasnout.
+        if not zc.light_on:
+            zc.light_hold_since = None
+        elif now - zc.light_hold_since >= t.maximum_session_s:
+            zc.light_hold_since = None
+            await zc.set_light(False)
+            log.info("Zóna %s: držené světlo zhaslo po %d s bez kódu motorky", zc.number, t.maximum_session_s)
 
 
 async def _tick_door_open(zc: "ZoneController", elapsed: float) -> None:

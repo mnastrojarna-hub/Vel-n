@@ -135,6 +135,7 @@ class BoxController:
         self.audio = build_audio(hw, self.local, self.io, self.music)   # selector | multi dle hw.audio.mode
         self.outdoor = OutdoorController(hw.outdoor, self.io, hw.timings, self.audio,
                                         music_allowed=bool(hw.audio.music_enabled))   # venek: světlo + kanál outdoor
+        self.outdoor.branch_open = bool(self.storage.kv_get("branch_is_open", False))  # poslední známý stav pobočky
         self.zones = {}
         for z in hw.zones:
             zc = ZoneController(z, self.io, self.signals, self.audio, hw, self.emit)
@@ -350,6 +351,9 @@ class BoxController:
         if payload.get("branch_name"):
             self.apply_heartbeat({"branch_name": payload["branch_name"], "power_status_url": self.power_status_url,
                                   "power_poll_seconds": self.power_poll_s})
+        if "branch_is_open" in payload:            # venek v režimu `branch` svítí, dokud je pobočka otevřená
+            self.outdoor.branch_open = bool(payload.get("branch_is_open"))
+            self.storage.kv_set("branch_is_open", self.outdoor.branch_open)
         if changed and blocking_problems(problems):
             log.error("Nová konfigurace má chyby, HW se nepřestavuje: %s", problems)
             await self.emit(Event(kind=EventKind.CONFIG_PROBLEM, success=False, level="error",
@@ -434,6 +438,10 @@ class BoxController:
             log.exception("Uložení události selhalo")
         if event.level == "error":
             self.last_error = event.message
+        if event.kind == EventKind.ACCESS_GRANTED and event.code_kind == "motorcycle":
+            for zc in self.zones.values():        # šatna se světlem „do kódu motorky“ (2026-09-25) → zhasnout
+                if zc.light_until_moto_code and zc.light_on:
+                    asyncio.create_task(zc.light_off_after_moto_code(), name=f"motogo.light_off.{zc.number}")
         if event.kind in cc.NOTICE_KINDS:
             self.ui_notice = {"title": event.message, "kind": "error", "ts": time.time(),
                               "subtitle": "Kontaktujte podporu: " + cc.SUPPORT}

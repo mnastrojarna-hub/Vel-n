@@ -1298,6 +1298,8 @@ hlášená verze nebo celkový timeout). Nový `update.sh` se tím stane `motogo
 
 ---
 
+**Světla (2026-09-25):** zóna s `hw.light_until_moto_code: true` (šatna) po SECURED světlo NEzhasne — drží ho `ZoneController.light_hold_since`, zhasne `light_off_after_moto_code()` (controller.emit při ACCESS_GRANTED kind=motorcycle, jen když v šatně nikdo není) nebo pojistka `maximum_session_s` zóny v `tick`. Venek `light_mode: branch` — `OutdoorController.branch_open` z `kiosk_sync_config.branch_is_open` (kv `branch_is_open` pro start offline), ruční příkaz má přednost, `status().branch_open`.
+
 ## 26. `outdoor.py` — venek (zóna bez dveří; rozhodnutí uživatele 2026-09-11)
 
 Zóna 9 v šabloně Brno = **venek**: prostor před displejem + venkovní osvětlení. NENÍ řádek `branch_doors` (bez zámku, kontaktu,
