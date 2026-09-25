@@ -187,6 +187,15 @@ function TabSelfService({ branchId, branchName, motos }) {
       await load()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
+  // Založí dveře (kóje N / šatna) — používá „Načíst výchozí mapu“, když pobočka ještě dveře nemá; vrací řádek nebo null
+  async function createDoor(row) {
+    try {
+      const { data, error } = await supabase.from('branch_doors').insert({ branch_id: branchId, ...row }).select('*').single()
+      if (error) throw error
+      setDoors(ds => [...ds, data])
+      return data
+    } catch (e) { setError(e.message); return null }
+  }
   async function saveDoor(id, patch) {
     setDoors(ds => ds.map(d => d.id === id ? { ...d, ...patch } : d))
     try {
@@ -298,7 +307,7 @@ function TabSelfService({ branchId, branchName, motos }) {
           <KioskConfigBlock cfg={cfg} onSave={saveCfg} />
           <OtaBlock ota={ota} onSave={saveOta} />
           <DoorsBlock doors={doors} onEnsure={ensureDoors} onSave={saveDoor} onDelete={deleteDoor} busy={busy} />
-          <RpiHardwareBlock cfg={cfg} doors={doors} busy={busy} onSaveCfg={saveCfg} onSaveDoor={saveDoor} onRefresh={load} />
+          <RpiHardwareBlock cfg={cfg} doors={doors} busy={busy} onSaveCfg={saveCfg} onSaveDoor={saveDoor} onCreateDoor={createDoor} onRefresh={load} />
           <ServiceCodesBlock codes={codes} onAdd={addCode} onToggle={toggleCode} onDelete={deleteCode} busy={busy} />
           <AuditBlock events={events} doors={doors} devices={devices} onRefresh={load} />
           <DiagnosticsBlock logs={logs} devices={devices} onRefresh={load} />

@@ -216,6 +216,17 @@ if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | g
   fi
 fi
 
+# ── I/O síť vždy dostupná: NM dispatcher přidá 192.168.50.10/24 (+ tovární 192.168.1.253/24) na eth0 i při DHCP ──
+LAN_ADDR="50-motogo-lan-addr"
+if [[ -f "$APP_DIR/systemd/$LAN_ADDR" ]]; then
+  if ! cmp -s "$APP_DIR/systemd/$LAN_ADDR" "/etc/NetworkManager/dispatcher.d/$LAN_ADDR"; then
+    mkdir -p /etc/NetworkManager/dispatcher.d
+    install -m 755 -o root -g root "$APP_DIR/systemd/$LAN_ADDR" "/etc/NetworkManager/dispatcher.d/$LAN_ADDR"
+    log "nainstalován NM dispatcher $LAN_ADDR (adresy I/O sítě na eth0)"
+  fi
+  "/etc/NetworkManager/dispatcher.d/$LAN_ADDR" eth0 manual || true
+fi
+
 # ── změněné unity/sudoers/polkit (jen aktualizace souborů, enable zůstává) ───
 for unit in motogo-controller.service motogo-health.service motogo-ui.service; do
   if [[ -f "$APP_DIR/systemd/$unit" ]] && ! cmp -s "$APP_DIR/systemd/$unit" "/etc/systemd/system/$unit"; then
