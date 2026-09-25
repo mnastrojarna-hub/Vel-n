@@ -48,7 +48,8 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
   (nebo env `MOTOGO_CONFIG`); env override `MOTOGO_DEVICE_ID`, `MOTOGO_DEVICE_TOKEN`.
 - `load_hardware_file(path) -> dict` — výchozí HW mapa (`config/brno-9zone.yaml`).
 - `merge_hardware(local: dict, remote: dict | None) -> dict` — remote (Velín
-  `branch_kiosk_config.hardware`) přepisuje lokální po top-level klíčích
+  `branch_kiosk_config.hardware`) přepisuje lokální po top-level klíčích (`devices` neprázdné z Velína
+  nahrazují lokální seznam CELÝ — 2026-09-26; dřív se slučovaly a Shelly/wav617b ze šablony se přilepily všude)
   (`devices`, `timings`, `polling`, `contacts`, `security`, `audio`, `signal`, `outdoor` — venek, §26);
   klíč `zones` remote NIKDY nenese (zóny = `branch_doors.hw`). Výjimka `outdoor`: NEPRÁZDNÁ mapa z Velína
   rozhoduje i o nepřítomnosti venku (klíč chybí → venek z lokální šablony se NEpoužije — „Vymazat venek“ ve

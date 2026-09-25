@@ -85,6 +85,17 @@ def test_merge_outdoor_comes_only_from_remote_when_velin_has_map():
     assert merge_hardware(local, {"timings": {}, "outdoor": None}).get("outdoor") is None
 
 
+def test_merge_devices_come_only_from_remote():
+    """Zařízení z Velína nahrazují lokální šablonu celá — Shelly/wav617b ze šablony se nesmí přilepit."""
+    local = _brno()
+    assert set(local["devices"]) >= {"wav645", "wav617a", "wav617b", "shelly1"}
+    remote = {"timings": {}, "devices": {"wav617a": {"type": "wav617", "host": "192.168.50.21"},
+                                         "wav645": {"type": "wav645", "host": "192.168.50.20"}}}
+    assert set(merge_hardware(local, remote)["devices"]) == {"wav617a", "wav645"}
+    assert merge_hardware(local, {"timings": {}})["devices"] == local["devices"]         # bez devices = šablona
+    assert merge_hardware(local, {"devices": {}})["devices"] == local["devices"]         # prázdné = šablona
+
+
 # ─── validate_hardware ───────────────────────────────────────────────────────
 def test_validate_reports_unknown_device_and_missing_roles():
     hw = _with_zone1(lock={"dev": "neexistuje", "coil": 0}, contact=None)
