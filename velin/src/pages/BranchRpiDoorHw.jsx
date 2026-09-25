@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Btn, Chip, Input, Select, Label, doorKindLabel } from './BranchRpiUi'
 import { DoorAudioCell } from './BranchRpiAudioHw'
 import {
-  ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, ZONE_LIGHT_OPTIONS, audioMode, channelKey, channelLabel, defaultDoorHw, toPhysical, fromPhysical, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
+  ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, ZONE_LIGHT_OPTIONS, audioMode, channelKey, channelLabel, channelRangeError, defaultDoorHw, toPhysical, fromPhysical, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
 } from './BranchRpiHardwareDefaults'
 import { outdoorRefs } from './BranchRpiOutdoorHelpers'
 
@@ -73,6 +73,11 @@ function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
     setMsg(m => ({ ...m, [d.id]: { text: 'Uloženo — jednotka si mapu stáhne při dalším syncu.', tone: 'green' } }))
   }
 
+  const prefilledDoors = doors.filter(d => drafts[d.id]?.prefilled)
+  async function saveAllPrefilled() {
+    for (const d of prefilledDoors) await save(d)
+  }
+
   async function clear(d) {
     if (!window.confirm(`Vymazat hardwarovou mapu pro ${doorTitle(d)}? Řídicí jednotka zónu přestane obsluhovat.`)) return
     await onSaveDoor(d.id, { hw: {} })
@@ -84,6 +89,12 @@ function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
 
   return (
     <div className="space-y-1 max-h-96 overflow-y-auto">
+      {prefilledDoors.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap text-[12px] font-bold p-2 rounded-lg" style={{ background: '#fef3c7', color: '#b45309' }}>
+          <span>{prefilledDoors.length === 1 ? '1 dveře nemají mapu — předvyplněno' : `${prefilledDoors.length} dveří nemá mapu — předvyplněno`} podle čísla kóje (zámek R n + kontakt DI n na Relay (B), světlo R n na WAV645). Zkontrolujte zapojení a uložte.</span>
+          <Btn tone="dark" disabled={busy} onClick={saveAllPrefilled}>Uložit všechny předvyplněné</Btn>
+        </div>
+      )}
       {doors.map(d => {
         const draft = drafts[d.id] || hwToDraft(d.hw, d.box_number)
         return (
@@ -108,6 +119,11 @@ function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
       )}
     </div>
   )
+}
+
+// Předpona před číslem kanálu (R = relé, DI = vstup, id = světlo Shelly) — ať je jasné, co se do políčka píše
+export function ChannelPrefix({ kind }) {
+  return <span className="self-center text-[11px] font-extrabold" style={{ color: '#6b8c7a', minWidth: 14 }}>{kind === 'coil' ? 'R' : kind === 'input' ? 'DI' : 'id'}</span>
 }
 
 function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, dupOuts, outdoorZone, busy, msg, onPatch, onSave, onClear }) {
@@ -135,18 +151,23 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
             return <DoorAudioCell key={role.key} zoneNo={Number.isFinite(zoneNo) ? zoneNo : '?'} audioRef={ref} audio={audio} devices={devices}
               devOptions={devOptions} dup={dup} dupOut={!!out && dupOuts.has(out)} onPatch={onPatch} />
           }
-          const typeErr = roleTypeError(Number.isFinite(zoneNo) ? zoneNo : '?', role, ref.dev, devices)
-          const title = dup ? 'Tenhle kanál už používá jiná zóna nebo venek — každý zámek, kontakt, světlo i reproduktor smí patřit jen jedné zóně.' : typeErr ? `${typeErr} Povolené: ${role.types.join('/')}.` : role.hint
+          const zn = Number.isFinite(zoneNo) ? zoneNo : '?'
+          const typeErr = roleTypeError(zn, role, ref.dev, devices)
+          const idxN = parseInt(ref[role.idx], 10)
+          const rangeErr = !typeErr && ref.dev && Number.isFinite(idxN) ? channelRangeError(zn, role, ref.dev, idxN, devices) : null
+          const bad = dup || !!typeErr || !!rangeErr
+          const title = dup ? 'Tenhle kanál už používá jiná zóna nebo venek — každý zámek, kontakt, světlo i reproduktor smí patřit jen jedné zóně.' : typeErr ? `${typeErr} Povolené: ${role.types.join('/')}.` : rangeErr || role.hint
           const unknownDev = !!(ref.dev && !devices?.[ref.dev])
           return (
             <div key={role.key} className="flex flex-col gap-0.5" title={title}>
               <Label>{role.label}{role.key === 'lock' || role.key === 'contact' ? ' *' : ''}</Label>
               <div className="flex gap-1">
                 <Select width={96} value={ref.dev} options={unknownDev ? [...devOptions, { value: ref.dev, label: `${ref.dev} (?)` }] : devOptions}
-                  invalid={dup || !!typeErr}
+                  invalid={bad}
                   onChange={v => onPatch(p => ({ ...p, [role.key]: { ...p[role.key], dev: v } }))} />
+                <ChannelPrefix kind={role.kind} />
                 <Input width={54} type="number" min={role.kind === 'light' ? 0 : 1} value={toPhysical(role, ref[role.idx])}
-                  placeholder={role.kind === 'coil' ? 'R…' : role.kind === 'input' ? 'DI…' : 'id'} invalid={dup || !!typeErr}
+                  placeholder={role.kind === 'coil' ? 'R…' : role.kind === 'input' ? 'DI…' : 'id'} invalid={bad}
                   onChange={v => onPatch(p => ({ ...p, [role.key]: { ...p[role.key], [role.idx]: fromPhysical(role, v) } }))} />
               </div>
             </div>
