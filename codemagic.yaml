@@ -44,7 +44,12 @@ workflows:
 
   motogo-android-debug:
     name: MotoGo24 Android Build
-    max_build_duration: 30
+    max_build_duration: 60
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
+        - $HOME/.pub-cache
     instance_type: mac_mini_m2
     environment:
       flutter: stable
@@ -105,6 +110,9 @@ workflows:
   motogo-ios-release:
     name: MotoGo24 iOS Release (App Store)
     max_build_duration: 60
+    cache:
+      cache_paths:
+        - $HOME/.pub-cache
     instance_type: mac_mini_m2
     integrations:
       # App Store Connect API klíč — vytvoř v Codemagic UI:
@@ -238,7 +246,12 @@ workflows:
 
   motogo-android-release:
     name: MotoGo24 Android Release
-    max_build_duration: 30
+    max_build_duration: 60
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
+        - $HOME/.pub-cache
     instance_type: mac_mini_m2
     environment:
       flutter: stable
