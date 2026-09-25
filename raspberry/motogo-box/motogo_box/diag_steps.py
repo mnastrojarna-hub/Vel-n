@@ -192,7 +192,7 @@ async def config(diag: "NetworkDiagnostics", report: dict) -> dict:
         tp.append(f"door_open_timeout_s {t.door_open_timeout_s} < 5 s")
     if int(t.maximum_session_s) < 60:
         tp.append(f"maximum_session_s {t.maximum_session_s} < 60 s")
-    if int(t.light_after_close_s) < int(t.music_after_close_s):
+    if 0 < int(t.light_after_close_s) < int(t.music_after_close_s):   # 0 = světlo zhasne hned zavřením (záměr, ne chyba)
         tp.append(f"light_after_close_s {t.light_after_close_s} < music_after_close_s {t.music_after_close_s}")
     return {"branch_name": ctrl.branch_name, "source": hw.source, "zones_total": len(zones), "zones": zones,
             "doors_without_hw": doors_without_hw, "duplicates": dups, "timings": dataclasses.asdict(t), "timings_problems": tp,

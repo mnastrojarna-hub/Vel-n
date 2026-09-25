@@ -332,3 +332,18 @@ def test_lte_without_modem_is_warning_when_internet_ok():
     assert sec["items"][0]["status"] == "warn"
     sec = dp._lte({"lte": {"state": "unavailable"}, "internet": {"ok": False}})
     assert sec["items"][0]["status"] == "fail"
+
+
+def test_pin2_is_not_a_sim_lock_and_unused_roles_are_skipped():
+    sec = dp._lte({"lte": {"state": "connected", "unlock_required": "sim-pin2", "unlock_retries": 3}, "internet": {"ok": True}})
+    lock = next(i for i in sec["items"] if i["id"] == "lte.sim_lock")
+    assert lock["status"] == "ok" and sec["status"] == "ok"
+    sec = dp._lte({"lte": {"state": "locked", "unlock_required": "sim-pin"}, "internet": {"ok": False}})
+    assert next(i for i in sec["items"] if i["id"] == "lte.sim_lock")["status"] == "fail"
+    cfg = {"zones_total": 2, "source": "remote", "devices": {"wav645": {"type": "wav645"}},
+           "zones": [{"zone": 1, "label": "Kóje 1", "missing": ["audio", "red", "green"]},
+                     {"zone": 8, "label": "Šatna", "missing": ["audio", "red", "green", "light"]}],
+           "timings": {}, "timings_problems": []}
+    sec = dp._config({"config": cfg, "steps": {"config": {"ok": True}}})
+    st = {i["id"]: i["status"] for i in sec["items"]}
+    assert st["config.zone.1.red"] == "skip" and st["config.zone.1.audio"] == "skip" and st["config.zone.8.light"] == "warn"

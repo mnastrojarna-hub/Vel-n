@@ -171,6 +171,10 @@ def _lte(r: dict) -> dict:
     # Zamčená SIM (PIN/PUK) — vlastní řádek, protože z „state: searching" ji nikdo nepozná a modem
     # se o PIN hlásí až po restartu (Pohořelice 2026-09-19: LTE po rebootu nenaskočilo kvůli PINu).
     err, unlock = lte.get("error"), lte.get("unlock_required")
+    if unlock in ("sim-pin2", "sim-puk2") and err not in ("sim_locked", "sim_puk"):
+        # PIN2 chrání jen FDN/servisní funkce SIM — připojení neblokuje (health_probe: informace, ne blokátor)
+        it.append(item("lte.sim_lock", "Zámek SIM karty", "ok", unlock, "Jen PIN2 (servisní funkce SIM) — datové připojení neblokuje."))
+        unlock = None
     if err in ("sim_locked", "sim_puk") or unlock:
         retries = lte.get("unlock_retries")
         puk = err == "sim_puk"
@@ -307,8 +311,18 @@ def _config(r: dict) -> dict | None:
     zt = int(c.get("zones_total") or 0)
     it = [item("config.zones", "Zóny / dveře s HW mapou", "ok" if zt else "fail", f"{zt} zón ({c.get('source')})",
                "" if zt else "Žádné zóny (nespárováno / bez HW mapy).", hint("no_zones"))]
-    for z in c.get("zones") or []:
+    # Nepovinné role, které pobočka vůbec nepoužívá (bez Shelly v mapě / audio relé nikde), nejsou varování — jen informace
+    zones = c.get("zones") or []
+    devtypes = {str((d or {}).get("type")) for d in (c.get("devices") or {}).values()}
+    unused = {r for r in ("red", "green") if "shelly_rgbww" not in devtypes}
+    if zones and all("audio" in (z.get("missing") or []) for z in zones):
+        unused.add("audio")
+    for z in zones:
         for role in z.get("missing") or []:
+            if role in unused:
+                it.append(item(f"config.zone.{z.get('zone')}.{role}", f"{z.get('label')} — role {role}", "skip", None,
+                               f"Zóna {z.get('zone')}: role {role} nepoužita (pobočka ji nemá zapojenou)."))
+                continue
             it.append(item(f"config.zone.{z.get('zone')}.{role}", f"{z.get('label')} — role {role}", "fail" if role in ("lock", "contact") else "warn",
                            None, f"Zóna {z.get('zone')}: chybí role {role} v HW mapě.", hint("missing_role", role=role, zone=z.get("zone"))))
     for lbl in c.get("doors_without_hw") or []:
