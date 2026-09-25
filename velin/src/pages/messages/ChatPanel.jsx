@@ -3,8 +3,6 @@ import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
 
 import Button from '../../components/ui/Button'
-import { loadAgentConfig, getEnabledTools } from '../../lib/aiAgents'
-import { buildAgentPromptsText } from '../../lib/aiAgentPrompts'
 import AiSuggestionPanel from './AiSuggestionPanel'
 
 export default function ChatPanel({ thread, onThreadUpdate }) {
@@ -202,38 +200,13 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
     if (messages.length === 0) return
     setAiLoading(true)
     try {
-      const config = loadAgentConfig()
-      const enabledIds = ['customers', 'bookings', 'fleet']
-      const lastMsgs = messages.slice(-5).map(m =>
-        `[${m.direction === 'customer' ? 'Zákazník' : 'Admin'}]: ${m.content}`
-      ).join('\n')
-      const customerName = thread?.profiles?.full_name || 'zákazník'
-      const customerEmail = thread?.profiles?.email || ''
-
-      const { data } = await supabase.functions.invoke('ai-copilot', {
-        body: {
-          message: `Jsi zákaznická podpora MotoGo24 — skutečný člověk, NE robot.
-
-PRAVIDLA:
-- Piš ROVNOU odpověď zákazníkovi. ŽÁDNÝ úvod typu "Na základě informací vidím..." nebo "Připravím odpověď...".
-- Začni přímo oslovením (Dobrý den, pane/paní...).
-- Piš krátce, lidsky, vstřícně. Max 5-6 vět.
-- Nikdy nepiš "jako AI agent" nebo "předávám booking agentovi" — zákazník nesmí vědět o agentech.
-- Pokud zákazník hlásí technický problém s motorkou (zvuk, blinkr, brzdy, poškrábání): napiš že to prověříme a naplánujeme opravu PŘED dalším nasazením motorky.
-- Pokud zákazník chce změnu rezervace: napiš že to zařídíme a ozveme se s potvrzením.
-- Vždy uveď kontakt +420 774 256 271.
-
-Zákazník: "${customerName}" (${customerEmail})
-
-Konverzace:
-${lastMsgs}
-
-Napiš POUZE text odpovědi — nic jiného.`,
-          enabled_tools: getEnabledTools(config),
-          agent_prompts: buildAgentPromptsText(enabledIds),
-        },
+      // Stejný agent jako „Navrhnout odpověď přes AI" u zprávy (edge ai-customer-messages-suggest):
+      // znalosti + nástroje servisního i veřejného agenta, rezervace zákazníka, ustálené odpovědi týmu.
+      const { data, error } = await supabase.functions.invoke('ai-customer-messages-suggest', {
+        body: { thread_id: thread.id, mode: 'draft' },
       })
-      if (data?.response) setReply(data.response.replace(/^["']|["']$/g, '').trim())
+      if (error) throw error
+      if (data?.reply) setReply(data.reply.trim())
     } catch (e) { console.error('[AI suggest]', e) }
     setAiLoading(false)
   }
