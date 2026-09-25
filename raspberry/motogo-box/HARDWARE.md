@@ -20,7 +20,7 @@ v `config/brno-9zone.yaml` a ve Velíně (Samoobsluha → Řídicí jednotka →
 | Shelly 1–4 | 192.168.50.31–34 | HTTP RPC, profil Lights ×5 |
 | internet | LTE SIM7600E-H (USB) | profil `motogo-lte`, výchozí trasa jen tudy; PIN SIM u všech poboček **1234** (výchozí install.sh; jiný = `MOTOGO_SIM_PIN`) → profil `[gsm] pin=` |
 
-Adresu v I/O síti si Raspberry drží **samo** (NM dispatcher `50-motogo-lan-addr`: 192.168.50.10/24 + 192.168.1.253/24 na eth0, i když eth0 jede na DHCP kvůli internetu — `set-static-lan.sh` už není nutný). Waveshare se **nenastavuje ručně** (automatické zřízení, `io_provision.py`): modul z HW mapy, který na
+Adresu v I/O síti si Raspberry drží **samo** (NM dispatcher `50-motogo-lan-addr`: 192.168.50.10/24 + 192.168.1.253/24 na eth0, i když eth0 jede na DHCP kvůli internetu — `set-static-lan.sh` už není nutný). Diagnostika pobočky má sekci „Automatické zřízení modulů“ (adresy eth0, výsledek vyhledávání ZLAN, stav každého nalezeného modulu — jen čtení). Waveshare se **nenastavuje ručně** (automatické zřízení, `io_provision.py`): modul z HW mapy, který na
 své IP neodpovídá, jednotka každých 30 s hledá protokolem ZLAN/VirCom (UDP 1092, broadcast i do tovární
 sítě 192.168.1.0/24) a nalezenému modulu bez adresy z mapy nastaví IP z Velína (párování: dřív přiřazená
 MAC → typ podle sondy: 8 vstupů = WAV617/Relay (B), 16 relé = WAV645 → jediný kandidát). Moduly s adresou

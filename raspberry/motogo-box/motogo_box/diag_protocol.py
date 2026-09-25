@@ -13,7 +13,8 @@ from .diag_hints import hint
 
 RANK = {"skip": 0, "ok": 1, "warn": 2, "fail": 3}
 STEP_TITLES = {"system": "Systém", "interfaces": "Síťová rozhraní", "lte": "LTE modem", "internet": "Internet a DNS",
-               "supabase": "Spojení s Velínem", "devices": "Konfigurovaná zařízení", "software": "Software",
+               "supabase": "Spojení s Velínem", "devices": "Konfigurovaná zařízení", "provision": "Automatické zřízení modulů",
+               "software": "Software",
                "config": "Konfigurace", "zones": "Zóny a periferie", "power": "Napájení (FV)", "cameras": "Kamery",
                "lan": "Scan LAN", "arp": "Tabulka sousedů (ARP)", "summary": "Vyhodnocení"}
 SKIP_CZ = {"session_active": "v kóji běží relace", "zone_test_disabled": "HW test zón je vypnutý (diagnostics.zone_test)",
@@ -162,7 +163,11 @@ def _lte(r: dict) -> dict:
                                      lte.get("access_tech")) if x)
     msg = "" if ok else "ModemManager nevidí žádný modem (mmcli) — LTE nedostupné." if st == "unavailable" else \
         f"LTE modem není připojen (stav: {st}, NM: {lte.get('nm_state')})."
-    it = [item("lte.state", "Stav LTE modemu", "ok" if ok else "fail", val or st, msg, hint("lte"))]
+    inet_ok = bool((r.get("internet") or {}).get("ok")) if isinstance(r.get("internet"), dict) else False
+    no_modem = st == "unavailable" and inet_ok        # pobočka bez LTE modemu, internet kabelem — jen upozornění
+    if no_modem:
+        msg = "Žádný LTE modem (mmcli) — internet jde jinou cestou (kabel/Wi-Fi); bez záložního LTE."
+    it = [item("lte.state", "Stav LTE modemu", "ok" if ok else "warn" if no_modem else "fail", val or st, msg, hint("lte"))]
     # Zamčená SIM (PIN/PUK) — vlastní řádek, protože z „state: searching" ji nikdo nepozná a modem
     # se o PIN hlásí až po restartu (Pohořelice 2026-09-19: LTE po rebootu nenaskočilo kvůli PINu).
     err, unlock = lte.get("error"), lte.get("unlock_required")
@@ -242,6 +247,57 @@ def _modules(r: dict) -> dict:
         if len(names) > 1:
             it.append(item(f"modules.ip.{ip}", f"Adresa {ip}", "fail", ", ".join(names), f"Více zařízení sdílí adresu {ip}: {', '.join(names)}.", hint("ip_conflict")))
     return section("modules", "Moduly Waveshare / Shelly", it)
+
+
+def _provision(r: dict) -> dict:
+    p = r.get("provision")
+    if not isinstance(p, dict):
+        return section("provision", "Automatické zřízení modulů (IP Waveshare)",
+                       [item("provision.step", "Vyhledávání modulů", "skip", None, "Krok neproběhl.")])
+    iface, addrs, missing = p.get("iface") or "eth0", p.get("lan_addrs") or [], p.get("missing") or []
+    devs = p.get("devices") or {}
+    it: list[dict] = []
+    if not addrs:
+        it.append(item("provision.addr", f"Adresy jednotky ({iface})", "fail", None,
+                       f"Rozhraní {iface} nemá žádnou IPv4 adresu — moduly jsou nedosažitelné.", hint("provision_no_lan", iface=iface)))
+    elif not p.get("factory_addr"):
+        it.append(item("provision.addr", f"Adresy jednotky ({iface})", "warn" if not missing else "fail", ", ".join(addrs),
+                       "Chybí pomocná adresa 192.168.1.253/24 — moduly s tovární IP se nenajdou.", hint("provision_addr", iface=iface)))
+    else:
+        it.append(item("provision.addr", f"Adresy jednotky ({iface})", "ok", ", ".join(addrs)))
+    found = p.get("found")
+    if found is None:
+        err = p.get("error") or "?"
+        it.append(item("provision.found", "Vyhledávání modulů (ZLAN, UDP 1092)", "skip" if err in ("no_provisioner", "no_lan_address") else "warn",
+                       None, f"Vyhledávání neproběhlo ({err}).", None if err in ("no_provisioner", "no_lan_address") else hint("step")))
+        found = []
+    else:
+        hosts = {str(d.get("host")): n for n, d in devs.items()}
+        st = "fail" if missing and not found else "ok"
+        it.append(item("provision.found", "Vyhledávání modulů (ZLAN, UDP 1092)", st, f"{len(found)} modulů",
+                       "Žádný modul Waveshare neodpověděl." if st == "fail" else "", hint("provision_none") if st == "fail" else None))
+        for f in found:
+            ip, mac = str(f.get("ip")), str(f.get("mac"))
+            val = f"{ip} ({f.get('protocol')}, port {f.get('port')})"
+            name = hosts.get(ip)
+            if name:
+                it.append(item(f"provision.mod.{mac}", f"Modul {mac}", "ok", val, f"= {name} z HW mapy" + ("" if devs[name].get("online") else " (program ho zatím má offline)")))
+            elif missing:
+                it.append(item(f"provision.mod.{mac}", f"Modul {mac}", "warn", val,
+                               f"Modul na {ip} není v HW mapě — bude přiřazen chybějícímu zařízení ({', '.join(missing)}).", hint("provision_pending", mac=mac, ip=ip)))
+            else:
+                it.append(item(f"provision.mod.{mac}", f"Modul {mac}", "warn", val, f"Modul na {ip} není v HW mapě.", hint("provision_extra", mac=mac, ip=ip)))
+        free = [f for f in found if str(f.get("ip")) not in hosts]
+        if missing and found and not free:
+            for n in missing:
+                d = devs.get(n) or {}
+                it.append(item(f"provision.missing.{n}", f"Chybí {n}", "fail", d.get("host"),
+                               f"{n} ({d.get('host')}) neodpovídá a žádný volný modul k přiřazení nebyl nalezen.",
+                               hint("provision_missing", name=n, host=d.get("host"))))
+    rem = p.get("remembered") or {}
+    if rem:
+        it.append(item("provision.remembered", "Dřívější přiřazení (MAC → zařízení)", "ok", ", ".join(f"{m} → {n}" for m, n in sorted(rem.items()))))
+    return section("provision", "Automatické zřízení modulů (IP Waveshare)", it)
 
 
 def _config(r: dict) -> dict | None:
@@ -354,7 +410,7 @@ def _steps(r: dict) -> dict:
 def build_protocol(report: dict) -> list[dict]:
     r = report or {}
     out = []
-    for fn in (_system, _software, _network, _lte, _internet, _velin, _modules, _config, _zones, _power, _cameras, _lan, _steps):
+    for fn in (_system, _software, _network, _lte, _internet, _velin, _modules, _provision, _config, _zones, _power, _cameras, _lan, _steps):
         try:
             sec = fn(r)
         except Exception as exc:  # noqa: BLE001 — vadná data jednoho kroku nesmí shodit protokol
