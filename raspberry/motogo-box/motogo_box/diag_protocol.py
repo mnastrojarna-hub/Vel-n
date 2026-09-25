@@ -195,7 +195,7 @@ def _internet(r: dict) -> dict:
     for d in inet.get("dns") or []:
         ok = bool(d.get("addresses"))
         it.append(item(f"internet.dns.{d.get('host')}", f"DNS {d.get('host')}", "ok" if ok else "fail", ", ".join(d.get("addresses") or []) or None,
-                       "" if ok else f"DNS nepřeloží {d.get('host')} ({d.get('error') or 'bez odpovědi'}).", hint("internet")))
+                       "" if ok else f"DNS nepřeloží {d.get('host')} ({d.get('error') or 'bez odpovědi'}).", hint("dns_fail")))
     tcp = inet.get("tcp") or {}
     it.append(item("internet.tcp", f"TCP {tcp.get('host')}:{tcp.get('port')}", "ok" if tcp.get("open") else "fail",
                    f"{tcp.get('ms')} ms" if tcp.get("open") else tcp.get("error"),
