@@ -400,6 +400,10 @@ def merge_hardware(local: dict, remote: dict | None) -> dict:
     Sekce `outdoor` (venek) je výjimka: neprázdná mapa z Velína má poslední slovo i o její
     NEPŘÍTOMNOSTI — jinak by „Vymazat venek“ ve Velíně nechalo venek (světlo!) z lokální šablony.
     `{}` z Velína = lokální výchozí mapa včetně venku.
+    `devices` z Velína (neprázdné) NAHRAZUJÍ lokální seznam celý (2026-09-26): Velín je jediný zdroj
+    pravdy o tom, jaká zařízení pobočka má — dřív se slučovaly a Shelly/wav617b ze šablony
+    brno-9zone.yaml se přilepily ke každé pobočce (falešné chyby v diagnostice, marné sondy).
+    Ostatní sekce (timings, polling, …) se dál doplňují lokálními výchozími hodnotami po klíčích.
     """
     out = copy.deepcopy(local or {})
     if not isinstance(remote, dict):
@@ -410,6 +414,9 @@ def merge_hardware(local: dict, remote: dict | None) -> dict:
         if key == "outdoor":
             if isinstance(remote.get(key), dict):
                 out[key] = copy.deepcopy(remote[key])
+            continue
+        if key == "devices" and isinstance(remote.get(key), dict) and remote[key]:
+            out[key] = copy.deepcopy(remote[key])
             continue
         if key in remote and remote[key] is not None:
             if isinstance(remote[key], dict) and isinstance(out.get(key), dict):
