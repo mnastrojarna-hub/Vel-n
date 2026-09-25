@@ -50,6 +50,32 @@ function isGeneratedZoneLabel(label, { kind, boxNumber, zone } = {}) {
   return new RegExp(`^(?:K[óo]je|Gar[áa][žz])\\s*#?\\s*${boxNumber}(?:\\s*[—–-]\\s*.*)?$`, 'i').test(text)
 }
 
+// ── Události z jednotky (branch_door_events.detail.event, kontrakt §15) ─────────────────────────
+// Jednotka loguje přes kiosk_log_open i událost, která NENÍ otevřením: `PROTOCOL_SHOWN` = na displeji
+// se zákazníkovi zobrazil předávací protokol (kind = kód, kterým k němu došel). V logu se proto popisuje
+// slovy — jinak by řádek vypadal jako úspěšné otevření kóje. Podpis na displeji (PROTOCOL_SIGNED) a selhání
+// odeslání jdou přes kiosk_log_event do kiosk_logs (zdroj protocol) — do branch_door_events se NEzapisují.
+const DOOR_EVENT_CZ = {
+  ACCESS_GRANTED: 'kód přijat — odemčeno',
+  ACCESS_DENIED: 'přístup odmítnut',
+  DOOR_OPENED: 'dveře otevřeny',
+  DOOR_CLOSED: 'dveře zavřeny',
+  SESSION_COMPLETED: 'relace dokončena',
+  OPEN_TIMEOUT: 'dveře neotevřeny včas',
+  FORCED_OPEN: 'násilné otevření',
+  PIN_INVALID: 'neplatný kód',
+  PROTOCOL_SHOWN: 'zobrazen předávací protokol',
+}
+const PROTOCOL_EVENTS = new Set(['PROTOCOL_SHOWN'])
+// Název události z řádku branch_door_events ('' = jednotka událost do detailu nezapsala — starý software)
+function doorEventName(e) {
+  const d = e?.detail
+  return d && typeof d === 'object' && !Array.isArray(d) ? String(d.event ?? '').toUpperCase() : ''
+}
+function doorEventLabel(e) { const n = doorEventName(e); return n ? (DOOR_EVENT_CZ[n] || n) : '' }
+// Událost protokolu — není to otevření kóje (nepočítat do otevření, jiný chip v logu)
+function isProtocolEvent(e) { return PROTOCOL_EVENTS.has(doorEventName(e)) }
+
 // ── Defenzivní vykreslení hodnot ze zařízení (status/report jsou JSON z jednotky — nevěřit tvaru) ──
 // txt: null → '—', objekt/pole → JSON, jinak text; num: konečné číslo nebo null; arr: pole nebo []
 const txt = v => (v == null ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v))
@@ -193,4 +219,5 @@ export {
   RpiSection, Btn, Chip, Label, Input, Select, Checkbox, TONES, formatUptime, ageSeconds, formatAge,
   ErrorBoundary, txt, num, arr, isRpiDevice, isTabletDevice, platformLabel,
   ACCESSORIES_LABEL, OUTDOOR_LABEL, isAccessoriesDoor, boxLabel, doorKindLabel, doorLabel, isGeneratedZoneLabel,
+  DOOR_EVENT_CZ, doorEventName, doorEventLabel, isProtocolEvent,
 }

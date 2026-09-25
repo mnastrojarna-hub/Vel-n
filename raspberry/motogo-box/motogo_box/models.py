@@ -70,6 +70,11 @@ class EventKind(str, Enum):
     DIAGNOSTICS = "DIAGNOSTICS"                  # dokončená diagnostika sítě (souhrn; celý report → kiosk_diagnostics)
     SHELL = "SHELL"                              # servisní terminál na displeji — spuštěný příkaz (§27)
     IO_PROVISIONED = "IO_PROVISIONED"            # modul Waveshare automaticky přeadresován dle HW mapy (io_provision.py)
+    # Předávací protokol na displeji (handover.py, 2026-09-25): zobrazen (→ kiosk_log_open, DB nastaví
+    # started_at/prompted_at + push do appky), podepsán prstem na kiosku, odeslání trvale odmítnuto edge funkcí.
+    PROTOCOL_SHOWN = "PROTOCOL_SHOWN"
+    PROTOCOL_SIGNED = "PROTOCOL_SIGNED"
+    PROTOCOL_UPLOAD_FAILED = "PROTOCOL_UPLOAD_FAILED"
 
 
 @dataclass(frozen=True)
@@ -144,6 +149,8 @@ class ZoneHw:
     audio_out: str | None = None   # režim multi: název výstupu z `audio.outputs` (`audio: {out: out1}`)
     timings: dict | None = None    # override globálního `timings` jen pro tuto zónu (ZONE_TIMING_KEYS)
     music_enabled: bool | None = None   # hudba v této zóně: None = dle pobočky (`audio.music_enabled`), True/False = přepis
+    light_until_moto_code: bool | None = None  # šatna (2026-09-25): světlo po zavření dveří NEzhasne, zhasne ho až kód
+                                               # motorky (fallback `maximum_session_s` zóny); None/False = jako kóje
 
     @classmethod
     def from_dict(cls, d: dict, default_zone: int | None = None) -> "ZoneHw | None":
@@ -171,6 +178,7 @@ class ZoneHw:
             audio_out=str(out).strip() or None if out not in (None, "") else None,
             timings=zone_timings(d.get("timings")),
             music_enabled=_opt_bool(d.get("music_enabled")),
+            light_until_moto_code=_opt_bool(d.get("light_until_moto_code")),
         )
 
     def to_dict(self) -> dict:
@@ -193,6 +201,8 @@ class ZoneHw:
             out["timings"] = dict(self.timings)
         if self.music_enabled is not None:
             out["music_enabled"] = self.music_enabled
+        if self.light_until_moto_code is not None:
+            out["light_until_moto_code"] = self.light_until_moto_code
         return out
 
 
@@ -283,6 +293,10 @@ class ResolveResult:
     doors: list[ServiceDoor] = field(default_factory=list)
     offline: bool = False           # ověřeno z lokální cache
     action: str = "service"         # u servisního hesla: service (panel) | diagnostics (jen diagnostika sítě)
+    # Předávací protokol rezervace (`_kiosk_protocol` v RPC / `protocols[]` v sync cache):
+    # {booking_id, required, filled_at, needs_locker, gear_collected_at, prompted_at, is_child, data{…}}.
+    # None = stav neznámý (starší DB / stará cache) → hradlo se NEuplatní (fail-open, handover.py).
+    protocol: dict | None = None
 
     @property
     def is_service(self) -> bool:
@@ -317,6 +331,7 @@ class ResolveResult:
             door_configured=bool(m.get("door_configured")) or bool(door),
             doors=doors,
             action=str(m.get("action") or "service"),
+            protocol=m.get("protocol") if isinstance(m.get("protocol"), dict) else None,
         )
 
 

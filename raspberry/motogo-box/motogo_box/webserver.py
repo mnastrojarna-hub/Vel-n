@@ -45,8 +45,9 @@ WS_CHECK_INTERVAL_S = 0.2      # jak často se kontroluje změna snapshotu
 WS_HEARTBEAT_S = 15.0          # aiohttp ping/pong
 EVENTS_LIMIT_DEFAULT = 100
 EVENTS_LIMIT_MAX = 1000
-BODY_MAX_BYTES = 256 * 1024
+BODY_MAX_BYTES = 1024 * 1024   # 1 MiB: podpis protokolu (PNG data-URL ≤ 150 kB) + formulář; ostatní těla jsou malá
 HASH_IGNORED_KEYS = ("ts", "uptime_s")
+TIMING_KEYS = ("pin_entry_timeout_s", "door_open_timeout_s", "maximum_session_s", "handover_idle_s")
 
 
 # ─── pomocné funkce ──────────────────────────────────────────────────────────
@@ -97,7 +98,7 @@ async def _api_middleware(request: web.Request, handler: Callable) -> web.Stream
     except web.HTTPException as exc:
         if not is_api:
             raise
-        error = "not_found" if exc.status == 404 else ("method_not_allowed" if exc.status == 405 else "http_error")
+        error = {404: "not_found", 405: "method_not_allowed", 413: "body_too_large"}.get(exc.status, "http_error")
         resp = _err(error, exc.status)
     except asyncio.CancelledError:
         raise
@@ -143,6 +144,9 @@ class WebServer:
         r.add_get("/api/events", self._events)
         r.add_post("/api/pin", self._pin)
         r.add_post("/api/health", self._health)
+        r.add_post("/api/protocol/submit", self._protocol_submit)
+        r.add_post("/api/protocol/dismiss", self._protocol_dismiss)
+        r.add_post("/api/protocol/touch", self._protocol_touch)
         r.add_get("/api/diagnostics", self._delegate(svc.diagnostics_get))
         r.add_post("/api/diagnostics/run", self._delegate(svc.diagnostics_run))
         for name, handler in (("open", svc.service_open), ("music", svc.service_music),
@@ -224,8 +228,7 @@ class WebServer:
         hw = getattr(self.ctrl, "hardware", None)
         timings = getattr(hw, "timings", None)
         if "timings" not in snap and timings is not None:
-            snap["timings"] = {k: getattr(timings, k) for k in ("pin_entry_timeout_s", "door_open_timeout_s",
-                                                                 "maximum_session_s") if hasattr(timings, k)}
+            snap["timings"] = {k: getattr(timings, k) for k in TIMING_KEYS if hasattr(timings, k)}
         snap.setdefault("last_error", getattr(self.ctrl, "last_error", None))
         snap.setdefault("code_cache", self._code_cache())
         snap.setdefault("outbox_pending", _safe(lambda: self.storage.outbox_count()))
@@ -352,3 +355,34 @@ class WebServer:
         if not isinstance(result, dict):
             return _err("bad_result", 500)
         return _json(result)
+
+    # ── předávací protokol na displeji (kontrakt §22; bez servisního tokenu — zákazník) ──
+    async def _protocol_body(self, request: web.Request) -> tuple[dict, str | None, Any]:
+        body = await _read_body(request)
+        bid = body.get("booking_id")
+        bid = bid.strip() if isinstance(bid, str) and bid.strip() else None
+        return body, bid, getattr(self.ctrl, "handover", None)
+
+    async def _protocol_submit(self, request: web.Request) -> web.Response:
+        """`{booking_id, code?, form, signature}` → `{ok, status, opened|null, error}` (handover_submit)."""
+        body, bid, handover = await self._protocol_body(request)
+        if bid is None:
+            return _err("missing_booking_id")
+        if handover is None:
+            return _json({"ok": False, "status": None, "opened": None, "error": "not_pending"})
+        res = await handover.submit(bid, body.get("form"), body.get("signature"), body.get("code"), source="ui")
+        return _json(res if isinstance(res, dict) else {"ok": False, "error": "bad_result"})
+
+    async def _protocol_dismiss(self, request: web.Request) -> web.Response:
+        """„Zpět“ / jiný zákazník: overlay skrýt, položka zůstává nevyřízená (then_open pryč)."""
+        _body, bid, handover = await self._protocol_body(request)
+        if bid is None:
+            return _err("missing_booking_id")
+        return _json({"ok": True, "dismissed": bool(handover is not None and handover.dismiss(bid))})
+
+    async def _protocol_touch(self, request: web.Request) -> web.Response:
+        """Dotyk v overlayi (throttle v UI) → prodloužení `handover_idle_s`."""
+        _body, bid, handover = await self._protocol_body(request)
+        if bid is None:
+            return _err("missing_booking_id")
+        return _json({"ok": True, "active": bool(handover is not None and handover.touch(bid))})

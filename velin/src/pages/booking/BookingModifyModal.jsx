@@ -55,6 +55,10 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
 
   const [chargeCustomer, setChargeCustomer] = useState(true)
   const [notes, setNotes] = useState(booking.notes || '')
+  // Vlastní výbava (bookings.own_gear, tri-state): '' = neuvedeno (DB odvodí z velikostí), 'true' = vlastní
+  // (kód šatny se nevydává), 'false' = půjčená. Rozhoduje o kódu šatny na samoobslužné pobočce.
+  const origOwnGear = booking.own_gear === true ? 'true' : booking.own_gear === false ? 'false' : ''
+  const [ownGear, setOwnGear] = useState(origOwnGear)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [loadingMotos, setLoadingMotos] = useState(false)
@@ -168,7 +172,8 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const datesChanged = isoDate(startDate) !== isoDate(origStart) || isoDate(endDate) !== isoDate(origEnd)
   const deliveryChanged = pickupMethod !== origDelivery.pickup || returnMethod !== origDelivery.ret || pickupAddress !== (booking.pickup_address || '') || returnAddress !== (booking.return_address || '') || newDeliveryFee !== origDelivery.fee
   const timesChanged = pickupTime !== origPickupTime || returnTime !== origReturnTime
-  const hasChanges = datesChanged || motoChanged || deliveryChanged || timesChanged || notes !== (booking.notes || '')
+  const ownGearChanged = ownGear !== origOwnGear
+  const hasChanges = datesChanged || motoChanged || deliveryChanged || timesChanged || ownGearChanged || notes !== (booking.notes || '')
 
   const days = countDays(startDate, endDate)
   const origDays = countDays(origStart, origEnd)
@@ -217,6 +222,8 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         saveData.return_time = returnTime || null
       }
       if (motoChanged) saveData.moto_id = selectedMotoId
+      // Vlastní výbava se zapisuje JEN při změně (trigger trg_sync_locker_code pak sám vydá / zadrží kód šatny)
+      if (ownGearChanged) saveData.own_gear = ownGear === '' ? null : ownGear === 'true'
       // Late-pickup sleva: přepočtená hodnota se persistuje (i 0 při ztrátě
       // slevy), jen když se rozdíl reálně účtuje — u „Zdarma" cena nemění.
       if (chargeCustomer && newLate !== origLate) saveData.late_pickup_discount_amount = newLate
@@ -264,6 +271,9 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
             ...(motoChanged ? { moto_changed: true, from_moto: booking.motorcycles?.model, to_moto: selectedMoto?.model } : {}),
             ...(newLate !== origLate ? { from_late_pickup: origLate, to_late_pickup: newLate } : {}),
             ...(priceDiff !== 0 ? { price_diff: priceDiff, charged: chargeCustomer } : {}),
+            // Vlastní výbava ve stejném tvaru jako DB trigger track_booking_content_changes (gear_changes) —
+            // ten při vlastním zápisu historie z Velína končí hned, změna by se jinak ztratila
+            ...(ownGearChanged ? { gear_changes: { own_gear: { from: booking.own_gear ?? null, to: saveData.own_gear } } } : {}),
           })
           saveData.modification_history = history
         }
@@ -284,7 +294,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         const { data: { user } } = await supabase.auth.getUser()
         await supabase.from('admin_audit_log').insert({
           admin_id: user?.id, action: 'booking_modified',
-          details: { booking_id: booking.id, dates_changed: datesChanged, times_changed: timesChanged, moto_changed: motoChanged, delivery_changed: deliveryChanged, price_diff: priceDiff, charged: chargeCustomer, new_total: chargeCustomer ? newTotalPrice : origPaidPrice }
+          details: { booking_id: booking.id, dates_changed: datesChanged, times_changed: timesChanged, moto_changed: motoChanged, delivery_changed: deliveryChanged, own_gear_changed: ownGearChanged, price_diff: priceDiff, charged: chargeCustomer, new_total: chargeCustomer ? newTotalPrice : origPaidPrice }
         })
       } catch {}
       // Při zkrácení rezervace (záporný rozdíl) → refund + dobropis přes process-refund.
@@ -441,6 +451,21 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         {/* PRICE CALCULATION */}
         <BookingPriceCalc newBreakdown={newBreakdown} selectedMoto={selectedMoto} booking={booking} origCalcPrice={origCalcPrice} origPaidPrice={origPaidPrice} origDays={origDays} newCalcPrice={newCalcPrice} newDeliveryFee={newDeliveryFee} extrasCarry={extrasCarry} newTotalPrice={newTotalPrice} priceDiff={priceDiff} days={days} chargeCustomer={chargeCustomer} setChargeCustomer={setChargeCustomer} loyaltyDisc={loyaltyDisc} loyaltyPercent={loyalty.percent} lateDiscount={newLate} />
 
+        {/* VLASTNÍ VÝBAVA — rozhoduje o kódu šatny (samoobsluha); velikosti se mění jen v el. protokolu */}
+        <div className="mb-5">
+          <label className="block text-xs font-bold uppercase mb-1" style={{ color: '#1a2e22' }}>Vlastní výbava (bez šatny)</label>
+          <select value={ownGear} onChange={e => setOwnGear(e.target.value)} className="text-sm rounded-btn outline-none"
+            style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+            <option value="">Neuvedeno — odvodí se z velikostí výbavy</option>
+            <option value="true">Ano — vlastní výbava, kód šatny se nevydává</option>
+            <option value="false">Ne — půjčuje si výbavu (dostane kód šatny)</option>
+          </select>
+          <div className="text-[11px] mt-1" style={{ color: '#6b7280' }}>
+            Kód šatny dostane jen ten, kdo má v šatně co vyzvednout (půjčená výbava řidiče, boty nebo výbava spolujezdce).
+            Po vyzvednutí výbavy ze šatny nebo po podpisu protokolu se kódy už samy nemění.
+          </div>
+        </div>
+
         {/* NOTES */}
         <div className="mb-5">
           <label className="block text-xs font-bold uppercase mb-1" style={{ color: '#1a2e22' }}>Poznamky</label>
@@ -451,7 +476,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid #e5e7eb' }}>
           <div className="text-xs" style={{ color: '#9ca3af' }}>
             {hasChanges ? (
-              <span style={{ color: '#2563eb', fontWeight: 700 }}>Zmeny: {[datesChanged && 'termin', timesChanged && 'cas', motoChanged && 'motorka', deliveryChanged && 'doruceni', notes !== (booking.notes || '') && 'poznamky'].filter(Boolean).join(', ')}</span>
+              <span style={{ color: '#2563eb', fontWeight: 700 }}>Zmeny: {[datesChanged && 'termin', timesChanged && 'cas', motoChanged && 'motorka', deliveryChanged && 'doruceni', ownGearChanged && 'vlastni vybava', notes !== (booking.notes || '') && 'poznamky'].filter(Boolean).join(', ')}</span>
             ) : 'Zadne zmeny'}
           </div>
           <div className="flex gap-3">

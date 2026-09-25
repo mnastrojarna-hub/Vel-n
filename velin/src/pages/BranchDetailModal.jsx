@@ -63,11 +63,15 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
   async function loadDoorCodes() {
     setLoadingCodes(true)
     try {
-      const { data, error } = await supabase
+      // Stav protokolu a vlastní výbavy (sloupce z migrace 20260925a/b) se načítají spolu s kódy —
+      // badge „Čeká na protokol“ u kódu motorky. Když DB sloupce ještě nemá, spadne se na starý výběr.
+      const q = cols => supabase
         .from('branch_door_codes')
-        .select('*, bookings(id, status, start_date, end_date, user_id, profiles:user_id(full_name, email)), motorcycles:moto_id(model, spz)')
+        .select(`*, bookings(id, status, start_date, end_date, user_id${cols}, profiles:user_id(full_name, email)), motorcycles:moto_id(model, spz)`)
         .eq('branch_id', branch.id)
         .order('created_at', { ascending: false })
+      let { data, error } = await q(', own_gear, handover_protocol_filled_at, gear_collected_at')
+      if (error && /own_gear|handover_protocol|gear_collected/.test(error.message || '')) ({ data, error } = await q(''))
       if (error) {
         console.warn('[Branches] branch_door_codes query failed:', error.message)
         setDoorCodes([])
@@ -169,6 +173,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
           branchId={branch.id}
           motos={motos}
           activeBookings={activeBookings}
+          selfService={isSelfService(branch)}
           onRefresh={() => { loadDoorCodes(); loadActiveBookings() }}
         />
       )}

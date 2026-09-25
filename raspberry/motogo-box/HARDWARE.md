@@ -65,6 +65,19 @@ gateway `multi-host non-storage`, interní sériovka `115200-8-N-1`. Shelly se z
 Polling: kontakty každých 100 ms, sw debounce 300 ms, Modbus timeout 500 ms, retry 100/250/500 ms,
 modul offline po 3 neúspěších (→ zóna BOTH_BLINK, přístup zakázán).
 
+### 2b. Zapojení Brno 2026-09-25 — světla přes 16CH, bez Shelly (šablona ve Velíně „Načíst výchozí mapu“)
+
+| modul | funkce |
+|---|---|
+| Relay (B) `wav617a` (192.168.50.21) | R1–R8 = zámky zón 1–8 (šatna = R8), DI1–DI8 = dveřní kontakty zón 1–8 |
+| 16CH `wav645` (192.168.50.20) | R1–R7 = světla kójí 1–7, R8 = světlo šatny, **R9 = venkovní osvětlení**, R10–R16 rezerva |
+
+Chování světel: **kóje** rozsvítí kód, zhasne zavření dveří (`timings.light_after_close_s: 0`); **šatna** rozsvítí kód šatny a zhasne
+ji až kód motorky (`branch_doors.hw.light_until_moto_code: true`, Velín → dveře → „Světlo: Šatna“; pojistka = `maximum_session_s`
+zóny); **venek** (R9) svítí, dokud je pobočka ve Velíně otevřená (`outdoor.light_mode: branch` ← `branches.is_open`, jednotka to
+dostane v `kiosk_sync_config.branch_is_open` a při přepnutí hned přes `sync_config`), ručně jde přepnout z dlaždice Venek.
+Shelly (barevné neony) se doplní do mapy, až budou zapojeny — red/green u zón jsou volitelné.
+
 ### 2a. Pobočka / test s jediným modulem Modbus POE ETH Relay (B) (typ `wav617`)
 
 Relay (B) umí HW flash-on (FC05 `0x0200`+relé) stejně jako WAV645, takže **zámky smí být i na něm**

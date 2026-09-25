@@ -43,6 +43,7 @@ BUS_RECOVERY_S = 1.0          # perioda `read_all_inputs` pro obnovu nezdravých
 OUTBOX_SCAN_LIMIT = 500
 PROVISION_FIRST_S = 5.0       # první kolo automatického zřízení modulů po startu
 PROVISION_S = 30.0            # další kola (jen když některý modul z HW mapy neodpovídá)
+PROTOCOL_FLUSH_S = 30.0       # odesílání podepsaných protokolů z fronty (+ hned po podpisu / obnovení spojení)
 
 
 @dataclass
@@ -217,6 +218,12 @@ async def tick_loop(ctrl: "BoxController") -> None:
                 await zc.tick()
             except Exception:  # noqa: BLE001
                 log.exception("Zóna %s: tick selhal", zc.number)
+        handover = getattr(ctrl, "handover", None)    # protokol na displeji: idle → skrýt, toast/položky expirovat
+        if handover is not None:
+            try:
+                handover.tick()
+            except Exception:  # noqa: BLE001
+                log.exception("handover: tick selhal")
         active = ctrl._sessions_active()  # noqa: SLF001
         sync_channels = getattr(ctrl.audio, "sync_channels", None)   # multi: kanál venek dle běžících relací
         if sync_channels is not None:
@@ -251,6 +258,9 @@ async def resync_on_reconnect(ctrl: "BoxController", was_online: bool) -> bool:
     if online and not was_online:
         log.info("Spojení obnoveno → okamžitá synchronizace konfigurace a kódů")
         await ctrl.resync()
+        handover = getattr(ctrl, "handover", None)
+        if handover is not None:
+            handover.wake.set()          # podpisy z fronty hned, ne až za PROTOCOL_FLUSH_S
     return online
 
 
@@ -411,6 +421,25 @@ async def outbox_loop(ctrl: "BoxController") -> None:
             log.exception("outbox_loop: flush selhal")
 
 
+async def protocol_loop(ctrl: "BoxController") -> None:
+    """Odesílá podepsané protokoly z `protocol_queue` (handover_submit.flush): každých `PROTOCOL_FLUSH_S`
+    a hned po probuzení `handover.wake` (nový podpis offline, obnovené spojení, retry z Velína)."""
+    handover = getattr(ctrl, "handover", None)
+    if handover is None:
+        return
+    while True:
+        try:
+            if _paired(ctrl):
+                await handover.flush()
+        except Exception:  # noqa: BLE001
+            log.exception("protocol_loop: odeslání selhalo")
+        try:
+            await asyncio.wait_for(handover.wake.wait(), timeout=PROTOCOL_FLUSH_S)
+        except asyncio.TimeoutError:
+            pass
+        handover.wake.clear()
+
+
 async def power_loop(ctrl: "BoxController") -> None:
     """Stahuje JSON stav elektrárny z `power_status_url` a hlásí ho do Velína."""
     while ctrl.power_status_url:
@@ -456,7 +485,8 @@ async def provision_loop(ctrl: "BoxController") -> None:
 
 
 HW_LOOPS = (poll_loop, tick_loop)
-NET_LOOPS = (heartbeat_loop, sync_loop, command_loop, status_loop, outbox_loop, watchdog_loop, provision_loop)
+NET_LOOPS = (heartbeat_loop, sync_loop, command_loop, status_loop, outbox_loop, watchdog_loop, provision_loop,
+             protocol_loop)
 
 
 def spawn(loops, ctrl: "BoxController") -> list[asyncio.Task]:

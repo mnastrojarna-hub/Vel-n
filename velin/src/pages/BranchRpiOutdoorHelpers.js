@@ -18,6 +18,7 @@ export const LIGHT_MODE_AUTO = 'auto'
 export const MUSIC_MODE_SESSION = 'session'
 export const OUTDOOR_LIGHT_MODES = [
   { value: 'auto', label: 'Podle relací — svítí od zadání kódu, po doběhu zhasne' },
+  { value: 'branch', label: 'Podle otevření pobočky — svítí, dokud je pobočka otevřená; zavření pobočky zhasne' },
   { value: 'always', label: 'NONSTOP — svítí trvale, bez ohledu na relace' },
   { value: 'off', label: 'Trvale zhasnuto — nerozsvítí se ani při relaci' },
 ]

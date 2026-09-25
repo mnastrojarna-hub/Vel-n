@@ -1,6 +1,7 @@
 // ─── Výchozí hardwarová mapa (šablona Brno: 8 zón (7 kójí + šatna) + venek) + popisy polí editoru ───
 // Program v jednotce je univerzální — každá pobočka má vlastní mapu v DB; tato šablona je jen start.
-// Konstanty jsou 1:1 s raspberry/motogo-box/config/brno-9zone.yaml (bez `network`).
+// Šablona = SKUTEČNÉ zapojení Brno (2026-09-25): Relay (B) zámky + kontakty, 16CH světla (R9 venek), bez Shelly a audio relé;
+// raspberry/motogo-box/config/brno-9zone.yaml je obecnější lokální záloha jednotky (stejný tvar, plná výbava vč. Shelly).
 // `branch_kiosk_config.hardware` = BRNO_DEFAULT_HARDWARE (bez `zones`, včetně `outdoor` = venek),
 // `branch_doors.hw` = jedna položka BRNO_DEFAULT_ZONES (zóna = box_number).
 // Venek (zóna 9, bez dveří): sekce `hardware.outdoor` — helpery v BranchRpiOutdoorHelpers.js.
@@ -11,30 +12,27 @@ export const DEVICE_TYPES = [
   { value: 'shelly_rgbww', label: 'Shelly Pro RGBWW PM' },
 ]
 
-// Venek = zóna 9 šablony: venkovní osvětlení WAV617-B R1 (coil 0); audio venku jen v režimu multi (blok Venek)
-export const BRNO_DEFAULT_OUTDOOR = { zone: 9, light: { dev: 'wav617b', coil: 0 } }
+// Venek = zóna 9 šablony: venkovní osvětlení 16CH R9 (coil 8); svítí podle otevření pobočky (branches.is_open)
+export const BRNO_DEFAULT_OUTDOOR = { zone: 9, light: { dev: 'wav645', coil: 8 }, light_mode: 'branch' }
 
 export const BRNO_DEFAULT_HARDWARE = {
   version: 1,
   devices: {
-    wav645: { type: 'wav645', host: '192.168.50.20', port: 502, unit_id: 1 },
+    // Zapojení Brno (2026-09-25): Relay (B) = zámky + kontakty, 16CH = světla; Shelly zatím nezapojeny
     wav617a: { type: 'wav617', host: '192.168.50.21', port: 502, unit_id: 1 },
-    wav617b: { type: 'wav617', host: '192.168.50.22', port: 502, unit_id: 1 },
-    shelly1: { type: 'shelly_rgbww', host: '192.168.50.31' },
-    shelly2: { type: 'shelly_rgbww', host: '192.168.50.32' },
-    shelly3: { type: 'shelly_rgbww', host: '192.168.50.33' },
-    shelly4: { type: 'shelly_rgbww', host: '192.168.50.34' },
+    wav645: { type: 'wav645', host: '192.168.50.20', port: 502, unit_id: 1 },
   },
   timings: {
     lock_pulse_ms: 800,
     door_open_timeout_s: 30,
     door_close_debounce_ms: 1000,
-    light_after_close_s: 30,
+    light_after_close_s: 0,      // kóje: světlo zhasne hned zavřením dveří (2026-09-25)
     music_after_close_s: 10,
     maximum_session_s: 600,
     forced_open_debounce_ms: 500,
     pin_entry_timeout_s: 20,
     overtime_alert_minutes: [10, 20, 30],
+    handover_idle_s: 120,
   },
   polling: {
     door_input_poll_ms: 100,
@@ -63,27 +61,19 @@ export const BRNO_DEFAULT_HARDWARE = {
   outdoor: BRNO_DEFAULT_OUTDOOR,
 }
 
-const z = (zone, lock, cDev, contact, lDev, light, aDev, audio, rDev, red, gDev, green) => ({
+const z = (zone, extra = {}) => ({
   zone,
-  lock: { dev: 'wav645', coil: lock },
-  contact: { dev: cDev, input: contact },
-  light: { dev: lDev, coil: light },
-  audio: { dev: aDev, coil: audio },
-  red: { dev: rDev, light: red },
-  green: { dev: gDev, light: green },
+  lock: { dev: 'wav617a', coil: zone - 1 },      // Relay (B) R1–R8 = zámky
+  contact: { dev: 'wav617a', input: zone - 1 },  // Relay (B) DI1–DI8 = dveřní kontakty
+  light: { dev: 'wav645', coil: zone - 1 },      // 16CH R1–R8 = světla (R9 = venek); audio relé / Shelly (red, green) se doplní ve Velíně, až budou zapojeny
+  ...extra,
 })
 
 export const BRNO_DEFAULT_ZONES = [
-  z(1, 0, 'wav617a', 0, 'wav617a', 0, 'wav617b', 1, 'shelly1', 0, 'shelly1', 1),
-  z(2, 1, 'wav617a', 1, 'wav617a', 1, 'wav617b', 2, 'shelly1', 2, 'shelly1', 3),
-  z(3, 2, 'wav617a', 2, 'wav617a', 2, 'wav617b', 3, 'shelly1', 4, 'shelly2', 0),
-  z(4, 3, 'wav617a', 3, 'wav617a', 3, 'wav617b', 4, 'shelly2', 1, 'shelly2', 2),
-  z(5, 4, 'wav617a', 4, 'wav617a', 4, 'wav617b', 5, 'shelly2', 3, 'shelly2', 4),
-  z(6, 5, 'wav617a', 5, 'wav617a', 5, 'wav617b', 6, 'shelly3', 0, 'shelly3', 1),
-  z(7, 6, 'wav617a', 6, 'wav617a', 6, 'wav617b', 7, 'shelly3', 2, 'shelly3', 3),
-  z(8, 7, 'wav617a', 7, 'wav617a', 7, 'wav645', 9, 'shelly3', 4, 'shelly4', 0),
+  z(1), z(2), z(3), z(4), z(5), z(6), z(7),
+  z(8, { light_until_moto_code: true }),         // šatna: světlo rozsvítí kód šatny, zhasne až kód motorky
 ]
-// rezerva: shelly4 light 1–4; wav645 coil 8 (R9), coil 10–15 (R11–R16); wav617b input 0 (DI1)
+// rezerva: wav645 coil 9–15 (R10–R16)
 
 // Režim audia (`hardware.audio.mode`): chybí = selector (stávající instalace beze změny chování).
 export const AUDIO_MODES = [
@@ -148,6 +138,8 @@ export const HW_SECTIONS = [
       hint: 'Za jak dlouho se na displeji smaže rozepsaný kód, když zákazník přestane ťukat. Aby po odchozím zákazníkovi nezůstal na obrazovce půlka kódu. Typicky 20 s.' },
     { key: 'overtime_alert_minutes', label: 'Upozornění při překročení', unit: 'min, čárkami', type: 'list',
       hint: 'Po kolika minutách otevřených dveří se opakuje upozornění do Velína. Zadejte čísla oddělená čárkou, např. 10, 20, 30.' },
+    { key: 'handover_idle_s', label: 'Protokol bez dotyku', unit: 's', type: 'int',
+      hint: 'Jak dlouho zůstane předávací protokol na displeji, když se ho zákazník nedotkne. Pak se skryje, ať mohou ostatní zadávat kódy; protokol zůstává nevyřízený a znovu se ukáže kódem motorky té samé rezervace. Typicky 120 s.' },
   ] },
   { key: 'polling', title: 'Polling (Modbus)',
     hint: 'Jak často a jak trpělivě se jednotka ptá relé modulů Waveshare po síti LAN. Měňte jen při problémech se sítí — výchozí hodnoty jsou ověřené.',
@@ -255,6 +247,12 @@ export const ZONE_TIMING_FIELDS = [
 
 // Přepínač hudby u jedné zóny (`branch_doors.hw.music_enabled`): prázdné = řídí se hlavním
 // vypínačem pobočky (`hardware.audio.music_enabled`), jinak vlastní zapnuto/vypnuto.
+// Světlo šatny (`branch_doors.hw.light_until_moto_code`): '' = jako kóje (zhasne doběhem po zavření),
+// '1' = drží po zavření dveří a zhasne ho až kód motorky (pojistka = max. doba relace zóny)
+export const ZONE_LIGHT_OPTIONS = [
+  { value: '', label: 'Jako kóje — zhasne po zavření' },
+  { value: '1', label: 'Šatna — svítí do kódu motorky' },
+]
 export const ZONE_MUSIC_OPTIONS = [
   { value: '', label: 'Podle pobočky' },
   { value: '1', label: 'Hraje po zadání kódu' },
@@ -268,6 +266,7 @@ export function emptyZoneHw(zone) {
   out.audio.out = ''   // režim multi: název výstupu z audio.outputs
   out.timings = {}     // individuální časování zóny (prázdné pole = globální hodnota)
   out.music_enabled = ''   // '' = dle pobočky, '1' = hraje, '0' = nehraje
+  out.light_until_moto_code = ''   // '' = jako kóje, '1' = šatna (světlo drží do kódu motorky)
   return out
 }
 
@@ -390,6 +389,7 @@ export function draftToHw(draft, devices, audio) {
   if (Object.keys(timings).length) hw.timings = timings
   const music = String(draft.music_enabled ?? '').trim()
   if (music === '1' || music === '0') hw.music_enabled = music === '1'   // prázdné = řídí hlavní vypínač pobočky
+  if (String(draft.light_until_moto_code ?? '').trim() === '1') hw.light_until_moto_code = true
   return { hw }
 }
 
@@ -405,5 +405,6 @@ export function hwToDraft(hw, fallbackZone) {
   const t = hw?.timings && typeof hw.timings === 'object' ? hw.timings : {}
   d.timings = Object.fromEntries(ZONE_TIMING_FIELDS.map(f => [f.key, t[f.key] == null ? '' : String(t[f.key])]))
   d.music_enabled = hw?.music_enabled == null ? '' : (hw.music_enabled ? '1' : '0')
+  d.light_until_moto_code = hw?.light_until_moto_code ? '1' : ''
   return d
 }

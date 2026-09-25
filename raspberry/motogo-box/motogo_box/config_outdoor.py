@@ -35,9 +35,11 @@ CHANNEL = "outdoor"          # název kanálu bez dveří v `audio.channels` (le
 # Režim venkovního SVĚTLA (`outdoor.light_mode`, 2026-09-14) — venek se nastavuje jinak než kóje a šatna:
 #   auto   = dosavadní chování: svítí od první relace do `light_after_close_s` po poslední,
 #   always = NONSTOP, nezávisle na relacích (venkovní prostor u pobočky svítí pořád),
-#   off    = trvale zhasnuto (sezóna, porucha svítidla) — relace světlo nerozsvítí.
-LIGHT_AUTO, LIGHT_ALWAYS, LIGHT_OFF = "auto", "always", "off"
-LIGHT_MODES = (LIGHT_AUTO, LIGHT_ALWAYS, LIGHT_OFF)
+#   off    = trvale zhasnuto (sezóna, porucha svítidla) — relace světlo nerozsvítí,
+#   branch = (2026-09-25) svítí, dokud je pobočka ve Velíně OTEVŘENÁ (`branches.is_open` → `kiosk_sync_config.branch_is_open`);
+#            zavření pobočky zhasne, ruční příkaz z Velína (light_on/light_off) má přednost.
+LIGHT_AUTO, LIGHT_ALWAYS, LIGHT_OFF, LIGHT_BRANCH = "auto", "always", "off", "branch"
+LIGHT_MODES = (LIGHT_AUTO, LIGHT_ALWAYS, LIGHT_OFF, LIGHT_BRANCH)
 
 # Režim HUDBY venku (`outdoor.music_mode`, 2026-09-14) — připraveno, než se rozhodne, jak má venek hrát:
 #   session = dosavadní chování: hraje při jakémkoli zadaném kódu, doběh `music_after_close_s`,
@@ -75,6 +77,11 @@ class OutdoorCfg:
     def light_always(self) -> bool:
         """Světlo venku má svítit nonstop (bez ohledu na relace)."""
         return self.light_mode == LIGHT_ALWAYS
+
+    @property
+    def light_by_branch(self) -> bool:
+        """Světlo venku sleduje otevření pobočky (svítí nonstop, dokud je pobočka otevřená)."""
+        return self.light_mode == LIGHT_BRANCH
 
     @property
     def light_disabled(self) -> bool:
@@ -217,13 +224,13 @@ def validate_outdoor(hw: Any, channel_limits: dict | None = None,
     # Režimy venku (2026-09-14) — neblokující: jednotka běží dál, jen upozorní, že nastavení nic nedělá.
     if o.light_mode != LIGHT_AUTO and o.light is None:
         problems.append(f"{WARN} venek: režim světla '{o.light_mode}' nemá co ovládat — venek nemá relé světla.")
-    if o.light_mode == LIGHT_ALWAYS and o.light_after_close_s is not None:
-        problems.append(f"{WARN} venek: doběh světla se v režimu 'nonstop' nepoužije (světlo svítí trvale).")
+    if o.light_mode in (LIGHT_ALWAYS, LIGHT_BRANCH) and o.light_after_close_s is not None:
+        problems.append(f"{WARN} venek: doběh světla se v režimu '{o.light_mode}' nepoužije (světlo se řídí režimem, ne relací).")
     if o.music_mode != MUSIC_SESSION and not o.audio_out:
         problems.append(f"{WARN} venek: režim hudby '{o.music_mode}' nemá co přehrávat — venek nemá audio výstup.")
     return problems
 
 
 __all__ = ["OutdoorCfg", "apply_outdoor", "validate_outdoor", "legacy_channel", "alias_conflict", "CHANNEL",
-           "LIGHT_MODES", "LIGHT_AUTO", "LIGHT_ALWAYS", "LIGHT_OFF",
+           "LIGHT_MODES", "LIGHT_AUTO", "LIGHT_ALWAYS", "LIGHT_OFF", "LIGHT_BRANCH",
            "MUSIC_MODES", "MUSIC_SESSION", "MUSIC_ALWAYS", "MUSIC_OFF"]

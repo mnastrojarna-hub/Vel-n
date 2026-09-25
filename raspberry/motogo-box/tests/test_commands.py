@@ -416,3 +416,36 @@ async def test_run_timeout_survives_unkillable_sudo_child(monkeypatch):
     ok, detail = await commands._run("sudo", "systemctl", "reboot")
     assert ok is False and detail == {"error": "timeout", "argv": ["sudo", "systemctl", "reboot"]}
     assert proc.kill_calls == 1
+
+
+class FakeHandover:
+    def __init__(self) -> None:
+        self.signed: list[str] = []
+        self.retries = 0
+        self.opened = {"zone": 3, "kind": "motorcycle", "message": "Otevřeno — Kóje 3"}
+
+    async def mark_signed_remote(self, booking_id: str, *, may_open: bool = False):
+        assert may_open is True                                  # jen příkaz smí otevřít kóji (sync nikdy)
+        self.signed.append(booking_id)
+        return self.opened
+
+    def retry_failed(self) -> int:
+        self.retries += 1
+        return 1
+
+
+async def test_protocol_signed_command_and_reload_retry():
+    c = FakeController()
+    c.handover = FakeHandover()
+    ok, res = await commands.execute(c, "protocol_signed", {"booking_id": "b1"})
+    assert ok and res == {"booking_id": "b1", "opened": c.handover.opened} and c.handover.signed == ["b1"]
+    ok, res = await commands.execute(c, "protocol_signed", {})
+    assert ok is False and res["error"] == "missing_booking_id"
+    c.ready = False                                          # není HW příkaz — funguje i během přestavby
+    ok, _ = await commands.execute(c, "protocol_signed", {"booking_id": "b2"})
+    assert ok and c.handover.signed == ["b1", "b2"]
+    ok, _ = await commands.execute(c, "reload", {})           # „Znovu synchronizovat“ = i odmítnuté podpisy znovu
+    assert ok and c.handover.retries == 1
+    del c.handover
+    ok, res = await commands.execute(c, "protocol_signed", {"booking_id": "b1"})
+    assert ok is False and res["error"] == "missing_booking_id"

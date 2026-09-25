@@ -25,11 +25,18 @@ export default function BookingSummary({ booking, bookingExtras }) {
     ? `${devStart} → ${devEnd}`
     : (devStart || devEnd || null)
 
+  // Vlastní výbava (bookings.own_gear, tri-state): explicitní volba zákazníka/Velína; NULL = neuvedeno
+  // (DB odvozuje z velikostí). Rozhoduje o kódu šatny — proto se ukazuje i bez velikostí.
+  const ownGearLabel = b.own_gear === true ? 'Ano — vlastní výbava, bez kódu šatny'
+    : b.own_gear === false ? 'Ne — půjčená výbava (kód šatny)' : null
+  const riderSizes = b.helmet_size || b.jacket_size || b.pants_size || b.boots_size || b.gloves_size
+
   return (
     <div className="space-y-1">
-      {(b.helmet_size || b.jacket_size || b.pants_size || b.boots_size || b.gloves_size) && (
+      {(riderSizes || ownGearLabel) && (
         <>
           <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Výbava — řidič</div>
+          <SumRow label="Vlastní výbava" value={ownGearLabel} color={b.own_gear === true ? '#b45309' : undefined} />
           <SumRow label="Helma" value={b.helmet_size ? `vel. ${b.helmet_size}` : null} />
           <SumRow label="Bunda" value={b.jacket_size ? `vel. ${b.jacket_size}` : null} />
           <SumRow label="Kalhoty" value={b.pants_size ? `vel. ${b.pants_size}` : null} />

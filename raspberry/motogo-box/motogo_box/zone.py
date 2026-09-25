@@ -67,6 +67,7 @@ class ZoneController:
         self.door_closed: bool | None = None
         self.booking_id: str | None = None
         self.light_on: bool = False
+        self.light_hold_since: float | None = None   # šatna `light_until_moto_code`: světlo drží po SECURED až do kódu motorky
         self.session_started: float | None = None
         self.session_started_at: str | None = None
         self.overtime: bool = False
@@ -87,6 +88,9 @@ class ZoneController:
         self._busy = asyncio.Lock()                    # serializuje všechny přechody stavu
         self._timings_base = None                      # cache pro `timings` (override zóny nad globálním časováním)
         self._timings_cache = None
+        # Hook controlleru po DOOR_OPEN→CLOSED_CONFIRMATION (zavření šatny → předávací protokol, handover.py);
+        # volá se POD `_busy` ještě s `booking_id` relace, chyba hooku automat nikdy neshodí.
+        self.on_session_closed: Callable[["ZoneController"], Awaitable[None]] | None = None
 
     # ─── pomocné ─────────────────────────────────────────────────────────────
     @property
@@ -224,6 +228,7 @@ class ZoneController:
         self.latch_released, self._late_booking, self.degraded = False, None, False
         await self._light_off_if_on()          # obnova uprostřed relace: světlo skutečně zhasnout
         self.light_on = False
+        self.light_hold_since = None
         problems = self.io_problems()
         if door_closed is None or problems:
             await self._enter_io_offline(problems)
@@ -309,6 +314,11 @@ class ZoneController:
                 await self.emit_event(EventKind.DOOR_CLOSED, message=f"{self.zone.display_name}: dveře zavřeny")
                 await self.emit_event(EventKind.SESSION_COMPLETED, overtime=self.overtime,
                                       message=f"{self.zone.display_name}: relace dokončena")
+                if self.on_session_closed is not None:
+                    try:
+                        await self.on_session_closed(self)
+                    except Exception:  # noqa: BLE001
+                        log.exception("Zóna %s: hook po zavření dveří selhal", self.number)
         elif self.state == ZoneState.CLOSED_CONFIRMATION and not closed:
             self.state = ZoneState.DOOR_OPEN     # stejná relace pokračuje
             self.closed_at = None
@@ -381,6 +391,21 @@ class ZoneController:
             else:
                 self.state, self.fault = ZoneState.FAULT, FAULT_FORCED_OPEN
                 await self.signal(Signal.RED_BLINK)
+
+    @property
+    def light_until_moto_code(self) -> bool:
+        """Šatna (2026-09-25): světlo po zavření dveří nezhasne s doběhem, zhasne ho až kód motorky
+        (`branch_doors.hw.light_until_moto_code`); pojistka = `maximum_session_s` zóny (`tick`)."""
+        return bool(self.zone.hw.light_until_moto_code)
+
+    async def light_off_after_moto_code(self) -> bool:
+        """Zákazník zadal kód motorky → zhasnout držené světlo šatny (jen když v ní nikdo není)."""
+        async with self._busy:
+            if self.state in ACTIVE_STATES or not self.light_on:
+                return False
+            self.light_hold_since = None
+            log.info("Zóna %s: světlo zhasnuto kódem motorky", self.number)
+            return await self.set_light(False)
 
     async def set_light(self, on: bool) -> bool:
         ref = self.zone.hw.light

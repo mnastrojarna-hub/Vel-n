@@ -13,6 +13,7 @@
   <link rel="icon" href="/static/logo-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/style-overlays.css">
+  <link rel="stylesheet" href="/static/style-handover.css">
 </head>
 <body>
 <div id="app">
@@ -39,7 +40,13 @@
         <div class="hint"><span class="hint-ico" aria-hidden="true">📱</span>
           <span data-i18n="hint1">Kód najdete v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.</span></div>
         <div class="hint"><span class="hint-ico" aria-hidden="true">🔑</span>
-          <span data-i18n="hint2">Kód k výbavě otevře šatnu · kód k motorce otevře vaši garáž s vaší motorkou.</span></div>
+          <span data-i18n="hint2">Berete si oblečení? Zadejte nejdřív kód šatny, potom kód motorky. Máte vlastní výbavu? Zadejte rovnou kód motorky.</span></div>
+      </div>
+      <!-- Pruh šatny (NEmodální): dveře šatny otevřené se zákaznickou relací — odvozeno živě ze st.zones (app.js) -->
+      <div id="wardrobe-hint" class="wardrobe-hint" hidden>
+        <span class="wardrobe-ico" aria-hidden="true">🧥</span>
+        <div><div class="wardrobe-title" data-i18n="ho.close">Šatna: vezměte si výbavu a zavřete dveře</div>
+          <div class="wardrobe-sub" data-i18n="ho.closeSub">Předávací protokol se zobrazí po zavření dveří.</div></div>
       </div>
       <!-- Pole kódu (znaky viditelné — rozhodnutí 2026-09-11) + časovač -->
       <div class="code-wrap">
@@ -65,6 +72,45 @@
       <div id="status-title" class="status-title"></div>
       <div id="status-sub" class="status-sub"></div>
       <div id="status-dismiss" class="status-dismiss" data-i18n="tap" hidden>Klepnutím zavřete</div>
+    </div>
+  </div>
+
+  <!-- Předávací protokol (modální, z-index mezi #status a #service) — řídí snapshot st.handover.active (handover.js) -->
+  <div id="handover" class="overlay" hidden>
+    <div class="ho-card">
+      <div class="ho-head">
+        <div class="ho-title-wrap"><span class="ho-ico" aria-hidden="true">📋</span><span class="ho-title" data-i18n="ho.title">Předávací protokol</span></div>
+        <div class="ho-meta">
+          <div class="ho-meta-item"><span class="k" data-i18n="ho.customer">Nájemce</span><span id="ho-customer" class="v">—</span></div>
+          <div class="ho-meta-item"><span class="k" data-i18n="ho.moto">Motorka</span><span id="ho-moto" class="v">—</span></div>
+          <div class="ho-meta-item"><span class="k" data-i18n="ho.period">Termín</span><span id="ho-period" class="v">—</span></div>
+        </div>
+        <div id="ho-timer" class="ho-timer"></div>
+      </div>
+      <section class="ho-gear">
+        <div class="ho-intro" data-i18n="ho.intro">Zkontrolujte zapůjčenou výbavu a velikosti, podepište se prstem a potvrďte.</div>
+        <div id="ho-gear-list" class="ho-gear-list"></div>
+      </section>
+      <section class="ho-sign">
+        <div class="ho-label"><span data-i18n="ho.sign">Podpis nájemce</span>
+          <button id="ho-sig-clear" class="ho-link" type="button" data-i18n="ho.clear">Smazat podpis</button></div>
+        <div class="ho-sig-wrap"><canvas id="ho-sig"></canvas><div class="ho-sig-line"></div>
+          <div id="ho-sig-hint" class="ho-sig-hint" data-i18n="ho.signHint">Podepište se prstem do rámečku</div></div>
+      </section>
+      <!-- Kód motorky = identita podepisujícího; jen když položka nevznikla z právě zadaného kódu (needs_code) -->
+      <section id="ho-code-sec" class="ho-code" hidden>
+        <div class="ho-label" data-i18n="ho.code">Kód motorky</div>
+        <div id="ho-code-box" class="code-box ho-code-box empty">— — — — — —</div>
+        <div class="ho-code-hint" data-i18n="ho.codeHint">Potvrďte podpis kódem motorky z aplikace nebo e-mailu</div>
+        <div id="ho-keys" class="ho-keys"></div>
+      </section>
+      <div class="ho-foot">
+        <div id="ho-msg" class="ho-msg" aria-live="polite" hidden></div>
+        <span class="ho-spacer"></span>
+        <button id="ho-back" class="ho-btn" type="button" data-i18n="ho.back">Zpět</button>
+        <button id="ho-confirm" class="ho-btn ho-btn-primary" type="button" data-i18n="ho.confirm" disabled>Potvrdit a podepsat</button>
+      </div>
+      <div id="ho-saving" class="ho-saving" hidden><div class="spinner"></div><span data-i18n="ho.saving">Ukládám protokol…</span></div>
     </div>
   </div>
 
@@ -182,10 +228,13 @@
   </div>
 </div>
 <script src="/static/i18n.js"></script>
+<script src="/static/i18n-handover.js"></script>
 <script src="/static/keyboard.js"></script>
+<script src="/static/signature.js"></script>
 <script src="/static/panel.js"></script>
 <script src="/static/diag.js"></script>
 <script src="/static/shell.js"></script>
+<script src="/static/handover.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

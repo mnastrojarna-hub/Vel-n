@@ -165,6 +165,7 @@ const _authRequired = {
   Routes.sosPayment,
   Routes.sosDone,
   Routes.checkout,
+  Routes.protocol,
 };
 
 /// Notifier that triggers GoRouter redirect re-evaluation on auth changes.
@@ -240,6 +241,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.docScan,
         builder: (context, state) => DocumentScannerScreen(
           scanMode: state.uri.queryParameters['mode'],
+        ),
+      ),
+
+      // Předávací protokol (samoobslužná) — přes celou obrazovku BEZ spodní
+      // lišty (fullscreenDialog). Otevírá ho banner/tlačítko v detailu
+      // rezervace i vynucená výzva z kiosku (HandoverPromptWatcher) — zavřít lze.
+      GoRoute(
+        path: Routes.protocol,
+        pageBuilder: (context, state) => MaterialPage(
+          fullscreenDialog: true,
+          child: ProtocolScreen(reservation: state.extra as Reservation?),
         ),
       ),
 
@@ -437,10 +449,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.permissions,
             builder: (context, state) => const PermissionsScreen(),
-          ),
-          GoRoute(
-            path: Routes.protocol,
-            builder: (context, state) => ProtocolScreen(reservation: state.extra as Reservation?),
           ),
           GoRoute(
             path: Routes.loyalty,

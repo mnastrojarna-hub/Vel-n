@@ -54,7 +54,8 @@ MG.Keyboard = (function () {
 
   /**
    * Postaví klávesnici do kontejneru.
-   * opts: { mode: 'num'|'qwerty'|'text'|'shell', onChar, onBackspace, onEnter, onClear, onToggle, enterLabel, clearLabel }
+   * opts: { mode: 'num'|'pin'|'qwerty'|'text'|'shell', onChar, onBackspace, onEnter, onClear, onToggle, enterLabel, clearLabel }
+   * `pin` = jen číselný blok (kód motorky v overlayi protokolu — bez ABC a SMAZAT, ✓ = potvrdit).
    * `shell` = jako 'text', navíc řádek se znaky, bez kterých se příkaz nenapíše (mezera, / . : - _ | > * ~).
    */
   function build(container, opts) {
@@ -62,7 +63,9 @@ MG.Keyboard = (function () {
     container.textContent = '';
     const kb = document.createElement('div');
     kb.className = 'kb kb-mode-' + o.mode;   // režim na obalu; bloky uvnitř: kb-num, kb-num-side, kb-letters, kb-digits, kb-text
-    if (o.mode === 'num') {
+    if (o.mode === 'pin') {
+      kb.appendChild(numericBlock('kb-num', o));
+    } else if (o.mode === 'num') {
       kb.appendChild(numericBlock('kb-num', o));
       kb.appendChild(block('kb-num-side', [
         row([key('ABC', 'small', o.onToggle)]),

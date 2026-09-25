@@ -154,6 +154,9 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   :root { --col-a: clamp(220px, 20vw, 520px); }
   .tile { padding: 0 6px; gap: 6px; }
 }
+@media (max-height: 520px) {
+  .side { gap: 6px; }   /* sloupec A: dlouhý hint2 (de/fr/uk) + pruh šatny (#wardrobe-hint) se musí vejít bez rolování */
+}
 @media (max-width: 1400px) and (max-height: 820px) {
   :root { --col-c: clamp(250px, 21vw, 460px); }   /* 21vw = max., aby QWERTY klávesy na 1280×400 zůstaly ≥ 48 px */
   .tile-door { display: none; }   /* extrémně nízký a úzký displej: místo pro text stavu */

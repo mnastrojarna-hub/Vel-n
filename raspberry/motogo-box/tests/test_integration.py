@@ -215,6 +215,8 @@ async def test_box_controller_end_to_end(sim: Sim, tmp_path) -> None:
         assert snap["audio"]["player_ok"] is False        # mpv není → dummy režim
         assert snap["outdoor"]["configured"] is True and snap["outdoor"]["zone"] == 9 and snap["outdoor"]["light"] is False
         assert snap["outdoor"]["light_ref"] == "wav617b[0]" and snap["outdoor"]["music"] is False
+        assert snap["handover"] == {"active": None, "pending": [], "failed": [], "waiting": []}   # protokol (§4)
+        assert all(zc.on_session_closed is not None for zc in ctrl.zones.values())
 
         # ── platný kód: API padne → offline cache → zóna 3 ──
         lock = sim.modules["wav645"]

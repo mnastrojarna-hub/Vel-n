@@ -4,6 +4,7 @@
 .overlay-dark, .overlay-solid { --glass: rgba(255,255,255,0.06); --glass-border: rgba(255,255,255,0.12);
   --amber-d: #f59e0b; --red-d: #dc2626; color: #fff; }
 .overlay-dark { background: rgba(0,0,0,0.88); }
+#service, #shell { z-index: 50; }   /* nad overlayem protokolu (#handover 45, style-handover.css); terminál nad panelem dle pořadí v DOM */
 .overlay-solid { background: linear-gradient(135deg, #0a1a10, #152a1c 50%, #1a3524); z-index: 60; padding: 0; }
 /* klávesy uvnitř tmavých overlayů (setup, diagnostika) */
 .overlay-dark .key, .overlay-solid .key { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.10);

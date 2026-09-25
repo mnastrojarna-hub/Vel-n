@@ -221,3 +221,18 @@ def test_resolver_legacy_plaintext():
     late = r.resolve("444444", cache, datetime(2026, 9, 9, 18, 30, tzinfo=timezone.utc))
     assert late is not None and not late.ok
     assert r.resolve("555555", cache, NOW) is None
+
+
+def test_resolver_protocol_from_cache():
+    """`protocols[]` v cache: k rezervaci kódu se dohledá protokol; chybí-li seznam → None (fail-open);
+    seznam přítomen, rezervace v něm není → {required: False, absent: True} (nejspíš podepsáno jinde, ale sync
+    neumí rozlišit zrušení / odebraný kód — handover.py si to nikdy nepamatuje jako podpis)."""
+    r = LocalResolver(DEVICE_ID, TOKEN)
+    cache = _hashed_cache()
+    assert r.resolve("111111", cache, NOW).protocol is None
+    assert LocalResolver.protocol_for(cache, "b-1") is None
+    cache["protocols"] = [{"booking_id": "b-1", "required": True, "data": {"customer_name": "Petra S."}}]
+    rr = r.resolve("111111", cache, NOW)
+    assert rr.protocol["required"] is True and rr.protocol["data"]["customer_name"] == "Petra S."
+    assert LocalResolver.protocol_for(cache, "b-9") == {"booking_id": "b-9", "required": False, "absent": True}
+    assert LocalResolver.protocol_for(cache, None) is None and LocalResolver.protocol_for(None, "b-1") is None

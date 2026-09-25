@@ -181,9 +181,11 @@ async def test_state_and_static(env):
     assert st["code_cache"]["age_s"] is not None
     r = await client.get("/")
     assert r.status == 200 and "Zadejte přístupový kód" in await r.text()
-    # všechny soubory, na které se odkazuje index.html (redesign 2026-09-10: diag/i18n/overlays/logo-light/logo-icon)
+    # všechny soubory, na které se odkazuje index.html (redesign 2026-09-10: diag/i18n/overlays/logo-light/logo-icon;
+    # 2026-09-25 předávací protokol: i18n-handover/signature/handover/style-handover)
     for f in ("app.js", "diag.js", "i18n.js", "keyboard.js", "panel.js", "shell.js", "style.css", "style-overlays.css",
-              "logo.svg", "logo-light.svg", "logo-icon.svg"):
+              "logo.svg", "logo-light.svg", "logo-icon.svg",
+              "i18n-handover.js", "signature.js", "handover.js", "style-handover.css"):
         assert (await client.get(f"/static/{f}")).status == 200, f
     assert (await client.get("/static/../config.py")).status in (403, 404)
     r = await client.get("/api/neexistuje")
@@ -386,3 +388,57 @@ async def test_service_shell(env):
     ctrl.shell_tokens.clear()
     r = await client.post("/api/service/shell", json={"shell_token": token, "preset": "sys.disk"})
     assert r.status == 403
+
+
+class FakeHandover:
+    def __init__(self) -> None:
+        self.calls: list[tuple] = []
+
+    async def submit(self, booking_id, form, signature, code, source="ui"):
+        self.calls.append(("submit", booking_id, form, signature, code, source))
+        return {"ok": True, "status": "saved", "opened": {"zone": 3, "kind": "motorcycle", "message": "Otevřeno"},
+                "error": None}
+
+    def dismiss(self, booking_id):
+        self.calls.append(("dismiss", booking_id))
+        return booking_id == "b1"
+
+    def touch(self, booking_id):
+        self.calls.append(("touch", booking_id))
+        return booking_id == "b1"
+
+
+async def test_protocol_endpoints(env):
+    client, ctrl, *_ = env
+    r = await client.post("/api/protocol/submit", json={"booking_id": "b1", "signature": "x"})
+    body = await r.json()
+    assert body["ok"] is False and body["error"] == "not_pending"      # controller bez HandoverManageru
+    ctrl.handover = FakeHandover()
+    sig = "data:image/png;base64," + "A" * 200_000                        # ~150 kB PNG projde limitem těla (1 MiB)
+    r = await client.post("/api/protocol/submit", json={"booking_id": " b1 ", "code": "123456",
+                                                        "form": {"mileage": "12"}, "signature": sig})
+    assert r.status == 200 and (await r.json())["opened"]["zone"] == 3
+    assert ctrl.handover.calls[-1] == ("submit", "b1", {"mileage": "12"}, sig, "123456", "ui")
+    r = await client.post("/api/protocol/submit", json={"form": {}})
+    assert r.status == 400 and (await r.json())["error"] == "missing_booking_id"
+    r = await client.post("/api/protocol/dismiss", json={"booking_id": "b1"})
+    assert (await r.json()) == {"ok": True, "dismissed": True}
+    r = await client.post("/api/protocol/dismiss", json={"booking_id": "b2"})
+    assert (await r.json()) == {"ok": True, "dismissed": False}
+    r = await client.post("/api/protocol/touch", json={"booking_id": "b1"})
+    assert (await r.json()) == {"ok": True, "active": True}
+    r = await client.post("/api/protocol/touch", json={})
+    assert r.status == 400
+    r = await client.post("/api/protocol/submit", data=b"x" * (webserver.BODY_MAX_BYTES + 1),
+                          headers={"Content-Type": "application/json"})
+    assert r.status == 413 and (await r.json()) == {"ok": False, "error": "body_too_large"}
+
+
+async def test_state_timings_include_handover_idle(env):
+    client, ctrl, *_ = env
+    from types import SimpleNamespace
+    ctrl.hardware = SimpleNamespace(timings=SimpleNamespace(pin_entry_timeout_s=20, door_open_timeout_s=30,
+                                                            maximum_session_s=600, handover_idle_s=120))
+    st = await (await client.get("/api/state")).json()
+    assert st["timings"] == {"pin_entry_timeout_s": 20, "door_open_timeout_s": 30, "maximum_session_s": 600,
+                             "handover_idle_s": 120}

@@ -210,11 +210,31 @@ class ResDetailTabContent extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    ...codes.map((c) => ResDetailRow(
-                      label: c.codeType == 'motorcycle' ? t(context).motorcycle : t(context).tr('accessories'),
-                      value: c.sentToCustomer ? c.doorCode : (c.withheldReason ?? t(context).tr('awaitingDocs')),
-                      bold: c.sentToCustomer,
-                    )),
+                    // „Kód šatny“ (accessories) / „Kód motorky“ (motorcycle).
+                    // Kód motorky kiosk pustí až po podepsaném předávacím
+                    // protokolu → poznámka pod VYDANÝM kódem samoobslužné
+                    // pobočky, dokud podpis chybí (zadržený kód / obslužná
+                    // pobočka protokol v appce neřeší).
+                    ...codes.map((c) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      ResDetailRow(
+                        label: c.codeType == 'motorcycle' ? t(context).tr('motoCode') : t(context).tr('lockerCode'),
+                        value: c.sentToCustomer ? c.doorCode : (c.withheldReason ?? t(context).tr('awaitingDocs')),
+                        bold: c.sentToCustomer,
+                      ),
+                      if (c.codeType == 'motorcycle' && c.sentToCustomer && res.isSelfService && !res.protocolSigned)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: GestureDetector(
+                            onTap: () => context.push(Routes.protocol, extra: res),
+                            child: Text('📝 ${t(context).tr('protocolFirst')}',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.amber)),
+                          ),
+                        ),
+                    ])),
+                    // Vlastní výbava bez nároku na šatnu — žádný kód šatny nechybí
+                    // (i odvozeně u starších rezervací bez own_gear, viz model).
+                    if (res.ownGearEffective && !codes.any((c) => c.codeType == 'accessories'))
+                      ResDetailRow(label: t(context).tr('lockerCode'), value: t(context).tr('ownGearNoLocker')),
                     // Kódy zadržené (chybí doklady) → CTA: zkus uvolnit (pokud už
                     // jsou doklady nahrané), jinak naviguj na nahrání dokladů.
                     if (hasWithheld) ...[

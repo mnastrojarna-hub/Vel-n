@@ -209,7 +209,7 @@ async def test_status_shape():
     st = ctl.status()
     assert st == {"zone": 9, "configured": True, "light": False, "active": False, "manual": None,
                   "audio_out": "out9", "music": False, "light_ref": "wav617b[0]", "off_in_s": None,
-                  "light_mode": "auto", "music_mode": "session", "music_manual": None}
+                  "light_mode": "auto", "music_mode": "session", "music_manual": None, "branch_open": False}
     ctl.audio.channels_playing = ["outdoor"]
     await ctl.sync([1])
     st = ctl.status()
@@ -402,3 +402,19 @@ async def test_music_manual_prebiji_rezim():
     ctl.set_music_manual(None)                            # zpět na režim → hudba se zastaví
     await ctl.sync([])
     assert stopped == ["outdoor"]
+
+
+async def test_light_mode_branch_follows_branch_open():
+    """Režim `branch` (2026-09-25): svítí, dokud je pobočka otevřená; zavření zhasne; ruční příkaz má přednost."""
+    ctl, io, _ = _rig(OutdoorCfg(zone=9, light=LIGHT, light_mode="branch", present=True))
+    await ctl.sync([])
+    assert ctl.light_on is False                       # pobočka zavřená (výchozí)
+    ctl.branch_open = True
+    await ctl.sync([])
+    assert ctl.light_on is True and ctl.status()["branch_open"] is True
+    ctl.branch_open = False
+    await ctl.sync([1])                                # relace venek v tomto režimu neřídí
+    assert ctl.light_on is False
+    await ctl.set_light(True)                          # ruční rozsvícení z Velína drží
+    await ctl.sync([])
+    assert ctl.light_on is True
