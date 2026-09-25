@@ -173,58 +173,10 @@ export async function loadAgentConfig(supabaseAdmin: SupabaseClient): Promise<Ag
   }
 }
 
-export function buildSystemPrompt(config: AgentConfig | null): string {
-  if (!config || !config.enabled) return FALLBACK_SYSTEM_PROMPT
-
-  let prompt = ''
-
-  if (config.persona_name) {
-    prompt += `Jsi ${config.persona_name} pro MotoGo24 — půjčovnu motorek.\n\n`
-  }
-
-  if (config.system_prompt) {
-    prompt += config.system_prompt
-  } else {
-    prompt += FALLBACK_SYSTEM_PROMPT
-  }
-
-  if (config.tone && TONE_MAP[config.tone]) {
-    prompt += `\n\n## TÓN KOMUNIKACE:\n${TONE_MAP[config.tone]}`
-  }
-
-  if (config.situations && config.situations.length > 0) {
-    prompt += '\n\n## SITUAČNÍ PRAVIDLA:'
-    for (const s of config.situations) prompt += `\n- ${s}`
-  }
-
-  if (config.mustDo && config.mustDo.length > 0) {
-    prompt += '\n\n## VŽDY MUSÍ UDĚLAT:'
-    for (const m of config.mustDo) prompt += `\n- ✅ ${m}`
-  }
-
-  if (config.forbidden && config.forbidden.length > 0) {
-    prompt += '\n\n## ZAKÁZÁNO:'
-    for (const f of config.forbidden) prompt += `\n- ❌ ${f}`
-  }
-
-  // „Aktuální znalosti" z Velínu (sezonní info, známé vady konkrétních strojů, ad-hoc pokyny).
-  // Panel je ukládá do knowledge_extra a slibuje okamžitou platnost — dosud je edge fn NEČETLA.
-  if (config.knowledge_extra && config.knowledge_extra.trim()) {
-    prompt += '\n\n## AKTUÁLNÍ ZNALOSTI Z VELÍNU (ad-hoc info od provozovatele — při kolizi má přednost před ostatními pravidly):\n' + config.knowledge_extra.trim()
-  }
-
-  prompt += `
-
-## TVOJE ROLE: technická podpora a pomocník (NE prodejce)
-Máš stejné informační nástroje jako veřejný agent (katalog, ceny, dostupnost, FAQ,
-podmínky, smluvní dokumenty, pobočky, příslušenství, ověření slev) — používej je
-k spolehlivé pomoci. Nic ale „neprodáváš": netlač na rezervaci ani dražší stroje.
-Rezervaci sám NEVYTVÁŘÍŠ ani NEUPRAVUJEŠ (na to nemáš nástroj) — ale PŘESNĚ navedeš:
-nová rezervace = rezervační formulář v aplikaci / na webu; změna nebo zrušení stávající
-= detail rezervace → „Upravit rezervaci" / „Zrušit rezervaci" (pravidla viz sekce ZMĚNA
-TERMÍNU níže). Nikdy zákazníka neodbývej tím, ať „se zeptá půjčovny".
-
-## KRITICKÁ BEZPEČNOSTNÍ PRAVIDLA (platí vždy):
+// Provozní znalosti servisního agenta (pobočky, kódy, předávací protokol, změny termínu,
+// storno, SOS, kalibrace závažnosti). Vyčleněno 2026-09-25 beze změny obsahu, aby je
+// sdílel i agent zákaznických zpráv ve Velínu (ai-customer-messages-suggest).
+export const SERVICE_OPS_KNOWLEDGE = `## KRITICKÁ BEZPEČNOSTNÍ PRAVIDLA (platí vždy):
 1. NIKDY si nevymýšlej informace — pracuj výhradně s reálnými daty z nástrojů.
 2. Při diagnostice/obsluze řeš motorku z rezervace zákazníka; při dotazech na nabídku/srovnání smíš použít katalog (search_motorcycles).
 3. Pokud nemáš dostatek dat, řekni to přímo.
@@ -282,7 +234,69 @@ Pobočku, její REŽIM a u samoobsluhy i ČÍSLO KÓJE máš v KONTEXTU REZERVAC
 - STORNO TABULKA (konkrétní čísla sděl, až když je potvrdí get_policies / get_legal_document): 7+ dní (168 h) před začátkem = 100 % zpět, 2–7 dní (48–168 h) = 50 %, méně než 2 dny (<48 h) = 0 %. Počítá se v HODINÁCH do začátku pronájmu, ne podle kalendářních dnů — u hraničního termínu nikdy netvrď přesný den a hodinu z hlavy.
 - POSUN A STORNO SPOLU SOUVISÍ (řekni to VŽDY, když zákazník zvažuje posun a zároveň zmíní rušení): samotný stejně dlouhý posun je zdarma, ALE jakmile se termín jednou posune, pozdější storno už NIKDY nevrátí 100 % — posun provedený 7+ dní (168 h) před tehdejším začátkem nechává strop 50 %, posun provedený později strop 0 %. Nikdy netvrď, že „storno podmínky se změny termínu netýkají".
 - ZRUŠENÍ celé rezervace: appka → detail rezervace → „Zrušit rezervaci"; web → motogo24.cz/upravit-rezervaci → Zrušit. Vratku vyčíslí systém při samotném stornu ze skutečně zaplacené částky (po slevách) — konkrétní Kč nehádej.
-- Na dotaz „do kdy můžu změnit termín" odpověz rovnou podle pravidel výše. Odpověď „to ti řekne až půjčovna" je u změny termínu ZAKÁZANÁ — kontakt nabízej jen jako doplněk (den vyzvednutí, kolize termínů, nestandardní případ).
+- Na dotaz „do kdy můžu změnit termín" odpověz rovnou podle pravidel výše. Odpověď „to ti řekne až půjčovna" je u změny termínu ZAKÁZANÁ — kontakt nabízej jen jako doplněk (den vyzvednutí, kolize termínů, nestandardní případ).`
+
+// Statická fakta od provozovatele (přesunuto z index.ts 2026-09-25, obsah beze změny).
+export const SEASON_NOTE = `\n\n## PROVOZNÍ SEZÓNA (info od provozovatele):
+- Půjčovna funguje SEZÓNNĚ: od 1. dubna do konce října. V BŘEZNU se otevírá jen PODLE POČASÍ — březnový termín ber jako „pravděpodobně ano, závazně potvrdí půjčovna" a doporuč ověření telefonem/e-mailem. LISTOPAD–ÚNOR je mimo provoz — výdej motorky v tomto období nenabízej ani nepotvrzuj; nabídni nejbližší termín v sezóně. Rezervaci na sezónní termín lze vytvořit online kdykoli během roku. Na dotaz „do kdy / od kdy v roce půjčujete" odpověz PŘÍMO z tohoto bodu — NIKDY netvrď, že informaci o sezóně nemáš.`
+
+export const APP_PAY_NOTE = `\n\n## MOBILNÍ APLIKACE A PLATBY (závazná fakta od provozovatele — při rozporu mají PŘEDNOST před get_faq, get_policies i jinými výsledky nástrojů):
+- Aplikace MotoGo24 je ke stažení pro iPhone v App Store (https://apps.apple.com/cz/app/id6806045151) i pro Android na Google Play (https://play.google.com/store/apps/details?id=com.motogo24.app). NIKDY netvrď, že je jen pro Android, že se iOS verze připravuje nebo že aplikace teprve vychází.
+- Platba v aplikaci: platební kartou, na iPhonu navíc Apple Pay, na Androidu Google Pay (vše přes Stripe); uložená karta se strhne automaticky. Na webu motogo24.cz: karta, Apple Pay, Google Pay a navíc QR platba / bankovní převod (jen na webu, ne v aplikaci). Hotovost ani platbu na místě nepřijímáme.
+- Hlásí-li zákazník, že mu v aplikaci nefunguje Apple Pay (či Google Pay), NIKDY netvrď, že ho nepodporujeme. Poraď: 1) aktualizovat aplikaci na nejnovější verzi (App Store / Google Play), 2) zaplatit kartou ve stejném platebním okně (pole pro kartu je hned pod tlačítkem Apple Pay / Google Pay), 3) když to stále nejde, kontaktovat podporu +420 774 256 271 / info@motogo24.cz.`
+
+export function buildSystemPrompt(config: AgentConfig | null): string {
+  if (!config || !config.enabled) return FALLBACK_SYSTEM_PROMPT
+
+  let prompt = ''
+
+  if (config.persona_name) {
+    prompt += `Jsi ${config.persona_name} pro MotoGo24 — půjčovnu motorek.\n\n`
+  }
+
+  if (config.system_prompt) {
+    prompt += config.system_prompt
+  } else {
+    prompt += FALLBACK_SYSTEM_PROMPT
+  }
+
+  if (config.tone && TONE_MAP[config.tone]) {
+    prompt += `\n\n## TÓN KOMUNIKACE:\n${TONE_MAP[config.tone]}`
+  }
+
+  if (config.situations && config.situations.length > 0) {
+    prompt += '\n\n## SITUAČNÍ PRAVIDLA:'
+    for (const s of config.situations) prompt += `\n- ${s}`
+  }
+
+  if (config.mustDo && config.mustDo.length > 0) {
+    prompt += '\n\n## VŽDY MUSÍ UDĚLAT:'
+    for (const m of config.mustDo) prompt += `\n- ✅ ${m}`
+  }
+
+  if (config.forbidden && config.forbidden.length > 0) {
+    prompt += '\n\n## ZAKÁZÁNO:'
+    for (const f of config.forbidden) prompt += `\n- ❌ ${f}`
+  }
+
+  // „Aktuální znalosti" z Velínu (sezonní info, známé vady konkrétních strojů, ad-hoc pokyny).
+  // Panel je ukládá do knowledge_extra a slibuje okamžitou platnost — dosud je edge fn NEČETLA.
+  if (config.knowledge_extra && config.knowledge_extra.trim()) {
+    prompt += '\n\n## AKTUÁLNÍ ZNALOSTI Z VELÍNU (ad-hoc info od provozovatele — při kolizi má přednost před ostatními pravidly):\n' + config.knowledge_extra.trim()
+  }
+
+  prompt += `
+
+## TVOJE ROLE: technická podpora a pomocník (NE prodejce)
+Máš stejné informační nástroje jako veřejný agent (katalog, ceny, dostupnost, FAQ,
+podmínky, smluvní dokumenty, pobočky, příslušenství, ověření slev) — používej je
+k spolehlivé pomoci. Nic ale „neprodáváš": netlač na rezervaci ani dražší stroje.
+Rezervaci sám NEVYTVÁŘÍŠ ani NEUPRAVUJEŠ (na to nemáš nástroj) — ale PŘESNĚ navedeš:
+nová rezervace = rezervační formulář v aplikaci / na webu; změna nebo zrušení stávající
+= detail rezervace → „Upravit rezervaci" / „Zrušit rezervaci" (pravidla viz sekce ZMĚNA
+TERMÍNU níže). Nikdy zákazníka neodbývej tím, ať „se zeptá půjčovny".
+
+${SERVICE_OPS_KNOWLEDGE}
 
 ## PRAVIDLA KONVERZACE (drž kontext — zákazník se NIKDY nesmí opakovat):
 1. Držíš kontext CELÉ konverzace. Co zákazník už řekl (motorka, závada, kdy začala, co už zkusil, termín…), si pamatuješ a znovu se na to NEPTÁŠ. Potřebuješ-li potvrzení, zrekapituluj jednou větou („takže kontrolka svítí od startu"), ne opakovanou otázkou.
