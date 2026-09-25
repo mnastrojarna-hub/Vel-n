@@ -97,9 +97,9 @@ export const BRNO_AUDIO_OUTDOOR_EXAMPLE = { out: 'out9' }
 // kontakt jen vstup WAV617.
 export const ZONE_REFS = [
   { key: 'lock', label: 'Zámek', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'],
-    hint: 'Elektrický zámek těchto dveří: na kterém modulu Waveshare (WAV645 nebo WAV617 = Relay (B)) a na kterém relé je zapojený (coil 0 = relé R1). Jednotka sem po zadání kódu pošle krátký impulz. POVINNÉ — bez toho se dveře neotevřou.' },
+    hint: 'Elektrický zámek těchto dveří: na kterém modulu Waveshare (WAV645 nebo WAV617 = Relay (B)) a na kterém relé je zapojený (číslo relé R1–R8 / R1–R16 tak, jak je na modulu natištěné). Jednotka sem po zadání kódu pošle krátký impulz. POVINNÉ — bez toho se dveře neotevřou.' },
   { key: 'contact', label: 'Kontakt', idx: 'input', kind: 'input', types: ['wav617'],
-    hint: 'Dveřní čidlo, podle kterého jednotka pozná, jestli jsou dveře otevřené: na kterém modulu WAV617 a na kterém vstupu je zapojené (input 0 = DI1). POVINNÉ — bez něj by relace nikdy neskončila.' },
+    hint: 'Dveřní čidlo, podle kterého jednotka pozná, jestli jsou dveře otevřené: na kterém modulu WAV617 a na kterém vstupu je zapojené (číslo vstupu DI1–DI8 tak, jak je na modulu natištěné). POVINNÉ — bez něj by relace nikdy neskončila.' },
   { key: 'light', label: 'Světlo', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'],
     hint: 'Bílé světlo v této kóji / šatně: modul a relé, které ho spíná. Rozsvítí se po zadání kódu a zhasne po doběhu (sekce „Časování“, nebo vlastní čas této zóny níže).' },
   { key: 'audio', label: 'Audio', idx: 'coil', kind: 'coil', types: ['wav645', 'wav617'],
@@ -270,6 +270,42 @@ export function emptyZoneHw(zone) {
   return out
 }
 
+// Rozsahy kanálů modulů (1:1 s CHANNEL_LIMITS v jednotce, config.py): wav645 = 16 relé, wav617 = Relay (B) 8 relé + 8 vstupů,
+// Shelly RGBWW = světla id 0–4. Editor kanály UKAZUJE fyzickými čísly z potisku modulu (R1…, DI1…), v mapě (`hw`) je index od 0.
+export const CHANNEL_LIMITS = { wav645: { coil: 16 }, wav617: { coil: 8, input: 8 }, shelly_rgbww: { light: 5 } }
+
+// Fyzické číslo kanálu pro obsluhu: coil 7 → 'R8', input 7 → 'DI8', světlo Shelly zůstává id 0–4
+export function channelName(kind, idx) {
+  const n = parseInt(idx, 10)
+  if (!Number.isFinite(n)) return String(idx ?? '')
+  return kind === 'coil' ? `R${n + 1}` : kind === 'input' ? `DI${n + 1}` : `světlo ${n}`
+}
+// Index v mapě → text do políčka editoru (relé/vstup +1, Shelly beze změny); '' zůstává ''
+export function toPhysical(role, raw) {
+  if (raw === '' || raw == null) return ''
+  const n = parseInt(raw, 10)
+  return role.kind === 'light' || !Number.isFinite(n) ? String(raw) : String(n + 1)
+}
+// Text z políčka editoru → index v mapě (inverze toPhysical)
+export function fromPhysical(role, v) {
+  if (v === '' || v == null) return ''
+  const n = parseInt(v, 10)
+  return role.kind === 'light' || !Number.isFinite(n) ? String(v) : String(n - 1)
+}
+// Klíč kanálu (`dev:kind:idx`) → čitelný text: 'wav645:coil:7' → 'wav645 R8'
+export function channelLabel(key) {
+  const [dev, kind, idx] = String(key ?? '').split(':')
+  return dev && kind ? `${dev} ${channelName(kind, idx)}` : String(key ?? '')
+}
+// Chyba rozsahu kanálu pro roli na zařízení (jako v jednotce); null = OK / typ bez limitu
+export function channelRangeError(zone, role, dev, idx, devices) {
+  const limit = CHANNEL_LIMITS[devices?.[dev]?.type]?.[role.kind]
+  if (idx < 0) return role.kind === 'light' ? `Zóna ${zone}: ${role.key} má záporný index ${idx}.` : `Zóna ${zone}: ${role.key} — číslo kanálu musí být od 1 (${role.kind === 'coil' ? 'R1' : 'DI1'}).`
+  if (limit == null || idx < limit) return null
+  return role.kind === 'light' ? `Zóna ${zone}: ${role.key} ${dev} světlo ${idx} je mimo rozsah (id 0–${limit - 1}).`
+    : `Zóna ${zone}: ${role.key} ${dev} ${channelName(role.kind, idx)} je mimo rozsah modulu ${devices[dev].type} (${channelName(role.kind, 0)}–${channelName(role.kind, limit - 1)}).`
+}
+
 // Kanál (dev, druh, index) → klíč pro detekci duplicit; null když neúplný
 export function channelKey(ref, role) {
   if (!ref || !ref.dev) return null
@@ -361,9 +397,10 @@ export function draftToHw(draft, devices, audio) {
     const idx = ref ? parseInt(ref[role.idx], 10) : NaN
     const full = !!(ref && ref.dev && Number.isFinite(idx))
     hw[role.key] = full ? { dev: ref.dev, [role.idx]: idx } : null
-    if (full && idx < 0) return { error: `Zóna ${zone}: ${role.key} má záporný index ${idx}.`, hw }
     const typeErr = devices && full ? roleTypeError(zone, role, ref.dev, devices) : null
     if (typeErr) return { error: typeErr, hw }
+    const rangeErr = full ? channelRangeError(zone, role, ref.dev, idx, devices) : null
+    if (rangeErr) return { error: rangeErr, hw }
   }
   const out = String(draft.audio?.out ?? '').trim()
   if (out) {

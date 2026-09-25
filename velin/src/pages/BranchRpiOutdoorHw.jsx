@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Btn, Chip, Input, Select, Label } from './BranchRpiUi'
-import { audioMode, audioOutputNames } from './BranchRpiHardwareDefaults'
+import { audioMode, audioOutputNames, toPhysical, fromPhysical } from './BranchRpiHardwareDefaults'
 import {
   outdoorOf, outdoorToDraft, draftToOutdoor, doorCoils, legacyOutdoorChannel, audioWithoutOutdoorChannel,
   outdoorLightError, outdoorRelayError, outdoorShareError, outdoorOutError, outdoorZoneError,
-  OUTDOOR_LIGHT_MODES, OUTDOOR_MUSIC_MODES, LIGHT_MODE_AUTO,
+  OUTDOOR_LIGHT_MODES, OUTDOOR_MUSIC_MODES, LIGHT_MODE_AUTO, OUTDOOR_LIGHT_ROLE, OUTDOOR_RELAY_ROLE,
 } from './BranchRpiOutdoorHelpers'
 
 // ─── Venek (zóna bez dveří) — editor `hardware.outdoor` ──────────────────────
@@ -94,21 +94,21 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
         <Input label="Zóna" type="number" min={1} width={64} value={draft.zone} invalid={!!zoneErr || (draft.zone !== '' && !(parseInt(draft.zone, 10) >= 1))}
           title={zoneErr || 'Popisné číslo venku pro Velín, diagnostiku a příkazy — nesmí kolidovat s číslem zóny dveří'}
           onChange={v => patch(d => ({ ...d, zone: v }))} />
-        <div className="flex flex-col gap-0.5" title={lightErr || 'Venkovní osvětlení: relé Waveshare (zařízení + coil; coil 0 = R1)'}>
+        <div className="flex flex-col gap-0.5" title={lightErr || 'Venkovní osvětlení: relé Waveshare (zařízení + číslo relé R1… z potisku modulu)'}>
           <Label>Světlo (relé)</Label>
           <div className="flex gap-1">
             <Select width={96} value={draft.light.dev} options={devOpts(draft.light.dev)} invalid={!!lightErr} onChange={setRef('light', 'dev')} />
-            <Input width={54} type="number" min={0} value={draft.light.coil} placeholder="coil" invalid={!!lightErr} onChange={setRef('light', 'coil')} />
+            <Input width={54} type="number" min={1} value={toPhysical(OUTDOOR_LIGHT_ROLE, draft.light.coil)} placeholder="R…" invalid={!!lightErr} onChange={v => setRef('light', 'coil')(fromPhysical(OUTDOOR_LIGHT_ROLE, v))} />
           </div>
         </div>
         <Select label="Audio výstup" width={150} value={out} options={outOptions} invalid={!!outErr} warn={multi && !out} disabled={!multi}
           title={outErr || (!multi ? SELECTOR_TITLE : out ? `Výstup ${out} (outdoor.audio.out) — hraje při jakémkoli kódu` : 'Bez výstupu hudba venku nehraje')}
           onChange={setRef('audio', 'out')} />
-        <div className="flex flex-col gap-0.5" title={relayErr || (!multi ? SELECTOR_TITLE : 'Volitelné enable relé zesilovače venku (zařízení + coil)')}>
+        <div className="flex flex-col gap-0.5" title={relayErr || (!multi ? SELECTOR_TITLE : 'Volitelné enable relé zesilovače venku (zařízení + číslo relé R1…)')}>
           <Label>Enable relé (volit.)</Label>
           <div className="flex gap-1">
             <Select width={96} value={draft.audio.dev} options={devOpts(draft.audio.dev)} invalid={!!relayErr} disabled={!multi} onChange={setRef('audio', 'dev')} />
-            <Input width={54} type="number" min={0} value={draft.audio.coil} placeholder="coil" invalid={!!relayErr} disabled={!multi} onChange={setRef('audio', 'coil')} />
+            <Input width={54} type="number" min={1} value={toPhysical(OUTDOOR_RELAY_ROLE, draft.audio.coil)} placeholder="R…" invalid={!!relayErr} disabled={!multi} onChange={v => setRef('audio', 'coil')(fromPhysical(OUTDOOR_RELAY_ROLE, v))} />
           </div>
         </div>
         {!multi && <Chip tone="amber" title="Přepněte Audio → režim na multi a nastavte výstup venku">hudba venku jen v multi</Chip>}

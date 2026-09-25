@@ -1,4 +1,4 @@
-import { ZONE_REFS, channelKey, audioMode, audioOutputNames } from './BranchRpiHardwareDefaults'
+import { ZONE_REFS, channelKey, channelName, audioMode, audioOutputNames } from './BranchRpiHardwareDefaults'
 
 // ─── Venek (zóna bez dveří) — `hardware.outdoor` (kanonický) + legacy alias `audio.channels.outdoor` ───
 // Kanonický tvar (rozhodnutí 2026-09-11; jednotka: config_outdoor.py):
@@ -125,9 +125,9 @@ function relayError(who, ref, devices, coils) {
   if (!d) return `${who} odkazuje na neznámé zařízení '${dev}'.`
   if (!WAVESHARE.includes(d.type)) return who === 'Venek: light' ? `${who} musí být relé Waveshare (je ${d.type}).` : `${who} musí být Waveshare (je ${d.type}).`
   const limit = COIL_LIMITS[d.type]
-  if (idx < 0 || (limit != null && idx >= limit)) return `${who} ${dev}[${idx}] je mimo rozsah modulu ${d.type} (0–${(limit || 1) - 1}).`
+  if (idx < 0 || (limit != null && idx >= limit)) return `${who} ${dev} ${channelName('coil', idx)} je mimo rozsah modulu ${d.type} (R1–R${limit || 1}).`
   const used = coils?.get(`${dev}:coil:${idx}`)
-  if (used) return `${who} ${dev}[${idx}] už používá zóna ${used.zone} (${used.role}).`
+  if (used) return `${who} ${dev} ${channelName('coil', idx)} už používá zóna ${used.zone} (${used.role}).`
   return null
 }
 // Chyba světla venku (validate_outdoor) / enable relé venku (validate_audio, kanál outdoor); null = OK
@@ -137,7 +137,7 @@ export function outdoorRelayError(ref, devices, coils) { return relayError('Kan�
 // `outdoor.audio` doplní i z legacy kanálu); null = OK / některý odkaz neúplný
 export function outdoorShareError(light, audio) {
   const l = fullRef(light).ref, a = fullRef(audio).ref
-  return l && a && l.dev === a.dev && l.coil === a.coil ? `Venek: light a audio sdílí ${l.dev}[${l.coil}].` : null
+  return l && a && l.dev === a.dev && l.coil === a.coil ? `Venek: light a audio sdílí ${l.dev} ${channelName('coil', l.coil)}.` : null
 }
 
 // Výstup venku v režimu multi — texty 1:1 s validate_audio() (kanál outdoor); v selectoru se nekontroluje (jednotka jen upozorní)
@@ -177,11 +177,11 @@ export function draftToOutdoor(draft, { devices, audio, doors }) {
   if (zoneErr) return { error: zoneErr }
   const coils = doorCoils(doors)
   const light = fullRef(draft?.light)
-  if (light.partial) return { error: 'Venek: světlo — vyplňte zařízení i coil, nebo obojí vymažte.' }
+  if (light.partial) return { error: 'Venek: světlo — vyplňte zařízení i číslo relé, nebo obojí vymažte.' }
   const lightErr = outdoorLightError(draft?.light, devices, coils)
   if (lightErr) return { error: lightErr }
   const relay = fullRef(draft?.audio)
-  if (relay.partial) return { error: 'Venek: enable relé — vyplňte zařízení i coil, nebo obojí vymažte.' }
+  if (relay.partial) return { error: 'Venek: enable relé — vyplňte zařízení i číslo relé, nebo obojí vymažte.' }
   const shareErr = outdoorShareError(draft?.light, draft?.audio)
   if (shareErr) return { error: shareErr }
   const out = String(draft?.audio?.out ?? '').trim()
