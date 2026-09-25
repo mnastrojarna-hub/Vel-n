@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Btn, Chip, Input, Select, Label, Checkbox } from './BranchRpiUi'
-import { AUDIO_MODES, BRNO_AUDIO_OUTPUTS_EXAMPLE, audioMode, audioOutputNames, roleTypeError, ZONE_REFS } from './BranchRpiHardwareDefaults'
+import { AUDIO_MODES, BRNO_AUDIO_OUTPUTS_EXAMPLE, audioMode, audioOutputNames, roleTypeError, toPhysical, fromPhysical, ZONE_REFS } from './BranchRpiHardwareDefaults'
 import { outdoorOf, outdoorOutOf, outdoorRelayError, doorCoils } from './BranchRpiOutdoorHelpers'
 
 // ─── Audio: režim, výstupy (`hardware.audio.{mode,outputs}`) ─────────────────
@@ -173,8 +173,8 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
     <div className="flex gap-1">
       <Select width={96} value={ref.dev} options={unknownDev ? [...devOptions, { value: ref.dev, label: `${ref.dev} (?)` }] : devOptions}
         invalid={dup || !!typeErr} onChange={v => onPatch(p => ({ ...p, audio: { ...p.audio, dev: v } }))} />
-      <Input width={54} type="number" min={0} value={ref.coil} placeholder="coil" invalid={dup || !!typeErr}
-        onChange={v => onPatch(p => ({ ...p, audio: { ...p.audio, coil: v } }))} />
+      <Input width={54} type="number" min={1} value={toPhysical(AUDIO_ROLE, ref.coil)} placeholder="R…" invalid={dup || !!typeErr}
+        onChange={v => onPatch(p => ({ ...p, audio: { ...p.audio, coil: fromPhysical(AUDIO_ROLE, v) } }))} />
     </div>
   )
   if (!multi) return <div className="flex flex-col gap-0.5" title={relayTitle}><Label>Audio</Label>{relay}</div>

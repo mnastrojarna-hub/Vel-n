@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo } from 'react'
 import { Btn, Chip, Input, Select, Label, doorKindLabel } from './BranchRpiUi'
 import { DoorAudioCell } from './BranchRpiAudioHw'
 import {
-  ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, ZONE_LIGHT_OPTIONS, audioMode, channelKey, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
+  ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, ZONE_LIGHT_OPTIONS, audioMode, channelKey, channelLabel, toPhysical, fromPhysical, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
 } from './BranchRpiHardwareDefaults'
 import { outdoorRefs } from './BranchRpiOutdoorHelpers'
 
 // ─── Editor `branch_doors.hw` — mapování zóny na kanály hardwaru ────────────
-// Lokální drafty per dveře; uložení tlačítkem → onSaveDoor(id, { hw }).
+// Lokální drafty per dveře (indexy od 0 jako v `hw`; políčka ukazují fyzická čísla R1…/DI1… — toPhysical/fromPhysical);
+// uložení tlačítkem → onSaveDoor(id, { hw }).
 // Stejná pravidla jako validate_hardware() v jednotce: duplicitní kanály mezi dveřmi (i uvnitř jedněch),
 // duplicitní čísla zón a špatný typ zařízení pro roli se zvýrazní červeně a BLOKUJÍ uložení
 // (jednotka by jinak celou mapu odmítla a Velín by ukazoval „Uloženo“).
@@ -59,7 +60,7 @@ function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
     if (error) { setMsg(m => ({ ...m, [d.id]: { text: error, tone: 'red' } })); return }
     if (hw.audio?.out && dupOuts.has(hw.audio.out)) { setMsg(m => ({ ...m, [d.id]: { text: `Audio výstup ${hw.audio.out} už používá jiná zóna nebo venek.`, tone: 'red' } })); return }
     const usedChannel = ZONE_REFS.map(role => channelKey(draft[role.key], role)).find(k => k && dupes.has(k))
-    if (usedChannel) { setMsg(m => ({ ...m, [d.id]: { text: `Kanál ${usedChannel} už používá jiná zóna/role nebo venek.`, tone: 'red' } })); return }
+    if (usedChannel) { setMsg(m => ({ ...m, [d.id]: { text: `Kanál ${channelLabel(usedChannel)} už používá jiná zóna/role nebo venek.`, tone: 'red' } })); return }
     const ok = await onSaveDoor(d.id, { hw })
     if (ok === false) { setMsg(m => ({ ...m, [d.id]: { text: 'Uložení selhalo (viz chyba nahoře).', tone: 'red' } })); return }
     setDrafts(prev => ({ ...prev, [d.id]: { ...prev[d.id], dirty: false } }))
@@ -86,7 +87,7 @@ function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
       })}
       {dupes.size > 0 && (
         <div className="text-[12px] font-bold p-2 rounded-lg" style={{ background: '#fee2e2', color: '#dc2626' }}>
-          Duplicitní kanály: {[...dupes].join(', ')} — každý kanál smí používat jen jedna zóna/role (nebo venek).
+          Duplicitní kanály: {[...dupes].map(channelLabel).join(', ')} — každý kanál smí používat jen jedna zóna/role (nebo venek).
         </div>
       )}
       {dupZones.size > 0 && (
@@ -138,9 +139,9 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
                 <Select width={96} value={ref.dev} options={unknownDev ? [...devOptions, { value: ref.dev, label: `${ref.dev} (?)` }] : devOptions}
                   invalid={dup || !!typeErr}
                   onChange={v => onPatch(p => ({ ...p, [role.key]: { ...p[role.key], dev: v } }))} />
-                <Input width={54} type="number" min={0} value={ref[role.idx]} placeholder={role.idx}
-                  invalid={dup || !!typeErr}
-                  onChange={v => onPatch(p => ({ ...p, [role.key]: { ...p[role.key], [role.idx]: v } }))} />
+                <Input width={54} type="number" min={role.kind === 'light' ? 0 : 1} value={toPhysical(role, ref[role.idx])}
+                  placeholder={role.kind === 'coil' ? 'R…' : role.kind === 'input' ? 'DI…' : 'id'} invalid={dup || !!typeErr}
+                  onChange={v => onPatch(p => ({ ...p, [role.key]: { ...p[role.key], [role.idx]: fromPhysical(role, v) } }))} />
               </div>
             </div>
           )
