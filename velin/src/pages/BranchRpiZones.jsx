@@ -296,8 +296,8 @@ function ZoneTile({ z, door, handover, onSend, onConfirm }) {
       </div>
       {arr(z.signal_offline).length > 0 && (
         <div className="text-[11px] mt-0.5" style={{ color: '#b45309' }}
-          title="Shelly signalizace této zóny neodpovídá. Dveře, světlo i hudba fungují normálně — chybí jen barevná signalizace. Pokud Shelly nejsou zapojené, smažte je u dveří (červená/zelená) a ze seznamu zařízení.">
-          signalizace nedostupná: {arr(z.signal_offline).map(txt).join(', ')}
+          title="Modul světla nebo Shelly signalizace této zóny neodpovídá. Dveře a hudba fungují normálně — chybí jen světlo / barevná signalizace. Pokud modul není zapojený, smažte ho u dveří a ze seznamu zařízení.">
+          světlo / signalizace nedostupné: {arr(z.signal_offline).map(txt).join(', ')}
         </div>
       )}
       <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px]" style={{ color: '#6b8c7a' }}>

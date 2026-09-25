@@ -161,8 +161,9 @@ async def test_zone_safety_rules(tmp_path, sim, httpsrv):
     ctrl = full_ctrl(tmp_path, sim, httpsrv)
     ctrl.zones[2] = FakeZone(ctrl, 2, state=ZoneState.FAULT, fault="forced_open", door_closed=False)
     ctrl.io.inputs["wav617a"][1] = False                       # dveře zóny 2 skutečně otevřené
-    ctrl.zones[4] = FakeZone(ctrl, 4, hw=dataclasses.replace(zone_hw(4), light=HwRef("wav617b", 0)))
-    ctrl.io.offline.add("wav617b")                             # modul světla zóny 4 offline → io_offline
+    ctrl.zones[4] = FakeZone(ctrl, 4, hw=dataclasses.replace(zone_hw(4), lock=HwRef("wav617b", 0)))
+    ctrl.io.offline.add("wav617b")                             # modul ZÁMKU zóny 4 offline → io_offline
+    ctrl.zones[5] = FakeZone(ctrl, 5, hw=dataclasses.replace(zone_hw(5), light=HwRef("wav617b", 1)))   # jen světlo offline → neblokuje
     ctrl.local.diagnostics.zone_test = False
     ctrl.diagnostics.start("service_panel")
     zs = {z["zone"]: z for z in (await ctrl.diagnostics.wait())["zones"]}
@@ -178,6 +179,7 @@ async def test_zone_safety_rules(tmp_path, sim, httpsrv):
     zs = {z["zone"]: z for z in report["zones"]}
     assert zs[1]["tested"] and zs[2]["skipped_reason"] == "fault" and zs[2]["fault"] == "forced_open" and ctrl.zones[2].tests == 0
     assert zs[4]["skipped_reason"] == "io_offline" and "wav617b" in zs[4]["io_problems"] and any("I/O" in p for p in zs[4]["problems"])
+    assert zs[5]["skipped_reason"] != "io_offline" and not zs[5]["io_problems"] and "wav617b" in zs[5]["signal_offline"]
     assert not ctrl.io.pulses
     ids = {i["id"]: i for s in report["protocol"] if s["key"] == "zones" for i in s["items"]}
     assert ids["zone.2"]["status"] == "warn" and "porucha" in ids["zone.2.fault"]["label"] and ids["zone.2.fault"]["hint"]

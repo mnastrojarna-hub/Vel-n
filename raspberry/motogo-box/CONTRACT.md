@@ -443,7 +443,7 @@ class ZoneController:
         #  DOOR_OPEN + zavřeno stabilně ≥ door_close_debounce_ms → CLOSED_CONFIRMATION, RED, event DOOR_CLOSED (+ SESSION_COMPLETED)
         #  CLOSED_CONFIRMATION + otevřeno → zpět DOOR_OPEN (stejná relace)
         #  None (modul kontaktu offline) v jakémkoli stavu → FAULT 'io_offline', BOTH_BLINK, hudba stop, event IO_OFFLINE; návrat hodnoty → startup(door_closed)
-        #  jiný modul offline (zámek/světlo/Shelly) během aktivní relace (WAITING/DOOR_OPEN/CLOSED_CONF) → relace pokračuje
+        #  jiný modul offline (zámek) během aktivní relace (WAITING/DOOR_OPEN/CLOSED_CONF) → relace pokračuje; světlo/Shelly offline nikdy neblokují
         #    v režimu `degraded=True` (nový přístup zamítnut io_ready=False); io_offline až po skončení relace (evaluate po SECURED)
     async def grant_access(self, *, booking_id: str | None, kind: str, source: str) -> tuple[bool, str]
         # §9 „Platný PIN" kroky 4–12: io_ready? ne → (False,'io_offline'); state ∉ {SECURED, CLOSED_CONFIRMATION} → (False,'busy'/'door_open');
@@ -1299,7 +1299,7 @@ hlášená verze nebo celkový timeout). Nový `update.sh` se tím stane `motogo
 
 ---
 
-**Signalizace (2026-09-25):** výpadek/nezapojení Shelly zóny NENÍ porucha — `io_problems()` zahrnuje jen zámek/kontakt/světlo, `signal_problems()` → `ZoneStatus.signal_offline[]` (Velín žlutě „signalizace nedostupná“), `ZoneStatus.io_problems[]` říká, který modul chybí (Velín u poruchy v závorce).
+**Signalizace (2026-09-25) a světlo (2026-09-26):** výpadek/nezapojení Shelly ani modulu SVĚTLA zóny NENÍ porucha — `io_problems()` zahrnuje jen zámek/kontakt, `signal_problems()` (světlo + Shelly) → `ZoneStatus.signal_offline[]` (Velín žlutě „světlo / signalizace nedostupné“), `ZoneStatus.io_problems[]` říká, který modul chybí (Velín u poruchy v závorce).
 
 **Světla (2026-09-25):** zóna s `hw.light_until_moto_code: true` (šatna) po SECURED světlo NEzhasne — drží ho `ZoneController.light_hold_since`, zhasne `light_off_after_moto_code()` (controller.emit při ACCESS_GRANTED kind=motorcycle, jen když v šatně nikdo není) nebo pojistka `maximum_session_s` zóny v `tick`. Venek `light_mode: branch` — `OutdoorController.branch_open` z `kiosk_sync_config.branch_is_open` (kv `branch_is_open` pro start offline), ruční příkaz má přednost, `status().branch_open`.
 

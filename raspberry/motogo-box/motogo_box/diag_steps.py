@@ -262,7 +262,7 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
         add("io", "fail", "I/O nedostupné: " + ", ".join(io_problems))
     signal_offline = _try(lambda: zc.signal_problems(), []) or []
     if signal_offline:
-        add("signal", "warn", "signalizace (Shelly) nedostupná: " + ", ".join(signal_offline) + " — dveře fungují, jen bez barevné signalizace")
+        add("signal", "warn", "světlo / signalizace nedostupné: " + ", ".join(signal_offline) + " — dveře fungují, jen bez světla / barevné signalizace")
     tested, skipped, light, signal, audio = False, None, None, None, None
     if not diag.cfg.zone_test:
         skipped = "zone_test_disabled"
@@ -302,7 +302,7 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
     shelly = await _shelly_state(ctrl, zc, add)
     return {"zone": zc.number, "label": z.display_name, "kind": z.kind, "door_id": z.door_id, "box_number": z.box_number,
             "state": state, "fault": fault, "door_closed": zc.door_closed, "session_active": active,
-            "contact_raw": contact_raw, "contact_consistent": consistent, "io_problems": io_problems, "lock": lock,
+            "contact_raw": contact_raw, "contact_consistent": consistent, "io_problems": io_problems, "signal_offline": signal_offline, "lock": lock,
             "tested": tested, "skipped_reason": skipped, "light": light, "signal": signal, "audio": audio,
             "shelly": shelly, "findings": findings, "problems": [f["message"] for f in findings]}
 
