@@ -173,6 +173,7 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
     <div className="flex gap-1">
       <Select width={96} value={ref.dev} options={unknownDev ? [...devOptions, { value: ref.dev, label: `${ref.dev} (?)` }] : devOptions}
         invalid={dup || !!typeErr} onChange={v => onPatch(p => ({ ...p, audio: { ...p.audio, dev: v } }))} />
+      <span className="self-center text-[11px] font-extrabold" style={{ color: '#6b8c7a', minWidth: 14 }}>R</span>
       <Input width={54} type="number" min={1} value={toPhysical(AUDIO_ROLE, ref.coil)} placeholder="R…" invalid={dup || !!typeErr}
         onChange={v => onPatch(p => ({ ...p, audio: { ...p.audio, coil: fromPhysical(AUDIO_ROLE, v) } }))} />
     </div>

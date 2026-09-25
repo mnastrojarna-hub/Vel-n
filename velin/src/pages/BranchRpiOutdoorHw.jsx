@@ -98,6 +98,7 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
           <Label>Světlo (relé)</Label>
           <div className="flex gap-1">
             <Select width={96} value={draft.light.dev} options={devOpts(draft.light.dev)} invalid={!!lightErr} onChange={setRef('light', 'dev')} />
+            <span className="self-center text-[11px] font-extrabold" style={{ color: '#6b8c7a', minWidth: 14 }}>R</span>
             <Input width={54} type="number" min={1} value={toPhysical(OUTDOOR_LIGHT_ROLE, draft.light.coil)} placeholder="R…" invalid={!!lightErr} onChange={v => setRef('light', 'coil')(fromPhysical(OUTDOOR_LIGHT_ROLE, v))} />
           </div>
         </div>
@@ -108,6 +109,7 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
           <Label>Enable relé (volit.)</Label>
           <div className="flex gap-1">
             <Select width={96} value={draft.audio.dev} options={devOpts(draft.audio.dev)} invalid={!!relayErr} disabled={!multi} onChange={setRef('audio', 'dev')} />
+            <span className="self-center text-[11px] font-extrabold" style={{ color: '#6b8c7a', minWidth: 14 }}>R</span>
             <Input width={54} type="number" min={1} value={toPhysical(OUTDOOR_RELAY_ROLE, draft.audio.coil)} placeholder="R…" invalid={!!relayErr} disabled={!multi} onChange={v => setRef('audio', 'coil')(fromPhysical(OUTDOOR_RELAY_ROLE, v))} />
           </div>
         </div>
