@@ -103,7 +103,7 @@ class DiagnosticsCfg:
     """Diagnostika sítě (`diagnostics.py`): kód z displeje + parametry scanu LAN."""
 
     code: str = ""                  # kód zadaný na displeji (install.sh generuje náhodný); prázdný = jen Velín/servisní heslo
-    scan_ports: list = field(default_factory=lambda: [502, 80, 443, 22, 8080, 8443, 1883])
+    scan_ports: list = field(default_factory=lambda: [502, 4196, 80, 443, 22, 8080, 8443, 1883])   # 4196 = tovární RTU přes TCP Waveshare
     scan_timeout_ms: int = 600
     scan_concurrency: int = 96
     scan_subnets: list = field(default_factory=list)   # CIDR navíc k podsítím rozhraní, např. 192.168.50.0/24
