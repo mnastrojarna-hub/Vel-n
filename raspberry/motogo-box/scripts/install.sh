@@ -308,7 +308,7 @@ if [[ -f "$NM_DIR/motogo-lan.nmconnection" ]]; then
   ok "motogo-lan existuje — ponechán"
 else
   cp "$APP_DIR/systemd/motogo-lan.nmconnection" "$NM_DIR/motogo-lan.nmconnection"
-  ok "motogo-lan vytvořen (eth0 192.168.50.10/24, bez výchozí brány)"
+  ok "motogo-lan vytvořen (eth0: DHCP z routeru = internet + statické 192.168.50.10/24, 192.168.1.253/24)"
 fi
 chmod 600 "$NM_DIR"/motogo-*.nmconnection; chown root:root "$NM_DIR"/motogo-*.nmconnection
 nmcli connection reload || warn "nmcli reload selhal (NetworkManager neběží?)"
@@ -317,6 +317,12 @@ if ! nmcli -g ipv4.addresses con show motogo-lan 2>/dev/null | tr ',' '\n' | tr 
   nmcli con modify motogo-lan +ipv4.addresses 192.168.1.253/24 2>/dev/null \
     && ok "motogo-lan: pomocná adresa 192.168.1.253/24 (tovární síť Waveshare)" \
     || warn "motogo-lan: pomocnou adresu 192.168.1.253/24 nejde přidat"
+fi
+# Starší profil (manual, never-default) → hybrid: DHCP z routeru na kabelu = internet, LTE záloha (2026-09-26).
+if [[ "$(nmcli -g ipv4.method con show motogo-lan 2>/dev/null)" != "auto" ]]; then
+  nmcli con modify motogo-lan ipv4.method auto ipv4.dhcp-timeout infinity ipv4.never-default no ipv4.ignore-auto-dns no \
+    ipv4.ignore-auto-routes no ipv4.route-metric 50 ipv4.dns-priority 0 2>/dev/null \
+    && ok "motogo-lan: hybrid (DHCP z routeru + statické adresy I/O sítě)" || warn "motogo-lan: přepnutí na hybrid selhalo"
 fi
 # I/O síť vždy dostupná (i když eth0 jede na DHCP kvůli internetu): NM dispatcher přidá 192.168.50.10/24 + 192.168.1.253/24
 mkdir -p /etc/NetworkManager/dispatcher.d

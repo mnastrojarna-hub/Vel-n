@@ -347,3 +347,11 @@ def test_pin2_is_not_a_sim_lock_and_unused_roles_are_skipped():
     sec = dp._config({"config": cfg, "steps": {"config": {"ok": True}}})
     st = {i["id"]: i["status"] for i in sec["items"]}
     assert st["config.zone.1.red"] == "skip" and st["config.zone.1.audio"] == "skip" and st["config.zone.8.light"] == "warn"
+
+
+def test_gateway_via_cable_router_is_ok():
+    ifc = {"interfaces": [{"name": "eth0", "state": "up", "ipv4": [{"addr": "192.168.1.50", "prefix": 24}]}],
+           "default_routes": [{"gateway": "192.168.1.2", "dev": "eth0", "metric": 50}], "dns": ["192.168.1.2"]}
+    sec = dp._network({"interfaces": ifc})
+    gw = next(i for i in sec["items"] if i["id"] == "network.gateway")
+    assert gw["status"] == "ok" and "kabelem" in gw["message"]

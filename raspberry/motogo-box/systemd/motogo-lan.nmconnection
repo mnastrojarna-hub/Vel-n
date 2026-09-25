@@ -1,7 +1,11 @@
-# MotoGo Box — LAN profil pro I/O síť (Teltonika switch, Waveshare, Shelly). SPEC §4:
-# statická 192.168.50.10/24 (+ pomocná 192.168.1.253/24 = tovární síť Waveshare 192.168.1.254 — jednotka
-# nový modul najde a sama mu nastaví IP z Velína, io_provision.py), BEZ výchozí brány (never-default) a BEZ DNS, aby internet
-# vedl výhradně přes LTE a I/O síť fungovala i bez internetu.
+# MotoGo Box — LAN profil pro I/O síť (Teltonika switch, Waveshare, Shelly). SPEC §4, HARDWARE.md §1.
+# HYBRID (2026-09-26): DHCP z routeru na kabelu (je-li tam) + statické adresy I/O sítě 192.168.50.10/24
+# a pomocná 192.168.1.253/24 (tovární síť Waveshare 192.168.1.254 — io_provision.py). Když na kabelu je router
+# (Velké Němčice: Teltonika 192.168.1.2), dá eth0 výchozí bránu s metrikou 50 → INTERNET JDE KABELEM a LTE
+# (motogo-lte, metrika 100) je jen záloha (SIM7600 vypadává z USB — HARDWARE.md „Známá závada"). Bez DHCP serveru
+# (pobočka jen s LTE + holý switch) žádná brána přes eth0 nevznikne, jede LTE; `dhcp-timeout=infinity` = aktivace
+# se nikdy nevzdá a statické adresy zůstávají (pojistka navíc: NM dispatcher 50-motogo-lan-addr + health).
+# Návrat na „jen LTE": nmcli con modify motogo-lan ipv4.never-default yes
 # Umístění: /etc/NetworkManager/system-connections/motogo-lan.nmconnection (chmod 600, root).
 [connection]
 id=motogo-lan
@@ -13,13 +17,13 @@ autoconnect-priority=20
 [ethernet]
 
 [ipv4]
-method=manual
+method=auto
 addresses=192.168.50.10/24,192.168.1.253/24
-never-default=true
-ignore-auto-dns=true
-ignore-auto-routes=true
-route-metric=500
-dns-priority=1000
+dhcp-timeout=infinity
+never-default=false
+ignore-auto-dns=false
+ignore-auto-routes=false
+route-metric=50
 
 [ipv6]
 method=ignore

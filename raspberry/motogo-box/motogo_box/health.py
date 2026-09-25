@@ -63,6 +63,7 @@ MMCLI_TIMEOUT_S = 15.0
 HISTORY_MAX = 200            # položek historie akcí (24 h) v /var/lib/motogo/health.json
 SIGNAL_SETUP_RATE_S = 30
 LAN_UP_WAIT_S = 20           # `nmcli -w 20 con up motogo-lan` — hodnota MUSÍ sedět s aliasem v motogo-sudoers
+LAN_ADDR_DISPATCHER = "/etc/NetworkManager/dispatcher.d/50-motogo-lan-addr"   # tamtéž (argumenty `eth0 manual`)
 KILL_WAIT_S = 5.0            # po timeoutu: jak dlouho čekat na konec (ne)zabitého potomka
 
 RunCmd = Callable[..., Awaitable[tuple[int, str]]]
@@ -445,6 +446,12 @@ class HealthMonitor:
         con = self.cfg.lan_connection
         log.warning("I/O síť: %s má link, ale nemá adresu → nahazuji profil %s", self.cfg.lan_interface, con)
         sd_notify("WATCHDOG=1")   # nmcli čeká až LAN_UP_WAIT_S — watchdog nesmí zabít obnovu
+        # 1) adresy I/O sítě hned (NM dispatcher 50-motogo-lan-addr, idempotentní `ip addr replace`) — hybridní profil
+        #    může s DHCP čekat (dhcp-timeout=infinity) a moduly nesmí záviset na tom, kdy NM aktivaci dokončí
+        rc, out = await self.run_cmd("sudo", "-n", LAN_ADDR_DISPATCHER, self.cfg.lan_interface, "manual", timeout=15)
+        if rc != 0:
+            log.warning("dispečer %s selhal (rc=%s): %s", LAN_ADDR_DISPATCHER, rc, out.strip()[:200])
+        # 2) profil (DHCP z routeru → výchozí brána kabelem)
         rc, out = await self.run_cmd("sudo", "-n", "nmcli", "-w", str(LAN_UP_WAIT_S), "con", "up", con,
                                      timeout=LAN_UP_WAIT_S + 15)
         if rc != 0:

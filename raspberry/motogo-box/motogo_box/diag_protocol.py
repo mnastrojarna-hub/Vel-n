@@ -142,11 +142,12 @@ def _network(r: dict) -> dict:
                        f"Rozhraní {name} nemá IPv4 adresu (stav {i.get('state')})." if bad else "", hint("iface_down", name=name)))
     routes = ifc.get("default_routes") or []
     dev = str(routes[0].get("dev") or "") if routes else ""
-    it.append(item("network.gateway", "Výchozí brána", "fail" if not routes else "warn" if dev.startswith("eth") else "ok",
+    # Brána přes eth0 = router na kabelu (hybridní motogo-lan, 2026-09-26): internet jde kabelem, LTE je záloha — OK.
+    it.append(item("network.gateway", "Výchozí brána", "fail" if not routes else "ok",
                    f"{routes[0].get('gateway') or routes[0].get('via') or '?'} přes {dev}" if routes else None,
                    "Chybí výchozí brána (žádná default route) — internet nemůže fungovat." if not routes else
-                   f"Výchozí brána vede přes {dev} (LAN modulů) místo LTE." if dev.startswith("eth") else "",
-                   hint("gateway_missing" if not routes else "gateway_eth")))
+                   "Internet kabelem z routeru (LTE = záloha)." if dev.startswith("eth") else "",
+                   hint("gateway_missing") if not routes else None))
     dns = ifc.get("dns") or []
     it.append(item("network.dns", "DNS servery", "ok" if dns else "fail", ", ".join(map(str, dns)) or None,
                    "" if dns else "Není nastaven žádný DNS server (/etc/resolv.conf).", hint("dns_missing")))

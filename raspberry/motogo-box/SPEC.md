@@ -131,7 +131,7 @@ U TSW202 se objevují dvě specifikace. Aktuální rychlý návod uvádí napáj
 
 ## 4. Síťová konfigurace
 
-Použít samostatnou lokální síť:
+Použít samostatnou lokální síť (doplněno 2026-09-26: profil `motogo-lan` je hybridní — statické adresy níže + DHCP; je-li na switchi router s internetem, jde internet kabelem s metrikou 50 a LTE je záloha; bez routeru jede jen LTE — HARDWARE.md §1):
 
 | Zařízení | IP adresa |
 |---|---|

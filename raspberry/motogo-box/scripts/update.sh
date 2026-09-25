@@ -216,6 +216,19 @@ if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | g
   fi
 fi
 
+# ── hybridní motogo-lan (2026-09-26): DHCP z routeru na kabelu = internet (LTE záloha) + statické adresy I/O sítě ──
+LAN_HYBRID="ipv4.method auto ipv4.dhcp-timeout infinity ipv4.never-default no ipv4.ignore-auto-dns no ipv4.ignore-auto-routes no ipv4.route-metric 50 ipv4.dns-priority 0"
+if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | grep -qx motogo-lan \
+   && [[ "$(nmcli -g ipv4.method con show motogo-lan 2>/dev/null)" != "auto" ]]; then
+  # shellcheck disable=SC2086
+  if nmcli con modify motogo-lan $LAN_HYBRID; then
+    nmcli device reapply eth0 >/dev/null 2>&1 || nmcli -w 20 con up motogo-lan >/dev/null 2>&1 || true
+    log "motogo-lan: přepnut na hybrid (DHCP z routeru + statické adresy I/O sítě; kabel = internet, LTE záloha)"
+  else
+    log "UPOZORNĚNÍ: motogo-lan se nepodařilo přepnout na hybrid (nmcli con modify selhal)"
+  fi
+fi
+
 # ── I/O síť vždy dostupná: NM dispatcher přidá 192.168.50.10/24 (+ tovární 192.168.1.253/24) na eth0 i při DHCP ──
 LAN_ADDR="50-motogo-lan-addr"
 if [[ -f "$APP_DIR/systemd/$LAN_ADDR" ]]; then

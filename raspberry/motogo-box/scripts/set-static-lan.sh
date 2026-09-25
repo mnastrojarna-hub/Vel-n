@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# MotoGo Box — aplikuje LAN profil (eth0 statická 192.168.50.10/24, bez výchozí brány) — SPEC §4.
+# MotoGo Box — aplikuje LAN profil motogo-lan (HYBRID od 2026-09-26: DHCP z routeru na kabelu = internet,
+# + statické 192.168.50.10/24 a 192.168.1.253/24 pro moduly; bez routeru žádná brána přes eth0 → LTE) — SPEC §4.
+# Od PR #2098 adresy modulů drží NM dispatcher 50-motogo-lan-addr, skript je jen pro ruční nasazení profilu.
 # Použití: sudo set-static-lan.sh [cesta k .nmconnection]   (výchozí /opt/motogo/systemd/motogo-lan.nmconnection)
 # Postup: 1) profil do NM, 2) `nmcli connection up motogo-lan` — NM tím ATOMICKY nahradí aktivní profil
 # na eth0 (typicky DHCP „Wired connection 1“), 3) konkurenčním profilům eth0 vypne autoconnect.
 # Nikdy nevolá `connection down` aktivního profilu (eth0 by zůstalo bez adresy až do restartu).
 # Přes SSH na eth0 spojení SPADNE (IP se změní na 192.168.50.10) — proto se skript sám odpojí od
 # terminálu (setsid/nohup) a doběhne; výstup je v /var/log/motogo-set-static-lan.log.
-# Nakonec ověří, že výchozí trasa NEVEDE přes eth0 (internet musí jít přes LTE).
+# Výchozí trasa přes eth0 je od hybridu V POŘÁDKU (router na kabelu); bez routeru vede internet přes LTE.
 set -euo pipefail
 
 SRC="${1:-/opt/motogo/systemd/motogo-lan.nmconnection}"
