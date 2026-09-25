@@ -59,6 +59,23 @@ interní sériovka `115200-8-N-1`. Shelly: režim Lights ×5, cloud/BT vypnout, 
 Polling: kontakty každých 100 ms, sw debounce 300 ms, Modbus timeout 500 ms, retry 100/250/500 ms,
 modul offline po 3 neúspěších (→ zóna BOTH_BLINK, přístup zakázán).
 
+### 2a. Pobočka / test s jediným modulem Modbus POE ETH Relay (B) (typ `wav617`)
+
+Relay (B) umí HW flash-on (FC05 `0x0200`+relé) stejně jako WAV645, takže **zámky smí být i na něm**
+(CH1–CH7 = kóje 1–7, CH8 = šatna; `lock: {dev: <modul>, coil: 0–7}`, kontakty DI1–DI8 = `input: 0–7`).
+Povinné jsou jen **zámek + kontakt**; světlo a červená/zelená jsou volitelné. Nastavené, ale
+nedostupné zařízení (např. Shelly ještě nezapojené) **blokuje přístup** (zóna `io_offline`, na displeji
+bliká červená i zelená) — v testu je ve Velíně u dveří **smaž** (i nepoužitá zařízení ze seznamu).
+
+1. IP modulu: výchozí z výroby **192.168.1.254** — RPi (192.168.50.10, bez brány) na ni nedosáhne.
+   Přes Vircom / web modulu nastav `192.168.50.21` (nebo jinou volnou .50.x), TCP server, Modbus TCP, port 502, unit 1.
+2. Velín → Samoobsluha → hardware: zařízení `wav617a` typ WAV617 s touto IP; u dveří šatny
+   `lock {wav617a, coil 7}`, `contact {wav617a, input 7}`, světlo/signalizaci nech prázdné.
+3. Zapojení zámku přes relé: +12 V → COM chX, NO chX → + zámku, − zámku → 0 V (NC nepoužívat).
+4. Bez magnetického kontaktu na DI8 se dveře jeví jako otevřené (`door_open`, dveře se neodjistí) —
+   pro zkoušku zámku bez kontaktu nastav u dveří `closed_level: 0`, po osazení kontaktu vrať (kap. 7).
+5. Zkouška: pevný servisní kód `39301H` (šatna) nebo servisní heslo → „Otevřít“; stav `GET /api/state`.
+
 ## 3. Shelly signalizace (SPEC §7)
 
 `POST http://192.168.50.3x/rpc` `{"id":1,"method":"Light.Set","params":{"id":<light>,"on":true,"brightness":100,"transition_duration":0.2}}`.

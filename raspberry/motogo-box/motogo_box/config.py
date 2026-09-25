@@ -427,7 +427,8 @@ LOCK_PULSE_RANGE_MS = (100, 5000)
 def validate_hardware(hw: HardwareConfig) -> list[str]:
     """Vrátí seznam problémů konfigurace (prázdný = OK).
 
-    §12: zámek VÝHRADNĚ na WAV645 (HW flash-on — nezůstane pod napětím ani při pádu procesu);
+    §12: zámek VÝHRADNĚ na relé s HW flash-on (WAV645 i WAV617 = Relay (B) — nezůstane pod napětím
+    ani při pádu procesu);
     žádný kanál nesdílí dvě role ani uvnitř jedné zóny (lock==audio by držel zámek pod
     proudem po dobu hudby, light==audio by obcházel exkluzivitu audio selektoru).
     """
@@ -449,8 +450,8 @@ def validate_hardware(hw: HardwareConfig) -> list[str]:
                 continue
             if role in ("red", "green") and dev.type != "shelly_rgbww":
                 problems.append(f"Zóna {z.number}: {role} musí být na Shelly (je {dev.type}).")
-            if role == "lock" and dev.type != "wav645":
-                problems.append(f"Zóna {z.number}: lock musí být relé WAV645 s HW flash-on (je {dev.type}).")
+            if role == "lock" and dev.type not in ("wav645", "wav617"):
+                problems.append(f"Zóna {z.number}: lock musí být relé Waveshare s HW flash-on (je {dev.type}).")
             if role in ("light", "audio") and dev.type not in ("wav645", "wav617"):
                 problems.append(f"Zóna {z.number}: {role} musí být relé Waveshare (je {dev.type}).")
             if role == "contact" and dev.type != "wav617":

@@ -1,7 +1,8 @@
 """Waveshare reléové moduly nad Modbus TCP (kontrakt §4, SPEC §5, §6, §12).
 
 - `Wav645` — 16 relé (zámky + audio selektory), HW flash-on pro pulz zámku.
-- `Wav617` — 8 relé + 8 vstupů (dveřní kontakty, bílé světlo), relé v Normal mode.
+- `Wav617` — 8 relé + 8 vstupů (dveřní kontakty, bílé světlo, zámky), relé v Normal mode;
+  HW flash-on (0x0200+relé) umí stejně jako WAV645 (wiki Modbus POE ETH Relay (B)).
 - `IoBus` — sdružuje moduly z `HardwareConfig`, adresuje kanály přes `HwRef`.
 
 Bezpečnostní pravidla (§12): každý příkaz na relé se ověřuje čtením, all-off
@@ -133,7 +134,7 @@ class RelayModule:
         return ok
 
     async def pulse(self, idx: int, ms: int) -> bool:
-        """Časované sepnutí relé: HW flash-on (WAV645) nebo softwarově (WAV617)."""
+        """Časované sepnutí relé: HW flash-on (WAV645/WAV617), jinak softwarově."""
         idx = self._check_idx(idx)
         if int(ms) <= 0:
             raise ValueError("ms musí být > 0")
@@ -213,11 +214,15 @@ class Wav645(RelayModule):
 
 
 class Wav617(RelayModule):
-    """Waveshare Modbus POE ETH Relay (B) — 8 relé + 8 opticky oddělených vstupů."""
+    """Waveshare Modbus POE ETH Relay (B) — 8 relé + 8 opticky oddělených vstupů.
+
+    Flash-on (FC05 0x0200+relé, hodnota × 100 ms) umí modul hardwarově stejně jako WAV645,
+    takže na něm smí být i zámky (malá pobočka / test s jediným modulem: CH1–CH8 = zámky).
+    """
 
     COILS = 8
     INPUTS = 8
-    HW_FLASH = False
+    HW_FLASH = True
 
     async def start(self) -> None:
         await super().start()
