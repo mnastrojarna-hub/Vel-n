@@ -17,9 +17,10 @@ Debounce: poller předává už softwarově odfiltrovanou hodnotu kontaktu
 `door_close_debounce_ms` — pamatuje si čas první změny a přechod provede až
 po uplynutí příslušné doby (vyhodnocuje se v `on_input` i v `tick`).
 
-Dostupnost I/O (§7, §12): zóna je v poruše `io_offline` nejen při výpadku
-modulu kontaktu (hodnota None), ale i modulu zámku, světla nebo Shelly
-signalizace (`io_ready()` — kontroluje se při každém vyhodnocení).
+Dostupnost I/O (§7, §12): zóna je v poruše `io_offline` při výpadku modulu
+kontaktu (hodnota None) nebo modulu zámku (`io_ready()` — kontroluje se při každém
+vyhodnocení). Modul světla a Shelly signalizace (2026-09-26) přístup NEBLOKUJÍ —
+jen se hlásí (`signal_problems`), dveře se otevírají dál.
 """
 from __future__ import annotations
 
@@ -142,31 +143,34 @@ class ZoneController:
         return bool(is_playing(self.number)) if is_playing is not None else self.audio.playing_zone == self.number
 
     def io_problems(self) -> list[str]:
-        """Nedostupné/chybějící I/O zóny (prázdný seznam = vše online): zámek, kontakt, světlo.
+        """Nedostupné/chybějící I/O zóny, které BLOKUJÍ přístup (prázdný seznam = OK): zámek a kontakt.
 
-        Povinné jsou jen zámek a kontakt (stejně jako `validate_hardware`); nenastavené světlo
-        přístup neblokuje — nastavené, ale offline ano (§12). Shelly signalizace (2026-09-25) NENÍ
-        bezpečnostní prvek: její výpadek zóna jen hlásí (`signal_problems`, status `signal_offline`),
-        dveře se otevírají dál — jinak by nezapojené/vypadlé neony blokovaly výdej motorek.
+        Povinné jsou jen zámek a kontakt (stejně jako `validate_hardware`). Světlo (2026-09-26) ani
+        Shelly signalizace (2026-09-25) NEJSOU bezpečnostní prvek: jejich výpadek zóna jen hlásí
+        (`signal_problems`, status `signal_offline`) a dveře se otevírají dál — jinak by nezapojený
+        modul světel (Velké Němčice: zatím jen Relay (B)) nebo vypadlé neony blokovaly výdej motorek.
         """
         z = self.zone.hw
         out: list[str] = []
-        for role, ref in (("lock", z.lock), ("contact", z.contact), ("light", z.light)):
+        for role, ref in (("lock", z.lock), ("contact", z.contact)):
             if ref is None:
-                if role != "light":
-                    out.append(f"{role} nenastaven")
+                out.append(f"{role} nenastaven")
             elif not self.io.is_online(ref.dev) and ref.dev not in out:
                 out.append(ref.dev)
         return out
 
     def signal_problems(self) -> list[str]:
-        """Nedostupná Shelly signalizace zóny (jen informace pro Velín/diagnostiku, přístup neblokuje)."""
+        """Nedostupné NEblokující moduly zóny: světlo (Waveshare) a Shelly signalizace — jen informace
+        pro Velín/diagnostiku (`signal_offline`), přístup neblokuje."""
         z = self.zone.hw
-        return list(dict.fromkeys(ref.dev for ref in (z.red, z.green)
-                                  if ref is not None and not self.signals.online(ref.dev)))
+        out: list[str] = []
+        if z.light is not None and not self.io.is_online(z.light.dev):
+            out.append(z.light.dev)
+        out += [ref.dev for ref in (z.red, z.green) if ref is not None and not self.signals.online(ref.dev)]
+        return list(dict.fromkeys(out))
 
     def io_ready(self) -> bool:
-        """Online zámkový modul, modul kontaktu a modul světla (pokud je definované)."""
+        """Online zámkový modul a modul kontaktu (světlo a signalizace neblokují)."""
         return not self.io_problems()
 
     async def emit_event(self, kind: EventKind, *, success: bool = True, level: str = "info",

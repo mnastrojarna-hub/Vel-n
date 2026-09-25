@@ -259,7 +259,7 @@ class ZoneStatus:
     latch_released: bool = False   # IBFM po OPEN_TIMEOUT stále odjištěný (pozdní otevření = relace, ne forced_open)
     degraded: bool = False         # relace běží s částí I/O offline (nový přístup zamítnut)
     io_problems: list = field(default_factory=list)     # které moduly zóny chybí/jsou offline (Velín: co přesně je špatně)
-    signal_offline: list = field(default_factory=list)  # Shelly signalizace nedostupná (jen info, přístup neblokuje)
+    signal_offline: list = field(default_factory=list)  # modul světla / Shelly signalizace nedostupné (jen info, přístup neblokuje)
     music_enabled: bool = True     # smí v této zóně po kódu hrát hudba (vypínač pobočky / přepis zóny)
 
     def to_dict(self) -> dict:
