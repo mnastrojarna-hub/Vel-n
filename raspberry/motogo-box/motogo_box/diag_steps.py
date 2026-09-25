@@ -217,6 +217,9 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
         add("fault", "fail" if fault == "io_offline" else "warn", f"zóna v poruše {fault}" + (f" ({', '.join(io_problems)})" if io_problems else ""))
     elif io_problems:
         add("io", "fail", "I/O nedostupné: " + ", ".join(io_problems))
+    signal_offline = _try(lambda: zc.signal_problems(), []) or []
+    if signal_offline:
+        add("signal", "warn", "signalizace (Shelly) nedostupná: " + ", ".join(signal_offline) + " — dveře fungují, jen bez barevné signalizace")
     tested, skipped, light, signal, audio = False, None, None, None, None
     if not diag.cfg.zone_test:
         skipped = "zone_test_disabled"

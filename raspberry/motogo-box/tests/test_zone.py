@@ -413,12 +413,15 @@ async def test_lock_module_offline_signals_io_offline_per_zone():
     assert EventKind.IO_ONLINE in r.kinds()
 
 
-async def test_shelly_offline_signals_io_offline():
+async def test_shelly_offline_is_only_reported_not_a_fault():
+    """2026-09-25: nezapojená/vypadlá Shelly signalizace neblokuje výdej — jen `signal_offline` ve stavu."""
     r = await rig_secured()
     r.signals.online = lambda name: name != r.zone.hw.red.dev   # type: ignore[method-assign]
     await r.zc.tick()
-    assert r.zc.state == ZoneState.FAULT and r.zc.fault == "io_offline"
-    assert r.zone.hw.red.dev in r.events[-1].detail["devices"]
+    assert r.zc.state == ZoneState.SECURED and r.zc.fault is None
+    st = r.zc.status()
+    assert st.signal_offline == [r.zone.hw.red.dev] and st.io_problems == []
+    assert (await r.zc.grant_access(booking_id="b", kind="motorcycle", source="ui")) == (True, "ok")
 
 
 async def test_lock_module_offline_mid_session_keeps_session_but_denies_new_access():

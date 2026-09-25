@@ -292,7 +292,14 @@ function ZoneTile({ z, door, handover, onSend, onConfirm }) {
       <div className="text-[12px] mt-1" style={{ color: state === 'FAULT' ? '#dc2626' : '#1a2e22' }}>
         <span className="font-bold">{STATE_CZ[state] || state || '—'}</span>
         {state === 'FAULT' && z.fault != null && <span> — {FAULT_CZ[txt(z.fault)] || txt(z.fault)}</span>}
+        {arr(z.io_problems).length > 0 && <span> ({arr(z.io_problems).map(txt).join(', ')})</span>}
       </div>
+      {arr(z.signal_offline).length > 0 && (
+        <div className="text-[11px] mt-0.5" style={{ color: '#b45309' }}
+          title="Shelly signalizace této zóny neodpovídá. Dveře, světlo i hudba fungují normálně — chybí jen barevná signalizace. Pokud Shelly nejsou zapojené, smažte je u dveří (červená/zelená) a ze seznamu zařízení.">
+          signalizace nedostupná: {arr(z.signal_offline).map(txt).join(', ')}
+        </div>
+      )}
       <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px]" style={{ color: '#6b8c7a' }}>
         <span>dveře <b style={{ color: doorColor }}>{doorTxt}</b></span>
         <span>· světlo <b style={{ color: z.light ? '#b45309' : '#6b8c7a' }}>{z.light ? 'svítí' : 'zhasnuto'}</b></span>

@@ -160,7 +160,7 @@ def zone_hw(n: int, shelly: str = "shelly1") -> ZoneHw:
 class FakeZone:
     """Falešný ZoneController: stav/porucha/kontakt + `test_sequence()` s nastavitelným výsledkem."""
 
-    io_problems, io_ready = ZoneController.io_problems, ZoneController.io_ready
+    io_problems, io_ready, signal_problems = ZoneController.io_problems, ZoneController.io_ready, ZoneController.signal_problems
 
     def __init__(self, ctrl, n: int, *, state=ZoneState.SECURED, fault=None, door_closed=True, result=None, hw=None) -> None:
         self.zone = Zone(hw=hw or zone_hw(n), box_number=n, label=f"Kóje {n}")
