@@ -405,3 +405,14 @@ def test_netlog_outages_and_section():
     by = {i["id"]: i for i in sec["items"]}
     assert by["netlog.outages"]["status"] == "warn" and "2×" in by["netlog.outages"]["value"] and by["netlog.gw"]["status"] == "ok"
     assert by["netlog.modem_gone"]["status"] == "warn" and dp._netlog({})["status"] == "skip"
+
+
+def test_lte_unknown_pid_and_missing_with_other_devices():
+    sec = dp._lte({"lte": {"state": "unavailable", "mode": "rndis", "usb_mode": "other:9018", "iface": "usb0", "ipv4": None},
+                   "internet": {"ok": True}})
+    by = {i["id"]: i for i in sec["items"]}
+    assert by["lte.usb"]["status"] == "warn" and "9018" in by["lte.usb"]["value"] and "9001,1,1" in (by["lte.usb"]["hint"] or "")
+    sec = dp._lte({"lte": {"state": "unavailable", "mode": "rndis", "usb_mode": None, "iface": "usb0", "ipv4": None,
+                           "usb_other": [{"vid": "0bda", "pid": "8153", "product": "USB LAN"}]}, "internet": {"ok": True}})
+    by = {i["id"]: i for i in sec["items"]}
+    assert by["lte.usb"]["status"] == "fail" and "0bda:8153" in by["lte.usb"]["value"] and "data" in by["lte.usb"]["message"]

@@ -194,13 +194,22 @@ def _lte(r: dict) -> dict:
             msg, status, h = f"LTE modem není připojen (stav: {st}, NM: {lte.get('nm_state')}).", "fail", hint("lte")
         it.append(item("lte.state", "Stav LTE modemu", status, val or st, msg, h))
     if usb_mode is not None or mode is not None:
-        usb_txt = {"qmi": "PID 9001 (QMI)", "rndis": "PID 9011 (RNDIS)"}.get(usb_mode, "NENÍ na USB")
-        mismatch = usb_mode is not None and mode is not None and usb_mode != mode
-        it.append(item("lte.usb", "Modem na USB", "fail" if usb_mode is None else "warn" if mismatch else "ok", usb_txt,
-                       "Modem není vidět na USB — kabel, napájení modemu nebo USB port." if usb_mode is None else
+        unknown = isinstance(usb_mode, str) and usb_mode.startswith("other:")
+        pid = usb_mode.split(":", 1)[1] if unknown else None
+        others = ", ".join(f"{d.get('vid')}:{d.get('pid')} {d.get('product') or ''}".strip() for d in (lte.get("usb_other") or [])[:5])
+        usb_txt = {"qmi": "PID 9001 (QMI)", "rndis": "PID 9011 (RNDIS)"}.get(usb_mode) or (
+            f"SIMCom 1e0e:{pid} (neznámý režim)" if unknown else "NENÍ na USB" + (f" · na USB je: {others}" if others else " · na USB není nic dalšího"))
+        mismatch = usb_mode in ("qmi", "rndis") and mode is not None and usb_mode != mode
+        status = "fail" if usb_mode is None else "warn" if (mismatch or unknown) else "ok"
+        it.append(item("lte.usb", "Modem na USB", status, usb_txt,
+                       "Žádné SIMCom zařízení na USB — kabel (musí přenášet data, ne jen napájení), napájení modemu nebo USB port."
+                       if usb_mode is None else
+                       f"Modem je na USB pod PID {pid}, což není QMI (9001) ani RNDIS (9011) — jiná USB kompozice; přepínací skript "
+                       "ji nezná a datové spojení nenaběhne." if unknown else
                        f"Modem se na USB hlásí jako {usb_mode}, konfigurace jednotky má {mode} — přepnutí ještě neproběhlo "
                        "nebo skončilo v půlce." if mismatch else "",
-                       hint("modem_usb_missing") if usb_mode is None else hint("lte_mode_mismatch") if mismatch else None))
+                       hint("modem_usb_missing") if usb_mode is None else hint("lte_pid_unknown") if unknown
+                       else hint("lte_mode_mismatch") if mismatch else None))
         it.append(item("lte.mode", "Režim modemu", "ok", f"{mode or '?'}" + (f" · ModemManager {'běží' if lte.get('mm_active') else 'neběží'}"
                                                                           if lte.get("mm_active") is not None else ""), ""))
     # Zamčená SIM (PIN/PUK) — vlastní řádek, protože z „state: searching" ji nikdo nepozná a modem

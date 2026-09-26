@@ -27,7 +27,7 @@ import httpx
 
 from . import diag_steps, net_scan
 from .diag_protocol import STEP_TITLES, build_protocol, build_summary
-from .health_probe import sys_metrics, usb_device_present
+from .health_probe import modem_usb_mode, sys_metrics, usb_devices
 from .models import Event, EventKind, now_iso
 from .pins import normalize_code
 
@@ -273,7 +273,9 @@ class NetworkDiagnostics:
         info = await net_scan.lte_info(hcfg.nm_connection)
         mode = str(getattr(hcfg, "lte_mode", "qmi") or "qmi").strip().lower()
         vid = (str(getattr(hcfg, "modem_vid_pid", "") or "1e0e:9001").split(":")[0]) or "1e0e"
-        usb_mode = "rndis" if usb_device_present(f"{vid}:9011") else "qmi" if usb_device_present(f"{vid}:9001") else None
+        usb_mode = modem_usb_mode(vid)                       # qmi / rndis / other:<pid> / None
+        simcom = usb_devices(vid) or []
+        others = [d for d in (usb_devices(None) or []) if d["vid"] != vid][:8]   # co ještě na USB je (funguje sběrnice?)
         iface = (getattr(hcfg, "lte_interface", "") or "").strip() or ("usb0" if mode == "rndis" else "wwan0")
         ipv4 = None
         try:
@@ -285,6 +287,7 @@ class NetworkDiagnostics:
             pass
         rc, out = await net_scan.run_cmd("systemctl", "is-active", "ModemManager", timeout=5)
         info.update({"mode": mode, "usb_mode": usb_mode, "iface": iface, "ipv4": ipv4,
+                     "usb_simcom": simcom, "usb_other": others,
                      "mm_active": (out or "").strip() == "active" if rc in (0, 3) else None})
         return info
 
