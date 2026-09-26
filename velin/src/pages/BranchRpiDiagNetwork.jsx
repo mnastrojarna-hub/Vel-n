@@ -50,7 +50,7 @@ function NetworkDetail({ r }) {
         <div className="text-[12px] mt-1" style={{ color: '#1a2e22' }}>Výchozí brány: {arr(ifc.default_routes).map(x => `${txt(obj(x).gateway)} přes ${txt(obj(x).dev)} (metrika ${txt(obj(x).metric)})`).join('; ') || 'ŽÁDNÁ'} · DNS: {arr(ifc.dns).map(txt).join(', ') || 'žádné'}</div>
       </Sect>
       <Sect title="LTE modem">
-        <div className="text-[12px]" style={{ color: '#1a2e22' }}>stav {txt(lte.state)} · operátor {txt(lte.operator)} · {txt(lte.access_tech)} · registrace {txt(lte.registration)} · kvalita {txt(lte.signal_quality)} % · RSSI {txt(lte.rssi)} dBm · RSRP {txt(lte.rsrp)} dBm · RSRQ {txt(lte.rsrq)} dB · SNR {txt(lte.snr)} dB · NM {txt(lte.nm_connection)} {txt(lte.nm_state)} {lte.nm_device ? `(${txt(lte.nm_device)})` : ''}{lte.error ? ` · ${txt(lte.error)}` : ''}</div>
+        <div className="text-[12px]" style={{ color: '#1a2e22' }}>stav {txt(lte.state)} · operátor {txt(lte.operator)} · {txt(lte.access_tech)} · registrace {txt(lte.registration)} · kvalita {txt(lte.signal_quality)} % · RSSI {txt(lte.rssi)} dBm · RSRP {txt(lte.rsrp)} dBm · RSRQ {txt(lte.rsrq)} dB · SNR {txt(lte.snr)} dB · NM {txt(lte.nm_connection)} {txt(lte.nm_state)} {lte.nm_device ? `(${txt(lte.nm_device)})` : ''}{lte.error ? ` · ${txt(lte.error)}` : ''}{lte.mode != null ? ` · režim ${txt(lte.mode)} · USB ${lte.usb_mode ? txt(lte.usb_mode) : 'NENÍ'} · ${txt(lte.iface)} ${lte.ipv4 ? txt(lte.ipv4) : 'bez IP'} · ModemManager ${lte.mm_active == null ? '?' : lte.mm_active ? 'běží' : 'neběží'}` : ''}</div>
       </Sect>
       <Sect title="Internet a DNS">
         <Table head={['Test', 'Výsledek', 'Čas']} rows={[

@@ -27,7 +27,7 @@ import httpx
 
 from . import diag_steps, net_scan
 from .diag_protocol import STEP_TITLES, build_protocol, build_summary
-from .health_probe import sys_metrics
+from .health_probe import sys_metrics, usb_device_present
 from .models import Event, EventKind, now_iso
 from .pins import normalize_code
 
@@ -266,7 +266,27 @@ class NetworkDiagnostics:
         return {"interfaces": ifaces, "default_routes": routes, "dns": net_scan.dns_servers()}
 
     async def _lte(self, report: dict) -> dict:
-        return await net_scan.lte_info(self.ctrl.local.health.nm_connection)
+        """Stav modemu nezávisle na ModemManageru (2026-09-26): v režimu RNDIS MM neběží a `mmcli` by hlásil
+        „žádný modem" i při funkčním LTE. Proto navíc: `mode` (config), `usb_mode` (PID na USB: 9001 qmi / 9011 rndis /
+        None = modem na USB není), `iface` + `ipv4` rozhraní modemu (wwan0/usb0), `mm_active`."""
+        hcfg = self.ctrl.local.health
+        info = await net_scan.lte_info(hcfg.nm_connection)
+        mode = str(getattr(hcfg, "lte_mode", "qmi") or "qmi").strip().lower()
+        vid = (str(getattr(hcfg, "modem_vid_pid", "") or "1e0e:9001").split(":")[0]) or "1e0e"
+        usb_mode = "rndis" if usb_device_present(f"{vid}:9011") else "qmi" if usb_device_present(f"{vid}:9001") else None
+        iface = (getattr(hcfg, "lte_interface", "") or "").strip() or ("usb0" if mode == "rndis" else "wwan0")
+        ipv4 = None
+        try:
+            for it in await net_scan.interfaces():
+                if isinstance(it, dict) and it.get("name") == iface:
+                    addrs = [a.get("addr") for a in (it.get("ipv4") or []) if isinstance(a, dict) and a.get("addr")]
+                    ipv4 = addrs[0] if addrs else None
+        except Exception:  # noqa: BLE001
+            pass
+        rc, out = await net_scan.run_cmd("systemctl", "is-active", "ModemManager", timeout=5)
+        info.update({"mode": mode, "usb_mode": usb_mode, "iface": iface, "ipv4": ipv4,
+                     "mm_active": (out or "").strip() == "active" if rc in (0, 3) else None})
+        return info
 
     async def _internet(self, report: dict) -> dict:
         urls = [u for u in (self.cfg.internet_urls or []) if isinstance(u, str) and u.startswith("http")]
