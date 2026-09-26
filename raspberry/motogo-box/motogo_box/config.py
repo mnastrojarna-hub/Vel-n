@@ -11,6 +11,7 @@ patří do vrstvy 1 — je vázaná na konkrétní Raspberry, ne na pobočku.
 from __future__ import annotations
 
 import copy
+import ipaddress
 import logging
 import os
 from dataclasses import dataclass, field
@@ -25,7 +26,7 @@ from .models import HwRef, Zone, ZoneHw
 log = logging.getLogger("motogo.config")
 
 DEFAULT_CONFIG_PATH = "/etc/motogo/config.yaml"
-HW_TOP_KEYS = ("devices", "timings", "polling", "contacts", "security", "audio", "signal", "outdoor")
+HW_TOP_KEYS = ("devices", "timings", "polling", "contacts", "security", "audio", "signal", "outdoor", "network")
 
 
 # ─── Lokální konfigurace ─────────────────────────────────────────────────────
@@ -301,6 +302,14 @@ class SignalCfg:
 
 
 @dataclass
+class NetworkCfg:
+    """Síť pobočky z Velína (2026-09-26): záložní brána kabelem — router na switchi modulů (Velké Němčice
+    192.168.1.2). Dispečer 50-motogo-lan-addr ji drží jako default route eth0 metrika 50 i bez DHCP, health ji
+    obnoví při výpadku internetu; prázdné = jen DHCP/LTE."""
+    lan_gateway: str = ""
+
+
+@dataclass
 class HardwareConfig:
     devices: dict[str, DeviceCfg]
     timings: TimingsCfg
@@ -313,6 +322,7 @@ class HardwareConfig:
     source: str = "local"          # local | remote
     raw: dict = field(default_factory=dict)
     outdoor: OutdoorCfg = field(default_factory=OutdoorCfg)   # venek (zóna bez dveří) — `config_outdoor.py`
+    network: NetworkCfg = field(default_factory=NetworkCfg)   # záložní brána kabelem (lan_gateway.py)
 
     @classmethod
     def from_dict(cls, d: dict, doors: list[dict] | None = None) -> "HardwareConfig":
@@ -344,6 +354,7 @@ class HardwareConfig:
             zones=zones,
             raw=copy.deepcopy(d),
             outdoor=outdoor,
+            network=_fill(NetworkCfg, d.get("network")),
         )
 
     def zone_by_number(self, n: int) -> Zone | None:
@@ -486,6 +497,12 @@ def validate_hardware(hw: HardwareConfig) -> list[str]:
     nums = [z.number for z in hw.zones]
     if len(nums) != len(set(nums)):
         problems.append("Duplicitní čísla zón.")
+    gw = str(getattr(hw.network, "lan_gateway", "") or "").strip()
+    if gw:
+        try:
+            ipaddress.IPv4Address(gw)
+        except ValueError:
+            problems.append(f"network.lan_gateway '{gw}' není platná IPv4 adresa (brána routeru na kabelu).")
     lo, hi = LOCK_PULSE_RANGE_MS
     if not lo <= int(hw.timings.lock_pulse_ms) <= hi:
         problems.append(f"timings.lock_pulse_ms {hw.timings.lock_pulse_ms} je mimo rozsah {lo}–{hi} ms "

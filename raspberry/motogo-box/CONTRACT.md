@@ -667,7 +667,7 @@ PIN_LOCKOUT z ověření kódu motorky v overlayi protokolu (`_verify_code`). `d
 `kiosk_log_event(level, source, message, detail)` pro: IO_OFFLINE/IO_ONLINE (warn/info,
 source 'modbus'|'shelly'), SESSION_OVERTIME(+ALERT) (warn 'zone'), CONTACT_FAULT (error),
 PIN_LOCKOUT (warn 'pin'), STARTUP (info 'controller', verze + problémy konfigurace),
-LTE_RESET/REBOOT (warn 'lte', posílá health přes controller), CONFIG_PROBLEM (error 'config'),
+LTE_RESET/REBOOT (warn 'lte', posílá health přes controller), **INTERNET_DOWN (error) / INTERNET_UP (warn, `detail.duration_s`) — přechod `health.internet` (2026-09-26; webserver `_internet_transition`, i první hlášení False po startu; outbox doručí po obnově)**, CONFIG_PROBLEM (error 'config'),
 PROTOCOL_SIGNED (info 'protocol'; `booking_id` a `zone` = pole Eventu, `code_kind='motorcycle'`, detail `{source, signature_bytes,
 stored}` — podpis na displeji přijat; `stored=false` = zápis do `protocol_queue` selhal (disk), zkouší se aspoň odeslat hned) a
 PROTOCOL_UPLOAD_FAILED (error 'protocol', `booking_id` pole Eventu, detail `{source:'protocol_queue', error, booking_id,
