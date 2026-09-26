@@ -134,12 +134,22 @@ class RelayModule:
         return ok
 
     async def pulse(self, idx: int, ms: int) -> bool:
-        """Časované sepnutí relé: HW flash-on (WAV645/WAV617), jinak softwarově."""
+        """Časované sepnutí relé: HW flash-on (WAV645/WAV617), jinak softwarově.
+
+        Záloha (2026-09-26): když modul odpovídá, ale flash-on nepotvrdí (relé po příkazu není sepnuté —
+        firmware/režim, který 0x0200 ignoruje, např. tovární transparentní RTU), pošle se softwarový pulz
+        (set_coil on → sleep → off), aby se dveře otevřely; do logu jde varování — příčinu je třeba vyřešit.
+        """
         idx = self._check_idx(idx)
         if int(ms) <= 0:
             raise ValueError("ms musí být > 0")
-        if self.HW_FLASH:
-            return await self._pulse_hw(idx, int(ms))
+        if not self.HW_FLASH:
+            return await self._pulse_sw(idx, int(ms))
+        if await self._pulse_hw(idx, int(ms)):
+            return True
+        if not self.online:
+            return False
+        log.warning("%s: relé %d — HW flash-on nepotvrzen, zkouším softwarový pulz %d ms", self.name, idx, int(ms))
         return await self._pulse_sw(idx, int(ms))
 
     async def _pulse_hw(self, idx: int, ms: int) -> bool:

@@ -63,6 +63,7 @@ class SimRelayModule:
         self.registers: dict[int, int] = {MODE_REG_BASE + i: 0 for i in range(len(self.coils))}
         self.request_count = 0
         self._flash_tasks: dict[int, asyncio.Task] = {}
+        self.flash_supported = True
         self._server: asyncio.AbstractServer | None = None
         self._clients: set[asyncio.StreamWriter] = set()
 
@@ -190,7 +191,8 @@ class SimRelayModule:
         elif FLASH_ON_BASE <= addr < FLASH_ON_BASE + n:
             if value == 0:
                 raise SimException(0x03)
-            self._flash_on(addr - FLASH_ON_BASE, value)
+            if self.flash_supported:           # False = modul příkaz potvrdí (echo), ale relé nesepne (test zálohy)
+                self._flash_on(addr - FLASH_ON_BASE, value)
         else:
             raise SimException(0x02)
         return bytes(pdu[:5])
