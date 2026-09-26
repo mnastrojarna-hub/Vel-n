@@ -110,8 +110,8 @@ do češtiny po nečinnosti), **název pobočky** a tečka online. Tělo ve tře
 v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.“ / od 2026-09-25 „Berete si oblečení?
 Zadejte nejdřív kód šatny, potom kód motorky. Máte vlastní výbavu? Zadejte rovnou kód motorky.“) + pole kódu (**zadávané znaky
 jsou viditelné** — žádné maskování tečkami, rozhodnutí 2026-09-11; platí pro kód rezervace, servisní heslo i diagnostický kód)
-| klávesnice (numerická / „ABC“ pro servisní hesla, velikost kláves podle místa, vždy ≥ 48 px, nic se nepřekrývá) | dlaždice zón
-(„Šatna“, „Kóje N“; 1–2 sloupce). **Vedený tok (2026-09-25):** dokud jsou dveře šatny otevřené, nad polem kódu svítí nemodální
+| klávesnice (numerická / „ABC“ pro servisní hesla, velikost kláves podle místa, vždy ≥ 48 px, nic se nepřekrývá). Dlaždice zón
+na zákaznické obrazovce NEJSOU (odstraněny 2026-09-26 — zákazníka rušily; stav zón = servisní panel a Velín). **Vedený tok (2026-09-25):** dokud jsou dveře šatny otevřené, nad polem kódu svítí nemodální
 pruh „Šatna: vezměte si výbavu a zavřete dveře — protokol se zobrazí po zavření“ (klávesnice funguje dál); po zavření (nebo po
 kódu motorky bez podpisu) se přes celý displej otevře **předávací protokol** — hlavička (jméno zkráceně, motorka, období), výbava
 řidič/spolujezdec s chipy velikostí, podpisový canvas, pole „Kód motorky“ (jen když kód nebyl právě zadán), „Potvrdit a podepsat“,

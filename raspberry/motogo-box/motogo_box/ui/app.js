@@ -1,4 +1,4 @@
-/* MotoGo24 kiosk — hlavní logika: WS klient, zadávání kódu, overlay stavů, dlaždice zón, pruh šatny.
+/* MotoGo24 kiosk — hlavní logika: WS klient, zadávání kódu, overlay stavů, pruh šatny (dlaždice zón od 2026-09-26 jen v servisním panelu).
    Vanilla JS (offline, bez CDN). Layout je plně responzivní (CSS), žádné škálování plátna. Texty a flow převzaté z Flutter kiosku (kiosk_screen.dart).
    Předávací protokol (overlay #handover) → handover.js; sem patří jen napojení na snapshot a na odpověď `protocol_required`. */
 'use strict';
@@ -111,6 +111,7 @@ window.MG = window.MG || {};
 
   function renderTiles(zones) {
     const box = $('zones');
+    if (!box) return;   // zákaznická obrazovka dlaždice nemá (2026-09-26); stav zón = servisní panel / Velín
     const cls = 'zones zones-n' + zones.length;   // mřížka dlaždic podle počtu zón (CSS)
     if (box.className !== cls) box.className = cls;
     const seen = new Set();
