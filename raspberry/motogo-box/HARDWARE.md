@@ -90,7 +90,7 @@ bliká červená i zelená) — v testu je ve Velíně u dveří **smaž** (i ne
    na IP zařízení z mapy (kap. 1). Stačí ho zapojit do switche.
 2. Velín → Samoobsluha → hardware: zařízení `wav617a` typ WAV617 (IP z šablony .21); u dveří šatny
    `lock {wav617a, coil 7}`, `contact {wav617a, input 7}`, světlo/signalizaci nech prázdné.
-3. Zapojení zámku přes relé: +12 V → COM chX, NO chX → + zámku, − zámku → 0 V (NC nepoužívat).
+3. Zapojení zámku přes relé: +12 V → COM chX, NO chX → + zámku, − zámku → 0 V (NC nepoužívat). Zámek BEZ paměti (drží jen pod napětím): Velín → Časování → „Držet zámek do otevření“ = zapnuto (výchozí šablona) — relé drží od kódu do otevření dveří, nejdéle „Timeout otevření dveří“; zámek s pamětí (IBFM 9500) → vypnuto = krátký pulz.
 4. Bez magnetického kontaktu na DI8 se dveře jeví jako otevřené (`door_open`, dveře se neodjistí) —
    pro zkoušku zámku bez kontaktu nastav u dveří `closed_level: 0`, po osazení kontaktu vrať (kap. 7).
 5. Zkouška: pevný servisní kód `39301H` (šatna) nebo servisní heslo → „Otevřít“; stav `GET /api/state`.

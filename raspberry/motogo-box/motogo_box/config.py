@@ -214,6 +214,7 @@ class DeviceCfg:
 @dataclass
 class TimingsCfg:
     lock_pulse_ms: int = 800
+    lock_hold_until_open: bool = False   # True (2026-09-26): zámek pod napětím od kódu do otevření dveří (max door_open_timeout_s)
     door_open_timeout_s: int = 30
     door_close_debounce_ms: int = 1000
     light_after_close_s: int = 30

@@ -152,6 +152,22 @@ class RelayModule:
         log.warning("%s: relé %d — HW flash-on nepotvrzen, zkouším softwarový pulz %d ms", self.name, idx, int(ms))
         return await self._pulse_sw(idx, int(ms))
 
+    async def hold(self, idx: int, ms: int) -> bool:
+        """Sepnout relé na nejvýš `ms` (držení zámku do otevření dveří, 2026-09-26) — NEČEKÁ.
+
+        HW flash-on = modul relé sám vypne i při pádu procesu (bezpečnost); vypnutí dřív dělá zóna
+        `set_coil(False)`. Když modul flash-on nepotvrdí, záloha `set_coil(True)` (vypne jen zóna/all_off).
+        """
+        idx = self._check_idx(idx)
+        if int(ms) <= 0:
+            raise ValueError("ms musí být > 0")
+        if self.HW_FLASH and await self._pulse_hw(idx, int(ms)):
+            return True
+        if not self.online:
+            return False
+        log.warning("%s: relé %d — držení přes flash-on nepotvrzeno, sepnuto natrvalo (vypne zóna)", self.name, idx)
+        return await self.set_coil(idx, True)
+
     async def _pulse_hw(self, idx: int, ms: int) -> bool:
         steps = min(max(1, round(ms / FLASH_STEP_MS)), 0xFFFF)
         try:
@@ -371,6 +387,16 @@ class IoBus:
             return await m.set_coil(ref.idx, on)
         except (ValueError, ModbusError) as exc:
             log.error("set %s[%d]=%s selhal: %s", ref.dev, ref.idx, on, exc)
+            return False
+
+    async def hold(self, ref: HwRef, ms: int) -> bool:
+        m = self._module_for(ref, "hold")
+        if m is None:
+            return False
+        try:
+            return await m.hold(ref.idx, ms)
+        except (ValueError, ModbusError) as exc:
+            log.error("hold %s[%d] %d ms selhal: %s", ref.dev, ref.idx, ms, exc)
             return False
 
     async def pulse(self, ref: HwRef, ms: int) -> bool:

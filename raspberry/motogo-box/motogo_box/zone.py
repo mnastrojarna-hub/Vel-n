@@ -63,6 +63,7 @@ class ZoneController:
         self.emit = emit
         self.clock = clock
         self.lock_gate: asyncio.Lock = asyncio.Lock()   # controller nahradí sdíleným zámkem pulzů
+        self.lock_held = False       # lock_hold_until_open: relé zámku sepnuté, dokud se dveře neotevřou (zone_access)
         self.state: ZoneState = ZoneState.SECURED
         self.fault: str | None = None
         self.door_closed: bool | None = None
@@ -314,6 +315,7 @@ class ZoneController:
             self.state = ZoneState.DOOR_OPEN
             self.latch_released = False          # otevřením se zámek mechanicky vrátil do zajištěného stavu
             self.opened_at = self.clock()
+            await zone_access.release_lock(self, "dveře otevřeny")   # držený zámek (lock_hold_until_open) → vypnout
             await self.emit_event(EventKind.DOOR_OPENED, message=f"{self.zone.display_name}: dveře otevřeny")
         elif self.state == ZoneState.DOOR_OPEN and closed:
             if stable_ms >= self.timings.door_close_debounce_ms:
@@ -394,6 +396,7 @@ class ZoneController:
     async def force_secure(self) -> None:
         """All-off zóny: hudba (jen když hraje tady), světlo, signalizace a stav dle kontaktu/I/O."""
         async with self._busy:
+            await zone_access.release_lock(self, "all_off")
             await self.music_stop()
             await self.set_light(False)
             self.reset_session()
