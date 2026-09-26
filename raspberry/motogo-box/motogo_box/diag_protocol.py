@@ -186,7 +186,7 @@ def _lte(r: dict) -> dict:
         elif st == "unavailable" and usb_mode is not None:
             # modem NA USB JE, ale ModemManager ho nevidí = mrtvý QMI kanál (kernel -71) — vždy chyba, i když internet jde Wi-Fi
             msg, status, h = ("Modem je na USB (PID 9001), ale ModemManager ho nevidí — QMI kanál je mrtvý (známá závada "
-                              "SIM7600, kernel -71). Přepněte modem do RNDIS."), "fail", hint("modem_gone")
+                              "SIM7600, kernel -71); health dělá USB reset."), "fail", hint("modem_gone")
         elif st == "unavailable":
             msg = "Žádný LTE modem (ModemManager ani USB)" + (" — internet jde jinou cestou (Wi-Fi při testu)." if inet_ok else ".")
             status, h = ("warn" if inet_ok else "fail"), hint("lte")
@@ -473,7 +473,7 @@ def _netlog(r: dict) -> dict:
                        f"Modem nebyl vidět v ModemManageru v {mg} vzorcích (~{_fmt_dur(mg * 30)}) — známá závada SIM7600 (USB -71).", hint("modem_gone")))
     resets = sum(1 for e in n.get("events") or [] if e.get("kind") in ("LTE_RESET", "REBOOT"))
     it.append(item("netlog.recovery", "Obnovy LTE / restarty za 7 dní", "ok" if resets < 10 else "warn", resets,
-                   "" if resets < 10 else "Health opakovaně resetuje modem — QMI režim SIM7600 je nestabilní, přepněte modem do RNDIS.", hint("net_outages") if resets >= 10 else None))
+                   "" if resets < 10 else "Health opakovaně resetuje modem — SIM7600 padá z USB (kernel -71); obnova funguje, ale při růstu četnosti řešit kabel/port/modem.", hint("net_outages") if resets >= 10 else None))
     gw = n.get("gw_now") or {}
     it.append(item("netlog.gw", "Internet právě jde přes", "ok" if gw.get("dev") else "warn", f"{gw.get('dev') or 'nic'} · DNS {gw.get('dns') or '—'}",
                    "" if gw.get("dev") else "Bez výchozí trasy — internet nejde.", None if gw.get("dev") else hint("gateway_missing")))
