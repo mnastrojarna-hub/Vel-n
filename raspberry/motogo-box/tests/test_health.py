@@ -350,9 +350,14 @@ class FakeEnv:
         self.cmds: list[tuple[str, ...]] = []
         self.posted: list[dict] = []
         self.tcp_probes = 0
+        # výchozí trasy: zdravá pobočka = jen LTE (wwan0); testy strážce tras je přepíšou
+        self.default_routes: list[dict] = [{"dst": "default", "gateway": "10.0.0.1", "dev": "wwan0", "metric": 100}]
 
     async def interfaces(self) -> list[dict]:
         return self.ifaces
+
+    async def routes(self) -> list[dict]:
+        return list(self.default_routes)
 
     async def tcp_probe(self, host: str, port: int, timeout: float = 8.0) -> bool:
         self.tcp_probes += 1
@@ -386,7 +391,7 @@ def _monitor(env: FakeEnv, tmp_path, cfg: HealthCfg | None = None, uptime: float
     return HealthMonitor(cfg or _cfg(), "http://127.0.0.1:8080", run_cmd=env.run_cmd,
                          clock=FakeClock(), state_path=str(tmp_path / "health.json"),
                          http=env.client(), uptime=lambda: uptime, tcp_probe=env.tcp_probe,
-                         interfaces=env.interfaces)
+                         interfaces=env.interfaces, routes=env.routes)
 
 
 async def test_cycle_online_posts_payload(tmp_path):
@@ -449,7 +454,7 @@ async def test_cycle_survives_controller_down(tmp_path):
     mon = HealthMonitor(_cfg(), "http://127.0.0.1:8080", run_cmd=env.run_cmd, clock=FakeClock(),
                         state_path=str(tmp_path / "h.json"),
                         http=httpx.AsyncClient(transport=httpx.MockTransport(down)), uptime=lambda: 1.0,
-                        tcp_probe=env.tcp_probe, interfaces=env.interfaces)
+                        tcp_probe=env.tcp_probe, interfaces=env.interfaces, routes=env.routes)
     payload = await mon.cycle()
     assert payload["internet"] is True and mon.last_payload is payload
 
@@ -602,7 +607,7 @@ def _lan_monitor(env: FakeEnv, tmp_path, clock: FakeClock | None = None, **cfg_k
     return HealthMonitor(_cfg(**cfg_kw), "http://127.0.0.1:8080", run_cmd=env.run_cmd,
                          clock=clock or FakeClock(), state_path=str(tmp_path / "health.json"),
                          http=env.client(), uptime=lambda: 5000.0, tcp_probe=env.tcp_probe,
-                         interfaces=env.interfaces)
+                         interfaces=env.interfaces, routes=env.routes)
 
 
 def _lan_cmds(env: FakeEnv) -> list[tuple[str, ...]]:
@@ -684,7 +689,7 @@ def _rndis_monitor(env: FakeEnv, tmp_path, **kw) -> HealthMonitor:
     cfg = _cfg(lte_mode="rndis", **kw)
     return HealthMonitor(cfg, "http://127.0.0.1:8080", run_cmd=env.run_cmd, clock=FakeClock(),
                          state_path=str(tmp_path / "health.json"), http=env.client(),
-                         uptime=lambda: 5000.0, tcp_probe=env.tcp_probe, interfaces=env.interfaces)
+                         uptime=lambda: 5000.0, tcp_probe=env.tcp_probe, interfaces=env.interfaces, routes=env.routes)
 
 
 async def test_rndis_healthy_interface_is_not_modem_gone(tmp_path, monkeypatch):
@@ -797,3 +802,40 @@ async def test_cycle_auto_switch_runs_mode_script_and_posts_first(tmp_path):
     assert len(posts) == 1 and posts[0]["lte"]["mode"] == "qmi" and posts[0]["lte"]["mode_auto_after"] == 2
     mon2 = _monitor(env, tmp_path, cfg)
     assert mon2.policy.mode_switch_to == "rndis"
+
+
+# ─── strážce tras: internet jde jen přes LTE, cizí výchozí trasa (eth0) se maže a modem se neresetuje ───────
+DISPATCHER = ("sudo", "-n", "/etc/NetworkManager/dispatcher.d/50-motogo-lan-addr", "eth0", "manual")
+
+
+async def test_foreign_default_route_is_removed_and_policy_not_stepped(tmp_path):
+    env = FakeEnv(internet_ok=False)
+    env.default_routes = [{"dst": "default", "gateway": "192.168.1.2", "dev": "eth0", "metric": 50},
+                          {"dst": "default", "gateway": "10.0.0.1", "dev": "wwan0", "metric": 100}]
+    cfg = _cfg(reconnect_after=1, usb_reset_after=1, action_cooldown_s=0)
+    mon = _monitor(env, tmp_path, cfg)
+    p = await mon.cycle()
+    assert p["actions"] == ["route_fix"] and p["net"]["foreign_default"] == ["eth0"]
+    assert env.cmds.count(DISPATCHER) == 1
+    assert not any("nmcli" in c or "mmcli" in c for c in env.cmds if c[0] == "sudo")     # žádný reconnect/reset
+    assert mon.policy.internet_failures == 0 and mon.policy.reconnects == 0
+    p2 = await mon.cycle()                                   # do minuty se dispečer nespouští znovu
+    assert p2["actions"] == [] and env.cmds.count(DISPATCHER) == 1
+    mon.clock.advance(61)
+    assert (await mon.cycle())["actions"] == ["route_fix"] and env.cmds.count(DISPATCHER) == 2
+    # trasa zmizela → zpět normální politika LTE
+    env.default_routes = [{"dst": "default", "gateway": "10.0.0.1", "dev": "wwan0", "metric": 100}]
+    p3 = await mon.cycle()
+    assert p3["net"]["foreign_default"] == [] and "route_fix" not in p3["actions"]
+    assert mon.policy.internet_failures == 1 or p3["actions"] == ["reconnect"]
+
+
+async def test_foreign_route_with_internet_up_is_still_removed(tmp_path):
+    env = FakeEnv()
+    env.default_routes = [{"dst": "default", "gateway": "192.168.1.2", "dev": "eth0", "metric": 50}]
+    mon = _monitor(env, tmp_path)
+    p = await mon.cycle()
+    assert p["internet"] is True and p["actions"] == ["route_fix"] and DISPATCHER in env.cmds
+    healthy = FakeEnv()
+    q = await _monitor(healthy, tmp_path).cycle()
+    assert q["actions"] == [] and DISPATCHER not in healthy.cmds and q["net"]["foreign_default"] == []

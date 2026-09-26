@@ -100,9 +100,9 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }
       }>
       <div className="space-y-3">
         {note && <div className="p-2 rounded-lg text-[12px] font-bold" style={NOTE_STYLE[note.tone] || NOTE_STYLE.green}>{note.text}</div>}
-        <DevicesEditor hardware={hardware} disabled={disabled} onSave={devices => onSaveCfg({ hardware: { ...hardware, devices } })} />
-        <SettingsEditor hardware={hardware} disabled={disabled} onSave={patch => onSaveCfg({ hardware: { ...hardware, ...patch } })} />
-        <AudioOutputsEditor hardware={hardware} doors={doors} disabled={disabled} onSave={audio => onSaveCfg({ hardware: { ...hardware, audio } })} />
+        <DevicesEditor hardware={hardware} disabled={disabled} onSave={devices => onSaveCfg({ hardware: withoutNetwork({ ...hardware, devices }) })} />
+        <SettingsEditor hardware={hardware} disabled={disabled} onSave={patch => onSaveCfg({ hardware: withoutNetwork({ ...hardware, ...patch }) })} />
+        <AudioOutputsEditor hardware={hardware} doors={doors} disabled={disabled} onSave={audio => onSaveCfg({ hardware: withoutNetwork({ ...hardware, audio }) })} />
         <OutdoorHwEditor hardware={hardware} doors={doors} disabled={disabled} onSave={saveOutdoor} />
         <SubBlock title="Mapování dveří → zóny (branch_doors.hw)"
           hint="Zóna = číslo kóje (šatna = volné číslo, v šabloně 8). Čísla relé a vstupů zadávejte tak, jak jsou natištěná na modulu: R1–R8 (Relay (B) = WAV617) / R1–R16 (WAV645), vstupy DI1–DI8. Zámek = relé WAV645 nebo WAV617 (HW flash-on), kontakt = vstup WAV617, světlo/audio = relé WAV645/WAV617, červená/zelená = Shelly light id (0–4). Výchozí zapojení: kóje n = zámek R n + kontakt DI n na Relay (B), světlo R n na WAV645 — dveře bez mapy jsou tak předvyplněné, stačí Uložit. Audio v režimu multi = výstup ze seznamu výše (+ volitelné enable relé zesilovače). Zámek a kontakt jsou povinné; čísla zón, kanály i audio výstupy musí být unikátní (i vůči venku) — jinak jednotka celou mapu odmítne.">
@@ -212,6 +212,14 @@ function DevicesEditor({ hardware, disabled, onSave }) {
       {err && <div className="text-[12px] font-bold mt-2" style={{ color: '#dc2626' }}>{err}</div>}
     </SubBlock>
   )
+}
+
+// Sekce `network` (záložní brána kabelem, 2026-09-26) byla ZRUŠENA — vznikla z chybné diagnózy a bez routeru
+// posílala internet pobočky do prázdna. Při každém uložení HW mapy klíč vyhodit, aby ho staré mapy už nikdy nenesly
+// (jednotka hodnotu ignoruje a hlásí varování). Internet jednotky jde výhradně přes LTE.
+function withoutNetwork(hw) {
+  const { network, ...rest } = hw || {}
+  return rest
 }
 
 // ── Časování / polling / kontakty / bezpečnost / audio / signál ─────────────

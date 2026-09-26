@@ -6,7 +6,7 @@ import copy
 import logging
 import os
 
-from motogo_box.config import (AudioCfg, HardwareConfig, SecurityCfg, SignalCfg, TimingsCfg, _fill,
+from motogo_box.config import (WARNING_PREFIX, AudioCfg, HardwareConfig, SecurityCfg, SignalCfg, TimingsCfg, _fill,
                                blocking_problems, load_hardware_file, merge_hardware, validate_hardware)
 from motogo_box.config_outdoor import OutdoorCfg, apply_outdoor, validate_outdoor
 from motogo_box.models import HwRef
@@ -354,19 +354,21 @@ def test_validate_outdoor_light_vs_channel_relay():
     assert validate_outdoor(hw) == []
 
 
-def test_network_lan_gateway_parsed_and_validated():
+def test_network_lan_gateway_is_ignored_with_warning():
+    """Sekce `network` (brána kabelem) je zrušená — hodnota ze starých map se načte, ale jen s varováním."""
     d = _brno()
     d["network"] = {"lan_gateway": "192.168.1.2"}
     hw = HardwareConfig.from_dict(d)
-    assert hw.network.lan_gateway == "192.168.1.2" and not [p for p in validate_hardware(hw) if "lan_gateway" in p]
-    d["network"] = {"lan_gateway": "router"}
-    assert any("lan_gateway" in p for p in validate_hardware(HardwareConfig.from_dict(d)))
+    probs = [p for p in validate_hardware(hw) if "lan_gateway" in p]
+    assert len(probs) == 1 and probs[0].startswith(WARNING_PREFIX) and "IGNORUJE" in probs[0]
+    assert not blocking_problems(probs)
     assert HardwareConfig.from_dict(_brno()).network.lan_gateway == ""
 
 
-def test_lan_gateway_file_roundtrip(tmp_path):
-    from motogo_box import lan_gateway as lg
-    assert lg.write_gateway(str(tmp_path), "192.168.1.2") is True
-    assert open(tmp_path / "lan_gateway").read().strip() == "192.168.1.2"
-    assert lg.write_gateway(str(tmp_path), "192.168.1.2") is False          # beze změny
-    assert lg.write_gateway(str(tmp_path), "nesmysl") is True and not (tmp_path / "lan_gateway").exists()
+def test_lan_guard_removes_gateway_file(tmp_path):
+    from motogo_box import lan_guard
+    (tmp_path / "lan_gateway").write_text("192.168.1.2\n")
+    assert lan_guard.remove_gateway_file(str(tmp_path)) is True and not (tmp_path / "lan_gateway").exists()
+    assert lan_guard.remove_gateway_file(str(tmp_path)) is False
+
+

@@ -227,35 +227,38 @@ if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | g
   fi
 fi
 
-# ── hybridní motogo-lan (2026-09-26): DHCP z routeru na kabelu = internet (LTE záloha) + statické adresy I/O sítě ──
-LAN_HYBRID="ipv4.method auto ipv4.dhcp-timeout infinity ipv4.never-default no ipv4.ignore-auto-dns no ipv4.ignore-auto-routes no ipv4.route-metric 50 ipv4.dns-priority 0"
-if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | grep -qx motogo-lan \
-   && [[ "$(nmcli -g ipv4.method con show motogo-lan 2>/dev/null)" != "auto" ]]; then
-  # shellcheck disable=SC2086
-  if nmcli con modify motogo-lan $LAN_HYBRID; then
-    nmcli device reapply eth0 >/dev/null 2>&1 || nmcli -w 20 con up motogo-lan >/dev/null 2>&1 || true
-    log "motogo-lan: přepnut na hybrid (DHCP z routeru + statické adresy I/O sítě; kabel = internet, LTE záloha)"
-  else
-    log "UPOZORNĚNÍ: motogo-lan se nepodařilo přepnout na hybrid (nmcli con modify selhal)"
+# ── eth0 = JEN I/O síť, internet VÝHRADNĚ LTE (2026-09-26, ruší hybrid z téhož dne) ─────────────────────────
+# Hybridní profil (DHCP z routeru + DNS na kabelu) a „záložní brána kabelem" vznikly z chybné diagnózy: na pobočce
+# router není a výchozí trasa přes eth0 (metrika 50 < LTE 100) poslala internet do prázdna. Zpět na manual/never-default.
+LAN_ONLY_IO="ipv4.method manual ipv4.never-default yes ipv4.ignore-auto-dns yes ipv4.ignore-auto-routes yes ipv4.dns \"\" ipv4.gateway \"\" ipv4.dns-priority 0 ipv4.route-metric \"\" ipv4.dhcp-timeout 0"
+if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | grep -qx motogo-lan; then
+  lan_method="$(nmcli -g ipv4.method con show motogo-lan 2>/dev/null)"
+  lan_nodef="$(nmcli -g ipv4.never-default con show motogo-lan 2>/dev/null)"
+  lan_dns="$(nmcli -g ipv4.dns con show motogo-lan 2>/dev/null)"
+  if [[ "$lan_method" != "manual" || "$lan_nodef" != "yes" || -n "$lan_dns" ]]; then
+    # shellcheck disable=SC2086
+    if eval nmcli con modify motogo-lan $LAN_ONLY_IO; then
+      nmcli device reapply eth0 >/dev/null 2>&1 || nmcli -w 20 con up motogo-lan >/dev/null 2>&1 || true
+      log "motogo-lan: zpět na „jen I/O síť" (manual, never-default, bez DNS) — internet jde výhradně LTE"
+    else
+      log "UPOZORNĚNÍ: motogo-lan se nepodařilo přepnout na „jen I/O síť" (nmcli con modify selhal)"
+    fi
+  fi
+fi
+rm -f /var/lib/motogo/lan_gateway 2>/dev/null && log "odstraněn soubor zrušené brány kabelem /var/lib/motogo/lan_gateway"
+
+# ── záložní veřejné DNS (2026-09-26) JEN na LTE profilu: DNS operátora občas neodpovídá → Velín i GitHub nedosažitelné ──
+if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | grep -qx motogo-lte; then
+  if ! nmcli -g ipv4.dns con show motogo-lte 2>/dev/null | tr ',' '\n' | grep -qx "1.1.1.1"; then
+    if nmcli con modify motogo-lte +ipv4.dns 1.1.1.1 +ipv4.dns 8.8.8.8; then
+      log "motogo-lte: doplněno záložní DNS 1.1.1.1, 8.8.8.8 (platí od dalšího connectu)"
+    else
+      log "UPOZORNĚNÍ: motogo-lte — záložní DNS se nepodařilo doplnit"
+    fi
   fi
 fi
 
-# ── záložní veřejné DNS (2026-09-26): DNS operátora/routeru občas neodpovídá → Velín i GitHub nedosažitelné ──
-if command -v nmcli >/dev/null 2>&1; then
-  for prof in motogo-lte motogo-lan; do
-    nmcli -t -f NAME con show 2>/dev/null | grep -qx "$prof" || continue
-    if ! nmcli -g ipv4.dns con show "$prof" 2>/dev/null | tr ',' '\n' | grep -qx "1.1.1.1"; then
-      if nmcli con modify "$prof" +ipv4.dns 1.1.1.1 +ipv4.dns 8.8.8.8; then
-        log "$prof: doplněno záložní DNS 1.1.1.1, 8.8.8.8"
-        [[ "$prof" == motogo-lan ]] && { nmcli device reapply eth0 >/dev/null 2>&1 || true; }   # LTE se neshazuje (platí od dalšího connectu)
-      else
-        log "UPOZORNĚNÍ: $prof — záložní DNS se nepodařilo doplnit"
-      fi
-    fi
-  done
-fi
-
-# ── I/O síť vždy dostupná: NM dispatcher přidá 192.168.50.10/24 (+ tovární 192.168.1.253/24) na eth0 i při DHCP ──
+# ── I/O síť vždy dostupná + strážce tras: NM dispatcher drží 192.168.50.10/24 (+ 192.168.1.253/24) a maže výchozí trasy přes eth0 ──
 LAN_ADDR="50-motogo-lan-addr"
 if [[ -f "$APP_DIR/systemd/$LAN_ADDR" ]]; then
   if ! cmp -s "$APP_DIR/systemd/$LAN_ADDR" "/etc/NetworkManager/dispatcher.d/$LAN_ADDR"; then

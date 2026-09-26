@@ -351,12 +351,16 @@ def test_pin2_is_not_a_sim_lock_and_unused_roles_are_skipped():
     assert st["config.zone.1.red"] == "skip" and st["config.zone.1.audio"] == "skip" and st["config.zone.8.light"] == "warn"
 
 
-def test_gateway_via_cable_router_is_ok():
-    ifc = {"interfaces": [{"name": "eth0", "state": "up", "ipv4": [{"addr": "192.168.1.50", "prefix": 24}]}],
-           "default_routes": [{"gateway": "192.168.1.2", "dev": "eth0", "metric": 50}], "dns": ["192.168.1.2"]}
-    sec = dp._network({"interfaces": ifc})
-    gw = next(i for i in sec["items"] if i["id"] == "network.gateway")
-    assert gw["status"] == "ok" and "kabelem" in gw["message"]
+def test_gateway_via_eth0_is_fail_lte_only_is_ok():
+    """Internet jde jen přes LTE: trasa přes eth0 (zrušená brána kabelem) blokuje LTE → fail s hintem."""
+    ifc = {"interfaces": [{"name": "eth0", "state": "up", "ipv4": [{"addr": "192.168.50.10", "prefix": 24}]}],
+           "default_routes": [{"gateway": "192.168.1.2", "dev": "eth0", "metric": 50},
+                              {"gateway": "10.0.0.1", "dev": "wwan0", "metric": 100}], "dns": ["1.1.1.1"]}
+    gw = next(i for i in dp._network({"interfaces": ifc})["items"] if i["id"] == "network.gateway")
+    assert gw["status"] == "fail" and "eth0" in gw["message"] and "route_fix" in (gw.get("hint") or "")
+    ifc["default_routes"] = [{"gateway": "10.0.0.1", "dev": "wwan0", "metric": 100}]
+    gw = next(i for i in dp._network({"interfaces": ifc})["items"] if i["id"] == "network.gateway")
+    assert gw["status"] == "ok"
 
 
 def test_netlog_outages_and_section():

@@ -64,7 +64,8 @@ HISTORY_MAX = 200            # položek historie akcí (24 h) v /var/lib/motogo/
 SIGNAL_SETUP_RATE_S = 30
 LAN_UP_WAIT_S = 20           # `nmcli -w 20 con up motogo-lan` — hodnota MUSÍ sedět s aliasem v motogo-sudoers
 LAN_ADDR_DISPATCHER = "/etc/NetworkManager/dispatcher.d/50-motogo-lan-addr"   # tamtéž (argumenty `eth0 manual`)
-GATEWAY_FILE = "/var/lib/motogo/lan_gateway"                                  # lan_gateway.py (záložní brána kabelem)
+ROUTE_FIX_EVERY_S = 60       # cizí výchozí trasa (eth0) → dispečer ji smaže, nejvýš 1× za minutu
+LTE_IFACE_PREFIXES = ("wwan", "usb", "ppp")   # rozhraní modemu (QMI wwan0 / RNDIS usb0 / PPP fallback)
 KILL_WAIT_S = 5.0            # po timeoutu: jak dlouho čekat na konec (ne)zabitého potomka
 
 RunCmd = Callable[..., Awaitable[tuple[int, str]]]
@@ -283,7 +284,8 @@ class HealthMonitor:
                  state_path: str = DEFAULT_STATE_PATH, http: httpx.AsyncClient | None = None,
                  uptime: Callable[[], float | None] = read_uptime_s,
                  tcp_probe: TcpProbe = tcp_probe,
-                 interfaces: Interfaces | None = None) -> None:
+                 interfaces: Interfaces | None = None,
+                 routes: Callable[[], Awaitable[list[dict]]] | None = None) -> None:
         self.cfg = cfg
         self.controller_url = controller_url.rstrip("/")
         self.run_cmd = run_cmd
@@ -293,8 +295,9 @@ class HealthMonitor:
         self._uptime = uptime
         self._tcp_probe = tcp_probe
         self._interfaces = interfaces      # None = `net_scan.interfaces` (lazy import, viz `_list_interfaces`)
+        self._routes = routes              # None = `net_scan.routes` (výchozí trasy; testy dosazují falešné)
         self._lan_try_at: float | None = None      # poslední pokus o `nmcli con up` (rate limit)
-        self._gw_try_at: float | None = None       # poslední spuštění dispečeru kvůli záložní bráně (rate limit)
+        self._route_fix_at: float | None = None    # poslední route_fix (rate limit)
         self._lan_problem: str | None = None       # poslední hlášený problém — log jen při ZMĚNĚ, ne každých 30 s
         self.policy = LtePolicy(cfg, clock)
         self.policy.skip_modem_reset = self.rndis
@@ -490,28 +493,48 @@ class HealthMonitor:
         from . import net_scan
         return await net_scan.interfaces()
 
+    async def _list_routes(self) -> list[dict]:
+        if self._routes is not None:
+            return await self._routes()
+        from . import net_scan
+        return await net_scan.routes()
+
     async def _net_state(self) -> dict:
         """Výchozí trasa a DNS pro historii sítě (net_history) — kudy internet právě jde."""
         try:
             from . import net_scan
-            routes = await net_scan.routes()
+            routes = await self._list_routes()
             return {"default_dev": str(routes[0].get("dev")) if routes else None,
                     "gateway": routes[0].get("gateway") if routes else None, "dns": net_scan.dns_servers()[:3]}
         except Exception:  # noqa: BLE001
             return {"default_dev": None, "gateway": None, "dns": []}
 
-    async def _gateway_kick(self) -> None:
-        """Internet nejde → nechat dispečer znovu aplikovat záložní bránu kabelem (lan_gateway.py), nejvýš 1× za 120 s.
-        Bez souboru s bránou (pobočka jen s LTE) nic nedělá."""
-        if not os.path.exists(GATEWAY_FILE):
-            return
-        now = self.clock()
-        if self._gw_try_at is not None and 0 <= now - self._gw_try_at < 120:
-            return
-        self._gw_try_at = now
-        rc, out = await self.run_cmd("sudo", "-n", LAN_ADDR_DISPATCHER, self.cfg.lan_interface, "manual", timeout=15)
-        if rc != 0:
-            log.warning("záložní brána: dispečer rc=%s: %s", rc, (out or "").strip()[:200])
+    async def route_state(self) -> dict:
+        """Strážce tras (2026-09-26): internet jde VÝHRADNĚ přes LTE. Výchozí trasa přes jiné rozhraní (eth0 —
+        DHCP cizího routeru, ruční, pozůstatek zrušené „záložní brány kabelem") přebije LTE metrikou a pošle
+        internet do prázdna; modem by se pak marně resetoval. Vrací `{routes, foreign: [dev…], action}`;
+        cizí trasu nechá smazat dispečerem `50-motogo-lan-addr` (sudo, pevné argumenty), nejvýš 1× za minutu."""
+        try:
+            routes = await self._list_routes()
+        except Exception as exc:  # noqa: BLE001
+            log.debug("route_state: výpis tras selhal: %s", exc)
+            return {"routes": [], "foreign": [], "action": None}
+        lte = self.lte_iface()
+        # rozhraní modemu (wwan*/usb*/ppp* + nastavené) jsou v pořádku; cokoli jiného (eth0, wlan0, …) je cizí trasa
+        foreign = sorted({str(r.get("dev")) for r in routes if r.get("dev") and str(r.get("dev")) != lte
+                          and not str(r.get("dev")).startswith(LTE_IFACE_PREFIXES)})
+        action = None
+        if foreign:
+            now = self.clock()
+            if self._route_fix_at is None or not 0 <= now - self._route_fix_at < ROUTE_FIX_EVERY_S:
+                self._route_fix_at = now
+                log.error("Výchozí trasa přes %s (internet je jen LTE/%s) → odstraňuji dispečerem", ", ".join(foreign), lte)
+                rc, out = await self.run_cmd("sudo", "-n", LAN_ADDR_DISPATCHER, self.cfg.lan_interface, "manual",
+                                             timeout=15)
+                action = "route_fix" if rc == 0 else "route_fix_failed"
+                if rc != 0:
+                    log.warning("dispečer %s rc=%s: %s", LAN_ADDR_DISPATCHER, rc, (out or "").strip()[:200])
+        return {"routes": routes, "foreign": foreign, "action": action}
 
     async def _lan_recover(self) -> str | None:
         """`nmcli con up <lan_connection>`, nejvýš jednou za `cfg.lan_recover_s` (0 = vypnuto)."""
@@ -526,12 +549,11 @@ class HealthMonitor:
         con = self.cfg.lan_connection
         log.warning("I/O síť: %s má link, ale nemá adresu → nahazuji profil %s", self.cfg.lan_interface, con)
         sd_notify("WATCHDOG=1")   # nmcli čeká až LAN_UP_WAIT_S — watchdog nesmí zabít obnovu
-        # 1) adresy I/O sítě hned (NM dispatcher 50-motogo-lan-addr, idempotentní `ip addr replace`) — hybridní profil
-        #    může s DHCP čekat (dhcp-timeout=infinity) a moduly nesmí záviset na tom, kdy NM aktivaci dokončí
+        # 1) adresy I/O sítě hned (NM dispatcher 50-motogo-lan-addr, idempotentní `ip addr replace`)
         rc, out = await self.run_cmd("sudo", "-n", LAN_ADDR_DISPATCHER, self.cfg.lan_interface, "manual", timeout=15)
         if rc != 0:
             log.warning("dispečer %s selhal (rc=%s): %s", LAN_ADDR_DISPATCHER, rc, out.strip()[:200])
-        # 2) profil (DHCP z routeru → výchozí brána kabelem)
+        # 2) profil motogo-lan (statické adresy)
         rc, out = await self.run_cmd("sudo", "-n", "nmcli", "-w", str(LAN_UP_WAIT_S), "con", "up", con,
                                      timeout=LAN_UP_WAIT_S + 15)
         if rc != 0:
@@ -586,6 +608,8 @@ class HealthMonitor:
                                          timeout=max(60, int(self.cfg.usb_reset_timeout_s)))
             if rc != 0:
                 log.error("USB reset selhal (rc=%s): %s", rc, out.strip()[:300])
+        elif action == "route_fix":
+            return      # už provedeno v route_state (dispečer); tady jen kvůli hlášení do payloadu/kiosk_logs
         elif action in ("mode_rndis", "mode_qmi"):
             mode = action.split("_", 1)[1]
             why = (f"USB resety se opakují ({self.policy.counts_24h()['usb_reset']} za 24 h)"
@@ -627,6 +651,7 @@ class HealthMonitor:
         internet = await self.probe_internet()
         lte = await self.lte_info()
         lan = await self.lan_state()
+        route = await self.route_state()
         sysm = sys_metrics()
         uptime = self._uptime()
         error = lte.get("error")
@@ -640,19 +665,25 @@ class HealthMonitor:
                           "VYPNOUT, jinak ho ulož do profilu motogo-lte (install.sh, MOTOGO_SIM_PIN)",
                           error, lte.get("state"), lte.get("unlock_required"),
                           f", zbývá {retries} pokusů" if retries is not None else "")
+        elif route["foreign"] and not internet:
+            # Výpadek způsobila cizí trasa (eth0), ne modem → politiku LTE nekrokovat (žádný reconnect/USB reset/
+            # reboot/RNDIS naprázdno); dispečer trasu právě smazal, další cyklus ukáže.
+            actions = [route["action"]] if route["action"] else []
         else:
             actions = self.policy.step(internet, uptime if uptime is not None else 0.0,
                                        modem_gone=bool(lte.get("modem_gone")))
             if not actions:
                 actions = self.policy.mode_step(self.rndis, internet)
+            if route["action"] == "route_fix":
+                actions = [*actions, "route_fix"]
         self._lte_error = error
         self._save_state()
+        net = await self._net_state()
+        net["foreign_default"] = route["foreign"]
         payload = {"internet": internet, "lte": lte, "lan": lan, "sys": sysm, "ts": now_iso(),
-                   "actions": actions, "net": await self._net_state()}
+                   "actions": actions, "net": net}
         for action in actions:
             await self.perform(action, payload)
-        if not internet:
-            await self._gateway_kick()
         if not set(actions) & {"reboot", "mode_rndis", "mode_qmi"}:     # ty postují samy (před akcí)
             await self.post_health(payload)
         sd_notify("WATCHDOG=1")
