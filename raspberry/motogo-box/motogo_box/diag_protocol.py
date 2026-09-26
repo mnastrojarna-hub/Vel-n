@@ -144,12 +144,18 @@ def _network(r: dict) -> dict:
     dev = str(routes[0].get("dev") or "") if routes else ""
     # Internet jde VÝHRADNĚ přes LTE (wwan0/usb0). Výchozí trasa přes eth0 = chyba: kabelem internet není, trasa
     # přebije LTE a pošle provoz do prázdna (zrušená „záložní brána kabelem", 2026-09-26) — health ji sám maže.
-    foreign = [str(r.get("dev")) for r in routes if r.get("dev") and not str(r.get("dev")).startswith(("wwan", "usb", "ppp"))]
-    it.append(item("network.gateway", "Výchozí brána", "fail" if not routes or foreign else "ok",
+    foreign = [str(r.get("dev")) for r in routes if r.get("dev") and str(r.get("dev")).startswith(("eth", "en"))]
+    wifi = [r for r in routes if str(r.get("dev", "")).startswith("wl")]
+    lte_route = any(str(r.get("dev", "")).startswith(("wwan", "usb", "ppp")) for r in routes)
+    it.append(item("network.gateway", "Výchozí brána",
+                   "fail" if not routes or foreign else "warn" if wifi and not lte_route else "ok",
                    f"{routes[0].get('gateway') or routes[0].get('via') or '?'} přes {dev}" if routes else None,
                    "Chybí výchozí brána (žádná default route) — LTE nemá trasu, internet nemůže fungovat." if not routes else
-                   f"Výchozí trasa přes {', '.join(foreign)} blokuje LTE — kabelem internet není." if foreign else "",
-                   hint("gateway_missing") if not routes else hint("gateway_eth") if foreign else None))
+                   f"Výchozí trasa přes {', '.join(foreign)} blokuje LTE — kabelem internet není." if foreign else
+                   "Internet jde přes Wi-Fi (wlan0), LTE trasa chybí — na pobočce Wi-Fi není, tohle je stav při testu mimo pobočku."
+                   if wifi and not lte_route else "",
+                   hint("gateway_missing") if not routes else hint("gateway_eth") if foreign
+                   else hint("gateway_wifi") if wifi and not lte_route else None))
     dns = ifc.get("dns") or []
     it.append(item("network.dns", "DNS servery", "ok" if dns else "fail", ", ".join(map(str, dns)) or None,
                    "" if dns else "Není nastaven žádný DNS server (/etc/resolv.conf).", hint("dns_missing")))
@@ -425,14 +431,14 @@ def _netlog(r: dict) -> dict:
                    "" if not od else f"Nejdelší {_fmt_dur(max(o['duration_s'] for o in od))}; při výpadku LTE „{od[-1].get('lte')}“, modem {'pryč z USB' if od[-1].get('modem_gone') else 'vidět'}, kabel {od[-1].get('lan') or 'OK'}, brána přes {od[-1].get('gw_dev') or 'nic'}."
                    + (" Výpadek TRVÁ." if od[-1].get("open") else ""), hint("net_outages") if od else None))
     it.append(item("netlog.outages_7d", "Výpadky internetu za 7 dní", "warn" if len(ow) >= 10 or dw >= 4 * 3600 else "ok", f"{len(ow)}× celkem {_fmt_dur(dw)}",
-                   "" if len(ow) < 10 and dw < 4 * 3600 else "Opakované výpadky — modem/anténa/SIM nebo router na kabelu; viz logy níže.", hint("net_outages") if len(ow) >= 10 or dw >= 4 * 3600 else None))
+                   "" if len(ow) < 10 and dw < 4 * 3600 else "Opakované výpadky — modem (SIM7600 padá z USB) / anténa / SIM; viz logy níže.", hint("net_outages") if len(ow) >= 10 or dw >= 4 * 3600 else None))
     mg = int(n.get("modem_gone_24h") or 0)
     if mg:
         it.append(item("netlog.modem_gone", "Modem pryč z USB (vzorky za 24 h)", "warn" if mg < 60 else "fail", mg,
                        f"Modem nebyl vidět v ModemManageru v {mg} vzorcích (~{_fmt_dur(mg * 30)}) — známá závada SIM7600 (USB -71).", hint("modem_gone")))
     resets = sum(1 for e in n.get("events") or [] if e.get("kind") in ("LTE_RESET", "REBOOT"))
     it.append(item("netlog.recovery", "Obnovy LTE / restarty za 7 dní", "ok" if resets < 10 else "warn", resets,
-                   "" if resets < 10 else "Health opakovaně resetuje modem — bez kabelové zálohy hrozí výpadky.", hint("net_outages") if resets >= 10 else None))
+                   "" if resets < 10 else "Health opakovaně resetuje modem — QMI režim SIM7600 je nestabilní, přepněte modem do RNDIS.", hint("net_outages") if resets >= 10 else None))
     gw = n.get("gw_now") or {}
     it.append(item("netlog.gw", "Internet právě jde přes", "ok" if gw.get("dev") else "warn", f"{gw.get('dev') or 'nic'} · DNS {gw.get('dns') or '—'}",
                    "" if gw.get("dev") else "Bez výchozí trasy — internet nejde.", None if gw.get("dev") else hint("gateway_missing")))

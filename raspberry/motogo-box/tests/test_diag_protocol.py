@@ -361,6 +361,9 @@ def test_gateway_via_eth0_is_fail_lte_only_is_ok():
     ifc["default_routes"] = [{"gateway": "10.0.0.1", "dev": "wwan0", "metric": 100}]
     gw = next(i for i in dp._network({"interfaces": ifc})["items"] if i["id"] == "network.gateway")
     assert gw["status"] == "ok"
+    ifc["default_routes"] = [{"gateway": "192.168.1.1", "dev": "wlan0", "metric": 600}]     # jen Wi-Fi, LTE chybí
+    gw = next(i for i in dp._network({"interfaces": ifc})["items"] if i["id"] == "network.gateway")
+    assert gw["status"] == "warn" and "Wi-Fi" in gw["message"]
 
 
 def test_netlog_outages_and_section():

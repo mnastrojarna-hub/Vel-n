@@ -118,6 +118,7 @@ _HEALTH_ACTION_KINDS = {"reconnect": EventKind.LTE_RESET, "usb_reset": EventKind
                         "route_fix": EventKind.NET_FIX}
 _WHERE_TEXT = {      # health `net.where` → lidsky, kde výpadek vězí (CONTRACT §17)
     "route": " — cizí výchozí trasa přes eth0 blokuje LTE (jednotka ji maže sama)",
+    "wifi": " — internet šel přes Wi-Fi (test mimo pobočku) a ta vypadla; LTE modem není k dispozici",
     "no_route": " — LTE rozhraní nemá výchozí trasu (profil motogo-lte nenaskočil; health nahazuje)",
     "modem": " — modem chybí / bez adresy / v chybě (health: reconnect → reset → USB reset)",
     "carrier": " — lokálně vše OK, nejde to za modemem (signál, operátor, data na SIM)",

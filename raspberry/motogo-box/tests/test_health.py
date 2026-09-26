@@ -855,3 +855,14 @@ async def test_net_where_classifies_outage(tmp_path):
     env.ifaces.append({"name": "wwan0", "state": "up", "ipv4": [{"addr": "10.1.2.3", "prefix": 32}]})
     assert (await _monitor(env, tmp_path).cycle())["net"]["where"] == "carrier"
     assert (await _monitor(FakeEnv(), tmp_path).cycle())["net"]["where"] is None
+
+
+async def test_wifi_default_route_is_not_foreign(tmp_path):
+    """Wi-Fi (test mimo pobočku) internet drží, když modem stojí — není to cizí trasa; jen eth* se maže."""
+    env = FakeEnv()
+    env.default_routes = [{"dst": "default", "gateway": "192.168.1.1", "dev": "wlan0", "metric": 600}]
+    p = await _monitor(env, tmp_path).cycle()
+    assert p["actions"] == [] and p["net"]["foreign_default"] == [] and DISPATCHER not in env.cmds
+    env = FakeEnv(internet_ok=False)
+    env.default_routes = [{"dst": "default", "gateway": "192.168.1.1", "dev": "wlan0", "metric": 600}]
+    assert (await _monitor(env, tmp_path).cycle())["net"]["where"] == "wifi"
