@@ -313,6 +313,7 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
 
     active = zc.state in ACTIVE_STATES
     contact_raw = None
+    raw = None
     if hw.contact is not None:
         raw = _try(lambda: ctrl.io.input_value(snapshot, hw.contact))
         contact_raw = None if raw is None else (bool(raw) == _closed_level(ctrl, zc))
@@ -385,6 +386,9 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
     return {"zone": zc.number, "label": z.display_name, "kind": z.kind, "door_id": z.door_id, "box_number": z.box_number,
             "state": state, "fault": fault, "door_closed": zc.door_closed, "session_active": active,
             "contact_raw": contact_raw, "contact_consistent": consistent, "io_problems": io_problems, "signal_offline": signal_offline, "lock": lock,
+            # průkazně pro Velín (2026-09-26): syrová hodnota vstupu + úroveň zavřeno (polaritu řeší „Test kontaktu“ / „Otočit polaritu“)
+            "contact_input": None if raw is None else int(bool(raw)), "closed_level": int(_closed_level(ctrl, zc)) if hw.contact is not None else None,
+            "contact_ref": f"{hw.contact.dev} DI{hw.contact.idx + 1}" if hw.contact is not None else None,
             "tested": tested, "skipped_reason": skipped, "light": light, "signal": signal, "audio": audio,
             "shelly": shelly, "findings": findings, "problems": [f["message"] for f in findings]}
 

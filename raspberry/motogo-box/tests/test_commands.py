@@ -449,3 +449,46 @@ async def test_protocol_signed_command_and_reload_retry():
     del c.handover
     ok, res = await commands.execute(c, "protocol_signed", {"booking_id": "b1"})
     assert ok is False and res["error"] == "missing_booking_id"
+
+
+async def test_contact_test_verdicts():
+    """contact_test z Velína: nemění se → stuck; mění se a poslední hodnota ≠ closed_level → polarity (+ doporučení); sedí → ok."""
+    from types import SimpleNamespace
+    from motogo_box.models import EventKind, HwRef, Zone, ZoneHw
+
+    class ContactZone(FakeZone):
+        def __init__(self):
+            super().__init__(8, "d8", None)
+            self.zone = Zone(hw=ZoneHw(zone=8, lock=HwRef("wav617a", 7), contact=HwRef("wav617a", 7)), door_id="d8", box_number=None)
+            self.contact_raw, self.door_closed, self.level = False, True, 0
+        def closed_level(self):
+            return bool(self.level)
+        def contact_ref(self):
+            return "wav617a DI8"
+
+    z = ContactZone()
+    c = FakeController()
+    c.zones[8] = z
+    c.io = SimpleNamespace(is_online=lambda name: True)
+    c.events = []
+    async def emit(ev):
+        c.events.append(ev)
+    c.emit = emit
+    ok, res = await commands.execute(c, "contact_test", {"zone": 8, "seconds": 1})
+    assert not ok and res["verdict"] == "stuck_0" and "COM–DGND" in c.events[-1].message
+    async def toggler():
+        for v in (True, False, True):
+            await asyncio.sleep(0.2)
+            z.contact_raw = v
+    task = asyncio.create_task(toggler())
+    ok, res = await commands.execute(c, "contact_test", {"zone": 8, "seconds": 1})
+    await task
+    assert not ok and res["verdict"] == "polarity" and res["suggested_closed_level"] == 1 and len(res["changes"]) == 3
+    z.level = 1
+    task = asyncio.create_task(toggler())
+    ok, res = await commands.execute(c, "contact_test", {"zone": 8, "seconds": 1})
+    await task
+    assert ok and res["verdict"] == "ok"
+    assert [e.kind for e in c.events] == [EventKind.CONTACT_TEST] * 3
+    c.io = SimpleNamespace(is_online=lambda name: False)
+    assert (await commands.execute(c, "contact_test", {"zone": 8}))[1]["verdict"] == "offline"

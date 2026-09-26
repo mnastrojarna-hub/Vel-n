@@ -175,7 +175,7 @@ dotyk a zvukovou kartu). Hlavní pojistka 12V větve zámků + pojistková svork
 
 ## 7. Ověření polarity dveřních kontaktů (`closed_level`, SPEC §13.5)
 
-Program vyhodnocuje `door_closed = input_value == closed_level`. Přerušený kabel se MUSÍ jevit
+**Z Velína (2026-09-26, bez terminálu):** dlaždice zóny ukazuje syrovou hodnotu vstupu („vstup wav617a DI8 = 1 · zavřeno = 0“), tlačítko „Test kontaktu“ (20 s, dveře otevřít a zavřít) dá verdikt ok / otočit polaritu / vstup se nemění (zapojení COM–DGND, DI), „Otočit polaritu“ uloží `closed_level` opačně. Zapojení suchého kontaktu na Relay (B): propojka COM–DGND, kontakt mezi COM a DIx.\n\nProgram vyhodnocuje `door_closed = input_value == closed_level`. Přerušený kabel se MUSÍ jevit
 jako otevřeno/porucha, nikdy jako zavřeno — proto NC kontakt a správná úroveň.
 
 1. Zapoj kontakt zóny 1 na WAV617-A DI1, dveře **zavři**, spusť controller.

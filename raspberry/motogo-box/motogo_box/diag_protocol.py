@@ -352,7 +352,7 @@ def _zones(r: dict) -> dict | None:
         st = {3: "fail", 2: "warn"}.get(worst) or ("skip" if z.get("skipped_reason") else "ok")
         door = {True: "zavřeno", False: "otevřeno"}.get(z.get("door_closed"), "?")
         tests = " ".join(f"{k} {'✔' if v else '✘' if v is False else '–'}" for k, v in (("světlo", z.get("light")), ("zelená", z.get("signal")), ("tón", z.get("audio"))))
-        val = f"{z.get('state')}, dveře {door}" + (f", test: {tests}" if z.get("tested") else "")
+        val = f"{z.get('state')}, dveře {door}" + (f" (vstup {z.get('contact_ref')} = {z.get('contact_input')}, zavřeno = {z.get('closed_level')})" if z.get("contact_input") is not None else "") + (f", test: {tests}" if z.get("tested") else "")
         msg = f"{len(f)} nálezů: " + ", ".join(dict.fromkeys(ROLE_CZ.get(x.get("key"), str(x.get("key"))) for x in f)) if f else \
             f"Test přeskočen: {SKIP_CZ.get(z.get('skipped_reason'), z.get('skipped_reason'))}." if z.get("skipped_reason") else "Vše v pořádku."
         # rada souhrnné položky = rada prvního nálezu (včetně {dev}/{ch} u světla — jinak by zůstaly složené závorky)

@@ -89,7 +89,7 @@ function RpiStatusBlock(props) {
   )
 }
 
-function RpiStatusInner({ devices, doors, now, onCommand, branchName }) {
+function RpiStatusInner({ devices, doors, now, onCommand, branchName, onSaveDoor }) {
   const rpis = arr(devices).filter(isRpiDevice)
   if (rpis.length === 0) return null
   return (
@@ -97,13 +97,13 @@ function RpiStatusInner({ devices, doors, now, onCommand, branchName }) {
       hint="Živý stav z řídicí jednotky (Modbus relé Waveshare + Shelly), hlásí se každých 30 s. Příkazy se doručí přes kiosk_commands — jednotka je vyzvedne do několika sekund.">
       <style>{KEYFRAMES}</style>
       <div className="space-y-3">
-        {rpis.map(dev => <RpiDeviceCard key={dev.id} dev={dev} doors={doors} now={now} onCommand={onCommand} branchName={branchName} />)}
+        {rpis.map(dev => <RpiDeviceCard key={dev.id} dev={dev} doors={doors} now={now} onCommand={onCommand} branchName={branchName} onSaveDoor={onSaveDoor} />)}
       </div>
     </RpiSection>
   )
 }
 
-function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
+function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor }) {
   const [sent, setSent] = useState(null)
   const st = (dev.status && typeof dev.status === 'object' && !Array.isArray(dev.status)) ? dev.status : {}
   const online = !!(dev.last_seen_at && (now - new Date(dev.last_seen_at).getTime()) < ONLINE_MS)
@@ -237,7 +237,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName }) {
           <EmptyState text="Jednotka nehlásí žádné zóny — zkontrolujte „Mapování dveří → zóny“ v bloku Řídicí jednotka (Raspberry) — hardware níže." />
         ) : (
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
-            {zones.map((z, i) => <ZoneTile key={`${txt(z.zone)}-${txt(z.door_id)}-${i}`} z={z} door={doorMap[z.door_id]} handover={handover} onSend={send} onConfirm={confirmSend} />)}
+            {zones.map((z, i) => <ZoneTile key={`${txt(z.zone)}-${txt(z.door_id)}-${i}`} z={z} door={doorMap[z.door_id]} handover={handover} onSend={send} onConfirm={confirmSend} onSaveDoor={onSaveDoor} />)}
           </div>
         )}
         {/* Venek (zóna bez dveří) — za mřížkou zón, jen když je v HW mapě nastaven */}
@@ -263,7 +263,7 @@ function zoneName(z, door) {
   return `Zóna ${txt(z.zone)}`
 }
 
-function ZoneTile({ z, door, handover, onSend, onConfirm }) {
+function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor }) {
   const [sig, setSig] = useState('')
   const state = txt(z.state ?? '').toUpperCase()
   const bg = STATE_BG[state] || '#f1faf7'
@@ -294,6 +294,16 @@ function ZoneTile({ z, door, handover, onSend, onConfirm }) {
         {state === 'FAULT' && z.fault != null && <span> — {FAULT_CZ[txt(z.fault)] || txt(z.fault)}</span>}
         {arr(z.io_problems).length > 0 && <span> ({arr(z.io_problems).map(txt).join(', ')})</span>}
       </div>
+      {z.contact_ref != null && (
+        <div className="text-[11px] mt-0.5 flex items-center gap-1 flex-wrap" style={{ color: '#1a2e22' }}
+          title="Syrová hodnota dveřního vstupu z modulu (1 = sepnuto proti COM, 0 = rozpojeno) a úroveň, kterou program bere jako zavřeno. Když neodpovídá skutečnosti, spusťte Test kontaktu nebo otočte polaritu.">
+          <span>vstup <b>{txt(z.contact_ref)}</b> = <b>{z.contact_raw === true ? 1 : z.contact_raw === false ? 0 : '?'}</b> · zavřeno = {txt(z.closed_level ?? '?')}</span>
+          {door && onSaveDoor && z.closed_level != null && (
+            <Btn tone="gray" small title="Prohodí úroveň „Zavřeno =“ u těchto dveří (0 ↔ 1) a uloží do HW mapy — použijte, když program hlásí opačný stav, než dveře skutečně mají."
+              onClick={() => onSaveDoor(door.id, { hw: { ...(door.hw || {}), closed_level: num(z.closed_level) === 1 ? 0 : 1 } })}>Otočit polaritu</Btn>
+          )}
+        </div>
+      )}
       {arr(z.signal_offline).length > 0 && (
         <div className="text-[11px] mt-0.5" style={{ color: '#b45309' }}
           title="Modul světla nebo Shelly signalizace této zóny neodpovídá. Dveře a hudba fungují normálně — chybí jen světlo / barevná signalizace. Pokud modul není zapojený, smažte ho u dveří a ze seznamu zařízení.">
@@ -338,6 +348,8 @@ function ZoneTile({ z, door, handover, onSend, onConfirm }) {
         </select>
         <Btn tone="blue" small title="Zkontroluje, že v této kóji funguje světlo, barevná signalizace a reproduktor — postupně je na chvíli zapne. Zámek se NESEPNE, takže se dveře neotevřou. Dělejte na prázdné kóji."
           onClick={() => onSend('zone_test', zoneParams, `test zóny ${txt(zoneNo)}`)}>Test zóny</Btn>
+        <Btn tone="blue" small title="Jednotka 20 s sleduje dveřní kontakt této zóny. Během testu dveře otevřete a zase zavřete (skončete zavřenými). Výsledek za ~25 s v „Hlášení a chyby“: v pořádku / otočit polaritu / vstup se nemění (zapojení)."
+          onClick={() => onSend('contact_test', { ...zoneParams, seconds: 20 }, `test kontaktu (zóna ${txt(zoneNo)}) — teď dveře otevřete a zavřete, výsledek za ~25 s v Hlášení a chyby`)}>Test kontaktu</Btn>
       </div>
     </div>
   )

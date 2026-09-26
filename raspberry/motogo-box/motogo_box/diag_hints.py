@@ -47,6 +47,7 @@ HINTS = {
     "not_ready": "Jednotka není připravena (start/přestavba HW) — vyčkejte, případně zkontrolujte log.",
     "config_problems": "Opravte HW mapu ve Velíně (Pobočky → Samoobsluha → Zóny) — s chybnou mapou se zóny nespouští.",
     "no_zones": "Jednotka nemá žádné zóny — spárujte ji a nastavte HW mapu dveří ve Velíně (Samoobsluha → Zóny).",
+    "contact_polarity": "Stav dveří nesedí se vstupem: ve Velíně u zóny → „Test kontaktu (20 s)“ (dveře během testu otevřít a zavřít) — verdikt řekne, zda otočit „Zavřeno =“ (tlačítko Otočit polaritu), nebo opravit zapojení COM–DGND / DI.",
     "missing_role": "Doplňte roli {role} zóny {zone} v HW mapě (Velín → Samoobsluha → Zóny).",
     "door_without_hw": "Dveře {label} nemají HW mapu (zone/lock/contact) — bez ní se neotevřou; nastavte ji ve Velíně.",
     "duplicate": "Stejný kanál ve dvou rolích — opravte HW mapu (každé relé/vstup jen jednou).",

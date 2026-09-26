@@ -183,6 +183,7 @@ async def poll_loop(ctrl: "BoxController") -> None:
                     if ref is not None and ref.dev in stale:
                         continue              # modul právě v retry — bez nové informace
                     d = deb.setdefault(zc.number, Debounce())
+                    zc.contact_raw = ctrl.io.input_value(snap, ref) if ref is not None else None   # syrová DI (Velín / contact_test)
                     raw = ctrl.door_value(snap, zc)
                     if raw is None:
                         d.raw, d.since, d.passed, d.passed_any = None, now, None, True

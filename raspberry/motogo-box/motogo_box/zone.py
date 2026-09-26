@@ -64,6 +64,7 @@ class ZoneController:
         self.clock = clock
         self.lock_gate: asyncio.Lock = asyncio.Lock()   # controller nahradí sdíleným zámkem pulzů
         self.lock_held = False       # lock_hold_until_open: relé zámku sepnuté, dokud se dveře neotevřou (zone_access)
+        self.contact_raw: bool | None = None   # syrová hodnota DI kontaktu z posledního pollu (controller_loops.poll_loop)
         self.state: ZoneState = ZoneState.SECURED
         self.fault: str | None = None
         self.door_closed: bool | None = None
@@ -136,7 +137,17 @@ class ZoneController:
             last_event=self.last_event, latch_released=self.latch_released, degraded=self.degraded,
             music_enabled=self.music_enabled,
             io_problems=self.io_problems(), signal_offline=self.signal_problems(),
+            contact_raw=self.contact_raw, contact_ref=self.contact_ref(), closed_level=int(self.closed_level()),
         )
+
+    def closed_level(self) -> bool:
+        """Efektivní úroveň „zavřeno“ (přepis dveří, jinak globální contacts.closed_level)."""
+        lvl = self.zone.hw.closed_level
+        return bool(lvl if lvl is not None else self.hw.contacts_closed_level)
+
+    def contact_ref(self) -> str | None:
+        ref = self.zone.hw.contact
+        return f"{ref.dev} DI{ref.idx + 1}" if ref is not None else None
 
     def _music_playing(self) -> bool:
         """Hraje hudba v této zóně (`audio.is_playing`; starší engine/fake jen `playing_zone`)."""
