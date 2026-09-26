@@ -881,3 +881,37 @@ def test_usb_devices_and_modem_usb_mode(tmp_path):
     (base / "1-1" / "idProduct").write_text("9011\n")
     assert modem_usb_mode("1e0e", str(base)) == "rndis"
     assert modem_usb_mode("1e0e", str(tmp_path / "nic")) is None and usb_devices("1e0e", str(tmp_path / "nic")) is None
+
+
+async def test_mode_sync_when_config_and_usb_disagree(tmp_path, monkeypatch):
+    """Config rndis, modem se na USB hlásí jako QMI → po 3 cyklech `mode_sync` = motogo-lte-mode qmi; shoda → nic."""
+    import motogo_box.health as h
+    monkeypatch.setattr(h, "modem_usb_mode", lambda vid: "qmi")
+    env = FakeEnv()
+    cfg = _cfg(lte_mode="rndis", action_cooldown_s=0)
+    mon = _rndis_monitor(env, tmp_path, action_cooldown_s=0)
+    seen = []
+    for _ in range(3):
+        seen += (await mon.cycle())["actions"]
+    assert seen == ["mode_sync"]
+    assert env.cmds[-1] == ("sudo", "-n", cfg.lte_mode_script, "qmi")
+    posts = [p for p in env.posted if "mode_sync" in p["actions"]]
+    assert len(posts) == 1 and posts[0]["lte"]["usb_mode"] == "qmi" and posts[0]["lte"]["mode"] == "rndis"
+    # shoda config = USB → nic; neznámý PID → nic
+    monkeypatch.setattr(h, "modem_usb_mode", lambda vid: "rndis")
+    mon2 = _rndis_monitor(FakeEnv(), tmp_path)
+    for _ in range(4):
+        assert (await mon2.cycle())["actions"] == []
+    monkeypatch.setattr(h, "modem_usb_mode", lambda vid: "other:9018")
+    mon3 = _rndis_monitor(FakeEnv(), tmp_path)
+    for _ in range(4):
+        assert (await mon3.cycle())["actions"] == []
+
+
+def test_rndis_auto_switch_is_off_by_default():
+    clock = FakeClock(1_000_000.0)
+    p = LtePolicy(_cfg(action_cooldown_s=0), clock)
+    for _ in range(5):
+        p._usb_reset()
+        clock.advance(10)
+    assert p.mode_step(False, False) == []

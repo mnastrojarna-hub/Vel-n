@@ -278,13 +278,17 @@ udev pravidlo, službu startu dat, přepíše `/etc/motogo/modem_vidpid` (1e0e:9
 počká na re-enumeraci (~40 s), spustí data, nahodí profil a za 5 s restartuje motogo-health (přes `systemd-run`,
 aby nezabil volajícího). Log `/var/log/motogo-lte-mode.log`.
 
-**Kdo ho spouští:** (a) health monitor SÁM — ≥ `health.rndis_auto_after` (3) USB resetů za 24 h → `mode_rndis`,
-nejvýš 1× za 24 h; v RNDIS bez jediné úspěšné sondy ≥ `rndis_revert_after_s` (30 min) → `mode_qmi` zpět
-(CONTRACT §17). (b) Velín → karta jednotky → řádek „Modem“ → „Modem → RNDIS (stabilní)“ / „Modem → QMI“
-(příkaz `lte_mode`). Obojí zapíše do Hlášení a chyb událost `LTE_MODE` (proč a s jakým výsledkem).
-Internet při přepnutí vypadne na ~2 min. `usbreset-modem.sh` v RNDIS po resetu znovu spustí datové spojení.
-⚠ Na hardwaru ověřeno zatím jen částečně — po prvním přepnutí na pobočce sledovat log a `LTE_MODE` události;
-kdyby RNDIS na Pi 5 nedržel, automatika se vrátí do QMI a druhá volba je ECM/NCM.
+**Kdo ho spouští:** JEN ručně z Velína → karta jednotky → řádek „Modem“ → „Modem → RNDIS (experimentální)“ / „Modem → QMI“
+(příkaz `lte_mode`), s technikem u modemu. **Automatika (`health.rndis_auto_after`) je od 26. 9. VYPNUTÁ (0):** při testu
+na Velkých Němčicích (SIM7600E-H na Waveshare HAT, Pi 5) modem po `AT+CUSBPIDSWITCH=9011,1,1` **úplně zmizel z USB**
+(PWR svítil, NET blikal, `lsusb` nic; 20:11–20:28) a vrátil ho až fyzické odpojení a zapojení USB — jako **QMI (9001)**,
+přepnutí se tedy ani neuložilo. Na pobočce bez obsluhy by to jednotku odstřihlo. Zbylo: config `rndis` + vypnutý ModemManager
++ modem v QMI → LTE nefungovalo ani jedním způsobem. Proto **`mode_sync`** (health, CONTRACT §17): když se config `lte_mode`
+liší od režimu, ve kterém se modem skutečně hlásí na USB, po 3 cyklech (90 s) health spustí `motogo-lte-mode <režim z USB>`
+a config i služby srovná podle modemu (událost `LTE_MODE`). Diagnostika sbírá `/var/log/motogo-lte-mode.log`,
+`motogo-lte-rndis.log`, `motogo-usbreset.log` a `motogo-lte-mode status` (Velín → Historie sítě → tlačítka logů) — z nich se
+dá zjistit, na čem RNDIS přepnutí skončilo, než se zkusí znovu (jen s fyzickým přístupem). Internet při přepnutí vypadne na ~2 min.
+`usbreset-modem.sh` v RNDIS po resetu znovu spustí datové spojení a resetuje i SIMCom zařízení s neznámým PID.
 
 | soubor | co je |
 |---|---|

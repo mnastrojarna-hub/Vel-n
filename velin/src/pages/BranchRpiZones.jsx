@@ -213,11 +213,12 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor }) {
           <span title="Kolikrát health monitor za posledních 24 h odpojil a připojil modem na USB (poslední stupeň obnovy před rebootem).">
             USB resetů za 24 h: <b style={{ color: (lte.last24h?.usb_reset ?? 0) >= 3 ? '#dc2626' : '#1a2e22' }}>{txt(lte.last24h?.usb_reset ?? 0)}</b>
             {num(lte.mode_auto_after) > 0 && lte.mode !== 'rndis' && <> · po {txt(lte.mode_auto_after)} se přepne do RNDIS sama</>}
+            {lte.usb_mode && lte.mode && lte.usb_mode !== lte.mode && <> · <b style={{ color: '#b45309' }}>nastavení ≠ modem na USB — jednotka srovná do 2 min</b></>}
             {lte.mode_switch_to && <> · poslední automatické přepnutí → {String(lte.mode_switch_to).toUpperCase()} {formatAge(lte.mode_switch_at ? Math.max(0, Math.round(now / 1000 - lte.mode_switch_at)) : null)}</>}
           </span>
           {lte.mode !== 'rndis' ? (
-            <Btn tone="blue" title="Přepne modem SIM7600 do režimu RNDIS: modem se pak chová jako síťová karta (usb0) bez ModemManageru a QMI kanál, který na pobočce padá z USB, se vůbec nepoužije. Internet vypadne na ~2 minuty; výsledek přijde do Hlášení a chyb (LTE_MODE)."
-              onClick={() => confirmSend('Přepnout modem do režimu RNDIS (stabilní)? Internet pobočky vypadne na ~2 minuty, pak jednotka hlásí režim RNDIS. Zpět jde tlačítkem „Modem → QMI“.', 'lte_mode', { mode: 'rndis' }, 'Modem → RNDIS')}>Modem → RNDIS (stabilní)</Btn>
+            <Btn tone="gray" title="EXPERIMENTÁLNÍ — jen s technikem u modemu. Přepne modem SIM7600 do režimu RNDIS (síťová karta usb0 bez ModemManageru). Při testu 26. 9. modem po přepnutí ÚPLNĚ zmizel z USB a vrátilo ho až fyzické odpojení a zapojení; na pobočce bez obsluhy by jednotka zůstala offline. Výsledek přijde do Hlášení a chyb (LTE_MODE); jednotka si nesoulad nastavení a modemu do 2 minut srovná sama."
+              onClick={() => confirmSend('POZOR: experimentální. Přepnout modem do režimu RNDIS? Internet vypadne na ~2 minuty a modem může zmizet z USB — pak pomůže jen fyzické odpojení a zapojení modemu. Pokračovat jen s technikem u jednotky.', 'lte_mode', { mode: 'rndis' }, 'Modem → RNDIS')}>Modem → RNDIS (experimentální)</Btn>
           ) : (
             <Btn tone="gray" title="Vrátí modem do původního režimu QMI (ModemManager). Internet vypadne na ~2 minuty."
               onClick={() => confirmSend('Vrátit modem do režimu QMI? Internet pobočky vypadne na ~2 minuty.', 'lte_mode', { mode: 'qmi' }, 'Modem → QMI')}>Modem → QMI</Btn>

@@ -57,7 +57,8 @@ health:
   min_uptime_before_reboot_s: 1800
   action_cooldown_s: 120          # po akci se jen sonduje (USB reset + restart ModemManageru trvá ~90 s)
   usb_reset_timeout_s: 180        # limit běhu motogo-usbreset (čeká na re-enumeraci i na ModemManager)
-  lte_mode: qmi                   # qmi (SIM7600 přes ModemManager) | rndis (modem = síťovka usb0, viz HARDWARE.md)
+  lte_mode: qmi                   # qmi (SIM7600 přes ModemManager) | rndis (modem = síťovka usb0, viz HARDWARE.md — přepíná motogo-lte-mode, ne ručně)
+  rndis_auto_after: 0             # 0 = automatické přepnutí do RNDIS VYPNUTO (26. 9.: modem po přepnutí zmizel z USB; jen ručně z Velína)
   lte_interface: ''               # prázdné = wwan0 (qmi) / usb0 (rndis)
   lan_connection: motogo-lan      # I/O síť (SPEC §4): profil, který health nahodí, když eth0 nemá adresu
   lan_interface: eth0

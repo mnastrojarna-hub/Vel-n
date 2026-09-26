@@ -181,6 +181,11 @@ NETLOG_CMDS = (
     ("journal_mm", ("journalctl", "-u", "ModemManager", "-n", "40", "--no-pager", "-o", "short-iso")),
     ("journal_health", ("journalctl", "-u", "motogo-health", "-n", "60", "--no-pager", "-o", "short-iso")),
     ("journal_kernel_usb", ("journalctl", "-k", "-n", "400", "--no-pager", "-o", "short-iso", "-g", "usb|qmi|cdc|wwan|error -71|eth0|link")),
+    # přepínání režimu modemu QMI/RNDIS (motogo-lte-mode) — proč přepnutí (ne)dopadlo; status přes sudo (sudoers MOTOGO_LTEMODE)
+    ("lte_mode_log", ("tail", "-n", "80", "/var/log/motogo-lte-mode.log")),
+    ("lte_rndis_log", ("tail", "-n", "40", "/var/log/motogo-lte-rndis.log")),
+    ("lte_mode_status", ("sudo", "-n", "/usr/local/sbin/motogo-lte-mode", "status")),
+    ("usbreset_log", ("tail", "-n", "40", "/var/log/motogo-usbreset.log")),
 )
 
 
