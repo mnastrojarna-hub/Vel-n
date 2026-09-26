@@ -11,7 +11,7 @@ from motogo_box.config import HealthCfg
 from motogo_box import health as health_mod
 from motogo_box.health import HealthMonitor, LtePolicy, lte_error, run_cmd
 from motogo_box.health_probe import (
-    disk_free_pct, mem_free_pct, modem_gone, parse_meminfo, parse_mmcli_modem, parse_mmcli_signal,
+    disk_free_pct, modem_usb_mode, usb_devices, mem_free_pct, modem_gone, parse_meminfo, parse_mmcli_modem, parse_mmcli_signal,
     parse_nmcli_connection, parse_throttled, read_cpu_temp, usb_device_present,
 )
 
@@ -866,3 +866,18 @@ async def test_wifi_default_route_is_not_foreign(tmp_path):
     env = FakeEnv(internet_ok=False)
     env.default_routes = [{"dst": "default", "gateway": "192.168.1.1", "dev": "wlan0", "metric": 600}]
     assert (await _monitor(env, tmp_path).cycle())["net"]["where"] == "wifi"
+
+
+def test_usb_devices_and_modem_usb_mode(tmp_path):
+    base = tmp_path / "usb"
+    for name, vid, pid, prod in (("1-1", "1e0e", "9018", "SimTech, Incorporated"), ("1-2", "0bda", "8153", "USB 10/100/1000 LAN"),
+                                 ("usb1", "1d6b", "0002", "xHCI Host Controller")):
+        (base / name).mkdir(parents=True)
+        (base / name / "idVendor").write_text(vid + "\n"); (base / name / "idProduct").write_text(pid + "\n")
+        (base / name / "product").write_text(prod + "\n")
+    assert usb_devices("1e0e", str(base)) == [{"vid": "1e0e", "pid": "9018", "product": "SimTech, Incorporated", "path": "1-1"}]
+    assert sorted(d["vid"] for d in usb_devices(None, str(base))) == ["0bda", "1e0e"]      # kořenový hub se vynechá
+    assert modem_usb_mode("1e0e", str(base)) == "other:9018"
+    (base / "1-1" / "idProduct").write_text("9011\n")
+    assert modem_usb_mode("1e0e", str(base)) == "rndis"
+    assert modem_usb_mode("1e0e", str(tmp_path / "nic")) is None and usb_devices("1e0e", str(tmp_path / "nic")) is None

@@ -173,6 +173,9 @@ to_qmi() {
 case "${1:-}" in
   status)
     echo "config: $(cfg_mode)"; echo "usb: $(usb_mode)"; echo "profile: $(prof_type)"
+    for d in /sys/bus/usb/devices/*; do   # všechna SIMCom zařízení (i s neznámým PID — jiná USB kompozice)
+      [[ -f "$d/idVendor" && "$(cat "$d/idVendor")" == "$VID" ]] && echo "simcom: $VID:$(cat "$d/idProduct") $(cat "$d/product" 2>/dev/null) ($(basename "$d"))"
+    done
     echo "modem_vidpid: $(cat "$VIDPID_FILE" 2>/dev/null || echo '?')"
     echo "ModemManager: $(systemctl is-active ModemManager 2>/dev/null || true)"
     ip -br addr show 2>/dev/null | grep -E '^(wwan|usb)' || true

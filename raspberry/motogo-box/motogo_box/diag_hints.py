@@ -18,6 +18,7 @@ HINTS = {
     "lte": "Zkontrolujte SIM (PIN vypnutý, kredit), anténu a profil motogo-lte; stav: mmcli -m any. Modem v QMI, který ModemManager nevidí → RNDIS z karty jednotky.",
     "rndis_no_ip": "RNDIS bez adresy: datové spojení modemu nenaběhlo (AT$QCRMCALL). Health udělá USB reset modemu (po něm se spojení spouští znovu); ručně na jednotce: sudo /usr/local/sbin/motogo-lte-rndis start. Když to nepomůže opakovaně, vraťte modem do QMI (karta jednotky → „Modem → QMI“) a řešte hardware.",
     "modem_usb_missing": "Modem SIM7600 není vůbec vidět na USB (lsusb): zkontrolujte USB kabel a napájení modemu (LED PWR/NET), zkuste jiný USB port přímo na Raspberry; health zkusí USB reset a poté reboot.",
+    "lte_pid_unknown": "Modem se hlásí pod neznámým USB PID: vraťte ho do QMI (karta jednotky → „Modem → QMI“; skript pošle AT+CUSBPIDSWITCH=9001,1,1 na AT port) a pak případně znovu do RNDIS. Když PID zůstane, modem má jinou firmware kompozici — pošlete PID (1e0e:xxxx) k doplnění do software.",
     "lte_mode_mismatch": "Režim modemu na USB neodpovídá konfiguraci jednotky: přepnutí (motogo-lte-mode) neproběhlo celé. Klikněte na kartě jednotky znovu na cílový režim JEDNOU a počkejte 3 minuty; log na jednotce: /var/log/motogo-lte-mode.log.",
     "sim_pin": "Vypněte PIN přímo na SIM (vložit do mobilu → Nastavení → SIM → PIN vypnout) — to je u pobočky "
                "nejspolehlivější, modem se pak po restartu připojí sám. Jinak musí PIN sedět v profilu: "

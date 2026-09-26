@@ -28,7 +28,7 @@ import httpx
 from .config import HealthCfg
 from .health_probe import (  # noqa: F401 — veřejné API dle kontraktu §17
     disk_free_pct, lte_error, mem_free_pct, modem_gone, parse_meminfo, parse_mmcli_modem,
-    parse_mmcli_signal, parse_nmcli_connection, read_cpu_temp, read_throttled, read_uptime_s,
+    modem_usb_mode, parse_mmcli_signal, parse_nmcli_connection, read_cpu_temp, read_throttled, read_uptime_s,
     sys_metrics, tcp_probe, usb_device_present,
 )
 from .models import now_iso
@@ -370,11 +370,7 @@ class HealthMonitor:
     def usb_mode(self) -> str | None:
         """Režim modemu podle PID na USB: SIM7600 9001 = qmi, 9011 = rndis; None = modem na USB není/nevíme."""
         vid = (self.cfg.modem_vid_pid or "1e0e").split(":")[0] or "1e0e"
-        if usb_device_present(f"{vid}:9011"):
-            return "rndis"
-        if usb_device_present(f"{vid}:9001"):
-            return "qmi"
-        return None
+        return modem_usb_mode(vid)          # qmi / rndis / other:<pid> / None
 
     def _mode_fields(self) -> dict:
         p = self.policy

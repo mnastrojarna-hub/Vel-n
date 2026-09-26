@@ -88,6 +88,18 @@ for dev in /sys/bus/usb/devices/*; do
 done
 
 if (( found == 0 )); then
+  # Modem s nastaveným PID není, ale na USB visí JINÉ zařízení téhož výrobce (SIMCom po přepnutí kompozice
+  # s neznámým PID) → resetovat to: je to náš modem, jen se hlásí jinak (2026-09-26).
+  for dev in /sys/bus/usb/devices/*; do
+    [[ -f "$dev/idVendor" && -f "$dev/idProduct" ]] || continue
+    [[ "$(cat "$dev/idVendor")" == "$VID" ]] || continue
+    found=$((found + 1)); name="$(basename "$dev")"
+    log "modem $VID:$PID nenalezen, ale na USB je $VID:$(cat "$dev/idProduct") jako $name ($(cat "$dev/product" 2>/dev/null || echo '?')) — reset"
+    { mkdir -p -m 700 "$STATE_DIR" && echo "$name" > "$PORT_FILE"; } 2>/dev/null || true
+    reset_device "$name" && ok=$((ok + 1)) || true
+  done
+fi
+if (( found == 0 )); then
   # Modem zmizel ze sběrnice: zkusit jen jeho dřívější port (pokud tam ještě něco visí), nikdy celé USB.
   # Jméno portu se validuje (např. 1-1.3) — nikdy se neresetuje kořenový hub (usb1) apod.
   last="$(cat "$PORT_FILE" 2>/dev/null | tr -d '[:space:]' || true)"

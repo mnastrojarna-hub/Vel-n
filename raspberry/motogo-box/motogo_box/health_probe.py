@@ -209,6 +209,53 @@ async def tcp_probe(host: str, port: int, timeout: float = 8.0) -> bool:
 USB_DEVICES = "/sys/bus/usb/devices"
 
 
+def usb_devices(vendor: str | None = None, base: str = USB_DEVICES) -> list[dict] | None:
+    """Zařízení na USB `[{vid, pid, product, path}]`; `vendor` = filtr (např. "1e0e" SIMCom). `None` = sysfs nejde číst.
+
+    Diagnostika tím rozliší „modem se hlásí pod JINÝM PID než 9001/9011" (SIMCom má víc USB kompozic) od „na USB
+    není žádné SIMCom zařízení" (kabel/napájení/port) — a ukáže, co na USB je (funguje sběrnice vůbec?)."""
+    vendor = (vendor or "").strip().lower() or None
+    try:
+        names = os.listdir(base)
+    except OSError:
+        return None
+    out: list[dict] = []
+    for name in sorted(names):
+        try:
+            with open(f"{base}/{name}/idVendor", "r", encoding="ascii") as f:
+                vid = f.read().strip().lower()
+            with open(f"{base}/{name}/idProduct", "r", encoding="ascii") as f:
+                pid = f.read().strip().lower()
+        except OSError:
+            continue
+        if vendor and vid != vendor:
+            continue
+        try:
+            with open(f"{base}/{name}/product", "r", encoding="utf-8", errors="replace") as f:
+                product = f.read().strip()
+        except OSError:
+            product = ""
+        if vid in ("1d6b",) and not vendor:
+            continue                                   # kořenové huby Linuxu — šum
+        out.append({"vid": vid, "pid": pid, "product": product, "path": name})
+    return out
+
+
+SIMCOM_VID = "1e0e"
+SIMCOM_MODES = {"9001": "qmi", "9011": "rndis"}       # AT+CUSBPIDSWITCH=<pid>,1,1 (SIM7600); jiné PID = neznámá kompozice
+
+
+def modem_usb_mode(vendor: str = SIMCOM_VID, base: str = USB_DEVICES) -> str | None:
+    """`qmi` / `rndis` / `other:<pid>` (SIMCom s neznámým PID) / None (žádné SIMCom zařízení na USB nebo sysfs nejde)."""
+    devs = usb_devices(vendor, base)
+    if not devs:
+        return None
+    for d in devs:
+        if d["pid"] in SIMCOM_MODES:
+            return SIMCOM_MODES[d["pid"]]
+    return f"other:{devs[0]['pid']}"
+
+
 def usb_device_present(vid_pid: str, base: str = USB_DEVICES) -> bool | None:
     """Visí `1e0e:9001` na USB sběrnici? `None` = sysfs nejde přečíst (nevíme).
 
