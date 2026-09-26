@@ -118,6 +118,8 @@ class LtePolicy:
         self.last_action: str | None = None
         self.last_action_at: float | None = None
         self.history: list[list] = []   # [[ts, akce], …] za posledních 24 h — do Velína, ať je vidět četnost
+        self.mode_switch_at: float | None = None   # poslední automatické přepnutí režimu modemu (mode_step)
+        self.mode_switch_to: str | None = None     # "rndis" | "qmi"
 
     def step(self, internet_ok: bool, uptime_s: float, modem_gone: bool = False) -> list[str]:
         """Jeden krok politiky; vrací akce (`reconnect`/`modem_reset`/`usb_reset`/`reboot`).
@@ -172,6 +174,39 @@ class LtePolicy:
         self.reconnects += 1
         return self._mark("reconnect")
 
+    def mode_step(self, rndis: bool, internet_ok: bool) -> list[str]:
+        """Samoopravné přepnutí režimu modemu (2026-09-26) — volá se, když `step` nic nevrátil.
+
+        QMI: ≥ `rndis_auto_after` USB resetů za 24 h (modem padá z USB, `-71`) → `mode_rndis`; nejvýš jednou
+        za 24 h. RNDIS (po automatickém přepnutí): žádná úspěšná sonda ≥ `rndis_revert_after_s` → `mode_qmi`
+        (RNDIS na tomhle kusu nefunguje — vrátit, ať aspoň QMI s resety drží). Ruční přepnutí z Velína
+        (`commands.lte_mode`) `mode_switch_*` nenastavuje — automatika se pak řídí jen aktuálním režimem.
+        """
+        cfg = self.cfg
+        limit = int(getattr(cfg, "rndis_auto_after", 0) or 0)
+        if limit <= 0:
+            return []
+        now = self.clock()
+        delta = now - self.last_action_at if self.last_action_at is not None else None
+        if delta is not None and 0 <= delta < max(0, cfg.action_cooldown_s):
+            return []
+        since = now - self.mode_switch_at if self.mode_switch_at is not None else None
+        if not rndis:
+            if self.counts_24h()["usb_reset"] < limit:
+                return []
+            if since is not None and 0 <= since < 86400:
+                return []               # už se dnes přepínalo (a zřejmě vrátilo) — nepřepínat dokola
+            self.mode_switch_at, self.mode_switch_to = now, "rndis"
+            self.usb_resets_pending = 0
+            return self._mark("mode_rndis")
+        if internet_ok or self.mode_switch_to != "rndis" or since is None:
+            return []
+        online_since_switch = self.last_online is not None and self.last_online >= self.mode_switch_at
+        if online_since_switch or since < max(300, int(getattr(cfg, "rndis_revert_after_s", 1800))):
+            return []
+        self.mode_switch_at, self.mode_switch_to = now, "qmi"
+        return self._mark("mode_qmi")
+
     def _usb_reset(self) -> list[str]:
         self.usb_resets_pending += 1
         self.usb_resets += 1
@@ -196,10 +231,12 @@ class LtePolicy:
         """Kolikrát se za posledních 24 h co dělalo — celková počítadla rostou donekonečna (1584 reconnectů
         v Pohořelicích nikomu nic neřeklo), tohle jde do Velína jako `lte.last24h`."""
         self._prune(self.clock())
-        out = {"reconnect": 0, "modem_reset": 0, "usb_reset": 0, "reboot": 0}
+        out = {"reconnect": 0, "modem_reset": 0, "usb_reset": 0, "reboot": 0, "mode_switch": 0}
         for _, action in self.history:
             if action in out:
                 out[action] += 1
+            elif action in ("mode_rndis", "mode_qmi"):
+                out["mode_switch"] += 1
         return out
 
     def to_dict(self) -> dict:
@@ -210,6 +247,7 @@ class LtePolicy:
             "history": self.history,
             "usb_resets": self.usb_resets, "reboots": self.reboots, "last_online": self.last_online,
             "last_action": self.last_action, "last_action_at": self.last_action_at,
+            "mode_switch_at": self.mode_switch_at, "mode_switch_to": self.mode_switch_to,
         }
 
     def load(self, d: dict | None) -> None:
@@ -223,12 +261,14 @@ class LtePolicy:
             except (TypeError, ValueError):
                 pass
         now = self.clock()
-        for key in ("last_online", "last_action_at"):
+        for key in ("last_online", "last_action_at", "mode_switch_at"):
             v = d.get(key)
             # Značka z budoucnosti (posun hodin) by zmrazila cooldown — ořízneme ji na „teď".
             setattr(self, key, min(float(v), now) if isinstance(v, (int, float)) else None)
         la = d.get("last_action")
         self.last_action = la if isinstance(la, str) else None
+        mt = d.get("mode_switch_to")
+        self.mode_switch_to = mt if mt in ("rndis", "qmi") else None
         self.modem_reset_done = bool(d.get("modem_reset_done"))
         hist = d.get("history")
         self.history = [list(h) for h in hist if isinstance(h, (list, tuple)) and len(h) == 2] if isinstance(hist, list) else []
@@ -323,6 +363,21 @@ class HealthMonitor:
     def rndis(self) -> bool:
         return str(getattr(self.cfg, "lte_mode", "qmi") or "qmi").strip().lower() == "rndis"
 
+    def usb_mode(self) -> str | None:
+        """Režim modemu podle PID na USB: SIM7600 9001 = qmi, 9011 = rndis; None = modem na USB není/nevíme."""
+        vid = (self.cfg.modem_vid_pid or "1e0e").split(":")[0] or "1e0e"
+        if usb_device_present(f"{vid}:9011"):
+            return "rndis"
+        if usb_device_present(f"{vid}:9001"):
+            return "qmi"
+        return None
+
+    def _mode_fields(self) -> dict:
+        p = self.policy
+        return {"mode": "rndis" if self.rndis else "qmi", "usb_mode": self.usb_mode(),
+                "mode_auto_after": int(getattr(self.cfg, "rndis_auto_after", 0) or 0),
+                "mode_switch_at": p.mode_switch_at, "mode_switch_to": p.mode_switch_to}
+
     async def _iface_state(self, name: str) -> tuple[str | None, str | None]:
         """`(operstate, první IPv4)` daného rozhraní; `(None, None)` když ho nevidíme."""
         try:
@@ -351,7 +406,7 @@ class HealthMonitor:
                 "failed_reason": None, "unlock_required": None, "unlock_retries": None,
                 "rssi": None, "rsrp": None, "rsrq": None, "snr": None,
                 "nm_connection": self.cfg.nm_connection, "nm_state": state, "nm_device": iface,
-                "mode": "rndis", "iface": iface, "ipv4": ipv4,
+                **self._mode_fields(), "iface": iface, "ipv4": ipv4,
                 "usb_present": usb, "modem_gone": gone,
                 "reconnects": p.reconnects, "modem_resets": p.modem_resets,
                 "usb_resets": p.usb_resets, "reboots": p.reboots, "last24h": p.counts_24h(),
@@ -389,7 +444,7 @@ class HealthMonitor:
         iface = self.lte_iface()
         _, ipv4 = await self._iface_state(iface)
         return {**modem, **{k: v for k, v in signal.items() if k != "refresh_rate"}, **nm,
-                "mode": "qmi", "iface": iface, "ipv4": ipv4,
+                **self._mode_fields(), "iface": iface, "ipv4": ipv4,
                 "usb_present": usb, "modem_gone": modem_gone(modem, usb),
                 "reconnects": p.reconnects, "modem_resets": p.modem_resets,
                 "usb_resets": p.usb_resets, "reboots": p.reboots, "last24h": p.counts_24h(),
@@ -531,6 +586,18 @@ class HealthMonitor:
                                          timeout=max(60, int(self.cfg.usb_reset_timeout_s)))
             if rc != 0:
                 log.error("USB reset selhal (rc=%s): %s", rc, out.strip()[:300])
+        elif action in ("mode_rndis", "mode_qmi"):
+            mode = action.split("_", 1)[1]
+            why = (f"USB resety se opakují ({self.policy.counts_24h()['usb_reset']} za 24 h)"
+                   if mode == "rndis" else "RNDIS bez internetu")
+            log.critical("LTE: %s → přepínám modem do režimu %s (%s %s); internet vypadne na ~2 min",
+                         why, mode.upper(), self.cfg.lte_mode_script, mode)
+            self._save_state()
+            await self.post_health(payload)     # controller → událost LTE_MODE do kiosk_logs ještě před výpadkem
+            # skript na konci odloženě restartuje motogo-health (nový režim v config.yaml) — tenhle proces skončí
+            rc, out = await self.run_cmd("sudo", "-n", self.cfg.lte_mode_script, mode, timeout=600)
+            if rc != 0:
+                log.error("motogo-lte-mode %s selhal (rc=%s): %s", mode, rc, out.strip()[-400:])
         elif action == "reboot":
             log.critical("LTE: USB resety nepomohly → reboot systému")
             self._save_state()
@@ -576,6 +643,8 @@ class HealthMonitor:
         else:
             actions = self.policy.step(internet, uptime if uptime is not None else 0.0,
                                        modem_gone=bool(lte.get("modem_gone")))
+            if not actions:
+                actions = self.policy.mode_step(self.rndis, internet)
         self._lte_error = error
         self._save_state()
         payload = {"internet": internet, "lte": lte, "lan": lan, "sys": sysm, "ts": now_iso(),
@@ -584,7 +653,7 @@ class HealthMonitor:
             await self.perform(action, payload)
         if not internet:
             await self._gateway_kick()
-        if "reboot" not in actions:
+        if not set(actions) & {"reboot", "mode_rndis", "mode_qmi"}:     # ty postují samy (před akcí)
             await self.post_health(payload)
         sd_notify("WATCHDOG=1")
         self.last_payload = payload

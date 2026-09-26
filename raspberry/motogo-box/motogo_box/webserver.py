@@ -113,7 +113,13 @@ async def _api_middleware(request: web.Request, handler: Callable) -> web.Stream
 
 
 _HEALTH_ACTION_KINDS = {"reconnect": EventKind.LTE_RESET, "usb_reset": EventKind.LTE_RESET,
-                        "reboot": EventKind.REBOOT}
+                        "reboot": EventKind.REBOOT,
+                        "mode_rndis": EventKind.LTE_MODE, "mode_qmi": EventKind.LTE_MODE}
+_HEALTH_ACTION_TEXT = {
+    "mode_rndis": "Modem se přepíná do režimu RNDIS (opakované výpadky QMI kanálu / USB resety) — internet "
+                  "vypadne na ~2 min, pak jede přes usb0 bez ModemManageru",
+    "mode_qmi": "Modem se vrací do režimu QMI (v RNDIS se internet neobnovil)",
+}
 
 # ─── server ──────────────────────────────────────────────────────────────────
 class WebServer:
@@ -349,7 +355,8 @@ class WebServer:
         for action in actions if isinstance(actions, list) else []:
             kind = _HEALTH_ACTION_KINDS.get(action)
             if kind is not None:
-                await self.ctrl.emit(Event(kind=kind, level="warn", message=f"LTE obnova: {action}",
+                await self.ctrl.emit(Event(kind=kind, level="warn",
+                                           message=_HEALTH_ACTION_TEXT.get(action, f"LTE obnova: {action}"),
                                            detail={"source": "health", "action": action,
                                                    "lte": body.get("lte")}))
         return _json({"ok": True})

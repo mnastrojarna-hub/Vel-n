@@ -292,6 +292,56 @@ async def _protocol_signed(ctrl: "BoxController", params: dict) -> tuple[bool, d
     return True, {"booking_id": booking_id, "opened": opened}
 
 
+LTE_MODE_SCRIPT = "/usr/local/sbin/motogo-lte-mode"
+LTE_MODE_TIMEOUT_S = 600.0
+
+
+async def _lte_mode_runner(mode: str) -> tuple[bool, dict]:
+    """Spustí `sudo motogo-lte-mode <mode>` (minuty: modem se restartuje) — vyměnitelné v testech."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "-n", LTE_MODE_SCRIPT, mode, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        try:
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=LTE_MODE_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            return False, {"error": "timeout"}
+        text = (out or b"").decode("utf-8", "replace")[-2000:]
+        return proc.returncode == 0, {"returncode": proc.returncode, "output": text}
+    except (OSError, ValueError) as exc:
+        return False, {"error": str(exc)}
+
+
+async def _lte_mode_bg(ctrl: "BoxController", mode: str, source: str) -> None:
+    ok, res = await _lte_mode_runner(mode)
+    emit = getattr(ctrl, "emit", None)
+    if emit is None:
+        return
+    text = (f"Modem přepnut do režimu {mode.upper()} ({source}) — health monitor se restartuje a hlásí nový režim"
+            if ok else f"Přepnutí modemu do režimu {mode.upper()} SELHALO ({source}): {res.get('error') or res.get('output', '')[-300:]}")
+    await emit(Event(kind=EventKind.LTE_MODE, level="info" if ok else "error", success=ok, message=text,
+                     detail={"mode": mode, "source": source, **res}))
+
+
+async def _lte_mode(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Přepnutí modemu QMI ↔ RNDIS z Velína: `params {mode: rndis|qmi}` (2026-09-26).
+
+    Běží na pozadí (root skript motogo-lte-mode, ~2 min: profil NM, udev, config.yaml, AT+CUSBPIDSWITCH,
+    re-enumerace, start dat). Potvrzení příkazu odchází hned (`started`), výsledek jde jako událost LTE_MODE;
+    během přepnutí internet na ~2 min vypadne, takže druhá událost dorazí z outboxu po obnově.
+    """
+    mode = str(params.get("mode") or "").strip().lower()
+    if mode not in ("rndis", "qmi"):
+        return False, {"error": "invalid_mode", "allowed": ["rndis", "qmi"]}
+    source = str(params.get("source") or "ručně z Velína")
+    emit = getattr(ctrl, "emit", None)
+    if emit is not None:
+        await emit(Event(kind=EventKind.LTE_MODE, level="warn", success=True,
+                         message=f"Přepínám modem do režimu {mode.upper()} ({source}) — internet vypadne na ~2 min",
+                         detail={"mode": mode, "source": source, "started": True}))
+    asyncio.get_running_loop().create_task(_lte_mode_bg(ctrl, mode, source))
+    return True, {"started": True, "mode": mode}
+
+
 async def _restart(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     log.warning("Vzdálený příkaz restart — ukončuji proces (systemd restartuje)")
     await asyncio.sleep(0.2)   # dát šanci odeslat complete_command / logy
@@ -373,6 +423,7 @@ HANDLERS: dict[str, Handler] = {
     "reboot": _reboot,
     "update_software": _update,
     "update_system": _update_system,
+    "lte_mode": _lte_mode,
     "http_get": _http_get,
     "camera_control": _http_get,
     "diagnostics": _diagnostics,

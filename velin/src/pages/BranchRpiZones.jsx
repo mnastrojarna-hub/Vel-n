@@ -202,6 +202,29 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor }) {
       )}
       <HandoverDeviceInfo handover={handover} now={now} />
 
+      {/* Režim modemu QMI/RNDIS (health.lte.mode) — QMI kanál SIM7600 padá z USB („error -71“); jednotka se po
+          `mode_auto_after` USB resetech za 24 h přepne do RNDIS sama, tady jde přepnout ručně. Internet vypadne ~2 min. */}
+      {hasStatus && lte.mode != null && (
+        <div className="flex items-center gap-2 flex-wrap mt-2 text-[11px]" style={{ color: '#6b8c7a' }}>
+          <span className="font-extrabold uppercase">Modem:</span>
+          <Chip tone={lte.mode === 'rndis' ? 'blue' : 'gray'} title={`Režim v konfiguraci jednotky: ${txt(lte.mode)} · modem na USB hlásí: ${txt(lte.usb_mode ?? 'nevidím')}`}>
+            {String(lte.mode).toUpperCase()}{lte.usb_mode && lte.usb_mode !== lte.mode ? ` (USB: ${String(lte.usb_mode).toUpperCase()})` : ''}
+          </Chip>
+          <span title="Kolikrát health monitor za posledních 24 h odpojil a připojil modem na USB (poslední stupeň obnovy před rebootem).">
+            USB resetů za 24 h: <b style={{ color: (lte.last24h?.usb_reset ?? 0) >= 3 ? '#dc2626' : '#1a2e22' }}>{txt(lte.last24h?.usb_reset ?? 0)}</b>
+            {num(lte.mode_auto_after) > 0 && lte.mode !== 'rndis' && <> · po {txt(lte.mode_auto_after)} se přepne do RNDIS sama</>}
+            {lte.mode_switch_to && <> · poslední automatické přepnutí → {String(lte.mode_switch_to).toUpperCase()} {formatAge(lte.mode_switch_at ? Math.max(0, Math.round(now / 1000 - lte.mode_switch_at)) : null)}</>}
+          </span>
+          {lte.mode !== 'rndis' ? (
+            <Btn tone="blue" title="Přepne modem SIM7600 do režimu RNDIS: modem se pak chová jako síťová karta (usb0) bez ModemManageru a QMI kanál, který na pobočce padá z USB, se vůbec nepoužije. Internet vypadne na ~2 minuty; výsledek přijde do Hlášení a chyb (LTE_MODE)."
+              onClick={() => confirmSend('Přepnout modem do režimu RNDIS (stabilní)? Internet pobočky vypadne na ~2 minuty, pak jednotka hlásí režim RNDIS. Zpět jde tlačítkem „Modem → QMI“.', 'lte_mode', { mode: 'rndis' }, 'Modem → RNDIS')}>Modem → RNDIS (stabilní)</Btn>
+          ) : (
+            <Btn tone="gray" title="Vrátí modem do původního režimu QMI (ModemManager). Internet vypadne na ~2 minuty."
+              onClick={() => confirmSend('Vrátit modem do režimu QMI? Internet pobočky vypadne na ~2 minuty.', 'lte_mode', { mode: 'qmi' }, 'Modem → QMI')}>Modem → QMI</Btn>
+          )}
+        </div>
+      )}
+
       {/* Globální příkazy */}
       <div className="flex items-center gap-2 flex-wrap mt-2 pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
         <Btn tone="red" title="Nouzové vypnutí: zhasne světla ve všech kójích i venku, zastaví hudbu, vypne signalizaci a odjistí relé. Dveře NEODEMYKÁ ani nezamyká. Použijte, když něco svítí nebo hraje a nemá."

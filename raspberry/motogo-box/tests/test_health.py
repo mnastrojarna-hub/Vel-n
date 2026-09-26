@@ -226,7 +226,7 @@ def test_policy_ladder_reconnect_modem_reset_usb_reset_reboot():
     assert p.step(False, 5000.0) == ["reboot"]
     assert p.reboots == 1 and p.usb_resets_pending == 0 and p.reconnect_failures == 0
     assert p.last_action == "reboot"
-    assert p.counts_24h() == {"reconnect": 15, "modem_reset": 1, "usb_reset": 3, "reboot": 1}
+    assert p.counts_24h() == {"reconnect": 15, "modem_reset": 1, "usb_reset": 3, "reboot": 1, "mode_switch": 0}
 
 
 def test_policy_no_reboot_before_min_uptime():
@@ -277,7 +277,7 @@ def test_policy_modem_gone_skips_reconnects():
     assert _drive(p, 2, 5000.0, gone=True) == ["usb_reset"]
     assert _drive(p, 2, 5000.0, gone=True) == ["usb_reset"]
     assert p.step(False, 5000.0, modem_gone=True) == ["reboot"]
-    assert p.counts_24h() == {"reconnect": 0, "modem_reset": 0, "usb_reset": 3, "reboot": 1}
+    assert p.counts_24h() == {"reconnect": 0, "modem_reset": 0, "usb_reset": 3, "reboot": 1, "mode_switch": 0}
 
 
 def test_policy_modem_gone_but_usb_empty_uses_normal_ladder():
@@ -305,7 +305,7 @@ def test_counts_24h_forgets_older_entries():
     p.step(False, 5000.0)
     assert p.counts_24h()["reconnect"] == 1
     clock.advance(86400 + 60)
-    assert p.counts_24h() == {"reconnect": 0, "modem_reset": 0, "usb_reset": 0, "reboot": 0}
+    assert p.counts_24h() == {"reconnect": 0, "modem_reset": 0, "usb_reset": 0, "reboot": 0, "mode_switch": 0}
     assert p.reconnects == 1                       # celkové počítadlo zůstává
 
 
@@ -730,3 +730,70 @@ async def test_resync_on_reconnect():
     assert await resync_on_reconnect(steady, was_online=True) is True and steady.resyncs == 0
     down = Ctrl(online=False)
     assert await resync_on_reconnect(down, was_online=True) is False and down.resyncs == 0
+
+
+# ─── samoopravné přepnutí režimu modemu QMI → RNDIS (2026-09-26) ─────────────
+def test_mode_step_switches_to_rndis_after_repeated_usb_resets_once_a_day():
+    clock = FakeClock(1_000_000.0)
+    p = LtePolicy(_cfg(rndis_auto_after=3, action_cooldown_s=0), clock)
+    for _ in range(2):
+        p._usb_reset()
+        clock.advance(600)
+    assert p.mode_step(False, False) == []                 # jen 2 resety za 24 h
+    p._usb_reset()
+    clock.advance(600)
+    assert p.mode_step(False, False) == ["mode_rndis"]
+    assert p.mode_switch_to == "rndis" and p.mode_switch_at == clock()
+    assert p.counts_24h()["mode_switch"] == 1
+    # v RNDIS s internetem se nic nevrací; bez internetu až po rndis_revert_after_s (a jen když od přepnutí nebyl online)
+    clock.advance(60)
+    assert p.mode_step(True, True) == []
+    clock.advance(1000)
+    assert p.mode_step(True, False) == []
+    clock.advance(1000)
+    assert p.mode_step(True, False) == ["mode_qmi"]
+    assert p.mode_switch_to == "qmi"
+    # zpět v QMI: resety dál, ale do 24 h od přepnutí už se nepřepíná (nekmitat)
+    p._usb_reset()
+    clock.advance(600)
+    assert p.mode_step(False, False) == []
+    clock.advance(86400)
+    assert p.mode_step(False, False) == []                 # historie resetů za 24 h už je prázdná
+    # stav přežije uložení/načtení
+    q = LtePolicy(_cfg(), clock)
+    q.load(p.to_dict())
+    assert q.mode_switch_to == "qmi" and q.mode_switch_at == p.mode_switch_at
+
+
+def test_mode_step_no_revert_when_online_since_switch_and_disabled_by_zero():
+    clock = FakeClock(1_000_000.0)
+    p = LtePolicy(_cfg(rndis_auto_after=1, action_cooldown_s=0), clock)
+    p._usb_reset()
+    clock.advance(10)
+    assert p.mode_step(False, False) == ["mode_rndis"]
+    clock.advance(100)
+    p.step(True, 5000.0)               # internet po přepnutí naskočil
+    clock.advance(5000)
+    assert p.mode_step(True, False) == []                  # krátký výpadek v RNDIS → žádný návrat
+    off = LtePolicy(_cfg(rndis_auto_after=0), clock)
+    for _ in range(5):
+        off._usb_reset()
+    assert off.mode_step(False, False) == []
+
+
+async def test_cycle_auto_switch_runs_mode_script_and_posts_first(tmp_path):
+    env = FakeEnv(internet_ok=False)
+    # reconnect_after=2: mezi akcemi je vždy jeden „jen sonduji" cyklus — právě v něm se mode_step ptá
+    cfg = _cfg(reconnect_after=2, usb_reset_after=1, reboot_after=99, rndis_auto_after=2, action_cooldown_s=0)
+    mon = _monitor(env, tmp_path, cfg)
+    seen: list[str] = []
+    for _ in range(40):
+        seen += (await mon.cycle())["actions"]
+        if "mode_rndis" in seen:
+            break
+    assert seen.count("usb_reset") == 2 and seen[-1] == "mode_rndis"
+    assert env.cmds[-1] == ("sudo", "-n", cfg.lte_mode_script, "rndis")
+    posts = [p for p in env.posted if "mode_rndis" in p["actions"]]
+    assert len(posts) == 1 and posts[0]["lte"]["mode"] == "qmi" and posts[0]["lte"]["mode_auto_after"] == 2
+    mon2 = _monitor(env, tmp_path, cfg)
+    assert mon2.policy.mode_switch_to == "rndis"

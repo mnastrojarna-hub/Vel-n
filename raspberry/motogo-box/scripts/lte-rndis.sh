@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # MotoGo Box — přepnutí SIM7600E-H mezi QMI a RNDIS + start datového spojení (AT příkazy).
 #
-# ⚠ NEOTESTOVÁNO NA HARDWARU — určeno k ověření na DEV Pi, ne na pobočce. Do install.sh
-# ani do update.sh se nic z toho nezapojuje; dokud se režim `rndis` ručně nezapne
-# (`health.lte_mode: rndis` v /etc/motogo/config.yaml), jednotka jede dál přes QMI.
+# Instaluje se jako /usr/local/sbin/motogo-lte-rndis (update.sh/install.sh). Přepnutí režimu jako celek
+# (profil NM, udev, služba, config.yaml, ModemManager) dělá motogo-lte-mode {rndis|qmi} — health monitor
+# ho spouští sám po opakovaných USB resetech, nebo Velín tlačítkem. Tenhle skript jsou jen AT příkazy.
+# ⚠ Na hardwaru ověřeno jen částečně (2026-09-26) — po prvním nasazení sledovat /var/log/motogo-lte-mode.log.
 #
 # Proč: SIM7600E-H na pobočce opakovaně zamrzá na QMI kanálu (`qmi_wwan … Unexpected error -71`
 # á 10–15 min, viz HARDWARE.md). Hypotéza „vadný port/kabel/řadič" byla vyloučena přepojením
@@ -14,7 +15,7 @@
 #   lte-rndis.sh probe     — najde AT port a vypíše aktuální režim, operátora a signál
 #   lte-rndis.sh enable    — přepne na RNDIS (PID 9011) — modem se sám restartuje
 #   lte-rndis.sh disable   — zpět na QMI (PID 9001)
-#   lte-rndis.sh start     — spustí datové spojení (AT$QCRMCALL=1,1), jen v RNDIS
+#   lte-rndis.sh start     — spustí datové spojení (AT+CGDCONT s APN z /etc/motogo/apn, AT$QCRMCALL=1,1), jen v RNDIS
 #   lte-rndis.sh status    — stav rozhraní usb0 + výchozí trasa
 #
 # AT port: /dev/motogo-lte-at (udev pravidlo 99-motogo-lte-rndis.rules), jinak se zkouší
@@ -25,7 +26,9 @@ LOG="/var/log/motogo-lte-rndis.log"
 [[ -L "$LOG" ]] && LOG=/dev/null
 CANDIDATES=(/dev/motogo-lte-at /dev/ttyUSB2 /dev/ttyUSB3 /dev/ttyUSB1 /dev/ttyUSB0)
 IFACE="${MOTOGO_RNDIS_IFACE:-usb0}"
+APN_FILE="/etc/motogo/apn"   # zapisuje motogo-lte-mode z QMI profilu (apn=…)
 AT_WAIT=3            # sekund na odpověď modemu
+PORT_WAIT=45         # po re-enumeraci modemu se AT port objeví se zpožděním
 
 log() {
   local msg
@@ -58,8 +61,11 @@ find_at_port() {
 }
 
 port_or_die() {
-  local port
-  port="$(find_at_port)" || { log "CHYBA: žádný AT port neodpověděl (zkoušeno: ${CANDIDATES[*]})"; exit 3; }
+  local port deadline=$(( SECONDS + PORT_WAIT ))
+  until port="$(find_at_port)"; do
+    (( SECONDS < deadline )) || { log "CHYBA: žádný AT port neodpověděl do ${PORT_WAIT} s (zkoušeno: ${CANDIDATES[*]})"; exit 3; }
+    sleep 3
+  done
   log "AT port: $port"
   echo "$port"
 }
@@ -85,6 +91,9 @@ case "${1:-}" in
     ;;
   start)
     port="$(port_or_die)"
+    if [[ -f "$APN_FILE" ]] && apn="$(tr -d '\r\n "' < "$APN_FILE")" && [[ -n "$apn" ]]; then
+      log "APN $apn → $(at_send "$port" "AT+CGDCONT=1,\"IP\",\"$apn\"" | tr -s '\r\n' ' ')"
+    fi
     log "startuji datové spojení (AT\$QCRMCALL=1,1)"
     at_send "$port" 'AT$QCRMCALL=1,1' | tr -s '\r\n' ' ' | while read -r l; do log "odpověď: $l"; done
     sleep 5

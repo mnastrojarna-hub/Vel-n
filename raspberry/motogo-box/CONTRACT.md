@@ -545,6 +545,7 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | `music_off` | `zone?` / `door_id?` / `box_number?` | se zónou `audio.stop_zone(zone)` = jen tato kóje (multi: ostatní kanály hrají dál; selector = totéž co stop); bez zóny `audio.stop()` = vše |
 | `light_on` / `light_off` | `zone`/`door_id` | `zone.set_light` |
 | `set_signal` | `zone`, `signal` (red/green/off/green_pulse/red_blink/both_blink) | `zone.set_signal` |
+| `lte_mode` | `mode` = `rndis` \| `qmi` | **2026-09-26:** přepne modem SIM7600 mezi QMI a RNDIS (root skript `motogo-lte-mode`, ~2 min: profil NM `motogo-lte`, udev, služba startu dat, `/etc/motogo/modem_vidpid`, `health.lte_mode` v config.yaml, ModemManager vyp/zap, `AT+CUSBPIDSWITCH`, restart motogo-health). Potvrzení hned `{started, mode}`, průběh jako události `LTE_MODE` (warn na startu, info/error po doběhu — druhá dorazí z outboxu po obnově internetu). Není HW příkaz (jde i bez `ready`) |
 | `contact_test` | `zone` / `door_id` / `box_number`, `seconds?` (1–120, výchozí 20) | **2026-09-26:** sleduje syrovou hodnotu DI kontaktu zóny (`ZoneController.contact_raw` z poll_loopu), obsluha dveře otevře a zavře; výsledek `{zone, verdict: ok\|polarity\|stuck_0\|stuck_1\|offline\|not_configured, raw_start, raw_end, changes[{t_ms, raw}], closed_level, suggested_closed_level?}` + událost `CONTACT_TEST` (info/warn/error) s lidskou větou do kiosk_logs; nic nespíná |
 | `zone_test` | `zone` | `zone.test_sequence()` |
 | `audio_test` | `zone`, `seconds?` | `audio.test_tone` |
@@ -668,7 +669,7 @@ PIN_LOCKOUT z ověření kódu motorky v overlayi protokolu (`_verify_code`). `d
 `kiosk_log_event(level, source, message, detail)` pro: IO_OFFLINE/IO_ONLINE (warn/info,
 source 'modbus'|'shelly'), SESSION_OVERTIME(+ALERT) (warn 'zone'), CONTACT_FAULT (error),
 PIN_LOCKOUT (warn 'pin'), STARTUP (info 'controller', verze + problémy konfigurace),
-LTE_RESET/REBOOT (warn 'lte', posílá health přes controller), CONTACT_TEST (výsledek testu kontaktu z Velína, 2026-09-26), **INTERNET_DOWN (error) / INTERNET_UP (warn, `detail.duration_s`) — přechod `health.internet` (2026-09-26; webserver `_internet_transition`, i první hlášení False po startu; outbox doručí po obnově)**, CONFIG_PROBLEM (error 'config'),
+LTE_RESET/REBOOT (warn 'lte', posílá health přes controller), **LTE_MODE (2026-09-26: přepnutí režimu modemu QMI↔RNDIS — automaticky z health `actions mode_rndis|mode_qmi`, nebo ručně `commands.lte_mode`)**, CONTACT_TEST (výsledek testu kontaktu z Velína, 2026-09-26), **INTERNET_DOWN (error) / INTERNET_UP (warn, `detail.duration_s`) — přechod `health.internet` (2026-09-26; webserver `_internet_transition`, i první hlášení False po startu; outbox doručí po obnově)**, CONFIG_PROBLEM (error 'config'),
 PROTOCOL_SIGNED (info 'protocol'; `booking_id` a `zone` = pole Eventu, `code_kind='motorcycle'`, detail `{source, signature_bytes,
 stored}` — podpis na displeji přijat; `stored=false` = zápis do `protocol_queue` selhal (disk), zkouší se aspoň odeslat hned) a
 PROTOCOL_UPLOAD_FAILED (error 'protocol', `booking_id` pole Eventu, detail `{source:'protocol_queue', error, booking_id,
@@ -819,13 +820,21 @@ async def run_cmd(*args, timeout: float = 20) -> tuple[int, str]   # subprocess,
 nm_connection ('motogo-lte'), modem_vid_pid ('1e0e:9001'), usb_reset_script, reconnect_after (3),
 usb_reset_after (2), missing_modem_after (2), reboot_after (3), min_uptime_before_reboot_s,
 action_cooldown_s (120), usb_reset_timeout_s (180), lte_mode ('qmi'|'rndis'), lte_interface
-(prázdné = wwan0/usb0), lan_connection ('motogo-lan'), lan_interface ('eth0'), lan_recover_s (300)`.
+(prázdné = wwan0/usb0), rndis_auto_after (3), rndis_revert_after_s (1800), lte_mode_script
+('/usr/local/sbin/motogo-lte-mode'), lan_connection ('motogo-lan'), lan_interface ('eth0'), lan_recover_s (300)`.
 
-**Režim `rndis` (2026-09-20, připraveno k ověření):** modem je síťová karta, ModemManager se nevolá
-vůbec — `lte_info_rndis()` čte stav z rozhraní (`usb0`), `modem_gone` = modem na USB je, ale rozhraní
-nemá IPv4, a krok `mmcli --reset` se přeskakuje (`LtePolicy.skip_modem_reset`). Bez tohohle přepínače
-by `modem_gone` bylo v RNDIS trvale pravdivé a jednotka by se resetovala dokola. `usbreset-modem.sh`
-restartuje ModemManager jen když běží.
+**Režim `rndis` (2026-09-20; od 2026-09-26 nasazeno se samoopravou):** modem je síťová karta, ModemManager
+se nevolá vůbec (skript `motogo-lte-mode rndis` ho vypne) — `lte_info_rndis()` čte stav z rozhraní (`usb0`),
+`modem_gone` = modem na USB je, ale rozhraní nemá IPv4, a krok `mmcli --reset` se přeskakuje
+(`LtePolicy.skip_modem_reset`). Bez tohohle přepínače by `modem_gone` bylo v RNDIS trvale pravdivé a jednotka
+by se resetovala dokola. `usbreset-modem.sh` restartuje ModemManager jen když běží; v RNDIS po re-enumeraci
+znovu spustí datové spojení (`motogo-lte-rndis start`). **Automatika (`LtePolicy.mode_step`, volá se jen když
+`step` nic nevrátil):** v QMI ≥ `rndis_auto_after` USB resetů za 24 h → akce `mode_rndis` (health nejdřív
+POSTne payload → událost LTE_MODE, pak `sudo motogo-lte-mode rndis`; skript na konci odloženě restartuje
+motogo-health); nejvýš 1× za 24 h (`mode_switch_at/_to` v health.json). V RNDIS po automatickém přepnutí bez
+jediné úspěšné sondy ≥ `rndis_revert_after_s` → `mode_qmi`. `lte` payload nese `mode` (config), `usb_mode`
+(PID na USB: 9001 qmi / 9011 rndis / None), `mode_auto_after`, `mode_switch_at`, `mode_switch_to`;
+`last24h.mode_switch`. Ručně z Velína: příkaz `lte_mode` (karta jednotky „Modem → RNDIS (stabilní)“ / „→ QMI“).
 
 **Sondy (2026-09-20):** o „internet down" rozhodují jen `DECIDING_TARGETS` = google `generate_204`
 a TCP 1.1.1.1; `probe_url` (Supabase) se měří a hlásí, ale nerozhoduje.
@@ -925,7 +934,7 @@ Třídy `SimRelayModule`, `SimShelly` použitelné v testech in-process (`await 
 - `test_webserver.py`: `GET /` + všechny statické soubory z `index.html` (`app.js`, `diag.js`, `i18n.js`, `keyboard.js`,
   `panel.js`, `shell.js`, `style.css`, `style-overlays.css`, `logo*.svg` + 2026-09-25 `i18n-handover.js`, `signature.js`,
   `handover.js`, `style-handover.css`), path traversal 403/404, PIN, service_token, párování, WS push,
-  `/api/health` jen z localhostu + `actions` reconnect/usb_reset/reboot → události LTE_RESET/REBOOT (§15).
+  `/api/health` jen z localhostu + `actions` reconnect/usb_reset/reboot/mode_rndis/mode_qmi → události LTE_RESET/REBOOT/LTE_MODE (§15).
 - `test_commands.py`, `test_health.py`, `test_audit_fixes.py`: příkazy §13 (vč. `update_blocks`, `zone_not_found`, timeout
   sudo potomka bez EPERM), politika LTE watchdogu (3 sondy, SIM locked → `lte.error`, USB reset / reboot prahy), regresní
   testy nálezů bezpečnostní revize.
