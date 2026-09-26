@@ -448,6 +448,7 @@ class ZoneController:
     async def grant_access(self, *, booking_id: str | None, kind: str, source: str) -> tuple[bool, str]
         # §9 „Platný PIN" kroky 4–12: io_ready? ne → (False,'io_offline'); state ∉ {SECURED, CLOSED_CONFIRMATION} → (False,'busy'/'door_open');
         # door_closed is not True → (False,'door_open'); reset_session (ukončí doběh); světlo ON (ověřeno); GREEN; audio.play_zone; io.pulse(lock, lock_pulse_ms, retry=False)
+        #   timings.lock_hold_until_open (2026-09-26): místo pulzu io.hold(lock, (door_open_timeout_s+1)*1000) — HW flash-on modulu = pojistka; zone_access.release_lock při DOOR_OPEN / timeoutu / force_secure (io.set off); ZoneController.lock_held
         # — gate drží max(pulse, zaokrouhlení na kroky 100 ms WAV645); neúspěch → světlo/zelená zpět, (False,'lock_failed'); po pomalých krocích znovu kontrola dveří/modulů;
         # event ACCESS_GRANTED (booking_id, kind, source); state WAITING_FOR_OPEN; návrat (True,'ok')
     async def tick(self) -> None

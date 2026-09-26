@@ -50,6 +50,24 @@ async def service_unlock_locked(zc: "ZoneController", source: str) -> tuple[bool
     return True, "ok"
 
 
+MAX_HOLD_MS = 0xFFFF * FLASH_STEP_MS   # strop HW časovače flash-on (~109 min)
+
+
+def hold_lock_ms(zc: "ZoneController") -> int:
+    """Doba držení zámku = timeout otevření dveří (+1 s rezerva), v mezích HW časovače modulu."""
+    return int(min(MAX_HOLD_MS, max(FLASH_STEP_MS, (int(zc.timings.door_open_timeout_s) + 1) * 1000)))
+
+
+async def release_lock(zc: "ZoneController", why: str) -> None:
+    """Vypne držený zámek (lock_hold_until_open): po otevření dveří, timeoutu, all-off / poruše."""
+    if not zc.lock_held:
+        return
+    zc.lock_held = False
+    lock = zc.zone.hw.lock
+    if lock is not None and not await zc.io.set(lock, False):
+        log.warning("Zóna %s: vypnutí drženého zámku (%s) nepotvrzeno — vypne HW časovač modulu", zc.number, why)
+
+
 async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, source: str) -> tuple[bool, str]:
     """Kroky 6–12 §9 po ověřených podmínkách: světlo, zelená, hudba, HW pulz zámku, událost, WAITING_FOR_OPEN."""
     zc.reset_session()                      # ukončí doběh předchozí relace (CLOSED_CONFIRMATION)
@@ -77,13 +95,19 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
     ok = False
     if not reason:
         lock = zc.zone.hw.lock
-        pulse_ms = int(zc.timings.lock_pulse_ms)
-        # WAV645 flash-on běží v krocích po 100 ms (zaokrouhleno) — brána musí držet i tuto dobu.
-        hold_ms = max(pulse_ms, max(1, round(pulse_ms / FLASH_STEP_MS)) * FLASH_STEP_MS)
-        async with zc.lock_gate:                  # dva zámky nikdy nemají impulz zároveň
-            ok = lock is not None and await zc.io.pulse(lock, pulse_ms)
-            if ok:
-                await asyncio.sleep(hold_ms / 1000.0)
+        if zc.timings.lock_hold_until_open:
+            # Zámek bez paměti (2026-09-26): pod napětím od kódu, dokud kontakt nehlásí otevřeno (zone.evaluate_locked
+            # → io.set off), nejdéle door_open_timeout_s (HW časovač modulu = pojistka i při pádu procesu).
+            ok = lock is not None and await zc.io.hold(lock, hold_lock_ms(zc))
+            zc.lock_held = bool(ok)
+        else:
+            pulse_ms = int(zc.timings.lock_pulse_ms)
+            # WAV645 flash-on běží v krocích po 100 ms (zaokrouhleno) — brána musí držet i tuto dobu.
+            hold_ms = max(pulse_ms, max(1, round(pulse_ms / FLASH_STEP_MS)) * FLASH_STEP_MS)
+            async with zc.lock_gate:                  # dva zámky nikdy nemají impulz zároveň
+                ok = lock is not None and await zc.io.pulse(lock, pulse_ms)
+                if ok:
+                    await asyncio.sleep(hold_ms / 1000.0)
         reason = "" if ok else "lock_failed"
     if not ok:
         log.error("Zóna %s: přístup neproveden (%s)", zc.number, reason)
@@ -111,6 +135,7 @@ async def tick_locked(zc: "ZoneController") -> None:
     if zc.state == ZoneState.WAITING_FOR_OPEN and zc.waiting_since is not None:
         if now - zc.waiting_since > t.door_open_timeout_s:
             zc.state = ZoneState.SECURED         # nejdřív stav, teprve pak pomalé HW kroky
+            await release_lock(zc, "timeout")
             # Zámek IBFM zůstává mechanicky odjištěný do prvního otevření (SPEC §2) → pozdní otevření
             # dveří je pokračování této relace (zone._late_open_locked), ne násilné otevření.
             zc._late_booking = (zc.booking_id, zc.code_kind, zc.source)

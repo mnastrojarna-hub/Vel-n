@@ -53,6 +53,14 @@ class FakeIo:
             await self.on_pulse()
         return self.is_online(ref.dev) and self.pulse_ok
 
+    async def hold(self, ref: HwRef, ms: int) -> bool:
+        """Držení zámku (lock_hold_until_open): jako pulz, ale relé zůstává sepnuté v `coils`."""
+        self.pulses.append((ref, ms))
+        ok = self.is_online(ref.dev) and self.pulse_ok
+        if ok:
+            self.coils[(ref.dev, ref.idx)] = True
+        return ok
+
 
 class FakeSignals:
     def __init__(self) -> None:
@@ -844,3 +852,24 @@ async def test_service_emergency_open_in_open_at_startup_and_lock_offline():
     pulses = len(r.io.pulses)
     assert (await r.zc.grant_access(booking_id=None, kind="service", source="service_panel")) == (False, "lock_offline")
     assert len(r.io.pulses) == pulses
+
+
+async def test_lock_hold_until_open_releases_on_door_open_and_on_timeout():
+    """Zámek bez paměti: relé sepnuté od kódu do otevření dveří (max. timeout), pak vypnuto; timeout → vypnuto."""
+    r = await rig_secured()
+    r.hw.timings.lock_hold_until_open = True
+    r.zc._timings_cache = None
+    key = (r.zone.hw.lock.dev, r.zone.hw.lock.idx)
+    assert (await r.zc.grant_access(booking_id="b", kind="motorcycle", source="ui")) == (True, "ok")
+    assert r.io.pulses[-1] == (r.zone.hw.lock, 31000) and r.io.coils[key] is True and r.zc.lock_held
+    await r.zc.on_input(False)                              # dveře otevřeny → zámek vypnout
+    assert r.zc.state == ZoneState.DOOR_OPEN and r.io.coils[key] is False and not r.zc.lock_held
+    r2 = await rig_secured()
+    r2.hw.timings.lock_hold_until_open = True
+    r2.zc._timings_cache = None
+    key2 = (r2.zone.hw.lock.dev, r2.zone.hw.lock.idx)
+    await r2.zc.grant_access(booking_id="b", kind="motorcycle", source="ui")
+    assert r2.io.coils[key2] is True
+    r2.clock.advance(31.0)
+    await r2.zc.tick()                                      # timeout → SECURED + zámek vypnut
+    assert r2.zc.state == ZoneState.SECURED and r2.io.coils[key2] is False and not r2.zc.lock_held

@@ -24,6 +24,7 @@ export const BRNO_DEFAULT_HARDWARE = {
   },
   timings: {
     lock_pulse_ms: 800,
+    lock_hold_until_open: true,  // 2026-09-26: zámek pod napětím od kódu do otevření dveří (max. timeout otevření)
     door_open_timeout_s: 30,
     door_close_debounce_ms: 1000,
     light_after_close_s: 0,      // kóje: světlo zhasne hned zavřením dveří (2026-09-25)
@@ -122,6 +123,8 @@ export const HW_SECTIONS = [
     fields: [
     { key: 'lock_pulse_ms', label: 'Pulz zámku', unit: 'ms', type: 'int',
       hint: 'Jak dlouho dostane elektrický zámek proud, aby odjistil dveře. Je to krátký impulz — zámek pak zůstane odjištěný mechanicky, dokud zákazník neotevře. Příliš krátký pulz dveře neotevře, příliš dlouhý zbytečně hřeje cívku. Typicky 800 ms.' },
+    { key: 'lock_hold_until_open', label: 'Držet zámek do otevření', type: 'bool',
+      hint: 'Zapnuto: zámek dostává proud od zadání kódu, dokud dveřní kontakt nehlásí otevřeno (nejdéle „Timeout otevření dveří“) — zákazník má čas dojít ke dveřím. Pro zámky bez paměti (2026-09-26). Vypnuto: jen krátký impulz „Pulz zámku“ (zámek s pamětí, např. IBFM 9500).' },
     { key: 'door_open_timeout_s', label: 'Timeout otevření dveří', unit: 's', type: 'int',
       hint: 'Kolik sekund má zákazník na to, aby po zadání kódu opravdu otevřel dveře. Když je neotevře, relace se zruší, světlo a hudba zhasnou a stejný kód lze použít znovu. Typicky 30 s.' },
     { key: 'door_close_debounce_ms', label: 'Debounce zavření', unit: 'ms', type: 'int',
