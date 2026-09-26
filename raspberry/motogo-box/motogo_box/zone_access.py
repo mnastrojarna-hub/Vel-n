@@ -20,6 +20,36 @@ if TYPE_CHECKING:  # pragma: no cover
 log = logging.getLogger("motogo.zone")
 
 
+async def service_unlock_locked(zc: "ZoneController", source: str) -> tuple[bool, str]:
+    """Nouzové servisní otevření (2026-09-26): impulz zámku BEZ OHLEDU na stav zóny (porucha, otevřené dveře,
+    běžící relace, offline kontakt/světlo). Jediná podmínka: nastavený a online modul zámku. Stav ani relace
+    zóny se nemění (porucha zůstane, dokud kontakt neřekne jinak) — jen bílé světlo (best effort) a událost
+    ACCESS_GRANTED s `emergency`. Zákaznické kódy tudy NIKDY nejdou (zachovávají všechny pojistky §9)."""
+    lock = zc.zone.hw.lock
+    if lock is None:
+        return False, "not_configured"
+    if not zc.io.is_online(lock.dev):
+        return False, "lock_offline"
+    detail: dict = {"emergency": True, "state": zc.state.name, "fault": zc.fault, "door_closed": zc.door_closed}
+    if not await zc.set_light(True):
+        detail["light_failed"] = True
+    pulse_ms = int(zc.timings.lock_pulse_ms)
+    hold_ms = max(pulse_ms, max(1, round(pulse_ms / FLASH_STEP_MS)) * FLASH_STEP_MS)
+    async with zc.lock_gate:
+        ok = await zc.io.pulse(lock, pulse_ms)
+        if ok:
+            await asyncio.sleep(hold_ms / 1000.0)
+    if not ok:
+        log.error("Zóna %s: nouzové servisní otevření selhalo (pulz zámku %s)", zc.number, lock.dev)
+        return False, "lock_failed"
+    log.warning("Zóna %s: NOUZOVÉ servisní otevření (%s) ve stavu %s/%s", zc.number, source, zc.state.name, zc.fault)
+    zc.source = source
+    await zc.emit_event(EventKind.ACCESS_GRANTED, level="warn",
+                        message=f"{zc.zone.display_name}: nouzové servisní otevření (stav {zc.state.name}"
+                                f"{', porucha ' + zc.fault if zc.fault else ''})", code_kind="service", **detail)
+    return True, "ok"
+
+
 async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, source: str) -> tuple[bool, str]:
     """Kroky 6–12 §9 po ověřených podmínkách: světlo, zelená, hudba, HW pulz zámku, událost, WAITING_FOR_OPEN."""
     zc.reset_session()                      # ukončí doběh předchozí relace (CLOSED_CONFIRMATION)

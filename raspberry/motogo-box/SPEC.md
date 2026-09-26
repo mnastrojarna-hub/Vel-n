@@ -333,7 +333,7 @@ cache z `kiosk_sync_config`) nese u zákaznického kódu objekt `protocol` (§10
 (bez události `ACCESS_DENIED`, bez PIN lockoutu) a displej přes celý displej ukáže předávací protokol s příznakem `then_open` — po
 podpisu pokračují kroky 3–12 samy (kóje se otevře bez dalšího zadávání). `protocol` chybí (`None` — starší cache nebo backend)
 → hradlo se NEuplatní (fail-open, log `protocol_state_unknown`); `required = false` → kroky 3–12 jako dosud. Servisní kódy
-(39301A–H, servisní heslo, `open_door` z Velína) protokol nikdy nespouští ani nevyžadují (`booking_id = None`).
+(39301A–H, servisní heslo, `open_door` z Velína) protokol nikdy nespouští ani nevyžadují (`booking_id = None`). **Servisní otevření je vždy možné (2026-09-26):** mimo běžný stav zóny (porucha, dveře otevřené / kontakt nezapojený, běžící relace, offline kontakt či světlo) jde o NOUZOVÝ impulz zámku — jediná podmínka je online modul zámku; stav zóny se nemění, událost ACCESS_GRANTED nese `emergency: true`. Zákaznické kódy všechny pojistky kroků 4–5 zachovávají.
 
 **Dveře se do 30 sekund neotevřou:** zámek už nesmí být napájen; vypnout hudbu; po 30 sekundách vypnout bílé světlo; vrátit červenou signalizaci; ukončit relaci; stejný PIN může být podle rezervace znovu použit.
 
