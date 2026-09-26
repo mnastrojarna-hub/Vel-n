@@ -14,6 +14,8 @@ const LOG_CZ = {
   nm_lte_profile: 'Profil motogo-lte (typ, APN, DNS, metrika, autoconnect)', ip_route: 'Směrovací tabulka', ip_addr: 'Adresy rozhraní', resolved: 'DNS (resolvectl)',
   mmcli: 'ModemManager — modemy', usb: 'USB zařízení', journal_nm: 'Log NetworkManager (60 řádků)', journal_mm: 'Log ModemManager (40 řádků)',
   journal_health: 'Log motogo-health (60 řádků)', journal_kernel_usb: 'Log jádra — USB / QMI / eth0 (filtr)',
+  lte_mode_log: 'Log přepínání režimu modemu (QMI/RNDIS)', lte_rndis_log: 'Log AT příkazů RNDIS', lte_mode_status: 'Režim modemu — stav (config, USB, profil, trasa)',
+  usbreset_log: 'Log USB resetů modemu',
 }
 
 function Timeline({ series }) {

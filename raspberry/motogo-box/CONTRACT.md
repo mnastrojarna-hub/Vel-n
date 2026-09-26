@@ -834,7 +834,7 @@ POSTne payload → událost LTE_MODE, pak `sudo motogo-lte-mode rndis`; skript n
 motogo-health); nejvýš 1× za 24 h (`mode_switch_at/_to` v health.json). V RNDIS po automatickém přepnutí bez
 jediné úspěšné sondy ≥ `rndis_revert_after_s` → `mode_qmi`. `lte` payload nese `mode` (config), `usb_mode`
 (PID na USB: 9001 qmi / 9011 rndis / None), `mode_auto_after`, `mode_switch_at`, `mode_switch_to`;
-`last24h.mode_switch`. Ručně z Velína: příkaz `lte_mode` (karta jednotky „Modem → RNDIS (stabilní)“ / „→ QMI“).
+`last24h.mode_switch`. Ručně z Velína: příkaz `lte_mode` (karta jednotky „Modem → RNDIS (experimentální)“ / „→ QMI“). **`rndis_auto_after` je od 26. 9. výchozí 0 (automatika vypnutá — modem po přepnutí zmizel z USB, HARDWARE.md).** **`mode_sync` (2026-09-26):** config `lte_mode` ≠ `usb_mode` (`qmi`/`rndis` z PID na USB) po 3 cyklech a mimo cooldown → akce `mode_sync` = `motogo-lte-mode <usb_mode>` (config a služby podle modemu; health POSTne payload → událost LTE_MODE, pak skript, který health restartuje). `other:*`/None → nic. Diagnostika `netlog` navíc sbírá `lte_mode_log`, `lte_rndis_log`, `lte_mode_status`, `usbreset_log`.
 
 **Sondy (2026-09-20):** o „internet down" rozhodují jen `DECIDING_TARGETS` = google `generate_204`
 a TCP 1.1.1.1; `probe_url` (Supabase) se měří a hlásí, ale nerozhoduje.

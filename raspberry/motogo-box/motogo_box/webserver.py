@@ -114,7 +114,7 @@ async def _api_middleware(request: web.Request, handler: Callable) -> web.Stream
 
 _HEALTH_ACTION_KINDS = {"reconnect": EventKind.LTE_RESET, "usb_reset": EventKind.LTE_RESET,
                         "reboot": EventKind.REBOOT,
-                        "mode_rndis": EventKind.LTE_MODE, "mode_qmi": EventKind.LTE_MODE,
+                        "mode_rndis": EventKind.LTE_MODE, "mode_qmi": EventKind.LTE_MODE, "mode_sync": EventKind.LTE_MODE,
                         "route_fix": EventKind.NET_FIX}
 _WHERE_TEXT = {      # health `net.where` → lidsky, kde výpadek vězí (CONTRACT §17)
     "route": " — cizí výchozí trasa přes eth0 blokuje LTE (jednotka ji maže sama)",
@@ -128,6 +128,8 @@ _HEALTH_ACTION_TEXT = {
     "mode_rndis": "Modem se přepíná do režimu RNDIS (opakované výpadky QMI kanálu / USB resety) — internet "
                   "vypadne na ~2 min, pak jede přes usb0 bez ModemManageru",
     "mode_qmi": "Modem se vrací do režimu QMI (v RNDIS se internet neobnovil)",
+    "mode_sync": "Nastavení režimu modemu neodpovídalo tomu, jak se modem hlásí na USB — jednotka ho srovnává podle modemu "
+                 "(internet vypadne na ~2 min)",
 }
 
 # ─── server ──────────────────────────────────────────────────────────────────

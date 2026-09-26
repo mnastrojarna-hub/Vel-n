@@ -237,7 +237,7 @@ class LtePolicy:
         for _, action in self.history:
             if action in out:
                 out[action] += 1
-            elif action in ("mode_rndis", "mode_qmi"):
+            elif action in ("mode_rndis", "mode_qmi", "mode_sync"):
                 out["mode_switch"] += 1
         return out
 
@@ -299,6 +299,7 @@ class HealthMonitor:
         self._routes = routes              # None = `net_scan.routes` (výchozí trasy; testy dosazují falešné)
         self._lan_try_at: float | None = None      # poslední pokus o `nmcli con up` (rate limit)
         self._route_fix_at: float | None = None    # poslední route_fix (rate limit)
+        self._mismatch_cycles = 0                  # config lte_mode ≠ režim modemu na USB — po sobě jdoucí cykly (mode_sync)
         self._lan_problem: str | None = None       # poslední hlášený problém — log jen při ZMĚNĚ, ne každých 30 s
         self.policy = LtePolicy(cfg, clock)
         self.policy.skip_modem_reset = self.rndis
@@ -371,6 +372,29 @@ class HealthMonitor:
         """Režim modemu podle PID na USB: SIM7600 9001 = qmi, 9011 = rndis; None = modem na USB není/nevíme."""
         vid = (self.cfg.modem_vid_pid or "1e0e").split(":")[0] or "1e0e"
         return modem_usb_mode(vid)          # qmi / rndis / other:<pid> / None
+
+    MODE_SYNC_CYCLES = 3
+
+    def _mode_sync_step(self, lte: dict) -> list[str]:
+        """Config `lte_mode` ≠ režim, ve kterém se modem skutečně hlásí na USB (`qmi`/`rndis`), po ≥ 3 cyklech a mimo
+        cooldown → akce `mode_sync` (2026-09-26: po nepovedeném přepnutí zůstal config rndis + vypnutý ModemManager,
+        zatímco modem se po přepojení vrátil jako QMI — LTE nemohlo fungovat ani jedním způsobem). Srovnává se config
+        podle modemu (`motogo-lte-mode <usb_mode>`; skript při shodném PID AT přepínání přeskočí). `other:*`/None = nic."""
+        usb_mode = lte.get("usb_mode")
+        cfg_mode = "rndis" if self.rndis else "qmi"
+        if usb_mode not in ("qmi", "rndis") or usb_mode == cfg_mode:
+            self._mismatch_cycles = 0
+            return []
+        self._mismatch_cycles += 1
+        if self._mismatch_cycles < self.MODE_SYNC_CYCLES:
+            return []
+        p = self.policy
+        now = self.clock()
+        delta = now - p.last_action_at if p.last_action_at is not None else None
+        if delta is not None and 0 <= delta < max(0, self.cfg.action_cooldown_s):
+            return []
+        self._mismatch_cycles = 0
+        return p._mark("mode_sync")
 
     def _mode_fields(self) -> dict:
         p = self.policy
@@ -626,10 +650,14 @@ class HealthMonitor:
                 log.error("USB reset selhal (rc=%s): %s", rc, out.strip()[:300])
         elif action == "route_fix":
             return      # už provedeno v route_state (dispečer); tady jen kvůli hlášení do payloadu/kiosk_logs
-        elif action in ("mode_rndis", "mode_qmi"):
-            mode = action.split("_", 1)[1]
-            why = (f"USB resety se opakují ({self.policy.counts_24h()['usb_reset']} za 24 h)"
-                   if mode == "rndis" else "RNDIS bez internetu")
+        elif action in ("mode_rndis", "mode_qmi", "mode_sync"):
+            usb_mode = (payload.get("lte") or {}).get("usb_mode") if isinstance(payload.get("lte"), dict) else None
+            mode = usb_mode if action == "mode_sync" else action.split("_", 1)[1]
+            if mode not in ("qmi", "rndis"):
+                return
+            why = (f"USB resety se opakují ({self.policy.counts_24h()['usb_reset']} za 24 h)" if action == "mode_rndis"
+                   else "RNDIS bez internetu" if action == "mode_qmi"
+                   else f"config lte_mode ≠ režim modemu na USB ({usb_mode}) — srovnávám podle modemu")
             log.critical("LTE: %s → přepínám modem do režimu %s (%s %s); internet vypadne na ~2 min",
                          why, mode.upper(), self.cfg.lte_mode_script, mode)
             self._save_state()
@@ -690,6 +718,8 @@ class HealthMonitor:
                                        modem_gone=bool(lte.get("modem_gone")))
             if not actions:
                 actions = self.policy.mode_step(self.rndis, internet)
+            if not actions:
+                actions = self._mode_sync_step(lte)
             if route["action"] == "route_fix":
                 actions = [*actions, "route_fix"]
         self._lte_error = error
@@ -701,7 +731,7 @@ class HealthMonitor:
                    "actions": actions, "net": net}
         for action in actions:
             await self.perform(action, payload)
-        if not set(actions) & {"reboot", "mode_rndis", "mode_qmi"}:     # ty postují samy (před akcí)
+        if not set(actions) & {"reboot", "mode_rndis", "mode_qmi", "mode_sync"}:     # ty postují samy (před akcí)
             await self.post_health(payload)
         sd_notify("WATCHDOG=1")
         self.last_payload = payload
