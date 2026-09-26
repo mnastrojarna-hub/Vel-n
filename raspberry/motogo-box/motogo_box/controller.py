@@ -111,6 +111,12 @@ class BoxController:
         for p in self.config_problems:
             log.log(logging.WARNING if p.startswith(WARNING_PREFIX) else logging.ERROR, "Konfigurace: %s", p)
         await lan_guard.apply(self.local.paths.data_dir)   # internet jen LTE: uklidit zrušenou bránu eth0
+        rollback = lan_guard.take_rollback_marker(self.local.paths.data_dir)
+        if rollback is not None:
+            await self.emit(Event(kind=EventKind.NET_FIX, level="error", success=False,
+                                  message="Aktualizace změnila síťové profily a internet spadl — profily vráceny ze zálohy "
+                                          f"(canary update.sh; internet po návratu: {rollback.get('internet_after_rollback', '?')})",
+                                  detail={"source": "update.sh", **rollback}))
         await self._build_runtime()
         await self._hw_startup()
         self.ready = True

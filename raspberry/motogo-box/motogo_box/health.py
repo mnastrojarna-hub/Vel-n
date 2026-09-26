@@ -493,6 +493,20 @@ class HealthMonitor:
         from . import net_scan
         return await net_scan.interfaces()
 
+    def _where(self, route: dict, lte: dict) -> str:
+        """KDE výpadek vězí (do payloadu `net.where` a události INTERNET_DOWN) — ať je z Velína hned jasné, co řešit:
+        `route` cizí výchozí trasa (eth0) přebíjí LTE · `no_route` LTE rozhraní nemá výchozí trasu · `modem` modem
+        chybí/nemá adresu/je v chybě · `carrier` vše lokálně vypadá dobře, nejde to za modemem (operátor, signál, SIM data)."""
+        if route.get("foreign"):
+            return "route"
+        lte_iface = self.lte_iface()
+        if not any(str(r.get("dev")) == lte_iface for r in route.get("routes") or []):
+            return "no_route" if lte.get("ipv4") else "modem"
+        if lte.get("modem_gone") or lte.get("error") or not lte.get("ipv4") \
+                or str(lte.get("state") or "") in ("no_modem", "failed", "locked", "disabled", "no_address"):
+            return "modem"
+        return "carrier"
+
     async def _list_routes(self) -> list[dict]:
         if self._routes is not None:
             return await self._routes()
@@ -680,6 +694,7 @@ class HealthMonitor:
         self._save_state()
         net = await self._net_state()
         net["foreign_default"] = route["foreign"]
+        net["where"] = None if internet else self._where(route, lte)
         payload = {"internet": internet, "lte": lte, "lan": lan, "sys": sysm, "ts": now_iso(),
                    "actions": actions, "net": net}
         for action in actions:

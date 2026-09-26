@@ -14,6 +14,7 @@ import os
 log = logging.getLogger("motogo.lan_guard")
 
 FILE_NAME = "lan_gateway"
+ROLLBACK_MARKER = "net_rollback"    # zapisuje scripts/lib/netcanary.sh (update.sh vrátil síťové profily)
 DISPATCHER = "/etc/NetworkManager/dispatcher.d/50-motogo-lan-addr"
 IFACE = "eth0"
 
@@ -55,3 +56,25 @@ async def apply(data_dir: str) -> None:
         await run_dispatcher()
     except Exception:  # noqa: BLE001
         log.exception("lan_guard.apply selhal")
+
+
+def take_rollback_marker(data_dir: str) -> dict | None:
+    """Značka od síťového canary v update.sh (`net_rollback`): aktualizace změnila síť, internet spadl a profily se
+    vrátily ze zálohy. Přečte, smaže a vrátí obsah (controller z ní udělá událost NET_FIX error); None = nic."""
+    path = os.path.join(data_dir, ROLLBACK_MARKER)
+    if not os.path.exists(path):
+        return None
+    try:
+        raw = open(path, encoding="utf-8").read().strip()
+    except OSError:
+        raw = ""
+    try:
+        os.remove(path)
+    except OSError as exc:
+        log.error("lan_guard: smazání %s selhalo: %s", path, exc)
+    try:
+        import json
+        data = json.loads(raw) if raw else {}
+    except ValueError:
+        data = {"raw": raw[:300]}
+    return data if isinstance(data, dict) else {"raw": str(data)[:300]}

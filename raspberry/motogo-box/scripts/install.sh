@@ -320,12 +320,12 @@ if ! nmcli -g ipv4.addresses con show motogo-lan 2>/dev/null | tr ',' '\n' | tr 
     && ok "motogo-lan: pomocná adresa 192.168.1.253/24 (tovární síť Waveshare)" \
     || warn "motogo-lan: pomocnou adresu 192.168.1.253/24 nejde přidat"
 fi
-# Starší profil z hybridní epizody (DHCP/DNS na eth0, 2026-09-26) → zpět „jen I/O síť": internet jde výhradně LTE.
+# Starší profil z hybridní epizody (DHCP/DNS na eth0, 2026-09-26) → zpět „jen I/O síť“: internet jde výhradně LTE.
 if [[ "$(nmcli -g ipv4.method con show motogo-lan 2>/dev/null)" != "manual" || "$(nmcli -g ipv4.never-default con show motogo-lan 2>/dev/null)" != "yes" \
    || -n "$(nmcli -g ipv4.dns con show motogo-lan 2>/dev/null)" ]]; then
   nmcli con modify motogo-lan ipv4.method manual ipv4.never-default yes ipv4.ignore-auto-dns yes ipv4.ignore-auto-routes yes \
     ipv4.dns "" ipv4.gateway "" ipv4.dhcp-timeout 0 2>/dev/null \
-    && ok "motogo-lan: jen I/O síť (manual, never-default, bez DNS)" || warn "motogo-lan: návrat na „jen I/O síť" selhal"
+    && ok "motogo-lan: jen I/O síť (manual, never-default, bez DNS)" || warn "motogo-lan: návrat na „jen I/O síť“ selhal"
 fi
 rm -f /var/lib/motogo/lan_gateway
 # Záložní veřejné DNS JEN na LTE profilu (DNS operátora občas neodpovídá).

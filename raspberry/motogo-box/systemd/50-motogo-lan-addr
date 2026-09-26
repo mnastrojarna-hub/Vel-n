@@ -3,7 +3,7 @@
 # 1) Adresy I/O sítě VŽDY dostupné (2026-09-25): 192.168.50.10/24 (moduly) + 192.168.1.253/24 (tovární síť
 #    Waveshare 192.168.1.254 — automatické zřízení, io_provision.py). `ip addr replace` je idempotentní.
 # 2) Strážce tras (2026-09-26): jakákoli výchozí trasa přes eth0 (z DHCP cizího routeru, ruční, ze zrušené
-#    „záložní brány kabelem" /var/lib/motogo/lan_gateway) přebije LTE (metrika 100) a pošle internet do prázdna —
+#    „záložní brány kabelem“ /var/lib/motogo/lan_gateway) přebije LTE (metrika 100) a pošle internet do prázdna —
 #    pobočka je pak trvale offline a modem se marně resetuje. Dispečer ji proto SMAŽE a soubor s bránou odstraní.
 #    Health monitor ho spouští i sám (akce route_fix), když takovou trasu uvidí.
 # Instaluje update.sh/install.sh jako /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr (root, 755):

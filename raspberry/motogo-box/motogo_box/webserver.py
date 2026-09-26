@@ -116,6 +116,12 @@ _HEALTH_ACTION_KINDS = {"reconnect": EventKind.LTE_RESET, "usb_reset": EventKind
                         "reboot": EventKind.REBOOT,
                         "mode_rndis": EventKind.LTE_MODE, "mode_qmi": EventKind.LTE_MODE,
                         "route_fix": EventKind.NET_FIX}
+_WHERE_TEXT = {      # health `net.where` → lidsky, kde výpadek vězí (CONTRACT §17)
+    "route": " — cizí výchozí trasa přes eth0 blokuje LTE (jednotka ji maže sama)",
+    "no_route": " — LTE rozhraní nemá výchozí trasu (profil motogo-lte nenaskočil; health nahazuje)",
+    "modem": " — modem chybí / bez adresy / v chybě (health: reconnect → reset → USB reset)",
+    "carrier": " — lokálně vše OK, nejde to za modemem (signál, operátor, data na SIM)",
+}
 _HEALTH_ACTION_TEXT = {
     "route_fix": "Odstraněna cizí výchozí trasa přes eth0 (kabelem internet není) — internet jde jen přes LTE",
     "mode_rndis": "Modem se přepíná do režimu RNDIS (opakované výpadky QMI kanálu / USB resety) — internet "
@@ -372,12 +378,15 @@ class WebServer:
             return
         lte = body.get("lte") if isinstance(body.get("lte"), dict) else {}
         lan = body.get("lan") if isinstance(body.get("lan"), dict) else {}
+        net = body.get("net") if isinstance(body.get("net"), dict) else {}
+        where = net.get("where")
         ctx = {"source": "health", "lte_state": lte.get("state"), "modem_gone": lte.get("modem_gone"),
-               "lte_error": lte.get("error"), "lan": lan.get("problem")}
+               "lte_error": lte.get("error"), "lan": lan.get("problem"), "where": where,
+               "foreign_default": net.get("foreign_default")}
         if not cur:
             self.ctrl.internet_down_at = time.time()
             await self.ctrl.emit(Event(kind=EventKind.INTERNET_DOWN, level="error", success=False,
-                                       message="Výpadek internetu (LTE i kabel)", detail=ctx))
+                                       message="Výpadek internetu (LTE)" + _WHERE_TEXT.get(where, ""), detail=ctx))
         elif prev is False:
             since = getattr(self.ctrl, "internet_down_at", None)
             dur = round(time.time() - since) if since else None
