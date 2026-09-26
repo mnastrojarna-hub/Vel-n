@@ -1,8 +1,5 @@
 // ===== ai-moto-agent/booking-context.ts =====
 // Booking context formatting + agent config + system prompt building
-
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
 export const FALLBACK_SYSTEM_PROMPT = `Jsi AI servisní technik MotoGo24 — půjčovny motorek.
 
 ## KRITICKÁ PRAVIDLA (NIKDY neporušuj):
@@ -115,64 +112,71 @@ Na konci každé odpovědi přidej JSON blok:
 ---END---
 suggest_sos: true pokud je závada vážná a zákazník by měl kontaktovat SOS.
 
-Výchozí jazyk je čeština; když zákazník píše jiným jazykem, odpověz JEHO jazykem (nikdy nemíchej dva jazyky v jedné odpovědi). Odpovídej stručně a konkrétně pro daný model motorky.`
-
+Výchozí jazyk je čeština; když zákazník píše jiným jazykem, odpověz JEHO jazykem (nikdy nemíchej dva jazyky v jedné odpovědi). Odpovídej stručně a konkrétně pro daný model motorky.`;
 // Hlavička s aktuálním datem (Europe/Prague) — počítá se PER REQUEST a připojuje k system
 // promptu v index.ts. Bez ní model hádal rok z trénovacích dat (reálná konverzace: zákazník
 // chtěl „neděli 19. 7." r. 2026, agent tvrdil „neděle je fakticky sobota 19. 7. 2025" a
 // nacenil sobotním ceníkem). Stejný princip jako „DNES JE" v ai-public-agent.
-export function buildDateHeader(): string {
-  const now = new Date()
-  const fmtIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit' })
-  const fmtCsLong = new Intl.DateTimeFormat('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Prague' })
-  const fmtCs = new Intl.DateTimeFormat('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'Europe/Prague' })
-  const label = (d: Date) => `${fmtIso.format(d)} (${fmtCs.format(d)})`
-  const add = (n: number) => new Date(now.getTime() + n * 86_400_000)
-  const dowMap: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }
-  const dow = dowMap[new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Europe/Prague' }).format(now)] || 1
-  const satOff = dow <= 5 ? 6 - dow : dow === 6 ? 0 : -1
+export function buildDateHeader() {
+  const now = new Date();
+  const fmtIso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Prague',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const fmtCsLong = new Intl.DateTimeFormat('cs-CZ', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Prague'
+  });
+  const fmtCs = new Intl.DateTimeFormat('cs-CZ', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+    timeZone: 'Europe/Prague'
+  });
+  const label = (d)=>`${fmtIso.format(d)} (${fmtCs.format(d)})`;
+  const add = (n)=>new Date(now.getTime() + n * 86_400_000);
+  const dowMap = {
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+    Sun: 7
+  };
+  const dow = dowMap[new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    timeZone: 'Europe/Prague'
+  }).format(now)] || 1;
+  const satOff = dow <= 5 ? 6 - dow : dow === 6 ? 0 : -1;
   return `
 
 ## DNES JE ${fmtCsLong.format(now)} (ISO ${fmtIso.format(now)}, Europe/Prague) — JEDINÝ zdroj pravdy o aktuálním datu.
 - Dnes: ${label(now)} | Zítra: ${label(add(1))} | Tento víkend: ${label(add(satOff))} + ${label(add(satOff + 1))}
 - Rok ani den v týdnu NIKDY nehádej z hlavy ani z trénovacích dat — vždy vycházej z těchto hodnot. Když zákazník řekne datum bez roku (např. „19. 7."), platí AKTUÁLNÍ rok z hlavičky (příští rok jen pokud datum letos už proběhlo).
-- Den v týdnu k datu urči VÝHRADNĚ z ISO kalendáře aktuálního roku. NIKDY zákazníka „neopravuj" na jiný den v týdnu podle jiného roku; pokud jeho datum a den v týdnu opravdu nesedí ani v aktuálním roce, zdvořile se doptej, co platí.`
+- Den v týdnu k datu urči VÝHRADNĚ z ISO kalendáře aktuálního roku. NIKDY zákazníka „neopravuj" na jiný den v týdnu podle jiného roku; pokud jeho datum a den v týdnu opravdu nesedí ani v aktuálním roce, zdvořile se doptej, co platí.`;
 }
-
-const TONE_MAP: Record<string, string> = {
+const TONE_MAP = {
   friendly: 'Komunikuj přátelsky a neformálně, buď vlídný a vstřícný.',
   professional: 'Komunikuj profesionálně a formálně, buď věcný a stručný.',
   concise: 'Odpovídej maximálně stručně — krátké, jasné věty bez zbytečností.',
-  detailed: 'Poskytuj podrobná vysvětlení s kontextem a pozadím problému.',
-}
-
-export interface AgentConfig {
-  persona_name?: string
-  system_prompt?: string
-  situations?: string[]
-  forbidden?: string[]
-  mustDo?: string[]
-  tone?: string
-  max_tokens?: number
-  enabled?: boolean
-  knowledge_extra?: string  // freetext z Velínu (AppAgentSettingsPanel „Aktuální znalosti") — inject do promptu
-}
-
-export async function loadAgentConfig(supabaseAdmin: SupabaseClient): Promise<AgentConfig | null> {
+  detailed: 'Poskytuj podrobná vysvětlení s kontextem a pozadím problému.'
+};
+export async function loadAgentConfig(supabaseAdmin) {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'ai_moto_agent_config')
-      .single()
-
-    if (error || !data?.value) return null
-    return data.value as AgentConfig
-  } catch {
-    return null
+    const { data, error } = await supabaseAdmin.from('app_settings').select('value').eq('key', 'ai_moto_agent_config').single();
+    if (error || !data?.value) return null;
+    return data.value;
+  } catch  {
+    return null;
   }
 }
-
 // Provozní znalosti servisního agenta (pobočky, kódy, předávací protokol, změny termínu,
 // storno, SOS, kalibrace závažnosti). Vyčleněno 2026-09-25 beze změny obsahu, aby je
 // sdílel i agent zákaznických zpráv ve Velínu (ai-customer-messages-suggest).
@@ -234,57 +238,45 @@ Pobočku, její REŽIM a u samoobsluhy i ČÍSLO KÓJE máš v KONTEXTU REZERVAC
 - STORNO TABULKA (konkrétní čísla sděl, až když je potvrdí get_policies / get_legal_document): 7+ dní (168 h) před začátkem = 100 % zpět, 2–7 dní (48–168 h) = 50 %, méně než 2 dny (<48 h) = 0 %. Počítá se v HODINÁCH do začátku pronájmu, ne podle kalendářních dnů — u hraničního termínu nikdy netvrď přesný den a hodinu z hlavy.
 - POSUN A STORNO SPOLU SOUVISÍ (řekni to VŽDY, když zákazník zvažuje posun a zároveň zmíní rušení): samotný stejně dlouhý posun je zdarma, ALE jakmile se termín jednou posune, pozdější storno už NIKDY nevrátí 100 % — posun provedený 7+ dní (168 h) před tehdejším začátkem nechává strop 50 %, posun provedený později strop 0 %. Nikdy netvrď, že „storno podmínky se změny termínu netýkají".
 - ZRUŠENÍ celé rezervace: appka → detail rezervace → „Zrušit rezervaci"; web → motogo24.cz/upravit-rezervaci → Zrušit. Vratku vyčíslí systém při samotném stornu ze skutečně zaplacené částky (po slevách) — konkrétní Kč nehádej.
-- Na dotaz „do kdy můžu změnit termín" odpověz rovnou podle pravidel výše. Odpověď „to ti řekne až půjčovna" je u změny termínu ZAKÁZANÁ — kontakt nabízej jen jako doplněk (den vyzvednutí, kolize termínů, nestandardní případ).`
-
+- Na dotaz „do kdy můžu změnit termín" odpověz rovnou podle pravidel výše. Odpověď „to ti řekne až půjčovna" je u změny termínu ZAKÁZANÁ — kontakt nabízej jen jako doplněk (den vyzvednutí, kolize termínů, nestandardní případ).`;
 // Statická fakta od provozovatele (přesunuto z index.ts 2026-09-25, obsah beze změny).
 export const SEASON_NOTE = `\n\n## PROVOZNÍ SEZÓNA (info od provozovatele):
-- Půjčovna funguje SEZÓNNĚ: od 1. dubna do konce října. V BŘEZNU se otevírá jen PODLE POČASÍ — březnový termín ber jako „pravděpodobně ano, závazně potvrdí půjčovna" a doporuč ověření telefonem/e-mailem. LISTOPAD–ÚNOR je mimo provoz — výdej motorky v tomto období nenabízej ani nepotvrzuj; nabídni nejbližší termín v sezóně. Rezervaci na sezónní termín lze vytvořit online kdykoli během roku. Na dotaz „do kdy / od kdy v roce půjčujete" odpověz PŘÍMO z tohoto bodu — NIKDY netvrď, že informaci o sezóně nemáš.`
-
+- Půjčovna funguje SEZÓNNĚ: od 1. dubna do konce října. V BŘEZNU se otevírá jen PODLE POČASÍ — březnový termín ber jako „pravděpodobně ano, závazně potvrdí půjčovna" a doporuč ověření telefonem/e-mailem. LISTOPAD–ÚNOR je mimo provoz — výdej motorky v tomto období nenabízej ani nepotvrzuj; nabídni nejbližší termín v sezóně. Rezervaci na sezónní termín lze vytvořit online kdykoli během roku. Na dotaz „do kdy / od kdy v roce půjčujete" odpověz PŘÍMO z tohoto bodu — NIKDY netvrď, že informaci o sezóně nemáš.`;
 export const APP_PAY_NOTE = `\n\n## MOBILNÍ APLIKACE A PLATBY (závazná fakta od provozovatele — při rozporu mají PŘEDNOST před get_faq, get_policies i jinými výsledky nástrojů):
 - Aplikace MotoGo24 je ke stažení pro iPhone v App Store (https://apps.apple.com/cz/app/id6806045151) i pro Android na Google Play (https://play.google.com/store/apps/details?id=com.motogo24.app). NIKDY netvrď, že je jen pro Android, že se iOS verze připravuje nebo že aplikace teprve vychází.
 - Platba v aplikaci: platební kartou, na iPhonu navíc Apple Pay, na Androidu Google Pay (vše přes Stripe); uložená karta se strhne automaticky. Na webu motogo24.cz: karta, Apple Pay, Google Pay a navíc QR platba / bankovní převod (jen na webu, ne v aplikaci). Hotovost ani platbu na místě nepřijímáme.
-- Hlásí-li zákazník, že mu v aplikaci nefunguje Apple Pay (či Google Pay), NIKDY netvrď, že ho nepodporujeme. Poraď: 1) aktualizovat aplikaci na nejnovější verzi (App Store / Google Play), 2) zaplatit kartou ve stejném platebním okně (pole pro kartu je hned pod tlačítkem Apple Pay / Google Pay), 3) když to stále nejde, kontaktovat podporu +420 774 256 271 / info@motogo24.cz.`
-
-export function buildSystemPrompt(config: AgentConfig | null): string {
-  if (!config || !config.enabled) return FALLBACK_SYSTEM_PROMPT
-
-  let prompt = ''
-
+- Hlásí-li zákazník, že mu v aplikaci nefunguje Apple Pay (či Google Pay), NIKDY netvrď, že ho nepodporujeme. Poraď: 1) aktualizovat aplikaci na nejnovější verzi (App Store / Google Play), 2) zaplatit kartou ve stejném platebním okně (pole pro kartu je hned pod tlačítkem Apple Pay / Google Pay), 3) když to stále nejde, kontaktovat podporu +420 774 256 271 / info@motogo24.cz.`;
+export function buildSystemPrompt(config) {
+  if (!config || !config.enabled) return FALLBACK_SYSTEM_PROMPT;
+  let prompt = '';
   if (config.persona_name) {
-    prompt += `Jsi ${config.persona_name} pro MotoGo24 — půjčovnu motorek.\n\n`
+    prompt += `Jsi ${config.persona_name} pro MotoGo24 — půjčovnu motorek.\n\n`;
   }
-
   if (config.system_prompt) {
-    prompt += config.system_prompt
+    prompt += config.system_prompt;
   } else {
-    prompt += FALLBACK_SYSTEM_PROMPT
+    prompt += FALLBACK_SYSTEM_PROMPT;
   }
-
   if (config.tone && TONE_MAP[config.tone]) {
-    prompt += `\n\n## TÓN KOMUNIKACE:\n${TONE_MAP[config.tone]}`
+    prompt += `\n\n## TÓN KOMUNIKACE:\n${TONE_MAP[config.tone]}`;
   }
-
   if (config.situations && config.situations.length > 0) {
-    prompt += '\n\n## SITUAČNÍ PRAVIDLA:'
-    for (const s of config.situations) prompt += `\n- ${s}`
+    prompt += '\n\n## SITUAČNÍ PRAVIDLA:';
+    for (const s of config.situations)prompt += `\n- ${s}`;
   }
-
   if (config.mustDo && config.mustDo.length > 0) {
-    prompt += '\n\n## VŽDY MUSÍ UDĚLAT:'
-    for (const m of config.mustDo) prompt += `\n- ✅ ${m}`
+    prompt += '\n\n## VŽDY MUSÍ UDĚLAT:';
+    for (const m of config.mustDo)prompt += `\n- ✅ ${m}`;
   }
-
   if (config.forbidden && config.forbidden.length > 0) {
-    prompt += '\n\n## ZAKÁZÁNO:'
-    for (const f of config.forbidden) prompt += `\n- ❌ ${f}`
+    prompt += '\n\n## ZAKÁZÁNO:';
+    for (const f of config.forbidden)prompt += `\n- ❌ ${f}`;
   }
-
   // „Aktuální znalosti" z Velínu (sezonní info, známé vady konkrétních strojů, ad-hoc pokyny).
   // Panel je ukládá do knowledge_extra a slibuje okamžitou platnost — dosud je edge fn NEČETLA.
   if (config.knowledge_extra && config.knowledge_extra.trim()) {
-    prompt += '\n\n## AKTUÁLNÍ ZNALOSTI Z VELÍNU (ad-hoc info od provozovatele — při kolizi má přednost před ostatními pravidly):\n' + config.knowledge_extra.trim()
+    prompt += '\n\n## AKTUÁLNÍ ZNALOSTI Z VELÍNU (ad-hoc info od provozovatele — při kolizi má přednost před ostatními pravidly):\n' + config.knowledge_extra.trim();
   }
-
   prompt += `
 
 ## TVOJE ROLE: technická podpora a pomocník (NE prodejce)
@@ -312,61 +304,52 @@ Na konci každé odpovědi přidej JSON blok:
 ---END---
 suggest_sos: true pokud je závada vážná a zákazník by měl kontaktovat SOS.
 
-Výchozí jazyk je čeština; když zákazník píše jiným jazykem, odpověz JEHO jazykem (nikdy nemíchej dva jazyky v jedné odpovědi).`
-
-  return prompt
+Výchozí jazyk je čeština; když zákazník píše jiným jazykem, odpověz JEHO jazykem (nikdy nemíchej dva jazyky v jedné odpovědi).`;
+  return prompt;
 }
-
 // POBOČKA + KÓJE konkrétní rezervace (2026-09-20). Dřív agent znal jen SEZNAM všech
 // poboček, ne tu SVOU — na „kam si pro ni přijedu / ke kterým dveřím jdu" hádal.
 // `box_number` = číslo kóje na samoobslužné pobočce (branch_doors.box_number),
 // zákazník ho dosud viděl až na displeji jednotky PO zadání kódu.
 // Samoobsluha bez odvozu: čas vrácení se nevolí, uložené 23:59 = konec dne.
 // Web/AI odvoz má method 'store' + adresu (create_web_booking method nevyplňuje).
-export function ssTime(m: Record<string, unknown> | null, method: unknown, address: unknown): boolean {
-  const br = (m?.branches as Record<string, unknown> | null) || null
-  return br?.type === 'samoobslužná' && method !== 'delivery' && !address
+export function ssTime(m, method, address) {
+  const br = m?.branches || null;
+  return br?.type === 'samoobslužná' && method !== 'delivery' && !address;
 }
-
-export function formatBranchLines(m: Record<string, unknown> | null): string {
-  const br = (m?.branches as Record<string, unknown> | null) || null
-  if (!br) return '- Pobočka: nepodařilo se načíst (použij get_branches a zeptej se, odkud si motorku bere)'
-  const addr = [br.address, br.city].filter(Boolean).join(', ')
-  const rezim = br.type === 'samoobslužná'
-    ? 'SAMOOBSLUŽNÁ — výdej i vrácení 24/7 přístupovým kódem do boxu, bez obsluhy'
-    : br.type === 'obslužná'
-      ? 'OBSLUŽNÁ — motorku předává a přebírá OBSLUHA osobně (čas dle domluvy / otevírací doby)'
-      : 'typ neuveden — režim ověř přes get_branches, NEtvrď samoobsluhu'
+export function formatBranchLines(m) {
+  const br = m?.branches || null;
+  if (!br) return '- Pobočka: nepodařilo se načíst (použij get_branches a zeptej se, odkud si motorku bere)';
+  const addr = [
+    br.address,
+    br.city
+  ].filter(Boolean).join(', ');
+  const rezim = br.type === 'samoobslužná' ? 'SAMOOBSLUŽNÁ — výdej i vrácení 24/7 přístupovým kódem do boxu, bez obsluhy' : br.type === 'obslužná' ? 'OBSLUŽNÁ — motorku předává a přebírá OBSLUHA osobně (čas dle domluvy / otevírací doby)' : 'typ neuveden — režim ověř přes get_branches, NEtvrď samoobsluhu';
   const lines = [
     `- Pobočka rezervace: ${br.name || addr || '?'}${addr ? ` — ${addr}` : ''}`,
-    `- Režim pobočky: ${rezim}`,
-  ]
-  if (br.phone) lines.push(`- Telefon pobočky: ${br.phone}`)
-  if (br.gps_lat && br.gps_lng) lines.push(`- GPS pobočky: ${br.gps_lat}, ${br.gps_lng}`)
-  if (br.notes) lines.push(`- Poznámka k pobočce: ${br.notes}`)
+    `- Režim pobočky: ${rezim}`
+  ];
+  if (br.phone) lines.push(`- Telefon pobočky: ${br.phone}`);
+  if (br.gps_lat && br.gps_lng) lines.push(`- GPS pobočky: ${br.gps_lat}, ${br.gps_lng}`);
+  if (br.notes) lines.push(`- Poznámka k pobočce: ${br.notes}`);
   if (br.type === 'samoobslužná') {
-    lines.push(m?.box_number
-      ? `- KÓJE motorky: ${m.box_number} (na dveřích kóje je toto číslo; kód k motorce otevře právě ji, kód šatny otevře ŠATNU). Tohle zákazníkovi říct SMÍŠ — je to jeho rezervace.`
-      : `- KÓJE motorky: v datech není vyplněná (motorcycles.box_number je prázdné) — číslo kóje NEHÁDEJ, řekni, že ho uvidí na displeji jednotky hned po zadání kódu.`)
+    lines.push(m?.box_number ? `- KÓJE motorky: ${m.box_number} (na dveřích kóje je toto číslo; kód k motorce otevře právě ji, kód šatny otevře ŠATNU). Tohle zákazníkovi říct SMÍŠ — je to jeho rezervace.` : `- KÓJE motorky: v datech není vyplněná (motorcycles.box_number je prázdné) — číslo kóje NEHÁDEJ, řekni, že ho uvidí na displeji jednotky hned po zadání kódu.`);
   }
-  return lines.join('\n')
+  return lines.join('\n');
 }
-
 // Stav převzetí — rozhoduje o tom, co zákazník ještě smí sám změnit.
-export function formatPickupStateLine(b: Record<string, unknown>): string {
-  const pickedUp = b.status === 'active' || !!b.handover_protocol_filled_at || !!b.mileage_start
-  return `\n- Stav převzetí: ${pickedUp ? 'motorka je PŘEVZATÁ (termín ani motorku už měnit nelze, jen konec pronájmu)' : 'motorka zatím NENÍ převzatá (posun termínu zdarma je stále možný — viz sekce ZMĚNA TERMÍNU)'}${b.handover_protocol_filled_at ? ' | předávací protokol vyplněn' : b.handover_protocol_started_at ? ' | předávací protokol rozpracovaný (60min okno běží)' : ''}`
+export function formatPickupStateLine(b) {
+  const pickedUp = b.status === 'active' || !!b.handover_protocol_filled_at || !!b.mileage_start;
+  return `\n- Stav převzetí: ${pickedUp ? 'motorka je PŘEVZATÁ (termín ani motorku už měnit nelze, jen konec pronájmu)' : 'motorka zatím NENÍ převzatá (posun termínu zdarma je stále možný — viz sekce ZMĚNA TERMÍNU)'}${b.handover_protocol_filled_at ? ' | předávací protokol vyplněn' : b.handover_protocol_started_at ? ' | předávací protokol rozpracovaný (60min okno běží)' : ''}`;
 }
-
-export function formatBookingContext(b: Record<string, unknown>, otherBookings: Array<Record<string, unknown>> | null): string {
-  const m = b.motorcycles as Record<string, unknown> | null
+export function formatBookingContext(b, otherBookings) {
+  const m = b.motorcycles;
   if (!m) {
     return `\n\n## KONTEXT REZERVACE:
-Zákazník má rezervaci #${(b.id as string).slice(-8).toUpperCase()} (stav: ${b.status}), ale detaily motorky se nepodařilo načíst. Použij nástroj get_active_booking pro zjištění detailů.`
+Zákazník má rezervaci #${b.id.slice(-8).toUpperCase()} (stav: ${b.status}), ale detaily motorky se nepodařilo načíst. Použij nástroj get_active_booking pro zjištění detailů.`;
   }
-
   let ctx = `\n\n## KONTEXT REZERVACE (reálná data z DB — toto je PRAVDA):
-- Rezervace #${(b.id as string).slice(-8).toUpperCase()}
+- Rezervace #${b.id.slice(-8).toUpperCase()}
 - Stav: ${b.status}
 - Stav platby: ${b.payment_status || '?'}
 - Motorka: ${m.brand || '?'} ${m.model || '?'}
@@ -383,33 +366,30 @@ Zákazník má rezervaci #${(b.id as string).slice(-8).toUpperCase()} (stav: ${b
 - Návod: ${m.manual_url || m.manual_external_url || 'N/A'}
 - Nájezd: ${m.mileage || '?'}km
 - Období: ${b.start_date} – ${b.end_date}
-- Čas vyzvednutí: ${b.pickup_time && !String(b.pickup_time).startsWith('00:01') ? String(b.pickup_time).slice(0, 5) : 'neuveden'} | Čas vrácení: ${ssTime(m, b.return_method, b.return_address) ? 'bez času — kdykoli během posledního dne 24/7 kódem (ve smlouvě 23:59)' : (b.return_time ? String(b.return_time).slice(0, 5) : 'neuveden')}
+- Čas vyzvednutí: ${b.pickup_time && !String(b.pickup_time).startsWith('00:01') ? String(b.pickup_time).slice(0, 5) : 'neuveden'} | Čas vrácení: ${ssTime(m, b.return_method, b.return_address) ? 'bez času — kdykoli během posledního dne 24/7 kódem (ve smlouvě 23:59)' : b.return_time ? String(b.return_time).slice(0, 5) : 'neuveden'}
 - Vyzvednutí: ${b.pickup_method || '?'} ${b.pickup_address ? '(' + b.pickup_address + ')' : ''}
 - Vrácení: ${b.return_method || '?'} ${b.return_address ? '(' + b.return_address + ')' : ''}
 - Pojištění: ${b.insurance_type || 'N/A'}
 ${formatBranchLines(m)}${formatPickupStateLine(b)}
 
-DŮLEŽITÉ: Zákazník má AKTIVNÍ motorku "${m.brand} ${m.model}". Veškeré odpovědi MUSÍ být pro tento konkrétní model. NIKDY nezmiňuj jinou motorku.`
-
+DŮLEŽITÉ: Zákazník má AKTIVNÍ motorku "${m.brand} ${m.model}". Veškeré odpovědi MUSÍ být pro tento konkrétní model. NIKDY nezmiňuj jinou motorku.`;
   if (otherBookings && otherBookings.length > 0) {
-    ctx += `\n\nZákazník má také nadcházející rezervace:`
-    for (const ob of otherBookings) {
-      const om = ob.motorcycles as Record<string, unknown> | null
-      ctx += `\n- #${(ob.id as string).slice(-8).toUpperCase()}: ${om ? (om.brand + ' ' + om.model) : '?'} (${ob.status}, ${ob.start_date} – ${ob.end_date})`
+    ctx += `\n\nZákazník má také nadcházející rezervace:`;
+    for (const ob of otherBookings){
+      const om = ob.motorcycles;
+      ctx += `\n- #${ob.id.slice(-8).toUpperCase()}: ${om ? om.brand + ' ' + om.model : '?'} (${ob.status}, ${ob.start_date} – ${ob.end_date})`;
     }
-    ctx += `\nAle tyto rezervace NEJSOU aktivní — odpovídej pouze o aktuálně aktivní motorce.`
+    ctx += `\nAle tyto rezervace NEJSOU aktivní — odpovídej pouze o aktuálně aktivní motorce.`;
   }
-
-  return ctx
+  return ctx;
 }
-
-export function formatMultipleBookingsContext(bookings: Array<Record<string, unknown>>): string {
+export function formatMultipleBookingsContext(bookings) {
   let ctx = `\n\n## KONTEXT REZERVACE — VÍCE REZERVACÍ:
-Zákazník má více rezervací, žádná zatím nemá stav "active". MUSÍŠ se nejdříve ZEPTAT, o kterou motorku/rezervaci jde:\n`
-  for (const b of bookings) {
-    const m = b.motorcycles as Record<string, unknown> | null
-    ctx += `- #${(b.id as string).slice(-8).toUpperCase()}: ${m ? (m.brand + ' ' + m.model) : '?'} (${b.status}, ${b.start_date} – ${b.end_date})\n`
+Zákazník má více rezervací, žádná zatím nemá stav "active". MUSÍŠ se nejdříve ZEPTAT, o kterou motorku/rezervaci jde:\n`;
+  for (const b of bookings){
+    const m = b.motorcycles;
+    ctx += `- #${b.id.slice(-8).toUpperCase()}: ${m ? m.brand + ' ' + m.model : '?'} (${b.status}, ${b.start_date} – ${b.end_date})\n`;
   }
-  ctx += `\nDŮLEŽITÉ: NIKDY nepředpokládej, o kterou motorku jde. Vždy se ZEPTEJ: "Vidím, že máte více rezervací: [seznam]. O kterou motorku se jedná?"`
-  return ctx
+  ctx += `\nDŮLEŽITÉ: NIKDY nepředpokládej, o kterou motorku jde. Vždy se ZEPTEJ: "Vidím, že máte více rezervací: [seznam]. O kterou motorku se jedná?"`;
+  return ctx;
 }

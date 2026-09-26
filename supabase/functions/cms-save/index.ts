@@ -23,23 +23,17 @@
  *   - Token validace přes timingSafeEqual (proti time-attack na app_settings token).
  *   - Whitelist klíčů: musí začínat `web.` (zamezuje přepsání systémových rows).
  *   - Max délka klíče 200, max délka value 16 KB.
- */
-
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
-const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-
+ */ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const KEY_RE = /^web\.[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$/
-const MAX_VALUE_BYTES = 16 * 1024
-
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
+const KEY_RE = /^web\.[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$/;
+const MAX_VALUE_BYTES = 16 * 1024;
 /**
  * Normalizace HTML hodnoty před uložením. Inline editor (contenteditable +
  * execCommand) generuje balast — typicky zbytkový `background-color` po
@@ -47,44 +41,37 @@ const MAX_VALUE_BYTES = 16 * 1024
  * hodnotou a strojovými překlady (LLM HTML přeskládá jinak). Strippujeme
  * `background-color`/`background` deklarace z inline `style` atributů a
  * uklízíme prázdné `style=""`. Text ani ostatní styly se nemění.
- */
-function normalizeHtml(html: string): string {
-  if (!html || typeof html !== 'string') return html
-  return html
-    .replace(/style\s*=\s*"([^"]*)"/gi, (_m, css: string) => {
-      const cleaned = css
-        .replace(/(?:^|;)\s*background(-color)?\s*:[^;]*/gi, '')
-        .replace(/^\s*;+/, '')
-        .replace(/;\s*;+/g, ';')
-        .replace(/;\s*$/, '')
-        .trim()
-      return cleaned ? `style="${cleaned}"` : ''
-    })
-    .replace(/<(\w+)(\s+)>/g, '<$1>')
+ */ function normalizeHtml(html) {
+  if (!html || typeof html !== 'string') return html;
+  return html.replace(/style\s*=\s*"([^"]*)"/gi, (_m, css)=>{
+    const cleaned = css.replace(/(?:^|;)\s*background(-color)?\s*:[^;]*/gi, '').replace(/^\s*;+/, '').replace(/;\s*;+/g, ';').replace(/;\s*$/, '').trim();
+    return cleaned ? `style="${cleaned}"` : '';
+  }).replace(/<(\w+)(\s+)>/g, '<$1>');
 }
-
-function jsonResponse(body: Record<string, unknown>, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json'
+    }
+  });
 }
-
-/** Timing-safe porovnání 2 stringů (zabráni měření timing pro odhad správného tokenu). */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (typeof a !== 'string' || typeof b !== 'string') return false
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  return diff === 0
+/** Timing-safe porovnání 2 stringů (zabráni měření timing pro odhad správného tokenu). */ function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for(let i = 0; i < a.length; i++)diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
-
-async function fetchAdminToken(sb: SupabaseClient): Promise<string | null> {
-  const { data, error } = await sb.from('app_settings').select('value').eq('key', 'cms_admin_token').maybeSingle()
-  if (error || !data) return null
-  const v = data.value
+async function fetchAdminToken(sb) {
+  const { data, error } = await sb.from('app_settings').select('value').eq('key', 'cms_admin_token').maybeSingle();
+  if (error || !data) return null;
+  const v = data.value;
   // jsonb string se vrací jako primitiva — node-postgrest deserializuje sám
-  if (typeof v === 'string') return v
-  return null
+  if (typeof v === 'string') return v;
+  return null;
 }
-
 // #5 fix: cms-save přijímá i podepsanou capability `r1.<exp>.<b64url sig>` z webu
 // (místo raw tokenu, který už je skrytý z anon). Ověření VEŘEJNÝM RSA klíčem —
 // pár k privátnímu CMS_ADMIN_SIGN_KEY v cms-admin-auth. Veřejný klíč není tajný.
@@ -96,66 +83,65 @@ X8rHA9P/o16pJM25SIjepgNOSLUvGDWvSNyQLn5HkANMDFPMi89R1NN9WDsNtz5t
 mhcJIA79G+ztYCgx0qcPkzaxT87/jFNgTU2jFK6jBLMu9tgVHK/pIDzmUOFjyCVl
 2YhTqsZfLv2zvHV2VTFJaH2v5dLV3NHUeOHRYSIi4Z5VYWRLw7roq5pipfjJ22E6
 /wIDAQAB
------END PUBLIC KEY-----`
-
-function pemToSpki(pem: string): ArrayBuffer {
-  const b64 = pem.replace(/-----BEGIN [^-]+-----/g, '').replace(/-----END [^-]+-----/g, '').replace(/\s+/g, '')
-  const bin = atob(b64)
-  const out = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
-  return out.buffer
+-----END PUBLIC KEY-----`;
+function pemToSpki(pem) {
+  const b64 = pem.replace(/-----BEGIN [^-]+-----/g, '').replace(/-----END [^-]+-----/g, '').replace(/\s+/g, '');
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++)out[i] = bin.charCodeAt(i);
+  return out.buffer;
 }
-
-let cachedPubKey: CryptoKey | null = null
-async function verifyCap(cap: string): Promise<boolean> {
-  if (typeof cap !== 'string' || !cap.startsWith('r1.')) return false
-  const parts = cap.split('.')
-  if (parts.length !== 3) return false
-  const exp = parts[1]
-  if (!/^\d+$/.test(exp) || parseInt(exp, 10) < Math.floor(Date.now() / 1000)) return false
+let cachedPubKey = null;
+async function verifyCap(cap) {
+  if (typeof cap !== 'string' || !cap.startsWith('r1.')) return false;
+  const parts = cap.split('.');
+  if (parts.length !== 3) return false;
+  const exp = parts[1];
+  if (!/^\d+$/.test(exp) || parseInt(exp, 10) < Math.floor(Date.now() / 1000)) return false;
   try {
     if (!cachedPubKey) {
-      cachedPubKey = await crypto.subtle.importKey(
-        'spki', pemToSpki(CMS_ADMIN_PUBLIC_KEY_PEM),
-        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'],
-      )
+      cachedPubKey = await crypto.subtle.importKey('spki', pemToSpki(CMS_ADMIN_PUBLIC_KEY_PEM), {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256'
+      }, false, [
+        'verify'
+      ]);
     }
-    const sigB64 = parts[2].replace(/-/g, '+').replace(/_/g, '/')
-    const pad = sigB64.length % 4 ? '='.repeat(4 - (sigB64.length % 4)) : ''
-    const sigBin = atob(sigB64 + pad)
-    const sig = new Uint8Array(sigBin.length)
-    for (let i = 0; i < sigBin.length; i++) sig[i] = sigBin.charCodeAt(i)
-    const msg = new TextEncoder().encode(`cms|${exp}`)
-    return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cachedPubKey, sig, msg)
-  } catch {
-    return false
+    const sigB64 = parts[2].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = sigB64.length % 4 ? '='.repeat(4 - sigB64.length % 4) : '';
+    const sigBin = atob(sigB64 + pad);
+    const sig = new Uint8Array(sigBin.length);
+    for(let i = 0; i < sigBin.length; i++)sig[i] = sigBin.charCodeAt(i);
+    const msg = new TextEncoder().encode(`cms|${exp}`);
+    return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cachedPubKey, sig, msg);
+  } catch  {
+    return false;
   }
 }
-
-/** Fire-and-forget zavolání translate-content (admin nečeká na překlad). */
-async function triggerTranslate(rowId: string, value: string): Promise<'queued' | 'skipped'> {
-  if (!value || typeof value !== 'string' || value.trim().length === 0) return 'skipped'
+/** Fire-and-forget zavolání translate-content (admin nečeká na překlad). */ async function triggerTranslate(rowId, value) {
+  if (!value || typeof value !== 'string' || value.trim().length === 0) return 'skipped';
   try {
     // translate-content vyžaduje JWT — service_role je validní JWT.
     fetch(`${SUPABASE_URL}/functions/v1/translate-content`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         table: 'cms_variables',
         id: rowId,
-        fields: { value },
-      }),
-    }).catch(() => { /* fire-and-forget */ })
-    return 'queued'
-  } catch {
-    return 'skipped'
+        fields: {
+          value
+        }
+      })
+    }).catch(()=>{});
+    return 'queued';
+  } catch  {
+    return 'skipped';
   }
 }
-
-serve(async (req: Request): Promise<Response> => {
+serve(async (req)=>{
   // Diagnostika — viditelné v Supabase Dashboard → Functions → cms-save → Logs.
   // Pomáhá odhalit, jaká metoda/headers/URL skutečně dorazí (např. když proxy
   // přepíše POST na GET nebo když některý prohlížeč pošle před POST nějaký
@@ -166,54 +152,81 @@ serve(async (req: Request): Promise<Response> => {
     has_auth: !!req.headers.get('authorization'),
     has_apikey: !!req.headers.get('apikey'),
     content_type: req.headers.get('content-type'),
-    user_agent: req.headers.get('user-agent'),
-  })
-
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+    user_agent: req.headers.get('user-agent')
+  });
+  if (req.method === 'OPTIONS') return new Response('ok', {
+    headers: CORS
+  });
   // GET/HEAD bez body — vrátíme 200 health stub (některé prohlížeče/proxy
   // dělají prefetch a potřebují non-error odpověď). Save logika běží jen
   // pro POST (níže).
   if (req.method === 'GET' || req.method === 'HEAD') {
-    return jsonResponse({ ok: true, fn: 'cms-save', method: req.method })
+    return jsonResponse({
+      ok: true,
+      fn: 'cms-save',
+      method: req.method
+    });
   }
   if (req.method !== 'POST') {
-    return jsonResponse({ error: 'method_not_allowed', method: req.method }, 405)
+    return jsonResponse({
+      error: 'method_not_allowed',
+      method: req.method
+    }, 405);
   }
-
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    return jsonResponse({ error: 'env_not_configured' }, 500)
+    return jsonResponse({
+      error: 'env_not_configured'
+    }, 500);
   }
-
-  let body: { token?: string; key?: string; value?: unknown }
+  let body;
   try {
-    body = await req.json()
-  } catch {
-    return jsonResponse({ error: 'invalid_json' }, 400)
+    body = await req.json();
+  } catch  {
+    return jsonResponse({
+      error: 'invalid_json'
+    }, 400);
   }
-
-  const { token, key } = body
-  const value = body.value
-  if (!token || typeof token !== 'string') return jsonResponse({ error: 'missing_token' }, 400)
-  if (!key || typeof key !== 'string') return jsonResponse({ error: 'missing_key' }, 400)
-  if (key.length > 200 || !KEY_RE.test(key)) return jsonResponse({ error: 'invalid_key' }, 400)
-  if (typeof value !== 'string') return jsonResponse({ error: 'value_must_be_string' }, 400)
+  const { token, key } = body;
+  const value = body.value;
+  if (!token || typeof token !== 'string') return jsonResponse({
+    error: 'missing_token'
+  }, 400);
+  if (!key || typeof key !== 'string') return jsonResponse({
+    error: 'missing_key'
+  }, 400);
+  if (key.length > 200 || !KEY_RE.test(key)) return jsonResponse({
+    error: 'invalid_key'
+  }, 400);
+  if (typeof value !== 'string') return jsonResponse({
+    error: 'value_must_be_string'
+  }, 400);
   if (new TextEncoder().encode(value).length > MAX_VALUE_BYTES) {
-    return jsonResponse({ error: 'value_too_large', max_bytes: MAX_VALUE_BYTES }, 413)
+    return jsonResponse({
+      error: 'value_too_large',
+      max_bytes: MAX_VALUE_BYTES
+    }, 413);
   }
-  const cleanValue = normalizeHtml(value)
-
-  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
-
+  const cleanValue = normalizeHtml(value);
+  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    auth: {
+      persistSession: false
+    }
+  });
   // 1) Ověř credential: buď podepsaná capability `r1.…` (z webu, #5 fix),
   //    nebo raw cms_admin_token (Velín / interní volání) proti app_settings.
   if (token.startsWith('r1.')) {
-    if (!(await verifyCap(token))) return jsonResponse({ error: 'invalid_token' }, 403)
+    if (!await verifyCap(token)) return jsonResponse({
+      error: 'invalid_token'
+    }, 403);
   } else {
-    const expected = await fetchAdminToken(sb)
-    if (!expected) return jsonResponse({ error: 'token_not_configured' }, 503)
-    if (!timingSafeEqual(expected, token)) return jsonResponse({ error: 'invalid_token' }, 403)
+    const expected = await fetchAdminToken(sb);
+    if (!expected) return jsonResponse({
+      error: 'token_not_configured'
+    }, 503);
+    if (!timingSafeEqual(expected, token)) return jsonResponse({
+      error: 'invalid_token'
+    }, 403);
   }
-
   // 2) Select existing row by key, then UPDATE or INSERT.
   // Důvod: upsert s onConflict='key' selhával na 500 (zřejmě kvůli kombinaci
   // existujícího řádku s jinou category + RLS / select po insertu). Explicitní
@@ -224,69 +237,67 @@ serve(async (req: Request): Promise<Response> => {
   // existují duplikáty (nebo `key` ztratil UNIQUE constraint), maybeSingle()
   // vyhodí 406 a uživatel uvidí 500. `limit(1)` zaručí, že vždycky dostaneme
   // max 1 řádek a aktualizujeme ho.
-  const { data: existingRows, error: selErr } = await sb
-    .from('cms_variables')
-    .select('id')
-    .eq('key', key)
-    .limit(1)
-
+  const { data: existingRows, error: selErr } = await sb.from('cms_variables').select('id').eq('key', key).limit(1);
   if (selErr) {
-    console.error('[cms-save] select error', JSON.stringify(selErr))
+    console.error('[cms-save] select error', JSON.stringify(selErr));
     return jsonResponse({
       error: 'select_failed',
       detail: selErr.message,
-      code: (selErr as { code?: string }).code || null,
-      hint: (selErr as { hint?: string }).hint || null,
-      full: selErr as unknown,
-    }, 500)
+      code: selErr.code || null,
+      hint: selErr.hint || null,
+      full: selErr
+    }, 500);
   }
-
-  const existing = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0] : null
-  let rowId: string | null = existing?.id ?? null
-
+  const existing = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0] : null;
+  let rowId = existing?.id ?? null;
   if (existing?.id) {
     // UPDATE — neměníme category, abychom nepřemazali ručně nastavenou hodnotu
     // ve Velíně (např. 'general' / 'content'). Pouze hodnotu.
-    const { error: updErr } = await sb
-      .from('cms_variables')
-      .update({ value: cleanValue })
-      .eq('id', existing.id)
+    const { error: updErr } = await sb.from('cms_variables').update({
+      value: cleanValue
+    }).eq('id', existing.id);
     if (updErr) {
-      console.error('[cms-save] update error', JSON.stringify(updErr), 'for id', existing.id, 'key', key)
+      console.error('[cms-save] update error', JSON.stringify(updErr), 'for id', existing.id, 'key', key);
       return jsonResponse({
         error: 'update_failed',
         detail: updErr.message,
-        code: (updErr as { code?: string }).code || null,
-        hint: (updErr as { hint?: string }).hint || null,
-        full: updErr as unknown,
-      }, 500)
+        code: updErr.code || null,
+        hint: updErr.hint || null,
+        full: updErr
+      }, 500);
     }
   } else {
     // INSERT — `select().single()` po insertu vyžaduje RLS/representation,
     // proto raději děláme nahý insert + samostatný select pro id.
-    const { error: insErr } = await sb
-      .from('cms_variables')
-      .insert({ key, value: cleanValue, category: 'web' })
+    const { error: insErr } = await sb.from('cms_variables').insert({
+      key,
+      value: cleanValue,
+      category: 'web'
+    });
     if (insErr) {
-      console.error('[cms-save] insert error', JSON.stringify(insErr), 'payload', JSON.stringify({ key, valueType: typeof value, valueLen: typeof value === 'string' ? value.length : -1, category: 'web' }))
+      console.error('[cms-save] insert error', JSON.stringify(insErr), 'payload', JSON.stringify({
+        key,
+        valueType: typeof value,
+        valueLen: typeof value === 'string' ? value.length : -1,
+        category: 'web'
+      }));
       return jsonResponse({
         error: 'insert_failed',
         detail: insErr.message,
-        code: (insErr as { code?: string }).code || null,
-        hint: (insErr as { hint?: string }).hint || null,
-        full: insErr as unknown,
-      }, 500)
+        code: insErr.code || null,
+        hint: insErr.hint || null,
+        full: insErr
+      }, 500);
     }
-    const { data: insRows } = await sb
-      .from('cms_variables')
-      .select('id')
-      .eq('key', key)
-      .limit(1)
-    rowId = (Array.isArray(insRows) && insRows.length > 0) ? insRows[0].id : null
+    const { data: insRows } = await sb.from('cms_variables').select('id').eq('key', key).limit(1);
+    rowId = Array.isArray(insRows) && insRows.length > 0 ? insRows[0].id : null;
   }
-
   // 3) Fire-and-forget auto-překlad (admin nečeká)
-  const translation = rowId ? await triggerTranslate(rowId, cleanValue) : 'skipped'
-
-  return jsonResponse({ success: true, key, id: rowId, translation })
-})
+  const translation = rowId ? await triggerTranslate(rowId, cleanValue) : 'skipped';
+  return jsonResponse({
+    success: true,
+    key,
+    id: rowId,
+    translation
+  });
+});
