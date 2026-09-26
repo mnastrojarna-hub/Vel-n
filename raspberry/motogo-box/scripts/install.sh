@@ -310,7 +310,7 @@ if [[ -f "$NM_DIR/motogo-lan.nmconnection" ]]; then
   ok "motogo-lan existuje — ponechán"
 else
   cp "$APP_DIR/systemd/motogo-lan.nmconnection" "$NM_DIR/motogo-lan.nmconnection"
-  ok "motogo-lan vytvořen (eth0: DHCP z routeru = internet + statické 192.168.50.10/24, 192.168.1.253/24)"
+  ok "motogo-lan vytvořen (eth0 = jen I/O síť: 192.168.50.10/24, 192.168.1.253/24; internet výhradně LTE)"
 fi
 chmod 600 "$NM_DIR"/motogo-*.nmconnection; chown root:root "$NM_DIR"/motogo-*.nmconnection
 nmcli connection reload || warn "nmcli reload selhal (NetworkManager neběží?)"
@@ -320,23 +320,23 @@ if ! nmcli -g ipv4.addresses con show motogo-lan 2>/dev/null | tr ',' '\n' | tr 
     && ok "motogo-lan: pomocná adresa 192.168.1.253/24 (tovární síť Waveshare)" \
     || warn "motogo-lan: pomocnou adresu 192.168.1.253/24 nejde přidat"
 fi
-# Starší profil (manual, never-default) → hybrid: DHCP z routeru na kabelu = internet, LTE záloha (2026-09-26).
-if [[ "$(nmcli -g ipv4.method con show motogo-lan 2>/dev/null)" != "auto" ]]; then
-  nmcli con modify motogo-lan ipv4.method auto ipv4.dhcp-timeout infinity ipv4.never-default no ipv4.ignore-auto-dns no \
-    ipv4.ignore-auto-routes no ipv4.route-metric 50 ipv4.dns-priority 0 2>/dev/null \
-    && ok "motogo-lan: hybrid (DHCP z routeru + statické adresy I/O sítě)" || warn "motogo-lan: přepnutí na hybrid selhalo"
+# Starší profil z hybridní epizody (DHCP/DNS na eth0, 2026-09-26) → zpět „jen I/O síť": internet jde výhradně LTE.
+if [[ "$(nmcli -g ipv4.method con show motogo-lan 2>/dev/null)" != "manual" || "$(nmcli -g ipv4.never-default con show motogo-lan 2>/dev/null)" != "yes" \
+   || -n "$(nmcli -g ipv4.dns con show motogo-lan 2>/dev/null)" ]]; then
+  nmcli con modify motogo-lan ipv4.method manual ipv4.never-default yes ipv4.ignore-auto-dns yes ipv4.ignore-auto-routes yes \
+    ipv4.dns "" ipv4.gateway "" ipv4.dhcp-timeout 0 2>/dev/null \
+    && ok "motogo-lan: jen I/O síť (manual, never-default, bez DNS)" || warn "motogo-lan: návrat na „jen I/O síť" selhal"
 fi
-# Záložní veřejné DNS na obou profilech (starší profily je nemají; DNS operátora občas neodpovídá).
-for prof in motogo-lte motogo-lan; do
-  if ! nmcli -g ipv4.dns con show "$prof" 2>/dev/null | tr ',' '\n' | grep -qx "1.1.1.1"; then
-    nmcli con modify "$prof" +ipv4.dns 1.1.1.1 +ipv4.dns 8.8.8.8 2>/dev/null && ok "$prof: záložní DNS 1.1.1.1, 8.8.8.8" || warn "$prof: záložní DNS nejde doplnit"
-  fi
-done
-# I/O síť vždy dostupná (i když eth0 jede na DHCP kvůli internetu): NM dispatcher přidá 192.168.50.10/24 + 192.168.1.253/24
+rm -f /var/lib/motogo/lan_gateway
+# Záložní veřejné DNS JEN na LTE profilu (DNS operátora občas neodpovídá).
+if ! nmcli -g ipv4.dns con show motogo-lte 2>/dev/null | tr ',' '\n' | grep -qx "1.1.1.1"; then
+  nmcli con modify motogo-lte +ipv4.dns 1.1.1.1 +ipv4.dns 8.8.8.8 2>/dev/null && ok "motogo-lte: záložní DNS 1.1.1.1, 8.8.8.8" || warn "motogo-lte: záložní DNS nejde doplnit"
+fi
+# I/O síť vždy dostupná + strážce tras: NM dispatcher drží 192.168.50.10/24 + 192.168.1.253/24 a maže výchozí trasy přes eth0
 mkdir -p /etc/NetworkManager/dispatcher.d
 install -m 755 -o root -g root "$APP_DIR/systemd/50-motogo-lan-addr" /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr
 /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr eth0 manual || true
-ok "NM dispatcher 50-motogo-lan-addr (adresy I/O sítě na eth0 za všech okolností)"
+ok "NM dispatcher 50-motogo-lan-addr (adresy I/O sítě na eth0 za všech okolností, žádná výchozí trasa přes eth0)"
 # Profil, který NM odmítne (chyba v souboru), se tiše nenačte → LTE by nikdy nenaběhlo; ověřit hned.
 for prof in motogo-lte motogo-lan; do
   if nmcli -t -f NAME con show 2>/dev/null | grep -qx "$prof"; then ok "NM profil $prof načten"

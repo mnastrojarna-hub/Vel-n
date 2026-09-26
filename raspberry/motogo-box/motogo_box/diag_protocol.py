@@ -142,12 +142,14 @@ def _network(r: dict) -> dict:
                        f"Rozhraní {name} nemá IPv4 adresu (stav {i.get('state')})." if bad else "", hint("iface_down", name=name)))
     routes = ifc.get("default_routes") or []
     dev = str(routes[0].get("dev") or "") if routes else ""
-    # Brána přes eth0 = router na kabelu (hybridní motogo-lan, 2026-09-26): internet jde kabelem, LTE je záloha — OK.
-    it.append(item("network.gateway", "Výchozí brána", "fail" if not routes else "ok",
+    # Internet jde VÝHRADNĚ přes LTE (wwan0/usb0). Výchozí trasa přes eth0 = chyba: kabelem internet není, trasa
+    # přebije LTE a pošle provoz do prázdna (zrušená „záložní brána kabelem", 2026-09-26) — health ji sám maže.
+    foreign = [str(r.get("dev")) for r in routes if r.get("dev") and not str(r.get("dev")).startswith(("wwan", "usb", "ppp"))]
+    it.append(item("network.gateway", "Výchozí brána", "fail" if not routes or foreign else "ok",
                    f"{routes[0].get('gateway') or routes[0].get('via') or '?'} přes {dev}" if routes else None,
-                   "Chybí výchozí brána (žádná default route) — internet nemůže fungovat." if not routes else
-                   "Internet kabelem z routeru (LTE = záloha)." if dev.startswith("eth") else "",
-                   hint("gateway_missing") if not routes else None))
+                   "Chybí výchozí brána (žádná default route) — LTE nemá trasu, internet nemůže fungovat." if not routes else
+                   f"Výchozí trasa přes {', '.join(foreign)} blokuje LTE — kabelem internet není." if foreign else "",
+                   hint("gateway_missing") if not routes else hint("gateway_eth") if foreign else None))
     dns = ifc.get("dns") or []
     it.append(item("network.dns", "DNS servery", "ok" if dns else "fail", ", ".join(map(str, dns)) or None,
                    "" if dns else "Není nastaven žádný DNS server (/etc/resolv.conf).", hint("dns_missing")))

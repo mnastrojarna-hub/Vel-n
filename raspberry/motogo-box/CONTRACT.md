@@ -669,7 +669,7 @@ PIN_LOCKOUT z ověření kódu motorky v overlayi protokolu (`_verify_code`). `d
 `kiosk_log_event(level, source, message, detail)` pro: IO_OFFLINE/IO_ONLINE (warn/info,
 source 'modbus'|'shelly'), SESSION_OVERTIME(+ALERT) (warn 'zone'), CONTACT_FAULT (error),
 PIN_LOCKOUT (warn 'pin'), STARTUP (info 'controller', verze + problémy konfigurace),
-LTE_RESET/REBOOT (warn 'lte', posílá health přes controller), **LTE_MODE (2026-09-26: přepnutí režimu modemu QMI↔RNDIS — automaticky z health `actions mode_rndis|mode_qmi`, nebo ručně `commands.lte_mode`)**, CONTACT_TEST (výsledek testu kontaktu z Velína, 2026-09-26), **INTERNET_DOWN (error) / INTERNET_UP (warn, `detail.duration_s`) — přechod `health.internet` (2026-09-26; webserver `_internet_transition`, i první hlášení False po startu; outbox doručí po obnově)**, CONFIG_PROBLEM (error 'config'),
+LTE_RESET/REBOOT (warn 'lte', posílá health přes controller), **LTE_MODE (2026-09-26: přepnutí režimu modemu QMI↔RNDIS — automaticky z health `actions mode_rndis|mode_qmi`, nebo ručně `commands.lte_mode`)**, **NET_FIX (2026-09-26: health odstranil cizí výchozí trasu přes eth0 — internet jen LTE; `actions route_fix`)**, CONTACT_TEST (výsledek testu kontaktu z Velína, 2026-09-26), **INTERNET_DOWN (error) / INTERNET_UP (warn, `detail.duration_s`) — přechod `health.internet` (2026-09-26; webserver `_internet_transition`, i první hlášení False po startu; outbox doručí po obnově)**, CONFIG_PROBLEM (error 'config'),
 PROTOCOL_SIGNED (info 'protocol'; `booking_id` a `zone` = pole Eventu, `code_kind='motorcycle'`, detail `{source, signature_bytes,
 stored}` — podpis na displeji přijat; `stored=false` = zápis do `protocol_queue` selhal (disk), zkouší se aspoň odeslat hned) a
 PROTOCOL_UPLOAD_FAILED (error 'protocol', `booking_id` pole Eventu, detail `{source:'protocol_queue', error, booking_id,
@@ -854,7 +854,7 @@ Protokol diagnostiky má vlastní řádek „Zámek SIM karty“ s radou (`sim_p
 jen hlásí), `no_address` (link je, ale chybí IPv4 → jednotka nejdřív doplní adresy dispečerem `50-motogo-lan-addr` a pak zkusí `nmcli con up motogo-lan`, `action` =
 `lan_up` \| `lan_up_failed`), `missing` (rozhraní neexistuje). `ok=null` = nezjištěno (výpis rozhraní selhal)
 — Velín to NEbere jako poruchu. Do logu jde jen ZMĚNA stavu (cyklus běží každých 30 s). Sudoers povoluje
-výhradně `nmcli -w 20 con up motogo-lan` a dispečer `50-motogo-lan-addr eth0 manual` (žádné `con down` — to by shodilo funkční LAN). Od 2026-09-26 je `motogo-lan` hybridní (DHCP z routeru = internet kabelem, LTE záloha); brána přes eth0 je v diagnostice OK. Velín z toho
+výhradně `nmcli -w 20 con up motogo-lan` a dispečer `50-motogo-lan-addr eth0 manual` (žádné `con down` — to by shodilo funkční LAN). Internet jde VÝHRADNĚ přes LTE (2026-09-26; hybrid i „záložní brána kabelem“ z téhož dne zrušeny): health každý cyklus `route_state()` — výchozí trasa přes jiné rozhraní než modem (`wwan*`/`usb*`/`ppp*`, `lte_interface`) = cizí → dispečer ji smaže (akce `route_fix`, nejvýš 1×/60 s; payload `net.foreign_default: [dev…]`), a dokud trvá, politika LTE se nekrokuje (výpadek není modemu). Webserver: `route_fix` → událost **NET_FIX** (warn). HW mapa `network.lan_gateway` se ignoruje (CONFIG_PROBLEM varování; `lan_guard.py` při startu smaže `/var/lib/motogo/lan_gateway`); brána přes eth0 je v diagnostice FAIL (`gateway_eth`). Velín z toho
 kreslí červený chip „I/O síť: eth0 bez linku“ (`BranchRpiZones.jsx`), takže je na první pohled vidět rozdíl
 mezi vadným modulem a mrtvou cestou ke všem modulům.
 
@@ -934,7 +934,7 @@ Třídy `SimRelayModule`, `SimShelly` použitelné v testech in-process (`await 
 - `test_webserver.py`: `GET /` + všechny statické soubory z `index.html` (`app.js`, `diag.js`, `i18n.js`, `keyboard.js`,
   `panel.js`, `shell.js`, `style.css`, `style-overlays.css`, `logo*.svg` + 2026-09-25 `i18n-handover.js`, `signature.js`,
   `handover.js`, `style-handover.css`), path traversal 403/404, PIN, service_token, párování, WS push,
-  `/api/health` jen z localhostu + `actions` reconnect/usb_reset/reboot/mode_rndis/mode_qmi → události LTE_RESET/REBOOT/LTE_MODE (§15).
+  `/api/health` jen z localhostu + `actions` reconnect/usb_reset/reboot/mode_rndis/mode_qmi/route_fix → události LTE_RESET/REBOOT/LTE_MODE/NET_FIX (§15).
 - `test_commands.py`, `test_health.py`, `test_audit_fixes.py`: příkazy §13 (vč. `update_blocks`, `zone_not_found`, timeout
   sudo potomka bez EPERM), politika LTE watchdogu (3 sondy, SIM locked → `lte.error`, USB reset / reboot prahy), regresní
   testy nálezů bezpečnostní revize.

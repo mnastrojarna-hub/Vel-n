@@ -10,10 +10,10 @@ HINTS = {
     "device_mismatch": "Zařízení {name} na {host} neodpovídá jako {type} — zkontrolujte IP v HW mapě (Velín → Samoobsluha) a typ modulu.",
     "module_offline_in_program": "Modul {name} je na síti, ale program ho má offline/v obnově — počkejte 30 s, případně restartujte službu motogo-controller.",
     "ip_conflict": "Dvě zařízení mají v HW mapě stejnou IP a port — opravte adresy ve Velíně (Pobočky → Samoobsluha).",
-    "gateway_missing": "Bez výchozí brány není internet: kabel z routeru (motogo-lan, DHCP) nebo LTE (nmcli con up motogo-lte). "
+    "gateway_missing": "LTE bez výchozí trasy — Nahodit LTE (nmcli con up motogo-lte), pak USB reset modemu; health to dělá sám (reconnect → reset → USB reset). Kabelem internet není. "
                        "Terminál na displeji: „Nahodit I/O síť“ / „Nahodit LTE“.",
-    "gateway_eth": "Internet jde kabelem z routeru (hybridní motogo-lan). Chcete-li jen LTE: nmcli con modify motogo-lan ipv4.never-default yes.",
-    "dns_missing": "Bez DNS serveru nefunguje Velín — zkontrolujte profil LTE (DNS z operátora) nebo nastavte 1.1.1.1.",
+    "gateway_eth": "Trasa přes eth0 posílá internet do prázdna (kabelem internet není, LTE má metriku 100). Jednotka ji odstraní sama (health route_fix / dispečer 50-motogo-lan-addr, do 60 s); ručně: rm -f /var/lib/motogo/lan_gateway; sudo -n /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr eth0 manual.",
+    "dns_missing": "Bez DNS serveru nefunguje Velín — DNS dává jen profil LTE (operátor + záložní 1.1.1.1/8.8.8.8): Nahodit LTE.",
     "iface_down": "Rozhraní {name} nemá adresu/spojení — zkontrolujte kabel do switche modulů a profil motogo-lan.",
     "lte": "Zkontrolujte SIM (PIN vypnutý, kredit), anténu a profil motogo-lte; stav: mmcli -m any.",
     "sim_pin": "Vypněte PIN přímo na SIM (vložit do mobilu → Nastavení → SIM → PIN vypnout) — to je u pobočky "

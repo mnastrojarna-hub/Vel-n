@@ -194,13 +194,13 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    berou z lokální `hardware.yaml`). Viz níže.
 4. **Párování:** ve Velíně → Samoobsluha → Řídicí jednotka → přidat zařízení → ID + token.
    Zadej do `config.yaml` (`device.id/token`) nebo na dotykovém UI (setup obrazovka / servisní panel → Přepárovat).
-5. **Síť (SPEC §4):** profil `motogo-lan` je od 2026-09-26 **hybridní**: eth0 = statické `192.168.50.10/24`
-   + `192.168.1.253/24` (moduly) **a zároveň DHCP** — je-li na kabelu router (Velké Němčice: Teltonika), dá bránu
-   s metrikou 50 a **internet jde kabelem**, LTE (`motogo-lte`, metrika 100) je záloha; bez routeru jede jen LTE.
+5. **Síť (SPEC §4):** internet jde **výhradně přes LTE** (`motogo-lte`, metrika 100, záložní DNS 1.1.1.1/8.8.8.8); profil `motogo-lan`
+   = eth0 jen pro moduly: statické `192.168.50.10/24` + `192.168.1.253/24`, `never-default`, bez DNS. Hybrid s DHCP z routeru a „záložní
+   brána kabelem“ (26. 9.) byly zrušeny — router na pobočce není a trasa přes eth0 blokovala LTE; dispečer i health ji teď mažou (`NET_FIX`).
    Ruční nasazení: `sudo /opt/motogo/scripts/set-static-lan.sh` (NM nahradí aktivní profil atomicky, konkurenčním
    profilům vypne autoconnect). **Přes SSH na eth0 spojení spadne** (IP se
    mění) — skript se sám odpojí od terminálu, doběhne a výstup nechá v `/var/log/motogo-set-static-lan.log`;
-   připoj se znovu na `192.168.50.10`. Oba profily mají záložní DNS 1.1.1.1/8.8.8.8 (doplňuje update.sh).
+   připoj se znovu na `192.168.50.10`.
    Kontrola LTE: `mmcli -m any`, `nmcli con show motogo-lte`
    (stav `locked` = chybí PIN → `sudo ./scripts/install.sh`; PIN SIM je u všech poboček **1234** — výchozí hodnota install.sh,
    jiný PIN = `MOTOGO_SIM_PIN`).
@@ -498,7 +498,8 @@ odmítne; červený běh = chyba psql (issue se nezakládá).
 | protokol: „zámek: relé wav645 R3 je SEPNUTÉ v klidu — NEBEZPEČÍ, odpojte modul“ (Kóje N — zámek) | relé zámku drží v klidu sepnuto = zámek pod proudem (program relé zámku nikdy nedrží) | **ihned odpojit modul / napájení zámku**, zkontrolovat konfiguraci relé (flash-on 800 ms) a zapojení; do opravy kóji nepoužívat |
 | protokol: „Kamera X (snapshot) neodpovídá: …“ | kamera bez napájení / LAN, špatná URL ve Velíně | napájení, LAN, URL kamery (Velín → Samoobsluha → Kamery); z RPi `curl -I <url>` |
 | protokol: „Stav napájení nelze stáhnout z <url> (…)“ | měnič/monitor FV nedostupný nebo URL nevrací JSON | `power_status_url` pobočky musí vracet JSON v LAN jednotky; z RPi `curl <url>` |
-| pobočka byla bez internetu a chci vědět kdy / jak dlouho | výpadek LTE (modem z USB) i kabelu | Velín → Samoobsluha → Hlášení a chyby: `INTERNET_DOWN` (error) / `INTERNET_UP` (warn, délka výpadku) — jednotka je uloží do outboxu a pošle po obnově; trvalá záloha = router na switchi + „Síť pobočky → Záložní brána kabelem“ ve Velíně (jednotka bránu drží i bez DHCP a při výpadku obnoví) |
+| pobočka byla bez internetu a chci vědět kdy / jak dlouho | výpadek LTE (modem z USB), DNS operátora, nebo cizí trasa přes eth0 | Velín → Samoobsluha → Hlášení a chyby: `INTERNET_DOWN` (error) / `INTERNET_UP` (warn, délka výpadku) — jednotka je uloží do outboxu a pošle po obnově; `NET_FIX` = health odstranil trasu přes eth0; `LTE_RESET`/`LTE_MODE` = obnova modemu. Historie sítě 7 dní: Velín diagnostika → „Historie sítě“ |
+| **internet dole, `ip -4 route` má `default … dev eth0`** (diagnostika: Výchozí brána FAIL „blokuje LTE“) | pozůstatek zrušené „záložní brány kabelem“ / DHCP cizího routeru na switchi — trasa s metrikou 50 přebije LTE a provoz mizí | Jednotka ji **sama smaže** (health `route_fix` do 60 s, dispečer při každé události eth0) a po tu dobu modem neresetuje. Ručně na displeji: `rm -f /var/lib/motogo/lan_gateway; sudo -n /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr eth0 manual`; ve Velíně smazat pole „Síť pobočky“ (staré mapy), „Aktualizovat software“ vrátí profil `motogo-lan` na `manual`/`never-default` |
 | dveře hlásí opačný stav než skutečnost (zavřené = „otevřeno“) nebo stav nemění | polarita `closed_level` (často nastavená v době bez kontaktu) nebo zapojení COM–DGND / DI | Velín → dlaždice zóny: řádek „vstup wav617a DI8 = 1 · zavřeno = 0“ (syrová hodnota živě), tlačítko **Test kontaktu** (20 s, dveře otevřít a zavřít → verdikt v Hlášení a chyby: v pořádku / otočit polaritu / vstup se nemění = zapojení) a **Otočit polaritu** (uloží `hw.closed_level` opačně) — nic z toho nepotřebuje terminál |
 | dveře jsou v poruše (otevřené při startu, forced_open, io_offline) a je potřeba je otevřít | kontakt nezapojený / vypadlý modul | servisní heslo (servisní panel → Otevřít) nebo „Otevřít“ z Velína = NOUZOVÝ impulz zámku bez ohledu na stav (od 2026-09-26; jen modul zámku musí být online); zákaznický kód poruchu neobejde |
 | protokol: „Test přeskočen: …“ u kóje | relace v kóji, porucha, I/O offline, `zone_test: false`, došel limit běhu | spustit diagnostiku znovu, až bude kóje volná / porucha odezní; u limitu zkontrolovat odezvu modulů a Shelly (ping) |

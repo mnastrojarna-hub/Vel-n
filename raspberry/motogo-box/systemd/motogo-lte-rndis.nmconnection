@@ -16,7 +16,7 @@ autoconnect-priority=10
 
 [ipv4]
 method=auto
-# Výchozí trasa přes LTE má metriku 100 (hybridní motogo-lan s routerem na kabelu = 50, bez routeru žádná)
+# Výchozí trasa přes LTE má metriku 100 (jediná — eth0 je jen I/O síť, never-default)
 route-metric=100
 may-fail=false
 # záložní veřejné DNS (2026-09-26) k DNS operátora

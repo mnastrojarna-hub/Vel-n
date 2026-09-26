@@ -64,7 +64,8 @@ class EventKind(str, Enum):
     STARTUP = "STARTUP"
     CONFIG_PROBLEM = "CONFIG_PROBLEM"
     LTE_RESET = "LTE_RESET"
-    LTE_MODE = "LTE_MODE"                        # přepnutí režimu modemu QMI↔RNDIS (health automaticky / Velín `lte_mode`)
+    LTE_MODE = "LTE_MODE"
+    NET_FIX = "NET_FIX"                          # health odstranil cizí výchozí trasu (eth0) — internet jen LTE (route_fix)                        # přepnutí režimu modemu QMI↔RNDIS (health automaticky / Velín `lte_mode`)
     CONTACT_TEST = "CONTACT_TEST"                # výsledek testu dveřního kontaktu z Velína (commands.contact_test)
     INTERNET_DOWN = "INTERNET_DOWN"              # výpadek internetu (health sonda; z outboxu dorazí po obnově)
     INTERNET_UP = "INTERNET_UP"                  # obnova internetu + délka výpadku (detail.duration_s)

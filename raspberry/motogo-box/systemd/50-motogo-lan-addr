@@ -1,33 +1,32 @@
 #!/usr/bin/env bash
-# MotoGo Box — I/O síť VŽDY dostupná (2026-09-25): ať už je eth0 na profilu motogo-lan (statická
-# 192.168.50.10), nebo na DHCP z routeru (internet přes kabel), Raspberry musí mít adresu v síti modulů
-# Waveshare (192.168.50.0/24) i v jejich tovární síti (192.168.1.0/24 — automatické zřízení, io_provision.py).
-# Dřív se statická LAN aplikovala jen ručně (set-static-lan.sh) → moduly „Network is unreachable“, zóny io_offline.
+# MotoGo Box — eth0 = JEN I/O síť modulů (Waveshare, Shelly), internet jde VÝHRADNĚ přes LTE (motogo-lte).
+# 1) Adresy I/O sítě VŽDY dostupné (2026-09-25): 192.168.50.10/24 (moduly) + 192.168.1.253/24 (tovární síť
+#    Waveshare 192.168.1.254 — automatické zřízení, io_provision.py). `ip addr replace` je idempotentní.
+# 2) Strážce tras (2026-09-26): jakákoli výchozí trasa přes eth0 (z DHCP cizího routeru, ruční, ze zrušené
+#    „záložní brány kabelem" /var/lib/motogo/lan_gateway) přebije LTE (metrika 100) a pošle internet do prázdna —
+#    pobočka je pak trvale offline a modem se marně resetuje. Dispečer ji proto SMAŽE a soubor s bránou odstraní.
+#    Health monitor ho spouští i sám (akce route_fix), když takovou trasu uvidí.
 # Instaluje update.sh/install.sh jako /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr (root, 755):
-# NetworkManager ho volá při každé změně rozhraní; `ip addr replace` je idempotentní. Lze spustit i ručně bez argumentů.
+# NetworkManager ho volá při každé změně rozhraní; lze spustit i ručně bez argumentů (`eth0 manual`).
 IFACE="${MOTOGO_LAN_IFACE:-eth0}"
 ADDRS=("192.168.50.10/24" "192.168.1.253/24")
+GW_FILE="${MOTOGO_LAN_GATEWAY_FILE:-/var/lib/motogo/lan_gateway}"
 
 dev="${1:-$IFACE}"; action="${2:-manual}"
 [[ "$dev" == "$IFACE" ]] || exit 0
 case "$action" in up|dhcp4-change|connectivity-change|manual) ;; *) exit 0 ;; esac
+[[ -e "$GW_FILE" ]] && rm -f "$GW_FILE" && logger -t motogo-lan-addr "odstraněn soubor zrušené brány $GW_FILE (internet jen LTE)"
 ip link show "$IFACE" >/dev/null 2>&1 || exit 0
 for a in "${ADDRS[@]}"; do
   if ! ip -4 addr show dev "$IFACE" | grep -q " ${a} "; then
     ip addr replace "$a" dev "$IFACE" 2>/dev/null && logger -t motogo-lan-addr "$IFACE: zajištěna adresa $a ($action)"
   fi
 done
-# Záložní brána kabelem (2026-09-26): router na switchi modulů z HW mapy Velína (hardware.network.lan_gateway →
-# controller zapíše /var/lib/motogo/lan_gateway). Drží default route eth0 metrika 50 i bez DHCP; LTE (metrika 100)
-# zůstává záloha. `onlink` = funguje i když router není v podsíti eth0. Prázdný/chybějící soubor = trasu odebrat.
-GW_FILE="${MOTOGO_LAN_GATEWAY_FILE:-/var/lib/motogo/lan_gateway}"
-GW="$( [[ -r "$GW_FILE" ]] && head -n1 "$GW_FILE" | tr -d '[:space:]' || true )"
-if [[ "$GW" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  if ! ip -4 route show default dev "$IFACE" | grep -q "via $GW "; then
-    ip route replace default via "$GW" dev "$IFACE" metric 50 onlink 2>/dev/null \
-      && logger -t motogo-lan-addr "$IFACE: záložní brána $GW (metrika 50, $action)"
-  fi
-elif ip -4 route show default dev "$IFACE" metric 50 2>/dev/null | grep -q .; then
-  ip route del default dev "$IFACE" metric 50 2>/dev/null && logger -t motogo-lan-addr "$IFACE: záložní brána odebrána"
-fi
+# Výchozí trasy přes eth0 pryč — všechny (i z DHCP), dokud nějaká je.
+n=0
+while ip -4 route show default dev "$IFACE" 2>/dev/null | grep -q . && (( n < 5 )); do
+  ip route del default dev "$IFACE" 2>/dev/null || break
+  n=$((n + 1))
+done
+(( n > 0 )) && logger -t motogo-lan-addr "$IFACE: odstraněna výchozí trasa přes eth0 (${n}×, $action) — kabelem internet není, jede LTE"
 exit 0
