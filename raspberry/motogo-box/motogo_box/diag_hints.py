@@ -79,6 +79,8 @@ HINTS = {
                          "(do ~1 min; stejný modul nejvýš jednou za 5 min). Přetrvává-li, zkontrolujte typ modulu v mapě (WAV617 = 8 vstupů, WAV645 = 16 relé).",
     "provision_extra": "Modul {mac} na {ip} není v HW mapě a žádné zařízení nechybí — nadbytečný/cizí modul, nebo v mapě chybí jeho zařízení (Velín → Samoobsluha).",
     "provision_missing": "Zařízení {name} ({host}) neodpovídá a na LAN není žádný volný modul k přiřazení — modul chybí, je bez napájení, nebo ho drží jiná adresa mimo síť jednotky.",
+    "net_outages": "Výpadky internetu: bez kabelové zálohy je pobočka závislá na LTE (SIM7600 vypadává z USB). Zapojte router s internetem do switche modulů a ve Velíně → Síť pobočky vyplňte jeho IP (záložní brána); u LTE zkontrolujte anténu, SIM a signál (RSRP > −105 dBm).",
+    "modem_gone": "Modem SIM7600 mizí z USB (kernel -71, HARDWARE.md „Známá závada“): health ho resetuje; trvalé řešení = kabel z routeru jako hlavní cesta (Síť pobočky → záložní brána), případně jiný modem/kabel USB.",
     "lan_unknown": "V LAN je Modbus/Shelly zařízení mimo HW mapu — cizí/ nové zařízení nebo špatná IP v mapě.",
     "lan_subnet": "Podsíť je pro scan příliš velká/neplatná — upravte diagnostics.scan_subnets (max /22).",
     "step": "Krok diagnostiky selhal/vypršel — spusťte znovu; opakuje-li se, zkontrolujte log motogo-controller.",

@@ -16,7 +16,7 @@ from motogo_box.shelly import ShellyRgbww
 from tests.diag_fakes import FakeCtrl, FakeSignals, FakeZone, zone_hw
 from tests.test_diagnostics import hw_for, sim  # noqa: F401 — fixture
 
-SECTIONS = ["system", "software", "network", "lte", "internet", "velin", "modules", "provision", "config", "zones", "power", "cameras", "lan", "steps"]
+SECTIONS = ["system", "software", "network", "lte", "internet", "velin", "modules", "provision", "netlog", "config", "zones", "power", "cameras", "lan", "steps"]
 
 
 @pytest.fixture
@@ -234,7 +234,7 @@ def test_section_status_and_items():
 
 def test_build_protocol_on_empty_and_hints():
     proto = dp.build_protocol({})
-    assert [s["key"] for s in proto] == ["system", "network", "lte", "internet", "velin", "modules", "provision", "lan", "steps"]
+    assert [s["key"] for s in proto] == ["system", "network", "lte", "internet", "velin", "modules", "provision", "netlog", "lan", "steps"]
     ids = {i["id"]: i for s in proto for i in s["items"]}
     assert ids["network.gateway"]["status"] == "fail" and ids["velin.paired"]["status"] == "fail"
     assert all(i["hint"] for s in proto for i in s["items"] if i["status"] in ("warn", "fail"))
@@ -243,7 +243,7 @@ def test_build_protocol_on_empty_and_hints():
     rep = {"mode": "full", "software": None, "config": None, "zones": None, "power": None, "cameras": None,
            "steps": {"zones": {"ok": False, "error": "timeout"}}}
     proto = dp.build_protocol(rep)
-    assert [s["key"] for s in proto] == ["system", "software", "network", "lte", "internet", "velin", "modules", "provision", "config", "zones", "power", "cameras", "lan", "steps"]
+    assert [s["key"] for s in proto] == ["system", "software", "network", "lte", "internet", "velin", "modules", "provision", "netlog", "config", "zones", "power", "cameras", "lan", "steps"]
     zsec = next(s for s in proto if s["key"] == "zones")
     assert zsec["status"] == "skip" and "timeout" in zsec["items"][0]["message"]
     assert next(i for s in proto for i in s["items"] if i["id"] == "step.zones")["status"] == "warn"
@@ -357,3 +357,20 @@ def test_gateway_via_cable_router_is_ok():
     sec = dp._network({"interfaces": ifc})
     gw = next(i for i in sec["items"] if i["id"] == "network.gateway")
     assert gw["status"] == "ok" and "kabelem" in gw["message"]
+
+
+def test_netlog_outages_and_section():
+    from motogo_box.diag_steps import net_outages
+    t = 1_000_000.0
+    samples = [{"ts": t + i * 30, "internet": i not in (3, 4, 5, 9), "lte_state": "connected" if i < 3 else "unavailable",
+                "modem_gone": i in (3, 4), "lan_problem": None, "gw_dev": "wwan0", "action": "usb_reset" if i == 4 else None} for i in range(12)]
+    out = net_outages(samples)
+    assert len(out) == 2 and out[0]["duration_s"] == 120 and out[0]["actions"] == ["usb_reset"] and out[0]["modem_gone"] is True
+    assert out[1]["duration_s"] == 60 and not out[1]["open"]
+    tail = net_outages(samples[:6])
+    assert tail[-1]["open"] is True
+    sec = dp._netlog({"netlog": {"samples_24h": 12, "samples_7d": 12, "outages_24h": out, "outages_7d": out, "downtime_24h_s": 180,
+                                 "downtime_7d_s": 180, "modem_gone_24h": 2, "events": [{"kind": "LTE_RESET"}], "gw_now": {"dev": "eth0", "dns": "1.1.1.1"}}})
+    by = {i["id"]: i for i in sec["items"]}
+    assert by["netlog.outages"]["status"] == "warn" and "2×" in by["netlog.outages"]["value"] and by["netlog.gw"]["status"] == "ok"
+    assert by["netlog.modem_gone"]["status"] == "warn" and dp._netlog({})["status"] == "skip"

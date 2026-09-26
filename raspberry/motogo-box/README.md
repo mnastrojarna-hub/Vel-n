@@ -383,7 +383,10 @@ spouští vždy kompletní běh; jeden běh najednou (`already_running`).
 **Protokol** (stejný na displeji i ve Velíně): hlavička (pobočka, jednotka, verze, datum, trvání, režim, výsledek
 „Pobočka je v pořádku“ / „N problémů, M varování“, počty kontrol), blok **Kde je problém** (každá chyba: kontrola —
 zjištění — „→ Co s tím“ = konkrétní rada s modulem/kanálem/IP), **Varování**, pak sekce Řídicí jednotka, Program a
-služby, Síť, LTE, Internet, Spojení s Velínem, Moduly Waveshare / Shelly, Automatické zřízení modulů (adresy jednotky
+služby, Síť, LTE, Internet, Spojení s Velínem, Moduly Waveshare / Shelly, **Historie sítě (2026-09-26: vzorky health á 30 s
+7 dní v `net_history`, výpadky internetu za 24 h / 7 dní s délkou a stavem LTE/modemu/kabelu, události INTERNET_DOWN/UP a
+LTE_RESET, časová osa; Velín navíc ukáže syrové logy NetworkManager/ModemManager/jádra/health, profily nmcli, trasy a DNS —
+„Technický detail sítě“)**, Automatické zřízení modulů (adresy jednotky
 vč. 192.168.1.253, vyhledávání ZLAN UDP 1092 — které moduly odpověděly, na jaké IP, zda jsou v mapě / čekají na
 přiřazení / chybí), Konfigurace pobočky, Zóny a periferie
 (souhrn kóje + položka na každý nález), Napájení (FV), Kamery, Ostatní zařízení v LAN, Průběh diagnostiky (kontroly OK

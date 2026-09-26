@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Btn, txt, num, arr } from './BranchRpiUi'
+import { NetlogDetail } from './BranchRpiDiagNetlog'
 
 // ─── Technický detail sítě z reportu diagnostiky (Raspberry) ────────────────
 // Vykresluje syrové síťové tabulky reportu (`kiosk_diagnostics.report`): systém, rozhraní, LTE, internet/DNS,
@@ -75,6 +76,9 @@ function NetworkDetail({ r }) {
           const ident = h.shelly ? `Shelly ${txt(sh.model ?? '')} ${txt(sh.id ?? '')}` : h.modbus ? `Modbus ${txt(mb.guess)} (${txt(mb.coils)} relé, ${txt(mb.inputs)} DI)` : h.http ? `HTTP ${txt(ht.status)} ${txt(ht.server ?? ht.title ?? '')}` : '—'
           return [h.ip, h.mac, Object.keys(obj(h.ports)).join(', '), ident, h.configured_as]
         })} />
+      </Sect>
+      <Sect title="Historie sítě a logy (výpadky 24 h / 7 dní, NetworkManager, ModemManager, jádro, health)">
+        <NetlogDetail n={r.netlog} />
       </Sect>
       <Sect title={`ARP (${arr(r.arp).length})`}>
         <Table head={['IP', 'MAC', 'Rozhraní', 'Stav']} rows={arr(r.arp).map(av => { const a = obj(av); return [a.ip, a.mac, a.dev, a.state] })} />

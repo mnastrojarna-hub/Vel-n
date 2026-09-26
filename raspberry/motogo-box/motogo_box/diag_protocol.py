@@ -16,7 +16,7 @@ STEP_TITLES = {"system": "Systém", "interfaces": "Síťová rozhraní", "lte": 
                "supabase": "Spojení s Velínem", "devices": "Konfigurovaná zařízení", "provision": "Automatické zřízení modulů",
                "software": "Software",
                "config": "Konfigurace", "zones": "Zóny a periferie", "power": "Napájení (FV)", "cameras": "Kamery",
-               "lan": "Scan LAN", "arp": "Tabulka sousedů (ARP)", "summary": "Vyhodnocení"}
+               "netlog": "Historie sítě a logy", "lan": "Scan LAN", "arp": "Tabulka sousedů (ARP)", "summary": "Vyhodnocení"}
 SKIP_CZ = {"session_active": "v kóji běží relace", "zone_test_disabled": "HW test zón je vypnutý (diagnostics.zone_test)",
            "io_offline": "I/O modul zóny je offline", "fault": "zóna je v poruše", "not_ready": "jednotka není připravena (start/přestavba)",
            "timeout": "došel časový limit diagnostiky"}
@@ -402,6 +402,41 @@ def _cameras(r: dict) -> dict | None:
     return section("cameras", "Kamery", it)
 
 
+def _fmt_dur(s) -> str:
+    s = int(s or 0)
+    return f"{s // 3600} h {s % 3600 // 60} min" if s >= 3600 else f"{s // 60} min {s % 60} s" if s >= 60 else f"{s} s"
+
+
+def _netlog(r: dict) -> dict:
+    n = r.get("netlog")
+    if not isinstance(n, dict):
+        return section("netlog", "Historie sítě (24 h / 7 dní)", [item("netlog.step", "Historie sítě", "skip", None, "Krok neproběhl.")])
+    it: list[dict] = []
+    od, ow = n.get("outages_24h") or [], n.get("outages_7d") or []
+    dd, dw = int(n.get("downtime_24h_s") or 0), int(n.get("downtime_7d_s") or 0)
+    if not n.get("samples_24h"):
+        it.append(item("netlog.samples", "Vzorky stavu sítě", "warn", 0, "Za 24 h žádné vzorky — health služba neposílá stav (nebo jednotka právě startuje).", hint("health")))
+    else:
+        it.append(item("netlog.samples", "Vzorky stavu sítě", "ok", f"{n.get('samples_24h')} za 24 h, {n.get('samples_7d')} za 7 dní"))
+    st = "fail" if dd >= 1800 or len(od) >= 5 else "warn" if od else "ok"
+    it.append(item("netlog.outages", "Výpadky internetu za 24 h", st, f"{len(od)}× celkem {_fmt_dur(dd)}",
+                   "" if not od else f"Nejdelší {_fmt_dur(max(o['duration_s'] for o in od))}; při výpadku LTE „{od[-1].get('lte')}“, modem {'pryč z USB' if od[-1].get('modem_gone') else 'vidět'}, kabel {od[-1].get('lan') or 'OK'}, brána přes {od[-1].get('gw_dev') or 'nic'}."
+                   + (" Výpadek TRVÁ." if od[-1].get("open") else ""), hint("net_outages") if od else None))
+    it.append(item("netlog.outages_7d", "Výpadky internetu za 7 dní", "warn" if len(ow) >= 10 or dw >= 4 * 3600 else "ok", f"{len(ow)}× celkem {_fmt_dur(dw)}",
+                   "" if len(ow) < 10 and dw < 4 * 3600 else "Opakované výpadky — modem/anténa/SIM nebo router na kabelu; viz logy níže.", hint("net_outages") if len(ow) >= 10 or dw >= 4 * 3600 else None))
+    mg = int(n.get("modem_gone_24h") or 0)
+    if mg:
+        it.append(item("netlog.modem_gone", "Modem pryč z USB (vzorky za 24 h)", "warn" if mg < 60 else "fail", mg,
+                       f"Modem nebyl vidět v ModemManageru v {mg} vzorcích (~{_fmt_dur(mg * 30)}) — známá závada SIM7600 (USB -71).", hint("modem_gone")))
+    resets = sum(1 for e in n.get("events") or [] if e.get("kind") in ("LTE_RESET", "REBOOT"))
+    it.append(item("netlog.recovery", "Obnovy LTE / restarty za 7 dní", "ok" if resets < 10 else "warn", resets,
+                   "" if resets < 10 else "Health opakovaně resetuje modem — bez kabelové zálohy hrozí výpadky.", hint("net_outages") if resets >= 10 else None))
+    gw = n.get("gw_now") or {}
+    it.append(item("netlog.gw", "Internet právě jde přes", "ok" if gw.get("dev") else "warn", f"{gw.get('dev') or 'nic'} · DNS {gw.get('dns') or '—'}",
+                   "" if gw.get("dev") else "Bez výchozí trasy — internet nejde.", None if gw.get("dev") else hint("gateway_missing")))
+    return section("netlog", "Historie sítě (24 h / 7 dní)", it)
+
+
 def _lan(r: dict) -> dict:
     lan = r.get("lan") or {}
     hosts = lan.get("hosts") or []
@@ -426,7 +461,7 @@ def _steps(r: dict) -> dict:
 def build_protocol(report: dict) -> list[dict]:
     r = report or {}
     out = []
-    for fn in (_system, _software, _network, _lte, _internet, _velin, _modules, _provision, _config, _zones, _power, _cameras, _lan, _steps):
+    for fn in (_system, _software, _network, _lte, _internet, _velin, _modules, _provision, _netlog, _config, _zones, _power, _cameras, _lan, _steps):
         try:
             sec = fn(r)
         except Exception as exc:  # noqa: BLE001 — vadná data jednoho kroku nesmí shodit protokol
