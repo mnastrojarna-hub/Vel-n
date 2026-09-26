@@ -196,7 +196,13 @@ async def test_forced_open_and_return():
     assert r.zc.state == ZoneState.FAULT and r.zc.fault == "forced_open"
     assert r.signals.current(1) == Signal.RED_BLINK
     assert r.kinds()[-1] == EventKind.FORCED_OPEN and r.events[-1].success is False
-    assert (await r.zc.grant_access(booking_id=None, kind="service", source="velin")) == (False, "fault")
+    # zákaznický kód porucha odmítne; servisní heslo = nouzový impulz zámku, stav zóny zůstává FAULT
+    assert (await r.zc.grant_access(booking_id="b1", kind="motorcycle", source="ui")) == (False, "fault")
+    pulses = len(r.io.pulses)
+    assert (await r.zc.grant_access(booking_id=None, kind="service", source="velin")) == (True, "ok")
+    assert len(r.io.pulses) == pulses + 1 and r.io.pulses[-1][0] == r.zone.hw.lock
+    assert r.zc.state == ZoneState.FAULT and r.zc.fault == "forced_open"
+    assert r.kinds()[-1] == EventKind.ACCESS_GRANTED and r.events[-1].detail.get("emergency") is True
     await r.zc.on_input(True)
     assert r.zc.state == ZoneState.SECURED and r.zc.fault is None
     assert r.signals.current(1) == Signal.RED and r.kinds()[-1] == EventKind.DOOR_CLOSED
@@ -451,11 +457,12 @@ async def test_contact_module_offline_mid_session_aborts():
 
 
 async def test_concurrent_grant_access_only_one_wins():
-    """Dva souběžné požadavky (UI PIN + Velín) → jeden 'ok', druhý 'busy'; jediný pulz a jediná událost."""
+    """Dva souběžné zákaznické požadavky → jeden 'ok', druhý 'busy'; jediný pulz a jediná událost.
+    (Servisní heslo by ve stavu WAITING_FOR_OPEN dalo nouzový druhý impulz — záměr od 2026-09-26.)"""
     r = await rig_secured()
     results = await asyncio.gather(
         r.zc.grant_access(booking_id="b-first", kind="motorcycle", source="ui"),
-        r.zc.grant_access(booking_id="b-second", kind="service", source="velin"),
+        r.zc.grant_access(booking_id="b-second", kind="motorcycle", source="velin"),
     )
     assert results == [(True, "ok"), (False, "busy")]
     assert len(r.io.pulses) == 1 and r.kinds().count(EventKind.ACCESS_GRANTED) == 1
@@ -824,3 +831,16 @@ async def test_moto_code_does_not_darken_wardrobe_while_someone_inside():
     await r.zc.on_input(False)
     assert r.zc.state == ZoneState.DOOR_OPEN
     assert await r.zc.light_off_after_moto_code() is False and r.light() is True
+
+
+async def test_service_emergency_open_in_open_at_startup_and_lock_offline():
+    """Servisní heslo otevře i zónu „dveře otevřené při startu“ (kontakty nezapojené); bez modulu zámku ne."""
+    r = Rig()
+    await r.zc.startup(False)
+    assert r.zc.state == ZoneState.FAULT and r.zc.fault == "open_at_startup"
+    assert (await r.zc.grant_access(booking_id=None, kind="service", source="service_panel")) == (True, "ok")
+    assert r.io.pulses[-1][0] == r.zone.hw.lock and r.zc.fault == "open_at_startup"
+    r.io.offline_devs.add(r.zone.hw.lock.dev)
+    pulses = len(r.io.pulses)
+    assert (await r.zc.grant_access(booking_id=None, kind="service", source="service_panel")) == (False, "lock_offline")
+    assert len(r.io.pulses) == pulses

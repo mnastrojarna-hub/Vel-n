@@ -127,6 +127,10 @@ def open_result_text(ok: bool, reason: str, kind: str, name: str) -> str:
         return f"{name}: dveře jsou už otevřené — zavřete je a zadejte kód znovu."
     if reason == "fault":
         return f"{name} hlásí poruchu. Kontaktujte podporu: {SUPPORT}."
+    if reason == "lock_offline":
+        return f"{name}: modul zámku neodpovídá — zkontrolujte modul Waveshare (napájení, kabel)."
+    if reason == "not_configured":
+        return f"{name}: zámek není v HW mapě ve Velíně nastaven."
     return f"Dveře se neozvaly. Zkuste to prosím znovu nebo kontaktujte podporu: {SUPPORT}."
 
 

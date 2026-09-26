@@ -509,7 +509,7 @@ class BoxController:
         #   kind accessories → grant_access beze změny (HandoverManager si uloží rr.protocol per booking pro on_wardrobe_closed);
         #   open_result_text accessories = „Otevřeno — Šatna. Vezměte si výbavu a zavřete dveře šatny.“
     def check_service_token(self, token: str | None) -> bool
-    async def service_open(self, door_id: str | None, zone: int | None) -> dict     # grant_access(kind='service', source='service_panel')
+    async def service_open(self, door_id: str | None, zone: int | None) -> dict     # grant_access(kind='service', source='service_panel'); mimo běžný stav zóny = nouzový impulz zámku (2026-09-26, zone_access.service_unlock_locked), chyby 'lock_offline' | 'not_configured' | 'lock_failed'
     async def handle_command(self, cmd: dict) -> None    # → commands.execute → api.complete_command
     async def resync(self) -> dict          # api.sync_config → uložit kv 'remote_config' + code cache; při změně devices/zones → rebuild (all_off + nové zóny) ; vrací {changed:bool, problems:[…]}
         # podpis přestavby `_signature(hw)` = hw_signature (zařízení/zóny/polling/closed_level/audio.device + relé venkovního světla `outdoor.light`)
@@ -539,7 +539,7 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 ```
 | command | params | akce |
 |---|---|---|
-| `open_door` | `door_id` / `zone` / `box_number` (+ ignoruje `relay_url`,`light_url`) | plná přístupová sekvence zóny (`grant_access(kind='service', source='velin')`) |
+| `open_door` | `door_id` / `zone` / `box_number` (+ ignoruje `relay_url`,`light_url`) | plná přístupová sekvence zóny (`grant_access(kind='service', source='velin')`); zóna mimo běžný stav (porucha, otevřené dveře, relace) → nouzový impulz zámku bez změny stavu (2026-09-26) |
 | `music_on` | `zone?` / `door_id?` / `box_number?` | `audio.play_zone(zone)`; bez zóny první zóna; zadaná neexistující → `(False, {error:'zone_not_found'})` (nikdy cizí reproduktor) |
 | `music_off` | `zone?` / `door_id?` / `box_number?` | se zónou `audio.stop_zone(zone)` = jen tato kóje (multi: ostatní kanály hrají dál; selector = totéž co stop); bez zóny `audio.stop()` = vše |
 | `light_on` / `light_off` | `zone`/`door_id` | `zone.set_light` |

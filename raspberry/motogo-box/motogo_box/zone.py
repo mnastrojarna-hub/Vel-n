@@ -361,6 +361,12 @@ class ZoneController:
         """
         async with self._busy:
             await self.evaluate_locked()       # čerstvý stav kontaktu / I/O před rozhodnutím
+            # Servisní heslo / open_door z Velína: mimo běžný stav (zavřeno, bez poruchy, I/O online, bez relace)
+            # jde o NOUZOVÉ otevření — impulz zámku bez ohledu na stav (2026-09-26, zone_access.service_unlock_locked)
+            normal = self.io_ready() and not self.fault and self.door_closed is True \
+                and self.state not in (ZoneState.WAITING_FOR_OPEN, ZoneState.DOOR_OPEN)
+            if kind == "service" and not normal:
+                return await zone_access.service_unlock_locked(self, source)
             if not self.io_ready():
                 return False, "io_offline"
             if self.fault:
