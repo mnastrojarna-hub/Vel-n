@@ -545,6 +545,7 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | `music_off` | `zone?` / `door_id?` / `box_number?` | se zónou `audio.stop_zone(zone)` = jen tato kóje (multi: ostatní kanály hrají dál; selector = totéž co stop); bez zóny `audio.stop()` = vše |
 | `light_on` / `light_off` | `zone`/`door_id` | `zone.set_light` |
 | `set_signal` | `zone`, `signal` (red/green/off/green_pulse/red_blink/both_blink) | `zone.set_signal` |
+| `contact_test` | `zone` / `door_id` / `box_number`, `seconds?` (1–120, výchozí 20) | **2026-09-26:** sleduje syrovou hodnotu DI kontaktu zóny (`ZoneController.contact_raw` z poll_loopu), obsluha dveře otevře a zavře; výsledek `{zone, verdict: ok\|polarity\|stuck_0\|stuck_1\|offline\|not_configured, raw_start, raw_end, changes[{t_ms, raw}], closed_level, suggested_closed_level?}` + událost `CONTACT_TEST` (info/warn/error) s lidskou větou do kiosk_logs; nic nespíná |
 | `zone_test` | `zone` | `zone.test_sequence()` |
 | `audio_test` | `zone`, `seconds?` | `audio.test_tone` |
 | `all_off` | – | `ctrl.all_off()` |
@@ -667,7 +668,7 @@ PIN_LOCKOUT z ověření kódu motorky v overlayi protokolu (`_verify_code`). `d
 `kiosk_log_event(level, source, message, detail)` pro: IO_OFFLINE/IO_ONLINE (warn/info,
 source 'modbus'|'shelly'), SESSION_OVERTIME(+ALERT) (warn 'zone'), CONTACT_FAULT (error),
 PIN_LOCKOUT (warn 'pin'), STARTUP (info 'controller', verze + problémy konfigurace),
-LTE_RESET/REBOOT (warn 'lte', posílá health přes controller), **INTERNET_DOWN (error) / INTERNET_UP (warn, `detail.duration_s`) — přechod `health.internet` (2026-09-26; webserver `_internet_transition`, i první hlášení False po startu; outbox doručí po obnově)**, CONFIG_PROBLEM (error 'config'),
+LTE_RESET/REBOOT (warn 'lte', posílá health přes controller), CONTACT_TEST (výsledek testu kontaktu z Velína, 2026-09-26), **INTERNET_DOWN (error) / INTERNET_UP (warn, `detail.duration_s`) — přechod `health.internet` (2026-09-26; webserver `_internet_transition`, i první hlášení False po startu; outbox doručí po obnově)**, CONFIG_PROBLEM (error 'config'),
 PROTOCOL_SIGNED (info 'protocol'; `booking_id` a `zone` = pole Eventu, `code_kind='motorcycle'`, detail `{source, signature_bytes,
 stored}` — podpis na displeji přijat; `stored=false` = zápis do `protocol_queue` selhal (disk), zkouší se aspoň odeslat hned) a
 PROTOCOL_UPLOAD_FAILED (error 'protocol', `booking_id` pole Eventu, detail `{source:'protocol_queue', error, booking_id,

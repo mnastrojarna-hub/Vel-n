@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable
 import httpx
 
 from . import shell
-from .models import Signal
+from .models import Event, EventKind, Signal
 
 if TYPE_CHECKING:  # pragma: no cover
     from .controller import BoxController
@@ -184,6 +184,59 @@ async def _zone_test(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     return all(bool(v) for v in res.values()), {"zone": z.number, **res}
 
 
+async def _contact_test(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Test dveřního kontaktu z Velína (2026-09-26): N sekund sleduje syrovou hodnotu DI zóny (obsluha mezitím dveře
+    otevře a zavře) a vrátí jednoznačný verdikt: ok / polarity (mění se, ale program to obrací → jakou hodnotu
+    „Zavřeno =“ nastavit) / stuck (nemění se → zapojení COM/DGND/DI) / offline / not_configured. Výsledek jde i jako
+    událost CONTACT_TEST do kiosk_logs (Velín „Hlášení a chyby“), nic se nespíná."""
+    z = _zone_of(ctrl, params)
+    if z is None:
+        return False, {"error": "zone_not_found"}
+    seconds = max(1, min(120, _int(params.get("seconds")) or 20))
+    ref = getattr(z.zone.hw, "contact", None)
+    name = getattr(z.zone, "display_name", None) or f"Zóna {z.number}"
+    async def report(verdict: str, level: str, message: str, extra: dict) -> tuple[bool, dict]:
+        res = {"zone": z.number, "verdict": verdict, "seconds": seconds, "contact": getattr(z, "contact_ref", lambda: None)(), **extra}
+        await ctrl.emit(Event(kind=EventKind.CONTACT_TEST, level=level, success=verdict == "ok", zone=z.number,
+                              door_id=z.zone.door_id, box_number=z.zone.box_number, message=f"{name}: {message}",
+                              detail={"source": "velin", **res}))
+        return verdict == "ok", res
+    if ref is None:
+        return await report("not_configured", "error", "test kontaktu — kontakt není v HW mapě nastaven (Velín → mapování dveří).", {})
+    if not ctrl.io.is_online(ref.dev):
+        return await report("offline", "error", f"test kontaktu — modul {ref.dev} je offline, vstup nelze číst.", {})
+    level = z.closed_level()
+    changes: list[dict] = []
+    t0 = time.monotonic()
+    last = getattr(z, "contact_raw", None)
+    start = last
+    while time.monotonic() - t0 < seconds:
+        await asyncio.sleep(0.1)
+        cur = getattr(z, "contact_raw", None)
+        if cur != last:
+            changes.append({"t_ms": round((time.monotonic() - t0) * 1000), "raw": cur})
+            last = cur
+    extra = {"raw_start": start, "raw_end": last, "changes": changes[:200], "closed_level": int(level),
+             "door_closed_now": getattr(z, "door_closed", None)}
+    di = f"{ref.dev} DI{ref.idx + 1}"
+    if start is None and last is None and not changes:
+        return await report("offline", "error", f"test kontaktu — {di} nečte (modul bez odpovědi).", extra)
+    if not changes:
+        v = int(bool(last)) if last is not None else "?"
+        return await report(f"stuck_{v}", "error",
+                            f"test kontaktu — vstup {di} se za {seconds} s NEZMĚNIL (stále {v}); pokud jste dveře otevřel a zavřel, "
+                            f"nejde signál do modulu: zkontrolujte propojku COM–DGND, kontakt mezi COM a DI{ref.idx + 1} a že vodiče "
+                            f"nejsou v sousední svorce.", extra)
+    # mění se → polarita: dveře zavřené = kontakt sepnut = obsluha končí test u zavřených dveří → poslední hodnota = „zavřeno“
+    suggested = int(bool(last))
+    if suggested == int(level):
+        return await report("ok", "info", f"test kontaktu — vstup {di} se změnil {len(changes)}×, polarita sedí (zavřeno = {int(level)}).", extra)
+    return await report("polarity", "warn",
+                        f"test kontaktu — vstup {di} se změnil {len(changes)}×, ale program má zavřeno = {int(level)} a kontakt při zavřených "
+                        f"dveřích dává {suggested}: ve Velíně u dveří nastavte „Zavřeno = {suggested}“ (nebo tlačítko Otočit polaritu).",
+                        {**extra, "suggested_closed_level": suggested})
+
+
 async def _audio_test(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     z = _zone_of(ctrl, params)
     if z is None:
@@ -310,6 +363,7 @@ HANDLERS: dict[str, Handler] = {
     "light_off": _light(False),
     "set_signal": _set_signal,
     "zone_test": _zone_test,
+    "contact_test": _contact_test,
     "audio_test": _audio_test,
     "all_off": _all_off,
     "identify": _identify,
@@ -330,7 +384,7 @@ HANDLERS: dict[str, Handler] = {
 TERMINAL_COMMANDS = frozenset({"restart", "reboot"})
 # Příkazy sahající na hardware — jen když je jednotka `ready` (po startu / mimo přestavbu).
 HW_COMMANDS = frozenset({"open_door", "music_on", "music_off", "light_on", "light_off", "set_signal",
-                         "zone_test", "audio_test", "all_off", "identify"})
+                         "zone_test", "contact_test", "audio_test", "all_off", "identify"})
 
 
 def update_blocks(ctrl: "BoxController", command: str) -> dict | None:

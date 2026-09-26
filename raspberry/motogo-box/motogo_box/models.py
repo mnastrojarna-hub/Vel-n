@@ -64,6 +64,7 @@ class EventKind(str, Enum):
     STARTUP = "STARTUP"
     CONFIG_PROBLEM = "CONFIG_PROBLEM"
     LTE_RESET = "LTE_RESET"
+    CONTACT_TEST = "CONTACT_TEST"                # výsledek testu dveřního kontaktu z Velína (commands.contact_test)
     INTERNET_DOWN = "INTERNET_DOWN"              # výpadek internetu (health sonda; z outboxu dorazí po obnově)
     INTERNET_UP = "INTERNET_UP"                  # obnova internetu + délka výpadku (detail.duration_s)
     REBOOT = "REBOOT"
@@ -263,6 +264,11 @@ class ZoneStatus:
     io_problems: list = field(default_factory=list)     # které moduly zóny chybí/jsou offline (Velín: co přesně je špatně)
     signal_offline: list = field(default_factory=list)  # modul světla / Shelly signalizace nedostupné (jen info, přístup neblokuje)
     music_enabled: bool = True     # smí v této zóně po kódu hrát hudba (vypínač pobočky / přepis zóny)
+    # Dveřní kontakt průkazně (2026-09-26): syrová hodnota DI z posledního pollu, svorka a efektivní closed_level —
+    # Velín ukáže „vstup DI8 = 1 · zavřeno = 0 → hlásí otevřeno“ a umí polaritu otočit bez hádání.
+    contact_raw: bool | None = None
+    contact_ref: str | None = None  # např. "wav617a DI8"
+    closed_level: int | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
