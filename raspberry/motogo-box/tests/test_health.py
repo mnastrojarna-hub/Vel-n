@@ -839,3 +839,19 @@ async def test_foreign_route_with_internet_up_is_still_removed(tmp_path):
     healthy = FakeEnv()
     q = await _monitor(healthy, tmp_path).cycle()
     assert q["actions"] == [] and DISPATCHER not in healthy.cmds and q["net"]["foreign_default"] == []
+
+
+async def test_net_where_classifies_outage(tmp_path):
+    env = FakeEnv(internet_ok=False)
+    env.default_routes = [{"dst": "default", "gateway": "192.168.1.2", "dev": "eth0", "metric": 50}]
+    assert (await _monitor(env, tmp_path).cycle())["net"]["where"] == "route"
+    env = FakeEnv(internet_ok=False)
+    env.default_routes = []
+    env.ifaces.append({"name": "wwan0", "state": "up", "ipv4": [{"addr": "10.1.2.3", "prefix": 32}]})
+    assert (await _monitor(env, tmp_path).cycle())["net"]["where"] == "no_route"
+    env = FakeEnv(internet_ok=False, modem_ok=False)
+    assert (await _monitor(env, tmp_path).cycle())["net"]["where"] == "modem"
+    env = FakeEnv(internet_ok=False)
+    env.ifaces.append({"name": "wwan0", "state": "up", "ipv4": [{"addr": "10.1.2.3", "prefix": 32}]})
+    assert (await _monitor(env, tmp_path).cycle())["net"]["where"] == "carrier"
+    assert (await _monitor(FakeEnv(), tmp_path).cycle())["net"]["where"] is None

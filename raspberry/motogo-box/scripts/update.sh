@@ -215,6 +215,12 @@ if getent group systemd-journal >/dev/null && ! id -nG "$APP_USER" 2>/dev/null |
   usermod -a -G systemd-journal "$APP_USER" && log "uživatel $APP_USER přidán do skupiny systemd-journal"
 fi
 
+# ── síťový canary (2026-09-26): změny profilů níž nesmí jednotku odstřihnout — při ztrátě internetu se vrátí ze zálohy ──
+if [[ -f "$APP_DIR/scripts/lib/netcanary.sh" ]]; then
+  # shellcheck source=lib/netcanary.sh
+  source "$APP_DIR/scripts/lib/netcanary.sh"; netcanary_begin
+fi
+
 # ── pomocná adresa tovární sítě Waveshare na eth0 (jednotka nový modul sama přeadresuje, io_provision.py) ──
 FACTORY_ADDR="192.168.1.253/24"
 if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | grep -qx motogo-lan \
@@ -228,7 +234,7 @@ if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | g
 fi
 
 # ── eth0 = JEN I/O síť, internet VÝHRADNĚ LTE (2026-09-26, ruší hybrid z téhož dne) ─────────────────────────
-# Hybridní profil (DHCP z routeru + DNS na kabelu) a „záložní brána kabelem" vznikly z chybné diagnózy: na pobočce
+# Hybridní profil (DHCP z routeru + DNS na kabelu) a „záložní brána kabelem“ vznikly z chybné diagnózy: na pobočce
 # router není a výchozí trasa přes eth0 (metrika 50 < LTE 100) poslala internet do prázdna. Zpět na manual/never-default.
 LAN_ONLY_IO="ipv4.method manual ipv4.never-default yes ipv4.ignore-auto-dns yes ipv4.ignore-auto-routes yes ipv4.dns \"\" ipv4.gateway \"\" ipv4.dns-priority 0 ipv4.route-metric \"\" ipv4.dhcp-timeout 0"
 if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | grep -qx motogo-lan; then
@@ -239,9 +245,9 @@ if command -v nmcli >/dev/null 2>&1 && nmcli -t -f NAME con show 2>/dev/null | g
     # shellcheck disable=SC2086
     if eval nmcli con modify motogo-lan $LAN_ONLY_IO; then
       nmcli device reapply eth0 >/dev/null 2>&1 || nmcli -w 20 con up motogo-lan >/dev/null 2>&1 || true
-      log "motogo-lan: zpět na „jen I/O síť" (manual, never-default, bez DNS) — internet jde výhradně LTE"
+      log "motogo-lan: zpět na „jen I/O síť“ (manual, never-default, bez DNS) — internet jde výhradně LTE"
     else
-      log "UPOZORNĚNÍ: motogo-lan se nepodařilo přepnout na „jen I/O síť" (nmcli con modify selhal)"
+      log "UPOZORNĚNÍ: motogo-lan se nepodařilo přepnout na „jen I/O síť“ (nmcli con modify selhal)"
     fi
   fi
 fi
@@ -268,6 +274,8 @@ if [[ -f "$APP_DIR/systemd/$LAN_ADDR" ]]; then
   fi
   "/etc/NetworkManager/dispatcher.d/$LAN_ADDR" eth0 manual || true
 fi
+
+declare -F netcanary_end >/dev/null 2>&1 && netcanary_end
 
 # ── změněné unity/sudoers/polkit (jen aktualizace souborů, enable zůstává) ───
 for unit in motogo-controller.service motogo-health.service motogo-ui.service; do
