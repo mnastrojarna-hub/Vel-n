@@ -78,7 +78,7 @@ class HealthCfg:
     # found" a USB reset by přišel až po ~15 min).
     reconnect_after: int = 3        # neúspěšných sond → nmcli con down/up (jen když modem v MM JE)
     usb_reset_after: int = 2        # neúspěšných reconnectů → mmcli --reset, pak USB reset
-    missing_modem_after: int = 2    # sond bez modemu v MM (ale na USB je) → rovnou USB reset (~1 min)
+    missing_modem_after: int = 1    # sond bez modemu v MM (ale na USB je) → rovnou USB reset; 1 = hned (stav je jednoznačný, 2026-09-26)
     reboot_after: int = 3
     min_uptime_before_reboot_s: int = 1800
     action_cooldown_s: int = 120    # po akci se jen sonduje (USB reset + restart MM trvá ~90 s)

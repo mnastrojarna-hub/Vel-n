@@ -316,7 +316,7 @@ async def test_health_actions_emit_lte_reset_and_reboot_events(env):
     # první hlášení „internet False“ = navíc INTERNET_DOWN (2026-09-26), akce obnovy za ním
     assert [e.kind for e in ctrl.events] == [EventKind.INTERNET_DOWN, EventKind.LTE_RESET, EventKind.LTE_RESET, EventKind.REBOOT]
     assert all(e.level == "warn" for e in ctrl.events[1:])
-    assert ctrl.events[1].detail == {"source": "health", "action": "reconnect", "lte": {"rssi": -90}}
+    assert ctrl.events[1].detail == {"source": "health", "action": "reconnect", "lte": {"rssi": -90}, "last_link_uptime_s": None}
     assert ctrl.events[3].message == "LTE obnova: reboot"
     ctrl.events.clear()
     for body in ({"internet": True}, {"internet": True, "actions": []}, {"internet": True, "actions": "x"}):

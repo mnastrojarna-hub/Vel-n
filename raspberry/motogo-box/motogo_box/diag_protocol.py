@@ -471,6 +471,15 @@ def _netlog(r: dict) -> dict:
     if mg:
         it.append(item("netlog.modem_gone", "Modem pryč z USB (vzorky za 24 h)", "warn" if mg < 60 else "fail", mg,
                        f"Modem nebyl vidět v ModemManageru v {mg} vzorcích (~{_fmt_dur(mg * 30)}) — známá závada SIM7600 (USB -71).", hint("modem_gone")))
+    gaps = n.get("uptime_gaps_24h") or {}
+    if gaps.get("count"):
+        avg, mn = gaps.get("avg_s") or 0, gaps.get("min_s") or 0
+        it.append(item("netlog.uptime_gaps", "Výdrž internetu mezi výpadky (24 h)",
+                       "ok" if avg >= 6 * 3600 else "warn" if avg >= 3600 else "fail",
+                       f"průměr {_fmt_dur(avg)} · nejkratší {_fmt_dur(mn)} · {gaps['count']} úseků",
+                       "" if avg >= 6 * 3600 else "Modem padá pravidelně — měřidlo pro test napájení/kabelu/kusu modemu: po změně hardware musí průměr výrazně vzrůst."
+                       if avg >= 3600 else "Modem padá po několika minutách provozu — typicky napájení modemu při vysílání (LTE špičky 2 A) nebo vadný kus; viz HARDWARE.md „Známá závada“ (test napájení).",
+                       None if avg >= 6 * 3600 else hint("modem_gone")))
     resets = sum(1 for e in n.get("events") or [] if e.get("kind") in ("LTE_RESET", "REBOOT"))
     it.append(item("netlog.recovery", "Obnovy LTE / restarty za 7 dní", "ok" if resets < 10 else "warn", resets,
                    "" if resets < 10 else "Health opakovaně resetuje modem — SIM7600 padá z USB (kernel -71); obnova funguje, ale při růstu četnosti řešit kabel/port/modem.", hint("net_outages") if resets >= 10 else None))

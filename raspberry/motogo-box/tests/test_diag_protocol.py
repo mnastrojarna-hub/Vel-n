@@ -416,3 +416,16 @@ def test_lte_unknown_pid_and_missing_with_other_devices():
                            "usb_other": [{"vid": "0bda", "pid": "8153", "product": "USB LAN"}]}, "internet": {"ok": True}})
     by = {i["id"]: i for i in sec["items"]}
     assert by["lte.usb"]["status"] == "fail" and "0bda:8153" in by["lte.usb"]["value"] and "data" in by["lte.usb"]["message"]
+
+
+def test_outage_gaps_and_uptime_item():
+    from motogo_box.diag_steps import outage_gaps
+    outs = [{"start": 1000.0, "end": 1100.0}, {"start": 1700.0, "end": 1800.0}, {"start": 2400.0, "end": 2500.0, "open": True}]
+    g = outage_gaps(outs, now_ts=3000.0)
+    assert g == {"count": 2, "avg_s": 600, "min_s": 600, "max_s": 600}      # otevřený výpadek úsek „do teď“ nedává
+    assert outage_gaps([], 5.0)["count"] == 0
+    sec = dp._netlog({"netlog": {"samples_24h": 10, "samples_7d": 10, "outages_24h": [], "outages_7d": [], "downtime_24h_s": 0,
+                                 "downtime_7d_s": 0, "modem_gone_24h": 0, "events": [], "series_24h": [], "logs": {},
+                                 "uptime_gaps_24h": {"count": 5, "avg_s": 480, "min_s": 300, "max_s": 700}, "gw_now": {"dev": "wwan0"}}})
+    up = next(i for i in sec["items"] if i["id"] == "netlog.uptime_gaps")
+    assert up["status"] == "fail" and "napájení" in up["message"] and "8 min" in up["value"]

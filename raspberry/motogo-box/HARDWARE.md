@@ -265,6 +265,20 @@ s rollbackem v update.sh + klasifikace výpadku `net.where` + oprava syntaxe, #2
 resetech/24 h nebo z Velína), Wi-Fi se považuje za legitimní cestu při testu (varování, ne chyba). **Pravidlo (CLAUDE.md):**
 síťové změny jen s daty z jednotky; scan LAN nestačí. **Otevřené:** ověřit RNDIS na tomto modemu (dlouhodobý běh bez `-71`).
 
+### Hardwarový test modemu (od 2026-09-26) — diagnostika jako měřidlo
+
+Software už pády jen zkracuje (reconnect → reset → USB reset ≈ 2 min; `missing_modem_after: 1` = USB reset hned, jak modem
+z ModemManageru zmizí). Příčinu `-71` (pád 7–15 min po každém připojení bez ohledu na port/kabel/řadič; RNDIS modem odstřihl
+od USB) je nutné najít **hardwarově**. Měřidlo: Velín → Kompletní diagnostika → Historie sítě → **„Výdrž internetu mezi
+výpadky (24 h)“** (průměr/nejkratší/počet úseků) + „Obnovy LTE“; každá událost `LTE_RESET`/`INTERNET_DOWN` v Hlášení a chybách
+nese „modem před pádem vydržel X min“. Postup (vždy ≥ 1 h běhu, Wi-Fi jednotky vypnutá — `nmcli radio wifi off`):
+1. **Výchozí hodnota** beze změny.
+2. **Napájení modemu zvlášť:** Waveshare SIM7600 HAT napájet vlastním 5 V/3 A zdrojem (napájecí USB konektor HAT), nebo
+   napájený USB hub mezi Pi a modem. LTE špičky až 2 A z 5 V USB Pi jsou nejčastější příčina `-71`.
+3. **Kabel/port:** krátký stíněný USB kabel, černý USB 2 port přímo na Pi (ne hub).
+4. **Bez zlepšení = vadný kus** → jiný SIM7600, nebo LTE router s ethernetem (mimo USB Pi; návrh zapojení až po rozhodnutí —
+   pozor, znovu by znamenal bránu přes eth0, viz Incident 2026-09-26).
+
 ### Oprava: RNDIS místo QMI (nasazeno 2026-09-26 — automaticky i z Velína)
 
 Protože závada sedí na QMI kanálu (`qmi_wwan`/`cdc-wdm0`), řešení tuhle závislost odstraní:
