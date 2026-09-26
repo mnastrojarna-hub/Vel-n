@@ -220,6 +220,24 @@ def net_outages(samples: list[dict], interval_s: float = 30.0) -> list[dict]:
     return out
 
 
+def outage_gaps(outages: list[dict], now_ts: float | None = None) -> dict:
+    """Výdrž internetu MEZI výpadky (s): úseky konec výpadku → začátek dalšího (+ od posledního konce do teď).
+    Měřidlo pro hardwarový test modemu (napájení/kabel/kus): před změnou a po ní se porovná `avg`/`min`."""
+    gaps: list[float] = []
+    closed = [o for o in outages if not o.get("open")]
+    for a, b in zip(closed, outages[1:]):
+        g = float(b["start"]) - float(a["end"])
+        if g > 0:
+            gaps.append(g)
+    if now_ts is not None and outages and not outages[-1].get("open"):
+        g = now_ts - float(outages[-1]["end"])
+        if g > 0:
+            gaps.append(g)
+    if not gaps:
+        return {"count": 0, "avg_s": None, "min_s": None, "max_s": None}
+    return {"count": len(gaps), "avg_s": round(sum(gaps) / len(gaps)), "min_s": round(min(gaps)), "max_s": round(max(gaps))}
+
+
 async def netlog(diag: "NetworkDiagnostics", report: dict) -> dict:
     storage = diag.ctrl.storage
     day = _try(lambda: storage.net_history(24 * 3600), []) or []
@@ -245,6 +263,7 @@ async def netlog(diag: "NetworkDiagnostics", report: dict) -> dict:
     return {"samples_24h": len(day), "samples_7d": len(week), "outages_24h": out_day, "outages_7d": out_week,
             "downtime_24h_s": sum(o["duration_s"] for o in out_day), "downtime_7d_s": sum(o["duration_s"] for o in out_week),
             "modem_gone_24h": modem_gone, "events": events, "series_24h": series, "logs": logs,
+            "uptime_gaps_24h": outage_gaps(out_day, time.time()),
             "gw_now": {"dev": day[-1].get("gw_dev"), "dns": day[-1].get("dns")} if day else None}
 
 

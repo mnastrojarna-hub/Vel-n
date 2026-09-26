@@ -116,6 +116,11 @@ _HEALTH_ACTION_KINDS = {"reconnect": EventKind.LTE_RESET, "usb_reset": EventKind
                         "reboot": EventKind.REBOOT,
                         "mode_rndis": EventKind.LTE_MODE, "mode_qmi": EventKind.LTE_MODE, "mode_sync": EventKind.LTE_MODE,
                         "route_fix": EventKind.NET_FIX}
+def _fmt_min(sec) -> str:
+    sec = int(sec)
+    return f"{sec} s" if sec < 60 else f"{sec // 60} min" if sec < 3600 else f"{sec // 3600} h {(sec % 3600) // 60} min"
+
+
 _WHERE_TEXT = {      # health `net.where` → lidsky, kde výpadek vězí (CONTRACT §17)
     "route": " — cizí výchozí trasa přes eth0 blokuje LTE (jednotka ji maže sama)",
     "wifi": " — internet šel přes Wi-Fi (test mimo pobočku) a ta vypadla; LTE modem není k dispozici",
@@ -363,12 +368,16 @@ class WebServer:
         # CONTRACT §15: obnova LTE (reconnect/usb_reset → LTE_RESET, reboot → REBOOT) musí zůstat
         # v kiosk_logs, ne jen ve 30s snapshotu health.actions (reboot health posílá PŘED restartem).
         actions = body.get("actions")
+        net = body.get("net") if isinstance(body.get("net"), dict) else {}
+        held = net.get("last_link_uptime_s")
+        held_txt = f" (modem před pádem vydržel {_fmt_min(held)})" if isinstance(held, (int, float)) else ""
         for action in actions if isinstance(actions, list) else []:
             kind = _HEALTH_ACTION_KINDS.get(action)
             if kind is not None:
                 await self.ctrl.emit(Event(kind=kind, level="warn",
-                                           message=_HEALTH_ACTION_TEXT.get(action, f"LTE obnova: {action}"),
-                                           detail={"source": "health", "action": action,
+                                           message=_HEALTH_ACTION_TEXT.get(action, f"LTE obnova: {action}")
+                                           + (held_txt if kind == EventKind.LTE_RESET else ""),
+                                           detail={"source": "health", "action": action, "last_link_uptime_s": held,
                                                    "lte": body.get("lte")}))
         return _json({"ok": True})
 
@@ -383,13 +392,16 @@ class WebServer:
         lan = body.get("lan") if isinstance(body.get("lan"), dict) else {}
         net = body.get("net") if isinstance(body.get("net"), dict) else {}
         where = net.get("where")
+        held = net.get("last_link_uptime_s")
         ctx = {"source": "health", "lte_state": lte.get("state"), "modem_gone": lte.get("modem_gone"),
                "lte_error": lte.get("error"), "lan": lan.get("problem"), "where": where,
-               "foreign_default": net.get("foreign_default")}
+               "foreign_default": net.get("foreign_default"), "last_link_uptime_s": held}
         if not cur:
             self.ctrl.internet_down_at = time.time()
             await self.ctrl.emit(Event(kind=EventKind.INTERNET_DOWN, level="error", success=False,
-                                       message="Výpadek internetu (LTE)" + _WHERE_TEXT.get(where, ""), detail=ctx))
+                                       message="Výpadek internetu (LTE)" + _WHERE_TEXT.get(where, "")
+                                       + (f"; internet do té doby držel {_fmt_min(held)}" if isinstance(held, (int, float)) else ""),
+                                       detail=ctx))
         elif prev is False:
             since = getattr(self.ctrl, "internet_down_at", None)
             dur = round(time.time() - since) if since else None

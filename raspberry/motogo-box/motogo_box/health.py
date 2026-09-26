@@ -300,6 +300,8 @@ class HealthMonitor:
         self._lan_try_at: float | None = None      # poslední pokus o `nmcli con up` (rate limit)
         self._route_fix_at: float | None = None    # poslední route_fix (rate limit)
         self._mismatch_cycles = 0                  # config lte_mode ≠ režim modemu na USB — po sobě jdoucí cykly (mode_sync)
+        self._online_since: float | None = None    # od kdy internet nepřetržitě jede (výdrž modemu mezi pády → události)
+        self._last_link_uptime_s: float | None = None   # jak dlouho vydržel před posledním pádem
         self._lan_problem: str | None = None       # poslední hlášený problém — log jen při ZMĚNĚ, ne každých 30 s
         self.policy = LtePolicy(cfg, clock)
         self.policy.skip_modem_reset = self.rndis
@@ -724,8 +726,17 @@ class HealthMonitor:
                 actions = [*actions, "route_fix"]
         self._lte_error = error
         self._save_state()
+        now = self.clock()
+        if internet:
+            if self._online_since is None:
+                self._online_since = now
+        elif self._online_since is not None:
+            self._last_link_uptime_s = max(0.0, now - self._online_since)      # pád: kolik vydržel od poslední obnovy
+            self._online_since = None
         net = await self._net_state()
         net["foreign_default"] = route["foreign"]
+        net["link_uptime_s"] = round(now - self._online_since) if self._online_since is not None else None
+        net["last_link_uptime_s"] = round(self._last_link_uptime_s) if self._last_link_uptime_s is not None else None
         net["where"] = None if internet else self._where(route, lte)
         payload = {"internet": internet, "lte": lte, "lan": lan, "sys": sysm, "ts": now_iso(),
                    "actions": actions, "net": net}

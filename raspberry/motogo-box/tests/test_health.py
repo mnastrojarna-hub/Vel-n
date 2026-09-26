@@ -268,8 +268,9 @@ def test_policy_persist_roundtrip():
 
 def test_policy_modem_gone_skips_reconnects():
     """Modem zmizel z ModemManageru (ale na USB je): `nmcli con up` vrací „No suitable device found",
-    takže se reconnecty přeskočí a po 2 sondách (~1 min) jde rovnou USB reset."""
-    p = LtePolicy(_cfg(), FakeClock())
+    takže se reconnecty přeskočí a jde rovnou USB reset — od 2026-09-26 hned při 1. sondě (`missing_modem_after: 1`),
+    se starší hodnotou 2 až při druhé."""
+    p = LtePolicy(_cfg(missing_modem_after=2), FakeClock())
     assert p.step(False, 5000.0, modem_gone=True) == []          # 1. sonda
     assert p.step(False, 5000.0, modem_gone=True) == ["usb_reset"]
     assert p.reconnects == 0 and p.usb_resets == 1 and p.usb_resets_pending == 1
@@ -915,3 +916,21 @@ def test_rndis_auto_switch_is_off_by_default():
         p._usb_reset()
         clock.advance(10)
     assert p.mode_step(False, False) == []
+
+
+async def test_link_uptime_tracked_across_outage(tmp_path):
+    env = FakeEnv()
+    mon = _monitor(env, tmp_path)
+    p1 = await mon.cycle()
+    assert p1["net"]["link_uptime_s"] == 0 and p1["net"]["last_link_uptime_s"] is None
+    mon.clock.advance(420)
+    assert (await mon.cycle())["net"]["link_uptime_s"] == 420
+    env.internet_ok = False
+    env.tcp_ok = False
+    p3 = await mon.cycle()
+    assert p3["net"]["link_uptime_s"] is None and p3["net"]["last_link_uptime_s"] == 420
+
+
+def test_policy_modem_gone_resets_immediately_by_default():
+    p = LtePolicy(_cfg(), FakeClock())
+    assert p.step(False, 5000.0, modem_gone=True) == ["usb_reset"]
