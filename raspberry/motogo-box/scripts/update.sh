@@ -162,6 +162,17 @@ fi
 install -m 755 -o root -g root "$APP_DIR/scripts/update.sh"          /usr/local/sbin/motogo-update
 install -m 755 -o root -g root "$APP_DIR/scripts/usbreset-modem.sh"  /usr/local/sbin/motogo-usbreset
 install -m 755 -o root -g root "$APP_DIR/scripts/sysupdate.sh"       /usr/local/sbin/motogo-sysupdate
+# přepínání režimu modemu QMI/RNDIS (health sám po opakovaných USB resetech, nebo z Velína `lte_mode`)
+install -m 755 -o root -g root "$APP_DIR/scripts/lte-mode.sh"        /usr/local/sbin/motogo-lte-mode
+install -m 755 -o root -g root "$APP_DIR/scripts/lte-rndis.sh"       /usr/local/sbin/motogo-lte-rndis
+# jednotka už v RNDIS: udev/služba/profil z repa se mohly změnit → dorovnat (bez přepínání modemu)
+if grep -qE '^[[:space:]]+lte_mode:[[:space:]]*["'"'"']?rndis' /etc/motogo/config.yaml 2>/dev/null; then
+  for f in 99-motogo-lte-rndis.rules:/etc/udev/rules.d motogo-lte-rndis.service:/etc/systemd/system; do
+    src="$APP_DIR/systemd/${f%%:*}"; dst="${f##*:}/${f%%:*}"
+    [[ -f "$src" ]] && ! cmp -s "$src" "$dst" && install -m 644 -o root -g root "$src" "$dst" && log "RNDIS: aktualizován $dst"
+  done
+  systemctl daemon-reload; udevadm control --reload >/dev/null 2>&1 || true
+fi
 
 # unattended-upgrades: balík instaluje install.sh (krok 10) — boxy instalované starší verzí ho nemají a bez něj
 # se záplaty OS v noci neinstalují. Doinstalovat (bez apt-get update: seznamy z instalace / z motogo-sysupdate;

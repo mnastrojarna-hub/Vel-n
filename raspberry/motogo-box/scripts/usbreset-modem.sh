@@ -142,6 +142,13 @@ if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet ModemMana
   fi
 else
   log "ModemManager neběží (režim RNDIS / služba vypnutá) — restart přeskočen"
+  # RNDIS: po re-enumeraci modem datové spojení sám nenaváže — AT$QCRMCALL znovu (motogo-lte-mode / lte-rndis.sh)
+  if [[ -x /usr/local/sbin/motogo-lte-rndis ]]; then
+    wait_for 30 "síťová karta modemu usb0" bash -c 'ip link show usb0' || true
+    /usr/local/sbin/motogo-lte-rndis start 2>>"$LOG" && log "RNDIS: datové spojení znovu spuštěno" \
+      || log "UPOZORNĚNÍ: RNDIS start datového spojení selhal"
+    nmcli -w 30 con up motogo-lte >/dev/null 2>&1 || true
+  fi
 fi
 
 # 3) čekat, až MM modem uvidí (ověřeno: sondování trvá i ~45 s)

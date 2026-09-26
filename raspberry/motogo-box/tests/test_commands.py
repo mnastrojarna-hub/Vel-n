@@ -492,3 +492,30 @@ async def test_contact_test_verdicts():
     assert [e.kind for e in c.events] == [EventKind.CONTACT_TEST] * 3
     c.io = SimpleNamespace(is_online=lambda name: False)
     assert (await commands.execute(c, "contact_test", {"zone": 8}))[1]["verdict"] == "offline"
+
+
+async def test_lte_mode_validates_and_runs_in_background(monkeypatch):
+    calls: list[str] = []
+
+    async def fake_runner(mode: str):
+        calls.append(mode)
+        return True, {"returncode": 0, "output": "hotovo"}
+
+    monkeypatch.setattr(commands, "_lte_mode_runner", fake_runner)
+    c = FakeController()
+    events = []
+
+    async def emit(ev):
+        events.append(ev)
+
+    c.emit = emit
+    ok, res = await commands.execute(c, "lte_mode", {"mode": "RNDIS"})
+    assert ok and res == {"started": True, "mode": "rndis"}
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    assert calls == ["rndis"]
+    assert [e.kind.value for e in events] == ["LTE_MODE", "LTE_MODE"]
+    assert events[0].level == "warn" and events[1].level == "info" and events[1].detail["mode"] == "rndis"
+    ok, res = await commands.execute(c, "lte_mode", {"mode": "ppp"})
+    assert not ok and res["error"] == "invalid_mode"
+    assert "lte_mode" not in commands.HW_COMMANDS

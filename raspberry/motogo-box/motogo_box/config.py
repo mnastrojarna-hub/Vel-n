@@ -90,6 +90,12 @@ class HealthCfg:
     # BEZ tohohle přepínače by `modem_gone` bylo trvale pravdivé a jednotka by se resetovala pořád.
     lte_mode: str = "qmi"
     lte_interface: str = ""         # prázdné = wwan0 (qmi) / usb0 (rndis)
+    # Samoopravné přepnutí režimu (2026-09-26): ≥ `rndis_auto_after` USB resetů za 24 h (QMI kanál padá,
+    # HARDWARE.md „error -71") → health spustí `lte_mode_script rndis` (0 = automatika vypnutá, jen ručně
+    # z Velína). V RNDIS bez jediné úspěšné sondy po `rndis_revert_after_s` → zpět `qmi` (a 24 h se nepřepíná).
+    rndis_auto_after: int = 3
+    rndis_revert_after_s: int = 1800
+    lte_mode_script: str = "/usr/local/sbin/motogo-lte-mode"
     # I/O síť (SPEC §4): profil `motogo-lan` na eth0 — statická 192.168.50.10/24 bez výchozí brány.
     # Health hlídá, že rozhraní má adresu; když má LINK, ale ne adresu (profil nenaskočil), zkusí ho
     # nahodit nejvýš jednou za `lan_recover_s` (0 = obnova vypnutá, jen hlášení). Chybějící LINK

@@ -100,7 +100,9 @@ chown -R root:root "$APP_DIR"; chmod -R a+rX "$APP_DIR"
 install -m 755 -o root -g root "$APP_DIR/scripts/update.sh"         /usr/local/sbin/motogo-update
 install -m 755 -o root -g root "$APP_DIR/scripts/usbreset-modem.sh" /usr/local/sbin/motogo-usbreset
 install -m 755 -o root -g root "$APP_DIR/scripts/sysupdate.sh"      /usr/local/sbin/motogo-sysupdate
-ok "sudo skripty: /usr/local/sbin/motogo-update, motogo-usbreset, motogo-sysupdate (root:root)"
+install -m 755 -o root -g root "$APP_DIR/scripts/lte-mode.sh"       /usr/local/sbin/motogo-lte-mode
+install -m 755 -o root -g root "$APP_DIR/scripts/lte-rndis.sh"      /usr/local/sbin/motogo-lte-rndis
+ok "sudo skripty: /usr/local/sbin/motogo-update, motogo-usbreset, motogo-sysupdate, motogo-lte-mode (+ motogo-lte-rndis) (root:root)"
 # Zdroj pro budoucí aktualizace (update.sh / příkaz update_software z Velína) — root-owned soubor,
 # přes sudo je to JEDINÝ přijímaný zdroj. git pull dělá update.sh jako vlastník checkoutu.
 mkdir -p "$ETC_DIR"

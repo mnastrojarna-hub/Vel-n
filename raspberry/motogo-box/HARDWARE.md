@@ -256,26 +256,39 @@ Bez restartu MM skončí spojení v PPP fallbacku na `ttyUSB2`.
 kabel) přišel `-71` znovu ve 14:32:02, ~15 min po navázání. Časová řada výpadků: 13:38:36, 13:54:30,
 14:09:28, 14:32:02 — vždy 10–15 min po (re)connectu, bez ohledu na port, kabel i řadič.
 
-### Směr opravy: RNDIS místo QMI (k ověření na dev Pi)
+### Oprava: RNDIS místo QMI (nasazeno 2026-09-26 — automaticky i z Velína)
 
-Protože závada sedí na QMI kanálu (`qmi_wwan`/`cdc-wdm0`), hlavní směr je tuhle závislost odstranit:
+Protože závada sedí na QMI kanálu (`qmi_wwan`/`cdc-wdm0`), řešení tuhle závislost odstraní:
 přepnout SIM7600E-H do **RNDIS** (`AT+CUSBPIDSWITCH=9011,1,1`, zpět `9001,1,1`), kde je modem obyčejná
-síťová karta `usb0` s DHCP od modemu a datové spojení startuje `AT$QCRMCALL=1,1`. Připraveno v repu,
-**nikam nezadrátováno a neotestováno na hardwaru** — dev Pi nejdřív:
+síťová karta `usb0` s DHCP od modemu a datové spojení startuje `AT+CGDCONT` (APN z `/etc/motogo/apn`) +
+`AT$QCRMCALL=1,1`. **Přepíná se jedním root skriptem `motogo-lte-mode {rndis|qmi|status}`**
+(`scripts/lte-mode.sh`; install/update ho instalují do `/usr/local/sbin`, sudoers povolují jen tyhle tři argumenty):
+zálohuje QMI profil do `/etc/motogo/motogo-lte.qmi.nmconnection`, nasadí RNDIS profil pod jménem `motogo-lte`,
+udev pravidlo, službu startu dat, přepíše `/etc/motogo/modem_vidpid` (1e0e:9011) a `health.lte_mode` +
+`health.modem_vid_pid` v config.yaml, **vypne ModemManager** (v RNDIS by se chytal AT portů), přepne modem,
+počká na re-enumeraci (~40 s), spustí data, nahodí profil a za 5 s restartuje motogo-health (přes `systemd-run`,
+aby nezabil volajícího). Log `/var/log/motogo-lte-mode.log`.
+
+**Kdo ho spouští:** (a) health monitor SÁM — ≥ `health.rndis_auto_after` (3) USB resetů za 24 h → `mode_rndis`,
+nejvýš 1× za 24 h; v RNDIS bez jediné úspěšné sondy ≥ `rndis_revert_after_s` (30 min) → `mode_qmi` zpět
+(CONTRACT §17). (b) Velín → karta jednotky → řádek „Modem“ → „Modem → RNDIS (stabilní)“ / „Modem → QMI“
+(příkaz `lte_mode`). Obojí zapíše do Hlášení a chyb událost `LTE_MODE` (proč a s jakým výsledkem).
+Internet při přepnutí vypadne na ~2 min. `usbreset-modem.sh` v RNDIS po resetu znovu spustí datové spojení.
+⚠ Na hardwaru ověřeno zatím jen částečně — po prvním přepnutí na pobočce sledovat log a `LTE_MODE` události;
+kdyby RNDIS na Pi 5 nedržel, automatika se vrátí do QMI a druhá volba je ECM/NCM.
 
 | soubor | co je |
 |---|---|
-| `scripts/lte-rndis.sh` | `probe` / `enable` / `disable` / `start` / `status` — AT port si najde sám (`/dev/motogo-lte-at`, jinak zkouší ttyUSB2/3/1/0) |
+| `scripts/lte-mode.sh` → `/usr/local/sbin/motogo-lte-mode` | celé přepnutí `rndis` / `qmi` / `status` (výš) |
+| `scripts/lte-rndis.sh` → `/usr/local/sbin/motogo-lte-rndis` | jen AT příkazy: `probe` / `enable` / `disable` / `start` / `status` — AT port si najde sám (`/dev/motogo-lte-at`, jinak zkouší ttyUSB2/3/1/0; po re-enumeraci čeká až 45 s) |
 | `systemd/motogo-lte-rndis.nmconnection` | NM profil **pojmenovaný `motogo-lte`** (ethernet na `usb0`, DHCP, route-metric 100) — health, sudoers i terminál na něj sahají pod stejným jménem, takže se nic dalšího nepřenastavuje |
 | `systemd/99-motogo-lte-rndis.rules` | udev pro PID 9011: symlink AT portu + jméno rozhraní `usb0`. **Číslo AT rozhraní ověřit** (`udevadm info -a /dev/ttyUSB*`) |
 | `systemd/motogo-lte-rndis.service` | start datového spojení po bootu (oneshot, 15 s po startu) |
 | `health.lte_mode: rndis` v `/etc/motogo/config.yaml` | přepne hlídku: mmcli se vůbec nevolá, zdraví se čte z rozhraní `usb0` (bez IPv4 + modem na USB = mrtvá cesta → USB reset), krok `mmcli --reset` se přeskočí |
 
-**Postup na dev Pi:** `sudo ./scripts/lte-rndis.sh probe` → `enable` (modem se restartuje) → ověřit
-`lsusb` (PID 9011) a `ip -br addr show usb0` → nasadit NM profil a udev pravidlo → `start` →
-`ip route` musí mít `default … dev usb0` → zapnout `lte_mode: rndis` a nechat běžet přes hodinu,
-jestli `-71` zmizí. Návrat: `sudo ./scripts/lte-rndis.sh disable` a původní QMI profil.
-Pokud RNDIS na Pi 5 nebude stabilní, druhá volba je ECM/NCM.
+**Ručně na jednotce (terminál):** `sudo /usr/local/sbin/motogo-lte-mode status` (režim v configu, PID na USB,
+typ profilu, trasa); `sudo /usr/local/sbin/motogo-lte-mode rndis` / `qmi`. Po přepnutí ověřit `lsusb` (PID 9011),
+`ip -br addr show usb0`, `ip route` (`default … dev usb0`) a nechat běžet přes hodinu, jestli `-71` zmizí.
 
 **Pozor při testu na dev Pi:** když je na něm domácí Wi-Fi (`default via wlan0`, metrika 600),
 maskuje výpadek LTE — sondy internetu projdou a hlídka nic neudělá. Na testování LTE ji vypnout
