@@ -32,7 +32,8 @@
     </div>
   </header>
 
-  <!-- Tělo: 3 sloupce vedle sebe — [A] výzva + vysvětlivky + kód · [B] klávesnice · [C] dlaždice zón -->
+  <!-- Tělo: 2 sloupce vedle sebe — [A] výzva + vysvětlivky + kód · [B] klávesnice
+       (dlaždice zón zákazníka jen rušily — odstraněny 2026-09-26; stav zón vidí obsluha v servisním panelu a ve Velíně) -->
   <main class="body">
     <section class="side">
       <div class="prompt-title" data-i18n="promptTitle">Zadejte přístupový kód</div>
@@ -59,9 +60,6 @@
 
     <!-- Klávesnice (numerická / QWERTY) — velikost kláves z dostupného místa (CSS container units) -->
     <section id="keys" class="keys"></section>
-
-    <!-- Dlaždice zón (1–2 sloupce podle výšky displeje) -->
-    <aside id="zones" class="zones"></aside>
   </main>
 
   <!-- Overlay stavů (ověřuji / otevřeno / chyba / notice) -->

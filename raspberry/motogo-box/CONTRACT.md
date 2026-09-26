@@ -746,7 +746,7 @@ motorky.“ (délku na nízkém displeji kontrolovat — de/uk nejdelší) + pol
 2026-09-11: žádné maskování tečkami, `masked()` z `app.js` odstraněno; platí pro kód rezervace, servisní heslo i diagnostický kód
 z hlavní klávesnice) + upozornění zóny; (2) klávesnice — rozměr kláves se počítá z kontejneru (CSS container query,
 `--k`), numerická i QWERTY (tlačítko „ABC“ pro servisní hesla) se nikdy nepřekrývají, klávesy ≥ 48 px, ⌫, Smazat, OK;
-(3) dlaždice zón v 1–2 sloupcích (barva dle signálu/stavu, stav se zalamuje; šatna = `acc` „Šatna“, kóje „Kóje {n}“).
+(3) dlaždice zón na zákaznické obrazovce od 2026-09-26 NEJSOU (`#zones` odstraněn, `renderTiles` bez prvku nic nekreslí; stav zón kreslí servisní panel `panel.js` a Velín).
 Texty `hint1/hint2/okAcc/acc` jsou ve všech 8 jazycích (`i18n.js`); `MG.i18n.signal(sig)` = český popis signálu pro
 servisní panel; `MG.__debug` = neškodný hook (`toggleKeyboard/setLang/applyState/showStatus/hideStatus`) pro screenshot
 harness. Timeout zadávání `pin_entry_timeout_s` (vymaže vstup). Overlay stavů (working/success/error, auto-hide 6 s):
