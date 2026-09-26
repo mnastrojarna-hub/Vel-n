@@ -119,6 +119,26 @@ async def test_wav617_pulse_is_software(sims):
         await m.stop()
 
 
+async def test_pulse_falls_back_to_software_when_flash_on_is_ignored(sims):
+    """Modul flash-on potvrdí, ale relé nesepne → softwarový pulz (on → sleep → off); dveře se otevřou."""
+    sim = sims["wav617a"]
+    sim.flash_supported = False
+    m = Wav617("wav617a", ModbusTcpClient("127.0.0.1", sim.port, timeout_ms=200, retry_delays_ms=(5,)))
+    try:
+        seen: list[bool] = []
+
+        async def watch():
+            for _ in range(30):
+                seen.append(sim.coils[3])
+                await asyncio.sleep(0.01)
+
+        ok, _ = await asyncio.gather(m.pulse(3, 100), watch())
+        assert ok is True and True in seen and sim.coils[3] is False
+    finally:
+        sim.flash_supported = True
+        await m.stop()
+
+
 async def test_wav617_set_normal_mode(sims):
     sim = sims["wav617a"]
     m = Wav617("wav617a", ModbusTcpClient("127.0.0.1", sim.port, timeout_ms=200, retry_delays_ms=(5,)))
