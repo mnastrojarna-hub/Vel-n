@@ -66,6 +66,7 @@ LAN_UP_WAIT_S = 20           # `nmcli -w 20 con up motogo-lan` — hodnota MUSÍ
 LAN_ADDR_DISPATCHER = "/etc/NetworkManager/dispatcher.d/50-motogo-lan-addr"   # tamtéž (argumenty `eth0 manual`)
 ROUTE_FIX_EVERY_S = 60       # cizí výchozí trasa (eth0) → dispečer ji smaže, nejvýš 1× za minutu
 LTE_IFACE_PREFIXES = ("wwan", "usb", "ppp")   # rozhraní modemu (QMI wwan0 / RNDIS usb0 / PPP fallback)
+FOREIGN_IFACE_PREFIXES = ("eth", "en")        # síť modulů — výchozí trasa tudy je vždy chyba (route_fix)
 KILL_WAIT_S = 5.0            # po timeoutu: jak dlouho čekat na konec (ne)zabitého potomka
 
 RunCmd = Callable[..., Awaitable[tuple[int, str]]]
@@ -495,10 +496,13 @@ class HealthMonitor:
 
     def _where(self, route: dict, lte: dict) -> str:
         """KDE výpadek vězí (do payloadu `net.where` a události INTERNET_DOWN) — ať je z Velína hned jasné, co řešit:
-        `route` cizí výchozí trasa (eth0) přebíjí LTE · `no_route` LTE rozhraní nemá výchozí trasu · `modem` modem
-        chybí/nemá adresu/je v chybě · `carrier` vše lokálně vypadá dobře, nejde to za modemem (operátor, signál, SIM data)."""
+        `route` cizí výchozí trasa (eth0) přebíjí LTE · `wifi` výchozí trasa přes Wi-Fi (test mimo pobočku) · `no_route` LTE
+        rozhraní nemá výchozí trasu · `modem` modem chybí/nemá adresu/je v chybě · `carrier` vše lokálně vypadá dobře,
+        nejde to za modemem (operátor, signál, SIM data)."""
         if route.get("foreign"):
             return "route"
+        if any(str(r.get("dev", "")).startswith("wl") for r in route.get("routes") or []):
+            return "wifi"           # internet měl jít Wi-Fi (test mimo pobočku) a nejde — modem stranou
         lte_iface = self.lte_iface()
         if not any(str(r.get("dev")) == lte_iface for r in route.get("routes") or []):
             return "no_route" if lte.get("ipv4") else "modem"
@@ -534,9 +538,11 @@ class HealthMonitor:
             log.debug("route_state: výpis tras selhal: %s", exc)
             return {"routes": [], "foreign": [], "action": None}
         lte = self.lte_iface()
-        # rozhraní modemu (wwan*/usb*/ppp* + nastavené) jsou v pořádku; cokoli jiného (eth0, wlan0, …) je cizí trasa
+        # Cizí = výchozí trasa přes SÍŤ MODULŮ (eth*): tam internet nikdy není a trasa přebije LTE. Wi-Fi (wlan*) cizí
+        # NENÍ — při testech mimo pobočku drží jednotku online, když modem stojí; NM jí dává metriku 600 (> LTE 100),
+        # takže s funkčním modemem má LTE přednost. Na pobočce Wi-Fi není. Diagnostika ji hlásí jen jako varování.
         foreign = sorted({str(r.get("dev")) for r in routes if r.get("dev") and str(r.get("dev")) != lte
-                          and not str(r.get("dev")).startswith(LTE_IFACE_PREFIXES)})
+                          and str(r.get("dev")).startswith(FOREIGN_IFACE_PREFIXES)})
         action = None
         if foreign:
             now = self.clock()

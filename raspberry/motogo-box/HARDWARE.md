@@ -249,6 +249,22 @@ Bez restartu MM skončí spojení v PPP fallbacku na `ttyUSB2`.
 kabel) přišel `-71` znovu ve 14:32:02, ~15 min po navázání. Časová řada výpadků: 13:38:36, 13:54:30,
 14:09:28, 14:32:02 — vždy 10–15 min po (re)connectu, bez ohledu na port, kabel i řadič.
 
+### Incident 2026-09-26 — pobočka offline po síťových změnách (post-mortem, průběžně doplňováno)
+
+**Co se stalo (potvrzeno diagnostikou z Velína 26. 9. 19:29):** jednotka testovaná mimo pobočku měla **zapnutou vestavěnou
+Wi-Fi** připojenou k síti 192.168.1.0/24 (brána 192.168.1.1 přes `wlan0`). Scan LAN našel v této síti zařízení 192.168.1.2
+(SSH/HTTP) a autor změn ho **bez ověření na jednotce** (`ip route`, `nmcli`) vyhodnotil jako „router Teltonika na kabelu
+u modulů“. Z toho vznikly PR #2106 (hybridní `motogo-lan` s DHCP), #2109 (DNS na eth0) a #2114 („záložní brána kabelem“
+= `default via 192.168.1.2 dev eth0 metric 50 onlink`, obnovovaná health každé 2 min). Na pobočce router není → trasa přes
+eth0 posílala internet do prázdna; LTE (metrika 100) prohrávalo. Souběžně **LTE modem SIM7600 v režimu QMI přestal být
+vidět v ModemManageru** (`no_modem` 3 h 7 min v kuse, 191 obnov za 7 dní) — bez Wi-Fi by pobočka byla offline i bez
+chybných tras. Dále PR #2118 zavlekl do `update.sh` syntaktickou chybu (české uvozovky) → „Aktualizace software selhala (rc=2)“.
+
+**Odstraněno / zavedeno:** #2118 internet výhradně LTE (dispečer + health mažou trasy přes eth0, `NET_FIX`), #2119 canary
+s rollbackem v update.sh + klasifikace výpadku `net.where` + oprava syntaxe, #2117 režim RNDIS (automaticky po 3 USB
+resetech/24 h nebo z Velína), Wi-Fi se považuje za legitimní cestu při testu (varování, ne chyba). **Pravidlo (CLAUDE.md):**
+síťové změny jen s daty z jednotky; scan LAN nestačí. **Otevřené:** ověřit RNDIS na tomto modemu (dlouhodobý běh bez `-71`).
+
 ### Oprava: RNDIS místo QMI (nasazeno 2026-09-26 — automaticky i z Velína)
 
 Protože závada sedí na QMI kanálu (`qmi_wwan`/`cdc-wdm0`), řešení tuhle závislost odstraní:
