@@ -435,6 +435,16 @@ class HealthMonitor:
         from . import net_scan
         return await net_scan.interfaces()
 
+    async def _net_state(self) -> dict:
+        """Výchozí trasa a DNS pro historii sítě (net_history) — kudy internet právě jde."""
+        try:
+            from . import net_scan
+            routes = await net_scan.routes()
+            return {"default_dev": str(routes[0].get("dev")) if routes else None,
+                    "gateway": routes[0].get("gateway") if routes else None, "dns": net_scan.dns_servers()[:3]}
+        except Exception:  # noqa: BLE001
+            return {"default_dev": None, "gateway": None, "dns": []}
+
     async def _gateway_kick(self) -> None:
         """Internet nejde → nechat dispečer znovu aplikovat záložní bránu kabelem (lan_gateway.py), nejvýš 1× za 120 s.
         Bez souboru s bránou (pobočka jen s LTE) nic nedělá."""
@@ -569,7 +579,7 @@ class HealthMonitor:
         self._lte_error = error
         self._save_state()
         payload = {"internet": internet, "lte": lte, "lan": lan, "sys": sysm, "ts": now_iso(),
-                   "actions": actions}
+                   "actions": actions, "net": await self._net_state()}
         for action in actions:
             await self.perform(action, payload)
         if not internet:

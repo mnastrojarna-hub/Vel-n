@@ -161,6 +161,88 @@ async def _try_await(aw, default=None):
         return default
 
 
+# ─── netlog — historie sítě + logy (2026-09-26) ─────────────────────────────
+# Velín musí umět pobočku diagnostikovat podrobněji než displej: vzorky health (net_history, á 30 s, 7 dní) →
+# výpadky internetu za 24 h / 7 dní (začátek, konec, délka, stav LTE/modemu/kabelu při výpadku), akce obnovy,
+# události INTERNET_DOWN/UP + LTE_RESET/REBOOT, a syrové logy NetworkManageru, ModemManageru, jádra (USB/QMI),
+# health a aktuální profily/trasy/DNS. Texty se ořezávají (LOG_MAX_CHARS), report zůstává pod ~200 KiB.
+LOG_MAX_CHARS = 6000
+NETLOG_CMDS = (
+    ("nm_connections", ("nmcli", "-t", "-f", "NAME,TYPE,DEVICE,STATE", "con", "show")),
+    ("nm_devices", ("nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "dev", "status")),
+    ("nm_lan_profile", ("nmcli", "-g", "ipv4.method,ipv4.addresses,ipv4.gateway,ipv4.dns,ipv4.never-default,ipv4.route-metric,ipv4.dhcp-timeout", "con", "show", "motogo-lan")),
+    ("nm_lte_profile", ("nmcli", "-g", "connection.type,gsm.apn,ipv4.dns,ipv4.route-metric,connection.autoconnect", "con", "show", "motogo-lte")),
+    ("ip_route", ("ip", "-4", "route")),
+    ("ip_addr", ("ip", "-br", "-4", "addr")),
+    ("resolved", ("resolvectl", "status", "--no-pager")),
+    ("mmcli", ("mmcli", "-L")),
+    ("usb", ("lsusb",)),
+    ("journal_nm", ("journalctl", "-u", "NetworkManager", "-n", "60", "--no-pager", "-o", "short-iso")),
+    ("journal_mm", ("journalctl", "-u", "ModemManager", "-n", "40", "--no-pager", "-o", "short-iso")),
+    ("journal_health", ("journalctl", "-u", "motogo-health", "-n", "60", "--no-pager", "-o", "short-iso")),
+    ("journal_kernel_usb", ("journalctl", "-k", "-n", "400", "--no-pager", "-o", "short-iso", "-g", "usb|qmi|cdc|wwan|error -71|eth0|link")),
+)
+
+
+def net_outages(samples: list[dict], interval_s: float = 30.0) -> list[dict]:
+    """Souvislé úseky `internet == False` ze vzorků (nejstarší první) → [{start, end, duration_s, lte, modem_gone, lan, gw_dev, actions, open}]."""
+    out: list[dict] = []
+    cur: dict | None = None
+    last_ts = None
+    for s in samples:
+        ts = float(s.get("ts") or 0)
+        if s.get("internet") is False:
+            if cur is None:
+                cur = {"start": ts, "end": ts, "lte": s.get("lte_state"), "modem_gone": s.get("modem_gone"),
+                       "lan": s.get("lan_problem"), "gw_dev": s.get("gw_dev"), "actions": []}
+            cur["end"] = ts
+            if s.get("action"):
+                cur["actions"].append(str(s["action"]))
+        elif cur is not None:
+            cur["end"] = ts
+            out.append(cur)
+            cur = None
+        last_ts = ts
+    if cur is not None:
+        cur["end"] = (last_ts or cur["end"]) + interval_s
+        cur["open"] = True
+        out.append(cur)
+    for o in out:
+        o.setdefault("open", False)
+        o["duration_s"] = int(max(0.0, o["end"] - o["start"]) + (0 if o["open"] else interval_s))
+        o["start_iso"] = datetime.fromtimestamp(o["start"], timezone.utc).isoformat(timespec="seconds")
+        o["end_iso"] = datetime.fromtimestamp(o["end"], timezone.utc).isoformat(timespec="seconds")
+    return out
+
+
+async def netlog(diag: "NetworkDiagnostics", report: dict) -> dict:
+    storage = diag.ctrl.storage
+    day = _try(lambda: storage.net_history(24 * 3600), []) or []
+    week = _try(lambda: storage.net_history(7 * 24 * 3600), []) or []
+    out_day, out_week = net_outages(day), net_outages(week)
+    modem_gone = sum(1 for s in day if s.get("modem_gone"))
+    events = []
+    for ev in _try(lambda: storage.events_recent(2000), []) or []:
+        if str(ev.get("kind")) in ("INTERNET_DOWN", "INTERNET_UP", "LTE_RESET", "REBOOT") and (_age_s(ev.get("ts")) or 0) <= 7 * 24 * 3600:
+            events.append({"ts": ev.get("ts"), "kind": ev.get("kind"), "message": str(ev.get("message") or "")[:200],
+                           "detail": {k: v for k, v in (ev.get("detail") or {}).items() if k in ("duration_s", "lte_state", "modem_gone", "lan", "action")}})
+        if len(events) >= 200:
+            break
+    logs: dict[str, str] = {}
+    for key, argv in NETLOG_CMDS:
+        rc, text = await run_cmd(*argv, timeout=10)
+        text = (text or "").strip()
+        logs[key] = (text[-LOG_MAX_CHARS:] if len(text) > LOG_MAX_CHARS else text) if rc in (0, 1) or text else f"(rc={rc}) {text[:200]}"
+    # kompaktní řada vzorků za 24 h (max ~300 bodů) pro časovou osu ve Velíně
+    step = max(1, len(day) // 300)
+    series = [{"ts": s["ts"], "i": s.get("internet"), "l": s.get("lte_state"), "r": s.get("rssi"), "m": s.get("modem_gone"),
+               "g": s.get("gw_dev")} for s in day[::step]]
+    return {"samples_24h": len(day), "samples_7d": len(week), "outages_24h": out_day, "outages_7d": out_week,
+            "downtime_24h_s": sum(o["duration_s"] for o in out_day), "downtime_7d_s": sum(o["duration_s"] for o in out_week),
+            "modem_gone_24h": modem_gone, "events": events, "series_24h": series, "logs": logs,
+            "gw_now": {"dev": day[-1].get("gw_dev"), "dns": day[-1].get("dns")} if day else None}
+
+
 # ─── config ──────────────────────────────────────────────────────────────────
 async def config(diag: "NetworkDiagnostics", report: dict) -> dict:
     ctrl = diag.ctrl

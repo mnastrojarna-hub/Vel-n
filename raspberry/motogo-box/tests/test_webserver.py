@@ -461,3 +461,16 @@ async def test_health_internet_transitions_emit_events(env):
     ctrl.health = {}
     await client.post("/api/health", json={"internet": False})      # první hlášení po startu bez internetu = výpadek
     assert [e.kind for e in ctrl.events] == [EventKind.INTERNET_DOWN]
+
+
+async def test_health_samples_go_to_net_history(env, tmp_path):
+    from motogo_box.storage import Storage
+    client, ctrl, api, storage, *_ = env
+    real = Storage(str(tmp_path / "h.db"))
+    storage.net_sample_add = real.net_sample_add          # FakeStorage nemá historii — přidat skutečnou
+    await client.post("/api/health", json={"internet": False, "lte": {"state": "unavailable", "modem_gone": True, "rssi": -80},
+                                           "lan": {"problem": None}, "net": {"default_dev": "eth0", "dns": ["1.1.1.1"]}, "actions": ["usb_reset"]})
+    rows = real.net_history(60)
+    assert len(rows) == 1 and rows[0]["internet"] is False and rows[0]["modem_gone"] is True and rows[0]["gw_dev"] == "eth0"
+    assert rows[0]["dns"] == "1.1.1.1" and rows[0]["action"] == "usb_reset" and rows[0]["rssi"] == -80
+    real.close()

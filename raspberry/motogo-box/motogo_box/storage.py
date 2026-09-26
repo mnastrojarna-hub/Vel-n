@@ -30,6 +30,7 @@ EVENTS_MAX = 5000            # ring buffer událostí
 OUTBOX_MAX_ATTEMPTS = 50     # po více pokusech se položka zahodí
 OUTBOX_MAX = 3000            # strop fronty: nad ním se zahazují nejstarší log_event (audit dveří zůstává)
 PIN_ATTEMPTS_KEEP_S = 7 * 24 * 3600   # starší pokusy se průběžně mažou
+NET_HISTORY_KEEP_S = 7 * 24 * 3600    # vzorky stavu sítě (health á 30 s) — historie pro diagnostiku (2026-09-26)
 KV_LOCKOUT_UNTIL = "pin_lockout_until"
 
 _SCHEMA = """
@@ -68,6 +69,20 @@ CREATE TABLE IF NOT EXISTS events (
     message     TEXT NOT NULL DEFAULT '',
     detail_json TEXT NOT NULL DEFAULT '{}'
 );
+CREATE TABLE IF NOT EXISTS net_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          REAL NOT NULL,
+    internet    INTEGER,
+    lte_state   TEXT,
+    rssi        INTEGER,
+    rsrp        REAL,
+    modem_gone  INTEGER,
+    lan_problem TEXT,
+    gw_dev      TEXT,
+    dns         TEXT,
+    action      TEXT
+);
+CREATE INDEX IF NOT EXISTS net_history_ts ON net_history (ts);
 CREATE TABLE IF NOT EXISTS protocol_queue (
     booking_id   TEXT PRIMARY KEY,
     payload_json TEXT NOT NULL,
@@ -333,6 +348,42 @@ class Storage:
             }
             for r in rows
         ]
+
+    # ─── historie sítě (health vzorky á 30 s, 7 dní) ────────────────────────
+    def net_sample_add(self, sample: dict) -> None:
+        """Vzorek z health payloadu (webserver /api/health) — internet, LTE, LAN, brána, DNS, akce obnovy."""
+        lte = sample.get("lte") if isinstance(sample.get("lte"), dict) else {}
+        lan = sample.get("lan") if isinstance(sample.get("lan"), dict) else {}
+        net = sample.get("net") if isinstance(sample.get("net"), dict) else {}
+        acts = sample.get("actions") if isinstance(sample.get("actions"), list) else []
+        def _num(v):
+            try:
+                return None if v is None else float(v)
+            except (TypeError, ValueError):
+                return None
+        with self._lock:
+            self._db.execute(
+                "INSERT INTO net_history (ts, internet, lte_state, rssi, rsrp, modem_gone, lan_problem, gw_dev, dns, action) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (time.time(), None if sample.get("internet") is None else int(bool(sample.get("internet"))),
+                 None if lte.get("state") is None else str(lte.get("state")), _num(lte.get("rssi")), _num(lte.get("rsrp")),
+                 None if lte.get("modem_gone") is None else int(bool(lte.get("modem_gone"))),
+                 None if lan.get("problem") is None else str(lan.get("problem")),
+                 None if net.get("default_dev") is None else str(net.get("default_dev")),
+                 ",".join(str(x) for x in (net.get("dns") or [])) or None,
+                 ",".join(str(a) for a in acts) or None))
+            self._db.execute("DELETE FROM net_history WHERE ts < ?", (time.time() - NET_HISTORY_KEEP_S,))
+
+    def net_history(self, since_s: float = 24 * 3600, limit: int = 20000) -> list[dict]:
+        """Vzorky za posledních `since_s` sekund, nejstarší první."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT ts, internet, lte_state, rssi, rsrp, modem_gone, lan_problem, gw_dev, dns, action FROM net_history "
+                "WHERE ts >= ? ORDER BY ts ASC LIMIT ?", (time.time() - float(since_s), int(limit))).fetchall()
+        return [{"ts": float(r["ts"]), "internet": None if r["internet"] is None else bool(r["internet"]),
+                 "lte_state": r["lte_state"], "rssi": r["rssi"], "rsrp": r["rsrp"],
+                 "modem_gone": None if r["modem_gone"] is None else bool(r["modem_gone"]), "lan_problem": r["lan_problem"],
+                 "gw_dev": r["gw_dev"], "dns": r["dns"], "action": r["action"]} for r in rows]
 
     def events_count(self) -> int:
         with self._lock:

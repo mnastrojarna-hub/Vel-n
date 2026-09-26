@@ -38,8 +38,8 @@ log = logging.getLogger("motogo.diagnostics")
 
 KV_LAST = "last_diagnostics"
 KV_CAMERAS = "diag_cameras"
-NETWORK_STEPS = ("system", "interfaces", "lte", "internet", "supabase", "devices", "provision", "lan", "arp", "summary")
-STEPS = ("system", "interfaces", "lte", "internet", "supabase", "devices", "provision", "software", "config", "zones", "power",
+NETWORK_STEPS = ("system", "interfaces", "lte", "internet", "supabase", "devices", "provision", "netlog", "lan", "arp", "summary")
+STEPS = ("system", "interfaces", "lte", "internet", "supabase", "devices", "provision", "netlog", "software", "config", "zones", "power",
          "cameras", "lan", "arp", "summary")
 FULL_ONLY = ("software", "config", "zones", "power", "cameras")
 MODES = ("full", "network")
@@ -175,7 +175,8 @@ class NetworkDiagnostics:
         table: list[tuple[str, Any]] = [
             ("system", self._system), ("interfaces", self._interfaces), ("lte", self._lte),
             ("internet", self._internet), ("supabase", self._supabase), ("devices", self._devices),
-            ("provision", self._delegate(diag_steps.provision)), ("software", self._delegate(diag_steps.software)), ("config", self._delegate(diag_steps.config)),
+            ("provision", self._delegate(diag_steps.provision)), ("netlog", self._delegate(diag_steps.netlog)),
+            ("software", self._delegate(diag_steps.software)), ("config", self._delegate(diag_steps.config)),
             ("zones", self._delegate(diag_steps.zones)), ("power", self._delegate(diag_steps.power)),
             ("cameras", self._delegate(diag_steps.cameras)), ("lan", self._lan), ("arp", self._arp),
         ]

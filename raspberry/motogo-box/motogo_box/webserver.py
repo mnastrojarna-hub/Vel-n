@@ -337,6 +337,12 @@ class WebServer:
         prev = self.ctrl.health.get("internet") if isinstance(self.ctrl.health, dict) else None
         self.ctrl.health = body
         await self._internet_transition(prev, body)
+        add = getattr(self.storage, "net_sample_add", None)     # historie sítě pro diagnostiku (7 dní, á 30 s)
+        if add is not None:
+            try:
+                add(body)
+            except Exception:  # noqa: BLE001
+                log.exception("net_history: uložení vzorku selhalo")
         # CONTRACT §15: obnova LTE (reconnect/usb_reset → LTE_RESET, reboot → REBOOT) musí zůstat
         # v kiosk_logs, ne jen ve 30s snapshotu health.actions (reboot health posílá PŘED restartem).
         actions = body.get("actions")

@@ -640,7 +640,7 @@ enginu (před startem) `{mode, playing_zone:null, playing_zones:[], channels:[],
 players:{}, library:null}`. Velín `BranchMusicParts.jsx` (`UnitSyncStatus`) z `library` kreslí chip „Jednotka: n/m staženo /
 stahuje k / k selhalo“ a z `mode` chip režimu; `panel.js` (servisní panel Hudba) bere hrající zóny z `playing_zones` / `zone.music`.
 
-`diagnostics` = `NetworkDiagnostics.status()` (§24): `mode` full|network, `steps` = pořadí kroků dle režimu (`STEPS` / `NETWORK_STEPS`),
+`diagnostics` = `NetworkDiagnostics.status()` (§24): `mode` full|network, `steps` = pořadí kroků dle režimu (`STEPS` / `NETWORK_STEPS`; **krok `netlog` 2026-09-26 v obou režimech: `report.netlog {samples_24h, samples_7d, outages_24h[], outages_7d[], downtime_*_s, modem_gone_24h, events[], series_24h[], logs{nm_connections, nm_devices, nm_lan_profile, nm_lte_profile, ip_route, ip_addr, resolved, mmcli, usb, journal_nm, journal_mm, journal_health, journal_kernel_usb}, gw_now}` z `storage.net_history` (vzorky `/api/health` á 30 s, 7 dní) — protokol sekce „Historie sítě“, Velín `BranchRpiDiagNetlog.jsx`**),
 `step_title` ze `STEP_TITLES`, `last` = souhrn posledního reportu (`problems`/`warnings` = počty, `zones_*` jen u full). Velín
 (`BranchRpiDiagnostics.jsx`) z něj během čekání na report ukazuje „krok X (n/m)“; displej průběh „(n/m, s)“.
 
