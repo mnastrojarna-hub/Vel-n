@@ -167,16 +167,42 @@ def _lte(r: dict) -> dict:
     if not isinstance(lte, dict):
         return section("lte", "LTE modem", [item("lte.step", "LTE modem", "skip", None, "Krok neproběhl.")])
     st = lte.get("state")
-    ok = st == "connected"
-    val = ", ".join(str(x) for x in (lte.get("operator"), lte.get("signal_quality") and f"signál {lte.get('signal_quality')} %",
-                                     lte.get("access_tech")) if x)
-    msg = "" if ok else "ModemManager nevidí žádný modem (mmcli) — LTE nedostupné." if st == "unavailable" else \
-        f"LTE modem není připojen (stav: {st}, NM: {lte.get('nm_state')})."
     inet_ok = bool((r.get("internet") or {}).get("ok")) if isinstance(r.get("internet"), dict) else False
-    no_modem = st == "unavailable" and inet_ok        # pobočka bez LTE modemu, internet kabelem — jen upozornění
-    if no_modem:
-        msg = "Žádný LTE modem (mmcli) — internet jde jinou cestou (kabel/Wi-Fi); bez záložního LTE."
-    it = [item("lte.state", "Stav LTE modemu", "ok" if ok else "warn" if no_modem else "fail", val or st, msg, hint("lte"))]
+    mode, usb_mode, ipv4, iface = lte.get("mode"), lte.get("usb_mode"), lte.get("ipv4"), lte.get("iface")
+    it: list[dict] = []
+    if mode == "rndis":
+        # RNDIS (2026-09-26): ModemManager neběží schválně — zdraví = rozhraní usb0 má adresu (+ modem s PID 9011 na USB)
+        ok = bool(ipv4)
+        it.append(item("lte.state", "Stav LTE modemu (RNDIS)", "ok" if ok else "fail",
+                       f"{iface} {ipv4}" if ok else f"{iface} bez adresy",
+                       "" if ok else "Modem je v režimu RNDIS, ale síťová karta modemu nemá IPv4 — datové spojení nenavázáno.",
+                       None if ok else hint("rndis_no_ip")))
+    else:
+        ok = st == "connected"
+        val = ", ".join(str(x) for x in (lte.get("operator"), lte.get("signal_quality") and f"signál {lte.get('signal_quality')} %",
+                                         lte.get("access_tech")) if x)
+        if ok:
+            msg, status, h = "", "ok", None
+        elif st == "unavailable" and usb_mode is not None:
+            # modem NA USB JE, ale ModemManager ho nevidí = mrtvý QMI kanál (kernel -71) — vždy chyba, i když internet jde Wi-Fi
+            msg, status, h = ("Modem je na USB (PID 9001), ale ModemManager ho nevidí — QMI kanál je mrtvý (známá závada "
+                              "SIM7600, kernel -71). Přepněte modem do RNDIS."), "fail", hint("modem_gone")
+        elif st == "unavailable":
+            msg = "Žádný LTE modem (ModemManager ani USB)" + (" — internet jde jinou cestou (Wi-Fi při testu)." if inet_ok else ".")
+            status, h = ("warn" if inet_ok else "fail"), hint("lte")
+        else:
+            msg, status, h = f"LTE modem není připojen (stav: {st}, NM: {lte.get('nm_state')}).", "fail", hint("lte")
+        it.append(item("lte.state", "Stav LTE modemu", status, val or st, msg, h))
+    if usb_mode is not None or mode is not None:
+        usb_txt = {"qmi": "PID 9001 (QMI)", "rndis": "PID 9011 (RNDIS)"}.get(usb_mode, "NENÍ na USB")
+        mismatch = usb_mode is not None and mode is not None and usb_mode != mode
+        it.append(item("lte.usb", "Modem na USB", "fail" if usb_mode is None else "warn" if mismatch else "ok", usb_txt,
+                       "Modem není vidět na USB — kabel, napájení modemu nebo USB port." if usb_mode is None else
+                       f"Modem se na USB hlásí jako {usb_mode}, konfigurace jednotky má {mode} — přepnutí ještě neproběhlo "
+                       "nebo skončilo v půlce." if mismatch else "",
+                       hint("modem_usb_missing") if usb_mode is None else hint("lte_mode_mismatch") if mismatch else None))
+        it.append(item("lte.mode", "Režim modemu", "ok", f"{mode or '?'}" + (f" · ModemManager {'běží' if lte.get('mm_active') else 'neběží'}"
+                                                                          if lte.get("mm_active") is not None else ""), ""))
     # Zamčená SIM (PIN/PUK) — vlastní řádek, protože z „state: searching" ji nikdo nepozná a modem
     # se o PIN hlásí až po restartu (Pohořelice 2026-09-19: LTE po rebootu nenaskočilo kvůli PINu).
     err, unlock = lte.get("error"), lte.get("unlock_required")
@@ -495,6 +521,8 @@ def build_summary(report: dict, protocol: list[dict]) -> dict:
     return {"ok": not problems, "problems": problems, "warnings": warnings, "checks": checks, "mode": r.get("mode") or "network",
             "zones_total": zones_total, "zones_tested": sum(1 for z in zs if z.get("tested")), "outdoor": _outdoor().summary(r),
             "zones_ok": sum(1 for z in zs if not any(f.get("status") == "fail" for f in z.get("findings") or [])),
-            "hosts": len(lan.get("hosts") or []), "internet": bool(inet.get("ok")), "lte": lte.get("state"),
+            "hosts": len(lan.get("hosts") or []), "internet": bool(inet.get("ok")),
+            # RNDIS: mmcli nic neví — stav podle adresy rozhraní modemu (usb0)
+            "lte": ("connected" if lte.get("ipv4") else "no_address") if lte.get("mode") == "rndis" else lte.get("state"),
             "devices_ok": sum(1 for d in r.get("devices") or [] if d.get("reachable")), "devices_total": len(r.get("devices") or []),
             "sections": {s.get("key"): s.get("status") for s in protocol}}

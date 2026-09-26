@@ -336,6 +336,30 @@ def test_lte_without_modem_is_warning_when_internet_ok():
     assert sec["items"][0]["status"] == "fail"
 
 
+def test_lte_modes_usb_and_rndis():
+    # QMI: modem NA USB je, MM ho nevidí → chyba i při internetu přes Wi-Fi (mrtvý QMI kanál)
+    sec = dp._lte({"lte": {"state": "unavailable", "mode": "qmi", "usb_mode": "qmi", "iface": "wwan0", "ipv4": None,
+                           "mm_active": True}, "internet": {"ok": True}})
+    by = {i["id"]: i for i in sec["items"]}
+    assert by["lte.state"]["status"] == "fail" and "ModemManager ho nevidí" in by["lte.state"]["message"]
+    assert by["lte.usb"]["status"] == "ok" and "9001" in by["lte.usb"]["value"]
+    # modem vůbec není na USB
+    sec = dp._lte({"lte": {"state": "unavailable", "mode": "qmi", "usb_mode": None, "iface": "wwan0", "ipv4": None},
+                   "internet": {"ok": True}})
+    by = {i["id"]: i for i in sec["items"]}
+    assert by["lte.state"]["status"] == "warn" and by["lte.usb"]["status"] == "fail" and "kabel" in (by["lte.usb"]["hint"] or "")
+    # RNDIS s adresou = OK bez ohledu na mmcli; bez adresy = fail s hintem; nesoulad režimů = warn
+    sec = dp._lte({"lte": {"state": "unavailable", "mode": "rndis", "usb_mode": "rndis", "iface": "usb0",
+                           "ipv4": "192.168.225.30", "mm_active": False}, "internet": {"ok": True}})
+    by = {i["id"]: i for i in sec["items"]}
+    assert by["lte.state"]["status"] == "ok" and "usb0 192.168.225.30" == by["lte.state"]["value"]
+    sec = dp._lte({"lte": {"state": "unavailable", "mode": "rndis", "usb_mode": "qmi", "iface": "usb0", "ipv4": None},
+                   "internet": {"ok": False}})
+    by = {i["id"]: i for i in sec["items"]}
+    assert by["lte.state"]["status"] == "fail" and "QCRMCALL" in (by["lte.state"]["hint"] or "")
+    assert by["lte.usb"]["status"] == "warn" and "přepnutí" in by["lte.usb"]["message"].lower()
+
+
 def test_pin2_is_not_a_sim_lock_and_unused_roles_are_skipped():
     sec = dp._lte({"lte": {"state": "connected", "unlock_required": "sim-pin2", "unlock_retries": 3}, "internet": {"ok": True}})
     lock = next(i for i in sec["items"] if i["id"] == "lte.sim_lock")

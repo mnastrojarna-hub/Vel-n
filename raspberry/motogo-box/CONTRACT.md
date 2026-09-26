@@ -1541,3 +1541,11 @@ z Velína protokol nespouští ani nevyžadují (`booking_id=None`). (8) Aktivac
 i když ho edge později (nebo hned) trvale odmítne — náprava = oprava na serveru + Velín „Znovu synchronizovat“ (`retry_failed`).
 
 Endpointy §16, snapshot §14, příkaz §13, události §15, storage §7, RPC/edge §22, testy §21 (`test_handover.py`).
+
+
+**Diagnostika — krok `lte` (2026-09-26, RNDIS-aware):** report `lte` nese kromě polí z `mmcli`/`nmcli` i `mode`
+(`health.lte_mode` z config.yaml), `usb_mode` (`qmi` = PID 1e0e:9001 na USB, `rndis` = 9011, `null` = modem na USB není),
+`iface` + `ipv4` (wwan0/usb0), `mm_active`. Protokol: v RNDIS je stav OK podle adresy `usb0` (mmcli se ignoruje; bez adresy
+fail `rndis_no_ip`); v QMI je `unavailable` s modemem NA USB **fail** („MM ho nevidí — mrtvý QMI kanál“, hint `modem_gone`),
+bez modemu na USB fail/warn dle internetu; řádek „Modem na USB“ (fail bez modemu, warn při nesouladu režimů `lte_mode_mismatch`)
+a „Režim modemu“. Souhrn `lte` = `connected`/`no_address` v RNDIS.
