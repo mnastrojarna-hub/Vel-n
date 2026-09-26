@@ -64,6 +64,8 @@ class EventKind(str, Enum):
     STARTUP = "STARTUP"
     CONFIG_PROBLEM = "CONFIG_PROBLEM"
     LTE_RESET = "LTE_RESET"
+    INTERNET_DOWN = "INTERNET_DOWN"              # výpadek internetu (health sonda; z outboxu dorazí po obnově)
+    INTERNET_UP = "INTERNET_UP"                  # obnova internetu + délka výpadku (detail.duration_s)
     REBOOT = "REBOOT"
     REMOTE_COMMAND = "REMOTE_COMMAND"
     RPC_ERROR = "RPC_ERROR"                      # ověření kódu selhalo na straně serveru/párování (ne neplatný PIN)

@@ -17,4 +17,17 @@ for a in "${ADDRS[@]}"; do
     ip addr replace "$a" dev "$IFACE" 2>/dev/null && logger -t motogo-lan-addr "$IFACE: zajištěna adresa $a ($action)"
   fi
 done
+# Záložní brána kabelem (2026-09-26): router na switchi modulů z HW mapy Velína (hardware.network.lan_gateway →
+# controller zapíše /var/lib/motogo/lan_gateway). Drží default route eth0 metrika 50 i bez DHCP; LTE (metrika 100)
+# zůstává záloha. `onlink` = funguje i když router není v podsíti eth0. Prázdný/chybějící soubor = trasu odebrat.
+GW_FILE="${MOTOGO_LAN_GATEWAY_FILE:-/var/lib/motogo/lan_gateway}"
+GW="$( [[ -r "$GW_FILE" ]] && head -n1 "$GW_FILE" | tr -d '[:space:]' || true )"
+if [[ "$GW" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  if ! ip -4 route show default dev "$IFACE" | grep -q "via $GW "; then
+    ip route replace default via "$GW" dev "$IFACE" metric 50 onlink 2>/dev/null \
+      && logger -t motogo-lan-addr "$IFACE: záložní brána $GW (metrika 50, $action)"
+  fi
+elif ip -4 route show default dev "$IFACE" metric 50 2>/dev/null | grep -q .; then
+  ip route del default dev "$IFACE" metric 50 2>/dev/null && logger -t motogo-lan-addr "$IFACE: záložní brána odebrána"
+fi
 exit 0

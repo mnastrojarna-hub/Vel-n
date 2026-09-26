@@ -352,3 +352,21 @@ def test_validate_outdoor_light_vs_channel_relay():
     hw = _outdoor({"zone": 9, "light": light}, mode="multi", outputs=outputs,
                   channels={"chodba": {"out": "out10", "dev": "wav645", "coil": 10}})     # R11 rezerva → OK
     assert validate_outdoor(hw) == []
+
+
+def test_network_lan_gateway_parsed_and_validated():
+    d = _brno()
+    d["network"] = {"lan_gateway": "192.168.1.2"}
+    hw = HardwareConfig.from_dict(d)
+    assert hw.network.lan_gateway == "192.168.1.2" and not [p for p in validate_hardware(hw) if "lan_gateway" in p]
+    d["network"] = {"lan_gateway": "router"}
+    assert any("lan_gateway" in p for p in validate_hardware(HardwareConfig.from_dict(d)))
+    assert HardwareConfig.from_dict(_brno()).network.lan_gateway == ""
+
+
+def test_lan_gateway_file_roundtrip(tmp_path):
+    from motogo_box import lan_gateway as lg
+    assert lg.write_gateway(str(tmp_path), "192.168.1.2") is True
+    assert open(tmp_path / "lan_gateway").read().strip() == "192.168.1.2"
+    assert lg.write_gateway(str(tmp_path), "192.168.1.2") is False          # beze změny
+    assert lg.write_gateway(str(tmp_path), "nesmysl") is True and not (tmp_path / "lan_gateway").exists()

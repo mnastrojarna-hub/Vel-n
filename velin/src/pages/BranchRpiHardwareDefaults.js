@@ -59,6 +59,7 @@ export const BRNO_DEFAULT_HARDWARE = {
     shuffle: true,
   },
   signal: { brightness: 100, blink_ms: 500, pulse_ms: 1500, transition_s: 0.2 },
+  network: { lan_gateway: '' },   // záložní brána kabelem (router na switchi modulů) — pobočka ji vyplní, prázdné = jen DHCP/LTE
   outdoor: BRNO_DEFAULT_OUTDOOR,
 }
 
@@ -193,6 +194,12 @@ export const HW_SECTIONS = [
       hint: 'Jen režim „selector“: jméno zvukové karty pro přehrávač, např. „alsa/plughw:CARD=Box1“. Seznam získáte na jednotce příkazem „aplay -L“. Prázdné = výchozí výstup systému (na Raspberry je to HDMI — pak z reproduktorů nic nehraje). V režimu „multi“ se zařízení nastavuje u každého výstupu zvlášť.' },
     { key: 'shuffle', label: 'Náhodné pořadí skladeb', type: 'bool',
       hint: 'Zapnuto = skladby se přehrávají zamíchaně, takže zákazník neslyší pořád stejnou písničku jako první. Vypnuto = hraje se v pořadí nastaveném v bloku „Hudba pobočky“.' },
+  ] },
+  { key: 'network', title: 'Síť pobočky',
+    hint: 'Internet jednotky: přednostně kabel z routeru na switchi modulů (DHCP), LTE modem je záloha. Když router DHCP nedává nebo LTE vypadne, drží jednotka bránu z tohoto pole natvrdo — pobočka tak nezůstane bez internetu.',
+    fields: [
+    { key: 'lan_gateway', label: 'Záložní brána kabelem (IP routeru)', unit: 'prázdné = jen DHCP/LTE', type: 'text',
+      hint: 'IP adresa routeru s internetem, který je zapojený do stejného switche jako moduly (Velké Němčice: 192.168.1.2). Jednotka na ni nastaví výchozí trasu s předností před LTE a při výpadku ji sama obnoví. Prázdné = brána jen z DHCP nebo LTE.' },
   ] },
   { key: 'signal', title: 'Signalizace (Shelly)',
     hint: 'Barevná světla u kójí (Shelly RGBWW): červená = zamčeno, zelená = otevřeno / probíhá relace, blikání = porucha nebo překročený čas.',

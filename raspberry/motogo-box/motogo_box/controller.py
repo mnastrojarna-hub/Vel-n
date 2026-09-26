@@ -13,7 +13,7 @@ import json
 import logging
 import time
 
-from . import commands, controller_codes as cc, controller_hw as chw, controller_loops as loops, sdnotify, shell
+from . import commands, controller_codes as cc, controller_hw as chw, controller_loops as loops, lan_gateway, sdnotify, shell
 from .audio import AudioController
 from .audio_build import audio_signature, build_audio, make_music_library
 from .config import WARNING_PREFIX, HardwareConfig, LocalConfig, blocking_problems, validate_hardware
@@ -110,6 +110,7 @@ class BoxController:
         self.config_problems = extra_problems + validate_hardware(self.hardware)
         for p in self.config_problems:
             log.log(logging.WARNING if p.startswith(WARNING_PREFIX) else logging.ERROR, "Konfigurace: %s", p)
+        await lan_gateway.apply(self.local.paths.data_dir, self.hardware.network.lan_gateway)
         await self._build_runtime()
         await self._hw_startup()
         self.ready = True
@@ -375,6 +376,7 @@ class BoxController:
             self.music.start_sync(list(music.get("tracks") or []) if isinstance(music, dict) else [])
         self.hardware, self.config_problems, self._hw_signature = hw, problems, sig
         self.pin_guard.sec = hw.security
+        await lan_gateway.apply(self.local.paths.data_dir, hw.network.lan_gateway)
         if changed:
             log.warning("Změna zařízení/zón/pollingu — přestavuji HW vrstvu")
             await self._rebuild()

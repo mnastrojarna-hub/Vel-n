@@ -64,6 +64,7 @@ HISTORY_MAX = 200            # položek historie akcí (24 h) v /var/lib/motogo/
 SIGNAL_SETUP_RATE_S = 30
 LAN_UP_WAIT_S = 20           # `nmcli -w 20 con up motogo-lan` — hodnota MUSÍ sedět s aliasem v motogo-sudoers
 LAN_ADDR_DISPATCHER = "/etc/NetworkManager/dispatcher.d/50-motogo-lan-addr"   # tamtéž (argumenty `eth0 manual`)
+GATEWAY_FILE = "/var/lib/motogo/lan_gateway"                                  # lan_gateway.py (záložní brána kabelem)
 KILL_WAIT_S = 5.0            # po timeoutu: jak dlouho čekat na konec (ne)zabitého potomka
 
 RunCmd = Callable[..., Awaitable[tuple[int, str]]]
@@ -253,6 +254,7 @@ class HealthMonitor:
         self._tcp_probe = tcp_probe
         self._interfaces = interfaces      # None = `net_scan.interfaces` (lazy import, viz `_list_interfaces`)
         self._lan_try_at: float | None = None      # poslední pokus o `nmcli con up` (rate limit)
+        self._gw_try_at: float | None = None       # poslední spuštění dispečeru kvůli záložní bráně (rate limit)
         self._lan_problem: str | None = None       # poslední hlášený problém — log jen při ZMĚNĚ, ne každých 30 s
         self.policy = LtePolicy(cfg, clock)
         self.policy.skip_modem_reset = self.rndis
@@ -433,6 +435,19 @@ class HealthMonitor:
         from . import net_scan
         return await net_scan.interfaces()
 
+    async def _gateway_kick(self) -> None:
+        """Internet nejde → nechat dispečer znovu aplikovat záložní bránu kabelem (lan_gateway.py), nejvýš 1× za 120 s.
+        Bez souboru s bránou (pobočka jen s LTE) nic nedělá."""
+        if not os.path.exists(GATEWAY_FILE):
+            return
+        now = self.clock()
+        if self._gw_try_at is not None and 0 <= now - self._gw_try_at < 120:
+            return
+        self._gw_try_at = now
+        rc, out = await self.run_cmd("sudo", "-n", LAN_ADDR_DISPATCHER, self.cfg.lan_interface, "manual", timeout=15)
+        if rc != 0:
+            log.warning("záložní brána: dispečer rc=%s: %s", rc, (out or "").strip()[:200])
+
     async def _lan_recover(self) -> str | None:
         """`nmcli con up <lan_connection>`, nejvýš jednou za `cfg.lan_recover_s` (0 = vypnuto)."""
         every = int(self.cfg.lan_recover_s or 0)
@@ -557,6 +572,8 @@ class HealthMonitor:
                    "actions": actions}
         for action in actions:
             await self.perform(action, payload)
+        if not internet:
+            await self._gateway_kick()
         if "reboot" not in actions:
             await self.post_health(payload)
         sd_notify("WATCHDOG=1")

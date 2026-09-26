@@ -313,14 +313,15 @@ async def test_health_actions_emit_lte_reset_and_reboot_events(env):
     r = await client.post("/api/health", json={"internet": False, "lte": {"rssi": -90},
                                                "actions": ["reconnect", "usb_reset", "reboot", "x"]})
     assert (await r.json())["ok"] is True
-    assert [e.kind for e in ctrl.events] == [EventKind.LTE_RESET, EventKind.LTE_RESET, EventKind.REBOOT]
-    assert all(e.level == "warn" for e in ctrl.events)
-    assert ctrl.events[0].detail == {"source": "health", "action": "reconnect", "lte": {"rssi": -90}}
-    assert ctrl.events[2].message == "LTE obnova: reboot"
+    # první hlášení „internet False“ = navíc INTERNET_DOWN (2026-09-26), akce obnovy za ním
+    assert [e.kind for e in ctrl.events] == [EventKind.INTERNET_DOWN, EventKind.LTE_RESET, EventKind.LTE_RESET, EventKind.REBOOT]
+    assert all(e.level == "warn" for e in ctrl.events[1:])
+    assert ctrl.events[1].detail == {"source": "health", "action": "reconnect", "lte": {"rssi": -90}}
+    assert ctrl.events[3].message == "LTE obnova: reboot"
     ctrl.events.clear()
     for body in ({"internet": True}, {"internet": True, "actions": []}, {"internet": True, "actions": "x"}):
         assert (await client.post("/api/health", json=body)).status == 200
-    assert ctrl.events == []
+    assert [e.kind for e in ctrl.events] == [EventKind.INTERNET_UP]     # obnova po výpadku výše, pak beze změny nic
 
 
 async def test_websocket_state_and_push_on_change(env):
@@ -442,3 +443,21 @@ async def test_state_timings_include_handover_idle(env):
     st = await (await client.get("/api/state")).json()
     assert st["timings"] == {"pin_entry_timeout_s": 20, "door_open_timeout_s": 30, "maximum_session_s": 600,
                              "handover_idle_s": 120}
+
+
+async def test_health_internet_transitions_emit_events(env):
+    """Výpadek/obnova internetu = INTERNET_DOWN (error) / INTERNET_UP (warn, duration_s); beze změny nic."""
+    client, ctrl, *_ = env
+    await client.post("/api/health", json={"internet": True, "lte": {"state": "connected"}})
+    assert ctrl.events == []
+    await client.post("/api/health", json={"internet": False, "lte": {"state": "unavailable", "modem_gone": True}, "lan": {"problem": None}})
+    await client.post("/api/health", json={"internet": False})
+    assert [e.kind for e in ctrl.events] == [EventKind.INTERNET_DOWN]
+    assert ctrl.events[0].level == "error" and ctrl.events[0].detail["modem_gone"] is True
+    await client.post("/api/health", json={"internet": True, "lte": {"state": "connected"}})
+    assert [e.kind for e in ctrl.events][-1] == EventKind.INTERNET_UP
+    assert ctrl.events[-1].level == "warn" and isinstance(ctrl.events[-1].detail["duration_s"], int)
+    ctrl.events.clear()
+    ctrl.health = {}
+    await client.post("/api/health", json={"internet": False})      # první hlášení po startu bez internetu = výpadek
+    assert [e.kind for e in ctrl.events] == [EventKind.INTERNET_DOWN]

@@ -334,7 +334,9 @@ class WebServer:
         body = await _read_body(request)
         if not body:
             return _err("bad_request")
+        prev = self.ctrl.health.get("internet") if isinstance(self.ctrl.health, dict) else None
         self.ctrl.health = body
+        await self._internet_transition(prev, body)
         # CONTRACT §15: obnova LTE (reconnect/usb_reset → LTE_RESET, reboot → REBOOT) musí zůstat
         # v kiosk_logs, ne jen ve 30s snapshotu health.actions (reboot health posílá PŘED restartem).
         actions = body.get("actions")
@@ -345,6 +347,29 @@ class WebServer:
                                            detail={"source": "health", "action": action,
                                                    "lte": body.get("lte")}))
         return _json({"ok": True})
+
+    async def _internet_transition(self, prev, body: dict) -> None:
+        """Výpadek/obnova internetu = událost do kiosk_logs (2026-09-26): INTERNET_DOWN při přechodu na False
+        (i při prvním hlášení po startu), INTERNET_UP s délkou výpadku. Outbox ji doručí po obnově — pobočka
+        bez internetu musí být ve Velíně vidět zpětně, ne jen v okamžitém stavu health."""
+        cur = body.get("internet")
+        if not isinstance(cur, bool) or cur == prev:
+            return
+        lte = body.get("lte") if isinstance(body.get("lte"), dict) else {}
+        lan = body.get("lan") if isinstance(body.get("lan"), dict) else {}
+        ctx = {"source": "health", "lte_state": lte.get("state"), "modem_gone": lte.get("modem_gone"),
+               "lte_error": lte.get("error"), "lan": lan.get("problem")}
+        if not cur:
+            self.ctrl.internet_down_at = time.time()
+            await self.ctrl.emit(Event(kind=EventKind.INTERNET_DOWN, level="error", success=False,
+                                       message="Výpadek internetu (LTE i kabel)", detail=ctx))
+        elif prev is False:
+            since = getattr(self.ctrl, "internet_down_at", None)
+            dur = round(time.time() - since) if since else None
+            self.ctrl.internet_down_at = None
+            await self.ctrl.emit(Event(kind=EventKind.INTERNET_UP, level="warn",
+                                       message="Internet obnoven" + (f" po {dur} s" if dur is not None else ""),
+                                       detail={**ctx, "duration_s": dur}))
 
     async def _pin(self, request: web.Request) -> web.Response:
         body = await _read_body(request)
