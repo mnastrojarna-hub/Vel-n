@@ -324,7 +324,8 @@ async def config(diag: "NetworkDiagnostics", report: dict) -> dict:
                 dups.append(f"{ref} sdílí zóna {seen[key][0]} ({seen[key][1]}) a zóna {z.number} ({role})")
             seen.setdefault(key, (z.number, role))
         zones.append({"zone": z.number, "label": z.display_name, "kind": z.kind, "door_id": z.door_id,
-                      "box_number": z.box_number, "roles": roles, "missing": [r for r in ROLES if roles[r] is None]})
+                      "box_number": z.box_number, "roles": roles, "missing": [r for r in ROLES if roles[r] is None],
+                      "light_until_moto_code": bool(z.hw.light_until_moto_code)})   # šatna: světlo drží do kódu motorky (2026-09-27 diag)
     doors_without_hw: list[str] = []
     remote = _try(lambda: ctrl.storage.kv_get("remote_config"))
     if hw.source == "remote" and isinstance(remote, dict):

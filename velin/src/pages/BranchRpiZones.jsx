@@ -327,6 +327,14 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor }) {
         {state === 'FAULT' && z.fault != null && <span> — {FAULT_CZ[txt(z.fault)] || txt(z.fault)}</span>}
         {arr(z.io_problems).length > 0 && <span> ({arr(z.io_problems).map(txt).join(', ')})</span>}
       </div>
+      {z.kind === 'accessories' && z.light_until_moto_code != null && (
+        <div className="text-[11px] mt-0.5" style={{ color: z.light_until_moto_code ? '#1a8a18' : '#b45309' }}
+          title={z.light_until_moto_code
+            ? 'Světlo šatny po zavření dveří svítí dál a zhasne ho až kód motorky (pojistka: maximální doba relace).'
+            : 'Světlo šatny zhasne po zavření dveří jako v kóji. Má-li svítit do kódu motorky: mapování dveří → Šatna → Světlo = „Šatna — svítí do kódu motorky“.'}>
+          světlo: {z.light_until_moto_code ? 'svítí do kódu motorky' : 'zhasne po zavření — nastavte „svítí do kódu motorky“'}
+        </div>
+      )}
       {z.contact_ref != null && (
         <div className="text-[11px] mt-0.5 flex items-center gap-1 flex-wrap" style={{ color: '#1a2e22' }}
           title="Syrová hodnota dveřního vstupu z modulu (1 = kontakt sepnut mezi DI a DGND, 0 = rozpojeno; svorka COM na Relay (B) musí zůstat VOLNÁ) a úroveň, kterou program bere jako zavřeno (má být 1 — s 0 vypadá přerušený kabel jako zavřené dveře). „Změn od startu“ = kolikrát se vstup od startu jednotky změnil; 0 po otevření zámku = signál kontaktu nejde do modulu.">

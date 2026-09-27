@@ -276,6 +276,7 @@ class ZoneStatus:
     contact_changes: int = 0
     contact_last_change_s: float | None = None
     unlocks_since_start: int = 0
+    light_until_moto_code: bool = False   # šatna: světlo drží po zavření až do kódu motorky (Velín dlaždice, 2026-09-27)
 
     def to_dict(self) -> dict:
         return asdict(self)

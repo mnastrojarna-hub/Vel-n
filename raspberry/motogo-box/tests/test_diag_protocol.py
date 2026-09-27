@@ -498,3 +498,15 @@ def test_cdp_row_states():
     miss = row({"port": 9222, "listening": False, "loopback_only": None, "addrs": [], "browser": None})
     assert miss["status"] == "fail" and "motogo-ui" in miss["hint"]
     assert row({"port": 9222, "listening": None, "loopback_only": None, "addrs": [], "browser": None})["status"] == "skip"
+
+
+def test_locker_light_flag_is_reported():
+    """Šatna bez `light_until_moto_code` → varování v Konfiguraci pobočky (světlo by zhaslo po zavření); s příznakem nic."""
+    def cfg(flag):
+        return {"mode": "full", "config": {"zones_total": 1, "zones": [{"zone": 8, "label": "Šatna", "kind": "accessories", "roles": {},
+                                                                     "missing": [], "light_until_moto_code": flag}],
+                                          "devices": {}, "timings": {}, "timings_problems": []}}
+    ids = {i["id"]: i for s in dp.build_protocol(cfg(False)) for i in s["items"]}
+    assert ids["config.zone.8.light"]["status"] == "warn" and "kódu motorky" in ids["config.zone.8.light"]["hint"]
+    ids = {i["id"]: i for s in dp.build_protocol(cfg(True)) for i in s["items"]}
+    assert "config.zone.8.light" not in ids
