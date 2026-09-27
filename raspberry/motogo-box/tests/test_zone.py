@@ -148,6 +148,7 @@ async def test_full_session_pass():
     assert (ok, reason) == (True, "ok")
     assert r.zc.state == ZoneState.WAITING_FOR_OPEN and r.zc.booking_id == "b-1"
     assert r.io.pulses == [(r.zone.hw.lock, 10)]          # zámek VÝHRADNĚ pulzem
+    assert r.zc.unlocks_since_start == 1 and r.zc.status().unlocks_since_start == 1 and r.zc.status().contact_changes == 0
     assert not r.lock_coil_touched()                       # nikdy io.set na zámek
     assert r.light() is True and r.audio.playing_zone == 1
     assert r.signals.current(1) == Signal.GREEN

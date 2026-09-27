@@ -432,3 +432,50 @@ def test_outage_gaps_and_uptime_item():
                                  "uptime_gaps_24h": {"count": 5, "avg_s": 480, "min_s": 300, "max_s": 700}, "gw_now": {"dev": "wwan0"}}})
     up = next(i for i in sec["items"] if i["id"] == "netlog.uptime_gaps")
     assert up["status"] == "fail" and "napájení" in up["message"] and "8 min" in up["value"]
+
+
+async def test_contact_self_diagnosis_closed_zero_and_stuck(tmp_path, sim, httpsrv):
+    """2026-09-27 (šatna Velké Němčice trvale „zavřeno“): diagnostika odhalí SAMA (a) Zavřeno = 0 = nezapojený vstup vypadá
+    jako zavřené dveře, (b) vstup se nezměnil ani po otevření zámku = signál nejde do modulu (COM–DGND), (c) živý kontakt = OK."""
+    ctrl = full_ctrl(tmp_path, sim, httpsrv)
+    ctrl.local.diagnostics.zone_test = False
+    ctrl.io.inputs["wav617a"] = [False] * 8                                   # celý modul čte 0 (nic nesepnuto)
+    ctrl.zones[1] = FakeZone(ctrl, 1, hw=dataclasses.replace(zone_hw(1), closed_level=0))   # Zavřeno = 0 → „zavřeno“ z ničeho
+    ctrl.zones[1].contact_changes, ctrl.zones[1].unlocks_since_start = 0, 2   # zámek 2× otevřen, vstup se nehnul
+    ctrl.zones[2] = FakeZone(ctrl, 2, hw=dataclasses.replace(zone_hw(2), closed_level=0))
+    ctrl.zones[2].contact_changes, ctrl.zones[2].unlocks_since_start = 0, 0   # bez otevření, krátký běh → jen Zavřeno = 0
+    ctrl.io.inputs["wav617a"][2] = True
+    ctrl.zones[3] = FakeZone(ctrl, 3)                                          # zavřeno = 1, DI3 = 1, kontakt se hýbe
+    ctrl.zones[3].contact_changes, ctrl.zones[3].unlocks_since_start, ctrl.zones[3].contact_last_change = 4, 2, 0.0
+    ctrl.diagnostics.start("service_panel")
+    report = await ctrl.diagnostics.wait()
+    zs = {z["zone"]: z for z in report["zones"]}
+    z1 = zs[1]
+    assert z1["closed_level"] == 0 and z1["contact_input"] == 0 and z1["contact_same_as_unused"] is True and z1["unlocks_since_start"] == 2
+    assert any("Zavřeno = 0" in p and "nezapojené vstupy" in p for p in z1["problems"])
+    assert any("ani po 2× otevření zámku" in p and "COM" in p for p in z1["problems"])
+    assert any("Zavřeno = 0" in p for p in zs[2]["problems"]) and not any("otevření zámku" in p for p in zs[2]["problems"])
+    assert zs[3]["problems"] == [] and zs[3]["contact_changes"] == 4 and zs[3]["contact_same_as_unused"] is False
+    ids = {i["id"]: i for s in report["protocol"] if s["key"] == "zones" for i in s["items"]}
+    assert ids["zone.1"]["status"] == "fail" and "změn od startu 0" in ids["zone.1"]["value"]
+    assert ids["zone.1.contact"]["status"] == "fail" and "Zavřeno" in ids["zone.1.contact"]["hint"] and "DGND" in ids["zone.1.contact"]["hint"]
+    assert ids["zone.1.contact.2"]["status"] == "fail" and "COM" in ids["zone.1.contact.2"]["hint"] and "VOLNÝ" in ids["zone.1.contact.2"]["hint"]
+    assert ids["zone.3"]["status"] == "skip" and "1 h" not in ids["zone.3"]["message"]   # bez HW testu = skip, žádný nález kontaktu
+    assert not any("{" in (i.get("hint") or "") for i in ids.values())
+
+
+def test_note_contact_raw_counts_real_changes_only():
+    from motogo_box.controller_loops import note_contact_raw
+
+    class Z:
+        contact_raw = None
+        contact_changes = 0
+        contact_last_change = None
+    z = Z()
+    note_contact_raw(z, False, 1.0)          # None → hodnota: start, nepočítá se
+    note_contact_raw(z, False, 2.0)
+    note_contact_raw(z, True, 3.0)           # 1. změna
+    note_contact_raw(z, None, 4.0)           # modul offline
+    note_contact_raw(z, False, 5.0)          # návrat z offline: nepočítá se
+    note_contact_raw(z, True, 6.0)           # 2. změna
+    assert (z.contact_raw, z.contact_changes, z.contact_last_change) == (True, 2, 6.0)

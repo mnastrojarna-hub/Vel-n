@@ -1147,7 +1147,10 @@ problems[≤20], warnings[≤20], hosts, internet, checks}`.
   venku → `{configured:false, present:false}`)}`.
 - `zones` (list dle čísla zóny, **SEKVENČNĚ** — audio selektor je exkluzivní; `_partial['zones']` přežije timeout): per `ZoneController`
   `{zone, label, kind, door_id, box_number, state, fault, door_closed, session_active, contact_raw:bool|null (io.read_all_inputs()
-  jednou + input_value; True = zavřeno dle closed_level), contact_consistent:bool|null (== door_closed), io_problems[], lock{configured,
+  jednou + input_value; True = zavřeno dle closed_level), contact_consistent:bool|null (== door_closed), contact_changes:int|null
+  (změny syrové DI od startu), unlocks_since_start:int, contact_last_change_s, contact_inputs[8], contact_same_as_unused:bool
+  (2026-09-27: nálezy `contact` s hint `contact_closed_zero` = closed_level 0 → fail; `contact_stuck` = 0 změn po ≥ 1 otevření zámku → fail,
+  po ≥ 1 h bez otevření warn; ZoneStatus nese contact_changes/contact_last_change_s/unlocks_since_start), io_problems[], lock{configured,
   module_online, coil_off:bool|null} (read_coils — JEN ČTENÍ), tested, skipped_reason, light, signal, audio (bool|null),
   shelly{red{on, brightness}|null, green{…}|null, expected: red|green|off|…, matches:bool|null}, findings[{key, status, message, dev?,
   ch?}], problems[str] (= messages)}`. **Bezpečnost HW testu** (`zc.test_sequence()`: světlo ON → zelená 1 s → `finally` obnova

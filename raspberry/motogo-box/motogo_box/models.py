@@ -271,6 +271,11 @@ class ZoneStatus:
     contact_raw: bool | None = None
     contact_ref: str | None = None  # např. "wav617a DI8"
     closed_level: int | None = None
+    # Aktivita kontaktu (2026-09-27): počet změn syrové hodnoty od startu, stáří poslední změny a počet otevření zámku —
+    # diagnostika z toho SAMA pozná mrtvý vstup (0 změn po otevření zámku = kontakt nejde do modulu).
+    contact_changes: int = 0
+    contact_last_change_s: float | None = None
+    unlocks_since_start: int = 0
 
     def to_dict(self) -> dict:
         return asdict(self)

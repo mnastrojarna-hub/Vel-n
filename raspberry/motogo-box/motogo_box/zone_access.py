@@ -42,6 +42,7 @@ async def service_unlock_locked(zc: "ZoneController", source: str) -> tuple[bool
     if not ok:
         log.error("Zóna %s: nouzové servisní otevření selhalo (pulz zámku %s)", zc.number, lock.dev)
         return False, "lock_failed"
+    zc.unlocks_since_start = getattr(zc, "unlocks_since_start", 0) + 1
     log.warning("Zóna %s: NOUZOVÉ servisní otevření (%s) ve stavu %s/%s", zc.number, source, zc.state.name, zc.fault)
     zc.source = source
     await zc.emit_event(EventKind.ACCESS_GRANTED, level="warn",
@@ -109,6 +110,8 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
                 if ok:
                     await asyncio.sleep(hold_ms / 1000.0)
         reason = "" if ok else "lock_failed"
+        if ok:
+            zc.unlocks_since_start = getattr(zc, "unlocks_since_start", 0) + 1   # diagnostika: kontakt se po otevření musí změnit
     if not ok:
         log.error("Zóna %s: přístup neproveden (%s)", zc.number, reason)
         await zc.set_light(False)

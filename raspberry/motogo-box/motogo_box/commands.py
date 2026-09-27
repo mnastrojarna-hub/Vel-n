@@ -225,8 +225,8 @@ async def _contact_test(ctrl: "BoxController", params: dict) -> tuple[bool, dict
         v = int(bool(last)) if last is not None else "?"
         return await report(f"stuck_{v}", "error",
                             f"test kontaktu — vstup {di} se za {seconds} s NEZMĚNIL (stále {v}); pokud jste dveře otevřel a zavřel, "
-                            f"nejde signál do modulu: zkontrolujte propojku COM–DGND, kontakt mezi COM a DI{ref.idx + 1} a že vodiče "
-                            f"nejsou v sousední svorce.", extra)
+                            f"nejde signál do modulu: na Relay (B) musí být svorka COM VOLNÁ (propojka COM–DGND = režim PNP, kontakt "
+                            f"pak nikdy nesepne), kontakt mezi DI{ref.idx + 1} a DGND, vodiče ne v sousední svorce.", extra)
     # mění se → polarita: dveře zavřené = kontakt sepnut = obsluha končí test u zavřených dveří → poslední hodnota = „zavřeno“
     suggested = int(bool(last))
     if suggested == int(level):

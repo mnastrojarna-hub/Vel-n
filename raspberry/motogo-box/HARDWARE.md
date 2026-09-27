@@ -168,14 +168,28 @@ dotyk a zvukovou kartu). Hlavní pojistka 12V větve zámků + pojistková svork
 
 ## 7. Ověření polarity dveřních kontaktů (`closed_level`, SPEC §13.5)
 
-**Z Velína (2026-09-26, bez terminálu):** dlaždice zóny ukazuje syrovou hodnotu vstupu („vstup wav617a DI8 = 1 · zavřeno = 0“), tlačítko „Test kontaktu“ (20 s, dveře otevřít a zavřít) dá verdikt ok / otočit polaritu / vstup se nemění (zapojení COM–DGND, DI), „Otočit polaritu“ uloží `closed_level` opačně. Zapojení suchého kontaktu na Relay (B): propojka COM–DGND, kontakt mezi COM a DIx.\n\nProgram vyhodnocuje `door_closed = input_value == closed_level`. Přerušený kabel se MUSÍ jevit
+**Zapojení suchého kontaktu na Waveshare Modbus POE ETH Relay (B) / RTU Relay (D) — dle wiki výrobce (ověřeno 2026-09-27):**
+svorka **COM zůstává VOLNÁ (NC = nezapojená)**, kontakt se zapojí **mezi DIx a DGND**. COM slouží JEN pro aktivní vstupy:
+COM na + zdroje = NPN (low active, 5–30 V), COM na − zdroje = PNP (high active). **Propojka COM–DGND je CHYBA** — přepne
+vstupy do režimu PNP, který čeká kladné napětí na DI, a suchý kontakt proti DGND pak NIKDY nesepne (DI trvale 0; přesně
+tak dopadla šatna Velké Němčice 26.–27. 9. 2026 podle mého dřívějšího chybného návodu „propojka COM–DGND, kontakt COM–DIx“).
+Snímač musí při ZAVŘENÝCH dveřích sepnout (DI = 1) a `closed_level` = 1 — s `closed_level: 0` vypadá nezapojený i přerušený
+vstup jako zavřené dveře.
+
+**Diagnostika to hlídá sama (2026-09-27):** sekce „Zóny a periferie“ dá **fail** „Zavřeno = 0 — zavřené dveře se čtou stejně
+jako nezapojený nebo přerušený vstup“ (i bez zásahu obsluhy) a **fail** „vstup DIx se od startu nezměnil ani po N× otevření
+zámku“ (jednotka počítá změny syrové hodnoty `contact_changes` a otevření zámku `unlocks_since_start`; po ≥ 1 h běhu bez otevření
+jen warn). Dlaždice zóny ve Velíně: „vstup wav617a DI8 = 1 · zavřeno = 1 · změn od startu: N“, tlačítko „Test kontaktu“
+(20 s, dveře otevřít a zavřít → verdikt ok / otočit polaritu / vstup se nemění = zapojení), „Otočit polaritu“ uloží `closed_level` opačně.
+
+Program vyhodnocuje `door_closed = input_value == closed_level`. Přerušený kabel se MUSÍ jevit
 jako otevřeno/porucha, nikdy jako zavřeno — proto NC kontakt a správná úroveň.
 
 1. Zapoj kontakt zóny 1 na WAV617-A DI1, dveře **zavři**, spusť controller.
 2. `curl -s http://127.0.0.1:8080/api/state | python3 -m json.tool | grep -A2 '"zone": 1'` →
    sleduj `door_closed`. Musí být `true` při zavřených dveřích a `false` při otevřených.
-3. Je-li to obráceně: ve Velíně (hardware → `contacts.closed_level`) přepni `1` ↔ `0` (nebo lokálně v
-   `/etc/motogo/hardware.yaml`), pošli `sync_config` / restartuj controller a zopakuj krok 2.
+3. Je-li to obráceně: snímač je typu NO (rozpojený při zavřených dveřích) — vyměň za NC / otoč magnet, ne `closed_level: 0`
+   (ten diagnostika hlásí jako chybu, protože přerušený kabel by vypadal jako zavřené dveře).
 4. **Test přerušeného kabelu:** odpoj jeden vodič kontaktu při zavřených dveřích → `door_closed` musí
    spadnout na `false` (zóna přejde do `forced_open`/RED_BLINK). Pokud zůstane `true`, je polarita nebo
    zapojení (NO místo NC) špatně.
