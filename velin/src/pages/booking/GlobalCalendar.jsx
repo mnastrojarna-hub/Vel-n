@@ -24,7 +24,7 @@ export default function GlobalCalendar() {
   // Skrýt testovací rezervace (is_test) z kalendáře — jen pohled admina;
   // pro zákazníky (web/app přes get_moto_booked_dates) zůstávají obsazené vždy.
   const [hideTest, setHideTest] = useState(() => localStorage.getItem('velin_calendar_hide_test') === '1')
-  useEffect(() => { localStorage.setItem('velin_calendar_hide_test', hideTest ? '1' : '0') }, [hideTest])
+  useEffect(() => { try { localStorage.setItem('velin_calendar_hide_test', hideTest ? '1' : '0') } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [hideTest])
 
   useEffect(() => { loadData() }, [month])
 

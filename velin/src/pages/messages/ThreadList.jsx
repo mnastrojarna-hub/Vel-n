@@ -17,7 +17,7 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_threads_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_threads_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
 
   const search = filters.search
   const sortBy = filters.sortBy

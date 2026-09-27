@@ -307,7 +307,7 @@ export default function EmailTemplatesTab() {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_emailtemplates_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_emailtemplates_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
 
   useEffect(() => { load(); loadSent() }, [])
 

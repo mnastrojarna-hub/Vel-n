@@ -55,7 +55,7 @@ export default function Finance() {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_finance_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_finance_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const [categories, setCategories] = useState([])
   const [detailTx, setDetailTx] = useState(null)
   const [recentInvoices, setRecentInvoices] = useState([])

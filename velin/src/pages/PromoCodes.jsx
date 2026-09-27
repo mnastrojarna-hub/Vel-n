@@ -50,7 +50,7 @@ export default function PromoCodes() {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_promo_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_promo_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const [summary, setSummary] = useState({ total: 0, active: 0, inactive: 0, expired: 0, totalUsed: 0, totalValue: 0 })
   const [showModal, setShowModal] = useState(false)
   const [editCode, setEditCode] = useState(null)

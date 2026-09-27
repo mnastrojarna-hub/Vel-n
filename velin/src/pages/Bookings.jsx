@@ -52,7 +52,7 @@ export default function Bookings() {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_bookings_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_bookings_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [showBulk, setShowBulk] = useState(false)
   // Map<id, row> — drží celé řádky napříč stránkami, aby hromadná akce zahrnula i výběr z jiných stránek

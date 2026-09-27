@@ -53,7 +53,7 @@ export default function InvoicesTab() {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_acc_invoices_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_acc_invoices_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   // Potvrzení posledního ručně vytvořeného dokladu — s datem vystavení v minulosti
   // se řádek zařadí hlouběji do seznamu (řazení dle data vystavení) a bez potvrzení
