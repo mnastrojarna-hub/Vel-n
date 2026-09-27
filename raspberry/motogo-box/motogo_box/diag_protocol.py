@@ -470,7 +470,8 @@ def _netlog(r: dict) -> dict:
     mg = int(n.get("modem_gone_24h") or 0)
     if mg:
         it.append(item("netlog.modem_gone", "Modem pryč z USB (vzorky za 24 h)", "warn" if mg < 60 else "fail", mg,
-                       f"Modem nebyl vidět v ModemManageru v {mg} vzorcích (~{_fmt_dur(mg * 30)}) — známá závada SIM7600 (USB -71).", hint("modem_gone")))
+                       f"Modem nebyl vidět v ModemManageru v {mg} vzorcích (~{_fmt_dur(mg * 30)}) — známá závada SIM7600 (USB -71). "
+                       "Hlídka modem obnovuje i když internet jde jinou cestou (Wi-Fi při testu; od 27. 9.).", hint("modem_gone")))
     gaps = n.get("uptime_gaps_24h") or {}
     if gaps.get("count"):
         avg, mn = gaps.get("avg_s") or 0, gaps.get("min_s") or 0

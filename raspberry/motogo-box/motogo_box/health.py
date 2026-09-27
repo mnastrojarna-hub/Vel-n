@@ -558,7 +558,7 @@ class HealthMonitor:
             routes = await self._list_routes()
         except Exception as exc:  # noqa: BLE001
             log.debug("route_state: výpis tras selhal: %s", exc)
-            return {"routes": [], "foreign": [], "action": None}
+            return {"routes": [], "foreign": [], "action": None, "via": None, "via_lte": False, "other_default": False}
         lte = self.lte_iface()
         # Cizí = výchozí trasa přes SÍŤ MODULŮ (eth*): tam internet nikdy není a trasa přebije LTE. Wi-Fi (wlan*) cizí
         # NENÍ — při testech mimo pobočku drží jednotku online, když modem stojí; NM jí dává metriku 600 (> LTE 100),
@@ -576,7 +576,20 @@ class HealthMonitor:
                 action = "route_fix" if rc == 0 else "route_fix_failed"
                 if rc != 0:
                     log.warning("dispečer %s rc=%s: %s", LAN_ADDR_DISPATCHER, rc, (out or "").strip()[:200])
-        return {"routes": routes, "foreign": foreign, "action": action}
+        via = str(routes[0].get("dev")) if routes and routes[0].get("dev") else None
+        via_lte = any(str(r.get("dev", "")) == lte or str(r.get("dev", "")).startswith(LTE_IFACE_PREFIXES) for r in routes)
+        other_default = any(str(r.get("dev", "")) != lte and not str(r.get("dev", "")).startswith(LTE_IFACE_PREFIXES)
+                            for r in routes if r.get("dev"))
+        return {"routes": routes, "foreign": foreign, "action": action, "via": via, "via_lte": via_lte,
+                "other_default": other_default}
+
+    def _lte_healthy(self, lte: dict) -> bool:
+        """LTE je použitelné: modem není pryč, má adresu a (QMI) hlásí connected / (RNDIS) rozhraní má IPv4."""
+        if lte.get("modem_gone") or lte.get("error"):
+            return False
+        if self.rndis:
+            return bool(lte.get("ipv4"))
+        return str(lte.get("state") or "") == "connected" and bool(lte.get("ipv4"))
 
     async def _lan_recover(self) -> str | None:
         """`nmcli con up <lan_connection>`, nejvýš jednou za `cfg.lan_recover_s` (0 = vypnuto)."""
@@ -716,10 +729,19 @@ class HealthMonitor:
             # reboot/RNDIS naprázdno); dispečer trasu právě smazal, další cyklus ukáže.
             actions = [route["action"]] if route["action"] else []
         else:
-            actions = self.policy.step(internet, uptime if uptime is not None else 0.0,
+            # LTE se udržuje VŽDY (2026-09-27): když internet jde jinou cestou (Wi-Fi při testu) a LTE je mrtvé, politika
+            # dostane `internet_ok=False` a modem obnovuje dál — jinak leží mrtvý celé hodiny (27. 9.: 10 h, 0 resetů) a při
+            # ztrátě Wi-Fi by se to zjistilo až po minutách. Reboot se v tom režimu zahodí (jednotka internet má).
+            # bez jiné výchozí trasy internet nutně jde přes LTE → LTE je OK bez ohledu na dílčí příznaky (SIM error apod.)
+            lte_ok = internet and (not route["other_default"] or self._lte_healthy(lte))
+            lte_only = internet and not lte_ok
+            actions = self.policy.step(lte_ok, uptime if uptime is not None else 0.0,
                                        modem_gone=bool(lte.get("modem_gone")))
+            if lte_only and "reboot" in actions:
+                log.warning("LTE mrtvé, ale internet jde přes %s → reboot se neprovádí, jen obnova modemu", route.get("via"))
+                actions = [a for a in actions if a != "reboot"]
             if not actions:
-                actions = self.policy.mode_step(self.rndis, internet)
+                actions = self.policy.mode_step(self.rndis, lte_ok)
             if not actions:
                 actions = self._mode_sync_step(lte)
             if route["action"] == "route_fix":
@@ -738,6 +760,9 @@ class HealthMonitor:
         net["link_uptime_s"] = round(now - self._online_since) if self._online_since is not None else None
         net["last_link_uptime_s"] = round(self._last_link_uptime_s) if self._last_link_uptime_s is not None else None
         net["where"] = None if internet else self._where(route, lte)
+        net["internet_via"] = route.get("via")
+        net["lte_only_recovery"] = bool(internet and not route["via_lte"] and route["other_default"] and not self._lte_healthy(lte))
+        lte["healthy"] = self._lte_healthy(lte)
         payload = {"internet": internet, "lte": lte, "lan": lan, "sys": sysm, "ts": now_iso(),
                    "actions": actions, "net": net}
         for action in actions:
