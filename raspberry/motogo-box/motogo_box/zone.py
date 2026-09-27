@@ -142,6 +142,7 @@ class ZoneController:
             io_problems=self.io_problems(), signal_offline=self.signal_problems(),
             contact_raw=self.contact_raw, contact_ref=self.contact_ref(), closed_level=int(self.closed_level()),
             contact_changes=self.contact_changes, unlocks_since_start=self.unlocks_since_start,
+            light_until_moto_code=self.light_until_moto_code,
             contact_last_change_s=None if self.contact_last_change is None else round(self.clock() - self.contact_last_change, 1),
         )
 

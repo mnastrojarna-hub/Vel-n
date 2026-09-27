@@ -387,6 +387,12 @@ def _config(r: dict) -> dict | None:
                 continue
             it.append(item(f"config.zone.{z.get('zone')}.{role}", f"{z.get('label')} — role {role}", "fail" if role in ("lock", "contact") else "warn",
                            None, f"Zóna {z.get('zone')}: chybí role {role} v HW mapě.", hint("missing_role", role=role, zone=z.get("zone"))))
+    for z in zones:
+        # Šatna (zadání 2026-09-25/27): světlo má svítit po zavření dveří až do kódu motorky — bez příznaku v HW mapě dveří
+        # zhasne doběhem jako v kóji. Diagnostika to hlásí, protože z chování to obsluha pozná až u zákazníka.
+        if z.get("kind") == "accessories" and z.get("light_until_moto_code") is False:
+            it.append(item(f"config.zone.{z.get('zone')}.light", f"{z.get('label')} — světlo", "warn", "zhasne po zavření",
+                           f"{z.get('label')}: světlo zhasne po zavření dveří — má svítit až do kódu motorky.", hint("locker_light")))
     for lbl in c.get("doors_without_hw") or []:
         it.append(item(f"config.door.{lbl}", f"Dveře {lbl}", "warn", None, f"Dveře {lbl} ve Velíně nemají HW mapu.", hint("door_without_hw", label=lbl)))
     for i, dup in enumerate(c.get("duplicates") or []):

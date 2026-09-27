@@ -56,6 +56,7 @@ HINTS = {
     "contact_polarity": "Stav dveří nesedí se vstupem: ve Velíně u zóny → „Test kontaktu (20 s)“ (dveře během testu otevřít a zavřít) — verdikt řekne, zda otočit „Zavřeno =“ (tlačítko Otočit polaritu), nebo opravit zapojení (Relay (B): COM VOLNÝ, kontakt mezi DI a DGND).",
     "contact_closed_zero": "Ve Velíně u dveří nastavte „Zavřeno =“ prázdné/1 a snímač zapojte tak, aby při ZAVŘENÝCH dveřích vstup sepnul (DI = 1): Relay (B) svorka COM VOLNÁ (nezapojená), kontakt mezi DIx a DGND. S „Zavřeno = 0“ vypadá přerušený kabel i nezapojený vstup jako zavřené dveře.",
     "contact_stuck": "Signál kontaktu nejde do modulu: odstraňte propojku COM–DGND (COM musí zůstat VOLNÝ — propojený s DGND přepne vstupy do režimu PNP a suchý kontakt nikdy nesepne), snímač zapojte mezi DIx a DGND, ověřte správnou svorku DI. Zkouška bez snímače: drát DIx–DGND → vstup musí skočit na 1 (dlaždice zóny ve Velíně).",
+    "locker_light": "Velín → Pobočky → Samoobsluha → mapování dveří → Šatna → pole „Světlo“ = „Šatna — svítí do kódu motorky“ → Uložit (jednotka si mapu stáhne do 60 s; pojistka zhasnutí = maximum_session_s).",
     "missing_role": "Doplňte roli {role} zóny {zone} v HW mapě (Velín → Samoobsluha → Zóny).",
     "door_without_hw": "Dveře {label} nemají HW mapu (zone/lock/contact) — bez ní se neotevřou; nastavte ji ve Velíně.",
     "duplicate": "Stejný kanál ve dvou rolích — opravte HW mapu (každé relé/vstup jen jednou).",
