@@ -468,9 +468,10 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
   se vyhlásí po skončení relace.
 - **Rozhodnuto 2026-09-11 — signalizace při otevřených dveřích: trvale (program beze změny).** Zelená svítí
   trvale od zadání kódu až do zavření dveří a pulzuje až při překročení maximální doby (overtime); §7 tabulka upravena.
-- **Rozhodnuto 2026-09-11 — vzdálené upozornění (§9 overtime, FORCED_OPEN): zatím ne (jen `kiosk_logs` + Velín).**
-  Události jdou do `kiosk_logs` (Velín → Diagnostika chyb & událostí) a do stavu zóny; push/e-mail/SMS notifikace
-  obsluze se zatím neimplementuje (případný návrh: edge funkce nad `kiosk_logs` level=warn/error → e-mail přes Resend).
+- **Rozhodnuto 2026-09-27 — vzdálené upozornění na FORCED_OPEN: ANO, ve Velíně v reálném čase.** FORCED_OPEN jde přes
+  `kiosk_log_open` do `branch_door_events`; DB trigger `trg_kiosk_alert_from_door_event` z něj založí `kiosk_alerts` (realtime)
+  → Velín: červený blok na hlavní stránce, badge u „Pobočky“, zvonek, 🚨 v řádku pobočky, banner v tabu Samoobsluha; poplach
+  zmizí až ručním „Potvrdit“ (zavření dveří se jen dopíše). Overtime zůstává jen v `kiosk_logs`; push/e-mail/SMS zatím ne.
 - **K rozhodnutí — jedna služba místo sedmi (§11):** controller sdružuje modbus/lighting/audio/sync
   (viz poznámka pod tabulkou §11). Chce-li uživatel izolaci (pád audio/sync vrstvy bez restartu
   stavových automatů), je třeba rozdělit aspoň sync/web a audio do samostatných unit s IPC.
@@ -481,7 +482,7 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
   heslo i diagnostický kód). `security.mask_pin_on_screen` a `security.pin_length` odstraněny z konfigurace (délku kódů určuje
   Velín / `kiosk_resolve_code`); starší mapy s těmito klíči jednotka ignoruje.
 - **Zelená signalizace svítí trvale** od zadání kódu až do zavření dveří (pulzuje jen při překročení maximální doby, §7/§9).
-- **Vzdálené upozornění obsluze (overtime, FORCED_OPEN): zatím ne** — jen `kiosk_logs` + Velín.
+- **Vzdálené upozornění obsluze:** FORCED_OPEN od 2026-09-27 v reálném čase ve Velíně (`kiosk_alerts`, viz výše); overtime jen `kiosk_logs`.
 - **8 jazyků displeje je finální** (CS/EN/DE/ES/FR/NL/PL/UK, bez slovenštiny).
 - **Zóna 9 = venek** — venkovní prostor před displejem + venkovní osvětlení. Není to dveře (bez zámku, kontaktu, signalizace,
   rezervací a dlaždice na displeji): nová sekce HW mapy `outdoor {zone: 9, light: {dev: wav617b, coil: 0}, audio: {out: out9},

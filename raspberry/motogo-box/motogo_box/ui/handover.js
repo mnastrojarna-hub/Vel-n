@@ -179,8 +179,8 @@ MG.Handover = (function () {
   const openedZone = (st, id) => ((st && st.zones) || []).find((z) => z.booking_id === id && z.kind !== 'accessories'
     && (z.state === 'WAITING_FOR_OPEN' || z.state === 'DOOR_OPEN'));
   function announceOpened(z) {
-    deps.showStatus('success', MG.i18n.t('opened'),
-      MG.i18n.t('ho.doneMoto') + '\n' + MG.i18n.successSubtitle('motorcycle', MG.i18n.zoneName(z)), true);
+    deps.showStatus('success', MG.i18n.successTitle('motorcycle', z),
+      MG.i18n.t('ho.doneMoto') + '\n' + MG.i18n.successSubtitle('motorcycle', MG.i18n.zoneName(z), z), true);
   }
   /** Čekání na stav zón: kóje rezervace otevřená → „Otevřeno — Kóje N“; po WAIT_MS bez otevření → DONE
       (then_open: „kóji se nepodařilo otevřít — zadejte kód znovu“; jinak „teď zadejte kód motorky“). */
@@ -269,8 +269,8 @@ MG.Handover = (function () {
     if (res.opened) {
       const z = (st.zones || []).find((x) => x.zone === res.opened.zone);
       const name = z ? MG.i18n.zoneName(z) : MG.i18n.t('box', { n: res.opened.zone });
-      deps.showStatus('success', MG.i18n.t('opened'),
-        MG.i18n.t('ho.doneMoto') + '\n' + ((cz() && res.opened.message) || MG.i18n.successSubtitle('motorcycle', name)), true);
+      deps.showStatus('success', MG.i18n.successTitle('motorcycle', z || { zone: res.opened.zone }),
+        MG.i18n.t('ho.doneMoto') + '\n' + MG.i18n.successSubtitle('motorcycle', name, z || { zone: res.opened.zone }), true);
       return;
     }
     const noOpen = ['busy', 'door_open', 'lock_failed', 'zone_not_configured', 'io_offline', 'fault'].indexOf(res.error) !== -1;

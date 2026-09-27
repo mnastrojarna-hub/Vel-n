@@ -9,8 +9,8 @@ import { TabDoorCodes } from './BranchDoorCodes'
 import { TabSelfService } from './BranchSelfService'
 import { TabClosures } from './BranchClosures'
 
-function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEdit, onRefresh }) {
-  const [tab, setTab] = useState(0)
+function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEdit, onRefresh, initialTab = 0 }) {
+  const [tab, setTab] = useState(initialTab)   // initialTab: odkaz z Dashboardu/zvonku (poplach samoobsluhy → tab 4)
   const [motos, setMotos] = useState([])
   const [loadingMotos, setLoadingMotos] = useState(true)
   const [accessories, setAccessories] = useState([])

@@ -115,7 +115,7 @@ async def test_remote_sign_with_visible_then_open_opens_once(ctrl):
     del hm.signed["b1"]
     await hm.require_before_open(rr_moto(proto=protocol("b1")), zc, "ui")
     opened = await hm.mark_signed_remote("b1", may_open=True)
-    assert opened == {"zone": 3, "kind": "motorcycle", "message": "Otevřeno — Kóje 3. Příjemnou cestu! 🏍️"}
+    assert opened == {"zone": 3, "kind": "motorcycle", "message": "Dveře č. 3 otevřeny — běžte ke dveřím č. 3."}
     assert zc.grants == [("b1", "motorcycle", "ui")] and hm.items == {}
     assert await hm.mark_signed_remote("b1", may_open=True) is None and len(zc.grants) == 1   # idempotentní
     assert "b1" in hm.signed

@@ -117,9 +117,10 @@ kódu motorky bez podpisu) se přes celý displej otevře **předávací protoko
 řidič/spolujezdec s chipy velikostí, podpisový canvas, pole „Kód motorky“ (jen když kód nebyl právě zadán), „Potvrdit a podepsat“,
 „Zpět“; odpočet 120 s bez dotyku („Zavře se za N s“). Po podpisu: „Otevřeno“ + „Protokol podepsán.“ (kóje se otevře sama), nebo
 „Protokol potvrzen“ + „Teď zadejte kód motorky.“ (kóji se nepodařilo otevřít → „Kóji se nepodařilo otevřít — zadejte kód motorky
-znovu.“). Po otevření šatny hlásí overlay „Vezměte si výbavu a zavřete dveře šatny.“ Soubory protokolu: `ui/handover.js`
+znovu.“). Po kódu displej říká, KAM jít (2026-09-27): kóje „Dveře č. N otevřeny — Běžte ke dveřím č. N.“, šatna „Šatna otevřena —
+Vemte za kliku.“ (8 jazyků, `i18n.js` `openedBox/okBox/openedAcc/okAcc`). Soubory protokolu: `ui/handover.js`
 (overlay, `MG.Handover`), `ui/signature.js` (podpis prstem, PNG 800×260 ≤ 150 kB), `ui/style-handover.css` a texty `ho.*`/`g.*`
-v 8 jazycích v `ui/i18n-handover.js` (slučuje se do `MG.i18n`; v `i18n.js` jsou jen `hint2`, `okAcc` a chyby `protocol_required`/
+v 8 jazycích v `ui/i18n-handover.js` (slučuje se do `MG.i18n`; v `i18n.js` jsou jen `hint2`, texty úspěchu a chyby `protocol_required`/
 `protocol_failed`); PDF protokolu je česky.
 Servisní panel, setup a diagnostika zůstávají tmavé overlaye (`ui/style-overlays.css`), použitelné i na nízkém displeji.
 **Název pobočky se bere VÝHRADNĚ z Velína → Pobočky (`name`)** — není-li vyplněný, zůstává místo v hlavičce prázdné

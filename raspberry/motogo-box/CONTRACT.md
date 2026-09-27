@@ -508,7 +508,7 @@ class BoxController:
         #   {**base, ok:False, kind:'motorcycle', error:'protocol_required', zone: zc.number, booking_id, message: error_text(...)}
         #   — bez ACCESS_DENIED, bez lockoutu (není v INVALID_CODE_ERRORS); PROTOCOL_SHOWN jen při prvním zobrazení položky.
         #   kind accessories → grant_access beze změny (HandoverManager si uloží rr.protocol per booking pro on_wardrobe_closed);
-        #   open_result_text accessories = „Otevřeno — Šatna. Vezměte si výbavu a zavřete dveře šatny.“
+        #   open_result_text accessories = „Šatna otevřena — vemte za kliku.“ (2026-09-27; motorcycle = „Dveře č. N otevřeny — běžte ke dveřím č. N.“, N = box_number)
     def check_service_token(self, token: str | None) -> bool
     async def service_open(self, door_id: str | None, zone: int | None) -> dict     # grant_access(kind='service', source='service_panel'); mimo běžný stav zóny = nouzový impulz zámku (2026-09-26, zone_access.service_unlock_locked), chyby 'lock_offline' | 'not_configured' | 'lock_failed'
     async def handle_command(self, cmd: dict) -> None    # → commands.execute → api.complete_command
@@ -656,7 +656,9 @@ aktualizace (`kind='system'`, `state='done'`, `finished_at`). Velín: řádek �
 ## 15. Události → Supabase
 
 `kiosk_log_open(door_id, kind, booking_id, success, detail)` pro: ACCESS_GRANTED,
-DOOR_OPENED, DOOR_CLOSED, SESSION_COMPLETED, OPEN_TIMEOUT, FORCED_OPEN (success=false),
+DOOR_OPENED, DOOR_CLOSED, SESSION_COMPLETED, OPEN_TIMEOUT, FORCED_OPEN (success=false — **2026-09-27:** DB trigger
+`trg_kiosk_alert_from_door_event` z něj založí řádek `kiosk_alerts` → Velín v reálném čase: Dashboard, badge „Pobočky“, zvonek,
+řádek pobočky, tab Samoobsluha; DOOR_CLOSED téže zóny doplní `closed_at`; poplach zmizí až ručním „Potvrdit“),
 PIN_INVALID (kind='invalid', success=false, detail.code_masked),
 PROTOCOL_SHOWN (2026-09-25, §28: `kind` = `code_kind` = `kind_origin` položky motorcycle|accessories, `booking_id`, `zone`/`door_id`/
 `box_number` zóny položky, success=true, extra `detail {source:'kiosk', then_open: bool}` — jen při PRVNÍM zobrazení položky
@@ -753,8 +755,11 @@ z hlavní klávesnice) + upozornění zóny; (2) klávesnice — rozměr kláves
 Texty `hint1/hint2/okAcc/acc` jsou ve všech 8 jazycích (`i18n.js`); `MG.i18n.signal(sig)` = český popis signálu pro
 servisní panel; `MG.__debug` = neškodný hook (`toggleKeyboard/setLang/applyState/showStatus/hideStatus`) pro screenshot
 harness. Timeout zadávání `pin_entry_timeout_s` (vymaže vstup). Overlay stavů (working/success/error, auto-hide 6 s):
-„Ověřuji kód…“, `okAcc` (2026-09-25) „Vezměte si výbavu a zavřete dveře šatny.“, „Příjemnou cestu! 🏍️“, „Neplatný
-kód“, „Zkuste to prosím znovu nebo kontaktujte podporu: +420 774 256 271.“.
+„Ověřuji kód…“, úspěch (2026-09-27, zadání majitele — displej říká KAM jít; skládá se lokálně ve všech 8 jazycích přes
+`successTitle`/`successSubtitle(kind, name, z)`, česká `message` ze serveru se u úspěchu použije jen bez známé zóny): kóje titulek
+`openedBox` „Dveře č. N otevřeny“ + `okBox` „Běžte ke dveřím č. N.“ (N = `box_number`, bez něj číslo zóny), šatna `openedAcc`
+„Šatna otevřena“ + `okAcc` „Vemte za kliku.“; servisní otevření „Otevřeno“ + název; „Neplatný kód“, „Zkuste to prosím znovu nebo
+kontaktujte podporu: +420 774 256 271.“.
 **Vedený tok šatna → protokol → motorka (2026-09-25, §28):** pruh `#wardrobe-hint` (NEmodální, nad polem kódu, styl `.zone-alert`)
 se kreslí ze `st.zones` — zóna `kind: accessories` ve stavu `DOOR_OPEN` s `booking_id` → `ho.close`/`ho.closeSub` („Šatna: vezměte si
 výbavu a zavřete dveře“ / „Předávací protokol se zobrazí po zavření dveří.“); klávesnice zůstává aktivní. Overlay `#handover` (modální,
@@ -766,7 +771,7 @@ se kreslí ze `st.handover.active` (§14): hlavička (`data`; popisky `ho.custom
 `ho.clear`), pole „Kód motorky“ (`ho.code`/`ho.codeHint`, jen když `needs_code`; numerická klávesnice overlaye), „Potvrdit a podepsat“
 (`ho.confirm`, disabled bez podpisu / bez kódu / během ukládání), „Zpět“ (`ho.back` → `/api/protocol/dismiss`). Odpočet výhradně
 z `active.expires_at`; každý dotyk → `/api/protocol/touch` (throttle 5 s). Submit: spinner `ho.saving` „Ukládám protokol…“, timeout
-60 s; `opened` → `#status` „Otevřeno“ + `ho.doneMoto` „Protokol podepsán.“ + `okMoto`/česká `message`; `saved`/`queued` bez `opened`
+60 s; `opened` → `#status` „Dveře č. N otevřeny“ + `ho.doneMoto` „Protokol podepsán.“ + `okBox` „Běžte ke dveřím č. N.“; `saved`/`queued` bez `opened`
 → `#status` `ho.doneTitle` „Protokol potvrzen“ + `ho.done` „Teď zadejte kód motorky.“ (queued = totéž, bez zmínky o offline);
 `opened = null` kvůli busy/lock_failed (`error` v odpovědi) → `ho.doneTitle` + `ho.doneNoOpen` „Kóji se nepodařilo otevřít — zadejte
 kód motorky znovu.“; `code_mismatch`/`signature_too_large`/`in_progress`/`locked` → text v overlayi (`ho.codeMismatch`/

@@ -7,6 +7,8 @@ import { defaultDoorHw } from './BranchRpiHardwareDefaults'
 import { RpiDiagnosticsBlock } from './BranchRpiDiagnostics'
 import { BranchMusicBlock } from './BranchMusic'
 import { isRpiDevice, platformLabel, ACCESSORIES_LABEL, doorKindLabel, doorLabel, doorEventLabel, isProtocolEvent } from './BranchRpiUi'
+import KioskAlertsBanner from '../components/KioskAlertsBanner'
+import { useKioskAlerts } from '../hooks/useKioskAlerts'
 
 // ─── Tab: Samoobsluha (kiosk) ─────────────────────────────────────────────
 // Konfigurace samoobslužné pobočky. Pobočku řídí řídicí jednotka Raspberry (raspberry/motogo-box);
@@ -39,6 +41,7 @@ function TabSelfService({ branchId, branchName, motos }) {
   const [busy, setBusy] = useState(false)
   const [liveError, setLiveError] = useState(null)   // chyba tichého přenačítání zařízení (viz efekt níže)
   const [now, setNow] = useState(Date.now())
+  const kioskAlerts = useKioskAlerts({ branchId })   // poplach „dveře otevřeny bez kódu“ této pobočky (realtime, do potvrzení)
 
   // Tik hodin + TICHÉ přenačtení zařízení. Bez druhé části ukazoval Velín po 70 s „Offline“ i u jednotky,
   // která se normálně hlásí: `now` běžel dál, ale `kiosk_devices.last_seen_at` zůstalo z posledního načtení
@@ -280,6 +283,7 @@ function TabSelfService({ branchId, branchName, motos }) {
 
   return (
     <div className="space-y-5">
+      <KioskAlertsBanner alerts={kioskAlerts.alerts} onAck={() => { kioskAlerts.reload(); load() }} compact />
       {error && <div className="p-2 rounded-card text-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>}
       {liveError && (
         <div className="p-2 rounded-card text-sm" style={{ background: '#fef3c7', color: '#b45309' }}
