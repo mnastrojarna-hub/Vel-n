@@ -395,18 +395,19 @@ def _zones(r: dict) -> dict | None:
         st = {3: "fail", 2: "warn"}.get(worst) or ("skip" if z.get("skipped_reason") else "ok")
         door = {True: "zavřeno", False: "otevřeno"}.get(z.get("door_closed"), "?")
         tests = " ".join(f"{k} {'✔' if v else '✘' if v is False else '–'}" for k, v in (("světlo", z.get("light")), ("zelená", z.get("signal")), ("tón", z.get("audio"))))
-        val = f"{z.get('state')}, dveře {door}" + (f" (vstup {z.get('contact_ref')} = {z.get('contact_input')}, zavřeno = {z.get('closed_level')})" if z.get("contact_input") is not None else "") + (f", test: {tests}" if z.get("tested") else "")
+        chg = f", změn od startu {z.get('contact_changes')}" if z.get("contact_changes") is not None else ""
+        val = f"{z.get('state')}, dveře {door}" + (f" (vstup {z.get('contact_ref')} = {z.get('contact_input')}, zavřeno = {z.get('closed_level')}{chg})" if z.get("contact_input") is not None else "") + (f", test: {tests}" if z.get("tested") else "")
         msg = f"{len(f)} nálezů: " + ", ".join(dict.fromkeys(ROLE_CZ.get(x.get("key"), str(x.get("key"))) for x in f)) if f else \
             f"Test přeskočen: {SKIP_CZ.get(z.get('skipped_reason'), z.get('skipped_reason'))}." if z.get("skipped_reason") else "Vše v pořádku."
         # rada souhrnné položky = rada prvního nálezu (včetně {dev}/{ch} u světla — jinak by zůstaly složené závorky)
         it.append({**item(f"zone.{n}", label, st, val, msg,
-                          hint(f"zone.{f[0].get('key')}", dev=f[0].get("dev") or "?", ch=f[0].get("ch") or "?") if f else None), "group": True})
+                          hint(f[0].get("hint") or f"zone.{f[0].get('key')}", dev=f[0].get("dev") or "?", ch=f[0].get("ch") or "?") if f else None), "group": True})
         used: dict[str, int] = {}
         for x in f:
             key = str(x.get("key") or "problem")
             used[key] = used.get(key, 0) + 1
             it.append(item(f"zone.{n}.{key}" + (f".{used[key]}" if used[key] > 1 else ""), f"{label} — {ROLE_CZ.get(key, key)}", x.get("status") or "warn",
-                           None, str(x.get("message") or ""), hint(f"zone.{key}", dev=x.get("dev") or "?", ch=x.get("ch") or "?")))
+                           None, str(x.get("message") or ""), hint(x.get("hint") or f"zone.{key}", dev=x.get("dev") or "?", ch=x.get("ch") or "?")))
     it += _outdoor().items(r)             # skupina „Venek (zóna N)“ za zónami; bez venku nic
     return section("zones", "Zóny a periferie", it)
 

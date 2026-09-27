@@ -65,6 +65,9 @@ class ZoneController:
         self.lock_gate: asyncio.Lock = asyncio.Lock()   # controller nahradí sdíleným zámkem pulzů
         self.lock_held = False       # lock_hold_until_open: relé zámku sepnuté, dokud se dveře neotevřou (zone_access)
         self.contact_raw: bool | None = None   # syrová hodnota DI kontaktu z posledního pollu (controller_loops.poll_loop)
+        self.contact_changes: int = 0          # kolikrát se syrová hodnota od startu změnila (poll_loop; diagnostika „mrtvý vstup“)
+        self.contact_last_change: float | None = None
+        self.unlocks_since_start: int = 0      # kolikrát se od startu pulzoval/držel zámek (zone_access) — 0 změn kontaktu po otevření = zapojení
         self.state: ZoneState = ZoneState.SECURED
         self.fault: str | None = None
         self.door_closed: bool | None = None
@@ -138,6 +141,8 @@ class ZoneController:
             music_enabled=self.music_enabled,
             io_problems=self.io_problems(), signal_offline=self.signal_problems(),
             contact_raw=self.contact_raw, contact_ref=self.contact_ref(), closed_level=int(self.closed_level()),
+            contact_changes=self.contact_changes, unlocks_since_start=self.unlocks_since_start,
+            contact_last_change_s=None if self.contact_last_change is None else round(self.clock() - self.contact_last_change, 1),
         )
 
     def closed_level(self) -> bool:

@@ -327,8 +327,8 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor }) {
       </div>
       {z.contact_ref != null && (
         <div className="text-[11px] mt-0.5 flex items-center gap-1 flex-wrap" style={{ color: '#1a2e22' }}
-          title="Syrová hodnota dveřního vstupu z modulu (1 = sepnuto proti COM, 0 = rozpojeno) a úroveň, kterou program bere jako zavřeno. Když neodpovídá skutečnosti, spusťte Test kontaktu nebo otočte polaritu.">
-          <span>vstup <b>{txt(z.contact_ref)}</b> = <b>{z.contact_raw === true ? 1 : z.contact_raw === false ? 0 : '?'}</b> · zavřeno = {txt(z.closed_level ?? '?')}</span>
+          title="Syrová hodnota dveřního vstupu z modulu (1 = kontakt sepnut mezi DI a DGND, 0 = rozpojeno; svorka COM na Relay (B) musí zůstat VOLNÁ) a úroveň, kterou program bere jako zavřeno (má být 1 — s 0 vypadá přerušený kabel jako zavřené dveře). „Změn od startu“ = kolikrát se vstup od startu jednotky změnil; 0 po otevření zámku = signál kontaktu nejde do modulu.">
+          <span>vstup <b>{txt(z.contact_ref)}</b> = <b>{z.contact_raw === true ? 1 : z.contact_raw === false ? 0 : '?'}</b> · zavřeno = {txt(z.closed_level ?? '?')}{z.contact_changes != null && <> · změn od startu: <b>{txt(z.contact_changes)}</b>{num(z.contact_changes) === 0 && num(z.unlocks_since_start) > 0 && <span style={{ color: '#b91c1c' }}> (zámek otevřen {txt(z.unlocks_since_start)}×, vstup se nehnul)</span>}</>}</span>
           {door && onSaveDoor && z.closed_level != null && (
             <Btn tone="gray" small title="Prohodí úroveň „Zavřeno =“ u těchto dveří (0 ↔ 1) a uloží do HW mapy — použijte, když program hlásí opačný stav, než dveře skutečně mají."
               onClick={() => onSaveDoor(door.id, { hw: { ...(door.hw || {}), closed_level: num(z.closed_level) === 1 ? 0 : 1 } })}>Otočit polaritu</Btn>

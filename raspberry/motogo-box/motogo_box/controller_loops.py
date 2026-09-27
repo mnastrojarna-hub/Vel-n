@@ -183,7 +183,7 @@ async def poll_loop(ctrl: "BoxController") -> None:
                     if ref is not None and ref.dev in stale:
                         continue              # modul právě v retry — bez nové informace
                     d = deb.setdefault(zc.number, Debounce())
-                    zc.contact_raw = ctrl.io.input_value(snap, ref) if ref is not None else None   # syrová DI (Velín / contact_test)
+                    note_contact_raw(zc, ctrl.io.input_value(snap, ref) if ref is not None else None, now)   # syrová DI (Velín / diagnostika)
                     raw = ctrl.door_value(snap, zc)
                     if raw is None:
                         d.raw, d.since, d.passed, d.passed_any = None, now, None, True
@@ -199,6 +199,17 @@ async def poll_loop(ctrl: "BoxController") -> None:
             await asyncio.sleep(poller.poll_s())
     finally:
         await poller.stop()
+
+
+def note_contact_raw(zc: "ZoneController", cur: bool | None, now: float) -> None:
+    """Uloží syrovou hodnotu DI kontaktu a počítá její změny od startu (`contact_changes`, `contact_last_change`).
+    Přechod None ↔ hodnota (modul offline/online) se nepočítá — počítá se jen skutečná změna 0 ↔ 1, tj. důkaz, že
+    signál kontaktu do modulu chodí (diagnostika: 0 změn po otevření zámku = kontakt nezapojený správně)."""
+    prev = zc.contact_raw
+    zc.contact_raw = cur
+    if cur is not None and prev is not None and cur != prev:
+        zc.contact_changes = getattr(zc, "contact_changes", 0) + 1
+        zc.contact_last_change = now
 
 
 async def _safe_input(zc: "ZoneController", value: bool | None) -> None:

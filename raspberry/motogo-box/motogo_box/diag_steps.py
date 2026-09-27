@@ -329,6 +329,40 @@ def _closed_level(ctrl, zc) -> bool:
     return bool(lvl if lvl is not None else getattr(ctrl.hardware, "contacts_closed_level", 1))
 
 
+def _contact_activity(ctrl, zc, snapshot: dict, raw: bool) -> dict:
+    """Diagnostika dveřního kontaktu BEZ zásahu obsluhy (2026-09-27, šatna Velké Němčice trvale „zavřeno“):
+    (a) `Zavřeno = 0` — zavřené dveře se čtou stejně jako nezapojený/přerušený vstup (0) → kontakt nikdy nenahlásí
+    poruchu kabelu (SPEC §13.5) → fail; (b) vstup se od startu nezměnil, ačkoli se zámek otevíral → signál kontaktu
+    do modulu nechodí (typicky propojka COM–DGND = režim PNP na Relay (B)) → fail; bez otevření a po ≥ 1 h → warn.
+    Vrací pole do reportu + `findings` [(status, message, hint_key)]."""
+    ref, di = zc.zone.hw.contact, f"{zc.zone.hw.contact.dev} DI{zc.zone.hw.contact.idx + 1}"
+    inputs = snapshot.get(ref.dev) or []
+    used = {z.zone.hw.contact.idx for z in ctrl.zones.values()
+            if getattr(z.zone.hw, "contact", None) is not None and z.zone.hw.contact.dev == ref.dev}
+    unused = {bool(v) for i, v in enumerate(inputs) if i not in used}
+    same = bool(unused) and unused == {raw}
+    changes = getattr(zc, "contact_changes", None)
+    unlocks = int(getattr(zc, "unlocks_since_start", 0) or 0)
+    last = getattr(zc, "contact_last_change", None)
+    up = time.monotonic() - getattr(ctrl, "_started_at", time.monotonic())
+    findings: list[tuple[str, str, str]] = []
+    if not _closed_level(ctrl, zc):
+        findings.append(("fail", f"dveřní kontakt: Zavřeno = 0 — zavřené dveře se čtou stejně jako nezapojený nebo přerušený vstup "
+                         f"({di} = {int(raw)}" + (", stejně jako nezapojené vstupy modulu" if same else "") + "); kontakt tak nikdy nenahlásí "
+                         "poruchu kabelu. Snímač musí při zavřených dveřích vstup SEPNOUT (DI = 1) a Zavřeno = 1.", "contact_closed_zero"))
+    if changes == 0 and unlocks >= 1:
+        findings.append(("fail", f"dveřní kontakt: vstup {di} se od startu nezměnil ani po {unlocks}× otevření zámku (stále {int(raw)}) — "
+                         "signál kontaktu nejde do modulu: na Relay (B) musí být svorka COM VOLNÁ a kontakt mezi DI a DGND "
+                         "(propojka COM–DGND přepne vstupy do režimu PNP a suchý kontakt pak nikdy nesepne).", "contact_stuck"))
+    elif changes == 0 and up >= 3600:
+        findings.append(("warn", f"dveřní kontakt: vstup {di} se od startu ({int(up // 3600)} h) nezměnil (stále {int(raw)}) — "
+                         "pokud se dveře mezitím otevíraly, kontakt není zapojen správně; jinak diagnostiku zopakujte po nejbližším otevření.",
+                         "contact_stuck"))
+    return {"contact_changes": changes, "unlocks_since_start": unlocks, "contact_inputs": [int(bool(v)) for v in inputs],
+            "contact_same_as_unused": same, "findings": findings,
+            "contact_last_change_s": None if last is None else round(time.monotonic() - last, 1)}
+
+
 async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
     ctrl, hw, z = diag.ctrl, zc.zone.hw, zc.zone
     state = getattr(zc.state, "value", zc.state)
@@ -341,11 +375,16 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
     active = zc.state in ACTIVE_STATES
     contact_raw = None
     raw = None
+    activity: dict = {}
     if hw.contact is not None:
         raw = _try(lambda: ctrl.io.input_value(snapshot, hw.contact))
         contact_raw = None if raw is None else (bool(raw) == _closed_level(ctrl, zc))
         if raw is None:
             add("contact", "fail", f"dveřní kontakt: modul {hw.contact.dev} nečte vstup DI{hw.contact.idx + 1} (offline)")
+        else:
+            activity = _contact_activity(ctrl, zc, snapshot, bool(raw))
+            for st, msg, key in activity.pop("findings"):
+                add("contact", st, msg, hint=key)
     else:
         add("contact", "fail", "dveřní kontakt: není nastaven v HW mapě")
     consistent = None if contact_raw is None or zc.door_closed is None else contact_raw == zc.door_closed
@@ -416,6 +455,7 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
             # průkazně pro Velín (2026-09-26): syrová hodnota vstupu + úroveň zavřeno (polaritu řeší „Test kontaktu“ / „Otočit polaritu“)
             "contact_input": None if raw is None else int(bool(raw)), "closed_level": int(_closed_level(ctrl, zc)) if hw.contact is not None else None,
             "contact_ref": f"{hw.contact.dev} DI{hw.contact.idx + 1}" if hw.contact is not None else None,
+            **activity,       # contact_changes, contact_last_change_s, unlocks_since_start, contact_inputs, contact_same_as_unused (2026-09-27)
             "tested": tested, "skipped_reason": skipped, "light": light, "signal": signal, "audio": audio,
             "shelly": shelly, "findings": findings, "problems": [f["message"] for f in findings]}
 
