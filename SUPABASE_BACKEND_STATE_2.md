@@ -507,6 +507,12 @@ Klíčové sloupce (plný popis tabulek v STATE_1, RPC v STATE_3, triggery STATE
 - **branch_id** (uuid PK), **battery_soc** numeric(5,1), **battery_voltage** numeric(6,2), **battery_power_w**/**pv_power_w**/**load_power_w** numeric(10,1)
 - **grid_present** / **generator_on** (bool), **raw** (jsonb — celý payload z měniče), **updated_at**
 
+#### kiosk_alerts (NEW 2026-09-27, `20260927_kiosk_alerts.sql`)
+- **branch_id** (uuid FK→branches CASCADE), **device_id** (uuid FK→kiosk_devices SET NULL), **door_id** (uuid FK→branch_doors SET NULL), **event_id** (uuid FK→branch_door_events SET NULL; partial UNIQUE `uq_kiosk_alerts_event` = jeden poplach na událost)
+- **zone** (int), **box_number** (int), **kind** (text CHECK `forced_open`, DEFAULT), **title** (text — „Kóje 3: dveře otevřeny bez kódu“ / „Šatna: …“ z `branch_doors.label`/`box_number`/`door_kind`, fallback z detailu události), **detail** (jsonb = `branch_door_events.detail`)
+- **created_at**, **closed_at** (timestamptz — dveře po poplachu znovu zavřeny, z `DOOR_CLOSED` téže zóny/zařízení), **acknowledged_at** (timestamptz — ruční „Potvrdit“ ve Velíně; NULL = otevřený poplach), **acknowledged_by** (uuid)
+- Indexy: `idx_kiosk_alerts_open` (created_at DESC WHERE acknowledged_at IS NULL), `idx_kiosk_alerts_branch` (branch_id, created_at DESC). Velín: hook `useKioskAlerts` (realtime + polling 60 s), banner `KioskAlertsBanner`.
+
 #### kiosk_logs (NEW v docs 2026-09-09, z `20260630_kiosk_diag_ota_offline.sql`)
 - **device_id** (uuid FK→kiosk_devices CASCADE), **branch_id** (uuid FK→branches SET NULL), **level** (text CHECK info/warn/error/crash DEFAULT info)
 - **source** (text — relay/camera/power/rpc/flutter/platform; RPi: modbus/shelly/zone/pin/lte/config/controller), **message** (text, RPC ořezává na 4000 zn.), **detail** (jsonb), **app_version**, **created_at**; indexy (branch_id, created_at DESC), (level, created_at DESC)

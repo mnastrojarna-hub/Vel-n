@@ -30,7 +30,7 @@ const ROUTE_LABELS = {
 
 export default function Topbar() {
   const [time, setTime] = useState(new Date())
-  const [notifs, setNotifs] = useState({ messages: 0, sos: 0, lowStock: 0, stkSoon: 0 })
+  const [notifs, setNotifs] = useState({ messages: 0, sos: 0, lowStock: 0, stkSoon: 0, kiosk: 0 })
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
@@ -44,7 +44,11 @@ export default function Topbar() {
   useEffect(() => { loadNotifications() }, [])
   useEffect(() => {
     const interval = setInterval(loadNotifications, 30000)
-    return () => clearInterval(interval)
+    // poplach samoobsluhy (dveře bez kódu) musí do zvonku hned, ne až za 30 s
+    const channel = supabase.channel('topbar-kiosk-alerts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kiosk_alerts' }, () => loadNotifications())
+      .subscribe()
+    return () => { clearInterval(interval); supabase.removeChannel(channel) }
   }, [])
 
   useEffect(() => {
@@ -57,27 +61,29 @@ export default function Topbar() {
 
   async function loadNotifications() {
     try {
-      const [msgRes, sosRes, invRes, stkRes] = await Promise.all([
+      const [msgRes, sosRes, invRes, stkRes, kioskRes] = await Promise.all([
         supabase.from('messages').select('id', { count: 'exact', head: true }).is('read_at', null),
         supabase.from('sos_incidents').select('id', { count: 'exact', head: true }).in('status', ['reported', 'acknowledged']),
         supabase.from('inventory').select('id, stock, min_stock'),
         supabase.from('motorcycles').select('id, stk_valid_until'),
+        supabase.from('kiosk_alerts').select('id', { count: 'exact', head: true }).is('acknowledged_at', null),
       ])
       // „Nízké zásoby" jen když je nastavené smysluplné minimum (> 0). Položka
       // s minimem 0 (např. nevedená velikost) se nikdy nehlásí jako nízká.
       const lowStock = (invRes.data || []).filter(i => (i.min_stock || 0) > 0 && i.stock <= i.min_stock).length
       const in30days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
       const stkSoon = (stkRes.data || []).filter(m => m.stk_valid_until && m.stk_valid_until <= in30days).length
-      setNotifs({ messages: msgRes.count || 0, sos: sosRes.count || 0, lowStock, stkSoon })
+      setNotifs({ messages: msgRes.count || 0, sos: sosRes.count || 0, lowStock, stkSoon, kiosk: kioskRes.count || 0 })
     } catch {
-      setNotifs({ messages: 0, sos: 0, lowStock: 0, stkSoon: 0 })
+      setNotifs({ messages: 0, sos: 0, lowStock: 0, stkSoon: 0, kiosk: 0 })
     }
   }
 
-  const totalNotifs = notifs.messages + notifs.sos + notifs.lowStock + notifs.stkSoon
+  const totalNotifs = notifs.messages + notifs.sos + notifs.lowStock + notifs.stkSoon + notifs.kiosk
   const label = ROUTE_LABELS[location.pathname] || 'Velín'
 
   const notifItems = [
+    notifs.kiosk > 0 && { icon: '🚨', text: `${notifs.kiosk}× dveře otevřeny bez kódu (samoobsluha)`, path: '/', color: '#dc2626' },
     notifs.sos > 0 && { icon: '🚨', text: `${notifs.sos} aktivních SOS`, path: '/sos', color: '#dc2626' },
     notifs.messages > 0 && { icon: '💬', text: `${notifs.messages} nepřečtených zpráv`, path: '/zpravy', color: '#8b5cf6' },
     notifs.lowStock > 0 && { icon: '📦', text: `${notifs.lowStock} pod minimem`, path: '/logistika?tab=stock', color: '#b45309' },

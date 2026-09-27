@@ -115,13 +115,17 @@ def not_configured_text(name: str) -> str:
             f"Kontaktujte podporu: {SUPPORT}.")
 
 
-def open_result_text(ok: bool, reason: str, kind: str, name: str) -> str:
-    """Text overlay po pokusu o otevření (úspěch dle druhu kódu, jinak důvod)."""
+def open_result_text(ok: bool, reason: str, kind: str, name: str, box_number: int | None = None) -> str:
+    """Text overlay po pokusu o otevření (úspěch dle druhu kódu, jinak důvod). Zadání 2026-09-27: po kódu má displej
+    říct, KAM jít — kóje „Dveře č. N otevřeny — běžte ke dveřím č. N.“ (N = číslo kóje), šatna „Šatna otevřena — vemte
+    za kliku.“ Servisní otevření (panel, pevné kódy) zůstává „Otevřeno — {name}.“"""
     if ok:
         if kind == "accessories":
-            return f"Otevřeno — {name}. Vezměte si výbavu a zavřete dveře šatny."
+            return "Šatna otevřena — vemte za kliku."
         if kind == "motorcycle":
-            return f"Otevřeno — {name}. Příjemnou cestu! 🏍️"
+            if box_number is not None:
+                return f"Dveře č. {box_number} otevřeny — běžte ke dveřím č. {box_number}."
+            return f"{name}: otevřeno — běžte ke dveřím."
         return f"Otevřeno — {name}."
     if reason in ("busy", "door_open"):
         return f"{name}: dveře jsou už otevřené — zavřete je a zadejte kód znovu."
@@ -288,4 +292,9 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
                               box_number=zc.zone.box_number, message=f"{name}: otevření selhalo ({reason})",
                               detail={"source": source, "reason": reason, "offline": rr.offline}))
     return {**base, "ok": ok, "kind": rr.kind, "error": None if ok else reason, "zone": zc.number,
-            "message": open_result_text(ok, reason, rr.kind, name)}
+            "message": open_result_text(ok, reason, rr.kind, name, box_number=door_number(zc))}
+
+
+def door_number(zc: "ZoneController") -> int:
+    """Číslo dveří pro hlášku „běžte ke dveřím č. N“ = číslo kóje (`box_number`), bez něj číslo zóny."""
+    return int(zc.zone.box_number) if zc.zone.box_number is not None else int(zc.number)

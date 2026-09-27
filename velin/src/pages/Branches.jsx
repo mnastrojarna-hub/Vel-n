@@ -1,5 +1,7 @@
 import { useState, useEffect, Component } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useKioskAlerts, fmtAlertTime } from '../hooks/useKioskAlerts'
 import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
@@ -54,8 +56,22 @@ function Branches() {
   const [detail, setDetail] = useState(null)
   const [statusFilter, setStatusFilter] = useState('all')
   const [bookingStats, setBookingStats] = useState({})
+  const [detailTab, setDetailTab] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const kioskAlerts = useKioskAlerts()          // poplach samoobsluhy (dveře bez kódu) → ikona v řádku pobočky
+  const alertsByBranch = {}
+  for (const a of kioskAlerts.alerts) (alertsByBranch[a.branch_id] ||= []).push(a)
 
   useEffect(() => { load() }, [])
+
+  // Odkaz z Dashboardu / zvonku: /pobocky?branch=<id>&tab=4 otevře detail pobočky rovnou na dané záložce.
+  useEffect(() => {
+    const id = searchParams.get('branch')
+    if (!id || branches.length === 0) return
+    const b = branches.find(x => x.id === id)
+    if (b) { setDetailTab(Number(searchParams.get('tab')) || 0); setDetail(b) }
+    setSearchParams({}, { replace: true })
+  }, [branches, searchParams])
 
   async function load() {
     setLoading(true)
@@ -316,8 +332,8 @@ function Branches() {
             {filtered.map(b => (
               <tr key={b.id}
                 className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
-                style={{ borderBottom: '1px solid #d4e8e0', opacity: b.active === false ? 0.5 : 1 }}
-                onClick={() => setDetail(b)}>
+                style={{ borderBottom: '1px solid #d4e8e0', opacity: b.active === false ? 0.5 : 1, background: (alertsByBranch[b.id] || []).length > 0 ? '#fee2e2' : undefined }}
+                onClick={() => { setDetailTab(0); setDetail(b) }}>
                 <TD>
                   <button
                     onClick={e => { e.stopPropagation(); toggleOpen(b) }}
@@ -331,7 +347,16 @@ function Branches() {
                   </button>
                 </TD>
                 <TD mono bold>{b.branch_code || '—'}</TD>
-                <TD bold>{b.name}</TD>
+                <TD bold>
+                  {b.name}
+                  {(alertsByBranch[b.id] || []).length > 0 && (
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-btn text-[10px] font-extrabold uppercase"
+                      style={{ padding: '2px 7px', background: '#dc2626', color: '#fff' }}
+                      title={alertsByBranch[b.id].map(a => `${a.title} · ${fmtAlertTime(a.created_at)}${a.closed_at ? ' (dveře znovu zavřeny)' : ' (dveře stále otevřené)'}`).join('\n') + '\nOtevřete detail → Samoobsluha a poplach potvrďte.'}>
+                      🚨 bez kódu {alertsByBranch[b.id].length > 1 ? `×${alertsByBranch[b.id].length}` : ''}
+                    </span>
+                  )}
+                </TD>
                 <TD>{b.city || '—'}</TD>
                 <TD>{b.address || '—'}</TD>
                 <TD mono>{b.phone || '—'}</TD>
@@ -392,6 +417,7 @@ function Branches() {
       {detail && (
         <BranchDetailModal
           branch={detail}
+          initialTab={detailTab}
           stats={stats[detail.id]}
           bookings={bookingStats[detail.id] || 0}
           onClose={() => setDetail(null)}

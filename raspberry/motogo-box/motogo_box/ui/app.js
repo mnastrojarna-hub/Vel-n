@@ -235,7 +235,9 @@ window.MG = window.MG || {};
     if (res.kind === 'diagnostics') { hideStatus(); MG.Diag.open({ started: true, shellToken: res.shell_token }); return; }
     const z = res.zone != null ? (S.state && (S.state.zones || []).find((x) => x.zone === res.zone)) : null;
     const name = z ? MG.i18n.zoneName(z) : (res.kind === 'accessories' ? MG.i18n.t('acc') : MG.i18n.t('opened'));
-    showStatus('success', MG.i18n.t('opened'), (cz && res.message) || MG.i18n.successSubtitle(res.kind, name), true);
+    // Titulek + podtitulek se skládají lokálně ve všech jazycích (i česky) — „Dveře č. 3 otevřeny / Běžte ke dveřím č. 3.“;
+    // `res.message` (česká věta ze serveru) se u úspěchu ukáže jen tam, kde zónu neznáme (service_door apod.).
+    showStatus('success', MG.i18n.successTitle(res.kind, z), (z ? '' : (cz && res.message)) || MG.i18n.successSubtitle(res.kind, name, z), true);
   }
 
   /* ── Overlay stavů ────────────────────────────────────────────────── */

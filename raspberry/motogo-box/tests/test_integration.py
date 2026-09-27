@@ -227,7 +227,7 @@ async def test_box_controller_end_to_end(sim: Sim, tmp_path) -> None:
         assert 0.5 <= time.monotonic() - t_on <= 1.5
         res = await asyncio.wait_for(task, 10)
         assert res["ok"] is True and res["kind"] == "motorcycle" and res["zone"] == 3, res
-        assert res["error"] is None and "Otevřeno" in res["message"]
+        assert res["error"] is None and "otevřen" in res["message"]
         z3 = ctrl.zones[3]
         assert z3.state == ZoneState.WAITING_FOR_OPEN and z3.booking_id == "b1"
         assert sim.modules["wav617a"].coils[Z3_LIGHT] is True and z3.light_on

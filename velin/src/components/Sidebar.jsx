@@ -10,7 +10,7 @@ const NAV = [
   { id: 'customers', path: '/zakaznici', label: 'Zákazníci', icon: '👥' },
   { id: 'finance', path: '/finance', label: 'Finance', icon: '💰' },
   { id: 'documents', path: '/dokumenty', label: 'Dokumenty', icon: '📄' },
-  { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢' },
+  { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢', badgeKey: 'kiosk' },   // poplach samoobsluhy (kiosk_alerts)
   { id: 'logistics', path: '/logistika', label: 'Logistika zboží', icon: '📦', badgeKey: 'gear' },
   { id: 'trasy', path: '/trasy', label: 'Trasy', icon: '🛣️' },
   { id: 'service', path: '/servis', label: 'Servis', icon: '🔧' },
@@ -51,7 +51,7 @@ const Logo = ({ size = 44 }) => (
 export default function Sidebar({ admin, onSignOut }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [badges, setBadges] = useState({ messages: 0, sos: 0, gear: 0 })
+  const [badges, setBadges] = useState({ messages: 0, sos: 0, gear: 0, kiosk: 0 })
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -64,20 +64,22 @@ export default function Sidebar({ admin, onSignOut }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadBadges())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sos_incidents' }, () => loadBadges())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'gear_shortages' }, () => loadBadges())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kiosk_alerts' }, () => loadBadges())
       .subscribe()
     return () => { clearInterval(interval); supabase.removeChannel(channel) }
   }, [])
 
   async function loadBadges() {
     try {
-      const [msgRes, sosRes, gearRes] = await Promise.all([
+      const [msgRes, sosRes, gearRes, kioskRes] = await Promise.all([
         supabase.from('messages').select('id', { count: 'exact', head: true }).eq('direction', 'customer').is('read_at', null),
         supabase.from('sos_incidents').select('id', { count: 'exact', head: true }).in('status', ['reported', 'acknowledged', 'in_progress']),
         supabase.from('gear_shortages').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+        supabase.from('kiosk_alerts').select('id', { count: 'exact', head: true }).is('acknowledged_at', null),
       ])
-      setBadges({ messages: msgRes.count || 0, sos: sosRes.count || 0, gear: gearRes.count || 0 })
+      setBadges({ messages: msgRes.count || 0, sos: sosRes.count || 0, gear: gearRes.count || 0, kiosk: kioskRes.count || 0 })
     } catch {
-      setBadges({ messages: 0, sos: 0, gear: 0 })
+      setBadges({ messages: 0, sos: 0, gear: 0, kiosk: 0 })
     }
   }
 
@@ -147,8 +149,8 @@ export default function Sidebar({ admin, onSignOut }) {
                 <span className="flex items-center justify-center shrink-0"
                   style={{
                     minWidth: 18, height: 18, borderRadius: 9,
-                    background: (item.badgeKey === 'sos' || item.badgeKey === 'gear') ? '#dc2626' : '#74FB71',
-                    color: (item.badgeKey === 'sos' || item.badgeKey === 'gear') ? '#fff' : '#1a2e22',
+                    background: (item.badgeKey === 'sos' || item.badgeKey === 'gear' || item.badgeKey === 'kiosk') ? '#dc2626' : '#74FB71',
+                    color: (item.badgeKey === 'sos' || item.badgeKey === 'gear' || item.badgeKey === 'kiosk') ? '#fff' : '#1a2e22',
                     fontSize: 9, fontWeight: 800, padding: '0 5px',
                   }}>
                   {badges[item.badgeKey]}

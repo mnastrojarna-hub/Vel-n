@@ -49,7 +49,8 @@ async def open_zone(hm: "HandoverManager", then_open: dict | None) -> tuple[dict
     ok, reason = await zc.grant_access(booking_id=bid, kind=kind, source=str(source or "protocol"))
     name = zc.zone.display_name
     if ok:
-        return {"zone": zc.number, "kind": zc.zone.kind, "message": cc.open_result_text(True, "ok", kind, name)}, None
+        return {"zone": zc.number, "kind": zc.zone.kind,
+                "message": cc.open_result_text(True, "ok", kind, name, box_number=cc.door_number(zc))}, None
     await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="warn", code_kind=kind,
                           zone=zc.number, door_id=zc.zone.door_id, booking_id=bid, box_number=zc.zone.box_number,
                           message=f"{name}: otevření po podpisu protokolu selhalo ({reason})",

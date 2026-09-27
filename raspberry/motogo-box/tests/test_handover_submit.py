@@ -29,7 +29,7 @@ async def test_submit_with_then_open_saves_and_opens(ctrl):
     await hm.require_before_open(rr_moto(proto=protocol("b1")), zc, "ui")
     res = await hm.submit("b1", FORM, SIG, None)
     assert res == {"ok": True, "status": "saved", "error": None,
-                   "opened": {"zone": 3, "kind": "motorcycle", "message": "Otevřeno — Kóje 3. Příjemnou cestu! 🏍️"}}
+                   "opened": {"zone": 3, "kind": "motorcycle", "message": "Dveře č. 3 otevřeny — běžte ke dveřím č. 3."}}
     assert zc.grants == [("b1", "motorcycle", "ui")]
     sent = ctrl.api.submits[0]
     assert sent["booking_id"] == "b1" and sent["form"] == FORM and sent["signature"] == SIG and sent["signed_at"]
@@ -167,7 +167,7 @@ async def test_submit_code_gate_in_controller_codes(ctrl):
     assert ctrl.zones[3].grants == [] and "ACCESS_DENIED" not in ctrl.kinds() and ctrl.storage.pin_failures_since(0) == 0
     assert ctrl.handover.status()["active"]["then_open"] is True
     res = await cc.submit_code(ctrl, "888888", "ui")
-    assert res["ok"] and res["kind"] == "accessories" and res["message"] == "Otevřeno — Šatna. Vezměte si výbavu a zavřete dveře šatny."
+    assert res["ok"] and res["kind"] == "accessories" and res["message"] == "Šatna otevřena — vemte za kliku."
     assert ctrl.zones[8].grants == [("b1", "accessories", "ui")] and ctrl.handover.protocols["b1"]["required"] is True
     # po podpisu jinde projde kód motorky rovnou
     await ctrl.handover.mark_signed_remote("b1", may_open=True)

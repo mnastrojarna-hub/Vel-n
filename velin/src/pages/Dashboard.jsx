@@ -10,6 +10,8 @@ import QuickCheckInModal from './booking/QuickCheckInModal'
 import Stat from '../components/ui/Stat'
 import ExportBar from '../components/ui/ExportBar'
 import BannerEditor from './DashboardBannerEditor'
+import KioskAlertsBanner from '../components/KioskAlertsBanner'
+import { useKioskAlerts } from '../hooks/useKioskAlerts'
 import {
   WidgetCard, fmtKc, RevenueChartCard, BookingRowsCard, ModificationsCard, PaymentsCard,
   ShopOrdersCard, ServiceCard, StkCard, EmailsCard, DocsCard, VisitorsCard, AiConvCard,
@@ -38,6 +40,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [quickCheckIn, setQuickCheckIn] = useState(false) // rychlé odbavení kódem motorky
   const [pickupsKey, setPickupsKey] = useState(0) // remount widgetu Odjezdy a návraty po odbavení
+  const kioskAlerts = useKioskAlerts({ notify: true })   // poplach samoobsluhy (dveře bez kódu) — realtime, do potvrzení
 
   useEffect(() => {
     debugLog('page.mount', 'Dashboard')
@@ -192,6 +195,7 @@ export default function Dashboard() {
 
   return (
     <div>
+      <KioskAlertsBanner alerts={kioskAlerts.alerts} onAck={kioskAlerts.reload} onOpenBranch={id => nav(`/pobocky?branch=${id}&tab=4`)} />
       <div className="flex gap-3.5 mb-5 flex-wrap">
         {clickable('/flotila', <Stat icon="🏍️" label="Aktivní motorky" value={`${data.activeMotos}/${data.totalMotos}`} sub={`Ø využití ${data.utilization}%`} />)}
         {clickable('/finance', <Stat icon="💰" label="Tržby tento měsíc" value={fmtShort(data.monthRevenue)} color="#f59e0b" sub="z přijatých plateb" />)}
