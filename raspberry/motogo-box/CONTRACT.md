@@ -558,6 +558,8 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | `update_system` | `rollout_id?`, `wait_idle_s?`, `auto_reboot?` (bool) | `ctrl.updater.start('system', params)` → `(True, {scheduled:true, wait_idle_s, auto_reboot})`; v klidu `sudo /usr/local/sbin/motogo-sysupdate` (apt full-upgrade, timeout 2700 s), `REBOOT_REQUIRED=0\|1` z výstupu → `last.reboot_required`; chybí-li skript → `failed` `sysupdate_missing: …` (bez sudo); `auto_reboot` + nové jádro → znovu počkat na klid → `sudo systemctl reboot`. Není HW ani TERMINAL příkaz |
 | `http_get` / `camera_control` | `url` | httpx GET (timeout 6 s) |
 | `diagnostics` | `mode?` (`full` výchozí \| `network` = jen síť), `cameras?` (`[{name, kind, snapshot_url, stream_url}]`, max 20 — uloží se do kv `diag_cameras` i pro lokální běhy), `reason?` | `ctrl.diagnostics.start(source='velin', reason, mode=…, cameras=…)` — kompletní diagnostika pobočky na pozadí (§24), `{ok, started, id, mode}` / `already_running`; není HW příkaz (funguje i při `not ready`) |
+| `screen_mirror` (2026-09-27, §29) | `session_id`, `on` (bool), `control?`, `max_fps?`, `quality?`, `max_width?`, `ttl_s?` | `ctrl.screen.start(...)` — zrcadlení obrazovky do Velína přes CDP; `on:false` = `stop`; Chromium bez DevTools → `(False, {error:'cdp_unavailable'})`; NE v HW_COMMANDS (běží i mimo `ready`) |
+| `screen_input` (2026-09-27, §29) | `session_id`, `kind` = `tap` (`x`,`y` 0..1) \| `dialog` (`text` \| null), `sent_at` | `ctrl.screen.tap` / `.dialog` — jen aktivní relace s `control`, tap starší 5 s → `stale_input`, > 5/s → `rate_limited`, jiná relace → `session_mismatch` |
 | `protocol_signed` (2026-09-25, §28) | `booking_id` | `handover.mark_signed_remote(booking_id, may_open=True)` → `(True, {booking_id, opened})`; bez `booking_id` → `(False, {error:'missing_booking_id'})`. Protokol podepsán jinde (appka / Velín; vkládá DB trigger `trg_handover_signed_notify_kiosk` všem aktivním zařízením pobočky): položku odstraní; kóji otevře JEN je-li overlay této rezervace právě viditelný s platným `then_open` (JEDINÁ cesta mimo `submit`, která otevírá — sync/boot mají `may_open=False`), jinak (viditelný bez then_open) DONE „Protokol potvrzen. Teď zadejte kód motorky.“; idempotentní. Není HW příkaz. Zdroj pravdy je `protocols[]` ze sync (příkaz expiruje po 10 min = jen urychlení); trigger zároveň volá `kiosk_request_sync` → dva broadcasty za sebou jsou ZÁMĚR, ne chyba dedupe. Starší software jednotky → `unknown_command` — Velín to NEmá ukazovat jako poruchu |
 
 Příkazy `pending` nevyzvednuté do 10 min označí `kiosk_fetch_commands` jako `expired` (`20260910b_kiosk_commands_ttl.sql`) — Velín tak nečeká věčně na offline jednotku.
@@ -608,6 +610,7 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
                        "sizes":{"helmet":["S","M","L","XL"],"jacket":[],"pants":[],"boots":["41","42","43"],"gloves":[]},
                        "shown_at":"…","expires_at":"…","saving":false},
              "pending":["uuid"],"failed":[],"waiting":["uuid"]},
+ "remote_screen":{"active":false,"control":false,"since":null,"session_id":null,"frames":0,"bytes":0,"last_error":null,"stop_reason":null},
  "notice":null,"last_error":null}
 ```
 
@@ -1557,3 +1560,36 @@ Endpointy §16, snapshot §14, příkaz §13, události §15, storage §7, RPC/e
 fail `rndis_no_ip`); v QMI je `unavailable` s modemem NA USB **fail** („MM ho nevidí — mrtvý QMI kanál“, hint `modem_gone`),
 bez modemu na USB fail/warn dle internetu; řádek „Modem na USB“ (fail bez modemu, warn při nesouladu režimů `lte_mode_mismatch`)
 a „Režim modemu“. Souhrn `lte` = `connected`/`no_address` v RNDIS.
+
+## 29. `screen_mirror.py` — zrcadlení obrazovky kiosku ve Velíně + vzdálený tap (rozhodnutí uživatele 2026-09-27)
+
+Zadání: „Ve Velíně zrcadlit obrazovku kiosku a na dálku ji ovládat, nebo jen zrcadlit.“ Rozhodnutí 2026-09-27: obojí hned
+(ovládání za přepínačem „Ovládat“), kiosk během relace NIC nezobrazuje.
+
+**Jak:** Chromium na displeji má `--remote-debugging-port=9222` (`scripts/kiosk-ui.sh`, `CDP_PORT`; JEN 127.0.0.1 — nikdy
+`--remote-debugging-address`/`--remote-allow-origins`; politika `RemoteDebuggingAllowed: true`). `ScreenMirror(api, local.screen)`
+(`ctrl.screen`) se na žádost Velína připojí na WS stránky (`GET /json/list` → `type=page`), `Page.startScreencast {jpeg, quality 45,
+maxWidth 960, maxHeight 540}`; Chromium posílá snímek jen při překreslení, navíc SHA-1 dedup + limit `max_fps` (výchozí 1;
+poslední snímek vždy dojde) → RPC `kiosk_push_screen_frame(session_id, seq, frame b64, w, h, meta)` PŘÍMO (bez outboxu). Bez
+změny obrazu jen ping á `ping_s` (10 s, `frame=NULL`), z odpovědi `{active, control}` se řídí konec relace a ovládání.
+Konec: `active:false` (Velín zavřel panel / keepalive vypršel), TTL `max_session_s` (600), `stall_s` (60 s bez úspěšného pushe),
+Chromium nedostupné (po reloadu UI 3× reconnect). Ack snímku a `stopScreencast` se posílají bez čekání na odpověď (`send`) —
+odpovědi rozděluje smyčka příjmu. Bez relace = 0 dat; typicky 5–8 MB / 10 min (~50 kB/snímek).
+
+**Vstup:** `tap(x, y)` (0..1, ořez) → `Page.getLayoutMetrics` (cssVisualViewport) → `Input.dispatchMouseEvent` moved/pressed/released
+(= klik, stejná cesta jako dotyk: klávesnice `keyboard.js` i podpis). Nativní `window.prompt` terminálu (§27) screencast nevidí →
+`Page.javascriptDialogOpening` → `meta.dialog {type, message}` v dalším pushi; Velín odpoví `screen_input {kind:'dialog', text|null}`
+→ `Page.handleJavaScriptDialog`. Pojistky: jen `control`, jen aktivní relace, `sent_at` starší 5 s → `stale_input`, max 5/s.
+`command_loop` polluje 1 s, dokud běží relace s `control` (jinak 10 s + realtime wake).
+
+**Konfigurace** `config.yaml screen: {cdp_port, max_fps, quality, max_width, max_session_s, ping_s, stall_s}` (`ScreenCfg`).
+**Snapshot** `remote_screen {active, control, since, session_id, frames, bytes, last_error, stop_reason}`.
+**Diagnostika** (Program a služby): „Vzdálená obrazovka (CDP)“ — `ss -ltnH` + `/json/version`: ok jen na loopbacku; mimo loopback =
+**fail** (hint `cdp_exposed`); bez portu = fail (`cdp_missing`, po aktualizaci se motogo-ui restartuje s přepínačem).
+**Backend** `20260927b_kiosk_screen_mirror.sql`: `kiosk_screen_sessions` (1 aktivní / zařízení, `control`, `expires_at` keepalive,
+`ended_at` → trigger smaže snímek), `kiosk_screen_frames` (1 řádek / zařízení, realtime), RPC `kiosk_push_screen_frame` (auth
+zařízení, ≤ 256 KiB, ≥ 200 ms mezi snímky, vrací `{ok, active, control, expires_at}`), CHECK `kiosk_commands` + `screen_mirror`,
+`screen_input`. **Velín** `BranchRpiScreen.jsx` (tlačítko „🖥 Obrazovka“ na kartě jednotky → overlay přes celou obrazovku, stavový
+řádek stáří/počet/MB/zbývá, přepínač „Ovládat“, klik = tap v procentech, dialog), `screenMirrorHelpers.js` (start = insert relace +
+příkaz, keepalive á 30 s, stop = `ended_at` + `screen_mirror {on:false}`, realtime `kiosk_screen_frames` + polling 4 s → `fetchFrame`
+nejdřív `seq`, celý snímek jen nový). **Testy** `tests/test_screen_mirror.py` (falešný CDP server aiohttp).

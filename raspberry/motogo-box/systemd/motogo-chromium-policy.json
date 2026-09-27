@@ -1,6 +1,8 @@
 {
   "_comment": "MotoGo Box — vynucená politika Chromia na displeji pobočky. Instaluje install.sh / update.sh do /etc/chromium/policies/managed/motogo-kiosk.json (root, 0644). Chromium ji čte při startu a uživatel ji na displeji NEMŮŽE přepnout — na rozdíl od přepínačů příkazové řádky a Preferences v profilu.",
   "_translate": "TranslateEnabled=false vypíná celý překladač: bublina „Přeložit tuto stránku?“ v pravém horním rohu se nikdy nezobrazí. Kiosk má vlastní překlady v 8 jazycích (ui/i18n.js) a Google překlad by texty přepsal bez možnosti vrátit je zpět (dotykový displej nemá jak bublinu zavřít).",
+  "_remote_debugging": "RemoteDebuggingAllowed=true: zrcadlení obrazovky do Velína (CONTRACT §29) jde přes DevTools na 127.0.0.1:9222 (kiosk-ui.sh --remote-debugging-port). Výchozí je povoleno; uvedeno výslovně, aby to budoucí politika nevypnula.",
+  "RemoteDebuggingAllowed": true,
   "TranslateEnabled": false,
   "SpellcheckEnabled": false,
   "SafeBrowsingEnabled": false,

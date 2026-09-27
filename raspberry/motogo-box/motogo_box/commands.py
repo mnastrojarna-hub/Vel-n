@@ -405,6 +405,40 @@ async def _http_get(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
         return False, {"error": str(exc)}
 
 
+async def _screen_mirror(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Zrcadlení obrazovky do Velína (CONTRACT §29): `{session_id, on, control?, max_fps?, quality?, max_width?, ttl_s?}`.
+    `on: false` (nebo bez session_id) = konec relace. Nic se nespíná — jen Chromium přes CDP na loopbacku."""
+    screen = getattr(ctrl, "screen", None)
+    if screen is None:
+        return False, {"error": "screen_unsupported"}
+    sid = str(params.get("session_id") or "").strip()
+    if not params.get("on", True) or not sid:
+        await screen.stop("ended_by_velin")
+        return True, screen.status()
+    res = await screen.start(sid, control=bool(params.get("control", False)), max_fps=params.get("max_fps"),
+                             quality=_int(params.get("quality")), max_width=_int(params.get("max_width")),
+                             ttl_s=_int(params.get("ttl_s")))
+    return not res.get("error"), res
+
+
+async def _screen_input(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Vzdálený vstup do zrcadlené obrazovky: `{session_id, kind: 'tap'|'dialog', x, y, text, sent_at}` — jen v aktivní
+    relaci s `control`, tap starší 5 s se zahodí (pojistky v ScreenMirror)."""
+    screen = getattr(ctrl, "screen", None)
+    if screen is None:
+        return False, {"error": "screen_unsupported"}
+    kind = str(params.get("kind") or "tap")
+    sid, sent = params.get("session_id"), params.get("sent_at")
+    if kind == "dialog":
+        text = params.get("text")
+        return await screen.dialog(None if text is None else str(text), session_id=sid, sent_at=sent)
+    try:
+        x, y = float(params.get("x")), float(params.get("y"))
+    except (TypeError, ValueError):
+        return False, {"error": "bad_coordinates"}
+    return await screen.tap(x, y, session_id=sid, sent_at=sent)
+
+
 HANDLERS: dict[str, Handler] = {
     "open_door": _open_door,
     "music_on": _music_on,
@@ -429,6 +463,8 @@ HANDLERS: dict[str, Handler] = {
     "diagnostics": _diagnostics,
     "shell_unlock": _shell_unlock,
     "protocol_signed": _protocol_signed,
+    "screen_mirror": _screen_mirror,     # zrcadlení obrazovky do Velína (§29) — bez HW, běží i mimo `ready`
+    "screen_input": _screen_input,
 }
 
 # Příkazy, které ukončí proces — controller je dokončí v Supabase PŘED spuštěním.

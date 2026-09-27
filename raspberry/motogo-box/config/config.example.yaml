@@ -44,6 +44,13 @@ diagnostics:
     - https://www.google.com/generate_204
   timeout_s: 120                  # celkový limit jednoho běhu
 
+screen:                           # zrcadlení obrazovky do Velína (CONTRACT §29) — jen když Velín požádá, jinak 0 dat
+  cdp_port: 9222                  # Chromium --remote-debugging-port (jen 127.0.0.1; kiosk-ui.sh, MOTOGO_CDP_PORT)
+  max_fps: 1                      # snímky jen při změně obrazu, nejvýš 1/s (~50 kB/snímek)
+  quality: 45
+  max_width: 960
+  max_session_s: 600              # tvrdý limit relace (10 min); Velín ji drží keepalivem, po zavření panelu končí
+
 health:
   check_interval_s: 30
   probe_url: https://vnwnqteskbykeucanlhk.supabase.co/auth/v1/health

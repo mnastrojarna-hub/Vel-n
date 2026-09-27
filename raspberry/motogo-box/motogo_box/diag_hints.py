@@ -34,6 +34,8 @@ HINTS = {
     "realtime": "Realtime kanál nespojen — příkazy z Velína dorazí až pollingem (do 10 s); zkontrolujte internet.",
     "service": "Zkontrolujte službu: systemctl status {unit}; journalctl -u {unit} -n 50.",
     "failed_units": "Zobrazte selhané jednotky: systemctl --failed.",
+    "cdp_missing": "Po „Aktualizovat software“ se motogo-ui restartuje s přepínačem --remote-debugging-port (scripts/kiosk-ui.sh); ručně: sudo systemctl restart motogo-ui. Když port dál neposlouchá, zkontrolujte, že config.yaml `screen.cdp_port` = CDP_PORT v kiosk-ui.sh (9222).",
+    "cdp_exposed": "BEZPEČNOST: v scripts/kiosk-ui.sh nesmí být --remote-debugging-address ani --remote-allow-origins; odstraňte je a restartujte motogo-ui (sudo systemctl restart motogo-ui).",
     "health": "Health služba neposílá stav (motogo-health) — systemctl restart motogo-health.",
     "mpv": "Přehrávač mpv neběží — zkontrolujte USB zvukovku (aplay -l), audio.device v konfiguraci a log služby.",
     "music": "Nahrajte hudbu do adresáře s hudbou (paths.music_dir) — bez souborů nehraje žádná zóna.",

@@ -84,6 +84,21 @@ def _system(r: dict) -> dict:
     return section("system", "Řídicí jednotka", it)
 
 
+def _cdp_item(cdp: dict) -> dict:
+    """Vzdálená obrazovka (§29): Chromium musí mít DevTools port, a JEN na 127.0.0.1 (jinak má kdokoli v LAN celý prohlížeč)."""
+    port, browser = cdp.get("port"), cdp.get("browser")
+    listening, loop = cdp.get("listening"), cdp.get("loopback_only")
+    if listening and loop is False:
+        return item("software.cdp", "Vzdálená obrazovka (CDP)", "fail", f"port {port} na {', '.join(cdp.get('addrs') or [])}",
+                    f"DevTools port {port} Chromia poslouchá i mimo loopback — kdokoli v LAN může ovládat prohlížeč displeje.", hint("cdp_exposed"))
+    if browser:
+        return item("software.cdp", "Vzdálená obrazovka (CDP)", "ok", f"{browser}, port {port} jen na 127.0.0.1", "")
+    if listening is None and browser is None:
+        return item("software.cdp", "Vzdálená obrazovka (CDP)", "skip", None, "Nelze zjistit (ss / DevTools neodpovídá).")
+    return item("software.cdp", "Vzdálená obrazovka (CDP)", "fail", f"port {port} neposlouchá",
+                "Chromium na displeji běží bez DevTools portu — zrcadlení obrazovky z Velína nepůjde.", hint("cdp_missing"))
+
+
 def _software(r: dict) -> dict | None:
     if (sec := _missing("software", "Program a služby", r, "software")) is None or sec["items"]:
         return sec
@@ -100,6 +115,8 @@ def _software(r: dict) -> dict | None:
     it.append(item("software.health", "Health služba (LTE/internet)", "ok" if ha is not None and ha <= 120 else "skip" if young else "fail",
                    None if ha is None else f"před {int(ha)} s", "" if (ha is not None and ha <= 120) or young else
                    "Health služba neposílá stav (poslední " + (f"před {int(ha)} s" if ha is not None else "nikdy") + ").", hint("health")))
+    if (cdp := s.get("cdp")) is not None:
+        it.append(_cdp_item(cdp))
     a = s.get("audio") or {}
     it.append(item("software.mpv", "Přehrávač mpv", "ok" if a.get("player_ok") else "fail", a.get("device") or "výchozí zařízení",
                    "" if a.get("player_ok") else "Přehrávač mpv neběží — hudba a tón nefungují.", hint("mpv")))

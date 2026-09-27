@@ -3,6 +3,7 @@ import { EmptyState } from './BranchHelpers'
 import { RpiSection, Btn, Chip, ErrorBoundary, formatUptime, ageSeconds, formatAge, txt, num, arr, isRpiDevice, ACCESSORIES_LABEL, boxLabel, isGeneratedZoneLabel } from './BranchRpiUi'
 import { OutdoorTile } from './BranchRpiOutdoorTile'
 import { parseHandover, HandoverDeviceInfo, ZoneHandoverInfo } from './BranchRpiHandover'
+import { ScreenMirrorButton } from './BranchRpiScreen'
 
 // ─── Řídicí jednotka (Raspberry) — živý stav zón + příkazy ──────────────────
 // Zdroj: kiosk_devices.status (snapshot z kontraktu §14, RPC kiosk_report_status),
@@ -239,6 +240,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor }) {
           onClick={() => confirmSend('Vypnout vše (zámky, světla, hudba, signalizace) na řídicí jednotce?', 'all_off', {}, 'Vše vypnout')}>Vše vypnout</Btn>
         <Btn tone="blue" title="Jednotka si HNED stáhne aktuální nastavení z Velína (hardware, dveře, kódy, hudbu) — jinak to udělá sama do 60 s. Použijte po úpravě nastavení, když nechcete čekat."
           onClick={() => send('sync_config', {}, 'Synchronizovat konfiguraci')}>Synchronizovat konfiguraci</Btn>
+        <ScreenMirrorButton dev={dev} online={online} onCommand={onCommand} />
         <Btn tone="blue" title="Kterou pobočku mám před sebou? Na displeji této jednotky se zobrazí „Tady jsem 👋“ a signalizace VŠECH kójí 3× blikne zeleně. Slouží k rozpoznání, který řádek ve Velíně patří které fyzické jednotce — nic neotevírá, zákazníka to neomezí."
           onClick={() => send('identify', { label: 'Velín' }, 'Identifikuj')}>Identifikuj</Btn>
         <Btn tone="amber" title="Restartuje jen program jednotky (ne celý Raspberry). Trvá pár sekund, zóny se znovu načtou. První pomoc, když se něco zaseklo."

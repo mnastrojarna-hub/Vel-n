@@ -403,8 +403,12 @@ async def command_loop(ctrl: "BoxController") -> None:
                 await ctrl.handle_command(cmd)
         except Exception:  # noqa: BLE001
             log.exception("command_loop: selhal")
+        # Vzdálené ovládání obrazovky (§29): klepnutí z Velína nesmí čekat 10 s na polling — 1 s, dokud relace s `control` běží.
+        screen = getattr(ctrl, "screen", None)
+        poll_s = 1 if screen is not None and getattr(screen, "active", False) and getattr(screen, "control", False) \
+            else max(2, ctrl.local.intervals.command_poll_s)
         try:
-            await asyncio.wait_for(ctrl.wake.wait(), timeout=max(2, ctrl.local.intervals.command_poll_s))
+            await asyncio.wait_for(ctrl.wake.wait(), timeout=poll_s)
         except asyncio.TimeoutError:
             pass
         ctrl.wake.clear()

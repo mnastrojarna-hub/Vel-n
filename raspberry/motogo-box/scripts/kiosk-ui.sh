@@ -45,6 +45,10 @@ done
 # nejjistější cesta k tomu, aby na pobočce nezůstaly staré Preferences (dialog o pádu, zapnutý
 # překladač) z doby před aktualizací. Zároveň se tím vždy uplatní seed níže.
 PROFILE="${XDG_RUNTIME_DIR}/motogo-chromium"
+# Zrcadlení obrazovky do Velína (CONTRACT §29): Chrome DevTools Protocol JEN na 127.0.0.1 — headful Chromium poslouchá
+# na loopbacku (NIKDY nepřidávat --remote-debugging-address ani --remote-allow-origins=*; controller se připojuje bez
+# hlavičky Origin). Port musí sedět s config.yaml `screen.cdp_port`. Chromium ≥ 136 vyžaduje vlastní --user-data-dir (máme).
+CDP_PORT="${MOTOGO_CDP_PORT:-9222}"
 rm -rf "$PROFILE" 2>/dev/null || true
 mkdir -p "$PROFILE/Default"
 
@@ -74,6 +78,7 @@ exec cage -- "$BROWSER" \
   --window-size=1920,1080 \
   --autoplay-policy=no-user-gesture-required \
   --user-data-dir="$PROFILE" \
+  --remote-debugging-port="$CDP_PORT" \
   --no-first-run \
   --no-default-browser-check \
   --disable-features=Translate,TranslateUI,TranslateSubFrames \

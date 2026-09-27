@@ -125,6 +125,19 @@ class DiagnosticsCfg:
 
 
 @dataclass
+class ScreenCfg:
+    """Zrcadlení obrazovky do Velína (`screen_mirror.py`, CONTRACT §29) — Chromium s `--remote-debugging-port` jen na loopbacku."""
+
+    cdp_port: int = 9222            # musí sedět s scripts/kiosk-ui.sh (MOTOGO_CDP_PORT)
+    max_fps: float = 1.0            # snímky jen při změně obrazu, nejvýš tolikrát za sekundu
+    quality: int = 45               # JPEG kvalita
+    max_width: int = 960            # šířka snímku (výška 9/16)
+    max_session_s: int = 600        # tvrdý limit relace; Velín ji drží keepalivem, po zavření panelu končí do ~10 s
+    ping_s: int = 10                # bez změny obrazu jen ping (dozví se konec relace / ovládání)
+    stall_s: int = 60               # bez úspěšného odeslání → konec relace
+
+
+@dataclass
 class LocalConfig:
     supabase: SupabaseCfg = field(default_factory=SupabaseCfg)
     device: DeviceCfgLocal = field(default_factory=DeviceCfgLocal)
@@ -133,6 +146,7 @@ class LocalConfig:
     intervals: IntervalsCfg = field(default_factory=IntervalsCfg)
     health: HealthCfg = field(default_factory=HealthCfg)
     diagnostics: DiagnosticsCfg = field(default_factory=DiagnosticsCfg)
+    screen: ScreenCfg = field(default_factory=ScreenCfg)
     log_level: str = "INFO"
 
 

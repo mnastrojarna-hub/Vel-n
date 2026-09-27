@@ -479,3 +479,22 @@ def test_note_contact_raw_counts_real_changes_only():
     note_contact_raw(z, False, 5.0)          # návrat z offline: nepočítá se
     note_contact_raw(z, True, 6.0)           # 2. změna
     assert (z.contact_raw, z.contact_changes, z.contact_last_change) == (True, 2, 6.0)
+
+
+def test_cdp_row_states():
+    """Vzdálená obrazovka (§29): DevTools jen na loopbacku = ok; mimo loopback = fail (bezpečnost); bez portu = fail; neznámo = skip."""
+    from motogo_box.diag_steps import _ss_listeners
+    ss = "LISTEN 0 10 127.0.0.1:9222 0.0.0.0:*\nLISTEN 0 128 0.0.0.0:22 0.0.0.0:*\nLISTEN 0 4096 [::1]:9222 [::]:*\n"
+    assert _ss_listeners(ss, 9222) == ["127.0.0.1", "[::1]"] and _ss_listeners(ss, 80) == []
+    base = {"mode": "full", "software": {"services": {}, "audio": {}, "cdp": None}}
+    def row(cdp):
+        rep = {**base, "software": {**base["software"], "cdp": cdp}}
+        return {i["id"]: i for s in dp.build_protocol(rep) for i in s["items"]}.get("software.cdp")
+    assert row(None) is None
+    ok = row({"port": 9222, "listening": True, "loopback_only": True, "addrs": ["127.0.0.1"], "browser": "Chrome/130"})
+    assert ok["status"] == "ok" and "Chrome/130" in ok["value"]
+    bad = row({"port": 9222, "listening": True, "loopback_only": False, "addrs": ["0.0.0.0"], "browser": "Chrome/130"})
+    assert bad["status"] == "fail" and "mimo loopback" in bad["message"] and "remote-debugging-address" in bad["hint"]
+    miss = row({"port": 9222, "listening": False, "loopback_only": None, "addrs": [], "browser": None})
+    assert miss["status"] == "fail" and "motogo-ui" in miss["hint"]
+    assert row({"port": 9222, "listening": None, "loopback_only": None, "addrs": [], "browser": None})["status"] == "skip"
