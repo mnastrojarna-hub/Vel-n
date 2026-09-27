@@ -224,18 +224,21 @@ def outage_gaps(outages: list[dict], now_ts: float | None = None) -> dict:
     """Výdrž internetu MEZI výpadky (s): úseky konec výpadku → začátek dalšího (+ od posledního konce do teď).
     Měřidlo pro hardwarový test modemu (napájení/kabel/kus): před změnou a po ní se porovná `avg`/`min`."""
     gaps: list[float] = []
-    closed = [o for o in outages if not o.get("open")]
-    for a, b in zip(closed, outages[1:]):
-        g = float(b["start"]) - float(a["end"])
-        if g > 0:
-            gaps.append(g)
+    for a, b in zip(outages, outages[1:]):
+        if a.get("open"):
+            continue
+        g = float(b.get("start") or 0) - float(a.get("end") or 0)
+        if g >= 0:
+            gaps.append(g)                # sousedící výpadky (0 s) se počítají — jsou to reálné „hned zase spadlo"
     if now_ts is not None and outages and not outages[-1].get("open"):
-        g = now_ts - float(outages[-1]["end"])
-        if g > 0:
+        g = now_ts - float(outages[-1].get("end") or 0)
+        if g >= 0:
             gaps.append(g)
+    debug = {"outages": len(outages), "open": bool(outages and outages[-1].get("open"))}
     if not gaps:
-        return {"count": 0, "avg_s": None, "min_s": None, "max_s": None}
-    return {"count": len(gaps), "avg_s": round(sum(gaps) / len(gaps)), "min_s": round(min(gaps)), "max_s": round(max(gaps))}
+        return {"count": 0, "avg_s": None, "min_s": None, "max_s": None, "debug": debug}
+    return {"count": len(gaps), "avg_s": round(sum(gaps) / len(gaps)), "min_s": round(min(gaps)), "max_s": round(max(gaps)),
+            "debug": debug}
 
 
 async def netlog(diag: "NetworkDiagnostics", report: dict) -> dict:

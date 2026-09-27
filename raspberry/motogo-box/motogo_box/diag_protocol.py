@@ -473,6 +473,11 @@ def _netlog(r: dict) -> dict:
                        f"Modem nebyl vidět v ModemManageru v {mg} vzorcích (~{_fmt_dur(mg * 30)}) — známá závada SIM7600 (USB -71). "
                        "Hlídka modem obnovuje i když internet jde jinou cestou (Wi-Fi při testu; od 27. 9.).", hint("modem_gone")))
     gaps = n.get("uptime_gaps_24h") or {}
+    if not gaps.get("count") and len(n.get("outages_24h") or []) >= 1 and gaps:
+        dbg = gaps.get("debug") or {}
+        it.append(item("netlog.uptime_gaps", "Výdrž internetu mezi výpadky (24 h)", "skip", "nelze spočítat",
+                       f"{dbg.get('outages', '?')} výpadků, {'poslední trvá' if dbg.get('open') else 'bez uzavřených úseků'} — "
+                       "měřidlo se doplní s dalšími vzorky."))
     if gaps.get("count"):
         avg, mn = gaps.get("avg_s") or 0, gaps.get("min_s") or 0
         it.append(item("netlog.uptime_gaps", "Výdrž internetu mezi výpadky (24 h)",
