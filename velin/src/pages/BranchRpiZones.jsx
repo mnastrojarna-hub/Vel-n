@@ -153,7 +153,14 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor }) {
         <Chip tone={online ? 'green' : neverSeen ? 'amber' : 'red'}>{online ? 'Online' : neverSeen ? 'Nespárováno' : 'Offline'}</Chip>
         {hasStatus && <span className="text-[11px]" style={{ color: '#6b8c7a' }}>v{txt(st.version ?? dev.app_version ?? '?')} · běží {formatUptime(st.uptime_s)}</span>}
         {st.ready === false && <Chip tone="amber">Nepřipraveno</Chip>}
-        {hasStatus && <Chip tone={st.internet ? 'green' : 'red'} title="Připojení k internetu (LTE)">{st.internet ? 'Internet OK' : 'Bez internetu'}</Chip>}
+        {hasStatus && (() => {
+          const via = health.net && typeof health.net === 'object' ? health.net.internet_via : null
+          const lteOk = lte.healthy !== false
+          const viaOther = !!via && !/^(wwan|usb|ppp)/.test(String(via))
+          if (!st.internet) return <Chip tone="red" title="Připojení k internetu (LTE)">Bez internetu</Chip>
+          if (viaOther) return <Chip tone={lteOk ? 'amber' : 'red'} title={`Internet jde přes ${via} (test mimo pobočku — na pobočce je jen LTE). LTE: ${lteOk ? 'v pořádku' : 'NEFUNKČNÍ — hlídka modem obnovuje'}`}>{`Internet přes ${via}${lteOk ? '' : ' · LTE nefunkční'}`}</Chip>
+          return <Chip tone="green" title="Připojení k internetu (LTE)">Internet OK</Chip>
+        })()}
         {lanBad && <Chip tone="red" title={lanBad.title}>{lanBad.text}{lan.state ? ` (${txt(lan.state)})` : ''}</Chip>}
         {lte.state != null && (
           <Chip tone={lte.state === 'connected' ? 'blue' : 'amber'} title={`LTE ${txt(lte.state)} · RSRP ${txt(lte.rsrp)} dBm · reconnectů ${txt(lte.reconnects ?? 0)} · USB resetů ${txt(lte.usb_resets ?? 0)}`}>

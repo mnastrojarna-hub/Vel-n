@@ -341,7 +341,9 @@ class FakeEnv:
                  failed_reason: str | None = None, lan: list[dict] | None = None) -> None:
         self.internet_ok, self.modem_ok = internet_ok, modem_ok
         # výchozí stav I/O sítě: eth0 s adresou (zdravá pobočka) — testy si ho přepíšou
-        self.ifaces = [{"name": "eth0", "state": "up", "ipv4": [{"addr": "192.168.50.10", "prefix": 24}]}] \
+        # zdravá pobočka: eth0 (moduly) + rozhraní modemu s adresou (od 27. 9. rozhoduje o `lte.healthy`)
+        self.ifaces = [{"name": "eth0", "state": "up", "ipv4": [{"addr": "192.168.50.10", "prefix": 24}]},
+                       {"name": "wwan0", "state": "up", "ipv4": [{"addr": "10.0.0.2", "prefix": 32}]}] \
             if lan is None else lan
         self.tcp_ok = internet_ok if tcp_ok is None else tcp_ok
         self.failing_hosts = failing_hosts or set()   # HTTP cíle, které selžou i při internet_ok
@@ -874,7 +876,8 @@ def test_usb_devices_and_modem_usb_mode(tmp_path):
     for name, vid, pid, prod in (("1-1", "1e0e", "9018", "SimTech, Incorporated"), ("1-2", "0bda", "8153", "USB 10/100/1000 LAN"),
                                  ("usb1", "1d6b", "0002", "xHCI Host Controller")):
         (base / name).mkdir(parents=True)
-        (base / name / "idVendor").write_text(vid + "\n"); (base / name / "idProduct").write_text(pid + "\n")
+        (base / name / "idVendor").write_text(vid + "\n")
+        (base / name / "idProduct").write_text(pid + "\n")
         (base / name / "product").write_text(prod + "\n")
     assert usb_devices("1e0e", str(base)) == [{"vid": "1e0e", "pid": "9018", "product": "SimTech, Incorporated", "path": "1-1"}]
     assert sorted(d["vid"] for d in usb_devices(None, str(base))) == ["0bda", "1e0e"]      # kořenový hub se vynechá
@@ -889,6 +892,7 @@ async def test_mode_sync_when_config_and_usb_disagree(tmp_path, monkeypatch):
     import motogo_box.health as h
     monkeypatch.setattr(h, "modem_usb_mode", lambda vid: "qmi")
     env = FakeEnv()
+    env.ifaces.append({"name": "usb0", "state": "up", "ipv4": [{"addr": "192.168.225.30", "prefix": 24}]})   # RNDIS zdravé
     cfg = _cfg(lte_mode="rndis", action_cooldown_s=0)
     mon = _rndis_monitor(env, tmp_path, action_cooldown_s=0)
     seen = []
@@ -900,11 +904,15 @@ async def test_mode_sync_when_config_and_usb_disagree(tmp_path, monkeypatch):
     assert len(posts) == 1 and posts[0]["lte"]["usb_mode"] == "qmi" and posts[0]["lte"]["mode"] == "rndis"
     # shoda config = USB → nic; neznámý PID → nic
     monkeypatch.setattr(h, "modem_usb_mode", lambda vid: "rndis")
-    mon2 = _rndis_monitor(FakeEnv(), tmp_path)
+    env2 = FakeEnv()
+    env2.ifaces.append({"name": "usb0", "state": "up", "ipv4": [{"addr": "192.168.225.30", "prefix": 24}]})
+    mon2 = _rndis_monitor(env2, tmp_path)
     for _ in range(4):
         assert (await mon2.cycle())["actions"] == []
     monkeypatch.setattr(h, "modem_usb_mode", lambda vid: "other:9018")
-    mon3 = _rndis_monitor(FakeEnv(), tmp_path)
+    env3 = FakeEnv()
+    env3.ifaces.append({"name": "usb0", "state": "up", "ipv4": [{"addr": "192.168.225.30", "prefix": 24}]})
+    mon3 = _rndis_monitor(env3, tmp_path)
     for _ in range(4):
         assert (await mon3.cycle())["actions"] == []
 
@@ -934,3 +942,22 @@ async def test_link_uptime_tracked_across_outage(tmp_path):
 def test_policy_modem_gone_resets_immediately_by_default():
     p = LtePolicy(_cfg(), FakeClock())
     assert p.step(False, 5000.0, modem_gone=True) == ["usb_reset"]
+
+
+async def test_lte_recovery_runs_even_when_internet_via_wifi(tmp_path):
+    """27. 9.: internet přes Wi-Fi, modem mrtvý (no_modem, na USB je) → politika obnovuje dál; reboot se zahodí."""
+    env = FakeEnv(internet_ok=True, modem_ok=False)
+    env.default_routes = [{"dst": "default", "gateway": "192.168.1.1", "dev": "wlan0", "metric": 600}]
+    cfg = _cfg(reconnect_after=1, usb_reset_after=1, reboot_after=1, min_uptime_before_reboot_s=10, action_cooldown_s=0)
+    mon = _monitor(env, tmp_path, cfg)
+    seen = []
+    for _ in range(6):
+        p = await mon.cycle()
+        seen += p["actions"]
+        assert p["internet"] is True and p["net"]["internet_via"] == "wlan0" and p["net"]["lte_only_recovery"] is True
+        assert p["lte"]["healthy"] is False
+    assert "usb_reset" in seen and "reboot" not in seen
+    assert ("sudo", "-n", cfg.usb_reset_script) in env.cmds
+    # LTE zdravé a trasa přes wwan0 → žádné akce, healthy True
+    p = await _monitor(FakeEnv(), tmp_path).cycle()
+    assert p["actions"] == [] and p["lte"]["healthy"] is True and p["net"]["lte_only_recovery"] is False
