@@ -422,8 +422,11 @@ def test_outage_gaps_and_uptime_item():
     from motogo_box.diag_steps import outage_gaps
     outs = [{"start": 1000.0, "end": 1100.0}, {"start": 1700.0, "end": 1800.0}, {"start": 2400.0, "end": 2500.0, "open": True}]
     g = outage_gaps(outs, now_ts=3000.0)
-    assert g == {"count": 2, "avg_s": 600, "min_s": 600, "max_s": 600}      # otevřený výpadek úsek „do teď“ nedává
+    assert (g["count"], g["avg_s"], g["min_s"], g["max_s"]) == (2, 600, 600, 600)      # otevřený výpadek úsek „do teď“ nedává
+    assert g["debug"] == {"outages": 3, "open": True}
     assert outage_gaps([], 5.0)["count"] == 0
+    adj = outage_gaps([{"start": 10.0, "end": 20.0}, {"start": 20.0, "end": 30.0}], now_ts=90.0)   # sousedící = 0 s
+    assert adj["count"] == 2 and adj["min_s"] == 0 and adj["max_s"] == 60
     sec = dp._netlog({"netlog": {"samples_24h": 10, "samples_7d": 10, "outages_24h": [], "outages_7d": [], "downtime_24h_s": 0,
                                  "downtime_7d_s": 0, "modem_gone_24h": 0, "events": [], "series_24h": [], "logs": {},
                                  "uptime_gaps_24h": {"count": 5, "avg_s": 480, "min_s": 300, "max_s": 700}, "gw_now": {"dev": "wwan0"}}})
