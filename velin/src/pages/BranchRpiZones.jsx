@@ -97,6 +97,16 @@ function RpiStatusInner({ devices, doors, now, onCommand, branchName, onSaveDoor
     <RpiSection title="Řídicí jednotka (Raspberry) — stav zón"
       hint="Živý stav z řídicí jednotky (Modbus relé Waveshare + Shelly), hlásí se každých 30 s. Příkazy se doručí přes kiosk_commands — jednotka je vyzvedne do několika sekund.">
       <style>{KEYFRAMES}</style>
+      {(() => {
+        // Dveře bez HW mapy jednotka nezná → nemají dlaždici; dřív to nikdo neviděl (kóje 2–6 „chyběly“, 2026-09-27).
+        const noHw = arr(doors).filter(d => d && d.is_active !== false && !(d.hw && typeof d.hw === 'object' && Object.keys(d.hw).length > 0))
+        return noHw.length > 0 && (
+          <div className="mb-2 p-2 rounded-card text-[12px]" style={{ background: '#fef3c7', color: '#b45309' }}>
+            ⚠ {noHw.length} dveří bez HW mapy ({noHw.map(d => d.label || (d.door_kind === 'accessories' ? ACCESSORIES_LABEL : boxLabel(d.box_number))).join(', ')}) — jednotka je nezná, dlaždice chybí.
+            Blok „Dveře“ → „Vytvořit dveře z kojí + doplnit HW mapu“, nebo „Řídicí jednotka — hardware“ → „Načíst výchozí mapu“.
+          </div>
+        )
+      })()}
       <div className="space-y-3">
         {rpis.map(dev => <RpiDeviceCard key={dev.id} dev={dev} doors={doors} now={now} onCommand={onCommand} branchName={branchName} onSaveDoor={onSaveDoor} />)}
       </div>

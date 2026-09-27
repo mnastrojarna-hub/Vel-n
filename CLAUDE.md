@@ -69,6 +69,7 @@ Flutter appka existuje ve DVOU kopiích se stejnou sadou souborů: `motogo-app-f
 ## Pravidla
 
 1. **NIKDY neměň UX, UI ani flow** pokud to uživatel výslovně nepožaduje
+0. **INTERNET KIOSKU = VŽDY A POUZE GSM MODUL (SIM7600), NIKDY KABELEM.** Rozhodnutí majitele 2026-09-27: žádné alternativy neexistují a nenavrhují se — žádný kabel, hybrid, záložní brána, LTE router s ethernetem ani Wi‑Fi jako zdroj internetu; eth0 slouží jen modulům Waveshare. Nestabilní LTE se řeší výhradně u modemu (napájení, kabel, anténa, kus) a softwarem obnovy, nikdy jinou cestou k internetu.
 2. **pro celý repozitář:** Maximálně 5000 tokenů na soubor pokud je to technicky možné a neomezí to funkčnost.
 3. **SQL změny:** Vždy dej SQL příkazy jako text do chatu, NIKDY rovnou do gitu. Až po implementaci a ověření commitni. POZOR: merge migrace do `main` ji přes `deploy-sql.yml` automaticky aplikuje na živou DB (viz Nasazení)
 4. **SUPABASE_BACKEND_STATE_*.md:** Po každé SQL změně MUSÍŠ aktualizovat příslušný soubor (1-6)
