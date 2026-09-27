@@ -336,6 +336,7 @@ k selhalo“** a tlačítko **„Znovu synchronizovat“** (= `sync_config`, sel
 | `update_system` | `rollout_id?`, `wait_idle_s?`, `auto_reboot?` | naplánuje `sudo /usr/local/sbin/motogo-sysupdate` (apt full-upgrade, bez restartu); `auto_reboot` = po novém jádru `systemctl reboot`, až je box volný |
 | `http_get` / `camera_control` | `url` | HTTP GET na LAN (kamery, měnič) |
 | `diagnostics` | `mode?` (`full` výchozí / `network` = jen síť), `cameras?` (seznam z Velína), `reason?` | kompletní diagnostika pobočky na pozadí (1–4 min; `network` 10–60 s); report + protokol → `kiosk_report_diagnostics` (Velín blok „Kompletní diagnostika pobočky") |
+| `screen_mirror` / `screen_input` | `session_id`, `on`, `control` / `kind` tap\|dialog, `x`, `y`, `text` | **2026-09-27:** zrcadlení obrazovky do Velína přes Chrome DevTools (jen 127.0.0.1:9222) + klepnutí z Velína („Ovládat“); karta jednotky → „🖥 Obrazovka“; jen dokud je panel ve Velíně otevřený (max 10 min, ≤ 1 fps, jen změny, ~50 kB/snímek), kiosk nic nezobrazuje — CONTRACT §29 |
 | `protocol_signed` | `booking_id` | předávací protokol podepsán jinde (appka / Velín — vkládá DB trigger po podpisu): jednotka ho sundá z displeje; kóji otevře jen když zákazník právě u displeje čeká s právě zadaným kódem motorky. Pojistka = `protocols[]` při dalším `sync_config`. Starší software hlásí `unknown_command` — není to porucha |
 
 Příkazy chodí přes Supabase Realtime (broadcast) s pojistkou pollingu každých 10 s; výsledek

@@ -225,6 +225,15 @@ class SupabaseApi:
             "p_command_id": command_id, "p_success": bool(success), "p_result": result or {},
         })
 
+    async def push_screen_frame(self, session_id: str, seq: int, frame: str | None, width: int | None,
+                                height: int | None, meta: dict | None = None) -> dict | None:
+        """Snímek obrazovky (nebo ping s `frame=None`) → `kiosk_push_screen_frame`; PŘÍMO, bez outboxu (platí jen
+        poslední snímek). Vrací odpověď RPC `{ok, active, control, …}`; chyba HTTP/sítě → ApiError (volající ji zapíše)."""
+        res = await self.rpc("kiosk_push_screen_frame", {**self._auth(), "p_session_id": session_id, "p_seq": int(seq),
+                                                          "p_frame": frame, "p_width": width, "p_height": height,
+                                                          "p_meta": meta or {}}, timeout_s=20)
+        return res if isinstance(res, dict) else None
+
     async def report_diagnostics(self, report: dict) -> None:
         """``kiosk_report_diagnostics`` — celý report diagnostiky sítě (přes outbox; nespárované → jen fronta)."""
         await self._send_or_queue("report_diagnostics", {"p_report": report or {}})

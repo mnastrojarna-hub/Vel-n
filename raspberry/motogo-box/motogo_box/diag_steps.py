@@ -72,6 +72,42 @@ def _outdoor():
 
 
 # ─── software ────────────────────────────────────────────────────────────────
+LOOPBACK_ADDRS = ("127.0.0.1", "[::1]", "::1", "127.0.0.0")
+
+
+def _ss_listeners(out: str, port: int) -> list[str]:
+    """Adresy, na kterých podle `ss -ltnH` poslouchá daný TCP port (4. sloupec `127.0.0.1:9222`)."""
+    found: list[str] = []
+    for ln in (out or "").splitlines():
+        cols = ln.split()
+        if len(cols) < 4:
+            continue
+        local = cols[3]
+        host, _, prt = local.rpartition(":")
+        if prt == str(port):
+            found.append(host or "*")
+    return found
+
+
+async def cdp_state(ctrl) -> dict:
+    """Vzdálená obrazovka (CONTRACT §29): poslouchá DevTools port Chromia, a JEN na loopbacku? `browser` z /json/version."""
+    port = int(getattr(getattr(ctrl.local, "screen", None), "cdp_port", 9222) or 9222)
+    out: dict = {"port": port, "listening": None, "loopback_only": None, "addrs": [], "browser": None}
+    rc, txt = await run_cmd("ss", "-ltnH", timeout=5)
+    if rc == 0:
+        addrs = _ss_listeners(txt, port)
+        out["addrs"], out["listening"] = addrs, bool(addrs)
+        out["loopback_only"] = all(a in LOOPBACK_ADDRS or a.startswith("127.") for a in addrs) if addrs else None
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.get(f"http://127.0.0.1:{port}/json/version")
+            if r.status_code == 200:
+                out["browser"] = str((r.json() or {}).get("Browser") or "")[:80] or None
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
 async def software(diag: "NetworkDiagnostics", report: dict) -> dict:
     ctrl = diag.ctrl
     services: dict[str, str | None] = {}
@@ -115,6 +151,8 @@ async def software(diag: "NetworkDiagnostics", report: dict) -> dict:
         "last_update": dict(updater_last) if isinstance(updater_last, dict) else None,
         "reboot_required": _try(lambda: os.path.exists(REBOOT_REQUIRED)),
         "health_age_s": _age_s(health.get("ts")) if health.get("ts") else None,
+        "cdp": await cdp_state(ctrl),      # zrcadlení obrazovky do Velína (§29): DevTools jen na loopbacku
+        "remote_screen": _try(lambda: ctrl.screen.status()),
     }
 
 

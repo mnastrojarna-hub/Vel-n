@@ -19,6 +19,7 @@ from .audio_build import audio_signature, build_audio, make_music_library
 from .config import WARNING_PREFIX, HardwareConfig, LocalConfig, blocking_problems, validate_hardware
 from .diagnostics import NetworkDiagnostics
 from .handover import HandoverManager
+from .screen_mirror import ScreenMirror
 from .io_devices import IoBus
 from .models import Event, EventKind, Signal, now_iso
 from .outdoor import OutdoorController
@@ -80,6 +81,7 @@ class BoxController:
         self.diagnostics = NetworkDiagnostics(self)      # diagnostika sítě (kód z displeje / Velín / servis)
         self.updater = SoftwareUpdater(self)             # aktualizace software/OS z Velína (§25) — běží v klidu
         self.handover = HandoverManager(self)            # předávací protokol na displeji (§4, handover.py)
+        self.screen = ScreenMirror(api, local.screen)   # zrcadlení obrazovky do Velína (§29) — běží jen na žádost Velína
 
     # ─── konfigurace ─────────────────────────────────────────────────────────
     def _device_id(self) -> str:
@@ -227,6 +229,7 @@ class BoxController:
             self._power_task = None
         await self.diagnostics.cancel()
         await self.updater.cancel()
+        await self.screen.stop("shutdown")
         await self._shutdown_hw(final=True)
 
     @staticmethod
@@ -425,6 +428,7 @@ class BoxController:
             "update": self.updater.status(),
             "shell": shell.state(self),          # servisní terminál: je volné psaní odemčené? (§27)
             "handover": self.handover.status(),  # předávací protokol na displeji (§4) — bez podpisů/formulářů
+            "remote_screen": self.screen.status(),   # zrcadlení do Velína (§29): active/control/since/frames/bytes
         }
 
     async def all_off(self) -> None:
