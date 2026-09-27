@@ -18,7 +18,7 @@ v `config/brno-9zone.yaml` a ve Velíně (Samoobsluha → Řídicí jednotka →
 | WAV617-A | 192.168.50.21 | Modbus TCP 502, unit 1 |
 | WAV617-B | 192.168.50.22 | Modbus TCP 502, unit 1 |
 | Shelly 1–4 | 192.168.50.31–34 | HTTP RPC, profil Lights ×5 |
-| internet | **VÝHRADNĚ LTE** SIM7600E-H (USB) — eth0 je jen síť modulů, žádná brána ani DNS přes kabel (hybrid/„brána kabelem“ z 26. 9. ZRUŠENY — chybná diagnóza, na pobočce router není) | profil `motogo-lte` (metrika 100) se záložním DNS 1.1.1.1/8.8.8.8 k DNS operátora (2026-09-26 — DNS Vodafone občas neodpovídalo); PIN SIM u všech poboček **1234** (výchozí install.sh; jiný = `MOTOGO_SIM_PIN`) → profil `[gsm] pin=` |
+| internet | **VÝHRADNĚ GSM MODUL SIM7600E-H (USB) — rozhodnutí majitele 2026-09-27: NIKDY kabelem, žádné alternativy (hybrid, záložní brána, LTE router s ethernetem, Wi‑Fi) neexistují a nenavrhují se.** eth0 je jen síť modulů, žádná brána ani DNS přes kabel (hybrid/„brána kabelem“ z 26. 9. ZRUŠENY — chybná diagnóza, na pobočce router není) | profil `motogo-lte` (metrika 100) se záložním DNS 1.1.1.1/8.8.8.8 k DNS operátora (2026-09-26 — DNS Vodafone občas neodpovídalo); PIN SIM u všech poboček **1234** (výchozí install.sh; jiný = `MOTOGO_SIM_PIN`) → profil `[gsm] pin=` |
 
 Adresu v I/O síti si Raspberry drží **samo** (NM dispatcher `50-motogo-lan-addr`: 192.168.50.10/24 + 192.168.1.253/24 na eth0 — `set-static-lan.sh` už není nutný). **Internet jde výhradně přes LTE (2026-09-26, oprava chybné diagnózy):** profil `motogo-lan` je `manual` + `never-default` + bez DNS; „záložní brána kabelem“ (`hardware.network.lan_gateway` → `/var/lib/motogo/lan_gateway` → default route eth0 metrika 50 `onlink`) i hybridní `motogo-lan` (DHCP z routeru) byly téhož dne **zrušeny**: na pobočce router není a trasa přes eth0 (50 < LTE 100) poslala internet do prázdna, health ji navíc při výpadku obnovoval → jednotka trvale offline a modem se marně resetoval. Teď platí opak: dispečer při každé události eth0 smaže **každou** výchozí trasu přes eth0 i soubor brány, health (`route_state`, každých 30 s) totéž (akce `route_fix` → událost `NET_FIX`) a po dobu cizí trasy **nekrokuje** politiku LTE (žádný reconnect/USB reset/reboot/RNDIS naprázdno); hodnota `network.lan_gateway` ze staré mapy se ignoruje (CONFIG_PROBLEM varování), Velín ji při uložení mapy vyhodí. Diagnostika: výchozí trasa přes eth0 = **fail** (hint `gateway_eth`). Ručně: `rm -f /var/lib/motogo/lan_gateway; sudo -n /etc/NetworkManager/dispatcher.d/50-motogo-lan-addr eth0 manual`. Výpadky internetu jdou do kiosk_logs jako INTERNET_DOWN/UP.
 
@@ -290,8 +290,8 @@ nese „modem před pádem vydržel X min“. Postup (vždy ≥ 1 h běhu, Wi-Fi
 2. **Napájení modemu zvlášť:** Waveshare SIM7600 HAT napájet vlastním 5 V/3 A zdrojem (napájecí USB konektor HAT), nebo
    napájený USB hub mezi Pi a modem. LTE špičky až 2 A z 5 V USB Pi jsou nejčastější příčina `-71`.
 3. **Kabel/port:** krátký stíněný USB kabel, černý USB 2 port přímo na Pi (ne hub).
-4. **Bez zlepšení = vadný kus** → jiný SIM7600, nebo LTE router s ethernetem (mimo USB Pi; návrh zapojení až po rozhodnutí —
-   pozor, znovu by znamenal bránu přes eth0, viz Incident 2026-09-26).
+4. **Bez zlepšení = vadný kus** → vyměnit SIM7600 (jiný kus). Jiná cesta k internetu než GSM modul **NEEXISTUJE** (rozhodnutí
+   majitele 2026-09-27) — žádný LTE router s ethernetem ani kabel; viz Incident 2026-09-26.
 
 ### Oprava: RNDIS místo QMI (nasazeno 2026-09-26 — automaticky i z Velína)
 

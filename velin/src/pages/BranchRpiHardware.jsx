@@ -20,7 +20,9 @@ const clone = v => JSON.parse(JSON.stringify(v))
 const doorName = d => (d.door_kind === 'accessories' ? 'šatna' : `kóje ${d.box_number}`)
 const NOTE_STYLE = { green: { background: '#dcfce7', color: '#1a8a18' }, amber: { background: '#fef3c7', color: '#b45309' }, red: { background: '#fee2e2', color: '#dc2626' } }
 
-function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }) {
+function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onCreateDoor, onRefresh }) {
+  // `onCreateDoor` chyběl v signatuře (2026-09-27): „Načíst výchozí mapu“ padal na ReferenceError dřív než se ukázal dotaz,
+  // tiše nic nedělal — kóje bez dveří / bez HW mapy se nikdy nezaložily a jednotka je neznala.
   const hardware = (cfg?.hardware && typeof cfg.hardware === 'object') ? cfg.hardware : {}
   const [loadingDefaults, setLoadingDefaults] = useState(false)
   const [note, setNote] = useState(null)   // { tone, text }
@@ -83,6 +85,8 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onRefresh }
       if (failed) setNote({ tone: 'red', text: `Výchozí mapa: ${failed}× uložení selhalo (viz chyba nahoře). Uloženo: ${summary}.` })
       else if (warn.length) setNote({ tone: 'amber', text: `Výchozí mapa (šablona Brno, ${zonesN} zón + venek) načtena (${summary}). ${warn.join(' ')}` })
       else setNote({ tone: 'green', text: `Výchozí mapa (šablona Brno, ${zonesN} zón + venek) načtena (${summary}). Jednotka si ji stáhne do 60 s nebo příkazem „Synchronizovat konfiguraci“.` })
+    } catch (e) {
+      setNote({ tone: 'red', text: `Načtení výchozí mapy selhalo: ${e?.message || e}` })
     } finally {
       setLoadingDefaults(false)
     }

@@ -190,6 +190,15 @@ function TabSelfService({ branchId, branchName, motos }) {
         const { error } = await supabase.from('branch_doors').insert(rows)
         if (error) throw error
       }
+      // Existující dveře BEZ HW mapy (založené před šablonou / ručně): doplnit výchozí mapu podle čísla kóje — jinak je
+      // jednotka nezná a ve Velíně chybí dlaždice (2026-09-27: kóje 2–6 „zmizely“, přestože motorky na nich byly).
+      const all = [...doors, ...rows]
+      for (const d of doors.filter(x => !hasHw(x))) {
+        const hw = defaultDoorHw(d, all)
+        if (!hw) continue
+        const { error } = await supabase.from('branch_doors').update({ hw }).eq('id', d.id)
+        if (error) throw error
+      }
       await load()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
@@ -631,11 +640,11 @@ function KioskConfigBlock({ cfg, onSave }) {
 function DoorsBlock({ doors, onEnsure, onSave, onDelete, busy }) {
   return (
     <Section title="Dveře (kóje 1–7 + šatna)"
-      hint="Dveře jsou potřeba pro řídicí jednotku i tablet — pro každou kóji (dle čísla boxu motorky) a skříň oblečení. URL relé a světla (Shelly LAN) používá JEN tablet appka; řídicí jednotka (Raspberry) otevírá podle „Mapování dveří → zóny“ v bloku Řídicí jednotka (Raspberry) — hardware níže."
+      hint="Dveře jsou potřeba pro řídicí jednotku i tablet — pro každou kóji (dle čísla boxu motorky) a skříň oblečení. Tlačítko založí chybějící dveře podle čísel kójí motorek a dveřím bez HW mapy doplní výchozí mapu (jednotka zná jen dveře s mapou). URL relé a světla (Shelly LAN) používá JEN tablet appka; řídicí jednotka (Raspberry) otevírá podle „Mapování dveří → zóny“ v bloku Řídicí jednotka (Raspberry) — hardware níže."
       action={
         <button onClick={onEnsure} disabled={busy} className="rounded-btn text-sm font-bold cursor-pointer border-none"
           style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', opacity: busy ? 0.5 : 1 }}>
-          {busy ? 'Pracuji…' : 'Vytvořit dveře z kojí'}
+          {busy ? 'Pracuji…' : 'Vytvořit dveře z kojí + doplnit HW mapu'}
         </button>
       }>
       {doors.length === 0 ? (

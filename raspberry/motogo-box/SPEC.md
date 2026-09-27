@@ -154,6 +154,8 @@ lan:
 ```
 
 Na eth0 nenastavovat výchozí bránu. Výchozí internetová trasa musí vést přes SIM7600. I/O síť tak zůstane funkční i bez LTE.
+**Rozhodnutí majitele 2026-09-27: internet kiosku jde VŽDY A POUZE přes GSM modul, NIKDY kabelem — žádné alternativy (hybrid, záložní
+brána, LTE router s ethernetem, Wi‑Fi) neexistují a nenavrhují se.**
 
 Waveshare moduly nastavit:
 

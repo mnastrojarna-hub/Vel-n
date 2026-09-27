@@ -195,7 +195,7 @@ bezpečně přestaví I/O (vše vypnout → nové zóny).
    berou z lokální `hardware.yaml`). Viz níže.
 4. **Párování:** ve Velíně → Samoobsluha → Řídicí jednotka → přidat zařízení → ID + token.
    Zadej do `config.yaml` (`device.id/token`) nebo na dotykovém UI (setup obrazovka / servisní panel → Přepárovat).
-5. **Síť (SPEC §4):** internet jde **výhradně přes LTE** (`motogo-lte`, metrika 100, záložní DNS 1.1.1.1/8.8.8.8); profil `motogo-lan`
+5. **Síť (SPEC §4):** internet jde **výhradně přes GSM modul** (`motogo-lte`, metrika 100, záložní DNS 1.1.1.1/8.8.8.8) — **NIKDY kabelem, žádné alternativy neexistují (rozhodnutí majitele 2026-09-27)**; profil `motogo-lan`
    = eth0 jen pro moduly: statické `192.168.50.10/24` + `192.168.1.253/24`, `never-default`, bez DNS. Hybrid s DHCP z routeru a „záložní
    brána kabelem“ (26. 9.) byly zrušeny — router na pobočce není a trasa přes eth0 blokovala LTE; dispečer i health ji teď mažou (`NET_FIX`).
    Ruční nasazení: `sudo /opt/motogo/scripts/set-static-lan.sh` (NM nahradí aktivní profil atomicky, konkurenčním
