@@ -49,7 +49,7 @@ export default function GiftVouchers() {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_vouchers_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_vouchers_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const [summary, setSummary] = useState({ total: 0, active: 0, redeemed: 0, expired: 0, totalValue: 0 })
   const [showModal, setShowModal] = useState(false)
   const [editVoucher, setEditVoucher] = useState(null)

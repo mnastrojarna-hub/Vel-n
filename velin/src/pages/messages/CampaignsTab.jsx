@@ -55,7 +55,7 @@ export default function CampaignsTab({ channel }) {
     return defaultFilters
   })
 
-  useEffect(() => { localStorage.setItem(storageKey, JSON.stringify(filters)) }, [filters, storageKey])
+  useEffect(() => { try { localStorage.setItem(storageKey, JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters, storageKey])
   useEffect(() => { setPage(1) }, [filters, channel])
   useEffect(() => { setFilters(defaultFilters); setPage(1) }, [channel])
   useEffect(() => { load() }, [page, filters, channel])

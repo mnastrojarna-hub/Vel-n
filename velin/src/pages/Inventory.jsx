@@ -35,7 +35,7 @@ export default function Inventory() {
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [issueItem, setIssueItem] = useState(null) // sklad → pobočka modal
 
-  useEffect(() => { localStorage.setItem('velin_inventory_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_inventory_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
 
   useEffect(() => { load() }, [page, filters])
 

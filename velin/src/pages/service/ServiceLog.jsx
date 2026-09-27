@@ -28,7 +28,7 @@ export default function ServiceLog() {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_servicelog_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_servicelog_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState(null)
   const [expandedLog, setExpandedLog] = useState(null)

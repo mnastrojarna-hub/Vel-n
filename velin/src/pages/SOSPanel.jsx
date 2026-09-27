@@ -23,7 +23,7 @@ export default function SOSPanel() {
   const [severityFilter, setSeverityFilter] = useState('all_sev')
   const [subFilter, setSubFilter] = useState('all')
   const [showNewIncident, setShowNewIncident] = useState(false)
-  useEffect(() => { localStorage.setItem('velin_sos_filters', JSON.stringify({ filter, severityFilter, subFilter })) }, [filter, severityFilter, subFilter])
+  useEffect(() => { try { localStorage.setItem('velin_sos_filters', JSON.stringify({ filter, severityFilter, subFilter })) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filter, severityFilter, subFilter])
   const openIncidentHandled = useRef(null)
 
   // Auto-acknowledge light faults
