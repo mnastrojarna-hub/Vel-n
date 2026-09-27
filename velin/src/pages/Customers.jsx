@@ -55,7 +55,7 @@ export default function Customers() {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_customers_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_customers_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const search = filters.search || ''
   const [stats, setStats] = useState({})
 

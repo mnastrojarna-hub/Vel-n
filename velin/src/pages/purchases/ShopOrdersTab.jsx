@@ -27,7 +27,7 @@ export default function ShopOrdersTab() {
     try { const saved = localStorage.getItem('velin_shoporders_filters'); if (saved) return { ...defaultFilters, ...JSON.parse(saved) } } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_shoporders_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_shoporders_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const [detail, setDetail] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())

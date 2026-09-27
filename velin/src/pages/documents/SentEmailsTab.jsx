@@ -43,7 +43,7 @@ export default function SentEmailsTab() {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_sentemails_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_sentemails_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const [preview, setPreview] = useState(null)
   const [selected, setSelected] = useState(() => new Set())
   const [deleting, setDeleting] = useState(false)

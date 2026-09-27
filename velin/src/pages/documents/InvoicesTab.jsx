@@ -66,7 +66,7 @@ export default function InvoicesTab() {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_doc_invoices_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_doc_invoices_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const [summary, setSummary] = useState({ total: 0, paid: 0, unpaid: 0, cancelled: 0 })
   const [detail, setDetail] = useState(null)
   const [showCreate, setShowCreate] = useState(false)

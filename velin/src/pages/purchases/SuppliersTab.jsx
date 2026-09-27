@@ -28,7 +28,7 @@ export default function SuppliersTab() {
     } catch {}
     return defaultFilters
   })
-  useEffect(() => { localStorage.setItem('velin_suppliers_filters', JSON.stringify(filters)) }, [filters])
+  useEffect(() => { try { localStorage.setItem('velin_suppliers_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState(null)
   const [selectedIds, setSelectedIds] = useState(new Set())
