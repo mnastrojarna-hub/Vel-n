@@ -29,6 +29,7 @@ export const BRNO_DEFAULT_HARDWARE = {
     door_close_debounce_ms: 1000,
     light_after_close_s: 0,      // kóje: světlo zhasne hned zavřením dveří (2026-09-25)
     music_after_close_s: 10,
+    music_return_after_min: 180, // od 1. otevření rezervace: dřív uvítací skladba (1.), potom návrat (2.)
     maximum_session_s: 600,
     forced_open_debounce_ms: 500,
     pin_entry_timeout_s: 20,
@@ -134,6 +135,8 @@ export const HW_SECTIONS = [
       hint: 'Za jak dlouho po zavření dveří zhasne světlo v kóji. Zákazník tak neodchází ze tmy. Typicky 30 s.' },
     { key: 'music_after_close_s', label: 'Hudba po zavření', unit: 's', type: 'int',
       hint: 'Za jak dlouho po zavření dveří ztichne hudba v kóji (pozvolna, ne rázem). Typicky 10 s.' },
+    { key: 'music_return_after_min', label: 'Hudba návratu po', unit: 'min', type: 'int',
+      hint: 'Kolik minut od PRVNÍHO otevření rezervace (šatna nebo kóje) se po kódu hraje uvítací skladba (1. v Hudbě pobočky). Potom — zákazník přijel vracet — hraje 2. skladba (návrat). Typicky 180 min.' },
     { key: 'maximum_session_s', label: 'Max. délka relace', unit: 's', type: 'int',
       hint: 'Jak dlouho smí být kóje otevřená, než to jednotka označí za překročený čas: hudba se vypne, zelená začne blikat, na displeji se objeví výzva k zavření a Velín dostane upozornění. Dveře se NEZAMKNOU. Typicky 600 s (10 min).' },
     { key: 'forced_open_debounce_ms', label: 'Debounce násilného otevření', unit: 'ms', type: 'int',

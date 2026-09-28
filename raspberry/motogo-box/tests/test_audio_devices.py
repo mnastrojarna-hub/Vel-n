@@ -216,3 +216,84 @@ def test_selector_without_relays_plays_locker_through_usb():
     assert eng.resolved == {"jack": "alsa/plughw:2,0"}
     sel = build_audio(HardwareConfig.from_dict(load_hardware_file(HW_FILE)), LocalConfig(), None, None, cards=usb)
     assert sel.mode == "selector"                          # s relé selektoru beze změny
+
+
+class _Kv:
+    def __init__(self):
+        self.d = {}
+
+    def kv_get(self, k, default=None):
+        return self.d.get(k, default)
+
+    def kv_set(self, k, v):
+        self.d[k] = v
+
+
+def test_music_phase_welcome_then_return():
+    from motogo_box.music_phase import track_for_grant
+    kv = _Kv()
+    assert track_for_grant(kv, "b1", "accessories", 3 * 3600, now=1000) == 1          # šatna poprvé
+    assert track_for_grant(kv, "b1", "motorcycle", 3 * 3600, now=1000 + 600) == 1      # kóje hned potom
+    assert track_for_grant(kv, "b1", "accessories", 3 * 3600, now=1000 + 3600) == 1    # za hodinu zapomenutá věc
+    assert track_for_grant(kv, "b1", "motorcycle", 3 * 3600, now=1000 + 3 * 3600) == 2  # návrat
+    assert track_for_grant(kv, "b2", "motorcycle", 3 * 3600, now=1000 + 3 * 3600) == 1  # jiná rezervace
+    assert track_for_grant(kv, None, "motorcycle", 60) is None and track_for_grant(kv, "b1", "service", 60) is None
+    assert track_for_grant(None, "b1", "motorcycle", 60) is None
+    kv.d["booking_first_open"]["old"] = 0
+    track_for_grant(kv, "b3", "motorcycle", 60, now=61 * 86400)                        # prořez starých záznamů
+    assert "old" not in kv.d["booking_first_open"]
+
+
+class _Lib:
+    def __init__(self, own, shared):
+        self.own, self.shared = own, shared
+
+    def playlist_for(self, target):
+        return self.own or self.shared
+
+    def track_for(self, target, n):
+        for lst in (self.own, self.shared):
+            if len(lst) >= n:
+                return lst[n - 1]
+        return (self.own or self.shared or [None])[0]
+
+
+async def test_play_zone_track_loads_single_song_without_shuffle():
+    players = {"out8": FakePlayer("out8")}
+    eng = AudioMulti(players, {8: "out8"}, {}, None, _cfg(), _Lib(["/m/uvitaci.mp3", "/m/navrat.mp3"], []),
+                     zone_targets={8: "door:s"})
+    await eng.start()
+    assert await eng.play_zone(8, 1) and players["out8"].files == ["/m/uvitaci.mp3"]
+    loads = players["out8"].loads
+    assert await eng.play_zone(8, 1) and players["out8"].loads == loads           # stejná fáze nenačítá znovu
+    assert await eng.play_zone(8, 2) and players["out8"].files == ["/m/navrat.mp3"]  # návrat přepne skladbu
+    assert eng.status()["players"]["out8"]["track"] == 2
+    await eng.stop_zone(8)
+    assert await eng.play_zone(8) and players["out8"].files == ["/m/uvitaci.mp3", "/m/navrat.mp3"]   # ruční = playlist
+
+
+def test_library_track_for_falls_back_to_shared(tmp_path):
+    from motogo_box.music_sync import MusicLibrary
+    lib = MusicLibrary.__new__(MusicLibrary)
+    files = {"door:s": [str(tmp_path / "s1.mp3")], "all": [str(tmp_path / "a1.mp3"), str(tmp_path / "a2.mp3")]}
+    lib._tracks_of = lambda t: list(files.get(t, []))
+    lib.legacy_files = lambda: []
+    assert lib.track_for("door:s", 1).endswith("s1.mp3") and lib.track_for("door:s", 2).endswith("a2.mp3")
+    files["all"] = []
+    assert lib.track_for("door:s", 2).endswith("s1.mp3")                            # jediná skladba hraje i při návratu
+    files["door:s"] = []
+    assert lib.track_for("door:s", 1) is None
+
+
+async def test_start_music_passes_track():
+    got = []
+
+    class A(_Aud):
+        async def play_zone(self, zone, track=None):
+            got.append(track)
+            return True
+    zc = _Zc(A())
+    zc.music_track = 2
+    d: dict = {}
+    await zone_access.start_music(zc, d)
+    assert got == [2] and d["music_track"] == 2

@@ -297,6 +297,12 @@ Formát libovolný, co přehraje mpv/ffmpeg (mp3, wav, flac, ogg/oga/opus, m4a/a
 soubor, nic se nepřekódovává. V seznamu lze měnit pořadí (▲▼), název, cíl, skladbu vypnout, přehrát v prohlížeči,
 stáhnout nebo smazat (smaže i soubor v úložišti).
 
+**Uvítací a návratová skladba (2026-09-28):** po zákaznickém kódu (šatna i kóje) hraje dokola **1. skladba** cíle (uvítací) —
+i když zákazník otevře 2–3× nebo se za hodinu vrátí pro zapomenutou věc. Když od **prvního otevření rezervace** uplyne
+`timings.music_return_after_min` (Velín → Časování „Hudba návratu po“, výchozí 180 min), zákazník přijel vracet → hraje **2. skladba**.
+Pořadí = ▲▼ v Hudbě pobočky (štítky „Uvítací“ / „Návrat“); chybí-li cíli 1./2. skladba, vezme se ze Společné, má-li jen jednu,
+hraje i při návratu. Servisní otevření a ruční „Hudba ▶“ hrají celý seznam (`music_phase.py`, kv `booking_first_open`).
+
 **Co hraje po zadání kódu:** kód kóje → skladby té kóje; kód šatny → skladby šatny; **venek hraje při jakémkoli kódu**
 (dokud běží aspoň jedna relace, + doběh `timings.music_after_close_s` po poslední). Cíl bez vlastních skladeb hraje
 **společnou** hudbu (Všechny kóje + ruční soubory přímo v `/var/lib/motogo/music`); nemá-li ani tu, nehraje nic

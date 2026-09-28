@@ -11,6 +11,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
+from . import music_phase
 from .io_devices import FLASH_STEP_MS
 from .models import EventKind, Signal, ZoneState, now_iso
 
@@ -89,7 +90,10 @@ async def start_music(zc: "ZoneController", detail: dict) -> None:
     if not has_speaker(zc):
         detail["no_speaker"] = True
         return
-    task = asyncio.ensure_future(zc.audio.play_zone(zc.number))
+    track = getattr(zc, "music_track", None)
+    if track:
+        detail["music_track"] = track          # Hlášení a chyby: která skladba hrála (1 uvítací / 2 návrat)
+    task = asyncio.ensure_future(zc.audio.play_zone(zc.number, track) if track else zc.audio.play_zone(zc.number))
     try:
         detail["music"] = bool(await asyncio.wait_for(asyncio.shield(task), MUSIC_WAIT_S))
     except asyncio.TimeoutError:
@@ -106,6 +110,9 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
     zc.code_kind, zc.source = kind, source
     zc.latch_released, zc._late_booking = False, None
     detail: dict = {}
+    # Uvítací (1) / návrat (2) dle času od 1. otevření rezervace (music_phase, 2026-09-28); pozdní otevření ho převezme.
+    zc.music_track = music_phase.track_for_grant(getattr(zc, "music_store", None), booking_id, kind,
+                                                 60 * float(getattr(zc.hw.timings, "music_return_after_min", 180) or 0))
     if not await zc.set_light(True):
         detail["light_failed"] = True        # světlo není bezpečnostní prvek — pokračujeme
         log.warning("Zóna %s: bílé světlo nepotvrzeno", zc.number)

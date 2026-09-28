@@ -78,7 +78,7 @@ def protocol_items(a: dict, item: Any) -> list[dict]:
     for s in speakers:
         t = s.get("tracks")
         rows.append(item(f"software.music.{s['zone']}", f"Hudba — {s['label']}", "skip" if t is None else "ok" if t else "warn",
-                         "?" if t is None else f"{t} skladeb", "" if t else f"{s['label']}: žádná skladba — po kódu nic nehraje.", HINT_MUSIC))
+                         "?" if t is None else f"{t} skladeb" + (" (1. uvítací, 2. návrat)" if t >= 2 else " (hraje i při návratu)" if t == 1 else ""), "" if t else f"{s['label']}: žádná skladba — po kódu nic nehraje.", HINT_MUSIC))
     return rows
 
 
