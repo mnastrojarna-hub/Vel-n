@@ -91,11 +91,18 @@ serve(async (req) => {
         if (!msg.includes('already') && !msg.includes('exists') && !msg.includes('registered')) {
           return json({ error: `Účet se nepodařilo založit: ${createErr.message}` }, 400)
         }
-        // Auth účet existuje (např. zákazník) → dohledat a jen přidat přístup do Velína
-        const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
-        const existing = list?.users?.find(u => (u.email || '').toLowerCase() === email)
-        if (!existing) return json({ error: 'E-mail je už registrován, ale účet se nepodařilo dohledat' }, 400)
-        userId = existing.id
+        // Auth účet existuje (např. zákazník) → dohledat a jen přidat přístup do Velína.
+        // Nejdřív `profiles` (trigger handle_new_user zakládá profil každému auth
+        // účtu), pak stránkované listUsers (tisíce zákazníků → jedna stránka nestačí).
+        const { data: prof } = await admin.from('profiles').select('id').eq('email', email).maybeSingle()
+        userId = prof?.id ?? null
+        for (let page = 1; !userId && page <= 50; page++) {
+          const { data: list, error: listErr } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
+          if (listErr || !list?.users?.length) break
+          userId = list.users.find(u => (u.email || '').toLowerCase() === email)?.id ?? null
+          if (list.users.length < 1000) break
+        }
+        if (!userId) return json({ error: 'E-mail je už registrován, ale účet se nepodařilo dohledat' }, 400)
         const { data: already } = await admin.from('admin_users').select('id').eq('id', userId).maybeSingle()
         if (already) return json({ error: 'Tento e-mail už má přístup do Velína' }, 409)
         const { error: pwErr } = await admin.auth.admin.updateUserById(userId, { password, email_confirm: true })
