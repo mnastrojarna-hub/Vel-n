@@ -241,6 +241,7 @@ class TimingsCfg:
     door_close_debounce_ms: int = 1000
     light_after_close_s: int = 30
     music_after_close_s: int = 10
+    music_return_after_min: int = 180   # od 1. otevření rezervace: dřív = uvítací skladba (č. 1), potom návrat (č. 2)
     maximum_session_s: int = 600
     forced_open_debounce_ms: int = 500
     pin_entry_timeout_s: int = 20

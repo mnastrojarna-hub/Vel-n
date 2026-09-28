@@ -151,6 +151,7 @@ class AudioController(SelectorChannelStubs):
         self._lock = asyncio.Lock()
         self._fade_task: asyncio.Task | None = None
         self._generation = 0          # roste s každým play_zone — test_tone nesmí vypnout cizí hudbu
+        self._track: int | None = None  # načtená skladba (1 uvítací / 2 návrat) nebo None = playlist
         self._tone = False            # hraje testovací tón (ne hudba) — zákaznická hudba ho přebije
         self.cards: list[dict] = []   # zvukové karty při stavbě (audio_build) — status / Velín
         self.resolved: dict = {}
@@ -199,27 +200,30 @@ class AudioController(SelectorChannelStubs):
     def _target_of(self, zone: int) -> str:
         return self.targets.get(zone) or f"zone:{zone}"
 
-    def _files_for(self, target: str) -> list[str] | None:
-        """Playlist cíle z knihovny; None = knihovna není (legacy scan adresáře)."""
+    def _files_for(self, target: str, track: int | None = None) -> list[str] | None:
+        """Playlist cíle z knihovny (s `track` jen ta skladba); None = knihovna není (legacy scan adresáře)."""
         if self.library is None:
             return None
         try:
+            if track and hasattr(self.library, "track_for"):
+                f = self.library.track_for(target, track)
+                return [str(f)] if f else []
             return [str(f) for f in (self.library.playlist_for(target) or [])]
         except Exception as exc:  # noqa: BLE001
             log.warning("Playlist cíle %s nelze načíst: %s", target, exc)
             return []
 
-    async def _load_target(self, target: str) -> None:
-        """Načte do mpv playlist cíle (jen když se liší od právě načteného; bez knihovny legacy 1×)."""
-        files = self._files_for(target)
-        key = target if files is not None else "legacy"
+    async def _load_target(self, target: str, track: int | None = None) -> None:
+        """Načte do mpv playlist cíle / jednu skladbu `track` (jen když se liší od právě načteného; bez knihovny legacy 1×)."""
+        files = self._files_for(target, track)
+        key = (f"{target}#{track}" if track else target) if files is not None else "legacy"
         if key == self._loaded_target:
             return
         if files is None:
             await self.player.load_playlist(self.cfg.shuffle)
         else:
-            await self.player.load_files(files, self.cfg.shuffle)
-        self._loaded_target = key
+            await self.player.load_files(files, self.cfg.shuffle and not track)
+        self._loaded_target, self._track = key, track
 
     def _start_fade(self, to: int, ms: int) -> None:
         """Fade na pozadí — přístupová sekvence nečeká na náběh hlasitosti (pulz zámku dřív)."""
@@ -262,10 +266,11 @@ class AudioController(SelectorChannelStubs):
         except Exception as exc:  # noqa: BLE001
             log.warning("Ukončení přehrávače selhalo: %s", exc)
 
-    async def play_zone(self, zone: int) -> bool:
-        """Přehrává hudbu v zóně (jiná hrající zóna se nejprve korektně zastaví)."""
+    async def play_zone(self, zone: int, track: int | None = None) -> bool:
+        """Přehrává hudbu v zóně (jiná hrající zóna se nejprve korektně zastaví); `track` 1/2 = uvítací/návrat."""
         async with self._lock:
-            if self.playing_zone == zone and self.selector.active_zone == zone and not self._tone:
+            if self.playing_zone == zone and self.selector.active_zone == zone and not self._tone \
+                    and (track is None or self._track == track):
                 return True
             if self.playing_zone is not None:
                 await self._stop_locked(fade=True)
@@ -276,7 +281,7 @@ class AudioController(SelectorChannelStubs):
             # (1) ztlumit před přepínáním relé, playlist cíle zóny (door:<id> / zone:<n> → all)
             await self.player.set_volume(0)
             await self.player.pause()
-            await self._load_target(self._target_of(zone))
+            await self._load_target(self._target_of(zone), track)
             if not await self.selector.select(zone):
                 self.playing_zone = None
                 return False

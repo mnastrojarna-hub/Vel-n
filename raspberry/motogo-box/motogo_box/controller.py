@@ -149,6 +149,7 @@ class BoxController:
         for z in hw.zones:
             zc = ZoneController(z, self.io, self.signals, self.audio, hw, self.emit)
             zc.lock_gate = self.lock_gate
+            zc.music_store = self.storage                   # uvítací / návratová skladba (music_phase)
             zc.on_session_closed = self._session_closed     # zavření šatny → protokol na displeji
             self.zones[z.number] = zc
         self.pin_guard.sec = hw.security

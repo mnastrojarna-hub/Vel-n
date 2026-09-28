@@ -340,6 +340,17 @@ class MusicLibrary:
                 return own
         return self._tracks_of("all") + self.legacy_files()
 
+    def track_for(self, target: str, n: int) -> str | None:
+        """n-tá skladba cíle (1 = uvítací, 2 = návrat): vlastní skladby cíle, jinak n-tá ze společné (`all` + legacy),
+        jinak první dostupná (vlastní, pak společná); nic → None."""
+        own = self._tracks_of(str(target or "all")) if str(target or "all") != "all" else []
+        shared = self._tracks_of("all") + self.legacy_files()
+        n = max(1, int(n))
+        for lst in (own, shared):
+            if len(lst) >= n:
+                return lst[n - 1]
+        return (own or shared or [None])[0]
+
     def targets(self) -> dict[str, int]:
         """Počty stažených skladeb po cílech (vždy s klíči ``all`` a ``legacy``)."""
         counts: dict[str, int] = {"all": 0, "legacy": len(self.legacy_files())}

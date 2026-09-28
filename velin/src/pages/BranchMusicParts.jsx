@@ -46,7 +46,7 @@ function MusicDropZone({ doors, target, onTarget, uploading, progress, onFiles }
 }
 
 // Jeden řádek skladby: přehrávač, název (inline přejmenování), pořadí, aktivní, cíl, stažení, smazání
-function TrackRow({ track, doors, index, count, busy, onMove, onRename, onToggle, onTarget, onDelete }) {
+function TrackRow({ track, doors, index, count, busy, role, onMove, onRename, onToggle, onTarget, onDelete }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(track.title || '')
   useEffect(() => { if (!editing) setDraft(track.title || '') }, [track.title, editing])
@@ -64,6 +64,8 @@ function TrackRow({ track, doors, index, count, busy, onMove, onRename, onToggle
         <Btn small tone="gray" disabled={busy || index >= count - 1} onClick={() => onMove(1)} title="Posunout níž" style={{ padding: '1px 6px' }}>▼</Btn>
       </div>
       <span className="text-[11px] font-bold" style={{ color: '#6b8c7a', minWidth: 20 }}>{index + 1}.</span>
+      {role && <Chip tone={role === 'Uvítací' ? 'green' : 'blue'}
+        title={role === 'Uvítací' ? 'Hraje po zadání kódu (i při opakovaném otevření během vyzvedávání).' : 'Hraje, když zákazník přijde vracet (od prvního otevření rezervace uplynul čas „Hudba návratu po“).'}>{role}</Chip>}
       {editing ? (
         <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); setDraft(track.title || '') } }}

@@ -240,6 +240,12 @@ null/'' z Velína nepřepíše lokální kartu z install.sh. **Fallback:** `sele
 s jedním výstupem `jack` (`audio.device`, jinak `auto`, mono) pro zóny `kind == accessories` (šatna), kóje bez reproduktoru;
 `status.audio.fallback = true` (`audio_build.fallback_zones`). Start hudby v `grant_locked` čeká nejvýš `MUSIC_WAIT_S` (1,5 s), pak pulz zámku.
 
+**Uvítací / návrat (2026-09-28):** `play_zone(zone, track=None)` — `track` 1/2 načte JEN tu skladbu
+(`MusicLibrary.track_for(target, n)`: n-tá vlastní, jinak n-tá společná, jinak první dostupná), bez míchání, dokola; klíč
+načteného obsahu `target#track`. `zone_access.grant_locked` určí `zc.music_track = music_phase.track_for_grant(storage,
+booking_id, kind, timings.music_return_after_min·60)` (1. otevření rezervace → 1; ≥ limit od něj → 2; servis/bez rezervace →
+None = celý playlist), pozdní otevření ho převezme; událost ACCESS_GRANTED `detail.music_track`.
+
 **Cíle playlistu (`target`):** zóna → `door:<uuid branch_doors.id>` (dveře z Velína) / `zone:<n>` (lokální mapa) —
 `audio.zone_target(zone)`; kanál bez dveří → jeho název (`outdoor`). Playlist dodává `MusicLibrary.playlist_for(target)`
 (§7a): vlastní skladby cíle, jinak společné `all` + ruční soubory v `music_dir`, jinak `[]`; bez knihovny

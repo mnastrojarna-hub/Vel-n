@@ -40,6 +40,8 @@ class _Channel:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     playing: Key | None = None
     target: str | None = None      # cíl právě načteného playlistu
+    track: int | None = None       # 1 = uvítací, 2 = návrat (music_phase), None = celý playlist cíle
+    loaded: str | None = None      # klíč načteného obsahu (`target` nebo `target#track`)
     dirty: bool = True             # playlist je třeba (znovu) načíst
     generation: int = 0
     fade_task: asyncio.Task | None = None
@@ -101,7 +103,7 @@ class AudioMulti(MultiChannelOps):
     def status(self) -> dict:
         players = {out: {"alive": bool(ch.player.alive), "playlist_count": int(getattr(ch.player, "playlist_count", 0) or 0),
                          "device": getattr(ch.player, "device", None), "playing": ch.playing, "target": ch.target,
-                         "manual": ch.manual, "tone": ch.tone, **player_hw(ch.player)}
+                         "track": ch.track, "manual": ch.manual, "tone": ch.tone, **player_hw(ch.player)}
                    for out, ch in self.channels.items()}
         devices = [f"{o}={p['device']}" for o, p in players.items() if p["device"]]
         return {"mode": self.mode, "playing_zone": self.playing_zone, "playing_zones": self.playing_zones,
@@ -121,28 +123,33 @@ class AudioMulti(MultiChannelOps):
             return self.targets.get(key) or f"zone:{key}"
         return str(key)
 
-    def _files_for(self, target: str) -> list[str] | None:
+    def _files_for(self, target: str, track: int | None = None) -> list[str] | None:
         if self.library is None:
             return None
         try:
+            if track and hasattr(self.library, "track_for"):
+                f = self.library.track_for(target, track)
+                return [str(f)] if f else []
             return [str(f) for f in (self.library.playlist_for(target) or [])]
         except Exception as exc:  # noqa: BLE001
             log.warning("Playlist cíle %s nelze načíst: %s", target, exc)
             return []
 
-    async def _load(self, ch: _Channel, target: str) -> None:
-        """Načte playlist cíle do mpv výstupu (jen když se změnil cíl nebo je playlist dirty)."""
-        if ch.target == target and not ch.dirty:
+    async def _load(self, ch: _Channel, target: str, track: int | None = None) -> None:
+        """Načte do mpv výstupu playlist cíle, nebo s `track` JEN jednu skladbu (uvítací/návrat, dokola bez míchání);
+        znovu jen když se změnil cíl/skladba nebo je obsah dirty."""
+        loaded = f"{target}#{track}" if track else target
+        if ch.loaded == loaded and not ch.dirty:
             return
-        files = self._files_for(target)
+        files = self._files_for(target, track)
         try:
             if files is None:
                 await ch.player.load_playlist(self.cfg.shuffle)
             else:
-                await ch.player.load_files(files, self.cfg.shuffle)
+                await ch.player.load_files(files, self.cfg.shuffle and not track)
         except Exception as exc:  # noqa: BLE001
-            log.warning("%s: načtení playlistu %s selhalo: %s", ch.out, target, exc)
-        ch.target, ch.dirty = target, False
+            log.warning("%s: načtení playlistu %s selhalo: %s", ch.out, loaded, exc)
+        ch.target, ch.track, ch.loaded, ch.dirty = target, track, loaded, False
 
     async def _relay(self, key: Key, on: bool) -> None:
         ref = self.relays.get(key)
@@ -211,13 +218,13 @@ class AudioMulti(MultiChannelOps):
                 log.warning("Ukončení přehrávače %s selhalo: %s", out, exc)
 
     # ─── přehrávání ─────────────────────────────────────────────────────────
-    async def _play(self, key: Key) -> bool:
+    async def _play(self, key: Key, track: int | None = None) -> bool:
         ch = self._ch(key)
         if ch is None:
             log.warning("%s nemá audio výstup — hudba nelze spustit", f"Zóna {key}" if isinstance(key, int) else f"Kanál {key}")
             return False
         async with ch.lock:
-            if ch.playing == key and not ch.tone:
+            if ch.playing == key and not ch.tone and (track is None or ch.track == track):
                 return True
             if ch.playing is not None:
                 await self._stop_locked(ch, fade=not ch.tone)
@@ -229,7 +236,7 @@ class AudioMulti(MultiChannelOps):
                     await ensure(self.cfg.shuffle)
                 await ch.player.set_volume(0)
                 await ch.player.pause()
-                await self._load(ch, self._target_of(key))
+                await self._load(ch, self._target_of(key), track)
                 await self._relay(key, True)
                 await ch.player.play()
                 self._start_fade(ch, self.cfg.volume, self.cfg.fade_in_ms)
@@ -237,7 +244,7 @@ class AudioMulti(MultiChannelOps):
                 log.error("Hudba %s (%s) se nespustila: %s", key, ch.out, exc)
             ch.playing, ch.off_at = key, None
             ch.generation += 1
-            log.info("Hudba: %s → výstup %s (cíl %s, %s souborů)", key, ch.out, ch.target,
+            log.info("Hudba: %s → výstup %s (cíl %s, skladba %s, %s souborů)", key, ch.out, ch.target, track or "playlist",
                      getattr(ch.player, "playlist_count", "?"))
             return True
 
@@ -269,8 +276,9 @@ class AudioMulti(MultiChannelOps):
             await self._stop_locked(ch, fade)
             return True
 
-    async def play_zone(self, zone: int) -> bool:
-        return await self._play(int(zone))
+    async def play_zone(self, zone: int, track: int | None = None) -> bool:
+        """`track` 1/2 = uvítací/návrat (jen ta skladba dokola), None = celý playlist cíle."""
+        return await self._play(int(zone), track)
 
     async def stop_zone(self, zone: int, fade: bool = True) -> bool:
         return await self._stop(int(zone), fade)
@@ -331,7 +339,7 @@ class AudioMulti(MultiChannelOps):
             if ch.playing is None and ch.target is not None and not ch.lock.locked():
                 async with ch.lock:
                     if ch.playing is None:
-                        await self._load(ch, ch.target)
+                        await self._load(ch, ch.target, ch.track)
 
     async def reselect_if_playing(self, module: str) -> None:
         """Po obnově modulu (all_off) znovu sepne enable relé hrajících kanálů, která na něm leží."""

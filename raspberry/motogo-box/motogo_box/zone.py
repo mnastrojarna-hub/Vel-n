@@ -72,6 +72,8 @@ class ZoneController:
         self.fault: str | None = None
         self.door_closed: bool | None = None
         self.booking_id: str | None = None
+        self.music_store = None        # úložiště (kv) pro music_phase — nastaví controller; None = celý playlist
+        self.music_track: int | None = None   # 1 uvítací / 2 návrat pro poslední povolenou relaci (zone_access)
         self.light_on: bool = False
         self.light_hold_since: float | None = None   # šatna `light_until_moto_code`: světlo drží po SECURED až do kódu motorky
         self.session_started: float | None = None
