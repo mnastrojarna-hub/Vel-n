@@ -138,7 +138,9 @@ Servisní panel, setup a diagnostika zůstávají tmavé overlaye (`ui/style-ove
   (šablona Brno, 8 zón + venek)" předvyplní SPEC §5 — jiná pobočka si mapu upraví (jiný počet zón, jiné adresy);
 - **hudba** — blok **„Hudba pobočky“**: nahrání skladeb přetažením a přiřazení kóji / šatně / venku / společné
   (`branch_music_tracks` + bucket `branch-music`); jednotka si soubory stáhne sama (viz „Hudba“);
-- servisní hesla, zařízení (ID + token), kamery, měnič FV — beze změny oproti tabletu.
+- servisní hesla, zařízení (ID + token), kamery, měnič FV (URL a interval v bloku Solární elektrárna) — vše v sbaleném bloku **„Nastavení a servis“**
+  (přepínač „🔧 Servisní režim“ v hlavičce záložky; v běžném provozu je vidět jen poplach, karta jednotky se zónami, poslední protokol
+  diagnostiky, hudba, nastavené kamery/FV — 2026-09-28).
 Program si konfiguraci stahuje každých 60 s (`kiosk_sync_config`) a při změně zařízení/zón
 bezpečně přestaví I/O (vše vypnout → nové zóny).
 
@@ -392,9 +394,9 @@ LTE_RESET, časová osa; Velín navíc ukáže syrové logy NetworkManager/Modem
 vč. 192.168.1.253, vyhledávání ZLAN UDP 1092 — které moduly odpověděly, na jaké IP, zda jsou v mapě / čekají na
 přiřazení / chybí), Konfigurace pobočky, Zóny a periferie
 (souhrn kóje + položka na každý nález), Napájení (FV), Kamery, Ostatní zařízení v LAN, Průběh diagnostiky (kontroly OK
-sbalené). Velín: **Stáhnout protokol (.txt)** (`diagnostika-<pobocka>-<YYYYMMDD-HHMM>.txt` — hlavička, VÝSLEDEK, KDE JE
-PROBLÉM, VAROVÁNÍ, [SEKCE] …) a **Kopírovat** (schránka); sbalený „Technický detail sítě“ (syrové tabulky, celý JSON).
-Uložení: overlay na displeji + `GET /api/diagnostics` (localhost), Supabase `kiosk_diagnostics` (posledních 30 na
+sbalené). Velín: jen **poslední protokol každé jednotky** (2026-09-28: bez historie a exportu) + **Kopírovat** (textový protokol do
+schránky); sbalený „Technický detail sítě“ (syrové tabulky, celý JSON).
+Uložení: overlay na displeji + `GET /api/diagnostics` (localhost), Supabase `kiosk_diagnostics` (jen poslední na
 zařízení, přes `kiosk_report_diagnostics` z outboxu — před spárováním se odešle po spárování), souhrn do `kiosk_logs`
 (zdroj `diagnostics`), SQLite kv `last_diagnostics`. Starší reporty bez protokolu se zobrazí jako dřív (jen síťový detail).
 
@@ -500,7 +502,7 @@ odmítne; červený běh = chyba psql (issue se nezakládá).
 | protokol: „zámek: relé wav645 R3 je SEPNUTÉ v klidu — NEBEZPEČÍ, odpojte modul“ (Kóje N — zámek) | relé zámku drží v klidu sepnuto = zámek pod proudem (program relé zámku nikdy nedrží) | **ihned odpojit modul / napájení zámku**, zkontrolovat konfiguraci relé (flash-on 800 ms) a zapojení; do opravy kóji nepoužívat |
 | protokol: „Kamera X (snapshot) neodpovídá: …“ | kamera bez napájení / LAN, špatná URL ve Velíně | napájení, LAN, URL kamery (Velín → Samoobsluha → Kamery); z RPi `curl -I <url>` |
 | protokol: „Stav napájení nelze stáhnout z <url> (…)“ | měnič/monitor FV nedostupný nebo URL nevrací JSON | `power_status_url` pobočky musí vracet JSON v LAN jednotky; z RPi `curl <url>` |
-| pobočka byla bez internetu a chci vědět kdy / jak dlouho | výpadek LTE (modem z USB), DNS operátora, nebo cizí trasa přes eth0 | Velín → Samoobsluha → Hlášení a chyby: `INTERNET_DOWN` (error) / `INTERNET_UP` (warn, délka výpadku) — jednotka je uloží do outboxu a pošle po obnově; `NET_FIX` = health odstranil trasu přes eth0; `LTE_RESET`/`LTE_MODE` = obnova modemu. Historie sítě 7 dní: Velín diagnostika → „Historie sítě“ |
+| pobočka byla bez internetu a chci vědět kdy / jak dlouho | výpadek LTE (modem z USB), DNS operátora, nebo cizí trasa přes eth0 | Velín → Samoobsluha → Servisní režim → Nastavení a servis → Hlášení a chyby: `INTERNET_DOWN` (error) / `INTERNET_UP` (warn, délka výpadku) — jednotka je uloží do outboxu a pošle po obnově; `NET_FIX` = health odstranil trasu přes eth0; `LTE_RESET`/`LTE_MODE` = obnova modemu. Historie sítě 7 dní: Velín diagnostika → „Historie sítě“ |
 | aktualizace software sáhla na síť a internet spadl | chyba v síťové migraci update.sh | **Canary v update.sh** to řeší sám: internet před změnou OK a po ní 3× ne → profily NM zpět ze zálohy, v Hlášení a chybách `NET_FIX` (error) „profily vráceny“; výpadky nesou i „kde to vězí“ (`INTERNET_DOWN — cizí trasa / bez trasy / modem / za modemem`) |
 | karta jednotky „Internet přes wlan0 · LTE nefunkční“ (test mimo pobočku na Wi-Fi) | modem mrtvý, internet jde Wi-Fi | Hlídka od 27. 9. modem obnovuje i tak (dřív ho při internetu přes Wi-Fi nechala ležet — 10 h bez resetu); jen nerestartuje celou jednotku. Na pobočce Wi-Fi není |
 | karta jednotky: „Modem: RNDIS (USB: QMI)“ / diagnostika „Modem se na USB hlásí jako qmi, konfigurace rndis“ | nepovedené přepnutí režimu (modem se po restartu vrátil v jiném režimu) | Jednotka to **srovná sama** do 2 min (`mode_sync` → `LTE_MODE` v Hlášení a chybách); ručně: karta → „Modem → QMI“. Přepnutí do RNDIS je od 26. 9. jen ruční a experimentální (modem po něm zmizel z USB) |

@@ -6,24 +6,22 @@ import { RpiHardwareBlock } from './BranchRpiHardware'
 import { defaultDoorHw } from './BranchRpiHardwareDefaults'
 import { RpiDiagnosticsBlock } from './BranchRpiDiagnostics'
 import { BranchMusicBlock } from './BranchMusic'
-import { isRpiDevice, platformLabel, ACCESSORIES_LABEL, doorKindLabel, doorLabel, doorEventLabel, isProtocolEvent } from './BranchRpiUi'
+import { RpiSection, Btn, Chip, usePersistentFlag, isRpiDevice, platformLabel, ACCESSORIES_LABEL, doorKindLabel, doorLabel, doorEventLabel, isProtocolEvent } from './BranchRpiUi'
 import KioskAlertsBanner from '../components/KioskAlertsBanner'
 import { useKioskAlerts } from '../hooks/useKioskAlerts'
 
-// ─── Tab: Samoobsluha (kiosk) ─────────────────────────────────────────────
-// Konfigurace samoobslužné pobočky. Pobočku řídí řídicí jednotka Raspberry (raspberry/motogo-box);
-// backend zůstává kompatibilní i se starou tablet appkou (bloky „jen tablet“ jsou tak označené).
-//  - zařízení (kiosk_devices) — unikátní ID + token, online stav, vzdálené ovládání (kiosk_commands)
-//  - řídicí jednotka: živý stav zón, diagnostika sítě, hardware (branch_kiosk_config.hardware + branch_doors.hw)
-//  - dveře (branch_doors) — potřebné pro obojí; relay_url/light_url jen tablet
-//  - hudba + časování (branch_kiosk_config) — jen tablet; URL FV měniče pro obojí
-//  - servisní hesla (branch_service_codes), kamery, log otevření, hlášení
+// ─── Tab: Samoobsluha (řídicí jednotka Raspberry) ─────────────────────────
+// Provozní část (vidí obsluha vždy): poplach „dveře bez kódu“, karta jednotky se zónami, poslední protokol diagnostiky,
+// hudba, kamery/FV (jen když jsou nastavené). Sbalený blok „Nastavení a servis“ (přepínač 🔧 Servisní režim, uložený
+// v prohlížeči): hlášení a chyby, log otevření, zařízení (párování), dveře, HW mapa, servisní hesla, kamery, FV.
+// Servisní režim zároveň odkryje technická tlačítka na kartě jednotky (modem, sync, identifikace, aktualizace, reboot,
+// terminál, testy zón). Tabletová appka už neexistuje (2026-09-10) — její bloky (ovládací panel, hudba & časování,
+// OTA APK, URL relé/světla u dveří, „Na dálku“ u zařízení) byly 2026-09-28 odstraněny; sloupce v DB zůstávají.
 const ONLINE_MS = 70 * 1000
 // Jak často se tiše přenačtou řádky kiosk_devices (last_seen_at, status). Jednotka se hlásí každých 30 s
 // (heartbeat_s + status_report_s), okno „online“ je 70 s — 15 s polling tedy stav udrží vždy aktuální.
 const DEVICE_POLL_MS = 15 * 1000
 const hasHw = d => !!(d?.hw && typeof d.hw === 'object' && Object.keys(d.hw).length > 0)
-const hasRelay = d => (d?.relay_url || '').trim() !== ''
 
 function TabSelfService({ branchId, branchName, motos }) {
   const [loading, setLoading] = useState(true)
@@ -36,9 +34,9 @@ function TabSelfService({ branchId, branchName, motos }) {
   const [cameras, setCameras] = useState([])
   const [power, setPower] = useState(null)
   const [logs, setLogs] = useState([])
-  const [ota, setOta] = useState({})
-  const [diags, setDiags] = useState([])
   const [busy, setBusy] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)   // „Obnovit“ v hlavičce → bloky s vlastním načítáním (diagnostika)
+  const [servis, setServis] = usePersistentFlag('velin_samoobsluha_servis', false)   // 🔧 Servisní režim (2026-09-28)
   const [liveError, setLiveError] = useState(null)   // chyba tichého přenačítání zařízení (viz efekt níže)
   const [now, setNow] = useState(Date.now())
   const kioskAlerts = useKioskAlerts({ branchId })   // poplach „dveře otevřeny bez kódu“ této pobočky (realtime, do potvrzení)
@@ -72,7 +70,7 @@ function TabSelfService({ branchId, branchName, motos }) {
     if (firstLoad.current) setLoading(true)   // „Obnovit“ bez spinneru — bloky by se odmontovaly a ztratily stav (poznámky, rozepsané drafty)
     setError(null)
     try {
-      const [c, dev, d, s, ev, cam, pw, lg, otaRow, dg] = await Promise.all([
+      const [c, dev, d, s, ev, cam, pw, lg] = await Promise.all([
         supabase.from('branch_kiosk_config').select('*').eq('branch_id', branchId).maybeSingle(),
         supabase.from('kiosk_devices').select('*').eq('branch_id', branchId).order('created_at'),
         supabase.from('branch_doors').select('*').eq('branch_id', branchId).order('door_kind').order('box_number'),
@@ -81,10 +79,6 @@ function TabSelfService({ branchId, branchName, motos }) {
         supabase.from('branch_cameras').select('*').eq('branch_id', branchId).order('sort_order').order('created_at'),
         supabase.from('branch_power_status').select('*').eq('branch_id', branchId).maybeSingle(),
         supabase.from('kiosk_logs').select('*').eq('branch_id', branchId).order('created_at', { ascending: false }).limit(40),
-        supabase.from('app_settings').select('value').eq('key', 'kiosk_app').maybeSingle(),
-        // reporty diagnostiky sítě RPi (bez sloupce report — ten se načítá až v detailu)
-        supabase.from('kiosk_diagnostics').select('id, device_id, report_id, source, ok, problems, summary, app_version, started_at, finished_at, created_at')
-          .eq('branch_id', branchId).order('created_at', { ascending: false }).limit(15),
       ])
       // supabase-js chybu NEVYHAZUJE — vrací ji v objektu. Bez téhle kontroly se selhaný dotaz
       // (vypršelá admin session, RLS, výpadek sítě) tvářil jako prázdná pobočka: blok „Řídicí jednotka
@@ -103,8 +97,7 @@ function TabSelfService({ branchId, branchName, motos }) {
       use(cam, 'kamery', v => setCameras(v || []))
       use(pw, 'stav elektrárny', v => setPower(v || null))
       use(lg, 'hlášení jednotky', v => setLogs(v || []))
-      use(otaRow, 'verze appky', v => setOta(v?.value || {}))
-      setDiags(dg.error ? [] : (dg.data || []))   // tabulka nemusí být ještě nasazená (migrace) → prázdný blok
+      setRefreshKey(k => k + 1)
       setError(failed.length
         ? `Část dat se z databáze nenačetla: ${failed.join(', ')}. Zobrazený stav může být starý — zkuste Obnovit, případně se znovu přihlaste.`
         : null)
@@ -153,7 +146,7 @@ function TabSelfService({ branchId, branchName, motos }) {
     } catch (e) { setError(e.message) }
   }
   async function deleteDevice(id) {
-    if (!window.confirm('Smazat zařízení? Řídicí jednotku / tablet bude nutné znovu spárovat (nové ID + token).')) return
+    if (!window.confirm('Smazat zařízení? Řídicí jednotku bude nutné znovu spárovat (nové ID + token).')) return
     await supabase.from('kiosk_devices').delete().eq('id', id)
     await load()
   }
@@ -225,16 +218,6 @@ function TabSelfService({ branchId, branchName, motos }) {
     await load()
   }
 
-  // ── OTA verze appky (globální, app_settings) ──
-  async function saveOta(patch) {
-    const next = { ...ota, ...patch }
-    setOta(next)
-    try {
-      const { error } = await supabase.from('app_settings').upsert({ key: 'kiosk_app', value: next }, { onConflict: 'key' })
-      if (error) throw error
-    } catch (e) { setError(e.message) }
-  }
-
   // ── Kamery ──
   async function addCamera() {
     setBusy(true)
@@ -280,18 +263,47 @@ function TabSelfService({ branchId, branchName, motos }) {
     await load()
   }
 
-  // Online aktivní zařízení = přes něj se posílají vzdálené příkazy z panelu; řídicí jednotka (Raspberry) má přednost před tabletem
+  // Online řídicí jednotka = přes ni jdou akce kamer (camera_control)
   const onlineDevices = devices.filter(d => d.is_active && d.last_seen_at && (now - new Date(d.last_seen_at).getTime()) < ONLINE_MS)
-  const onlineDevice = onlineDevices.find(isRpiDevice) || onlineDevices[0] || null
+  const onlineDevice = onlineDevices.find(isRpiDevice) || null
   async function remote(command, params = {}) {
-    if (!onlineDevice) { setError('Žádná řídicí jednotka (Raspberry) ani tablet pobočky není online — vzdálené ovládání nedostupné.'); return false }
+    if (!onlineDevice) { setError('Žádná řídicí jednotka (Raspberry) pobočky není online — vzdálené ovládání nedostupné.'); return false }
     return sendCommand(onlineDevice, command, params)
   }
+  const hasRpi = devices.some(isRpiDevice)
+  // Bez jednotky nemá provozní část co ukázat → otevřít servis (Zařízení → Přidat), ať obsluha nekouká do prázdna
+  useEffect(() => { if (!loading && cfg && !hasRpi && !servis) setServis(true) }, [loading, cfg, hasRpi])   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return <Spinner />
 
+  // Čipy sbaleného bloku — vidět i zavřené, aby servis neschoval chyby
+  const errors24 = logs.filter(l => (l.level === 'error' || l.level === 'crash') && (Date.now() - new Date(l.created_at).getTime()) < 24 * 3600 * 1000).length
+  const doorsNoHw = doors.filter(d => d.is_active !== false && !hasHw(d)).length
+  const rebootNeeded = devices.some(d => isRpiDevice(d) && d.status?.health?.sys?.reboot_required === true)
+  const camerasConfigured = cameras.length > 0
+  const powerConfigured = !!(cfg?.power_status_url || power)
+  const servisSummary = (
+    <>
+      {errors24 > 0 && <Chip tone="red">{errors24} chyb za 24 h</Chip>}
+      {doorsNoHw > 0 && <Chip tone="amber">{doorsNoHw} dveří bez HW mapy</Chip>}
+      {rebootNeeded && <Chip tone="amber">Restart OS potřebný</Chip>}
+      {!hasRpi && <Chip tone="amber">žádná řídicí jednotka</Chip>}
+      {errors24 === 0 && doorsNoHw === 0 && !rebootNeeded && hasRpi && <span className="text-[12px]" style={{ color: '#6b8c7a' }}>hlášení, log otevření, zařízení, dveře, HW mapa, servisní hesla{camerasConfigured ? '' : ', kamery'}{powerConfigured ? '' : ', FV'}</span>}
+    </>
+  )
+
   return (
     <div className="space-y-5">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[12px]" style={{ color: '#6b8c7a' }}>Provoz pobočky přes řídicí jednotku Raspberry. Nastavení a technické nástroje jsou v servisním režimu.</span>
+        <span className="ml-auto inline-flex items-center gap-2">
+          <Btn tone="blue" onClick={load} title="Znovu načte data záložky (zařízení, dveře, hesla, logy, kamery, FV, poslední diagnostiku).">Obnovit</Btn>
+          <Btn tone={servis ? 'amber' : 'gray'} onClick={() => setServis(v => !v)}
+            title="Servisní režim: rozbalí blok „Nastavení a servis“ a ukáže technická tlačítka na kartě jednotky (modem, synchronizace, identifikace, aktualizace, reboot, terminál, testy zón). Volba se pamatuje v tomto prohlížeči.">
+            🔧 Servisní režim {servis ? 'zap.' : 'vyp.'}
+          </Btn>
+        </span>
+      </div>
       <KioskAlertsBanner alerts={kioskAlerts.alerts} onAck={() => { kioskAlerts.reload(); load() }} compact />
       {error && <div className="p-2 rounded-card text-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>}
       {liveError && (
@@ -303,7 +315,7 @@ function TabSelfService({ branchId, branchName, motos }) {
 
       {!cfg ? (
         <div className="p-4 rounded-card text-center" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-          <p className="text-sm mb-3" style={{ color: '#1a2e22' }}>Tato pobočka zatím nemá nastavenou samoobsluhu (řídicí jednotka Raspberry / kiosk).</p>
+          <p className="text-sm mb-3" style={{ color: '#1a2e22' }}>Tato pobočka zatím nemá nastavenou samoobsluhu (řídicí jednotka Raspberry).</p>
           <button onClick={ensureConfig} disabled={busy} className="rounded-btn text-sm font-bold cursor-pointer border-none"
             style={{ padding: '8px 16px', background: '#1a2e22', color: '#74FB71' }}>
             {busy ? 'Zakládám…' : 'Aktivovat samoobsluhu'}
@@ -311,39 +323,36 @@ function TabSelfService({ branchId, branchName, motos }) {
         </div>
       ) : (
         <>
-          <ControlPanelBlock doors={doors} cfg={cfg} onlineDevice={onlineDevice} onRemote={remote} onRefresh={load} />
-          <RpiStatusBlock devices={devices} doors={doors} now={now} onCommand={sendCommand} branchName={branchName} onSaveDoor={saveDoor} />
+          {!hasRpi && (
+            <div className="p-3 rounded-card text-sm" style={{ background: '#fef3c7', color: '#b45309' }}>
+              Pobočka nemá žádnou řídicí jednotku. Založte ji níže v „Nastavení a servis → Zařízení“ (Přidat zařízení) a její ID + token zadejte na displeji.
+            </div>
+          )}
+          <RpiStatusBlock devices={devices} doors={doors} now={now} onCommand={sendCommand} branchName={branchName} onSaveDoor={saveDoor} servis={servis} />
+          <RpiDiagnosticsBlock branchId={branchId} devices={devices} cameras={cameras} now={now} onCommand={sendCommand} servis={servis} refreshKey={refreshKey} />
           <BranchMusicBlock branchId={branchId} doors={doors} devices={devices} now={now} onCommand={sendCommand} />
-          <RpiDiagnosticsBlock branchId={branchId} devices={devices} diags={diags} cameras={cameras} now={now} onCommand={sendCommand} />
-          <PowerBlock power={power} cfg={cfg} now={now} onSave={saveCfg} onRefresh={load} />
-          <CamerasBlock cameras={cameras} onlineDevice={onlineDevice} busy={busy}
-            onAdd={addCamera} onSave={saveCamera} onDelete={deleteCamera} onRemote={remote} />
-          <DevicesBlock devices={devices} doors={doors} cfg={cfg} now={now} busy={busy}
-            onAdd={addDevice} onSave={saveDevice} onDelete={deleteDevice} onCommand={sendCommand} />
-          <KioskConfigBlock cfg={cfg} onSave={saveCfg} />
-          <OtaBlock ota={ota} onSave={saveOta} />
-          <DoorsBlock doors={doors} onEnsure={ensureDoors} onSave={saveDoor} onDelete={deleteDoor} busy={busy} />
-          <RpiHardwareBlock cfg={cfg} doors={doors} busy={busy} onSaveCfg={saveCfg} onSaveDoor={saveDoor} onCreateDoor={createDoor} onRefresh={load} />
-          <ServiceCodesBlock codes={codes} onAdd={addCode} onToggle={toggleCode} onDelete={deleteCode} busy={busy} />
-          <AuditBlock events={events} doors={doors} devices={devices} onRefresh={load} />
-          <DiagnosticsBlock logs={logs} devices={devices} onRefresh={load} />
+          {camerasConfigured && (
+            <CamerasBlock cameras={cameras} onlineDevice={onlineDevice} busy={busy} servis={servis}
+              onAdd={addCamera} onSave={saveCamera} onDelete={deleteCamera} onRemote={remote} />
+          )}
+          {powerConfigured && <PowerBlock power={power} cfg={cfg} now={now} onSave={saveCfg} servis={servis} />}
+
+          <RpiSection title="Nastavení a servis" collapsible open={servis} onToggle={() => setServis(v => !v)} summary={servisSummary}
+            hint="Jednorázové nastavení pobočky a nástroje pro techniky. V běžném provozu sem chodit nemusíte.">
+            <DiagnosticsBlock logs={logs} devices={devices} />
+            <AuditBlock events={events} doors={doors} devices={devices} />
+            <DevicesBlock devices={devices} now={now} busy={busy} onAdd={addDevice} onSave={saveDevice} onDelete={deleteDevice} />
+            <DoorsBlock doors={doors} onEnsure={ensureDoors} onSave={saveDoor} onDelete={deleteDoor} busy={busy} />
+            <RpiHardwareBlock cfg={cfg} doors={doors} busy={busy} onSaveCfg={saveCfg} onSaveDoor={saveDoor} onCreateDoor={createDoor} onRefresh={load} />
+            <ServiceCodesBlock codes={codes} onAdd={addCode} onToggle={toggleCode} onDelete={deleteCode} busy={busy} />
+            {!camerasConfigured && (
+              <CamerasBlock cameras={cameras} onlineDevice={onlineDevice} busy={busy} servis
+                onAdd={addCamera} onSave={saveCamera} onDelete={deleteCamera} onRemote={remote} />
+            )}
+            {!powerConfigured && <PowerBlock power={power} cfg={cfg} now={now} onSave={saveCfg} servis />}
+          </RpiSection>
         </>
       )}
-    </div>
-  )
-}
-
-function Section({ title, hint, children, action }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{title}</div>
-          {hint && <div className="text-[12px]" style={{ color: '#6b8c7a' }}>{hint}</div>}
-        </div>
-        {action}
-      </div>
-      {children}
     </div>
   )
 }
@@ -366,91 +375,13 @@ function Field({ label, value, onCommit, placeholder, type = 'text', width, titl
 
 function copy(text) { navigator.clipboard?.writeText(text) }
 
-// ─── Ovládací panel pobočky (vzdálené ovládání přes online řídicí jednotku / tablet) ──
-function ControlPanelBlock({ doors, cfg, onlineDevice, onRemote, onRefresh }) {
-  const motoDoors = doors.filter(d => d.door_kind === 'motorcycle')
-  const accDoor = doors.find(d => d.door_kind === 'accessories')
-  const rpi = !!onlineDevice && isRpiDevice(onlineDevice)
-  // Řídicí jednotka hraje bez URL (music_on bez zóny = první zóna); tablet potřebuje URL hudby
-  const musicOn = !!onlineDevice && (rpi || !!cfg.music_on_url)
-  const musicOff = !!onlineDevice && (rpi || !!cfg.music_off_url)
-  const musicTitle = on => (rpi ? (on ? 'Spustí hudbu v první zóně (konkrétní zóna: dlaždice v bloku stav zón)' : 'Zastaví hudbu na jednotce')
-    : !onlineDevice ? 'Nic není online' : 'Tablet potřebuje URL hudby v bloku „Hudba & časování (jen tablet)“')
-  function open(d) {
-    // Řídicí jednotka hledá zónu dle door_id → zone → box_number (URL relé ignoruje); tablet používá relay_url/light_url
-    onRemote('open_door', { door_id: d.id, zone: d.hw?.zone ?? null, box_number: d.box_number ?? null, relay_url: d.relay_url, light_url: d.light_url, label: d.label })
-  }
-  return (
-    <Section title="Ovládání pobočky"
-      hint="Otevírání dveří a hudba na dálku — příkaz se odešle přes online řídicí jednotku (Raspberry) pobočky, případně přes tablet."
-      action={
-        <button onClick={onRefresh} className="rounded-btn text-sm font-bold cursor-pointer border-none"
-          style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb' }}>Obnovit</button>
-      }>
-      <div className="p-3 rounded-card" style={{ background: onlineDevice ? '#f1faf7' : '#fef3c7', border: `1px solid ${onlineDevice ? '#d4e8e0' : '#fde68a'}` }}>
-        <div className="flex items-center gap-2 mb-3 text-sm" style={{ color: '#1a2e22' }}>
-          <span style={{ width: 10, height: 10, borderRadius: 999, background: onlineDevice ? '#1a8a18' : '#dc2626', display: 'inline-block' }} />
-          {onlineDevice
-            ? <span>Pobočka <strong>online</strong> — ovládá se přes „{onlineDevice.name || (rpi ? 'řídicí jednotka' : 'tablet')}“ ({rpi ? 'řídicí jednotka Raspberry' : 'tablet'}).</span>
-            : <span><strong>Žádná řídicí jednotka (Raspberry) ani tablet není online.</strong> Vzdálené ovládání je nedostupné.</span>}
-          <div className="ml-auto flex gap-2">
-            <button onClick={() => onRemote('music_on', { music_url: cfg.music_on_url })} disabled={!musicOn} title={musicTitle(true)}
-              className="rounded-btn text-[12px] font-bold cursor-pointer border-none"
-              style={{ padding: '5px 10px', background: '#dcfce7', color: '#1a8a18', opacity: musicOn ? 1 : 0.5 }}>Hudba ▶</button>
-            <button onClick={() => onRemote('music_off', { music_url: cfg.music_off_url })} disabled={!musicOff} title={musicTitle(false)}
-              className="rounded-btn text-[12px] font-bold cursor-pointer border-none"
-              style={{ padding: '5px 10px', background: '#fee2e2', color: '#dc2626', opacity: musicOff ? 1 : 0.5 }}>Hudba ⏹</button>
-          </div>
-        </div>
-        {doors.length === 0 ? (
-          <EmptyState text="Nejsou nastavené dveře — blok „Dveře“ níže → Vytvořit dveře z kojí." />
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {accDoor && <DoorOpenBtn door={accDoor} rpi={rpi} disabled={!onlineDevice} onClick={() => open(accDoor)} />}
-            {motoDoors.map(d => <DoorOpenBtn key={d.id} door={d} rpi={rpi} disabled={!onlineDevice} onClick={() => open(d)} />)}
-          </div>
-        )}
-      </div>
-    </Section>
-  )
-}
-
-function DoorOpenBtn({ door, rpi, disabled, onClick }) {
-  const isAcc = door.door_kind === 'accessories'
-  // Řídicí jednotka otevírá dle HW mapy (branch_doors.hw), tablet dle URL relé; bez online zařízení stačí kterékoli z toho
-  const configured = disabled ? (hasHw(door) || hasRelay(door)) : rpi ? hasHw(door) : hasRelay(door)
-  const why = rpi ? 'Dveře nemají HW mapu (blok Řídicí jednotka (Raspberry) — hardware → Mapování dveří → zóny)'
-    : disabled ? 'Dveře nemají HW mapu (Raspberry) ani URL relé (tablet)' : 'Dveře nemají nastavené URL relé (tablet)'
-  const title = doorKindLabel(door)
-  return (
-    <button onClick={onClick} disabled={disabled || !configured}
-      title={!configured ? why : (door.label || title)}
-      className="rounded-card font-bold cursor-pointer border-none flex flex-col items-center"
-      style={{
-        padding: '10px 14px', minWidth: 84,
-        background: isAcc ? '#dbeafe' : '#dcfce7',
-        color: isAcc ? '#2563eb' : '#1a8a18',
-        opacity: (disabled || !configured) ? 0.4 : 1,
-        border: `1px solid ${configured ? 'transparent' : '#fca5a5'}`,
-      }}>
-      <span style={{ fontSize: 18 }}>{isAcc ? '🧥' : '🏍️'}</span>
-      <span className="text-[13px] mt-0.5">{title}</span>
-      <span className="text-[10px] font-extrabold uppercase mt-0.5">Otevřít</span>
-    </button>
-  )
-}
-
 // ─── Log otevření (audit) ─────────────────────────────────────────────────────
-function AuditBlock({ events, doors, devices, onRefresh }) {
+function AuditBlock({ events, doors, devices }) {
   const doorMap = Object.fromEntries(doors.map(d => [d.id, d]))
   const devMap = Object.fromEntries(devices.map(d => [d.id, d]))
   const kindLabel = { motorcycle: 'Motorka', accessories: ACCESSORIES_LABEL, service: 'Servis' }
   return (
-    <Section title="Log otevření" hint="Posledních 30 událostí na pobočce."
-      action={
-        <button onClick={onRefresh} className="rounded-btn text-sm font-bold cursor-pointer border-none"
-          style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb' }}>Obnovit</button>
-      }>
+    <RpiSection title="Log otevření" hint="Posledních 30 událostí na pobočce (otevření kódem, servisně, protokol, dveře bez kódu).">
       {events.length === 0 ? (
         <EmptyState text="Zatím žádné záznamy" />
       ) : (
@@ -477,16 +408,16 @@ function AuditBlock({ events, doors, devices, onRefresh }) {
           })}
         </div>
       )}
-    </Section>
+    </RpiSection>
   )
 }
 
-// ─── Zařízení (řídicí jednotka Raspberry / tablety) + vzdálené ovládání ─────
-function DevicesBlock({ devices, doors, cfg, now, busy, onAdd, onSave, onDelete, onCommand }) {
+// ─── Zařízení (řídicí jednotka Raspberry) — párování ─────────────────────
+function DevicesBlock({ devices, now, busy, onAdd, onSave, onDelete }) {
   const [name, setName] = useState('')
   return (
-    <Section title="Zařízení (řídicí jednotka Raspberry / tablety)"
-      hint="Každé zařízení má unikátní ID + token — zadejte je na displeji řídicí jednotky (setup obrazovka nebo servisní panel → Přepárovat), u tabletu v appce při párování. Platforma se doplní po prvním ozvání. Online = poslední ozvání < 70 s.">
+    <RpiSection title="Zařízení (řídicí jednotka Raspberry)"
+      hint="Každá jednotka má unikátní ID + token — zadejte je na displeji (setup obrazovka nebo servisní panel → Přepárovat). Platforma se doplní po prvním ozvání. Online = poslední ozvání < 70 s. Ovládání jednotky je na její kartě nahoře.">
       <div className="flex items-end gap-2 mb-3 flex-wrap">
         <label className="flex flex-col gap-0.5" style={{ width: 220 }}>
           <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }} title="Jak se zařízení jmenuje ve Velíně — ať poznáte, která jednotka je která (např. „Velké Němčice — řídicí jednotka“). Po přidání dostane ID a token, které zadáte na displeji jednotky.">Název nového zařízení</span>
@@ -502,33 +433,21 @@ function DevicesBlock({ devices, doors, cfg, now, busy, onAdd, onSave, onDelete,
       ) : (
         <div className="space-y-2">
           {devices.map(dev => (
-            <DeviceRow key={dev.id} dev={dev} doors={doors} cfg={cfg} now={now}
-              onSave={onSave} onDelete={onDelete} onCommand={onCommand} />
+            <DeviceRow key={dev.id} dev={dev} now={now} onSave={onSave} onDelete={onDelete} />
           ))}
         </div>
       )}
-    </Section>
+    </RpiSection>
   )
 }
 
-function DeviceRow({ dev, doors, cfg, now, onSave, onDelete, onCommand }) {
-  const [doorId, setDoorId] = useState('')
+function DeviceRow({ dev, now, onSave, onDelete }) {
   const online = dev.last_seen_at && (now - new Date(dev.last_seen_at).getTime()) < ONLINE_MS
   const lastSeen = dev.last_seen_at ? new Date(dev.last_seen_at).toLocaleString('cs-CZ') : 'nikdy'
-  const selectedDoor = doors.find(d => d.id === doorId)
   const rpi = isRpiDevice(dev)
   const plat = platformLabel(dev)   // '' = zatím se neozvalo (platform NULL)
-  const canMusicOn = rpi || !!cfg.music_on_url, canMusicOff = rpi || !!cfg.music_off_url
   // status.health.sys.reboot_required — OS čeká na restart (nové jádro); status je JSON z jednotky, číst defenzivně
   const rebootRequired = rpi && dev.status?.health?.sys?.reboot_required === true
-
-  function openRemote() {
-    if (!selectedDoor) return
-    onCommand(dev, 'open_door', {
-      door_id: selectedDoor.id, zone: selectedDoor.hw?.zone ?? null, box_number: selectedDoor.box_number ?? null,
-      relay_url: selectedDoor.relay_url, light_url: selectedDoor.light_url, label: selectedDoor.label,
-    })
-  }
 
   return (
     <div className="p-3 rounded-card" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
@@ -571,76 +490,16 @@ function DeviceRow({ dev, doors, cfg, now, onSave, onDelete, onCommand }) {
         <button onClick={() => copy(dev.device_token)} className="rounded-btn text-[10px] font-bold cursor-pointer border-none" style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>Kopírovat</button>
       </div>
 
-      {/* Vzdálené ovládání */}
-      <div className="flex items-center gap-2 flex-wrap pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
-        <span className="text-[11px] font-extrabold uppercase" style={{ color: '#6b8c7a' }}>Na dálku:</span>
-        <select value={doorId} onChange={e => setDoorId(e.target.value)}
-          title="Které dveře otevřít na dálku přes tuto jednotku. Vyberte kóji nebo šatnu a pak stiskněte „Otevřít dveře“ — proběhne stejná sekvence jako po zadání kódu (světlo, hudba, impulz zámku)."
-          className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0' }}>
-          <option value="">— vyber dveře —</option>
-          {doors.map(d => <option key={d.id} value={d.id}>{doorLabel(d)}</option>)}
-        </select>
-        <button onClick={openRemote} disabled={!selectedDoor}
-          className="rounded-btn text-[12px] font-bold cursor-pointer border-none"
-          style={{ padding: '5px 10px', background: '#1a2e22', color: '#74FB71', opacity: selectedDoor ? 1 : 0.5 }}>Otevřít dveře</button>
-        <button onClick={() => onCommand(dev, 'music_on', { music_url: cfg.music_on_url })} disabled={!canMusicOn}
-          title={rpi ? 'Hudba v první zóně (konkrétní zóna: blok stav zón)' : 'Tablet potřebuje URL hudby (Hudba & časování)'}
-          className="rounded-btn text-[12px] font-bold cursor-pointer border-none" style={{ padding: '5px 10px', background: '#dcfce7', color: '#1a8a18', opacity: canMusicOn ? 1 : 0.5 }}>Hudba ▶</button>
-        <button onClick={() => onCommand(dev, 'music_off', { music_url: cfg.music_off_url })} disabled={!canMusicOff}
-          className="rounded-btn text-[12px] font-bold cursor-pointer border-none" style={{ padding: '5px 10px', background: '#fee2e2', color: '#dc2626', opacity: canMusicOff ? 1 : 0.5 }}>Hudba ⏹</button>
-        <button onClick={() => onCommand(dev, 'identify', { label: 'Velín' })}
-          title={rpi
-            ? 'Na které fyzické pobočce tohle zařízení stojí? Po stisku se na displeji té jednotky zobrazí hláška „Tady jsem 👋“ a signalizace VŠECH kójí 3× blikne zeleně. Slouží k tomu, abyste poznali, který řádek ve Velíně patří které jednotce — nic neotevírá a zákazníkovi nijak nevadí.'
-            : 'Identifikace na tabletu — na jeho obrazovce se zobrazí hláška „Tady jsem“.'}
-          className="rounded-btn text-[12px] font-bold cursor-pointer border-none" style={{ padding: '5px 10px', background: '#dbeafe', color: '#2563eb' }}>Identifikuj</button>
-        <button onClick={() => { if (window.confirm(rpi ? 'Restartovat službu řídicí jednotky? Zóny se na pár sekund vypnou a znovu inicializují.' : 'Restartovat appku na tomto tabletu?')) onCommand(dev, 'restart', {}) }}
-          className="rounded-btn text-[12px] font-bold cursor-pointer border-none" style={{ padding: '5px 10px', background: '#fef3c7', color: '#b45309' }}>Restart</button>
-      </div>
     </div>
   )
 }
 
-// Jen tablet: URL hudby a časování (dveře/světlo/hudba) čte stará tablet appka z kiosk_heartbeat.
-// Řídicí jednotka (Raspberry) je ignoruje — její časování/audio jsou v branch_kiosk_config.hardware (blok Řídicí jednotka — hardware).
-// URL stavu FV měniče + interval čtení posílá heartbeat oběma (jednotka měnič polluje a hlásí kiosk_report_power).
-function KioskConfigBlock({ cfg, onSave }) {
-  return (
-    <Section title="Hudba & časování (jen tablet)"
-      hint="URL hudby a časování používá JEN tablet appka (hudba na celé pobočce při zadání kódu, světlo v dané garáži). Řídicí jednotka (Raspberry) tato pole ignoruje — její časování, audio a signalizaci nastavíte v bloku „Řídicí jednotka (Raspberry) — hardware“ níže. URL stavu FV elektrárny a interval čtení platí pro obojí.">
-      <div className="p-3 rounded-card space-y-3" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
-        <div className="text-[10px] font-extrabold uppercase" style={{ color: '#b45309' }}>Jen tablet (Raspberry ignoruje)</div>
-        <div className="flex gap-3 flex-wrap">
-          <Field label="Hudba — URL spuštění" value={cfg.music_on_url} onCommit={v => onSave({ music_on_url: v })} placeholder="http://192.168.1.50/relay/0?turn=on" width={300}
-            title="JEN TABLET: webová adresa, kterou tablet zavolá pro spuštění hudby (obvykle sepnutí relé Shelly u zesilovače). Řídicí jednotka Raspberry tohle pole ignoruje — ta hraje z vlastní knihovny v bloku „Hudba pobočky“." />
-          <Field label="Hudba — URL zastavení (volitelné)" value={cfg.music_off_url} onCommit={v => onSave({ music_off_url: v })} placeholder="http://192.168.1.50/relay/0?turn=off" width={300}
-            title="JEN TABLET: adresa pro vypnutí hudby (rozepnutí relé). Nepovinné — bez ní tablet hudbu jen spouští." />
-        </div>
-        <div className="flex gap-3 flex-wrap">
-          <Field label="Otevření dveří (s)" type="number" value={cfg.door_open_seconds} onCommit={v => onSave({ door_open_seconds: v })} width={130}
-            title="JEN TABLET: na kolik sekund tablet sepne relé zámku. U Raspberry se totéž nastavuje jako „Pulz zámku“ v bloku hardwaru níže." />
-          <Field label="Světlo (s)" type="number" value={cfg.light_seconds} onCommit={v => onSave({ light_seconds: v })} width={130}
-            title="JEN TABLET: jak dlouho po otevření svítí světlo v garáži. U Raspberry je to „Světlo po zavření“ v bloku hardwaru níže." />
-          <Field label="Hudba (s)" type="number" value={cfg.music_seconds} onCommit={v => onSave({ music_seconds: v })} width={130}
-            title="JEN TABLET: jak dlouho po zadání kódu hraje hudba. U Raspberry je to „Hudba po zavření“ v bloku hardwaru níže." />
-        </div>
-        <div className="text-[10px] font-extrabold uppercase pt-2" style={{ color: '#1a8a18', borderTop: '1px dashed #d4e8e0' }}>Řídicí jednotka (Raspberry) i tablet</div>
-        <div className="flex gap-3 flex-wrap">
-          <Field label="FV elektrárna — URL stavu (JSON na LAN)" value={cfg.power_status_url} onCommit={v => onSave({ power_status_url: v })} placeholder="http://192.168.1.60/status" width={340}
-            title="Adresa měniče solární elektrárny na pobočkové síti, která vrací stav jako JSON (nabití baterie, výroba, spotřeba). Jednotka ji pravidelně čte a posílá do Velína — vidíte to v bloku „Solární elektrárna“ nahoře. Prázdné = stav elektrárny se nesleduje." />
-          <Field label="Interval čtení (s)" type="number" value={cfg.power_poll_seconds} onCommit={v => onSave({ power_poll_seconds: v })} width={130}
-            title="Jak často se stav měniče čte, v sekundách. Typicky 60–300 s; kratší interval zbytečně zatěžuje měnič i LTE." />
-        </div>
-      </div>
-    </Section>
-  )
-}
-
-// Dveře potřebuje řídicí jednotka i tablet (kódy, ovládání, log). relay_url/light_url čte jen tablet;
-// řídicí jednotka otevírá podle branch_doors.hw (blok Řídicí jednotka — hardware → Mapování dveří → zóny).
+// Dveře = zóny řídicí jednotky (kódy, ovládání, log); jednotka otevírá podle branch_doors.hw
+// (blok Řídicí jednotka — hardware → Mapování dveří → zóny). Tabletová pole relay_url/light_url Velín od 2026-09-28 needituje.
 function DoorsBlock({ doors, onEnsure, onSave, onDelete, busy }) {
   return (
-    <Section title="Dveře (kóje 1–7 + šatna)"
-      hint="Dveře jsou potřeba pro řídicí jednotku i tablet — pro každou kóji (dle čísla boxu motorky) a skříň oblečení. Tlačítko založí chybějící dveře podle čísel kójí motorek a dveřím bez HW mapy doplní výchozí mapu (jednotka zná jen dveře s mapou). URL relé a světla (Shelly LAN) používá JEN tablet appka; řídicí jednotka (Raspberry) otevírá podle „Mapování dveří → zóny“ v bloku Řídicí jednotka (Raspberry) — hardware níže."
+    <RpiSection title="Dveře (kóje 1–7 + šatna)"
+      hint="Jedny dveře pro každou kóji (dle čísla boxu motorky) a šatnu. Tlačítko založí chybějící dveře podle čísel kójí motorek a dveřím bez HW mapy doplní výchozí mapu (jednotka zná jen dveře s mapou); zapojení upravíte v bloku „Řídicí jednotka — hardware“ níže."
       action={
         <button onClick={onEnsure} disabled={busy} className="rounded-btn text-sm font-bold cursor-pointer border-none"
           style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', opacity: busy ? 0.5 : 1 }}>
@@ -665,17 +524,13 @@ function DoorsBlock({ doors, onEnsure, onSave, onDelete, busy }) {
               </span>
               <Field label="Popis" value={d.label} onCommit={v => onSave(d.id, { label: v })} width={150}
                 title="Vlastní název těchto dveří. Zobrazí se ve Velíně I NA DISPLEJI pobočky místo výchozího „Kóje 3“ / „Šatna“ — pozor, vlastní popis se NEPŘEKLÁDÁ do cizích jazyků. Prázdné = použije se výchozí název." />
-              <Field label="URL relé (otevření) — jen tablet" value={d.relay_url} onCommit={v => onSave(d.id, { relay_url: v })} placeholder="http://192.168.1.51/relay/0?turn=on" width={240}
-                title="JEN TABLET: adresa, kterou tablet zavolá pro otevření těchto dveří. Řídicí jednotka Raspberry ji ignoruje — ta otevírá podle „Mapování dveří → zóny“ v bloku hardwaru níže." />
-              <Field label="URL světla — jen tablet" value={d.light_url} onCommit={v => onSave(d.id, { light_url: v })} placeholder="http://192.168.1.51/relay/1?turn=on" width={240}
-                title="JEN TABLET: adresa pro rozsvícení světla u těchto dveří. Raspberry ji ignoruje (světlo má v HW mapě)." />
               <button onClick={() => onDelete(d.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none self-center"
                 style={{ padding: '6px 8px', background: '#fee2e2', color: '#dc2626' }}>Smazat</button>
             </div>
           ))}
         </div>
       )}
-    </Section>
+    </RpiSection>
   )
 }
 
@@ -684,7 +539,7 @@ function ServiceCodesBlock({ codes, onAdd, onToggle, onDelete, busy }) {
   const [label, setLabel] = useState('')
   const [action, setAction] = useState('service')
   return (
-    <Section title="Servisní hesla" hint="Otevírají všechny dveře — řídicí jednotka (servisní panel na displeji) i tablet appka se zeptá, které dveře otevřít. Účel „jen diagnostika sítě“ spustí na Raspberry pouze diagnostiku sítě (nic neotevírá).">
+    <RpiSection title="Servisní hesla" hint="Heslo technika zadané na displeji místo zákaznického kódu otevře servisní panel (otevírání všech dveří, světla, hudba, restart). Účel „jen diagnostika“ spustí pouze diagnostiku pobočky (nic neotevírá).">
       <div className="flex items-end gap-2 mb-2 flex-wrap">
         <label className="flex flex-col gap-0.5" style={{ width: 160 }}>
           <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }} title="Kód, který technik zadá na displeji pobočky místo zákaznického kódu. Otevře servisní panel (podle účelu níže). Volte něco, co se nedá uhodnout, a po odchodu technika heslo vypněte nebo smažte.">Heslo</span>
@@ -733,26 +588,30 @@ function ServiceCodesBlock({ codes, onAdd, onToggle, onDelete, busy }) {
           ))}
         </div>
       )}
-    </Section>
+    </RpiSection>
   )
 }
 
 // ─── Stav ostrovní FV elektrárny ──────────────────────────────────────────
-function PowerBlock({ power, cfg, now, onSave, onRefresh }) {
+function PowerBlock({ power, cfg, now, onSave, servis }) {
   const ageMs = power?.updated_at ? (now - new Date(power.updated_at).getTime()) : null
   const stale = ageMs == null || ageMs > 5 * 60 * 1000
   const fmt = (v, unit) => (v == null ? '—' : `${Number(v).toLocaleString('cs-CZ')} ${unit}`)
   const soc = power?.battery_soc
   const socColor = soc == null ? '#6b8c7a' : (soc >= 50 ? '#1a8a18' : soc >= 20 ? '#b45309' : '#dc2626')
   return (
-    <Section title="Solární elektrárna (ostrovní systém)"
-      hint="Stav z měniče čte řídicí jednotka (Raspberry) nebo tablet na pobočce (URL stavu na LAN, JSON) a posílá ho sem. URL a interval čtení nastavte v bloku „Hudba & časování“."
-      action={
-        <button onClick={onRefresh} className="rounded-btn text-sm font-bold cursor-pointer border-none"
-          style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb' }}>Obnovit</button>
-      }>
+    <RpiSection title="Solární elektrárna (ostrovní systém)"
+      hint="Stav z měniče čte řídicí jednotka na pobočce (URL stavu na LAN, JSON) a posílá ho sem.">
+      {servis && (
+        <div className="flex gap-3 flex-wrap mb-2">
+          <Field label="FV elektrárna — URL stavu (JSON na LAN)" value={cfg.power_status_url} onCommit={v => onSave({ power_status_url: v })} placeholder="http://192.168.1.60/status" width={340}
+            title="Adresa měniče solární elektrárny na pobočkové síti, která vrací stav jako JSON (nabití baterie, výroba, spotřeba). Jednotka ji pravidelně čte a posílá do Velína. Prázdné = stav elektrárny se nesleduje." />
+          <Field label="Interval čtení (s)" type="number" value={cfg.power_poll_seconds} onCommit={v => onSave({ power_poll_seconds: v })} width={130}
+            title="Jak často se stav měniče čte, v sekundách. Typicky 60–300 s; kratší interval zbytečně zatěžuje měnič i LTE." />
+        </div>
+      )}
       {!power ? (
-        <EmptyState text={cfg.power_status_url ? 'Zatím nedorazil žádný stav z řídicí jednotky / tabletu.' : 'Není nastavená URL stavu elektrárny.'} />
+        <EmptyState text={cfg.power_status_url ? 'Zatím nedorazil žádný stav z řídicí jednotky.' : 'Není nastavená URL stavu elektrárny — bez ní se elektrárna nesleduje.'} />
       ) : (
         <div className="p-3 rounded-card" style={{ background: stale ? '#fef3c7' : '#f1faf7', border: `1px solid ${stale ? '#fde68a' : '#d4e8e0'}` }}>
           <div className="flex flex-wrap gap-4 items-center">
@@ -774,7 +633,7 @@ function PowerBlock({ power, cfg, now, onSave, onRefresh }) {
           </div>
         </div>
       )}
-    </Section>
+    </RpiSection>
   )
 }
 
@@ -797,28 +656,28 @@ function Flag({ on, labelOn, labelOff }) {
   )
 }
 
-// ─── Kamery (náhled + ovládání přes řídicí jednotku / tablet) ─────────────
-function CamerasBlock({ cameras, onlineDevice, busy, onAdd, onSave, onDelete, onRemote }) {
+// ─── Kamery (náhled + ovládání přes řídicí jednotku) ────────────────────────
+function CamerasBlock({ cameras, onlineDevice, busy, servis, onAdd, onSave, onDelete, onRemote }) {
   return (
-    <Section title="Kamerový systém" hint="Náhled (snapshot/HLS/iframe) a ovládání kamer. Ovládací akce (HTTP GET na LAN) posílá online řídicí jednotka (Raspberry), případně tablet."
-      action={
+    <RpiSection title="Kamerový systém" hint="Náhled (snapshot/HLS/iframe) a ovládání kamer. Ovládací akce (HTTP GET na LAN) posílá online řídicí jednotka."
+      action={servis && (
         <button onClick={onAdd} disabled={busy} className="rounded-btn text-sm font-bold cursor-pointer border-none"
           style={{ padding: '4px 10px', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>Přidat kameru</button>
-      }>
+      )}>
       {cameras.length === 0 ? (
-        <EmptyState text="Žádné kamery. Přidej kameru a zadej URL náhledu." />
+        <EmptyState text="Žádné kamery. Přidejte kameru a zadejte URL náhledu." />
       ) : (
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
           {cameras.map(cam => (
-            <CameraCard key={cam.id} cam={cam} onlineDevice={onlineDevice} onSave={onSave} onDelete={onDelete} onRemote={onRemote} />
+            <CameraCard key={cam.id} cam={cam} onlineDevice={onlineDevice} servis={servis} onSave={onSave} onDelete={onDelete} onRemote={onRemote} />
           ))}
         </div>
       )}
-    </Section>
+    </RpiSection>
   )
 }
 
-function CameraCard({ cam, onlineDevice, onSave, onDelete, onRemote }) {
+function CameraCard({ cam, onlineDevice, servis, onSave, onDelete, onRemote }) {
   const [edit, setEdit] = useState(false)
   const [tick, setTick] = useState(Date.now())
   // snapshot auto-refresh á 5 s
@@ -849,12 +708,14 @@ function CameraCard({ cam, onlineDevice, onSave, onDelete, onRemote }) {
           <div className="ml-auto flex gap-1">
             {cam.control_url && (
               <button onClick={() => onRemote('camera_control', { url: cam.control_url })} disabled={!onlineDevice}
-                title={!onlineDevice ? 'Žádná řídicí jednotka ani tablet online' : 'Spustit akci kamery (HTTP GET z řídicí jednotky / tabletu)'}
+                title={!onlineDevice ? 'Žádná řídicí jednotka online' : 'Spustit akci kamery (HTTP GET z řídicí jednotky)'}
                 className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
                 style={{ padding: '3px 8px', background: '#dbeafe', color: '#2563eb', opacity: onlineDevice ? 1 : 0.5 }}>Akce</button>
             )}
-            <button onClick={() => setEdit(e => !e)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
-              style={{ padding: '3px 8px', background: '#eef6f2', color: '#1a2e22' }}>{edit ? 'Hotovo' : 'Upravit'}</button>
+            {servis && (
+              <button onClick={() => setEdit(e => !e)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+                style={{ padding: '3px 8px', background: '#eef6f2', color: '#1a2e22' }}>{edit ? 'Hotovo' : 'Upravit'}</button>
+            )}
           </div>
         </div>
         {edit && (
@@ -874,7 +735,7 @@ function CameraCard({ cam, onlineDevice, onSave, onDelete, onRemote }) {
             </div>
             <Field label="Snapshot URL (JPEG)" value={cam.snapshot_url} onCommit={v => onSave(cam.id, { snapshot_url: v })} placeholder="http://nvr/cam1/snapshot.jpg" width="100%" title="Adresa jednoho obrázku z kamery (JPEG). Velín si ho sám obnovuje každých 5 s — nejšetrnější způsob náhledu. Používá se u typu „snapshot“." />
             <Field label="Stream URL (HLS/MJPEG/iframe)" value={cam.stream_url} onCommit={v => onSave(cam.id, { stream_url: v })} placeholder="https://nvr/cam1/index.m3u8" width="100%" title="Adresa živého přenosu — podle zvoleného typu náhledu (mjpeg / hls / iframe). Pro snapshot se nepoužívá." />
-            <Field label="Ovládací URL (PTZ/relé — HTTP GET z jednotky/tabletu)" value={cam.control_url} onCommit={v => onSave(cam.id, { control_url: v })} placeholder="http://nvr/cam1/preset?n=1" width="100%" title="Volitelná adresa akce kamery (natočení na přednastavenou pozici, sepnutí relé). Po vyplnění se u kamery objeví tlačítko „Akce“ — adresu zavolá jednotka přímo z pobočkové sítě, ne váš prohlížeč." />
+            <Field label="Ovládací URL (PTZ/relé — HTTP GET z jednotky)" value={cam.control_url} onCommit={v => onSave(cam.id, { control_url: v })} placeholder="http://nvr/cam1/preset?n=1" width="100%" title="Volitelná adresa akce kamery (natočení na přednastavenou pozici, sepnutí relé). Po vyplnění se u kamery objeví tlačítko „Akce“ — adresu zavolá jednotka přímo z pobočkové sítě, ne váš prohlížeč." />
             <button onClick={() => onDelete(cam.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
               style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626' }}>Smazat kameru</button>
           </div>
@@ -884,31 +745,12 @@ function CameraCard({ cam, onlineDevice, onSave, onDelete, onRemote }) {
   )
 }
 
-// ─── OTA — nejnovější verze tablet appky (globální pro všechny tablety; Raspberry se aktualizuje příkazem update_software) ──
-function OtaBlock({ ota, onSave }) {
-  return (
-    <Section title="Aktualizace tablet appky (OTA APK) — jen tablety"
-      hint="Jen tablety (globální pro všechny tablet kiosky): po zvýšení version_code si tablety appku samy stáhnou a nainstalují (tichá instalace přes MDM/device owner). Řídicí jednotka (Raspberry) žádné APK nepoužívá — aktualizuje se tlačítkem „Aktualizovat software“ (git pull + restart) v bloku „Řídicí jednotka (Raspberry) — stav zón“.">
-      <div className="p-3 rounded-card flex gap-3 flex-wrap" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
-        <Field label="version_code (číslo, rostoucí)" type="number" value={ota.version_code} onCommit={v => onSave({ version_code: v })} width={170} title="JEN TABLETY: pořadové číslo verze appky. Tablety si novou verzi stáhnou, teprve když je tu VYŠŠÍ číslo než mají. Nikdy ho nesnižujte." />
-        <Field label="version_name" value={ota.version_name} onCommit={v => onSave({ version_name: v })} placeholder="1.0.1" width={130} title="JEN TABLETY: verze, jak ji vidí člověk (např. 1.0.1). Na rozhodnutí o aktualizaci nemá vliv." />
-        <Field label="URL APK ke stažení" value={ota.apk_url} onCommit={v => onSave({ apk_url: v })} placeholder="https://…/motogo_kiosk.apk" width={340} title="JEN TABLETY: odkaz na instalační soubor .apk, ze kterého se tablety aktualizují. Musí být veřejně dostupný přes https." />
-        <Field label="Poznámka" value={ota.notes} onCommit={v => onSave({ notes: v })} width={200} title="JEN TABLETY: vaše interní poznámka k této verzi (co se změnilo). Nikde se zákazníkovi nezobrazuje." />
-      </div>
-    </Section>
-  )
-}
-
-// ─── Diagnostika — logy/chyby/pády z řídicí jednotky a tabletů (kiosk_logs) ──
-function DiagnosticsBlock({ logs, devices, onRefresh }) {
+// ─── Hlášení a chyby — logy/chyby/pády z řídicí jednotky (kiosk_logs) ─────
+function DiagnosticsBlock({ logs, devices }) {
   const devMap = Object.fromEntries(devices.map(d => [d.id, d]))
   const color = { info: '#6b8c7a', warn: '#b45309', error: '#dc2626', crash: '#dc2626' }
   return (
-    <Section title="Diagnostika (chyby & události)" hint="Posledních 40 hlášení z řídicí jednotky (Raspberry) a tabletů pobočky (kiosk_logs)."
-      action={
-        <button onClick={onRefresh} className="rounded-btn text-sm font-bold cursor-pointer border-none"
-          style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb' }}>Obnovit</button>
-      }>
+    <RpiSection title="Hlášení a chyby" hint="Posledních 40 hlášení z řídicí jednotky (výpadky internetu, obnovy LTE, testy kontaktů, aktualizace, chyby).">
       {logs.length === 0 ? (
         <EmptyState text="Žádné záznamy — vše běží bez chyb." />
       ) : (
@@ -927,7 +769,7 @@ function DiagnosticsBlock({ logs, devices, onRefresh }) {
           ))}
         </div>
       )}
-    </Section>
+    </RpiSection>
   )
 }
 

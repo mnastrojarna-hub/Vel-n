@@ -9,7 +9,7 @@ import { Btn, Chip, txt, num } from './BranchRpiUi'
 
 const NO_ZONE_TITLE = 'Venek nemá číslo zóny (hardware.outdoor.zone) — příkazy nelze adresovat'
 
-function OutdoorTile({ o, onSend }) {
+function OutdoorTile({ o, onSend, servis = false }) {
   const zoneNo = num(o.zone)
   const noZone = zoneNo == null
   const params = { zone: zoneNo }
@@ -59,8 +59,8 @@ function OutdoorTile({ o, onSend }) {
           onClick={() => onSend(music ? 'music_off' : 'music_on', params, `hudba ${music ? '⏹' : '▶'} (venek, zóna ${txt(zoneNo)})`)}>
           Hudba {music ? '⏹' : '▶'}
         </Btn>
-        <Btn tone="blue" small disabled={noZone} title={noZone ? NO_ZONE_TITLE : 'Test venkovního světla (1 s) a hudby venku (3 s, jen multi); při běžící relaci jednotka test odmítne'}
-          onClick={() => onSend('zone_test', params, `test venku (zóna ${txt(zoneNo)})`)}>Test</Btn>
+        {servis && <Btn tone="blue" small disabled={noZone} title={noZone ? NO_ZONE_TITLE : 'Test venkovního světla (1 s) a hudby venku (3 s, jen multi); při běžící relaci jednotka test odmítne'}
+          onClick={() => onSend('zone_test', params, `test venku (zóna ${txt(zoneNo)})`)}>Test</Btn>}
       </div>
     </div>
   )

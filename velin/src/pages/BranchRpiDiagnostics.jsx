@@ -15,7 +15,8 @@ import { ProtocolView } from './BranchRpiDiagProtocol'
 
 const WAIT_MAX_MS = 300 * 1000   // full běh trvá 1–4 min (limit na jednotce 240 s) + doručení reportu
 const POLL_MS = 5000
-const SHOW_N = 3   // seznam ukazuje jen poslední reporty; starší jsou sbalené pod tlačítkem
+// 2026-09-28 (rozhodnutí majitele): Velín ukazuje JEN poslední report každé jednotky; DB drží jen poslední
+// (RPC kiosk_report_diagnostics LIMIT 1 — 20260928_kiosk_diag_latest_only.sql). Žádná historie, žádné mazání, žádný export.
 const COLS = 'id, device_id, report_id, source, ok, problems, summary, app_version, started_at, finished_at, created_at'
 // `source` ukládá jednotka: velin (příkaz z Velína), service_panel, ui / diag_ui (kód zadaný na displeji —
 // hlavní klávesnice / setup obrazovka), local_code, service_code (dokumentovaný enum)
@@ -68,7 +69,7 @@ function ReportView({ row, deviceName }) {
   )
 }
 
-function RunRow({ r, deviceName, now, open, onToggle, onDelete }) {
+function RunRow({ r, deviceName, now, open, onToggle }) {
   const s = obj(r.summary), problems = arr(r.problems), warnings = arr(s.warnings)
   const age = ageSeconds(r.created_at, now)
   const devOk = num(s.devices_ok), devTotal = num(s.devices_total)
@@ -93,7 +94,6 @@ function RunRow({ r, deviceName, now, open, onToggle, onDelete }) {
         {dur != null && <Chip tone="gray">{dur} s</Chip>}
         <span className="ml-auto inline-flex items-center gap-1">
           <Btn tone="blue" small onClick={onToggle}>{open ? 'Skrýt' : hasProtocol ? 'Protokol' : 'Detail'}</Btn>
-          <Btn tone="red" small onClick={onDelete} title="Smaže tento report diagnostiky (nevratné)">Smazat</Btn>
         </span>
       </div>
       {problems.length > 0 && (
@@ -112,23 +112,30 @@ function RpiDiagnosticsBlock(props) {
   )
 }
 
-function RpiDiagnosticsInner({ branchId, devices, diags, cameras, now, onCommand }) {
+function RpiDiagnosticsInner({ branchId, devices, cameras, now, onCommand, servis = false, refreshKey = 0 }) {
   const rpis = arr(devices).filter(isRpiDevice)
   const [waiting, setWaiting] = useState(null)   // { deviceId, since, mode }
   const [open, setOpen] = useState(null)
-  const [rows, setRows] = useState(arr(diags))
+  const [rows, setRows] = useState([])
   const [prog, setProg] = useState(null)   // kiosk_devices.status.diagnostics jednotky, na kterou se čeká
-  const [showAll, setShowAll] = useState(false)   // starší reporty jsou sbalené (zobrazí se jen poslední SHOW_N)
-  const [delErr, setDelErr] = useState(null)
   const devMap = Object.fromEntries(arr(devices).map(d => [d.id, d]))
-  useEffect(() => { setRows(arr(diags)) }, [diags])
 
-  // Vlastní lehké obnovení (bez spinneru celé záložky) — polling po spuštění z Velína
+  // Poslední report každé jednotky pobočky (bez sloupce report — ten se načítá až v detailu); volá se na mount,
+  // při „Obnovit“ záložky (refreshKey) a při čekání na nový report
   const fetchRows = useCallback(async () => {
     const { data, error } = await supabase.from('kiosk_diagnostics').select(COLS).eq('branch_id', branchId)
-      .order('created_at', { ascending: false }).limit(15)
-    if (!error) setRows(arr(data))
+      .order('created_at', { ascending: false }).limit(20)
+    if (error) return
+    const latest = new Map()
+    for (const r of arr(data)) if (r && r.device_id && !latest.has(r.device_id)) latest.set(r.device_id, r)
+    setRows([...latest.values()])
   }, [branchId])
+  useEffect(() => { fetchRows() }, [fetchRows, refreshKey])
+  // Nový report s problémy se otevře sám — protokol je to, co obsluha chce vidět
+  useEffect(() => {
+    const first = rows[0]
+    if (first && first.ok === false && open == null) setOpen(first.id)
+  }, [rows])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Průběh (krok X (n/m)) — status jednotky se čte zvlášť, `devices` z nadřazené záložky se během čekání nemění
   const fetchProgress = useCallback(async deviceId => {
@@ -150,25 +157,10 @@ function RpiDiagnosticsInner({ branchId, devices, diags, cameras, now, onCommand
     const ok = await onCommand(dev, 'diagnostics', params)
     if (ok) setWaiting({ deviceId: dev.id, since: Date.now(), mode })   // příkaz se nezařadil → nečekat na report
   }
-  // Mazání reportů — RLS kiosk_diagnostics_admin (FOR ALL is_admin()); zařízení zapisuje jen přes RPC, mazat smí jen Velín
-  async function remove(ids, question) {
-    if (!ids.length || !window.confirm(question)) return
-    const { error } = await supabase.from('kiosk_diagnostics').delete().in('id', ids)
-    if (error) { setDelErr(error.message); return }
-    setDelErr(null)
-    if (ids.includes(open)) setOpen(null)
-    setRows(rs => rs.filter(r => !ids.includes(r.id)))
-  }
-  const visible = showAll ? rows : rows.slice(0, SHOW_N)
-  const older = rows.slice(1).map(r => r.id)
   const progress = waiting ? progressText(prog) : null
   return (
     <RpiSection title="Kompletní diagnostika pobočky (Raspberry)"
-      hint="Jedním tlačítkem prověří celou pobočku: řídicí jednotku (verze, teplota, disk, služby, health), síť (rozhraní, LTE, internet/DNS, spojení s Velínem), moduly Waveshare/Shelly, konfiguraci zón, HW každé zóny (světlo, zelená signalizace, tón, dveřní kontakt, klidový stav zámku, Shelly), napájení (FV), kamery a cizí zařízení v LAN. Výsledkem je protokol „kde je problém a co s tím“. HW test zón (světlo/zelená/tón) běží JEN v prázdných kójích bez aktivní relace — zámky se nikdy nespínají. Trvá 1–4 min; „jen síť“ = rychlý síťový běh (10–60 s)."
-      action={<span className="inline-flex items-center gap-1">
-        <Btn tone="blue" small onClick={fetchRows}>Obnovit</Btn>
-        {older.length > 0 && <Btn tone="red" small onClick={() => remove(older, `Smazat ${older.length} starších reportů? Zůstane jen poslední. Nevratné.`)} title="Ponechá jen nejnovější report">Smazat starší ({older.length})</Btn>}
-      </span>}>
+      hint="Jedním tlačítkem prověří celou pobočku (jednotka, síť, LTE, internet, Velín, moduly, zóny, FV, kamery, LAN) a dá protokol „kde je problém a co s tím“. HW test zón běží jen v prázdných kójích, zámky se nikdy nespínají. Trvá 1–4 min. Zobrazuje se jen poslední protokol každé jednotky.">
       <div className="flex items-center gap-2 flex-wrap mb-2">
         {rpis.map(dev => {
           const online = !!(dev.last_seen_at && (now - new Date(dev.last_seen_at).getTime()) < 70000)
@@ -180,7 +172,7 @@ function RpiDiagnosticsInner({ branchId, devices, diags, cameras, now, onCommand
               <Btn tone="dark" disabled={!online || busy} onClick={() => run(dev, 'full')} title={title}>
                 🔍 Kompletní diagnostika — {txt(dev.name || 'Raspberry')}
               </Btn>
-              <Btn tone="gray" small disabled={!online || busy} onClick={() => run(dev, 'network')} title="Jen síťové kroky (rozhraní, LTE, internet, Velín, moduly, LAN, ARP) — bez testu zón, 10–60 s">jen síť</Btn>
+              {servis && <Btn tone="gray" small disabled={!online || busy} onClick={() => run(dev, 'network')} title="Jen síťové kroky (rozhraní, LTE, internet, Velín, moduly, LAN, ARP) — bez testu zón, 10–60 s">jen síť</Btn>}
             </span>
           )
         })}
@@ -192,17 +184,12 @@ function RpiDiagnosticsInner({ branchId, devices, diags, cameras, now, onCommand
       </div>
       {rows.length === 0 ? <EmptyState text="Zatím žádný report diagnostiky. Spusťte ji tlačítkem výše (jednotka musí být online) nebo kódem na displeji." /> : (
         <div className="space-y-1">
-          {visible.map(r => (
+          {rows.map(r => (
             <RunRow key={r.id} r={r} now={now} deviceName={txt(devMap[r.device_id]?.name || 'Raspberry')}
-              open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)}
-              onDelete={() => remove([r.id], `Smazat report z ${new Date(r.created_at).toLocaleString('cs-CZ')}? Nevratné.`)} />
+              open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} />
           ))}
-          {rows.length > SHOW_N && (
-            <Btn tone="gray" small onClick={() => setShowAll(x => !x)}>{showAll ? `Sbalit starší (nechat ${SHOW_N})` : `Zobrazit starší (${rows.length - SHOW_N})`}</Btn>
-          )}
         </div>
       )}
-      {delErr && <div className="text-[12px] font-bold mt-1" style={{ color: '#dc2626' }}>Smazání selhalo: {delErr}</div>}
     </RpiSection>
   )
 }
