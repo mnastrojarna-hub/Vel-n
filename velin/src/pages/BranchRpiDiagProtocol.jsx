@@ -99,14 +99,6 @@ function exportFilename(branch, d) {
 const TONE = { ok: 'green', warn: 'amber', fail: 'red', skip: 'gray' }
 const StatusChip = ({ status }) => <Chip tone={TONE[status] || 'gray'}>{STATUS_CZ[status] || txt(status)}</Chip>
 
-function downloadText(name, text) {
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
 async function copyText(text) {
   try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true } } catch { /* fallback níže */ }
   try {
@@ -188,7 +180,6 @@ function ProtocolView({ r, row, deviceName }) {
         <span>Pobočka <b>{m.branch}</b> · jednotka <b>{m.device}</b> · verze {m.version} · {m.date} · trvání {m.durationS == null ? '—' : `${m.durationS} s`} · režim {m.mode}</span>
         <span className="text-[11px]" style={{ color: '#6b8c7a' }}>kontrol {num(c.total) ?? 0}: {num(c.ok) ?? 0} OK / {num(c.warn) ?? 0} varování / {num(c.fail) ?? 0} chyb / {num(c.skip) ?? 0} přeskočeno</span>
         <span className="ml-auto flex items-center gap-1 flex-wrap">
-          <Btn tone="blue" small onClick={() => downloadText(exportFilename(m.branch, m.dateObj), text())} title="Uloží protokol jako textový soubor">⬇ Stáhnout protokol (.txt)</Btn>
           <Btn tone="gray" small onClick={copy} title="Zkopíruje textový protokol do schránky">Kopírovat</Btn>
           {copied && <span className="text-[11px] font-bold" style={{ color: '#1a8a18' }}>{copied}</span>}
         </span>

@@ -95,7 +95,7 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onCreateDoo
   const disabled = busy || loadingDefaults
   return (
     <RpiSection title="Řídicí jednotka (Raspberry) — hardware"
-      hint="Modbus relé Waveshare + Shelly signalizace. Časování, audio, PIN bezpečnost i signalizaci řídicí jednotky nastavíte ZDE (blok „Hudba & časování“ výše platí jen pro tablet). Změny se do jednotky propíší při synchronizaci konfigurace (do 60 s nebo příkazem „Synchronizovat konfiguraci“)."
+      hint="Modbus relé Waveshare + Shelly signalizace. Časování, audio, PIN bezpečnost i signalizaci řídicí jednotky nastavíte ZDE. Změny se do jednotky propíší při synchronizaci konfigurace (do 60 s nebo příkazem „Synchronizovat konfiguraci“ na kartě jednotky v servisním režimu)."
       action={
         <div className="flex gap-2">
           <Btn tone="blue" onClick={onRefresh} disabled={disabled}>Obnovit</Btn>
