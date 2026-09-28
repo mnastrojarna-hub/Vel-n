@@ -69,7 +69,7 @@ function ReportView({ row, deviceName }) {
   )
 }
 
-function RunRow({ r, deviceName, now, open, onToggle }) {
+function RunRow({ r, deviceName, now, open, onToggle, onDelete }) {
   const s = obj(r.summary), problems = arr(r.problems), warnings = arr(s.warnings)
   const age = ageSeconds(r.created_at, now)
   const devOk = num(s.devices_ok), devTotal = num(s.devices_total)
@@ -94,6 +94,7 @@ function RunRow({ r, deviceName, now, open, onToggle }) {
         {dur != null && <Chip tone="gray">{dur} s</Chip>}
         <span className="ml-auto inline-flex items-center gap-1">
           <Btn tone="blue" small onClick={onToggle}>{open ? 'Skrýt' : hasProtocol ? 'Protokol' : 'Detail'}</Btn>
+          <Btn tone="red" small onClick={onDelete} title="Smaže tento protokol (nevratné) — další vznikne při příští diagnostice">Smazat</Btn>
         </span>
       </div>
       {problems.length > 0 && (
@@ -118,6 +119,7 @@ function RpiDiagnosticsInner({ branchId, devices, cameras, now, onCommand, servi
   const [open, setOpen] = useState(null)
   const [rows, setRows] = useState([])
   const [prog, setProg] = useState(null)   // kiosk_devices.status.diagnostics jednotky, na kterou se čeká
+  const [delErr, setDelErr] = useState(null)
   const devMap = Object.fromEntries(arr(devices).map(d => [d.id, d]))
 
   // Poslední report každé jednotky pobočky (bez sloupce report — ten se načítá až v detailu); volá se na mount,
@@ -157,6 +159,15 @@ function RpiDiagnosticsInner({ branchId, devices, cameras, now, onCommand, servi
     const ok = await onCommand(dev, 'diagnostics', params)
     if (ok) setWaiting({ deviceId: dev.id, since: Date.now(), mode })   // příkaz se nezařadil → nečekat na report
   }
+  // Smazání aktuálního protokolu (RLS kiosk_diagnostics_admin FOR ALL is_admin(); zařízení zapisuje jen přes RPC)
+  async function remove(r) {
+    if (!window.confirm(`Smazat protokol z ${new Date(r.created_at).toLocaleString('cs-CZ')}? Nevratné.`)) return
+    const { error } = await supabase.from('kiosk_diagnostics').delete().eq('id', r.id)
+    if (error) { setDelErr(error.message); return }
+    setDelErr(null)
+    if (open === r.id) setOpen(null)
+    setRows(rs => rs.filter(x => x.id !== r.id))
+  }
   const progress = waiting ? progressText(prog) : null
   return (
     <RpiSection title="Kompletní diagnostika pobočky (Raspberry)"
@@ -186,10 +197,11 @@ function RpiDiagnosticsInner({ branchId, devices, cameras, now, onCommand, servi
         <div className="space-y-1">
           {rows.map(r => (
             <RunRow key={r.id} r={r} now={now} deviceName={txt(devMap[r.device_id]?.name || 'Raspberry')}
-              open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} />
+              open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} onDelete={() => remove(r)} />
           ))}
         </div>
       )}
+      {delErr && <div className="text-[12px] font-bold mt-1" style={{ color: '#dc2626' }}>Smazání selhalo: {delErr}</div>}
     </RpiSection>
   )
 }
