@@ -1,15 +1,8 @@
 import { useState, useMemo } from 'react'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
-import { SERVICE_CHECKLIST } from '../../components/fleet/motoActionConstants'
+import { SERVICE_CHECKLIST, SOS_SERVICE_TYPES } from '../../components/fleet/motoActionConstants'
 import CustomServiceItems, { customLabelsFromItems } from '../../components/fleet/CustomServiceItems'
-
-export const SOS_SERVICE_TYPES = [
-  { id: 'sos_accident_major', label: 'Těžká nehoda' },
-  { id: 'sos_accident_minor', label: 'Lehká nehoda' },
-  { id: 'sos_breakdown', label: 'Porucha' },
-  { id: 'sos_theft_damage', label: 'Poškození při krádeži' },
-]
 
 // Build reverse map: label → id for pre-filling
 const LABEL_TO_ID = {}
@@ -31,7 +24,7 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
     return {
       checks,
       // „Jiné“ — vlastní úkony (mimo standardní checklist i SOS typy) se při uložení nesmí ztratit
-      custom: customLabelsFromItems(serviceLog.items, SOS_SERVICE_TYPES.map(i => i.label)),
+      custom: customLabelsFromItems(serviceLog.items),
       urgent: serviceLog.is_urgent !== false,
       from: serviceLog.service_date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
       to: serviceLog.scheduled_date?.slice(0, 10) || '',

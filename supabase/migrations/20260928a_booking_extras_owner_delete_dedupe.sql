@@ -17,11 +17,18 @@
 --     omezeno na živé stavy pending/reserved/active — hotové/zrušené rezervace
 --     zákazník nemění, stejně jako RPC `update_booking_gear`). Platí i pro už
 --     vydané verze appky (jejich delete začne fungovat).
---  2) Jednorázový úklid existujících duplicit: stejná rezervace + stejný název
---     (bez ohledu na velikost písmen) + stejná cena + stejné množství → zůstává
---     nejstarší řádek. `bookings.extras_price` se NEMĚNÍ (appka ho počítá
---     rozdílově, sedí i u postižených rezervací — špatné byly jen řádky).
---     Před úklidem se počet dotčených rezervací vypíše do logu (NOTICE).
+--  2) Jednorázový úklid existujících duplicit:
+--     a) modelovaná výbava (boty řidiče / boty spolujezdce / výbava spolujezdce):
+--        rezervace má z každé třídy nejvýš JEDEN řádek — třída se pozná jazykově
+--        nezávisle z názvu (appka „Boty řidiče“, web RPC „Boty řidič“, web
+--        formulář „Rider boots“ / „Stiefel Fahrer“ …), bez ohledu na cenu
+--        (rank 3+ vkládá 0 Kč vedle zaplacených 290 Kč) → zůstává nejstarší
+--        (= původně zaplacený) řádek;
+--     b) ostatní řádky (vozík, přistavení…): stejný název (bez ohledu na
+--        velikost písmen) + stejná cena + stejné množství → zůstává nejstarší.
+--     `bookings.extras_price` se NEMĚNÍ (appka ho počítá rozdílově, sedí
+--     i u postižených rezervací — špatné byly jen řádky).
+--     Před úklidem se počet dotčených řádků vypíše do logu (NOTICE).
 --
 -- Idempotentní: DROP POLICY IF EXISTS + CREATE; opakovaný úklid smaže 0 řádků.
 -- Unikátní index (booking_id, lower(name)) se ZÁMĚRNĚ nezakládá — vozík
@@ -45,19 +52,31 @@ CREATE POLICY "Users can delete own booking extras" ON public.booking_extras
 -- 2) Úklid duplicit (nejstarší řádek zůstává)
 DO $$
 DECLARE
-  v_bookings integer;
   v_rows integer;
 BEGIN
-  SELECT count(DISTINCT booking_id), coalesce(sum(cnt - 1), 0)
-    INTO v_bookings, v_rows
-  FROM (
-    SELECT booking_id, count(*) AS cnt
+  -- a) modelovaná výbava: jedna třída = jeden řádek na rezervaci (jazykově nezávisle,
+  --    stejná klasifikace jako appka `extraIdFromExtrasName`)
+  WITH classed AS (
+    SELECT id, booking_id, created_at,
+      CASE
+        WHEN lower(name) ~ '(bot|boots|stiefel|laarzen|buty|взуття)'
+         AND lower(name) ~ '(spoluj|passenger|passag|beifahrer|pasajero|pasa[żz]er|пасажир)' THEN 'boty_spolujezdec'
+        WHEN lower(name) ~ '(bot|boots|stiefel|laarzen|buty|взуття)' THEN 'boty_ridic'
+        WHEN lower(name) ~ '(spoluj|passenger|passag|beifahrer|pasajero|pasa[żz]er|пасажир)' THEN 'spolujezdec'
+      END AS cls
     FROM public.booking_extras
-    GROUP BY booking_id, lower(btrim(name)), unit_price, coalesce(quantity, 1)
-    HAVING count(*) > 1
-  ) d;
-  RAISE NOTICE 'booking_extras dedupe: % duplicitních řádků u % rezervací', v_rows, v_bookings;
+    WHERE booking_id IS NOT NULL
+  ), ranked AS (
+    SELECT id, row_number() OVER (
+      PARTITION BY booking_id, cls
+      ORDER BY coalesce(created_at, 'epoch'::timestamptz), id) AS rn
+    FROM classed WHERE cls IS NOT NULL
+  )
+  DELETE FROM public.booking_extras e USING ranked r WHERE e.id = r.id AND r.rn > 1;
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  RAISE NOTICE 'booking_extras dedupe (výbava): smazáno % řádků', v_rows;
 
+  -- b) ostatní řádky: přesné duplicity (název bez ohledu na velikost písmen + cena + množství)
   DELETE FROM public.booking_extras a
   USING public.booking_extras b
   WHERE a.booking_id = b.booking_id
@@ -65,7 +84,6 @@ BEGIN
     AND a.unit_price = b.unit_price
     AND coalesce(a.quantity, 1) = coalesce(b.quantity, 1)
     AND (coalesce(a.created_at, 'epoch'::timestamptz), a.id) > (coalesce(b.created_at, 'epoch'::timestamptz), b.id);
-
   GET DIAGNOSTICS v_rows = ROW_COUNT;
-  RAISE NOTICE 'booking_extras dedupe: smazáno % řádků', v_rows;
+  RAISE NOTICE 'booking_extras dedupe (ostatní): smazáno % řádků', v_rows;
 END $$;

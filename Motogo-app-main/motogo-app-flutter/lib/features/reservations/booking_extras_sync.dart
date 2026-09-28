@@ -60,7 +60,8 @@ Map<String, dynamic> stripInternalKeys(Map row) => {
 /// stav [rows] (každý řádek nese `_extra` = id doplňku). Když se nepodařilo
 /// smazat všechny původní řádky, vloží se JEN doplňky, které v [origExtraIds]
 /// nebyly (přidané) — odebrání se pak neprojeví, ale nic se nezdvojí.
-Future<void> replaceModeledExtras({
+/// Vrací true, když se původní řádky smazaly všechny (nový stav je kompletní).
+Future<bool> replaceModeledExtras({
   required String bookingId,
   required List<String> origRowIds,
   required Set<String> origExtraIds,
@@ -85,4 +86,5 @@ Future<void> replaceModeledExtras({
   if (toInsert.isNotEmpty) {
     await MotoGoSupabase.client.from('booking_extras').insert(toInsert);
   }
+  return full;
 }

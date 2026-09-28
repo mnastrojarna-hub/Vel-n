@@ -18,10 +18,13 @@ export async function callAdminUsers(body) {
   if (error) {
     // supabase-js u non-2xx vrací FunctionsHttpError s Response uvnitř — vytáhni důvod
     let detail = ''
-    try { const j = await error.context?.json?.(); detail = j?.error || j?.reason || '' } catch { /* noop */ }
-    throw new Error(detail || error.message || 'Server je nedostupný')
+    let code = ''
+    try { const j = await error.context?.json?.(); detail = j?.error || j?.reason || ''; code = j?.code || '' } catch { /* noop */ }
+    const err = new Error(detail || error.message || 'Server je nedostupný')
+    err.code = code
+    throw err
   }
-  if (data?.error) throw new Error(data.error)
+  if (data?.error) { const err = new Error(data.error); err.code = data.code || ''; throw err }
   return data
 }
 
@@ -62,10 +65,18 @@ export default function VelinUserModal({ admin, user, onClose, onSaved }) {
     setSaving(true)
     try {
       if (!editing) {
-        await callAdminUsers({
+        const payload = {
           action: 'create', email: form.email.trim().toLowerCase(), password: form.password,
           name: form.name.trim(), phone: form.phone.trim() || null, role: form.role, sections: form.sections,
-        })
+        }
+        try {
+          await callAdminUsers(payload)
+        } catch (e) {
+          // E-mail patří existujícímu zákaznickému účtu → heslo se mu přepíše jen po potvrzení
+          if (e.code !== 'exists_customer') throw e
+          if (!window.confirm(`${e.message}\n\nPokračovat?`)) { setSaving(false); return }
+          await callAdminUsers({ ...payload, confirm_existing: true })
+        }
       } else {
         await callAdminUsers({
           action: 'update', user_id: user.id, name: form.name.trim(), phone: form.phone.trim() || null,

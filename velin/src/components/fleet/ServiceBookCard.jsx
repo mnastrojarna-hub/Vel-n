@@ -9,6 +9,10 @@ import { TYPE_LABELS } from '../../pages/service/serviceScheduleUtils'
  * (service_date/completed_date, km_at_service, type, service_type, items jsonb
  * vč. vlastních úkonů „Jiné“, description, performed_by, cost). Otevřené /
  * naplánované záznamy zůstávají v „Historie servisu“ níže.
+ *
+ * Úkon z checklistu se počítá jako provedený JEN když je odškrtnutý (`done: true`
+ * — technik v servisní kartě, nebo záznam zapsaný rovnou jako Dokončeno).
+ * Hromadné uzavření („Vrátit do provozu“) úkony neodškrtává → do knihy nejdou.
  */
 
 const SERVICE_TYPE_LABELS = { regular: 'Pravidelný servis', extraordinary: 'Mimořádný servis', repair: 'Oprava', inspection: 'Inspekce' }
@@ -16,17 +20,16 @@ const SERVICE_TYPE_LABELS = { regular: 'Pravidelný servis', extraordinary: 'Mim
 // Klíčové úkony, u kterých se hlídá „naposledy provedeno“. `labels` = štítky
 // z checklistu (motoActionConstants), `types` = maintenance_log.type, `desc` = záchyt z popisu.
 const TRACKED = [
-  { key: 'oil', title: 'Výměna oleje', labels: ['Výměna oleje'], types: ['oil_change'], desc: /v[yý]m[eě]n\w*\s+(motorov\w+\s+)?olej/i },
+  { key: 'oil', title: 'Výměna oleje', labels: ['Výměna oleje'], types: ['oil_change'], desc: /v[yý]m[eě]n\p{L}*\s+(motorov\p{L}+\s+)?olej/iu },
   { key: 'oil_filter', title: 'Olejový filtr', labels: ['Výměna olejového filtru'] },
   { key: 'air_filter', title: 'Vzduchový filtr', labels: ['Výměna vzduchového filtru'] },
   { key: 'spark', title: 'Svíčky', labels: ['Výměna svíček'] },
-  { key: 'brake_fluid', title: 'Brzdová kapalina', labels: ['Výměna brzdové kapaliny'], desc: /brzdov\w+\s+kapalin/i },
-  { key: 'brake_pads', title: 'Brzdové destičky', labels: ['Brzdové destičky přední', 'Brzdové destičky zadní'], types: ['brake_check'] },
-  { key: 'tire_front', title: 'Přední pneumatika', labels: ['Výměna přední pneumatiky'] },
+  { key: 'brake_fluid', title: 'Brzdová kapalina', labels: ['Výměna brzdové kapaliny'], desc: /brzdov\p{L}+\s+kapalin/iu },
+  { key: 'brake_pads', title: 'Brzdové destičky', labels: ['Brzdové destičky přední', 'Brzdové destičky zadní'] },
+  { key: 'tire_front', title: 'Přední pneumatika', labels: ['Výměna přední pneumatiky'], types: ['tire_change'] },
   { key: 'tire_rear', title: 'Zadní pneumatika', labels: ['Výměna zadní pneumatiky'], types: ['tire_change'] },
   { key: 'chain', title: 'Řetěz + rozety', labels: ['Výměna řetězu + rozet'] },
   { key: 'coolant', title: 'Chladicí kapalina', labels: ['Kontrola / výměna chladicí kapaliny'] },
-  { key: 'valves', title: 'Seřízení ventilů', labels: ['Seřízení ventilů'] },
   { key: 'battery', title: 'Baterie', labels: ['Kontrola / výměna baterie'] },
   { key: 'full', title: 'Kompletní servis', types: ['full_service', 'winter_service'] },
   { key: 'stk', title: 'STK', labels: ['Příprava na STK'], types: ['stk', 'inspection'] },
@@ -35,19 +38,12 @@ const TRACKED = [
 const isCompleted = l => l.status === 'completed' || !!l.completed_date
 const logDate = l => (l.completed_date || l.service_date || l.created_at || '').slice(0, 10)
 const fmtDate = d => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
-const fmtKm = (km, unit) => km ? `${Number(km).toLocaleString('cs-CZ')} ${unit}` : '—'
-
-/** Úkon z items se počítá jako provedený, když je odškrtnutý, nebo když technik neodškrtával nic (zápis bez checklistu). */
-function itemDone(item, log) {
-  if (item.done === true) return true
-  return !(log.items || []).some(i => i?.done === true)
-}
+const fmtKm = (km, unit) => km ? `${Number(km).toLocaleString('cs-CZ')}${unit ? ' ' + unit : ''}` : '—'
 
 function findLast(track, logs) {
   for (const l of logs) { // logs seřazené od nejnovějšího
-    if (!isCompleted(l)) continue
     const items = Array.isArray(l.items) ? l.items : []
-    const byItem = track.labels?.length && items.some(i => track.labels.includes(i?.label) && itemDone(i, l))
+    const byItem = track.labels?.length && items.some(i => track.labels.includes(i?.label) && i?.done === true)
     const byType = track.types?.length && track.types.includes(l.type)
     const byDesc = track.desc && track.desc.test(l.description || '')
     if (byItem || byType || byDesc) return l
@@ -58,7 +54,8 @@ function findLast(track, logs) {
 export default function ServiceBookCard({ logs, unitLabel = 'km' }) {
   const { completed, openCount } = useMemo(() => {
     const sorted = [...(logs || [])].sort((a, b) => logDate(b).localeCompare(logDate(a)))
-    return { completed: sorted.filter(isCompleted), openCount: sorted.length - sorted.filter(isCompleted).length }
+    const done = sorted.filter(isCompleted)
+    return { completed: done, openCount: sorted.length - done.length }
   }, [logs])
 
   const summary = useMemo(() => TRACKED.map(t => ({ ...t, last: findLast(t, completed) })), [completed])
@@ -66,7 +63,7 @@ export default function ServiceBookCard({ logs, unitLabel = 'km' }) {
   return (
     <Card>
       <h3 className="text-sm font-extrabold uppercase tracking-widest mb-1" style={{ color: '#1a2e22' }}>Servisní kniha</h3>
-      <p className="text-xs mb-3" style={{ color: '#6b7280' }}>Co bylo provedeno, kdy a při kolika {unitLabel}. Zapisuje se z dokončených servisních záznamů (vč. úkonů „Jiné“).</p>
+      <p className="text-xs mb-3" style={{ color: '#6b7280' }}>Co bylo provedeno, kdy a při kolika {unitLabel}. Zapisuje se z dokončených servisních záznamů — počítají se odškrtnuté úkony (vč. úkonů „Jiné“), typ servisu a popis.</p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
         {summary.map(t => (
@@ -88,7 +85,7 @@ export default function ServiceBookCard({ logs, unitLabel = 'km' }) {
           <table className="w-full border-collapse" style={{ fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f1faf7', borderBottom: '1px solid #d4e8e0' }}>
-                {['Datum', unitLabel, 'Typ', 'Provedené úkony', 'Technik', 'Cena'].map(h => (
+                {['Datum', unitLabel, 'Typ', 'Úkony a popis', 'Technik', 'Cena'].map(h => (
                   <th key={h} className="text-left text-xs font-extrabold uppercase tracking-wide" style={{ padding: '8px 10px', color: '#1a2e22' }}>{h}</th>
                 ))}
               </tr>
@@ -106,8 +103,8 @@ export default function ServiceBookCard({ logs, unitLabel = 'km' }) {
                       {items.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-1">
                           {items.map((i, idx) => (
-                            <span key={idx} title={i.custom ? 'Vlastní úkon (Jiné)' : undefined} className="text-xs font-bold" style={{ padding: '2px 7px', borderRadius: 7, background: i.custom ? '#fff7ed' : '#e8fde8', border: `1px solid ${i.custom ? '#fdba74' : '#b6dccb'}`, color: '#0f1a14', textDecoration: i.done === false && items.some(x => x.done === true) ? 'line-through' : 'none' }}>
-                              {i.custom ? '✎ ' : ''}{i.label}{i.note ? ` — ${i.note}` : ''}
+                            <span key={idx} title={i.done === true ? 'Provedeno' : 'Neodškrtnuto — nepočítá se jako provedené'} className="text-xs font-bold" style={{ padding: '2px 7px', borderRadius: 7, background: i.done === true ? '#e8fde8' : '#f8fafc', border: `1px solid ${i.done === true ? '#b6dccb' : '#e5e7eb'}`, color: i.done === true ? '#0f1a14' : '#9ca3af' }}>
+                              {i.done === true ? '✓ ' : ''}{i.custom ? '✎ ' : ''}{i.label}{i.note ? ` — ${i.note}` : ''}
                             </span>
                           ))}
                         </div>

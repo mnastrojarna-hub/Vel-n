@@ -71,6 +71,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   String? _passengerJacketSize;
   String? _passengerPantsSize;
   String? _passengerBootsSize;
+  // Rukavice spolujezdce se v úpravě nevybírají, ale rezervace je mít může
+  // (formulář dovolí i jen rukavice) — počítají se jako zvolený kus výbavy.
+  String? _passengerGlovesSize;
   // „Mám vlastní výbavu" — skryje výběr velikostí základní výbavy řidiče.
   // Od 2026-09-25 se načítá z `bookings.own_gear` a při uložení zapisuje
   // (rozhoduje o kódu šatny; trigger `trg_sync_locker_code` kód přidá/odebere).
@@ -129,6 +132,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _passengerJacketSize = res.passengerJacketSize;
         _passengerPantsSize = res.passengerPantsSize;
         _passengerBootsSize = res.passengerBootsSize;
+        _passengerGlovesSize = res.passengerGlovesSize;
         _ownGear = res.ownGear ?? false;
       });
       _loadDiscountType(res);
@@ -166,6 +170,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   /// id původních řádků `booking_extras` modelovaných doplňků (baseline) —
   /// při uložení se mažou PODLE ID (jazykově nezávislé, viz booking_extras_sync).
   final List<String> _origModeledRowIds = [];
+  /// Výchozí stav doplňků se podařilo načíst — bez něj se změna doplňků
+  /// neukládá (prázdný baseline by zaplacený doplněk vložil a účtoval znovu).
+  bool _extrasBaselineOk = false;
   static const _extraDefs = {
     'spolujezdec': ('Výbava spolujezdce', 690.0),
     'boty_ridic': ('Boty řidiče', 290.0),
@@ -187,7 +194,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       a.length == b.length && a.containsAll(b);
 
   /// Načte původní zaplacené doplňky → předzaškrtne je a uloží jako baseline.
-  Future<void> _loadOriginalExtras() async {
+  /// Při chybě sítě jeden opakovaný pokus; když selže i ten, zůstává
+  /// `_extrasBaselineOk = false` a změnu doplňků `_save` odmítne.
+  Future<void> _loadOriginalExtras({bool retry = true}) async {
     try {
       final rows = await MotoGoSupabase.client
           .from('booking_extras')
@@ -211,6 +220,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if (mounted) {
         setState(() {
           _origExtrasPaid = paid;
+          _extrasBaselineOk = true;
           _origModeledRowIds
             ..clear()
             ..addAll(rowIds);
@@ -222,14 +232,22 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ..addAll(orig);
         });
       }
-    } catch (_) {/* bez původních doplňků = prázdný baseline */}
+    } catch (e) {
+      debugPrint('[Edit] extras baseline load failed: $e');
+      if (retry && mounted) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (mounted) await _loadOriginalExtras(retry: false);
+      }
+    }
   }
 
   /// Nahradí modelované řádky booking_extras aktuálním výběrem — mazání podle
   /// id původních řádků + ověření počtu (viz booking_extras_sync.dart).
-  Future<void> _replaceModeledExtras(List<Map<String, dynamic>>? rows) async {
+  /// Vrací false, když se původní řádky nepodařilo všechny odstranit
+  /// (odebrání doplňku se pak neprojevilo — vyřídí obsluha).
+  Future<bool> _replaceModeledExtras(List<Map<String, dynamic>>? rows) async {
     try {
-      await replaceModeledExtras(
+      return await replaceModeledExtras(
         bookingId: widget.bookingId,
         origRowIds: _origModeledRowIds,
         origExtraIds: _origExtras,
@@ -237,6 +255,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       );
     } catch (e) {
       debugPrint('[Edit] extras replace failed: $e');
+      return false;
     }
   }
 
@@ -464,7 +483,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     if (_selectedExtras.contains('spolujezdec') &&
         _passengerHelmetSize == null &&
         _passengerJacketSize == null &&
-        _passengerPantsSize == null) {
+        _passengerPantsSize == null &&
+        _passengerGlovesSize == null) {
       missing.add(t(context).tr('gearPassenger'));
     }
     return missing;
@@ -646,6 +666,16 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       // až PO platbě (přes pendingEditChanges), jinak hned.
       List<Map<String, dynamic>>? extrasRows;
       final extrasChanged = !_setEq(_selectedExtras, _origExtras);
+      if (extrasChanged && !_extrasBaselineOk) {
+        // Bez načteného výchozího stavu doplňků by uložení vložilo zaplacený
+        // doplněk podruhé a účtovalo ho znovu (incident 2026-09-28) → neuložit.
+        if (mounted) {
+          setState(() => _saving = false);
+          showMotoGoToast(context, icon: '⚠️', title: t(context).error,
+            message: t(context).tr('extrasBaselineFailed'));
+        }
+        return;
+      }
       if (extrasChanged) {
         extrasRows = [
           for (final id in _selectedExtras)
@@ -858,7 +888,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         }
         // Nahraď modelované doplňky novým stavem (přidané vlož, odebrané smaž).
         if (extrasChanged) {
-          await _replaceModeledExtras(extrasRows);
+          final extrasOk = await _replaceModeledExtras(extrasRows);
+          // Odebrání se nepovedlo (chybí DELETE právo / řádek už nebyl) — vratka
+          // i cena jsou zapsané, řádek zůstal → řekni to, vyřídí obsluha.
+          if (!extrasOk && mounted) {
+            showMotoGoToast(context, icon: '⚠️', title: t(context).error,
+              message: t(context).tr('extrasRemoveFailed'));
+          }
         }
         if (mounted) {
           ref.invalidate(reservationsProvider);

@@ -17,7 +17,6 @@ export const SERVICE_CHECKLIST = [
     { id: 'air_filter', label: 'Výměna vzduchového filtru' },
     { id: 'spark_plugs', label: 'Výměna svíček' },
     { id: 'coolant', label: 'Kontrola / výměna chladicí kapaliny' },
-    { id: 'valve_clearance', label: 'Seřízení ventilů' },
     { id: 'engine_noise', label: 'Neobvyklý zvuk motoru' },
   ]},
   { group: 'Brzdy & podvozek', items: [
@@ -25,9 +24,7 @@ export const SERVICE_CHECKLIST = [
     { id: 'brake_pads_rear', label: 'Brzdové destičky zadní' },
     { id: 'brake_fluid', label: 'Výměna brzdové kapaliny' },
     { id: 'brake_discs', label: 'Kontrola brzdových kotoučů' },
-    { id: 'brake_hoses', label: 'Výměna brzdových hadic' },
     { id: 'suspension', label: 'Kontrola tlumičů / pružin' },
-    { id: 'fork_oil', label: 'Výměna oleje / gufer vidlice' },
   ]},
   { group: 'Pneumatiky & kola', items: [
     { id: 'tire_front', label: 'Výměna přední pneumatiky' },
@@ -43,15 +40,12 @@ export const SERVICE_CHECKLIST = [
   { group: 'Elektrika & světla', items: [
     { id: 'battery', label: 'Kontrola / výměna baterie' },
     { id: 'lights', label: 'Kontrola světel' },
-    { id: 'bulbs', label: 'Výměna žárovek' },
     { id: 'fuses', label: 'Kontrola pojistek' },
     { id: 'starter', label: 'Problém se startérem' },
   ]},
   { group: 'Ostatní', items: [
     { id: 'stk', label: 'Příprava na STK' },
     { id: 'clutch', label: 'Kontrola / seřízení spojky' },
-    { id: 'clutch_plates', label: 'Výměna spojkových lamel' },
-    { id: 'seasonal_prep', label: 'Sezónní příprava / zazimování' },
     { id: 'cosmetic', label: 'Kosmetická oprava (lak, plasty)' },
     { id: 'accident_repair', label: 'Oprava po nehodě' },
     { id: 'other_repair', label: 'Jiná oprava' },
@@ -65,5 +59,18 @@ export const SERVICE_CHECKLIST_BY_CATEGORY = SERVICE_CHECKLIST.map(g => ({
   category: g.group, items: g.items.map(i => i.label),
 }))
 
-/** Všechny standardní štítky úkonů (co není v množině = vlastní úkon „Jiné“). */
-export const SERVICE_CHECKLIST_LABELS = new Set(SERVICE_CHECKLIST.flatMap(g => g.items.map(i => i.label)))
+// Typy SOS události (SOS → URGENT servisní záznam, SOSServiceCard) — standardní
+// štítky, ne „Jiné“: musí být ve známé množině, jinak by je editace záznamu přes
+// Správu motorky (ServiceChecklistView) uložila jako vlastní úkon.
+export const SOS_SERVICE_TYPES = [
+  { id: 'sos_accident_major', label: 'Těžká nehoda' },
+  { id: 'sos_accident_minor', label: 'Lehká nehoda' },
+  { id: 'sos_breakdown', label: 'Porucha' },
+  { id: 'sos_theft_damage', label: 'Poškození při krádeži' },
+]
+
+/** Všechny standardní štítky úkonů vč. SOS typů (co není v množině = vlastní úkon „Jiné“). */
+export const SERVICE_CHECKLIST_LABELS = new Set([
+  ...SERVICE_CHECKLIST.flatMap(g => g.items.map(i => i.label)),
+  ...SOS_SERVICE_TYPES.map(i => i.label),
+])

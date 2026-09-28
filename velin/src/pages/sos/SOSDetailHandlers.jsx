@@ -2,7 +2,6 @@ import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
 import { STATUS_COLORS } from './SOSDetailConstants'
 import { TYPE_LABELS } from '../SOSPanel'
-import { SOS_SERVICE_TYPES } from './SOSServiceCard'
 import { labelsToItems } from '../../components/fleet/CustomServiceItems'
 
 // Ukončit lze jen probíhající rezervaci a jen po výslovném potvrzení operátora;
@@ -168,8 +167,8 @@ export async function handleUpdateSosServiceLog(logId, { selectedLabels, fullDes
       service_date: serviceDateFrom || today,
       scheduled_date: serviceDateTo || serviceDateFrom || today,
       is_urgent: isUrgent,
-      // Vlastní úkony („Jiné“) dostanou custom:true; SOS typy jsou standardní štítky
-      items: labelsToItems(selectedLabels, SOS_SERVICE_TYPES.map(i => i.label)),
+      // Vlastní úkony („Jiné“) dostanou custom:true; SOS typy jsou ve známé množině
+      items: labelsToItems(selectedLabels),
     }).eq('id', logId)
     onRefresh?.()
     return { success: true }

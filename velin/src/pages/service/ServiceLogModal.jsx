@@ -70,9 +70,12 @@ export default function ServiceLogModal({ entry, onClose, onSaved }) {
   }
 
   function buildItems() {
+    // Záznam zapisovaný rovnou jako „Dokončeno" = úkony provedené (servisní
+    // kniha počítá jen odškrtnuté); plánovaný/v servisu → odškrtává technik.
+    const done = form.status === 'completed'
     const items = []
-    SERVICE_CHECKLIST.forEach(cat => { cat.items.forEach(label => { if (checkedItems[label]) items.push({ label, done: false, note: '' }) }) })
-    items.push(...customLabelsToItems(customLabels))
+    SERVICE_CHECKLIST.forEach(cat => { cat.items.forEach(label => { if (checkedItems[label]) items.push({ label, done, note: '' }) }) })
+    items.push(...customLabelsToItems(customLabels, done))
     return items
   }
 

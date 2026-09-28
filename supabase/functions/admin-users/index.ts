@@ -3,10 +3,11 @@
  * Správa uživatelů Velína (jen SUPERADMIN). Volá Velín → Uživatelé Velína.
  *
  * POST { action, ... }  (verify_jwt=false → volajícího ověřuje funkce sama)
- *  - create       { email, password, name, phone?, role?, sections? }
+ *  - create       { email, password, name, phone?, role?, sections?, confirm_existing? }
  *                 → auth.admin.createUser (email potvrzen) + řádek admin_users.
- *                   Existuje-li auth účet s tím e-mailem (zákazník), jen se mu
- *                   založí admin_users řádek (heslo se přenastaví na zadané).
+ *                   Existuje-li auth účet s tím e-mailem (zákazník) → 409
+ *                   `code: exists_customer`; teprve s `confirm_existing: true`
+ *                   se mu založí admin_users řádek a heslo přenastaví na zadané.
  *  - update       { user_id, name?, phone?, role?, sections?, active? }
  *  - set_password { user_id, new_password }
  *  - delete       { user_id }  → smaže JEN admin_users řádek (přístup do Velína);
@@ -105,6 +106,14 @@ serve(async (req) => {
         if (!userId) return json({ error: 'E-mail je už registrován, ale účet se nepodařilo dohledat' }, 400)
         const { data: already } = await admin.from('admin_users').select('id').eq('id', userId).maybeSingle()
         if (already) return json({ error: 'Tento e-mail už má přístup do Velína' }, 409)
+        // Existující účet je nejspíš ZÁKAZNÍK (appka/web) — přepsání hesla mu změní
+        // přihlášení do appky. Bez výslovného potvrzení z Velína heslo neměníme.
+        if (body.confirm_existing !== true) {
+          return json({
+            error: 'E-mail už má účet (zákazník appky/webu). Přidat mu přístup do Velína a nastavit zadané heslo? Zákazník se pak do appky přihlásí novým heslem.',
+            code: 'exists_customer',
+          }, 409)
+        }
         const { error: pwErr } = await admin.auth.admin.updateUserById(userId, { password, email_confirm: true })
         if (pwErr) return json({ error: `Heslo se nepodařilo nastavit: ${pwErr.message}` }, 400)
       } else {

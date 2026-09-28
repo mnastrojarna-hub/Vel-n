@@ -20,17 +20,27 @@ export function customLabelsFromItems(items, extraKnown = []) {
   return out
 }
 
-/** Vlastní štítky → položky items (stejný tvar jako standardní + příznak custom). */
-export function customLabelsToItems(labels) {
-  return (labels || []).map(label => ({ label, done: false, note: '', custom: true }))
+/** Vlastní štítky → položky items (stejný tvar jako standardní + příznak custom).
+ *  `done` = true jen u záznamu zapisovaného rovnou jako dokončený (servisní kniha
+ *  počítá jen odškrtnuté úkony). */
+export function customLabelsToItems(labels, done = false) {
+  const out = []
+  for (const label of labels || []) {
+    if (SERVICE_CHECKLIST_LABELS.has(label) || out.some(i => i.label === label)) continue
+    out.push({ label, done, note: '', custom: true })
+  }
+  return out
 }
 
-/** Smíšený seznam štítků (standardní + vlastní) → items; vlastní dostanou `custom: true`. */
-export function labelsToItems(labels, extraKnown = []) {
+/** Smíšený seznam štítků (standardní + vlastní) → items; vlastní dostanou `custom: true`, duplicity se vynechají. */
+export function labelsToItems(labels, extraKnown = [], done = false) {
   const known = new Set([...SERVICE_CHECKLIST_LABELS, ...extraKnown])
-  return (labels || []).map(label => known.has(label)
-    ? { label, done: false, note: '' }
-    : { label, done: false, note: '', custom: true })
+  const out = []
+  for (const label of labels || []) {
+    if (out.some(i => i.label === label)) continue
+    out.push(known.has(label) ? { label, done, note: '' } : { label, done, note: '', custom: true })
+  }
+  return out
 }
 
 export default function CustomServiceItems({ labels, onChange, compact = false }) {
@@ -41,6 +51,9 @@ export default function CustomServiceItems({ labels, onChange, compact = false }
   function add() {
     const v = draft.trim()
     if (!v) return
+    // Standardní úkon se jako „Jiné“ nezakládá (byl by v items dvakrát) — je
+    // v checklistu, stačí ho zaškrtnout.
+    if (SERVICE_CHECKLIST_LABELS.has(v)) { setDraft(''); return }
     if (!labels.includes(v)) onChange([...labels, v])
     setDraft('')
   }
