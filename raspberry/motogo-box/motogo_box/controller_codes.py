@@ -62,6 +62,9 @@ def error_text(error: str | None) -> str:
         return "Servisní heslo nelze ověřit bez spojení (offline cache je starší než 3 dny)."
     if error == "protocol_required":
         return "Nejdřív prosím podepište předávací protokol na displeji — kóje se pak otevře sama."
+    if error == "handover_in_progress":     # zámek přejímky (2026-09-28, handover_lock.py)
+        return ("Nejprve musí být dokončena předchozí přejímka — zákazník, který právě zavřel šatnu, zadá kód své motorky. "
+                "Pak přijdete na řadu.")
     return "Zkuste to prosím znovu."
 
 
@@ -269,6 +272,20 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
         ctrl.service_tokens[token] = time.time() + ctrl.hardware.security.service_token_minutes * 60
         return {**base, "ok": True, "kind": "service", "message": "Servisní režim",
                 "doors": service_doors(ctrl), "service_token": token}
+    handover = getattr(ctrl, "handover", None)      # hradlo protokolem (§4) + zámek přejímky (2026-09-28, §28)
+    lock = getattr(handover, "lock", None)
+    if lock is not None and rr.booking_id and lock.blocks(rr.booking_id):
+        # Jiná rezervace právě zavřela šatnu a ještě neotevřela kóji motorky → tenhle zákazník počká. Kód je platný:
+        # žádný lockout (není v INVALID_CODE_ERRORS), jen ACCESS_DENIED s důvodem handover_in_progress do Velína.
+        await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="warn", code_kind=rr.kind,
+                              door_id=rr.door_id, booking_id=rr.booking_id, box_number=rr.box_number,
+                              message="Kód odmítnut — probíhá přejímka jiné rezervace (nejdřív kód motorky po zavření šatny)",
+                              detail={"source": source, "reason": "handover_in_progress",
+                                      "locked_booking_id": lock.booking_id, "offline": rr.offline}))
+        return {**base, "kind": rr.kind, "booking_id": rr.booking_id, "error": "handover_in_progress",
+                "message": error_text("handover_in_progress")}
+    if lock is not None:
+        lock.touch(rr.booking_id)             # přijatý kód zamčené rezervace = aktivita (zámek nevyprší zákazníkovi pod rukama)
     zc = zone_for_code(ctrl, rr.door_id, rr.box_number, rr.kind)
     name = door_name(rr.kind, zc, rr.box_number)
     if zc is None:
@@ -277,7 +294,6 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
                               message=f"Kód platný, ale zóna není nastavena ({name})",
                               detail={"source": source, "reason": "door_not_configured"}))
         return {**base, "kind": rr.kind, "error": "zone_not_configured", "message": not_configured_text(name)}
-    handover = getattr(ctrl, "handover", None)      # hradlo protokolem (§4): kóje motorky až po podpisu
     if handover is not None and rr.kind == "motorcycle" and await handover.require_before_open(rr, zc, source):
         # Bez ACCESS_DENIED a bez lockoutu (není v INVALID_CODE_ERRORS) — kód je platný, jen chybí podpis;
         # overlay protokolu přijde na displej přes snapshot (`handover.active`), kóje se po podpisu otevře sama.
@@ -286,6 +302,8 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
     ok, reason = await zc.grant_access(booking_id=rr.booking_id, kind=rr.kind, source=source)
     if ok and handover is not None and rr.kind == "accessories":
         handover.remember(rr)                 # protokol k rezervaci pro okamžik zavření šatny
+    if ok and lock is not None and rr.kind == "motorcycle":
+        lock.release(rr.booking_id, "kóje motorky otevřena")   # přejímka dokončena → další zákazník na řadě
     if not ok:
         await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="warn", code_kind=rr.kind,
                               zone=zc.number, door_id=zc.zone.door_id, booking_id=rr.booking_id,

@@ -15,10 +15,15 @@ Zadání: `SPEC.md`; rozhraní modulů: `CONTRACT.md`; zapojení a tabulky I/O: 
 Vedený tok **šatna → předávací protokol → motorka** (rozhodnutí uživatele 2026-09-25, SPEC §9/§13, CONTRACT §28):
 
 1. Zákazník, který má v šatně co vyzvednout (půjčená výbava řidiče, boty nebo výbava spolujezdce), zadá **kód šatny** →
-   otevře se šatna (kind `accessories`); displej ho nemodálně vede pruhem „Šatna: vezměte si výbavu a zavřete dveře — protokol
-   se zobrazí po zavření“ (klávesnice zůstává volná pro ostatní). Zákazník s vlastní výbavou kód šatny nedostane (šatna mu
-   nejde otevřít) a začíná rovnou kódem motorky.
-2. Po zavření dveří šatny se přes celý displej ukáže **předávací protokol**: výbava s velikostmi (upravitelné chipy z číselníku),
+   otevře se šatna (kind `accessories`); displej ukáže přes celý displej hlášku „Šatna: vezměte si výbavu a zavřete dveře —
+   protokol se zobrazí po zavření“ (od 2026-09-28 modální — zmizí až se zavřením dveří šatny; jazyk jde přepnout lištou v ní).
+   Zákazník s vlastní výbavou kód šatny nedostane (šatna mu nejde otevřít) a začíná rovnou kódem motorky.
+2. Po zavření dveří šatny kiosk přijímá **jen kódy téže rezervace** (zámek přejímky, 2026-09-28): zákazník, který právě zavřel
+   šatnu, podepíše protokol a zadá kód své motorky; kód kohokoli jiného displej odmítne s „Nejprve musí být dokončena předchozí
+   přejímka — zákazník, který právě zavřel šatnu, zadá kód své motorky. Pak přijdete na řadu.“ (nad polem kódu svítí pruh 🔒
+   „Probíhá přejímka…“; bez lockoutu). Zámek končí otevřením kóje motorky té rezervace, servisním „Vše vypnout“, nebo po
+   `handover_lock_s` (300 s) bez aktivity zákazníka — kiosk se nikdy nezasekne; servisní hesla a pevné servisní kódy
+   procházejí vždy. Zároveň se přes celý displej ukáže **předávací protokol**: výbava s velikostmi (upravitelné chipy z číselníku),
    vždy i skupina **Výbava motorky** (klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta —
    předem zaškrtnutá, leží v motorce v kufru nebo v tankvaku; zákazník odškrtne, co chybí; 2026-09-28),
    podpis prstem a potvrzení **kódem motorky** téže rezervace (identita podepisujícího). Bez podepsaného protokolu se kóje
@@ -113,8 +118,10 @@ v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzova
 Zadejte nejdřív kód šatny, potom kód motorky. Máte vlastní výbavu? Zadejte rovnou kód motorky.“) + pole kódu (**zadávané znaky
 jsou viditelné** — žádné maskování tečkami, rozhodnutí 2026-09-11; platí pro kód rezervace, servisní heslo i diagnostický kód)
 | klávesnice (numerická / „ABC“ pro servisní hesla, velikost kláves podle místa, vždy ≥ 48 px, nic se nepřekrývá). Dlaždice zón
-na zákaznické obrazovce NEJSOU (odstraněny 2026-09-26 — zákazníka rušily; stav zón = servisní panel a Velín). **Vedený tok (2026-09-25):** dokud jsou dveře šatny otevřené, nad polem kódu svítí nemodální
-pruh „Šatna: vezměte si výbavu a zavřete dveře — protokol se zobrazí po zavření“ (klávesnice funguje dál); po zavření (nebo po
+na zákaznické obrazovce NEJSOU (odstraněny 2026-09-26 — zákazníka rušily; stav zón = servisní panel a Velín). **Vedený tok (2026-09-25):** dokud jsou dveře šatny otevřené, svítí přes celý displej modální hláška
+„Šatna: vezměte si výbavu a zavřete dveře — protokol se zobrazí po zavření“ (od 2026-09-28; nejde zavřít, jazyk jde přepnout
+lištou v ní); po zavření platí zámek přejímky (jen kódy téže rezervace — ostatním se ukáže „Nejprve musí být dokončena předchozí
+přejímka…“ a nad polem kódu pruh 🔒 „Probíhá přejímka — kód motorky zadá zákazník, který právě zavřel šatnu“) a (nebo po
 kódu motorky bez podpisu) se přes celý displej otevře **předávací protokol** — hlavička (jméno zkráceně, motorka, období), výbava
 řidič/spolujezdec s chipy velikostí, podpisový canvas, pole „Kód motorky“ (jen když kód nebyl právě zadán), „Potvrdit a podepsat“,
 „Zpět“; odpočet 120 s bez dotyku („Zavře se za N s“). Po podpisu: „Otevřeno“ + „Protokol podepsán.“ (kóje se otevře sama), nebo
@@ -123,7 +130,7 @@ znovu.“). Po kódu displej říká, KAM jít (2026-09-27): kóje „Dveře č.
 Vemte za kliku.“ (8 jazyků, `i18n.js` `openedBox/okBox/openedAcc/okAcc`). Soubory protokolu: `ui/handover.js`
 (overlay, `MG.Handover`), `ui/signature.js` (podpis prstem, PNG 800×260 ≤ 150 kB), `ui/style-handover.css` a texty `ho.*`/`g.*`
 v 8 jazycích v `ui/i18n-handover.js` (slučuje se do `MG.i18n`; v `i18n.js` jsou jen `hint2`, texty úspěchu a chyby `protocol_required`/
-`protocol_failed`); PDF protokolu je česky.
+`protocol_failed`/`handover_in_progress`); PDF protokolu je česky.
 Servisní panel, setup a diagnostika zůstávají tmavé overlaye (`ui/style-overlays.css`), použitelné i na nízkém displeji.
 **Název pobočky se bere VÝHRADNĚ z Velína → Pobočky (`name`)** — není-li vyplněný, zůstává místo v hlavičce prázdné
 (žádný náhradní text). Texty všech 8 jazyků: `ui/i18n.js` + `ui/i18n-handover.js`.

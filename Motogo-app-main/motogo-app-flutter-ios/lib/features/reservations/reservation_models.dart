@@ -273,6 +273,26 @@ class Reservation {
   /// Předávací protokol už je podepsaný (v appce, na displeji nebo ve Velíně).
   bool get protocolSigned => handoverProtocolFilledAt != null;
 
+  /// Čas SKUTEČNÉHO vydání motorky („Vydáno“ v detailu, start nahrávání jízdy),
+  /// nebo null. Na pobočce (samoobslužná i obslužná) nesmí platit jen
+  /// `picked_up_at` — same-day platba ho dřív nastavovala už při potvrzení
+  /// (RPC confirm_payment, incident 2026-09-28): vydání = zadaný kód motorky
+  /// + podepsaný předávací protokol; čas = pozdější z obou. Svoz / přistavení
+  /// (bez pobočkového protokolu) a starší dokončené rezervace z doby před
+  /// protokoly berou `picked_up_at` z DB.
+  DateTime? get issuedAt {
+    final pickedUp = pickedUpAt;
+    if (pickedUp == null) return null;
+    final delivery = pickupMethod == 'delivery' || (pickupAddress ?? '').trim().isNotEmpty;
+    final branchGated = isSelfService || branchType == 'obslužná';
+    if (!branchGated || delivery) return pickedUp;
+    final signed = handoverProtocolFilledAt;
+    if (signed == null) {
+      return (returnedAt != null || status == 'completed') ? pickedUp : null;
+    }
+    return pickedUp.isBefore(signed) ? signed : pickedUp;
+  }
+
   /// Vlastní výbava řidiče včetně odvození pro starší rezervace bez `own_gear`
   /// (NULL = všechny velikosti základní výbavy řidiče prázdné) — stejné
   /// pravidlo jako DB `_booking_needs_locker` (boty/spolujezdec se řeší zvlášť).

@@ -10,6 +10,8 @@ Fail-open: `protocol is None` (stará DB / stará cache) i `absent` (rezervace v
 neumí rozlišit „podepsáno jinde“ od „kód odebrán / rezervace zrušena / cache mimo okno“) → hradlo se neuplatní;
 absence se ale NIKDY nepamatuje jako podpis a z cesty sync/boot se kóje NIKDY neotevře (CONTRACT §28 pravidlo 1) —
 otevírá jen `submit` z displeje a příkaz `protocol_signed` doručený během viditelného overlaye s `then_open`.
+Zámek přejímky (2026-09-28, `handover_lock.py`, `self.lock`): po každém zákaznickém zavření šatny přijímá kiosk jen kódy
+téže rezervace, dokud se neotevře kóje motorky (nebo `handover_lock_s` bez aktivity); persist v témže kv (klíč `lock`).
 """
 from __future__ import annotations
 
@@ -17,10 +19,10 @@ import asyncio
 import logging
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable
 
 from . import handover_submit as hs
+from .handover_lock import DEFAULT_LOCK_S, HandoverLock, iso_ts
 from .models import ACCESSORIES_NAME, Event, EventKind, ResolveResult
 from .pins import LocalResolver
 
@@ -38,10 +40,6 @@ STAGE_PROTOCOL, STAGE_DONE = "protocol", "done"
 GEAR_KEYS = ("helmet", "jacket", "pants", "boots", "gloves")
 PERSISTED = ("booking_id", "kind_origin", "zone", "data", "is_child", "shown_at", "last_touch",
              "dismissed_at", "shown_logged", "created_at")
-
-
-def _iso(ts: float | None) -> str | None:
-    return None if ts is None else datetime.fromtimestamp(float(ts), timezone.utc).isoformat(timespec="seconds")
 
 
 @dataclass
@@ -88,6 +86,7 @@ class HandoverManager:
         self.queue_state: dict = {"pending": [], "failed": []}
         self.inflight: set[str] = set()
         self.wake = asyncio.Event()              # probudí protocol_loop (nový podpis / obnovené spojení)
+        self.lock = HandoverLock(clock, lambda: self.lock_s, self._save)   # zámek přejímky (2026-09-28)
         self._load()
 
     # ─── stav a persist ──────────────────────────────────────────────────────
@@ -100,6 +99,7 @@ class HandoverManager:
                 if item is not None:
                     self.items[item.booking_id] = item
             self.signed = {str(k): float(v) for k, v in (raw.get("signed") or {}).items()}
+            self.lock.load(raw.get("lock"))      # zámek přežije restart (vyprší po lock_s bez aktivity jako jindy)
             cache = st.load_code_cache() or {}
             self.gear_sizes = cache.get("gear_sizes") if isinstance(cache.get("gear_sizes"), dict) else {}
             self.refresh_queue()
@@ -108,7 +108,7 @@ class HandoverManager:
 
     def state_dict(self) -> dict:
         items = [i.persisted() for i in self.items.values() if i.stage == STAGE_PROTOCOL and not i.in_flight]
-        return {"items": items, "signed": dict(self.signed)}
+        return {"items": items, "signed": dict(self.signed), "lock": self.lock.to_dict()}
 
     def _save(self) -> None:
         try:
@@ -125,6 +125,11 @@ class HandoverManager:
     def idle_s(self) -> int:
         t = getattr(getattr(self.ctrl, "hardware", None), "timings", None)
         return int(getattr(t, "handover_idle_s", DEFAULT_IDLE_S) or DEFAULT_IDLE_S)
+
+    @property
+    def lock_s(self) -> int:
+        t = getattr(getattr(self.ctrl, "hardware", None), "timings", None)
+        return int(getattr(t, "handover_lock_s", DEFAULT_LOCK_S) or DEFAULT_LOCK_S)
 
     def _zone(self, number: int | None) -> "ZoneController | None":
         return self.ctrl.zones.get(number) if number is not None else None
@@ -186,6 +191,9 @@ class HandoverManager:
         if not bid:
             return None
         p = protocol if isinstance(protocol, dict) else (self.protocols.get(bid) or self._cache_protocol(bid))
+        # Zámek přejímky (2026-09-28): od teď kiosk přijímá jen kódy této rezervace, dokud se neotevře její kóje motorky —
+        # při KAŽDÉM zákaznickém zavření (i podepsáno jinde / stav neznámý = fail-open hradla, zámek platí stejně).
+        self.lock.set(bid, zone, (p.get("data") or {}).get("customer_name") if isinstance(p, dict) else None)
         if bid in self.signed or (p is not None and not p.get("required")):
             if p is not None and p.get("absent"):
                 log.info("handover: rezervace %s v cache bez protokolu (podepsáno jinde / mimo okno) — bez hradla", bid)
@@ -280,11 +288,14 @@ class HandoverManager:
         if item is None or not item.visible:
             return False
         item.last_touch = self.clock()
+        self.lock.touch(item.booking_id)         # dotyk v protokolu zamčené rezervace = aktivita zámku
         return True
 
     def tick(self, now: float | None = None) -> None:
-        """Volá tick_loop (250 ms): idle → skrýt (then_open pryč), toast po 5 s a položky po 24 h smazat."""
+        """Volá tick_loop (250 ms): idle → skrýt (then_open pryč), toast po 5 s a položky po 24 h smazat;
+        zámek přejímky bez aktivity `lock_s` → zaniká (persist řeší HandoverLock sám)."""
         now = self.clock() if now is None else now
+        self.lock.expire(now)
         changed = False
         for bid, item in list(self.items.items()):
             if item.stage == STAGE_DONE:
@@ -332,10 +343,12 @@ class HandoverManager:
             self._save()
 
     def busy(self, now: float | None = None) -> bool:
-        """Zákazník právě podepisuje (overlay vidět, dotyk před méně než idle_s) → odložit přestavbu/aktualizaci."""
+        """Zákazník právě podepisuje (overlay vidět, dotyk před méně než idle_s) nebo běží zámek přejímky (zavřel šatnu
+        a ještě neotevřel kóji motorky) → odložit přestavbu HW / aktualizaci."""
         now = self.clock() if now is None else now
         item = self.active()
-        return bool(item and item.stage == STAGE_PROTOCOL and (item.in_flight or now - item.last_touch < self.idle_s))
+        return bool(item and item.stage == STAGE_PROTOCOL and (item.in_flight or now - item.last_touch < self.idle_s)) \
+            or self.lock.active(now)
 
     def retry_failed(self) -> int:
         fn = getattr(self.ctrl.storage, "protocol_queue_retry_failed", None)
@@ -365,7 +378,8 @@ class HandoverManager:
             active = {"booking_id": item.booking_id, "stage": item.stage, "zone": item.zone, "zone_label": label,
                       "kind": zc.zone.kind if zc else item.kind_origin, "then_open": to_valid,
                       "needs_code": not to_valid, "data": dict(item.data), "sizes": self._sizes(item.is_child),
-                      "shown_at": _iso(item.shown_at), "expires_at": _iso(expires), "saving": item.in_flight}
+                      "shown_at": iso_ts(item.shown_at), "expires_at": iso_ts(expires), "saving": item.in_flight}
         return {"active": active, "pending": list(self.queue_state.get("pending", [])),
                 "failed": list(self.queue_state.get("failed", [])),
-                "waiting": [b for b, i in self.items.items() if i.stage == STAGE_PROTOCOL and not i.in_flight]}
+                "waiting": [b for b, i in self.items.items() if i.stage == STAGE_PROTOCOL and not i.in_flight],
+                "lock": self.lock.status(now)}

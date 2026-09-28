@@ -47,7 +47,7 @@ EVENTS_LIMIT_DEFAULT = 100
 EVENTS_LIMIT_MAX = 1000
 BODY_MAX_BYTES = 1024 * 1024   # 1 MiB: podpis protokolu (PNG data-URL ≤ 150 kB) + formulář; ostatní těla jsou malá
 HASH_IGNORED_KEYS = ("ts", "uptime_s")
-TIMING_KEYS = ("pin_entry_timeout_s", "door_open_timeout_s", "maximum_session_s", "handover_idle_s")
+TIMING_KEYS = ("pin_entry_timeout_s", "door_open_timeout_s", "maximum_session_s", "handover_idle_s", "handover_lock_s")
 
 
 # ─── pomocné funkce ──────────────────────────────────────────────────────────

@@ -116,7 +116,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   :root { --col-a: clamp(220px, 20vw, 520px); }
 }
 @media (max-height: 520px) {
-  .side { gap: 6px; }   /* sloupec A: dlouhý hint2 (de/fr/uk) + pruh šatny (#wardrobe-hint) se musí vejít bez rolování */
+  .side { gap: 6px; }   /* sloupec A: dlouhý hint2 (de/fr/uk) + pruh zámku přejímky (#handover-lock) se musí vejít bez rolování */
 }
 
 /* ── Overlay stavů (ověřuji / otevřeno / chyba / notice) — zákaznický, světlá karta ────────────────── */

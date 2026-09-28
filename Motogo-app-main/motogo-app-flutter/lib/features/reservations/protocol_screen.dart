@@ -106,17 +106,18 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
     _MotoGear('reflective_vest', 'hpMeReflectiveVest', qty: 2),
   ];
 
+  // Kotoučový zámek a reflexní prvky jsou od 2026-09-28 ve skupině „Výbava
+  // motorky“ výše (vesta 2×) — tady by se zdvojily a dokument by si mohl
+  // odporovat (edge je ze seznamu doplňků při poslané výbavě motorky vynechá).
   late final List<_Check> _extraGear = [
     _Check('phone_holder', 'hpXPhoneHolder'),
     _Check('usb_adapter', 'hpXUsb'),
-    _Check('disc_lock', 'hpXDiscLock'),
     _Check('rain_suit', 'hpXRainSuit'),
     _Check('rain_boots', 'hpXRainBoots'),
     _Check('rain_gloves', 'hpXRainGloves'),
     _Check('tie_net', 'hpXTieNet'),
     _Check('tankbag_small', 'hpXTankbagS'),
     _Check('tankbag_large', 'hpXTankbagL'),
-    _Check('reflective', 'hpXReflective'),
     _Check('back_protector', 'hpXBackProtector'),
     _Check('chain_spray', 'hpXChainSpray'),
   ];

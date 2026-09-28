@@ -1,10 +1,24 @@
 import { CANCEL_SOURCE_LABELS } from './bookingConstants'
 
+// „Vydáno" na POBOČCE (samoobslužná i obslužná) až po podepsaném předávacím protokolu
+// (2026-09-28, parita s appkou `res_modification_history._issuedAt`): same-day platba
+// dřív nastavovala picked_up_at už při potvrzení. Čas = pozdější z převzetí a podpisu.
+// Svoz/přistavení a starší dokončené rezervace (před protokoly) beze změny.
+function issuedAt(b) {
+  if (!b.picked_up_at) return null
+  const type = b.motorcycles?.branches?.type
+  const delivery = b.pickup_method === 'delivery' || !!(b.pickup_address || '').trim()
+  if (!['obslužná', 'samoobslužná'].includes(type) || delivery) return b.picked_up_at
+  if (!b.handover_protocol_filled_at) return (b.returned_at || b.status === 'completed') ? b.picked_up_at : null
+  return new Date(b.picked_up_at) < new Date(b.handover_protocol_filled_at) ? b.handover_protocol_filled_at : b.picked_up_at
+}
+
 export default function Timeline({ booking }) {
+  const issued = issuedAt(booking)
   const steps = [
     { label: 'Vytvořeno', done: true, time: booking.created_at },
     { label: 'Rezervováno', done: ['reserved', 'active', 'completed'].includes(booking.status), time: booking.confirmed_at },
-    { label: 'Vydáno', done: ['active', 'completed'].includes(booking.status) && !!booking.picked_up_at, time: booking.picked_up_at },
+    { label: 'Vydáno', done: ['active', 'completed'].includes(booking.status) && !!issued, time: issued },
     { label: 'Vráceno', done: booking.status === 'completed', time: booking.returned_at },
   ]
 

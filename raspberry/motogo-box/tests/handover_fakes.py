@@ -47,7 +47,8 @@ class FakeZone:
         self.number, self.grants, self.result = number, [], (True, "ok")
         name = "Šatna" if kind == "accessories" else f"Kóje {number}"
         self.zone = SimpleNamespace(kind=kind, door_id=f"d{number}", display_name=name,
-                                    box_number=None if kind == "accessories" else number)
+                                    box_number=None if kind == "accessories" else number,
+                                    hw=SimpleNamespace(lock=None))     # service_doors() — nabídka po servisním heslu
         self.booking_id: str | None = None
 
     async def grant_access(self, *, booking_id, kind, source):
@@ -87,6 +88,7 @@ class FakeCtrl:
         self.resolver = LocalResolver(DEVICE_ID, TOKEN)
         self.events: list = []
         self.ready, self.diagnostics = True, None
+        self.service_tokens: dict[str, float] = {}     # servisní heslo v submit_code (zámek přejímky ho nesmí blokovat)
         self.handover = HandoverManager(self, clock=self.clock)
 
     async def emit(self, event) -> None:

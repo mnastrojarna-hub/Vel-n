@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import pytest
 
+from motogo_box import controller_codes as cc
 from motogo_box.handover import DONE_TTL_S, ITEM_MAX_AGE_S, HandoverManager
+from motogo_box.handover_lock import iso_ts
 from motogo_box.models import EventKind
 from motogo_box.pins import LocalResolver
 
-from tests.handover_fakes import FakeCtrl, protocol, rr_moto
+from tests.handover_fakes import SIG, FakeCtrl, protocol, rr_moto
 
 
 @pytest.fixture
@@ -42,11 +44,14 @@ async def test_wardrobe_closed_signed_elsewhere_shows_done_toast(ctrl):
     hm.remember(rr_moto(proto=protocol("b1", required=False)))
     assert await hm.on_wardrobe_closed(8, "b1") == "done"
     a = hm.status()["active"]
-    assert a["stage"] == "done" and a["booking_id"] == "b1" and hm.busy() is False
+    assert a["stage"] == "done" and a["booking_id"] == "b1"
+    assert hm.busy() is True and hm.lock.booking_id == "b1"         # toast neblokuje, zámek přejímky ano (2026-09-28)
     ctrl.clock.advance(DONE_TTL_S + 1)
     hm.tick()
     assert hm.status()["active"] is None and hm.items == {}
     assert ctrl.kinds() == []                                       # bez PROTOCOL_SHOWN
+    hm.lock.release("b1")
+    assert hm.busy() is False
 
 
 async def test_wardrobe_closed_from_cache_and_fail_open(tmp_path):
@@ -224,4 +229,123 @@ async def test_absent_in_cache_is_fail_open_without_memory(ctrl):
 
 async def test_status_shape_when_idle(ctrl):
     st = ctrl.handover.status()
-    assert st == {"active": None, "pending": [], "failed": [], "waiting": []}
+    assert st == {"active": None, "pending": [], "failed": [], "waiting": [], "lock": None}
+
+
+# ─── Zámek přejímky (rozhodnutí majitele 2026-09-28, handover_lock.py) ──────────────────────────────
+def _door(kind: str, zone: int, box: int | None = None) -> dict:
+    return {"id": f"d{zone}", "door_kind": kind, "box_number": box}
+
+
+def _online(ctrl, b1_required: bool = True, b2_required: bool = True) -> None:
+    """Online RPC pro `submit_code`: b1 = šatna 888888 + motorka 111111, b2 = šatna 999999 + motorka 222222, servisní heslo."""
+    ctrl.api.resolve = {
+        "111111": {"ok": True, "kind": "motorcycle", "booking_id": "b1", "box_number": 3, "door": _door("motorcycle", 3, 3),
+                   "protocol": protocol("b1", required=b1_required)},
+        "888888": {"ok": True, "kind": "accessories", "booking_id": "b1", "door": _door("accessories", 8),
+                   "protocol": protocol("b1", required=b1_required)},
+        "222222": {"ok": True, "kind": "motorcycle", "booking_id": "b2", "box_number": 3, "door": _door("motorcycle", 3, 3),
+                   "protocol": protocol("b2", required=b2_required)},
+        "999999": {"ok": True, "kind": "accessories", "booking_id": "b2", "door": _door("accessories", 8),
+                   "protocol": protocol("b2", required=b2_required)},
+        "SERVIS1": {"ok": True, "kind": "service", "doors": []},
+    }
+
+
+async def test_lock_set_on_every_customer_wardrobe_close_and_persisted(ctrl):
+    hm = ctrl.handover
+    assert hm.lock.state is None and hm.status()["lock"] is None and hm.lock_s == 300
+    hm.remember(rr_moto(proto=protocol("b1")))
+    assert await hm.on_wardrobe_closed(8, "b1") == "protocol"
+    st = hm.status()["lock"]
+    assert st == {"booking_id": "b1", "zone": 8, "until": iso_ts(ctrl.clock() + 300), "customer_name": "Petra S."}
+    assert hm.lock.state["since"] == hm.lock.state["last_activity"] == ctrl.clock()
+    assert hm.lock.active() and hm.lock.blocks("b2") and not hm.lock.blocks("b1") and hm.busy() is True
+    hm2 = HandoverManager(ctrl, clock=ctrl.clock)                   # restart procesu: zámek z kv přežije
+    assert hm2.lock.state == hm.lock.state and hm2.status()["lock"] == st
+    ctrl.clock.advance(10)
+    ctrl.cache([], [])                                              # b2 v cache chybí → podepsáno jinde (toast DONE)
+    assert await hm.on_wardrobe_closed(8, "b2") == "done" and hm.lock.booking_id == "b2"
+    assert hm.lock.state["since"] == ctrl.clock() and hm.status()["lock"]["customer_name"] is None
+    ctrl.cache([], None)                                            # stará cache → stav protokolu neznámý (fail-open)
+    assert await hm.on_wardrobe_closed(8, "b3") is None and hm.lock.booking_id == "b3"
+    assert await hm.on_wardrobe_closed(8, None) is None and hm.lock.booking_id == "b3"   # servisní relace zámek nemění
+
+
+async def test_lock_refuses_foreign_codes_until_own_bay_opens(ctrl):
+    hm, moto, wardrobe = ctrl.handover, ctrl.zones[3], ctrl.zones[8]
+    _online(ctrl, b2_required=False)
+    hm.remember(rr_moto(proto=protocol("b1")))
+    await hm.on_wardrobe_closed(8, "b1")
+    hm.dismiss("b1")
+    for code, kind in (("222222", "motorcycle"), ("999999", "accessories")):
+        res = await cc.submit_code(ctrl, code, "ui")
+        assert res["ok"] is False and res["error"] == "handover_in_progress" and res["kind"] == kind
+        assert res["booking_id"] == "b2" and res["locked_until"] is None and "předchozí přejímka" in res["message"]
+    denied = [e for e in ctrl.events if e.kind == EventKind.ACCESS_DENIED]
+    assert [e.code_kind for e in denied] == ["motorcycle", "accessories"] and denied[0].booking_id == "b2"
+    assert denied[0].level == "warn" and denied[0].success is False
+    assert denied[0].detail == {"source": "ui", "reason": "handover_in_progress", "locked_booking_id": "b1", "offline": False}
+    assert ctrl.storage.pin_failures_since(0) == 0 and "PIN_INVALID" not in ctrl.kinds()   # platný kód, žádný lockout
+    assert moto.grants == [] and wardrobe.grants == []
+    ctrl.clock.advance(100)                                         # vlastní kód šatny znovu projde + obnoví aktivitu
+    res = await cc.submit_code(ctrl, "888888", "ui")
+    assert res["ok"] and wardrobe.grants == [("b1", "accessories", "ui")] and hm.lock.state["last_activity"] == ctrl.clock()
+    res = await cc.submit_code(ctrl, "111111", "ui")                # vlastní kód motorky: protokol → then_open, zámek trvá
+    assert res["error"] == "protocol_required" and hm.lock.active() and hm.status()["active"]["then_open"] is True
+    res = await hm.submit("b1", {}, SIG, None)                      # podpis → kóje otevřena → zámek pryč
+    assert res["ok"] and res["opened"]["zone"] == 3 and moto.grants == [("b1", "motorcycle", "ui")]
+    assert hm.lock.state is None and hm.status()["lock"] is None and hm.busy() is False
+    assert (await cc.submit_code(ctrl, "222222", "ui"))["ok"] is True      # další zákazník na řadě
+    assert moto.grants[-1] == ("b2", "motorcycle", "ui")
+
+
+async def test_lock_released_by_motorcycle_grant_and_remote_signature(ctrl):
+    hm, moto = ctrl.handover, ctrl.zones[3]
+    _online(ctrl, b1_required=False)
+    hm.remember(rr_moto(proto=protocol("b1", required=False)))
+    assert await hm.on_wardrobe_closed(8, "b1") == "done" and hm.lock.active()
+    assert (await cc.submit_code(ctrl, "111111", "ui"))["ok"] is True       # podepsáno jinde → kóje rovnou
+    assert moto.grants == [("b1", "motorcycle", "ui")] and hm.lock.state is None
+    hm.remember(rr_moto(proto=protocol("b1")))                      # příkaz protocol_signed s viditelným then_open
+    await hm.on_wardrobe_closed(8, "b1")
+    await hm.require_before_open(rr_moto(proto=protocol("b1")), moto, "ui")
+    assert hm.lock.active()
+    assert (await hm.mark_signed_remote("b1", may_open=True))["zone"] == 3 and hm.lock.state is None
+    del hm.signed["b1"]
+    moto.result = (False, "busy")                                   # kóje se neotevřela → zámek zůstává (kód znovu)
+    await hm.on_wardrobe_closed(8, "b1")
+    await hm.require_before_open(rr_moto(proto=protocol("b1")), moto, "ui")
+    res = await hm.submit("b1", {}, SIG, None)
+    assert res["ok"] and res["opened"] is None and res["error"] == "busy" and hm.lock.active()
+
+
+async def test_lock_expires_without_activity_and_touch_extends(ctrl):
+    hm = ctrl.handover
+    _online(ctrl, b2_required=False)
+    hm.remember(rr_moto(proto=protocol("b1")))
+    await hm.on_wardrobe_closed(8, "b1")
+    ctrl.clock.advance(hm.lock_s - 1)
+    assert hm.touch("b1") is True                                   # dotyk v protokolu = aktivita zámku
+    ctrl.clock.advance(hm.lock_s - 1)
+    hm.tick()
+    assert hm.lock.active() and (await cc.submit_code(ctrl, "222222", "ui"))["error"] == "handover_in_progress"
+    ctrl.clock.advance(1)
+    hm.tick()
+    assert hm.lock.state is None and hm.status()["lock"] is None and hm.busy() is False
+    assert HandoverManager(ctrl, clock=ctrl.clock).lock.state is None      # vypršení se persistuje
+    assert (await cc.submit_code(ctrl, "222222", "ui"))["ok"] is True
+
+
+async def test_lock_never_blocks_service_or_fixed_codes(ctrl):
+    hm = ctrl.handover
+    _online(ctrl)
+    hm.remember(rr_moto(proto=protocol("b1")))
+    await hm.on_wardrobe_closed(8, "b1")
+    res = await cc.submit_code(ctrl, "SERVIS1", "ui")
+    assert res["ok"] and res["kind"] == "service" and res["service_token"] in ctrl.service_tokens
+    res = await cc.submit_code(ctrl, "39301H", "ui")                # pevný servisní kód šatny
+    assert res["ok"] and res["kind"] == "service_door" and ctrl.zones[8].grants == [(None, "service", "fixed_service_code")]
+    assert hm.lock.active() and "ACCESS_DENIED" not in ctrl.kinds()   # servis zámek nemění a nic neodmítá
+    assert hm.lock.release(None, "all_off") is True and hm.lock.state is None   # servisní „Vše vypnout“ (controller.all_off)
+    assert hm.lock.release("b1") is False

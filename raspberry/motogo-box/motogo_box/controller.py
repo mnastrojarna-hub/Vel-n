@@ -441,6 +441,7 @@ class BoxController:
         await self.signals.all_off()
         for zc in self.zones.values():
             await zc.force_secure()
+        self.handover.lock.release(None, "all_off")   # servisní „Vše vypnout“ = i zámek přejímky pryč (2026-09-28)
 
     async def emit(self, event: Event) -> None:
         """Lokální záznam + Supabase (fire-and-forget) + UI upozornění (§15)."""
