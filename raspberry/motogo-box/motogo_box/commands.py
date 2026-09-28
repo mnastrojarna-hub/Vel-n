@@ -180,8 +180,8 @@ async def _zone_test(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
         return ok, {"zone": _int(params.get("zone")), "outdoor": True, **res}
     if z is None:
         return False, {"error": "zone_not_found"}
-    res = await z.test_sequence()
-    return all(bool(v) for v in res.values()), {"zone": z.number, **res}
+    res = await z.test_sequence()          # audio None = zóna bez reproduktoru (netestuje se, není chyba)
+    return all(v is None or bool(v) for v in res.values()), {"zone": z.number, **res}
 
 
 async def _contact_test(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
@@ -238,11 +238,24 @@ async def _contact_test(ctrl: "BoxController", params: dict) -> tuple[bool, dict
 
 
 async def _audio_test(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Tón `seconds` s: `{zone}` = reproduktor zóny, `{out}` = výstup (Velín „Test výstupu“, i bez zóny/hudby)."""
+    seconds = max(1, min(60, _int(params.get("seconds")) or 5))
+    out = str(params.get("out") or "").strip()
+    if out:
+        players = (ctrl.audio.status() or {}).get("players") or {}
+        if out not in players:
+            return False, {"error": "output_not_found", "out": out}
+        ok = bool(await ctrl.audio.test_output(out, seconds))
+        info = players.get(out) or {}
+        return ok, {"out": out, "seconds": seconds, "present": info.get("present"), "problem": info.get("problem"),
+                    **({} if ok else {"error": "busy_or_dead"})}
     z = _zone_of(ctrl, params)
     if z is None:
         return False, {"error": "zone_not_found"}
-    seconds = _int(params.get("seconds")) or 5
-    ok = bool(await ctrl.audio.test_tone(z.number, max(1, min(60, seconds))))
+    has = getattr(ctrl.audio, "has_output", None)
+    if has is not None and not has(z.number):
+        return False, {"zone": z.number, "error": "no_speaker"}
+    ok = bool(await ctrl.audio.test_tone(z.number, seconds))
     return ok, {"zone": z.number, "seconds": seconds}
 
 

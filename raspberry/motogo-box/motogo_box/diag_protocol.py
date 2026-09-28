@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from . import diag_audio
 from .diag_hints import hint
 
 RANK = {"skip": 0, "ok": 1, "warn": 2, "fail": 3}
@@ -118,11 +119,11 @@ def _software(r: dict) -> dict | None:
     if (cdp := s.get("cdp")) is not None:
         it.append(_cdp_item(cdp))
     a = s.get("audio") or {}
-    it.append(item("software.mpv", "Přehrávač mpv", "ok" if a.get("player_ok") else "fail", a.get("device") or "výchozí zařízení",
-                   "" if a.get("player_ok") else "Přehrávač mpv neběží — hudba a tón nefungují.", hint("mpv")))
-    mf, pc = a.get("music_files"), int(a.get("playlist_count") or 0)
-    it.append(item("software.music", "Hudba (soubory / playlist)", "skip" if mf is None else "warn" if not mf or not pc else "ok",
-                   f"{mf} souborů, {pc} v playlistu", "" if mf and pc else "Hudba chybí nebo playlist je prázdný.", hint("music")))
+    it.extend(diag_audio.protocol_items(a, item))
+    if a.get("speakers") is None:          # starší report bez rozpisu zón
+        mf, pc = a.get("music_files"), int(a.get("playlist_count") or 0)
+        it.append(item("software.music", "Hudba (soubory / playlist)", "skip" if mf is None else "warn" if not mf or not pc else "ok",
+                       f"{mf} souborů, {pc} v playlistu", "" if mf and pc else "Hudba chybí nebo playlist je prázdný.", hint("music")))
     ob = s.get("outbox_pending")
     it.append(item("software.outbox", "Fronta neodeslaných RPC", "skip" if ob is None else "warn" if ob else "ok", ob,
                    f"{ob} RPC čeká na odeslání do Velína." if ob else "", hint("outbox")))
@@ -418,6 +419,7 @@ def _zones(r: dict) -> dict | None:
         st = {3: "fail", 2: "warn"}.get(worst) or ("skip" if z.get("skipped_reason") else "ok")
         door = {True: "zavřeno", False: "otevřeno"}.get(z.get("door_closed"), "?")
         tests = " ".join(f"{k} {'✔' if v else '✘' if v is False else '–'}" for k, v in (("světlo", z.get("light")), ("zelená", z.get("signal")), ("tón", z.get("audio"))))
+        tests += " (bez reproduktoru)" if z.get("speaker") is False else ""
         chg = f", změn od startu {z.get('contact_changes')}" if z.get("contact_changes") is not None else ""
         val = f"{z.get('state')}, dveře {door}" + (f" (vstup {z.get('contact_ref')} = {z.get('contact_input')}, zavřeno = {z.get('closed_level')}{chg})" if z.get("contact_input") is not None else "") + (f", test: {tests}" if z.get("tested") else "")
         msg = f"{len(f)} nálezů: " + ", ".join(dict.fromkeys(ROLE_CZ.get(x.get("key"), str(x.get("key"))) for x in f)) if f else \

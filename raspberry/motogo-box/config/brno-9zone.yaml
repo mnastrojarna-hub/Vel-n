@@ -57,7 +57,7 @@ audio:
   fade_out_ms: 500
   selector_settle_ms: 200
   selector_on_ms: 100
-  device: null            # "alsa/plughw:CARD=<jméno>" dle `aplay -l` (AXAGON USB karta). null = výchozí ALSA
+  device: null            # auto (jediná USB karta) | usb:<port> | "alsa/plughw:CARD=<jméno>". null = výchozí ALSA
                           # zařízení = na RPi 5 HDMI monitoru → kóje mlčí! install.sh při založení
                           # /etc/motogo/hardware.yaml doplní nalezenou USB kartu (Velín má přednost).
   shuffle: true
@@ -66,9 +66,10 @@ audio:
                           #            hudba hraje současně v libovolném počtu kójí, každá svůj playlist
                           #            (Velín → Hudba pobočky), venek hraje při jakémkoli kódu
                           #            (výstup venku = `outdoor.audio.out`, viz sekce outdoor níže).
-  # Příklad režimu multi pro Brno (7 kójí + šatna + venek = 9 kanálů, 9× USB zvukovka pojmenovaná
-  # udev pravidlem, viz HARDWARE.md; názvy karet dle `aplay -L`). Nastavuje se ve Velíně (HW mapa),
-  # zde jen jako vzor — odkomentovat a `mode: multi`:
+  # Dnešní zapojení (Velín → „Jen šatna (1 výstup)“): mode: multi, outputs: { out8: { device: auto, mono: true } },
+  # šatna `audio: { out: out8 }`, kóje bez výstupu = bez reproduktoru. device: auto = jediná USB karta,
+  # usb:<port> = karta na USB portu (9 stejných adaptérů), jinak ALSA řetězec (audio_devices.py).
+  # Příklad 9 kanálů (7 kójí + šatna + venek). Nastavuje se ve Velíně (HW mapa), zde jen jako vzor:
   # outputs:
   #   out1: { device: "alsa/plughw:CARD=Box1" }     # kóje 1
   #   out2: { device: "alsa/plughw:CARD=Box2" }     # kóje 2

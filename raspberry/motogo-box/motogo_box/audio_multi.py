@@ -21,7 +21,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from .audio import library_status
+from .audio import library_status, player_hw
 from .audio_channels import MultiChannelOps
 from .config import AudioCfg
 from .models import HwRef
@@ -46,6 +46,7 @@ class _Channel:
     sync_task: asyncio.Task | None = None   # kanál bez dveří: start/stop na pozadí (neblokuje tick zón)
     off_at: float | None = None    # kanál bez dveří: čas odloženého stopu
     manual: bool | None = None     # kanál bez dveří: True = ručně spuštěn (drží), False = ručně zastaven, None = dle relací
+    tone: bool = False             # hraje testovací tón (ne hudba) — `_play` ho přebije
 
 
 class AudioMulti(MultiChannelOps):
@@ -66,6 +67,8 @@ class AudioMulti(MultiChannelOps):
         self.channels: dict[str, _Channel] = {out: _Channel(out, p) for out, p in players.items()}
         self.players = players
         self.player = None            # kompatibilita (selector má jeden přehrávač)
+        self.cards: list[dict] = []   # zvukové karty při stavbě (audio_build) — status / Velín
+        self.resolved: dict = {}
 
     # ─── stav ───────────────────────────────────────────────────────────────
     @property
@@ -97,13 +100,15 @@ class AudioMulti(MultiChannelOps):
     def status(self) -> dict:
         players = {out: {"alive": bool(ch.player.alive), "playlist_count": int(getattr(ch.player, "playlist_count", 0) or 0),
                          "device": getattr(ch.player, "device", None), "playing": ch.playing, "target": ch.target,
-                         "manual": ch.manual}
+                         "manual": ch.manual, "tone": ch.tone, **player_hw(ch.player)}
                    for out, ch in self.channels.items()}
         devices = [f"{o}={p['device']}" for o, p in players.items() if p["device"]]
         return {"mode": self.mode, "playing_zone": self.playing_zone, "playing_zones": self.playing_zones,
                 "channels": self.channels_playing, "player_ok": self.player_ok,
                 "playlist_count": sum(p["playlist_count"] for p in players.values()),
-                "device": ", ".join(devices) or None, "players": players, "library": library_status(self.library)}
+                "device": ", ".join(devices) or None, "players": players,
+                "zone_out": {str(z): o for z, o in self.zone_out.items()}, "cards": list(self.cards),
+                "library": library_status(self.library)}
 
     # ─── pomocné ────────────────────────────────────────────────────────────
     def _ch(self, key: Key) -> _Channel | None:
@@ -211,10 +216,11 @@ class AudioMulti(MultiChannelOps):
             log.warning("%s nemá audio výstup — hudba nelze spustit", f"Zóna {key}" if isinstance(key, int) else f"Kanál {key}")
             return False
         async with ch.lock:
-            if ch.playing == key:
+            if ch.playing == key and not ch.tone:
                 return True
             if ch.playing is not None:
-                await self._stop_locked(ch, fade=True)
+                await self._stop_locked(ch, fade=not ch.tone)
+            ch.tone = False
             await self._cancel_fade(ch)
             try:
                 ensure = getattr(ch.player, "ensure_running", None)
@@ -247,8 +253,9 @@ class AudioMulti(MultiChannelOps):
             log.warning("Zastavení hudby %s (%s): %s", key, ch.out, exc)
         if key is not None:
             await self._relay(key, False)
-        ch.playing, ch.off_at, ch.manual = None, None, None
-        if key is not None:
+        was_tone = ch.tone
+        ch.playing, ch.off_at, ch.manual, ch.tone = None, None, None, False
+        if key is not None and not was_tone:
             log.info("Hudba: %s zastavena (výstup %s)", key, ch.out)
 
     async def _stop(self, key: Key, fade: bool) -> bool:
@@ -287,7 +294,7 @@ class AudioMulti(MultiChannelOps):
                     log.warning("all_off přehrávače %s: %s", ch.out, exc)
                 if ch.playing is not None:
                     await self._relay(ch.playing, False)
-                ch.playing, ch.off_at, ch.manual = None, None, None
+                ch.playing, ch.off_at, ch.manual, ch.tone = None, None, None, False
 
     async def sync_channels(self, active_zones: list[int]) -> None:
         """Kanály bez dveří (trigger any): hrají, dokud běží aspoň jedna relace; stop po
@@ -334,7 +341,7 @@ class AudioMulti(MultiChannelOps):
                 await self._relay(key, True)
 
     async def test_tone(self, zone: int, seconds: int = 5) -> bool:
-        """Servisní test: přehraje `seconds` s JEN na výstupu zóny a zastaví (jen svoji hudbu)."""
+        """Servisní test: tón `seconds` s JEN na výstupu zóny (`MultiChannelOps._tone`)."""
         return await self._test_key(int(zone), seconds)
 
 

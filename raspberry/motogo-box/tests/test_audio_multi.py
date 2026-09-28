@@ -159,7 +159,9 @@ async def test_all_fallback_and_empty_playlist():
     await eng2.start()
     assert players2["out1"].playlist_count == 0
     assert await eng2.play_zone(1) is True               # relé/stav se drží i bez skladeb (nic nehraje)
-    assert await eng2.test_tone(1, 0) is False           # test tónu prázdný playlist odmítne
+    assert await eng2.test_tone(1, 0) is False           # výstup hraje (relace) — test zákazníka nepřeruší
+    await eng2.stop_zone(1)
+    assert await eng2.test_tone(1, 0) is True            # tón hraje i bez nahrané hudby
 
 
 async def test_dead_player_does_not_affect_others():
@@ -179,7 +181,7 @@ async def test_test_tone_only_on_zone_output():
     for p in players.values():
         p.log.clear()
     assert await eng.test_tone(2, 0) is True
-    assert ("play",) in players["out2"].log and players["out2"].log[-2:] == [("fade", 0, 5), ("pause",)]
+    assert ("play",) in players["out2"].log and players["out2"].log[-2:] == [("volume", 0), ("pause",)]   # tón: bez fade
     assert ("play",) not in players["out1"].log and ("play",) not in players["out9"].log
     assert eng.playing_zones == []
 
@@ -341,13 +343,13 @@ async def test_test_channel_only_on_channel_output():
     for p in players.values():
         p.log.clear()
     assert await eng.test_channel("outdoor", 0) is True
-    assert ("play",) in players["out9"].log and players["out9"].log[-2:] == [("fade", 0, 5), ("pause",)]
+    assert ("play",) in players["out9"].log and players["out9"].log[-2:] == [("volume", 0), ("pause",)]
     assert ("play",) not in players["out1"].log and ("play",) not in players["out2"].log
     assert eng.channels_playing == [] and eng.channels["out9"].manual is None
     assert await eng.test_channel("chodba", 0) is False
     eng2, _, _ = _rig(lists={"all": []})
     await eng2.start()
-    assert await eng2.test_channel("outdoor", 0) is False   # prázdný playlist
+    assert await eng2.test_channel("outdoor", 0) is True    # tón hraje i bez nahrané hudby
 
 
 async def test_selector_channel_stubs():

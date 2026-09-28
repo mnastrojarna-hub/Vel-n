@@ -55,8 +55,11 @@ export const BRNO_DEFAULT_HARDWARE = {
     fade_out_ms: 500,
     selector_settle_ms: 200,
     selector_on_ms: 100,
-    device: null,
     shuffle: true,
+    // Dnešní zapojení (2026-09-28): 1 USB→jack adaptér → zesilovač → reproduktor v šatně. Kóje bez výstupu = bez reproduktoru.
+    // 9 kanálů později = jen další výstupy (out1–out7, out9) a výběr u dveří. `device: null` sem NEPATŘÍ (přebil by kartu jednotky).
+    mode: 'multi',
+    outputs: { out8: { device: 'auto', mono: true } },
   },
   signal: { brightness: 100, blink_ms: 500, pulse_ms: 1500, transition_s: 0.2 },
   outdoor: BRNO_DEFAULT_OUTDOOR,
@@ -72,7 +75,7 @@ const z = (zone, extra = {}) => ({
 
 export const BRNO_DEFAULT_ZONES = [
   z(1), z(2), z(3), z(4), z(5), z(6), z(7),
-  z(8, { light_until_moto_code: true }),         // šatna: světlo rozsvítí kód šatny, zhasne až kód motorky
+  z(8, { light_until_moto_code: true, audio: { out: 'out8' } }),   // šatna: světlo do kódu motorky; hudba přes out8
 ]
 // rezerva: wav645 coil 9–15 (R10–R16)
 
@@ -82,13 +85,11 @@ export const AUDIO_MODES = [
   { value: 'multi', label: 'multi — každá místnost vlastní zvukový výstup + mpv (hrají současně, venek)' },
 ]
 
-// Vzor 9 výstupů pro Brno (7 kójí, šatna, venek) = KOMENTOVANÝ příklad v brno-9zone.yaml. Není součástí
-// BRNO_DEFAULT_HARDWARE (výchozí režim zůstává selector) — vyplní ho jen tlačítko „Vzor 9 výstupů“ v editoru.
+// Vzor 9 výstupů pro Brno (7 kójí, šatna, venek). Výchozí šablona má jen out8 (šatna) — 9 výstupů vyplní tlačítko
+// „Vzor 9 výstupů“ v editoru; USB porty adaptérů pak zvolte u každého výstupu (jednotka je hlásí sama).
 // Výstup venku (`outdoor.audio.out`) se nastavuje v bloku Venek — BRNO_AUDIO_OUTDOOR_EXAMPLE je jen nápověda.
 export const BRNO_AUDIO_OUTPUTS_EXAMPLE = {
-  out1: { device: 'alsa/plughw:CARD=Box1' }, out2: { device: 'alsa/plughw:CARD=Box2' }, out3: { device: 'alsa/plughw:CARD=Box3' },
-  out4: { device: 'alsa/plughw:CARD=Box4' }, out5: { device: 'alsa/plughw:CARD=Box5' }, out6: { device: 'alsa/plughw:CARD=Box6' },
-  out7: { device: 'alsa/plughw:CARD=Box7' }, out8: { device: 'alsa/plughw:CARD=Satna' }, out9: { device: 'alsa/plughw:CARD=Venek' },
+  ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`out${i + 1}`, { device: i === 7 ? 'auto' : '', mono: true }])),
 }
 export const BRNO_AUDIO_OUTDOOR_EXAMPLE = { out: 'out9' }
 

@@ -12,7 +12,7 @@ import { fetchTracks, uploadTrack, updateTrack, deleteTrack, groupTracks, target
 const HINT = 'Každá kóje, šatna i venek může mít VLASTNÍ hudbu: zadání kódu kóje spustí hudbu té kóje, kód šatny hudbu šatny, venek hraje podle svého '
   + 'režimu (blok „Venek“). Cíl bez vlastních skladeb hraje společnou hudbu. Formát libovolný (mp3, wav, flac, ogg, m4a, aac, wma, aiff…) — nic se nepřekódovává. '
   + 'Aby mohly kóje hrát každá své a současně, musí být v bloku „Řídicí jednotka (Raspberry) — hardware“ → Audio zapnutý režim „multi“ a každá kóje, šatna i venek '
-  + 'musí mít vlastní zvukový výstup (tlačítko „Vzor 9 výstupů“). V režimu „selector“ je jeden zesilovač s přepínacím relé — hraje vždy jen jedna kóje a venek nehraje vůbec.'
+  + 's reproduktorem musí mít vlastní zvukový výstup (dnes „Jen šatna (1 výstup)“, později „Vzor 9 výstupů“). V režimu „selector“ je jeden zesilovač s přepínacím relé — hraje vždy jen jedna kóje a venek nehraje vůbec.'
 
 function BranchMusicBlock(props) {
   return (
@@ -115,6 +115,10 @@ function BranchMusicInner({ branchId, doors, devices, now, onCommand }) {
   const perZoneTargets = groups.filter(g => g.target !== 'all' && g.items.some(t => t.is_active)).length
   const selectorDevice = (Array.isArray(devices) ? devices : []).find(d => audioModeOf(d) === 'selector')
   const selectorWarning = perZoneTargets > 0 && !!selectorDevice
+  // Zóny s reproduktorem (status jednotky: zones[].speaker), kterým po kódu nic nehraje (0 vlastních ani společných skladeb)
+  const unitZones = ((Array.isArray(devices) ? devices : []).find(d => Array.isArray(d?.status?.zones))?.status?.zones) || []
+  const silent = loaded ? unitZones.filter(z => z?.speaker === true && z.door_id && summaryFor(`door:${z.door_id}`, groups).warn)
+    .map(z => targetLabel(`door:${z.door_id}`, doors)) : []
   return (
     <RpiSection title="Hudba pobočky" hint={HINT}
       action={<Btn tone="blue" onClick={() => load()} disabled={busy || uploading}>Obnovit</Btn>}>
@@ -124,8 +128,13 @@ function BranchMusicInner({ branchId, doors, devices, now, onCommand }) {
           <div className="p-2 rounded-card text-[12px]" style={{ background: '#fef3c7', color: '#b45309' }}>
             <b>Vlastní hudba pro jednotlivé kóje zatím nebude hrát.</b> Máte skladby přiřazené konkrétním cílům ({perZoneTargets}),
             ale jednotka běží v režimu „selector“ — jeden zesilovač s přepínacím relé, kde hraje vždy jen jedna kóje a venek nehraje vůbec.
-            Přepněte v bloku „Řídicí jednotka (Raspberry) — hardware“ → Audio režim na „multi“, tlačítkem „Vzor 9 výstupů“ vyplňte výstupy
-            a každé kóji, šatně i venku přiřaďte vlastní zvukový výstup.
+            Přepněte v bloku „Řídicí jednotka (Raspberry) — hardware“ → Audio režim na „multi“ (dnes stačí „Jen šatna (1 výstup)“)
+            a každé zapojené kóji, šatně i venku přiřaďte vlastní zvukový výstup.
+          </div>
+        )}
+        {silent.length > 0 && (
+          <div className="p-2 rounded-card text-[12px]" style={{ background: '#fef3c7', color: '#b45309' }}>
+            <b>{silent.join(', ')}: žádná hudba</b> — po zadání kódu tam nic nehraje. Nahrajte skladby s cílem {silent.length === 1 ? `„${silent[0]}“` : 'dané zóny'} nebo „Všechny“.
           </div>
         )}
         <MusicDropZone doors={doors} target={target} onTarget={setTarget} uploading={uploading} progress={progress} onFiles={handleFiles} />

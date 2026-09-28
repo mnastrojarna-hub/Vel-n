@@ -312,6 +312,13 @@ doběh `music_after_close_s` (10 s).
   Audio = výstup (volitelně + „enable“ relé zesilovače). Změna režimu/výstupů = bezpečná přestavba jednotky (počká,
   až v žádné kóji nikdo není).
 
+**Jednoduché zapojení (2026-09-28, 1 reproduktor v šatně):** Velín → hardware → Audio → **„Jen šatna (1 výstup)“** → Uložit
+→ **„Test výstupu“** (pípnutí 3 s, funguje i bez hudby) → nahrát skladby s cílem Šatna/Všechny → kód šatny = hudba v šatně.
+Zařízení výstupu **Automaticky** = jediná USB zvuková karta, u více adaptérů **USB port** ze seznamu, který jednotka hlásí sama
+(`status.audio.cards`); **Mono** pro reproduktor na jednom kanálu zesilovače. Dveře bez výstupu = **bez reproduktoru** — po kódu
+nehrají a diagnostika to nehlásí jako chybu; rozšíření na 9 kanálů = jen další výstupy ve Velíně (`HARDWARE.md` §4).
+Diagnostika: „Hudba — zapojení“, „Zvukové karty (ALSA)“ (karta nenalezena = červeně), „Přehrávač outN“, „Hudba — Šatna: N skladeb“.
+
 **Synchronizace na jednotce:** seznam skladeb přichází s konfigurací (`kiosk_sync_config.music`, á 60 s); jednotka si
 soubory sama stáhne z bucketu `branch-music` do `/var/lib/motogo/music/tracks/<id>.<ext>` (max 3 najednou, index
 v SQLite kv `music_index`), odebrané smaže, hrající kanál nikdy neutne (nový playlist až po zastavení). Nestažená
@@ -328,7 +335,7 @@ k selhalo“** a tlačítko **„Znovu synchronizovat“** (= `sync_config`, sel
 | `light_on` / `light_off` | `zone` / `door_id` | bílé světlo; `zone` = číslo venku → venkovní světlo ručně (on drží, off zhasne do další relace) |
 | `set_signal` | `zone`, `signal` (`red/green/off/green_pulse/red_blink/both_blink`) | ruční signalizace |
 | `zone_test` | `zone` | test bez zámku: světlo → zelená 1 s → červená → světlo off; audio 3 s; `zone` = venek → světlo 1 s (jen s relé světla) + tón venku 3 s (jen multi), při relaci `busy` |
-| `audio_test` | `zone`, `seconds?` | hudba v zóně na N s |
+| `audio_test` | `zone` \| `out`, `seconds?` | testovací tón (ne hudba) v zóně / na výstupu N s |
 | `all_off` | – | vše vypnout (relé, Shelly, audio), zóny zabezpečit |
 | `identify` | `label?` | „Tady jsem" na displeji + 3× bliknutí zelené |
 | `reload` / `sync_config` | – | stáhnout konfiguraci, cache kódů a seznam hudby (sync knihovny na pozadí; selhané stahování zkusí hned — Velín „Znovu synchronizovat“); zároveň vrátí trvale odmítnuté podpisy protokolů (`protocol_queue` `failed`) do fronty a hned je zkusí odeslat |

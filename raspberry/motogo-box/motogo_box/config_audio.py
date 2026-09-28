@@ -8,7 +8,8 @@ relé kanálu na cívce, kterou už používá zóna (lock/light/audio…) nebo 
 modulu (§12: relé „enable“ nesmí držet zámek pod napětím). `channel_limits` = `config.CHANNEL_LIMITS`
 (předává volající — modul nesmí importovat `config`).
 Nezávazná upozornění mají prefix „Upozornění:" — controller startuje, jen je zaloguje
-(např. kanál venek v režimu selector, zóna bez výstupu v režimu multi).
+(např. kanál venek v režimu selector, žádná zóna s výstupem v režimu multi). Zóna bez výstupu = „bez
+reproduktoru“ (hudba po kódu se v ní nespouští) — není to problém.
 """
 from __future__ import annotations
 
@@ -63,7 +64,7 @@ def validate_audio(hw: Any, channel_limits: dict | None = None) -> list[str]:
             problems.append(f"{WARN} kanál {names} (venek) nelze v režimu selector — nastavte audio.mode: multi.")
         return problems
     if not outputs:
-        problems.append("audio.mode multi: chybí audio.outputs (název → ALSA zařízení dle `aplay -L`).")
+        problems.append("audio.mode multi: chybí audio.outputs (název → zařízení: auto / usb:<port> / ALSA).")
     for name, dev in outputs.items():
         if dev is None:
             problems.append(f"{WARN} audio.outputs.{name}: chybí device — mpv použije výchozí ALSA výstup.")
@@ -72,8 +73,7 @@ def validate_audio(hw: Any, channel_limits: dict | None = None) -> list[str]:
     for z in hw.zones:
         out = z.hw.audio_out
         if not out:
-            problems.append(f"{WARN} Zóna {z.number}: nemá audio výstup (audio.out) — v režimu multi v ní hudba nehraje.")
-            continue
+            continue                   # zóna bez reproduktoru (např. kóje, hraje jen šatna) — po kódu nehraje, není chyba
         if out not in outputs:
             problems.append(f"Zóna {z.number}: audio výstup '{out}' není v audio.outputs.")
             continue
@@ -81,6 +81,8 @@ def validate_audio(hw: Any, channel_limits: dict | None = None) -> list[str]:
             problems.append(f"Zóna {z.number}: audio výstup '{out}' už používá {used[out]}.")
             continue
         used[out] = f"zóna {z.number}"
+    if hw.zones and not any(z.hw.audio_out for z in hw.zones):
+        problems.append(f"{WARN} audio.mode multi: žádná zóna nemá audio výstup (audio.out) — po kódu nehraje nikde.")
     for name, ch in channels.items():
         out = ch.get("out")
         if not out:

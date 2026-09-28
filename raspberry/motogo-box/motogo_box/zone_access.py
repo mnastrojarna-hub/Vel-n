@@ -69,6 +69,37 @@ async def release_lock(zc: "ZoneController", why: str) -> None:
         log.warning("Zóna %s: vypnutí drženého zámku (%s) nepotvrzeno — vypne HW časovač modulu", zc.number, why)
 
 
+MUSIC_WAIT_S = 1.5     # na start hudby se před pulzem zámku čeká nejdéle takto dlouho (zbytek doběhne na pozadí)
+
+
+def has_speaker(zc: "ZoneController") -> bool:
+    """Má zóna reproduktor (multi: výstup `hw.audio.out`, selector: audio relé)? Starší engine/fake = ano."""
+    fn = getattr(zc.audio, "has_output", None)
+    return bool(fn(zc.number)) if fn is not None else True
+
+
+async def start_music(zc: "ZoneController", detail: dict) -> None:
+    """Hudba po otevření: jen zapnutá (`music_enabled`) a jen zóna s reproduktorem — zóna bez výstupu
+    nehraje nikde jinde a není to chyba (`no_speaker`). Pulz zámku na hudbu nečeká déle než MUSIC_WAIT_S
+    (restart mpv / pomalá USB karta nesmí zdržet otevření); hudba pak doběhne na pozadí."""
+    detail["music"] = False
+    if not zc.music_enabled:
+        detail["music_disabled"] = True
+        return
+    if not has_speaker(zc):
+        detail["no_speaker"] = True
+        return
+    task = asyncio.ensure_future(zc.audio.play_zone(zc.number))
+    try:
+        detail["music"] = bool(await asyncio.wait_for(asyncio.shield(task), MUSIC_WAIT_S))
+    except asyncio.TimeoutError:
+        detail["music"], detail["music_pending"] = True, True
+        task.add_done_callback(lambda t: t.cancelled() or t.exception())   # výjimku nenechat „neodebranou“
+        log.warning("Zóna %s: hudba startuje pomalu — otevírám bez čekání", zc.number)
+    except Exception:  # noqa: BLE001
+        log.exception("Zóna %s: spuštění hudby selhalo", zc.number)
+
+
 async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, source: str) -> tuple[bool, str]:
     """Kroky 6–12 §9 po ověřených podmínkách: světlo, zelená, hudba, HW pulz zámku, událost, WAITING_FOR_OPEN."""
     zc.reset_session()                      # ukončí doběh předchozí relace (CLOSED_CONFIRMATION)
@@ -82,15 +113,7 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
     # Hudba se po zadání kódu spustí, JEN pokud je zapnutá (hlavní vypínač pobočky `audio.music_enabled`
     # nebo přepis této zóny `hw.music_enabled` — zadání uživatele 2026-09-14). Vypnutá hudba nijak
     # neovlivňuje otevření dveří; ruční „Hudba ▶“ z Velína funguje dál (servisní zkouška).
-    if zc.music_enabled:
-        try:
-            detail["music"] = bool(await zc.audio.play_zone(zc.number))
-        except Exception:  # noqa: BLE001
-            log.exception("Zóna %s: spuštění hudby selhalo", zc.number)
-            detail["music"] = False
-    else:
-        detail["music"] = False
-        detail["music_disabled"] = True
+    await start_music(zc, detail)
     # Znovu po pomalých krocích: dveře mezitím otevřené (bez odjištění) nebo modul offline → bez pulzu.
     reason = "door_open" if zc.door_closed is not True else ("io_offline" if not zc.io_ready() else "")
     ok = False

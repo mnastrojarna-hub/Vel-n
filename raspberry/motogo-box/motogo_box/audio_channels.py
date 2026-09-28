@@ -15,6 +15,8 @@ import asyncio
 import logging
 from typing import Any
 
+from .audio_devices import ensure_tone
+
 log = logging.getLogger("motogo.audio")
 
 
@@ -37,6 +39,49 @@ class SelectorChannelStubs:
 
     async def test_channel(self, name: str, seconds: int = 3) -> bool:
         return False
+
+    async def test_output(self, out: str, seconds: int = 3) -> bool:
+        """Test výstupu (Velín „Test výstupu“): selector má jediný výstup `mpv` → tón v první zóně s relé."""
+        zones = sorted(self.selector._refs)
+        if str(out) != "mpv" or not zones:
+            return False
+        return await self.test_tone(zones[0], seconds)
+
+    async def test_tone(self, zone: int, seconds: int = 5) -> bool:
+        """Servisní test reproduktoru zóny GENEROVANÝM TÓNEM (funguje i bez nahrané hudby).
+        Zákaznickou hudbu nepřeruší (vrátí False); `play_zone` tón naopak přebije a test ji pak nevypne."""
+        tone = ensure_tone()
+        async with self._lock:
+            if self.playing_zone is not None and not self._tone:
+                log.info("Audio test zóny %s: reproduktor používá zóna %s", zone, self.playing_zone)
+                return False
+            ensure = getattr(self.player, "ensure_running", None)
+            if ensure is not None and not self.player.alive:
+                await ensure(self.cfg.shuffle)
+            if tone is None or not self.player.alive:
+                log.warning("Audio test zóny %s: přehrávač neběží", zone)
+                return False
+            await self._cancel_fade()
+            await self.player.set_volume(0)
+            await self.player.pause()
+            await self.player.load_files([tone], False)
+            self._loaded_target = None                 # po testu se playlist zóny načte znovu
+            if not await self.selector.select(zone):
+                self.playing_zone = None
+                return False
+            await self.player.play()
+            await self.player.set_volume(self.cfg.volume)
+            self.playing_zone, self._tone = zone, True
+            self._generation += 1
+            gen = self._generation
+        try:
+            await asyncio.sleep(max(0, int(seconds)))
+        finally:
+            # i při zrušení (timeout diagnostiky) tón nesmí hrát dál — zastavit jen svůj tón
+            async with self._lock:
+                if self._tone and self._generation == gen:
+                    await self._stop_locked(fade=False)
+        return True
 
 
 class MultiChannelOps:
@@ -76,26 +121,66 @@ class MultiChannelOps:
             return False
         return await self._test_key(name, seconds)
 
-    async def _test_key(self, key: Any, seconds: int) -> bool:
-        """Společný test zóny (`test_tone`) i kanálu: přehraje a zastaví JEN svoji hudbu —
-        pokud výstup mezitím převzala relace (`generation`), zákazníkovi hudba nezmizí."""
-        ch = self._ch(key)
-        files = self._files_for(self._target_of(key))
-        count: Any = 0
-        if ch is not None:
-            count = len(files) if files is not None else getattr(ch.player, "playlist_count", None)
-        if ch is None or not ch.player.alive or (count is not None and int(count or 0) <= 0):
-            log.warning("Audio test %s: výstup chybí, mpv neběží nebo je playlist prázdný (%s)", key, count)
+    def has_output(self, zone: int) -> bool:
+        """Má zóna reproduktor (výstup `hw.audio.out`)? Bez něj se po kódu hudba nespouští (není to chyba)."""
+        return int(zone) in self.zone_out
+
+    def output_busy(self, zone: int) -> bool:
+        """Výstup zóny právě hraje zákaznickou hudbu (tón testu se nepočítá)."""
+        ch = self._ch(int(zone))
+        return ch is not None and ch.playing is not None and not ch.tone
+
+    async def test_output(self, out: str, seconds: int = 3) -> bool:
+        """Test výstupu (Velín „Test výstupu“) tónem — i výstup, který zatím nemá žádnou zónu."""
+        ch = self.channels.get(str(out))
+        if ch is None:
+            log.warning("Test výstupu %s: výstup není v audio.outputs", out)
             return False
-        ok = await self._play(key)
-        if ok:
+        pairs = list(self.zone_out.items()) + list(self.channel_out.items())
+        key = next((k for k, o in pairs if o == ch.out), None)
+        return await self._tone(ch, key, seconds)
+
+    async def _test_key(self, key: Any, seconds: int) -> bool:
+        """Test zóny (`test_tone`) i kanálu (`test_channel`) tónem jen na jejich výstupu."""
+        ch = self._ch(key)
+        if ch is None:
+            log.warning("Audio test %s: výstup chybí", key)
+            return False
+        return await self._tone(ch, key, seconds)
+
+    async def _tone(self, ch: Any, key: Any, seconds: int) -> bool:
+        """Generovaný tón `seconds` s (funguje i bez nahrané hudby). Zákaznickou hudbu nepřeruší (False);
+        `_play` tón naopak přebije (`ch.tone`) a test pak cizí hudbu nevypne (`generation`)."""
+        tone = ensure_tone()
+        async with ch.lock:
+            if ch.playing is not None and not ch.tone:
+                log.info("Audio test %s: výstup %s právě hraje %s", key, ch.out, ch.playing)
+                return False
+            await self._cancel_fade(ch)
+            ensure = getattr(ch.player, "ensure_running", None)
+            if ensure is not None and not ch.player.alive:
+                await ensure(self.cfg.shuffle)
+            if tone is None or not ch.player.alive:
+                log.warning("Audio test %s: přehrávač výstupu %s neběží", key, ch.out)
+                return False
+            await ch.player.set_volume(0)
+            await ch.player.pause()
+            await ch.player.load_files([tone], False)
+            ch.dirty = True                           # po testu se playlist cíle načte znovu
+            if key is not None:
+                await self._relay(key, True)
+            await ch.player.play()
+            await ch.player.set_volume(self.cfg.volume)
+            ch.playing, ch.tone, ch.off_at = key, True, None
+            ch.generation += 1
             gen = ch.generation
-            try:
-                await asyncio.sleep(max(0, int(seconds)))
-            finally:
-                if ch.playing == key and ch.generation == gen:
-                    await self._stop(key, fade=True)
-        return ok
+        try:
+            await asyncio.sleep(max(0, int(seconds)))
+        finally:
+            async with ch.lock:
+                if ch.tone and ch.generation == gen:
+                    await self._stop_locked(ch, fade=False)
+        return True
 
 
 __all__ = ["SelectorChannelStubs", "MultiChannelOps"]

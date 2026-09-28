@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from . import diag_audio
 from .health import run_cmd
 from .mpv_player import MUSIC_EXTENSIONS
 from .zone import ACTIVE_STATES
@@ -141,7 +142,8 @@ async def software(diag: "NetworkDiagnostics", report: dict) -> dict:
         "audio": {"player_ok": bool(audio and getattr(audio, "player_ok", False)),
                   "playlist_count": int(ast.get("playlist_count", getattr(player, "playlist_count", 0)) or 0),
                   "device": ast.get("device", getattr(player, "device", None)), "music_files": music_files,
-                  "mode": ast.get("mode"), "players": ast.get("players"), "library": ast.get("library")},
+                  "mode": ast.get("mode"), "players": ast.get("players"), "library": ast.get("library"),
+                  **(_try(lambda: diag_audio.collect(ctrl, ast)) or {})},
         "realtime": {"connected": getattr(realtime, "connected", None)},
         "api": {"online": getattr(ctrl.api, "online", None), "paired": bool(getattr(ctrl.api, "paired", False))},
         "outbox_pending": _try(storage.outbox_count), "events_total": _try(storage.events_count),
@@ -466,7 +468,8 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
         skipped = "timeout"                # test by se do limitu běhu nevešel — raději vůbec nespínat
     else:
         aud = getattr(ctrl, "audio", None)
-        speaker_busy = getattr(aud, "playing_zone", None) is not None
+        busy_fn = getattr(aud, "output_busy", None)
+        speaker_busy = bool(busy_fn(zc.number)) if busy_fn is not None else getattr(aud, "playing_zone", None) is not None
         res = await _hw_test(zc)
         if res is None:
             skipped = "timeout"
@@ -476,7 +479,7 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
             skipped = "session_active"
         else:
             tested, light, signal = True, bool(res.get("light")), bool(res.get("signal"))
-            audio = None if speaker_busy else bool(res.get("audio"))
+            audio = None if speaker_busy or res.get("audio") is None else bool(res.get("audio"))   # None = bez reproduktoru
             if not light:
                 what = f"relé {hw.light.dev} R{hw.light.idx + 1} nepotvrdilo sepnutí" if hw.light else "není nastaveno v HW mapě"
                 add("light", "fail", f"světlo: {what}", dev=hw.light.dev if hw.light else None, ch=hw.light.idx + 1 if hw.light else None)
@@ -484,7 +487,8 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
                 devs = ", ".join(sorted({r.dev for r in (hw.red, hw.green) if r is not None})) or "?"
                 add("signal", "fail", f"signalizace: Shelly {devs} offline")
             if audio is False:
-                sel = f"selektor {hw.audio.dev} R{hw.audio.idx + 1}" if hw.audio else "bez audio selektoru"
+                sel = (f"výstup {hw.audio_out}" if getattr(aud, "mode", "") == "multi"
+                       else f"selektor {hw.audio.dev} R{hw.audio.idx + 1}" if hw.audio else "bez audio selektoru")
                 player = "běží" if getattr(aud, "player_ok", False) else "neběží"
                 add("audio", "fail", f"audio: tón se nepřehrál (mpv {player}, {sel})")
     shelly = await _shelly_state(ctrl, zc, add)
@@ -495,6 +499,7 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
             "contact_input": None if raw is None else int(bool(raw)), "closed_level": int(_closed_level(ctrl, zc)) if hw.contact is not None else None,
             "contact_ref": f"{hw.contact.dev} DI{hw.contact.idx + 1}" if hw.contact is not None else None,
             **activity,       # contact_changes, contact_last_change_s, unlocks_since_start, contact_inputs, contact_same_as_unused (2026-09-27)
+            "speaker": _try(lambda: bool(getattr(ctrl.audio, "has_output", lambda n: True)(zc.number)), True),
             "tested": tested, "skipped_reason": skipped, "light": light, "signal": signal, "audio": audio,
             "shelly": shelly, "findings": findings, "problems": [f["message"] for f in findings]}
 

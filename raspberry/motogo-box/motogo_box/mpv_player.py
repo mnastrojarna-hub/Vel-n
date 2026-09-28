@@ -30,8 +30,9 @@ class MpvPlayer:
     """Řídí jeden proces mpv (idle, bez videa, playlist ve smyčce)."""
 
     def __init__(self, socket_path: str, music_dir: str, device: str | None = None,
-                 name: str = "mpv") -> None:
+                 name: str = "mpv", mono: bool = False) -> None:
         self.socket_path = socket_path
+        self.mono = bool(mono)          # --audio-channels=mono: 1 reproduktor na jednom kanálu zesilovače hraje vše
         self.music_dir = music_dir
         self.device = device
         self.name = name                # jméno výstupu pro log (multi: out1…; selector: mpv)
@@ -63,6 +64,8 @@ class MpvPlayer:
                 f"--input-ipc-server={self.socket_path}", "--volume=0", "--loop-playlist=inf"]
         if self.device:
             args.append(f"--audio-device={self.device}")
+        if self.mono:
+            args.append("--audio-channels=mono")
         return args
 
     # ─── životní cyklus ─────────────────────────────────────────────────────

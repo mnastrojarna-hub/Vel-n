@@ -343,7 +343,8 @@ function TabSelfService({ branchId, branchName, motos }) {
             <AuditBlock events={events} doors={doors} devices={devices} />
             <DevicesBlock devices={devices} now={now} busy={busy} onAdd={addDevice} onSave={saveDevice} onDelete={deleteDevice} />
             <DoorsBlock doors={doors} onEnsure={ensureDoors} onSave={saveDoor} onDelete={deleteDoor} busy={busy} />
-            <RpiHardwareBlock cfg={cfg} doors={doors} busy={busy} onSaveCfg={saveCfg} onSaveDoor={saveDoor} onCreateDoor={createDoor} onRefresh={load} />
+            <RpiHardwareBlock cfg={cfg} doors={doors} busy={busy} onSaveCfg={saveCfg} onSaveDoor={saveDoor} onCreateDoor={createDoor} onRefresh={load}
+              audioStatus={devices.find(isRpiDevice)?.status?.audio} onRemote={remote} />
             <ServiceCodesBlock codes={codes} onAdd={addCode} onToggle={toggleCode} onDelete={deleteCode} busy={busy} />
             {!camerasConfigured && (
               <CamerasBlock cameras={cameras} onlineDevice={onlineDevice} busy={busy} servis

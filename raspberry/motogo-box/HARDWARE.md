@@ -103,6 +103,22 @@ Z RGBW pásku je zapojeno jen **R = červená** a **G = zelená**; B a W nezapoj
 
 ## 4. Audio (SPEC §8)
 
+**Dnešní zapojení (2026-09-28) — 1 kanál, hraje jen šatna:** Raspberry Pi 5 → USB → USB→3,5mm jack adaptér → jack →
+zesilovač HW-304 / TPA3116D2 (12 V DC) → reproduktor na JEDNOM výstupním kanálu. Velín → Pobočky → Samoobsluha →
+Nastavení a servis → hardware → Audio → **„Jen šatna (1 výstup)“** → Uložit = režim `multi`, výstup `out8` s kartou
+**Automaticky** (jediná USB zvuková karta — jednotka ji najde sama, bez terminálu a udev) a **Mono** (reproduktor na jednom
+kanálu hraje celý mix); šatna `audio.out = out8`, kóje 1–7 „bez reproduktoru“ (po kódu nehrají, diagnostika je nehlásí jako chybu).
+Pak **„Test výstupu“** (3 s pípání z reproduktoru — i bez nahrané hudby) a hudba s cílem Šatna nebo Všechny. Kód šatny →
+dveře šatny se otevřou a hudba hraje JEN v šatně (start hudby nezdrží pulz zámku — max. 1,5 s, pak doběhne na pozadí).
+Doporučení: **izolátor zemní smyčky** na jack (brum/šum ze společné země Pi a 12V zdroje), hlasitost držet ve Velíně
+(`audio.volume`) a zisk zesilovače nastavit tak, aby při 100 % neskresloval. Adaptér vytažen/přepojen → do 30 s ho jednotka
+znovu najde a přestaví jen audio (diagnostika „Zvukové karty (ALSA)“ ukáže kartu i USB port).
+
+**Budoucích 9 kanálů = jen data ve Velíně:** každý další reproduktor = vlastní USB adaptér (přes **napájený USB hub**, porty
+označit štítky) + zesilovač; ve Velíně „Přidat výstup“ (nebo „Vzor 9 výstupů“), u výstupu zvolit **USB port** ze seznamu karet
+(`usb:1-1.2` — stálé i pro 9 stejných adaptérů, index karty se po restartu mění, port ne) a u dveří vybrat výstup.
+Udev pravidla níže (`CARD=Box1`) už nejsou potřeba — fungují dál pro starší mapy.
+
 **Režim `selector` (výchozí, HW mapa `audio.mode`):**
 Raspberry USB → AXAGON USB zvuková karta → oddělovací člen → TPA3116D2 (**jen jeden kanál, mono**)
 → SPK− všech reproduktorů spojen na výstup zesilovače, **SPK+ přes 9 samostatných NO relé** (tabulka
