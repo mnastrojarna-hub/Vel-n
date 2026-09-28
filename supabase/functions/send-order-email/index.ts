@@ -1,58 +1,39 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
-
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
-const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
-const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
-const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
-const IG_URL = 'https://www.instagram.com/moto.go24/'
-
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { requireAdminOrService, forbidden } from '../_shared/auth.ts';
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || '';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz';
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz';
+const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839';
+const IG_URL = 'https://www.instagram.com/moto.go24/';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-function json(body: Record<string, unknown>, status = 200) {
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
+function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
-  })
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json'
+    }
+  });
 }
-
-interface OrderItem {
-  name: string
-  sku?: string
-  quantity: number
-  unit_price?: number
-}
-
-interface OrderEmailRequest {
-  supplier_email: string
-  supplier_name: string
-  items: OrderItem[]
-  notes?: string
-  order_id?: string
-  order_number?: string
-}
-
-function buildOrderHtml(req: OrderEmailRequest): string {
-  const itemRows = req.items.map(it => {
-    const total = (it.quantity || 0) * (it.unit_price || 0)
+function buildOrderHtml(req) {
+  const itemRows = req.items.map((it)=>{
+    const total = (it.quantity || 0) * (it.unit_price || 0);
     return `<tr>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${it.name}${it.sku ? ` <span style="color:#6b7280">(${it.sku})</span>` : ''}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center">${it.quantity}</td>
       ${it.unit_price ? `<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right">${Number(it.unit_price).toLocaleString('cs-CZ')} Kč</td>` : ''}
       ${it.unit_price ? `<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:bold">${total.toLocaleString('cs-CZ')} Kč</td>` : ''}
-    </tr>`
-  }).join('')
-
-  const grandTotal = req.items.reduce((s, it) => s + (it.quantity || 0) * (it.unit_price || 0), 0)
-  const hasPrice = req.items.some(it => it.unit_price)
-
+    </tr>`;
+  }).join('');
+  const grandTotal = req.items.reduce((s, it)=>s + (it.quantity || 0) * (it.unit_price || 0), 0);
+  const hasPrice = req.items.some((it)=>it.unit_price);
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased">
   <div style="max-width:780px;margin:0 auto;background:#ffffff">
@@ -103,80 +84,88 @@ function buildOrderHtml(req: OrderEmailRequest): string {
       </div>
     </div>
   </div>
-</body></html>`
+</body></html>`;
 }
-
-async function sendWithRetry(payload: Record<string, unknown>, retries = 3): Promise<Response> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
+async function sendWithRetry(payload, retries = 3) {
+  for(let attempt = 1; attempt <= retries; attempt++){
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (res.ok) return res
-    if (attempt < retries) await new Promise(r => setTimeout(r, attempt * 2000))
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) return res;
+    if (attempt < retries) await new Promise((r)=>setTimeout(r, attempt * 2000));
   }
-  throw new Error('Resend: all retries failed')
+  throw new Error('Resend: all retries failed');
 }
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
-
+serve(async (req)=>{
+  if (req.method === 'OPTIONS') return new Response(null, {
+    headers: CORS
+  });
   // Bezpečnostní gate: objednávkové maily dodavatelům jen service_role nebo admin.
-  const auth = await requireAdminOrService(req)
-  if (!auth.ok) return forbidden(CORS, auth.reason)
-
+  const auth = await requireAdminOrService(req);
+  if (!auth.ok) return forbidden(CORS, auth.reason);
   try {
-    const body: OrderEmailRequest = await req.json()
-    const { supplier_email, supplier_name, items, notes, order_id, order_number } = body
-
+    const body = await req.json();
+    const { supplier_email, supplier_name, items, notes, order_id, order_number } = body;
     if (!supplier_email || !items?.length) {
-      return json({ error: 'Missing supplier_email or items' }, 400)
+      return json({
+        error: 'Missing supplier_email or items'
+      }, 400);
     }
-
-    const html = buildOrderHtml(body)
-    const subject = `Objednávka${order_number ? ` ${order_number}` : ''} — MotoGo24`
-
+    const html = buildOrderHtml(body);
+    const subject = `Objednávka${order_number ? ` ${order_number}` : ''} — MotoGo24`;
     await sendWithRetry({
       from: FROM_EMAIL,
-      to: [supplier_email],
+      to: [
+        supplier_email
+      ],
       subject,
-      html,
-    })
-
+      html
+    });
     // Log to DB
-    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
+    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     // Update purchase order status to 'sent' if order_id provided
     if (order_id) {
       await sb.from('purchase_orders').update({
         status: 'sent',
-        sent_at: new Date().toISOString(),
-      }).eq('id', order_id)
+        sent_at: new Date().toISOString()
+      }).eq('id', order_id);
     }
-
     // Log the sent email
     await sb.from('debug_log').insert({
       source: 'send-order-email',
       action: 'order_email_sent',
       component: 'edge_function',
       status: 'ok',
-      request_data: { supplier_email, supplier_name, order_number, item_count: items.length },
-    })
-
-    return json({ success: true, message: `Order email sent to ${supplier_email}` })
+      request_data: {
+        supplier_email,
+        supplier_name,
+        order_number,
+        item_count: items.length
+      }
+    });
+    return json({
+      success: true,
+      message: `Order email sent to ${supplier_email}`
+    });
   } catch (e) {
     // Log failure
     try {
-      const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+      const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
       await sb.from('debug_log').insert({
         source: 'send-order-email',
         action: 'order_email_failed',
         component: 'edge_function',
         status: 'error',
-        error_message: e.message,
-      })
-    } catch {}
-    return json({ error: e.message }, 500)
+        error_message: e.message
+      });
+    } catch  {}
+    return json({
+      error: e.message
+    }, 500);
   }
-})
+});
