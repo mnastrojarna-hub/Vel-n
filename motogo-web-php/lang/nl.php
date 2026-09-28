@@ -1390,6 +1390,9 @@ return [
     // ===== Doplněné překlady — rezervační formulář, úprava rezervace, potvrzení (complete-czech-translation) =====
     'menu.logout' => 'Uitloggen',
     'rez.pickup.gps' => 'Mijn locatie',
+    // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
+    'rez.pickup.selfServiceNoDelivery' => 'Nog niet beschikbaar bij zelfbedieningsvestigingen',
+    'rez.pickup.selfServiceNoDeliveryText' => 'Motoren van een zelfbedieningsvestiging worden uitsluitend bij de vestiging opgehaald en teruggebracht — dag en nacht (24/7) met de code die u na betaling ontvangt. Bezorging op een adres of ophalen op een adres bieden we hiervoor nog niet aan; deze service schakelen we in de toekomst in.',
     'rez.geo.failed' => 'Locatie kon niet worden bepaald.',
     'rez.geo.denied' => 'Om je locatie te bepalen, moet je locatietoegang toestaan.',
     'rez.geo.unavailable' => 'Locatie is momenteel niet beschikbaar. Probeer het opnieuw of voer het adres handmatig in.',

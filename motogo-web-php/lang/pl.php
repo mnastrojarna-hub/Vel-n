@@ -1390,6 +1390,9 @@ return [
     // ===== Doplněné překlady — rezervační formulář, úprava rezervace, potvrzení (complete-czech-translation) =====
     'menu.logout' => 'Wyloguj',
     'rez.pickup.gps' => 'Moja lokalizacja',
+    // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
+    'rez.pickup.selfServiceNoDelivery' => 'W oddziałach samoobsługowych jeszcze niedostępne',
+    'rez.pickup.selfServiceNoDeliveryText' => 'Motocykle z oddziału samoobsługowego odbiera się i zwraca wyłącznie w oddziale — całodobowo (24/7) za pomocą kodu, który otrzymasz po opłaceniu. Dostawy pod adres ani odbioru spod adresu na razie dla nich nie oferujemy; w przyszłości tę usługę włączymy.',
     'rez.geo.failed' => 'Nie udało się ustalić lokalizacji.',
     'rez.geo.denied' => 'Aby ustalić lokalizację, musisz zezwolić na dostęp do lokalizacji.',
     'rez.geo.unavailable' => 'Lokalizacja jest obecnie niedostępna. Spróbuj ponownie lub wpisz adres ręcznie.',

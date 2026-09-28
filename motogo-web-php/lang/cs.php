@@ -403,6 +403,9 @@ return [
     'rez.pickup.returnAddr' => 'Zadejte adresu vrácení',
     'rez.pickup.map' => 'Mapa',
     'rez.pickup.gps' => 'Moje poloha',
+    // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
+    'rez.pickup.selfServiceNoDelivery' => 'Na samoobslužné pobočce zatím není k dispozici',
+    'rez.pickup.selfServiceNoDeliveryText' => 'Motorky ze samoobslužné pobočky se přebírají i vracejí pouze na pobočce — nonstop (24/7) pomocí kódu, který dostanete po zaplacení. Přistavení na adresu ani odvoz z adresy u nich zatím nenabízíme; v budoucnu tuto službu zapneme.',
     // Geolokace + výpočet trasy přistavení/vrácení + mapový picker (pages-rezervace-pricing.js)
     'rez.geo.failed' => 'Polohu se nepodařilo zjistit.',
     'rez.geo.denied' => 'Pro určení polohy musíte aplikaci povolit přístup k poloze.',
