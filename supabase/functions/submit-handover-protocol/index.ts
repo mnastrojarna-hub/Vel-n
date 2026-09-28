@@ -22,7 +22,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { authClassify } from '../_shared/auth.ts'
-import { buildHtml, motoEquipmentChecked, normalizeMotoEquipment, type Signer, type Vars } from './html.ts'
+import { buildHtml, normalizeMotoEquipment, type Signer, type Vars } from './html.ts'
 import { bookingGearItems, normalizeAccessories, resolveSizeUpdates } from './gear.ts'
 import {
   CORS, fail, fmtDate, json, parseSignedAt, pragueDay, removeDocument, SIG_MAX_APP, SIG_MAX_KIOSK, SIG_RE,
@@ -124,23 +124,18 @@ serve(async (req) => {
     // ── Formulář (kiosk: chybějící části doplní edge) ──────────────────────
     const form: Record<string, unknown> = body.form && typeof body.form === 'object' ? { ...(body.form as Record<string, unknown>) } : {}
     let accessories = normalizeAccessories(form.accessories, mode === 'kiosk')
-    // Výbava motorky (2026-09-28): kiosk ji posílá vždy (předem zaškrtnutá, zákazník
-    // odškrtne chybějící); starší build jednotky bez pole → vše předáno. Appka pole
-    // neposílá → sekce v dokumentu není.
+    // Výbava motorky (2026-09-28): kiosk i appka (zrcadlo kiosku) ji posílají
+    // (předem zaškrtnutá, zákazník odškrtne chybějící); starší build JEDNOTKY bez
+    // pole → vše předáno, starší build APPKY bez pole → sekce v dokumentu není.
+    // Při poslané skupině html.ts vynechá kotoučový zámek a reflexní prvky ze
+    // „Doplňkového vybavení" (jsou ve skupině — dokument se nezdvojí ani neodporuje).
     const motoEquipment = normalizeMotoEquipment(form.moto_equipment, mode === 'kiosk' ? true : null)
     if (motoEquipment) form.moto_equipment = motoEquipment
     else delete form.moto_equipment
     if (mode === 'kiosk') {
       if (!Array.isArray(form.accessories)) accessories = bookingGearItems(booking)
       form.mileage = String(form.mileage ?? moto.mileage ?? '')
-      form.checks = {
-        clean: true, docs: true, keys: true, instructed: true, gear: accessories.length > 0,
-        // „Doplňkové vybavení" nesmí v dokumentu odporovat skupině výbavy motorky
-        // (kotoučový zámek, reflexní prvky = vesty) — klientem poslané checks mají přednost.
-        disc_lock: motoEquipmentChecked(motoEquipment, 'disc_lock'),
-        reflective: motoEquipmentChecked(motoEquipment, 'reflective_vest'),
-        ...((form.checks && typeof form.checks === 'object') ? form.checks as Record<string, unknown> : {}),
-      }
+      form.checks = { clean: true, docs: true, keys: true, instructed: true, gear: accessories.length > 0, ...((form.checks && typeof form.checks === 'object') ? form.checks as Record<string, unknown> : {}) }
       if (!form.damage || typeof form.damage !== 'object') form.damage = { checked: false, desc: '' }
       if (typeof form.notes !== 'string') form.notes = ''
     }

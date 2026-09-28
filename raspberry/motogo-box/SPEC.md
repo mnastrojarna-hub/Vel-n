@@ -345,10 +345,12 @@ podpisu pokračují kroky 3–12 samy (kóje se otevře bez dalšího zadáván�
 
 **Šatna (zóna `kind: accessories`) — vedený tok šatna → protokol → motorka (rozhodnutí 2026-09-25):** kód šatny dostane jen
 rezervace, která má v šatně co vyzvednout (půjčená výbava řidiče, boty nebo výbava spolujezdce — rozhoduje DB `_booking_needs_locker`,
-§10); čistě vlastní výbava = žádný kód šatny, šatna nejde otevřít. Po otevření šatny displej vede NEmodálně — pruh nad polem kódu
-(klávesnice zůstává aktivní, ostatní zákazníci zadávají dál): „Šatna: vezměte si výbavu a zavřete dveře — protokol se zobrazí po
-zavření.“ Pruh se odvozuje ŽIVĚ ze stavu zóny (`DOOR_OPEN` + `booking_id`), ne z uložené fáze (restart jednotky ho tedy nikdy
-nenechá viset). Přechod DOOR_OPEN → CLOSED_CONFIRMATION se `booking_id` (událost `DOOR_CLOSED`): protokol nepodepsán → modální
+§10); čistě vlastní výbava = žádný kód šatny, šatna nejde otevřít. Po otevření šatny displej vede MODÁLNĚ (rozhodnutí 2026-09-28,
+§13 bod 7; dřív nemodální pruh) — hláška přes celý displej, dokud se dveře šatny nezavřou: „Šatna: vezměte si výbavu a zavřete
+dveře — protokol se zobrazí po zavření.“ Hláška se odvozuje ŽIVĚ ze stavu zóny (`DOOR_OPEN` + `booking_id`), ne z uložené fáze
+(restart jednotky ji tedy nikdy nenechá viset). Přechod DOOR_OPEN → CLOSED_CONFIRMATION se `booking_id` (událost `DOOR_CLOSED`)
+zároveň zakládá **zámek přejímky** (§13 bod 7b): kiosk přijímá jen kódy téže rezervace, dokud se neotevře její kóje motorky
+(ostatní: „Nejprve musí být dokončena předchozí přejímka“; vyprší po `handover_lock_s` bez aktivity). Protokol nepodepsán → modální
 overlay PROTOCOL přes celý displej (hlavička: jméno zkráceně, motorka, období; výbava řidič/spolujezdec s velikostmi — chipy z
 číselníku, upravitelné; podpis prstem; „Potvrdit a podepsat“ + pole „Kód motorky“ = identita podepisujícího, bez správného kódu
 motorky téže rezervace nejde podepsat); podepsán dřív v appce → jen hláška „Teď zadejte kód motorky.“ (5 s). Overlay zmizí bez
@@ -510,9 +512,25 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
    mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta — předem zaškrtnutou, s poznámkou, že leží v motorce
    (v kufru nebo v tankvaku); zákazník odškrtne, co chybí. Zobrazuje se i u zákazníka s vlastní výbavou (šatna → protokol → motorka
    i kód motorky → protokol). Do dokumentu jde sekce „Výbava motorky“ (`form.moto_equipment[]`, edge `submit-handover-protocol`).
-6. **(2026-09-28) „Vydáno“ až po kódu A podpisu:** na samoobslužné (i obslužné) pobočce se rezervace neaktivuje (`picked_up_at`,
-   `status=active`, „Vydáno“ v appce i Velíně) platbou v den začátku ani cronem — jen otevřením kóje motorky kódem po podepsaném
-   protokolu (strážce `trg_gate_obsluzna_activation` rozšířen i na samoobsluhu, SQL `20260928b_selfservice_activation_gate.sql`).
+6. **(2026-09-28) „Vydáno“ až po kódu A podpisu:** appka i Velín ukazují „Vydáno“ na pobočce (samoobslužná i obslužná) jen
+   s podepsaným protokolem (čas = pozdější z převzetí a podpisu); Velín na samoobsluze odbaví odjezd až po podpisu zákazníkem.
+   DB strana — rezervace se na samoobsluze neaktivuje platbou v den začátku ani cronem, jen otevřením kóje motorky kódem po
+   podepsaném protokolu (strážce `trg_gate_obsluzna_activation` rozšířen i na samoobsluhu mimo svoz/SOS) — je SQL
+   `20260928b_selfservice_activation_gate.sql`: NAVRŽENO, čeká na aplikaci a ověření (do té doby DB aktivuje jako dřív).
+7. **(2026-09-28) Hláška šatny modálně + zámek přejímky:** (a) po otevření šatny kódem zákazníka je hláška „Šatna: vezměte si
+   výbavu a zavřete dveře — předávací protokol se zobrazí po zavření dveří“ MODÁLNÍ přes celý displej (světlá karta jako protokol,
+   nejde zavřít dotykem ani klávesou, jazyk jde přepnout lištou v kartě) a zmizí až se zavřením dveří šatny (stav zóny
+   DOOR_OPEN → CLOSED_CONFIRMATION); servisní otevření šatny hlášku nemá. (b) Po zavření šatny přijímá kiosk JEN kódy téže
+   rezervace (kód motorky, případně znovu kód šatny), dokud se neotevře její kóje motorky: zákazník, který právě zavřel šatnu,
+   podepíše protokol a zadá kód své motorky; platný kód KOHOKOLI jiného kiosk odmítne s hláškou „Nejprve musí být dokončena
+   předchozí přejímka — zákazník, který právě zavřel šatnu, zadá kód své motorky. Pak přijdete na řadu.“ (bez lockoutu; nad
+   polem kódu svítí pruh 🔒 „Probíhá přejímka…“). Cíl: nikdo se nehromadí v šatně, každý podepíše a jde jeden po druhém. Zámek
+   nesmí kiosk zaseknout — bez aktivity zákazníka (kód, dotyk/podpis protokolu) vyprší po `handover_lock_s` (300 s); servisní
+   hesla, pevné servisní kódy a diagnostika procházejí vždy; servisní „Vše vypnout“ zámek uvolní (CONTRACT §28 pravidlo 11).
+8. **(2026-09-28) Samoobsluha bez přistavení a odvozu:** motorky ze samoobslužné pobočky nejde rezervovat s přistavením na
+   adresu ani s odvozem z adresy (appka, web, úprava rezervace); volby jsou vidět zabalené s vysvětlením, rezervace, které
+   přistavení už mají, si ho ponechají. V budoucnu se zapne ve Velíně (Texty webu → Feature flags → `self_service_delivery`;
+   řádek flagu + DB trigger = SQL `20260928c_self_service_delivery_flag.sql`, NAVRŽENO). Na kiosk to nemá vliv.
 
 Zásady: kiosk vede zákazníka krok za krokem, špatné pořadí nepustí (§9 krok 2b, odstavec „Šatna“); protokol po podpisu zmizí
 z kiosku i appky real-time, podepsané PDF v Dokumentech zůstává; aktivace rezervace (reserved → active) zůstává při otevření kóje

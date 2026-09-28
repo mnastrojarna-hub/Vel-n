@@ -121,7 +121,7 @@ async def test_queue_survives_network_and_4xx(ctrl):
     assert hm.status()["pending"] == ["b1"] and hm.wake.is_set()
     ctrl.api.results.append({"ok": False, "permanent": True, "error": "forbidden", "already_filled": False})
     assert await hm.flush() == 0
-    assert hm.status() == {"active": None, "pending": [], "failed": ["b1"], "waiting": []}
+    assert hm.status() == {"active": None, "pending": [], "failed": ["b1"], "waiting": [], "lock": None}
     failed = [e for e in ctrl.events if e.kind == EventKind.PROTOCOL_UPLOAD_FAILED]
     assert len(failed) == 1 and failed[0].level == "error" and failed[0].detail["error"] == "forbidden"
     assert failed[0].detail["signature_bytes"] == signature_bytes(SIG)

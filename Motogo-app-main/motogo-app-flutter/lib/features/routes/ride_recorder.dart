@@ -591,7 +591,9 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
     for (final r in list) {
       if (r.displayStatus != ResStatus.aktivni) continue;
       if (r.returnedAt != null) continue; // vráceno → dál se nenahrává
-      if (r.pickedUpAt != null) return r.id; // převzato → nahrávat
+      // převzato → nahrávat; `issuedAt` = kód + podepsaný protokol na pobočce
+      // (same-day platba dřív nastavila picked_up_at už při potvrzení, 2026-09-28)
+      if (r.issuedAt != null) return r.id;
       if (r.status == 'active' && !now.isBefore(_pickupAt(r))) return r.id;
     }
     return null;

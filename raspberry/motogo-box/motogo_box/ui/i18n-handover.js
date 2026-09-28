@@ -1,4 +1,4 @@
-/* MotoGo24 kiosk — texty předávacího protokolu na displeji (overlay #handover, pruh šatny #wardrobe-hint).
+/* MotoGo24 kiosk — texty předávacího protokolu na displeji (overlay #handover, modální hláška šatny #wardrobe, pruh zámku přejímky #handover-lock).
    Stejných 8 jazyků jako i18n.js; načítá se hned po něm a slučuje se přes MG.i18n.extend() — skupiny `ho`
    (protokol) a `g` (názvy výbavy, klíče = sloupce bookings). Použití: MG.i18n.t('ho.title'), data-i18n="ho.code". */
 'use strict';
@@ -6,6 +6,7 @@ window.MG = window.MG || {};
 
 MG.i18n.extend({
   cs: { ho: { close: 'Šatna: vezměte si výbavu a zavřete dveře', closeSub: 'Předávací protokol se zobrazí po zavření dveří.',
+      lockTitle: 'Probíhá přejímka — kód motorky zadá zákazník, který právě zavřel šatnu', lockSub: 'Ostatní zákazníci: počkejte prosím, až dokončí převzetí.',
       title: 'Předávací protokol', intro: 'Zkontrolujte zapůjčenou výbavu a velikosti, podepište se prstem a potvrďte.',
       customer: 'Nájemce', moto: 'Motorka', period: 'Termín', rider: 'Řidič', passenger: 'Spolujezdec', size: 'Velikost',
       noGear: 'Bez zapůjčené výbavy — vlastní výbava.', sign: 'Podpis nájemce', signHint: 'Podepište se prstem do rámečku', clear: 'Smazat podpis',
@@ -20,6 +21,7 @@ MG.i18n.extend({
     g: { helmet: 'Helma', jacket: 'Bunda', pants: 'Kalhoty', boots: 'Boty', gloves: 'Rukavice' },
     me: { phone_holder_key: 'Klíč k držáku mobilu', disc_lock: 'Kotoučový zámek', accident_form: 'Záznam o nehodě', first_aid_kit: 'Lékárnička', reflective_vest: 'Reflexní vesta' } },
   en: { ho: { close: 'Locker room: take your gear and close the door', closeSub: 'The handover protocol will appear once the door is closed.',
+      lockTitle: 'Handover in progress — the customer who has just closed the locker room enters their motorcycle code', lockSub: 'Other customers: please wait until they have finished.',
       title: 'Handover protocol', intro: 'Check the rented gear and sizes, sign with your finger and confirm.',
       customer: 'Renter', moto: 'Motorcycle', period: 'Dates', rider: 'Rider', passenger: 'Passenger', size: 'Size',
       noGear: 'No rented gear — own equipment.', sign: 'Renter’s signature', signHint: 'Sign with your finger inside the box', clear: 'Clear signature',
@@ -34,6 +36,7 @@ MG.i18n.extend({
     g: { helmet: 'Helmet', jacket: 'Jacket', pants: 'Trousers', boots: 'Boots', gloves: 'Gloves' },
     me: { phone_holder_key: 'Phone holder key', disc_lock: 'Disc lock', accident_form: 'Accident report form', first_aid_kit: 'First-aid kit', reflective_vest: 'Reflective vest' } },
   de: { ho: { close: 'Umkleide: Ausrüstung nehmen und Tür schließen', closeSub: 'Das Übergabeprotokoll erscheint, sobald die Tür geschlossen ist.',
+      lockTitle: 'Übergabe läuft — der Kunde, der gerade die Umkleide geschlossen hat, gibt seinen Motorrad-Code ein', lockSub: 'Andere Kunden: Bitte warten Sie, bis die Übergabe abgeschlossen ist.',
       title: 'Übergabeprotokoll', intro: 'Prüfen Sie die geliehene Ausrüstung und die Größen, unterschreiben Sie mit dem Finger und bestätigen Sie.',
       customer: 'Mieter', moto: 'Motorrad', period: 'Zeitraum', rider: 'Fahrer', passenger: 'Beifahrer', size: 'Größe',
       noGear: 'Keine Leihausrüstung — eigene Ausrüstung.', sign: 'Unterschrift des Mieters', signHint: 'Unterschreiben Sie mit dem Finger im Feld', clear: 'Unterschrift löschen',
@@ -48,6 +51,7 @@ MG.i18n.extend({
     g: { helmet: 'Helm', jacket: 'Jacke', pants: 'Hose', boots: 'Stiefel', gloves: 'Handschuhe' },
     me: { phone_holder_key: 'Schlüssel zur Handyhalterung', disc_lock: 'Bremsscheibenschloss', accident_form: 'Unfallbericht (Formular)', first_aid_kit: 'Verbandskasten', reflective_vest: 'Warnweste' } },
   es: { ho: { close: 'Vestuario: recoja su equipo y cierre la puerta', closeSub: 'El protocolo de entrega aparecerá al cerrar la puerta.',
+      lockTitle: 'Entrega en curso — el cliente que acaba de cerrar el vestuario introduce el código de su moto', lockSub: 'Resto de clientes: esperen, por favor, a que termine la entrega.',
       title: 'Protocolo de entrega', intro: 'Compruebe el equipo alquilado y las tallas, firme con el dedo y confirme.',
       customer: 'Arrendatario', moto: 'Moto', period: 'Fechas', rider: 'Conductor', passenger: 'Acompañante', size: 'Talla',
       noGear: 'Sin equipo alquilado — equipo propio.', sign: 'Firma del arrendatario', signHint: 'Firme con el dedo dentro del recuadro', clear: 'Borrar firma',
@@ -62,6 +66,7 @@ MG.i18n.extend({
     g: { helmet: 'Casco', jacket: 'Chaqueta', pants: 'Pantalones', boots: 'Botas', gloves: 'Guantes' },
     me: { phone_holder_key: 'Llave del soporte del móvil', disc_lock: 'Candado de disco', accident_form: 'Parte de accidente (formulario)', first_aid_kit: 'Botiquín', reflective_vest: 'Chaleco reflectante' } },
   fr: { ho: { close: 'Vestiaire : prenez votre équipement et fermez la porte', closeSub: 'Le protocole de remise s’affichera une fois la porte fermée.',
+      lockTitle: 'Remise en cours — le client qui vient de fermer le vestiaire saisit son code moto', lockSub: 'Autres clients : veuillez patienter jusqu’à la fin de la remise.',
       title: 'Protocole de remise', intro: 'Vérifiez l’équipement loué et les tailles, signez avec le doigt et confirmez.',
       customer: 'Locataire', moto: 'Moto', period: 'Période', rider: 'Conducteur', passenger: 'Passager', size: 'Taille',
       noGear: 'Aucun équipement loué — équipement personnel.', sign: 'Signature du locataire', signHint: 'Signez avec le doigt dans le cadre', clear: 'Effacer la signature',
@@ -76,6 +81,7 @@ MG.i18n.extend({
     g: { helmet: 'Casque', jacket: 'Blouson', pants: 'Pantalon', boots: 'Bottes', gloves: 'Gants' },
     me: { phone_holder_key: 'Clé du support de téléphone', disc_lock: 'Bloque-disque', accident_form: 'Constat d’accident (formulaire)', first_aid_kit: 'Trousse de premiers secours', reflective_vest: 'Gilet réfléchissant' } },
   nl: { ho: { close: 'Kleedkamer: pak uw uitrusting en sluit de deur', closeSub: 'Het overdrachtsprotocol verschijnt zodra de deur dicht is.',
+      lockTitle: 'Overdracht bezig — de klant die zojuist de kleedkamer heeft gesloten, voert zijn motorcode in', lockSub: 'Overige klanten: wacht a.u.b. tot de overdracht is afgerond.',
       title: 'Overdrachtsprotocol', intro: 'Controleer de gehuurde uitrusting en de maten, onderteken met uw vinger en bevestig.',
       customer: 'Huurder', moto: 'Motor', period: 'Periode', rider: 'Bestuurder', passenger: 'Passagier', size: 'Maat',
       noGear: 'Geen gehuurde uitrusting — eigen uitrusting.', sign: 'Handtekening huurder', signHint: 'Onderteken met uw vinger in het vak', clear: 'Handtekening wissen',
@@ -90,6 +96,7 @@ MG.i18n.extend({
     g: { helmet: 'Helm', jacket: 'Jas', pants: 'Broek', boots: 'Laarzen', gloves: 'Handschoenen' },
     me: { phone_holder_key: 'Sleutel van de telefoonhouder', disc_lock: 'Schijfremslot', accident_form: 'Schadeformulier (ongeval)', first_aid_kit: 'EHBO-kit', reflective_vest: 'Reflecterend hesje' } },
   pl: { ho: { close: 'Szatnia: weź wyposażenie i zamknij drzwi', closeSub: 'Protokół przekazania pojawi się po zamknięciu drzwi.',
+      lockTitle: 'Trwa przekazanie — kod do motocykla wpisuje klient, który właśnie zamknął szatnię', lockSub: 'Pozostali klienci: proszę poczekać na zakończenie przekazania.',
       title: 'Protokół przekazania', intro: 'Sprawdź wypożyczone wyposażenie i rozmiary, podpisz się palcem i potwierdź.',
       customer: 'Najemca', moto: 'Motocykl', period: 'Termin', rider: 'Kierowca', passenger: 'Pasażer', size: 'Rozmiar',
       noGear: 'Bez wypożyczonego wyposażenia — własne wyposażenie.', sign: 'Podpis najemcy', signHint: 'Podpisz się palcem w ramce', clear: 'Wyczyść podpis',
@@ -104,6 +111,7 @@ MG.i18n.extend({
     g: { helmet: 'Kask', jacket: 'Kurtka', pants: 'Spodnie', boots: 'Buty', gloves: 'Rękawice' },
     me: { phone_holder_key: 'Kluczyk do uchwytu na telefon', disc_lock: 'Blokada tarczy hamulcowej', accident_form: 'Formularz zgłoszenia wypadku', first_aid_kit: 'Apteczka', reflective_vest: 'Kamizelka odblaskowa' } },
   uk: { ho: { close: 'Роздягальня: візьміть екіпірування та зачиніть двері', closeSub: 'Протокол передачі з’явиться після зачинення дверей.',
+      lockTitle: 'Триває передача — код мотоцикла вводить клієнт, який щойно зачинив роздягальню', lockSub: 'Інші клієнти: зачекайте, будь ласка, поки передачу буде завершено.',
       title: 'Протокол передачі', intro: 'Перевірте орендоване екіпірування та розміри, підпишіться пальцем і підтвердьте.',
       customer: 'Орендар', moto: 'Мотоцикл', period: 'Термін', rider: 'Водій', passenger: 'Пасажир', size: 'Розмір',
       noGear: 'Без орендованого екіпірування — власне екіпірування.', sign: 'Підпис орендаря', signHint: 'Підпишіться пальцем у рамці', clear: 'Стерти підпис',

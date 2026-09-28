@@ -1,4 +1,5 @@
-/* MotoGo24 kiosk — hlavní logika: WS klient, zadávání kódu, overlay stavů, pruh šatny (dlaždice zón od 2026-09-26 jen v servisním panelu).
+/* MotoGo24 kiosk — hlavní logika: WS klient, zadávání kódu, overlay stavů, modální hláška šatny + pruh zámku přejímky
+   (dlaždice zón od 2026-09-26 jen v servisním panelu).
    Vanilla JS (offline, bez CDN). Layout je plně responzivní (CSS), žádné škálování plátna. Texty a flow převzaté z Flutter kiosku (kiosk_screen.dart).
    Předávací protokol (overlay #handover) → handover.js; sem patří jen napojení na snapshot a na odpověď `protocol_required`. */
 'use strict';
@@ -134,12 +135,19 @@ window.MG = window.MG || {};
     if (added) box.append(...zones.map((z) => tiles.get(z.zone).el));   // pořadí dle čísla zóny i po doplnění
   }
 
-  /** Pruh CLOSE_DOOR (nemodální, nad polem kódu): odvozený ŽIVĚ ze stavu zóny šatny se zákaznickou relací —
-      DOOR_OPEN + booking_id (servisní otevření booking_id nemá). Texty přes data-i18n (ho.close / ho.closeSub). */
+  /** Vedený tok (2026-09-28): šatna otevřená se zákaznickou relací — DOOR_OPEN + booking_id (servisní otevření booking_id
+      nemá), odvozeno ŽIVĚ ze st.zones, ne z uložené fáze — → MODÁLNÍ hláška #wardrobe přes celý displej, dokud se dveře
+      nezavřou (nejde zavřít dotykem ani klávesou). Zámek přejímky `st.handover.lock` (jiná rezervace zavřela šatnu a ještě
+      nezadala kód motorky) → nemodální pruh #handover-lock nad polem kódu, jen když není vidět žádný overlay toku
+      (šatna / protokol). Texty přes data-i18n (ho.close / ho.closeSub, ho.lockTitle / ho.lockSub). */
   function renderWardrobe(st) {
     const open = (st.zones || []).some((z) => z.kind === 'accessories' && z.state === 'DOOR_OPEN' && !!z.booking_id);
-    $('wardrobe-hint').hidden = !open;
+    $('wardrobe').hidden = !open;
+    const ho = st.handover || {};
+    const protocol = !!(ho.active && ho.active.stage === 'protocol');
+    $('handover-lock').hidden = !ho.lock || open || protocol;
   }
+  const wardrobeUp = () => !$('wardrobe').hidden;
 
   function renderAlert(st) {
     const el = $('zone-alert');
@@ -262,6 +270,7 @@ window.MG = window.MG || {};
     const q = new URLSearchParams(location.search).get('lang');
     MG.i18n.setLang(q || MG.i18n.DEFAULT, true);
     MG.i18n.renderBar($('lang-bar'));
+    MG.i18n.renderBar($('wd-lang'));          // lišta jazyků i v modální hlášce šatny (hlavička je pod overlayem)
     MG.i18n.onChange(onLangChange);
     document.addEventListener('pointerdown', armLangIdle, { passive: true });
     MG.Panel.init({ post, showStatus, getState: () => S.state });
@@ -272,12 +281,13 @@ window.MG = window.MG || {};
     buildKeys();
     paintEntry();
     $('status').addEventListener('click', () => { if (!$('status-dismiss').hidden) hideStatus(); });
-    // Fyzická klávesnice: terminál (§27) > diagnostika (zadání kódu) > setup > protokol (kód motorky) > hlavní zadávání kódu.
-    // Otevřený report diagnostiky i terminál bez volného psaní klávesy POLYKAJÍ — Enter nesmí odeslat skrytý PIN.
+    // Fyzická klávesnice: terminál (§27) > diagnostika (zadání kódu) > setup > protokol (kód motorky) > hláška šatny > hlavní
+    // zadávání kódu. Otevřený report diagnostiky, terminál bez volného psaní i modální hláška šatny klávesy POLYKAJÍ —
+    // Enter nesmí odeslat skrytý PIN.
     const SWALLOW = { onChar() {}, onBackspace() {}, onEnter() {}, onClear() {} };
     const target = () => (MG.Shell.wantsKeys() ? MG.Shell.keys : MG.Shell.isVisible() ? SWALLOW
       : MG.Diag.wantsKeys() ? MG.Diag.keys : MG.Diag.isVisible() ? SWALLOW
-      : MG.Setup.isVisible() ? MG.Setup.keys : MG.Handover.isVisible() ? MG.Handover.keys : null);
+      : MG.Setup.isVisible() ? MG.Setup.keys : MG.Handover.isVisible() ? MG.Handover.keys : wardrobeUp() ? SWALLOW : null);
     MG.Keyboard.bindPhysical({
       isActive: () => !MG.Panel.isOpen() || MG.Setup.isVisible() || MG.Diag.isVisible() || MG.Shell.isVisible(),
       onChar: (c) => { const t = target(); if (t) t.onChar(c); else if (/[0-9a-z]/.test(c)) onChar(c); },
@@ -289,6 +299,7 @@ window.MG = window.MG || {};
         else if (MG.Diag.isVisible()) MG.Diag.keys.onEscape();
         else if (MG.Setup.isVisible()) MG.Setup.keys.onEscape();
         else if (MG.Handover.isVisible()) MG.Handover.keys.onEscape();
+        else if (wardrobeUp()) { /* modální do zavření dveří šatny — Esc nic */ }
         else if (!$('status').hidden && !S.busy) hideStatus();
         else onClear();
       },

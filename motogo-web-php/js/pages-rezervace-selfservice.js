@@ -237,13 +237,20 @@
     var b = editBooking(), m = b && b.motorcycles;
     return !!(m && m.branches && m.branches.type === SS_TYPE);
   }
+  // Rezervace už přistavení / odvoz MÁ (vznikla dřív) → ponechat: nové pravidlo
+  // (a DB trigger) brání jen NOVÉ volbě, ne zachování stávající.
+  function hasAddr(method, addr) {
+    return method === 'delivery' || !!String(addr || '').trim();
+  }
   function applyEditLoc() {
     var form = document.getElementById('edit-rez-loc-form');
     if (!form) return;
-    var lock = editIsSelfService() && !ruleOff();
-    [['pickup', 'editRez.loc.deliveryTitle', 'Přistavení na adresu'],
-     ['returnM', 'editRez.loc.deliveryReturnTitle', 'Vyzvedneme od vás']].forEach(function (c) {
+    var b = editBooking() || {};
+    var lockAll = editIsSelfService() && !ruleOff();
+    [['pickup', 'editRez.loc.deliveryTitle', 'Přistavení na adresu', hasAddr(b.pickup_method, b.pickup_address)],
+     ['returnM', 'editRez.loc.deliveryReturnTitle', 'Vyzvedneme od vás', hasAddr(b.return_method, b.return_address)]].forEach(function (c) {
       var name = c[0];
+      var lock = lockAll && !c[3];
       var delRadio = form.querySelector('input[type="radio"][name="' + name + '"][value="delivery"]');
       if (!delRadio) return; // aktivní rezervace: převzetí je zamčené, radia nejsou
       var branchRadio = form.querySelector('input[type="radio"][name="' + name + '"][value="pickup"]');

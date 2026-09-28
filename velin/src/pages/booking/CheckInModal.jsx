@@ -70,12 +70,14 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
   async function markPickedUp(via) {
     setSaving(true); setError(null)
     const now = new Date().toISOString()
-    // Aktivace je vázaná na předávací protokol na OBOU typech poboček (strážce
-    // trg_gate_obsluzna_activation; od 2026-09-28 i samoobslužná — „Vydáno" jen
-    // po kódu + podepsaném protokolu). Ruční odbavení obsluhou = protokol
-    // vyřízen obsluhou → označíme ho jako vyplněný, jinak by UPDATE tiše skončil
-    // na `reserved`. Stejně to dělá QuickCheckInModal.markPickedUp.
-    const upd = { status: 'active', picked_up_at: now, handover_protocol_filled_at: now }
+    const upd = { status: 'active', picked_up_at: now }
+    // Na OBSLUŽNÉ pobočce je aktivace vázaná na předávací protokol — označíme ho
+    // jako vyplněný, aby přechod prošel strážcem trg_gate_obsluzna_activation.
+    // SAMOOBSLUŽNÁ: protokol podepisuje ZÁKAZNÍK (appka / displej pobočky) — obsluha
+    // ho nikdy „nepředstírá". Odbavit odjezd jde až po podpisu (viz níže, 2026-09-28:
+    // „Vydáno" jen po kódu + podepsaném protokolu); `handover_protocol_filled_at` už
+    // na rezervaci je, takže přechod projde i rozšířeným strážcem.
+    if (!selfService) upd.handover_protocol_filled_at = now
     const { error: err } = await supabase.from('bookings')
       .update(upd).eq('id', booking.id)
     if (err) { setError(err.message); setSaving(false); return }
@@ -161,7 +163,19 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
               <strong>Samoobslužná pobočka.</strong> Zákazník zadá svůj kód k motorce do systému — ověřte jej a odbavte odjezd.
               Doklady musí mít nahrané předem (bez nich se mu kód nevydal).
             </div>
-            {codeBlock('Odbavit odjezd', () => markPickedUp('self_service_code'))}
+            {booking?.handover_protocol_filled_at ? (
+              codeBlock('Odbavit odjezd', () => markPickedUp('self_service_code'))
+            ) : (
+              <>
+                {/* 2026-09-28: „Vydáno" jen po kódu + podepsaném protokolu — protokol podepisuje
+                    zákazník v aplikaci nebo na displeji pobočky, obsluha ho za něj nevyplňuje. */}
+                <div style={noteBox('#b45309', '#fffbeb', '#92400e')}>
+                  Předávací protokol zatím <strong>není podepsaný</strong>. Zákazník ho podepíše v aplikaci MotoGo24
+                  nebo na displeji pobočky (po zavření šatny / po zadání kódu motorky). Bez podpisu nelze odjezd odbavit.
+                </div>
+                <div className="flex justify-end"><Button onClick={onClose}>Zavřít</Button></div>
+              </>
+            )}
           </>
         ) : (
           <PickupReadiness booking={booking} onClose={onClose} onProtocolDone={() => markPickedUp('protocol')} />
