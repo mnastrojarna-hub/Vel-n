@@ -32,8 +32,9 @@ const EXTRA_GEAR_CHECKS = [
 
 /**
  * Výbava motorky (zadání majitele 2026-09-28): pevná skupina v KAŽDÉM protokolu
- * z displeje pobočky — leží v motorce (kufr / tankvak), kiosk ji ukazuje předem
- * zaškrtnutou a zákazník může odškrtnout, co chybí. Klíče = kiosk `MOTO_GEAR`.
+ * samoobslužné pobočky — leží v motorce (kufr / tankvak), kiosk i appka (zrcadlo)
+ * ji ukazují předem zaškrtnutou a zákazník může odškrtnout, co chybí.
+ * Klíče = kiosk `MOTO_GEAR`, appka `protocol_screen.dart _motoGear`.
  */
 export const MOTO_EQUIPMENT = [
   { key: 'phone_holder_key', label: 'Klíč k držáku mobilu', qty: 1 },
@@ -50,7 +51,7 @@ export interface MotoEquipmentItem { key: string; label: string; qty: number; ch
  * `form.moto_equipment[]` z klienta ({key, checked}) → úplný seznam v pevném
  * pořadí. Položka bez hodnoty dostane `defaultChecked`; když klient pole
  * neposlal: `defaultChecked` true/false = doplnit vše (kiosk: starší build
- * jednotky = vše předáno), null = sekce v dokumentu nebude (appka).
+ * jednotky = vše předáno), null = sekce v dokumentu nebude (starší build appky).
  */
 export function normalizeMotoEquipment(raw: unknown, defaultChecked: boolean | null): MotoEquipmentItem[] | null {
   const byKey = new Map<string, boolean>()
@@ -69,9 +70,9 @@ export function normalizeMotoEquipment(raw: unknown, defaultChecked: boolean | n
   }))
 }
 
-export function motoEquipmentChecked(items: MotoEquipmentItem[] | null, key: string): boolean {
-  return !!items?.some((i) => i.key === key && i.checked)
-}
+/** Doplňkové vybavení, které je při poslané skupině „Výbava motorky" v ní (kotoučový
+ *  zámek, reflexní prvky = vesty) — v seznamu doplňků se pak nevypisuje (bez zdvojení). */
+const EXTRA_IN_MOTO_EQUIPMENT = new Set(['disc_lock', 'reflective'])
 
 export interface Vars {
   booking_number: string; today: string; company_name: string; customer_name: string
@@ -92,14 +93,15 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
   const mileage = form.mileage as string | undefined
   const notes = form.notes as string | undefined
 
+  // Výbava motorky — kiosk i appka ji posílají (2026-09-28); starší build appky bez pole sekci nemá.
+  const motoEq = Array.isArray(form.moto_equipment) ? form.moto_equipment as MotoEquipmentItem[] : []
   const checkList = HANDOVER_CHECKS.map((c) => `<div style="font-size:12px;margin:5px 0">${checks[c.key] ? '☑' : '☐'} ${esc(c.label)}</div>`).join('')
-  const extraList = EXTRA_GEAR_CHECKS.map((c) => `<div style="font-size:12px;margin:5px 0">${checks[c.key] ? '☑' : '☐'} ${esc(c.label)}</div>`).join('')
+  const extraList = EXTRA_GEAR_CHECKS.filter((c) => !(motoEq.length && EXTRA_IN_MOTO_EQUIPMENT.has(c.key)))
+    .map((c) => `<div style="font-size:12px;margin:5px 0">${checks[c.key] ? '☑' : '☐'} ${esc(c.label)}</div>`).join('')
   const accRows = accessories.map((a) => `<tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600">${esc(a.label)}</td><td style="padding:6px 8px;border:1px solid #ddd">${esc(a.size || '')}</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center;width:80px;font-size:14px">${a.checked ? '☑' : '☐'}</td></tr>`).join('')
   const accTable = accRows
     ? `<table style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;border:1px solid #ddd"><tr><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Položka</th><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Velikost</th><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:center;font-size:10px;text-transform:uppercase">Předáno</th></tr>${accRows}</table>`
     : '<p style="font-size:12px">Žádná zapůjčená výbava.</p>'
-  // Výbava motorky — jen když ji klient poslal / edge doplnila (kiosk); appka sekci nemá.
-  const motoEq = Array.isArray(form.moto_equipment) ? form.moto_equipment as MotoEquipmentItem[] : []
   const motoBlock = motoEq.length
     ? `<h3 style="font-size:13px;margin-top:14px">Výbava motorky</h3><p style="font-size:11px;color:#666;margin:2px 0 6px">${esc(MOTO_EQUIPMENT_NOTE)}</p>` +
       motoEq.map((m) => `<div style="font-size:12px;margin:5px 0">${m.checked ? '☑' : '☐'} ${m.qty > 1 ? `${m.qty}× ` : ''}${esc(m.label)}</div>`).join('')

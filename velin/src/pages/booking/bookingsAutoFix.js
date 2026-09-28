@@ -116,7 +116,10 @@ async function _autoFixPendingPaid() {
       for (const b of stuck) {
         const startLocal = b.start_date ? b.start_date.slice(0, 10) : ''
         if (startLocal <= today) {
-          await supabase.from('bookings').update({ status: 'active', picked_up_at: new Date().toISOString() }).eq('id', b.id)
+          // confirmed_at i tady: na pobočce strážce trg_gate_obsluzna_activation přechod bez
+          // protokolu srazí na 'reserved' (2026-09-28 i samoobsluha) — rezervace pak musí mít čas potvrzení.
+          const now = new Date().toISOString()
+          await supabase.from('bookings').update({ status: 'active', picked_up_at: now, confirmed_at: now }).eq('id', b.id)
         } else {
           await supabase.from('bookings').update({ status: 'reserved', confirmed_at: new Date().toISOString() }).eq('id', b.id)
         }

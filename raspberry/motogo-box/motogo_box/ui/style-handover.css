@@ -1,13 +1,25 @@
-/* MotoGo24 kiosk UI — předávací protokol na displeji: overlay #handover (modální, světlý — zákazník) a pruh šatny
-   #wardrobe-hint (nemodální, nad polem kódu). Základ (proměnné, .key, .kb-*, .code-box, .spinner) → style.css.
-   Karta = mřížka [hlavička] / [výbava | podpis | kód] / [patička]; na nízkém displeji se zmenšují jen rozměry, ne kroky. */
+/* MotoGo24 kiosk UI — vedený tok na displeji: modální hláška šatny #wardrobe (2026-09-28, dokud se dveře nezavřou), overlay
+   protokolu #handover (modální, světlý — zákazník) a pruh zámku přejímky #handover-lock (nemodální, nad polem kódu).
+   Základ (proměnné, .key, .kb-*, .code-box, .spinner, .lang-bar) → style.css.
+   Karta protokolu = mřížka [hlavička] / [výbava | podpis | kód] / [patička]; na nízkém displeji se zmenšují jen rozměry, ne kroky. */
 
-/* ── Pruh šatny (dveře otevřené se zákaznickou relací) — klávesnice zůstává aktivní ─────────────────── */
-.wardrobe-hint { display: flex; align-items: center; gap: clamp(8px, .8vw, 14px); border-radius: 12px;
+/* ── Pruh toku (zámek přejímky: jiná rezervace zavřela šatnu a ještě nezadala kód motorky) — klávesnice zůstává aktivní ── */
+.flow-hint { display: flex; align-items: center; gap: clamp(8px, .8vw, 14px); border-radius: 12px;
   padding: clamp(6px, 1vh, 10px) 12px; background: var(--green-pale); border: 1.5px solid var(--green-mid); color: var(--ink-2); }
-.wardrobe-ico { flex: 0 0 auto; font-family: var(--emoji); font-size: clamp(18px, 3vh, 30px); }
-.wardrobe-title { font-size: clamp(13px, 1.9vh, 18px); font-weight: 800; line-height: 1.25; }
-.wardrobe-sub { font-size: clamp(11px, 1.6vh, 15px); color: var(--muted); font-weight: 600; margin-top: 2px; line-height: 1.3; }
+.flow-ico { flex: 0 0 auto; font-family: var(--emoji); font-size: clamp(18px, 3vh, 30px); }
+.flow-title { font-size: clamp(13px, 1.9vh, 18px); font-weight: 800; line-height: 1.25; }
+.flow-sub { font-size: clamp(11px, 1.6vh, 15px); color: var(--muted); font-weight: 600; margin-top: 2px; line-height: 1.3; }
+
+/* ── Šatna otevřená: modální hláška přes celý displej — z-index 42 (nad #status 40, pod #handover 45) ────────────── */
+#wardrobe { z-index: 42; }
+.wd-card { width: min(94vw, 1200px); max-height: 94vh; overflow-y: auto; padding: clamp(16px, 3.5vh, 44px) clamp(20px, 3vw, 56px);
+  border-radius: 24px; background: var(--bg); border: 2px solid var(--line); box-shadow: 0 20px 60px rgba(15,26,20,.35); color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: clamp(8px, 1.8vh, 20px); }
+.wd-lang { --head-h: clamp(44px, 7.5vh, 64px); flex: 0 0 auto; width: 100%; flex-wrap: wrap; }
+.wd-ico { width: clamp(72px, 15vh, 150px); height: clamp(72px, 15vh, 150px); border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; background: var(--green-pale); border: 3px solid var(--green-mid); font-family: var(--emoji); font-size: clamp(36px, 8vh, 80px); }
+.wd-title { font-size: clamp(22px, 4.2vh, 46px); font-weight: 900; line-height: 1.2; }
+.wd-sub { font-size: clamp(15px, 2.5vh, 26px); color: var(--muted); font-weight: 600; line-height: 1.4; }
 
 /* ── Overlay protokolu: nad #status (40), pod servisem/terminálem (50), setupem (60) a diagnostikou (70) ── */
 #handover { z-index: 45; padding: 1.2vh 1.2vw; }
@@ -101,10 +113,16 @@
   .ho-code { width: auto; grid-template-columns: minmax(200px, 1fr) auto; grid-template-areas: "lbl keys" "box keys" "hint keys"; align-items: start; }
   .ho-code > .ho-label { grid-area: lbl; } .ho-code > .ho-code-box { grid-area: box; } .ho-code > .ho-code-hint { grid-area: hint; } .ho-code > .ho-keys { grid-area: keys; }
   .kb-mode-pin { --k: clamp(40px, 9.5vh, 60px); }
+  /* výbava motorky (5 řádků) se na 1024×600 musí vejít pod výbavu řidiče — řádky i chipy těsnější */
+  .ho-row-moto { padding: 2px clamp(6px, .8vw, 12px); }
+  .ho-row-moto .ho-chip { height: clamp(30px, 4.4vh, 40px); }
+  .ho-group { margin-top: 2px; }
 }
 @media (max-height: 520px) {
-  .wardrobe-sub { display: none; }   /* sloupec A s dlouhým hint2 (de/fr/uk) + pruh: titulek pruhu stačí, protokol přijde sám */
-  .wardrobe-hint { padding: 4px 10px; }
+  .flow-sub { display: none; }   /* sloupec A s dlouhým hint2 (de/fr/uk) + pruh: titulek pruhu stačí */
+  .flow-hint { padding: 4px 10px; }
+  .wd-card { gap: 6px; padding: 10px 18px; }
+  .wd-ico { display: none; }     /* nízký displej: lišta jazyků + titulek + podtitulek se musí vejít bez rolování */
   #handover { padding: 0; }
   .ho-card { width: 100vw; height: 100vh; border-radius: 0; border: 0; padding: 6px 10px; gap: 4px 10px; }
   .ho-intro, .ho-code-hint { display: none; }   /* kroky zůstávají (popisky, hint v rámečku podpisu), jen bez úvodní věty */

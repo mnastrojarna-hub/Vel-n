@@ -5,7 +5,8 @@ se implementuje PŘESNĚ podle signatur níže (názvy, parametry, návratové t
 aby šly moduly psát nezávisle a integrovat bez úprav. Sdílené typy jsou v
 `motogo_box/models.py`, konfigurace v `motogo_box/config.py` (oba už existují —
 mění se JEN aditivně a JEN se změnou tohoto kontraktu; jediné takové rozšíření: 2026-09-25 vedený tok
-šatna → protokol → motorka — `EventKind.PROTOCOL_*`, `ResolveResult.protocol`, `TimingsCfg.handover_idle_s`, §28).
+šatna → protokol → motorka — `EventKind.PROTOCOL_*`, `ResolveResult.protocol`, `TimingsCfg.handover_idle_s`, §28;
+2026-09-28 zámek přejímky — `TimingsCfg.handover_lock_s`, §28).
 
 Zdroj požadavků: uživatelská specifikace „Implementační specifikace řídicího
 systému – 9zónový MotoGo box" (§1–§13) + existující kiosk backend Supabase
@@ -89,6 +90,11 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
   zmizí z displeje (položka zůstává nevyřízená, `then_open` se ruší). Z Velína `hardware.timings.handover_idle_s` (volitelné,
   `BranchRpiHardware*.jsx`), UI ho dostane v `snap['timings']` (§14/§16) — odpočet ale vždy z `handover.active.expires_at`.
   Není v `ZONE_TIMING_KEYS` (platí pro celý displej, ne per zóna) a nepočítá se do `hw_signature`.
+- **`TimingsCfg.handover_lock_s` (2026-09-28, výchozí 300, §28 zámek přejímky):** po zavření šatny zákazníkem přijímá kiosk jen
+  kódy téže rezervace, dokud se neotevře její kóje motorky; bez aktivity (přijatý kód, dotyk/podpis protokolu, další zavření
+  šatny) zámek po této době zaniká — zákazník, který odešel, nesmí kiosk zaseknout. Z Velína `hardware.timings.handover_lock_s`
+  (volitelné), UI ho dostane v `snap['timings']` (jen informativně — konec zámku čte z `handover.lock.until`). Není
+  v `ZONE_TIMING_KEYS` a nepočítá se do `hw_signature`.
 - **`SecurityCfg` (2026-09-11):** `{maximum_failed_attempts, attempt_window_minutes, lockout_minutes, service_token_minutes}` — pole
   `pin_length` a `mask_pin_on_screen` ODSTRANĚNA (kód na displeji je viditelný, §16); `_fill` staré klíče z map v DB ignoruje.
 - **Venek (2026-09-11, `config_outdoor.py`, §26):** `HardwareConfig.outdoor: OutdoorCfg` z top-level klíče `outdoor {zone,
@@ -522,6 +528,11 @@ class BoxController:
         #   — bez ACCESS_DENIED, bez lockoutu (není v INVALID_CODE_ERRORS); PROTOCOL_SHOWN jen při prvním zobrazení položky.
         #   kind accessories → grant_access beze změny (HandoverManager si uloží rr.protocol per booking pro on_wardrobe_closed);
         #   open_result_text accessories = „Šatna otevřena — vemte za kliku.“ (2026-09-27; motorcycle = „Dveře č. N otevřeny — běžte ke dveřím č. N.“, N = box_number)
+        # 2026-09-28 (§28 zámek přejímky): po resolve zákaznického kódu (ne servisní heslo, ne pevné 39301A–H, ne diagnostika)
+        #   `handover.lock.blocks(rr.booking_id)` → ACCESS_DENIED (success=false, warn, code_kind=rr.kind, booking_id, detail
+        #   {source, reason:'handover_in_progress', locked_booking_id, offline}) + {**base, kind: rr.kind, booking_id, error:
+        #   'handover_in_progress', message: error_text(...)} — bez lockoutu, nepočítá se jako neplatný kód; jinak
+        #   `lock.touch(rr.booking_id)` (aktivita); po úspěšném grant_access kind motorcycle `lock.release(rr.booking_id)`.
     def check_service_token(self, token: str | None) -> bool
     async def service_open(self, door_id: str | None, zone: int | None) -> dict     # grant_access(kind='service', source='service_panel'); mimo běžný stav zóny = nouzový impulz zámku (2026-09-26, zone_access.service_unlock_locked), chyby 'lock_offline' | 'not_configured' | 'lock_failed'
     async def handle_command(self, cmd: dict) -> None    # → commands.execute → api.complete_command
@@ -624,7 +635,8 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
                        "gear":[{"key":"helmet","who":"rider","field":"helmet_size","size":"L"}]},
                        "sizes":{"helmet":["S","M","L","XL"],"jacket":[],"pants":[],"boots":["41","42","43"],"gloves":[]},
                        "shown_at":"…","expires_at":"…","saving":false},
-             "pending":["uuid"],"failed":[],"waiting":["uuid"]},
+             "pending":["uuid"],"failed":[],"waiting":["uuid"],
+             "lock":{"booking_id":"uuid","zone":8,"until":"…","customer_name":"Petra S."}},
  "remote_screen":{"active":false,"control":false,"since":null,"session_id":null,"frames":0,"bytes":0,"last_error":null,"stop_reason":null},
  "notice":null,"last_error":null}
 ```
@@ -639,8 +651,11 @@ právě ukládá/odesílá — UI drží spinner, dismiss/idle položku nezavře
 = PODEPSANÉ na displeji, čekající na odeslání (síť/5xx/404, opakuje se každých 30 s), `failed[]` = podpis edge TRVALE odmítla
 (`status = failed`; Velín „Podpis z kiosku se nepodařilo uložit“; zpět do `pending` jen `reload`/`sync_config` §13). `waiting[]`
 = NEVYŘÍZENÉ položky protokolu (stage `protocol`, skryté po dismiss/idle i právě viditelná; bez podpisu) — sem se technik dívá,
-když „protokol se neukázal“ (README). `kiosk_report_status` nese totéž — NIKDY podpis ani formulář (limit 256 KiB). `timings`
-(§16) nově i `handover_idle_s`.
+když „protokol se neukázal“ (README). `lock` (2026-09-28, §28 zámek přejímky) = `null`, nebo `{booking_id, zone (šatna, která
+zámek založila), until (ISO = last_activity + handover_lock_s), customer_name (z protokolu; null, není-li znám)}` — rezervace,
+která právě zavřela šatnu a ještě neotevřela kóji motorky: kiosk přijímá jen její kódy, ostatní zákazníci dostanou
+`handover_in_progress`; UI z něj kreslí pruh `#handover-lock`. `kiosk_report_status` nese totéž — NIKDY podpis ani formulář
+(limit 256 KiB). `timings` (§16) nově i `handover_idle_s` a `handover_lock_s`.
 
 Hodnoty `state` = `ZoneState.value` (velká písmena), `signal` = `Signal.value` (malá písmena: red, green, green_pulse, red_blink, both_blink, off).
 
@@ -683,7 +698,9 @@ PROTOCOL_SHOWN (2026-09-25, §28: `kind` = `code_kind` = `kind_origin` položky 
 protokolu (`shown_logged`), ne při každém dalším kódu; DB trigger `_handover_from_door_event` z něj nastaví
 `bookings.handover_protocol_prompted_at` + push do appky; Velín ho v seznamech popisuje „Zobrazen protokol“ a NEpočítá jako
 otevření). ACCESS_DENIED (success=false, warn) navíc z `handover_submit.open_zone`, když se kóje po podpisu neotevře
-(`detail {source, reason}`); PIN_INVALID (`code_kind='invalid'`, `detail {source, code_masked, error:'code_mismatch'}`) a
+(`detail {source, reason}`), a od 2026-09-28 ze zámku přejímky (`controller_codes.submit_code`: platný zákaznický kód JINÉ
+rezervace, než která právě zavřela šatnu — `code_kind` = druh kódu, `booking_id` odmítnuté rezervace, `detail {source,
+reason:'handover_in_progress', locked_booking_id, offline}`; bez lockoutu); PIN_INVALID (`code_kind='invalid'`, `detail {source, code_masked, error:'code_mismatch'}`) a
 PIN_LOCKOUT z ověření kódu motorky v overlayi protokolu (`_verify_code`). `detail` vždy
 `{"event":<EventKind>, "zone":n, "box_number":.., "source":..}` + extra.
 `kiosk_log_event(level, source, message, detail)` pro: IO_OFFLINE/IO_ONLINE (warn/info,
@@ -781,10 +798,17 @@ harness. Timeout zadávání `pin_entry_timeout_s` (vymaže vstup). Overlay stav
 `openedBox` „Dveře č. N otevřeny“ + `okBox` „Běžte ke dveřím č. N.“ (N = `box_number`, bez něj číslo zóny), šatna `openedAcc`
 „Šatna otevřena“ + `okAcc` „Vemte za kliku.“; servisní otevření „Otevřeno“ + název; „Neplatný kód“, „Zkuste to prosím znovu nebo
 kontaktujte podporu: +420 774 256 271.“.
-**Vedený tok šatna → protokol → motorka (2026-09-25, §28):** pruh `#wardrobe-hint` (NEmodální, nad polem kódu, styl `.zone-alert`)
-se kreslí ze `st.zones` — zóna `kind: accessories` ve stavu `DOOR_OPEN` s `booking_id` → `ho.close`/`ho.closeSub` („Šatna: vezměte si
-výbavu a zavřete dveře“ / „Předávací protokol se zobrazí po zavření dveří.“); klávesnice zůstává aktivní. Overlay `#handover` (modální,
-z-index mezi `#status` a `#service`; modul `MG.Handover` v `ui/handover.js`: `init({post, showStatus, getState})`, `onState(st)`,
+**Vedený tok šatna → protokol → motorka (2026-09-25, §28):** hláška šatny `#wardrobe` (od 2026-09-28 MODÁLNÍ přes celý displej,
+světlá karta, z-index 42 = nad `#status` 40, pod `#handover` 45; dřív nemodální pruh `#wardrobe-hint`) se kreslí ze `st.zones` —
+zóna `kind: accessories` ve stavu `DOOR_OPEN` s `booking_id` (servisní otevření `booking_id` nemá → nic) → `ho.close`/`ho.closeSub`
+(„Šatna: vezměte si výbavu a zavřete dveře“ / „Předávací protokol se zobrazí po zavření dveří.“) + vlastní lišta jazyků
+(`#wd-lang`, `MG.i18n.renderBar` — hlavička je pod overlayem); zmizí až se stavem zóny (dveře zavřeny → CLOSED_CONFIRMATION),
+nejde zavřít dotykem ani Esc, fyzické klávesy polyká (`app.js` `wardrobeUp()`). Pruh `#handover-lock` (NEmodální, nad polem kódu,
+styl `.flow-hint` s 🔒) se kreslí ze `st.handover.lock` (§14), jen když není vidět hláška šatny ani protokol: `ho.lockTitle` /
+`ho.lockSub` („Probíhá přejímka — kód motorky zadá zákazník, který právě zavřel šatnu“ / „Ostatní zákazníci: počkejte prosím, až
+dokončí převzetí.“); klávesnice zůstává aktivní (servisní hesla, vlastní kódy zamčené rezervace). Cizí kód → `/api/pin`
+`error: 'handover_in_progress'` → `#status` `et.handover_in_progress` / `es.handover_in_progress` (česky `message` ze serveru).
+Overlay `#handover` (modální, z-index mezi `#status` a `#service`; modul `MG.Handover` v `ui/handover.js`: `init({post, showStatus, getState})`, `onState(st)`,
 `rerender()`, `isVisible()`, `keys` pro fyzickou klávesnici; podpis `MG.Signature.create(el, {onStroke})` v `ui/signature.js`)
 se kreslí ze `st.handover.active` (§14): hlavička (`data`; popisky `ho.customer`/`ho.moto`/`ho.period`), řádky výbavy (ikona/název `g.helmet…gloves`,
 `ho.rider`/`ho.passenger`, chipy velikostí z `active.sizes[key]` s předvybranou `size`, `ho.noGear` bez výbavy) + **vždy** skupina
@@ -806,8 +830,9 @@ snapshotu (`stage:'done'`) = `ho.doneTitle` + `ho.done`; odpočet overlaye `ho.a
 kódu: `error === 'protocol_required'` → `#status` se NEzobrazuje (overlay přijde přes WS ≤ 0,2 s); jen když do 1,5 s nepřijde
 `handover.active` → `et.protocol_required` / `es.protocol_required` (žádný klíč `ho.first` neexistuje). Auto-hide `#status` ani
 `LANG_IDLE` (návrat do CS) overlay nesmí rozbít; jazyk overlaye = aktuální jazyk UI (`MG.Handover.rerender()`).
-Klíče i18n v 8 jazycích — `i18n.js`: `hint2`, `okAcc`, `et.protocol_required`, `es.protocol_required`, `et.protocol_failed`;
-`i18n-handover.js` (`ho.*`): `close`, `closeSub`, `title` „Předávací protokol“, `intro`, `customer`, `moto`, `period`, `rider`,
+Klíče i18n v 8 jazycích — `i18n.js`: `hint2`, `okAcc`, `et.protocol_required`, `es.protocol_required`, `et.protocol_failed`,
+`et.handover_in_progress`, `es.handover_in_progress` (2026-09-28);
+`i18n-handover.js` (`ho.*`): `close`, `closeSub`, `lockTitle`, `lockSub` (2026-09-28), `title` „Předávací protokol“, `intro`, `customer`, `moto`, `period`, `rider`,
 `passenger`, `size`, `noGear`, `sign`, `signHint`, `clear`, `code` „Kód motorky“, `codeHint` „Potvrďte podpis kódem motorky z aplikace
 nebo e-mailu“, `confirm` „Potvrdit a podepsat“, `back`, `saving`, `doneTitle`, `done`, `doneMoto`, `doneNoOpen`, `autoClose`,
 `codeMismatch`, `sigTooLarge`, `inProgress`, `failed`, `retryCode`, `motoGear`, `motoGearNote` (2026-09-28); `g.*`: `helmet/jacket/pants/boots/gloves`;
@@ -974,7 +999,12 @@ Třídy `SimRelayModule`, `SimShelly` použitelné v testech in-process (`await 
   + fail-open při None); hradlo `require_before_open`; `then_open` platí jen u viditelné položky (dismiss/idle/restart ho ruší);
   `mark_signed_remote` po dismiss NEotevře, s viditelným then_open otevře právě jednou, bez then_open → DONE; nová položka skryje
   ostatní, položky po 24 h expirují; `reconcile` (podepsané → signed bez otevření, `absent` nikdy neotevře ani nezapíše signed,
-  `required=true` ruší zastaralé lokální signed); tvar `status()`.
+  `required=true` ruší zastaralé lokální signed); tvar `status()`. Zámek přejímky (2026-09-28, `handover_lock.py`): nastaví se
+  při KAŽDÉM zákaznickém zavření šatny (protocol / done / neznámý stav), persist přes restart manageru; přes
+  `controller_codes.submit_code` cizí kód → `handover_in_progress` + ACCESS_DENIED bez lockoutu, vlastní kód šatny i motorky
+  projde a obnoví aktivitu; uvolnění grantem kóje motorky, podpisem z displeje i `protocol_signed` s then_open; neúspěšné
+  otevření zámek nechává; vypršení po `handover_lock_s` bez aktivity (dotyk protokolu prodlužuje); servisní heslo a pevný
+  kód 39301H nikdy neblokuje; `release(None)` = servisní all_off.
 - `test_handover_submit.py`: `submit` s then_open uloží + otevře; `submit` + `protocol_signed` = jedno otevření (atomický pop);
   kód motorky téže rezervace povinný (`code_mismatch` + register_failure, vlastní kód šatny se netrestá, `locked`); validace
   podpisu (`missing_signature`/`signature_too_large`); fronta `protocol_queue` přežije síť (pending) i 4xx (failed +
@@ -1484,8 +1514,8 @@ Zadání (SPEC §9 odstavec „Šatna“, §10, §13 rozhodnutí 2026-09-25): k�
 po zavření šatny (nebo po kódu motorky u vlastní výbavy) se na displeji podepisuje předávací protokol; **nikdo nedostane motorku
 bez podepsaného protokolu** a **podpis se nikdy neztratí**. Kiosk vede zákazníka krok za krokem, špatné pořadí nepustí.
 
-Dva moduly: `handover.py` (stavový automat + snapshot) a `handover_submit.py` (podpis z displeje, odeslání fronty, otevření kóje).
-Signatury odpovídají implementaci 1:1 (kontrola 2026-09-25):
+Tři moduly: `handover.py` (stavový automat + snapshot), `handover_submit.py` (podpis z displeje, odeslání fronty, otevření kóje)
+a od 2026-09-28 `handover_lock.py` (zámek přejímky, níže). Signatury odpovídají implementaci 1:1 (kontrola 2026-09-28):
 
 ```python
 # handover.py
@@ -1505,13 +1535,15 @@ class HandoverItem:
 class HandoverManager:
     def __init__(self, ctrl: BoxController, clock: Callable[[], float] = time.time) -> None
         # storage/timings bere z ctrl (ctrl.storage; idle_s = ctrl.hardware.timings.handover_idle_s, jinak 120). _load():
-        # kv 'handover' = {items: [persisted…], signed: {booking_id: ts}} (jen stage protocol, bez in_flight, BEZ then_open/podpisů),
-        # gear_sizes z load_code_cache()['gear_sizes'], refresh_queue(). Po startu je vše skryté (restart nikdy neotevře kóji).
+        # kv 'handover' = {items: [persisted…], signed: {booking_id: ts}, lock: {…}|null} (jen stage protocol, bez in_flight,
+        # BEZ then_open/podpisů), gear_sizes z load_code_cache()['gear_sizes'], refresh_queue(). Po startu je vše skryté
+        # (restart nikdy neotevře kóji); zámek přejímky restart přežije (vyprší po lock_s jako jindy).
     items: dict[str, HandoverItem] ; signed: dict[str, float]     # signed = potvrzené podpisy (server / úspěšný upload), TTL 24 h
     protocols: dict[str, dict]                   # rr.protocol z grantu šatny (remember) — pro okamžik zavření dveří
     gear_sizes: dict ; queue_state: dict         # číselník ze sync; {pending, failed} z protocol_queue_status (§7)
     inflight: set[str] ; wake: asyncio.Event     # per-booking zámek podpisu; probuzení protocol_loop
-    idle_s: int  (property)
+    lock: HandoverLock                           # 2026-09-28 zámek přejímky (handover_lock.py, níže); on_change = _save
+    idle_s: int  (property) ; lock_s: int (property = ctrl.hardware.timings.handover_lock_s, jinak DEFAULT_LOCK_S 300)
     def active(self) -> HandoverItem | None      # nejvýš JEDNA viditelná; zviditelnění jiné skryje ostatní (priorita: nově vyvolaná)
     def remember(self, rr: ResolveResult) -> None   # controller_codes po úspěšném grantu accessories
     def signed_local(self, booking_id: str) -> bool  # v `signed` NEBO v protocol_queue pending/failed (podpis čeká → hradlo neplatí)
@@ -1519,7 +1551,9 @@ class HandoverManager:
     async def on_wardrobe_closed(self, zone: int, booking_id: str | None, protocol: dict | None = None) -> str | None
         # hook §11 (controller volá BEZ protocol → protocols[bid] / cache protocol_for): signed nebo required=False (i `absent`)
         # → toast 'done'; protocol None → None (warning protocol_state_unknown); signed_local → None; jinak položka visible
-        # (kind_origin accessories, then_open None) → 'protocol' (PROTOCOL_SHOWN při prvním zobrazení)
+        # (kind_origin accessories, then_open None) → 'protocol' (PROTOCOL_SHOWN při prvním zobrazení).
+        # 2026-09-28: PŘED tím vždy `lock.set(bid, zone, customer_name z protokolu)` — při KAŽDÉM zákaznickém zavření
+        # (protocol / done / neznámý stav); booking_id None (servisní relace) zámek nemění.
     async def require_before_open(self, rr: ResolveResult, zc: ZoneController, source: str) -> bool
         # kind motorcycle & rr.protocol.required & not signed_local → položka visible (kind_origin motorcycle, zone = zc.number)
         # + then_open {zone, booking_id, kind:'motorcycle', source} → True (kóje se NEotevře); rr.protocol None → False (FAIL-OPEN,
@@ -1531,28 +1565,47 @@ class HandoverManager:
         # jinak je-li visible → toast DONE. reconcile volá may_open=False → z cesty sync/boot se kóje NIKDY neotevře. Idempotentní.
     async def forget(self, booking_id: str) -> None   # rezervace v protocols[] sync chybí → jen odstranit (visible → DONE), bez signed
     def dismiss(self, booking_id: str) -> bool   # visible=False, then_open=None, dismissed_at (done toast → smazat); False = neznámá
-    def touch(self, booking_id: str) -> bool     # last_touch=now jen u viditelné; False = není viditelná
-    def tick(self, now: float | None = None) -> None   # tick_loop 250 ms: idle_s → visible=False, then_open=None (ne při in_flight);
-                                                 #   toast po DONE_TTL_S a položky po ITEM_MAX_AGE_S smazat; signed po SIGNED_KEEP_S
+    def touch(self, booking_id: str) -> bool     # last_touch=now jen u viditelné (+ lock.touch téže rezervace); False = není viditelná
+    def tick(self, now: float | None = None) -> None   # tick_loop 250 ms: lock.expire(now); idle_s → visible=False, then_open=None
+                                                 #   (ne při in_flight); toast po DONE_TTL_S a položky po ITEM_MAX_AGE_S smazat; signed po SIGNED_KEEP_S
     async def reconcile(self, protocols: Any, gear_sizes: Any = None) -> None   # po KAŽDÉM syncu (§12): gear_sizes uložit; protocols
         # ne-list (starý backend) → nic; protocols[bid] obnovit (chybí → {required:False, absent:True}); required=true → smazat
         # zastaralé lokální `signed` (server je zdroj pravdy); položky: chybí → forget, required=false → mark_signed_remote(may_open=False),
         # required=true → obnovit data/is_child
-    def busy(self, now=None) -> bool             # active() stage protocol a (in_flight nebo last_touch < idle_s) → updater._idle_reasons
-                                                 #   'protocol' (§25) a odklad přestavby HW (§12) — skryté položky NEblokují
+    def busy(self, now=None) -> bool             # active() stage protocol a (in_flight nebo last_touch < idle_s) NEBO lock.active(now)
+                                                 #   → updater._idle_reasons 'protocol' (§25) a odklad přestavby HW (§12) — skryté položky NEblokují
     def retry_failed(self) -> int                # protocol_queue failed → pending + wake (příkaz reload/sync_config §13)
     async def flush(self) -> int                 # = handover_submit.flush (protocol_loop)
-    def refresh_queue(self) -> None ; def state_dict(self) -> dict ; def status(self) -> dict   # snapshot['handover'] (§14)
+    def refresh_queue(self) -> None ; def state_dict(self) -> dict ; def status(self) -> dict   # snapshot['handover'] (§14) vč. `lock`
+
+# handover_lock.py (2026-09-28) — zámek přejímky: po zavření šatny jen kódy téže rezervace, dokud se neotevře kóje motorky
+DEFAULT_LOCK_S = 300 ; def iso_ts(ts) -> str | None
+class HandoverLock:
+    def __init__(self, clock, lock_s: Callable[[], int], on_change: Callable[[], None])   # on_change = persist (HandoverManager._save)
+    state: dict | None                           # {booking_id, zone, since, last_activity, customer_name} — kv 'handover' klíč 'lock'
+    lock_s: int (property) ; booking_id: str | None (property)
+    def load(self, raw) -> None ; def to_dict(self) -> dict | None
+    def active(self, now=None) -> bool           # state a now − last_activity < lock_s
+    def blocks(self, booking_id, now=None) -> bool   # active a booking_id ≠ state.booking_id → submit_code odmítne (handover_in_progress)
+    def set(self, booking_id, zone, customer_name=None) -> None   # on_wardrobe_closed: nová rezervace = nový zámek (since=now, aktivní
+                                                 #   zámek jiné rezervace přebírá — latest close wins), táž = jen last_activity (+zone)
+    def touch(self, booking_id) -> bool          # aktivita téže rezervace (přijatý kód, dotyk/podpis protokolu) → last_activity=now
+    def release(self, booking_id=None, reason="") -> bool   # kóje motorky otevřena (submit_code grant, open_zone po podpisu /
+                                                 #   protocol_signed); None = bez ohledu na rezervaci (BoxController.all_off = servisní „Vše vypnout“)
+    def expire(self, now=None) -> bool           # tick: bez aktivity ≥ lock_s → state=None (warning) — walk-away kiosk nezasekne
+    def status(self, now=None) -> dict | None    # snapshot: None | {booking_id, zone, until (ISO last_activity+lock_s), customer_name}
 
 # handover_submit.py
 SIGNATURE_MAX_BYTES = 150*1024 ; QUEUE_BATCH = 20
 def signature_bytes(signature) -> int | None    # dekódované bajty PNG data-URL (týž vzorec jako edge util.ts a ui/signature.js); None = neplatná
 async def open_zone(hm, then_open) -> tuple[dict | None, str | None]   # zc.grant_access(kind, source) → ({zone, kind, message}, None)
                                                  #   | (None, 'zone_not_configured'|busy|door_open|lock_failed|io_offline|fault) + ACCESS_DENIED
+                                                 #   ok a kind motorcycle → hm.lock.release(bid) (2026-09-28; submit i protocol_signed)
 async def submit(hm, booking_id, form, signature, code, source="ui") -> dict   # {ok, status, opened, error, locked_until?} (§16)
     # kontroly: not_pending → in_progress → missing_signature → signature_too_large → then_open_valid? jinak _verify_code
     #   (lockout → locked; resolve_code online/offline: kind motorcycle & týž booking_id → then_open, jinak code_mismatch
-    #   + register_failure/PIN_INVALID (vlastní kód šatny bez trestu)); pak in_flight=True, then_open pryč z položky (atomicky).
+    #   + register_failure/PIN_INVALID (vlastní kód šatny bez trestu)); pak in_flight=True, then_open pryč z položky (atomicky),
+    #   hm.lock.touch(bid) (podpis = aktivita zámku).
     # pořadí: (1) storage.protocol_queue_put(bid, {booking_id, form, signature, signed_at}, kv=('handover', state_dict()))
     #   — JEDNA transakce (§7); výjimka → stored=False; Event PROTOCOL_SIGNED; (2) upload_one → saved | already_filled |
     #   queued (síť/5xx/404) | failed (4xx trvale); položka pryč z items; not stored ∧ result ∈ {queued, failed} → error
@@ -1583,6 +1636,16 @@ z Velína protokol nespouští ani nevyžadují (`booking_id=None`). (8) Aktivac
 (DB `_activate_booking_on_door_open`) — podpis ji nespouští. (9) Snapshot/status ani `kiosk_logs` nikdy nenesou PNG podpisu; cache
 `protocols[]` drží jen blízké nepodepsané rezervace (§22). (10) Podpis pořízený na displeji se nikdy neztratí, ale kóje se otevře
 i když ho edge později (nebo hned) trvale odmítne — náprava = oprava na serveru + Velín „Znovu synchronizovat“ (`retry_failed`).
+(11) **Zámek přejímky (rozhodnutí majitele 2026-09-28, `handover_lock.py`):** po zavření šatny zákazníkem (KAŽDÉ zákaznické
+`on_wardrobe_closed` — protocol, done i neznámý stav) přijímá kiosk JEN kódy téže rezervace (kód motorky, případně znovu kód
+šatny), dokud se neotevře její kóje motorky (grant v `submit_code`, `open_zone` po podpisu z displeje i po `protocol_signed`);
+platný kód JINÉ rezervace → `handover_in_progress` („Nejprve musí být dokončena předchozí přejímka…“) + ACCESS_DENIED, bez
+lockoutu. Cíl: nikdo se nehromadí v šatně, každý podepíše a jde jeden po druhém. Zámek NIKDY nezasekne kiosk: bez aktivity
+(kód, dotyk/podpis protokolu, další zavření šatny) vyprší po `handover_lock_s` (300 s, `tick`); servisní hesla, pevné kódy
+39301A–H a diagnostika ho neberou v potaz; servisní „Vše vypnout“ (`BoxController.all_off`) ho uvolní; HW přestavba/aktualizace
+se během něj odkládá (`busy()`); neúspěšné otevření kóje ho nechává (zákazník zadá kód znovu). Persist v kv `handover` (`lock`),
+snapshot `handover.lock` (§14), UI pruh `#handover-lock` (§16). Hláška šatny (dveře otevřené se zákaznickou relací) je od téhož
+dne MODÁLNÍ přes celý displej až do zavření dveří (§16) — dál odvozená jen ze živého stavu zóny, ne položka.
 
 Endpointy §16, snapshot §14, příkaz §13, události §15, storage §7, RPC/edge §22, testy §21 (`test_handover.py`).
 

@@ -972,23 +972,35 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     final calc = _calc;
     // Samoobslužná pobočka bez přistavení / odvozu na adresu (rozhodnutí
     // majitele 2026-09-28, feature flag `self_service_delivery` — default
-    // OFF): ani úpravou nejde zvolit; volby zůstávají vidět zabalené
-    // s vysvětlením. Po výměně na motorku ze samoobsluhy (nebo u staré
-    // rezervace s adresou) se způsob vrací na pobočku — DB trigger by jinak
-    // uložení odmítl.
+    // OFF): úpravou je nejde NOVĚ zvolit; volby zůstávají vidět zabalené
+    // s vysvětlením. Rezervace, která přistavení/odvoz už má (vznikla dřív),
+    // si ho ponechá — dokud zůstává u stejné motorky (DB trigger hlídá jen
+    // novou volbu a výměnu motorky). Po výměně na motorku ze samoobsluhy se
+    // způsob vrací na pobočku, jinak by uložení DB odmítla.
     final deliveryBlocked = selfServiceDeliveryBlocked(
         branchType: _effBranchType,
         flagEnabled:
             ref.watch(selfServiceDeliveryEnabledProvider).valueOrNull ?? false);
-    if (deliveryBlocked &&
-        (_pickupMethod == 'delivery' || _returnMethod == 'delivery')) {
+    final motoChanged = _newMotoId != null && _newMotoId != _booking!.motoId;
+    final pickupBlocked = deliveryBlocked &&
+        (motoChanged ||
+            bookingMethodWithAddress(_booking!.pickupMethod, _booking!.pickupAddress) != 'delivery');
+    final returnBlocked = deliveryBlocked &&
+        (motoChanged ||
+            bookingMethodWithAddress(_booking!.returnMethod, _booking!.returnAddress) != 'delivery');
+    if ((pickupBlocked && _pickupMethod == 'delivery') ||
+        (returnBlocked && _returnMethod == 'delivery')) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() {
-          _pickupMethod = 'store';
-          _returnMethod = 'store';
-          _pickupDelivFee = 0;
-          _returnDelivFee = 0;
+          if (pickupBlocked) {
+            _pickupMethod = 'store';
+            _pickupDelivFee = 0;
+          }
+          if (returnBlocked) {
+            _returnMethod = 'store';
+            _returnDelivFee = 0;
+          }
         });
       });
     }
@@ -1179,7 +1191,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               const SizedBox(height: 8),
               AddressPickerWidget(label: t(context).pickup, method: _pickupMethod,
                 branchLabel: _effBranchLabel,
-                deliveryBlocked: deliveryBlocked,
+                deliveryBlocked: pickupBlocked,
                 onMethodChanged: (m) => setState(() => _pickupMethod = m),
                 onAddressChanged: (_) {},
                 onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f)),
@@ -1199,7 +1211,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             const SizedBox(height: 8),
             AddressPickerWidget(label: t(context).returnLabel, method: _returnMethod,
               branchLabel: _effBranchLabel,
-              deliveryBlocked: deliveryBlocked,
+              deliveryBlocked: returnBlocked,
               onMethodChanged: (m) => setState(() => _returnMethod = m),
               onAddressChanged: (_) {},
               onDeliveryFeeChanged: (f) => setState(() => _returnDelivFee = f)),

@@ -49,6 +49,8 @@ async def open_zone(hm: "HandoverManager", then_open: dict | None) -> tuple[dict
     ok, reason = await zc.grant_access(booking_id=bid, kind=kind, source=str(source or "protocol"))
     name = zc.zone.display_name
     if ok:
+        if kind == "motorcycle":      # kóje motorky otevřena → zámek přejímky pryč (submit z displeje i příkaz protocol_signed)
+            hm.lock.release(bid, "kóje motorky otevřena po podpisu")
         return {"zone": zc.number, "kind": zc.zone.kind,
                 "message": cc.open_result_text(True, "ok", kind, name, box_number=cc.door_number(zc))}, None
     await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="warn", code_kind=kind,
@@ -114,6 +116,7 @@ async def submit(hm: "HandoverManager", booking_id: str, form: Any, signature: A
             return {**base, **err}
     item.in_flight, item.then_open = True, None
     hm.inflight.add(bid)
+    hm.lock.touch(bid)                # podpis = aktivita zamčené rezervace (kdyby se kóje po podpisu neotevřela)
     payload = {"booking_id": bid, "form": form if isinstance(form, dict) else {}, "signature": signature,
                "signed_at": now_iso()}
     stored = True

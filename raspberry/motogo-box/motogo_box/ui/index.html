@@ -43,11 +43,12 @@
         <div class="hint"><span class="hint-ico" aria-hidden="true">🔑</span>
           <span data-i18n="hint2">Berete si oblečení? Zadejte nejdřív kód šatny, potom kód motorky. Máte vlastní výbavu? Zadejte rovnou kód motorky.</span></div>
       </div>
-      <!-- Pruh šatny (NEmodální): dveře šatny otevřené se zákaznickou relací — odvozeno živě ze st.zones (app.js) -->
-      <div id="wardrobe-hint" class="wardrobe-hint" hidden>
-        <span class="wardrobe-ico" aria-hidden="true">🧥</span>
-        <div><div class="wardrobe-title" data-i18n="ho.close">Šatna: vezměte si výbavu a zavřete dveře</div>
-          <div class="wardrobe-sub" data-i18n="ho.closeSub">Předávací protokol se zobrazí po zavření dveří.</div></div>
+      <!-- Pruh zámku přejímky (NEmodální, 2026-09-28): jiná rezervace právě zavřela šatnu a ještě nezadala kód motorky —
+           ze snapshotu st.handover.lock (app.js renderWardrobe); klávesnice zůstává aktivní (servisní hesla, vlastní kódy) -->
+      <div id="handover-lock" class="flow-hint" hidden>
+        <span class="flow-ico" aria-hidden="true">🔒</span>
+        <div><div class="flow-title" data-i18n="ho.lockTitle">Probíhá přejímka — kód motorky zadá zákazník, který právě zavřel šatnu</div>
+          <div class="flow-sub" data-i18n="ho.lockSub">Ostatní zákazníci: počkejte prosím, až dokončí převzetí.</div></div>
       </div>
       <!-- Pole kódu (znaky viditelné — rozhodnutí 2026-09-11) + časovač -->
       <div class="code-wrap">
@@ -70,6 +71,18 @@
       <div id="status-title" class="status-title"></div>
       <div id="status-sub" class="status-sub"></div>
       <div id="status-dismiss" class="status-dismiss" data-i18n="tap" hidden>Klepnutím zavřete</div>
+    </div>
+  </div>
+
+  <!-- Šatna otevřená se zákaznickou relací (2026-09-28): MODÁLNÍ hláška přes celý displej, dokud se dveře šatny nezavřou —
+       odvozeno živě ze st.zones (kind accessories + DOOR_OPEN + booking_id; app.js renderWardrobe), z-index 42 (nad #status,
+       pod #handover). Nejde zavřít dotykem ani klávesou; lišta jazyků uvnitř, aby šel jazyk přepnout i tady. -->
+  <div id="wardrobe" class="overlay" hidden>
+    <div class="wd-card">
+      <nav id="wd-lang" class="lang-bar wd-lang" aria-label="Jazyk / Language"></nav>
+      <div class="wd-ico" aria-hidden="true">🧥</div>
+      <div class="wd-title" data-i18n="ho.close">Šatna: vezměte si výbavu a zavřete dveře</div>
+      <div class="wd-sub" data-i18n="ho.closeSub">Předávací protokol se zobrazí po zavření dveří.</div>
     </div>
   </div>
 

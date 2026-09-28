@@ -107,8 +107,11 @@ function heatColor(count, max) {
 // protokol v dokladech (`protocolIds`). Návrat je vyřízený při returned_at nebo
 // stavu completed. Vyřízené události se neukazují v „nadcházejících".
 function pickupDone(b, protocolIds) {
-  return !!b.picked_up_at || b.status === 'active' || b.status === 'completed'
-    || !!b.handover_protocol_filled_at || protocolIds?.has(b.id)
+  if (!!b.picked_up_at || b.status === 'active' || b.status === 'completed') return true
+  // Samoobslužná pobočka (2026-09-28): zákazník podepisuje protokol PŘED zadáním kódu
+  // motorky — samotný podpis převzetí neznamená („Vydáno" = kód + protokol).
+  if (b.motorcycles?.branches?.type === 'samoobslužná') return false
+  return !!b.handover_protocol_filled_at || protocolIds?.has(b.id)
 }
 function returnDone(b) {
   return !!b.returned_at || b.status === 'completed'
