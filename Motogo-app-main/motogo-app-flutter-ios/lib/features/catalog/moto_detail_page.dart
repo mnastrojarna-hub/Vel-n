@@ -670,7 +670,11 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                   glovesSize: rg('gloves'),
                   jacketSize: rg('jacket'),
                   pantsSize: rg('pants'),
-                  bootsSize: rg('boots'),
+                  // Boty se NEpředvyplňují: jsou placený doplněk volený dlaždicí
+                  // („Boty řidiče"), formulář předvyplněnou velikost nikde
+                  // neukazoval, ale payment_screen ji zapisoval do
+                  // bookings.boots_size → Velín ukazoval boty, které si zákazník
+                  // nevybral (incident 2026-09-28).
                 );
                 ctx.push(Routes.booking);
               }

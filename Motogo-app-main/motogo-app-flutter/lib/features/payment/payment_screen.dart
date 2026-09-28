@@ -375,7 +375,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       return map;
     }
     final pg = _parsePassengerGearSizes();
-    final driverBoots = draft.bootsSize ?? _findExtraSize('extra-boty-ridic');
+    // Boty řidiče JEN když je zvolený placený doplněk (dřív `draft.bootsSize ??`
+    // z předvyplnění profilu → boots_size se zapsal i bez objednaných bot).
+    final driverBoots = _findExtraSize('extra-boty-ridic');
     final passengerBoots = _findExtraSize('extra-boty-spolu');
 
     // Sleva: kromě textového kódu zapiš i FK na promo_codes / vouchers —
@@ -1259,7 +1261,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                       .delete()
                       .eq('booking_id', _pendingBookingId!)
                       .inFilter('name', const [
-                    'Výbava spolujezdce', 'Boty řidiče', 'Boty spolujezdce',
+                    // „Boty řidič" (bez -e) = řádek z webové RPC update_booking_gear
+                    'Výbava spolujezdce', 'Boty řidiče', 'Boty řidič', 'Boty spolujezdce',
                   ]);
                 } catch (_) {/* ignore */}
               }

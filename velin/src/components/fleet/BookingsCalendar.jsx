@@ -246,7 +246,7 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
                             {items.map((item, idx) => (
                               <div key={idx} className="flex items-center gap-2 p-2 rounded" style={{ background: item.done ? '#dcfce7' : '#f9fafb', border: '1px solid ' + (item.done ? '#86efac' : '#e5e7eb'), fontSize: 13 }}>
                                 <span style={{ color: item.done ? '#16a34a' : '#9ca3af', fontWeight: 700 }}>{item.done ? '✓' : '○'}</span>
-                                <span style={{ color: item.done ? '#16a34a' : '#374151', textDecoration: item.done ? 'line-through' : 'none' }}>{item.label}</span>
+                                <span style={{ color: item.done ? '#16a34a' : '#374151', textDecoration: item.done ? 'line-through' : 'none' }}>{item.custom ? '✎ ' : ''}{item.label}</span>
                                 {item.note && <span style={{ color: '#6b7280', marginLeft: 8, fontStyle: 'italic' }}>— {item.note}</span>}
                               </div>
                             ))}

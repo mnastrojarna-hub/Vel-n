@@ -344,6 +344,7 @@ const translationsUkExt8 = <String, Map<String, String>>{
     'searchingAddress': 'Шукаю адресу...',
     'sectionDateTitle': 'ДАТА',
     'selectAllSizes': 'ВИБЕРІТЬ УСІ РОЗМІРИ',
+    'selectAtLeastOneSize': 'ВИБЕРІТЬ ХОЧА Б ОДИН РОЗМІР',
     'selectNewMoto': 'ВИБЕРІТЬ НОВИЙ МОТОЦИКЛ',
     'selectPlaceOnMap': 'Виберіть місце на карті',
     'selectTimePickupDelivery': 'Виберіть час отримання / подачі',

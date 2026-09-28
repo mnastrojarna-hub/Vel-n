@@ -164,8 +164,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
 
   /// Kanonické názvy modelovaných doplňků (shodné s tím, co se vkládá do
   /// booking_extras) — slouží k jejich nahrazení (delete+insert) při úpravě.
+  /// „Boty řidič" (bez -e) vkládá webová RPC `update_booking_gear` — bez něj
+  /// tu řádek z webu přežil a po uložení z appky měl zákazník ve Velíně
+  /// boty DVAKRÁT (incident 2026-09-28).
   static const _modeledExtraNames = [
-    'Výbava spolujezdce', 'Boty řidiče', 'Boty spolujezdce',
+    'Výbava spolujezdce', 'Boty řidiče', 'Boty řidič', 'Boty spolujezdce',
   ];
   static const _extraDefs = {
     'spolujezdec': ('Výbava spolujezdce', 690.0),
@@ -466,10 +469,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     if (_selectedExtras.contains('boty_spolujezdec') && _passengerBootsSize == null) {
       missing.add(t(context).tr('gearBootsPassenger'));
     }
-    if (_selectedExtras.contains('spolujezdec')) {
-      if (_passengerHelmetSize == null) missing.add(t(context).tr('gearHelmetPassenger'));
-      if (_passengerJacketSize == null) missing.add(t(context).tr('gearJacketPassenger'));
-      if (_passengerPantsSize == null) missing.add(t(context).tr('gearPantsPassenger'));
+    // Výbava spolujezdce: stačí ALESPOŇ JEDEN kus (parita s rezervačním
+    // formulářem — zadání majitele 2026-09-28), ne všechny tři.
+    if (_selectedExtras.contains('spolujezdec') &&
+        _passengerHelmetSize == null &&
+        _passengerJacketSize == null &&
+        _passengerPantsSize == null) {
+      missing.add(t(context).tr('gearPassenger'));
     }
     return missing;
   }

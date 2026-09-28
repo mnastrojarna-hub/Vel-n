@@ -26,6 +26,7 @@ const ROUTE_LABELS = {
   '/trasy': 'Trasy',
   '/slevove-kody': 'Slevové kódy',
   '/zamestnanci': 'Zaměstnanci',
+  '/uzivatele': 'Uživatelé Velína',
 }
 
 export default function Topbar() {

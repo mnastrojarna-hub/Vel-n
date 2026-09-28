@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import Button from '../ui/Button'
 import { SERVICE_CHECKLIST } from './motoActionConstants'
+import CustomServiceItems, { customLabelsFromItems } from './CustomServiceItems'
 
 // Build reverse map: label → id for pre-filling from existing log items
 const LABEL_TO_ID = {}
@@ -9,7 +10,7 @@ SERVICE_CHECKLIST.forEach(g => g.items.forEach(i => { LABEL_TO_ID[i.label] = i.i
 export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, error, initialData, editMode }) {
   // Pre-fill from initialData (existing maintenance_log entry)
   const defaults = useMemo(() => {
-    if (!initialData) return { checks: {}, urgent: false, from: new Date().toISOString().slice(0, 10), to: '', note: '' }
+    if (!initialData) return { checks: {}, custom: [], urgent: false, from: new Date().toISOString().slice(0, 10), to: '', note: '' }
     const checks = {}
     if (initialData.items?.length > 0) {
       for (const item of initialData.items) {
@@ -19,6 +20,7 @@ export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, er
     }
     return {
       checks,
+      custom: customLabelsFromItems(initialData.items), // „Jiné“ — vlastní úkony mimo checklist
       urgent: !!initialData.is_urgent,
       from: initialData.service_date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
       to: initialData.scheduled_date?.slice(0, 10) || '',
@@ -27,12 +29,13 @@ export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, er
   }, [initialData])
 
   const [checkedItems, setCheckedItems] = useState(defaults.checks)
+  const [customLabels, setCustomLabels] = useState(defaults.custom)
   const [isUrgent, setIsUrgent] = useState(defaults.urgent)
   const [serviceDateFrom, setServiceDateFrom] = useState(defaults.from)
   const [serviceDateTo, setServiceDateTo] = useState(defaults.to)
   const [note, setNote] = useState(defaults.note)
 
-  const checkedCount = Object.values(checkedItems).filter(Boolean).length
+  const checkedCount = Object.values(checkedItems).filter(Boolean).length + customLabels.length
 
   function handleConfirm() {
     const selected = Object.entries(checkedItems).filter(([, v]) => v).map(([k]) => k)
@@ -40,6 +43,8 @@ export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, er
     SERVICE_CHECKLIST.forEach(g => g.items.forEach(i => {
       if (selected.includes(i.id)) selectedLabels.push(i.label)
     }))
+    // Vlastní úkony jdou do items stejně jako standardní (volající je mapuje na {label, done, note})
+    selectedLabels.push(...customLabels)
     const fullDescription = note.trim() || null
     if (!fullDescription && selectedLabels.length === 0) return
     onConfirm({ selected, selectedLabels, fullDescription, isUrgent, serviceDateFrom, serviceDateTo })
@@ -70,6 +75,7 @@ export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, er
             </div>
           </div>
         ))}
+        <CustomServiceItems labels={customLabels} onChange={setCustomLabels} compact />
       </div>
 
       <div className="mb-4">

@@ -1,30 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { visibleSections } from '../lib/velinSections'
 
-
-const NAV = [
-  { id: 'dashboard', path: '/', label: 'Velín', icon: '⚡' },
-  { id: 'fleet', path: '/flotila', label: 'Flotila', icon: '🏍️' },
-  { id: 'bookings', path: '/rezervace', label: 'Rezervace', icon: '📅' },
-  { id: 'customers', path: '/zakaznici', label: 'Zákazníci', icon: '👥' },
-  { id: 'finance', path: '/finance', label: 'Finance', icon: '💰' },
-  { id: 'documents', path: '/dokumenty', label: 'Dokumenty', icon: '📄' },
-  { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢', badgeKey: 'kiosk' },   // poplach samoobsluhy (kiosk_alerts)
-  { id: 'logistics', path: '/logistika', label: 'Logistika zboží', icon: '📦', badgeKey: 'gear' },
-  { id: 'trasy', path: '/trasy', label: 'Trasy', icon: '🛣️' },
-  { id: 'service', path: '/servis', label: 'Servis', icon: '🔧' },
-  { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬', badgeKey: 'messages' },
-  { id: 'cms', path: '/cms', label: 'Texty webu', icon: '🌐' },
-  { id: 'analyza', path: '/analyza', label: 'Analýza', icon: '🧠' },
-  { id: 'discount-codes', path: '/slevove-kody', label: 'Slevové kódy', icon: '🏷️' },
-  { id: 'eshop', path: '/e-shop', label: 'E-shop', icon: '🛒' },
-  { id: 'government', path: '/statni-sprava', label: 'Státní správa', icon: '🏛️' },
-  { id: 'ai', path: '/ai-copilot', label: 'AI Copilot', icon: '🤖' },
-  { id: 'orchestrator', path: '/orchestrator', label: 'AI Ředitel', icon: '👔' },
-  { id: 'sos', path: '/sos', label: 'SOS Panel', icon: '🚨', badgeKey: 'sos' },
-  { id: 'employees', path: '/zamestnanci', label: 'Zaměstnanci', icon: '👷' },
-]
+// Položky menu = VELIN_SECTIONS (lib/velinSections.js) filtrované podle oprávnění
+// účtu (admin_users.permissions.sections); superadmin vidí vše.
 
 const Logo = ({ size = 44 }) => (
   <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
@@ -54,6 +34,7 @@ export default function Sidebar({ admin, onSignOut }) {
   const [badges, setBadges] = useState({ messages: 0, sos: 0, gear: 0, kiosk: 0 })
   const location = useLocation()
   const navigate = useNavigate()
+  const NAV = visibleSections(admin)
 
   useEffect(() => {
     loadBadges()

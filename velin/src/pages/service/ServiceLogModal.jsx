@@ -4,34 +4,10 @@ import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { TYPE_LABELS } from './serviceScheduleUtils'
+import { SERVICE_CHECKLIST_BY_CATEGORY as SERVICE_CHECKLIST } from '../../components/fleet/motoActionConstants'
+import CustomServiceItems, { customLabelsFromItems, customLabelsToItems } from '../../components/fleet/CustomServiceItems'
 
 const TYPES = Object.keys(TYPE_LABELS)
-
-const SERVICE_CHECKLIST = [
-  { category: 'Motor & olej', items: [
-    'Výměna oleje', 'Výměna olejového filtru', 'Výměna vzduchového filtru',
-    'Výměna svíček', 'Kontrola / výměna chladicí kapaliny', 'Neobvyklý zvuk motoru',
-  ]},
-  { category: 'Brzdy & podvozek', items: [
-    'Brzdové destičky přední', 'Brzdové destičky zadní', 'Výměna brzdové kapaliny',
-    'Kontrola brzdových kotoučů', 'Kontrola tlumičů / pružin',
-  ]},
-  { category: 'Pneumatiky & kola', items: [
-    'Výměna přední pneumatiky', 'Výměna zadní pneumatiky',
-    'Kontrola tlaku pneumatik', 'Kontrola ložisek kol',
-  ]},
-  { category: 'Řetěz & převody', items: [
-    'Seřízení řetězu', 'Výměna řetězu + rozet', 'Promazání řetězu',
-  ]},
-  { category: 'Elektrika & světla', items: [
-    'Kontrola / výměna baterie', 'Kontrola světel',
-    'Kontrola pojistek', 'Problém se startérem',
-  ]},
-  { category: 'Ostatní', items: [
-    'Příprava na STK', 'Kontrola / seřízení spojky',
-    'Kosmetická oprava (lak, plasty)', 'Oprava po nehodě', 'Jiná oprava',
-  ]},
-]
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
@@ -66,6 +42,8 @@ export default function ServiceLogModal({ entry, onClose, onSaved }) {
     SERVICE_CHECKLIST.forEach(cat => cat.items.forEach(it => { m[it] = existingChecked.has(it) }))
     return m
   })
+  // „Jiné“ — vlastní úkony (u editace vše, co v uložených items není ve standardním checklistu)
+  const [customLabels, setCustomLabels] = useState(() => customLabelsFromItems(entry?.items))
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
 
@@ -94,6 +72,7 @@ export default function ServiceLogModal({ entry, onClose, onSaved }) {
   function buildItems() {
     const items = []
     SERVICE_CHECKLIST.forEach(cat => { cat.items.forEach(label => { if (checkedItems[label]) items.push({ label, done: false, note: '' }) }) })
+    items.push(...customLabelsToItems(customLabels))
     return items
   }
 
@@ -151,7 +130,7 @@ export default function ServiceLogModal({ entry, onClose, onSaved }) {
     } catch (e) { debugError('ServiceLog', 'handleSave', e); setErr(e.message) } finally { setSaving(false) }
   }
 
-  const checkedCount = Object.values(checkedItems).filter(Boolean).length
+  const checkedCount = Object.values(checkedItems).filter(Boolean).length + customLabels.length
 
   return (
     <Modal open title={entry ? 'Upravit servis' : 'Nový servis'} onClose={onClose}>
@@ -222,6 +201,7 @@ export default function ServiceLogModal({ entry, onClose, onSaved }) {
             </div>
           ))}
         </div>
+        <CustomServiceItems labels={customLabels} onChange={setCustomLabels} />
       </div>
 
       <div className="mt-4">

@@ -17,7 +17,7 @@
 ### admin_users
 - id, email, name, role (`admin_role` ENUM, DEFAULT 'viewer'), ~~password_hash~~ (odstraněno 2026-06-24 — autentizace přes `auth.users`, sloupec v reálné DB NEEXISTUJE)
 - **phone** (text), **active** (boolean NOT NULL DEFAULT true)
-- branch_access (uuid[]), permissions (jsonb)
+- branch_access (uuid[]), permissions (jsonb) — **od 2026-09-28 (BEZ SQL) tvar `{ "sections": ["service", "finance", …] }`** = sekce hlavního menu Velína, které účet vidí (id z `velin/src/lib/velinSections.js`: dashboard, fleet, bookings, customers, finance, documents, branches, logistics [+ /sklady], trasy, service, messages, cms, analyza, discount-codes, eshop, government, ai, orchestrator, sos, employees; `users` = správa účtů JEN pro superadmina). Role `superadmin` vidí vše bez ohledu na permissions; chybějící klíč `sections` (starší účty) = vše. Vymáhá se **jen v UI** (Sidebar + `SectionGuard` na routes) — DB/RLS zůstává `is_admin()` pro všechny aktivní řádky. Zapisuje výhradně edge fn `admin-users` (superadmin; Velín → Uživatelé Velína), která zakládá i auth účet (`auth.admin.createUser`, e-mail potvrzen) → trigger `handle_new_user` mu založí i technický řádek v `profiles`.
 - last_login_at, created_at, updated_at
 
 ### bookings

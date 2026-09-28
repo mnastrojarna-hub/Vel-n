@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth'
 import { useAdmin } from './hooks/useAdmin'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
+import SectionGuard from './components/SectionGuard'
 import Login from './pages/Login'
 
 // Lazy-loaded pages
@@ -32,6 +33,7 @@ const Logistika = lazy(() => import('./pages/Logistika'))
 const Trasy = lazy(() => import('./pages/Trasy'))
 const Employees = lazy(() => import('./pages/Employees'))
 const AiOrchestrator = lazy(() => import('./pages/AiOrchestrator'))
+const VelinUsers = lazy(() => import('./pages/VelinUsers'))
 
 function PageLoader() {
   return (
@@ -43,7 +45,13 @@ function PageLoader() {
 
 export default function App() {
   const { user, loading, signIn, signOut } = useAuth()
-  const { admin, role, loading: adminLoading, error: adminError } = useAdmin(user)
+  const { admin, loading: adminLoading, error: adminError } = useAdmin(user)
+
+  // Každá route patří do sekce menu (lib/velinSections.js); účet s omezením
+  // (admin_users.permissions.sections) se na cizí sekci nedostane ani přímým URL.
+  const G = (section, element) => (
+    <SectionGuard admin={admin} section={section}>{element}</SectionGuard>
+  )
 
   return (
     <Suspense fallback={<PageLoader />}>
@@ -61,31 +69,32 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/flotila" element={<Fleet />} />
-          <Route path="/flotila/:id" element={<FleetDetail />} />
-          <Route path="/rezervace" element={<Bookings />} />
-          <Route path="/rezervace/:id" element={<BookingDetail />} />
-          <Route path="/zakaznici" element={<Customers />} />
-          <Route path="/zakaznici/:id" element={<CustomerDetail />} />
-          <Route path="/finance" element={<Finance />} />
-          <Route path="/dokumenty" element={<Documents />} />
-          <Route path="/sklady" element={<Inventory />} />
-          <Route path="/sklady/:id" element={<InventoryDetail />} />
-          <Route path="/servis" element={<Service />} />
-          <Route path="/zpravy" element={<Messages />} />
-          <Route path="/cms" element={<CMS />} />
-          <Route path="/analyza" element={<Analyza />} />
-          <Route path="/e-shop" element={<Purchases />} />
-          <Route path="/statni-sprava" element={<Government />} />
-          <Route path="/ai-copilot" element={<AICopilot />} />
-          <Route path="/slevove-kody" element={<DiscountCodes />} />
-          <Route path="/pobocky" element={<Branches />} />
-          <Route path="/logistika" element={<Logistika />} />
-          <Route path="/trasy" element={<Trasy />} />
-          <Route path="/sos" element={<SOSPanel />} />
-          <Route path="/zamestnanci" element={<Employees />} />
-          <Route path="/orchestrator" element={<AiOrchestrator />} />
+          <Route path="/" element={G('dashboard', <Dashboard />)} />
+          <Route path="/flotila" element={G('fleet', <Fleet />)} />
+          <Route path="/flotila/:id" element={G('fleet', <FleetDetail />)} />
+          <Route path="/rezervace" element={G('bookings', <Bookings />)} />
+          <Route path="/rezervace/:id" element={G('bookings', <BookingDetail />)} />
+          <Route path="/zakaznici" element={G('customers', <Customers />)} />
+          <Route path="/zakaznici/:id" element={G('customers', <CustomerDetail />)} />
+          <Route path="/finance" element={G('finance', <Finance />)} />
+          <Route path="/dokumenty" element={G('documents', <Documents />)} />
+          <Route path="/sklady" element={G('logistics', <Inventory />)} />
+          <Route path="/sklady/:id" element={G('logistics', <InventoryDetail />)} />
+          <Route path="/servis" element={G('service', <Service />)} />
+          <Route path="/zpravy" element={G('messages', <Messages />)} />
+          <Route path="/cms" element={G('cms', <CMS />)} />
+          <Route path="/analyza" element={G('analyza', <Analyza />)} />
+          <Route path="/e-shop" element={G('eshop', <Purchases />)} />
+          <Route path="/statni-sprava" element={G('government', <Government />)} />
+          <Route path="/ai-copilot" element={G('ai', <AICopilot />)} />
+          <Route path="/slevove-kody" element={G('discount-codes', <DiscountCodes />)} />
+          <Route path="/pobocky" element={G('branches', <Branches />)} />
+          <Route path="/logistika" element={G('logistics', <Logistika />)} />
+          <Route path="/trasy" element={G('trasy', <Trasy />)} />
+          <Route path="/sos" element={G('sos', <SOSPanel />)} />
+          <Route path="/zamestnanci" element={G('employees', <Employees />)} />
+          <Route path="/orchestrator" element={G('orchestrator', <AiOrchestrator />)} />
+          <Route path="/uzivatele" element={G('users', <VelinUsers admin={admin} />)} />
         </Route>
       </Routes>
     </Suspense>
