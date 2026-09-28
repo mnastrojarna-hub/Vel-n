@@ -12,6 +12,7 @@ import 'booking_form_extras_section.dart';
 import 'booking_form_price_section.dart';
 import 'booking_form_promo_section.dart';
 import 'booking_rules.dart';
+import 'feature_flags.dart';
 import 'i18n/i18n_provider.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
@@ -366,6 +367,24 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
             ));
       });
     }
+    // Samoobslužná pobočka bez přistavení / odvozu na adresu (rozhodnutí
+    // majitele 2026-09-28, feature flag `self_service_delivery` — default OFF):
+    // volby zůstávají v sekcích 4 a 5 vidět zabalené s vysvětlením, vybrat
+    // nejdou. Draft z dříve vybrané obslužné motorky (nebo po zapnutí a
+    // vypnutí flagu) se vrací na pobočku, aby insert nešel proti DB triggeru.
+    final deliveryBlocked = selfServiceDeliveryBlocked(
+        branchType: moto.branchType,
+        flagEnabled:
+            ref.watch(selfServiceDeliveryEnabledProvider).valueOrNull ?? false);
+    if (deliveryBlocked &&
+        (draft.pickupMethod == 'delivery' || draft.returnMethod == 'delivery')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _upd((d) => d.copyWith(
+              pickupMethod: 'store',
+              returnMethod: 'store',
+            ));
+      });
+    }
     // Samoobslužná pobočka: čas NÁVRATU na pobočku se nevolí, do rezervace
     // jde 23:59 (čas zůstává jen u vrácení na adresu). Čas vyzvednutí se volí
     // vždy (sleva za pozdní vyzvednutí). Draft se normalizuje tady, aby insert
@@ -428,9 +447,15 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                   showReturn: !hideReturnTime,
                 ),
                 BookingFormPickupSection(
-                    draft: draft, onUpd: _upd, branchLabel: branchLabel),
+                    draft: draft,
+                    onUpd: _upd,
+                    branchLabel: branchLabel,
+                    deliveryBlocked: deliveryBlocked),
                 BookingFormReturnSection(
-                    draft: draft, onUpd: _upd, branchLabel: branchLabel),
+                    draft: draft,
+                    onUpd: _upd,
+                    branchLabel: branchLabel,
+                    deliveryBlocked: deliveryBlocked),
                 BookingFormExtrasSection(
                   draft: draft,
                   onUpd: _upd,

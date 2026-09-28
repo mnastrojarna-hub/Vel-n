@@ -45,6 +45,13 @@ export function useAdmin(user) {
             console.error('Fetch admin failed:', JSON.stringify(fetchError))
             throw fetchError
           }
+        } else if (data.active === false) {
+          // Deaktivovaný účet (Velín → Uživatelé Velína → „Deaktivovat"): živá RLS
+          // politika „Admin can view own record" vrátí vlastní řádek i bez `active`,
+          // DB práva mu `is_admin()` už odepře — UI musí být fail-closed stejně.
+          setError('Přístup odepřen — účet je deaktivovaný. Obraťte se na správce Velína.')
+          setAdmin(null)
+          setRole(null)
         } else {
           setAdmin(data)
           setRole(data.role)

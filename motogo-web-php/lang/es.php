@@ -1412,6 +1412,9 @@ return [
     // ===== Doplněné překlady — rezervační formulář, úprava rezervace, potvrzení (complete-czech-translation) =====
     'menu.logout' => 'Cerrar sesión',
     'rez.pickup.gps' => 'Mi ubicación',
+    // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
+    'rez.pickup.selfServiceNoDelivery' => 'Todavía no disponible en sucursales de autoservicio',
+    'rez.pickup.selfServiceNoDeliveryText' => 'Las motos de una sucursal de autoservicio se recogen y se devuelven únicamente en la sucursal — las 24 horas (24/7) con el código que recibirá tras el pago. Por ahora no ofrecemos entrega a domicilio ni recogida en una dirección para ellas; activaremos este servicio en el futuro.',
     'rez.geo.failed' => 'No se pudo determinar tu ubicación.',
     'rez.geo.denied' => 'Para determinar tu ubicación, debes permitir el acceso a la ubicación.',
     'rez.geo.unavailable' => 'La ubicación no está disponible en este momento. Inténtalo de nuevo o introduce la dirección manualmente.',

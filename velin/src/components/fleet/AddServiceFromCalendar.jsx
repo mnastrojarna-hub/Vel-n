@@ -2,34 +2,10 @@ import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
+import { SERVICE_CHECKLIST_BY_CATEGORY as CAL_SERVICE_CHECKLIST } from './motoActionConstants'
+import CustomServiceItems, { customLabelsToItems } from './CustomServiceItems'
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
-
-const CAL_SERVICE_CHECKLIST = [
-  { category: 'Motor & olej', items: [
-    'Výměna oleje', 'Výměna olejového filtru', 'Výměna vzduchového filtru',
-    'Výměna svíček', 'Kontrola / výměna chladicí kapaliny', 'Neobvyklý zvuk motoru',
-  ]},
-  { category: 'Brzdy & podvozek', items: [
-    'Brzdové destičky přední', 'Brzdové destičky zadní', 'Výměna brzdové kapaliny',
-    'Kontrola brzdových kotoučů', 'Kontrola tlumičů / pružin',
-  ]},
-  { category: 'Pneumatiky & kola', items: [
-    'Výměna přední pneumatiky', 'Výměna zadní pneumatiky',
-    'Kontrola tlaku pneumatik', 'Kontrola ložisek kol',
-  ]},
-  { category: 'Řetěz & převody', items: [
-    'Seřízení řetězu', 'Výměna řetězu + rozet', 'Promazání řetězu',
-  ]},
-  { category: 'Elektrika & světla', items: [
-    'Kontrola / výměna baterie', 'Kontrola světel',
-    'Kontrola pojistek', 'Problém se startérem',
-  ]},
-  { category: 'Ostatní', items: [
-    'Příprava na STK', 'Kontrola / seřízení spojky',
-    'Kosmetická oprava (lak, plasty)', 'Oprava po nehodě', 'Jiná oprava',
-  ]},
-]
 
 function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
   const today = new Date().toISOString().slice(0, 10)
@@ -41,11 +17,12 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
     CAL_SERVICE_CHECKLIST.forEach(cat => cat.items.forEach(it => { m[it] = false }))
     return m
   })
+  const [customLabels, setCustomLabels] = useState([]) // „Jiné“ — vlastní úkony
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const toggleCheck = (label) => setCheckedItems(c => ({ ...c, [label]: !c[label] }))
-  const checkedCount = Object.values(checkedItems).filter(Boolean).length
+  const checkedCount = Object.values(checkedItems).filter(Boolean).length + customLabels.length
 
   function buildItems() {
     const items = []
@@ -54,6 +31,7 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
         if (checkedItems[label]) items.push({ label, done: false, note: '' })
       })
     })
+    items.push(...customLabelsToItems(customLabels))
     return items
   }
 
@@ -137,6 +115,7 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
             </div>
           ))}
         </div>
+        <CustomServiceItems labels={customLabels} onChange={setCustomLabels} />
       </div>
 
       <div className="grid grid-cols-1 gap-3 mt-4">

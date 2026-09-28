@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import ServiceChecklistView from '../../components/fleet/ServiceChecklistView'
+import { labelsToItems } from '../../components/fleet/CustomServiceItems'
 import { SCHEDULE_TYPES, INSPECTION_ITEMS } from './scheduleConstants'
 import { RecurringForm, InspectionChecklist, MotoPicker } from './ScheduleServiceForms'
 
@@ -68,7 +69,7 @@ function SingleServiceForm({ motos, onBack, onDone }) {
       const serviceStart = serviceDateFrom || today
       const isFuture = serviceStart > today
       if (!isFuture) await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
-      const { data: newLog } = await supabase.from('maintenance_log').insert({ moto_id: motoId, description: fullDescription || 'Plánovaný servis', service_type: 'extraordinary', service_date: serviceStart, scheduled_date: serviceDateTo || null, status: isFuture ? 'pending' : 'in_service', km_at_service: Number(selected?.mileage) || null, is_urgent: isUrgent, items: selectedLabels.map(label => ({ label, done: false, note: '' })) }).select('id').single()
+      const { data: newLog } = await supabase.from('maintenance_log').insert({ moto_id: motoId, description: fullDescription || 'Plánovaný servis', service_type: 'extraordinary', service_date: serviceStart, scheduled_date: serviceDateTo || null, status: isFuture ? 'pending' : 'in_service', km_at_service: Number(selected?.mileage) || null, is_urgent: isUrgent, items: labelsToItems(selectedLabels) }).select('id').single()
       await supabase.from('service_orders').insert({ moto_id: motoId, type: fullDescription || 'Mimořádný servis', notes: selectedLabels.join(', '), status: isFuture ? 'pending' : 'in_service', maintenance_log_id: newLog?.id })
       setBusy(false); onDone?.()
     } catch (e) { setError(e.message); setBusy(false) }

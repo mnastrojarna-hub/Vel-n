@@ -53,6 +53,15 @@ String bookingMethodWithAddress(String? method, String? address) =>
         ? 'delivery'
         : (method ?? 'store');
 
+/// Samoobslužná pobočka: přistavení na adresu ani odvoz z adresy zatím
+/// nelze (rozhodnutí majitele 2026-09-28) — dokud není zapnutý feature flag
+/// `self_service_delivery` (Velín → Texty webu → Feature flags). Formulář i
+/// úprava rezervace pak nabízí jen pobočku; volby zůstávají vidět zabalené
+/// s vysvětlením. Obslužná / neznámá pobočka beze změny.
+bool selfServiceDeliveryBlocked(
+        {String? branchType, required bool flagEnabled}) =>
+    branchType == selfServiceBranchType && !flagEnabled;
+
 /// Čas návratu se skrývá jen při vrácení NA samoobslužnou pobočku.
 bool selfServiceHidesReturnTime(
         {String? branchType, required String returnMethod}) =>

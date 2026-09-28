@@ -17,6 +17,7 @@ import '../booking/booking_provider.dart';
 import '../booking/booking_models.dart';
 import '../booking/widgets/price_summary.dart';
 import '../reservations/reservation_provider.dart' show releaseDoorCodes, reservationsProvider, reservationByIdProvider;
+import '../reservations/booking_extras_sync.dart' show replaceModeledExtras;
 import 'booking_upsell_provider.dart';
 import '../../core/feature_flags.dart';
 import '../../core/booking_rules.dart';
@@ -375,7 +376,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       return map;
     }
     final pg = _parsePassengerGearSizes();
-    final driverBoots = draft.bootsSize ?? _findExtraSize('extra-boty-ridic');
+    // Boty řidiče JEN když je zvolený placený doplněk (dřív `draft.bootsSize ??`
+    // z předvyplnění profilu → boots_size se zapsal i bez objednaných bot).
+    final driverBoots = _findExtraSize('extra-boty-ridic');
     final passengerBoots = _findExtraSize('extra-boty-spolu');
 
     // Sleva: kromě textového kódu zapiš i FK na promo_codes / vouchers —
@@ -576,6 +579,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       } else if (msg.contains('trailer_unavailable')) {
         // trg_check_trailer_overlap (23505): kus vozíku mezitím obsadil jiný.
         _draftError = mounted ? t(context).tr('swap.trailerOccupied') : null;
+      } else if (msg.contains('self_service_no_delivery')) {
+        // DB trigger (2026-09-28): samoobslužná pobočka bez přistavení / odvozu
+        // na adresu (feature flag `self_service_delivery` vypnutý) — sem dojde
+        // jen starý build bez zabalených voleb nebo závod s přepnutím flagu.
+        _draftError = mounted ? t(context).tr('ssNoDeliveryError') : null;
       } else {
         // Syrový text výjimky z PostgREST/PostgreSQL zákazníkovi nic neřekne
         // (a může prozradit vnitřnosti) — do UI jde srozumitelná hláška,
@@ -1072,6 +1080,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     _completed = true;
     _countdownTimer?.cancel();
     ref.read(paymentContextProvider.notifier).state = null;
+    // Odchod do /reservations je UVNITŘ shellu → provider FAB „Dokončit
+    // rezervaci" se nezahodí a držel by rezervaci z paměti dál, i když ji
+    // webhook vzápětí označí jako zaplacenou (incident 2026-09-28, Apple Pay).
+    // Restart = nový dotaz do DB; seznam rezervací obnovit rovnou taky.
+    ref.invalidate(pendingBookingFabProvider);
+    ref.invalidate(reservationsProvider);
     final tr = t(context);
     showMotoGoToast(context,
         icon: '⏳',
@@ -1148,6 +1162,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     if (_pendingBookingId != null) {
       ref.invalidate(reservationByIdProvider(_pendingBookingId!));
     }
+    // Rezervace je zaplacená → FAB „Dokončit rezervaci" nesmí dál ukazovat
+    // stav z paměti (viz pendingBookingFabProvider, incident 2026-09-28).
+    ref.invalidate(pendingBookingFabProvider);
 
     // Try to release withheld door codes (fire-and-forget safety net).
     // Backend triggers should handle this, but RPC serves as a fallback
@@ -1247,26 +1264,26 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                   Map<String, dynamic>.from(_ctx!.pendingEditChanges!);
               final extrasRows = pending.remove('_extras_rows');
               final extrasReplace = pending.remove('_extras_replace') == true;
+              final deleteIds = ((pending.remove('_extras_delete_ids') as List?) ?? const [])
+                  .map((e) => e.toString())
+                  .toList();
+              final origExtras = ((pending.remove('_extras_orig') as List?) ?? const [])
+                  .map((e) => e.toString())
+                  .toSet();
               pending.remove('_base'); // jen pro server (metadata), ne sloupec
               await MotoGoSupabase.client
                   .from('bookings')
                   .update(pending)
                   .eq('id', _pendingBookingId!);
               if (extrasReplace) {
-                try {
-                  await MotoGoSupabase.client
-                      .from('booking_extras')
-                      .delete()
-                      .eq('booking_id', _pendingBookingId!)
-                      .inFilter('name', const [
-                    'Výbava spolujezdce', 'Boty řidiče', 'Boty spolujezdce',
-                  ]);
-                } catch (_) {/* ignore */}
-              }
-              if (extrasRows is List && extrasRows.isNotEmpty) {
-                await MotoGoSupabase.client
-                    .from('booking_extras')
-                    .insert(extrasRows);
+                // Mazání podle id + ověření počtu — bez DELETE práva by se
+                // doplňky zdvojily (incident 2026-09-28, viz booking_extras_sync).
+                await replaceModeledExtras(
+                  bookingId: _pendingBookingId!,
+                  origRowIds: deleteIds,
+                  origExtraIds: origExtras,
+                  rows: extrasRows is List ? extrasRows : const [],
+                );
               }
             } catch (e) {
               debugPrint('[Payment] Edit apply err: $e');

@@ -17,6 +17,7 @@ import '../catalog/catalog_provider.dart';
 import '../loyalty/loyalty_provider.dart';
 import '../payment/payment_provider.dart';
 import 'reservation_models.dart';
+import 'booking_extras_sync.dart';
 import 'reservation_edit_price_calc.dart';
 import 'reservation_provider.dart';
 import 'widgets/reservation_edit_widgets.dart';
@@ -27,6 +28,7 @@ import 'widgets/reservation_edit_calendar_section.dart';
 import 'widgets/reservation_swap_section.dart';
 import '../../core/currency.dart';
 import '../../core/booking_rules.dart';
+import '../../core/feature_flags.dart';
 import '../../core/widgets/pickup_location_link.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
@@ -70,6 +72,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   String? _passengerJacketSize;
   String? _passengerPantsSize;
   String? _passengerBootsSize;
+  // Rukavice spolujezdce se v úpravě nevybírají, ale rezervace je mít může
+  // (formulář dovolí i jen rukavice) — počítají se jako zvolený kus výbavy.
+  String? _passengerGlovesSize;
   // „Mám vlastní výbavu" — skryje výběr velikostí základní výbavy řidiče.
   // Od 2026-09-25 se načítá z `bookings.own_gear` a při uložení zapisuje
   // (rozhoduje o kódu šatny; trigger `trg_sync_locker_code` kód přidá/odebere).
@@ -128,6 +133,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _passengerJacketSize = res.passengerJacketSize;
         _passengerPantsSize = res.passengerPantsSize;
         _passengerBootsSize = res.passengerBootsSize;
+        _passengerGlovesSize = res.passengerGlovesSize;
         _ownGear = res.ownGear ?? false;
       });
       _loadDiscountType(res);
@@ -162,11 +168,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     if (mounted) setState(() => _discountType = type);
   }
 
-  /// Kanonické názvy modelovaných doplňků (shodné s tím, co se vkládá do
-  /// booking_extras) — slouží k jejich nahrazení (delete+insert) při úpravě.
-  static const _modeledExtraNames = [
-    'Výbava spolujezdce', 'Boty řidiče', 'Boty spolujezdce',
-  ];
+  /// id původních řádků `booking_extras` modelovaných doplňků (baseline) —
+  /// při uložení se mažou PODLE ID (jazykově nezávislé, viz booking_extras_sync).
+  final List<String> _origModeledRowIds = [];
+  /// Výchozí stav doplňků se podařilo načíst — bez něj se změna doplňků
+  /// neukládá (prázdný baseline by zaplacený doplněk vložil a účtoval znovu).
+  bool _extrasBaselineOk = false;
   static const _extraDefs = {
     'spolujezdec': ('Výbava spolujezdce', 690.0),
     'boty_ridic': ('Boty řidiče', 290.0),
@@ -184,35 +191,29 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   int get _effectiveLoyaltyLevel =>
       _appOnlyLevel(ref.read(loyaltyStatusProvider).valueOrNull?.level ?? 0);
 
-  /// Mapuje název řádku booking_extras na náš id doplňku.
-  static String? _extraIdFromName(String name) {
-    final n = name.toLowerCase();
-    final hasBoots = n.contains('bot');
-    final hasPass = n.contains('spoluj');
-    if (hasBoots && hasPass) return 'boty_spolujezdec';
-    if (hasBoots) return 'boty_ridic';
-    if (hasPass) return 'spolujezdec';
-    return null;
-  }
-
   static bool _setEq(Set<String> a, Set<String> b) =>
       a.length == b.length && a.containsAll(b);
 
   /// Načte původní zaplacené doplňky → předzaškrtne je a uloží jako baseline.
-  Future<void> _loadOriginalExtras() async {
+  /// Při chybě sítě jeden opakovaný pokus; když selže i ten, zůstává
+  /// `_extrasBaselineOk = false` a změnu doplňků `_save` odmítne.
+  Future<void> _loadOriginalExtras({bool retry = true}) async {
     try {
       final rows = await MotoGoSupabase.client
           .from('booking_extras')
-          .select('name, unit_price, quantity')
+          .select('id, name, unit_price, quantity')
           .eq('booking_id', widget.bookingId);
       final orig = <String>{};
+      final rowIds = <String>[];
       // Skutečně zaplacená suma MODELOVANÝCH doplňků — jen z nich se počítá
       // rozdíl, ostatní řádky (vozík…) zůstávají v `extras_price` nedotčené.
       double paid = 0;
       for (final r in (rows as List)) {
-        final id = _extraIdFromName((r['name'] ?? '').toString());
+        // Jazykově nezávisle (web ukládá název v jazyce zákazníka).
+        final id = extraIdFromExtrasName((r['name'] ?? '').toString());
         if (id == null) continue;
         orig.add(id);
+        if (r['id'] != null) rowIds.add(r['id'].toString());
         final up = (r['unit_price'] as num?)?.toDouble() ?? 0;
         final qty = (r['quantity'] as num?)?.toDouble() ?? 1;
         paid += up * qty;
@@ -220,6 +221,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if (mounted) {
         setState(() {
           _origExtrasPaid = paid;
+          _extrasBaselineOk = true;
+          _origModeledRowIds
+            ..clear()
+            ..addAll(rowIds);
           _origExtras
             ..clear()
             ..addAll(orig);
@@ -228,22 +233,30 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ..addAll(orig);
         });
       }
-    } catch (_) {/* bez původních doplňků = prázdný baseline */}
+    } catch (e) {
+      debugPrint('[Edit] extras baseline load failed: $e');
+      if (retry && mounted) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (mounted) await _loadOriginalExtras(retry: false);
+      }
+    }
   }
 
-  /// Nahradí modelované řádky booking_extras aktuálním výběrem (delete + insert).
-  Future<void> _replaceModeledExtras(List<Map<String, dynamic>>? rows) async {
+  /// Nahradí modelované řádky booking_extras aktuálním výběrem — mazání podle
+  /// id původních řádků + ověření počtu (viz booking_extras_sync.dart).
+  /// Vrací false, když se původní řádky nepodařilo všechny odstranit
+  /// (odebrání doplňku se pak neprojevilo — vyřídí obsluha).
+  Future<bool> _replaceModeledExtras(List<Map<String, dynamic>>? rows) async {
     try {
-      await MotoGoSupabase.client
-          .from('booking_extras')
-          .delete()
-          .eq('booking_id', widget.bookingId)
-          .inFilter('name', _modeledExtraNames);
-      if (rows != null && rows.isNotEmpty) {
-        await MotoGoSupabase.client.from('booking_extras').insert(rows);
-      }
+      return await replaceModeledExtras(
+        bookingId: widget.bookingId,
+        origRowIds: _origModeledRowIds,
+        origExtraIds: _origExtras,
+        rows: rows ?? const [],
+      );
     } catch (e) {
       debugPrint('[Edit] extras replace failed: $e');
+      return false;
     }
   }
 
@@ -466,10 +479,14 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     if (_selectedExtras.contains('boty_spolujezdec') && _passengerBootsSize == null) {
       missing.add(t(context).tr('gearBootsPassenger'));
     }
-    if (_selectedExtras.contains('spolujezdec')) {
-      if (_passengerHelmetSize == null) missing.add(t(context).tr('gearHelmetPassenger'));
-      if (_passengerJacketSize == null) missing.add(t(context).tr('gearJacketPassenger'));
-      if (_passengerPantsSize == null) missing.add(t(context).tr('gearPantsPassenger'));
+    // Výbava spolujezdce: stačí ALESPOŇ JEDEN kus (parita s rezervačním
+    // formulářem — zadání majitele 2026-09-28), ne všechny tři.
+    if (_selectedExtras.contains('spolujezdec') &&
+        _passengerHelmetSize == null &&
+        _passengerJacketSize == null &&
+        _passengerPantsSize == null &&
+        _passengerGlovesSize == null) {
+      missing.add(t(context).tr('gearPassenger'));
     }
     return missing;
   }
@@ -650,11 +667,22 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       // až PO platbě (přes pendingEditChanges), jinak hned.
       List<Map<String, dynamic>>? extrasRows;
       final extrasChanged = !_setEq(_selectedExtras, _origExtras);
+      if (extrasChanged && !_extrasBaselineOk) {
+        // Bez načteného výchozího stavu doplňků by uložení vložilo zaplacený
+        // doplněk podruhé a účtovalo ho znovu (incident 2026-09-28) → neuložit.
+        if (mounted) {
+          setState(() => _saving = false);
+          showMotoGoToast(context, icon: '⚠️', title: t(context).error,
+            message: t(context).tr('extrasBaselineFailed'));
+        }
+        return;
+      }
       if (extrasChanged) {
         extrasRows = [
           for (final id in _selectedExtras)
             if (_extraDefs[id] != null)
               {
+                '_extra': id, // interní — před INSERTem se odstraní
                 'booking_id': widget.bookingId,
                 'name': _extraDefs[id]!.$1,
                 // MUSÍ souhlasit s EditPriceCalc (od [loyaltyFreeGearLevel]
@@ -813,6 +841,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               // je nový stav (může být i prázdný = vše odebráno).
               if (extrasChanged) '_extras_replace': true,
               if (extrasChanged) '_extras_rows': extrasRows ?? const [],
+              // id původních řádků (mazání podle id) + původní doplňky
+              // (pojistka: bez DELETE práva se vloží jen přidané).
+              if (extrasChanged) '_extras_delete_ids': List<String>.from(_origModeledRowIds),
+              if (extrasChanged) '_extras_orig': _origExtras.toList(),
             },
           );
           context.push(Routes.payment);
@@ -857,7 +889,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         }
         // Nahraď modelované doplňky novým stavem (přidané vlož, odebrané smaž).
         if (extrasChanged) {
-          await _replaceModeledExtras(extrasRows);
+          final extrasOk = await _replaceModeledExtras(extrasRows);
+          // Odebrání se nepovedlo (chybí DELETE právo / řádek už nebyl) — vratka
+          // i cena jsou zapsané, řádek zůstal → řekni to, vyřídí obsluha.
+          if (!extrasOk && mounted) {
+            showMotoGoToast(context, icon: '⚠️', title: t(context).error,
+              message: t(context).tr('extrasRemoveFailed'));
+          }
         }
         if (mounted) {
           ref.invalidate(reservationsProvider);
@@ -932,6 +970,28 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator(color: MotoGoColors.green)));
     }
     final calc = _calc;
+    // Samoobslužná pobočka bez přistavení / odvozu na adresu (rozhodnutí
+    // majitele 2026-09-28, feature flag `self_service_delivery` — default
+    // OFF): ani úpravou nejde zvolit; volby zůstávají vidět zabalené
+    // s vysvětlením. Po výměně na motorku ze samoobsluhy (nebo u staré
+    // rezervace s adresou) se způsob vrací na pobočku — DB trigger by jinak
+    // uložení odmítl.
+    final deliveryBlocked = selfServiceDeliveryBlocked(
+        branchType: _effBranchType,
+        flagEnabled:
+            ref.watch(selfServiceDeliveryEnabledProvider).valueOrNull ?? false);
+    if (deliveryBlocked &&
+        (_pickupMethod == 'delivery' || _returnMethod == 'delivery')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _pickupMethod = 'store';
+          _returnMethod = 'store';
+          _pickupDelivFee = 0;
+          _returnDelivFee = 0;
+        });
+      });
+    }
     // Samoobslužná pobočka: čas NÁVRATU na pobočku se nevolí — výběr se jen
     // SKRYJE, uložená hodnota se NEPŘEPISUJE (nové rezervace mají 23:59 už
     // z formuláře, smlouva u samoobsluhy dává konec dne vždy). Po přepnutí na
@@ -1119,6 +1179,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               const SizedBox(height: 8),
               AddressPickerWidget(label: t(context).pickup, method: _pickupMethod,
                 branchLabel: _effBranchLabel,
+                deliveryBlocked: deliveryBlocked,
                 onMethodChanged: (m) => setState(() => _pickupMethod = m),
                 onAddressChanged: (_) {},
                 onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f)),
@@ -1138,6 +1199,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             const SizedBox(height: 8),
             AddressPickerWidget(label: t(context).returnLabel, method: _returnMethod,
               branchLabel: _effBranchLabel,
+              deliveryBlocked: deliveryBlocked,
               onMethodChanged: (m) => setState(() => _returnMethod = m),
               onAddressChanged: (_) {},
               onDeliveryFeeChanged: (f) => setState(() => _returnDelivFee = f)),

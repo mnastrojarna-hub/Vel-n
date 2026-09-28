@@ -7,6 +7,7 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import Modal from '../ui/Modal'
 import AddScheduleBtn from './AddScheduleBtn'
 import PartsPanel from './PartsPanel'
+import ServiceBookCard from './ServiceBookCard'
 
 /* ═══ SERVIS TAB — editovatelné intervaly + díly + objednávky pro technika ═══ */
 export default function ServiceTab({ motoId, motoMileage, purchaseMileage, trackingUnit = 'km', logAudit }) {
@@ -266,6 +267,9 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, track
         )}
       </Card>
 
+      {/* Servisní kniha — co, kdy, při kolika km (jen dokončené záznamy) */}
+      <ServiceBookCard logs={logs} unitLabel={unitLabel} />
+
       {/* Historie */}
       <Card>
         <SectionTitle>Historie servisu</SectionTitle>
@@ -300,6 +304,15 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, track
                     <div><span className="font-bold">Km:</span> {km ? km.toLocaleString('cs-CZ') : '—'}</div>
                   </div>
                   {l.performed_by && <div className="text-sm mb-1" style={{ color: '#1a2e22' }}><span className="font-bold">Technik:</span> {l.performed_by}</div>}
+                  {Array.isArray(l.items) && l.items.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {l.items.filter(it => it?.label).map((it, i) => (
+                        <span key={i} className="text-xs font-bold" title={it.custom ? 'Vlastní úkon (Jiné)' : undefined} style={{ padding: '2px 7px', borderRadius: 7, background: it.done ? '#dcfce7' : it.custom ? '#fff7ed' : '#fff', border: `1px solid ${it.done ? '#86efac' : it.custom ? '#fdba74' : '#b6dccb'}`, color: '#0f1a14' }}>
+                          {it.done ? '✓ ' : ''}{it.custom ? '✎ ' : ''}{it.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {l.description && (
                     <div className="text-sm p-2 rounded" style={{ background: '#e8f5e9', color: '#0f1a14', whiteSpace: 'pre-wrap' }}>
                       <span className="font-bold">Servisní záznam:</span> {l.description}

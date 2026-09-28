@@ -101,7 +101,7 @@ export default function ServiceLogCard({ log, moto, onReload }) {
                 <input type="checkbox" checked={item.done || false} onChange={e => updateItem(idx, 'done', e.target.checked)}
                   style={{ marginTop: 2, accentColor: '#16a34a', width: 16, height: 16, cursor: 'pointer' }} />
                 <div className="flex-1">
-                  <span className="text-sm font-bold" style={{ color: item.done ? '#16a34a' : '#1a2e22', textDecoration: item.done ? 'line-through' : 'none' }}>{item.label}</span>
+                  <span className="text-sm font-bold" style={{ color: item.done ? '#16a34a' : '#1a2e22', textDecoration: item.done ? 'line-through' : 'none' }}>{item.custom && <span title="Vlastní úkon (Jiné)">✎ </span>}{item.label}</span>
                   <input type="text" value={item.note || ''} onChange={e => updateItem(idx, 'note', e.target.value)}
                     placeholder="Poznámka…" className="w-full rounded text-xs outline-none mt-0.5"
                     style={{ padding: '2px 5px', background: '#fff', border: '1px solid #e5e7eb' }} />

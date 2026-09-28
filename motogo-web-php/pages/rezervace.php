@@ -39,6 +39,8 @@ $rezKeys = [
     'pickup.title','pickup.sub','pickup.recommended','pickup.orCustom',
     'pickup.atRental','pickup.atRentalSub','pickup.delivery','pickup.deliverySub','pickup.deliveryTip',
     'pickup.deliveryAddr','pickup.sameAsDel','pickup.returnOther','pickup.returnTip','pickup.returnAddr','pickup.map','pickup.gps',
+    // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (pages-rezervace-selfservice.js, flag self_service_delivery)
+    'pickup.selfServiceNoDelivery','pickup.selfServiceNoDeliveryText',
     // Geolokace + výpočet trasy přistavení/vrácení + mapový picker (pages-rezervace-pricing.js)
     'geo.failed','geo.denied','geo.unavailable','geo.timeout','geo.insecure','geo.unsupported','geo.found',
     'route.delivery','route.return','route.loading','route.error','route.priceLabel','route.fastestFrom','route.driveTime','route.calc',
@@ -154,6 +156,7 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 <script src="' . assetUrl('/js/pages-rezervace-steps.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-camera.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
+<script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
 <script>
 // Vynucení min_rental_days z DB (per-motorka, nastavuje admin ve Velíně).
 // Default je 1 den. Hookne se na _rezPickDate (po vyběru rozsahu v kalendáři),

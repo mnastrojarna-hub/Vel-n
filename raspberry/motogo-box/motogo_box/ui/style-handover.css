@@ -46,6 +46,12 @@
 .ho-size-na { color: var(--muted-2); font-weight: 700; padding: 0 6px; }
 .ho-nogear { font-size: clamp(13px, 2vh, 18px); font-weight: 700; color: var(--muted); padding: clamp(6px, 1vh, 12px);
   border-radius: 12px; background: var(--bg-2); border: 1.5px dashed var(--line); }
+/* výbava motorky (2026-09-28): poznámka o umístění + řádky s chipem ✓; název může být dlouhý → roztahuje se, chip vpravo */
+.ho-note { font-size: clamp(11px, 1.6vh, 14px); color: var(--muted); font-weight: 600; line-height: 1.3; }
+.ho-row-moto .ho-row-name { flex: 1 1 auto; min-width: 0; }
+.ho-row-moto .ho-chips { flex: 0 0 auto; }
+.ho-row-moto .ho-chip { min-width: clamp(44px, 5.5vh, 60px); }
+.ho-row-moto.off { opacity: .55; }
 
 /* podpis */
 .ho-sign { grid-area: sign; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: clamp(4px, .8vh, 8px); }
@@ -62,8 +68,12 @@
 
 /* kód motorky (jen bez then_open) — pole + číselný blok pod sebou; na nízkém displeji vedle sebe */
 .ho-code { grid-area: code; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(4px, .8vh, 8px);
-  align-content: start; width: clamp(200px, 15vw, 300px); }
-.ho-code-box { height: clamp(40px, 6.5vh, 64px); font-size: clamp(20px, 3.6vh, 36px); padding: 0 8px; letter-spacing: .12em; }
+  align-content: start; width: clamp(240px, 17vw, 340px); }
+/* 2026-09-28: pole bylo úzké (200 px / 150 px na nízkém displeji) a 6 číslic s mezerami se ořezávalo — číslice jdou bez mezer,
+   rozestup dělá letter-spacing, tabulární číslice mají stejnou šířku → 6 číslic vždy vidět celých */
+.ho-code-box { height: clamp(44px, 7vh, 68px); font-size: clamp(20px, 3.4vh, 34px); padding: 0 10px; letter-spacing: .22em;
+  font-variant-numeric: tabular-nums; }
+.ho-code-box.empty { letter-spacing: .22em; }
 .ho-code-hint { font-size: clamp(11px, 1.6vh, 14px); color: var(--muted); font-weight: 600; line-height: 1.3; }
 .ho-keys { min-height: 0; display: flex; justify-content: center; }
 .kb-mode-pin { --k: clamp(40px, 6.4vh, 66px); width: calc(3 * var(--k) + 2 * var(--gap)); }
@@ -88,7 +98,7 @@
 /* ── Nízký displej: kód vedle číselníku, kratší texty, chipy těsnější ────────────────────────────────── */
 @media (max-height: 820px) {
   .ho-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
-  .ho-code { width: auto; grid-template-columns: minmax(150px, 1fr) auto; grid-template-areas: "lbl keys" "box keys" "hint keys"; align-items: start; }
+  .ho-code { width: auto; grid-template-columns: minmax(200px, 1fr) auto; grid-template-areas: "lbl keys" "box keys" "hint keys"; align-items: start; }
   .ho-code > .ho-label { grid-area: lbl; } .ho-code > .ho-code-box { grid-area: box; } .ho-code > .ho-code-hint { grid-area: hint; } .ho-code > .ho-keys { grid-area: keys; }
   .kb-mode-pin { --k: clamp(40px, 9.5vh, 60px); }
 }
@@ -105,6 +115,6 @@
 @media (max-width: 1100px) {
   .ho-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto;
     grid-template-areas: "head head" "gear sign" "gear code" "foot foot"; }
-  .ho-code { width: auto; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "lbl keys" "box keys" "hint keys"; }
+  .ho-code { width: auto; grid-template-columns: minmax(200px, 1fr) auto; grid-template-areas: "lbl keys" "box keys" "hint keys"; }
   .ho-code > .ho-label { grid-area: lbl; } .ho-code > .ho-code-box { grid-area: box; } .ho-code > .ho-code-hint { grid-area: hint; } .ho-code > .ho-keys { grid-area: keys; }
 }

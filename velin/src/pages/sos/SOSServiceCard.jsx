@@ -1,14 +1,8 @@
 import { useState, useMemo } from 'react'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
-import { SERVICE_CHECKLIST } from '../../components/fleet/motoActionConstants'
-
-const SOS_SERVICE_TYPES = [
-  { id: 'sos_accident_major', label: 'Těžká nehoda' },
-  { id: 'sos_accident_minor', label: 'Lehká nehoda' },
-  { id: 'sos_breakdown', label: 'Porucha' },
-  { id: 'sos_theft_damage', label: 'Poškození při krádeži' },
-]
+import { SERVICE_CHECKLIST, SOS_SERVICE_TYPES } from '../../components/fleet/motoActionConstants'
+import CustomServiceItems, { customLabelsFromItems } from '../../components/fleet/CustomServiceItems'
 
 // Build reverse map: label → id for pre-filling
 const LABEL_TO_ID = {}
@@ -19,7 +13,7 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
   const [expanded, setExpanded] = useState(!serviceLog?.items?.length)
 
   const defaults = useMemo(() => {
-    if (!serviceLog) return { checks: {}, urgent: true, from: new Date().toISOString().slice(0, 10), to: '', note: '' }
+    if (!serviceLog) return { checks: {}, custom: [], urgent: true, from: new Date().toISOString().slice(0, 10), to: '', note: '' }
     const checks = {}
     if (serviceLog.items?.length > 0) {
       for (const item of serviceLog.items) {
@@ -29,6 +23,8 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
     }
     return {
       checks,
+      // „Jiné“ — vlastní úkony (mimo standardní checklist i SOS typy) se při uložení nesmí ztratit
+      custom: customLabelsFromItems(serviceLog.items),
       urgent: serviceLog.is_urgent !== false,
       from: serviceLog.service_date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
       to: serviceLog.scheduled_date?.slice(0, 10) || '',
@@ -37,13 +33,14 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
   }, [serviceLog?.id, serviceLog?.items, serviceLog?.description])
 
   const [checkedItems, setCheckedItems] = useState(defaults.checks)
+  const [customLabels, setCustomLabels] = useState(defaults.custom)
   const [isUrgent, setIsUrgent] = useState(defaults.urgent)
   const [serviceDateFrom, setServiceDateFrom] = useState(defaults.from)
   const [serviceDateTo, setServiceDateTo] = useState(defaults.to)
   const [note, setNote] = useState(defaults.note)
   const [saved, setSaved] = useState(false)
 
-  const checkedCount = Object.values(checkedItems).filter(Boolean).length
+  const checkedCount = Object.values(checkedItems).filter(Boolean).length + customLabels.length
   const hasItems = serviceLog?.items?.length > 0
 
   async function handleSave() {
@@ -53,6 +50,8 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
     SOS_SERVICE_TYPES.forEach(i => { if (selected.includes(i.id)) selectedLabels.push(i.label) })
     // Then standard checklist
     SERVICE_CHECKLIST.forEach(g => g.items.forEach(i => { if (selected.includes(i.id)) selectedLabels.push(i.label) }))
+    // Then custom („Jiné“)
+    selectedLabels.push(...customLabels)
     const fullDescription = note.trim() || null
     if (!fullDescription && selectedLabels.length === 0) return
     const result = await onUpdate({ selected, selectedLabels, fullDescription, isUrgent, serviceDateFrom, serviceDateTo })
@@ -146,6 +145,7 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
               </div>
             ))}
           </div>
+          <div className="mb-4"><CustomServiceItems labels={customLabels} onChange={setCustomLabels} compact /></div>
 
           {/* Urgent toggle */}
           <div className="mb-4">

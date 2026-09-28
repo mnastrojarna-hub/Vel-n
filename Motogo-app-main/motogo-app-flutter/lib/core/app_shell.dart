@@ -227,7 +227,8 @@ class AppShell extends ConsumerWidget {
                 ],
               ),
             ),
-          // Booking FAB — pending reservation with 10-min countdown
+          // Booking FAB — pending reservation with 30-min countdown (provider
+          // re-checks the DB every 5 s, so a paid/cancelled booking drops it)
           if (showBookingFabZone)
             pendingBooking.when(
               data: (booking) {

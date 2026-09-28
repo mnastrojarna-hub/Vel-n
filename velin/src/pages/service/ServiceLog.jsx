@@ -140,7 +140,7 @@ function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
                 <div className="flex flex-wrap gap-1 mt-1">
                   {l.items.map((it, i) => (
                     <span key={i} className="text-xs font-bold rounded-full" style={{ padding: '3px 10px', background: it.done ? '#dcfce7' : '#fef3c7', color: it.done ? '#166534' : '#b45309', border: `1px solid ${it.done ? '#86efac' : '#fde68a'}` }}>
-                      {it.done ? '✓ ' : ''}{it.label}
+                      {it.done ? '✓ ' : ''}{it.custom ? '✎ ' : ''}{it.label}
                     </span>
                   ))}
                 </div>

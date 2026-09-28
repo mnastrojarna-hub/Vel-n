@@ -1411,6 +1411,9 @@ return [
     // ===== Doplněné překlady — rezervační formulář, úprava rezervace, potvrzení (complete-czech-translation) =====
     'menu.logout' => 'Se déconnecter',
     'rez.pickup.gps' => 'Ma position',
+    // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
+    'rez.pickup.selfServiceNoDelivery' => 'Pas encore disponible dans les agences en libre-service',
+    'rez.pickup.selfServiceNoDeliveryText' => 'Les motos d\'une agence en libre-service se prennent et se rendent uniquement à l\'agence — 24 h/24, 7 j/7, avec le code reçu après le paiement. La livraison à une adresse et la reprise à une adresse ne sont pas encore proposées pour celles-ci ; nous activerons ce service à l\'avenir.',
     'rez.geo.failed' => 'Impossible de déterminer votre position.',
     'rez.geo.denied' => 'Pour déterminer votre position, vous devez autoriser l\'accès à la localisation.',
     'rez.geo.unavailable' => 'La position n\'est pas disponible pour le moment. Réessayez ou saisissez l\'adresse manuellement.',
