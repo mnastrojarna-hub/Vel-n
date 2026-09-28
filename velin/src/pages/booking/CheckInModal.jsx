@@ -70,11 +70,12 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
   async function markPickedUp(via) {
     setSaving(true); setError(null)
     const now = new Date().toISOString()
-    const upd = { status: 'active', picked_up_at: now }
-    // Na OBSLUŽNÉ pobočce je aktivace vázaná na předávací protokol — označíme ho
-    // jako vyplněný, aby přechod prošel strážcem trg_gate_obsluzna_activation.
-    // Samoobslužná (kód) se strážcem neřídí a protokol si plní zákazník v appce.
-    if (!selfService) upd.handover_protocol_filled_at = now
+    // Aktivace je vázaná na předávací protokol na OBOU typech poboček (strážce
+    // trg_gate_obsluzna_activation; od 2026-09-28 i samoobslužná — „Vydáno" jen
+    // po kódu + podepsaném protokolu). Ruční odbavení obsluhou = protokol
+    // vyřízen obsluhou → označíme ho jako vyplněný, jinak by UPDATE tiše skončil
+    // na `reserved`. Stejně to dělá QuickCheckInModal.markPickedUp.
+    const upd = { status: 'active', picked_up_at: now, handover_protocol_filled_at: now }
     const { error: err } = await supabase.from('bookings')
       .update(upd).eq('id', booking.id)
     if (err) { setError(err.message); setSaving(false); return }

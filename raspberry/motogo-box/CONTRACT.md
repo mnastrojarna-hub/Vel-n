@@ -718,7 +718,10 @@ aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
   lockoutu; neplatný → 403 `{ok:false, error, message, locked_until}`. Lockout blokuje i diagnostický kód (kromě
   `/api/diagnostics/run` se service_token). Odpověď `{ok, started, id, mode}` / `{ok:false, error:'already_running', id, mode}`.
 - **Předávací protokol (2026-09-25, §28; bez service_token — zákazník):** `POST /api/protocol/submit {"booking_id","code"?,"form",
-  "signature"}` (`signature` = PNG data-URL ≤ 150 kB dekódovaných bajtů) → `handover.submit(bid, form, signature, code, source='ui')`
+  "signature"}` (`signature` = PNG data-URL ≤ 150 kB dekódovaných bajtů; `form` = `{mileage, accessories[], moto_equipment[]}` —
+  **2026-09-28** `moto_equipment` = 5 pevných položek výbavy motorky `[{key: phone_holder_key|disc_lock|accident_form|first_aid_kit|
+  reflective_vest, qty (vesta 2), checked}]`, UI je předem zaškrtne a zákazník odškrtne chybějící; edge `submit-handover-protocol`
+  je u staršího buildu bez pole doplní jako předané) → `handover.submit(bid, form, signature, code, source='ui')`
   → `{ok, status: 'saved'|'queued'|'already_filled'|null, opened: {zone, kind, message}|null, error: null|…, locked_until?}`.
   `ok:false` (nic se neuložilo, `status:null`): `not_pending` (položka neexistuje / není stage protocol / `ctrl.handover` chybí),
   `in_progress` (podpis téže rezervace právě běží), `missing_signature` (chybí / není čistá PNG data-URL), `signature_too_large`,
@@ -769,9 +772,13 @@ výbavu a zavřete dveře“ / „Předávací protokol se zobrazí po zavření
 z-index mezi `#status` a `#service`; modul `MG.Handover` v `ui/handover.js`: `init({post, showStatus, getState})`, `onState(st)`,
 `rerender()`, `isVisible()`, `keys` pro fyzickou klávesnici; podpis `MG.Signature.create(el, {onStroke})` v `ui/signature.js`)
 se kreslí ze `st.handover.active` (§14): hlavička (`data`; popisky `ho.customer`/`ho.moto`/`ho.period`), řádky výbavy (ikona/název `g.helmet…gloves`,
-`ho.rider`/`ho.passenger`, chipy velikostí z `active.sizes[key]` s předvybranou `size`, `ho.noGear` bez výbavy), podpisový canvas
+`ho.rider`/`ho.passenger`, chipy velikostí z `active.sizes[key]` s předvybranou `size`, `ho.noGear` bez výbavy) + **vždy** skupina
+„Výbava motorky“ (2026-09-28, zadání majitele: `ho.motoGear`, poznámka `ho.motoGearNote` „Je v motorce — v kufru nebo v tankvaku…“,
+řádky `me.*` = klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta, každý s chipem ✓ předem
+zaškrtnutým; klepnutí odškrtne chybějící → `form.moto_equipment[]`), podpisový canvas
 (Pointer Events; export do pomocného canvasu 800×260 px s bílým pozadím → PNG; > 150 kB → zmenšit/odmítnout `ho.sigTooLarge`;
-`ho.clear`), pole „Kód motorky“ (`ho.code`/`ho.codeHint`, jen když `needs_code`; numerická klávesnice overlaye), „Potvrdit a podepsat“
+`ho.clear`), pole „Kód motorky“ (`ho.code`/`ho.codeHint`, jen když `needs_code`; numerická klávesnice overlaye; **2026-09-28:** číslice
+bez mezer s rozestupem `letter-spacing`, tabulární číslice, placeholder `••••••`, sloupec pole ≥ 200 px — dřív se 6 číslic ořezávalo), „Potvrdit a podepsat“
 (`ho.confirm`, disabled bez podpisu / bez kódu / během ukládání), „Zpět“ (`ho.back` → `/api/protocol/dismiss`). Odpočet výhradně
 z `active.expires_at`; každý dotyk → `/api/protocol/touch` (throttle 5 s). Submit: spinner `ho.saving` „Ukládám protokol…“, timeout
 60 s; `opened` → `#status` „Dveře č. N otevřeny“ + `ho.doneMoto` „Protokol podepsán.“ + `okBox` „Běžte ke dveřím č. N.“; `saved`/`queued` bez `opened`
@@ -788,7 +795,8 @@ Klíče i18n v 8 jazycích — `i18n.js`: `hint2`, `okAcc`, `et.protocol_require
 `i18n-handover.js` (`ho.*`): `close`, `closeSub`, `title` „Předávací protokol“, `intro`, `customer`, `moto`, `period`, `rider`,
 `passenger`, `size`, `noGear`, `sign`, `signHint`, `clear`, `code` „Kód motorky“, `codeHint` „Potvrďte podpis kódem motorky z aplikace
 nebo e-mailu“, `confirm` „Potvrdit a podepsat“, `back`, `saving`, `doneTitle`, `done`, `doneMoto`, `doneNoOpen`, `autoClose`,
-`codeMismatch`, `sigTooLarge`, `inProgress`, `failed`, `retryCode`; `g.*`: `helmet/jacket/pants/boots/gloves`.
+`codeMismatch`, `sigTooLarge`, `inProgress`, `failed`, `retryCode`, `motoGear`, `motoGearNote` (2026-09-28); `g.*`: `helmet/jacket/pants/boots/gloves`;
+`me.*` (2026-09-28): `phone_holder_key/disc_lock/accident_form/first_aid_kit/reflective_vest`.
 Servisní panel (jen po servisním heslu):
 mřížka zón (stav, dveře, signál, tlačítka Otevřít/Světlo/Hudba — hrající = `audio.playing_zones` / `zone.music`), Vše
 vypnout, stav zařízení (online, ID, verze, moduly, LTE), Přepárovat (formulář), Restart. Setup obrazovka když není

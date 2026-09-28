@@ -28,6 +28,7 @@ import 'widgets/reservation_edit_calendar_section.dart';
 import 'widgets/reservation_swap_section.dart';
 import '../../core/currency.dart';
 import '../../core/booking_rules.dart';
+import '../../core/feature_flags.dart';
 import '../../core/widgets/pickup_location_link.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
@@ -969,6 +970,28 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator(color: MotoGoColors.green)));
     }
     final calc = _calc;
+    // Samoobslužná pobočka bez přistavení / odvozu na adresu (rozhodnutí
+    // majitele 2026-09-28, feature flag `self_service_delivery` — default
+    // OFF): ani úpravou nejde zvolit; volby zůstávají vidět zabalené
+    // s vysvětlením. Po výměně na motorku ze samoobsluhy (nebo u staré
+    // rezervace s adresou) se způsob vrací na pobočku — DB trigger by jinak
+    // uložení odmítl.
+    final deliveryBlocked = selfServiceDeliveryBlocked(
+        branchType: _effBranchType,
+        flagEnabled:
+            ref.watch(selfServiceDeliveryEnabledProvider).valueOrNull ?? false);
+    if (deliveryBlocked &&
+        (_pickupMethod == 'delivery' || _returnMethod == 'delivery')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _pickupMethod = 'store';
+          _returnMethod = 'store';
+          _pickupDelivFee = 0;
+          _returnDelivFee = 0;
+        });
+      });
+    }
     // Samoobslužná pobočka: čas NÁVRATU na pobočku se nevolí — výběr se jen
     // SKRYJE, uložená hodnota se NEPŘEPISUJE (nové rezervace mají 23:59 už
     // z formuláře, smlouva u samoobsluhy dává konec dne vždy). Po přepnutí na
@@ -1156,6 +1179,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               const SizedBox(height: 8),
               AddressPickerWidget(label: t(context).pickup, method: _pickupMethod,
                 branchLabel: _effBranchLabel,
+                deliveryBlocked: deliveryBlocked,
                 onMethodChanged: (m) => setState(() => _pickupMethod = m),
                 onAddressChanged: (_) {},
                 onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f)),
@@ -1175,6 +1199,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             const SizedBox(height: 8),
             AddressPickerWidget(label: t(context).returnLabel, method: _returnMethod,
               branchLabel: _effBranchLabel,
+              deliveryBlocked: deliveryBlocked,
               onMethodChanged: (m) => setState(() => _returnMethod = m),
               onAddressChanged: (_) {},
               onDeliveryFeeChanged: (f) => setState(() => _returnDelivFee = f)),

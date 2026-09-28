@@ -75,6 +75,8 @@ $keys = [
     'editRez.loc.pickupTime','editRez.loc.returnTime','editRez.loc.timeOnly',
     'editRez.loc.ctaPay','editRez.loc.ctaRefund','editRez.loc.ctaSave',
     'rez.pickup.gps',
+    // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (pages-rezervace-selfservice.js, flag self_service_delivery)
+    'rez.pickup.selfServiceNoDelivery','rez.pickup.selfServiceNoDeliveryText',
     'editRez.extend.title','editRez.extend.help','editRez.extend.helpUpcoming','editRez.extend.helpActive',
     'editRez.extend.newStart','editRez.extend.newEnd','editRez.extend.priceDiff','editRez.extend.cta',
     'editRez.extend.unavailable','editRez.extend.noChange','editRez.extend.creating',
@@ -249,6 +251,7 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-gear.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-resume.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-guard.js') . '"></script>
+<script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
 <script>
 (function(){
   function tryInit(){

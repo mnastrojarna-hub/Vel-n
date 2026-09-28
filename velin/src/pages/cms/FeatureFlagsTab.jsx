@@ -25,6 +25,12 @@ const KNOWN_FLAGS = {
     on: 'Zákazník vidí anonymní měsíční žebříček (přezdívka nebo křestní jméno s číslem, postup ranků, km bez nehody) a může se z něj odhlásit.',
     off: 'Žebříček se v appce NEZOBRAZUJE. Backend data dál sbírá a vyhodnocuje (ranky, km z protokolů, měsíční vítěz) — jen se neukazují. Doporučený stav.',
   },
+  self_service_delivery: {
+    title: 'Přistavení a vyzvednutí na adrese u samoobslužných poboček',
+    controls: 'Mobilní aplikace (rezervační formulář + úprava rezervace), web motogo24.cz (rezervace /rezervace + úprava /upravit-rezervaci) a DB trigger nad rezervacemi — u motorek z pobočky typu „samoobslužná". Řádek flagu vzniká SQL migrací (nezakládá se ručně).',
+    on: 'Zákazník si u motorek ze samoobslužné pobočky může zvolit přistavení na adresu i odvoz (vyzvednutí) z adresy — stejně jako u obslužné pobočky.',
+    off: 'Výchozí stav (rozhodnutí majitele 2026-09-28): motorky ze samoobslužné pobočky se přebírají i vracejí JEN na pobočce. Volby přistavení/odvozu jsou v appce i na webu vidět, ale zabalené a zablokované s vysvětlením; DB trigger takovou rezervaci odmítne.',
+  },
   debug_mode: {
     title: 'Debug režim Velínu',
     controls: 'Tento administrační panel (Velín).',

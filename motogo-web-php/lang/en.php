@@ -1436,6 +1436,9 @@ return [
     // ===== Doplněné překlady — rezervační formulář, úprava rezervace, potvrzení (complete-czech-translation) =====
     'menu.logout' => 'Log out',
     'rez.pickup.gps' => 'My location',
+    // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
+    'rez.pickup.selfServiceNoDelivery' => 'Not available at self-service branches yet',
+    'rez.pickup.selfServiceNoDeliveryText' => 'Motorcycles from a self-service branch are picked up and returned only at the branch — around the clock (24/7) using the code you receive after payment. We do not yet offer delivery to an address or collection from an address for them; we will enable this service in the future.',
     'rez.geo.failed' => 'Could not determine your location.',
     'rez.geo.denied' => 'To determine your location, you must allow location access.',
     'rez.geo.unavailable' => 'Location is currently unavailable. Try again or enter the address manually.',

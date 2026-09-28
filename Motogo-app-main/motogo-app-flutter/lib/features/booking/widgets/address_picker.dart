@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../booking_ui_helpers.dart' show showAddrBottomSheet;
 import '../map_launcher.dart' show launchMapPicker;
+import '../../../core/booking_form_locked_option.dart';
 import '../../../core/currency.dart';
+import '../../../core/i18n/i18n_provider.dart';
 
 /// Address picker with geocoding.
 /// Delegates address entry to [showAddrBottomSheet] — the same modal used in
@@ -19,6 +21,11 @@ class AddressPickerWidget extends StatefulWidget {
   /// Název + město pobočky motorky (null = starý výchozí text).
   final String? branchLabel;
 
+  /// Samoobslužná pobočka bez přistavení / odvozu (feature flag
+  /// `self_service_delivery` vypnutý, 2026-09-28): volba na adresu zůstává
+  /// vidět zabalená s vysvětlením, vybrat nejde ([BookingLockedOptionTile]).
+  final bool deliveryBlocked;
+
   const AddressPickerWidget({
     super.key,
     required this.label,
@@ -27,6 +34,7 @@ class AddressPickerWidget extends StatefulWidget {
     required this.onAddressChanged,
     required this.onDeliveryFeeChanged,
     this.branchLabel,
+    this.deliveryBlocked = false,
   });
 
   @override
@@ -109,16 +117,25 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
           onTap: () => widget.onMethodChanged('store'),
         ),
         const SizedBox(height: 6),
-        _RadioOption(
-          label: widget.label == 'Vyzvednutí'
-              ? 'Přistavení na vaši adresu'
-              : 'Odvoz z vaší adresy',
-          sublabel: '1 000 Kč + 40 Kč/km',
-          price: 'od 1 000 Kč',
-          selected: widget.method == 'delivery',
-          onTap: () => widget.onMethodChanged('delivery'),
-        ),
-        if (widget.method == 'delivery') ...[
+        if (widget.deliveryBlocked)
+          BookingLockedOptionTile(
+            label: widget.label == 'Vyzvednutí'
+                ? 'Přistavení na vaši adresu'
+                : 'Odvoz z vaší adresy',
+            shortReason: t(context).tr('ssNoDeliveryShort'),
+            info: t(context).tr('ssNoDeliveryInfo'),
+          )
+        else
+          _RadioOption(
+            label: widget.label == 'Vyzvednutí'
+                ? 'Přistavení na vaši adresu'
+                : 'Odvoz z vaší adresy',
+            sublabel: '1 000 Kč + 40 Kč/km',
+            price: 'od 1 000 Kč',
+            selected: widget.method == 'delivery',
+            onTap: () => widget.onMethodChanged('delivery'),
+          ),
+        if (!widget.deliveryBlocked && widget.method == 'delivery') ...[
           const SizedBox(height: 10),
           GestureDetector(
             onTap: _openAddressSheet,

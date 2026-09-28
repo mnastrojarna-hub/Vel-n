@@ -341,6 +341,12 @@ export const PAGE_REZERVACE = {
         { key: 'web.layout.rez.pickup.returnAddr', label: 'Placeholder „Adresa vrácení"', default: 'Zadejte adresu vrácení' },
         { key: 'web.layout.rez.pickup.map', label: 'Tlačítko „Mapa"', default: 'Mapa' },
         { key: 'web.layout.rez.pickup.gps', label: 'Tlačítko „Moje poloha" (GPS)', default: 'Moje poloha' },
+        // Samoobslužná pobočka: přistavení/odvoz z adresy jsou u jejích motorek zablokované (feature flag
+        // `self_service_delivery`, Velín → Feature flags). Volby zůstávají vidět, pod nimi je sbalený řádek
+        // „ⓘ <volba> — <tento text>", po kliku se rozbalí vysvětlení. Platí pro /rezervace i /upravit-rezervaci
+        // (js/pages-rezervace-selfservice.js).
+        { key: 'web.layout.rez.pickup.selfServiceNoDelivery', label: 'Samoobsluha — řádek „zatím není k dispozici" (rezervace i úprava)', default: 'Na samoobslužné pobočce zatím není k dispozici' },
+        { key: 'web.layout.rez.pickup.selfServiceNoDeliveryText', label: 'Samoobsluha — vysvětlení po rozbalení (rezervace i úprava)', type: 'textarea', default: 'Motorky ze samoobslužné pobočky se přebírají i vracejí pouze na pobočce — nonstop (24/7) pomocí kódu, který dostanete po zaplacení. Přistavení na adresu ani odvoz z adresy u nich zatím nenabízíme; v budoucnu tuto službu zapneme.' },
         { key: 'web.layout.rez.return.title', label: 'Nadpis „Čas vrácení"', default: 'Čas vrácení motorky' },
         { key: 'web.layout.rez.return.sub', label: 'Popis „Čas vrácení"', default: 'V kolik hodin vrátíte motorku na uvedené adrese?' },
       ]

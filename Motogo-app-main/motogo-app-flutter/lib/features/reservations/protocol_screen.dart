@@ -39,6 +39,16 @@ class _Check {
   _Check(this.key, this.i18n, {this.checked = false});
 }
 
+/// Položka výbavy motorky (zrcadlo kiosku) — `{key, qty, checked}`.
+class _MotoGear {
+  final String key;
+  final String i18n;
+  final int qty;
+  bool checked;
+  _MotoGear(this.key, this.i18n, {this.qty = 1, this.checked = true});
+  Map<String, dynamic> toJson() => {'key': key, 'qty': qty, 'checked': checked};
+}
+
 /// Chyba edge funkce v těle 200 (`{success:false, error:'…'}`).
 class _EdgeError implements Exception {
   final String code;
@@ -83,6 +93,17 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
     _Check('instructed', 'hpCheckInstructed', checked: true),
     // Výbava „předána“ jen když si zákazník něco půjčuje (parita s kioskem).
     _Check('gear', 'hpCheckGear', checked: _gear.isNotEmpty),
+  ];
+
+  /// Výbava motorky — ZRCADLO kiosku (zadání majitele 2026-09-28): pevných
+  /// 5 položek předem zaškrtnutých, leží v motorce (kufr / tankvak); zákazník
+  /// odškrtne, co chybí. Klíče = kiosk `MOTO_GEAR` / edge `form.moto_equipment`.
+  late final List<_MotoGear> _motoGear = [
+    _MotoGear('phone_holder_key', 'hpMePhoneHolderKey'),
+    _MotoGear('disc_lock', 'hpMeDiscLock'),
+    _MotoGear('accident_form', 'hpMeAccidentForm'),
+    _MotoGear('first_aid_kit', 'hpMeFirstAidKit'),
+    _MotoGear('reflective_vest', 'hpMeReflectiveVest', qty: 2),
   ];
 
   late final List<_Check> _extraGear = [
@@ -208,6 +229,8 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
       // {key, who, field, label, size, checked} — edge propíše upravené
       // velikosti do bookings.<field> před claimem podpisu.
       'accessories': _gear.map((g) => g.toJson()).toList(),
+      // Výbava motorky (zrcadlo kiosku) → sekce „Výbava motorky“ v dokumentu.
+      'moto_equipment': _motoGear.map((m) => m.toJson()).toList(),
     };
     try {
       final res = await MotoGoSupabase.client.functions.invoke(
@@ -316,6 +339,17 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
             const SizedBox(height: 8),
             ..._gear.map(_gearRow),
           ],
+        ])),
+        // Výbava motorky — stejná skupina jako na displeji pobočky (kiosk):
+        // předem zaškrtnutá, poznámka o umístění, odškrtnout jen chybějící.
+        protocolCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          protocolTitle(tr.tr('hpMotoGear')),
+          Text(tr.tr('hpMotoGearNote'), style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
+          const SizedBox(height: 8),
+          ..._motoGear.map((m) => protocolToggleRow(
+              '${m.qty > 1 ? '${m.qty}× ' : ''}${tr.tr(m.i18n)}',
+              m.checked,
+              () => setState(() => m.checked = !m.checked))),
         ])),
         // Doplňkové vybavení
         protocolCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

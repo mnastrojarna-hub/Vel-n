@@ -579,6 +579,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       } else if (msg.contains('trailer_unavailable')) {
         // trg_check_trailer_overlap (23505): kus vozíku mezitím obsadil jiný.
         _draftError = mounted ? t(context).tr('swap.trailerOccupied') : null;
+      } else if (msg.contains('self_service_no_delivery')) {
+        // DB trigger (2026-09-28): samoobslužná pobočka bez přistavení / odvozu
+        // na adresu (feature flag `self_service_delivery` vypnutý) — sem dojde
+        // jen starý build bez zabalených voleb nebo závod s přepnutím flagu.
+        _draftError = mounted ? t(context).tr('ssNoDeliveryError') : null;
       } else {
         // Syrový text výjimky z PostgREST/PostgreSQL zákazníkovi nic neřekne
         // (a může prozradit vnitřnosti) — do UI jde srozumitelná hláška,
@@ -1075,6 +1080,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     _completed = true;
     _countdownTimer?.cancel();
     ref.read(paymentContextProvider.notifier).state = null;
+    // Odchod do /reservations je UVNITŘ shellu → provider FAB „Dokončit
+    // rezervaci" se nezahodí a držel by rezervaci z paměti dál, i když ji
+    // webhook vzápětí označí jako zaplacenou (incident 2026-09-28, Apple Pay).
+    // Restart = nový dotaz do DB; seznam rezervací obnovit rovnou taky.
+    ref.invalidate(pendingBookingFabProvider);
+    ref.invalidate(reservationsProvider);
     final tr = t(context);
     showMotoGoToast(context,
         icon: '⏳',
@@ -1151,6 +1162,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     if (_pendingBookingId != null) {
       ref.invalidate(reservationByIdProvider(_pendingBookingId!));
     }
+    // Rezervace je zaplacená → FAB „Dokončit rezervaci" nesmí dál ukazovat
+    // stav z paměti (viz pendingBookingFabProvider, incident 2026-09-28).
+    ref.invalidate(pendingBookingFabProvider);
 
     // Try to release withheld door codes (fire-and-forget safety net).
     // Backend triggers should handle this, but RPC serves as a fallback

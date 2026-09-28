@@ -506,6 +506,13 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
 3. **Podpis na kiosku = kresba prstem** (PNG), jako v appce a Velíně; potvrzení je vázané na kód motorky téže rezervace (identita
    podepisujícího — protokol na displeji nemůže podepsat cizí zákazník).
 4. **Automatické vyplnění protokolu po 1 h** (cron `autofill-handover-protocols`, edge `mode=auto`) se RUŠÍ.
+5. **(2026-09-28) Výbava motorky v protokolu na displeji:** každý protokol obsahuje skupinu „Výbava motorky“ — klíč k držáku
+   mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta — předem zaškrtnutou, s poznámkou, že leží v motorce
+   (v kufru nebo v tankvaku); zákazník odškrtne, co chybí. Zobrazuje se i u zákazníka s vlastní výbavou (šatna → protokol → motorka
+   i kód motorky → protokol). Do dokumentu jde sekce „Výbava motorky“ (`form.moto_equipment[]`, edge `submit-handover-protocol`).
+6. **(2026-09-28) „Vydáno“ až po kódu A podpisu:** na samoobslužné (i obslužné) pobočce se rezervace neaktivuje (`picked_up_at`,
+   `status=active`, „Vydáno“ v appce i Velíně) platbou v den začátku ani cronem — jen otevřením kóje motorky kódem po podepsaném
+   protokolu (strážce `trg_gate_obsluzna_activation` rozšířen i na samoobsluhu, SQL `20260928b_selfservice_activation_gate.sql`).
 
 Zásady: kiosk vede zákazníka krok za krokem, špatné pořadí nepustí (§9 krok 2b, odstavec „Šatna“); protokol po podpisu zmizí
 z kiosku i appky real-time, podepsané PDF v Dokumentech zůstává; aktivace rezervace (reserved → active) zůstává při otevření kóje

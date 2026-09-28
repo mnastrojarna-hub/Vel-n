@@ -26,9 +26,30 @@ class ResModificationHistory extends StatelessWidget {
     return '${d.day}. ${d.month}. ${d.year}';
   }
 
-  String _fmtDT(DateTime dt) {
+  /// Časy z DB (timestamptz) přicházejí jako UTC → zobrazit v čase zařízení
+  /// (dřív se ukazovalo „12:36" pro rezervaci vytvořenou ve 14:36 SELČ).
+  String _fmtDT(DateTime utcOrLocal) {
+    final dt = utcOrLocal.toLocal();
     return '${dt.day}.${dt.month}.${dt.year} '
         '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Čas SKUTEČNÉHO převzetí motorky pro řádek „Vydáno", nebo null.
+  ///
+  /// Na pobočce (samoobslužná i obslužná) nesmí „Vydáno" svítit jen proto, že
+  /// same-day platba nastavila `picked_up_at` při potvrzení (RPC
+  /// confirm_payment, incident 2026-09-28): vydání = zadaný kód motorky
+  /// + podepsaný předávací protokol. Bez podpisu protokolu se řádek neukáže;
+  /// je-li `picked_up_at` starší než podpis (starší data), ukáže se čas podpisu.
+  /// Svoz / přistavení (bez pobočkového protokolu) ukazuje `picked_up_at` z DB.
+  DateTime? get _issuedAt {
+    final pickedUp = res.pickedUpAt;
+    if (pickedUp == null) return null;
+    final branchGated = res.isSelfService || res.branchType == 'obslužná';
+    if (!branchGated) return pickedUp;
+    final signed = res.handoverProtocolFilledAt;
+    if (signed == null) return null;
+    return pickedUp.isBefore(signed) ? signed : pickedUp;
   }
 
   String _methodLabel(BuildContext context, String? m) =>
@@ -675,9 +696,10 @@ class ResModificationHistory extends StatelessWidget {
       events.add(_TimelineEvent(
           t(context).tr('timelineConfirmed'), res.confirmedAt!, MotoGoColors.greenDarker, Icons.check_circle));
     }
-    if (res.pickedUpAt != null) {
+    final issuedAt = _issuedAt;
+    if (issuedAt != null) {
       events.add(_TimelineEvent(
-          t(context).tr('timelineIssued'), res.pickedUpAt!, const Color(0xFF2563EB), Icons.motorcycle));
+          t(context).tr('timelineIssued'), issuedAt, const Color(0xFF2563EB), Icons.motorcycle));
     }
     if (res.returnedAt != null) {
       events.add(_TimelineEvent(

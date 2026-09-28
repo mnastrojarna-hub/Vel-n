@@ -402,6 +402,9 @@ return [
     'rez.pickup.returnAddr' => 'Введіть адресу повернення',
     'rez.pickup.map' => 'Карта',
     'rez.pickup.gps' => 'Моє місцезнаходження',
+    // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
+    'rez.pickup.selfServiceNoDelivery' => 'У філіях самообслуговування поки що недоступно',
+    'rez.pickup.selfServiceNoDeliveryText' => 'Мотоцикли з філії самообслуговування забирають і повертають лише у філії — цілодобово (24/7) за кодом, який ви отримаєте після оплати. Доставку на адресу чи забирання з адреси для них поки що не пропонуємо; у майбутньому цю послугу увімкнемо.',
     // Geolokace + výpočet trasy přistavení/vrácení + mapový picker (pages-rezervace-pricing.js)
     'rez.geo.failed' => 'Не вдалося визначити місцезнаходження.',
     'rez.geo.denied' => 'Для визначення місцезнаходження ви маєте дозволити застосунку доступ до місцезнаходження.',
