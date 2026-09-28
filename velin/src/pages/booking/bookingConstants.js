@@ -252,10 +252,15 @@ export function cardLabel(brand, last4) {
 // (může jít o pozůstatek/auto-vyplnění). Spolehlivý signál je položka v
 // `booking_extras` obsahující slovo „spolujez" / „passenger" v názvu, nebo
 // alespoň 2 vyplněné velikosti (= reálná sada).
+// Web zapisuje název položky v jazyce zákazníka (rez.gear.item.passengerExtras
+// v 8 jazycích), proto i lokalizované kořeny — od 2026-09-28 stačí zákazníkovi
+// vybrat i jediný kus výbavy spolujezdce (web i appka), takže bez shody názvu
+// by blok ve Velíně u de/nl/es/fr/pl/uk rezervace zmizel (heuristika ≥ 2 velikosti).
+const PASSENGER_EXTRA_NAME_ROOTS = ['spolujez', 'passenger', 'passag', 'beifahrer', 'pasajero', 'pasażer', 'pasazer', 'пасажир']
 export function hasPassengerGearOrdered(booking, bookingExtras) {
   const fromExtras = (bookingExtras || []).some(e => {
     const n = (e?.name || e?.extras_catalog?.name || '').toLowerCase()
-    return n.includes('spolujez') || n.includes('passenger')
+    return PASSENGER_EXTRA_NAME_ROOTS.some(r => n.includes(r))
   })
   if (fromExtras) return true
   const sizes = ['passenger_helmet_size', 'passenger_jacket_size', 'passenger_pants_size', 'passenger_boots_size', 'passenger_gloves_size']

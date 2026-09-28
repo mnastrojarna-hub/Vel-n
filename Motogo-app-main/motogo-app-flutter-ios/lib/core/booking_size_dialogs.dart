@@ -14,6 +14,8 @@ import 'i18n/i18n_provider.dart';
 /// Passenger gear picker — helma, rukavice, bunda, kalhoty.
 /// Boots are NOT selected here — they are a separate paid extra
 /// ("Boty spolujezdce") to avoid asking for passenger boot size twice.
+/// Stačí vybrat ALESPOŇ JEDEN kus (zadání majitele 2026-09-28: spolujezdec
+/// chce třeba jen helmu) — nevybrané kusy se neukládají (sloupec zůstane NULL).
 /// Calls [onExtrasUpdated] with the updated extras list after confirm.
 void showPassengerGearSheet(
   BuildContext ctx,
@@ -32,7 +34,7 @@ void showPassengerGearSheet(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (c) => StatefulBuilder(
       builder: (c, ss) {
-        final allSelected = sizes.values.every((v) => v != null);
+        final anySelected = sizes.values.any((v) => v != null);
         return Padding(
           padding: EdgeInsets.fromLTRB(20, 16, 20,
             MediaQuery.of(c).padding.bottom + 16),
@@ -84,8 +86,11 @@ void showPassengerGearSheet(
             const SizedBox(height: 10),
             SizedBox(width: double.infinity, height: 48,
               child: ElevatedButton(
-                onPressed: allSelected ? () {
+                onPressed: anySelected ? () {
+                  // Jen zvolené kusy — payment_screen `_parsePassengerGearSizes`
+                  // chybějící části tolerantně přeskočí (→ NULL v DB).
                   final sizeStr = sizes.entries
+                      .where((e) => e.value != null)
                       .map((e) => '${e.key}: ${e.value}')
                       .join(', ');
                   final ne = List<SelectedExtra>.from(
@@ -107,9 +112,9 @@ void showPassengerGearSheet(
                   disabledBackgroundColor: const Color(0xFFD4E8E0),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(50))),
-                child: Text(allSelected
+                child: Text(anySelected
                     ? t(ctx).tr('confirm').toUpperCase()
-                    : t(ctx).tr('selectAllSizes'),
+                    : t(ctx).tr('selectAtLeastOneSize'),
                   style: const TextStyle(fontWeight: FontWeight.w800)))),
           ]));
       }));

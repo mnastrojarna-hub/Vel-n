@@ -112,6 +112,9 @@ verify_jwt = false
 verify_jwt = false
 [functions.admin-reset-password]
 verify_jwt = false
+# Správa uživatelů Velína (jen superadmin; ověření JWT + role uvnitř funkce). OFF.
+[functions.admin-users]
+verify_jwt = false
 [functions.ai-copilot]
 verify_jwt = false
 [functions.ai-customer-messages-suggest]

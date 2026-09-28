@@ -151,6 +151,17 @@ serve(async (req: Request): Promise<Response> => {
     // Jazyk: explicitní z volajícího > profiles.language > 'cs'.
     const lang = normLang(reqLang || (lookup as { language?: string } | null)?.language)
     if (!foundUserId) {
+      // Uživatel Velína (admin_users) bez zákaznického profilu — stejný OTP flow
+      // (Velín Login „Zapomenuté heslo?“ volá tuto funkci).
+      try {
+        const { data: adminRow } = await admin
+          .from('admin_users').select('id').eq('email', email).eq('active', true).maybeSingle()
+        foundUserId = adminRow?.id ?? null
+      } catch {
+        // ignore — silent anti-enumeration
+      }
+    }
+    if (!foundUserId) {
       // Fallback: profile může chybět (osiřelý auth.users) — zkus auth lookup.
       try {
         const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1, filter: `email.eq.${email}` } as never)

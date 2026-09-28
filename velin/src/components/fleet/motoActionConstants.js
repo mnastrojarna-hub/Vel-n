@@ -51,3 +51,26 @@ export const SERVICE_CHECKLIST = [
     { id: 'other_repair', label: 'Jiná oprava' },
   ]},
 ]
+
+// Stejný checklist jako seznam štítků po kategoriích — pro formuláře, které
+// pracují jen se štítky (ServiceLogModal, AddServiceFromCalendar). JEDEN zdroj
+// pravdy: nový úkon se přidá jen sem a objeví se ve všech servisních formulářích.
+export const SERVICE_CHECKLIST_BY_CATEGORY = SERVICE_CHECKLIST.map(g => ({
+  category: g.group, items: g.items.map(i => i.label),
+}))
+
+// Typy SOS události (SOS → URGENT servisní záznam, SOSServiceCard) — standardní
+// štítky, ne „Jiné“: musí být ve známé množině, jinak by je editace záznamu přes
+// Správu motorky (ServiceChecklistView) uložila jako vlastní úkon.
+export const SOS_SERVICE_TYPES = [
+  { id: 'sos_accident_major', label: 'Těžká nehoda' },
+  { id: 'sos_accident_minor', label: 'Lehká nehoda' },
+  { id: 'sos_breakdown', label: 'Porucha' },
+  { id: 'sos_theft_damage', label: 'Poškození při krádeži' },
+]
+
+/** Všechny standardní štítky úkonů vč. SOS typů (co není v množině = vlastní úkon „Jiné“). */
+export const SERVICE_CHECKLIST_LABELS = new Set([
+  ...SERVICE_CHECKLIST.flatMap(g => g.items.map(i => i.label)),
+  ...SOS_SERVICE_TYPES.map(i => i.label),
+])
