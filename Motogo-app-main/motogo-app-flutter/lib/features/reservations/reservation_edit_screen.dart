@@ -17,6 +17,7 @@ import '../catalog/catalog_provider.dart';
 import '../loyalty/loyalty_provider.dart';
 import '../payment/payment_provider.dart';
 import 'reservation_models.dart';
+import 'booking_extras_sync.dart';
 import 'reservation_edit_price_calc.dart';
 import 'reservation_provider.dart';
 import 'widgets/reservation_edit_widgets.dart';
@@ -162,14 +163,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     if (mounted) setState(() => _discountType = type);
   }
 
-  /// Kanonické názvy modelovaných doplňků (shodné s tím, co se vkládá do
-  /// booking_extras) — slouží k jejich nahrazení (delete+insert) při úpravě.
-  /// „Boty řidič" (bez -e) vkládá webová RPC `update_booking_gear` — bez něj
-  /// tu řádek z webu přežil a po uložení z appky měl zákazník ve Velíně
-  /// boty DVAKRÁT (incident 2026-09-28).
-  static const _modeledExtraNames = [
-    'Výbava spolujezdce', 'Boty řidiče', 'Boty řidič', 'Boty spolujezdce',
-  ];
+  /// id původních řádků `booking_extras` modelovaných doplňků (baseline) —
+  /// při uložení se mažou PODLE ID (jazykově nezávislé, viz booking_extras_sync).
+  final List<String> _origModeledRowIds = [];
   static const _extraDefs = {
     'spolujezdec': ('Výbava spolujezdce', 690.0),
     'boty_ridic': ('Boty řidiče', 290.0),
@@ -187,17 +183,6 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   int get _effectiveLoyaltyLevel =>
       _appOnlyLevel(ref.read(loyaltyStatusProvider).valueOrNull?.level ?? 0);
 
-  /// Mapuje název řádku booking_extras na náš id doplňku.
-  static String? _extraIdFromName(String name) {
-    final n = name.toLowerCase();
-    final hasBoots = n.contains('bot');
-    final hasPass = n.contains('spoluj');
-    if (hasBoots && hasPass) return 'boty_spolujezdec';
-    if (hasBoots) return 'boty_ridic';
-    if (hasPass) return 'spolujezdec';
-    return null;
-  }
-
   static bool _setEq(Set<String> a, Set<String> b) =>
       a.length == b.length && a.containsAll(b);
 
@@ -206,16 +191,19 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     try {
       final rows = await MotoGoSupabase.client
           .from('booking_extras')
-          .select('name, unit_price, quantity')
+          .select('id, name, unit_price, quantity')
           .eq('booking_id', widget.bookingId);
       final orig = <String>{};
+      final rowIds = <String>[];
       // Skutečně zaplacená suma MODELOVANÝCH doplňků — jen z nich se počítá
       // rozdíl, ostatní řádky (vozík…) zůstávají v `extras_price` nedotčené.
       double paid = 0;
       for (final r in (rows as List)) {
-        final id = _extraIdFromName((r['name'] ?? '').toString());
+        // Jazykově nezávisle (web ukládá název v jazyce zákazníka).
+        final id = extraIdFromExtrasName((r['name'] ?? '').toString());
         if (id == null) continue;
         orig.add(id);
+        if (r['id'] != null) rowIds.add(r['id'].toString());
         final up = (r['unit_price'] as num?)?.toDouble() ?? 0;
         final qty = (r['quantity'] as num?)?.toDouble() ?? 1;
         paid += up * qty;
@@ -223,6 +211,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if (mounted) {
         setState(() {
           _origExtrasPaid = paid;
+          _origModeledRowIds
+            ..clear()
+            ..addAll(rowIds);
           _origExtras
             ..clear()
             ..addAll(orig);
@@ -234,17 +225,16 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     } catch (_) {/* bez původních doplňků = prázdný baseline */}
   }
 
-  /// Nahradí modelované řádky booking_extras aktuálním výběrem (delete + insert).
+  /// Nahradí modelované řádky booking_extras aktuálním výběrem — mazání podle
+  /// id původních řádků + ověření počtu (viz booking_extras_sync.dart).
   Future<void> _replaceModeledExtras(List<Map<String, dynamic>>? rows) async {
     try {
-      await MotoGoSupabase.client
-          .from('booking_extras')
-          .delete()
-          .eq('booking_id', widget.bookingId)
-          .inFilter('name', _modeledExtraNames);
-      if (rows != null && rows.isNotEmpty) {
-        await MotoGoSupabase.client.from('booking_extras').insert(rows);
-      }
+      await replaceModeledExtras(
+        bookingId: widget.bookingId,
+        origRowIds: _origModeledRowIds,
+        origExtraIds: _origExtras,
+        rows: rows ?? const [],
+      );
     } catch (e) {
       debugPrint('[Edit] extras replace failed: $e');
     }
@@ -661,6 +651,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           for (final id in _selectedExtras)
             if (_extraDefs[id] != null)
               {
+                '_extra': id, // interní — před INSERTem se odstraní
                 'booking_id': widget.bookingId,
                 'name': _extraDefs[id]!.$1,
                 // MUSÍ souhlasit s EditPriceCalc (od [loyaltyFreeGearLevel]
@@ -819,6 +810,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               // je nový stav (může být i prázdný = vše odebráno).
               if (extrasChanged) '_extras_replace': true,
               if (extrasChanged) '_extras_rows': extrasRows ?? const [],
+              // id původních řádků (mazání podle id) + původní doplňky
+              // (pojistka: bez DELETE práva se vloží jen přidané).
+              if (extrasChanged) '_extras_delete_ids': List<String>.from(_origModeledRowIds),
+              if (extrasChanged) '_extras_orig': _origExtras.toList(),
             },
           );
           context.push(Routes.payment);

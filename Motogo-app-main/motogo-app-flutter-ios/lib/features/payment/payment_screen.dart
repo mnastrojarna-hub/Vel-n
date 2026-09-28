@@ -17,6 +17,7 @@ import '../booking/booking_provider.dart';
 import '../booking/booking_models.dart';
 import '../booking/widgets/price_summary.dart';
 import '../reservations/reservation_provider.dart' show releaseDoorCodes, reservationsProvider, reservationByIdProvider;
+import '../reservations/booking_extras_sync.dart' show replaceModeledExtras;
 import 'booking_upsell_provider.dart';
 import '../../core/feature_flags.dart';
 import '../../core/booking_rules.dart';
@@ -1249,27 +1250,26 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                   Map<String, dynamic>.from(_ctx!.pendingEditChanges!);
               final extrasRows = pending.remove('_extras_rows');
               final extrasReplace = pending.remove('_extras_replace') == true;
+              final deleteIds = ((pending.remove('_extras_delete_ids') as List?) ?? const [])
+                  .map((e) => e.toString())
+                  .toList();
+              final origExtras = ((pending.remove('_extras_orig') as List?) ?? const [])
+                  .map((e) => e.toString())
+                  .toSet();
               pending.remove('_base'); // jen pro server (metadata), ne sloupec
               await MotoGoSupabase.client
                   .from('bookings')
                   .update(pending)
                   .eq('id', _pendingBookingId!);
               if (extrasReplace) {
-                try {
-                  await MotoGoSupabase.client
-                      .from('booking_extras')
-                      .delete()
-                      .eq('booking_id', _pendingBookingId!)
-                      .inFilter('name', const [
-                    // „Boty řidič" (bez -e) = řádek z webové RPC update_booking_gear
-                    'Výbava spolujezdce', 'Boty řidiče', 'Boty řidič', 'Boty spolujezdce',
-                  ]);
-                } catch (_) {/* ignore */}
-              }
-              if (extrasRows is List && extrasRows.isNotEmpty) {
-                await MotoGoSupabase.client
-                    .from('booking_extras')
-                    .insert(extrasRows);
+                // Mazání podle id + ověření počtu — bez DELETE práva by se
+                // doplňky zdvojily (incident 2026-09-28, viz booking_extras_sync).
+                await replaceModeledExtras(
+                  bookingId: _pendingBookingId!,
+                  origRowIds: deleteIds,
+                  origExtraIds: origExtras,
+                  rows: extrasRows is List ? extrasRows : const [],
+                );
               }
             } catch (e) {
               debugPrint('[Payment] Edit apply err: $e');
