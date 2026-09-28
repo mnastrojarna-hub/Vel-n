@@ -981,7 +981,7 @@ NOT NULL DEFAULT 'service'` CHECK (`service` | `diagnostics`); CHECK `kiosk_comm
 tabulka `kiosk_diagnostics (id, device_id FK, branch_id FK, report_id, source, ok, problems jsonb, summary jsonb,
 report jsonb, app_version, started_at, finished_at, created_at)` + indexy (branch_id/device_id, created_at DESC),
 RLS `kiosk_diagnostics_admin FOR ALL is_admin()`; RPC `kiosk_report_diagnostics(p_device_id, p_device_token,
-p_report jsonb) RETURNS jsonb` (`{ok, id}` / `{ok:false, error}`, drží posledních 30 reportů na zařízení);
+p_report jsonb) RETURNS jsonb` (`{ok, id}` / `{ok:false, error}`, drží JEN poslední report na zařízení — 2026-09-28, dřív 30);
 `kiosk_sync_config.service_codes` nově `[{h, action, label}]`; `kiosk_resolve_code` u servisního hesla vrací
 i `action` a `label` (tablety ignorují).
 
@@ -1046,18 +1046,28 @@ funkce/triggery); výjimka = wrapper `booking_needs_locker(uuid)` pro Velín (`G
 `velin/src/pages/BranchRpiHardware.jsx` (editor `hardware` + `hw` per dveře, tlačítko
 „Načíst výchozí mapu (šablona Brno, 8 zón + venek)“ — `BRNO_DEFAULT_HARDWARE` včetně `outdoor = {zone: 9, light: {dev: 'wav617b',
 coil: 0}}`, `BRNO_DEFAULT_ZONES` = 8 položek, `security` bez `pin_length`/`mask_pin_on_screen`). Napojení v `BranchSelfService.jsx` (import + render
-bloků; existující bloky beze změny). Příkazy přes existující `kiosk_commands` insert.
+bloků). **Rozložení záložky Samoobsluha (2026-09-28, zjednodušení na zadání majitele):** hlavička `[Obnovit]` (jediné pro celou záložku) +
+přepínač **„🔧 Servisní režim“** (localStorage `velin_samoobsluha_servis`, `usePersistentFlag` v `BranchRpiUi.jsx`). Viditelné vždy: poplach
+`KioskAlertsBanner`, karta jednotky se zónami (`RpiStatusBlock`; provozní tlačítka Vše vypnout / Obrazovka / Restart služby, na dlaždici
+Otevřít / Světlo / Hudba), poslední protokol diagnostiky, Hudba pobočky, Kamery a FV jen když jsou nastavené. Sbalený blok **„Nastavení a
+servis“** (`RpiSection collapsible` s čipy v zavřené hlavičce: chyby za 24 h, dveře bez HW mapy, restart OS): Hlášení a chyby (`kiosk_logs`),
+Log otevření, Zařízení (párování), Dveře, Řídicí jednotka — hardware, Servisní hesla, Kamery/FV (když nejsou nastavené). Servisní režim
+zároveň odkryje technická tlačítka karty jednotky (modem QMI/RNDIS, Synchronizovat, Identifikuj, Aktualizovat software, Reboot, Terminál —
+„Zamknout terminál“ je vidět vždy, když je odemčený) a dlaždic (Signál…, Test zóny, Test kontaktu, Otočit polaritu, venek Test). Bez jednotky se
+servis otevře sám. **Odstraněno (tablet neexistuje):** ovládací panel pobočky, „Hudba & časování (jen tablet)“ (URL/interval FV přesunuty do
+bloku Solární elektrárna), OTA APK, pole URL relé/světla u dveří, řádek „Na dálku“ u zařízení. Příkazy přes existující `kiosk_commands` insert.
 `velin/src/pages/BranchRpiDiagnostics.jsx` — blok „Kompletní diagnostika pobočky (Raspberry)": tlačítko
 „🔍 Kompletní diagnostika — <jednotka>“ (příkaz `diagnostics {mode:'full', cameras, reason:'velin'}`; `cameras` z props
 `BranchSelfService.jsx`) + malé „jen síť“ (`mode:'network'`), pak polling `kiosk_diagnostics` á 5 s do 300 s a průběh
-„krok X (n/m)“ z `kiosk_devices.status.diagnostics`; seznam běhů (chip OK / N problémů / M varování, režim, zóny x/y,
-moduly, LAN, trvání) + „Protokol“ (`BranchRpiDiagProtocol.jsx`: hlavička, „Kde je problém“, „Varování“, sekce s tabulkou
-a sbalenými OK kontrolami, sbalený „Technický detail sítě“ = `BranchRpiDiagNetwork.jsx`, **Stáhnout protokol (.txt)**
-`diagnostika-<pobocka>-<YYYYMMDD-HHMM>.txt` + **Kopírovat**); starší report bez `protocol` → jen síťový detail (§24).
+„krok X (n/m)“ z `kiosk_devices.status.diagnostics`; **jen poslední report každé jednotky** (2026-09-28: bez historie, mazání
+a exportu; DB drží jen poslední — `20260928_kiosk_diag_latest_only.sql`; report s problémy se otevře sám; „jen síť“ jen v servisu) —
+řádek (chip OK / N problémů / M varování, režim, zóny x/y, moduly, LAN, trvání) + „Protokol“ (`BranchRpiDiagProtocol.jsx`: hlavička, „Kde je problém“, „Varování“, sekce s tabulkou
+a sbalenými OK kontrolami, sbalený „Technický detail sítě“ = `BranchRpiDiagNetwork.jsx`, **Kopírovat** (textový protokol do schránky;
+„Stáhnout .txt“ 2026-09-28 odstraněno)); starší report bez `protocol` → jen síťový detail (§24).
 `ServiceCodesBlock` má select „Účel“ (`action`: servisní panel | jen diagnostika).
 
 **Blok „Hudba pobočky“ (2026-09-10; `velin/src/pages/BranchMusic.jsx` + `BranchMusicParts.jsx` + `branchMusicHelpers.js`,
-mount v `BranchSelfService.jsx`; starší „Hudba & časování (jen tablet)“ zůstává):** drop zóna „Přetáhněte hudbu z PC“
+mount v `BranchSelfService.jsx`; blok „Hudba & časování (jen tablet)“ 2026-09-28 odstraněn):** drop zóna „Přetáhněte hudbu z PC“
 (+ klik = výběr více souborů; `ACCEPT` = `audio/*` + přípony mp3/wav/flac/ogg/oga/opus/m4a/aac/wma/aiff/aif/webm/mkv/mp4a,
 max 200 MB/soubor) se selectem cíle **Všechny kóje (společná)** / **Šatna** (`door_kind` accessories) / **Kóje N**
 (motorcycle dle `box_number`) / **Venek**; upload `supabase.storage.from('branch-music').upload('<branch_id>/<uuid>.<ext>')`
@@ -1208,7 +1218,7 @@ z `ok/problems/summary` plní sloupce — beze změny).
 `max_hosts`, `internet_urls`, `timeout_s = 120` (network), **`full_timeout_s = 240`**, **`zone_test = True`** (False = zóny se jen čtou,
 nic se nespíná), **`camera_timeout_s = 6`** (HTTP sondy kamer i měniče FV).
 
-**Displej** (`ui/diag.js`, §16) a **Velín** (`BranchRpiDiagnostics.jsx` blok + `BranchRpiDiagProtocol.jsx` protokol/export .txt +
+**Displej** (`ui/diag.js`, §16) a **Velín** (`BranchRpiDiagnostics.jsx` blok + `BranchRpiDiagProtocol.jsx` protokol + Kopírovat +
 `BranchRpiDiagNetwork.jsx` technický detail sítě; §23) vykreslují `protocol` shodně; starší reporty bez `protocol` = jen síťový detail.
 
 `net_scan`: `interfaces()` (`ip -j addr`, fallback ioctl), `routes()`, `dns_servers()`, `arp_table()`, `resolve()`, `tcp_probe()`,

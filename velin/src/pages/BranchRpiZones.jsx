@@ -90,7 +90,7 @@ function RpiStatusBlock(props) {
   )
 }
 
-function RpiStatusInner({ devices, doors, now, onCommand, branchName, onSaveDoor }) {
+function RpiStatusInner({ devices, doors, now, onCommand, branchName, onSaveDoor, servis = false }) {
   const rpis = arr(devices).filter(isRpiDevice)
   if (rpis.length === 0) return null
   return (
@@ -103,18 +103,18 @@ function RpiStatusInner({ devices, doors, now, onCommand, branchName, onSaveDoor
         return noHw.length > 0 && (
           <div className="mb-2 p-2 rounded-card text-[12px]" style={{ background: '#fef3c7', color: '#b45309' }}>
             ⚠ {noHw.length} dveří bez HW mapy ({noHw.map(d => d.label || (d.door_kind === 'accessories' ? ACCESSORIES_LABEL : boxLabel(d.box_number))).join(', ')}) — jednotka je nezná, dlaždice chybí.
-            Blok „Dveře“ → „Vytvořit dveře z kojí + doplnit HW mapu“, nebo „Řídicí jednotka — hardware“ → „Načíst výchozí mapu“.
+            Servisní režim → „Nastavení a servis“ → Dveře → „Vytvořit dveře z kojí + doplnit HW mapu“ (nebo Řídicí jednotka — hardware → „Načíst výchozí mapu“).
           </div>
         )
       })()}
       <div className="space-y-3">
-        {rpis.map(dev => <RpiDeviceCard key={dev.id} dev={dev} doors={doors} now={now} onCommand={onCommand} branchName={branchName} onSaveDoor={onSaveDoor} />)}
+        {rpis.map(dev => <RpiDeviceCard key={dev.id} dev={dev} doors={doors} now={now} onCommand={onCommand} branchName={branchName} onSaveDoor={onSaveDoor} servis={servis} />)}
       </div>
     </RpiSection>
   )
 }
 
-function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor }) {
+function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, servis = false }) {
   const [sent, setSent] = useState(null)
   const st = (dev.status && typeof dev.status === 'object' && !Array.isArray(dev.status)) ? dev.status : {}
   const online = !!(dev.last_seen_at && (now - new Date(dev.last_seen_at).getTime()) < ONLINE_MS)
@@ -190,7 +190,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor }) {
         <div className="text-[11px] mt-1" style={{ color: nameMismatch ? '#b45309' : '#6b8c7a' }}
           title="Název, který zákazník vidí v záhlaví displeje na pobočce. Jednotka ho bere VÝHRADNĚ z názvu pobočky ve Velíně — po přejmenování se propíše do 30 s (nebo hned tlačítkem „Synchronizovat konfiguraci“).">
           Na displeji pobočky: <b style={{ color: nameMismatch ? '#b45309' : '#1a2e22' }}>{shownName || '—'}</b>
-          {nameMismatch && <> — ve Velíně je <b>{String(branchName)}</b>; jednotka si nový název stáhne do 30 s, jinak dejte „Synchronizovat konfiguraci“.</>}
+          {nameMismatch && <> — ve Velíně je <b>{String(branchName)}</b>; jednotka si nový název stáhne do 30 s.</>}
         </div>
       )}
 
@@ -222,7 +222,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor }) {
 
       {/* Režim modemu QMI/RNDIS (health.lte.mode) — QMI kanál SIM7600 padá z USB („error -71“); jednotka se po
           `mode_auto_after` USB resetech za 24 h přepne do RNDIS sama, tady jde přepnout ručně. Internet vypadne ~2 min. */}
-      {hasStatus && lte.mode != null && (
+      {servis && hasStatus && lte.mode != null && (
         <div className="flex items-center gap-2 flex-wrap mt-2 text-[11px]" style={{ color: '#6b8c7a' }}>
           <span className="font-extrabold uppercase">Modem:</span>
           <Chip tone={lte.mode === 'rndis' ? 'blue' : 'gray'} title={`Režim v konfiguraci jednotky: ${txt(lte.mode)} · modem na USB hlásí: ${txt(lte.usb_mode ?? 'nevidím')}`}>
@@ -244,21 +244,24 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor }) {
         </div>
       )}
 
-      {/* Globální příkazy */}
+      {/* Globální příkazy — provozní vždy; technické (sync, identifikace, aktualizace, reboot, terminál) jen v servisním režimu.
+          „Zamknout terminál“ zůstává vidět vždy, když je odemčený, aby ho šlo zavřít i bez servisu. */}
       <div className="flex items-center gap-2 flex-wrap mt-2 pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
         <Btn tone="red" title="Nouzové vypnutí: zhasne světla ve všech kójích i venku, zastaví hudbu, vypne signalizaci a odjistí relé. Dveře NEODEMYKÁ ani nezamyká. Použijte, když něco svítí nebo hraje a nemá."
           onClick={() => confirmSend('Vypnout vše (zámky, světla, hudba, signalizace) na řídicí jednotce?', 'all_off', {}, 'Vše vypnout')}>Vše vypnout</Btn>
-        <Btn tone="blue" title="Jednotka si HNED stáhne aktuální nastavení z Velína (hardware, dveře, kódy, hudbu) — jinak to udělá sama do 60 s. Použijte po úpravě nastavení, když nechcete čekat."
-          onClick={() => send('sync_config', {}, 'Synchronizovat konfiguraci')}>Synchronizovat konfiguraci</Btn>
         <ScreenMirrorButton dev={dev} online={online} onCommand={onCommand} />
-        <Btn tone="blue" title="Kterou pobočku mám před sebou? Na displeji této jednotky se zobrazí „Tady jsem 👋“ a signalizace VŠECH kójí 3× blikne zeleně. Slouží k rozpoznání, který řádek ve Velíně patří které fyzické jednotce — nic neotevírá, zákazníka to neomezí."
-          onClick={() => send('identify', { label: 'Velín' }, 'Identifikuj')}>Identifikuj</Btn>
         <Btn tone="amber" title="Restartuje jen program jednotky (ne celý Raspberry). Trvá pár sekund, zóny se znovu načtou. První pomoc, když se něco zaseklo."
           onClick={() => confirmSend('Restartovat službu řídicí jednotky? Zóny se na pár sekund vypnou a znovu inicializují.', 'restart', {}, 'Restart služby')}>Restart služby</Btn>
+        {servis && <>
+        <Btn tone="blue" title="Jednotka si HNED stáhne aktuální nastavení z Velína (hardware, dveře, kódy, hudbu) — jinak to udělá sama do 60 s. Použijte po úpravě nastavení, když nechcete čekat."
+          onClick={() => send('sync_config', {}, 'Synchronizovat konfiguraci')}>Synchronizovat konfiguraci</Btn>
+        <Btn tone="blue" title="Kterou pobočku mám před sebou? Na displeji této jednotky se zobrazí „Tady jsem 👋“ a signalizace VŠECH kójí 3× blikne zeleně. Slouží k rozpoznání, který řádek ve Velíně patří které fyzické jednotce — nic neotevírá, zákazníka to neomezí."
+          onClick={() => send('identify', { label: 'Velín' }, 'Identifikuj')}>Identifikuj</Btn>
         <Btn tone="amber" onClick={() => confirmSend('Aktualizovat software řídicí jednotky (git pull + restart)? Naplánuje se a provede se, až bude kóje volná (nikdo uprostřed relace). Výsledek poznáte podle hlášené verze a řádku „Aktualizace“ níže.', 'update_software', {}, 'Aktualizovat software')}>Aktualizovat software</Btn>
         <Btn tone="red" title="Restartuje celý počítač na pobočce. Cca minutu nejde zadat kód ani otevřít dveře — nedělejte, když je někdo v kóji."
           onClick={() => confirmSend('Rebootovat Raspberry Pi? Pobočka bude cca 1 minutu nedostupná.', 'reboot', {}, 'Reboot RPi')}>Reboot RPi</Btn>
-        <Btn tone={shellFree ? 'red' : 'gray'}
+        </>}
+        {(servis || shellFree) && <Btn tone={shellFree ? 'red' : 'gray'}
           title={shellFree
             ? 'Zamkne volné psaní příkazů na displeji pobočky (připravená tlačítka terminálu zůstanou).'
             : 'Povolí na 30 minut psaní libovolných příkazů technikovi, který má u sebe jen DIAGNOSTICKÝ kód. Se servisním heslem terminál píše rovnou (a funguje i když je pobočka offline — příkaz odsud by tam stejně nedorazil). Běží pod uživatelem motogo (ne root), každý příkaz jde do Hlášení a chyb. Po 30 minutách se sám zamkne.'}
@@ -266,7 +269,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor }) {
             ? 'Zamknout volné psaní příkazů na displeji pobočky?'
             : 'Povolit na 30 minut psaní libovolných příkazů na displeji pobočky? Kdo zná diagnostický kód, dostane na místě příkazovou řádku jednotky.',
             'shell_unlock', { minutes: shellFree ? 0 : 30 }, shellFree ? 'Zamknout terminál' : 'Odemknout terminál')}>
-          {shellFree ? 'Zamknout terminál' : '⌨ Terminál na displeji'}</Btn>
+          {shellFree ? 'Zamknout terminál' : '⌨ Terminál na displeji'}</Btn>}
         {sent && (now - sent.ts) < 60000 && <span className="text-[11px] font-bold" style={{ color: '#1a8a18' }}>{sent.text}</span>}
       </div>
 
@@ -277,16 +280,16 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor }) {
             ? 'Zatím nedorazil žádný stav — spárujte jednotku (ID + token) na displeji (setup obrazovka nebo servisní panel → Přepárovat).'
             : 'Zatím nedorazil žádný stav z řídicí jednotky (hlásí se každých 30 s po startu).'} />
         ) : zones.length === 0 ? (
-          <EmptyState text="Jednotka nehlásí žádné zóny — zkontrolujte „Mapování dveří → zóny“ v bloku Řídicí jednotka (Raspberry) — hardware níže." />
+          <EmptyState text="Jednotka nehlásí žádné zóny — Servisní režim → „Nastavení a servis“ → Dveře („Vytvořit dveře z kojí + doplnit HW mapu“) nebo Řídicí jednotka — hardware." />
         ) : (
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
-            {zones.map((z, i) => <ZoneTile key={`${txt(z.zone)}-${txt(z.door_id)}-${i}`} z={z} door={doorMap[z.door_id]} handover={handover} onSend={send} onConfirm={confirmSend} onSaveDoor={onSaveDoor} />)}
+            {zones.map((z, i) => <ZoneTile key={`${txt(z.zone)}-${txt(z.door_id)}-${i}`} z={z} door={doorMap[z.door_id]} handover={handover} onSend={send} onConfirm={confirmSend} onSaveDoor={onSaveDoor} servis={servis} />)}
           </div>
         )}
         {/* Venek (zóna bez dveří) — za mřížkou zón, jen když je v HW mapě nastaven */}
         {hasStatus && outdoor && (
           <div className="grid gap-2 mt-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
-            <OutdoorTile o={outdoor} onSend={send} />
+            <OutdoorTile o={outdoor} onSend={send} servis={servis} />
           </div>
         )}
       </div>
@@ -306,7 +309,7 @@ function zoneName(z, door) {
   return `Zóna ${txt(z.zone)}`
 }
 
-function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor }) {
+function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor, servis = false }) {
   const [sig, setSig] = useState('')
   const state = txt(z.state ?? '').toUpperCase()
   const bg = STATE_BG[state] || '#f1faf7'
@@ -349,7 +352,7 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor }) {
         <div className="text-[11px] mt-0.5 flex items-center gap-1 flex-wrap" style={{ color: '#1a2e22' }}
           title="Syrová hodnota dveřního vstupu z modulu (1 = kontakt sepnut mezi DI a DGND, 0 = rozpojeno; svorka COM na Relay (B) musí zůstat VOLNÁ) a úroveň, kterou program bere jako zavřeno (má být 1 — s 0 vypadá přerušený kabel jako zavřené dveře). „Změn od startu“ = kolikrát se vstup od startu jednotky změnil; 0 po otevření zámku = signál kontaktu nejde do modulu.">
           <span>vstup <b>{txt(z.contact_ref)}</b> = <b>{z.contact_raw === true ? 1 : z.contact_raw === false ? 0 : '?'}</b> · zavřeno = {txt(z.closed_level ?? '?')}{z.contact_changes != null && <> · změn od startu: <b>{txt(z.contact_changes)}</b>{num(z.contact_changes) === 0 && num(z.unlocks_since_start) > 0 && <span style={{ color: '#b91c1c' }}> (zámek otevřen {txt(z.unlocks_since_start)}×, vstup se nehnul)</span>}</>}</span>
-          {door && onSaveDoor && z.closed_level != null && (
+          {servis && door && onSaveDoor && z.closed_level != null && (
             <Btn tone="gray" small title="Prohodí úroveň „Zavřeno =“ u těchto dveří (0 ↔ 1) a uloží do HW mapy — použijte, když program hlásí opačný stav, než dveře skutečně mají."
               onClick={() => onSaveDoor(door.id, { hw: { ...(door.hw || {}), closed_level: num(z.closed_level) === 1 ? 0 : 1 } })}>Otočit polaritu</Btn>
           )}
@@ -392,6 +395,7 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor }) {
           onClick={() => onSend(z.music ? 'music_off' : 'music_on', zoneParams, `hudba ${z.music ? '⏹' : '▶'} (zóna ${txt(zoneNo)})`)}>
           Hudba {z.music ? '⏹' : '▶'}
         </Btn>
+        {servis && <>
         <select value={sig} onChange={e => pickSignal(e.target.value)} title="Ruční nastavení signalizace"
           className="rounded-btn text-[11px] font-bold outline-none cursor-pointer" style={{ padding: '4px 6px', background: '#fff', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="">Signál…</option>
@@ -401,6 +405,7 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor }) {
           onClick={() => onSend('zone_test', zoneParams, `test zóny ${txt(zoneNo)}`)}>Test zóny</Btn>
         <Btn tone="blue" small title="Jednotka 20 s sleduje dveřní kontakt této zóny. Během testu dveře otevřete a zase zavřete (skončete zavřenými). Výsledek za ~25 s v „Hlášení a chyby“: v pořádku / otočit polaritu / vstup se nemění (zapojení)."
           onClick={() => onSend('contact_test', { ...zoneParams, seconds: 20 }, `test kontaktu (zóna ${txt(zoneNo)}) — teď dveře otevřete a zavřete, výsledek za ~25 s v Hlášení a chyby`)}>Test kontaktu</Btn>
+        </>}
       </div>
     </div>
   )

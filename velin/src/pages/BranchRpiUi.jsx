@@ -1,4 +1,4 @@
-import { Component } from 'react'
+import { Component, useState } from 'react'
 
 // ─── Sdílené UI prvky pro bloky Raspberry řídicí jednotky (Samoobsluha) ─────
 // Stejný vizuální jazyk jako BranchSelfService.jsx (inline styly + Tailwind utility).
@@ -109,19 +109,57 @@ const TONES = {
   gray: { background: '#eef6f2', color: '#1a2e22' },
 }
 
-function RpiSection({ title, hint, children, action }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-        <div>
-          <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{title}</div>
-          {hint && <div className="text-[12px]" style={{ color: '#6b8c7a' }}>{hint}</div>}
+// Sekce záložky. `collapsible` (2026-09-28, zjednodušení Samoobsluhy): hlavička je tlačítko ▸/▾ s `summary`
+// (čipy viditelné i zavřené — vzor FleetUpdates.jsx), tělo se vykreslí jen při `open`; `action` stojí mimo tlačítko
+// (vnořené <button> nejsou platné HTML).
+function RpiSection({ title, hint, children, action, collapsible = false, open = true, onToggle, summary }) {
+  if (!collapsible) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+          <div>
+            <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{title}</div>
+            {hint && <div className="text-[12px]" style={{ color: '#6b8c7a' }}>{hint}</div>}
+          </div>
+          {action}
         </div>
+        {children}
+      </div>
+    )
+  }
+  return (
+    <div className="rounded-card" style={{ border: '1px solid #d4e8e0', background: '#fff' }}>
+      <div className="flex items-center gap-2 flex-wrap" style={{ padding: '10px 14px' }}>
+        <button type="button" onClick={onToggle}
+          className="flex items-center gap-3 flex-wrap text-left cursor-pointer border-none bg-transparent flex-1" style={{ padding: 0 }}>
+          <span style={{ color: '#1a2e22', fontSize: 14 }}>{open ? '▾' : '▸'}</span>
+          <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{title}</span>
+          {summary}
+        </button>
         {action}
       </div>
-      {children}
+      {open && (
+        <div className="space-y-5" style={{ padding: '0 14px 14px', borderTop: '1px solid #d4e8e0', paddingTop: 12 }}>
+          {hint && <div className="text-[12px]" style={{ color: '#6b8c7a' }}>{hint}</div>}
+          {children}
+        </div>
+      )}
     </div>
   )
+}
+
+// Přepínač uložený v prohlížeči (localStorage) — např. „Servisní režim“ záložky Samoobsluha. Chybějící/blokované
+// úložiště nesmí stránku shodit (try/catch), výchozí hodnota `def`.
+function usePersistentFlag(key, def = false) {
+  const [v, setV] = useState(() => {
+    try { const raw = localStorage.getItem(key); return raw == null ? def : raw === '1' } catch { return def }
+  })
+  const set = next => {
+    const val = typeof next === 'function' ? next(v) : next
+    setV(!!val)
+    try { localStorage.setItem(key, val ? '1' : '0') } catch { /* plné/blokované úložiště */ }
+  }
+  return [v, set]
 }
 
 function Btn({ children, tone = 'gray', onClick, disabled, title, small, style }) {
@@ -216,7 +254,7 @@ function formatAge(sec) {
 }
 
 export {
-  RpiSection, Btn, Chip, Label, Input, Select, Checkbox, TONES, formatUptime, ageSeconds, formatAge,
+  RpiSection, usePersistentFlag, Btn, Chip, Label, Input, Select, Checkbox, TONES, formatUptime, ageSeconds, formatAge,
   ErrorBoundary, txt, num, arr, isRpiDevice, isTabletDevice, platformLabel,
   ACCESSORIES_LABEL, OUTDOOR_LABEL, isAccessoriesDoor, boxLabel, doorKindLabel, doorLabel, isGeneratedZoneLabel,
   DOOR_EVENT_CZ, doorEventName, doorEventLabel, isProtocolEvent,
