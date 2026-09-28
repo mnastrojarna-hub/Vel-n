@@ -30,6 +30,49 @@ const EXTRA_GEAR_CHECKS = [
   { key: 'chain_spray', label: 'Sprej na řetěz' },
 ]
 
+/**
+ * Výbava motorky (zadání majitele 2026-09-28): pevná skupina v KAŽDÉM protokolu
+ * z displeje pobočky — leží v motorce (kufr / tankvak), kiosk ji ukazuje předem
+ * zaškrtnutou a zákazník může odškrtnout, co chybí. Klíče = kiosk `MOTO_GEAR`.
+ */
+export const MOTO_EQUIPMENT = [
+  { key: 'phone_holder_key', label: 'Klíč k držáku mobilu', qty: 1 },
+  { key: 'disc_lock', label: 'Kotoučový zámek', qty: 1 },
+  { key: 'accident_form', label: 'Záznam o nehodě (formulář)', qty: 1 },
+  { key: 'first_aid_kit', label: 'Lékárnička', qty: 1 },
+  { key: 'reflective_vest', label: 'Reflexní vesta', qty: 2 },
+] as const
+export const MOTO_EQUIPMENT_NOTE = 'Uložena v motorce — v kufru nebo v tankvaku. Nájemce ji přebírá spolu s motorkou a vrací ji s ní.'
+
+export interface MotoEquipmentItem { key: string; label: string; qty: number; checked: boolean }
+
+/**
+ * `form.moto_equipment[]` z klienta ({key, checked}) → úplný seznam v pevném
+ * pořadí. Položka bez hodnoty dostane `defaultChecked`; když klient pole
+ * neposlal: `defaultChecked` true/false = doplnit vše (kiosk: starší build
+ * jednotky = vše předáno), null = sekce v dokumentu nebude (appka).
+ */
+export function normalizeMotoEquipment(raw: unknown, defaultChecked: boolean | null): MotoEquipmentItem[] | null {
+  const byKey = new Map<string, boolean>()
+  if (Array.isArray(raw)) {
+    for (const it of raw.slice(0, 20)) {
+      if (!it || typeof it !== 'object') continue
+      const o = it as Record<string, unknown>
+      if (typeof o.key === 'string' && typeof o.checked === 'boolean') byKey.set(o.key, o.checked)
+    }
+  } else if (defaultChecked === null) {
+    return null
+  }
+  return MOTO_EQUIPMENT.map((m) => ({
+    key: m.key, label: m.label, qty: m.qty,
+    checked: byKey.has(m.key) ? (byKey.get(m.key) as boolean) : (defaultChecked ?? false),
+  }))
+}
+
+export function motoEquipmentChecked(items: MotoEquipmentItem[] | null, key: string): boolean {
+  return !!items?.some((i) => i.key === key && i.checked)
+}
+
 export interface Vars {
   booking_number: string; today: string; company_name: string; customer_name: string
   moto_model: string; moto_spz: string; moto_vin: string; rental_period: string
@@ -55,6 +98,12 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
   const accTable = accRows
     ? `<table style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;border:1px solid #ddd"><tr><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Položka</th><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Velikost</th><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:center;font-size:10px;text-transform:uppercase">Předáno</th></tr>${accRows}</table>`
     : '<p style="font-size:12px">Žádná zapůjčená výbava.</p>'
+  // Výbava motorky — jen když ji klient poslal / edge doplnila (kiosk); appka sekci nemá.
+  const motoEq = Array.isArray(form.moto_equipment) ? form.moto_equipment as MotoEquipmentItem[] : []
+  const motoBlock = motoEq.length
+    ? `<h3 style="font-size:13px;margin-top:14px">Výbava motorky</h3><p style="font-size:11px;color:#666;margin:2px 0 6px">${esc(MOTO_EQUIPMENT_NOTE)}</p>` +
+      motoEq.map((m) => `<div style="font-size:12px;margin:5px 0">${m.checked ? '☑' : '☐'} ${m.qty > 1 ? `${m.qty}× ` : ''}${esc(m.label)}</div>`).join('')
+    : ''
   const damageBlock = `<div style="font-size:12px;margin:5px 0">${damage.checked ? '☑' : '☐'} Poškození při předání</div>` +
     (damage.checked && damage.desc ? `<p style="font-size:12px;margin:4px 0 0;padding:8px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px">${escMulti(damage.desc)}</p>` : '')
 
@@ -77,6 +126,7 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
     `<h3 style="font-size:13px;margin-top:14px">Stav při předání</h3><table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">${row('Stav km při předání', mileage ? `${mileage} km` : '')}</table>` +
     `<h3 style="font-size:13px;margin-top:14px">Kontrola předání</h3>${checkList}` +
     `<h3 style="font-size:13px;margin-top:14px">Zapůjčená výbava</h3>${accTable}` +
+    motoBlock +
     `<h3 style="font-size:13px;margin-top:14px">Doplňkové vybavení</h3>${extraList}` +
     `<h3 style="font-size:13px;margin-top:14px">Poškození</h3>${damageBlock}` +
     (notes ? `<h3 style="font-size:13px;margin-top:14px">Poznámky</h3><p style="font-size:12px">${escMulti(notes)}</p>` : '') +

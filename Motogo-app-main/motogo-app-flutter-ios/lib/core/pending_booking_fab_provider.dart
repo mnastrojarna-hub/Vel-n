@@ -22,7 +22,8 @@ final paymentScreenActiveProvider = StateProvider<bool>((ref) => false);
 final onboardingOverlayActiveProvider = StateProvider<bool>((ref) => false);
 
 /// Pending booking data for the FAB — mirrors _checkAndShowBookingFab()
-/// from reservations-ui.js. Shows unpaid bookings within 10-min window.
+/// from reservations-ui.js. Shows unpaid bookings within the 30-min window
+/// (server: auto_cancel_expired_pending, app = 30 min).
 class PendingBooking {
   final String id;
   final double totalPrice;
@@ -53,13 +54,46 @@ class PendingBooking {
   }
 }
 
+/// Jak často se DB ptáme, jestli rezervace (ještě) čeká na platbu — sekundy.
+/// Platí jak pro hledání nové rezervace, tak pro ověřování té zobrazené.
+const _recheckSeconds = 5;
+
+/// Nejnovější nezaplacená rezervace zákazníka (status pending/reserved,
+/// payment_status unpaid), nebo null.
+Future<PendingBooking?> _fetchPendingBooking(String userId) async {
+  final res = await MotoGoSupabase.client
+      .from('bookings')
+      .select('id, status, payment_status, total_price, created_at')
+      .eq('user_id', userId)
+      .inFilter('status', ['reserved', 'pending'])
+      .eq('payment_status', 'unpaid')
+      .order('created_at', ascending: false)
+      .limit(1)
+      .maybeSingle();
+  if (res == null) return null;
+  return PendingBooking(
+    id: res['id'] as String,
+    totalPrice: (res['total_price'] as num?)?.toDouble() ?? 0,
+    createdAt: DateTime.parse(res['created_at'] as String),
+  );
+}
+
 /// Streams the current pending booking (if any) with a 1-second tick
 /// for the countdown timer. Mirrors _checkAndShowBookingFab +
 /// _startBookingFabCountdown from reservations-ui.js.
 ///
-/// Keeps polling every 5 seconds when no booking is found, so newly
-/// created bookings are detected (like Capacitor's re-check on every
-/// screen navigation via _updateBookingFabVisibility).
+/// Polls the DB every [_recheckSeconds] — both while no booking is shown (so
+/// a newly created one appears) and WHILE one is shown.
+///
+/// INCIDENT 2026-09-28 (Apple Pay, FAB svítil i po zaplacení): jakmile stream
+/// rezervaci našel, tikal 30 minut z PAMĚTI a DB už se neptal. Když platbu
+/// potvrdil až webhook PO tom, co appka přestala čekat na potvrzení
+/// (`_showProcessingPending` → /reservations uvnitř shellu, provider se
+/// nezahodil), nebo když rezervaci zaplatil/zrušil Velín či druhé zařízení,
+/// FAB „Dokončit rezervaci" strašil zbývajících ~29 minut. Zaplacená /
+/// zrušená / vyměněná rezervace teď FAB do 5 s shodí nebo přepne. Výpadek sítě
+/// zobrazenou rezervaci NEshodí (držíme poslední známý stav) — reálně
+/// rozdělaná rezervace nesmí blikat.
 final pendingBookingFabProvider =
     StreamProvider.autoDispose<PendingBooking?>((ref) async* {
   final user = MotoGoSupabase.currentUser;
@@ -68,52 +102,35 @@ final pendingBookingFabProvider =
     return;
   }
 
+  PendingBooking? booking;
   while (true) {
-    // Fetch pending unpaid booking
-    Map<String, dynamic>? res;
     try {
-      res = await MotoGoSupabase.client
-          .from('bookings')
-          .select('id, status, payment_status, total_price, created_at')
-          .eq('user_id', user.id)
-          .inFilter('status', ['reserved', 'pending'])
-          .eq('payment_status', 'unpaid')
-          .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
+      booking = await _fetchPendingBooking(user.id);
     } catch (_) {
-      // Network error — retry after delay
-      yield null;
-      await Future.delayed(const Duration(seconds: 5));
-      continue;
+      // Network error: keep the last known booking (if still valid), otherwise
+      // wait and retry.
+      if (booking == null || booking.isExpired) {
+        yield null;
+        await Future.delayed(const Duration(seconds: _recheckSeconds));
+        continue;
+      }
     }
 
-    if (res == null) {
+    if (booking == null || booking.isExpired) {
       yield null;
       // No pending booking — re-check in 5 s
-      await Future.delayed(const Duration(seconds: 5));
+      await Future.delayed(const Duration(seconds: _recheckSeconds));
       continue;
     }
 
-    final booking = PendingBooking(
-      id: res['id'] as String,
-      totalPrice: (res['total_price'] as num?)?.toDouble() ?? 0,
-      createdAt: DateTime.parse(res['created_at'] as String),
-    );
-
-    if (booking.isExpired) {
-      yield null;
-      await Future.delayed(const Duration(seconds: 5));
-      continue;
-    }
-
-    // Tick every second for countdown until expired
-    while (!booking.isExpired) {
+    // Tick every second for the countdown; after [_recheckSeconds] ticks loop
+    // back and ask the DB again (paid / cancelled → FAB disappears).
+    var ticks = 0;
+    while (!booking.isExpired && ticks < _recheckSeconds) {
       yield booking;
       await Future.delayed(const Duration(seconds: 1));
+      ticks++;
     }
-    // Expired — loop back to re-check
-    yield null;
   }
 });
 

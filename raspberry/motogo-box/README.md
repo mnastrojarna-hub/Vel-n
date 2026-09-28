@@ -19,6 +19,8 @@ Vedený tok **šatna → předávací protokol → motorka** (rozhodnutí uživa
    se zobrazí po zavření“ (klávesnice zůstává volná pro ostatní). Zákazník s vlastní výbavou kód šatny nedostane (šatna mu
    nejde otevřít) a začíná rovnou kódem motorky.
 2. Po zavření dveří šatny se přes celý displej ukáže **předávací protokol**: výbava s velikostmi (upravitelné chipy z číselníku),
+   vždy i skupina **Výbava motorky** (klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta —
+   předem zaškrtnutá, leží v motorce v kufru nebo v tankvaku; zákazník odškrtne, co chybí; 2026-09-28),
    podpis prstem a potvrzení **kódem motorky** téže rezervace (identita podepisujícího). Bez podepsaného protokolu se kóje
    motorky NEOTEVŘE — kód motorky bez podpisu protokol zobrazí a po podpisu kóji otevře sám (`then_open`). Bez dotyku 120 s
    nebo tlačítkem „Zpět“ protokol zmizí a znovu ho vyvolá jen kód motorky (nebo další zavření šatny) téže rezervace. Podpis se

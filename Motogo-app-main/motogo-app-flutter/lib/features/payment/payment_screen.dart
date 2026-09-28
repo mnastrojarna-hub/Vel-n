@@ -1075,6 +1075,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     _completed = true;
     _countdownTimer?.cancel();
     ref.read(paymentContextProvider.notifier).state = null;
+    // Odchod do /reservations je UVNITŘ shellu → provider FAB „Dokončit
+    // rezervaci" se nezahodí a držel by rezervaci z paměti dál, i když ji
+    // webhook vzápětí označí jako zaplacenou (incident 2026-09-28, Apple Pay).
+    // Restart = nový dotaz do DB; seznam rezervací obnovit rovnou taky.
+    ref.invalidate(pendingBookingFabProvider);
+    ref.invalidate(reservationsProvider);
     final tr = t(context);
     showMotoGoToast(context,
         icon: '⏳',
@@ -1151,6 +1157,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     if (_pendingBookingId != null) {
       ref.invalidate(reservationByIdProvider(_pendingBookingId!));
     }
+    // Rezervace je zaplacená → FAB „Dokončit rezervaci" nesmí dál ukazovat
+    // stav z paměti (viz pendingBookingFabProvider, incident 2026-09-28).
+    ref.invalidate(pendingBookingFabProvider);
 
     // Try to release withheld door codes (fire-and-forget safety net).
     // Backend triggers should handle this, but RPC serves as a fallback

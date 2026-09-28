@@ -10,11 +10,21 @@ MG.Handover = (function () {
   const $ = (id) => document.getElementById(id);
   const TOUCH_MS = 5000, SUBMIT_TIMEOUT_MS = 60000, CODE_LEN = 6, DONE_GUARD_MS = 15000, WAIT_MS = 4000;
   const GEAR_ICON = { helmet: '🪖', jacket: '🧥', pants: '👖', boots: '🥾', gloves: '🧤' };
+  /** Výbava motorky (zadání majitele 2026-09-28): v KAŽDÉM protokolu z displeje, předem zaškrtnutá; leží v motorce
+      (kufr / tankvak). Klepnutím lze odškrtnout, co v motorce chybí. Klíče = i18n `me.*` a edge `form.moto_equipment[]`. */
+  const MOTO_GEAR = [
+    { key: 'phone_holder_key', ico: '🔑' },
+    { key: 'disc_lock', ico: '🔒' },
+    { key: 'accident_form', ico: '📝' },
+    { key: 'first_aid_kit', ico: '🩹' },
+    { key: 'reflective_vest', ico: '🦺', qty: 2 },
+  ];
   const LOCALE = { cs: 'cs-CZ', en: 'en-GB', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', nl: 'nl-NL', pl: 'pl-PL', uk: 'uk-UA' };
   let deps = null;    // { post, showStatus, getState }
-  const S = { item: null, key: '', code: '', picks: [], saving: false, lastTouch: 0, msg: null, sig: null, kb: null,
+  const S = { item: null, key: '', code: '', picks: [], moto: {}, saving: false, lastTouch: 0, msg: null, sig: null, kb: null,
     timer: null, doneKey: '', ownDone: { id: '', at: 0 }, wait: null };
   // S.msg = {key} (i18n) | {locked: locked_until} ; S.wait = {id, thenOpen, at} — položka zmizela, výsledek řekne stav zón
+  // S.moto = {key: bool} — zaškrtnutí výbavy motorky (výchozí vše true, reset při open())
 
   function setText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
   const itemKey = (a) => a.booking_id + '|' + (a.shown_at || '');
@@ -61,6 +71,7 @@ MG.Handover = (function () {
     const gear = Array.isArray(a.data && a.data.gear) ? a.data.gear : [];
     if (!gear.length) {
       const p = document.createElement('div'); p.className = 'ho-nogear'; p.textContent = MG.i18n.t('ho.noGear'); box.appendChild(p);
+      renderMotoGear(box, a);
       return;
     }
     ['rider', 'passenger'].forEach((who) => {
@@ -82,12 +93,35 @@ MG.Handover = (function () {
         box.appendChild(row);
       });
     });
+    renderMotoGear(box, a);
+  }
+
+  /** Skupina „Výbava motorky“ pod výbavou: nadpis, poznámka o umístění (kufr / tankvak) a řádek na položku s chipem
+      ✓ (předem zaškrtnuto). Klepnutí položku odškrtne (chybí v motorce) — do protokolu jde `checked:false`. */
+  function renderMotoGear(box, a) {
+    const h = document.createElement('div'); h.className = 'ho-group'; h.textContent = MG.i18n.t('ho.motoGear'); box.appendChild(h);
+    const note = document.createElement('div'); note.className = 'ho-note'; note.textContent = MG.i18n.t('ho.motoGearNote'); box.appendChild(note);
+    MOTO_GEAR.forEach((m) => {
+      const on = S.moto[m.key] !== false;
+      const row = document.createElement('div');
+      row.className = 'ho-row ho-row-moto' + (on ? '' : ' off');
+      row.innerHTML = '<span class="ho-row-ico"></span><span class="ho-row-name"></span><div class="ho-chips"></div>';
+      row.querySelector('.ho-row-ico').textContent = m.ico;
+      row.querySelector('.ho-row-name').textContent = (m.qty ? m.qty + '× ' : '') + (MG.i18n.g('me', m.key) || m.key);
+      row.querySelector('.ho-chips').appendChild(chip(on ? '✓' : '—', on, () => { S.moto[m.key] = !on; touch(); renderGear(a); }));
+      box.appendChild(row);
+    });
+  }
+  /** Výbava motorky pro `form.moto_equipment[]` edge funkce (každá položka, i odškrtnutá). */
+  function motoEquipment() {
+    return MOTO_GEAR.map((m) => ({ key: m.key, qty: m.qty || 1, checked: S.moto[m.key] !== false }));
   }
 
   function paintCode() {
     const box = $('ho-code-box');
-    if (!S.code) { box.textContent = '— — — — — —'; box.classList.add('empty'); }
-    else { box.textContent = S.code.split('').join(' '); box.classList.remove('empty'); }
+    // Číslice bez mezer, rozestup dělá CSS `letter-spacing` — „1 2 3 4 5 6“ se do pole nevešlo a kód se ořezával.
+    if (!S.code) { box.textContent = '••••••'; box.classList.add('empty'); }
+    else { box.textContent = S.code; box.classList.remove('empty'); }
   }
   /** Hláška v patičce: i18n klíč, nebo `{locked}` = PIN lockout jednotky (stejný text jako na hlavní obrazovce, minuty živě). */
   function paintMsg() {
@@ -129,6 +163,8 @@ MG.Handover = (function () {
     S.item = a; S.key = itemKey(a); S.code = ''; S.saving = false; S.lastTouch = Date.now();
     if (S.wait && S.wait.id === a.booking_id) S.wait = null;   // protokol téže rezervace znovu (podpis se neuložil) — čekaný výsledek je pasé
     S.picks = (Array.isArray(a.data && a.data.gear) ? a.data.gear : []).map((g) => (g.size != null && g.size !== '' ? String(g.size) : ''));
+    S.moto = {};
+    MOTO_GEAR.forEach((m) => { S.moto[m.key] = true; });   // vše automaticky vybráno (zadání 2026-09-28)
     setMsg(null);
     $('handover').hidden = false;
     $('handover').classList.toggle('no-code', !a.needs_code);
@@ -235,6 +271,7 @@ MG.Handover = (function () {
     const form = {
       mileage: a.data && a.data.mileage != null ? String(a.data.mileage) : '',
       accessories: gear.map((g, i) => ({ key: g.key, who: g.who || 'rider', field: g.field, size: S.picks[i] || '', checked: true })),
+      moto_equipment: motoEquipment(),
     };
     const body = { booking_id: a.booking_id, form, signature };
     if (a.needs_code) body.code = S.code;
