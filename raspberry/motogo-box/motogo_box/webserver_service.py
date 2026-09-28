@@ -100,8 +100,13 @@ async def service_music(srv: Any, request: web.Request) -> web.Response:
         zone = min(zones) if zones else None
     if zone is None:
         return srv.error("no_zone")
+    has = getattr(audio, "has_output", None)
+    if has is not None and not has(zone):
+        return srv.json({"ok": False, "on": False, "zone": zone, "error": "no_speaker",
+                         "message": "Tato zóna nemá reproduktor (Velín → Hardware → Audio)."})
     ok = bool(await audio.play_zone(zone))
-    return srv.json({"ok": ok, "on": ok, "zone": zone, "error": None if ok else "audio_failed"})
+    return srv.json({"ok": ok, "on": ok, "zone": zone, "error": None if ok else "audio_failed",
+                     **({} if ok else {"message": "Hudba se nespustila — přehrávač/zvuková karta (diagnostika: Zvukové karty)."})})
 
 
 async def service_light(srv: Any, request: web.Request) -> web.Response:

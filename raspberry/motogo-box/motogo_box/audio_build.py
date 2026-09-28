@@ -34,9 +34,23 @@ def _player(socket: str, music_dir: str, device: str | None, mono: bool, cards: 
     return player
 
 
-def resolved_devices(cfg: AudioCfg, cards: list[dict] | None = None) -> dict:
+FALLBACK_OUT = "jack"
+
+
+def fallback_zones(hw: HardwareConfig) -> list[int]:
+    """Selector BEZ jediného audio relé nemůže nikdy nic pustit (2026-09-28: Velké Němčice — reproduktor jen v šatně,
+    Velín měl starý výchozí režim). Takovou mapu jednotka bere jako „jeden USB výstup = šatna“: šatny (kind accessories)
+    hrají přes jedinou kartu (`audio.device`, jinak `auto`), kóje jsou bez reproduktoru. [] = fallback neplatí."""
+    if hw.audio.engine_mode == "multi" or any(z.hw.audio is not None for z in hw.zones):
+        return []
+    return [z.number for z in hw.zones if z.kind == "accessories"]
+
+
+def resolved_devices(cfg: AudioCfg, cards: list[dict] | None = None, fallback: bool = False) -> dict:
     """Vyřešená zařízení výstupů ({out: alsa…|None}) — změna (přepojení adaptéru) = přestavba audia."""
     cards = audio_devices.list_cards() if cards is None else cards
+    if fallback:
+        return {FALLBACK_OUT: audio_devices.resolve(cfg.device or audio_devices.AUTO, cards)[0]}
     if cfg.engine_mode != "multi":
         return {"mpv": audio_devices.resolve(cfg.device, cards)[0]}
     return {out: audio_devices.resolve(o["device"], cards)[0] for out, o in cfg.output_opts().items()}
@@ -47,6 +61,15 @@ def build_audio(hw: HardwareConfig, local: LocalConfig, io: Any, library: Any = 
     """Engine podle `hw.audio.mode`: `AudioMulti` (výstupy) nebo `AudioController` (selektor)."""
     cfg = hw.audio
     cards = audio_devices.list_cards() if cards is None else cards
+    if (fb := fallback_zones(hw)):
+        log.warning("Audio: selector bez relé → šatna (zóny %s) hraje přes jedinou USB kartu (%s)", fb, cfg.device or "auto")
+        player = _player(f"{local.paths.mpv_socket}.{FALLBACK_OUT}", local.paths.music_dir, cfg.device or audio_devices.AUTO,
+                         True, cards, FALLBACK_OUT)
+        engine = AudioMulti({FALLBACK_OUT: player}, {n: FALLBACK_OUT for n in fb}, {}, None, cfg, library, bus=io,
+                            zone_targets={z.number: zone_target(z) for z in hw.zones}, timings=hw.timings)
+        engine.cards, engine.fallback = cards, True
+        engine.resolved = resolved_devices(cfg, cards, fallback=True)
+        return engine
     if cfg.engine_mode != "multi":
         player = _player(local.paths.mpv_socket, local.paths.music_dir, cfg.device, bool(cfg.mono), cards, "mpv")
         engine = AudioController(player, AudioSelector(io, hw.zones, cfg), cfg, library, hw.zones)

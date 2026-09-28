@@ -24,7 +24,7 @@ async def recheck(ctrl: "BoxController", cards: list[dict] | None = None) -> boo
     if audio is None:
         return False
     cards = audio_devices.list_cards() if cards is None else cards
-    new = resolved_devices(ctrl.hardware.audio, cards)
+    new = resolved_devices(ctrl.hardware.audio, cards, fallback=bool(getattr(audio, "fallback", False)))
     old = getattr(audio, "resolved", None)
     audio.cards = cards
     if old is None or new == old:

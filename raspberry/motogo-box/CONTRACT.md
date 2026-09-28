@@ -230,7 +230,9 @@ def update_cfg(cfg: AudioCfg, timings=None) ; def status() -> dict   # → snaps
 USB kartami → mpv `alsa/null` (nikdy HDMI ani cizí zóna) + `players[out].problem`. `outputs.<out>.mono` / `audio.mono` → mpv
 `--audio-channels=mono`. `audio_build.resolved_devices(cfg)` á `status_report_s` znovu (`audio_hotplug.recheck`): změna →
 přestaví se JEN audio (IO a relace běží; hrající hudbu nepřeruší, pokud karta jen přibyla). `merge_hardware`: `audio.device`
-null/'' z Velína nepřepíše lokální kartu z install.sh. Start hudby v `grant_locked` čeká nejvýš `MUSIC_WAIT_S` (1,5 s), pak pulz zámku.
+null/'' z Velína nepřepíše lokální kartu z install.sh. **Fallback:** `selector` bez jediného audio relé (nikdy by nic nehrálo) → `AudioMulti`
+s jedním výstupem `jack` (`audio.device`, jinak `auto`, mono) pro zóny `kind == accessories` (šatna), kóje bez reproduktoru;
+`status.audio.fallback = true` (`audio_build.fallback_zones`). Start hudby v `grant_locked` čeká nejvýš `MUSIC_WAIT_S` (1,5 s), pak pulz zámku.
 
 **Cíle playlistu (`target`):** zóna → `door:<uuid branch_doors.id>` (dveře z Velína) / `zone:<n>` (lokální mapa) —
 `audio.zone_target(zone)`; kanál bez dveří → jeho název (`outdoor`). Playlist dodává `MusicLibrary.playlist_for(target)`

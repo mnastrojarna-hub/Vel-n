@@ -35,7 +35,7 @@ def collect(ctrl: Any, ast: dict) -> dict:
             except Exception as exc:  # noqa: BLE001
                 log.warning("Diagnostika: playlist zóny %s: %s", z.number, exc)
         speakers.append({"zone": z.number, "label": z.display_name, "out": out, "tracks": tracks})
-    return {"cards": list(ast.get("cards") or []), "speakers": speakers, "no_speaker": no_speaker,
+    return {"fallback": bool(ast.get("fallback")), "cards": list(ast.get("cards") or []), "speakers": speakers, "no_speaker": no_speaker,
             "music_enabled": bool(getattr(ctrl.hardware.audio, "music_enabled", True))}
 
 
@@ -55,6 +55,8 @@ def protocol_items(a: dict, item: Any) -> list[dict]:
         return rows
     mapping = "; ".join(f"{s['out']} → {s['label']}" for s in speakers) or "žádná zóna"
     extra = f"; {len(no_sp)} zón bez reproduktoru" if no_sp else ""
+    if a.get("fallback"):
+        extra += " (automaticky: Velín má režim selector bez relé → šatna hraje přes USB kartu; trvale: Hardware → Audio → „Jen šatna“)"
     rows.append(item("software.audio_map", "Hudba — zapojení", "ok" if speakers else "skip",
                      f"{a.get('mode')}, {len(players)} výstup(ů): {mapping}{extra}",
                      "" if speakers else "Žádná zóna nemá reproduktor (Velín → Hardware → Audio)."))

@@ -198,3 +198,21 @@ def test_diag_rows_locker_only():
 def test_selector_default_cfg_has_mono_flag():
     assert AudioCfg().mono is False and AudioCfg(outputs={"o": {"device": "auto", "mono": True}}).output_opts() == \
         {"o": {"device": "auto", "mono": True}}
+
+
+def test_selector_without_relays_plays_locker_through_usb():
+    """Velké Němčice 28. 9.: Velín má starý režim selector, žádné audio relé → šatna hraje přes jedinou USB kartu."""
+    d = load_hardware_file(HW_FILE)
+    for z in d["zones"]:
+        z.pop("audio", None)
+    d["zones"][7]["kind"] = "accessories"
+    d["audio"].update({"mode": "selector", "device": None})
+    hw = HardwareConfig.from_dict(d)
+    usb = [{"index": 2, "id": "Device", "name": "USB", "usb_path": "1-1", "playback": True}]
+    eng = build_audio(hw, LocalConfig(), None, None, cards=usb)
+    assert isinstance(eng, AudioMulti) and eng.fallback and eng.zone_out == {8: "jack"}
+    assert eng.players["jack"].device == "alsa/plughw:2,0" and eng.players["jack"].mono
+    assert eng.has_output(8) and not eng.has_output(1) and eng.status()["fallback"] is True
+    assert eng.resolved == {"jack": "alsa/plughw:2,0"}
+    sel = build_audio(HardwareConfig.from_dict(load_hardware_file(HW_FILE)), LocalConfig(), None, None, cards=usb)
+    assert sel.mode == "selector"                          # s relé selektoru beze změny
