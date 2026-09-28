@@ -51,6 +51,10 @@ class FakePlayer:
         self.log.append(("load_playlist", shuffle))
         return 3
 
+    async def load_files(self, files: list, shuffle: bool = True) -> int:
+        self.log.append(("load_files", list(files), shuffle))
+        return len(files)
+
     async def play(self) -> None:
         self.log.append(("play",))
 
@@ -199,8 +203,9 @@ async def test_controller_all_off_and_test_tone():
     assert ctl.playing_zone is None and bus.on_refs() == set()
 
     player.log.clear()
-    assert await ctl.test_tone(1, seconds=0) is True
-    assert ("play",) in player.log and player.log[-2:] == [("fade", 0, 10), ("pause",)]
+    assert await ctl.test_tone(1, seconds=0) is True        # tón (ne hudba) — bez fade, hned ticho
+    assert ("play",) in player.log and player.log[-2:] == [("volume", 0), ("pause",)]
+    assert any(e[0] == "load_files" and e[1][0].endswith(".wav") for e in player.log)
     assert ctl.playing_zone is None and bus.on_refs() == set()
     await ctl.close()
     assert player.log[-1] == ("stop",)

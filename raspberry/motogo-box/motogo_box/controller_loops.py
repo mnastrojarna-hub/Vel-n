@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from . import sdnotify
+from . import audio_hotplug, sdnotify
 from .modbus import ModbusError
 from .models import Event, EventKind
 
@@ -418,6 +418,10 @@ async def status_loop(ctrl: "BoxController") -> None:
     """`kiosk_report_status(snapshot())` každých `status_report_s`."""
     while True:
         await asyncio.sleep(max(5, ctrl.local.intervals.status_report_s))
+        try:
+            await audio_hotplug.recheck(ctrl)     # přepojená / pozdě nalezená USB zvuková karta
+        except Exception:  # noqa: BLE001
+            log.exception("status_loop: kontrola zvukových karet selhala")
         try:
             if _paired(ctrl):
                 await ctrl.api.report_status(ctrl.snapshot())

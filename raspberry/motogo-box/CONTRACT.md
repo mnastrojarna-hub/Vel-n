@@ -215,11 +215,22 @@ async def all_off()                         # bez fade: pauza, hlasitost 0, vše
 async def sync_channels(active_zones: list[int])   # multi: kanály bez dveří dle běžících relací; selector: no-op (volá tick smyčka §12)
 async def reload_playlists()                # knihovna se změnila (po sync): hrající kanál NErušit — playlist se vymění až po zastavení
 async def reselect_if_playing(module: str)  # po reinit modulu (all_off) znovu sepnout audio/enable relé hrajících zón a kanálů
-async def test_tone(zone, seconds=5) -> bool ; async def wait_fade()
+async def test_tone(zone, seconds=5) -> bool ; async def wait_fade()   # TÓN (audio_devices.ensure_tone), ne playlist — funguje i bez hudby;
+                                            # hrající hudbu nepřeruší (False), play_zone tón přebije (multi `_Channel.tone`, selector `_tone`)
+def has_output(zone) -> bool                # 2026-09-28: zóna má reproduktor (multi: hw.audio.out; selector: relé); False = po kódu se
+                                            # play_zone NEVOLÁ (zone_access.start_music → detail.no_speaker), status().speaker=False
+def output_busy(zone) -> bool ; async def test_output(out, seconds=3) -> bool   # test výstupu tónem (i výstup bez zóny)
 async def play_channel(name) -> bool ; async def stop_channel(name, fade=True) -> bool ; async def test_channel(name, seconds=3) -> bool
                                             # kanál bez dveří ručně (Velín/servis, §26): multi = audio_channels.MultiChannelOps; selector vždy False
 def update_cfg(cfg: AudioCfg, timings=None) ; def status() -> dict   # → snapshot()['audio'] (§14)
 ```
+
+**Zařízení výstupu (2026-09-28, `audio_devices.py`):** `device` = `auto` (jediná USB playback karta z `/proc/asound/cards`
++ `/sys/class/sound/cardN/device`) \| `usb:<port>` \| ALSA řetězec → `alsa/plughw:<index>,0`; karta chybí / `auto` s více
+USB kartami → mpv `alsa/null` (nikdy HDMI ani cizí zóna) + `players[out].problem`. `outputs.<out>.mono` / `audio.mono` → mpv
+`--audio-channels=mono`. `audio_build.resolved_devices(cfg)` á `status_report_s` znovu (`audio_hotplug.recheck`): změna →
+přestaví se JEN audio (IO a relace běží; hrající hudbu nepřeruší, pokud karta jen přibyla). `merge_hardware`: `audio.device`
+null/'' z Velína nepřepíše lokální kartu z install.sh. Start hudby v `grant_locked` čeká nejvýš `MUSIC_WAIT_S` (1,5 s), pak pulz zámku.
 
 **Cíle playlistu (`target`):** zóna → `door:<uuid branch_doors.id>` (dveře z Velína) / `zone:<n>` (lokální mapa) —
 `audio.zone_target(zone)`; kanál bez dveří → jeho název (`outdoor`). Playlist dodává `MusicLibrary.playlist_for(target)`
@@ -548,7 +559,7 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | `lte_mode` | `mode` = `rndis` \| `qmi` | **2026-09-26:** přepne modem SIM7600 mezi QMI a RNDIS (root skript `motogo-lte-mode`, ~2 min: profil NM `motogo-lte`, udev, služba startu dat, `/etc/motogo/modem_vidpid`, `health.lte_mode` v config.yaml, ModemManager vyp/zap, `AT+CUSBPIDSWITCH`, restart motogo-health). Potvrzení hned `{started, mode}`, průběh jako události `LTE_MODE` (warn na startu, info/error po doběhu — druhá dorazí z outboxu po obnově internetu). Není HW příkaz (jde i bez `ready`) |
 | `contact_test` | `zone` / `door_id` / `box_number`, `seconds?` (1–120, výchozí 20) | **2026-09-26:** sleduje syrovou hodnotu DI kontaktu zóny (`ZoneController.contact_raw` z poll_loopu), obsluha dveře otevře a zavře; výsledek `{zone, verdict: ok\|polarity\|stuck_0\|stuck_1\|offline\|not_configured, raw_start, raw_end, changes[{t_ms, raw}], closed_level, suggested_closed_level?}` + událost `CONTACT_TEST` (info/warn/error) s lidskou větou do kiosk_logs; nic nespíná |
 | `zone_test` | `zone` | `zone.test_sequence()` |
-| `audio_test` | `zone`, `seconds?` | `audio.test_tone` |
+| `audio_test` | `zone` \| `out`, `seconds?` | `zone` → `audio.test_tone` (zóna bez reproduktoru → `no_speaker`); `out` → `audio.test_output` (Velín „Test výstupu“; `output_not_found`) — generovaný tón, ne playlist |
 | `all_off` | – | `ctrl.all_off()` |
 | `identify` | `label?` | ui_notice „Tady jsem" + 3× bliknutí zelené všech zón, pak obnovit |
 | `reload` / `sync_config` | – | nejdřív `ctrl.music.retry_failed()` (skladby v backoffu se zkusí hned znovu — Velín „Znovu synchronizovat“) a `ctrl.handover.retry_failed()` (2026-09-25: trvale odmítnuté podpisy `protocol_queue.failed` → `pending` + probuzení `protocol_loop` — cesta k opravě po nápravě na serveru), pak `ctrl.resync()` → `{ok, error?, deferred?}` (stáhne konfiguraci, cache kódů i seznam hudby → sync knihovny na pozadí); při aktivní relaci se přestavba zón odloží (config se stáhne, zóny až po SECURED) |
@@ -569,7 +580,7 @@ Neznámý příkaz → `(False, {"error":"unknown_command"})`.
 outdoor: true})`; `music_on` → multi `audio.play_channel("outdoor")` → `(ok, {zone, channel: "outdoor"})`, selector / engine bez
 `play_channel` → `(False, {error: "outdoor_requires_multi", zone})`; `music_off` → `audio.stop_channel("outdoor")` → `(True, {zone,
 channel: "outdoor"})`; `zone_test` → `outdoor.test_sequence()` → `(ok, {zone, outdoor: true, light, audio, error?})`, ok = bez `error`
-∧ `light` není False ∧ `audio` není False (None = netestováno: `light` u venku bez relé světla, `audio` selector / bez výstupu);
+∧ `light` není False ∧ `audio` není False (None = netestováno: `light` u venku bez relé světla, `audio` selector / bez výstupu / zóna bez reproduktoru);
 `open_door`/`set_signal`/`audio_test` i nenastavený venek
 → `zone_not_found` jako dosud.
 Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá ochranná lhůta po jeho timeoutu
@@ -586,6 +597,8 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
           "device":"out1=alsa/plughw:CARD=Box1, out9=alsa/plughw:CARD=Venek",
           "players":{"out1":{"alive":true,"playlist_count":8,"device":"alsa/plughw:CARD=Box1","playing":null,"target":"door:uuid"},
                      "out9":{"alive":true,"playlist_count":4,"device":"alsa/plughw:CARD=Venek","playing":"outdoor","target":"outdoor"}},
+          "zone_out":{"8":"out8"},"cards":[{"index":2,"id":"Device","name":"USB Audio Device","usb_path":"1-1","playback":true}],
+          // 2026-09-28: players[out] navíc device_cfg (auto|usb:<port>|ALSA), present, problem, mono, tone; zones[].speaker
           "library":{"tracks":20,"synced":19,"pending":1,"failed":1,"last_sync_at":"…","targets":{"all":8,"legacy":0,"outdoor":4,"door:uuid":7},
                      "syncing":false,"reason":"1 skladeb se nepodařilo stáhnout"}},
  "diagnostics":{"running":false,"id":null,"mode":"full","step":null,"step_title":null,"done":[],"steps":["system","…","summary"],

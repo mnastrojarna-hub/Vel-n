@@ -266,6 +266,7 @@ class ZoneStatus:
     io_problems: list = field(default_factory=list)     # které moduly zóny chybí/jsou offline (Velín: co přesně je špatně)
     signal_offline: list = field(default_factory=list)  # modul světla / Shelly signalizace nedostupné (jen info, přístup neblokuje)
     music_enabled: bool = True     # smí v této zóně po kódu hrát hudba (vypínač pobočky / přepis zóny)
+    speaker: bool = True           # zóna má reproduktor (audio výstup / relé); False = po kódu hudba nehraje, není to chyba
     # Dveřní kontakt průkazně (2026-09-26): syrová hodnota DI z posledního pollu, svorka a efektivní closed_level —
     # Velín ukáže „vstup DI8 = 1 · zavřeno = 0 → hlásí otevřeno“ a umí polaritu otočit bez hádání.
     contact_raw: bool | None = None

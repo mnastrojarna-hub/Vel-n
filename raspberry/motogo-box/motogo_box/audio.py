@@ -28,7 +28,7 @@ from .mpv_player import MpvError, MpvPlayer
 if TYPE_CHECKING:  # pragma: no cover — jen typ, modul píše jiná část programu
     from .io_devices import IoBus
 
-__all__ = ["MpvPlayer", "MpvError", "AudioSelector", "AudioController", "zone_target", "library_status"]
+__all__ = ["MpvPlayer", "MpvError", "AudioSelector", "AudioController", "zone_target", "library_status", "player_hw"]
 
 log = logging.getLogger("motogo.audio")
 
@@ -36,6 +36,13 @@ log = logging.getLogger("motogo.audio")
 def zone_target(zone: Zone) -> str:
     """Cíl hudby zóny: `door:<uuid>` (dveře z Velína) nebo `zone:<n>` (lokální mapa)."""
     return f"door:{zone.door_id}" if zone.door_id else f"zone:{zone.number}"
+
+
+def player_hw(player: Any) -> dict:
+    """Zařízení přehrávače pro status: nastavené (`auto`/`usb:<port>`), problém, karta nalezena."""
+    problem = getattr(player, "problem", None)
+    return {"device_cfg": getattr(player, "device_cfg", getattr(player, "device", None)), "problem": problem,
+            "present": problem is None, "mono": bool(getattr(player, "mono", False))}
 
 
 def library_status(library: Any) -> dict | None:
@@ -144,6 +151,9 @@ class AudioController(SelectorChannelStubs):
         self._lock = asyncio.Lock()
         self._fade_task: asyncio.Task | None = None
         self._generation = 0          # roste s každým play_zone — test_tone nesmí vypnout cizí hudbu
+        self._tone = False            # hraje testovací tón (ne hudba) — zákaznická hudba ho přebije
+        self.cards: list[dict] = []   # zvukové karty při stavbě (audio_build) — status / Velín
+        self.resolved: dict = {}
 
     @property
     def player_ok(self) -> bool:
@@ -156,6 +166,14 @@ class AudioController(SelectorChannelStubs):
     @property
     def playing_zones(self) -> list[int]:
         return [self.playing_zone] if self.playing_zone is not None else []
+
+    def has_output(self, zone: int) -> bool:
+        """Má zóna reproduktor (audio relé selektoru)? Bez něj se po kódu hudba nespouští."""
+        return self.selector.ref_for(int(zone)) is not None
+
+    def output_busy(self, zone: int) -> bool:
+        """Reproduktor zóny používá zákaznická hudba (selector = jeden zesilovač pro všechny zóny)."""
+        return self.playing_zone is not None and not self._tone
 
     def update_cfg(self, cfg: AudioCfg, timings: Any = None) -> None:
         self.cfg = self.selector.cfg = cfg
@@ -174,8 +192,9 @@ class AudioController(SelectorChannelStubs):
                 "device": getattr(self.player, "device", None),
                 "players": {getattr(self.player, "name", "mpv"): {
                     "alive": self.player_ok, "playlist_count": int(getattr(self.player, "playlist_count", 0) or 0),
-                    "device": getattr(self.player, "device", None)}},
-                "library": library_status(self.library)}
+                    "device": getattr(self.player, "device", None), **player_hw(self.player)}},
+                "zone_out": {str(z): "mpv" for z in self.selector._refs},
+                "cards": list(self.cards), "library": library_status(self.library)}
 
     def _target_of(self, zone: int) -> str:
         return self.targets.get(zone) or f"zone:{zone}"
@@ -246,7 +265,7 @@ class AudioController(SelectorChannelStubs):
     async def play_zone(self, zone: int) -> bool:
         """Přehrává hudbu v zóně (jiná hrající zóna se nejprve korektně zastaví)."""
         async with self._lock:
-            if self.playing_zone == zone and self.selector.active_zone == zone:
+            if self.playing_zone == zone and self.selector.active_zone == zone and not self._tone:
                 return True
             if self.playing_zone is not None:
                 await self._stop_locked(fade=True)
@@ -310,7 +329,7 @@ class AudioController(SelectorChannelStubs):
         await self.player.pause()
         await asyncio.sleep(self.cfg.selector_settle_ms / 1000.0)
         await self.selector.release()
-        self.playing_zone = None
+        self.playing_zone, self._tone = None, False
         if zone is not None:
             log.info("Hudba: zóna %s zastavena", zone)
 
@@ -324,28 +343,4 @@ class AudioController(SelectorChannelStubs):
             except MpvError as exc:
                 log.warning("all_off přehrávače: %s", exc)
             await self.selector.release()
-            self.playing_zone = None
-
-    async def test_tone(self, zone: int, seconds: int = 5) -> bool:
-        """Servisní test reproduktoru zóny: přehrát `seconds` sekund a zastavit.
-
-        Zastaví jen svoji hudbu — pokud mezitím reproduktor převzala jiná relace
-        (`play_zone`), zákazníkovi hudba nezmizí.
-        """
-        count = getattr(self.player, "playlist_count", None)
-        files = self._files_for(self._target_of(zone))
-        if files is not None:
-            count = len(files)
-        if not self.player.alive or (count is not None and int(count or 0) <= 0):
-            log.warning("Audio test zóny %s: přehrávač neběží nebo je playlist prázdný (%s souborů)", zone, count)
-            return False
-        ok = await self.play_zone(zone)
-        if ok:
-            gen = self._generation
-            try:
-                await asyncio.sleep(max(0, int(seconds)))
-            finally:
-                # i při zrušení (timeout diagnostiky) tón nesmí hrát dál — zastavit jen svoji hudbu
-                if self.playing_zone == zone and self._generation == gen:
-                    await self.stop(fade=True)
-        return ok
+            self.playing_zone, self._tone = None, False

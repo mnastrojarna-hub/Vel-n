@@ -138,7 +138,7 @@ class ZoneController:
             music=self._music_playing(),
             session_started_at=self.session_started_at, booking_id=self.booking_id,
             last_event=self.last_event, latch_released=self.latch_released, degraded=self.degraded,
-            music_enabled=self.music_enabled,
+            music_enabled=self.music_enabled, speaker=zone_access.has_speaker(self),
             io_problems=self.io_problems(), signal_offline=self.signal_problems(),
             contact_raw=self.contact_raw, contact_ref=self.contact_ref(), closed_level=int(self.closed_level()),
             contact_changes=self.contact_changes, unlocks_since_start=self.unlocks_since_start,
@@ -366,10 +366,7 @@ class ZoneController:
         await self.signal(Signal.GREEN)
         await self.emit_event(EventKind.DOOR_OPENED, level="warn", late_open=True,
                               message=f"{self.zone.display_name}: dveře otevřeny po vypršení čekání (zámek byl odjištěný)")
-        try:
-            await self.audio.play_zone(self.number)
-        except Exception:  # noqa: BLE001
-            log.exception("Zóna %s: spuštění hudby selhalo", self.number)
+        await zone_access.start_music(self, {})     # jen zapnutá hudba a zóna s reproduktorem
 
     # ─── přístup ────────────────────────────────────────────────────────────
     async def grant_access(self, *, booking_id: str | None, kind: str, source: str) -> tuple[bool, str]:
@@ -495,12 +492,15 @@ class ZoneController:
                 light = await self.set_light(prev_light) and light
             z = self.zone.hw
             signal_ok = all(self.signals.online(r.dev) for r in (z.red, z.green) if r is not None)
-            audio_ok = False
-            if self.audio.playing_zone is None:
+            audio_ok: bool | None = False
+            busy = getattr(self.audio, "output_busy", None)
+            if not zone_access.has_speaker(self):
+                audio_ok = None                   # zóna bez reproduktoru — tón se netestuje (není chyba)
+            elif not (busy(self.number) if busy is not None else self.audio.playing_zone is not None):
                 try:
                     audio_ok = bool(await self.audio.test_tone(self.number, 3))
                 except Exception:  # noqa: BLE001
                     log.exception("Zóna %s: audio test selhal", self.number)
             else:
-                log.info("Zóna %s: audio test přeskočen — reproduktor používá zóna %s", self.number, self.audio.playing_zone)
+                log.info("Zóna %s: audio test přeskočen — reproduktor právě hraje hudbu", self.number)
         return {"light": light, "signal": signal_ok, "audio": audio_ok}

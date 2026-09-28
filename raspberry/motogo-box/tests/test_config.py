@@ -226,7 +226,7 @@ def test_validate_selector_with_channels_is_only_warning():
     hw = HardwareConfig.from_dict(d)
     assert hw.audio.engine_mode == "multi" and hw.audio.output_devices() == {"out9": "alsa/v"}
     problems = validate_hardware(hw)
-    assert all(p.startswith("Upozornění:") and "nemá audio výstup" in p for p in problems) and len(problems) == 8
+    assert len(problems) == 1 and problems[0].startswith("Upozornění:") and "žádná zóna nemá audio výstup" in problems[0]
     d["audio"]["mode"] = "divny"
     assert any("audio.mode 'divny'" in p for p in validate_hardware(HardwareConfig.from_dict(d)))
     d["audio"]["outputs"] = "nesmysl"                    # vadný tvar z Velína nesmí shodit start

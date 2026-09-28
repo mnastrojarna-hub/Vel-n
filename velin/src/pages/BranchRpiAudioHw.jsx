@@ -14,12 +14,31 @@ import { outdoorOf, outdoorOutOf, outdoorRelayError, doorCoils } from './BranchR
 
 const NAME_RE = /^[a-z0-9_-]+$/
 const AUDIO_ROLE = ZONE_REFS.find(r => r.key === 'audio')
+const CUSTOM = '__custom'
+// Zařízení výstupu (2026-09-28): „auto“ = jediná USB zvuková karta, „usb:<port>“ = karta na konkrétním USB portu (pro 9 stejných
+// adaptérů), jinak ALSA řetězec. Jednotka to sama přeloží (bez terminálu) a karty hlásí ve status.audio.cards.
+const isKnownDevice = d => d === '' || d === 'auto' || d.startsWith('usb:')
+
+function deviceOptions(cards, value) {
+  const opts = [{ value: 'auto', label: 'Automaticky — jediná USB zvuková karta' }]
+  for (const c of cards || []) if (c?.usb_path) opts.push({ value: `usb:${c.usb_path}`, label: `USB port ${c.usb_path} — ${c.name || c.id}` })
+  if (value.startsWith('usb:') && !opts.some(o => o.value === value)) opts.push({ value, label: `USB port ${value.slice(4)} (nenalezeno)` })
+  opts.push({ value: '', label: '— výchozí výstup (HDMI) —' }, { value: CUSTOM, label: 'vlastní ALSA zařízení…' })
+  return opts
+}
 
 function outputsToRows(audio) {
   const outs = audio?.outputs && typeof audio.outputs === 'object' ? audio.outputs : {}
-  return Object.entries(outs).map(([name, o], i) => ({
-    _k: `${name}-${i}`, name: String(name), device: o && typeof o === 'object' ? String(o.device ?? '') : String(o ?? ''),
-  }))
+  return Object.entries(outs).map(([name, o], i) => {
+    const device = o && typeof o === 'object' ? String(o.device ?? '') : String(o ?? '')
+    return { _k: `${name}-${i}`, name: String(name), device, mono: !!(o && typeof o === 'object' && o.mono), custom: !isKnownDevice(device) }
+  })
+}
+
+function PresenceChip({ player }) {
+  if (!player) return <Chip tone="gray" title="Jednotka o výstupu zatím nehlásí stav (uložte a počkejte na synchronizaci).">stav neznámý</Chip>
+  if (player.present === false) return <Chip tone="red" title={player.problem || ''}>karta NENALEZENA{player.problem ? ` — ${player.problem}` : ''}</Chip>
+  return <Chip tone={player.alive ? 'green' : 'amber'} title={`mpv: ${player.device || 'výchozí'}`}>{player.alive ? 'karta nalezena' : 'karta nalezena, mpv neběží'}</Chip>
 }
 
 // Kdo výstup používá (dveře dle uloženého hw + venek) — pro chip u řádku a blokaci smazání
@@ -31,7 +50,7 @@ function outputUsage(doors, outdoor) {
   return use
 }
 
-function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
+function AudioOutputsEditor({ hardware, doors, disabled, onSave, onSaveDoor, status, onCommand }) {
   const rawAudio = hardware?.audio
   const audio = useMemo(() => (rawAudio && typeof rawAudio === 'object' ? rawAudio : {}), [rawAudio])   // stabilní ref pro efekt
   const [mode, setMode] = useState(() => audioMode(audio))
@@ -41,6 +60,11 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
   const [rows, setRows] = useState(() => outputsToRows(audio))
   const [dirty, setDirty] = useState(false)
   const [err, setErr] = useState(null)
+  const [msg, setMsg] = useState(null)
+  const [lockerPreset, setLockerPreset] = useState(false)
+  const cards = Array.isArray(status?.cards) ? status.cards : []
+  const players = status?.players && typeof status.players === 'object' ? status.players : {}
+  const accDoor = (doors || []).find(d => d.door_kind === 'accessories')
   useEffect(() => {
     if (dirty) return
     setMode(audioMode(audio)); setRows(outputsToRows(audio)); setMusicOn(audio.music_enabled !== false)
@@ -58,16 +82,29 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
   function edit(i, patch) { setRows(rs => rs.map((r, j) => j === i ? { ...r, ...patch } : r)); setDirty(true) }
   function add() {
     const n = rows.length + 1
-    setRows(rs => [...rs, { _k: `new-${Date.now()}`, name: `out${n}`, device: '' }]); setDirty(true)
+    setRows(rs => [...rs, { _k: `new-${Date.now()}`, name: `out${n}`, device: 'auto', mono: true, custom: false }]); setDirty(true)
   }
   function remove(i) {
     const who = blockers(usage[rows[i]?.name?.trim()])
     if (who.length) { setErr(usedMsg(rows[i].name, who)); return }
     setRows(rs => rs.filter((_, j) => j !== i)); setDirty(true)
   }
+  // Dnešní zapojení (2026-09-28): 1 USB→jack adaptér → zesilovač → reproduktor v šatně. Kóje bez výstupu = bez reproduktoru.
+  function fillLockerOnly() {
+    if (!window.confirm('Nastavit „Jen šatna“: režim multi, jeden výstup out8 = USB zvuková karta (automaticky), mono; šatna hraje přes out8, kóje bez reproduktoru. Po uložení tlačítkem „Test výstupu“ ověřte pípnutí ze šatny.')) return
+    setMode('multi')
+    setRows([{ _k: `out8-${Date.now()}`, name: 'out8', device: 'auto', mono: true, custom: false }])
+    setLockerPreset(true); setDirty(true); setErr(null)
+  }
+  async function testOutput(name) {
+    if (!onCommand) return
+    setMsg(null)
+    if (await onCommand('audio_test', { out: name, seconds: 3 })) setMsg(`Test výstupu ${name} odeslán — z reproduktoru má ~3 s pípat (i bez nahrané hudby). Výsledek: Hlášení a chyby.`)
+  }
   function fillExample() {
-    if (rows.length && !window.confirm('Nahradit seznam výstupů vzorem out1–out9 (7 kójí, šatna, venek)? Režim se NEpřepne — zkontrolujte názvy karet (aplay -L) a uložte. Výstup venku (out9) pak nastavte v bloku Venek.')) return
+    if (rows.length && !window.confirm('Nahradit seznam výstupů vzorem out1–out9 (7 kójí, šatna, venek)? Režim se NEpřepne — u každého výstupu zvolte USB port adaptéru a uložte. Výstup venku (out9) pak nastavte v bloku Venek.')) return
     setRows(outputsToRows({ outputs: BRNO_AUDIO_OUTPUTS_EXAMPLE }))
+    setLockerPreset(false)
     setDirty(true)
     setErr(null)
   }
@@ -80,13 +117,18 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
       if (outputs[name]) { setErr(`Duplicitní název výstupu „${name}“.`); return }
       const prev = audio.outputs?.[name]
       outputs[name] = { ...(prev && typeof prev === 'object' ? prev : {}), device: r.device.trim() || null }
+      if (r.mono) outputs[name].mono = true; else delete outputs[name].mono
     }
     if (mode === 'multi' && !Object.keys(outputs).length) { setErr('Režim multi vyžaduje aspoň jeden výstup (název + ALSA zařízení dle aplay -L).'); return }
     // Přejmenování/smazání výstupu, na který se odkazují uložené dveře nebo venek (stejně jako remove()) — v multi
     // jednotka celou mapu odmítne (validate_audio: „Zóna N: audio výstup 'x' není v audio.outputs.“ / „Kanál outdoor: …“).
     // V selectoru blokujeme jen nově vzniklou díru (dříve stale `out` jednotka ignoruje a editor dveří ho v selectoru neukazuje).
     const before = audio.outputs && typeof audio.outputs === 'object' ? audio.outputs : {}
-    const orphan = Object.entries(usage).map(([n, who]) => [n, blockers(who)]).find(([n, who]) => !outputs[n] && who.length && (multi || n in before))
+    const lockerUse = lockerPreset && accDoor ? { ...usage } : usage
+    if (lockerPreset && accDoor) {                     // šatna se přepne na out8 v témže uložení — její starý výstup neblokuje
+      for (const k of Object.keys(lockerUse)) lockerUse[k] = (lockerUse[k] || []).filter(w => w !== 'šatna')
+    }
+    const orphan = Object.entries(lockerUse).map(([n, who]) => [n, blockers(who)]).find(([n, who]) => !outputs[n] && who.length && (multi || n in before))
     if (orphan) { setErr(usedMsg(orphan[0], orphan[1])); return }
     if (multi) {
       // Přepnutí na multi: enable relé venku se v selectoru nehlídá (jednotka ho tam ignoruje), dveře mezitím mohly cívku
@@ -97,8 +139,14 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
     const next = { ...audio, mode }   // `channels` (vč. legacy venku) se zde nemění — venek spravuje blok Venek
     if (musicOn) delete next.music_enabled; else next.music_enabled = false   // výchozí (zapnuto) se do mapy nepíše
     if (Object.keys(outputs).length) next.outputs = outputs; else delete next.outputs
+    if (next.device === null || next.device === '') delete next.device   // null by přebil USB kartu z instalace (selector)
     setErr(null)
-    await onSave(next)
+    if ((await onSave(next)) === false) return
+    if (lockerPreset && accDoor && onSaveDoor) {
+      const hw = accDoor.hw && typeof accDoor.hw === 'object' ? accDoor.hw : {}
+      await onSaveDoor(accDoor.id, { hw: { ...hw, audio: { ...(hw.audio && typeof hw.audio === 'object' ? hw.audio : {}), out: 'out8' } } })
+    }
+    setLockerPreset(false)
     setDirty(false)
   }
 
@@ -108,11 +156,12 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
         <div>
           <div className="text-[12px] font-extrabold uppercase" style={{ color: '#1a2e22' }}>Audio — režim, výstupy</div>
           <div className="text-[11px]" style={{ color: '#6b8c7a' }}>
-            selector = 1 zesilovač + relé (výchozí). multi = každá místnost vlastní zvukový výstup (USB zvukovka / pár vícekanálové karty) a vlastní mpv — hraje současně, venek při jakémkoli kódu (výstup venku nastavíte v bloku Venek). Zařízení = řetězek pro mpv, např. „alsa/plughw:CARD=Box1“ (názvy karet: na jednotce „aplay -L“).
+            multi = každá místnost s reproduktorem má vlastní výstup (USB→jack adaptér + zesilovač) a hraje po kódu svých dveří. Dnes stačí „Jen šatna (1 výstup)“; další výstupy (kóje, venek) přidáte, až budou zapojené — dveře bez výstupu jsou „bez reproduktoru“ (po kódu nehrají, není to chyba). Zařízení: „Automaticky“ = jediná USB karta, u více adaptérů zvolte USB port (jednotka karty hlásí sama, bez terminálu). selector = 1 zesilovač + přepínací relé.
           </div>
         </div>
         <div className="flex gap-2">
           <Btn tone="blue" onClick={add} disabled={disabled}>Přidat výstup</Btn>
+          <Btn tone="green" onClick={fillLockerOnly} disabled={disabled} title="Dnešní zapojení: 1 USB→jack adaptér → zesilovač → reproduktor v šatně">Jen šatna (1 výstup)</Btn>
           <Btn tone="gray" onClick={fillExample} disabled={disabled} title="Vyplní out1–out9 (venek = out9 nastavíte v bloku Venek); režim nepřepíná">Vzor 9 výstupů (7 kójí, šatna, venek)</Btn>
           <Btn tone="dark" onClick={save} disabled={disabled || !dirty}>{dirty ? 'Uložit audio' : 'Uloženo'}</Btn>
         </div>
@@ -140,18 +189,30 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave }) {
                 <Input label="Název" width={100} value={r.name} placeholder="out1" invalid={badName}
                   title={badName ? 'Název musí být unikátní, malá písmena/číslice/-/_' : 'Odkaz z mapování dveří (audio.out)'}
                   onChange={v => edit(i, { name: v })} />
-                <Input label="ALSA zařízení (aplay -L)" width={260} value={r.device} placeholder="alsa/plughw:CARD=Box1" warn={!r.device.trim()}
-                  title={r.device.trim()
-                    ? 'Konkrétní zvuková karta pro tento výstup. Přesný název zjistíte na jednotce příkazem „aplay -L“ (např. alsa/plughw:CARD=Box1).'
-                    : 'Prázdné = výchozí zvukový výstup systému. Na Raspberry je to HDMI, takže z reproduktorů v místnosti nic nehraje — vyplňte kartu dle „aplay -L“ na jednotce.'}
-                  onChange={v => edit(i, { device: v })} />
+                <Select label="Zvuková karta" width={280} value={r.custom ? CUSTOM : r.device} options={deviceOptions(cards, r.device)}
+                  warn={!r.device.trim()}
+                  title={!r.device.trim() ? 'Výchozí výstup systému = HDMI — z reproduktoru v místnosti nic nehraje. Zvolte USB kartu.'
+                    : 'Automaticky = jediná připojená USB zvuková karta. Při více adaptérech zvolte USB port (seznam hlásí jednotka).'}
+                  onChange={v => edit(i, v === CUSTOM ? { custom: true } : { device: v, custom: false })} />
+                {r.custom && <Input label="ALSA zařízení" width={220} value={r.device} placeholder="alsa/plughw:CARD=Device"
+                  onChange={v => edit(i, { device: v })} />}
+                <div className="self-center"><Checkbox label="Mono" checked={!!r.mono}
+                  title="Reproduktor je na jednom kanálu zesilovače → mono hraje celý mix do obou kanálů (doporučeno)."
+                  onChange={v => edit(i, { mono: v })} /></div>
+                <PresenceChip player={players[name]} />
                 <Chip tone={who?.length ? 'green' : 'gray'} title="Kdo výstup používá (dle uložené mapy)">{who?.length ? who.join(', ') : 'volný'}</Chip>
+                {onCommand && <Btn tone="blue" small onClick={() => testOutput(name)} disabled={disabled || dirty || !players[name]}
+                  title={dirty ? 'Nejdřív uložte audio.' : !players[name] ? 'Jednotka výstup zatím nemá (uložte a počkejte na synchronizaci).' : 'Pípne 3 s z reproduktoru tohoto výstupu (i bez hudby).'}
+                  style={{ alignSelf: 'center' }}>Test výstupu</Btn>}
                 <Btn tone="red" small onClick={() => remove(i)} disabled={disabled} style={{ alignSelf: 'center', marginLeft: 'auto' }}>Smazat</Btn>
               </div>
             )
           })}
         </div>
       )}
+      {cards.length > 0 && <div className="text-[11px] mt-2" style={{ color: '#6b8c7a' }}>
+        Jednotka vidí karty: {cards.map(c => `${c.index}: ${c.name || c.id}${c.usb_path ? ` (USB ${c.usb_path})` : ''}`).join(' · ')}</div>}
+      {msg && <div className="text-[12px] font-bold mt-2" style={{ color: '#1a8a18' }}>{msg}</div>}
       {err && <div className="text-[12px] font-bold mt-2" style={{ color: '#dc2626' }}>{err}</div>}
     </div>
   )
@@ -180,17 +241,17 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
   )
   if (!multi) return <div className="flex flex-col gap-0.5" title={relayTitle}><Label>Audio</Label>{relay}</div>
   const unknownOut = !!(out && !names.includes(out))
-  const outOptions = [{ value: '', label: '—' }, ...names.map(n => ({ value: n, label: n }))]
+  const outOptions = [{ value: '', label: '— bez reproduktoru —' }, ...names.map(n => ({ value: n, label: n }))]
   if (unknownOut) outOptions.push({ value: out, label: `${out} (?)` })
   const outTitle = dupOut ? `Výstup ${out} už používá jiná zóna nebo venek — každý zvukový výstup smí patřit jen jedné místnosti.`
     : unknownOut ? `Výstup „${out}“ v seznamu výstupů nahoře neexistuje — jednotka by celou mapu odmítla. Vyberte existující, nebo ho doplňte v sekci Audio.`
-      : !out ? 'Zvuková karta, přes kterou hraje hudba v této místnosti. Bez vybraného výstupu tu hudba nehraje vůbec.'
+      : !out ? 'Bez reproduktoru: po kódu tu hudba nehraje (není to chyba). Až bude reproduktor zapojený, vyberte jeho výstup.'
         : `Hudba této místnosti hraje přes výstup „${out}“ (nastavuje se v sekci Audio výše).`
   return (
     <div className="flex flex-col gap-0.5">
       <Label>Audio výstup / relé (volit.)</Label>
       <div className="flex gap-1">
-        <Select width={96} value={out} options={outOptions} invalid={dupOut || unknownOut} warn={!out} title={outTitle}
+        <Select width={150} value={out} options={outOptions} invalid={dupOut || unknownOut} title={outTitle}
           onChange={v => onPatch(p => ({ ...p, audio: { ...p.audio, out: v } }))} />
         <span title={relayTitle}>{relay}</span>
       </div>

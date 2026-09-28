@@ -272,7 +272,8 @@ class AudioCfg:
     fade_out_ms: int = 500
     selector_settle_ms: int = 200
     selector_on_ms: int = 100
-    device: str | None = None     # selector: mpv --audio-device (None = výchozí)
+    device: str | None = None     # selector: mpv --audio-device (None = výchozí; auto / usb:<port> viz audio_devices)
+    mono: bool = False            # selector: mono (reproduktor na jednom kanálu zesilovače hraje celý mix)
     shuffle: bool = True
     mode: str = "selector"        # selector (1 zesilovač + relé) | multi (výstup + mpv na každou místnost)
     outputs: dict = field(default_factory=dict)    # multi: {out1: {device: "alsa/plughw:CARD=Box1"}, …}
@@ -298,6 +299,13 @@ class AudioCfg:
                 if str(name or "").strip():
                     out[str(name).strip()] = str(dev).strip() if dev not in (None, "") else None
         return out
+
+    def output_opts(self) -> dict[str, dict]:
+        """Výstupy multi režimu včetně voleb: název → {device, mono} (`outputs.<out>.mono`, výchozí False)."""
+        devs = self.output_devices()
+        raw = self.outputs if isinstance(self.outputs, dict) else {}
+        return {name: {"device": dev, "mono": bool(raw.get(name, {}).get("mono")) if isinstance(raw.get(name), dict) else False}
+                for name, dev in devs.items()}
 
     def channel_map(self) -> dict[str, dict]:
         """Kanály bez dveří: název → {out, trigger, relay: HwRef|None}."""
@@ -454,7 +462,10 @@ def merge_hardware(local: dict, remote: dict | None) -> dict:
         if key in remote and remote[key] is not None:
             if isinstance(remote[key], dict) and isinstance(out.get(key), dict):
                 merged = copy.deepcopy(out[key])
-                merged.update(copy.deepcopy(remote[key]))
+                upd = copy.deepcopy(remote[key])
+                if key == "audio" and upd.get("device") in (None, ""):
+                    upd.pop("device", None)      # null z Velína nesmí smazat USB kartu z install.sh (hrálo by do HDMI)
+                merged.update(upd)
                 out[key] = merged
             else:
                 out[key] = copy.deepcopy(remote[key])
