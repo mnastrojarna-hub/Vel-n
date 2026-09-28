@@ -69,6 +69,7 @@ class AudioMulti(MultiChannelOps):
         self.player = None            # kompatibilita (selector má jeden přehrávač)
         self.cards: list[dict] = []   # zvukové karty při stavbě (audio_build) — status / Velín
         self.resolved: dict = {}
+        self.fallback = False         # selector bez relé → šatna přes jedinou USB kartu (audio_build.fallback_zones)
 
     # ─── stav ───────────────────────────────────────────────────────────────
     @property
@@ -107,7 +108,7 @@ class AudioMulti(MultiChannelOps):
                 "channels": self.channels_playing, "player_ok": self.player_ok,
                 "playlist_count": sum(p["playlist_count"] for p in players.values()),
                 "device": ", ".join(devices) or None, "players": players,
-                "zone_out": {str(z): o for z, o in self.zone_out.items()}, "cards": list(self.cards),
+                "zone_out": {str(z): o for z, o in self.zone_out.items()}, "cards": list(self.cards), "fallback": self.fallback,
                 "library": library_status(self.library)}
 
     # ─── pomocné ────────────────────────────────────────────────────────────
