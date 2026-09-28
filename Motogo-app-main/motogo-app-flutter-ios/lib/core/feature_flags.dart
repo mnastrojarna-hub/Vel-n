@@ -17,6 +17,24 @@ final reservationUpsellEnabledProvider = FutureProvider<bool>((ref) async {
   }
 });
 
+/// Přistavení / odvoz na adresu u motorek ze SAMOOBSLUŽNÉ pobočky — klíč
+/// `self_service_delivery` (rozhodnutí majitele 2026-09-28). Default OFF:
+/// rezervační formulář i úprava rezervace nabízí u samoobsluhy jen pobočku,
+/// volby na adresu zůstávají vidět zabalené s vysvětlením; zapnutí ve Velíně
+/// (Texty webu → Feature flags) je zpřístupní. Stejný flag čte web i DB trigger.
+final selfServiceDeliveryEnabledProvider = FutureProvider<bool>((ref) async {
+  try {
+    final res = await MotoGoSupabase.client
+        .from('feature_flags')
+        .select('enabled')
+        .eq('key', 'self_service_delivery')
+        .maybeSingle();
+    return res != null && res['enabled'] == true;
+  } catch (_) {
+    return false;
+  }
+});
+
 /// Žebříček jezdců v profilu — klíč `loyalty_leaderboard`.
 /// Default OFF: backend data sbírá a vyhodnocuje (ranky, km z protokolů,
 /// měsíční vítěz), ale anonymní žebříček mezi ostatními uživateli se

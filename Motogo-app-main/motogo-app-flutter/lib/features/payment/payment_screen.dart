@@ -579,6 +579,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       } else if (msg.contains('trailer_unavailable')) {
         // trg_check_trailer_overlap (23505): kus vozíku mezitím obsadil jiný.
         _draftError = mounted ? t(context).tr('swap.trailerOccupied') : null;
+      } else if (msg.contains('self_service_no_delivery')) {
+        // DB trigger (2026-09-28): samoobslužná pobočka bez přistavení / odvozu
+        // na adresu (feature flag `self_service_delivery` vypnutý) — sem dojde
+        // jen starý build bez zabalených voleb nebo závod s přepnutím flagu.
+        _draftError = mounted ? t(context).tr('ssNoDeliveryError') : null;
       } else {
         // Syrový text výjimky z PostgREST/PostgreSQL zákazníkovi nic neřekne
         // (a může prozradit vnitřnosti) — do UI jde srozumitelná hláška,
