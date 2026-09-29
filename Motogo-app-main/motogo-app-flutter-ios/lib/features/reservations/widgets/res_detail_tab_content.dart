@@ -192,10 +192,12 @@ class ResDetailTabContent extends ConsumerWidget {
           ResModificationHistory(res: res, sosIncidents: sosIncidents),
           const SizedBox(height: 12),
 
-          // ===== DOOR CODES (Active only) =====
+          // ===== DOOR CODES (po celý termín — i PŘED vydáním motorky) =====
+          // `st` je do podpisu protokolu „Nadcházející“, kódy ale zákazník
+          // potřebuje právě v den vyzvednutí → kalendářní `inRentalTerm`.
           doorCodesAsync.when(
             data: (codes) {
-              if (codes.isEmpty || st != ResStatus.aktivni) return const SizedBox.shrink();
+              if (codes.isEmpty || !res.inRentalTerm) return const SizedBox.shrink();
               final hasWithheld = codes.any((c) => !c.sentToCustomer);
               return Column(
                 children: [
@@ -258,7 +260,7 @@ class ResDetailTabContent extends ConsumerWidget {
                 ],
               );
             },
-            loading: () => st == ResStatus.aktivni
+            loading: () => res.inRentalTerm
                 ? Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: ResDetailCard(children: [
@@ -272,7 +274,7 @@ class ResDetailTabContent extends ConsumerWidget {
                     ]),
                   )
                 : const SizedBox.shrink(),
-            error: (_, __) => st == ResStatus.aktivni
+            error: (_, __) => res.inRentalTerm
                 ? Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: ResDetailCard(children: [
@@ -411,7 +413,7 @@ class ResDetailTabContent extends ConsumerWidget {
             ),
           ],
 
-          // ===== ACTIVE ACTIONS =====
+          // ===== ACTIVE ACTIONS (motorka vydaná) =====
           if (st == ResStatus.aktivni) ...[
             ResDetailButton.primary(
               emoji: '✏️',
@@ -426,6 +428,12 @@ class ResDetailTabContent extends ConsumerWidget {
                 onTap: () => context.push(Routes.sos),
               ),
             ],
+          ],
+
+          // ===== PROTOKOL + DOKUMENTY (po celý termín, i před vydáním) =====
+          // Protokol se podepisuje právě PŘED vydáním (rezervace je do té doby
+          // „Nadcházející“) → kalendářní `inRentalTerm`, ne `st`.
+          if (res.inRentalTerm) ...[
             // Předávací protokol: samoobslužná pobočka → zákazník vyplní sám v appce.
             // Obslužná → protokol řeší obsluha ve Velíně (tlačítko se nezobrazuje).
             if (res.branchType == 'samoobslužná') ...[
@@ -450,9 +458,9 @@ class ResDetailTabContent extends ConsumerWidget {
           // ===== UPCOMING ACTIONS =====
           // Zobrazují se i v DEN vyzvednutí, dokud si zákazník motorku nepřevzal
           // (rezervace je pořád 'reserved' — na samoobslužné pobočce ji překlápí
-          // teprve zadání kódu do boxu, na obslužné předávací protokol).
-          // Datumový `st` je v ten den už `aktivni`, proto ta druhá podmínka —
-          // ostatní akce (dveřní kódy, SOS, protokol) zůstávají beze změny.
+          // teprve kód + podepsaný protokol, na obslužné protokol ve Velíně).
+          // Na pobočce je `st` do vydání `nadchazejici`; druhá podmínka kryje
+          // svoz / přistavení (kalendářní `aktivni`, ale ještě 'reserved').
           if (st == ResStatus.nadchazejici || (st == ResStatus.aktivni && res.status == 'reserved')) ...[
             ResDetailButton.primary(
               emoji: '✏️',

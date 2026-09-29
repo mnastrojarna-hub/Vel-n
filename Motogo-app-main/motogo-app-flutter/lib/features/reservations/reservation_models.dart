@@ -7,8 +7,8 @@ const sosPaidStates = {'paid', 'partial_refund', 'refund_pending'};
 
 /// Reservation status — mirrors _mapStatus() from reservations-ui.js.
 enum ResStatus {
-  aktivni,      // Active — current date between start and end
-  nadchazejici, // Upcoming — start date in future
+  aktivni,      // Active — termín běží a motorka je VYDANÁ (u pobočky podepsaný protokol)
+  nadchazejici, // Upcoming — termín v budoucnu, NEBO běží, ale motorka ještě nevydaná
   dokoncene,    // Completed — end date in past or status=completed
   cancelled,    // Cancelled
 }
@@ -283,15 +283,27 @@ class Reservation {
   DateTime? get issuedAt {
     final pickedUp = pickedUpAt;
     if (pickedUp == null) return null;
-    final delivery = pickupMethod == 'delivery' || (pickupAddress ?? '').trim().isNotEmpty;
-    final branchGated = isSelfService || branchType == 'obslužná';
-    if (!branchGated || delivery) return pickedUp;
+    if (!_branchHandover) return pickedUp;
     final signed = handoverProtocolFilledAt;
     if (signed == null) {
       return (returnedAt != null || status == 'completed') ? pickedUp : null;
     }
     return pickedUp.isBefore(signed) ? signed : pickedUp;
   }
+
+  /// Převzetí na pobočce (samoobslužná i obslužná) s předávacím protokolem —
+  /// ne svoz / přistavení na adresu.
+  bool get _branchHandover {
+    final delivery = pickupMethod == 'delivery' || (pickupAddress ?? '').trim().isNotEmpty;
+    return (isSelfService || branchType == 'obslužná') && !delivery;
+  }
+
+  /// Motorka je vydaná zákazníkovi: DB `status='active'` — živý strážce
+  /// `_gate_obsluzna_activation` pustí rezervaci na pobočce do `active` až po
+  /// podpisu protokolu (kód + podpis na samoobsluze, protokol ve Velíně na
+  /// obslužné; SOS náhradní motorka vzniká rovnou jako `active`). Stejné
+  /// pravidlo jako Velín (reserved v termínu = „Nadcházející“).
+  bool get isHandedOver => status == 'active' || issuedAt != null;
 
   /// Vlastní výbava řidiče včetně odvození pro starší rezervace bez `own_gear`
   /// (NULL = všechny velikosti základní výbavy řidiče prázdné) — stejné
@@ -308,9 +320,26 @@ class Reservation {
         .toList();
   }
 
-  /// Compute display status — mirrors _mapStatus() from reservations-ui.js.
-  /// A reservation can only be "aktivní" when Stripe payment is confirmed.
+  /// Stav ZOBRAZENÝ zákazníkovi (štítek, filtry, karta, SOS na kartě/detailu).
+  /// Rezervace na pobočce je „Nadcházející“, dokud motorka není vydaná
+  /// (podpis předávacího protokolu), i když termín už běží — stejně jako Velín
+  /// a web. Svoz / přistavení se řídí jen kalendářem (protokol na pobočce
+  /// neexistuje). Kalendářní „termín běží“ = [inRentalTerm] — na něm visí
+  /// kódy ke dveřím, výzva a tlačítko protokolu, dokumenty, zámek souhlasů,
+  /// záznam jízdy a globální SOS (potřebné právě PŘED vydáním).
   ResStatus get displayStatus {
+    final s = _calendarStatus;
+    if (s == ResStatus.aktivni && _branchHandover && !isHandedOver) {
+      return ResStatus.nadchazejici;
+    }
+    return s;
+  }
+
+  /// Termín rezervace právě běží (kalendářně, bez ohledu na vydání motorky).
+  bool get inRentalTerm => _calendarStatus == ResStatus.aktivni;
+
+  /// Kalendářní stav — mirrors _mapStatus() from reservations-ui.js.
+  ResStatus get _calendarStatus {
     if (status == 'cancelled') return ResStatus.cancelled;
     if (status == 'pending' && paymentStatus == 'unpaid') {
       // Musí sedět se serverovým oknem auto_cancel_expired_pending()
@@ -337,7 +366,7 @@ class Reservation {
   bool get sosAllowed =>
       !endedBySos &&
       (status == 'active' ||
-          (displayStatus == ResStatus.aktivni && sosPaidStates.contains(paymentStatus)));
+          (inRentalTerm && sosPaidStates.contains(paymentStatus)));
 
   /// True když termín už začal (začátek je před dnešním dnem). Bezplatný posun
   /// termínu jde jen do konce dne začátku — po něm se nevyzvednutá rezervace
