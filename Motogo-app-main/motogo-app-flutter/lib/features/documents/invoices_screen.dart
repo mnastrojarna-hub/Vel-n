@@ -68,7 +68,7 @@ class InvoicesScreen extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 8, top: 8),
                   child: Text('$year', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.g400)),
                 ),
-                ...grouped[year]!.map((inv) => _InvoiceTile(invoice: inv)),
+                ...grouped[year]!.map((inv) => InvoiceTile(invoice: inv)),
               ],
             ],
           );
@@ -83,9 +83,10 @@ class InvoicesScreen extends ConsumerWidget {
   }
 }
 
-class _InvoiceTile extends StatelessWidget {
+/// Řádek dokladu (otevře doklad 1:1) — i v detailu rezervace → Podrobnosti o platbě.
+class InvoiceTile extends StatelessWidget {
   final UserInvoice invoice;
-  const _InvoiceTile({required this.invoice});
+  const InvoiceTile({super.key, required this.invoice});
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +116,8 @@ class _InvoiceTile extends StatelessWidget {
           )),
           if (invoice.total != null)
             Text(
-              '${isCN ? "−" : ""}${invoice.total!.toStringAsFixed(0)} Kč',
+              // dobropis má v DB zápornou částku → abs(), jinak „−-500 Kč“
+              '${isCN ? "−" : ""}${invoice.total!.abs().toStringAsFixed(0)} Kč',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: isCN ? MotoGoColors.red : MotoGoColors.black),
             ),
         ]),

@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/supabase_client.dart';
 import 'doc_webview_screen.dart';
+import 'pdf_pages_screen.dart';
 
 /// Otevírání REÁLNÝCH dokumentů rezervace 1:1 — stejný vzor jako ve Velíně
 /// a na webu (úprava rezervace). Priorita zdrojů:
@@ -51,19 +51,24 @@ Future<bool> openBookingDocument(
 }) async {
   final wanted = _generatedDocTypes[type] ?? [type];
 
-  // 1) Přesné podepsané HTML z generated_documents (1:1 s Velínem).
+  // 1) Přesné podepsané HTML z generated_documents (1:1 s Velínem). Smlouva a
+  //    VOP z generate-document nemají `_doc_type` → typ dle šablony
+  //    (`template_id` → document_templates.type), jinak by „Smlouva“ skončila
+  //    u `documents` řádku typu contract, kam sync trigger dává i VOP.
   String? signedHtml;
   String? generatedPath;
   try {
-    final rows = await MotoGoSupabase.client
-        .from('generated_documents')
-        .select('filled_data, pdf_path, created_at')
-        .eq('booking_id', bookingId)
-        .order('created_at', ascending: false);
-    for (final r in (rows as List)) {
+    final rows = ((await MotoGoSupabase.client
+            .from('generated_documents')
+            .select('template_id, filled_data, pdf_path, created_at')
+            .eq('booking_id', bookingId)
+            .order('created_at', ascending: false)) as List)
+        .cast<Map<String, dynamic>>();
+    final tplType = await _templateTypes(rows);
+    for (final r in rows) {
       final fd = r['filled_data'];
       if (fd is! Map) continue;
-      final docType = fd['_doc_type'] as String?;
+      final docType = (fd['_doc_type'] as String?) ?? tplType[r['template_id']];
       if (docType == null || !wanted.contains(docType)) continue;
       generatedPath ??= r['pdf_path'] as String?;
       final html = fd['_signed_html'] as String?;
@@ -104,6 +109,23 @@ Future<bool> openBookingDocument(
   return _openStoragePath(context, filePath, title);
 }
 
+/// `template_id` → `document_templates.type` (rental_contract, vop, …) druhým
+/// dotazem, stejně jako `contractsProvider` (RLS: jen aktivní šablony).
+Future<Map<String, String>> _templateTypes(List<Map<String, dynamic>> rows) async {
+  final ids = rows.map((r) => r['template_id']).whereType<String>().toSet().toList();
+  if (ids.isEmpty) return const {};
+  try {
+    final tpls = await MotoGoSupabase.client.from('document_templates').select('id, type').inFilter('id', ids);
+    return {
+      for (final t in (tpls as List).cast<Map<String, dynamic>>())
+        if (t['type'] is String) t['id'] as String: t['type'] as String,
+    };
+  } catch (e) {
+    debugPrint('[BOOKING_DOC] templates fetch failed: $e');
+    return const {};
+  }
+}
+
 /// Otevře KONKRÉTNÍ dokument z `generated_documents` (historická verze) —
 /// podepsané HTML 1:1, jinak soubor z bucketu přes signed URL.
 Future<bool> openGeneratedDocument(
@@ -134,8 +156,10 @@ Future<bool> openGeneratedDocument(
   }
 }
 
-/// Soubor z bucketu `documents` přes signed URL — .html ve WebView,
-/// .pdf na Androidu externě (WebView tam PDF nevyrenderuje).
+/// Soubor z bucketu `documents` přes signed URL — .html ve WebView, .pdf na
+/// Androidu v appce přes nativní PdfRenderer (`PdfPagesScreen`; WebView tam PDF
+/// nevyrenderuje a externí prohlížeč zákazník bral jako „odkaz na web“), iOS
+/// WKWebView PDF zobrazí sám.
 Future<bool> _openStoragePath(BuildContext context, String? filePath, String title) async {
   // marker řádky (mindee_verified/...) nejsou reálné soubory
   if (filePath == null || filePath.isEmpty || filePath.startsWith('mindee_verified/')) {
@@ -149,7 +173,9 @@ Future<bool> _openStoragePath(BuildContext context, String? filePath, String tit
     if (!context.mounted) return false;
     final isPdf = filePath.toLowerCase().endsWith('.pdf');
     if (isPdf && defaultTargetPlatform == TargetPlatform.android) {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => PdfPagesScreen(url: url, title: title),
+      ));
     } else {
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => DocWebViewScreen(url: url, title: title),

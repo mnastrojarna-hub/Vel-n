@@ -20,6 +20,7 @@ import 'reservation_models.dart';
 import 'reservation_provider.dart';
 import 'widgets/res_detail_tab_btn.dart';
 import 'widgets/res_detail_tab_content.dart';
+import 'widgets/res_payment_details_tab.dart';
 import 'widgets/res_cancel_dialog.dart';
 
 /// Reservation detail — mirrors s-res-detail from templates-res.js.
@@ -200,7 +201,7 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
                       ),
                       const SizedBox(width: 8),
                       ResDetailTabBtn(
-                        label: t(context).tr('paymentCardTab'),
+                        label: t(context).tr('paymentDetailsTab'),
                         active: _activeTab == 'card',
                         onTap: () => setState(() => _activeTab = 'card'),
                       ),
@@ -273,9 +274,9 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
             ),
           ],
 
-          // ===== PAYMENT CARD TAB =====
+          // ===== PODROBNOSTI O PLATBĚ (dřív „Platební karta“) =====
           if (_activeTab == 'card')
-            ResPaymentCardTabContent(res: res),
+            ResPaymentDetailsTab(res: res),
         ],
       ),
     );
