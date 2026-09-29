@@ -45,6 +45,9 @@ export const MOTO_EQUIPMENT = [
 ] as const
 export const MOTO_EQUIPMENT_NOTE = 'Uložena v motorce — v kufru nebo v tankvaku. Nájemce ji přebírá spolu s motorkou a vrací ji s ní.'
 
+/** Stav km/MH při předání vyplňuje systém, nájemce ho nezadává (zadání majitele 2026-09-29). */
+export const MILEAGE_NOTE = 'Vyplněno automaticky ze stavu při posledním vrácení.'
+
 export interface MotoEquipmentItem { key: string; label: string; qty: number; checked: boolean }
 
 /**
@@ -91,6 +94,7 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
   const damage = (form.damage || {}) as { checked?: boolean; desc?: string }
   const accessories = (form.accessories || []) as AccessoryItem[]
   const mileage = form.mileage as string | undefined
+  const mh = form.mileage_unit === 'mh' // motocykl evidovaný v motohodinách
   const notes = form.notes as string | undefined
 
   // Výbava motorky — kiosk i appka ji posílají (2026-09-28); starší build appky bez pole sekci nemá.
@@ -125,7 +129,8 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
 
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Předávací protokol</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:19px;border-bottom:2px solid #2563eb;padding-bottom:12px">PŘEDÁVACÍ PROTOKOL</h1><p style="text-align:center;font-size:12px;color:#666">k rezervaci č. ${esc(v.booking_number)} ze dne ${esc(v.today)}</p>` +
     parties +
-    `<h3 style="font-size:13px;margin-top:14px">Stav při předání</h3><table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">${row('Stav km při předání', mileage ? `${mileage} km` : '')}</table>` +
+    `<h3 style="font-size:13px;margin-top:14px">Stav při předání</h3><table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">${row(mh ? 'Stav motohodin při předání' : 'Stav km při předání', mileage ? `${mileage} ${mh ? 'MH' : 'km'}` : '')}</table>` +
+    (mileage ? `<p style="font-size:10px;color:#666;margin:4px 0 0">${esc(MILEAGE_NOTE)}</p>` : '') +
     `<h3 style="font-size:13px;margin-top:14px">Kontrola předání</h3>${checkList}` +
     `<h3 style="font-size:13px;margin-top:14px">Zapůjčená výbava</h3>${accTable}` +
     motoBlock +

@@ -84,3 +84,23 @@ export async function removeDocument(admin: Admin, path: string): Promise<void> 
   if (!path) return
   try { await admin.storage.from('documents').remove([path]) } catch (_) { /* best-effort */ }
 }
+
+// ── Stav tachometru při předání (zadání majitele 2026-09-29) ─────────────────
+/** Kladné celé číslo (číslo nebo řetězec číslic) v rozsahu DB (≤ 9 999 999), jinak null. */
+export function positiveKm(v: unknown): number | null {
+  const s = typeof v === 'string' ? v.trim() : ''
+  const n = typeof v === 'number' ? v : /^\d+$/.test(s) ? Number(s) : NaN
+  return Number.isInteger(n) && n > 0 && n <= 9_999_999 ? n : null
+}
+
+/** Stav km/MH při předání = server: DB `_handover_pickup_km` (jediná definice — stejnou
+ *  hodnotu ukazuje appka přes get_handover_protocol_state a kiosk přes `_kiosk_protocol`).
+ *  Fallback motorcycles.mileage JEN když RPC chybí/selže (edge nasazená dřív než
+ *  migrace); NULL z RPC = neznámý stav (prázdný řádek v dokumentu), NE fallback. */
+export async function resolvePickupKm(admin: Admin, bookingId: string, motoMileage: unknown): Promise<number | null> {
+  try {
+    const { data, error } = await admin.rpc('_handover_pickup_km', { p_booking_id: bookingId })
+    if (!error) return positiveKm(data)
+  } catch (_) { /* fallback níže */ }
+  return positiveKm(motoMileage)
+}
