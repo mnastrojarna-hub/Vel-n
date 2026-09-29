@@ -378,7 +378,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.messages,
-            builder: (context, state) => const MessagesScreen(),
+            // ?n=<admin_messages.id> z push notifikace → zprávu rozbalit a označit přečtenou
+            builder: (context, state) => MessagesScreen(focusId: state.uri.queryParameters['n']),
           ),
           GoRoute(
             path: '/messages/:id',
