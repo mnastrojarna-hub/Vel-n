@@ -85,10 +85,11 @@ class ResDetailTabContent extends ConsumerWidget {
   }
 
   /// Tlačítka na existující dokumenty rezervace (protokoly, příp. smlouva) —
-  /// zobrazí se jen ty, které v `documents` reálně existují.
+  /// jen REÁLNÉ (aktuální verze; protokol jen podepsaný elektronicky / sken,
+  /// nikdy šablona) — viz `resolveBookingDocs`.
   List<Widget> _bookingDocButtons(BuildContext context, WidgetRef ref, {bool includeContract = false}) {
-    final docs = ref.watch(bookingDocsProvider(res.id)).valueOrNull ?? const [];
-    bool has(String type) => docs.any((d) => d['type'] == type);
+    final docs = ref.watch(bookingDocsProvider(res.id)).valueOrNull ?? const <String, BookingDocSource>{};
+    bool has(String type) => docs.containsKey(type);
     final out = <Widget>[];
     void add(String emoji, String label, String type) {
       out.add(ResDetailButton.outlined(emoji: emoji, label: label, onTap: () => _openBookingDoc(context, type, label)));
@@ -414,10 +415,12 @@ class ResDetailTabContent extends ConsumerWidget {
           ],
 
           // ===== ACTIVE ACTIONS (motorka vydaná) =====
+          // Jediné tlačítko úprav „Upravit rezervaci“ (dřív tu bylo i duplicitní
+          // „Upravit“ — zadání majitele 2026-09-29).
           if (st == ResStatus.aktivni) ...[
             ResDetailButton.primary(
               emoji: '✏️',
-              label: t(context).edit,
+              label: t(context).tr('editReservation'),
               onTap: () => context.push('/reservations/${res.id}/edit'),
             ),
             if (res.sosAllowed) ...[
@@ -430,20 +433,13 @@ class ResDetailTabContent extends ConsumerWidget {
             ],
           ],
 
-          // ===== PROTOKOL + DOKUMENTY (po celý termín, i před vydáním) =====
-          // Protokol se podepisuje právě PŘED vydáním (rezervace je do té doby
-          // „Nadcházející“) → kalendářní `inRentalTerm`, ne `st`.
-          if (res.inRentalTerm) ...[
-            // Předávací protokol: samoobslužná pobočka → zákazník vyplní sám v appce.
-            // Obslužná → protokol řeší obsluha ve Velíně (tlačítko se nezobrazuje).
-            if (res.branchType == 'samoobslužná') ...[
-              const SizedBox(height: 8),
-              ResDetailButton.outlined(
-                emoji: '📝',
-                label: t(context).tr('handoverProtocol'),
-                onTap: () => context.push(Routes.protocol, extra: res),
-              ),
-            ],
+          // ===== DOKUMENTY (po celý termín, i před vydáním) =====
+          // Kalendářní `inRentalTerm`, ne `st` (do podpisu protokolu je rezervace
+          // „Nadcházející“). Vyplnění předávacího protokolu (samoobsluha) je jen
+          // v banneru nahoře — spodní duplicitní tlačítko zrušeno (zadání majitele
+          // 2026-09-29); podepsaný protokol je níž mezi dokumenty.
+          // I u motorky vydané před začátkem termínu (obsluha večer předem).
+          if (res.inRentalTerm || st == ResStatus.aktivni) ...[
             // Dokumenty aktivní rezervace — smlouva + podepsané protokoly 1:1.
             if (_bookingDocButtons(context, ref, includeContract: true).isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -479,51 +475,6 @@ class ResDetailTabContent extends ConsumerWidget {
           BookingRidesSection(bookingId: res.id),
 
           const SizedBox(height: 40),
-        ],
-      ),
-    );
-  }
-}
-
-/// Sliver list content for the "Platební karta" tab in reservation detail.
-class ResPaymentCardTabContent extends StatelessWidget {
-  final Reservation res;
-  const ResPaymentCardTabContent({super.key, required this.res});
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverPadding(
-      padding: const EdgeInsets.all(16),
-      sliver: SliverList.list(
-        children: [
-          ResDetailCard(children: [
-            Text(t(context).tr('paymentCardTab'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
-            const SizedBox(height: 12),
-            ResDetailRow(label: t(context).tr('reservationNumber'), value: res.shortId),
-            ResDetailRow(label: t(context).tr('paymentMethodLabel'), value: 'Stripe'),
-            ResDetailRow(label: t(context).tr('paymentStatusLabel'), value: res.paymentStatus == 'paid' ? t(context).tr('paid') : res.paymentStatus),
-            ResDetailRow(label: t(context).tr('totalAmount'), value: '${Money.czk(res.totalPrice)}', bold: true),
-          ]),
-          const SizedBox(height: 12),
-          if (res.paymentStatus == 'paid')
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: MotoGoColors.greenPale,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: MotoGoColors.green.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle, size: 18, color: MotoGoColors.greenDark),
-                  const SizedBox(width: 8),
-                  Text(
-                    t(context).tr('paymentProcessed'),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );

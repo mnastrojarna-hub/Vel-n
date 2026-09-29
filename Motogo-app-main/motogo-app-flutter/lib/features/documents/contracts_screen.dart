@@ -13,6 +13,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/data/legal_texts.dart';
 import 'booking_doc_viewer.dart';
+import '../auth/widgets/toast_helper.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
 import '../../core/date_days.dart';
@@ -75,15 +76,10 @@ class ContractsScreen extends ConsumerWidget {
                 subtitle: t(context).tr('gdprSubtitle'),
                 onTap: () => _showGdpr(context),
               ),
-              // Vzory dokumentů (přeložené šablony z document_templates) —
-              // předávací protokol a protokol o poškození. Zákazník si je může
-              // přečíst předem; vyplní se až u konkrétní rezervace.
-              _DocTile(
-                icon: '📝',
-                title: t(context).tr('handoverProtocol'),
-                subtitle: t(context).tr('handoverProtocolSubtitle'),
-                onTap: () => _showTemplateSample(context, 'handover_protocol', t(context).tr('handoverProtocol')),
-              ),
+              // Vzor protokolu o poškození (přeložená šablona z document_templates).
+              // Nevyplněný vzor PŘEDÁVACÍHO protokolu je pryč (zadání majitele
+              // 2026-09-29): předávací protokol je vždy elektronický (kiosk /
+              // Velín / appka) a v seznamu níž je jen ten reálně podepsaný.
               _DocTile(
                 icon: '⚠️',
                 title: t(context).tr('damageProtocol'),
@@ -158,15 +154,15 @@ class ContractsScreen extends ConsumerWidget {
 
     if (!ctx.mounted) return;
 
-    final html = _wrapHtml(title, bodyHtml);
+    final html = _wrapHtml(title, bodyHtml, consent: true);
     final dataUri = 'data:text/html;charset=utf-8;base64,${base64Encode(utf8.encode(html))}';
     Navigator.of(ctx).push(MaterialPageRoute(
       builder: (_) => DocWebViewScreen(url: dataUri, title: title),
     ));
   }
 
-  /// Show a translated document-template *sample* (vzor) — handover / damage
-  /// protocol. Reads the localized template from `document_templates`; if none
+  /// Show a translated document-template *sample* (vzor) — damage protocol.
+  /// Reads the localized template from `document_templates`; if none
   /// is available yet, shows a short notice instead of a wrong fallback.
   Future<void> _showTemplateSample(BuildContext ctx, String type, String fallbackTitle) async {
     final lang = Localizations.localeOf(ctx).languageCode;
@@ -230,8 +226,10 @@ class ContractsScreen extends ConsumerWidget {
   }
 
   /// Open contract/protocol — REÁLNÝ dokument 1:1 (podepsané HTML z
-  /// generated_documents / soubor z bucketu). Teprve když neexistuje,
-  /// fallback na render šablony z document_templates + dat rezervace.
+  /// generated_documents / soubor z bucketu). Položka historie otevře PŘESNĚ
+  /// svou verzi. Když neexistuje: smlouva/VOP fallback na render šablony +
+  /// dat rezervace; protokol NIKDY (šablona není vyplněný protokol — zadání
+  /// majitele 2026-09-29) → hláška.
   Future<void> _openDoc(BuildContext context, UserDocument doc) async {
     final title = doc.name ?? doc.typeLabel;
     debugPrint('[CONTRACTS] Opening doc: id=${doc.id}, type=${doc.type}, bookingId=${doc.bookingId}');
@@ -243,6 +241,11 @@ class ContractsScreen extends ConsumerWidget {
           generatedDocId: doc.generatedDocId!, title: title);
       if (opened) return;
       if (!context.mounted) return;
+    } else if (doc.filePath != null) {
+      // Řádek `documents` bez generated dvojčete (např. nahraný sken) → jeho soubor.
+      final opened = await openStorageDocument(context, doc.filePath, title);
+      if (opened) return;
+      if (!context.mounted) return;
     }
 
     if (doc.bookingId != null) {
@@ -250,6 +253,11 @@ class ContractsScreen extends ConsumerWidget {
           bookingId: doc.bookingId!, type: doc.type, title: title);
       if (opened) return;
       if (!context.mounted) return;
+    }
+
+    if (doc.type == 'protocol' || doc.type == 'protocol_damage') {
+      showMotoGoToast(context, icon: '📄', title: title, message: t(context).tr('loadingError'));
+      return;
     }
 
     // Fetch template from document_templates
@@ -451,16 +459,19 @@ class ContractsScreen extends ConsumerWidget {
   }
 
   /// Wrap body HTML in a full HTML document with basic styling.
-  String _wrapHtml(String title, String body) => '''<!DOCTYPE html>
+  /// Patička „Souhlas udělen při rezervaci (zaškrtnutím podmínek)“ JEN u VOP/GDPR
+  /// (`consent`) — u protokolů/smluv neplatí (podpis je elektronický na kiosku /
+  /// ve Velíně / v appce; zadání majitele 2026-09-29).
+  String _wrapHtml(String title, String body, {bool consent = false}) => '''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 body{font-family:system-ui,-apple-system,sans-serif;padding:16px;color:#1A2E22;font-size:13px;line-height:1.6}
 h3{font-size:16px;font-weight:900;margin:0 0 12px}
 h4{font-size:13px;font-weight:800;margin:16px 0 6px}
 p{margin:4px 0}
-</style></head><body>$body
+</style></head><body>$body${consent ? '''
 <div style="margin-top:14px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:11px;color:#1a8a18;font-weight:700;">
-&#10003; Souhlas udělen při rezervaci (zaškrtnutím podmínek)</div>
+&#10003; Souhlas udělen při rezervaci (zaškrtnutím podmínek)</div>''' : ''}
 </body></html>''';
 }
 
