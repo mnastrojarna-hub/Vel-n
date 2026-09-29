@@ -57,10 +57,13 @@ Future<bool> openBookingDocument(
   //    u `documents` řádku typu contract, kam sync trigger dává i VOP.
   String? signedHtml;
   String? generatedPath;
+  // Soubory generovaných dokumentů JINÉHO typu (VOP…) — fallback na `documents`
+  // je nesmí otevřít pod názvem „Smlouva“ (sync trigger dává VOP do typu contract).
+  final otherPaths = <String>{};
   try {
     final rows = ((await MotoGoSupabase.client
             .from('generated_documents')
-            .select('template_id, filled_data, pdf_path, created_at')
+            .select('id, template_id, filled_data, pdf_path, created_at')
             .eq('booking_id', bookingId)
             .order('created_at', ascending: false)) as List)
         .cast<Map<String, dynamic>>();
@@ -69,6 +72,9 @@ Future<bool> openBookingDocument(
       final fd = r['filled_data'];
       if (fd is! Map) continue;
       final docType = (fd['_doc_type'] as String?) ?? tplType[r['template_id']];
+      if (docType != null && !wanted.contains(docType)) {
+        otherPaths.addAll([r['pdf_path'] as String?, 'generated/${r['id']}.html'].whereType<String>());
+      }
       if (docType == null || !wanted.contains(docType)) continue;
       generatedPath ??= r['pdf_path'] as String?;
       final html = fd['_signed_html'] as String?;
@@ -102,6 +108,7 @@ Future<bool> openBookingDocument(
           .order('created_at', ascending: false)
           .limit(1);
       if ((res as List).isNotEmpty) filePath = res.first['file_path'] as String?;
+      if (otherPaths.contains(filePath)) filePath = null;
     } catch (e) {
       debugPrint('[BOOKING_DOC] documents fetch failed: $e');
     }
