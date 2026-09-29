@@ -539,6 +539,14 @@ class BoxController:
         #   {source, reason:'handover_in_progress', locked_booking_id, offline}) + {**base, kind: rr.kind, booking_id, error:
         #   'handover_in_progress', message: error_text(...)} — bez lockoutu, nepočítá se jako neplatný kód; jinak
         #   `lock.touch(rr.booking_id)` (aktivita); po úspěšném grant_access kind motorcycle `lock.release(rr.booking_id)`.
+        # 2026-09-29 (výzva „nejdřív šatna“, `handover_locker.py`): po zjištění zóny, PŘED require_before_open,
+        #   `handover_locker.check(ctrl, rr, now, zone_for_code)` → číslo zóny šatny = ACCESS_DENIED (success=false, level
+        #   info, detail {source, reason:'locker_first', locker_zone, offline}) + {**base, kind:'motorcycle', booking_id,
+        #   error:'locker_first', message: error_text(...)} — bez lockoutu a bez protokolu. MĚKKÉ hradlo: jen kód motorky
+        #   rezervace s protocol.needs_locker=true, bez gear_collected_at, která na jednotce ještě neotevřela žádné dveře;
+        #   druhé zadání do REPEAT_S (10 min) projde („výbavu nechci“); fail-open při absent/neznámém protokolu, chybějícím
+        #   kódu šatny v cache codes[], šatně mimo HW mapu nebo v poruše. Po úspěšném grant_access (i šatna s lock_failed /
+        #   io_offline / fault) `handover_locker.mark_opened` → kv `handover_locker` {opened:{bid:ts} 60 dní, prompted:{bid:ts}}.
     def check_service_token(self, token: str | None) -> bool
     async def service_open(self, door_id: str | None, zone: int | None) -> dict     # grant_access(kind='service', source='service_panel'); mimo běžný stav zóny = nouzový impulz zámku (2026-09-26, zone_access.service_unlock_locked), chyby 'lock_offline' | 'not_configured' | 'lock_failed'
     async def handle_command(self, cmd: dict) -> None    # → commands.execute → api.complete_command
@@ -814,6 +822,8 @@ styl `.flow-hint` s 🔒) se kreslí ze `st.handover.lock` (§14), jen když nen
 `ho.lockSub` („Probíhá přejímka — kód motorky zadá zákazník, který právě zavřel šatnu“ / „Ostatní zákazníci: počkejte prosím, až
 dokončí převzetí.“); klávesnice zůstává aktivní (servisní hesla, vlastní kódy zamčené rezervace). Cizí kód → `/api/pin`
 `error: 'handover_in_progress'` → `#status` `et.handover_in_progress` / `es.handover_in_progress` (česky `message` ze serveru).
+Výzva „nejdřív šatna“ (2026-09-29): `/api/pin` `error: 'locker_first'` → `#status` `et.locker_first` / `es.locker_first` z nového
+`ui/i18n-locker.js` (8 jazyků, `MG.i18n.extend`, načítá se hned po `i18n-handover.js`; česky `message` ze serveru).
 Overlay `#handover` (modální, z-index mezi `#status` a `#service`; modul `MG.Handover` v `ui/handover.js`: `init({post, showStatus, getState})`, `onState(st)`,
 `rerender()`, `isVisible()`, `keys` pro fyzickou klávesnici; podpis `MG.Signature.create(el, {onStroke})` v `ui/signature.js`)
 se kreslí ze `st.handover.active` (§14): hlavička (`data`; popisky `ho.customer`/`ho.moto`/`ho.period`), řádky výbavy (ikona/název `g.helmet…gloves`,
