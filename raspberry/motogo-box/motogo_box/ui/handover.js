@@ -152,7 +152,10 @@ MG.Handover = (function () {
     const a = S.item;
     if (!a) return;
     const left = Math.ceil((Date.parse(a.expires_at || '') - Date.now()) / 1000);
-    setText($('ho-timer'), isFinite(left) && left >= 0 ? MG.i18n.t('ho.autoClose', { s: left }) : '');
+    // 2026-09-29: protokol drží 10 min → nad minutu odpočet v minutách („Zavře se za 10 min“)
+    const txt = !isFinite(left) || left < 0 ? '' : left > 60
+      ? MG.i18n.t('ho.autoCloseMin', { m: Math.ceil(left / 60) }) : MG.i18n.t('ho.autoClose', { s: left });
+    setText($('ho-timer'), txt);
     if (S.msg && S.msg.locked !== undefined) paintMsg();   // „zkuste za {m} min“ ubíhá
     if (isFinite(left) && left < -3) hide();   // jednotka overlay skryje sama (WS); pojistka při výpadku WS
   }

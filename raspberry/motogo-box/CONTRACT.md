@@ -86,11 +86,11 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
   napájené trvale, takže bez tohoto přepínače nešla hudba vypnout: `music_off` zastavil jen to, co hrálo, a další kód ji
   zase spustil. Editor: zaškrtávátko v sekci „Audio — režim, výstupy“ + sloupec „Hudba“ v mapování dveří.
 - **Individuální časování zóny (2026-09-14):** `branch_doors.hw.timings {door_open_timeout_s?, light_after_close_s?, music_after_close_s?, maximum_session_s?}` (`models.ZONE_TIMING_KEYS`, parser `models.zone_timings` — jiné klíče a záporné hodnoty se ignorují). `ZoneController.timings` vrací globální `hw.timings` přepsané těmito hodnotami (`dataclasses.replace`, cache se přepočítá jen při změně globálního časování — čte se každý tick). Kóje 1–7 zůstávají na společném nastavení, šatna se nastavuje individuálně. **Do `hw_signature` se `timings` ZÁMĚRNĚ nepočítá** (`controller_hw.hw_signature` klíč odfiltruje) — jinak by změna doby ve Velíně vyvolala přestavbu HW (`all_off`) a zhasla světlo v obsazené kóji. Editor: řádek „Vlastní čas“ v mapování dveří (`BranchRpiDoorHw.jsx`, `ZONE_TIMING_FIELDS`).
-- **`TimingsCfg.handover_idle_s` (2026-09-25, výchozí 120, §28):** doba bez dotyku, po níž overlay předávacího protokolu
+- **`TimingsCfg.handover_idle_s` (2026-09-25, výchozí 600 — od 2026-09-29 dřív 120, §28):** doba bez dotyku, po níž overlay předávacího protokolu
   zmizí z displeje (položka zůstává nevyřízená, `then_open` se ruší). Z Velína `hardware.timings.handover_idle_s` (volitelné,
   `BranchRpiHardware*.jsx`), UI ho dostane v `snap['timings']` (§14/§16) — odpočet ale vždy z `handover.active.expires_at`.
   Není v `ZONE_TIMING_KEYS` (platí pro celý displej, ne per zóna) a nepočítá se do `hw_signature`.
-- **`TimingsCfg.handover_lock_s` (2026-09-28, výchozí 300, §28 zámek přejímky):** po zavření šatny zákazníkem přijímá kiosk jen
+- **`TimingsCfg.handover_lock_s` (2026-09-28, výchozí 600 — od 2026-09-29 dřív 300, §28 zámek přejímky):** po zavření šatny zákazníkem přijímá kiosk jen
   kódy téže rezervace, dokud se neotevře její kóje motorky; bez aktivity (přijatý kód, dotyk/podpis protokolu, další zavření
   šatny) zámek po této době zaniká — zákazník, který odešel, nesmí kiosk zaseknout. Z Velína `hardware.timings.handover_lock_s`
   (volitelné), UI ho dostane v `snap['timings']` (jen informativně — konec zámku čte z `handover.lock.until`). Není
@@ -1550,7 +1550,7 @@ class HandoverItem:
 
 class HandoverManager:
     def __init__(self, ctrl: BoxController, clock: Callable[[], float] = time.time) -> None
-        # storage/timings bere z ctrl (ctrl.storage; idle_s = ctrl.hardware.timings.handover_idle_s, jinak 120). _load():
+        # storage/timings bere z ctrl (ctrl.storage; idle_s = ctrl.hardware.timings.handover_idle_s, jinak 600). _load():
         # kv 'handover' = {items: [persisted…], signed: {booking_id: ts}, lock: {…}|null} (jen stage protocol, bez in_flight,
         # BEZ then_open/podpisů), gear_sizes z load_code_cache()['gear_sizes'], refresh_queue(). Po startu je vše skryté
         # (restart nikdy neotevře kóji); zámek přejímky restart přežije (vyprší po lock_s jako jindy).

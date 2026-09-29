@@ -354,7 +354,7 @@ zároveň zakládá **zámek přejímky** (§13 bod 7b): kiosk přijímá jen k�
 overlay PROTOCOL přes celý displej (hlavička: jméno zkráceně, motorka, období; výbava řidič/spolujezdec s velikostmi — chipy z
 číselníku, upravitelné; podpis prstem; „Potvrdit a podepsat“ + pole „Kód motorky“ = identita podepisujícího, bez správného kódu
 motorky téže rezervace nejde podepsat); podepsán dřív v appce → jen hláška „Teď zadejte kód motorky.“ (5 s). Overlay zmizí bez
-dotyku po `handover_idle_s` (120 s) nebo tlačítkem „Zpět“ (dismiss = jiný zákazník) — položka zůstává NEVYŘÍZENÁ a znovu se ukáže
+dotyku po `handover_idle_s` (600 s = 10 min, 2026-09-29; dřív 120 s) nebo tlačítkem „Zpět“ (dismiss = jiný zákazník) — položka zůstává NEVYŘÍZENÁ a znovu se ukáže
 JEN kódem motorky téže rezervace nebo dalším zavřením šatny téže rezervace; `then_open` platí výhradně dokud je overlay viditelný
 (dismiss/idle/restart ho ruší — kóje se nikdy neotevře bez zákazníka u displeje). Zákazník s vlastní výbavou (bez šatny) dostane
 protokol po zadání kódu motorky, PŘED otevřením (krok 2b). Nikdo nedostane motorku bez podepsaného protokolu; podpis se NIKDY
@@ -525,7 +525,7 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
    podepíše protokol a zadá kód své motorky; platný kód KOHOKOLI jiného kiosk odmítne s hláškou „Nejprve musí být dokončena
    předchozí přejímka — zákazník, který právě zavřel šatnu, zadá kód své motorky. Pak přijdete na řadu.“ (bez lockoutu; nad
    polem kódu svítí pruh 🔒 „Probíhá přejímka…“). Cíl: nikdo se nehromadí v šatně, každý podepíše a jde jeden po druhém. Zámek
-   nesmí kiosk zaseknout — bez aktivity zákazníka (kód, dotyk/podpis protokolu) vyprší po `handover_lock_s` (300 s); servisní
+   nesmí kiosk zaseknout — bez aktivity zákazníka (kód, dotyk/podpis protokolu) vyprší po `handover_lock_s` (600 s, 2026-09-29; dřív 300 s); servisní
    hesla, pevné servisní kódy a diagnostika procházejí vždy; servisní „Vše vypnout“ zámek uvolní (CONTRACT §28 pravidlo 11).
 8. **(2026-09-28) Samoobsluha bez přistavení a odvozu:** motorky ze samoobslužné pobočky nejde rezervovat s přistavením na
    adresu ani s odvozem z adresy (appka, web, úprava rezervace); volby jsou vidět zabalené s vysvětlením, rezervace, které

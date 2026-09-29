@@ -246,10 +246,10 @@ class TimingsCfg:
     forced_open_debounce_ms: int = 500
     pin_entry_timeout_s: int = 20
     overtime_alert_minutes: list = field(default_factory=lambda: [10, 20, 30])
-    handover_idle_s: int = 120     # předávací protokol na displeji bez dotyku → skrýt (handover.py, 2026-09-25)
+    handover_idle_s: int = 600     # předávací protokol na displeji bez dotyku → skrýt (handover.py; 2026-09-29: 10 min dle majitele)
     # Zámek přejímky (handover_lock.py, 2026-09-28): po zavření šatny přijímá kiosk jen kódy téže rezervace, dokud se
     # neotevře kóje motorky; bez aktivity (kód, dotyk/podpis protokolu) zámek po této době zaniká — kiosk se nesmí zaseknout.
-    handover_lock_s: int = 300
+    handover_lock_s: int = 600     # 2026-09-29: 10 min — zámek musí trvat aspoň jako protokol na displeji
 
 
 @dataclass

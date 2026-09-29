@@ -24,7 +24,7 @@ Vedený tok **šatna → předávací protokol → motorka** (rozhodnutí uživa
    šatnu, podepíše protokol a zadá kód své motorky; kód kohokoli jiného displej odmítne s „Nejprve musí být dokončena předchozí
    přejímka — zákazník, který právě zavřel šatnu, zadá kód své motorky. Pak přijdete na řadu.“ (nad polem kódu svítí pruh 🔒
    „Probíhá přejímka…“; bez lockoutu). Zámek končí otevřením kóje motorky té rezervace, servisním „Vše vypnout“, nebo po
-   `handover_lock_s` (300 s) bez aktivity zákazníka — kiosk se nikdy nezasekne; servisní hesla a pevné servisní kódy
+   `handover_lock_s` (600 s = 10 min, 2026-09-29) bez aktivity zákazníka — kiosk se nikdy nezasekne; servisní hesla a pevné servisní kódy
    procházejí vždy. Zároveň se přes celý displej ukáže **předávací protokol**: výbava s velikostmi (upravitelné chipy z číselníku),
    vždy i skupina **Výbava motorky** (klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta —
    předem zaškrtnutá, leží v motorce v kufru nebo v tankvaku; zákazník odškrtne, co chybí; 2026-09-28),
