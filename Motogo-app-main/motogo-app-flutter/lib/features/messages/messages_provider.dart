@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
+import '../auth/auth_provider.dart';
 
 /// Message thread from message_threads table.
 class MessageThread {
@@ -128,18 +129,26 @@ Future<List<MessageThread>> _fetchThreads(String userId) async {
 }
 
 /// Admin messages (notifications) — mirrors apiFetchAdminMessages.
+/// Sleduje přihlášeného uživatele (odznak nepřečtených visí trvale na AppShell
+/// → po přihlášení/odhlášení se musí znovu vytvořit; select jen na user.id, aby
+/// obnovení tokenu stream nepřestavovalo).
 final adminMessagesProvider = StreamProvider<List<AdminMessage>>((ref) async* {
+  ref.watch(authStateProvider.select((s) => s.valueOrNull?.user.id));
   final user = MotoGoSupabase.currentUser;
   if (user == null) { yield []; return; }
 
   yield await _fetchAdminMessages(user.id);
 
   try {
-    await for (final _ in MotoGoSupabase.client
+    // Realtime stream nese při každé změně celý seznam řádků uživatele →
+    // bez dalšího dotazu (hromadné „přečteno“ = N událostí, ne N dotazů).
+    await for (final rows in MotoGoSupabase.client
         .from('admin_messages')
         .stream(primaryKey: ['id'])
         .eq('user_id', user.id)) {
-      yield await _fetchAdminMessages(user.id);
+      final list = rows.map((e) => AdminMessage.fromJson(e)).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      yield list;
     }
   } catch (e) {
     if (await handleAuthError(e)) return;
@@ -160,6 +169,11 @@ Future<List<AdminMessage>> _fetchAdminMessages(String userId) async {
     rethrow;
   }
 }
+
+/// Počet nepřečtených oznámení (admin_messages.read ≠ true) — odznak na záložce
+/// Domů a u „Zprávy z Moto Go“ v menu. Odpovědi z konverzací sem bridge zrcadlí.
+final adminUnreadCountProvider = Provider<int>((ref) =>
+    ref.watch(adminMessagesProvider).valueOrNull?.where((m) => !m.read).length ?? 0);
 
 /// Unread message count — mirrors get_unread_thread_message_count RPC.
 final unreadCountProvider = FutureProvider<int>((ref) async {
@@ -212,6 +226,21 @@ Future<void> markAdminMessageRead(String id) async {
         .from('admin_messages')
         .update({'read': true})
         .eq('id', id);
+  } catch (_) {}
+}
+
+/// Označí všechna oznámení přihlášeného uživatele jako přečtená (tlačítko
+/// „Označit vše jako přečtené“). `read` je nullable → NULL se bere jako
+/// nepřečtené, proto filtr `read IS NOT TRUE` (ne `= false`). RLS: vlastní řádky.
+Future<void> markAllAdminMessagesRead() async {
+  final user = MotoGoSupabase.currentUser;
+  if (user == null) return;
+  try {
+    await MotoGoSupabase.client
+        .from('admin_messages')
+        .update({'read': true})
+        .eq('user_id', user.id)
+        .not('read', 'is', true);
   } catch (_) {}
 }
 

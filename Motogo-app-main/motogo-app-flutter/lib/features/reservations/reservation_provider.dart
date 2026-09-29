@@ -109,9 +109,10 @@ Future<List<Reservation>> _fetchBookings(String userId) async {
 final hasActiveReservationProvider = Provider<bool>((ref) {
   final list = ref.watch(reservationsProvider).valueOrNull ?? const [];
   return list.any((r) {
-    final s = r.displayStatus;
-    if (s == ResStatus.aktivni) return true;
-    if (s == ResStatus.nadchazejici && r.paymentStatus == 'paid') return true;
+    // Kalendářně běžící termín (i před vydáním motorky — displayStatus je
+    // do podpisu protokolu „Nadcházející“, zámek má ale platit celý termín).
+    if (r.inRentalTerm) return true;
+    if (r.displayStatus == ResStatus.nadchazejici && r.paymentStatus == 'paid') return true;
     return false;
   });
 });

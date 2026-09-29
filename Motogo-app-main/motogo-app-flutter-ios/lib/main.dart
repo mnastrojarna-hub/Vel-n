@@ -204,6 +204,9 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
 
   /// Initialize push notifications + notification handler.
   Future<void> _initPush() async {
+    // Lišta + odznak na ikoně: otevřením appky zákazník upozornění viděl
+    // (PŘED initialize — ta bez oprávnění k notifikacím končí dřív).
+    PushService.clearDelivered();
     try {
       await PushService.initialize();
       NotificationHandler.initialize(rootNavigatorKey);
@@ -253,6 +256,7 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
     } else if (state == AppLifecycleState.resumed) {
       // Refresh installation heartbeat on resume (throttled internally).
       InstallationService.beat();
+      PushService.clearDelivered(); // návrat do appky = upozornění viděno
       // Re-run the forced-update gate + Play in-app update on resume —
       // an app kept open for days must not survive below min_app_version.
       // Both checks throttle themselves internally.

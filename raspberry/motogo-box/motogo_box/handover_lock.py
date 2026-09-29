@@ -17,7 +17,7 @@ from typing import Any, Callable
 
 log = logging.getLogger("motogo.handover")
 
-DEFAULT_LOCK_S = 300
+DEFAULT_LOCK_S = 600             # 2026-09-29: 10 min (= handover_idle_s, protokol nesmí přežít zámek)
 
 
 def iso_ts(ts: float | None) -> str | None:

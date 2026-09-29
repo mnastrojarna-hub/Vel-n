@@ -254,11 +254,11 @@ def _online(ctrl, b1_required: bool = True, b2_required: bool = True) -> None:
 
 async def test_lock_set_on_every_customer_wardrobe_close_and_persisted(ctrl):
     hm = ctrl.handover
-    assert hm.lock.state is None and hm.status()["lock"] is None and hm.lock_s == 300
+    assert hm.lock.state is None and hm.status()["lock"] is None and hm.lock_s == 600
     hm.remember(rr_moto(proto=protocol("b1")))
     assert await hm.on_wardrobe_closed(8, "b1") == "protocol"
     st = hm.status()["lock"]
-    assert st == {"booking_id": "b1", "zone": 8, "until": iso_ts(ctrl.clock() + 300), "customer_name": "Petra S."}
+    assert st == {"booking_id": "b1", "zone": 8, "until": iso_ts(ctrl.clock() + 600), "customer_name": "Petra S."}
     assert hm.lock.state["since"] == hm.lock.state["last_activity"] == ctrl.clock()
     assert hm.lock.active() and hm.lock.blocks("b2") and not hm.lock.blocks("b1") and hm.busy() is True
     hm2 = HandoverManager(ctrl, clock=ctrl.clock)                   # restart procesu: zámek z kv přežije

@@ -589,7 +589,7 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
   String? _activeBookingId(List<Reservation> list) {
     final now = DateTime.now();
     for (final r in list) {
-      if (r.displayStatus != ResStatus.aktivni) continue;
+      if (!r.inRentalTerm) continue; // kalendářně; vydání řeší issuedAt níže
       if (r.returnedAt != null) continue; // vráceno → dál se nenahrává
       // převzato → nahrávat; `issuedAt` = kód + podepsaný protokol na pobočce
       // (same-day platba dřív nastavila picked_up_at už při potvrzení, 2026-09-28)

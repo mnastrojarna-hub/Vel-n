@@ -124,17 +124,16 @@ class NotificationHandler {
         break;
       case 'door_codes':
         // Door codes notification → go to messages to see the codes
-        context.push(Routes.messages);
+        // (`id` = admin_messages.id → zprávu rozbalit a označit přečtenou)
+        context.push(id != null ? '${Routes.messages}?n=$id' : Routes.messages);
         break;
       case 'sos':
         _openSos(context);
         break;
       case 'message':
-        if (id != null) {
-          context.push('/messages/$id');
-        } else {
-          context.push(Routes.messages);
-        }
+        // `id` je admin_messages.id (trg_push_on_admin_message), NE id konverzace —
+        // dřív se otevřel prázdný „chat“ a zpráva zůstala nepřečtená.
+        context.push(id != null ? '${Routes.messages}?n=$id' : Routes.messages);
         break;
       case 'shop_order':
         context.push(Routes.shop);

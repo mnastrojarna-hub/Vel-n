@@ -66,9 +66,9 @@ class AppShell extends ConsumerWidget {
 
     final bannerVisible = banner.valueOrNull != null && banner.valueOrNull!.enabled;
 
-    // Unread messages badge count
-    final unreadAsync = ref.watch(unreadCountProvider);
-    final unreadCount = unreadAsync.valueOrNull ?? 0;
+    // Unread messages badge count — nepřečtená oznámení (admin_messages.read);
+    // dřívější počet vláken se nikdy neobnovil a přečtení nešlo „odkliknout“.
+    final unreadCount = ref.watch(adminUnreadCountProvider);
 
     // Cart FAB: show on screens outside cart/checkout flow when cart has items
     final cart = ref.watch(cartProvider);

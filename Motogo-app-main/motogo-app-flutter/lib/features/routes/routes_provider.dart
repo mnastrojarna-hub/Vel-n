@@ -641,7 +641,8 @@ final pickupOriginProvider = Provider<LatLng?>((ref) {
   Reservation? best;
   for (final r in list) {
     final s = r.displayStatus;
-    if (s == ResStatus.aktivni) {
+    if (r.inRentalTerm) {
+      // běžící termín (i nevyzvednutá rezervace — na tu pobočku zákazník jede)
       best = r;
       break;
     }

@@ -10,6 +10,8 @@ class ProfileMenuItem extends StatelessWidget {
   final VoidCallback onTap;
   final Color? labelColor;
   final Color? bgColor;
+  /// Počet nepřečtených (červená pilulka před šipkou); 0 = bez odznaku.
+  final int badge;
 
   const ProfileMenuItem({
     required this.icon,
@@ -17,6 +19,7 @@ class ProfileMenuItem extends StatelessWidget {
     required this.onTap,
     this.labelColor,
     this.bgColor,
+    this.badge = 0,
     super.key,
   });
 
@@ -54,6 +57,16 @@ class ProfileMenuItem extends StatelessWidget {
                 ),
               ),
             ),
+            if (badge > 0) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                constraints: const BoxConstraints(minWidth: 20),
+                decoration: BoxDecoration(color: MotoGoColors.red, borderRadius: BorderRadius.circular(10)),
+                child: Text(badge > 9 ? '9+' : '$badge', textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white)),
+              ),
+              const SizedBox(width: 6),
+            ],
             const Text('›', style: TextStyle(fontSize: 16, color: MotoGoColors.g400)),
           ]),
         ),

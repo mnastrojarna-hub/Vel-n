@@ -185,7 +185,8 @@ async def test_state_and_static(env):
     # 2026-09-25 předávací protokol: i18n-handover/signature/handover/style-handover)
     for f in ("app.js", "diag.js", "i18n.js", "keyboard.js", "panel.js", "shell.js", "style.css", "style-overlays.css",
               "logo.svg", "logo-light.svg", "logo-icon.svg",
-              "i18n-handover.js", "signature.js", "handover.js", "style-handover.css"):
+              "i18n-handover.js", "signature.js", "handover.js", "style-handover.css",
+              "i18n-locker.js"):          # 2026-09-29 výzva „nejdřív kód šatny“
         assert (await client.get(f"/static/{f}")).status == 200, f
     assert (await client.get("/static/../config.py")).status in (403, 404)
     r = await client.get("/api/neexistuje")

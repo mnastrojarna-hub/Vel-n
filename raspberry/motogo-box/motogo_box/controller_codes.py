@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from . import fixed_codes, shell
+from . import fixed_codes, handover_locker, shell
 from .models import ACCESSORIES_NAME, Event, EventKind, ResolveResult, ServiceDoor
 from .pins import hmac_code, mask, normalize_code
 
@@ -62,6 +62,10 @@ def error_text(error: str | None) -> str:
         return "Servisní heslo nelze ověřit bez spojení (offline cache je starší než 3 dny)."
     if error == "protocol_required":
         return "Nejdřív prosím podepište předávací protokol na displeji — kóje se pak otevře sama."
+    if error == "locker_first":             # výzva „nejdřív šatna“ (2026-09-29, handover_locker.py)
+        return ("K rezervaci máte výbavu v šatně. Zadejte nejdřív kód šatny, vezměte si výbavu a zavřete dveře — "
+                "pak zadejte kód motorky. Kód šatny najdete v aplikaci MotoGo24, v e-mailu nebo v SMS. "
+                "Výbavu nechcete? Zadejte kód motorky znovu.")
     if error == "handover_in_progress":     # zámek přejímky (2026-09-28, handover_lock.py)
         return ("Nejprve musí být dokončena předchozí přejímka — zákazník, který právě zavřel šatnu, zadá kód své motorky. "
                 "Pak přijdete na řadu.")
@@ -294,12 +298,25 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
                               message=f"Kód platný, ale zóna není nastavena ({name})",
                               detail={"source": source, "reason": "door_not_configured"}))
         return {**base, "kind": rr.kind, "error": "zone_not_configured", "message": not_configured_text(name)}
+    now = handover.clock() if handover is not None else time.time()
+    locker_zone = handover_locker.check(ctrl, rr, now, zone_for_code) if handover is not None else None
+    if locker_zone is not None:
+        # Měkké hradlo: bez lockoutu a bez protokolu; opakovaný kód motorky do 10 min už pustí (výbavu nechce).
+        await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="info", code_kind=rr.kind,
+                              door_id=rr.door_id, booking_id=rr.booking_id, box_number=rr.box_number,
+                              message="Výzva: nejdřív kód šatny (výbava v šatně) — kóje motorky zatím neotevřena",
+                              detail={"source": source, "reason": "locker_first", "locker_zone": locker_zone,
+                                      "offline": rr.offline}))
+        return {**base, "kind": "motorcycle", "booking_id": rr.booking_id, "error": "locker_first",
+                "message": error_text("locker_first")}
     if handover is not None and rr.kind == "motorcycle" and await handover.require_before_open(rr, zc, source):
         # Bez ACCESS_DENIED a bez lockoutu (není v INVALID_CODE_ERRORS) — kód je platný, jen chybí podpis;
         # overlay protokolu přijde na displej přes snapshot (`handover.active`), kóje se po podpisu otevře sama.
         return {**base, "kind": "motorcycle", "error": "protocol_required", "zone": zc.number,
                 "booking_id": rr.booking_id, "message": error_text("protocol_required")}
     ok, reason = await zc.grant_access(booking_id=rr.booking_id, kind=rr.kind, source=source)
+    if handover is not None and (ok or (rr.kind == "accessories" and reason in handover_locker.UNAVAILABLE)):
+        handover_locker.mark_opened(ctrl.storage, rr.booking_id, now)   # výzva „nejdřív šatna“ už ne
     if ok and handover is not None and rr.kind == "accessories":
         handover.remember(rr)                 # protokol k rezervaci pro okamžik zavření šatny
     if ok and lock is not None and rr.kind == "motorcycle":

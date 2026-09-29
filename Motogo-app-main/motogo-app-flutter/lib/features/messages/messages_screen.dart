@@ -11,7 +11,9 @@ import 'messages_provider.dart';
 /// Messages screen — mirrors s-messages from templates-done-pages.js.
 /// Two tabs: Oznámení (admin_messages) + Konverzace (threads).
 class MessagesScreen extends ConsumerStatefulWidget {
-  const MessagesScreen({super.key});
+  /// admin_messages.id z push notifikace — rozbalí se a označí jako přečtená.
+  final String? focusId;
+  const MessagesScreen({super.key, this.focusId});
 
   @override
   ConsumerState<MessagesScreen> createState() => _MessagesState();
@@ -20,6 +22,16 @@ class MessagesScreen extends ConsumerStatefulWidget {
 class _MessagesState extends ConsumerState<MessagesScreen> {
   bool _chatTab = false;
   final Set<String> _expanded = {};
+
+  @override
+  void initState() {
+    super.initState();
+    final id = widget.focusId;
+    if (id != null && id.isNotEmpty) {
+      _expanded.add(id);
+      markAdminMessageRead(id);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +57,15 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
           Text(t(context).tr('messagesTitle')),
         ]),
         backgroundColor: MotoGoColors.dark,
+        actions: [
+          // „Odkliknutí“ všech oznámení najednou (odznak na Domů / v menu zmizí)
+          if (!_chatTab && ref.watch(adminUnreadCountProvider) > 0)
+            IconButton(
+              tooltip: t(context).tr('markAllRead'),
+              icon: const Icon(Icons.done_all, color: Colors.white),
+              onPressed: markAllAdminMessagesRead,
+            ),
+        ],
       ),
       body: Column(
         children: [

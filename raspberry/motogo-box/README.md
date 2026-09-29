@@ -18,11 +18,13 @@ Vedený tok **šatna → předávací protokol → motorka** (rozhodnutí uživa
    otevře se šatna (kind `accessories`); displej ukáže přes celý displej hlášku „Šatna: vezměte si výbavu a zavřete dveře —
    protokol se zobrazí po zavření“ (od 2026-09-28 modální — zmizí až se zavřením dveří šatny; jazyk jde přepnout lištou v ní).
    Zákazník s vlastní výbavou kód šatny nedostane (šatna mu nejde otevřít) a začíná rovnou kódem motorky.
+   Kdo má výbavu v šatně a zadá jako první kód motorky, dostane výzvu „Nejdřív zadejte kód šatny“ (2026-09-29); když výbavu
+   nechce, zadá kód motorky znovu (do 10 min) a pokračuje na protokol. Výzva se neukáže při vracení ani při poruše šatny.
 2. Po zavření dveří šatny kiosk přijímá **jen kódy téže rezervace** (zámek přejímky, 2026-09-28): zákazník, který právě zavřel
    šatnu, podepíše protokol a zadá kód své motorky; kód kohokoli jiného displej odmítne s „Nejprve musí být dokončena předchozí
    přejímka — zákazník, který právě zavřel šatnu, zadá kód své motorky. Pak přijdete na řadu.“ (nad polem kódu svítí pruh 🔒
    „Probíhá přejímka…“; bez lockoutu). Zámek končí otevřením kóje motorky té rezervace, servisním „Vše vypnout“, nebo po
-   `handover_lock_s` (300 s) bez aktivity zákazníka — kiosk se nikdy nezasekne; servisní hesla a pevné servisní kódy
+   `handover_lock_s` (600 s = 10 min, 2026-09-29) bez aktivity zákazníka — kiosk se nikdy nezasekne; servisní hesla a pevné servisní kódy
    procházejí vždy. Zároveň se přes celý displej ukáže **předávací protokol**: výbava s velikostmi (upravitelné chipy z číselníku),
    vždy i skupina **Výbava motorky** (klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta —
    předem zaškrtnutá, leží v motorce v kufru nebo v tankvaku; zákazník odškrtne, co chybí; 2026-09-28),

@@ -35,7 +35,7 @@ KV_HANDOVER = "handover"
 ITEM_MAX_AGE_S = 24 * 3600      # nevyřízený protokol se po dni zahodí (kód motorky ho vyvolá znovu)
 SIGNED_KEEP_S = 24 * 3600       # potvrzené podpisy proti zastaralé offline cache (required=true)
 DONE_TTL_S = 5.0                # toast „Protokol potvrzen. Teď zadejte kód motorky.“
-DEFAULT_IDLE_S = 120
+DEFAULT_IDLE_S = 600             # 2026-09-29: protokol po zavření šatny 10 min (zadání majitele)
 STAGE_PROTOCOL, STAGE_DONE = "protocol", "done"
 GEAR_KEYS = ("helmet", "jacket", "pants", "boots", "gloves")
 PERSISTED = ("booking_id", "kind_origin", "zone", "data", "is_child", "shown_at", "last_touch",

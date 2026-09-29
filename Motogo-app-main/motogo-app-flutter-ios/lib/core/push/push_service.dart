@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:permission_handler/permission_handler.dart' as ph;
 import '../../core/supabase_client.dart';
 
@@ -11,6 +12,19 @@ class PushService {
   PushService._();
 
   static final _messaging = FirebaseMessaging.instance;
+
+  /// Nativní kanál (Android MainActivity / iOS AppDelegate) pro úklid lišty.
+  static const _tray = MethodChannel('cz.motogo24/notifications');
+
+  /// Smaže doručené notifikace appky z lišty / Centra oznámení a vynuluje
+  /// odznak na ikoně — otevření appky = zákazník upozornění viděl (obsah zůstává
+  /// ve Zprávách). Probíhající notifikace (záznam jízdy) Android nechá. Chyby
+  /// (build bez kanálu, jiná platforma) tiše ignoruje.
+  static Future<void> clearDelivered() async {
+    try {
+      await _tray.invokeMethod<void>('clearAll');
+    } catch (_) {}
+  }
 
   /// Initialize push notifications — call after Firebase.initializeApp().
   /// Does NOT re-request permission — already granted at onboarding.

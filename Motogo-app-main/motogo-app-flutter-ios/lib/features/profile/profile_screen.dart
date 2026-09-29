@@ -21,6 +21,7 @@ import '../catalog/catalog_provider.dart';
 import '../loyalty/loyalty_rank_card.dart';
 import '../loyalty/loyalty_provider.dart';
 import '../payment/payment_methods_screen.dart';
+import '../messages/messages_provider.dart' show adminUnreadCountProvider;
 import '../sos/sos_provider.dart' show hasActiveRentalProvider;
 import 'widgets/profile_field.dart';
 import 'widgets/profile_section_title.dart';
@@ -233,7 +234,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ProfileSectionTitle(title: t(context).tr('myAccount')),
               ProfileMenuItem(icon: '👤', label: t(context).tr('personalInfo'), onTap: () => setState(() => _personalExpanded = !_personalExpanded)),
               if (_personalExpanded) _buildPersonalForm(),
-              ProfileMenuItem(icon: '📩', label: t(context).tr('messages'), onTap: () => context.push(Routes.messages)),
+              ProfileMenuItem(icon: '📩', label: t(context).tr('messages'), badge: ref.watch(adminUnreadCountProvider), onTap: () => context.push(Routes.messages)),
               ProfileMenuItem(icon: '📋', label: t(context).tr('documents'), onTap: () => context.push(Routes.docs)),
               ProfileMenuItem(icon: '🧾', label: t(context).tr('invoices'), onTap: () => context.push(Routes.invoices)),
               ProfileMenuItem(icon: '📄', label: t(context).tr('contracts'), onTap: () => context.push(Routes.contracts)),

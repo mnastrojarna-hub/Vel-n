@@ -58,7 +58,7 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     super.dispose();
   }
 
-  // Výrazné upozornění na detailu aktivní samoobslužné rezervace — dokud zákazník
+  // Výrazné upozornění na detailu samoobslužné rezervace v termínu — dokud zákazník
   // protokol nepodepíše (can_fill). Po podpisu (appka/kiosk/Velín) zmizí hned:
   // stream rezervací nese `handover_protocol_filled_at`, stav RPC se invaliduje.
   Widget _protocolBanner(BuildContext context, Reservation res) {
@@ -212,7 +212,8 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
           ),
 
           // ===== UPOZORNĚNÍ: vyplnit předávací protokol (samoobslužná) =====
-          if (res.branchType == 'samoobslužná' && st == ResStatus.aktivni)
+          // Po celý termín (kalendářně) — rezervace je do podpisu „Nadcházející“.
+          if (res.branchType == 'samoobslužná' && res.inRentalTerm)
             SliverToBoxAdapter(child: _protocolBanner(context, res)),
 
           if (_activeTab == 'detail') ...[
