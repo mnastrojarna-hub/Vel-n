@@ -301,9 +301,12 @@ class Reservation {
   /// Motorka je vydaná zákazníkovi: DB `status='active'` — živý strážce
   /// `_gate_obsluzna_activation` pustí rezervaci na pobočce do `active` až po
   /// podpisu protokolu (kód + podpis na samoobsluze, protokol ve Velíně na
-  /// obslužné; SOS náhradní motorka vzniká rovnou jako `active`). Stejné
-  /// pravidlo jako Velín (reserved v termínu = „Nadcházející“).
-  bool get isHandedOver => status == 'active' || issuedAt != null;
+  /// obslužné i u přistavení; SOS náhradní motorka vzniká rovnou jako `active`)
+  /// — stejné pravidlo jako Velín (reserved v termínu = „Nadcházející“).
+  /// Navíc podepsaný protokol („nadcházející DO PODPISU“, zadání majitele):
+  /// rezervace s vratkou (partial_refund/refund_pending) aktivační triggery
+  /// do `active` nepustí, stejně tak fronta podpisů offline kiosku.
+  bool get isHandedOver => status == 'active' || issuedAt != null || protocolSigned;
 
   /// Vlastní výbava řidiče včetně odvození pro starší rezervace bez `own_gear`
   /// (NULL = všechny velikosti základní výbavy řidiče prázdné) — stejné
@@ -321,17 +324,17 @@ class Reservation {
   }
 
   /// Stav ZOBRAZENÝ zákazníkovi (štítek, filtry, karta, SOS na kartě/detailu).
-  /// Rezervace na pobočce je „Nadcházející“, dokud motorka není vydaná
-  /// (podpis předávacího protokolu), i když termín už běží — stejně jako Velín
-  /// a web. Svoz / přistavení se řídí jen kalendářem (protokol na pobočce
-  /// neexistuje). Kalendářní „termín běží“ = [inRentalTerm] — na něm visí
-  /// kódy ke dveřím, výzva a tlačítko protokolu, dokumenty, zámek souhlasů,
-  /// záznam jízdy a globální SOS (potřebné právě PŘED vydáním).
+  /// Rezervace je „Nadcházející“, dokud motorka není vydaná ([isHandedOver] —
+  /// podpis předávacího protokolu / DB `active`), i když termín už běží —
+  /// stejně jako Velín a seznam na webu. Vydaná před začátkem termínu (obsluha
+  /// podepsala protokol večer předem) je už „Aktivní“. Kalendářní „termín
+  /// běží“ = [inRentalTerm] — na něm visí kódy ke dveřím, výzva a tlačítko
+  /// protokolu, dokumenty, zámek souhlasů, záznam jízdy a globální SOS
+  /// (potřebné právě PŘED vydáním).
   ResStatus get displayStatus {
     final s = _calendarStatus;
-    if (s == ResStatus.aktivni && _branchHandover && !isHandedOver) {
-      return ResStatus.nadchazejici;
-    }
+    if (s == ResStatus.aktivni && !isHandedOver) return ResStatus.nadchazejici;
+    if (s == ResStatus.nadchazejici && status == 'active') return ResStatus.aktivni;
     return s;
   }
 
