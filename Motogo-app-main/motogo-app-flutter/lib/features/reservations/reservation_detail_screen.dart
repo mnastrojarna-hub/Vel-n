@@ -50,6 +50,8 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
       ref.invalidate(reservationByIdProvider(widget.bookingId));
       ref.invalidate(doorCodesProvider(widget.bookingId));
       ref.invalidate(handoverProtocolStateProvider(widget.bookingId));
+      // podpis na kiosku / ve Velíně → tlačítko podepsaného protokolu bez restartu
+      ref.invalidate(bookingDocsProvider(widget.bookingId));
     });
   }
 

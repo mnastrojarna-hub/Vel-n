@@ -7,59 +7,41 @@ import 'doc_webview_screen.dart';
 import 'pdf_pages_screen.dart';
 
 /// Otevírání REÁLNÝCH dokumentů rezervace 1:1 — stejný vzor jako ve Velíně
-/// a na webu (úprava rezervace). Priorita zdrojů:
-///  1. `generated_documents.filled_data._signed_html` — přesné podepsané HTML
-///     elektronického protokolu (Velín ElectronicProtocolModal /
-///     edge submit-handover-protocol) — obsahuje checklisty i podpis.
-///  2. `documents.file_path` / `generated_documents.pdf_path` — vyrenderovaný
-///     soubor v bucketu `documents` přes signed URL (.html ve WebView,
-///     .pdf na Androidu externě — WebView tam PDF neumí).
-/// Vrací false, když žádný reálný dokument neexistuje — volající pak může
-/// zobrazit fallback (šablonu) nebo hlášku.
+/// a na webu (úprava rezervace). Detail rezervace = AKTUÁLNÍ (nejnovější)
+/// verze, historie všech verzí je v Dokumenty a smlouvy (`contractsProvider`).
+/// Zdroje:
+///  1. `generated_documents` — `_signed_html` = přesné podepsané HTML
+///     elektronického protokolu (kiosk / appka / Velín), jinak `pdf_path`.
+///     Typ z `filled_data._doc_type`, u smlouvy/VOP z šablony (`template_id`).
+///  2. `documents.file_path` (sync řádky, ručně nahrané skeny) — jen když
+///     soubor nepatří generovanému dokumentu jiného typu / šabloně protokolu.
+/// Protokol se ukáže JEN elektronický (má `_doc_type`, bez šablony) nebo
+/// nahraný sken — šablona předvyplněná jen daty rezervace (Velín ji generuje
+/// při ručním přepnutí na „aktivní“) není reálný protokol (zadání majitele
+/// 2026-09-29: „vždycky jenom ten reálný, co jsem vyplnil“).
 
-/// Mapování `documents.type` → `filled_data._doc_type` v generated_documents.
-const _generatedDocTypes = <String, List<String>>{
-  'protocol': ['handover_protocol'],
-  'protocol_damage': ['damage_protocol'],
-  'contract': ['rental_contract', 'contract'],
-  'vop': ['vop'],
+/// `filled_data._doc_type` / `document_templates.type` → `documents.type`.
+const _typeMap = <String, String>{
+  'handover_protocol': 'protocol',
+  'damage_protocol': 'protocol_damage',
+  'rental_contract': 'contract',
+  'contract': 'contract',
+  'vop': 'vop',
 };
 
-/// Dokumenty (smlouva/protokoly) k rezervaci — pro sekci v detailu rezervace.
-final bookingDocsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, bookingId) async {
-  final user = MotoGoSupabase.currentUser;
-  if (user == null) return const [];
-  try {
-    final res = await MotoGoSupabase.client
-        .from('documents')
-        .select('id, type, file_name, file_path, created_at')
-        .eq('booking_id', bookingId)
-        .inFilter('type', ['contract', 'protocol', 'protocol_damage'])
-        .order('created_at', ascending: false);
-    return (res as List).cast<Map<String, dynamic>>();
-  } catch (e) {
-    debugPrint('[BOOKING_DOCS] fetch failed: $e');
-    return const [];
-  }
-});
+/// Reálný dokument daného typu: podepsané HTML nebo soubor v bucketu.
+class BookingDocSource {
+  final String? signedHtml;
+  final String? path;
+  const BookingDocSource({this.signedHtml, this.path});
+}
 
-Future<bool> openBookingDocument(
-  BuildContext context, {
-  required String bookingId,
-  required String type,
-  required String title,
-}) async {
-  final wanted = _generatedDocTypes[type] ?? [type];
-
-  // 1) Přesné podepsané HTML z generated_documents (1:1 s Velínem). Smlouva a
-  //    VOP z generate-document nemají `_doc_type` → typ dle šablony
-  //    (`template_id` → document_templates.type), jinak by „Smlouva“ skončila
-  //    u `documents` řádku typu contract, kam sync trigger dává i VOP.
-  String? signedHtml;
-  String? generatedPath;
-  // Soubory generovaných dokumentů JINÉHO typu (VOP…) — fallback na `documents`
-  // je nesmí otevřít pod názvem „Smlouva“ (sync trigger dává VOP do typu contract).
-  final otherPaths = <String>{};
+/// Nejnovější reálný dokument rezervace pro každý typ (contract, protocol,
+/// protocol_damage, vop).
+Future<Map<String, BookingDocSource>> resolveBookingDocs(String bookingId) async {
+  final out = <String, BookingDocSource>{};
+  // soubor generovaného dokumentu → (typ, reálný?) — hlídá fallback na documents
+  final genPaths = <String, (String?, bool)>{};
   try {
     final rows = ((await MotoGoSupabase.client
             .from('generated_documents')
@@ -69,52 +51,74 @@ Future<bool> openBookingDocument(
         .cast<Map<String, dynamic>>();
     final tplType = await _templateTypes(rows);
     for (final r in rows) {
-      final fd = r['filled_data'];
-      if (fd is! Map) continue;
-      final docType = (fd['_doc_type'] as String?) ?? tplType[r['template_id']];
-      if (docType != null && !wanted.contains(docType)) {
-        otherPaths.addAll([r['pdf_path'] as String?, 'generated/${r['id']}.html'].whereType<String>());
+      final fd = r['filled_data'] is Map ? r['filled_data'] as Map : const {};
+      final electronic = r['template_id'] == null && fd['_doc_type'] is String;
+      final type = _typeMap[electronic ? fd['_doc_type'] : tplType[r['template_id']]];
+      final real = type != null && (electronic || (type != 'protocol' && type != 'protocol_damage'));
+      final path = r['pdf_path'] as String?;
+      for (final p in [path, 'generated/${r['id']}.html'].whereType<String>()) {
+        genPaths[p] = (type, real);
       }
-      if (docType == null || !wanted.contains(docType)) continue;
-      generatedPath ??= r['pdf_path'] as String?;
-      final html = fd['_signed_html'] as String?;
-      if (html != null && html.isNotEmpty) {
-        signedHtml = html;
-        break;
-      }
+      if (!real || out.containsKey(type)) continue;
+      final html = fd['_signed_html'];
+      out[type!] = BookingDocSource(signedHtml: html is String && html.isNotEmpty ? html : null, path: path);
     }
   } catch (e) {
     debugPrint('[BOOKING_DOC] generated_documents fetch failed: $e');
   }
+  try {
+    final docs = await MotoGoSupabase.client
+        .from('documents')
+        .select('type, file_path, created_at')
+        .eq('booking_id', bookingId)
+        .inFilter('type', ['contract', 'protocol', 'protocol_damage', 'vop'])
+        .order('created_at', ascending: false);
+    for (final d in (docs as List).cast<Map<String, dynamic>>()) {
+      final type = d['type'] as String?;
+      final path = d['file_path'] as String?;
+      if (type == null || out.containsKey(type) || path == null || path.isEmpty) continue;
+      if (path.startsWith('mindee_verified/')) continue; // marker, ne soubor
+      final gen = genPaths[path];
+      if (gen != null && (gen.$1 != type || !gen.$2)) continue; // VOP pod „contract“ / šablona protokolu
+      out[type] = BookingDocSource(path: path);
+    }
+  } catch (e) {
+    debugPrint('[BOOKING_DOC] documents fetch failed: $e');
+  }
+  return out;
+}
 
-  if (signedHtml != null) {
-    if (!context.mounted) return false;
+/// Reálné dokumenty rezervace — tlačítka v sekci Dokumenty detailu rezervace.
+/// autoDispose: po návratu do detailu (a invalidaci při změně rezervace, např.
+/// podpisu na kiosku) se načtou znovu.
+final bookingDocsProvider =
+    FutureProvider.autoDispose.family<Map<String, BookingDocSource>, String>((ref, bookingId) async {
+  if (MotoGoSupabase.currentUser == null) return const {};
+  return resolveBookingDocs(bookingId);
+});
+
+/// Otevře AKTUÁLNÍ reálný dokument rezervace daného typu. Vrací false, když
+/// neexistuje — volající zobrazí hlášku.
+Future<bool> openBookingDocument(
+  BuildContext context, {
+  required String bookingId,
+  required String type,
+  required String title,
+}) async {
+  final src = (await resolveBookingDocs(bookingId))[type];
+  if (src == null || !context.mounted) return false;
+  if (src.signedHtml != null) {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => DocWebViewScreen(htmlContent: signedHtml!, title: title),
+      builder: (_) => DocWebViewScreen(htmlContent: src.signedHtml!, title: title),
     ));
     return true;
   }
-
-  // 2) Reálný soubor z bucketu `documents` (smlouva z generate-document = .html,
-  //    protokol renderovaný do PDF bez _signed_html apod.).
-  String? filePath = generatedPath;
-  if (filePath == null || filePath.isEmpty) {
-    try {
-      final res = await MotoGoSupabase.client
-          .from('documents')
-          .select('file_path')
-          .eq('booking_id', bookingId)
-          .eq('type', type)
-          .order('created_at', ascending: false)
-          .limit(1);
-      if ((res as List).isNotEmpty) filePath = res.first['file_path'] as String?;
-      if (otherPaths.contains(filePath)) filePath = null;
-    } catch (e) {
-      debugPrint('[BOOKING_DOC] documents fetch failed: $e');
-    }
-  }
-  return _openStoragePath(context, filePath, title);
+  return _openStoragePath(context, src.path, title);
 }
+
+/// Konkrétní soubor z bucketu `documents` (řádek historie bez generated dvojčete).
+Future<bool> openStorageDocument(BuildContext context, String? filePath, String title) =>
+    _openStoragePath(context, filePath, title);
 
 /// `template_id` → `document_templates.type` (rental_contract, vop, …) druhým
 /// dotazem, stejně jako `contractsProvider` (RLS: jen aktivní šablony).

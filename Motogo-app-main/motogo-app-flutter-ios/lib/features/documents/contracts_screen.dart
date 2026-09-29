@@ -13,6 +13,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/data/legal_texts.dart';
 import 'booking_doc_viewer.dart';
+import '../auth/widgets/toast_helper.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
 import '../../core/date_days.dart';
@@ -160,8 +161,8 @@ class ContractsScreen extends ConsumerWidget {
     ));
   }
 
-  /// Show a translated document-template *sample* (vzor) — handover / damage
-  /// protocol. Reads the localized template from `document_templates`; if none
+  /// Show a translated document-template *sample* (vzor) — damage protocol.
+  /// Reads the localized template from `document_templates`; if none
   /// is available yet, shows a short notice instead of a wrong fallback.
   Future<void> _showTemplateSample(BuildContext ctx, String type, String fallbackTitle) async {
     final lang = Localizations.localeOf(ctx).languageCode;
@@ -225,8 +226,10 @@ class ContractsScreen extends ConsumerWidget {
   }
 
   /// Open contract/protocol — REÁLNÝ dokument 1:1 (podepsané HTML z
-  /// generated_documents / soubor z bucketu). Teprve když neexistuje,
-  /// fallback na render šablony z document_templates + dat rezervace.
+  /// generated_documents / soubor z bucketu). Položka historie otevře PŘESNĚ
+  /// svou verzi. Když neexistuje: smlouva/VOP fallback na render šablony +
+  /// dat rezervace; protokol NIKDY (šablona není vyplněný protokol — zadání
+  /// majitele 2026-09-29) → hláška.
   Future<void> _openDoc(BuildContext context, UserDocument doc) async {
     final title = doc.name ?? doc.typeLabel;
     debugPrint('[CONTRACTS] Opening doc: id=${doc.id}, type=${doc.type}, bookingId=${doc.bookingId}');
@@ -238,6 +241,11 @@ class ContractsScreen extends ConsumerWidget {
           generatedDocId: doc.generatedDocId!, title: title);
       if (opened) return;
       if (!context.mounted) return;
+    } else if (doc.filePath != null) {
+      // Řádek `documents` bez generated dvojčete (např. nahraný sken) → jeho soubor.
+      final opened = await openStorageDocument(context, doc.filePath, title);
+      if (opened) return;
+      if (!context.mounted) return;
     }
 
     if (doc.bookingId != null) {
@@ -245,6 +253,11 @@ class ContractsScreen extends ConsumerWidget {
           bookingId: doc.bookingId!, type: doc.type, title: title);
       if (opened) return;
       if (!context.mounted) return;
+    }
+
+    if (doc.type == 'protocol' || doc.type == 'protocol_damage') {
+      showMotoGoToast(context, icon: '📄', title: title, message: t(context).tr('loadingError'));
+      return;
     }
 
     // Fetch template from document_templates

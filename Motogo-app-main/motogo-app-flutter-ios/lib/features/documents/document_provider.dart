@@ -43,7 +43,10 @@ final documentsProvider = FutureProvider<List<UserDocument>>((ref) async {
 /// rezervaci a dokumenty z doby před triggerem tam chybí úplně — proto se
 /// historie (všechny smlouvy a protokoly, i zpětně z Velína) dočítá přímo
 /// z `generated_documents` (RLS: customer_id = uid).
-final contractsProvider = FutureProvider<List<UserDocument>>((ref) async {
+/// autoDispose: při každém otevření obrazovky znovu — protokol podepsaný na
+/// kiosku / ve Velíně se ukáže bez restartu appky (a po odhlášení nezůstane
+/// seznam cizího účtu).
+final contractsProvider = FutureProvider.autoDispose<List<UserDocument>>((ref) async {
   final user = MotoGoSupabase.currentUser;
   if (user == null) {
     debugPrint('[CONTRACTS] No user logged in');
@@ -120,14 +123,31 @@ Future<List<UserDocument>> _mergeGeneratedHistory(String userId, List<UserDocume
     if (path != null) byPath[path] = r;
     byPath['generated/$id.html'] = r;
   }
+  // Protokol ze ŠABLONY (template_id, bez `_doc_type`) je jen předvyplněný
+  // daty rezervace (Velín ho generuje při ručním přepnutí na „aktivní“) —
+  // zákazník vidí jen reálný elektronický / nahraný protokol (zadání majitele
+  // 2026-09-29), shodně s detailem rezervace (`resolveBookingDocs`).
+  bool templateProtocol(Map<String, dynamic> r) {
+    if (r['doc_type'] != null) return false;
+    final t = _generatedTypeMap[templates[r['template_id']]?['type']];
+    return t == 'protocol' || t == 'protocol_damage';
+  }
+
   final out = <UserDocument>[];
   final consumedIds = <String>{};
   for (final d in docs) {
     final twin = d.filePath != null ? byPath[d.filePath] : null;
+    if (twin != null && templateProtocol(twin)) continue;
     if (twin != null) {
       consumedIds.add(twin['id'] as String);
+      // Typ/název podle dvojčete: sync trigger zařazuje VOP pod „contract“
+      // s názvem „Dokument.pdf“; elektronický protokol má `_doc_name`.
+      final tpl = templates[twin['template_id']];
+      final twinType = _generatedTypeMap[(twin['doc_type'] as String?) ?? (tpl?['type'] as String?)];
       out.add(UserDocument(
-        id: d.id, type: d.type, fileName: d.fileName, filePath: d.filePath,
+        id: d.id, type: twinType ?? d.type,
+        fileName: (twin['doc_name'] as String?) ?? (tpl?['name'] as String?) ?? d.fileName,
+        filePath: d.filePath,
         fileSize: d.fileSize, bookingId: d.bookingId, createdAt: d.createdAt,
         generatedDocId: twin['id'] as String,
       ));
@@ -140,6 +160,7 @@ Future<List<UserDocument>> _mergeGeneratedHistory(String userId, List<UserDocume
     final rawType = (r['doc_type'] as String?) ?? (tpl?['type'] as String?);
     final type = _generatedTypeMap[rawType];
     if (type == null) continue; // jiné typy (gdpr…) do sekce nepatří
+    if (templateProtocol(r)) continue;
     final id = r['id'] as String;
     if (consumedIds.contains(id)) continue;
     out.add(UserDocument(

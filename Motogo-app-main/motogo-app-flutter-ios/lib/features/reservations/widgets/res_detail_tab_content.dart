@@ -85,10 +85,11 @@ class ResDetailTabContent extends ConsumerWidget {
   }
 
   /// Tlačítka na existující dokumenty rezervace (protokoly, příp. smlouva) —
-  /// zobrazí se jen ty, které v `documents` reálně existují.
+  /// jen REÁLNÉ (aktuální verze; protokol jen podepsaný elektronicky / sken,
+  /// nikdy šablona) — viz `resolveBookingDocs`.
   List<Widget> _bookingDocButtons(BuildContext context, WidgetRef ref, {bool includeContract = false}) {
-    final docs = ref.watch(bookingDocsProvider(res.id)).valueOrNull ?? const [];
-    bool has(String type) => docs.any((d) => d['type'] == type);
+    final docs = ref.watch(bookingDocsProvider(res.id)).valueOrNull ?? const <String, BookingDocSource>{};
+    bool has(String type) => docs.containsKey(type);
     final out = <Widget>[];
     void add(String emoji, String label, String type) {
       out.add(ResDetailButton.outlined(emoji: emoji, label: label, onTap: () => _openBookingDoc(context, type, label)));
@@ -437,7 +438,8 @@ class ResDetailTabContent extends ConsumerWidget {
           // „Nadcházející“). Vyplnění předávacího protokolu (samoobsluha) je jen
           // v banneru nahoře — spodní duplicitní tlačítko zrušeno (zadání majitele
           // 2026-09-29); podepsaný protokol je níž mezi dokumenty.
-          if (res.inRentalTerm) ...[
+          // I u motorky vydané před začátkem termínu (obsluha večer předem).
+          if (res.inRentalTerm || st == ResStatus.aktivni) ...[
             // Dokumenty aktivní rezervace — smlouva + podepsané protokoly 1:1.
             if (_bookingDocButtons(context, ref, includeContract: true).isNotEmpty) ...[
               const SizedBox(height: 12),
