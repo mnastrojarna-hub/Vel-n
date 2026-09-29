@@ -61,7 +61,7 @@ Future<Map<String, BookingDocSource>> resolveBookingDocs(String bookingId) async
       }
       if (!real || out.containsKey(type)) continue;
       final html = fd['_signed_html'];
-      out[type!] = BookingDocSource(signedHtml: html is String && html.isNotEmpty ? html : null, path: path);
+      out[type] = BookingDocSource(signedHtml: html is String && html.isNotEmpty ? html : null, path: path);
     }
   } catch (e) {
     debugPrint('[BOOKING_DOC] generated_documents fetch failed: $e');
@@ -160,7 +160,7 @@ Future<bool> openGeneratedDocument(
       ));
       return true;
     }
-    return _openStoragePath(context, row['pdf_path'] as String?, title);
+    return await _openStoragePath(context, row['pdf_path'] as String?, title);
   } catch (e) {
     debugPrint('[BOOKING_DOC] generated doc open failed ($generatedDocId): $e');
     return false;
