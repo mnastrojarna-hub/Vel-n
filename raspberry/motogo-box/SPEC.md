@@ -389,6 +389,16 @@ odmítnutí (položka `failed`, Velín vidí `PROTOCOL_UPLOAD_FAILED`; kóje se 
 na serveru + Velín „Znovu synchronizovat“), 404 (edge nenasazená)/408/429/5xx/síť = opakovat bez limitu pokusů; `already_filled`
 = úspěch (podepsáno mezitím jinde).
 
+**Stav tachometru při vrácení (2026-09-29, CONTRACT §30):** kód MOTORKY při vracení (jednotka to pozná sama: motorka je po
+převzetí u zákazníka ≥ 60 min, `timings.odometer_grace_min`) kóji neotevře, dokud zákazník na displeji nezadá stav tachometru
+(číselník; placeholder = poslední známý stav). Hodnota musí ležet v [poslední známý stav, start_km + 1000 km × dny pronájmu]
+(motorky na motohodiny: 24 mth/den, celá čísla); mimo rozsah displej žádá opravu a kóje zůstává zavřená (bez lockoutu).
+Platný stav se nejdřív trvale uloží (`odometer_queue`), pak se kóje otevře; na server jde RPC `kiosk_submit_odometer`
+(idempotentní dle `reading_id`, opakuje se bez limitu). Online odpověď `kiosk_resolve_code` i offline `codes[].odo` nesou blok
+`odo {unit, per_day, hint, min, max, start_km, start_at, days, last_open_at, last_open_phase, delivered, delivered_at}`. Při
+převzetí se km nikdy nezadávají — do protokolu je dá jednotka (`data.mileage`, případně vyšší NEodeslané čtení vrácení téže
+motorky z vlastní fronty).
+
 PIN neukládat v čistém textu. Protože šest číslic lze snadno projet hrubou silou, nestačí obyčejný hash. Použít například `HMAC-SHA256(secret_key, terminal_id + PIN)`.
 
 ```yaml
@@ -539,3 +549,23 @@ motorky (`ACCESS_GRANTED` kind motorcycle), ne při podpisu; PDF česky, kiosk/a
 zůstává fail-open (jednotka otevírá i bez LTE, `protocol` bez dat = bez hradla), ale podpis se NIKDY neztratí (trvalá fronta,
 §10). Známé okno nasazení: starší software jednotky po nasazení DB/edge NEhradluje (motorka bez protokolu) až do hromadné
 aktualizace z Velína (§25 CONTRACT) — SQL/edge jsou pro něj aditivní.
+
+### Rozhodnutí majitele (2026-09-29) — stav tachometru při vrácení (kiosk)
+
+1. **Převzetí:** km do předávacího protokolu vyplní kiosk sám (nikdy se neptá) = stav, který zadal předchozí zákazník při
+   vrácení; zákazník km nezadává ani v appce (tam je vidí jen pro čtení).
+2. **Vrácení na samoobsluze:** po zadání kódu MOTORKY displej vyžaduje stav tachometru (číselník); bez platné hodnoty se dveře
+   kóje NEotevřou. Ptá se jen při vrácení — nikdy při převzetí, nikdy v appce.
+3. **Nápověda / placeholder** v poli = poslední známý stav tachometru (`odo.hint`).
+4. **Věrohodnost na kiosku:** hodnota v [poslední známý stav, start_km + 1000 km/den × dny pronájmu] (motohodiny: 24/den);
+   mimo → displej požádá o opravu, kóje zůstává zavřená.
+5. **Velín:** přesun motorky mezi obslužnou a samoobslužnou pobočkou vyžaduje aktuální stav tachometru (mimo tento modul).
+
+Výchozí volby (bez jiného zadání): grace 60 min (`timings.odometer_grace_min`, nastavitelné z Velína) — opakovaný kód motorky
+do 60 min od převzetí / vrácení km nechce (zapomenutá věc); striktní rozsah (žádné „přijmout po N pokusech“); motorka bez
+známých km = bez mezí; celá čísla; bez důkazu o převzetí (převzato před aktualizací a server nic neví, reinstalace) se kóje
+otevře bez km (fail-open jako dosud). Vícedenní pronájem s parkováním v kóji: km při KAŽDÉM zaparkování, nikdy při vyjetí; server
+bere nejnovější přijatý stav. Při vrácení se neuplatní hradla převzetí („nejdřív šatna“, protokol) a zavření šatny po vrácení
+nezamyká kiosk (vrácení výbavy není přejímka). Známá rizika: vrácení do 60 min od převzetí se nezeptá; SOS výměna vyzvednutá
+z kóje (ne přistavená) by se brala jako vrácení; zákazník s reálným stavem mimo rozsah → podpora, Velín „Korekce nájezdu“ + „Otevřít
+dveře“, nebo pevné servisní kódy.

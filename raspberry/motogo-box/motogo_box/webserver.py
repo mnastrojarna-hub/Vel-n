@@ -47,7 +47,8 @@ EVENTS_LIMIT_DEFAULT = 100
 EVENTS_LIMIT_MAX = 1000
 BODY_MAX_BYTES = 1024 * 1024   # 1 MiB: podpis protokolu (PNG data-URL ≤ 150 kB) + formulář; ostatní těla jsou malá
 HASH_IGNORED_KEYS = ("ts", "uptime_s")
-TIMING_KEYS = ("pin_entry_timeout_s", "door_open_timeout_s", "maximum_session_s", "handover_idle_s", "handover_lock_s")
+TIMING_KEYS = ("pin_entry_timeout_s", "door_open_timeout_s", "maximum_session_s", "handover_idle_s", "handover_lock_s",
+               "odometer_idle_s")
 
 
 # ─── pomocné funkce ──────────────────────────────────────────────────────────
@@ -415,7 +416,11 @@ class WebServer:
         code = body.get("code")
         if not isinstance(code, str) or not code.strip():
             return _err("empty_code")
-        result = await self.ctrl.submit_code(code, "ui")
+        # stav tachometru z overlaye #odometer (vrácení, §30): text/číslo; bez klíče = starší volání beze změny
+        odo = body.get("odometer")
+        if odo is not None and (isinstance(odo, bool) or not isinstance(odo, (str, int))):
+            return _err("bad_odometer")
+        result = await self.ctrl.submit_code(code, "ui", **({} if odo is None else {"odometer": str(odo)}))
         if not isinstance(result, dict):
             return _err("bad_result", 500)
         return _json(result)

@@ -288,6 +288,9 @@ async def _reload(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     handover = getattr(ctrl, "handover", None)
     if handover is not None and hasattr(handover, "retry_failed"):
         handover.retry_failed()       # trvale odmítnuté podpisy protokolů znovu do fronty (po opravě na serveru)
+    odometer = getattr(ctrl, "odometer", None)
+    if odometer is not None and hasattr(odometer, "retry_failed"):
+        odometer.retry_failed()       # trvale odmítnuté stavy tachometru (§30) — totéž
     res = await ctrl.resync()
     return bool(res.get("ok", True)), res
 

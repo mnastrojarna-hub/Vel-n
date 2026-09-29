@@ -1,7 +1,8 @@
 /* MotoGo24 kiosk — hlavní logika: WS klient, zadávání kódu, overlay stavů, modální hláška šatny + pruh zámku přejímky
    (dlaždice zón od 2026-09-26 jen v servisním panelu).
    Vanilla JS (offline, bez CDN). Layout je plně responzivní (CSS), žádné škálování plátna. Texty a flow převzaté z Flutter kiosku (kiosk_screen.dart).
-   Předávací protokol (overlay #handover) → handover.js; sem patří jen napojení na snapshot a na odpověď `protocol_required`. */
+   Předávací protokol (overlay #handover) → handover.js; sem patří jen napojení na snapshot a na odpověď `protocol_required`.
+   Stav tachometru při vrácení (overlay #odometer, 2026-09-29) → odometer.js; sem jen odpověď `odometer_required`. */
 'use strict';
 window.MG = window.MG || {};
 
@@ -207,6 +208,7 @@ window.MG = window.MG || {};
     tiles.forEach((t) => { t.json = ''; });   // dlaždice + hlášky překreslit v novém jazyce
     render();
     MG.Handover.rerender();                   // otevřený protokol v novém jazyce (LANG_IDLE ho nesmí zavřít)
+    MG.Odometer.rerender();                   // otevřené zadávání km (vrácení) v novém jazyce
     armLangIdle();
   }
 
@@ -225,6 +227,13 @@ window.MG = window.MG || {};
     // Server posílá hlášky česky — v jiném jazyce se skládají lokálně z kódu chyby / druhu kódu.
     const cz = MG.i18n.lang === MG.i18n.DEFAULT;
     if (!res.ok) {
+      if (res.error === 'odometer_required') {
+        // Vrácení motorky (2026-09-29): kód platí, kóje se otevře až se stavem tachometru — overlay #odometer si kód
+        // podrží a pošle ho znovu i s hodnotou (bez lockoutu; zavření / nečinnost kód zapomene).
+        hideStatus();
+        MG.Odometer.open(code, res);
+        return;
+      }
       if (res.error === 'protocol_required') {
         // Kód motorky platí, ale protokol není podepsán: overlay #handover přijde přes WS (≤ 0,2 s) — žádný #status
         // přes něj. Jen když do 1,5 s nedorazí `handover.active` (chybí data), vysvětlit to zákazníkovi.
@@ -278,16 +287,18 @@ window.MG = window.MG || {};
     MG.Diag.init({ post, getState: () => S.state });
     MG.Shell.init({ post });
     MG.Handover.init({ post, showStatus, getState: () => S.state });
+    MG.Odometer.init({ post, showStatus, hideStatus, getState: () => S.state });
     buildKeys();
     paintEntry();
     $('status').addEventListener('click', () => { if (!$('status-dismiss').hidden) hideStatus(); });
-    // Fyzická klávesnice: terminál (§27) > diagnostika (zadání kódu) > setup > protokol (kód motorky) > hláška šatny > hlavní
+    // Fyzická klávesnice: terminál (§27) > diagnostika (zadání kódu) > setup > stav km (vrácení) > protokol (kód motorky) > hláška šatny > hlavní
     // zadávání kódu. Otevřený report diagnostiky, terminál bez volného psaní i modální hláška šatny klávesy POLYKAJÍ —
     // Enter nesmí odeslat skrytý PIN.
     const SWALLOW = { onChar() {}, onBackspace() {}, onEnter() {}, onClear() {} };
     const target = () => (MG.Shell.wantsKeys() ? MG.Shell.keys : MG.Shell.isVisible() ? SWALLOW
       : MG.Diag.wantsKeys() ? MG.Diag.keys : MG.Diag.isVisible() ? SWALLOW
-      : MG.Setup.isVisible() ? MG.Setup.keys : MG.Handover.isVisible() ? MG.Handover.keys : wardrobeUp() ? SWALLOW : null);
+      : MG.Setup.isVisible() ? MG.Setup.keys : MG.Odometer.isVisible() ? MG.Odometer.keys
+      : MG.Handover.isVisible() ? MG.Handover.keys : wardrobeUp() ? SWALLOW : null);
     MG.Keyboard.bindPhysical({
       isActive: () => !MG.Panel.isOpen() || MG.Setup.isVisible() || MG.Diag.isVisible() || MG.Shell.isVisible(),
       onChar: (c) => { const t = target(); if (t) t.onChar(c); else if (/[0-9a-z]/.test(c)) onChar(c); },
@@ -298,6 +309,7 @@ window.MG = window.MG || {};
         if (MG.Shell.isVisible()) MG.Shell.keys.onEscape();
         else if (MG.Diag.isVisible()) MG.Diag.keys.onEscape();
         else if (MG.Setup.isVisible()) MG.Setup.keys.onEscape();
+        else if (MG.Odometer.isVisible()) MG.Odometer.keys.onEscape();
         else if (MG.Handover.isVisible()) MG.Handover.keys.onEscape();
         else if (wardrobeUp()) { /* modální do zavření dveří šatny — Esc nic */ }
         else if (!$('status').hidden && !S.busy) hideStatus();
@@ -313,7 +325,8 @@ window.MG = window.MG || {};
 
   MG.app = { post, showStatus, hideStatus, getState: () => S.state };
   // Jen pro náhledy/screenshoty (harness): přepnutí klávesnice, jazyka, podstrčení stavu. Appka to nepoužívá.
-  MG.__debug = { toggleKeyboard: toggleMode, setLang: (l) => MG.i18n.setLang(l), applyState, showStatus, hideStatus, handover: MG.Handover };
+  MG.__debug = { toggleKeyboard: toggleMode, setLang: (l) => MG.i18n.setLang(l), applyState, showStatus, hideStatus, handover: MG.Handover,
+    odometer: MG.Odometer };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();

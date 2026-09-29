@@ -45,14 +45,16 @@ class FakeClock:
 class FakeZone:
     def __init__(self, number: int, kind: str = "motorcycle") -> None:
         self.number, self.grants, self.result = number, [], (True, "ok")
+        self.details: list[dict | None] = []      # `detail` z grant_access (fáze / stav tachometru, odometer.py)
         name = "Šatna" if kind == "accessories" else f"Kóje {number}"
         self.zone = SimpleNamespace(kind=kind, door_id=f"d{number}", display_name=name,
                                     box_number=None if kind == "accessories" else number,
                                     hw=SimpleNamespace(lock=None))     # service_doors() — nabídka po servisním heslu
         self.booking_id: str | None = None
 
-    async def grant_access(self, *, booking_id, kind, source):
+    async def grant_access(self, *, booking_id, kind, source, detail=None):
         self.grants.append((booking_id, kind, source))
+        self.details.append(detail)
         return self.result
 
 
@@ -65,9 +67,16 @@ class FakeApi:
         self.submits: list[dict] = []
         self.online = True
         self.gate = None          # asyncio.Event → submit_protocol na něj počká (souběh s příkazem)
+        self.odo_results: deque[dict] = deque()      # submit_odometer: fronta odpovědí (prázdná = uloženo accepted)
+        self.odo_submits: list[dict] = []
 
     async def resolve_code(self, code: str):
         return self.resolve.get(code, {"ok": False, "error": "invalid_code"})
+
+    async def submit_odometer(self, payload: dict) -> dict:
+        self.odo_submits.append(payload)
+        return self.odo_results.popleft() if self.odo_results else {"ok": True, "permanent": False, "error": None,
+                                                                      "status": "accepted", "duplicate": False}
 
     async def submit_protocol(self, payload: dict) -> dict:
         self.submits.append(payload)

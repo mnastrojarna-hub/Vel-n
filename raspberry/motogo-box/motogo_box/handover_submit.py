@@ -38,17 +38,22 @@ def signature_bytes(signature: Any) -> int | None:
     return n if n > 0 else None
 
 
-async def open_zone(hm: "HandoverManager", then_open: dict | None) -> tuple[dict | None, str | None]:
-    """Otevře kóji dle `then_open`; vrací (`opened {zone, kind, message}`, None) nebo (None, důvod)."""
+async def open_zone(hm: "HandoverManager", then_open: dict | None, item: Any = None) -> tuple[dict | None, str | None]:
+    """Otevře kóji dle `then_open`; vrací (`opened {zone, kind, message}`, None) nebo (None, důvod).
+    Kóje motorky po podpisu = PŘEVZETÍ → ACCESS_GRANTED s `odometer_phase: out` a fáze rezervace `out` (odometer.py, §30)."""
     ctrl = hm.ctrl
     zone = then_open.get("zone") if isinstance(then_open, dict) else None
     zc = ctrl.zones.get(zone) if zone is not None else None
     if zc is None:
         return None, "zone_not_configured"
     bid, kind, source = then_open.get("booking_id"), str(then_open.get("kind") or "motorcycle"), then_open.get("source")
-    ok, reason = await zc.grant_access(booking_id=bid, kind=kind, source=str(source or "protocol"))
+    om = getattr(ctrl, "odometer", None) if kind == "motorcycle" else None
+    extra = {"detail": {"odometer_phase": "out"}} if om is not None else {}
+    ok, reason = await zc.grant_access(booking_id=bid, kind=kind, source=str(source or "protocol"), **extra)
     name = zc.zone.display_name
     if ok:
+        if om is not None:
+            om.on_pickup_opened(bid, getattr(item, "data", None), getattr(item, "moto_id", None), hm.clock())
         if kind == "motorcycle":      # kóje motorky otevřena → zámek přejímky pryč (submit z displeje i příkaz protocol_signed)
             hm.lock.release(bid, "kóje motorky otevřena po podpisu")
         return {"zone": zc.number, "kind": zc.zone.kind,
@@ -117,8 +122,12 @@ async def submit(hm: "HandoverManager", booking_id: str, form: Any, signature: A
     item.in_flight, item.then_open = True, None
     hm.inflight.add(bid)
     hm.lock.touch(bid)                # podpis = aktivita zamčené rezervace (kdyby se kóje po podpisu neotevřela)
-    payload = {"booking_id": bid, "form": form if isinstance(form, dict) else {}, "signature": signature,
-               "signed_at": now_iso()}
+    form = dict(form) if isinstance(form, dict) else {}
+    om = getattr(hm.ctrl, "odometer", None)       # km převzetí určuje jednotka, ne prohlížeč (rozhodnutí 2026-09-29)
+    km = om.pickup_mileage(item.data, item.moto_id) if om is not None else None
+    if km is not None:
+        form["mileage"] = str(km)
+    payload = {"booking_id": bid, "form": form, "signature": signature, "signed_at": now_iso()}
     stored = True
     try:
         hm.ctrl.storage.protocol_queue_put(bid, payload, kv=(KV_HANDOVER, hm.state_dict()))
@@ -138,7 +147,7 @@ async def submit(hm: "HandoverManager", booking_id: str, form: Any, signature: A
         hm._save()  # noqa: SLF001
         return {**base, "error": "storage_failed"}
     hm.signed[bid] = hm.clock()
-    opened, err = await open_zone(hm, then_open)
+    opened, err = await open_zone(hm, then_open, item)
     hm._save()  # noqa: SLF001
     status = "already_filled" if result == "already_filled" else ("saved" if result == "saved" else "queued")
     return {"ok": True, "status": status, "opened": opened, "error": err}

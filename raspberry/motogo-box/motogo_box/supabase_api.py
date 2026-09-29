@@ -32,6 +32,8 @@ OUTBOX_RPC: dict[str, str] = {
     "report_diagnostics": "kiosk_report_diagnostics",
 }
 _MISSING_HINTS = ("not find", "does not exist", "pgrst202")
+# kiosk_submit_odometer: odmítnutí, které opakování nespraví (řádek fronty → failed, znovu až po „Znovu synchronizovat“)
+ODOMETER_PERMANENT = frozenset({"missing_inputs", "invalid_km", "not_found", "forbidden", "conflict"})
 
 
 def canonical_uuid(value: str | None) -> str:
@@ -266,6 +268,26 @@ class SupabaseApi:
         permanent = 400 <= resp.status_code < 500 and resp.status_code not in (404, 408, 429)
         log.warning("submit_protocol: HTTP %d %s (%s)", resp.status_code, error, "trvalé" if permanent else "dočasné")
         return {"ok": False, "permanent": permanent, "error": error, "already_filled": False}
+
+    # ─── stav tachometru při vrácení (RPC, mimo outbox — vlastní fronta `odometer_queue`, odometer_queue.py) ───
+    async def submit_odometer(self, payload: dict) -> dict:
+        """``kiosk_submit_odometer`` (payload = `p_reading_id`, `p_booking_id`, `p_km`, `p_recorded_at`, `p_detail`).
+
+        Vrací ``{ok, permanent, error, status, reason, duplicate}``: ``ok`` = uloženo (`status` accepted | disputed,
+        i opakované odeslání); ``permanent`` = `ODOMETER_PERMANENT` nebo 4xx mimo 401/403/404-chybí RPC/408/429;
+        síť / 5xx / `unauthorized` / nenasazená RPC (404, PGRST202) = zkusit později bez limitu.
+        """
+        try:
+            res = await self.rpc("kiosk_submit_odometer", {**self._auth(), **(payload or {})}, timeout_s=15)
+        except ApiError as exc:
+            transient = exc.is_transient or exc.is_missing_function("kiosk_submit_odometer")
+            log.warning("submit_odometer: %s (%s)", exc, "dočasné" if transient else "trvalé")
+            return {"ok": False, "permanent": not transient, "error": "network" if exc.is_network else f"http_{exc.status}"}
+        if isinstance(res, dict) and res.get("ok") is True:
+            return {"ok": True, "permanent": False, "error": None, "status": res.get("status"),
+                    "reason": res.get("reason"), "duplicate": bool(res.get("duplicate"))}
+        error = str(res.get("error") or "bad_response") if isinstance(res, dict) else "bad_response"
+        return {"ok": False, "permanent": error in ODOMETER_PERMANENT, "error": error}
 
     async def flush_outbox(self) -> int:
         """Odešle čekající položky; vrací počet odeslaných. Při výpadku sítě končí hned."""

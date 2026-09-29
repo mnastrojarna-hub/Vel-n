@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 import ReplacementMotoPicker from '../../components/fleet/ReplacementMotoPicker'
 import { confirmTrailerBranchMove } from '../BranchHelpers'
+import { moveMotos } from '../../lib/motoMove'
+import { useOdometerPrompt } from '../../components/fleet/OdometerReadingModal'
 
 const SEASON_START = 3, SEASON_END = 9
 
@@ -12,6 +14,7 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
   const [rescheduleDate, setRescheduleDate] = useState('')
   const [rescheduleLogId, setRescheduleLogId] = useState(null)
   const [retireNote, setRetireNote] = useState('')
+  const [odoModal, askOdometer] = useOdometerPrompt()
 
   const hasPlanned = logs.some(l => l.service_type === 'regular')
   const hasUrgent = logs.some(l => l.is_urgent)
@@ -25,30 +28,39 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
 
   // Deactivate moto → must pick replacement for branch
   async function handleReplace(replacementMoto) {
+    if (busy) return
     // Náhrada se stěhuje NA pobočku servisovaného kusu — když je samoobslužná,
     // přijdou její živé rezervace s vozíkem o krytí.
     if (moto.branch_id && replacementMoto.id &&
         !(await confirmTrailerBranchMove(supabase, moto.branch_id, [replacementMoto.id]))) return
     setBusy(true)
-    // Move replacement to this moto's branch
-    if (moto.branch_id && replacementMoto.id) {
-      await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', replacementMoto.id)
+    try {
+      // Move replacement to this moto's branch — jen přes RPC (obslužná ↔ samoobslužná se stavem tachometru)
+      if (moto.branch_id && replacementMoto.id) {
+        const moved = await moveMotos({ motos: [replacementMoto], branchId: moto.branch_id, branchName: moto.branches?.name, askOdometer, note: 'Velín — servis: náhrada' })
+        if (!moved) return   // zrušeno — bez stavu tachometru se nic nemění
+        const { error: sErr } = await supabase.from('motorcycles').update({ status: 'active' }).eq('id', replacementMoto.id)
+        if (sErr) throw sErr
+      }
+      // Deactivate original
+      const now = new Date()
+      const maxYear = now.getMonth() <= 1 ? now.getFullYear() : now.getFullYear() + 1
+      await supabase.from('motorcycles').update({
+        status: 'unavailable',
+        unavailable_reason: 'Deaktivováno — náhrada přiřazena',
+        unavailable_until: `${maxYear}-02-28T23:59:59`,
+      }).eq('id', moto.id)
+      // Link replacement in active logs
+      for (const l of logs) {
+        await supabase.from('maintenance_log').update({ replacement_moto_id: replacementMoto.id }).eq('id', l.id)
+      }
+      await audit('moto_replaced_in_service', { moto_id: moto.id, replacement_id: replacementMoto.id, branch_id: moto.branch_id })
+      onDone()
+    } catch (e) {
+      window.alert('Náhradu se nepodařilo přiřadit: ' + (e?.message || e))
+    } finally {
+      setBusy(false)
     }
-    // Deactivate original
-    const now = new Date()
-    const maxYear = now.getMonth() <= 1 ? now.getFullYear() : now.getFullYear() + 1
-    await supabase.from('motorcycles').update({
-      status: 'unavailable',
-      unavailable_reason: 'Deaktivováno — náhrada přiřazena',
-      unavailable_until: `${maxYear}-02-28T23:59:59`,
-    }).eq('id', moto.id)
-    // Link replacement in active logs
-    for (const l of logs) {
-      await supabase.from('maintenance_log').update({ replacement_moto_id: replacementMoto.id }).eq('id', l.id)
-    }
-    await audit('moto_replaced_in_service', { moto_id: moto.id, replacement_id: replacementMoto.id, branch_id: moto.branch_id })
-    setBusy(false)
-    onDone()
   }
 
   // Retire moto → disassembly scheduled for winter
@@ -157,6 +169,7 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
           </div>
           <ReplacementMotoPicker branchId={moto.branch_id} excludeMotoId={moto.id}
             onSelect={handleReplace} onCancel={() => setMode(null)} />
+          {odoModal}
         </div>
       )}
 

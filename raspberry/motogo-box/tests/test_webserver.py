@@ -89,8 +89,10 @@ class FakeController:
             "notice": None,
         }
 
-    async def submit_code(self, code: str, source: str = "ui") -> dict:
-        self.calls.append(("submit_code", code, source))
+    async def submit_code(self, code: str, source: str = "ui", odometer: str | None = None) -> dict:
+        self.calls.append(("submit_code", code, source) + ((odometer,) if odometer is not None else ()))
+        if odometer is not None:       # stav tachometru při vrácení (§30)
+            return {"ok": True, "kind": "motorcycle", "error": None, "zone": 1, "odometer": {"km": int(odometer), "unit": "km"}}
         if code == "123456":
             return {"ok": True, "kind": "motorcycle", "error": None, "message": "Otevřeno", "zone": 1}
         if code == "servis":
@@ -186,7 +188,8 @@ async def test_state_and_static(env):
     for f in ("app.js", "diag.js", "i18n.js", "keyboard.js", "panel.js", "shell.js", "style.css", "style-overlays.css",
               "logo.svg", "logo-light.svg", "logo-icon.svg",
               "i18n-handover.js", "signature.js", "handover.js", "style-handover.css",
-              "i18n-locker.js"):          # 2026-09-29 výzva „nejdřív kód šatny“
+              "i18n-locker.js",           # 2026-09-29 výzva „nejdřív kód šatny“
+              "i18n-odometer.js", "odometer.js", "style-odometer.css"):   # 2026-09-29 stav tachometru při vrácení
         assert (await client.get(f"/static/{f}")).status == 200, f
     assert (await client.get("/static/../config.py")).status in (403, 404)
     r = await client.get("/api/neexistuje")
@@ -204,6 +207,23 @@ async def test_pin(env):
     assert r.status == 400 and (await r.json())["error"] == "empty_code"
     r = await client.post("/api/pin", data=b"not json")
     assert r.status == 400
+
+
+async def test_pin_with_odometer(env):
+    """Overlay #odometer (§30) pošle kód znovu i se stavem km (text i číslo); jiný typ = 400, bez klíče beze změny."""
+    client, ctrl, *_ = env
+    r = await client.post("/api/pin", json={"code": "123456", "odometer": "10450"})
+    assert (await r.json())["odometer"] == {"km": 10450, "unit": "km"}
+    assert ctrl.calls[-1] == ("submit_code", "123456", "ui", "10450")
+    await client.post("/api/pin", json={"code": "123456", "odometer": 10451})
+    assert ctrl.calls[-1] == ("submit_code", "123456", "ui", "10451")
+    for bad in (True, [1], {"km": 1}, 1.5):
+        r = await client.post("/api/pin", json={"code": "123456", "odometer": bad})
+        assert r.status == 400 and (await r.json())["error"] == "bad_odometer", bad
+    r = await client.get("/")
+    html = await r.text()
+    assert 'id="odometer"' in html and html.index("i18n-locker.js") < html.index("i18n-odometer.js") < html.index("keyboard.js")
+    assert html.index("/static/handover.js") < html.index("/static/odometer.js") < html.index("/static/app.js")
 
 
 async def test_service_token_required(env):

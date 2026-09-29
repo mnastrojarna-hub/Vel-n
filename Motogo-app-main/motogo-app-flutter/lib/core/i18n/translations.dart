@@ -40,6 +40,7 @@ import 'translations_ext_23_handover_c.dart';
 import 'translations_ext_24_selfservice.dart';
 import 'translations_ext_25_messages.dart';
 import 'translations_ext_26_payment_details.dart';
+import 'translations_ext_27_odometer.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -80,6 +81,7 @@ final translations = _mergeAll([
   translationsExt24SelfService,
   translationsExt25Messages,
   translationsExt26PaymentDetails,
+  translationsExt27Odometer,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

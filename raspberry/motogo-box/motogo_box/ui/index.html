@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/style-overlays.css">
   <link rel="stylesheet" href="/static/style-handover.css">
+  <link rel="stylesheet" href="/static/style-odometer.css">
 </head>
 <body>
 <div id="app">
@@ -122,6 +123,33 @@
         <button id="ho-confirm" class="ho-btn ho-btn-primary" type="button" data-i18n="ho.confirm" disabled>Potvrdit a podepsat</button>
       </div>
       <div id="ho-saving" class="ho-saving" hidden><div class="spinner"></div><span data-i18n="ho.saving">Ukládám protokol…</span></div>
+    </div>
+  </div>
+
+  <!-- Stav tachometru při VRÁCENÍ motorky (2026-09-29, §30): modální, z-index 46 (nad #handover, pod #service) — otevře
+       app.js po odpovědi `odometer_required` z /api/pin; kód motorky drží jen odometer.js a pošle ho znovu i se stavem km.
+       Placeholder = poslední známý stav; bez platné hodnoty se kóje neotevře. -->
+  <div id="odometer" class="overlay" hidden>
+    <div class="od-card">
+      <div class="od-head">
+        <span class="od-ico" aria-hidden="true">🏍️</span><span id="od-title" class="od-title">Stav tachometru při vrácení</span>
+        <span id="od-zone" class="od-zone"></span>
+        <span id="od-timer" class="ho-timer"></span>
+      </div>
+      <div id="od-intro" class="od-intro"></div>
+      <div class="od-body">
+        <div class="od-left">
+          <div id="od-box" class="code-box od-box empty">—</div>
+          <div id="od-last" class="od-last"></div>
+          <div id="od-msg" class="ho-msg" aria-live="polite" hidden></div>
+        </div>
+        <div id="od-keys" class="od-keys"></div>
+      </div>
+      <div class="od-foot">
+        <button id="od-back" class="ho-btn" type="button" data-i18n="ho.back">Zpět</button>
+        <button id="od-confirm" class="ho-btn ho-btn-primary" type="button" data-i18n="od.confirm" disabled>Potvrdit a otevřít kóji</button>
+      </div>
+      <div id="od-saving" class="ho-saving" hidden><div class="spinner"></div><span data-i18n="od.saving">Ověřuji…</span></div>
     </div>
   </div>
 
@@ -241,12 +269,14 @@
 <script src="/static/i18n.js"></script>
 <script src="/static/i18n-handover.js"></script>
 <script src="/static/i18n-locker.js"></script>
+<script src="/static/i18n-odometer.js"></script>
 <script src="/static/keyboard.js"></script>
 <script src="/static/signature.js"></script>
 <script src="/static/panel.js"></script>
 <script src="/static/diag.js"></script>
 <script src="/static/shell.js"></script>
 <script src="/static/handover.js"></script>
+<script src="/static/odometer.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

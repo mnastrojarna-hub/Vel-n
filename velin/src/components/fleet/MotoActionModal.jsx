@@ -10,6 +10,8 @@ import { UNAVAILABLE_REASONS } from './motoActionConstants'
 import MotoStatusPanel from './MotoStatusPanel'
 import { fetchBlockingBookings, fetchActiveBookings, blockingBookingsMessage } from './bookingGuard'
 import { confirmTrailerBranchMove } from '../../pages/BranchHelpers'
+import { moveMotos } from '../../lib/motoMove'
+import { useOdometerPrompt } from './OdometerReadingModal'
 
 export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [branches, setBranches] = useState([])
@@ -29,6 +31,8 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [unavailableUntil, setUnavailableUntil] = useState('')
   const [showDeactReplace, setShowDeactReplace] = useState(false)
   const [openLogs, setOpenLogs] = useState([])
+  // Přesun obslužná ↔ samoobslužná jen se stavem tachometru (okno nad touto modálkou)
+  const [odoModal, askOdometer] = useOdometerPrompt()
 
   useEffect(() => {
     if (open && moto?.id) {
@@ -65,9 +69,9 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     setBusy(true); setError(null)  // dvojklik během await confirm by spustil přesun dvakrát
     if (!(await confirmTrailerBranchMove(supabase, target, [moto.id]))) { setBusy(false); return }
     try {
-      const { error: err } = await supabase.from('motorcycles').update({ branch_id: selectedBranch }).eq('id', moto.id)
-      if (err) throw err
-      await logAudit('motorcycle_migrated', { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: target?.name })
+      // RPC admin_move_motorcycle (audit v DB); mezi obslužnou ↔ samoobslužnou se zeptá na stav tachometru
+      const moved = await moveMotos({ motos: [moto], branchId: selectedBranch, branchName: target?.name, askOdometer, note: 'Velín — správa motorky' })
+      if (!moved) return   // zrušeno — nic se nepřesunulo
       setSuccess(`Přesunuto na ${target?.name} · zákazníkům s rezervací byly vygenerovány nové kódy a znovu odeslány`); refresh()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
@@ -229,7 +233,10 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       if (moto.branch_id && replacement?.id &&
           !(await confirmTrailerBranchMove(supabase, moto.branch_id, [replacement.id]))) return
       if (moto.branch_id && replacement?.id) {
-        const { error: rErr } = await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', replacement.id)
+        // Přesun jen přes RPC (obslužná ↔ samoobslužná se stavem tachometru); zrušení = nic se nemění
+        const moved = await moveMotos({ motos: [replacement], branchId: moto.branch_id, branchName: moto.branches?.name, askOdometer, note: 'Velín — náhrada za deaktivovanou motorku' })
+        if (!moved) return
+        const { error: rErr } = await supabase.from('motorcycles').update({ status: 'active' }).eq('id', replacement.id)
         if (rErr) throw rErr
       }
       const now = new Date()
@@ -253,7 +260,9 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     try {
       if (r?.id && moto.branch_id) {
         if (!(await confirmTrailerBranchMove(supabase, moto.branch_id, [r.id]))) return
-        const { error: rErr } = await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', r.id)
+        const moved = await moveMotos({ motos: [r], branchId: moto.branch_id, branchName: moto.branches?.name, askOdometer, note: 'Velín — náhrada za motorku v servisu' })
+        if (!moved) return   // zrušeno v okně stavu tachometru
+        const { error: rErr } = await supabase.from('motorcycles').update({ status: 'active' }).eq('id', r.id)
         if (rErr) throw rErr
         if (pendingLogId) await supabase.from('maintenance_log').update({ replacement_moto_id: r.id }).eq('id', pendingLogId)
         await logAudit('moto_replaced_long_service', { moto_id: moto.id, replacement_id: r.id })
@@ -287,6 +296,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const openChecklist = (edit) => { setChecklistEdit(edit); setError(null); setShowChecklist(true) }
 
   return (
+    <>
     <Modal open={open} onClose={showChecklist ? () => setShowChecklist(false) : onClose}
       title={showChecklist ? `${moto.model} — ${checklistEdit ? 'Upravit servisní plán' : 'Servisní checklist'}` : `${moto.model} — Správa`} wide>
 
@@ -323,6 +333,8 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         />
       )}
     </Modal>
+    {odoModal}
+    </>
   )
 }
 

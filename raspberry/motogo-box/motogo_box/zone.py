@@ -371,8 +371,10 @@ class ZoneController:
         await zone_access.start_music(self, {})     # jen zapnutá hudba a zóna s reproduktorem
 
     # ─── přístup ────────────────────────────────────────────────────────────
-    async def grant_access(self, *, booking_id: str | None, kind: str, source: str) -> tuple[bool, str]:
-        """§9 „Platný PIN" kroky 4–12. Vrací (True,'ok') nebo (False, důvod).
+    async def grant_access(self, *, booking_id: str | None, kind: str, source: str,
+                           detail: dict | None = None) -> tuple[bool, str]:
+        """§9 „Platný PIN" kroky 4–12. Vrací (True,'ok') nebo (False, důvod). `detail` = klíče navíc do ACCESS_GRANTED
+        (2026-09-29: `odometer_phase` / `odometer_km` / `odometer_reading_id` u kódu motorky, odometer.py).
 
         Celý průběh drží `_busy`: souběžný druhý požadavek na tutéž zónu počká a dostane
         'busy'; tick ani vyhodnocení kontaktu nemohou relaci během pomalých kroků přepsat.
@@ -393,7 +395,7 @@ class ZoneController:
                 return False, "busy"
             if self.door_closed is not True:
                 return False, "door_open"
-            return await zone_access.grant_locked(self, booking_id, kind, source)
+            return await zone_access.grant_locked(self, booking_id, kind, source, detail)
 
     # ─── časové přechody ────────────────────────────────────────────────────
     async def tick(self) -> None:

@@ -6,6 +6,8 @@ import Button from '../ui/Button'
 import { UNAVAILABLE_REASONS } from './motoActionConstants'
 import { fetchBlockingBookings, fetchOverlappingBookings, blockingBookingsMessage } from './bookingGuard'
 import { confirmTrailerBranchMove } from '../../pages/BranchHelpers'
+import { moveMotos } from '../../lib/motoMove'
+import { useOdometerPrompt } from './OdometerReadingModal'
 
 const CATEGORIES = [
   { value: 'cestovni', label: 'Cestovní' },
@@ -36,6 +38,7 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
   const [bookingNote, setBookingNote] = useState('')
   const [priceField, setPriceField] = useState('all')
   const [priceValue, setPriceValue] = useState('')
+  const [odoModal, askOdometer] = useOdometerPrompt()
 
   useEffect(() => {
     if (open) {
@@ -61,7 +64,7 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
   async function run(actionLabel, fn) {
     setBusy(true); setError(null); setSuccess(null)
     try {
-      await fn()
+      if (await fn() === false) return   // zrušeno uživatelem (okno stavu tachometru) — nic se nestalo
       setSuccess(`${actionLabel} (${count} motorek)`)
       purgeWebCache()
       onUpdated?.()
@@ -78,9 +81,10 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
     setBusy(true)  // dvojklik během await confirm by spustil přesun dvakrát
     if (!(await confirmTrailerBranchMove(supabase, target, ids))) { setBusy(false); return }
     await run(`Přesunuto na ${target?.name} · zákazníkům s rezervací byly vygenerovány nové kódy a znovu odeslány`, async () => {
-      const { error: err } = await supabase.from('motorcycles').update({ branch_id: targetBranch }).in('id', ids)
-      if (err) throw err
-      await logAudit('motorcycle_bulk_migrated', { count: ids.length, to_branch: target?.name, ids })
+      // RPC admin_move_motorcycles — vše, nebo nic (audit v DB); obslužná ↔ samoobslužná jen se stavem
+      // tachometru každé takové motorky (jedno okno pro všechny)
+      const moved = await moveMotos({ motos: selectedMotos, branchId: targetBranch, branchName: target?.name, askOdometer, note: 'Velín — hromadný přesun' })
+      return moved ? undefined : false
     })
   }
 
@@ -348,6 +352,7 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
           <Button onClick={onClose}>Zavřít</Button>
         </div>
       )}
+      {odoModal}
     </Modal>
   )
 }

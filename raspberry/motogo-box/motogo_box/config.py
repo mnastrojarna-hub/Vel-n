@@ -250,6 +250,10 @@ class TimingsCfg:
     # Zámek přejímky (handover_lock.py, 2026-09-28): po zavření šatny přijímá kiosk jen kódy téže rezervace, dokud se
     # neotevře kóje motorky; bez aktivity (kód, dotyk/podpis protokolu) zámek po této době zaniká — kiosk se nesmí zaseknout.
     handover_lock_s: int = 600     # 2026-09-29: 10 min — zámek musí trvat aspoň jako protokol na displeji
+    # Stav tachometru při vrácení (odometer.py, 2026-09-29): opakovaný kód motorky do této doby od převzetí / vrácení
+    # km NEchce (zapomenutá věc); overlay zadávání km na displeji bez dotyku → zavřít a zapomenout kód.
+    odometer_grace_min: int = 60
+    odometer_idle_s: int = 120
 
 
 @dataclass

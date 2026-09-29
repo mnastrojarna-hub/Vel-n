@@ -44,6 +44,7 @@ OUTBOX_SCAN_LIMIT = 500
 PROVISION_FIRST_S = 5.0       # první kolo automatického zřízení modulů po startu
 PROVISION_S = 30.0            # další kola (jen když některý modul z HW mapy neodpovídá)
 PROTOCOL_FLUSH_S = 30.0       # odesílání podepsaných protokolů z fronty (+ hned po podpisu / obnovení spojení)
+ODOMETER_FLUSH_S = 30.0       # odesílání stavů tachometru z fronty (+ hned po zadání / obnovení spojení, §30)
 
 
 @dataclass
@@ -270,9 +271,9 @@ async def resync_on_reconnect(ctrl: "BoxController", was_online: bool) -> bool:
     if online and not was_online:
         log.info("Spojení obnoveno → okamžitá synchronizace konfigurace a kódů")
         await ctrl.resync()
-        handover = getattr(ctrl, "handover", None)
-        if handover is not None:
-            handover.wake.set()          # podpisy z fronty hned, ne až za PROTOCOL_FLUSH_S
+        for mgr in (getattr(ctrl, "handover", None), getattr(ctrl, "odometer", None)):
+            if mgr is not None:
+                mgr.wake.set()           # podpisy / stavy tachometru z fronty hned, ne až za *_FLUSH_S
     return online
 
 
@@ -460,6 +461,25 @@ async def protocol_loop(ctrl: "BoxController") -> None:
         handover.wake.clear()
 
 
+async def odometer_loop(ctrl: "BoxController") -> None:
+    """Odesílá stavy tachometru z `odometer_queue` (odometer_queue.flush): každých `ODOMETER_FLUSH_S`
+    a hned po probuzení `odometer.wake` (nové čtení, obnovené spojení, retry z Velína)."""
+    odometer = getattr(ctrl, "odometer", None)
+    if odometer is None:
+        return
+    while True:
+        try:
+            if _paired(ctrl):
+                await odometer.flush()
+        except Exception:  # noqa: BLE001
+            log.exception("odometer_loop: odeslání selhalo")
+        try:
+            await asyncio.wait_for(odometer.wake.wait(), timeout=ODOMETER_FLUSH_S)
+        except asyncio.TimeoutError:
+            pass
+        odometer.wake.clear()
+
+
 async def power_loop(ctrl: "BoxController") -> None:
     """Stahuje JSON stav elektrárny z `power_status_url` a hlásí ho do Velína."""
     while ctrl.power_status_url:
@@ -506,7 +526,7 @@ async def provision_loop(ctrl: "BoxController") -> None:
 
 HW_LOOPS = (poll_loop, tick_loop)
 NET_LOOPS = (heartbeat_loop, sync_loop, command_loop, status_loop, outbox_loop, watchdog_loop, provision_loop,
-             protocol_loop)
+             protocol_loop, odometer_loop)
 
 
 def spawn(loops, ctrl: "BoxController") -> list[asyncio.Task]:

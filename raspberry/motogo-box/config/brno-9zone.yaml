@@ -29,6 +29,9 @@ timings:
   forced_open_debounce_ms: 500
   pin_entry_timeout_s: 20
   overtime_alert_minutes: [10, 20, 30]
+  # Stav tachometru při vrácení (2026-09-29, CONTRACT §30) — výchozí hodnoty, přepis z Velína (timings):
+  # odometer_grace_min: 60     # opakovaný kód motorky do 60 min od převzetí / vrácení km NEchce (zapomenutá věc)
+  # odometer_idle_s: 120       # overlay zadávání km na displeji bez dotyku → zavřít a zapomenout kód
 
 polling:
   door_input_poll_ms: 100
