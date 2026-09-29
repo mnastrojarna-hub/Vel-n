@@ -75,15 +75,10 @@ class ContractsScreen extends ConsumerWidget {
                 subtitle: t(context).tr('gdprSubtitle'),
                 onTap: () => _showGdpr(context),
               ),
-              // Vzory dokumentů (přeložené šablony z document_templates) —
-              // předávací protokol a protokol o poškození. Zákazník si je může
-              // přečíst předem; vyplní se až u konkrétní rezervace.
-              _DocTile(
-                icon: '📝',
-                title: t(context).tr('handoverProtocol'),
-                subtitle: t(context).tr('handoverProtocolSubtitle'),
-                onTap: () => _showTemplateSample(context, 'handover_protocol', t(context).tr('handoverProtocol')),
-              ),
+              // Vzor protokolu o poškození (přeložená šablona z document_templates).
+              // Nevyplněný vzor PŘEDÁVACÍHO protokolu je pryč (zadání majitele
+              // 2026-09-29): předávací protokol je vždy elektronický (kiosk /
+              // Velín / appka) a v seznamu níž je jen ten reálně podepsaný.
               _DocTile(
                 icon: '⚠️',
                 title: t(context).tr('damageProtocol'),
@@ -158,7 +153,7 @@ class ContractsScreen extends ConsumerWidget {
 
     if (!ctx.mounted) return;
 
-    final html = _wrapHtml(title, bodyHtml);
+    final html = _wrapHtml(title, bodyHtml, consent: true);
     final dataUri = 'data:text/html;charset=utf-8;base64,${base64Encode(utf8.encode(html))}';
     Navigator.of(ctx).push(MaterialPageRoute(
       builder: (_) => DocWebViewScreen(url: dataUri, title: title),
@@ -451,16 +446,19 @@ class ContractsScreen extends ConsumerWidget {
   }
 
   /// Wrap body HTML in a full HTML document with basic styling.
-  String _wrapHtml(String title, String body) => '''<!DOCTYPE html>
+  /// Patička „Souhlas udělen při rezervaci (zaškrtnutím podmínek)“ JEN u VOP/GDPR
+  /// (`consent`) — u protokolů/smluv neplatí (podpis je elektronický na kiosku /
+  /// ve Velíně / v appce; zadání majitele 2026-09-29).
+  String _wrapHtml(String title, String body, {bool consent = false}) => '''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 body{font-family:system-ui,-apple-system,sans-serif;padding:16px;color:#1A2E22;font-size:13px;line-height:1.6}
 h3{font-size:16px;font-weight:900;margin:0 0 12px}
 h4{font-size:13px;font-weight:800;margin:16px 0 6px}
 p{margin:4px 0}
-</style></head><body>$body
+</style></head><body>$body${consent ? '''
 <div style="margin-top:14px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:11px;color:#1a8a18;font-weight:700;">
-&#10003; Souhlas udělen při rezervaci (zaškrtnutím podmínek)</div>
+&#10003; Souhlas udělen při rezervaci (zaškrtnutím podmínek)</div>''' : ''}
 </body></html>''';
 }
 

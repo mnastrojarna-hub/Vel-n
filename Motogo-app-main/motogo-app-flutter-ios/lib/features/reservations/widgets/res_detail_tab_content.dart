@@ -414,10 +414,12 @@ class ResDetailTabContent extends ConsumerWidget {
           ],
 
           // ===== ACTIVE ACTIONS (motorka vydaná) =====
+          // Jediné tlačítko úprav „Upravit rezervaci“ (dřív tu bylo i duplicitní
+          // „Upravit“ — zadání majitele 2026-09-29).
           if (st == ResStatus.aktivni) ...[
             ResDetailButton.primary(
               emoji: '✏️',
-              label: t(context).edit,
+              label: t(context).tr('editReservation'),
               onTap: () => context.push('/reservations/${res.id}/edit'),
             ),
             if (res.sosAllowed) ...[
@@ -430,20 +432,12 @@ class ResDetailTabContent extends ConsumerWidget {
             ],
           ],
 
-          // ===== PROTOKOL + DOKUMENTY (po celý termín, i před vydáním) =====
-          // Protokol se podepisuje právě PŘED vydáním (rezervace je do té doby
-          // „Nadcházející“) → kalendářní `inRentalTerm`, ne `st`.
+          // ===== DOKUMENTY (po celý termín, i před vydáním) =====
+          // Kalendářní `inRentalTerm`, ne `st` (do podpisu protokolu je rezervace
+          // „Nadcházející“). Vyplnění předávacího protokolu (samoobsluha) je jen
+          // v banneru nahoře — spodní duplicitní tlačítko zrušeno (zadání majitele
+          // 2026-09-29); podepsaný protokol je níž mezi dokumenty.
           if (res.inRentalTerm) ...[
-            // Předávací protokol: samoobslužná pobočka → zákazník vyplní sám v appce.
-            // Obslužná → protokol řeší obsluha ve Velíně (tlačítko se nezobrazuje).
-            if (res.branchType == 'samoobslužná') ...[
-              const SizedBox(height: 8),
-              ResDetailButton.outlined(
-                emoji: '📝',
-                label: t(context).tr('handoverProtocol'),
-                onTap: () => context.push(Routes.protocol, extra: res),
-              ),
-            ],
             // Dokumenty aktivní rezervace — smlouva + podepsané protokoly 1:1.
             if (_bookingDocButtons(context, ref, includeContract: true).isNotEmpty) ...[
               const SizedBox(height: 12),
