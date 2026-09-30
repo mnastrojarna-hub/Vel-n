@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+import { supabase } from '../../lib/supabase'
 import { SumRow } from './BookingUIHelpers'
 import { fmtDT, hasPassengerGearOrdered } from './bookingConstants'
 
@@ -30,6 +32,17 @@ export default function BookingSummary({ booking, bookingExtras }) {
   const ownGearLabel = b.own_gear === true ? 'Ano — vlastní výbava, bez kódu šatny'
     : b.own_gear === false ? 'Ne — půjčená výbava (kód šatny)' : null
   const riderSizes = b.helmet_size || b.jacket_size || b.pants_size || b.boots_size || b.gloves_size
+  // Nájezd: jednotka motorky (km / MH) a původ stavu při vrácení — zadal ho zákazník na displeji
+  // samoobslužné pobočky (moto_odometer_readings, 2026-09-29). Tabulka ještě nemusí existovat → tiše nic.
+  const u = b.motorcycles?.tracking_unit === 'mh' ? 'MH' : 'km'
+  const [kioskEnd, setKioskEnd] = useState(false)
+  useEffect(() => {
+    setKioskEnd(false)
+    if (!b.id || !b.mileage_end) return
+    supabase.from('moto_odometer_readings').select('id').eq('booking_id', b.id).eq('kind', 'return')
+      .eq('source', 'kiosk').eq('status', 'accepted').eq('km', b.mileage_end).limit(1)
+      .then(({ data }) => setKioskEnd(!!data?.length), () => {})
+  }, [b.id, b.mileage_end])
 
   return (
     <div className="space-y-1">
@@ -62,9 +75,9 @@ export default function BookingSummary({ booking, bookingExtras }) {
       {(b.mileage_start || b.mileage_end) && (
         <>
           <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Nájezd</div>
-          {b.mileage_start && <SumRow label="Při převzetí" value={`${b.mileage_start} km`} />}
-          {b.mileage_end && <SumRow label="Při vrácení" value={`${b.mileage_end} km`} />}
-          {b.mileage_start && b.mileage_end && <SumRow label="Najeto" value={`${b.mileage_end - b.mileage_start} km`} />}
+          {b.mileage_start && <SumRow label="Při převzetí" value={`${b.mileage_start} ${u}`} />}
+          {b.mileage_end && <SumRow label="Při vrácení" value={`${b.mileage_end} ${u}${kioskEnd ? ' (zadal zákazník na kiosku)' : ''}`} />}
+          {b.mileage_start && b.mileage_end && <SumRow label="Najeto" value={`${b.mileage_end - b.mileage_start} ${u}`} />}
         </>
       )}
 

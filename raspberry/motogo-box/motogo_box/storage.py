@@ -9,6 +9,8 @@ Jedna databáze `<data_dir>/motogo.db` (WAL) s tabulkami:
 - ``events``        — lokální audit událostí, ring buffer (max ``EVENTS_MAX``)
 - ``protocol_queue`` — podepsané předávací protokoly z displeje čekající na odeslání (handover.py);
   NIKDY se nemaže limitem pokusů ani přetečením — podpis se nesmí ztratit (trvalé odmítnutí = ``failed``)
+- ``odometer_queue`` — stavy tachometru při vrácení čekající na `kiosk_submit_odometer` (odometer.py, 2026-09-29);
+  totéž pravidlo „nikdy nezahodit“, metody v `storage_odometer.py` (mixin)
 
 Modul je synchronní (``sqlite3``); volání jsou krátká a chráněná zámkem, takže je
 lze bezpečně volat i z různých vláken (``check_same_thread=False``).
@@ -23,6 +25,7 @@ import time
 from typing import Any
 
 from .models import Event
+from .storage_odometer import ODOMETER_SCHEMA, OdometerQueueMixin
 
 log = logging.getLogger("motogo.storage")
 
@@ -109,8 +112,8 @@ def _loads(text: str | None, default: Any = None) -> Any:
         return default
 
 
-class Storage:
-    """SQLite úložiště; všechny metody jsou synchronní a thread-safe."""
+class Storage(OdometerQueueMixin):
+    """SQLite úložiště; všechny metody jsou synchronní a thread-safe (fronta tachometru → `storage_odometer.py`)."""
 
     def __init__(self, path: str) -> None:
         self.path = path
@@ -122,7 +125,7 @@ class Storage:
             self._db.execute("PRAGMA synchronous=NORMAL")
         except sqlite3.DatabaseError as exc:   # např. read-only FS — DB stále funguje bez WAL
             log.warning("PRAGMA selhalo (%s), pokračuji bez WAL", exc)
-        self._db.executescript(_SCHEMA)
+        self._db.executescript(_SCHEMA + ODOMETER_SCHEMA)
         log.debug("Storage otevřeno: %s", path)
 
     # ─── kv ──────────────────────────────────────────────────────────────────
@@ -214,24 +217,15 @@ class Storage:
                 log.warning("Outbox #%d zahozen po %d pokusech", oid, row["attempts"])
 
     # ─── fronta podepsaných protokolů (handover.py) ─────────────────────────
-    def protocol_queue_put(self, booking_id: str, payload: dict, kv: tuple[str, Any] | None = None) -> None:
-        """Uloží podepsaný protokol (jeden na rezervaci; nový podpis přepíše starý) a volitelně
-        v TÉŽE transakci zapíše kv položku (stav HandoverManageru) — pád mezi oběma zápisy
-        nesmí nechat podpis bez stavu ani stav bez podpisu."""
+    def _write_with_kv(self, sql: str, params: tuple, kv: tuple[str, Any] | None) -> None:
+        """Jeden zápis + volitelně kv položka v TÉŽE transakci (fronta protokolů / tachometru + stav manageru)."""
         # serializace PŘED transakcí: chyba json (cyklický payload) nesmí nechat na sdíleném autocommit
         # spojení otevřený BEGIN, do kterého by potichu spadly všechny další zápisy
-        payload_json = _dumps(payload)
         kv_json = None if kv is None else _dumps(kv[1])
         with self._lock:
             self._db.execute("BEGIN")
             try:
-                self._db.execute(
-                    "INSERT INTO protocol_queue (booking_id, payload_json, created_at, attempts, last_error, status) "
-                    "VALUES (?, ?, ?, 0, NULL, 'pending') ON CONFLICT(booking_id) DO UPDATE SET "
-                    "payload_json = excluded.payload_json, created_at = excluded.created_at, attempts = 0, "
-                    "last_error = NULL, status = 'pending'",
-                    (str(booking_id), payload_json, time.time()),
-                )
+                self._db.execute(sql, params)
                 if kv is not None:
                     self._db.execute(
                         "INSERT INTO kv (key, value_json) VALUES (?, ?) "
@@ -245,6 +239,17 @@ class Storage:
                 except sqlite3.Error:
                     pass
                 raise
+
+    def protocol_queue_put(self, booking_id: str, payload: dict, kv: tuple[str, Any] | None = None) -> None:
+        """Uloží podepsaný protokol (jeden na rezervaci; nový podpis přepíše starý) a volitelně
+        v TÉŽE transakci zapíše kv položku (stav HandoverManageru) — pád mezi oběma zápisy
+        nesmí nechat podpis bez stavu ani stav bez podpisu."""
+        self._write_with_kv(
+            "INSERT INTO protocol_queue (booking_id, payload_json, created_at, attempts, last_error, status) "
+            "VALUES (?, ?, ?, 0, NULL, 'pending') ON CONFLICT(booking_id) DO UPDATE SET "
+            "payload_json = excluded.payload_json, created_at = excluded.created_at, attempts = 0, "
+            "last_error = NULL, status = 'pending'",
+            (str(booking_id), _dumps(payload), time.time()), kv)
 
     def protocol_queue_pending(self, limit: int = 20) -> list[dict]:
         """Čekající protokoly (nejstarší první): ``{booking_id, payload, attempts, created_at}``."""

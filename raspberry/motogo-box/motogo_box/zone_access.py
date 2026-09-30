@@ -104,12 +104,14 @@ async def start_music(zc: "ZoneController", detail: dict) -> None:
         log.exception("Zóna %s: spuštění hudby selhalo", zc.number)
 
 
-async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, source: str) -> tuple[bool, str]:
-    """Kroky 6–12 §9 po ověřených podmínkách: světlo, zelená, hudba, HW pulz zámku, událost, WAITING_FOR_OPEN."""
+async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, source: str,
+                       extra: dict | None = None) -> tuple[bool, str]:
+    """Kroky 6–12 §9 po ověřených podmínkách: světlo, zelená, hudba, HW pulz zámku, událost, WAITING_FOR_OPEN.
+    `extra` = klíče navíc do detailu ACCESS_GRANTED (fáze / stav tachometru, odometer.py)."""
     zc.reset_session()                      # ukončí doběh předchozí relace (CLOSED_CONFIRMATION)
     zc.code_kind, zc.source = kind, source
     zc.latch_released, zc._late_booking = False, None
-    detail: dict = {}
+    detail: dict = dict(extra or {})
     # Uvítací (1) / návrat (2) dle času od 1. otevření rezervace (music_phase, 2026-09-28); pozdní otevření ho převezme.
     zc.music_track = music_phase.track_for_grant(getattr(zc, "music_store", None), booking_id, kind,
                                                  60 * float(getattr(zc.hw.timings, "music_return_after_min", 180) or 0))

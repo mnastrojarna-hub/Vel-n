@@ -80,6 +80,12 @@ class EventKind(str, Enum):
     PROTOCOL_SHOWN = "PROTOCOL_SHOWN"
     PROTOCOL_SIGNED = "PROTOCOL_SIGNED"
     PROTOCOL_UPLOAD_FAILED = "PROTOCOL_UPLOAD_FAILED"
+    # Stav tachometru při vrácení (odometer.py, 2026-09-29, §30): uložen do fronty (info), zadání mimo rozsah / nečíslo
+    # (warn — zákazník u kóje neprošel), server čtení trvale odmítl (error) / označil jako sporné (warn). → kiosk_log_event.
+    ODOMETER_RECORDED = "ODOMETER_RECORDED"
+    ODOMETER_REJECTED = "ODOMETER_REJECTED"
+    ODOMETER_UPLOAD_FAILED = "ODOMETER_UPLOAD_FAILED"
+    ODOMETER_DISPUTED = "ODOMETER_DISPUTED"
 
 
 @dataclass(frozen=True)
@@ -316,6 +322,10 @@ class ResolveResult:
     # {booking_id, required, filled_at, needs_locker, gear_collected_at, prompted_at, is_child, data{…}}.
     # None = stav neznámý (starší DB / stará cache) → hradlo se NEuplatní (fail-open, handover.py).
     protocol: dict | None = None
+    # Stav tachometru (2026-09-29, §30) — jen kód MOTORKY: blok `odo` z RPC / `codes[].odo` ze sync cache
+    # {unit, per_day, hint, min, max, start_km, start_at, days, last_open_at, last_open_phase, delivered, …}.
+    # None = neznámo (stará DB / cache) → jednotka se řídí jen lokálním stavem (bez něj km nechce = fail-open).
+    odo: dict | None = None
 
     @property
     def is_service(self) -> bool:
@@ -351,6 +361,7 @@ class ResolveResult:
             doors=doors,
             action=str(m.get("action") or "service"),
             protocol=m.get("protocol") if isinstance(m.get("protocol"), dict) else None,
+            odo=m.get("odo") if isinstance(m.get("odo"), dict) else None,
         )
 
 

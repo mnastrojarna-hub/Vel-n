@@ -14,7 +14,8 @@ export default function ReplacementMotoPicker({ branchId, excludeMotoId, onSelec
   async function load() {
     setLoading(true)
     const [mRes, bRes] = await Promise.all([
-      supabase.from('motorcycles').select('id, model, spz, status, branch_id, category, branches(name, type)')
+      // mileage + tracking_unit = nápověda v okně stavu tachometru při přesunu náhrady (lib/motoMove)
+      supabase.from('motorcycles').select('id, model, spz, status, branch_id, category, mileage, tracking_unit, branches(name, type)')
         .in('status', ['active', 'unavailable', 'maintenance']).neq('id', excludeMotoId || ''),
       supabase.from('branches').select('id, name, type').eq('active', true),
     ])

@@ -4,7 +4,23 @@ import type { SB } from './tools-constants.ts'
 // deno-lint-ignore no-explicit-any
 type R = Record<string, any>
 
-export async function execWriteCore(name: string, input: R, sb: SB, dryRun: boolean): Promise<unknown> {
+// Hláška k odmítnutému přesunu (admin_move_motorcycle, migrace 20260929g) — pro AI i operátora
+function moveErr(r: R): string {
+  const u = r?.unit === 'mh' ? 'MH' : 'km'
+  switch (r?.error) {
+    case 'km_required': return 'Přesun mezi obslužnou a samoobslužnou pobočkou vyžaduje aktuální stav tachometru — zeptej se operátora a zadej odometer_km.' +
+      (Number(r.last) > 0 ? ` Poslední známý stav: ${r.last} ${u}.` : ' Poslední stav není evidován.')
+    case 'km_below_last': return `Zadaný stav je NIŽŠÍ než poslední evidovaný (${r.last} ${u}). Ověř u operátora; je-li správně, zopakuj s force=true.`
+    case 'km_jump': return `Zadaný stav je o víc než ${r.unit === 'mh' ? '500 MH' : '20 000 km'} vyšší než poslední evidovaný (${r.last} ${u}) — překlep? Je-li správně, zopakuj s force=true.`
+    case 'km_below_purchase': return `Stav je nižší než stav při koupi motorky (${r.purchase_km} ${u}) — takovou hodnotu nelze zadat.`
+    case 'invalid_km': return 'Neplatný stav tachometru (celé číslo 0–9 999 999).'
+    case 'forbidden': return 'Přesun motorky smí provést jen admin.'
+    default: return `Přesun motorky se nezdařil: ${r?.error || 'neznámá chyba'}`
+  }
+}
+
+// sbUser = klient s JWT operátora — RPC s kontrolou is_admin() (service role má auth.uid() NULL → forbidden)
+export async function execWriteCore(name: string, input: R, sb: SB, dryRun: boolean, sbUser?: SB): Promise<unknown> {
   switch (name) {
     // === BOOKING ===
     case 'update_booking_status': {
@@ -47,14 +63,40 @@ export async function execWriteCore(name: string, input: R, sb: SB, dryRun: bool
 
     // === FLEET ===
     case 'update_motorcycle': {
-      const { motorcycle_id, ...fields } = input
-      const { data: moto } = await sb.from('motorcycles').select('id, model, brand, spz, status, mileage, branch_id').eq('id', motorcycle_id).single()
+      // Pobočka se mění JEN přes RPC admin_move_motorcycle (2026-09-29): obslužná ↔ samoobslužná vyžaduje
+      // odometer_km (aktuální stav tachometru), nižší než evidovaný / velký skok jen s force. Odebrání pobočky přímo.
+      const { motorcycle_id, branch_id, odometer_km, force, ...fields } = input
+      const { data: moto } = await sb.from('motorcycles').select('id, model, brand, spz, status, mileage, tracking_unit, branch_id').eq('id', motorcycle_id).single()
       if (!moto) return { error: 'Motorka nenalezena' }
-      const changes = Object.keys(fields).filter(k => fields[k] !== undefined)
-      const summary = `Úprava motorky ${moto.model} (${moto.spz}): ${changes.join(', ')}`
-      if (dryRun) return { status: 'preview', summary, current: moto, changes: fields }
-      const { error } = await sb.from('motorcycles').update(fields).eq('id', motorcycle_id)
-      if (error) return { error: error.message }
+      const toBranch = branch_id || null
+      const move = branch_id !== undefined && toBranch !== moto.branch_id
+      const km = odometer_km == null || odometer_km === '' ? null : Number(odometer_km)
+      if (km != null && !(Number.isInteger(km) && km >= 0)) return { error: 'odometer_km musí být celé číslo ≥ 0 (stav tachometru).' }
+      let needKm = false
+      if (move && toBranch) {
+        const { data: brs } = await sb.from('branches').select('id, type').in('id', [moto.branch_id, toBranch].filter(Boolean))
+        const self = (id: string | null) => !!id && (brs || []).find((b: R) => b.id === id)?.type === 'samoobslužná'
+        needKm = self(moto.branch_id) !== self(toBranch)
+      }
+      if (needKm && km == null) return { error: moveErr({ error: 'km_required', last: moto.mileage, unit: moto.tracking_unit }), current: moto }
+      if (needKm) {   // na probíhajícím pronájmu stav tachometru nikdo neodečte (stejně jako Velín lib/motoMove)
+        const { data: act } = await sb.from('bookings').select('id').eq('moto_id', motorcycle_id).eq('status', 'active')
+          .gte('end_date', new Date().toISOString().slice(0, 10)).limit(1)
+        if (act?.length) return { error: 'Motorka je u zákazníka (probíhající pronájem) — přesun mezi obslužnou a samoobslužnou pobočkou až po vrácení.' }
+      }
+      const changes = [...Object.keys(fields).filter(k => fields[k] !== undefined), ...(move ? ['branch_id'] : [])]
+      const summary = `Úprava motorky ${moto.model} (${moto.spz}): ${changes.join(', ')}${move && km != null ? ` · stav tachometru ${km} ${moto.tracking_unit === 'mh' ? 'MH' : 'km'}` : ''}`
+      if (dryRun) return { status: 'preview', summary, current: moto, changes: { ...fields, ...(move ? { branch_id: toBranch, odometer_km: km } : {}) } }
+      if (move && toBranch) {
+        if (!sbUser) return { error: 'Přesun motorky vyžaduje přihlášeného admina — proveď ho ve Velíně (Flotila → Přesunout).' }
+        const { data: mv, error: mvErr } = await sbUser.rpc('admin_move_motorcycle', { p_moto_id: motorcycle_id, p_branch_id: toBranch, p_km: km, p_force: !!force, p_note: 'AI Copilot' })
+        if (mvErr) return { error: mvErr.message }
+        if (!mv?.ok) return { error: moveErr(mv), detail: mv }
+      } else if (move) fields.branch_id = null
+      if (Object.keys(fields).some(k => fields[k] !== undefined)) {
+        const { error } = await sb.from('motorcycles').update(fields).eq('id', motorcycle_id)
+        if (error) return { error: error.message }
+      }
       return { status: 'executed', summary, motorcycle_id }
     }
 
@@ -75,8 +117,16 @@ export async function execWriteCore(name: string, input: R, sb: SB, dryRun: bool
       if (!branch) return { error: 'Pobočka nenalezena' }
       const changes = Object.keys(fields).filter(k => fields[k] !== undefined)
       const summary = `Úprava pobočky "${branch.name}": ${changes.join(', ')}`
+      // Změna obslužná ↔ samoobslužná s motorkami = jejich přesun bez stavu tachometru → odmítnout už v náhledu
+      // (stejně jako Velín BranchModal; v DB strážce 20260929h, chyba branch_type_change_requires_odometer)
+      const typeBlocked = 'Typ pobočky (obslužná ↔ samoobslužná) nelze změnit, dokud jsou na ní přiřazené motorky — nejdřív je přesuň (update_motorcycle s odometer_km), pak změň typ.'
+      if (fields.type !== undefined && (fields.type === 'samoobslužná') !== (branch.type === 'samoobslužná')) {
+        const { count } = await sb.from('motorcycles').select('id', { count: 'exact', head: true }).eq('branch_id', branch_id).neq('status', 'retired')
+        if ((count || 0) > 0) return { error: typeBlocked }
+      }
       if (dryRun) return { status: 'preview', summary, current: branch, changes: fields }
       const { error } = await sb.from('branches').update(fields).eq('id', branch_id)
+      if (error && error.message.includes('branch_type_change_requires_odometer')) return { error: typeBlocked }
       if (error) return { error: error.message }
       return { status: 'executed', summary, branch_id }
     }

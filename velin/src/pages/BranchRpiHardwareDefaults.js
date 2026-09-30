@@ -36,6 +36,8 @@ export const BRNO_DEFAULT_HARDWARE = {
     overtime_alert_minutes: [10, 20, 30],
     handover_idle_s: 600,        // 2026-09-29: protokol po zavření šatny 10 min (zadání majitele)
     handover_lock_s: 600,        // zámek přejímky ≥ doba protokolu (jinak by po 5 min zadal kód další zákazník)
+    odometer_grace_min: 60,      // 2026-09-29: stav tachometru při vrácení — opakovaný kód motorky do 60 min se na km neptá
+    odometer_idle_s: 120,        // obrazovka „Stav tachometru“ bez dotyku se po 2 min zavře (dveře zůstanou zavřené)
   },
   polling: {
     door_input_poll_ms: 100,
@@ -148,6 +150,10 @@ export const HW_SECTIONS = [
       hint: 'Po kolika minutách otevřených dveří se opakuje upozornění do Velína. Zadejte čísla oddělená čárkou, např. 10, 20, 30.' },
     { key: 'handover_idle_s', label: 'Protokol bez dotyku', unit: 's', type: 'int',
       hint: 'Jak dlouho zůstane předávací protokol na displeji, když se ho zákazník nedotkne. Pak se skryje, ať mohou ostatní zadávat kódy; protokol zůstává nevyřízený a znovu se ukáže kódem motorky té samé rezervace. Typicky 600 s (10 min).' },
+    { key: 'odometer_grace_min', label: 'Tachometr — ochranná doba', unit: 'min', type: 'int',
+      hint: 'Při VRÁCENÍ chce displej po kódu motorky aktuální stav tachometru (bez platné hodnoty se kóje neotevře). Když zákazník zadá kód motorky znovu do této doby od vyzvednutí nebo od vrácení (něco zapomněl), kóje se otevře bez ptaní — vrácení do této doby od vyzvednutí se proto na stav nezeptá. Při vyzvednutí se na stav nikdy neptá. Typicky 60 min.' },
+    { key: 'odometer_idle_s', label: 'Tachometr bez dotyku', unit: 's', type: 'int',
+      hint: 'Jak dlouho zůstane na displeji obrazovka „Stav tachometru“, když zákazník nic nezadává. Pak se zavře, kóje zůstane zamčená a zákazník zadá kód motorky znovu. Typicky 120 s.' },
   ] },
   { key: 'polling', title: 'Polling (Modbus)',
     hint: 'Jak často a jak trpělivě se jednotka ptá relé modulů Waveshare po síti LAN. Měňte jen při problémech se sítí — výchozí hodnoty jsou ověřené.',

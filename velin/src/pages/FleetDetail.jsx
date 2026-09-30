@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { purgeWebCache } from '../lib/webCache'
@@ -32,6 +32,9 @@ export default function FleetDetail() {
   const [tab, setTab] = useState('Info')
   const [confirm, setConfirm] = useState(null)
   const [showActionModal, setShowActionModal] = useState(false)
+  // Nájezd naposledy načtený z DB — „Uložit“ posílá mileage jen při změně (kiosk / protokol / přesun
+  // ho mezitím mohl zvýšit a starý formulář by ho přepsal); nižší hodnota = korekce s auditem.
+  const loadedKm = useRef(null)
 
   useEffect(() => { loadMoto() }, [id])
 
@@ -44,7 +47,7 @@ export default function FleetDetail() {
         clearTimeout(timer)
         timer = setTimeout(() => {
           supabase.from('motorcycles').select('*, branches(id, name)').eq('id', id).single()
-            .then(({ data }) => { if (data) setMoto(prev => prev ? { ...prev, ...data } : data) })
+            .then(({ data }) => { if (data) { loadedKm.current = data.mileage ?? null; setMoto(prev => prev ? { ...prev, ...data } : data) } })
         }, 500)
       })
       .subscribe()
@@ -57,7 +60,7 @@ export default function FleetDetail() {
       supabase.from('motorcycles').select('*, branches(id, name)').eq('id', id).single()
     , { moto_id: id })
     if (result?.error) setError(result.error.message)
-    else setMoto(result?.data)
+    else { setMoto(result?.data); loadedKm.current = result?.data?.mileage ?? null }
     setLoading(false)
   }
 
@@ -84,7 +87,8 @@ export default function FleetDetail() {
     }
     const {
       // Identifikace + zařazení
-      model, spz, vin, brand, category, branch_id, color, year, acquired_at, stk_valid_until, sort_order,
+      // branch_id se tu NEukládá — pobočka se mění jen „Přesunout“ (RPC admin_move_motorcycle, stav tachometru)
+      model, spz, vin, brand, category, color, year, acquired_at, stk_valid_until, sort_order,
       // Provoz
       mileage, purchase_mileage, tracking_unit, status, purchase_price,
       // Motor / výkon
@@ -102,15 +106,19 @@ export default function FleetDetail() {
       // Výběr parametrů do krátkého popisu na webu
       short_desc_fields,
     } = moto
+    const newKm = toInt(mileage)
+    const baseKm = loadedKm.current == null ? null : Number(loadedKm.current)
+    const kmChanged = newKm != null && newKm !== baseKm
+    const kmLower = kmChanged && baseKm != null && newKm < baseKm
     const updateData = {
       model, spz, vin,
       brand: brand?.trim() || null,
-      category, branch_id, color,
+      category, color,
       year: toInt(year),
       acquired_at,
       stk_valid_until: stk_valid_until || null,
       sort_order: toInt(sort_order),
-      mileage: toInt(mileage) ?? 0,
+      ...(kmChanged && !kmLower ? { mileage: newKm } : {}),
       purchase_mileage: toInt(purchase_mileage),
       tracking_unit: tracking_unit || 'km',
       status,
@@ -146,7 +154,15 @@ export default function FleetDetail() {
       supabase.from('motorcycles').update(updateData).eq('id', id)
     , updateData)
     if (result?.error) setError(result.error.message)
-    else purgeWebCache()
+    else {
+      if (kmChanged && !kmLower) loadedKm.current = newKm
+      if (kmLower) {   // snížení nájezdu jen přes RPC (audit + historie stavů tachometru, min. purchase_mileage)
+        const { data: cor, error: corErr } = await supabase.rpc('correct_motorcycle_mileage', { p_moto_id: id, p_km: newKm, p_note: 'Úprava nájezdu v detailu motorky' })
+        if (corErr) setError('Nájezd se nepodařilo snížit: ' + corErr.message)
+        else { loadedKm.current = cor?.mileage ?? newKm; set('mileage', cor?.mileage ?? newKm) }
+      }
+      purgeWebCache()
+    }
     await logAudit('motorcycle_updated', { moto_id: id })
     // Auto-překlad textových polí motorky pro web (na pozadí, neblokuje UI).
     // Web čte translations jsonb: `description` přes localized(), `features` (text[])

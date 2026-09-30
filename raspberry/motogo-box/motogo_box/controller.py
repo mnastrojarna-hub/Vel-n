@@ -19,6 +19,7 @@ from .audio_build import audio_signature, build_audio, make_music_library
 from .config import WARNING_PREFIX, HardwareConfig, LocalConfig, blocking_problems, validate_hardware
 from .diagnostics import NetworkDiagnostics
 from .handover import HandoverManager
+from .odometer import OdometerManager
 from .screen_mirror import ScreenMirror
 from .io_devices import IoBus
 from .models import Event, EventKind, Signal, now_iso
@@ -81,6 +82,7 @@ class BoxController:
         self.diagnostics = NetworkDiagnostics(self)      # diagnostika sítě (kód z displeje / Velín / servis)
         self.updater = SoftwareUpdater(self)             # aktualizace software/OS z Velína (§25) — běží v klidu
         self.handover = HandoverManager(self)            # předávací protokol na displeji (§4, handover.py)
+        self.odometer = OdometerManager(self, clock=self.handover.clock)   # stav tachometru při vrácení (§30)
         self.screen = ScreenMirror(api, local.screen)   # zrcadlení obrazovky do Velína (§29) — běží jen na žádost Velína
 
     # ─── konfigurace ─────────────────────────────────────────────────────────
@@ -285,9 +287,10 @@ class BoxController:
             self._power_task = asyncio.create_task(loops.power_loop(self), name="motogo.power_loop")
 
     # ─── kódy ────────────────────────────────────────────────────────────────
-    async def submit_code(self, code: str, source: str = "ui", *, diagnostics_only: bool = False) -> dict:
-        """Kód z UI/Velína → ověření + otevření (viz `controller_codes.submit_code`)."""
-        return await cc.submit_code(self, code, source, diagnostics_only=diagnostics_only)
+    async def submit_code(self, code: str, source: str = "ui", *, diagnostics_only: bool = False,
+                          odometer: str | None = None) -> dict:
+        """Kód z UI/Velína → ověření + otevření (viz `controller_codes.submit_code`; `odometer` = stav km při vrácení)."""
+        return await cc.submit_code(self, code, source, diagnostics_only=diagnostics_only, odometer=odometer)
 
     def check_service_token(self, token: str | None) -> bool:
         now = time.time()
@@ -429,6 +432,7 @@ class BoxController:
             "update": self.updater.status(),
             "shell": shell.state(self),          # servisní terminál: je volné psaní odemčené? (§27)
             "handover": self.handover.status(),  # předávací protokol na displeji (§4) — bez podpisů/formulářů
+            "odometer": self.odometer.status(),  # stavy tachometru čekající na odeslání / trvale odmítnuté (§30)
             "remote_screen": self.screen.status(),   # zrcadlení do Velína (§29): active/control/since/frames/bytes
         }
 

@@ -9,6 +9,8 @@ import { seasonDaysBetween, SEASON_MONTHS, ServiceScheduleCard, SOSIncidentsCard
 import { PhotoGallery } from './FleetDetailPhotos'
 import RichTextEditor from '../components/ui/RichTextEditor'
 import { confirmTrailerBranchMove } from './BranchHelpers'
+import { moveMotos } from '../lib/motoMove'
+import { useOdometerPrompt } from '../components/fleet/OdometerReadingModal'
 
 // Skupiny ŘP, které lze přiřadit vozidlu (OR — stačí, aby zákazník měl kteroukoliv).
 // 'N' = bez ŘP (dětské). Vícenásobný výběr: skútr může být A1 i B, přívěs B atd.
@@ -69,6 +71,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
   const [savingExternal, setSavingExternal] = useState(false)
   const [externalError, setExternalError] = useState('')
   const [sosIncidents, setSosIncidents] = useState([])
+  const [odoModal, askOdometer] = useOdometerPrompt()
   const unit = moto.tracking_unit || 'km'
   const unitLabel = unit === 'mh' ? 'MH' : 'km'
 
@@ -186,24 +189,19 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
     if (migrating) return
     setMigrating(true)  // dvojklik během await confirm by spustil přesun dvakrát
     if (!(await confirmTrailerBranchMove(supabase, targetBranch, [moto.id]))) { setMigrating(false); return }
+    let result
     try {
-      await debugAction('fleet.migrate', 'FleetDetail', async () => {
-        // Selhaný UPDATE (RLS, síť) se dřív tiše spolkl a UI hlásilo přesun jako
-        // hotový — chybu propagovat (debugAction ji zaloguje a vyhodí dál).
-        const { error: uErr } = await supabase.from('motorcycles').update({ branch_id: migrateTo }).eq('id', moto.id)
-        if (uErr) throw uErr
-        const { data: { user } } = await supabase.auth.getUser()
-        await supabase.from('admin_audit_log').insert({
-          admin_id: user?.id, action: 'motorcycle_migrated',
-          details: { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: targetBranch?.name },
-        })
-        return { data: { migrated: true } }
-      }, { moto_id: moto.id, to_branch: targetBranch?.name })
+      // Přesun jen přes RPC admin_move_motorcycle (audit v DB; obslužná ↔ samoobslužná jen se stavem
+      // tachometru — okno se zeptá). Chybu propagovat (debugAction ji zaloguje a vyhodí dál).
+      result = await debugAction('fleet.migrate', 'FleetDetail', async () => ({
+        data: await moveMotos({ motos: [moto], branchId: migrateTo, branchName: targetBranch?.name, askOdometer, note: 'Velín — detail motorky' }),
+      }), { moto_id: moto.id, to_branch: targetBranch?.name })
     } catch (e) {
       setMigrating(false)
       window.alert('Přesun motorky se nezdařil: ' + (e?.message || e))
       return
     }
+    if (!result?.data) { setMigrating(false); return }   // zrušeno v okně stavu tachometru — nic se nepřesunulo
     purgeWebCache()
     setMigrating(false)
     setShowMigrate(false)
@@ -487,6 +485,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
       </Card>
       <ServiceScheduleCard moto={moto} schedules={schedules} avgKm={avgKm} kmStats={kmStats} unitLabel={unitLabel} unit={unit} motoBookings={motoBookings} />
       <SOSIncidentsCard sosIncidents={sosIncidents} motoId={moto.id} />
+      {odoModal}
     </div>
   )
 }

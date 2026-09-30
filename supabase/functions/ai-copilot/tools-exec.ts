@@ -56,7 +56,7 @@ export async function executeTool(
       () => execReadAnalyticsPlus(toolName, toolInput, supabaseAdmin, supabaseUser),
       () => execReadOpsPlus(toolName, toolInput, supabaseAdmin),
       () => Promise.resolve(execGuide(toolName, toolInput)),
-      () => execWriteCore(toolName, toolInput, supabaseAdmin, dryRun),
+      () => execWriteCore(toolName, toolInput, supabaseAdmin, dryRun, supabaseUser),
       () => execWriteOps(toolName, toolInput, supabaseAdmin, dryRun),
       () => execOrchestrator(toolName, toolInput, supabaseAdmin),
       () => execSimulation(toolName, toolInput, supabaseAdmin),

@@ -39,7 +39,7 @@ DEFAULT_IDLE_S = 600             # 2026-09-29: protokol po zavření šatny 10 m
 STAGE_PROTOCOL, STAGE_DONE = "protocol", "done"
 GEAR_KEYS = ("helmet", "jacket", "pants", "boots", "gloves")
 PERSISTED = ("booking_id", "kind_origin", "zone", "data", "is_child", "shown_at", "last_touch",
-             "dismissed_at", "shown_logged", "created_at")
+             "dismissed_at", "shown_logged", "created_at", "moto_id")
 
 
 @dataclass
@@ -58,6 +58,7 @@ class HandoverItem:
     shown_logged: bool = False           # PROTOCOL_SHOWN jen při prvním zobrazení
     created_at: float = 0.0
     in_flight: bool = False              # právě probíhá podpis z displeje (submit)
+    moto_id: str | None = None           # `protocol.moto_id` (2026-09-29) — km převzetí z neodeslaného vrácení téže motorky
 
     def persisted(self) -> dict:
         d = asdict(self)
@@ -190,6 +191,12 @@ class HandoverManager:
         bid = str(booking_id or "")
         if not bid:
             return None
+        odometer = getattr(self.ctrl, "odometer", None)
+        if odometer is not None and odometer.returned(bid):
+            # Motorka rezervace je už v kóji (vrácení, §30) — šatna = vrácení výbavy, ne převzetí: bez zámku přejímky,
+            # bez toastu „teď zadejte kód motorky“ a bez protokolu převzetí.
+            log.info("handover: šatna zavřena po vrácení motorky (rezervace %s) — bez zámku a protokolu", bid)
+            return None
         p = protocol if isinstance(protocol, dict) else (self.protocols.get(bid) or self._cache_protocol(bid))
         # Zámek přejímky (2026-09-28): od teď kiosk přijímá jen kódy této rezervace, dokud se neotevře její kóje motorky —
         # při KAŽDÉM zákaznickém zavření (i podepsáno jinde / stav neznámý = fail-open hradla, zámek platí stejně).
@@ -208,6 +215,7 @@ class HandoverManager:
         item = self.items.get(bid) or HandoverItem(booking_id=bid, created_at=self.clock())
         item.kind_origin, item.zone = "accessories", zone
         item.data, item.is_child = dict(p.get("data") or {}), bool(p.get("is_child"))
+        item.moto_id = p.get("moto_id") or item.moto_id
         await self._show(item, None)
         return "protocol"
 
@@ -229,6 +237,7 @@ class HandoverManager:
         if item is None or item.stage != STAGE_PROTOCOL:
             item = HandoverItem(booking_id=bid, kind_origin="motorcycle", created_at=self.clock())
         item.zone, item.data, item.is_child = zc.number, dict(p.get("data") or {}), bool(p.get("is_child"))
+        item.moto_id = p.get("moto_id") or item.moto_id
         await self._show(item, {"zone": zc.number, "booking_id": bid, "kind": "motorcycle", "source": source})
         return True
 
@@ -260,7 +269,7 @@ class HandoverManager:
         if item.visible and item.stage == STAGE_PROTOCOL:
             if may_open and self.then_open_valid(item):
                 to, item.then_open = item.then_open, None     # atomická konzumace
-                opened, err = await hs.open_zone(self, to)
+                opened, err = await hs.open_zone(self, to, item)
                 if err:
                     log.warning("handover: otevření po vzdáleném podpisu selhalo (%s)", err)
             else:
@@ -339,6 +348,7 @@ class HandoverManager:
                 await self.mark_signed_remote(bid, may_open=False)
             else:
                 item.data, item.is_child = dict(p.get("data") or item.data), bool(p.get("is_child"))
+                item.moto_id = p.get("moto_id") or item.moto_id
         if stale:
             self._save()
 

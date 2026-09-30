@@ -46,6 +46,34 @@ Widget protocolToggleRow(String label, bool checked, VoidCallback onTap) => Gest
       ),
     );
 
+/// Stav km (motohodin) při převzetí — JEN ke čtení (zadání majitele 2026-09-29):
+/// hodnotu dává server (`get_handover_protocol_state` → `mileage` = poslední stav
+/// zapsaný při vrácení motorky na pobočce, `mileage_unit` 'km'|'mh'); zákazník km
+/// v appce nezadává a edge hodnotu od klienta ignoruje.
+Widget protocolMileageCard(AppTranslations tr, Map<String, dynamic>? state) {
+  final mh = state?['mileage_unit'] == 'mh';
+  final raw = state?['mileage'];
+  final km = raw is num ? raw.toInt() : int.tryParse('${raw ?? ''}');
+  final known = km != null && km > 0;
+  return protocolCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    protocolTitle(tr.tr(mh ? 'hpHours' : 'hpMileage')),
+    // Vzhled vypnutého pole (výplň a rámeček vstupů z tématu) — bez editace.
+    Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: MotoGoColors.g100,
+        borderRadius: BorderRadius.circular(MotoGoRadius.xl),
+        border: Border.all(color: MotoGoColors.g200),
+      ),
+      child: Text(known ? '$km ${mh ? tr.tr('hpUnitMh') : 'km'}' : tr.tr('hpMileagePending'),
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: known ? MotoGoColors.black : MotoGoColors.g500)),
+    ),
+    const SizedBox(height: 6),
+    Text(tr.tr('hpMileageAuto'), style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
+  ]));
+}
+
 /// Informační střed obrazovky (obslužná pobočka, zatím nelze vyplnit, chyba).
 Widget protocolInfoCenter(String emoji, String msg) => Center(
       child: Padding(

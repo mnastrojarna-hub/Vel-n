@@ -20,6 +20,8 @@ import 'reservation_provider.dart';
 /// obrazovku) po výzvě z kiosku — `handover_protocol_prompted_at`
 /// (HandoverPromptWatcher). Po podpisu kdekoli (appka, kiosk, Velín) zmizí
 /// real-time: sleduje stream rezervací. Podepsané PDF zůstává v Dokumentech.
+/// Stav km při převzetí vyplňuje server (`get_handover_protocol_state.mileage`
+/// = poslední stav při vrácení na pobočce) — zákazník ho nezadává, jen vidí.
 class ProtocolScreen extends ConsumerStatefulWidget {
   final Reservation? reservation;
   const ProtocolScreen({super.key, this.reservation});
@@ -77,7 +79,6 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
   Map<String, dynamic>? _state; // get_handover_protocol_state
   Map<String, List<String>> _sizes = const {};
 
-  final _mileageCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   final _damageCtrl = TextEditingController();
   bool _damage = false;
@@ -154,7 +155,6 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
   void dispose() {
     final id = widget.reservation?.id;
     if (id != null) ProtocolScreen.openFor.remove(id);
-    _mileageCtrl.dispose();
     _notesCtrl.dispose();
     _damageCtrl.dispose();
     super.dispose();
@@ -222,8 +222,8 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
     final checks = <String, bool>{};
     for (final c in _checks) checks[c.key] = c.checked;
     for (final c in _extraGear) checks[c.key] = c.checked;
+    // Stav km se NEposílá — do protokolu ho doplní edge ze serveru (form.mileage ignoruje).
     final form = {
-      'mileage': _mileageCtrl.text.trim(),
       'checks': checks,
       'damage': {'checked': _damage, 'desc': _damageCtrl.text.trim()},
       'notes': _notesCtrl.text.trim(),
@@ -319,12 +319,8 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
           const SizedBox(height: 2),
           Text('${r.dateRange} · ${r.shortId}', style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
         ])),
-        // Stav km
-        protocolCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          protocolTitle(tr.tr('hpMileage')),
-          TextField(controller: _mileageCtrl, keyboardType: TextInputType.number,
-              decoration: const InputDecoration(hintText: 'km')),
-        ])),
+        // Stav km — jen ke čtení, vyplní server (poslední stav při vrácení na pobočce)
+        protocolMileageCard(tr, _state),
         // Kontrola převzetí
         protocolCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           protocolTitle(tr.tr('hpChecks')),

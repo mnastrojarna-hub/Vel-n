@@ -219,10 +219,12 @@ class LocalResolver:
                 # Kód k oblečení otevírá VÝHRADNĚ dveře oblečení (door_id) — box_number motorky
                 # z rezervace nesmí offline vést na kóji motorky (shodné s online kiosk_resolve_code).
                 box = None
+            odo = row.get("odo")            # stav tachometru pro vrácení (2026-09-29) — jen kód motorky
             return ResolveResult(
                 ok=True, kind=kind, booking_id=row.get("booking_id"),
                 door_id=door_id, box_number=box, door_configured=bool(door_id or box is not None),
                 offline=True, protocol=self.protocol_for(cache, row.get("booking_id")),
+                odo=odo if kind == "motorcycle" and isinstance(odo, dict) else None,
             )
         if matched_expired:
             return ResolveResult(ok=False, error=matched_expired, offline=True)

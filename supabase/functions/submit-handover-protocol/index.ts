@@ -10,8 +10,9 @@
 // → propis změněných velikostí do bookings → HTML → PDF přes render-pdf (fallback HTML)
 // → bucket `documents` → ATOMICKÝ CLAIM handover_protocol_filled_at (UPDATE … WHERE
 // filled_at IS NULL; 0 řádků = podepsáno souběžně jinde → already_filled + úklid souboru)
-// → generated_documents (sync trigger → `documents`, appka) → km do bookings.mileage_start
-// → e-mail (best-effort). Soubor se ukládá PŘED claimem: claim spouští
+// → generated_documents (sync trigger → `documents`, appka) → stav km do bookings.mileage_start
+// (km vyplňuje systém — _handover_pickup_km, u kiosku hodnota jednotky; form.mileage
+// z appky se ignoruje) → e-mail (best-effort). Soubor se ukládá PŘED claimem: claim spouští
 // trg_handover_signed_notify_kiosk (kiosk otevře kóji) — po něm zbývá jen INSERT řádku;
 // když selže, claim se vrátí (jen ten náš), sirotek v bucketu se smaže a vrací se 500.
 //
@@ -25,8 +26,8 @@ import { authClassify } from '../_shared/auth.ts'
 import { buildHtml, normalizeMotoEquipment, type Signer, type Vars } from './html.ts'
 import { bookingGearItems, normalizeAccessories, resolveSizeUpdates } from './gear.ts'
 import {
-  CORS, fail, fmtDate, json, parseSignedAt, pragueDay, removeDocument, SIG_MAX_APP, SIG_MAX_KIOSK, SIG_RE,
-  signatureBytes, storeDocument, UUID_RE,
+  CORS, fail, fmtDate, json, parseSignedAt, positiveKm, pragueDay, removeDocument, resolvePickupKm, SIG_MAX_APP,
+  SIG_MAX_KIOSK, SIG_RE, signatureBytes, storeDocument, UUID_RE,
 } from './util.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
@@ -75,7 +76,7 @@ serve(async (req) => {
     // ── Rezervace + vozidlo + pobočka (service role, obejde RLS) ───────────
     const { data: booking, error: bErr } = await admin
       .from('bookings')
-      .select('*, motorcycles!moto_id(model, spz, vin, mileage, branch_id, branches(type))')
+      .select('*, motorcycles!moto_id(model, spz, vin, mileage, tracking_unit, branch_id, branches(type))')
       .eq('id', bookingId)
       .maybeSingle()
     if (bErr) return fail('db_error', 500, { detail: bErr.message })
@@ -134,12 +135,24 @@ serve(async (req) => {
     else delete form.moto_equipment
     if (mode === 'kiosk') {
       if (!Array.isArray(form.accessories)) accessories = bookingGearItems(booking)
-      form.mileage = String(form.mileage ?? moto.mileage ?? '')
       form.checks = { clean: true, docs: true, keys: true, instructed: true, gear: accessories.length > 0, ...((form.checks && typeof form.checks === 'object') ? form.checks as Record<string, unknown> : {}) }
       if (!form.damage || typeof form.damage !== 'object') form.damage = { checked: false, desc: '' }
       if (typeof form.notes !== 'string') form.notes = ''
     }
     form.accessories = accessories
+
+    // ── Stav km při předání = VŽDY systém (zadání majitele 2026-09-29) ─────
+    // Zákazník km nezadává: platí poslední stav z vrácení předchozím zákazníkem
+    // (kiosk), z přesunu ve Velínu nebo z korekce. Appka: form.mileage se IGNORUJE
+    // (4.0.7/4.0.8 mají ještě volné pole) → vždy DB _handover_pickup_km. Kiosk:
+    // hodnota jednotky, je-li to kladné celé číslo — v její offline frontě může
+    // ještě čekat neodeslaný stav vrácení předchozího zákazníka (a vrácení téže
+    // rezervace může dorazit dřív než podpis převzetí); jinak totéž RPC.
+    let pickupKm = mode === 'kiosk' ? positiveKm(form.mileage) : null
+    if (pickupKm == null) pickupKm = await resolvePickupKm(admin, bookingId, moto.mileage)
+    const mileageUnit: 'km' | 'mh' = moto.tracking_unit === 'mh' ? 'mh' : 'km'
+    form.mileage = pickupKm != null ? String(pickupKm) : ''
+    form.mileage_unit = mileageUnit
 
     // ── Zákazník ───────────────────────────────────────────────────────────
     let customer: Record<string, unknown> = {}
@@ -199,6 +212,8 @@ serve(async (req) => {
       _signed_at: signer.signedAt.toISOString(),
       _signed_by: signer.by,
       ...(deviceId ? { _device_id: deviceId } : {}),
+      _mileage: pickupKm,
+      _mileage_unit: mileageUnit,
     }
     const { error: gErr } = await admin.from('generated_documents').insert({
       id: docId, template_id: null, booking_id: bookingId, customer_id: booking.user_id, filled_data: filled, pdf_path: pdfPath,
@@ -215,12 +230,12 @@ serve(async (req) => {
       return fail('insert_failed', 500, { detail: gErr.message })
     }
 
-    // Stav km z protokolu → bookings.mileage_start (trigger trg_booking_mileage_to_moto
-    // bumpne motorcycles.mileage = GREATEST). Jen když roste; best-effort.
+    // Systémový stav km z protokolu (pickupKm výše) → bookings.mileage_start (trigger
+    // trg_booking_mileage_to_moto bumpne motorcycles.mileage = GREATEST). Jen když
+    // roste; best-effort.
     try {
-      const km = parseInt(String(form.mileage ?? '').replace(/[^\d]/g, ''), 10)
-      if (Number.isFinite(km) && km > 0 && (!booking.mileage_start || km > Number(booking.mileage_start))) {
-        await admin.from('bookings').update({ mileage_start: km }).eq('id', bookingId)
+      if (pickupKm != null && (!booking.mileage_start || pickupKm > Number(booking.mileage_start))) {
+        await admin.from('bookings').update({ mileage_start: pickupKm }).eq('id', bookingId)
       }
     } catch (_) { /* nikdy neshodí protokol */ }
 

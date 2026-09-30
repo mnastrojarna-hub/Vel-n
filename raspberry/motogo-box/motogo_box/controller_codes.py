@@ -37,6 +37,8 @@ LOG_EVENT_SOURCES: dict[EventKind, str] = {
     EventKind.SHELL: "shell",
     EventKind.IO_PROVISIONED: "modbus",
     EventKind.PROTOCOL_SIGNED: "protocol", EventKind.PROTOCOL_UPLOAD_FAILED: "protocol",
+    EventKind.ODOMETER_RECORDED: "odometer", EventKind.ODOMETER_REJECTED: "odometer",     # stav tachometru (§30)
+    EventKind.ODOMETER_UPLOAD_FAILED: "odometer", EventKind.ODOMETER_DISPUTED: "odometer",
 }
 # Události, které se zobrazí jako upozornění v UI
 NOTICE_KINDS = frozenset({EventKind.FORCED_OPEN, EventKind.SESSION_OVERTIME, EventKind.SESSION_OVERTIME_ALERT})
@@ -66,6 +68,10 @@ def error_text(error: str | None) -> str:
         return ("K rezervaci máte výbavu v šatně. Zadejte nejdřív kód šatny, vezměte si výbavu a zavřete dveře — "
                 "pak zadejte kód motorky. Kód šatny najdete v aplikaci MotoGo24, v e-mailu nebo v SMS. "
                 "Výbavu nechcete? Zadejte kód motorky znovu.")
+    if error == "odometer_required":        # vrácení motorky (2026-09-29, odometer.py)
+        return "Vracíte motorku? Zadejte stav tachometru z budíku motorky — bez něj se kóje neotevře."
+    if error == "odometer_invalid":
+        return f"Zadaný stav tachometru není reálný. Zkontrolujte ho na budíku a zadejte znovu. Podpora: {SUPPORT}."
     if error == "handover_in_progress":     # zámek přejímky (2026-09-28, handover_lock.py)
         return ("Nejprve musí být dokončena předchozí přejímka — zákazník, který právě zavřel šatnu, zadá kód své motorky. "
                 "Pak přijdete na řadu.")
@@ -219,7 +225,8 @@ async def resolve_code(ctrl: "BoxController", code: str) -> ResolveResult:
     return rr
 
 
-async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnostics_only: bool = False) -> dict:
+async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnostics_only: bool = False,
+                      odometer: str | None = None) -> dict:
     """Ověří kód (online RPC → offline cache), servisní heslo vydá token, zákaznický otevře zónu.
 
     Diagnostický kód (lokální `diagnostics.code` nebo servisní heslo s účelem `diagnostics`)
@@ -227,6 +234,7 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
     ale ne během PIN lockoutu (hádání kódů). `diagnostics_only=True` (okno diagnostiky): smí jen
     spustit diagnostiku (lokální kód / kterékoli servisní heslo) — nikdy neotevře dveře ani nevydá
     servisní token; zákaznický kód se tam chová přesně jako neplatný (žádné orákulum).
+    `odometer` = stav tachometru z overlaye displeje (UI po `odometer_required` pošle kód znovu i s hodnotou, §30).
     """
     code = normalize_code(code or "")
     base = {"ok": False, "kind": "invalid", "error": None, "message": "", "zone": None,
@@ -299,7 +307,16 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
                               detail={"source": source, "reason": "door_not_configured"}))
         return {**base, "kind": rr.kind, "error": "zone_not_configured", "message": not_configured_text(name)}
     now = handover.clock() if handover is not None else time.time()
-    locker_zone = handover_locker.check(ctrl, rr, now, zone_for_code) if handover is not None else None
+    # Stav tachometru (2026-09-29, §30) — rozhodnutí HNED po zóně: vrácení = výzva k zadání km (bez platné hodnoty
+    # kóje zavřená, bez lockoutu), hradla převzetí (šatna, protokol) se při vrácení neuplatní.
+    om = getattr(ctrl, "odometer", None)
+    plan = om.plan(rr, now) if om is not None else None
+    if plan is not None:
+        blocked = await om.gate(plan, rr, zc, source, odometer, base)
+        if blocked is not None:
+            return blocked
+    returning = plan is not None and plan.returning
+    locker_zone = handover_locker.check(ctrl, rr, now, zone_for_code) if handover is not None and not returning else None
     if locker_zone is not None:
         # Měkké hradlo: bez lockoutu a bez protokolu; opakovaný kód motorky do 10 min už pustí (výbavu nechce).
         await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="info", code_kind=rr.kind,
@@ -309,12 +326,16 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
                                       "offline": rr.offline}))
         return {**base, "kind": "motorcycle", "booking_id": rr.booking_id, "error": "locker_first",
                 "message": error_text("locker_first")}
-    if handover is not None and rr.kind == "motorcycle" and await handover.require_before_open(rr, zc, source):
+    if handover is not None and rr.kind == "motorcycle" and not returning \
+            and await handover.require_before_open(rr, zc, source):
         # Bez ACCESS_DENIED a bez lockoutu (není v INVALID_CODE_ERRORS) — kód je platný, jen chybí podpis;
         # overlay protokolu přijde na displej přes snapshot (`handover.active`), kóje se po podpisu otevře sama.
         return {**base, "kind": "motorcycle", "error": "protocol_required", "zone": zc.number,
                 "booking_id": rr.booking_id, "message": error_text("protocol_required")}
-    ok, reason = await zc.grant_access(booking_id=rr.booking_id, kind=rr.kind, source=source)
+    extra = {"detail": om.grant_detail(plan)} if plan is not None else {}
+    ok, reason = await zc.grant_access(booking_id=rr.booking_id, kind=rr.kind, source=source, **extra)
+    if ok and plan is not None:
+        om.commit_open(plan, protocol=rr.protocol, now=now)    # fáze out/in (neotevřené čtení zůstane k opakování)
     if handover is not None and (ok or (rr.kind == "accessories" and reason in handover_locker.UNAVAILABLE)):
         handover_locker.mark_opened(ctrl.storage, rr.booking_id, now)   # výzva „nejdřív šatna“ už ne
     if ok and handover is not None and rr.kind == "accessories":
@@ -326,8 +347,13 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
                               zone=zc.number, door_id=zc.zone.door_id, booking_id=rr.booking_id,
                               box_number=zc.zone.box_number, message=f"{name}: otevření selhalo ({reason})",
                               detail={"source": source, "reason": reason, "offline": rr.offline}))
-    return {**base, "ok": ok, "kind": rr.kind, "error": None if ok else reason, "zone": zc.number,
-            "message": open_result_text(ok, reason, rr.kind, name, box_number=door_number(zc))}
+    res = {**base, "ok": ok, "kind": rr.kind, "error": None if ok else reason, "zone": zc.number,
+           "message": open_result_text(ok, reason, rr.kind, name, box_number=door_number(zc))}
+    reading = plan.reading if ok and plan is not None else None
+    if reading:
+        res["odometer"] = {"km": reading["km"], "unit": reading["unit"]}
+        res["message"] += f" Stav tachometru {reading['km']} {'mth' if reading['unit'] == 'mh' else 'km'} uložen."
+    return res
 
 
 def door_number(zc: "ZoneController") -> int:

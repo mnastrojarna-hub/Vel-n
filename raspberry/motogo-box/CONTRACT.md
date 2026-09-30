@@ -6,7 +6,8 @@ aby šly moduly psát nezávisle a integrovat bez úprav. Sdílené typy jsou v
 `motogo_box/models.py`, konfigurace v `motogo_box/config.py` (oba už existují —
 mění se JEN aditivně a JEN se změnou tohoto kontraktu; jediné takové rozšíření: 2026-09-25 vedený tok
 šatna → protokol → motorka — `EventKind.PROTOCOL_*`, `ResolveResult.protocol`, `TimingsCfg.handover_idle_s`, §28;
-2026-09-28 zámek přejímky — `TimingsCfg.handover_lock_s`, §28).
+2026-09-28 zámek přejímky — `TimingsCfg.handover_lock_s`, §28; 2026-09-29 stav tachometru při vrácení — `EventKind.ODOMETER_*`,
+`ResolveResult.odo`, `TimingsCfg.odometer_grace_min` / `odometer_idle_s`, §30).
 
 Zdroj požadavků: uživatelská specifikace „Implementační specifikace řídicího
 systému – 9zónový MotoGo box" (§1–§13) + existující kiosk backend Supabase
@@ -42,6 +43,9 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
 `motorcycle`|`accessories` dle kódu, který protokol vyvolal, + `booking_id`), `EventKind.PROTOCOL_SIGNED`,
 `EventKind.PROTOCOL_UPLOAD_FAILED` (→ `kiosk_log_event`, source `protocol`, level error); `ResolveResult.protocol: dict | None`
 = objekt `protocol` z RPC beze změny tvaru (§22; klíč chybí → `None`). Žádný nový `ZoneState` — protokol není stav zóny.
+**Doplněno 2026-09-29 (§30):** `EventKind.ODOMETER_RECORDED` (info), `ODOMETER_REJECTED` (warn), `ODOMETER_UPLOAD_FAILED` (error),
+`ODOMETER_DISPUTED` (warn) — vše `kiosk_log_event`, source `odometer`; `ResolveResult.odo: dict | None` = blok `odo` z RPC /
+`codes[].odo` ze sync (jen kód motorky; klíč chybí → `None`).
 
 ## 2. `config.py` (HOTOVO — jen používat)
 
@@ -95,6 +99,10 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
   šatny) zámek po této době zaniká — zákazník, který odešel, nesmí kiosk zaseknout. Z Velína `hardware.timings.handover_lock_s`
   (volitelné), UI ho dostane v `snap['timings']` (jen informativně — konec zámku čte z `handover.lock.until`). Není
   v `ZONE_TIMING_KEYS` a nepočítá se do `hw_signature`.
+- **`TimingsCfg.odometer_grace_min` (výchozí 60) a `odometer_idle_s` (výchozí 120) — 2026-09-29, §30:** opakovaný kód motorky
+  do `odometer_grace_min` od poslední změny fáze (převzetí / vrácení) stav tachometru NEchce; overlay `#odometer` bez dotyku
+  `odometer_idle_s` → zavřít a zapomenout kód (UI, v `snap['timings']`). Z Velína `hardware.timings.*` (volitelné); není
+  v `ZONE_TIMING_KEYS`, nepočítá se do `hw_signature`. Limit km/den se NEnastavuje na jednotce — `odo.per_day` jen ze serveru.
 - **`SecurityCfg` (2026-09-11):** `{maximum_failed_attempts, attempt_window_minutes, lockout_minutes, service_token_minutes}` — pole
   `pin_length` a `mask_pin_on_screen` ODSTRANĚNA (kód na displeji je viditelný, §16); `_fill` staré klíče z map v DB ignoruje.
 - **Venek (2026-09-11, `config_outdoor.py`, §26):** `HardwareConfig.outdoor: OutdoorCfg` z top-level klíče `outdoor {zone,
@@ -336,6 +344,14 @@ class Storage:
         # jinak 'pending' (síť/5xx/404 → další pokus bez limitu)
     def protocol_queue_retry_failed(self) -> int                        # failed → pending (Velín „Znovu synchronizovat“ = reload)
     def protocol_queue_status(self) -> dict                             # {pending: [booking_id…], failed: [booking_id…]} → snapshot
+    # 2026-09-29 (§30) — mixin `storage_odometer.OdometerQueueMixin` (schéma `ODOMETER_SCHEMA`): tabulka odometer_queue(reading_id PK
+    # = uuid4 jednotky, booking_id, moto_id, km, payload_json, created_at, attempts, last_error, status pending|failed) + index moto_id.
+    # NIKDY se nemaže limitem ani přetečením (jako protocol_queue). Transakce „řádek + kv“ = sdílený `_write_with_kv(sql, params, kv)`.
+    def odometer_queue_put(self, reading_id, booking_id, moto_id, km, payload, kv=None) -> None   # INSERT … ON CONFLICT DO NOTHING
+    def odometer_queue_pending(self, limit=20) -> list[dict]   # [{reading_id, booking_id, moto_id, km, payload, attempts, created_at}]
+    def odometer_queue_done(self, reading_id) -> None ; def odometer_queue_fail(self, reading_id, error, permanent) -> None
+    def odometer_queue_retry_failed(self) -> int ; def odometer_queue_status(self) -> dict   # {pending: [booking_id…], failed: […]}
+    def odometer_queue_max_km(self, moto_id) -> int | None     # nejvyšší čekající (pending) stav motorky; failed meze neovlivní
 ```
 
 ## 7a. `music_sync.py` — knihovna hudby pobočky (`MusicLibrary`, 2026-09-10)
@@ -388,6 +404,7 @@ class LocalResolver:
     def resolve(self, code: str, cache: dict | None, now: datetime) -> ResolveResult | None
         # cache = CELÝ payload kiosk_sync_config (save_code_cache). 2026-09-25 (§28): k nalezenému hashi dohledá
         # cache['protocols'][] dle booking_id → ResolveResult.protocol = protocol_for(cache, booking_id)
+        # 2026-09-29 (§30): kód motorky → ResolveResult.odo = row['odo'] (dict), jinak None (šatna nikdy)
     @staticmethod
     def protocol_for(cache: dict | None, booking_id: str | None) -> dict | None
         # klíč `protocols` chybí (stará cache) → None (stav neznámý = fail-open); seznam existuje, ale rezervace v něm není
@@ -423,6 +440,10 @@ class SupabaseApi:
         # timeout PROTOCOL_TIMEOUT_S = 45 s; mimo outbox (vlastní fronta protocol_queue) → {ok, permanent: bool, error, already_filled}
         # ok = 2xx se success:true (i already_filled); permanent = 4xx MIMO 404/408/429 (kiosk NIKDY neopakuje; 410 not_found
         # z mode kiosk = trvalé) nebo 2xx bez success; 404 (edge ještě nenasazená) / 408 / 429 / 5xx / síť = dočasné (bez limitu)
+    async def submit_odometer(self, payload: dict) -> dict    # 2026-09-29 (§30): RPC kiosk_submit_odometer({auth, **payload}, 15 s),
+        # mimo outbox (vlastní fronta odometer_queue) → {ok, permanent, error, status accepted|disputed, reason, duplicate};
+        # permanent = ODOMETER_PERMANENT (missing_inputs, invalid_km, not_found, forbidden, conflict) nebo 4xx mimo 401/403/408/429
+        # a 404/PGRST202 „RPC chybí“; `unauthorized`, síť, 5xx, nenasazená RPC = dočasné (bez limitu)
     async def close(self) -> None
 ```
 
@@ -470,7 +491,10 @@ class ZoneController:
         #  None (modul kontaktu offline) v jakémkoli stavu → FAULT 'io_offline', BOTH_BLINK, hudba stop, event IO_OFFLINE; návrat hodnoty → startup(door_closed)
         #  jiný modul offline (zámek) během aktivní relace (WAITING/DOOR_OPEN/CLOSED_CONF) → relace pokračuje; světlo/Shelly offline nikdy neblokují
         #    v režimu `degraded=True` (nový přístup zamítnut io_ready=False); io_offline až po skončení relace (evaluate po SECURED)
-    async def grant_access(self, *, booking_id: str | None, kind: str, source: str) -> tuple[bool, str]
+    async def grant_access(self, *, booking_id: str | None, kind: str, source: str,
+                           detail: dict | None = None) -> tuple[bool, str]
+        # `detail` (2026-09-29, §30) = klíče navíc do ACCESS_GRANTED (`zone_access.grant_locked(..., extra)`): u kódu motorky
+        # `odometer_phase` out|in, u vrácení i `odometer_km` + `odometer_reading_id` → branch_door_events.detail
         # §9 „Platný PIN" kroky 4–12: io_ready? ne → (False,'io_offline'); state ∉ {SECURED, CLOSED_CONFIRMATION} → (False,'busy'/'door_open');
         # door_closed is not True → (False,'door_open'); reset_session (ukončí doběh); světlo ON (ověřeno); GREEN; audio.play_zone; io.pulse(lock, lock_pulse_ms, retry=False)
         #   timings.lock_hold_until_open (2026-09-26): místo pulzu io.hold(lock, (door_open_timeout_s+1)*1000) — HW flash-on modulu = pojistka; zone_access.release_lock při DOOR_OPEN / timeoutu / force_secure (io.set off); ZoneController.lock_held
@@ -514,6 +538,7 @@ class BoxController:
     music: MusicLibrary | None                 # knihovna hudby (§7a) — vzniká JEDNOU (make_music_library), přežije přestavby; None = legacy playlist z music_dir
     ui_notice: dict | None                     # {"title","subtitle","kind","ts"} pro UI (identify apod.)
     handover: HandoverManager                  # vedený tok šatna → protokol → motorka (§28, 2026-09-25)
+    odometer: OdometerManager                  # stav tachometru při vrácení (§30, 2026-09-29; clock = handover.clock)
     async def start(self) -> None
         # 1) načti HW: local hardware_file + storage.kv 'remote_config' (poslední sync) → HardwareConfig
         # 2) vytvoř IoBus/Signal/Audio/zóny; 3) §12 startup: io.start → io.all_off → signals.all_off → audio.all_off
@@ -523,7 +548,8 @@ class BoxController:
         #    sync_loop (intervals.sync_s), command_loop (intervals.command_poll_s + wake z realtime), status_loop
         #    (intervals.status_report_s), outbox_loop (60 s), realtime listener, power_loop (pokud power_status_url), watchdog (sdnotify)
     async def stop(self) -> None               # zruš tasky, audio.all_off, io.all_off, signals: zavřené zóny RED, ostatní off
-    async def submit_code(self, code: str, source: str = "ui") -> dict
+    async def submit_code(self, code: str, source: str = "ui", *, diagnostics_only: bool = False,
+                          odometer: str | None = None) -> dict
         # {"ok":bool,"kind":"motorcycle|accessories|service|invalid","error":str|None,"message":str,"zone":int|None,
         #  "locked_until":float|None,"doors":[ServiceDoor…] (jen service), "service_token":str|None}
         # kroky: normalize; PinGuard.locked → error 'locked'; 6 číslic nebo neprázdné (servisní heslo) ; api.resolve_code →
@@ -547,6 +573,14 @@ class BoxController:
         #   druhé zadání do REPEAT_S (10 min) projde („výbavu nechci“); fail-open při absent/neznámém protokolu, chybějícím
         #   kódu šatny v cache codes[], šatně mimo HW mapu nebo v poruše. Po úspěšném grant_access (i šatna s lock_failed /
         #   io_offline / fault) `handover_locker.mark_opened` → kv `handover_locker` {opened:{bid:ts} 60 dní, prompted:{bid:ts}}.
+        # 2026-09-29 (§30 stav tachometru): HNED po nalezení zóny `plan = ctrl.odometer.plan(rr, now)` (kód motorky s rezervací)
+        #   → `await odometer.gate(plan, rr, zc, source, odometer, base)`: vrácení bez hodnoty → {**base, kind:'motorcycle', zone,
+        #   booking_id, error:'odometer_required', odometer:{unit,hint,min,max,days,zone}, message}; neplatná → error
+        #   'odometer_invalid' + `reason` too_low|too_high|not_number + ODOMETER_REJECTED (warn) — obojí BEZ lockoutu a bez
+        #   ACCESS_DENIED; platná → fronta + kv (ODOMETER_RECORDED) a pokračuje se. `plan.returning` (fáze po otevření `in`) →
+        #   `handover_locker.check` i `require_before_open` se PŘESKOČÍ. grant_access s `detail=odometer.grant_detail(plan)`;
+        #   ok → `odometer.commit_open(plan, protocol=rr.protocol, now)`; ok s čtením → odpověď navíc `odometer: {km, unit}`
+        #   a k `message` „ Stav tachometru N km|mth uložen.“
     def check_service_token(self, token: str | None) -> bool
     async def service_open(self, door_id: str | None, zone: int | None) -> dict     # grant_access(kind='service', source='service_panel'); mimo běžný stav zóny = nouzový impulz zámku (2026-09-26, zone_access.service_unlock_locked), chyby 'lock_offline' | 'not_configured' | 'lock_failed'
     async def handle_command(self, cmd: dict) -> None    # → commands.execute → api.complete_command
@@ -566,6 +600,7 @@ class BoxController:
     def snapshot(self) -> dict              # viz §14 payload statusu (pro UI i kiosk_report_status); ["outdoor"] = outdoor.status()
                                             # ["handover"] = handover.status() (§14/§28); tick_loop volá i handover.tick();
                                             # `protocol_loop` (controller_loops, §28) odesílá frontu podpisů
+                                            # ["odometer"] = odometer.status() (§30); `odometer_loop` (30 s + wake) frontu km
     async def all_off(self) -> None         # audio.all_off, outdoor.all_off, io.all_off (vše), signals.all_off, zóny force_secure
     async def emit(self, event: Event) -> None   # storage.event_add + log_open/log_event dle druhu (viz §15) + UI
     def find_zone(self, *, door_id: str | None = None, zone: int | None = None, box_number: int | None = None) -> ZoneController | None
@@ -589,7 +624,7 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | `audio_test` | `zone` \| `out`, `seconds?` | `zone` → `audio.test_tone` (zóna bez reproduktoru → `no_speaker`); `out` → `audio.test_output` (Velín „Test výstupu“; `output_not_found`) — generovaný tón, ne playlist |
 | `all_off` | – | `ctrl.all_off()` |
 | `identify` | `label?` | ui_notice „Tady jsem" + 3× bliknutí zelené všech zón, pak obnovit |
-| `reload` / `sync_config` | – | nejdřív `ctrl.music.retry_failed()` (skladby v backoffu se zkusí hned znovu — Velín „Znovu synchronizovat“) a `ctrl.handover.retry_failed()` (2026-09-25: trvale odmítnuté podpisy `protocol_queue.failed` → `pending` + probuzení `protocol_loop` — cesta k opravě po nápravě na serveru), pak `ctrl.resync()` → `{ok, error?, deferred?}` (stáhne konfiguraci, cache kódů i seznam hudby → sync knihovny na pozadí); při aktivní relaci se přestavba zón odloží (config se stáhne, zóny až po SECURED) |
+| `reload` / `sync_config` | – | nejdřív `ctrl.music.retry_failed()` (skladby v backoffu se zkusí hned znovu — Velín „Znovu synchronizovat“) a `ctrl.handover.retry_failed()` (2026-09-25: trvale odmítnuté podpisy `protocol_queue.failed` → `pending` + probuzení `protocol_loop` — cesta k opravě po nápravě na serveru) a `ctrl.odometer.retry_failed()` (2026-09-29, §30: totéž pro `odometer_queue`), pak `ctrl.resync()` → `{ok, error?, deferred?}` (stáhne konfiguraci, cache kódů i seznam hudby → sync knihovny na pozadí); při aktivní relaci se přestavba zón odloží (config se stáhne, zóny až po SECURED) |
 | `restart` | – | complete_command PŘED ukončením, pak `os._exit(0)` (systemd restartuje) |
 | `reboot` | `wait_idle?` (bool), `wait_idle_s?` | bez `wait_idle`: complete, pak `sudo systemctl reboot`; selhání sudo → `log_event` (Velín vidí důvod). S `wait_idle:true` (Velín „Restart OS“ v bloku Aktualizace řídicích jednotek): `ctrl.updater.start('reboot', params)` → hned `{scheduled:true, wait_idle_s}`, reboot až když je box volný (§25; `update.kind='reboot'`, `waiting` → `rebooting`, selhání `failed` `reboot_failed: rc=N`; `last` se NEpřepisuje). `restart`/`reboot` = `TERMINAL_COMMANDS` (dokončí se před ukončením procesu) |
 | `update_software` | `ref?` (sha 7–40 hex), `rollout_id?`, `wait_idle_s?` (0–14400, výchozí 1800) | `ctrl.updater.start('software', params)` (§25) — jen NAPLÁNUJE a hned vrací `(True, {scheduled:true, ref, wait_idle_s})`; v klidu `sudo /usr/local/sbin/motogo-update` (root-owned kopie `scripts/update.sh`: `git fetch` + `git merge --ff-only <ref\|@{upstream}>` jako vlastník checkoutu, pip v rozsazích requirements, restart; timeout 900 s). Odmítne `invalid_ref`, `update_in_progress` (+`state`, `kind`; po timeoutu `reason:'timeout_orphan'`, `retry_after_s`). Výsledek Velín pozná z hlášené verze / `status.update`, ne z výsledku příkazu |
@@ -670,6 +705,9 @@ zámek založila), until (ISO = last_activity + handover_lock_s), customer_name 
 která právě zavřela šatnu a ještě neotevřela kóji motorky: kiosk přijímá jen její kódy, ostatní zákazníci dostanou
 `handover_in_progress`; UI z něj kreslí pruh `#handover-lock`. `kiosk_report_status` nese totéž — NIKDY podpis ani formulář
 (limit 256 KiB). `timings` (§16) nově i `handover_idle_s` a `handover_lock_s`.
+`odometer` (2026-09-29, §30) = `{pending: [booking_id…], failed: [booking_id…]}` z `odometer_queue_status` — stavy tachometru
+zadané na displeji a dosud NEpotvrzené serverem (`pending` = síť/5xx/RPC nenasazená, opakuje se á 30 s; `failed` = RPC trvale
+odmítla, zpět jen `reload`/`sync_config`). `timings` nese i `odometer_idle_s`.
 
 Hodnoty `state` = `ZoneState.value` (velká písmena), `signal` = `Signal.value` (malá písmena: red, green, green_pulse, red_blink, both_blink, off).
 
@@ -726,6 +764,13 @@ stored}` — podpis na displeji přijat; `stored=false` = zápis do `protocol_qu
 PROTOCOL_UPLOAD_FAILED (error 'protocol', `booking_id` pole Eventu, detail `{source:'protocol_queue', error, booking_id,
 signature_bytes}` — edge podpis TRVALE odmítla (4xx mimo 404/408/429), položka zůstává `failed` v `protocol_queue`; nikdy
 neobsahuje PNG podpisu). Žádný klíč `attempts`/`status` v detailu není.
+**2026-09-29 (§30):** ACCESS_GRANTED kódu motorky nese v detailu `odometer_phase` (`out` převzetí / vyjetí, `in` vrácení / kód po
+vrácení; server z posledního z nich odvozuje `last_open_phase`) a u vrácení `odometer_km` + `odometer_reading_id`.
+`kiosk_log_event` source `odometer`: ODOMETER_RECORDED (info; `booking_id`, `zone`; detail `{source, reading_id, km, unit, min, max,
+days, offline, stored}` — `stored=false` + level error = zápis do fronty selhal, kóje se přesto otevře), ODOMETER_REJECTED (warn;
+zákazník zadal hodnotu mimo rozsah / nečíslo — kóje zavřená; detail `{source, reason, value (≤ 12 zn.), min, max, days, unit,
+offline}`), ODOMETER_UPLOAD_FAILED (error; RPC trvale odmítla; detail `{source:'odometer_queue', error, reading_id, booking_id, km}`),
+ODOMETER_DISPUTED (warn; server čtení uložil jako sporné — mimo jeho rozsah, bez zápisu do rezervace; detail `{…, reason}`).
 
 Limity na straně DB (`20260910e_kiosk_log_guards.sql`, obě RPC jsou void — jednotka nic neopakuje):
 `kiosk_log_event` zahodí záznamy nad **120 / zařízení / minutu** a `detail` > 64 KiB nahradí
@@ -742,7 +787,9 @@ aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
 - `GET /api/state` → `ctrl.snapshot()` + `paired`, `device_id`, `timings` (blok `security {mask_pin_on_screen, pin_length}` od
   2026-09-11 ODSTRANĚN — kód na displeji je viditelný).
 - `WS /ws` → po připojení a poté každou 1 s (nebo při změně) pošle `{"type":"state","state":<snapshot>}`.
-- `POST /api/pin {"code"}` → `ctrl.submit_code(code, "ui")`.
+- `POST /api/pin {"code", "odometer"?}` → `ctrl.submit_code(code, "ui")`; `odometer` (2026-09-29, §30; text nebo celé číslo,
+  jiný typ → 400 `bad_odometer`) → `submit_code(code, "ui", odometer=str(odometer))`. Odpovědi navíc `odometer_required` /
+  `odometer_invalid` (+ `reason`) s `odometer {unit, hint, min, max, days, zone}` a úspěch s `odometer {km, unit}`.
 - `POST /api/service/open {"service_token","door_id"|"zone"}` → `ctrl.service_open`.
 - `POST /api/service/music {"service_token","zone","on":bool}`.
 - `POST /api/service/light {"service_token","zone","on":bool}`.
@@ -788,8 +835,10 @@ Chybové odpovědi `{"ok":false,"error":"…"}`; neplatný service_token → 403
 
 UI (`ui/index.html`, `ui/app.js`, `ui/style.css` + `ui/style-overlays.css`, `ui/i18n.js`, `ui/keyboard.js`, `ui/panel.js`,
 `ui/diag.js` (§24), `ui/shell.js` (§27) a od 2026-09-25 `ui/i18n-handover.js` (skupiny `ho.*`/`g.*` přes `MG.i18n.extend`, načítá se
-hned po `i18n.js`), `ui/signature.js` (`MG.Signature`), `ui/handover.js` (`MG.Handover`), `ui/style-handover.css` — pořadí
-`<script>` v `index.html`: i18n, i18n-handover, keyboard, signature, panel, diag, shell, handover, app; vanilla JS,
+hned po `i18n.js`), `ui/signature.js` (`MG.Signature`), `ui/handover.js` (`MG.Handover`), `ui/style-handover.css`, od 2026-09-29
+`ui/i18n-locker.js`, `ui/i18n-odometer.js`, `ui/odometer.js` (`MG.Odometer`, §30) a `ui/style-odometer.css` — pořadí
+`<script>` v `index.html`: i18n, i18n-handover, i18n-locker, i18n-odometer, keyboard, signature, panel, diag, shell, handover,
+odometer, app; vanilla JS,
 žádné CDN, offline). **Redesign 2026-09-10 pro široký nízký dotykový displej:** rozložení **100vw × 100vh, responzivní** —
 žádné pevné 1920×1080 ani `fit()` transformace (ověřeno 1920×1080, 2560×1080, 1920×720, 3840×1080, 1280×400; nic se
 nepřekrývá). **Světlé téma MotoGo24** v barvách webu/appky (zelená #74FB71, tmavá #1A2E22, pozadí #F1FAF7…); technické
@@ -824,6 +873,16 @@ dokončí převzetí.“); klávesnice zůstává aktivní (servisní hesla, vla
 `error: 'handover_in_progress'` → `#status` `et.handover_in_progress` / `es.handover_in_progress` (česky `message` ze serveru).
 Výzva „nejdřív šatna“ (2026-09-29): `/api/pin` `error: 'locker_first'` → `#status` `et.locker_first` / `es.locker_first` z nového
 `ui/i18n-locker.js` (8 jazyků, `MG.i18n.extend`, načítá se hned po `i18n-handover.js`; česky `message` ze serveru).
+Stav tachometru při vrácení (2026-09-29, §30): `/api/pin` `error: 'odometer_required'` → app.js `hideStatus()` +
+`MG.Odometer.open(code, res)` (`ui/odometer.js`) — modální `#odometer` (z-index 46, `style-odometer.css`): titulek `od.title` /
+`od.titleMh`, `od.intro(Mh)`, název kóje, pole km (číslice formátované dle jazyka + jednotka; prázdné = šedý placeholder
+`hint` + jednotka = poslední známý stav), řádek `od.last`, číselník `MG.Keyboard` `pin` (max 7 číslic, bez úvodní nuly), Zpět
+(`ho.back`) / Potvrdit (`od.confirm`), spinner `od.saving`, odpočet `ho.autoClose*` z `timings.odometer_idle_s` (UI; vypršení =
+zavřít a zapomenout kód). Potvrdit → `/api/pin {code, odometer}`: ok → `#status` successTitle + successSubtitle + `od.saved`;
+`odometer_invalid` → overlay zůstává, `od.tooLow {min,u}` / `od.tooHigh {max,u}` / `od.notNumber` + `od.help`; jiná chyba →
+zavřít + `#status` jako app.js. Kód drží JEN `odometer.js` v paměti. Fyzická klávesnice: terminál > diagnostika > setup >
+**#odometer** > protokol > šatna. Texty `ui/i18n-odometer.js` (8 jazyků, skupina `od` + `et/es.odometer_required|invalid`),
+načítá se po `i18n-locker.js`; skripty `…, handover.js, odometer.js, app.js`.
 Overlay `#handover` (modální, z-index mezi `#status` a `#service`; modul `MG.Handover` v `ui/handover.js`: `init({post, showStatus, getState})`, `onState(st)`,
 `rerender()`, `isVisible()`, `keys` pro fyzickou klávesnici; podpis `MG.Signature.create(el, {onStroke})` v `ui/signature.js`)
 se kreslí ze `st.handover.active` (§14): hlavička (`data`; popisky `ho.customer`/`ho.moto`/`ho.period`), řádky výbavy (ikona/název `g.helmet…gloves`,
@@ -1030,6 +1089,16 @@ Třídy `SimRelayModule`, `SimShelly` použitelné v testech in-process (`await 
   `handover.retry_failed`), `test_pins.py` (`protocol` z `protocols[]` / `None` / `absent`), `test_webserver.py` (`/api/protocol/*`
   vč. 400 `missing_booking_id`, 413 nad `BODY_MAX_BYTES`, `timings.handover_idle_s`). Soubor `test_controller.py` NEEXISTUJE —
   `config_part` bez `protocols`/`gear_sizes` a snapshot `handover` pokrývá `test_handover.py`/`test_webserver.py`.
+- `test_odometer.py` (2026-09-29, §30): převzetí bez výzvy, opakovaný kód v grace, vrácení → `odometer_required` (bez lockoutu,
+  bez ACCESS_DENIED) → platná hodnota ve frontě PŘED grantem + detail ACCESS_GRANTED; too_low / too_high / not_number (hranice
+  včetně); dny v Praze přes půlnoc; mth 24/den; zastaralý start_km; parkování přes noc (km při zaparkování, ne při vyjetí,
+  spodní mez z neodeslaného čtení, po potvrzení jen server); kód po vrácení v grace; grace z Velína; důkazy serveru (out / in /
+  grace / přistavení / bez důkazu / bez `odo`); offline `codes[].odo` a stará cache; neotevřená kóje → opakování bez nové výzvy;
+  bez známých km bez mezí; stará DB (meze z lokálního převzetí); vrácení přeskočí `protocol_required` i `locker_first`; km do
+  protokolu převzetí z neodeslaného vrácení; šatna po vrácení bez zámku; skutečný `ZoneController` detail.
+  `test_odometer_queue.py`: dočasná / trvalá chyba / retry / disputed / probuzení smyčky, trvanlivost a idempotence fronty,
+  atomičnost s kv, mapování `SupabaseApi.submit_odometer`. `test_webserver.py`: `/api/pin {code, odometer}` + `bad_odometer`,
+  statické soubory a pořadí skriptů.
 
 ---
 
@@ -1108,6 +1177,26 @@ neopakuje → `failed[]`; vč. 410/403/400/413), 404/408/429/5xx/síť = dočasn
 funkce/triggery); výjimka = wrapper `booking_needs_locker(uuid)` pro Velín (`GRANT EXECUTE TO authenticated, service_role`, uvnitř
 `is_admin()`). Nasazení: SQL + edge jsou pro starší jednotku aditivní (pole `protocol`/`protocols` ignoruje, `protocol_signed` =
 `unknown_command`) — starší software NEhradluje až do hromadné aktualizace z Velína (§25).
+
+**`supabase/migrations/20260929c_odometer_readings.sql` … `20260929e_kiosk_odo_sync.sql`** (2026-09-29, stav tachometru při vrácení,
+§30; detail v `SUPABASE_BACKEND_STATE_*.md`). Pro jednotku závazné: (a) tabulka `moto_odometer_readings` (kind return | transfer
+| correction, source kiosk | velin, status accepted | disputed, reason, prev_km/min_km/max_km, recorded_at, detail; čte admin,
+zapisují jen SECURITY DEFINER RPC); (b) interní `_kiosk_odometer(booking, branch, at?)` → blok **`odo`** = `{booking_id, moto_id,
+unit km|mh, per_day (1000 | 24), hint (= motorcycles.mileage, 0 → NULL), min (= hint), max (start_km + per_day × dny; ≤ hint →
+hint + per_day; hint NULL → NULL), start_km (mileage_start, jinak hint), start_at (nejdřív z picked_up_at | 1. ACCESS_GRANTED
+kóje | začátek dne startu), days (Praha, včetně), last_reading_km/at, last_open_at + last_open_phase (poslední ACCESS_GRANTED
+kódu motorky této rezervace na pobočce, `detail.odometer_phase`, starší = 'out'), delivered (+ delivered_at = COALESCE(picked_up_at,
+začátek dne startu)), computed_at}` (chyba → NULL = fail-open); (c) `kiosk_resolve_code` navíc `odo` (jen kód motorky s rezervací)
+a `_kiosk_protocol` navíc top-level `moto_id`, `data.mileage = _handover_pickup_km(booking)` a `data.mileage_unit`;
+(d) `kiosk_sync_config` — `codes[].odo` (jen kód motorky s `valid_from <= now() + 1 day`; žádný nový top-level klíč, protože
+starší jednotky ukládají payload bez `codes` do kv `remote_config`); (e) **`kiosk_submit_odometer(p_device_id, p_device_token,
+p_reading_id uuid, p_booking_id, p_km int, p_recorded_at?, p_detail?)`** → `{ok:true, id, status accepted|disputed, reason,
+duplicate}` | `{ok:false, error unauthorized|missing_inputs|invalid_km|not_found|forbidden|conflict}`; auth zařízení + rezervace
+s VYDANÝM kódem motorky pobočky; idempotentní dle `p_reading_id` (jiné zařízení = `conflict`); `p_recorded_at` oříznuto na
+≤ now() a ≥ now() − 30 dní; server přepočte `_kiosk_odometer` k času čtení — v rozsahu `accepted` → `bookings.mileage_end`
+(nejnovější čtení) + `motorcycles.mileage` GREATEST, mimo rozsah `disputed` → jen evidence + `debug_log` (nikdy neodmítne čtení,
+kvůli kterému jednotka už otevřela kóji). Starší jednotka nové klíče ignoruje a km nechce; nová jednotka na staré DB chce km jen
+z lokálního stavu a čtení čekají ve frontě (404/PGRST202 = dočasné). Žádný nový vzdálený příkaz (CHECK beze změny).
 
 ## 23. Velín
 
@@ -1545,7 +1634,8 @@ class HandoverItem:
     visible: bool = False ; then_open: dict | None = None   # {zone, booking_id, kind, source} — JEN dokud je overlay viditelný
     shown_at: float | None = None ; last_touch: float = 0.0 ; dismissed_at: float | None = None
     shown_logged: bool = False ; created_at: float = 0.0 ; in_flight: bool = False   # in_flight = submit právě běží
-    # persist (PERSISTED): booking_id, kind_origin, zone, data, is_child, shown_at, last_touch, dismissed_at, shown_logged, created_at
+    moto_id: str | None = None                  # 2026-09-29 (§30): `protocol.moto_id` — km převzetí z neodeslaného vrácení téže motorky
+    # persist (PERSISTED): booking_id, kind_origin, zone, data, is_child, shown_at, last_touch, dismissed_at, shown_logged, created_at, moto_id
     def persisted(self) -> dict ; @classmethod def from_dict(cls, d) -> HandoverItem | None   # vždy visible=False, then_open=None
 
 class HandoverManager:
@@ -1614,14 +1704,18 @@ class HandoverLock:
 # handover_submit.py
 SIGNATURE_MAX_BYTES = 150*1024 ; QUEUE_BATCH = 20
 def signature_bytes(signature) -> int | None    # dekódované bajty PNG data-URL (týž vzorec jako edge util.ts a ui/signature.js); None = neplatná
-async def open_zone(hm, then_open) -> tuple[dict | None, str | None]   # zc.grant_access(kind, source) → ({zone, kind, message}, None)
+async def open_zone(hm, then_open, item=None) -> tuple[dict | None, str | None]   # zc.grant_access(kind, source) → ({zone, kind, message}, None)
+                                                 #   2026-09-29 (§30): kind motorcycle = PŘEVZETÍ → detail {odometer_phase:'out'} a po ok
+                                                 #   `ctrl.odometer.on_pickup_opened(bid, item.data, item.moto_id)` (fáze out, start_km)
                                                  #   | (None, 'zone_not_configured'|busy|door_open|lock_failed|io_offline|fault) + ACCESS_DENIED
                                                  #   ok a kind motorcycle → hm.lock.release(bid) (2026-09-28; submit i protocol_signed)
 async def submit(hm, booking_id, form, signature, code, source="ui") -> dict   # {ok, status, opened, error, locked_until?} (§16)
     # kontroly: not_pending → in_progress → missing_signature → signature_too_large → then_open_valid? jinak _verify_code
     #   (lockout → locked; resolve_code online/offline: kind motorcycle & týž booking_id → then_open, jinak code_mismatch
     #   + register_failure/PIN_INVALID (vlastní kód šatny bez trestu)); pak in_flight=True, then_open pryč z položky (atomicky),
-    #   hm.lock.touch(bid) (podpis = aktivita zámku).
+    #   hm.lock.touch(bid) (podpis = aktivita zámku). 2026-09-29 (§30): `form.mileage` určuje JEDNOTKA —
+    #   `ctrl.odometer.pickup_mileage(item.data, item.moto_id)` = max(data.mileage, neodeslané vrácení téže motorky, vrácení přijaté
+    #   serverem < 5 min) (UI hodnota se přepíše).
     # pořadí: (1) storage.protocol_queue_put(bid, {booking_id, form, signature, signed_at}, kv=('handover', state_dict()))
     #   — JEDNA transakce (§7); výjimka → stored=False; Event PROTOCOL_SIGNED; (2) upload_one → saved | already_filled |
     #   queued (síť/5xx/404) | failed (4xx trvale); položka pryč z items; not stored ∧ result ∈ {queued, failed} → error
@@ -1662,6 +1756,10 @@ lockoutu. Cíl: nikdo se nehromadí v šatně, každý podepíše a jde jeden po
 se během něj odkládá (`busy()`); neúspěšné otevření kóje ho nechává (zákazník zadá kód znovu). Persist v kv `handover` (`lock`),
 snapshot `handover.lock` (§14), UI pruh `#handover-lock` (§16). Hláška šatny (dveře otevřené se zákaznickou relací) je od téhož
 dne MODÁLNÍ přes celý displej až do zavření dveří (§16) — dál odvozená jen ze živého stavu zóny, ne položka.
+(12) **Vrácení (2026-09-29, §30):** `on_wardrobe_closed` rezervace, jejíž motorka je podle jednotky v kóji
+(`ctrl.odometer.returned(bid)` = lokální fáze `in`), vrací `None` HNED — šatna je vrácení výbavy: žádný zámek přejímky, žádný
+toast „teď zadejte kód motorky“ ani protokol převzetí. Kód motorky při vrácení hradla převzetí (`locker_first`,
+`protocol_required`) nevolá vůbec (§12).
 
 Endpointy §16, snapshot §14, příkaz §13, události §15, storage §7, RPC/edge §22, testy §21 (`test_handover.py`).
 
@@ -1705,3 +1803,80 @@ zařízení, ≤ 256 KiB, ≥ 200 ms mezi snímky, vrací `{ok, active, control,
 řádek stáří/počet/MB/zbývá, přepínač „Ovládat“, klik = tap v procentech, dialog), `screenMirrorHelpers.js` (start = insert relace +
 příkaz, keepalive á 30 s, stop = `ended_at` + `screen_mirror {on:false}`, realtime `kiosk_screen_frames` + polling 4 s → `fetchFrame`
 nejdřív `seq`, celý snímek jen nový). **Testy** `tests/test_screen_mirror.py` (falešný CDP server aiohttp).
+
+## 30. `odometer.py` — stav tachometru při vrácení (rozhodnutí majitele 2026-09-29)
+
+Zadání: (1) km do protokolu PŘEVZETÍ doplní kiosk sám (nikdy se neptá) = stav, který zadal předchozí zákazník při vrácení;
+(2) při VRÁCENÍ na samoobslužné pobočce po kódu MOTORKY displej chce stav tachometru (číselník) — bez platné hodnoty se kóje
+NEotevře; jen při vrácení, nikdy při převzetí ani v appce; (3) nápověda / placeholder = poslední známý stav (`odo.hint`);
+(4) věrohodnost: hodnota v [poslední známý, start_km + 1000 km/den × dny pronájmu] (mth: 24/den), mimo → displej žádá opravu,
+kóje zavřená. Výchozí volby: grace 60 min (`timings.odometer_grace_min`), striktní rozsah (žádné „přijmout po N pokusech“),
+bez známých km bez mezí, celá čísla, fail-open bez důkazu o převzetí.
+
+Moduly: `odometer.py` (`OdometerManager` = `ctrl.odometer`), `odometer_rules.py` (čisté funkce: `evidence`, `bounds`,
+`validate`, `rental_days`, `OdoPrompt`, `OdoPlan`), `odometer_queue.py` (`upload_one`, `flush`), `storage_odometer.py`
+(fronta §7), UI `ui/odometer.js` + `ui/i18n-odometer.js` + `ui/style-odometer.css` (§16).
+
+```python
+# odometer.py
+KV = "odometer" ; KEEP_S = 60*86400 ; RETRY_GRANT_S = 600 ; RECENT_ACK_S = 300 ; DEFAULT_GRACE_MIN = 60
+class OdometerManager:
+    def __init__(self, ctrl, clock=time.time) -> None    # wake: asyncio.Event (odometer_loop), inflight: set[reading_id]
+    grace_s: float                                       # 60 × timings.odometer_grace_min (≥ 0)
+    def plan(self, rr, now=None) -> OdoPlan | None       # jen kind motorcycle s booking_id; výjimka → None (fail-open)
+    async def gate(self, plan, rr, zc, source, value, base) -> dict | None   # None = dál; jinak odpověď odometer_required|invalid
+    async def record(self, plan, km, source, offline) -> dict    # {reading_id, km, unit}: fronta + kv v JEDNÉ transakci → event → wake
+    @staticmethod def grant_detail(plan) -> dict          # {odometer_phase[, odometer_km, odometer_reading_id]}
+    def commit_open(self, plan, *, protocol=None, now=None) -> None   # po úspěšném grantu kódu motorky
+    def on_pickup_opened(self, booking_id, data=None, moto_id=None, now=None) -> None   # kóje po podpisu protokolu = převzetí
+    def pickup_mileage(self, data, moto_id) -> int | None   # max(data.mileage, odometer_queue_max_km(moto_id), recent < RECENT_ACK_S)
+    def note_accepted(self, moto_id, km) -> None           # upload_one: server čtení přijal → `recent[moto_id]` (jen km převzetí)
+    def returned(self, booking_id) -> bool                # lokální fáze 'in' (handover.on_wardrobe_closed)
+    def status(self) -> dict ; def retry_failed(self) -> int ; async def flush(self) -> int
+# odometer_rules.py
+@dataclass class OdoPrompt: booking_id, unit ('km'|'mh'), hint, min, max, days, zone ; def public() -> {unit, hint, min, max, days, zone}
+@dataclass class OdoPlan: booking_id, phase ('out'|'in'|None), at, phase_after='out', moto_id, unit, prompt, reading ; returning = phase_after == 'in'
+def evidence(odo) -> (phase, at) ; def bounds(odo, local, unit, unacked, now) -> (hint, min, max, days)
+def validate(prompt, raw) -> (km, None) | (None, 'not_number'|'too_low'|'too_high') ; def rental_days(start_ts, now_ts) -> int
+```
+
+**Fázový automat** (kv `odometer` = `{b: {booking_id: {phase, at, moto_id, unit, start_km?, start_at?, last_km?, last_at?,
+unopened?: {km, rid, ts}}}}`, záznamy starší 60 dní se zahazují). Stav rezervace = lokální záznam; bez něj důkaz serveru
+(`evidence`: `last_open_at` + `last_open_phase`, jinak `delivered` + `delivered_at`); bez důkazu = převzetí. Rozhodnutí `plan`:
+`unopened` mladší 10 min (čtení uloženo, kóje se neotevřela) → bez výzvy, totéž čtení, fáze `in`; bez důkazu → převzetí
+(`out`, bez výzvy); `now − at < grace` → bez výzvy, fáze beze změny (zapomenutá věc — po převzetí i po vrácení); fáze `in`
+(zaparkováno přes noc) → vyjetí `out` bez výzvy; fáze `out` → **vrácení = výzva** (`OdoPrompt`). `commit_open` po úspěšném
+grantu: fáze = `phase_after`, `at` = teď jen při změně fáze / prvním lokálním záznamu (jinak čas důkazu), při převzetí
+`start_at` a `start_km` (= `pickup_mileage` z protokolu), `unopened` pryč. Důsledek: vícedenní pronájem s parkováním v kóji
+chce km při KAŽDÉM zaparkování, nikdy při vyjetí; server bere nejnovější přijaté čtení jako `mileage_end`.
+
+**Hranice** (`bounds`, shodně se SQL `_kiosk_odometer` §22): hint = min = max(`odo.hint`, NEodeslané čtení téže motorky z fronty);
+max = (`odo.start_km` ∨ hint) + `odo.per_day` × `rental_days(odo.start_at, now)` (dny přepočítává jednotka SVÝMI hodinami —
+offline cache má `days` ze syncu); max ≤ min → min + per_day; `hint` NULL → min = neodeslané čtení (nebo nic), max NULL. Bez bloku
+`odo` (stará DB): per_day 1000 / 24 dle jednotky, hint = lokální `start_km` z protokolu převzetí, dny od lokálního `start_at`.
+Potvrzená (odeslaná) čtení se do meze NEpočítají — Velín „Korekce nájezdu“ (snížení motorcycles.mileage) tak zákazníka odblokuje.
+Validace: celé číslo 1–7 číslic (mezery uvnitř se ignorují), meze včetně.
+
+**Hradlo v `submit_code`** (§12): hned po zóně; `odometer_required` / `odometer_invalid` bez lockoutu a bez ACCESS_DENIED
+(neplatná hodnota = ODOMETER_REJECTED warn — Velín vidí, že zákazník u kóje neprošel); platná hodnota → `record` (fronta PŘED
+otevřením; disk selže → `stored=false`, level error, kóje se přesto otevře) → při vrácení se přeskočí `locker_first` i
+`protocol_required` (SOS výměna bez podpisu nesmí při vrácení ukázat protokol převzetí) → `grant_access(detail=…)` →
+`commit_open`. Kód motorky drží mezi dvěma POSTy jen UI (`odometer.js`, v paměti) — jednotka je bezstavová, restart nic
+neotevře. Opakovaný kód do 10 min po neotevřené kóji (porucha, dveře otevřené) použije uložené čtení bez nové výzvy.
+
+**Odesílání** (`odometer_loop`, á `ODOMETER_FLUSH_S` = 30 s + `wake` po zadání, obnově spojení a `retry_failed`): `flush` →
+`upload_one` → `api.submit_odometer(payload)`; payload = `{p_reading_id, p_booking_id, p_km, p_recorded_at (ISO, UTC), p_detail
+{source, offline, zone, min, max, days, unit}}`. `ok` (accepted i disputed, i `duplicate`) → řádek smazat (disputed → ODOMETER_DISPUTED
+warn; accepted → `note_accepted`: km převzetí téže motorky drží ještě `RECENT_ACK_S` = 5 min, než sync přinese nové `data.mileage` —
+po obnově LTE jde sync PŘED odesláním fronty a protokol na displeji má km z doby před zápisem; mez vrácení se tím NEmění); trvalé → `failed` + ODOMETER_UPLOAD_FAILED (error), řádek zůstává (zpět `reload`), ale mez ani km převzetí už NEzvedá (server ho odmítl — korekce nájezdu ve Velíně musí platit); dočasné →
+`pending`, konec kola. Fronta je oddělená od outboxu (outbox by 404 „RPC chybí“ bral jako trvalé a po 50 pokusech zahazoval).
+
+**Převzetí a šatna:** `handover_submit.submit` přepíše `form.mileage` hodnotou `pickup_mileage(item.data, item.moto_id)` (offline
+fronta předchozího zákazníka / vrácení dřív než podpis); edge v `mode: kiosk` bere hodnotu jednotky, je-li kladné celé číslo.
+Kóje po podpisu = `odometer_phase: out` + `on_pickup_opened`. `on_wardrobe_closed` po vrácení nic nezamyká (§28 pravidlo 12).
+
+**Nasazení:** SQL první (aditivní; starší jednotka `odo` ignoruje a km nechce), pak canary jednotka přes rollout (§25), verze
+1.1.0. Known risks (heuristika grace): vrácení do 60 min od převzetí se nezeptá (bez `mileage_end`); kóje otevřená při převzetí,
+ale motorka v ní ponechaná > 60 min → při dalším kódu výzva (placeholder pomůže); SOS výměna vyzvednutá z kóje (ne přistavená)
+by se brala jako vrácení. Zákazník s reálnou hodnotou mimo rozsah → telefon podpory, Velín „Korekce nájezdu“ + `open_door`,
+nebo pevné servisní kódy.

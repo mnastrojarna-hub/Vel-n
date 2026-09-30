@@ -6,6 +6,11 @@ import Modal from '../components/ui/Modal'
 import { FormField, generateBranchCode, SELF_SERVICE_LAYOUT_NOTE, SELF_SERVICE_TYPE, countTrailerBookings, pluralCs } from './BranchHelpers'
 import { autoTranslateRow } from '../lib/autoTranslate'
 
+// Změna obslužná ↔ samoobslužná by přesunula všechny motorky pobočky bez stavu tachometru → DB ji odmítne
+// (strážce 20260929h, chyba branch_type_change_requires_odometer), dokud jsou na pobočce nevyřazené motorky.
+const TYPE_CHANGE_BLOCKED = 'Typ pobočky (obslužná ↔ samoobslužná) nelze změnit, dokud jsou na ní přiřazené motorky. ' +
+  'Nejdřív motorky přesuňte (Flotila → Přesunout — Velín se zeptá na aktuální stav tachometru), pak typ změňte.'
+
 function BranchModal({ existing, onClose, onSaved }) {
   const isEdit = !!existing
   const [form, setForm] = useState({
@@ -36,6 +41,12 @@ function BranchModal({ existing, onClose, onSaved }) {
     // tu kombinaci zákazníkovi vůbec nenabídly. Neblokujeme, ale ptáme se.
     if (saving) return
     setSaving(true); setErr(null)  // dvojklik během await dotazu níže by uložil dvakrát
+    // Změna režimu pobočky s motorkami = jejich přesun bez stavu tachometru → nepovolit (zadání majitele 2026-09-29)
+    if (isEdit && (form.type?.trim() === SELF_SERVICE_TYPE) !== (existing?.type === SELF_SERVICE_TYPE)) {
+      const { count } = await supabase.from('motorcycles').select('id', { count: 'exact', head: true })
+        .eq('branch_id', existing.id).neq('status', 'retired')
+      if (count > 0) { setErr(TYPE_CHANGE_BLOCKED); setSaving(false); return }
+    }
     if (isEdit && form.type?.trim() === SELF_SERVICE_TYPE && existing?.type !== SELF_SERVICE_TYPE) {
       const { data: bm, error: bmErr } = await supabase.from('motorcycles').select('id').eq('branch_id', existing.id)
       const n = bmErr ? -1 : await countTrailerBookings(supabase, (bm || []).map(m => m.id))
@@ -72,6 +83,7 @@ function BranchModal({ existing, onClose, onSaved }) {
           : supabase.from('branches').insert(payload).select().single()
       , payload)
       if (result?.error) {
+        if (String(result.error.message || '').includes('branch_type_change_requires_odometer')) throw new Error(TYPE_CHANGE_BLOCKED)
         const msg = result.error.message || 'Neznámá chyba'
         throw new Error(msg + (result.error.code === '42501' ? ' — Zkontrolujte RLS politiky v Supabase.' : ''))
       }
