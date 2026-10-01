@@ -152,7 +152,9 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   // (šablona booking_qr_payment_surcharge) a potvrzení úpravy odejde až po potvrzení
   // doplatku v detailu rezervace („Potvrdit doplatek"). Dlužný doplatek je kumulativní
   // (další úprava před zaplacením předchozího doplatku ho navyšuje/snižuje).
-  const origPaid = ['paid', 'partial_refund'].includes(booking.payment_status)
+  // refund_pending = zaplaceno, vratka jen čeká na odeslání (parita s RPC
+  // _apply_booking_changes_core) — bez něj by doplatek nešel vyžádat.
+  const origPaid = ['paid', 'partial_refund', 'refund_pending'].includes(booking.payment_status)
   const pendingSurcharge = Number(booking.mod_surcharge_due) || 0
 
   const selectedMoto = allMotos.find(m => m.id === selectedMotoId)
@@ -201,6 +203,26 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   async function handleSave() {
     if (!startDate || !endDate) { setError('Vyberte termin'); return }
     if (selectedMotoId && occupiedMotoIds.has(selectedMotoId)) { setError('Vybrana motorka je v terminu obsazena'); return }
+    // Incident 2026-10-01 („vratka místo doplatku"): u běžící rezervace už
+    // vyzvednutí proběhlo a pole poplatku je SOUČET obou stran — přidání
+    // přistavení/odvozu proto nesmí poplatek snížit ani nechat stejný.
+    if (booking.status === 'active' && pickupMethod !== origDelivery.pickup) {
+      setError('Vyzvednuti uz probehlo — zpusob vyzvednuti u bezici rezervace nelze zmenit.'); return
+    }
+    const addedSides = (pickupMethod === 'delivery' && origDelivery.pickup !== 'delivery' ? 1 : 0)
+      + (returnMethod === 'delivery' && origDelivery.ret !== 'delivery' ? 1 : 0)
+    const removedSide = (pickupMethod !== 'delivery' && origDelivery.pickup === 'delivery')
+      || (returnMethod !== 'delivery' && origDelivery.ret === 'delivery')
+    if (addedSides > 0 && !removedSide && newDeliveryFee < origDelivery.fee + 1000 * addedSides) {
+      setError(`Poplatek za doruceni je SOUCET obou stran — po pridani pristaveni/odvozu musi byt aspon ${(origDelivery.fee + 1000 * addedSides).toLocaleString('cs-CZ')} Kc (puvodni ${origDelivery.fee.toLocaleString('cs-CZ')} Kc + nova strana).`); return
+    }
+    // Přidání jedné strany + odebrání druhé v jednom uložení: kontrola výše se
+    // neuplatní (poplatek smí klesnout), ale každá strana s přistavením stojí
+    // aspoň 1 000 Kč — jinak by se nová strana „zaplatila" vratkou za odebranou.
+    const sidesAfter = (pickupMethod === 'delivery' ? 1 : 0) + (returnMethod === 'delivery' ? 1 : 0)
+    if (addedSides > 0 && removedSide && newDeliveryFee < 1000 * sidesAfter) {
+      setError(`Poplatek za doruceni musi byt aspon ${(1000 * sidesAfter).toLocaleString('cs-CZ')} Kc (1 000 Kc za kazdou stranu s pristavenim/odvozem).`); return
+    }
     setSaving(true); setError(null)
     try {
       const saveData = {

@@ -95,12 +95,15 @@
       function locRadioVal(v) { return v ? (v === 'delivery' ? 'delivery' : 'pickup') : v; }
       setRadio('pickup', locRadioVal(ui.p_new_pickup_method));
       setRadio('returnM', locRadioVal(ui.p_new_return_method));
+      // Adresa PŘED souřadnicemi: event 'input' na adrese (2026-10-01) maže GPS
+      // i poplatek, aby se psaná adresa nenaceňovala starými souřadnicemi —
+      // obnovené GPS se proto nastaví až po něm a debounced výpočet trasy je použije.
+      setVal('pickupAddr', ui.p_new_pickup_address, 'input');
+      setVal('returnAddr', ui.p_new_return_address, 'input');
       setVal('pickupLat', ui.p_new_pickup_lat);
       setVal('pickupLng', ui.p_new_pickup_lng);
       setVal('returnLat', ui.p_new_return_lat);
       setVal('returnLng', ui.p_new_return_lng);
-      setVal('pickupAddr', ui.p_new_pickup_address, 'input');
-      setVal('returnAddr', ui.p_new_return_address, 'input');
       var tu = ui._time_update || {};
       setVal('pickupTime', tu.pickup_time, 'change');
       setVal('returnTime', tu.return_time, 'change');

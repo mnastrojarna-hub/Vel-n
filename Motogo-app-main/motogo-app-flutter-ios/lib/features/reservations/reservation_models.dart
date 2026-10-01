@@ -476,6 +476,10 @@ class ModificationEntry {
   final Map<String, Map<String, String?>> gearChanges;
   final bool extrasChanged;
   final String source; // 'customer', 'admin', 'system', 'web_customer', ...
+  /// Celý původní JSON záznamu — appka při úpravě historii přepisuje celou,
+  /// takže bez něj by zmizely klíče zapsané serverem (price_diff, refund_amount,
+  /// podíly přistavení fee_split_exact …; 2026-10-01).
+  final Map<String, dynamic> raw;
 
   const ModificationEntry({
     required this.at,
@@ -500,6 +504,7 @@ class ModificationEntry {
     this.gearChanges = const {},
     this.extrasChanged = false,
     this.source = 'customer',
+    this.raw = const {},
   });
 
   factory ModificationEntry.fromJson(Map<String, dynamic> json) {
@@ -526,6 +531,7 @@ class ModificationEntry {
       gearChanges: _parseGearChanges(json['gear_changes']),
       extrasChanged: json['extras_changed'] == true,
       source: json['source'] as String? ?? 'customer',
+      raw: Map<String, dynamic>.from(json),
     );
   }
 
@@ -544,6 +550,7 @@ class ModificationEntry {
   }
 
   Map<String, dynamic> toJson() => {
+    ...raw,
     'at': at.toIso8601String(),
     'from_start': fromStart,
     'from_end': fromEnd,
