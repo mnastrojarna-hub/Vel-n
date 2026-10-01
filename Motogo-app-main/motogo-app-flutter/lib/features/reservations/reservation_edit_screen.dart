@@ -56,6 +56,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   String _returnTime = '19:00';
   double _pickupDelivFee = 0;
   double _returnDelivFee = 0;
+  // Nově zadaná adresa („ulice, město") — dřív se zahazovala (onAddressChanged
+  // prázdné) a cena se počítala za adresu, která se neuložila.
+  String? _pickupAddrNew;
+  String? _returnAddrNew;
   final Set<String> _selectedExtras = {};
   // Původní zaplacené doplňky (baseline) — přidání = doplatek, odebrání = refund.
   final Set<String> _origExtras = {};
@@ -289,6 +293,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         branchType: _effBranchType, name: n, address: a, city: c);
   }
 
+  static String? _addrText(AddressResult a) {
+    final s = [a.street, a.city].map((e) => e.trim()).where((e) => e.isNotEmpty).join(', ');
+    return s.isEmpty ? null : s;
+  }
+
   EditPriceCalc get _calc {
     DayPrices? newMotoPrices;
     if (_newMotoId != null && _newMotoId != _booking!.motoId) {
@@ -309,6 +318,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       origExtrasPaidTotal: _origExtrasPaid,
       pickupMethod: _pickupMethod,
       returnMethod: _returnMethod,
+      pickupAddressNew: _pickupAddrNew,
+      returnAddressNew: _returnAddrNew,
       pickupTime: _pickupTime,
       returnTime: _returnTime,
       helmetSize: _helmetSize, jacketSize: _jacketSize, pantsSize: _pantsSize,
@@ -582,6 +593,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: leadErr);
       return;
     }
+    // Nově zvolené přistavení / odvoz bez zadané adresy → bez ceny trasy by
+    // šlo zdarma (2026-10-01) — nejdřív adresa.
+    if (calc.deliveryAddressMissing) {
+      showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: t(context).tr('clickEnterAddress'));
+      return;
+    }
     final missingSizes = _missingGearSizes();
     if (missingSizes.isNotEmpty) {
       showMotoGoToast(context,
@@ -619,6 +636,30 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         'return_time': _returnTime,
       };
       if (!_isActive) changes['start_date'] = _newStart!.toIso8601String().substring(0, 10);
+      // Adresa přistavení / odvozu se ukládá (dřív jen cena) — GPS appka
+      // nemá, staré souřadnice by patřily jiné adrese → NULL. Strana
+      // přepnutá na pobočku adresu ztrácí (jinak by ji doklady i Velín dál
+      // četly jako přistavení). Vyzvednutí aktivní rezervace se nemění.
+      if (!_isActive) {
+        if (calc.pickupAddressChanged) {
+          changes['pickup_address'] = _pickupAddrNew;
+          changes['pickup_lat'] = null;
+          changes['pickup_lng'] = null;
+        } else if (pickupMethodChanged && !isDelivery(_pickupMethod)) {
+          changes['pickup_address'] = null;
+          changes['pickup_lat'] = null;
+          changes['pickup_lng'] = null;
+        }
+      }
+      if (calc.returnAddressChanged) {
+        changes['return_address'] = _returnAddrNew;
+        changes['return_lat'] = null;
+        changes['return_lng'] = null;
+      } else if (returnMethodChanged && !isDelivery(_returnMethod)) {
+        changes['return_address'] = null;
+        changes['return_lat'] = null;
+        changes['return_lng'] = null;
+      }
       // Aktivní rezervace: motorka je zamčená (měnit lze jen konec, místo a
       // čas vrácení) — UI sekci skrývá, ale guard tu musí být i pro případ
       // rozjetého stavu (parita s webem).
@@ -1211,7 +1252,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 branchLabel: _effBranchLabel,
                 deliveryBlocked: pickupBlocked,
                 onMethodChanged: (m) => setState(() => _pickupMethod = m),
-                onAddressChanged: (_) {},
+                onAddressChanged: (a) => setState(() => _pickupAddrNew = _addrText(a)),
                 onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f)),
               if (!hidePickupTime) ...[
                 const SizedBox(height: 8),
@@ -1233,7 +1274,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               branchLabel: _effBranchLabel,
               deliveryBlocked: returnBlocked,
               onMethodChanged: (m) => setState(() => _returnMethod = m),
-              onAddressChanged: (_) {},
+              onAddressChanged: (a) => setState(() => _returnAddrNew = _addrText(a)),
               onDeliveryFeeChanged: (f) => setState(() => _returnDelivFee = f)),
             if (!hideReturnTime) ...[
               const SizedBox(height: 8),

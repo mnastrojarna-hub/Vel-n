@@ -33,16 +33,35 @@ const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
 // je idempotentní (stejné hodnoty + absolutní total_price z new_total), takže
 // případný druhý Stripe event ani souběžný klientský apply nezpůsobí duplicitu
 // (mail navíc dedupuje 5min okno v triggeru).
+// Payload změny je v metadatech rozdělený po 500 znacích: chg, chg_2 … chg_8
+// (process-payment od 2026-10-01; starší platby mají jen chg).
+function chgFromMetadata(md: Record<string, string | undefined> | null | undefined): string | null {
+  if (!md || !md.chg) return null
+  let out = md.chg
+  for (let i = 2; i <= 8; i++) {
+    const part = md[`chg_${i}`]
+    if (!part) break
+    out += part
+  }
+  return out
+}
+
 async function applyExtensionChange(
   supabase: ReturnType<typeof createClient>,
   bookingId: string,
   chgStr: string | undefined | null,
   paidCzk: number | null = null,
+  srvStr: string | undefined | null = null,
 ) {
   if (!chgStr) return
   let a: Record<string, unknown>
   try { a = JSON.parse(chgStr) as Record<string, unknown> } catch { return }
   if (!a || typeof a !== 'object') return
+  // Výsledek SERVEROVÉHO dry-runu z process-payment (2026-10-01): nová cena
+  // (t), delivery_fee (df) a podíly stran (pf/rf). Má přednost před klientem.
+  let srv: { t?: number | null; df?: number | null; pf?: number | null; rf?: number | null; x?: boolean } = {}
+  try { if (srvStr) srv = (JSON.parse(srvStr) || {}) as typeof srv } catch { srv = {} }
+  const fin = (v: unknown) => v != null && Number.isFinite(Number(v))
 
   // ── Výměna motorky (swap) — server-side COMMIT po zaplacení doplatku ─────────
   // Appka commit volá klientsky po platbě (payment_screen `_swap_commit`), ale
@@ -117,7 +136,12 @@ async function applyExtensionChange(
   if (def(a.p_new_return_address)) d.return_address = a.p_new_return_address
   if (defNN(a.p_new_return_lat)) d.return_lat = a.p_new_return_lat
   if (defNN(a.p_new_return_lng)) d.return_lng = a.p_new_return_lng
-  if (def(a.p_new_pickup_fee) || def(a.p_new_return_fee)) {
+  // delivery_fee počítá server (srv.df z dry-runu _apply_booking_changes_core).
+  // Klientský součet poplatků jen jako fallback starých plateb bez srv —
+  // web u zamčené strany vyzvednutí posílal 0 (incident 2026-10-01).
+  if (fin(srv.df) && (def(a.p_new_pickup_fee) || def(a.p_new_return_fee) || a.p_new_pickup_method || a.p_new_return_method)) {
+    d.delivery_fee = Number(srv.df)
+  } else if (def(a.p_new_pickup_fee) || def(a.p_new_return_fee)) {
     d.delivery_fee = Number(a.p_new_pickup_fee || 0) + Number(a.p_new_return_fee || 0)
   }
   // Time-only úprava z webu posílá pickup_time jako p_new_pickup_time (RPC arg),
@@ -126,7 +150,9 @@ async function applyExtensionChange(
   if (a.p_new_pickup_time) d.pickup_time = a.p_new_pickup_time
   const tu = a._time_update as Record<string, unknown> | undefined
   if (tu && typeof tu === 'object') {
-    if (def(tu.pickup_time)) d.pickup_time = tu.pickup_time
+    // NULL čas vyzvednutí nezapisovat — web ho u aktivní rezervace (bez pole
+    // času) posílal jako null a smazal uložený čas (incident 2026-10-01).
+    if (defNN(tu.pickup_time)) d.pickup_time = tu.pickup_time
     if (def(tu.return_time)) d.return_time = tu.return_time
   }
   // App formát (Flutter posílá kompaktní `change` přímo s DB názvy sloupců —
@@ -142,7 +168,9 @@ async function applyExtensionChange(
   }
   // Absolutní cílová cena (z dry-run RPC) — idempotentní, na rozdíl od klienta,
   // který total_price vůbec nenastavoval (doplatek se nepropisoval do ceny).
-  if (a.new_total != null && Number.isFinite(Number(a.new_total))) {
+  if (fin(srv.t)) {
+    d.total_price = Number(srv.t) // serverový dry-run (process-payment)
+  } else if (a.new_total != null && Number.isFinite(Number(a.new_total))) {
     d.total_price = Number(a.new_total)
   } else if (a.total_price != null && Number.isFinite(Number(a.total_price))) {
     d.total_price = Number(a.total_price) // app formát
@@ -163,10 +191,16 @@ async function applyExtensionChange(
   let cur: Record<string, unknown> | null = null
   try {
     const { data } = await supabase.from('bookings')
-      .select('moto_id, start_date, end_date, pickup_time, total_price, late_pickup_discount_amount, original_start_date, modification_history')
+      .select('moto_id, start_date, end_date, pickup_time, total_price, late_pickup_discount_amount, original_start_date, modification_history, status, pickup_method, pickup_address, return_method, return_address, delivery_fee')
       .eq('id', bookingId).maybeSingle()
     cur = (data as Record<string, unknown> | null) || null
   } catch { cur = null }
+  // Aktivní rezervace: vyzvednutí už proběhlo → jeho místo se nemění (server
+  // _apply_booking_changes_core ho ignoruje taky); web dřív posílal adresu
+  // zamčené strany jako null a zápis by ji smazal.
+  if (cur && cur.status === 'active') {
+    for (const k of ['pickup_method', 'pickup_address', 'pickup_lat', 'pickup_lng']) delete d[k]
+  }
   const stale = !!(base && typeof base === 'object' && cur && (
     (base.s && day(base.s) !== day(cur.start_date)) ||
     (base.e && day(base.e) !== day(cur.end_date)) ||
@@ -227,7 +261,11 @@ async function applyExtensionChange(
       const toL = Math.round(Number(d.late_pickup_discount_amount ?? cur.late_pickup_discount_amount ?? 0))
       const datesChanged = toS !== fromS || toE !== fromE
       const motoChanged = !!d.moto_id && String(d.moto_id) !== String(cur.moto_id || '')
-      if (datesChanged || motoChanged || toT !== fromT || fromL !== toL) {
+      const c0 = cur as Record<string, unknown>
+      const chgd = (k: string) => d[k] !== undefined && String(d[k] ?? '') !== String(c0[k] ?? '')
+      const placeChanged = chgd('pickup_method') || chgd('pickup_address') || chgd('return_method') || chgd('return_address')
+        || (d.delivery_fee !== undefined && Math.round(Number(d.delivery_fee)) !== Math.round(Number(cur.delivery_fee || 0)))
+      if (datesChanged || motoChanged || placeChanged || toT !== fromT || fromL !== toL) {
         const hist = Array.isArray(cur.modification_history) ? (cur.modification_history as unknown[]) : []
         const priceDiff = (paidCzk != null && Number.isFinite(paidCzk))
           ? Math.round(paidCzk)
@@ -238,6 +276,17 @@ async function applyExtensionChange(
           from_pickup_time: fromT || null, to_pickup_time: toT || null,
           from_late_pickup: fromL, to_late_pickup: toL,
           ...(motoChanged ? { from_moto_id: cur.moto_id, to_moto_id: d.moto_id } : {}),
+          ...(placeChanged ? {
+            from_pickup_method: cur.pickup_method ?? null, to_pickup_method: (d.pickup_method ?? cur.pickup_method) ?? null,
+            from_pickup_address: cur.pickup_address ?? null, to_pickup_address: (d.pickup_address !== undefined ? d.pickup_address : cur.pickup_address) ?? null,
+            from_return_method: cur.return_method ?? null, to_return_method: (d.return_method ?? cur.return_method) ?? null,
+            from_return_address: cur.return_address ?? null, to_return_address: (d.return_address !== undefined ? d.return_address : cur.return_address) ?? null,
+            from_delivery_fee: cur.delivery_fee ?? null, to_delivery_fee: (d.delivery_fee ?? cur.delivery_fee) ?? null,
+            // podíly stran pro příští úpravu (_apply_booking_changes_core je
+            // bere za přesné jen s fee_split_exact = true)
+            ...(fin(srv.pf) && fin(srv.rf) && d.delivery_fee !== undefined && Math.round(Number(srv.pf) + Number(srv.rf)) === Math.round(Number(d.delivery_fee))
+              ? { pickup_fee_to: Number(srv.pf), return_fee_to: Number(srv.rf), fee_split_exact: srv.x === true } : {}),
+          } : {}),
           ...(priceDiff != null ? { price_diff: priceDiff } : {}),
           source: 'stripe_webhook',
           ...(stale ? { stale_baseline: true } : {}),
@@ -398,7 +447,7 @@ Deno.serve(async (req: Request) => {
         await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId, paymentType === 'extension')
         // Doplatková změna rezervace — aplikuj server-side (spustí web_booking_modified)
         if (paymentType === 'extension') {
-          try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg, (!metadata.shop_order_id && session.amount_total != null) ? session.amount_total / 100 : null) }
+          try { await applyExtensionChange(supabase, resolvedBookingId, chgFromMetadata(metadata), (!metadata.shop_order_id && session.amount_total != null) ? session.amount_total / 100 : null, metadata.srv) }
           catch (e) { console.warn('[webhook] extension change apply failed:', (e as Error).message) }
         }
         // Bundled e-shop upsell paid in the same session — confirm shop side too (separate invoice + email)
@@ -454,7 +503,7 @@ Deno.serve(async (req: Request) => {
       if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
         await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id, null, paymentType === 'extension')
         if (paymentType === 'extension') {
-          try { await applyExtensionChange(supabase, resolvedBookingId, metadata.chg, Number.isFinite(paymentIntent.amount) ? paymentIntent.amount / 100 : null) }
+          try { await applyExtensionChange(supabase, resolvedBookingId, chgFromMetadata(metadata), Number.isFinite(paymentIntent.amount) ? paymentIntent.amount / 100 : null, metadata.srv) }
           catch (e) { console.warn('[webhook] extension change apply (intent) failed:', (e as Error).message) }
         }
         if (metadata.shop_order_id) {

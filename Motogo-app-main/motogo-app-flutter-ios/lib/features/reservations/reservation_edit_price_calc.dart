@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../booking/booking_models.dart';
 import '../catalog/moto_model.dart';
 import 'reservation_models.dart';
@@ -23,6 +25,9 @@ class EditPriceCalc {
   final double? origExtrasPaidTotal;
   final String pickupMethod;
   final String returnMethod;
+  /// Nově zadaná adresa přistavení / odvozu („ulice, město"), null = nezadána.
+  final String? pickupAddressNew;
+  final String? returnAddressNew;
   final String pickupTime;
   final String returnTime;
   final String? helmetSize, jacketSize, pantsSize, bootsSize, glovesSize;
@@ -58,6 +63,8 @@ class EditPriceCalc {
     this.origExtrasPaidTotal,
     required this.pickupMethod,
     required this.returnMethod,
+    this.pickupAddressNew,
+    this.returnAddressNew,
     required this.pickupTime,
     required this.returnTime,
     this.helmetSize, this.jacketSize, this.pantsSize,
@@ -198,39 +205,83 @@ class EditPriceCalc {
   /// Rozdíl pronájmu celkem = termín (po stornu) + výměna motorky (100 %).
   double get rentalDiff => datesDiff + motoDiff;
 
+  static String? _normAddr(String? a) {
+    final s = (a ?? '').trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    return s.isEmpty ? null : s;
+  }
+
+  /// Strana přistavení zůstává, ale zákazník zadal JINOU adresu.
+  bool get pickupAddressChanged => pickupMethod == 'delivery' &&
+      _normAddr(pickupAddressNew) != null &&
+      _normAddr(pickupAddressNew) != _normAddr(booking.pickupAddress);
+  bool get returnAddressChanged => returnMethod == 'delivery' &&
+      _normAddr(returnAddressNew) != null &&
+      _normAddr(returnAddressNew) != _normAddr(booking.returnAddress);
+
+  /// Nově zvolené přistavení / odvoz bez zadané adresy nebo nová adresa bez
+  /// spočtené trasy (poplatek 0) — uložit nejde, jinak by šlo přistavení
+  /// zdarma (DB pojistka trg_guard_booking_delivery by zápis stejně odmítla).
+  bool get deliveryAddressMissing =>
+      (pickupMethod == 'delivery' && booking.pickupMethod != 'delivery' && pickupDelivFee <= 0) ||
+      (returnMethod == 'delivery' && booking.returnMethod != 'delivery' && returnDelivFee <= 0) ||
+      (pickupAddressChanged && pickupDelivFee <= 0) ||
+      (returnAddressChanged && returnDelivFee <= 0);
+
+  /// Váha podílu strany na kombinované delivery_fee: podlaha 1000 Kč +
+  /// 40 Kč × vzdušná km od Mezné (parita se serverem `_delivery_fee_floor`).
+  static double _floorWeight(double lat, double lng) {
+    const la0 = 49.3464, lo0 = 15.2119;
+    double rad(double d) => d * math.pi / 180;
+    final a = math.pow(math.sin(rad(lat - la0) / 2), 2) +
+        math.cos(rad(la0)) * math.cos(rad(lat)) * math.pow(math.sin(rad(lng - lo0) / 2), 2);
+    final km = 2 * 6371 * math.asin(math.min(1.0, math.sqrt(a)));
+    return km > 2000 ? 1000.0 : 1000.0 + 40 * km;
+  }
+
   /// Rozdíl poplatku za přistavení/odvoz oproti původní rezervaci.
   ///
-  /// Účtuje se (kladný) nebo vrací (záporný) JEN rozdíl — dřív se nově
-  /// zadaná adresa přičítala celá (dvojí účtování při změně adresy) a
-  /// zrušení doručení nic nevracelo. DB ukládá jen kombinovanou
-  /// `delivery_fee`; původní rozdělení mezi přistavení a odvoz se odhaduje
-  /// rovným dílem mezi strany, které doručení měly.
+  /// Účtuje se (kladný) nebo vrací (záporný) JEN rozdíl. DB ukládá jen
+  /// kombinovanou `delivery_fee`. Pravidla (2026-10-01, parita se serverem
+  /// `_apply_booking_changes_core` — incident „vratka −11 Kč"):
+  ///  • strana beze změny (i znovu zadaná STEJNÁ adresa) si nechává svůj podíl;
+  ///  • obě strany přistavením → podíly v poměru podlah dle uložených GPS,
+  ///    bez nich půl na půl; přesun adresy u odhadnutého podílu nikdy
+  ///    nevrací peníze (jen doplatek);
+  ///  • nově přidaná strana = cena trasy (bez adresy uložit nejde).
   double get deliveryFeeDelta {
-    final oldFee = booking.deliveryFee ?? 0;
+    final double oldFee = (booking.deliveryFee ?? 0).toDouble();
     final pickupWas = booking.pickupMethod == 'delivery';
     final returnWas = booking.returnMethod == 'delivery';
     final pickupIs = pickupMethod == 'delivery';
     final returnIs = returnMethod == 'delivery';
+    final pickupMoved = pickupWas && pickupIs && pickupDelivFee > 0 && pickupAddressChanged;
+    final returnMoved = returnWas && returnIs && returnDelivFee > 0 && returnAddressChanged;
 
-    // Způsob dopravy beze změny a žádná nově přepočtená adresa → beze změny.
-    if (pickupWas == pickupIs &&
-        returnWas == returnIs &&
-        pickupDelivFee == 0 &&
-        returnDelivFee == 0) {
+    if (pickupWas == pickupIs && returnWas == returnIs && !pickupMoved && !returnMoved) {
       return 0;
     }
 
-    final oldSides = (pickupWas ? 1 : 0) + (returnWas ? 1 : 0);
-    final oldPerSide = oldSides > 0 ? oldFee / oldSides : 0.0;
-    final oldPickupFee = pickupWas ? oldPerSide : 0.0;
-    final oldReturnFee = returnWas ? oldPerSide : 0.0;
+    final bothWere = pickupWas && returnWas;
+    double oldPickupFee = pickupWas ? oldFee : 0.0;
+    double oldReturnFee = returnWas ? oldFee : 0.0;
+    if (bothWere) {
+      final b = booking;
+      final hasGps = b.pickupLat != null && b.pickupLng != null && b.returnLat != null && b.returnLng != null;
+      final wp = hasGps ? _floorWeight(b.pickupLat!, b.pickupLng!) : 1.0;
+      final wr = hasGps ? _floorWeight(b.returnLat!, b.returnLng!) : 1.0;
+      oldPickupFee = (oldFee * wp / (wp + wr)).roundToDouble();
+      oldReturnFee = oldFee - oldPickupFee;
+    }
 
-    // Nová fee za stranu: pobočka → 0; doručení s nově zadanou adresou →
-    // nový výpočet; doručení beze změny adresy → původní hodnota zůstává.
-    final newPickupFee =
-        !pickupIs ? 0.0 : (pickupDelivFee > 0 ? pickupDelivFee : oldPickupFee);
-    final newReturnFee =
-        !returnIs ? 0.0 : (returnDelivFee > 0 ? returnDelivFee : oldReturnFee);
+    double side(bool was, bool isNow, bool moved, double newFee, double oldShare) {
+      if (!isNow) return 0.0;
+      if (was && !moved) return oldShare;
+      if (was && moved && bothWere) return newFee > oldShare ? newFee : oldShare;
+      return newFee;
+    }
+
+    final newPickupFee = side(pickupWas, pickupIs, pickupMoved, pickupDelivFee, oldPickupFee);
+    final newReturnFee = side(returnWas, returnIs, returnMoved, returnDelivFee, oldReturnFee);
     return (newPickupFee + newReturnFee) - (oldPickupFee + oldReturnFee);
   }
 
@@ -355,6 +406,8 @@ class EditPriceCalc {
       returnTime != (booking.returnTime ?? '19:00') ||
       extrasChanged ||
       deliveryFeeDelta != 0 ||
+      pickupAddressChanged ||
+      returnAddressChanged ||
       helmetSize != booking.helmetSize ||
       jacketSize != booking.jacketSize ||
       pantsSize != booking.pantsSize ||

@@ -429,13 +429,19 @@ Deno.serve(async (req: Request) => {
     // potvrzení platby aplikoval SERVER-SIDE (nezávisle na tom, zda se zákazník
     // vrátí do prohlížeče s živým localStorage). Tím se spolehlivě spustí
     // trigger trg_send_booking_modified_email → web_booking_modified.
-    // Stripe metadata: hodnota max 500 znaků — delší payload (typicky dlouhá
-    // adresa přistavení) se do metadat nevejde, v tom případě zůstává původní
-    // klientský fallback (_applyPendingAfterPayment z localStorage).
+    // Stripe metadata: hodnota max 500 znaků — delší payload (změna místa se
+    // dvěma adresami ~450–600 zn.) se od 2026-10-01 dělí do klíčů chg, chg_2…
+    // chg_8 (webhook je spojí); dřív se nevešel a změnu aplikoval jen klientský
+    // fallback (_applyPendingAfterPayment), který nenastavoval total_price.
     if (paymentType === 'extension' && change && typeof change === 'object') {
       try {
-        const chgStr = JSON.stringify(change)
-        if (chgStr.length <= 500) metadata.chg = chgStr
+        const chars = Array.from(JSON.stringify(change))
+        const parts: string[] = []
+        for (let i = 0; i < chars.length; i += 500) parts.push(chars.slice(i, i + 500).join(''))
+        if (parts.length >= 1 && parts.length <= 8) {
+          metadata.chg = parts[0]
+          parts.slice(1).forEach((p, i) => { metadata[`chg_${i + 2}`] = p })
+        }
       } catch (_e) { /* neserializovatelný payload → klientský fallback */ }
     }
 
@@ -562,7 +568,18 @@ Deno.serve(async (req: Request) => {
             const params: Record<string, unknown> = { p_booking_id: booking_id, p_dry_run: true }
             for (const [k, v] of Object.entries(c)) if (k.startsWith('p_new_')) params[k] = v
             const { data, error } = await userClient.rpc('apply_booking_changes', params)
-            if (!error && data?.success === true) expected = Number(data.net_diff || 0)
+            if (!error && data?.success === true) {
+              expected = Number(data.net_diff || 0)
+              // 2026-10-01 (incident „vratka −11 Kč"): výsledek SERVEROVÉHO
+              // dry-runu do metadat — webhook-receiver po platbě zapíše cenu
+              // a delivery_fee odsud, ne z klientského payloadu (klient posílal
+              // u zamčené strany vyzvednutí poplatek 0 → delivery_fee bez
+              // přistavení). Podíly stran (pf/rf) jdou do historie úprav.
+              const num = (v: unknown) => (v != null && Number.isFinite(Number(v)) ? Number(v) : null)
+              const bd = (data.breakdown || {}) as Record<string, unknown>
+              const srv = { t: num(data.new_total), df: num(data.new_delivery_fee), pf: num(bd.pickup_fee_to), rf: num(bd.return_fee_to), x: bd.fee_split_exact === true }
+              if (srv.t != null || srv.df != null) metadata.srv = JSON.stringify(srv)
+            }
             else if (!error && data?.error) dryErr = String(data.error)
             else dryErr = 'validation_unavailable'
           } else if (c.total_price != null && Number.isFinite(Number(c.total_price))) {
@@ -630,6 +647,12 @@ Deno.serve(async (req: Request) => {
           }
         } catch (_te) { dryErr = 'trailer_check_unavailable' }
       }
+
+      // Fail closed (2026-10-01): změnu, kterou žádná větev neocenila (expected
+      // zůstal null — neznámý tvar payloadu), nelze zaplatit: webhook by její
+      // sloupce (delivery_fee, místo, slevy…) zapsal jako service_role bez
+      // jakékoli kontroly a za libovolnou částku.
+      if (!dryErr && expected == null) dryErr = 'validation_unavailable'
 
       if (dryErr) {
         // Kód (`code`) je stabilní API pro klienty → web i appka ho překládají
