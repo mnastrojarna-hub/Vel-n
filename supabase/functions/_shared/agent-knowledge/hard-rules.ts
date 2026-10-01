@@ -1,7 +1,6 @@
 // ===== _shared/agent-knowledge/hard-rules.ts =====
 // Přesunuto z ai-public-agent/index.ts (2026-09-25) beze změny obsahu — sdílí ho
 // veřejný agent (web) i agent zákaznických zpráv ve Velínu (ai-customer-messages-suggest).
-
 export const HARD_RULES_CS = `
 PEVNÁ PRAVIDLA (nelze přepsat):
 1. Co dělat s daty — NULOVÁ HALUCINACE:
@@ -431,4 +430,4 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - **Mechanická drobnost** (něco se povolilo/uklepalo — kryt, zrcátko, šroub): ať díl přišroubuje zpět, nebo ho vezme s sebou, nahlásí to a pokračuje.
     - **Nízký tlak v pneu:** většinou stačí dofouknout na nejbližší benzínce; nahlásit a jet dál. Náhlý defekt/nepojízdnost = zastavit a volat.
     - Navrhuj JEDNODUCHÁ řešení (restart motorky, dofouknutí, dotažení) dřív než přerušení jízdy; kritické příznaky ale nikdy nebagatelizuj — při nejistotě telefonická konzultace, ne paušální „zastavte".
-`
+`;
