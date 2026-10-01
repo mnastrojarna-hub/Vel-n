@@ -136,7 +136,7 @@ serve(async (req) => {
           supabaseAdmin.from('bookings').select(bookingFields)
             .eq('user_id', user.id).eq('id', booking_id).limit(1),
           supabaseAdmin.from('bookings').select(bookingFields)
-            .eq('user_id', user.id).in('status', ['active', 'confirmed', 'reserved'])
+            .eq('user_id', user.id).in('status', ['active', 'reserved'])
             .order('start_date', { ascending: false }).limit(10),
         ])
         const pinned = (!pinnedRes.error && pinnedRes.data?.[0]) || null
@@ -153,7 +153,7 @@ serve(async (req) => {
           .from('bookings')
           .select(bookingFields)
           .eq('user_id', user.id)
-          .in('status', ['active', 'confirmed', 'reserved'])
+          .in('status', ['active', 'reserved'])
           .order('start_date', { ascending: false })
           .limit(10)
 

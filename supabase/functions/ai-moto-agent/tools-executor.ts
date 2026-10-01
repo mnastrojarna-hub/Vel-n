@@ -88,7 +88,7 @@ export async function executeTool(
           )
         `)
         .eq('user_id', userId)
-        .in('status', ['active', 'confirmed', 'reserved'])
+        .in('status', ['active', 'reserved'])
         .order('start_date', { ascending: false })
         .limit(10)
 
