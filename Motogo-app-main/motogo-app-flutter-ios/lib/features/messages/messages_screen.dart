@@ -73,7 +73,8 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Row(children: [
-              _TabBtn(label: t(context).tr('notificationsTab'), active: !_chatTab, onTap: () => setState(() => _chatTab = false)),
+              _TabBtn(label: t(context).tr('notificationsTab'), active: !_chatTab, badge: ref.watch(adminUnreadCountProvider),
+                  onTap: () => setState(() => _chatTab = false)),
               const SizedBox(width: 4),
               _TabBtn(label: t(context).tr('conversationsTab'), active: _chatTab, onTap: () => setState(() => _chatTab = true)),
             ]),
@@ -108,16 +109,25 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
               },
               child: Container(
                 padding: const EdgeInsets.all(12), margin: const EdgeInsets.only(bottom: 6),
+                // Nepřečtená: zelený pruh vlevo (jako vlákno v Konverzacích) + červená tečka
+                // u nadpisu — stejná barva jako odznak na Domů a v menu (zadání 2026-10-01).
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: m.read ? Colors.white : MotoGoColors.greenPale,
                   borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
-                  border: m.read ? null : Border.all(color: MotoGoColors.green.withValues(alpha: 0.4), width: 1.5),
+                  border: m.read ? null : const Border(left: BorderSide(color: MotoGoColors.green, width: 4)),
                 ),
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(m.icon, style: const TextStyle(fontSize: 20)),
                   const SizedBox(width: 10),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(m.title ?? t(context).tr('messageFromMotoGo'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
+                    Row(children: [
+                      if (!m.read) ...[
+                        Container(width: 8, height: 8, decoration: const BoxDecoration(color: MotoGoColors.red, shape: BoxShape.circle)),
+                        const SizedBox(width: 6),
+                      ],
+                      Expanded(child: Text(m.title ?? t(context).tr('messageFromMotoGo'),
+                          style: TextStyle(fontSize: 13, fontWeight: m.read ? FontWeight.w700 : FontWeight.w900, color: MotoGoColors.black))),
+                    ]),
                     if (m.message != null) Text(m.message!, style: const TextStyle(fontSize: 12, color: MotoGoColors.g600), maxLines: expanded ? null : 3, overflow: expanded ? null : TextOverflow.ellipsis),
                     Text(date, style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
                   ])),
@@ -253,8 +263,8 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
 }
 
 class _TabBtn extends StatelessWidget {
-  final String label; final bool active; final VoidCallback onTap;
-  const _TabBtn({required this.label, required this.active, required this.onTap});
+  final String label; final bool active; final VoidCallback onTap; final int badge;
+  const _TabBtn({required this.label, required this.active, required this.onTap, this.badge = 0});
   @override
   Widget build(BuildContext context) => Expanded(child: GestureDetector(
     onTap: onTap,
@@ -265,7 +275,20 @@ class _TabBtn extends StatelessWidget {
         borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
         border: Border.all(color: active ? MotoGoColors.green : MotoGoColors.g200, width: 2),
       ),
-      child: Center(child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: active ? Colors.black : MotoGoColors.black))),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Flexible(child: Text(label, overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: active ? Colors.black : MotoGoColors.black))),
+        if (badge > 0) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            constraints: const BoxConstraints(minWidth: 18),
+            decoration: BoxDecoration(color: MotoGoColors.red, borderRadius: BorderRadius.circular(10)),
+            child: Text(badge > 9 ? '9+' : '$badge', textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white)),
+          ),
+        ],
+      ]),
     ),
   ));
 }

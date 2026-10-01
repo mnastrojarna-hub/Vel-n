@@ -9,6 +9,7 @@ import '../../../core/widgets/logo_header.dart';
 import '../../../core/widgets/moto_fx.dart';
 import '../../auth/auth_provider.dart';
 import '../../loyalty/loyalty_provider.dart';
+import '../../messages/messages_provider.dart' show adminUnreadCountProvider;
 import '../nickname_provider.dart';
 import 'menu_line.dart';
 
@@ -19,6 +20,9 @@ class HomeHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
+    // Nepřečtená oznámení — stejný počet jako odznak na Domů a u „Zprávy“ v menu
+    // (zadání majitele 2026-10-01: odznak musí svítit i na tlačítku menu).
+    final unread = ref.watch(adminUnreadCountProvider);
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -51,35 +55,55 @@ class HomeHeader extends ConsumerWidget {
               PressableScale(
                 pressedScale: 0.88,
                 onTap: () => context.go(Routes.profile),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [MotoGoColors.green, MotoGoColors.greenDark],
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: MotoGoColors.green.withValues(alpha: 0.45),
-                        blurRadius: 12,
-                        offset: const Offset(0, 3),
+                child: Stack(clipBehavior: Clip.none, children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [MotoGoColors.green, MotoGoColors.greenDark],
                       ),
-                    ],
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: MotoGoColors.green.withValues(alpha: 0.45),
+                          blurRadius: 12,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        MenuLine(width: 18),
+                        SizedBox(height: 4),
+                        MenuLine(width: 12),
+                        SizedBox(height: 4),
+                        MenuLine(width: 18),
+                      ],
+                    ),
                   ),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      MenuLine(width: 18),
-                      SizedBox(height: 4),
-                      MenuLine(width: 12),
-                      SizedBox(height: 4),
-                      MenuLine(width: 18),
-                    ],
-                  ),
-                ),
+                  if (unread > 0)
+                    Positioned(
+                      right: -5,
+                      top: -5,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                        decoration: BoxDecoration(
+                          color: MotoGoColors.red,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: MotoGoColors.dark, width: 1.5),
+                        ),
+                        child: Center(
+                          child: Text(unread > 9 ? '9+' : '$unread',
+                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white)),
+                        ),
+                      ),
+                    ),
+                ]),
               ),
             ],
           ),
