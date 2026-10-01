@@ -372,6 +372,7 @@ return [
     'rez.alert.pickupTime' => 'Voer de ophaal- of bezorgtijd in.',
     'rez.alert.minTime' => 'De vroegst mogelijke ophaaltijd is de huidige tijd + 1 uur.',
     'rez.alert.minTimeDelivery' => 'Voor bezorging is de vroegste tijd de huidige tijd + 6 uur.',
+    'rez.alert.minTimeSelfService' => 'De ophaaltijd mag niet in het verleden liggen.',
     'rez.alert.returnTime' => 'Voer de retourtijd in.',
     'rez.alert.bookingOverlap' => 'Een andere klant heeft deze motor zojuist voor dezelfde datums geboekt. Kies andere datums of een andere motor.',
     'rez.alert.bookingOverlapOwn' => 'U heeft al een andere actieve reservering op deze datums.',
@@ -1156,6 +1157,7 @@ return [
     'editRez.err.wrongStatus' => 'Deze reservering kan niet meer worden gewijzigd.',
     'editRez.err.notPaid' => 'Reservering is nog niet betaald — neem contact met ons op.',
     'editRez.err.activeStartLocked' => 'Tijdens een actieve verhuur kan de ophaaldatum niet worden gewijzigd.',
+    'editRez.err.activePickupTimeLocked' => 'De motor is al opgehaald — de ophaaltijd kan niet meer worden gewijzigd.',
     'editRez.err.invalidRange' => 'Kies een geldige periode.',
     'editRez.err.notShortening' => 'Voor verkorten moeten de nieuwe datums binnen de oorspronkelijke vallen.',
     'editRez.err.notExtending' => 'Voor verlengen moet ten minste één datum buiten het oorspronkelijke bereik vallen.',
@@ -1218,6 +1220,9 @@ return [
     'editRez.detail.bookingNum' => 'Reserveringsnummer',
     'editRez.detail.dateLabel' => 'Periode',
     'editRez.detail.timeLabel' => 'Ophaal- / inlevertijd',
+    // Hradlo kiosku: rezervace se slevou za vyzvednutí od 12:00 se na samoobsluze vydá až od 12:00
+    'editRez.detail.latePickupGate' => 'Korting voor ophalen vanaf 12:00: de kiosk geeft u de motor op {date} vanaf 12:00 mee. Heeft u hem eerder nodig? Wijzig de ophaaltijd — de korting vervalt en u betaalt het verschil bij.',
+    'editRez.detail.latePickupGateCta' => 'Ophaaltijd wijzigen',
     'editRez.detail.timeAtRental' => 'bij inleveren in de verhuur',
     'editRez.detail.pickupPlace' => 'Ophaallocatie',
     'editRez.detail.returnPlace' => 'Inleverlocatie',
@@ -1394,6 +1399,8 @@ return [
     // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
     'rez.pickup.selfServiceNoDelivery' => 'Nog niet beschikbaar bij zelfbedieningsvestigingen',
     'rez.pickup.selfServiceNoDeliveryText' => 'Motoren van een zelfbedieningsvestiging worden uitsluitend bij de vestiging opgehaald en teruggebracht — dag en nacht (24/7) met de code die u na betaling ontvangt. Bezorging op een adres of ophalen op een adres bieden we hiervoor nog niet aan; deze service schakelen we in de toekomst in.',
+    // Samoobsluha: volí se jen čas vyzvednutí (zadání 2026-10-01 večer) — rezervace i úprava rezervace
+    'rez.pickup.selfServiceHint' => 'Bij een zelfbedieningsvestiging kiest u alleen de ophaaltijd — de motor brengt u op de laatste dag op elk moment tot 24:00 terug. Haalt u op vanaf 12:00 (huur van 2 of meer dagen), dan is de 1e dag voor de halve prijs en geeft de kiosk u de motor pas vanaf 12:00 mee.',
     'rez.geo.failed' => 'Locatie kon niet worden bepaald.',
     'rez.geo.denied' => 'Om je locatie te bepalen, moet je locatietoegang toestaan.',
     'rez.geo.unavailable' => 'Locatie is momenteel niet beschikbaar. Probeer het opnieuw of voer het adres handmatig in.',

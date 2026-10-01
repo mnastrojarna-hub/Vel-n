@@ -385,20 +385,19 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
             ));
       });
     }
-    // Samoobslužná pobočka: čas vyzvednutí / návratu NA pobočce se nevolí,
-    // do rezervace jde celý den 00:01–23:59 (čas zůstává jen u přistavení /
-    // vrácení na adresu). Draft se normalizuje tady, aby cena, validace,
-    // insert i potvrzení viděly efektivní hodnoty; při zviditelnění pole se
-    // vrací výchozí čas, aby nabídka nezačínala na 00:01 / 23:59.
-    final hidePickupTime = selfServiceHidesPickupTime(
-        branchType: moto.branchType, pickupMethod: draft.pickupMethod);
+    // Samoobslužná pobočka (zadání 2026-10-01 večer): čas VYZVEDNUTÍ se volí
+    // vždy (sleva 50 % na 1. den od 12:00, kiosk ji vydá až od 12:00); čas
+    // NÁVRATU na pobočku se nevolí, do rezervace jde 23:59 (čas zůstává jen
+    // u vrácení na adresu). Draft se normalizuje tady, aby cena, validace,
+    // insert i potvrzení viděly efektivní hodnoty; stará hodnota 00:01
+    // (ranní pravidlo „bez času“) i 23:59 při zviditelnění pole se vrací na
+    // výchozí čas, aby nabídka nezačínala na 00:01 / 23:59.
+    final selfServiceAtBranch = moto.branchType == selfServiceBranchType &&
+        draft.pickupMethod != 'delivery';
     final hideReturnTime = selfServiceHidesReturnTime(
         branchType: moto.branchType, returnMethod: draft.returnMethod);
-    final String? pickupFix = hidePickupTime
-        ? (draft.pickupTime != selfServicePickupTime
-            ? selfServicePickupTime
-            : null)
-        : (draft.pickupTime == selfServicePickupTime ? '09:00' : null);
+    final String? pickupFix =
+        isLegacyAllDayPickupTime(draft.pickupTime) ? '09:00' : null;
     final String? returnFix = hideReturnTime
         ? (draft.returnTime != selfServiceReturnTime
             ? selfServiceReturnTime
@@ -454,8 +453,8 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                       _upd((d) => d.copyWith(pickupTime: () => t)),
                   onReturnTimeChanged: (t) =>
                       _upd((d) => d.copyWith(returnTime: () => t)),
-                  showPickup: !hidePickupTime,
                   showReturn: !hideReturnTime,
+                  selfService: selfServiceAtBranch,
                 ),
                 BookingFormPickupSection(
                     draft: draft,

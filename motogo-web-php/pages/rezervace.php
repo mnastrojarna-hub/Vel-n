@@ -41,6 +41,8 @@ $rezKeys = [
     'pickup.deliveryAddr','pickup.sameAsDel','pickup.returnOther','pickup.returnTip','pickup.returnAddr','pickup.map','pickup.gps',
     // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (pages-rezervace-selfservice.js, flag self_service_delivery)
     'pickup.selfServiceNoDelivery','pickup.selfServiceNoDeliveryText',
+    // Samoobsluha: vysvětlivka pod časem vyzvednutí (pages-rezervace.js _rezApplySelfServiceTimes)
+    'pickup.selfServiceHint',
     // Geolokace + výpočet trasy přistavení/vrácení + mapový picker (pages-rezervace-pricing.js)
     'geo.failed','geo.denied','geo.unavailable','geo.timeout','geo.insecure','geo.unsupported','geo.found',
     'route.delivery','route.return','route.loading','route.error','route.priceLabel','route.fastestFrom','route.driveTime','route.calc',
@@ -62,7 +64,7 @@ $rezKeys = [
     'voucher.invalid','voucher.percentOnce','voucher.discountApplied','voucher.voucherApplied',
     'alert.name','alert.dob','alert.street','alert.city','alert.zip','alert.email','alert.phone',
     'alert.terms','alert.gdpr','alert.guardian','alert.dates','alert.moto','alert.pickupTime',
-    'alert.minTime','alert.minTimeDelivery','alert.returnTime',
+    'alert.minTime','alert.minTimeDelivery','alert.minTimeSelfService','alert.returnTime',
     'alert.bookingOverlap','alert.bookingOverlapOwn','alert.trailerStaffedOnly','alert.trailerOccupied','alert.userDayOverlap','alert.error','alert.saveError',
     'alert.selectSize','alert.emailExists','alert.emailMismatch','alert.minRentalDays',
     // Přihlášení / obnova hesla v rezervaci (pages-rezervace-auth.js)

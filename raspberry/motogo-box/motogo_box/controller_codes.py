@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from . import fixed_codes, handover_locker, shell
+from . import fixed_codes, handover_locker, pickup_gate, shell
 from .models import ACCESSORIES_NAME, Event, EventKind, ResolveResult, ServiceDoor
 from .pins import hmac_code, mask, normalize_code
 
@@ -48,8 +48,8 @@ INVALID_CODE_ERRORS = frozenset({"invalid_code", "code_expired", "code_not_yet_v
 SERVICE_CACHE_MAX_AGE_S = 72 * 3600
 
 
-def error_text(error: str | None) -> str:
-    """Podtitulek chyby ověření kódu (shodné s Flutter kioskem)."""
+def error_text(error: str | None, release_at: str | None = None) -> str:
+    """Podtitulek chyby ověření kódu (shodné s Flutter kioskem); `release_at` jen u `pickup_too_early` (§31)."""
     if error in INVALID_CODE_ERRORS:
         return "Kód nebyl rozpoznán nebo už není platný."
     if error == "network":
@@ -72,6 +72,8 @@ def error_text(error: str | None) -> str:
         return "Vracíte motorku? Zadejte stav tachometru z budíku motorky — bez něj se kóje neotevře."
     if error == "odometer_invalid":
         return f"Zadaný stav tachometru není reálný. Zkontrolujte ho na budíku a zadejte znovu. Podpora: {SUPPORT}."
+    if error == pickup_gate.ERROR:          # výdej až od 12:00 (sleva za pozdní vyzvednutí, 2026-10-01, pickup_gate.py)
+        return pickup_gate.message(release_at)
     if error == "handover_in_progress":     # zámek přejímky (2026-09-28, handover_lock.py)
         return ("Nejprve musí být dokončena předchozí přejímka — zákazník, který právě zavřel šatnu, zadá kód své motorky. "
                 "Pak přijdete na řadu.")
@@ -255,10 +257,12 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
         ctrl.pin_guard.register_success(masked)
         return await fixed_codes.open_fixed(ctrl, letter, base, source)
     rr = await resolve_code(ctrl, code)
-    if diagnostics_only and rr.ok and not rr.is_service:
-        rr = ResolveResult(ok=False, error="invalid_code", offline=rr.offline)   # zákaznický kód zde neotevírá
+    if diagnostics_only and not rr.is_service and (rr.ok or rr.error == pickup_gate.ERROR):
+        rr = ResolveResult(ok=False, error="invalid_code", offline=rr.offline)   # zákaznický kód zde neotevírá (ani hláška 12:00)
     if not rr.ok:
         err = rr.error or "invalid_code"
+        if err == pickup_gate.ERROR:        # platný kód před 12:00 (sleva za pozdní vyzvednutí, §31) — hláška, BEZ lockoutu
+            return await pickup_gate.refuse(ctrl, rr, base, source)
         if err in INVALID_CODE_ERRORS:      # jen skutečně neplatný kód se počítá do lockoutu
             until = ctrl.pin_guard.register_failure(masked)
             await ctrl.emit(Event(kind=EventKind.PIN_INVALID, success=False, level="warn", code_kind="invalid",
@@ -284,6 +288,8 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
         ctrl.service_tokens[token] = time.time() + ctrl.hardware.security.service_token_minutes * 60
         return {**base, "ok": True, "kind": "service", "message": "Servisní režim",
                 "doors": service_doors(ctrl), "service_token": token}
+    if pickup_gate.blocks(rr):          # pojistka (§31): ok s budoucím release_at — PŘED zámkem přejímky / šatnou / protokolem
+        return await pickup_gate.refuse(ctrl, rr, base, source)
     handover = getattr(ctrl, "handover", None)      # hradlo protokolem (§4) + zámek přejímky (2026-09-28, §28)
     lock = getattr(handover, "lock", None)
     if lock is not None and rr.booking_id and lock.blocks(rr.booking_id):

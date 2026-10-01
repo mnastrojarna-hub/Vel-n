@@ -54,6 +54,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   String _returnMethod = 'store';
   String _pickupTime = '09:00';
   String _returnTime = '19:00';
+  // Zákazník sám změnil výběr času vyzvednutí — do té doby se stará značka
+  // 00:01 („kdykoliv během prvního dne“) nepřepisuje (žádná fantomová změna).
+  bool _pickupTouched = false;
   double _pickupDelivFee = 0;
   double _returnDelivFee = 0;
   // Nově zadaná adresa („ulice, město") — dřív se zahazovala (onAddressChanged
@@ -127,6 +130,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _pickupMethod = res.pickupMethod == 'delivery' ? 'delivery' : 'store';
         _returnMethod = res.returnMethod == 'delivery' ? 'delivery' : 'store';
         _pickupTime = res.pickupTime ?? '09:00';
+        _pickupTouched = false;
         _returnTime = res.returnTime ?? '19:00';
         _helmetSize = res.helmetSize;
         _jacketSize = res.jacketSize;
@@ -386,7 +390,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       return true;
     }
     if (fresh == null) return true;
-    final same = _sameDay(fresh.startDate, old.startDate) &&
+    // status: mezitím vyzvednutá (active) rezervace už čas vyzvednutí nemění
+    // (server active_pickup_time_locked, 20261001h) — přenačíst a zamknout.
+    final same = fresh.status == old.status &&
+        _sameDay(fresh.startDate, old.startDate) &&
         _sameDay(fresh.endDate, old.endDate) &&
         _hm(fresh.pickupTime) == _hm(old.pickupTime) &&
         fresh.motoId == old.motoId &&
@@ -632,7 +639,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         'end_date': _newEnd!.toIso8601String().substring(0, 10),
         if (pickupMethodChanged) 'pickup_method': _pickupMethod,
         if (returnMethodChanged) 'return_method': _returnMethod,
-        'pickup_time': _pickupTime,
+        // Vyzvednutá (aktivní) rezervace čas vyzvednutí nemění — server ho
+        // zamyká (`active_pickup_time_locked`), jinak by šlo dostat zpět
+        // slevu za vyzvednutí od 12:00 po převzetí.
+        if (!_isActive) 'pickup_time': _pickupTime,
         'return_time': _returnTime,
       };
       if (!_isActive) changes['start_date'] = _newStart!.toIso8601String().substring(0, 10);
@@ -690,11 +700,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         changes['loyalty_discount_amount'] =
             (_booking!.loyaltyDiscountAmount ?? 0) + calc.loyaltySurchargeDiscount;
       }
-      // Sleva 50 % na 1. den (pozdní vyzvednutí) — ulož přepočtenou hodnotu,
-      // i 0 při ztrátě slevy (posun času před 12:00 / pod 2 dny). Posílá se jen
-      // když je relevantní (= backend se sloupcem nasazen).
-      if (calc.newLatePickup > 0 || calc.oldLatePickup > 0) {
-        changes['late_pickup_discount_amount'] = calc.newLatePickup;
+      // Sleva 50 % na 1. den (pozdní vyzvednutí) — ulož PŘIZNANOU hodnotu
+      // (získaná sleva ve storno okně se vrací jen ve výši storna, parita se
+      // serverem 2026-10-01h), i 0 při ztrátě slevy (posun času před 12:00 /
+      // pod 2 dny). Posílá se jen když je relevantní (= backend se sloupcem).
+      if (calc.storedLatePickup > 0 || calc.oldLatePickup > 0) {
+        changes['late_pickup_discount_amount'] = calc.storedLatePickup;
       }
       // Doprava: účtuje/vrací se rozdíl; nová kombinovaná fee se persistuje,
       // aby seděl rozpis KF (generate_final_invoice čte delivery_fee).
@@ -755,7 +766,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         final s = (v == null || v.isEmpty) ? def : v;
         return s.length >= 5 ? s.substring(0, 5) : s;
       }
-      final pickupTimeChanged =
+      final pickupTimeChanged = !_isActive &&
           normT(_pickupTime, '09:00') != normT(_booking!.pickupTime, '09:00');
       final returnTimeChanged =
           normT(_returnTime, '19:00') != normT(_booking!.returnTime, '19:00');
@@ -828,9 +839,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         if (extrasChanged) entry['extras_changed'] = true;
         // Late-pickup sleva + finální dopad — serverové RPC tyhle klíče
         // zapisují taky (generate-invoice edit fallback čte price_diff).
-        if (calc.newLatePickup != calc.oldLatePickup) {
+        if (calc.storedLatePickup != calc.oldLatePickup) {
           entry['from_late_pickup'] = calc.oldLatePickup;
-          entry['to_late_pickup'] = calc.newLatePickup;
+          entry['to_late_pickup'] = calc.storedLatePickup;
         }
         entry['price_diff'] = calc.effectivePriceDiff;
         // Storno % se týká JEN odebraných dnů (datesDiffRaw) — rozdíl ceníku
@@ -917,6 +928,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         // podruhé (duplicitní dobropisy, incident DB-2026-0008/-0009).
         // Stejné pořadí používá server (_apply_booking_changes_core) i Velín;
         // dobropis k mailu o úpravě dotáhne retry loop v send-booking-email.
+        // Stav se mohl mezitím změnit (např. vyzvednutí na kiosku) — ověřit
+        // i tady, ne jen před platbou.
+        if (!await _baselineStillValid()) {
+          if (mounted) setState(() => _saving = false);
+          return;
+        }
         await MotoGoSupabase.client.from('bookings').update(changes).eq('id', widget.bookingId);
         var refundOk = true;
         if (effDiff < 0) {
@@ -1064,13 +1081,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         });
       });
     }
-    // Samoobslužná pobočka: čas vyzvednutí / návratu NA pobočce se nevolí —
-    // výběr se jen SKRYJE, uložená hodnota se NEPŘEPISUJE (starší rezervace
-    // mohla mít slevu za pozdní vyzvednutí; přepis na 00:01 by ji smazal =
-    // doplatek bez zásahu zákazníka). Nové rezervace mají 00:01/23:59 už
-    // z formuláře a do smlouvy jde u samoobsluhy celý den vždy
-    // (generate-document). Po přepnutí na adresu se konstanta vrací na
-    // výchozí čas, aby nabídka nezačínala na 00:01 / 23:59.
+    // Samoobslužná pobočka (zadání 2026-10-01 večer): čas VYZVEDNUTÍ se volí
+    // i v úpravě (řídí slevu za vyzvednutí od 12:00; rezervaci s ní kiosk
+    // vydá až od 12:00). Čas NÁVRATU na pobočku se nevolí — výběr se jen
+    // SKRYJE, uložená hodnota se NEPŘEPISUJE (nové rezervace mají 23:59 už
+    // z formuláře, smlouva u samoobsluhy dává konec dne vždy). Po přepnutí na
+    // adresu se 23:59 vrací na výchozí čas, aby nabídka nezačínala na 23:59.
     // Nezměněná „pobočka“ u web/AI rezervace s adresou = ve skutečnosti
     // přistavení/odvoz (viz bookingMethodWithAddress) → čas nechat vidět.
     final effPickup = _pickupMethod == 'store' && _booking!.pickupMethod != 'delivery'
@@ -1079,39 +1095,35 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     final effReturn = _returnMethod == 'store' && _booking!.returnMethod != 'delivery'
         ? bookingMethodWithAddress(_booking!.returnMethod, _booking!.returnAddress)
         : _returnMethod;
-    final hidePickupTime = selfServiceHidesPickupTime(
-        branchType: _effBranchType, pickupMethod: effPickup);
+    final pickupAtSelfService =
+        _effBranchType == selfServiceBranchType && effPickup != 'delivery';
     final hideReturnTime = selfServiceHidesReturnTime(
         branchType: _effBranchType, returnMethod: effReturn);
+    // Stará značka 00:01 („kdykoliv během prvního dne“, ranní pravidlo
+    // 2026-10-01) se NEpřepisuje, dokud zákazník výběr času sám nezmění —
+    // otevření úprav nesmí vyrobit fantomovou změnu 00:01 → 09:00 (doplatek
+    // ani historii). Výběr ukazuje 09:00 jen jako návrh. Přistavení čas
+    // potřebuje (min. teď + 6 h) → tam se 09:00 doplní rovnou.
+    final legacyPickup =
+        !_pickupTouched && isLegacyAllDayPickupTime(_pickupTime);
+    final String? pickupFix =
+        legacyPickup && effPickup == 'delivery' ? '09:00' : null;
     // DB (sloupec time) vrací HH:MM:SS — porovnávat jen HH:MM. Skryté pole
-    // vrací ULOŽENOU hodnotu (čas zvolený při přistavení se po přepnutí zpět
-    // na pobočku neuloží — žádná sleva za pozdní vyzvednutí ani falešná změna).
-    final storedPickup = _booking!.pickupTime ?? '09:00';
+    // vrací ULOŽENOU hodnotu (čas zvolený při odvozu se po přepnutí zpět
+    // na pobočku neuloží — žádná falešná změna).
     final storedReturn = _booking!.returnTime ?? '19:00';
-    // 00:01/23:59 → výchozí čas jen u rezervace ze samoobsluhy (i po výměně na
+    // 23:59 → výchozí čas jen u rezervace ze samoobsluhy (i po výměně na
     // obslužnou); ručně zadaný čas u čistě obslužné rezervace se nemění.
     final ssOrigin = _booking!.branchType == selfServiceBranchType ||
         _effBranchType == selfServiceBranchType;
-    // Převzetí / vrácení se úpravou přesunulo NA samoobslužnou pobočku (jiný
-    // způsob nebo výměna motorky) → automaticky 00:01 / 23:59; rezervace, která
-    // tam už přebírala / vracela, si nechává uloženou hodnotu (žádná falešná
-    // změna ani zrušení dřívější slevy za pozdní vyzvednutí).
-    final wasSelfService = _booking!.branchType == selfServiceBranchType;
-    final wasSelfServicePickupAtBranch = wasSelfService &&
-        bookingMethodWithAddress(
-                _booking!.pickupMethod, _booking!.pickupAddress) !=
-            'delivery';
-    final hiddenPickup =
-        wasSelfServicePickupAtBranch ? storedPickup : selfServicePickupTime;
-    final String? pickupFix = hidePickupTime
-        ? (_hm(_pickupTime) != _hm(hiddenPickup) ? hiddenPickup : null)
-        : (ssOrigin && _hm(_pickupTime) == selfServicePickupTime
-            ? '09:00'
-            : null);
-    final wasSelfServiceAtBranch = wasSelfService &&
-        bookingMethodWithAddress(
-                _booking!.returnMethod, _booking!.returnAddress) !=
-            'delivery';
+    // Vrácení se úpravou přesunulo NA samoobslužnou pobočku (jiný způsob
+    // vrácení nebo výměna motorky) → automaticky 23:59; rezervace, která
+    // tam už vracela, si nechává uloženou hodnotu (žádná falešná změna).
+    final wasSelfServiceAtBranch =
+        _booking!.branchType == selfServiceBranchType &&
+            bookingMethodWithAddress(
+                    _booking!.returnMethod, _booking!.returnAddress) !=
+                'delivery';
     final hiddenReturn =
         wasSelfServiceAtBranch ? storedReturn : selfServiceReturnTime;
     final String? returnFix = hideReturnTime
@@ -1123,7 +1135,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() {
-          if (pickupFix != null) _pickupTime = pickupFix;
+          if (pickupFix != null) {
+            _pickupTime = pickupFix;
+            _pickupTouched = true;
+          }
           if (returnFix != null) _returnTime = returnFix;
         });
       });
@@ -1273,10 +1288,26 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 onMethodChanged: (m) => setState(() => _pickupMethod = m),
                 onAddressChanged: (a) => setState(() => _pickupAddrNew = _addrText(a)),
                 onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f)),
-              if (!hidePickupTime) ...[
-                const SizedBox(height: 8),
-                EditTimePicker(label: t(context).tr('pickupTimeEdit'), value: _pickupTime,
-                  onChanged: (v) => setState(() => _pickupTime = v)),
+              const SizedBox(height: 8),
+              // Stará rezervace „bez času“ — stav do první změny výběru.
+              if (legacyPickup && effPickup != 'delivery') ...[
+                Text('${t(context).pickupTime}: ${t(context).tr('ssPickupAnyTime')}',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: MotoGoColors.g400)),
+                const SizedBox(height: 6),
+              ],
+              // Na pobočce „ČAS VYZVEDNUTÍ“, u přistavení „ČAS PŘISTAVENÍ“.
+              EditTimePicker(
+                label: t(context).tr(effPickup == 'delivery' ? 'pickupTimeEdit' : 'pickupTimeLabel'),
+                value: legacyPickup ? '09:00' : _pickupTime,
+                onChanged: (v) => setState(() {
+                  _pickupTime = v;
+                  _pickupTouched = true;
+                })),
+              // Samoobsluha: vrácení bez času + sleva / výdej kiosku od 12:00.
+              if (pickupAtSelfService) ...[
+                const SizedBox(height: 6),
+                Text('🌗 ${t(context).tr('ssPickupHint')}',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF4A6357))),
               ],
             ])),
 
@@ -1392,7 +1423,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900,
                     color: calc.effectivePriceDiff > 0 ? MotoGoColors.red : calc.effectivePriceDiff < 0 ? MotoGoColors.greenDarker : MotoGoColors.black)),
               ]),
-              if (calc.effectivePriceDiff < 0 && calc.datesDiffRaw < 0)
+              // i při 0 Kč: pozdější čas ve stornu → sleva přiznaná jen z části
+              if (calc.datesDiffRaw < 0 && (calc.effectivePriceDiff < 0 || calc.stornoPercent < 100))
                 Padding(padding: const EdgeInsets.only(top: 4),
                   child: Text('${t(context).tr('stornoRefundPercent').replaceAll('{percent}', '${calc.stornoPercent}')}',
                     style: const TextStyle(fontSize: 10, color: MotoGoColors.g400))),

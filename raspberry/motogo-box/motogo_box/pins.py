@@ -219,12 +219,20 @@ class LocalResolver:
                 # Kód k oblečení otevírá VÝHRADNĚ dveře oblečení (door_id) — box_number motorky
                 # z rezervace nesmí offline vést na kóji motorky (shodné s online kiosk_resolve_code).
                 box = None
+            release = parse_iso(row.get("release_at"))
+            if release is not None and now < release:
+                # Výdej až od 12:00 (2026-10-01, §31; = online `pickup_too_early`): sleva za pozdní vyzvednutí →
+                # šatna i motorka až od `release_at`. Stará cache bez klíče = bez hradla.
+                return ResolveResult(ok=False, error="pickup_too_early", kind=kind, booking_id=row.get("booking_id"),
+                                     door_id=door_id, box_number=box, offline=True,
+                                     release_at=release.isoformat())
             odo = row.get("odo")            # stav tachometru pro vrácení (2026-09-29) — jen kód motorky
             return ResolveResult(
                 ok=True, kind=kind, booking_id=row.get("booking_id"),
                 door_id=door_id, box_number=box, door_configured=bool(door_id or box is not None),
                 offline=True, protocol=self.protocol_for(cache, row.get("booking_id")),
                 odo=odo if kind == "motorcycle" and isinstance(odo, dict) else None,
+                release_at=release.isoformat() if release is not None else None,
             )
         if matched_expired:
             return ResolveResult(ok=False, error=matched_expired, offline=True)

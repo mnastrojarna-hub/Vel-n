@@ -173,6 +173,15 @@ class _PaymentConfirmationScreenState
     final moto = ref.watch(bookingMotoProvider);
     final dateFmt = DateFormat('d. M. yyyy');
     final tr = t(context);
+    // Hradlo kiosku (zrcadlo `_kiosk_release_at`): samoobslužná pobočka,
+    // převzetí na pobočce a přiznaná sleva za vyzvednutí od 12:00.
+    final lateGate = selfServiceLateGate(
+      branchType: moto?.branchType,
+      pickupMethod: draft.pickupMethod,
+      pickupAddress: draft.pickupMethod == 'delivery' ? draft.pickupAddress : null,
+      lateDiscount: ref.watch(priceBreakdownProvider).latePickupDiscount,
+      status: 'reserved',
+    );
 
     return PopScope(
       // Hardwarové „zpět" z děkovací stránky nesmí skončit na prázdném
@@ -268,18 +277,17 @@ class _PaymentConfirmationScreenState
                             moto!.branchName!,
                           ),
                         ],
-                        // Samoobslužná pobočka: čas na pobočce se nevolí
-                        // (00:01/23:59) → řádek se neukazuje.
-                        if (draft.pickupTime != null &&
-                            !selfServiceHidesPickupTime(
-                                branchType: moto?.branchType,
-                                pickupMethod: draft.pickupMethod)) ...[
+                        // Čas vyzvednutí volí zákazník i na samoobsluze
+                        // (zadání 2026-10-01 večer) → řádek vždy.
+                        if (draft.pickupTime != null) ...[
                           const SizedBox(height: 8),
                           _detailRow(
                             '⏰',
                             '${tr.tr('pickupTimeLabel')}: ${draft.pickupTime}',
                           ),
                         ],
+                        // Samoobslužná pobočka: čas vrácení na pobočku se
+                        // nevolí (23:59) → řádek se neukazuje.
                         if (draft.returnTime != null &&
                             !selfServiceHidesReturnTime(
                                 branchType: moto?.branchType,
@@ -288,6 +296,20 @@ class _PaymentConfirmationScreenState
                           _detailRow(
                             '⏰',
                             '${tr.tr('returnTimeLabel')}: ${draft.returnTime}',
+                          ),
+                        ],
+                        // Sleva za vyzvednutí od 12:00 na samoobslužné
+                        // pobočce → kiosk vydá motorku až od 12:00 (hradlo
+                        // `_kiosk_release_at`); jak to změnit.
+                        if (lateGate &&
+                            draft.startDate != null &&
+                            DateTime.now().toUtc().isBefore(
+                                kioskReleaseAtUtc(draft.startDate!))) ...[
+                          const SizedBox(height: 8),
+                          _detailRow(
+                            '🌗',
+                            tr.tr('ssLateGateNote').replaceAll(
+                                '{datum}', fmtReleaseDate(draft.startDate!)),
                           ),
                         ],
                       ],

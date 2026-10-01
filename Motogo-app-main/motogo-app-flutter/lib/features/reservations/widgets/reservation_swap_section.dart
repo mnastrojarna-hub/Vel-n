@@ -78,10 +78,10 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
   @override
   void initState() {
     super.initState();
-    // Samoobsluha ukládá 00:01 (celý den) — jako výchozí čas výměny nedává
-    // smysl, nabídnout běžných 09:00.
+    // Stará značka 00:01 („kdykoliv během prvního dne“) — jako výchozí čas
+    // výměny nedává smysl, nabídnout běžných 09:00.
     final pt = widget.booking.pickupTime ?? '09:00';
-    _swapTime = pt.startsWith(selfServicePickupTime) ? '09:00' : pt;
+    _swapTime = isLegacyAllDayPickupTime(pt) ? '09:00' : pt;
     // Default: den po začátku dostupného rozsahu (výměna „uprostřed"),
     // clamp do rozsahu; u jednodenního rozsahu = první den.
     final first = _rangeStart;
@@ -395,7 +395,11 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
           EditTimePicker(
             label: t(context).tr('swap.pickTime'),
             value: _swapTime,
-            onChanged: (v) => setState(() => _swapTime = v),
+            // Čas výměny mění cenu (late sleva nového kusu) → nový náhled.
+            onChanged: (v) {
+              setState(() => _swapTime = v);
+              _recomputeNet();
+            },
           ),
         ]),
       ),

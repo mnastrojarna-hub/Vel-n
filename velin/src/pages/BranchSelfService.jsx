@@ -6,7 +6,7 @@ import { RpiHardwareBlock } from './BranchRpiHardware'
 import { defaultDoorHw } from './BranchRpiHardwareDefaults'
 import { RpiDiagnosticsBlock } from './BranchRpiDiagnostics'
 import { BranchMusicBlock } from './BranchMusic'
-import { RpiSection, Btn, Chip, usePersistentFlag, isRpiDevice, platformLabel, ACCESSORIES_LABEL, doorKindLabel, doorLabel, doorEventLabel, isProtocolEvent } from './BranchRpiUi'
+import { RpiSection, Btn, Chip, usePersistentFlag, isRpiDevice, platformLabel, ACCESSORIES_LABEL, doorKindLabel, doorLabel, doorEventLabel, isProtocolEvent, isInfoDenied } from './BranchRpiUi'
 import KioskAlertsBanner from '../components/KioskAlertsBanner'
 import { useKioskAlerts } from '../hooks/useKioskAlerts'
 
@@ -396,13 +396,13 @@ function AuditBlock({ events, doors, devices }) {
             const evLabel = doorEventLabel(e)
             return (
               <div key={e.id} className="flex items-center gap-2 p-2 rounded-lg text-sm" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
-                <span style={{ width: 8, height: 8, borderRadius: 999, background: proto ? '#2563eb' : e.success ? '#1a8a18' : '#dc2626', display: 'inline-block' }} />
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: proto ? '#2563eb' : e.success ? '#1a8a18' : isInfoDenied(e) ? '#d97706' : '#dc2626', display: 'inline-block' }} />
                 <span className="font-bold" style={{ color: '#0f1a14' }}>{doorName}</span>
                 <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
                   style={{ padding: '2px 6px', background: '#eef6f2', color: '#1a2e22' }}>{kindLabel[e.kind] || e.kind || '—'}</span>
                 {evLabel && <span className="text-[12px]" style={{ color: proto ? '#2563eb' : '#1a2e22' }}>{proto ? '📝 ' : ''}{evLabel}</span>}
                 {devMap[e.device_id]?.name && <span className="text-[12px]" style={{ color: '#6b8c7a' }}>{devMap[e.device_id].name}</span>}
-                {!e.success && <span className="text-[11px] font-bold" style={{ color: '#dc2626' }}>neúspěch</span>}
+                {!e.success && !isInfoDenied(e) && <span className="text-[11px] font-bold" style={{ color: '#dc2626' }}>neúspěch</span>}
                 <span className="ml-auto text-[12px]" style={{ color: '#6b8c7a' }}>{new Date(e.created_at).toLocaleString('cs-CZ')}</span>
               </div>
             )

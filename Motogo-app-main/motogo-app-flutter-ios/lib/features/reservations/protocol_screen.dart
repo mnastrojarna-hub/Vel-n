@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
+import '../../core/booking_rules.dart' show fmtReleaseDate, pragueWallClock;
 import '../auth/widgets/toast_helper.dart';
 import '../documents/booking_doc_viewer.dart' show bookingDocsProvider;
 import 'protocol_gear.dart';
@@ -304,6 +305,13 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
     if (s['is_self_service'] != true) return protocolInfoCenter('🏢', t(context).tr('hpStaffed'));
     if (s['locked'] == true) return ProtocolLockedView(autofilled: s['autofilled'] == true);
     if (s['can_fill'] == true) return _buildForm();
+    // Sleva za vyzvednutí od 12:00 (2026-10-01h): server pustí podpis až od
+    // `release_at` (12:00 Europe/Prague dne začátku) — konkrétní důvod.
+    final rel = DateTime.tryParse(s['release_at']?.toString() ?? '');
+    if (rel != null && DateTime.now().toUtc().isBefore(rel.toUtc())) {
+      return protocolInfoCenter('⏳', t(context).tr('ssProtocolBeforeRelease')
+          .replaceAll('{datum}', fmtReleaseDate(pragueWallClock(rel))));
+    }
     return protocolInfoCenter('⏳', t(context).tr('hpNotYet'));
   }
 

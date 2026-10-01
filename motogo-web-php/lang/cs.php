@@ -407,6 +407,8 @@ return [
     // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
     'rez.pickup.selfServiceNoDelivery' => 'Na samoobslužné pobočce zatím není k dispozici',
     'rez.pickup.selfServiceNoDeliveryText' => 'Motorky ze samoobslužné pobočky se přebírají i vracejí pouze na pobočce — nonstop (24/7) pomocí kódu, který dostanete po zaplacení. Přistavení na adresu ani odvoz z adresy u nich zatím nenabízíme; v budoucnu tuto službu zapneme.',
+    // Samoobsluha: volí se jen čas vyzvednutí (zadání 2026-10-01 večer) — rezervace i úprava rezervace
+    'rez.pickup.selfServiceHint' => 'Na samoobslužné pobočce volíte jen čas vyzvednutí — motorku vrátíte kdykoliv poslední den do 24:00. Při vyzvednutí od 12:00 (výpůjčka 2 a více dní) máte 1. den za polovinu a kiosk vám motorku vydá až od 12:00.',
     // Geolokace + výpočet trasy přistavení/vrácení + mapový picker (pages-rezervace-pricing.js)
     'rez.geo.failed' => 'Polohu se nepodařilo zjistit.',
     'rez.geo.denied' => 'Pro určení polohy musíte aplikaci povolit přístup k poloze.',
@@ -510,6 +512,7 @@ return [
     'rez.alert.pickupTime' => 'Vyplňte prosím čas převzetí nebo přistavení motorky.',
     'rez.alert.minTime' => 'Nejdříve možný čas převzetí je aktuální čas + 1 hodina.',
     'rez.alert.minTimeDelivery' => 'Při přistavení je nejdříve možný čas aktuální čas + 6 hodin.',
+    'rez.alert.minTimeSelfService' => 'Čas převzetí nesmí být v minulosti.',
     'rez.alert.returnTime' => 'Vyplňte prosím čas vrácení motorky.',
     'rez.alert.bookingOverlap' => 'Tuto motorku právě rezervoval jiný zákazník ve stejném termínu. Zvolte prosím jiný termín nebo jinou motorku.',
     'rez.alert.bookingOverlapOwn' => 'V tomto termínu již máte jinou aktivní rezervaci.',
@@ -1056,6 +1059,7 @@ return [
     'editRez.err.wrongStatus' => 'Tuto rezervaci již nelze upravit.',
     'editRez.err.notPaid' => 'Rezervace zatím není zaplacená — kontaktujte nás.',
     'editRez.err.activeStartLocked' => 'U probíhající rezervace nelze měnit datum vyzvednutí.',
+    'editRez.err.activePickupTimeLocked' => 'Motorka už byla vyzvednuta — čas vyzvednutí už nelze změnit.',
     'editRez.err.invalidRange' => 'Vyberte platný termín.',
     'editRez.err.notShortening' => 'Pro zkrácení musí být nové datumy uvnitř původních.',
     'editRez.err.notExtending' => 'Nový termín musí obsahovat původní rozsah — vyberte den před začátkem nebo po konci původní rezervace.',
@@ -1122,6 +1126,9 @@ return [
     'editRez.detail.bookingNum' => 'Číslo rezervace',
     'editRez.detail.dateLabel' => 'Termín',
     'editRez.detail.timeLabel' => 'Čas vyzvednutí / vrácení',
+    // Hradlo kiosku: rezervace se slevou za vyzvednutí od 12:00 se na samoobsluze vydá až od 12:00
+    'editRez.detail.latePickupGate' => 'Sleva za vyzvednutí od 12:00: kiosk vám motorku vydá {date} od 12:00. Chcete ji dřív? Upravte čas vyzvednutí — sleva zanikne a rozdíl doplatíte.',
+    'editRez.detail.latePickupGateCta' => 'Upravit čas vyzvednutí',
     'editRez.detail.timeAtRental' => 'při vrácení v půjčovně',
     'editRez.detail.pickupPlace' => 'Místo vyzvednutí',
     'editRez.detail.returnPlace' => 'Místo vrácení',

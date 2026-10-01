@@ -54,15 +54,16 @@ export default function NewBookingModal({ onClose, onSaved }) {
         const [motosRes, pricesRes, branchesRes] = await Promise.all([
           supabase.from('motorcycles').select('id, model, spz, category, image_url, status, branch_id, license_required, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun').order('model'),
           supabase.from('moto_day_prices').select('*'),
-          supabase.from('branches').select('id, name'),
+          supabase.from('branches').select('id, name, type'),
         ])
         if (motosRes.error) {
           console.error('[NewBooking] motorcycles error:', motosRes.error)
           setQueryError('Chyba načítání motorek: ' + motosRes.error.message)
         }
         const motoList = motosRes.data || []
-        const branchMap = {}; (branchesRes.data || []).forEach(b => { branchMap[b.id] = b.name })
-        const motosWithBranch = motoList.map(m => ({ ...m, branch_name: branchMap[m.branch_id] || null }))
+        const branchMap = {}; const branchType = {}; (branchesRes.data || []).forEach(b => { branchMap[b.id] = b.name; branchType[b.id] = b.type })
+        // branch_type → BookingStep3 ukáže upozornění na výdej kioskem až od 12:00 (samoobsluha + sleva)
+        const motosWithBranch = motoList.map(m => ({ ...m, branch_name: branchMap[m.branch_id] || null, branch_type: branchType[m.branch_id] || null }))
         setAllMotos(motosWithBranch)
         console.log('[NewBooking] loaded', motoList.length, 'motorcycles, statuses:', [...new Set(motoList.map(m => m.status))])
         const pm = {}; (pricesRes.data || []).forEach(p => { pm[p.moto_id] = p })

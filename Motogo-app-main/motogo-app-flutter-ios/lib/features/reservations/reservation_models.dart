@@ -5,6 +5,18 @@ import '../../core/booking_rules.dart';
 /// Zaplacená rezervace i po vratce z úpravy (`partial_refund`/`refund_pending`).
 const sosPaidStates = {'paid', 'partial_refund', 'refund_pending'};
 
+/// Hradlo kiosku pro [Reservation.selfServiceLateGate] — mimo třídu, protože
+/// uvnitř by jméno sdíleného helperu zastínil stejnojmenný getter.
+bool _lateGateOf(Reservation r) => selfServiceLateGate(
+      branchType: r.branchType,
+      pickupMethod: r.pickupMethod,
+      pickupAddress: r.pickupAddress,
+      lateDiscount: r.latePickupDiscount,
+      pickedUpAt: r.pickedUpAt,
+      status: r.status,
+      sosReplacement: r.sosReplacement,
+    );
+
 /// Reservation status — mirrors _mapStatus() from reservations-ui.js.
 enum ResStatus {
   aktivni,      // Active — termín běží a motorka je VYDANÁ (u pobočky podepsaný protokol)
@@ -269,6 +281,37 @@ class Reservation {
 
   /// Samoobslužná pobočka (kiosk, kódy, předávací protokol v appce).
   bool get isSelfService => branchType == 'samoobslužná';
+
+  /// Čas vyzvednutí jako HH:MM (DB `time` vrací HH:MM:SS); null = bez času,
+  /// včetně staré značky 00:01 „kdykoliv během prvního dne“
+  /// ([pickupAllDayLegacy]).
+  String? get pickupHm {
+    final s = (pickupTime ?? '').trim();
+    if (s.isEmpty || pickupAllDayLegacy) return null;
+    return s.length >= 5 ? s.substring(0, 5) : s;
+  }
+
+  /// Stará rezervace „bez času“ (00:01, ranní pravidlo 2026-10-01 / AI) s
+  /// vyzvednutím na pobočce — i po výměně motorky na obslužnou pobočku.
+  bool get pickupAllDayLegacy =>
+      isLegacyAllDayPickupTime(pickupTime) &&
+      bookingMethodWithAddress(pickupMethod, pickupAddress) != 'delivery';
+
+  /// Kiosk vydá rezervaci až od 12:00 dne začátku (sleva za vyzvednutí od
+  /// 12:00, samoobsluha, převzetí na pobočce) — zrcadlo `_kiosk_release_at`.
+  bool get selfServiceLateGate => _lateGateOf(this);
+
+  /// Okamžik výdeje kiosku (12:00 Europe/Prague dne začátku, UTC) nebo null,
+  /// když rezervace hradlo nemá.
+  DateTime? get kioskReleaseAt =>
+      // pražské kalendářní datum začátku (jako SQL _kiosk_release_at)
+      selfServiceLateGate ? kioskReleaseAtUtc(pragueWallClock(startDate)) : null;
+
+  /// Hradlo ještě platí (výdej až v budoucnu) — poznámka + CTA v detailu.
+  bool get kioskReleasePending {
+    final at = kioskReleaseAt;
+    return at != null && DateTime.now().toUtc().isBefore(at);
+  }
 
   /// Předávací protokol už je podepsaný (v appce, na displeji nebo ve Velíně).
   bool get protocolSigned => handoverProtocolFilledAt != null;

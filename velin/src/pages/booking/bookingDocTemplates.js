@@ -73,14 +73,21 @@ export function listAccessoryItems(booking, moto) {
 export function buildDocVars(booking, customer, bookingId) {
   const moto = booking.motorcycles || {}
   const accessories = buildAccessoriesBlock(booking, moto)
-  const days = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
+  // Inkluzivní počet dní (start i end den) — shodně s edge generate-document a ceníkem
+  // (5. 5. → 6. 5. = 2 dny; Math.ceil dřív dával o den méně).
+  const days = Math.max(1, Math.floor((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000) + 1)
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '\u2014'
   const fmtPrice = (n) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
-  // Samoobsluha: převzetí/vrácení NA pobočce bez času → 00:01 / 24:00 (shodně s edge
-  // generate-document; web/AI přistavení má method 'store' + adresu → čas zůstává).
+  // Samoobsluha (zadání 2026-10-01 večer, shodně s edge generate-document): převzetí
+  // NA pobočce → smlouva od 12:00, má-li rezervace slevu za vyzvednutí od 12:00
+  // (late_pickup_discount_amount > 0 — kiosk ji dřív nevydá), jinak od 00:01; konec
+  // 24:00. Zvolený čas vyzvednutí jde zvlášť do {{pickup_time}} ('00:01' = bez času).
+  // Web/AI přistavení má method 'store' + adresu → čas zůstává.
   const selfService = moto.branches?.type === 'samoobslužná'
   const brAddr = [moto.branches?.address, [moto.branches?.zip, moto.branches?.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
   const ssPickup = selfService && booking.pickup_method !== 'delivery' && !booking.pickup_address
+  const storedPickup = String(booking.pickup_time || '').startsWith('00:01') ? '' : (booking.pickup_time || '')
+  const lateGranted = Number(booking.late_pickup_discount_amount || 0) > 0
   return {
     customer_name: customer.full_name || '\u2014', customer_email: customer.email || '',
     customer_phone: customer.phone || '', customer_address: [customer.street, customer.city, customer.zip, customer.country].filter(Boolean).join(', ') || '',
@@ -94,7 +101,8 @@ export function buildDocVars(booking, customer, bookingId) {
     booking_id: bookingId.slice(-8).toUpperCase(), booking_number: bookingId.slice(-8).toUpperCase(),
     today: fmtDate(new Date().toISOString()),
     // 00:01 u obslužné = zbytek po výměně ze samoobsluhy → bez času
-    start_time: ssPickup ? '00:01' : (String(booking.pickup_time || '').startsWith('00:01') ? '' : (booking.pickup_time || '')), end_time: '24:00',
+    start_time: ssPickup ? (lateGranted ? '12:00' : '00:01') : storedPickup, end_time: '24:00',
+    pickup_time: ssPickup ? (storedPickup || '00:01') : storedPickup,
     rental_period: `${fmtDate(booking.start_date)} \u2014 ${fmtDate(booking.end_date)} (${days} dni)`,
     total_price_words: '',
     // místo převzetí/vrácení na pobočce = pobočka motorky (Brno Velké Němčice ≠ Mezná)

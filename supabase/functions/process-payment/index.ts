@@ -591,7 +591,10 @@ Deno.serve(async (req: Request) => {
               // přistavení). Podíly stran (pf/rf) jdou do historie úprav.
               const num = (v: unknown) => (v != null && Number.isFinite(Number(v)) ? Number(v) : null)
               const bd = (data.breakdown || {}) as Record<string, unknown>
-              const srv = { t: num(data.new_total), df: num(data.new_delivery_fee), pf: num(bd.pickup_fee_to), rf: num(bd.return_fee_to), x: bd.fee_split_exact === true, f: placeFingerprint(cur) }
+              // l = SKUTEČNĚ přiznaná late sleva (20261001h: získaná sleva krácená
+              // stornem se ukládá jen v proplacené výši) — webhook ji zapíše místo
+              // přepočtu _late_pickup_discount.
+              const srv = { t: num(data.new_total), df: num(data.new_delivery_fee), pf: num(bd.pickup_fee_to), rf: num(bd.return_fee_to), x: bd.fee_split_exact === true, l: num(bd.late_pickup_to), f: placeFingerprint(cur) }
               if (srv.t != null || srv.df != null) metadata.srv = JSON.stringify(srv)
             }
             else if (!error && data?.error) dryErr = String(data.error)
@@ -622,6 +625,14 @@ Deno.serve(async (req: Request) => {
               } else if (typeof dv === 'string' && dv) {
                 dryErr = 'delivery_fee_guard'
               }
+            }
+            // Čas vyzvednutí AKTIVNÍ (převzaté) rezervace je neměnný — stejně jako
+            // server (`active_pickup_time_locked`, 20261001h); webhook by změnu
+            // zahodil a zákazník by zaplatil za nic. Výjimka: stará „bez času“
+            // (00:01) → čas před 12:00 = jen výchozí hodnota formuláře, nic nestojí.
+            if (!dryErr && cur.status === 'active' && c.pickup_time != null) {
+              const nt = hm(c.pickup_time), ot = hm(cur.pickup_time)
+              if (nt !== ot && !((ot === '00:01' || ot === '') && nt < '12:00')) dryErr = 'active_pickup_time_locked'
             }
             if (typeof c.moto_id === 'string' && c.moto_id && c.moto_id !== cur.moto_id && cur.trailer_moto_id) {
               const { data: selfSvc, error: selfErr } = await supabase.rpc('moto_is_self_service', { p_moto_id: c.moto_id })
@@ -700,6 +711,8 @@ Deno.serve(async (req: Request) => {
           moto_unavailable: 'Motorka je v novém termínu už obsazená, nebo je pobočka zavřená — platba doplatku zrušena. Zvolte jiný termín nebo motorku.',
           wrong_status: 'Rezervaci v tomto stavu už nelze upravit (stornovaná nebo ukončená) — platba doplatku zrušena.',
           delivery_fee_guard: 'Poplatek za přistavení/odvoz neodpovídá změně místa (chybí adresa nebo cena trasy) — platba doplatku zrušena. Zadejte adresu a zkuste to znovu.',
+          active_pickup_time_locked: 'Motorka už byla vyzvednuta — čas vyzvednutí už nelze změnit. Platba doplatku zrušena.',
+          location_requires_route: 'Přistavení nebo vrácení na novou adresu se počítá podle trasy — zadejte prosím adresu znovu, aby se trasa ocenila.',
         }
         const dryMsg = dryMsgs[dryErr] ?? `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
         return new Response(

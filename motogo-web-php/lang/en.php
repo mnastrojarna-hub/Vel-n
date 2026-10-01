@@ -386,6 +386,7 @@ return [
     'rez.alert.pickupTime' => 'Please enter the pickup or delivery time.',
     'rez.alert.minTime' => 'The earliest possible pickup time is the current time + 1 hour.',
     'rez.alert.minTimeDelivery' => 'For delivery, the earliest possible time is the current time + 6 hours.',
+    'rez.alert.minTimeSelfService' => 'The pickup time cannot be in the past.',
     'rez.alert.returnTime' => 'Please enter the motorcycle return time.',
     'rez.alert.bookingOverlap' => 'Another customer has just booked this motorcycle for the same dates. Please pick different dates or another motorcycle.',
     'rez.alert.bookingOverlapOwn' => 'You already have an active booking on these dates.',
@@ -827,6 +828,7 @@ return [
     'editRez.err.wrongStatus' => 'This booking can no longer be edited.',
     'editRez.err.notPaid' => 'Booking is not paid yet — please contact us.',
     'editRez.err.activeStartLocked' => 'During an active rental the pick-up date cannot be changed.',
+    'editRez.err.activePickupTimeLocked' => 'The motorcycle has already been picked up — the pickup time can no longer be changed.',
     'editRez.err.invalidRange' => 'Pick a valid period.',
     'editRez.err.notShortening' => 'For shortening, the new dates must be inside the original ones.',
     'editRez.err.notExtending' => 'For extension, at least one date must be outside the original range.',
@@ -1264,6 +1266,9 @@ return [
     'editRez.detail.bookingNum' => 'Booking number',
     'editRez.detail.dateLabel' => 'Period',
     'editRez.detail.timeLabel' => 'Pick-up / return time',
+    // Hradlo kiosku: rezervace se slevou za vyzvednutí od 12:00 se na samoobsluze vydá až od 12:00
+    'editRez.detail.latePickupGate' => 'Discount for pickup from 12:00: the kiosk will release your motorcycle on {date} from 12:00. Need it earlier? Change the pickup time — the discount will be cancelled and you will pay the difference.',
+    'editRez.detail.latePickupGateCta' => 'Change pickup time',
     'editRez.detail.timeAtRental' => 'on return at the rental',
     'editRez.detail.pickupPlace' => 'Pick-up place',
     'editRez.detail.returnPlace' => 'Return place',
@@ -1440,6 +1445,8 @@ return [
     // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
     'rez.pickup.selfServiceNoDelivery' => 'Not available at self-service branches yet',
     'rez.pickup.selfServiceNoDeliveryText' => 'Motorcycles from a self-service branch are picked up and returned only at the branch — around the clock (24/7) using the code you receive after payment. We do not yet offer delivery to an address or collection from an address for them; we will enable this service in the future.',
+    // Samoobsluha: volí se jen čas vyzvednutí (zadání 2026-10-01 večer) — rezervace i úprava rezervace
+    'rez.pickup.selfServiceHint' => 'At a self-service branch you only choose the pickup time — you can return the motorcycle any time on the last day until 24:00. If you pick up from 12:00 (rentals of 2 or more days), the 1st day is half price and the kiosk will release the motorcycle to you only from 12:00.',
     'rez.geo.failed' => 'Could not determine your location.',
     'rez.geo.denied' => 'To determine your location, you must allow location access.',
     'rez.geo.unavailable' => 'Location is currently unavailable. Try again or enter the address manually.',

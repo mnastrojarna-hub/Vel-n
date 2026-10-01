@@ -228,16 +228,21 @@
 
   function injectTimeField(formEl, anchorEl, inputId, booking) {
     if (!formEl || !anchorEl || document.getElementById(inputId)) return null;
-    // samoobsluha + převzetí na pobočce: čas se nevolí (smlouva 00:01), jinak by šla získat sleva za pozdní vyzvednutí; web/AI přistavení má method 'store' + adresu → čas zůstává
-    if (booking && booking.pickup_method !== 'delivery' && !booking.pickup_address && booking.motorcycles && booking.motorcycles.branches && booking.motorcycles.branches.type === 'samoobslužná') return null;
+    // Samoobsluha (zadání 2026-10-01 večer): čas převzetí se volí i tady (řídí
+    // slevu za vyzvednutí od 12:00 a od kdy kiosk rezervaci vydá). Stará hodnota
+    // 00:01 (ranní pravidlo = bez času) = prázdné pole → timeChangedIn() ji bez
+    // zásahu zákazníka nehlásí jako změnu.
+    var cur = hm(booking.pickup_time) === '00:01' ? '' : hm(booking.pickup_time);
+    var ssBranch = booking.pickup_method !== 'delivery' && !String(booking.pickup_address || '').trim() &&
+      booking.motorcycles && booking.motorcycles.branches && booking.motorcycles.branches.type === 'samoobslužná';
     var lbl = document.createElement('label');
     lbl.className = 'erez-loc-time';
     lbl.innerHTML = '<span class="erez-loc-time-label">⏰ ' + MG.t('editRez.loc.pickupTime') +
-      '</span><input type="time" id="' + inputId + '" step="900" value="' + hm(booking.pickup_time) + '">';
+      '</span><input type="time" id="' + inputId + '" step="900" value="' + cur + '">';
     var hint = document.createElement('div');
     hint.className = 'muted';
     hint.style.cssText = 'font-size:.85rem;margin:.2rem 0 .6rem';
-    hint.textContent = '🌗 ' + MG.t('editRez.timeHint12');
+    hint.textContent = ssBranch ? 'ⓘ ' + MG.t('rez.pickup.selfServiceHint') : '🌗 ' + MG.t('editRez.timeHint12');
     formEl.insertBefore(lbl, anchorEl);
     formEl.insertBefore(hint, anchorEl);
     return document.getElementById(inputId);
@@ -323,6 +328,8 @@
             writeServerBlock(sum, '<div class="muted">' + MG.t('editRez.extend.noChange') + '</div>');
           } else if (code === 'overlap') {
             writeServerBlock(sum, '<div class="error">' + MG.t('editRez.extend.unavailable') + '</div>');
+          } else if (code === 'active_pickup_time_locked') {
+            writeServerBlock(sum, '<div class="error">' + MG.t('editRez.err.activePickupTimeLocked') + '</div>');
           } else {
             console.warn('[editRez] dry-run failed', code, res.error);
             writeServerBlock(sum, '<div class="error">' + MG.t('editRez.err.generic') + '</div>');
@@ -498,7 +505,12 @@
       try {
         var d = {};
         if (payload.p_new_pickup_time) d.pickup_time = payload.p_new_pickup_time;
-        var bRes = await window.sb.from('bookings')
+        // 20261001h: server ukládá jen PŘIZNANOU late slevu (získaná sleva při
+        // pozdějším čase v okně storna se krátí) — _submitChange ji nese v _nlate
+        // (breakdown.late_pickup_to); plný _late_pickup_discount by ji přepsal.
+        var srvLate = (payload._nlate != null && isFinite(Number(payload._nlate))) ? Number(payload._nlate) : null;
+        if (srvLate != null) d.late_pickup_discount_amount = srvLate;
+        var bRes = srvLate != null ? null : await window.sb.from('bookings')
           .select('moto_id,start_date,end_date,pickup_time').eq('id', id).maybeSingle();
         var cur = bRes && bRes.data;
         if (cur) {

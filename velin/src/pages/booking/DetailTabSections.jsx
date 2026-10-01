@@ -4,6 +4,7 @@ import { describeModification, describeHistoryEntry, fmtDT, paymentMethodInfo, p
 import Button from '../../components/ui/Button'
 import { mapyLinkUrl, mapyNavigateUrl } from '../../lib/mapyCz'
 import { fmtTimeHM, DEFAULT_PICKUP_TIME, DEFAULT_RETURN_TIME } from './bookingModifyHelpers'
+import { kioskReleaseGate, LATE_PICKUP_KIOSK_CHIP, fmtPragueDateTime, isLegacyNoPickupTime } from '../../lib/latePickup'
 
 export function SOSSection({ booking, sosIncidents, navigate }) {
   if (!booking.sos_replacement && !booking.ended_by_sos && sosIncidents.length === 0) return null
@@ -197,6 +198,8 @@ export function DoorCodesSection({ doorCodes, booking }) {
   const selfService = b.motorcycles?.branches?.type === 'samoobslužná'
   const signed = b.handover_protocol_filled_at
   const awaitsProtocol = selfService && !signed && ['reserved', 'active'].includes(b.status) && !!motoCode?.is_active
+  // Sleva za vyzvednutí od 12:00 → kiosk vydá šatnu i motorku až od 12:00 v den začátku (SQL _kiosk_release_at)
+  const releaseAt = kioskReleaseGate(b, b.motorcycles?.branches?.type)
   const dt = v => v ? new Date(v).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
 
   return (
@@ -220,6 +223,7 @@ export function DoorCodesSection({ doorCodes, booking }) {
           {motoCode && !motoCode.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#f3f4f6', color: '#6b7280' }}>Neaktivní</span>}
           {withheld && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#b45309' }}>Zadrzeno: {withheld}</span>}
           {signed && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dcfce7', color: '#1a8a18' }} title={selfService ? 'Předávací protokol je podepsaný — kód motorky kóji otevře. PDF je v Dokumentech.' : 'Předávací protokol je podepsaný (odbavení obsluhou). PDF je v Dokumentech.'}>📝 Protokol podepsán {dt(signed)}</span>}
+          {releaseAt && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#92400e' }} title={`Rezervace má slevu za vyzvednutí od 12:00 — kód šatny i motorky kiosk přijme až ${fmtPragueDateTime(releaseAt)} (dřív ukáže hlášku a výzvu k úpravě času vyzvednutí). Dřívější čas vyzvednutí = sleva zanikne, rozdíl se doplatí a kód platí hned.`}>{LATE_PICKUP_KIOSK_CHIP}</span>}
           {awaitsProtocol && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#ede9fe', color: '#6d28d9' }} title="Kód motorky se na displeji ověří, ale kóje se otevře až po podpisu předávacího protokolu — na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky) nebo v aplikaci.">📝 Čeká na protokol</span>}
         </div>
         {(b.gear_collected_at || (b.handover_protocol_prompted_at && !signed)) && (
@@ -342,7 +346,7 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
 
       {/* Termín — výrazné rámečky */}
       <div className="grid grid-cols-4 gap-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-        <KeyValueTile label="Od" value={booking.start_date ? new Date(booking.start_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'} sub={`v ${fmtTimeHM(booking.pickup_time, DEFAULT_PICKUP_TIME)}`} />
+        <KeyValueTile label="Od" value={booking.start_date ? new Date(booking.start_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'} sub={isLegacyNoPickupTime(booking.pickup_time) ? 'kdykoliv během 1. dne' : `v ${fmtTimeHM(booking.pickup_time, DEFAULT_PICKUP_TIME)}`} />
         <KeyValueTile label="Do" value={booking.end_date ? new Date(booking.end_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'} sub={`v ${fmtTimeHM(booking.return_time, DEFAULT_RETURN_TIME)}`} />
         <KeyValueTile label="Celkem k úhradě" value={`${Number(booking.total_price || 0).toLocaleString('cs-CZ')} Kč`} accent="#1a8a18" big />
         <KeyValueTile label="Dní" value={(() => { const d = Math.max(1, Math.round((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000) + 1); return `${d} ${d === 1 ? 'den' : d < 5 ? 'dny' : 'dní'}` })()} />
@@ -351,7 +355,7 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
       {/* Místo + pojištění */}
       <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
         <div className="grid grid-cols-3 gap-3">
-          <AddressBlock label="Přistavení" method={booking.pickup_method} address={booking.pickup_address} branchName={branchName} lat={booking.pickup_lat} lng={booking.pickup_lng} fee={pickupFee} time={fmtTimeHM(booking.pickup_time)} />
+          <AddressBlock label="Přistavení" method={booking.pickup_method} address={booking.pickup_address} branchName={branchName} lat={booking.pickup_lat} lng={booking.pickup_lng} fee={pickupFee} time={isLegacyNoPickupTime(booking.pickup_time) ? 'kdykoliv 1. den' : fmtTimeHM(booking.pickup_time)} />
           <AddressBlock label="Vrácení" method={booking.return_method} address={booking.return_address} branchName={branchName} lat={booking.return_lat} lng={booking.return_lng} fee={returnFee} time={fmtTimeHM(booking.return_time)} />
           <div className="rounded-lg p-3" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
             <div className="text-xs font-extrabold uppercase tracking-wider mb-1.5" style={{ color: '#4a5a52' }}>Pojištění</div>

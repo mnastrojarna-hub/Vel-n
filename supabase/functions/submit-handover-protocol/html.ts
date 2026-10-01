@@ -80,6 +80,8 @@ const EXTRA_IN_MOTO_EQUIPMENT = new Set(['disc_lock', 'reflective'])
 export interface Vars {
   booking_number: string; today: string; company_name: string; customer_name: string
   moto_model: string; moto_spz: string; moto_vin: string; rental_period: string
+  /** Sjednaný čas vyzvednutí („d. m. rrrr HH:MM“); '' = bez času (stará samoobsluha 00:01). */
+  pickup_time?: string
 }
 
 /** Kdo a kde podepsal: appka (JWT zákazníka) nebo displej pobočky (zařízení kiosku). */
@@ -118,8 +120,9 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
   const row = (l: string, val: string) => `<tr><td style="${TDL}">${esc(l)}</td><td style="${TD}">${val ? escMulti(val) : '&nbsp;'}</td></tr>`
   const parties = `<h3 style="font-size:13px;margin-top:16px">Smluvní strany a vozidlo</h3><table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">${row('Pronajímatel', v.company_name)}${row('Nájemce', v.customer_name)}${row('Motocykl', `${v.moto_model} (${v.moto_spz || ''})`)}${row('VIN', v.moto_vin)}${row('Období pronájmu', v.rental_period)}</table>`
 
-  // Skutečný čas převzetí = okamžik podpisu (samoobsluha nemá v rezervaci čas,
-  // smlouva 00:01–24:00 — zadání 2026-10-01).
+  // Skutečný čas převzetí = okamžik podpisu. Sjednaný čas vyzvednutí (zvolený
+  // zákazníkem, řídí slevu za vyzvednutí od 12:00 — zadání 2026-10-01 večer) je
+  // jen informativní řádek; smlouva u samoobsluhy platí od 00:01, se slevou od 12:00.
   const signedAt = fmtDateTime(signer.signedAt)
   // Kde byl podpis pořízen — u kiosku s identifikací zařízení (audit).
   const where = signer.by === 'kiosk'
@@ -131,7 +134,7 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
 
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Předávací protokol</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:19px;border-bottom:2px solid #2563eb;padding-bottom:12px">PŘEDÁVACÍ PROTOKOL</h1><p style="text-align:center;font-size:12px;color:#666">k rezervaci č. ${esc(v.booking_number)} ze dne ${esc(v.today)}</p>` +
     parties +
-    `<h3 style="font-size:13px;margin-top:14px">Stav při předání</h3><table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">${row('Skutečný čas převzetí', signedAt)}${row(mh ? 'Stav motohodin při předání' : 'Stav km při předání', mileage ? `${mileage} ${mh ? 'MH' : 'km'}` : '')}</table>` +
+    `<h3 style="font-size:13px;margin-top:14px">Stav při předání</h3><table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">${v.pickup_time ? row('Sjednaný čas vyzvednutí', v.pickup_time) : ''}${row('Skutečný čas převzetí', signedAt)}${row(mh ? 'Stav motohodin při předání' : 'Stav km při předání', mileage ? `${mileage} ${mh ? 'MH' : 'km'}` : '')}</table>` +
     (mileage ? `<p style="font-size:10px;color:#666;margin:4px 0 0">${esc(MILEAGE_NOTE)}</p>` : '') +
     `<h3 style="font-size:13px;margin-top:14px">Kontrola předání</h3>${checkList}` +
     `<h3 style="font-size:13px;margin-top:14px">Zapůjčená výbava</h3>${accTable}` +

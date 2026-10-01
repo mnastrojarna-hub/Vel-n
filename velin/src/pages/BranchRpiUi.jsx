@@ -72,9 +72,24 @@ function doorEventName(e) {
   const d = e?.detail
   return d && typeof d === 'object' && !Array.isArray(d) ? String(d.event ?? '').toUpperCase() : ''
 }
-function doorEventLabel(e) { const n = doorEventName(e); return n ? (DOOR_EVENT_CZ[n] || n) : '' }
+// Důvod z detail.reason má přednost před názvem události — `pickup_too_early` (2026-10-01h):
+// kód je platný, ale rezervace se slevou za vyzvednutí od 12:00 se vydává až od 12:00 (CONTRACT §31)
+const DOOR_REASON_CZ = {
+  pickup_too_early: 'kód přijat — výdej až od 12:00 (sleva za pozdní vyzvednutí)',
+}
+function doorEventReason(e) {
+  const d = e?.detail
+  return d && typeof d === 'object' && !Array.isArray(d) ? String(d.reason ?? '') : ''
+}
+function doorEventLabel(e) {
+  const r = DOOR_REASON_CZ[doorEventReason(e)]
+  if (r) return r
+  const n = doorEventName(e); return n ? (DOOR_EVENT_CZ[n] || n) : ''
+}
 // Událost protokolu — není to otevření kóje (nepočítat do otevření, jiný chip v logu)
 function isProtocolEvent(e) { return PROTOCOL_EVENTS.has(doorEventName(e)) }
+// Odmítnutí „až od 12:00“ není útok ani porucha — v logu jantarově, bez „neúspěch“
+export const isInfoDenied = e => doorEventReason(e) === 'pickup_too_early'
 
 // ── Defenzivní vykreslení hodnot ze zařízení (status/report jsou JSON z jednotky — nevěřit tvaru) ──
 // txt: null → '—', objekt/pole → JSON, jinak text; num: konečné číslo nebo null; arr: pole nebo []

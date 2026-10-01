@@ -406,6 +406,8 @@ return [
     // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
     'rez.pickup.selfServiceNoDelivery' => 'У філіях самообслуговування поки що недоступно',
     'rez.pickup.selfServiceNoDeliveryText' => 'Мотоцикли з філії самообслуговування забирають і повертають лише у філії — цілодобово (24/7) за кодом, який ви отримаєте після оплати. Доставку на адресу чи забирання з адреси для них поки що не пропонуємо; у майбутньому цю послугу увімкнемо.',
+    // Samoobsluha: volí se jen čas vyzvednutí (zadání 2026-10-01 večer) — rezervace i úprava rezervace
+    'rez.pickup.selfServiceHint' => 'На філії самообслуговування ви обираєте лише час отримання — мотоцикл повернете будь-коли в останній день до 24:00. При отриманні з 12:00 (оренда на 2 і більше днів) перший день коштує половину, а кіоск видасть вам мотоцикл лише з 12:00.',
     // Geolokace + výpočet trasy přistavení/vrácení + mapový picker (pages-rezervace-pricing.js)
     'rez.geo.failed' => 'Не вдалося визначити місцезнаходження.',
     'rez.geo.denied' => 'Для визначення місцезнаходження ви маєте дозволити застосунку доступ до місцезнаходження.',
@@ -509,6 +511,7 @@ return [
     'rez.alert.pickupTime' => 'Будь ласка, заповніть час отримання або доставки мотоцикла.',
     'rez.alert.minTime' => 'Найраніший можливий час отримання — поточний час + 1 година.',
     'rez.alert.minTimeDelivery' => 'При доставці найраніший можливий час — поточний час + 6 годин.',
+    'rez.alert.minTimeSelfService' => 'Час отримання не може бути в минулому.',
     'rez.alert.returnTime' => 'Будь ласка, заповніть час повернення мотоцикла.',
     'rez.alert.bookingOverlap' => 'Цей мотоцикл щойно забронював інший клієнт на ту саму дату. Будь ласка, виберіть іншу дату або інший мотоцикл.',
     'rez.alert.bookingOverlapOwn' => 'На цю дату у вас уже є інше активне бронювання.',
@@ -1054,6 +1057,7 @@ return [
     'editRez.err.wrongStatus' => 'Це бронювання вже неможливо змінити.',
     'editRez.err.notPaid' => 'Бронювання поки не оплачене — зв’яжіться з нами.',
     'editRez.err.activeStartLocked' => 'У бронюванні, що триває, неможливо змінити дату отримання.',
+    'editRez.err.activePickupTimeLocked' => 'Мотоцикл уже отримано — час отримання більше не можна змінити.',
     'editRez.err.invalidRange' => 'Виберіть дійсну дату.',
     'editRez.err.notShortening' => 'Для скорочення нові дати мають бути всередині початкових.',
     'editRez.err.notExtending' => 'Нова дата має містити початковий діапазон — виберіть день перед початком або після кінця початкового бронювання.',
@@ -1120,6 +1124,9 @@ return [
     'editRez.detail.bookingNum' => 'Номер бронювання',
     'editRez.detail.dateLabel' => 'Дата',
     'editRez.detail.timeLabel' => 'Час отримання / повернення',
+    // Hradlo kiosku: rezervace se slevou za vyzvednutí od 12:00 se na samoobsluze vydá až od 12:00
+    'editRez.detail.latePickupGate' => 'Знижка за отримання з 12:00: кіоск видасть вам мотоцикл {date} з 12:00. Потрібен раніше? Змініть час отримання — знижка зникне, а різницю ви доплатите.',
+    'editRez.detail.latePickupGateCta' => 'Змінити час отримання',
     'editRez.detail.timeAtRental' => 'при поверненні у прокаті',
     'editRez.detail.pickupPlace' => 'Місце отримання',
     'editRez.detail.returnPlace' => 'Місце повернення',

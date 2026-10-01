@@ -142,7 +142,12 @@ dveřím č. N. Stav N km uložen.“ Při převzetí se km nikdy nezadávají (
 (`MG.Odometer`), `ui/style-odometer.css`, texty `od.*` v 8 jazycích v `ui/i18n-odometer.js`.
 Servisní panel, setup a diagnostika zůstávají tmavé overlaye (`ui/style-overlays.css`), použitelné i na nízkém displeji.
 **Název pobočky se bere VÝHRADNĚ z Velína → Pobočky (`name`)** — není-li vyplněný, zůstává místo v hlavičce prázdné
-(žádný náhradní text). Texty všech 8 jazyků: `ui/i18n.js` + `ui/i18n-handover.js` (+ `ui/i18n-locker.js`, `ui/i18n-odometer.js`).
+(žádný náhradní text). Texty všech 8 jazyků: `ui/i18n.js` + `ui/i18n-handover.js` (+ `ui/i18n-locker.js`, `ui/i18n-odometer.js`,
+`ui/i18n-pickup.js`).
+**Výdej až od 12:00 (2026-10-01, CONTRACT §31):** rezervace se slevou 50 % na 1. den za vyzvednutí od 12:00 (samoobsluha, převzetí
+na pobočce) se vydává — šatna i motorka — až od 12:00 Prahy v den začátku. Kód zadaný dřív ukáže „Vyzvednutí až od 12:00“ s časem
+a minutami (25 s nebo do klepnutí) a výzvu upravit čas vyzvednutí v appce / na motogo24.cz/upravit-rezervaci (sleva zanikne,
+rozdíl doplatí, kód platí hned); do PIN lockoutu se nepočítá (`pickup_gate.py`, texty `ui/i18n-pickup.js`).
 
 ## Co se nastavuje kde (Velín vs. Raspberry)
 
@@ -507,6 +512,7 @@ odmítne; červený běh = chyba psql (issue se nezakládá).
 | zákazník u boxu čeká na ověření kódu při výpadku LTE | RPC `kiosk_resolve_code` čeká na timeout, než se sáhne do offline cache | Od 2026-09-20 je timeout ověření **6 s**, a když poslední volání selhalo (probíhá výpadek), jen **2,5 s** → pak hned offline cache. Displej po celou dobu hlásí „Ověřuji kód…“ (všech 8 jazyků). Kód v cache tedy otevře i při výpadku; cache se plní z `kiosk_sync_config` (kódy aktivní + vydané + platné, sync á 60 s). |
 | kód odmítnut „Chyba spojení" | není internet ani cache | `journalctl -u motogo-health`, `mmcli -m any`; cache se plní po prvním úspěšném `kiosk_sync_config` |
 | „Příliš mnoho neplatných pokusů" | PIN lockout (5 pokusů / 5 min → 15 min) | počkat nebo restart controlleru (lockout je v SQLite — přežije restart) |
+| kód (šatna i motorka) odmítnut hláškou „Vyzvednutí až od 12:00“ (`error: pickup_too_early`, Velín: ACCESS_DENIED s důvodem `pickup_too_early`) | rezervace má slevu za vyzvednutí od 12:00 → kiosk ji vydá až od `release_at` = 12:00 Prahy v den začátku (CONTRACT §31) — správné chování, do lockoutu se nepočítá | zákazník počká do 12:00, nebo změní čas vyzvednutí na dřívější (appka / motogo24.cz/upravit-rezervaci; sleva zanikne, doplatí rozdíl) — DB trigger `trg_booking_kiosk_release_sync` vyžádá resync a kód platí hned (offline jednotka až po obnově spojení); kontrola v SQL editoru Supabase `select _kiosk_release_at('<booking_id>')` (NULL = bez hradla); nouzově Velín „Otevřít dveře“ |
 | kód motorky kóji neotevře, na displeji se objeví předávací protokol | rezervace nemá podepsaný protokol (`protocol.required`) — správné chování vedeného toku (CONTRACT §28) | zákazník podepíše na displeji (potvrdí kódem motorky) nebo v appce; po podpisu se kóje otevře sama / další kód motorky projde. Servisní kódy 39301A–H a `open_door` z Velína protokol obcházejí |
 | zákazník nemůže vrátit motorku — displej odmítá stav tachometru („nižší než poslední známý“ / „příliš vysoký“) | zadává špatně, nebo je chybný poslední známý stav motorky (`motorcycles.mileage`, překlep ve Velíně) či start rezervace; Velín vidí události `ODOMETER_REJECTED` (Hlášení, source `odometer`) s hodnotou a mezemi | ověřit stav po telefonu; chybný stav opravit ve Velíně „Korekce nájezdu“ (projeví se do 60 s — sync, online hned), případně kóji otevřít z Velína („Otevřít dveře“) nebo pevným servisním kódem; mez se počítá jako poslední známý stav až start + 1000 km × dny (24 mth/den) |
 | stav tachometru se nedostal do Velína (`api/state → odometer.pending[]` / `failed[]`, událost `ODOMETER_UPLOAD_FAILED`) | `pending` = bez internetu nebo RPC `kiosk_submit_odometer` ještě není nasazená (404) — opakuje se samo á 30 s bez limitu; `failed` = server čtení trvale odmítl (`forbidden` rezervace bez kódu motorky pobočky, `not_found`, `conflict`) | internet / nasazení SQL; po opravě Velín „Znovu synchronizovat“ (vrátí `failed` do fronty). Čtení se nikdy nezahodí; čekající (`pending`) zvedá spodní mez i km dalšího převzetí téže motorky, `failed` už ne |

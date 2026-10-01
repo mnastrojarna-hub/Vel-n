@@ -363,3 +363,17 @@ async def test_submit_protocol_network_error_is_transient(storage):
         assert res["ok"] is False and res["permanent"] is False and res["error"].startswith("network") and not api.online
     finally:
         await api.close()
+
+
+def test_resolve_result_release_at_from_rpc():
+    """`kiosk_resolve_code` 2026-10-01h (§31): `release_at` u ok i u chyby `pickup_too_early`; chybí / null → None."""
+    from motogo_box.models import ResolveResult
+    rel = "2026-10-01T10:00:00+00:00"
+    err = ResolveResult.from_rpc({"ok": False, "error": "pickup_too_early", "kind": "accessories",
+                                  "booking_id": "b1", "box_number": None, "release_at": rel})
+    assert not err.ok and err.error == "pickup_too_early" and err.kind == "accessories" and err.release_at == rel
+    assert err.booking_id == "b1" and err.box_number is None
+    ok = ResolveResult.from_rpc({"ok": True, "kind": "motorcycle", "box_number": 3, "release_at": rel})
+    assert ok.ok and ok.release_at == rel and ok.box_number == 3
+    assert ResolveResult.from_rpc({"ok": True, "kind": "motorcycle", "release_at": None}).release_at is None
+    assert ResolveResult.from_rpc({"ok": False, "error": "invalid_code"}).release_at is None

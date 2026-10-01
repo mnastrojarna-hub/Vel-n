@@ -236,3 +236,27 @@ def test_resolver_protocol_from_cache():
     assert rr.protocol["required"] is True and rr.protocol["data"]["customer_name"] == "Petra S."
     assert LocalResolver.protocol_for(cache, "b-9") == {"booking_id": "b-9", "required": False, "absent": True}
     assert LocalResolver.protocol_for(cache, None) is None and LocalResolver.protocol_for(None, "b-1") is None
+
+
+def test_resolver_pickup_gate_release_at():
+    """Výdej až od 12:00 (2026-10-01, §31): řádek s budoucím `release_at` → `pickup_too_early` (šatna i motorka,
+    i po projití valid_from/valid_until); po release_at normálně ok + `release_at`; stará cache bez klíče = bez hradla."""
+    r = LocalResolver(DEVICE_ID, TOKEN)
+    cache = _hashed_cache()
+    release = NOW + timedelta(hours=2)
+    cache["codes"][0]["release_at"] = release.isoformat()
+    cache["codes"][1].update(valid_until=None, release_at=release.isoformat().replace("+00:00", "Z"))
+    early = r.resolve("111111", cache, NOW)
+    assert early is not None and not early.ok and early.error == "pickup_too_early" and early.offline
+    assert early.kind == "motorcycle" and early.booking_id == "b-1" and early.box_number == 1
+    assert early.door_id == "door-1" and early.release_at == release.isoformat()
+    acc = r.resolve("222222", cache, NOW)
+    assert not acc.ok and acc.error == "pickup_too_early" and acc.kind == "accessories" and acc.box_number is None
+    assert acc.release_at == release.isoformat()
+    later = r.resolve("111111", cache, release)               # přesně v release_at už platí
+    assert later.ok and later.release_at == release.isoformat()
+    expired = r.resolve("111111", cache, NOW + timedelta(hours=9))      # prošlá platnost má přednost
+    assert not expired.ok and expired.error == "code_expired"
+    cache["codes"][0]["release_at"] = None                      # bez slevy (server posílá null) / stará cache
+    plain = r.resolve("111111", cache, NOW)
+    assert plain.ok and plain.release_at is None

@@ -6,7 +6,8 @@
 //                   rezervace musí mít na téže pobočce VYDANÝ kód k motorce.
 // mode='auto'     : ZRUŠENO 2026-09-25 (automatické vyplnění po 1 h) → 403.
 //
-// Tok: auth → rezervace → idempotence (already_filled) → stav (wrong_status/too_early)
+// Tok: auth → rezervace → idempotence (already_filled) → stav (wrong_status/too_early;
+// too_early i před `release_at` — sleva za vyzvednutí od 12:00, odpověď nese release_at)
 // → propis změněných velikostí do bookings → HTML → PDF přes render-pdf (fallback HTML)
 // → bucket `documents` → ATOMICKÝ CLAIM handover_protocol_filled_at (UPDATE … WHERE
 // filled_at IS NULL; 0 řádků = podepsáno souběžně jinde → already_filled + úklid souboru)
@@ -39,6 +40,8 @@ const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 // zahodil (§0: podpis se NIKDY neztratí). Dokument je datován kioskovým signed_at.
 const OK_STATUS_APP = ['reserved', 'active']
 const OK_STATUS_KIOSK = [...OK_STATUS_APP, 'completed']
+// Tolerance posunu hodin jednotky u hradla „výdej až od 12:00“ (kiosk ho vynucuje sám).
+const KIOSK_CLOCK_SKEW_MS = 5 * 60_000
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
@@ -112,6 +115,28 @@ serve(async (req) => {
     if (mode === 'customer' && !booking.handover_protocol_started_at && pragueDay(new Date(booking.start_date)) > pragueDay(now)) {
       return fail('too_early', 400)
     }
+    // Sleva za vyzvednutí od 12:00 (2026-10-01h): kiosk takovou rezervaci vydá
+    // až od 12:00 Prahy v den začátku → ani protokol nejde podepsat dřív
+    // (zdroj pravdy `_kiosk_release_at`, stejně jako get_handover_protocol_state).
+    // Kiosk se NEodmítá: hradlo vynucuje sám a podpis z jeho fronty dokládá
+    // předání, které už proběhlo — 4xx by ho trvale zahodil (§0); jen log.
+    // Chyba RPC (např. SQL ještě nenasazené) = bez hradla, jen log.
+    const { data: relRaw, error: relErr } = await admin.rpc('_kiosk_release_at', { p_booking_id: bookingId })
+    if (relErr) console.warn('[handover] _kiosk_release_at:', relErr.message)
+    const releaseAt = !relErr && relRaw ? new Date(String(relRaw)) : null
+    if (releaseAt && !Number.isNaN(releaseAt.getTime())) {
+      if (mode === 'kiosk') {
+        if (parseSignedAt(body.signed_at, now).getTime() + KIOSK_CLOCK_SKEW_MS < releaseAt.getTime()) {
+          console.warn('[handover] kiosk signature before release_at', bookingId, body.signed_at)
+          try {
+            await admin.from('debug_log').insert({ source: 'submit-handover-protocol', action: 'handover_kiosk_before_release',
+              status: 'warning', request_data: { booking_id: bookingId, signed_at: body.signed_at ?? null, release_at: releaseAt.toISOString() } })
+          } catch { /* jen log */ }
+        }
+      } else if (now.getTime() < releaseAt.getTime()) {
+        return fail('too_early', 400, { release_at: releaseAt.toISOString() })
+      }
+    }
 
     // ── Podpis (limit = dekódované bajty PNG, stejně jako kiosk) ───────────
     const signature = typeof body.signature === 'string' ? body.signature.trim() : ''
@@ -170,6 +195,9 @@ serve(async (req) => {
       moto_spz: (moto.spz as string) || '',
       moto_vin: (moto.vin as string) || '',
       rental_period: `${fmtDate(booking.start_date)} — ${fmtDate(booking.end_date)}`,
+      // 00:01 = stará samoobsluha „bez času“ → řádek se nevypíše
+      pickup_time: booking.pickup_time && !String(booking.pickup_time).startsWith('00:01')
+        ? `${fmtDate(booking.start_date)} ${String(booking.pickup_time).slice(0, 5)}` : '',
     }
 
     // ── Změněné velikosti → bookings (PŘED claimem; vlastní záznam historie,

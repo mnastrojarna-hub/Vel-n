@@ -3,7 +3,7 @@
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { execPublicReadTool, PUBLIC_READ_TOOL_NAMES } from './public-tools.ts'
-import { ssTime } from './booking-context.ts'
+import { kioskReleaseNote, pickupTimeLabel, pragueDateLabel, ssTime } from './booking-context.ts'
 import { readManual } from '../_shared/manual-reader.ts'
 import { getBundledManualText } from '../_shared/manual-texts/index.ts'
 
@@ -79,6 +79,7 @@ export async function executeTool(
           total_price, extras_price, pickup_method, return_method, pickup_address, return_address,
           mileage_start, mileage_end, notes, booking_source,
           picked_up_at, handover_protocol_started_at, handover_protocol_filled_at,
+          late_pickup_discount_amount, sos_replacement,
           motorcycles!moto_id(
             id, model, brand, spz, engine_type, engine_cc, power_kw, power_hp,
             weight_kg, has_abs, has_asc, features, manual_url, manual_external_url, description,
@@ -94,13 +95,17 @@ export async function executeTool(
 
       if (error) return { error: error.message }
       if (!data || data.length === 0) return { message: 'Zákazník nemá žádnou aktivní ani nadcházející rezervaci.' }
-      // Samoobsluha bez přistavení/odvozu: uložené 00:01/23:59 = celý den, ne čas
-      // schůzky — agent nesmí zákazníkovi říct „přijďte v 00:01“.
+      // Samoobsluha: uložené 23:59 vrácení = konec dne a 00:01 vyzvednutí = starší
+      // rezervace „bez času“ — agent nesmí říct „přijďte v 00:01“. Zvolený čas
+      // vyzvednutí (2026-10-01 večer) se ukazuje; se slevou za vyzvednutí od
+      // 12:00 kiosk vydá až od 12:00 (kiosk_release).
       const rows = (data as Array<Record<string, unknown>>).map((b) => {
         const m = b.motorcycles as Record<string, unknown> | null
-        const out = { ...b }
-        if (ssTime(m, b.pickup_method, b.pickup_address)) out.pickup_time = 'bez času — kdykoli během prvního dne 24/7 kódem (ve smlouvě 00:01)'
+        const out: Record<string, unknown> = { ...b }
+        if (String(b.pickup_time || '').startsWith('00:01')) out.pickup_time = pickupTimeLabel(b)
         if (ssTime(m, b.return_method, b.return_address)) out.return_time = 'bez času — kdykoli během posledního dne 24/7 kódem (ve smlouvě 24:00)'
+        const gate = kioskReleaseNote(b, m)
+        if (gate) out.kiosk_release = gate
         return out
       })
       const active = rows.find(b => b.status === 'active')
@@ -139,12 +144,25 @@ export async function executeTool(
 
       const rows = (codes || []) as Array<Record<string, unknown>>
       const withheld = rows.filter(c => c.sent_to_customer !== true)
+      // Výdej až od 12:00 (sleva za vyzvednutí od 12:00, 20261001h) — zdroj pravdy
+      // RPC _kiosk_release_at (service role); NULL / chyba = bez hradla.
+      let releaseFrom: string | null = null
+      try {
+        const { data: rel, error: relErr } = await supabaseAdmin.rpc('_kiosk_release_at', { p_booking_id: bk.id })
+        if (!relErr && rel) releaseFrom = String(rel)
+      } catch { /* bez hradla */ }
+      const gated = !!releaseFrom && Date.now() < new Date(releaseFrom).getTime()
+      const gateNote = gated
+        ? `VÝDEJ AŽ OD 12:00: rezervace má slevu 50 % na 1. den za vyzvednutí od 12:00 — kiosk vydá šatnu i motorku až ${pragueDateLabel(releaseFrom)} od 12:00 (kód zadaný dřív displej odmítne hláškou „Vyzvednutí až od 12:00“). Potřebuje-li motorku dřív: detail rezervace → „Upravit rezervaci“ → dřívější čas vyzvednutí → sleva zanikne, rozdíl doplatí a kód platí hned. `
+        : ''
       return {
         booking_id: bk.id,
         booking_status: bk.status,
         branch: branch ? { name: branch.name, address: [branch.address, branch.city].filter(Boolean).join(', '), type: branch.type, phone: branch.phone } : null,
         box_number: moto?.box_number ?? null,
         self_service: branch?.type === 'samoobslužná',
+        // ISO čas, od kdy kiosk rezervaci vydá (sleva za vyzvednutí od 12:00); null = bez omezení
+        release_from: gated ? releaseFrom : null,
         codes: rows.map(c => ({
           code_type: c.code_type,                    // motorcycle = kóje s motorkou, accessories = šatna s výbavou
           delivered: c.sent_to_customer === true,    // odeslán zákazníkovi (appka + mail + SMS/WhatsApp)
@@ -153,11 +171,11 @@ export async function executeTool(
           valid_from: c.valid_from ?? null,
           valid_until: c.valid_until ?? null,
         })),
-        summary: rows.length === 0
+        summary: gateNote + (rows.length === 0
           ? 'K rezervaci zatím nejsou vygenerované žádné přístupové kódy (typicky nezaplacená rezervace nebo obslužná pobočka).'
           : withheld.length > 0
             ? `Kódy existují, ale ${withheld.length} z nich je ZADRŽENÝCH: ${withheld.map(c => c.withheld_reason || 'důvod neuveden').join('; ')}. Vysvětli zákazníkovi PŘESNĚ tenhle důvod a jak ho odstranit (doplnit doklady v appce → kódy se uvolní automaticky).`
-            : 'Všechny kódy jsou vydané a odeslané — zákazník je má v appce (detail rezervace / Zprávy), v e-mailu, SMS i WhatsApp.',
+            : 'Všechny kódy jsou vydané a odeslané — zákazník je má v appce (detail rezervace / Zprávy), v e-mailu, SMS i WhatsApp.'),
         never_reveal: 'Samotné číslice kódu tool nevrací a agent je NIKDY nesděluje ani neodhaduje.',
       }
     }

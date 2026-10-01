@@ -13,6 +13,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from . import controller_codes as cc
+from . import pickup_gate
 from .models import Event, EventKind, now_iso
 from .pins import mask, normalize_code
 
@@ -67,9 +68,10 @@ async def open_zone(hm: "HandoverManager", then_open: dict | None, item: Any = N
 
 async def _verify_code(hm: "HandoverManager", booking_id: str, code: str | None,
                        source: str) -> tuple[dict | None, dict]:
-    """Kód motorky téže rezervace → (then_open, {}); jinak (None, {error: code_mismatch | locked, locked_until?}).
+    """Kód motorky téže rezervace → (then_open, {}); jinak (None, {error: code_mismatch | locked | pickup_too_early, …}).
     Cizí/neplatný kód = pokus o hádání (PinGuard jako neplatný kód); vlastní kód šatny téže rezervace se netrestá.
-    Během lockoutu se kód vůbec neověřuje a UI dostane stejnou informaci jako z `/api/pin` (ne „špatný kód“)."""
+    Během lockoutu se kód vůbec neověřuje a UI dostane stejnou informaci jako z `/api/pin` (ne „špatný kód“).
+    Výdej až od 12:00 (§31): kód TÉŽE rezervace před `release_at` → `pickup_too_early` + `release_at`, bez trestu."""
     ctrl = hm.ctrl
     locked = ctrl.pin_guard.locked_until()
     if locked:
@@ -79,12 +81,16 @@ async def _verify_code(hm: "HandoverManager", booking_id: str, code: str | None,
         return None, {"error": "code_mismatch"}
     masked = mask(code)
     rr = await cc.resolve_code(ctrl, code)
-    same = rr.ok and str(rr.booking_id or "") == booking_id
+    own = bool(booking_id) and str(rr.booking_id or "") == booking_id
+    if own and (rr.error == pickup_gate.ERROR or pickup_gate.blocks(rr)):
+        return None, {"error": pickup_gate.ERROR, "release_at": rr.release_at}
+    same = rr.ok and own
     if same and rr.kind == "motorcycle":
         ctrl.pin_guard.register_success(masked)
         zc = cc.zone_for_code(ctrl, rr.door_id, rr.box_number, rr.kind)
         return {"zone": zc.number if zc else None, "booking_id": booking_id, "kind": "motorcycle", "source": source}, {}
-    if not same and ((rr.ok and not rr.is_service) or rr.error in cc.INVALID_CODE_ERRORS):
+    guess = (rr.ok and not rr.is_service) or rr.error in cc.INVALID_CODE_ERRORS or rr.error == pickup_gate.ERROR
+    if not same and guess:              # platný kód JINÉ rezervace (i před 12:00) = hádání, jako dřív
         until = ctrl.pin_guard.register_failure(masked)
         await ctrl.emit(Event(kind=EventKind.PIN_INVALID, success=False, level="warn", code_kind="invalid",
                               booking_id=booking_id, message=f"Kód motorky k protokolu nesedí {masked}",

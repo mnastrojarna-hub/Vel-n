@@ -105,7 +105,10 @@
       setVal('returnLat', ui.p_new_return_lat);
       setVal('returnLng', ui.p_new_return_lng);
       var tu = ui._time_update || {};
-      setVal('pickupTime', tu.pickup_time, 'change');
+      // Čas převzetí: placená úprava ho nese v p_new_pickup_time (_time_update
+      // má jen nezaplacenou cestu / čas vrácení) — dřív se po „Zpět“ ze Stripe ztratil.
+      var pt = tu.pickup_time || ui.p_new_pickup_time;
+      setVal('pickupTime', pt ? String(pt).slice(0, 5) : null, 'change');
       setVal('returnTime', tu.return_time, 'change');
     };
   }
