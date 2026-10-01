@@ -9,6 +9,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/web_links.dart';
 import '../../core/widgets/logo_header.dart';
 import '../../core/auth_guard.dart';
+import '../../core/feature_flags.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/date_dropdown_field.dart';
@@ -27,7 +28,6 @@ import 'widgets/profile_field.dart';
 import 'widgets/profile_section_title.dart';
 import 'widgets/profile_menu_item.dart';
 import 'widgets/consent_sheet.dart';
-import 'widgets/branches_sheet.dart';
 import 'widgets/settings_sheets.dart';
 
 /// Profile screen — mirrors s-profile from templates-done-pages.js.
@@ -226,8 +226,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               // Karta se sama skryje (vč. titulku), dokud backend rank nevrací.
               const LoyaltyRankCard(),
 
-              // E-shop — přesunuto ze spodní lišty do menu (na jeho místo přišly Trasy)
-              ProfileMenuItem(icon: '🛒', label: t(context).tr('eshopMenu'), onTap: () => context.push(Routes.shop)),
+              // Pobočky (Mezná + Velké Němčice, texty z Velína) — na místě e-shopu.
+              // E-shop je dočasně skrytý (2026-10-01); vrátí ho flag `eshop_visible`.
+              ProfileMenuItem(icon: '📍', label: t(context).tr('branchesLabel'), onTap: () => context.push(Routes.branchesInfo)),
+              if (ref.watch(eshopVisibleProvider).valueOrNull ?? false)
+                ProfileMenuItem(icon: '🛒', label: t(context).tr('eshopMenu'), onTap: () => context.push(Routes.shop)),
 
               const SizedBox(height: 12),
               // Section: Můj účet
@@ -258,7 +261,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               if (ref.watch(hasActiveRentalProvider))
                 ProfileMenuItem(icon: '🆘', label: t(context).sosTitle, onTap: () => context.push(Routes.sos), bgColor: MotoGoColors.redBg),
               ProfileMenuItem(icon: '❓', label: t(context).tr('helpFaq'), onTap: () => launchUrl(Uri.parse(WebLinks.faq(ref.read(localeProvider).languageCode)), mode: LaunchMode.externalApplication)),
-              ProfileMenuItem(icon: '📍', label: t(context).tr('branchesLabel'), onTap: () => _showBranches(context)),
 
               const SizedBox(height: 12),
               ProfileSectionTitle(title: t(context).tr('otherSection')),
@@ -362,8 +364,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
   }
-
-  void _showBranches(BuildContext context) => showBranchesSheet(context);
 
   void _showDeleteAccountDialog(BuildContext context) {
     showDialog(

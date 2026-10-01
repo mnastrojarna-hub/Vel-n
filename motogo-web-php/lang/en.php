@@ -61,6 +61,7 @@ return [
     'menu.vouchers' => 'Vouchers',
     'menu.blog' => 'Blog',
     'menu.shop' => 'Shop',
+    'menu.branches' => 'Branches',
     'menu.contact' => 'Contact',
     'menu.areas' => 'Areas',
     'menu.areas.vysocina' => 'Vysočina Region',

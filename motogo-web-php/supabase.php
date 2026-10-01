@@ -265,6 +265,21 @@ class SupabaseClient {
     }
 
     // ===== APP SETTINGS =====
+    /**
+     * Feature flag z `feature_flags` (Velín → Web CMS → Feature flags).
+     * Vrací true jen když řádek existuje a `enabled = true`; chybějící
+     * řádek / chyba = false (bezpečný default = funkce vypnutá).
+     */
+    public function fetchFeatureFlag($key) {
+        $cacheKey = 'flag_' . $key;
+        $cached = $this->cacheGet($cacheKey);
+        if ($cached !== null) return !empty($cached['v']);
+        $result = $this->query('feature_flags', 'enabled', ['key=eq.' . $key]);
+        $v = is_array($result) && !empty($result[0]['enabled']);
+        $this->cacheSet($cacheKey, ['v' => $v]);
+        return $v;
+    }
+
     public function fetchSetting($key) {
         $cacheKey = 'setting_' . $key;
         $cached = $this->cacheGet($cacheKey);

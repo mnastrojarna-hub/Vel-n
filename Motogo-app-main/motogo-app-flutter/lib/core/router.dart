@@ -41,6 +41,7 @@ import '../features/reservations/protocol_screen.dart';
 import '../features/reservations/reservation_models.dart';
 import '../features/shop/shop_checkout_screen.dart';
 import '../features/shop/shop_screen.dart';
+import '../features/branches/branches_info_screen.dart';
 import '../features/shop/product_detail_screen.dart';
 import '../features/shop/cart_screen.dart';
 import '../features/shop/voucher_screen.dart';
@@ -89,6 +90,7 @@ class Routes {
   static const String messageThread = '/messages/:id';
   static const String invoices = '/invoices';
   static const String contracts = '/contracts';
+  static const String branchesInfo = '/pobocky';
   static const String docs = '/docs';
   static const String docScan = '/docs/scan';
   static const String shop = '/shop';
@@ -393,6 +395,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.contracts,
             builder: (context, state) => const ContractsScreen(),
+          ),
+          GoRoute(
+            path: Routes.branchesInfo,
+            builder: (context, state) => const BranchesInfoScreen(),
           ),
           GoRoute(
             path: '/shop/:id',

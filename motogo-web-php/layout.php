@@ -8,8 +8,18 @@ require_once __DIR__ . '/i18n_currency.php';
 // Menu struktura — labels jsou klíče i18n, route zůstává stejná napříč jazyky.
 // `tc()` obalí text spanem `data-cms-key="web.layout.<key>"` jen pro adminy
 // (cookie mg_cms_admin) → inline edit přes overlay; běžní uživatelé dostanou plain text.
+// E-shop v menu jen při zapnutém flagu `eshop_visible` (chybějící řádek = skrytý).
+function webShopVisible() {
+    static $v = null;
+    if ($v === null) {
+        try { $v = (new SupabaseClient())->fetchFeatureFlag('eshop_visible'); }
+        catch (\Throwable $e) { $v = false; }
+    }
+    return $v;
+}
+
 function getMenuItems() {
-    return [
+    return array_merge([
         // "Vyber si stroj" = katalog. Menu-popisek `menu.catalogShort` je oddělený
         // od `menu.catalog`, který slouží jako H1/<title> stránky /katalog —
         // přejmenování položky v menu tak nezasáhne SEO katalogu.
@@ -32,10 +42,16 @@ function getMenuItems() {
         // odkaz (žádné rozbalovací submenu); kraje se zobrazí až na /oblasti.
         ['label' => tc('menu.areas'), 'route' => '/oblasti'],
         ['label' => tc('menu.vouchers'), 'route' => '/poukazy', 'highlight' => true],
+        // E-shop je v menu dočasně skrytý (zadání majitele 2026-10-01) — vrátí se
+        // zapnutím flagu `eshop_visible` ve Velíně (Web CMS → Feature flags).
+        // Na jeho místě je přehled poboček (Mezná + Velké Němčice).
+        ['label' => tc('menu.branches'), 'route' => '/pobocky'],
+    ], webShopVisible() ? [
         ['label' => tc('menu.shop'), 'route' => '/eshop'],
+    ] : [], [
         ['label' => tc('menu.blog'), 'route' => '/blog'],
         ['label' => tc('menu.contact'), 'route' => '/kontakt'],
-    ];
+    ]);
 }
 
 function renderHeader($currentPath = '/') {

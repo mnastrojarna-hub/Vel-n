@@ -52,6 +52,7 @@ const I18N_SLUG_ROUTES = [
     '/jak-pujcit/faq' => ['en' => '/how-to-rent/faq', 'de' => '/mietanleitung/faq', 'es' => '/como-alquilar/faq', 'fr' => '/comment-louer/faq', 'nl' => '/hoe-huren/faq', 'pl' => '/jak-wypozyczyc/faq', 'uk' => '/how-to-rent/faq'],
     '/poukazy' => ['en' => '/vouchers', 'de' => '/gutscheine', 'es' => '/tarjetas-regalo', 'fr' => '/bons-cadeaux', 'nl' => '/cadeaubonnen', 'pl' => '/vouchery', 'uk' => '/vouchers'],
     '/koupit-darkovy-poukaz' => ['en' => '/buy-gift-voucher', 'de' => '/gutschein-kaufen', 'es' => '/comprar-tarjeta-regalo', 'fr' => '/acheter-bon-cadeau', 'nl' => '/cadeaubon-kopen', 'pl' => '/kup-voucher', 'uk' => '/buy-gift-voucher'],
+    '/pobocky' => ['en' => '/branches', 'de' => '/filialen', 'es' => '/sucursales', 'fr' => '/agences', 'nl' => '/filialen', 'pl' => '/oddzialy', 'uk' => '/branches'],
     '/kontakt' => ['en' => '/contact', 'de' => '/kontakt', 'es' => '/contacto', 'fr' => '/contact', 'nl' => '/contact', 'pl' => '/kontakt', 'uk' => '/contact'],
     '/mapa-stranek' => ['en' => '/sitemap', 'de' => '/seitenuebersicht', 'es' => '/mapa-del-sitio', 'fr' => '/plan-du-site', 'nl' => '/sitemap', 'pl' => '/mapa-strony', 'uk' => '/sitemap'],
     '/partneri' => ['en' => '/partners', 'de' => '/partner', 'es' => '/socios', 'fr' => '/partenaires', 'nl' => '/partners', 'pl' => '/partnerzy', 'uk' => '/partners'],

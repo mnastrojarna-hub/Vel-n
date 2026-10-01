@@ -58,6 +58,7 @@ return [
     'menu.vouchers' => 'Bony',
     'menu.blog' => 'Blog',
     'menu.shop' => 'Sklep',
+    'menu.branches' => 'Oddziały',
     'menu.contact' => 'Kontakt',
     'menu.areas' => 'Regiony',
     'menu.areas.vysocina' => 'Kraj Wysoczyna',

@@ -585,6 +585,11 @@ switch (true) {
         require __DIR__ . '/pages/blog-detail.php';
         break;
 
+    // Pobočky (Mezná + Velké Němčice) — texty z Velínu (web.pobocky.*)
+    case $path === '/pobocky':
+        require __DIR__ . '/pages/pobocky.php';
+        break;
+
     // Kontakt
     case $path === '/kontakt':
         require __DIR__ . '/pages/kontakt.php';
