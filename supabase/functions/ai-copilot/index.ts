@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { filterToolsByEnabled } from './tools-def.ts'
 import { executeTool, isWriteTool } from './tools-exec.ts'
 import { TOOL_RISK } from './tools-def-write.ts'
+import { classifyAnthropicError } from '../_shared/anthropic-errors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -75,7 +76,8 @@ serve(async (req) => {
     const body = await req.json()
     const { message, conversation_id, conversation_history, mode, actions, enabled_tools, agent_corrections, agent_prompts, agent_memory } = body
 
-    if (!ANTHROPIC_API_KEY) return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured' }, 500)
+    // Chybějící klíč = konkrétní hláška do Velína (dřív HTTP 500 → jen „Chyba. Zkuste to znovu.“)
+    if (!ANTHROPIC_API_KEY) return jsonResponse({ response: '⚠️ Chybí API klíč Anthropic — doplňte ho v Supabase → Edge Functions → Secrets jako ANTHROPIC_API_KEY.', error_code: 'missing_api_key' })
 
     // JWT auth
     const authHeader = req.headers.get('Authorization')
@@ -149,8 +151,17 @@ serve(async (req) => {
         const err = await res.text()
         console.error('Anthropic error:', res.status, err)
         if (res.status === 429 && i === 0) { await new Promise(r => setTimeout(r, 2000)); continue }
-        if (res.status === 529 || res.status === 503) return jsonResponse({ response: 'AI služba je přetížená.', error_code: 'overloaded' })
-        return jsonResponse({ error: 'AI service error' }, 502)
+        // Konkrétní důvod (došlý kredit, neplatný klíč…) do Velína jako odpověď (HTTP 200 — Velín ji zobrazí)
+        // + záznam do debug_log; dřív jen 502 „AI service error“ → Velín „Chyba. Zkuste to znovu.“
+        const info = classifyAnthropicError(res.status, err)
+        try {
+          await supabaseAdmin.from('debug_log').insert({
+            admin_id: user.id, source: 'ai-copilot', action: 'anthropic_error', status: 'error',
+            error_message: `${res.status} ${info.type || '-'}: ${info.detail}`,
+            request_data: { code: info.code, http_status: res.status, iteration: i },
+          })
+        } catch { /* log je jen pomůcka */ }
+        return jsonResponse({ response: `⚠️ ${info.message}`, error_code: info.code })
       }
 
       const ai = await res.json()
@@ -205,6 +216,7 @@ serve(async (req) => {
     return jsonResponse({ response: 'Dotaz je příliš složitý. Zkuste ho zjednodušit.' })
   } catch (err) {
     console.error('ai-copilot error:', err)
-    return jsonResponse({ error: (err as Error).message }, 500)
+    // HTTP 200 s textem → Velín zobrazí skutečnou příčinu (síť k Anthropic, chyba nástroje…)
+    return jsonResponse({ response: `⚠️ Chyba AI Copilota: ${(err as Error).message}`, error_code: 'internal_error' })
   }
 })
