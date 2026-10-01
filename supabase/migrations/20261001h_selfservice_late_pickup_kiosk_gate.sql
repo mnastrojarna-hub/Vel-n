@@ -381,9 +381,9 @@ DECLARE
   v_loy_pct         numeric := 0;
   v_loy_disc        numeric := 0;
   v_new_on_old_total numeric := 0;   -- nový rozsah oceněný ceníkem STARÉ motorky
-  v_new_late_old    numeric := 0;
+  v_new_late_old    numeric := 0;    -- late sleva nového rozsahu dle STARÉ motorky
   v_late_unrefunded numeric := 0;    -- 2026-10-01h: neproplacená část získané late slevy (storno)
-  v_late_store      numeric := 0;    -- late sleva, která se ULOŽÍ (= skutečně přiznaná)    -- late sleva nového rozsahu dle STARÉ motorky
+  v_late_store      numeric := 0;    -- late sleva, která se ULOŽÍ (= skutečně přiznaná)
   v_moto_swapped    boolean := false;
   v_refund_reason   text;
   -- 2026-10-01: přistavení/odvoz po stranách (incident „vratka −11 Kč")

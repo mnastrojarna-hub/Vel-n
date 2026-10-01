@@ -145,7 +145,13 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   // a času; rozdíl vstupuje do doplatku/vratky (parita s webem, appkou i SQL
   // _apply_booking_changes_core: diff = (nová − nováLate) − (stará − staráLate)).
   const origLate = Number(booking.late_pickup_discount_amount) || 0
-  const newLate = latePickupDiscount(startDate, endDate, effPickupTime, newBreakdown[0]?.price || 0)
+  // Přepočet jen při změně vstupů slevy (čas, termín, motorka): uložená hodnota může
+  // být od 20261001h krácená stornem — jiná úprava ji nesmí „dorovnat“ vratkou.
+  const lateInputsChanged = effPickupTime !== origPickupTime || selectedMotoId !== booking.moto_id
+    || isoDate(startDate) !== isoDate(origStart) || isoDate(endDate) !== isoDate(origEnd)
+  const newLate = lateInputsChanged
+    ? latePickupDiscount(startDate, endDate, effPickupTime, newBreakdown[0]?.price || 0)
+    : origLate
   const rentalDiff = (newCalcPrice - newLate) - (origCalcPrice - origLate)
   const loyaltyDisc = loyalty.percent > 0 && rentalDiff > 0 ? Math.round(rentalDiff * loyalty.percent / 100) : 0
   const priceDiff = (rentalDiff - loyaltyDisc) + (newDeliveryFee - origDeliveryFee)

@@ -305,7 +305,7 @@ async function applyExtensionChange(
         // App formát posílá SKUTEČNĚ přiznanou slevu (storno krátí získanou
         // slevu, 20261001h) — přepočet ji smí jen snížit (strop pravidla), ne
         // zvednout na plnou hodnotu, kterou zákazník nedostal.
-        const sent = def(a.late_pickup_discount_amount) ? Number(a.late_pickup_discount_amount) : NaN
+        const sent = a.late_pickup_discount_amount != null ? Number(a.late_pickup_discount_amount) : NaN
         d.late_pickup_discount_amount = Number.isFinite(sent) && sent >= 0
           ? Math.min(Number(late), Math.round(sent)) : Number(late)
       }

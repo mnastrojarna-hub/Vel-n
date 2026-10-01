@@ -25,7 +25,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from .models import ResolveResult
 
 ERROR = "pickup_too_early"
-ONLINE_SLACK_S = 120.0   # (nepoužívá se — online rozhoduje server; ponecháno kvůli kompatibilitě importů)
 TITLE = "Vyzvednutí až od 12:00"
 _WHY = "Vaše rezervace má slevu 50 % na 1. den za vyzvednutí od 12:00, proto vám motorku i šatnu vydáme {w}."
 _EDIT = ("Potřebujete ji dřív? V aplikaci MotoGo24 nebo na motogo24.cz/upravit-rezervaci změňte čas vyzvednutí "
@@ -89,4 +88,4 @@ async def refuse(ctrl: Any, rr: "ResolveResult", base: dict, source: str) -> dic
             "release_at": rr.release_at, "message": message(rr.release_at)}
 
 
-__all__ = ["ERROR", "TITLE", "ONLINE_SLACK_S", "too_early", "blocks", "minutes_left", "message", "refuse"]
+__all__ = ["ERROR", "TITLE", "too_early", "blocks", "minutes_left", "message", "refuse"]

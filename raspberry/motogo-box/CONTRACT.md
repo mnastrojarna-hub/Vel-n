@@ -1940,9 +1940,9 @@ výzva změnit v appce nebo na motogo24.cz/upravit-rezervaci čas vyzvednutí na
 server přepočte `release_at`, trigger vyžádá resync). Legacy rezervace s časem `00:01` slevu nemají → bez hradla.
 
 ```python
-ERROR = "pickup_too_early" ; ONLINE_SLACK_S = 120.0 ; TITLE = "Vyzvednutí až od 12:00"
+ERROR = "pickup_too_early" ; TITLE = "Vyzvednutí až od 12:00"
 def too_early(release_at, now=None, slack_s=0.0) -> bool     # ISO/datetime v budoucnu o víc než slack; chybí/nevalidní → False
-def blocks(rr: ResolveResult, now=None) -> bool             # rr.ok ∧ ne servis ∧ release_at v budoucnu (online slack 120 s, offline 0)
+def blocks(rr: ResolveResult, now=None) -> bool             # rr.ok ∧ rr.offline ∧ ne servis ∧ release_at v budoucnu (online ok = rozhodl server svými hodinami)
 def minutes_left(release_at, now=None) -> int | None        # ceil, min 1
 def message(release_at, now=None) -> str                    # česky; čas/datum v Europe/Prague (odometer_rules.PRAGUE)
 async def refuse(ctrl, rr, base, source) -> dict            # ACCESS_DENIED (info) + {**base, kind, booking_id, error, release_at, message}

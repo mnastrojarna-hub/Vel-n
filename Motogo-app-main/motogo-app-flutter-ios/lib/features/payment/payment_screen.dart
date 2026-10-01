@@ -212,6 +212,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       'total_price', 'discount_amount', 'delivery_fee', 'extras_price',
       'loyalty_discount_amount',
       'pickup_lat', 'pickup_lng', 'return_lat', 'return_lng',
+      // přiznaná late sleva (storno krátí získanou slevu, 20261001h) — webhook
+      // ji použije jako strop přepočtu, jinak by zapsal plnou slevu
+      'late_pickup_discount_amount',
     };
     // Místo smí nést i explicitní NULL (přepnutí na pobočku maže adresu, nová
     // adresa bez GPS maže staré souřadnice) — webhook ho po platbě zapíše.
