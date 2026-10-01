@@ -1270,7 +1270,9 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       // Skupina ŘP do profilu, pokud ji agent z konverzace zná (nepovinné — čísla
       // dokladů se v NOVÉM flow nesbírají v chatu, zákazník je doplní až po platbě).
       try {
-        if (userId && a.license_group) {
+        // jen NOVÝ účet — existujícímu zákazníkovi (přiřazení k účtu podle
+        // e-mailu) chat skupinu ŘP nepřepisuje (2026-10-01)
+        if (userId && a.license_group && result?.is_new_user) {
           await sb.from('profiles').update({ license_group: [a.license_group] }).eq('id', userId)
         }
       } catch { /* non-blocking */ }
@@ -1281,9 +1283,12 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       let passwordSet = false
       try {
         if (a.password && bookingId) {
-          const { error: pwErr } = await sb.rpc('set_web_booking_password', { p_booking_id: bookingId, p_password: a.password })
-          passwordSet = !pwErr
-          if (pwErr) console.warn('[create_booking_request] set_web_booking_password failed:', pwErr.message)
+          const { data: pwData, error: pwErr } = await sb.rpc('set_web_booking_password', { p_booking_id: bookingId, p_password: a.password })
+          // RPC vrací odmítnutí v datech ({error}) — např. account_exists: heslo
+          // existujícího účtu jde změnit jen po přihlášení (2026-10-01)
+          const pwRefused = (pwData as { error?: string } | null)?.error
+          passwordSet = !pwErr && !pwRefused
+          if (pwErr || pwRefused) console.warn('[create_booking_request] set_web_booking_password failed:', pwErr?.message || pwRefused)
         }
       } catch (e) { console.warn('[create_booking_request] set_web_booking_password error:', (e as Error).message) }
       const passwordNotice = passwordSet
