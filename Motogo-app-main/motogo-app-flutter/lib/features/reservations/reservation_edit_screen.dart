@@ -1004,36 +1004,54 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         });
       });
     }
-    // Samoobslužná pobočka: čas NÁVRATU na pobočku se nevolí — výběr se jen
-    // SKRYJE, uložená hodnota se NEPŘEPISUJE (nové rezervace mají 23:59 už
-    // z formuláře, smlouva u samoobsluhy dává konec dne vždy). Po přepnutí na
-    // adresu se 23:59 vrací na výchozí čas. Čas vyzvednutí je vidět vždy
-    // (sleva za pozdní vyzvednutí); stará hodnota 00:01 se nabídne jako 09:00.
+    // Samoobslužná pobočka: čas vyzvednutí / návratu NA pobočce se nevolí —
+    // výběr se jen SKRYJE, uložená hodnota se NEPŘEPISUJE (starší rezervace
+    // mohla mít slevu za pozdní vyzvednutí; přepis na 00:01 by ji smazal =
+    // doplatek bez zásahu zákazníka). Nové rezervace mají 00:01/23:59 už
+    // z formuláře a do smlouvy jde u samoobsluhy celý den vždy
+    // (generate-document). Po přepnutí na adresu se konstanta vrací na
+    // výchozí čas, aby nabídka nezačínala na 00:01 / 23:59.
     // Nezměněná „pobočka“ u web/AI rezervace s adresou = ve skutečnosti
-    // odvoz (viz bookingMethodWithAddress) → čas nechat vidět.
+    // přistavení/odvoz (viz bookingMethodWithAddress) → čas nechat vidět.
+    final effPickup = _pickupMethod == 'store' && _booking!.pickupMethod != 'delivery'
+        ? bookingMethodWithAddress(_booking!.pickupMethod, _booking!.pickupAddress)
+        : _pickupMethod;
     final effReturn = _returnMethod == 'store' && _booking!.returnMethod != 'delivery'
         ? bookingMethodWithAddress(_booking!.returnMethod, _booking!.returnAddress)
         : _returnMethod;
+    final hidePickupTime = selfServiceHidesPickupTime(
+        branchType: _effBranchType, pickupMethod: effPickup);
     final hideReturnTime = selfServiceHidesReturnTime(
         branchType: _effBranchType, returnMethod: effReturn);
     // DB (sloupec time) vrací HH:MM:SS — porovnávat jen HH:MM. Skryté pole
-    // vrací ULOŽENOU hodnotu (čas zvolený při odvozu se po přepnutí zpět
-    // na pobočku neuloží — žádná falešná změna).
+    // vrací ULOŽENOU hodnotu (čas zvolený při přistavení se po přepnutí zpět
+    // na pobočku neuloží — žádná sleva za pozdní vyzvednutí ani falešná změna).
+    final storedPickup = _booking!.pickupTime ?? '09:00';
     final storedReturn = _booking!.returnTime ?? '19:00';
     // 00:01/23:59 → výchozí čas jen u rezervace ze samoobsluhy (i po výměně na
     // obslužnou); ručně zadaný čas u čistě obslužné rezervace se nemění.
     final ssOrigin = _booking!.branchType == selfServiceBranchType ||
         _effBranchType == selfServiceBranchType;
-    final String? pickupFix =
-        ssOrigin && _hm(_pickupTime) == selfServicePickupTime ? '09:00' : null;
-    // Vrácení se úpravou přesunulo NA samoobslužnou pobočku (jiný způsob
-    // vrácení nebo výměna motorky) → automaticky 23:59; rezervace, která
-    // tam už vracela, si nechává uloženou hodnotu (žádná falešná změna).
-    final wasSelfServiceAtBranch =
-        _booking!.branchType == selfServiceBranchType &&
-            bookingMethodWithAddress(
-                    _booking!.returnMethod, _booking!.returnAddress) !=
-                'delivery';
+    // Převzetí / vrácení se úpravou přesunulo NA samoobslužnou pobočku (jiný
+    // způsob nebo výměna motorky) → automaticky 00:01 / 23:59; rezervace, která
+    // tam už přebírala / vracela, si nechává uloženou hodnotu (žádná falešná
+    // změna ani zrušení dřívější slevy za pozdní vyzvednutí).
+    final wasSelfService = _booking!.branchType == selfServiceBranchType;
+    final wasSelfServicePickupAtBranch = wasSelfService &&
+        bookingMethodWithAddress(
+                _booking!.pickupMethod, _booking!.pickupAddress) !=
+            'delivery';
+    final hiddenPickup =
+        wasSelfServicePickupAtBranch ? storedPickup : selfServicePickupTime;
+    final String? pickupFix = hidePickupTime
+        ? (_hm(_pickupTime) != _hm(hiddenPickup) ? hiddenPickup : null)
+        : (ssOrigin && _hm(_pickupTime) == selfServicePickupTime
+            ? '09:00'
+            : null);
+    final wasSelfServiceAtBranch = wasSelfService &&
+        bookingMethodWithAddress(
+                _booking!.returnMethod, _booking!.returnAddress) !=
+            'delivery';
     final hiddenReturn =
         wasSelfServiceAtBranch ? storedReturn : selfServiceReturnTime;
     final String? returnFix = hideReturnTime
@@ -1195,9 +1213,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 onMethodChanged: (m) => setState(() => _pickupMethod = m),
                 onAddressChanged: (_) {},
                 onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f)),
-              const SizedBox(height: 8),
-              EditTimePicker(label: t(context).tr('pickupTimeEdit'), value: _pickupTime,
-                onChanged: (v) => setState(() => _pickupTime = v)),
+              if (!hidePickupTime) ...[
+                const SizedBox(height: 8),
+                EditTimePicker(label: t(context).tr('pickupTimeEdit'), value: _pickupTime,
+                  onChanged: (v) => setState(() => _pickupTime = v)),
+              ],
             ])),
 
           // === VRÁCENÍ MOTORKY ===

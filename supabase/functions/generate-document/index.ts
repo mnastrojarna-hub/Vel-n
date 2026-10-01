@@ -286,19 +286,21 @@ serve(async (req) => {
     if (booking.pickup_address) {
       branchAddress = booking.pickup_address
     }
-    // Časy ve smlouvě: na samoobsluze je vrácení NA POBOČCE bez času → konec
-    // dne 23:59 (pravidlo 2026-09-23; pokrývá i starší rezervace s uloženým
-    // časem). Odvoz z adresy zákazníka čas ponechává. Čas převzetí je vždy ten
-    // zvolený (řídí slevu za pozdní vyzvednutí — upřesnění zadání 2026-09-23).
-    // Web (create_web_booking) nevyplňuje return_method → zůstává DEFAULT
-    // 'store'; odvoz poznáme i podle adresy (stejně jako místo níže).
+    // Časy ve smlouvě: na samoobsluze je převzetí/vrácení NA POBOČCE bez času →
+    // 00:01 / 24:00 (pravidlo 2026-09-23, konec 24:00 dle zadání 2026-10-01;
+    // skutečný čas převzetí zapisuje předávací protokol; pokrývá i starší
+    // rezervace s uloženým časem). Přistavení / odvoz na adresu zákazníka čas ponechávají.
+    // Web (create_web_booking) nevyplňuje pickup_method/return_method → zůstává
+    // DEFAULT 'store'; přistavení/odvoz poznáme i podle adresy (stejně jako místo níže).
+    const pickupAtBranch = booking.pickup_method !== 'delivery' && !booking.pickup_address
     const returnAtBranch = booking.return_method !== 'delivery' && !booking.return_address
-    // 00:01 = stará hodnota „bez času“ (krátce 2026-09-23, rezervace přes AI)
-    // → jako bez času (výchozí 10:00).
+    // 00:01 mimo samoobsluhu = zbytek po výměně motorky ze samoobslužné na
+    // obslužnou (web/AI „Změna motorky“ čas nemění) → jako bez času.
     const storedPickup = String(booking.pickup_time || '').startsWith('00:01') ? '' : (booking.pickup_time || '')
-    const contractStartTime = storedPickup || '10:00'
+    const contractStartTime = branchSelfService && pickupAtBranch
+      ? '00:01' : (storedPickup || '10:00')
     const contractEndTime = branchSelfService && returnAtBranch
-      ? '23:59' : (booking.return_time || '24:00')
+      ? '24:00' : (booking.return_time || '24:00')
 
     const moto = booking.motorcycles || {} as any
     const accessories = buildAccessoriesBlock(booking, moto)
@@ -341,7 +343,7 @@ serve(async (req) => {
       // Booking
       start_date: fmtDate(booking.start_date),
       end_date: fmtDate(booking.end_date),
-      pickup_time: storedPickup,
+      pickup_time: branchSelfService && pickupAtBranch ? '00:01' : storedPickup,
       days: String(days),
       total_price: fmtPrice(booking.total_price || 0),
       daily_rate: fmtPrice(days > 0 ? Math.round(baseRental / days) : 0),
@@ -377,7 +379,7 @@ serve(async (req) => {
       company_account: '670100-2225851630/6210',
       // Time & period — start_time = pickup_time, end_time = return_time
       // (return_time je NULL pokud zákazník vrací v půjčovně → smlouva platí do konce dne 24:00;
-      // samoobslužná pobočka + vrácení na pobočce → 23:59, viz contractEndTime)
+      // samoobslužná pobočka → 00:01 / 24:00, viz contractStartTime/contractEndTime)
       start_time: contractStartTime,
       end_time: contractEndTime,
       rental_period: days === 1 ? '1 den' : days < 5 ? `${days} dny` : `${days} dní`,
