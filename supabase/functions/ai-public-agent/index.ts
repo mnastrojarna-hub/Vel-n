@@ -335,7 +335,7 @@ const PUBLIC_TOOLS = [
         consent_photo: { type: 'boolean', description: 'VOLITELNÉ — souhlas s fotografováním dokladů (potřebné k ověření identity). Default true; nastav false jen když zákazník výslovně odmítne.' },
         promo_code: { type: 'string' },
         note: { type: 'string' },
-        pickup_time: { type: 'string', description: 'POVINNÉ — Čas vyzvednutí HH:MM (u všech poboček — řídí slevu za pozdní vyzvednutí). Pokud zákazník neřekne, default 10:00.' },
+        pickup_time: { type: 'string', description: 'Čas vyzvednutí HH:MM (obslužná pobočka nebo přistavení; pokud zákazník neřekne, default 10:00). U SAMOOBSLUŽNÉ pobočky bez přistavení se na čas neptej — server doplní 00:01.' },
         return_time: { type: 'string', description: 'HH:MM, povinné pouze při vrácení mimo provozovnu (delivery/return-other).' },
         delivery_address: { type: 'string', description: 'Adresa přistavení mimo Mezná (např. "Vinohradská 12, 120 00 Praha 2"). Vyplň jen když zákazník POTVRDIL, že chce přistavení.' },
         return_address: { type: 'string', description: 'Adresa vrácení mimo Mezná. Vyplň jen když se liší od delivery_address, nebo když chce vrácení mimo půjčovnu.' },
@@ -1127,7 +1127,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
             is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
           }
         }),
-        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou). Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není povinný, ale doporučuje se (urychlí odbavení, zvlášť při více odjezdech najednou). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — u OBSLUŽNÉ pobočky proběhne výdej vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje), tam neslibuj okamžité vyzvednutí. U SAMOOBSLUŽNÉ pobočky se čas vyzvednutí zadává (sleva za pozdní vyzvednutí), ale hodina předem potřeba není — rezervovat lze i na dnešek; čas vrácení na pobočku se nezadává (konec dne). U přistavení platí čas min. aktuální + 6 h.',
+        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou). Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není povinný, ale doporučuje se (urychlí odbavení, zvlášť při více odjezdech najednou). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — u OBSLUŽNÉ pobočky proběhne výdej vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje), tam neslibuj okamžité vyzvednutí. U SAMOOBSLUŽNÉ pobočky (bez přistavení) se čas neřeší a rezervovat lze i na dnešek; u přistavení platí čas min. aktuální + 6 h.',
       }
     }
     case 'validate_promo_or_voucher': {
@@ -1160,8 +1160,8 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       const rentalDays = Math.round((endMs - startMs) / 86_400_000) + 1
       const { data: motoLimits } = await sb.from('motorcycles')
         .select('min_rental_days, max_rental_days, branches!branch_id(type)').eq('id', a.moto_id).maybeSingle()
-      // Parita s webem/appkou: samoobsluha — vrácení na pobočce bez času → 23:59
-      // (čas vyzvednutí se zadává vždy, řídí slevu za pozdní vyzvednutí).
+      // Parita s webem/appkou: samoobsluha na pobočce bez času → 00:01/23:59
+      // (a tedy ani bez slevy za pozdní vyzvednutí, kterou by dal zadaný čas ≥ 12:00).
       const ssBranch = ((motoLimits as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.type === 'samoobslužná'
       const limMin = Number((motoLimits as Record<string, unknown>)?.min_rental_days || 0)
       const limMax = Number((motoLimits as Record<string, unknown>)?.max_rental_days || 0)
@@ -1212,7 +1212,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         p_zip: a.zip || null,
         p_country: a.country || 'CZ',
         p_note: a.note || 'Rezervace z AI asistenta',
-        p_pickup_time: a.pickup_time || '10:00',
+        p_pickup_time: (ssBranch && !a.delivery_address) ? '00:01' : (a.pickup_time || '10:00'),
         p_delivery_address: a.delivery_address || null,
         p_return_address: a.return_address || null,
         p_extras: extrasArr,

@@ -76,11 +76,11 @@ export function buildDocVars(booking, customer, bookingId) {
   const days = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '\u2014'
   const fmtPrice = (n) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
-  // Samoobsluha: vrácení NA pobočce bez času → 23:59 (shodně s edge generate-document;
-  // web/AI odvoz má method 'store' + adresu → čas zůstává). Převzetí = zvolený čas.
+  // Samoobsluha: převzetí/vrácení NA pobočce bez času → 00:01 / 24:00 (shodně s edge
+  // generate-document; web/AI přistavení má method 'store' + adresu → čas zůstává).
   const selfService = moto.branches?.type === 'samoobslužná'
   const brAddr = [moto.branches?.address, [moto.branches?.zip, moto.branches?.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
-  const ssReturn = selfService && booking.return_method !== 'delivery' && !booking.return_address
+  const ssPickup = selfService && booking.pickup_method !== 'delivery' && !booking.pickup_address
   return {
     customer_name: customer.full_name || '\u2014', customer_email: customer.email || '',
     customer_phone: customer.phone || '', customer_address: [customer.street, customer.city, customer.zip, customer.country].filter(Boolean).join(', ') || '',
@@ -93,8 +93,8 @@ export function buildDocVars(booking, customer, bookingId) {
     daily_rate: fmtPrice(Math.round((booking.total_price || 0) / days)),
     booking_id: bookingId.slice(-8).toUpperCase(), booking_number: bookingId.slice(-8).toUpperCase(),
     today: fmtDate(new Date().toISOString()),
-    // 00:01 = stará hodnota „bez času“ (krátce 2026-09-23) → prázdné
-    start_time: String(booking.pickup_time || '').startsWith('00:01') ? '' : (booking.pickup_time || ''), end_time: ssReturn ? '23:59' : '24:00',
+    // 00:01 u obslužné = zbytek po výměně ze samoobsluhy → bez času
+    start_time: ssPickup ? '00:01' : (String(booking.pickup_time || '').startsWith('00:01') ? '' : (booking.pickup_time || '')), end_time: '24:00',
     rental_period: `${fmtDate(booking.start_date)} \u2014 ${fmtDate(booking.end_date)} (${days} dni)`,
     total_price_words: '',
     // místo převzetí/vrácení na pobočce = pobočka motorky (Brno Velké Němčice ≠ Mezná)
