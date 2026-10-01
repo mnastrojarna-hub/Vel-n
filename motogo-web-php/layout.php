@@ -106,10 +106,11 @@ function renderHeader($currentPath = '/') {
                     '<svg class="header-edit-rez-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>' .
                     '<span class="header-edit-rez-label">' . te('menu.editReservation') . '</span>' .
                 '</a>' .
-                '<a class="header-cart" href="' . BASE_URL . '/kosik" aria-label="' . te('cart.iconLabel') . '" title="' . te('cart.iconLabel') . '">' .
+                // Košík jen při zapnutém e-shopu (flag `eshop_visible`).
+                (webShopVisible() ? '<a class="header-cart" href="' . BASE_URL . '/kosik" aria-label="' . te('cart.iconLabel') . '" title="' . te('cart.iconLabel') . '">' .
                     '<svg class="header-cart-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M6 6L4 2H1"/></svg>' .
                     '<span class="header-cart-badge" data-cart-badge hidden aria-live="polite"></span>' .
-                '</a>' .
+                '</a>' : '') .
                 '<div class="header-app" data-mg-app>' .
                     '<button type="button" class="header-app-btn" data-mg-app-toggle aria-expanded="false" aria-haspopup="dialog" aria-label="' . te('header.app.aria') . '" title="' . te('header.app.title') . '">' .
                         '<svg class="header-app-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 4 5-4"/><path d="M5 21h14"/></svg>' .

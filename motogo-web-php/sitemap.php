@@ -99,6 +99,8 @@ $static = [
     ['loc' => '/eshop',                  'priority' => '0.8',  'changefreq' => 'weekly'],
     ['loc' => '/blog',                   'priority' => '0.7',  'changefreq' => 'weekly'],
     ['loc' => '/pobocky',                'priority' => '0.7',  'changefreq' => 'monthly'],
+    ['loc' => '/pobocky/mezna',          'priority' => '0.7',  'changefreq' => 'monthly'],
+    ['loc' => '/pobocky/velke-nemcice',  'priority' => '0.7',  'changefreq' => 'monthly'],
     ['loc' => '/kontakt',                'priority' => '0.8',  'changefreq' => 'monthly'],
     // Právní stránky – cílíme přímo na /dokumenty/<slug> (legacy /obchodni-podminky,
     // /gdpr, /smlouva 301-redirektují tam, sitemap → redirect = mrhání crawl budgetem).

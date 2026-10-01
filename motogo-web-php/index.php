@@ -590,6 +590,12 @@ switch (true) {
         require __DIR__ . '/pages/pobocky.php';
         break;
 
+    // Detail pobočky (/pobocky/mezna, /pobocky/velke-nemcice)
+    case preg_match('#^/pobocky/([a-z0-9\-]+)$#', $path, $matches) === 1:
+        $_GET['slug'] = $matches[1];
+        require __DIR__ . '/pages/pobocka-detail.php';
+        break;
+
     // Kontakt
     case $path === '/kontakt':
         require __DIR__ . '/pages/kontakt.php';

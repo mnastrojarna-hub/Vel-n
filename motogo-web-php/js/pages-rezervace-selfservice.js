@@ -153,9 +153,15 @@
   // ---------- /rezervace — rezervační formulář ----------
   function rezSelectedMoto() {
     var r = MG._rez || {}, id = r.motoId || r.selectedMotoId;
-    if (!id) return null;
-    var list = r.motos || [];
-    for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === id) return list[i];
+    var list = r.motos || [], i;
+    if (!id) {
+      // Motorka ještě nevybraná, ale zvolená pobočka (#rez-branch-dropdown →
+      // MG._rez.branchId) — rozhoduje typ té pobočky (libovolná její motorka).
+      if (!r.branchId) return null;
+      for (i = 0; i < list.length; i++) if (list[i] && list[i].branch_id === r.branchId) return list[i];
+      return null;
+    }
+    for (i = 0; i < list.length; i++) if (list[i] && list[i].id === id) return list[i];
     return null;
   }
   function rezIsSelfService() {
@@ -202,11 +208,17 @@
   }
   // Pojistka: i kdyby jádro někdy _rezApplySelfServiceTimes nezavolalo.
   function bindRezFallbacks() {
-    ['rez-moto-dropdown', 'rez-avail-dropdown', 'rez-delivery', 'rez-return-other'].forEach(function (id) {
+    ['rez-branch-dropdown', 'rez-moto-dropdown', 'rez-avail-dropdown', 'rez-delivery', 'rez-return-other'].forEach(function (id) {
       var el = document.getElementById(id);
       if (!el || el.getAttribute('data-mg-ss-bound')) return;
       el.setAttribute('data-mg-ss-bound', '1');
-      el.addEventListener('change', function () { schedule(); });
+      el.addEventListener('change', function () {
+        // Volba pobočky jádro samo nepřepočítá (časy převzetí/vrácení) — dorovnat.
+        if (id === 'rez-branch-dropdown' && typeof MG._rezApplySelfServiceTimes === 'function') {
+          setTimeout(function () { MG._rezApplySelfServiceTimes(); }, 0);
+        }
+        schedule();
+      });
     });
   }
   function observe(app) {
