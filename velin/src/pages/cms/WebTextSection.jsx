@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { autoTranslate } from '../../lib/autoTranslate'
 import { buildWebUrl } from './WebTextsTab'
 import RichTextEditor from '../../components/ui/RichTextEditor'
+import VideoField from './VideoField'
 
 export default function WebTextSection({ section, values, onSaved, pageUrl, webBaseUrl, adminToken, forceOpen }) {
   const [open, setOpen] = useState(!!forceOpen)
@@ -161,8 +162,8 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken, adminToken, webBa
         }).catch(() => {})
       } catch (_) { /* ignore */ }
     }
-    // Auto-překlad pro web (na pozadí, jen pro non-empty)
-    if (id) await runTranslate(id, val)
+    // Auto-překlad pro web (na pozadí, jen pro non-empty); URL videa se nepřekládá
+    if (id && field.type !== 'video') await runTranslate(id, val)
   }
 
   const hasValue = !!value
@@ -204,12 +205,20 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken, adminToken, webBa
           outline: changed ? '2px solid #f59e0b' : 'none',
           outlineOffset: 2,
         }}>
-          <RichTextEditor
-            value={val}
-            onChange={v => { setVal(v); if (saveError) setSaveError(null) }}
-            placeholder="Začněte psát… (lišta nahoře — tučné, kurzíva, barva, velikost)"
-            minHeight={field.type === 'textarea' ? 120 : 56}
-          />
+          {field.type === 'video' ? (
+            <VideoField
+              value={val}
+              onChange={v => { setVal(v); if (saveError) setSaveError(null) }}
+              storagePrefix={field.storagePrefix}
+            />
+          ) : (
+            <RichTextEditor
+              value={val}
+              onChange={v => { setVal(v); if (saveError) setSaveError(null) }}
+              placeholder="Začněte psát… (lišta nahoře — tučné, kurzíva, barva, velikost)"
+              minHeight={field.type === 'textarea' ? 120 : 56}
+            />
+          )}
         </div>
         <div className="flex gap-2 items-center mt-2 flex-wrap">
           {changed && (

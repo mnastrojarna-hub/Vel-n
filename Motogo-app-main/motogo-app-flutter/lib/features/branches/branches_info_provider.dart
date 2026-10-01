@@ -4,7 +4,7 @@ import '../../core/supabase_client.dart';
 
 /// Texty obrazovky „Pobočky“ — stejné klíče jako web `/pobocky`
 /// (`cms_variables` `web.pobocky.*`, edituje Velín → Web CMS → Texty webu →
-/// Pobočky). Defaulty = výchozí znění z `motogo-web-php/pages/pobocky.php`
+/// Pobočky). Defaulty = výchozí znění z `motogo-web-php/data/pobocky.php`
 /// (při změně držet shodně i s `velin/src/pages/cms/webTextsPobocky.js`).
 /// Cizí jazyk: překlad z `translations` (auto-překlad při uložení ve Velíně),
 /// jinak český text.
@@ -19,6 +19,8 @@ const Map<String, String> branchesInfoDefaults = {
   'branches.0.gear': 'Výbava pro řidiče v ceně — bundy a kalhoty ve velikostech až do <strong>6XL</strong>.',
   'branches.0.steps_title': 'Jak to probíhá',
   'branches.0.steps': '1. Rezervujete a zaplatíte online (web nebo aplikace).<br>2. Ve zvolený čas přijedete na pobočku, kde vás čekáme.<br>3. Předáme motorku i výbavu a podepíšeme předávací protokol.<br>4. Po jízdě motorku vrátíte na pobočku (nebo si ji vyzvedneme na domluvené adrese).',
+  'branches.0.video': '',
+  'branches.0.video_title': 'Video: jak to na pobočce probíhá',
   'branches.1.badge': 'Samoobslužná pobočka',
   'branches.1.title': 'Velké Němčice u Brna',
   'branches.1.address': 'Boudky, 691 63 Velké Němčice',
@@ -27,9 +29,12 @@ const Map<String, String> branchesInfoDefaults = {
   'branches.1.gear': 'Výbava pro řidiče v ceně — bundy a kalhoty do velikosti <strong>4XL</strong> (větší velikosti až do 6XL nabízíme v Mezné). Výbavu si v šatně vyzkoušíte, a když vám velikost nesedí, vezmete si jinou dostupnou a v předávacím protokolu ji jen označíte.',
   'branches.1.steps_title': 'Jak to probíhá',
   'branches.1.steps': '1. Rezervujete a zaplatíte online, doplníte doklady — kódy najdete v aplikaci i v e-mailu.<br>2. Na pobočce zadáte kód šatny a vezmete si výbavu (s vlastní výbavou šatnu přeskočíte).<br>3. Na displeji podepíšete předávací protokol.<br>4. Kódem motorky otevřete kóji s motorkou a vyrazíte.<br>5. Po jízdě motorku vrátíte do kóje a výbavu do šatny.',
+  'branches.1.video': '',
+  'branches.1.video_title': 'Video: jak se obsloužit na samoobslužné pobočce',
   'cta.title': 'Vyberte si motorku na své pobočce',
   'cta.text': 'V rezervaci uvidíte u každé motorky, na které pobočce je k dispozici.',
   'cta.button': 'REZERVOVAT ONLINE',
+  'detail_button': 'Detail pobočky',
 };
 
 /// Cíl navigace pro kartu pobočky (pořadí = `branches.<i>`); mapa jde z kódu

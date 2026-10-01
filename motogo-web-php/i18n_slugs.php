@@ -77,6 +77,7 @@ const I18N_SLUG_ROUTES = [
 const I18N_SLUG_PREFIXES = [
     '/katalog/' => ['en' => '/catalog/', 'de' => '/katalog/', 'es' => '/catalogo/', 'fr' => '/catalogue/', 'nl' => '/catalogus/', 'pl' => '/katalog/', 'uk' => '/catalog/'],
     '/dokumenty/' => ['en' => '/documents/', 'de' => '/dokumente/', 'es' => '/documentos/', 'fr' => '/documents/', 'nl' => '/documenten/', 'pl' => '/dokumenty/', 'uk' => '/documents/'],
+    '/pobocky/' => ['en' => '/branches/', 'de' => '/filialen/', 'es' => '/sucursales/', 'fr' => '/agences/', 'nl' => '/filialen/', 'pl' => '/oddzialy/', 'uk' => '/branches/'],
     '/eshop/' => ['en' => '/shop/', 'de' => '/shop/', 'es' => '/tienda/', 'fr' => '/boutique/', 'nl' => '/winkel/', 'pl' => '/sklep/', 'uk' => '/shop/'],
     '/blog/' => ['en' => '/blog/', 'de' => '/blog/', 'es' => '/blog/', 'fr' => '/blog/', 'nl' => '/blog/', 'pl' => '/blog/', 'uk' => '/blog/'],
     '/oblasti/' => ['en' => '/areas/', 'de' => '/regionen/', 'es' => '/regiones/', 'fr' => '/regions/', 'nl' => '/regios/', 'pl' => '/regiony/', 'uk' => '/areas/'],

@@ -192,7 +192,7 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 | Bucket | Přístup | Použití |
 |--------|---------|---------|
 | `documents` | **private** | Faktury (invoices/{id}.html), generované dokumenty (generated/{uuid}.html), smlouvy, naskenované doklady zákazníků (`<user_id>/<doc>_<ts>.<ext>`) |
-| `media` | **public** | Fotky motorek, loga, marketingové materiály, trasy (`routes/...`), komunitní body zájmu (`user-pois/...`), **fotky recenzí tras (`route-reviews/<uid>/...`) NEW 2026-07-01**, **fotky zastávek na projetých jízdách (`rides/<uid>/...`) NEW 2026-09-16** |
+| `media` | **public** | Fotky motorek, loga, marketingové materiály, trasy (`routes/...`), komunitní body zájmu (`user-pois/...`), **fotky recenzí tras (`route-reviews/<uid>/...`) NEW 2026-07-01**, **fotky zastávek na projetých jízdách (`rides/<uid>/...`) NEW 2026-09-16**, **videa poboček (`branches/<slug>/...`, nahrává admin ve Velínu → Texty webu → Pobočka …) NEW 2026-10-01** |
 | `sos-photos` | **private** | Fotky z SOS incidentů (poškození, nehody) |
 | `branch-music` | **public** (read) | **NEW 2026-09-10 (F) (`20260910d_branch_music.sql`, APLIKUJE AUTO-DEPLOY po merge)** — Hudba samoobslužných poboček: `<branch_id>/<track_id>.<ext>` (cesty jsou uuid, nic tajného — proto public read), `file_size_limit` 200 MB (`ON CONFLICT (id) DO UPDATE SET public, file_size_limit`), `allowed_mime_types` NULL (jakýkoli formát, co přehraje mpv/ffmpeg: mp3, wav, flac, ogg/opus, m4a/aac, wma, aiff, webm/mkv). Nahrává Velín (blok „Hudba pobočky“ přetažením; `cacheControl` 1 rok), maže Velín při smazání skladby; RPi řídicí jednotka stahuje public URL `/storage/v1/object/public/branch-music/<path>` bez auth (`music_sync.py`). Metadata v `branch_music_tracks` (STATE_1/2). |
 

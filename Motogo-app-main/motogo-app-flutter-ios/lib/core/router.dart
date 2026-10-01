@@ -42,6 +42,7 @@ import '../features/reservations/reservation_models.dart';
 import '../features/shop/shop_checkout_screen.dart';
 import '../features/shop/shop_screen.dart';
 import '../features/branches/branches_info_screen.dart';
+import '../features/branches/branch_detail_screen.dart';
 import '../features/shop/product_detail_screen.dart';
 import '../features/shop/cart_screen.dart';
 import '../features/shop/voucher_screen.dart';
@@ -399,6 +400,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.branchesInfo,
             builder: (context, state) => const BranchesInfoScreen(),
+          ),
+          GoRoute(
+            path: '/pobocky/:index',
+            builder: (context, state) => BranchDetailScreen(
+                index: int.tryParse(state.pathParameters['index'] ?? '') ?? 0),
           ),
           GoRoute(
             path: '/shop/:id',
