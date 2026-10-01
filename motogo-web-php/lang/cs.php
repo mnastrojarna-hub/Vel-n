@@ -62,6 +62,7 @@ return [
     'menu.vouchers' => 'Daruj zážitek',
     'menu.blog' => 'Blog',
     'menu.shop' => 'E-shop',
+    'menu.branches' => 'Pobočky',
     'menu.contact' => 'Kontakt',
     'menu.areas' => 'Oblasti',
     'menu.areas.vysocina' => 'Kraj Vysočina',

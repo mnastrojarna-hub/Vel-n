@@ -61,6 +61,7 @@ return [
     'menu.vouchers' => 'Bons cadeaux',
     'menu.blog' => 'Blog',
     'menu.shop' => 'Boutique',
+    'menu.branches' => 'Agences',
     'menu.contact' => 'Contact',
     'menu.areas' => 'Régions',
     'menu.areas.vysocina' => 'Région de Vysočina',

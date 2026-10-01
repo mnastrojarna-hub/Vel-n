@@ -51,3 +51,19 @@ final loyaltyLeaderboardEnabledProvider = FutureProvider<bool>((ref) async {
     return false;
   }
 });
+
+/// E-shop v menu Profilu — klíč `eshop_visible` (zadání majitele 2026-10-01:
+/// e-shop dočasně skrytý, na jeho místě „Pobočky“). Default OFF: chybějící
+/// řádek / chyba = skrytý. Stejný flag čte web (hlavní menu + patička).
+final eshopVisibleProvider = FutureProvider<bool>((ref) async {
+  try {
+    final res = await MotoGoSupabase.client
+        .from('feature_flags')
+        .select('enabled')
+        .eq('key', 'eshop_visible')
+        .maybeSingle();
+    return res != null && res['enabled'] == true;
+  } catch (_) {
+    return false;
+  }
+});

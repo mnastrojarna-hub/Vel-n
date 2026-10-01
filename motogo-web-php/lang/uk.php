@@ -61,6 +61,7 @@ return [
     'menu.vouchers' => 'Подаруйте враження',
     'menu.blog' => 'Блог',
     'menu.shop' => 'Інтернет-магазин',
+    'menu.branches' => 'Філії',
     'menu.contact' => 'Контакти',
     'menu.areas' => 'Регіони',
     'menu.areas.vysocina' => 'Край Височина',

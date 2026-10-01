@@ -211,7 +211,7 @@
 | `cms_pages` | CMS stránky |
 | `cms_variables` | CMS proměnné |
 | `faq_items` | FAQ otázky (DB-driven) — kategorie, otázka, HTML odpověď, sort_order, featured_home (zobrazit i na home), published, jsonb translations. Spravuje se ve Velíně CMS → Texty webu → Časté dotazy. |
-| `feature_flags` | Feature flags |
+| `feature_flags` | Feature flags (mj. `eshop_visible` — e-shop v menu webu/appky, default vypnuto od 2026-10-01; `self_service_delivery`, `reservation_upsell`, `loyalty_leaderboard`, `inventory_v2`) |
 | `reviews` | Recenze zákazníků |
 
 ### Audit a debug

@@ -448,6 +448,7 @@ Servisní zakázky navázané na motorky/servisní záznamy.
 - Indexy: (category_key, sort_order), (published, sort_order) WHERE published, (featured_home, sort_order) WHERE featured_home
 - RLS: public SELECT WHERE published=true, admin ALL
 - Realtime: ANO
+- 2026-10-01 (`20261001b_faq_branch_gear_sizes.sql`): velikosti bund/kalhot dle pobočky (samoobsluha Velké Němčice do 4XL, Mezná do 6XL) v `ee1a5c2f…` + nový řádek `5b1e0c7a-3f2d-4c8e-9a61-2d7f4e8b1c01` (výměna velikosti na samoobslužné pobočce)
 
 ### app_installations (NEW 2026-06-28)
 Přesná evidence instalací appky (zdroj pravdy pro DAU/WAU/MAU, instalace, uživatele) — plní `InstallationService` (oba Flutter balíky) heartbeatem.

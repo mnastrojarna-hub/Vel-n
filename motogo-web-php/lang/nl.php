@@ -58,6 +58,7 @@ return [
     'menu.vouchers' => 'Cadeaubonnen',
     'menu.blog' => 'Blog',
     'menu.shop' => 'Winkel',
+    'menu.branches' => 'Filialen',
     'menu.contact' => 'Contact',
     'menu.areas' => 'Regio\'s',
     'menu.areas.vysocina' => 'Regio Vysočina',

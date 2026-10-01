@@ -31,12 +31,33 @@ const KNOWN_FLAGS = {
     on: 'Zákazník si u motorek ze samoobslužné pobočky může zvolit přistavení na adresu i odvoz (vyzvednutí) z adresy — stejně jako u obslužné pobočky.',
     off: 'Výchozí stav (rozhodnutí majitele 2026-09-28): motorky ze samoobslužné pobočky se přebírají i vracejí JEN na pobočce. Volby přistavení/odvozu jsou v appce i na webu vidět, ale zabalené a zablokované s vysvětlením; DB trigger takovou rezervaci odmítne.',
   },
+  eshop_visible: {
+    title: 'E-shop v menu (web + aplikace)',
+    controls: 'Hlavní menu a patička webu motogo24.cz + menu v Profilu mobilní aplikace. Řádek flagu vzniká SQL migrací.',
+    on: 'Položka „E-shop" je v menu webu i appky vidět (vedle „Pobočky").',
+    off: 'Výchozí stav (zadání majitele 2026-10-01): e-shop se v menu NEZOBRAZUJE — místo něj je záložka „Pobočky". Stránky e-shopu dál fungují na přímý odkaz. Web změnu ukáže hned (Velín vyčistí cache webu), appka po znovuotevření menu.',
+  },
   debug_mode: {
     title: 'Debug režim Velínu',
     controls: 'Tento administrační panel (Velín).',
     on: 'Zapne diagnostiku — debug panel, podrobné logování akcí do debug_log. Pro vývoj a hledání chyb.',
     off: 'Normální provoz bez diagnostiky. Doporučený stav pro běžné používání.',
   },
+}
+
+// Web (PHP) drží flagy i hotové stránky v cache (až 30 min) — po přepnutí ji
+// vyčistíme stejně jako Texty webu (`/api/cms-cache-purge`), ať se např. menu
+// s e-shopem změní hned. Fire-and-forget, selhání není kritické.
+const WEB_BASE_URL = (import.meta?.env?.VITE_WEB_BASE_URL || 'https://www.motogo24.cz').replace(/\/$/, '')
+async function purgeWebCache() {
+  try {
+    const { data } = await supabase.from('app_settings').select('value').eq('key', 'cms_admin_token').maybeSingle()
+    const token = data?.value ? String(data.value) : ''
+    if (!token) return
+    fetch(WEB_BASE_URL + '/api/cms-cache-purge', {
+      method: 'POST', headers: { 'X-CMS-Admin-Token': token }, keepalive: true,
+    }).catch(() => {})
+  } catch (_) { /* ignore */ }
 }
 
 export default function FeatureFlagsTab() {
@@ -67,6 +88,7 @@ export default function FeatureFlagsTab() {
       return
     }
     setFlags(f => f.map(fl => fl.id === flag.id ? { ...fl, enabled: newEnabled } : fl))
+    purgeWebCache()
     // Audit log — admin_audit_log má sloupce action/entity_type/entity_id/old_data/new_data
     // (NEMÁ `details` — dřívější zápis sem tiše selhával). Opraveno na reálné schéma.
     try {
