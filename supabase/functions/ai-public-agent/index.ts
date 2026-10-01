@@ -26,6 +26,7 @@ import { type CompanyInfo, type FleetMoto, type BranchRow, motoDisplayName, form
 import { loadKnowledgeBase, stripHtmlToText } from '../_shared/agent-knowledge/knowledge-base.ts'
 import { buildCompanyBrain, MOTO_KNOWLEDGE_TIPS } from '../_shared/agent-knowledge/company-brain.ts'
 import { HARD_RULES_CS } from '../_shared/agent-knowledge/hard-rules.ts'
+import { classifyAnthropicError } from '../_shared/anthropic-errors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -1800,6 +1801,15 @@ async function runClaudeLoop(
       // Po vyčerpání pokusů NEHÁZEJ výjimku (serve by vrátil 500 → widget „něco se zaseklo" a uživatel
       // zůstane viset). Vrať slušnou hlášku; konverzace zůstane živá a další zpráva může projít.
       console.error('ai-public-agent: Anthropic call failed', resp?.status || 'no-resp', String(lastErr).slice(0, 300))
+      // Důvod (došlý kredit, neplatný klíč…) do debug_log → vidět ve Velínu; zákazník dál dostane slušnou hlášku
+      try {
+        const info = resp ? classifyAnthropicError(resp.status, lastErr) : null
+        await sb.from('debug_log').insert({
+          source: 'ai-public-agent', action: 'anthropic_error', status: 'error',
+          error_message: info ? `${resp!.status} ${info.type || '-'}: ${info.detail}` : String(lastErr).slice(0, 300),
+          request_data: { code: info?.code || 'no_response' },
+        })
+      } catch { /* log je jen pomůcka */ }
       return { reply: fb, toolUses }
     }
     const data = await resp.json() as { content: Array<Record<string, unknown>>; stop_reason: string }
