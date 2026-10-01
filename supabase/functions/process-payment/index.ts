@@ -7,6 +7,18 @@ import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentType, PaymentRequest, get
 import { authClassify } from '../_shared/auth.ts'
 import { handleWebBookingCheckout, handleWebShopCheckout, handleSosPaymentLink } from './payment-flows.ts'
 
+// Otisk místa rezervace (delivery_fee + způsob a adresa obou stran) —
+// webhook-receiver ho porovná s aktuálním řádkem (stejný výpočet tam).
+function placeFingerprint(r: Record<string, unknown> | null): string {
+  if (!r) return ''
+  const norm = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+  const src = [Math.round(Number(r.delivery_fee || 0)), norm(r.pickup_method), norm(r.pickup_address),
+    norm(r.return_method), norm(r.return_address)].join('|')
+  let h = 2166136261
+  for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0 }
+  return h.toString(16)
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -468,12 +480,14 @@ Deno.serve(async (req: Request) => {
       type CurRow = {
         user_id: string | null; status: string | null; total_price: number | null; trailer_moto_id: string | null
         moto_id: string | null; start_date: string | null; end_date: string | null; pickup_time: string | null
+        delivery_fee: number | null; pickup_method: string | null; pickup_address: string | null
+        return_method: string | null; return_address: string | null
         motorcycles: { is_trailer: boolean | null } | { is_trailer: boolean | null }[] | null
       }
       let cur: CurRow | null = null
       try {
         const { data, error } = await supabase.from('bookings')
-          .select('user_id, status, total_price, trailer_moto_id, moto_id, start_date, end_date, pickup_time, motorcycles!moto_id(is_trailer)')
+          .select('user_id, status, total_price, trailer_moto_id, moto_id, start_date, end_date, pickup_time, delivery_fee, pickup_method, pickup_address, return_method, return_address, motorcycles!moto_id(is_trailer)')
           .eq('id', booking_id).maybeSingle()
         if (error) dryErr = 'validation_unavailable'
         else if (!data) dryErr = 'booking_not_found'
@@ -577,7 +591,7 @@ Deno.serve(async (req: Request) => {
               // přistavení). Podíly stran (pf/rf) jdou do historie úprav.
               const num = (v: unknown) => (v != null && Number.isFinite(Number(v)) ? Number(v) : null)
               const bd = (data.breakdown || {}) as Record<string, unknown>
-              const srv = { t: num(data.new_total), df: num(data.new_delivery_fee), pf: num(bd.pickup_fee_to), rf: num(bd.return_fee_to), x: bd.fee_split_exact === true }
+              const srv = { t: num(data.new_total), df: num(data.new_delivery_fee), pf: num(bd.pickup_fee_to), rf: num(bd.return_fee_to), x: bd.fee_split_exact === true, f: placeFingerprint(cur) }
               if (srv.t != null || srv.df != null) metadata.srv = JSON.stringify(srv)
             }
             else if (!error && data?.error) dryErr = String(data.error)
@@ -593,6 +607,22 @@ Deno.serve(async (req: Request) => {
             // je tenhle validátor. Jen při SKUTEČNÉ změně motorky u rezervace
             // s vozíkem (legacy rezervace s vozíkem na samoobsluze jde dál
             // prodloužit). Fail closed.
+            // Přistavení/odvoz (2026-10-01): webhook zapíše změnu appky jako
+            // service_role mimo DB pojistku trg_guard_booking_delivery — tatáž
+            // pravidla proto PŘED platbou (přidání přistavení musí poplatek
+            // zvýšit, bez změny místa neklesne, vyzvednutí aktivní rezervace
+            // neměnné). Chybějící funkce (SQL ještě nenasazené) = bez kontroly.
+            const placeKeys = ['delivery_fee', 'pickup_method', 'pickup_address', 'pickup_lat', 'pickup_lng',
+              'return_method', 'return_address', 'return_lat', 'return_lng']
+            if (!dryErr && placeKeys.some((k) => k in c)) {
+              const { data: dv, error: dvErr } = await supabase.rpc('check_booking_delivery_change', { p_booking_id: booking_id, p_change: c })
+              if (dvErr) {
+                const missing = /check_booking_delivery_change|PGRST202|42883|does not exist/i.test(`${dvErr.code || ''} ${dvErr.message || ''}`)
+                if (!missing) dryErr = 'validation_unavailable'
+              } else if (typeof dv === 'string' && dv) {
+                dryErr = 'delivery_fee_guard'
+              }
+            }
             if (typeof c.moto_id === 'string' && c.moto_id && c.moto_id !== cur.moto_id && cur.trailer_moto_id) {
               const { data: selfSvc, error: selfErr } = await supabase.rpc('moto_is_self_service', { p_moto_id: c.moto_id })
               if (selfErr || typeof selfSvc !== 'boolean') dryErr = 'trailer_check_unavailable'
@@ -654,6 +684,10 @@ Deno.serve(async (req: Request) => {
       // jakékoli kontroly a za libovolnou částku.
       if (!dryErr && expected == null) dryErr = 'validation_unavailable'
 
+      // Otisk místa pro app formát (web ho dává do srv výše) — webhook podle
+      // něj pozná, že se místo mezi naceněním a platbou změnilo.
+      if (!dryErr && cur && !metadata.srv) metadata.srv = JSON.stringify({ f: placeFingerprint(cur) })
+
       if (dryErr) {
         // Kód (`code`) je stabilní API pro klienty → web i appka ho překládají
         // (editRez.pay.* / PaymentErrorMapper); `error` je český fallback.
@@ -665,6 +699,7 @@ Deno.serve(async (req: Request) => {
           booking_not_found: 'Rezervace nebyla nalezena — platba doplatku zrušena. Obnovte stránku a zkuste znovu.',
           moto_unavailable: 'Motorka je v novém termínu už obsazená, nebo je pobočka zavřená — platba doplatku zrušena. Zvolte jiný termín nebo motorku.',
           wrong_status: 'Rezervaci v tomto stavu už nelze upravit (stornovaná nebo ukončená) — platba doplatku zrušena.',
+          delivery_fee_guard: 'Poplatek za přistavení/odvoz neodpovídá změně místa (chybí adresa nebo cena trasy) — platba doplatku zrušena. Zadejte adresu a zkuste to znovu.',
         }
         const dryMsg = dryMsgs[dryErr] ?? `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
         return new Response(

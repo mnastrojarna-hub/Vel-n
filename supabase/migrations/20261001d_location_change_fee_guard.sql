@@ -15,7 +15,8 @@
 -- Reprodukováno 1:1 na lokální kopii živého schématu (snapshot 2026-10-01):
 -- net_diff −11, refund_amount 11, total 17 310 → 17 299.
 --
--- OPRAVA (server je autoritativní — klient už nemůže cenu podstrčit):
+-- OPRAVA (rozdělení poplatku i podlahu ceny určuje server; GPS dodává web
+-- z geokódování — podvržené souřadnice dají nejvýš podlahu, viz bod 4):
 --  1) přistavení = metoda 'delivery' NEBO vyplněná adresa (web/AI rezervace
 --     nechávají 'store' + adresu; shodně s generate-document a appkou);
 --  2) NEZMĚNĚNÁ strana (druh i místo) si nechává svůj podíl delivery_fee —
@@ -27,8 +28,8 @@
 --     (1 000 Kč + 40 Kč × vzdušná vzdálenost od Mezné − 2 km tolerance) —
 --     silniční trasa (web i appka: 1000 + 40 × km) nikdy není kratší, takže
 --     poctivý klient podlahu nepozná; poplatek 0 / chybějící adresa už
---     nedá přistavení zdarma; bez GPS (AI agent souřadnice neposílá) přesun
---     adresy nikdy nezlevní pod dosavadní podíl strany → žádná vratka;
+--     nedá přistavení zdarma; přesun nikdy nezlevní pod dosavadní podíl
+--     strany → žádná vratka; bez GPS se strana přidat/přesunout nedá (bod 8);
 --  5) delivery_fee = staré + rozdíly změněných stran (zbytek zůstává). Obě
 --     strany přistavením → přesné podíly z poslední úpravy v historii
 --     (`fee_split_exact`), jinak odhad v poměru podlah dle uložených GPS (bez
@@ -41,6 +42,9 @@
 --     from/to_delivery_fee, podíly stran a `fee_split_exact`;
 --  7) `apply_booking_change_light` (AI agent BEZ hesla): změna místa už není
 --     „nulový dopad" → vždy plné ověření (konec souboru).
+--  8) přidaná/přesunutá strana přistavení BEZ GPS = `location_requires_route`
+--     (AI agent GPS neposílá; bez souřadnic nejde ověřit cenu trasy) — změnu
+--     místa na adresu dělá web/appka; odebrání strany projde dál.
 -- Signatura funkce se NEMĚNÍ (overload by v PostgREST dal ambiguity 300).
 -- Tělo jinak PŘEVZATO BEZE ZMĚNY z 20260921e (= živá definice ze snapshotu
 -- 2026-10-01, ověřeno diffem). Idempotentní (CREATE OR REPLACE).
@@ -69,6 +73,42 @@ RETURNS numeric LANGUAGE sql IMMUTABLE SET search_path = public AS $$
                  + cos(radians(49.3464)) * cos(radians(p_lat)) * power(sin(radians(p_lng - 15.2119) / 2), 2)))))::numeric AS d) s)
   END
 $$;
+
+-- Přesunula se strana přistavení? Sdílí jádro i DB pojistka (20261001e).
+-- Se souřadnicemi starého i nového místa: posun > ~50 m A ZÁROVEŇ jiný text
+-- adresy (jinak > ~1 km) — znovu potvrzené stejné místo s jiným zápisem
+-- adresy ani drobný posun špendlíku u stejné adresy přesunem nejsou.
+-- Bez srovnatelných souřadnic rozhoduje normalizovaný text adresy.
+CREATE OR REPLACE FUNCTION public._delivery_place_moved(
+  p_old_addr text, p_old_lat double precision, p_old_lng double precision,
+  p_new_addr text, p_new_lat double precision, p_new_lng double precision)
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = public AS $$
+  SELECT CASE
+    WHEN p_old_lat IS NOT NULL AND p_old_lng IS NOT NULL AND p_new_lat IS NOT NULL AND p_new_lng IS NOT NULL THEN
+      (abs(p_new_lat - p_old_lat) > 0.0005 OR abs(p_new_lng - p_old_lng) > 0.0005)
+      AND (public._addr_norm(p_new_addr) IS DISTINCT FROM public._addr_norm(p_old_addr)
+           OR abs(p_new_lat - p_old_lat) > 0.01 OR abs(p_new_lng - p_old_lng) > 0.015)
+    ELSE public._addr_norm(p_new_addr) IS DISTINCT FROM public._addr_norm(p_old_addr)
+  END
+$$;
+
+-- Poplatek za přistavení (p_side='pickup') / odvoz ('return') uložený jako
+-- položka rezervace — web (`create_web_booking`) ho tak ukládá místo
+-- delivery_fee: název „Přistavení motorky (1 000 Kč + …)" / „Vrácení motorky
+-- (…)" v jazyce zákazníka (rez.gear.item.delivery/return, 8 jazyků webu).
+CREATE OR REPLACE FUNCTION public._booking_extras_delivery(p_booking_id uuid, p_side text)
+RETURNS numeric LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT COALESCE(SUM(GREATEST(COALESCE(e.unit_price, 0), 0) * GREATEST(COALESCE(e.quantity, 1), 1)), 0)
+    FROM booking_extras e
+   WHERE e.booking_id = p_booking_id
+     AND CASE p_side
+           WHEN 'pickup' THEN e.name ILIKE ANY (ARRAY['Přistavení motorky%', 'Motorradlieferung%', 'Motorcycle delivery%',
+                 'Entrega de la moto%', 'Livraison de la moto%', 'Bezorging motor%', 'Dostawa motocykla%', 'Доставка мотоцикла%'])
+           WHEN 'return' THEN e.name ILIKE ANY (ARRAY['Vrácení motorky%', 'Motorradabholung%', 'Motorcycle return%',
+                 'Devolución de la moto%', 'Récupération de la moto%', 'Ophalen motor%', 'Zwrot motocykla%', 'Повернення мотоцикла%'])
+           ELSE false END
+$$;
+REVOKE ALL ON FUNCTION public._booking_extras_delivery(uuid, text) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION "public"."_apply_booking_changes_core"(
   "p_user_id" "uuid", "p_booking_id" "uuid", "p_new_start" "date", "p_new_end" "date",
@@ -145,6 +185,8 @@ DECLARE
   v_hp              numeric;
   v_hr              numeric;
   v_split_est       boolean := false;   -- podíly stran jen odhadnuté
+  v_ext_p           numeric := 0;       -- poplatek strany v booking_extras (web)
+  v_ext_r           numeric := 0;
 BEGIN
   IF p_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'unauthenticated');
@@ -338,50 +380,63 @@ BEGIN
   -- = VRATKA místo doplatku Y, delivery_fee přepsáno na Y). Nově:
   --  • přistavení = metoda 'delivery' NEBO vyplněná adresa (web/AI rezervace
   --    nechávají 'store' + adresu — shodně s generate-document a appkou);
+  --    adresa poslaná k pobočkové straně ji dělá přistavením (zpoplatní se);
   --  • NEZMĚNĚNÁ strana si nechává svůj podíl delivery_fee — klientem poslaný
   --    poplatek se u ní ignoruje (0, přepočet trasy, cokoli);
+  --  • přesun = `_delivery_place_moved` (stejná definice jako DB pojistka);
+  --    přesun NIKDY nevrací peníze (GPS posílá klient, šly by podvrhnout) —
+  --    jen doplatek, když je nové místo dražší;
   --  • aktivní rezervace: vyzvednutí už proběhlo → strana vyzvednutí je
   --    neměnná (pokus o změnu = active_pickup_locked, poplatek se ignoruje);
-  --  • nově přidaná / přesunutá strana přistavení stojí aspoň podlahu
-  --    _delivery_fee_floor (1000 Kč + 40 Kč × vzdušná čára od Mezné − 2 km;
-  --    silniční trasa nikdy není kratší) → přidání přistavení NIKDY nesníží cenu;
+  --  • nově přidaná strana stojí aspoň podlahu _delivery_fee_floor (1000 Kč
+  --    + 40 Kč × vzdušná čára od Mezné − 2 km; silniční trasa není kratší);
+  --  • odebraná strana vrací svůj podíl; je-li rozdělení obou stran jen
+  --    ODHAD, nejvýš podlahu té strany (skutečný poplatek je vždy ≥ podlaha);
   --  • nové delivery_fee = staré + rozdíly změněných stran (zbytek zůstává).
-  v_old_pd := (v_b.pickup_method = 'delivery' OR NULLIF(btrim(COALESCE(v_b.pickup_address, '')), '') IS NOT NULL);
-  v_old_rd := (v_b.return_method = 'delivery' OR NULLIF(btrim(COALESCE(v_b.return_address, '')), '') IS NOT NULL);
-  -- Metoda NULL nebo shodná s uloženou = beze změny druhu (web posílá u volby
-  -- „pobočka" uloženou metodu, např. 'store' i u přistavení přes adresu).
+  IF (p_new_pickup_lat IS NOT NULL AND NOT (p_new_pickup_lat BETWEEN -90 AND 90))
+     OR (p_new_pickup_lng IS NOT NULL AND NOT (p_new_pickup_lng BETWEEN -180 AND 180))
+     OR (p_new_return_lat IS NOT NULL AND NOT (p_new_return_lat BETWEEN -90 AND 90))
+     OR (p_new_return_lng IS NOT NULL AND NOT (p_new_return_lng BETWEEN -180 AND 180)) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'invalid_location');
+  END IF;
+  v_old_pd := (v_b.pickup_method = 'delivery' OR public._addr_norm(v_b.pickup_address) IS NOT NULL);
+  v_old_rd := (v_b.return_method = 'delivery' OR public._addr_norm(v_b.return_address) IS NOT NULL);
+  -- Metoda NULL nebo shodná s uloženou = druh se mění jen přidanou adresou
+  -- (web posílá u volby „pobočka" uloženou metodu, např. 'store' i u
+  -- přistavení přes adresu); jiná metoda rozhoduje sama.
   v_new_pd := CASE WHEN p_new_pickup_method IS NULL OR p_new_pickup_method IS NOT DISTINCT FROM v_b.pickup_method
-                   THEN v_old_pd ELSE p_new_pickup_method = 'delivery' END;
+                   THEN v_old_pd OR public._addr_norm(p_new_pickup_address) IS NOT NULL
+                   ELSE p_new_pickup_method = 'delivery' END;
   v_new_rd := CASE WHEN p_new_return_method IS NULL OR p_new_return_method IS NOT DISTINCT FROM v_b.return_method
-                   THEN v_old_rd ELSE p_new_return_method = 'delivery' END;
-  -- Přesun adresy u strany, která přistavením zůstává: rozhoduje FYZICKÉ
-  -- místo — souřadnice (posun > ~50 m); bez srovnatelných souřadnic text adresy.
+                   THEN v_old_rd OR public._addr_norm(p_new_return_address) IS NOT NULL
+                   ELSE p_new_return_method = 'delivery' END;
   IF v_old_pd AND v_new_pd THEN
-    v_pick_loc_changed := CASE
-      WHEN p_new_pickup_lat IS NOT NULL AND p_new_pickup_lng IS NOT NULL
-           AND v_b.pickup_lat IS NOT NULL AND v_b.pickup_lng IS NOT NULL
-        THEN abs(p_new_pickup_lat - v_b.pickup_lat) > 0.0005 OR abs(p_new_pickup_lng - v_b.pickup_lng) > 0.0005
-      ELSE p_new_pickup_address IS NOT NULL
-           AND public._addr_norm(p_new_pickup_address) IS DISTINCT FROM public._addr_norm(v_b.pickup_address)
-      END;
+    v_pick_loc_changed := public._delivery_place_moved(
+      v_b.pickup_address, v_b.pickup_lat, v_b.pickup_lng,
+      COALESCE(p_new_pickup_address, v_b.pickup_address), p_new_pickup_lat, p_new_pickup_lng);
   END IF;
   IF v_old_rd AND v_new_rd THEN
-    v_ret_loc_changed := CASE
-      WHEN p_new_return_lat IS NOT NULL AND p_new_return_lng IS NOT NULL
-           AND v_b.return_lat IS NOT NULL AND v_b.return_lng IS NOT NULL
-        THEN abs(p_new_return_lat - v_b.return_lat) > 0.0005 OR abs(p_new_return_lng - v_b.return_lng) > 0.0005
-      ELSE p_new_return_address IS NOT NULL
-           AND public._addr_norm(p_new_return_address) IS DISTINCT FROM public._addr_norm(v_b.return_address)
-      END;
+    v_ret_loc_changed := public._delivery_place_moved(
+      v_b.return_address, v_b.return_lat, v_b.return_lng,
+      COALESCE(p_new_return_address, v_b.return_address), p_new_return_lat, p_new_return_lng);
   END IF;
   v_pick_side_changed := (v_new_pd IS DISTINCT FROM v_old_pd) OR v_pick_loc_changed;
   v_ret_side_changed  := (v_new_rd IS DISTINCT FROM v_old_rd) OR v_ret_loc_changed;
   IF v_is_active AND v_pick_side_changed THEN
     RETURN jsonb_build_object('success', false, 'error', 'active_pickup_locked');
   END IF;
+  -- Přidaná / přesunutá strana BEZ GPS nejde ocenit: podlaha bez souřadnic je
+  -- jen základ 1000 Kč a poplatek od volajícího se nedá ověřit (AI agent GPS
+  -- neposílá a cenu odhaduje model) → změnu místa na adresu dělá web/appka,
+  -- které počítají trasu. Odebrání strany (→ pobočka) GPS nepotřebuje.
+  IF (v_pick_side_changed AND v_new_pd AND (p_new_pickup_lat IS NULL OR p_new_pickup_lng IS NULL))
+     OR (v_ret_side_changed AND v_new_rd AND (p_new_return_lat IS NULL OR p_new_return_lng IS NULL)) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'location_requires_route',
+      'message', 'Přistavení nebo vrácení na novou adresu se počítá podle trasy — změňte ho prosím na webu motogo24.cz (Upravit rezervaci) nebo v aplikaci MotoGo24.');
+  END IF;
 
   -- Podíly starého delivery_fee po stranách (DB drží jen součet). Obě strany
-  -- přistavením → poměr podlah dle uložených souřadnic, bez nich půl na půl.
+  -- přistavením → přesné rozdělení z poslední úpravy v historii, jinak odhad.
   v_old_fee := GREATEST(COALESCE(v_b.delivery_fee, 0), 0);
   IF v_old_pd AND v_old_rd THEN
     -- Přesný podíl z poslední úpravy (od 2026-10-01 historie nese
@@ -414,32 +469,51 @@ BEGIN
       END IF;
       v_old_pfee := ROUND(v_old_fee * v_wp / (v_wp + v_wr));
       v_old_rfee := v_old_fee - v_old_pfee;
+      -- Odebírá se právě jedna strana → vrací se nejvýš její podlaha
+      -- (skutečná cena strany je vždy ≥ podlaha; přeplatek odhadu ne).
+      IF NOT v_new_pd AND v_new_rd THEN
+        v_old_pfee := LEAST(v_old_pfee, public._delivery_fee_floor(v_b.pickup_lat, v_b.pickup_lng, 2));
+        v_old_rfee := v_old_fee - v_old_pfee;
+      ELSIF v_new_pd AND NOT v_new_rd THEN
+        v_old_rfee := LEAST(v_old_rfee, public._delivery_fee_floor(v_b.return_lat, v_b.return_lng, 2));
+        v_old_pfee := v_old_fee - v_old_rfee;
+      END IF;
     END IF;
   ELSIF v_old_pd THEN
     v_old_pfee := v_old_fee;
   ELSIF v_old_rd THEN
     v_old_rfee := v_old_fee;
   END IF;
+  -- Web rezervace mají poplatek za přistavení v booking_extras (delivery_fee 0):
+  -- u přesunuté strany s nulovým podílem se doplácí jen rozdíl proti němu.
+  IF v_pick_loc_changed AND v_old_pfee = 0 THEN
+    v_ext_p := public._booking_extras_delivery(v_b.id, 'pickup');
+  END IF;
+  IF v_ret_loc_changed AND v_old_rfee = 0 THEN
+    v_ext_r := public._booking_extras_delivery(v_b.id, 'return');
+  END IF;
 
   v_new_pfee := CASE
     WHEN NOT v_pick_side_changed THEN v_old_pfee
     WHEN NOT v_new_pd THEN 0
-    -- Bez GPS nelze vzdálenost ověřit (AI agent souřadnice neposílá): přesun
-    -- adresy pak nikdy nezlevní pod dosavadní podíl strany → žádná vratka.
-    -- … a u jen ODHADNUTÉHO podílu (obě strany přistavením bez přesného
-    -- rozdělení z historie) přesun adresy taky nevrací (parita s appkou).
+    -- přesun: nikdy pod dosavadní cenu strany (podíl + položka webu)
+    WHEN v_pick_loc_changed THEN v_old_pfee
+         + GREATEST(0, GREATEST(ROUND(COALESCE(p_new_pickup_fee, 0)),
+                                public._delivery_fee_floor(p_new_pickup_lat, p_new_pickup_lng, 2))
+                       - (v_old_pfee + v_ext_p))
+    -- nově přidaná strana: cena klienta, nejméně podlaha
     ELSE GREATEST(ROUND(COALESCE(p_new_pickup_fee, 0)),
-                  public._delivery_fee_floor(p_new_pickup_lat, p_new_pickup_lng, 2),
-                  CASE WHEN p_new_pickup_lat IS NULL OR p_new_pickup_lng IS NULL
-                         OR (v_split_est AND v_old_pd) THEN v_old_pfee ELSE 0 END)
+                  public._delivery_fee_floor(p_new_pickup_lat, p_new_pickup_lng, 2))
     END;
   v_new_rfee := CASE
     WHEN NOT v_ret_side_changed THEN v_old_rfee
     WHEN NOT v_new_rd THEN 0
+    WHEN v_ret_loc_changed THEN v_old_rfee
+         + GREATEST(0, GREATEST(ROUND(COALESCE(p_new_return_fee, 0)),
+                                public._delivery_fee_floor(p_new_return_lat, p_new_return_lng, 2))
+                       - (v_old_rfee + v_ext_r))
     ELSE GREATEST(ROUND(COALESCE(p_new_return_fee, 0)),
-                  public._delivery_fee_floor(p_new_return_lat, p_new_return_lng, 2),
-                  CASE WHEN p_new_return_lat IS NULL OR p_new_return_lng IS NULL
-                         OR (v_split_est AND v_old_rd) THEN v_old_rfee ELSE 0 END)
+                  public._delivery_fee_floor(p_new_return_lat, p_new_return_lng, 2))
     END;
   v_pickup_fee_diff  := v_new_pfee - v_old_pfee;
   v_return_fee_diff  := v_new_rfee - v_old_rfee;
@@ -494,7 +568,7 @@ BEGIN
         'pickup_fee_diff', v_pickup_fee_diff, 'return_fee_diff', v_return_fee_diff,
         'pickup_fee_from', v_old_pfee, 'pickup_fee_to', v_new_pfee,
         'return_fee_from', v_old_rfee, 'return_fee_to', v_new_rfee,
-        'fee_split_exact', (NOT v_split_est OR (v_pick_side_changed AND v_ret_side_changed) OR NOT (v_new_pd AND v_new_rd)),
+        'fee_split_exact', (NOT v_split_est OR NOT (v_new_pd AND v_new_rd)),
         'gross_diff', v_gross_diff, 'discount_type', v_dtype, 'storno_pct', v_storno_pct,
         'late_pickup_from', v_old_late, 'late_pickup_to', v_new_late,
         'loyalty_discount', v_loy_disc, 'loyalty_percent', v_loy_pct
@@ -525,10 +599,9 @@ BEGIN
     'to_delivery_fee', CASE WHEN v_pick_side_changed OR v_ret_side_changed THEN v_new_delivery_fee ELSE v_b.delivery_fee END,
     'pickup_fee_from', v_old_pfee, 'pickup_fee_to', v_new_pfee,
     'return_fee_from', v_old_rfee, 'return_fee_to', v_new_rfee,
-    -- přesné rozdělení = žádný odhad, nebo se změnily obě strany, nebo po
-    -- změně zbyla jen jedna strana přistavením (podíl = celé delivery_fee)
-    'fee_split_exact', (NOT v_split_est OR (v_pick_side_changed AND v_ret_side_changed)
-                        OR NOT (v_new_pd AND v_new_rd)),
+    -- přesné rozdělení = žádný odhad, nebo po změně zbyla nejvýš jedna
+    -- strana přistavením (její podíl = celé delivery_fee)
+    'fee_split_exact', (NOT v_split_est OR NOT (v_new_pd AND v_new_rd)),
     'reason', p_reason, 'source', COALESCE(p_source, 'web_customer')
   );
 
@@ -540,31 +613,31 @@ BEGIN
     moto_id             = v_use_moto.id,
     pickup_time         = COALESCE(p_new_pickup_time, pickup_time),
     -- Aktivní rezervace: vyzvednutí proběhlo → sloupce vyzvednutí se nemění.
-    -- Strana přepnutá z přistavení na pobočku → adresa/GPS se smažou (jinak by
-    -- ji generate-document, appka i Velín dál četly jako přistavení).
+    -- Strana na pobočce nemá adresu ani GPS (jinak by ji generate-document,
+    -- appka i Velín dál četly jako přistavení). GPS se píší u nové strany, při
+    -- přesunu (bez GPS = NULL, staré patřily původní adrese) a k doplnění
+    -- chybějících; u nezměněné strany zůstávají uložené (bez driftu špendlíku).
     pickup_method       = CASE WHEN v_is_active THEN pickup_method ELSE COALESCE(p_new_pickup_method, pickup_method) END,
     pickup_address      = CASE WHEN v_is_active THEN pickup_address
-                               WHEN v_pick_side_changed AND NOT v_new_pd THEN NULL
+                               WHEN NOT v_new_pd THEN NULL
                                ELSE COALESCE(p_new_pickup_address, pickup_address) END,
-    -- … a přesun adresy bez nových GPS (AI agent) smaže staré souřadnice —
-    -- patřily původní adrese.
     pickup_lat          = CASE WHEN v_is_active THEN pickup_lat
-                               WHEN v_pick_side_changed AND NOT v_new_pd THEN NULL
-                               WHEN v_pick_loc_changed AND (p_new_pickup_lat IS NULL OR p_new_pickup_lng IS NULL) THEN NULL
-                               ELSE COALESCE(p_new_pickup_lat, pickup_lat) END,
+                               WHEN NOT v_new_pd THEN NULL
+                               WHEN NOT v_old_pd OR v_pick_loc_changed OR pickup_lat IS NULL OR pickup_lng IS NULL THEN p_new_pickup_lat
+                               ELSE pickup_lat END,
     pickup_lng          = CASE WHEN v_is_active THEN pickup_lng
-                               WHEN v_pick_side_changed AND NOT v_new_pd THEN NULL
-                               WHEN v_pick_loc_changed AND (p_new_pickup_lat IS NULL OR p_new_pickup_lng IS NULL) THEN NULL
-                               ELSE COALESCE(p_new_pickup_lng, pickup_lng) END,
+                               WHEN NOT v_new_pd THEN NULL
+                               WHEN NOT v_old_pd OR v_pick_loc_changed OR pickup_lat IS NULL OR pickup_lng IS NULL THEN p_new_pickup_lng
+                               ELSE pickup_lng END,
     return_method       = COALESCE(p_new_return_method, return_method),
-    return_address      = CASE WHEN v_ret_side_changed AND NOT v_new_rd THEN NULL
+    return_address      = CASE WHEN NOT v_new_rd THEN NULL
                                ELSE COALESCE(p_new_return_address, return_address) END,
-    return_lat          = CASE WHEN v_ret_side_changed AND NOT v_new_rd THEN NULL
-                               WHEN v_ret_loc_changed AND (p_new_return_lat IS NULL OR p_new_return_lng IS NULL) THEN NULL
-                               ELSE COALESCE(p_new_return_lat, return_lat) END,
-    return_lng          = CASE WHEN v_ret_side_changed AND NOT v_new_rd THEN NULL
-                               WHEN v_ret_loc_changed AND (p_new_return_lat IS NULL OR p_new_return_lng IS NULL) THEN NULL
-                               ELSE COALESCE(p_new_return_lng, return_lng) END,
+    return_lat          = CASE WHEN NOT v_new_rd THEN NULL
+                               WHEN NOT v_old_rd OR v_ret_loc_changed OR return_lat IS NULL OR return_lng IS NULL THEN p_new_return_lat
+                               ELSE return_lat END,
+    return_lng          = CASE WHEN NOT v_new_rd THEN NULL
+                               WHEN NOT v_old_rd OR v_ret_loc_changed OR return_lat IS NULL OR return_lng IS NULL THEN p_new_return_lng
+                               ELSE return_lng END,
     -- delivery_fee počítá VÝHRADNĚ server (staré + rozdíly změněných stran).
     delivery_fee        = CASE WHEN v_pick_side_changed OR v_ret_side_changed
                                THEN v_new_delivery_fee ELSE delivery_fee END,
@@ -624,7 +697,7 @@ BEGIN
       'pickup_fee_diff', v_pickup_fee_diff, 'return_fee_diff', v_return_fee_diff,
       'pickup_fee_from', v_old_pfee, 'pickup_fee_to', v_new_pfee,
       'return_fee_from', v_old_rfee, 'return_fee_to', v_new_rfee,
-      'fee_split_exact', (NOT v_split_est OR (v_pick_side_changed AND v_ret_side_changed) OR NOT (v_new_pd AND v_new_rd)),
+      'fee_split_exact', (NOT v_split_est OR NOT (v_new_pd AND v_new_rd)),
       'gross_diff', v_gross_diff, 'discount_type', v_dtype, 'storno_pct', v_storno_pct,
       'late_pickup_from', v_old_late, 'late_pickup_to', v_new_late,
       'loyalty_discount', v_loy_disc, 'loyalty_percent', v_loy_pct

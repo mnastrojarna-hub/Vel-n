@@ -211,10 +211,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       'return_method', 'return_address', 'pickup_time', 'return_time',
       'total_price', 'discount_amount', 'delivery_fee', 'extras_price',
       'loyalty_discount_amount',
+      'pickup_lat', 'pickup_lng', 'return_lat', 'return_lng',
+    };
+    // Místo smí nést i explicitní NULL (přepnutí na pobočku maže adresu, nová
+    // adresa bez GPS maže staré souřadnice) — webhook ho po platbě zapíše.
+    const nullable = {
+      'pickup_address', 'return_address',
+      'pickup_lat', 'pickup_lng', 'return_lat', 'return_lng',
     };
     final out = <String, dynamic>{};
     for (final e in src.entries) {
-      if (keep.contains(e.key) && e.value != null) out[e.key] = e.value;
+      if (keep.contains(e.key) && (e.value != null || nullable.contains(e.key))) out[e.key] = e.value;
     }
     // Výchozí stav změny (`_base`, kompaktní klíče) — server kontrola
     // zastaralého stavu + historie úpravy pro rozdílový doklad.

@@ -227,63 +227,105 @@ class EditPriceCalc {
       (pickupAddressChanged && pickupDelivFee <= 0) ||
       (returnAddressChanged && returnDelivFee <= 0);
 
-  /// Váha podílu strany na kombinované delivery_fee: podlaha 1000 Kč +
-  /// 40 Kč × vzdušná km od Mezné (parita se serverem `_delivery_fee_floor`).
-  static double _floorWeight(double lat, double lng) {
+  /// Spodní mez ceny strany přistavení: 1000 Kč + 40 Kč × (vzdušná km od
+  /// Mezné − [tolKm]); bez GPS 1000 Kč (parita se serverem `_delivery_fee_floor`).
+  static double _sideFloor(double? lat, double? lng, [double tolKm = 2]) {
+    if (lat == null || lng == null) return 1000;
     const la0 = 49.3464, lo0 = 15.2119;
     double rad(double d) => d * math.pi / 180;
     final a = math.pow(math.sin(rad(lat - la0) / 2), 2) +
         math.cos(rad(la0)) * math.cos(rad(lat)) * math.pow(math.sin(rad(lng - lo0) / 2), 2);
     final km = 2 * 6371 * math.asin(math.min(1.0, math.sqrt(a)));
-    return km > 2000 ? 1000.0 : 1000.0 + 40 * km;
+    if (km > 2000) return 1000;
+    return (1000 + 40 * math.max(0.0, km - tolKm)).roundToDouble();
   }
 
-  /// Rozdíl poplatku za přistavení/odvoz oproti původní rezervaci.
+  /// Přesné rozdělení delivery_fee z poslední úpravy (server, web i appka
+  /// zapisují pickup_fee_to/return_fee_to + fee_split_exact) — platí, jen
+  /// když součet sedí na současné delivery_fee.
+  (double, double)? get _exactSplit {
+    final fee = (booking.deliveryFee ?? 0).toDouble();
+    for (final e in booking.modificationHistory.reversed) {
+      final r = e.raw;
+      if (r['fee_split_exact'] != true || r['pickup_fee_to'] == null || r['return_fee_to'] == null) continue;
+      final p = double.tryParse('${r['pickup_fee_to']}');
+      final q = double.tryParse('${r['return_fee_to']}');
+      if (p == null || q == null || p < 0 || q < 0) return null;
+      return ((p + q) - fee).abs() < 0.5 ? (p, q) : null;
+    }
+    return null;
+  }
+
+  /// Rozdíl poplatku za přistavení/odvoz + nové podíly stran.
   ///
-  /// Účtuje se (kladný) nebo vrací (záporný) JEN rozdíl. DB ukládá jen
-  /// kombinovanou `delivery_fee`. Pravidla (2026-10-01, parita se serverem
-  /// `_apply_booking_changes_core` — incident „vratka −11 Kč"):
+  /// DB ukládá jen kombinovanou `delivery_fee`. Pravidla (2026-10-01, parita
+  /// se serverem `_apply_booking_changes_core` — incident „vratka −11 Kč"):
   ///  • strana beze změny (i znovu zadaná STEJNÁ adresa) si nechává svůj podíl;
-  ///  • obě strany přistavením → podíly v poměru podlah dle uložených GPS,
-  ///    bez nich půl na půl; přesun adresy u odhadnutého podílu nikdy
-  ///    nevrací peníze (jen doplatek);
+  ///  • obě strany přistavením → přesné podíly z historie, jinak odhad v poměru
+  ///    podlah dle uložených GPS (bez nich půl na půl); odebraná strana při
+  ///    odhadu vrací nejvýš svou podlahu;
+  ///  • přesun adresy nikdy nevrací peníze (jen doplatek) — appka GPS nové
+  ///    adresy nemá, vzdálenost nejde ověřit;
   ///  • nově přidaná strana = cena trasy (bez adresy uložit nejde).
-  double get deliveryFeeDelta {
+  ({double delta, double pickup, double ret, bool exact}) get deliverySplit {
     final double oldFee = (booking.deliveryFee ?? 0).toDouble();
-    final pickupWas = booking.pickupMethod == 'delivery';
-    final returnWas = booking.returnMethod == 'delivery';
+    final b = booking;
+    final pickupWas = b.pickupMethod == 'delivery';
+    final returnWas = b.returnMethod == 'delivery';
     final pickupIs = pickupMethod == 'delivery';
     final returnIs = returnMethod == 'delivery';
     final pickupMoved = pickupWas && pickupIs && pickupDelivFee > 0 && pickupAddressChanged;
     final returnMoved = returnWas && returnIs && returnDelivFee > 0 && returnAddressChanged;
 
-    if (pickupWas == pickupIs && returnWas == returnIs && !pickupMoved && !returnMoved) {
-      return 0;
+    double oldP = pickupWas ? oldFee : 0.0;
+    double oldR = returnWas ? oldFee : 0.0;
+    bool exact = true;
+    if (pickupWas && returnWas) {
+      final ex = _exactSplit;
+      if (ex != null) {
+        oldP = ex.$1;
+        oldR = ex.$2;
+      } else {
+        exact = false;
+        final hasGps = b.pickupLat != null && b.pickupLng != null && b.returnLat != null && b.returnLng != null;
+        final wp = hasGps ? _sideFloor(b.pickupLat, b.pickupLng, 0) : 1.0;
+        final wr = hasGps ? _sideFloor(b.returnLat, b.returnLng, 0) : 1.0;
+        oldP = (oldFee * wp / (wp + wr)).roundToDouble();
+        oldR = oldFee - oldP;
+        if (!pickupIs && returnIs) {
+          oldP = math.min(oldP, _sideFloor(b.pickupLat, b.pickupLng));
+          oldR = oldFee - oldP;
+        } else if (pickupIs && !returnIs) {
+          oldR = math.min(oldR, _sideFloor(b.returnLat, b.returnLng));
+          oldP = oldFee - oldR;
+        }
+      }
     }
 
-    final bothWere = pickupWas && returnWas;
-    double oldPickupFee = pickupWas ? oldFee : 0.0;
-    double oldReturnFee = returnWas ? oldFee : 0.0;
-    if (bothWere) {
-      final b = booking;
-      final hasGps = b.pickupLat != null && b.pickupLng != null && b.returnLat != null && b.returnLng != null;
-      final wp = hasGps ? _floorWeight(b.pickupLat!, b.pickupLng!) : 1.0;
-      final wr = hasGps ? _floorWeight(b.returnLat!, b.returnLng!) : 1.0;
-      oldPickupFee = (oldFee * wp / (wp + wr)).roundToDouble();
-      oldReturnFee = oldFee - oldPickupFee;
+    if (pickupWas == pickupIs && returnWas == returnIs && !pickupMoved && !returnMoved) {
+      return (delta: 0.0, pickup: oldP, ret: oldR, exact: exact);
     }
 
     double side(bool was, bool isNow, bool moved, double newFee, double oldShare) {
       if (!isNow) return 0.0;
       if (was && !moved) return oldShare;
-      if (was && moved && bothWere) return newFee > oldShare ? newFee : oldShare;
+      if (was && moved) return newFee > oldShare ? newFee : oldShare;
       return newFee;
     }
 
-    final newPickupFee = side(pickupWas, pickupIs, pickupMoved, pickupDelivFee, oldPickupFee);
-    final newReturnFee = side(returnWas, returnIs, returnMoved, returnDelivFee, oldReturnFee);
-    return (newPickupFee + newReturnFee) - (oldPickupFee + oldReturnFee);
+    final newP = side(pickupWas, pickupIs, pickupMoved, pickupDelivFee, oldP);
+    final newR = side(returnWas, returnIs, returnMoved, returnDelivFee, oldR);
+    return (
+      delta: (newP + newR) - (oldP + oldR),
+      pickup: newP,
+      ret: newR,
+      exact: exact || !(pickupIs && returnIs),
+    );
   }
+
+  /// Rozdíl poplatku za přistavení/odvoz oproti původní rezervaci (viz
+  /// [deliverySplit]) — účtuje se (kladný) nebo vrací (záporný) JEN rozdíl.
+  double get deliveryFeeDelta => deliverySplit.delta;
 
   /// Nová kombinovaná delivery_fee po úpravě (ukládá se do bookings).
   double get newDeliveryFee {

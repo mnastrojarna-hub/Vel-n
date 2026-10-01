@@ -836,6 +836,25 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         // Storno % se týká JEN odebraných dnů (datesDiffRaw) — rozdíl ceníku
         // při výměně motorky se vrací/účtuje 100 % (viz EditPriceCalc.motoDiff).
         if (calc.datesDiffRaw < 0) entry['storno_pct'] = calc.stornoPercent;
+        // Místo a poplatek za přistavení/odvoz (parita se serverem) — přesné
+        // podíly stran čte příští úprava (appka i server) z fee_split_exact.
+        if (calc.pickupAddressChanged) {
+          entry['from_pickup_address'] = _booking!.pickupAddress;
+          entry['to_pickup_address'] = _pickupAddrNew;
+        }
+        if (calc.returnAddressChanged) {
+          entry['from_return_address'] = _booking!.returnAddress;
+          entry['to_return_address'] = _returnAddrNew;
+        }
+        if (pickupMethodChanged || returnMethodChanged || calc.pickupAddressChanged ||
+            calc.returnAddressChanged || calc.deliveryFeeDelta != 0) {
+          final ds = calc.deliverySplit;
+          entry['from_delivery_fee'] = _booking!.deliveryFee ?? 0;
+          entry['to_delivery_fee'] = calc.newDeliveryFee;
+          entry['pickup_fee_to'] = ds.pickup;
+          entry['return_fee_to'] = ds.ret;
+          entry['fee_split_exact'] = ds.exact;
+        }
         // Track address changes (delivery addresses)
         if (_pickupMethod == 'delivery' && _booking!.pickupMethod == 'delivery' &&
             _booking!.pickupAddress != null) {
