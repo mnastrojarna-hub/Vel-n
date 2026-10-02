@@ -375,6 +375,25 @@ class EditPriceCalc {
   /// přišel; záporný = slevu získal). Jen pro zobrazení řádku v UI.
   double get latePickupDelta => oldLatePickup - newLatePickup;
 
+  /// Neproplacená část ZÍSKANÉ late slevy (pozdější čas vyzvednutí ve storno
+  /// okně) — zrcadlo serveru (`_apply_booking_changes_core`, 2026-10-01h):
+  /// při záporném rozdílu termínu se zisk vrací jen ve výši storno %, takže
+  /// zbytek zákazník nedostal a nesmí se uložit (faktura, hradlo kiosku).
+  /// round(min(max(0, nová late dle staré motorky − stará late),
+  /// −datesDiffRaw) × (100 − storno %) / 100), jinak 0.
+  double get _lateUnrefunded {
+    final raw = datesDiffRaw;
+    if (raw >= 0) return 0;
+    final gained = math.max(0.0, _lateNewOnOld - oldLatePickup);
+    return (math.min(gained, -raw) * (100 - stornoPercent) / 100)
+        .roundToDouble();
+  }
+
+  /// Late sleva, která se ULOŽÍ (`late_pickup_discount_amount`, historie
+  /// `to_late_pickup`) = skutečně přiznaná: max(0, nová − neproplacená).
+  double get storedLatePickup =>
+      math.max(0.0, newLatePickup - _lateUnrefunded);
+
   double get priceDiff {
     if (newStart == null || newEnd == null) return 0;
     // rentalDiff už obsahuje rozdíl ceníku (vč. výměny motorky), late-pickup
@@ -437,6 +456,8 @@ class EditPriceCalc {
   /// Rozdíl PO slevě — tohle se účtuje bránou (>0) nebo vrací refundem (<0).
   double get effectivePriceDiff => newTotal - booking.totalPrice;
 
+  static String _hm(String v) => v.length >= 5 ? v.substring(0, 5) : v;
+
   bool get hasChanges =>
       diffDays != 0 ||
       (newMotoId != null && newMotoId != booking.motoId) ||
@@ -444,8 +465,9 @@ class EditPriceCalc {
       // ('store'/'pickup'/'branch'/'rental'), obrazovka normalizuje na store.
       (pickupMethod == 'delivery') != (booking.pickupMethod == 'delivery') ||
       (returnMethod == 'delivery') != (booking.returnMethod == 'delivery') ||
-      pickupTime != (booking.pickupTime ?? '09:00') ||
-      returnTime != (booking.returnTime ?? '19:00') ||
+      // Časy na HH:MM — DB (`time`) vrací HH:MM:SS, picker HH:MM.
+      _hm(pickupTime) != _hm(booking.pickupTime ?? '09:00') ||
+      _hm(returnTime) != _hm(booking.returnTime ?? '19:00') ||
       extrasChanged ||
       deliveryFeeDelta != 0 ||
       pickupAddressChanged ||

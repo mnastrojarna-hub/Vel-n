@@ -11,7 +11,8 @@ MĚKKÉ hradlo (nikdy nezablokuje výdej motorky):
     by jinak zákazníka zablokoval), a také když šatna otevřít nešla (porucha → výbava stejně nejde vydat);
   * rezervace, která už na jednotce otevřela jakékoli dveře (šatna, nebo kóje = vracení), výzvu nedostane;
   * fail-open: stav protokolu neznámý / `absent` (offline po podpisu), šatna téže rezervace nenalezena v HW mapě,
-    porucha / modul offline, kód šatny rezervace v cache kódů není (zákazník ho nemá).
+    porucha / modul offline, kód šatny rezervace v cache kódů není (zákazník ho nemá) nebo ještě nevydává
+    (`release_at` v budoucnu — výdej až od 12:00, §31).
 Záznamy v SQLite kv `handover_locker` = {"opened": {bid: ts}, "prompted": {bid: ts}}; přežijí restart.
 """
 from __future__ import annotations
@@ -63,7 +64,8 @@ def _locker_row(ctrl: Any, bid: str, now: datetime) -> dict | None:
         if not isinstance(row, dict) or row.get("kind") != "accessories" or str(row.get("booking_id") or "") != bid:
             continue
         vf, vu = parse_iso(row.get("valid_from")), parse_iso(row.get("valid_until"))
-        if (vf is None or vf <= now) and (vu is None or vu >= now):
+        rel = parse_iso(row.get("release_at"))      # výdej až od 12:00 (§31): šatnu ještě nevydá → nevyzývat
+        if (vf is None or vf <= now) and (vu is None or vu >= now) and (rel is None or rel <= now):
             return row
     return None
 

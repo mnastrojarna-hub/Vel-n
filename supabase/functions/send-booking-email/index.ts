@@ -1115,7 +1115,14 @@ serve(async (req) => {
       vars.door_code_moto = moto
       vars.door_code_gear = gear
       if (moto || gear) {
-        vars.door_codes_block = renderDoorCodesReleasedBlock(custLang, moto, gear)
+        // Výdej až od 12:00 (sleva za vyzvednutí od 12:00, 20261001h) — zdroj
+        // pravdy RPC _kiosk_release_at; věta jen dokud čas ještě nenastal.
+        let releaseAt: string | null = null
+        try {
+          const { data: rel, error: relErr } = await supabase.rpc('_kiosk_release_at', { p_booking_id: booking_id })
+          if (!relErr && rel && new Date(String(rel)).getTime() > Date.now()) releaseAt = String(rel)
+        } catch { /* bez věty */ }
+        vars.door_codes_block = renderDoorCodesReleasedBlock(custLang, moto, gear, releaseAt)
       }
     }
     if (!vars.door_codes_block && booking_id && (type === 'booking_reserved' || type === 'door_codes')) {

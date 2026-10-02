@@ -351,8 +351,10 @@ class ContractsScreen extends ConsumerWidget {
 
     String fmtDate(DateTime? d) => d != null ? '${d.day}.${d.month}.${d.year}' : '—';
     final now = DateTime.now();
-    // Samoobsluha: převzetí/vrácení NA pobočce bez času → 00:01 / 24:00
-    // (shodně s edge generate-document, i pro starší rezervace).
+    // Samoobsluha, převzetí NA pobočce (shodně s edge generate-document,
+    // zadání 2026-10-01 večer): začátek smlouvy = 12:00, má-li rezervace slevu
+    // za vyzvednutí od 12:00 (dřív ji kiosk nevydá), jinak 00:01 (výdej od
+    // půlnoci, i starší rezervace „bez času“); konec 24:00.
     final br = m?['branches'] as Map<String, dynamic>?;
     final brType = br?['type'] as String?;
     // Místo na pobočce = pobočka motorky (Brno Velké Němčice ≠ Mezná).
@@ -363,10 +365,13 @@ class ContractsScreen extends ConsumerWidget {
           .where((e) => e.isNotEmpty)
           .join(' '),
     ].whereType<String>().where((e) => e.isNotEmpty).join(', ');
-    final ssPickup = selfServiceHidesPickupTime(
-        branchType: brType,
-        pickupMethod: bookingMethodWithAddress(
-            b['pickup_method'] as String?, b['pickup_address'] as String?));
+    final ssPickup = brType == selfServiceBranchType &&
+        bookingMethodWithAddress(
+                b['pickup_method'] as String?, b['pickup_address'] as String?) !=
+            'delivery';
+    final lateDiscount =
+        (b['late_pickup_discount_amount'] as num?)?.toDouble() ?? 0;
+    final storedPickup = b['pickup_time'] as String? ?? '';
 
     return {
       ..._companyVars(),
@@ -389,11 +394,9 @@ class ContractsScreen extends ConsumerWidget {
       'date_from': fmtDate(startDate),
       'date_to': fmtDate(endDate),
       'start_time': ssPickup
-          ? selfServicePickupTime
+          ? (lateDiscount > 0 ? '12:00' : selfServicePickupTime)
           // 00:01 u obslužné = zbytek po výměně ze samoobsluhy → bez času.
-          : ((b['pickup_time'] as String? ?? '').startsWith(selfServicePickupTime)
-              ? ''
-              : (b['pickup_time'] as String? ?? '')),
+          : (isLegacyAllDayPickupTime(storedPickup) ? '' : storedPickup),
       'end_time': '24:00',
       'days': '$days',
       'rental_period': '${fmtDate(startDate)} — ${fmtDate(endDate)} ($days dní)',

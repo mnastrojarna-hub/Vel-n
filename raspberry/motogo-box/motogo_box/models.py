@@ -326,6 +326,10 @@ class ResolveResult:
     # {unit, per_day, hint, min, max, start_km, start_at, days, last_open_at, last_open_phase, delivered, …}.
     # None = neznámo (stará DB / cache) → jednotka se řídí jen lokálním stavem (bez něj km nechce = fail-open).
     odo: dict | None = None
+    # Výdej až od 12:00 (2026-10-01, §31): ISO `release_at` z RPC (i u chyby `pickup_too_early`) / `codes[].release_at`
+    # ze sync cache — rezervace se slevou za pozdní vyzvednutí se vydá (šatna i motorka) až od tohoto okamžiku.
+    # None = bez hradla (běžná rezervace, stará DB / stará cache).
+    release_at: str | None = None
 
     @property
     def is_service(self) -> bool:
@@ -362,6 +366,7 @@ class ResolveResult:
             action=str(m.get("action") or "service"),
             protocol=m.get("protocol") if isinstance(m.get("protocol"), dict) else None,
             odo=m.get("odo") if isinstance(m.get("odo"), dict) else None,
+            release_at=str(m["release_at"]) if m.get("release_at") else None,
         )
 
 

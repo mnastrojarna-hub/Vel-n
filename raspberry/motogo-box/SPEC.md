@@ -329,6 +329,13 @@ pin_entry_timeout_s: 20
 
 **Platný PIN:** 1. Ověřit kód dle Velína (`kiosk_resolve_code`, offline HMAC cache): rezervace = 6 číslic, servisní a diagnostické kódy alfanumerické — délku jednotka nekontroluje (`pin_length` odstraněno, §13 rozhodnutí 2026-09-11). 2. Ověřit rezervaci a časové okno. 3. Zjistit zone_id. 4. Ověřit dostupnost modulu zámku a kontaktu (Shelly signalizace od 2026-09-25 a modul světla od 2026-09-26 NEblokují — výpadek se jen hlásí jako `signal_offline`). 5. Ověřit, že dveře nejsou už otevřené. 6. Zapnout bílé světlo. 7. Přepnout signalizaci červená → zelená. 8. Vybrat reproduktor. 9. Spustit hudbu. 10. Poslat zámku 800ms hardware impulz — nebo s `timings.lock_hold_until_open: true` (2026-09-26, zámky bez paměti) držet zámek pod napětím přes HW časovač modulu až `door_open_timeout_s`; vypne se, jakmile kontakt hlásí otevřeno (nebo při timeoutu / all-off). 11. Zapsat událost ACCESS_GRANTED. 12. Čekat na otevření kontaktu.
 
+**Platný PIN — krok 2a (2026-10-01, výdej až od 12:00):** zákaznický kód (šatna i motorka) rezervace se slevou za pozdní
+vyzvednutí (samoobslužná pobočka, převzetí na pobočce, `late_pickup_discount_amount > 0`, ještě nevyzvednutá) platí až od
+`release_at` = 12:00 Europe/Prague v den začátku. Dřív → `submit_code` vrátí `error: pickup_too_early` + `release_at` (online
+rozhodne `kiosk_resolve_code`, offline `codes[].release_at` z cache), displej ukáže „Vyzvednutí až od 12:00“ s časem, minutami
+a výzvou upravit rezervaci; kód je platný → BEZ PIN lockoutu, jen `ACCESS_DENIED` (info, `reason: pickup_too_early`). Krok 2a
+předchází zámku přejímky, výzvě „nejdřív šatna“ i hradlu protokolu (krok 2b). Servisní kódy hradlo nemají.
+
 **Platný PIN — krok 2b (2026-09-25, kód motorky = hradlo předávacího protokolu):** odpověď `kiosk_resolve_code` (i offline
 cache z `kiosk_sync_config`) nese u zákaznického kódu objekt `protocol` (§10). Je-li `kind = motorcycle`, `protocol.required = true`
 (protokol dosud nepodepsán) a jednotka ho sama ještě nepodepsala, kóje se NEOTEVŘE: `submit_code` vrátí `error: protocol_required`
@@ -376,7 +383,8 @@ Raspberry musí mít lokální cache aktuálních rezervací, aby šlo dveře ot
 **Dva kódy a předávací protokol (2026-09-25):** rezervace má kód motorky (`kind: motorcycle`) a — jen má-li v šatně co
 vyzvednout — kód šatny (`kind: accessories`; jinak řádek `branch_door_codes` s `withheld_reason = 'Vlastní výbava'` a kiosk
 dostane `invalid_code`). Kód se nespotřebovává: platí opakovaně po celé okno `valid_from`–`valid_until` (= do půlnoci po posledním
-dni). Zákaznická odpověď `kiosk_resolve_code` i položka `protocols[]` z `kiosk_sync_config` nesou JEDINÝ tvar objektu `protocol`
+dni) — **výjimka (2026-10-01):** rezervace se slevou za pozdní vyzvednutí se v den začátku vydává až od 12:00 (`release_at`,
+§9 krok 2a, rozhodnutí níže). Zákaznická odpověď `kiosk_resolve_code` i položka `protocols[]` z `kiosk_sync_config` nesou JEDINÝ tvar objektu `protocol`
 (DB `_kiosk_protocol`): `{booking_id, required (= nepodepsán), filled_at, needs_locker, gear_collected_at, prompted_at, is_child,
 data: {customer_name (jméno + iniciála, nikdy prázdné), moto_model, moto_spz, start_date, end_date, mileage, gear: [{key: helmet|
 jacket|pants|boots|gloves, who: rider|passenger, field: <sloupec bookings>, size}]}}`; číselník velikostí `gear_sizes {adult:
@@ -549,6 +557,20 @@ motorky (`ACCESS_GRANTED` kind motorcycle), ne při podpisu; PDF česky, kiosk/a
 zůstává fail-open (jednotka otevírá i bez LTE, `protocol` bez dat = bez hradla), ale podpis se NIKDY neztratí (trvalá fronta,
 §10). Známé okno nasazení: starší software jednotky po nasazení DB/edge NEhradluje (motorka bez protokolu) až do hromadné
 aktualizace z Velína (§25 CONTRACT) — SQL/edge jsou pro něj aditivní.
+
+### Rozhodnutí majitele (2026-10-01) — výdej až od 12:00 při slevě za pozdní vyzvednutí (kiosk)
+
+1. Na samoobslužné pobočce si zákazník (web, appka, AI) znovu volí **čas vyzvednutí**; čas vrácení se nevolí (smlouva do 24:00).
+   Vyzvednutí od 12:00 u výpůjčky na 2 a více dní = sleva 50 % na 1. den (stejné pravidlo jako na obsluhované pobočce).
+2. Rezervaci **se slevou** (`late_pickup_discount_amount > 0`, převzetí na pobočce, ještě nevyzvednutou) kiosk vydá —
+   **šatnu i motorku** — až od **12:00 Europe/Prague v den začátku** (`release_at`, server `_kiosk_release_at`).
+3. Kód zadaný dřív: srozumitelná hláška „Vyzvednutí až od 12:00“ (kdy, za kolik minut) a výzva změnit v aplikaci MotoGo24 nebo na
+   motogo24.cz/upravit-rezervaci čas vyzvednutí na dřívější — sleva zanikne, rozdíl doplatí a kód platí hned (server přepočte
+   `release_at`, trigger `trg_booking_kiosk_release_sync` vyžádá resync jednotky). Hláška se do lockoutu nepočítá.
+4. Rezervace bez slevy (vyzvednutí před 12:00, výpůjčka na 1 den, starší rezervace s časem `00:01`) se vydávají od půlnoci jako dosud.
+5. Offline: hradlo z `codes[].release_at` sync cache podle hodin jednotky; stará cache bez klíče = bez hradla. Podpis protokolu na
+   displeji s kódem motorky před `release_at` kóji nevydá (`pickup_too_early`, podpis se neuloží); appka protokol před 12:00
+   podepsat nedovolí (`get_handover_protocol_state.can_fill`). Detail CONTRACT §31.
 
 ### Rozhodnutí majitele (2026-09-29) — stav tachometru při vrácení (kiosk)
 

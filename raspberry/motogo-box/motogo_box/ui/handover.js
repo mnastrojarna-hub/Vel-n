@@ -23,7 +23,7 @@ MG.Handover = (function () {
   let deps = null;    // { post, showStatus, getState }
   const S = { item: null, key: '', code: '', picks: [], moto: {}, saving: false, lastTouch: 0, msg: null, sig: null, kb: null,
     timer: null, doneKey: '', ownDone: { id: '', at: 0 }, wait: null };
-  // S.msg = {key} (i18n) | {locked: locked_until} ; S.wait = {id, thenOpen, at} — položka zmizela, výsledek řekne stav zón
+  // S.msg = {key} (i18n) | {locked: locked_until} | {pickup: release_at} (výdej až od 12:00, §31) ; S.wait = {id, thenOpen, at} — položka zmizela, výsledek řekne stav zón
   // S.moto = {key: bool} — zaškrtnutí výbavy motorky (výchozí vše true, reset při open())
 
   function setText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
@@ -126,8 +126,10 @@ MG.Handover = (function () {
   /** Hláška v patičce: i18n klíč, nebo `{locked}` = PIN lockout jednotky (stejný text jako na hlavní obrazovce, minuty živě). */
   function paintMsg() {
     const m = S.msg, el = $('ho-msg');
+    const pk = m && m.pickup !== undefined ? MG.i18n.pickup(m.pickup) : null;
     const text = !m ? '' : m.locked !== undefined
-      ? MG.i18n.errorTitle('locked') + '\n' + MG.i18n.errorSubtitle('locked', m.locked) : MG.i18n.t(m.key);
+      ? MG.i18n.errorTitle('locked') + '\n' + MG.i18n.errorSubtitle('locked', m.locked)
+      : pk ? pk.title + '\n' + pk.body : MG.i18n.t(m.key);
     setText(el, text);
     el.hidden = !text;
   }
@@ -156,7 +158,7 @@ MG.Handover = (function () {
     const txt = !isFinite(left) || left < 0 ? '' : left > 60
       ? MG.i18n.t('ho.autoCloseMin', { m: Math.ceil(left / 60) }) : MG.i18n.t('ho.autoClose', { s: left });
     setText($('ho-timer'), txt);
-    if (S.msg && S.msg.locked !== undefined) paintMsg();   // „zkuste za {m} min“ ubíhá
+    if (S.msg && (S.msg.locked !== undefined || S.msg.pickup !== undefined)) paintMsg();   // „za {m} min“ ubíhá
     if (isFinite(left) && left < -3) hide();   // jednotka overlay skryje sama (WS); pojistka při výpadku WS
   }
   function setSaving(on) { S.saving = on; paintSaving(); updateButtons(); }
@@ -297,6 +299,8 @@ MG.Handover = (function () {
       }
       if (!same) return;
       if (e === 'locked') { S.code = ''; paintCode(); setMsg({ locked: res.locked_until || null }); updateButtons(); return; }
+      // kód téže rezervace před 12:00 (sleva za pozdní vyzvednutí, §31) — kóje se ještě nevydá; podpis se neuložil
+      if (e === 'pickup_too_early') { setMsg({ pickup: res.release_at || null }); return; }
       if (e === 'body_too_large' || res.status === 413) { setMsg('ho.sigTooLarge'); return; }
       setMsg(e === 'code_mismatch' ? 'ho.codeMismatch' : e === 'signature_too_large' ? 'ho.sigTooLarge'
         : e === 'in_progress' ? 'ho.inProgress' : 'ho.failed');

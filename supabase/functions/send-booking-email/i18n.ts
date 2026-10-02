@@ -290,16 +290,44 @@ const DOOR_CODES_BLOCK_LABELS: Record<Lang, { title: string; moto: string; gear:
   uk: { title: 'Коди доступу до філії',          moto: 'Код до мотоцикла',      gear: 'Код до роздягальні',     valid: 'Коди дійсні протягом усього строку оренди.',      validOne: 'Код дійсний протягом усього строку оренди.' },
 }
 
-export function renderDoorCodesReleasedBlock(lang: Lang, moto: string, gear: string): string {
+// Výdej až od 12:00 (2026-10-01h): rezervace se slevou za vyzvednutí od 12:00
+// na samoobslužné pobočce — kódy platí až od 12:00 dne začátku (`_kiosk_release_at`).
+// {datum} = den začátku (Praha) ve formátu jazyka.
+const DOOR_CODES_RELEASE_NOTE: Record<Lang, string> = {
+  cs: 'Rezervace má slevu za vyzvednutí od 12:00 — kódy na pobočce začnou platit {datum} ve 12:00. Potřebujete motorku dřív? Upravte čas vyzvednutí v rezervaci (sleva zanikne, rozdíl doplatíte).',
+  en: 'Your booking has the discount for pickup from 12:00 — the codes at the branch will start working on {datum} at 12:00. Need the motorcycle earlier? Change the pickup time in your booking (the discount will be cancelled and you will pay the difference).',
+  de: 'Ihre Buchung hat den Rabatt für die Abholung ab 12:00 Uhr — die Codes an der Filiale gelten ab {datum} um 12:00 Uhr. Brauchen Sie das Motorrad früher? Ändern Sie die Abholzeit in Ihrer Buchung (der Rabatt entfällt, die Differenz zahlen Sie nach).',
+  nl: 'Uw reservering heeft de korting voor ophalen vanaf 12:00 — de codes bij het filiaal gaan op {datum} om 12:00 werken. Heeft u de motor eerder nodig? Wijzig de ophaaltijd in uw reservering (de korting vervalt, u betaalt het verschil bij).',
+  es: 'Su reserva tiene el descuento por recogida a partir de las 12:00: los códigos de la sucursal empezarán a funcionar el {datum} a las 12:00. ¿Necesita la moto antes? Cambie la hora de recogida en su reserva (el descuento se anulará y pagará la diferencia).',
+  fr: 'Votre réservation bénéficie de la remise pour un retrait à partir de 12:00 — les codes de la succursale fonctionneront à partir du {datum} à 12:00. Besoin de la moto plus tôt ? Modifiez l\'heure de retrait dans votre réservation (la remise sera annulée et vous paierez la différence).',
+  pl: 'Rezerwacja ma zniżkę za odbiór od 12:00 — kody w oddziale zaczną działać {datum} o 12:00. Potrzebujesz motocykl wcześniej? Zmień godzinę odbioru w rezerwacji (zniżka przepadnie, dopłacisz różnicę).',
+  uk: 'Бронювання має знижку за отримання від 12:00 — коди у філії почнуть діяти {datum} о 12:00. Потрібен мотоцикл раніше? Змініть час отримання в бронюванні (знижка скасується, різницю доплатите).',
+}
+const DATE_LOCALE: Record<Lang, string> = { cs: 'cs-CZ', en: 'en-GB', de: 'de-DE', nl: 'nl-NL', es: 'es-ES', fr: 'fr-FR', pl: 'pl-PL', uk: 'uk-UA' }
+
+/** Věta „kódy začnou platit {datum} ve 12:00“ pro rezervaci se slevou za vyzvednutí od 12:00 ('' bez releaseAt). */
+export function doorCodesReleaseNote(lang: Lang, releaseAt: string | null | undefined): string {
+  const d = releaseAt ? new Date(releaseAt) : null
+  if (!d || Number.isNaN(d.getTime())) return ''
+  let datum = ''
+  try {
+    datum = new Intl.DateTimeFormat(DATE_LOCALE[lang] || 'cs-CZ', { timeZone: 'Europe/Prague', day: 'numeric', month: 'numeric', year: 'numeric' }).format(d)
+  } catch { datum = d.toISOString().slice(0, 10) }
+  return (DOOR_CODES_RELEASE_NOTE[lang] || DOOR_CODES_RELEASE_NOTE.cs).replace('{datum}', datum)
+}
+
+export function renderDoorCodesReleasedBlock(lang: Lang, moto: string, gear: string, releaseAt: string | null = null): string {
   const t = DOOR_CODES_BLOCK_LABELS[lang] || DOOR_CODES_BLOCK_LABELS.cs
   const line = (label: string, code: string) =>
     `<p style="margin:4px 0;font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#0c4a6e">${label}: <span style="font-size:18px;letter-spacing:3px;color:#0369a1">${code}</span></p>`
+  const note = doorCodesReleaseNote(lang, releaseAt)
   return `
 <div style="background:#e0f2fe;border-radius:12px;padding:16px 20px;margin:20px 0;border:1px solid #7dd3fc">
   <h3 style="margin:0 0 12px 0;color:#0c4a6e;font-size:15px">${t.title}</h3>
   ${line(t.moto, moto || '—')}${gear ? `
   ${line(t.gear, gear)}` : ''}
-  <p style="margin:8px 0 0 0;font-size:12px;color:#075985">${gear ? t.valid : t.validOne}</p>
+  <p style="margin:8px 0 0 0;font-size:12px;color:#075985">${gear ? t.valid : t.validOne}</p>${note ? `
+  <p style="margin:8px 0 0 0;font-size:13px;font-weight:600;color:#92400e">${note}</p>` : ''}
 </div>`
 }
 

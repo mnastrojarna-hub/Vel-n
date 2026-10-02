@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { latePickupDiscount, LATE_PICKUP_LABEL, LATE_PICKUP_HINT } from '../../lib/latePickup'
+import { latePickupDiscount, LATE_PICKUP_LABEL, LATE_PICKUP_HINT, LATE_PICKUP_KIOSK_HINT, SELF_SERVICE_BRANCH_TYPE } from '../../lib/latePickup'
 import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
 import Button from '../ui/Button'
@@ -46,7 +46,7 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
   const [noPayment, setNoPayment] = useState(false)
 
   useEffect(() => {
-    supabase.from('motorcycles').select('id, model, spz, category, license_required, image_url, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun')
+    supabase.from('motorcycles').select('id, model, spz, category, license_required, image_url, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, branches(type)')
       .eq('id', motoId).single().then(({ data }) => setMoto(data))
     supabase.from('moto_day_prices').select('*').eq('moto_id', motoId).single()
       .then(({ data }) => setMotoPrices(data))
@@ -285,6 +285,9 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
                 className="w-full rounded-btn text-sm outline-none"
                 style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
               <p className="text-sm mt-1" style={{ color: '#4a6357' }}>🌗 {LATE_PICKUP_HINT}</p>
+              {lateDiscount > 0 && moto?.branches?.type === SELF_SERVICE_BRANCH_TYPE && (
+                <p className="text-sm mt-1 font-bold" style={{ color: '#92400e' }}>🔒 {LATE_PICKUP_KIOSK_HINT}</p>
+              )}
 
               <label className="block text-sm font-extrabold uppercase tracking-wide mb-1 mt-4" style={{ color: '#1a2e22' }}>Poznámka</label>
               <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}

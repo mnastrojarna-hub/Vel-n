@@ -13,9 +13,12 @@ import 'widgets/time_dropdown_field.dart';
 /// chooses delivery (přistavení) no extra / duplicate time field is added; this
 /// pickup time doubles as the delivery time.
 ///
-/// Samoobslužná pobočka (výdej/vrácení 24/7 kódem): čas se u pobočky nevolí
-/// ([showPickup]/[showReturn] = false, hodnoty 00:01/23:59 doplní formulář),
-/// zobrazí se jen u přistavení / vrácení na adresu. Bez obou částí se karta
+/// Samoobslužná pobočka (výdej/vrácení 24/7 kódem, zadání 2026-10-01 večer):
+/// čas VYZVEDNUTÍ se volí vždy (sleva 50 % na 1. den od 12:00; kiosk takovou
+/// rezervaci vydá až od 12:00) — pod výběrem je pak nápověda samoobsluhy
+/// ([selfService]) místo obecné. Čas VRÁCENÍ na pobočku se nevolí
+/// ([showReturn] = false, 23:59 doplní formulář), zobrazí se jen u vrácení na
+/// adresu. [showPickup] zůstává pro úplnost; bez obou částí se karta
 /// nevykreslí vůbec (číslování ostatních karet se záměrně nemění).
 class BookingFormTimeSection extends StatelessWidget {
   const BookingFormTimeSection({
@@ -25,6 +28,7 @@ class BookingFormTimeSection extends StatelessWidget {
     required this.onReturnTimeChanged,
     this.showPickup = true,
     this.showReturn = true,
+    this.selfService = false,
   });
 
   final BookingDraft draft;
@@ -32,6 +36,9 @@ class BookingFormTimeSection extends StatelessWidget {
   final void Function(String newTime) onReturnTimeChanged;
   final bool showPickup;
   final bool showReturn;
+
+  /// Vyzvednutí NA samoobslužné pobočce → nápověda `ssPickupHint`.
+  final bool selfService;
 
   @override
   Widget build(BuildContext context) {
@@ -51,9 +58,10 @@ class BookingFormTimeSection extends StatelessWidget {
               onChanged: onTimeChanged,
             ),
             const SizedBox(height: 6),
-            // Hint: pozdní vyzvednutí = 50 % sleva na 1. den (>=12:00, >=2 dny)
+            // Hint: pozdní vyzvednutí = 50 % sleva na 1. den (>=12:00, >=2 dny);
+            // samoobsluha navíc: vrácení bez času + výdej kiosku až od 12:00.
             Text(
-              '🌗 ${t(context).tr('latePickupHint12')}',
+              '🌗 ${t(context).tr(selfService ? 'ssPickupHint' : 'latePickupHint12')}',
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,

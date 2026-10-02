@@ -138,10 +138,12 @@ function buildEvents(bookings, protocolIds, swapPairs) {
       pickupAt: b.picked_up_at || b.handover_protocol_filled_at || null,
     }
     if (b.start_date) {
-      const time = fmtTime(b.pickup_time) || DEFAULT_TIME.pickup
+      // stará samoobsluha „bez času“ (00:01) = výchozí čas, ne odjezd o půlnoci
+      const legacyNoTime = String(b.pickup_time || '').startsWith('00:01')
+      const time = (!legacyNoTime && fmtTime(b.pickup_time)) || DEFAULT_TIME.pickup
       // Je tento odjezd výměnou motorky (navazuje na předchozí rezervaci)?
       const swapPrev = swapPairs ? swapPairs[b.id] : null
-      out.push({ ...base, type: 'pickup', day: dateOnly(b.start_date), time, timeDefault: !fmtTime(b.pickup_time),
+      out.push({ ...base, type: 'pickup', day: dateOnly(b.start_date), time, timeDefault: legacyNoTime || !fmtTime(b.pickup_time),
         when: eventDateTime(b.start_date, time), done: pickupDone(b, protocolIds),
         delivery: b.pickup_method === 'delivery', address: b.pickup_address, swapPrev })
     }

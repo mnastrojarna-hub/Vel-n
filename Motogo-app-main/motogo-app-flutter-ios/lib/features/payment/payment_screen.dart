@@ -212,6 +212,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       'total_price', 'discount_amount', 'delivery_fee', 'extras_price',
       'loyalty_discount_amount',
       'pickup_lat', 'pickup_lng', 'return_lat', 'return_lng',
+      // přiznaná late sleva (storno krátí získanou slevu, 20261001h) — webhook
+      // ji použije jako strop přepočtu, jinak by zapsal plnou slevu
+      'late_pickup_discount_amount',
     };
     // Místo smí nést i explicitní NULL (přepnutí na pobočku maže adresu, nová
     // adresa bez GPS maže staré souřadnice) — webhook ho po platbě zapíše.
@@ -405,13 +408,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         'moto_id': moto.id,
         'start_date': draft.startDate != null ? _fmtDate(draft.startDate!) : '',
         'end_date': draft.endDate != null ? _fmtDate(draft.endDate!) : '',
-        // Samoobslužná pobočka bez volby času → vždy 00:01 / 23:59 (pojistka,
-        // formulář draft normalizuje; do smlouvy jde celý den).
-        'pickup_time': selfServiceHidesPickupTime(
-                branchType: moto.branchType, pickupMethod: draft.pickupMethod)
-            ? selfServicePickupTime
-            : (draft.pickupTime ?? '09:00'),
+        // Čas vyzvednutí volí zákazník u všech poboček (samoobsluha: řídí
+        // slevu za vyzvednutí od 12:00 a výdej kiosku, zadání 2026-10-01 večer).
+        'pickup_time': draft.pickupTime ?? '09:00',
         // Předpokládaný čas návratu (povinné pole, parita s webem). Default 19:00.
+        // Samoobslužná pobočka + vrácení na pobočce → vždy 23:59 (pojistka,
+        // formulář draft normalizuje; do smlouvy jde konec dne).
         'return_time': selfServiceHidesReturnTime(
                 branchType: moto.branchType, returnMethod: draft.returnMethod)
             ? selfServiceReturnTime

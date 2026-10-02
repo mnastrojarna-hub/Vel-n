@@ -60,7 +60,7 @@ export const PUBLIC_READ_TOOLS = [
   },
   {
     name: 'calculate_price',
-    description: 'Vypočítá přesnou cenu pronájmu pro motorku a termín z reálného denního ceníku. NEVYTVÁŘÍ rezervaci (agent v appce rezervace netvoří ani neupravuje).',
+    description: 'Vypočítá přesnou cenu pronájmu pro motorku a termín z reálného denního ceníku. NEVYTVÁŘÍ rezervaci (agent v appce rezervace netvoří ani neupravuje). S `pickup_time` od 12:00 a výpůjčkou 2+ dny odečte slevu 50 % na 1. den (`late_pickup_discount`).',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -68,6 +68,7 @@ export const PUBLIC_READ_TOOLS = [
         start_date: { type: 'string', description: 'YYYY-MM-DD' },
         end_date: { type: 'string', description: 'YYYY-MM-DD' },
         promo_code: { type: 'string' },
+        pickup_time: { type: 'string', description: 'Volitelně čas vyzvednutí HH:MM — od 12:00 (a 2+ dny) sleva 50 % na 1. den.' },
       },
       required: ['moto_id', 'start_date', 'end_date'],
     },
@@ -390,6 +391,17 @@ export async function execPublicReadTool(
       if (maxDays > 0 && count > maxDays) {
         return { error: `Tato motorka má maximální délku pronájmu ${maxDays} dní — požadovaný termín má ${count}. Nabídni zkrácení termínu nebo jinou motorku.`, max_rental_days: maxDays, requested_days: count }
       }
+      // Sleva za vyzvednutí od 12:00 (50 % 1. dne, 2+ dny) — RPC _late_pickup_discount,
+      // promo/voucher pak z ceny po slevě (pořadí create_web_booking; 1:1 s ai-public-agent).
+      let late = 0
+      const pt = String(args.pickup_time || '').trim()
+      if (/^\d{1,2}:\d{2}/.test(pt) && count >= 2 && pt.padStart(5, '0') >= '12:00') {
+        const { data: lp, error: lpErr } = await sb.rpc('_late_pickup_discount', {
+          p_moto_id: moto_id, p_start: start_date, p_end: end_date, p_pickup_time: pt,
+        })
+        if (!lpErr && lp != null && Number.isFinite(Number(lp))) late = Math.max(0, Math.round(Number(lp)))
+      }
+      const afterLate = Math.max(0, total - late)
       let discount = 0
       let promoApplied: { type: string; value: number; kind?: string } | null = null
       if (promo_code) {
@@ -397,7 +409,7 @@ export async function execPublicReadTool(
         if (pr && (pr as Record<string, unknown>).valid) {
           const p = pr as Record<string, unknown>
           const v = Number(p.value)
-          if (p.type === 'percent') discount = Math.round(total * v / 100)
+          if (p.type === 'percent') discount = Math.round(afterLate * v / 100)
           else discount = v
           promoApplied = { type: String(p.type), value: v, kind: 'promo' }
         } else {
@@ -407,7 +419,7 @@ export async function execPublicReadTool(
             const p = vch as Record<string, unknown>
             const v = Number(p.amount ?? p.value ?? 0)
             if (v > 0) {
-              discount = Math.min(v, total)
+              discount = Math.min(v, afterLate)
               promoApplied = { type: 'amount', value: v, kind: 'voucher' }
             }
           }
@@ -415,8 +427,10 @@ export async function execPublicReadTool(
       }
       return {
         days: count, per_day_breakdown: breakdown, rental_total: total,
+        late_pickup_discount: late,
         promo_discount: discount, promo_applied: promoApplied,
-        grand_total: total - discount, currency: 'CZK',
+        grand_total: afterLate - discount, currency: 'CZK',
+        ...(late > 0 ? { late_pickup_note: 'Sleva 50 % na 1. den za vyzvednutí od 12:00. U SAMOOBSLUŽNÉ pobočky kiosk takovou rezervaci (motorku i šatnu) vydá až od 12:00 v den začátku.' } : {}),
         note_excludes: 'Cena nezahrnuje příplatky za přistavení mimo Mezná, výbavu spolujezdce, boty pro řidiče, GPS, top case ani jiné extras — ty se připočítají v rezervačním formuláři dle výběru.',
       }
     }

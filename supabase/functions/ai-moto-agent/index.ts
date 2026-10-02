@@ -116,6 +116,7 @@ serve(async (req) => {
         total_price, extras_price, pickup_method, return_method, pickup_address, return_address,
         mileage_start, mileage_end, notes, insurance_type,
         picked_up_at, handover_protocol_started_at, handover_protocol_filled_at,
+        late_pickup_discount_amount, sos_replacement,
         motorcycles!moto_id(
           id, model, brand, spz, engine_type, engine_cc, power_kw, power_hp,
           weight_kg, has_abs, has_asc, features, manual_url, manual_external_url, description,

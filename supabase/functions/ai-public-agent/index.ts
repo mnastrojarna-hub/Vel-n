@@ -239,7 +239,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'calculate_price',
-    description: 'Vypočítá přesnou cenu pronájmu pro motorku a termín z reálného denního ceníku. NEVYTVÁŘÍ rezervaci.',
+    description: 'Vypočítá přesnou cenu pronájmu pro motorku a termín z reálného denního ceníku. NEVYTVÁŘÍ rezervaci. S `pickup_time` od 12:00 a výpůjčkou 2+ dny odečte slevu 50 % na 1. den (`late_pickup_discount`).',
     input_schema: {
       type: 'object',
       properties: {
@@ -247,6 +247,7 @@ const PUBLIC_TOOLS = [
         start_date: { type: 'string', description: 'YYYY-MM-DD' },
         end_date: { type: 'string', description: 'YYYY-MM-DD' },
         promo_code: { type: 'string' },
+        pickup_time: { type: 'string', description: 'Volitelně čas vyzvednutí HH:MM — od 12:00 (a 2+ dny) sleva 50 % na 1. den.' },
       },
       required: ['moto_id', 'start_date', 'end_date'],
     },
@@ -335,7 +336,7 @@ const PUBLIC_TOOLS = [
         consent_photo: { type: 'boolean', description: 'VOLITELNÉ — souhlas s fotografováním dokladů (potřebné k ověření identity). Default true; nastav false jen když zákazník výslovně odmítne.' },
         promo_code: { type: 'string' },
         note: { type: 'string' },
-        pickup_time: { type: 'string', description: 'Čas vyzvednutí HH:MM (obslužná pobočka nebo přistavení; pokud zákazník neřekne, default 10:00). U SAMOOBSLUŽNÉ pobočky bez přistavení se na čas neptej — server doplní 00:01.' },
+        pickup_time: { type: 'string', description: 'Čas vyzvednutí HH:MM — doptej se u VŠECH poboček (řídí slevu 50 % na 1. den při vyzvednutí od 12:00 a výpůjčce 2+ dny). Pokud zákazník neřekne, default 10:00 (nikdy nedoplňuj 12:00 a víc sám). U SAMOOBSLUŽNÉ pobočky: s časem od 12:00 (a slevou) kiosk vydá motorku i šatnu až od 12:00 v den začátku — řekni to zákazníkovi; čas VRÁCENÍ se tam nevolí.' },
         return_time: { type: 'string', description: 'HH:MM, povinné pouze při vrácení mimo provozovnu (delivery/return-other).' },
         delivery_address: { type: 'string', description: 'Adresa přistavení mimo Mezná (např. "Vinohradská 12, 120 00 Praha 2"). Vyplň jen když zákazník POTVRDIL, že chce přistavení.' },
         return_address: { type: 'string', description: 'Adresa vrácení mimo Mezná. Vyplň jen když se liší od delivery_address, nebo když chce vrácení mimo půjčovnu.' },
@@ -497,6 +498,21 @@ async function resolveBookingRef(raw: unknown): Promise<{ id?: string; error?: s
   const d = (data || {}) as { success?: boolean; booking_id?: string; error?: string }
   if (d.success && d.booking_id) return { id: d.booking_id }
   return { error: d.error || 'not_found' }
+}
+
+// Chyby úpravy rezervace, které chat sám nevyřeší → přesná rada zákazníkovi
+// (2026-10-01: přistavení/odvoz se nacení jen s trasou z mapy, čas vyzvednutí
+// chat nemění — obojí web /upravit-rezervaci nebo appka → Upravit rezervaci).
+const EDIT_ERROR_HINTS: Record<string, string> = {
+  location_requires_route: 'Přistavení / odvoz (přidání nebo jiná adresa) se nacení jen podle trasy vybrané na mapě — v chatu to nejde. Pošli zákazníka do aplikace MotoGo24 (Rezervace → Upravit rezervaci) nebo na motogo24.cz/upravit-rezervaci; tam místo zvolí a případný rozdíl doplatí.',
+  active_pickup_locked: 'Motorka už byla vyzvednuta — místo vyzvednutí už nelze změnit. Změnit jde jen konec a místo vrácení (web nebo appka → Upravit rezervaci).',
+  active_pickup_time_locked: 'Motorka už byla vyzvednuta — čas vyzvednutí už nelze změnit.',
+}
+function withEditHint(data: unknown): unknown {
+  const e = (data as Record<string, unknown> | null)?.error
+  return typeof e === 'string' && EDIT_ERROR_HINTS[e]
+    ? { ...(data as Record<string, unknown>), customer_hint: EDIT_ERROR_HINTS[e] }
+    : data
 }
 
 async function execPublicTool(name: string, args: Record<string, unknown>, lang: string = 'cs'): Promise<unknown> {
@@ -789,6 +805,18 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       if (maxDays > 0 && count > maxDays) {
         return { error: `Tato motorka má maximální délku pronájmu ${maxDays} dní — požadovaný termín má ${count}. Nabídni zkrácení termínu nebo jinou motorku.`, max_rental_days: maxDays, requested_days: count }
       }
+      // Sleva za vyzvednutí od 12:00 (50 % 1. dne, výpůjčka 2+ dny) — autoritativně
+      // RPC _late_pickup_discount (jako create_web_booking); promo/voucher se pak
+      // počítá z ceny po této slevě (stejné pořadí jako create_web_booking).
+      let late = 0
+      const pt = String(args.pickup_time || '').trim()
+      if (/^\d{1,2}:\d{2}/.test(pt) && count >= 2 && pt.padStart(5, '0') >= '12:00') {
+        const { data: lp, error: lpErr } = await sb.rpc('_late_pickup_discount', {
+          p_moto_id: moto_id, p_start: start_date, p_end: end_date, p_pickup_time: pt,
+        })
+        if (!lpErr && lp != null && Number.isFinite(Number(lp))) late = Math.max(0, Math.round(Number(lp)))
+      }
+      const afterLate = Math.max(0, total - late)
       let discount = 0
       let promoApplied: { type: string; value: number; kind?: string } | null = null
       if (promo_code) {
@@ -796,7 +824,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         if (pr && (pr as Record<string, unknown>).valid) {
           const p = pr as Record<string, unknown>
           const v = Number(p.value)
-          if (p.type === 'percent') discount = Math.round(total * v / 100)
+          if (p.type === 'percent') discount = Math.round(afterLate * v / 100)
           else discount = v
           promoApplied = { type: String(p.type), value: v, kind: 'promo' }
         } else {
@@ -807,7 +835,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
             const p = vch as Record<string, unknown>
             const v = Number(p.amount ?? p.value ?? 0)
             if (v > 0) {
-              discount = Math.min(v, total)
+              discount = Math.min(v, afterLate)
               promoApplied = { type: 'amount', value: v, kind: 'voucher' }
             }
           }
@@ -817,9 +845,11 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         days: count,
         per_day_breakdown: breakdown,
         rental_total: total,
+        late_pickup_discount: late,
         promo_discount: discount,
         promo_applied: promoApplied,
-        grand_total: total - discount,
+        grand_total: afterLate - discount,
+        ...(late > 0 ? { late_pickup_note: 'Sleva 50 % na 1. den za vyzvednutí od 12:00. U SAMOOBSLUŽNÉ pobočky kiosk takovou rezervaci (motorku i šatnu) vydá až od 12:00 v den začátku.' } : {}),
         currency: 'CZK',
         // Důležitá výhrada: agentu přímo říkáme, co cena NEzahrnuje — ať to zmíní zákazníkovi, ne aby
         // tvrdil "celková cena XY Kč" a zákazník byl pak překvapený extras nebo dopravou.
@@ -1127,7 +1157,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
             is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
           }
         }),
-        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou). Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není povinný, ale doporučuje se (urychlí odbavení, zvlášť při více odjezdech najednou). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — u OBSLUŽNÉ pobočky proběhne výdej vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje), tam neslibuj okamžité vyzvednutí. U SAMOOBSLUŽNÉ pobočky (bez přistavení) se čas neřeší a rezervovat lze i na dnešek; u přistavení platí čas min. aktuální + 6 h.',
+        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou). Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není povinný, ale doporučuje se (urychlí odbavení, zvlášť při více odjezdech najednou). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — u OBSLUŽNÉ pobočky proběhne výdej vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje), tam neslibuj okamžité vyzvednutí. U SAMOOBSLUŽNÉ pobočky se volí jen čas VYZVEDNUTÍ (hodina předem potřeba není, rezervovat lze i na dnešek) — čas vrácení ne (vrací se kdykoli poslední den do 24:00). Vyzvednutí od 12:00 při výpůjčce 2+ dny = sleva 50 % na 1. den, ale kiosk takovou rezervaci (motorku i šatnu) vydá až od 12:00 v den začátku; kdo ji potřebuje dřív, změní v Upravit rezervaci (web/appka) čas vyzvednutí na dřívější — sleva zanikne, rozdíl doplatí a kód platí hned. U přistavení platí čas min. aktuální + 6 h.',
       }
     }
     case 'validate_promo_or_voucher': {
@@ -1160,8 +1190,9 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       const rentalDays = Math.round((endMs - startMs) / 86_400_000) + 1
       const { data: motoLimits } = await sb.from('motorcycles')
         .select('min_rental_days, max_rental_days, branches!branch_id(type)').eq('id', a.moto_id).maybeSingle()
-      // Parita s webem/appkou: samoobsluha na pobočce bez času → 00:01/23:59
-      // (a tedy ani bez slevy za pozdní vyzvednutí, kterou by dal zadaný čas ≥ 12:00).
+      // Parita s webem/appkou (zadání 2026-10-01 večer): čas vyzvednutí se volí
+      // u všech poboček (řídí slevu za vyzvednutí od 12:00; samoobsluha ji vydá
+      // až od 12:00), výchozí 10:00. Vrácení na samoobslužné pobočce bez času → 23:59.
       const ssBranch = ((motoLimits as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.type === 'samoobslužná'
       const limMin = Number((motoLimits as Record<string, unknown>)?.min_rental_days || 0)
       const limMax = Number((motoLimits as Record<string, unknown>)?.max_rental_days || 0)
@@ -1212,7 +1243,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         p_zip: a.zip || null,
         p_country: a.country || 'CZ',
         p_note: a.note || 'Rezervace z AI asistenta',
-        p_pickup_time: (ssBranch && !a.delivery_address) ? '00:01' : (a.pickup_time || '10:00'),
+        p_pickup_time: a.pickup_time || '10:00',
         p_delivery_address: a.delivery_address || null,
         p_return_address: a.return_address || null,
         p_extras: extrasArr,
@@ -1444,7 +1475,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
           p_dry_run: isDryRun,
         })
         if (error) return { success: false, error: error.message }
-        return data
+        return withEditHint(data)
       }
       const { data, error } = await sb.rpc('apply_booking_changes_anon', {
         p_booking_id: bid,
@@ -1467,7 +1498,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         p_dry_run: isDryRun,
       })
       if (error) return { success: false, error: error.message }
-      return data
+      return withEditHint(data)
     }
     case 'redirect_to_booking': {
       const params = new URLSearchParams()

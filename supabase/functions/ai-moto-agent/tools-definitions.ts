@@ -69,7 +69,7 @@ const APP_TOOLS = [
   },
   {
     name: 'get_access_status',
-    description: 'Stav PŘÍSTUPOVÝCH KÓDŮ a dokladů k rezervaci zákazníka na samoobslužné pobočce — jestli kódy existují, jestli už byly odeslané, jestli jsou zadržené a PROČ (chybějící doklady, „vraťte nejdřív původní motorku"), od kdy do kdy platí, plus číslo kóje a název pobočky. VOLEJ VŽDY, když zákazník řeší „nepřišly mi kódy", „nemůžu se dostat do kóje", „co mi ještě chybí", „kde mám kód" nebo „do které kóje jdu". SAMOTNÝ KÓD tool NEVRACÍ a ty ho NIKDY nevyslovíš ani neuhodneš — zákazník ho najde v appce (detail rezervace / Zprávy), v e-mailu, SMS nebo WhatsApp.',
+    description: 'Stav PŘÍSTUPOVÝCH KÓDŮ a dokladů k rezervaci zákazníka na samoobslužné pobočce — jestli kódy existují, jestli už byly odeslané, jestli jsou zadržené a PROČ (chybějící doklady, „vraťte nejdřív původní motorku"), od kdy do kdy platí, plus číslo kóje a název pobočky; `release_from` (ISO) = rezervace se slevou za vyzvednutí od 12:00, kterou kiosk vydá až od tohoto okamžiku (12:00 v den začátku), null = bez omezení. VOLEJ VŽDY, když zákazník řeší „nepřišly mi kódy", „nemůžu se dostat do kóje", „co mi ještě chybí", „kde mám kód" nebo „do které kóje jdu". SAMOTNÝ KÓD tool NEVRACÍ a ty ho NIKDY nevyslovíš ani neuhodneš — zákazník ho najde v appce (detail rezervace / Zprávy), v e-mailu, SMS nebo WhatsApp.',
     input_schema: {
       type: 'object' as const,
       properties: {

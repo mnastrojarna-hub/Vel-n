@@ -386,6 +386,7 @@ return [
     'rez.alert.pickupTime' => 'Veuillez saisir l\'heure de prise en charge ou de livraison.',
     'rez.alert.minTime' => 'L\'heure de prise en charge la plus tôt possible est l\'heure actuelle + 1 heure.',
     'rez.alert.minTimeDelivery' => 'Pour la livraison, la première heure possible est l\'heure actuelle + 6 heures.',
+    'rez.alert.minTimeSelfService' => 'L\'heure de retrait ne peut pas être dans le passé.',
     'rez.alert.returnTime' => 'Veuillez saisir l\'heure de retour.',
     'rez.alert.bookingOverlap' => 'Un autre client vient de réserver cette moto sur ces dates. Choisissez d\'autres dates ou une autre moto.',
     'rez.alert.bookingOverlapOwn' => 'Vous avez déjà une autre réservation active sur ces dates.',
@@ -1177,6 +1178,7 @@ return [
     'editRez.err.wrongStatus' => 'Cette réservation ne peut plus être modifiée.',
     'editRez.err.notPaid' => 'La réservation n\'est pas encore payée — veuillez nous contacter.',
     'editRez.err.activeStartLocked' => 'Pendant une location active, la date de retrait ne peut pas être modifiée.',
+    'editRez.err.activePickupTimeLocked' => 'La moto a déjà été retirée — l\'heure de retrait ne peut plus être modifiée.',
     'editRez.err.invalidRange' => 'Choisissez une période valide.',
     'editRez.err.notShortening' => 'Pour raccourcir, les nouvelles dates doivent être à l\'intérieur des dates initiales.',
     'editRez.err.notExtending' => 'Pour prolonger, au moins une date doit être en dehors de la plage initiale.',
@@ -1239,6 +1241,9 @@ return [
     'editRez.detail.bookingNum' => 'Numéro de réservation',
     'editRez.detail.dateLabel' => 'Période',
     'editRez.detail.timeLabel' => 'Heure de retrait / retour',
+    // Hradlo kiosku: rezervace se slevou za vyzvednutí od 12:00 se na samoobsluze vydá až od 12:00
+    'editRez.detail.latePickupGate' => 'Réduction pour retrait à partir de 12:00 : la borne vous remettra la moto le {date} à partir de 12:00. Vous en avez besoin plus tôt ? Modifiez l\'heure de retrait — la réduction sera annulée et vous paierez la différence.',
+    'editRez.detail.latePickupGateCta' => 'Modifier l\'heure de retrait',
     'editRez.detail.timeAtRental' => 'au retour à l\'agence',
     'editRez.detail.pickupPlace' => 'Lieu de retrait',
     'editRez.detail.returnPlace' => 'Lieu de retour',
@@ -1415,6 +1420,8 @@ return [
     // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
     'rez.pickup.selfServiceNoDelivery' => 'Pas encore disponible dans les agences en libre-service',
     'rez.pickup.selfServiceNoDeliveryText' => 'Les motos d\'une agence en libre-service se prennent et se rendent uniquement à l\'agence — 24 h/24, 7 j/7, avec le code reçu après le paiement. La livraison à une adresse et la reprise à une adresse ne sont pas encore proposées pour celles-ci ; nous activerons ce service à l\'avenir.',
+    // Samoobsluha: volí se jen čas vyzvednutí (zadání 2026-10-01 večer) — rezervace i úprava rezervace
+    'rez.pickup.selfServiceHint' => 'Dans l\'agence en libre-service, vous choisissez uniquement l\'heure de retrait — vous rendez la moto quand vous le souhaitez le dernier jour jusqu\'à 24:00. Pour un retrait à partir de 12:00 (location de 2 jours ou plus), le 1er jour est à moitié prix et la borne ne vous remettra la moto qu\'à partir de 12:00.',
     'rez.geo.failed' => 'Impossible de déterminer votre position.',
     'rez.geo.denied' => 'Pour déterminer votre position, vous devez autoriser l\'accès à la localisation.',
     'rez.geo.unavailable' => 'La position n\'est pas disponible pour le moment. Réessayez ou saisissez l\'adresse manuellement.',

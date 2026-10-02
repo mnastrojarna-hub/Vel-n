@@ -10,6 +10,7 @@ window.MG = window.MG || {};
 (function () {
   const $ = (id) => document.getElementById(id);
   const MAX_LEN = 24, AUTO_HIDE_MS = 6000, WS_RECONNECT_MS = 2000, POLL_MS = 5000, STALE_MS = 4500;
+  const PICKUP_HIDE_MS = 25000;  // hláška „výdej až od 12:00“ (§31) je dlouhá — drží 25 s, klepnutím zavřít
   const LANG_IDLE_MS = 120000;   // po 2 min bez dotyku zpět do výchozího jazyka (další zákazník)
   const S = { state: null, ws: null, wsOk: false, lastStateAt: 0, entry: '', busy: false, mode: 'num',
     pinTimer: null, pinDeadline: 0, hideTimer: null, noticeTs: null, kb: null, langTimer: null, version: null };
@@ -243,6 +244,13 @@ window.MG = window.MG || {};
         }, 1500);
         return;
       }
+      if (res.error === 'pickup_too_early') {
+        // Sleva za vyzvednutí od 12:00 (2026-10-01, §31): kód platí, výdej až od `release_at` — titulek + text s časem
+        // a minutami (Europe/Prague) skládá i18n-pickup.js ve všech jazycích (i česky), bez lockoutu.
+        const p = MG.i18n.pickup(res.release_at);
+        showStatus('error', p.title, p.body, true, PICKUP_HIDE_MS);
+        return;
+      }
       showStatus('error', MG.i18n.errorTitle(res.error), (cz && res.message) || MG.i18n.errorSubtitle(res.error, res.locked_until), true);
       return;
     }
@@ -258,7 +266,7 @@ window.MG = window.MG || {};
   }
 
   /* ── Overlay stavů ────────────────────────────────────────────────── */
-  function showStatus(kind, title, subtitle, dismissable) {
+  function showStatus(kind, title, subtitle, dismissable, hideMs) {
     clearTimeout(S.hideTimer);
     const working = kind === 'working';
     $('status-spinner').hidden = !working;
@@ -270,7 +278,7 @@ window.MG = window.MG || {};
     $('status-sub').textContent = subtitle || '';
     $('status-dismiss').hidden = !dismissable;
     $('status').hidden = false;
-    if (dismissable) S.hideTimer = setTimeout(hideStatus, AUTO_HIDE_MS);
+    if (dismissable) S.hideTimer = setTimeout(hideStatus, hideMs > 0 ? hideMs : AUTO_HIDE_MS);
   }
   function hideStatus() { clearTimeout(S.hideTimer); $('status').hidden = true; }
 

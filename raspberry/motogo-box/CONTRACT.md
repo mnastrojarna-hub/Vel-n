@@ -7,7 +7,8 @@ aby šly moduly psát nezávisle a integrovat bez úprav. Sdílené typy jsou v
 mění se JEN aditivně a JEN se změnou tohoto kontraktu; jediné takové rozšíření: 2026-09-25 vedený tok
 šatna → protokol → motorka — `EventKind.PROTOCOL_*`, `ResolveResult.protocol`, `TimingsCfg.handover_idle_s`, §28;
 2026-09-28 zámek přejímky — `TimingsCfg.handover_lock_s`, §28; 2026-09-29 stav tachometru při vrácení — `EventKind.ODOMETER_*`,
-`ResolveResult.odo`, `TimingsCfg.odometer_grace_min` / `odometer_idle_s`, §30).
+`ResolveResult.odo`, `TimingsCfg.odometer_grace_min` / `odometer_idle_s`, §30; 2026-10-01 výdej až od 12:00 — `ResolveResult.release_at`,
+§31).
 
 Zdroj požadavků: uživatelská specifikace „Implementační specifikace řídicího
 systému – 9zónový MotoGo box" (§1–§13) + existující kiosk backend Supabase
@@ -46,6 +47,9 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
 **Doplněno 2026-09-29 (§30):** `EventKind.ODOMETER_RECORDED` (info), `ODOMETER_REJECTED` (warn), `ODOMETER_UPLOAD_FAILED` (error),
 `ODOMETER_DISPUTED` (warn) — vše `kiosk_log_event`, source `odometer`; `ResolveResult.odo: dict | None` = blok `odo` z RPC /
 `codes[].odo` ze sync (jen kód motorky; klíč chybí → `None`).
+**Doplněno 2026-10-01 (§31):** `ResolveResult.release_at: str | None` = ISO `release_at` z `kiosk_resolve_code` (u `ok` i u chyby
+`pickup_too_early`; `from_rpc`: chybí / null → `None`) / `codes[].release_at` ze sync cache (LocalResolver, `isoformat()`).
+Žádný nový `EventKind` — odmítnutí jde jako `ACCESS_DENIED` (reason `pickup_too_early`).
 
 ## 2. `config.py` (HOTOVO — jen používat)
 
@@ -405,6 +409,9 @@ class LocalResolver:
         # cache = CELÝ payload kiosk_sync_config (save_code_cache). 2026-09-25 (§28): k nalezenému hashi dohledá
         # cache['protocols'][] dle booking_id → ResolveResult.protocol = protocol_for(cache, booking_id)
         # 2026-09-29 (§30): kód motorky → ResolveResult.odo = row['odo'] (dict), jinak None (šatna nikdy)
+        # 2026-10-01 (§31): řádek prošel valid_from/valid_until a row['release_at'] je v budoucnu (hodiny jednotky) →
+        #   ResolveResult(ok=False, error='pickup_too_early', kind, booking_id, door_id, box_number, release_at, offline=True);
+        #   jinak ok + release_at (None bez klíče — stará cache = bez hradla)
     @staticmethod
     def protocol_for(cache: dict | None, booking_id: str | None) -> dict | None
         # klíč `protocols` chybí (stará cache) → None (stav neznámý = fail-open); seznam existuje, ale rezervace v něm není
@@ -581,6 +588,14 @@ class BoxController:
         #   `handover_locker.check` i `require_before_open` se PŘESKOČÍ. grant_access s `detail=odometer.grant_detail(plan)`;
         #   ok → `odometer.commit_open(plan, protocol=rr.protocol, now)`; ok s čtením → odpověď navíc `odometer: {km, unit}`
         #   a k `message` „ Stav tachometru N km|mth uložen.“
+        # 2026-10-01 (§31 výdej až od 12:00, `pickup_gate.py`): (a) `diagnostics_only` mapuje i `pickup_too_early` na
+        #   `invalid_code` (žádné orákulum); (b) nok `pickup_too_early` (online RPC / offline cache) → PŘED kontrolou
+        #   INVALID_CODE_ERRORS `pickup_gate.refuse` = ACCESS_DENIED (success=false, level info, code_kind=rr.kind, booking_id,
+        #   detail {source, reason:'pickup_too_early', release_at, booking_id, kind, offline}) + {**base, kind: rr.kind, booking_id,
+        #   error:'pickup_too_early', release_at, message: error_text('pickup_too_early', release_at)} — BEZ register_failure;
+        #   (c) pojistka: po servisní větvi, PŘED zámkem přejímky / locker_first / odometrem / protokolem `pickup_gate.blocks(rr)`
+        #   (jen OFFLINE ok s budoucím release_at — online rozhodl server svými hodinami) → stejné odmítnutí.
+        #   `handover_locker._locker_row` ignoruje řádek šatny s budoucím `release_at`.
     def check_service_token(self, token: str | None) -> bool
     async def service_open(self, door_id: str | None, zone: int | None) -> dict     # grant_access(kind='service', source='service_panel'); mimo běžný stav zóny = nouzový impulz zámku (2026-09-26, zone_access.service_unlock_locked), chyby 'lock_offline' | 'not_configured' | 'lock_failed'
     async def handle_command(self, cmd: dict) -> None    # → commands.execute → api.complete_command
@@ -752,7 +767,9 @@ protokolu (`shown_logged`), ne při každém dalším kódu; DB trigger `_handov
 otevření). ACCESS_DENIED (success=false, warn) navíc z `handover_submit.open_zone`, když se kóje po podpisu neotevře
 (`detail {source, reason}`), a od 2026-09-28 ze zámku přejímky (`controller_codes.submit_code`: platný zákaznický kód JINÉ
 rezervace, než která právě zavřela šatnu — `code_kind` = druh kódu, `booking_id` odmítnuté rezervace, `detail {source,
-reason:'handover_in_progress', locked_booking_id, offline}`; bez lockoutu); PIN_INVALID (`code_kind='invalid'`, `detail {source, code_masked, error:'code_mismatch'}`) a
+reason:'handover_in_progress', locked_booking_id, offline}`; bez lockoutu) a od 2026-10-01 z výdeje až od 12:00 (§31: level info,
+`code_kind` = druh kódu, `booking_id`, `detail {source, reason:'pickup_too_early', release_at, booking_id, kind, offline}`; bez
+lockoutu); PIN_INVALID (`code_kind='invalid'`, `detail {source, code_masked, error:'code_mismatch'}`) a
 PIN_LOCKOUT z ověření kódu motorky v overlayi protokolu (`_verify_code`). `detail` vždy
 `{"event":<EventKind>, "zone":n, "box_number":.., "source":..}` + extra.
 `kiosk_log_event(level, source, message, detail)` pro: IO_OFFLINE/IO_ONLINE (warn/info,
@@ -836,9 +853,9 @@ Chybové odpovědi `{"ok":false,"error":"…"}`; neplatný service_token → 403
 UI (`ui/index.html`, `ui/app.js`, `ui/style.css` + `ui/style-overlays.css`, `ui/i18n.js`, `ui/keyboard.js`, `ui/panel.js`,
 `ui/diag.js` (§24), `ui/shell.js` (§27) a od 2026-09-25 `ui/i18n-handover.js` (skupiny `ho.*`/`g.*` přes `MG.i18n.extend`, načítá se
 hned po `i18n.js`), `ui/signature.js` (`MG.Signature`), `ui/handover.js` (`MG.Handover`), `ui/style-handover.css`, od 2026-09-29
-`ui/i18n-locker.js`, `ui/i18n-odometer.js`, `ui/odometer.js` (`MG.Odometer`, §30) a `ui/style-odometer.css` — pořadí
-`<script>` v `index.html`: i18n, i18n-handover, i18n-locker, i18n-odometer, keyboard, signature, panel, diag, shell, handover,
-odometer, app; vanilla JS,
+`ui/i18n-locker.js`, `ui/i18n-odometer.js`, `ui/odometer.js` (`MG.Odometer`, §30) a `ui/style-odometer.css`, od 2026-10-01
+`ui/i18n-pickup.js` (§31) — pořadí `<script>` v `index.html`: i18n, i18n-handover, i18n-locker, i18n-odometer, i18n-pickup,
+keyboard, signature, panel, diag, shell, handover, odometer, app; vanilla JS,
 žádné CDN, offline). **Redesign 2026-09-10 pro široký nízký dotykový displej:** rozložení **100vw × 100vh, responzivní** —
 žádné pevné 1920×1080 ani `fit()` transformace (ověřeno 1920×1080, 2560×1080, 1920×720, 3840×1080, 1280×400; nic se
 nepřekrývá). **Světlé téma MotoGo24** v barvách webu/appky (zelená #74FB71, tmavá #1A2E22, pozadí #F1FAF7…); technické
@@ -883,6 +900,14 @@ zavřít a zapomenout kód). Potvrdit → `/api/pin {code, odometer}`: ok → `#
 zavřít + `#status` jako app.js. Kód drží JEN `odometer.js` v paměti. Fyzická klávesnice: terminál > diagnostika > setup >
 **#odometer** > protokol > šatna. Texty `ui/i18n-odometer.js` (8 jazyků, skupina `od` + `et/es.odometer_required|invalid`),
 načítá se po `i18n-locker.js`; skripty `…, handover.js, odometer.js, app.js`.
+Výdej až od 12:00 (2026-10-01, §31): `/api/pin` `error: 'pickup_too_early'` + `release_at` → app.js `MG.i18n.pickup(release_at)`
+→ `#status` (error) titulek `et.pickup_too_early` + text `es.pickup_too_early` se slotem `{w}` = `pk.today` „dnes od {t} (za {m} min)“ /
+`pk.day` „{d} od {t}“ / `pk.any` (bez `release_at`); čas `{t}`, datum `{d}` a „dnes“ VŽDY přes `Intl.DateTimeFormat` s `timeZone:
+'Europe/Prague'`; skládá se lokálně ve všech 8 jazycích (i česky — `message` serveru se nepoužije); auto-hide `PICKUP_HIDE_MS` = 25 s
+(`showStatus(kind, title, sub, dismissable, hideMs)`), klepnutím zavřít. `ui/i18n-pickup.js` (`MG.i18n.extend` + `MG.i18n.pickup`)
+přepisuje `MG.i18n.errorSubtitle` tak, že u `pickup_too_early` bere 2. argument jako `release_at` (obecné cesty nikdy neukážou `{w}`).
+`ui/handover.js`: `submit` → `error: 'pickup_too_early'` → patička `#ho-msg` = titulek + text (`S.msg = {pickup: release_at}`,
+minuty ubíhají v `tickTimer`), podpis se neuložil, overlay zůstává.
 Overlay `#handover` (modální, z-index mezi `#status` a `#service`; modul `MG.Handover` v `ui/handover.js`: `init({post, showStatus, getState})`, `onState(st)`,
 `rerender()`, `isVisible()`, `keys` pro fyzickou klávesnici; podpis `MG.Signature.create(el, {onStroke})` v `ui/signature.js`)
 se kreslí ze `st.handover.active` (§14): hlavička (`data`; popisky `ho.customer`/`ho.moto`/`ho.period`), řádky výbavy (ikona/název `g.helmet…gloves`,
@@ -1099,6 +1124,13 @@ Třídy `SimRelayModule`, `SimShelly` použitelné v testech in-process (`await 
   `test_odometer_queue.py`: dočasná / trvalá chyba / retry / disputed / probuzení smyčky, trvanlivost a idempotence fronty,
   atomičnost s kv, mapování `SupabaseApi.submit_odometer`. `test_webserver.py`: `/api/pin {code, odometer}` + `bad_odometer`,
   statické soubory a pořadí skriptů.
+- `test_pickup_gate.py` (2026-10-01, §31): česká hláška v čase Prahy (dnes s minutami / jiný den s datem / zimní čas / po půlnoci),
+  `too_early`/`blocks` (tolerance online, offline přesně, servis bez hradla); online `pickup_too_early` šatny i motorky bez
+  lockoutu ani po N+2 pokusech (ACCESS_DENIED info + detail); offline cache před / po `release_at`; hradlo PŘED výzvou šatny,
+  protokolem a zámkem přejímky; okno diagnostiky = `invalid_code`; `_locker_row` ignoruje budoucí `release_at`; podpis protokolu
+  s kódem téže rezervace před 12:00 → `pickup_too_early` bez trestu, cizí → `code_mismatch` + failure, po 12:00 otevře.
+  `test_pins.py` (offline hradlo `release_at`), `test_api.py` (`ResolveResult.from_rpc` + `release_at`), `test_webserver.py`
+  (`i18n-pickup.js` mezi `i18n-odometer.js` a `keyboard.js`).
 
 ---
 
@@ -1197,6 +1229,19 @@ s VYDANÝM kódem motorky pobočky; idempotentní dle `p_reading_id` (jiné zař
 (nejnovější čtení) + `motorcycles.mileage` GREATEST, mimo rozsah `disputed` → jen evidence + `debug_log` (nikdy neodmítne čtení,
 kvůli kterému jednotka už otevřela kóji). Starší jednotka nové klíče ignoruje a km nechce; nová jednotka na staré DB chce km jen
 z lokálního stavu a čtení čekají ve frontě (404/PGRST202 = dočasné). Žádný nový vzdálený příkaz (CHECK beze změny).
+
+**`supabase/migrations/20261001h_selfservice_late_pickup_kiosk_gate.sql`** (2026-10-01, výdej až od 12:00, §31; detail
+v `SUPABASE_BACKEND_STATE_*.md`). Pro jednotku závazné: (a) interní `_kiosk_release_at(p_booking_id) → timestamptz | NULL`
+(jen service_role) = 12:00 Europe/Prague dne `start_date` (Praha), když `late_pickup_discount_amount > 0` ∧ status reserved|active ∧
+`picked_up_at IS NULL` ∧ ne `sos_replacement` ∧ převzetí na pobočce (`pickup_method <> 'delivery'` ∧ prázdná `pickup_address`) ∧
+`_is_self_service_booking`; jinak NULL; (b) `kiosk_resolve_code` — zákaznický kód (šatna i motorka) s rezervací před `release_at` →
+`{ok:false, error:'pickup_too_early', kind, booking_id, box_number, release_at}` (servisní heslo beze změny); úspěšná odpověď navíc
+`release_at` (NULL nebo ISO); (c) `kiosk_sync_config` — každý řádek `codes[]` navíc `release_at` (NULL bez rezervace / bez hradla;
+žádný nový top-level klíč); (d) `get_handover_protocol_state` (appka) navíc `release_at` a `can_fill` až od něj; (e) trigger
+`trg_booking_kiosk_release_sync` (AFTER UPDATE slevy / začátku / `picked_up_at` / převzetí / statusu / motorky) → `kiosk_request_sync`
+poboček s kódy rezervace (offline cache se srovná hned). Starší jednotka `release_at` ignoruje a online hradlo dostane od serveru jako
+neznámou chybu (`pickup_too_early` není v INVALID_CODE_ERRORS → bez lockoutu, ale RPC_ERROR + obecná hláška; offline bez hradla)
+až do hromadné aktualizace (§25). Žádný nový vzdálený příkaz (CHECK beze změny).
 
 ## 23. Velín
 
@@ -1711,8 +1756,10 @@ async def open_zone(hm, then_open, item=None) -> tuple[dict | None, str | None] 
                                                  #   ok a kind motorcycle → hm.lock.release(bid) (2026-09-28; submit i protocol_signed)
 async def submit(hm, booking_id, form, signature, code, source="ui") -> dict   # {ok, status, opened, error, locked_until?} (§16)
     # kontroly: not_pending → in_progress → missing_signature → signature_too_large → then_open_valid? jinak _verify_code
-    #   (lockout → locked; resolve_code online/offline: kind motorcycle & týž booking_id → then_open, jinak code_mismatch
-    #   + register_failure/PIN_INVALID (vlastní kód šatny bez trestu)); pak in_flight=True, then_open pryč z položky (atomicky),
+    #   (lockout → locked; resolve_code online/offline: týž booking_id ∧ (error pickup_too_early ∨ pickup_gate.blocks) →
+    #   {error:'pickup_too_early', release_at} bez trestu (2026-10-01, §31; podpis se neuloží); kind motorcycle & týž booking_id →
+    #   then_open, jinak code_mismatch + register_failure/PIN_INVALID (vlastní kód šatny bez trestu; platný kód JINÉ rezervace
+    #   vč. jejího pickup_too_early = hádání)); pak in_flight=True, then_open pryč z položky (atomicky),
     #   hm.lock.touch(bid) (podpis = aktivita zámku). 2026-09-29 (§30): `form.mileage` určuje JEDNOTKA —
     #   `ctrl.odometer.pickup_mileage(item.data, item.moto_id)` = max(data.mileage, neodeslané vrácení téže motorky, vrácení přijaté
     #   serverem < 5 min) (UI hodnota se přepíše).
@@ -1880,3 +1927,44 @@ Kóje po podpisu = `odometer_phase: out` + `on_pickup_opened`. `on_wardrobe_clos
 ale motorka v ní ponechaná > 60 min → při dalším kódu výzva (placeholder pomůže); SOS výměna vyzvednutá z kóje (ne přistavená)
 by se brala jako vrácení. Zákazník s reálnou hodnotou mimo rozsah → telefon podpory, Velín „Korekce nájezdu“ + `open_door`,
 nebo pevné servisní kódy.
+
+---
+
+## 31. `pickup_gate.py` — výdej až od 12:00 při slevě za pozdní vyzvednutí (rozhodnutí majitele 2026-10-01)
+
+**Pravidlo:** na samoobslužné pobočce si zákazník znovu volí čas vyzvednutí (čas vrácení ne — smlouva do 24:00). Vyzvednutí od
+12:00 u výpůjčky ≥ 2 dny = sleva 50 % na 1. den (`late_pickup_discount_amount`). Rezervaci SE SLEVOU (převzetí na pobočce, ještě
+nevyzvednutou, reserved/active, ne SOS) jednotka vydá — šatnu i kóji motorky — až od `release_at` = 12:00 Europe/Prague dne
+začátku (server `_kiosk_release_at`, §22). Kód zadaný dřív = hláška „Vyzvednutí až od 12:00“ + kdy (dnes za N min / datum) +
+výzva změnit v appce nebo na motogo24.cz/upravit-rezervaci čas vyzvednutí na dřívější (sleva zanikne, doplatek, kód platí hned —
+server přepočte `release_at`, trigger vyžádá resync). Legacy rezervace s časem `00:01` slevu nemají → bez hradla.
+
+```python
+ERROR = "pickup_too_early" ; TITLE = "Vyzvednutí až od 12:00"
+def too_early(release_at, now=None, slack_s=0.0) -> bool     # ISO/datetime v budoucnu o víc než slack; chybí/nevalidní → False
+def blocks(rr: ResolveResult, now=None) -> bool             # rr.ok ∧ rr.offline ∧ ne servis ∧ release_at v budoucnu (online ok = rozhodl server svými hodinami)
+def minutes_left(release_at, now=None) -> int | None        # ceil, min 1
+def message(release_at, now=None) -> str                    # česky; čas/datum v Europe/Prague (odometer_rules.PRAGUE)
+async def refuse(ctrl, rr, base, source) -> dict            # ACCESS_DENIED (info) + {**base, kind, booking_id, error, release_at, message}
+```
+
+**Pořadí kontrol v `submit_code`** (§12): prázdný kód → lockout → lokální diagnostický kód → `not_ready` → pevné 39301A–H →
+`resolve_code` (online RPC; síť → `LocalResolver` s hradlem z `codes[].release_at`) → okno diagnostiky (`pickup_too_early` →
+`invalid_code`) → **nok `pickup_too_early` → `refuse` (bez `register_failure`)** → neplatný kód (lockout) / systémová chyba →
+servisní heslo / diagnostika → **pojistka `blocks(rr)` → `refuse`** → zámek přejímky → zóna → stav tachometru → „nejdřív šatna“ →
+protokol → `grant_access`. Hradlo tedy předchází zámku přejímky, výzvě šatny i protokolu; servisní kódy (heslo, 39301A–H,
+`open_door` z Velína) ho nemají.
+
+**Podpis protokolu z displeje** (`handover_submit._verify_code`, §28): kód TÉŽE rezervace s `pickup_too_early` (nebo ok s budoucím
+`release_at`) → `{error:'pickup_too_early', release_at}`, bez trestu, podpis se neuloží a kóje se neotevře (overlay zůstává,
+patička ukáže hlášku); platný kód jiné rezervace (i před 12:00) = hádání (`code_mismatch` + failure) jako dosud.
+
+**Offline:** `LocalResolver` porovná `release_at` s hodinami jednotky (UTC, přesně); řádek bez klíče (stará cache) = bez hradla.
+Změna rezervace (dřívější čas → sleva 0 → `release_at` NULL) se do cache dostane resyncem (`trg_booking_kiosk_release_sync` →
+`kiosk_request_sync`); offline jednotka až po obnově spojení (do té doby hradlo z poslední cache — konzervativní).
+
+**UI:** `ui/i18n-pickup.js` (§16) — `et/es.pickup_too_early`, skupina `pk` (`today`, `day`, `any`), `MG.i18n.pickup(releaseAt)`;
+`app.js` hláška 25 s; `handover.js` patička. Žádné CDN.
+
+**Nasazení:** SQL 20261001h první (aditivní), pak jednotky přes rollout (§25), verze **1.2.0**. Starší jednotka: online hradlo
+funguje (server kód odmítne), ale ukáže obecnou chybu a zapíše RPC_ERROR; offline hradlo nemá.

@@ -387,6 +387,7 @@ return [
     'rez.alert.pickupTime' => 'Por favor, indique la hora de recogida o entrega.',
     'rez.alert.minTime' => 'La hora más temprana posible de recogida es la hora actual + 1 hora.',
     'rez.alert.minTimeDelivery' => 'Para la entrega, la hora más temprana es la actual + 6 horas.',
+    'rez.alert.minTimeSelfService' => 'La hora de recogida no puede estar en el pasado.',
     'rez.alert.returnTime' => 'Por favor, indique la hora de devolución.',
     'rez.alert.bookingOverlap' => 'Otro cliente acaba de reservar esta moto para las mismas fechas. Elija otras fechas u otra moto.',
     'rez.alert.bookingOverlapOwn' => 'Ya tiene otra reserva activa en estas fechas.',
@@ -1178,6 +1179,7 @@ return [
     'editRez.err.wrongStatus' => 'Esta reserva ya no se puede modificar.',
     'editRez.err.notPaid' => 'La reserva aún no está pagada — por favor, contacta con nosotros.',
     'editRez.err.activeStartLocked' => 'Durante un alquiler activo no se puede cambiar la fecha de recogida.',
+    'editRez.err.activePickupTimeLocked' => 'La moto ya ha sido recogida — la hora de recogida ya no se puede cambiar.',
     'editRez.err.invalidRange' => 'Elige un periodo válido.',
     'editRez.err.notShortening' => 'Para acortar, las nuevas fechas deben estar dentro de las originales.',
     'editRez.err.notExtending' => 'Para ampliar, al menos una fecha debe estar fuera del rango original.',
@@ -1240,6 +1242,9 @@ return [
     'editRez.detail.bookingNum' => 'Número de reserva',
     'editRez.detail.dateLabel' => 'Periodo',
     'editRez.detail.timeLabel' => 'Hora de recogida / devolución',
+    // Hradlo kiosku: rezervace se slevou za vyzvednutí od 12:00 se na samoobsluze vydá až od 12:00
+    'editRez.detail.latePickupGate' => 'Descuento por recogida a partir de las 12:00: el quiosco le entregará la moto el {date} a partir de las 12:00. ¿La necesita antes? Cambie la hora de recogida — el descuento se anulará y pagará la diferencia.',
+    'editRez.detail.latePickupGateCta' => 'Cambiar la hora de recogida',
     'editRez.detail.timeAtRental' => 'al devolver en la tienda',
     'editRez.detail.pickupPlace' => 'Lugar de recogida',
     'editRez.detail.returnPlace' => 'Lugar de devolución',
@@ -1416,6 +1421,8 @@ return [
     // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
     'rez.pickup.selfServiceNoDelivery' => 'Todavía no disponible en sucursales de autoservicio',
     'rez.pickup.selfServiceNoDeliveryText' => 'Las motos de una sucursal de autoservicio se recogen y se devuelven únicamente en la sucursal — las 24 horas (24/7) con el código que recibirá tras el pago. Por ahora no ofrecemos entrega a domicilio ni recogida en una dirección para ellas; activaremos este servicio en el futuro.',
+    // Samoobsluha: volí se jen čas vyzvednutí (zadání 2026-10-01 večer) — rezervace i úprava rezervace
+    'rez.pickup.selfServiceHint' => 'En la sucursal de autoservicio solo elige la hora de recogida — la moto la devuelve cuando quiera el último día hasta las 24:00. Si la recoge a partir de las 12:00 (alquiler de 2 o más días), el 1.er día le sale a mitad de precio y el quiosco le entregará la moto solo a partir de las 12:00.',
     'rez.geo.failed' => 'No se pudo determinar tu ubicación.',
     'rez.geo.denied' => 'Para determinar tu ubicación, debes permitir el acceso a la ubicación.',
     'rez.geo.unavailable' => 'La ubicación no está disponible en este momento. Inténtalo de nuevo o introduce la dirección manualmente.',

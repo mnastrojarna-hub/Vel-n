@@ -144,10 +144,12 @@ class ResDetailTabContent extends ConsumerWidget {
             ResDetailRow(label: t(context).date, value: res.dateRange),
             ResDetailRow(label: t(context).tr('resDuration'), value: '${res.dayCount} ${res.dayCount == 1 ? t(context).tr("day1") : res.dayCount < 5 ? t(context).tr("days24") : t(context).tr("days5")}'),
             ResDetailRow(label: t(context).tr('resDurationTotal'), value: '${res.dayCount} ${t(context).tr("days5")}'),
-            // Samoobslužná pobočka: čas na pobočce se nevolí (00:01) → neukazovat.
-            if (res.pickupTime != null &&
-                !selfServiceHidesPickupTime(branchType: res.branchType, pickupMethod: bookingMethodWithAddress(res.pickupMethod, res.pickupAddress)))
-              ResDetailRow(label: t(context).pickupTime, value: res.pickupTime!),
+            // Čas vyzvednutí (HH:MM) i na samoobsluze (zadání 2026-10-01 večer);
+            // stará značka 00:01 = „kdykoliv během prvního dne“.
+            if (res.pickupAllDayLegacy)
+              ResDetailRow(label: t(context).pickupTime, value: t(context).tr('ssPickupAnyTime'))
+            else if (res.pickupHm != null)
+              ResDetailRow(label: t(context).pickupTime, value: res.pickupHm!),
             // Navigace na pobočku VŽDY přes GPS — textová adresa „Mezná 9" je
             // nejednoznačná (obec Mezná existuje i u Hřenska → mapy navigovaly
             // špatně). Když pobočka nemá GPS v DB, použijí se souřadnice
@@ -171,6 +173,35 @@ class ResDetailTabContent extends ConsumerWidget {
           ]),
           const SizedBox(height: 12),
 
+          // ===== VÝDEJ AŽ OD 12:00 (sleva za vyzvednutí od 12:00, samoobsluha) =====
+          // Kiosk kódy (šatna i motorka) pustí až od 12:00 dne začátku — dokud
+          // výdej nenastal, vysvětlení + cesta k dřívějšímu času (sleva zanikne,
+          // doplatek). CTA jen u nevyzvednuté 'reserved' (aktivní čas nezmění).
+          if (res.kioskReleasePending) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: MotoGoColors.amberBg,
+                borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text(
+                  '🌗 ${t(context).tr('ssLateGateNote').replaceAll('{datum}', fmtReleaseDate(pragueWallClock(res.startDate)))}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF92400E), height: 1.4),
+                ),
+                if (res.status == 'reserved') ...[
+                  const SizedBox(height: 10),
+                  ResDetailButton.primary(
+                    emoji: '🕛',
+                    label: t(context).tr('ssLateGateCta'),
+                    onTap: () => context.push('/reservations/${res.id}/edit'),
+                  ),
+                ],
+              ]),
+            ),
+            const SizedBox(height: 12),
+          ],
+
           // ===== PRICE CARD =====
           ResDetailCard(children: [
             Text(t(context).tr('financialSummary'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
@@ -180,6 +211,13 @@ class ResDetailTabContent extends ConsumerWidget {
               ResDetailRow(label: t(context).tr('deliveryFee'), value: '${Money.czk(res.deliveryFee!)}'),
             if (res.extrasPrice != null && res.extrasPrice! > 0)
               ResDetailRow(label: t(context).tr('addons'), value: '${Money.czk(res.extrasPrice!)}'),
+            // Sleva 50 % na 1. den (vyzvednutí od 12:00) — přiznaná hodnota.
+            if ((res.latePickupDiscount ?? 0) > 0)
+              ResDetailRow(
+                label: t(context).tr('latePickupDiscountLabel'),
+                value: '−${Money.czk(res.latePickupDiscount!)}',
+                valueColor: MotoGoColors.greenDarker,
+              ),
             if (res.discountAmount != null && res.discountAmount! > 0)
               ResDetailRow(
                 label: '${t(context).tr('discountLabel')} ${res.discountCode ?? ""}',

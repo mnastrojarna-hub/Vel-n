@@ -71,8 +71,9 @@ async function applyExtensionChange(
   try { a = JSON.parse(chgStr) as Record<string, unknown> } catch { return }
   if (!a || typeof a !== 'object') return
   // Výsledek SERVEROVÉHO dry-runu z process-payment (2026-10-01): nová cena
-  // (t), delivery_fee (df) a podíly stran (pf/rf). Má přednost před klientem.
-  let srv: { t?: number | null; df?: number | null; pf?: number | null; rf?: number | null; x?: boolean; f?: string } = {}
+  // (t), delivery_fee (df), podíly stran (pf/rf) a přiznaná late sleva (l,
+  // 20261001h — breakdown.late_pickup_to). Má přednost před klientem.
+  let srv: { t?: number | null; df?: number | null; pf?: number | null; rf?: number | null; x?: boolean; l?: number | null; f?: string } = {}
   try { if (srvStr) srv = (JSON.parse(srvStr) || {}) as typeof srv } catch { srv = {} }
   const fin = (v: unknown) => v != null && Number.isFinite(Number(v))
 
@@ -233,6 +234,14 @@ async function applyExtensionChange(
       if (d[k] !== undefined && String(d[k] ?? '') !== String(cur[k] ?? '')) pickupDropped = true
       delete d[k]
     }
+    // Ani čas vyzvednutí (20261001h `active_pickup_time_locked` — po převzetí by
+    // posun na ≥ 12:00 vrátil slevu 50 % 1. dne). Stará „bez času“ (00:01) →
+    // čas před 12:00 = výchozí hodnota formuláře, ne skutečná změna.
+    if (d.pickup_time !== undefined) {
+      const nt = hm(d.pickup_time), ot = hm(cur.pickup_time)
+      if (nt !== ot && !((ot === '00:01' || ot === '') && nt < '12:00')) pickupDropped = true
+      delete d.pickup_time
+    }
   }
   // Otisk místa z process-payment (srv.f) ≠ aktuální řádek → místo se mezitím
   // změnilo jinou úpravou (např. odebrané přistavení s vratkou) — zastaralá
@@ -277,7 +286,13 @@ async function applyExtensionChange(
   // nevycházel na 0. Autoritativní přepočet z FINÁLNÍHO stavu (aktuální řádek
   // + aplikovaná změna) přes _late_pickup_discount; přepíše i klientem poslanou
   // hodnotu (app formát). Best-effort — selhání nesmí zablokovat apply.
-  if (cur && (d.start_date || d.end_date || d.moto_id || d.pickup_time || def(a.late_pickup_discount_amount))) {
+  // Web p_new_* změna nese v srv.l SKUTEČNĚ přiznanou slevu z dry-runu
+  // (_apply_booking_changes_core 20261001h: získaná sleva krácená stornem se
+  // ukládá jen v proplacené výši) — přepočet by ji nadsadil. Jen u nezastaralé
+  // změny (jinak cílový stav ≠ naceněný → přepočet jako dřív).
+  if (cur && !stale && fin(srv.l) && (d.start_date || d.end_date || d.moto_id || d.pickup_time)) {
+    d.late_pickup_discount_amount = Math.max(0, Math.round(Number(srv.l)))
+  } else if (cur && (d.start_date || d.end_date || d.moto_id || d.pickup_time || def(a.late_pickup_discount_amount))) {
     try {
       const pt = d.pickup_time !== undefined ? d.pickup_time : cur.pickup_time
       const { data: late, error: lateErr } = await supabase.rpc('_late_pickup_discount', {
@@ -287,7 +302,12 @@ async function applyExtensionChange(
         p_pickup_time: pt == null ? null : String(pt),
       })
       if (!lateErr && late != null && Number.isFinite(Number(late))) {
-        d.late_pickup_discount_amount = Number(late)
+        // App formát posílá SKUTEČNĚ přiznanou slevu (storno krátí získanou
+        // slevu, 20261001h) — přepočet ji smí jen snížit (strop pravidla), ne
+        // zvednout na plnou hodnotu, kterou zákazník nedostal.
+        const sent = a.late_pickup_discount_amount != null ? Number(a.late_pickup_discount_amount) : NaN
+        d.late_pickup_discount_amount = Number.isFinite(sent) && sent >= 0
+          ? Math.min(Number(late), Math.round(sent)) : Number(late)
       }
     } catch { /* best-effort */ }
   }

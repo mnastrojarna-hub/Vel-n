@@ -294,7 +294,9 @@ async function handleCreateBooking(req: Request): Promise<Response> {
     p_zip: body.zip ?? '',
     p_country: body.country ?? 'CZ',
     p_note: body.note ?? null,
-    p_pickup_time: body.pickup_time ?? '12:00',
+    // Výchozí 10:00 (2026-10-01): 12:00 by dalo slevu za vyzvednutí od 12:00
+    // a u samoobslužné pobočky výdej kioskem až od 12:00.
+    p_pickup_time: body.pickup_time ?? '10:00',
     p_delivery_address: body.delivery_address ?? null,
     p_return_address: body.return_address ?? null,
     p_extras: body.extras ?? [],
@@ -573,7 +575,7 @@ function buildOpenApiSpec() {
                 zip: { type: 'string' },
                 country: { type: 'string', default: 'CZ' },
                 license_group: { type: 'string', enum: ['AM','A1','A2','A','B','N'] },
-                pickup_time: { type: 'string', example: '12:00' },
+                pickup_time: { type: 'string', example: '10:00', description: 'HH:MM, default 10:00. Pickup from 12:00 on a 2+ day rental = 50 % off the 1st day; at a self-service branch the kiosk then releases the booking only from 12:00 on the start day.' },
                 delivery_address: { type: 'string' },
                 return_address: { type: 'string' },
                 extras: { type: 'array', items: { type: 'object' } },

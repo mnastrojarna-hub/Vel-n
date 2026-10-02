@@ -9,7 +9,7 @@ import BookingPriceCalc from './BookingPriceCalc'
 import BookingDeliverySection from './BookingDeliverySection'
 import { isoDate, toDate, fmtDate, fmtCZK, fmtTimeHM, countDays, calcDayBreakdown } from './bookingModifyHelpers'
 import { findFeeExtra, feeAmount } from './DetailTabSections'
-import { latePickupDiscount } from '../../lib/latePickup'
+import { latePickupDiscount, kioskReleaseGate, LATE_PICKUP_KIOSK_HINT, fmtPragueDateTime, isLegacyNoPickupTime } from '../../lib/latePickup'
 import { SELF_SERVICE_TYPE } from '../BranchHelpers'
 
 export default function BookingModifyModal({ booking, onClose, onSaved }) {
@@ -25,6 +25,11 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const origReturnTime = fmtTimeHM(booking.return_time, '')
   const [pickupTime, setPickupTime] = useState(origPickupTime)
   const [returnTime, setReturnTime] = useState(origReturnTime)
+  // Po vyzvednutí (běžící rezervace / zapsané převzetí / podepsaný protokol) se čas
+  // vyzvednutí už nemění — posun na >= 12:00 by vrátil 50 % 1. dne (parita s SQL
+  // `active_pickup_time_locked`). Změna času se pak ignoruje i při uložení.
+  const pickupTimeLocked = booking.status === 'active' || !!booking.picked_up_at || !!booking.handover_protocol_filled_at
+  const effPickupTime = pickupTimeLocked ? origPickupTime : pickupTime
 
   const [changingMoto, setChangingMoto] = useState(false)
   const [allMotos, setAllMotos] = useState([])
@@ -140,7 +145,13 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   // a času; rozdíl vstupuje do doplatku/vratky (parita s webem, appkou i SQL
   // _apply_booking_changes_core: diff = (nová − nováLate) − (stará − staráLate)).
   const origLate = Number(booking.late_pickup_discount_amount) || 0
-  const newLate = latePickupDiscount(startDate, endDate, pickupTime, newBreakdown[0]?.price || 0)
+  // Přepočet jen při změně vstupů slevy (čas, termín, motorka): uložená hodnota může
+  // být od 20261001h krácená stornem — jiná úprava ji nesmí „dorovnat“ vratkou.
+  const lateInputsChanged = effPickupTime !== origPickupTime || selectedMotoId !== booking.moto_id
+    || isoDate(startDate) !== isoDate(origStart) || isoDate(endDate) !== isoDate(origEnd)
+  const newLate = lateInputsChanged
+    ? latePickupDiscount(startDate, endDate, effPickupTime, newBreakdown[0]?.price || 0)
+    : origLate
   const rentalDiff = (newCalcPrice - newLate) - (origCalcPrice - origLate)
   const loyaltyDisc = loyalty.percent > 0 && rentalDiff > 0 ? Math.round(rentalDiff * loyalty.percent / 100) : 0
   const priceDiff = (rentalDiff - loyaltyDisc) + (newDeliveryFee - origDeliveryFee)
@@ -173,12 +184,32 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   })()
   const datesChanged = isoDate(startDate) !== isoDate(origStart) || isoDate(endDate) !== isoDate(origEnd)
   const deliveryChanged = pickupMethod !== origDelivery.pickup || returnMethod !== origDelivery.ret || pickupAddress !== (booking.pickup_address || '') || returnAddress !== (booking.return_address || '') || newDeliveryFee !== origDelivery.fee
-  const timesChanged = pickupTime !== origPickupTime || returnTime !== origReturnTime
+  const pickupTimeChanged = effPickupTime !== origPickupTime
+  const timesChanged = pickupTimeChanged || returnTime !== origReturnTime
   const ownGearChanged = ownGear !== origOwnGear
   const hasChanges = datesChanged || motoChanged || deliveryChanged || timesChanged || ownGearChanged || notes !== (booking.notes || '')
 
   const days = countDays(startDate, endDate)
   const origDays = countDays(origStart, origEnd)
+
+  // Late-pickup sleva: přepočtená hodnota se persistuje (i 0 při ztrátě slevy).
+  // Při účtování vždy; u „Zdarma" (cena se nemění) jen když slevu změnil čas
+  // vyzvednutí / termín / motorka — uložená sleva řídí hradlo kiosku (výdej až
+  // od 12:00), proto musí sledovat zvolený čas.
+  // Uložená late sleva = skutečně přiznaná (pravidlo serveru 20261001h): s doplatkem/vratkou
+  // se ukládá nová hodnota; v režimu „Zdarma“ jen SNÍŽENÍ (dřívější čas → hradlo kiosku
+  // zmizí) — získaná sleva bez vratky by zákazníkovi při další úpravě naúčtovala
+  // „ztrátu“ slevy, kterou nikdy nedostal.
+  const persistLate = newLate !== origLate
+    && (chargeCustomer || ((pickupTimeChanged || datesChanged || motoChanged) && newLate < origLate))
+  // Hradlo kiosku po uložení (samoobsluha, převzetí na pobočce, sleva > 0): kiosk
+  // rezervaci vydá až od 12:00 v den začátku.
+  const resultBranchType = branches.find(b => b.id === selectedMoto?.branch_id)?.type
+    || (motoChanged ? null : booking.motorcycles?.branches?.type)
+  const resultGate = kioskReleaseGate({
+    ...booking, start_date: isoDate(startDate), late_pickup_discount_amount: persistLate ? newLate : origLate,
+    pickup_method: pickupMethod === 'delivery' ? 'delivery' : 'store', pickup_address: pickupAddress || null,
+  }, resultBranchType)
 
   // Vyzvednuti u bezici rezervace uz je v minulosti (v kalendari nejde zakliknout) —
   // editace pak zacina rovnou vyberem data vraceni, OD zustava.
@@ -240,15 +271,14 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         saveData.delivery_fee = newDeliveryFee
       }
       if (timesChanged) {
-        saveData.pickup_time = pickupTime || null
+        saveData.pickup_time = effPickupTime || null
         saveData.return_time = returnTime || null
       }
       if (motoChanged) saveData.moto_id = selectedMotoId
       // Vlastní výbava se zapisuje JEN při změně (trigger trg_sync_locker_code pak sám vydá / zadrží kód šatny)
       if (ownGearChanged) saveData.own_gear = ownGear === '' ? null : ownGear === 'true'
-      // Late-pickup sleva: přepočtená hodnota se persistuje (i 0 při ztrátě
-      // slevy), jen když se rozdíl reálně účtuje — u „Zdarma" cena nemění.
-      if (chargeCustomer && newLate !== origLate) saveData.late_pickup_discount_amount = newLate
+      // Late-pickup sleva (viz persistLate výše) — v režimu „Zdarma“ jen snížení (hradlo kiosku zmizí)
+      if (persistLate) saveData.late_pickup_discount_amount = newLate
       // Věrnostní sleva na doplatek (app rezervace) — kumuluje se do
       // loyalty_discount_amount, aby seděl rozpis dokladů i detail rezervace.
       if (chargeCustomer && loyaltyDisc > 0) {
@@ -291,7 +321,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
             at: new Date().toISOString(), from_start: toLD(dbBooking.start_date), from_end: toLD(dbBooking.end_date),
             to_start: isoDate(startDate), to_end: isoDate(endDate), source: 'admin',
             ...(motoChanged ? { moto_changed: true, from_moto: booking.motorcycles?.model, to_moto: selectedMoto?.model } : {}),
-            ...(newLate !== origLate ? { from_late_pickup: origLate, to_late_pickup: newLate } : {}),
+            ...(persistLate ? { from_late_pickup: origLate, to_late_pickup: newLate } : {}),
             ...(priceDiff !== 0 ? { price_diff: priceDiff, charged: chargeCustomer } : {}),
             // Vlastní výbava ve stejném tvaru jako DB trigger track_booking_content_changes (gear_changes) —
             // ten při vlastním zápisu historie z Velína končí hned, změna by se jinak ztratila
@@ -420,9 +450,12 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
                 <div className="text-xs font-bold uppercase" style={{ color: '#1a2e22' }}>Od</div>
                 <div className="text-sm font-extrabold" style={{ color: datesChanged ? '#2563eb' : '#0f1a14' }}>{fmtDate(startDate)}</div>
                 {datesChanged && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {fmtDate(origStart)}</div>}
-                <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} title="Cas vyzvednuti"
-                  className="mt-1 text-xs font-bold rounded outline-none cursor-pointer" style={{ padding: '2px 6px', background: '#fff', border: `1px solid ${pickupTime !== origPickupTime ? '#2563eb' : '#d4e8e0'}`, color: pickupTime !== origPickupTime ? '#2563eb' : '#1a2e22' }} />
-                {pickupTime !== origPickupTime && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {origPickupTime || '\u2014'}</div>}
+                <input type="time" value={effPickupTime} onChange={e => { if (!pickupTimeLocked) setPickupTime(e.target.value) }} disabled={pickupTimeLocked}
+                  title={pickupTimeLocked ? 'Motorka uz byla vyzvednuta — cas vyzvednuti nelze zmenit' : 'Cas vyzvednuti'}
+                  className={`mt-1 text-xs font-bold rounded outline-none ${pickupTimeLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`} style={{ padding: '2px 6px', background: pickupTimeLocked ? '#f3f4f6' : '#fff', border: `1px solid ${pickupTimeChanged ? '#2563eb' : '#d4e8e0'}`, color: pickupTimeChanged ? '#2563eb' : '#1a2e22' }} />
+                {pickupTimeChanged && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {isLegacyNoPickupTime(origPickupTime) ? 'bez casu' : (origPickupTime || '\u2014')}</div>}
+                {!pickupTimeChanged && isLegacyNoPickupTime(origPickupTime) && <div className="text-xs" style={{ color: '#9ca3af' }}>00:01 = bez casu (kdykoliv 1. den)</div>}
+                {pickupTimeLocked && <div className="text-xs" style={{ color: '#9ca3af' }}>po vyzvednuti zamceno</div>}
               </div>
               <div>
                 <div className="text-xs font-bold uppercase" style={{ color: '#1a2e22' }}>Do</div>
@@ -445,6 +478,12 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
               )}
             </div>
           </div>
+          {resultGate && (
+            <div className="mt-2 p-2 rounded-lg text-xs font-bold" style={{ background: '#ede9fe', border: '1px solid #c4b5fd', color: '#5b21b6' }}
+              title={`Sleva za vyzvednutí od 12:00 (${fmtCZK(persistLate ? newLate : origLate)} Kč) — kód šatny i motorky platí od ${fmtPragueDateTime(resultGate)}. Dřívější čas vyzvednutí = sleva zanikne.`}>
+              🌗 {LATE_PICKUP_KIOSK_HINT} ({fmtPragueDateTime(resultGate)})
+            </div>
+          )}
         </div>
 
         {/* MOTORCYCLE */}

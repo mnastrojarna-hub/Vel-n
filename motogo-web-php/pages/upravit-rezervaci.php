@@ -77,6 +77,8 @@ $keys = [
     'rez.pickup.gps',
     // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (pages-rezervace-selfservice.js, flag self_service_delivery)
     'rez.pickup.selfServiceNoDelivery','rez.pickup.selfServiceNoDeliveryText',
+    // Samoobsluha: vysvětlivka pod časem vyzvednutí (záložka Místo, prodloužení/zkrácení)
+    'rez.pickup.selfServiceHint',
     'editRez.extend.title','editRez.extend.help','editRez.extend.helpUpcoming','editRez.extend.helpActive',
     'editRez.extend.newStart','editRez.extend.newEnd','editRez.extend.priceDiff','editRez.extend.cta',
     'editRez.extend.unavailable','editRez.extend.noChange','editRez.extend.creating',
@@ -88,7 +90,7 @@ $keys = [
     'editRez.cancel.confirmTitle','editRez.cancel.confirmYes','editRez.cancel.confirmNo',
     'editRez.storno.title','editRez.storno.tier1','editRez.storno.tier2','editRez.storno.tier3','editRez.storno.note',
     'editRez.err.generic','editRez.err.notFound','editRez.err.wrongStatus','editRez.err.notPaid',
-    'editRez.err.activeStartLocked','editRez.err.invalidRange','editRez.err.notShortening',
+    'editRez.err.activeStartLocked','editRez.err.activePickupTimeLocked','editRez.err.invalidRange','editRez.err.notShortening',
     'editRez.err.notExtending','editRez.err.cantEdit','editRez.err.serverDown','editRez.err.emailNotConfirmed',
 
     // Kalendář
@@ -118,6 +120,8 @@ $keys = [
     'editRez.detail.gearTitle','editRez.detail.historyTitle','editRez.detail.gearRider','editRez.detail.gearPassenger',
     'editRez.detail.priceRental','editRez.detail.priceExtras','editRez.detail.priceDelivery',
     'editRez.detail.priceLatePickup','editRez.timeHint12',
+    // Hradlo kiosku (sleva za vyzvednutí od 12:00 → kiosk vydá až od 12:00) — detail rezervace
+    'editRez.detail.latePickupGate','editRez.detail.latePickupGateCta',
     'editRez.detail.deliveryAddr','editRez.detail.pickupAtRental','editRez.pickup.title','editRez.pickup.openMap','rez.alert.minTimeDelivery','editRez.detail.returnAtAddr','editRez.detail.returnAtRental',
     'editRez.detail.licenseRequired','editRez.detail.licenseNone',
     'editRez.detail.deliveryShort','editRez.detail.pickupShort',

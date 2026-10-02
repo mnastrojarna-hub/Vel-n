@@ -372,6 +372,7 @@ return [
     'rez.alert.pickupTime' => 'Wpisz czas odbioru lub dostawy.',
     'rez.alert.minTime' => 'Najwcześniejszy możliwy odbiór to obecny czas + 1 godzina.',
     'rez.alert.minTimeDelivery' => 'Przy dostawie najwcześniejszy czas to obecny + 6 godzin.',
+    'rez.alert.minTimeSelfService' => 'Godzina odbioru nie może być w przeszłości.',
     'rez.alert.returnTime' => 'Wpisz czas zwrotu motocykla.',
     'rez.alert.bookingOverlap' => 'Inny klient właśnie zarezerwował ten motocykl na te same daty. Wybierz inny termin lub motocykl.',
     'rez.alert.bookingOverlapOwn' => 'Masz już inną aktywną rezerwację w tym terminie.',
@@ -1156,6 +1157,7 @@ return [
     'editRez.err.wrongStatus' => 'Tej rezerwacji nie można już edytować.',
     'editRez.err.notPaid' => 'Rezerwacja nie jest jeszcze opłacona — skontaktuj się z nami.',
     'editRez.err.activeStartLocked' => 'Podczas aktywnej rezerwacji nie można zmienić daty odbioru.',
+    'editRez.err.activePickupTimeLocked' => 'Motocykl został już odebrany — godziny odbioru nie można już zmienić.',
     'editRez.err.invalidRange' => 'Wybierz prawidłowy okres.',
     'editRez.err.notShortening' => 'Aby skrócić, nowe daty muszą mieścić się w pierwotnych.',
     'editRez.err.notExtending' => 'Aby przedłużyć, co najmniej jedna data musi być poza pierwotnym zakresem.',
@@ -1218,6 +1220,9 @@ return [
     'editRez.detail.bookingNum' => 'Numer rezerwacji',
     'editRez.detail.dateLabel' => 'Termin',
     'editRez.detail.timeLabel' => 'Godzina odbioru / zwrotu',
+    // Hradlo kiosku: rezervace se slevou za vyzvednutí od 12:00 se na samoobsluze vydá až od 12:00
+    'editRez.detail.latePickupGate' => 'Zniżka za odbiór od 12:00: kiosk wyda ci motocykl {date} od 12:00. Potrzebujesz go wcześniej? Zmień godzinę odbioru — zniżka przepadnie, a różnicę dopłacisz.',
+    'editRez.detail.latePickupGateCta' => 'Zmień godzinę odbioru',
     'editRez.detail.timeAtRental' => 'przy zwrocie w wypożyczalni',
     'editRez.detail.pickupPlace' => 'Miejsce odbioru',
     'editRez.detail.returnPlace' => 'Miejsce zwrotu',
@@ -1394,6 +1399,8 @@ return [
     // Samoobslužná pobočka — přistavení/odvoz zablokované s vysvětlením (js/pages-rezervace-selfservice.js, flag self_service_delivery)
     'rez.pickup.selfServiceNoDelivery' => 'W oddziałach samoobsługowych jeszcze niedostępne',
     'rez.pickup.selfServiceNoDeliveryText' => 'Motocykle z oddziału samoobsługowego odbiera się i zwraca wyłącznie w oddziale — całodobowo (24/7) za pomocą kodu, który otrzymasz po opłaceniu. Dostawy pod adres ani odbioru spod adresu na razie dla nich nie oferujemy; w przyszłości tę usługę włączymy.',
+    // Samoobsluha: volí se jen čas vyzvednutí (zadání 2026-10-01 večer) — rezervace i úprava rezervace
+    'rez.pickup.selfServiceHint' => 'W oddziale samoobsługowym wybierasz tylko godzinę odbioru — motocykl zwrócisz w dowolnym momencie ostatniego dnia do 24:00. Przy odbiorze od 12:00 (wynajem na 2 dni lub dłużej) 1. dzień masz za pół ceny, a kiosk wyda ci motocykl dopiero od 12:00.',
     'rez.geo.failed' => 'Nie udało się ustalić lokalizacji.',
     'rez.geo.denied' => 'Aby ustalić lokalizację, musisz zezwolić na dostęp do lokalizacji.',
     'rez.geo.unavailable' => 'Lokalizacja jest obecnie niedostępna. Spróbuj ponownie lub wpisz adres ręcznie.',

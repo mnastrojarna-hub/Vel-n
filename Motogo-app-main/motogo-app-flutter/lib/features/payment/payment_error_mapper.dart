@@ -135,6 +135,7 @@ class PaymentErrorMapper {
       'amount_mismatch': 'refAmountMismatch',
       'moto_unavailable': 'refMotoUnavailable',
       'wrong_status': 'refWrongStatus',
+      'active_pickup_time_locked': 'refActivePickupTimeLocked',
     };
     final k = keys[code ?? ''];
     return k == null ? null : _t(lang, k);
@@ -258,6 +259,8 @@ class PaymentErrorMapper {
           'Tuto rezervaci nelze upravit z tohoto účtu. Přihlaste se prosím účtem, kterým byla vytvořena.',
       'refStale':
           'Rezervace se mezitím změnila (jiné zařízení nebo web). Načtěte ji prosím znovu a úpravu zopakujte.',
+      'refActivePickupTimeLocked':
+          'Motorka už byla vyzvednuta — čas vyzvednutí už nelze změnit.',
       'refAmountMismatch':
           'Částka doplatku neodpovídá výpočtu serveru. Načtěte rezervaci znovu a zkuste to znovu.',
       'cardDeclinedTitle': 'Platba kartou zamítnuta',
@@ -329,6 +332,8 @@ class PaymentErrorMapper {
           'This booking cannot be edited from this account. Please sign in with the account that created it.',
       'refStale':
           'The booking has changed in the meantime (another device or the website). Please reload it and repeat the change.',
+      'refActivePickupTimeLocked':
+          'The motorcycle has already been picked up — the pickup time can no longer be changed.',
       'refAmountMismatch':
           'The surcharge amount does not match the server calculation. Reload the booking and try again.',
       'cardDeclinedTitle': 'Card payment declined',
@@ -399,6 +404,8 @@ class PaymentErrorMapper {
           'Diese Buchung kann mit diesem Konto nicht bearbeitet werden. Bitte melden Sie sich mit dem Konto an, mit dem sie erstellt wurde.',
       'refStale':
           'Die Buchung hat sich inzwischen geändert (anderes Gerät oder Website). Bitte laden Sie sie neu und wiederholen Sie die Änderung.',
+      'refActivePickupTimeLocked':
+          'Das Motorrad wurde bereits abgeholt — die Abholzeit kann nicht mehr geändert werden.',
       'refAmountMismatch':
           'Der Nachzahlungsbetrag stimmt nicht mit der Serverberechnung überein. Laden Sie die Buchung neu und versuchen Sie es erneut.',
       'cardDeclinedTitle': 'Kartenzahlung abgelehnt',

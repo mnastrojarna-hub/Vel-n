@@ -189,7 +189,8 @@ async def test_state_and_static(env):
               "logo.svg", "logo-light.svg", "logo-icon.svg",
               "i18n-handover.js", "signature.js", "handover.js", "style-handover.css",
               "i18n-locker.js",           # 2026-09-29 výzva „nejdřív kód šatny“
-              "i18n-odometer.js", "odometer.js", "style-odometer.css"):   # 2026-09-29 stav tachometru při vrácení
+              "i18n-odometer.js", "odometer.js", "style-odometer.css",    # 2026-09-29 stav tachometru při vrácení
+              "i18n-pickup.js"):          # 2026-10-01 výdej až od 12:00 (§31)
         assert (await client.get(f"/static/{f}")).status == 200, f
     assert (await client.get("/static/../config.py")).status in (403, 404)
     r = await client.get("/api/neexistuje")
@@ -223,6 +224,7 @@ async def test_pin_with_odometer(env):
     r = await client.get("/")
     html = await r.text()
     assert 'id="odometer"' in html and html.index("i18n-locker.js") < html.index("i18n-odometer.js") < html.index("keyboard.js")
+    assert html.index("i18n-odometer.js") < html.index("i18n-pickup.js") < html.index("keyboard.js")   # §31
     assert html.index("/static/handover.js") < html.index("/static/odometer.js") < html.index("/static/app.js")
 
 

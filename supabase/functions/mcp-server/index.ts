@@ -128,7 +128,7 @@ const TOOLS = [
         customer_email: { type: 'string', format: 'email' },
         customer_phone: { type: 'string' },
         license_group: { type: 'string', enum: ['AM','A1','A2','A','B','N'] },
-        pickup_time: { type: 'string', description: 'HH:MM' },
+        pickup_time: { type: 'string', description: 'HH:MM, default 10:00. Pickup from 12:00 on a 2+ day rental = 50 % off the 1st day; at a self-service branch such a booking is released by the kiosk only from 12:00 on the start day.' },
         delivery_address: { type: 'string', description: 'Optional — delivery anywhere in CZ' },
         return_address: { type: 'string', description: 'Optional — return at different location' },
         extras: { type: 'array', items: { type: 'object' } },
@@ -281,8 +281,10 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
 
     case 'motogo_create_booking': {
       const a = args as Record<string, unknown>
-      // Parita s webem/appkou: samoobsluha na pobočce bez času → 00:01/23:59
-      // (bez slevy za pozdní vyzvednutí, kterou by dal výchozí čas 12:00).
+      // Parita s webem/appkou (zadání 2026-10-01 večer): čas vyzvednutí se volí
+      // u všech poboček (řídí slevu za vyzvednutí od 12:00), výchozí 10:00 —
+      // NIKDY 12:00 (dala by slevu a u samoobsluhy výdej až od 12:00).
+      // Vrácení na samoobslužné pobočce bez času → 23:59.
       const { data: mb } = await sb.from('motorcycles').select('branches(type)').eq('id', a.moto_id).maybeSingle()
       const ssBranch = ((mb as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.type === 'samoobslužná'
       const { data, error } = await sb.rpc('create_web_booking', {
@@ -290,7 +292,7 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
         p_name: a.customer_name, p_email: a.customer_email, p_phone: a.customer_phone,
         p_street: a.street ?? '', p_city: a.city ?? '', p_zip: a.zip ?? '', p_country: a.country ?? 'CZ',
         p_note: a.note ?? null,
-        p_pickup_time: (ssBranch && !a.delivery_address) ? '00:01' : (a.pickup_time ?? '12:00'),
+        p_pickup_time: a.pickup_time ?? '10:00',
         p_delivery_address: a.delivery_address ?? null,
         p_return_address: a.return_address ?? null,
         p_extras: a.extras ?? [],

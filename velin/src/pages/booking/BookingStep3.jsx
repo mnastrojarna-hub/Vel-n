@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Button from '../../components/ui/Button'
-import { latePickupDiscount, LATE_PICKUP_LABEL, LATE_PICKUP_HINT } from '../../lib/latePickup'
+import { latePickupDiscount, LATE_PICKUP_LABEL, LATE_PICKUP_HINT, LATE_PICKUP_KIOSK_HINT, SELF_SERVICE_BRANCH_TYPE } from '../../lib/latePickup'
 
 function fmtDate(d) { return d ? d.toLocaleDateString('cs-CZ') : '—' }
 
@@ -65,6 +65,9 @@ export default function BookingStep3({ selectedMoto, startDate, endDate, days, t
             className="w-full rounded-btn text-sm outline-none"
             style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
           <p className="text-sm mt-1" style={{ color: '#4a6357' }}>🌗 {LATE_PICKUP_HINT}</p>
+          {lateDiscount > 0 && selectedMoto?.branch_type === SELF_SERVICE_BRANCH_TYPE && (
+            <p className="text-sm mt-1 font-bold" style={{ color: '#92400e' }}>🔒 {LATE_PICKUP_KIOSK_HINT}</p>
+          )}
 
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1 mt-4" style={{ color: '#1a2e22' }}>Poznámka</label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}

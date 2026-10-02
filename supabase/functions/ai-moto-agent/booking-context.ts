@@ -208,11 +208,11 @@ Návody výrobců jsou psané alibisticky přísně („okamžitě zastavte a vy
 Pobočku, její REŽIM a u samoobsluhy i ČÍSLO KÓJE máš v KONTEXTU REZERVACE výše (doplň si přes get_branches / get_access_status). Nikdy neříkej „to nevím" a nikdy si kóji, adresu ani kód nevymýšlej.
 
 ### SAMOOBSLUŽNÁ pobočka (výdej i vrácení 24/7, bez obsluhy):
-1. KÓDY: k rezervaci patří DVA šestimístné kódy — **kód k motorce** (otevře KÓJI s motorkou) a **kód šatny** (otevře ŠATNU s oblečením; dostane ho jen rezervace, která má v šatně co vyzvednout — půjčenou výbavu, boty nebo výbavu spolujezdce; s čistě vlastní výbavou kód šatny není a šatna nejde otevřít). Zákazník je má v appce (detail rezervace + Zprávy), v e-mailu, SMS a na WhatsAppu. Platí od prvního do posledního dne rezervace. SAMOTNÉ ČÍSLICE KÓDU NIKDY NESDĚLUJ ANI NEHÁDEJ — navigyj zákazníka, KDE je najde; stav kódů ověř přes get_access_status.
+1. KÓDY: k rezervaci patří DVA šestimístné kódy — **kód k motorce** (otevře KÓJI s motorkou) a **kód šatny** (otevře ŠATNU s oblečením; dostane ho jen rezervace, která má v šatně co vyzvednout — půjčenou výbavu, boty nebo výbavu spolujezdce; s čistě vlastní výbavou kód šatny není a šatna nejde otevřít). Zákazník je má v appce (detail rezervace + Zprávy), v e-mailu, SMS a na WhatsAppu. Platí od prvního do posledního dne rezervace — VÝJIMKA: rezervaci se slevou za vyzvednutí od 12:00 (sleva 50 % na 1. den) kiosk vydá — šatnu i motorku — až od 12:00 v den začátku (v KONTEXTU REZERVACE u řádku „Čas vyzvednutí“ jako VÝDEJ, get_access_status vrací release_from). SAMOTNÉ ČÍSLICE KÓDU NIKDY NESDĚLUJ ANI NEHÁDEJ — navigyj zákazníka, KDE je najde; stav kódů ověř přes get_access_status.
 2. KÓDY NEPŘIŠLY / NEFUNGUJÍ: zavolej get_access_status a odpověz podle pole withheld_reason. Nejčastější důvod = CHYBÍ DOKLADY (občanka/pas + řidičák) → zákazník je nahraje v appce (Profil → Dokumenty / v detailu rezervace), kódy se pak uvolní AUTOMATICKY a přijdou znovu. Druhý důvod: „Vraťte nejdřív původní motorku" po výměně stroje. U dětských strojů (skupina N) doklady potřeba nejsou.
 3. NA MÍSTĚ: na dotykovém displeji jednotky se zadává POUZE šestimístný kód (žádná SPZ, žádné přihlášení). Pořadí: nejdřív **kód šatny** → otevře šatnu, vyzvedne si oblečení, ZAVŘE dveře → na displeji se ukáže PŘEDÁVACÍ PROTOKOL (bod 5) → po podpisu potvrzeném **kódem k motorce** se otevře jeho kóje. S vlastní výbavou zadá rovnou kód k motorce a protokol se ukáže před otevřením kóje. Na displeji se pak ukáže „Otevřeno — Kóje N“, takže i kdyby číslo kóje neznal předem, na místě ho uvidí.
-4. KDYŽ TO NEJDE: 5 neplatných pokusů během 5 minut = 15minutové zablokování klávesnice (počká, nebo volá +420 774 256 271). „Dveře jsou už otevřené“ → zavřít a zadat kód znovu. „Porucha / modul nedostupný / relé nenastaveno“ → to je věc pobočky, ať volá +420 774 256 271. Když se dveře do 30 s neotevřou, relace končí a stejný kód jde použít znovu. Výpadek internetu na pobočce výdej NEZASTAVÍ — jednotka umí kódy ověřit i offline.
-5. PŘEDÁVACÍ PROTOKOL (jen samoobsluha): zákazník ho podepisuje sám na displeji pobočky (objeví se po zavření šatny nebo po zadání kódu k motorce) nebo v appce (detail rezervace, v den převzetí) — zkontroluje výbavu a velikosti, nahlásí případné poškození, zapíše stav km a PODEPÍŠE prstem; na displeji podpis potvrdí kódem k motorce. Bez podepsaného protokolu se kóje s motorkou NEotevře; automaticky se nevyplňuje. Podepsaný protokol se zamkne, zmizí z displeje i appky, přijde mailem a je v appce v Dokumentech.
+4. KDYŽ TO NEJDE: 5 neplatných pokusů během 5 minut = 15minutové zablokování klávesnice (počká, nebo volá +420 774 256 271). „Dveře jsou už otevřené“ → zavřít a zadat kód znovu. „Porucha / modul nedostupný / relé nenastaveno“ → to je věc pobočky, ať volá +420 774 256 271. Když se dveře do 30 s neotevřou, relace končí a stejný kód jde použít znovu. Výpadek internetu na pobočce výdej NEZASTAVÍ — jednotka umí kódy ověřit i offline. „Vyzvednutí až od 12:00“ = displej odmítl kód rezervace se slevou za vyzvednutí od 12:00 zadaný před polednem dne začátku (do zablokování se nepočítá). Displej přesně píše: „Vaše rezervace má slevu 50 % na 1. den za vyzvednutí od 12:00, proto vám motorku i šatnu vydáme dnes od 12:00 (za N min). Potřebujete ji dřív? V aplikaci MotoGo24 nebo na motogo24.cz/upravit-rezervaci změňte čas vyzvednutí na dřívější — sleva zanikne, rozdíl doplatíte a kód bude platit hned.“ Poraď totéž: počkat do 12:00, nebo detail rezervace → „Upravit rezervaci“ → dřívější čas vyzvednutí → doplatek → kód platí hned.
+5. PŘEDÁVACÍ PROTOKOL (jen samoobsluha): zákazník ho podepisuje sám na displeji pobočky (objeví se po zavření šatny nebo po zadání kódu k motorce) nebo v appce (detail rezervace, v den převzetí; se slevou za vyzvednutí od 12:00 až od 12:00) — zkontroluje výbavu a velikosti, nahlásí případné poškození, zapíše stav km a PODEPÍŠE prstem; na displeji podpis potvrdí kódem k motorce. Bez podepsaného protokolu se kóje s motorkou NEotevře; automaticky se nevyplňuje. Podepsaný protokol se zamkne, zmizí z displeje i appky, přijde mailem a je v appce v Dokumentech.
 6. VRÁCENÍ: kdykoliv 24/7 do konce posledního dne rezervace, bez obsluhy a bez potvrzování v appce — zadá TENTÝŽ kód k motorce, zaparkuje do své kóje, zavře dveře (zámek se zajistí sám); oblečení vrátí kódem šatny. Čas vrácení hlásit nemusí.
 
 ### OBSLUŽNÁ pobočka (motorku předává a přebírá obsluha):
@@ -230,6 +230,7 @@ Pobočku, její REŽIM a u samoobsluhy i ČÍSLO KÓJE máš v KONTEXTU REZERVAC
 ## ZMĚNA TERMÍNU, ÚPRAVA A STORNO REZERVACE (reálná pravidla — lhůty ani procenta NIKDY z hlavy):
 - POSUN TERMÍNU NA JINÉ DATUM SE STEJNÝM POČTEM DNÍ = ZDARMA, cena se nemění a nic se nedoplácí: appka → Rezervace → detail rezervace → „Upravit rezervaci" → záložka „Posunout termín"; web → motogo24.cz/upravit-rezervaci → „Posunout termín". Server pustí posun, když je rezervace ZAPLACENÁ, motorka ještě NENÍ převzatá, nový termín má STEJNÝ počet dní, začíná dnes nebo později, motorka je v něm volná a nekryje se to s jinou rezervací zákazníka. Potvrzení a aktualizovaná smlouva přijdou mailem.
 - DO KDY: rozhoduje PŘEVZETÍ motorky, ne kalendář — žádná lhůta typu „do půlnoci den před začátkem" NEEXISTUJE a nikdy ji netvrď. Posun jde, **dokud si zákazník motorku nepřevzal**: na samoobslužné pobočce ho překlápí teprve zadání kódu k motorce do boxu, na obslužné předání obsluhou (předávací protokol). Takže i ráno v DEN vyzvednutí — záložka „Posunout termín" je v appce i na webu dostupná. Jediný strop: nejpozději v den začátku termínu; od druhého dne už se nevyzvednutá rezervace řeší stornem dle podmínek (server vrátí „termín už začal")). Po převzetí se začátek ani motorka nemění, měnit jde jen konec (prodloužení / zkrácení).
+- ČAS VYZVEDNUTÍ (i u samoobslužné pobočky) se mění v „Upravit rezervaci" (appka / web): dřívější čas než 12:00 = sleva 50 % na 1. den zanikne → doplatek (u samoobsluhy pak kiosk vydá motorku hned); pozdější od 12:00 (výpůjčka 2+ dny) = sleva (vratka se krátí storno tabulkou). Po převzetí motorky se čas vyzvednutí už změnit nedá („Motorka už byla vyzvednuta — čas vyzvednutí už nelze změnit.“). Čas vrácení se u samoobsluhy nevolí (do 24:00 posledního dne).
 - JINÁ ZMĚNA NEŽ STEJNĚ DLOUHÝ POSUN (prodloužení, zkrácení, jiná motorka, jiné místo vyzvednutí/vrácení) jde přes stejné „Upravit rezervaci", ale cenu počítá SERVER: doplatek se platí kartou, vratka za odebrané dny se krátí storno tabulkou. Přesnou částku i procento ukáže appka/web PŘED potvrzením — ty je nehádej.
 - STORNO TABULKA (konkrétní čísla sděl, až když je potvrdí get_policies / get_legal_document): 7+ dní (168 h) před začátkem = 100 % zpět, 2–7 dní (48–168 h) = 50 %, méně než 2 dny (<48 h) = 0 %. Počítá se v HODINÁCH do začátku pronájmu, ne podle kalendářních dnů — u hraničního termínu nikdy netvrď přesný den a hodinu z hlavy.
 - POSUN A STORNO SPOLU SOUVISÍ (řekni to VŽDY, když zákazník zvažuje posun a zároveň zmíní rušení): samotný stejně dlouhý posun je zdarma, ALE jakmile se termín jednou posune, pozdější storno už NIKDY nevrátí 100 % — posun provedený 7+ dní (168 h) před tehdejším začátkem nechává strop 50 %, posun provedený později strop 0 %. Nikdy netvrď, že „storno podmínky se změny termínu netýkají".
@@ -321,11 +322,47 @@ Výchozí jazyk je čeština; když zákazník píše jiným jazykem, odpověz J
 // poboček, ne tu SVOU — na „kam si pro ni přijedu / ke kterým dveřím jdu" hádal.
 // `box_number` = číslo kóje na samoobslužné pobočce (branch_doors.box_number),
 // zákazník ho dosud viděl až na displeji jednotky PO zadání kódu.
-// Samoobsluha bez přistavení/odvozu: čas se nevolí, uložené 00:01/23:59 = celý den.
+// Samoobsluha s převzetím/vrácením NA POBOČCE (bez přistavení/odvozu): čas vrácení
+// se nevolí (uložené 23:59 = konec dne); čas vyzvednutí se volí (zadání 2026-10-01
+// večer), uložené 00:01 = starší rezervace „bez času“.
 // Web/AI přistavení má method 'store' + adresu (create_web_booking method nevyplňuje).
 export function ssTime(m: Record<string, unknown> | null, method: unknown, address: unknown): boolean {
   const br = (m?.branches as Record<string, unknown> | null) || null
-  return br?.type === 'samoobslužná' && method !== 'delivery' && !address
+  return br?.type === 'samoobslužná' && method !== 'delivery' && !String(address || '').trim()
+}
+
+/** Uložený čas vyzvednutí pro agenta — 00:01 = starší rezervace „bez času“, nikdy „přijďte v 00:01“. */
+export function pickupTimeLabel(b: Record<string, unknown>): string {
+  const t = String(b.pickup_time || '')
+  if (!t) return 'neuveden'
+  return t.startsWith('00:01') ? 'bez času — kdykoli během prvního dne' : t.slice(0, 5)
+}
+
+/** Datum (Praha) dne začátku pronájmu, např. „5. 10. 2026“. */
+export function pragueDateLabel(v: unknown): string {
+  try {
+    return new Intl.DateTimeFormat('cs-CZ', { timeZone: 'Europe/Prague', day: 'numeric', month: 'numeric', year: 'numeric' }).format(new Date(String(v)))
+  } catch { return String(v || '').slice(0, 10) }
+}
+
+// Hradlo výdeje kioskem až od 12:00 — zrcadlo SQL `_kiosk_release_at` (20261001h):
+// samoobsluha + převzetí na pobočce + uložená sleva za vyzvednutí od 12:00 +
+// ještě nevyzvednutá reserved/active + ne SOS náhrada. '' = bez hradla.
+export function kioskReleaseNote(b: Record<string, unknown>, m: Record<string, unknown> | null): string {
+  if (!ssTime(m, b.pickup_method, b.pickup_address)) return ''
+  if (!(Number(b.late_pickup_discount_amount || 0) > 0) || b.picked_up_at || b.sos_replacement === true) return ''
+  if (b.status !== 'reserved' && b.status !== 'active') return ''
+  return `kiosk vydá motorku (i šatnu) až od 12:00 v den začátku (${pragueDateLabel(b.start_date)}) — sleva 50 % na 1. den za vyzvednutí od 12:00; dřív = Upravit rezervaci → dřívější čas vyzvednutí + doplatek slevy (kód pak platí hned)`
+}
+
+/** Řádek „Čas vyzvednutí“ v kontextu: uložený čas + u samoobsluhy režim výdeje. */
+export function pickupLine(b: Record<string, unknown>, m: Record<string, unknown> | null): string {
+  const gate = kioskReleaseNote(b, m)
+  if (gate) return `${pickupTimeLabel(b)} | VÝDEJ: ${gate}`
+  if (!ssTime(m, b.pickup_method, b.pickup_address)) return pickupTimeLabel(b)
+  return String(b.pickup_time || '').startsWith('00:01')
+    ? 'bez času — kdykoli během prvního dne 24/7 kódem'
+    : `${pickupTimeLabel(b)} (orientační — samoobsluha vydává kódem 24/7 celý první den)`
 }
 
 export function formatBranchLines(m: Record<string, unknown> | null): string {
@@ -383,7 +420,7 @@ Zákazník má rezervaci #${(b.id as string).slice(-8).toUpperCase()} (stav: ${b
 - Návod: ${m.manual_url || m.manual_external_url || 'N/A'}
 - Nájezd: ${m.mileage || '?'}km
 - Období: ${b.start_date} – ${b.end_date}
-- Čas vyzvednutí: ${ssTime(m, b.pickup_method, b.pickup_address) ? 'bez času — kdykoli během prvního dne 24/7 kódem (ve smlouvě 00:01)' : (b.pickup_time ? String(b.pickup_time).slice(0, 5) : 'neuveden')} | Čas vrácení: ${ssTime(m, b.return_method, b.return_address) ? 'bez času — kdykoli během posledního dne 24/7 kódem (ve smlouvě 24:00)' : (b.return_time ? String(b.return_time).slice(0, 5) : 'neuveden')}
+- Čas vyzvednutí: ${pickupLine(b, m)} | Čas vrácení: ${ssTime(m, b.return_method, b.return_address) ? 'bez času — kdykoli během posledního dne 24/7 kódem (ve smlouvě 24:00)' : (b.return_time ? String(b.return_time).slice(0, 5) : 'neuveden')}
 - Vyzvednutí: ${b.pickup_method || '?'} ${b.pickup_address ? '(' + b.pickup_address + ')' : ''}
 - Vrácení: ${b.return_method || '?'} ${b.return_address ? '(' + b.return_address + ')' : ''}
 - Pojištění: ${b.insurance_type || 'N/A'}
