@@ -1,24 +1,21 @@
 // ===== webhook-receiver/payment-confirmers.ts =====
 // Payment confirmation functions for booking, shop, SOS + financial event ingestion
-
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
-
-/** Download file from Supabase Storage and return as base64 */
-async function downloadAsBase64(supabase: ReturnType<typeof createClient>, path: string): Promise<string | null> {
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz';
+/** Download file from Supabase Storage and return as base64 */ async function downloadAsBase64(supabase, path) {
   try {
-    const { data } = await supabase.storage.from('documents').download(path)
-    if (!data) return null
-    const bytes = new Uint8Array(await data.arrayBuffer())
-    return btoa(Array.from(bytes, (b: number) => String.fromCharCode(b)).join(''))
-  } catch { return null }
+    const { data } = await supabase.storage.from('documents').download(path);
+    if (!data) return null;
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    return btoa(Array.from(bytes, (b)=>String.fromCharCode(b)).join(''));
+  } catch  {
+    return null;
+  }
 }
-
-/** Generate a styled HTML gift voucher document */
-function generateVoucherHtml(code: string, amount: number, validUntil: string, buyerName: string): string {
-  const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
-  const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 0 })
+/** Generate a styled HTML gift voucher document */ function generateVoucherHtml(code, amount, validUntil, buyerName) {
+  const fmtDate = (d)=>d ? new Date(d).toLocaleDateString('cs-CZ') : '—';
+  const fmtPrice = (n)=>(n || 0).toLocaleString('cs-CZ', {
+      minimumFractionDigits: 0
+    });
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Dárkový poukaz ${code}</title></head>
 <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#d9dee2;color:#0f1a14">
 <div style="max-width:780px;margin:0 auto;background:#ffffff">
@@ -69,23 +66,15 @@ function generateVoucherHtml(code: string, amount: number, validUntil: string, b
       </td>
     </tr></table>
   </div>
-</div></body></html>`
+</div></body></html>`;
 }
-
 /** Confirm booking payment via existing RPC.
  *  `suppressMail=true` (doplatková extension platba): potvrď platbu + ulož PI,
  *  ale NIKDY neposílej booking_reserved mail — booking po předchozí vratkové
  *  úpravě je `partial_refund`, confirm_payment ho přepne zpět na `paid` s
  *  was_already_paid=false a bez tohoto flagu by zákazník dostal druhý
  *  „rezervace potvrzena" mail. Správný mail (web_/booking_modified) posílá
- *  trigger trg_send_booking_modified_email po aplikaci změny. */
-export async function confirmBookingPayment(
-  supabase: ReturnType<typeof createClient>,
-  bookingId: string,
-  transactionId: string,
-  stripePaymentIntentId?: string | null,
-  suppressMail = false
-) {
+ *  trigger trg_send_booking_modified_email po aplikaci změny. */ export async function confirmBookingPayment(supabase, bookingId, transactionId, stripePaymentIntentId, suppressMail = false) {
   try {
     // ── ATOMIC dedup: confirm_payment RPC interně dělá UPDATE WHERE payment_status != 'paid'
     //    RETURNING — jen JEDNA paralelní Stripe webhook session získá was_already_paid=false,
@@ -94,101 +83,107 @@ export async function confirmBookingPayment(
     //    Stará SELECT-then-RPC dedup byla race-prone (oba SELECTy viděly 'unpaid' před UPDATE).
     const { data, error } = await supabase.rpc('confirm_payment', {
       p_booking_id: bookingId,
-      p_method: 'card',
-    })
-
-    const wasAlreadyPaid = !!(data as Record<string, unknown> | null)?.was_already_paid
+      p_method: 'card'
+    });
+    const wasAlreadyPaid = !!data?.was_already_paid;
     if (wasAlreadyPaid) {
-      console.log(`[confirmBookingPayment] Booking ${bookingId} already paid — duplicate Stripe event, skipping mail/docs`)
+      console.log(`[confirmBookingPayment] Booking ${bookingId} already paid — duplicate Stripe event, skipping mail/docs`);
       if (stripePaymentIntentId) {
-        try { await supabase.from('bookings').update({ stripe_payment_intent_id: stripePaymentIntentId, stripe_session_id: transactionId }).eq('id', bookingId).is('stripe_payment_intent_id', null) } catch {}
+        try {
+          await supabase.from('bookings').update({
+            stripe_payment_intent_id: stripePaymentIntentId,
+            stripe_session_id: transactionId
+          }).eq('id', bookingId).is('stripe_payment_intent_id', null);
+        } catch  {}
       }
       try {
         await supabase.from('debug_log').insert({
-          source: 'webhook-receiver', action: 'confirm_booking_payment_duplicate_skip',
-          component: 'stripe', status: 'ok',
-          request_data: { booking_id: bookingId, transaction_id: transactionId },
-        })
-      } catch { /* ignore */ }
-      return
+          source: 'webhook-receiver',
+          action: 'confirm_booking_payment_duplicate_skip',
+          component: 'stripe',
+          status: 'ok',
+          request_data: {
+            booking_id: bookingId,
+            transaction_id: transactionId
+          }
+        });
+      } catch  {}
+      return;
     }
-
     try {
       await supabase.from('debug_log').insert({
         source: 'webhook-receiver',
         action: 'confirm_booking_payment',
         component: 'stripe',
         status: error ? 'error' : 'ok',
-        request_data: { booking_id: bookingId, transaction_id: transactionId },
+        request_data: {
+          booking_id: bookingId,
+          transaction_id: transactionId
+        },
         response_data: data,
-        error_message: error?.message || null,
-      })
-    } catch (e) { /* ignore */ }
-
+        error_message: error?.message || null
+      });
+    } catch (e) {}
     if (error) {
-      console.error('confirm_payment RPC failed:', error.message)
-      const { data: bk } = await supabase.from('bookings')
-        .select('start_date')
-        .eq('id', bookingId)
-        .single()
-      const today = new Date().toISOString().slice(0, 10)
-      const startDate = bk?.start_date || today
-      const isToday = startDate <= today
-      await supabase.from('bookings')
-        .update({
-          payment_status: 'paid',
-          payment_method: 'card',
-          status: isToday ? 'active' : 'reserved',
-          ...(isToday
-            ? { picked_up_at: new Date().toISOString() }
-            : { confirmed_at: new Date().toISOString() }),
-        })
-        .eq('id', bookingId)
+      console.error('confirm_payment RPC failed:', error.message);
+      const { data: bk } = await supabase.from('bookings').select('start_date').eq('id', bookingId).single();
+      const today = new Date().toISOString().slice(0, 10);
+      const startDate = bk?.start_date || today;
+      const isToday = startDate <= today;
+      await supabase.from('bookings').update({
+        payment_status: 'paid',
+        payment_method: 'card',
+        status: isToday ? 'active' : 'reserved',
+        ...isToday ? {
+          picked_up_at: new Date().toISOString()
+        } : {
+          confirmed_at: new Date().toISOString()
+        }
+      }).eq('id', bookingId);
     }
-
     // Save Stripe IDs for future refunds
     if (stripePaymentIntentId) {
       try {
-        await supabase.from('bookings')
-          .update({
-            stripe_payment_intent_id: stripePaymentIntentId,
-            stripe_session_id: transactionId,
-          })
-          .eq('id', bookingId)
-      } catch (e) { /* ignore */ }
+        await supabase.from('bookings').update({
+          stripe_payment_intent_id: stripePaymentIntentId,
+          stripe_session_id: transactionId
+        }).eq('id', bookingId);
+      } catch (e) {}
     }
-
     // Doplatková extension platba → mail booking_reserved se neposílá (viz docblock).
     if (suppressMail) {
       try {
         await supabase.from('debug_log').insert({
-          source: 'webhook-receiver', action: 'confirm_booking_payment_extension_no_mail',
-          component: 'stripe', status: 'ok',
-          request_data: { booking_id: bookingId, transaction_id: transactionId },
-        })
-      } catch { /* ignore */ }
-      return
+          source: 'webhook-receiver',
+          action: 'confirm_booking_payment_extension_no_mail',
+          component: 'stripe',
+          status: 'ok',
+          request_data: {
+            booking_id: bookingId,
+            transaction_id: transactionId
+          }
+        });
+      } catch  {}
+      return;
     }
-
     // Auto-generate documents + send confirmation email with attachments (best-effort)
     try {
-      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
-      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
-
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SERVICE_KEY}`,
+        'apikey': SERVICE_KEY
+      };
       // Přílohy mailu (ZF, DP, smlouva, VOP) — řídí Velín DB šablona `email_templates.attachments`
       // (etalon). send-booking-email si je vyzvedne / vygeneruje sám přes autoGenerateAttachments
       // synth typy. webhook-receiver už nepředgeneruje dokumenty, aby nevznikla duplicita
       // s odlišnými filename a aby admin v UI viděl JEDINOU pravdu o tom, co se posílá.
-      const { data: booking } = await supabase.from('bookings')
-        .select('booking_source, user_id, moto_id, start_date, end_date, total_price, motorcycles!moto_id(model, manual_url), profiles(full_name, email)')
-        .eq('id', bookingId).single()
-
-      const profile = (booking?.profiles ?? null) as { full_name?: string; email?: string } | null
+      const { data: booking } = await supabase.from('bookings').select('booking_source, user_id, moto_id, start_date, end_date, total_price, motorcycles!moto_id(model, manual_url), profiles(full_name, email)').eq('id', bookingId).single();
+      const profile = booking?.profiles ?? null;
       if (profile?.email) {
-        const source = booking.booking_source || 'app'
-        const moto = booking.motorcycles as { model?: string; manual_url?: string } | null
-
+        const source = booking.booking_source || 'app';
+        const moto = booking.motorcycles;
         // NOVÝ FLOW (WEB, platba PŘED doklady): rozhodni podle stavu dokladů při platbě.
         //  • Doklady OK (přihlášený zákazník s ověřenými doklady) → pošli KOMPLETNÍ
         //    `web_booking_reserved` (ZF+DP+VOP+Smlouva+kódy) jako dřív.
@@ -196,22 +191,25 @@ export async function confirmBookingPayment(
         //    (ZF+DP); Smlouva+VOP+kódy dorazí po naskenování dokladů (reserved cron).
         // APP: vždy `booking_reserved` (beze změny). Bez tohoto rozhodnutí by se smlouva
         // buď generovala s prázdnými čísly (nový), nebo by přihlášený nedostal komplet.
-        let mailType = 'booking_reserved'
+        let mailType = 'booking_reserved';
         if (source === 'web') {
-          let docsOk = false
+          let docsOk = false;
           try {
             const { data: ds } = await supabase.rpc('check_booking_docs_status', {
               p_user_id: booking.user_id,
               p_end_date: String(booking.end_date || '').slice(0, 10),
-              p_moto_id: booking.moto_id,
-            })
-            docsOk = (ds === null || ds === undefined)
-          } catch { docsOk = false }
-          mailType = docsOk ? 'booking_reserved' : 'invoice_payment_receipt'
+              p_moto_id: booking.moto_id
+            });
+            docsOk = ds === null || ds === undefined;
+          } catch  {
+            docsOk = false;
+          }
+          mailType = docsOk ? 'booking_reserved' : 'invoice_payment_receipt';
         }
         try {
           const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
-            method: 'POST', headers,
+            method: 'POST',
+            headers,
             body: JSON.stringify({
               type: mailType,
               booking_id: bookingId,
@@ -222,129 +220,145 @@ export async function confirmBookingPayment(
               end_date: booking.end_date,
               total_price: booking.total_price,
               source: source,
-              manual_url: moto?.manual_url || '',
-            }),
-          })
+              manual_url: moto?.manual_url || ''
+            })
+          });
           try {
             await supabase.from('debug_log').insert({
               source: 'webhook-receiver',
               action: resp.ok ? 'payment_receipt_mail_sent' : 'payment_receipt_mail_http_error',
               component: 'send-booking-email',
               status: resp.ok ? 'ok' : 'error',
-              request_data: { booking_id: bookingId, source, http_status: resp.status },
-              error_message: resp.ok ? null : (await resp.text().catch(() => `HTTP ${resp.status}`)),
-            })
-          } catch { /* ignore */ }
+              request_data: {
+                booking_id: bookingId,
+                source,
+                http_status: resp.status
+              },
+              error_message: resp.ok ? null : await resp.text().catch(()=>`HTTP ${resp.status}`)
+            });
+          } catch  {}
         } catch (e) {
           try {
             await supabase.from('debug_log').insert({
-              source: 'webhook-receiver', action: 'payment_receipt_mail_failed',
-              component: 'send-booking-email', status: 'error',
-              request_data: { booking_id: bookingId },
-              error_message: (e as Error).message,
-            })
-          } catch { /* ignore */ }
+              source: 'webhook-receiver',
+              action: 'payment_receipt_mail_failed',
+              component: 'send-booking-email',
+              status: 'error',
+              request_data: {
+                booking_id: bookingId
+              },
+              error_message: e.message
+            });
+          } catch  {}
         }
       } else {
         try {
           await supabase.from('debug_log').insert({
-            source: 'webhook-receiver', action: 'payment_receipt_mail_no_email',
-            component: 'send-booking-email', status: 'warning',
-            request_data: { booking_id: bookingId },
-          })
-        } catch { /* ignore */ }
+            source: 'webhook-receiver',
+            action: 'payment_receipt_mail_no_email',
+            component: 'send-booking-email',
+            status: 'warning',
+            request_data: {
+              booking_id: bookingId
+            }
+          });
+        } catch  {}
       }
     } catch (e) {
       try {
         await supabase.from('debug_log').insert({
-          source: 'webhook-receiver', action: 'payment_receipt_mail_outer_exception',
-          component: 'send-booking-email', status: 'error',
-          request_data: { booking_id: bookingId },
-          error_message: (e as Error).message,
-        })
-      } catch { /* ignore */ }
+          source: 'webhook-receiver',
+          action: 'payment_receipt_mail_outer_exception',
+          component: 'send-booking-email',
+          status: 'error',
+          request_data: {
+            booking_id: bookingId
+          },
+          error_message: e.message
+        });
+      } catch  {}
     }
   } catch (err) {
-    console.error('confirmBookingPayment error:', err)
+    console.error('confirmBookingPayment error:', err);
   }
 }
-
-/** Confirm SOS replacement booking payment */
-export async function confirmSosPayment(
-  supabase: ReturnType<typeof createClient>,
-  bookingId: string,
-  incidentId: string | undefined,
-  transactionId: string,
-  stripePaymentIntentId?: string | null
-) {
+/** Confirm SOS replacement booking payment */ export async function confirmSosPayment(supabase, bookingId, incidentId, transactionId, stripePaymentIntentId) {
   try {
     // ATOMIC dedup: UPDATE WHERE payment_status != 'paid' RETURNING — jen JEDNA Stripe
     // webhook session projde, druhý paralelní event získá prázdný result a skipne.
-    const updateData: Record<string, any> = {
+    const updateData = {
       payment_status: 'paid',
       payment_method: 'card',
       status: 'active',
       confirmed_at: new Date().toISOString(),
-      picked_up_at: new Date().toISOString(),
-    }
+      picked_up_at: new Date().toISOString()
+    };
     if (stripePaymentIntentId) {
-      updateData.stripe_payment_intent_id = stripePaymentIntentId
-      updateData.stripe_session_id = transactionId
+      updateData.stripe_payment_intent_id = stripePaymentIntentId;
+      updateData.stripe_session_id = transactionId;
     }
-    const { data: updatedRows, error } = await supabase.from('bookings')
-      .update(updateData)
-      .eq('id', bookingId)
-      .neq('payment_status', 'paid')
-      .select('id')
-
-    const wasAlreadyPaid = !error && Array.isArray(updatedRows) && updatedRows.length === 0
+    const { data: updatedRows, error } = await supabase.from('bookings').update(updateData).eq('id', bookingId).neq('payment_status', 'paid').select('id');
+    const wasAlreadyPaid = !error && Array.isArray(updatedRows) && updatedRows.length === 0;
     if (wasAlreadyPaid) {
-      console.log(`[confirmSosPayment] Booking ${bookingId} already paid — duplicate Stripe event, skipping mail/docs`)
+      console.log(`[confirmSosPayment] Booking ${bookingId} already paid — duplicate Stripe event, skipping mail/docs`);
       if (stripePaymentIntentId) {
-        try { await supabase.from('bookings').update({ stripe_payment_intent_id: stripePaymentIntentId, stripe_session_id: transactionId }).eq('id', bookingId).is('stripe_payment_intent_id', null) } catch {}
+        try {
+          await supabase.from('bookings').update({
+            stripe_payment_intent_id: stripePaymentIntentId,
+            stripe_session_id: transactionId
+          }).eq('id', bookingId).is('stripe_payment_intent_id', null);
+        } catch  {}
       }
       try {
         await supabase.from('debug_log').insert({
-          source: 'webhook-receiver', action: 'confirm_sos_payment_duplicate_skip',
-          component: 'stripe', status: 'ok',
-          request_data: { booking_id: bookingId, incident_id: incidentId, transaction_id: transactionId },
-        })
-      } catch { /* ignore */ }
-      return
+          source: 'webhook-receiver',
+          action: 'confirm_sos_payment_duplicate_skip',
+          component: 'stripe',
+          status: 'ok',
+          request_data: {
+            booking_id: bookingId,
+            incident_id: incidentId,
+            transaction_id: transactionId
+          }
+        });
+      } catch  {}
+      return;
     }
-
     try {
       await supabase.from('debug_log').insert({
         source: 'webhook-receiver',
         action: 'confirm_sos_payment',
         component: 'stripe',
         status: error ? 'error' : 'ok',
-        request_data: { booking_id: bookingId, incident_id: incidentId, transaction_id: transactionId },
-        error_message: error?.message || null,
-      })
-    } catch (e) { /* ignore */ }
-
+        request_data: {
+          booking_id: bookingId,
+          incident_id: incidentId,
+          transaction_id: transactionId
+        },
+        error_message: error?.message || null
+      });
+    } catch (e) {}
     if (error) {
-      console.error('SOS booking update failed:', error.message)
+      console.error('SOS booking update failed:', error.message);
     }
-
     // SOS booking confirmation email — Velín DB šablona řídí přílohy přes attachments[].
     // send-booking-email si je vyzvedne / vygeneruje sám.
     try {
-      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
-      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
-
-      const { data: booking } = await supabase.from('bookings')
-        .select('booking_source, start_date, end_date, total_price, motorcycles!moto_id(model), profiles(full_name, email)')
-        .eq('id', bookingId).single()
-
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SERVICE_KEY}`,
+        'apikey': SERVICE_KEY
+      };
+      const { data: booking } = await supabase.from('bookings').select('booking_source, start_date, end_date, total_price, motorcycles!moto_id(model), profiles(full_name, email)').eq('id', bookingId).single();
       if (booking?.profiles?.email) {
-        const profile = booking.profiles as { full_name?: string; email?: string }
-        const moto = booking.motorcycles as { model?: string } | null
+        const profile = booking.profiles;
+        const moto = booking.motorcycles;
         try {
           await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
-            method: 'POST', headers,
+            method: 'POST',
+            headers,
             body: JSON.stringify({
               type: 'booking_reserved',
               booking_id: bookingId,
@@ -354,24 +368,19 @@ export async function confirmSosPayment(
               start_date: booking.start_date,
               end_date: booking.end_date,
               total_price: booking.total_price,
-              source: booking.booking_source || 'app',
-            }),
-          })
-        } catch { /* ignore */ }
+              source: booking.booking_source || 'app'
+            })
+          });
+        } catch  {}
       }
-    } catch (e) { console.warn('[confirmSosPayment] mail send failed:', e) }
+    } catch (e) {
+      console.warn('[confirmSosPayment] mail send failed:', e);
+    }
   } catch (err) {
-    console.error('confirmSosPayment error:', err)
+    console.error('confirmSosPayment error:', err);
   }
 }
-
-/** Confirm shop payment via existing RPC */
-export async function confirmShopPayment(
-  supabase: ReturnType<typeof createClient>,
-  orderId: string,
-  transactionId: string,
-  stripePaymentIntentId?: string | null
-) {
+/** Confirm shop payment via existing RPC */ export async function confirmShopPayment(supabase, orderId, transactionId, stripePaymentIntentId) {
   try {
     // RPC vrací { success, was_already_paid, ... }. ATOMIC dedup:
     // UPDATE WHERE payment_status != 'paid' RETURNING — jen JEDNA Stripe webhook
@@ -379,137 +388,150 @@ export async function confirmShopPayment(
     // was_already_paid=true a okamžitě skipne — žádné race condition na mailu.
     const { data, error } = await supabase.rpc('confirm_shop_payment', {
       p_order_id: orderId,
-      p_method: 'card',
-    })
-
-    const wasAlreadyPaid = !!(data as Record<string, unknown> | null)?.was_already_paid
+      p_method: 'card'
+    });
+    const wasAlreadyPaid = !!data?.was_already_paid;
     if (wasAlreadyPaid) {
-      console.log(`[confirmShopPayment] Order ${orderId} already paid — duplicate Stripe event, skipping mail/docs`)
+      console.log(`[confirmShopPayment] Order ${orderId} already paid — duplicate Stripe event, skipping mail/docs`);
       if (stripePaymentIntentId) {
-        try { await supabase.from('shop_orders').update({ stripe_payment_intent_id: stripePaymentIntentId, stripe_session_id: transactionId }).eq('id', orderId).is('stripe_payment_intent_id', null) } catch {}
+        try {
+          await supabase.from('shop_orders').update({
+            stripe_payment_intent_id: stripePaymentIntentId,
+            stripe_session_id: transactionId
+          }).eq('id', orderId).is('stripe_payment_intent_id', null);
+        } catch  {}
       }
       try {
         await supabase.from('debug_log').insert({
-          source: 'webhook-receiver', action: 'confirm_shop_payment_duplicate_skip',
-          component: 'stripe', status: 'ok',
-          request_data: { order_id: orderId, transaction_id: transactionId },
-        })
-      } catch { /* ignore */ }
-      return
+          source: 'webhook-receiver',
+          action: 'confirm_shop_payment_duplicate_skip',
+          component: 'stripe',
+          status: 'ok',
+          request_data: {
+            order_id: orderId,
+            transaction_id: transactionId
+          }
+        });
+      } catch  {}
+      return;
     }
-
     try {
       await supabase.from('debug_log').insert({
         source: 'webhook-receiver',
         action: 'confirm_shop_payment',
         component: 'stripe',
         status: error ? 'error' : 'ok',
-        request_data: { order_id: orderId, transaction_id: transactionId },
+        request_data: {
+          order_id: orderId,
+          transaction_id: transactionId
+        },
         response_data: data,
-        error_message: error?.message || null,
-      })
-    } catch (e) { /* ignore */ }
-
+        error_message: error?.message || null
+      });
+    } catch (e) {}
     if (error) {
-      console.error('confirm_shop_payment RPC failed:', error.message)
+      console.error('confirm_shop_payment RPC failed:', error.message);
       // Direct UPDATE — trigger auto_process_voucher_order should still fire BEFORE UPDATE
       // because OLD.payment_status='pending' a NEW.payment_status='paid'.
-      const { error: directErr } = await supabase.from('shop_orders')
-        .update({ payment_status: 'paid', payment_method: 'card', confirmed_at: new Date().toISOString() })
-        .eq('id', orderId)
+      const { error: directErr } = await supabase.from('shop_orders').update({
+        payment_status: 'paid',
+        payment_method: 'card',
+        confirmed_at: new Date().toISOString()
+      }).eq('id', orderId);
       if (directErr) {
-        console.error('[confirmShopPayment] direct update fallback failed:', directErr.message)
+        console.error('[confirmShopPayment] direct update fallback failed:', directErr.message);
         try {
           await supabase.from('debug_log').insert({
-            source: 'webhook-receiver', action: 'confirm_shop_payment_fallback_failed',
-            component: 'stripe', status: 'error',
-            request_data: { order_id: orderId, transaction_id: transactionId },
-            error_message: directErr.message,
-          })
-        } catch { /* ignore */ }
+            source: 'webhook-receiver',
+            action: 'confirm_shop_payment_fallback_failed',
+            component: 'stripe',
+            status: 'error',
+            request_data: {
+              order_id: orderId,
+              transaction_id: transactionId
+            },
+            error_message: directErr.message
+          });
+        } catch  {}
       }
     }
-
     // Verify trigger ran — if vouchers should exist but don't, kick the trigger manually
     try {
-      const { data: post } = await supabase.from('shop_orders')
-        .select('id, status, payment_status, customer_email, customer_name, order_number')
-        .eq('id', orderId).single()
-      const { data: items } = await supabase.from('shop_order_items')
-        .select('product_name').eq('order_id', orderId)
-      const hasVoucherItem = (items || []).some((it: { product_name?: string }) =>
-        /voucher|poukaz/i.test(String(it.product_name || ''))
-      )
-      const { data: existingVouchers } = await supabase.from('vouchers')
-        .select('id').eq('order_id', orderId).limit(1)
+      const { data: post } = await supabase.from('shop_orders').select('id, status, payment_status, customer_email, customer_name, order_number').eq('id', orderId).single();
+      const { data: items } = await supabase.from('shop_order_items').select('product_name').eq('order_id', orderId);
+      const hasVoucherItem = (items || []).some((it)=>/voucher|poukaz/i.test(String(it.product_name || '')));
+      const { data: existingVouchers } = await supabase.from('vouchers').select('id').eq('order_id', orderId).limit(1);
       if (hasVoucherItem && (!existingVouchers || existingVouchers.length === 0) && post?.payment_status === 'paid') {
         // Trigger se z nějakého důvodu nespustil. Spustíme regen RPC manuálně.
-        await supabase.rpc('regen_voucher_for_order', { p_order_id: orderId })
+        await supabase.rpc('regen_voucher_for_order', {
+          p_order_id: orderId
+        });
         try {
           await supabase.from('debug_log').insert({
-            source: 'webhook-receiver', action: 'regen_voucher_for_order_called',
-            component: 'stripe', status: 'ok',
-            request_data: { order_id: orderId, post_status: post?.status },
-          })
-        } catch { /* ignore */ }
+            source: 'webhook-receiver',
+            action: 'regen_voucher_for_order_called',
+            component: 'stripe',
+            status: 'ok',
+            request_data: {
+              order_id: orderId,
+              post_status: post?.status
+            }
+          });
+        } catch  {}
       }
     } catch (e) {
-      console.warn('[confirmShopPayment] post-confirm voucher verify failed:', e)
+      console.warn('[confirmShopPayment] post-confirm voucher verify failed:', e);
     }
-
     if (stripePaymentIntentId) {
       try {
-        await supabase.from('shop_orders')
-          .update({
-            stripe_payment_intent_id: stripePaymentIntentId,
-            stripe_session_id: transactionId,
-          })
-          .eq('id', orderId)
-      } catch (e) { /* ignore */ }
+        await supabase.from('shop_orders').update({
+          stripe_payment_intent_id: stripePaymentIntentId,
+          stripe_session_id: transactionId
+        }).eq('id', orderId);
+      } catch (e) {}
     }
-
     // --- Send post-payment email ---
     // Pro voucher objednávky pošleme JEN voucher_purchased mail (s DP + HTML voucher přílohami,
     // které si send-booking-email vygeneruje sám přes autoGenerateAttachments).
     // shop_order_confirmed mail pro jiné e-shop produkty řeší DB trigger trg_shop_order_confirmed_email
     // (skipuje voucher objednávky), tady ho neduplikujeme.
     try {
-      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
-      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
-
-      const { data: order } = await supabase.from('shop_orders')
-        .select('customer_name, customer_email, order_number, status, total, notes')
-        .eq('id', orderId).single()
-
-      const { data: vouchers } = await supabase.from('vouchers')
-        .select('code, amount, valid_until')
-        .eq('order_id', orderId)
-
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SERVICE_KEY}`,
+        'apikey': SERVICE_KEY
+      };
+      const { data: order } = await supabase.from('shop_orders').select('customer_name, customer_email, order_number, status, total, notes').eq('id', orderId).single();
+      const { data: vouchers } = await supabase.from('vouchers').select('code, amount, valid_until').eq('order_id', orderId);
       // FV (shop_final) pro elektronický voucher se vygeneruje přes generate-invoice
       // ale email-bound je pro něj voucher_purchased (ne shop_order_shipped) — FV slouží
       // jen jako účetní doklad ve Velínu.
       if (order?.status === 'delivered') {
         try {
           await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-            method: 'POST', headers,
-            body: JSON.stringify({ type: 'shop_final', order_id: orderId, send_email: false }),
-          })
-        } catch { /* ignore */ }
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              type: 'shop_final',
+              order_id: orderId,
+              send_email: false
+            })
+          });
+        } catch  {}
       }
-
       // Voucher objednávka → voucher_purchased mail (bez ručního skládání příloh — edge fn si je vygeneruje).
       // Dedup je řešen atomic přes was_already_paid flag z RPC výše — sem dorazíme jen
       // pro PRVNÍ webhook event, druhý je skipnut na začátku confirmShopPayment.
       if (order?.customer_email && vouchers && vouchers.length > 0) {
-        const orderNum = order.order_number || orderId.slice(-8).toUpperCase()
-        const firstVoucher = vouchers[0] as { code: string; amount: number; valid_until: string }
-        const allCodes = vouchers
-          .map((v: { code: string; amount: number }) => `${v.code} (${v.amount} Kč)`)
-          .join(', ')
+        const orderNum = order.order_number || orderId.slice(-8).toUpperCase();
+        const firstVoucher = vouchers[0];
+        const allCodes = vouchers.map((v)=>`${v.code} (${v.amount} Kč)`).join(', ');
         try {
           await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
-            method: 'POST', headers,
+            method: 'POST',
+            headers,
             body: JSON.stringify({
               type: 'voucher_purchased',
               customer_email: order.customer_email,
@@ -519,68 +541,38 @@ export async function confirmShopPayment(
               voucher_expiry: firstVoucher.valid_until,
               order_number: orderNum,
               order_id: orderId,
-              source: 'web',
-            }),
-          })
-        } catch (e) { console.warn('[confirmShopPayment] voucher email failed:', e) }
+              source: 'web'
+            })
+          });
+        } catch (e) {
+          console.warn('[confirmShopPayment] voucher email failed:', e);
+        }
       }
-    } catch (e) { console.warn('[confirmShopPayment] post-payment processing failed:', e) }
+    } catch (e) {
+      console.warn('[confirmShopPayment] post-payment processing failed:', e);
+    }
   } catch (err) {
-    console.error('confirmShopPayment error:', err)
+    console.error('confirmShopPayment error:', err);
   }
 }
-
-/** Idempotent insert into financial_events */
-export async function ingestFinancialEvent(
-  supabase: ReturnType<typeof createClient>,
-  eventData: {
-    event_type: string
-    source: string
-    amount_czk: number
-    vat_rate: number
-    duzp: string
-    linked_entity_type: string | null
-    linked_entity_id: string | null
-    confidence_score: number
-    status: string
-    metadata: Record<string, any>
-  }
-) {
+/** Idempotent insert into financial_events */ export async function ingestFinancialEvent(supabase, eventData) {
   try {
     // stripe_refund_id má přednost: na jednom charge může být VÍC vratek
     // (částečná úprava + pozdější storno) — dedup přes stripe_charge_id druhou
     // a další vratku tiše zahodil (incident #DDC5A69D: vratka 1 143 Kč chyběla
     // ve financial_events). Refund eventy nesou stripe_refund_id od 2026-08-12.
-    const stripeId = eventData.metadata.stripe_refund_id
-      || eventData.metadata.stripe_payment_intent_id
-      || eventData.metadata.stripe_charge_id
-      || eventData.metadata.stripe_payout_id
-
+    const stripeId = eventData.metadata.stripe_refund_id || eventData.metadata.stripe_payment_intent_id || eventData.metadata.stripe_charge_id || eventData.metadata.stripe_payout_id;
     if (stripeId) {
-      const idempotencyKey = eventData.metadata.stripe_refund_id
-        ? 'stripe_refund_id'
-        : eventData.metadata.stripe_payment_intent_id
-          ? 'stripe_payment_intent_id'
-          : eventData.metadata.stripe_charge_id
-            ? 'stripe_charge_id'
-            : 'stripe_payout_id'
-
-      const { data: existing } = await supabase
-        .from('financial_events')
-        .select('id')
-        .eq(`metadata->>${idempotencyKey}`, stripeId)
-        .maybeSingle()
-
+      const idempotencyKey = eventData.metadata.stripe_refund_id ? 'stripe_refund_id' : eventData.metadata.stripe_payment_intent_id ? 'stripe_payment_intent_id' : eventData.metadata.stripe_charge_id ? 'stripe_charge_id' : 'stripe_payout_id';
+      const { data: existing } = await supabase.from('financial_events').select('id').eq(`metadata->>${idempotencyKey}`, stripeId).maybeSingle();
       if (existing) {
-        console.log(`Financial event already exists for ${idempotencyKey}=${stripeId}, skipping`)
-        return
+        console.log(`Financial event already exists for ${idempotencyKey}=${stripeId}, skipping`);
+        return;
       }
     }
-
-    const { error } = await supabase.from('financial_events').insert(eventData)
-
+    const { error } = await supabase.from('financial_events').insert(eventData);
     if (error) {
-      console.error('Failed to insert financial_event:', error.message)
+      console.error('Failed to insert financial_event:', error.message);
       try {
         await supabase.from('debug_log').insert({
           source: 'webhook-receiver',
@@ -588,11 +580,11 @@ export async function ingestFinancialEvent(
           component: 'stripe',
           status: 'error',
           request_data: eventData,
-          error_message: error.message,
-        })
-      } catch (e) { /* ignore */ }
+          error_message: error.message
+        });
+      } catch (e) {}
     }
   } catch (err) {
-    console.error('ingestFinancialEvent error:', err)
+    console.error('ingestFinancialEvent error:', err);
   }
 }
