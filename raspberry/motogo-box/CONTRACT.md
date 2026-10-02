@@ -912,9 +912,12 @@ Overlay `#handover` (modální, z-index mezi `#status` a `#service`; modul `MG.H
 `rerender()`, `isVisible()`, `keys` pro fyzickou klávesnici; podpis `MG.Signature.create(el, {onStroke})` v `ui/signature.js`)
 se kreslí ze `st.handover.active` (§14): hlavička (`data`; popisky `ho.customer`/`ho.moto`/`ho.period`), řádky výbavy (ikona/název `g.helmet…gloves`,
 `ho.rider`/`ho.passenger`, chipy velikostí z `active.sizes[key]` s předvybranou `size`, `ho.noGear` bez výbavy) + **vždy** skupina
-„Výbava motorky“ (2026-09-28, zadání majitele: `ho.motoGear`, poznámka `ho.motoGearNote` „Je v motorce — v kufru nebo v tankvaku…“,
-řádky `me.*` = klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta, každý s chipem ✓ předem
-zaškrtnutým; klepnutí odškrtne chybějící → `form.moto_equipment[]`), podpisový canvas
+„Výbava motorky“ (2026-09-28, zadání majitele: `ho.motoGear`, poznámka `ho.motoGearNote` „Najdete ji v motorce — v kufru nebo v tankvaku…“,
+řádky `me.*` = klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta; **od 2026-10-02 jen informativně,
+bez zaškrtávání** — `form.moto_equipment[]` jde vždy celé s `checked:true`). **Od 2026-10-02 je protokol ve 2 krocích** (štítek
+`ho.step` „Krok {n} ze {t}“): krok 1 = velikosti zapůjčené výbavy (`ho.intro`, tlačítko `ho.next` „Pokračovat“), krok 2 = výbava motorky
+(info) + podpis + kód motorky; „Zpět“ v kroku 2 vrací na krok 1 (podpis zůstává), v kroku 1 zavře overlay; bez zapůjčené výbavy
+rovnou krok 2 (bez štítku); Enter = další krok / potvrdit. Podpisový canvas
 (Pointer Events; export do pomocného canvasu 800×260 px s bílým pozadím → PNG; > 150 kB → zmenšit/odmítnout `ho.sigTooLarge`;
 `ho.clear`), pole „Kód motorky“ (`ho.code`/`ho.codeHint`, jen když `needs_code`; numerická klávesnice overlaye; **2026-09-28:** číslice
 bez mezer s rozestupem `letter-spacing`, tabulární číslice, placeholder `••••••`, sloupec pole ≥ 200 px — dřív se 6 číslic ořezávalo), „Potvrdit a podepsat“
@@ -935,7 +938,7 @@ Klíče i18n v 8 jazycích — `i18n.js`: `hint2`, `okAcc`, `et.protocol_require
 `i18n-handover.js` (`ho.*`): `close`, `closeSub`, `lockTitle`, `lockSub` (2026-09-28), `title` „Předávací protokol“, `intro`, `customer`, `moto`, `period`, `rider`,
 `passenger`, `size`, `noGear`, `sign`, `signHint`, `clear`, `code` „Kód motorky“, `codeHint` „Potvrďte podpis kódem motorky z aplikace
 nebo e-mailu“, `confirm` „Potvrdit a podepsat“, `back`, `saving`, `doneTitle`, `done`, `doneMoto`, `doneNoOpen`, `autoClose`,
-`codeMismatch`, `sigTooLarge`, `inProgress`, `failed`, `retryCode`, `motoGear`, `motoGearNote` (2026-09-28); `g.*`: `helmet/jacket/pants/boots/gloves`;
+`codeMismatch`, `sigTooLarge`, `inProgress`, `failed`, `retryCode`, `motoGear`, `motoGearNote` (2026-09-28), `next`, `step` (2026-10-02); `g.*`: `helmet/jacket/pants/boots/gloves`;
 `me.*` (2026-09-28): `phone_holder_key/disc_lock/accident_form/first_aid_kit/reflective_vest`.
 Servisní panel (jen po servisním heslu):
 mřížka zón (stav, dveře, signál, tlačítka Otevřít/Světlo/Hudba — hrající = `audio.playing_zones` / `zone.music`), Vše

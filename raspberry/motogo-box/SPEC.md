@@ -527,8 +527,9 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
    podepisujícího — protokol na displeji nemůže podepsat cizí zákazník).
 4. **Automatické vyplnění protokolu po 1 h** (cron `autofill-handover-protocols`, edge `mode=auto`) se RUŠÍ.
 5. **(2026-09-28) Výbava motorky v protokolu na displeji:** každý protokol obsahuje skupinu „Výbava motorky“ — klíč k držáku
-   mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta — předem zaškrtnutou, s poznámkou, že leží v motorce
-   (v kufru nebo v tankvaku); zákazník odškrtne, co chybí. Zobrazuje se i u zákazníka s vlastní výbavou (šatna → protokol → motorka
+   mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta — s poznámkou, že leží v motorce (v kufru nebo
+   v tankvaku). **Od 2026-10-02 jen informativně (bez zaškrtávání) a protokol je ve 2 krocích:** 1) velikosti zapůjčené výbavy,
+   2) výbava motorky + podpis prstem + kód motorky (bez zapůjčené výbavy rovnou krok 2). Zobrazuje se i u zákazníka s vlastní výbavou (šatna → protokol → motorka
    i kód motorky → protokol). Do dokumentu jde sekce „Výbava motorky“ (`form.moto_equipment[]`, edge `submit-handover-protocol`).
 6. **(2026-09-28) „Vydáno“ až po kódu A podpisu:** appka i Velín ukazují „Vydáno“ na pobočce (samoobslužná i obslužná) jen
    s podepsaným protokolem (čas = pozdější z převzetí a podpisu); Velín na samoobsluze odbaví odjezd až po podpisu zákazníkem.
