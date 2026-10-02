@@ -830,7 +830,7 @@ aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
 - **Předávací protokol (2026-09-25, §28; bez service_token — zákazník):** `POST /api/protocol/submit {"booking_id","code"?,"form",
   "signature"}` (`signature` = PNG data-URL ≤ 150 kB dekódovaných bajtů; `form` = `{mileage, accessories[], moto_equipment[]}` —
   **2026-09-28** `moto_equipment` = 5 pevných položek výbavy motorky `[{key: phone_holder_key|disc_lock|accident_form|first_aid_kit|
-  reflective_vest, qty (vesta 2), checked}]`, UI je předem zaškrtne a zákazník odškrtne chybějící; edge `submit-handover-protocol`
+  reflective_vest, qty (vesta 2), checked}]`, od 2026-10-02 kiosk posílá vždy všechny s `checked:true` (jen informace, bez zaškrtávání); edge `submit-handover-protocol`
   je u staršího buildu bez pole doplní jako předané) → `handover.submit(bid, form, signature, code, source='ui')`
   → `{ok, status: 'saved'|'queued'|'already_filled'|null, opened: {zone, kind, message}|null, error: null|…, locked_until?}`.
   `ok:false` (nic se neuložilo, `status:null`): `not_pending` (položka neexistuje / není stage protocol / `ctrl.handover` chybí),
@@ -911,7 +911,7 @@ minuty ubíhají v `tickTimer`), podpis se neuložil, overlay zůstává.
 Overlay `#handover` (modální, z-index mezi `#status` a `#service`; modul `MG.Handover` v `ui/handover.js`: `init({post, showStatus, getState})`, `onState(st)`,
 `rerender()`, `isVisible()`, `keys` pro fyzickou klávesnici; podpis `MG.Signature.create(el, {onStroke})` v `ui/signature.js`)
 se kreslí ze `st.handover.active` (§14): hlavička (`data`; popisky `ho.customer`/`ho.moto`/`ho.period`), řádky výbavy (ikona/název `g.helmet…gloves`,
-`ho.rider`/`ho.passenger`, chipy velikostí z `active.sizes[key]` s předvybranou `size`, `ho.noGear` bez výbavy) + **vždy** skupina
+`ho.rider`/`ho.passenger`, chipy velikostí z `active.sizes[key]` s předvybranou `size`; bez zapůjčené výbavy `ho.noGear` v kroku 2 nad výbavou motorky — `#ho-own-gear`) + **vždy** skupina
 „Výbava motorky“ (2026-09-28, zadání majitele: `ho.motoGear`, poznámka `ho.motoGearNote` „Najdete ji v motorce — v kufru nebo v tankvaku…“,
 řádky `me.*` = klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta; **od 2026-10-02 jen informativně,
 bez zaškrtávání** — `form.moto_equipment[]` jde vždy celé s `checked:true`). **Od 2026-10-02 je protokol ve 2 krocích** (štítek
@@ -921,7 +921,7 @@ rovnou krok 2 (bez štítku); Enter = další krok / potvrdit. Podpisový canvas
 (Pointer Events; export do pomocného canvasu 800×260 px s bílým pozadím → PNG; > 150 kB → zmenšit/odmítnout `ho.sigTooLarge`;
 `ho.clear`), pole „Kód motorky“ (`ho.code`/`ho.codeHint`, jen když `needs_code`; numerická klávesnice overlaye; **2026-09-28:** číslice
 bez mezer s rozestupem `letter-spacing`, tabulární číslice, placeholder `••••••`, sloupec pole ≥ 200 px — dřív se 6 číslic ořezávalo), „Potvrdit a podepsat“
-(`ho.confirm`, disabled bez podpisu / bez kódu / během ukládání), „Zpět“ (`ho.back` → `/api/protocol/dismiss`). Odpočet výhradně
+(`ho.confirm`, disabled bez podpisu / bez kódu / během ukládání), „Zpět“ (`ho.back`; v kroku 2 s výbavou → krok 1 a smaže chybovou hlášku kroku 2, jinak → `/api/protocol/dismiss`). Odpočet výhradně
 z `active.expires_at`; každý dotyk → `/api/protocol/touch` (throttle 5 s). Submit: spinner `ho.saving` „Ukládám protokol…“, timeout
 60 s; `opened` → `#status` „Dveře č. N otevřeny“ + `ho.doneMoto` „Protokol podepsán.“ + `okBox` „Běžte ke dveřím č. N.“; `saved`/`queued` bez `opened`
 → `#status` `ho.doneTitle` „Protokol potvrzen“ + `ho.done` „Teď zadejte kód motorky.“ (queued = totéž, bez zmínky o offline);

@@ -119,12 +119,17 @@ MG.Handover = (function () {
     ho.classList.toggle('step-1', n === 1);
     ho.classList.toggle('step-2', n === 2);
     setText($('ho-step'), two ? MG.i18n.t('ho.step', { n, t: 2 }) : '');
+    $('ho-own-gear').hidden = two;   // bez zapůjčené výbavy (rovnou krok 2): „vlastní výbava“ nad výbavou motorky
     if (n === 2 && S.sig) S.sig.resize();
     updateButtons();
   }
   function back() {
     if (S.saving || (S.item && S.item.saving)) return;
-    if (S.step === 2 && hasGear(S.item)) { touch(); setStep(1); } else dismiss();
+    if (S.step === 2 && hasGear(S.item)) {
+      touch();
+      if (S.msg && S.msg.key) setMsg(null);   // chyba podpisu/kódu z kroku 2 do kroku 1 nepatří (lockout / „až od 12:00“ platí dál)
+      setStep(1);
+    } else dismiss();
   }
   function next() { if (S.item && S.step === 1) { touch(); setStep(2); } }
   function onEnter() { if (S.step === 1) next(); else confirm(); }
@@ -275,8 +280,8 @@ MG.Handover = (function () {
     if (S.saving || !S.item || S.step !== 2 || !S.item.needs_code || !/^[0-9]$/.test(ch) || S.code.length >= CODE_LEN) return;
     S.code += ch; paintCode(); touch(); updateButtons();
   }
-  function onCodeBackspace() { if (S.saving || !S.code) return; S.code = S.code.slice(0, -1); paintCode(); touch(); updateButtons(); }
-  function onCodeClear() { if (S.saving) return; S.code = ''; paintCode(); touch(); updateButtons(); }
+  function onCodeBackspace() { if (S.saving || S.step !== 2 || !S.code) return; S.code = S.code.slice(0, -1); paintCode(); touch(); updateButtons(); }
+  function onCodeClear() { if (S.saving || S.step !== 2) return; S.code = ''; paintCode(); touch(); updateButtons(); }
 
   /* ── Potvrdit a podepsat ──────────────────────────────────────────────── */
   async function confirm() {
