@@ -91,7 +91,7 @@
   <div id="handover" class="overlay" hidden>
     <div class="ho-card">
       <div class="ho-head">
-        <div class="ho-title-wrap"><span class="ho-ico" aria-hidden="true">📋</span><span class="ho-title" data-i18n="ho.title">Předávací protokol</span></div>
+        <div class="ho-title-wrap"><span class="ho-ico" aria-hidden="true">📋</span><span class="ho-title" data-i18n="ho.title">Předávací protokol</span><span id="ho-step" class="ho-step"></span></div>
         <div class="ho-meta">
           <div class="ho-meta-item"><span class="k" data-i18n="ho.customer">Nájemce</span><span id="ho-customer" class="v">—</span></div>
           <div class="ho-meta-item"><span class="k" data-i18n="ho.moto">Motorka</span><span id="ho-moto" class="v">—</span></div>
@@ -99,9 +99,15 @@
         </div>
         <div id="ho-timer" class="ho-timer"></div>
       </div>
+      <!-- 2026-10-02: dva kroky — 1) velikosti zapůjčené výbavy, 2) výbava motorky (jen info) + podpis + kód (handover.js setStep) -->
       <section class="ho-gear">
-        <div class="ho-intro" data-i18n="ho.intro">Zkontrolujte zapůjčenou výbavu a velikosti, podepište se prstem a potvrďte.</div>
+        <div class="ho-intro" data-i18n="ho.intro">Krok 1: zkontrolujte velikosti zapůjčené výbavy (klepnutím je upravíte) a pokračujte.</div>
         <div id="ho-gear-list" class="ho-gear-list"></div>
+      </section>
+      <section class="ho-info">
+        <div class="ho-group" data-i18n="ho.motoGear">Výbava motorky</div>
+        <div class="ho-note" data-i18n="ho.motoGearNote">Najdete ji v motorce — v kufru nebo v tankvaku. Nic nezaškrtáváte, jen pro informaci.</div>
+        <div id="ho-moto-list" class="ho-gear-list"></div>
       </section>
       <section class="ho-sign">
         <div class="ho-label"><span data-i18n="ho.sign">Podpis nájemce</span>
@@ -120,6 +126,7 @@
         <div id="ho-msg" class="ho-msg" aria-live="polite" hidden></div>
         <span class="ho-spacer"></span>
         <button id="ho-back" class="ho-btn" type="button" data-i18n="ho.back">Zpět</button>
+        <button id="ho-next" class="ho-btn ho-btn-primary" type="button" data-i18n="ho.next" hidden>Pokračovat</button>
         <button id="ho-confirm" class="ho-btn ho-btn-primary" type="button" data-i18n="ho.confirm" disabled>Potvrdit a podepsat</button>
       </div>
       <div id="ho-saving" class="ho-saving" hidden><div class="spinner"></div><span data-i18n="ho.saving">Ukládám protokol…</span></div>

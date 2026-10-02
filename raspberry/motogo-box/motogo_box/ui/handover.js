@@ -10,8 +10,8 @@ MG.Handover = (function () {
   const $ = (id) => document.getElementById(id);
   const TOUCH_MS = 5000, SUBMIT_TIMEOUT_MS = 60000, CODE_LEN = 6, DONE_GUARD_MS = 15000, WAIT_MS = 4000;
   const GEAR_ICON = { helmet: '🪖', jacket: '🧥', pants: '👖', boots: '🥾', gloves: '🧤' };
-  /** Výbava motorky (zadání majitele 2026-09-28): v KAŽDÉM protokolu z displeje, předem zaškrtnutá; leží v motorce
-      (kufr / tankvak). Klepnutím lze odškrtnout, co v motorce chybí. Klíče = i18n `me.*` a edge `form.moto_equipment[]`. */
+  /** Výbava motorky (zadání majitele 2026-09-28): v KAŽDÉM protokolu z displeje; leží v motorce (kufr / tankvak).
+      Od 2026-10-02 jen informativně (bez zaškrtávání) v kroku 2. Klíče = i18n `me.*` a edge `form.moto_equipment[]`. */
   const MOTO_GEAR = [
     { key: 'phone_holder_key', ico: '🔑' },
     { key: 'disc_lock', ico: '🔒' },
@@ -21,10 +21,10 @@ MG.Handover = (function () {
   ];
   const LOCALE = { cs: 'cs-CZ', en: 'en-GB', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', nl: 'nl-NL', pl: 'pl-PL', uk: 'uk-UA' };
   let deps = null;    // { post, showStatus, getState }
-  const S = { item: null, key: '', code: '', picks: [], moto: {}, saving: false, lastTouch: 0, msg: null, sig: null, kb: null,
+  const S = { item: null, key: '', code: '', picks: [], step: 2, saving: false, lastTouch: 0, msg: null, sig: null, kb: null,
     timer: null, doneKey: '', ownDone: { id: '', at: 0 }, wait: null };
   // S.msg = {key} (i18n) | {locked: locked_until} | {pickup: release_at} (výdej až od 12:00, §31) ; S.wait = {id, thenOpen, at} — položka zmizela, výsledek řekne stav zón
-  // S.moto = {key: bool} — zaškrtnutí výbavy motorky (výchozí vše true, reset při open())
+  // S.step: 1 = velikosti zapůjčené výbavy, 2 = výbava motorky (info) + podpis + kód (2026-10-02; bez zapůjčené výbavy rovnou 2)
 
   function setText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
   const itemKey = (a) => a.booking_id + '|' + (a.shown_at || '');
@@ -71,7 +71,6 @@ MG.Handover = (function () {
     const gear = Array.isArray(a.data && a.data.gear) ? a.data.gear : [];
     if (!gear.length) {
       const p = document.createElement('div'); p.className = 'ho-nogear'; p.textContent = MG.i18n.t('ho.noGear'); box.appendChild(p);
-      renderMotoGear(box, a);
       return;
     }
     ['rider', 'passenger'].forEach((who) => {
@@ -93,29 +92,42 @@ MG.Handover = (function () {
         box.appendChild(row);
       });
     });
-    renderMotoGear(box, a);
   }
 
-  /** Skupina „Výbava motorky“ pod výbavou: nadpis, poznámka o umístění (kufr / tankvak) a řádek na položku s chipem
-      ✓ (předem zaškrtnuto). Klepnutí položku odškrtne (chybí v motorce) — do protokolu jde `checked:false`. */
-  function renderMotoGear(box, a) {
-    const h = document.createElement('div'); h.className = 'ho-group'; h.textContent = MG.i18n.t('ho.motoGear'); box.appendChild(h);
-    const note = document.createElement('div'); note.className = 'ho-note'; note.textContent = MG.i18n.t('ho.motoGearNote'); box.appendChild(note);
+  /** Krok 2: „Výbava motorky“ — jen informace, co zákazník najde v motorce (kufr / tankvak), bez zaškrtávání. */
+  function renderMotoGear() {
+    const box = $('ho-moto-list');
+    box.textContent = '';
     MOTO_GEAR.forEach((m) => {
-      const on = S.moto[m.key] !== false;
       const row = document.createElement('div');
-      row.className = 'ho-row ho-row-moto' + (on ? '' : ' off');
-      row.innerHTML = '<span class="ho-row-ico"></span><span class="ho-row-name"></span><div class="ho-chips"></div>';
+      row.className = 'ho-row ho-row-moto';
+      row.innerHTML = '<span class="ho-row-ico"></span><span class="ho-row-name"></span>';
       row.querySelector('.ho-row-ico').textContent = m.ico;
       row.querySelector('.ho-row-name').textContent = (m.qty ? m.qty + '× ' : '') + (MG.i18n.g('me', m.key) || m.key);
-      row.querySelector('.ho-chips').appendChild(chip(on ? '✓' : '—', on, () => { S.moto[m.key] = !on; touch(); renderGear(a); }));
       box.appendChild(row);
     });
   }
-  /** Výbava motorky pro `form.moto_equipment[]` edge funkce (každá položka, i odškrtnutá). */
+  /** Výbava motorky pro `form.moto_equipment[]` edge funkce — v motorce je vždy celá (informativní seznam). */
   function motoEquipment() {
-    return MOTO_GEAR.map((m) => ({ key: m.key, qty: m.qty || 1, checked: S.moto[m.key] !== false }));
+    return MOTO_GEAR.map((m) => ({ key: m.key, qty: m.qty || 1, checked: true }));
   }
+  const hasGear = (a) => !!(a && Array.isArray(a.data && a.data.gear) && a.data.gear.length);
+  /** Přepnutí kroku: 1 = velikosti, 2 = výbava motorky + podpis (+ kód). Podpis zůstává, canvas se po zobrazení přepočítá. */
+  function setStep(n) {
+    S.step = n;
+    const ho = $('handover'), two = hasGear(S.item);
+    ho.classList.toggle('step-1', n === 1);
+    ho.classList.toggle('step-2', n === 2);
+    setText($('ho-step'), two ? MG.i18n.t('ho.step', { n, t: 2 }) : '');
+    if (n === 2 && S.sig) S.sig.resize();
+    updateButtons();
+  }
+  function back() {
+    if (S.saving || (S.item && S.item.saving)) return;
+    if (S.step === 2 && hasGear(S.item)) { touch(); setStep(1); } else dismiss();
+  }
+  function next() { if (S.item && S.step === 1) { touch(); setStep(2); } }
+  function onEnter() { if (S.step === 1) next(); else confirm(); }
 
   function paintCode() {
     const box = $('ho-code-box');
@@ -145,7 +157,9 @@ MG.Handover = (function () {
     const busy = S.saving || !!(a && a.saving);
     const noSig = !S.sig || S.sig.isEmpty();
     const noCode = !!(a && a.needs_code) && S.code.length !== CODE_LEN;
-    $('ho-confirm').disabled = !a || busy || noSig || noCode;
+    $('ho-confirm').disabled = !a || busy || noSig || noCode || S.step !== 2;
+    $('ho-confirm').hidden = S.step !== 2;
+    $('ho-next').hidden = S.step !== 1;
     $('ho-back').disabled = busy;
     $('ho-sig-hint').hidden = !noSig;
     if (S.kb) S.kb.setEnabled(!busy);
@@ -168,19 +182,18 @@ MG.Handover = (function () {
     S.item = a; S.key = itemKey(a); S.code = ''; S.saving = false; S.lastTouch = Date.now();
     if (S.wait && S.wait.id === a.booking_id) S.wait = null;   // protokol téže rezervace znovu (podpis se neuložil) — čekaný výsledek je pasé
     S.picks = (Array.isArray(a.data && a.data.gear) ? a.data.gear : []).map((g) => (g.size != null && g.size !== '' ? String(g.size) : ''));
-    S.moto = {};
-    MOTO_GEAR.forEach((m) => { S.moto[m.key] = true; });   // vše automaticky vybráno (zadání 2026-09-28)
     setMsg(null);
     $('handover').hidden = false;
     $('handover').classList.toggle('no-code', !a.needs_code);
     $('ho-code-sec').hidden = !a.needs_code;
     renderMeta(a);
     renderGear(a);
+    renderMotoGear();
     paintCode();
     if (!S.sig) S.sig = MG.Signature.create($('ho-sig'), { onStroke: () => { touch(); updateButtons(); } });
     S.sig.clear();
-    S.sig.resize();
     if (!S.kb) S.kb = MG.Keyboard.build($('ho-keys'), { mode: 'pin', onChar: onCodeChar, onBackspace: onCodeBackspace, onEnter: confirm, onClear: onCodeClear });
+    setStep(hasGear(a) ? 1 : 2);
     paintSaving();
     clearInterval(S.timer);
     S.timer = setInterval(tickTimer, 1000);
@@ -259,7 +272,7 @@ MG.Handover = (function () {
 
   /* ── Kód motorky (identita podepisujícího) ────────────────────────────── */
   function onCodeChar(ch) {
-    if (S.saving || !S.item || !S.item.needs_code || !/^[0-9]$/.test(ch) || S.code.length >= CODE_LEN) return;
+    if (S.saving || !S.item || S.step !== 2 || !S.item.needs_code || !/^[0-9]$/.test(ch) || S.code.length >= CODE_LEN) return;
     S.code += ch; paintCode(); touch(); updateButtons();
   }
   function onCodeBackspace() { if (S.saving || !S.code) return; S.code = S.code.slice(0, -1); paintCode(); touch(); updateButtons(); }
@@ -268,7 +281,7 @@ MG.Handover = (function () {
   /* ── Potvrdit a podepsat ──────────────────────────────────────────────── */
   async function confirm() {
     const a = S.item;
-    if (!a || $('ho-confirm').disabled) return;
+    if (!a || S.step !== 2 || $('ho-confirm').disabled) return;
     touch();
     const signature = S.sig.toPng();
     if (!signature) { setMsg('ho.sigTooLarge'); return; }
@@ -333,20 +346,21 @@ MG.Handover = (function () {
   function rerender() {
     const a = S.item;
     if (!a) return;
-    renderMeta(a); renderGear(a); paintMsg(); tickTimer();
+    renderMeta(a); renderGear(a); renderMotoGear(); setStep(S.step); paintMsg(); tickTimer();
     if (S.sig) S.sig.resize();
   }
 
   function init(d) {
     deps = d;
     $('ho-confirm').addEventListener('click', (e) => { e.preventDefault(); confirm(); });
-    $('ho-back').addEventListener('click', (e) => { e.preventDefault(); dismiss(); });
+    $('ho-back').addEventListener('click', (e) => { e.preventDefault(); back(); });
+    $('ho-next').addEventListener('click', (e) => { e.preventDefault(); next(); });
     $('ho-sig-clear').addEventListener('click', (e) => { e.preventDefault(); if (S.sig && !S.saving) S.sig.clear(); touch(); });
     $('handover').addEventListener('pointerdown', touch, { passive: true, capture: true });
   }
 
-  /** Fyzická klávesnice, dokud je overlay vidět (app.js): číslice → kód motorky, Enter → potvrdit, Esc → zpět. */
-  const keys = { onChar: onCodeChar, onBackspace: onCodeBackspace, onEnter: confirm, onClear: onCodeClear, onEscape: dismiss };
+  /** Fyzická klávesnice, dokud je overlay vidět (app.js): číslice → kód motorky (krok 2), Enter → další krok / potvrdit, Esc → zpět. */
+  const keys = { onChar: onCodeChar, onBackspace: onCodeBackspace, onEnter, onClear: onCodeClear, onEscape: back };
 
   return { init, onState, rerender, keys, isVisible: () => !!S.item, dismiss };
 })();
