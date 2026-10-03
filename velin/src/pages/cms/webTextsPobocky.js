@@ -19,6 +19,9 @@ const branchPage = (i, id, label, url, d) => ({
     { key: `web.pobocky.branches.${i}.steps_title`, label: 'Nadpis postupu', default: d.steps_title },
     { key: `web.pobocky.branches.${i}.steps`, label: 'Postup (každý krok na nový řádek)', type: 'textarea', default: d.steps },
     ] },
+    { id: 'gallery', label: 'Fotogalerie', location: 'Na stránce pobočky pod postupem (fotky jsou v kódu webu, bez fotek se sekce nezobrazí)', fields: [
+      { key: `web.pobocky.branches.${i}.gallery_title`, label: 'Nadpis fotogalerie', default: 'Fotogalerie pobočky' },
+    ] },
     { id: 'video', label: 'Video', location: 'Na stránce pobočky pod postupem (bez videa se sekce nezobrazí)', fields: [
       { key: `web.pobocky.branches.${i}.video`, label: 'Video (nahrát MP4 / odkaz YouTube)', type: 'video', storagePrefix: `branches/${url.split('/').pop()}/`, default: '' },
       { key: `web.pobocky.branches.${i}.video_title`, label: 'Nadpis nad videem', default: d.video_title },

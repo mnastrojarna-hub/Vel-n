@@ -5,7 +5,7 @@
 // „Pobočky – přehled“ / „Pobočka Mezná“ / „Pobočka Velké Němčice“ (klíče
 // `web.pobocky.*` v `cms_variables`). Shodné defaulty drží Velín
 // (velin/src/pages/cms/webTextsPobocky.js) a appka (features/branches).
-// `slug`, `map` a `photo` jdou jen z kódu; `video` = URL nahraná ve Velínu
+// `slug`, `map`, `photo` a `gallery` (fotky v gfx/pobocky/<slug>/) jdou jen z kódu; `video` = URL nahraná ve Velínu
 // (bucket media) nebo odkaz na YouTube, prázdné = bez videa.
 
 function pobockyDefaults() {
@@ -32,6 +32,8 @@ function pobockyDefaults() {
             'photo' => '',
             'video' => '',
             'video_title' => 'Video: jak to na pobočce probíhá',
+            'gallery' => [],
+            'gallery_title' => 'Fotogalerie pobočky',
             'seo_title' => 'Pobočka Mezná u Pelhřimova | MotoGo24 – obslužná půjčovna motorek',
             'seo_description' => 'Obslužná pobočka půjčovny motorek MotoGo24 v Mezné u Pelhřimova (Vysočina): osobní předání motorky nonstop, výbava v ceně, přistavení na adresu.',
         ],
@@ -49,6 +51,14 @@ function pobockyDefaults() {
             'photo' => '',
             'video' => '',
             'video_title' => 'Video: jak se obsloužit na samoobslužné pobočce',
+            // [soubor bez .webp v gfx/pobocky/velke-nemcice/ (+ náhled -640), popisek]
+            'gallery' => [
+                ['vydejni-box', 'Výdejní box samoobslužné pobočky — kóje s motorkami'],
+                ['vydejni-box-2', 'Výdejní box s kójemi 1–8 a šatnou'],
+                ['displej-kiosk', 'Dotykový displej pro zadání kódu z aplikace'],
+                ['parkoviste', 'Parkoviště pro zákazníky — parkování zdarma po dobu výpůjčky'],
+            ],
+            'gallery_title' => 'Fotogalerie pobočky',
             'seo_title' => 'Samoobslužná pobočka Velké Němčice u Brna | MotoGo24',
             'seo_description' => 'Samoobslužná pobočka půjčovny motorek MotoGo24 ve Velkých Němčicích u Brna: převzetí i vrácení 24/7 kódem z aplikace, čas vyzvednutí volíte v rezervaci (od 12:00 je 1. den za polovinu), parkování zdarma.',
         ],
@@ -63,11 +73,11 @@ function pobockyDefaults() {
 ];
 }
 
-/** Pobočka i: CMS hodnoty přes defaulty (slug/map/photo vždy z kódu). */
+/** Pobočka i: CMS hodnoty přes defaulty (slug/map/photo/gallery vždy z kódu). */
 function pobockyBranch($C, $D, $i) {
     $d = $D['branches'][$i] ?? [];
     $b = (is_array($C['branches'][$i] ?? null)) ? array_merge($d, $C['branches'][$i]) : $d;
-    foreach (['slug', 'map', 'photo'] as $k) $b[$k] = $d[$k] ?? '';
+    foreach (['slug', 'map', 'photo', 'gallery'] as $k) $b[$k] = $d[$k] ?? '';
     return $b;
 }
 
@@ -85,6 +95,23 @@ function pobockyVideoHtml($url, $title, $key) {
     return '<section class="branch-video-wrap"><h2 data-cms-key="' . $key . '.video_title">' . $t . '</h2>' . $player . '</section>';
 }
 
+/** Fotogalerie pobočky — náhledy (-640.webp) otevírají sdílený lightbox. */
+function pobockyGalleryHtml($b, $key) {
+    $items = is_array($b['gallery'] ?? null) ? $b['gallery'] : [];
+    if (!$items) return '';
+    $dir = BASE_URL . '/gfx/pobocky/' . rawurlencode((string)$b['slug']) . '/';
+    $open = htmlspecialchars(t('gallery.openImage'));
+    $h = '';
+    foreach (array_values($items) as $i => $it) {
+        $f = rawurlencode((string)($it[0] ?? ''));
+        $alt = htmlspecialchars((string)($it[1] ?? ''));
+        $h .= '<a href="' . $dir . $f . '.webp" data-gallery="branch" data-index="' . $i . '" aria-label="' . $open . '">'
+            . '<img src="' . $dir . $f . '-640.webp" alt="' . $alt . '" loading="lazy" decoding="async"></a>';
+    }
+    return '<section class="branch-gallery-wrap"><h2 data-cms-key="' . $key . '.gallery_title">'
+        . sanitizeHtml((string)($b['gallery_title'] ?? '')) . '</h2><div class="branch-gallery">' . $h . '</div></section>';
+}
+
 function pobockyCss() {
     return '<style>'
         . '.branches-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;margin:24px 0}'
@@ -94,5 +121,8 @@ function pobockyCss() {
         . '.branch-card .map{width:100%;min-height:240px;border:0;border-radius:14px;margin-top:12px}'
         . '.branch-video-wrap{margin:24px 0}.branch-video{width:100%;max-height:70vh;border-radius:14px;background:#000}'
         . '.branch-video-yt{position:relative;padding-top:56.25%}.branch-video-yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:14px}'
+        . '.branch-gallery-wrap{margin:24px 0}.branch-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}'
+        . '.branch-gallery a{display:block;border-radius:14px;overflow:hidden;aspect-ratio:4/3;background:#eef2ef}'
+        . '.branch-gallery img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s}.branch-gallery a:hover img{transform:scale(1.04)}'
         . '</style>';
 }
