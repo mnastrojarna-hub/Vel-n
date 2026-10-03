@@ -2,7 +2,8 @@
 // ===== MotoGo24 Web PHP — Detail pobočky /pobocky/<slug> (CMS-driven) =====
 // $_GET['slug'] nastaví index.php. Obsah = karta pobočky z data/pobocky.php
 // přes CMS (`web.pobocky.branches.<i>.*`) + mapa + volitelné video (nahrané
-// ve Velínu → Texty webu → pobočka → „Video“, nebo odkaz na YouTube).
+// ve Velínu → Texty webu → pobočka → „Video“, nebo odkaz na YouTube)
+// + fotogalerie (fotky z kódu, data/pobocky.php `gallery`).
 
 require_once __DIR__ . '/../data/pobocky.php';
 $sb = new SupabaseClient();
@@ -38,6 +39,7 @@ $content = pobockyCss() . '<main id="content"><div class="container">' . $bc
     . '<p>🧥 <span data-cms-key="' . $k . '.gear">' . sanitizeHtml((string)$b['gear']) . '</span></p><p>&nbsp;</p>'
     . '<h2 data-cms-key="' . $k . '.steps_title">' . sanitizeHtml((string)$b['steps_title']) . '</h2>'
     . '<p data-cms-key="' . $k . '.steps">' . sanitizeHtml((string)$b['steps']) . '</p>'
+    . pobockyGalleryHtml($b, $k)
     . pobockyVideoHtml($b['video'] ?? '', $b['video_title'] ?? '', $k)
     . ($mapQ !== '' ? '<iframe class="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen aria-label="' . htmlspecialchars($title) . '" src="' . htmlspecialchars($mapSrc) . '"></iframe>' : '')
     . '</section>'
