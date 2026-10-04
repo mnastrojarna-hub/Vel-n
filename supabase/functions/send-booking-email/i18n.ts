@@ -18,6 +18,8 @@
 //   pokud existuje pro daný (slug, lang), použije se DB, jinak hardcoded fallback níže.
 // =============================================================================
 
+import { renderGateCodesBox } from './branch-gate.ts'
+
 export type Lang = 'cs' | 'en' | 'de' | 'nl' | 'es' | 'fr' | 'pl' | 'uk'
 export const SUPPORTED_LANGS: Lang[] = ['cs', 'en', 'de', 'nl', 'es', 'fr', 'pl', 'uk']
 export const DEFAULT_LANG: Lang = 'cs'
@@ -316,11 +318,15 @@ export function doorCodesReleaseNote(lang: Lang, releaseAt: string | null | unde
   return (DOOR_CODES_RELEASE_NOTE[lang] || DOOR_CODES_RELEASE_NOTE.cs).replace('{datum}', datum)
 }
 
-export function renderDoorCodesReleasedBlock(lang: Lang, moto: string, gear: string, releaseAt: string | null = null): string {
+// Pobočka s bránou (Velké Němčice, 2026-10-04): `gate` = kód schránky s klíčem od
+// brány → pořadí brána → šatna (dveře č. `lockerDoor`) → motorka (branch-gate.ts).
+// Bez `gate` výstup 1:1 jako dřív.
+export function renderDoorCodesReleasedBlock(lang: Lang, moto: string, gear: string, releaseAt: string | null = null, gate = '', lockerDoor: number | null = null): string {
   const t = DOOR_CODES_BLOCK_LABELS[lang] || DOOR_CODES_BLOCK_LABELS.cs
   const line = (label: string, code: string) =>
     `<p style="margin:4px 0;font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#0c4a6e">${label}: <span style="font-size:18px;letter-spacing:3px;color:#0369a1">${code}</span></p>`
   const note = doorCodesReleaseNote(lang, releaseAt)
+  if (gate) return renderGateCodesBox(lang, t, line, note, gate, gear, moto, lockerDoor)
   return `
 <div style="background:#e0f2fe;border-radius:12px;padding:16px 20px;margin:20px 0;border:1px solid #7dd3fc">
   <h3 style="margin:0 0 12px 0;color:#0c4a6e;font-size:15px">${t.title}</h3>
@@ -1292,7 +1298,7 @@ function renderModifiedBody(lang: Lang, v: Vars): string {
     ${renderDiffRow(L.total,  v.original_total_price,   v.total_price)}
   </tbody>
 </table>
-${priceMessage}
+${priceMessage}${v.gate_codes_block || ''}
 <p>${attachInfo[lang]}</p>
 <p>${verify[lang]} <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>${closing[lang]}<br>${SIGN[lang]}</p>`
