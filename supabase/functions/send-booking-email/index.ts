@@ -1156,8 +1156,9 @@ serve(async (req) => {
     // do předmětu ani logů.
     let gate: BranchGate | null = null
     let gateBlockFor: ((l: Lang) => string) | null = null
-    const hasReleasedCodes = doorCodeRows.some(c => c.sent_to_customer === true && !c.withheld_reason)
-    if (booking_id && (GATE_MAIL_TYPES.has(type) || hasReleasedCodes)) {
+    // Jen potvrzení / kódy / úprava (vč. prodloužení renderovaného jako booking_modified) —
+    // u ostatních typů (doklad o platbě, dokončení, storno…) se na bránu neptáme.
+    if (booking_id && (GATE_MAIL_TYPES.has(type) || GATE_MAIL_TYPES.has(renderType))) {
       gate = await loadBranchGate(supabase, booking_id)
     }
     const gateProc = (g: BranchGate, released: boolean, hasGear: boolean) =>
@@ -1287,7 +1288,9 @@ serve(async (req) => {
         // U poděkovacího mailu (booking_completed / web_booking_completed) opravíme
         // odkazy na recenze (Google/Facebook) a doplníme Instagram.
         const bodySrc = trySlug.includes('completed') ? fixReviewLinks(resolved.body) : resolved.body
-        templateHtml = renderTemplate(bodySrc, vars)
+        // gate_codes_block patří jen vestavěné šabloně booking_modified — DB šablona by s oběma
+        // placeholdery vykreslila blok dvakrát.
+        templateHtml = renderTemplate(bodySrc, { ...vars, gate_codes_block: '' })
         subject = renderTemplate(resolved.subject, subjectVars(vars))
         if (Array.isArray(tpl.attachments)) {
           dbAttachmentsList = tpl.attachments as string[]
@@ -1561,7 +1564,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
           .maybeSingle()
         if (tpl?.body_html) {
           const csBodySrc = trySlug.includes('completed') ? fixReviewLinks(tpl.body_html) : tpl.body_html
-          csTemplateHtml = renderTemplate(csBodySrc, varsCs)
+          csTemplateHtml = renderTemplate(csBodySrc, { ...varsCs, gate_codes_block: '' })
           csSubject = renderTemplate(tpl.subject || '', subjectVars(varsCs))
           break
         }

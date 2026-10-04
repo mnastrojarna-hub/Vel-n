@@ -109,8 +109,11 @@ export async function loadBranchGate(supabase: Sb, bookingId: string): Promise<B
   try {
     // !moto_id — bookings má i trailer_moto_id (dvě FK na motorcycles).
     const { data: bk } = await supabase.from('bookings')
-      .select('moto_id, motorcycles!moto_id(branch_id)')
+      .select('moto_id, pickup_method, pickup_address, motorcycles!moto_id(branch_id)')
       .eq('id', bookingId).maybeSingle()
+    // Přistavení na adresu = zákazník na pobočku nejede → bez brány (stejné pravidlo
+    // jako appka ResPickupProcedure a web /potvrzeni `is_delivery`).
+    if (bk?.pickup_method === 'delivery' || String(bk?.pickup_address || '').trim()) return null
     const m = Array.isArray(bk?.motorcycles) ? bk.motorcycles[0] : bk?.motorcycles
     const branchId = m?.branch_id ? String(m.branch_id) : ''
     if (!branchId) return null
