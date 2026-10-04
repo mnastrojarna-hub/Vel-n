@@ -16,6 +16,8 @@ import 'country_codes.dart';
 import 'places_filter.dart';
 import 'places_map.dart';
 import 'poi_categories.dart';
+import 'routes_map_provider.dart'
+    show selectionRoadRouteProvider, selectionRouteKey;
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_image.dart';
@@ -605,7 +607,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
           ],
         ),
       ),
-      bottomSheet: _selected.isEmpty ? null : _navBar(context, all, me),
+      bottomSheet: _selected.isEmpty ? null : _navBar(context, all),
     );
   }
 
@@ -663,6 +665,20 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     );
   }
 
+  /// Trasa PO SILNICI přes vybraná místa v pořadí klikání — totéž, co kreslí
+  /// mapa na celou obrazovku. Trasy z katalogu se tu nekreslí (byly to jen
+  /// rovné spojnice zastávek). V režimu výběru pro editor jde o lokální výběr,
+  /// proto se klíč posílá provideru explicitně.
+  List<MapRouteLine> _selectionLines() {
+    final sel = _selected;
+    if (sel.length < 2) return const [];
+    final r = ref
+        .watch(selectionRoadRouteProvider(selectionRouteKey(sel)))
+        .valueOrNull;
+    if (r == null || !r.hasLine) return const [];
+    return [MapRouteLine(r.geometry, width: 4.5, emphasized: true)];
+  }
+
   // ── Mapa míst nad seznamem ──
   Widget _mapPreview(
       BuildContext context, String lang, List<PoiEntry> list, LatLng? me) {
@@ -683,15 +699,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                   places: list,
                   lang: lang,
                   selected: _selected,
-                  // Trasy až po označení místa, a jen ty, které ho obsahují.
-                  routeLines: [
-                    for (final r in routesContaining(
-                        ref.watch(routesDataProvider).valueOrNull?.routes ??
-                            const <RouteItem>[],
-                        list,
-                        _selected))
-                      routeLine(r),
-                  ],
+                  routeLines: _selectionLines(),
                   me: me,
                   initialCenter: me,
                   initialZoom: me == null ? 7.2 : 10.5,
@@ -1894,7 +1902,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
       );
 
   // ── Spodní lišta „Navigovat přes vybrané" ──
-  Widget _navBar(BuildContext context, List<PoiEntry> all, LatLng? me) {
+  Widget _navBar(BuildContext context, List<PoiEntry> all) {
     final n = _selected.length;
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
@@ -1920,7 +1928,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
           Expanded(
             child: PressableScale(
               pressedScale: 0.97,
-              onTap: () => _navigate(context, all, me),
+              onTap: () => _navigate(context, all),
               child: Container(
                 height: 50,
                 decoration: BoxDecoration(
@@ -1956,7 +1964,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     );
   }
 
-  void _navigate(BuildContext context, List<PoiEntry> all, LatLng? me) {
+  void _navigate(BuildContext context, List<PoiEntry> all) {
     final pois = resolveSelected(
         ref.read(dedupedPlacesProvider), all, _selected);
     if (pois.isEmpty) return;
@@ -1965,8 +1973,10 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
       Navigator.of(context).pop(pois);
       return;
     }
-    // Jinak sestav trasu (greedy od polohy) a otevři editor pro doladění.
-    final route = buildCustomRoute(pois, from: me, name: t(context).tr('poiCustomRouteTitle'));
+    // Jinak sestav trasu v POŘADÍ KLIKÁNÍ (ta se kreslí na mapě nad seznamem
+    // i na mapě míst) a otevři editor pro doladění — přehodit jde tažením.
+    final route =
+        buildCustomRoute(pois, name: t(context).tr('poiCustomRouteTitle'));
     if (!_localSel) ref.read(placesSelectionProvider.notifier).clear();
     context.push('/route-build', extra: route);
   }

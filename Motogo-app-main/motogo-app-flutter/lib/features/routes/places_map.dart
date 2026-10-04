@@ -6,8 +6,28 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/theme.dart';
+import 'map_fit.dart';
 import 'poi_categories.dart';
 import 'routes_provider.dart' show PoiEntry, mapyApiKey;
+
+/// Jedna čára trasy k vykreslení na mapě míst / mapě tras.
+///
+/// Mapa tras kreslí VŠECHNY trasy vybraného bodu, každou jinou barvou, a tu
+/// zvolenou zvýrazněnou (`emphasized` = tmavý podklad + navrch). Mapa míst
+/// kreslí jedinou — trasu po silnici přes naklikaná místa.
+class MapRouteLine {
+  final List<LatLng> points;
+  final Color color;
+  final double width;
+  final bool emphasized;
+
+  const MapRouteLine(
+    this.points, {
+    this.color = MotoGoColors.greenDark,
+    this.width = 4,
+    this.emphasized = false,
+  });
+}
 
 /// Mapa MÍST (bodů zájmu) — sdílená mezi pruhem nad seznamem a celoobrazovkovou
 /// mapou.
@@ -58,10 +78,11 @@ class PlacesMapView extends StatefulWidget {
   /// Dlouhý stisk do prázdné mapy — nabídne přidání nového místa.
   final void Function(LatLng point)? onLongPress;
 
-  /// Trasy k vykreslení. Mapa míst je ve výchozím stavu BEZ tras — čáry se
-  /// objeví až tehdy, když uživatel označí místo, a jen u tras, které to
-  /// místo obsahují.
-  final List<List<LatLng>> routeLines;
+  /// Čáry tras k vykreslení (po silnici). Mapa míst je ve výchozím stavu BEZ
+  /// čar — objeví se až trasa přes naklikaná místa; mapa tras sem posílá
+  /// trasy vybraného bodu, každou jinou barvou. Zvýrazněná (`emphasized`)
+  /// se kreslí nad ostatními.
+  final List<MapRouteLine> routeLines;
 
   /// Poloha jezdce — vykreslí se jako modrý bod a použije pro tlačítko
   /// „vycentrovat na mě".
@@ -148,6 +169,14 @@ class PlacesMapViewState extends State<PlacesMapView> {
   /// Přesune kameru na dané místo (volá ji celoobrazovková mapa z hledání).
   void moveTo(LatLng p, {double zoom = 13}) => _ctrl.move(p, zoom);
 
+  /// Přizpůsobí kameru celé čáře (mapa tras po volbě trasy z karet dole).
+  /// [padding] nechává místo pod hlavičkou a nad spodním panelem.
+  void fitTo(List<LatLng> pts,
+      {EdgeInsets padding = const EdgeInsets.all(40)}) {
+    if (pts.length < 2) return;
+    fitMapSafe(_ctrl, pts, padding: padding);
+  }
+
   /// Vycentruje na polohu jezdce, pokud je známá.
   void centerOnMe() {
     final me = widget.me;
@@ -182,10 +211,24 @@ class PlacesMapViewState extends State<PlacesMapView> {
     return out;
   }
 
+  /// Pořadí vybraných míst (1..n) podle pořadí klikání — výběr je
+  /// LinkedHashSet. Od dvou míst se místo fajfky ukazuje číslo, aby bylo
+  /// vidět, v jakém pořadí trasa přes místa povede.
+  Map<String, int> _selectionOrder() {
+    if (widget.selected.length < 2) return const {};
+    final out = <String, int>{};
+    var i = 0;
+    for (final k in widget.selected) {
+      out[k] = ++i;
+    }
+    return out;
+  }
+
   @override
   Widget build(BuildContext context) {
     final visible = _visible();
     final showClusters = visible.length > _kMaxMarkers;
+    final order = _selectionOrder();
 
     final markers = <Marker>[];
     // Body, u kterých se na velkém přiblížení vypíše i název. Bez popisků byla
@@ -217,7 +260,7 @@ class PlacesMapViewState extends State<PlacesMapView> {
       }
       for (final b in buckets.values) {
         if (b.n == 1) {
-          markers.add(_placeMarker(b.first));
+          markers.add(_placeMarker(b.first, order));
           labelled.add(b.first);
           continue;
         }
@@ -229,12 +272,12 @@ class PlacesMapViewState extends State<PlacesMapView> {
         markers.add(_clusterMarker(center, b.n));
       }
       for (final e in picked) {
-        markers.add(_placeMarker(e));
+        markers.add(_placeMarker(e, order));
         labelled.add(e);
       }
     } else {
       for (final e in visible) {
-        markers.add(_placeMarker(e));
+        markers.add(_placeMarker(e, order));
         labelled.add(e);
       }
     }
@@ -276,17 +319,31 @@ class PlacesMapViewState extends State<PlacesMapView> {
           userAgentPackageName: 'com.motogo24.app',
           maxZoom: 19,
         ),
-        // Trasy pod markery, ať body zůstanou čitelné.
+        // Trasy pod markery, ať body zůstanou čitelné. Zvýrazněná čára jde
+        // až za ostatními (= navrch) a má tmavý podklad jako v detailu trasy.
         if (widget.routeLines.isNotEmpty)
           PolylineLayer(
             polylines: [
-              for (final pts in widget.routeLines)
-                if (pts.length >= 2)
+              for (final l in widget.routeLines)
+                if (l.points.length >= 2 && !l.emphasized)
                   Polyline(
-                    points: pts,
-                    strokeWidth: 4,
-                    color: MotoGoColors.greenDark.withValues(alpha: 0.85),
+                    points: l.points,
+                    strokeWidth: l.width,
+                    color: l.color.withValues(alpha: 0.85),
                   ),
+              for (final l in widget.routeLines)
+                if (l.points.length >= 2 && l.emphasized) ...[
+                  Polyline(
+                    points: l.points,
+                    strokeWidth: l.width + 3,
+                    color: MotoGoColors.dark.withValues(alpha: 0.35),
+                  ),
+                  Polyline(
+                    points: l.points,
+                    strokeWidth: l.width,
+                    color: l.color,
+                  ),
+                ],
             ],
           ),
         // „Tvoje trasa" z editoru — silná tmavá čára nad ostatními.
@@ -474,8 +531,9 @@ class PlacesMapViewState extends State<PlacesMapView> {
     );
   }
 
-  Marker _placeMarker(PoiEntry e) {
+  Marker _placeMarker(PoiEntry e, Map<String, int> order) {
     final sel = widget.selected.contains(e.key);
+    final n = order[e.key];
     // Body tras mají na mapě tras VLASTNÍ barvu, aby šly odlišit od ostatních
     // míst (zadání uživatele).
     final onRoute = widget.markRouteStops && e.onRoute;
@@ -514,7 +572,17 @@ class PlacesMapViewState extends State<PlacesMapView> {
           ),
           child: Center(
             child: sel
-                ? const Icon(Icons.check, size: 18, color: Colors.white)
+                ? (n == null
+                    ? const Icon(Icons.check, size: 18, color: Colors.white)
+                    : Text(
+                        '$n',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: MotoGoTypo.w900,
+                          color: Colors.white,
+                          decoration: TextDecoration.none,
+                        ),
+                      ))
                 : Text(poiCatEmoji(e.poi), style: const TextStyle(fontSize: 15)),
           ),
         ),
