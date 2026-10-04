@@ -1534,7 +1534,7 @@ return [
     'confirm.paydocs.leadAnon' => 'Dziękujemy. Twoja płatność przebiegła pomyślnie. Został ostatni krok — uzupełnij i prześlij dokumenty, abyśmy mogli potwierdzić rezerwację i wysłać kody dostępu.',
     'confirm.paydocs.emailInfo' => 'Właśnie wysłaliśmy Ci e-mailem potwierdzenie płatności (fakturę zaliczkową i dowód wpłaty).',
     'confirm.paydocs.step1' => 'Uzupełnij numery dokumentu tożsamości (dowód/paszport) i prawa jazdy.',
-    'confirm.paydocs.step2' => 'Prześlij zdjęcia dokumentów (dowód/paszport + prawo jazdy). Zdjęcia są opcjonalne — ale bez weryfikacji nie wyślemy kodów dostępu z wyprzedzeniem, a dokumenty sprawdzimy dopiero w oddziale.',
+    'confirm.paydocs.step2' => 'Prześlij zdjęcia dokumentów (dowód/paszport + prawo jazdy). Bez ich weryfikacji nie wyślemy ci kodów dostępu — w oddziale samoobsługowym przesłanie jest niezbędne, bez kodów nie dostaniesz się do środka. W oddziale z obsługą dokumenty w razie potrzeby sprawdzimy przy odbiorze na miejscu.',
     'confirm.paydocs.step3' => 'Gdy tylko uzupełnisz dokumenty, potwierdzimy rezerwację i wyślemy umowę oraz kody dostępu do motocykla i wyposażenia.',
     'confirm.paydocs.continueDocs' => 'Przejdź do kroku 4 — dokumenty',
     'confirm.paydocs.later' => 'Uzupełnię dokumenty później',

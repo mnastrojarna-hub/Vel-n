@@ -1555,7 +1555,7 @@ return [
     'confirm.paydocs.leadAnon' => 'Merci. Votre paiement a bien été effectué. Il ne reste qu\'une dernière étape : renseigner et téléverser vos documents pour que nous puissions confirmer votre réservation et envoyer les codes d\'accès.',
     'confirm.paydocs.emailInfo' => 'Nous venons de vous envoyer par e-mail le justificatif de paiement (facture d\'acompte et reçu de paiement).',
     'confirm.paydocs.step1' => 'Renseignez les numéros de votre pièce d\'identité (carte d\'identité/passeport) et de votre permis de conduire.',
-    'confirm.paydocs.step2' => 'Téléversez les photos de vos documents (pièce d\'identité/passeport + permis). Les photos sont facultatives, mais sans vérification nous n\'enverrons pas les codes d\'accès à l\'avance et nous vérifierons les documents à l\'agence.',
+    'confirm.paydocs.step2' => 'Téléversez les photos de vos documents (pièce d\'identité/passeport + permis de conduire). Sans leur vérification, nous ne vous enverrons pas les codes d\'accès — à l\'agence en libre-service, le téléversement est indispensable : sans codes, vous ne pourrez pas entrer. À l\'agence avec personnel, nous vérifierons les documents, le cas échéant, sur place lors de la remise.',
     'confirm.paydocs.step3' => 'Dès que vous aurez renseigné les documents, nous confirmerons la réservation et enverrons le contrat ainsi que les codes d\'accès à la moto et à l\'équipement.',
     'confirm.paydocs.continueDocs' => 'Continuer à l\'étape 4 — documents',
     'confirm.paydocs.later' => 'J\'ajouterai les documents plus tard',

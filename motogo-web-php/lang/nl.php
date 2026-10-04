@@ -1534,7 +1534,7 @@ return [
     'confirm.paydocs.leadAnon' => 'Bedankt. Je betaling is gelukt. Er rest nog één stap — vul je documenten in en upload ze, zodat we je reservering kunnen bevestigen en de toegangscodes kunnen sturen.',
     'confirm.paydocs.emailInfo' => 'We hebben je zojuist het betalingsbewijs (voorschotfactuur en betalingsbewijs) gemaild.',
     'confirm.paydocs.step1' => 'Vul de nummers van je identiteitsbewijs (ID-kaart/paspoort) en rijbewijs in.',
-    'confirm.paydocs.step2' => 'Upload foto\'s van je documenten (ID/paspoort + rijbewijs). Foto\'s zijn optioneel — maar zonder verificatie sturen we de toegangscodes niet vooraf en controleren we de documenten pas in de vestiging.',
+    'confirm.paydocs.step2' => 'Upload foto\'s van je documenten (ID/paspoort + rijbewijs). Zonder verificatie sturen we je de toegangscodes niet — bij de zelfbedieningsvestiging is uploaden noodzakelijk, zonder codes kom je niet binnen. Bij de bemande vestiging controleren we de documenten zo nodig bij de overdracht ter plaatse.',
     'confirm.paydocs.step3' => 'Zodra je de documenten hebt ingevuld, bevestigen we de reservering en sturen we het contract en de toegangscodes voor de motor en uitrusting.',
     'confirm.paydocs.continueDocs' => 'Doorgaan naar stap 4 — documenten',
     'confirm.paydocs.later' => 'Ik voeg de documenten later toe',

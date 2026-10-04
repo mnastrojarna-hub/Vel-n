@@ -1556,7 +1556,7 @@ return [
     'confirm.paydocs.leadAnon' => 'Gracias. Tu pago se ha realizado correctamente. Queda un último paso: rellenar y subir tus documentos para que podamos confirmar tu reserva y enviarte los códigos de acceso.',
     'confirm.paydocs.emailInfo' => 'Acabamos de enviarte por correo el comprobante de pago (factura anticipada y recibo de pago).',
     'confirm.paydocs.step1' => 'Rellena los números de tu documento de identidad (DNI/pasaporte) y del permiso de conducir.',
-    'confirm.paydocs.step2' => 'Sube fotos de tus documentos (DNI/pasaporte + permiso de conducir). Las fotos son opcionales, pero sin verificación no enviaremos los códigos de acceso por adelantado y comprobaremos los documentos en la sucursal.',
+    'confirm.paydocs.step2' => 'Sube fotos de tus documentos (DNI/pasaporte + permiso de conducir). Sin su verificación no te enviaremos los códigos de acceso — en la sucursal de autoservicio subirlos es imprescindible: sin códigos no podrás entrar. En la sucursal con personal, si hace falta, comprobaremos los documentos en el lugar en el momento de la entrega.',
     'confirm.paydocs.step3' => 'En cuanto rellenes los documentos, confirmaremos la reserva y enviaremos el contrato y los códigos de acceso de la moto y el equipamiento.',
     'confirm.paydocs.continueDocs' => 'Continuar al paso 4 — documentos',
     'confirm.paydocs.later' => 'Añadiré los documentos más tarde',

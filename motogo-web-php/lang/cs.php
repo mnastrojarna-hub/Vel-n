@@ -1611,7 +1611,7 @@ return [
     'confirm.paydocs.leadAnon' => 'Děkujeme. Platba proběhla v pořádku. Zbývá poslední krok — vyplnit a nahrát doklady, ať ti můžeme rezervaci potvrdit a poslat přístupové kódy.',
     'confirm.paydocs.emailInfo' => 'Doklad o přijaté platbě (zálohovou fakturu i doklad o platbě) jsme ti právě poslali e-mailem.',
     'confirm.paydocs.step1' => 'Vyplň čísla dokladu totožnosti (OP/pas) a řidičského průkazu.',
-    'confirm.paydocs.step2' => 'Nahraj fotky dokladů (OP/pas + ŘP). Foto je dobrovolné — bez ověření ti ale nepošleme přístupové kódy předem a doklady zkontrolujeme až na pobočce.',
+    'confirm.paydocs.step2' => 'Nahraj fotky dokladů (OP/pas + ŘP). Bez jejich ověření ti nepošleme přístupové kódy — na samoobslužné pobočce je nahrání nezbytné, bez kódů se dovnitř nedostaneš. Na obslužné pobočce doklady případně zkontrolujeme při převzetí na místě.',
     'confirm.paydocs.step3' => 'Jakmile doklady vyplníš, potvrdíme rezervaci a pošleme smlouvu i přístupové kódy k motorce a výbavě.',
     'confirm.paydocs.continueDocs' => 'Pokračovat na krok 4 — doklady',
     'confirm.paydocs.later' => 'Doplním doklady později',

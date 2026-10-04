@@ -1569,7 +1569,7 @@ return [
     'confirm.paydocs.leadAnon' => 'Danke. Deine Zahlung war erfolgreich. Ein letzter Schritt bleibt — fülle deine Dokumente aus und lade sie hoch, damit wir deine Buchung bestätigen und die Zugangscodes senden können.',
     'confirm.paydocs.emailInfo' => 'Den Zahlungsbeleg (Vorausrechnung und Zahlungsbeleg) haben wir dir gerade per E-Mail geschickt.',
     'confirm.paydocs.step1' => 'Trage die Nummern deines Ausweises (Personalausweis/Reisepass) und Führerscheins ein.',
-    'confirm.paydocs.step2' => 'Lade Fotos deiner Dokumente hoch (Ausweis/Reisepass + Führerschein). Die Fotos sind freiwillig — ohne Überprüfung senden wir die Zugangscodes jedoch nicht im Voraus und prüfen die Dokumente erst in der Filiale.',
+    'confirm.paydocs.step2' => 'Lade Fotos deiner Dokumente hoch (Ausweis/Reisepass + Führerschein). Ohne deren Überprüfung senden wir dir die Zugangscodes nicht — in der Selbstbedienungsfiliale ist das Hochladen unbedingt erforderlich, ohne Codes kommst du nicht hinein. In der bedienten Filiale prüfen wir die Dokumente gegebenenfalls bei der Übergabe vor Ort.',
     'confirm.paydocs.step3' => 'Sobald du die Dokumente ausgefüllt hast, bestätigen wir die Buchung und senden den Vertrag sowie die Zugangscodes für das Motorrad und die Ausrüstung.',
     'confirm.paydocs.continueDocs' => 'Weiter zu Schritt 4 — Dokumente',
     'confirm.paydocs.later' => 'Ich reiche die Dokumente später nach',

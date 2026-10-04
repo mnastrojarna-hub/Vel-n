@@ -342,49 +342,49 @@ const DOCS_REQUIRED_BLOCK_LABELS: Record<Lang, { title: string; intro: string; c
     title:    'Doklady ještě chybí — přístupové kódy zatím nemůžeme vydat',
     intro:    'Pro automatické zaslání přístupových kódů k pobočce potřebujeme platný občanský průkaz (nebo cestovní pas) a řidičský průkaz. Sken přes mobil zabere přibližně 30 vteřin.',
     cta:      'Nahrát doklady',
-    inPerson: 'Pokud doklady raději ukážete osobně, není problém — provedeme jejich kontrolu při převzetí motocyklu na pobočce. Bez ověření dokladů ale není možné kódy vydat.',
+    inPerson: 'Na samoobslužné pobočce je nahrání dokladů předem nezbytné — bez jejich ověření kódy nevydáme a na pobočku se nedostanete. Na obslužné pobočce vás o nahrání také žádáme; pokud doklady nenahrajete, zkontrolujeme je při převzetí na místě.',
   },
   en: {
     title:    'Documents are still missing — we can\'t release access codes yet',
     intro:    'To automatically issue your branch access codes, we need a valid ID card (or passport) and a driver\'s license. Scanning via your phone takes about 30 seconds.',
     cta:      'Upload documents',
-    inPerson: 'If you prefer, you can show the documents in person — we will verify them when you pick up the motorcycle. The codes can\'t be issued without document verification.',
+    inPerson: 'At the self-service branch, uploading the documents in advance is essential — without verification we will not issue the codes and you will not be able to get into the branch. At the staffed branch we also ask you to upload them; if you don\'t upload the documents, we will check them at handover on site.',
   },
   de: {
     title:    'Dokumente fehlen noch — Zugangscodes können wir noch nicht freigeben',
     intro:    'Für die automatische Zustellung der Filial-Zugangscodes benötigen wir einen gültigen Personalausweis (oder Reisepass) und einen Führerschein. Der Handy-Scan dauert ca. 30 Sekunden.',
     cta:      'Dokumente hochladen',
-    inPerson: 'Sie können die Dokumente auch persönlich vorzeigen — wir prüfen sie bei der Übergabe des Motorrads. Ohne Prüfung können wir die Codes nicht freigeben.',
+    inPerson: 'In der Selbstbedienungsfiliale ist das vorherige Hochladen der Dokumente unbedingt erforderlich — ohne deren Prüfung geben wir keine Codes aus und Sie erhalten keinen Zutritt zur Filiale. In der bedienten Filiale bitten wir Sie ebenfalls um das Hochladen; falls Sie die Dokumente nicht hochladen, prüfen wir sie bei der Übergabe vor Ort.',
   },
   nl: {
     title:    'Documenten ontbreken nog — toegangscodes kunnen nog niet worden vrijgegeven',
     intro:    'Voor het automatisch versturen van de toegangscodes voor het filiaal hebben we een geldig identiteitsbewijs (of paspoort) en een rijbewijs nodig. De scan via je mobiel duurt ongeveer 30 seconden.',
     cta:      'Documenten uploaden',
-    inPerson: 'Liever in persoon laten zien? Geen probleem — we controleren ze bij het ophalen van de motor. Zonder controle kunnen we de codes niet vrijgeven.',
+    inPerson: 'Bij de zelfbedieningsvestiging is het vooraf uploaden van de documenten noodzakelijk — zonder controle geven we geen codes uit en kom je de vestiging niet binnen. Bij de bemande vestiging vragen we je ook om ze te uploaden; upload je de documenten niet, dan controleren we ze bij de overdracht ter plaatse.',
   },
   es: {
     title:    'Faltan los documentos — todavía no podemos emitir los códigos de acceso',
     intro:    'Para enviarte automáticamente los códigos de acceso a la sucursal, necesitamos un documento de identidad válido (o pasaporte) y un permiso de conducir. Escanearlos con el móvil tarda unos 30 segundos.',
     cta:      'Subir documentos',
-    inPerson: 'Si prefieres mostrar los documentos en persona, no hay problema — los verificaremos al recoger la moto. Sin verificación no podemos emitir los códigos.',
+    inPerson: 'En la sucursal de autoservicio subir los documentos por adelantado es imprescindible — sin su verificación no emitiremos los códigos y no podrás entrar en la sucursal. En la sucursal con personal también te pedimos que los subas; si no subes los documentos, los comprobaremos en el lugar en el momento de la entrega.',
   },
   fr: {
     title:    'Documents encore manquants — nous ne pouvons pas encore délivrer les codes d\'accès',
     intro:    'Pour envoyer automatiquement les codes d\'accès à la succursale, nous avons besoin d\'une pièce d\'identité valide (ou passeport) et d\'un permis de conduire. Le scan depuis votre téléphone prend environ 30 secondes.',
     cta:      'Téléverser les documents',
-    inPerson: 'Vous préférez présenter les documents sur place ? Aucun souci — nous les vérifierons lors de la remise de la moto. Sans vérification, les codes ne peuvent pas être délivrés.',
+    inPerson: 'À l\'agence en libre-service, le téléversement préalable des documents est indispensable — sans leur vérification, nous ne délivrerons pas les codes et vous ne pourrez pas entrer dans l\'agence. À l\'agence avec personnel, nous vous demandons également de les téléverser ; si vous ne téléversez pas les documents, nous les vérifierons sur place lors de la remise.',
   },
   pl: {
     title:    'Brakuje jeszcze dokumentów — nie możemy jeszcze wydać kodów dostępu',
     intro:    'Aby automatycznie wysłać kody dostępu do oddziału, potrzebujemy ważnego dowodu osobistego (lub paszportu) oraz prawa jazdy. Skan przez telefon zajmuje około 30 sekund.',
     cta:      'Prześlij dokumenty',
-    inPerson: 'Jeśli wolisz pokazać dokumenty osobiście, nie ma problemu — sprawdzimy je przy odbiorze motocykla. Bez weryfikacji nie możemy wydać kodów.',
+    inPerson: 'W oddziale samoobsługowym przesłanie dokumentów z wyprzedzeniem jest niezbędne — bez ich weryfikacji nie wydamy kodów i nie dostaniesz się do oddziału. W oddziale z obsługą również prosimy o przesłanie dokumentów; jeśli ich nie prześlesz, sprawdzimy je przy odbiorze na miejscu.',
   },
   uk: {
     title:    'Ще бракує документів — поки не можемо видати коди доступу',
     intro:    'Щоб автоматично надіслати коди доступу до філії, нам потрібен чинний документ, що посвідчує особу (або паспорт), і посвідчення водія. Сканування телефоном займає близько 30 секунд.',
     cta:      'Надіслати документи',
-    inPerson: 'Волієте показати документи особисто? Не проблема — перевіримо їх під час видачі мотоцикла. Без перевірки коди видати не можемо.',
+    inPerson: 'У філії самообслуговування завантажити документи заздалегідь необхідно — без їх перевірки ми не видамо коди, і ви не потрапите до філії. У філії з персоналом ми також просимо завантажити документи; якщо ви їх не завантажите, ми перевіримо їх під час видачі на місці.',
   },
 }
 
@@ -422,7 +422,7 @@ ${v.door_codes_block || ''}
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Informace k převzetí motocyklu</h3>
 <p>Prosíme, pro bezproblémové převzetí si připravte:</p>
 <ul><li>platný doklad totožnosti (který jste uvedli v rezervačním formuláři),</li><li>platný řidičský průkaz.</li></ul>
-<p>Na místě společně provedeme kontrolu dokladů, předání motocyklu i případné zapůjčené výbavy a podepíšeme Předávací protokol.</p>
+<p>Doklady (občanský průkaz nebo cestovní pas a řidičský průkaz) prosím nahrajte předem v aplikaci nebo na webu — přístupové kódy vám pošleme až po jejich ověření. Na samoobslužné pobočce je nahrání dokladů předem nezbytné: bez ověřených dokladů kódy nevydáme a na pobočku se nedostanete; motorku i výbavu si převezmete sami pomocí kódů a Předávací protokol podepíšete na dotykovém displeji. Na obslužné pobočce vás o nahrání dokladů předem také žádáme — pokud je nenahrajete, zkontrolujeme je při převzetí na místě, kde vám předáme motorku i výbavu a společně podepíšeme Předávací protokol.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Vrácení motorky</h3>
 <p>Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřešte — to je naše práce. Při vrácení s prázdnou nádrží účtujeme dotankování + servisní poplatek dle VOP.</p>
 <div style="background:#f0faf5;border:1px solid #d4e8e0;border-left:4px solid #74fb71;border-radius:8px;padding:14px 16px;margin:18px 0">
@@ -439,7 +439,7 @@ ${v.door_codes_block || ''}
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Pickup information</h3>
 <p>For a smooth pickup, please bring:</p>
 <ul><li>a valid ID document (the one you provided in the booking form),</li><li>a valid driver's license.</li></ul>
-<p>On site we'll verify the documents, hand over the motorcycle and any rented gear, and sign the Handover Protocol.</p>
+<p>Please upload your documents (ID card or passport and driving licence) in advance in the app or on the website — we will send you the access codes only after they have been verified. At the self-service branch, uploading the documents in advance is essential: without verified documents we will not issue the codes and you will not be able to get into the branch; you take over the motorcycle and gear yourself using the codes and sign the Handover Protocol on the touch display. At the staffed branch we also ask you to upload the documents in advance — if you don't, we will check them at handover on site, where we hand over the motorcycle and gear and sign the Handover Protocol together.</p>
 <p>${SIGN.en}</p>`,
     de: v => `<p>${HELLO.de}</p>
 <p>vielen Dank für Ihr Vertrauen und Ihre Buchung Nr. <strong>${v.booking_number}</strong> bei MOTO GO 24.</p>
@@ -449,7 +449,7 @@ ${v.door_codes_block || ''}
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Informationen zur Abholung</h3>
 <p>Bitte bringen Sie für eine reibungslose Übergabe mit:</p>
 <ul><li>einen gültigen Personalausweis (den Sie im Buchungsformular angegeben haben),</li><li>einen gültigen Führerschein.</li></ul>
-<p>Vor Ort prüfen wir die Dokumente, übergeben das Motorrad und die ggf. gemietete Ausrüstung und unterschreiben das Übergabeprotokoll.</p>
+<p>Bitte laden Sie Ihre Dokumente (Personalausweis oder Reisepass und Führerschein) vorab in der App oder auf der Website hoch — die Zugangscodes senden wir Ihnen erst nach deren Prüfung. In der Selbstbedienungsfiliale ist das vorherige Hochladen der Dokumente unbedingt erforderlich: Ohne geprüfte Dokumente geben wir keine Codes aus und Sie erhalten keinen Zutritt zur Filiale; Motorrad und Ausrüstung übernehmen Sie selbst mithilfe der Codes und unterschreiben das Übergabeprotokoll am Touch-Display. In der bedienten Filiale bitten wir Sie ebenfalls, die Dokumente vorab hochzuladen — falls Sie das nicht tun, prüfen wir sie bei der Übergabe vor Ort, wo wir Ihnen Motorrad und Ausrüstung übergeben und gemeinsam das Übergabeprotokoll unterschreiben.</p>
 <p>${SIGN.de}</p>`,
     nl: v => `<p>${HELLO.nl}</p>
 <p>bedankt voor je vertrouwen en je boeking nr. <strong>${v.booking_number}</strong> bij MOTO GO 24.</p>
@@ -459,7 +459,7 @@ ${v.door_codes_block || ''}
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Ophalen — informatie</h3>
 <p>Voor een soepele overdracht graag meenemen:</p>
 <ul><li>een geldig identiteitsbewijs (dat je in het boekingsformulier hebt opgegeven),</li><li>een geldig rijbewijs.</li></ul>
-<p>Ter plaatse controleren we de documenten, geven we de motor en eventueel gehuurde uitrusting over en tekenen we het Overdrachtsprotocol.</p>
+<p>Upload je documenten (identiteitskaart of paspoort en rijbewijs) alsjeblieft vooraf in de app of op de website — de toegangscodes sturen we je pas na controle ervan. Bij de zelfbedieningsvestiging is het vooraf uploaden van de documenten noodzakelijk: zonder gecontroleerde documenten geven we geen codes uit en kom je de vestiging niet binnen; de motor en de uitrusting neem je zelf over met behulp van de codes en het Overdrachtsprotocol onderteken je op het touchscreen. Bij de bemande vestiging vragen we je ook om de documenten vooraf te uploaden — doe je dat niet, dan controleren we ze bij de overdracht ter plaatse, waar we je de motor en de uitrusting overhandigen en samen het Overdrachtsprotocol ondertekenen.</p>
 <p>${SIGN.nl}</p>`,
     es: v => `<p>${HELLO.es}</p>
 <p>gracias por tu confianza y por tu reserva nº <strong>${v.booking_number}</strong> en MOTO GO 24.</p>
@@ -469,7 +469,7 @@ ${v.door_codes_block || ''}
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Información de recogida</h3>
 <p>Para una recogida sin problemas, trae por favor:</p>
 <ul><li>un documento de identidad válido (el que indicaste en el formulario),</li><li>un permiso de conducir válido.</li></ul>
-<p>En el lugar verificaremos los documentos, te entregaremos la moto y el equipo alquilado, y firmaremos el Acta de Entrega.</p>
+<p>Por favor, sube los documentos (DNI o pasaporte y permiso de conducir) por adelantado en la aplicación o en la web — los códigos de acceso te los enviaremos solo después de verificarlos. En la sucursal de autoservicio subir los documentos por adelantado es imprescindible: sin documentos verificados no emitiremos los códigos y no podrás entrar en la sucursal; recogerás tú mismo la moto y el equipo con los códigos y firmarás el Acta de Entrega en la pantalla táctil. En la sucursal con personal también te pedimos que subas los documentos por adelantado — si no los subes, los comprobaremos en el lugar en el momento de la entrega, donde te entregaremos la moto y el equipo y firmaremos juntos el Acta de Entrega.</p>
 <p>${SIGN.es}</p>`,
     fr: v => `<p>${HELLO.fr}</p>
 <p>merci de votre confiance et de votre réservation n° <strong>${v.booking_number}</strong> chez MOTO GO 24.</p>
@@ -479,7 +479,7 @@ ${v.door_codes_block || ''}
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Informations de retrait</h3>
 <p>Pour un retrait sans souci, veuillez apporter :</p>
 <ul><li>une pièce d'identité valide (celle indiquée dans le formulaire),</li><li>un permis de conduire valide.</li></ul>
-<p>Sur place, nous vérifierons les documents, vous remettrons la moto et l'équipement loué, et signerons le procès-verbal de remise.</p>
+<p>Veuillez téléverser vos documents (carte d'identité ou passeport et permis de conduire) à l'avance dans l'application ou sur le site web — nous vous enverrons les codes d'accès uniquement après leur vérification. À l'agence en libre-service, le téléversement préalable des documents est indispensable : sans documents vérifiés, nous ne délivrerons pas les codes et vous ne pourrez pas entrer dans l'agence ; vous prendrez en charge la moto et l'équipement vous-même à l'aide des codes et signerez le procès-verbal de remise sur l'écran tactile. À l'agence avec personnel, nous vous demandons également de téléverser les documents à l'avance — si vous ne le faites pas, nous les vérifierons sur place lors de la remise, où nous vous remettrons la moto et l'équipement et signerons ensemble le procès-verbal de remise.</p>
 <p>${SIGN.fr}</p>`,
     pl: v => `<p>${HELLO.pl}</p>
 <p>dziękujemy za zaufanie i rezerwację nr <strong>${v.booking_number}</strong> w MOTO GO 24.</p>
@@ -489,7 +489,7 @@ ${v.door_codes_block || ''}
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Informacje dotyczące odbioru</h3>
 <p>Aby odbiór przebiegł sprawnie, prosimy o:</p>
 <ul><li>ważny dokument tożsamości (wskazany w formularzu rezerwacji),</li><li>ważne prawo jazdy.</li></ul>
-<p>Na miejscu sprawdzimy dokumenty, przekażemy motocykl i wynajęte wyposażenie oraz podpiszemy protokół zdawczo-odbiorczy.</p>
+<p>Dokumenty (dowód osobisty lub paszport oraz prawo jazdy) prześlij proszę z wyprzedzeniem w aplikacji lub na stronie internetowej — kody dostępu wyślemy ci dopiero po ich weryfikacji. W oddziale samoobsługowym przesłanie dokumentów z wyprzedzeniem jest niezbędne: bez zweryfikowanych dokumentów nie wydamy kodów i nie dostaniesz się do oddziału; motocykl i wyposażenie odbierzesz samodzielnie za pomocą kodów, a protokół zdawczo-odbiorczy podpiszesz na ekranie dotykowym. W oddziale z obsługą również prosimy o przesłanie dokumentów z wyprzedzeniem — jeśli ich nie prześlesz, sprawdzimy je przy odbiorze na miejscu, gdzie przekażemy ci motocykl i wyposażenie oraz wspólnie podpiszemy protokół zdawczo-odbiorczy.</p>
 <p>${SIGN.pl}</p>`,
     uk: v => `<p>${HELLO.uk}</p>
 <p>дякуємо за довіру та бронювання № <strong>${v.booking_number}</strong> у MOTO GO 24.</p>
@@ -499,7 +499,7 @@ ${v.door_codes_block || ''}
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Інформація щодо отримання</h3>
 <p>Щоб видача пройшла швидко, підготуйте, будь ласка:</p>
 <ul><li>чинний документ, що посвідчує особу (той, який ви вказали у формі бронювання),</li><li>чинне посвідчення водія.</li></ul>
-<p>На місці разом перевіримо документи, передамо мотоцикл і орендоване спорядження та підпишемо акт приймання-передачі.</p>
+<p>Документи (ID-картку або паспорт та посвідчення водія) завантажте, будь ласка, заздалегідь у додатку або на сайті — коди доступу ми надішлемо вам лише після їх перевірки. У філії самообслуговування завантажити документи заздалегідь необхідно: без перевірених документів ми не видамо коди, і ви не потрапите до філії; мотоцикл і спорядження ви отримаєте самостійно за допомогою кодів, а акт приймання-передачі підпишете на сенсорному дисплеї. У філії з персоналом ми також просимо вас завантажити документи заздалегідь — якщо ви їх не завантажите, ми перевіримо їх під час видачі на місці, де передамо вам мотоцикл і спорядження та разом підпишемо акт приймання-передачі.</p>
 <p>${SIGN.uk}</p>`,
   },
 

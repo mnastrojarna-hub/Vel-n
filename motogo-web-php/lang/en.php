@@ -1571,7 +1571,7 @@ return [
     'confirm.paydocs.leadAnon' => 'Thank you. Your payment went through successfully. One last step remains — fill in and upload your documents so we can confirm your booking and send the access codes.',
     'confirm.paydocs.emailInfo' => 'We\'ve just emailed you the proof of payment (advance invoice and payment receipt).',
     'confirm.paydocs.step1' => 'Fill in the numbers of your ID (ID card/passport) and driving licence.',
-    'confirm.paydocs.step2' => 'Upload photos of your documents (ID/passport + driving licence). Photos are optional — but without verification we won\'t send the access codes in advance and we\'ll check the documents at the branch.',
+    'confirm.paydocs.step2' => 'Upload photos of your documents (ID/passport + driving licence). Without verification we won\'t send the access codes — at the self-service branch the upload is essential, without the codes you can\'t get in. At the staffed branch we\'ll check the documents at handover on site if needed.',
     'confirm.paydocs.step3' => 'Once you\'ve filled in the documents, we\'ll confirm the booking and send the contract and access codes for the motorcycle and gear.',
     'confirm.paydocs.continueDocs' => 'Continue to step 4 — documents',
     'confirm.paydocs.later' => 'I\'ll add documents later',
