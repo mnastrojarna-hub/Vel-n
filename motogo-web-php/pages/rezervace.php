@@ -11,6 +11,10 @@ $startDate = $_GET['start'] ?? '';
 $endDate = $_GET['end'] ?? '';
 $delivery = $_GET['delivery'] ?? '';
 $resume = $_GET['resume'] ?? '';
+// Předvybraná pobočka (CTA z /pobocky/<slug> → ?pobocka=<branches.id>, stejný parametr jako /katalog).
+// Jen formát UUID; neznámou pobočku JS tiše ignoruje a ?moto= má přednost (js/pages-rezervace.js).
+$rezBranch = $_GET['pobocka'] ?? '';
+$rezBranch = (is_string($rezBranch) && preg_match('/^[0-9a-f-]{36}$/iD', $rezBranch)) ? strtolower($rezBranch) : '';
 // Návrat ze zamítnuté / zrušené platby (Stripe cancel_url = /rezervace?resume=<id>&payfail=1).
 // Zákazník se vrací na krok platby — banner mu nabídne opakování / jinou metodu.
 // Renderujeme MIMO #rezervace-app (ten JS přepíše), aby hláška zůstala nahoře.
@@ -139,7 +143,8 @@ window.REZERVACE_PARAMS = {
   start: ' . json_encode($startDate) . ',
   end: ' . json_encode($endDate) . ',
   delivery: ' . json_encode($delivery) . ',
-  resume: ' . json_encode($resume) . '
+  resume: ' . json_encode($resume) . ',
+  branch: ' . json_encode($rezBranch) . '
 };
 // Pre-init MG namespace a _rez state PRED nacitanim JS modulu
 var MG = window.MG || {};

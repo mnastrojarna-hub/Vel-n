@@ -55,7 +55,7 @@ export const PAGE_POBOCKY = {
       id: 'cta', label: 'Zelený box s tlačítkem', location: 'Dole na přehledu i na stránce pobočky',
       fields: [
         { key: 'web.pobocky.cta.title', label: 'Nadpis', default: 'Vyberte si motorku na své pobočce' },
-        { key: 'web.pobocky.cta.text', label: 'Text', type: 'textarea', default: 'V rezervaci uvidíte u každé motorky, na které pobočce je k dispozici.' },
+        { key: 'web.pobocky.cta.text', label: 'Text', type: 'textarea', default: 'V rezervaci si zvolíte pobočku a nabídnou se vám jen motorky, které na ní jsou.' },
         { key: 'web.pobocky.cta.button', label: 'Tlačítko — text', default: 'REZERVOVAT ONLINE' },
       ]
     },

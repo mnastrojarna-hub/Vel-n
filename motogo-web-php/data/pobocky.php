@@ -70,7 +70,7 @@ function pobockyDefaults() {
     'back_link' => '← Všechny pobočky',
     'cta' => [
         'title' => 'Vyberte si motorku na své pobočce',
-        'text' => 'V rezervaci uvidíte u každé motorky, na které pobočce je k dispozici.',
+        'text' => 'V rezervaci si zvolíte pobočku a nabídnou se vám jen motorky, které na ní jsou.',
         'button' => 'REZERVOVAT ONLINE',
     ],
 ];
