@@ -27,6 +27,9 @@ $mapSrc = 'https://www.google.com/maps?q=' . rawurlencode($mapQ) . '&hl=' . i18n
 $photo = trim((string)$b['photo']);
 
 $cta = is_array($C['cta'] ?? null) ? array_merge($defaults['cta'], $C['cta']) : $defaults['cta'];
+// „Rezervovat“ → formulář s předvybranou touto pobočkou (branch_id jen z kódu, data/pobocky.php); bez id prosté /rezervace.
+$branchId = strtolower(trim((string)($b['branch_id'] ?? '')));
+$rezHref = BASE_URL . '/rezervace' . (preg_match('/^[0-9a-f-]{36}$/', $branchId) ? '?pobocka=' . $branchId : '');
 
 $content = pobockyCss() . '<main id="content"><div class="container">' . $bc
     . '<div class="ccontent"><section class="branch-card">'
@@ -45,7 +48,7 @@ $content = pobockyCss() . '<main id="content"><div class="container">' . $bc
     . '</section>'
     . '<section class="cta-green-box"><h2 data-cms-key="web.pobocky.cta.title">' . sanitizeHtml((string)$cta['title']) . '</h2>'
     . '<p data-cms-key="web.pobocky.cta.text">' . sanitizeHtml((string)$cta['text']) . '</p><p>&nbsp;</p>'
-    . '<p><a class="btn btndark" href="' . BASE_URL . '/rezervace" data-cms-key="web.pobocky.cta.button">' . sanitizeHtml((string)$cta['button']) . '</a></p></section>'
+    . '<p><a class="btn btndark" href="' . htmlspecialchars($rezHref) . '" data-cms-key="web.pobocky.cta.button">' . sanitizeHtml((string)$cta['button']) . '</a></p></section>'
     . '<p>&nbsp;</p><p><a href="' . BASE_URL . '/pobocky" data-cms-key="web.pobocky.back_link">' . sanitizeHtml((string)($C['back_link'] ?? $defaults['back_link'])) . '</a></p>'
     . '</div></div></main>';
 

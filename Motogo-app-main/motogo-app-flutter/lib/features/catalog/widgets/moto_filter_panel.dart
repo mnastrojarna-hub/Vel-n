@@ -6,6 +6,7 @@ import '../../../core/theme.dart';
 import '../../home/widgets/license_chip.dart';
 import '../catalog_provider.dart';
 import 'availability_calendar.dart';
+import 'filter_branch_chip.dart';
 
 /// Filtr motorek — JEDEN panel sdílený obrazovkami Domů a Rezervovat.
 ///
@@ -153,6 +154,13 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
               ],
             ),
           ),
+          // Zvolená pobočka je vidět i u sbaleného panelu (jinak jen odznak).
+          if (!_open)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _open = true),
+              child: const FilterBranchChip(),
+            ),
           // ── Obsah ──
           AnimatedSize(
             duration: const Duration(milliseconds: 200),

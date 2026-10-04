@@ -83,6 +83,7 @@ class _PaymentConfirmationScreenState
         // Bez rezervace z DB: pobočka z vybrané motorky (bez GPS → mapa
         // hledá podle názvu a adresy).
         _setPickup({
+          'id': moto?.branchId,
           'name': moto?.branchName,
           'address': moto?.branchAddress,
           'city': moto?.branchCity,
@@ -103,7 +104,7 @@ class _PaymentConfirmationScreenState
           .from('bookings')
           .select('id, user_id, moto_id, end_date, pickup_method, pickup_address, '
               'motorcycles!moto_id(license_required, '
-              'branches(name, address, zip, city, gps_lat, gps_lng))')
+              'branches(id, name, address, zip, city, gps_lat, gps_lng))')
           .eq('id', bookingId)
           .maybeSingle();
 

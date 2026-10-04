@@ -6,6 +6,7 @@
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { formatBookingContext, formatMultipleBookingsContext } from '../ai-moto-agent/booking-context.ts'
+import { loadGateCodeMask, markBookingsGate } from '../_shared/agent-knowledge/branch-gate.ts'
 
 export type Msg = { id: string; direction: string | null; content: string | null; created_at: string }
 
@@ -42,7 +43,7 @@ export function bookingLine(b: Record<string, unknown>): string {
   return `- #${ref} [id=${b.id}] ${m.brand || ''} ${m.model || '?'} | ${b.start_date} – ${b.end_date} | stav ${b.status}, platba ${b.payment_status || '?'} | cena ${b.total_price ?? '?'} Kč${disc} | zdroj ${b.booking_source || '?'}${cancel}`
 }
 
-async function loadBookings(sb: SupabaseClient, customerId: string): Promise<{ ctx: string; list: string }> {
+async function loadBookings(sb: SupabaseClient, customerId: string): Promise<{ ctx: string; list: string; gate?: boolean }> {
   const { data, error } = await sb.from('bookings').select(BOOKING_SELECT)
     .eq('user_id', customerId).order('start_date', { ascending: false }).limit(20)
   if (error) return { ctx: `\n\n## KONTEXT REZERVACE: načtení selhalo (${error.message}) — použij get_customer_overview / get_active_booking.`, list: '' }
@@ -53,13 +54,17 @@ async function loadBookings(sb: SupabaseClient, customerId: string): Promise<{ c
   const active = live.find((b) => b.status === 'active')
   const upcoming = live.filter((b) => b.status !== 'active' && String(b.end_date) >= today)
     .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))
+  // Pobočka s vjezdovou branou → řádek „VJEZD BRANOU“ v kontextu (jen příznak, NIKDY kód).
+  const marked = active ? [active] : upcoming.slice(0, 1)
+  await markBookingsGate(sb, marked)
+  const gate = marked.some((b) => (((b.motorcycles as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.has_gate) === true)
   let ctx = ''
   if (active) ctx = formatBookingContext(active, upcoming.length ? upcoming : null)
   else if (upcoming.length === 1) ctx = formatBookingContext(upcoming[0], null)
   else if (upcoming.length > 1) ctx = formatMultipleBookingsContext(upcoming)
   else ctx = '\n\n## KONTEXT REZERVACE:\nZákazník nemá žádnou aktivní ani nadcházející rezervaci — viz historie rezervací níže.'
   const list = `\n\n## VŠECHNY REZERVACE ZÁKAZNÍKA (Velín, nejnovější první — ${all.length}):\n${all.map(bookingLine).join('\n')}`
-  return { ctx, list }
+  return { ctx, list, gate }
 }
 
 // Páry „dotaz zákazníka → skutečná odpověď týmu" z posledních vláken = ustálené odpovědi
@@ -97,14 +102,19 @@ export async function loadThreadContext(sb: SupabaseClient, threadId: string, fo
   if (!thread) return null
   const customerId = (thread.customer_id as string | null) || null
 
-  const [custRes, histRes, bookings, staffExamples] = await Promise.all([
+  const [custRes, histRes, bookings, staffRaw, mask] = await Promise.all([
     customerId ? sb.from('profiles').select('*').eq('id', customerId).maybeSingle() : Promise.resolve({ data: null }),
     sb.from('messages').select('id, direction, content, created_at').eq('thread_id', threadId).order('created_at', { ascending: true }).limit(500),
     customerId ? loadBookings(sb, customerId) : Promise.resolve({ ctx: '\n\n## KONTEXT REZERVACE:\nVlákno nemá přiřazeného zákazníka — pokud zpráva zmiňuje rezervaci, e-mail nebo telefon, dohledej ji nástrojem find_booking.', list: '' }),
     loadStaffExamples(sb, threadId),
+    loadGateCodeMask(sb),
   ])
-
-  let history = ((histRes as { data: Msg[] | null }).data || []) as Msg[]
+  // Kód schránky od brány (Velké Němčice) z ručních zpráv týmu/zákazníka do promptu nejde (→ •••) —
+  // maskuje se JEN u vlákna zákazníka s rezervací na pobočce s bránou (jinde by krátký kód
+  // poškodil telefony, ceny či čísla rezervací ostatních zákazníků).
+  const maskIf = (bookings as { gate?: boolean }).gate ? mask : ((s: string | null) => s)
+  const staffExamples = maskIf(staffRaw) || ''
+  let history = (((histRes as { data: Msg[] | null }).data || []) as Msg[]).map((m) => ({ ...m, content: maskIf(m.content) }))
   let focus: Msg | null = null
   if (focusMessageId) {
     const idx = history.findIndex((m) => m.id === focusMessageId)

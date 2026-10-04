@@ -24,6 +24,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
   const [error, setError] = useState(null)
   // Zadržené kódy šatny („Vlastní výbava“): booking_id → smí se znovu aktivovat? (nárok podle RPC)
   const [lockerAllowed, setLockerAllowed] = useState({})
+  // Pobočka s vjezdovou bránou (branch_gate_access): ruční znovuodeslání dá kód brány na 1. řádek (brána → šatna → motorka)
 
   const ownGearRows = doorCodes.filter(c => !c.is_active && c.code_type === 'accessories' && c.withheld_reason === OWN_GEAR_REASON)
   const ownGearKey = ownGearRows.map(c => c.booking_id).join(',')
@@ -137,28 +138,22 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
     }
   }
 
+  // „Odeslat“ u zadrženého kódu (obsluha ověřila doklady osobně): RPC admin_release_door_codes
+  // (20261004f) uvolní VŠECHNY zadržené aktivní kódy rezervace (kromě držených výměnou motorky —
+  // ty uvolní až vrácení původní motorky) a pošle zákazníkovi totéž co automatické uvolnění:
+  // zprávu v appce (+ push; u pobočky s bránou brána → šatna → motorka + postup), SMS/WhatsApp
+  // a e-mail s kódy. Dřív jen UPDATE + info zpráva — bez SMS a e-mailu.
   async function resendCode(code) {
     try {
-      await supabase.from('branch_door_codes').update({
-        sent_to_customer: true,
-        sent_at: new Date().toISOString(),
-        withheld_reason: null,
-      }).eq('id', code.id)
-
-      if (code.bookings?.user_id) {
-        await supabase.from('admin_messages').insert({
-          user_id: code.bookings.user_id,
-          title: 'Přístupový kód k pobočce',
-          message: `Váš kód ${code.code_type === 'motorcycle' ? 'k motorce' : 'šatny'}: ${code.door_code}`,
-          type: 'info',
-        }).catch(() => {})
-      }
+      const { data, error: rErr } = await supabase.rpc('admin_release_door_codes', { p_booking_id: code.booking_id })
+      if (rErr) throw rErr
+      if (!data?.success) throw new Error(data?.error || 'Kódy se nepodařilo uvolnit')
 
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: 'door_code_resent',
-        details: { code_id: code.id, booking_id: code.booking_id },
+        details: { code_id: code.id, booking_id: code.booking_id, released: data.released },
       })
 
       onRefresh()
@@ -312,6 +307,7 @@ function DoorCodeRow({ code, onDeactivate, onActivate, onResend, inactive, canAc
       <div className="ml-auto flex gap-1">
         {!inactive && onResend && !code.sent_to_customer && (
           <button onClick={() => onResend(code)}
+            title="Uvolní všechny zadržené kódy rezervace (kromě držených výměnou motorky) a pošle zákazníkovi zprávu v aplikaci, SMS/WhatsApp i e-mail s kódy — jako automatické uvolnění po dokladech."
             className="rounded-btn text-[10px] font-bold cursor-pointer border-none"
             style={{ padding: '2px 8px', background: '#dbeafe', color: '#2563eb' }}>
             Odeslat

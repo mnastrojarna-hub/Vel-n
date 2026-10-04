@@ -10,7 +10,7 @@ const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
 
 const AVAILABLE_VARS = [
   'customer_name', 'booking_number', 'motorcycle', 'start_date', 'end_date',
-  'total_price', 'door_code_moto', 'door_code_gear', 'voucher_code',
+  'total_price', 'door_code_moto', 'door_code_gear', 'gate_code', 'voucher_code',
   'review_link', 'link', 'discount', 'price',
 ]
 
@@ -23,6 +23,7 @@ const SAMPLE_VARS = {
   total_price: '7 800 Kč',
   door_code_moto: '482917',
   door_code_gear: '613284',
+  gate_code: '135',   // kód schránky s klíčem od brány (jen pobočka s bránou) — ukázka, NE skutečný kód
   voucher_code: 'GIFT-ABC123',
   review_link: 'https://www.motogo24.cz/review',
   link: 'https://www.motogo24.cz',

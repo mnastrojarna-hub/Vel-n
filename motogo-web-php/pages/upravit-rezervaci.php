@@ -123,6 +123,8 @@ $keys = [
     // Hradlo kiosku (sleva za vyzvednutí od 12:00 → kiosk vydá až od 12:00) — detail rezervace
     'editRez.detail.latePickupGate','editRez.detail.latePickupGateCta',
     'editRez.detail.deliveryAddr','editRez.detail.pickupAtRental','editRez.pickup.title','editRez.pickup.openMap','rez.alert.minTimeDelivery','editRez.detail.returnAtAddr','editRez.detail.returnAtRental',
+    // Pobočka s bránou (Velké Němčice) — postup příjezdu bez kódu (pages-upravit-rezervaci-gate.js)
+    'editRez.pickup.gateNoticeTitle','editRez.pickup.gateNotice',
     'editRez.detail.licenseRequired','editRez.detail.licenseNone',
     'editRez.detail.deliveryShort','editRez.detail.pickupShort',
 
@@ -255,6 +257,7 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-gear.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-resume.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-guard.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-gate.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-status.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
 <script>

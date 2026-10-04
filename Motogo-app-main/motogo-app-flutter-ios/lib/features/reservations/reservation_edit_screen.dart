@@ -20,6 +20,7 @@ import 'reservation_models.dart';
 import 'booking_extras_sync.dart';
 import 'reservation_edit_price_calc.dart';
 import 'reservation_provider.dart';
+import 'booking_gate_provider.dart';
 import 'widgets/reservation_edit_widgets.dart';
 import 'widgets/reservation_edit_confirm_page.dart';
 import 'widgets/reservation_edit_moto_section.dart';
@@ -562,6 +563,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         ref.invalidate(reservationsProvider);
         ref.invalidate(reservationByIdProvider(widget.bookingId));
         ref.invalidate(doorCodesProvider(widget.bookingId));
+        ref.invalidate(bookingGateInfoProvider(widget.bookingId));
         // Nový stav rezervace do obrazovky — další úprava (čas vyzvednutí,
         // prodloužení) se musí naceňovat proti posunutému termínu.
         await _loadBooking();
@@ -978,6 +980,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           ref.invalidate(reservationsProvider);
           ref.invalidate(reservationByIdProvider(widget.bookingId));
           ref.invalidate(doorCodesProvider(widget.bookingId));
+          ref.invalidate(bookingGateInfoProvider(widget.bookingId));
           // Vrácení peněz slibuj JEN když refund reálně proběhl — při selhání
           // vratky (změna uložena, vyřídí obsluha) nechává text jen o úpravě.
           _showConfirmation(
@@ -1224,6 +1227,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 ref.invalidate(reservationsProvider);
                 ref.invalidate(reservationByIdProvider(widget.bookingId));
                 ref.invalidate(doorCodesProvider(widget.bookingId));
+                ref.invalidate(bookingGateInfoProvider(widget.bookingId));
                 ref.invalidate(bookedDatesProvider(_booking!.motoId ?? ''));
                 _showConfirmation(
                   title: t(context).tr('swap.successTitle'),

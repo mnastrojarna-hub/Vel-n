@@ -55,7 +55,7 @@ export const PAGE_POBOCKY = {
       id: 'cta', label: 'Zelený box s tlačítkem', location: 'Dole na přehledu i na stránce pobočky',
       fields: [
         { key: 'web.pobocky.cta.title', label: 'Nadpis', default: 'Vyberte si motorku na své pobočce' },
-        { key: 'web.pobocky.cta.text', label: 'Text', type: 'textarea', default: 'V rezervaci uvidíte u každé motorky, na které pobočce je k dispozici.' },
+        { key: 'web.pobocky.cta.text', label: 'Text', type: 'textarea', default: 'V rezervaci si zvolíte pobočku a nabídnou se vám jen motorky, které na ní jsou.' },
         { key: 'web.pobocky.cta.button', label: 'Tlačítko — text', default: 'REZERVOVAT ONLINE' },
       ]
     },
@@ -81,7 +81,7 @@ export const PAGE_POBOCKA_MEZNA = branchPage(0, 'pobocka-mezna', 'Pobočka Mezn�
       video_title: 'Video: jak to na pobočce probíhá',
       seo_title: 'Pobočka Mezná u Pelhřimova | MotoGo24 – obslužná půjčovna motorek',
       seo_description: 'Obslužná pobočka půjčovny motorek MotoGo24 v Mezné u Pelhřimova (Vysočina): osobní předání motorky nonstop, výbava v ceně, přistavení na adresu.',
-      steps: '1. Rezervujete a zaplatíte online (web nebo aplikace).<br>2. Ve zvolený čas přijedete na pobočku, kde vás čekáme.<br>3. Předáme motorku i výbavu a podepíšeme předávací protokol.<br>4. Po jízdě motorku vrátíte na pobočku (nebo si ji vyzvedneme na domluvené adrese).',
+      steps: '1. Rezervujete a zaplatíte online (web nebo aplikace) a nahrajete doklady (OP/pas + ŘP) — žádáme o to i na obslužné pobočce; pokud je nenahrajete, zkontrolujeme je při převzetí na místě.<br>2. Ve zvolený čas přijedete na pobočku, kde vás čekáme.<br>3. Předáme motorku i výbavu a podepíšeme předávací protokol.<br>4. Po jízdě motorku vrátíte na pobočku (nebo si ji vyzvedneme na domluvené adrese).',
 })
 export const PAGE_POBOCKA_NEMCICE = branchPage(1, 'pobocka-velke-nemcice', 'Pobočka Velké Němčice', '/pobocky/velke-nemcice', {
       badge: 'Samoobslužná pobočka',
@@ -94,5 +94,5 @@ export const PAGE_POBOCKA_NEMCICE = branchPage(1, 'pobocka-velke-nemcice', 'Pobo
       video_title: 'Video: jak se obsloužit na samoobslužné pobočce',
       seo_title: 'Samoobslužná pobočka Velké Němčice u Brna | MotoGo24',
       seo_description: 'Samoobslužná pobočka půjčovny motorek MotoGo24 ve Velkých Němčicích u Brna: převzetí i vrácení 24/7 kódem z aplikace, čas vyzvednutí volíte v rezervaci (od 12:00 je 1. den za polovinu), parkování zdarma.',
-      steps: '1. Rezervujete a zaplatíte online, zvolíte čas vyzvednutí a doplníte doklady — kódy najdete v aplikaci i v e-mailu.<br>2. Na pobočce zadáte kód šatny a vezmete si výbavu (s vlastní výbavou šatnu přeskočíte). Máte-li slevu za vyzvednutí od 12:00, kódy platí až od 12:00.<br>3. Na displeji podepíšete předávací protokol.<br>4. Kódem motorky otevřete kóji s motorkou a vyrazíte.<br>5. Po jízdě motorku vrátíte do kóje a výbavu do šatny — kdykoliv poslední den výpůjčky do 24:00.',
+      steps: '1. Rezervujete a zaplatíte online, zvolíte čas vyzvednutí a nahrajete doklady (OP/pas + ŘP) — na samoobslužné pobočce je to nezbytné: bez ověřených dokladů kódy nedostanete a na pobočku se nedostanete. Po ověření dokladů dostanete v aplikaci, e-mailu a SMS kódy v pořadí, v jakém je budete zadávat: <strong>1) kód schránky s klíčem od brány, 2) kód šatny</strong> (máte-li zapůjčenou výbavu) <strong>a 3) kód motorky</strong>.<br>2. <strong>Je-li vjezdová brána zavřená</strong>, otevřete kódem z aplikace <strong>horní schránku na pravém sloupku vrat</strong> — je v ní klíč od visacího zámku. Bránu odemkněte, vjeďte dovnitř a zaparkujte na kterémkoli místě <strong>1–7 vpravo u plotu</strong> (viz fotka parkoviště). Auto tu může zdarma stát po celou dobu výpůjčky. Je-li brána otevřená, kód schránky nepotřebujete.<br>3. Na displeji zadáte kód šatny — <strong>šatna jsou dveře č. 8</strong>. Vezmete si výbavu, převléknete se a dveře šatny zavřete (s vlastní výbavou šatnu přeskočíte). Máte-li slevu za vyzvednutí od 12:00, kódy platí až od 12:00.<br>4. Na displeji v předávacím protokolu upravíte velikosti, protokol podepíšete a zadáte kód motorky — otevře se kóje s motorkou. Kóji zavřete a vyrazíte.<br>5. <strong>Byla-li brána zavřená, po odjezdu ji zase zavřete, zamkněte visacím zámkem, klíč vraťte do horní schránky a přetočte číselník.</strong> Otevřenou bránu nechte otevřenou — stav brány nikdy neměňte.<br>6. Po jízdě motorku vrátíte do kóje a výbavu do šatny — kdykoliv poslední den výpůjčky do 24:00. Je-li brána zavřená, postupujete stejně: odemknete ji klíčem ze schránky a po odjezdu ji zase zamknete a klíč vrátíte.',
 })

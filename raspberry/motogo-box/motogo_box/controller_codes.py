@@ -133,9 +133,12 @@ def not_configured_text(name: str) -> str:
 def open_result_text(ok: bool, reason: str, kind: str, name: str, box_number: int | None = None) -> str:
     """Text overlay po pokusu o otevření (úspěch dle druhu kódu, jinak důvod). Zadání 2026-09-27: po kódu má displej
     říct, KAM jít — kóje „Dveře č. N otevřeny — běžte ke dveřím č. N.“ (N = číslo kóje), šatna „Šatna otevřena — vemte
-    za kliku.“ Servisní otevření (panel, pevné kódy) zůstává „Otevřeno — {name}.“"""
+    za kliku.“ — od 2026-10-04 s číslem dveří šatny („Šatna otevřena — dveře č. 8, vemte za kliku.“; na dveřích jsou
+    jen čísla). Servisní otevření (panel, pevné kódy) zůstává „Otevřeno — {name}.“"""
     if ok:
         if kind == "accessories":
+            if box_number is not None:
+                return f"Šatna otevřena — dveře č. {box_number}, vemte za kliku."
             return "Šatna otevřena — vemte za kliku."
         if kind == "motorcycle":
             if box_number is not None:

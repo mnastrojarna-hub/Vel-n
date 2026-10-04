@@ -26,6 +26,7 @@ import { type CompanyInfo, type FleetMoto, type BranchRow, motoDisplayName, form
 import { loadKnowledgeBase, stripHtmlToText } from '../_shared/agent-knowledge/knowledge-base.ts'
 import { buildCompanyBrain, MOTO_KNOWLEDGE_TIPS } from '../_shared/agent-knowledge/company-brain.ts'
 import { HARD_RULES_CS } from '../_shared/agent-knowledge/hard-rules.ts'
+import { GATE_BRANCHES_NOTICE_CS, markGateBranches } from '../_shared/agent-knowledge/branch-gate.ts'
 import { classifyAnthropicError } from '../_shared/anthropic-errors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -186,6 +187,11 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
       // 2026-08-05: agent zákazníkovi tvrdil, že seznam poboček je prázdný.
       sb.from('branches').select('*').order('name'),
     ])
+    // Vjezdová brána (Velké Němčice): příznak has_gate do snapshotu — RPC branch_has_gate, NIKDY kód.
+    const brRows = await markGateBranches(sb, ((brRes.data || []) as Array<Record<string, unknown>>)
+      // Trvale zavřená pobočka (is_open=false) se zákazníkovi NENABÍZÍ — nelze
+      // na ni nic zarezervovat v žádném termínu (DB `branch_is_closed`).
+      .filter((b) => b.active !== false && b.is_open !== false))
     return {
       cfg: (cfgRes.data?.value as WebAgentConfig) || {},
       company: (ciRes.data?.value as CompanyInfo) || {},
@@ -193,10 +199,7 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
       // se zákazníkovi nezobrazuje a rezervovat tam nelze nic (DB `branch_is_closed`).
       fleet: (((fleetRes.data || []) as Array<Record<string, unknown>>)
         .filter((m) => (m.branches as Record<string, unknown> | null)?.is_open !== false) as unknown as FleetMoto[]),
-      branches: (((brRes.data || []) as Array<Record<string, unknown>>)
-        // Trvale zavřená pobočka (is_open=false) se zákazníkovi NENABÍZÍ — nelze
-        // na ni nic zarezervovat v žádném termínu (DB `branch_is_closed`).
-        .filter((b) => b.active !== false && b.is_open !== false) as unknown as BranchRow[]),
+      branches: brRows as unknown as BranchRow[],
     }
   } catch {
     return { cfg: {}, company: {}, fleet: [], branches: [] }
@@ -1128,6 +1131,8 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       // agent NIKDY netvrdí „pobočky nemáme" (incident 2026-08-05).
       const rows = ((data || []) as Array<Record<string, unknown>>)
         .filter((b) => b.active !== false && b.is_open !== false)
+      // has_gate = vjezdová brána se schránkou na klíč (RPC branch_has_gate — jen příznak, NIKDY kód)
+      await markGateBranches(sb, rows)
       if (error || rows.length === 0) {
         const { data: ci } = await sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
         const c = (ci?.value || {}) as Record<string, unknown>
@@ -1155,9 +1160,10 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
             phone: b.phone ?? null, email: b.email ?? null,
             opening_hours: b.opening_hours || null,
             is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
+            has_gate: b.has_gate === true,
           }
         }),
-        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou). Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není povinný, ale doporučuje se (urychlí odbavení, zvlášť při více odjezdech najednou). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — u OBSLUŽNÉ pobočky proběhne výdej vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje), tam neslibuj okamžité vyzvednutí. U SAMOOBSLUŽNÉ pobočky se volí jen čas VYZVEDNUTÍ (hodina předem potřeba není, rezervovat lze i na dnešek) — čas vrácení ne (vrací se kdykoli poslední den do 24:00). Vyzvednutí od 12:00 při výpůjčce 2+ dny = sleva 50 % na 1. den, ale kiosk takovou rezervaci (motorku i šatnu) vydá až od 12:00 v den začátku; kdo ji potřebuje dřív, změní v Upravit rezervaci (web/appka) čas vyzvednutí na dřívější — sleva zanikne, rozdíl doplatí a kód platí hned. U přistavení platí čas min. aktuální + 6 h.',
+        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou). Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není povinný, ale doporučuje se (urychlí odbavení, zvlášť při více odjezdech najednou). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — u OBSLUŽNÉ pobočky proběhne výdej vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje), tam neslibuj okamžité vyzvednutí. U SAMOOBSLUŽNÉ pobočky se volí jen čas VYZVEDNUTÍ (hodina předem potřeba není, rezervovat lze i na dnešek) — čas vrácení ne (vrací se kdykoli poslední den do 24:00). Vyzvednutí od 12:00 při výpůjčce 2+ dny = sleva 50 % na 1. den, ale kiosk takovou rezervaci (motorku i šatnu) vydá až od 12:00 v den začátku; kdo ji potřebuje dřív, změní v Upravit rezervaci (web/appka) čas vyzvednutí na dřívější — sleva zanikne, rozdíl doplatí a kód platí hned. U přistavení platí čas min. aktuální + 6 h.' + (rows.some((b) => b.has_gate === true) ? GATE_BRANCHES_NOTICE_CS : ''),
       }
     }
     case 'validate_promo_or_voucher': {

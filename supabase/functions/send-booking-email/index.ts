@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { renderEmail, normalizeLang, helpCardLabels, renderDoorCodesReleasedBlock, renderDocsRequiredBlock, type Lang } from './i18n.ts'
+import { GATE_MAIL_TYPES, loadBranchGate, loadNeedsLocker, renderGateProcedureBlock, type BranchGate } from './branch-gate.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
@@ -878,6 +879,39 @@ async function autoGenerateAttachments(
   return atts
 }
 
+/** Smí volající poslat mail k rezervaci? (2026-10-04) Funkce běží s verify_jwt=false
+ * (volá ji pg_net ze SQL, webhooky, crony a Velín) a dřív vzala `booking_id` +
+ * `customer_email` z těla a poslala kódy k rezervaci (nově i kód schránky u brány)
+ * komukoli, kdo znal ID rezervace. Důvěryhodný = service role (SQL/pg_net, edge
+ * funkce) nebo admin JWT (Velín) — poznají se tím, že přečtou tajný řádek
+ * `app_settings.service_role_key` (RLS jen admin, service role RLS obchází).
+ * Ostatní (anon, zákazník v appce) smí mail poslat JEN majiteli rezervace. */
+async function callerMayMail(req: Request, admin: SupabaseClient, bookingId: string, to: string): Promise<boolean> {
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  if (bearer && SUPABASE_SERVICE_KEY && bearer === SUPABASE_SERVICE_KEY) return true
+  let uid: string | null = null
+  if (bearer) {
+    try {
+      const asCaller = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') || SUPABASE_SERVICE_KEY,
+        { global: { headers: { Authorization: `Bearer ${bearer}` } } })
+      const sRes = await asCaller.from('app_settings').select('key').eq('key', 'service_role_key').maybeSingle()
+      if ((sRes.data as { key?: string } | null)?.key) return true
+      const { data: isAdm } = await asCaller.rpc('is_admin')
+      if (isAdm === true) return true
+      const { data: { user } } = await asCaller.auth.getUser()
+      uid = user?.id || null
+    } catch { /* neověřený volající → jen majitel */ }
+  }
+  const bRes = await admin.from('bookings').select('user_id').eq('id', bookingId).maybeSingle()
+  const b = bRes.data as { user_id?: string | null } | null
+  if (!b?.user_id) return false
+  if (uid && b.user_id === uid) return true
+  const pRes = await admin.from('profiles').select('email').eq('id', b.user_id).maybeSingle()
+  const p = pRes.data as { email?: string | null } | null
+  const owner = String(p?.email || '').trim().toLowerCase()
+  return !!owner && owner === String(to || '').trim().toLowerCase()
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -937,6 +971,13 @@ serve(async (req) => {
     if (!type || !customer_email) {
       return new Response(JSON.stringify({ error: 'Missing type or customer_email' }), {
         status: 400,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+    // Mail k rezervaci jen od důvěryhodného volajícího nebo majiteli rezervace (viz callerMayMail).
+    if (booking_id && !(await callerMayMail(req, supabase, String(booking_id), String(customer_email)))) {
+      return new Response(JSON.stringify({ error: 'forbidden' }), {
+        status: 403,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
@@ -1108,6 +1149,21 @@ serve(async (req) => {
     // se modr\u00fd blok s \u010d\u00edsly. Kdy\u017e ne (k\u00f3dy zadr\u017een\u00e9 nebo je\u0161t\u011b negenerovan\u00e9)
     // a typ mailu je booking_reserved/door_codes, vykresl\u00ed se oran\u017eov\u00fd blok
     // s v\u00fdzvou k nahr\u00e1n\u00ed doklad\u016f + zm\u00ednkou o osobn\u00edm ov\u011b\u0159en\u00ed na pobo\u010dce.
+    // Pobočka s BRÁNOU (Velké Němčice, branch-gate.ts): kód schránky s klíčem
+    // od brány + postup na pobočce. Pobočka = AKTUÁLNÍ pobočka motorky; bez
+    // brány (gate = null) se nic z níže uvedeného nemění. `gateBlockFor(lang)`
+    // = tentýž door_codes_block v jiném jazyce (CZ admin kopie). Kód brány NIKDY
+    // do předmětu ani logů.
+    let gate: BranchGate | null = null
+    let gateBlockFor: ((l: Lang) => string) | null = null
+    // Jen potvrzení / kódy / úprava (vč. prodloužení renderovaného jako booking_modified) —
+    // u ostatních typů (doklad o platbě, dokončení, storno…) se na bránu neptáme.
+    if (booking_id && (GATE_MAIL_TYPES.has(type) || GATE_MAIL_TYPES.has(renderType))) {
+      gate = await loadBranchGate(supabase, booking_id)
+    }
+    const gateProc = (g: BranchGate, released: boolean, hasGear: boolean) =>
+      (l: Lang) => renderGateProcedureBlock(l, { gate: g, released, hasGear, site: siteForLang(l) })
+
     if (doorCodeRows.length) {
       const released = doorCodeRows.filter(c => c.sent_to_customer === true && !c.withheld_reason)
       const moto = released.find(c => c.code_type === 'motorcycle')?.door_code || ''
@@ -1122,14 +1178,22 @@ serve(async (req) => {
           const { data: rel, error: relErr } = await supabase.rpc('_kiosk_release_at', { p_booking_id: booking_id })
           if (!relErr && rel && new Date(String(rel)).getTime() > Date.now()) releaseAt = String(rel)
         } catch { /* bez věty */ }
-        vars.door_codes_block = renderDoorCodesReleasedBlock(custLang, moto, gear, releaseAt)
+        if (gate) {
+          // Kód brány jen s vydaným kódem motorky (jako get_booking_gate_info).
+          const g = gate
+          const proc = gateProc(g, !!moto, !!gear)
+          gateBlockFor = (l) => renderDoorCodesReleasedBlock(l, moto, gear, releaseAt, moto ? g.code : '', g.lockerDoor) + proc(l)
+          vars.door_codes_block = gateBlockFor(custLang)
+        } else {
+          vars.door_codes_block = renderDoorCodesReleasedBlock(custLang, moto, gear, releaseAt)
+        }
       }
     }
     if (!vars.door_codes_block && booking_id && (type === 'booking_reserved' || type === 'door_codes')) {
       // K\u00f3dy nejsou uvoln\u011bn\u00e9 \u2192 ov\u011b\u0159, \u017ee rezervace skute\u010dn\u011b pot\u0159ebuje doklady.
       // 1) Kdy\u017e jsou k bookingu \u0159\u00e1dky v branch_door_codes s withheld_reason \u2192 doklady chyb\u00ed.
       // 2) Jinak ov\u011b\u0159 p\u0159es RPC check_booking_docs_status (NULL = doklady OK, jinak d\u016fvod).
-      let needsDocs = doorCodeRows.some(c => !!c.withheld_reason)
+      let needsDocs = doorCodeRows.some(c => !!c.withheld_reason && c.withheld_reason !== 'Vraťte nejdřív původní motorku')  // výměna motorky ≠ chybějící doklady
       if (!needsDocs && doorCodeRows.length === 0) {
         try {
           const { data: b } = await supabase
@@ -1152,8 +1216,25 @@ serve(async (req) => {
         const docsLink = docs_url || `${siteForLang(custLang)}/rezervace?resume=${booking_id}`
         vars.docs_url = docsLink
         vars.door_codes_block = renderDocsRequiredBlock(custLang, docsLink)
+        if (gate) {
+          // Pobočka s bránou: za výzvu k dokladům postup BEZ kódu brány.
+          const proc = gateProc(gate, false, await loadNeedsLocker(supabase, booking_id, doorCodeRows))
+          gateBlockFor = (l) => renderDocsRequiredBlock(l, docsLink) + proc(l)
+          vars.door_codes_block = gateBlockFor(custLang)
+        }
       }
     }
+    // Pobočka s bránou, kódy ještě nevydané (úprava rezervace — např. změna
+    // motorky Mezná → Velké Němčice — nebo potvrzení bez kódů): postup bez kódu.
+    if (gate && booking_id && !vars.door_codes_block && (type === 'booking_modified' || type === 'booking_reserved')) {
+      gateBlockFor = gateProc(gate, false, await loadNeedsLocker(supabase, booking_id, doorCodeRows))
+      vars.door_codes_block = gateBlockFor(custLang)
+    }
+    // Inline místo v i18n šabloně booking_modified (za tabulkou změn); jen s bránou.
+    if (gate && vars.door_codes_block) vars.gate_codes_block = vars.door_codes_block
+    // Předmět se renderuje BEZ bloků s kódem brány (pojistka pro DB šablony).
+    const subjectVars = (v: Record<string, string>) =>
+      gate ? { ...v, door_codes_block: '', gate_codes_block: '' } : v
 
     // i18n: {{site_url}} placeholder → doména zákazníka (.cz pro cs, .com jinak).
     // Vars se sestavily před detekcí jazyka, takže přepíšeme až teď.
@@ -1207,8 +1288,10 @@ serve(async (req) => {
         // U poděkovacího mailu (booking_completed / web_booking_completed) opravíme
         // odkazy na recenze (Google/Facebook) a doplníme Instagram.
         const bodySrc = trySlug.includes('completed') ? fixReviewLinks(resolved.body) : resolved.body
-        templateHtml = renderTemplate(bodySrc, vars)
-        subject = renderTemplate(resolved.subject, vars)
+        // gate_codes_block patří jen vestavěné šabloně booking_modified — DB šablona by s oběma
+        // placeholdery vykreslila blok dvakrát.
+        templateHtml = renderTemplate(bodySrc, { ...vars, gate_codes_block: '' })
+        subject = renderTemplate(resolved.subject, subjectVars(vars))
         if (Array.isArray(tpl.attachments)) {
           dbAttachmentsList = tpl.attachments as string[]
         }
@@ -1301,7 +1384,7 @@ ${vars.door_codes_block}
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Informace k p\u0159evzet\u00ed motocyklu</h3>
 <p>Pros\u00edme, pro bezprobl\u00e9mov\u00e9 p\u0159evzet\u00ed si p\u0159ipravte:</p>
 <ul><li>platn\u00fd doklad toto\u017enosti (kter\u00fd jste uvedli v rezerva\u010dn\u00edm formul\u00e1\u0159i),</li><li>platn\u00fd \u0159idi\u010dsk\u00fd pr\u016fkaz.</li></ul>
-<p>Na m\u00edst\u011b spole\u010dn\u011b provedeme kontrolu doklad\u016f, p\u0159ed\u00e1n\u00ed motocyklu i p\u0159\u00edpadn\u00e9 zap\u016fj\u010den\u00e9 v\u00fdbavy (kterou si budete moci vyzkou\u0161et) a podep\u00ed\u0161eme P\u0159ed\u00e1vac\u00ed protokol. V\u0161e v\u00e1m r\u00e1di vysv\u011btl\u00edme \u2013 p\u0159ed\u00e1n\u00ed je rychl\u00e9 a zabere jen p\u00e1r minut.</p>
+<p>Doklady (občanský průkaz nebo cestovní pas a řidičský průkaz) prosím nahrajte předem v aplikaci nebo na webu — přístupové kódy vám pošleme až po jejich ověření. Na samoobslužné pobočce je nahrání dokladů předem nezbytné: bez ověřených dokladů kódy nevydáme a na pobočku se nedostanete; motorku i výbavu si převezmete sami pomocí kódů a Předávací protokol podepíšete na dotykovém displeji. Na obslužné pobočce vás o nahrání dokladů předem také žádáme — pokud je nenahrajete, zkontrolujeme je při převzetí na místě, kde vám předáme motorku i výbavu a společně podepíšeme Předávací protokol.</p>
 <p>Pokud s sebou budete m\u00edt osobn\u00ed v\u011bci, kter\u00e9 nechcete br\u00e1t na cestu, m\u016f\u017eete je u n\u00e1s zdarma ulo\u017eit do uzamykateln\u00e9 sk\u0159\u00ed\u0148ky.</p>
 <p>Doporu\u010dujeme, abyste se p\u0159ed j\u00edzdou sezn\u00e1mili s u\u017eivatelsk\u00fdmi informacemi k motocyklu, kter\u00e9 najdete v odkazu na na\u0161ich webov\u00fdch str\u00e1nk\u00e1ch <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.</p>
 <p>Pokud budete m\u00edt jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</p>
@@ -1445,7 +1528,11 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
     // Prodloužení: šablona booking_modified typicky nemá {{door_codes_block}}
     // placeholder — pokud má rezervace uvolněné kódy nebo výzvu k dokladům,
     // blok doplníme na konec, aby zákazník o informaci z reserved mailu nepřišel.
-    if (renderType !== type && vars.door_codes_block && !templateHtml.includes(vars.door_codes_block)) {
+    // Pobočka s bránou: totéž pro booking_reserved / door_codes / booking_modified,
+    // když (i Velínem upravená DB) šablona blok nemá — kódy brána → šatna →
+    // motorka + postup musí dojít (např. změna motorky Mezná → Velké Němčice).
+    const gateAppend = !!gate && GATE_MAIL_TYPES.has(type)
+    if ((renderType !== type || gateAppend) && vars.door_codes_block && !templateHtml.includes(vars.door_codes_block)) {
       templateHtml += vars.door_codes_block
     }
 
@@ -1462,6 +1549,11 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       // Re-render všeho v CZ pro admin
       let csTemplateHtml = ''
       let csSubject = ''
+      // Pobočka s bránou: blok kódů + postup i v admin kopii česky (jinak vars beze změny).
+      const csGateBlock = gateBlockFor ? gateBlockFor('cs') : ''
+      const varsCs: Record<string, string> = csGateBlock
+        ? { ...vars, door_codes_block: csGateBlock, gate_codes_block: csGateBlock }
+        : vars
       // Zkusit DB CZ
       for (const trySlug of slugsToTry) {
         const { data: tpl } = await supabase
@@ -1472,18 +1564,21 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
           .maybeSingle()
         if (tpl?.body_html) {
           const csBodySrc = trySlug.includes('completed') ? fixReviewLinks(tpl.body_html) : tpl.body_html
-          csTemplateHtml = renderTemplate(csBodySrc, vars)
-          csSubject = renderTemplate(tpl.subject || '', vars)
+          csTemplateHtml = renderTemplate(csBodySrc, { ...varsCs, gate_codes_block: '' })
+          csSubject = renderTemplate(tpl.subject || '', subjectVars(varsCs))
           break
         }
       }
       if (!csTemplateHtml) {
-        const i18nCs = renderEmail(renderType, 'cs', vars)
+        const i18nCs = renderEmail(renderType, 'cs', varsCs)
         if (i18nCs) { csSubject = i18nCs.subject; csTemplateHtml = i18nCs.body }
       }
       if (!csSubject) {
         const fallbackFn = FALLBACK_SUBJECTS[renderType]
-        csSubject = fallbackFn ? fallbackFn(vars) : `Oznámení — MOTO GO 24`
+        csSubject = fallbackFn ? fallbackFn(varsCs) : `Oznámení — MOTO GO 24`
+      }
+      if (csTemplateHtml && gateAppend && varsCs.door_codes_block && !csTemplateHtml.includes(varsCs.door_codes_block)) {
+        csTemplateHtml += varsCs.door_codes_block
       }
       if (csTemplateHtml) {
         if (type === 'shop_order_shipped') {

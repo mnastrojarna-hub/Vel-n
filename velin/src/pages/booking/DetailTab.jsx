@@ -6,6 +6,7 @@ import { CANCEL_SOURCE_LABELS } from './bookingConstants'
 import BookingSummary from './BookingSummary'
 import Timeline from './BookingTimeline'
 import { SOSSection, DoorCodesSection, DatesAndPaymentSection } from './DetailTabSections'
+import { useBranchGateCode } from '../../lib/branchGate'
 
 // Stav motorky pro zobrazení: syrový `motorcycles.status` říká „V servisu" i motorce,
 // která má jen NAPLÁNOVANÝ servis v budoucnu (pending log). Otevřené záznamy
@@ -29,6 +30,8 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
   const [doorCodes, setDoorCodes] = useState([])
   const [bookingDiscounts, setBookingDiscounts] = useState([])
   const [motoOpenLogs, setMotoOpenLogs] = useState(null)
+  // Kód schránky s klíčem od vjezdové brány AKTUÁLNÍ pobočky motorky (branch_gate_access; null = pobočka bez brány)
+  const gateCode = useBranchGateCode(booking?.motorcycles?.branch_id)
 
   useEffect(() => {
     if (!booking?.id) return
@@ -40,7 +43,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
       .eq('booking_id', booking.id)
       .then(({ data }) => { if (data) setBookingExtras(data) }).catch(() => {})
     supabase.from('branch_door_codes').select('*')
-      .eq('booking_id', booking.id).order('code_type')
+      .eq('booking_id', booking.id).order('code_type').order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setDoorCodes(data) }).catch(() => {})
     supabase.from('booking_discounts').select('*')
       .eq('booking_id', booking.id).order('created_at')
@@ -151,7 +154,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         </Card>
       )}
 
-      {doorCodes.length > 0 && <DoorCodesSection doorCodes={doorCodes} booking={booking} />}
+      {doorCodes.length > 0 && <DoorCodesSection doorCodes={doorCodes} booking={booking} gateCode={gateCode} />}
 
       <DatesAndPaymentSection booking={booking} bookingExtras={bookingExtras} sosIncidents={sosIncidents} onModify={onModify} error={error} actions={actions} onAction={onAction} />
 

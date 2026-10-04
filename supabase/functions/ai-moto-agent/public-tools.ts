@@ -7,6 +7,7 @@
 // klientem (`sb`) a jazykem (`lang`).
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { GATE_BRANCHES_NOTICE_CS, markGateBranches } from '../_shared/agent-knowledge/branch-gate.ts'
 
 function motoDisplayName(brand: string | null | undefined, model: string | null | undefined): string {
   const b = (brand || '').trim()
@@ -641,6 +642,8 @@ export async function execPublicReadTool(
       // agent NIKDY netvrdí „pobočky nemáme" (incident 2026-08-05).
       const rows = ((data || []) as Array<Record<string, unknown>>)
         .filter((b) => b.active !== false && b.is_open !== false)
+      // has_gate = vjezdová brána se schránkou na klíč (RPC branch_has_gate — jen příznak, NIKDY kód)
+      await markGateBranches(sb, rows)
       if (error || rows.length === 0) {
         // Prázdno/chyba NIKDY nesmí vést k „pobočky nemáme" — dej agentovi fallback adresu firmy.
         const { data: ci } = await sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
@@ -669,9 +672,10 @@ export async function execPublicReadTool(
             phone: b.phone ?? null, email: b.email ?? null,
             opening_hours: b.opening_hours || null,
             is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
+            has_gate: b.has_gate === true,
           }
         }),
-        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou). Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není povinný, ale doporučuje se (urychlí odbavení, zvlášť při více odjezdech najednou). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — ALE výdej motorky proběhne vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje). Nikdy neslibuj okamžité vyzvednutí hned po rezervaci.',
+        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou). Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není povinný, ale doporučuje se (urychlí odbavení, zvlášť při více odjezdech najednou). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — ALE výdej motorky proběhne vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje). Nikdy neslibuj okamžité vyzvednutí hned po rezervaci.' + (rows.some((b) => b.has_gate === true) ? GATE_BRANCHES_NOTICE_CS : ''),
       }
     }
     case 'validate_promo_or_voucher': {

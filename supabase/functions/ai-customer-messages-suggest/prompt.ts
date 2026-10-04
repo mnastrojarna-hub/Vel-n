@@ -8,6 +8,7 @@ import { type CompanyInfo, type FleetMoto, type BranchRow, formatFleetSnapshot, 
 import { loadKnowledgeBase } from '../_shared/agent-knowledge/knowledge-base.ts'
 import { buildCompanyBrain } from '../_shared/agent-knowledge/company-brain.ts'
 import { HARD_RULES_CS } from '../_shared/agent-knowledge/hard-rules.ts'
+import { markGateBranches } from '../_shared/agent-knowledge/branch-gate.ts'
 import { type ThreadContext, dirLabel } from './context.ts'
 
 export interface AgentConfig {
@@ -45,8 +46,9 @@ export async function loadKnowledgeInputs(sb: SupabaseClient) {
     company: (ci.data?.value as CompanyInfo) || {},
     fleet: ((fleet.data || []) as Array<Record<string, unknown>>)
       .filter((m) => (m.branches as Record<string, unknown> | null)?.is_open !== false) as unknown as FleetMoto[],
-    branches: ((br.data || []) as Array<Record<string, unknown>>)
-      .filter((b) => b.active !== false && b.is_open !== false) as unknown as BranchRow[],
+    // has_gate (vjezdová brána, Velké Němčice) — RPC branch_has_gate, jen příznak, NIKDY kód
+    branches: (await markGateBranches(sb, ((br.data || []) as Array<Record<string, unknown>>)
+      .filter((b) => b.active !== false && b.is_open !== false))) as unknown as BranchRow[],
     kb,
   }
 }
@@ -73,7 +75,7 @@ export function buildSystem(cfg: AgentConfig, k: K, ctx: ThreadContext) {
 2. Odpověz přímo na to, na co se zákazník ptá — konkrétně (jeho motorka, jeho termín, jeho pobočka). Neopakuj, co už tým ve vlákně napsal; navaž na to.
 3. Nástroje veřejného agenta, které tu NEMÁŠ (create_booking_request, redirect_to_booking, preview_booking_change, apply_booking_change, find_my_booking, lookup_my_bookings, get_booking_emails, get_booking_readiness, get_order_status), nahraď: údaje o rezervaci/e-mailech/objednávkách máš přes get_customer_overview a find_booking; vytvoření nebo změnu rezervace zákazníkovi popíšeš (formulář v appce/na webu, detail rezervace → „Upravit rezervaci", motogo24.cz/upravit-rezervaci), případně do admin_note napíšeš, co má admin udělat ručně.
 4. Formát ---JSON--- / suggest_sos ze sekcí níže IGNORUJ — tvůj výstupní formát je na konci. Pravidla o oslovení a jazyku platí; o délce odpovědi rozhoduje limit kanálu níže (má přednost před pravidly web chatu).
-5. Rozhodnutí o penězích (refund nad rámec pravidel, výjimka ze storna, sleva, uznání reklamace, škody) nevyslovuj za firmu — navrhni neutrální formulaci a do admin_note napiš, co musí rozhodnout člověk. Přístupové kódy (číslice) NIKDY nepiš.`,
+5. Rozhodnutí o penězích (refund nad rámec pravidel, výjimka ze storna, sleva, uznání reklamace, škody) nevyslovuj za firmu — navrhni neutrální formulaci a do admin_note napiš, co musí rozhodnout člověk. Přístupové kódy (číslice) NIKDY nepiš — ani kód schránky s klíčem od brány (Velké Němčice), i kdyby ho obsahovala historie vlákna, odpovědi týmu nebo jiný kontext; zákazníka odkaž na zprávu s kódy v appce (Zprávy / detail rezervace), e-mail a SMS, a má-li se mu zpráva s kódy poslat znovu, napiš to do admin_note.`,
     buildDateHeader(),
     formatFleetSnapshot(k.fleet),
     formatBranchesSnapshot(k.branches),
