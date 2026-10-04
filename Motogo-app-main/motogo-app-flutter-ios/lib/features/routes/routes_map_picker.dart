@@ -71,6 +71,15 @@ class _RoutesMapPickerState extends State<RoutesMapPicker> {
   final ScrollController _scroll = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    // Panel může vzniknout už se zvolenou trasou (výběr zrušený ✕ a znovu
+    // zaškrtnutý v detailu místa drží `_activeId`) — karta musí být vidět
+    // hned, bez animace od začátku seznamu.
+    _scrollToActive(animate: false);
+  }
+
+  @override
   void didUpdateWidget(RoutesMapPicker old) {
     super.didUpdateWidget(old);
     if (widget.activeId != old.activeId) _scrollToActive();
@@ -82,7 +91,7 @@ class _RoutesMapPickerState extends State<RoutesMapPicker> {
     super.dispose();
   }
 
-  void _scrollToActive() {
+  void _scrollToActive({bool animate = true}) {
     final id = widget.activeId;
     if (id == null) return;
     final i = widget.routes.indexWhere((r) => r.id == id);
@@ -91,6 +100,10 @@ class _RoutesMapPickerState extends State<RoutesMapPicker> {
       if (!mounted || !_scroll.hasClients) return;
       final target = (i * (_kCardW + _kCardGap))
           .clamp(0.0, _scroll.position.maxScrollExtent);
+      if (!animate) {
+        _scroll.jumpTo(target);
+        return;
+      }
       _scroll.animateTo(target,
           duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
     });

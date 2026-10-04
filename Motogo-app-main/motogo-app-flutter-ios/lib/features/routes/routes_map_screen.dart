@@ -261,7 +261,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                           extra: [for (final x in matched) x.id]);
                     },
                   ),
-                _selectionBar(context, me),
+                _selectionBar(context),
               ],
             ),
     );
@@ -467,7 +467,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
     );
   }
 
-  Widget _selectionBar(BuildContext context, LatLng? me) {
+  Widget _selectionBar(BuildContext context) {
     final n = ref.watch(placesSelectionProvider).length;
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -503,8 +503,10 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                 );
                 if (pois.isEmpty) return;
                 ref.read(placesSelectionProvider.notifier).clear();
+                // Pořadí zastávek = pořadí klikání (čísla na špendlících),
+                // stejně jako na mapě míst a v seznamu; přehodit jde v editoru.
                 final route = buildCustomRoute(pois,
-                    from: me, name: t(context).tr('poiCustomRouteTitle'));
+                    name: t(context).tr('poiCustomRouteTitle'));
                 context.push('/route-build', extra: route);
               },
               child: Container(

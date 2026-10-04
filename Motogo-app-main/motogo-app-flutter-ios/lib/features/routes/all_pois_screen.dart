@@ -17,7 +17,7 @@ import 'places_filter.dart';
 import 'places_map.dart';
 import 'poi_categories.dart';
 import 'routes_map_provider.dart'
-    show selectionRoadRouteProvider, selectionRouteKey;
+    show SelectionRoute, selectionRoadRouteProvider, selectionRouteKey;
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_image.dart';
@@ -671,13 +671,25 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   /// proto se klíč posílá provideru explicitně.
   List<MapRouteLine> _selectionLines() {
     final sel = _selected;
-    if (sel.length < 2) return const [];
+    if (sel.length < 2) {
+      _lastSelRoute = null;
+      return const [];
+    }
     final r = ref
         .watch(selectionRoadRouteProvider(selectionRouteKey(sel)))
         .valueOrNull;
-    if (r == null || !r.hasLine) return const [];
-    return [MapRouteLine(r.geometry, width: 4.5, emphasized: true)];
+    // Nový výběr = nová instance provideru ve stavu „načítám" (debounce +
+    // routing). Dokud nedopočítá, drží se poslední čára — jinak by při každém
+    // přidání/odebrání místa na chvíli zmizela (stejně jako na mapě míst).
+    // Selhání routingu (prázdná geometrie) ji přepíše a čára zmizí správně.
+    if (r != null) _lastSelRoute = r;
+    final shown = _lastSelRoute;
+    if (shown == null || !shown.hasLine) return const [];
+    return [MapRouteLine(shown.geometry, width: 4.5, emphasized: true)];
   }
+
+  /// Poslední spočtená trasa přes výběr — viz `_selectionLines`.
+  SelectionRoute? _lastSelRoute;
 
   // ── Mapa míst nad seznamem ──
   Widget _mapPreview(
