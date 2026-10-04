@@ -263,6 +263,12 @@ MG.i18n = (function () {
       container.appendChild(b);
     });
   }
+  /** Text šatny s číslem dveří (skupina `lk`), když zónu známe a překlad existuje; jinak `fallback` bez čísla. */
+  function accText(key, fallback, z) {
+    const n = z ? (z.box_number != null ? z.box_number : z.zone) : null;
+    const raw = n != null ? sub('lk', key) : null;
+    return raw ? fmt(raw, { n: n }) : t(fallback);
+  }
   function lockedSubtitle(lockedUntil) {
     const min = lockedUntil ? Math.max(1, Math.ceil((Number(lockedUntil) - Date.now() / 1000) / 60)) : null;
     return (min ? fmt(sub('es', 'lockedMin'), { m: min }) : sub('es', 'lockedLater')) + '\n' + t('support') + ': ' + SUPPORT;
@@ -297,8 +303,12 @@ MG.i18n = (function () {
     /* 2026-09-27: po kódu displej říká KAM jít — titulek „Dveře č. N otevřeny“ / „Šatna otevřena“, podtitulek
        „Běžte ke dveřím č. N.“ / „Vemte za kliku.“ (N = číslo kóje, bez něj číslo zóny); servisní otevření = „Otevřeno“ + název. */
     doorNo: (z) => (z && z.box_number != null ? z.box_number : z ? z.zone : null),
-    successTitle: (kind, z) => (kind === 'accessories' ? t('openedAcc') : kind === 'motorcycle' && z ? t('openedBox', { n: (z.box_number != null ? z.box_number : z.zone) }) : t('opened')),
-    successSubtitle: (kind, name, z) => (kind === 'accessories' ? t('okAcc') : kind === 'motorcycle' && z ? t('okBox', { n: (z.box_number != null ? z.box_number : z.zone) }) : name),
+    /* 2026-10-04: šatna = na dveřích jen číslo (Velké Němčice: dveře č. 8) → „Šatna otevřena — dveře č. N“ /
+       „Běžte ke dveřím č. N a vemte za kliku.“ (skupina `lk` v i18n-locker.js); bez známé zóny původní texty. */
+    successTitle: (kind, z) => (kind === 'accessories' ? accText('opened', 'openedAcc', z) : kind === 'motorcycle' && z ? t('openedBox', { n: (z.box_number != null ? z.box_number : z.zone) }) : t('opened')),
+    successSubtitle: (kind, name, z) => (kind === 'accessories' ? accText('go', 'okAcc', z) : kind === 'motorcycle' && z ? t('okBox', { n: (z.box_number != null ? z.box_number : z.zone) }) : name),
+    /** Titulek modální hlášky šatny (#wardrobe) s číslem dveří otevřené šatny. */
+    wardrobeTitle: (z) => accText('close', 'ho.close', z),
     alert: (key, vars) => fmt(sub('al', key), Object.assign({ s: SUPPORT }, vars || {})),
   };
 })();

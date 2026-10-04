@@ -130,7 +130,9 @@ kódu motorky bez podpisu) se přes celý displej otevře **předávací protoko
 nebyl právě zadán), „Potvrdit a podepsat“; „Zpět“ (v kroku 2 vrací na krok 1); odpočet 120 s bez dotyku („Zavře se za N s“). Po podpisu: „Otevřeno“ + „Protokol podepsán.“ (kóje se otevře sama), nebo
 „Protokol potvrzen“ + „Teď zadejte kód motorky.“ (kóji se nepodařilo otevřít → „Kóji se nepodařilo otevřít — zadejte kód motorky
 znovu.“). Po kódu displej říká, KAM jít (2026-09-27): kóje „Dveře č. N otevřeny — Běžte ke dveřím č. N.“, šatna „Šatna otevřena —
-Vemte za kliku.“ (8 jazyků, `i18n.js` `openedBox/okBox/openedAcc/okAcc`). Soubory protokolu: `ui/handover.js`
+Vemte za kliku.“ (8 jazyků, `i18n.js` `openedBox/okBox/openedAcc/okAcc`); od 1.2.3 (2026-10-04, na dveřích jsou jen čísla) šatna
+s číslem dveří = číslo zóny šatny: „Šatna otevřena — dveře č. 8“ + „Běžte ke dveřím č. 8 a vemte za kliku.“ a modální hláška
+„Šatna — dveře č. 8: vezměte si výbavu a zavřete dveře“ (`i18n-locker.js` skupina `lk`, bez známé zóny původní texty). Soubory protokolu: `ui/handover.js`
 (overlay, `MG.Handover`), `ui/signature.js` (podpis prstem, PNG 800×260 ≤ 150 kB), `ui/style-handover.css` a texty `ho.*`/`g.*`
 v 8 jazycích v `ui/i18n-handover.js` (slučuje se do `MG.i18n`; v `i18n.js` jsou jen `hint2`, texty úspěchu a chyby `protocol_required`/
 `protocol_failed`/`handover_in_progress`); PDF protokolu je česky.

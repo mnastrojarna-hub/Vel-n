@@ -143,8 +143,10 @@ window.MG = window.MG || {};
       nezadala kód motorky) → nemodální pruh #handover-lock nad polem kódu, jen když není vidět žádný overlay toku
       (šatna / protokol). Texty přes data-i18n (ho.close / ho.closeSub, ho.lockTitle / ho.lockSub). */
   function renderWardrobe(st) {
-    const open = (st.zones || []).some((z) => z.kind === 'accessories' && z.state === 'DOOR_OPEN' && !!z.booking_id);
+    const wz = (st.zones || []).find((z) => z.kind === 'accessories' && z.state === 'DOOR_OPEN' && !!z.booking_id);
+    const open = !!wz;
     $('wardrobe').hidden = !open;
+    if (wz) setText($('wd-title'), MG.i18n.wardrobeTitle(wz));   // „Šatna — dveře č. 8: …“ (2026-10-04)
     const ho = st.handover || {};
     const protocol = !!(ho.active && ho.active.stage === 'protocol');
     $('handover-lock').hidden = !ho.lock || open || protocol;

@@ -167,7 +167,7 @@ async def test_submit_code_gate_in_controller_codes(ctrl):
     assert ctrl.zones[3].grants == [] and "ACCESS_DENIED" not in ctrl.kinds() and ctrl.storage.pin_failures_since(0) == 0
     assert ctrl.handover.status()["active"]["then_open"] is True
     res = await cc.submit_code(ctrl, "888888", "ui")
-    assert res["ok"] and res["kind"] == "accessories" and res["message"] == "Šatna otevřena — vemte za kliku."
+    assert res["ok"] and res["kind"] == "accessories" and res["message"] == "Šatna otevřena — dveře č. 8, vemte za kliku."
     assert ctrl.zones[8].grants == [("b1", "accessories", "ui")] and ctrl.handover.protocols["b1"]["required"] is True
     # po podpisu jinde projde kód motorky rovnou
     await ctrl.handover.mark_signed_remote("b1", may_open=True)

@@ -5,7 +5,8 @@
 // „Pobočky – přehled“ / „Pobočka Mezná“ / „Pobočka Velké Němčice“ (klíče
 // `web.pobocky.*` v `cms_variables`). Shodné defaulty drží Velín
 // (velin/src/pages/cms/webTextsPobocky.js) a appka (features/branches).
-// `slug`, `map`, `photo` a `gallery` (fotky v gfx/pobocky/<slug>/) jdou jen z kódu; `video` = URL nahraná ve Velínu
+// `slug`, `branch_id` (= branches.id — předvyplnění pobočky v /rezervace?pobocka=<id>), `map`, `photo` a `gallery`
+// (fotky v gfx/pobocky/<slug>/) jdou jen z kódu; `video` = URL nahraná ve Velínu
 // (bucket media) nebo odkaz na YouTube, prázdné = bez videa.
 
 function pobockyDefaults() {
@@ -20,6 +21,7 @@ function pobockyDefaults() {
     'branches' => [
         [
             'slug' => 'mezna',
+            'branch_id' => '11111111-1111-1111-1111-111111111111',
             'badge' => 'Obslužná pobočka',
             'title' => 'Mezná u Pelhřimova',
             'address' => 'Mezná 9, 393 01 Pelhřimov',
@@ -39,6 +41,7 @@ function pobockyDefaults() {
         ],
         [
             'slug' => 'velke-nemcice',
+            'branch_id' => '22222222-2222-2222-2222-222222222222',
             'badge' => 'Samoobslužná pobočka',
             'title' => 'Velké Němčice u Brna',
             'address' => 'Boudky, 691 63 Velké Němčice',
@@ -46,7 +49,7 @@ function pobockyDefaults() {
             'text' => 'Moderní <strong>samoobslužná pobočka</strong> jižně od Brna. Na místě není obsluha — vše vyřídíte sami na dotykovém displeji pomocí <strong>kódů z aplikace</strong>, které dostanete po zaplacení a doplnění dokladů. Motorky z této pobočky se přebírají i vracejí jen přímo na pobočce — přistavení ani odvoz u nich nenabízíme. U pobočky můžete po celou dobu výpůjčky <strong>parkovat zdarma</strong>.',
             'gear' => 'K dispozici je jen <strong>helma, bunda s páteřákem, kalhoty, rukavice, kukla a boty</strong> — výbava pro řidiče je v ceně, motocyklové boty za příplatek. Bundy a kalhoty do velikosti <strong>4XL</strong> (větší velikosti až do 6XL nabízíme v Mezné). <strong>Nepromoky</strong> ani další doplňkovou výbavu na samoobslužné pobočce nepůjčujeme — ty jsou jen na obslužné pobočce v Mezné. Výbavu si v šatně vyzkoušíte, a když vám velikost nesedí, vezmete si jinou dostupnou a v předávacím protokolu ji jen označíte. Reflexní vestu, lékárničku, záznam o nehodě, kotoučový zámek a klíček k držáku telefonu najdete v motorce.',
             'steps_title' => 'Jak to probíhá',
-            'steps' => '1. Rezervujete a zaplatíte online, zvolíte čas vyzvednutí a doplníte doklady — kódy najdete v aplikaci i v e-mailu.<br>2. Na pobočce zadáte kód šatny a vezmete si výbavu (s vlastní výbavou šatnu přeskočíte). Máte-li slevu za vyzvednutí od 12:00, kódy platí až od 12:00.<br>3. Na displeji podepíšete předávací protokol.<br>4. Kódem motorky otevřete kóji s motorkou a vyrazíte.<br>5. Po jízdě motorku vrátíte do kóje a výbavu do šatny — kdykoliv poslední den výpůjčky do 24:00.',
+            'steps' => '1. Rezervujete a zaplatíte online, zvolíte čas vyzvednutí a doplníte doklady. V aplikaci, e-mailu a SMS pak dostanete kódy v pořadí, v jakém je budete zadávat: <strong>1) kód schránky s klíčem od brány, 2) kód šatny</strong> (máte-li zapůjčenou výbavu) <strong>a 3) kód motorky</strong>.<br>2. <strong>Je-li vjezdová brána zavřená</strong>, otevřete kódem z aplikace <strong>horní schránku na pravém sloupku vrat</strong> — je v ní klíč od visacího zámku. Bránu odemkněte, vjeďte dovnitř a zaparkujte na kterémkoli místě <strong>1–7 vpravo u plotu</strong> (viz fotka parkoviště). Auto tu může zdarma stát po celou dobu výpůjčky. Je-li brána otevřená, kód schránky nepotřebujete.<br>3. Na displeji zadáte kód šatny — <strong>šatna jsou dveře č. 8</strong>. Převléknete se a vezmete si výbavu (s vlastní výbavou šatnu přeskočíte). Máte-li slevu za vyzvednutí od 12:00, kódy platí až od 12:00.<br>4. Na displeji v předávacím protokolu upravíte velikosti, protokol podepíšete a zadáte kód motorky — otevře se kóje s motorkou. Šatnu i kóji zavřete a vyrazíte.<br>5. <strong>Byla-li brána zavřená, po odjezdu ji zase zavřete, zamkněte visacím zámkem, klíč vraťte do horní schránky a přetočte číselník.</strong> Otevřenou bránu nechte otevřenou — stav brány nikdy neměňte.<br>6. Po jízdě motorku vrátíte do kóje a výbavu do šatny — kdykoliv poslední den výpůjčky do 24:00. Je-li brána zavřená, postupujete stejně: odemknete ji klíčem ze schránky a po odjezdu ji zase zamknete a klíč vrátíte.',
             'map' => '49.0046725,16.6721528',
             'photo' => '',
             'video' => '',
@@ -56,7 +59,7 @@ function pobockyDefaults() {
                 ['vydejni-box', 'Výdejní box samoobslužné pobočky — kóje s motorkami'],
                 ['vydejni-box-2', 'Výdejní box s kójemi 1–8 a šatnou'],
                 ['displej-kiosk', 'Dotykový displej pro zadání kódu z aplikace'],
-                ['parkoviste', 'Parkoviště pro zákazníky — parkování zdarma po dobu výpůjčky'],
+                ['parkoviste', 'Parkoviště pro zákazníky — místa 1–7 vpravo u plotu, parkování zdarma po dobu výpůjčky'],
             ],
             'gallery_title' => 'Fotogalerie pobočky',
             'seo_title' => 'Samoobslužná pobočka Velké Němčice u Brna | MotoGo24',
@@ -73,11 +76,11 @@ function pobockyDefaults() {
 ];
 }
 
-/** Pobočka i: CMS hodnoty přes defaulty (slug/map/photo/gallery vždy z kódu). */
+/** Pobočka i: CMS hodnoty přes defaulty (slug/branch_id/map/photo/gallery vždy z kódu). */
 function pobockyBranch($C, $D, $i) {
     $d = $D['branches'][$i] ?? [];
     $b = (is_array($C['branches'][$i] ?? null)) ? array_merge($d, $C['branches'][$i]) : $d;
-    foreach (['slug', 'map', 'photo', 'gallery'] as $k) $b[$k] = $d[$k] ?? '';
+    foreach (['slug', 'branch_id', 'map', 'photo', 'gallery'] as $k) $b[$k] = $d[$k] ?? '';
     return $b;
 }
 

@@ -566,7 +566,7 @@ class BoxController:
         #   {**base, ok:False, kind:'motorcycle', error:'protocol_required', zone: zc.number, booking_id, message: error_text(...)}
         #   — bez ACCESS_DENIED, bez lockoutu (není v INVALID_CODE_ERRORS); PROTOCOL_SHOWN jen při prvním zobrazení položky.
         #   kind accessories → grant_access beze změny (HandoverManager si uloží rr.protocol per booking pro on_wardrobe_closed);
-        #   open_result_text accessories = „Šatna otevřena — vemte za kliku.“ (2026-09-27; motorcycle = „Dveře č. N otevřeny — běžte ke dveřím č. N.“, N = box_number)
+        #   open_result_text accessories = „Šatna otevřena — dveře č. N, vemte za kliku.“ (N = `door_number(zc)`, od 1.2.3; 2026-09-27; motorcycle = „Dveře č. N otevřeny — běžte ke dveřím č. N.“, N = box_number)
         # 2026-09-28 (§28 zámek přejímky): po resolve zákaznického kódu (ne servisní heslo, ne pevné 39301A–H, ne diagnostika)
         #   `handover.lock.blocks(rr.booking_id)` → ACCESS_DENIED (success=false, warn, code_kind=rr.kind, booking_id, detail
         #   {source, reason:'handover_in_progress', locked_booking_id, offline}) + {**base, kind: rr.kind, booking_id, error:
@@ -876,7 +876,10 @@ harness. Timeout zadávání `pin_entry_timeout_s` (vymaže vstup). Overlay stav
 „Ověřuji kód…“, úspěch (2026-09-27, zadání majitele — displej říká KAM jít; skládá se lokálně ve všech 8 jazycích přes
 `successTitle`/`successSubtitle(kind, name, z)`, česká `message` ze serveru se u úspěchu použije jen bez známé zóny): kóje titulek
 `openedBox` „Dveře č. N otevřeny“ + `okBox` „Běžte ke dveřím č. N.“ (N = `box_number`, bez něj číslo zóny), šatna `openedAcc`
-„Šatna otevřena“ + `okAcc` „Vemte za kliku.“; servisní otevření „Otevřeno“ + název; „Neplatný kód“, „Zkuste to prosím znovu nebo
+„Šatna otevřena“ + `okAcc` „Vemte za kliku.“ — od 1.2.3 (2026-10-04) se známou zónou s číslem dveří (`MG.i18n.doorNo`, u šatny
+číslo zóny): `lk.opened` „Šatna otevřena — dveře č. N“ + `lk.go` „Běžte ke dveřím č. N a vemte za kliku.“, modální hláška
+`#wd-title` = `MG.i18n.wardrobeTitle(z)` → `lk.close` „Šatna — dveře č. N: vezměte si výbavu a zavřete dveře“ (8 jazyků,
+`i18n-locker.js`); servisní otevření „Otevřeno“ + název; „Neplatný kód“, „Zkuste to prosím znovu nebo
 kontaktujte podporu: +420 774 256 271.“.
 **Vedený tok šatna → protokol → motorka (2026-09-25, §28):** hláška šatny `#wardrobe` (od 2026-09-28 MODÁLNÍ přes celý displej,
 světlá karta, z-index 42 = nad `#status` 40, pod `#handover` 45; dřív nemodální pruh `#wardrobe-hint`) se kreslí ze `st.zones` —
