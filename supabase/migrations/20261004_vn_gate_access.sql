@@ -3,7 +3,7 @@
 -- Migrace: 20261004_vn_gate_access.sql (1/5 — tabulka, data, helpery, RPC)
 --
 -- Zadání majitele 2026-10-04: na pravém sloupku vrat samoobslužné pobočky
--- Velké Němčice jsou dvě ocelové schránky na klíče; HORNÍ (kód 661, neměnný)
+-- Velké Němčice jsou dvě ocelové schránky na klíče; HORNÍ (neměnný kód)
 -- obsahuje klíč od visacího zámku brány. Zákazník dostává kódy v pořadí
 -- 1) brána, 2) šatna (má-li výbavu), 3) motorka — v appce, zprávách, SMS/WA
 -- i e-mailech; jen u pobočky, která má bránu (nic jiného se nemění).
@@ -12,7 +12,7 @@
 --   * `branches` je veřejně čitelná (RLS USING true + anon) — kód by si přečetl
 --     kdokoli přes REST.
 --   * řádek v `branch_door_codes` by kiosk synchronizoval jako zákaznický PIN
---     (kiosk_resolve_code/kiosk_sync_* nefiltrují code_type) a 661 by otevřel
+--     (kiosk_resolve_code/kiosk_sync_* nefiltrují code_type) a kód brány by otevřel
 --     kóji náhodné rezervace; navíc CHECK motorcycle/accessories.
 -- → nová tabulka jen pro adminy + SECURITY DEFINER helpery pro DB funkce
 --   a jedno RPC pro zákazníka (vlastní rezervace, až po vydání kódů).
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.branch_gate_access (
   updated_at   timestamptz NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE public.branch_gate_access IS
-  'Kód schránky s klíčem od brány pobočky (Velké Němčice: horní schránka na pravém sloupku vrat, 661). Jen admin (RLS); zákazník ho dostává ve zprávách s kódy a přes get_booking_gate_info. NE do branches (veřejná) ani branch_door_codes (kiosk).';
+  'Kód schránky s klíčem od brány pobočky (Velké Němčice: horní schránka na pravém sloupku vrat). Jen admin (RLS); hodnota se zadává ve Velínu (Pobočky → Samoobsluha), NIKDY do gitu (repo je veřejné); zákazník ho dostává ve zprávách s kódy a přes get_booking_gate_info. NE do branches (veřejná) ani branch_door_codes (kiosk).';
 
 ALTER TABLE public.branch_gate_access ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS branch_gate_access_admin ON public.branch_gate_access;
@@ -41,20 +41,14 @@ DROP TRIGGER IF EXISTS trg_branch_gate_access_touch ON public.branch_gate_access
 CREATE TRIGGER trg_branch_gate_access_touch BEFORE UPDATE ON public.branch_gate_access
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
--- Data: Velké Němčice (id ověřeno živě 2026-10-04; záloha dle adresy z 20260923b)
+-- Data: hodnotu kódu migrace ZÁMĚRNĚ NEOBSAHUJE — repozitář je veřejný. Kód se
+-- zadá ve Velínu: Pobočky → Velké Němčice → Samoobsluha → „Vjezdová brána — kód
+-- schránky s klíčem“ (vloží řádek branch_gate_access). Dokud řádek chybí,
+-- chovají se zprávy, e-maily, appka i web přesně jako dosud (bez brány).
 DO $$
-DECLARE n integer;
 BEGIN
-  INSERT INTO public.branch_gate_access (branch_id, lockbox_code, note)
-  SELECT b.id, '661', 'Horní schránka na pravém sloupku vrat — klíč od visacího zámku brány'
-    FROM public.branches b
-   WHERE b.id = '22222222-2222-2222-2222-222222222222'
-      OR (b.type = 'samoobslužná' AND b.address = 'Boudky' AND b.city ~* 'n[eě]m[cč]ic')
-  ON CONFLICT (branch_id) DO NOTHING;
-  GET DIAGNOSTICS n = ROW_COUNT;
-  RAISE NOTICE 'branch_gate_access: vloženo % řádků', n;
-  IF NOT EXISTS (SELECT 1 FROM public.branch_gate_access) THEN
-    RAISE WARNING 'branch_gate_access: pobočka Velké Němčice nenalezena — kód brány doplňte ve Velínu';
+  IF NOT EXISTS (SELECT 1 FROM public.branch_gate_access WHERE is_active) THEN
+    RAISE NOTICE 'branch_gate_access: zatím bez kódu — zadejte ho ve Velínu (Pobočky → Samoobsluha)';
   END IF;
 END $$;
 

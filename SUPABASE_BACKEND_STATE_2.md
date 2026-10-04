@@ -421,7 +421,7 @@ Servisní zakázky navázané na motorky/servisní záznamy.
 
 ### branch_gate_access (NEW 2026-10-04, `20261004_vn_gate_access.sql`)
 - branch_id (UUID PK, FK→branches ON DELETE CASCADE)
-- lockbox_code (TEXT NOT NULL, CHECK `^[0-9]{3,8}$`) — kód schránky s klíčem od brány (Velké Němčice `661`, horní schránka na pravém sloupku vrat)
+- lockbox_code (TEXT NOT NULL, CHECK `^[0-9]{3,8}$`) — kód schránky s klíčem od brány (Velké Němčice: horní schránka na pravém sloupku vrat; hodnota se zadává ve Velínu, NIKDY do gitu — repo je veřejné)
 - is_active (BOOLEAN NOT NULL DEFAULT true), note (TEXT)
 - created_at, updated_at (trigger `trg_branch_gate_access_touch`)
 - RLS: jen admin (`branch_gate_access_admin` FOR ALL `is_admin()`); anon REVOKE. Čtou ho jen SECURITY DEFINER funkce (`_branch_gate_code`, `branch_has_gate`, `get_booking_gate_info`) a Velín.
