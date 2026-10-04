@@ -25,14 +25,20 @@ const List<Color> kRoutesMapPalette = [
 Color routesMapColor(int index) =>
     kRoutesMapPalette[index % kRoutesMapPalette.length];
 
+/// Šířka karty + mezera — podle toho se panel doscrolluje na zvolenou kartu.
+const double _kCardW = 250;
+const double _kCardGap = 10;
+
 /// Spodní panel mapy tras: jedna karta pro KAŽDOU trasu, která vede přes
 /// vybraný bod. Klepnutí na kartu trasu zvýrazní na mapě a přiblíží ji,
-/// „Detail" otevře její stránku (navigace, úprava, recenze).
+/// „Detail" otevře její stránku (navigace, úprava, recenze). Když se trasa
+/// zvolí jinde (štítek na čáře, čip „Další trasa"), panel na její kartu
+/// doscrolluje.
 ///
 /// Zadání uživatele (2026-10-04): „když vyberu místo, přes které vedou dvě
 /// trasy, ukáže mi to jen jednu a nemůžu si vybrat, kterou pojedu — dole
 /// to má nabídnout aspoň dva seznamy, když jsou tam dvě možnosti."
-class RoutesMapPicker extends StatelessWidget {
+class RoutesMapPicker extends StatefulWidget {
   final List<RouteItem> routes;
   final Map<String, RouteBranch> branches;
   final String lang;
@@ -58,7 +64,41 @@ class RoutesMapPicker extends StatelessWidget {
   });
 
   @override
+  State<RoutesMapPicker> createState() => _RoutesMapPickerState();
+}
+
+class _RoutesMapPickerState extends State<RoutesMapPicker> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void didUpdateWidget(RoutesMapPicker old) {
+    super.didUpdateWidget(old);
+    if (widget.activeId != old.activeId) _scrollToActive();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _scrollToActive() {
+    final id = widget.activeId;
+    if (id == null) return;
+    final i = widget.routes.indexWhere((r) => r.id == id);
+    if (i < 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final target = (i * (_kCardW + _kCardGap))
+          .clamp(0.0, _scroll.position.maxScrollExtent);
+      _scroll.animateTo(target,
+          duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final routes = widget.routes;
     return SizedBox(
       height: kRoutesMapPickerHeight,
       child: Container(
@@ -99,10 +139,11 @@ class RoutesMapPicker extends StatelessWidget {
             ),
             Expanded(
               child: ListView.separated(
+                controller: _scroll,
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                 itemCount: routes.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                separatorBuilder: (_, __) => const SizedBox(width: _kCardGap),
                 itemBuilder: (context, i) => _card(context, routes[i], i),
               ),
             ),
@@ -114,15 +155,15 @@ class RoutesMapPicker extends StatelessWidget {
 
   Widget _card(BuildContext context, RouteItem r, int i) {
     final color = routesMapColor(i);
-    final active = r.id == activeId;
-    final line = lines[r.id];
-    final busy = computing.contains(r.id);
+    final active = r.id == widget.activeId;
+    final line = widget.lines[r.id];
+    final busy = widget.computing.contains(r.id);
     final failed = line != null && line.length < 2 && !busy;
     // Reálná délka po silnici ze spočtené čáry; než doběhne, délka z DB.
     final km = (line != null && line.length >= 2)
         ? polylineLengthM(line) / 1000
         : r.distanceKm;
-    final branch = r.branchId != null ? branches[r.branchId] : null;
+    final branch = r.branchId != null ? widget.branches[r.branchId] : null;
     final meta = <String>[
       if (km != null) '${km.toStringAsFixed(0)} km',
       if (r.durationMin != null) fmtRideMinutes(r.durationMin!),
@@ -130,9 +171,9 @@ class RoutesMapPicker extends StatelessWidget {
     ];
     return PressableScale(
       pressedScale: 0.97,
-      onTap: () => onPick(r),
+      onTap: () => widget.onPick(r),
       child: Container(
-        width: 250,
+        width: _kCardW,
         padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -160,7 +201,7 @@ class RoutesMapPicker extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    r.nameFor(lang),
+                    r.nameFor(widget.lang),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -207,7 +248,7 @@ class RoutesMapPicker extends StatelessWidget {
             Center(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => onOpen(r),
+                onTap: () => widget.onOpen(r),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

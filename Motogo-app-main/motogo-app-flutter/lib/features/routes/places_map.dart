@@ -21,12 +21,23 @@ class MapRouteLine {
   final double width;
   final bool emphasized;
 
+  /// Štítek s názvem trasy uprostřed čáry (mapa tras) — ať je na první pohled
+  /// vidět, která čára je která; klepnutí na štítek = [onTap] (výběr trasy).
+  final String? label;
+  final VoidCallback? onTap;
+
   const MapRouteLine(
     this.points, {
     this.color = MotoGoColors.greenDark,
     this.width = 4,
     this.emphasized = false,
+    this.label,
+    this.onTap,
   });
+
+  /// Bod zhruba uprostřed čáry — tam sedí štítek (u okruhu na protější
+  /// straně od startu, takže se štítky dvou tras z jednoho bodu nepřekrývají).
+  LatLng get mid => points[points.length ~/ 2];
 }
 
 /// Mapa MÍST (bodů zájmu) — sdílená mezi pruhem nad seznamem a celoobrazovkovou
@@ -357,6 +368,14 @@ class PlacesMapViewState extends State<PlacesMapView> {
               ),
             ],
           ),
+        // Štítky s názvem trasy uprostřed každé čáry (mapa tras): zadání
+        // 2026-10-04 — výběr z více tras má být vidět „na první pohled na té
+        // mapě". Pod markery míst, aby špendlík pod prstem měl přednost.
+        if (widget.routeLines.any((l) => l.label != null && l.points.length >= 2))
+          MarkerLayer(markers: [
+            for (final l in widget.routeLines)
+              if (l.label != null && l.points.length >= 2) _routeLabelMarker(l),
+          ]),
         MarkerLayer(markers: markers),
         // Popisky až od zoomu 12 a jen když jich není moc — jinak by se
         // překrývaly. `IgnorePointer` je nutný, aby popisek nekradl klepnutí
@@ -441,6 +460,47 @@ class PlacesMapViewState extends State<PlacesMapView> {
                     color: MotoGoColors.greenDarker,
                     decoration: TextDecoration.none,
                   ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+  /// Štítek trasy na její čáře: zvýrazněná trasa má plnou barvu a bílý text,
+  /// ostatní bílý podklad s barevným rámečkem a textem — stejná barva jako
+  /// karta dole, takže čára, štítek i karta jdou k sobě.
+  Marker _routeLabelMarker(MapRouteLine l) => Marker(
+        point: l.mid,
+        width: 180,
+        height: 32,
+        child: Center(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: l.onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: l.emphasized ? l.color : Colors.white,
+                borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                border: Border.all(color: l.color, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.22),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Text(
+                l.label!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: MotoGoTypo.w900,
+                  color: l.emphasized ? Colors.white : l.color,
+                  decoration: TextDecoration.none,
                 ),
               ),
             ),

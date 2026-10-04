@@ -26,9 +26,10 @@ import 'routes_provider.dart';
 /// Doplnění 2026-10-04: bod může ležet na VÍCE trasách — dřív se kreslila jen
 /// jedna a přepínala se čipem v hlavičce, takže „když vyberu místo, přes které
 /// vedou dvě trasy, ukáže mi to jen jednu a nemůžu si vybrat, kterou pojedu".
-/// Teď se kreslí všechny trasy vybraného bodu (každá jinou barvou) a dole je
-/// panel s kartou pro každou — klepnutí ji zvýrazní a přiblíží, „Detail"
-/// otevře její stránku.
+/// Teď se kreslí všechny trasy vybraného bodu (každá jinou barvou, se
+/// štítkem názvu přímo na čáře) a dole je panel s kartou pro každou —
+/// klepnutí (na kartu i na štítek) trasu zvýrazní a přiblíží, „Detail" otevře
+/// její stránku; čip „Další trasa" nahoře zůstává jako rychlé přepínání.
 class RoutesMapScreen extends ConsumerStatefulWidget {
   const RoutesMapScreen({super.key});
 
@@ -42,8 +43,22 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
   /// Ukázat i místa mimo trasy (bíle) — ve výchozím stavu ne.
   bool _withOtherPlaces = false;
 
-  /// Zvýrazněná trasa z panelu dole (null = první z nalezených).
+  /// Zvýrazněná trasa z panelu dole / štítku na mapě / čipu „Další trasa"
+  /// (null = první z nalezených).
   String? _activeId;
+
+  /// Zvýrazní trasu a přiblíží mapu na její čáru (když už je spočtená).
+  void _pickRoute(String id, List<LatLng>? pts) {
+    setState(() => _activeId = id);
+    if (pts != null && pts.length >= 2) {
+      // Tělo Scaffoldu sahá i pod spodní panel (proto mají tlačítka offset
+      // 104) — dole se nechá místo na panel s kartami i lištu výběru, nahoře
+      // na hlavičku.
+      _mapKey.currentState?.fitTo(pts,
+          padding: const EdgeInsets.fromLTRB(
+              36, 130, 36, kRoutesMapPickerHeight + 110));
+    }
+  }
 
   // Memoizace filtrovaného seznamu — klepnutí na marker mění jen výběr.
   List<PoiEntry>? _cache;
@@ -141,9 +156,25 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
           color: routesMapColor(i),
           width: isActive ? 5 : 4,
           emphasized: isActive,
+          // Štítek s názvem přímo na čáře — výběr trasy je vidět na mapě.
+          label: r.nameFor(lang),
+          onTap: () => _pickRoute(r.id, pts),
         ));
       }
     }
+    // Čip „Další trasa" v hlavičce: cyklicky další z tras vybraného bodu.
+    final activeAt =
+        active == null ? -1 : matched.indexWhere((r) => r.id == active.id);
+    final VoidCallback? onNext = matched.length > 1
+        ? () {
+            final next = matched[(activeAt + 1) % matched.length];
+            _pickRoute(next.id, lineOf[next.id]);
+          }
+        : null;
+    final activeLabel = active == null
+        ? null
+        : '${active.nameFor(lang)}'
+            '${matched.length > 1 ? '  (${activeAt + 1}/${matched.length})' : ''}';
     // Panel s kartami tras zabírá dole místo — tlačítka a čip nad něj.
     final bottomPad = selected.isEmpty
         ? 24.0
@@ -179,8 +210,8 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
             right: 0,
             child: SafeArea(
               bottom: false,
-              child: _header(
-                  context, places.length, matched, computingIds.isNotEmpty),
+              child: _header(context, places.length, activeLabel,
+                  computingIds.isNotEmpty, onNext),
             ),
           ),
           // Čip „Tvoje trasa" — zůstane i po návratu z editoru.
@@ -221,18 +252,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                     activeId: active?.id,
                     lines: lineOf,
                     computing: computingIds,
-                    onPick: (r) {
-                      setState(() => _activeId = r.id);
-                      final pts = lineOf[r.id];
-                      if (pts != null && pts.length >= 2) {
-                        // Tělo Scaffoldu sahá i pod spodní panel (proto mají
-                        // tlačítka offset 104) — dole se nechá místo na panel
-                        // s kartami i lištu výběru, nahoře na hlavičku.
-                        _mapKey.currentState?.fitTo(pts,
-                            padding: const EdgeInsets.fromLTRB(
-                                36, 130, 36, kRoutesMapPickerHeight + 110));
-                      }
-                    },
+                    onPick: (r) => _pickRoute(r.id, lineOf[r.id]),
                     onOpen: (r) {
                       // Stejně jako karta v seznamu tras: zapamatovat zvolenou
                       // trasu a předat sousedy pro listování swipem.
@@ -247,8 +267,8 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
     );
   }
 
-  Widget _header(BuildContext context, int count, List<RouteItem> matched,
-      bool computing) {
+  Widget _header(BuildContext context, int count, String? activeLabel,
+      bool computing, VoidCallback? onNext) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Container(
@@ -297,9 +317,8 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                       Text(
                         computing
                             ? t(context).tr('routesMapComputing')
-                            : (matched.isEmpty
-                                ? '${t(context).tr('routesMapCount')} · $count'
-                                : '${t(context).tr('placesMapRoutes')} · ${matched.length}'),
+                            : (activeLabel ??
+                                '${t(context).tr('routesMapCount')} · $count'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -342,6 +361,12 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
             const SizedBox(height: 6),
             Row(
               children: [
+                // Další trasa vybraného bodu — rychlé přepínání nahoře
+                // (uživatel: „nahoře to může zůstat, ale musí to přibýt dole").
+                if (onNext != null)
+                  _miniBtn(Icons.alt_route, t(context).tr('routesMapNextRoute'),
+                      onNext),
+                if (onNext != null) const SizedBox(width: 8),
                 _miniBtn(
                   _withOtherPlaces ? Icons.layers_clear : Icons.layers,
                   t(context).tr(_withOtherPlaces
