@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 import { TOOLS } from './tools-definitions.ts'
 import { executeTool } from './tools-executor.ts'
 import { loadAgentConfig, buildSystemPrompt, buildDateHeader, formatBookingContext, formatMultipleBookingsContext, SEASON_NOTE, APP_PAY_NOTE } from './booking-context.ts'
+import { BRANCH_GATE_RULES_CS, GATE_BRANCH_NOTE_CS, markBookingsGate, markGateBranches } from '../_shared/agent-knowledge/branch-gate.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -142,6 +143,8 @@ serve(async (req) => {
         ])
         const pinned = (!pinnedRes.error && pinnedRes.data?.[0]) || null
         const list = (!listRes.error && listRes.data) || []
+        // Pobočka s bránou (Velké Němčice): příznak has_gate do kontextu — nikdy kód.
+        await markBookingsGate(supabaseAdmin, [pinned, ...list] as Array<Record<string, unknown> | null>)
         const active = list.find(b => b.status === 'active') || (pinned?.status === 'active' ? pinned : null)
         const primary = active || pinned
         if (primary) {
@@ -159,6 +162,7 @@ serve(async (req) => {
           .limit(10)
 
         if (!allErr && allBookings && allBookings.length > 0) {
+          await markBookingsGate(supabaseAdmin, allBookings as Array<Record<string, unknown>>)
           const activeBooking = allBookings.find(b => b.status === 'active')
           const otherBookings = allBookings.filter(b => b.status !== 'active')
 
@@ -192,6 +196,7 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
       const { data: brData, error: brErr } = await supabaseAdmin.from('branches').select('*').order('name')
       // Zavřená pobočka (is_open=false) se nikde nenabízí — stejně jako get_branches.
       const brRows = ((brData || []) as Array<Record<string, unknown>>).filter((b) => b.active !== false && b.is_open !== false)
+      await markGateBranches(supabaseAdmin, brRows)
       if (!brErr && brRows.length > 0) {
         const brLines = brRows.map((b, i) => {
           const addr = [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', ')
@@ -200,7 +205,7 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
             : b.type === 'obslužná'
               ? 'OBSLUŽNÁ (motorku předává a přebírá OBSLUHA osobně; čas dle domluvy. Přístupové kódy z e-mailu tu zákazník dostává TAKÉ a nejsou omyl — neotvírají dveře, slouží jako IDENTIFIKACE: nahlásí je obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není povinný, ale doporučuje se — urychlí odbavení)'
               : 'typ neuveden — režim výdeje ověř přes get_branches, netvrď samoobsluhu'
-          return `${i + 1}. **${b.name || addr || 'pobočka'}** — ${addr || 'adresa přes get_branches'} — ${typ}${b.notes ? `; pozn.: ${b.notes}` : ''}`
+          return `${i + 1}. **${b.name || addr || 'pobočka'}** — ${addr || 'adresa přes get_branches'} — ${typ}${b.has_gate === true ? `; ${GATE_BRANCH_NOTE_CS}` : ''}${b.notes ? `; pozn.: ${b.notes}` : ''}`
         })
         branchesContext = `\n\n## POBOČKY (live snapshot z DB — JEDINÝ autoritativní seznam provozoven):
 ${brLines.join('\n')}
@@ -227,7 +232,9 @@ Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. K
     // zastaralé FAQ tvrdil zákazníkovi na iPhonu „Apple Pay nepodporujeme"
     // a „appka je jen pro Android". Stejně jako SEASON_NOTE platí pro config
     // i FALLBACK prompt a má přednost před výsledky nástrojů (get_faq…) — text: APP_PAY_NOTE.
-    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext + branchesContext + SEASON_NOTE + APP_PAY_NOTE
+    // Pobočka s vjezdovou branou (2026-10-04): tři kódy, postup, „kód schránky nikdy
+    // nesdělovat“, Mezná → Němčice nepřistavujeme — pro config i FALLBACK prompt.
+    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext + branchesContext + SEASON_NOTE + APP_PAY_NOTE + '\n\n## ' + BRANCH_GATE_RULES_CS
 
     // -- Agentic loop --
     let finalText = ''

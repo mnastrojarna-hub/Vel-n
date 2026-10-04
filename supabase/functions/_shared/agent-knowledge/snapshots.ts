@@ -2,6 +2,8 @@
 // Přesunuto z ai-public-agent/index.ts (2026-09-25) beze změny obsahu — sdílí ho
 // veřejný agent (web) i agent zákaznických zpráv ve Velínu (ai-customer-messages-suggest).
 
+import { GATE_BRANCH_NOTE_CS } from './branch-gate.ts'
+
 export type CompanyInfo = {
   name?: string
   ico?: string
@@ -42,6 +44,8 @@ export type BranchRow = {
   type: string | null       // 'samoobslužná' | 'obslužná' (viz velin/src/pages/BranchModal.jsx)
   opening_hours: string | null
   notes: string | null
+  id?: string | null
+  has_gate?: boolean         // vjezdová brána se schránkou na klíč (markGateBranches — jen příznak, NIKDY kód)
 }
 
 // Sestaví zobrazované jméno motorky bez duplikace značky.
@@ -112,7 +116,8 @@ export function formatBranchesSnapshot(branches: BranchRow[]): string {
         : `typ neuveden — režim výdeje ověř přes \`get_branches\`/firmu, netvrď samoobsluhu`
     const oh = b.opening_hours ? `; otevírací doba: ${b.opening_hours}` : ''
     const notes = b.notes ? `; pozn.: ${b.notes}` : ''
-    return `${i + 1}. **${b.name || addr || 'pobočka'}** — ${addr || 'adresa v `get_branches`'} — ${typ}${oh}${notes}`
+    const gate = b.has_gate === true ? `; ${GATE_BRANCH_NOTE_CS}` : ''
+    return `${i + 1}. **${b.name || addr || 'pobočka'}** — ${addr || 'adresa v `get_branches`'} — ${typ}${oh}${gate}${notes}`
   })
   return `POBOČKY (live snapshot z DB v okamžiku tohoto requestu — JEDINÝ AUTORITATIVNÍ zdroj o REŽIMU výdeje/vrácení):
 ${lines.join('\n')}

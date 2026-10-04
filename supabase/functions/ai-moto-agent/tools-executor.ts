@@ -4,6 +4,7 @@
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { execPublicReadTool, PUBLIC_READ_TOOL_NAMES } from './public-tools.ts'
 import { kioskReleaseNote, pickupTimeLabel, pragueDateLabel, ssTime } from './booking-context.ts'
+import { branchHasGate, markBookingsGate } from '../_shared/agent-knowledge/branch-gate.ts'
 import { readManual } from '../_shared/manual-reader.ts'
 import { getBundledManualText } from '../_shared/manual-texts/index.ts'
 
@@ -95,6 +96,8 @@ export async function executeTool(
 
       if (error) return { error: error.message }
       if (!data || data.length === 0) return { message: 'Zákazník nemá žádnou aktivní ani nadcházející rezervaci.' }
+      // motorcycles.branches.has_gate = vjezdová brána (Velké Němčice) — jen příznak, NIKDY kód
+      await markBookingsGate(supabaseAdmin, data as Array<Record<string, unknown>>)
       // Samoobsluha: uložené 23:59 vrácení = konec dne a 00:01 vyzvednutí = starší
       // rezervace „bez času“ — agent nesmí říct „přijďte v 00:01“. Zvolený čas
       // vyzvednutí (2026-10-01 večer) se ukazuje; se slevou za vyzvednutí od
@@ -155,6 +158,19 @@ export async function executeTool(
       const gateNote = gated
         ? `VÝDEJ AŽ OD 12:00: rezervace má slevu 50 % na 1. den za vyzvednutí od 12:00 — kiosk vydá šatnu i motorku až ${pragueDateLabel(releaseFrom)} od 12:00 (kód zadaný dřív displej odmítne hláškou „Vyzvednutí až od 12:00“). Potřebuje-li motorku dřív: detail rezervace → „Upravit rezervaci“ → dřívější čas vyzvednutí → sleva zanikne, rozdíl doplatí a kód platí hned. `
         : ''
+      // Vjezdová brána (Velké Němčice, 2026-10-04): jen PŘÍZNAK přes RPC branch_has_gate
+      // (get_booking_gate_info tu nejde — stojí na auth.uid(), service role by dostal
+      // has_gate=false). Kód schránky jde zákazníkovi se stejnou zprávou jako kód
+      // motorky → „doručen“ = kód motorky odeslaný u rezervace reserved/active.
+      const hasGate = await branchHasGate(supabaseAdmin, moto?.branch_id)
+      const liveBk = bk.status === 'reserved' || bk.status === 'active'
+      const gateDelivered = hasGate && liveBk
+        && rows.some(c => c.code_type === 'motorcycle' && c.sent_to_customer === true)
+      const gateSummary = !hasGate ? '' : gateDelivered
+        ? ' Pobočka má VJEZDOVOU BRÁNU: kód schránky s klíčem od brány dostal zákazník spolu s ostatními kódy (pořadí brána → šatna → motorka) — najde ho ve zprávě s kódy v appce (Zprávy / detail rezervace), v e-mailu a SMS; číslice NIKDY neříkej.'
+        : liveBk
+          ? ' Pobočka má VJEZDOVOU BRÁNU: kód schránky s klíčem od brány zákazník dostane spolu s kódem motorky (zatím odeslaný není) — číslice NIKDY neříkej.'
+          : ' Pobočka má VJEZDOVOU BRÁNU (kód schránky patří jen k platné rezervaci) — číslice NIKDY neříkej.'
       return {
         booking_id: bk.id,
         booking_status: bk.status,
@@ -163,6 +179,8 @@ export async function executeTool(
         self_service: branch?.type === 'samoobslužná',
         // ISO čas, od kdy kiosk rezervaci vydá (sleva za vyzvednutí od 12:00); null = bez omezení
         release_from: gated ? releaseFrom : null,
+        // Brána se schránkou na klíč (jen příznak + stav doručení, NIKDY číslice)
+        gate: { has_gate: hasGate, lockbox_code_delivered: gateDelivered },
         codes: rows.map(c => ({
           code_type: c.code_type,                    // motorcycle = kóje s motorkou, accessories = šatna s výbavou
           delivered: c.sent_to_customer === true,    // odeslán zákazníkovi (appka + mail + SMS/WhatsApp)
@@ -175,8 +193,8 @@ export async function executeTool(
           ? 'K rezervaci zatím nejsou vygenerované žádné přístupové kódy (typicky nezaplacená rezervace nebo obslužná pobočka).'
           : withheld.length > 0
             ? `Kódy existují, ale ${withheld.length} z nich je ZADRŽENÝCH: ${withheld.map(c => c.withheld_reason || 'důvod neuveden').join('; ')}. Vysvětli zákazníkovi PŘESNĚ tenhle důvod a jak ho odstranit (doplnit doklady v appce → kódy se uvolní automaticky).`
-            : 'Všechny kódy jsou vydané a odeslané — zákazník je má v appce (detail rezervace / Zprávy), v e-mailu, SMS i WhatsApp.'),
-        never_reveal: 'Samotné číslice kódu tool nevrací a agent je NIKDY nesděluje ani neodhaduje.',
+            : 'Všechny kódy jsou vydané a odeslané — zákazník je má v appce (detail rezervace / Zprávy), v e-mailu, SMS i WhatsApp.') + gateSummary,
+        never_reveal: 'Samotné číslice kódu (ani kódu schránky s klíčem od brány) tool nevrací a agent je NIKDY nesděluje, nepotvrzuje ani neodhaduje.',
       }
     }
 

@@ -6,6 +6,7 @@
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { formatBookingContext, formatMultipleBookingsContext } from '../ai-moto-agent/booking-context.ts'
+import { loadGateCodeMask, markBookingsGate } from '../_shared/agent-knowledge/branch-gate.ts'
 
 export type Msg = { id: string; direction: string | null; content: string | null; created_at: string }
 
@@ -53,6 +54,8 @@ async function loadBookings(sb: SupabaseClient, customerId: string): Promise<{ c
   const active = live.find((b) => b.status === 'active')
   const upcoming = live.filter((b) => b.status !== 'active' && String(b.end_date) >= today)
     .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))
+  // Pobočka s vjezdovou branou → řádek „VJEZD BRANOU“ v kontextu (jen příznak, NIKDY kód).
+  await markBookingsGate(sb, active ? [active] : upcoming.slice(0, 1))
   let ctx = ''
   if (active) ctx = formatBookingContext(active, upcoming.length ? upcoming : null)
   else if (upcoming.length === 1) ctx = formatBookingContext(upcoming[0], null)
@@ -97,14 +100,16 @@ export async function loadThreadContext(sb: SupabaseClient, threadId: string, fo
   if (!thread) return null
   const customerId = (thread.customer_id as string | null) || null
 
-  const [custRes, histRes, bookings, staffExamples] = await Promise.all([
+  const [custRes, histRes, bookings, staffRaw, mask] = await Promise.all([
     customerId ? sb.from('profiles').select('*').eq('id', customerId).maybeSingle() : Promise.resolve({ data: null }),
     sb.from('messages').select('id, direction, content, created_at').eq('thread_id', threadId).order('created_at', { ascending: true }).limit(500),
     customerId ? loadBookings(sb, customerId) : Promise.resolve({ ctx: '\n\n## KONTEXT REZERVACE:\nVlákno nemá přiřazeného zákazníka — pokud zpráva zmiňuje rezervaci, e-mail nebo telefon, dohledej ji nástrojem find_booking.', list: '' }),
     loadStaffExamples(sb, threadId),
+    loadGateCodeMask(sb),
   ])
-
-  let history = ((histRes as { data: Msg[] | null }).data || []) as Msg[]
+  // Kód schránky od brány (Velké Němčice) z ručních zpráv týmu/zákazníka do promptu nejde (→ •••).
+  const staffExamples = mask(staffRaw) || ''
+  let history = (((histRes as { data: Msg[] | null }).data || []) as Msg[]).map((m) => ({ ...m, content: mask(m.content) }))
   let focus: Msg | null = null
   if (focusMessageId) {
     const idx = history.findIndex((m) => m.id === focusMessageId)
