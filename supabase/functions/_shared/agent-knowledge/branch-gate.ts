@@ -17,8 +17,8 @@ export const BRANCH_GATE_RULES_CS = `${BRANCH_GATE_TITLE} — TŘI KÓDY, POSTUP
 - KÓDY V POŘADÍ ZADÁVÁNÍ: 1) **kód schránky s klíčem od brány** → 2) **kód šatny** (šatna = dveře č. 8; jen rezervace s výbavou k vyzvednutí — půjčená výbava, boty, výbava spolujezdce) → 3) **kód motorky**. Kód schránky přichází SPOLU s ostatními kódy, ve stejné zprávě a v tomto pořadí: v appce MotoGo24 (Zprávy + detail rezervace), v e-mailu s kódy a v SMS/WhatsAppu — tedy až po zaplacení a doplnění dokladů, stejně jako ostatní kódy. Kód schránky se NEZADÁVÁ na dotykovém displeji (displej by ho odmítl jako neplatný a pokus by se počítal do zablokování klávesnice) — nastavuje se na číselníku schránky; na displeji se zadává jen kód šatny a kód motorky.
 - POSTUP PŘI VYZVEDNUTÍ (popiš ho krok za krokem — stejnými slovy jako zpráva s kódy):
   1) Je-li vjezdová brána zavřená, otevřete HORNÍ schránku na pravém sloupku vrat kódem, který dostanete spolu s kódy k rezervaci — je v ní klíč od visacího zámku brány. Bránu odemkněte, vjeďte dovnitř a zaparkujte na kterémkoli místě 1–7 vpravo u plotu. Auto tu může zdarma stát po celou dobu výpůjčky.
-  2) Na displeji zadejte kód šatny (šatna = dveře č. 8), převlékněte se, v předávacím protokolu upravte velikosti a protokol podepište.
-  3) Zadejte kód motorky, vezměte motorku a zavřete dveře šatny i kóje.
+  2) Na displeji zadejte kód šatny (šatna = dveře č. 8), vezměte si výbavu, převlékněte se a zavřete dveře šatny. Poté na displeji v předávacím protokolu upravte velikosti a protokol podepište.
+  3) Zadejte kód motorky, vezměte motorku a zavřete dveře kóje.
   (Bez výbavy ze šatny místo bodů 2 a 3: Na displeji zadejte kód motorky, podepište předávací protokol, vezměte motorku a zavřete dveře kóje.)
   4) DŮLEŽITÉ: Byla-li brána zavřená, po odjezdu ji zase zavřete, zamkněte visacím zámkem, klíč vraťte do horní schránky a přetočte číselník, aby kód nezůstal nastavený. Otevřenou bránu nechte otevřenou. Stejně postupujte i při vrácení motorky.
 - Na pravém sloupku vrat jsou DVĚ schránky na klíče — klíč od brány je v HORNÍ. Je-li brána otevřená, kód schránky zákazník nepotřebuje. Stav brány zákazník nikdy nemění: otevřenou nechá otevřenou, zavřenou po sobě zase zamkne.
@@ -75,7 +75,9 @@ export async function loadGateCodeMask(sb: SupabaseClient): Promise<(s: string |
     const codes = error ? [] : ((data || []) as Array<{ lockbox_code?: unknown }>)
       .map((r) => String(r.lockbox_code ?? '')).filter((c) => /^[0-9]{3,8}$/.test(c))
     if (!codes.length) return none
-    const re = new RegExp(`(?<![0-9])(?:${codes.join('|')})(?![0-9])`, 'g')
+    // hranice = ne číslice ani písmeno (např. „AB135CD“ není kód); kratší shody v telefonech /
+    // cenách řeší volající tím, že masku použije JEN u vláken zákazníka s rezervací na pobočce s bránou
+    const re = new RegExp(`(?<![0-9A-Za-z])(?:${codes.join('|')})(?![0-9A-Za-z])`, 'g')
     return (s) => (s ? s.replace(re, '•••') : s)
   } catch { return none }
 }

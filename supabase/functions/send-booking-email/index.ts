@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { renderEmail, normalizeLang, helpCardLabels, renderDoorCodesReleasedBlock, renderDocsRequiredBlock, type Lang } from './i18n.ts'
 import { GATE_MAIL_TYPES, loadBranchGate, loadNeedsLocker, renderGateProcedureBlock, type BranchGate } from './branch-gate.ts'
 
@@ -879,6 +879,39 @@ async function autoGenerateAttachments(
   return atts
 }
 
+/** Smí volající poslat mail k rezervaci? (2026-10-04) Funkce běží s verify_jwt=false
+ * (volá ji pg_net ze SQL, webhooky, crony a Velín) a dřív vzala `booking_id` +
+ * `customer_email` z těla a poslala kódy k rezervaci (nově i kód schránky u brány)
+ * komukoli, kdo znal ID rezervace. Důvěryhodný = service role (SQL/pg_net, edge
+ * funkce) nebo admin JWT (Velín) — poznají se tím, že přečtou tajný řádek
+ * `app_settings.service_role_key` (RLS jen admin, service role RLS obchází).
+ * Ostatní (anon, zákazník v appce) smí mail poslat JEN majiteli rezervace. */
+async function callerMayMail(req: Request, admin: SupabaseClient, bookingId: string, to: string): Promise<boolean> {
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  if (bearer && SUPABASE_SERVICE_KEY && bearer === SUPABASE_SERVICE_KEY) return true
+  let uid: string | null = null
+  if (bearer) {
+    try {
+      const asCaller = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') || SUPABASE_SERVICE_KEY,
+        { global: { headers: { Authorization: `Bearer ${bearer}` } } })
+      const sRes = await asCaller.from('app_settings').select('key').eq('key', 'service_role_key').maybeSingle()
+      if ((sRes.data as { key?: string } | null)?.key) return true
+      const { data: isAdm } = await asCaller.rpc('is_admin')
+      if (isAdm === true) return true
+      const { data: { user } } = await asCaller.auth.getUser()
+      uid = user?.id || null
+    } catch { /* neověřený volající → jen majitel */ }
+  }
+  const bRes = await admin.from('bookings').select('user_id').eq('id', bookingId).maybeSingle()
+  const b = bRes.data as { user_id?: string | null } | null
+  if (!b?.user_id) return false
+  if (uid && b.user_id === uid) return true
+  const pRes = await admin.from('profiles').select('email').eq('id', b.user_id).maybeSingle()
+  const p = pRes.data as { email?: string | null } | null
+  const owner = String(p?.email || '').trim().toLowerCase()
+  return !!owner && owner === String(to || '').trim().toLowerCase()
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -938,6 +971,13 @@ serve(async (req) => {
     if (!type || !customer_email) {
       return new Response(JSON.stringify({ error: 'Missing type or customer_email' }), {
         status: 400,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+    // Mail k rezervaci jen od důvěryhodného volajícího nebo majiteli rezervace (viz callerMayMail).
+    if (booking_id && !(await callerMayMail(req, supabase, String(booking_id), String(customer_email)))) {
+      return new Response(JSON.stringify({ error: 'forbidden' }), {
+        status: 403,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }

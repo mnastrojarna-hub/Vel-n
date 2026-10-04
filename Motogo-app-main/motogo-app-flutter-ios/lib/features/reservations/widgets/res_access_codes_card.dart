@@ -16,6 +16,9 @@ import 'res_detail_row.dart';
 /// vydáním motorky). Pořadí = pořadí zadávání na pobočce: kód schránky
 /// s klíčem od brány (jen pobočka s bránou, až po vydání kódu motorky) →
 /// kód šatny → kód motorky. Bez brány vypadá karta jako dřív.
+/// Důvod zadržení kódu motorky při výměně motorky (withhold_swap_next_codes).
+const swapWithheldReason = 'Vraťte nejdřív původní motorku';
+
 class ResAccessCodesCard extends ConsumerWidget {
   final Reservation res;
   final AsyncValue<List<DoorCode>> doorCodesAsync;
@@ -61,13 +64,16 @@ class ResAccessCodesCard extends ConsumerWidget {
       data: (codes) {
         if (codes.isEmpty || !res.inRentalTerm) return const SizedBox.shrink();
         final gate = ref.watch(bookingGateInfoProvider(res.id)).valueOrNull ?? BookingGateInfo.none;
-        final hasWithheld = codes.any((c) => !c.sentToCustomer);
-        // Pořadí zadávání: šatna → motorka (→ případné další typy), ne pořadí z DB.
-        final sorted = [
-          ...codes.where((c) => c.codeType == 'accessories'),
-          ...codes.where((c) => c.codeType == 'motorcycle'),
-          ...codes.where((c) => c.codeType != 'accessories' && c.codeType != 'motorcycle'),
-        ];
+        // Kód držený výměnou motorky uvolní až vrácení původní motorky — tlačítko
+        // „nahrát doklady“ by tu nepomohlo (RPC ho odmítne).
+        final hasWithheld = codes.any((c) => !c.sentToCustomer && c.withheldReason != swapWithheldReason);
+        // Pořadí zadávání u pobočky s bránou: (brána →) šatna → motorka — jako zpráva,
+        // SMS i e-mail. Bez brány motorka → šatna (pořadí dosavadních zpráv/mailů
+        // obslužné pobočky; dřív nedefinované pořadí z DB).
+        final locker = codes.where((c) => c.codeType == 'accessories');
+        final moto = codes.where((c) => c.codeType == 'motorcycle');
+        final other = codes.where((c) => c.codeType != 'accessories' && c.codeType != 'motorcycle');
+        final sorted = gate.hasGate ? [...locker, ...moto, ...other] : [...moto, ...locker, ...other];
         final lockerLabel = gate.lockerDoor != null
             ? t(context).tr('lockerCodeDoor').replaceAll('{n}', '${gate.lockerDoor}')
             : t(context).tr('lockerCode');

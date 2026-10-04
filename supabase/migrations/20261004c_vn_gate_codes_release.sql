@@ -9,10 +9,13 @@
 -- MOTORKA + stručný postup; SMS/WA šablony door_codes_gate*.
 -- Pobočky bez brány: text i šablony beze změny.
 --
--- Navíc všechny tři posílají SMS/WA v jazyce zákazníka přes _door_codes_sms_lang
--- (rezervace → profil, jen jazyky se šablonami, jinak cs; release_my a
--- release_withheld dřív vždy cs). Šablony existují ve všech 8 jazycích
--- (uk doplňuje 20261004d).
+-- Navíc release_my_door_codes a release_withheld_door_codes_for_user posílají
+-- SMS/WA v jazyce zákazníka přes _door_codes_sms_lang (dřív vždy cs);
+-- release_swap_next_codes zůstává u jazyka profilu (navazující rezervace výměny
+-- vzniká bez jazyka). Šablony existují ve všech 8 jazycích (uk doplňuje 20261004d).
+-- release_my_door_codes nově NEUVOLNÍ kód držený výměnou motorky („Vraťte
+-- nejdřív původní motorku“) — ten uvolní až vrácení původní motorky; dřív šel
+-- uvolnit tlačítkem v appce (zákazník měl dvě motorky naráz, nově i kód brány).
 --
 -- Těla 1:1 z živé DB (supabase-live-snapshot 2026-10-03, shodná s migrací
 -- 20260925a_locker_codes_own_gear.sql) kromě označených změn.
@@ -47,12 +50,20 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Booking not found');
   END IF;
 
-  -- Existují zadržené kódy?
+  -- Existují zadržené kódy? Kód držený VÝMĚNOU motorky (withhold_swap_next_codes)
+  -- uvolní až vrácení původní motorky (release_swap_next_codes) — nikdy doklady
+  -- (2026-10-04: dřív ho tahle RPC uvolnila, zákazník měl dvě motorky naráz).
   IF NOT EXISTS (
     SELECT 1 FROM branch_door_codes
     WHERE booking_id = p_booking_id AND is_active = true AND sent_to_customer = false
+      AND withheld_reason IS DISTINCT FROM 'Vraťte nejdřív původní motorku'
     LIMIT 1
   ) THEN
+    IF EXISTS (SELECT 1 FROM branch_door_codes
+                WHERE booking_id = p_booking_id AND is_active = true AND sent_to_customer = false) THEN
+      RETURN jsonb_build_object('success', false, 'released', 0, 'error', 'Vraťte nejdřív původní motorku',
+                                'withheld_reason', 'Vraťte nejdřív původní motorku');
+    END IF;
     RETURN jsonb_build_object('success', true, 'released', 0, 'message', 'No withheld codes');
   END IF;
 
@@ -62,10 +73,11 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Documents missing', 'withheld_reason', v_reason);
   END IF;
 
-  -- Uvolni kódy
+  -- Uvolni kódy (kromě držených výměnou motorky)
   UPDATE branch_door_codes
   SET sent_to_customer = true, sent_at = NOW(), withheld_reason = NULL
-  WHERE booking_id = p_booking_id AND is_active = true AND sent_to_customer = false;
+  WHERE booking_id = p_booking_id AND is_active = true AND sent_to_customer = false
+    AND withheld_reason IS DISTINCT FROM 'Vraťte nejdřív původní motorku';
   GET DIAGNOSTICS v_released = ROW_COUNT;
 
   SELECT door_code INTO v_code_moto FROM branch_door_codes
@@ -309,7 +321,10 @@ BEGIN
             'door_code_moto', v_code_moto,
             'door_code_gear', COALESCE(v_code_gear, '')
           ) || CASE WHEN v_gate IS NOT NULL THEN jsonb_build_object('gate_code', v_gate) ELSE '{}'::jsonb END,
-          r.user_id, r.booking_id, public._door_codes_sms_lang(r.user_id, r.booking_id));
+          -- jazyk z PROFILU (jako dosud): navazující rezervace výměny vzniká bez
+          -- jazyka (default cs), takže jazyk rezervace by tu byl vždy cs
+          r.user_id, r.booking_id,
+          CASE WHEN v_lang IN ('cs','en','de','nl','es','fr','pl','uk') THEN v_lang ELSE 'cs' END);
       END IF;
     EXCEPTION WHEN OTHERS THEN NULL; END;
 

@@ -43,7 +43,7 @@ export function bookingLine(b: Record<string, unknown>): string {
   return `- #${ref} [id=${b.id}] ${m.brand || ''} ${m.model || '?'} | ${b.start_date} – ${b.end_date} | stav ${b.status}, platba ${b.payment_status || '?'} | cena ${b.total_price ?? '?'} Kč${disc} | zdroj ${b.booking_source || '?'}${cancel}`
 }
 
-async function loadBookings(sb: SupabaseClient, customerId: string): Promise<{ ctx: string; list: string }> {
+async function loadBookings(sb: SupabaseClient, customerId: string): Promise<{ ctx: string; list: string; gate?: boolean }> {
   const { data, error } = await sb.from('bookings').select(BOOKING_SELECT)
     .eq('user_id', customerId).order('start_date', { ascending: false }).limit(20)
   if (error) return { ctx: `\n\n## KONTEXT REZERVACE: načtení selhalo (${error.message}) — použij get_customer_overview / get_active_booking.`, list: '' }
@@ -55,14 +55,16 @@ async function loadBookings(sb: SupabaseClient, customerId: string): Promise<{ c
   const upcoming = live.filter((b) => b.status !== 'active' && String(b.end_date) >= today)
     .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))
   // Pobočka s vjezdovou branou → řádek „VJEZD BRANOU“ v kontextu (jen příznak, NIKDY kód).
-  await markBookingsGate(sb, active ? [active] : upcoming.slice(0, 1))
+  const marked = active ? [active] : upcoming.slice(0, 1)
+  await markBookingsGate(sb, marked)
+  const gate = marked.some((b) => (((b.motorcycles as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.has_gate) === true)
   let ctx = ''
   if (active) ctx = formatBookingContext(active, upcoming.length ? upcoming : null)
   else if (upcoming.length === 1) ctx = formatBookingContext(upcoming[0], null)
   else if (upcoming.length > 1) ctx = formatMultipleBookingsContext(upcoming)
   else ctx = '\n\n## KONTEXT REZERVACE:\nZákazník nemá žádnou aktivní ani nadcházející rezervaci — viz historie rezervací níže.'
   const list = `\n\n## VŠECHNY REZERVACE ZÁKAZNÍKA (Velín, nejnovější první — ${all.length}):\n${all.map(bookingLine).join('\n')}`
-  return { ctx, list }
+  return { ctx, list, gate }
 }
 
 // Páry „dotaz zákazníka → skutečná odpověď týmu" z posledních vláken = ustálené odpovědi
@@ -107,9 +109,12 @@ export async function loadThreadContext(sb: SupabaseClient, threadId: string, fo
     loadStaffExamples(sb, threadId),
     loadGateCodeMask(sb),
   ])
-  // Kód schránky od brány (Velké Němčice) z ručních zpráv týmu/zákazníka do promptu nejde (→ •••).
-  const staffExamples = mask(staffRaw) || ''
-  let history = (((histRes as { data: Msg[] | null }).data || []) as Msg[]).map((m) => ({ ...m, content: mask(m.content) }))
+  // Kód schránky od brány (Velké Němčice) z ručních zpráv týmu/zákazníka do promptu nejde (→ •••) —
+  // maskuje se JEN u vlákna zákazníka s rezervací na pobočce s bránou (jinde by krátký kód
+  // poškodil telefony, ceny či čísla rezervací ostatních zákazníků).
+  const maskIf = (bookings as { gate?: boolean }).gate ? mask : ((s: string | null) => s)
+  const staffExamples = maskIf(staffRaw) || ''
+  let history = (((histRes as { data: Msg[] | null }).data || []) as Msg[]).map((m) => ({ ...m, content: maskIf(m.content) }))
   let focus: Msg | null = null
   if (focusMessageId) {
     const idx = history.findIndex((m) => m.id === focusMessageId)

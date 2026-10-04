@@ -113,8 +113,8 @@ RETURNS text LANGUAGE sql IMMUTABLE AS $$
     CASE WHEN p_has_gear THEN
       E'\n2) Na displeji zadejte kód šatny' ||
       CASE WHEN p_locker_door IS NOT NULL THEN ' (šatna = dveře č. ' || p_locker_door || ')' ELSE '' END ||
-      ', převlékněte se, v předávacím protokolu upravte velikosti a protokol podepište.' ||
-      E'\n3) Zadejte kód motorky, vezměte motorku a zavřete dveře šatny i kóje.'
+      ', vezměte si výbavu, převlékněte se a zavřete dveře šatny. Poté na displeji v předávacím protokolu upravte velikosti a protokol podepište.' ||
+      E'\n3) Zadejte kód motorky, vezměte motorku a zavřete dveře kóje.'
     ELSE
       E'\n2) Na displeji zadejte kód motorky, podepište předávací protokol, vezměte motorku a zavřete dveře kóje.'
     END ||

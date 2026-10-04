@@ -24,6 +24,7 @@ function BranchGateCodeBlock({ branchId }) {
   const [editing, setEditing] = useState(false)
   const [code, setCode] = useState('')
   const [note, setNote] = useState('')
+  const [info, setInfo] = useState(null)
 
   const load = useCallback(async () => {
     const { data, error: e } = await supabase.from(TABLE).select('*').eq('branch_id', branchId).maybeSingle()
@@ -53,6 +54,25 @@ function BranchGateCodeBlock({ branchId }) {
     if (!data?.length) throw new Error('Změna se neuložila (chybí oprávnění admina?)')
   }
 
+  // Po nastavení / změně / zapnutí kódu: nabídnout dopo­slání kódu stávajícím rezervacím (RPC
+  // admin_notify_branch_gate_code, 20261004f) — zákazníci, kteří kódy dostali dřív, by kód schránky neměli.
+  async function offerNotify() {
+    try {
+      const { data: dry, error: e1 } = await supabase.rpc('admin_notify_branch_gate_code', { p_branch_id: branchId, p_dry_run: true })
+      if (e1 || !dry?.success) { setInfo(e1 ? `Dopo­slání kódů nelze ověřit: ${e1.message}` : null); return }
+      const n = dry.count || 0
+      if (!n) { setInfo('Žádná stávající rezervace s vydanými kódy — nikomu se nic neposílá.'); return }
+      if (!window.confirm(`Poslat aktuální kódy včetně kódu brány ${n} zákazníkům se stávajícími rezervacemi na této pobočce? (zpráva v aplikaci, SMS/WhatsApp a e-mail — pořadí brána → šatna → motorka)`)) {
+        setInfo(`Kód uložen. Stávajícím rezervacím (${n}) se kód brány NEPOSLAL — zákazníci ho uvidí jen v aplikaci.`)
+        return
+      }
+      const { data, error: e2 } = await supabase.rpc('admin_notify_branch_gate_code', { p_branch_id: branchId })
+      if (e2) throw e2
+      setInfo(`Kódy odeslány ${data?.notified ?? 0} zákazníkům.`)
+      audit('branch_gate_code_notified', { notified: data?.notified ?? 0 })
+    } catch (e) { setError(e.message || String(e)) }
+  }
+
   function startEdit() { setCode(row?.lockbox_code || ''); setNote(row?.note || ''); setError(null); setEditing(true) }
 
   const codeOk = GATE_CODE_RE.test(code)
@@ -67,13 +87,14 @@ function BranchGateCodeBlock({ branchId }) {
         if (e) throw e
       }
       audit(row ? 'branch_gate_code_updated' : 'branch_gate_code_created', { code_changed: !row || codeChanged })
-    })
+    }).then(() => { if (!row || codeChanged) return offerNotify() })
   }
 
   function toggle() {
     const next = !row.is_active
     if (!next && !window.confirm('Vypnout kód brány? Zákazníci pak kód brány ani postup s bránou nedostanou (v aplikaci, e-mailu, SMS ani ve zprávách).')) return
     return run(async () => { await update({ is_active: next }); audit('branch_gate_code_toggled', { is_active: next }) })
+      .then(() => { if (next) return offerNotify() })
   }
 
   let body
@@ -117,6 +138,7 @@ function BranchGateCodeBlock({ branchId }) {
   return (
     <RpiSection title="Vjezdová brána — kód schránky s klíčem" hint={HINT}>
       {error && <div className="p-2 rounded-card text-sm mb-2" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>}
+      {info && <div className="p-2 rounded-card text-sm mb-2" style={{ background: '#ecfdf5', color: '#065f46' }}>{info}</div>}
       {body}
     </RpiSection>
   )
