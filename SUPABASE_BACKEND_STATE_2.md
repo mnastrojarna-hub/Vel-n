@@ -419,6 +419,13 @@ Servisní zakázky navázané na motorky/servisní záznamy.
   - **Web** /rezervace krok 5 — `pages-rezervace.js#MG._loadAccessoryConfig()` fetchne `is_active=true` rows při init, naplní `MG._rez.accessoryConfig.{prices, sizes}`. Gear cards a size chip panely čtou z toho. Při fetch chybě fallback drží historické hodnoty.
   - **Faktury / refundy** — derivují z `bookings.total_price` a `extras_price`, takže změna ceny ovlivní jen nové rezervace (existující si nesou cenu z checkout času).
 
+### branch_gate_access (NEW 2026-10-04, `20261004_vn_gate_access.sql`)
+- branch_id (UUID PK, FK→branches ON DELETE CASCADE)
+- lockbox_code (TEXT NOT NULL, CHECK `^[0-9]{3,8}$`) — kód schránky s klíčem od brány (Velké Němčice `661`, horní schránka na pravém sloupku vrat)
+- is_active (BOOLEAN NOT NULL DEFAULT true), note (TEXT)
+- created_at, updated_at (trigger `trg_branch_gate_access_touch`)
+- RLS: jen admin (`branch_gate_access_admin` FOR ALL `is_admin()`); anon REVOKE. Čtou ho jen SECURITY DEFINER funkce (`_branch_gate_code`, `branch_has_gate`, `get_booking_gate_info`) a Velín.
+
 ### branch_door_codes
 - id (UUID PK), branch_id (FK→branches ON DELETE CASCADE)
 - booking_id (FK→bookings ON DELETE CASCADE)
@@ -432,6 +439,7 @@ Servisní zakázky navázané na motorky/servisní záznamy.
 - withheld_reason (TEXT) — důvod zadržení kódu (chybí doklady; `'Vraťte nejdřív původní motorku'` při výměně; **2026-09-25:** `'Vlastní výbava'` = kód šatny zadržený triggerem `trg_sync_locker_code` s `is_active=false`, když rezervace přestala mít nárok na šatnu — Velín „Aktivovat" jen když RPC `booking_needs_locker` vrátí true; při novém nároku trigger tentýž řádek reaktivuje, aby rezervace neměla dva kódy šatny)
 - created_at, updated_at
 - RLS: Admin full access, Customer read own (via booking.user_id)
+- **2026-10-04:** u pobočky s bránou (`branch_gate_access`) jdou zákazníkovi kódy v pořadí BRÁNA → ŠATNA (dveře č. N = `branch_doors.hw.zone` šatny, helper `_branch_locker_door_no`) → MOTORKA; kód brány tu NENÍ (kiosk).
 - Realtime: ANO
 
 ### faq_items (NEW)
