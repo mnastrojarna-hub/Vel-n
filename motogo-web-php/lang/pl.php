@@ -295,7 +295,7 @@ return [
     'rez.return.expectedSub' => 'O której godzinie mniej więcej zwrócisz motocykl? Najpóźniej o północy ostatniego dnia.',
 
     // ===== Rezerwacja — wyposażenie =====
-    'rez.gear.intro' => 'Wybierz rozmiary, klikając na kwadraty poniżej. Jeśli nie wybierzesz, przymierzymy je na miejscu.',
+    'rez.gear.intro' => 'Wybierz rozmiary, klikając na kwadraty poniżej. Jeśli nie wybierzesz rozmiaru, przymierzysz go na miejscu.',
     'rez.gear.rider' => 'Wyposażenie kierowcy',
     'rez.gear.riderSub' => 'Kask, kurtka, rękawice, spodnie, kominiarka',
     'rez.gear.riderFree' => 'w cenie · gratis',
@@ -1523,7 +1523,7 @@ return [
     'editRez.consents.marketingRevoked' => 'Wycofano zgodę marketingową. Pozostałe zgody pozostają z powodu nadchodzącej rezerwacji.',
     'poukazy.steps.aria' => 'Jak działa bon',
     'confirm.success.nextBookingDocsDone' => 'Zweryfikowaliśmy Twoje dokumenty — nie trzeba nic robić.',
-    'confirm.success.nextBookingDocsMissing' => 'Twoje dokumenty nie są jeszcze zweryfikowane — możesz je zweryfikować później w edycji rezerwacji (zdjęcie dowodu/paszportu + prawa jazdy) lub osobiście przy odbiorze. Bez weryfikacji nie wyślemy Ci kodów dostępu z wyprzedzeniem; wydamy motocykl po sprawdzeniu dokumentów w oddziale.',
+    'confirm.success.nextBookingDocsMissing' => 'Twoje dokumenty nie są jeszcze zweryfikowane — zweryfikuj je później w edycji rezerwacji (zdjęcie dowodu/paszportu + prawa jazdy). Bez weryfikacji nie wyślemy Ci kodów dostępu: w oddziale samoobsługowym bez nich nie dostaniesz się do środka, a w oddziale z obsługą sprawdzimy dokumenty przy odbiorze na miejscu.',
     'confirm.success.docsLabel' => 'Dokumenty',
     'confirm.success.docsVerified' => 'Zweryfikowane',
     'confirm.success.docsNotVerified' => 'Niezweryfikowane',

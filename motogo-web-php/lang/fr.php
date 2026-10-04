@@ -309,7 +309,7 @@ return [
     'rez.return.expectedSub' => 'Vers quelle heure rendrez-vous la moto ? Au plus tard à minuit le dernier jour.',
 
     // ===== Réservation — équipement =====
-    'rez.gear.intro' => 'Choisissez les tailles en cliquant sur les carrés ci-dessous. Si vous ne choisissez pas, nous l\'essaierons sur place.',
+    'rez.gear.intro' => 'Choisissez les tailles en cliquant sur les carrés ci-dessous. Si vous ne choisissez pas, vous l\'essaierez sur place.',
     'rez.gear.rider' => 'Équipement du conducteur',
     'rez.gear.riderSub' => 'Casque, blouson, gants, pantalon, cagoule',
     'rez.gear.riderFree' => 'inclus · gratuit',
@@ -1544,7 +1544,7 @@ return [
     'editRez.consents.marketingRevoked' => 'Consentement marketing retiré. Les autres consentements sont maintenus en raison de votre réservation à venir.',
     'poukazy.steps.aria' => 'Comment fonctionne le bon',
     'confirm.success.nextBookingDocsDone' => 'Nous avons vérifié vos documents — aucune action requise.',
-    'confirm.success.nextBookingDocsMissing' => 'Vos documents ne sont pas encore vérifiés — vous pouvez les vérifier plus tard dans la modification de la réservation (photo de la carte d\'identité/passeport + permis de conduire) ou en personne au retrait. Sans vérification, nous ne vous enverrons pas les codes d\'accès à l\'avance ; nous remettrons la moto après contrôle des documents à l\'agence.',
+    'confirm.success.nextBookingDocsMissing' => 'Vos documents ne sont pas encore vérifiés — vérifiez-les plus tard dans la modification de la réservation (photo de la carte d\'identité/passeport + permis de conduire). Sans vérification, nous ne vous enverrons pas les codes d\'accès : à l\'agence en libre-service, vous ne pourrez pas entrer sans eux, et à l\'agence avec personnel, nous contrôlerons les documents sur place, lors de la remise.',
     'confirm.success.docsLabel' => 'Documents',
     'confirm.success.docsVerified' => 'Vérifiés',
     'confirm.success.docsNotVerified' => 'Non vérifiés',

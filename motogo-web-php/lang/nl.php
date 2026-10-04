@@ -295,7 +295,7 @@ return [
     'rez.return.expectedSub' => 'Rond hoe laat brengt u de motor terug? Uiterlijk om middernacht op de laatste dag.',
 
     // ===== Reservering — uitrusting =====
-    'rez.gear.intro' => 'Kies maten door op de vakjes hieronder te klikken. Als u geen maat kiest, passen we hem op locatie.',
+    'rez.gear.intro' => 'Kies maten door op de vakjes hieronder te klikken. Als u geen maat kiest, past u hem op locatie.',
     'rez.gear.rider' => 'Uitrusting bestuurder',
     'rez.gear.riderSub' => 'Helm, jas, handschoenen, broek, bivakmuts',
     'rez.gear.riderFree' => 'inbegrepen · gratis',
@@ -1523,7 +1523,7 @@ return [
     'editRez.consents.marketingRevoked' => 'Marketingtoestemming ingetrokken. De overige toestemmingen blijven vanwege je aankomende reservering.',
     'poukazy.steps.aria' => 'Hoe de cadeaubon werkt',
     'confirm.success.nextBookingDocsDone' => 'We hebben je documenten geverifieerd — geen actie nodig.',
-    'confirm.success.nextBookingDocsMissing' => 'Je documenten zijn nog niet geverifieerd — je kunt ze later verifiëren in het bewerken van de reservering (foto van ID-kaart/paspoort + rijbewijs) of persoonlijk bij het ophalen. Zonder verificatie sturen we je de toegangscodes niet vooraf; we geven de motor af nadat we de documenten op de vestiging hebben gecontroleerd.',
+    'confirm.success.nextBookingDocsMissing' => 'Je documenten zijn nog niet geverifieerd — verifieer ze later in het bewerken van de reservering (foto van ID-kaart/paspoort + rijbewijs). Zonder verificatie sturen we je de toegangscodes niet: op de zelfbedieningsvestiging kom je zonder deze codes niet binnen, op de bemande vestiging controleren we de documenten bij de overdracht ter plaatse.',
     'confirm.success.docsLabel' => 'Documenten',
     'confirm.success.docsVerified' => 'Geverifieerd',
     'confirm.success.docsNotVerified' => 'Niet geverifieerd',

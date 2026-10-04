@@ -309,7 +309,7 @@ return [
     'rez.return.expectedSub' => 'Around what time will you return the motorcycle? At the latest by midnight on the last day.',
 
     // ===== Booking — gear =====
-    'rez.gear.intro' => 'Pick sizes by clicking the squares below. If you don\'t pick a size, we\'ll try it on at the rental.',
+    'rez.gear.intro' => 'Pick sizes by clicking the squares below. If you don\'t pick a size, you\'ll try it on at the rental.',
     'rez.gear.rider' => 'Rider gear',
     'rez.gear.riderSub' => 'Helmet, jacket, gloves, trousers, balaclava',
     'rez.gear.riderFree' => 'included · free of charge',
@@ -1560,7 +1560,7 @@ return [
     'editRez.consents.marketingRevoked' => 'Marketing consent withdrawn. The other consents remain due to your upcoming booking.',
     'poukazy.steps.aria' => 'How the voucher works',
     'confirm.success.nextBookingDocsDone' => 'We\'ve verified your documents — no action needed.',
-    'confirm.success.nextBookingDocsMissing' => 'Your documents aren\'t verified yet — you can verify them later in the booking edit (photo of ID card/passport + driving licence) or in person at pickup. Without verification we won\'t send you the access codes in advance; we\'ll hand over the motorcycle after checking the documents at the branch.',
+    'confirm.success.nextBookingDocsMissing' => 'Your documents aren\'t verified yet — verify them later in the booking edit (photo of ID card/passport + driving licence). Without verification we won\'t send you the access codes: at the self-service branch you can\'t get in without them, and at the staffed branch we\'ll check the documents at handover on site.',
     'confirm.success.docsLabel' => 'Documents',
     'confirm.success.docsVerified' => 'Verified',
     'confirm.success.docsNotVerified' => 'Not verified',

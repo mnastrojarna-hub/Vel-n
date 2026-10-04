@@ -30,8 +30,11 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
   const [doorCodes, setDoorCodes] = useState([])
   const [bookingDiscounts, setBookingDiscounts] = useState([])
   const [motoOpenLogs, setMotoOpenLogs] = useState(null)
-  // Kód schránky s klíčem od vjezdové brány AKTUÁLNÍ pobočky motorky (branch_gate_access; null = pobočka bez brány)
-  const gateCode = useBranchGateCode(booking?.motorcycles?.branch_id)
+  // Kód schránky s klíčem od vjezdové brány AKTUÁLNÍ pobočky motorky (branch_gate_access; null = pobočka bez brány).
+  // Přistavení na adresu kód brány nedostává (stejné pravidlo jako SQL _booking_gate_code) → neukazovat ani ve Velínu.
+  const branchGateCode = useBranchGateCode(booking?.motorcycles?.branch_id)
+  const isDelivery = booking?.pickup_method === 'delivery' || !!String(booking?.pickup_address || '').trim()
+  const gateCode = isDelivery ? null : branchGateCode
 
   useEffect(() => {
     if (!booking?.id) return

@@ -1363,7 +1363,7 @@ ${vars.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${va
 <p>vaše rezervace č. <strong>${vars.booking_number}</strong> motocyklu <strong>${vars.motorcycle}</strong> na <strong>${vars.start_date} – ${vars.end_date}</strong> je zaplacená — děkujeme!</p>
 <p>Aby vám dorazil <strong>přístupový kód k motorce</strong>, ještě potřebujeme naskenovat doklady (občanku/pas + řidičák). Sken přes mobil díky Mindee OCR zabere 30 vteřin.</p>
 ${vars.docs_url ? `<div style="text-align:center;margin:24px 0"><a href="${vars.docs_url}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px">Nahrát doklady</a></div>` : ''}
-<p>Bez nahraných dokladů systém kódy nevydá — a platit za něco, co si nemůžete vyzvednout, by byla škoda.</p>
+<p>Bez nahraných dokladů systém kódy nevydá — na samoobslužné pobočce se bez nich dovnitř nedostanete, na obslužné pobočce bychom je museli zkontrolovat až při převzetí na místě.</p>
 <p>Tým MotoGo24</p>`
       } else if (type === 'invoice_payment_receipt') {
         // Nový flow (platba PŘED doklady) — FALLBACK, když chybí DB šablona web_invoice_payment_receipt.
@@ -1385,7 +1385,7 @@ ${vars.door_codes_block}
 <p>Pros\u00edme, pro bezprobl\u00e9mov\u00e9 p\u0159evzet\u00ed si p\u0159ipravte:</p>
 <ul><li>platn\u00fd doklad toto\u017enosti (kter\u00fd jste uvedli v rezerva\u010dn\u00edm formul\u00e1\u0159i),</li><li>platn\u00fd \u0159idi\u010dsk\u00fd pr\u016fkaz.</li></ul>
 <p>Doklady (občanský průkaz nebo cestovní pas a řidičský průkaz) prosím nahrajte předem v aplikaci nebo na webu — přístupové kódy vám pošleme až po jejich ověření. Na samoobslužné pobočce je nahrání dokladů předem nezbytné: bez ověřených dokladů kódy nevydáme a na pobočku se nedostanete; motorku i výbavu si převezmete sami pomocí kódů a Předávací protokol podepíšete na dotykovém displeji. Na obslužné pobočce vás o nahrání dokladů předem také žádáme — pokud je nenahrajete, zkontrolujeme je při převzetí na místě, kde vám předáme motorku i výbavu a společně podepíšeme Předávací protokol.</p>
-<p>Pokud s sebou budete m\u00edt osobn\u00ed v\u011bci, kter\u00e9 nechcete br\u00e1t na cestu, m\u016f\u017eete je u n\u00e1s zdarma ulo\u017eit do uzamykateln\u00e9 sk\u0159\u00ed\u0148ky.</p>
+<p>Osobní věci, které nechcete brát na cestu, si na obslužné pobočce v Mezné můžete zdarma uložit do uzamykatelné skříňky.</p>
 <p>Doporu\u010dujeme, abyste se p\u0159ed j\u00edzdou sezn\u00e1mili s u\u017eivatelsk\u00fdmi informacemi k motocyklu, kter\u00e9 najdete v odkazu na na\u0161ich webov\u00fdch str\u00e1nk\u00e1ch <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.</p>
 <p>Pokud budete m\u00edt jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</p>
 <p>T\u011b\u0161\u00edme se na v\u00e1s a p\u0159ejeme kr\u00e1sn\u00fd z\u00e1\u017eitek z j\u00edzdy.</p>
