@@ -326,10 +326,6 @@ List<RouteItem> routesContaining(
   return out.map((e) => e.route).toList();
 }
 
-/// Čára trasy pro mapu — přednostně uložená geometrie, jinak aspoň zastávky.
-List<LatLng> routeLine(RouteItem r) =>
-    r.geometry.length >= 2 ? r.geometry : r.waypoints;
-
 // ── Slučování duplicitních míst — sdílí seznam Míst i mapa míst, aby obě
 // ukazovaly stejný počet a mapa nekreslila dva markery na jedno místo. ──
 

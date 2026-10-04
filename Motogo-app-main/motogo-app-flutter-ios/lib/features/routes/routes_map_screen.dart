@@ -10,17 +10,26 @@ import '../../core/widgets/moto_fx.dart';
 import 'places_filter.dart';
 import 'places_map.dart';
 import 'route_poi_sheet.dart';
+import 'routes_map_picker.dart';
 import 'routes_map_provider.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 
 /// MAPA TRAS — na rozdíl od mapy míst ukazuje jen body, které leží na nějaké
-/// trase, a po klepnutí na bod dokreslí JEHO trasu, a to PO SILNICI.
+/// trase, a po klepnutí na bod dokreslí JEHO trasy, a to PO SILNICI.
 ///
 /// Zadání uživatele: „Na mapě tras by měly být zobrazeny jenom body, které
 /// jsou součástí nějaké trasy… body tras musí mít jinou barvu. Neměla by tam
 /// být změť všech tras — trasa se ukáže, až když kliknu na bod. A musí se
 /// zobrazovat po silnici, ne přímá vzdálenost."
+///
+/// Doplnění 2026-10-04: bod může ležet na VÍCE trasách — dřív se kreslila jen
+/// jedna a přepínala se čipem v hlavičce, takže „když vyberu místo, přes které
+/// vedou dvě trasy, ukáže mi to jen jednu a nemůžu si vybrat, kterou pojedu".
+/// Teď se kreslí všechny trasy vybraného bodu (každá jinou barvou, se
+/// štítkem názvu přímo na čáře) a dole je panel s kartou pro každou —
+/// klepnutí (na kartu i na štítek) trasu zvýrazní a přiblíží, „Detail" otevře
+/// její stránku; čip „Další trasa" nahoře zůstává jako rychlé přepínání.
 class RoutesMapScreen extends ConsumerStatefulWidget {
   const RoutesMapScreen({super.key});
 
@@ -34,8 +43,22 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
   /// Ukázat i místa mimo trasy (bíle) — ve výchozím stavu ne.
   bool _withOtherPlaces = false;
 
-  /// Která z tras vybraného bodu se kreslí (bod může ležet na více trasách).
-  int _routeAt = 0;
+  /// Zvýrazněná trasa z panelu dole / štítku na mapě / čipu „Další trasa"
+  /// (null = první z nalezených).
+  String? _activeId;
+
+  /// Zvýrazní trasu a přiblíží mapu na její čáru (když už je spočtená).
+  void _pickRoute(String id, List<LatLng>? pts) {
+    setState(() => _activeId = id);
+    if (pts != null && pts.length >= 2) {
+      // Tělo Scaffoldu sahá i pod spodní panel (proto mají tlačítka offset
+      // 104) — dole se nechá místo na panel s kartami i lištu výběru, nahoře
+      // na hlavičku.
+      _mapKey.currentState?.fitTo(pts,
+          padding: const EdgeInsets.fromLTRB(
+              36, 130, 36, kRoutesMapPickerHeight + 110));
+    }
+  }
 
   // Memoizace filtrovaného seznamu — klepnutí na marker mění jen výběr.
   List<PoiEntry>? _cache;
@@ -103,17 +126,59 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
         : ref.watch(dedupedRoutePlacesProvider);
     final places = _filtered(base, all, filter, me);
 
-    // Trasy vybraných bodů — kreslí se VŽDY JEN JEDNA (žádná změť).
-    final allRoutes =
-        ref.watch(routesDataProvider).valueOrNull?.routes ?? const <RouteItem>[];
+    // Trasy vybraných bodů — VŠECHNY (bod může ležet na více trasách), každá
+    // svou barvou; zvýrazněná se kreslí navrch. Čáry po silnici počítá
+    // provider s cache; když routing selže, čára se nekreslí (žádné rovné
+    // spojnice). Bez vybraného bodu se nekreslí nic — žádná změť všech tras.
+    final data = ref.watch(routesDataProvider).valueOrNull;
+    final allRoutes = data?.routes ?? const <RouteItem>[];
     final matched = routesForSelection(allRoutes, places, selected);
-    final at = matched.isEmpty ? 0 : _routeAt % matched.length;
-    final shown = matched.isEmpty ? null : matched[at];
-    // Čára po silnici (cache v provideru; při chybě routingu se nekreslí nic).
-    final lineAsync = shown == null
+    final active = matched.isEmpty
         ? null
-        : ref.watch(routeRoadLineProvider(shown.id));
-    final line = lineAsync?.valueOrNull ?? const <LatLng>[];
+        : matched.firstWhere((r) => r.id == _activeId,
+            orElse: () => matched.first);
+    final lineOf = <String, List<LatLng>>{};
+    final computingIds = <String>{};
+    final lines = <MapRouteLine>[];
+    for (var i = 0; i < matched.length; i++) {
+      final r = matched[i];
+      final lineAsync = ref.watch(routeRoadLineProvider(r.id));
+      if (lineAsync.isLoading && !lineAsync.hasValue) {
+        computingIds.add(r.id);
+        continue;
+      }
+      final pts = lineAsync.valueOrNull ?? const <LatLng>[];
+      lineOf[r.id] = pts;
+      if (pts.length >= 2) {
+        final isActive = r.id == active?.id;
+        lines.add(MapRouteLine(
+          pts,
+          color: routesMapColor(i),
+          width: isActive ? 5 : 4,
+          emphasized: isActive,
+          // Štítek s názvem přímo na čáře — výběr trasy je vidět na mapě.
+          label: r.nameFor(lang),
+          onTap: () => _pickRoute(r.id, pts),
+        ));
+      }
+    }
+    // Čip „Další trasa" v hlavičce: cyklicky další z tras vybraného bodu.
+    final activeAt =
+        active == null ? -1 : matched.indexWhere((r) => r.id == active.id);
+    final VoidCallback? onNext = matched.length > 1
+        ? () {
+            final next = matched[(activeAt + 1) % matched.length];
+            _pickRoute(next.id, lineOf[next.id]);
+          }
+        : null;
+    final activeLabel = active == null
+        ? null
+        : '${active.nameFor(lang)}'
+            '${matched.length > 1 ? '  (${activeAt + 1}/${matched.length})' : ''}';
+    // Panel s kartami tras zabírá dole místo — tlačítka a čip nad něj.
+    final bottomPad = selected.isEmpty
+        ? 24.0
+        : (matched.isEmpty ? 104.0 : 104.0 + kRoutesMapPickerHeight);
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -127,13 +192,13 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
               lang: lang,
               selected: selected,
               markRouteStops: true,
-              routeLines: line.length >= 2 ? [line] : const [],
+              routeLines: lines,
               draftLine: draft?.geometry ?? const [],
               me: me,
               initialCenter: me,
               initialZoom: me == null ? 7.2 : 11,
               onPlaceTap: (e) {
-                setState(() => _routeAt = 0);
+                setState(() => _activeId = null);
                 ref.read(placesSelectionProvider.notifier).toggle(e.key);
               },
               onPlaceLongPress: (e) => _openDetail(context, e, places, lang),
@@ -145,20 +210,20 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
             right: 0,
             child: SafeArea(
               bottom: false,
-              child: _header(context, places.length, matched, at,
-                  lineAsync?.isLoading ?? false),
+              child: _header(context, places.length, activeLabel,
+                  computingIds.isNotEmpty, onNext),
             ),
           ),
           // Čip „Tvoje trasa" — zůstane i po návratu z editoru.
           if (draft != null && draft.geometry.length >= 2)
             Positioned(
               left: 14,
-              bottom: selected.isEmpty ? 24 : 104,
+              bottom: bottomPad,
               child: _draftChip(context, draft),
             ),
           Positioned(
             right: 14,
-            bottom: selected.isEmpty ? 24 : 104,
+            bottom: bottomPad,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -174,13 +239,36 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
           ),
         ],
       ),
-      bottomSheet: selected.isEmpty ? null : _selectionBar(context, me),
+      bottomSheet: selected.isEmpty
+          ? null
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (matched.isNotEmpty)
+                  RoutesMapPicker(
+                    routes: matched,
+                    branches: data?.branches ?? const {},
+                    lang: lang,
+                    activeId: active?.id,
+                    lines: lineOf,
+                    computing: computingIds,
+                    onPick: (r) => _pickRoute(r.id, lineOf[r.id]),
+                    onOpen: (r) {
+                      // Stejně jako karta v seznamu tras: zapamatovat zvolenou
+                      // trasu a předat sousedy pro listování swipem.
+                      ref.read(lastOpenedRouteProvider.notifier).state = r.id;
+                      context.push('/routes/${r.id}',
+                          extra: [for (final x in matched) x.id]);
+                    },
+                  ),
+                _selectionBar(context),
+              ],
+            ),
     );
   }
 
-  Widget _header(BuildContext context, int count, List<RouteItem> matched,
-      int at, bool computing) {
-    final lang = ref.watch(localeProvider).languageCode;
+  Widget _header(BuildContext context, int count, String? activeLabel,
+      bool computing, VoidCallback? onNext) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Container(
@@ -229,10 +317,8 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                       Text(
                         computing
                             ? t(context).tr('routesMapComputing')
-                            : (matched.isEmpty
-                                ? '${t(context).tr('routesMapCount')} · $count'
-                                : '${matched[at].nameFor(lang)}'
-                                    '${matched.length > 1 ? '  (${at + 1}/${matched.length})' : ''}'),
+                            : (activeLabel ??
+                                '${t(context).tr('routesMapCount')} · $count'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -275,14 +361,12 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
             const SizedBox(height: 6),
             Row(
               children: [
-                // Další trasa vybraného bodu (bod může ležet na více trasách).
-                if (matched.length > 1)
-                  _miniBtn(
-                    Icons.alt_route,
-                    t(context).tr('routesMapNextRoute'),
-                    () => setState(() => _routeAt = at + 1),
-                  ),
-                if (matched.length > 1) const SizedBox(width: 8),
+                // Další trasa vybraného bodu — rychlé přepínání nahoře
+                // (uživatel: „nahoře to může zůstat, ale musí to přibýt dole").
+                if (onNext != null)
+                  _miniBtn(Icons.alt_route, t(context).tr('routesMapNextRoute'),
+                      onNext),
+                if (onNext != null) const SizedBox(width: 8),
                 _miniBtn(
                   _withOtherPlaces ? Icons.layers_clear : Icons.layers,
                   t(context).tr(_withOtherPlaces
@@ -383,7 +467,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
     );
   }
 
-  Widget _selectionBar(BuildContext context, LatLng? me) {
+  Widget _selectionBar(BuildContext context) {
     final n = ref.watch(placesSelectionProvider).length;
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -419,8 +503,10 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                 );
                 if (pois.isEmpty) return;
                 ref.read(placesSelectionProvider.notifier).clear();
+                // Pořadí zastávek = pořadí klikání (čísla na špendlících),
+                // stejně jako na mapě míst a v seznamu; přehodit jde v editoru.
                 final route = buildCustomRoute(pois,
-                    from: me, name: t(context).tr('poiCustomRouteTitle'));
+                    name: t(context).tr('poiCustomRouteTitle'));
                 context.push('/route-build', extra: route);
               },
               child: Container(

@@ -1,5 +1,7 @@
 /// Mapa tras (nová obrazovka Trasy → Mapa tras) — jen body ležící na trasách,
-/// po klepnutí na bod se dokreslí jeho trasa po silnici.
+/// po klepnutí na bod se dokreslí jeho trasy po silnici (všechny, každá jinou
+/// barvou) a dole karta pro každou z nich. Klíče `placesMapSel*` patří mapě
+/// míst: trasa po silnici přes naklikaná místa v pořadí klikání.
 /// Languages: cs, en, de, nl, es, fr, pl, uk
 const translationsExt20RoutesMap = <String, Map<String, String>>{
   'cs': {
@@ -13,6 +15,12 @@ const translationsExt20RoutesMap = <String, Map<String, String>>{
     'routesMapShowOther': '+ ostatní místa',
     'routesMapOnlyRoutes': 'Jen body tras',
     'routesMapDraft': 'Tvoje trasa',
+    'routesMapPickTitle': 'Trasy přes vybraný bod',
+    'routesMapPickHint': 'Klepni na trasu, kterou pojedeš',
+    'routesMapDetail': 'Detail',
+    'routesMapLineFailed': 'Trasu po silnici se nepodařilo spočítat',
+    'placesMapSelRoute': 'Trasa přes vybraná místa',
+    'placesMapSelHint': 'Klepni na další místa v pořadí, jak chceš jet',
   },
   'en': {
     'routesMapTitle': 'Routes map',
@@ -25,6 +33,12 @@ const translationsExt20RoutesMap = <String, Map<String, String>>{
     'routesMapShowOther': '+ other places',
     'routesMapOnlyRoutes': 'Route stops only',
     'routesMapDraft': 'Your route',
+    'routesMapPickTitle': 'Routes through the selected stop',
+    'routesMapPickHint': "Tap the route you'll ride",
+    'routesMapDetail': 'Details',
+    'routesMapLineFailed': "Couldn't calculate the route along roads",
+    'placesMapSelRoute': 'Route through selected places',
+    'placesMapSelHint': 'Tap more places in the order you want to ride',
   },
   'de': {
     'routesMapTitle': 'Routenkarte',
@@ -37,6 +51,12 @@ const translationsExt20RoutesMap = <String, Map<String, String>>{
     'routesMapShowOther': '+ weitere Orte',
     'routesMapOnlyRoutes': 'Nur Routenpunkte',
     'routesMapDraft': 'Deine Route',
+    'routesMapPickTitle': 'Routen über den gewählten Punkt',
+    'routesMapPickHint': 'Tippe die Route an, die du fährst',
+    'routesMapDetail': 'Details',
+    'routesMapLineFailed': 'Route entlang der Straßen konnte nicht berechnet werden',
+    'placesMapSelRoute': 'Route über die gewählten Orte',
+    'placesMapSelHint': 'Tippe weitere Orte in der Reihenfolge an, in der du fahren willst',
   },
   'nl': {
     'routesMapTitle': 'Routekaart',
@@ -49,6 +69,12 @@ const translationsExt20RoutesMap = <String, Map<String, String>>{
     'routesMapShowOther': '+ andere plekken',
     'routesMapOnlyRoutes': 'Alleen routepunten',
     'routesMapDraft': 'Jouw route',
+    'routesMapPickTitle': 'Routes via het gekozen punt',
+    'routesMapPickHint': 'Tik op de route die je rijdt',
+    'routesMapDetail': 'Details',
+    'routesMapLineFailed': 'Route over de weg kon niet worden berekend',
+    'placesMapSelRoute': 'Route via gekozen plekken',
+    'placesMapSelHint': 'Tik meer plekken aan in de volgorde waarin je wilt rijden',
   },
   'es': {
     'routesMapTitle': 'Mapa de rutas',
@@ -61,6 +87,12 @@ const translationsExt20RoutesMap = <String, Map<String, String>>{
     'routesMapShowOther': '+ otros lugares',
     'routesMapOnlyRoutes': 'Solo puntos de rutas',
     'routesMapDraft': 'Tu ruta',
+    'routesMapPickTitle': 'Rutas por el punto elegido',
+    'routesMapPickHint': 'Toca la ruta que harás',
+    'routesMapDetail': 'Detalle',
+    'routesMapLineFailed': 'No se pudo calcular la ruta por carretera',
+    'placesMapSelRoute': 'Ruta por los lugares elegidos',
+    'placesMapSelHint': 'Toca más lugares en el orden en que quieres ir',
   },
   'fr': {
     'routesMapTitle': 'Carte des itinéraires',
@@ -73,6 +105,12 @@ const translationsExt20RoutesMap = <String, Map<String, String>>{
     'routesMapShowOther': '+ autres lieux',
     'routesMapOnlyRoutes': "Points d'itinéraires seuls",
     'routesMapDraft': 'Ton itinéraire',
+    'routesMapPickTitle': 'Itinéraires passant par le point choisi',
+    'routesMapPickHint': "Touche l'itinéraire que tu feras",
+    'routesMapDetail': 'Détails',
+    'routesMapLineFailed': "Impossible de calculer l'itinéraire par la route",
+    'placesMapSelRoute': 'Itinéraire par les lieux choisis',
+    'placesMapSelHint': "Touche d'autres lieux dans l'ordre où tu veux rouler",
   },
   'pl': {
     'routesMapTitle': 'Mapa tras',
@@ -85,6 +123,12 @@ const translationsExt20RoutesMap = <String, Map<String, String>>{
     'routesMapShowOther': '+ inne miejsca',
     'routesMapOnlyRoutes': 'Tylko punkty tras',
     'routesMapDraft': 'Twoja trasa',
+    'routesMapPickTitle': 'Trasy przez wybrany punkt',
+    'routesMapPickHint': 'Dotknij trasy, którą pojedziesz',
+    'routesMapDetail': 'Szczegóły',
+    'routesMapLineFailed': 'Nie udało się obliczyć trasy po drogach',
+    'placesMapSelRoute': 'Trasa przez wybrane miejsca',
+    'placesMapSelHint': 'Dotykaj kolejnych miejsc w kolejności, w jakiej chcesz jechać',
   },
   'uk': {
     'routesMapTitle': 'Мапа маршрутів',
@@ -97,5 +141,11 @@ const translationsExt20RoutesMap = <String, Map<String, String>>{
     'routesMapShowOther': '+ інші місця',
     'routesMapOnlyRoutes': 'Лише точки маршрутів',
     'routesMapDraft': 'Твій маршрут',
+    'routesMapPickTitle': 'Маршрути через обрану точку',
+    'routesMapPickHint': 'Торкнись маршруту, яким поїдеш',
+    'routesMapDetail': 'Деталі',
+    'routesMapLineFailed': 'Не вдалося обчислити маршрут по дорогах',
+    'placesMapSelRoute': 'Маршрут через обрані місця',
+    'placesMapSelHint': 'Торкайся інших місць у порядку, в якому хочеш їхати',
   },
 };

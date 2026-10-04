@@ -9,18 +9,21 @@ import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
 import 'community_submit.dart';
 import 'places_filter.dart';
-import 'routes_model.dart';
 import 'places_map.dart';
 import 'route_poi_sheet.dart';
 import 'routes_map_provider.dart';
 import 'routes_provider.dart';
 
-/// Celoobrazovková mapa MÍST — trasy se sem nekreslí.
+/// Celoobrazovková mapa MÍST — trasy z katalogu se sem NEKRESLÍ.
 ///
 /// Otevírá se z rozcestníku Míst i z Tras („🧭 Mapa"). Ukazuje přesně ta místa,
 /// která projdou AKTUÁLNÍM filtrem (sdílený `placesFilterProvider`), takže
 /// odpovídá tomu, co má uživatel zrovna nastavené v seznamu. Klepnutím se
-/// místo přidá do výběru a ze spodní lišty se z výběru poskládá trasa.
+/// místo přidá do výběru; od dvou míst se přes ně — v pořadí klikání —
+/// spočítá trasa PO SILNICI a kreslí se na mapě (`selectionRoadRouteProvider`),
+/// ze spodní lišty se pak otevře editor se stejným pořadím zastávek.
+/// Zadání z 2026-10-04: dřív se tu kreslily rovné spojnice tras z katalogu
+/// („jenom přímky mezi bodama"), což uživatel výslovně nechce.
 class PlacesMapScreen extends ConsumerStatefulWidget {
   const PlacesMapScreen({super.key});
 
@@ -39,6 +42,10 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
   PlacesFilter? _cacheFilter;
   LatLng? _cacheMe;
   Set<String>? _cacheSel;
+
+  /// Poslední spočtená trasa přes vybraná místa — zůstává na mapě, než
+  /// doběhne výpočet po dalším klepnutí (jinak by čára na chvíli zmizela).
+  SelectionRoute? _lastSel;
 
   List<PoiEntry> _filtered(List<PoiEntry> base, List<PoiEntry> all,
       PlacesFilter f, Set<String> selected, LatLng? me) {
@@ -83,7 +90,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
 
   /// Sestaví z vybraných míst trasu a otevře editor — stejná akce jako spodní
   /// lišta v seznamu Míst, aby šlo trasu poskládat i čistě z mapy.
-  void _buildRoute(LatLng? me) {
+  void _buildRoute() {
     // Body se dohledávají ve VŠECH místech, ne jen v právě zobrazených —
     // jinak by se vybrané místo, které mezitím vypadlo z filtru, tiše
     // zahodilo a tlačítko by nedělalo nic.
@@ -96,8 +103,10 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
     if (pois.isEmpty) return;
     // Po předání do editoru výběr uklidíme, ať se nevrací na jiné obrazovce.
     ref.read(placesSelectionProvider.notifier).clear();
-    final route = buildCustomRoute(pois,
-        from: me, name: t(context).tr('poiCustomRouteTitle'));
+    // Pořadí zastávek = pořadí klikání — přesně ta trasa, kterou uživatel
+    // právě viděl na mapě (žádné přeskládání od polohy; přehodit jde v editoru).
+    final route =
+        buildCustomRoute(pois, name: t(context).tr('poiCustomRouteTitle'));
     context.push('/route-build', extra: route);
   }
 
@@ -122,12 +131,23 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
     final places = _filtered(base, all, filter, selected, me);
     final chips = filter.summary();
 
-    // Trasy se na mapě míst NEKRESLÍ, dokud uživatel nějaké místo neoznačí.
-    // Pak se objeví jen ty, které vybraná místa obsahují.
-    final allRoutes =
-        ref.watch(routesDataProvider).valueOrNull?.routes ?? const <RouteItem>[];
-    final matched = routesContaining(allRoutes, places, selected);
-    final lines = [for (final r in matched) routeLine(r)];
+    // Trasy z katalogu se na mapě míst NEKRESLÍ. Od dvou vybraných míst se
+    // přes ně (v pořadí klikání) počítá trasa po silnici a kreslí se ta.
+    final selAsync = selected.length < 2
+        ? null
+        : ref.watch(selectionRoadRouteProvider(selectionRouteKey(selected)));
+    final selRoute = selAsync?.valueOrNull;
+    if (selRoute != null) {
+      _lastSel = selRoute;
+    } else if (selected.length < 2) {
+      _lastSel = null;
+    }
+    final shownSel = selRoute ?? _lastSel;
+    final computing = (selAsync?.isLoading ?? false) && selRoute == null;
+    final lines = <MapRouteLine>[
+      if (shownSel != null && shownSel.hasLine)
+        MapRouteLine(shownSel.geometry, width: 4.5, emphasized: true),
+    ];
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -157,7 +177,8 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
             right: 0,
             child: SafeArea(
                 bottom: false,
-                child: _header(context, places, loading, chips, matched.length)),
+                child: _header(context, places, loading, chips, selected.length,
+                    shownSel, computing)),
           ),
           Positioned(
             right: 14,
@@ -188,7 +209,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
           ),
         ],
       ),
-      bottomSheet: selected.isEmpty ? null : _selectionBar(context, me),
+      bottomSheet: selected.isEmpty ? null : _selectionBar(context),
     );
   }
 
@@ -215,8 +236,32 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
     );
   }
 
+  /// Druhý řádek hlavičky: stav trasy přes vybraná místa (délka a čas po
+  /// silnici / počítám / nepodařilo se), u jednoho vybraného místa nápověda,
+  /// jinak počet míst a aktivní filtry.
+  String _subtitle(BuildContext context, List<PoiEntry> places, bool loading,
+      List<String> chips, int selectedCount, SelectionRoute? sel,
+      bool computing) {
+    if (loading) return t(context).tr('placesMapLoading');
+    // Při přepočtu zůstává na mapě minulá čára, ale její délka by tu byla
+    // zavádějící — radši „počítám".
+    if (computing) return t(context).tr('routesMapComputing');
+    if (sel != null && sel.hasLine) {
+      final km = ((sel.lengthM ?? 0) / 1000).toStringAsFixed(1);
+      return '${t(context).tr('placesMapSelRoute')} · $km km · '
+          '${fmtRideMinutes(selectionRouteMinutes(sel))}';
+    }
+    if (sel != null) return t(context).tr('routesMapLineFailed');
+    if (selectedCount == 1) return t(context).tr('placesMapSelHint');
+    return [
+      '${t(context).tr('placesMapCount')} · ${places.length}',
+      ...chips,
+    ].join(' · ');
+  }
+
   Widget _header(BuildContext context, List<PoiEntry> places, bool loading,
-      List<String> chips, int matchedRoutes) {
+      List<String> chips, int selectedCount, SelectionRoute? sel,
+      bool computing) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Container(
@@ -259,14 +304,8 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
                     ),
                   ),
                   Text(
-                    loading
-                        ? t(context).tr('placesMapLoading')
-                        : [
-                            '${t(context).tr('placesMapCount')} · ${places.length}',
-                            ...chips,
-                            if (matchedRoutes > 0)
-                              '${t(context).tr('placesMapRoutes')} · $matchedRoutes',
-                          ].join(' · '),
+                    _subtitle(context, places, loading, chips, selectedCount,
+                        sel, computing),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -324,7 +363,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
     );
   }
 
-  Widget _selectionBar(BuildContext context, LatLng? me) {
+  Widget _selectionBar(BuildContext context) {
     final n = ref.watch(placesSelectionProvider).length;
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -352,7 +391,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
           Expanded(
             child: PressableScale(
               pressedScale: 0.97,
-              onTap: () => _buildRoute(me),
+              onTap: _buildRoute,
               child: Container(
                 height: 50,
                 decoration: BoxDecoration(
