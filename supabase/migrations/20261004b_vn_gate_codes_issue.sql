@@ -245,7 +245,7 @@ BEGIN
           'door_code_moto', v_code1,
           'door_code_gear', CASE WHEN v_needs THEN v_code2 ELSE '' END
         ) || CASE WHEN v_gate IS NOT NULL THEN jsonb_build_object('gate_code', v_gate) ELSE '{}'::jsonb END,
-        v_b.user_id, p_booking_id, COALESCE(v_b.language, v_lang, 'cs'));
+        v_b.user_id, p_booking_id, public._door_codes_sms_lang(v_b.user_id, p_booking_id));
     END IF;
   EXCEPTION WHEN OTHERS THEN NULL; END;
 

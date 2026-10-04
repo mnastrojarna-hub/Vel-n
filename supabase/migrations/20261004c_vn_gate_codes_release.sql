@@ -9,9 +9,9 @@
 -- MOTORKA + stručný postup; SMS/WA šablony door_codes_gate*.
 -- Pobočky bez brány: text i šablony beze změny.
 --
--- Navíc release_my_door_codes a release_withheld_door_codes_for_user posílají
--- SMS/WA v jazyce zákazníka (_door_codes_sms_lang; dřív vždy cs) — stejně jako
--- trg_notify_door_codes a regen. Šablony existují ve všech 8 jazycích
+-- Navíc všechny tři posílají SMS/WA v jazyce zákazníka přes _door_codes_sms_lang
+-- (rezervace → profil, jen jazyky se šablonami, jinak cs; release_my a
+-- release_withheld dřív vždy cs). Šablony existují ve všech 8 jazycích
 -- (uk doplňuje 20261004d).
 --
 -- Těla 1:1 z živé DB (supabase-live-snapshot 2026-10-03, shodná s migrací
@@ -309,7 +309,7 @@ BEGIN
             'door_code_moto', v_code_moto,
             'door_code_gear', COALESCE(v_code_gear, '')
           ) || CASE WHEN v_gate IS NOT NULL THEN jsonb_build_object('gate_code', v_gate) ELSE '{}'::jsonb END,
-          r.user_id, r.booking_id, COALESCE(v_lang, 'cs'));
+          r.user_id, r.booking_id, public._door_codes_sms_lang(r.user_id, r.booking_id));
       END IF;
     EXCEPTION WHEN OTHERS THEN NULL; END;
 

@@ -57,7 +57,7 @@ function pobockyDefaults() {
             // [soubor bez .webp v gfx/pobocky/velke-nemcice/ (+ náhled -640), popisek]
             'gallery' => [
                 ['vydejni-box', 'Výdejní box samoobslužné pobočky — kóje s motorkami'],
-                ['vydejni-box-2', 'Výdejní box s kójemi 1–8 a šatnou'],
+                ['vydejni-box-2', 'Výdejní box s kójemi 1–7 a šatnou (dveře č. 8)'],
                 ['displej-kiosk', 'Dotykový displej pro zadání kódu z aplikace'],
                 ['parkoviste', 'Parkoviště pro zákazníky — místa 1–7 vpravo u plotu, parkování zdarma po dobu výpůjčky'],
             ],
