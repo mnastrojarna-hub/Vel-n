@@ -50,7 +50,7 @@ BEGIN
    WHERE booking_id = p_booking_id AND code_type = 'accessories' AND is_active AND sent_to_customer
    ORDER BY created_at DESC LIMIT 1;
 
-  v_gate := public._branch_gate_code(v_b.branch_id);
+  v_gate := public._booking_gate_code(p_booking_id);   -- NULL u přistavení na adresu
   v_door := CASE WHEN v_gate IS NOT NULL THEN public._branch_locker_door_no(v_b.branch_id) END;
 
   IF p_bump THEN

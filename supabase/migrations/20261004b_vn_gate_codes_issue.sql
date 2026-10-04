@@ -83,7 +83,7 @@ BEGIN
 
   -- Brána se schránkou na klíč (Velké Němčice, 2026-10-04): kód brány první,
   -- šatna (dveře č. N) druhá, motorka třetí + stručný postup. Bez brány beze změny.
-  v_gate := public._branch_gate_code(v_branch_id);
+  v_gate := public._booking_gate_code(NEW.id);   -- NULL u přistavení na adresu
   v_door := CASE WHEN v_gate IS NOT NULL THEN public._branch_locker_door_no(v_branch_id) END;
 
   v_code1 := LPAD(FLOOR(100000 + RANDOM() * 900000)::text, 6, '0');
@@ -188,7 +188,7 @@ BEGIN
 
   -- Brána se schránkou na klíč nové pobočky (Velké Němčice, 2026-10-04) —
   -- i při změně motorky Mezná → Velké Němčice dostane zákazník všechny 3 kódy.
-  v_gate := public._branch_gate_code(v_branch_id);
+  v_gate := public._booking_gate_code(p_booking_id);   -- NULL u přistavení na adresu
   v_door := CASE WHEN v_gate IS NOT NULL THEN public._branch_locker_door_no(v_branch_id) END;
 
   v_code1 := LPAD(FLOOR(100000 + RANDOM() * 900000)::text, 6, '0');

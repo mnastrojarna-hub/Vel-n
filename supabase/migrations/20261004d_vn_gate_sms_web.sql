@@ -67,7 +67,7 @@ BEGIN
 
   v_lang := public._door_codes_sms_lang(v_user_id, v_booking_id);
   -- Brána se schránkou na klíč (Velké Němčice): šablona door_codes_gate* (brána → šatna → motorka)
-  v_gate := public._branch_gate_code(NEW.branch_id);
+  v_gate := public._booking_gate_code(NEW.booking_id);   -- NULL u přistavení na adresu
 
   PERFORM send_sms_and_wa(
     v_phone,
@@ -150,7 +150,7 @@ BEGIN
     -- (trg_notify_door_codes reaguje jen na INSERT kódu k motorce).
     IF v_moto.sent_to_customer AND NEW.user_id IS NOT NULL THEN
       -- Brána se schránkou na klíč (Velké Němčice, 2026-10-04): pořadí brána → šatna → motorka
-      v_gate := public._branch_gate_code(v_moto.branch_id);
+      v_gate := public._booking_gate_code(NEW.id);   -- NULL u přistavení na adresu
       v_door := CASE WHEN v_gate IS NOT NULL THEN public._branch_locker_door_no(v_moto.branch_id) END;
       BEGIN
         INSERT INTO admin_messages (user_id, booking_id, title, message, type)

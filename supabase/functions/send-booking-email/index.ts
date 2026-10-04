@@ -1193,7 +1193,7 @@ serve(async (req) => {
       // K\u00f3dy nejsou uvoln\u011bn\u00e9 \u2192 ov\u011b\u0159, \u017ee rezervace skute\u010dn\u011b pot\u0159ebuje doklady.
       // 1) Kdy\u017e jsou k bookingu \u0159\u00e1dky v branch_door_codes s withheld_reason \u2192 doklady chyb\u00ed.
       // 2) Jinak ov\u011b\u0159 p\u0159es RPC check_booking_docs_status (NULL = doklady OK, jinak d\u016fvod).
-      let needsDocs = doorCodeRows.some(c => !!c.withheld_reason)
+      let needsDocs = doorCodeRows.some(c => !!c.withheld_reason && c.withheld_reason !== 'Vraťte nejdřív původní motorku')  // výměna motorky ≠ chybějící doklady
       if (!needsDocs && doorCodeRows.length === 0) {
         try {
           const { data: b } = await supabase

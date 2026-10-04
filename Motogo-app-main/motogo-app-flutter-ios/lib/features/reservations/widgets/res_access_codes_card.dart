@@ -68,12 +68,11 @@ class ResAccessCodesCard extends ConsumerWidget {
         // „nahrát doklady“ by tu nepomohlo (RPC ho odmítne).
         final hasWithheld = codes.any((c) => !c.sentToCustomer && c.withheldReason != swapWithheldReason);
         // Pořadí zadávání u pobočky s bránou: (brána →) šatna → motorka — jako zpráva,
-        // SMS i e-mail. Bez brány motorka → šatna (pořadí dosavadních zpráv/mailů
-        // obslužné pobočky; dřív nedefinované pořadí z DB).
+        // SMS i e-mail. Bez brány (Mezná) beze změny = pořadí z DB jako dosud.
         final locker = codes.where((c) => c.codeType == 'accessories');
         final moto = codes.where((c) => c.codeType == 'motorcycle');
         final other = codes.where((c) => c.codeType != 'accessories' && c.codeType != 'motorcycle');
-        final sorted = gate.hasGate ? [...locker, ...moto, ...other] : [...moto, ...locker, ...other];
+        final sorted = gate.hasGate ? [...locker, ...moto, ...other] : codes;
         final lockerLabel = gate.lockerDoor != null
             ? t(context).tr('lockerCodeDoor').replaceAll('{n}', '${gate.lockerDoor}')
             : t(context).tr('lockerCode');

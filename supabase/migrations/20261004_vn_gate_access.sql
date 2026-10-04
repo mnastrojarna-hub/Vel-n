@@ -59,6 +59,16 @@ RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
    WHERE g.branch_id = p_branch_id AND g.is_active LIMIT 1;
 $$;
 
+-- Kód brány pro KONKRÉTNÍ rezervaci: pobočka motorky, ale NE u přistavení na adresu
+-- (zákazník na pobočku nejede) — stejné pravidlo jako appka, web a e-mail.
+CREATE OR REPLACE FUNCTION public._booking_gate_code(p_booking_id uuid)
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT CASE WHEN b.pickup_method = 'delivery' OR NULLIF(btrim(b.pickup_address), '') IS NOT NULL THEN NULL
+              ELSE public._branch_gate_code(m.branch_id) END
+    FROM bookings b LEFT JOIN motorcycles m ON m.id = b.moto_id
+   WHERE b.id = p_booking_id;
+$$;
+
 -- Číslo dveří šatny = číslo zóny šatny z HW mapy (branch_doors.hw.zone; na
 -- dveřích jsou jen čísla — Velké Němčice: 8). NULL = neznámé → text bez čísla.
 CREATE OR REPLACE FUNCTION public._branch_locker_door_no(p_branch_id uuid)
@@ -70,6 +80,8 @@ RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
 $$;
 
 REVOKE ALL ON FUNCTION public._branch_gate_code(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public._booking_gate_code(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._booking_gate_code(uuid) TO service_role;
 REVOKE ALL ON FUNCTION public._branch_locker_door_no(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._branch_gate_code(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public._branch_locker_door_no(uuid) TO service_role;
@@ -109,7 +121,7 @@ RETURNS text LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE WHEN p_gate IS NULL THEN '' ELSE
     E'\n\nPostup na pobočce:' ||
     E'\n1) Je-li vjezdová brána zavřená, otevřete HORNÍ schránku na pravém sloupku vrat kódem ' || p_gate ||
-    ' — je v ní klíč od visacího zámku brány. Bránu odemkněte, vjeďte dovnitř a zaparkujte na kterémkoli místě 1–7 vpravo u plotu. Auto tu může zdarma stát po celou dobu výpůjčky.' ||
+    ' — je v ní klíč od visacího zámku brány. Bránu odemkněte, vjeďte dovnitř a zaparkujte na kterémkoli parkovacím místě 1–7 vpravo u plotu. Auto tu může zdarma stát po celou dobu výpůjčky.' ||
     CASE WHEN p_has_gear THEN
       E'\n2) Na displeji zadejte kód šatny' ||
       CASE WHEN p_locker_door IS NOT NULL THEN ' (šatna = dveře č. ' || p_locker_door || ')' ELSE '' END ||
@@ -168,7 +180,7 @@ BEGIN
     FROM bookings b LEFT JOIN motorcycles m ON m.id = b.moto_id
    WHERE b.id = p_booking_id AND b.user_id = v_uid;
   IF NOT FOUND OR v_b.branch_id IS NULL THEN RETURN jsonb_build_object('has_gate', false); END IF;
-  v_gate := _branch_gate_code(v_b.branch_id);
+  v_gate := _booking_gate_code(p_booking_id);   -- NULL i u přistavení na adresu
   IF v_gate IS NULL THEN RETURN jsonb_build_object('has_gate', false); END IF;
   SELECT EXISTS (SELECT 1 FROM branch_door_codes c
                   WHERE c.booking_id = p_booking_id AND c.code_type = 'motorcycle'

@@ -87,7 +87,7 @@ BEGIN
 
   -- Brána se schránkou na klíč (Velké Němčice, 2026-10-04)
   SELECT branch_id INTO v_branch FROM motorcycles WHERE id = v_booking.moto_id;
-  v_gate := public._branch_gate_code(v_branch);
+  v_gate := public._booking_gate_code(p_booking_id);   -- NULL u přistavení na adresu
   v_door := CASE WHEN v_gate IS NOT NULL THEN public._branch_locker_door_no(v_branch) END;
 
   BEGIN
@@ -192,7 +192,7 @@ BEGIN
     -- Brána se schránkou na klíč (Velké Němčice, 2026-10-04)
     SELECT m.branch_id INTO v_branch FROM bookings b JOIN motorcycles m ON m.id = b.moto_id
      WHERE b.id = v_booking.booking_id;
-    v_gate := public._branch_gate_code(v_branch);
+    v_gate := public._booking_gate_code(v_booking.booking_id);   -- NULL u přistavení na adresu
     v_door := CASE WHEN v_gate IS NOT NULL THEN public._branch_locker_door_no(v_branch) END;
 
     BEGIN
@@ -292,7 +292,7 @@ BEGIN
      WHERE b.id = r.booking_id;
 
     -- Brána se schránkou na klíč (Velké Němčice, 2026-10-04)
-    v_gate := public._branch_gate_code(v_branch_id);
+    v_gate := public._booking_gate_code(r.booking_id);   -- NULL u přistavení na adresu
     v_door := CASE WHEN v_gate IS NOT NULL THEN public._branch_locker_door_no(v_branch_id) END;
 
     -- a) in-app zpráva (+ push přes trg_push_on_admin_message) — zákazník stojí
