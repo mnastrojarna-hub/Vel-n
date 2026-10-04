@@ -43,6 +43,9 @@ import 'translations_ext_26_payment_details.dart';
 import 'translations_ext_27_odometer.dart';
 import 'translations_ext_28_branches.dart';
 import 'translations_ext_29_selfservice_time.dart';
+import 'translations_ext_30_gate_a.dart';
+import 'translations_ext_30_gate_b.dart';
+import 'translations_ext_30_gate_c.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -86,6 +89,9 @@ final translations = _mergeAll([
   translationsExt27Odometer,
   translationsExt28Branches,
   translationsExt29SelfServiceTime,
+  translationsExt30GateA,
+  translationsExt30GateB,
+  translationsExt30GateC,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

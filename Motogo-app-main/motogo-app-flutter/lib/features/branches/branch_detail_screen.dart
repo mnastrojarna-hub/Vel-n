@@ -6,13 +6,17 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/collapsible_section.dart';
 import '../catalog/catalog_provider.dart';
+import 'branch_motos_section.dart';
+import 'branch_photos_section.dart';
 import 'branches_info_provider.dart';
 import 'branches_widgets.dart';
 
 /// Detail pobočky (`/pobocky/<index>`) — obdoba webu /pobocky/<slug>: texty
 /// z Velína (`web.pobocky.branches.<i>.*`), video (nahrané ve Velínu nebo
-/// odkaz na YouTube; prázdné = bez videa), navigace a rezervace.
+/// odkaz na YouTube; prázdné = bez videa), navigace a rezervace. Pod kartou
+/// rozklikávací postup při vyzvednutí, fotky pobočky a motorky pobočky.
 class BranchDetailScreen extends ConsumerWidget {
   final int index;
   const BranchDetailScreen({super.key, required this.index});
@@ -24,6 +28,9 @@ class BranchDetailScreen extends ConsumerWidget {
     final i = index.clamp(0, branchesInfoMapQueries.length - 1);
     String? v(String k) => tx['branches.$i.$k'];
     final video = (v('video') ?? '').trim();
+    final stepsTitle = plainText(v('steps_title') ?? '');
+    final photos = i < branchesInfoGallery.length ? branchesInfoGallery[i] : const <BranchPhoto>[];
+    final branchId = i < branchesInfoBranchIds.length ? branchesInfoBranchIds[i] : null;
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -45,10 +52,6 @@ class BranchDetailScreen extends ConsumerWidget {
               richText(v('text'), branchesBodyStyle),
               const SizedBox(height: 8),
               branchLine('🧥', v('gear'), branchesBodyStyle),
-              const SizedBox(height: 6),
-              richText(v('steps_title'), const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.dark)),
-              const SizedBox(height: 4),
-              richText(v('steps'), branchesBodyStyle),
               if (video.startsWith('https://')) ...[
                 const SizedBox(height: 16),
                 richText(v('video_title'), const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.dark)),
@@ -74,6 +77,21 @@ class BranchDetailScreen extends ConsumerWidget {
               ),
             ]),
           ),
+          // Rozklikávací sekce (výchozí zabalené, zadání majitele 2026-10-04):
+          // postup při vyzvednutí (CMS `steps`), fotky pobočky, motorky.
+          const SizedBox(height: 12),
+          CollapsibleSection(
+            emoji: '🧭',
+            title: stepsTitle.isNotEmpty ? stepsTitle : t(context).tr('pickupProcedure'),
+            decoration: branchesCardDecoration(),
+            padding: const EdgeInsets.all(16),
+            children: [richText(v('steps'), branchesBodyStyle)],
+          ),
+          if (photos.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            BranchPhotosSection(photos: photos),
+          ],
+          BranchMotosSection(branchId: branchId), // vlastní odsazení shora
           const SizedBox(height: 16),
           branchesCtaBox(context, tx, onBook: () => _bookHere(context, ref, i)),
           const SizedBox(height: 90),
