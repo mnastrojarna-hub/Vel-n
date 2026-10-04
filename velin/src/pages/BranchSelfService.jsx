@@ -6,6 +6,7 @@ import { RpiHardwareBlock } from './BranchRpiHardware'
 import { defaultDoorHw } from './BranchRpiHardwareDefaults'
 import { RpiDiagnosticsBlock } from './BranchRpiDiagnostics'
 import { BranchMusicBlock } from './BranchMusic'
+import { BranchGateCodeBlock } from './BranchGateCode'
 import { RpiSection, Btn, Chip, usePersistentFlag, isRpiDevice, platformLabel, ACCESSORIES_LABEL, doorKindLabel, doorLabel, doorEventLabel, isProtocolEvent, isInfoDenied } from './BranchRpiUi'
 import KioskAlertsBanner from '../components/KioskAlertsBanner'
 import { useKioskAlerts } from '../hooks/useKioskAlerts'
@@ -331,6 +332,7 @@ function TabSelfService({ branchId, branchName, motos }) {
           <RpiStatusBlock devices={devices} doors={doors} now={now} onCommand={sendCommand} branchName={branchName} onSaveDoor={saveDoor} servis={servis} />
           <RpiDiagnosticsBlock branchId={branchId} devices={devices} cameras={cameras} now={now} onCommand={sendCommand} servis={servis} refreshKey={refreshKey} />
           <BranchMusicBlock branchId={branchId} doors={doors} devices={devices} now={now} onCommand={sendCommand} />
+          <BranchGateCodeBlock branchId={branchId} />
           {camerasConfigured && (
             <CamerasBlock cameras={cameras} onlineDevice={onlineDevice} busy={busy} servis={servis}
               onAdd={addCamera} onSave={saveCamera} onDelete={deleteCamera} onRemote={remote} />

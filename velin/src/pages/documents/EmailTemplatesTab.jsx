@@ -56,8 +56,9 @@ const SAMPLE_VARS = {
   amount: '7 800 Kč', account: '670100-2225851630/6210', iban: 'CZ65 5500 0000 0012 3456 7890',
   bank: 'mBank', vs: '20260001', lead: 'Děkujeme za rezervaci! Níže najdete platební údaje pro QR platbu nebo bankovní převod.',
   invoice_suffix: '2026-0001',
-  // Door codes blok (renderuje send-booking-email dynamicky; mock pro náhled)
-  door_codes_block: '<div style="background:#eaf7ea;border:1px solid #74FB71;border-radius:12px;padding:16px;margin:16px 0"><strong>Přístupové kódy</strong><br>Motorka: <strong>1234</strong> · Výbava: <strong>5678</strong></div>',
+  // Door codes blok (renderuje send-booking-email dynamicky; mock pro náhled). Pořadí jako u pobočky s bránou:
+  // brána → šatna → motorka (řádek brány jen u pobočky s bránou; ukázkové číslice, NE skutečný kód)
+  door_codes_block: '<div style="background:#eaf7ea;border:1px solid #74FB71;border-radius:12px;padding:16px;margin:16px 0"><strong>Přístupové kódy</strong><br>Brána (horní schránka, jen pobočka s bránou): <strong>135</strong> · Šatna: <strong>5678</strong> · Motorka: <strong>1234</strong></div>',
 }
 
 const GOOGLE_REVIEW_URL = 'https://g.page/r/CUmeYvk-sNf6EBM/review'

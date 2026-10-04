@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button'
 import { mapyLinkUrl, mapyNavigateUrl } from '../../lib/mapyCz'
 import { fmtTimeHM, DEFAULT_PICKUP_TIME, DEFAULT_RETURN_TIME } from './bookingModifyHelpers'
 import { kioskReleaseGate, LATE_PICKUP_KIOSK_CHIP, fmtPragueDateTime, isLegacyNoPickupTime } from '../../lib/latePickup'
+import { pickDoorCode } from '../../lib/branchGate'
 
 export function SOSSection({ booking, sosIncidents, navigate }) {
   if (!booking.sos_replacement && !booking.ended_by_sos && sosIncidents.length === 0) return null
@@ -180,10 +181,13 @@ export function AddressBlock({ label, method, address, branchName, lat, lng, fee
 // není to chyba ani „zadržený“ kód, jen informace, že šatna se nevydává.
 const OWN_GEAR_REASON = 'Vlastní výbava'
 
-export function DoorCodesSection({ doorCodes, booking }) {
+// `gateCode` = kód schránky s klíčem od vjezdové brány pobočky motorky (branch_gate_access, 2026-10-04) — jen pobočka
+// s bránou; pak pořadí jako u zákazníka: brána → šatna → motorka. Bez brány beze změny (motorka, šatna).
+export function DoorCodesSection({ doorCodes, booking, gateCode = null }) {
   const b = booking || {}
-  const motoCode = doorCodes.find(c => c.code_type === 'motorcycle')
-  const gearCode = doorCodes.find(c => c.code_type === 'accessories')
+  // Přednost aktivní a nejnovější řádek — po změně motorky zůstávají v DB staré neaktivní kódy
+  const motoCode = pickDoorCode(doorCodes, 'motorcycle')
+  const gearCode = pickDoorCode(doorCodes, 'accessories')
   // Kód šatny dostane jen ten, kdo má v šatně co vyzvednout (§0 návrhu). Bez aktivního kódu šatny:
   // vlastní výbava (příznak own_gear nebo zadržený řádek) → text místo pomlčky
   const gearActive = !!gearCode?.is_active
@@ -201,13 +205,15 @@ export function DoorCodesSection({ doorCodes, booking }) {
   // Sleva za vyzvednutí od 12:00 → kiosk vydá šatnu i motorku až od 12:00 v den začátku (SQL _kiosk_release_at)
   const releaseAt = kioskReleaseGate(b, b.motorcycles?.branches?.type)
   const dt = v => v ? new Date(v).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+  const motoCell = <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kod k motorce</div><div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{motoCode?.door_code || '—'}</div></div>
 
   return (
     <Card className="col-span-2">
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Pristupove kody k pobocce</h3>
       <div className="p-4 rounded-lg" style={{ background: allSent ? '#dcfce7' : withheld ? '#fef3c7' : '#f1faf7', border: `1px solid ${allSent ? '#86efac' : withheld ? '#fcd34d' : '#d4e8e0'}` }}>
-        <div className="grid grid-cols-2 gap-4 mb-3">
-          <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kod k motorce</div><div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{motoCode?.door_code || '—'}</div></div>
+        <div className={`grid ${gateCode ? 'grid-cols-3' : 'grid-cols-2'} gap-4 mb-3`}>
+          {gateCode && <div title="Trvalý kód HORNÍ schránky s klíčem od visacího zámku vjezdové brány (pravý sloupek vrat). Zákazník ho dostává jako 1. kód (brána → šatna → motorka) spolu s vydaným kódem motorky. Mění se v Pobočky → Samoobsluha."><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kód brány (horní schránka)</div><div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{gateCode}</div></div>}
+          {!gateCode && motoCell}
           <div>
             <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kód šatny</div>
             {gearActive
@@ -216,6 +222,7 @@ export function DoorCodesSection({ doorCodes, booking }) {
                 ? <div className="text-sm font-extrabold" style={{ color: '#b45309' }} title="Zákazník má vlastní výbavu (žádná půjčená výbava řidiče, boty ani výbava spolujezdce) — kód šatny se nevydává a šatna mu nejde otevřít. Změní se sám při změně výbavy nebo volby „Vlastní výbava“ v úpravě rezervace.">Vlastní výbava — bez kódu šatny</div>
                 : <div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>—</div>}
           </div>
+          {gateCode && motoCell}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: allSent ? '#dcfce7' : '#fee2e2', color: allSent ? '#1a8a18' : '#dc2626' }}>{allSent ? 'Odeslano zakaznikovi' : 'Neodeslano'}</span>

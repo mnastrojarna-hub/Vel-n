@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { generateDoorCode, Spinner, EmptyState } from './BranchHelpers'
+import { useBranchGateCode, GATE_MSG_LABEL } from '../lib/branchGate'
 
 // Důvod zadržení kódu šatny, který zapisuje DB trigger _sync_locker_code u rezervace s vlastní výbavou
 const OWN_GEAR_REASON = 'Vlastní výbava'
@@ -24,6 +25,8 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
   const [error, setError] = useState(null)
   // Zadržené kódy šatny („Vlastní výbava“): booking_id → smí se znovu aktivovat? (nárok podle RPC)
   const [lockerAllowed, setLockerAllowed] = useState({})
+  // Pobočka s vjezdovou bránou (branch_gate_access): ruční znovuodeslání dá kód brány na 1. řádek (brána → šatna → motorka)
+  const gateCode = useBranchGateCode(branchId)
 
   const ownGearRows = doorCodes.filter(c => !c.is_active && c.code_type === 'accessories' && c.withheld_reason === OWN_GEAR_REASON)
   const ownGearKey = ownGearRows.map(c => c.booking_id).join(',')
@@ -149,7 +152,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
         await supabase.from('admin_messages').insert({
           user_id: code.bookings.user_id,
           title: 'Přístupový kód k pobočce',
-          message: `Váš kód ${code.code_type === 'motorcycle' ? 'k motorce' : 'šatny'}: ${code.door_code}`,
+          message: `${gateCode ? `${GATE_MSG_LABEL}: ${gateCode}\n` : ''}Váš kód ${code.code_type === 'motorcycle' ? 'k motorce' : 'šatny'}: ${code.door_code}`,
           type: 'info',
         }).catch(() => {})
       }
