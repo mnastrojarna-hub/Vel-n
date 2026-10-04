@@ -46,8 +46,9 @@ Widget branchLine(String icon, String? html, TextStyle style) => Padding(
       ]),
     );
 
-/// Zelený box s tlačítkem do rezervace (texty `cta.*`).
-Widget branchesCtaBox(BuildContext context, Map<String, String> tx) => Container(
+/// Zelený box s tlačítkem do rezervace (texty `cta.*`). [onBook] = vlastní
+/// akce tlačítka (detail pobočky předvybere pobočku); bez něj výpis motorek.
+Widget branchesCtaBox(BuildContext context, Map<String, String> tx, {VoidCallback? onBook}) => Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(18)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -56,7 +57,7 @@ Widget branchesCtaBox(BuildContext context, Map<String, String> tx) => Container
         richText(tx['cta.text'], const TextStyle(fontSize: 13, height: 1.4, color: MotoGoColors.dark)),
         const SizedBox(height: 12),
         ElevatedButton(
-          onPressed: () => context.go(Routes.search),
+          onPressed: onBook ?? () => context.go(Routes.search),
           style: ElevatedButton.styleFrom(
             backgroundColor: MotoGoColors.dark, foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(MotoGoRadius.xl)),

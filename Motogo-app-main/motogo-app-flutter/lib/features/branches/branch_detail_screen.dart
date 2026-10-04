@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme.dart';
+import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../catalog/catalog_provider.dart';
 import 'branches_info_provider.dart';
 import 'branches_widgets.dart';
 
@@ -72,10 +75,26 @@ class BranchDetailScreen extends ConsumerWidget {
             ]),
           ),
           const SizedBox(height: 16),
-          branchesCtaBox(context, tx),
+          branchesCtaBox(context, tx, onBook: () => _bookHere(context, ref, i)),
           const SizedBox(height: 90),
         ],
       ),
     );
+  }
+
+  /// „Rezervovat" z detailu pobočky → výpis motorek JEN této pobočky.
+  /// Čerstvý filtr (pobočka + případně už zvolený termín) — staré filtry
+  /// (kategorie, výkon…) by s pobočkou mohly dát prázdný výpis. Pobočku,
+  /// kterou katalog nenabízí (trvale zavřená), nepředvybírá — výpis by byl
+  /// prázdný; dokud se motorky ještě načítají, předvybere ji rovnou.
+  void _bookHere(BuildContext context, WidgetRef ref, int i) {
+    final id = i < branchesInfoBranchIds.length ? branchesInfoBranchIds[i] : null;
+    final loaded = ref.read(motorcyclesProvider).hasValue;
+    if (id != null && (!loaded || ref.read(branchesProvider).any((b) => b['id'] == id))) {
+      final f = ref.read(catalogFilterProvider);
+      ref.read(catalogFilterProvider.notifier).state =
+          CatalogFilter(branch: id, startDate: f.startDate, endDate: f.endDate);
+    }
+    context.go(Routes.search);
   }
 }

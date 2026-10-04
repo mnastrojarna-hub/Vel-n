@@ -44,6 +44,14 @@ const List<String> branchesInfoMapQueries = [
   '49.0046725,16.6721528',
 ];
 
+/// `branches.id` pobočky karty (pořadí = `branches.<i>`, shodně s webem
+/// `data/pobocky.php`) — „Rezervovat" z detailu pobočky ji předvybere ve
+/// filtru motorek. 0 = Mezná (obslužná), 1 = Velké Němčice (samoobslužná).
+const List<String> branchesInfoBranchIds = [
+  '11111111-1111-1111-1111-111111111111',
+  '22222222-2222-2222-2222-222222222222',
+];
+
 final branchesInfoProvider =
     FutureProvider.family<Map<String, String>, String>((ref, lang) async {
   final out = Map<String, String>.from(branchesInfoDefaults);
