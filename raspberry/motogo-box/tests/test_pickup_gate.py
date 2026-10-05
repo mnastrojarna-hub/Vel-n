@@ -183,7 +183,7 @@ async def test_replaced_code_message_without_lockout(ctrl):
 
 @pytest.mark.parametrize("rpc,err,word", [
     ({"reason": "revoked"}, "code_revoked", "zrušena"),
-    ({"reason": "not_yet_valid"}, "code_not_yet_valid", "začátku vaší rezervace"),
+    ({"reason": "not_yet_valid"}, "code_not_yet_valid", "0:00 v den začátku"),
     ({"reason": "expired"}, "code_expired", "skončila"),
     ({"replaced": True}, "code_replaced", "nový kód"),
 ])

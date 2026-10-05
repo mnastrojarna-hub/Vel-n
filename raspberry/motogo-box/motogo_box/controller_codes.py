@@ -65,7 +65,7 @@ def error_text(error: str | None, release_at: str | None = None) -> str:
         return ("Tento kód už neplatí — rezervace byla zrušena nebo ukončena, případně kód zneplatnila obsluha. "
                 f"Platné kódy najdete v aplikaci MotoGo24, případně volejte podporu: {SUPPORT}.")
     if error == "code_not_yet_valid":
-        return "Kód ještě neplatí — platí od začátku vaší rezervace. Zkuste to prosím v čase vyzvednutí."
+        return "Kód ještě neplatí — platí až od 0:00 v den začátku vaší rezervace. Přijďte prosím v den vyzvednutí."
     if error == "code_expired":
         return "Platnost kódu skončila (rezervace už proběhla). Aktuální kódy najdete v aplikaci MotoGo24."
     if error == "network":
