@@ -197,7 +197,7 @@ const DocsPills = ({ ev, scans }) => ev.booking.user_id ? (
     requireLicense={String(ev.booking.motorcycles?.license_required || '').toUpperCase() !== 'N'} />
 ) : null
 
-function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans }) {
+function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans, showBranch }) {
   const t = TYPE[ev.type]
   const wrap = {
     padding: dense ? '8px 10px' : '7px 10px', borderLeft: `4px solid ${t.color}`,
@@ -242,7 +242,9 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans }) 
       <span className="shrink-0 hidden sm:flex" style={{ width: 86 }}>{typeTag}</span>
       <span className="shrink-0 sm:hidden text-base" title={t.label}>{t.emoji}</span>
       <span className="font-extrabold text-sm truncate" style={{ color: '#0f1a14', minWidth: 0, flex: '1 1 130px' }}>{ev.moto}{ev.spz ? ` · ${ev.spz}` : ''}</span>
-      <span className="text-[11px] font-extrabold shrink-0 lg:hidden rounded-btn" style={{ padding: '1px 6px', background: '#e0f2fe', color: '#0369a1' }}>{ev.delivery ? '🚚' : shortBranchName(ev.branch) || 'pobočka'}</span>
+      {/* pobočka jen v přehledu „Všechny pobočky“ (Rezervace) a jen na úzkém displeji, kde chybí sloupec místa;
+          zúžená a zkracovaná, ať nevytlačí čas ani tlačítko Odbavit (Dashboard beze změny) */}
+      {showBranch && <span className="text-[11px] font-extrabold lg:hidden rounded-btn truncate" style={{ padding: '1px 6px', background: '#e0f2fe', color: '#0369a1', maxWidth: 72, minWidth: 0, flex: '0 1 auto' }}>{ev.delivery ? '🚚' : shortBranchName(ev.branch) || 'pobočka'}</span>}
       <span className="text-sm truncate hidden md:block" style={{ color: '#1a2e22', flex: '1 1 100px', minWidth: 0 }}>{ev.customer}</span>
       <span className="shrink-0"><DocsPills ev={ev} scans={scans} /></span>
       <span className="text-sm font-mono shrink-0 hidden lg:inline" style={{ color: '#64748b' }}>{bookingNo(ev.booking.id)}</span>
@@ -256,12 +258,12 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans }) 
   )
 }
 
-function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap, scans }) {
+function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap, scans, showBranch }) {
   const shown = limit ? events.slice(0, limit) : events
   if (shown.length === 0) return <p className="text-sm" style={{ color: '#64748b', padding: '8px 4px' }}>Žádné nadcházející odjezdy ani návraty</p>
   return (
     <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #eef5f1' }}>
-      {shown.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} showStatus={showStatus} onCheckIn={onCheckIn} onSwap={onSwap} scans={scans} onClick={() => onOpen(ev.booking.id)} />)}
+      {shown.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} showStatus={showStatus} onCheckIn={onCheckIn} onSwap={onSwap} scans={scans} showBranch={showBranch} onClick={() => onOpen(ev.booking.id)} />)}
     </div>
   )
 }
@@ -412,7 +414,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.pickup.color }}>Odjezdy (vyzvednutí)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcomingPickups.length}</span>
               </div>
-              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} />
+              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} />
             </Card>
             <Card style={{ padding: 14 }}>
               <div className="flex items-center gap-2 mb-3">
@@ -420,12 +422,12 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.return.color }}>Návraty (vrácení)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#fef3c7', color: '#b45309', padding: '1px 9px' }}>{upcomingReturns.length}</span>
               </div>
-              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} />
+              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} showBranch={branchId === ''} />
             </Card>
           </div>
         ) : (
           <Card style={{ padding: 14 }}>
-            <EventList events={upcoming} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} />
+            <EventList events={upcoming} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} />
           </Card>
         )
       ) : (

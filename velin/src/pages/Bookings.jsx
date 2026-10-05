@@ -108,7 +108,10 @@ export default function Bookings() {
     return () => { clearTimeout(timer); supabase.removeChannel(channel) }
   }, [])
 
+  // Pořadí odpovědí: rychlé přepnutí filtru (pobočka, stav…) nesmí nechat zobrazená data staršího dotazu
+  const loadSeqRef = useRef(0)
   async function loadBookings() {
+    const seq = ++loadSeqRef.current
     setLoading(true)
     setError(null)
     try {
@@ -132,7 +135,8 @@ export default function Bookings() {
       }
       let branchMotoIds = null
       if (filters.branch) {
-        const { data: bm } = await supabase.from('motorcycles').select('id').eq('branch_id', filters.branch)
+        const { data: bm, error: bmErr } = await supabase.from('motorcycles').select('id').eq('branch_id', filters.branch)
+        if (bmErr) throw bmErr
         branchMotoIds = (bm || []).map(m => m.id)
       }
       const result = await debugAction('bookings.load', 'Bookings', () => {
@@ -160,6 +164,7 @@ export default function Bookings() {
         return query.order(filters.sortBy, { ascending: filters.sortDir === 'asc' })
           .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       }, { page, filters })
+      if (seq !== loadSeqRef.current) return   // mezitím odešel novější dotaz
       if (result?.error) throw result.error
       let data = result?.data || []
       if (filters.statuses.includes('upcoming') && filters.statuses.length > 0) {
@@ -209,9 +214,9 @@ export default function Bookings() {
       // Indikátor appky: dávkově zjisti, kdo ze zobrazené stránky má aktivní instalaci
       setAppInstalls(await loadAppInstalls(supabase, data.map(b => b.user_id)))
     } catch (e) {
-      setError(e.message)
+      if (seq === loadSeqRef.current) setError(e.message)
     } finally {
-      setLoading(false)
+      if (seq === loadSeqRef.current) setLoading(false)
     }
   }
 
