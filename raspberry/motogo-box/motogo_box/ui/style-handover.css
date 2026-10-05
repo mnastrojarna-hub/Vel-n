@@ -68,6 +68,9 @@
 .ho-chip.skip.on { background: var(--red); color: #fff; border-color: var(--red); }
 .ho-row.off { opacity: .75; }
 .ho-row.off .ho-row-name { text-decoration: line-through; color: var(--muted); }
+/* výbava navíc (2026-10-05): druh, který rezervace nemá — ztlumený, dokud zákazník nevybere velikost (= převzal navíc) */
+.ho-row.extra { opacity: .7; border-style: dashed; }
+.ho-row.extra .ho-row-name { color: var(--muted); }
 .ho-size-na { color: var(--muted-2); font-weight: 700; padding: 0 6px; }
 .ho-nogear { font-size: clamp(13px, 2vh, 18px); font-weight: 700; color: var(--muted); padding: clamp(6px, 1vh, 12px);
   border-radius: 12px; background: var(--bg-2); border: 1.5px dashed var(--line); }

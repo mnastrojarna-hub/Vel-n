@@ -9,7 +9,8 @@
 // Tok: auth → rezervace → idempotence (already_filled) → stav (wrong_status/too_early;
 // too_early i před `release_at` — sleva za vyzvednutí od 12:00, odpověď nese release_at)
 // → propis výbavy do bookings (změněná velikost; NEpřevzatá položka = odebrání z rezervace,
-// sloupec → NULL, ceny/booking_extras beze změny) → HTML → PDF přes render-pdf (fallback HTML)
+// sloupec → NULL; z kiosku i výbava převzatá NAVÍC — `gear_add`; ceny/booking_extras beze změny)
+// → HTML → PDF přes render-pdf (fallback HTML)
 // → bucket `documents` → ATOMICKÝ CLAIM handover_protocol_filled_at (UPDATE … WHERE
 // filled_at IS NULL; 0 řádků = podepsáno souběžně jinde → already_filled + úklid souboru)
 // → generated_documents (sync trigger → `documents`, appka) → stav km do bookings.mileage_start
@@ -170,6 +171,21 @@ serve(async (req) => {
     // kiosk ≥ 1.2.4 (starší jednotky posílají vždy checked:true), appka s `form.gear_remove: true`
     // (starší buildy appky mají checkbox bez vysvětlení → jejich ☐ zůstává jen v dokumentu jako dřív).
     const allowRemove = mode === 'kiosk' || form.gear_remove === true
+    // Výbava převzatá NAVÍC (2026-10-05): jen kiosk ≥ 1.2.5 (`form.gear_add`) a jen rezervace s přístupem do šatny
+    // (výbava už vyzvednutá, nebo vydaný kód šatny) — u rezervace bez šatny by přidání velikosti vydalo nový kód
+    // šatny uprostřed převzetí (trg_sync_locker_code). Chyba dotazu = bez přidání (dokument ji ukáže jako „navíc“).
+    let allowAdd = false
+    if (mode === 'kiosk' && form.gear_add === true
+        && accessories.some((a) => a.checked && a.field && !String(booking[a.field] ?? '').trim())) {
+      if (booking.gear_collected_at) allowAdd = true
+      else {
+        try {
+          const { data: acc } = await admin.from('branch_door_codes').select('id')
+            .eq('booking_id', bookingId).eq('code_type', 'accessories').eq('sent_to_customer', true).limit(1).maybeSingle()
+          allowAdd = !!acc
+        } catch (_) { allowAdd = false }
+      }
+    }
 
     // ── Stav km při předání = VŽDY systém (zadání majitele 2026-09-29) ─────
     // Zákazník km nezadává: platí poslední stav z vrácení předchozím zákazníkem
@@ -211,7 +227,7 @@ serve(async (req) => {
     // `removed` pro dokument). Ceny / booking_extras se NEMĚNÍ (rozhodnutí majitele
     // čeká — vratku řeší Velín ručně).
     try {
-      const { updates, changes } = await resolveGearUpdates(admin, booking, accessories, allowRemove)
+      const { updates, changes } = await resolveGearUpdates(admin, booking, accessories, allowRemove, allowAdd)
       if (Object.keys(updates).length) {
         const entry = { at: now.toISOString(), auto: true, source: 'protocol', signed_by: signer.by, ...(deviceId ? { device_id: deviceId } : {}), gear_changes: changes }
         const hist = Array.isArray(booking.modification_history) ? booking.modification_history : []
@@ -225,7 +241,7 @@ serve(async (req) => {
       console.warn('[handover] gear update failed', bookingId, msg)
       try {
         await admin.from('debug_log').insert({ source: 'submit-handover-protocol', action: 'handover_gear_update_failed', status: 'error',
-          error_message: msg, request_data: { booking_id: bookingId, signed_by: signer.by, allow_remove: allowRemove,
+          error_message: msg, request_data: { booking_id: bookingId, signed_by: signer.by, allow_remove: allowRemove, allow_add: allowAdd,
             accessories: accessories.map(({ field, checked, size }) => ({ field, checked, size })) } })
       } catch { /* jen log */ }
     }

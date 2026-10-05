@@ -18,6 +18,8 @@ export interface AccessoryItem {
   key?: GearKey; who?: GearWho; field?: string; label?: string; size?: string; checked?: boolean
   /** Nastaví edge: nepřevzatá položka, kterou z rezervace skutečně odebrala (sloupec → NULL). */
   removed?: boolean
+  /** Nastaví edge: převzatá položka, kterou rezervace NEMĚLA (zákazník si ji vzal navíc) — v dokumentu „(navíc)“. */
+  extra?: boolean
 }
 
 export function gearField(key: GearKey, who: GearWho): string {
@@ -76,23 +78,25 @@ export function normalizeAccessories(raw: unknown, defaultChecked: boolean): Acc
 
 export interface SizeUpdates {
   updates: Record<string, string | null>                       // sloupec bookings → nová velikost, null = odebráno
-  changes: Record<string, { from: string; to: string | null }> // klíč jako track_booking_content_changes (helmet, passenger_helmet…)
+  changes: Record<string, { from: string | null; to: string | null }> // klíč jako track_booking_content_changes (helmet, passenger_helmet…); from null = přidáno
 }
 
 // deno-lint-ignore no-explicit-any
 type Admin = any
 
 /**
- * Změny výbavy k propsání do rezervace. Bere se JEN položka s vazbou na sloupec
- * a jen tam, kde rezervace už velikost má (výbavu nelze u protokolu přidat —
- * to by vyvolalo nový kód šatny uprostřed převzetí):
- * - převzatá (checked): jiná velikost z číselníku `accessory_types.sizes` → nová velikost;
- * - NEpřevzatá: sloupec → NULL (odebrána z rezervace) + `a.removed = true`;
- *   poslaná `size` je původní z rezervace a NIKDY se nepropisuje.
+ * Změny výbavy k propsání do rezervace. Bere se JEN položka s vazbou na sloupec:
+ * - převzatá (checked) a v rezervaci je: jiná velikost z číselníku `accessory_types.sizes` → nová velikost;
+ * - NEpřevzatá a v rezervaci je: sloupec → NULL (odebrána z rezervace) + `a.removed = true`;
+ *   poslaná `size` je původní z rezervace a NIKDY se nepropisuje;
+ * - převzatá a v rezervaci NENÍ = výbava NAVÍC (2026-10-05, zadání majitele: „co si vezme navíc, musí být v
+ *   protokolu“): `a.extra = true` (dokument „navíc“); do rezervace se zapíše JEN s `allowAdd` (kiosk ≥ 1.2.5 s přístupem
+ *   do šatny — jinak by přidání vyvolalo nový kód šatny uprostřed převzetí) a velikostí z číselníku. Ceny / booking_extras
+ *   se nemění (doúčtování placené výbavy navíc řeší Velín ručně).
  * `allowRemove=false` (starý klient bez opt-in `form.gear_remove`): nepřevzatá
  * položka je jen ☐ v dokumentu jako dřív — rezervace se nemění.
  */
-export async function resolveGearUpdates(admin: Admin, booking: Record<string, unknown>, items: AccessoryItem[], allowRemove = true): Promise<SizeUpdates> {
+export async function resolveGearUpdates(admin: Admin, booking: Record<string, unknown>, items: AccessoryItem[], allowRemove = true, allowAdd = false): Promise<SizeUpdates> {
   const linked = items.filter((a) => a.field && a.key && a.who)
   const res: SizeUpdates = { updates: {}, changes: {} }
   if (!linked.length) return res
@@ -110,8 +114,14 @@ export async function resolveGearUpdates(admin: Admin, booking: Record<string, u
   for (const a of linked) {
     const field = a.field as string
     const current = currentOf(a)
-    if (!current) continue // v rezervaci není → nepřidávat ani neodebírat
     const changeKey = a.who === 'passenger' ? `passenger_${a.key}` : (a.key as string)
+    if (!current) { // v rezervaci není → nic neodebírat; převzatá = navíc (zapsat jen s allowAdd a velikostí z číselníku)
+      if (allowAdd && a.checked && a.size && allowed.get(a.key as string)?.has(a.size)) {
+        res.updates[field] = a.size
+        res.changes[changeKey] = { from: null, to: a.size }
+      }
+      continue
+    }
     if (!a.checked) { // nepřevzato → odebrat z rezervace (jen klient, který sémantiku zná)
       if (allowRemove) { res.updates[field] = null; res.changes[changeKey] = { from: current, to: null } }
       continue
@@ -123,11 +133,13 @@ export async function resolveGearUpdates(admin: Admin, booking: Record<string, u
     res.changes[changeKey] = { from: current, to: a.size }
   }
   // `removed` až podle VÝSLEDKU (duplicitní položka s týmž `field` = poslední vyhrává): sloupec je po tomto
-  // podpisu NULL — odebrán teď, nebo už dřív (opakovaný podpis po 5xx; 1. pokus ho odebral i se záznamem historie).
+  // podpisu NULL — odebrán teď, nebo už dřív (opakovaný podpis po 5xx; 1. pokus ho odebral i se záznamem historie;
+  // klient posílá u nepřevzaté položky původní velikost — bez ní položka v rezervaci nikdy nebyla).
   if (allowRemove) {
     for (const a of linked) {
-      if (!a.checked && (res.updates[a.field as string] === null || !currentOf(a))) a.removed = true
+      if (!a.checked && (res.updates[a.field as string] === null || (!currentOf(a) && a.size))) a.removed = true
     }
   }
+  for (const a of linked) if (a.checked && a.size && !currentOf(a)) a.extra = true
   return res
 }

@@ -39,7 +39,7 @@ DEFAULT_IDLE_S = 600             # 2026-09-29: protokol po zavření šatny 10 m
 STAGE_PROTOCOL, STAGE_DONE = "protocol", "done"
 GEAR_KEYS = ("helmet", "jacket", "pants", "boots", "gloves")
 PERSISTED = ("booking_id", "kind_origin", "zone", "data", "is_child", "shown_at", "last_touch",
-             "dismissed_at", "shown_logged", "created_at", "moto_id")
+             "dismissed_at", "shown_logged", "created_at", "moto_id", "needs_locker")
 
 
 @dataclass
@@ -59,6 +59,7 @@ class HandoverItem:
     created_at: float = 0.0
     in_flight: bool = False              # právě probíhá podpis z displeje (submit)
     moto_id: str | None = None           # `protocol.moto_id` (2026-09-29) — km převzetí z neodeslaného vrácení téže motorky
+    needs_locker: bool = False            # `protocol.needs_locker` (2026-10-05) — UI nabídne zápis výbavy i po kódu motorky
 
     def persisted(self) -> dict:
         d = asdict(self)
@@ -215,7 +216,7 @@ class HandoverManager:
         item = self.items.get(bid) or HandoverItem(booking_id=bid, created_at=self.clock())
         item.kind_origin, item.zone = "accessories", zone
         item.data, item.is_child = dict(p.get("data") or {}), bool(p.get("is_child"))
-        item.moto_id = p.get("moto_id") or item.moto_id
+        item.moto_id, item.needs_locker = p.get("moto_id") or item.moto_id, p.get("needs_locker") is True
         await self._show(item, None)
         return "protocol"
 
@@ -237,7 +238,7 @@ class HandoverManager:
         if item is None or item.stage != STAGE_PROTOCOL:
             item = HandoverItem(booking_id=bid, kind_origin="motorcycle", created_at=self.clock())
         item.zone, item.data, item.is_child = zc.number, dict(p.get("data") or {}), bool(p.get("is_child"))
-        item.moto_id = p.get("moto_id") or item.moto_id
+        item.moto_id, item.needs_locker = p.get("moto_id") or item.moto_id, p.get("needs_locker") is True
         await self._show(item, {"zone": zc.number, "booking_id": bid, "kind": "motorcycle", "source": source})
         return True
 
@@ -349,6 +350,8 @@ class HandoverManager:
             else:
                 item.data, item.is_child = dict(p.get("data") or item.data), bool(p.get("is_child"))
                 item.moto_id = p.get("moto_id") or item.moto_id
+                if "needs_locker" in p:
+                    item.needs_locker = p.get("needs_locker") is True
         if stale:
             self._save()
 
@@ -388,6 +391,7 @@ class HandoverManager:
             active = {"booking_id": item.booking_id, "stage": item.stage, "zone": item.zone, "zone_label": label,
                       "kind": zc.zone.kind if zc else item.kind_origin, "then_open": to_valid,
                       "needs_code": not to_valid, "data": dict(item.data), "sizes": self._sizes(item.is_child),
+                      "is_child": bool(item.is_child), "needs_locker": bool(item.needs_locker),
                       "shown_at": iso_ts(item.shown_at), "expires_at": iso_ts(expires), "saving": item.in_flight}
         return {"active": active, "pending": list(self.queue_state.get("pending", [])),
                 "failed": list(self.queue_state.get("failed", [])),

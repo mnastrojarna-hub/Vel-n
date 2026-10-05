@@ -102,7 +102,7 @@ function RpiStatusInner({ devices, doors, now, onCommand, branchName, onSaveDoor
         const noHw = arr(doors).filter(d => d && d.is_active !== false && !(d.hw && typeof d.hw === 'object' && Object.keys(d.hw).length > 0))
         return noHw.length > 0 && (
           <div className="mb-2 p-2 rounded-card text-[12px]" style={{ background: '#fef3c7', color: '#b45309' }}>
-            ⚠ {noHw.length} dveří bez HW mapy ({noHw.map(d => d.label || (d.door_kind === 'accessories' ? ACCESSORIES_LABEL : boxLabel(d.box_number))).join(', ')}) — jednotka je nezná, dlaždice chybí.
+            ⚠ {noHw.length} dveří bez HW mapy ({noHw.map(d => (d.door_kind === 'accessories' ? (d.label || ACCESSORIES_LABEL) : boxLabel(d.box_number))).join(', ')}) — jednotka je nezná, dlaždice chybí.
             Servisní režim → „Nastavení a servis“ → Dveře → „Vytvořit dveře z kojí + doplnit HW mapu“ (nebo Řídicí jednotka — hardware → „Načíst výchozí mapu“).
           </div>
         )
@@ -302,6 +302,8 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
 // stejné pravidlo má displej pobočky (ui/i18n.js), takže Velín i displej ukazují stejný název.
 function zoneName(z, door) {
   const meta = { kind: z.kind ?? door?.door_kind, boxNumber: num(z.box_number) ?? door?.box_number ?? null, zone: z.zone }
+  // Kóje motorky = vždy číslo (2026-10-05, jako displej) — popis s modelem motorky po prohození kójí lhal
+  if (meta.kind !== 'accessories' && meta.boxNumber != null) return boxLabel(meta.boxNumber)
   const custom = [z.label, door?.label].find(l => l != null && l !== '' && !isGeneratedZoneLabel(l, meta))
   if (custom) return txt(custom)
   if (meta.kind === 'accessories') return ACCESSORIES_LABEL

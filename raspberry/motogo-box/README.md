@@ -26,7 +26,9 @@ Vedený tok **šatna → předávací protokol → motorka** (rozhodnutí uživa
    „Probíhá přejímka…“; bez lockoutu). Zámek končí otevřením kóje motorky té rezervace, servisním „Vše vypnout“, nebo po
    `handover_lock_s` (600 s = 10 min, 2026-09-29) bez aktivity zákazníka — kiosk se nikdy nezasekne; servisní hesla a pevné servisní kódy
    procházejí vždy. Zároveň se přes celý displej ukáže **předávací protokol**: výbava s velikostmi (upravitelné chipy z číselníku;
-   od 2026-10-05 na konci řady chip **„✕ Neberu“** = zákazník si položku nevzal → edge ji z rezervace odebere, velikost se nepropisuje),
+   od 2026-10-05 na konci řady chip **„✕ Neberu“** = zákazník si položku nevzal → edge ji z rezervace odebere, velikost se nepropisuje;
+   od 1.2.5 s přístupem do šatny i **výbava navíc** — všechny druhy výbavy, neobjednané ztlumené, výběrem velikosti převzato navíc
+   a edge to do rezervace doplní; bez objednané výbavy po zavření šatny nejde dál bez výběru aspoň jedné velikosti),
    vždy i skupina **Výbava motorky** (klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta —
    leží v motorce v kufru nebo v tankvaku; od 2026-10-02 jen informativně, bez zaškrtávání),
    podpis prstem a potvrzení **kódem motorky** téže rezervace (identita podepisujícího). Od 2026-10-02 ve **2 krocích**:
@@ -127,7 +129,7 @@ na zákaznické obrazovce NEJSOU (odstraněny 2026-09-26 — zákazníka rušily
 lištou v ní); po zavření platí zámek přejímky (jen kódy téže rezervace — ostatním se ukáže „Nejprve musí být dokončena předchozí
 přejímka…“ a nad polem kódu pruh 🔒 „Probíhá přejímka — kód motorky zadá zákazník, který právě zavřel šatnu“) a (nebo po
 kódu motorky bez podpisu) se přes celý displej otevře **předávací protokol** — hlavička (jméno zkráceně, motorka, období), ve 2 krocích (od 2026-10-02): 1) výbava
-řidič/spolujezdec s chipy velikostí + chip „✕ Neberu“ (2026-10-05: položka z rezervace odebrána; řádek přeškrtnutý, klepnutí na velikost ji bere zpět) → „Pokračovat“, 2) výbava motorky (jen informace), podpisový canvas, pole „Kód motorky“ (jen když kód
+řidič/spolujezdec s chipy velikostí + chip „✕ Neberu“ (2026-10-05: položka z rezervace odebrána; řádek přeškrtnutý, klepnutí na velikost ji bere zpět; od 1.2.5 i neobjednané druhy výbavy = výbava navíc) → „Pokračovat“, 2) výbava motorky (jen informace), podpisový canvas, pole „Kód motorky“ (jen když kód
 nebyl právě zadán), „Potvrdit a podepsat“; „Zpět“ (v kroku 2 vrací na krok 1); odpočet 120 s bez dotyku („Zavře se za N s“). Po podpisu: „Otevřeno“ + „Protokol podepsán.“ (kóje se otevře sama), nebo
 „Protokol potvrzen“ + „Teď zadejte kód motorky.“ (kóji se nepodařilo otevřít → „Kóji se nepodařilo otevřít — zadejte kód motorky
 znovu.“). Po kódu displej říká, KAM jít (2026-09-27): kóje „Dveře č. N otevřeny — Běžte ke dveřím č. N.“, šatna „Šatna otevřena —

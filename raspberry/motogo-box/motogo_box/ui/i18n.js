@@ -291,6 +291,8 @@ MG.i18n = (function () {
     isGenerated: isGeneratedLabel,
     zoneName: (z) => {
       const n = z.box_number != null ? z.box_number : z.zone;
+      // Kóje motorky = vždy jen číslo (2026-10-05): popis dveří mohl nést model motorky, která v kóji stála dřív.
+      if (z.kind !== 'accessories' && z.box_number != null) return t('box', { n: n });
       const custom = z.label && !isGeneratedLabel(z.label, z) ? z.label : '';
       return custom || (z.kind === 'accessories' ? t('acc') : t('box', { n: n }));
     },

@@ -277,6 +277,9 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
       if (motoChanged) saveData.moto_id = selectedMotoId
       // Vlastní výbava se zapisuje JEN při změně (trigger trg_sync_locker_code pak sám vydá / zadrží kód šatny)
       if (ownGearChanged) saveData.own_gear = ownGear === '' ? null : ownGear === 'true'
+      // „Ano — vlastní výbava“ smaže velikosti základní výbavy řidiče (parita s appkou): nárok na šatnu
+      // (_booking_needs_locker, 2026-10-05) rozhodují vybrané velikosti — jinak by šatna zůstala.
+      if (ownGearChanged && ownGear === 'true') Object.assign(saveData, { helmet_size: null, jacket_size: null, pants_size: null, gloves_size: null })
       // Late-pickup sleva (viz persistLate výše) — v režimu „Zdarma“ jen snížení (hradlo kiosku zmizí)
       if (persistLate) saveData.late_pickup_discount_amount = newLate
       // Věrnostní sleva na doplatek (app rezervace) — kumuluje se do
@@ -518,11 +521,12 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
           <select value={ownGear} onChange={e => setOwnGear(e.target.value)} className="text-sm rounded-btn outline-none"
             style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
             <option value="">Neuvedeno — odvodí se z velikostí výbavy</option>
-            <option value="true">Ano — vlastní výbava, kód šatny se nevydává</option>
+            <option value="true">Ano — vlastní výbava (velikosti výbavy řidiče se smažou)</option>
             <option value="false">Ne — půjčuje si výbavu (dostane kód šatny)</option>
           </select>
           <div className="text-[11px] mt-1" style={{ color: '#6b7280' }}>
-            Kód šatny dostane jen ten, kdo má v šatně co vyzvednout (půjčená výbava řidiče, boty nebo výbava spolujezdce).
+            Kód šatny dostane každý, kdo má v rezervaci vybranou výbavu (jakoukoli velikost řidiče, boty nebo výbavu spolujezdce)
+            nebo „Ne“ (základní výbava v ceně — velikosti pak zadá na displeji pobočky).
             Po vyzvednutí výbavy ze šatny nebo po podpisu protokolu se kódy už samy nemění.
           </div>
         </div>

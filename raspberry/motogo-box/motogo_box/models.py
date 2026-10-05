@@ -241,7 +241,11 @@ class Zone:
         """Název zóny pro Velín, displej a logy. Jednotné pojmenování (2026-09-14):
         kóje na motorku = „Kóje N", zóna s výbavou (`kind='accessories'`) = „Šatna", venek řeší
         `OutdoorController` mimo zóny. `kind` v DB zůstává `accessories` — mění se jen text.
-        Vlastní popis dveří z Velína (`branch_doors.label`) má vždy přednost."""
+        Kóje motorky (2026-10-05) = VŽDY „Kóje N“: motorky se mezi kójemi přesouvají a popis dveří z Velína
+        („Kóje 5 — <model>“ z ensureDoors) se při tom neměnil → displej i Velín ukazovaly jinou motorku. Na dveřích
+        jsou jen čísla (2026-10-04). U ostatních dveří (šatna) má vlastní popis (`branch_doors.label`) přednost."""
+        if self.kind != "accessories" and self.box_number is not None:
+            return f"Kóje {self.box_number}"
         if self.label:
             return self.label
         if self.kind == "accessories":

@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from motogo_box import controller_codes as cc
-from motogo_box.handover import DONE_TTL_S, ITEM_MAX_AGE_S, HandoverManager
+from motogo_box.handover import DONE_TTL_S, ITEM_MAX_AGE_S, HandoverItem, HandoverManager
 from motogo_box.handover_lock import iso_ts
 from motogo_box.models import EventKind
 from motogo_box.pins import LocalResolver
@@ -78,6 +78,9 @@ async def test_require_before_open_gate(ctrl):
     a = hm.status()["active"]
     assert a["then_open"] is True and a["needs_code"] is False and a["zone"] == 3 and a["zone_label"] == "Kóje 3"
     assert a["kind"] == "motorcycle" and zc.grants == [] and hm.busy() is True
+    # 2026-10-05: nárok na šatnu z protokolu → UI nabídne zápis výbavy i po kódu motorky; dětská = jen řidič
+    assert a["needs_locker"] is True and a["is_child"] is False
+    assert HandoverItem.from_dict(hm.items["b1"].persisted()).needs_locker is True
     assert [e.code_kind for e in ctrl.events if e.kind == EventKind.PROTOCOL_SHOWN] == ["motorcycle"]
     # podepsáno u displeje (čeká ve frontě) → hradlo se neuplatní ani při zastaralém required=true
     ctrl.storage.protocol_queue_put("b1", {"x": 1})

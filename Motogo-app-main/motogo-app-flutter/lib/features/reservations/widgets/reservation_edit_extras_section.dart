@@ -344,6 +344,12 @@ class EditExtrasSection extends StatelessWidget {
         EditGearSizePicker(label: t(context).tr('gloves'), icon: Icons.back_hand_outlined,
           sizes: gearSizesFor('gloves', kids: isKids),
           selectedSize: glovesSize, onSizeSelected: onGlovesSize),
+        // Bez vlastní výbavy aspoň jeden kus (2026-10-05) — jinak je uložení zamčené.
+        if ([helmetSize, jacketSize, pantsSize, glovesSize].every((s) => s == null || s.trim().isEmpty)) ...[
+          const SizedBox(height: 6),
+          Text(t(context).tr('gearBasicPickOne'),
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF92400E))),
+        ],
       ],
     ]));
   }

@@ -32,7 +32,13 @@ function boxLabel(n) { return n == null || n === '' ? 'Kóje' : `Kóje ${n}` }
 // Název typu dveří BEZ vlastního popisu — pro chipy a potvrzovací dialogy ('Šatna' / 'Kóje 3')
 function doorKindLabel(door) { return isAccessoriesDoor(door) ? ACCESSORIES_LABEL : boxLabel(door?.box_number) }
 // Název dveří pro seznamy a log: vlastní popis z Velína má přednost, jinak 'Šatna' / 'Kóje 3'
-function doorLabel(door) { return door ? (door.label || doorKindLabel(door)) : '—' }
+// Kóje motorky = vždy „Kóje N“ (2026-10-05): popis dveří mohl nést model motorky, která v kóji stála dřív
+// (motorky se mezi kójemi přesouvají) — displej pobočky ho u kójí také ignoruje. Vlastní popis jen u šatny.
+function doorLabel(door) {
+  if (!door) return '—'
+  if (!isAccessoriesDoor(door) && door.box_number != null) return boxLabel(door.box_number)
+  return door.label || doorKindLabel(door)
+}
 
 // Je popis dveří jen automaticky složený český název, ne vlastní text od obsluhy?
 // Velín historicky zakládal dveřím popisy „Garáž #3 — Honda CB500“ a „Skříň oblečení“ — ty neodpovídají

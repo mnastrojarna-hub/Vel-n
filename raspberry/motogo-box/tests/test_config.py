@@ -62,6 +62,20 @@ def test_zones_from_doors_take_precedence():
     assert validate_hardware(hw) == []
 
 
+def test_motorcycle_zone_name_ignores_door_label_with_moto_model():
+    # 2026-10-05 (hlášení majitele): dveře kóje 5 nesly z Velína popis „Kóje 5 — Yamaha…“, ale v kóji už stála
+    # Honda — kóje motorky se jmenuje VŽDY jen číslem; vlastní popis šatny zůstává.
+    doors = [{"id": "d5", "box_number": 5, "door_kind": "motorcycle", "label": "Kóje 5 — Yamaha XTZ 1200 Super Ténéré",
+              "hw": {"zone": 5, "lock": {"dev": "wav645", "coil": 4}, "contact": {"dev": "wav617a", "input": 4}}},
+             {"id": "d6", "box_number": 6, "door_kind": "motorcycle", "label": "Yamaha XTZ 1200",
+              "hw": {"zone": 6, "lock": {"dev": "wav645", "coil": 5}, "contact": {"dev": "wav617a", "input": 5}}},
+             {"id": "d8", "box_number": None, "door_kind": "accessories", "label": "Šatna u vchodu",
+              "hw": {"zone": 8, "lock": {"dev": "wav645", "coil": 7}, "contact": {"dev": "wav617a", "input": 7}}}]
+    hw = HardwareConfig.from_dict(_brno(), doors)
+    names = {z.number: z.display_name for z in hw.zones}
+    assert names == {5: "Kóje 5", 6: "Kóje 6", 8: "Šatna u vchodu"}
+
+
 # ─── merge_hardware ──────────────────────────────────────────────────────────
 def test_merge_remote_overrides_timings_but_never_zones():
     local = _brno()

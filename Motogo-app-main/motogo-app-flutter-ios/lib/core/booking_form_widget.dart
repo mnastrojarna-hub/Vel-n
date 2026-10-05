@@ -146,13 +146,19 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
   }
 
   /// Gear sizes that must be filled before proceeding — independent of the
-  /// pickup method. Základní výbava zdarma je volitelná PO KUSECH (parita
-  /// s webem): nevybraná velikost = zákazník daný kus nechce a rezervaci to
-  /// neblokuje (klidně jen rukavice nebo jen bunda). Velikost je povinná jen
-  /// u zaškrtnutých doplňků se sedícími velikostmi (boty, spolujezdec).
+  /// pickup method. Základní výbava zdarma je volitelná PO KUSECH (klidně jen
+  /// rukavice nebo jen bunda), ale bez „Mám vlastní výbavu“ musí zákazník
+  /// vybrat ASPOŇ JEDEN kus (zadání majitele 2026-10-05): rezervace bez vlastní
+  /// výbavy dostane kód šatny a displej pobočky v protokolu ukazuje, co si
+  /// objednal — prázdný výběr by kód šatny vydal bez výbavy. Velikost je povinná
+  /// i u zaškrtnutých doplňků se sedícími velikostmi (boty, spolujezdec).
   /// Returns a human-readable list of missing items — empty list means OK.
   List<String> _missingGearSizes(BuildContext context, BookingDraft d) {
     final missing = <String>[];
+    bool none(String? s) => s == null || s.trim().isEmpty;
+    if (!d.ownGear && none(d.helmetSize) && none(d.jacketSize) && none(d.pantsSize) && none(d.glovesSize)) {
+      missing.add(t(context).tr('gearBasicPickOne'));
+    }
     SelectedExtra? findExtra(String id) =>
         d.extras.where((e) => e.id == id).firstOrNull;
     final botyRidic = findExtra('extra-boty-ridic');
