@@ -202,6 +202,8 @@ def test_resolver_expiry_and_not_yet_valid():
     assert future is not None and not future.ok and future.error == "code_not_yet_valid"
     later = r.resolve("333333", cache, NOW + timedelta(hours=2))
     assert later is not None and later.ok and not later.door_configured
+    # 2026-10-05: kód platný až za víc než 24 h se offline tváří jako neznámý (počítá se do lockoutu — žádné orákulum)
+    assert r.resolve("333333", cache, NOW - timedelta(hours=30)) is None
 
 
 def test_resolver_wrong_device_token_does_not_match():

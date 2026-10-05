@@ -17,7 +17,7 @@ import hmac
 import logging
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 from .config import SecurityCfg
@@ -218,7 +218,10 @@ class LocalResolver:
                 continue
             valid_from, valid_until = parse_iso(row.get("valid_from")), parse_iso(row.get("valid_until"))
             if valid_from is not None and now < valid_from:
-                matched_expired = "code_not_yet_valid"
+                # 2026-10-05: „ještě neplatí“ (bez lockoutu) jen do 24 h před začátkem — vzdáleně budoucí kód se tváří
+                # jako neznámý (počítá se), jinak by displej bez trestu prozrazoval kódy budoucích rezervací
+                if valid_from - now <= timedelta(hours=24):
+                    matched_expired = "code_not_yet_valid"
                 continue
             if valid_until is not None and now > valid_until:
                 matched_expired = "code_expired"

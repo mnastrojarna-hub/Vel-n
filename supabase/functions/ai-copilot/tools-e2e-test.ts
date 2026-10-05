@@ -77,6 +77,8 @@ export async function execE2ETest(name: string, input: R, sb: SB): Promise<unkno
             await sb.from('invoices').delete().in('booking_id', bookingIds)
             await sb.from('promo_code_usage').delete().in('booking_id', bookingIds)
             await sb.from('accounting_entries').delete().in('booking_id', bookingIds)
+            // trg_guard_booking_delete (2026-10-05) pustí živou rezervaci jen jako testovací → nejdřív označit
+            await sb.from('bookings').update({ is_test: true }).eq('user_id', p.id)
             await sb.from('bookings').delete().eq('user_id', p.id)
             results.bookings += bookingIds.length
           }

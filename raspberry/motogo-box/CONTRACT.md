@@ -564,11 +564,12 @@ class BoxController:
         #   zruší a pokračuje, jinak error 'locked' (2026-10-05); 6 číslic nebo neprázdné (servisní heslo) ; api.resolve_code →
         # None (síť) → LocalResolver; invalid → register_failure; service → vydej service_token (10 min);
         # 2026-10-05: RPC `{error:'invalid_code', reason}` (`ResolveResult.from_rpc`, `RPC_REASON_ERRORS`; starší
-        #   `replaced:true` = reason replaced) = kód EXISTUJE, ale teď neplatí → chyba z KNOWN_CODE_ERRORS (code_replaced |
-        #   code_revoked | code_withheld | code_not_yet_valid | code_expired | code_wrong_branch; offline shoda s prošlým
-        #   řádkem cache = code_expired / code_not_yet_valid) → ACCESS_DENIED info `detail.reason` (+ `hint` pobočka /
-        #   valid_from) + hláška (CZ `error_text(err, hint)`, jinak ui/i18n-codes.js), BEZ register_failure. Do lockoutu
-        #   jde JEN neznámý kód (INVALID_CODE_ERRORS = {invalid_code}). Dřívější automaticky nahrazený kód živé rezervace
+        #   `replaced:true` = reason replaced) = kód, který už nic neotevře nebo začne platit do 24 h → chyba
+        #   z KNOWN_CODE_ERRORS (code_replaced | code_revoked | code_not_yet_valid | code_expired; offline shoda s prošlým
+        #   řádkem cache = code_expired, s řádkem platným do 24 h = code_not_yet_valid, dál než 24 h = neznámý) →
+        #   ACCESS_DENIED info `detail.reason` + hláška (CZ `error_text`, jinak ui/i18n-codes.js), BEZ register_failure.
+        #   Do lockoutu jde neznámý kód (INVALID_CODE_ERRORS = {invalid_code}) — DB záměrně neposílá důvod u zadrženého,
+        #   vzdáleně budoucího ani cizího pobočkového kódu (žádné orákulum pro hádání); neznámý `reason` = invalid_code. Dřívější automaticky nahrazený kód živé rezervace
         #   DB přijme jako alias aktuálního (ok:true). Během lockoutu se i zákaznický pokus zapíše (ACCESS_DENIED reason
         #   'locked', code_masked) — dřív bez stopy;
         # zákazník → najdi zónu (door_id, pak box_number) → zone.grant_access; log_open(...)

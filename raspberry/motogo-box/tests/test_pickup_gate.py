@@ -183,10 +183,9 @@ async def test_replaced_code_message_without_lockout(ctrl):
 
 @pytest.mark.parametrize("rpc,err,word", [
     ({"reason": "revoked"}, "code_revoked", "zrušena"),
-    ({"reason": "withheld"}, "code_withheld", "doklady"),
-    ({"reason": "not_yet_valid", "valid_from": "2026-10-06T07:00:00+00:00"}, "code_not_yet_valid", "6. 10. 2026 9:00"),
+    ({"reason": "not_yet_valid"}, "code_not_yet_valid", "začátku vaší rezervace"),
     ({"reason": "expired"}, "code_expired", "skončila"),
-    ({"reason": "wrong_branch", "branch_name": "MotoGo24 Mezná"}, "code_wrong_branch", "Mezná"),
+    ({"replaced": True}, "code_replaced", "nový kód"),
 ])
 async def test_known_code_reasons_without_lockout(ctrl, rpc, err, word):
     """2026-10-05: kód existuje, ale teď neplatí (`reason` z RPC) — hláška, ACCESS_DENIED info, NIKDY lockout."""
@@ -207,3 +206,11 @@ async def test_unknown_code_still_locks_and_attempts_logged(ctrl):
     assert res["error"] == "locked" and ctrl.pin_guard.locked_until() is not None
     res = await cc.submit_code(ctrl, "111111", "ui")
     assert res["error"] == "locked" and _denied(ctrl)[-1].detail["reason"] == "locked"
+
+
+@pytest.mark.parametrize("reason", ["withheld", "wrong_branch", "něco_nového"])
+async def test_unknown_reason_counts_as_invalid(ctrl, reason):
+    """Důvod, který jednotka nezná (nebo DB záměrně neposílá: zadržený / jiná pobočka), = neznámý kód → lockout."""
+    ctrl.api.resolve = {"464646": {"ok": False, "error": "invalid_code", "reason": reason}}
+    res = await cc.submit_code(ctrl, "464646", "ui")
+    assert res["error"] == "invalid_code" and ctrl.storage.pin_failures_since(0) == 1

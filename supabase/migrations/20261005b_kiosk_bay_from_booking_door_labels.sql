@@ -24,9 +24,10 @@
 --     a který systém AUTOMATICKY nahradil (regenerace po přesunu kóje / motorky / pobočky — do 20261005e se dělala
 --     při každé změně), platí dál jako alias aktuálního kódu téže rezervace (online i offline cache). Nový sloupec
 --     branch_door_codes.superseded_by_regen (backfill: starý řádek deaktivovaný v téže transakci, v níž vznikl nový).
---     Ručně zneplatněný kód (Velín) alias není. Kód, který existuje, ale teď neplatí, vrací invalid_code + `reason`
---     (replaced | revoked | withheld | not_yet_valid | expired | wrong_branch) — jednotka ≥ 1.2.5 ukáže srozumitelnou
---     hlášku a NEpočítá ho do PIN lockoutu (skutečný kód nikdy nezablokuje displej); starší jednotky beze změny.
+--     Ručně zneplatněný kód (Velín) alias není (20261005e: ruční zneplatnění zruší i aliasy). Kód, který už nic
+--     neotevře nebo začne platit do 24 h, vrací invalid_code + `reason` (replaced | revoked | expired | not_yet_valid)
+--     — jednotka ≥ 1.2.5 ukáže srozumitelnou hlášku a NEpočítá ho do PIN lockoutu; zadržený, vzdáleně budoucí kód a kód
+--     jiné pobočky zůstávají holé invalid_code (jinak by displej bez trestu prozrazoval kódy, které jednou otevřou).
 -- Idempotentní (CREATE OR REPLACE, DROP TRIGGER IF EXISTS, ADD COLUMN IF NOT EXISTS, UPDATE jen dosud nevyčištěných řádků).
 
 -- (4a) příznak automaticky nahrazeného kódu + backfill
@@ -37,7 +38,7 @@ UPDATE public.branch_door_codes o SET superseded_by_regen = true
  WHERE o.is_active = false AND o.superseded_by_regen = false AND o.sent_to_customer = true
    AND EXISTS (SELECT 1 FROM public.branch_door_codes n
                 WHERE n.booking_id = o.booking_id AND n.code_type = o.code_type AND n.id <> o.id
-                  AND n.created_at = o.updated_at);
+                  AND (n.created_at = o.updated_at OR n.sent_at = o.updated_at));   -- created_at mohl posunout re-notify brány
 
 -- (1) popisy dveří kójí motorek (číslo kóje = jediný název)
 DO $$
@@ -67,7 +68,7 @@ DECLARE
   v_door public.branch_doors%ROWTYPE; v_dc public.branch_door_codes%ROWTYPE; v_svc public.branch_service_codes%ROWTYPE;
   v_box integer; v_doors jsonb; v_code text := btrim(coalesce(p_code,''));
   v_release timestamptz; v_moto uuid;
-  v_found boolean; v_n integer; v_x public.branch_door_codes%ROWTYPE; v_reason text; v_hint jsonb := '{}'::jsonb;
+  v_found boolean; v_n integer := 0; v_x public.branch_door_codes%ROWTYPE; v_reason text;
 BEGIN
   IF v_code = '' THEN RETURN jsonb_build_object('ok',false,'error','missing_inputs'); END IF;
   v_bid := public.kiosk_device_branch(p_device_id, p_device_token, true);
@@ -124,31 +125,33 @@ BEGIN
     END IF;
   END IF;
   IF NOT v_found THEN
-    -- 2026-10-05: kód existuje, ale teď neplatí → důvod (jednotka ≥ 1.2.5: hláška, NEpočítá se do lockoutu);
-    -- `replaced:true` zůstává pro zpětnou kompatibilitu. Neznámý kód = holé invalid_code (počítá se).
+    -- 2026-10-05: kód, který už nic neotevře (nahrazený, zneplatněný, prošlý) nebo začne platit do 24 h → `reason`
+    -- (jednotka ≥ 1.2.5: hláška, NEpočítá se do lockoutu). Zadržený, vzdáleně budoucí kód a kód jiné pobočky = holé
+    -- invalid_code (počítá se) — jinak by displej bez trestu prozrazoval kódy, které jednou otevřou (hádání).
     SELECT * INTO v_x FROM public.branch_door_codes c
      WHERE c.branch_id = v_bid AND c.door_code = v_code AND c.is_active ORDER BY c.updated_at DESC LIMIT 1;
-    IF FOUND THEN
-      IF NOT coalesce(v_x.sent_to_customer, false) THEN v_reason := 'withheld';
+    IF NOT FOUND AND v_n = 1 THEN
+      -- alias, jehož aktuální kód teď neplatí → důvod podle aktuálního kódu té rezervace
+      SELECT n.* INTO v_x FROM public.branch_door_codes o
+        JOIN public.branch_door_codes n ON n.booking_id = o.booking_id AND n.code_type = o.code_type AND n.is_active
+       WHERE o.door_code = v_code AND o.is_active = false AND o.sent_to_customer = true AND o.superseded_by_regen
+       ORDER BY (n.branch_id = v_bid) DESC, n.updated_at DESC LIMIT 1;
+      IF NOT FOUND THEN v_reason := 'revoked'; END IF;
+    END IF;
+    IF v_x.id IS NOT NULL THEN
+      IF v_x.branch_id <> v_bid OR NOT coalesce(v_x.sent_to_customer, false) THEN v_reason := NULL;
       ELSIF v_x.valid_from IS NOT NULL AND v_x.valid_from > now() THEN
-        v_reason := 'not_yet_valid'; v_hint := jsonb_build_object('valid_from', v_x.valid_from);
-      ELSE v_reason := 'expired';
+        v_reason := CASE WHEN v_x.valid_from <= now() + interval '24 hours' THEN 'not_yet_valid' END;
+      ELSIF v_x.valid_until IS NOT NULL AND v_x.valid_until < now() THEN v_reason := 'expired';
       END IF;
-    ELSE
-      SELECT c.* INTO v_x FROM public.branch_door_codes c
-        JOIN public.bookings b ON b.id = c.booking_id AND b.status IN ('reserved','active') AND b.is_test IS NOT TRUE
-       WHERE c.door_code = v_code AND c.is_active AND c.sent_to_customer AND c.branch_id <> v_bid
-       ORDER BY c.updated_at DESC LIMIT 1;
-      IF FOUND THEN
-        v_reason := 'wrong_branch';
-        v_hint := jsonb_build_object('branch_name', (SELECT br.name FROM public.branches br WHERE br.id = v_x.branch_id));
-      ELSIF EXISTS (SELECT 1 FROM public.branch_door_codes o
-                      JOIN public.bookings b ON b.id = o.booking_id
-                     WHERE o.door_code = v_code AND o.is_active = false AND o.sent_to_customer = true
-                       AND b.status IN ('reserved','active') AND b.is_test IS NOT TRUE
-                       AND EXISTS (SELECT 1 FROM public.branch_door_codes n
-                                    WHERE n.booking_id = o.booking_id AND n.code_type = o.code_type AND n.id <> o.id
-                                      AND n.is_active AND n.sent_to_customer)) THEN
+    ELSIF v_reason IS NULL THEN
+      IF EXISTS (SELECT 1 FROM public.branch_door_codes o
+                   JOIN public.bookings b ON b.id = o.booking_id
+                  WHERE o.door_code = v_code AND o.is_active = false AND o.sent_to_customer = true
+                    AND b.status IN ('reserved','active') AND b.is_test IS NOT TRUE
+                    AND EXISTS (SELECT 1 FROM public.branch_door_codes n
+                                 WHERE n.booking_id = o.booking_id AND n.code_type = o.code_type AND n.id <> o.id
+                                   AND n.is_active AND n.sent_to_customer)) THEN
         v_reason := 'replaced';
       ELSIF EXISTS (SELECT 1 FROM public.branch_door_codes o
                      WHERE o.door_code = v_code AND o.is_active = false AND o.sent_to_customer = true
@@ -158,7 +161,7 @@ BEGIN
       END IF;
     END IF;
     RETURN jsonb_build_object('ok',false,'error','invalid_code')
-      || CASE WHEN v_reason IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('reason', v_reason) || v_hint END
+      || CASE WHEN v_reason IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('reason', v_reason) END
       || CASE WHEN v_reason = 'replaced' THEN jsonb_build_object('replaced', true) ELSE '{}'::jsonb END;
   END IF;
 
