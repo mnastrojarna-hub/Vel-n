@@ -64,7 +64,7 @@ export default function StkTab() {
         const { data: { user } } = await supabase.auth.getUser()
         await supabase.from('admin_audit_log').insert({
           admin_id: user?.id, action: 'stk_updated',
-          details: { moto_id: motoId, stk_valid_until: editVal || null },
+          new_data: { moto_id: motoId, stk_valid_until: editVal || null },
         })
       } catch {}
     } catch (e) {

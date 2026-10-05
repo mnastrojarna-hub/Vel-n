@@ -91,7 +91,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: 'door_codes_emergency_generated',
-        details: { booking_id: booking.id, branch_id: branchId, withheld: !hasDocuments, locker: needsLocker },
+        new_data: { booking_id: booking.id, branch_id: branchId, withheld: !hasDocuments, locker: needsLocker },
       })
 
       onRefresh()
@@ -153,7 +153,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: 'door_code_resent',
-        details: { code_id: code.id, booking_id: code.booking_id, released: data.released },
+        new_data: { code_id: code.id, booking_id: code.booking_id, released: data.released },
       })
 
       onRefresh()

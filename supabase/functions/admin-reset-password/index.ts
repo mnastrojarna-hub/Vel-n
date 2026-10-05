@@ -83,7 +83,7 @@ serve(async (req: Request): Promise<Response> => {
       await adminClient.from('admin_audit_log').insert({
         admin_id: adminUser.id,
         action: 'customer_password_reset',
-        details: { customer_user_id: user_id, method: 'direct' },
+        new_data: { customer_user_id: user_id, method: 'direct' },
       })
 
       return new Response(JSON.stringify({ success: true, method: 'direct' }), {
@@ -120,7 +120,7 @@ serve(async (req: Request): Promise<Response> => {
         await adminClient.from('admin_audit_log').insert({
           admin_id: adminUser.id,
           action: 'customer_password_reset_email',
-          details: { customer_user_id: user_id, email, method: 'email' },
+          new_data: { customer_user_id: user_id, email, method: 'email' },
         })
 
         return new Response(JSON.stringify({ success: true, method: 'email', email }), {
@@ -141,7 +141,7 @@ serve(async (req: Request): Promise<Response> => {
       await adminClient.from('admin_audit_log').insert({
         admin_id: adminUser.id,
         action: 'customer_password_reset_email',
-        details: { customer_user_id: user_id, email: profile.email, method: 'email' },
+        new_data: { customer_user_id: user_id, email: profile.email, method: 'email' },
       })
 
       return new Response(JSON.stringify({ success: true, method: 'email', email: profile.email }), {

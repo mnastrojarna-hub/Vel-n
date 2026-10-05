@@ -213,7 +213,7 @@ export default function SOSPanel() {
       })
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: 'sos_status_changed',
-        details: { incident_id: id, new_status: newStatus },
+        new_data: { incident_id: id, new_status: newStatus },
       })
     }, { id, newStatus })
     load()

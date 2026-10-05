@@ -123,7 +123,7 @@ export default function InvoicesTab() {
       if (err) throw err
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'invoice_cancelled', details: { invoice_id: invoice.id, number: invoice.number },
+        admin_id: user?.id, action: 'invoice_cancelled', new_data: { invoice_id: invoice.id, number: invoice.number },
       })
       setCancelConfirm(null)
       loadInvoices()

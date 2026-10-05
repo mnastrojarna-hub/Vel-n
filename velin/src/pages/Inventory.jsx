@@ -262,7 +262,7 @@ function AddItemModal({ onClose, onSaved }) {
         })
         if (error) throw error
         const { data: { user } } = await supabase.auth.getUser()
-        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'inventory_item_created', details: {} })
+        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'inventory_item_created', new_data: {} })
         onSaved()
       }, form)
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
@@ -433,7 +433,7 @@ function IssueToBranchModal({ item, onClose, onSaved }) {
 
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: 'inventory_issued_to_branch',
-        details: { sku: item.sku, branch_id: branchId, branch_name: branchName, qty: n },
+        new_data: { sku: item.sku, branch_id: branchId, branch_name: branchName, qty: n },
       })
       onSaved()
     } catch (e) {

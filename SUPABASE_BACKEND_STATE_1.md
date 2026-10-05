@@ -218,7 +218,7 @@
 
 | Tabulka | Popis |
 |---------|-------|
-| `admin_audit_log` | Audit log admin akcí — **OPRAVENO 2026-06-04 dle snapshotu:** reálné sloupce `id, admin_id, action, entity_type, entity_id, old_data jsonb, new_data jsonb, ip_address, created_at`. **NEMÁ sloupec `details`** (dřívější docs i kód edge fn `generate-invoice` ho omylem používaly → INSERT tiše selhával; diagnostika přesunuta do `debug_log`). |
+| `admin_audit_log` | Audit log admin akcí — **OPRAVENO 2026-06-04 dle snapshotu:** reálné sloupce `id, admin_id, action, entity_type, entity_id, old_data jsonb, new_data jsonb, ip_address, created_at`. **NEMÁ sloupec `details`** (dřívější docs i kód edge fn `generate-invoice` ho omylem používaly → INSERT tiše selhával; diagnostika přesunuta do `debug_log`). **OPRAVENO 2026-10-05 (bez SQL):** Velín (52 zápisů ve 43 souborech) a edge `generate-document`, `admin-reset-password` posílaly údaje do neexistujícího `details` → INSERT tiše selhal a akce se nezapsaly (smazání rezervací, hromadné akce, kódy, ceník, šablony, servis …); nově `new_data` (čte ho i AI copilot `get_audit_log`). Kontrola: každý insert jen se sloupci tabulky. |
 | `debug_log` | Debug log (source, action, component, status, request/response_data, error_message, duration_ms, created_at) |
 | `app_crash_reports` | **NEW v docs 2026-06-04 (ze snapshotu)** — Pády appky (user_id, app_version, platform, screen, action, error_type, error_message, stack_trace, severity, extra_data jsonb, created_at) |
 | `app_debug_logs` | **NEW v docs 2026-06-04 (ze snapshotu)** — Debug logy z appky (user_id, app_version, platform, category, action, detail, data jsonb, duration_ms, created_at) |

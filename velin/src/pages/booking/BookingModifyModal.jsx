@@ -354,7 +354,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         const { data: { user } } = await supabase.auth.getUser()
         await supabase.from('admin_audit_log').insert({
           admin_id: user?.id, action: 'booking_modified',
-          details: { booking_id: booking.id, dates_changed: datesChanged, times_changed: timesChanged, moto_changed: motoChanged, delivery_changed: deliveryChanged, own_gear_changed: ownGearChanged, price_diff: priceDiff, charged: chargeCustomer, new_total: chargeCustomer ? newTotalPrice : origPaidPrice }
+          new_data: { booking_id: booking.id, dates_changed: datesChanged, times_changed: timesChanged, moto_changed: motoChanged, delivery_changed: deliveryChanged, own_gear_changed: ownGearChanged, price_diff: priceDiff, charged: chargeCustomer, new_total: chargeCustomer ? newTotalPrice : origPaidPrice }
         })
       } catch {}
       // Při zkrácení rezervace (záporný rozdíl) → refund + dobropis přes process-refund.

@@ -186,7 +186,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
       const result = await debugAction('bookings.create', 'NewBookingModal', () => supabase.from('bookings').insert(bookingData).select().single(), bookingData)
       if (result?.error) throw result.error
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'booking_created_admin', details: { booking_id: result.data?.id, moto: selectedMoto.model, customer: selectedCustomer.full_name, no_payment: noPayment } })
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'booking_created_admin', new_data: { booking_id: result.data?.id, moto: selectedMoto.model, customer: selectedCustomer.full_name, no_payment: noPayment } })
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }

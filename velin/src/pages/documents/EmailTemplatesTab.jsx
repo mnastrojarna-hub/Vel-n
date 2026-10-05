@@ -600,13 +600,13 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
           supabase.from('email_templates').insert(payload).select().single()
         , payload)
         if (result?.error) throw result.error
-        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'email_template_created', details: { template_id: result.data?.id, slug: payload.slug } })
+        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'email_template_created', new_data: { template_id: result.data?.id, slug: payload.slug } })
       } else {
         const result = await debugAction('emailTemplate.update', 'EditEmailTemplateModal', () =>
           supabase.from('email_templates').update(payload).eq('id', template.id)
         , payload)
         if (result?.error) throw result.error
-        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'email_template_updated', details: { template_id: template.id } })
+        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'email_template_updated', new_data: { template_id: template.id } })
       }
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }

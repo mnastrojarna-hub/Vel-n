@@ -22,7 +22,7 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
 
   async function audit(action, details) {
     try { const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, details })
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, new_data: details })
     } catch {}
   }
 

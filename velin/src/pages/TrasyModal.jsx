@@ -355,7 +355,7 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: isEdit ? 'route_updated' : 'route_created',
-        details: { name: payload.name },
+        new_data: { name: payload.name },
       })
       // Auto-překlad trasy na pozadí
       if (routeId && (payload.name || payload.description)) {

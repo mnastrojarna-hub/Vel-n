@@ -44,7 +44,7 @@ export default function CompanyTab() {
       }
     }
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'company_info_updated', details: values })
+    await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'company_info_updated', new_data: values })
     setSaving(false)
   }
 

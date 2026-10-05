@@ -213,7 +213,7 @@ export default function BlogWizard({ entry, onClose, onSaved }) {
     await supabase.from('admin_audit_log').insert({
       admin_id: user?.id,
       action: (isEdit || draftIdRef.current) ? 'blog_article_updated' : 'blog_article_created',
-      details: { slug: payload.slug, title: payload.title, published: payload.published },
+      new_data: { slug: payload.slug, title: payload.title, published: payload.published },
     })
 
     // Auto-překlad do 7 jazyků (en, de, es, fr, nl, pl, uk) — vždy, i pro koncept,

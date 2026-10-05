@@ -553,7 +553,7 @@ table td, table th { border: 1px solid #d4e8e0; padding: 4px 8px; }
     try {
       await supabase.from('admin_audit_log').insert({
         action: 'document_generated',
-        details: { document_id: docId, template_slug, booking_id },
+        new_data: { document_id: docId, template_slug, booking_id },
       })
     } catch (e) { /* ignore */ }
 
