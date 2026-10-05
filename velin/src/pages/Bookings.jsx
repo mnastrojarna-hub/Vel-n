@@ -16,6 +16,7 @@ import PickupsReturns from './booking/PickupsReturns'
 import BookingsTable from './booking/BookingsTable'
 import BookingsExtendedFilters from './booking/BookingsExtendedFilters'
 import BookingCancelModal from './booking/BookingCancelModal'
+import BranchChips from './booking/BranchChips'
 import { CheckboxFilterGroup, FilterSelect } from './booking/BookingsFilters'
 import { CANCEL_REASONS, PAYMENT_STATUS_FILTER_OPTIONS } from './booking/bookingConstants'
 import { cancelBookingFromVelin } from './booking/bookingMessageHelpers'
@@ -129,6 +130,11 @@ export default function Bookings() {
         // Žádná shoda → vynutíme prázdný výsledek
         searchOr = parts.length > 0 ? parts.join(',') : 'id.eq.00000000-0000-0000-0000-000000000000'
       }
+      let branchMotoIds = null
+      if (filters.branch) {
+        const { data: bm } = await supabase.from('motorcycles').select('id').eq('branch_id', filters.branch)
+        branchMotoIds = (bm || []).map(m => m.id)
+      }
       const result = await debugAction('bookings.load', 'Bookings', () => {
         let query = supabase
           .from('bookings')
@@ -149,6 +155,8 @@ export default function Bookings() {
         // Skrýt testovací rezervace (is_test) — NULL/false = reálná, projde vždy
         if (filters.hideTest) query = query.not('is_test', 'is', true)
         if (searchOr) query = query.or(searchOr)
+        // Pobočka = pobočka motorky; filtrováno na serveru (dřív až po stránkování → stránka mohla být prázdná)
+        if (branchMotoIds) query = query.in('moto_id', branchMotoIds.length ? branchMotoIds : ['00000000-0000-0000-0000-000000000000'])
         return query.order(filters.sortBy, { ascending: filters.sortDir === 'asc' })
           .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       }, { page, filters })
@@ -171,7 +179,6 @@ export default function Bookings() {
       if (filters.motoModel) data = data.filter(b => b.motorcycles?.model?.toLowerCase().includes(filters.motoModel.toLowerCase()))
       if (filters.country) data = data.filter(b => b.profiles?.country === filters.country)
       if (filters.licenseGroup) data = data.filter(b => b.profiles?.license_group?.includes?.(filters.licenseGroup))
-      if (filters.branch) data = data.filter(b => b.motorcycles?.branch_id === filters.branch)
       if (filters.durationMin || filters.durationMax) {
         data = data.filter(b => {
           const _s = new Date(b.start_date); _s.setHours(0,0,0,0)
@@ -301,6 +308,9 @@ export default function Bookings() {
         </div>
       </div>
 
+      {/* Pobočka — společně pro seznam, kalendář i odjezdy a návraty (zadání majitele 2026-10-06) */}
+      <BranchChips branches={branches} value={filters.branch} onChange={id => setF('branch', id)} />
+
       {showFilters && view === 'Seznam' && (
         <BookingsExtendedFilters filters={filters} setF={setF} branches={branches} resetFilters={resetFilters} />
       )}
@@ -323,15 +333,15 @@ export default function Bookings() {
       )}
 
       {view === 'Odjezdy a návraty' ? (
-        <PickupsReturns />
+        <PickupsReturns branchId={filters.branch || ''} />
       ) : view === 'Kalendář' ? (
-        <GlobalCalendar />
+        <GlobalCalendar branchId={filters.branch || ''} branches={branches} />
       ) : loading ? (
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
           <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} scanStatus={scanStatus} appInstalls={appInstalls} setDeleteConfirm={setDeleteConfirm} setCancelTarget={setCancelTarget}
-            selected={selected} setSelected={setSelected} />
+            selected={selected} setSelected={setSelected} branches={branches} />
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}

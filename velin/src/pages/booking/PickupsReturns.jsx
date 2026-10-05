@@ -6,6 +6,7 @@ import Card from '../../components/ui/Card'
 import DocsStatusPills, { loadDocScans } from '../../components/DocsStatusPills'
 import CheckInModal from './CheckInModal'
 import SwapModal from './SwapModal'
+import { shortBranchName } from './BranchChips'
 
 // Odjezdy (vyzvednutí) a návraty (vrácení) — události seřazené podle data a času,
 // kdy se zákazník má dostavit na pobočku. Plus kalendář (heatmapa) zvýrazňující
@@ -241,6 +242,7 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans }) 
       <span className="shrink-0 hidden sm:flex" style={{ width: 86 }}>{typeTag}</span>
       <span className="shrink-0 sm:hidden text-base" title={t.label}>{t.emoji}</span>
       <span className="font-extrabold text-sm truncate" style={{ color: '#0f1a14', minWidth: 0, flex: '1 1 130px' }}>{ev.moto}{ev.spz ? ` · ${ev.spz}` : ''}</span>
+      <span className="text-[11px] font-extrabold shrink-0 lg:hidden rounded-btn" style={{ padding: '1px 6px', background: '#e0f2fe', color: '#0369a1' }}>{ev.delivery ? '🚚' : shortBranchName(ev.branch) || 'pobočka'}</span>
       <span className="text-sm truncate hidden md:block" style={{ color: '#1a2e22', flex: '1 1 100px', minWidth: 0 }}>{ev.customer}</span>
       <span className="shrink-0"><DocsPills ev={ev} scans={scans} /></span>
       <span className="text-sm font-mono shrink-0 hidden lg:inline" style={{ color: '#64748b' }}>{bookingNo(ev.booking.id)}</span>
@@ -264,7 +266,8 @@ function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap, scans
   )
 }
 
-export default function PickupsReturns({ compact = false, onExpand }) {
+// branchId (Rezervace → přepínač Pobočka): '' = všechny, id = jen ta pobočka; undefined (Dashboard) = vlastní výběr
+export default function PickupsReturns({ compact = false, onExpand, branchId }) {
   const navigate = useNavigate()
   const [bookings, setBookings] = useState([])
   const [branches, setBranches] = useState([])
@@ -310,9 +313,10 @@ export default function PickupsReturns({ compact = false, onExpand }) {
     setLoading(false)
   }
 
+  const activeBranch = branchId !== undefined ? branchId : branchFilter
   const filtered = useMemo(
-    () => (branchFilter ? bookings.filter(b => b.motorcycles?.branch_id === branchFilter) : bookings),
-    [bookings, branchFilter]
+    () => (activeBranch ? bookings.filter(b => b.motorcycles?.branch_id === activeBranch) : bookings),
+    [bookings, activeBranch]
   )
   const swapPairs = useMemo(() => detectSwapPairs(bookings), [bookings])
   const events = useMemo(() => buildEvents(filtered, protocolIds, swapPairs), [filtered, protocolIds, swapPairs])
@@ -389,7 +393,7 @@ export default function PickupsReturns({ compact = false, onExpand }) {
           </button>
         )}
         <span className="inline-block rounded-full text-sm font-extrabold" style={{ background: '#dcfce7', color: '#15803d', padding: '2px 10px' }}>{upcoming.length} nadcházejících</span>
-        {branches.length > 1 && (
+        {branchId === undefined && branches.length > 1 && (
           <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)}
             className="rounded-btn text-sm font-bold cursor-pointer ml-auto"
             style={{ padding: '7px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
