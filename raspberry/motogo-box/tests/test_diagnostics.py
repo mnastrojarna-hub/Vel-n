@@ -145,12 +145,10 @@ async def test_submit_code_local_diag_code_even_when_not_ready(tmp_path, sim):
     assert res["ok"] and res["kind"] == "diagnostics" and res["diagnostics"]["started"]
     report = await ctrl.diagnostics.wait()
     assert report["source"] == "local_code" and report["reason"] == "ui"     # Velín SOURCE_CZ
-    # během PIN lockoutu se ani diagnostický kód nepřijme (hádání kódů)
+    # 2026-10-05: lokální diagnostický kód = servisní přístup → projde i během PIN lockoutu a lockout zruší
     ctrl.storage.set_lockout_until(time.time() + 600)
-    assert (await ctrl.submit_code("netdiag", "ui"))["error"] == "locked"
-    ctrl.storage.set_lockout_until(None)
     res = await ctrl.submit_code("netdiag", "ui")
-    assert res["ok"] and res["kind"] == "diagnostics" and res["diagnostics"]["started"]
+    assert res["ok"] and res["kind"] == "diagnostics" and ctrl.storage.lockout_until() is None
     again = await ctrl.submit_code("netdiag", "ui")
     assert again["ok"] and again["kind"] == "diagnostics" and again["message"].endswith("už běží")
     await ctrl.diagnostics.wait()

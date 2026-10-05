@@ -26,7 +26,8 @@ export default function BookingsBulkActionsModal({ open, onClose, selectedBookin
   async function logAudit(action, details) {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, details })
+      // admin_audit_log nemá sloupec `details` (STATE_1) — údaje do new_data, jinak INSERT tiše selže
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, entity_type: 'bookings', new_data: details })
     } catch {}
   }
 
@@ -104,10 +105,18 @@ export default function BookingsBulkActionsModal({ open, onClose, selectedBookin
 
   async function handleDelete() {
     if (!window.confirm(`TRVALE smazat ${count} rezervací? Tato akce je nevratná.`)) return
-    await run('Rezervace smazány', async () => {
-      const { error: err } = await supabase.from('bookings').delete().in('id', ids)
-      if (err) throw err
-      await logAudit('booking_bulk_deleted', { count, ids })
+    // Živou rezervaci DB nesmaže (trg_guard_booking_delete, 2026-10-05 — zákazník má kódy; nejdřív Storno) a jeden
+    // DELETE by spadl celý → živé vyřadit předem a vypsat, zbytek smazat.
+    const live = selectedBookings.filter(b => ['reserved', 'active'].includes(b.status))
+    const delIds = selectedBookings.filter(b => !['reserved', 'active'].includes(b.status)).map(b => b.id)
+    const liveText = live.map(b => `#${String(b.id).slice(-8).toUpperCase()}${b.profiles?.full_name ? ` (${b.profiles.full_name})` : ''}`).join(', ')
+    await run(`Rezervace smazány: ${delIds.length}`, async () => {
+      if (delIds.length) {
+        const { error: err } = await supabase.from('bookings').delete().in('id', delIds)
+        if (err) throw new Error(`Nesmazána žádná rezervace: ${err.message}`)
+        await logAudit('booking_bulk_deleted', { count: delIds.length, ids: delIds })
+      }
+      if (live.length) throw new Error(`${delIds.length ? `Smazáno ${delIds.length}. ` : ''}NESMAZÁNO ${live.length} potvrzených / probíhajících rezervací — zákazník má přístupové kódy, nejdřív je stornujte: ${liveText}`)
     })
   }
 

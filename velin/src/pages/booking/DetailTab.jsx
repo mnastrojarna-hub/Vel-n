@@ -45,9 +45,6 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
     supabase.from('booking_extras').select('*, extras_catalog(name, price_per_day)')
       .eq('booking_id', booking.id)
       .then(({ data }) => { if (data) setBookingExtras(data) }).catch(() => {})
-    supabase.from('branch_door_codes').select('*')
-      .eq('booking_id', booking.id).order('code_type').order('created_at', { ascending: false })
-      .then(({ data }) => { if (data) setDoorCodes(data) }).catch(() => {})
     supabase.from('booking_discounts').select('*')
       .eq('booking_id', booking.id).order('created_at')
       .then(({ data }) => { if (data) setBookingDiscounts(data) }).catch(() => {})
@@ -57,6 +54,20 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         .then(({ data }) => { if (data) setCancellation(data) }).catch(() => {})
     }
   }, [booking?.id])
+
+  // Přístupové kódy VŽDY aktuální (2026-10-05, zadání majitele): načíst při otevření i po změně motorky a průběžně
+  // přes realtime — dřív se načetly jen jednou a po změně motorky / přesunu / uvolnění kódu Velín ukazoval starý stav.
+  useEffect(() => {
+    if (!booking?.id) return
+    const load = () => supabase.from('branch_door_codes').select('*')
+      .eq('booking_id', booking.id).order('code_type').order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setDoorCodes(data) }).catch(() => {})
+    load()
+    const channel = supabase.channel(`booking-door-codes-${booking.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'branch_door_codes', filter: `booking_id=eq.${booking.id}` }, load)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [booking?.id, booking?.moto_id])
 
   useEffect(() => {
     const mid = booking?.motorcycles?.id

@@ -160,7 +160,7 @@ function EditTemplateModal({ template, onClose, onSaved }) {
       , updatePayload)
       if (result?.error) throw result.error
       await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'template_updated', details: { template_id: template.id, version: newVersion },
+        admin_id: user?.id, action: 'template_updated', new_data: { template_id: template.id, version: newVersion },
       })
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
@@ -179,7 +179,7 @@ function EditTemplateModal({ template, onClose, onSaved }) {
       if (uploadResult?.error) throw uploadResult.error
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'template_pdf_uploaded', details: { template_id: template.id, path },
+        admin_id: user?.id, action: 'template_pdf_uploaded', new_data: { template_id: template.id, path },
       })
     } catch (e) { setErr(e.message) }
     setUploading(false)

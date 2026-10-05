@@ -318,7 +318,7 @@ function FaqEditor({ entry, categories, onClose, onSaved }) {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: entry ? 'faq_updated' : 'faq_created',
-        details: { id: savedId, question: stripTagsLite(payload.question).slice(0, 80) }
+        new_data: { id: savedId, question: stripTagsLite(payload.question).slice(0, 80) }
       })
       // Zneplatni cache webu (page_cache) i znalostní bázi AI agenta, aby se
       // změna projevila hned — jinak web drží starý HTML až 10 min a agent

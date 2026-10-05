@@ -90,7 +90,7 @@ function BranchModal({ existing, onClose, onSaved }) {
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: isEdit ? 'branch_updated' : 'branch_created',
-        details: { name: form.name },
+        new_data: { name: form.name },
       })
       // Auto-překlad poznámky pro web (na pozadí)
       const branchId = result?.data?.id || existing?.id

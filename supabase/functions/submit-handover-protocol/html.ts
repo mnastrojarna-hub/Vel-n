@@ -104,13 +104,16 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
   const checkList = HANDOVER_CHECKS.map((c) => `<div style="font-size:12px;margin:5px 0">${checks[c.key] ? '☑' : '☐'} ${esc(c.label)}</div>`).join('')
   const extraList = EXTRA_GEAR_CHECKS.filter((c) => !(motoEq.length && EXTRA_IN_MOTO_EQUIPMENT.has(c.key)))
     .map((c) => `<div style="font-size:12px;margin:5px 0">${checks[c.key] ? '☑' : '☐'} ${esc(c.label)}</div>`).join('')
-  const accRows = accessories.map((a) => `<tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600">${esc(a.label)}</td><td style="padding:6px 8px;border:1px solid #ddd">${esc(a.size || '')}</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center;width:80px;font-size:14px">${a.checked ? '☑' : '☐'}</td></tr>`).join('')
+  const accRows = accessories.map((a) => `<tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600">${esc(a.label)}${a.extra ? ' <span style="font-weight:400;color:#666">(navíc)</span>' : ''}</td><td style="padding:6px 8px;border:1px solid #ddd">${esc(a.size || '')}</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center;width:80px;font-size:14px">${a.checked ? '☑' : '☐'}</td></tr>`).join('')
   const accTable = accRows
     ? `<table style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;border:1px solid #ddd"><tr><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Položka</th><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Velikost</th><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:center;font-size:10px;text-transform:uppercase">Předáno</th></tr>${accRows}</table>`
     : '<p style="font-size:12px">Žádná zapůjčená výbava.</p>'
   // Nepřevzatá položka, kterou edge z rezervace odebrala (gear.ts `removed`) — poznámka jen tehdy.
-  const accNote = accessories.some((a) => a.removed)
-    ? '<p style="font-size:10px;color:#666;margin:2px 0 0">☐ = nepřevzato — položka byla z rezervace odebrána.</p>' : ''
+  const accNote = (accessories.some((a) => a.removed)
+    ? '<p style="font-size:10px;color:#666;margin:2px 0 0">☐ = nepřevzato — položka byla z rezervace odebrána.</p>' : '') +
+    // Převzato navíc (gear.ts `extra`): v rezervaci nebyla, nájemce si ji při převzetí vzal (2026-10-05).
+    (accessories.some((a) => a.extra)
+      ? '<p style="font-size:10px;color:#666;margin:2px 0 0">(navíc) = položka nebyla v rezervaci, nájemce si ji při převzetí vzal navíc.</p>' : '')
   const motoBlock = motoEq.length
     ? `<h3 style="font-size:13px;margin-top:14px">Výbava motorky</h3><p style="font-size:11px;color:#666;margin:2px 0 6px">${esc(MOTO_EQUIPMENT_NOTE)}</p>` +
       motoEq.map((m) => `<div style="font-size:12px;margin:5px 0">${m.checked ? '☑' : '☐'} ${m.qty > 1 ? `${m.qty}× ` : ''}${esc(m.label)}</div>`).join('')

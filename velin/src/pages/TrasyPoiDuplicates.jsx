@@ -60,7 +60,7 @@ export default function TrasyPoiDuplicates() {
         const { data: { user } } = await supabase.auth.getUser()
         await supabase.from('admin_audit_log').insert({
           admin_id: user?.id, action: 'catalog_poi_merged',
-          details: { keep: keep.name, dropped: drop.name, keep_id: keep.id, drop_id: drop.id },
+          new_data: { keep: keep.name, dropped: drop.name, keep_id: keep.id, drop_id: drop.id },
         })
       } catch {}
       setDone(s => new Set(s).add(drop.id))

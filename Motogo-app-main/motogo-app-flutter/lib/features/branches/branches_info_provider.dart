@@ -41,7 +41,7 @@ const Map<String, String> branchesInfoDefaults = {
 /// stejně jako na webu, CMS řídí jen texty.
 const List<String> branchesInfoMapQueries = [
   'Mezná 9, 393 01 Pelhřimov',
-  '49.0046725,16.6721528',
+  '49.0043289,16.6721237',
 ];
 
 /// `branches.id` pobočky karty (pořadí = `branches.<i>`, shodně s webem

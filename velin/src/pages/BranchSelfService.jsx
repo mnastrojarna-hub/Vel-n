@@ -172,7 +172,8 @@ function TabSelfService({ branchId, branchName, motos }) {
       const rows = []
       ;(motos || []).filter(m => m.box_number != null).forEach(m => {
         if (!existing.has(m.box_number)) {
-          const row = { door_kind: 'motorcycle', box_number: m.box_number, label: `Kóje ${m.box_number} — ${m.model || ''}`.trim() }
+          // Bez modelu motorky (2026-10-05): motorky se mezi kójemi přesouvají, popis by pak ukazoval jinou motorku
+          const row = { door_kind: 'motorcycle', box_number: m.box_number, label: null }
           rows.push({ branch_id: branchId, ...row, hw: defaultDoorHw(row) || {} })   // výchozí HW mapa podle čísla kóje
         }
       })
@@ -525,8 +526,10 @@ function DoorsBlock({ doors, onEnsure, onSave, onDelete, busy }) {
                 style={{ padding: '2px 6px', background: hasHw(d) ? '#eef6f2' : '#fef3c7', color: hasHw(d) ? '#1a2e22' : '#b45309' }}>
                 {hasHw(d) ? `RPi zóna ${d.hw?.zone ?? '?'}` : 'bez RPi mapy'}
               </span>
-              <Field label="Popis" value={d.label} onCommit={v => onSave(d.id, { label: v })} width={150}
-                title="Vlastní název těchto dveří. Zobrazí se ve Velíně I NA DISPLEJI pobočky místo výchozího „Kóje 3“ / „Šatna“ — pozor, vlastní popis se NEPŘEKLÁDÁ do cizích jazyků. Prázdné = použije se výchozí název." />
+              {d.door_kind === 'accessories' && (
+                <Field label="Popis" value={d.label} onCommit={v => onSave(d.id, { label: v })} width={150}
+                  title="Vlastní název šatny. Zobrazí se ve Velíně I NA DISPLEJI pobočky místo výchozího „Šatna“ — pozor, vlastní popis se NEPŘEKLÁDÁ do cizích jazyků. Prázdné = použije se výchozí název. Kóje motorek mají vždy jen číslo (motorky se mezi kójemi přesouvají)." />
+              )}
               <button onClick={() => onDelete(d.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none self-center"
                 style={{ padding: '6px 8px', background: '#fee2e2', color: '#dc2626' }}>Smazat</button>
             </div>

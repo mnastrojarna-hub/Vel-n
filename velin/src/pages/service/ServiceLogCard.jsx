@@ -55,7 +55,7 @@ export default function ServiceLogCard({ log, moto, onReload }) {
       await supabase.from('motorcycles').update({ status: 'active', last_service_date: today }).eq('id', log.moto_id)
     }
     const { data: { user } } = await supabase.auth.getUser()
-    try { await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'service_completed', details: { log_id: log.id, moto_id: log.moto_id } }) } catch {}
+    try { await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'service_completed', new_data: { log_id: log.id, moto_id: log.moto_id } }) } catch {}
     setEnding(false)
     onReload()
   }

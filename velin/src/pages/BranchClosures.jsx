@@ -93,7 +93,7 @@ export function TabClosures({ branch }) {
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: 'branch_closure_created',
-        details: { branch: branch.name, from, to, reason: payload.reason },
+        new_data: { branch: branch.name, from, to, reason: payload.reason },
       })
       const conflicts = await countConflicts(from, to)
       if (conflicts > 0) {
@@ -117,7 +117,7 @@ export function TabClosures({ branch }) {
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: 'branch_closure_deleted',
-        details: { branch: branch.name, from: row.closed_from, to: row.closed_to },
+        new_data: { branch: branch.name, from: row.closed_from, to: row.closed_to },
       })
       load()
     } catch (e) {

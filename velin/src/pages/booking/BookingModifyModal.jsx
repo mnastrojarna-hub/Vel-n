@@ -277,6 +277,14 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
       if (motoChanged) saveData.moto_id = selectedMotoId
       // Vlastní výbava se zapisuje JEN při změně (trigger trg_sync_locker_code pak sám vydá / zadrží kód šatny)
       if (ownGearChanged) saveData.own_gear = ownGear === '' ? null : ownGear === 'true'
+      // „Ano — vlastní výbava“ smaže velikosti základní výbavy řidiče (parita s appkou) — jinak by je protokol
+      // na displeji ukázal jako objednanou výbavu. Jen dokud výbava neodešla: po převzetí / podpisu protokolu jsou
+      // velikosti záznamem toho, co reálně odešlo (faktura, vrácení), a kód šatny už se nemění.
+      const gearHandedOut = booking.status === 'active' || !!booking.gear_collected_at || !!booking.handover_protocol_filled_at
+      const clearedSizes = ownGearChanged && ownGear === 'true' && !gearHandedOut
+        ? Object.fromEntries(['helmet', 'jacket', 'pants', 'gloves'].filter(k => booking[`${k}_size`]).map(k => [k, { from: booking[`${k}_size`], to: null }]))
+        : null
+      if (clearedSizes) Object.assign(saveData, { helmet_size: null, jacket_size: null, pants_size: null, gloves_size: null })
       // Late-pickup sleva (viz persistLate výše) — v režimu „Zdarma“ jen snížení (hradlo kiosku zmizí)
       if (persistLate) saveData.late_pickup_discount_amount = newLate
       // Věrnostní sleva na doplatek (app rezervace) — kumuluje se do
@@ -325,7 +333,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
             ...(priceDiff !== 0 ? { price_diff: priceDiff, charged: chargeCustomer } : {}),
             // Vlastní výbava ve stejném tvaru jako DB trigger track_booking_content_changes (gear_changes) —
             // ten při vlastním zápisu historie z Velína končí hned, změna by se jinak ztratila
-            ...(ownGearChanged ? { gear_changes: { own_gear: { from: booking.own_gear ?? null, to: saveData.own_gear } } } : {}),
+            ...(ownGearChanged ? { gear_changes: { own_gear: { from: booking.own_gear ?? null, to: saveData.own_gear }, ...(clearedSizes || {}) } } : {}),
           })
           saveData.modification_history = history
         }
@@ -346,7 +354,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         const { data: { user } } = await supabase.auth.getUser()
         await supabase.from('admin_audit_log').insert({
           admin_id: user?.id, action: 'booking_modified',
-          details: { booking_id: booking.id, dates_changed: datesChanged, times_changed: timesChanged, moto_changed: motoChanged, delivery_changed: deliveryChanged, own_gear_changed: ownGearChanged, price_diff: priceDiff, charged: chargeCustomer, new_total: chargeCustomer ? newTotalPrice : origPaidPrice }
+          new_data: { booking_id: booking.id, dates_changed: datesChanged, times_changed: timesChanged, moto_changed: motoChanged, delivery_changed: deliveryChanged, own_gear_changed: ownGearChanged, price_diff: priceDiff, charged: chargeCustomer, new_total: chargeCustomer ? newTotalPrice : origPaidPrice }
         })
       } catch {}
       // Při zkrácení rezervace (záporný rozdíl) → refund + dobropis přes process-refund.
@@ -523,6 +531,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
           </select>
           <div className="text-[11px] mt-1" style={{ color: '#6b7280' }}>
             Kód šatny dostane jen ten, kdo má v šatně co vyzvednout (půjčená výbava řidiče, boty nebo výbava spolujezdce).
+            „Ano“ před převzetím smaže velikosti výbavy řidiče (protokol je jinak ukáže jako objednané).
             Po vyzvednutí výbavy ze šatny nebo po podpisu protokolu se kódy už samy nemění.
           </div>
         </div>

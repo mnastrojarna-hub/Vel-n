@@ -17,7 +17,7 @@ import hmac
 import logging
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 from .config import SecurityCfg
@@ -117,6 +117,16 @@ class PinGuard:
                     failures, masked, self.sec.lockout_minutes)
         return until
 
+    def clear(self) -> bool:
+        """Zruší lockout (2026-10-05: servisní heslo na displeji nebo příkaz `pin_unlock` z Velína) a začne nové okno
+        selhání — dosavadní neplatné pokusy se už nepočítají. Vrací True, pokud lockout právě běžel."""
+        was = self.locked_until() is not None
+        self.storage.set_lockout_until(None)
+        self.storage.kv_set(KV_LOCKOUT_STARTED, self.clock())
+        if was:
+            log.warning("PIN lockout zrušen")
+        return was
+
     def register_success(self, masked: str) -> None:
         """Úspěšný kód se jen zaznamená — okno selhání NEresetuje (jinak by držitel jednoho platného
         kódu mohl hádat cizí PINy bez lockoutu, §10); lockout během platného lockoutu nikdy nenastane
@@ -208,7 +218,10 @@ class LocalResolver:
                 continue
             valid_from, valid_until = parse_iso(row.get("valid_from")), parse_iso(row.get("valid_until"))
             if valid_from is not None and now < valid_from:
-                matched_expired = "code_not_yet_valid"
+                # 2026-10-05: „ještě neplatí“ (bez lockoutu) jen do 24 h před začátkem — vzdáleně budoucí kód se tváří
+                # jako neznámý (počítá se), jinak by displej bez trestu prozrazoval kódy budoucích rezervací
+                if valid_from - now <= timedelta(hours=24):
+                    matched_expired = "code_not_yet_valid"
                 continue
             if valid_until is not None and now > valid_until:
                 matched_expired = "code_expired"

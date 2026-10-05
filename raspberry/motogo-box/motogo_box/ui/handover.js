@@ -21,9 +21,10 @@ MG.Handover = (function () {
   ];
   const LOCALE = { cs: 'cs-CZ', en: 'en-GB', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', nl: 'nl-NL', pl: 'pl-PL', uk: 'uk-UA' };
   let deps = null;    // { post, showStatus, getState }
-  const S = { item: null, key: '', code: '', picks: {}, taken: {}, gearSig: '', step: 2, saving: false, lastTouch: 0, msg: null, sig: null, kb: null,
+  const S = { item: null, key: '', code: '', picks: {}, taken: {}, bk: {}, allSeen: false, gearSig: '', step: 2, saving: false, lastTouch: 0, msg: null, sig: null, kb: null,
     timer: null, doneKey: '', ownDone: { id: '', at: 0 }, wait: null };
-  // S.picks[gid] = zvolená velikost, S.taken[gid] (2026-10-05): false = zákazník si položku NEBERE (chip ✕) → edge ji z rezervace
+  // S.picks[gid] = zvolená velikost, S.bk[gid] = položka je v rezervaci (objednaná) / navíc,
+  // S.taken[gid] (2026-10-05): false = zákazník si položku NEBERE (chip ✕) → edge ji z rezervace
   // odebere (bookings.<field> = NULL). Klíč = identita položky (gid), NE index: jednotka `data.gear` během otevřeného protokolu
   // obnovuje ze sync (reconcile) a seznam se může změnit (Velín přidá/odebere položku) — S.gearSig to v sync() pozná.
   // S.msg = {key} (i18n) | {locked: locked_until} | {pickup: release_at} (výdej až od 12:00, §31) ; S.wait = {id, thenOpen, at} — položka zmizela, výsledek řekne stav zón
@@ -31,17 +32,44 @@ MG.Handover = (function () {
 
   function setText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
   const itemKey = (a) => a.booking_id + '|' + (a.shown_at || '');
+  const GEAR_KEYS = ['helmet', 'jacket', 'pants', 'boots', 'gloves'];
   const gearOf = (a) => (Array.isArray(a && a.data && a.data.gear) ? a.data.gear : []);
   const gid = (g) => g.field || ((g.who || 'rider') + ':' + g.key);
-  const gearSig = (a) => JSON.stringify(gearOf(a).map((g) => [gid(g), g.size != null ? String(g.size) : '']));
-  /** Stav voleb výbavy: nová položka = velikost z rezervace + převzato; `keep` = volby už známých položek zachovat (sync). */
+  /** Výbava NAVÍC (2026-10-05, zadání majitele: „co si vezme navíc, musí být v protokolu“): zákazník s přístupem do šatny
+      (protokol po zavření šatny = `kind`/`kind_origin` accessories, nárok na šatnu `needs_locker` — i když šatnu přeskočil
+      kódem motorky —, nebo rezervace s objednanou výbavou) vidí VŠECHNY druhy výbavy —
+      objednané předvybrané, ostatní nepřevzaté; vzal-li si něco navíc, vybere velikost a edge to do rezervace doplní
+      (`form.gear_add`). Bez přístupu do šatny a bez objednané výbavy jen „vlastní výbava“. Dětská motorka = jen řidič. */
+  /** Protokol vznikl zavřením šatny — i když ho zákazník „Zpět“/nečinností skryl a vrátil se kódem motorky (`kind_origin`). */
+  const lockerUsed = (a) => !!(a && (a.kind === 'accessories' || a.kind_origin === 'accessories'));
+  const showAll = (a) => gearOf(a).length > 0 || lockerUsed(a) || !!(a && a.needs_locker === true);
+  function rowsOf(a) {
+    if (!showAll(a) && !S.allSeen) return [];   // jednou nabídnutá výbava navíc nezmizí (Velín mezitím změnil nárok)
+    const gear = gearOf(a), out = [];
+    (a.is_child ? ['rider'] : ['rider', 'passenger']).forEach((who) => GEAR_KEYS.forEach((key) => {
+      const b = gear.find((g) => (g.who || 'rider') === who && g.key === key);
+      out.push(b ? Object.assign({}, b, { who, booked: true })
+        : { key, who, field: (who === 'passenger' ? 'passenger_' : '') + key + '_size', size: '', booked: false });
+    }));
+    gear.forEach((g) => { if (!out.some((r) => r.booked && gid(r) === gid(g))) out.push(Object.assign({}, g, { booked: true })); });
+    return out;
+  }
+  /** Objednaná položka: převzato, dokud nedá ✕; položka navíc: převzato, až když vybere velikost. */
+  const isTaken = (r) => (r.booked ? S.taken[gid(r)] !== false : S.taken[gid(r)] === true);
+  const gearSig = (a) => JSON.stringify([showAll(a), !!(a && a.is_child), gearOf(a).map((g) => [gid(g), g.size != null ? String(g.size) : ''])]);
+  /** Stav voleb výbavy: objednaná položka = velikost z rezervace + převzato, navíc = bez velikosti, nepřevzato;
+      `keep` = volby už známých položek zachovat (sync). */
   function initGear(a, keep) {
-    if (!keep) { S.picks = {}; S.taken = {}; }
-    gearOf(a).forEach((g) => {
-      const id = gid(g);
-      if (keep && Object.prototype.hasOwnProperty.call(S.picks, id)) return;
-      S.picks[id] = g.size != null && g.size !== '' ? String(g.size) : '';
-      S.taken[id] = true;
+    if (!keep) { S.picks = {}; S.taken = {}; S.bk = {}; S.allSeen = false; }
+    if (showAll(a)) S.allSeen = true;
+    rowsOf(a).forEach((r) => {
+      const id = gid(r);
+      // volbu zachovat jen u položky, která zůstala stejného druhu (objednaná ↔ navíc) — Velín ji mezitím mohl
+      // do rezervace přidat: pak platí velikost z rezervace a „převzato“ (nikdy ne „neberu“ = odebrání)
+      if (keep && Object.prototype.hasOwnProperty.call(S.picks, id) && S.bk[id] === !!r.booked) return;
+      S.picks[id] = r.size != null && r.size !== '' ? String(r.size) : '';
+      S.taken[id] = !!r.booked;
+      S.bk[id] = !!r.booked;
     });
     S.gearSig = gearSig(a);
   }
@@ -82,23 +110,24 @@ MG.Handover = (function () {
   }
 
   /** Řádky výbavy: skupina Řidič / Spolujezdec, ikona + název (i18n g.*), chipy velikostí z číselníku (+ aktuální) a na konci
-      chip „✕ Neberu“ (přepínač: `S.taken[gid] = false` → řádek `off`, žádný chip velikosti `on`); klepnutí na velikost bere položku zpět. */
+      chip „✕ Neberu“ (přepínač: objednaná položka → řádek `off`, žádný chip velikosti `on`); klepnutí na velikost bere položku.
+      Položka navíc (není v rezervaci) je ztlumená (`extra`), dokud zákazník nevybere velikost; ✕ ji pak zase vrátí. */
   function renderGear(a) {
     const box = $('ho-gear-list');
     box.textContent = '';
-    const gear = gearOf(a);
-    if (!gear.length) {
+    const all = rowsOf(a);
+    if (!all.length) {
       const p = document.createElement('div'); p.className = 'ho-nogear'; p.textContent = MG.i18n.t('ho.noGear'); box.appendChild(p);
       return;
     }
     ['rider', 'passenger'].forEach((who) => {
-      const rows = gear.filter((g) => (g.who || 'rider') === who);
+      const rows = all.filter((g) => (g.who || 'rider') === who);
       if (!rows.length) return;
       const h = document.createElement('div'); h.className = 'ho-group'; h.textContent = MG.i18n.t('ho.' + who); box.appendChild(h);
       rows.forEach((g) => {
-        const id = gid(g), taken = S.taken[id] !== false;
+        const id = gid(g), taken = isTaken(g);
         const row = document.createElement('div');
-        row.className = 'ho-row' + (taken ? '' : ' off');
+        row.className = 'ho-row' + (taken ? '' : g.booked ? ' off' : ' extra');
         row.innerHTML = '<span class="ho-row-ico"></span><span class="ho-row-name"></span><div class="ho-chips"></div>';
         row.querySelector('.ho-row-ico').textContent = GEAR_ICON[g.key] || '🎽';
         row.querySelector('.ho-row-name').textContent = MG.i18n.g('g', g.key) || g.key || '';
@@ -107,10 +136,15 @@ MG.Handover = (function () {
         if (cur && sizes.indexOf(cur) === -1) sizes.unshift(cur);
         const chips = row.querySelector('.ho-chips');
         if (!sizes.length) { const s = document.createElement('span'); s.className = 'ho-size-na'; s.textContent = '—'; chips.appendChild(s); }
-        sizes.forEach((sz) => chips.appendChild(chip(sz, taken && sz === cur, () => { S.picks[id] = sz; S.taken[id] = true; touch(); renderGear(a); })));
-        const skip = chip('✕ ' + MG.i18n.t('ho.notTaking'), !taken, () => { S.taken[id] = !taken; touch(); renderGear(a); });
-        skip.classList.add('skip');
-        chips.appendChild(skip);
+        sizes.forEach((sz) => chips.appendChild(chip(sz, taken && sz === cur, () => {
+          S.picks[id] = sz; S.taken[id] = true; touch(); renderGear(a);
+          if (S.msg && S.msg.key === 'ho.pickTaken') setMsg(null);
+        })));
+        if (g.booked || taken) {      // položka navíc: ✕ jen pro vrácení volby (nevybraná = nepřevzato)
+          const skip = chip('✕ ' + MG.i18n.t('ho.notTaking'), g.booked && !taken, () => { S.taken[id] = g.booked ? !taken : false; touch(); renderGear(a); });
+          skip.classList.add('skip');
+          chips.appendChild(skip);
+        }
         box.appendChild(row);
       });
     });
@@ -133,7 +167,7 @@ MG.Handover = (function () {
   function motoEquipment() {
     return MOTO_GEAR.map((m) => ({ key: m.key, qty: m.qty || 1, checked: true }));
   }
-  const hasGear = (a) => !!(a && Array.isArray(a.data && a.data.gear) && a.data.gear.length);
+  const hasGear = (a) => rowsOf(a).length > 0;
   /** Přepnutí kroku: 1 = velikosti, 2 = výbava motorky + podpis (+ kód). Podpis zůstává, canvas se po zobrazení přepočítá. */
   function setStep(n) {
     S.step = n;
@@ -153,7 +187,17 @@ MG.Handover = (function () {
       setStep(1);
     } else dismiss();
   }
-  function next() { if (S.item && S.step === 1) { touch(); setStep(2); } }
+  /** Rezervace BEZ objednané výbavy, která otevřela šatnu (zadání majitele 2026-10-05: „nesmí ho to pustit, aniž by vyškrtal
+      nějaké velikosti“), musí vybrat aspoň jednu velikost — platí i po „Zpět“/nečinnosti a návratu kódem motorky
+      (`kind_origin`). Kdo šatnu neotevřel (rovnou kód motorky), má výbavu navíc jen nabídnutou. */
+  const needsPick = (a) => lockerUsed(a) && !gearOf(a).length && !rowsOf(a).some(isTaken);
+  function next() {
+    if (!S.item || S.step !== 1) return;
+    touch();
+    if (needsPick(S.item)) { setMsg('ho.pickTaken'); return; }
+    if (S.msg && S.msg.key === 'ho.pickTaken') setMsg(null);
+    setStep(2);
+  }
   function onEnter() { if (S.step === 1) next(); else confirm(); }
 
   function paintCode() {
@@ -231,9 +275,14 @@ MG.Handover = (function () {
       jednotka mohla obnovit `data.gear` ze sync (rezervace upravena ve Velíně) → doplnit nové položky a překreslit. */
   function sync(a) {
     const codeChanged = !!S.item.needs_code !== !!a.needs_code, gearChanged = gearSig(a) !== S.gearSig;
+    const hadGear = hasGear(S.item);
     S.item = a;
     if (codeChanged) { $('handover').classList.toggle('no-code', !a.needs_code); $('ho-code-sec').hidden = !a.needs_code; S.sig.resize(); }
-    if (gearChanged) { initGear(a, true); renderGear(a); }
+    if (gearChanged) {
+      initGear(a, true); renderGear(a);
+      // výbava se objevila (Velín ji doplnil) → zpět na kontrolu velikostí; jinak jen překreslit krok (banner „vlastní výbava“)
+      if (hasGear(a) !== hadGear) setStep(hasGear(a) ? 1 : 2);
+    }
     paintSaving();
     // po timeoutu vlastního submitu: položka je dál vidět a jednotka neukládá → požadavek k ní vůbec nedorazil
     if (S.wait && S.wait.id === a.booking_id && !S.saving && !a.saving) { S.wait = null; setMsg('ho.failed'); }
@@ -312,17 +361,20 @@ MG.Handover = (function () {
     const a = S.item;
     if (!a || S.step !== 2 || $('ho-confirm').disabled) return;
     touch();
+    if (needsPick(a)) { setStep(1); setMsg('ho.pickTaken'); return; }   // pojistka (krok 2 dosažen dřív, než se šatna projevila)
     const signature = S.sig.toPng();
     if (!signature) { setMsg('ho.sigTooLarge'); return; }
     const form = {
       mileage: a.data && a.data.mileage != null ? String(a.data.mileage) : '',
       // nepřevzatá položka (checked:false) nese PŮVODNÍ velikost z rezervace — edge ji NULLuje, velikost nepropisuje;
-      // položka bez záznamu v S.taken (nikdy nezobrazená) = převzato (stejný výklad jako renderGear)
-      accessories: gearOf(a).map((g) => {
-        const id = gid(g), taken = S.taken[id] !== false;
-        return { key: g.key, who: g.who || 'rider', field: g.field,
-          size: taken ? (S.picks[id] || '') : (g.size != null ? String(g.size) : ''), checked: taken };
+      // objednaná položka bez záznamu v S.taken (nikdy nezobrazená) = převzato (stejný výklad jako renderGear);
+      // položka NAVÍC jde jen převzatá (`added: true`) — edge ji s `gear_add` doplní do rezervace (2026-10-05)
+      accessories: rowsOf(a).filter((r) => r.booked || isTaken(r)).map((r) => {
+        const id = gid(r), taken = isTaken(r);
+        return Object.assign({ key: r.key, who: r.who || 'rider', field: r.field,
+          size: taken ? (S.picks[id] || '') : (r.size != null ? String(r.size) : ''), checked: taken }, r.booked ? {} : { added: true });
       }),
+      gear_add: true,
       moto_equipment: motoEquipment(),
     };
     const body = { booking_id: a.booking_id, form, signature };

@@ -174,7 +174,7 @@ function AddCashModal({ onClose, onSaved }) {
       if (error) throw error
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'cash_register_entry', details: { type: form.type },
+        admin_id: user?.id, action: 'cash_register_entry', new_data: { type: form.type },
       })
       onSaved()
     } catch (e) { debugError('CashRegisterTab', 'handleSave', e); setErr(e.message) } finally { setSaving(false) }

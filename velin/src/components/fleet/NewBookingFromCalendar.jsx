@@ -181,7 +181,7 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: 'booking_created_admin',
-        details: { booking_id: result.data?.id, moto: moto?.model, customer: selectedCustomer.full_name, no_payment: noPayment },
+        new_data: { booking_id: result.data?.id, moto: moto?.model, customer: selectedCustomer.full_name, no_payment: noPayment },
       })
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }

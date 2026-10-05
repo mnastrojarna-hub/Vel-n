@@ -168,3 +168,49 @@ async def test_protocol_submit_with_gated_code(ctrl):
     _online(ctrl, moto={"ok": True, "release_at": _iso(timedelta(minutes=-5))})
     res = await hm.submit("b1", FORM, SIG, "111111")
     assert res["ok"] and res["opened"]["zone"] == 3 and ctrl.zones[3].grants == [("b1", "motorcycle", "ui")]
+
+
+async def test_replaced_code_message_without_lockout(ctrl):
+    """2026-10-05: starý kód ze SMS po regeneraci (přesun kóje) — DB `invalid_code` + `replaced` → vlastní hláška, bez lockoutu."""
+    ctrl.api.resolve = {"444444": {"ok": False, "error": "invalid_code", "replaced": True}}
+    for _ in range(ctrl.hardware.security.maximum_failed_attempts + 2):
+        res = await cc.submit_code(ctrl, "444444", "ui")
+        assert res["ok"] is False and res["error"] == "code_replaced" and "nový" in res["message"]
+    assert ctrl.storage.pin_failures_since(0) == 0 and ctrl.pin_guard.locked_until() is None
+    assert [e.detail["reason"] for e in _denied(ctrl)][-1] == "code_replaced"
+    assert ResolveResult.from_rpc({"ok": False, "error": "invalid_code"}).error == "invalid_code"
+
+
+@pytest.mark.parametrize("rpc,err,word", [
+    ({"reason": "revoked"}, "code_revoked", "zrušena"),
+    ({"reason": "not_yet_valid"}, "code_not_yet_valid", "začátku vaší rezervace"),
+    ({"reason": "expired"}, "code_expired", "skončila"),
+    ({"replaced": True}, "code_replaced", "nový kód"),
+])
+async def test_known_code_reasons_without_lockout(ctrl, rpc, err, word):
+    """2026-10-05: kód existuje, ale teď neplatí (`reason` z RPC) — hláška, ACCESS_DENIED info, NIKDY lockout."""
+    ctrl.api.resolve = {"454545": {"ok": False, "error": "invalid_code", **rpc}}
+    for _ in range(ctrl.hardware.security.maximum_failed_attempts + 2):
+        res = await cc.submit_code(ctrl, "454545", "ui")
+        assert res["ok"] is False and res["error"] == err and word in res["message"]
+    assert ctrl.storage.pin_failures_since(0) == 0 and ctrl.pin_guard.locked_until() is None
+    d = _denied(ctrl)[-1]
+    assert d.level == "info" and d.detail["reason"] == err and "PIN_INVALID" not in ctrl.kinds()
+
+
+async def test_unknown_code_still_locks_and_attempts_logged(ctrl):
+    """Neznámý kód se počítá dál (ochrana proti hádání); pokus během blokace jde do Velína (ACCESS_DENIED reason locked)."""
+    ctrl.api.resolve = {}
+    for i in range(ctrl.hardware.security.maximum_failed_attempts):
+        res = await cc.submit_code(ctrl, f"90000{i}", "ui")
+    assert res["error"] == "locked" and ctrl.pin_guard.locked_until() is not None
+    res = await cc.submit_code(ctrl, "111111", "ui")
+    assert res["error"] == "locked" and _denied(ctrl)[-1].detail["reason"] == "locked"
+
+
+@pytest.mark.parametrize("reason", ["withheld", "wrong_branch", "něco_nového"])
+async def test_unknown_reason_counts_as_invalid(ctrl, reason):
+    """Důvod, který jednotka nezná (nebo DB záměrně neposílá: zadržený / jiná pobočka), = neznámý kód → lockout."""
+    ctrl.api.resolve = {"464646": {"ok": False, "error": "invalid_code", "reason": reason}}
+    res = await cc.submit_code(ctrl, "464646", "ui")
+    assert res["error"] == "invalid_code" and ctrl.storage.pin_failures_since(0) == 1

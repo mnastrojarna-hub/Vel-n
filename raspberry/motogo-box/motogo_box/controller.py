@@ -19,6 +19,7 @@ from .audio_build import audio_signature, build_audio, make_music_library
 from .config import WARNING_PREFIX, HardwareConfig, LocalConfig, blocking_problems, validate_hardware
 from .diagnostics import NetworkDiagnostics
 from .handover import HandoverManager
+from .handover_lock import iso_ts
 from .odometer import OdometerManager
 from .screen_mirror import ScreenMirror
 from .io_devices import IoBus
@@ -434,6 +435,7 @@ class BoxController:
             "handover": self.handover.status(),  # předávací protokol na displeji (§4) — bez podpisů/formulářů
             "odometer": self.odometer.status(),  # stavy tachometru čekající na odeslání / trvale odmítnuté (§30)
             "remote_screen": self.screen.status(),   # zrcadlení do Velína (§29): active/control/since/frames/bytes
+            "pin_locked_until": iso_ts(self.pin_guard.locked_until()),   # PIN lockout (2026-10-05) — Velín: „Zrušit blokaci“
         }
 
     async def all_off(self) -> None:

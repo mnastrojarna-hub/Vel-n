@@ -409,6 +409,15 @@ async def _shell_unlock(ctrl: "BoxController", params: dict) -> tuple[bool, dict
     return True, shell.unlock(ctrl, params.get("minutes"))
 
 
+async def _pin_unlock(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
+    """Zruší blokaci zadávání kódů (PIN lockout) z Velína (2026-10-05) — zákazník s platným kódem se dostane dovnitř hned."""
+    was = ctrl.pin_guard.clear()
+    await ctrl.emit(Event(kind=EventKind.PIN_LOCKOUT, success=True, level="info",
+                          message="Blokace zadávání zrušena z Velína" if was else "Blokace zadávání neběžela (Velín)",
+                          detail={"source": "velin", "cleared": was}))
+    return True, {"cleared": was}
+
+
 async def _http_get(ctrl: "BoxController", params: dict) -> tuple[bool, dict]:
     url = str(params.get("url") or "").strip()
     if not url.lower().startswith(("http://", "https://")):
@@ -478,6 +487,7 @@ HANDLERS: dict[str, Handler] = {
     "camera_control": _http_get,
     "diagnostics": _diagnostics,
     "shell_unlock": _shell_unlock,
+    "pin_unlock": _pin_unlock,           # zrušení PIN lockoutu z Velína (2026-10-05)
     "protocol_signed": _protocol_signed,
     "screen_mirror": _screen_mirror,     # zrcadlení obrazovky do Velína (§29) — bez HW, běží i mimo `ready`
     "screen_input": _screen_input,

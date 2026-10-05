@@ -241,7 +241,11 @@ class Zone:
         """Název zóny pro Velín, displej a logy. Jednotné pojmenování (2026-09-14):
         kóje na motorku = „Kóje N", zóna s výbavou (`kind='accessories'`) = „Šatna", venek řeší
         `OutdoorController` mimo zóny. `kind` v DB zůstává `accessories` — mění se jen text.
-        Vlastní popis dveří z Velína (`branch_doors.label`) má vždy přednost."""
+        Kóje motorky (2026-10-05) = VŽDY „Kóje N“: motorky se mezi kójemi přesouvají a popis dveří z Velína
+        („Kóje 5 — <model>“ z ensureDoors) se při tom neměnil → displej i Velín ukazovaly jinou motorku. Na dveřích
+        jsou jen čísla (2026-10-04). U ostatních dveří (šatna) má vlastní popis (`branch_doors.label`) přednost."""
+        if self.kind != "accessories" and self.box_number is not None:
+            return f"Kóje {self.box_number}"
         if self.label:
             return self.label
         if self.kind == "accessories":
@@ -304,6 +308,12 @@ class ServiceDoor:
         return asdict(self)
 
 
+# `reason` z kiosk_resolve_code (invalid_code u kódu, který existuje, ale teď neplatí) → chyba jednotky (2026-10-05)
+RPC_REASON_ERRORS = {
+    "replaced": "code_replaced", "revoked": "code_revoked", "not_yet_valid": "code_not_yet_valid", "expired": "code_expired",
+}
+
+
 @dataclass
 class ResolveResult:
     """Výsledek ověření kódu (online RPC `kiosk_resolve_code` nebo offline cache)."""
@@ -354,9 +364,15 @@ class ResolveResult:
         box = m.get("box_number")
         if box is None and door:
             box = door.get("box_number")
+        err = m.get("error")
+        if err == "invalid_code":
+            # 2026-10-05: kód existuje, ale teď neplatí — DB posílá zpětně kompatibilně invalid_code + `reason`
+            # (jednotky < 1.2.5 hlásí jako dřív „neplatný“); od 1.2.5 vlastní hláška a BEZ lockoutu
+            reason = m.get("reason") or ("replaced" if m.get("replaced") is True else None)
+            err = RPC_REASON_ERRORS.get(str(reason or ""), err)
         return cls(
             ok=bool(m.get("ok")),
-            error=m.get("error"),
+            error=err,
             kind=m.get("kind") or "",
             booking_id=m.get("booking_id"),
             door_id=door.get("id") if door else None,

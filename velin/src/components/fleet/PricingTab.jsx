@@ -97,7 +97,7 @@ export default function PricingTab({ motoId }) {
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: 'moto_pricing_updated',
-        details: { moto_id: motoId },
+        new_data: { moto_id: motoId },
       })
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)

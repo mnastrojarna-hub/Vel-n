@@ -35,7 +35,7 @@ export function PromoModal({ existing, onClose, onSaved }) {
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
 
-  async function logAudit(action, details) { try { const { data: { user } } = await supabase.auth.getUser(); await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, details }) } catch {} }
+  async function logAudit(action, details) { try { const { data: { user } } = await supabase.auth.getUser(); await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, new_data: details }) } catch {} }
 
   return (
     <Modal open title={isEdit ? `Upravit: ${existing.code}` : 'Nový promo kód'} onClose={onClose}>

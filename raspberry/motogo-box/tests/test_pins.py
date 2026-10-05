@@ -202,6 +202,8 @@ def test_resolver_expiry_and_not_yet_valid():
     assert future is not None and not future.ok and future.error == "code_not_yet_valid"
     later = r.resolve("333333", cache, NOW + timedelta(hours=2))
     assert later is not None and later.ok and not later.door_configured
+    # 2026-10-05: kód platný až za víc než 24 h se offline tváří jako neznámý (počítá se do lockoutu — žádné orákulum)
+    assert r.resolve("333333", cache, NOW - timedelta(hours=30)) is None
 
 
 def test_resolver_wrong_device_token_does_not_match():
@@ -260,3 +262,18 @@ def test_resolver_pickup_gate_release_at():
     cache["codes"][0]["release_at"] = None                      # bez slevy (server posílá null) / stará cache
     plain = r.resolve("111111", cache, NOW)
     assert plain.ok and plain.release_at is None
+
+
+def test_clear_lockout_starts_new_window(storage):
+    # 2026-10-05: zrušení lockoutu (servisní heslo / Velín pin_unlock) — dřívější selhání se už nepočítají
+    clock = FakeClock()
+    sec = SecurityCfg(maximum_failed_attempts=3, attempt_window_minutes=5, lockout_minutes=15)
+    guard = PinGuard(storage, sec, clock)
+    assert guard.clear() is False
+    for _ in range(3):
+        guard.register_failure("12••••")
+        clock.advance(5)
+    assert guard.locked_until() is not None
+    assert guard.clear() is True and guard.locked_until() is None
+    clock.advance(1)
+    assert guard.register_failure("12••••") is None and guard.failures_in_window() == 1

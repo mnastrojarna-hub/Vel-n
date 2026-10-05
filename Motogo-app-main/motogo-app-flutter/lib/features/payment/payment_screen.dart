@@ -467,12 +467,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         // šatny: bez šatny, pokud řidič nic nepůjčuje a nemá boty ani výbavu
         // spolujezdce (`_booking_needs_locker`, 2026-09-25).
         'own_gear': draft.ownGear,
-        // Driver gear sizes (5 columns)
-        'helmet_size': draft.helmetSize,
-        'jacket_size': draft.jacketSize,
-        'pants_size': draft.pantsSize,
+        // Driver gear sizes (5 columns). Při „Mám vlastní výbavu“ se základní
+        // výbava řidiče NEukládá — draft ji může mít předvyplněnou z profilu
+        // (moto_detail_page) i když jsou řádky velikostí skryté; jinak by se
+        // own-gear zákazníkovi ukázala v protokolu výbava, kterou nechtěl (2026-10-05).
+        'helmet_size': draft.ownGear ? null : draft.helmetSize,
+        'jacket_size': draft.ownGear ? null : draft.jacketSize,
+        'pants_size': draft.ownGear ? null : draft.pantsSize,
         'boots_size': driverBoots,
-        'gloves_size': draft.glovesSize,
+        'gloves_size': draft.ownGear ? null : draft.glovesSize,
         // Passenger gear sizes (5 columns)
         'passenger_helmet_size':
             draft.passengerHelmetSize ?? pg['helmet'],

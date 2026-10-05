@@ -47,6 +47,7 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
 **Doplněno 2026-09-29 (§30):** `EventKind.ODOMETER_RECORDED` (info), `ODOMETER_REJECTED` (warn), `ODOMETER_UPLOAD_FAILED` (error),
 `ODOMETER_DISPUTED` (warn) — vše `kiosk_log_event`, source `odometer`; `ResolveResult.odo: dict | None` = blok `odo` z RPC /
 `codes[].odo` ze sync (jen kód motorky; klíč chybí → `None`).
+**Doplněno 2026-10-05 (1.2.5):** `Zone.display_name` u kóje motorky (kind ≠ accessories, `box_number` známé) = VŽDY „Kóje N“ — popis dveří z Velína (`branch_doors.label`, dřív zakládaný jako „Kóje N — <model>“) se ignoruje, protože motorky se mezi kójemi přesouvají a popis pak ukazoval jinou motorku (hlášení majitele, Velké Němčice); vlastní popis platí jen u šatny. Totéž UI `MG.i18n.zoneName` (§16) a Velín `doorLabel`/`zoneName`; DB migrace `20261005b` popisy s modelem vynulovala. Snapshot `handover.active` nese i `is_child` (§14).
 **Doplněno 2026-10-01 (§31):** `ResolveResult.release_at: str | None` = ISO `release_at` z `kiosk_resolve_code` (u `ok` i u chyby
 `pickup_too_early`; `from_rpc`: chybí / null → `None`) / `codes[].release_at` ze sync cache (LocalResolver, `isoformat()`).
 Žádný nový `EventKind` — odmítnutí jde jako `ACCESS_DENIED` (reason `pickup_too_early`).
@@ -559,8 +560,18 @@ class BoxController:
                           odometer: str | None = None) -> dict
         # {"ok":bool,"kind":"motorcycle|accessories|service|invalid","error":str|None,"message":str,"zone":int|None,
         #  "locked_until":float|None,"doors":[ServiceDoor…] (jen service), "service_token":str|None}
-        # kroky: normalize; PinGuard.locked → error 'locked'; 6 číslic nebo neprázdné (servisní heslo) ; api.resolve_code →
+        # kroky: normalize; PinGuard.locked → servisní přístup (lokální diag. kód / 39301A–H / servisní heslo online) lockout
+        #   zruší a pokračuje, jinak error 'locked' (2026-10-05); 6 číslic nebo neprázdné (servisní heslo) ; api.resolve_code →
         # None (síť) → LocalResolver; invalid → register_failure; service → vydej service_token (10 min);
+        # 2026-10-05: RPC `{error:'invalid_code', reason}` (`ResolveResult.from_rpc`, `RPC_REASON_ERRORS`; starší
+        #   `replaced:true` = reason replaced) = kód, který už nic neotevře nebo začne platit do 24 h → chyba
+        #   z KNOWN_CODE_ERRORS (code_replaced | code_revoked | code_not_yet_valid | code_expired; offline shoda s prošlým
+        #   řádkem cache = code_expired, s řádkem platným do 24 h = code_not_yet_valid, dál než 24 h = neznámý) →
+        #   ACCESS_DENIED info `detail.reason` + hláška (CZ `error_text`, jinak ui/i18n-codes.js), BEZ register_failure.
+        #   Do lockoutu jde neznámý kód (INVALID_CODE_ERRORS = {invalid_code}) — DB záměrně neposílá důvod u zadrženého,
+        #   vzdáleně budoucího ani cizího pobočkového kódu (žádné orákulum pro hádání); neznámý `reason` = invalid_code. Dřívější automaticky nahrazený kód živé rezervace
+        #   DB přijme jako alias aktuálního (ok:true). Během lockoutu se i zákaznický pokus zapíše (ACCESS_DENIED reason
+        #   'locked', code_masked) — dřív bez stopy;
         # zákazník → najdi zónu (door_id, pak box_number) → zone.grant_access; log_open(...)
         # 2026-09-25 (§28): kind motorcycle → PŘED grant_access `handover.require_before_open(rr, zc, source)`; True →
         #   {**base, ok:False, kind:'motorcycle', error:'protocol_required', zone: zc.number, booking_id, message: error_text(...)}
@@ -636,6 +647,7 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | `lte_mode` | `mode` = `rndis` \| `qmi` | **2026-09-26:** přepne modem SIM7600 mezi QMI a RNDIS (root skript `motogo-lte-mode`, ~2 min: profil NM `motogo-lte`, udev, služba startu dat, `/etc/motogo/modem_vidpid`, `health.lte_mode` v config.yaml, ModemManager vyp/zap, `AT+CUSBPIDSWITCH`, restart motogo-health). Potvrzení hned `{started, mode}`, průběh jako události `LTE_MODE` (warn na startu, info/error po doběhu — druhá dorazí z outboxu po obnově internetu). Není HW příkaz (jde i bez `ready`) |
 | `contact_test` | `zone` / `door_id` / `box_number`, `seconds?` (1–120, výchozí 20) | **2026-09-26:** sleduje syrovou hodnotu DI kontaktu zóny (`ZoneController.contact_raw` z poll_loopu), obsluha dveře otevře a zavře; výsledek `{zone, verdict: ok\|polarity\|stuck_0\|stuck_1\|offline\|not_configured, raw_start, raw_end, changes[{t_ms, raw}], closed_level, suggested_closed_level?}` + událost `CONTACT_TEST` (info/warn/error) s lidskou větou do kiosk_logs; nic nespíná |
 | `zone_test` | `zone` | `zone.test_sequence()` |
+| `pin_unlock` | – | **2026-10-05 (1.2.5):** `PinGuard.clear()` — zruší PIN lockout displeje (Velín „Zrušit blokaci zadávání“ u `pin_locked_until`), nové okno chybných pokusů; výsledek `{cleared: bool}` + PIN_LOCKOUT info; CHECK `20261005d` |
 | `audio_test` | `zone` \| `out`, `seconds?` | `zone` → `audio.test_tone` (zóna bez reproduktoru → `no_speaker`); `out` → `audio.test_output` (Velín „Test výstupu“; `output_not_found`) — generovaný tón, ne playlist |
 | `all_off` | – | `ctrl.all_off()` |
 | `identify` | `label?` | ui_notice „Tady jsem" + 3× bliknutí zelené všech zón, pak obnovit |
@@ -668,6 +680,7 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
 
 ```json
 {"ts":"2026-09-09T10:00:00+02:00","version":"1.0.0+abc123","uptime_s":123,"ready":true,"branch_name":"Brno",
+ "pin_locked_until":"ISO|null",   // 2026-10-05 (1.2.5): PIN lockout displeje → Velín pruh + „Zrušit blokaci zadávání“ (pin_unlock)
  "internet":true,"config_source":"remote|local","config_problems":[],
  "modules":{"wav645":true,"wav617a":true,"wav617b":true,"shelly1":true,"shelly2":true,"shelly3":true,"shelly4":true},
  "audio":{"mode":"multi","playing_zone":3,"playing_zones":[3,7],"channels":["outdoor"],"player_ok":true,"playlist_count":27,
@@ -825,13 +838,15 @@ aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
   `controller_codes.submit_code(ctrl, code, "diag_ui", diagnostics_only=True)` s hintem `diagnostics.pending_mode = mode`
   (ve `finally` vždy `None`): lokální diagnostický kód, servisní heslo s účelem `diagnostics` nebo běžné servisní heslo
   (spustí JEN diagnostiku, bez servisního tokenu); zákaznický PIN/kód rezervace je tu `invalid_code` a počítá se do
-  lockoutu; neplatný → 403 `{ok:false, error, message, locked_until}`. Lockout blokuje i diagnostický kód (kromě
-  `/api/diagnostics/run` se service_token). Odpověď `{ok, started, id, mode}` / `{ok:false, error:'already_running', id, mode}`.
+  lockoutu; neplatný → 403 `{ok:false, error, message, locked_until}`. Od 2026-10-05 (1.2.5) lockout NEblokuje lokální
+  diagnostický kód, servisní heslo ani pevné servisní kódy 39301A–H — projdou a lockout zruší (`PinGuard.clear`, PIN_LOCKOUT
+  info `detail {source, cleared, via}`); dřív technik u zablokovaného displeje 15 min nic nezadal. Odpověď `{ok, started, id, mode}` / `{ok:false, error:'already_running', id, mode}`.
 - **Předávací protokol (2026-09-25, §28; bez service_token — zákazník):** `POST /api/protocol/submit {"booking_id","code"?,"form",
   "signature"}` (`signature` = PNG data-URL ≤ 150 kB dekódovaných bajtů; `form` = `{mileage, accessories[], moto_equipment[]}` —
   **2026-09-28** `moto_equipment` = 5 pevných položek výbavy motorky `[{key: phone_holder_key|disc_lock|accident_form|first_aid_kit|
   reflective_vest, qty (vesta 2), checked}]`, od 2026-10-02 kiosk posílá vždy všechny s `checked:true` (jen informace, bez zaškrtávání); `accessories[]`
-  od 2026-10-05 `{key, who, field, size, checked}` s `checked:false` = nepřevzato (chip „✕ Neberu“, `size` = původní z rezervace; §28); edge `submit-handover-protocol`
+  od 2026-10-05 `{key, who, field, size, checked}` s `checked:false` = nepřevzato (chip „✕ Neberu“, `size` = původní z rezervace; §28); od 1.2.5 navíc převzaté
+  položky, které rezervace nemá (`{…, checked:true, added:true}`) a `form.gear_add: true` (výbava navíc, §28); edge `submit-handover-protocol`
   je u staršího buildu bez pole doplní jako předané) → `handover.submit(bid, form, signature, code, source='ui')`
   → `{ok, status: 'saved'|'queued'|'already_filled'|null, opened: {zone, kind, message}|null, error: null|…, locked_until?}`.
   `ok:false` (nic se neuložilo, `status:null`): `not_pending` (položka neexistuje / není stage protocol / `ctrl.handover` chybí),
@@ -916,7 +931,7 @@ Overlay `#handover` (modální, z-index mezi `#status` a `#service`; modul `MG.H
 `rerender()`, `isVisible()`, `keys` pro fyzickou klávesnici; podpis `MG.Signature.create(el, {onStroke})` v `ui/signature.js`)
 se kreslí ze `st.handover.active` (§14): hlavička (`data`; popisky `ho.customer`/`ho.moto`/`ho.period`), řádky výbavy (ikona/název `g.helmet…gloves`,
 `ho.rider`/`ho.passenger`, chipy velikostí z `active.sizes[key]` s předvybranou `size`, na konci řady chip `✕ ho.notTaking` (2026-10-05, přepínač: `S.taken[gid]=false`
-→ řádek `.ho-row.off`, chip `.ho-chip.skip.on`; klepnutí na velikost → `taken=true`; stav `S.picks`/`S.taken` je klíčovaný identitou položky `gid = field || who:key`, NE indexem — `sync()` při změně `data.gear` (jednotka ho obnovuje ze sync `reconcile`, Velín mohl položku přidat) nové položky doplní jako převzaté a překreslí; stav přežije `rerender()`); bez zapůjčené výbavy `ho.noGear` v kroku 2 nad výbavou motorky — `#ho-own-gear`) + **vždy** skupina
+→ řádek `.ho-row.off`, chip `.ho-chip.skip.on`; klepnutí na velikost → `taken=true`; stav `S.picks`/`S.taken` je klíčovaný identitou položky `gid = field || who:key`, NE indexem — `sync()` při změně `data.gear` (jednotka ho obnovuje ze sync `reconcile`, Velín mohl položku přidat) nové položky doplní jako převzaté a překreslí; stav přežije `rerender()`). **Od 1.2.5 (2026-10-05) výbava NAVÍC:** má-li zákazník přístup do šatny (`active.kind === 'accessories'` = protokol po zavření šatny, nebo rezervace s objednanou výbavou), krok 1 ukáže VŠECHNY druhy výbavy (řidič 5 + spolujezdec 5; `active.is_child` = jen řidič) — objednané předvybrané, ostatní ztlumené (`.ho-row.extra`, čárkovaný rámeček) a nepřevzaté, dokud zákazník nevybere velikost (pak převzato navíc, ✕ volbu vrátí); `S.bk[gid]` drží objednaná/navíc, aby resync (Velín položku přidal) nikdy neudělal z nově objednané položky odebrání. Rezervace BEZ objednané výbavy s přístupem do šatny („základní výbava v ceně“ bez velikostí ze starší appky) pustí „Pokračovat“ až po výběru aspoň jedné velikosti (`ho.pickTaken`); kdo si nic nevzal, dá „Zpět“ a kód motorky — protokol z kódu motorky bez výbavy jde rovnou na podpis. Bez zapůjčené výbavy a bez šatny `ho.noGear` v kroku 2 nad výbavou motorky — `#ho-own-gear`) + **vždy** skupina
 „Výbava motorky“ (2026-09-28, zadání majitele: `ho.motoGear`, poznámka `ho.motoGearNote` „Najdete ji v motorce — v kufru nebo v tankvaku…“,
 řádky `me.*` = klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta; **od 2026-10-02 jen informativně,
 bez zaškrtávání** — `form.moto_equipment[]` jde vždy celé s `checked:true`). **Od 2026-10-02 je protokol ve 2 krocích** (štítek
@@ -1208,7 +1223,7 @@ reserved|active|**completed** (podpis pořízený při výpadku dorazí i po no�
 dokumentu → druhý podpis `already_filled`; `form.accessories[] = {key, who, field?, label?, size, checked}` propíše změněné velikosti
 do `bookings`; **od 2026-10-05 `checked:false` = NEPŘEVZATO** (kiosk chip „✕ Neberu“): u položky s vazbou `field` edge nastaví `bookings.<field> = NULL`
 (položka z rezervace odebrána, `gear_changes {from, to:null}` do historie) a `size` (kiosk posílá PŮVODNÍ z rezervace) nikdy nepropisuje;
-ceny / `booking_extras` beze změny; odebrání je opt-in klienta — režim `kiosk` vždy (jednotky < 1.2.4 posílají vždy `checked:true`), režim `customer` jen s `form.gear_remove: true` (nová appka; starší buildy odškrtnutím rezervaci nemění); `removed` v dokumentu až dle výsledku (i při opakovaném podpisu po 5xx, kdy je sloupec NULL už z 1. pokusu), selhání UPDATE → `debug_log` `handover_gear_update_failed`; **kiosk posílá jen `form = {mileage: String(data.mileage ?? ''), accessories: [{key, who, field, size, checked}…]}`**
+ceny / `booking_extras` beze změny; odebrání je opt-in klienta — režim `kiosk` vždy (jednotky < 1.2.4 posílají vždy `checked:true`), režim `customer` jen s `form.gear_remove: true` (nová appka; starší buildy odškrtnutím rezervaci nemění); `removed` v dokumentu až dle výsledku (i při opakovaném podpisu po 5xx, kdy je sloupec NULL už z 1. pokusu), selhání UPDATE → `debug_log` `handover_gear_update_failed`; **od 1.2.5 výbava NAVÍC** (`checked:true` u položky, kterou rezervace nemá): dokument „(navíc)“ + poznámka, do rezervace se velikost zapíše (`gear_changes {from:null, to}`) JEN s `form.gear_add: true` z kiosku a jen rezervaci s přístupem do šatny (`gear_collected_at` nebo vydaný kód šatny — jinak by přidání vydalo nový kód šatny uprostřed převzetí) a s velikostí z číselníku; ceny / `booking_extras` se nemění (doúčtování ručně ve Velíně); **kiosk posílá jen `form = {mileage: String(data.mileage ?? ''), accessories: [{key, who, field, size, checked, added?}…], gear_add: true, moto_equipment}`**
 (`ui/handover.js`), zbytek doplní edge (`checks: {clean, docs, keys, instructed: true, gear: accessories.some(a => a.checked)}`, `damage: {checked:false,
 desc:''}`, `notes:''`); do PDF „Podepsáno na displeji pobočky (zařízení <device_id>) <signed_at>“, `filled_data._signed_by:'kiosk'`,
 `_device_id`; odpověď `{success, already_filled?, doc_id?, email_sent?, error?, detail?}`; **4xx MIMO 404/408/429 = trvalé** (kiosk

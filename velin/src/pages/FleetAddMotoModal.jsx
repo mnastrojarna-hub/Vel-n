@@ -114,7 +114,7 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
       }
 
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'motorcycle_created', details: { moto_id: newMoto.id } })
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'motorcycle_created', new_data: { moto_id: newMoto.id } })
       purgeWebCache()
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }

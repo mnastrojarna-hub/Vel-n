@@ -102,7 +102,7 @@ function RpiStatusInner({ devices, doors, now, onCommand, branchName, onSaveDoor
         const noHw = arr(doors).filter(d => d && d.is_active !== false && !(d.hw && typeof d.hw === 'object' && Object.keys(d.hw).length > 0))
         return noHw.length > 0 && (
           <div className="mb-2 p-2 rounded-card text-[12px]" style={{ background: '#fef3c7', color: '#b45309' }}>
-            ⚠ {noHw.length} dveří bez HW mapy ({noHw.map(d => d.label || (d.door_kind === 'accessories' ? ACCESSORIES_LABEL : boxLabel(d.box_number))).join(', ')}) — jednotka je nezná, dlaždice chybí.
+            ⚠ {noHw.length} dveří bez HW mapy ({noHw.map(d => (d.door_kind === 'accessories' ? (d.label || ACCESSORIES_LABEL) : boxLabel(d.box_number))).join(', ')}) — jednotka je nezná, dlaždice chybí.
             Servisní režim → „Nastavení a servis“ → Dveře → „Vytvořit dveře z kojí + doplnit HW mapu“ (nebo Řídicí jednotka — hardware → „Načíst výchozí mapu“).
           </div>
         )
@@ -145,6 +145,8 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
   // na displeji svítí starý název. Tady je vidět, co zákazník na pobočce právě čte, a jestli to sedí s Velínem.
   const shownName = st.branch_name == null || st.branch_name === '' ? '' : String(st.branch_name)
   const nameMismatch = !!(hasStatusName(st) && branchName && shownName !== String(branchName))
+  const pinLockedAt = st.pin_locked_until ? new Date(String(st.pin_locked_until)) : null
+  const pinLockedUntil = pinLockedAt && !isNaN(pinLockedAt) && pinLockedAt.getTime() > now ? pinLockedAt : null
 
   async function send(command, params = {}, label) {
     const ok = await onCommand(dev, command, params)
@@ -219,6 +221,16 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
         </div>
       )}
       <HandoverDeviceInfo handover={handover} now={now} />
+      {/* PIN lockout (status.pin_locked_until): po 5 chybných kódech za 5 min displej 15 min nebere kódy zákazníků.
+          Servisní/diagnostický kód na displeji ho zruší sám; odsud příkazem pin_unlock (kontrakt §16). */}
+      {pinLockedUntil && (
+        <div className="mt-2 p-2 rounded-lg text-[12px] flex items-center gap-2 flex-wrap" style={{ background: '#fee2e2', color: '#dc2626' }}>
+          <span className="font-bold">⛔ Zadávání kódů na displeji zablokováno do {pinLockedUntil.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</span>
+          <span>— po opakovaných chybných kódech (např. starý kód po přesunu motorky). Zákazník teď nezadá kód rezervace.</span>
+          <Btn tone="red" title="Okamžitě zruší blokaci zadávání na displeji pobočky; počítadlo chybných pokusů začne znovu od nuly."
+            onClick={() => send('pin_unlock', {}, 'Zrušit blokaci zadávání')}>Zrušit blokaci zadávání</Btn>
+        </div>
+      )}
 
       {/* Režim modemu QMI/RNDIS (health.lte.mode) — QMI kanál SIM7600 padá z USB („error -71“); jednotka se po
           `mode_auto_after` USB resetech za 24 h přepne do RNDIS sama, tady jde přepnout ručně. Internet vypadne ~2 min. */}
@@ -302,6 +314,8 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
 // stejné pravidlo má displej pobočky (ui/i18n.js), takže Velín i displej ukazují stejný název.
 function zoneName(z, door) {
   const meta = { kind: z.kind ?? door?.door_kind, boxNumber: num(z.box_number) ?? door?.box_number ?? null, zone: z.zone }
+  // Kóje motorky = vždy číslo (2026-10-05, jako displej) — popis s modelem motorky po prohození kójí lhal
+  if (meta.kind !== 'accessories' && meta.boxNumber != null) return boxLabel(meta.boxNumber)
   const custom = [z.label, door?.label].find(l => l != null && l !== '' && !isGeneratedZoneLabel(l, meta))
   if (custom) return txt(custom)
   if (meta.kind === 'accessories') return ACCESSORIES_LABEL

@@ -58,7 +58,7 @@ export default function TaxTab() {
       await load()
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'tax_generated', details: { period },
+        admin_id: user?.id, action: 'tax_generated', new_data: { period },
       })
     } catch (e) {
       debugError('TaxTab', 'generateTax', e)

@@ -225,7 +225,9 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null }) {
           {gateCode && motoCell}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: allSent ? '#dcfce7' : '#fee2e2', color: allSent ? '#1a8a18' : '#dc2626' }}>{allSent ? 'Odeslano zakaznikovi' : 'Neodeslano'}</span>
+          {liveCodes.length === 0
+            ? <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#f3f4f6', color: '#6b7280' }} title="Žádný aktivní kód (rezervace zrušena / dokončena nebo kódy zneplatněny) — kiosk je nepřijme.">Kódy zneplatněny — kiosk neprijme</span>
+            : <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: allSent ? '#dcfce7' : '#fee2e2', color: allSent ? '#1a8a18' : '#dc2626' }} title={allSent ? 'Kódy byly zákazníkovi odeslány a kiosk je přijme (v termínu rezervace).' : 'Kód NEBYL zákazníkovi odeslán (zadržen) — kiosk ho NEPŘIJME, dokud se neodešle (doklady / „Odeslat“).'}>{allSent ? 'Odeslano zakaznikovi' : 'Neodeslano — kiosk zatim neprijme'}</span>}
           {motoCode?.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dbeafe', color: '#2563eb' }}>Aktivní</span>}
           {motoCode && !motoCode.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#f3f4f6', color: '#6b7280' }}>Neaktivní</span>}
           {withheld && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#b45309' }}>Zadrzeno: {withheld}</span>}

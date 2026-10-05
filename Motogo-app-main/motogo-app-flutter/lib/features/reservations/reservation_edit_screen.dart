@@ -87,6 +87,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   // Od 2026-09-25 se načítá z `bookings.own_gear` a při uložení zapisuje
   // (rozhoduje o kódu šatny; trigger `trg_sync_locker_code` kód přidá/odebere).
   bool _ownGear = false;
+  // Výchozí stav přepínače z rezervace (2026-10-05) = `Reservation.ownGearEffective`
+  // (zrcadlo DB `_booking_needs_locker`: explicitní own_gear, NULL → prázdné velikosti řidiče).
+  bool _ownGearInitial = false;
   DayPrices? _motoPrices;
 
   Reservation? _booking;
@@ -143,7 +146,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _passengerPantsSize = res.passengerPantsSize;
         _passengerBootsSize = res.passengerBootsSize;
         _passengerGlovesSize = res.passengerGlovesSize;
-        _ownGear = res.ownGear ?? false;
+        _ownGear = _ownGearInitial = res.ownGearEffective;
       });
       _loadDiscountType(res);
       _loadOriginalExtras();
@@ -485,10 +488,16 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   /// Gear sizes required when the motorcycle is delivered (přistavení).
   /// Returns list of missing items — empty means OK.
   List<String> _missingGearSizes() {
+    // Bez „Mám vlastní výbavu“ musí být vybraný ASPOŇ JEDEN kus základní výbavy
+    // (zadání majitele 2026-10-05, parita s rezervačním formulářem) — platí i při
+    // vyzvednutí na pobočce; jen u nadcházející rezervace (sekce výbavy je vidět).
+    bool none(String? s) => s == null || s.trim().isEmpty;
+    final basicMissing = !_isActive && !_ownGear &&
+        none(_helmetSize) && none(_jacketSize) && none(_pantsSize) && none(_glovesSize);
     if (_pickupMethod != 'delivery' && _returnMethod != 'delivery') {
-      return const [];
+      return basicMissing ? [t(context).tr('gearBasicPickOne')] : const [];
     }
-    final missing = <String>[];
+    final missing = <String>[if (basicMissing) t(context).tr('gearBasicPickOne')];
     // Základní výbava řidiče je volitelná PO KUSECH (parita s rezervačním
     // formulářem) — nevybraná velikost = kus nechce, uložení neblokuje.
     // Placené boty mají vlastní velikost (i u vlastní výbavy je nutná).
@@ -512,7 +521,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
 
   /// Změna přepínače „Mám vlastní výbavu" oproti rezervaci — sama o sobě
   /// zapne tlačítko uložení (cenu nemění, mění nárok na kód šatny).
-  bool get _ownGearChanged => _ownGear != (_booking?.ownGear ?? false);
+  bool get _ownGearChanged => _ownGear != _ownGearInitial;
 
   /// Při vlastní výbavě se velikosti základní výbavy řidiče NEukládají
   /// (parita s rezervačním formulářem, kde je přepínač nuluje) — protokol i

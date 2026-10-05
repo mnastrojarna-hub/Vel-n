@@ -128,7 +128,7 @@ export default function ServiceLogModal({ entry, onClose, onSaved }) {
         await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', form.moto_id)
       }
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: entry ? 'service_updated' : 'service_created', details: { moto_id: form.moto_id } })
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: entry ? 'service_updated' : 'service_created', new_data: { moto_id: form.moto_id } })
       onSaved()
     } catch (e) { debugError('ServiceLog', 'handleSave', e); setErr(e.message) } finally { setSaving(false) }
   }

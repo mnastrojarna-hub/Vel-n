@@ -92,7 +92,7 @@ export default function AddReceivedModal({ onClose, onSaved }) {
       }
       await supabase.from('financial_events').insert({ event_type: 'expense', source: 'manual', amount_czk: Number(form.total) || 0, duzp: form.issue_date || new Date().toISOString().slice(0, 10), status: 'enriched', linked_entity_type: 'invoice', linked_entity_id: inv.id, metadata: { supplier_name: form.supplier, supplier_ico: form.supplier_ico, supplier_bank_account: form.supplier_bank_account, invoice_number: form.number, variable_symbol: form.variable_symbol, due_date: form.due_date, payment_method: form.payment_method, ai_classification: { category: form.category } } })
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'received_invoice_created', details: { number: form.number } })
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'received_invoice_created', new_data: { number: form.number } })
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }

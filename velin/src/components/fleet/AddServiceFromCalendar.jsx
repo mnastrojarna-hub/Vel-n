@@ -59,7 +59,7 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
       if (logErr) throw logErr
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'service_event_created', details: { moto_id: motoId } })
+        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'service_event_created', new_data: { moto_id: motoId } })
       } catch {}
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
