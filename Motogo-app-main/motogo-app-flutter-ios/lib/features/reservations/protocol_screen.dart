@@ -223,14 +223,20 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
     final checks = <String, bool>{};
     for (final c in _checks) checks[c.key] = c.checked;
     for (final c in _extraGear) checks[c.key] = c.checked;
+    // Nic nepřevzato (vše odškrtnuto = odebráno z rezervace) → „výbava předána“ nesmí
+    // zůstat ☑ (parita s kioskem/edge: gear = aspoň jedna převzatá položka).
+    if (_gear.isNotEmpty && !_gear.any((g) => g.checked)) checks['gear'] = false;
     // Stav km se NEposílá — do protokolu ho doplní edge ze serveru (form.mileage ignoruje).
     final form = {
       'checks': checks,
       'damage': {'checked': _damage, 'desc': _damageCtrl.text.trim()},
       'notes': _notesCtrl.text.trim(),
       // {key, who, field, label, size, checked} — edge propíše upravené
-      // velikosti do bookings.<field> před claimem podpisu.
+      // velikosti do bookings.<field> před claimem podpisu; checked:false =
+      // nepřevzato → sloupec NULL (jen s opt-in `gear_remove` — starší buildy
+      // appky bez vysvětlujícího textu rezervaci odškrtnutím nemění).
       'accessories': _gear.map((g) => g.toJson()).toList(),
+      'gear_remove': true,
       // Výbava motorky (zrcadlo kiosku) → sekce „Výbava motorky“ v dokumentu.
       'moto_equipment': _motoGear.map((m) => m.toJson()).toList(),
     };
@@ -394,45 +400,64 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
       protocolToggleRow(t(context).tr(c.i18n), c.checked, () => setState(() => c.checked = !c.checked));
 
   /// Řádek výbavy: zaškrtnutí (předáno) + popisek + dropdown velikosti z číselníku.
+  /// Odškrtnuto = NEPŘEVZATO (zákazník si položku v šatně nevzal) → edge
+  /// `submit-handover-protocol` sloupec `bookings.<field>` v rezervaci VYNULUJE
+  /// (položka z rezervace odebrána; `size` se u nepřevzaté nepropisuje). Popisek
+  /// přeškrtnutý, dropdown velikosti zamčený, pod řádkem červená poznámka.
   Widget _gearRow(ProtocolGearItem g) {
     // Uložená velikost mimo číselník (starý ceník) musí být v nabídce — jinak
     // DropdownButton spadne na chybějící hodnotě.
     final opts = List<String>.from(_sizes[g.key] ?? const <String>[]);
     if (g.size != null && !opts.contains(g.size)) opts.insert(0, g.size!);
+    final on = g.checked;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Row(children: [
-        GestureDetector(
-          onTap: () => setState(() => g.checked = !g.checked),
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            width: 22, height: 22,
-            decoration: BoxDecoration(
-              color: g.checked ? MotoGoColors.green : Colors.transparent,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: g.checked ? MotoGoColors.green : MotoGoColors.g200, width: 2),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          GestureDetector(
+            // Odškrtnutí vrací velikost z rezervace: dokument u nepřevzaté položky
+            // ukáže objednanou velikost, ne tu zkoušenou v dropdownu (parita s kioskem).
+            onTap: () => setState(() { g.checked = !g.checked; if (!g.checked) g.size = g.origSize; }),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 22, height: 22,
+              decoration: BoxDecoration(
+                color: on ? MotoGoColors.green : Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: on ? MotoGoColors.green : MotoGoColors.g200, width: 2),
+              ),
+              child: on ? const Icon(Icons.check, size: 14, color: Colors.black) : null,
             ),
-            child: g.checked ? const Icon(Icons.check, size: 14, color: Colors.black) : null,
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(child: Text(g.label(t(context)), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: MotoGoColors.black))),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(color: MotoGoColors.greenPale, borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: MotoGoColors.green, width: 1.5)),
-          child: DropdownButton<String>(
-            value: g.size,
-            hint: Text(t(context).tr('hpSize'), style: const TextStyle(fontSize: 12)),
-            underline: const SizedBox(),
-            isDense: true,
-            dropdownColor: Colors.white,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MotoGoColors.black),
-            items: opts.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-            onChanged: (s) => setState(() => g.size = s),
+          const SizedBox(width: 10),
+          Expanded(child: Text(g.label(t(context)), style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w600,
+              color: on ? MotoGoColors.black : MotoGoColors.g400,
+              decoration: on ? TextDecoration.none : TextDecoration.lineThrough))),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(color: on ? MotoGoColors.greenPale : MotoGoColors.g100, borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: on ? MotoGoColors.green : MotoGoColors.g200, width: 1.5)),
+            child: DropdownButton<String>(
+              value: g.size,
+              hint: Text(t(context).tr('hpSize'), style: const TextStyle(fontSize: 12)),
+              underline: const SizedBox(),
+              isDense: true,
+              dropdownColor: Colors.white,
+              // Zamčený dropdown barví Flutter sám (Theme.disabledColor) — vlastní barva by se neuplatnila.
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MotoGoColors.black),
+              items: opts.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              // Nepřevzatá položka: velikost zamčená (edge ji stejně ignoruje).
+              onChanged: on ? (s) => setState(() => g.size = s) : null,
+            ),
           ),
-        ),
+        ]),
+        if (!on)
+          Padding(
+            padding: const EdgeInsets.only(left: 32, top: 2),
+            child: Text(t(context).tr('hpGearRemoved'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: MotoGoColors.red)),
+          ),
       ]),
     );
   }

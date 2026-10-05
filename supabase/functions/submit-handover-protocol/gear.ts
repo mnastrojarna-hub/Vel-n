@@ -3,7 +3,9 @@
 // passenger_<key>_size. Položka bez vazby (jen label+size, staré appky) se
 // pouze vykreslí; položka s vazbou a velikostí z číselníku accessory_types
 // se PŘED podpisem propíše do rezervace (zákazník si u displeje/v appce
-// upravil velikost).
+// upravil velikost). NEPŘEVZATÁ položka s vazbou (checked=false) se z rezervace
+// ODEBÍRÁ (sloupec → NULL, `removed: true` pro dokument) — zadání majitele
+// 2026-10-05; ceny / booking_extras se NEMĚNÍ (vratku řeší Velín ručně).
 
 export const GEAR_KEYS = ['helmet', 'jacket', 'pants', 'boots', 'gloves'] as const
 export type GearKey = typeof GEAR_KEYS[number]
@@ -14,6 +16,8 @@ const WHO_LABELS: Record<GearWho, string> = { rider: 'řidič', passenger: 'spol
 
 export interface AccessoryItem {
   key?: GearKey; who?: GearWho; field?: string; label?: string; size?: string; checked?: boolean
+  /** Nastaví edge: nepřevzatá položka, kterou z rezervace skutečně odebrala (sloupec → NULL). */
+  removed?: boolean
 }
 
 export function gearField(key: GearKey, who: GearWho): string {
@@ -71,38 +75,59 @@ export function normalizeAccessories(raw: unknown, defaultChecked: boolean): Acc
 }
 
 export interface SizeUpdates {
-  updates: Record<string, string>                       // sloupec bookings → nová velikost
-  changes: Record<string, { from: string; to: string }> // klíč jako track_booking_content_changes (helmet, passenger_helmet…)
+  updates: Record<string, string | null>                       // sloupec bookings → nová velikost, null = odebráno
+  changes: Record<string, { from: string; to: string | null }> // klíč jako track_booking_content_changes (helmet, passenger_helmet…)
 }
 
 // deno-lint-ignore no-explicit-any
 type Admin = any
 
 /**
- * Změněné velikosti k propsání do rezervace. Bere se JEN položka s vazbou na
- * sloupec, jejíž velikost je v číselníku `accessory_types.sizes` daného typu,
+ * Změny výbavy k propsání do rezervace. Bere se JEN položka s vazbou na sloupec
  * a jen tam, kde rezervace už velikost má (výbavu nelze u protokolu přidat —
- * to by vyvolalo nový kód šatny uprostřed převzetí).
+ * to by vyvolalo nový kód šatny uprostřed převzetí):
+ * - převzatá (checked): jiná velikost z číselníku `accessory_types.sizes` → nová velikost;
+ * - NEpřevzatá: sloupec → NULL (odebrána z rezervace) + `a.removed = true`;
+ *   poslaná `size` je původní z rezervace a NIKDY se nepropisuje.
+ * `allowRemove=false` (starý klient bez opt-in `form.gear_remove`): nepřevzatá
+ * položka je jen ☐ v dokumentu jako dřív — rezervace se nemění.
  */
-export async function resolveSizeUpdates(admin: Admin, booking: Record<string, unknown>, items: AccessoryItem[]): Promise<SizeUpdates> {
-  const linked = items.filter((a) => a.field && a.key && a.who && a.size)
+export async function resolveGearUpdates(admin: Admin, booking: Record<string, unknown>, items: AccessoryItem[], allowRemove = true): Promise<SizeUpdates> {
+  const linked = items.filter((a) => a.field && a.key && a.who)
   const res: SizeUpdates = { updates: {}, changes: {} }
   if (!linked.length) return res
-  const { data: types } = await admin.from('accessory_types').select('key, sizes, is_active').in('key', [...GEAR_KEYS])
   const allowed = new Map<string, Set<string>>()
-  for (const t of (types || []) as Array<{ key: string; sizes: string[] | null; is_active: boolean | null }>) {
-    if (t.is_active === false) continue
-    const s = allowed.get(t.key) ?? new Set<string>()
-    for (const x of t.sizes || []) s.add(String(x).trim())
-    allowed.set(t.key, s)
+  if (linked.some((a) => a.checked && a.size)) {
+    const { data: types } = await admin.from('accessory_types').select('key, sizes, is_active').in('key', [...GEAR_KEYS])
+    for (const t of (types || []) as Array<{ key: string; sizes: string[] | null; is_active: boolean | null }>) {
+      if (t.is_active === false) continue
+      const s = allowed.get(t.key) ?? new Set<string>()
+      for (const x of t.sizes || []) s.add(String(x).trim())
+      allowed.set(t.key, s)
+    }
   }
+  const currentOf = (a: AccessoryItem) => String(booking[a.field as string] ?? '').trim()
   for (const a of linked) {
+    const field = a.field as string
+    const current = currentOf(a)
+    if (!current) continue // v rezervaci není → nepřidávat ani neodebírat
+    const changeKey = a.who === 'passenger' ? `passenger_${a.key}` : (a.key as string)
+    if (!a.checked) { // nepřevzato → odebrat z rezervace (jen klient, který sémantiku zná)
+      if (allowRemove) { res.updates[field] = null; res.changes[changeKey] = { from: current, to: null } }
+      continue
+    }
     const sizes = allowed.get(a.key as string)
-    if (!sizes || !sizes.has(a.size as string)) continue // mimo číselník → jen zobrazit
-    const current = String(booking[a.field as string] ?? '').trim()
-    if (!current || current === a.size) continue
-    res.updates[a.field as string] = a.size as string
-    res.changes[a.who === 'passenger' ? `passenger_${a.key}` : (a.key as string)] = { from: current, to: a.size as string }
+    if (!a.size || !sizes || !sizes.has(a.size)) continue // mimo číselník → jen zobrazit
+    if (current === a.size) continue
+    res.updates[field] = a.size
+    res.changes[changeKey] = { from: current, to: a.size }
+  }
+  // `removed` až podle VÝSLEDKU (duplicitní položka s týmž `field` = poslední vyhrává): sloupec je po tomto
+  // podpisu NULL — odebrán teď, nebo už dřív (opakovaný podpis po 5xx; 1. pokus ho odebral i se záznamem historie).
+  if (allowRemove) {
+    for (const a of linked) {
+      if (!a.checked && (res.updates[a.field as string] === null || !currentOf(a))) a.removed = true
+    }
   }
   return res
 }

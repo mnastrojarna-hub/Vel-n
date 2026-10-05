@@ -89,7 +89,8 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   function toggleHandover(key) { setChecks(c => ({ ...c, [key]: !c[key] })) }
   function toggleDamage(key) { setChecks(c => ({ ...c, [key]: { ...(c[key] || {}), checked: !c[key]?.checked } })) }
   function setDamageNote(key, note) { setChecks(c => ({ ...c, [key]: { ...(c[key] || {}), note } })) }
-  function toggleAccessory(i) { setAccessories(a => a.map((x, idx) => idx === i ? { ...x, checked: !x.checked } : x)) }
+  // Odškrtnutí vrací velikost z rezervace (origSize): dokument u nepřevzaté položky ukáže objednanou velikost, ne rozpracovanou změnu.
+  function toggleAccessory(i) { setAccessories(a => a.map((x, idx) => idx === i ? { ...x, checked: !x.checked, size: x.checked ? x.origSize : x.size } : x)) }
   function setAccessorySize(i, size) { setAccessories(a => a.map((x, idx) => idx === i ? { ...x, size } : x)) }
 
   function verifyCode() {
@@ -108,15 +109,29 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       const customerSig = custSig.current?.toDataURL() || null
       if (!customerSig) { setError('Chybí podpis nájemce — podepište se prosím perem.'); setSaving(false); return }
       const operatorSig = operSig.current?.toDataURL() || null
-      // Změněné velikosti u ZAŠKRTNUTÝCH položek (skutečně předáno) propíšeme do
-      // rezervace PŘED uložením protokolu — UPDATE *_size sloupců spustí trigger
-      // gear_shortage_on_booking → přepočet deficitů v Logistice zboží.
+      // Skutečnost z protokolu propíšeme do rezervace PŘED uložením protokolu — UPDATE
+      // *_size sloupců spustí trigger gear_shortage_on_booking → přepočet deficitů v Logistice zboží.
+      // Zaškrtnutá položka se změněnou velikostí → nová velikost. NEZAŠKRTNUTÁ položka (zákazník si
+      // ji nevzal) → NULL = položka z rezervace odebrána; historii (gear_changes from→null) zapíše
+      // DB trigger track_booking_content_changes (admin). Ceny / booking_extras se NEMĚNÍ.
       if (!isDamage) {
         const upd = {}
-        accessories.forEach(a => { if (a.checked && a.field && a.size && a.size !== a.origSize) upd[a.field] = a.size })
+        accessories.forEach(a => {
+          if (!a.field) return
+          if (!a.checked) upd[a.field] = null
+          else if (a.size && a.size !== a.origSize) upd[a.field] = a.size
+        })
         if (Object.keys(upd).length > 0) {
-          const { error: sErr } = await supabase.from('bookings').update(upd).eq('id', bookingId)
-          if (sErr) throw new Error('Propsání změněné velikosti do rezervace selhalo: ' + sErr.message)
+          // Samoobsluha: stejný guard jako edge — podepsal-li zákazník mezitím na displeji / v appce,
+          // jeho protokol je závazný a výbava v rezervaci se z Velína už nemění (0 zasažených řádků).
+          let q = supabase.from('bookings').update(upd).eq('id', bookingId)
+          if (selfService) q = q.is('handover_protocol_filled_at', null)
+          const { data: rows, error: sErr } = await q.select('id')
+          if (sErr) throw new Error('Propsání výbavy z protokolu (změna velikosti / odebrání položky) do rezervace selhalo: ' + sErr.message)
+          if (selfService && !rows?.length) {
+            setError('Předávací protokol už je podepsán (aplikace / displej pobočky) — výbava v rezervaci se nemění a druhý protokol se nevystavuje. Podepsané PDF najdete v Dokumentech.')
+            setSaving(false); return
+          }
         }
       }
       const form = { mileage, visualState, notes, damageDesc, missingGear, accessories, checks, damage: handoverDamage, identityCodeRequired: !!motoCode, identityVerified: codeVerified }
@@ -309,25 +324,29 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
             accessories.length > 0 && (
               <div>
                 <h3 className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Předané příslušenství</h3>
-                <p style={{ fontSize: 12, color: '#4b5f52', marginBottom: 8 }}>Pokud zákazník dostal jinou velikost, změňte ji zde — u zaškrtnutých položek se skutečnost propíše do rezervace a Logistiky zboží.</p>
+                <p style={{ fontSize: 12, color: '#4b5f52', marginBottom: 8 }}>Pokud zákazník dostal jinou velikost, změňte ji zde. Co si nevzal, odškrtněte — položka se z rezervace odebere. U zaškrtnutých položek se skutečnost propíše do rezervace a Logistiky zboží.</p>
                 <div className="space-y-2">
                   {accessories.map((a, i) => {
                     const opts = sizesByType[a.type] || []
                     const optList = opts.includes(a.size) ? opts : [a.size, ...opts]
+                    // Nezaškrtnuto = nepřevzato → položka se při uložení z rezervace odebere (velikost zamčená)
+                    const off = !a.checked
+                    const sizeStyle = { padding: '6px 10px', borderRadius: 8, border: `1px solid ${!off && a.size !== a.origSize ? '#f59e0b' : '#b6dccb'}`, fontSize: 14, fontWeight: 700, background: off ? '#f1f5f3' : '#fff', color: off ? '#9ca3af' : undefined }
                     return (
                       <div key={i} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: '#f8faf9' }}>
                         <input type="checkbox" checked={a.checked} onChange={() => toggleAccessory(i)} style={cbStyle} />
-                        <span style={{ ...labelStyle, flex: 1 }} onClick={() => toggleAccessory(i)}>{a.label}</span>
+                        <span style={{ ...labelStyle, flex: 1, ...(off ? { textDecoration: 'line-through', color: '#9ca3af' } : {}) }} onClick={() => toggleAccessory(i)}>{a.label}</span>
                         {opts.length > 0 ? (
-                          <select value={a.size} onChange={e => setAccessorySize(i, e.target.value)}
-                            style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${a.size !== a.origSize ? '#f59e0b' : '#b6dccb'}`, fontSize: 14, fontWeight: 700, background: '#fff' }}>
+                          <select value={a.size} disabled={off} onChange={e => setAccessorySize(i, e.target.value)} style={sizeStyle}>
                             {optList.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                         ) : (
-                          <input type="text" value={a.size} onChange={e => setAccessorySize(i, e.target.value)}
-                            style={{ width: 80, padding: '6px 10px', borderRadius: 8, border: `1px solid ${a.size !== a.origSize ? '#f59e0b' : '#b6dccb'}`, fontSize: 14, fontWeight: 700, textAlign: 'center' }} />
+                          <input type="text" value={a.size} disabled={off} onChange={e => setAccessorySize(i, e.target.value)}
+                            style={{ ...sizeStyle, width: 80, textAlign: 'center' }} />
                         )}
-                        {a.size !== a.origSize && (
+                        {off ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', whiteSpace: 'nowrap' }}>nepřevzato — odebere se z rezervace</span>
+                        ) : a.size !== a.origSize && (
                           <span style={{ fontSize: 11, fontWeight: 700, color: '#b45309', whiteSpace: 'nowrap' }}>bylo {a.origSize}</span>
                         )}
                       </div>

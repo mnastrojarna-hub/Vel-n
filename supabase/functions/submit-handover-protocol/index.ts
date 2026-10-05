@@ -8,7 +8,8 @@
 //
 // Tok: auth → rezervace → idempotence (already_filled) → stav (wrong_status/too_early;
 // too_early i před `release_at` — sleva za vyzvednutí od 12:00, odpověď nese release_at)
-// → propis změněných velikostí do bookings → HTML → PDF přes render-pdf (fallback HTML)
+// → propis výbavy do bookings (změněná velikost; NEpřevzatá položka = odebrání z rezervace,
+// sloupec → NULL, ceny/booking_extras beze změny) → HTML → PDF přes render-pdf (fallback HTML)
 // → bucket `documents` → ATOMICKÝ CLAIM handover_protocol_filled_at (UPDATE … WHERE
 // filled_at IS NULL; 0 řádků = podepsáno souběžně jinde → already_filled + úklid souboru)
 // → generated_documents (sync trigger → `documents`, appka) → stav km do bookings.mileage_start
@@ -25,7 +26,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { authClassify } from '../_shared/auth.ts'
 import { buildHtml, normalizeMotoEquipment, type Signer, type Vars } from './html.ts'
-import { bookingGearItems, normalizeAccessories, resolveSizeUpdates } from './gear.ts'
+import { bookingGearItems, normalizeAccessories, resolveGearUpdates } from './gear.ts'
 import {
   CORS, fail, fmtDate, json, parseSignedAt, positiveKm, pragueDay, removeDocument, resolvePickupKm, SIG_MAX_APP,
   SIG_MAX_KIOSK, SIG_RE, signatureBytes, storeDocument, UUID_RE,
@@ -160,11 +161,15 @@ serve(async (req) => {
     else delete form.moto_equipment
     if (mode === 'kiosk') {
       if (!Array.isArray(form.accessories)) accessories = bookingGearItems(booking)
-      form.checks = { clean: true, docs: true, keys: true, instructed: true, gear: accessories.length > 0, ...((form.checks && typeof form.checks === 'object') ? form.checks as Record<string, unknown> : {}) }
+      form.checks = { clean: true, docs: true, keys: true, instructed: true, gear: accessories.some((a) => a.checked), ...((form.checks && typeof form.checks === 'object') ? form.checks as Record<string, unknown> : {}) }
       if (!form.damage || typeof form.damage !== 'object') form.damage = { checked: false, desc: '' }
       if (typeof form.notes !== 'string') form.notes = ''
     }
-    form.accessories = accessories
+    form.accessories = accessories // stejná reference: resolveGearUpdates níže položky mutuje (`removed`) → buildHtml je vidí
+    // Odebrání nepřevzaté položky z rezervace jen od klienta, který sémantiku zná (opt-in):
+    // kiosk ≥ 1.2.4 (starší jednotky posílají vždy checked:true), appka s `form.gear_remove: true`
+    // (starší buildy appky mají checkbox bez vysvětlení → jejich ☐ zůstává jen v dokumentu jako dřív).
+    const allowRemove = mode === 'kiosk' || form.gear_remove === true
 
     // ── Stav km při předání = VŽDY systém (zadání majitele 2026-09-29) ─────
     // Zákazník km nezadává: platí poslední stav z vrácení předchozím zákazníkem
@@ -200,17 +205,30 @@ serve(async (req) => {
         ? `${fmtDate(booking.start_date)} ${String(booking.pickup_time).slice(0, 5)}` : '',
     }
 
-    // ── Změněné velikosti → bookings (PŘED claimem; vlastní záznam historie,
-    // trigger track_booking_content_changes pak vlastní „system“ záznam nepřidá).
+    // ── Výbava → bookings (PŘED claimem; vlastní záznam historie, trigger
+    // track_booking_content_changes pak vlastní „system“ záznam nepřidá): změněná
+    // velikost převzaté položky; NEpřevzatá položka = odebrání z rezervace (NULL,
+    // `removed` pro dokument). Ceny / booking_extras se NEMĚNÍ (rozhodnutí majitele
+    // čeká — vratku řeší Velín ručně).
     try {
-      const { updates, changes } = await resolveSizeUpdates(admin, booking, accessories)
+      const { updates, changes } = await resolveGearUpdates(admin, booking, accessories, allowRemove)
       if (Object.keys(updates).length) {
         const entry = { at: now.toISOString(), auto: true, source: 'protocol', signed_by: signer.by, ...(deviceId ? { device_id: deviceId } : {}), gear_changes: changes }
         const hist = Array.isArray(booking.modification_history) ? booking.modification_history : []
-        await admin.from('bookings').update({ ...updates, modification_history: [...hist, entry] })
+        const { error: uErr } = await admin.from('bookings').update({ ...updates, modification_history: [...hist, entry] })
           .eq('id', bookingId).is('handover_protocol_filled_at', null)
+        if (uErr) throw uErr
       }
-    } catch (_) { /* propis velikostí je best-effort, podpis neshodí */ }
+    } catch (e) { // propis výbavy je best-effort, podpis neshodí; neodebráno → bez poznámky v dokumentu, ale dohledatelné
+      for (const a of accessories) delete a.removed
+      const msg = (e as Error)?.message ?? String(e)
+      console.warn('[handover] gear update failed', bookingId, msg)
+      try {
+        await admin.from('debug_log').insert({ source: 'submit-handover-protocol', action: 'handover_gear_update_failed', status: 'error',
+          error_message: msg, request_data: { booking_id: bookingId, signed_by: signer.by, allow_remove: allowRemove,
+            accessories: accessories.map(({ field, checked, size }) => ({ field, checked, size })) } })
+      } catch { /* jen log */ }
+    }
 
     // ── Dokument do bucketu PŘED claimem (viz hlavička) ────────────────────
     const html = buildHtml(vars, form, signature, signer)

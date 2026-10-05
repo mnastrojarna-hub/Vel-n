@@ -830,7 +830,8 @@ aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
 - **Předávací protokol (2026-09-25, §28; bez service_token — zákazník):** `POST /api/protocol/submit {"booking_id","code"?,"form",
   "signature"}` (`signature` = PNG data-URL ≤ 150 kB dekódovaných bajtů; `form` = `{mileage, accessories[], moto_equipment[]}` —
   **2026-09-28** `moto_equipment` = 5 pevných položek výbavy motorky `[{key: phone_holder_key|disc_lock|accident_form|first_aid_kit|
-  reflective_vest, qty (vesta 2), checked}]`, od 2026-10-02 kiosk posílá vždy všechny s `checked:true` (jen informace, bez zaškrtávání); edge `submit-handover-protocol`
+  reflective_vest, qty (vesta 2), checked}]`, od 2026-10-02 kiosk posílá vždy všechny s `checked:true` (jen informace, bez zaškrtávání); `accessories[]`
+  od 2026-10-05 `{key, who, field, size, checked}` s `checked:false` = nepřevzato (chip „✕ Neberu“, `size` = původní z rezervace; §28); edge `submit-handover-protocol`
   je u staršího buildu bez pole doplní jako předané) → `handover.submit(bid, form, signature, code, source='ui')`
   → `{ok, status: 'saved'|'queued'|'already_filled'|null, opened: {zone, kind, message}|null, error: null|…, locked_until?}`.
   `ok:false` (nic se neuložilo, `status:null`): `not_pending` (položka neexistuje / není stage protocol / `ctrl.handover` chybí),
@@ -914,7 +915,8 @@ minuty ubíhají v `tickTimer`), podpis se neuložil, overlay zůstává.
 Overlay `#handover` (modální, z-index mezi `#status` a `#service`; modul `MG.Handover` v `ui/handover.js`: `init({post, showStatus, getState})`, `onState(st)`,
 `rerender()`, `isVisible()`, `keys` pro fyzickou klávesnici; podpis `MG.Signature.create(el, {onStroke})` v `ui/signature.js`)
 se kreslí ze `st.handover.active` (§14): hlavička (`data`; popisky `ho.customer`/`ho.moto`/`ho.period`), řádky výbavy (ikona/název `g.helmet…gloves`,
-`ho.rider`/`ho.passenger`, chipy velikostí z `active.sizes[key]` s předvybranou `size`; bez zapůjčené výbavy `ho.noGear` v kroku 2 nad výbavou motorky — `#ho-own-gear`) + **vždy** skupina
+`ho.rider`/`ho.passenger`, chipy velikostí z `active.sizes[key]` s předvybranou `size`, na konci řady chip `✕ ho.notTaking` (2026-10-05, přepínač: `S.taken[gid]=false`
+→ řádek `.ho-row.off`, chip `.ho-chip.skip.on`; klepnutí na velikost → `taken=true`; stav `S.picks`/`S.taken` je klíčovaný identitou položky `gid = field || who:key`, NE indexem — `sync()` při změně `data.gear` (jednotka ho obnovuje ze sync `reconcile`, Velín mohl položku přidat) nové položky doplní jako převzaté a překreslí; stav přežije `rerender()`); bez zapůjčené výbavy `ho.noGear` v kroku 2 nad výbavou motorky — `#ho-own-gear`) + **vždy** skupina
 „Výbava motorky“ (2026-09-28, zadání majitele: `ho.motoGear`, poznámka `ho.motoGearNote` „Najdete ji v motorce — v kufru nebo v tankvaku…“,
 řádky `me.*` = klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta; **od 2026-10-02 jen informativně,
 bez zaškrtávání** — `form.moto_equipment[]` jde vždy celé s `checked:true`). **Od 2026-10-02 je protokol ve 2 krocích** (štítek
@@ -1204,8 +1206,10 @@ reserved|active|**completed** (podpis pořízený při výpadku dorazí i po no�
 `wrong_status` → 400 `missing_signature` / 413 `signature_too_large` (kiosk 150 kB, appka 2 MB dekódovaných bajtů; týž vzorec jako
 `handover_submit.signature_bytes` / `ui/signature.js`) / 400 `invalid_signature`; atomický claim `filled_at` PŘED INSERTem
 dokumentu → druhý podpis `already_filled`; `form.accessories[] = {key, who, field?, label?, size, checked}` propíše změněné velikosti
-do `bookings`; **kiosk posílá jen `form = {mileage: String(data.mileage ?? ''), accessories: [{key, who, field, size, checked:true}…]}`**
-(`ui/handover.js`), zbytek doplní edge (`checks: {clean, docs, keys, instructed: true, gear: <má-li výbavu>}`, `damage: {checked:false,
+do `bookings`; **od 2026-10-05 `checked:false` = NEPŘEVZATO** (kiosk chip „✕ Neberu“): u položky s vazbou `field` edge nastaví `bookings.<field> = NULL`
+(položka z rezervace odebrána, `gear_changes {from, to:null}` do historie) a `size` (kiosk posílá PŮVODNÍ z rezervace) nikdy nepropisuje;
+ceny / `booking_extras` beze změny; odebrání je opt-in klienta — režim `kiosk` vždy (jednotky < 1.2.4 posílají vždy `checked:true`), režim `customer` jen s `form.gear_remove: true` (nová appka; starší buildy odškrtnutím rezervaci nemění); `removed` v dokumentu až dle výsledku (i při opakovaném podpisu po 5xx, kdy je sloupec NULL už z 1. pokusu), selhání UPDATE → `debug_log` `handover_gear_update_failed`; **kiosk posílá jen `form = {mileage: String(data.mileage ?? ''), accessories: [{key, who, field, size, checked}…]}`**
+(`ui/handover.js`), zbytek doplní edge (`checks: {clean, docs, keys, instructed: true, gear: accessories.some(a => a.checked)}`, `damage: {checked:false,
 desc:''}`, `notes:''`); do PDF „Podepsáno na displeji pobočky (zařízení <device_id>) <signed_at>“, `filled_data._signed_by:'kiosk'`,
 `_device_id`; odpověď `{success, already_filled?, doc_id?, email_sent?, error?, detail?}`; **4xx MIMO 404/408/429 = trvalé** (kiosk
 neopakuje → `failed[]`; vč. 410/403/400/413), 404/408/429/5xx/síť = dočasné; `mode: auto` → 403 (autofill zrušen, cron

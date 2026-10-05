@@ -21,13 +21,30 @@ MG.Handover = (function () {
   ];
   const LOCALE = { cs: 'cs-CZ', en: 'en-GB', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', nl: 'nl-NL', pl: 'pl-PL', uk: 'uk-UA' };
   let deps = null;    // { post, showStatus, getState }
-  const S = { item: null, key: '', code: '', picks: [], step: 2, saving: false, lastTouch: 0, msg: null, sig: null, kb: null,
+  const S = { item: null, key: '', code: '', picks: {}, taken: {}, gearSig: '', step: 2, saving: false, lastTouch: 0, msg: null, sig: null, kb: null,
     timer: null, doneKey: '', ownDone: { id: '', at: 0 }, wait: null };
+  // S.picks[gid] = zvolená velikost, S.taken[gid] (2026-10-05): false = zákazník si položku NEBERE (chip ✕) → edge ji z rezervace
+  // odebere (bookings.<field> = NULL). Klíč = identita položky (gid), NE index: jednotka `data.gear` během otevřeného protokolu
+  // obnovuje ze sync (reconcile) a seznam se může změnit (Velín přidá/odebere položku) — S.gearSig to v sync() pozná.
   // S.msg = {key} (i18n) | {locked: locked_until} | {pickup: release_at} (výdej až od 12:00, §31) ; S.wait = {id, thenOpen, at} — položka zmizela, výsledek řekne stav zón
   // S.step: 1 = velikosti zapůjčené výbavy, 2 = výbava motorky (info) + podpis + kód (2026-10-02; bez zapůjčené výbavy rovnou 2)
 
   function setText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
   const itemKey = (a) => a.booking_id + '|' + (a.shown_at || '');
+  const gearOf = (a) => (Array.isArray(a && a.data && a.data.gear) ? a.data.gear : []);
+  const gid = (g) => g.field || ((g.who || 'rider') + ':' + g.key);
+  const gearSig = (a) => JSON.stringify(gearOf(a).map((g) => [gid(g), g.size != null ? String(g.size) : '']));
+  /** Stav voleb výbavy: nová položka = velikost z rezervace + převzato; `keep` = volby už známých položek zachovat (sync). */
+  function initGear(a, keep) {
+    if (!keep) { S.picks = {}; S.taken = {}; }
+    gearOf(a).forEach((g) => {
+      const id = gid(g);
+      if (keep && Object.prototype.hasOwnProperty.call(S.picks, id)) return;
+      S.picks[id] = g.size != null && g.size !== '' ? String(g.size) : '';
+      S.taken[id] = true;
+    });
+    S.gearSig = gearSig(a);
+  }
   const cz = () => MG.i18n.lang === MG.i18n.DEFAULT;
 
   /** Datum z ISO (date i timestamp) v jazyce displeje; nerozpoznané → původní text. */
@@ -64,31 +81,36 @@ MG.Handover = (function () {
     return b;
   }
 
-  /** Řádky výbavy: skupina Řidič / Spolujezdec, ikona + název (i18n g.*), chipy velikostí z číselníku (+ aktuální). */
+  /** Řádky výbavy: skupina Řidič / Spolujezdec, ikona + název (i18n g.*), chipy velikostí z číselníku (+ aktuální) a na konci
+      chip „✕ Neberu“ (přepínač: `S.taken[gid] = false` → řádek `off`, žádný chip velikosti `on`); klepnutí na velikost bere položku zpět. */
   function renderGear(a) {
     const box = $('ho-gear-list');
     box.textContent = '';
-    const gear = Array.isArray(a.data && a.data.gear) ? a.data.gear : [];
+    const gear = gearOf(a);
     if (!gear.length) {
       const p = document.createElement('div'); p.className = 'ho-nogear'; p.textContent = MG.i18n.t('ho.noGear'); box.appendChild(p);
       return;
     }
     ['rider', 'passenger'].forEach((who) => {
-      const rows = gear.map((g, i) => [g, i]).filter(([g]) => (g.who || 'rider') === who);
+      const rows = gear.filter((g) => (g.who || 'rider') === who);
       if (!rows.length) return;
       const h = document.createElement('div'); h.className = 'ho-group'; h.textContent = MG.i18n.t('ho.' + who); box.appendChild(h);
-      rows.forEach(([g, i]) => {
+      rows.forEach((g) => {
+        const id = gid(g), taken = S.taken[id] !== false;
         const row = document.createElement('div');
-        row.className = 'ho-row';
+        row.className = 'ho-row' + (taken ? '' : ' off');
         row.innerHTML = '<span class="ho-row-ico"></span><span class="ho-row-name"></span><div class="ho-chips"></div>';
         row.querySelector('.ho-row-ico').textContent = GEAR_ICON[g.key] || '🎽';
         row.querySelector('.ho-row-name').textContent = MG.i18n.g('g', g.key) || g.key || '';
         const sizes = (a.sizes && Array.isArray(a.sizes[g.key]) ? a.sizes[g.key] : []).map(String);
-        const cur = S.picks[i];
+        const cur = S.picks[id];
         if (cur && sizes.indexOf(cur) === -1) sizes.unshift(cur);
         const chips = row.querySelector('.ho-chips');
         if (!sizes.length) { const s = document.createElement('span'); s.className = 'ho-size-na'; s.textContent = '—'; chips.appendChild(s); }
-        sizes.forEach((sz) => chips.appendChild(chip(sz, sz === cur, () => { S.picks[i] = sz; touch(); renderGear(a); })));
+        sizes.forEach((sz) => chips.appendChild(chip(sz, taken && sz === cur, () => { S.picks[id] = sz; S.taken[id] = true; touch(); renderGear(a); })));
+        const skip = chip('✕ ' + MG.i18n.t('ho.notTaking'), !taken, () => { S.taken[id] = !taken; touch(); renderGear(a); });
+        skip.classList.add('skip');
+        chips.appendChild(skip);
         box.appendChild(row);
       });
     });
@@ -186,7 +208,7 @@ MG.Handover = (function () {
   function open(a) {
     S.item = a; S.key = itemKey(a); S.code = ''; S.saving = false; S.lastTouch = Date.now();
     if (S.wait && S.wait.id === a.booking_id) S.wait = null;   // protokol téže rezervace znovu (podpis se neuložil) — čekaný výsledek je pasé
-    S.picks = (Array.isArray(a.data && a.data.gear) ? a.data.gear : []).map((g) => (g.size != null && g.size !== '' ? String(g.size) : ''));
+    initGear(a, false);
     setMsg(null);
     $('handover').hidden = false;
     $('handover').classList.toggle('no-code', !a.needs_code);
@@ -205,11 +227,13 @@ MG.Handover = (function () {
     tickTimer();
     updateButtons();
   }
-  /** Stejná položka, nový snapshot: then_open mohl vypršet (needs_code), ukládání z jiné cesty, prodloužený odpočet. */
+  /** Stejná položka, nový snapshot: then_open mohl vypršet (needs_code), ukládání z jiné cesty, prodloužený odpočet;
+      jednotka mohla obnovit `data.gear` ze sync (rezervace upravena ve Velíně) → doplnit nové položky a překreslit. */
   function sync(a) {
-    const codeChanged = !!S.item.needs_code !== !!a.needs_code;
+    const codeChanged = !!S.item.needs_code !== !!a.needs_code, gearChanged = gearSig(a) !== S.gearSig;
     S.item = a;
     if (codeChanged) { $('handover').classList.toggle('no-code', !a.needs_code); $('ho-code-sec').hidden = !a.needs_code; S.sig.resize(); }
+    if (gearChanged) { initGear(a, true); renderGear(a); }
     paintSaving();
     // po timeoutu vlastního submitu: položka je dál vidět a jednotka neukládá → požadavek k ní vůbec nedorazil
     if (S.wait && S.wait.id === a.booking_id && !S.saving && !a.saving) { S.wait = null; setMsg('ho.failed'); }
@@ -290,10 +314,15 @@ MG.Handover = (function () {
     touch();
     const signature = S.sig.toPng();
     if (!signature) { setMsg('ho.sigTooLarge'); return; }
-    const gear = Array.isArray(a.data && a.data.gear) ? a.data.gear : [];
     const form = {
       mileage: a.data && a.data.mileage != null ? String(a.data.mileage) : '',
-      accessories: gear.map((g, i) => ({ key: g.key, who: g.who || 'rider', field: g.field, size: S.picks[i] || '', checked: true })),
+      // nepřevzatá položka (checked:false) nese PŮVODNÍ velikost z rezervace — edge ji NULLuje, velikost nepropisuje;
+      // položka bez záznamu v S.taken (nikdy nezobrazená) = převzato (stejný výklad jako renderGear)
+      accessories: gearOf(a).map((g) => {
+        const id = gid(g), taken = S.taken[id] !== false;
+        return { key: g.key, who: g.who || 'rider', field: g.field,
+          size: taken ? (S.picks[id] || '') : (g.size != null ? String(g.size) : ''), checked: taken };
+      }),
       moto_equipment: motoEquipment(),
     };
     const body = { booking_id: a.booking_id, form, signature };
