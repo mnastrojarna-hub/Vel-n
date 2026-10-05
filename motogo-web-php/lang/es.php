@@ -310,7 +310,7 @@ return [
     'rez.return.expectedSub' => '¿A qué hora aproximada devolverá la moto? A más tardar a medianoche del último día.',
 
     // ===== Reserva — equipo =====
-    'rez.gear.intro' => 'Elija las tallas haciendo clic en los cuadros a continuación. Si no elige talla, la probaremos en el alquiler.',
+    'rez.gear.intro' => 'Elija las tallas haciendo clic en los cuadros a continuación. Si no elige talla, se la probará en el alquiler.',
     'rez.gear.rider' => 'Equipo del conductor',
     'rez.gear.riderSub' => 'Casco, chaqueta, guantes, pantalones, pasamontañas',
     'rez.gear.riderFree' => 'incluido · gratis',
@@ -1545,7 +1545,7 @@ return [
     'editRez.consents.marketingRevoked' => 'Consentimiento de marketing retirado. Los demás consentimientos se mantienen debido a tu reserva próxima.',
     'poukazy.steps.aria' => 'Cómo funciona el vale',
     'confirm.success.nextBookingDocsDone' => 'Hemos verificado tus documentos: no hace falta hacer nada.',
-    'confirm.success.nextBookingDocsMissing' => 'Tus documentos aún no están verificados: puedes verificarlos más tarde en la edición de la reserva (foto del DNI/pasaporte + carné de conducir) o en persona en la recogida. Sin verificación no te enviaremos los códigos de acceso por adelantado; entregaremos la moto tras revisar los documentos en la oficina.',
+    'confirm.success.nextBookingDocsMissing' => 'Tus documentos aún no están verificados: verifícalos más tarde en la edición de la reserva (foto del DNI/pasaporte + carné de conducir). Sin verificación no te enviaremos los códigos de acceso: en la sucursal de autoservicio no podrás entrar sin ellos y en la sucursal con personal revisaremos los documentos allí mismo, en el momento de la entrega.',
     'confirm.success.docsLabel' => 'Documentos',
     'confirm.success.docsVerified' => 'Verificados',
     'confirm.success.docsNotVerified' => 'Sin verificar',

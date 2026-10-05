@@ -435,7 +435,7 @@ return [
     'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřeš.',
 
     // ===== Rezervace — výbava =====
-    'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.',
+    'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíte ji na místě.',
     'rez.gear.rider' => 'Výbava řidiče',
     'rez.gear.riderSub' => 'Helma, bunda, rukavice, kalhoty, kukla',
     'rez.gear.riderFree' => 'v ceně · zdarma',
@@ -1540,7 +1540,7 @@ return [
     'confirm.success.nextTitle' => 'Co bude dál',
     'confirm.success.nextBookingDocs' => 'Nahrajte fotky občanky/pasu a řidičského průkazu — bez ověření nelze vydat přístupové kódy.',
     'confirm.success.nextBookingDocsDone' => 'Doklady jsme ověřili — žádná akce není potřeba.',
-    'confirm.success.nextBookingDocsMissing' => 'Doklady zatím nejsou ověřené — můžeš je ověřit dodatečně v úpravě rezervace (foto OP/pasu + ŘP) nebo osobně při vyzvednutí. Bez ověření ti nepošleme přístupové kódy předem; půjčíme motorku po kontrole dokladů na pobočce.',
+    'confirm.success.nextBookingDocsMissing' => 'Doklady zatím nejsou ověřené — ověř je dodatečně v úpravě rezervace (foto OP/pasu + ŘP). Bez ověření ti nepošleme přístupové kódy: na samoobslužné pobočce se bez nich dovnitř nedostaneš, na obslužné pobočce doklady zkontrolujeme při převzetí na místě.',
     'confirm.success.docsLabel' => 'Doklady',
     'confirm.success.docsVerified' => 'Ověřeny',
     'confirm.success.docsNotVerified' => 'Neověřeny',

@@ -309,7 +309,7 @@ return [
     'rez.return.expectedSub' => 'Gegen wie viel Uhr bringen Sie das Motorrad zurück? Spätestens um Mitternacht am letzten Tag.',
 
     // ===== Reservierung — Ausrüstung =====
-    'rez.gear.intro' => 'Wählen Sie Größen durch Klicken auf die Quadrate unten. Wenn Sie keine Größe wählen, probieren wir sie vor Ort an.',
+    'rez.gear.intro' => 'Wählen Sie Größen durch Klicken auf die Quadrate unten. Wenn Sie keine Größe wählen, probieren Sie sie vor Ort an.',
     'rez.gear.rider' => 'Fahrerausrüstung',
     'rez.gear.riderSub' => 'Helm, Jacke, Handschuhe, Hose, Sturmhaube',
     'rez.gear.riderFree' => 'inklusive · kostenlos',
@@ -1558,7 +1558,7 @@ return [
     'editRez.consents.marketingRevoked' => 'Marketing-Einwilligung widerrufen. Die übrigen Einwilligungen bleiben wegen Ihrer bevorstehenden Buchung bestehen.',
     'poukazy.steps.aria' => 'So funktioniert der Gutschein',
     'confirm.success.nextBookingDocsDone' => 'Wir haben Ihre Dokumente verifiziert — keine Aktion erforderlich.',
-    'confirm.success.nextBookingDocsMissing' => 'Ihre Dokumente sind noch nicht verifiziert — Sie können sie nachträglich in der Buchungsbearbeitung verifizieren (Foto von Personalausweis/Reisepass + Führerschein) oder persönlich bei der Abholung. Ohne Verifizierung senden wir Ihnen die Zugangscodes nicht im Voraus; wir übergeben das Motorrad nach Prüfung der Dokumente in der Filiale.',
+    'confirm.success.nextBookingDocsMissing' => 'Ihre Dokumente sind noch nicht verifiziert — verifizieren Sie diese nachträglich in der Buchungsbearbeitung (Foto von Personalausweis/Reisepass + Führerschein). Ohne Verifizierung senden wir Ihnen die Zugangscodes nicht: In der Selbstbedienungsfiliale kommen Sie ohne diese nicht hinein, in der bedienten Filiale prüfen wir die Dokumente bei der Übergabe vor Ort.',
     'confirm.success.docsLabel' => 'Dokumente',
     'confirm.success.docsVerified' => 'Verifiziert',
     'confirm.success.docsNotVerified' => 'Nicht verifiziert',

@@ -354,7 +354,7 @@ export const PAGE_REZERVACE = {
     {
       id: 'gear', label: 'Krok 5 — Výbava a velikosti (TEXTY)',
       fields: [
-        { key: 'web.layout.rez.gear.intro', label: 'Úvodní text', type: 'textarea', default: 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.' },
+        { key: 'web.layout.rez.gear.intro', label: 'Úvodní text', type: 'textarea', default: 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíte ji na místě.' },
         { key: 'web.layout.rez.gear.rider', label: 'Karta „Výbava řidiče" — název', default: 'Výbava řidiče' },
         { key: 'web.layout.rez.gear.riderSub', label: 'Karta „Výbava řidiče" — popis', default: 'Helma, bunda, rukavice, kalhoty' },
         { key: 'web.layout.rez.gear.riderFree', label: 'Štítek „v ceně · zdarma"', default: 'v ceně · zdarma' },

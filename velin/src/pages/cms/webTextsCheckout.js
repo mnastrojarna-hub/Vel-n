@@ -179,7 +179,7 @@ export const PAGE_POTVRZENI = {
         { key: 'web.layout.confirm.success.docsVerified', label: 'Štítek „Ověřeny"', default: 'Ověřeny' },
         { key: 'web.layout.confirm.success.docsNotVerified', label: 'Štítek „Neověřeny"', default: 'Neověřeny' },
         { key: 'web.layout.confirm.success.nextBookingDocsDone', label: 'Hláška — doklady ověřeny (žádná akce)', type: 'textarea', default: 'Doklady jsme ověřili — žádná akce není potřeba.' },
-        { key: 'web.layout.confirm.success.nextBookingDocsMissing', label: 'Hláška — doklady neověřeny (výzva)', type: 'textarea', default: 'Doklady zatím nejsou ověřené — můžeš je ověřit dodatečně v úpravě rezervace (foto OP/pasu + ŘP) nebo osobně při vyzvednutí.' },
+        { key: 'web.layout.confirm.success.nextBookingDocsMissing', label: 'Hláška — doklady neověřeny (výzva)', type: 'textarea', default: 'Doklady zatím nejsou ověřené — ověř je dodatečně v úpravě rezervace (foto OP/pasu + ŘP). Bez ověření ti nepošleme přístupové kódy: na samoobslužné pobočce se bez nich dovnitř nedostaneš, na obslužné pobočce doklady zkontrolujeme při převzetí na místě.' },
         { key: 'web.layout.confirm.success.editReservation', label: 'Tlačítko „Upravit / zrušit rezervaci"', default: 'Upravit / zrušit rezervaci' },
       ]
     },

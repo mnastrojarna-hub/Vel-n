@@ -42,9 +42,11 @@ function BranchGateCodeBlock({ branchId }) {
     } catch { /* best effort */ }
   }
 
+  // Vrací true jen po úspěšném uložení — nabídka dopo­slání kódů (offerNotify) nesmí běžet po chybě
+  // (dřív by po neúspěšném UPDATE nabídla rozeslat STARÝ kód všem rezervacím).
   async function run(fn) {
     setBusy(true)
-    try { await fn(); setEditing(false); await load() } catch (e) { setError(e.message || String(e)) } finally { setBusy(false) }
+    try { await fn(); setEditing(false); await load(); return true } catch (e) { setError(e.message || String(e)); return false } finally { setBusy(false) }
   }
 
   // UPDATE bez oprávnění (RLS) chybu nevrací, jen 0 řádků → ověřit přes .select()
@@ -87,14 +89,14 @@ function BranchGateCodeBlock({ branchId }) {
         if (e) throw e
       }
       audit(row ? 'branch_gate_code_updated' : 'branch_gate_code_created', { code_changed: !row || codeChanged })
-    }).then(() => { if (!row || codeChanged) return offerNotify() })
+    }).then((ok) => { if (ok && (!row || codeChanged)) return offerNotify() })
   }
 
   function toggle() {
     const next = !row.is_active
     if (!next && !window.confirm('Vypnout kód brány? Zákazníci pak kód brány ani postup s bránou nedostanou (v aplikaci, e-mailu, SMS ani ve zprávách).')) return
     return run(async () => { await update({ is_active: next }); audit('branch_gate_code_toggled', { is_active: next }) })
-      .then(() => { if (next) return offerNotify() })
+      .then((ok) => { if (ok && next) return offerNotify() })
   }
 
   let body
