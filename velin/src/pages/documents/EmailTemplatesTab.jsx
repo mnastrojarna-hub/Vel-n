@@ -149,9 +149,9 @@ const TEMPLATE_META = {
   },
   door_codes: {
     category: 'other', categoryLabel: 'Ostatní',
-    trigger: 'Uvolnění přístupových kódů po nahrání dokladů (DB fn send_door_codes_email)',
+    trigger: 'Vydání/uvolnění přístupových kódů (DB fn send_door_codes_email → edge send-booking-email)',
     attachments: 'Žádné',
-    info: 'Odesílá se zákazníkovi POUZE pokud kódy nebyly uvolněné už při potvrzení rezervace (booking_reserved mail). Typicky když zákazník nahrál doklady (OP/ŘP) AŽ po platbě a kódy se aktivují dodatečně. SQL trigger release_withheld_door_codes_for_user → SQL fn send_door_codes_email čte tuto šablonu z email_templates a posílá přes Resend napřímo. Strict dedup: 1 mail per booking.',
+    info: 'Mail s přístupovými kódy. Posílá DB fn send_door_codes_email přes edge send-booking-email (type=door_codes) při vydání kódů (potvrzení s doklady, uvolnění po nahrání dokladů, regenerace po změně motorky, ruční uvolnění/dopo­slání z Velína). Dedup: nový mail jen po vygenerování nových kódů. Kódy vkládejte VÝHRADNĚ proměnnou {{door_codes_block}} — u pobočky s bránou (Velké Němčice) vykreslí brána → šatna (dveře č. 8) → motorka + postup, jinak motorka + šatna; bez placeholderu edge blok připojí na konec mailu. Text musí být univerzální pro obslužnou i samoobslužnou pobočku.',
   },
   invoice_advance: {
     category: 'invoice', categoryLabel: 'Faktura',
