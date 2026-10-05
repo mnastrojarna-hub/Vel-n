@@ -359,7 +359,7 @@ dveře — protokol se zobrazí po zavření.“ Hláška se odvozuje ŽIVĚ ze 
 zároveň zakládá **zámek přejímky** (§13 bod 7b): kiosk přijímá jen kódy téže rezervace, dokud se neotevře její kóje motorky
 (ostatní: „Nejprve musí být dokončena předchozí přejímka“; vyprší po `handover_lock_s` bez aktivity). Protokol nepodepsán → modální
 overlay PROTOCOL přes celý displej (hlavička: jméno zkráceně, motorka, období; výbava řidič/spolujezdec s velikostmi — chipy z
-číselníku, upravitelné; od 2026-10-02 ve 2 krocích: velikosti → výbava motorky (info) + podpis; podpis prstem; „Potvrdit a podepsat“ + pole „Kód motorky“ = identita podepisujícího, bez správného kódu
+číselníku, upravitelné, od 2026-10-05 na konci řady chip „✕ Neberu“ = položka z rezervace odebrána (`checked:false`, řádek přeškrtnutý); od 2026-10-02 ve 2 krocích: velikosti → výbava motorky (info) + podpis; podpis prstem; „Potvrdit a podepsat“ + pole „Kód motorky“ = identita podepisujícího, bez správného kódu
 motorky téže rezervace nejde podepsat); podepsán dřív v appce → jen hláška „Teď zadejte kód motorky.“ (5 s). Overlay zmizí bez
 dotyku po `handover_idle_s` (600 s = 10 min, 2026-09-29; dřív 120 s) nebo tlačítkem „Zpět“ (dismiss = jiný zákazník; od 2026-10-02
 v kroku 2 vrací „Zpět“ nejdřív na krok 1 s velikostmi) — položka zůstává NEVYŘÍZENÁ a znovu se ukáže

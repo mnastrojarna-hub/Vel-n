@@ -23,8 +23,11 @@ class ProtocolGearItem {
   final String who; // rider | passenger
   String? size;
   bool checked;
+  /// Velikost z rezervace při otevření protokolu — nepřevzatá položka (odškrtnutá)
+  /// se do dokumentu posílá s ní (ukáže, co bylo objednáno), ne s vybranou v dropdownu.
+  final String? origSize;
 
-  ProtocolGearItem({required this.key, required this.who, this.size, this.checked = true});
+  ProtocolGearItem({required this.key, required this.who, this.size, this.checked = true}) : origSize = size;
 
   String get field => who == 'passenger' ? 'passenger_${key}_size' : '${key}_size';
 

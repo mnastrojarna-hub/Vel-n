@@ -77,8 +77,12 @@ export function buildElectronicProtocolHtml({ type, vars, form, signatures }) {
 
   if (!isDamage) {
     const accRows = (form.accessories || []).map(a => `<tr><td style="${TD};background:#f8faf9;font-weight:600">${esc(a.label)}</td><td style="${TD}">${esc(a.size)}</td><td style="${TD};text-align:center;width:80px;font-size:14px">${a.checked ? '☑' : '☐'}</td></tr>`).join('')
+    // Poznámka pod tabulkou jen když je něco nepřevzato (☐ = položka při podpisu z rezervace odebrána)
+    const accNote = (form.accessories || []).some(a => !a.checked)
+      ? '<p style="font-size:10px;color:#666;margin:2px 0 0">☐ = nepřevzato — položka byla z rezervace odebrána.</p>'
+      : ''
     const accTable = accRows
-      ? `<table style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;border:1px solid #ddd"><tr><th style="${TD};background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Položka</th><th style="${TD};background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Velikost</th><th style="${TD};background:#f0f7ff;text-align:center;font-size:10px;text-transform:uppercase">Předáno</th></tr>${accRows}</table>`
+      ? `<table style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;border:1px solid #ddd"><tr><th style="${TD};background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Položka</th><th style="${TD};background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Velikost</th><th style="${TD};background:#f0f7ff;text-align:center;font-size:10px;text-transform:uppercase">Předáno</th></tr>${accRows}</table>${accNote}`
       : '<p style="font-size:12px">Žádné zapůjčené příslušenství.</p>'
     const checkList = HANDOVER_CHECKS.map(c => `<div style="font-size:12px;margin:5px 0">${form.checks?.[c.key] ? '☑' : '☐'} ${esc(c.label)}</div>`).join('')
     const extraList = EXTRA_GEAR_CHECKS.map(c => `<div style="font-size:12px;margin:5px 0">${form.checks?.[c.key] ? '☑' : '☐'} ${esc(c.label)}</div>`).join('')

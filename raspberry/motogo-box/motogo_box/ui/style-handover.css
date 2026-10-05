@@ -63,6 +63,11 @@
   background: var(--bg); border: 1.5px solid var(--line); font-size: clamp(13px, 1.9vh, 18px); font-weight: 800; color: var(--ink); }
 .ho-chip:active { background: var(--bg-3); }
 .ho-chip.on { background: var(--green); border-color: var(--green-mid); }
+/* chip „✕ Neberu“ (2026-10-05): položka z rezervace odebrána — řádek `off` (název přeškrtnutý, chipy velikostí bez `on`) */
+.ho-chip.skip { color: var(--red-ink); background: var(--red-bg); border-color: var(--red); }
+.ho-chip.skip.on { background: var(--red); color: #fff; border-color: var(--red); }
+.ho-row.off { opacity: .75; }
+.ho-row.off .ho-row-name { text-decoration: line-through; color: var(--muted); }
 .ho-size-na { color: var(--muted-2); font-weight: 700; padding: 0 6px; }
 .ho-nogear { font-size: clamp(13px, 2vh, 18px); font-weight: 700; color: var(--muted); padding: clamp(6px, 1vh, 12px);
   border-radius: 12px; background: var(--bg-2); border: 1.5px dashed var(--line); }

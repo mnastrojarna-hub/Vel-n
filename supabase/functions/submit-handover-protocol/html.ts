@@ -108,6 +108,9 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
   const accTable = accRows
     ? `<table style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;border:1px solid #ddd"><tr><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Položka</th><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:left;font-size:10px;text-transform:uppercase">Velikost</th><th style="padding:6px 8px;border:1px solid #ddd;background:#f0f7ff;text-align:center;font-size:10px;text-transform:uppercase">Předáno</th></tr>${accRows}</table>`
     : '<p style="font-size:12px">Žádná zapůjčená výbava.</p>'
+  // Nepřevzatá položka, kterou edge z rezervace odebrala (gear.ts `removed`) — poznámka jen tehdy.
+  const accNote = accessories.some((a) => a.removed)
+    ? '<p style="font-size:10px;color:#666;margin:2px 0 0">☐ = nepřevzato — položka byla z rezervace odebrána.</p>' : ''
   const motoBlock = motoEq.length
     ? `<h3 style="font-size:13px;margin-top:14px">Výbava motorky</h3><p style="font-size:11px;color:#666;margin:2px 0 6px">${esc(MOTO_EQUIPMENT_NOTE)}</p>` +
       motoEq.map((m) => `<div style="font-size:12px;margin:5px 0">${m.checked ? '☑' : '☐'} ${m.qty > 1 ? `${m.qty}× ` : ''}${esc(m.label)}</div>`).join('')
@@ -137,7 +140,7 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
     `<h3 style="font-size:13px;margin-top:14px">Stav při předání</h3><table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd">${v.pickup_time ? row('Sjednaný čas vyzvednutí', v.pickup_time) : ''}${row('Skutečný čas převzetí', signedAt)}${row(mh ? 'Stav motohodin při předání' : 'Stav km při předání', mileage ? `${mileage} ${mh ? 'MH' : 'km'}` : '')}</table>` +
     (mileage ? `<p style="font-size:10px;color:#666;margin:4px 0 0">${esc(MILEAGE_NOTE)}</p>` : '') +
     `<h3 style="font-size:13px;margin-top:14px">Kontrola předání</h3>${checkList}` +
-    `<h3 style="font-size:13px;margin-top:14px">Zapůjčená výbava</h3>${accTable}` +
+    `<h3 style="font-size:13px;margin-top:14px">Zapůjčená výbava</h3>${accTable}${accNote}` +
     motoBlock +
     `<h3 style="font-size:13px;margin-top:14px">Doplňkové vybavení</h3>${extraList}` +
     `<h3 style="font-size:13px;margin-top:14px">Poškození</h3>${damageBlock}` +
