@@ -100,7 +100,8 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
   }
 
   async function handleSend() {
-    if (!reply.trim()) return
+    // Guard proti dvojímu odeslání (Enter + klik / opakovaný Enter během insertu)
+    if (sending || !reply.trim()) return
     setSending(true)
     try {
       await debugAction('handleSend:insert', 'ChatPanel', () =>
@@ -120,54 +121,6 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
         }).eq('id', thread.id),
         { thread_id: thread.id }
       )
-
-      // Detekce technické stížnosti → automaticky vytvořit servisní zakázku
-      const techKeywords = ['zvuk', 'brzdění', 'brzdy', 'blinkr', 'blikr', 'motor', 'řetěz', 'pneu', 'poškráb', 'nefunguje', 'rozbité', 'porucha', 'závada', 'olej', 'únik', 'vibrac']
-      const allCustomerMsgs = messages.filter(m => m.direction === 'customer').map(m => m.content?.toLowerCase() || '').join(' ')
-      const isTechComplaint = techKeywords.some(kw => allCustomerMsgs.includes(kw))
-
-      if (isTechComplaint && thread?.customer_id) {
-        // Najdi poslední booking zákazníka → motorku
-        const { data: lastBooking } = await supabase.from('bookings')
-          .select('id, moto_id, motorcycles!moto_id(model)')
-          .eq('user_id', thread.customer_id)
-          .order('created_at', { ascending: false }).limit(1).maybeSingle()
-
-        if (lastBooking?.moto_id) {
-          // Najdi volný den pro servis (den kdy motorka nemá rezervaci)
-          const today = new Date()
-          let serviceDate = null
-          for (let d = 1; d <= 14; d++) {
-            const checkDate = new Date(today.getTime() + d * 86400000)
-            const iso = checkDate.toISOString().split('T')[0]
-            const { data: conflicts } = await supabase.from('bookings')
-              .select('id').eq('moto_id', lastBooking.moto_id)
-              .in('status', ['reserved', 'active'])
-              .lte('start_date', iso).gte('end_date', iso).limit(1)
-            if (!conflicts?.length) { serviceDate = iso; break }
-          }
-
-          const motoName = lastBooking.motorcycles?.model || 'motorka'
-          const desc = `Reklamace zákazníka: ${allCustomerMsgs.slice(0, 200)}. Naplánováno na ${serviceDate || 'co nejdříve'}.`
-
-          // Vytvoř servisní zakázku
-          const { error: svcErr } = await supabase.from('service_orders').insert({
-            moto_id: lastBooking.moto_id,
-            type: 'repair',
-            notes: desc,
-            status: 'pending',
-          })
-
-          if (!svcErr) {
-            // Informuj admina v chatu systémovou zprávou
-            await supabase.from('messages').insert({
-              thread_id: thread.id, direction: 'system',
-              content: `Servisní zakázka vytvořena pro ${motoName}. Plánovaný servis: ${serviceDate || 'nutno naplánovat ručně'}. Typ: oprava na základě reklamace zákazníka.`,
-              sender_name: 'Systém',
-            })
-          }
-        }
-      }
 
       setReply('')
       await loadMessages()
