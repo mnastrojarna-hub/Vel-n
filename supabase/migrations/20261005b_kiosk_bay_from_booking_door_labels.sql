@@ -20,7 +20,24 @@
 --     mohla stát jiná motorka, než ukázal protokol. Resolve i offline cache při konfliktu kóji NEotevřou
 --     (debug_log box_conflict); přesun motorky na pobočku, kde je její číslo kóje obsazené, číslo vynuluje
 --     (trigger trg_moto_branch_move_free_box — admin kóji přiřadí ve Velíně; Velín duplicity zvýrazňuje).
--- Idempotentní (CREATE OR REPLACE, DROP TRIGGER IF EXISTS, UPDATE jen dosud nevyčištěných popisů).
+-- (4) „Kódy musí vždy fungovat“ (zadání majitele 2026-10-05, 2. hlášení): kód, který zákazník dostal k ŽIVÉ rezervaci
+--     a který systém AUTOMATICKY nahradil (regenerace po přesunu kóje / motorky / pobočky — do 20261005e se dělala
+--     při každé změně), platí dál jako alias aktuálního kódu téže rezervace (online i offline cache). Nový sloupec
+--     branch_door_codes.superseded_by_regen (backfill: starý řádek deaktivovaný v téže transakci, v níž vznikl nový).
+--     Ručně zneplatněný kód (Velín) alias není. Kód, který existuje, ale teď neplatí, vrací invalid_code + `reason`
+--     (replaced | revoked | withheld | not_yet_valid | expired | wrong_branch) — jednotka ≥ 1.2.5 ukáže srozumitelnou
+--     hlášku a NEpočítá ho do PIN lockoutu (skutečný kód nikdy nezablokuje displej); starší jednotky beze změny.
+-- Idempotentní (CREATE OR REPLACE, DROP TRIGGER IF EXISTS, ADD COLUMN IF NOT EXISTS, UPDATE jen dosud nevyčištěných řádků).
+
+-- (4a) příznak automaticky nahrazeného kódu + backfill
+ALTER TABLE public.branch_door_codes ADD COLUMN IF NOT EXISTS superseded_by_regen boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.branch_door_codes.superseded_by_regen IS
+  'true = kód zneplatnila AUTOMATICKÁ regenerace (přesun kóje/motorky/pobočky, kolize čísla) — u živé rezervace platí dál jako alias jejího aktuálního kódu (kiosk_resolve_code, kiosk_sync_config). Ručně zneplatněný kód = false.';
+UPDATE public.branch_door_codes o SET superseded_by_regen = true
+ WHERE o.is_active = false AND o.superseded_by_regen = false AND o.sent_to_customer = true
+   AND EXISTS (SELECT 1 FROM public.branch_door_codes n
+                WHERE n.booking_id = o.booking_id AND n.code_type = o.code_type AND n.id <> o.id
+                  AND n.created_at = o.updated_at);
 
 -- (1) popisy dveří kójí motorek (číslo kóje = jediný název)
 DO $$
@@ -50,6 +67,7 @@ DECLARE
   v_door public.branch_doors%ROWTYPE; v_dc public.branch_door_codes%ROWTYPE; v_svc public.branch_service_codes%ROWTYPE;
   v_box integer; v_doors jsonb; v_code text := btrim(coalesce(p_code,''));
   v_release timestamptz; v_moto uuid;
+  v_found boolean; v_n integer; v_x public.branch_door_codes%ROWTYPE; v_reason text; v_hint jsonb := '{}'::jsonb;
 BEGIN
   IF v_code = '' THEN RETURN jsonb_build_object('ok',false,'error','missing_inputs'); END IF;
   v_bid := public.kiosk_device_branch(p_device_id, p_device_token, true);
@@ -76,20 +94,72 @@ BEGIN
    WHERE bdc.branch_id=v_bid AND bdc.door_code=v_code AND bdc.is_active=true AND bdc.sent_to_customer=true
      AND (bdc.valid_from IS NULL OR bdc.valid_from<=now()) AND (bdc.valid_until IS NULL OR bdc.valid_until>=now())
    ORDER BY bdc.updated_at DESC LIMIT 1;
-  IF NOT FOUND THEN
-    -- 2026-10-05: starý kód živé rezervace, který dostal náhradu (přesun motorky do jiné kóje / na pobočku, změna
-    -- motorky, Velín) — srozumitelná hláška „máte nový kód“, jednotka ≥ 1.2.5 ho NEpočítá do PIN lockoutu
-    -- (dřív invalid_code → zákazník se starým kódem ze SMS zablokoval displej pro všechny).
-    IF EXISTS (SELECT 1 FROM public.branch_door_codes o
-                 JOIN public.bookings b ON b.id = o.booking_id
-                WHERE o.door_code = v_code AND o.is_active = false AND o.sent_to_customer = true
-                  AND b.status IN ('reserved','active') AND b.is_test IS NOT TRUE
-                  AND EXISTS (SELECT 1 FROM public.branch_door_codes n
-                               WHERE n.booking_id = o.booking_id AND n.code_type = o.code_type AND n.id <> o.id
-                                 AND n.branch_id = v_bid AND n.is_active AND n.sent_to_customer)) THEN
-      RETURN jsonb_build_object('ok',false,'error','invalid_code','replaced',true);
+  v_found := FOUND;
+  IF NOT v_found THEN
+    -- 2026-10-05 (4): dřívější AUTOMATICKY nahrazený kód živé rezervace = alias jejího aktuálního kódu (zákazník
+    -- nemusí mít poslední SMS). Jen jednoznačný (číslo nemá jiná živá rezervace ani aktivní kód této pobočky).
+    SELECT count(DISTINCT o.booking_id) INTO v_n
+      FROM public.branch_door_codes o
+      JOIN public.bookings b ON b.id = o.booking_id AND b.status IN ('reserved','active') AND b.is_test IS NOT TRUE
+     WHERE o.door_code = v_code AND o.is_active = false AND o.sent_to_customer = true AND o.superseded_by_regen;
+    IF v_n = 1 AND NOT EXISTS (SELECT 1 FROM public.branch_door_codes x
+                                WHERE x.branch_id = v_bid AND x.door_code = v_code AND x.is_active) THEN
+      SELECT n.* INTO v_dc
+        FROM public.branch_door_codes o
+        JOIN public.bookings b ON b.id = o.booking_id AND b.status IN ('reserved','active') AND b.is_test IS NOT TRUE
+        JOIN public.branch_door_codes n ON n.booking_id = o.booking_id AND n.code_type = o.code_type
+             AND n.branch_id = v_bid AND n.is_active AND n.sent_to_customer
+             AND (n.valid_from IS NULL OR n.valid_from <= now()) AND (n.valid_until IS NULL OR n.valid_until >= now())
+       WHERE o.door_code = v_code AND o.is_active = false AND o.sent_to_customer = true AND o.superseded_by_regen
+       ORDER BY n.updated_at DESC LIMIT 1;
+      v_found := FOUND;
+      IF v_found THEN
+        BEGIN
+          INSERT INTO public.debug_log(source, action, status, request_data)
+          VALUES ('kiosk_resolve_code', 'door_code_alias', 'info', jsonb_build_object(
+            'booking_id', v_dc.booking_id, 'code_type', v_dc.code_type, 'current_code_id', v_dc.id, 'branch_id', v_bid));
+        EXCEPTION WHEN OTHERS THEN NULL;
+        END;
+      END IF;
     END IF;
-    RETURN jsonb_build_object('ok',false,'error','invalid_code');
+  END IF;
+  IF NOT v_found THEN
+    -- 2026-10-05: kód existuje, ale teď neplatí → důvod (jednotka ≥ 1.2.5: hláška, NEpočítá se do lockoutu);
+    -- `replaced:true` zůstává pro zpětnou kompatibilitu. Neznámý kód = holé invalid_code (počítá se).
+    SELECT * INTO v_x FROM public.branch_door_codes c
+     WHERE c.branch_id = v_bid AND c.door_code = v_code AND c.is_active ORDER BY c.updated_at DESC LIMIT 1;
+    IF FOUND THEN
+      IF NOT coalesce(v_x.sent_to_customer, false) THEN v_reason := 'withheld';
+      ELSIF v_x.valid_from IS NOT NULL AND v_x.valid_from > now() THEN
+        v_reason := 'not_yet_valid'; v_hint := jsonb_build_object('valid_from', v_x.valid_from);
+      ELSE v_reason := 'expired';
+      END IF;
+    ELSE
+      SELECT c.* INTO v_x FROM public.branch_door_codes c
+        JOIN public.bookings b ON b.id = c.booking_id AND b.status IN ('reserved','active') AND b.is_test IS NOT TRUE
+       WHERE c.door_code = v_code AND c.is_active AND c.sent_to_customer AND c.branch_id <> v_bid
+       ORDER BY c.updated_at DESC LIMIT 1;
+      IF FOUND THEN
+        v_reason := 'wrong_branch';
+        v_hint := jsonb_build_object('branch_name', (SELECT br.name FROM public.branches br WHERE br.id = v_x.branch_id));
+      ELSIF EXISTS (SELECT 1 FROM public.branch_door_codes o
+                      JOIN public.bookings b ON b.id = o.booking_id
+                     WHERE o.door_code = v_code AND o.is_active = false AND o.sent_to_customer = true
+                       AND b.status IN ('reserved','active') AND b.is_test IS NOT TRUE
+                       AND EXISTS (SELECT 1 FROM public.branch_door_codes n
+                                    WHERE n.booking_id = o.booking_id AND n.code_type = o.code_type AND n.id <> o.id
+                                      AND n.is_active AND n.sent_to_customer)) THEN
+        v_reason := 'replaced';
+      ELSIF EXISTS (SELECT 1 FROM public.branch_door_codes o
+                     WHERE o.door_code = v_code AND o.is_active = false AND o.sent_to_customer = true
+                       AND (o.branch_id = v_bid OR EXISTS (SELECT 1 FROM public.bookings b
+                                                             WHERE b.id = o.booking_id AND b.status IN ('reserved','active')))) THEN
+        v_reason := 'revoked';
+      END IF;
+    END IF;
+    RETURN jsonb_build_object('ok',false,'error','invalid_code')
+      || CASE WHEN v_reason IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('reason', v_reason) || v_hint END
+      || CASE WHEN v_reason = 'replaced' THEN jsonb_build_object('replaced', true) ELSE '{}'::jsonb END;
   END IF;
 
   IF v_dc.code_type='accessories' THEN
@@ -188,7 +258,7 @@ BEGIN
   INTO v_services FROM public.branch_service_codes s WHERE s.branch_id = v_bid AND s.is_active;
 
   SELECT coalesce(jsonb_agg(jsonb_build_object(
-    'h', encode(extensions.hmac(convert_to(p_device_id::text || ':' || bdc.door_code, 'UTF8'), v_key, 'sha256'), 'hex'),
+    'h', encode(extensions.hmac(convert_to(p_device_id::text || ':' || bdc.hcode, 'UTF8'), v_key, 'sha256'), 'hex'),
     'kind', bdc.code_type, 'booking_id', bdc.booking_id,
     'valid_from', bdc.valid_from, 'valid_until', bdc.valid_until,
     -- release_at (2026-10-01h): výdej až od 12:00 (sleva za pozdní vyzvednutí)
@@ -202,7 +272,30 @@ BEGIN
                 THEN public._kiosk_odometer(bdc.booking_id, v_bid) END)
     ORDER BY bdc.valid_until DESC NULLS LAST, bdc.updated_at DESC), '[]'::jsonb)
   INTO v_codes
-  FROM public.branch_door_codes bdc
+  FROM (
+    SELECT c.*, c.door_code AS hcode FROM public.branch_door_codes c
+     WHERE c.branch_id = v_bid AND c.is_active = true AND c.sent_to_customer = true
+       AND c.door_code IS NOT NULL AND c.door_code <> ''
+       AND (c.valid_until IS NULL OR c.valid_until >= now() - interval '1 day')
+    UNION ALL
+    -- 2026-10-05 (4): dřívější automaticky nahrazené kódy živé rezervace = alias aktuálního kódu (jako online)
+    SELECT n.*, o.door_code AS hcode
+      FROM public.branch_door_codes o
+      JOIN public.bookings b ON b.id = o.booking_id AND b.status IN ('reserved','active') AND b.is_test IS NOT TRUE
+      JOIN public.branch_door_codes n ON n.booking_id = o.booking_id AND n.code_type = o.code_type
+           AND n.branch_id = v_bid AND n.is_active AND n.sent_to_customer
+           AND n.door_code IS NOT NULL AND n.door_code <> ''
+           AND (n.valid_until IS NULL OR n.valid_until >= now() - interval '1 day')
+     WHERE o.is_active = false AND o.sent_to_customer = true AND o.superseded_by_regen
+       AND o.door_code IS NOT NULL AND o.door_code <> '' AND o.door_code <> n.door_code
+       AND NOT EXISTS (SELECT 1 FROM public.branch_door_codes x
+                        WHERE x.branch_id = v_bid AND x.door_code = o.door_code AND x.is_active)
+       AND NOT EXISTS (SELECT 1 FROM public.branch_door_codes y
+                         JOIN public.bookings yb ON yb.id = y.booking_id AND yb.status IN ('reserved','active')
+                                                AND yb.is_test IS NOT TRUE
+                        WHERE y.door_code = o.door_code AND y.is_active = false AND y.sent_to_customer
+                          AND y.superseded_by_regen AND y.booking_id <> o.booking_id)
+  ) bdc
   -- 2026-10-05: kóje podle motorky REZERVACE (jako kiosk_resolve_code), jen motorka této pobočky s kójí ≥ 1;
   -- jinak řádek bez door_id/box_number → offline jednotka nic neotevře (nikdy cizí kóje)
   LEFT JOIN public.bookings bk ON bk.id = bdc.booking_id
@@ -212,9 +305,7 @@ BEGIN
   LEFT JOIN public.branch_doors d ON d.branch_id = v_bid AND d.is_active AND (
         (bdc.code_type = 'accessories' AND d.door_kind = 'accessories')
      OR (bdc.code_type = 'motorcycle'  AND d.door_kind = 'motorcycle' AND d.box_number = m.box_number))
-  WHERE bdc.branch_id = v_bid AND bdc.is_active = true AND bdc.sent_to_customer = true
-    AND bdc.door_code IS NOT NULL AND bdc.door_code <> ''
-    AND (bdc.valid_until IS NULL OR bdc.valid_until >= now() - interval '1 day');
+  ;
 
   -- hudba pobočky — jen aktivní skladby; jednotka si soubory stáhne z public bucketu branch-music.
   -- tracks[].updated_at = čas SOUBORU (storage.objects.updated_at, fallback created_at řádku), NE řádku:

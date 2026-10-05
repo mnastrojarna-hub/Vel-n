@@ -45,18 +45,47 @@ LOG_EVENT_SOURCES: dict[EventKind, str] = {
 }
 # Události, které se zobrazí jako upozornění v UI
 NOTICE_KINDS = frozenset({EventKind.FORCED_OPEN, EventKind.SESSION_OVERTIME, EventKind.SESSION_OVERTIME_ALERT})
-# Jen tyto chyby ověření znamenají „zákazník zadal špatný kód" → počítají se do lockoutu (§10).
-INVALID_CODE_ERRORS = frozenset({"invalid_code", "code_expired", "code_not_yet_valid"})
-# kiosk_resolve_code (2026-10-05): kód existoval, ale rezervace dostala nový (regenerace) — NEpočítá se do lockoutu
+# Jen neznámý kód znamená „zákazník zadal špatný kód" → počítá se do lockoutu (§10).
+INVALID_CODE_ERRORS = frozenset({"invalid_code"})
+# 2026-10-05: kód, který EXISTUJE, ale teď neplatí (RPC `reason` / offline shoda s prošlým řádkem cache) — srozumitelná
+# hláška, ACCESS_DENIED info, do lockoutu se NEpočítá (skutečný kód zákazníka nikdy nezablokuje displej všem).
 CODE_REPLACED = "code_replaced"
+KNOWN_CODE_ERRORS = frozenset({CODE_REPLACED, "code_revoked", "code_withheld", "code_not_yet_valid", "code_expired",
+                               "code_wrong_branch"})
 # Servisní hesla z offline cache platí nejvýš 3 dny bez synchronizace — odvolání hesla ve Velíně musí dojít.
 SERVICE_CACHE_MAX_AGE_S = 72 * 3600
 
 
-def error_text(error: str | None, release_at: str | None = None) -> str:
-    """Podtitulek chyby ověření kódu (shodné s Flutter kioskem); `release_at` jen u `pickup_too_early` (§31)."""
+def _prague(iso: str | None) -> str:
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00")).astimezone(ZoneInfo("Europe/Prague"))
+        return f"{dt.day}. {dt.month}. {dt.year} {dt.hour}:{dt.minute:02d}"
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def error_text(error: str | None, release_at: str | None = None, hint: str | None = None) -> str:
+    """Podtitulek chyby ověření kódu (shodné s Flutter kioskem); `release_at` jen u `pickup_too_early` (§31),
+    `hint` = pobočka (`code_wrong_branch`) / ISO začátek platnosti (`code_not_yet_valid`)."""
     if error in INVALID_CODE_ERRORS:
         return "Kód nebyl rozpoznán nebo už není platný."
+    if error == "code_revoked":
+        return ("Tento kód už neplatí — rezervace byla zrušena nebo ukončena, případně kód zneplatnila obsluha. "
+                f"Platné kódy najdete v aplikaci MotoGo24, případně volejte podporu: {SUPPORT}.")
+    if error == "code_withheld":
+        return ("Kód zatím není uvolněný — nejspíš chybí ověřené doklady (OP/pas a řidičský průkaz). Nahrajte je "
+                f"v aplikaci MotoGo24, nebo volejte podporu: {SUPPORT}.")
+    if error == "code_not_yet_valid":
+        od = _prague(hint) if hint else ""
+        return (f"Kód ještě neplatí — platí od {od}." if od else
+                "Kód ještě neplatí — platí od začátku vaší rezervace.") + " Zkuste to prosím v čase vyzvednutí."
+    if error == "code_expired":
+        return "Platnost kódu skončila (rezervace už proběhla). Aktuální kódy najdete v aplikaci MotoGo24."
+    if error == "code_wrong_branch":
+        return (f"Tento kód platí na jiné pobočce{(': ' + hint) if hint else ''} — vaše motorka byla přesunuta. "
+                "Podrobnosti najdete v aplikaci MotoGo24, v SMS nebo v e-mailu.")
     if error == "network":
         return "Chyba spojení. Zkontrolujte internet a zkuste znovu."
     if error in ("unauthorized", "branch_not_found", "missing_inputs") or (error or "").startswith("api_"):
@@ -64,7 +93,7 @@ def error_text(error: str | None, release_at: str | None = None) -> str:
     if error == "locked":
         return f"Příliš mnoho neplatných pokusů. Zkuste to později nebo kontaktujte podporu: {SUPPORT}."
     if error == CODE_REPLACED:
-        return ("Tento kód už neplatí — k rezervaci vám přišel nový (např. po přesunu motorky do jiné kóje). "
+        return ("Tento kód už neplatí — k rezervaci máte nový kód. "
                 "Najdete ho v aplikaci MotoGo24, v poslední SMS nebo v e-mailu.")
     if error == "not_ready":
         return "Řídicí jednotka právě startuje. Zkuste to prosím za chvíli."
@@ -277,6 +306,10 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
         # proti hádání, žádné orákulum — výsledek ověření se zákazníkovi neukáže a nepočítá).
         how = await _service_during_lockout(ctrl, code, diagnostics_only)
         if how is None:
+            # 2026-10-05: i pokus během blokace do Velína (dřív bez stopy — nešlo zpětně zjistit, kdo co zadával)
+            await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="info", code_kind="invalid",
+                                  message=f"Kód {mask(code)} zadán během blokace zadávání",
+                                  detail={"source": source, "code_masked": mask(code), "reason": "locked"}))
             return {**base, "error": "locked", "message": error_text("locked"), "locked_until": locked}
         ctrl.pin_guard.clear()
         await ctrl.emit(Event(kind=EventKind.PIN_LOCKOUT, success=True, level="info",
@@ -299,11 +332,12 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
         err = rr.error or "invalid_code"
         if err == pickup_gate.ERROR:        # platný kód před 12:00 (sleva za pozdní vyzvednutí, §31) — hláška, BEZ lockoutu
             return await pickup_gate.refuse(ctrl, rr, base, source)
-        if err == CODE_REPLACED:            # 2026-10-05: starý kód rezervace nahrazený novým (přesun motorky / kóje, změna)
+        if err in KNOWN_CODE_ERRORS:        # 2026-10-05: kód existuje, ale teď neplatí — hláška, BEZ lockoutu
             await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="info", code_kind="invalid",
-                                  message=f"Starý (nahrazený) kód {masked} — zákazník má nový kód",
-                                  detail={"source": source, "code_masked": masked, "reason": CODE_REPLACED}))
-            return {**base, "error": CODE_REPLACED, "message": error_text(CODE_REPLACED)}
+                                  message=f"Kód {masked} teď neplatí ({err})",
+                                  detail={"source": source, "code_masked": masked, "reason": err,
+                                          "offline": rr.offline, **({"hint": rr.hint} if rr.hint else {})}))
+            return {**base, "error": err, "message": error_text(err, hint=rr.hint)}
         if err in INVALID_CODE_ERRORS:      # jen skutečně neplatný kód se počítá do lockoutu
             until = ctrl.pin_guard.register_failure(masked)
             await ctrl.emit(Event(kind=EventKind.PIN_INVALID, success=False, level="warn", code_kind="invalid",

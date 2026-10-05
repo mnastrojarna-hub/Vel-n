@@ -358,6 +358,7 @@ Strukturované oficiální podmínky půjčovny pro AI public agent (`get_polici
 - `bookings.replacement_for_booking_id` → `bookings.id`
 - `bookings.sos_incident_id` → `sos_incidents.id`
 - `booking_extras.booking_id` → `bookings.id`
+- `documents.booking_id` → `bookings.id` (**ON DELETE SET NULL** od 2026-10-05, `20261005e` — dřív CASCADE)
 - `booking_extras.extra_id` → `extras_catalog.id`
 - `sos_incidents.user_id` → `profiles.id`
 - `sos_incidents.booking_id` → `bookings.id`

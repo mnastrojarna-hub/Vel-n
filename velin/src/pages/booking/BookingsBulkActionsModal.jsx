@@ -26,7 +26,8 @@ export default function BookingsBulkActionsModal({ open, onClose, selectedBookin
   async function logAudit(action, details) {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, details })
+      // admin_audit_log nemá sloupec `details` (STATE_1) — údaje do new_data, jinak INSERT tiše selže
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, entity_type: 'bookings', new_data: details })
     } catch {}
   }
 

@@ -179,3 +179,31 @@ async def test_replaced_code_message_without_lockout(ctrl):
     assert ctrl.storage.pin_failures_since(0) == 0 and ctrl.pin_guard.locked_until() is None
     assert [e.detail["reason"] for e in _denied(ctrl)][-1] == "code_replaced"
     assert ResolveResult.from_rpc({"ok": False, "error": "invalid_code"}).error == "invalid_code"
+
+
+@pytest.mark.parametrize("rpc,err,word", [
+    ({"reason": "revoked"}, "code_revoked", "zrušena"),
+    ({"reason": "withheld"}, "code_withheld", "doklady"),
+    ({"reason": "not_yet_valid", "valid_from": "2026-10-06T07:00:00+00:00"}, "code_not_yet_valid", "6. 10. 2026 9:00"),
+    ({"reason": "expired"}, "code_expired", "skončila"),
+    ({"reason": "wrong_branch", "branch_name": "MotoGo24 Mezná"}, "code_wrong_branch", "Mezná"),
+])
+async def test_known_code_reasons_without_lockout(ctrl, rpc, err, word):
+    """2026-10-05: kód existuje, ale teď neplatí (`reason` z RPC) — hláška, ACCESS_DENIED info, NIKDY lockout."""
+    ctrl.api.resolve = {"454545": {"ok": False, "error": "invalid_code", **rpc}}
+    for _ in range(ctrl.hardware.security.maximum_failed_attempts + 2):
+        res = await cc.submit_code(ctrl, "454545", "ui")
+        assert res["ok"] is False and res["error"] == err and word in res["message"]
+    assert ctrl.storage.pin_failures_since(0) == 0 and ctrl.pin_guard.locked_until() is None
+    d = _denied(ctrl)[-1]
+    assert d.level == "info" and d.detail["reason"] == err and "PIN_INVALID" not in ctrl.kinds()
+
+
+async def test_unknown_code_still_locks_and_attempts_logged(ctrl):
+    """Neznámý kód se počítá dál (ochrana proti hádání); pokus během blokace jde do Velína (ACCESS_DENIED reason locked)."""
+    ctrl.api.resolve = {}
+    for i in range(ctrl.hardware.security.maximum_failed_attempts):
+        res = await cc.submit_code(ctrl, f"90000{i}", "ui")
+    assert res["error"] == "locked" and ctrl.pin_guard.locked_until() is not None
+    res = await cc.submit_code(ctrl, "111111", "ui")
+    assert res["error"] == "locked" and _denied(ctrl)[-1].detail["reason"] == "locked"

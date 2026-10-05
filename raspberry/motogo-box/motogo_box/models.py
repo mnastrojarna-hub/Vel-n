@@ -308,6 +308,13 @@ class ServiceDoor:
         return asdict(self)
 
 
+# `reason` z kiosk_resolve_code (invalid_code u kódu, který existuje, ale teď neplatí) → chyba jednotky (2026-10-05)
+RPC_REASON_ERRORS = {
+    "replaced": "code_replaced", "revoked": "code_revoked", "withheld": "code_withheld",
+    "not_yet_valid": "code_not_yet_valid", "expired": "code_expired", "wrong_branch": "code_wrong_branch",
+}
+
+
 @dataclass
 class ResolveResult:
     """Výsledek ověření kódu (online RPC `kiosk_resolve_code` nebo offline cache)."""
@@ -334,6 +341,9 @@ class ResolveResult:
     # ze sync cache — rezervace se slevou za pozdní vyzvednutí se vydá (šatna i motorka) až od tohoto okamžiku.
     # None = bez hradla (běžná rezervace, stará DB / stará cache).
     release_at: str | None = None
+    # Kód existuje, ale teď neplatí (2026-10-05, RPC `reason`): název pobočky u `code_wrong_branch`, ISO `valid_from`
+    # u `code_not_yet_valid` — jen do české hlášky; None jinde.
+    hint: str | None = None
 
     @property
     def is_service(self) -> bool:
@@ -359,10 +369,12 @@ class ResolveResult:
         if box is None and door:
             box = door.get("box_number")
         err = m.get("error")
-        if err == "invalid_code" and m.get("replaced") is True:
-            # 2026-10-05: kód nahrazený novým (regenerace po přesunu motorky/kóje) — DB posílá zpětně kompatibilně
-            # invalid_code + příznak (jednotky < 1.2.5 hlásí jako dřív „neplatný“), od 1.2.5 vlastní hláška bez lockoutu
-            err = "code_replaced"
+        if err == "invalid_code":
+            # 2026-10-05: kód existuje, ale teď neplatí — DB posílá zpětně kompatibilně invalid_code + `reason`
+            # (jednotky < 1.2.5 hlásí jako dřív „neplatný“); od 1.2.5 vlastní hláška a BEZ lockoutu
+            reason = m.get("reason") or ("replaced" if m.get("replaced") is True else None)
+            err = RPC_REASON_ERRORS.get(str(reason or ""), err)
+        hint = m.get("branch_name") or m.get("valid_from")
         return cls(
             ok=bool(m.get("ok")),
             error=err,
@@ -376,6 +388,7 @@ class ResolveResult:
             protocol=m.get("protocol") if isinstance(m.get("protocol"), dict) else None,
             odo=m.get("odo") if isinstance(m.get("odo"), dict) else None,
             release_at=str(m["release_at"]) if m.get("release_at") else None,
+            hint=str(hint) if hint else None,
         )
 
 

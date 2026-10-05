@@ -236,10 +236,17 @@ export default function Bookings() {
       const { error: err } = await supabase.from('bookings').delete().eq('id', booking.id)
       if (err) throw err
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'booking_deleted', details: { booking_id: booking.id } })
+      // admin_audit_log nemá sloupec `details` (STATE_1) — dřív INSERT tiše selhal a smazání nezanechalo stopu
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'booking_deleted', entity_type: 'bookings', entity_id: booking.id,
+        old_data: { booking_id: booking.id, status: booking.status, user_id: booking.user_id, moto_id: booking.moto_id, start_date: booking.start_date, end_date: booking.end_date } })
       setDeleteConfirm(null)
       loadBookings()
-    } catch (e) { setError(e.message) }
+    } catch (e) {
+      // DB odmítne smazat živou rezervaci (trg_guard_booking_delete, 2026-10-05 → „nejdřív Storno“) — zavřít dialog,
+      // ať je hláška vidět
+      setDeleteConfirm(null)
+      setError(e.message)
+    }
   }
 
   return (
