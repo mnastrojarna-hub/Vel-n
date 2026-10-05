@@ -358,9 +358,14 @@ class ResolveResult:
         box = m.get("box_number")
         if box is None and door:
             box = door.get("box_number")
+        err = m.get("error")
+        if err == "invalid_code" and m.get("replaced") is True:
+            # 2026-10-05: kód nahrazený novým (regenerace po přesunu motorky/kóje) — DB posílá zpětně kompatibilně
+            # invalid_code + příznak (jednotky < 1.2.5 hlásí jako dřív „neplatný“), od 1.2.5 vlastní hláška bez lockoutu
+            err = "code_replaced"
         return cls(
             ok=bool(m.get("ok")),
-            error=m.get("error"),
+            error=err,
             kind=m.get("kind") or "",
             booking_id=m.get("booking_id"),
             door_id=door.get("id") if door else None,

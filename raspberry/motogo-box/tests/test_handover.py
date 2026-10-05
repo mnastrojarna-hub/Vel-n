@@ -88,6 +88,21 @@ async def test_require_before_open_gate(ctrl):
     assert await hm.require_before_open(rr_moto(proto=protocol("b1")), zc, "ui") is False
 
 
+async def test_wardrobe_origin_survives_dismiss_and_moto_code(ctrl):
+    """2026-10-05: povinný výběr výbavy po šatně nejde obejít „Zpět“ + kódem motorky — UI vidí `kind_origin`."""
+    hm, zc = ctrl.handover, ctrl.zones[3]
+    hm.remember(rr_moto(proto=protocol("b1")))
+    assert await hm.on_wardrobe_closed(8, "b1") == "protocol"
+    assert hm.status()["active"]["kind_origin"] == "accessories"
+    assert hm.dismiss("b1") is True and hm.status()["active"] is None
+    assert await hm.require_before_open(rr_moto(proto=protocol("b1")), zc, "ui") is True
+    a = hm.status()["active"]
+    assert a["kind"] == "motorcycle" and a["kind_origin"] == "accessories" and a["then_open"] is True
+    hm.items.clear()
+    assert await hm.require_before_open(rr_moto(proto=protocol("b1")), zc, "ui") is True
+    assert hm.status()["active"]["kind_origin"] == "motorcycle"     # šatnu neotevřel → výběr jen nabídnutý
+
+
 async def test_dismiss_then_remote_sign_does_not_open(ctrl):
     hm, zc = ctrl.handover, ctrl.zones[3]
     await hm.require_before_open(rr_moto(proto=protocol("b1")), zc, "ui")

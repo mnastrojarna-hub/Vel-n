@@ -26,12 +26,22 @@ class ResPickupProcedure extends ConsumerWidget {
       bookingMethodWithAddress(r.pickupMethod, r.pickupAddress) != 'delivery';
 
   /// Nárok na šatnu: vydaný/zadržený kód šatny, jinak zrcadlo DB
-  /// `_booking_needs_locker` (`Reservation.needsLockerByGear`).
+  /// `_booking_needs_locker` (vlastní výbava řidiče explicitně nebo prázdné
+  /// velikosti; boty a výbava spolujezdce jsou v šatně vždy).
   static bool needsLocker(Reservation r, List<DoorCode>? codes) {
     if (codes != null && codes.isNotEmpty) {
       return codes.any((c) => c.codeType == 'accessories');
     }
-    return r.needsLockerByGear;
+    bool has(String? s) => (s ?? '').trim().isNotEmpty;
+    return !r.ownGearEffective ||
+        [
+          r.bootsSize,
+          r.passengerHelmetSize,
+          r.passengerJacketSize,
+          r.passengerPantsSize,
+          r.passengerBootsSize,
+          r.passengerGlovesSize,
+        ].any(has);
   }
 
   @override

@@ -111,8 +111,8 @@ class ResAccessCodesCard extends ConsumerWidget {
                       ),
                   ])),
               // Vlastní výbava bez nároku na šatnu — žádný kód šatny nechybí
-              // (zrcadlo DB `_booking_needs_locker`, viz model needsLockerByGear).
-              if (!res.needsLockerByGear && !codes.any((c) => c.codeType == 'accessories'))
+              // (i odvozeně u starších rezervací bez own_gear, viz model).
+              if (res.ownGearEffective && !codes.any((c) => c.codeType == 'accessories'))
                 ResDetailRow(label: t(context).tr('lockerCode'), value: t(context).tr('ownGearNoLocker')),
               // Kódy zadržené (chybí doklady) → CTA: zkus uvolnit (pokud už
               // jsou doklady nahrané), jinak naviguj na nahrání dokladů.

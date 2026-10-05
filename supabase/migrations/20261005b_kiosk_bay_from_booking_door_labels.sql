@@ -4,12 +4,16 @@
 -- (1) DATA: Velín (ensureDoors) zakládal dveře s popisem „Kóje N — <model motorky, která tam v tu chvíli stála>“.
 --     Motorky se mezi kójemi přesouvají (prohození šipkami, přečíslování), popis dveří se ale nikdy neměnil →
 --     jednotka (Zone.display_name), Velín (log, živý panel protokolu) i upozornění ukazovaly starý model.
---     Popis kóje motorky, který je vygenerovaný („Kóje N — …“, „Garáž #N — …“) nebo obsahuje model některé
---     motorky, se vynuluje (= výchozí „Kóje N“). Šatna se nemění. Dotčeným pobočkám kiosk_request_sync.
+--     Popis kóje motorky s číslem kóje se vynuluje (= výchozí „Kóje N“) — jednotka ≥ 1.2.5 i Velín ho u kóje
+--     ignorují a Velín ho už nenabízí k úpravě; zbylý popis by dál nesla jen upozornění (kiosk_alerts) a starší
+--     jednotky. Šatna a dveře motorky bez čísla kóje se nemění. Dotčeným pobočkám kiosk_request_sync.
 -- (2) kiosk_resolve_code + kiosk_sync_config.codes[]: kóje motorky se dosud brala z branch_door_codes.moto_id,
 --     protokol z bookings.moto_id — při rozjetí (Velín „Aktivovat“ starého kódu po změně motorky, regen spadlý
 --     do WARNING) se otevřela kóje jiné motorky, než ukazoval protokol. Nově obojí z motorky REZERVACE, jen motorka
 --     této pobočky s kójí ≥ 1 (jinak se kóje neotevře — „není nastaveno“, nikdy cizí kóje); nesoulad → debug_log.
+--     Starý kód živé rezervace, který dostal náhradu (regenerace po přesunu kóje / motorky), vrací 'invalid_code'
+--     + příznak 'replaced': true (zpětně kompatibilní — jednotky < 1.2.5 hlásí jako dřív; ≥ 1.2.5: „máte nový kód“,
+--     nepočítá se do PIN lockoutu).
 --     Těla obou funkcí = živý snapshot 2026-10-05 (supabase-live-snapshot) + jen výše popsané řádky.
 -- (3) Duplicitní číslo kóje: dvě motorky pobočky se stejným box_number (přesun z jiné pobočky přes
 --     admin_move_motorcycle číslo kóje ponechal, nedokončené prohození šipkami) → kiosk otevřel kóji, v níž
@@ -18,23 +22,19 @@
 --     (trigger trg_moto_branch_move_free_box — admin kóji přiřadí ve Velíně; Velín duplicity zvýrazňuje).
 -- Idempotentní (CREATE OR REPLACE, DROP TRIGGER IF EXISTS, UPDATE jen dosud nevyčištěných popisů).
 
--- (1) popisy dveří kójí bez modelu motorky
+-- (1) popisy dveří kójí motorek (číslo kóje = jediný název)
 DO $$
 DECLARE r record; v_branches uuid[] := '{}'; v_n int := 0;
 BEGIN
   FOR r IN
     UPDATE public.branch_doors d SET label = NULL
-     WHERE d.door_kind = 'motorcycle' AND nullif(btrim(d.label), '') IS NOT NULL
-       AND (d.label ~* '^\s*(k[óo]je|koj[eě]|gar[áa][žz])\s*(č\.\s*)?#?\s*\d+\s*[—–:-]'
-            OR EXISTS (SELECT 1 FROM public.motorcycles m
-                        WHERE length(btrim(coalesce(m.model, ''))) >= 4
-                          AND position(lower(btrim(m.model)) IN lower(d.label)) > 0))
+     WHERE d.door_kind = 'motorcycle' AND d.box_number IS NOT NULL AND d.label IS NOT NULL
     RETURNING d.id, d.branch_id
   LOOP
     v_n := v_n + 1;
     IF NOT r.branch_id = ANY(v_branches) THEN v_branches := array_append(v_branches, r.branch_id); END IF;
   END LOOP;
-  RAISE NOTICE 'branch_doors: vynulováno % popisů kójí s modelem motorky', v_n;
+  RAISE NOTICE 'branch_doors: vynulováno % popisů kójí motorek', v_n;
   FOR i IN 1 .. coalesce(array_length(v_branches, 1), 0) LOOP
     PERFORM public.kiosk_request_sync(v_branches[i]);
   END LOOP;
@@ -76,7 +76,21 @@ BEGIN
    WHERE bdc.branch_id=v_bid AND bdc.door_code=v_code AND bdc.is_active=true AND bdc.sent_to_customer=true
      AND (bdc.valid_from IS NULL OR bdc.valid_from<=now()) AND (bdc.valid_until IS NULL OR bdc.valid_until>=now())
    ORDER BY bdc.updated_at DESC LIMIT 1;
-  IF NOT FOUND THEN RETURN jsonb_build_object('ok',false,'error','invalid_code'); END IF;
+  IF NOT FOUND THEN
+    -- 2026-10-05: starý kód živé rezervace, který dostal náhradu (přesun motorky do jiné kóje / na pobočku, změna
+    -- motorky, Velín) — srozumitelná hláška „máte nový kód“, jednotka ≥ 1.2.5 ho NEpočítá do PIN lockoutu
+    -- (dřív invalid_code → zákazník se starým kódem ze SMS zablokoval displej pro všechny).
+    IF EXISTS (SELECT 1 FROM public.branch_door_codes o
+                 JOIN public.bookings b ON b.id = o.booking_id
+                WHERE o.door_code = v_code AND o.is_active = false AND o.sent_to_customer = true
+                  AND b.status IN ('reserved','active') AND b.is_test IS NOT TRUE
+                  AND EXISTS (SELECT 1 FROM public.branch_door_codes n
+                               WHERE n.booking_id = o.booking_id AND n.code_type = o.code_type AND n.id <> o.id
+                                 AND n.branch_id = v_bid AND n.is_active AND n.sent_to_customer)) THEN
+      RETURN jsonb_build_object('ok',false,'error','invalid_code','replaced',true);
+    END IF;
+    RETURN jsonb_build_object('ok',false,'error','invalid_code');
+  END IF;
 
   IF v_dc.code_type='accessories' THEN
     SELECT * INTO v_door FROM public.branch_doors WHERE branch_id=v_bid AND door_kind='accessories' AND is_active LIMIT 1;

@@ -180,8 +180,11 @@ serve(async (req) => {
       if (booking.gear_collected_at) allowAdd = true
       else {
         try {
+          // jen AKTIVNÍ kód šatny této pobočky — zadržený/deaktivovaný kód by přidáním velikosti znovu ožil
+          // (trg_sync_locker_code: kód + zpráva + e-mail uprostřed převzetí)
           const { data: acc } = await admin.from('branch_door_codes').select('id')
-            .eq('booking_id', bookingId).eq('code_type', 'accessories').eq('sent_to_customer', true).limit(1).maybeSingle()
+            .eq('booking_id', bookingId).eq('code_type', 'accessories').eq('sent_to_customer', true)
+            .eq('is_active', true).eq('branch_id', branchId).limit(1).maybeSingle()
           allowAdd = !!acc
         } catch (_) { allowAdd = false }
       }
@@ -227,7 +230,8 @@ serve(async (req) => {
     // `removed` pro dokument). Ceny / booking_extras se NEMĚNÍ (rozhodnutí majitele
     // čeká — vratku řeší Velín ručně).
     try {
-      const { updates, changes } = await resolveGearUpdates(admin, booking, accessories, allowRemove, allowAdd)
+      const { updates, changes } = await resolveGearUpdates(admin, booking, accessories, allowRemove, allowAdd,
+        mode === 'kiosk' && form.gear_add === true)
       if (Object.keys(updates).length) {
         const entry = { at: now.toISOString(), auto: true, source: 'protocol', signed_by: signer.by, ...(deviceId ? { device_id: deviceId } : {}), gear_changes: changes }
         const hist = Array.isArray(booking.modification_history) ? booking.modification_history : []

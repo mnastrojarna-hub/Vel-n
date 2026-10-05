@@ -5,6 +5,7 @@ zóny pro zákaznický kód.
 """
 from __future__ import annotations
 
+import logging
 import secrets
 import time
 from datetime import datetime, timezone
@@ -13,6 +14,8 @@ from typing import TYPE_CHECKING
 from . import fixed_codes, handover_locker, pickup_gate, shell
 from .models import ACCESSORIES_NAME, Event, EventKind, ResolveResult, ServiceDoor
 from .pins import hmac_code, mask, normalize_code
+
+log = logging.getLogger("motogo.codes")
 
 if TYPE_CHECKING:  # pragma: no cover
     from .controller import BoxController
@@ -44,6 +47,8 @@ LOG_EVENT_SOURCES: dict[EventKind, str] = {
 NOTICE_KINDS = frozenset({EventKind.FORCED_OPEN, EventKind.SESSION_OVERTIME, EventKind.SESSION_OVERTIME_ALERT})
 # Jen tyto chyby ověření znamenají „zákazník zadal špatný kód" → počítají se do lockoutu (§10).
 INVALID_CODE_ERRORS = frozenset({"invalid_code", "code_expired", "code_not_yet_valid"})
+# kiosk_resolve_code (2026-10-05): kód existoval, ale rezervace dostala nový (regenerace) — NEpočítá se do lockoutu
+CODE_REPLACED = "code_replaced"
 # Servisní hesla z offline cache platí nejvýš 3 dny bez synchronizace — odvolání hesla ve Velíně musí dojít.
 SERVICE_CACHE_MAX_AGE_S = 72 * 3600
 
@@ -58,6 +63,9 @@ def error_text(error: str | None, release_at: str | None = None) -> str:
         return "Kiosk není správně spárovaný s pobočkou."
     if error == "locked":
         return f"Příliš mnoho neplatných pokusů. Zkuste to později nebo kontaktujte podporu: {SUPPORT}."
+    if error == CODE_REPLACED:
+        return ("Tento kód už neplatí — k rezervaci vám přišel nový (např. po přesunu motorky do jiné kóje). "
+                "Najdete ho v aplikaci MotoGo24, v poslední SMS nebo v e-mailu.")
     if error == "not_ready":
         return "Řídicí jednotka právě startuje. Zkuste to prosím za chvíli."
     if error == "service_cache_expired":
@@ -230,6 +238,22 @@ async def resolve_code(ctrl: "BoxController", code: str) -> ResolveResult:
     return rr
 
 
+async def _service_during_lockout(ctrl: "BoxController", code: str, diagnostics_only: bool) -> str | None:
+    """Je kód servisní přístup (lokální diagnostický kód, pevný servisní kód 39301A–H, servisní heslo online / z cache)?
+    Vrací způsob ('diagnostics' | 'fixed' | 'service') nebo None. Zákaznický kód → None (lockout trvá)."""
+    diag = getattr(ctrl, "diagnostics", None)
+    if diag is not None and diag.matches_local_code(code):
+        return "diagnostics"
+    if not diagnostics_only and fixed_codes.target(code):
+        return "fixed"
+    try:
+        rr = await resolve_code(ctrl, code)
+    except Exception:  # noqa: BLE001 — ověření servisu nesmí shodit displej; lockout pak trvá
+        log.exception("ověření servisního hesla během lockoutu selhalo")
+        return None
+    return "service" if rr.ok and rr.is_service else None
+
+
 async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnostics_only: bool = False,
                       odometer: str | None = None) -> dict:
     """Ověří kód (online RPC → offline cache), servisní heslo vydá token, zákaznický otevře zónu.
@@ -248,7 +272,16 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
         return {**base, "error": "empty", "message": "Zadejte přístupový kód."}
     locked = ctrl.pin_guard.locked_until()
     if locked:
-        return {**base, "error": "locked", "message": error_text("locked"), "locked_until": locked}
+        # 2026-10-05 (hlášení majitele): lockout blokoval i servisní heslo / pevné servisní kódy — technik se nedostal
+        # dovnitř. Během lockoutu projde JEN servisní přístup (a lockout zruší); zákaznický kód dál „locked“ (ochrana
+        # proti hádání, žádné orákulum — výsledek ověření se zákazníkovi neukáže a nepočítá).
+        how = await _service_during_lockout(ctrl, code, diagnostics_only)
+        if how is None:
+            return {**base, "error": "locked", "message": error_text("locked"), "locked_until": locked}
+        ctrl.pin_guard.clear()
+        await ctrl.emit(Event(kind=EventKind.PIN_LOCKOUT, success=True, level="info",
+                              message="Blokace zadávání zrušena servisním přístupem na displeji",
+                              detail={"source": source, "cleared": True, "via": how}))
     diag = getattr(ctrl, "diagnostics", None)
     if diag is not None and diag.matches_local_code(code):
         return start_diagnostics(ctrl, base, source, "local_code")
@@ -266,6 +299,11 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
         err = rr.error or "invalid_code"
         if err == pickup_gate.ERROR:        # platný kód před 12:00 (sleva za pozdní vyzvednutí, §31) — hláška, BEZ lockoutu
             return await pickup_gate.refuse(ctrl, rr, base, source)
+        if err == CODE_REPLACED:            # 2026-10-05: starý kód rezervace nahrazený novým (přesun motorky / kóje, změna)
+            await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="info", code_kind="invalid",
+                                  message=f"Starý (nahrazený) kód {masked} — zákazník má nový kód",
+                                  detail={"source": source, "code_masked": masked, "reason": CODE_REPLACED}))
+            return {**base, "error": CODE_REPLACED, "message": error_text(CODE_REPLACED)}
         if err in INVALID_CODE_ERRORS:      # jen skutečně neplatný kód se počítá do lockoutu
             until = ctrl.pin_guard.register_failure(masked)
             await ctrl.emit(Event(kind=EventKind.PIN_INVALID, success=False, level="warn", code_kind="invalid",

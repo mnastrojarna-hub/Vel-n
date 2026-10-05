@@ -358,18 +358,6 @@ class Reservation {
       ownGear ??
       [helmetSize, jacketSize, pantsSize, glovesSize].every((s) => (s ?? '').trim().isEmpty);
 
-  /// Nárok na kód šatny — zrcadlo DB `_booking_needs_locker` (2026-10-05):
-  /// „základní výbava v ceně“ (`own_gear == false`) NEBO jakákoli vybraná
-  /// velikost (řidič i spolujezdec = přesně to, co ukáže protokol na displeji).
-  /// Vlastní výbava, ke které si zákazník výbavu doplnil (úprava rezervace),
-  /// šatnu tedy dostane.
-  bool get needsLockerByGear =>
-      ownGear == false ||
-      [
-        helmetSize, jacketSize, pantsSize, bootsSize, glovesSize,
-        passengerHelmetSize, passengerJacketSize, passengerPantsSize, passengerBootsSize, passengerGlovesSize,
-      ].any((s) => (s ?? '').trim().isNotEmpty);
-
   static List<ModificationEntry> _parseModHistory(dynamic raw) {
     if (raw == null || raw is! List) return [];
     return raw

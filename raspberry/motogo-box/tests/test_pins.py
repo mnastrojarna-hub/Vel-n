@@ -260,3 +260,18 @@ def test_resolver_pickup_gate_release_at():
     cache["codes"][0]["release_at"] = None                      # bez slevy (server posílá null) / stará cache
     plain = r.resolve("111111", cache, NOW)
     assert plain.ok and plain.release_at is None
+
+
+def test_clear_lockout_starts_new_window(storage):
+    # 2026-10-05: zrušení lockoutu (servisní heslo / Velín pin_unlock) — dřívější selhání se už nepočítají
+    clock = FakeClock()
+    sec = SecurityCfg(maximum_failed_attempts=3, attempt_window_minutes=5, lockout_minutes=15)
+    guard = PinGuard(storage, sec, clock)
+    assert guard.clear() is False
+    for _ in range(3):
+        guard.register_failure("12••••")
+        clock.advance(5)
+    assert guard.locked_until() is not None
+    assert guard.clear() is True and guard.locked_until() is None
+    clock.advance(1)
+    assert guard.register_failure("12••••") is None and guard.failures_in_window() == 1

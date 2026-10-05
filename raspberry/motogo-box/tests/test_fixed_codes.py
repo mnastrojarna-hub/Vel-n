@@ -30,6 +30,10 @@ class FakeGuard:
     def register_success(self, masked):
         self.ok.append(masked)
 
+    def clear(self):
+        was, self.locked = self.locked is not None, None
+        return was
+
 
 class FakeApi:
     async def resolve_code(self, code):   # pevný kód se na Velín nesmí ptát
@@ -93,7 +97,11 @@ async def test_missing_zone_and_failure():
 
 @pytest.mark.asyncio
 async def test_lockout_not_ready_and_diag_window_block():
-    assert (await cc.submit_code(FakeCtrl(brno(), locked="x"), "39301A", "ui"))["error"] == "locked"
+    # 2026-10-05 (hlášení majitele): pevný servisní kód projde i během PIN lockoutu a lockout zruší
+    ctrl = FakeCtrl(brno(), locked="x")
+    res = await cc.submit_code(ctrl, "39301A", "ui")
+    assert res["ok"] and ctrl.pin_guard.locked is None and ctrl.zones[1].calls
+    assert any(e.detail.get("cleared") and e.detail.get("via") == "fixed" for e in ctrl.events)
     assert (await cc.submit_code(FakeCtrl(brno(), ready=False), "39301A", "ui"))["error"] == "not_ready"
     ctrl = FakeCtrl(brno())
     ctrl.api = SimpleNamespace(resolve_code=_none)

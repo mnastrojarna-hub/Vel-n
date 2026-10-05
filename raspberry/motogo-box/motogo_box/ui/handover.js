@@ -21,7 +21,7 @@ MG.Handover = (function () {
   ];
   const LOCALE = { cs: 'cs-CZ', en: 'en-GB', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', nl: 'nl-NL', pl: 'pl-PL', uk: 'uk-UA' };
   let deps = null;    // { post, showStatus, getState }
-  const S = { item: null, key: '', code: '', picks: {}, taken: {}, bk: {}, gearSig: '', step: 2, saving: false, lastTouch: 0, msg: null, sig: null, kb: null,
+  const S = { item: null, key: '', code: '', picks: {}, taken: {}, bk: {}, allSeen: false, gearSig: '', step: 2, saving: false, lastTouch: 0, msg: null, sig: null, kb: null,
     timer: null, doneKey: '', ownDone: { id: '', at: 0 }, wait: null };
   // S.picks[gid] = zvolená velikost, S.bk[gid] = položka je v rezervaci (objednaná) / navíc,
   // S.taken[gid] (2026-10-05): false = zákazník si položku NEBERE (chip ✕) → edge ji z rezervace
@@ -36,13 +36,15 @@ MG.Handover = (function () {
   const gearOf = (a) => (Array.isArray(a && a.data && a.data.gear) ? a.data.gear : []);
   const gid = (g) => g.field || ((g.who || 'rider') + ':' + g.key);
   /** Výbava NAVÍC (2026-10-05, zadání majitele: „co si vezme navíc, musí být v protokolu“): zákazník s přístupem do šatny
-      (protokol po zavření šatny = `kind` accessories, nárok na šatnu `needs_locker` — i když šatnu přeskočil kódem motorky —,
-      nebo rezervace s objednanou výbavou) vidí VŠECHNY druhy výbavy —
+      (protokol po zavření šatny = `kind`/`kind_origin` accessories, nárok na šatnu `needs_locker` — i když šatnu přeskočil
+      kódem motorky —, nebo rezervace s objednanou výbavou) vidí VŠECHNY druhy výbavy —
       objednané předvybrané, ostatní nepřevzaté; vzal-li si něco navíc, vybere velikost a edge to do rezervace doplní
       (`form.gear_add`). Bez přístupu do šatny a bez objednané výbavy jen „vlastní výbava“. Dětská motorka = jen řidič. */
-  const showAll = (a) => gearOf(a).length > 0 || !!(a && (a.kind === 'accessories' || a.needs_locker === true));
+  /** Protokol vznikl zavřením šatny — i když ho zákazník „Zpět“/nečinností skryl a vrátil se kódem motorky (`kind_origin`). */
+  const lockerUsed = (a) => !!(a && (a.kind === 'accessories' || a.kind_origin === 'accessories'));
+  const showAll = (a) => gearOf(a).length > 0 || lockerUsed(a) || !!(a && a.needs_locker === true);
   function rowsOf(a) {
-    if (!showAll(a)) return [];
+    if (!showAll(a) && !S.allSeen) return [];   // jednou nabídnutá výbava navíc nezmizí (Velín mezitím změnil nárok)
     const gear = gearOf(a), out = [];
     (a.is_child ? ['rider'] : ['rider', 'passenger']).forEach((who) => GEAR_KEYS.forEach((key) => {
       const b = gear.find((g) => (g.who || 'rider') === who && g.key === key);
@@ -58,7 +60,8 @@ MG.Handover = (function () {
   /** Stav voleb výbavy: objednaná položka = velikost z rezervace + převzato, navíc = bez velikosti, nepřevzato;
       `keep` = volby už známých položek zachovat (sync). */
   function initGear(a, keep) {
-    if (!keep) { S.picks = {}; S.taken = {}; S.bk = {}; }
+    if (!keep) { S.picks = {}; S.taken = {}; S.bk = {}; S.allSeen = false; }
+    if (showAll(a)) S.allSeen = true;
     rowsOf(a).forEach((r) => {
       const id = gid(r);
       // volbu zachovat jen u položky, která zůstala stejného druhu (objednaná ↔ navíc) — Velín ji mezitím mohl
@@ -184,13 +187,14 @@ MG.Handover = (function () {
       setStep(1);
     } else dismiss();
   }
-  /** Krok 1 → 2. Rezervace BEZ objednané výbavy po zavření šatny (`kind` accessories — zadání majitele 2026-10-05: „musí
-      na kiosku aktualizovat, co si vzal“) pustí dál až po výběru aspoň jedné velikosti. Kdo si nic nevzal, dá „Zpět“ a zadá
-      kód motorky — z kódu motorky výběr povinný není (výbava navíc jen nabídnutá). */
+  /** Rezervace BEZ objednané výbavy, která otevřela šatnu (zadání majitele 2026-10-05: „nesmí ho to pustit, aniž by vyškrtal
+      nějaké velikosti“), musí vybrat aspoň jednu velikost — platí i po „Zpět“/nečinnosti a návratu kódem motorky
+      (`kind_origin`). Kdo šatnu neotevřel (rovnou kód motorky), má výbavu navíc jen nabídnutou. */
+  const needsPick = (a) => lockerUsed(a) && !gearOf(a).length && !rowsOf(a).some(isTaken);
   function next() {
     if (!S.item || S.step !== 1) return;
     touch();
-    if (S.item.kind === 'accessories' && !gearOf(S.item).length && !rowsOf(S.item).some(isTaken)) { setMsg('ho.pickTaken'); return; }
+    if (needsPick(S.item)) { setMsg('ho.pickTaken'); return; }
     if (S.msg && S.msg.key === 'ho.pickTaken') setMsg(null);
     setStep(2);
   }
@@ -271,9 +275,14 @@ MG.Handover = (function () {
       jednotka mohla obnovit `data.gear` ze sync (rezervace upravena ve Velíně) → doplnit nové položky a překreslit. */
   function sync(a) {
     const codeChanged = !!S.item.needs_code !== !!a.needs_code, gearChanged = gearSig(a) !== S.gearSig;
+    const hadGear = hasGear(S.item);
     S.item = a;
     if (codeChanged) { $('handover').classList.toggle('no-code', !a.needs_code); $('ho-code-sec').hidden = !a.needs_code; S.sig.resize(); }
-    if (gearChanged) { initGear(a, true); renderGear(a); }
+    if (gearChanged) {
+      initGear(a, true); renderGear(a);
+      // výbava se objevila (Velín ji doplnil) → zpět na kontrolu velikostí; jinak jen překreslit krok (banner „vlastní výbava“)
+      if (hasGear(a) !== hadGear) setStep(hasGear(a) ? 1 : 2);
+    }
     paintSaving();
     // po timeoutu vlastního submitu: položka je dál vidět a jednotka neukládá → požadavek k ní vůbec nedorazil
     if (S.wait && S.wait.id === a.booking_id && !S.saving && !a.saving) { S.wait = null; setMsg('ho.failed'); }
@@ -352,6 +361,7 @@ MG.Handover = (function () {
     const a = S.item;
     if (!a || S.step !== 2 || $('ho-confirm').disabled) return;
     touch();
+    if (needsPick(a)) { setStep(1); setMsg('ho.pickTaken'); return; }   // pojistka (krok 2 dosažen dřív, než se šatna projevila)
     const signature = S.sig.toPng();
     if (!signature) { setMsg('ho.sigTooLarge'); return; }
     const form = {

@@ -560,8 +560,11 @@ class BoxController:
                           odometer: str | None = None) -> dict
         # {"ok":bool,"kind":"motorcycle|accessories|service|invalid","error":str|None,"message":str,"zone":int|None,
         #  "locked_until":float|None,"doors":[ServiceDoor…] (jen service), "service_token":str|None}
-        # kroky: normalize; PinGuard.locked → error 'locked'; 6 číslic nebo neprázdné (servisní heslo) ; api.resolve_code →
+        # kroky: normalize; PinGuard.locked → servisní přístup (lokální diag. kód / 39301A–H / servisní heslo online) lockout
+        #   zruší a pokračuje, jinak error 'locked' (2026-10-05); 6 číslic nebo neprázdné (servisní heslo) ; api.resolve_code →
         # None (síť) → LocalResolver; invalid → register_failure; service → vydej service_token (10 min);
+        # 2026-10-05: RPC `{error:'invalid_code', replaced:true}` (`ResolveResult.from_rpc` → 'code_replaced') = starý kód
+        #   nahrazený novým (přesun kóje/motorky) → ACCESS_DENIED info + hláška „Kód už neplatí…“, BEZ register_failure;
         # zákazník → najdi zónu (door_id, pak box_number) → zone.grant_access; log_open(...)
         # 2026-09-25 (§28): kind motorcycle → PŘED grant_access `handover.require_before_open(rr, zc, source)`; True →
         #   {**base, ok:False, kind:'motorcycle', error:'protocol_required', zone: zc.number, booking_id, message: error_text(...)}
@@ -637,6 +640,7 @@ async def execute(ctrl: BoxController, command: str, params: dict) -> tuple[bool
 | `lte_mode` | `mode` = `rndis` \| `qmi` | **2026-09-26:** přepne modem SIM7600 mezi QMI a RNDIS (root skript `motogo-lte-mode`, ~2 min: profil NM `motogo-lte`, udev, služba startu dat, `/etc/motogo/modem_vidpid`, `health.lte_mode` v config.yaml, ModemManager vyp/zap, `AT+CUSBPIDSWITCH`, restart motogo-health). Potvrzení hned `{started, mode}`, průběh jako události `LTE_MODE` (warn na startu, info/error po doběhu — druhá dorazí z outboxu po obnově internetu). Není HW příkaz (jde i bez `ready`) |
 | `contact_test` | `zone` / `door_id` / `box_number`, `seconds?` (1–120, výchozí 20) | **2026-09-26:** sleduje syrovou hodnotu DI kontaktu zóny (`ZoneController.contact_raw` z poll_loopu), obsluha dveře otevře a zavře; výsledek `{zone, verdict: ok\|polarity\|stuck_0\|stuck_1\|offline\|not_configured, raw_start, raw_end, changes[{t_ms, raw}], closed_level, suggested_closed_level?}` + událost `CONTACT_TEST` (info/warn/error) s lidskou větou do kiosk_logs; nic nespíná |
 | `zone_test` | `zone` | `zone.test_sequence()` |
+| `pin_unlock` | – | **2026-10-05 (1.2.5):** `PinGuard.clear()` — zruší PIN lockout displeje (Velín „Zrušit blokaci zadávání“ u `pin_locked_until`), nové okno chybných pokusů; výsledek `{cleared: bool}` + PIN_LOCKOUT info; CHECK `20261005d` |
 | `audio_test` | `zone` \| `out`, `seconds?` | `zone` → `audio.test_tone` (zóna bez reproduktoru → `no_speaker`); `out` → `audio.test_output` (Velín „Test výstupu“; `output_not_found`) — generovaný tón, ne playlist |
 | `all_off` | – | `ctrl.all_off()` |
 | `identify` | `label?` | ui_notice „Tady jsem" + 3× bliknutí zelené všech zón, pak obnovit |
@@ -669,6 +673,7 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
 
 ```json
 {"ts":"2026-09-09T10:00:00+02:00","version":"1.0.0+abc123","uptime_s":123,"ready":true,"branch_name":"Brno",
+ "pin_locked_until":"ISO|null",   // 2026-10-05 (1.2.5): PIN lockout displeje → Velín pruh + „Zrušit blokaci zadávání“ (pin_unlock)
  "internet":true,"config_source":"remote|local","config_problems":[],
  "modules":{"wav645":true,"wav617a":true,"wav617b":true,"shelly1":true,"shelly2":true,"shelly3":true,"shelly4":true},
  "audio":{"mode":"multi","playing_zone":3,"playing_zones":[3,7],"channels":["outdoor"],"player_ok":true,"playlist_count":27,
@@ -826,8 +831,9 @@ aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
   `controller_codes.submit_code(ctrl, code, "diag_ui", diagnostics_only=True)` s hintem `diagnostics.pending_mode = mode`
   (ve `finally` vždy `None`): lokální diagnostický kód, servisní heslo s účelem `diagnostics` nebo běžné servisní heslo
   (spustí JEN diagnostiku, bez servisního tokenu); zákaznický PIN/kód rezervace je tu `invalid_code` a počítá se do
-  lockoutu; neplatný → 403 `{ok:false, error, message, locked_until}`. Lockout blokuje i diagnostický kód (kromě
-  `/api/diagnostics/run` se service_token). Odpověď `{ok, started, id, mode}` / `{ok:false, error:'already_running', id, mode}`.
+  lockoutu; neplatný → 403 `{ok:false, error, message, locked_until}`. Od 2026-10-05 (1.2.5) lockout NEblokuje lokální
+  diagnostický kód, servisní heslo ani pevné servisní kódy 39301A–H — projdou a lockout zruší (`PinGuard.clear`, PIN_LOCKOUT
+  info `detail {source, cleared, via}`); dřív technik u zablokovaného displeje 15 min nic nezadal. Odpověď `{ok, started, id, mode}` / `{ok:false, error:'already_running', id, mode}`.
 - **Předávací protokol (2026-09-25, §28; bez service_token — zákazník):** `POST /api/protocol/submit {"booking_id","code"?,"form",
   "signature"}` (`signature` = PNG data-URL ≤ 150 kB dekódovaných bajtů; `form` = `{mileage, accessories[], moto_equipment[]}` —
   **2026-09-28** `moto_equipment` = 5 pevných položek výbavy motorky `[{key: phone_holder_key|disc_lock|accident_form|first_aid_kit|

@@ -20,6 +20,7 @@ export interface AccessoryItem {
   removed?: boolean
   /** Nastaví edge: převzatá položka, kterou rezervace NEMĚLA (zákazník si ji vzal navíc) — v dokumentu „(navíc)“. */
   extra?: boolean
+  added?: boolean     // kiosk ≥ 1.2.5: položka NAVÍC (při opakovaném podpisu po 5xx už je v rezervaci z 1. pokusu)
 }
 
 export function gearField(key: GearKey, who: GearWho): string {
@@ -71,7 +72,8 @@ export function normalizeAccessories(raw: unknown, defaultChecked: boolean): Acc
     const size = String(it.size ?? '').trim().slice(0, 20)
     const label = String(it.label ?? '').trim().slice(0, 80) || (key && who ? gearLabel(key, who) : '')
     if (!label && !size) continue
-    out.push({ key, who, field, label, size, checked: typeof it.checked === 'boolean' ? it.checked : defaultChecked })
+    out.push({ key, who, field, label, size, checked: typeof it.checked === 'boolean' ? it.checked : defaultChecked,
+      ...(it.added === true ? { added: true } : {}) })
   }
   return out
 }
@@ -95,8 +97,9 @@ type Admin = any
  *   se nemění (doúčtování placené výbavy navíc řeší Velín ručně).
  * `allowRemove=false` (starý klient bez opt-in `form.gear_remove`): nepřevzatá
  * položka je jen ☐ v dokumentu jako dřív — rezervace se nemění.
+ * `markExtra` (kiosk s `form.gear_add`): „navíc“ v dokumentu; jiný klient výbavu navíc přidat neumí → bez označení.
  */
-export async function resolveGearUpdates(admin: Admin, booking: Record<string, unknown>, items: AccessoryItem[], allowRemove = true, allowAdd = false): Promise<SizeUpdates> {
+export async function resolveGearUpdates(admin: Admin, booking: Record<string, unknown>, items: AccessoryItem[], allowRemove = true, allowAdd = false, markExtra = allowAdd): Promise<SizeUpdates> {
   const linked = items.filter((a) => a.field && a.key && a.who)
   const res: SizeUpdates = { updates: {}, changes: {} }
   if (!linked.length) return res
@@ -140,6 +143,7 @@ export async function resolveGearUpdates(admin: Admin, booking: Record<string, u
       if (!a.checked && (res.updates[a.field as string] === null || (!currentOf(a) && a.size))) a.removed = true
     }
   }
-  for (const a of linked) if (a.checked && a.size && !currentOf(a)) a.extra = true
+  // navíc = v rezervaci není, nebo ji tam doplnil už 1. pokus téhož podpisu (klient ji posílá s `added`)
+  if (markExtra) for (const a of linked) if (a.checked && a.size && (a.added === true || !currentOf(a))) a.extra = true
   return res
 }

@@ -282,6 +282,17 @@ async def test_box_controller_end_to_end(sim: Sim, tmp_path) -> None:
         res = await asyncio.wait_for(ctrl.submit_code(PIN_OK), 10)       # i platný kód je odmítnut
         assert res["ok"] is False and res["error"] == "locked"
         assert ctrl.zones[3].state == ZoneState.SECURED
+        assert ctrl.snapshot()["pin_locked_until"]                       # Velín vidí blokaci (2026-10-05)
+        # 2026-10-05: servisní heslo projde i během lockoutu a lockout zruší (technik se vždy dostane dovnitř)
+        res = await asyncio.wait_for(ctrl.submit_code(SERVICE_CODE), 10)
+        assert res["ok"] is True and res["kind"] == "service" and ctrl.pin_guard.locked_until() is None
+        assert ctrl.snapshot()["pin_locked_until"] is None
+        # znovu lockout → zrušení příkazem z Velína (pin_unlock)
+        for i in range(5):
+            res = await asyncio.wait_for(ctrl.submit_code(f"00001{i}"), 10)
+        assert res["error"] == "locked"
+        ok, result = await commands.execute(ctrl, "pin_unlock", {})
+        assert ok is True and result == {"cleared": True} and ctrl.pin_guard.locked_until() is None
 
         # ── vzdálený příkaz přes handle_command (complete_command → outbox, síť není) ──
         await asyncio.wait_for(ctrl.handle_command({"id": "cmd-1", "command": "light_on", "params": {"zone": 1}}), 10)

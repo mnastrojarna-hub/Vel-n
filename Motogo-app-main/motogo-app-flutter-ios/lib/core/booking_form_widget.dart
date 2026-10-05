@@ -153,10 +153,13 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
   /// objednal — prázdný výběr by kód šatny vydal bez výbavy. Velikost je povinná
   /// i u zaškrtnutých doplňků se sedícími velikostmi (boty, spolujezdec).
   /// Returns a human-readable list of missing items — empty list means OK.
-  List<String> _missingGearSizes(BuildContext context, BookingDraft d) {
+  List<String> _missingGearSizes(BuildContext context, BookingDraft d, {required bool kids}) {
     final missing = <String>[];
-    bool none(String? s) => s == null || s.trim().isEmpty;
-    if (!d.ownGear && none(d.helmetSize) && none(d.jacketSize) && none(d.pantsSize) && none(d.glovesSize)) {
+    // jen velikost z nabízené řady (dětská ↔ dospělá) — jinou formulář neukáže, zákazník ji nevybral
+    bool none(String type, String? s) =>
+        s == null || s.trim().isEmpty || !gearSizesFor(type, kids: kids).contains(s);
+    if (!d.ownGear && none('helmet', d.helmetSize) && none('jacket', d.jacketSize) &&
+        none('pants', d.pantsSize) && none('gloves', d.glovesSize)) {
       missing.add(t(context).tr('gearBasicPickOne'));
     }
     SelectedExtra? findExtra(String id) =>
@@ -432,7 +435,22 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
             ));
       });
     }
-    final missingSizes = _missingGearSizes(context, draft);
+    // Velikost řidiče mimo nabízenou řadu (předvyplněná z profilu po dětské ↔ dospělé motorce)
+    // formulář neukáže → vynulovat, ať se neuloží velikost, kterou zákazník neviděl (2026-10-05).
+    bool offList(String type, String? s) =>
+        s != null && s.trim().isNotEmpty && !gearSizesFor(type, kids: isKids).contains(s);
+    if (offList('helmet', draft.helmetSize) || offList('jacket', draft.jacketSize) ||
+        offList('pants', draft.pantsSize) || offList('gloves', draft.glovesSize)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _upd((d) => d.copyWith(
+              helmetSize: offList('helmet', d.helmetSize) ? () => null : null,
+              jacketSize: offList('jacket', d.jacketSize) ? () => null : null,
+              pantsSize: offList('pants', d.pantsSize) ? () => null : null,
+              glovesSize: offList('gloves', d.glovesSize) ? () => null : null,
+            ));
+      });
+    }
+    final missingSizes = _missingGearSizes(context, draft, kids: isKids);
     // „Na pobočce“ u samoobsluhy = adresa pobočky VYBRANÉ motorky z DB
     // (kus v Brně se vydává tam); obslužná pobočka má text beze změny.
     final String? branchLabel = selfServiceBranchLabel(

@@ -168,3 +168,14 @@ async def test_protocol_submit_with_gated_code(ctrl):
     _online(ctrl, moto={"ok": True, "release_at": _iso(timedelta(minutes=-5))})
     res = await hm.submit("b1", FORM, SIG, "111111")
     assert res["ok"] and res["opened"]["zone"] == 3 and ctrl.zones[3].grants == [("b1", "motorcycle", "ui")]
+
+
+async def test_replaced_code_message_without_lockout(ctrl):
+    """2026-10-05: starý kód ze SMS po regeneraci (přesun kóje) — DB `invalid_code` + `replaced` → vlastní hláška, bez lockoutu."""
+    ctrl.api.resolve = {"444444": {"ok": False, "error": "invalid_code", "replaced": True}}
+    for _ in range(ctrl.hardware.security.maximum_failed_attempts + 2):
+        res = await cc.submit_code(ctrl, "444444", "ui")
+        assert res["ok"] is False and res["error"] == "code_replaced" and "nový" in res["message"]
+    assert ctrl.storage.pin_failures_since(0) == 0 and ctrl.pin_guard.locked_until() is None
+    assert [e.detail["reason"] for e in _denied(ctrl)][-1] == "code_replaced"
+    assert ResolveResult.from_rpc({"ok": False, "error": "invalid_code"}).error == "invalid_code"

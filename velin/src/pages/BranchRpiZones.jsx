@@ -145,6 +145,8 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
   // na displeji svítí starý název. Tady je vidět, co zákazník na pobočce právě čte, a jestli to sedí s Velínem.
   const shownName = st.branch_name == null || st.branch_name === '' ? '' : String(st.branch_name)
   const nameMismatch = !!(hasStatusName(st) && branchName && shownName !== String(branchName))
+  const pinLockedAt = st.pin_locked_until ? new Date(String(st.pin_locked_until)) : null
+  const pinLockedUntil = pinLockedAt && !isNaN(pinLockedAt) && pinLockedAt.getTime() > now ? pinLockedAt : null
 
   async function send(command, params = {}, label) {
     const ok = await onCommand(dev, command, params)
@@ -219,6 +221,16 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
         </div>
       )}
       <HandoverDeviceInfo handover={handover} now={now} />
+      {/* PIN lockout (status.pin_locked_until): po 5 chybných kódech za 5 min displej 15 min nebere kódy zákazníků.
+          Servisní/diagnostický kód na displeji ho zruší sám; odsud příkazem pin_unlock (kontrakt §16). */}
+      {pinLockedUntil && (
+        <div className="mt-2 p-2 rounded-lg text-[12px] flex items-center gap-2 flex-wrap" style={{ background: '#fee2e2', color: '#dc2626' }}>
+          <span className="font-bold">⛔ Zadávání kódů na displeji zablokováno do {pinLockedUntil.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</span>
+          <span>— po opakovaných chybných kódech (např. starý kód po přesunu motorky). Zákazník teď nezadá kód rezervace.</span>
+          <Btn tone="red" title="Okamžitě zruší blokaci zadávání na displeji pobočky; počítadlo chybných pokusů začne znovu od nuly."
+            onClick={() => send('pin_unlock', {}, 'Zrušit blokaci zadávání')}>Zrušit blokaci zadávání</Btn>
+        </div>
+      )}
 
       {/* Režim modemu QMI/RNDIS (health.lte.mode) — QMI kanál SIM7600 padá z USB („error -71“); jednotka se po
           `mode_auto_after` USB resetech za 24 h přepne do RNDIS sama, tady jde přepnout ručně. Internet vypadne ~2 min. */}

@@ -87,8 +87,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   // Od 2026-09-25 se načítá z `bookings.own_gear` a při uložení zapisuje
   // (rozhoduje o kódu šatny; trigger `trg_sync_locker_code` kód přidá/odebere).
   bool _ownGear = false;
-  // Výchozí stav přepínače z rezervace (2026-10-05): vybrané velikosti řidiče = výbava se půjčuje
-  // (i při own_gear true — doplněno přes web/Velín), jinak own_gear, NULL = vlastní (web, Velín, SOS).
+  // Výchozí stav přepínače z rezervace (2026-10-05) = `Reservation.ownGearEffective`
+  // (zrcadlo DB `_booking_needs_locker`: explicitní own_gear, NULL → prázdné velikosti řidiče).
   bool _ownGearInitial = false;
   DayPrices? _motoPrices;
 
@@ -146,9 +146,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _passengerPantsSize = res.passengerPantsSize;
         _passengerBootsSize = res.passengerBootsSize;
         _passengerGlovesSize = res.passengerGlovesSize;
-        final riderSizes = [res.helmetSize, res.jacketSize, res.pantsSize, res.glovesSize]
-            .any((s) => (s ?? '').trim().isNotEmpty);
-        _ownGear = _ownGearInitial = !riderSizes && (res.ownGear ?? true);
+        _ownGear = _ownGearInitial = res.ownGearEffective;
       });
       _loadDiscountType(res);
       _loadOriginalExtras();

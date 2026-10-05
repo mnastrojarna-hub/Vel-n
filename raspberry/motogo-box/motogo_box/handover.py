@@ -389,7 +389,7 @@ class HandoverManager:
             to_valid = self.then_open_valid(item, now)
             expires = (item.shown_at or now) + DONE_TTL_S if item.stage == STAGE_DONE else item.last_touch + self.idle_s
             active = {"booking_id": item.booking_id, "stage": item.stage, "zone": item.zone, "zone_label": label,
-                      "kind": zc.zone.kind if zc else item.kind_origin, "then_open": to_valid,
+                      "kind": zc.zone.kind if zc else item.kind_origin, "kind_origin": item.kind_origin, "then_open": to_valid,
                       "needs_code": not to_valid, "data": dict(item.data), "sizes": self._sizes(item.is_child),
                       "is_child": bool(item.is_child), "needs_locker": bool(item.needs_locker),
                       "shown_at": iso_ts(item.shown_at), "expires_at": iso_ts(expires), "saving": item.in_flight}
