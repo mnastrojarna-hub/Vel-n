@@ -1,21 +1,25 @@
 """Dokončení vrácení — OFFLINE hradlo jednotky (rozhodnutí majitele 2026-10-06, D1/D2, CONTRACT §32).
 
-Vrácení motorky v POSLEDNÍ den pronájmu (Praha) nebo později je finální: server (`booking_kiosk_returns`,
-`kiosk_process_returns`) rezervaci dokončí a kódy nechá doběhnout `GRACE` (15 min) — kód motorky 15 min po finálním
-zavření kóje, kód šatny 15 min po zavření šatny při vrácení (vrátil-li výbavu PŘED motorkou — šatna zavřená ≤ 90 min
-před kójí — 15 min po zavření kóje; šatnu po vrácení vůbec nezavřel → kód šatny platí dál). ONLINE to celé rozhoduje server
-(zneplatněný kód = `reason:'revoked'`); tento modul jen zajistí totéž, když jednotka ověřuje kód z OFFLINE cache, která o
-dokončení ještě neví (jinak by kód otevíral až do půlnoci po posledním dni).
+Vrácení motorky v POSLEDNÍ den pronájmu (Praha) nebo později je finální: server (`booking_kiosk_returns`, pg_cron
+`kiosk-return-completion` → `kiosk_process_returns()`) rezervaci dokončí a kódy nechá doběhnout `GRACE` (15 min) — kód
+motorky 15 min po finálním zavření kóje, kód šatny 15 min po zavření šatny při vrácení (vrátil-li výbavu PŘED motorkou —
+šatna zavřená ≤ 90 min před kójí — 15 min po zavření kóje; šatnu po vrácení vůbec nezavřel → kód šatny platí dál). ONLINE
+to celé rozhoduje server (zneplatněný kód = `reason:'revoked'`); tento modul jen zajistí totéž, když jednotka ověřuje kód
+z OFFLINE cache, která o dokončení ještě neví (jinak by kód otevíral až do půlnoci po posledním dni).
 
 Záznam (kv `return_gate` = `{"b": {booking_id: {"bay": ts, "locker": ts}}}`, unixové časy jednotky, záznamy starší 3 dní
 pryč) plní `observe(storage, event)` z `BoxController.emit` — z TÝCHŽ událostí, které dostává server (§15, 1.2.8):
   * SESSION_COMPLETED kódu motorky s rezervací a `odometer_phase: in` (relace vrácení / kód po vrácení) → `bay` = čas události;
   * SESSION_COMPLETED kódu šatny s rezervací → `locker` = čas události;
-  * ACCESS_GRANTED kódu motorky s `odometer_phase: out` (motorka znovu vyjela) → `bay` pryč (nové vrácení se zapíše znovu).
+  * ACCESS_GRANTED kódu motorky s fází ≠ `in` (`out` / bez fáze — motorka vyjela) → záznam pryč, `bay` i `locker` (šatna se
+    počítá jen zavřená PO posledním vyjetí, shodně se serverem `_kiosk_return_locker_close` — zavření šatny při převzetí
+    výbavy tak nikdy není „vrácení výbavy“; nové vrácení se zapíše znovu).
 `blocks(ctrl, rr)` = OFFLINE `ok` zákaznického kódu s rezervací, `rr.return_final_from` (začátek posledního dne; chybí =
 bez hradla) ≤ `bay` a kód doběhl (motorka: teď > bay + grace; šatna jen s `locker` ≥ bay − 90 min: teď > max(locker, bay) +
 grace). Odmítnutí = `code_revoked` (známý kód, BEZ lockoutu) + ACCESS_DENIED `reason: returned`. Krátkodobý kód z Velína
 (`temp`, bez rezervace) hradlo nemá — tím obsluha pustí zákazníka pro zapomenutou věc.
+Známé omezení (CONTRACT §32): `return_final_from` je z poslední cache — prodloužení termínu během výpadku LTE jednotka uvidí až
+po resyncu; do té doby hradlo z původního posledního dne (konzervativní jako §31, napraví resync po obnově spojení).
 """
 from __future__ import annotations
 
@@ -79,7 +83,8 @@ def observe(storage: Any, event: Event) -> None:
         return
     phase = d.get("odometer_phase")
     if event.kind == EventKind.ACCESS_GRANTED:
-        key = "drop" if event.code_kind == "motorcycle" and phase == "out" else None
+        # vyjetí = grant motorky s fází ≠ 'in' (i bez fáze — plán odometru None / fail-open), shodně se serverem
+        key = "drop" if event.code_kind == "motorcycle" and phase != "in" else None
     elif event.code_kind == "motorcycle":
         key = "bay" if phase == "in" else None
     else:
@@ -90,11 +95,11 @@ def observe(storage: Any, event: Event) -> None:
     data = _load(storage, now)
     rec = data["b"].setdefault(bid, {})
     if key == "drop":
-        if rec.pop("bay", None) is None:
+        # vyjetí motorky = konec předchozího vrácení: zavření kóje i šatny (výbava vyzvednutá při převzetí) se nepočítá —
+        # server `_kiosk_return_locker_close` bere jen šatnu zavřenou PO posledním vyjetí
+        if not data["b"].pop(bid, None):
             return
-        log.info("return_gate: motorka rezervace %s znovu vyjela — záznam vrácení zrušen", bid)
-        if not rec:
-            data["b"].pop(bid, None)
+        log.info("return_gate: motorka rezervace %s znovu vyjela — záznam vrácení i šatny zrušen", bid)
     else:
         t = _ts(event.ts)
         rec[key] = t if t is not None else now

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import Card from '../../components/ui/Card'
+import { pragueDateStr } from '../../lib/latePickup'
 
 /**
  * MotoGo24 Customer Score — komplexní scoring zákazníka
@@ -124,7 +125,10 @@ function computeScore(bookings, sosIncidents, reviews, complaints, adminRating) 
   let latePenaltyRaw = 0
   completed.forEach(b => {
     if (b.actual_return_date && b.end_date) {
-      const lateDays = Math.ceil((new Date(b.actual_return_date) - new Date(b.end_date)) / 86400000)
+      // Pražské kalendářní dny (2026-10-06): vrácení na kiosku zapisuje plný čas zavření kóje (D3), ruční cesty jen
+      // datum — vrácení kdykoli v poslední den = 0 dní zpoždění, další den = 1 (ne podle hodin od půlnoci UTC)
+      const ad = pragueDateStr(b.actual_return_date), ed = pragueDateStr(b.end_date)
+      const lateDays = (ad && ed) ? Math.round((Date.parse(ad) - Date.parse(ed)) / 86400000) : 0
       if (lateDays > 0) {
         for (let d = 1; d <= lateDays; d++) latePenaltyRaw += 5 + d * 3
       }

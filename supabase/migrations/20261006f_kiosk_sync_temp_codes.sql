@@ -1,7 +1,8 @@
 -- 2026-10-06 (zadání majitele D1+D4): kiosk_sync_config — offline cache jednotky zná krátkodobé kódy z Velína a začátek
 -- posledního dne pronájmu. Převzato 1:1 z 20261006a, přidáno jen:
 --  (1) codes[] řádky kódů s rezervací navíc `return_final_from` = _door_code_valid_from(end_date) (pražská půlnoc
---      začátku POSLEDNÍHO dne) — offline hradlo vrácení jednotky ≥ 1.2.8 (return_gate.py); starší jednotka pole ignoruje.
+--      začátku POSLEDNÍHO dne) — offline hradlo vrácení jednotky ≥ 1.2.8 (return_gate.py); NULL u SOS náhrady /
+--      vozíku / testu (server je automaticky nedokončí → hradlo nesmí blokovat); starší jednotka pole ignoruje.
 --  (2) za ně krátkodobé kódy pobočky (branch_temp_codes, 20261006d): nezrušené, platnost do ≥ now − 1 den, jen AKTIVNÍ
 --      dveře pobočky — řádky STEJNÉHO tvaru (HMAC `h` stejně jako ostatní, kind = druh dveří, booking_id / release_at /
 --      odo / return_final_from NULL) + `temp: true`. Zákaznické kódy jsou v poli dřív (jednotka bere první shodu
@@ -51,8 +52,11 @@ BEGIN
     'odo', CASE WHEN bdc.code_type = 'motorcycle' AND bdc.booking_id IS NOT NULL
                  AND (bdc.valid_from IS NULL OR bdc.valid_from <= now() + interval '1 day')
                 THEN public._kiosk_odometer(bdc.booking_id, v_bid) END,
-    -- return_final_from (2026-10-06, D1): začátek posledního dne pronájmu (Praha) — offline hradlo vrácení
-    'return_final_from', CASE WHEN bdc.booking_id IS NOT NULL THEN public._door_code_valid_from(bk.end_date) END)
+    -- return_final_from (2026-10-06, D1): začátek posledního dne pronájmu (Praha) — offline hradlo vrácení;
+    -- NULL (bez hradla) u SOS náhrady / vozíku / testu — server je automaticky nedokončí (skipped), jednotka nesmí blokovat
+    'return_final_from', CASE WHEN bdc.booking_id IS NOT NULL AND NOT COALESCE(bk.sos_replacement, false)
+                               AND bk.trailer_moto_id IS NULL AND bk.is_test IS NOT TRUE
+                              THEN public._door_code_valid_from(bk.end_date) END)
     ORDER BY bdc.valid_until DESC NULLS LAST, bdc.updated_at DESC), '[]'::jsonb)
   INTO v_codes
   FROM (

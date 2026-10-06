@@ -21,12 +21,15 @@ function codeState(c, now) {
 }
 
 // Krátkodobé kódy rezervace (2026-10-06, D4) — část karty „Přístupové kódy“ v detailu rezervace: tlačítko
-// „Vydat krátkodobý kód“ (jen samoobslužná pobočka motorky s aktivními dveřmi) + seznam vydaných kódů
-// (platí / vypršel / zrušen, počet použití) s „Zrušit“. Bez nasazené tabulky `branch_temp_codes` se skryje.
+// „Vydat krátkodobý kód“ (dveře pobočky, kde byla motorka vrácena na kiosku — booking_kiosk_returns.branch_id;
+// bez vrácení samoobslužná pobočka motorky; jen aktivní dveře) + seznam vydaných kódů (platí / vypršel / zrušen,
+// počet použití) s „Zrušit“ — seznam VŽDY, i když motorka mezitím přejela na pobočku s obsluhou (živý kód musí jít
+// zrušit). Bez nasazené tabulky `branch_temp_codes` se skryje.
 export default function TempCodesList({ booking }) {
   const b = booking || {}
   const selfService = b.motorcycles?.branches?.type === SELF_SERVICE_BRANCH_TYPE
   const branchId = b.motorcycles?.branch_id
+  const [retBranchId, setRetBranchId] = useState(undefined)   // undefined = ještě nenačteno
   const [doors, setDoors] = useState([])
   const [motoBox, setMotoBox] = useState(null)
   const [codes, setCodes] = useState([])
@@ -51,21 +54,34 @@ export default function TempCodesList({ booking }) {
     } catch (e) { setErr(e?.message || String(e)) }
   }, [b.id])
 
+  // Vydané kódy + pobočka vrácení na kiosku (řádek existuje jen u samoobslužné pobočky; tabulka nenasazena → null)
   useEffect(() => {
-    setCodes([]); setDoors([]); setMotoBox(null); setErr(null)
-    if (!selfService || !b.id) return
+    setCodes([]); setRetBranchId(undefined); setErr(null)
+    if (!b.id) return
+    let alive = true
     loadCodes()
-    // Aktivní dveře pobočky MOTORKY + kóje motorky (výchozí volba v modalu)
-    if (branchId) {
-      supabase.from('branch_doors').select('id, door_kind, box_number, label, sort_order')
-        .eq('branch_id', branchId).eq('is_active', true)
-        .then(({ data }) => setDoors(data || []), () => setDoors([]))
+    supabase.from('booking_kiosk_returns').select('branch_id').eq('booking_id', b.id).maybeSingle()
+      .then(({ data }) => { if (alive) setRetBranchId(data?.branch_id ?? null) }, () => { if (alive) setRetBranchId(null) })
+    return () => { alive = false }
+  }, [b.id, loadCodes])
+
+  // Dveře: pobočka vrácení (tam zůstala zapomenutá věc), jinak samoobslužná pobočka motorky — až po načtení
+  // řádku vrácení (jinak by se nejdřív nabídly dveře pobočky, kam motorka mezitím přejela)
+  const doorBranchId = retBranchId === undefined ? null : (retBranchId || (selfService ? branchId : null))
+  useEffect(() => {
+    setDoors([]); setMotoBox(null)
+    if (!doorBranchId) return
+    let alive = true
+    supabase.from('branch_doors').select('id, door_kind, box_number, label, sort_order')
+      .eq('branch_id', doorBranchId).eq('is_active', true)
+      .then(({ data }) => { if (alive) setDoors(data || []) }, () => {})
+    // Kóje motorky = výchozí volba v modalu, jen když motorka pořád stojí na této pobočce
+    if (b.moto_id && doorBranchId === branchId) {
+      supabase.from('motorcycles').select('box_number, branch_id').eq('id', b.moto_id).maybeSingle()
+        .then(({ data }) => { if (alive && data?.branch_id === doorBranchId) setMotoBox(data?.box_number ?? null) }, () => {})
     }
-    if (b.moto_id) {
-      supabase.from('motorcycles').select('box_number').eq('id', b.moto_id).maybeSingle()
-        .then(({ data }) => setMotoBox(data?.box_number ?? null), () => setMotoBox(null))
-    }
-  }, [b.id, b.moto_id, branchId, selfService, loadCodes])
+    return () => { alive = false }
+  }, [doorBranchId, branchId, b.moto_id])
 
   // Platný kód → po 30 s obnovit stav a počet použití (tabulka není v realtime publikaci)
   const anyLive = codes.some(c => codeState(c, now).live)
@@ -88,10 +104,11 @@ export default function TempCodesList({ booking }) {
     loadCodes()
   }
 
-  if (!selfService || !available) return null
+  if (!available) return null
   const canIssue = doors.length > 0
   if (!canIssue && codes.length === 0 && !err) return null
-  const defaultDoor = motoBox == null ? null
+  const movedAway = canIssue && doorBranchId !== branchId
+  const defaultDoor = (motoBox == null || doorBranchId !== branchId) ? null
     : doors.find(d => d.door_kind === 'motorcycle' && Number(d.box_number) === Number(motoBox))
   const nameOf = c => {
     const d = c.branch_doors || doors.find(x => x.id === c.door_id)
@@ -104,6 +121,7 @@ export default function TempCodesList({ booking }) {
         <div>
           <div className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Krátkodobé kódy</div>
           <div className="text-xs" style={{ color: '#4a5a52' }}>Jednorázová pomoc (např. zapomenutá věc po vrácení) — otevře jen vybrané dveře na 15–120 min, bez km a protokolu, rezervaci nemění.</div>
+          {movedAway && <div className="text-xs" style={{ color: '#b45309' }}>Dveře pobočky, kde byla motorka vrácena na kiosku — motorka je teď jinde.</div>}
         </div>
         {canIssue && <Button small green onClick={() => setOpen(true)}>Vydat krátkodobý kód</Button>}
       </div>

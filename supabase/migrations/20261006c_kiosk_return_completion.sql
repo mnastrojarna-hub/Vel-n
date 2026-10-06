@@ -11,8 +11,10 @@
 --     • zaparkováno dřív a termín mezitím skončil (pražská půlnoc) → completed se starým časem zavření,
 --       kódy zneplatní standardní trigger
 --     • nezpůsobilá (není active / test / nezaplacená / SOS / vozík) → skipped + reason, rezervace zůstane obsluze
---  2) completed s dobíhajícími kódy: pozdější zavření šatny / kóje (znovuotevření tímtéž kódem v okně) posune
---     platnost i returned_at; po vypršení kódy zneplatní (is_active=false → resync jednotek).
+--  2) completed s dobíhajícími kódy: pozdější zavření šatny / kóje (znovuotevření tímtéž kódem v okně; i pozdě
+--     doručené po doběhu — trigger doběh znovu otevře) posune platnost i returned_at; po vypršení kódy zneplatní
+--     (is_active=false → resync jednotek).
+-- Zámky: řádek vrácení i rezervace FOR … SKIP LOCKED — zamčená rezervace se zkusí příští minutu, procesor na nic nečeká.
 -- Aby completed nezabil kódy okamžitě, auto_deactivate_door_codes přeskočí rezervaci uvedenou v transakční
 -- GUC motogo.kiosk_return_keep_codes (nastavuje JEN kiosk_process_returns, hned ji nuluje).
 -- =============================================================================
@@ -92,9 +94,12 @@ BEGIN
   LOOP
     v_step := 'complete';
     BEGIN
-      -- zámky v pořadí jako kiosk_log_open (bookings → booking_kiosk_returns), stav znovu ověřit
+      -- zámky v pořadí jako kiosk_log_open (bookings → booking_kiosk_returns), stav znovu ověřit; na zamčenou
+      -- rezervaci NEČEKAT (SKIP LOCKED → příští minuta) — jinak by držené zámky už zpracovaných řádků blokovaly
+      -- kiosk_log_open (anon, timeout 3 s) a audit dveří by se vracel do outboxu jednotky
       SELECT bk.id, bk.status, bk.end_date, bk.is_test, bk.payment_status, bk.sos_replacement, bk.trailer_moto_id
-        INTO b FROM bookings bk WHERE bk.id = v_id FOR NO KEY UPDATE;
+        INTO b FROM bookings bk WHERE bk.id = v_id FOR NO KEY UPDATE SKIP LOCKED;
+      CONTINUE WHEN NOT FOUND;
       SELECT * INTO r FROM booking_kiosk_returns k
        WHERE k.booking_id = v_id AND k.state = 'parked' AND k.closed_at IS NOT NULL AND k.last_event_at <= now() - c_quiet
          FOR UPDATE SKIP LOCKED;
@@ -200,8 +205,9 @@ BEGIN
                           AND (COALESCE(c.valid_until, 'infinity') < now()
                                OR (c.code_type = 'motorcycle' AND now() > r.moto_code_until)
                                OR (c.code_type = 'accessories' AND now() > COALESCE(r.locker_code_until, c.valid_until, 'infinity'))));
-      SELECT bk.id, bk.status, bk.end_date, bk.returned_at INTO b FROM bookings bk WHERE bk.id = v_id FOR NO KEY UPDATE;
-      CONTINUE WHEN NOT FOUND;
+      SELECT bk.id, bk.status, bk.end_date, bk.returned_at INTO b FROM bookings bk WHERE bk.id = v_id
+         FOR NO KEY UPDATE SKIP LOCKED;
+      CONTINUE WHEN NOT FOUND;   -- zamčená rezervace → příští minuta (nečekat, viz krok 1)
       SELECT * INTO r FROM booking_kiosk_returns k
        WHERE k.booking_id = v_id AND k.state = 'completed' AND k.codes_closed_at IS NULL FOR UPDATE SKIP LOCKED;
       CONTINUE WHEN NOT FOUND;
@@ -271,7 +277,7 @@ ALTER FUNCTION public.kiosk_process_returns() OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.kiosk_process_returns() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.kiosk_process_returns() TO service_role;
 COMMENT ON FUNCTION public.kiosk_process_returns() IS
-  'Cron kiosk-return-completion (každou minutu, 2026-10-06): booking_kiosk_returns parked + 2 min klid → vrácení v poslední den / po konci termínu dokončí rezervaci (returned_at = zavření kóje dle jednotky), nezpůsobilé → skipped; po dokončení kód motorky dobíhá 15 min po zavření kóje, kód šatny 15 min po zavření šatny (bez zavření běžná platnost). Vrací počty.';
+  'Cron kiosk-return-completion (každou minutu, 2026-10-06): booking_kiosk_returns parked + 2 min klid → vrácení v poslední den / po konci termínu dokončí rezervaci (returned_at = zavření kóje dle jednotky), nezpůsobilé → skipped; po dokončení kód motorky dobíhá 15 min po zavření kóje, kód šatny 15 min po zavření šatny (bez zavření běžná platnost); zamčené rezervace přeskočí (SKIP LOCKED, příští minuta). Vrací počty.';
 
 DO $$
 BEGIN

@@ -4,11 +4,12 @@ import Card from '../../components/ui/Card'
 import { SumRow } from './BookingUIHelpers'
 import { boxLabel } from '../BranchRpiUi'
 import { SELF_SERVICE_BRANCH_TYPE } from '../../lib/latePickup'
-import { isMissingRelation, fmtPragueWhen, kioskReturnView } from './kioskReturnHelpers'
+import { isMissingRelation, fmtPragueWhen, kioskReturnView, kioskClockNote } from './kioskReturnHelpers'
 
 // Blok „Vrácení na kiosku“ v detailu rezervace (2026-10-06): aktuální stav vrácení na samoobslužné pobočce
 // z `booking_kiosk_returns` (1 řádek na rezervaci, zapisuje jen server). Časy kóje a šatny jsou podle hodin
-// jednotky (ne doručení na server). Bez řádku / bez nasazené tabulky se nic nezobrazí.
+// jednotky (≥ 1.2.8, detail.unit_ts); starší jednotka = čas doručení na server — popisek to rozliší.
+// Bez řádku / bez nasazené tabulky se nic nezobrazí.
 // `hasLockerCode` = rezervace má aktivní kód šatny (DetailTab z branch_door_codes).
 export default function KioskReturnInfo({ booking, hasLockerCode = false }) {
   const id = booking?.id
@@ -49,7 +50,10 @@ export default function KioskReturnInfo({ booking, hasLockerCode = false }) {
   const v = kioskReturnView(row, booking)
   const u = booking?.motorcycles?.tracking_unit === 'mh' ? 'MH' : 'km'
   const box = row.box_number != null ? boxLabel(row.box_number) : 'Kóje'
-  const done = row.state === 'completed'
+  // Dokončeno automaticky a obsluha to nevrátila zpět (reverted → řádek zůstává 'completed', rezervace ne)
+  const done = row.state === 'completed' && booking?.status === 'completed'
+  const clk = kioskClockNote(row)
+  const foreign = row.detail?.last_event === 'FOREIGN_GRANT'
   // Kód šatny po automatickém dokončení: zavřel-li zákazník šatnu, dobíhá 15 min; jinak drží běžnou platnost
   // (nikdy nezaniká dřív, než šatnu zavře — výbava by zůstala venku).
   const lockerTxt = row.locker_code_until
@@ -64,10 +68,10 @@ export default function KioskReturnInfo({ booking, hasLockerCode = false }) {
         {v.hint && <div className="text-xs mt-1" style={{ color: '#4a5a52' }}>{v.hint}</div>}
       </div>
       <div className="space-y-1">
-        {row.grant_at && <SumRow label="Kód motorky zadán" value={`${fmtPragueWhen(row.grant_at)}${row.km != null ? ` · stav ${row.km} ${u}` : ''} (čas jednotky)`} />}
-        {row.closed_at && <SumRow label={`${box} zavřena`} value={`${fmtPragueWhen(row.closed_at)} (čas jednotky)`} strong />}
-        {row.locker_closed_at && <SumRow label="Šatna zavřena" value={`${fmtPragueWhen(row.locker_closed_at)} (čas jednotky)`} />}
-        {row.state === 'out' && row.out_at && <SumRow label="Znovu vyjeto" value={`${fmtPragueWhen(row.out_at)} (čas jednotky)`} />}
+        {row.grant_at && <SumRow label="Kód motorky zadán" value={`${fmtPragueWhen(row.grant_at)}${row.km != null ? ` · stav ${row.km} ${u}` : ''}${clk}`} />}
+        {row.closed_at && <SumRow label={`${box} zavřena`} value={`${fmtPragueWhen(row.closed_at)}${clk}`} strong />}
+        {row.locker_closed_at && <SumRow label="Šatna zavřena" value={`${fmtPragueWhen(row.locker_closed_at)}${clk}`} />}
+        {row.state === 'out' && row.out_at && <SumRow label={foreign ? 'Otevřeno krátkodobým kódem' : 'Znovu vyjeto'} value={`${fmtPragueWhen(row.out_at)}${clk}`} />}
         {done && row.completed_at && <SumRow label="Dokončeno serverem" value={fmtPragueWhen(row.completed_at)} />}
         {row.moto_code_until && <SumRow label="Kód motorky platí do" value={fmtPragueWhen(row.moto_code_until)} />}
         {lockerTxt && <SumRow label="Kód šatny platí do" value={lockerTxt} />}

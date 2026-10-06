@@ -8,8 +8,9 @@
 --      → 'revoked' (jednotka ≥ 1.2.5 hláška, NEpočítá do lockoutu); starší = holé invalid_code. Důvody zákaznických
 --      kódů mají přednost (beze změny).
 --  (3) úspěch kódu s rezervací navíc `return_final_from` = _door_code_valid_from(end_date) = pražská půlnoc začátku
---      POSLEDNÍHO dne pronájmu; jednotka ≥ 1.2.8 podle něj offline pozná finální vrácení (return_gate.py). Starší
---      jednotka neznámé pole ignoruje. Idempotentní (CREATE OR REPLACE).
+--      POSLEDNÍHO dne pronájmu; jednotka ≥ 1.2.8 podle něj offline pozná finální vrácení (return_gate.py). NULL
+--      (bez hradla) u SOS náhrady / vozíku / testu — ty server automaticky nedokončuje. Starší jednotka pole
+--      ignoruje. Idempotentní (CREATE OR REPLACE).
 
 CREATE OR REPLACE FUNCTION "public"."kiosk_resolve_code"("p_device_id" "uuid", "p_device_token" "uuid", "p_code" "text") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
@@ -238,9 +239,11 @@ BEGIN
     'odo',CASE WHEN v_dc.code_type = 'motorcycle' AND v_dc.booking_id IS NOT NULL
                THEN public._kiosk_odometer(v_dc.booking_id, v_bid) END,
     -- 5) `return_final_from` (2026-10-06, D1): pražská půlnoc začátku POSLEDNÍHO dne pronájmu — zavření kóje po
-    --    vrácení od tohoto okamžiku je finální (offline hradlo jednotky ≥ 1.2.8); NULL = bez hradla
+    --    vrácení od tohoto okamžiku je finální (offline hradlo jednotky ≥ 1.2.8); NULL = bez hradla — i u SOS
+    --    náhrady / vozíku / testu, které server automaticky nedokončí (kiosk_process_returns → skipped)
     'return_final_from',CASE WHEN v_dc.booking_id IS NOT NULL
-               THEN (SELECT public._door_code_valid_from(b.end_date) FROM public.bookings b WHERE b.id = v_dc.booking_id) END);
+               THEN (SELECT public._door_code_valid_from(b.end_date) FROM public.bookings b WHERE b.id = v_dc.booking_id
+                        AND NOT COALESCE(b.sos_replacement, false) AND b.trailer_moto_id IS NULL AND b.is_test IS NOT TRUE) END);
 END; $$;
 
 ALTER FUNCTION public.kiosk_resolve_code(uuid, uuid, text) OWNER TO postgres;

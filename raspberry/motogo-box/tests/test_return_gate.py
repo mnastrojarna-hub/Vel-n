@@ -66,9 +66,47 @@ def test_observe_records_return_close_locker_and_ride_out(tmp_path):
     rg.observe(st, Event(kind=EventKind.SESSION_COMPLETED, code_kind="motorcycle", detail={"odometer_phase": "in"}))
     done(st, "b1", "motorcycle", NOW, ev=EventKind.DOOR_CLOSED)        # jen SESSION_COMPLETED
     assert rg.record(st, "b1")["bay"] == pytest.approx(NOW - 2 * 3600, abs=0.01)
+    done(st, "b1", "motorcycle", NOW - M, ev=EventKind.ACCESS_GRANTED, phase="in")    # kód v grace (fáze in) nic neruší
+    assert set(rg.record(st, "b1")) == {"bay", "locker"}
     done(st, "b1", "motorcycle", NOW - M, ev=EventKind.ACCESS_GRANTED, phase="out")   # motorka znovu vyjela
-    assert rg.record(st, "b1") == pytest.approx({"locker": NOW - 90 * M}, abs=0.01)
+    assert rg.record(st, "b1") == {}                                    # kóje i šatna pryč (server: šatna jen po vyjetí)
+    done(st, "b1", "motorcycle", NOW - 30 * M)
+    done(st, "b1", "motorcycle", NOW - 20 * M, ev=EventKind.ACCESS_GRANTED, phase=None)   # bez fáze (fail-open) = vyjetí
+    assert rg.record(st, "b1") == {}
+    done(st, "b1", "accessories", NOW - 10 * M, phase=None)
+    done(st, "b1", "motorcycle", NOW - 5 * M, ev=EventKind.ACCESS_GRANTED, phase="out")   # jen šatna → taky pryč
+    assert rg.record(st, "b1") == {} and st.kv_get(rg.KV)["b"] == {}
     st.close()
+
+
+def test_pickup_locker_close_is_not_gear_return(tmp_path):
+    """Šatna zavřená při PŘEVZETÍ (výbava vyzvednutá) ≤ 90 min před vrácením motorky nesmí zabít kód šatny (D2) —
+    server `_kiosk_return_locker_close` počítá jen šatnu zavřenou po posledním vyjetí."""
+    st = Storage(str(tmp_path / "g.db"))
+    c = SimpleNamespace(storage=st, hardware=SimpleNamespace(timings=TimingsCfg()))
+    bay = NOW - 20 * M
+    done(st, "b1", "accessories", bay - 80 * M, phase=None)              # převzetí: výbava ze šatny
+    done(st, "b1", "motorcycle", bay - 75 * M, ev=EventKind.ACCESS_GRANTED, phase="out")   # vyjetí po protokolu
+    done(st, "b1", "motorcycle", bay)                                    # krátká jízda, vráceno v poslední den
+    assert rg.record(st, "b1") == pytest.approx({"bay": bay}, abs=0.01)
+    acc = rr("accessories")
+    assert not rg.blocks(c, acc, bay + 3600)                             # výbava ještě venku → šatna platí dál
+    assert rg.blocks(c, rr(), bay + 16 * M)                              # motorka doběhla normálně
+    done(st, "b1", "accessories", bay + 10 * M, phase=None)              # výbava vrácena po motorce
+    assert not rg.blocks(c, acc, bay + 24 * M) and rg.blocks(c, acc, bay + 26 * M)
+    st.close()
+
+
+async def test_submit_code_offline_pickup_locker_then_return_keeps_locker_code(ctrl):
+    """Řetěz přes `submit_code` (offline): šatna při převzetí T0, vyjetí T0+2, vrácení T0+75 → v T0+95 kód šatny projde."""
+    t0 = NOW - 95 * M
+    done(ctrl.storage, "b1", "accessories", t0, phase=None)
+    done(ctrl.storage, "b1", "motorcycle", t0 + 2 * M, ev=EventKind.ACCESS_GRANTED, phase="out")
+    done(ctrl.storage, "b1", "motorcycle", t0 + 75 * M)
+    assert (await cc.submit_code(ctrl, "111111", "ui"))["error"] == "code_revoked"   # motorka doběhla (bay + 20 min)
+    res = await cc.submit_code(ctrl, "888888", "ui")
+    assert res["ok"] and res.get("error") is None                        # šatna: výbavu ještě nevrátil
+    assert ctrl.pin_guard.failures_in_window() == 0
 
 
 def test_blocks_rules(tmp_path):

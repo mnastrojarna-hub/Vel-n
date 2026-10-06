@@ -163,7 +163,7 @@ rozdíl doplatí, kód platí hned); do PIN lockoutu se nepočítá (`pickup_gat
 **Dokončení vrácení a krátkodobý kód (2026-10-06, 1.2.8, CONTRACT §32):** vrácení motorky do kóje v POSLEDNÍ den pronájmu (Praha)
 nebo později rezervaci dokončí server sám (`returned_at` = čas finálního zavření dveří kóje podle hodin jednotky); dřívější vrácení
 je jen zaparkování. Kód motorky pak platí ještě 15 min po zavření kóje, kód šatny 15 min po zavření šatny při vrácení (bez zavření
-šatny platí dál). Jednotka proto posílá u každé události do `branch_door_events` čas na jednotce `ts` (ms, UTC), u událostí relace
+šatny platí dál; počítá se jen zavření šatny PO posledním vyjetí motorky — vyzvednutí výbavy při převzetí ne). Jednotka proto posílá u každé události do `branch_door_events` čas na jednotce `ts` (ms, UTC), u událostí relace
 `session_id` a fázi tachometru grantu (`odometer_phase`, `odometer_reading_id`). Offline (kód z cache) totéž hlídá
 `return_gate.py` (záznam zavření v kv `return_gate`, 3 dny): doběhlý kód = hláška „Tento kód už neplatí…“ bez lockoutu,
 ACCESS_DENIED `reason: returned`. Zapomenutá věc po doběhu: obsluha ve Velíně vydá **krátkodobý kód** (6 číslic, 15–120 min,

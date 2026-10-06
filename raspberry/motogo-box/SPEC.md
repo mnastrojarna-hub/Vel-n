@@ -568,6 +568,7 @@ aktualizace z Velína (§25 CONTRACT) — SQL/edge jsou pro něj aditivní.
    motorka v kóji do konce termínu, dokončí se o půlnoci s časem toho zavření.
 2. **Kódy dobíhají 15 min (D2):** kód motorky 15 min po finálním zavření kóje; kód šatny 15 min po zavření šatny při vrácení,
    výbava vrácená PŘED motorkou (šatna ≤ 90 min před kójí) → 15 min po zavření kóje; šatnu po vrácení nezavřel → běžná platnost.
+   Zavření šatny se počítá jen PO posledním vyjetí motorky (zavření při převzetí výbavy není její vrácení — server i jednotka).
 3. **Reálný čas (D3):** `returned_at` = čas finálního zavření dveří kóje podle hodin jednotky; znovuotevření v okně ho posune.
 4. **Krátkodobý kód (D4):** Velín → detail rezervace → „Vydat krátkodobý kód“ (dveře, 15/30/60/120 min, poznámka), 6 číslic,
    online i offline, bez km / protokolu / hradel, rezervaci nemění, lze zrušit; obsluha ho nadiktuje do telefonu.
