@@ -4,8 +4,10 @@ import { paymentStatusInfo } from './bookingConstants'
 import { rentalDays } from '../../lib/rentalDays'
 import DocsStatusPills from '../../components/DocsStatusPills'
 import AppInstallBadge from '../../components/AppInstallBadge'
+import { shortBranchName, bookingBranchId } from './BranchChips'
 
-export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, scanStatus = {}, appInstalls = {}, setDeleteConfirm, setCancelTarget, selected, setSelected }) {
+export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, scanStatus = {}, appInstalls = {}, setDeleteConfirm, setCancelTarget, selected, setSelected, branches = [] }) {
+  const branchName = Object.fromEntries((branches || []).map(br => [br.id, shortBranchName(br.name)]))
   // `selected` je Map<id, row> — drží celé řádky napříč stránkami, aby hromadná akce zahrnula i výběr z jiných stránek
   const allSelected = bookings.length > 0 && selected && bookings.every(b => selected.has(b.id))
   const toggleAll = e => {
@@ -31,7 +33,7 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
                 className="accent-[#1a8a18] cursor-pointer" style={{ width: 16, height: 16 }} />
             </TH>
           )}
-          <TH>ID</TH><TH>Zákazník</TH><TH>Motorka</TH>
+          <TH>ID</TH><TH>Zákazník</TH><TH>Motorka</TH><TH>Pobočka</TH>
           <TH>Od</TH><TH>Do</TH><TH>Dní</TH><TH>Částka</TH><TH>Platba</TH><TH>Stav</TH><TH>Doklady</TH><TH>Vytvořeno</TH><TH>Akce</TH>
         </TRow>
       </thead>
@@ -62,6 +64,8 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
               <TD mono>{b.id?.slice(-8).toUpperCase()}</TD>
               <TD bold>{b.customer_name || b.profiles?.full_name || '—'}{b.booking_source === 'web' ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb' }}>WEB</span> : b.booking_source === 'app' ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#16a34a' }}>APP</span> : null}{b.created_via_ai ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fef3c7', color: '#92400e' }} title="Vytvořeno přes AI asistenta">🤖 AI</span> : null}<AppInstallBadge install={appInstalls[b.user_id]} /></TD>
               <TD>{b.motorcycles?.model || '—'} <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span></TD>
+              {/* pobočka = pobočka motorky (přistavení na adresu = 🚚 + pobočka motorky) */}
+              <TD>{branchName[bookingBranchId(b)] || '—'}{b.pickup_method === 'delivery' ? <span className="ml-1" title="Přistavení na adresu">🚚</span> : null}</TD>
               <TD>{fmtDateRange(b.start_date)}</TD>
               <TD>{fmtDateRange(b.end_date)}</TD>
               <TD>{days}{hasDateChange && daysDelta !== 0 && (() => {

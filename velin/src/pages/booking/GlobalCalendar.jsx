@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import Card from '../../components/ui/Card'
+import { shortBranchName } from './BranchChips'
 
 function localIso(d) {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
@@ -13,7 +14,8 @@ const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 const MONTHS_FULL = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
 const navBtnStyle = { background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 800 }
 
-export default function GlobalCalendar() {
+// branchId = '' → všechny pobočky dohromady (+ rozpad obsazenosti po pobočkách), jinak jen motorky té pobočky
+export default function GlobalCalendar({ branchId = '', branches = [] }) {
   const navigate = useNavigate()
   const [bookings, setBookings] = useState([])
   const [motos, setMotos] = useState([])
@@ -39,7 +41,7 @@ export default function GlobalCalendar() {
       // trailer_moto_id = kus přiřazený jako příslušenství „Vozík" — blokuje
       // jeho kalendář stejně jako přímá rezervace (parita s get_moto_booked_dates).
       supabase.from('bookings')
-        .select('id, start_date, end_date, status, moto_id, trailer_moto_id, is_test, profiles(full_name), motorcycles!moto_id(model, spz), trailer:motorcycles!trailer_moto_id(model, spz), total_price')
+        .select('id, start_date, end_date, status, moto_id, trailer_moto_id, is_test, profiles(full_name), motorcycles!moto_id(model, spz, branch_id), trailer:motorcycles!trailer_moto_id(model, spz, branch_id), total_price')
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
       supabase.from('motorcycles').select('id, model, spz, branch_id, branches(name)').eq('status', 'active'),
@@ -54,9 +56,28 @@ export default function GlobalCalendar() {
   const daysInMonth = new Date(year, mon + 1, 0).getDate()
   const firstDayOfWeek = (new Date(year, mon, 1).getDay() + 6) % 7
   const todayStr = localIso(new Date())
-  const totalMotos = motos.length || 1
+  // Pobočka: motorky (a vozíky) té pobočky; rezervace, jejíž motorka nebo vozík na ní stojí
+  const branchNameOf = Object.fromEntries([
+    ...motos.filter(m => m.branch_id && m.branches?.name).map(m => [m.branch_id, shortBranchName(m.branches.name)]),
+    ...(branches || []).map(b => [b.id, shortBranchName(b.name)]),
+  ])
+  const scopeMotos = branchId ? motos.filter(m => m.branch_id === branchId) : motos
+  const scopeIds = new Set(scopeMotos.map(m => m.id))
+  const totalMotos = scopeMotos.length || 1
+  const branchIds = [...new Set(motos.map(m => m.branch_id).filter(Boolean))]
+    .sort((a, b) => (branchNameOf[a] || '').localeCompare(branchNameOf[b] || '', 'cs'))
 
-  const visibleBookings = hideTest ? bookings.filter(b => !b.is_test) : bookings
+  const visibleBookings = (hideTest ? bookings.filter(b => !b.is_test) : bookings)
+    .filter(b => !branchId || b.motorcycles?.branch_id === branchId || b.trailer?.branch_id === branchId)
+  const occupiedIds = (list) => new Set(list.flatMap(b => [b.moto_id, b.trailer_moto_id].filter(id => id && (!branchId || scopeIds.has(id)))))
+  // „Všechny pobočky“: obsazenost každé pobočky zvlášť (tooltip dne + panel vybraného dne)
+  function branchBreakdown(dayList) {
+    const occ = new Set(dayList.flatMap(b => [b.moto_id, b.trailer_moto_id].filter(Boolean)))
+    return branchIds.map(id => {
+      const ms = motos.filter(m => m.branch_id === id)
+      return { id, name: branchNameOf[id] || 'Pobočka', busy: ms.filter(m => occ.has(m.id)).length, total: ms.length }
+    })
+  }
 
   function getDayBookings(day) {
     const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
@@ -66,13 +87,15 @@ export default function GlobalCalendar() {
   function getDayInfo(day) {
     const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const dayBookings = getDayBookings(day)
-    const occupiedCount = new Set(dayBookings.flatMap(b => [b.moto_id, b.trailer_moto_id].filter(Boolean))).size
+    const occupiedCount = occupiedIds(dayBookings).size
     const isToday = dateStr === todayStr
     const ratio = occupiedCount / totalMotos
-    if (occupiedCount === 0) return { bg: isToday ? '#bbf7d0' : '#dcfce7', color: '#15803d', label: 'Vše volné', count: 0 }
-    if (ratio >= 1) return { bg: '#166534', color: '#fff', label: `Plně obsazeno (${occupiedCount}/${totalMotos})`, count: occupiedCount }
-    if (ratio >= 0.5) return { bg: '#15803d', color: '#fff', label: `${occupiedCount}/${totalMotos} obsazeno`, count: occupiedCount }
-    return { bg: '#4ade80', color: '#0f1a14', label: `${occupiedCount}/${totalMotos} obsazeno`, count: occupiedCount }
+    const perBranch = !branchId && branchIds.length > 1
+      ? '\n' + branchBreakdown(dayBookings).map(x => `${x.name}: ${x.busy}/${x.total}`).join('\n') : ''
+    if (occupiedCount === 0) return { bg: isToday ? '#bbf7d0' : '#dcfce7', color: '#15803d', label: 'Vše volné' + perBranch, count: 0 }
+    if (ratio >= 1) return { bg: '#166534', color: '#fff', label: `Plně obsazeno (${occupiedCount}/${totalMotos})` + perBranch, count: occupiedCount }
+    if (ratio >= 0.5) return { bg: '#15803d', color: '#fff', label: `${occupiedCount}/${totalMotos} obsazeno` + perBranch, count: occupiedCount }
+    return { bg: '#4ade80', color: '#0f1a14', label: `${occupiedCount}/${totalMotos} obsazeno` + perBranch, count: occupiedCount }
   }
 
   const prevMonth = () => setMonth(new Date(year, mon - 1, 1))
@@ -88,7 +111,7 @@ export default function GlobalCalendar() {
         <Card>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <button onClick={prevMonth} style={navBtnStyle}>←</button>
-            <span style={{ fontWeight: 800, fontSize: 15 }}>{MONTHS_FULL[mon]} {year}</span>
+            <span style={{ fontWeight: 800, fontSize: 15 }}>{MONTHS_FULL[mon]} {year} · {branchId ? (branchNameOf[branchId] || 'Pobočka') : 'všechny pobočky'}</span>
             <button onClick={nextMonth} style={navBtnStyle}>→</button>
           </div>
           <label className="flex items-center gap-1.5 cursor-pointer mb-3 text-sm font-extrabold uppercase tracking-wide"
@@ -127,6 +150,15 @@ export default function GlobalCalendar() {
           {selectedDay ? (
             <>
               <h3 className="text-sm font-extrabold mb-3" style={{ color: '#0f1a14' }}>{selectedDay}. {MONTHS_FULL[mon]} {year}</h3>
+              {!branchId && branchIds.length > 1 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {branchBreakdown(dayDetail).map(x => (
+                    <span key={x.id} className="inline-block rounded-btn text-sm font-bold" style={{ padding: '3px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+                      {x.name}: <b>{x.busy}/{x.total}</b> obsazeno
+                    </span>
+                  ))}
+                </div>
+              )}
               <label className="flex items-center gap-2 cursor-pointer mb-3 pb-3" style={{ borderBottom: '1px solid #d4e8e0' }}>
                 <input type="checkbox" checked={showFree} onChange={e => setShowFree(e.target.checked)} className="accent-[#1a8a18]" />
                 <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: showFree ? '#1a8a18' : '#1a2e22' }}>Zobrazit volné motorky</span>
@@ -141,6 +173,7 @@ export default function GlobalCalendar() {
                         <span className="font-bold text-sm">{b.motorcycles?.model || '—'}</span>
                         <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span>
                         <StatusBadge status={getDisplayStatus(b)} />
+                        {!branchId && b.motorcycles?.branch_id && <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#e0f2fe', color: '#0369a1' }}>{branchNameOf[b.motorcycles.branch_id] || 'Pobočka'}</span>}
                         {b.is_test && <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" title="Testovací rezervace (obsazenost kalendáře)" style={{ background: '#f3e8ff', color: '#7c3aed' }}>TEST</span>}
                       </div>
                       <div className="text-sm" style={{ color: '#1a2e22' }}>
@@ -153,7 +186,7 @@ export default function GlobalCalendar() {
                   ))}
                   {showFree && (() => {
                     const occupiedMotoIds = new Set(dayDetail.flatMap(b => [b.moto_id, b.trailer_moto_id].filter(Boolean)))
-                    const freeMotos = motos.filter(m => !occupiedMotoIds.has(m.id))
+                    const freeMotos = scopeMotos.filter(m => !occupiedMotoIds.has(m.id))
                     if (freeMotos.length === 0) return <p style={{ color: '#1a2e22', fontSize: 12, marginTop: 8 }}>Žádné volné motorky</p>
                     return (
                       <>
