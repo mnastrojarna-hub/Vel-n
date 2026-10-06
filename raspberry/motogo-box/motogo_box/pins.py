@@ -240,12 +240,15 @@ class LocalResolver:
                                      door_id=door_id, box_number=box, offline=True,
                                      release_at=release.isoformat())
             odo = row.get("odo")            # stav tachometru pro vrácení (2026-09-29) — jen kód motorky
+            final = parse_iso(row.get("return_final_from"))     # dokončení vrácení (2026-10-06, return_gate.py)
             return ResolveResult(
                 ok=True, kind=kind, booking_id=row.get("booking_id"),
                 door_id=door_id, box_number=box, door_configured=bool(door_id or box is not None),
                 offline=True, protocol=self.protocol_for(cache, row.get("booking_id")),
                 odo=odo if kind == "motorcycle" and isinstance(odo, dict) else None,
                 release_at=release.isoformat() if release is not None else None,
+                return_final_from=final.isoformat() if final is not None else None,
+                temp=row.get("temp") is True,     # krátkodobý kód z Velína (§32): bez rezervace, jen dané dveře
             )
         if matched_expired:
             return ResolveResult(ok=False, error=matched_expired, offline=True)

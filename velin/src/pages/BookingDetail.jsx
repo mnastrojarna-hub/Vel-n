@@ -22,6 +22,7 @@ import RefundConfirmModal from './booking/RefundConfirmModal'
 import PaymentConfirmModal from './booking/PaymentConfirmModal'
 import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 import BookingDamagePanel from './booking/BookingDamagePanel'
+import { kioskReturnedAt } from './booking/kioskReturnHelpers'
 
 export default function BookingDetail() {
   const debugMode = useDebugMode()
@@ -189,7 +190,9 @@ export default function BookingDetail() {
     const update = { status: newStatus }
     if (newStatus === 'reserved') update.confirmed_at = now
     if (newStatus === 'active') update.picked_up_at = now
-    if (newStatus === 'completed') update.returned_at = now
+    // Samoobsluha: motorka už stojí v kóji (vráceno na kiosku, automatika nedokončila) → reálný čas
+    // zavření kóje podle hodin jednotky (booking_kiosk_returns parked/skipped) místo „teď“ (2026-10-06)
+    if (newStatus === 'completed') update.returned_at = (await kioskReturnedAt(id)) || now
 
     const result = await debugAction(`booking.status.${newStatus}`, 'BookingDetail', () =>
       supabase.from('bookings').update(update).eq('id', id)

@@ -11,7 +11,7 @@ import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from . import fixed_codes, handover_locker, pickup_gate, shell
+from . import fixed_codes, handover_locker, pickup_gate, return_gate, shell
 from .models import ACCESSORIES_NAME, CODE_NO_GEAR, Event, EventKind, ResolveResult, ServiceDoor
 from .pins import hmac_code, mask, normalize_code
 
@@ -202,10 +202,13 @@ def zone_for_code(ctrl: "BoxController", door_id: str | None, box_number: int | 
 
 
 def open_detail(event: Event) -> dict:
-    """`detail` pro kiosk_log_open/log_event: {event, zone, box_number, source} + extra."""
+    """`detail` pro kiosk_log_open/log_event: {event, zone, box_number, source} + extra. Od 1.2.8 u kiosk_log_open
+    (`LOG_OPEN_KINDS`) i `ts` = čas události na jednotce (ISO UTC s ms) — server podle něj řadí a dokončuje vrácení (§32)."""
     d = {"event": event.kind.value, "zone": event.zone, "box_number": event.box_number,
          "source": event.detail.get("source")}
     d.update({k: v for k, v in event.detail.items() if v is not None})
+    if event.kind in LOG_OPEN_KINDS and event.ts:
+        d["ts"] = event.ts
     return d
 
 
@@ -313,6 +316,9 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
     rr = await resolve_code(ctrl, code)
     if diagnostics_only and not rr.is_service and (rr.ok or rr.error == pickup_gate.ERROR):
         rr = ResolveResult(ok=False, error="invalid_code", offline=rr.offline)   # zákaznický kód zde neotevírá (ani hláška 12:00)
+    if rr.ok and return_gate.blocks(ctrl, rr):  # OFFLINE: vráceno v poslední den, kód doběhl (§32) — jako `revoked`, BEZ lockoutu
+        await return_gate.refuse(ctrl, rr, source)
+        return {**base, "error": return_gate.ERROR, "message": error_text(return_gate.ERROR)}
     if not rr.ok:
         err = rr.error or "invalid_code"
         if err == pickup_gate.ERROR:        # platný kód před 12:00 (sleva za pozdní vyzvednutí, §31) — hláška, BEZ lockoutu
@@ -392,13 +398,15 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
                                       "offline": rr.offline}))
         return {**base, "kind": "motorcycle", "booking_id": rr.booking_id, "error": "locker_first",
                 "message": error_text("locker_first")}
-    if handover is not None and rr.kind == "motorcycle" and not returning \
+    if handover is not None and rr.kind == "motorcycle" and not returning and rr.booking_id \
             and await handover.require_before_open(rr, zc, source):
         # Bez ACCESS_DENIED a bez lockoutu (není v INVALID_CODE_ERRORS) — kód je platný, jen chybí podpis;
         # overlay protokolu přijde na displej přes snapshot (`handover.active`), kóje se po podpisu otevře sama.
         return {**base, "kind": "motorcycle", "error": "protocol_required", "zone": zc.number,
                 "booking_id": rr.booking_id, "message": error_text("protocol_required")}
     extra = {"detail": om.grant_detail(plan)} if plan is not None else {}
+    if rr.temp:     # krátkodobý kód z Velína (§32): bez rezervace → bez km, protokolu, šatny-první i zámku přejímky
+        extra = {"detail": {k: v for k, v in (("temp", True), ("temp_code_id", rr.temp_code_id)) if v is not None}}
     ok, reason = await zc.grant_access(booking_id=rr.booking_id, kind=rr.kind, source=source, **extra)
     if ok and plan is not None:
         om.commit_open(plan, protocol=rr.protocol, now=now)    # fáze out/in (neotevřené čtení zůstane k opakování)
@@ -406,7 +414,7 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
         handover_locker.mark_opened(ctrl.storage, rr.booking_id, now)   # výzva „nejdřív šatna“ už ne
     if ok and handover is not None and rr.kind == "accessories":
         handover.remember(rr)                 # protokol k rezervaci pro okamžik zavření šatny
-    if ok and lock is not None and rr.kind == "motorcycle":
+    if ok and lock is not None and rr.kind == "motorcycle" and rr.booking_id:   # None by uvolnil zámek KOHOKOLI (temp kód)
         lock.release(rr.booking_id, "kóje motorky otevřena")   # přejímka dokončena → další zákazník na řadě
     if not ok:
         await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="warn", code_kind=rr.kind,

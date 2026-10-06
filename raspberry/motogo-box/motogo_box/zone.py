@@ -95,7 +95,8 @@ class ZoneController:
         # IBFM 9500 zůstává po pulzu mechanicky odjištěný až do prvního otevření (SPEC §2):
         # po OPEN_TIMEOUT je otevření dveří opožděné pokračování relace, ne násilné otevření.
         self.latch_released: bool = False
-        self._late_booking: tuple | None = None       # (booking_id, code_kind, source) relace po timeoutu
+        self._late_booking: tuple | None = None       # (booking_id, code_kind, source, session_ctx) relace po timeoutu
+        self.session_ctx: dict = {}                    # {session_id, odometer_phase?, odometer_reading_id?} (zone_access, 1.2.8)
         self.degraded: bool = False                    # relace běží, ale část I/O je offline (§12: jen zákaz nového přístupu)
         self._busy = asyncio.Lock()                    # serializuje všechny přechody stavu
         self._timings_base = None                      # cache pro `timings` (override zóny nad globálním časováním)
@@ -200,9 +201,11 @@ class ZoneController:
     async def emit_event(self, kind: EventKind, *, success: bool = True, level: str = "info",
                          message: str = "", **detail) -> None:
         self.last_event = kind.value
+        # Kontext relace (session_id, fáze tachometru) jen u událostí relace; nouzové servisní otevření relaci nezakládá.
+        ctx = self.session_ctx if kind in zone_access.SESSION_EVENTS and not detail.get("emergency") else {}
         ev = Event(kind=kind, zone=self.number, door_id=self.zone.door_id, booking_id=self.booking_id,
                    success=success, level=level, message=message or f"{kind.value} {self.zone.display_name}",
-                   detail={"source": self.source, **detail}, box_number=self.zone.box_number,
+                   detail={"source": self.source, **ctx, **detail}, box_number=self.zone.box_number,
                    code_kind=self.code_kind)
         try:
             await self.emit(ev)
@@ -249,6 +252,7 @@ class ZoneController:
         self.alerts_sent = set()
         self.lock_wait = False
         self.light_off_on_secure = False
+        self.session_ctx = {}
 
     # ─── start a vstup kontaktu ─────────────────────────────────────────────
     async def startup(self, door_closed: bool | None) -> None:
@@ -369,9 +373,10 @@ class ZoneController:
 
     async def _late_open_locked(self) -> None:
         """Otevření po OPEN_TIMEOUT (zámek zůstal odjištěný, SPEC §2): pokračování povolené relace."""
-        booking, kind, source = self._late_booking or (None, None, None)
+        booking, kind, source, ctx = self._late_booking or (None, None, None, None)
         self.latch_released, self._late_booking = False, None
         self.booking_id, self.code_kind, self.source = booking, kind, source or "contact"
+        self.session_ctx = dict(ctx) if ctx else zone_access.new_session()   # táž relace jako grant (session_id, fáze)
         self.state = ZoneState.DOOR_OPEN
         self.session_started = self.opened_at = self.clock()
         self.session_started_at = now_iso()

@@ -561,6 +561,20 @@ zůstává fail-open (jednotka otevírá i bez LTE, `protocol` bez dat = bez hra
 §10). Známé okno nasazení: starší software jednotky po nasazení DB/edge NEhradluje (motorka bez protokolu) až do hromadné
 aktualizace z Velína (§25 CONTRACT) — SQL/edge jsou pro něj aditivní.
 
+### Rozhodnutí majitele (2026-10-06) — dokončení vrácení na kiosku + krátkodobý kód
+
+1. **Jen poslední den (D1):** vrácení na kiosku (kód motorky → km → kóje → motorka uvnitř → dveře zavřeny) v POSLEDNÍ den
+   pronájmu (Praha) nebo později rezervaci dokončí automaticky (server). Dřívější vrácení = zaparkování, kódy platí dál; zůstane-li
+   motorka v kóji do konce termínu, dokončí se o půlnoci s časem toho zavření.
+2. **Kódy dobíhají 15 min (D2):** kód motorky 15 min po finálním zavření kóje; kód šatny 15 min po zavření šatny při vrácení,
+   výbava vrácená PŘED motorkou (šatna ≤ 90 min před kójí) → 15 min po zavření kóje; šatnu po vrácení nezavřel → běžná platnost.
+3. **Reálný čas (D3):** `returned_at` = čas finálního zavření dveří kóje podle hodin jednotky; znovuotevření v okně ho posune.
+4. **Krátkodobý kód (D4):** Velín → detail rezervace → „Vydat krátkodobý kód“ (dveře, 15/30/60/120 min, poznámka), 6 číslic,
+   online i offline, bez km / protokolu / hradel, rezervaci nemění, lze zrušit; obsluha ho nadiktuje do telefonu.
+
+Jednotka 1.2.8: `ts` (čas na jednotce, ms) u každé události `branch_door_events`, `session_id` a fáze grantu na všech událostech
+relace; offline hradlo `return_gate.py` (online rozhoduje server); krátkodobý kód otevře jen své dveře. Detail CONTRACT §15, §32.
+
 ### Rozhodnutí majitele (2026-10-01) — výdej až od 12:00 při slevě za pozdní vyzvednutí (kiosk)
 
 1. Na samoobslužné pobočce si zákazník (web, appka, AI) znovu volí **čas vyzvednutí**; čas vrácení se nevolí (smlouva do 24:00).

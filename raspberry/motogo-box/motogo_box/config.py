@@ -257,6 +257,9 @@ class TimingsCfg:
     # km NEchce (zapomenutá věc); overlay zadávání km na displeji bez dotyku → zavřít a zapomenout kód.
     odometer_grace_min: int = 60
     odometer_idle_s: int = 120
+    # Dokončení vrácení (return_gate.py, 2026-10-06): kód motorky / šatny doběhne po finálním zavření kóje (šatny) v poslední
+    # den pronájmu ještě tolik minut (zapomenutá věc) — offline hradlo jednotky; online rozhoduje server (GRACE 15 min).
+    return_code_grace_min: int = 15
 
 
 @dataclass

@@ -32,6 +32,7 @@ timings:
   # Stav tachometru při vrácení (2026-09-29, CONTRACT §30) — výchozí hodnoty, přepis z Velína (timings):
   # odometer_grace_min: 60     # opakovaný kód motorky do 60 min od převzetí / vrácení km NEchce (zapomenutá věc)
   # odometer_idle_s: 120       # overlay zadávání km na displeji bez dotyku → zavřít a zapomenout kód
+  # return_code_grace_min: 15  # 2026-10-06: kódy dobíhají 15 min po finálním vrácení v poslední den (offline hradlo, CONTRACT §32)
 
 polling:
   door_input_poll_ms: 100
