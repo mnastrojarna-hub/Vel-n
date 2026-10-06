@@ -15,6 +15,12 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def now_iso_ms() -> str:
+    """Čas události (`Event.ts`) — ISO 8601 UTC s milisekundami (`2026-10-06T16:42:05.123+00:00`). Od 1.2.8 jde do
+    `detail.ts` každé události `kiosk_log_open` = skutečný čas na jednotce (server dřív znal jen čas doručení)."""
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+
+
 class ZoneState(str, Enum):
     """Stav jedné zóny (kóje) — viz specifikace §9."""
 
@@ -314,6 +320,8 @@ RPC_REASON_ERRORS = {
 }
 # Kód ŠATNY stažený, protože rezervace nemá vybranou výbavu (DB `reason:'revoked'` + `no_gear:true`, 20261005j; od 1.2.7)
 CODE_NO_GEAR = "code_no_gear"
+# Krátkodobý kód z Velína (`branch_temp_codes`, 2026-10-06, CONTRACT §32) otevírá jen dveře těchto druhů — nikdy servis.
+TEMP_KINDS = ("motorcycle", "accessories")
 
 
 @dataclass
@@ -342,6 +350,20 @@ class ResolveResult:
     # ze sync cache — rezervace se slevou za pozdní vyzvednutí se vydá (šatna i motorka) až od tohoto okamžiku.
     # None = bez hradla (běžná rezervace, stará DB / stará cache).
     release_at: str | None = None
+    # Dokončení vrácení (2026-10-06, §32): ISO začátek posledního dne pronájmu (pražská půlnoc) z RPC / `codes[].return_final_from`
+    # — zavření kóje po vrácení od tohoto okamžiku je finální (offline hradlo `return_gate.py`). None = bez hradla.
+    return_final_from: str | None = None
+    # Krátkodobý kód z Velína (2026-10-06, §32): jen dané dveře, BEZ rezervace (km, protokol, šatna-první, zámek přejímky).
+    temp: bool = False
+    temp_code_id: str | None = None
+
+    def __post_init__(self) -> None:
+        # Krátkodobý kód nikdy nenese rezervaci ani hradla převzetí/vrácení a otevírá jen kóji / šatnu (pojistka proti
+        # nečekané odpovědi serveru — druh `service` by jinak dal servisní panel / nouzové otevření).
+        if self.temp:
+            self.booking_id = self.protocol = self.odo = self.release_at = self.return_final_from = None
+            if self.ok and self.kind not in TEMP_KINDS:
+                self.ok, self.error, self.kind = False, "invalid_code", ""
 
     @property
     def is_service(self) -> bool:
@@ -388,6 +410,9 @@ class ResolveResult:
             protocol=m.get("protocol") if isinstance(m.get("protocol"), dict) else None,
             odo=m.get("odo") if isinstance(m.get("odo"), dict) else None,
             release_at=str(m["release_at"]) if m.get("release_at") else None,
+            return_final_from=str(m["return_final_from"]) if m.get("return_final_from") else None,
+            temp=m.get("temp") is True,
+            temp_code_id=str(m["temp_code_id"]) if m.get("temp_code_id") else None,
         )
 
 
@@ -401,7 +426,7 @@ class Event:
     level: str = "info"             # info | warn | error
     message: str = ""
     detail: dict = field(default_factory=dict)
-    ts: str = field(default_factory=now_iso)
+    ts: str = field(default_factory=now_iso_ms)     # čas vzniku na jednotce (od 1.2.8 s ms; → detail.ts u kiosk_log_open)
     box_number: int | None = None
     code_kind: str | None = None    # motorcycle | accessories | service | invalid
 

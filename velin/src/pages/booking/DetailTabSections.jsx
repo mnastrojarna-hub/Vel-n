@@ -184,7 +184,8 @@ const OWN_GEAR_REASON = 'Vlastní výbava'
 
 // `gateCode` = kód schránky s klíčem od vjezdové brány pobočky motorky (branch_gate_access, 2026-10-04) — jen pobočka
 // s bránou; pak pořadí jako u zákazníka: brána → šatna → motorka. Bez brány beze změny (motorka, šatna).
-export function DoorCodesSection({ doorCodes, booking, gateCode = null }) {
+// `extra` = obsah na konec karty (krátkodobé kódy TempCodesList, 2026-10-06).
+export function DoorCodesSection({ doorCodes, booking, gateCode = null, extra = null }) {
   const b = booking || {}
   // Přednost aktivní a nejnovější řádek — po změně motorky zůstávají v DB staré neaktivní kódy
   const motoCode = pickDoorCode(doorCodes, 'motorcycle')
@@ -244,6 +245,7 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null }) {
           </div>
         )}
       </div>
+      {extra}
     </Card>
   )
 }

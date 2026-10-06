@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from typing import TYPE_CHECKING
 
 from . import music_phase
@@ -22,6 +23,20 @@ if TYPE_CHECKING:  # pragma: no cover
     from .zone import ZoneController
 
 log = logging.getLogger("motogo.zone")
+
+# Relace zóny v událostech (1.2.8, 2026-10-06, CONTRACT §15/§32): všechny události jedné relace nesou `session_id`
+# (32 hex, nové při každém grantu) a relace s fází tachometru i `odometer_phase` / `odometer_reading_id` svého
+# ACCESS_GRANTED — server (`booking_kiosk_returns`) z nich pozná zavření kóje po VRÁCENÍ i při přeházeném pořadí doručení.
+SESSION_EVENTS = frozenset({EventKind.ACCESS_GRANTED, EventKind.DOOR_OPENED, EventKind.DOOR_CLOSED,
+                            EventKind.SESSION_COMPLETED, EventKind.OPEN_TIMEOUT})
+SESSION_KEYS = ("odometer_phase", "odometer_reading_id")
+
+
+def new_session(detail: dict | None = None) -> dict:
+    """Kontext nové relace: `session_id` + fáze/čtení tachometru z detailu grantu (jen přítomné klíče)."""
+    ctx = {"session_id": uuid.uuid4().hex}
+    ctx.update({k: (detail or {})[k] for k in SESSION_KEYS if (detail or {}).get(k) is not None})
+    return ctx
 
 
 async def service_unlock_locked(zc: "ZoneController", source: str) -> tuple[bool, str]:
@@ -148,10 +163,12 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
         zc.state = ZoneState.SECURED             # doběh předchozí relace byl právě ukončen
         zc.reset_session()
         if held_open:   # dveře otevřené, dokud zámek předchozí relace držel → pokračování (pozdní otevření), ne poplach
-            zc.latch_released, zc._late_booking = True, (booking_id, kind, source)
+            # nová relace bez ACCESS_GRANTED → bez fáze tachometru (server ji spáruje s posledním grantem rezervace)
+            zc.latch_released, zc._late_booking = True, (booking_id, kind, source, new_session())
         await zc.evaluate_locked()               # otevřené dveře / offline modul → příslušná porucha
         return False, reason
     zc.booking_id = booking_id
+    zc.session_ctx = new_session(detail)          # session_id + fáze grantu → i DOOR_* / SESSION_COMPLETED / OPEN_TIMEOUT
     zc.state = ZoneState.WAITING_FOR_OPEN
     zc.session_started = zc.waiting_since = zc.clock()
     zc.session_started_at = now_iso()
@@ -177,7 +194,7 @@ async def tick_locked(zc: "ZoneController") -> None:
             await release_lock(zc, "timeout")
             # Zámek IBFM zůstává mechanicky odjištěný do prvního otevření (SPEC §2) → pozdní otevření
             # dveří je pokračování této relace (zone._late_open_locked), ne násilné otevření.
-            zc._late_booking = (zc.booking_id, zc.code_kind, zc.source)
+            zc._late_booking = (zc.booking_id, zc.code_kind, zc.source, dict(zc.session_ctx))
             zc.latch_released = True
             await zc.music_stop()
             await zc.set_light(False)

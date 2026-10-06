@@ -7,6 +7,8 @@ import BookingSummary from './BookingSummary'
 import Timeline from './BookingTimeline'
 import { SOSSection, DoorCodesSection, DatesAndPaymentSection } from './DetailTabSections'
 import { useBranchGateCode } from '../../lib/branchGate'
+import KioskReturnInfo from './KioskReturnInfo'
+import TempCodesList from './TempCodesList'
 
 // Stav motorky pro zobrazení: syrový `motorcycles.status` říká „V servisu" i motorce,
 // která má jen NAPLÁNOVANÝ servis v budoucnu (pending log). Otevřené záznamy
@@ -176,7 +178,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         </Card>
       )}
 
-      {doorCodes.length > 0 && <DoorCodesSection doorCodes={doorCodes} booking={booking} gateCode={gateCode} />}
+      {doorCodes.length > 0 && <DoorCodesSection doorCodes={doorCodes} booking={booking} gateCode={gateCode} extra={<TempCodesList booking={booking} />} />}
 
       <DatesAndPaymentSection booking={booking} bookingExtras={bookingExtras} sosIncidents={sosIncidents} onModify={onModify} error={error} actions={actions} onAction={onAction} />
 
@@ -198,6 +200,9 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
           </div>
         </Card>
       )}
+
+      {/* Vrácení na kiosku samoobslužné pobočky (booking_kiosk_returns, 2026-10-06) — bez řádku se nezobrazí */}
+      <KioskReturnInfo booking={booking} hasLockerCode={doorCodes.some(c => c.code_type === 'accessories' && c.is_active)} />
 
       <Card className="col-span-2">
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#1a2e22' }}>Doplňující informace</h3>

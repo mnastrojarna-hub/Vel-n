@@ -8,7 +8,8 @@ mění se JEN aditivně a JEN se změnou tohoto kontraktu; jediné takové rozš
 šatna → protokol → motorka — `EventKind.PROTOCOL_*`, `ResolveResult.protocol`, `TimingsCfg.handover_idle_s`, §28;
 2026-09-28 zámek přejímky — `TimingsCfg.handover_lock_s`, §28; 2026-09-29 stav tachometru při vrácení — `EventKind.ODOMETER_*`,
 `ResolveResult.odo`, `TimingsCfg.odometer_grace_min` / `odometer_idle_s`, §30; 2026-10-01 výdej až od 12:00 — `ResolveResult.release_at`,
-§31).
+§31; 2026-10-06 dokončení vrácení + krátkodobý kód — `ResolveResult.return_final_from` / `temp` / `temp_code_id`, `Event.ts` s ms,
+`TimingsCfg.return_code_grace_min`, §32).
 
 Zdroj požadavků: uživatelská specifikace „Implementační specifikace řídicího
 systému – 9zónový MotoGo box" (§1–§13) + existující kiosk backend Supabase
@@ -54,6 +55,11 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
 **Doplněno 2026-10-05 (1.2.7):** `CODE_NO_GEAR = "code_no_gear"`; `ResolveResult.from_rpc` u `{error:'invalid_code', reason:
 'revoked' (nebo bez `reason`), no_gear: true}` (jen přesně `true`) → `error = CODE_NO_GEAR`, jinak beze změny `RPC_REASON_ERRORS`
 (§12, §16, §22).
+**Doplněno 2026-10-06 (1.2.8, §32):** `now_iso_ms()`; `Event.ts` = `now_iso_ms()` (ISO UTC s ms — jde do `detail.ts`, §15);
+`ResolveResult.return_final_from: str | None` (RPC / `codes[].return_final_from`; chybí → `None` = bez hradla vrácení),
+`temp: bool` (RPC / řádek cache `temp is True`), `temp_code_id: str | None` (jen RPC); `TEMP_KINDS = ("motorcycle",
+"accessories")`; `__post_init__`: `temp` → `booking_id`/`protocol`/`odo`/`release_at`/`return_final_from` = `None`, `ok` s druhem
+mimo `TEMP_KINDS` → `ok=False, error='invalid_code', kind=''` (krátkodobý kód nikdy není servis).
 
 ## 2. `config.py` (HOTOVO — jen používat)
 
@@ -120,6 +126,9 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
   do `odometer_grace_min` od poslední změny fáze (převzetí / vrácení) stav tachometru NEchce; overlay `#odometer` bez dotyku
   `odometer_idle_s` → zavřít a zapomenout kód (UI, v `snap['timings']`). Z Velína `hardware.timings.*` (volitelné); není
   v `ZONE_TIMING_KEYS`, nepočítá se do `hw_signature`. Limit km/den se NEnastavuje na jednotce — `odo.per_day` jen ze serveru.
+- **`TimingsCfg.return_code_grace_min` (výchozí 15) — 2026-10-06, §32:** doběh kódů po finálním vrácení v poslední den pro OFFLINE
+  hradlo `return_gate.py` (= server GRACE). Z Velína `hardware.timings.return_code_grace_min` (volitelné); není v `ZONE_TIMING_KEYS`,
+  nepočítá se do `hw_signature`.
 - **`SecurityCfg` (2026-09-11):** `{maximum_failed_attempts, attempt_window_minutes, lockout_minutes, service_token_minutes}` — pole
   `pin_length` a `mask_pin_on_screen` ODSTRANĚNA (kód na displeji je viditelný, §16); `_fill` staré klíče z map v DB ignoruje.
 - **Venek (2026-09-11, `config_outdoor.py`, §26):** `HardwareConfig.outdoor: OutdoorCfg` z top-level klíče `outdoor {zone,
@@ -446,6 +455,8 @@ class LocalResolver:
         # 2026-10-01 (§31): řádek prošel valid_from/valid_until a row['release_at'] je v budoucnu (hodiny jednotky) →
         #   ResolveResult(ok=False, error='pickup_too_early', kind, booking_id, door_id, box_number, release_at, offline=True);
         #   jinak ok + release_at (None bez klíče — stará cache = bez hradla)
+        # 2026-10-06 (§32): ok navíc return_final_from (row['return_final_from'] → isoformat, None bez klíče) a
+        #   temp = row['temp'] is True (krátkodobý kód: booking_id null, kind = door_kind; ResolveResult.__post_init__)
     @staticmethod
     def protocol_for(cache: dict | None, booking_id: str | None) -> dict | None
         # klíč `protocols` chybí (stará cache) → None (stav neznámý = fail-open); seznam existuje, ale rezervace v něm není
@@ -514,6 +525,11 @@ class ZoneController:
     on_session_closed: Callable[[ZoneController], Awaitable[None]] | None = None   # 2026-09-25 (§28): hook controlleru —
         # volá se v evaluate_locked POD `_busy` hned po DOOR_CLOSED + SESSION_COMPLETED, ještě s `booking_id` relace;
         # výjimka hooku automat nikdy neshodí (log)
+    session_ctx: dict   # 1.2.8 (§15/§32): {session_id (uuid4 hex, nový při každém grantu), odometer_phase?, odometer_reading_id?};
+        # zone_access.new_session(detail) v grant_locked; reset_session → {}; _late_booking = (booking_id, kind, source, ctx)
+        # — OPEN_TIMEOUT a pozdní otevření pokračují TOUŽ relací. emit_event přidá ctx do detailu událostí
+        # zone_access.SESSION_EVENTS (ACCESS_GRANTED, DOOR_OPENED, DOOR_CLOSED, SESSION_COMPLETED, OPEN_TIMEOUT), NE do
+        # nouzového servisního ACCESS_GRANTED (`emergency`) ani událostí mimo relaci (FORCED_OPEN, DOOR_CLOSED po poruše)
     def status(self) -> ZoneStatus
     def io_ready(self) -> bool
         # online: wav645 (lock dev), modul kontaktu, modul světla; Shelly červené/zelené (pokud definované)
@@ -660,6 +676,11 @@ class BoxController:
         #   (c) pojistka: po servisní větvi, PŘED zámkem přejímky / locker_first / odometrem / protokolem `pickup_gate.blocks(rr)`
         #   (jen OFFLINE ok s budoucím release_at — online rozhodl server svými hodinami) → stejné odmítnutí.
         #   `handover_locker._locker_row` ignoruje řádek šatny s budoucím `release_at`.
+        # 2026-10-06 (§32): hned po okně diagnostiky, PŘED `not rr.ok`: `return_gate.blocks(ctrl, rr)` (jen OFFLINE ok s
+        #   rezervací a `return_final_from`) → `return_gate.refuse` (ACCESS_DENIED info, reason `returned`) + {**base,
+        #   error:'code_revoked', message: error_text('code_revoked')} — BEZ register_failure. `rr.temp` → grant_access
+        #   s `detail {temp: true, temp_code_id?}` místo odometru; `require_before_open` jen s `rr.booking_id`;
+        #   `lock.release` jen s `rr.booking_id` (None by uvolnil zámek přejímky KOHOKOLI).
     def check_service_token(self, token: str | None) -> bool
     async def service_open(self, door_id: str | None, zone: int | None) -> dict     # grant_access(kind='service', source='service_panel'); mimo běžný stav zóny = nouzový impulz zámku (2026-09-26, zone_access.service_unlock_locked), chyby 'lock_offline' | 'not_configured' | 'lock_failed'
     async def handle_command(self, cmd: dict) -> None    # → commands.execute → api.complete_command
@@ -681,7 +702,9 @@ class BoxController:
                                             # `protocol_loop` (controller_loops, §28) odesílá frontu podpisů
                                             # ["odometer"] = odometer.status() (§30); `odometer_loop` (30 s + wake) frontu km
     async def all_off(self) -> None         # audio.all_off, outdoor.all_off, io.all_off (vše), signals.all_off, zóny force_secure
-    async def emit(self, event: Event) -> None   # storage.event_add + log_open/log_event dle druhu (viz §15) + UI
+    async def emit(self, event: Event) -> None   # storage.event_add + return_gate.observe (§32, výjimka jen log) +
+                                                 # log_open/log_event dle druhu (viz §15) + UI; šatnu „do kódu motorky“
+                                                 # zhasne ACCESS_GRANTED motorky, ne krátkodobý kód (`detail.temp`)
     def find_zone(self, *, door_id: str | None = None, zone: int | None = None, box_number: int | None = None) -> ZoneController | None
 ```
 
@@ -854,6 +877,27 @@ days, offline, stored}` — `stored=false` + level error = zápis do fronty selh
 zákazník zadal hodnotu mimo rozsah / nečíslo — kóje zavřená; detail `{source, reason, value (≤ 12 zn.), min, max, days, unit,
 offline}`), ODOMETER_UPLOAD_FAILED (error; RPC trvale odmítla; detail `{source:'odometer_queue', error, reading_id, booking_id, km}`),
 ODOMETER_DISPUTED (warn; server čtení uložil jako sporné — mimo jeho rozsah, bez zápisu do rezervace; detail `{…, reason}`).
+
+**2026-10-06 (1.2.8, §32) — `branch_door_events.detail` (kiosk_log_open), tabulka událostí.** Vše aditivní; dosavadní klíče
+(`event`, `zone`, `box_number`, `source`, `odometer_*`, `late_open`, `overtime`, `reason`…) nemění význam, `odometer_km` zůstává JEN
+v ACCESS_GRANTED a server dál bere `last_open_phase` jen z ACCESS_GRANTED.
+
+| `detail.event` | `kind` / `booking_id` | `success` | `ts` | `session_id` | `odometer_phase` / `odometer_reading_id` | další |
+|---|---|---|---|---|---|---|
+| ACCESS_GRANTED | kód / rezervace (temp: null) | true | ano | nový (32 hex) | z grantu (kód motorky s rezervací) | `music*`, `light_failed?`, `odometer_km?`, temp: `temp: true`, `temp_code_id?`; nouzové servisní: `emergency…`, BEZ session (server ho do sledování vrácení ani párování nebere) |
+| DOOR_OPENED | relace | true | ano | relace | jako grant relace | `late_open?` (pozdní otevření = TÁŽ relace); znovuotevření v potvrzovacím okně = táž relace (server: zaparkované vrácení fáze `in` → `returning`, čeká na další zavření) |
+| DOOR_CLOSED | relace | true | ano | relace | jako grant relace | — (po odeznění poruchy: bez rezervace, bez session) |
+| SESSION_COMPLETED | relace | true | ano | relace | jako grant relace | `overtime` |
+| OPEN_TIMEOUT | relace | false | ano | relace | jako grant relace | — (server: opakovaný kód motorky po zaparkování bez otevření → řádek zpět `parked`) |
+| FORCED_OPEN | `unknown` / null | false | ano | — | — | `reason` |
+| ACCESS_DENIED, PIN_INVALID, PROTOCOL_SHOWN | viz výše | false/false/true | ano | — | — | `reason` (nově `returned`, §32) |
+
+`ts` = `Event.ts` (vznik události na jednotce, ISO 8601 UTC s ms, `2026-10-06T16:42:05.123+00:00`) — i u události doručené
+z outboxu po výpadku; server ho validuje proti času příjmu (neparsovatelné / > `created_at`+5 min / < `created_at`−30 dní →
+`created_at`, `_kiosk_event_ts`). `session_id` = `uuid4().hex` při každém úspěšném grantu (zákaznický kód, servisní otevření,
+kóje po podpisu protokolu). Jednotka ≤ 1.2.7 nic z toho neposílá — server páruje zavření s posledním (nenouzovým) ACCESS_GRANTED
+rezervace (§32). ACCESS_GRANTED krátkodobého kódu (`booking_id` null, kóje motorky) přepne zaparkované vrácení té kóje na `out`
+(§32). `kiosk_log_event` (kiosk_logs) beze změny.
 
 Limity na straně DB (`20260910e_kiosk_log_guards.sql`, obě RPC jsou void — jednotka nic neopakuje):
 `kiosk_log_event` zahodí záznamy nad **120 / zařízení / minutu** a `detail` > 64 KiB nahradí
@@ -1235,6 +1279,20 @@ Třídy `SimRelayModule`, `SimShelly` použitelné v testech in-process (`await 
 - `test_code_no_gear.py` (2026-10-05, 1.2.7): `from_rpc` `no_gear:true` (+ `reason` revoked / bez reason) → `code_no_gear`, jinak
   beze změny (false, „true“ jako text, jiný reason, jiná chyba než invalid_code); `code_no_gear` v KNOWN, ne v INVALID; česká hláška;
   N+2 pokusů bez lockoutu (ACCESS_DENIED info, reason `code_no_gear`); v poli kódu protokolu `code_mismatch` bez PIN_INVALID.
+- `test_session_events.py` (2026-10-06, 1.2.8): relace vrácení — ACCESS_GRANTED/DOOR_OPENED/DOOR_CLOSED/SESSION_COMPLETED se stejným
+  `session_id` (32 hex), `odometer_phase` + `odometer_reading_id`, `odometer_km` jen v grantu; `detail.ts` = `Event.ts` (ms, UTC);
+  znovuotevření v doběhu = táž relace; nový grant = nový `session_id`, servis bez fáze; OPEN_TIMEOUT + pozdní otevření = táž relace;
+  nouzový servisní grant ani FORCED_OPEN relaci nenesou; `ts` jen u kiosk_log_open.
+- `test_return_gate.py` (2026-10-06, 1.2.8): `observe` (vrácení `in` → bay, pozdější zavření posune, převzetí `out` / temp /
+  emergency / neúspěch / bez rezervace / DOOR_CLOSED nic, šatna → locker, grant fáze `in` nic, vyjetí `out` i bez fáze maže
+  bay i locker); `blocks` (online, bez `return_final_from`, zaparkováno před posledním dnem, jiná rezervace, servis, temp = ne;
+  motorka po grace; vlastní grace; šatna bez zavření platí, ranní šatna > 90 min se nepočítá, výbava před motorkou = od kóje,
+  šatna po motorce = od šatny); šatna zavřená při PŘEVZETÍ ≤ 90 min před vrácením se nepočítá (`blocks` i řetěz `submit_code`
+  offline: kód šatny projde, kód motorky doběhne); restart + úklid > 3 dny; `submit_code` offline `code_revoked` bez lockoutu
+  (ACCESS_DENIED `returned`), v grace / zaparkováno otevře, online rozhoduje server; řetěz zóna → `BoxController.emit` → záznam + kiosk_log_open s `ts`/`session_id`/fází.
+- `test_temp_code.py` (2026-10-06, 1.2.8): `from_rpc` temp (rezervace/hradla vynulována, druh `service` → `invalid_code`),
+  `return_final_from`; online temp kód motorky otevře jen kóji — bez km, protokolu, kv výzvy šatny, zámek JINÉ přejímky zůstává;
+  offline temp šatna (cache `temp:true`) bez handoveru, hradlo vrácení ho neblokuje; `_session_closed` bez rezervace nic nevolá.
 
 ---
 
@@ -2079,3 +2137,93 @@ Změna rezervace (dřívější čas → sleva 0 → `release_at` NULL) se do ca
 
 **Nasazení:** SQL 20261001h první (aditivní), pak jednotky přes rollout (§25), verze **1.2.0**. Starší jednotka: online hradlo
 funguje (server kód odmítne), ale ukáže obecnou chybu a zapíše RPC_ERROR; offline hradlo nemá.
+
+---
+
+## 32. `return_gate.py` — dokončení vrácení, 2026-10-06
+
+**Rozhodnutí majitele (D1–D4, 2026-10-06):** vrácení na kiosku (kód motorky → km → kóje → motorka uvnitř → dveře zavřeny)
+v POSLEDNÍ den pronájmu (Praha) nebo později rezervaci dokončí — SERVER (`booking_kiosk_returns` + pg_cron
+`kiosk-return-completion` → `kiosk_process_returns()` každou minutu, migrace `20261006b/c`): `returned_at` = čas FINÁLNÍHO
+zavření kóje podle hodin jednotky (`detail.ts`); dřívější vrácení = jen zaparkování (kódy platí dál; zůstane-li motorka v kóji
+do konce termínu, dokončí se o půlnoci s časem toho zavření). Kódy dobíhají 15 min: motorka po finálním zavření kóje; šatna po
+zavření ŠATNY při vrácení (šatna zavřená ≤ 90 min PŘED kójí → od zavření kóje; šatnu po vrácení nezavřel → běžná platnost,
+výbava nesmí zůstat venku). Zavřením šatny „při vrácení“ se rozumí jen zavření PO posledním vyjetí motorky — zavření šatny při
+převzetí výbavy se nikdy nepočítá (server `_kiosk_return_locker_close`, jednotka `observe`). Znovuotevření tímtéž kódem v okně
+a nové zavření posune čas. Obsluha může vydat krátkodobý kód (D4, níže).
+
+**Jednotka (1.2.8):** (1) události s `ts` / `session_id` / fází relace (§15 tabulka, `zone_access.new_session`);
+(2) OFFLINE hradlo `return_gate.py` — online rozhoduje VÝHRADNĚ server (zneplatněný kód → `reason:'revoked'` → `code_revoked`);
+(3) krátkodobý kód (`ResolveResult.temp`).
+
+```python
+KV = "return_gate"            # {"b": {booking_id: {"bay": ts, "locker": ts}}} — unixové časy jednotky; záznam > 3 dny pryč
+KEEP_S = 3*86400 ; VISIT_S = 90*60 ; DEFAULT_GRACE_MIN = 15 ; ERROR = "code_revoked" ; REASON = "returned"
+def grace_s(ctrl) -> float                         # 60 × timings.return_code_grace_min (≥ 0)
+def observe(storage, event: Event) -> None         # BoxController.emit: SESSION_COMPLETED (success, booking_id) kódu motorky
+    # s detail.odometer_phase 'in' → bay = ts události; kódu šatny → locker = ts; ACCESS_GRANTED motorky s fází ≠ 'in'
+    # (out / bez fáze = vyjetí) → záznam pryč, bay i locker (šatna se počítá jen po posledním vyjetí, shodně se serverem
+    # `_kiosk_return_locker_close`); temp / emergency / bez rezervace / neúspěch → nic
+def blocks(ctrl, rr, now=None) -> bool             # rr.ok ∧ rr.offline ∧ ne servis ∧ ne temp ∧ booking_id ∧ return_final_from
+    # ≤ bay; motorka: now > bay + grace; šatna: locker ≥ bay − VISIT_S ∧ now > max(locker, bay) + grace; jinak False (fail-open)
+async def refuse(ctrl, rr, source) -> None         # ACCESS_DENIED info: code_kind=rr.kind, booking_id, detail {source,
+    # reason:'returned', error:'code_revoked', closed_at, return_final_from, offline:true}
+def record(storage, booking_id) -> dict            # {bay?, locker?} (testy / diagnostika)
+```
+
+**Pořadí v `submit_code`** (§12, §31): … `resolve_code` → okno diagnostiky → **`return_gate.blocks` → refuse + `code_revoked`
+(bez `register_failure`)** → nok (`pickup_too_early`, známé chyby, lockout) → servis → `pickup_gate.blocks` → zámek přejímky → …
+Hláška = `error_text('code_revoked')` („Tento kód už neplatí — rezervace byla … ukončena… volejte podporu“, UI `i18n-codes.js`).
+`return_final_from` = `_door_code_valid_from(end_date)` (pražská půlnoc začátku posledního dne) z `kiosk_resolve_code` (úspěch kódu
+s rezervací) / `codes[].return_final_from` (`kiosk_sync_config`, migrace `20261006e/f`); chybí (stará DB / cache) = bez hradla.
+Pro SOS náhradu (`sos_replacement`), rezervaci s vozíkem (`trailer_moto_id`) a testovací (`is_test`) server `return_final_from`
+NEPOSÍLÁ (NULL) — takové rezervace automaticky nedokončuje (řádek `skipped`, dokončí obsluha), takže ani jednotka hradlo neuplatní.
+Hodiny jednotky bez RTC po restartu mohou jít pozadu → záznam / porovnání vyjde dřív → kód spíš projde (fail-open).
+Změna termínu (prodloužení `end_date`) se do cache dostane resyncem (`trg_sync_door_code_window` → `branch_door_codes.valid_until`
+→ `trg_door_codes_kiosk_sync` → `kiosk_request_sync`; `codes[].return_final_from` se přepočte). OFFLINE jednotka ji uvidí až po
+obnově spojení. Do té doby platí hradlo z poslední cache (konzervativní, stejně jako §31): rezervace prodloužená během výpadku,
+jejíž motorka byla zaparkována v PŮVODNÍ poslední den, ji offline 15 min po zavření kóje nevydá (`code_revoked`, bez lockoutu).
+Resync po obnově LTE to napraví. Platnost kódu ze staré cache (`valid_until`) by ji stejně odmítla od půlnoci po původním
+posledním dni (stejné chování jako v 1.2.7). Fail-open podle stáří cache se záměrně NEDĚLÁ (krátký výpadek nepokryje a po prahu
+by offline pustil skutečně vrácenou motorku znovu ven — proti D2).
+
+**Server ↔ jednotka (shoda pravidel, migrace `20261006b`):** trigger `_kiosk_return_from_door_event` (`branch_door_events` →
+`booking_kiosk_returns`) a hradlo jednotky vycházejí z týchž událostí:
+- **šatna jen po vyjetí** — `_kiosk_return_locker_close` bere poslední zavření šatny ≥ zavření kóje − 90 min a zároveň PO
+  posledním ACCESS_GRANTED motorky s fází ≠ `in` (bez fáze = `out`); jednotka: takový grant smaže celý záznam (bay i locker);
+- **nouzové servisní otevření** (ACCESS_GRANTED s `detail.emergency`) server ignoruje a do párování zavření (≤ 1.2.7) nebere;
+  jednotka ho v `observe` taky ignoruje;
+- **opakovaný kód motorky po zaparkování** (fáze `in`, v grace odometru) přepne řádek na `returning`; neotevře-li zákazník
+  dveře, OPEN_TIMEOUT relace toho kódu vrátí řádek zpět na `parked` (motorka pořád stojí v kóji, dokončení proběhne); jednotka:
+  grant fáze `in` ani OPEN_TIMEOUT záznam nemění;
+- **znovuotevření v potvrzovacím okně** (DOOR_OPENED téže relace, fáze `in`, jen ≥ 1.2.8) přepne zaparkovaný řádek na
+  `returning` — dokončení počká na DALŠÍ zavření (`closed_at` = pozdější, D3); nezavře-li dveře, nedokončí se (obsluha,
+  SESSION_OVERTIME). Jednotka zapisuje `bay` jen ze SESSION_COMPLETED: další zavření téže relace `bay` posune, do té doby hradlo
+  počítá s prvním zavřením (dveře jsou otevřené v téže relaci, kód není potřeba);
+- **krátkodobý kód na kóji** (ACCESS_GRANTED `booking_id` null, kind `motorcycle`, ne nouzový) přepne zaparkovaný řádek té kóje
+  (`returning`/`parked`, starší čas) na `out` — motorka mohla odjet, automatika ji nedokončí (Velín: obsluha). Záznam hradla
+  jednotky temp grant nemění — na hradlo to vliv nemá: zaparkování před posledním dnem hradlo nemá a vrácení v poslední den
+  server do ~2 min (QUIET) dokončí (dokončený řádek je terminální, temp grant ho nemění);
+- **`ts`** server validuje proti `created_at` (> +5 min / < −30 dní → `created_at`, `_kiosk_event_ts`) — trigger i cron
+  vyhodnotí tutéž událost stejně.
+
+**Krátkodobý kód (D4):** Velín → detail rezervace → „Vydat krátkodobý kód“ (`admin_issue_temp_door_code`, tabulka
+`branch_temp_codes`, 6 číslic, 5–240 min, lze zrušit). Online `kiosk_resolve_code` → `{ok, kind: door_kind, booking_id: null,
+temp: true, temp_code_id, box_number, door{…}, door_configured: true, release_at/protocol/odo: null}`; prošlý (24 h) / zrušený →
+`reason 'expired'|'revoked'` (bez lockoutu); offline `codes[]` řádek stejného tvaru s `temp: true` (HMAC `h`, bez id).
+Jednotka: `__post_init__` vynuluje rezervaci a hradla, druh mimo kóji/šatnu = `invalid_code`; `submit_code` otevře JEN zónu dle
+`door_id` (motorka i `box_number`) — bez odometru, `locker_first`, protokolu, zámku přejímky (neblokuje, nedotkne se, neuvolní)
+a hradla vrácení; ACCESS_GRANTED `detail {temp: true, temp_code_id?}`; zavření šatny bez rezervace handover nespouští.
+
+**Kompatibilita / nasazení:** SQL jde dřív než rollout jednotek. Jednotka ≤ 1.2.7: online i offline (řádek `booking_id: null`)
+krátkodobý kód otevře správné dveře bez km / protokolu / výzvy šatny a bez výjimky (ověřeno sondou nad 1.2.7: kóje 3 i šatna,
+online i offline) — vedlejší účinky (jen úspěšný krátkodobý kód MOTORKY): (a) zavolá `lock.release(None)` a uvolní zámek
+přejímky JINÉ rezervace, pokud právě běží (měkké hradlo, sám by vypršel do 10 min; + varování `protocol_state_unknown` v logu;
+kóji té rezervace bez jejího podepsaného protokolu stejně neotevře — nanejvýš se překryjí dvě přejímky a zákazník zadá kód motorky
+znovu); (b) zhasne světlo šatny držené „do kódu motorky“ (1.2.7 `emit` zhasíná na KAŽDÝ ACCESS_GRANTED motorky, 1.2.8 hlídá
+`not detail.temp`) — kosmetické. Opraveno v 1.2.8 (`and rr.booking_id` u `require_before_open` i `lock.release`) → rollout 1.2.8
+hned po nasazení `20261006d/e/f`; do té doby obsluha ví, že krátkodobý kód na kóji může ukončit cizí rozběhnutou přejímku. Hradlo
+krátkodobých kódů podle `kiosk_devices.app_version` v SQL záměrně NENÍ (vypnulo by D4 celé flotile a textové porovnání verzí
+`1.2.10` < `1.2.8` je chybné). Nové klíče (`return_final_from`, `temp`, `temp_code_id`) 1.2.7 ignoruje → bez offline hradla
+vrácení (offline kód platí do půlnoci po posledním dni / do dalšího syncu) a bez `ts`/`session_id` (server páruje zavření
+s posledním nenouzovým ACCESS_GRANTED rezervace do 12 h; `ts` := `created_at`).

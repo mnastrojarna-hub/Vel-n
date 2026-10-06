@@ -14,6 +14,7 @@ import logging
 import time
 
 from . import commands, controller_codes as cc, controller_hw as chw, controller_loops as loops, lan_guard, sdnotify, shell
+from . import return_gate
 from .audio import AudioController
 from .audio_build import audio_signature, build_audio, make_music_library
 from .config import WARNING_PREFIX, HardwareConfig, LocalConfig, blocking_problems, validate_hardware
@@ -458,9 +459,13 @@ class BoxController:
             self.storage.event_add(event)
         except Exception:  # noqa: BLE001
             log.exception("Uložení události selhalo")
+        try:
+            return_gate.observe(self.storage, event)    # zavření kóje po vrácení / šatny → offline hradlo (§32)
+        except Exception:  # noqa: BLE001
+            log.exception("return_gate: záznam události selhal")
         if event.level == "error":
             self.last_error = event.message
-        if event.kind == EventKind.ACCESS_GRANTED and event.code_kind == "motorcycle":
+        if event.kind == EventKind.ACCESS_GRANTED and event.code_kind == "motorcycle" and not event.detail.get("temp"):
             for zc in self.zones.values():        # šatna se světlem „do kódu motorky“ (2026-09-25) → zhasnout
                 if zc.light_until_moto_code and zc.light_on:
                     asyncio.create_task(zc.light_off_after_moto_code(), name=f"motogo.light_off.{zc.number}")

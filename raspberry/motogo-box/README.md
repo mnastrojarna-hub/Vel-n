@@ -160,6 +160,14 @@ Servisní panel, setup a diagnostika zůstávají tmavé overlaye (`ui/style-ove
 na pobočce) se vydává — šatna i motorka — až od 12:00 Prahy v den začátku. Kód zadaný dřív ukáže „Vyzvednutí až od 12:00“ s časem
 a minutami (25 s nebo do klepnutí) a výzvu upravit čas vyzvednutí v appce / na motogo24.cz/upravit-rezervaci (sleva zanikne,
 rozdíl doplatí, kód platí hned); do PIN lockoutu se nepočítá (`pickup_gate.py`, texty `ui/i18n-pickup.js`).
+**Dokončení vrácení a krátkodobý kód (2026-10-06, 1.2.8, CONTRACT §32):** vrácení motorky do kóje v POSLEDNÍ den pronájmu (Praha)
+nebo později rezervaci dokončí server sám (`returned_at` = čas finálního zavření dveří kóje podle hodin jednotky); dřívější vrácení
+je jen zaparkování. Kód motorky pak platí ještě 15 min po zavření kóje, kód šatny 15 min po zavření šatny při vrácení (bez zavření
+šatny platí dál; počítá se jen zavření šatny PO posledním vyjetí motorky — vyzvednutí výbavy při převzetí ne). Jednotka proto posílá u každé události do `branch_door_events` čas na jednotce `ts` (ms, UTC), u událostí relace
+`session_id` a fázi tachometru grantu (`odometer_phase`, `odometer_reading_id`). Offline (kód z cache) totéž hlídá
+`return_gate.py` (záznam zavření v kv `return_gate`, 3 dny): doběhlý kód = hláška „Tento kód už neplatí…“ bez lockoutu,
+ACCESS_DENIED `reason: returned`. Zapomenutá věc po doběhu: obsluha ve Velíně vydá **krátkodobý kód** (6 číslic, 15–120 min,
+online i offline) — otevře jen zvolené dveře, bez km, protokolu, výzvy šatny a zámku přejímky.
 
 ## Co se nastavuje kde (Velín vs. Raspberry)
 
@@ -179,6 +187,8 @@ rozdíl doplatí, kód platí hned); do PIN lockoutu se nepočítá (`pickup_gat
 - časování stavu tachometru při vrácení (2026-09-29) v `hardware.timings`: `odometer_grace_min` (60 — opakovaný kód motorky do
   této doby od převzetí / vrácení km nechce) a `odometer_idle_s` (120 — zavření karty km bez dotyku); limit km/den (1000 km,
   24 mth) je na serveru (`_kiosk_odometer`), na jednotce se nenastavuje.
+- doběh kódů po finálním vrácení pro offline hradlo (2026-10-06) v `hardware.timings`: `return_code_grace_min` (15 = server GRACE;
+  měnit jen spolu se serverem).
 Program si konfiguraci stahuje každých 60 s (`kiosk_sync_config`) a při změně zařízení/zón
 bezpečně přestaví I/O (vše vypnout → nové zóny).
 
