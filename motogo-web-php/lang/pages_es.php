@@ -1555,7 +1555,7 @@ return [
                     [
                         'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => '3. Elige el equipo',
-                        'text' => 'El equipo del piloto está incluido; el del pasajero tiene un suplemento. La talla la eliges en el local.',
+                        'text' => 'El equipo del piloto está incluido; el del pasajero tiene un suplemento. Márcalo al reservar y elige tu talla.',
                     ],
                     [
                         'icon' => 'gfx/zaplat.svg',

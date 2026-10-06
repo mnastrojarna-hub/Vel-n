@@ -51,6 +51,9 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
 **Doplněno 2026-10-01 (§31):** `ResolveResult.release_at: str | None` = ISO `release_at` z `kiosk_resolve_code` (u `ok` i u chyby
 `pickup_too_early`; `from_rpc`: chybí / null → `None`) / `codes[].release_at` ze sync cache (LocalResolver, `isoformat()`).
 Žádný nový `EventKind` — odmítnutí jde jako `ACCESS_DENIED` (reason `pickup_too_early`).
+**Doplněno 2026-10-05 (1.2.7):** `CODE_NO_GEAR = "code_no_gear"`; `ResolveResult.from_rpc` u `{error:'invalid_code', reason:
+'revoked' (nebo bez `reason`), no_gear: true}` (jen přesně `true`) → `error = CODE_NO_GEAR`, jinak beze změny `RPC_REASON_ERRORS`
+(§12, §16, §22).
 
 ## 2. `config.py` (HOTOVO — jen používat)
 
@@ -95,6 +98,15 @@ Enumy `ZoneState`, `Signal`, `EventKind`; dataclassy `HwRef`, `ZoneHw`, `Zone`,
   napájené trvale, takže bez tohoto přepínače nešla hudba vypnout: `music_off` zastavil jen to, co hrálo, a další kód ji
   zase spustil. Editor: zaškrtávátko v sekci „Audio — režim, výstupy“ + sloupec „Hudba“ v mapování dveří.
 - **Individuální časování zóny (2026-09-14):** `branch_doors.hw.timings {door_open_timeout_s?, light_after_close_s?, music_after_close_s?, maximum_session_s?}` (`models.ZONE_TIMING_KEYS`, parser `models.zone_timings` — jiné klíče a záporné hodnoty se ignorují). `ZoneController.timings` vrací globální `hw.timings` přepsané těmito hodnotami (`dataclasses.replace`, cache se přepočítá jen při změně globálního časování — čte se každý tick). Kóje 1–7 zůstávají na společném nastavení, šatna se nastavuje individuálně. **Do `hw_signature` se `timings` ZÁMĚRNĚ nepočítá** (`controller_hw.hw_signature` klíč odfiltruje) — jinak by změna doby ve Velíně vyvolala přestavbu HW (`all_off`) a zhasla světlo v obsazené kóji. Editor: řádek „Vlastní čas“ v mapování dveří (`BranchRpiDoorHw.jsx`, `ZONE_TIMING_FIELDS`).
+- **`TimingsCfg.lock_hold_min_s` (2026-10-06, zadání majitele „magnet aspoň 1 min po kódu“; výchozí 60, rozsah 0–600 s —
+  `LOCK_HOLD_MIN_RANGE_S`; mimo rozsah = BLOKUJÍCÍ problém `validate_hardware` jako `lock_pulse_ms`, diagnostika `timings_problems`
+  a řádek „Časování“ protokolu „zámek držet do otevření, min. N s“):** platí JEN s `lock_hold_until_open` (zámek bez paměti) —
+  zámek drží od kódu ASPOŇ tolik sekund, i když se dveře mezitím otevřou; čekání na otevření = `max(door_open_timeout_s,
+  lock_hold_min_s)` (`lock_hold.open_timeout_s`, re-export `zone_access`), HW časovač flash-on = to + 1 s (`hold_lock_ms`, výchozí
+  61 s; `lock_held_since` = čas PŘED zápisem cívky, SW minimum nikdy nepřesáhne HW časovač). 0 = vypnout hned otevřením (chování do
+  1.2.5). Impulzní zámek (`lock_hold_until_open: false`, IBFM) beze změny — nikdy se nedrží. Modul `lock_hold.py` (helpery, okno
+  `lock_unlocked` = zámek drží + dozvuk `release_grace_s` = `polling.door_input_poll_ms + software_debounce_ms` + 0,5 s po vypnutí).
+  Z Velína `hardware.timings.lock_hold_min_s` (volitelné; chybí = 60). Není v `ZONE_TIMING_KEYS`, nepočítá se do `hw_signature`. Automat §11.
 - **`TimingsCfg.handover_idle_s` (2026-09-25, výchozí 600 — od 2026-09-29 dřív 120, §28):** doba bez dotyku, po níž overlay předávacího protokolu
   zmizí z displeje (položka zůstává nevyřízená, `then_open` se ruší). Z Velína `hardware.timings.handover_idle_s` (volitelné,
   `BranchRpiHardware*.jsx`), UI ho dostane v `snap['timings']` (§14/§16) — odpočet ale vždy z `handover.active.expires_at`.
@@ -228,7 +240,7 @@ playing_zone -> int | None                  # selector: hrající zóna; multi: 
 playing_zones -> list[int] ; channels_playing -> list[str]      # multi: např. [3, 7] / ["outdoor"]; selector: [z] / []
 def is_playing(zone: int) -> bool           # zone.py: status().music
 async def start() ; async def close()       # start: mpv + playlist, hlasitost 0, pauza; close: all_off + stop mpv
-async def play_zone(zone) -> bool ; async def stop_zone(zone, fade=True) -> bool   # stop_zone zastaví JEN pokud v zóně stále hraje (§13.7)
+async def play_zone(zone, track=None, restart=False) -> bool ; async def stop_zone(zone, fade=True) -> bool   # stop_zone zastaví JEN pokud v zóně stále hraje (§13.7)
 async def stop(fade=True)                   # vše (selector: jedinou zónu; multi: všechny zóny i kanály)
 async def all_off()                         # bez fade: pauza, hlasitost 0, všechna relé off (start, příkaz all_off, stop programu)
 async def sync_channels(active_zones: list[int])   # multi: kanály bez dveří dle běžících relací; selector: no-op (volá tick smyčka §12)
@@ -258,6 +270,15 @@ s jedním výstupem `jack` (`audio.device`, jinak `auto`, mono) pro zóny `kind 
 načteného obsahu `target#track`. `zone_access.grant_locked` určí `zc.music_track = music_phase.track_for_grant(storage,
 booking_id, kind, timings.music_return_after_min·60)` (1. otevření rezervace → 1; ≥ limit od něj → 2; servis/bez rezervace →
 None = celý playlist), pozdní otevření ho převezme; událost ACCESS_GRANTED `detail.music_track`.
+
+**Hudba od začátku (2026-10-06, zadání majitele):** `play_zone(zone, track, restart=True)` volá JEN `zone_access.start_music`
+(zadání kódu i pozdní otevření) — hudba po kódu hraje VŽDY od začátku: hraje-li v zóně už tatáž skladba/playlist (2. kód v doběhu),
+jen se přetočí (bez nového fade-in a bez přepínání relé); jinak se před `play()` přetočí, pokud zůstal načtený tentýž obsah
+(pauza uprostřed skladby). Čerstvě načtený playlist (`load_files`) začíná od 0 a nepřetáčí se (seek během načítání by mpv
+odmítl). Přetočení = `MpvPlayer.rewind()`: víc skladeb a `playlist-pos` ≠ 0 (i −1 = nic nehraje) → `set_property playlist-pos 0`
+(skladba začne od 0), jinak `seek 0 absolute` — jen IPC dostupné v mpv 0.35 (bookworm). Selhání přetočení se jen zaloguje.
+Ruční „Hudba ▶“ z Velína (`music_on`, servisní panel) a kanál venek (`sync_channels`, `play_channel`) volají bez `restart` —
+pokračují jako dřív. Fake enginy v testech musí přijmout `track` a `restart`.
 
 **Cíle playlistu (`target`):** zóna → `door:<uuid branch_doors.id>` (dveře z Velína) / `zone:<n>` (lokální mapa) —
 `audio.zone_target(zone)`; kanál bez dveří → jeho název (`outdoor`). Playlist dodává `MusicLibrary.playlist_for(target)`
@@ -310,6 +331,7 @@ class MpvPlayer:   # mpv_player.py — jeden proces mpv (idle, bez videa, playli
     async def load_playlist(self, shuffle: bool = True) -> int   # legacy: VŠECHNY soubory v music_dir (MUSIC_EXTENSIONS)
     async def load_files(self, files: list[str], shuffle: bool = True) -> int   # explicitní playlist cíle z knihovny; pamatuje si ho pro restart
     async def play(self) ; async def pause(self) ; async def set_volume(self, vol: int) -> bool
+    async def rewind(self) -> bool       # 2026-10-06: na začátek — playlist-pos ≠ 0 → playlist-pos 0, jinak seek 0 absolute (mpv 0.35 IPC)
     async def fade(self, to: int, ms: int, steps: int = 10) -> bool            # končí při první neúspěšné změně hlasitosti
     alive -> bool ; volume: int ; playlist_count: int ; device ; name
 MUSIC_EXTENSIONS = .mp3 .ogg .oga .opus .flac .wav .m4a .aac .wma .aiff .aif .webm .mkv   # vše, co přehraje mpv/ffmpeg
@@ -375,11 +397,12 @@ class MusicLibrary:
     def targets(self) -> dict[str, int]    # stažené skladby po cílech (vždy klíče `all`, `legacy`)
     def status(self) -> dict               # {tracks, synced, pending, failed, last_sync_at, targets, syncing, reason} → snapshot()['audio']['library']
 def normalize_track(raw) -> dict | None    # id = uuid (lower), ext ^[a-z0-9]{1,8}$, path bez "\n"; jinak None (neplatný záznam)
+                                           # + end_s (2026-10-06) = music_edl.normalize_end_s: float v (0, 7200] s, jinak None
 ```
-- Vstup = `kiosk_sync_config.music.tracks[{id, target, path, ext, size, sort_order, updated_at}]` (§22); cíl `door:<uuid>` |
+- Vstup = `kiosk_sync_config.music.tracks[{id, target, path, ext, size, sort_order, updated_at, end_s}]` (§22); cíl `door:<uuid>` |
   `outdoor` | `all` (lokální mapa hledá i `zone:<n>`). URL souboru = `<supabase.url>/storage/v1/object/public/branch-music/<path>`
   (bucket je public read). Neplatný záznam → `failed` se stabilním klíčem (warning jen 1×), ostatní se zpracují.
-- Index `Storage.kv['music_index']` = `{tracks: {id: {target, path, ext, size, updated_at, file, sort_order, title}}, synced_at}`
+- Index `Storage.kv['music_index']` = `{tracks: {id: {target, path, ext, size, updated_at, file, sort_order, title, end_s}}, synced_at}`
   — ukládá se po KAŽDÉ stažené skladbě (přerušený sync o hotové soubory nepřijde; hotový soubor správné velikosti bez
   záznamu se při dalším syncu adoptuje). Metadata (target/sort_order/title) se u nezměněných souborů jen přepíšou.
 - `sync`: stáhne nové/změněné (jiné `updated_at` nebo `size`, chybějící / špatně velký soubor) httpx streaming → `.part` →
@@ -388,6 +411,16 @@ def normalize_track(raw) -> dict | None    # id = uuid (lower), ext ^[a-z0-9]{1,
   timeout, I/O) → `_failed[id] = {reason, attempts, next_at}` s exponenciálním odstupem 2 min · 2^(n−1) … max 6 h; odstup
   ruší změna path/size/updated_at nebo `retry_failed()`. Po `added`/`removed` → `await on_changed()`
   (= `controller._music_changed` → `audio.reload_playlists()`, §6). Nikdy neblokuje HW smyčky.
+- **Konec skladby `end_s` (2026-10-06, `music_edl.py`, SQL `20261006a`):** Velín zkrátí skladbu na konci (`branch_music_tracks.end_s`,
+  NULL = celá); soubor se NEMĚNÍ a NEstahuje znovu (`end_s` není v otisku `path|size|updated_at`). `sync` po stahování
+  (`music_edl.sync_edls`) zapíše vedle souboru `tracks/<id>.edl` = `# mpv EDL v0\n%<délka cesty v B UTF-8>%<absolutní cesta>,0,<end_s>\n`
+  (atomicky `.part` → `os.replace`; jen při změně obsahu = změna `end_s` nebo souboru), bez `end_s` EDL smaže; chyba zápisu →
+  EDL smazat (hraje celá skladba, nikdy starý konec). `playlist_for` / `track_for` vrací u skladby s `end_s` a existujícím EDL
+  cestu EDL (`music_edl.play_path`) — mpv přehraje 0 … end_s jako samostatnou skladbu (dokola, `seek 0`, `playlist-pos`;
+  `end_s` delší než soubor = hraje do konce souboru). Úklid `tracks/` nechá jen EDL skladeb indexu s `end_s` (odebraná skladba →
+  soubor i EDL pryč; `.edl.part` pryč). `on_changed` navíc i bez stahování, když se změnil `end_s`, `target` nebo `sort_order`
+  nezměněné skladby nebo cokoli na EDL (přehrávače znovu načtou playlisty: volné hned, hrající po zastavení). Starší jednotka
+  `end_s` ignoruje (hraje celou skladbu).
 
 ## 8. `pins.py`
 
@@ -493,7 +526,7 @@ class ZoneController:
         #    (`latch_released=True`) → pozdní otevření = pokračování relace (`_late_open_locked`: obnoví booking, DOOR_OPEN,
         #    světlo, GREEN, hudba, event DOOR_OPENED late_open=True warn), NE forced_open. Latch se maže při dalším grantu/otevření.
         #  FAULT 'forced_open'/'open_at_startup' + zavřeno → SECURED, RED, event DOOR_CLOSED
-        #  WAITING_FOR_OPEN + otevřeno → DOOR_OPEN, event DOOR_OPENED (zámek už bez napětí — pulz byl HW)
+        #  WAITING_FOR_OPEN + otevřeno → DOOR_OPEN, event DOOR_OPENED (zámek už bez napětí — pulz byl HW; držený zámek až po lock_hold_min_s)
         #  DOOR_OPEN + zavřeno stabilně ≥ door_close_debounce_ms → CLOSED_CONFIRMATION, RED, event DOOR_CLOSED (+ SESSION_COMPLETED)
         #  CLOSED_CONFIRMATION + otevřeno → zpět DOOR_OPEN (stejná relace)
         #  None (modul kontaktu offline) v jakémkoli stavu → FAULT 'io_offline', BOTH_BLINK, hudba stop, event IO_OFFLINE; návrat hodnoty → startup(door_closed)
@@ -505,13 +538,30 @@ class ZoneController:
         # `odometer_phase` out|in, u vrácení i `odometer_km` + `odometer_reading_id` → branch_door_events.detail
         # §9 „Platný PIN" kroky 4–12: io_ready? ne → (False,'io_offline'); state ∉ {SECURED, CLOSED_CONFIRMATION} → (False,'busy'/'door_open');
         # door_closed is not True → (False,'door_open'); reset_session (ukončí doběh); světlo ON (ověřeno); GREEN; audio.play_zone; io.pulse(lock, lock_pulse_ms, retry=False)
-        #   timings.lock_hold_until_open (2026-09-26): místo pulzu io.hold(lock, (door_open_timeout_s+1)*1000) — HW flash-on modulu = pojistka; zone_access.release_lock při DOOR_OPEN / timeoutu / force_secure (io.set off); ZoneController.lock_held
+        #   timings.lock_hold_until_open (2026-09-26): místo pulzu io.hold(lock, hold_lock_ms = (open_timeout_s+1)*1000) — HW flash-on modulu = pojistka;
+        #   ZoneController.lock_held + lock_held_since (clock při sepnutí). Od 2026-10-06 drží ASPOŇ timings.lock_hold_min_s (60 s) od kódu:
+        #   open_timeout_s = max(door_open_timeout_s, lock_hold_min_s); otevření dveří vypne zámek JEN po minimu (release_lock_if_due),
+        #   jinak ho vypne tick (důvod min_hold) v DOOR_OPEN / CLOSED_CONFIRMATION; timeout / force_secure / FAULT io_offline / startup /
+        #   neúspěšný grant (lock_failed, door_open) → release_lock hned (io.set off). Mimo aktivní stav tick drží-li zámek, vypne ho
+        #   („konec relace“ — pojistka). Hudba: audio.play_zone(zone, track, restart=True) — vždy od začátku (§6)
+        #   2. kód v CLOSED_CONFIRMATION při `lock_unlocked` (zámek předchozí relace drží / dozvuk): dveře otevřené během pomalých
+        #   kroků (světlo, Shelly, hudba) NEJSOU door_open — znovu io.hold (nové minimum) → WAITING_FOR_OPEN → DOOR_OPEN; selže-li
+        #   hold, (False,'lock_failed') a relace pokračuje pozdním otevřením (latch_released + _late_booking), nikdy FORCED_OPEN.
         # — gate drží max(pulse, zaokrouhlení na kroky 100 ms WAV645); neúspěch → světlo/zelená zpět, (False,'lock_failed'); po pomalých krocích znovu kontrola dveří/modulů;
         # event ACCESS_GRANTED (booking_id, kind, source); state WAITING_FOR_OPEN; návrat (True,'ok')
     async def tick(self) -> None
-        # WAITING_FOR_OPEN: > door_open_timeout_s → hudba stop, světlo off, RED, SECURED, event OPEN_TIMEOUT; latch_released=True + _late_booking (viz pozdní otevření)
+        # WAITING_FOR_OPEN: > open_timeout_s (door_open_timeout_s; držený zámek aspoň lock_hold_min_s) → zámek off, hudba stop, světlo off,
+        #   RED, SECURED, event OPEN_TIMEOUT („do N s“ = efektivní doba); latch_released=True + _late_booking (viz pozdní otevření)
         # DOOR_OPEN: > maximum_session_s a not overtime → overtime=True, hudba stop, GREEN_PULSE, event SESSION_OVERTIME (warn); dále každých overtime_alert_minutes → event SESSION_OVERTIME_ALERT
         # CLOSED_CONFIRMATION: po music_after_close_s hudba stop; po light_after_close_s světlo off → SECURED (RED už svítí) → evaluate (degraded → io_offline)
+        #   2026-10-06: je-li po light_after_close_s ještě `lock_hold.lock_unlocked` (zámek drží minimum od kódu, nebo dozvuk
+        #   release_grace_s ~0,9 s po vypnutí — kontakt dorazí až po pollu + SW debounce), zóna ZŮSTÁVÁ v CLOSED_CONFIRMATION ve fázi
+        #   `lock_wait` (lock_hold.lock_wait): jinak jako dřív SECURED — hudba stop, světlo kóje off (šatna light_until_moto_code drží,
+        #   dokud nepřišel kód motorky), venek ji nepočítá (`_sessions_active(lock_wait=False)` v tick_loop; aktualizace a přestavba HW
+        #   ji počítají). Znovuotevření = CLOSED_CONFIRMATION → DOOR_OPEN téže relace (světlo se rozsvítí, lock_wait=False), NIKDY
+        #   FORCED_OPEN. SECURED až po vypnutí zámku + dozvuku; pak je otevření opět násilné.
+        #   Kód motorky (light_off_after_moto_code) v CLOSED_CONFIRMATION se zavřenými dveřmi: `light_off_on_secure` → světlo šatny
+        #   zhasne s koncem doběhu (SECURED / vstup do lock_wait) místo držení maximum_session_s; ve fázi lock_wait zhasne hned.
     async def force_secure(self) -> None      # all_off pro zónu: hudba stop (pokud hraje tato zóna), světlo off, RED (nebo RED_BLINK při faultu), state dle door_closed
     async def set_light(self, on: bool) -> bool
     async def set_signal(self, signal: Signal) -> None      # ruční override (Velín)
@@ -565,9 +615,12 @@ class BoxController:
         # None (síť) → LocalResolver; invalid → register_failure; service → vydej service_token (10 min);
         # 2026-10-05: RPC `{error:'invalid_code', reason}` (`ResolveResult.from_rpc`, `RPC_REASON_ERRORS`; starší
         #   `replaced:true` = reason replaced) = kód, který už nic neotevře nebo začne platit do 24 h → chyba
-        #   z KNOWN_CODE_ERRORS (code_replaced | code_revoked | code_not_yet_valid | code_expired; offline shoda s prošlým
-        #   řádkem cache = code_expired, s řádkem platným do 24 h = code_not_yet_valid, dál než 24 h = neznámý) →
+        #   z KNOWN_CODE_ERRORS (code_replaced | code_revoked | code_not_yet_valid | code_expired | code_no_gear; offline shoda
+        #   s prošlým řádkem cache = code_expired, s řádkem platným do 24 h = code_not_yet_valid, dál než 24 h = neznámý) →
         #   ACCESS_DENIED info `detail.reason` + hláška (CZ `error_text`, jinak ui/i18n-codes.js), BEZ register_failure.
+        #   1.2.7: `reason:'revoked'` + `no_gear:true` (kód šatny stažený — rezervace nemá vybranou výbavu, SQL 20261005j)
+        #   = code_no_gear „Rezervace nemá zapůjčenou výbavu — šatnu nepotřebujete. Zadejte kód k motorce.“ (offline se
+        #   stažený kód v cache nevyskytuje = neznámý). V poli kódu protokolu (handover_submit) = code_mismatch bez trestu.
         #   Do lockoutu jde neznámý kód (INVALID_CODE_ERRORS = {invalid_code}) — DB záměrně neposílá důvod u zadrženého,
         #   vzdáleně budoucího ani cizího pobočkového kódu (žádné orákulum pro hádání); neznámý `reason` = invalid_code. Dřívější automaticky nahrazený kód živé rezervace
         #   DB přijme jako alias aktuálního (ok:true). Během lockoutu se i zákaznický pokus zapíše (ACCESS_DENIED reason
@@ -870,8 +923,8 @@ UI (`ui/index.html`, `ui/app.js`, `ui/style.css` + `ui/style-overlays.css`, `ui/
 `ui/diag.js` (§24), `ui/shell.js` (§27) a od 2026-09-25 `ui/i18n-handover.js` (skupiny `ho.*`/`g.*` přes `MG.i18n.extend`, načítá se
 hned po `i18n.js`), `ui/signature.js` (`MG.Signature`), `ui/handover.js` (`MG.Handover`), `ui/style-handover.css`, od 2026-09-29
 `ui/i18n-locker.js`, `ui/i18n-odometer.js`, `ui/odometer.js` (`MG.Odometer`, §30) a `ui/style-odometer.css`, od 2026-10-01
-`ui/i18n-pickup.js` (§31) — pořadí `<script>` v `index.html`: i18n, i18n-handover, i18n-locker, i18n-odometer, i18n-pickup,
-keyboard, signature, panel, diag, shell, handover, odometer, app; vanilla JS,
+`ui/i18n-pickup.js` (§31), od 2026-10-05 `ui/i18n-codes.js` — pořadí `<script>` v `index.html`: i18n, i18n-handover, i18n-locker,
+i18n-odometer, i18n-pickup, i18n-codes, keyboard, signature, panel, diag, shell, handover, odometer, app; vanilla JS,
 žádné CDN, offline). **Redesign 2026-09-10 pro široký nízký dotykový displej:** rozložení **100vw × 100vh, responzivní** —
 žádné pevné 1920×1080 ani `fit()` transformace (ověřeno 1920×1080, 2560×1080, 1920×720, 3840×1080, 1280×400; nic se
 nepřekrývá). **Světlé téma MotoGo24** v barvách webu/appky (zelená #74FB71, tmavá #1A2E22, pozadí #F1FAF7…); technické
@@ -927,11 +980,19 @@ Výdej až od 12:00 (2026-10-01, §31): `/api/pin` `error: 'pickup_too_early'` +
 přepisuje `MG.i18n.errorSubtitle` tak, že u `pickup_too_early` bere 2. argument jako `release_at` (obecné cesty nikdy neukážou `{w}`).
 `ui/handover.js`: `submit` → `error: 'pickup_too_early'` → patička `#ho-msg` = titulek + text (`S.msg = {pickup: release_at}`,
 minuty ubíhají v `tickTimer`), podpis se neuložil, overlay zůstává.
+Kód, který existuje, ale teď neplatí (2026-10-05, `kiosk_resolve_code` `{ok:false, error:'invalid_code', reason}` — zpětně
+kompatibilní, starší jednotka hlásí „neplatný“): `reason` `replaced` (i starší `replaced:true`) | `revoked` | `not_yet_valid` |
+`expired` → `/api/pin` `error` `code_replaced` | `code_revoked` | `code_not_yet_valid` | `code_expired` (`RPC_REASON_ERRORS`);
+**od 1.2.7** navíc příznak `no_gear: true` (jen s `reason:'revoked'`; kód ŠATNY stažený, protože rezervace nemá vybranou
+výbavu — SQL `20261005g`/`20261005j`) → `error: 'code_no_gear'`. Neznámý `reason` = `invalid_code`. Vše BEZ PIN lockoutu
+(`KNOWN_CODE_ERRORS`, §12) → `#status` (error) titulek `et.<error>` + text `es.<error>` (slot `{s}` = telefon podpory) z
+`ui/i18n-codes.js` (8 jazyků, `MG.i18n.extend`, načítá se po `i18n-pickup.js`; česky `message` jednotky); `code_no_gear`:
+`et` „Šatnu nepotřebujete“, `es` „Rezervace nemá zapůjčenou výbavu — šatnu nepotřebujete. Zadejte kód k motorce.“
 Overlay `#handover` (modální, z-index mezi `#status` a `#service`; modul `MG.Handover` v `ui/handover.js`: `init({post, showStatus, getState})`, `onState(st)`,
 `rerender()`, `isVisible()`, `keys` pro fyzickou klávesnici; podpis `MG.Signature.create(el, {onStroke})` v `ui/signature.js`)
 se kreslí ze `st.handover.active` (§14): hlavička (`data`; popisky `ho.customer`/`ho.moto`/`ho.period`), řádky výbavy (ikona/název `g.helmet…gloves`,
 `ho.rider`/`ho.passenger`, chipy velikostí z `active.sizes[key]` s předvybranou `size`, na konci řady chip `✕ ho.notTaking` (2026-10-05, přepínač: `S.taken[gid]=false`
-→ řádek `.ho-row.off`, chip `.ho-chip.skip.on`; klepnutí na velikost → `taken=true`; stav `S.picks`/`S.taken` je klíčovaný identitou položky `gid = field || who:key`, NE indexem — `sync()` při změně `data.gear` (jednotka ho obnovuje ze sync `reconcile`, Velín mohl položku přidat) nové položky doplní jako převzaté a překreslí; stav přežije `rerender()`). **Od 1.2.5 (2026-10-05) výbava NAVÍC:** má-li zákazník přístup do šatny (`active.kind === 'accessories'` = protokol po zavření šatny, nebo rezervace s objednanou výbavou), krok 1 ukáže VŠECHNY druhy výbavy (řidič 5 + spolujezdec 5; `active.is_child` = jen řidič) — objednané předvybrané, ostatní ztlumené (`.ho-row.extra`, čárkovaný rámeček) a nepřevzaté, dokud zákazník nevybere velikost (pak převzato navíc, ✕ volbu vrátí); `S.bk[gid]` drží objednaná/navíc, aby resync (Velín položku přidal) nikdy neudělal z nově objednané položky odebrání. Rezervace BEZ objednané výbavy s přístupem do šatny („základní výbava v ceně“ bez velikostí ze starší appky) pustí „Pokračovat“ až po výběru aspoň jedné velikosti (`ho.pickTaken`); kdo si nic nevzal, dá „Zpět“ a kód motorky — protokol z kódu motorky bez výbavy jde rovnou na podpis. Bez zapůjčené výbavy a bez šatny `ho.noGear` v kroku 2 nad výbavou motorky — `#ho-own-gear`) + **vždy** skupina
+→ řádek `.ho-row.off`, chip `.ho-chip.skip.on`; klepnutí na velikost → `taken=true`; stav `S.picks`/`S.taken` je klíčovaný identitou položky `gid = field || who:key`, NE indexem — `sync()` při změně `data.gear` (jednotka ho obnovuje ze sync `reconcile`, Velín mohl položku přidat) nové položky doplní jako převzaté a překreslí; stav přežije `rerender()`). **Od 1.2.5 (2026-10-05) výbava NAVÍC:** má-li zákazník přístup do šatny (`active.kind === 'accessories'` = protokol po zavření šatny, nebo rezervace s objednanou výbavou), krok 1 ukáže VŠECHNY druhy výbavy (řidič 5 + spolujezdec 5; `active.is_child` = jen řidič) — objednané předvybrané, ostatní ztlumené (`.ho-row.extra`, čárkovaný rámeček) a nepřevzaté, dokud zákazník nevybere velikost (pak převzato navíc, ✕ volbu vrátí); `S.bk[gid]` drží objednaná/navíc, aby resync (Velín položku přidal) nikdy neudělal z nově objednané položky odebrání. Protokol, který vznikl zavřením šatny (`kind`/`kind_origin` accessories) a nemá objednanou výbavu, pustí „Pokračovat“ až po výběru aspoň jedné velikosti (`ho.pickTaken`, `needsPick`) — i po „Zpět“/nečinnosti a návratu kódem motorky: položka zůstává nevyřízená a drží `kind_origin` accessories (od 1.2.5), únik „Zpět + kód motorky“ tedy NEexistuje. Od 2026-10-05 (SQL `20261005g`) dostane kód šatny jen rezervace s vybranou výbavou (`_booking_needs_locker`: velikost helmy/bundy/kalhot/rukavic řidiče bez „vlastní výbavy“, boty řidiče nebo cokoli spolujezdce; navíc ZAPLACENÁ výbava v `booking_extras` i bez velikosti — web ji do 2026-10-05 dovolil zaplatit s „vyzkoušíte na místě“), takže krok 1 po šatně má objednané položky předvybrané; povinný výběr nastane jen u zaplacené výbavy bez velikosti (zákazník vybere, co si vzal — edge velikost zapíše) a jako pojistka (výbava z rezervace odebrána až po otevření šatny). Kdo šatnu neotevřel (rovnou kód motorky, `kind_origin` motorcycle), má s `needs_locker` / objednanou výbavou výbavu navíc jen nabídnutou a pokračuje bez výběru. Bez zapůjčené výbavy a bez šatny `ho.noGear` v kroku 2 nad výbavou motorky — `#ho-own-gear`) + **vždy** skupina
 „Výbava motorky“ (2026-09-28, zadání majitele: `ho.motoGear`, poznámka `ho.motoGearNote` „Najdete ji v motorce — v kufru nebo v tankvaku…“,
 řádky `me.*` = klíč k držáku mobilu, kotoučový zámek, záznam o nehodě, lékárnička, 2× reflexní vesta; **od 2026-10-02 jen informativně,
 bez zaškrtávání** — `form.moto_equipment[]` jde vždy celé s `checked:true`). **Od 2026-10-02 je protokol ve 2 krocích** (štítek
@@ -1153,7 +1214,27 @@ Třídy `SimRelayModule`, `SimShelly` použitelné v testech in-process (`await 
   protokolem a zámkem přejímky; okno diagnostiky = `invalid_code`; `_locker_row` ignoruje budoucí `release_at`; podpis protokolu
   s kódem téže rezervace před 12:00 → `pickup_too_early` bez trestu, cizí → `code_mismatch` + failure, po 12:00 otevře.
   `test_pins.py` (offline hradlo `release_at`), `test_api.py` (`ResolveResult.from_rpc` + `release_at`), `test_webserver.py`
-  (`i18n-pickup.js` mezi `i18n-odometer.js` a `keyboard.js`).
+  (`i18n-pickup.js` mezi `i18n-odometer.js` a `keyboard.js`). Tamtéž (2026-10-05) `reason` z RPC → KNOWN_CODE_ERRORS bez lockoutu.
+- `test_lock_hold.py` (2026-10-06, 1.2.7): držený zámek otevřený v 5. s drží do 60. s (min_hold); zavřeno ve 20. s → CLOSED_CONFIRMATION
+  až do vypnutí zámku, znovuotevření ve 45. s = stejná relace (žádný FORCED_OPEN), po 60. s zámek off, po dozvuku 0,9 s SECURED a otevření = forced_open;
+  bez otevření OPEN_TIMEOUT „do 60 s“ (door_open_timeout_s 30) + zámek off; door_open_timeout_s 90 → drží do otevření; `lock_hold_min_s: 0`
+  = chování do 1.2.5; impulzní zámek beze změny; all_off / io_offline / neúspěšný nový grant zámek vypnou; 2. kód v okně = nové minimum;
+  `hold_lock_ms` 61 s; rozsah 0–600 v `validate_hardware` + řádek protokolu. `test_zone.py` (starý test držení) s `lock_hold_min_s: 0`.
+  `test_lock_hold_window.py` (review 2026-10-06): 2. kód v okně + dveře zatažené během hudby → DOOR_OPEN b-2 (i při selhání hold
+  `lock_failed` bez FORCED_OPEN); dozvuk po vypnutí zámku (kontakt v 60,4 s = stejná relace); `lock_wait` s výchozím Velínem
+  (light 0 / music 10) = hudba i světlo off hned po zavření, venek zónu nepočítá; šatna: kód motorky ve 42. s zhasne hned, v doběhu
+  zhasne s jeho koncem i po znovuotevření; `lock_held_since` = čas před zápisem cívky.
+- `test_music_restart.py` (2026-10-06): kód i pozdní otevření volají `play_zone(..., restart=True)`; selector i multi přetočí pozastavený
+  playlist před play a při 2. kódu jen přetočí (bez fade); ruční start / venek nepřetáčí; čerstvě načtený playlist nepřetáčí;
+  `MpvPlayer.rewind` = `playlist-pos 0` / `seek 0 absolute`.
+- `test_music_edl.py` (2026-10-06): `normalize_end_s`; obsah EDL (cesta s čárkou/diakritikou, délka v B); `end_s` → EDL bez nového
+  stahování + `on_changed`, změna / zrušení konce, index přežije restart, změna `sort_order` taky `on_changed`; úklid (cizí EDL, EDL
+  skladby bez `end_s`, `.part`, odebraná skladba); chyba zápisu → celá skladba (a trvalá chyba nevolá `on_changed` znovu); soubor
+  skladby s příponou `.edl` se nikdy nepřepíše ani nesmaže. Integrace s reálným mpv `--ao=null` přes IPC
+  (přeskočí se bez mpv/ffmpeg): 10 s tón → EDL 4 s má `duration` 4, `seek 0 absolute`, `playlist-pos 0` mezi dvěma EDL, smyčka.
+- `test_code_no_gear.py` (2026-10-05, 1.2.7): `from_rpc` `no_gear:true` (+ `reason` revoked / bez reason) → `code_no_gear`, jinak
+  beze změny (false, „true“ jako text, jiný reason, jiná chyba než invalid_code); `code_no_gear` v KNOWN, ne v INVALID; česká hláška;
+  N+2 pokusů bez lockoutu (ACCESS_DENIED info, reason `code_no_gear`); v poli kódu protokolu `code_mismatch` bez PIN_INVALID.
 
 ---
 
@@ -1191,12 +1272,17 @@ ext, size, sort_order, updated_at}]}`** — jen `is_active`, ORDER BY target, so
 = čas SOUBORU** (`storage.objects.updated_at` LEFT JOIN dle `name = file_path`, fallback `created_at` řádku) — jednotka podle
 něj stahuje znovu, takže přejmenování / přesun / změna pořadí soubor nemění a nic nestahuje; `music.updated_at` =
 `max(updated_at)` řádků (jakákoli změna metadat, pro Velín/diagnostiku). Režim audia (selector|multi) NENÍ sloupec —
-je součástí HW mapy `branch_kiosk_config.hardware.audio.mode`.
+je součástí HW mapy `branch_kiosk_config.hardware.audio.mode`. **`20261006a_branch_music_track_end.sql`** (2026-10-06):
+`branch_music_tracks.end_s numeric` (NULL = celá skladba, CHECK `0 < end_s <= 7200`) a `music.tracks[].end_s` v `kiosk_sync_config`
+— jednotka ≥ 1.2.7 hraje jen 0 … end_s přes EDL (§7a), soubor se nemění.
 
 **`supabase/migrations/20260925a_locker_codes_own_gear.sql` + `20260925b_kiosk_handover_protocol.sql`** (2026-09-25, vedený tok
 šatna → protokol → motorka, §28; detail v `SUPABASE_BACKEND_STATE_*.md`). Pro jednotku závazné: (a) kód `accessories` vzniká jen
-když `_booking_needs_locker(booking)` (půjčená výbava řidiče / boty / výbava spolujezdce; `bookings.own_gear`), jinak řádek
-`is_active=false, withheld_reason='Vlastní výbava'` → kiosk dostane `invalid_code`; (b) **`kiosk_resolve_code` v3** — u zákaznického
+když `_booking_needs_locker(booking)` (půjčená výbava řidiče / boty / výbava spolujezdce; `bookings.own_gear`; od 2026-10-05
+`20261005g` jen s VYBRANOU velikostí nebo ZAPLACENOU výbavou v `booking_extras` (ta i bez velikosti → po šatně povinný výběr
+velikosti, §16) — `own_gear=false` bez výbavy = bez šatny), jinak řádek
+`is_active=false, withheld_reason='Vlastní výbava'` → kiosk dostane `invalid_code` (už odeslaný a později stažený kód šatny:
+`reason:'revoked', no_gear:true`, `20261005j` → jednotka ≥ 1.2.7 `code_no_gear`, §16); (b) **`kiosk_resolve_code` v3** — u zákaznického
 kódu navíc `protocol: _kiosk_protocol(booking_id)` = `{booking_id, required (filled_at IS NULL), filled_at, needs_locker,
 gear_collected_at, prompted_at, is_child (motorcycles.license_required='N'), data: {customer_name (jméno + iniciála, nikdy NULL),
 moto_model, moto_spz, start_date, end_date, mileage, gear: [{key: helmet|jacket|pants|boots|gloves, who: rider|passenger, field:
@@ -1397,7 +1483,7 @@ problems[≤20], warnings[≤20], hosts, internet, checks}`.
   (změny syrové DI od startu), unlocks_since_start:int, contact_last_change_s, contact_inputs[8], contact_same_as_unused:bool
   (2026-09-27: nálezy `contact` s hint `contact_closed_zero` = closed_level 0 → fail; `contact_stuck` = 0 změn po ≥ 1 otevření zámku → fail,
   po ≥ 1 h bez otevření warn; ZoneStatus nese contact_changes/contact_last_change_s/unlocks_since_start), io_problems[], lock{configured,
-  module_online, coil_off:bool|null} (read_coils — JEN ČTENÍ), tested, skipped_reason, light, signal, audio (bool|null),
+  module_online, coil_off:bool|null, held:bool} (read_coils — JEN ČTENÍ; `held` = zámek bez paměti právě drží po kódu, 2026-10-06), tested, skipped_reason, light, signal, audio (bool|null),
   shelly{red{on, brightness}|null, green{…}|null, expected: red|green|off|…, matches:bool|null}, findings[{key, status, message, dev?,
   ch?}], problems[str] (= messages)}`. **Bezpečnost HW testu** (`zc.test_sequence()`: světlo ON → zelená 1 s → `finally` obnova
   signálu i světla → tón 3 s; `audio.test_tone` tón zastaví i při zrušení) — kontroly v tomto pořadí dávají `skipped_reason`:
@@ -1405,7 +1491,7 @@ problems[≤20], warnings[≤20], hosts, internet, checks}`.
   vrátil `{error:'busy'}`) · `io_offline` (`zc.io_ready()` False) · `timeout` (`time_left() < ZONE_TEST_BUDGET_S = 15 s` → test se vůbec
   nespustí; nebo test nedoběhl do `ZONE_TEST_TIMEOUT_S = 30 s` — běží pod `asyncio.shield`, dokončí se na pozadí, nález `test` warn).
   **Zámek se NIKDY nespíná.** `audio = None`, když reproduktor hraje jinde. `findings.key`: `contact` (modul nečte vstup / nenastaven /
-  program × modul nesouhlasí — fail), `lock` (nenastaven / modul offline / relé SEPNUTÉ v klidu — fail), `fault` (io_offline fail, jinak
+  program × modul nesouhlasí — fail), `lock` (nenastaven / modul offline / relé SEPNUTÉ v klidu — fail; ne když `held`), `fault` (io_offline fail, jinak
   warn), `io` (fail), `test` (warn), `light` (fail, + `dev`, `ch`), `signal`, `audio` (fail), `shelly` (Light.GetStatus neodpovídá /
   stav ≠ `signals.current(zone)` — fail; blikání → `matches None`).
 - `outdoor` (2026-09-11, `diag_outdoor.py`; krok `zones` po smyčce zón — i bez dveřních zón — jen když `ctrl.outdoor.cfg.configured`,

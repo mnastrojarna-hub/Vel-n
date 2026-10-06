@@ -177,8 +177,9 @@ export function AddressBlock({ label, method, address, branchName, lat, lng, fee
   )
 }
 
-// Důvod zadržení kódu šatny u rezervace s vlastní výbavou (zapisuje DB trigger _sync_locker_code) —
-// není to chyba ani „zadržený“ kód, jen informace, že šatna se nevydává.
+// Důvod zadržení kódu šatny u rezervace bez zapůjčené výbavy (zapisuje DB trigger _sync_locker_code; hodnota
+// v DB — NEMĚNIT) — není to chyba ani „zadržený“ kód, jen informace, že šatna se nevydává. Obsluze se ukazuje
+// „Bez zapůjčené výbavy“: vlastní výbava i „nic nevybral“ (20261005g).
 const OWN_GEAR_REASON = 'Vlastní výbava'
 
 // `gateCode` = kód schránky s klíčem od vjezdové brány pobočky motorky (branch_gate_access, 2026-10-04) — jen pobočka
@@ -189,9 +190,9 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null }) {
   const motoCode = pickDoorCode(doorCodes, 'motorcycle')
   const gearCode = pickDoorCode(doorCodes, 'accessories')
   // Kód šatny dostane jen ten, kdo má v šatně co vyzvednout (§0 návrhu). Bez aktivního kódu šatny:
-  // vlastní výbava (příznak own_gear nebo zadržený řádek) → text místo pomlčky
+  // vlastní výbava (příznak own_gear nebo zadržený řádek) nebo žádný řádek šatny (bez nároku) → text místo pomlčky
   const gearActive = !!gearCode?.is_active
-  const ownGearNoLocker = !gearActive && (b.own_gear === true || gearCode?.withheld_reason === OWN_GEAR_REASON)
+  const ownGearNoLocker = !gearActive && (b.own_gear === true || gearCode?.withheld_reason === OWN_GEAR_REASON || !gearCode)
   const liveCodes = doorCodes.filter(c => c.is_active)
   const forState = liveCodes.length ? liveCodes : doorCodes
   const allSent = forState.every(c => c.sent_to_customer)
@@ -219,7 +220,7 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null }) {
             {gearActive
               ? <div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{gearCode.door_code}</div>
               : ownGearNoLocker
-                ? <div className="text-sm font-extrabold" style={{ color: '#b45309' }} title="Zákazník má vlastní výbavu (žádná půjčená výbava řidiče, boty ani výbava spolujezdce) — kód šatny se nevydává a šatna mu nejde otevřít. Změní se sám při změně výbavy nebo volby „Vlastní výbava“ v úpravě rezervace.">Vlastní výbava — bez kódu šatny</div>
+                ? <div className="text-sm font-extrabold" style={{ color: '#b45309' }} title="Zákazník nemá zapůjčenou výbavu (vlastní výbava nebo nic nevybral — žádná velikost výbavy řidiče, boty ani výbava spolujezdce) — kód šatny se nevydává a šatna mu nejde otevřít. Kód šatny vznikne sám, až zákazník zadá velikost výbavy (appka / web → Upravit rezervaci → Výbava); přepínač „Vlastní výbava: Ano“ kód šatny stáhne.">Bez zapůjčené výbavy — bez kódu šatny</div>
                 : <div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>—</div>}
           </div>
           {gateCode && motoCell}

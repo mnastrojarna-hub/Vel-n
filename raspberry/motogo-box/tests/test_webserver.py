@@ -23,7 +23,7 @@ class FakeAudio:
         self.playing_zone: int | None = None
         self.channels: list[str] = []
 
-    async def play_zone(self, zone: int) -> bool:
+    async def play_zone(self, zone: int, track: int | None = None, restart: bool = False) -> bool:
         self.playing_zone = zone
         return True
 

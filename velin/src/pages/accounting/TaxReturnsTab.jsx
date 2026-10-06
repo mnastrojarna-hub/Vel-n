@@ -126,7 +126,7 @@ export default function TaxReturnsTab() {
         vat_amount: 0,
         total: taxAfterDiscount,
         status: 'prepared',
-      }, { onConflict: 'type,period_from' }).catch(() => {})
+      }, { onConflict: 'type,period_from' }).then(() => {}, () => {})   // builder nemá metodu catch → then(ok, err), best-effort
 
       await load()
     } catch (e) {

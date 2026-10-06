@@ -109,24 +109,29 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       const customerSig = custSig.current?.toDataURL() || null
       if (!customerSig) { setError('Chybí podpis nájemce — podepište se prosím perem.'); setSaving(false); return }
       const operatorSig = operSig.current?.toDataURL() || null
-      // Skutečnost z protokolu propíšeme do rezervace PŘED uložením protokolu — UPDATE
-      // *_size sloupců spustí trigger gear_shortage_on_booking → přepočet deficitů v Logistice zboží.
-      // Zaškrtnutá položka se změněnou velikostí → nová velikost. NEZAŠKRTNUTÁ položka (zákazník si
-      // ji nevzal) → NULL = položka z rezervace odebrána; historii (gear_changes from→null) zapíše
-      // DB trigger track_booking_content_changes (admin). Ceny / booking_extras se NEMĚNÍ.
+      // Skutečnost z protokolu propíšeme do rezervace — UPDATE *_size sloupců spustí trigger
+      // gear_shortage_on_booking → přepočet deficitů v Logistice zboží.
+      // Zaškrtnutá položka se změněnou velikostí → nová velikost PŘED uložením protokolu. NEZAŠKRTNUTÁ
+      // položka (zákazník si ji nevzal) → NULL = položka z rezervace odebrána, ale až PO úspěšném uložení
+      // protokolu (níže) — kdyby uložení selhalo, výbava v rezervaci nesmí zmizet. Historii (gear_changes
+      // from→null) zapíše DB trigger track_booking_content_changes (admin). Ceny / booking_extras se NEMĚNÍ.
+      const removedUpd = {}
       if (!isDamage) {
         const upd = {}
         accessories.forEach(a => {
           if (!a.field) return
-          if (!a.checked) upd[a.field] = null
+          if (!a.checked) removedUpd[a.field] = null
           else if (a.size && a.size !== a.origSize) upd[a.field] = a.size
         })
-        if (Object.keys(upd).length > 0) {
+        const hasSizeUpd = Object.keys(upd).length > 0
+        if (hasSizeUpd || (selfService && Object.keys(removedUpd).length > 0)) {
           // Samoobsluha: stejný guard jako edge — podepsal-li zákazník mezitím na displeji / v appce,
           // jeho protokol je závazný a výbava v rezervaci se z Velína už nemění (0 zasažených řádků).
-          let q = supabase.from('bookings').update(upd).eq('id', bookingId)
+          // Jen odebrání bez změny velikosti → guard ověří select (zápis NULL až po uložení protokolu).
+          let q = hasSizeUpd ? supabase.from('bookings').update(upd) : supabase.from('bookings').select('id')
+          q = q.eq('id', bookingId)
           if (selfService) q = q.is('handover_protocol_filled_at', null)
-          const { data: rows, error: sErr } = await q.select('id')
+          const { data: rows, error: sErr } = await (hasSizeUpd ? q.select('id') : q)
           if (sErr) throw new Error('Propsání výbavy z protokolu (změna velikosti / odebrání položky) do rezervace selhalo: ' + sErr.message)
           if (selfService && !rows?.length) {
             setError('Předávací protokol už je podepsán (aplikace / displej pobočky) — výbava v rezervaci se nemění a druhý protokol se nevystavuje. Podepsané PDF najdete v Dokumentech.')
@@ -145,6 +150,18 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       try { pdfPath = await uploadHtmlAsPdf(supabase, `generated/${bookingId}/${type}-${docId}.pdf`, html) } catch {}
       const { error: gErr } = await supabase.from('generated_documents').insert({ id: docId, template_id: null, booking_id: bookingId, customer_id: vars._customer_id, filled_data: filled, pdf_path: pdfPath })
       if (gErr) throw gErr
+      // Odebrané (odškrtnuté) položky → NULL až teď, po uloženém protokolu; u samoobsluhy PŘED zápisem
+      // handover_protocol_filled_at níže (stejný guard .is(null) jako výše). Protokol už existuje → chyba
+      // zápisu uložení neshodí (opakované uložení by vystavilo druhý protokol), ale operátor ji uvidí
+      // (alert před onSaved + `gearRemovalFailed` v info) — chyba i 0 zasažených řádků (RLS / guard).
+      let gearRemovalFailed = false
+      if (Object.keys(removedUpd).length > 0) {
+        let rq = supabase.from('bookings').update(removedUpd).eq('id', bookingId)
+        if (selfService) rq = rq.is('handover_protocol_filled_at', null)
+        const { data: rRows, error: rErr } = await rq.select('id')
+        gearRemovalFailed = !!rErr || !rRows?.length
+        if (gearRemovalFailed) console.warn('[ElectronicProtocolModal] removing unticked gear from booking failed:', rErr?.message || '0 rows updated')
+      }
       // Samoobslužná pobočka: podpis ve Velíně = stav protokolu na rezervaci. Trigger
       // trg_handover_signed_notify_kiosk pak jednotce pošle protocol_signed (overlay na
       // displeji zmizí / kóje se otevře) a appka přestane protokol vynucovat. `.is(null)`:
@@ -176,7 +193,8 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       if (info.customerEmail) {
         try { emailResult = await sendProtocolEmail(info) } catch (e) { emailResult = { sent: false, error: e.message || String(e) } }
       }
-      onSaved && onSaved({ ...info, emailSent: emailResult.sent, emailError: emailResult.error, protocolStateSet })
+      if (gearRemovalFailed) window.alert('Protokol je uložený, ale odškrtnutou výbavu (' + accessories.filter(a => a.field && !a.checked).map(a => a.label || a.field).join(', ') + ') se nepodařilo odebrat z rezervace — upravte výbavu v rezervaci ručně.')
+      onSaved && onSaved({ ...info, emailSent: emailResult.sent, emailError: emailResult.error, protocolStateSet, gearRemovalFailed })
     } catch (e) {
       // 23505 = unikátní index generated_documents_handover_once (protokol ze samoobsluhy už existuje)
       const dup = e?.code === '23505' || /handover_once/.test(e?.message || '')

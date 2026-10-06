@@ -163,7 +163,13 @@ async def drain_log_tasks() -> None:
 
 
 # ─── end-to-end ──────────────────────────────────────────────────────────────
-async def test_box_controller_end_to_end(sim: Sim, tmp_path) -> None:
+async def test_box_controller_end_to_end(sim: Sim, tmp_path, monkeypatch) -> None:
+    # mpv „chybí“ i tam, kde je nainstalované (RPi, vývojový stroj): falešné mpv hned skončí → dummy režim přehrávače
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    (fake_bin / "mpv").write_text("#!/bin/sh\nexit 1\n")
+    (fake_bin / "mpv").chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}")
     data_dir = tmp_path / "data"
     (data_dir / "music").mkdir(parents=True)
     hw_file = str(tmp_path / "hardware.yaml")

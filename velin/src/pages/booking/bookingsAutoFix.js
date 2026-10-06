@@ -90,7 +90,7 @@ async function _autoActivateReserved() {
           type: 'docs_missing_reminder',
           channel: 'system',
           message: 'Rezervace nemůže být aktivována — chybí doklady (řidičský průkaz). Nahrajte prosím doklady v aplikaci MotoGo24.',
-        }).catch(() => {})
+        }).then(() => {}, () => {})   // builder nemá metodu catch → then(ok, err), best-effort
         // Trigger edge function pro WA/SMS/email (pokud existuje)
         supabase.functions.invoke('send-notification', {
           body: {

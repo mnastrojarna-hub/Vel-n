@@ -354,6 +354,8 @@ class Reservation {
   /// Vlastní výbava řidiče včetně odvození pro starší rezervace bez `own_gear`
   /// (NULL = všechny velikosti základní výbavy řidiče prázdné) — stejné
   /// pravidlo jako DB `_booking_needs_locker` (boty/spolujezdec se řeší zvlášť).
+  /// Nárok na šatnu ale od 2026-10-05 vyžaduje i aspoň jednu vybranou velikost
+  /// (own_gear=false bez velikostí = bez šatny) — viz `ResPickupProcedure.needsLocker`.
   bool get ownGearEffective =>
       ownGear ??
       [helmetSize, jacketSize, pantsSize, glovesSize].every((s) => (s ?? '').trim().isEmpty);

@@ -315,6 +315,21 @@ class MpvPlayer:
     async def play(self) -> None:
         await self._safe("set_property", "pause", False)
 
+    async def rewind(self) -> bool:
+        """Na začátek (2026-10-06: hudba po zadání kódu vždy od začátku). Víc skladeb a právě jiná než první →
+        `playlist-pos 0` (nová skladba začne od 0); jinak `seek 0 absolute`. Jen IPC, které umí mpv 0.35 (bookworm)."""
+        if not self.alive or self.playlist_count <= 0:
+            return False
+        if self.playlist_count > 1:
+            try:
+                pos = await self.command("get_property", "playlist-pos")
+            except MpvError as exc:
+                log.warning("%s: playlist-pos nelze zjistit: %s", self.name, exc)
+                pos = None
+            if isinstance(pos, int) and pos != 0:      # -1 = nic nehraje → spustí první skladbu
+                return await self._safe("set_property", "playlist-pos", 0)
+        return await self._safe("seek", 0, "absolute")
+
     async def pause(self) -> None:
         await self._safe("set_property", "pause", True)
 

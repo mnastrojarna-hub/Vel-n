@@ -89,6 +89,12 @@ převléká déle, než parkuje motorku. Nastavuje se v řádku dveří („Vlas
 hodnota. Uloží se do `branch_doors.hw.timings`; změna se projeví hned a BEZ přestavby hardwaru (není v `hw_signature`), takže
 nezhasne světlo v právě obsazené kóji.
 
+**Zámek bez paměti drží aspoň 1 min (2026-10-06, zadání majitele):** s „Držet zámek do otevření“ zůstane zámek (magnet) po kódu
+odjištěný aspoň `timings.lock_hold_min_s` (Velín → Časování „Minimální držení zámku po kódu“, výchozí 60 s, 0–600; 0 = vypnout hned
+otevřením) — i když zákazník dveře mezitím otevře a zavře, může je v té minutě otevřít znovu (stejná relace, žádný poplach); relace
+skončí až po vypnutí zámku (+ dozvuk ~0,9 s). Hudba, světlo kóje a venek se po zavření řídí jako dřív („Hudba/Světlo po zavření“),
+kód motorky zhasne světlo šatny i v této minutě. Na otevření se čeká větší z „Timeout otevření dveří“ a tohoto minima. Impulzní zámek (IBFM) beze změny.
+
 **Režimy venku (2026-09-14):** venek se nastavuje JINAK než kóje 1–7 a šatna — ty se řídí společným časováním (sekce „Časování“),
 venek má v bloku „Venek“ vlastní dvojici přepínačů. **Venkovní světlo:** `Podle relací` (výchozí) \| **`NONSTOP`** (svítí pořád bez
 ohledu na zákazníky — pro venkovní prostor u pobočky; doběh se pak neuplatní) \| `Trvale zhasnuto` (nerozsvítí ani relace).
@@ -337,7 +343,11 @@ hraje i při návratu. Servisní otevření a ruční „Hudba ▶“ hrají cel
 (dokud běží aspoň jedna relace, + doběh `timings.music_after_close_s` po poslední). Cíl bez vlastních skladeb hraje
 **společnou** hudbu (Všechny kóje + ruční soubory přímo v `/var/lib/motogo/music`); nemá-li ani tu, nehraje nic
 (Velín u cíle ukáže „0 — nehraje nic“). Náhodné míchání (`audio.shuffle`), smyčka, fade-in/out; po zavření dveří
-doběh `music_after_close_s` (10 s).
+doběh `music_after_close_s` (10 s). **Od 2026-10-06 hraje hudba po každém kódu (i pozdním otevření) vždy OD ZAČÁTKU** — dřív
+pokračovala tam, kde se minule pozastavila; druhý kód během hraní ji jen přetočí na začátek (bez nového náběhu). Ruční „Hudba ▶“
+z Velína a venek pokračují jako dřív. **Zkrácení skladby na konci** (Velín → Hudba pobočky → Konec, např. 4:02 =
+`branch_music_tracks.end_s` 242 s): soubor se nemění ani znovu nestahuje, jednotka si vedle něj vytvoří `tracks/<id>.edl` a mpv
+přehraje jen 0 … 4:02 (dokola i od začátku); zrušený konec EDL smaže (`music_edl.py`, CONTRACT §7a).
 
 **Režimy (Velín → hardware → sekce Audio, `audio.mode`):**
 - `selector` (výchozí, dosavadní zapojení): 1 mono zesilovač + reléový přepínač reproduktorů — hraje vždy jen **jedna**

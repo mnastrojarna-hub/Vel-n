@@ -51,6 +51,45 @@ function newId() {
   })
 }
 
+// ── Konec přehrávání skladby (branch_music_tracks.end_s, 2026-10-06; DB CHECK 0 < end_s ≤ 7200, NULL = celá) ──
+export const END_MAX_S = 7200
+export const END_MIN_S = 5   // pojistka Velína (DB bere > 0): kratší konec je skoro jistě překlep („4“ místo „4:00“)
+const pad2 = n => String(n).padStart(2, '0')
+// Sekundy → 'm:ss' / 'h:mm:ss' (desetiny zachová: 242.5 → '4:02.5'); null/neplatné → ''
+export function formatEndTime(sec) {
+  const v = sec == null || sec === '' ? NaN : Number(sec)
+  if (!Number.isFinite(v) || v <= 0) return ''
+  const whole = Math.floor(v)
+  const frac = Math.round((v - whole) * 1000) / 1000
+  const s = whole % 60, m = Math.floor(whole / 60) % 60, h = Math.floor(whole / 3600)
+  const ss = pad2(s) + (frac > 0 ? String(frac).slice(1) : '')
+  return h > 0 ? `${h}:${pad2(m)}:${ss}` : `${Math.floor(whole / 60)}:${ss}`
+}
+// Text z políčka → { value: sekundy | null (prázdné = celá skladba) } nebo { error }.
+// Přijímá 'm:ss' / 'h:mm:ss' (desetiny jen za sekundami: '4:02.5', čárka i tečka) a CELÉ sekundy ('242').
+// Desetinné číslo bez dvojtečky ('4.02', '4,02') odmítne — česky se tak píše čas („10.30“) a uložilo by se 4,02 s.
+export function parseEndTime(text) {
+  const t = String(text ?? '').trim().replace(',', '.')
+  if (t === '') return { value: null }
+  const dec = /^(\d+)\.(\d+)$/.exec(t)
+  if (dec) {
+    const guess = dec[2].length === 2 && Number(dec[2]) < 60 ? `Myslíte ${Number(dec[1])}:${dec[2]}? ` : ''
+    return { error: `${guess}Čas zadejte s dvojtečkou jako m:ss (např. 4:02) nebo v celých sekundách (242).` }
+  }
+  const m = /^(?:(\d+):)?(?:(\d+):)?(\d+(?:\.\d+)?)$/.exec(t)
+  const bad = { error: 'Konec zadejte jako m:ss (např. 4:02) nebo v celých sekundách; prázdné = celá skladba.' }
+  if (!m) return bad
+  const parts = [m[1], m[2], m[3]].filter(x => x != null).map(Number)
+  if (parts.length > 1 && parts[parts.length - 1] >= 60) return bad
+  if (parts.length === 3 && parts[1] >= 60) return bad
+  // Zaokrouhlit PŘED kontrolou rozsahu — '0.0004' by jinak prošlo a do DB šla 0 (porušení CHECK end_s > 0)
+  const v = Math.round(parts.reduce((acc, x) => acc * 60 + x, 0) * 1000) / 1000
+  if (!(v >= END_MIN_S) || v > END_MAX_S) {
+    return { error: `Konec musí být mezi ${formatEndTime(END_MIN_S)} a ${formatEndTime(END_MAX_S)} (m:ss, např. 4:02); prázdné = celá skladba.` }
+  }
+  return { value: v }
+}
+
 // ── Cíle ──
 const isDoorObj = d => d && typeof d === 'object'
 export function doorTargetOf(door) { return `door:${door.id}` }

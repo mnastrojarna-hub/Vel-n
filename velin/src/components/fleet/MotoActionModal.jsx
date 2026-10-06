@@ -72,7 +72,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       // RPC admin_move_motorcycle (audit v DB); mezi obslužnou ↔ samoobslužnou se zeptá na stav tachometru
       const moved = await moveMotos({ motos: [moto], branchId: selectedBranch, branchName: target?.name, askOdometer, note: 'Velín — správa motorky' })
       if (!moved) return   // zrušeno — nic se nepřesunulo
-      setSuccess(`Přesunuto na ${target?.name} · zákazníkům s rezervací byly vygenerovány nové kódy a znovu odeslány`); refresh()
+      setSuccess(`Přesunuto na ${target?.name} · kódy rezervací zůstávají (nové jen při kolizi), zákazníci s vydanými kódy dostali zprávu s novou pobočkou`); refresh()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 

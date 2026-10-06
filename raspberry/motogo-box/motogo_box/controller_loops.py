@@ -237,7 +237,7 @@ async def tick_loop(ctrl: "BoxController") -> None:
                 handover.tick()
             except Exception:  # noqa: BLE001
                 log.exception("handover: tick selhal")
-        active = ctrl._sessions_active()  # noqa: SLF001
+        active = ctrl._sessions_active(lock_wait=False)  # noqa: SLF001 — zóna čekající jen na zámek venek nedrží
         sync_channels = getattr(ctrl.audio, "sync_channels", None)   # multi: kanál venek dle běžících relací
         if sync_channels is not None:
             try:

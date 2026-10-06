@@ -13,6 +13,9 @@ from typing import TYPE_CHECKING
 
 from . import music_phase
 from .io_devices import FLASH_STEP_MS
+# Držený zámek bez paměti (minimum lock_hold_min_s, 2026-10-06) — re-export pro zone.py a testy.
+from .lock_hold import (MAX_HOLD_MS, hold_lock_ms, lock_hold_min_s, lock_unlocked, lock_wait,  # noqa: F401
+                        open_timeout_s, release_lock, release_lock_if_due)
 from .models import EventKind, Signal, ZoneState, now_iso
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -52,24 +55,6 @@ async def service_unlock_locked(zc: "ZoneController", source: str) -> tuple[bool
     return True, "ok"
 
 
-MAX_HOLD_MS = 0xFFFF * FLASH_STEP_MS   # strop HW časovače flash-on (~109 min)
-
-
-def hold_lock_ms(zc: "ZoneController") -> int:
-    """Doba držení zámku = timeout otevření dveří (+1 s rezerva), v mezích HW časovače modulu."""
-    return int(min(MAX_HOLD_MS, max(FLASH_STEP_MS, (int(zc.timings.door_open_timeout_s) + 1) * 1000)))
-
-
-async def release_lock(zc: "ZoneController", why: str) -> None:
-    """Vypne držený zámek (lock_hold_until_open): po otevření dveří, timeoutu, all-off / poruše."""
-    if not zc.lock_held:
-        return
-    zc.lock_held = False
-    lock = zc.zone.hw.lock
-    if lock is not None and not await zc.io.set(lock, False):
-        log.warning("Zóna %s: vypnutí drženého zámku (%s) nepotvrzeno — vypne HW časovač modulu", zc.number, why)
-
-
 MUSIC_WAIT_S = 1.5     # na start hudby se před pulzem zámku čeká nejdéle takto dlouho (zbytek doběhne na pozadí)
 
 
@@ -93,7 +78,9 @@ async def start_music(zc: "ZoneController", detail: dict) -> None:
     track = getattr(zc, "music_track", None)
     if track:
         detail["music_track"] = track          # Hlášení a chyby: která skladba hrála (1 uvítací / 2 návrat)
-    task = asyncio.ensure_future(zc.audio.play_zone(zc.number, track) if track else zc.audio.play_zone(zc.number))
+    # restart (2026-10-06, zadání majitele): po kódu hraje hudba VŽDY od začátku — i když už hraje (2. kód v doběhu)
+    # nebo zůstala pozastavená uprostřed skladby. Ruční „Hudba ▶“ z Velína a kanál venku hrají dál bez přetáčení.
+    task = asyncio.ensure_future(zc.audio.play_zone(zc.number, track, restart=True))
     try:
         detail["music"] = bool(await asyncio.wait_for(asyncio.shield(task), MUSIC_WAIT_S))
     except asyncio.TimeoutError:
@@ -108,6 +95,9 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
                        extra: dict | None = None) -> tuple[bool, str]:
     """Kroky 6–12 §9 po ověřených podmínkách: světlo, zelená, hudba, HW pulz zámku, událost, WAITING_FOR_OPEN.
     `extra` = klíče navíc do detailu ACCESS_GRANTED (fáze / stav tachometru, odometer.py)."""
+    # 2. kód v doběhu, kdy zámek předchozí relace ještě drží (lock_hold_min_s): dveře jdou legálně otevřít i během
+    # pomalých kroků níže — takové otevření NENÍ door_open ani FORCED_OPEN, přístup pokračuje (→ DOOR_OPEN).
+    was_unlocked = zc.state == ZoneState.CLOSED_CONFIRMATION and lock_unlocked(zc)
     zc.reset_session()                      # ukončí doběh předchozí relace (CLOSED_CONFIRMATION)
     zc.code_kind, zc.source = kind, source
     zc.latch_released, zc._late_booking = False, None
@@ -124,15 +114,20 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
     # neovlivňuje otevření dveří; ruční „Hudba ▶“ z Velína funguje dál (servisní zkouška).
     await start_music(zc, detail)
     # Znovu po pomalých krocích: dveře mezitím otevřené (bez odjištění) nebo modul offline → bez pulzu.
-    reason = "door_open" if zc.door_closed is not True else ("io_offline" if not zc.io_ready() else "")
+    held_open = was_unlocked and zc.door_closed is False
+    reason = "door_open" if zc.door_closed is not True and not held_open else ("io_offline" if not zc.io_ready() else "")
     ok = False
     if not reason:
         lock = zc.zone.hw.lock
         if zc.timings.lock_hold_until_open:
             # Zámek bez paměti (2026-09-26): pod napětím od kódu, dokud kontakt nehlásí otevřeno (zone.evaluate_locked
             # → io.set off), nejdéle door_open_timeout_s (HW časovač modulu = pojistka i při pádu procesu).
+            # 2026-10-06: drží aspoň lock_hold_min_s od kódu i po otevření (release_lock_if_due / tick_locked).
+            # Čas PŘED zápisem: HW časovač běží od zápisu cívky, ověření (read_coils + retry) trvá až ~3 s.
+            t0 = zc.clock()
             ok = lock is not None and await zc.io.hold(lock, hold_lock_ms(zc))
-            zc.lock_held = bool(ok)
+            if ok:
+                zc.lock_held, zc.lock_held_since = True, t0
         else:
             pulse_ms = int(zc.timings.lock_pulse_ms)
             # WAV645 flash-on běží v krocích po 100 ms (zaokrouhleno) — brána musí držet i tuto dobu.
@@ -146,11 +141,14 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
             zc.unlocks_since_start = getattr(zc, "unlocks_since_start", 0) + 1   # diagnostika: kontakt se po otevření musí změnit
     if not ok:
         log.error("Zóna %s: přístup neproveden (%s)", zc.number, reason)
+        await release_lock(zc, "přístup neproveden")   # zámek držený z předchozí relace (nový kód v doběhu)
         await zc.set_light(False)
         await zc.signal(Signal.RED)
         await zc.music_stop()
         zc.state = ZoneState.SECURED             # doběh předchozí relace byl právě ukončen
         zc.reset_session()
+        if held_open:   # dveře otevřené, dokud zámek předchozí relace držel → pokračování (pozdní otevření), ne poplach
+            zc.latch_released, zc._late_booking = True, (booking_id, kind, source)
         await zc.evaluate_locked()               # otevřené dveře / offline modul → příslušná porucha
         return False, reason
     zc.booking_id = booking_id
@@ -164,11 +162,17 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
 
 
 async def tick_locked(zc: "ZoneController") -> None:
-    """Časové přechody: timeout otevření, overtime, doběh hudby/světla po zavření."""
+    """Časové přechody: držený zámek, timeout otevření, overtime, doběh hudby/světla po zavření."""
     now = zc.clock()
     t = zc.timings
+    if zc.lock_held and zc.state != ZoneState.WAITING_FOR_OPEN:
+        if zc.state in (ZoneState.DOOR_OPEN, ZoneState.CLOSED_CONFIRMATION):
+            await release_lock_if_due(zc, "min_hold")     # minimum od kódu uplynulo (dveře už otevřené)
+        else:
+            await release_lock(zc, "konec relace")        # pojistka: mimo relaci zámek nikdy nedrží
     if zc.state == ZoneState.WAITING_FOR_OPEN and zc.waiting_since is not None:
-        if now - zc.waiting_since > t.door_open_timeout_s:
+        limit = open_timeout_s(zc)
+        if now - zc.waiting_since > limit:
             zc.state = ZoneState.SECURED         # nejdřív stav, teprve pak pomalé HW kroky
             await release_lock(zc, "timeout")
             # Zámek IBFM zůstává mechanicky odjištěný do prvního otevření (SPEC §2) → pozdní otevření
@@ -179,7 +183,7 @@ async def tick_locked(zc: "ZoneController") -> None:
             await zc.set_light(False)
             await zc.signal(Signal.RED)
             await zc.emit_event(EventKind.OPEN_TIMEOUT, success=False, level="warn",
-                                message=f"{zc.zone.display_name}: dveře nebyly otevřeny do {t.door_open_timeout_s} s")
+                                message=f"{zc.zone.display_name}: dveře nebyly otevřeny do {limit} s")
             zc.reset_session()
             await zc.evaluate_locked()           # dveře otevřené během pomalých kroků → pozdní otevření hned
     elif zc.state == ZoneState.DOOR_OPEN and zc.opened_at is not None:
@@ -190,10 +194,16 @@ async def tick_locked(zc: "ZoneController") -> None:
             zc.music_done = True
             await zc.music_stop()
         if elapsed >= t.light_after_close_s:
+            if lock_unlocked(zc):
+                # Zámek ještě drží minimum od kódu (+ dozvuk po vypnutí) → dveře jdou legálně znovu otevřít: relace trvá
+                # (znovuotevření = DOOR_OPEN téže relace, nikdy FORCED_OPEN), SECURED až potom; jinak jako po SECURED.
+                await lock_wait(zc)
+                return
+            off_now = zc.light_off_on_secure     # kód motorky přišel v doběhu → světlo šatny po SECURED nedržet
             zc.state = ZoneState.SECURED
             zc.reset_session()
             await zc.music_stop()
-            if zc.light_until_moto_code and zc.light_on:
+            if zc.light_until_moto_code and zc.light_on and not off_now:
                 zc.light_hold_since = now        # šatna: světlo drží, zhasne ho kód motorky (nebo pojistka níže)
             else:
                 await zc.set_light(False)

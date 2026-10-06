@@ -25,6 +25,7 @@ export const BRNO_DEFAULT_HARDWARE = {
   timings: {
     lock_pulse_ms: 800,
     lock_hold_until_open: true,  // 2026-09-26: zámek pod napětím od kódu do otevření dveří (max. timeout otevření)
+    lock_hold_min_s: 60,         // 2026-10-06: držený zámek (magnet) aspoň 60 s od kódu, i když se dveře otevřou dřív
     door_open_timeout_s: 30,
     door_close_debounce_ms: 1000,
     light_after_close_s: 0,      // kóje: světlo zhasne hned zavřením dveří (2026-09-25)
@@ -116,7 +117,7 @@ export const ZONE_REFS = [
     hint: 'Zelené signalizační světlo u těchto dveří (svítí během relace, bliká při překročeném čase): které Shelly a které jeho světlo (id 0–4).' },
 ]
 
-// Popisy polí editoru (sekce → pole). type: int | float | bool | list | text
+// Popisy polí editoru (sekce → pole). type: int | float | bool | list | text; volitelně min / max (rozsah int/float)
 // `hint` = vysvětlivka pro obsluhu Velína (bublina po najetí myší): CO to znamená, K ČEMU to slouží
 // a jaká je typická hodnota. Píše se lidsky, bez žargonu — nastavuje to i netechnický člověk.
 // Chování odpovídá jednotce: časování → zone.py / zone_access.py, polling → modbus.py a io_devices.py,
@@ -129,9 +130,11 @@ export const HW_SECTIONS = [
     { key: 'lock_pulse_ms', label: 'Pulz zámku', unit: 'ms', type: 'int',
       hint: 'Jak dlouho dostane elektrický zámek proud, aby odjistil dveře. Je to krátký impulz — zámek pak zůstane odjištěný mechanicky, dokud zákazník neotevře. Příliš krátký pulz dveře neotevře, příliš dlouhý zbytečně hřeje cívku. Typicky 800 ms.' },
     { key: 'lock_hold_until_open', label: 'Držet zámek do otevření', type: 'bool',
-      hint: 'Zapnuto: zámek dostává proud od zadání kódu, dokud dveřní kontakt nehlásí otevřeno (nejdéle „Timeout otevření dveří“) — zákazník má čas dojít ke dveřím. Pro zámky bez paměti (2026-09-26). Vypnuto: jen krátký impulz „Pulz zámku“ (zámek s pamětí, např. IBFM 9500).' },
+      hint: 'Zapnuto: zámek dostává proud od zadání kódu, dokud dveřní kontakt nehlásí otevřeno — vždy ale aspoň „Minimální držení zámku po kódu“ (nejdéle větší z hodnot „Timeout otevření dveří“ a „Minimální držení zámku po kódu“) — zákazník má čas dojít ke dveřím. Pro zámky bez paměti (2026-09-26). Vypnuto: jen krátký impulz „Pulz zámku“ (zámek s pamětí, např. IBFM 9500).' },
+    { key: 'lock_hold_min_s', label: 'Minimální držení zámku po kódu', unit: 's', type: 'int', min: 0, max: 600,
+      hint: 'Platí jen pro „Držet zámek do otevření“: zámek (magnet) zůstane odjištěný aspoň tuto dobu od zadání kódu, i když se dveře mezitím otevřou. Čekání na otevření dveří = větší z hodnot „Timeout otevření dveří“ a tato. 0 = zámek se vypne hned otevřením dveří. Rozsah 0–600 s, typicky 60 s (2026-10-06).' },
     { key: 'door_open_timeout_s', label: 'Timeout otevření dveří', unit: 's', type: 'int',
-      hint: 'Kolik sekund má zákazník na to, aby po zadání kódu opravdu otevřel dveře. Když je neotevře, relace se zruší, světlo a hudba zhasnou a stejný kód lze použít znovu. Typicky 30 s.' },
+      hint: 'Kolik sekund má zákazník na to, aby po zadání kódu opravdu otevřel dveře. Když je neotevře, relace se zruší, světlo a hudba zhasnou a stejný kód lze použít znovu. Se zapnutým „Držet zámek do otevření“ se čeká aspoň „Minimální držení zámku po kódu“. Typicky 30 s.' },
     { key: 'door_close_debounce_ms', label: 'Debounce zavření', unit: 'ms', type: 'int',
       hint: 'Jak dlouho musí dveřní kontakt hlásit „zavřeno“ v kuse, aby to jednotka uznala. Brání tomu, aby zadrnčení dveří nebo zákmit kontaktu předčasně ukončily relaci. Typicky 1000 ms.' },
     { key: 'light_after_close_s', label: 'Světlo po zavření', unit: 's', type: 'int',
@@ -236,7 +239,14 @@ export function textToField(field, text) {
   }
   if (t === '') return null
   const n = field.type === 'float' ? parseFloat(t.replace(',', '.')) : parseInt(t, 10)
-  return Number.isFinite(n) ? n : null
+  if (!Number.isFinite(n)) return null
+  if ((field.min != null && n < field.min) || (field.max != null && n > field.max)) return null
+  return n
+}
+
+// Povolený rozsah pole pro chybovou hlášku: ' (0–600)' | ''
+export function fieldRangeText(field) {
+  return field.min != null && field.max != null ? ` (${field.min}–${field.max})` : ''
 }
 
 // Sekce hardware sloučená s výchozími hodnotami (aby editor ukazoval všechna pole)

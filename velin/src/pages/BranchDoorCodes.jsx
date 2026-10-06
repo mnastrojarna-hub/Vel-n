@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { generateDoorCode, Spinner, EmptyState } from './BranchHelpers'
 
-// Důvod zadržení kódu šatny, který zapisuje DB trigger _sync_locker_code u rezervace s vlastní výbavou
+// Důvod zadržení kódu šatny, který zapisuje DB trigger _sync_locker_code u rezervace bez zapůjčené výbavy
+// (hodnota v DB — NEMĚNIT). Obsluze se ukazuje OWN_GEAR_LABEL: vlastní výbava i „nic nevybral“ (20261005g).
 const OWN_GEAR_REASON = 'Vlastní výbava'
+const OWN_GEAR_LABEL = 'Bez zapůjčené výbavy'
 
 // Má rezervace v šatně co vyzvednout? RPC booking_needs_locker (20260925a) — stejné pravidlo jako DB trigger
 // (půjčená výbava řidiče NEBO boty NEBO výbava spolujezdce). Když RPC v DB ještě není, chováme se jako
@@ -115,10 +117,10 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
     try {
       const upd = { is_active: true }
       // Kód šatny zadržený kvůli vlastní výbavě: aktivovat jde jen, když rezervace šatnu opravdu potřebuje
-      // (změna výbavy / own_gear ve Velíně). Jinak by zákazník bez výbavy dostal funkční kód k šatně.
+      // (zákazník mezitím zadal velikost výbavy). Jinak by zákazník bez výbavy dostal funkční kód k šatně.
       const ownGearRow = code.code_type === 'accessories' && code.withheld_reason === OWN_GEAR_REASON
       if (ownGearRow) {
-        if (!(await bookingNeedsLocker(code.booking_id))) { setError('Rezervace má vlastní výbavu — kód šatny nelze aktivovat. Nejdřív upravte výbavu / volbu „Vlastní výbava“ v rezervaci.'); return }
+        if (!(await bookingNeedsLocker(code.booking_id))) { setError('Rezervace je bez zapůjčené výbavy — kód šatny nelze aktivovat. Kód šatny vznikne sám, až zákazník zadá velikost výbavy (appka / web → Upravit rezervaci → Výbava).'); return }
         upd.withheld_reason = null
       }
       const { error: uErr } = await supabase.from('branch_door_codes').update(upd).eq('id', code.id)
@@ -130,7 +132,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
         await supabase.from('admin_messages').insert({
           user_id: code.bookings.user_id, booking_id: code.booking_id, title: 'Kód šatny',
           message: `Kód šatny byl obnoven: ${code.door_code}`, type: 'info',
-        }).catch(() => {})
+        }).then(() => {}, () => {})   // builder nemá metodu catch → then(ok, err), best-effort
       }
       onRefresh()
     } catch (e) {
@@ -282,7 +284,7 @@ function DoorCodeRow({ code, onDeactivate, onActivate, onResend, inactive, canAc
       {code.withheld_reason && (
         <span className="inline-block rounded-btn text-[8px] font-bold"
           style={{ padding: '2px 6px', background: '#fef3c7', color: '#b45309' }}>
-          Zadržen: {code.withheld_reason}
+          Zadržen: {code.withheld_reason === OWN_GEAR_REASON ? OWN_GEAR_LABEL : code.withheld_reason}
         </span>
       )}
       {!code.sent_to_customer && !inactive && (

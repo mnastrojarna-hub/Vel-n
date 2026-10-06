@@ -854,7 +854,7 @@ return [
                     [
                         'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => '3. Ausrüstung wählen',
-                        'text' => 'Fahrerausrüstung ist im Preis enthalten, Sozius-Ausrüstung gegen Aufpreis. Die Größe wählst du vor Ort.',
+                        'text' => 'Fahrerausrüstung ist im Preis enthalten, Sozius-Ausrüstung gegen Aufpreis. Hake sie bei der Reservierung an und wähle deine Größe.',
                     ],
                     [
                         'icon' => 'gfx/zaplat.svg',

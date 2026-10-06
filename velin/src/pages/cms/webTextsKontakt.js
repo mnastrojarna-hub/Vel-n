@@ -274,7 +274,7 @@ export const PAGE_REZERVACE = {
         { key: 'web.layout.rez.intro.title', label: 'Podnadpis „Jak rezervace funguje?"', default: 'Jak rezervace funguje?' },
         { key: 'web.layout.rez.intro.specific', label: 'Text 1 — konkrétní termín', type: 'textarea', default: 'Chcete <strong>konkrétní termín</strong>? Vyberte „libovolná dostupná motorka" a v kalendáři vyznačte datum — zobrazí se všechny volné motorky.' },
         { key: 'web.layout.rez.intro.bike', label: 'Text 2 — konkrétní motorka', type: 'textarea', default: 'Chcete <strong>konkrétní motorku</strong>? Vyberte ji ze seznamu — kalendář ukáže její dostupné termíny.' },
-        { key: 'web.layout.rez.intro.benefits', label: 'Text 3 — bez kauce, výbava zdarma', default: 'Bez kauce · výbava pro řidiče zdarma · velikost si vyberete v motopůjčovně' },
+        { key: 'web.layout.rez.intro.benefits', label: 'Text 3 — bez kauce, výbava zdarma', default: 'Bez kauce · výbava pro řidiče zdarma (zaškrtněte ji a vyberte velikost)' },
       ]
     },
     {
@@ -354,19 +354,19 @@ export const PAGE_REZERVACE = {
     {
       id: 'gear', label: 'Krok 5 — Výbava a velikosti (TEXTY)',
       fields: [
-        { key: 'web.layout.rez.gear.intro', label: 'Úvodní text', type: 'textarea', default: 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíte ji na místě.' },
+        { key: 'web.layout.rez.gear.intro', label: 'Úvodní text', type: 'textarea', default: 'Vyberte velikosti kliknutím na čtverečky níže.' },
         { key: 'web.layout.rez.gear.rider', label: 'Karta „Výbava řidiče" — název', default: 'Výbava řidiče' },
         { key: 'web.layout.rez.gear.riderSub', label: 'Karta „Výbava řidiče" — popis', default: 'Helma, bunda, rukavice, kalhoty' },
         { key: 'web.layout.rez.gear.riderFree', label: 'Štítek „v ceně · zdarma"', default: 'v ceně · zdarma' },
         { key: 'web.layout.rez.gear.riderOwn', label: 'Checkbox „Mám vlastní výbavu"', default: 'Mám vlastní výbavu — nepůjčuji' },
         { key: 'web.layout.rez.gear.passenger', label: 'Karta „Výbava spolujezdce" — název', default: 'Výbava spolujezdce' },
         { key: 'web.layout.rez.gear.passengerSub', label: 'Karta „Výbava spolujezdce" — popis', default: 'Helma, bunda, rukavice, kukla' },
-        { key: 'web.layout.rez.gear.passengerTip', label: 'Tooltip „Výbava spolujezdce"', type: 'textarea', default: 'Základní výbava pro spolujezdce: helma, bunda, rukavice a kukla. Velikost si vyberete kliknutím níže nebo na místě.' },
+        { key: 'web.layout.rez.gear.passengerTip', label: 'Tooltip „Výbava spolujezdce"', type: 'textarea', default: 'Základní výbava pro spolujezdce: helma, bunda, rukavice a kukla. Velikost si vyberete kliknutím níže.' },
         { key: 'web.layout.rez.gear.bootsRider', label: 'Karta „Boty pro řidiče" — název', default: 'Boty pro řidiče' },
         { key: 'web.layout.rez.gear.bootsRiderSub', label: 'Karta „Boty pro řidiče" — popis', default: 'Motocyklové boty (nejsou v základní výbavě)' },
         { key: 'web.layout.rez.gear.bootsPassenger', label: 'Karta „Boty pro spolujezdce" — název', default: 'Boty pro spolujezdce' },
         { key: 'web.layout.rez.gear.bootsPassengerSub', label: 'Karta „Boty pro spolujezdce" — popis', default: 'Motocyklové boty pro spolujezdce' },
-        { key: 'web.layout.rez.gear.sizeHintGear', label: 'Hint — výbava řidiče', default: '✅ Zaškrtněte výše pro výběr velikostí (jinak se vyzkouší na místě)' },
+        { key: 'web.layout.rez.gear.sizeHintGear', label: 'Hint — výbava řidiče', default: '✅ Zaškrtněte výše pro výběr velikostí' },
         { key: 'web.layout.rez.gear.sizeHintPassenger', label: 'Hint — výbava spolujezdce', default: '✅ Zaškrtněte výše a rozbalí se výběr velikostí spolujezdce' },
         { key: 'web.layout.rez.gear.sizeHintBoots', label: 'Hint — boty', default: '✅ Zaškrtněte výše a rozbalí se výběr velikosti bot' },
         { key: 'web.layout.rez.gear.sizeChoose', label: 'Štítek „vyber"', default: 'vyber' },

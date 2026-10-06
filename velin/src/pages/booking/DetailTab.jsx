@@ -23,6 +23,12 @@ function motoStatusDisplay(status, openLogs) {
   return base
 }
 
+function loadDoorCodes(bookingId, setDoorCodes) {
+  return supabase.from('branch_door_codes').select('*')
+    .eq('booking_id', bookingId).order('code_type').order('created_at', { ascending: false })
+    .then(({ data }) => { if (data) setDoorCodes(data) }, () => {})
+}
+
 export default function DetailTab({ booking, set, error, saving, actions, onAction, navigate, promoUsage, voucherUsed, onModify }) {
   const [sosIncidents, setSosIncidents] = useState([])
   const [bookingExtras, setBookingExtras] = useState([])
@@ -57,16 +63,18 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
 
   // Přístupové kódy VŽDY aktuální (2026-10-05, zadání majitele): načíst při otevření i po změně motorky a průběžně
   // přes realtime — dřív se načetly jen jednou a po změně motorky / přesunu / uvolnění kódu Velín ukazoval starý stav.
+  // Kanál je vázaný JEN na booking.id — se stejným názvem znovu založený kanál (dřív i při změně moto_id) realtime
+  // zastavil; změna motorky se řeší samostatným načtením níže.
   useEffect(() => {
     if (!booking?.id) return
-    const load = () => supabase.from('branch_door_codes').select('*')
-      .eq('booking_id', booking.id).order('code_type').order('created_at', { ascending: false })
-      .then(({ data }) => { if (data) setDoorCodes(data) }).catch(() => {})
-    load()
     const channel = supabase.channel(`booking-door-codes-${booking.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'branch_door_codes', filter: `booking_id=eq.${booking.id}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'branch_door_codes', filter: `booking_id=eq.${booking.id}` },
+        () => loadDoorCodes(booking.id, setDoorCodes))
       .subscribe()
     return () => { supabase.removeChannel(channel) }
+  }, [booking?.id])
+  useEffect(() => {
+    if (booking?.id) loadDoorCodes(booking.id, setDoorCodes)
   }, [booking?.id, booking?.moto_id])
 
   useEffect(() => {

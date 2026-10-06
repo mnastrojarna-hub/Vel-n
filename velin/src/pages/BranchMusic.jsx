@@ -11,6 +11,7 @@ import { fetchTracks, uploadTrack, updateTrack, deleteTrack, groupTracks, target
 
 const HINT = 'Po kódu kóje/šatny hraje dokola 1. skladba cíle (UVÍTACÍ) — i při opakovaném otevření během vyzvedávání; když zákazník přijde VRACET '
   + '(od prvního otevření rezervace uplynul čas „Hudba návratu po“ v Časování, výchozí 3 h), hraje 2. skladba (NÁVRAT). Pořadí měníte ▲▼; '
+  + 'pole „Konec“ u skladby zkrátí přehrávání (m:ss, prázdné = celá skladba; soubor se nemění); '
   + 'chybí-li cíli 1./2. skladba, vezme se ze Společné. Ruční „Hudba ▶“ hraje celý seznam. '
   + 'Každá kóje, šatna i venek může mít VLASTNÍ hudbu: zadání kódu kóje spustí hudbu té kóje, kód šatny hudbu šatny, venek hraje podle svého '
   + 'režimu (blok „Venek“). Cíl bez vlastních skladeb hraje společnou hudbu. Formát libovolný (mp3, wav, flac, ogg, m4a, aac, wma, aiff…) — nic se nepřekódovává. '
@@ -163,7 +164,7 @@ function BranchMusicInner({ branchId, doors, devices, now, onCommand }) {
           <div className="space-y-3">
             {groups.filter(g => g.items.length > 0 || g.target === 'all').map(g => (
               <TargetGroup key={g.target} group={g} groups={groups} doors={doors} busy={busy || uploading}
-                onMove={(i, dir) => move(g, i, dir)} onRename={(t, title) => patch(t, { title })}
+                onMove={(i, dir) => move(g, i, dir)} onRename={(t, title) => patch(t, { title })} onEnd={(t, end_s) => patch(t, { end_s })}
                 onToggle={t => patch(t, { is_active: !t.is_active })} onTarget={moveTarget} onDelete={remove} />
             ))}
           </div>
@@ -173,7 +174,7 @@ function BranchMusicInner({ branchId, doors, devices, now, onCommand }) {
   )
 }
 
-function TargetGroup({ group, groups, doors, busy, onMove, onRename, onToggle, onTarget, onDelete }) {
+function TargetGroup({ group, groups, doors, busy, onMove, onRename, onEnd, onToggle, onTarget, onDelete }) {
   const s = summaryFor(group.target, groups)
   const unknown = group.target !== 'all' && group.target !== 'outdoor' && !(doors || []).some(d => `door:${d.id}` === group.target)
   return (
@@ -191,7 +192,7 @@ function TargetGroup({ group, groups, doors, busy, onMove, onRename, onToggle, o
           {group.items.map((t, i) => (
             <TrackRow key={t.id} track={t} doors={doors} index={i} count={group.items.length} busy={busy}
               role={group.target === 'outdoor' || !t.is_active ? null : ['Uvítací', 'Návrat'][group.items.filter(x => x.is_active).indexOf(t)] || null}
-              onMove={dir => onMove(i, dir)} onRename={title => onRename(t, title)} onToggle={() => onToggle(t)}
+              onMove={dir => onMove(i, dir)} onRename={title => onRename(t, title)} onEnd={end_s => onEnd(t, end_s)} onToggle={() => onToggle(t)}
               onTarget={v => onTarget(t, v)} onDelete={() => onDelete(t)} />
           ))}
         </div>

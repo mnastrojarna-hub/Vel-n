@@ -338,6 +338,8 @@ async def config(diag: "NetworkDiagnostics", report: dict) -> dict:
     tp: list[str] = []
     if not 100 <= int(t.lock_pulse_ms) <= 5000:
         tp.append(f"lock_pulse_ms {t.lock_pulse_ms} mimo 100–5000 ms")
+    if not 0 <= int(getattr(t, "lock_hold_min_s", 0) or 0) <= 600:
+        tp.append(f"lock_hold_min_s {t.lock_hold_min_s} mimo 0–600 s")
     if int(t.door_open_timeout_s) < 5:
         tp.append(f"door_open_timeout_s {t.door_open_timeout_s} < 5 s")
     if int(t.maximum_session_s) < 60:
@@ -433,7 +435,9 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
         add("contact", "fail", f"dveřní kontakt: program hlásí {'zavřeno' if zc.door_closed else 'otevřeno'}, modul "
                                f"{hw.contact.dev} DI{hw.contact.idx + 1} čte {'zavřeno' if contact_raw else 'otevřeno'}")
     io_problems = _try(zc.io_problems, []) or []
-    lock = {"configured": hw.lock is not None, "module_online": None, "coil_off": None}
+    # held: zámek bez paměti právě drží po kódu (lock_hold_until_open + lock_hold_min_s, 2026-10-06) — sepnuté relé není chyba
+    lock = {"configured": hw.lock is not None, "module_online": None, "coil_off": None,
+            "held": bool(getattr(zc, "lock_held", False))}
     if hw.lock is None:
         add("lock", "fail", "zámek: není nastaven v HW mapě")
     else:
@@ -444,7 +448,7 @@ async def _zone_one(diag: "NetworkDiagnostics", zc, snapshot: dict) -> dict:
             coils = await _read_coils(ctrl, hw.lock.dev)      # jen ČTENÍ — zámek se nikdy nespíná
             if coils is not None and 0 <= hw.lock.idx < len(coils):
                 lock["coil_off"] = not coils[hw.lock.idx]
-                if not lock["coil_off"]:
+                if not lock["coil_off"] and not lock["held"]:
                     add("lock", "fail", f"zámek: relé {hw.lock.dev} R{hw.lock.idx + 1} je SEPNUTÉ v klidu — NEBEZPEČÍ, odpojte modul")
     if fault:
         add("fault", "fail" if fault == "io_offline" else "warn", f"zóna v poruše {fault}" + (f" ({', '.join(io_problems)})" if io_problems else ""))

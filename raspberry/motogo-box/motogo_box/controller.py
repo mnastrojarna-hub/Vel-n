@@ -338,8 +338,11 @@ class BoxController:
         async with self.resync_lock:
             return await self._resync_locked()
 
-    def _sessions_active(self) -> list[int]:
-        return [zc.number for zc in self.zones.values() if zc.state in ACTIVE_STATES]
+    def _sessions_active(self, lock_wait: bool = True) -> list[int]:
+        """Zóny s běžící relací. `lock_wait=False` (venek: světlo a hudba) vynechá zóny, které po doběhu už jen čekají
+        na vypnutí drženého zámku (lock_hold.lock_wait) — pro venek jsou jako dřív SECURED; aktualizace/přestavba čekají."""
+        return [zc.number for zc in self.zones.values()
+                if zc.state in ACTIVE_STATES and (lock_wait or not getattr(zc, "lock_wait", False))]
 
     async def _resync_locked(self) -> dict:
         # Přepárování mohlo změnit identitu — resolver a realtime hned, nezávisle na výsledku RPC.

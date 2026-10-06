@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Btn, Chip, Select, formatAge, ageSeconds, txt, isRpiDevice } from './BranchRpiUi'
-import { ACCEPT, targetOptions, publicUrl, downloadUrl, formatBytes, libraryStatus, libraryChip, audioModeOf, targetLabel } from './branchMusicHelpers'
+import { ACCEPT, targetOptions, publicUrl, downloadUrl, formatBytes, libraryStatus, libraryChip, audioModeOf, targetLabel, formatEndTime, parseEndTime } from './branchMusicHelpers'
 
 // ─── Hudba pobočky — dílčí komponenty (drop zóna, řádek skladby, stav jednotky) ──
 
@@ -45,8 +45,38 @@ function MusicDropZone({ doors, target, onTarget, uploading, progress, onFiles }
   )
 }
 
-// Jeden řádek skladby: přehrávač, název (inline přejmenování), pořadí, aktivní, cíl, stažení, smazání
-function TrackRow({ track, doors, index, count, busy, role, onMove, onRename, onToggle, onTarget, onDelete }) {
+// Konec přehrávání (branch_music_tracks.end_s): m:ss / sekundy, prázdné = celá skladba; uloží se po opuštění pole / Enter
+function TrackEndInput({ track, busy, onEnd }) {
+  const stored = formatEndTime(track.end_s)
+  const [draft, setDraft] = useState(stored)
+  const [err, setErr] = useState(null)
+  useEffect(() => { setDraft(stored); setErr(null) }, [stored])
+  function commit() {
+    if (draft.trim() === stored) { setDraft(stored); setErr(null); return }   // beze změny (i hodnota zapsaná mimo Velín)
+    const r = parseEndTime(draft)
+    if (r.error) { setErr(r.error); return }
+    setErr(null)
+    const cur = track.end_s == null || track.end_s === '' ? null : Number(track.end_s)
+    if (r.value === cur) setDraft(stored)
+    else onEnd(r.value)
+  }
+  return (
+    <>
+      <label className="flex items-center gap-1 text-[11px] font-bold" style={{ color: '#6b8c7a' }}
+        title="Konec přehrávání: jednotka hraje skladbu od začátku jen do tohoto času (m:ss, např. 4:02, nebo sekundy). Soubor se nemění. Prázdné = celá skladba. Jednotka si změnu vezme při dalším syncu (do minuty) nebo hned po „Znovu synchronizovat“; software jednotky starší než 1.2.7 konec nezná a hraje celou skladbu.">
+        Konec
+        <input value={draft} placeholder="celá" disabled={busy} onChange={e => { setDraft(e.target.value); setErr(null) }} onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setDraft(stored); setErr(null) } }}
+          className="rounded-btn text-[11px] outline-none"
+          style={{ padding: '4px 6px', width: 64, background: err ? '#fee2e2' : '#fff', border: `1px solid ${err ? '#dc2626' : '#d4e8e0'}` }} />
+      </label>
+      {err && <span className="text-[11px] font-bold" style={{ color: '#dc2626' }}>{err}</span>}
+    </>
+  )
+}
+
+// Jeden řádek skladby: přehrávač, název (inline přejmenování), pořadí, konec přehrávání, aktivní, cíl, stažení, smazání
+function TrackRow({ track, doors, index, count, busy, role, onMove, onRename, onEnd, onToggle, onTarget, onDelete }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(track.title || '')
   useEffect(() => { if (!editing) setDraft(track.title || '') }, [track.title, editing])
@@ -77,6 +107,7 @@ function TrackRow({ track, doors, index, count, busy, role, onMove, onRename, on
       <span className="text-[11px]" style={{ color: '#6b8c7a' }}>{txt(track.ext).toUpperCase()} · {formatBytes(track.size_bytes)}</span>
       {!track.is_active && <Chip tone="amber">Vypnuto</Chip>}
       <audio controls preload="none" src={url} style={{ height: 30, maxWidth: 240 }} />
+      <TrackEndInput track={track} busy={busy} onEnd={onEnd} />
       <div className="ml-auto flex items-center gap-1 flex-wrap">
         <select value={track.target} onChange={e => onTarget(e.target.value)} disabled={busy} title="Přesunout do jiného cíle"
           className="rounded-btn text-[11px] outline-none" style={{ padding: '4px 6px', background: '#fff', border: '1px solid #d4e8e0', maxWidth: 170 }}>

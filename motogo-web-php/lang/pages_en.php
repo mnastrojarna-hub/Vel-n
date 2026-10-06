@@ -1555,7 +1555,7 @@ return [
                     [
                         'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => '3. Choose gear',
-                        'text' => 'Rider gear is included; passenger gear costs extra. You can choose the size on site.',
+                        'text' => 'Rider gear is included; passenger gear costs extra. Tick it when booking and choose your size.',
                     ],
                     [
                         'icon' => 'gfx/zaplat.svg',

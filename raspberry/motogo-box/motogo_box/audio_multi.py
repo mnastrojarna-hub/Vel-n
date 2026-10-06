@@ -135,12 +135,12 @@ class AudioMulti(MultiChannelOps):
             log.warning("Playlist cíle %s nelze načíst: %s", target, exc)
             return []
 
-    async def _load(self, ch: _Channel, target: str, track: int | None = None) -> None:
+    async def _load(self, ch: _Channel, target: str, track: int | None = None) -> bool:
         """Načte do mpv výstupu playlist cíle, nebo s `track` JEN jednu skladbu (uvítací/návrat, dokola bez míchání);
-        znovu jen když se změnil cíl/skladba nebo je obsah dirty."""
+        znovu jen když se změnil cíl/skladba nebo je obsah dirty. Vrací True, když se načítalo."""
         loaded = f"{target}#{track}" if track else target
         if ch.loaded == loaded and not ch.dirty:
-            return
+            return False
         files = self._files_for(target, track)
         try:
             if files is None:
@@ -150,6 +150,18 @@ class AudioMulti(MultiChannelOps):
         except Exception as exc:  # noqa: BLE001
             log.warning("%s: načtení playlistu %s selhalo: %s", ch.out, loaded, exc)
         ch.target, ch.track, ch.loaded, ch.dirty = target, track, loaded, False
+        return True
+
+    @staticmethod
+    async def _rewind(ch: _Channel) -> None:
+        """Přetočit výstup na začátek (`MpvPlayer.rewind`; přehrávač/fake bez metody = nic)."""
+        fn = getattr(ch.player, "rewind", None)
+        if fn is None:
+            return
+        try:
+            await fn()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("%s: přetočení hudby na začátek selhalo: %s", ch.out, exc)
 
     async def _relay(self, key: Key, on: bool) -> None:
         ref = self.relays.get(key)
@@ -218,13 +230,16 @@ class AudioMulti(MultiChannelOps):
                 log.warning("Ukončení přehrávače %s selhalo: %s", out, exc)
 
     # ─── přehrávání ─────────────────────────────────────────────────────────
-    async def _play(self, key: Key, track: int | None = None) -> bool:
+    async def _play(self, key: Key, track: int | None = None, restart: bool = False) -> bool:
+        """`restart` (2026-10-06, kód zóny) = od začátku: hraje-li už totéž, jen přetočí (bez fade), jinak před play()."""
         ch = self._ch(key)
         if ch is None:
             log.warning("%s nemá audio výstup — hudba nelze spustit", f"Zóna {key}" if isinstance(key, int) else f"Kanál {key}")
             return False
         async with ch.lock:
             if ch.playing == key and not ch.tone and (track is None or ch.track == track):
+                if restart:
+                    await self._rewind(ch)
                 return True
             if ch.playing is not None:
                 await self._stop_locked(ch, fade=not ch.tone)
@@ -236,7 +251,8 @@ class AudioMulti(MultiChannelOps):
                     await ensure(self.cfg.shuffle)
                 await ch.player.set_volume(0)
                 await ch.player.pause()
-                await self._load(ch, self._target_of(key), track)
+                if not await self._load(ch, self._target_of(key), track) and restart:
+                    await self._rewind(ch)              # playlist zůstal načtený (pauza uprostřed skladby)
                 await self._relay(key, True)
                 await ch.player.play()
                 self._start_fade(ch, self.cfg.volume, self.cfg.fade_in_ms)
@@ -276,9 +292,9 @@ class AudioMulti(MultiChannelOps):
             await self._stop_locked(ch, fade)
             return True
 
-    async def play_zone(self, zone: int, track: int | None = None) -> bool:
-        """`track` 1/2 = uvítací/návrat (jen ta skladba dokola), None = celý playlist cíle."""
-        return await self._play(int(zone), track)
+    async def play_zone(self, zone: int, track: int | None = None, restart: bool = False) -> bool:
+        """`track` 1/2 = uvítací/návrat (jen ta skladba dokola), None = celý playlist cíle; `restart` = od začátku."""
+        return await self._play(int(zone), track, restart)
 
     async def stop_zone(self, zone: int, fade: bool = True) -> bool:
         return await self._stop(int(zone), fade)

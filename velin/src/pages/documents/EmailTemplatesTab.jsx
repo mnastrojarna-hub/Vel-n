@@ -151,7 +151,7 @@ const TEMPLATE_META = {
     category: 'other', categoryLabel: 'Ostatní',
     trigger: 'Vydání/uvolnění přístupových kódů (DB fn send_door_codes_email → edge send-booking-email)',
     attachments: 'Žádné',
-    info: 'Mail s přístupovými kódy. Posílá DB fn send_door_codes_email přes edge send-booking-email (type=door_codes) při vydání kódů (potvrzení s doklady, uvolnění po nahrání dokladů, regenerace po změně motorky, ruční uvolnění/dopo­slání z Velína). Dedup: nový mail jen po vygenerování nových kódů. Kódy vkládejte VÝHRADNĚ proměnnou {{door_codes_block}} — u pobočky s bránou (Velké Němčice) vykreslí brána → šatna (dveře č. 8) → motorka + postup, jinak motorka + šatna; bez placeholderu edge blok připojí na konec mailu. Text musí být univerzální pro obslužnou i samoobslužnou pobočku.',
+    info: 'Mail s přístupovými kódy. Posílá DB fn send_door_codes_email přes edge send-booking-email (type=door_codes) při vydání kódů (potvrzení s doklady, uvolnění po nahrání dokladů, přesun motorky rezervace na jinou pobočku, ruční uvolnění/dopo­slání z Velína). Kódy jsou stabilní: změna kóje / motorky na téže pobočce kódy nemění (kiosk otevře novou kóji, mail se neposílá); přesun na jinou pobočku přenese stejná čísla (nová jen při kolizi) a zákazník dostane mail s novou pobočkou. Dedup: nový mail jen po vydání / přenesení kódů od posledního mailu. Kódy vkládejte VÝHRADNĚ proměnnou {{door_codes_block}} — u pobočky s bránou (Velké Němčice) vykreslí brána → šatna (dveře č. 8) → motorka + postup, jinak motorka + šatna; bez placeholderu edge blok připojí na konec mailu. Text musí být univerzální pro obslužnou i samoobslužnou pobočku.',
   },
   invoice_advance: {
     category: 'invoice', categoryLabel: 'Faktura',

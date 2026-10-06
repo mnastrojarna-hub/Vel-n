@@ -125,7 +125,7 @@ class _Aud:
     def has_output(self, zone):
         return self.speaker
 
-    async def play_zone(self, zone):
+    async def play_zone(self, zone, track=None, restart=False):
         self.calls += 1
         await asyncio.sleep(self.delay)
         return True
@@ -289,7 +289,7 @@ async def test_start_music_passes_track():
     got = []
 
     class A(_Aud):
-        async def play_zone(self, zone, track=None):
+        async def play_zone(self, zone, track=None, restart=False):
             got.append(track)
             return True
     zc = _Zc(A())

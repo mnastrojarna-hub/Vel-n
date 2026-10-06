@@ -399,7 +399,9 @@ def _config(r: dict) -> dict | None:
     for i, dup in enumerate(c.get("duplicates") or []):
         it.append(item(f"config.duplicate.{i}", "Duplicitní kanál", "fail", None, dup, hint("duplicate")))
     t = c.get("timings") or {}
-    it.append(item("config.timings", "Časování", "ok", f"pulz {t.get('lock_pulse_ms')} ms, otevření {t.get('door_open_timeout_s')} s, "
+    lock = (f"zámek držet do otevření, min. {t.get('lock_hold_min_s', 0)} s" if t.get("lock_hold_until_open")
+            else f"pulz {t.get('lock_pulse_ms')} ms")     # 2026-10-06: minimum držení zámku po kódu
+    it.append(item("config.timings", "Časování", "ok", f"{lock}, otevření {t.get('door_open_timeout_s')} s, "
                    f"relace {t.get('maximum_session_s')} s, světlo {t.get('light_after_close_s')} s, hudba {t.get('music_after_close_s')} s"))
     for i, tp in enumerate(c.get("timings_problems") or []):
         it.append(item(f"config.timing.{i}", "Časování mimo rozsah", "warn", None, tp, hint("timings")))
