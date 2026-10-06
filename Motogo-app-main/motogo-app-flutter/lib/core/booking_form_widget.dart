@@ -149,16 +149,20 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
   /// pickup method. Základní výbava zdarma je volitelná PO KUSECH (klidně jen
   /// rukavice nebo jen bunda), ale bez „Mám vlastní výbavu“ musí zákazník
   /// vybrat ASPOŇ JEDEN kus (zadání majitele 2026-10-05): rezervace bez vlastní
-  /// výbavy dostane kód šatny a displej pobočky v protokolu ukazuje, co si
-  /// objednal — prázdný výběr by kód šatny vydal bez výbavy. Velikost je povinná
+  /// výbavy dostane kód šatny jen s vybranou velikostí (od 2026-10-05) a displej
+  /// pobočky v protokolu ukazuje, co si objednal — prázdný výběr = bez kódu
+  /// šatny, na samoobsluze by výbavu nedostal. Velikost je povinná
   /// i u zaškrtnutých doplňků se sedícími velikostmi (boty, spolujezdec).
+  /// Vozík/přívěs jako hlavní položka ([trailer]) se půjčuje bez výbavy (web
+  /// krok výbavy skrývá) — základní výbava řidiče se u něj nevyžaduje.
   /// Returns a human-readable list of missing items — empty list means OK.
-  List<String> _missingGearSizes(BuildContext context, BookingDraft d, {required bool kids}) {
+  List<String> _missingGearSizes(BuildContext context, BookingDraft d,
+      {required bool kids, bool trailer = false}) {
     final missing = <String>[];
     // jen velikost z nabízené řady (dětská ↔ dospělá) — jinou formulář neukáže, zákazník ji nevybral
     bool none(String type, String? s) =>
         s == null || s.trim().isEmpty || !gearSizesFor(type, kids: kids).contains(s);
-    if (!d.ownGear && none('helmet', d.helmetSize) && none('jacket', d.jacketSize) &&
+    if (!trailer && !d.ownGear && none('helmet', d.helmetSize) && none('jacket', d.jacketSize) &&
         none('pants', d.pantsSize) && none('gloves', d.glovesSize)) {
       missing.add(t(context).tr('gearBasicPickOne'));
     }
@@ -450,7 +454,8 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
             ));
       });
     }
-    final missingSizes = _missingGearSizes(context, draft, kids: isKids);
+    final missingSizes =
+        _missingGearSizes(context, draft, kids: isKids, trailer: moto.isTrailer);
     // „Na pobočce“ u samoobsluhy = adresa pobočky VYBRANÉ motorky z DB
     // (kus v Brně se vydává tam); obslužná pobočka má text beze změny.
     final String? branchLabel = selfServiceBranchLabel(

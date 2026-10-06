@@ -186,6 +186,7 @@ async def test_replaced_code_message_without_lockout(ctrl):
     ({"reason": "not_yet_valid"}, "code_not_yet_valid", "0:00 v den začátku"),
     ({"reason": "expired"}, "code_expired", "skončila"),
     ({"replaced": True}, "code_replaced", "nový kód"),
+    ({"reason": "revoked", "no_gear": True}, "code_no_gear", "šatnu nepotřebujete"),     # 1.2.7 (20261005j)
 ])
 async def test_known_code_reasons_without_lockout(ctrl, rpc, err, word):
     """2026-10-05: kód existuje, ale teď neplatí (`reason` z RPC) — hláška, ACCESS_DENIED info, NIKDY lockout."""

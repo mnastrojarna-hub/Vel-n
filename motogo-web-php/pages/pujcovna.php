@@ -39,7 +39,7 @@ $defaults = [
         'steps' => [
             ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Vyber motorku', 'text' => 'Prohlédni si naši nabídku, vyber si typ, který ti vyhovuje, odpovídá tvým zkušenostem a řidičskému oprávnění.'],
             ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Rezervuj online', 'text' => 'Uskutečni rezervaci podle data nebo podle konkrétní motorky, kterou si chceš půjčit.'],
-            ['icon' => 'gfx/vyber-vybavu.svg', 'title' => '3. Vyber výbavu', 'text' => 'Výbava pro řidiče je v ceně, pro spolujezdce za příplatek. Velikost si můžeš zvolit až na místě.'],
+            ['icon' => 'gfx/vyber-vybavu.svg', 'title' => '3. Vyber výbavu', 'text' => 'Výbava pro řidiče je v ceně, pro spolujezdce za příplatek. Velikost vybereš při rezervaci — výbavu stačí zaškrtnout.'],
             ['icon' => 'gfx/zaplat.svg', 'title' => '4. Zaplať', 'text' => 'Zaplať jednoduše online prostřednictvím platební brány.'],
             ['icon' => 'gfx/predani-motorky.svg', 'title' => '5. Převezmi motorku', 'text' => 'Motorku si vyzvedni přímo v půjčovně, nebo na místě, které jsi zvolil při rezervaci.'],
             ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '6. Užij si jízdu', 'text' => 'Vyraz na cestu, objevuj nové zážitky a užij si naplno svobodu na dvou kolech.'],

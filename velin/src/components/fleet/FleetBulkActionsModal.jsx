@@ -80,7 +80,7 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
     if (busy) return
     setBusy(true)  // dvojklik během await confirm by spustil přesun dvakrát
     if (!(await confirmTrailerBranchMove(supabase, target, ids))) { setBusy(false); return }
-    await run(`Přesunuto na ${target?.name} · zákazníkům s rezervací byly vygenerovány nové kódy a znovu odeslány`, async () => {
+    await run(`Přesunuto na ${target?.name} · kódy rezervací zůstávají (nové jen při kolizi), zákazníci s vydanými kódy dostali zprávu s novou pobočkou`, async () => {
       // RPC admin_move_motorcycles — vše, nebo nic (audit v DB); obslužná ↔ samoobslužná jen se stavem
       // tachometru každé takové motorky (jedno okno pro všechny)
       const moved = await moveMotos({ motos: selectedMotos, branchId: targetBranch, branchName: target?.name, askOdometer, note: 'Velín — hromadný přesun' })

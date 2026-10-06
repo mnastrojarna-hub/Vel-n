@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from . import fixed_codes, handover_locker, pickup_gate, shell
-from .models import ACCESSORIES_NAME, Event, EventKind, ResolveResult, ServiceDoor
+from .models import ACCESSORIES_NAME, CODE_NO_GEAR, Event, EventKind, ResolveResult, ServiceDoor
 from .pins import hmac_code, mask, normalize_code
 
 log = logging.getLogger("motogo.codes")
@@ -52,7 +52,8 @@ INVALID_CODE_ERRORS = frozenset({"invalid_code"})
 CODE_REPLACED = "code_replaced"
 # Jen kód, který už nic neotevře, nebo začne platit do 24 h (DB i offline cache) — zadržený / vzdáleně budoucí kód
 # a kód jiné pobočky jsou „neznámé“ (jinak by displej bez trestu prozrazoval kódy, které jednou otevřou).
-KNOWN_CODE_ERRORS = frozenset({CODE_REPLACED, "code_revoked", "code_not_yet_valid", "code_expired"})
+# 1.2.7: kód šatny stažený, protože rezervace nemá vybranou výbavu (`no_gear`, models.CODE_NO_GEAR) — taky bez lockoutu.
+KNOWN_CODE_ERRORS = frozenset({CODE_REPLACED, "code_revoked", "code_not_yet_valid", "code_expired", CODE_NO_GEAR})
 # Servisní hesla z offline cache platí nejvýš 3 dny bez synchronizace — odvolání hesla ve Velíně musí dojít.
 SERVICE_CACHE_MAX_AGE_S = 72 * 3600
 
@@ -64,6 +65,8 @@ def error_text(error: str | None, release_at: str | None = None) -> str:
     if error == "code_revoked":
         return ("Tento kód už neplatí — rezervace byla zrušena nebo ukončena, případně kód zneplatnila obsluha. "
                 f"Platné kódy najdete v aplikaci MotoGo24, případně volejte podporu: {SUPPORT}.")
+    if error == CODE_NO_GEAR:
+        return "Rezervace nemá zapůjčenou výbavu — šatnu nepotřebujete. Zadejte kód k motorce."
     if error == "code_not_yet_valid":
         return "Kód ještě neplatí — platí až od 0:00 v den začátku vaší rezervace. Přijďte prosím v den vyzvednutí."
     if error == "code_expired":

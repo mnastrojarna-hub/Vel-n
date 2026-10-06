@@ -106,9 +106,11 @@ export default function BookingsBulkActionsModal({ open, onClose, selectedBookin
   async function handleDelete() {
     if (!window.confirm(`TRVALE smazat ${count} rezervací? Tato akce je nevratná.`)) return
     // Živou rezervaci DB nesmaže (trg_guard_booking_delete, 2026-10-05 — zákazník má kódy; nejdřív Storno) a jeden
-    // DELETE by spadl celý → živé vyřadit předem a vypsat, zbytek smazat.
-    const live = selectedBookings.filter(b => ['reserved', 'active'].includes(b.status))
-    const delIds = selectedBookings.filter(b => !['reserved', 'active'].includes(b.status)).map(b => b.id)
+    // DELETE by spadl celý → živé vyřadit předem a vypsat, zbytek smazat. Testovací rezervace (is_test) / testovací
+    // účet guard pouští → zůstávají smazatelné i ve stavu reserved/active.
+    const isLive = b => ['reserved', 'active'].includes(b.status) && b.is_test !== true && b.profiles?.is_test_account !== true
+    const live = selectedBookings.filter(isLive)
+    const delIds = selectedBookings.filter(b => !isLive(b)).map(b => b.id)
     const liveText = live.map(b => `#${String(b.id).slice(-8).toUpperCase()}${b.profiles?.full_name ? ` (${b.profiles.full_name})` : ''}`).join(', ')
     await run(`Rezervace smazány: ${delIds.length}`, async () => {
       if (delIds.length) {

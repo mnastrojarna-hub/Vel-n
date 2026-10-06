@@ -1,9 +1,10 @@
 """Knihovna hudby pobočky a její synchronizace z bucketu `branch-music` (kontrakt §3).
 
 - Index v ``Storage.kv['music_index']``: ``{tracks: {id: {target, path, ext, size, updated_at, file,
-  sort_order, title}}, synced_at}``; ukládá se po KAŽDÉ stažené skladbě (přerušený sync o hotové
+  sort_order, title, end_s}}, synced_at}``; ukládá se po KAŽDÉ stažené skladbě (přerušený sync o hotové
   soubory nepřijde). Soubory v ``<music_dir>/tracks/<id>.<ext>``; ručně nahrané soubory přímo
-  v ``<music_dir>`` (legacy) = cíl ``all``.
+  v ``<music_dir>`` (legacy) = cíl ``all``. ``end_s`` (2026-10-06) = konec přehrávání → ``tracks/<id>.edl``
+  (``music_edl``; bez nového stahování), playlisty pak vrací cestu EDL.
 - ``sync(tracks)`` stáhne nové/změněné skladby (jiné ``updated_at``/``size``) přes httpx streaming do
   ``.part`` → ``os.replace``, ověří velikost, smaže skladby mimo konfiguraci. Max 3 paralelně; timeout
   120 s = nečinnost spojení (httpx read) + strop přenosu dle velikosti (≥ 50 kB/s). Nikdy nevyhazuje —
@@ -24,6 +25,7 @@ from urllib.parse import quote
 
 import httpx
 
+from . import music_edl
 from .mpv_player import MUSIC_EXTENSIONS
 
 log = logging.getLogger("motogo.music")
@@ -58,7 +60,7 @@ def _int(value: Any, default: int = 0) -> int:
 
 
 def _fingerprint(tr: dict) -> str:
-    """Identita obsahu skladby — změna ruší odstup opakování (backoff)."""
+    """Identita obsahu skladby — změna ruší odstup opakování (backoff). `end_s` sem ZÁMĚRNĚ nepatří (jen EDL)."""
     return f"{tr['path']}|{tr['size']}|{tr['updated_at']}"
 
 
@@ -76,6 +78,7 @@ def normalize_track(raw: Any) -> dict | None:
         "id": tid, "target": target, "path": path, "ext": ext,
         "size": max(0, _int(raw.get("size"))), "sort_order": _int(raw.get("sort_order")),
         "updated_at": str(raw.get("updated_at") or ""), "title": str(raw.get("title") or ""),
+        "end_s": music_edl.normalize_end_s(raw.get("end_s")),     # 2026-10-06: konec přehrávání (s), None = celá
     }
 
 
@@ -122,6 +125,7 @@ class MusicLibrary:
         self._index["tracks"][tr["id"]] = {
             "target": tr["target"], "path": tr["path"], "ext": tr["ext"], "size": tr["size"],
             "updated_at": tr["updated_at"], "file": file, "sort_order": tr["sort_order"], "title": tr["title"],
+            "end_s": tr.get("end_s"),
         }
         self._failed.pop(tr["id"], None)
         self._save_index()
@@ -229,14 +233,18 @@ class MusicLibrary:
         except OSError as exc:
             log.warning("Adresář %s nelze vytvořit: %s", self.tracks_dir, exc)
         index: dict[str, dict] = self._index["tracks"]
-        for tid in [t for t in index if t not in wanted]:        # skladby odebrané z konfigurace
+        for tid in [t for t in index if t not in wanted]:        # skladby odebrané z konfigurace (EDL smaže úklid)
             self._remove(index.pop(tid).get("file"))
             result["removed"] += 1
         todo: list[dict] = []
+        relist = False      # změna cíle / pořadí / konce skladby bez stahování → přehrávače musí znovu načíst playlisty
         for tid, tr in wanted.items():
             file = self._file_for(tr)
             if not self._needs_download(index.get(tid), tr, file):
-                index[tid].update(target=tr["target"], sort_order=tr["sort_order"], title=tr["title"], path=tr["path"])
+                old = index[tid]
+                relist = relist or any(old.get(k) != tr[k] for k in ("target", "sort_order", "end_s"))
+                index[tid].update(target=tr["target"], sort_order=tr["sort_order"], title=tr["title"], path=tr["path"],
+                                  end_s=tr["end_s"])
                 self._failed.pop(tid, None)
                 result["unchanged"] += 1
             elif index.get(tid) is None and self._complete_on_disk(tr, file):
@@ -251,13 +259,14 @@ class MusicLibrary:
             timeout = httpx.Timeout(FILE_TIMEOUT_S, connect=15.0)
             async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
                 await asyncio.gather(*(self._download(client, sem, tr, result) for tr in todo))
+        relist = music_edl.sync_edls(index, self.tracks_dir) or relist
         self._cleanup_orphans(index)
         self._index["synced_at"] = _now_iso()
         self._save_index()
         self.sync_reason = (f"{len(self._failed)} skladeb se nepodařilo stáhnout" if self._failed else None)
         log.info("Hudba synchronizována: +%d −%d ✗%d =%d", result["added"], result["removed"],
                  result["failed"], result["unchanged"])
-        if (result["added"] or result["removed"]) and self.on_changed is not None:
+        if (result["added"] or result["removed"] or relist) and self.on_changed is not None:
             try:
                 await self.on_changed()
             except Exception as exc:  # noqa: BLE001
@@ -304,8 +313,8 @@ class MusicLibrary:
         log.debug("Staženo %s → %s (%d B)", tr["path"], file, got)
 
     def _cleanup_orphans(self, index: dict[str, dict]) -> None:
-        """Smaže z ``tracks/`` soubory bez záznamu v indexu (zbytky po pádu, .part)."""
-        keep = {e.get("file") for e in index.values()}
+        """Smaže z ``tracks/`` soubory bez záznamu v indexu (zbytky po pádu, .part, EDL skladeb bez ``end_s``)."""
+        keep = {e.get("file") for e in index.values()} | music_edl.keep_paths(index, self.tracks_dir)
         try:
             names = os.listdir(self.tracks_dir)
         except OSError:
@@ -326,10 +335,11 @@ class MusicLibrary:
                       if n.lower().endswith(MUSIC_EXTENSIONS) and os.path.isfile(os.path.join(self.music_dir, n)))
 
     def _tracks_of(self, target: str) -> list[str]:
-        entries = [e for e in self._index["tracks"].values()
+        """Soubory cíle v pořadí; zkrácená skladba (``end_s``) = její EDL (``music_edl.play_path``)."""
+        entries = [(tid, e) for tid, e in self._index["tracks"].items()
                    if e.get("target") == target and e.get("file") and os.path.isfile(e["file"])]
-        entries.sort(key=lambda e: (_int(e.get("sort_order")), str(e.get("title") or ""), str(e.get("file"))))
-        return [e["file"] for e in entries]
+        entries.sort(key=lambda te: (_int(te[1].get("sort_order")), str(te[1].get("title") or ""), str(te[1].get("file"))))
+        return [music_edl.play_path(self.tracks_dir, tid, e) for tid, e in entries]
 
     def playlist_for(self, target: str) -> list[str]:
         """Absolutní cesty skladeb cíle; bez vlastních → ``all`` + legacy; když nic, []."""

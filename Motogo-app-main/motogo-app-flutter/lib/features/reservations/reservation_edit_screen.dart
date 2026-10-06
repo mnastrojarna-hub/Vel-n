@@ -81,7 +81,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   String? _passengerPantsSize;
   String? _passengerBootsSize;
   // Rukavice spolujezdce se v úpravě nevybírají, ale rezervace je mít může
-  // (formulář dovolí i jen rukavice) — počítají se jako zvolený kus výbavy.
+  // (formulář dovolí i jen rukavice) — počítají se jako zvolený kus výbavy;
+  // odebráním výbavy spolujezdce se mažou i ony (a ukládají se jako ostatní).
   String? _passengerGlovesSize;
   // „Mám vlastní výbavu" — skryje výběr velikostí základní výbavy řidiče.
   // Od 2026-09-25 se načítá z `bookings.own_gear` a při uložení zapisuje
@@ -485,31 +486,54 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     }
   }
 
-  /// Gear sizes required when the motorcycle is delivered (přistavení).
+  /// Chybějící velikosti výbavy (přistavení i převzetí na pobočce).
   /// Returns list of missing items — empty means OK.
   List<String> _missingGearSizes() {
+    // Vyzvednutá (aktivní) rezervace: sekce výbavy je skrytá a velikosti nejde
+    // doplnit — placenou výbavu odebranou v předávacím protokolu (doplněk bez
+    // velikosti) kontrola vyžadovat nesmí, jinak nejde prodloužit ani zkrátit.
+    if (_isActive) return const [];
+    final b = _booking;
+    if (b == null) return const [];
+    bool none(String? s) => s == null || s.trim().isEmpty;
+    bool differs(String? a, String? o) => (a ?? '').trim() != (o ?? '').trim();
     // Bez „Mám vlastní výbavu“ musí být vybraný ASPOŇ JEDEN kus základní výbavy
     // (zadání majitele 2026-10-05, parita s rezervačním formulářem) — platí i při
-    // vyzvednutí na pobočce; jen u nadcházející rezervace (sekce výbavy je vidět).
-    bool none(String? s) => s == null || s.trim().isEmpty;
-    final basicMissing = !_isActive && !_ownGear &&
+    // vyzvednutí na pobočce, ale JEN když zákazník výbavu řidiče v této úpravě
+    // měnil (přepínač nebo velikost). Rezervace s own_gear=false bez velikostí
+    // (= bez kódu šatny) jinak blokovala i nesouvisející úpravu (prodloužení,
+    // čas, motorka).
+    final riderTouched = _ownGearChanged ||
+        differs(_helmetSize, b.helmetSize) ||
+        differs(_jacketSize, b.jacketSize) ||
+        differs(_pantsSize, b.pantsSize) ||
+        differs(_glovesSize, b.glovesSize);
+    final basicMissing = riderTouched && !_ownGear &&
         none(_helmetSize) && none(_jacketSize) && none(_pantsSize) && none(_glovesSize);
-    if (_pickupMethod != 'delivery' && _returnMethod != 'delivery') {
-      return basicMissing ? [t(context).tr('gearBasicPickOne')] : const [];
-    }
+    final delivery = _pickupMethod == 'delivery' || _returnMethod == 'delivery';
     final missing = <String>[if (basicMissing) t(context).tr('gearBasicPickOne')];
     // Základní výbava řidiče je volitelná PO KUSECH (parita s rezervačním
     // formulářem) — nevybraná velikost = kus nechce, uložení neblokuje.
-    // Placené boty mají vlastní velikost (i u vlastní výbavy je nutná).
-    if (_selectedExtras.contains('boty_ridic') && _bootsSize == null) {
+    // Placené doplňky mají vlastní velikost (i u vlastní výbavy je nutná):
+    // při přistavení vždy, při převzetí na pobočce u doplňku zaškrtnutého /
+    // měněného v této úpravě (zaškrtnutá karta bez velikosti = zaplacená
+    // výbava bez kódu šatny); starší data nesouvisející úpravu neblokují.
+    bool need(String id, bool touched) =>
+        _selectedExtras.contains(id) && (delivery || touched || !_origExtras.contains(id));
+    if (need('boty_ridic', differs(_bootsSize, b.bootsSize)) && _bootsSize == null) {
       missing.add(t(context).tr('gearBootsDriver'));
     }
-    if (_selectedExtras.contains('boty_spolujezdec') && _passengerBootsSize == null) {
+    if (need('boty_spolujezdec', differs(_passengerBootsSize, b.passengerBootsSize)) &&
+        _passengerBootsSize == null) {
       missing.add(t(context).tr('gearBootsPassenger'));
     }
     // Výbava spolujezdce: stačí ALESPOŇ JEDEN kus (parita s rezervačním
     // formulářem — zadání majitele 2026-09-28), ne všechny tři.
-    if (_selectedExtras.contains('spolujezdec') &&
+    final passengerTouched = differs(_passengerHelmetSize, b.passengerHelmetSize) ||
+        differs(_passengerJacketSize, b.passengerJacketSize) ||
+        differs(_passengerPantsSize, b.passengerPantsSize) ||
+        differs(_passengerGlovesSize, b.passengerGlovesSize);
+    if (need('spolujezdec', passengerTouched) &&
         _passengerHelmetSize == null &&
         _passengerJacketSize == null &&
         _passengerPantsSize == null &&
@@ -699,6 +723,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if (_passengerJacketSize != _booking!.passengerJacketSize) changes['passenger_jacket_size'] = _passengerJacketSize;
       if (_passengerPantsSize != _booking!.passengerPantsSize) changes['passenger_pants_size'] = _passengerPantsSize;
       if (_passengerBootsSize != _booking!.passengerBootsSize) changes['passenger_boots_size'] = _passengerBootsSize;
+      // Rukavice spolujezdce se nevybírají, ale s odebranou výbavou spolujezdce
+      // se mažou — jinak by v rezervaci zůstaly (protokol, nárok na šatnu).
+      if (_passengerGlovesSize != _booking!.passengerGlovesSize) changes['passenger_gloves_size'] = _passengerGlovesSize;
 
       // Varianta B: total i sleva po přepočtu slevy na nový obsah rezervace.
       changes['total_price'] = calc.newTotal;
@@ -800,6 +827,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       trackGear('passenger_jacket', _booking!.passengerJacketSize, _passengerJacketSize);
       trackGear('passenger_pants', _booking!.passengerPantsSize, _passengerPantsSize);
       trackGear('passenger_boots', _booking!.passengerBootsSize, _passengerBootsSize);
+      trackGear('passenger_gloves', _booking!.passengerGlovesSize, _passengerGlovesSize);
       // Always record history when any significant change occurs — including
       // time-only and gear-only edits (must show up in Velín/app/web history).
       if (datesChanged || motoChanged || pickupMethodChanged || returnMethodChanged ||
@@ -1390,6 +1418,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               onPassengerJacketSize: (s) => setState(() => _passengerJacketSize = s),
               onPassengerPantsSize: (s) => setState(() => _passengerPantsSize = s),
               onPassengerBootsSize: (s) => setState(() => _passengerBootsSize = s),
+              onPassengerGlovesSize: (s) => setState(() => _passengerGlovesSize = s),
             ),
 
           // === STORNO NOTE (shorten tab) ===

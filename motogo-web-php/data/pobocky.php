@@ -59,6 +59,7 @@ function pobockyDefaults() {
                 ['vydejni-box', 'Výdejní box samoobslužné pobočky — kóje s motorkami'],
                 ['vydejni-box-2', 'Výdejní box s kójemi 1–7 a šatnou (dveře č. 8)'],
                 ['displej-kiosk', 'Dotykový displej pro zadání kódu z aplikace'],
+                ['schranky-brana', 'Schránky na pravém sloupku vrat — kódem z aplikace otevřete horní schránku s klíčem od zámku brány'],
                 ['parkoviste', 'Parkoviště pro zákazníky — místa 1–7 vpravo u plotu, parkování zdarma po dobu výpůjčky'],
             ],
             'gallery_title' => 'Fotogalerie pobočky',

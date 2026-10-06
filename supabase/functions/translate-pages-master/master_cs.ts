@@ -1200,7 +1200,7 @@ export const MASTER_CS_BUNDLED = {
                     {
                         "icon": "gfx/vyber-vybavu.svg",
                         "title": "3. Vyber výbavu",
-                        "text": "Výbava pro řidiče je v ceně, pro spolujezdce za příplatek. Velikost si můžeš zvolit až na místě."
+                        "text": "Výbava pro řidiče je v ceně, pro spolujezdce za příplatek. Velikost vybereš při rezervaci — výbavu stačí zaškrtnout."
                     },
                     {
                         "icon": "gfx/zaplat.svg",

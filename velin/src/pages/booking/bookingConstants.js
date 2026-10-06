@@ -90,6 +90,8 @@ const GEAR_CHANGE_LABELS = {
   passenger_pants: 'Kalhoty spolujezdce', passenger_boots: 'Boty spolujezdce',
   passenger_gloves: 'Rukavice spolujezdce',
 }
+// own_gear (tri-state boolean v gear_changes) — místo „true → odebráno“ čitelně Ano / Ne / neuvedeno
+const _ownGearLbl = v => (v === true || v === 'true') ? 'Ano' : (v === false || v === 'false') ? 'Ne' : 'neuvedeno'
 
 // DB hodnoty metod nejsou jednotné: pobočku značí 'store'/'pickup'/'branch'/
 // 'rental'/'pickup_at_rental'/'return_to_rental'/NULL, adresu jen 'delivery'.
@@ -134,8 +136,9 @@ export function describeHistoryEntry(h) {
   const gear = h.gear_changes && typeof h.gear_changes === 'object' ? h.gear_changes : null
   const gearChanged = gear && Object.keys(gear).length > 0
   if (gearChanged) {
-    const parts = Object.entries(gear).map(([k, v]) =>
-      `${GEAR_CHANGE_LABELS[k] || k} ${v?.from || '—'} → ${v?.to || 'odebráno'}`)
+    const parts = Object.entries(gear).map(([k, v]) => k === 'own_gear'
+      ? `Vlastní výbava: ${_ownGearLbl(v?.from)} → ${_ownGearLbl(v?.to)}`
+      : `${GEAR_CHANGE_LABELS[k] || k} ${v?.from || '—'} → ${v?.to || 'odebráno'}`)
     changes.push(`výbava: ${parts.join(', ')}`)
   }
 

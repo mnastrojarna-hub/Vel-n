@@ -318,6 +318,7 @@ Doporučená časování:
 
 ```yaml
 lock_pulse_ms: 800
+lock_hold_min_s: 60        # jen lock_hold_until_open: zámek bez paměti drží od kódu aspoň 60 s (2026-10-06)
 door_open_timeout_s: 30
 door_close_debounce_ms: 1000
 light_after_close_s: 30
@@ -327,7 +328,7 @@ forced_open_debounce_ms: 500
 pin_entry_timeout_s: 20
 ```
 
-**Platný PIN:** 1. Ověřit kód dle Velína (`kiosk_resolve_code`, offline HMAC cache): rezervace = 6 číslic, servisní a diagnostické kódy alfanumerické — délku jednotka nekontroluje (`pin_length` odstraněno, §13 rozhodnutí 2026-09-11). 2. Ověřit rezervaci a časové okno. 3. Zjistit zone_id. 4. Ověřit dostupnost modulu zámku a kontaktu (Shelly signalizace od 2026-09-25 a modul světla od 2026-09-26 NEblokují — výpadek se jen hlásí jako `signal_offline`). 5. Ověřit, že dveře nejsou už otevřené. 6. Zapnout bílé světlo. 7. Přepnout signalizaci červená → zelená. 8. Vybrat reproduktor. 9. Spustit hudbu. 10. Poslat zámku 800ms hardware impulz — nebo s `timings.lock_hold_until_open: true` (2026-09-26, zámky bez paměti) držet zámek pod napětím přes HW časovač modulu až `door_open_timeout_s`; vypne se, jakmile kontakt hlásí otevřeno (nebo při timeoutu / all-off). 11. Zapsat událost ACCESS_GRANTED. 12. Čekat na otevření kontaktu.
+**Platný PIN:** 1. Ověřit kód dle Velína (`kiosk_resolve_code`, offline HMAC cache): rezervace = 6 číslic, servisní a diagnostické kódy alfanumerické — délku jednotka nekontroluje (`pin_length` odstraněno, §13 rozhodnutí 2026-09-11). 2. Ověřit rezervaci a časové okno. 3. Zjistit zone_id. 4. Ověřit dostupnost modulu zámku a kontaktu (Shelly signalizace od 2026-09-25 a modul světla od 2026-09-26 NEblokují — výpadek se jen hlásí jako `signal_offline`). 5. Ověřit, že dveře nejsou už otevřené. 6. Zapnout bílé světlo. 7. Přepnout signalizaci červená → zelená. 8. Vybrat reproduktor. 9. Spustit hudbu. 10. Poslat zámku 800ms hardware impulz — nebo s `timings.lock_hold_until_open: true` (2026-09-26, zámky bez paměti) držet zámek pod napětím přes HW časovač modulu až `door_open_timeout_s`; vypne se, jakmile kontakt hlásí otevřeno (nebo při timeoutu / all-off) — od 2026-10-06 (zadání majitele „magnet aspoň 1 min“) ale nejdřív `timings.lock_hold_min_s` (výchozí 60 s) od kódu: čekání na otevření = větší z `door_open_timeout_s` a `lock_hold_min_s`, otevřené a znovu zavřené dveře jdou v tomto okně otevřít znovu (stejná relace, žádný poplach), relace skončí (SECURED) až po vypnutí zámku a krátkém dozvuku (~0,9 s, zpoždění kontaktu) — hudba, světlo kóje a venek se ale řídí jako dřív (konec doběhu = jako SECURED), kód motorky zhasne světlo šatny i v tomto okně; druhý kód v okně: dveře otevřené během jeho zpracování nejsou poplach; `0` = vypnout hned otevřením. Impulzní zámek se nikdy nedrží. Hudba (krok 9) po kódu hraje vždy od začátku. 11. Zapsat událost ACCESS_GRANTED. 12. Čekat na otevření kontaktu.
 
 **Platný PIN — krok 2a (2026-10-01, výdej až od 12:00):** zákaznický kód (šatna i motorka) rezervace se slevou za pozdní
 vyzvednutí (samoobslužná pobočka, převzetí na pobočce, `late_pickup_discount_amount > 0`, ještě nevyzvednutá) platí až od
@@ -344,7 +345,7 @@ podpisu pokračují kroky 3–12 samy (kóje se otevře bez dalšího zadáván�
 → hradlo se NEuplatní (fail-open, log `protocol_state_unknown`); `required = false` → kroky 3–12 jako dosud. Servisní kódy
 (39301A–H, servisní heslo, `open_door` z Velína) protokol nikdy nespouští ani nevyžadují (`booking_id = None`). **Servisní otevření je vždy možné (2026-09-26):** mimo běžný stav zóny (porucha, dveře otevřené / kontakt nezapojený, běžící relace, offline kontakt či světlo) jde o NOUZOVÝ impulz zámku — jediná podmínka je online modul zámku; stav zóny se nemění, událost ACCESS_GRANTED nese `emergency: true`. Zákaznické kódy všechny pojistky kroků 4–5 zachovávají.
 
-**Dveře se do 30 sekund neotevřou:** zámek už nesmí být napájen; vypnout hudbu; po 30 sekundách vypnout bílé světlo; vrátit červenou signalizaci; ukončit relaci; stejný PIN může být podle rezervace znovu použit.
+**Dveře se do 30 sekund neotevřou** (držený zámek bez paměti: do `max(door_open_timeout_s, lock_hold_min_s)`, výchozí 60 s)**:** zámek už nesmí být napájen; vypnout hudbu; po 30 sekundách vypnout bílé světlo; vrátit červenou signalizaci; ukončit relaci; stejný PIN může být podle rezervace znovu použit.
 
 **Dveře se otevřou:** zapsat přesný čas; zámek musí být bez napětí; ponechat světlo; ponechat zelenou signalizaci; spustit maximální čas otevření.
 

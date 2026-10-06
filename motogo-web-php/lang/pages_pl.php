@@ -854,7 +854,7 @@ return [
                     [
                         'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => '3. Wybierz wyposażenie',
-                        'text' => 'Wyposażenie kierowcy jest w cenie, dla pasażera za dopłatą. Rozmiar wybierzesz na miejscu.',
+                        'text' => 'Wyposażenie kierowcy jest w cenie, dla pasażera za dopłatą. Zaznacz je przy rezerwacji i wybierz rozmiar.',
                     ],
                     [
                         'icon' => 'gfx/zaplat.svg',

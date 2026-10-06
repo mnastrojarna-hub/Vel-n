@@ -527,11 +527,12 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
             style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
             <option value="">Neuvedeno — odvodí se z velikostí výbavy</option>
             <option value="true">Ano — vlastní výbava, kód šatny se nevydává</option>
-            <option value="false">Ne — půjčuje si výbavu (dostane kód šatny)</option>
+            <option value="false">Ne — půjčuje si výbavu (kód šatny, až zákazník zadá velikost)</option>
           </select>
           <div className="text-[11px] mt-1" style={{ color: '#6b7280' }}>
-            Kód šatny dostane jen ten, kdo má v šatně co vyzvednout (půjčená výbava řidiče, boty nebo výbava spolujezdce).
-            „Ano“ před převzetím smaže velikosti výbavy řidiče (protokol je jinak ukáže jako objednané).
+            Kód šatny dostane jen ten, kdo má v šatně co vyzvednout (vybraná velikost výbavy řidiče, boty nebo výbava spolujezdce).
+            Kód šatny vznikne, až zákazník zadá velikost výbavy (appka / web → Upravit rezervaci → Výbava).
+            „Ano“ kód šatny stáhne a před převzetím smaže velikosti výbavy řidiče (protokol je jinak ukáže jako objednané).
             Po vyzvednutí výbavy ze šatny nebo po podpisu protokolu se kódy už samy nemění.
           </div>
         </div>

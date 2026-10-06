@@ -26,6 +26,11 @@ class EditExtrasSection extends StatelessWidget {
   final ValueChanged<String?> onHelmetSize, onJacketSize, onPantsSize, onBootsSize, onGlovesSize;
   final ValueChanged<String?> onPassengerHelmetSize, onPassengerJacketSize, onPassengerPantsSize, onPassengerBootsSize;
 
+  /// Rukavice spolujezdce se tu nevybírají (rezervace je mít může), ale při
+  /// odebrání výbavy spolujezdce se nulují s ostatními kusy — jinak by zůstaly
+  /// v rezervaci (protokol, nárok na šatnu).
+  final ValueChanged<String?> onPassengerGlovesSize;
+
   /// Aktuální věrnostní rank — od [loyaltyFreeGearLevel] je veškerá placená
   /// výbava (vč. obuvi a výbavy spolujezdce) zdarma i při úpravě.
   final int loyaltyLevel;
@@ -42,6 +47,7 @@ class EditExtrasSection extends StatelessWidget {
     required this.bootsSize, required this.glovesSize,
     required this.passengerHelmetSize, required this.passengerJacketSize, required this.passengerPantsSize,
     required this.passengerBootsSize,
+    required this.onPassengerGlovesSize,
     required this.onExtrasChanged,
     required this.onOwnGearChanged,
     required this.onHelmetSize, required this.onJacketSize, required this.onPantsSize,
@@ -156,6 +162,7 @@ class EditExtrasSection extends StatelessWidget {
                 onPassengerHelmetSize(null);
                 onPassengerJacketSize(null);
                 onPassengerPantsSize(null);
+                onPassengerGlovesSize(null);
                 Navigator.pop(ctx);
               },
               icon: const Icon(Icons.delete_outline, size: 18, color: MotoGoColors.red),
@@ -262,6 +269,7 @@ class EditExtrasSection extends StatelessWidget {
               onPassengerHelmetSize(null);
               onPassengerJacketSize(null);
               onPassengerPantsSize(null);
+              onPassengerGlovesSize(null);
             } else {
               _addExtra('spolujezdec');
               _showPassengerGearSheet(context);
@@ -344,7 +352,8 @@ class EditExtrasSection extends StatelessWidget {
         EditGearSizePicker(label: t(context).tr('gloves'), icon: Icons.back_hand_outlined,
           sizes: gearSizesFor('gloves', kids: isKids),
           selectedSize: glovesSize, onSizeSelected: onGlovesSize),
-        // Bez vlastní výbavy aspoň jeden kus (2026-10-05) — jinak je uložení zamčené.
+        // Bez vlastní výbavy aspoň jeden kus (2026-10-05) — uložení zamyká jen
+        // změna výbavy řidiče v této úpravě (jinak bez výbavy = bez kódu šatny).
         if ([helmetSize, jacketSize, pantsSize, glovesSize].every((s) => s == null || s.trim().isEmpty)) ...[
           const SizedBox(height: 6),
           Text(t(context).tr('gearBasicPickOne'),

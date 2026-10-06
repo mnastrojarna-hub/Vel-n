@@ -296,7 +296,7 @@ async def test_start_sync_dedup_and_background(bucket, storage, tmp_path):
 async def test_sanitizes_ids_ext_and_url(bucket, storage, tmp_path):
     assert normalize_track({"id": T1.upper(), "ext": ".MP3", "path": f"/{BRANCH}/x.mp3", "size": "12"}) == {
         "id": T1, "target": "all", "path": f"{BRANCH}/x.mp3", "ext": "mp3", "size": 12,
-        "sort_order": 0, "updated_at": "", "title": ""}
+        "sort_order": 0, "updated_at": "", "title": "", "end_s": None}
     assert normalize_track({"id": "../etc", "ext": "mp3", "path": "a"}) is None
     assert normalize_track({"id": T1, "ext": "m/p3", "path": "a"}) is None
     assert normalize_track({"id": T1, "ext": "mp3", "path": ""}) is None

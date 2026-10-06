@@ -266,7 +266,9 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
       action: 'invoice_created',
       // `data.number` — proměnná `number` žila jen uvnitř retry smyčky; odkaz na ni
       // tady házel ReferenceError a celý audit insert se tiše zahazoval.
-      details: { invoice_id: data.id, number: data.number, type, source },
+      // tabulka nemá sloupec `details` (STATE_1) — údaje patří do new_data, jinak INSERT tiše selže
+      entity_type: 'invoices', entity_id: data.id,
+      new_data: { invoice_id: data.id, number: data.number, type, source },
     })
   } catch {} // non-blocking
 
@@ -549,7 +551,8 @@ export async function generateCreditNote(bookingId, { refundAmount, refundPercen
   if (origInvId) extraUpdate.original_invoice_id = origInvId
   if (stripeRefundId) extraUpdate.stripe_refund_id = stripeRefundId
   if (Object.keys(extraUpdate).length > 0) {
-    await supabase.from('invoices').update(extraUpdate).eq('id', invoice.id).catch(() => {})
+    // PostgrestBuilder nemá metodu catch (jen then) → best-effort přes then(ok, err), jinak TypeError
+    await supabase.from('invoices').update(extraUpdate).eq('id', invoice.id).then(() => {}, () => {})
   }
 
   // Create negative accounting entry for the refund

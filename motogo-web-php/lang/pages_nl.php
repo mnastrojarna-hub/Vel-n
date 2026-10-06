@@ -854,7 +854,7 @@ return [
                     [
                         'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => '3. Kies uitrusting',
-                        'text' => 'Rijuitrusting is inbegrepen, passagiersuitrusting tegen meerprijs. De maat kies je ter plaatse.',
+                        'text' => 'Rijuitrusting is inbegrepen, passagiersuitrusting tegen meerprijs. Vink deze aan bij het reserveren en kies je maat.',
                     ],
                     [
                         'icon' => 'gfx/zaplat.svg',

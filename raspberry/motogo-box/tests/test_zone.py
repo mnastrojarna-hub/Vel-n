@@ -82,8 +82,10 @@ class FakeAudio:
     def __init__(self) -> None:
         self.playing_zone: int | None = None
         self.stops = 0
+        self.plays: list[tuple[int, int | None, bool]] = []   # (zóna, skladba, restart) — hudba od začátku (2026-10-06)
 
-    async def play_zone(self, zone: int) -> bool:
+    async def play_zone(self, zone: int, track: int | None = None, restart: bool = False) -> bool:
+        self.plays.append((zone, track, restart))
         self.playing_zone = zone
         return True
 
@@ -512,10 +514,10 @@ async def test_door_forced_before_pulse_refuses_and_faults():
     r = await rig_secured()
     orig_play = r.audio.play_zone
 
-    async def play_and_force(zone: int) -> bool:
+    async def play_and_force(zone: int, *args, **kw) -> bool:
         await r.zc.on_input(False)                         # kontakt otevřený uprostřed sekvence
         r.clock.advance(0.6)
-        return await orig_play(zone)
+        return await orig_play(zone, *args, **kw)
 
     r.audio.play_zone = play_and_force                     # type: ignore[method-assign]
     assert (await r.zc.grant_access(booking_id="b", kind="motorcycle", source="ui")) == (False, "door_open")
@@ -535,9 +537,9 @@ class SlowAudio(FakeAudio):
         await self.gate.wait()
         await super().stop(fade)
 
-    async def play_zone(self, zone: int) -> bool:
+    async def play_zone(self, zone: int, *args, **kw) -> bool:
         await self.gate.wait()
-        return await super().play_zone(zone)
+        return await super().play_zone(zone, *args, **kw)
 
 
 async def test_overtime_tick_serialized_with_door_close():
@@ -856,9 +858,10 @@ async def test_service_emergency_open_in_open_at_startup_and_lock_offline():
 
 
 async def test_lock_hold_until_open_releases_on_door_open_and_on_timeout():
-    """Zámek bez paměti: relé sepnuté od kódu do otevření dveří (max. timeout), pak vypnuto; timeout → vypnuto."""
+    """Zámek bez paměti, `lock_hold_min_s: 0` (chování do 1.2.5): relé sepnuté od kódu do otevření dveří (max. timeout),
+    pak vypnuto; timeout → vypnuto. Výchozí minimum 60 s po kódu testuje test_lock_hold.py."""
     r = await rig_secured()
-    r.hw.timings.lock_hold_until_open = True
+    r.hw.timings.lock_hold_until_open, r.hw.timings.lock_hold_min_s = True, 0
     r.zc._timings_cache = None
     key = (r.zone.hw.lock.dev, r.zone.hw.lock.idx)
     assert (await r.zc.grant_access(booking_id="b", kind="motorcycle", source="ui")) == (True, "ok")
@@ -866,7 +869,7 @@ async def test_lock_hold_until_open_releases_on_door_open_and_on_timeout():
     await r.zc.on_input(False)                              # dveře otevřeny → zámek vypnout
     assert r.zc.state == ZoneState.DOOR_OPEN and r.io.coils[key] is False and not r.zc.lock_held
     r2 = await rig_secured()
-    r2.hw.timings.lock_hold_until_open = True
+    r2.hw.timings.lock_hold_until_open, r2.hw.timings.lock_hold_min_s = True, 0
     r2.zc._timings_cache = None
     key2 = (r2.zone.hw.lock.dev, r2.zone.hw.lock.idx)
     await r2.zc.grant_access(booking_id="b", kind="motorcycle", source="ui")

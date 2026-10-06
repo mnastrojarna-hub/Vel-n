@@ -1,0 +1,198 @@
+-- 2026-10-06 (zadání majitele): skladbu hudby pobočky jde zkrátit na konci — „současnou skladbu zkrať na konci
+-- o 4 s na 4:02“. Soubor v bucketu branch-music zůstává beze změny; nový sloupec branch_music_tracks.end_s = konec
+-- přehrávání v sekundách (NULL = celá skladba). Jednotka ≥ 1.2.7 si ke skladbě vytvoří EDL (mpv přehraje 0 … end_s
+-- jako samostatnou skladbu, dokola i od začátku); starší jednotka pole ignoruje a hraje celou skladbu.
+-- kiosk_sync_config: kopie z 20261005b, jediná změna = `end_s` v music.tracks[]. Idempotentní.
+
+ALTER TABLE public.branch_music_tracks ADD COLUMN IF NOT EXISTS end_s numeric;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'branch_music_tracks_end_s_check') THEN
+    ALTER TABLE public.branch_music_tracks
+      ADD CONSTRAINT branch_music_tracks_end_s_check CHECK (end_s IS NULL OR (end_s > 0 AND end_s <= 7200));
+  END IF;
+END $$;
+COMMENT ON COLUMN public.branch_music_tracks.end_s IS
+  'Konec přehrávání v sekundách (2026-10-06; NULL = celá skladba). Jednotka ≥ 1.2.7 přehraje jen 0 … end_s (EDL), soubor se nemění. Nastavuje Velín (Hudba pobočky → Konec).';
+
+CREATE OR REPLACE FUNCTION "public"."kiosk_sync_config"("p_device_id" "uuid", "p_device_token" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
+    AS $$
+DECLARE
+  v_bid uuid; v_branch public.branches%ROWTYPE; v_cfg public.branch_kiosk_config%ROWTYPE;
+  v_key bytea; v_doors jsonb; v_services jsonb; v_codes jsonb; v_music jsonb;
+  v_protocols jsonb; v_adult jsonb; v_child jsonb;
+BEGIN
+  v_bid := public.kiosk_device_branch(p_device_id, p_device_token, true);
+  IF v_bid IS NULL THEN RETURN jsonb_build_object('ok', false, 'error', 'unauthorized'); END IF;
+  SELECT * INTO v_branch FROM public.branches WHERE id = v_bid;
+  SELECT * INTO v_cfg FROM public.branch_kiosk_config WHERE branch_id = v_bid;
+  v_key := convert_to(p_device_token::text, 'UTF8');
+
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+    'id', d.id, 'door_kind', d.door_kind, 'box_number', d.box_number, 'label', d.label,
+    'hw', coalesce(d.hw, '{}'::jsonb), 'relay_url', d.relay_url, 'light_url', d.light_url,
+    'sort_order', d.sort_order)
+    ORDER BY d.sort_order, coalesce(d.box_number, 9999), d.created_at), '[]'::jsonb)
+  INTO v_doors FROM public.branch_doors d WHERE d.branch_id = v_bid AND d.is_active;
+
+  -- servisní hesla — jen hashe + účel (service | diagnostics) + popisek
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+    'h', encode(extensions.hmac(convert_to(p_device_id::text || ':' || s.code, 'UTF8'), v_key, 'sha256'), 'hex'),
+    'action', coalesce(s.action, 'service'), 'label', s.label)
+    ORDER BY s.created_at), '[]'::jsonb)
+  INTO v_services FROM public.branch_service_codes s WHERE s.branch_id = v_bid AND s.is_active;
+
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+    'h', encode(extensions.hmac(convert_to(p_device_id::text || ':' || bdc.hcode, 'UTF8'), v_key, 'sha256'), 'hex'),
+    'kind', bdc.code_type, 'booking_id', bdc.booking_id,
+    'valid_from', bdc.valid_from, 'valid_until', bdc.valid_until,
+    -- release_at (2026-10-01h): výdej až od 12:00 (sleva za pozdní vyzvednutí)
+    -- — u každého řádku, aby offline jednotka hradlo vynutila i po delším výpadku
+    'release_at', CASE WHEN bdc.booking_id IS NOT NULL THEN public._kiosk_release_at(bdc.booking_id) END,
+    'door_id', d.id,
+    'box_number', CASE WHEN bdc.code_type = 'motorcycle' THEN coalesce(d.box_number, m.box_number) ELSE d.box_number END,
+    -- odo (2026-09-29): jen kód motorky s platností od ≤ 1 dne — offline vrácení (jednotka přepočte days svými hodinami)
+    'odo', CASE WHEN bdc.code_type = 'motorcycle' AND bdc.booking_id IS NOT NULL
+                 AND (bdc.valid_from IS NULL OR bdc.valid_from <= now() + interval '1 day')
+                THEN public._kiosk_odometer(bdc.booking_id, v_bid) END)
+    ORDER BY bdc.valid_until DESC NULLS LAST, bdc.updated_at DESC), '[]'::jsonb)
+  INTO v_codes
+  FROM (
+    SELECT c.*, c.door_code AS hcode FROM public.branch_door_codes c
+     WHERE c.branch_id = v_bid AND c.is_active = true AND c.sent_to_customer = true
+       AND c.door_code IS NOT NULL AND c.door_code <> ''
+       AND (c.valid_until IS NULL OR c.valid_until >= now() - interval '1 day')
+    UNION ALL
+    -- 2026-10-05 (4): dřívější automaticky nahrazené kódy živé rezervace = alias aktuálního kódu (jako online)
+    SELECT n.*, o.door_code AS hcode
+      FROM public.branch_door_codes o
+      JOIN public.bookings b ON b.id = o.booking_id AND b.status IN ('reserved','active') AND b.is_test IS NOT TRUE
+      JOIN public.branch_door_codes n ON n.booking_id = o.booking_id AND n.code_type = o.code_type
+           AND n.branch_id = v_bid AND n.is_active AND n.sent_to_customer
+           AND n.door_code IS NOT NULL AND n.door_code <> ''
+           AND (n.valid_until IS NULL OR n.valid_until >= now() - interval '1 day')
+     WHERE o.is_active = false AND o.sent_to_customer = true AND o.superseded_by_regen
+       AND o.door_code IS NOT NULL AND o.door_code <> '' AND o.door_code <> n.door_code
+       AND NOT EXISTS (SELECT 1 FROM public.branch_door_codes x
+                        WHERE x.branch_id = v_bid AND x.door_code = o.door_code AND x.is_active)
+       AND NOT EXISTS (SELECT 1 FROM public.branch_door_codes y
+                         JOIN public.bookings yb ON yb.id = y.booking_id AND yb.status IN ('reserved','active')
+                                                AND yb.is_test IS NOT TRUE
+                        WHERE y.door_code = o.door_code AND y.is_active = false AND y.sent_to_customer
+                          AND y.superseded_by_regen AND y.booking_id <> o.booking_id)
+  ) bdc
+  -- 2026-10-05: kóje podle motorky REZERVACE (jako kiosk_resolve_code), jen motorka této pobočky s kójí ≥ 1;
+  -- jinak řádek bez door_id/box_number → offline jednotka nic neotevře (nikdy cizí kóje)
+  LEFT JOIN public.bookings bk ON bk.id = bdc.booking_id
+  LEFT JOIN public.motorcycles m ON m.id = coalesce(bk.moto_id, bdc.moto_id) AND m.branch_id = v_bid AND m.box_number >= 1
+        AND NOT EXISTS (SELECT 1 FROM public.motorcycles m2 WHERE m2.branch_id = v_bid AND m2.box_number = m.box_number
+                         AND m2.id <> m.id AND m2.status IS DISTINCT FROM 'retired')
+  LEFT JOIN public.branch_doors d ON d.branch_id = v_bid AND d.is_active AND (
+        (bdc.code_type = 'accessories' AND d.door_kind = 'accessories')
+     OR (bdc.code_type = 'motorcycle'  AND d.door_kind = 'motorcycle' AND d.box_number = m.box_number))
+  ;
+
+  -- hudba pobočky — jen aktivní skladby; jednotka si soubory stáhne z public bucketu branch-music.
+  -- tracks[].updated_at = čas SOUBORU (storage.objects.updated_at, fallback created_at řádku), NE řádku:
+  -- jednotka podle něj stahuje znovu; přejmenování / přesun / ▲▼ pořadí soubor nemění → nic nestahuje.
+  -- music.updated_at = max(updated_at) řádků = jakákoli změna metadat (pro Velín / diagnostiku).
+  SELECT jsonb_build_object(
+    'updated_at', max(t.updated_at),
+    'tracks', coalesce(jsonb_agg(jsonb_build_object(
+      'id', t.id, 'target', t.target, 'path', t.file_path, 'ext', t.ext,
+      'size', t.size_bytes, 'sort_order', t.sort_order,
+      'end_s', t.end_s,                                   -- 2026-10-06: konec přehrávání (s), NULL = celá skladba
+      'updated_at', coalesce(o.updated_at, t.created_at))
+      ORDER BY t.target, t.sort_order, t.created_at), '[]'::jsonb))
+  INTO v_music
+  FROM public.branch_music_tracks t
+  LEFT JOIN storage.objects o ON o.bucket_id = 'branch-music' AND o.name = t.file_path
+  WHERE t.branch_id = v_bid AND t.is_active;
+
+  -- předávací protokoly k podpisu (2026-09-25) — jen rezervace s kódem v codes[],
+  -- nepodepsané, reserved/active a s platností kódu do 1 dne (minimum osobních
+  -- údajů v offline cache jednotky; podepsané jednotka pozná tím, že tu chybí).
+  -- Známé okno (fail-open): jednotka offline > 24 h před začátkem platnosti
+  -- kódu položku v cache nemá → motorku vydá bez protokolu.
+  -- _kiosk_protocol NULL (chyba) se vynechá — jednotka pak otevírá (fail-open).
+  SELECT coalesce(jsonb_agg(p.proto ORDER BY p.start_date, p.id), '[]'::jsonb)
+  INTO v_protocols
+  FROM (
+    SELECT b.id, b.start_date, public._kiosk_protocol(b.id) AS proto
+      FROM public.bookings b
+     WHERE b.handover_protocol_filled_at IS NULL
+       AND b.status IN ('reserved', 'active')
+       AND b.is_test IS NOT TRUE
+       AND EXISTS (
+         SELECT 1 FROM public.branch_door_codes bdc
+          WHERE bdc.booking_id = b.id AND bdc.branch_id = v_bid
+            AND bdc.is_active = true AND bdc.sent_to_customer = true
+            AND bdc.door_code IS NOT NULL AND bdc.door_code <> ''
+            AND (bdc.valid_until IS NULL OR bdc.valid_until >= now() - interval '1 day')
+            AND (bdc.valid_from  IS NULL OR bdc.valid_from  <= now() + interval '1 day'))
+  ) p
+  WHERE p.proto IS NOT NULL;
+
+  -- číselník velikostí pro úpravu v protokolu: jen 5 typů výbavy se sloupcem
+  -- v bookings; child = adult přepsané dětskými řádky (audience child/both),
+  -- aby dětský protokol nikdy neskončil bez velikostí
+  SELECT coalesce(jsonb_object_agg(t.key, to_jsonb(t.sizes)), '{}'::jsonb) INTO v_adult
+    FROM public.accessory_types t
+   WHERE coalesce(t.is_active, true) AND t.key IN ('helmet', 'jacket', 'pants', 'boots', 'gloves')
+     AND coalesce(array_length(t.sizes, 1), 0) > 0 AND t.audience IN ('adult', 'both');
+  SELECT coalesce(jsonb_object_agg(t.key, to_jsonb(t.sizes)), '{}'::jsonb) INTO v_child
+    FROM public.accessory_types t
+   WHERE coalesce(t.is_active, true) AND t.key IN ('helmet', 'jacket', 'pants', 'boots', 'gloves')
+     AND coalesce(array_length(t.sizes, 1), 0) > 0 AND t.audience IN ('child', 'both');
+
+  RETURN jsonb_build_object(
+    'ok', true, 'synced_at', now(), 'branch_name', v_branch.name,
+    'branch_is_open', coalesce(v_branch.is_open, false),   -- venek v režimu `branch` svítí, dokud je pobočka otevřená
+    'hardware', coalesce(v_cfg.hardware, '{}'::jsonb),
+    'timings', jsonb_build_object(
+      'door_open_seconds', COALESCE(v_cfg.door_open_seconds, 8),
+      'light_seconds',     COALESCE(v_cfg.light_seconds, 120),
+      'music_seconds',     COALESCE(v_cfg.music_seconds, 90)),
+    'music_on_url', v_cfg.music_on_url, 'music_off_url', v_cfg.music_off_url,
+    'power_status_url', v_cfg.power_status_url,
+    'power_poll_seconds', COALESCE(v_cfg.power_poll_seconds, 60),
+    'doors', v_doors, 'service_codes', v_services, 'codes', v_codes,
+    'music', v_music,
+    'protocols', v_protocols,
+    'gear_sizes', jsonb_build_object('adult', v_adult, 'child', v_adult || v_child)
+  );
+END; $$;
+
+ALTER FUNCTION public.kiosk_sync_config(uuid, uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.kiosk_sync_config(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.kiosk_sync_config(uuid, uuid) TO anon, authenticated, service_role;
+
+-- Současná skladba ŠATNY pobočky Velké Němčice → konec 4:02 (242 s). Jen když je jednoznačná: jediná aktivní skladba
+-- s cílem šatny (door:<id dveří šatny>), případně — nemá-li šatna vlastní — jediná aktivní společná (all). Jinak
+-- se nic nemění a konec se nastaví ve Velínu (Samoobsluha → Hudba pobočky → Konec).
+DO $$
+DECLARE
+  v_branch constant uuid := '22222222-2222-2222-2222-222222222222';
+  v_door uuid; v_own integer; v_all integer; v_id uuid;
+BEGIN
+  SELECT id INTO v_door FROM public.branch_doors
+   WHERE branch_id = v_branch AND door_kind = 'accessories' AND is_active ORDER BY created_at LIMIT 1;
+  SELECT count(*) INTO v_own FROM public.branch_music_tracks
+   WHERE branch_id = v_branch AND is_active AND v_door IS NOT NULL AND target = 'door:' || v_door;
+  SELECT count(*) INTO v_all FROM public.branch_music_tracks
+   WHERE branch_id = v_branch AND is_active AND target = 'all';
+  IF v_own = 1 THEN
+    SELECT id INTO v_id FROM public.branch_music_tracks
+     WHERE branch_id = v_branch AND is_active AND target = 'door:' || v_door;
+  ELSIF v_own = 0 AND v_all = 1 THEN
+    SELECT id INTO v_id FROM public.branch_music_tracks WHERE branch_id = v_branch AND is_active AND target = 'all';
+  END IF;
+  IF v_id IS NULL THEN
+    RAISE NOTICE '20261006a: skladba šatny VN není jednoznačná (vlastní %, společné %) — konec nastavte ve Velínu', v_own, v_all;
+  ELSE
+    UPDATE public.branch_music_tracks SET end_s = 242 WHERE id = v_id AND end_s IS NULL;
+    RAISE NOTICE '20261006a: skladba % (šatna VN) — konec přehrávání 4:02', v_id;
+  END IF;
+END $$;

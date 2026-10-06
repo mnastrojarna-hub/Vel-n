@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import subprocess
 
-__version__ = "1.2.6"
+__version__ = "1.2.7"
 
 
 def full_version() -> str:

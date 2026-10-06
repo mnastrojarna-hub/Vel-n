@@ -1555,7 +1555,7 @@ return [
                     [
                         'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => '3. Choisis l\'équipement',
-                        'text' => 'L\'équipement pilote est inclus, celui du passager est en supplément. La taille se choisit sur place.',
+                        'text' => 'L\'équipement pilote est inclus, celui du passager est en supplément. Coche-le lors de la réservation et choisis ta taille.',
                     ],
                     [
                         'icon' => 'gfx/zaplat.svg',

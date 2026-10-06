@@ -30,7 +30,7 @@ export default function BookingSummary({ booking, bookingExtras }) {
   // Vlastní výbava (bookings.own_gear, tri-state): explicitní volba zákazníka/Velína; NULL = neuvedeno
   // (DB odvozuje z velikostí). Rozhoduje o kódu šatny — proto se ukazuje i bez velikostí.
   const ownGearLabel = b.own_gear === true ? 'Ano — vlastní výbava, bez kódu šatny'
-    : b.own_gear === false ? 'Ne — půjčená výbava (kód šatny)' : null
+    : b.own_gear === false ? 'Ne — půjčená výbava (kód šatny po zadání velikosti)' : null
   const riderSizes = b.helmet_size || b.jacket_size || b.pants_size || b.boots_size || b.gloves_size
   // Nájezd: jednotka motorky (km / MH) a původ stavu při vrácení — zadal ho zákazník na displeji
   // samoobslužné pobočky (moto_odometer_readings, 2026-09-29). Tabulka ještě nemusí existovat → tiše nic.

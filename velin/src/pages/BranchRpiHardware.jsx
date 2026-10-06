@@ -6,7 +6,7 @@ import { AudioOutputsEditor } from './BranchRpiAudioHw'
 import { OutdoorHwEditor } from './BranchRpiOutdoorHw'
 import {
   BRNO_DEFAULT_HARDWARE, BRNO_DEFAULT_ZONES, BRNO_DEFAULT_OUTDOOR, DEVICE_TYPES, HW_SECTIONS,
-  fieldToText, textToField, sectionWithDefaults, pickAccessoriesZone,
+  fieldToText, textToField, fieldRangeText, sectionWithDefaults, pickAccessoriesZone,
 } from './BranchRpiHardwareDefaults'
 import { outdoorOf, doorsCollidingWithOutdoor } from './BranchRpiOutdoorHelpers'
 
@@ -243,6 +243,11 @@ function SettingsEditor({ hardware, disabled, onSave }) {
   const [dirty, setDirty] = useState(false)
   const [err, setErr] = useState(null)
   useEffect(() => { if (!dirty) setText(settingsToText(hardware)) }, [hardware, dirty])
+  // Pole, která v uložené mapě chybí: editor u nich ukazuje výchozí hodnotu VELÍNA, jednotka ale do uložení bloku
+  // použije SVOU výchozí (např. lock_hold_until_open: Velín zapnuto × jednotka vypnuto) — proto upozornění a „Uložit“ povolené.
+  const unsaved = useMemo(() => HW_SECTIONS.flatMap(sec => sec.fields
+    .filter(f => !Object.prototype.hasOwnProperty.call((hardware && hardware[sec.key]) || {}, f.key))
+    .map(f => `${sec.title} → ${f.label}`)), [hardware])
 
   function edit(sec, key, v) {
     setText(t => ({ ...t, [sec]: { ...t[sec], [key]: v } }))
@@ -257,7 +262,7 @@ function SettingsEditor({ hardware, disabled, onSave }) {
         const raw = text[sec.key]?.[f.key]
         if (f.type === 'bool') { patch[sec.key][f.key] = !!raw; continue }
         const v = textToField(f, raw)
-        if (v == null && f.type !== 'text') { setErr(`${sec.title} → ${f.label}: neplatná hodnota.`); return }
+        if (v == null && f.type !== 'text') { setErr(`${sec.title} → ${f.label}: neplatná hodnota${fieldRangeText(f)}.`); return }
         if (f.key === 'closed_level' && v !== 0 && v !== 1) { setErr('Dveřní kontakty → úroveň zavřeno musí být 0 nebo 1.'); return }
         patch[sec.key][f.key] = v
       }
@@ -270,7 +275,12 @@ function SettingsEditor({ hardware, disabled, onSave }) {
   return (
     <SubBlock title="Časování, polling, kontakty, bezpečnost, audio, signalizace"
       hint="Chování jednotky na pobočce — jak dlouho drží zámek, kdy zhasne světlo, jak nahlas hraje hudba a kdy se displej zamkne po špatných kódech. U KAŽDÉHO pole je po najetí myší vysvětlivka, co znamená a k čemu slouží. Platí pro všechny kóje a šatnu stejně; venkovní prostor má vlastní režim v bloku „Venek“. Ukládá se celý blok najednou."
-      action={<Btn tone="dark" onClick={save} disabled={disabled || !dirty}>{dirty ? 'Uložit nastavení' : 'Uloženo'}</Btn>}>
+      action={<Btn tone="dark" onClick={save} disabled={disabled || (!dirty && !unsaved.length)}>{dirty ? 'Uložit nastavení' : unsaved.length ? 'Uložit (doplnit výchozí)' : 'Uloženo'}</Btn>}>
+      {unsaved.length > 0 && (
+        <div className="p-2 mb-2 rounded-lg text-[11px] font-bold" style={NOTE_STYLE.amber}>
+          Neuloženo v mapě jednotky: {unsaved.length > 8 ? `${unsaved.length} polí` : unsaved.join(', ')}. Editor u {unsaved.length === 1 ? 'něj' : 'nich'} ukazuje výchozí hodnotu Velína, jednotka zatím používá svou vlastní výchozí. Uložením bloku se zobrazené hodnoty zapíšou.
+        </div>
+      )}
       <div className="space-y-2">
         {HW_SECTIONS.map(sec => (
           <div key={sec.key} className="pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
@@ -286,7 +296,7 @@ function SettingsEditor({ hardware, disabled, onSave }) {
                 return (
                   <Input key={f.key} label={label} value={v} invalid={invalid} title={f.hint}
                     width={f.type === 'list' || f.type === 'text' ? 190 : 150}
-                    type={f.type === 'int' ? 'number' : 'text'} step={f.type === 'float' ? '0.1' : undefined}
+                    type={f.type === 'int' ? 'number' : 'text'} step={f.type === 'float' ? '0.1' : undefined} min={f.min}
                     onChange={val => edit(sec.key, f.key, val)} />
                 )
               })}

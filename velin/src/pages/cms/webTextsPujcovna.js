@@ -45,7 +45,7 @@ export const PAGE_PUJCOVNA = {
         { key: 'web.pujcovna.process.steps.1.title', label: 'Krok 2 – nadpis', default: '2. Rezervuj online' },
         { key: 'web.pujcovna.process.steps.1.text', label: 'Krok 2 – popis', type: 'textarea', default: 'Uskutečni rezervaci podle data nebo podle konkrétní motorky, kterou si chceš půjčit.' },
         { key: 'web.pujcovna.process.steps.2.title', label: 'Krok 3 – nadpis', default: '3. Vyber výbavu' },
-        { key: 'web.pujcovna.process.steps.2.text', label: 'Krok 3 – popis', type: 'textarea', default: 'Výbava pro řidiče je v ceně, pro spolujezdce za příplatek. Velikost si můžeš zvolit až na místě.' },
+        { key: 'web.pujcovna.process.steps.2.text', label: 'Krok 3 – popis', type: 'textarea', default: 'Výbava pro řidiče je v ceně, pro spolujezdce za příplatek. Velikost vybereš při rezervaci — výbavu stačí zaškrtnout.' },
         { key: 'web.pujcovna.process.steps.3.title', label: 'Krok 4 – nadpis', default: '4. Zaplať' },
         { key: 'web.pujcovna.process.steps.3.text', label: 'Krok 4 – popis', type: 'textarea', default: 'Zaplať jednoduše online prostřednictvím platební brány.' },
         { key: 'web.pujcovna.process.steps.4.title', label: 'Krok 5 – nadpis', default: '5. Převezmi motorku' },

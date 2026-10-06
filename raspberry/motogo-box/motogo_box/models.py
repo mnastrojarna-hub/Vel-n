@@ -312,6 +312,8 @@ class ServiceDoor:
 RPC_REASON_ERRORS = {
     "replaced": "code_replaced", "revoked": "code_revoked", "not_yet_valid": "code_not_yet_valid", "expired": "code_expired",
 }
+# Kód ŠATNY stažený, protože rezervace nemá vybranou výbavu (DB `reason:'revoked'` + `no_gear:true`, 20261005j; od 1.2.7)
+CODE_NO_GEAR = "code_no_gear"
 
 
 @dataclass
@@ -369,7 +371,10 @@ class ResolveResult:
             # 2026-10-05: kód existuje, ale teď neplatí — DB posílá zpětně kompatibilně invalid_code + `reason`
             # (jednotky < 1.2.5 hlásí jako dřív „neplatný“); od 1.2.5 vlastní hláška a BEZ lockoutu
             reason = m.get("reason") or ("replaced" if m.get("replaced") is True else None)
-            err = RPC_REASON_ERRORS.get(str(reason or ""), err)
+            if m.get("no_gear") is True and reason in (None, "revoked"):
+                err = CODE_NO_GEAR          # 1.2.7: „šatnu nepotřebujete, zadejte kód k motorce“ (starší = revoked)
+            else:
+                err = RPC_REASON_ERRORS.get(str(reason or ""), err)
         return cls(
             ok=bool(m.get("ok")),
             error=err,

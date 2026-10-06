@@ -343,7 +343,7 @@ function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
           {selfService && (
             <span className="ml-1" style={{ color: '#6b7280' }}>({SELF_SERVICE_LAYOUT_NOTE} — kóje 1–{maxMotos})</span>
           )}
-          <div className="text-xs" style={{ color: '#6b7280' }}>Změna kóje vygeneruje zákazníkům s rezervací nové kódy a znovu je odešle.</div>
+          <div className="text-xs" style={{ color: '#6b7280' }}>Změna kóje kódy nemění – zákazník zadá stejný kód, kiosk otevře novou kóji.</div>
         </div>
         <div className="flex gap-2">
           {hasUnassigned && (

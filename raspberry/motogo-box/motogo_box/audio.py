@@ -213,17 +213,29 @@ class AudioController(SelectorChannelStubs):
             log.warning("Playlist cíle %s nelze načíst: %s", target, exc)
             return []
 
-    async def _load_target(self, target: str, track: int | None = None) -> None:
-        """Načte do mpv playlist cíle / jednu skladbu `track` (jen když se liší od právě načteného; bez knihovny legacy 1×)."""
+    async def _load_target(self, target: str, track: int | None = None) -> bool:
+        """Načte do mpv playlist cíle / jednu skladbu `track` (jen když se liší od právě načteného; bez knihovny legacy 1×).
+        Vrací True, když se načítalo (nový playlist začíná od začátku)."""
         files = self._files_for(target, track)
         key = (f"{target}#{track}" if track else target) if files is not None else "legacy"
         if key == self._loaded_target:
-            return
+            return False
         if files is None:
             await self.player.load_playlist(self.cfg.shuffle)
         else:
             await self.player.load_files(files, self.cfg.shuffle and not track)
         self._loaded_target, self._track = key, track
+        return True
+
+    async def _rewind(self) -> None:
+        """Přetočit na začátek (`MpvPlayer.rewind`; starší přehrávač/fake bez metody = nic)."""
+        fn = getattr(self.player, "rewind", None)
+        if fn is None:
+            return
+        try:
+            await fn()
+        except Exception as exc:  # noqa: BLE001 — hudba nesmí zdržet ani shodit otevření
+            log.warning("Přetočení hudby na začátek selhalo: %s", exc)
 
     def _start_fade(self, to: int, ms: int) -> None:
         """Fade na pozadí — přístupová sekvence nečeká na náběh hlasitosti (pulz zámku dřív)."""
@@ -266,11 +278,15 @@ class AudioController(SelectorChannelStubs):
         except Exception as exc:  # noqa: BLE001
             log.warning("Ukončení přehrávače selhalo: %s", exc)
 
-    async def play_zone(self, zone: int, track: int | None = None) -> bool:
-        """Přehrává hudbu v zóně (jiná hrající zóna se nejprve korektně zastaví); `track` 1/2 = uvítací/návrat."""
+    async def play_zone(self, zone: int, track: int | None = None, restart: bool = False) -> bool:
+        """Přehrává hudbu v zóně (jiná hrající zóna se nejprve korektně zastaví); `track` 1/2 = uvítací/návrat.
+        `restart` (zadání kódu / pozdní otevření, 2026-10-06) = vždy od začátku: hraje-li už tatáž zóna a skladba,
+        jen přetočí (bez nového fade), jinak přetočí před spuštěním (pauza by jinak pokračovala uprostřed skladby)."""
         async with self._lock:
             if self.playing_zone == zone and self.selector.active_zone == zone and not self._tone \
                     and (track is None or self._track == track):
+                if restart:
+                    await self._rewind()
                 return True
             if self.playing_zone is not None:
                 await self._stop_locked(fade=True)
@@ -281,7 +297,8 @@ class AudioController(SelectorChannelStubs):
             # (1) ztlumit před přepínáním relé, playlist cíle zóny (door:<id> / zone:<n> → all)
             await self.player.set_volume(0)
             await self.player.pause()
-            await self._load_target(self._target_of(zone), track)
+            if not await self._load_target(self._target_of(zone), track) and restart:
+                await self._rewind()                    # stejný playlist zůstal načtený (pauza uprostřed skladby)
             if not await self.selector.select(zone):
                 self.playing_zone = None
                 return False
