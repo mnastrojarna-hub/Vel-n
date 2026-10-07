@@ -2191,6 +2191,11 @@ by offline pustil skutečně vrácenou motorku znovu ven — proti D2).
 `booking_kiosk_returns`) a hradlo jednotky vycházejí z týchž událostí:
 - **šatna jen po vyjetí** — `_kiosk_return_locker_close` bere poslední zavření šatny ≥ zavření kóje − 90 min a zároveň PO
   posledním ACCESS_GRANTED motorky s fází ≠ `in` (bez fáze = `out`); jednotka: takový grant smaže celý záznam (bay i locker);
+- **vyjetí až po otevření dveří** (migrace `20261007`): grant motorky s fází ≠ `in` po zaparkování server jen poznamená
+  (`detail.pending_out`); řádek přepne na `out` teprve DOOR_OPENED / zavření relace vyjetí (≥ 1.2.8 podle `session_id`
+  a fáze, i pozdní otevření po OPEN_TIMEOUT; ≤ 1.2.7 jen s čekajícím grantem). Kód vyjetí, po kterém zákazník kóji
+  NEotevře (OPEN_TIMEOUT), tak motorku nechá „zaparkovanou“ a po konci termínu se rezervace dokončí s časem zavření kóje;
+  jednotka sama tento grant bere jako vyjetí (lokální fáze `out`, záznam `return_gate` pryč) — beze změny;
 - **nouzové servisní otevření** (ACCESS_GRANTED s `detail.emergency`) server ignoruje a do párování zavření (≤ 1.2.7) nebere;
   jednotka ho v `observe` taky ignoruje;
 - **opakovaný kód motorky po zaparkování** (fáze `in`, v grace odometru) přepne řádek na `returning`; neotevře-li zákazník
