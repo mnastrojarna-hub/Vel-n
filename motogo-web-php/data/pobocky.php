@@ -5,8 +5,8 @@
 // „Pobočky – přehled“ / „Pobočka Mezná“ / „Pobočka Velké Němčice“ (klíče
 // `web.pobocky.*` v `cms_variables`). Shodné defaulty drží Velín
 // (velin/src/pages/cms/webTextsPobocky.js) a appka (features/branches).
-// `slug`, `branch_id` (= branches.id — předvyplnění pobočky v /rezervace?pobocka=<id>), `map`, `photo` a `gallery`
-// (fotky v gfx/pobocky/<slug>/) jdou jen z kódu; `video` = URL nahraná ve Velínu
+// `slug`, `branch_id` (= branches.id — předvyplnění pobočky v /rezervace?pobocka=<id>), `map`, `photo`, `gallery`
+// (fotky v gfx/pobocky/<slug>/) a `video_top` (video v detailu nahoře pod adresou — Velké Němčice) jdou jen z kódu; `video` = URL nahraná ve Velínu
 // (bucket media) nebo odkaz na YouTube, prázdné = bez videa.
 
 function pobockyDefaults() {
@@ -54,6 +54,8 @@ function pobockyDefaults() {
             'photo' => '',
             'video' => '',
             'video_title' => 'Video: jak se obsloužit na samoobslužné pobočce',
+            // jen z kódu: video (je-li ve Velínu nahrané) se v detailu zobrazí NAHOŘE pod názvem a adresou (zadání majitele 2026-10-07)
+            'video_top' => true,
             // [soubor bez .webp v gfx/pobocky/velke-nemcice/ (+ náhled -640), popisek]
             'gallery' => [
                 ['vydejni-box', 'Výdejní box samoobslužné pobočky — kóje s motorkami'],
@@ -77,11 +79,12 @@ function pobockyDefaults() {
 ];
 }
 
-/** Pobočka i: CMS hodnoty přes defaulty (slug/branch_id/map/photo/gallery vždy z kódu). */
+/** Pobočka i: CMS hodnoty přes defaulty (slug/branch_id/map/photo/gallery/video_top vždy z kódu). */
 function pobockyBranch($C, $D, $i) {
     $d = $D['branches'][$i] ?? [];
     $b = (is_array($C['branches'][$i] ?? null)) ? array_merge($d, $C['branches'][$i]) : $d;
     foreach (['slug', 'branch_id', 'map', 'photo', 'gallery'] as $k) $b[$k] = $d[$k] ?? '';
+    $b['video_top'] = !empty($d['video_top']);
     return $b;
 }
 

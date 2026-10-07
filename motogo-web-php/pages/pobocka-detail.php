@@ -2,7 +2,8 @@
 // ===== MotoGo24 Web PHP — Detail pobočky /pobocky/<slug> (CMS-driven) =====
 // $_GET['slug'] nastaví index.php. Obsah = karta pobočky z data/pobocky.php
 // přes CMS (`web.pobocky.branches.<i>.*`) + mapa + volitelné video (nahrané
-// ve Velínu → Texty webu → pobočka → „Video“, nebo odkaz na YouTube)
+// ve Velínu → Texty webu → pobočka → „Video“, nebo odkaz na YouTube; u pobočky
+// s `video_top` = Velké Němčice nahoře pod adresou, jinak pod galerií)
 // + fotogalerie (fotky z kódu, data/pobocky.php `gallery`).
 
 require_once __DIR__ . '/../data/pobocky.php';
@@ -25,6 +26,10 @@ $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['labe
 $mapQ = (string)$b['map'];
 $mapSrc = 'https://www.google.com/maps?q=' . rawurlencode($mapQ) . '&hl=' . i18nDetectLanguage() . '&z=14&output=embed';
 $photo = trim((string)$b['photo']);
+// Video (nahrané ve Velínu / YouTube): u pobočky s `video_top` (Velké Němčice) NAHOŘE pod názvem,
+// adresou a otevírací dobou (zadání majitele 2026-10-07), jinak pod fotogalerií jako dřív. Bez URL = nic.
+$videoHtml = pobockyVideoHtml($b['video'] ?? '', $b['video_title'] ?? '', $k);
+$videoTop = !empty($b['video_top']);
 
 $cta = is_array($C['cta'] ?? null) ? array_merge($defaults['cta'], $C['cta']) : $defaults['cta'];
 // „Rezervovat“ → formulář s předvybranou touto pobočkou (branch_id jen z kódu, data/pobocky.php); bez id prosté /rezervace.
@@ -38,12 +43,13 @@ $content = pobockyCss() . '<main id="content"><div class="container">' . $bc
     . '<h1 data-cms-key="' . $k . '.title">' . sanitizeHtml((string)$b['title']) . '</h1>'
     . '<p>📍 <span data-cms-key="' . $k . '.address">' . sanitizeHtml((string)$b['address']) . '</span></p>'
     . '<p>🕑 <span data-cms-key="' . $k . '.hours">' . sanitizeHtml((string)$b['hours']) . '</span></p><p>&nbsp;</p>'
+    . ($videoTop ? $videoHtml : '')
     . '<p data-cms-key="' . $k . '.text">' . sanitizeHtml((string)$b['text']) . '</p><p>&nbsp;</p>'
     . '<p>🧥 <span data-cms-key="' . $k . '.gear">' . sanitizeHtml((string)$b['gear']) . '</span></p><p>&nbsp;</p>'
     . '<h2 data-cms-key="' . $k . '.steps_title">' . sanitizeHtml((string)$b['steps_title']) . '</h2>'
     . '<p data-cms-key="' . $k . '.steps">' . sanitizeHtml((string)$b['steps']) . '</p>'
     . pobockyGalleryHtml($b, $k)
-    . pobockyVideoHtml($b['video'] ?? '', $b['video_title'] ?? '', $k)
+    . ($videoTop ? '' : $videoHtml)
     . ($mapQ !== '' ? '<iframe class="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen aria-label="' . htmlspecialchars($title) . '" src="' . htmlspecialchars($mapSrc) . '"></iframe>' : '')
     . '</section>'
     . '<section class="cta-green-box"><h2 data-cms-key="web.pobocky.cta.title">' . sanitizeHtml((string)$cta['title']) . '</h2>'
