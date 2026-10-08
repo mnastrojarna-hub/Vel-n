@@ -1,35 +1,35 @@
 import { useState } from 'react'
 
 const SERVICE_PRESETS = [
-  { key: 'oil', label: 'Vymena oleje', icon: '\ud83d\udee2\ufe0f', defaultKm: 5000, defaultDays: 365 },
-  { key: 'tires', label: 'Vymena pneumatik', icon: '\ud83d\udd18', defaultKm: 15000, defaultDays: null },
-  { key: 'brakes', label: 'Kontrola brzd', icon: '\ud83d\uded1', defaultKm: 10000, defaultDays: 365 },
-  { key: 'full', label: 'Kompletni servis', icon: '\ud83d\udd27', defaultKm: 20000, defaultDays: 365 },
-  { key: 'chain', label: 'Retez / rozvodovy remen', icon: '\u26d3\ufe0f', defaultKm: 20000, defaultDays: null },
-  { key: 'coolant', label: 'Chladici kapalina', icon: '\ud83d\udca7', defaultKm: 30000, defaultDays: 730 },
-  { key: 'air_filter', label: 'Vzduchovy filtr', icon: '\ud83c\udf2c\ufe0f', defaultKm: 15000, defaultDays: 365 },
-  { key: 'stk', label: 'STK / Inspekce', icon: '\ud83d\udccb', defaultKm: null, defaultDays: 730 },
-  { key: 'custom', label: 'Vlastni...', icon: '\u270f\ufe0f', defaultKm: 10000, defaultDays: null },
+  { key: 'oil', label: 'Výměna oleje', icon: '🛢️', defaultKm: 5000, defaultDays: 365, task: 'oil_change' },
+  { key: 'tires', label: 'Výměna pneumatik', icon: '🔘', defaultKm: 15000, defaultDays: null, task: null },
+  { key: 'brakes', label: 'Kontrola brzd', icon: '🛑', defaultKm: 10000, defaultDays: 365, task: 'brake_pads_check' },
+  { key: 'full', label: 'Kompletní servis', icon: '🔧', defaultKm: 20000, defaultDays: 365, task: 'full_service' },
+  { key: 'chain', label: 'Řetěz / rozvodový řemen', icon: '⛓️', defaultKm: 20000, defaultDays: null, task: 'chain_kit' },
+  { key: 'coolant', label: 'Chladicí kapalina', icon: '💧', defaultKm: 30000, defaultDays: 730, task: 'coolant_change' },
+  { key: 'air_filter', label: 'Vzduchový filtr', icon: '🌬️', defaultKm: 15000, defaultDays: 365, task: 'air_filter' },
+  { key: 'stk', label: 'STK / Inspekce', icon: '📋', defaultKm: null, defaultDays: 730, task: null },
+  { key: 'custom', label: 'Vlastní…', icon: '✏️', defaultKm: 10000, defaultDays: null, task: null },
 ]
 
 export default function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existingTypes = [] }) {
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState(1)
   const [selected, setSelected] = useState(null)
-  const [form, setForm] = useState({ description: '', interval_km: '', interval_days: '', first_service_km: '', first_service_desc: '' })
+  const [form, setForm] = useState({ description: '', interval_km: '', interval_days: '', first_service_km: '', first_service_desc: '', task_key: null })
   const [hasFirstService, setHasFirstService] = useState(false)
 
-  function reset() { setOpen(false); setStep(1); setSelected(null); setHasFirstService(false); setForm({ description: '', interval_km: '', interval_days: '', first_service_km: '', first_service_desc: '' }) }
+  function reset() { setOpen(false); setStep(1); setSelected(null); setHasFirstService(false); setForm({ description: '', interval_km: '', interval_days: '', first_service_km: '', first_service_desc: '', task_key: null }) }
 
   function selectPreset(preset) {
     setSelected(preset.key)
-    setForm({ description: preset.key === 'custom' ? '' : preset.label, interval_km: preset.defaultKm || '', interval_days: preset.defaultDays || '', first_service_km: '', first_service_desc: '' })
+    setForm({ description: preset.key === 'custom' ? '' : preset.label, interval_km: preset.defaultKm || '', interval_days: preset.defaultDays || '', first_service_km: '', first_service_desc: '', task_key: preset.task || null })
     setStep(2)
   }
 
   function handleSubmit() { if (!form.description) return; const submitForm = { ...form }; if (!hasFirstService) { submitForm.first_service_km = ''; submitForm.first_service_desc = '' }; onAdd(submitForm); reset() }
 
-  if (!open) return <button onClick={() => setOpen(true)} className="rounded-btn text-sm font-extrabold uppercase cursor-pointer" style={{ padding: '6px 16px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>+ Novy servisni plan</button>
+  if (!open) return <button onClick={() => setOpen(true)} className="rounded-btn text-sm font-extrabold uppercase cursor-pointer" style={{ padding: '6px 16px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>+ Nový servisní plán</button>
 
   // Diakritika-necitlivé porovnání celého názvu — plánů může mít motorka neomezeně,
   // štítek „Jiz pridano" je jen informativní a nesmí označovat jiné typy servisu

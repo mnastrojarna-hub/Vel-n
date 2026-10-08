@@ -1,246 +1,116 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { debugAction, debugLog, debugError } from '../../lib/debugLog'
+import { debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
-import {
-  SEASON_MONTHS, seasonDaysBetween, addSeasonDays,
-  findWinterServiceDate, scheduleStkDates, findFreeServiceDate,
-  isLateOctober, isoDate, TYPE_LABELS,
-} from './serviceScheduleUtils'
+import { fetchServiceDue, DUE_STATE, SOURCE_LABELS, BASELINE_LABELS, dueText, intervalText, fmtDate, fmtKm, planServiceFromDue, isoDateOf } from '../../lib/serviceBook'
 
-const FILTERS = ['Vše', 'Nejbližší', 'Následující měsíc', 'Vlastní']
+const FILTERS = [['attention', 'K řešení'], ['all', 'Vše'], ['planned', 'Naplánované'], ['stk', 'STK']]
+const STATE_ORDER = { overdue: 0, due_soon: 1, unknown: 2, ok: 3 }
 
+/**
+ * Servis → Plánované: hlídání intervalů celé flotily (DB get_service_due) + STK. Ruční termín (next_due)
+ * lze zapsat kliknutím na datum; „naplánovat“ založí servisní záznam s úkonem.
+ */
 export default function ServiceSchedule() {
-  const [schedules, setSchedules] = useState([])
-  const [bookings, setBookings] = useState([])
-  const [avgKmPerDay, setAvgKmPerDay] = useState({})
-  const [allMotos, setAllMotos] = useState([])
+  const navigate = useNavigate()
+  const [rows, setRows] = useState([])
+  const [motos, setMotos] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('Vše')
-  const [customFrom, setCustomFrom] = useState('')
-  const [customTo, setCustomTo] = useState('')
-  const [manualDates, setManualDates] = useState({})
-  const [editingDate, setEditingDate] = useState(null)
-  const [savingDate, setSavingDate] = useState(null)
+  const [filter, setFilter] = useState('attention')
+  const [q, setQ] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [dateVal, setDateVal] = useState('')
+  const [busy, setBusy] = useState(null)
 
   useEffect(() => { load() }, [])
-
   async function load() {
     setLoading(true)
     try {
-      debugLog('ServiceSchedule', 'load')
-      const [schedRes, bookRes, logRes, motosRes] = await Promise.all([
-        debugAction('maintenance_schedules.list', 'ServiceSchedule', () =>
-          supabase.from('maintenance_schedules').select('*, motorcycles(id, model, spz, mileage, purchase_mileage, year)')
-            .eq('active', true).order('next_due', { ascending: true, nullsFirst: false })),
-        supabase.from('bookings').select('moto_id, start_date, end_date')
-          .in('status', ['pending', 'reserved', 'active']).gte('end_date', isoDate(new Date())),
-        supabase.from('maintenance_log').select('moto_id, km_at_service, created_at').order('created_at', { ascending: true }),
-        supabase.from('motorcycles').select('id, model, spz, stk_valid_until, license_required').order('model'),
-      ])
-      if (schedRes.error) throw schedRes.error
-      setSchedules(schedRes.data || [])
-      setBookings(bookRes.data || [])
-      setAllMotos(motosRes.data || [])
-
-      // Avg km/day per motorcycle
-      const logs = logRes.data || []
-      const byMoto = {}
-      for (const l of logs) { if (l.moto_id && l.km_at_service) { if (!byMoto[l.moto_id]) byMoto[l.moto_id] = []; byMoto[l.moto_id].push(l) } }
-      const avgMap = {}
-      for (const [motoId, entries] of Object.entries(byMoto)) {
-        if (entries.length >= 2) {
-          const first = entries[0], last = entries[entries.length - 1]
-          const kmDiff = (last.km_at_service || 0) - (first.km_at_service || 0)
-          const sDays = seasonDaysBetween(new Date(first.created_at), new Date(last.created_at))
-          if (sDays > 0 && kmDiff > 0) avgMap[motoId] = kmDiff / sDays
-        }
-      }
-      for (const s of (schedRes.data || [])) {
-        const moto = s.motorcycles
-        if (moto && !avgMap[moto.id] && moto.mileage && moto.year) {
-          avgMap[moto.id] = moto.mileage / (Math.max(1, (new Date().getFullYear() - moto.year) * SEASON_MONTHS) * 30)
-        }
-      }
-      setAvgKmPerDay(avgMap)
+      const [due, m] = await Promise.all([fetchServiceDue(null), supabase.from('motorcycles').select('id, model, spz, stk_valid_until, license_required, is_trailer, status').neq('status', 'retired').order('model')])
+      setRows(due); setMotos((m.data || []).filter(x => !x.is_trailer))
     } catch (e) { debugError('ServiceSchedule', 'load', e) }
     setLoading(false)
   }
 
-  const enriched = useMemo(() => {
-    const now = new Date()
-    const winterYear = now.getMonth() >= 2 ? now.getFullYear() + 1 : now.getFullYear()
-    const results = schedules.map(s => {
-      const currentKm = Number(s.motorcycles?.mileage) || 0
-      const baseMileage = Number(s.motorcycles?.purchase_mileage) || 0
-      let nextAt = !s.last_service_km && s.first_service_km ? baseMileage + Number(s.first_service_km)
-        : s.last_service_km ? s.last_service_km + (s.interval_km || 0)
-        : baseMileage + (s.interval_km || 0)
-      const remaining = nextAt - currentKm
-      const overdue = s.interval_km ? remaining <= 0 : false
-      const dueSoon = !overdue && !!s.interval_km && remaining <= Number(s.interval_km) * 0.20
-      const dbDate = s.next_due || s.next_date || null
-      let autoDate = null
-      const motoId = s.motorcycles?.id || s.moto_id
-      const dailyKm = avgKmPerDay[motoId]
-      const isRegular = !!(s.interval_km || s.interval_days)
-      let mergedWithWinter = false
+  const stkRows = useMemo(() => motos.filter(m => m.license_required !== 'N').map(m => {
+    const days = m.stk_valid_until ? Math.ceil((new Date(m.stk_valid_until) - new Date()) / 86400000) : null
+    return { schedule_id: `stk-${m.id}`, moto_id: m.id, model: m.model, spz: m.spz, label: 'STK & Emise', group_label: 'Státní správa', isStk: true,
+      state: days === null ? 'unknown' : days <= 0 ? 'overdue' : days <= 60 ? 'due_soon' : 'ok', days_remaining: days, next_date: m.stk_valid_until, tracking_unit: 'km' }
+  }), [motos])
 
-      if (isRegular && overdue) {
-        autoDate = findFreeServiceDate(now, bookings.filter(b => b.moto_id === motoId))
-      } else if (isRegular && dailyKm > 0 && remaining > 0) {
-        const est = addSeasonDays(now, Math.ceil(remaining / dailyKm))
-        const mb = bookings.filter(b => b.moto_id === motoId)
-        if (isLateOctober(est) && s.interval_km && remaining - s.interval_km * 0.25 > 0) {
-          autoDate = findWinterServiceDate(winterYear, mb); mergedWithWinter = true
-        } else { autoDate = findFreeServiceDate(est, mb) }
-      }
-      return { ...s, remaining, overdue, dueSoon, nextAt, estDate: dbDate ? new Date(dbDate) : autoDate, autoDate, isAutoEstimated: !dbDate && !!autoDate, dailyKm: dailyKm || 0, mergedWithWinter }
-    })
-    // Virtual winter service per moto
-    const motoIds = new Set(schedules.map(s => s.motorcycles?.id || s.moto_id).filter(Boolean))
-    for (const motoId of motoIds) {
-      const ms = schedules.find(s => (s.motorcycles?.id || s.moto_id) === motoId)
-      const wd = findWinterServiceDate(winterYear, bookings.filter(b => b.moto_id === motoId))
-      results.push({ id: `winter-${motoId}`, moto_id: motoId, motorcycles: ms?.motorcycles || { id: motoId, model: '—', spz: '—' },
-        description: 'Velký zimní servis', schedule_type: 'winter_service', remaining: null, overdue: false, estDate: wd, autoDate: wd, isAutoEstimated: true, dailyKm: 0, mergedWithWinter: false, isWinterService: true })
-    }
-    // Virtual STK entries — only for motos that require a license (go on public roads)
-    // license_required === 'N' means no license needed = off-road/kids = no STK
-    const stkMotos = allMotos.filter(m => m.license_required !== 'N')
-    const stkYear = now.getMonth() >= 2 ? now.getFullYear() + 1 : now.getFullYear()
-    const stkA = scheduleStkDates(stkMotos, bookings, stkYear)
-    for (const moto of stkMotos) {
-      const stkValid = moto.stk_valid_until ? new Date(moto.stk_valid_until) : null
-      const md = schedules.find(s => (s.motorcycles?.id || s.moto_id) === moto.id)?.motorcycles || moto
-      results.push({ id: `stk-${moto.id}`, moto_id: moto.id, motorcycles: md,
-        description: 'STK & Emise', schedule_type: 'stk', remaining: null, overdue: stkValid ? stkValid < now : false,
-        estDate: stkA[moto.id], autoDate: stkA[moto.id], isAutoEstimated: true, dailyKm: 0, mergedWithWinter: false, isStkService: true, stkValidUntil: stkValid })
-    }
-    return results
-  }, [schedules, avgKmPerDay, bookings, allMotos])
+  const list = useMemo(() => {
+    const norm = s => (s || '').toLowerCase()
+    let items = filter === 'stk' ? stkRows : filter === 'all' ? [...rows, ...stkRows] : rows
+    if (filter === 'attention') items = [...rows.filter(r => !r.open_log_id && r.state !== 'ok'), ...stkRows.filter(r => r.state !== 'ok')]
+    if (filter === 'planned') items = rows.filter(r => r.open_log_id || r.planned_date)
+    if (q) items = items.filter(r => norm(r.model).includes(norm(q)) || norm(r.spz).includes(norm(q)) || norm(r.label).includes(norm(q)))
+    return items.sort((a, b) => (STATE_ORDER[a.state] - STATE_ORDER[b.state]) || (a.model || '').localeCompare(b.model || '', 'cs') || (a.label || '').localeCompare(b.label || '', 'cs'))
+  }, [rows, stkRows, filter, q])
 
-  const filtered = useMemo(() => {
-    let items = enriched
-    if (filter === 'Nejbližší') {
-      const byMoto = {}, byType = {}
-      for (const s of items) {
-        const mid = s.moto_id
-        if (!byMoto[mid] || (s.remaining != null && (byMoto[mid].remaining == null || s.remaining < byMoto[mid].remaining))) byMoto[mid] = s
-        const t = s.schedule_type
-        if (t && !s.isWinterService && !s.isStkService && (!byType[t] || (s.remaining != null && (byType[t].remaining == null || s.remaining < byType[t].remaining)))) byType[t] = s
-      }
-      const merged = new Map()
-      const typeIds = new Set(Object.values(byType).map(s => s.id))
-      for (const s of Object.values(byMoto)) merged.set(s.id, { ...s, _nearestMoto: true, _nearestType: typeIds.has(s.id) })
-      for (const s of Object.values(byType)) { if (merged.has(s.id)) merged.get(s.id)._nearestType = true; else merged.set(s.id, { ...s, _nearestMoto: false, _nearestType: true }) }
-      items = Array.from(merged.values())
-    } else if (filter === 'Následující měsíc') {
-      const nm = new Date(); nm.setMonth(nm.getMonth() + 1)
-      items = items.filter(s => s.overdue || (s.estDate && s.estDate <= nm))
-    } else if (filter === 'Vlastní') {
-      const from = customFrom ? new Date(customFrom) : null, to = customTo ? new Date(customTo + 'T23:59:59') : null
-      if (from || to) items = items.filter(s => s.estDate && (!from || s.estDate >= from) && (!to || s.estDate <= to))
-    }
-    return items.sort((a, b) => { if (a.overdue !== b.overdue) return a.overdue ? -1 : 1; if (a.estDate && b.estDate) return a.estDate - b.estDate; if (a.estDate) return -1; if (b.estDate) return 1; return (a.remaining ?? Infinity) - (b.remaining ?? Infinity) })
-  }, [enriched, filter, customFrom, customTo])
-
-  async function saveDate(scheduleId, dateStr) {
-    setSavingDate(scheduleId)
-    try {
-      const { error } = await supabase.from('maintenance_schedules').update({ next_due: dateStr || null }).eq('id', scheduleId)
-      if (error) throw error
-      setSchedules(prev => prev.map(s => s.id === scheduleId ? { ...s, next_due: dateStr || null } : s))
-      setEditingDate(null); setManualDates(prev => { const n = { ...prev }; delete n[scheduleId]; return n })
-    } catch (e) { debugError('ServiceSchedule', 'saveDate', e) }
-    setSavingDate(null)
+  async function saveDate(r, val) {
+    setBusy(r.schedule_id)
+    try { const { error } = await supabase.from('maintenance_schedules').update({ next_due: val || null }).eq('id', r.schedule_id); if (error) throw error; setEditing(null); await load() }
+    catch (e) { debugError('ServiceSchedule', 'saveDate', e) }
+    setBusy(null)
   }
+  async function plan(r) { setBusy(r.schedule_id); try { await planServiceFromDue(r, { date: r.planned_date || undefined }); await load() } catch (e) { alert(e.message) } setBusy(null) }
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
+  const counts = rows.reduce((a, r) => { if (!r.open_log_id) a[r.state] = (a[r.state] || 0) + 1; return a }, {})
 
   return (
     <div>
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        {FILTERS.map(f => (
-          <button key={f} onClick={() => setFilter(f)} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
-            style={{ padding: '6px 14px', background: filter === f ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none', boxShadow: filter === f ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{f}</button>
+        {FILTERS.map(([k, label]) => (
+          <button key={k} onClick={() => setFilter(k)} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '6px 14px', background: filter === k ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none', boxShadow: filter === k ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{label}</button>
         ))}
-        {filter === 'Vlastní' && (
-          <div className="flex items-center gap-2 ml-2">
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="rounded-lg text-xs px-2 py-1" style={{ border: '1px solid #d1d5db', background: '#fff' }} />
-            <span className="text-xs" style={{ color: '#1a2e22' }}>—</span>
-            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="rounded-lg text-xs px-2 py-1" style={{ border: '1px solid #d1d5db', background: '#fff' }} />
-          </div>
-        )}
-        <span className="ml-auto text-xs" style={{ color: '#6b7280' }}>{filtered.length} záznamů</span>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Hledat motorku / úkon…" className="rounded-btn text-sm outline-none" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 220 }} />
+        <span className="ml-auto text-xs flex gap-3 font-bold">
+          {['overdue', 'due_soon', 'unknown', 'ok'].map(k => counts[k] ? <span key={k} style={{ color: DUE_STATE[k].color }}>{DUE_STATE[k].label}: {counts[k]}</span> : null)}
+          <span style={{ color: '#6b7280' }}>{list.length} řádků</span>
+        </span>
       </div>
 
       <Table>
-        <thead><TRow header><TH>Motorka</TH><TH>SPZ</TH><TH>Popis</TH><TH>Interval</TH><TH>Zbývá km</TH><TH>Plánované datum</TH></TRow></thead>
+        <thead><TRow header><TH>Stav</TH><TH>Motorka</TH><TH>Úkon</TH><TH>Interval</TH><TH>Naposledy</TH><TH>Zbývá</TH><TH>Odhad / termín</TH><TH></TH></TRow></thead>
         <tbody>
-          {filtered.map(s => {
-            const isEditing = editingDate === s.id
-            const dateVal = manualDates[s.id] ?? (s.estDate ? isoDate(s.estDate) : '')
-            const hasManual = !!(s.next_due || s.next_date)
+          {list.map(r => {
+            const st = r.open_log_id ? { label: 'Naplánováno', color: '#4f46e5', bg: '#eef2ff' } : DUE_STATE[r.state]
+            const unit = r.tracking_unit === 'mh' ? 'MH' : 'km'
+            const isEd = editing === r.schedule_id
             return (
-              <TRow key={s.id} style={s.isStkService ? { background: '#fef3c7' } : s.isWinterService || s.mergedWithWinter ? { background: '#eff6ff' } : undefined}>
-                <TD bold>{s.motorcycles?.model || '—'}</TD>
-                <TD mono>{s.motorcycles?.spz || '—'}</TD>
+              <TRow key={r.schedule_id}>
+                <TD><span className="text-xs font-extrabold rounded-full" style={{ padding: '2px 8px', background: st.bg, color: st.color }}>{st.label}</span></TD>
+                <TD bold><span className="cursor-pointer" onClick={() => navigate(`/servis/motorka/${r.moto_id}`)} title="Servisní knížka">{r.model}</span><div className="text-xs font-mono font-normal" style={{ color: '#6b7280' }}>{r.spz}</div></TD>
+                <TD>{r.label}{r.group_label && <div className="text-xs" style={{ color: '#9ca3af' }}>{r.group_label}{r.source ? ` · ${SOURCE_LABELS[r.source] || r.source}` : ''}</div>}</TD>
+                <TD>{r.isStk ? '2 roky' : intervalText(r, unit)}</TD>
+                <TD>{r.isStk ? '—' : <>{r.last_date ? fmtDate(r.last_date) : '—'}{r.last_km != null ? ` · ${fmtKm(r.last_km, unit)}` : ''}<div className="text-xs" style={{ color: '#9ca3af' }}>{BASELINE_LABELS[r.baseline_source] || ''}</div></>}</TD>
+                <TD color={st.color} bold>{r.isStk ? (r.days_remaining === null ? 'STK nenastaveno' : r.days_remaining <= 0 ? `${-r.days_remaining} dní po` : `${r.days_remaining} dní`) : dueText(r, unit)}</TD>
                 <TD>
-                  {s.isStkService ? <span style={{ color: '#b45309', fontWeight: 700 }}>STK & Emise</span>
-                    : s.isWinterService ? <span style={{ color: '#2563eb', fontWeight: 700 }}>Velký zimní servis</span>
-                    : (s.description || TYPE_LABELS[s.schedule_type] || s.schedule_type || '—')}
-                  {filter === 'Nejbližší' && s._nearestMoto && <span className="ml-1" style={{ fontSize: 9, background: '#dcfce7', color: '#166534', borderRadius: 4, padding: '1px 4px', fontWeight: 600 }}>motorka</span>}
-                  {filter === 'Nejbližší' && s._nearestType && <span className="ml-1" style={{ fontSize: 9, background: '#dbeafe', color: '#1e40af', borderRadius: 4, padding: '1px 4px', fontWeight: 600 }}>{TYPE_LABELS[s.schedule_type] || s.schedule_type}</span>}
-                </TD>
-                <TD>
-                  {s.isStkService ? 'prosinec–únor' : s.isWinterService ? 'leden–únor' : ''}
-                  {!s.isStkService && s.interval_km ? `${s.interval_km.toLocaleString('cs-CZ')} km` : ''}{!s.isStkService && s.interval_days ? ` / ${s.interval_days} dní` : ''}
-                </TD>
-                <TD style={s.overdue ? { color: '#dc2626', fontWeight: 700 } : s.dueSoon ? { color: '#b45309', fontWeight: 700 } : s.mergedWithWinter ? { color: '#2563eb', fontWeight: 600 } : undefined}>
-                  {s.dueSoon && <span className="font-extrabold mr-1" style={{ fontSize: 9, background: '#f59e0b', color: '#fff', borderRadius: 4, padding: '1px 5px' }}>BLÍŽÍ SE</span>}
-                  {s.isStkService ? (
-                    s.stkValidUntil ? (() => { const days = Math.ceil((s.stkValidUntil - new Date()) / 86400000); const c = days < 0 ? '#dc2626' : days < 30 ? '#dc2626' : days < 90 ? '#b45309' : '#1a8a18'
-                      return <span style={{ color: c, fontWeight: 700 }}>{days < 0 ? `⚠ ${Math.abs(days)} dní po` : `${days} dní`}<span style={{ fontWeight: 400, color: '#6b7280', marginLeft: 6, fontSize: 11 }}>(do {s.stkValidUntil.toLocaleDateString('cs-CZ')})</span></span> })()
-                    : <span style={{ color: '#6b7280' }}>STK nenastaveno</span>
-                  ) : s.isWinterService ? 'bez ohledu na km'
-                  : s.interval_km ? (s.overdue ? `⚠ ${Math.abs(s.remaining).toLocaleString('cs-CZ')} km po` : `${s.remaining.toLocaleString('cs-CZ')} km`) : '—'}
-                  {s.mergedWithWinter && ' → zimní servis'}
-                  {!s.isStkService && !(Number(s.motorcycles?.mileage) || 0) && s.interval_km ? ' (km nenastaven)' : ''}
-                </TD>
-                <TD>
-                  {s.isStkService ? <span style={{ color: '#b45309', fontWeight: 600 }}>{s.estDate ? s.estDate.toLocaleDateString('cs-CZ') : '—'}<span className="ml-1" style={{ fontSize: 10 }} title="Auto (Po–Pá, max 2/den)">~</span></span>
-                  : s.isWinterService ? <span style={{ color: '#2563eb', fontWeight: 600 }}>{s.estDate ? s.estDate.toLocaleDateString('cs-CZ') : '—'}<span className="ml-1" style={{ fontSize: 10 }} title="Auto">~</span></span>
-                  : isEditing ? (
-                    <div className="flex items-center gap-1">
-                      <input type="date" value={dateVal} onChange={e => setManualDates(prev => ({ ...prev, [s.id]: e.target.value }))}
-                        className="rounded text-xs px-1 py-0.5" style={{ border: '1px solid #d1d5db', width: 130 }} />
-                      <button onClick={() => saveDate(s.id, manualDates[s.id] || dateVal)} disabled={savingDate === s.id}
-                        className="text-xs font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>{savingDate === s.id ? '…' : '✓'}</button>
-                      <button onClick={() => { setEditingDate(null); setManualDates(prev => { const n = { ...prev }; delete n[s.id]; return n }) }}
-                        className="text-xs cursor-pointer" style={{ color: '#6b7280', background: 'none', border: 'none' }}>✕</button>
-                    </div>
+                  {r.isStk ? fmtDate(r.next_date) : isEd ? (
+                    <span className="flex items-center gap-1">
+                      <input type="date" value={dateVal} onChange={e => setDateVal(e.target.value)} className="rounded text-xs px-1 py-0.5" style={{ border: '1px solid #d1d5db' }} />
+                      <button onClick={() => saveDate(r, dateVal)} disabled={busy === r.schedule_id} className="text-xs font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>✓</button>
+                      <button onClick={() => setEditing(null)} className="text-xs cursor-pointer" style={{ color: '#6b7280', background: 'none', border: 'none' }}>✕</button>
+                    </span>
                   ) : (
-                    <div className="flex items-center gap-1">
-                      <span className="cursor-pointer" onClick={() => setEditingDate(s.id)}
-                        title={s.isAutoEstimated ? `Odhad (~${Math.round(s.dailyKm)} km/den)` : 'Klikni pro úpravu'}>
-                        {s.estDate ? <>{s.estDate.toLocaleDateString('cs-CZ')}{s.mergedWithWinter && <span className="ml-1" style={{ color: '#2563eb', fontSize: 10 }}>→ zimní</span>}{s.isAutoEstimated && !s.mergedWithWinter && <span className="ml-1" style={{ color: '#6b7280', fontSize: 10 }}>~</span>}</> : '—'}
-                      </span>
-                      {hasManual && <button onClick={() => saveDate(s.id, null)} className="text-xs cursor-pointer ml-1" style={{ color: '#6b7280', background: 'none', border: 'none', fontSize: 10 }} title="Obnovit auto odhad">↺</button>}
-                    </div>
+                    <span className="cursor-pointer" onClick={() => { setEditing(r.schedule_id); setDateVal(r.planned_date || isoDateOf(r.est_date) || '') }} title="Klikněte pro ruční termín">
+                      {r.planned_date ? <b style={{ color: '#2563eb' }}>{fmtDate(r.planned_date)}</b> : r.est_date ? <>{fmtDate(r.est_date)} <span style={{ fontSize: 10, color: '#6b7280' }} title={`odhad z Ø ${r.avg_daily_km} ${unit}/den`}>~</span></> : '—'}
+                      {r.planned_date && <button onClick={e => { e.stopPropagation(); saveDate(r, null) }} className="ml-1 text-xs cursor-pointer" style={{ color: '#6b7280', background: 'none', border: 'none' }} title="Zrušit ruční termín">↺</button>}
+                    </span>
                   )}
                 </TD>
+                <TD>{!r.isStk && !r.open_log_id && r.state !== 'unknown' && <button onClick={() => plan(r)} disabled={busy === r.schedule_id} className="text-xs font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>Naplánovat</button>}
+                    {r.open_log_id && <button onClick={() => navigate(`/servis/motorka/${r.moto_id}`)} className="text-xs font-bold cursor-pointer" style={{ color: '#4f46e5', background: 'none', border: 'none' }}>otevřít</button>}</TD>
               </TRow>
             )
           })}
-          {filtered.length === 0 && <TRow><TD colSpan={6}>Žádné servisní plány pro zvolený filtr.</TD></TRow>}
+          {list.length === 0 && <TRow><TD>{filter === 'attention' ? 'Nic k řešení — všechny intervaly v pořádku.' : 'Žádné plány pro zvolený filtr.'}</TD></TRow>}
         </tbody>
       </Table>
-
-      <div className="mt-3 text-xs" style={{ color: '#6b7280' }}>
-        <span style={{ fontSize: 10 }}>~</span> = auto odhad (Út/St bez rezervace) · <span style={{ color: '#2563eb' }}>→ zimní</span> = sloučeno se zimním servisem · <span style={{ color: '#b45309' }}>STK</span> = prosinec–únor (Po–Pá, max 2/den) · Klikněte na datum pro úpravu
-        {filter === 'Nejbližší' && <><br /><span style={{ background: '#dcfce7', color: '#166534', borderRadius: 4, padding: '1px 4px', fontSize: 9, fontWeight: 600 }}>motorka</span> = nejbližší motorky · <span style={{ background: '#dbeafe', color: '#1e40af', borderRadius: 4, padding: '1px 4px', fontSize: 9, fontWeight: 600 }}>typ</span> = nejbližší intervalu</>}
-      </div>
+      <div className="mt-3 text-xs" style={{ color: '#6b7280' }}>~ = odhad termínu z průměrného denního nájezdu od pořízení · klikněte na datum pro ruční termín · „Neověřeno“ = v servisní knížce motorky doplňte poslední provedení</div>
     </div>
   )
 }

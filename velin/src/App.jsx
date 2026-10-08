@@ -21,6 +21,7 @@ const Documents = lazy(() => import('./pages/Documents'))
 const Inventory = lazy(() => import('./pages/Inventory'))
 const InventoryDetail = lazy(() => import('./pages/InventoryDetail'))
 const Service = lazy(() => import('./pages/Service'))
+const ServiceMotoBook = lazy(() => import('./pages/service/ServiceMotoBook'))
 const Messages = lazy(() => import('./pages/Messages'))
 const CMS = lazy(() => import('./pages/CMS'))
 const Analyza = lazy(() => import('./pages/Analyza'))
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="/sklady" element={G('logistics', <Inventory />)} />
           <Route path="/sklady/:id" element={G('logistics', <InventoryDetail />)} />
           <Route path="/servis" element={G('service', <Service />)} />
+          <Route path="/servis/motorka/:id" element={G('service', <ServiceMotoBook admin={admin} />)} />
           <Route path="/zpravy" element={G('messages', <Messages />)} />
           <Route path="/cms" element={G('cms', <CMS />)} />
           <Route path="/analyza" element={G('analyza', <Analyza />)} />

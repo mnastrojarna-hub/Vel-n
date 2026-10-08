@@ -124,7 +124,7 @@ export async function handleSetMotoToService(incident, moto, booking, onRefresh,
         const { data: newLog } = await supabase.from('maintenance_log').insert({
           moto_id: motoId,
           type: 'repair',
-          service_type: `SOS: ${sosDesc}`,
+          service_type: 'repair',   // CHECK povoluje jen regular/extraordinary/repair/inspection — dřív `SOS: …` → INSERT tiše padal
           description: logDesc,
           service_date: today,
           scheduled_date: today,

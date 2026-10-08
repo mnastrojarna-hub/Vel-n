@@ -239,6 +239,13 @@
 - **is_test** (boolean DEFAULT false) — testovací incident z AI tréninku
 
 ### maintenance_log (nové sloupce)
+- **technician_report** (TEXT, **NEW 2026-10-08** `20261008_service_book_schema.sql`) — zpráva technika: co udělal / zjistil / vyměnil (vedle `description` = zadání / popis závady)
+- **technician_admin_id** (UUID FK→admin_users ON DELETE SET NULL, NEW 2026-10-08) — technik = účet Velína; doplní trigger z `auth.uid()` při dokončení, lze zvolit ručně (Velín účet / zaměstnanec / externí jméno)
+- **completed_by**, **updated_by** (UUID), **updated_at** (timestamptz NOT NULL DEFAULT now()) — NEW 2026-10-08, plní `trg_maintenance_log_autofill`
+- **km_auto** (boolean NOT NULL DEFAULT false, NEW 2026-10-08) — true = `km_at_service` doplnil systém ze stavu tachometru motorky (založení bez km; dokončení, pokud technik km nezměnil); ručně zadané km = false
+- **invoiced_amount** (numeric(12,2) NOT NULL DEFAULT 0, NEW 2026-10-08) — součet `maintenance_invoices.amount` (trigger `trg_maintenance_invoices_sum`)
+- **items** (jsonb NOT NULL DEFAULT '[]') — pole úkonů `{label, done, note, key?, custom?}`; `key` = `service_task_catalog.key` (doplňuje trigger dle štítku/aliasu; Velín posílá u standardních úkonů rovnou), `custom:true` = vlastní úkon „Jiné“ (neomezený počet)
+- **service_type** CHECK: regular / extraordinary / repair / **inspection** (2026-10-08)
 - **technician_id** (UUID FK→acc_employees ON DELETE SET NULL) — technik ze seznamu zaměstnanců
 - **labor_hours** (NUMERIC DEFAULT 0) — odpracované hodiny technika
 - **extra_cost** (NUMERIC DEFAULT 0) — extra náklady (doprava, diagnostika, externí faktura)
@@ -247,6 +254,25 @@
 
 ### acc_employees (nový sloupec)
 - **hourly_rate** (NUMERIC DEFAULT 500) — hodinová sazba technika v Kč
+
+### maintenance_schedules (2026-10-08 — `20261008_service_book_schema.sql`)
+- id, moto_id, schedule_type (CHECK mileage/time/both/km_interval/time_interval/reservation_interval), interval_km (v jednotce motorky — km nebo MH), interval_days, last_performed, next_due (JEN ruční termín), description, active, created_at, last_service_km, last_service_date, first_service_km, first_service_desc, preferred_days int[], interval_reservations
+- **task_key** (TEXT FK→service_task_catalog ON DELETE SET NULL) — úkon z katalogu; UNIQUE partial (moto_id, task_key) WHERE active AND task_key IS NOT NULL
+- **source** (TEXT NOT NULL DEFAULT 'manual', CHECK manual/default/preset) — manual = zadal admin (automatika nemění), default = základní standard z katalogu / karty motorky, preset = interval dle výrobce
+- **baseline_source** (TEXT, CHECK log/acquisition/manual/unknown) — odkud je „naposledy provedeno“ (log = dokončený servis s úkonem; acquisition = km/datum pořízení, neověřeno; manual = „Zapsat provedení“ ve Velíně; unknown = chybí i údaje o pořízení → stav `unknown`)
+- **notes** (TEXT), **updated_at** (timestamptz NOT NULL DEFAULT now())
+
+### service_task_catalog (NEW 2026-10-08)
+- key PK, label, group_key, group_label, sort_order, kind (replace/check/adjust/repair/other), default_interval_km, default_interval_months, tracked bool, only_for (chain/shaft/belt/liquid/hydraulic/hours), moto_interval (oil/tire/full), implies text[], aliases text[], active, created_at, updated_at
+
+### service_interval_presets (NEW 2026-10-08)
+- id, brand_pattern, model_pattern NOT NULL, year_from, year_to, task_key FK→service_task_catalog CASCADE, interval_km, interval_months, note, source_url, created_at; UNIQUE (model_pattern, task_key, COALESCE(year_from,0), COALESCE(year_to,9999))
+
+### maintenance_invoices (NEW 2026-10-08)
+- id, maintenance_log_id FK→maintenance_log CASCADE, moto_id FK SET NULL, invoice_id FK→invoices SET NULL, financial_event_id FK→financial_events SET NULL, storage_bucket (DEFAULT 'invoices-received'), storage_path NOT NULL, file_name, mime_type, file_size, invoice_number, supplier_name, supplier_ico, amount numeric(12,2), issue_date, due_date, ocr_status (none/pending/done/failed), note, uploaded_by, uploaded_by_name, created_at
+
+### service_provider_profiles (NEW 2026-10-08)
+- admin_id PK FK→admin_users CASCADE, company_name, ico, dic, address, email, phone, bank_account, supplier_id FK→suppliers SET NULL, updated_at
 
 ### sent_emails
 - id, template_slug, recipient_email, booking_id, sent_at, created_at

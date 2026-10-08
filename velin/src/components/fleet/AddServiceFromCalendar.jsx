@@ -2,71 +2,44 @@ import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
-import { SERVICE_CHECKLIST_BY_CATEGORY as CAL_SERVICE_CHECKLIST } from './motoActionConstants'
-import CustomServiceItems, { customLabelsToItems } from './CustomServiceItems'
+import ServiceChecklistPicker from './ServiceChecklistPicker'
+import { SERVICE_TASKS } from './serviceCatalog'
+import { labelsToItems } from './CustomServiceItems'
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 
-function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
-  const today = new Date().toISOString().slice(0, 10)
-  const [form, setForm] = useState({
-    type: 'extraordinary', description: '', cost: '', date_from: today, date_to: '', extra_note: '',
-  })
-  const [checkedItems, setCheckedItems] = useState(() => {
-    const m = {}
-    CAL_SERVICE_CHECKLIST.forEach(cat => cat.items.forEach(it => { m[it] = false }))
-    return m
-  })
-  const [customLabels, setCustomLabels] = useState([]) // „Jiné“ — vlastní úkony
+/** Nová servisní událost z kalendáře motorky (detail → Rezervace). Km i technik doplní DB automaticky. */
+function AddServiceFromCalendar({ motoId, moto, onClose, onSaved }) {
+  const today = new Date().toLocaleDateString('sv-SE')
+  const [form, setForm] = useState({ type: 'extraordinary', description: '', cost: '', date_from: today, date_to: '' })
+  const [checked, setChecked] = useState(new Set())
+  const [customLabels, setCustomLabels] = useState([])
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  const toggleCheck = (label) => setCheckedItems(c => ({ ...c, [label]: !c[label] }))
-  const checkedCount = Object.values(checkedItems).filter(Boolean).length + customLabels.length
-
-  function buildItems() {
-    const items = []
-    CAL_SERVICE_CHECKLIST.forEach(cat => {
-      cat.items.forEach(label => {
-        if (checkedItems[label]) items.push({ label, done: false, note: '' })
-      })
-    })
-    items.push(...customLabelsToItems(customLabels))
-    return items
-  }
+  const toggle = (id) => setChecked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
-      const items = buildItems()
-      if (!form.description?.trim() && items.length === 0) {
-        setErr('Vyplňte popis nebo zaškrtněte alespoň jednu položku')
-        setSaving(false)
-        return
-      }
+      const items = labelsToItems(SERVICE_TASKS.filter(t => checked.has(t.id)).map(t => t.label).concat(customLabels))
+      if (!form.description?.trim() && items.length === 0) { setErr('Vyplňte zadání nebo zaškrtněte alespoň jeden úkon'); setSaving(false); return }
       const { error: logErr } = await supabase.from('maintenance_log').insert({
-        moto_id: motoId,
-        service_type: form.type,
-        description: form.description?.trim() || null,
-        service_date: form.date_from || today,
-        scheduled_date: form.date_to || form.date_from || today,
-        status: 'pending',
-        items: items.length > 0 ? items : null,
-        planned_end: form.date_to || null,
-        extra_note: form.extra_note?.trim() || null,
-        cost: Number(form.cost) || null,
+        moto_id: motoId, service_type: form.type, description: form.description?.trim() || null,
+        service_date: form.date_from || today, scheduled_date: form.date_to || form.date_from || today,
+        status: 'pending', items, cost: Number(form.cost) || null,
       })
       if (logErr) throw logErr
       try {
         const { data: { user } } = await supabase.auth.getUser()
         await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'service_event_created', new_data: { moto_id: motoId } })
-      } catch {}
+      } catch { /* audit nesmí shodit akci */ }
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
 
   return (
-    <Modal open title="Nová servisní událost" onClose={onClose}>
+    <Modal open title="Nová servisní událost" onClose={onClose} wide>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Typ</label>
@@ -74,7 +47,12 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
             <option value="extraordinary">Mimořádný servis</option>
             <option value="regular">Pravidelný servis</option>
             <option value="repair">Oprava</option>
+            <option value="inspection">Inspekce / kontrola</option>
           </select>
+        </div>
+        <div>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Odhadované náklady (Kč)</label>
+          <input type="number" value={form.cost} onChange={e => set('cost', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
         <div>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servis od</label>
@@ -84,49 +62,17 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Plánované dokončení</label>
           <input type="date" value={form.date_to} onChange={e => set('date_to', e.target.value)} min={form.date_from} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
-        <div>
-          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Odhadované náklady (Kč)</label>
-          <input type="number" value={form.cost} onChange={e => set('cost', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
-        </div>
       </div>
 
-      {/* Servisní checklist */}
       <div className="mt-4">
-        <label className="block text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
-          Škrtněte co je potřeba opravit / zkontrolovat {checkedCount > 0 && <span style={{ color: '#1a8a18' }}>({checkedCount} vybráno)</span>}
-        </label>
-        <div className="grid grid-cols-2 gap-3" style={{ maxHeight: 350, overflowY: 'auto' }}>
-          {CAL_SERVICE_CHECKLIST.map(cat => (
-            <div key={cat.category} className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-              <div className="text-xs font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a8a18' }}>{cat.category}</div>
-              <div className="space-y-1">
-                {cat.items.map(label => (
-                  <label key={label} className="flex items-center gap-2 cursor-pointer p-1 rounded hover:bg-[#e8fde8] transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={checkedItems[label] || false}
-                      onChange={() => toggleCheck(label)}
-                      style={{ accentColor: '#16a34a', width: 16, height: 16, cursor: 'pointer' }}
-                    />
-                    <span className="text-sm" style={{ color: '#1a2e22', fontWeight: checkedItems[label] ? 700 : 400 }}>{label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <CustomServiceItems labels={customLabels} onChange={setCustomLabels} />
+        <label className="block text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Co je potřeba opravit / zkontrolovat</label>
+        <ServiceChecklistPicker checked={checked} onToggle={toggle} customLabels={customLabels} onCustomChange={setCustomLabels} moto={moto} compact maxHeight={320} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 mt-4">
-        <div>
-          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servisní záznam (volný text)</label>
-          <textarea value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} placeholder="Popište závadu / důvod servisu…" />
-        </div>
-        <div>
-          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Doplňující poznámka</label>
-          <textarea value={form.extra_note} onChange={e => set('extra_note', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 50, resize: 'vertical' }} placeholder="Vlastní poznámka k servisu…" />
-        </div>
+      <div className="mt-4">
+        <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Zadání / popis závady</label>
+        <textarea value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 70, resize: 'vertical' }} placeholder="Popište závadu / důvod servisu, poznámky pro technika…" />
+        <div className="text-xs mt-1" style={{ color: '#6b7280' }}>Km při servisu a technik se doplní automaticky; zprávu technika a faktury doplní technik v Servisu.</div>
       </div>
 
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
@@ -139,4 +85,3 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
 }
 
 export default AddServiceFromCalendar
-export { CAL_SERVICE_CHECKLIST }
