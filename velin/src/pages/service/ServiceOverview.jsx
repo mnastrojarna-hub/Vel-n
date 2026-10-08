@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import Card from '../../components/ui/Card'
 import { useAdminIdentity } from '../../hooks/useAdminIdentity'
 import { fetchServiceDue, groupDueByMoto, DUE_STATE, dueText, fmtDate, fmtKm, logState, LOG_STATE, planServiceFromDue } from '../../lib/serviceBook'
+import { computeBundle, planServiceBundle } from '../../lib/serviceBundle'
 
 /**
  * Servis → Přehled: co je potřeba řešit (hlídání intervalů z DB — po termínu / blíží se / neověřeno),
@@ -38,6 +39,13 @@ export default function ServiceOverview({ onOpenMoto }) {
   async function plan(d) {
     setBusy(d.schedule_id); setMsg(null)
     try { await planServiceFromDue(d); setMsg(`Naplánováno: ${d.model} — ${d.label}`); load() } catch (e) { setMsg(e.message) } finally { setBusy(null) }
+  }
+  // Sdružený servis motorky: po termínu + blížící se + co dozraje do 2 000 km / 60 dní → jeden záznam
+  async function planBundle(g) {
+    const b = computeBundle(g.rows); if (!b) return
+    if (!window.confirm(`${g.model}: naplánovat jeden společný servis (${b.items.length} úkonů) na ${fmtDate(b.date)}?\n${b.items.map(r => '• ' + r.label).join('\n')}`)) return
+    setBusy(g.moto_id); setMsg(null)
+    try { await planServiceBundle(g.moto_id, b.items, { date: b.date }); setMsg(`Naplánován společný servis: ${g.model} (${b.items.length} úkonů)`); load() } catch (e) { setMsg(e.message) } finally { setBusy(null) }
   }
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
@@ -104,6 +112,7 @@ export default function ServiceOverview({ onOpenMoto }) {
                     {g.overdue > 0 && <span style={{ color: DUE_STATE.overdue.color }}>{g.overdue} po termínu</span>}
                     {g.due_soon > 0 && <span style={{ color: DUE_STATE.due_soon.color }}>{g.due_soon} blíží se</span>}
                     {g.unknown > 0 && <span style={{ color: DUE_STATE.unknown.color }}>{g.unknown} neověřeno</span>}
+                    {computeBundle(g.rows) && <button onClick={e => { e.stopPropagation(); planBundle(g) }} disabled={busy === g.moto_id} className="rounded-btn font-extrabold uppercase cursor-pointer" style={{ padding: '2px 10px', background: '#74FB71', color: '#1a2e22', border: 'none', fontSize: 11 }} title="Založí jeden servisní záznam se všemi úkony po termínu / blížícími se">Naplánovat společně</button>}
                     <span style={{ color: '#2563eb' }}>servisní knížka →</span>
                   </span>
                 </div>
