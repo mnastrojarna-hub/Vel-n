@@ -17,7 +17,7 @@ export const VELIN_SECTIONS = [
   { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢', badgeKey: 'kiosk' },   // poplach samoobsluhy (kiosk_alerts)
   { id: 'logistics', path: '/logistika', label: 'Logistika zboží', icon: '📦', badgeKey: 'gear', extraPaths: ['/sklady'] },
   { id: 'trasy', path: '/trasy', label: 'Trasy', icon: '🛣️' },
-  { id: 'service', path: '/servis', label: 'Servis', icon: '🔧' },
+  { id: 'service', path: '/servis', label: 'Servis', icon: '🔧', badgeKey: 'service' },   // servisní intervaly po termínu (get_service_due_count)
   { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬', badgeKey: 'messages' },
   { id: 'cms', path: '/cms', label: 'Texty webu', icon: '🌐' },
   { id: 'analyza', path: '/analyza', label: 'Analýza', icon: '🧠' },

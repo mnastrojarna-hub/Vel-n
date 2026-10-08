@@ -1,127 +1,104 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Card from '../ui/Card'
-import { TYPE_LABELS } from '../../pages/service/serviceScheduleUtils'
+import { TASK_BY_ID, SERVICE_GROUPS } from './serviceCatalog'
+import { SERVICE_LABEL_TO_ID } from './motoActionConstants'
+import { SERVICE_TYPE_LABELS, LOG_TYPE_LABELS, fmtDate, fmtKm, fmtMoney, isLogCompleted, effectiveCost } from '../../lib/serviceBook'
 
 /**
- * Servisní kniha motorky (zadání majitele): u každé motorky přehledně, jaký servis
- * byl proveden, kdy a při kolika km — souhrn „naposledy provedeno“ pro klíčové
- * úkony + chronologický zápis DOKONČENÝCH servisů. Čistě z `maintenance_log`
- * (service_date/completed_date, km_at_service, type, service_type, items jsonb
- * vč. vlastních úkonů „Jiné“, description, performed_by, cost). Otevřené /
- * naplánované záznamy zůstávají v „Historie servisu“ níže.
- *
- * Úkon z checklistu se počítá jako provedený JEN když je odškrtnutý (`done: true`
- * — technik v servisní kartě, nebo záznam zapsaný rovnou jako Dokončeno).
- * Hromadné uzavření („Vrátit do provozu“) úkony neodškrtává → do knihy nejdou.
+ * Servisní kniha motorky: chronologie DOKONČENÝCH servisů se zadáním, zprávou technika, úkony (✓ = provedeno),
+ * km, technikem, cenou a doklady. Filtry: text, úkon (jen záznamy, kde byl proveden), rok.
+ * Zdroj: maintenance_log (items s klíči z katalogu; starší záznamy párujeme podle štítku / aliasu).
+ * Props: logs, unitLabel, invoicesByLog { logId: [maintenance_invoices] }, onEdit(log)
  */
-
-const SERVICE_TYPE_LABELS = { regular: 'Pravidelný servis', extraordinary: 'Mimořádný servis', repair: 'Oprava', inspection: 'Inspekce' }
-
-// Klíčové úkony, u kterých se hlídá „naposledy provedeno“. `labels` = štítky
-// z checklistu (motoActionConstants), `types` = maintenance_log.type, `desc` = záchyt z popisu.
-const TRACKED = [
-  { key: 'oil', title: 'Výměna oleje', labels: ['Výměna oleje'], types: ['oil_change'], desc: /v[yý]m[eě]n\p{L}*\s+(motorov\p{L}+\s+)?olej/iu },
-  { key: 'oil_filter', title: 'Olejový filtr', labels: ['Výměna olejového filtru'] },
-  { key: 'air_filter', title: 'Vzduchový filtr', labels: ['Výměna vzduchového filtru'] },
-  { key: 'spark', title: 'Svíčky', labels: ['Výměna svíček'] },
-  { key: 'brake_fluid', title: 'Brzdová kapalina', labels: ['Výměna brzdové kapaliny'], desc: /brzdov\p{L}+\s+kapalin/iu },
-  { key: 'brake_pads', title: 'Brzdové destičky', labels: ['Brzdové destičky přední', 'Brzdové destičky zadní'] },
-  { key: 'tire_front', title: 'Přední pneumatika', labels: ['Výměna přední pneumatiky'], types: ['tire_change'] },
-  { key: 'tire_rear', title: 'Zadní pneumatika', labels: ['Výměna zadní pneumatiky'], types: ['tire_change'] },
-  { key: 'chain', title: 'Řetěz + rozety', labels: ['Výměna řetězu + rozet'] },
-  { key: 'coolant', title: 'Chladicí kapalina', labels: ['Kontrola / výměna chladicí kapaliny'] },
-  { key: 'battery', title: 'Baterie', labels: ['Kontrola / výměna baterie'] },
-  { key: 'full', title: 'Kompletní servis', types: ['full_service', 'winter_service'] },
-  { key: 'stk', title: 'STK', labels: ['Příprava na STK'], types: ['stk', 'inspection'] },
-]
-
-const isCompleted = l => l.status === 'completed' || !!l.completed_date
+const TYPE_KEYS = { oil_change: ['oil_change', 'oil_filter'], tire_change: ['tire_front', 'tire_rear'], full_service: ['full_service'], winter_service: ['full_service'] }
 const logDate = l => (l.completed_date || l.service_date || l.created_at || '').slice(0, 10)
-const fmtDate = d => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
-const fmtKm = (km, unit) => km ? `${Number(km).toLocaleString('cs-CZ')}${unit ? ' ' + unit : ''}` : '—'
-
-function findLast(track, logs) {
-  for (const l of logs) { // logs seřazené od nejnovějšího
-    const items = Array.isArray(l.items) ? l.items : []
-    const byItem = track.labels?.length && items.some(i => track.labels.includes(i?.label) && i?.done === true)
-    const byType = track.types?.length && track.types.includes(l.type)
-    const byDesc = track.desc && track.desc.test(l.description || '')
-    if (byItem || byType || byDesc) return l
+// Zrcadlo DB `_service_done_task_keys`: provedené = odškrtnuté + implies (tranzitivně); legacy `type` / popis
+// „výměna oleje“ jen u záznamů bez checklistu (popis je zadání, ne provedení).
+export function doneKeysOf(l) {
+  const items = Array.isArray(l.items) ? l.items : []
+  const keys = new Set()
+  const add = (k) => { if (!k || keys.has(k)) return; keys.add(k); for (const imp of TASK_BY_ID[k]?.implies || []) add(imp) }
+  for (const it of items) { if (it?.done === true) add(it.key || SERVICE_LABEL_TO_ID[it.label]) }
+  const hasChecklist = items.some(it => it?.key || (it && 'done' in it))
+  if (!hasChecklist) {
+    for (const k of TYPE_KEYS[l.type] || []) add(k)
+    const d = l.description || ''
+    if (/v[yý]m[eě]n\w*\s+(motorov\w+\s+)?olej/iu.test(d) && !/olej\w*\s+(v|ve|do)\s+(kardan|rozvodov|vidlic|p[rř]evodov|tlumi[cč])/iu.test(d) && !/(nen[ií]\s|zda\s|jestli\s|zkontrol|kontrol)/iu.test(d)) add('oil_change')
   }
-  return null
+  return keys
 }
+const sel = { padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', fontSize: 13, borderRadius: 50 }
 
-export default function ServiceBookCard({ logs, unitLabel = 'km' }) {
-  const { completed, openCount } = useMemo(() => {
-    const sorted = [...(logs || [])].sort((a, b) => logDate(b).localeCompare(logDate(a)))
-    const done = sorted.filter(isCompleted)
-    return { completed: done, openCount: sorted.length - done.length }
-  }, [logs])
-
-  const summary = useMemo(() => TRACKED.map(t => ({ ...t, last: findLast(t, completed) })), [completed])
+export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog = {}, onEdit }) {
+  const [q, setQ] = useState('')
+  const [task, setTask] = useState('')
+  const [year, setYear] = useState('')
+  const [showAll, setShowAll] = useState(false)
+  const completed = useMemo(() => [...(logs || [])].filter(isLogCompleted).sort((a, b) => logDate(b).localeCompare(logDate(a))).map(l => ({ ...l, _keys: doneKeysOf(l) })), [logs])
+  const openCount = (logs || []).length - completed.length
+  const usedKeys = useMemo(() => { const s = new Set(); completed.forEach(l => l._keys.forEach(k => s.add(k))); return s }, [completed])
+  const years = useMemo(() => [...new Set(completed.map(l => logDate(l).slice(0, 4)).filter(Boolean))].sort().reverse(), [completed])
+  const norm = s => (s || '').toLowerCase()
+  const filtered = completed.filter(l => (!task || l._keys.has(task)) && (!year || logDate(l).startsWith(year)) &&
+    (!q || norm(l.description).includes(norm(q)) || norm(l.technician_report).includes(norm(q)) || norm(l.performed_by).includes(norm(q)) || (l.items || []).some(i => norm(i?.label).includes(norm(q)) || norm(i?.note).includes(norm(q)))))
+  const shown = showAll || task || year || q ? filtered : filtered.slice(0, 12)
+  const totalCost = filtered.reduce((s, l) => s + effectiveCost(l), 0)
 
   return (
     <Card>
-      <h3 className="text-sm font-extrabold uppercase tracking-widest mb-1" style={{ color: '#1a2e22' }}>Servisní kniha</h3>
-      <p className="text-xs mb-3" style={{ color: '#6b7280' }}>Co bylo provedeno, kdy a při kolika {unitLabel}. Zapisuje se z dokončených servisních záznamů — počítají se odškrtnuté úkony (vč. úkonů „Jiné“), typ servisu a popis.</p>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-        {summary.map(t => (
-          <div key={t.key} className="p-2 rounded-lg" style={{ background: t.last ? '#f1faf7' : '#f8fafc', border: '1px solid #d4e8e0' }}>
-            <div className="text-xs font-extrabold uppercase" style={{ color: '#1a2e22' }}>{t.title}</div>
-            {t.last ? (
-              <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{fmtDate(logDate(t.last))} <span style={{ color: '#1a8a18' }}>· {fmtKm(t.last.km_at_service, unitLabel)}</span></div>
-            ) : (
-              <div className="text-sm" style={{ color: '#9ca3af' }}>zatím nezapsáno</div>
-            )}
-          </div>
-        ))}
+      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+        <h3 className="text-sm font-extrabold uppercase tracking-widest" style={{ color: '#1a2e22' }}>Servisní kniha — historie</h3>
+        <span className="text-xs" style={{ color: '#6b7280' }}>{filtered.length}{filtered.length !== completed.length ? ` z ${completed.length}` : ''} dokončených servisů · náklady {fmtMoney(totalCost)}{openCount > 0 ? ` · ${openCount} otevřených (výše)` : ''}</span>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap mb-3">
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Hledat v zadání, zprávě, úkonech, technikovi…" className="text-sm outline-none" style={{ ...sel, width: 280 }} />
+        <select value={task} onChange={e => setTask(e.target.value)} className="text-sm outline-none" style={sel}>
+          <option value="">Všechny úkony</option>
+          {SERVICE_GROUPS.map(g => { const its = g.items.filter(i => usedKeys.has(i.id)); return its.length ? <optgroup key={g.key} label={g.label}>{its.map(i => <option key={i.id} value={i.id}>{i.label}</option>)}</optgroup> : null })}
+        </select>
+        <select value={year} onChange={e => setYear(e.target.value)} className="text-sm outline-none" style={sel}>
+          <option value="">Všechny roky</option>{years.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        {(q || task || year) && <button onClick={() => { setQ(''); setTask(''); setYear('') }} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>zrušit filtry</button>}
       </div>
 
-      {completed.length === 0 ? (
-        <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádný dokončený servis — servisní kniha se plní po ukončení servisu.</p>
-      ) : (
+      {completed.length === 0 ? <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádný dokončený servis — kniha se plní po dokončení servisu.</p>
+      : filtered.length === 0 ? <p style={{ color: '#6b7280', fontSize: 13 }}>Žádný záznam neodpovídá filtru.</p> : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse" style={{ fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: '#f1faf7', borderBottom: '1px solid #d4e8e0' }}>
-                {['Datum', unitLabel, 'Typ', 'Úkony a popis', 'Technik', 'Cena'].map(h => (
-                  <th key={h} className="text-left text-xs font-extrabold uppercase tracking-wide" style={{ padding: '8px 10px', color: '#1a2e22' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
+            <thead><tr style={{ background: '#f1faf7', borderBottom: '1px solid #d4e8e0' }}>
+              {['Datum', unitLabel, 'Typ', 'Úkony · zadání · zpráva technika', 'Technik', 'Cena', ''].map((h, i) => <th key={i} className="text-left text-xs font-extrabold uppercase tracking-wide" style={{ padding: '8px 10px', color: '#1a2e22' }}>{h}</th>)}
+            </tr></thead>
             <tbody>
-              {completed.map(l => {
+              {shown.map(l => {
                 const items = Array.isArray(l.items) ? l.items.filter(i => i?.label) : []
-                const typeLabel = TYPE_LABELS[l.type] || SERVICE_TYPE_LABELS[l.service_type] || l.type || 'Servis'
+                const inv = invoicesByLog[l.id] || []
                 return (
                   <tr key={l.id} style={{ borderBottom: '1px solid #e5efe9', verticalAlign: 'top' }}>
-                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 700, color: '#0f1a14' }}>{fmtDate(logDate(l))}</td>
-                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{fmtKm(l.km_at_service, '')}</td>
-                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{typeLabel}</td>
-                    <td style={{ padding: '8px 10px', color: '#0f1a14' }}>
-                      {items.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-1">
-                          {items.map((i, idx) => (
-                            <span key={idx} title={i.done === true ? 'Provedeno' : 'Neodškrtnuto — nepočítá se jako provedené'} className="text-xs font-bold" style={{ padding: '2px 7px', borderRadius: 7, background: i.done === true ? '#e8fde8' : '#f8fafc', border: `1px solid ${i.done === true ? '#b6dccb' : '#e5e7eb'}`, color: i.done === true ? '#0f1a14' : '#9ca3af' }}>
-                              {i.done === true ? '✓ ' : ''}{i.custom ? '✎ ' : ''}{i.label}{i.note ? ` — ${i.note}` : ''}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {l.description && <div className="text-xs" style={{ color: '#1a2e22', whiteSpace: 'pre-wrap' }}>{l.description}</div>}
-                      {items.length === 0 && !l.description && <span style={{ color: '#9ca3af' }}>—</span>}
+                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 700, color: '#0f1a14' }}>{fmtDate(logDate(l))}{l.is_urgent && <div className="text-xs font-bold" style={{ color: '#dc2626' }}>URGENT</div>}</td>
+                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{fmtKm(l.km_at_service, '')}{l.km_auto && <span title="automaticky ze stavu tachometru" style={{ color: '#9ca3af', fontSize: 10 }}> auto</span>}</td>
+                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{LOG_TYPE_LABELS[l.type] || SERVICE_TYPE_LABELS[l.service_type] || 'Servis'}</td>
+                    <td style={{ padding: '8px 10px', color: '#0f1a14', minWidth: 260 }}>
+                      {items.length > 0 && <div className="flex flex-wrap gap-1 mb-1">{items.map((i, idx) => (
+                        <span key={idx} title={i.done === true ? 'Provedeno' : 'Neodškrtnuto — nepočítá se jako provedené'} className="text-xs font-bold" style={{ padding: '2px 7px', borderRadius: 7, background: i.done === true ? (task && (i.key || SERVICE_LABEL_TO_ID[i.label]) === task ? '#74FB71' : '#e8fde8') : '#f8fafc', border: `1px solid ${i.done === true ? '#b6dccb' : '#e5e7eb'}`, color: i.done === true ? '#0f1a14' : '#9ca3af' }}>
+                          {i.done === true ? '✓ ' : ''}{i.custom ? '✎ ' : ''}{i.label}{i.added_by ? ' (navíc)' : ''}{i.done_legacy ? ' (historicky)' : ''}{i.note ? ` — ${i.note}` : ''}
+                        </span>))}</div>}
+                      {l.description && <div className="text-xs" style={{ color: '#1a2e22', whiteSpace: 'pre-wrap' }}><b>Zadání:</b> {l.description}</div>}
+                      {l.technician_report && <div className="text-xs mt-0.5 p-1 rounded" style={{ color: '#0f1a14', whiteSpace: 'pre-wrap', background: '#fffbeb' }}><b>Technik:</b> {l.technician_report}</div>}
+                      {inv.length > 0 && <div className="text-xs mt-0.5" style={{ color: '#2563eb' }}>📎 {inv.map(r => `${r.invoice_number || r.file_name || 'doklad'} (${fmtMoney(r.amount)})`).join(', ')}</div>}
+                      {items.length === 0 && !l.description && !l.technician_report && <span style={{ color: '#9ca3af' }}>—</span>}
                     </td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{l.performed_by || '—'}</td>
-                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 700, color: '#0f1a14' }}>{l.cost ? `${Number(l.cost).toLocaleString('cs-CZ')} Kč` : '—'}</td>
+                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 700, color: '#0f1a14' }}>{fmtMoney(effectiveCost(l))}{Number(l.invoiced_amount) > 0 && Number(l.cost) > 0 && Number(l.cost) !== Number(l.invoiced_amount) ? <div className="text-xs font-normal" style={{ color: '#9ca3af' }}>odhad {fmtMoney(l.cost)}</div> : null}</td>
+                    <td style={{ padding: '8px 6px' }}>{onEdit && <button onClick={() => onEdit(l)} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#2563eb' }} title="Upravit záznam">✎</button>}</td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
+          {filtered.length > shown.length && <button onClick={() => setShowAll(true)} className="text-xs font-bold cursor-pointer mt-2" style={{ background: 'none', border: 'none', color: '#2563eb' }}>Zobrazit všech {filtered.length} záznamů</button>}
         </div>
       )}
-      {openCount > 0 && <p className="text-xs mt-2" style={{ color: '#b45309' }}>+ {openCount} otevřený/naplánovaný záznam — po dokončení se zapíše do servisní knihy (viz Historie servisu).</p>}
     </Card>
   )
 }

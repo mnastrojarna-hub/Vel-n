@@ -8,6 +8,7 @@ import StatusBadge from '../../components/ui/StatusBadge'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import { TYPE_LABELS } from './serviceScheduleUtils'
+import { effectiveCost } from '../../lib/serviceBook'
 import ServiceLogModal from './ServiceLogModal'
 
 const PER_PAGE = 25
@@ -127,7 +128,7 @@ function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
         <TD>{startDate ? new Date(startDate).toLocaleDateString('cs-CZ') : '—'}</TD>
         <TD>{l.completed_date ? new Date(l.completed_date).toLocaleDateString('cs-CZ') : '—'}</TD>
         <TD mono>{km ? km.toLocaleString('cs-CZ') : '—'}</TD>
-        <TD bold>{fmt(l.cost)}</TD>
+        <TD bold>{fmt(effectiveCost(l))}</TD>
         <TD><StatusBadge status={l.completed_date && l.status !== 'completed' ? 'completed' : (l.status === 'pending' ? 'pending_service' : (l.status || 'pending_service'))} /></TD>
         <TD>{l.performed_by || '—'}</TD>
       </tr>
@@ -146,10 +147,16 @@ function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
                 </div>
               </div>
             )}
-            <div className="text-sm" style={{ color: '#0f1a14' }}>
-              <span className="font-extrabold">Servisní záznam: </span>
+            <div className="text-sm" style={{ color: '#0f1a14', whiteSpace: 'pre-wrap' }}>
+              <span className="font-extrabold">Zadání: </span>
               {l.description || <span style={{ color: '#9ca3af' }}>Bez popisu</span>}
             </div>
+            {l.technician_report && (
+              <div className="text-sm mt-1 p-2 rounded" style={{ color: '#0f1a14', background: '#fffbeb', whiteSpace: 'pre-wrap' }}>
+                <span className="font-extrabold">Zpráva technika: </span>{l.technician_report}
+              </div>
+            )}
+            {(l.invoiced_amount > 0) && <div className="text-xs mt-1" style={{ color: '#2563eb' }}>Faktury k servisu: {Number(l.invoiced_amount).toLocaleString('cs-CZ')} Kč</div>}
             {l.scheduled_date && (
               <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
                 <span className="font-extrabold">Plánované dokončení: </span>{new Date(l.scheduled_date).toLocaleDateString('cs-CZ')}

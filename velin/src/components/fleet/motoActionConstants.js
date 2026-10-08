@@ -1,3 +1,5 @@
+import { SERVICE_GROUPS, SERVICE_TASKS } from './serviceCatalog'
+
 export const UNAVAILABLE_REASONS = [
   { value: 'cleaning', label: 'Čištění / mytí' },
   { value: 'refueling', label: 'Tankování' },
@@ -10,51 +12,15 @@ export const UNAVAILABLE_REASONS = [
   { value: 'other', label: 'Jiný důvod' },
 ]
 
-export const SERVICE_CHECKLIST = [
-  { group: 'Motor & olej', items: [
-    { id: 'oil_change', label: 'Výměna oleje' },
-    { id: 'oil_filter', label: 'Výměna olejového filtru' },
-    { id: 'air_filter', label: 'Výměna vzduchového filtru' },
-    { id: 'spark_plugs', label: 'Výměna svíček' },
-    { id: 'coolant', label: 'Kontrola / výměna chladicí kapaliny' },
-    { id: 'engine_noise', label: 'Neobvyklý zvuk motoru' },
-  ]},
-  { group: 'Brzdy & podvozek', items: [
-    { id: 'brake_pads_front', label: 'Brzdové destičky přední' },
-    { id: 'brake_pads_rear', label: 'Brzdové destičky zadní' },
-    { id: 'brake_fluid', label: 'Výměna brzdové kapaliny' },
-    { id: 'brake_discs', label: 'Kontrola brzdových kotoučů' },
-    { id: 'suspension', label: 'Kontrola tlumičů / pružin' },
-  ]},
-  { group: 'Pneumatiky & kola', items: [
-    { id: 'tire_front', label: 'Výměna přední pneumatiky' },
-    { id: 'tire_rear', label: 'Výměna zadní pneumatiky' },
-    { id: 'tire_pressure', label: 'Kontrola tlaku pneumatik' },
-    { id: 'wheel_bearings', label: 'Kontrola ložisek kol' },
-  ]},
-  { group: 'Řetěz & převody', items: [
-    { id: 'chain_adjust', label: 'Seřízení řetězu' },
-    { id: 'chain_replace', label: 'Výměna řetězu + rozet' },
-    { id: 'chain_lube', label: 'Promazání řetězu' },
-  ]},
-  { group: 'Elektrika & světla', items: [
-    { id: 'battery', label: 'Kontrola / výměna baterie' },
-    { id: 'lights', label: 'Kontrola světel' },
-    { id: 'fuses', label: 'Kontrola pojistek' },
-    { id: 'starter', label: 'Problém se startérem' },
-  ]},
-  { group: 'Ostatní', items: [
-    { id: 'stk', label: 'Příprava na STK' },
-    { id: 'clutch', label: 'Kontrola / seřízení spojky' },
-    { id: 'cosmetic', label: 'Kosmetická oprava (lak, plasty)' },
-    { id: 'accident_repair', label: 'Oprava po nehodě' },
-    { id: 'other_repair', label: 'Jiná oprava' },
-  ]},
-]
+// Servisní checklist = katalog úkonů (serviceCatalog.js) ve tvaru skupin { group, items: [{ id, label }] }.
+// JEDEN zdroj pravdy: nový úkon se přidá do serviceCatalog.js a objeví se ve všech servisních formulářích
+// (ServiceLogModal, AddServiceFromCalendar, ServiceChecklistView, SOSServiceCard) i v servisní knize.
+export const SERVICE_CHECKLIST = SERVICE_GROUPS.map(g => ({
+  group: g.label, key: g.key, items: g.items.map(i => ({ id: i.id, label: i.label, kind: i.kind, only: i.only || null })),
+}))
 
 // Stejný checklist jako seznam štítků po kategoriích — pro formuláře, které
-// pracují jen se štítky (ServiceLogModal, AddServiceFromCalendar). JEDEN zdroj
-// pravdy: nový úkon se přidá jen sem a objeví se ve všech servisních formulářích.
+// pracují jen se štítky.
 export const SERVICE_CHECKLIST_BY_CATEGORY = SERVICE_CHECKLIST.map(g => ({
   category: g.group, items: g.items.map(i => i.label),
 }))
@@ -69,8 +35,16 @@ export const SOS_SERVICE_TYPES = [
   { id: 'sos_theft_damage', label: 'Poškození při krádeži' },
 ]
 
-/** Všechny standardní štítky úkonů vč. SOS typů (co není v množině = vlastní úkon „Jiné“). */
+/** Všechny standardní štítky úkonů vč. historických aliasů a SOS typů (co není v množině = vlastní úkon „Jiné“). */
 export const SERVICE_CHECKLIST_LABELS = new Set([
-  ...SERVICE_CHECKLIST.flatMap(g => g.items.map(i => i.label)),
+  ...SERVICE_TASKS.flatMap(t => [t.label, ...(t.aliases || [])]),
   ...SOS_SERVICE_TYPES.map(i => i.label),
 ])
+
+/** štítek (vč. aliasu / SOS typu) → id úkonu; null = vlastní úkon */
+export const SERVICE_LABEL_TO_ID = (() => {
+  const m = {}
+  for (const t of SERVICE_TASKS) { m[t.label] = t.id; for (const a of t.aliases || []) m[a] = t.id }
+  for (const s of SOS_SERVICE_TYPES) m[s.label] = s.id
+  return m
+})()

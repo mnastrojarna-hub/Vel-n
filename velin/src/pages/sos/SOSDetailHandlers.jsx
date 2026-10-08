@@ -2,7 +2,7 @@ import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
 import { STATUS_COLORS } from './SOSDetailConstants'
 import { TYPE_LABELS } from '../SOSPanel'
-import { labelsToItems } from '../../components/fleet/CustomServiceItems'
+import { mergeItemsByLabel } from '../../components/fleet/CustomServiceItems'
 
 // Ukončit lze jen probíhající rezervaci a jen po výslovném potvrzení operátora;
 // nadcházející (reserved) rezervace se vyřešením SOS nikdy neukončuje.
@@ -124,15 +124,13 @@ export async function handleSetMotoToService(incident, moto, booking, onRefresh,
         const { data: newLog } = await supabase.from('maintenance_log').insert({
           moto_id: motoId,
           type: 'repair',
-          service_type: `SOS: ${sosDesc}`,
+          service_type: 'repair',   // CHECK povoluje jen regular/extraordinary/repair/inspection — dřív `SOS: …` → INSERT tiše padal
           description: logDesc,
           service_date: today,
           scheduled_date: today,
           status: 'in_service',
-          performed_by: user?.email || 'Admin',
-          is_urgent: true,
+          is_urgent: true,   // technik (performed_by) a km doplní DB: km ze stavu tachometru, technik = kdo servis dokončí
           sos_incident_id: incident.id,
-          km_at_service: Number(moto?.mileage) || null,
         }).select('id').single()
         await supabase.from('service_orders').insert({
           moto_id: motoId, type: `SOS: ${sosDesc}`, notes: logDesc,
@@ -162,13 +160,15 @@ export async function handleSetMotoToService(incident, moto, booking, onRefresh,
 export async function handleUpdateSosServiceLog(logId, { selectedLabels, fullDescription, isUrgent, serviceDateFrom, serviceDateTo }, onRefresh) {
   try {
     const today = new Date().toISOString().slice(0, 10)
+    const { data: prevRow } = await supabase.from('maintenance_log').select('items').eq('id', logId).maybeSingle()
+    const prevItems = prevRow?.items || []
     await supabase.from('maintenance_log').update({
       description: fullDescription,
       service_date: serviceDateFrom || today,
       scheduled_date: serviceDateTo || serviceDateFrom || today,
       is_urgent: isUrgent,
       // Vlastní úkony („Jiné“) dostanou custom:true; SOS typy jsou ve známé množině
-      items: labelsToItems(selectedLabels),
+      items: mergeItemsByLabel(prevItems, selectedLabels),
     }).eq('id', logId)
     onRefresh?.()
     return { success: true }

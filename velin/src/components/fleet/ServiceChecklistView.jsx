@@ -1,82 +1,56 @@
 import { useState, useMemo } from 'react'
 import Button from '../ui/Button'
-import { SERVICE_CHECKLIST } from './motoActionConstants'
-import CustomServiceItems, { customLabelsFromItems } from './CustomServiceItems'
+import { SERVICE_TASKS, TASK_BY_ID } from './serviceCatalog'
+import { SERVICE_LABEL_TO_ID } from './motoActionConstants'
+import ServiceChecklistPicker from './ServiceChecklistPicker'
+import { customLabelsFromItems } from './CustomServiceItems'
 
-// Build reverse map: label → id for pre-filling from existing log items
-const LABEL_TO_ID = {}
-SERVICE_CHECKLIST.forEach(g => g.items.forEach(i => { LABEL_TO_ID[i.label] = i.id }))
-
+/**
+ * Checklist „Odeslat do servisu“ / „Upravit servisní plán“ (Správa motorky, Naplánovat servis).
+ * Výběr úkonů = ServiceChecklistPicker (katalog + neomezené „Jiné“). API beze změny:
+ * onConfirm({ selected, selectedLabels, fullDescription, isUrgent, serviceDateFrom, serviceDateTo }).
+ */
 export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, error, initialData, editMode }) {
-  // Pre-fill from initialData (existing maintenance_log entry)
   const defaults = useMemo(() => {
-    if (!initialData) return { checks: {}, custom: [], urgent: false, from: new Date().toISOString().slice(0, 10), to: '', note: '' }
-    const checks = {}
-    if (initialData.items?.length > 0) {
-      for (const item of initialData.items) {
-        const id = LABEL_TO_ID[item.label]
-        if (id) checks[id] = true
-      }
-    }
+    const today = new Date().toLocaleDateString('sv-SE')
+    if (!initialData) return { checks: new Set(), custom: [], urgent: false, from: today, to: '', note: '' }
+    const checks = new Set()
+    for (const item of (initialData.items || [])) { const id = item?.key || SERVICE_LABEL_TO_ID[item?.label]; if (id && TASK_BY_ID[id]) checks.add(id) }
     return {
-      checks,
-      custom: customLabelsFromItems(initialData.items), // „Jiné“ — vlastní úkony mimo checklist
-      urgent: !!initialData.is_urgent,
-      from: initialData.service_date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-      to: initialData.scheduled_date?.slice(0, 10) || '',
-      note: initialData.description || '',
+      checks, custom: customLabelsFromItems(initialData.items), urgent: !!initialData.is_urgent,
+      from: initialData.service_date?.slice(0, 10) || today, to: initialData.scheduled_date?.slice(0, 10) || '', note: initialData.description || '',
     }
   }, [initialData])
 
-  const [checkedItems, setCheckedItems] = useState(defaults.checks)
+  const [checked, setChecked] = useState(defaults.checks)
   const [customLabels, setCustomLabels] = useState(defaults.custom)
   const [isUrgent, setIsUrgent] = useState(defaults.urgent)
   const [serviceDateFrom, setServiceDateFrom] = useState(defaults.from)
   const [serviceDateTo, setServiceDateTo] = useState(defaults.to)
   const [note, setNote] = useState(defaults.note)
-
-  const checkedCount = Object.values(checkedItems).filter(Boolean).length + customLabels.length
+  const toggle = (id) => setChecked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const checkedCount = checked.size + customLabels.length
 
   function handleConfirm() {
-    const selected = Object.entries(checkedItems).filter(([, v]) => v).map(([k]) => k)
-    const selectedLabels = []
-    SERVICE_CHECKLIST.forEach(g => g.items.forEach(i => {
-      if (selected.includes(i.id)) selectedLabels.push(i.label)
-    }))
-    // Vlastní úkony jdou do items stejně jako standardní (volající je mapuje na {label, done, note})
-    selectedLabels.push(...customLabels)
+    const selected = SERVICE_TASKS.filter(t => checked.has(t.id)).map(t => t.id)
+    // štítky, které tento formulář nenabízí (SOS typy události), se zachovají
+    const passthrough = (initialData?.items || []).filter(it => { const id = it?.key || SERVICE_LABEL_TO_ID[it?.label]; return id && !TASK_BY_ID[id] }).map(it => it.label)
+    const selectedLabels = SERVICE_TASKS.filter(t => checked.has(t.id)).map(t => t.label).concat(passthrough, customLabels)
     const fullDescription = note.trim() || null
     if (!fullDescription && selectedLabels.length === 0) return
     onConfirm({ selected, selectedLabels, fullDescription, isUrgent, serviceDateFrom, serviceDateTo })
   }
 
+  const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }
   return (
     <div>
-      <div className="mb-4 p-3 rounded-lg" style={{ background: editMode ? '#dbeafe' : '#fef3c7', border: `1px solid ${editMode ? '#93c5fd' : '#fde68a'}` }}>
+      <div className="mb-3 p-3 rounded-lg" style={{ background: editMode ? '#dbeafe' : '#fef3c7', border: `1px solid ${editMode ? '#93c5fd' : '#fde68a'}` }}>
         <div className="text-sm font-bold" style={{ color: editMode ? '#2563eb' : '#b45309' }}>
-          {editMode ? 'Upravte servisní plán — zaškrtnuté položky a poznámka se aktualizují.' : 'Zaškrtněte co je potřeba opravit / zkontrolovat. Můžete přidat i vlastní poznámku.'}
+          {editMode ? 'Upravte servisní plán — zaškrtnuté úkony a zadání se aktualizují.' : 'Zaškrtněte, co je potřeba opravit / zkontrolovat (hledejte nebo rozbalte skupiny), a doplňte zadání pro technika.'}
         </div>
       </div>
 
-      <div className="space-y-4 mb-4" style={{ maxHeight: 400, overflowY: 'auto' }}>
-        {SERVICE_CHECKLIST.map(group => (
-          <div key={group.group}>
-            <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{group.group}</div>
-            <div className="grid grid-cols-2 gap-1">
-              {group.items.map(item => (
-                <label key={item.id} className="flex items-center gap-2 p-2 rounded cursor-pointer"
-                  style={{ background: checkedItems[item.id] ? '#dcfce7' : '#f1faf7', border: `1px solid ${checkedItems[item.id] ? '#1a8a18' : '#d4e8e0'}` }}>
-                  <input type="checkbox" checked={!!checkedItems[item.id]}
-                    onChange={e => setCheckedItems(c => ({ ...c, [item.id]: e.target.checked }))}
-                    className="accent-[#1a8a18]" style={{ width: 16, height: 16 }} />
-                  <span className="text-sm" style={{ color: '#0f1a14', fontWeight: checkedItems[item.id] ? 700 : 400 }}>{item.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        ))}
-        <CustomServiceItems labels={customLabels} onChange={setCustomLabels} compact />
-      </div>
+      <div className="mb-4"><ServiceChecklistPicker checked={checked} onToggle={toggle} customLabels={customLabels} onCustomChange={setCustomLabels} moto={moto} compact maxHeight={340} /></div>
 
       <div className="mb-4">
         <label className="flex items-center gap-2 cursor-pointer p-2 rounded" style={{ background: isUrgent ? '#fef2f2' : '#f1faf7', border: `1px solid ${isUrgent ? '#dc2626' : '#d4e8e0'}` }}>
@@ -88,32 +62,25 @@ export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, er
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servis od</label>
-          <input type="date" value={serviceDateFrom} onChange={e => setServiceDateFrom(e.target.value)}
-            className="w-full rounded-btn text-sm outline-none"
-            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+          <input type="date" value={serviceDateFrom} onChange={e => setServiceDateFrom(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
         <div>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Plánované dokončení</label>
-          <input type="date" value={serviceDateTo} onChange={e => setServiceDateTo(e.target.value)} min={serviceDateFrom}
-            className="w-full rounded-btn text-sm outline-none"
-            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+          <input type="date" value={serviceDateTo} onChange={e => setServiceDateTo(e.target.value)} min={serviceDateFrom} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
       </div>
 
       <div className="mb-4">
-        <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Doplňující poznámka</label>
-        <textarea value={note} onChange={e => setNote(e.target.value)}
-          placeholder="Popište závadu, okolnosti, další info pro technika…" rows={3}
-          className="w-full rounded-btn text-sm outline-none"
-          style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14', resize: 'vertical' }} />
+        <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Zadání / popis závady</label>
+        <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Popište závadu, okolnosti, další info pro technika…" rows={3}
+          className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, resize: 'vertical' }} />
+        <div className="text-xs mt-1" style={{ color: '#6b7280' }}>Km při servisu a jméno technika se doplní automaticky (stav tachometru, přihlášený účet).</div>
       </div>
 
       {error && <div className="mb-3 p-2 rounded text-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>}
 
       <div className="flex items-center justify-between">
-        <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
-          {checkedCount > 0 ? `Zaškrtnuto: ${checkedCount} položek` : 'Nic nezaškrtnuto'}
-        </span>
+        <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{checkedCount > 0 ? `Zaškrtnuto: ${checkedCount} úkonů` : 'Nic nezaškrtnuto'}</span>
         <div className="flex gap-2">
           <Button onClick={onBack}>Zpět</Button>
           <Button green onClick={handleConfirm} disabled={busy || (!note.trim() && checkedCount === 0)}>

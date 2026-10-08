@@ -31,7 +31,7 @@ const Logo = ({ size = 44 }) => (
 export default function Sidebar({ admin, onSignOut }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [badges, setBadges] = useState({ messages: 0, sos: 0, gear: 0, kiosk: 0 })
+  const [badges, setBadges] = useState({ messages: 0, sos: 0, gear: 0, kiosk: 0, service: 0 })
   const location = useLocation()
   const navigate = useNavigate()
   const NAV = visibleSections(admin)
@@ -46,21 +46,23 @@ export default function Sidebar({ admin, onSignOut }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sos_incidents' }, () => loadBadges())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'gear_shortages' }, () => loadBadges())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'kiosk_alerts' }, () => loadBadges())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_log' }, () => loadBadges())
       .subscribe()
     return () => { clearInterval(interval); supabase.removeChannel(channel) }
   }, [])
 
   async function loadBadges() {
     try {
-      const [msgRes, sosRes, gearRes, kioskRes] = await Promise.all([
+      const [msgRes, sosRes, gearRes, kioskRes, svcRes] = await Promise.all([
         supabase.from('messages').select('id', { count: 'exact', head: true }).eq('direction', 'customer').is('read_at', null),
         supabase.from('sos_incidents').select('id', { count: 'exact', head: true }).in('status', ['reported', 'acknowledged', 'in_progress']),
         supabase.from('gear_shortages').select('id', { count: 'exact', head: true }).eq('status', 'open'),
         supabase.from('kiosk_alerts').select('id', { count: 'exact', head: true }).is('acknowledged_at', null),
+        supabase.rpc('get_service_due_count'),   // servisní intervaly po termínu (bez naplánovaného záznamu)
       ])
-      setBadges({ messages: msgRes.count || 0, sos: sosRes.count || 0, gear: gearRes.count || 0, kiosk: kioskRes.count || 0 })
+      setBadges({ messages: msgRes.count || 0, sos: sosRes.count || 0, gear: gearRes.count || 0, kiosk: kioskRes.count || 0, service: svcRes.data?.motos_overdue || 0 })   // = počet motorek (stejně jako Topbar)
     } catch {
-      setBadges({ messages: 0, sos: 0, gear: 0, kiosk: 0 })
+      setBadges({ messages: 0, sos: 0, gear: 0, kiosk: 0, service: 0 })
     }
   }
 

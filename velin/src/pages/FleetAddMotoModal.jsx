@@ -101,13 +101,10 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
       const newMoto = result?.data
 
       if (newMoto) {
-        const schedules = [
-          { moto_id: newMoto.id, schedule_type: 'both', interval_km: oilKm, interval_days: oilDays, description: 'Výměna oleje', active: true },
-          { moto_id: newMoto.id, schedule_type: 'mileage', interval_km: tireKm, description: 'Výměna pneumatik', active: true },
-          { moto_id: newMoto.id, schedule_type: 'both', interval_km: fullKm, interval_days: fullDays, description: 'Kompletní servis', active: true },
-        ]
-        const { error: schedErr } = await supabase.from('maintenance_schedules').insert(schedules)
-        if (schedErr) console.error('[AddMotoModal] default schedules insert failed:', schedErr)
+        // Plány údržby (základní standard: olej, filtry, svíčky, brzdová kapalina, pneu, řetěz/kardan, …) založí DB
+        // z katalogu + intervalů dle výrobce; olej/pneu/kompletní servis bere z intervalů na kartě motorky výše.
+        const { error: schedErr } = await supabase.rpc('service_plan_apply_presets', { p_moto_id: newMoto.id, p_reset: false })
+        if (schedErr) console.error('[AddMotoModal] service_plan_apply_presets failed:', schedErr)
         await supabase.from('moto_day_prices').insert({
           moto_id: newMoto.id, price_mon: 0, price_tue: 0, price_wed: 0, price_thu: 0, price_fri: 0, price_sat: 0, price_sun: 0,
         })
