@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 
-export default function SearchInput({ value, onChange, placeholder = 'Hledat…' }) {
+// fullWidth: pole přes celou šířku rodiče (mobilní rozvržení); výchozí 260 px beze změny.
+export default function SearchInput({ value, onChange, placeholder = 'Hledat…', fullWidth = false }) {
   const [local, setLocal] = useState(value || '')
   const timer = useRef(null)
 
@@ -16,7 +17,7 @@ export default function SearchInput({ value, onChange, placeholder = 'Hledat…'
   }
 
   return (
-    <div className="relative">
+    <div className="relative" style={fullWidth ? { width: '100%' } : undefined}>
       <span
         className="absolute left-3 top-1/2 -translate-y-1/2"
         style={{ fontSize: 14, color: '#1a2e22' }}
@@ -34,7 +35,7 @@ export default function SearchInput({ value, onChange, placeholder = 'Hledat…'
           background: '#f1faf7',
           border: '1px solid #d4e8e0',
           color: '#0f1a14',
-          width: 260,
+          width: fullWidth ? '100%' : 260,
           maxWidth: '100%',
         }}
       />

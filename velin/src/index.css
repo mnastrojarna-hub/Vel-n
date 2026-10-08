@@ -72,3 +72,21 @@ body {
 @media (max-width: 1023px) {
   body { overflow-x: hidden; }
 }
+
+/* Zprávy (Chat / SMS / E-mail / WhatsApp) — mobil a tablet.
+   .mg-hscroll = vodorovně posuvná řada (pod-záložky) bez viditelného posuvníku.
+   .mg-msgs    = kořen stránky Zprávy; na dotykových zařízeních písmo polí 16 px,
+                 jinak iOS Safari při fokusu stránku přiblíží a rozhodí rozvržení. */
+@media (max-width: 1023px) {
+  .mg-hscroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .mg-hscroll::-webkit-scrollbar { display: none; }
+}
+@media (max-width: 1023px) and (pointer: coarse) {
+  .mg-msgs input:not([type="checkbox"]):not([type="radio"]),
+  .mg-msgs textarea,
+  .mg-msgs select { font-size: 16px; }
+}

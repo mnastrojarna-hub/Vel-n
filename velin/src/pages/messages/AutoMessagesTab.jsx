@@ -7,6 +7,8 @@ import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
+import { useIsMobile, useMediaQuery } from '../../hooks/useIsMobile'
+import AutoMessagesMobile from './AutoMessagesMobile'
 
 // automation_rules columns: id, name, event, conditions (jsonb), actions (jsonb), enabled, created_at
 // We store channel, trigger config etc. inside conditions/actions JSON
@@ -71,6 +73,7 @@ export default function AutoMessagesTab({ channel }) {
   const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState(null)
   const [confirm, setConfirm] = useState(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => { load(); loadTemplates() }, [channel])
 
@@ -141,6 +144,16 @@ export default function AutoMessagesTab({ channel }) {
 
   return (
     <div>
+      {isMobile ? (
+        <AutoMessagesMobile
+          channelLabel={CHANNEL_LABELS[channel]} rules={rules} loading={loading}
+          onAdd={() => { setEditing(null); setShowCreate(true) }}
+          onEdit={rule => { setEditing(rule); setShowCreate(true) }}
+          onToggle={rule => setConfirm({ rule, action: 'toggle' })}
+          onDelete={rule => setConfirm({ rule, action: 'delete' })}
+          triggerIcon={triggerIcon} triggerLabel={triggerLabel} formatTriggerConfig={formatTriggerConfig}
+        />
+      ) : (<>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>
@@ -192,6 +205,7 @@ export default function AutoMessagesTab({ channel }) {
           </tbody>
         </Table>
       )}
+      </>)}
 
       {showCreate && <AutoRuleModal channel={channel} rule={editing} templates={templates} onClose={() => setShowCreate(false)} onSaved={() => { setShowCreate(false); load() }} />}
 
@@ -218,6 +232,11 @@ function AutoRuleModal({ channel, rule, templates, onClose, onSaved }) {
   const [isActive, setIsActive] = useState(rule?.is_active ?? true)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
+  // Mobil/tablet: řádky polí se zalamují, volby a tlačítka mají dotykovou výšku; telefon = triggery v 1 sloupci
+  const isMobile = useIsMobile()
+  const isPhone = useMediaQuery('(max-width: 639px)')
+  const wrap = isMobile ? { flexWrap: 'wrap', rowGap: 8 } : undefined
+  const mOpt = isMobile ? { minHeight: 44, flex: '1 1 0', justifyContent: 'center' } : {}
   const updateConfig = (k, v) => setTriggerConfig(p => ({ ...p, [k]: v }))
   const selectedTemplate = templates.find(t => t.id === templateId)
 
@@ -252,7 +271,7 @@ function AutoRuleModal({ channel, rule, templates, onClose, onSaved }) {
         </div>
         <div>
           <Label>Trigger *</Label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2" style={isPhone ? { gridTemplateColumns: 'minmax(0, 1fr)' } : undefined}>
             {TRIGGER_TYPES.map(t => (
               <div key={t.value} onClick={() => { setTriggerType(t.value); setTriggerConfig({}) }} className="cursor-pointer rounded-card"
                 style={{ padding: 10, border: triggerType === t.value ? '2px solid #74FB71' : '2px solid #d4e8e0', background: triggerType === t.value ? '#f0fdf0' : '#fff' }}>
@@ -274,20 +293,20 @@ function AutoRuleModal({ channel, rule, templates, onClose, onSaved }) {
           </div>
         )}
         {triggerType === 'booking_reminder' && (
-          <div className="flex gap-3 items-end">
+          <div className="flex gap-3 items-end" style={wrap}>
             <div><Label>Kolik</Label><input type="number" min="1" value={triggerConfig.amount || ''} onChange={e => updateConfig('amount', Number(e.target.value))} className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} /></div>
             <div><Label>Jednotka</Label><select value={triggerConfig.unit || 'days'} onChange={e => updateConfig('unit', e.target.value)} className="rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}>{TIME_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}</select></div>
             <div><Label>Před</Label><select value={triggerConfig.reference || 'start'} onChange={e => updateConfig('reference', e.target.value)} className="rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}><option value="start">začátkem</option><option value="end">koncem</option></select></div>
           </div>
         )}
         {triggerType === 'customer_inactivity' && (
-          <div className="flex gap-3 items-end"><div><Label>Neaktivní po</Label><input type="number" min="1" value={triggerConfig.days || ''} onChange={e => updateConfig('days', Number(e.target.value))} className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} placeholder="30" /></div><span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>dní</span></div>
+          <div className="flex gap-3 items-end" style={wrap}><div><Label>Neaktivní po</Label><input type="number" min="1" value={triggerConfig.days || ''} onChange={e => updateConfig('days', Number(e.target.value))} className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} placeholder="30" /></div><span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>dní</span></div>
         )}
         {triggerType === 'post_return' && (
-          <div className="flex gap-3 items-end"><div><Label>Odeslat po</Label><input type="number" min="1" value={triggerConfig.days || ''} onChange={e => updateConfig('days', Number(e.target.value))} className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} placeholder="3" /></div><span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>dnech po vrácení</span></div>
+          <div className="flex gap-3 items-end" style={wrap}><div><Label>Odeslat po</Label><input type="number" min="1" value={triggerConfig.days || ''} onChange={e => updateConfig('days', Number(e.target.value))} className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} placeholder="3" /></div><span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>dnech po vrácení</span></div>
         )}
         {triggerType === 'abandoned_booking' && (
-          <div className="flex gap-3 items-end"><div><Label>Po</Label><input type="number" min="1" value={triggerConfig.amount || ''} onChange={e => updateConfig('amount', Number(e.target.value))} className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} /></div><div><select value={triggerConfig.unit || 'minutes'} onChange={e => updateConfig('unit', e.target.value)} className="rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}>{TIME_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}</select></div><span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>bez platby</span></div>
+          <div className="flex gap-3 items-end" style={wrap}><div><Label>Po</Label><input type="number" min="1" value={triggerConfig.amount || ''} onChange={e => updateConfig('amount', Number(e.target.value))} className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} /></div><div><select value={triggerConfig.unit || 'minutes'} onChange={e => updateConfig('unit', e.target.value)} className="rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}>{TIME_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}</select></div><span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>bez platby</span></div>
         )}
         {triggerType === 'seasonal' && (
           <div><Label>Popis</Label><input type="text" value={triggerConfig.description || ''} onChange={e => updateConfig('description', e.target.value)} placeholder="Např. Začátek sezóny" className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
@@ -296,8 +315,8 @@ function AutoRuleModal({ channel, rule, templates, onClose, onSaved }) {
         <div>
           <Label>Obsah zprávy</Label>
           <div className="flex gap-3 mb-3">
-            <label className="flex items-center gap-2 cursor-pointer rounded-btn" style={{ padding: '6px 12px', background: useTemplate ? '#e8fee7' : '#f1faf7', border: useTemplate ? '1px solid #74FB71' : '1px solid #d4e8e0' }}><input type="radio" checked={useTemplate} onChange={() => setUseTemplate(true)} className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} /><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Ze šablony</span></label>
-            <label className="flex items-center gap-2 cursor-pointer rounded-btn" style={{ padding: '6px 12px', background: !useTemplate ? '#e8fee7' : '#f1faf7', border: !useTemplate ? '1px solid #74FB71' : '1px solid #d4e8e0' }}><input type="radio" checked={!useTemplate} onChange={() => setUseTemplate(false)} className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} /><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Vlastní</span></label>
+            <label className="flex items-center gap-2 cursor-pointer rounded-btn" style={{ padding: '6px 12px', background: useTemplate ? '#e8fee7' : '#f1faf7', border: useTemplate ? '1px solid #74FB71' : '1px solid #d4e8e0', ...mOpt }}><input type="radio" checked={useTemplate} onChange={() => setUseTemplate(true)} className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} /><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Ze šablony</span></label>
+            <label className="flex items-center gap-2 cursor-pointer rounded-btn" style={{ padding: '6px 12px', background: !useTemplate ? '#e8fee7' : '#f1faf7', border: !useTemplate ? '1px solid #74FB71' : '1px solid #d4e8e0', ...mOpt }}><input type="radio" checked={!useTemplate} onChange={() => setUseTemplate(false)} className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} /><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Vlastní</span></label>
           </div>
           {useTemplate ? (
             <div>
@@ -305,21 +324,22 @@ function AutoRuleModal({ channel, rule, templates, onClose, onSaved }) {
               {selectedTemplate && <div className="mt-2 rounded-card" style={{ padding: 10, background: '#f8fcfa', border: '1px solid #d4e8e0', fontSize: 12, whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'auto' }}>{selectedTemplate.body_template || selectedTemplate.content || '(prázdná)'}</div>}
             </div>
           ) : (
-            <textarea value={customBody} onChange={e => setCustomBody(e.target.value)} placeholder="Text… {{customer_name}}, {{motorcycle}}" className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 100, resize: 'vertical' }} />
+            <textarea value={customBody} onChange={e => setCustomBody(e.target.value)} placeholder="Text… {{customer_name}}, {{motorcycle}}" className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 100, resize: 'vertical', ...(isMobile ? { borderRadius: 16 } : {}) }} />
           )}
         </div>
 
-        <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="accent-[#1a8a18]" style={{ width: 16, height: 16 }} /><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Aktivní</span></label>
+        <label className="flex items-center gap-2 cursor-pointer" style={isMobile ? { minHeight: 40 } : undefined}><input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="accent-[#1a8a18]" style={{ width: 16, height: 16 }} /><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Aktivní</span></label>
         {err && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{err}</div>}
       </div>
       <div className="flex justify-end gap-2 mt-5 pt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
-        <Button onClick={onClose}>Zrušit</Button>
-        <Button green onClick={handleSave} disabled={!canSave}>{saving ? 'Ukládám…' : isNew ? 'Vytvořit' : 'Uložit'}</Button>
+        <Button onClick={onClose} style={isMobile ? M_BTN : undefined}>Zrušit</Button>
+        <Button green onClick={handleSave} disabled={!canSave} style={isMobile ? M_BTN : undefined}>{saving ? 'Ukládám…' : isNew ? 'Vytvořit' : 'Uložit'}</Button>
       </div>
     </Modal>
   )
 }
 
+const M_BTN = { flex: '1 1 0', justifyContent: 'center', minHeight: 44 }
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>

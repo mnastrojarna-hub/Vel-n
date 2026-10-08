@@ -7,6 +7,9 @@ import Badge from '../../components/ui/Badge'
 import Card from '../../components/ui/Card'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import { CampaignStep2, CampaignStep3, CampaignStep4 } from './CampaignSteps'
+import { useIsMobile } from '../../hooks/useIsMobile'
+import { CampaignsMobileStep2, CampaignsMobileStep3, CampaignsMobileStep4 } from './CampaignsMobileSteps'
+import { CampaignsMobileStepper, CampaignsMobileFooter } from './CampaignsMobileWizard'
 
 import {
   CHANNEL_LABELS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS,
@@ -22,6 +25,7 @@ const SEGMENTS = [
 ]
 
 export default function CampaignCreateModal({ open, channel, onClose, onCreated }) {
+  const isMobile = useIsMobile()
   const [step, setStep] = useState(1)
   const [name, setName] = useState('')
   const [templateId, setTemplateId] = useState('')
@@ -237,9 +241,16 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
 
   if (!open) return null
 
+  // Telefon/tablet: kroky 2–4, ukazatel kroků i tlačítka v mobilním rozvržení (stejné props a akce).
+  const Step2 = isMobile ? CampaignsMobileStep2 : CampaignStep2
+  const Step3 = isMobile ? CampaignsMobileStep3 : CampaignStep3
+  const Step4 = isMobile ? CampaignsMobileStep4 : CampaignStep4
+  const fieldH = isMobile ? 44 : undefined
+
   return (
     <Modal open title="Nová kampaň" onClose={onClose} wide>
       {/* Stepper */}
+      {isMobile ? <CampaignsMobileStepper step={step} /> : (
       <div className="flex items-center justify-center gap-2 mb-6">
         {STEP_LABELS.map((label, i) => {
           const num = i + 1
@@ -273,6 +284,7 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
           )
         })}
       </div>
+      )}
 
       {/* Step 1 — Základní info */}
       {step === 1 && (
@@ -287,7 +299,7 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
               onChange={e => setName(e.target.value)}
               placeholder="Např. Zahájení sezóny 2026"
               className="w-full rounded-btn text-sm outline-none"
-              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
+              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: fieldH }}
             />
           </div>
 
@@ -304,7 +316,7 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
                 value={templateId}
                 onChange={e => { setTemplateId(e.target.value); setTemplateVars({}) }}
                 className="w-full rounded-btn text-sm outline-none cursor-pointer"
-                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
+                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', minHeight: fieldH }}
               >
                 <option value="">— Vyberte šablonu —</option>
                 {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -314,7 +326,7 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
 
           {/* Template preview */}
           {selectedTemplate && (
-            <div className="rounded-card" style={{ padding: 12, background: '#f8fcfa', border: '1px solid #d4e8e0', fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto', color: '#1a2e22' }}>
+            <div className="rounded-card" style={{ padding: 12, background: '#f8fcfa', border: '1px solid #d4e8e0', fontFamily: 'monospace', fontSize: isMobile ? 13 : 12, whiteSpace: 'pre-wrap', overflowWrap: isMobile ? 'anywhere' : undefined, maxHeight: 180, overflow: 'auto', color: '#1a2e22' }}>
               {templateBody || '(prázdná šablona)'}
             </div>
           )}
@@ -322,18 +334,21 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
       )}
 
       {step === 2 && (
-        <CampaignStep2 segment={segment} setSegment={setSegment} segments={SEGMENTS} filterCountry={filterCountry} setFilterCountry={setFilterCountry} filterLanguage={filterLanguage} setFilterLanguage={setFilterLanguage} recipientCountLoading={recipientCountLoading} recipientCount={recipientCount} channel={channel} />
+        <Step2 segment={segment} setSegment={setSegment} segments={SEGMENTS} filterCountry={filterCountry} setFilterCountry={setFilterCountry} filterLanguage={filterLanguage} setFilterLanguage={setFilterLanguage} recipientCountLoading={recipientCountLoading} recipientCount={recipientCount} channel={channel} />
       )}
 
       {step === 3 && (
-        <CampaignStep3 variables={variables} templateVars={templateVars} setTemplateVars={setTemplateVars} previewText={previewText} estimatePrice={estimatePrice} sampleRecipients={sampleRecipients} recipientCount={recipientCount} channel={channel} />
+        <Step3 variables={variables} templateVars={templateVars} setTemplateVars={setTemplateVars} previewText={previewText} estimatePrice={estimatePrice} sampleRecipients={sampleRecipients} recipientCount={recipientCount} channel={channel} />
       )}
 
       {step === 4 && (
-        <CampaignStep4 name={name} channel={channel} selectedTemplate={selectedTemplate} recipientCount={recipientCount} estimatePrice={estimatePrice} scheduleMode={scheduleMode} setScheduleMode={setScheduleMode} scheduledAt={scheduledAt} setScheduledAt={setScheduledAt} confirmed={confirmed} setConfirmed={setConfirmed} />
+        <Step4 name={name} channel={channel} selectedTemplate={selectedTemplate} recipientCount={recipientCount} estimatePrice={estimatePrice} scheduleMode={scheduleMode} setScheduleMode={setScheduleMode} scheduledAt={scheduledAt} setScheduledAt={setScheduledAt} confirmed={confirmed} setConfirmed={setConfirmed} />
       )}
 
       {/* Footer buttons */}
+      {isMobile ? (
+        <CampaignsMobileFooter step={step} setStep={setStep} canNext={canNext()} step4Valid={step4Valid} sending={sending} scheduleMode={scheduleMode} onSubmit={handleSubmit} />
+      ) : (
       <div className="flex justify-between items-center mt-6 pt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
         <div>
           {step > 1 && (
@@ -361,6 +376,7 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
           )}
         </div>
       </div>
+      )}
     </Modal>
   )
 }
