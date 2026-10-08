@@ -18,7 +18,7 @@ const td = { padding: '6px 8px', fontSize: 13, verticalAlign: 'top' }
  * (dle lhůty / odhad z Ø nájezdu). Nahoře doporučený společný servis. Akce na řádku: Naplánovat,
  * Zapsat provedení (baseline), Interval, Díly, Vyřadit. Stav počítá DB (get_service_due).
  */
-export default function ServicePlanCard({ moto, due, schedules, partsBySchedule = {}, inventoryItems = [], unitLabel = 'km', onChanged, logAudit, partsApi, onAddSchedule, saving }) {
+export default function ServicePlanCard({ moto, due, schedules, partsBySchedule = {}, inventoryItems = [], unitLabel = 'km', onChanged, logAudit, partsApi, onAddSchedule, saving, existingTaskKeys = [] }) {
   const [busy, setBusy] = useState(null)
   const [baseline, setBaseline] = useState(null)
   const [editing, setEditing] = useState(null)
@@ -30,7 +30,7 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
   const avg = rows[0]?.avg_daily_km
 
   async function run(id, fn) { setBusy(id); setMsg(null); try { await fn(); onChanged?.() } catch (e) { setMsg(e.message) } finally { setBusy(null) } }
-  const plan = (d) => run(d.schedule_id, async () => { await planServiceFromDue(d); setMsg(`Naplánováno: ${d.label}`) })
+  const plan = (d) => run(d.schedule_id, async () => { const r = await planServiceFromDue(d); if (r) setMsg(`Naplánováno: ${d.label}`) })
   const deactivate = (d) => { if (!window.confirm(`Vyřadit plán „${d.label}“? (přestane se hlídat)`)) return; run(d.schedule_id, async () => { await supabase.from('maintenance_schedules').update({ active: false }).eq('id', d.schedule_id); await logAudit?.('schedule_deleted', { schedule_id: d.schedule_id }) }) }
   const saveBaseline = () => run(baseline.id, async () => { await setScheduleBaseline(baseline.id, { km: baseline.km, date: baseline.date }); setBaseline(null) })
   const saveEdit = () => run(editing.id, async () => {
@@ -55,7 +55,7 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
         </div>
         <div className="flex gap-2 flex-wrap">
           <button onClick={applyStd} disabled={busy === 'std'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer" style={{ padding: '6px 12px', background: '#eef2ff', color: '#4f46e5', border: 'none' }} title="Založí chybějící plány základního standardu dle výrobce / katalogu">Doplnit standardní plány</button>
-          <AddScheduleBtn onAdd={onAddSchedule} saving={saving} unitLabel={unitLabel} existingTypes={(schedules || []).map(s => s.description)} />
+          <AddScheduleBtn onAdd={onAddSchedule} saving={saving} unitLabel={unitLabel} existingTypes={(schedules || []).map(s => s.description)} existingTaskKeys={existingTaskKeys} />
         </div>
       </div>
       {msg && <div className="text-xs mb-2 p-2 rounded" style={{ background: '#f1faf7', color: '#1a2e22' }}>{msg}</div>}
@@ -80,8 +80,8 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
                       <td style={td}><span className="text-xs font-extrabold rounded-full" style={{ padding: '1px 7px', background: st.bg, color: st.color, border: `1px solid ${st.border}`, whiteSpace: 'nowrap' }}>{st.label}</span></td>
                       <td style={{ ...td, fontWeight: 700, color: '#0f1a14' }}>{d.label}<div className="text-xs font-normal" style={{ color: '#9ca3af' }}>{SOURCE_LABELS[d.source] || d.source}{d.sched?.notes ? ` · ${d.sched.notes}` : ''}</div></td>
                       <td style={{ ...td, whiteSpace: 'nowrap', color: '#1a2e22' }}>{intervalText(d, unitLabel)}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap', color: '#1a2e22' }} title={BASELINE_LABELS[d.baseline_source] || ''}>{d.last_date ? fmtDate(d.last_date) : '—'}{d.last_km != null ? ` · ${fmtKm(d.last_km, '')}` : ''}<div className="text-xs" style={{ color: '#9ca3af' }}>{d.baseline_source === 'log' ? 'servisní záznam' : d.baseline_source === 'acquisition' ? 'od pořízení (neověřeno)' : d.baseline_source === 'manual' ? 'zadáno ručně' : 'doplňte provedení'}</div></td>
-                      <td style={{ ...td, whiteSpace: 'nowrap', fontWeight: 700, color: kmRem != null && kmRem <= 0 ? '#dc2626' : '#0f1a14' }}>{d.next_km != null ? <>{fmtKm(d.next_km, '')}<div className="text-xs font-normal" style={{ color: kmRem <= 0 ? '#dc2626' : '#6b7280' }}>{kmRem <= 0 ? `${fmtKm(-kmRem, '')} po termínu` : `zbývá ${fmtKm(kmRem, '')}`}</div></> : <span style={{ color: '#9ca3af' }}>—</span>}</td>
+                      <td style={{ ...td, whiteSpace: 'nowrap', color: '#1a2e22' }} title={BASELINE_LABELS[d.baseline_source] || ''}>{d.last_date ? fmtDate(d.last_date) : '—'}{d.last_km != null ? ` · ${d.km_estimated ? '~' : ''}${fmtKm(d.last_km, '')}` : ''}<div className="text-xs" style={{ color: '#9ca3af' }}>{d.baseline_source === 'log' ? 'servisní záznam' : d.baseline_source === 'acquisition' ? 'od pořízení (neověřeno)' : d.baseline_source === 'manual' ? 'zadáno ručně' : 'doplňte provedení'}</div></td>
+                      <td style={{ ...td, whiteSpace: 'nowrap', fontWeight: 700, color: kmRem != null && kmRem <= 0 ? '#dc2626' : '#0f1a14' }}>{d.next_km != null ? <>{d.km_estimated ? '~' : ''}{fmtKm(d.next_km, '')}<div className="text-xs font-normal" style={{ color: kmRem <= 0 ? '#dc2626' : '#6b7280' }}>{kmRem <= 0 ? `${fmtKm(-kmRem, '')} po termínu` : `zbývá ${fmtKm(kmRem, '')}`}{d.km_estimated ? ' · km odhad z data' : ''}</div></> : <span style={{ color: '#9ca3af' }}>—</span>}</td>
                       <td style={{ ...td, whiteSpace: 'nowrap', color: '#0f1a14' }}>
                         {d.planned_date && <div className="font-bold" style={{ color: '#2563eb' }}>termín {fmtDate(d.planned_date)}</div>}
                         {d.next_date && <div style={{ fontWeight: 700, color: dRem != null && dRem <= 0 ? '#dc2626' : '#0f1a14' }}>{fmtDate(d.next_date)} <span className="text-xs font-normal" style={{ color: '#6b7280' }}>dle lhůty{dRem != null ? ` (${dRem <= 0 ? `${-dRem} dní po` : `za ${dRem} dní`})` : ''}</span></div>}

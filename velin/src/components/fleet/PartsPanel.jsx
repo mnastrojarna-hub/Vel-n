@@ -11,7 +11,7 @@ export default function PartsPanel({ parts, inventoryItems, scheduleId, onAdd, o
     <div className="ml-4 mr-2 mb-2 p-3 rounded-lg" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', fontSize: 12 }}>
       <div className="font-bold text-xs uppercase tracking-wide mb-2" style={{ color: '#2563eb' }}>Dily pro tento servis</div>
       {parts.length === 0 && !adding && (
-        <p style={{ color: '#6b7280', fontSize: 12 }}>Zadne dily — kliknete + Pridat dil</p>
+        <p style={{ color: '#6b7280', fontSize: 12 }}>{inventoryItems.length === 0 ? 'Sklad není pro tento účet dostupný nebo je prázdný — díly přidá správce.' : 'Žádné díly — klikněte + Přidat díl'}</p>
       )}
       {parts.map(p => (
         <div key={p.id} className="flex items-center gap-2 mb-1 p-2 rounded" style={{ background: '#fff' }}>

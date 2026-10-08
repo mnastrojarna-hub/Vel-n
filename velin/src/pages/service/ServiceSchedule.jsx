@@ -54,7 +54,7 @@ export default function ServiceSchedule() {
     catch (e) { debugError('ServiceSchedule', 'saveDate', e) }
     setBusy(null)
   }
-  async function plan(r) { setBusy(r.schedule_id); try { await planServiceFromDue(r, { date: r.planned_date || undefined }); await load() } catch (e) { alert(e.message) } setBusy(null) }
+  async function plan(r) { setBusy(r.schedule_id); try { const res = await planServiceFromDue(r, { date: r.planned_date || undefined }); if (res) await load() } catch (e) { alert(e.message) } setBusy(null) }
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   const counts = rows.reduce((a, r) => { if (!r.open_log_id) a[r.state] = (a[r.state] || 0) + 1; return a }, {})

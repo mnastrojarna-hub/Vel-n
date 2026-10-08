@@ -14,7 +14,7 @@
 
 export const SERVICE_GROUPS = [
   { key: 'engine', label: 'Motor & olej', items: [
-    { id: 'oil_change', label: 'Výměna oleje', kind: 'replace', km: 10000, months: 12, track: true, moto: 'oil', aliases: ['Výměna motorového oleje'] },
+    { id: 'oil_change', label: 'Výměna oleje', kind: 'replace', km: 10000, months: 12, track: true, moto: 'oil', aliases: ['Výměna motorového oleje', 'Olejový servis'] },
     { id: 'oil_filter', label: 'Výměna olejového filtru', kind: 'replace', km: 10000, months: 12, track: true, moto: 'oil' },
     { id: 'air_filter', label: 'Výměna vzduchového filtru', kind: 'replace', km: 20000, months: 24, track: true },
     { id: 'air_filter_clean', label: 'Čištění vzduchového filtru', kind: 'check', km: 5000 },
@@ -36,7 +36,7 @@ export const SERVICE_GROUPS = [
     { id: 'cooling_repair', label: 'Oprava chlazení (termostat, čerpadlo, hadice)', kind: 'repair', only: 'liquid' },
   ] },
   { key: 'brakes', label: 'Brzdy', items: [
-    { id: 'brake_pads_check', label: 'Kontrola brzdových destiček', kind: 'check', km: 5000, months: 6, track: true },
+    { id: 'brake_pads_check', label: 'Kontrola brzdových destiček', kind: 'check', km: 5000, months: 6, track: true, aliases: ['Brzdy (vizuálně)', 'Kontrola brzd'] },
     { id: 'brake_pads_front', label: 'Brzdové destičky přední', kind: 'replace', implies: ['brake_pads_check'], aliases: ['Výměna brzdových destiček přední'] },
     { id: 'brake_pads_rear', label: 'Brzdové destičky zadní', kind: 'replace', implies: ['brake_pads_check'], aliases: ['Výměna brzdových destiček zadní'] },
     { id: 'brake_discs', label: 'Kontrola brzdových kotoučů', kind: 'check', km: 10000 },
@@ -63,7 +63,7 @@ export const SERVICE_GROUPS = [
     { id: 'side_stand', label: 'Kontrola / mazání stojánku', kind: 'check', months: 12 },
   ] },
   { key: 'tires', label: 'Pneumatiky & kola', items: [
-    { id: 'tire_check', label: 'Kontrola stavu / dezénu pneumatik', kind: 'check', km: 3000 },
+    { id: 'tire_check', label: 'Kontrola stavu / dezénu pneumatik', kind: 'check', km: 3000, aliases: ['Stav pneumatik'] },
     { id: 'tire_pressure', label: 'Kontrola tlaku pneumatik', kind: 'check' },
     { id: 'tire_front', label: 'Výměna přední pneumatiky', kind: 'replace', track: true, moto: 'tire' },
     { id: 'tire_rear', label: 'Výměna zadní pneumatiky', kind: 'replace', track: true, moto: 'tire' },
@@ -72,12 +72,12 @@ export const SERVICE_GROUPS = [
     { id: 'valve_stems', label: 'Výměna ventilků', kind: 'replace' },
   ] },
   { key: 'drive', label: 'Řetěz / kardan / řemen', items: [
-    { id: 'chain_adjust', label: 'Seřízení řetězu', kind: 'adjust', km: 1000, track: true, only: 'chain', aliases: ['Dopnutí / seřízení řetězu'] },
+    { id: 'chain_adjust', label: 'Seřízení řetězu', kind: 'adjust', km: 1000, only: 'chain', aliases: ['Dopnutí / seřízení řetězu', 'Dopnutí řetězu', 'Řetěz — napnutí, mazání'] },
     { id: 'chain_lube', label: 'Promazání řetězu', kind: 'adjust', only: 'chain' },
     { id: 'chain_clean', label: 'Čištění řetězu', kind: 'adjust', only: 'chain' },
     { id: 'chain_check', label: 'Kontrola opotřebení řetězu a rozet', kind: 'check', km: 5000, only: 'chain' },
     { id: 'chain_kit', label: 'Výměna řetězu + rozet', kind: 'replace', km: 25000, track: true, only: 'chain', implies: ['chain_adjust', 'chain_check'], aliases: ['Výměna řetězové sady'] },
-    { id: 'final_drive_oil', label: 'Výměna oleje v kardanu / rozvodovce', kind: 'replace', km: 20000, months: 24, track: true, only: 'shaft' },
+    { id: 'final_drive_oil', label: 'Výměna oleje v kardanu / rozvodovce', kind: 'replace', km: 20000, months: 24, track: true, only: 'shaft', aliases: ['Výměna oleje v kardanu'] },
     { id: 'final_drive_check', label: 'Kontrola kardanu (vůle, únik oleje)', kind: 'check', km: 10000, only: 'shaft' },
     { id: 'belt_check', label: 'Kontrola / napnutí řemenu', kind: 'check', km: 10000, only: 'belt' },
     { id: 'belt_replace', label: 'Výměna hnacího řemenu (CVT / rozvodový)', kind: 'replace', km: 24000, months: 48, track: true, only: 'belt' },
@@ -94,7 +94,7 @@ export const SERVICE_GROUPS = [
     { id: 'battery', label: 'Kontrola / výměna baterie', kind: 'check', months: 6, track: true, aliases: ['Kontrola / dobití baterie'] },
     { id: 'battery_replace', label: 'Výměna baterie', kind: 'replace', months: 36, implies: ['battery'] },
     { id: 'charging', label: 'Kontrola dobíjení (alternátor, regulátor)', kind: 'check', months: 12 },
-    { id: 'lights', label: 'Kontrola světel', kind: 'check' },
+    { id: 'lights', label: 'Kontrola světel', kind: 'check', aliases: ['Světla a blinkry'] },
     { id: 'bulb', label: 'Výměna žárovky / LED', kind: 'replace' },
     { id: 'fuses', label: 'Kontrola pojistek', kind: 'check' },
     { id: 'starter', label: 'Problém se startérem', kind: 'repair' },
@@ -104,7 +104,7 @@ export const SERVICE_GROUPS = [
     { id: 'software_update', label: 'Aktualizace softwaru řídicí jednotky', kind: 'other' },
   ] },
   { key: 'body', label: 'Karoserie & ovládání', items: [
-    { id: 'windscreen', label: 'Výměna plexi / větrného štítu', kind: 'replace' },
+    { id: 'windscreen', label: 'Výměna plexi / větrného štítu', kind: 'replace', aliases: ['Výměna prasklého plexi'] },
     { id: 'plastics', label: 'Oprava / výměna plastů a kapotáže', kind: 'repair' },
     { id: 'mirrors', label: 'Výměna / seřízení zrcátek', kind: 'repair' },
     { id: 'levers', label: 'Výměna páček (brzda / spojka)', kind: 'replace' },
@@ -120,7 +120,7 @@ export const SERVICE_GROUPS = [
   ] },
   { key: 'other', label: 'Kontroly & ostatní', items: [
     { id: 'full_service', label: 'Kompletní servis / velká prohlídka', kind: 'check', km: 20000, months: 24, track: true, moto: 'full', implies: ['oil_change', 'oil_filter', 'general_inspection', 'brake_pads_check', 'clutch', 'suspension_check', 'battery', 'chain_adjust', 'coolant_check', 'tire_check', 'tire_pressure', 'lights'] },
-    { id: 'general_inspection', label: 'Celková kontrola stroje (před / po sezóně)', kind: 'check', months: 6, track: true, implies: ['brake_pads_check', 'tire_check', 'tire_pressure', 'lights', 'battery', 'suspension_check', 'chain_adjust'] },
+    { id: 'general_inspection', label: 'Celková kontrola stroje (před / po sezóně)', kind: 'check', months: 6, track: true, aliases: ['Vizuální stav motorky', 'Zevrubná inspekce'], implies: ['brake_pads_check', 'tire_check', 'tire_pressure', 'lights', 'battery', 'suspension_check', 'chain_adjust'] },
     { id: 'stk', label: 'Příprava na STK', kind: 'other', implies: ['lights', 'tire_check', 'brake_pads_check'] },
     { id: 'winter_storage', label: 'Zazimování / odzimování', kind: 'other' },
     { id: 'test_ride', label: 'Zkušební jízda', kind: 'check' },

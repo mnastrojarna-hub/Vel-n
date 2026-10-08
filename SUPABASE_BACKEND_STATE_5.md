@@ -42,7 +42,9 @@ Detailní politiky:
 - **service_parts:** admin ALL (is_admin), public SELECT
 - **service_orders:** admin ALL (is_admin)
 - **service_task_catalog, service_interval_presets** (NEW 2026-10-08, `20261008_service_book_schema.sql`): public SELECT (`*_public_read` USING true), admin ALL (`*_admin_write`); GRANT SELECT anon+authenticated
-- **maintenance_invoices, service_provider_profiles** (NEW 2026-10-08): admin ALL (`*_admin_all` USING/WITH CHECK is_admin()); GRANT ALL authenticated + service_role
+- **maintenance_invoices** (NEW 2026-10-08): admin ALL (`maintenance_invoices_admin_all`); GRANT ALL authenticated + service_role
+- **service_provider_profiles** (NEW 2026-10-08): `service_provider_profiles_own` FOR ALL — `is_admin() AND (admin_id = auth.uid() OR is_superadmin())` (technik vidí/edituje jen svou hlavičku, superadmin vše); GRANT ALL authenticated + service_role
+- **Funkce servisu (2026-10-08):** `service_plan_apply_presets`, `auto_schedule_services`, `get_service_due`, `get_service_due_count`, `get_last_service_per_moto` — REVOKE FROM PUBLIC, anon (projekt má default EXECUTE pro anon); GRANT authenticated + service_role (auto_schedule_services jen service_role/cron)
 - **emp_attendance:** admin ALL (is_admin)
 - **emp_vacations:** admin ALL (is_admin)
 - **emp_shifts:** admin ALL (is_admin)
@@ -96,7 +98,7 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 - `vouchers`
 - `faq_items`
 - `gear_shortages` (**NEW 2026-06-23** — badge počtu otevřených deficitů ve Velín sidebaru → Logistika zboží)
-- `maintenance_log` (**NEW 2026-09-14** — `20260914_moto_service_status_and_door_code_relocation.sql`: Velín Flotila/detail motorky → Servis se obnoví hned po změně servisního záznamu i z DB triggeru/cronu). `motorcycles` (už dřív v publikaci) nově poslouchá i appka (`motorcyclesProvider` = StreamProvider, oba stromy) a Velín Flotila/detail.
+- `maintenance_log` (**NEW 2026-09-14** — `20260914_moto_service_status_and_door_code_relocation.sql`: Velín Flotila/detail motorky → Servis se obnoví hned po změně servisního záznamu i z DB triggeru/cronu). **2026-10-08 (`20261008_service_book_schema.sql` A8):** guard přes `pg_publication_tables` doplní `maintenance_log` (v živém snapshotu chyběla) i **`maintenance_schedules`** (servisní knížka, badge Sidebaru). `motorcycles` (už dřív v publikaci) nově poslouchá i appka (`motorcyclesProvider` = StreamProvider, oba stromy) a Velín Flotila/detail.
 
 ---
 

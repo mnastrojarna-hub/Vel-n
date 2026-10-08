@@ -33,7 +33,9 @@ export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, er
 
   function handleConfirm() {
     const selected = SERVICE_TASKS.filter(t => checked.has(t.id)).map(t => t.id)
-    const selectedLabels = SERVICE_TASKS.filter(t => checked.has(t.id)).map(t => t.label).concat(customLabels)
+    // štítky, které tento formulář nenabízí (SOS typy události), se zachovají
+    const passthrough = (initialData?.items || []).filter(it => { const id = it?.key || SERVICE_LABEL_TO_ID[it?.label]; return id && !TASK_BY_ID[id] }).map(it => it.label)
+    const selectedLabels = SERVICE_TASKS.filter(t => checked.has(t.id)).map(t => t.label).concat(passthrough, customLabels)
     const fullDescription = note.trim() || null
     if (!fullDescription && selectedLabels.length === 0) return
     onConfirm({ selected, selectedLabels, fullDescription, isUrgent, serviceDateFrom, serviceDateTo })

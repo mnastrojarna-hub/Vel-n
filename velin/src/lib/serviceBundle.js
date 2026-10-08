@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { TASK_BY_ID } from '../components/fleet/serviceCatalog'
-import { todayIso, audit } from './serviceBook'
+import { todayIso, tomorrowIso, audit, confirmServiceStart } from './serviceBook'
 
 // Sdružování servisních úkonů (zadání majitele: „servisy sdružovat, dělat najednou, ne po drobkách“).
 // Z hlídání intervalů (get_service_due) sestaví doporučený SPOLEČNÝ servis: vše po termínu + blížící se
@@ -29,13 +29,15 @@ export function computeBundle(rows, { kmWindow = BUNDLE_KM_WINDOW, daysWindow = 
   const date = overdue ? todayIso() : (dates[0] || todayIso())
   const cur = anchor.current_km ?? 0
   const km = overdue ? cur : Math.max(cur, Math.min(...urgent.map(r => r.next_km ?? Infinity).filter(Number.isFinite), cur + Math.max(aKm ?? 0, 0)))
-  return { items, extra, date: date < todayIso() ? todayIso() : date, km: Number.isFinite(km) ? km : cur, overdue, anchor }
+  const t = tomorrowIso()
+  return { items, extra, date: date < t ? t : date, km: Number.isFinite(km) ? km : cur, overdue, anchor }
 }
 
-/** Založí JEDEN plánovaný servisní záznam se všemi úkony sdruženého servisu. */
+/** Založí JEDEN plánovaný servisní záznam se všemi úkony sdruženého servisu. Vrací null, když obsluha zruší. */
 export async function planServiceBundle(motoId, rows, { date, note } = {}) {
   const items = rows.map(r => ({ label: TASK_BY_ID[r.task_key]?.label || r.label, done: false, note: '', key: r.task_key || undefined }))
-  const service_date = date || todayIso()
+  const service_date = date || tomorrowIso()
+  if (!(await confirmServiceStart(motoId, service_date, 'Společný servis'))) return null
   const future = service_date > todayIso()
   const { data, error } = await supabase.from('maintenance_log').insert({
     moto_id: motoId, service_type: 'regular', status: future ? 'pending' : 'in_service',

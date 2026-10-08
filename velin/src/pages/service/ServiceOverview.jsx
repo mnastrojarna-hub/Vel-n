@@ -38,14 +38,14 @@ export default function ServiceOverview({ onOpenMoto }) {
 
   async function plan(d) {
     setBusy(d.schedule_id); setMsg(null)
-    try { await planServiceFromDue(d); setMsg(`Naplánováno: ${d.model} — ${d.label}`); load() } catch (e) { setMsg(e.message) } finally { setBusy(null) }
+    try { const r = await planServiceFromDue(d); if (r) { setMsg(`Naplánováno: ${d.model} — ${d.label}`); load() } } catch (e) { setMsg(e.message) } finally { setBusy(null) }
   }
   // Sdružený servis motorky: po termínu + blížící se + co dozraje do 2 000 km / 60 dní → jeden záznam
   async function planBundle(g) {
     const b = computeBundle(g.rows); if (!b) return
     if (!window.confirm(`${g.model}: naplánovat jeden společný servis (${b.items.length} úkonů) na ${fmtDate(b.date)}?\n${b.items.map(r => '• ' + r.label).join('\n')}`)) return
     setBusy(g.moto_id); setMsg(null)
-    try { await planServiceBundle(g.moto_id, b.items, { date: b.date }); setMsg(`Naplánován společný servis: ${g.model} (${b.items.length} úkonů)`); load() } catch (e) { setMsg(e.message) } finally { setBusy(null) }
+    try { const r = await planServiceBundle(g.moto_id, b.items, { date: b.date }); if (r) { setMsg(`Naplánován společný servis: ${g.model} (${b.items.length} úkonů) na ${fmtDate(b.date)}`); load() } } catch (e) { setMsg(e.message) } finally { setBusy(null) }
   }
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>

@@ -5,7 +5,7 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import ReplacementMotoPicker from './ReplacementMotoPicker'
 import ServiceChecklistView from './ServiceChecklistView'
-import { labelsToItems } from './CustomServiceItems'
+import { labelsToItems, mergeItemsByLabel } from './CustomServiceItems'
 import { UNAVAILABLE_REASONS } from './motoActionConstants'
 import MotoStatusPanel from './MotoStatusPanel'
 import { fetchBlockingBookings, fetchActiveBookings, blockingBookingsMessage } from './bookingGuard'
@@ -104,7 +104,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       const { data: logData, error: logErr } = await supabase.from('maintenance_log').insert({
         moto_id: moto.id, description: fullDescription, service_type: 'extraordinary',
         service_date: serviceStart, scheduled_date: serviceDateTo || serviceStart,
-        km_at_service: Number(moto.mileage) || null, status: isFuture ? 'pending' : 'in_service', is_urgent: isUrgent,
+        status: isFuture ? 'pending' : 'in_service', is_urgent: isUrgent,   // km doplní DB ze stavu tachometru (km_auto)
         items: labelsToItems(selectedLabels),
       }).select('id').single()
       if (logErr) setError(`Záznam: ${logErr.message}`)
@@ -135,7 +135,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         service_date: serviceDateFrom || today,
         scheduled_date: serviceDateTo || serviceDateFrom || today,
         is_urgent: isUrgent,
-        items: labelsToItems(selectedLabels),
+        items: mergeItemsByLabel(logToUpdate.items, selectedLabels),   // zachová odškrtnutí, poznámky a úkony přidané technikem
       }).eq('id', logToUpdate.id)
       await logAudit('maintenance_log_updated', { log_id: logToUpdate.id, moto_id: moto.id })
       setShowChecklist(false)

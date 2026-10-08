@@ -60,7 +60,7 @@ export default function Sidebar({ admin, onSignOut }) {
         supabase.from('kiosk_alerts').select('id', { count: 'exact', head: true }).is('acknowledged_at', null),
         supabase.rpc('get_service_due_count'),   // servisní intervaly po termínu (bez naplánovaného záznamu)
       ])
-      setBadges({ messages: msgRes.count || 0, sos: sosRes.count || 0, gear: gearRes.count || 0, kiosk: kioskRes.count || 0, service: svcRes.data?.overdue || 0 })
+      setBadges({ messages: msgRes.count || 0, sos: sosRes.count || 0, gear: gearRes.count || 0, kiosk: kioskRes.count || 0, service: svcRes.data?.motos_overdue || 0 })   // = počet motorek (stejně jako Topbar)
     } catch {
       setBadges({ messages: 0, sos: 0, gear: 0, kiosk: 0, service: 0 })
     }

@@ -11,7 +11,7 @@ import ServiceLog from './service/ServiceLog'
 import ServiceBookIndex from './service/ServiceBookIndex'
 import ServiceProviderProfile from './service/ServiceProviderProfile'
 import StkTab from './government/StkTab'
-import { fetchServiceDueCount } from '../lib/serviceBook'
+import { fetchServiceDueCount, effectiveCost } from '../lib/serviceBook'
 
 const TABS = [
   { key: 'prehled', label: 'Přehled' }, { key: 'aktivni', label: 'Aktivní v servisu' }, { key: 'planovane', label: 'Plánované' },
@@ -35,7 +35,7 @@ export default function Service() {
         supabase.from('maintenance_log').select('cost, invoiced_amount').eq('status', 'completed'),
         fetchServiceDueCount(),
       ]))
-      const costArr = (costs.data || []).map(c => Number(c.cost) || Number(c.invoiced_amount) || 0).filter(Boolean)
+      const costArr = (costs.data || []).map(effectiveCost).filter(Boolean)
       setStats({
         inService: inService.count || 0, openLogs: openLogs.count || 0,
         overdue: due?.overdue || 0, dueSoon: due?.due_soon || 0, unknown: due?.unknown || 0,

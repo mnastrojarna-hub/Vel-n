@@ -17,6 +17,7 @@ export const DUE_STATE = {
   due_soon: { label: 'Blíží se',    color: '#b45309', bg: '#fef3c7', border: '#fde68a', order: 1 },
   ok:       { label: 'V pořádku',   color: '#1a8a18', bg: '#dcfce7', border: '#86efac', order: 2 },
   unknown:  { label: 'Neověřeno',   color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb', order: 3 },
+  no_interval: { label: 'Bez intervalu', color: '#9ca3af', bg: '#f9fafb', border: '#e5e7eb', order: 4 },
 }
 export const BASELINE_LABELS = {
   log: 'z dokončeného servisu', acquisition: 'od pořízení motorky (neověřeno)', manual: 'zadáno ručně', unknown: 'neznámé — doplňte poslední provedení',
@@ -29,6 +30,9 @@ export const fmtMoney = (n) => (n === null || n === undefined || n === '' || Num
 export const unitLabel = (moto) => (moto?.tracking_unit === 'mh' ? 'MH' : 'km')
 export const todayIso = () => new Date().toLocaleDateString('sv-SE')
 export const isoDateOf = (d) => d ? String(d).slice(0, 10) : ''
+export const tomorrowIso = () => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString('sv-SE') }
+/** Cena servisu: nahraná faktura má přednost před odhadem (cost). */
+export const effectiveCost = (l) => Number(l?.invoiced_amount) > 0 ? Number(l.invoiced_amount) : (Number(l?.cost) || 0)
 
 export const isLogCompleted = (l) => l?.status === 'completed' || !!l?.completed_date
 export const logStartDate = (l) => (l?.service_date || l?.created_at || '').slice(0, 10)
@@ -63,6 +67,12 @@ export function intervalText(d, unit = 'km') {
   return parts.join(' / ') || '—'
 }
 
+/** Poslední dokončený servis každé motorky (RPC, bez stahování celého logu). */
+export async function fetchLastServicePerMoto() {
+  const { data } = await supabase.rpc('get_last_service_per_moto')
+  return Object.fromEntries((data || []).map(r => [r.moto_id, r]))
+}
+
 /** Hlídání intervalů (DB). p_moto_id null = celá flotila. */
 export async function fetchServiceDue(motoId = null) {
   const { data, error } = await supabase.rpc('get_service_due', { p_moto_id: motoId })
@@ -80,11 +90,38 @@ export async function applyServicePresets(motoId = null) {
   return data
 }
 
-/** Vytvoří plánovaný servisní záznam z plánu (hlídání → „Naplánovat“). */
+/**
+ * Kontrola rezervací před naplánováním servisu (od `date` je motorka v servisu → nepůjde půjčit).
+ * Probíhající pronájem = potvrdit, kolidující nadcházející rezervace = upozornit. Vrací false = zrušeno.
+ */
+export async function confirmServiceStart(motoId, date, label = 'servis') {
+  const today = todayIso()
+  const start = date || today
+  if (start <= today) {
+    const { data: active } = await supabase.from('bookings').select('id, end_date, profiles(full_name)').eq('moto_id', motoId).eq('status', 'active').gte('end_date', today)
+    if (active?.length > 0 && !window.confirm(`Motorka má ${active.length} probíhající pronájem (${active.map(b => b.profiles?.full_name || '?').join(', ')}). ${label} ji vyřadí z půjčování. Pokračovat?`)) return false
+  }
+  const { data: future } = await supabase.from('bookings').select('id, start_date, end_date, profiles(full_name)').eq('moto_id', motoId).in('status', ['pending', 'reserved']).gte('end_date', start).order('start_date').limit(5)
+  if (future?.length > 0) {
+    const lines = future.map(b => `  ${b.profiles?.full_name || '?'}: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`).join('\n')
+    if (!window.confirm(`Upozornění — rezervace od ${new Date(start).toLocaleDateString('cs-CZ')} dál (${future.length}):\n${lines}\nMotorka musí být ze servisu zpět včas, nebo nabídněte náhradu. Naplánovat přesto?`)) return false
+  }
+  return true
+}
+
+/** Výchozí termín plánovaného servisu z řádku hlídání: ruční termín > odhad > zítra (nikdy tiše „dnes“ = vyřazení). */
+export function suggestedServiceDate(d) {
+  const t = tomorrowIso()
+  const cand = d?.planned_date || (d?.state === 'overdue' ? t : (isoDateOf(d?.est_date) || isoDateOf(d?.next_date) || t))
+  return cand < t ? t : cand
+}
+
+/** Vytvoří plánovaný servisní záznam z plánu (hlídání → „Naplánovat“). Vrací null, když obsluha zruší. */
 export async function planServiceFromDue(d, { date, note } = {}) {
   const task = TASK_BY_ID[d.task_key]
   const items = [{ label: task?.label || d.label, done: false, note: '', key: d.task_key || undefined }]
-  const service_date = date || todayIso()
+  const service_date = date || suggestedServiceDate(d)
+  if (!(await confirmServiceStart(d.moto_id, service_date, 'Plánovaný servis'))) return null
   const future = service_date > todayIso()
   const payload = {
     moto_id: d.moto_id, service_type: 'regular', status: future ? 'pending' : 'in_service',

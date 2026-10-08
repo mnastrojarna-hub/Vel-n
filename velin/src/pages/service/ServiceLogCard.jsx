@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 import { useAdminIdentity } from '../../hooks/useAdminIdentity'
@@ -28,16 +28,25 @@ export default function ServiceLogCard({ log, moto, onReload }) {
   const [err, setErr] = useState(null)
   const unit = unitLabel(moto)
 
-  useEffect(() => { setItems(withItemKeys(log.items || [])); setReport(log.technician_report || ''); setReturnDate((log.scheduled_date || '').slice(0, 10)) }, [log.id, log.items, log.technician_report, log.scheduled_date])
+  // neuložené změny technika (úkony, zpráva) nesmí přepsat reload (např. po nahrání faktury / realtime)
+  const dirty = useRef(false)
+  useEffect(() => {
+    if (dirty.current) return
+    setItems(withItemKeys(log.items || [])); setReport(log.technician_report || ''); setReturnDate((log.scheduled_date || '').slice(0, 10))
+  }, [log.id, log.updated_at, log.items, log.technician_report, log.scheduled_date])
 
-  const updateItem = (idx, field, value) => setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it))
+  const updateItem = (idx, field, value) => { dirty.current = true; setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it)) }
+  const setReportDirty = (v) => { dirty.current = true; setReport(v) }
+  const setReturnDateDirty = (v) => { dirty.current = true; setReturnDate(v) }
+  // technik se zapisuje až při DOKONČENÍ (DB trigger = kdo dokončil); průběžné uložení ho nepřiřazuje
   const techPatch = () => (!log.technician_admin_id && me?.id) ? { technician_admin_id: me.id, performed_by: log.performed_by || me.name } : {}
 
   async function persist(nextItems, extra = {}) {
     setSaving(true); setErr(null)
-    const { error } = await supabase.from('maintenance_log').update({ items: nextItems, technician_report: report.trim() || null, scheduled_date: returnDate || null, ...techPatch(), ...extra }).eq('id', log.id)
+    const { error } = await supabase.from('maintenance_log').update({ items: nextItems, technician_report: report.trim() || null, scheduled_date: returnDate || null, ...extra }).eq('id', log.id)
     setSaving(false)
     if (error) { setErr(error.message); return false }
+    dirty.current = false
     return true
   }
 
@@ -65,6 +74,7 @@ export default function ServiceLogCard({ log, moto, onReload }) {
     if (kmStr !== '' && km !== Number(log.km_at_service)) payload.km_at_service = km
     const { error } = await supabase.from('maintenance_log').update(payload).eq('id', log.id)
     if (error) { setEnding(false); setErr(error.message); return }
+    dirty.current = false
     const { data: other } = await supabase.from('maintenance_log').select('id').eq('moto_id', log.moto_id).is('completed_date', null).neq('id', log.id).limit(1)
     if (!other?.length) await supabase.from('motorcycles').update({ status: 'active' }).eq('id', log.moto_id).eq('status', 'maintenance')
     await supabase.from('service_orders').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('maintenance_log_id', log.id).in('status', ['pending', 'in_service'])
@@ -83,7 +93,7 @@ export default function ServiceLogCard({ log, moto, onReload }) {
         <Chip title="Typ">{SERVICE_TYPE_LABELS[log.service_type] || '—'}{isUrgent && <span className="ml-1 text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: '#dc2626', color: '#fff' }}>URGENT</span>}</Chip>
         <Chip title="Servis od">{fmtDate(log.service_date || log.created_at)}</Chip>
         <div><div className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Plán. dokončení</div>
-          <input type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} className="rounded text-sm outline-none" style={{ padding: '2px 6px', background: '#fff', border: '1px solid #d4e8e0', width: 140 }} /></div>
+          <input type="date" value={returnDate} onChange={e => setReturnDateDirty(e.target.value)} className="rounded text-sm outline-none" style={{ padding: '2px 6px', background: '#fff', border: '1px solid #d4e8e0', width: 140 }} /></div>
         <Chip title={unit}>{fmtKm(log.km_at_service, '')}{log.km_auto && <span className="text-xs ml-1" style={{ color: '#6b7280' }} title="Doplněno automaticky ze stavu tachometru">auto</span>}</Chip>
         <Chip title="Technik">{log.performed_by || <span style={{ color: '#6b7280' }}>zapíše se podle loginu</span>}</Chip>
         <div className="ml-auto"><button onClick={() => setEdit(true)} className="text-xs font-bold cursor-pointer rounded-btn" style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>Upravit záznam</button></div>
@@ -102,7 +112,7 @@ export default function ServiceLogCard({ log, moto, onReload }) {
             <div key={idx} className="flex items-start gap-2 p-1.5 rounded" style={{ background: item.done ? '#dcfce7' : '#f9fafb' }}>
               <input type="checkbox" checked={!!item.done} onChange={e => updateItem(idx, 'done', e.target.checked)} style={{ marginTop: 3, accentColor: '#16a34a', width: 16, height: 16, cursor: 'pointer' }} />
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-bold" style={{ color: item.done ? '#16a34a' : '#1a2e22' }}>{item.custom && <span title="Vlastní úkon (Jiné)">✎ </span>}{item.label}{item.added_by && <span className="text-xs font-normal" style={{ color: '#b45309' }} title="Přidal technik navíc"> · navíc ({item.added_by})</span>}</span>
+                <span className="text-sm font-bold" style={{ color: item.done ? '#16a34a' : '#1a2e22' }}>{item.custom && <span title="Vlastní úkon (Jiné)">✎ </span>}{item.label}{item.added_by && <span className="text-xs font-normal" style={{ color: '#b45309' }} title="Přidal technik navíc"> · navíc ({item.added_by})</span>}{item.done_legacy && <span className="text-xs font-normal" style={{ color: '#9ca3af' }} title="Historický záznam ze staré verze — odškrtnuto automaticky"> · historicky</span>}</span>
                 <input type="text" value={item.note || ''} onChange={e => updateItem(idx, 'note', e.target.value)} placeholder="Poznámka technika (díl, nález, cena…)" className="w-full rounded text-xs outline-none mt-0.5" style={{ padding: '2px 5px', background: '#fff', border: '1px solid #e5e7eb' }} />
               </div>
             </div>
@@ -119,7 +129,7 @@ export default function ServiceLogCard({ log, moto, onReload }) {
 
       <div className="mb-2">
         <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#b45309' }}>Zpráva technika — co bylo provedeno / zjištěno / vyměněno</div>
-        <textarea value={report} onChange={e => setReport(e.target.value)} rows={3} placeholder="Např. vyměněn olej 4 l Motul 7100 + filtr; destičky přední 1,5 mm → vyměněny; zjištěno: vůle v ložisku řízení — doporučuji výměnu do 2 000 km."
+        <textarea value={report} onChange={e => setReportDirty(e.target.value)} rows={3} placeholder="Např. vyměněn olej 4 l Motul 7100 + filtr; destičky přední 1,5 mm → vyměněny; zjištěno: vůle v ložisku řízení — doporučuji výměnu do 2 000 km."
           className="w-full rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fffbeb', border: '1px solid #fde68a', resize: 'vertical' }} />
       </div>
 

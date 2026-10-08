@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import Card from '../ui/Card'
 import { TASK_BY_ID, SERVICE_GROUPS } from './serviceCatalog'
 import { SERVICE_LABEL_TO_ID } from './motoActionConstants'
-import { SERVICE_TYPE_LABELS, LOG_TYPE_LABELS, fmtDate, fmtKm, fmtMoney, isLogCompleted } from '../../lib/serviceBook'
+import { SERVICE_TYPE_LABELS, LOG_TYPE_LABELS, fmtDate, fmtKm, fmtMoney, isLogCompleted, effectiveCost } from '../../lib/serviceBook'
 
 /**
  * Servisní kniha motorky: chronologie DOKONČENÝCH servisů se zadáním, zprávou technika, úkony (✓ = provedeno),
@@ -12,15 +12,19 @@ import { SERVICE_TYPE_LABELS, LOG_TYPE_LABELS, fmtDate, fmtKm, fmtMoney, isLogCo
  */
 const TYPE_KEYS = { oil_change: ['oil_change', 'oil_filter'], tire_change: ['tire_front', 'tire_rear'], full_service: ['full_service'], winter_service: ['full_service'] }
 const logDate = l => (l.completed_date || l.service_date || l.created_at || '').slice(0, 10)
+// Zrcadlo DB `_service_done_task_keys`: provedené = odškrtnuté + implies (tranzitivně); legacy `type` / popis
+// „výměna oleje“ jen u záznamů bez checklistu (popis je zadání, ne provedení).
 export function doneKeysOf(l) {
+  const items = Array.isArray(l.items) ? l.items : []
   const keys = new Set()
-  for (const it of (Array.isArray(l.items) ? l.items : [])) {
-    if (it?.done !== true) continue
-    const k = it.key || SERVICE_LABEL_TO_ID[it.label]
-    if (k) { keys.add(k); for (const imp of TASK_BY_ID[k]?.implies || []) keys.add(imp) }
+  const add = (k) => { if (!k || keys.has(k)) return; keys.add(k); for (const imp of TASK_BY_ID[k]?.implies || []) add(imp) }
+  for (const it of items) { if (it?.done === true) add(it.key || SERVICE_LABEL_TO_ID[it.label]) }
+  const hasChecklist = items.some(it => it?.key || (it && 'done' in it))
+  if (!hasChecklist) {
+    for (const k of TYPE_KEYS[l.type] || []) add(k)
+    const d = l.description || ''
+    if (/v[yý]m[eě]n\w*\s+(motorov\w+\s+)?olej/iu.test(d) && !/olej\w*\s+(v|ve|do)\s+(kardan|rozvodov|vidlic|p[rř]evodov|tlumi[cč])/iu.test(d) && !/(nen[ií]\s|zda\s|jestli\s|zkontrol|kontrol)/iu.test(d)) add('oil_change')
   }
-  for (const k of TYPE_KEYS[l.type] || []) keys.add(k)
-  if (/v[yý]m[eě]n\w*\s+(motorov\w+\s+)?olej/iu.test(l.description || '')) keys.add('oil_change')
   return keys
 }
 const sel = { padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', fontSize: 13, borderRadius: 50 }
@@ -38,7 +42,7 @@ export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog 
   const filtered = completed.filter(l => (!task || l._keys.has(task)) && (!year || logDate(l).startsWith(year)) &&
     (!q || norm(l.description).includes(norm(q)) || norm(l.technician_report).includes(norm(q)) || norm(l.performed_by).includes(norm(q)) || (l.items || []).some(i => norm(i?.label).includes(norm(q)) || norm(i?.note).includes(norm(q)))))
   const shown = showAll || task || year || q ? filtered : filtered.slice(0, 12)
-  const totalCost = filtered.reduce((s, l) => s + (Number(l.cost) || Number(l.invoiced_amount) || 0), 0)
+  const totalCost = filtered.reduce((s, l) => s + effectiveCost(l), 0)
 
   return (
     <Card>
@@ -77,7 +81,7 @@ export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog 
                     <td style={{ padding: '8px 10px', color: '#0f1a14', minWidth: 260 }}>
                       {items.length > 0 && <div className="flex flex-wrap gap-1 mb-1">{items.map((i, idx) => (
                         <span key={idx} title={i.done === true ? 'Provedeno' : 'Neodškrtnuto — nepočítá se jako provedené'} className="text-xs font-bold" style={{ padding: '2px 7px', borderRadius: 7, background: i.done === true ? (task && (i.key || SERVICE_LABEL_TO_ID[i.label]) === task ? '#74FB71' : '#e8fde8') : '#f8fafc', border: `1px solid ${i.done === true ? '#b6dccb' : '#e5e7eb'}`, color: i.done === true ? '#0f1a14' : '#9ca3af' }}>
-                          {i.done === true ? '✓ ' : ''}{i.custom ? '✎ ' : ''}{i.label}{i.added_by ? ' (navíc)' : ''}{i.note ? ` — ${i.note}` : ''}
+                          {i.done === true ? '✓ ' : ''}{i.custom ? '✎ ' : ''}{i.label}{i.added_by ? ' (navíc)' : ''}{i.done_legacy ? ' (historicky)' : ''}{i.note ? ` — ${i.note}` : ''}
                         </span>))}</div>}
                       {l.description && <div className="text-xs" style={{ color: '#1a2e22', whiteSpace: 'pre-wrap' }}><b>Zadání:</b> {l.description}</div>}
                       {l.technician_report && <div className="text-xs mt-0.5 p-1 rounded" style={{ color: '#0f1a14', whiteSpace: 'pre-wrap', background: '#fffbeb' }}><b>Technik:</b> {l.technician_report}</div>}
@@ -85,7 +89,7 @@ export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog 
                       {items.length === 0 && !l.description && !l.technician_report && <span style={{ color: '#9ca3af' }}>—</span>}
                     </td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{l.performed_by || '—'}</td>
-                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 700, color: '#0f1a14' }}>{fmtMoney(l.cost || l.invoiced_amount)}</td>
+                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 700, color: '#0f1a14' }}>{fmtMoney(effectiveCost(l))}{Number(l.invoiced_amount) > 0 && Number(l.cost) > 0 && Number(l.cost) !== Number(l.invoiced_amount) ? <div className="text-xs font-normal" style={{ color: '#9ca3af' }}>odhad {fmtMoney(l.cost)}</div> : null}</td>
                     <td style={{ padding: '8px 6px' }}>{onEdit && <button onClick={() => onEdit(l)} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#2563eb' }} title="Upravit záznam">✎</button>}</td>
                   </tr>
                 )

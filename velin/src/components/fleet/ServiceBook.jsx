@@ -72,7 +72,7 @@ export default function ServiceBook({ motoId, logAudit: logAuditProp, headerExtr
       moto_id: motoId, description: form.description, interval_km: intervalKm, interval_days: intervalDays,
       schedule_type: intervalKm && intervalDays ? 'both' : intervalKm ? 'mileage' : 'time', active: true, source: 'manual',
       task_key: form.task_key || null, first_service_km: Number(form.first_service_km) || null, first_service_desc: form.first_service_desc || null,
-      baseline_source: 'unknown',
+      // baseline doplní DB trigger: poslední servis s úkonem, jinak dnešní stav / dnes
     })
     setSaving(false)
     if (error) { alert(error.code === '23505' ? 'Tento úkon už má motorka v plánu.' : `Nepodařilo se vytvořit servisní plán: ${error.message}`); return }
@@ -116,7 +116,7 @@ export default function ServiceBook({ motoId, logAudit: logAuditProp, headerExtr
       )}
 
       <ServicePlanCard moto={moto} due={due} schedules={schedules} partsBySchedule={partsBySchedule} inventoryItems={inventoryItems} unitLabel={unit}
-        onChanged={loadAll} logAudit={logAudit} partsApi={partsApi} onAddSchedule={handleAddSchedule} saving={saving} />
+        onChanged={loadAll} logAudit={logAudit} partsApi={partsApi} onAddSchedule={handleAddSchedule} saving={saving} existingTaskKeys={schedules.map(s => s.task_key).filter(Boolean)} />
 
       <ServiceBookCard logs={logs} unitLabel={unit} invoicesByLog={invoicesByLog} onEdit={(l) => setModal({ entry: l })} />
 

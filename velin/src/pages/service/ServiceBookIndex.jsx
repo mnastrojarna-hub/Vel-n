@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import Card from '../../components/ui/Card'
 import StatusBadge from '../../components/ui/StatusBadge'
 import SearchInput from '../../components/ui/SearchInput'
-import { fetchServiceDue, groupDueByMoto, DUE_STATE, fmtDate, fmtKm } from '../../lib/serviceBook'
+import { fetchServiceDue, groupDueByMoto, DUE_STATE, fmtDate, fmtKm, fetchLastServicePerMoto } from '../../lib/serviceBook'
 
 /** Servis → Servisní knížka: všechny motorky, stav hlídání, poslední servis, otevřené servisy → detail knížky. */
 export default function ServiceBookIndex() {
@@ -18,18 +18,16 @@ export default function ServiceBookIndex() {
 
   useEffect(() => { load() }, [])
   async function load() {
-    const [mRes, due, logs] = await Promise.all([
+    const [mRes, due, last, openRes] = await Promise.all([
       supabase.from('motorcycles').select('id, model, spz, status, mileage, tracking_unit, stk_valid_until, is_trailer, branches(name)').neq('status', 'retired').order('model'),
       fetchServiceDue(null).catch(() => []),
-      supabase.from('maintenance_log').select('id, moto_id, completed_date, service_date, status, performed_by, km_at_service').not('is_test', 'is', true).order('completed_date', { ascending: false, nullsFirst: false }),
+      fetchLastServicePerMoto().catch(() => ({})),   // RPC — poslední dokončený servis bez stahování celého logu
+      supabase.from('maintenance_log').select('moto_id').is('completed_date', null).not('is_test', 'is', true),
     ])
     setMotos((mRes.data || []).filter(m => !m.is_trailer))
     setDueByMoto(Object.fromEntries(groupDueByMoto(due).map(g => [g.moto_id, g])))
-    const last = {}, open = {}
-    for (const l of (logs.data || [])) {
-      if (l.completed_date) { if (!last[l.moto_id] || last[l.moto_id].completed_date < l.completed_date) last[l.moto_id] = l }
-      else open[l.moto_id] = (open[l.moto_id] || 0) + 1
-    }
+    const open = {}
+    for (const l of (openRes.data || [])) open[l.moto_id] = (open[l.moto_id] || 0) + 1
     setLastByMoto(last); setOpenByMoto(open); setLoading(false)
   }
 

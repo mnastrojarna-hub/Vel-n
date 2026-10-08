@@ -43,9 +43,15 @@ export async function registerServiceInvoice({ log, moto, file, storagePath, met
   const amount = Number(meta.amount) || 0
   const issue = meta.issue_date || todayIso()
   const supplier = (meta.supplier_name || '').trim()
-  const number = (meta.invoice_number || '').trim() || `SERVIS-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(log.id).slice(0, 6).toUpperCase()}`
+  const number = (meta.invoice_number || '').trim() || `SERVIS-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(log.id).slice(0, 6).toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`
   const motoLabel = moto ? `${moto.model}${moto.spz ? ` (${moto.spz})` : ''}` : ''
   let invoiceId = null, feId = null
+  // při selhání dalšího kroku nenechat osiřelý soubor / fakturu / událost
+  const cleanup = async () => {
+    try { if (feId) await supabase.from('financial_events').delete().eq('id', feId) } catch { /* best effort */ }
+    try { if (invoiceId) await supabase.from('invoices').delete().eq('id', invoiceId) } catch { /* best effort */ }
+    try { await supabase.storage.from(INVOICE_BUCKET).remove([storagePath]) } catch { /* best effort */ }
+  }
   // 1) přijatá faktura (Finance → Přijaté faktury); trigger post_invoice_to_financial_event přijaté přeskakuje → událost níže
   const notes = [supplier || null, meta.supplier_ico ? `IČO: ${meta.supplier_ico}` : null, 'Kategorie: servis_opravy', `Servis: ${motoLabel}`.trim(), meta.note || null].filter(Boolean).join('\n')
   const { data: inv, error: invErr } = await supabase.from('invoices').insert({
@@ -53,7 +59,7 @@ export async function registerServiceInvoice({ log, moto, file, storagePath, met
     issue_date: issue, due_date: meta.due_date || issue, status: 'issued', source: 'service',
     pdf_path: storagePath, notes,
   }).select('id').single()
-  if (invErr) throw new Error('Faktura se nepodařila zaevidovat: ' + invErr.message)
+  if (invErr) { await cleanup(); throw new Error(invErr.code === '23505' ? 'Doklad s tímto číslem už je zaevidován — zadejte jiné číslo dokladu.' : 'Faktura se nepodařila zaevidovat: ' + invErr.message) }
   invoiceId = inv.id
   // 2) účetní událost (náklad) — stejný tvar jako ruční přijatá faktura (AddReceivedModal)
   const { data: fe } = await supabase.from('financial_events').insert({
@@ -74,7 +80,7 @@ export async function registerServiceInvoice({ log, moto, file, storagePath, met
     issue_date: issue, due_date: meta.due_date || null, ocr_status: meta.ocr ? 'done' : 'none', note: meta.note || null,
     uploaded_by: uploadedBy?.id || null, uploaded_by_name: uploadedBy?.name || null,
   }).select('*').single()
-  if (miErr) throw new Error('Vazba faktury na servis selhala: ' + miErr.message)
+  if (miErr) { await cleanup(); throw new Error('Vazba faktury na servis selhala: ' + miErr.message) }
   await audit('service_invoice_uploaded', { log_id: log.id, moto_id: log.moto_id, invoice_id: invoiceId, amount, number })
   return row
 }

@@ -4,11 +4,11 @@ import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import ServiceChecklistPicker from '../../components/fleet/ServiceChecklistPicker'
-import { customLabelsFromItems, labelsToItems } from '../../components/fleet/CustomServiceItems'
+import { customLabelsFromItems, mergeItemsByLabel } from '../../components/fleet/CustomServiceItems'
 import { SERVICE_TASKS, TASK_BY_ID } from '../../components/fleet/serviceCatalog'
 import { SERVICE_LABEL_TO_ID } from '../../components/fleet/motoActionConstants'
 import { useAdminIdentity } from '../../hooks/useAdminIdentity'
-import { LOG_TYPE_LABELS, todayIso, audit } from '../../lib/serviceBook'
+import { LOG_TYPE_LABELS, todayIso, audit, confirmServiceStart } from '../../lib/serviceBook'
 import { inputStyle, Field, TechnicianSelect, CostFields, STATUS_OPTIONS, SERVICE_TYPE_OPTIONS } from './ServiceFormFields'
 import ServiceInvoicesPanel from './ServiceInvoicesPanel'
 
@@ -53,17 +53,13 @@ export default function ServiceLogModal({ entry, motoId: presetMotoId, defaultSt
   const technician = { technician_admin_id: form.technician_admin_id, technician_id: form.technician_id, performed_by: form.performed_by }
   const needsReport = form.status === 'completed' || form.status === 'in_service'
 
+  // „Dokončeno“ vynutí odškrtnutí jen při PŘECHODU do dokončeno (nový dokončený zápis / dokončení otevřeného);
+  // editace už dokončeného záznamu zachová, co technik odškrtl. Položky, které formulář nezná (SOS typy), se zachovají.
+  const completingNow = form.status === 'completed' && !(entry?.status === 'completed' || entry?.completed_date)
   function buildItems() {
-    const done = form.status === 'completed'
     const labels = SERVICE_TASKS.filter(t => checked.has(t.id)).map(t => t.label)
-    const items = labelsToItems(labels, [], done)
-    // zachovat poznámky / stav odškrtnutí z existujícího záznamu
-    if (entry?.items?.length) {
-      const prev = Object.fromEntries(entry.items.filter(i => i?.label).map(i => [i.label, i]))
-      return items.map(i => prev[i.label] ? { ...i, note: prev[i.label].note || '', done: done || !!prev[i.label].done } : i)
-        .concat(labelsToItems(customLabels, [], done).filter(c => !items.some(i => i.label === c.label)).map(c => prev[c.label] ? { ...c, note: prev[c.label].note || '', done: done || !!prev[c.label].done } : c))
-    }
-    return items.concat(labelsToItems(customLabels, [], done).filter(c => !items.some(i => i.label === c.label)))
+    const passthrough = (entry?.items || []).filter(it => { const id = it?.key || SERVICE_LABEL_TO_ID[it?.label]; return id && !TASK_BY_ID[id] }).map(it => it.label)
+    return mergeItemsByLabel(entry?.items, [...labels, ...passthrough, ...customLabels], completingNow)
   }
 
   async function handleSave() {
@@ -75,13 +71,9 @@ export default function ServiceLogModal({ entry, motoId: presetMotoId, defaultSt
       debugLog('ServiceLog', 'handleSave', { isEdit: !!entry, moto_id: form.moto_id, status: form.status })
       const today = todayIso()
       const serviceFrom = form.service_from || today
-      const goesToMaintenance = form.status === 'in_service' && serviceFrom <= today
-      if (isNew && goesToMaintenance) {
-        const { data: active } = await supabase.from('bookings').select('id, profiles(full_name)').eq('moto_id', form.moto_id).eq('status', 'active').gte('end_date', today)
-        if (active?.length > 0 && !window.confirm(`Motorka má ${active.length} aktivní pronájem (${active.map(b => b.profiles?.full_name || '?').join(', ')}). Pokračovat? Zákazníkovi bude potřeba nabídnout náhradu.`)) { setSaving(false); return }
-        const { data: future } = await supabase.from('bookings').select('id, start_date, end_date, profiles(full_name)').eq('moto_id', form.moto_id).in('status', ['pending', 'reserved']).gte('start_date', today).order('start_date').limit(5)
-        if (future?.length > 0) window.alert(`Upozornění — nadcházející rezervace (${future.length}):\n${future.map(b => `  ${b.profiles?.full_name || '?'}: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`).join('\n')}\nMotorka musí být ze servisu zpět včas, nebo nabídněte náhradu.`)
-      }
+      // nový otevřený záznam (v servisu / naplánovaný) = motorka od termínu nepůjde půjčit → kontrola rezervací
+      if (isNew && form.status !== 'completed' && !(await confirmServiceStart(form.moto_id, serviceFrom, form.status === 'in_service' ? 'Servis' : 'Plánovaný servis'))) { setSaving(false); return }
+      if (completingNow && items.some(i => !i.done) && !window.confirm(`${items.filter(i => !i.done).length} úkon(ů) není odškrtnuto — do servisní knížky se nezapíší jako provedené. Uložit přesto?`)) { setSaving(false); return }
       const hourly = 500
       const calc = (Number(form.labor_hours) || 0) * hourly + (Number(form.extra_cost) || 0)
       const payload = {

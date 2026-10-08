@@ -8,6 +8,7 @@ import StatusBadge from '../../components/ui/StatusBadge'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import { TYPE_LABELS } from './serviceScheduleUtils'
+import { effectiveCost } from '../../lib/serviceBook'
 import ServiceLogModal from './ServiceLogModal'
 
 const PER_PAGE = 25
@@ -127,7 +128,7 @@ function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
         <TD>{startDate ? new Date(startDate).toLocaleDateString('cs-CZ') : '—'}</TD>
         <TD>{l.completed_date ? new Date(l.completed_date).toLocaleDateString('cs-CZ') : '—'}</TD>
         <TD mono>{km ? km.toLocaleString('cs-CZ') : '—'}</TD>
-        <TD bold>{fmt(l.cost || l.invoiced_amount)}</TD>
+        <TD bold>{fmt(effectiveCost(l))}</TD>
         <TD><StatusBadge status={l.completed_date && l.status !== 'completed' ? 'completed' : (l.status === 'pending' ? 'pending_service' : (l.status || 'pending_service'))} /></TD>
         <TD>{l.performed_by || '—'}</TD>
       </tr>

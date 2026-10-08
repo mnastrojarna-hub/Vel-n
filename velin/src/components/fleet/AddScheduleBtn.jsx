@@ -2,7 +2,6 @@ import { useState } from 'react'
 
 const SERVICE_PRESETS = [
   { key: 'oil', label: 'Výměna oleje', icon: '🛢️', defaultKm: 5000, defaultDays: 365, task: 'oil_change' },
-  { key: 'tires', label: 'Výměna pneumatik', icon: '🔘', defaultKm: 15000, defaultDays: null, task: null },
   { key: 'brakes', label: 'Kontrola brzd', icon: '🛑', defaultKm: 10000, defaultDays: 365, task: 'brake_pads_check' },
   { key: 'full', label: 'Kompletní servis', icon: '🔧', defaultKm: 20000, defaultDays: 365, task: 'full_service' },
   { key: 'chain', label: 'Řetěz / rozvodový řemen', icon: '⛓️', defaultKm: 20000, defaultDays: null, task: 'chain_kit' },
@@ -12,7 +11,7 @@ const SERVICE_PRESETS = [
   { key: 'custom', label: 'Vlastní…', icon: '✏️', defaultKm: 10000, defaultDays: null, task: null },
 ]
 
-export default function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existingTypes = [] }) {
+export default function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existingTypes = [], existingTaskKeys = [] }) {
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState(1)
   const [selected, setSelected] = useState(null)
@@ -46,9 +45,9 @@ export default function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existi
         {step === 1 && (
           <div className="p-4"><div className="grid grid-cols-2 gap-2">
             {SERVICE_PRESETS.map(p => {
-              const alreadyExists = p.key !== 'custom' && existingNorm.includes(norm(p.label))
+              const alreadyExists = p.key !== 'custom' && ((p.task && existingTaskKeys.includes(p.task)) || existingNorm.includes(norm(p.label)))
               return (
-                <button key={p.key} onClick={() => selectPreset(p)} className="flex items-center gap-3 p-3 rounded-lg text-left cursor-pointer transition-all"
+                <button key={p.key} onClick={() => !alreadyExists && selectPreset(p)} disabled={alreadyExists} title={alreadyExists ? 'Plán už existuje — upravte interval v přehledu intervalů' : ''} className="flex items-center gap-3 p-3 rounded-lg text-left cursor-pointer transition-all"
                   style={{ background: alreadyExists ? '#f9fafb' : '#f1faf7', border: '2px solid transparent', opacity: alreadyExists ? 0.6 : 1 }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = '#74FB71'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
                   <span style={{ fontSize: 22 }}>{p.icon}</span>
@@ -56,7 +55,7 @@ export default function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existi
                     <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{p.label}</div>
                     {p.defaultKm && <div className="text-xs" style={{ color: '#6b7280' }}>~{p.defaultKm.toLocaleString('cs-CZ')} {unitLabel}</div>}
                     {p.defaultDays && !p.defaultKm && <div className="text-xs" style={{ color: '#6b7280' }}>~{p.defaultDays} dni</div>}
-                    {alreadyExists && <div className="text-xs font-bold" style={{ color: '#b45309' }}>Jiz pridano</div>}
+                    {alreadyExists && <div className="text-xs font-bold" style={{ color: '#b45309' }}>Už v plánu</div>}
                   </div>
                 </button>
               )

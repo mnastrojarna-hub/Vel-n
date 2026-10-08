@@ -46,6 +46,20 @@ export function labelsToItems(labels, extraKnown = [], done = false) {
   return out
 }
 
+/**
+ * Sloučení nového výběru štítků s existujícími položkami záznamu: zachová `done`, `note`, `key`, `custom`,
+ * `added_by`/`added_at` i položky, které formulář nezná (SOS typy); položky mimo nový výběr se vyřadí.
+ * `done` se vynutí jen při `forceDone` (zápis rovnou jako dokončený).
+ */
+export function mergeItemsByLabel(prevItems, labels, forceDone = false) {
+  const prev = Object.fromEntries((Array.isArray(prevItems) ? prevItems : []).filter(i => i?.label).map(i => [i.label.trim(), i]))
+  const next = labelsToItems(labels, Object.keys(prev), false).map(n => {
+    const p = prev[n.label.trim()]
+    return p ? { ...p, ...n, done: forceDone || !!p.done, note: p.note || '', custom: p.custom || n.custom || undefined, key: n.key || p.key } : { ...n, done: forceDone }
+  })
+  return next.map(i => { const o = { ...i }; if (!o.custom) delete o.custom; if (!o.key) delete o.key; return o })
+}
+
 /** Doplní chybějící `key` u standardních položek (historické záznamy); vlastní úkony nechá být. */
 export function withItemKeys(items) {
   if (!Array.isArray(items)) return []

@@ -17,9 +17,11 @@ export default function ServiceChecklistPicker({ checked, onToggle, customLabels
   const isChecked = (id) => checked instanceof Set ? checked.has(id) : !!checked?.[id]
   const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
   const query = norm(q.trim())
+  const tokens = query.split(/\s+/).filter(Boolean)
+  const hay = (i, g) => norm([i.label, ...(i.aliases || []), g.label].join(' '))
 
   const groups = useMemo(() => SERVICE_GROUPS.map(g => {
-    const items = g.items.filter(i => (showAll || !moto || taskAppliesTo(i, moto) || isChecked(i.id)) && (!query || norm(i.label).includes(query)))
+    const items = g.items.filter(i => (showAll || !moto || taskAppliesTo(i, moto) || isChecked(i.id)) && (tokens.length === 0 || tokens.every(t => hay(i, g).includes(t))))
     return { ...g, items, selected: g.items.filter(i => isChecked(i.id)).length }
   }).filter(g => g.items.length > 0), [q, showAll, moto, checked])
 

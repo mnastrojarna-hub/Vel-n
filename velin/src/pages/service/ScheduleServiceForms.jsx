@@ -34,11 +34,13 @@ export function RecurringForm({ motos, branches = [], onBack, onDone }) {
     const val = Number(intervalValue)
     const errors = []
     for (const motoId of selectedIds) {
-      const payload = { moto_id: motoId, active: true, description: desc || `Pravidelný: ${interval?.label.replace('X', intervalValue)}`, schedule_type: intervalType === 'km' ? 'km_interval' : intervalType === 'reservations' ? 'reservation_interval' : 'time_interval', preferred_days: Array.from(preferredDays) }
-      if (intervalType === 'days') { payload.interval_days = val; payload.next_due = startDate }
-      else if (intervalType === 'km') { payload.interval_km = val; payload.next_due = startDate }
-      else if (intervalType === 'monthly') { payload.interval_days = 30; payload.next_due = startDate }
-      else if (intervalType === 'reservations') { payload.interval_days = null; payload.interval_km = null; payload.interval_reservations = val; payload.next_due = startDate }
+      // start plánu = „Start od“ + aktuální stav tachometru (baseline manual) → první termín = start + interval
+      const moto = motos.find(m => m.id === motoId)
+      const payload = { moto_id: motoId, active: true, description: desc || `Pravidelný: ${interval?.label.replace('X', intervalValue)}`, schedule_type: intervalType === 'km' ? 'mileage' : intervalType === 'reservations' ? 'reservation_interval' : 'time', preferred_days: Array.from(preferredDays), source: 'manual', baseline_source: 'manual', last_service_date: startDate, last_performed: startDate, last_service_km: Number(moto?.mileage) || null }
+      if (intervalType === 'days') { payload.interval_days = val }
+      else if (intervalType === 'km') { payload.interval_km = val }
+      else if (intervalType === 'monthly') { payload.interval_days = 30 }
+      else if (intervalType === 'reservations') { payload.interval_days = null; payload.interval_km = null; payload.interval_reservations = val }
       const { error } = await supabase.from('maintenance_schedules').insert(payload)
       if (error) { console.error('[RecurringForm] schedule insert failed:', error); errors.push(error.message) }
     }

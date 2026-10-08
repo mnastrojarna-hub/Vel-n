@@ -27,6 +27,7 @@
 --      dodavatele při nahrání faktury.
 -- (A7) storage: bucket `invoices-received` — politiky pro admina (dosud do něj zapisovala jen edge fn
 --      receive-invoice přes service_role; Velín potřebuje upload / signed URL z prohlížeče).
+-- (A8) realtime publikace pro maintenance_log + maintenance_schedules (guard přes pg_publication_tables).
 
 -- ==========================================================================
 -- (A1) Katalog úkonů
@@ -63,7 +64,7 @@ GRANT ALL ON public.service_task_catalog TO service_role;
 INSERT INTO public.service_task_catalog
   (key, label, group_key, group_label, sort_order, kind, default_interval_km, default_interval_months, tracked, only_for, moto_interval, implies, aliases)
 VALUES
-  ('oil_change', 'Výměna oleje', 'engine', 'Motor & olej', 10, 'replace', 10000, 12, true, NULL, 'oil', '{}'::text[], ARRAY['Výměna motorového oleje']::text[]),
+  ('oil_change', 'Výměna oleje', 'engine', 'Motor & olej', 10, 'replace', 10000, 12, true, NULL, 'oil', '{}'::text[], ARRAY['Výměna motorového oleje','Olejový servis']::text[]),
   ('oil_filter', 'Výměna olejového filtru', 'engine', 'Motor & olej', 20, 'replace', 10000, 12, true, NULL, 'oil', '{}'::text[], '{}'::text[]),
   ('air_filter', 'Výměna vzduchového filtru', 'engine', 'Motor & olej', 30, 'replace', 20000, 24, true, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('air_filter_clean', 'Čištění vzduchového filtru', 'engine', 'Motor & olej', 40, 'check', 5000, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
@@ -81,7 +82,7 @@ VALUES
   ('coolant_check', 'Kontrola hladiny a stavu chladicí kapaliny', 'cooling', 'Chlazení', 160, 'check', 6000, NULL, false, 'liquid', NULL, '{}'::text[], '{}'::text[]),
   ('radiator', 'Čištění chladiče / kontrola ventilátoru', 'cooling', 'Chlazení', 170, 'check', NULL, 12, false, 'liquid', NULL, '{}'::text[], '{}'::text[]),
   ('cooling_repair', 'Oprava chlazení (termostat, čerpadlo, hadice)', 'cooling', 'Chlazení', 180, 'repair', NULL, NULL, false, 'liquid', NULL, '{}'::text[], '{}'::text[]),
-  ('brake_pads_check', 'Kontrola brzdových destiček', 'brakes', 'Brzdy', 190, 'check', 5000, 6, true, NULL, NULL, '{}'::text[], '{}'::text[]),
+  ('brake_pads_check', 'Kontrola brzdových destiček', 'brakes', 'Brzdy', 190, 'check', 5000, 6, true, NULL, NULL, '{}'::text[], ARRAY['Brzdy (vizuálně)','Kontrola brzd']::text[]),
   ('brake_pads_front', 'Brzdové destičky přední', 'brakes', 'Brzdy', 200, 'replace', NULL, NULL, false, NULL, NULL, ARRAY['brake_pads_check']::text[], ARRAY['Výměna brzdových destiček přední']::text[]),
   ('brake_pads_rear', 'Brzdové destičky zadní', 'brakes', 'Brzdy', 210, 'replace', NULL, NULL, false, NULL, NULL, ARRAY['brake_pads_check']::text[], ARRAY['Výměna brzdových destiček zadní']::text[]),
   ('brake_discs', 'Kontrola brzdových kotoučů', 'brakes', 'Brzdy', 220, 'check', 10000, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
@@ -104,19 +105,19 @@ VALUES
   ('wheel_bearings', 'Kontrola ložisek kol', 'chassis', 'Podvozek & řízení', 390, 'check', 20000, NULL, false, NULL, NULL, '{}'::text[], ARRAY['Kontrola / výměna ložisek kol']::text[]),
   ('wheel_bearings_replace', 'Výměna ložisek kol', 'chassis', 'Podvozek & řízení', 400, 'replace', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('side_stand', 'Kontrola / mazání stojánku', 'chassis', 'Podvozek & řízení', 410, 'check', NULL, 12, false, NULL, NULL, '{}'::text[], '{}'::text[]),
-  ('tire_check', 'Kontrola stavu / dezénu pneumatik', 'tires', 'Pneumatiky & kola', 420, 'check', 3000, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
+  ('tire_check', 'Kontrola stavu / dezénu pneumatik', 'tires', 'Pneumatiky & kola', 420, 'check', 3000, NULL, false, NULL, NULL, '{}'::text[], ARRAY['Stav pneumatik']::text[]),
   ('tire_pressure', 'Kontrola tlaku pneumatik', 'tires', 'Pneumatiky & kola', 430, 'check', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('tire_front', 'Výměna přední pneumatiky', 'tires', 'Pneumatiky & kola', 440, 'replace', NULL, NULL, true, NULL, 'tire', '{}'::text[], '{}'::text[]),
   ('tire_rear', 'Výměna zadní pneumatiky', 'tires', 'Pneumatiky & kola', 450, 'replace', NULL, NULL, true, NULL, 'tire', '{}'::text[], '{}'::text[]),
   ('wheel_balance', 'Vyvážení kol', 'tires', 'Pneumatiky & kola', 460, 'adjust', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('wheel_spokes', 'Kontrola / dotažení drátů kol', 'tires', 'Pneumatiky & kola', 470, 'check', 10000, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('valve_stems', 'Výměna ventilků', 'tires', 'Pneumatiky & kola', 480, 'replace', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
-  ('chain_adjust', 'Seřízení řetězu', 'drive', 'Řetěz / kardan / řemen', 490, 'adjust', 1000, NULL, true, 'chain', NULL, '{}'::text[], ARRAY['Dopnutí / seřízení řetězu']::text[]),
+  ('chain_adjust', 'Seřízení řetězu', 'drive', 'Řetěz / kardan / řemen', 490, 'adjust', 1000, NULL, false, 'chain', NULL, '{}'::text[], ARRAY['Dopnutí / seřízení řetězu','Dopnutí řetězu','Řetěz — napnutí, mazání']::text[]),
   ('chain_lube', 'Promazání řetězu', 'drive', 'Řetěz / kardan / řemen', 500, 'adjust', NULL, NULL, false, 'chain', NULL, '{}'::text[], '{}'::text[]),
   ('chain_clean', 'Čištění řetězu', 'drive', 'Řetěz / kardan / řemen', 510, 'adjust', NULL, NULL, false, 'chain', NULL, '{}'::text[], '{}'::text[]),
   ('chain_check', 'Kontrola opotřebení řetězu a rozet', 'drive', 'Řetěz / kardan / řemen', 520, 'check', 5000, NULL, false, 'chain', NULL, '{}'::text[], '{}'::text[]),
   ('chain_kit', 'Výměna řetězu + rozet', 'drive', 'Řetěz / kardan / řemen', 530, 'replace', 25000, NULL, true, 'chain', NULL, ARRAY['chain_adjust','chain_check']::text[], ARRAY['Výměna řetězové sady']::text[]),
-  ('final_drive_oil', 'Výměna oleje v kardanu / rozvodovce', 'drive', 'Řetěz / kardan / řemen', 540, 'replace', 20000, 24, true, 'shaft', NULL, '{}'::text[], '{}'::text[]),
+  ('final_drive_oil', 'Výměna oleje v kardanu / rozvodovce', 'drive', 'Řetěz / kardan / řemen', 540, 'replace', 20000, 24, true, 'shaft', NULL, '{}'::text[], ARRAY['Výměna oleje v kardanu']::text[]),
   ('final_drive_check', 'Kontrola kardanu (vůle, únik oleje)', 'drive', 'Řetěz / kardan / řemen', 550, 'check', 10000, NULL, false, 'shaft', NULL, '{}'::text[], '{}'::text[]),
   ('belt_check', 'Kontrola / napnutí řemenu', 'drive', 'Řetěz / kardan / řemen', 560, 'check', 10000, NULL, false, 'belt', NULL, '{}'::text[], '{}'::text[]),
   ('belt_replace', 'Výměna hnacího řemenu (CVT / rozvodový)', 'drive', 'Řetěz / kardan / řemen', 570, 'replace', 24000, 48, true, 'belt', NULL, '{}'::text[], '{}'::text[]),
@@ -129,7 +130,7 @@ VALUES
   ('battery', 'Kontrola / výměna baterie', 'electrics', 'Elektrika & světla', 640, 'check', NULL, 6, true, NULL, NULL, '{}'::text[], ARRAY['Kontrola / dobití baterie']::text[]),
   ('battery_replace', 'Výměna baterie', 'electrics', 'Elektrika & světla', 650, 'replace', NULL, 36, false, NULL, NULL, ARRAY['battery']::text[], '{}'::text[]),
   ('charging', 'Kontrola dobíjení (alternátor, regulátor)', 'electrics', 'Elektrika & světla', 660, 'check', NULL, 12, false, NULL, NULL, '{}'::text[], '{}'::text[]),
-  ('lights', 'Kontrola světel', 'electrics', 'Elektrika & světla', 670, 'check', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
+  ('lights', 'Kontrola světel', 'electrics', 'Elektrika & světla', 670, 'check', NULL, NULL, false, NULL, NULL, '{}'::text[], ARRAY['Světla a blinkry']::text[]),
   ('bulb', 'Výměna žárovky / LED', 'electrics', 'Elektrika & světla', 680, 'replace', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('fuses', 'Kontrola pojistek', 'electrics', 'Elektrika & světla', 690, 'check', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('starter', 'Problém se startérem', 'electrics', 'Elektrika & světla', 700, 'repair', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
@@ -137,7 +138,7 @@ VALUES
   ('horn', 'Kontrola klaksonu', 'electrics', 'Elektrika & světla', 720, 'check', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('diagnostics', 'Diagnostika řídicí jednotky (čtení chyb)', 'electrics', 'Elektrika & světla', 730, 'check', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('software_update', 'Aktualizace softwaru řídicí jednotky', 'electrics', 'Elektrika & světla', 740, 'other', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
-  ('windscreen', 'Výměna plexi / větrného štítu', 'body', 'Karoserie & ovládání', 750, 'replace', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
+  ('windscreen', 'Výměna plexi / větrného štítu', 'body', 'Karoserie & ovládání', 750, 'replace', NULL, NULL, false, NULL, NULL, '{}'::text[], ARRAY['Výměna prasklého plexi']::text[]),
   ('plastics', 'Oprava / výměna plastů a kapotáže', 'body', 'Karoserie & ovládání', 760, 'repair', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('mirrors', 'Výměna / seřízení zrcátek', 'body', 'Karoserie & ovládání', 770, 'repair', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('levers', 'Výměna páček (brzda / spojka)', 'body', 'Karoserie & ovládání', 780, 'replace', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
@@ -151,7 +152,7 @@ VALUES
   ('cosmetic', 'Kosmetická oprava (lak, plasty)', 'body', 'Karoserie & ovládání', 860, 'repair', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('accident_repair', 'Oprava po nehodě', 'body', 'Karoserie & ovládání', 870, 'repair', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('full_service', 'Kompletní servis / velká prohlídka', 'other', 'Kontroly & ostatní', 880, 'check', 20000, 24, true, NULL, 'full', ARRAY['oil_change','oil_filter','general_inspection','brake_pads_check','clutch','suspension_check','battery','chain_adjust','coolant_check','tire_check','tire_pressure','lights']::text[], '{}'::text[]),
-  ('general_inspection', 'Celková kontrola stroje (před / po sezóně)', 'other', 'Kontroly & ostatní', 890, 'check', NULL, 6, true, NULL, NULL, ARRAY['brake_pads_check','tire_check','tire_pressure','lights','battery','suspension_check','chain_adjust']::text[], '{}'::text[]),
+  ('general_inspection', 'Celková kontrola stroje (před / po sezóně)', 'other', 'Kontroly & ostatní', 890, 'check', NULL, 6, true, NULL, NULL, ARRAY['brake_pads_check','tire_check','tire_pressure','lights','battery','suspension_check','chain_adjust']::text[], ARRAY['Vizuální stav motorky','Zevrubná inspekce']::text[]),
   ('stk', 'Příprava na STK', 'other', 'Kontroly & ostatní', 900, 'other', NULL, NULL, false, NULL, NULL, ARRAY['lights','tire_check','brake_pads_check']::text[], '{}'::text[]),
   ('winter_storage', 'Zazimování / odzimování', 'other', 'Kontroly & ostatní', 910, 'other', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
   ('test_ride', 'Zkušební jízda', 'other', 'Kontroly & ostatní', 920, 'check', NULL, NULL, false, NULL, NULL, '{}'::text[], '{}'::text[]),
@@ -302,7 +303,11 @@ COMMENT ON TABLE public.service_provider_profiles IS
   'Fakturační údaje (hlavička, IČO…) účtu Velína, který servisuje — externí servis si je vyplní v Servisu → „Moje fakturační údaje“; předvyplní dodavatele při nahrání faktury k servisu (2026-10-08).';
 ALTER TABLE public.service_provider_profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS service_provider_profiles_admin_all ON public.service_provider_profiles;
-CREATE POLICY service_provider_profiles_admin_all ON public.service_provider_profiles FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+DROP POLICY IF EXISTS service_provider_profiles_own ON public.service_provider_profiles;
+-- vlastní řádek (technik) nebo superadmin (Finance / správa účtů)
+CREATE POLICY service_provider_profiles_own ON public.service_provider_profiles
+  FOR ALL USING (public.is_admin() AND (admin_id = auth.uid() OR public.is_superadmin()))
+  WITH CHECK (public.is_admin() AND (admin_id = auth.uid() OR public.is_superadmin()));
 GRANT ALL ON public.service_provider_profiles TO authenticated, service_role;
 
 -- ==========================================================================
@@ -326,4 +331,19 @@ BEGIN
     USING (bucket_id = 'invoices-received' AND public.is_admin());
 EXCEPTION WHEN OTHERS THEN
   RAISE WARNING 'invoices-received storage policies: % (doplňte ručně v Dashboardu → Storage → Policies)', SQLERRM;
+END $$;
+
+-- ==========================================================================
+-- (A8) Realtime — Velín (servisní knížka, Sidebar) poslouchá maintenance_log i maintenance_schedules
+-- ==========================================================================
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['maintenance_log', 'maintenance_schedules'] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+    END IF;
+  END LOOP;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'ALTER PUBLICATION supabase_realtime (maintenance_*) selhalo: %', SQLERRM;
 END $$;
