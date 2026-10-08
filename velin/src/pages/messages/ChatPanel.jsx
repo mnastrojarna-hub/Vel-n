@@ -4,8 +4,10 @@ import { debugAction } from '../../lib/debugLog'
 
 import Button from '../../components/ui/Button'
 import AiSuggestionPanel from './AiSuggestionPanel'
+import ChatMobilePanel from './ChatMobilePanel'
 
-export default function ChatPanel({ thread, onThreadUpdate }) {
+// mobile: celoobrazovkový překryv (≤ 1023 px, viz ChatMobilePanel); onBack = návrat na seznam konverzací.
+export default function ChatPanel({ thread, onThreadUpdate, mobile = false, onBack }) {
   const [messages, setMessages] = useState([])
   const [templates, setTemplates] = useState([])
   const [admins, setAdmins] = useState([])
@@ -14,9 +16,11 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
-  const bottomRef = useRef(null)
+  const scrollRef = useRef(null)
+  const initialScroll = useRef(true)
 
   useEffect(() => {
+    initialScroll.current = true
     if (thread) { loadMessages(); loadTemplates(); loadAdmins() }
   }, [thread?.id])
 
@@ -62,8 +66,15 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
     return () => { supabase.removeChannel(channel) }
   }, [thread?.id])
 
+  // Posun na poslední zprávu jen uvnitř seznamu zpráv (scrollIntoView posouval i předky —
+  // rozdělený panel do strany a na mobilu celou stránku). První načtení vlákna = skok, pak plynule.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = scrollRef.current
+    if (!el || loading) return
+    const behavior = initialScroll.current ? 'auto' : 'smooth'
+    initialScroll.current = false
+    if (typeof el.scrollTo === 'function') el.scrollTo({ top: el.scrollHeight, behavior })
+    else el.scrollTop = el.scrollHeight
   }, [messages])
 
   async function loadMessages() {
@@ -172,12 +183,37 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
     )
   }
 
+  if (mobile) {
+    return (
+      <ChatMobilePanel
+        thread={thread}
+        messages={messages}
+        loading={loading}
+        admins={admins}
+        templates={templates}
+        currentAdminId={currentAdminId}
+        scrollRef={scrollRef}
+        reply={reply}
+        setReply={setReply}
+        sending={sending}
+        aiLoading={aiLoading}
+        onSend={handleSend}
+        onToggleStatus={toggleStatus}
+        onAssign={assignAdmin}
+        onApplyTemplate={applyTemplate}
+        onAiSuggest={aiSuggestReply}
+        onAiAction={loadMessages}
+        onBack={onBack}
+      />
+    )
+  }
+
   const isClosed = thread.status === 'closed'
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #d4e8e0' }}>
+      <div className="flex flex-wrap items-center gap-3 p-4" style={{ borderBottom: '1px solid #d4e8e0' }}>
         <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>
           {thread.profiles?.full_name || 'Zákazník'}
         </span>
@@ -219,7 +255,7 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-auto p-4 space-y-3" style={{ background: '#f8fcfa' }}>
+      <div ref={scrollRef} className="flex-1 overflow-auto p-4 space-y-3" style={{ background: '#f8fcfa' }}>
         {loading && messages.length === 0 ? (
           <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
         ) : (
@@ -233,7 +269,7 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
             />
           ))
         )}
-        <div ref={bottomRef} />
+        <div />
       </div>
 
       {/* Reply */}

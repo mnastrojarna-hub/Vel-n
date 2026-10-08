@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { useDebugMode } from '../../hooks/useDebugMode'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
@@ -12,6 +13,8 @@ import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import CampaignCreateModal from './CampaignCreateModal'
+import CampaignsMobileList from './CampaignsMobileList'
+import CampaignsMobileDetail from './CampaignsMobileDetail'
 
 const PAGE_SIZE = 15
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
@@ -34,6 +37,7 @@ const STATUS_OPTIONS = [
 
 export default function CampaignsTab({ channel }) {
   const debugMode = useDebugMode()
+  const isMobile = useIsMobile()
   const [campaigns, setCampaigns] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -157,6 +161,56 @@ export default function CampaignsTab({ channel }) {
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
+
+  const confirmDialog = (
+    <ConfirmDialog
+      open={!!confirm}
+      danger
+      title={
+        confirm?.type === 'delete' ? 'Smazat kampaň?' :
+        confirm?.type === 'stop' ? 'Zastavit odesílání?' :
+        'Zrušit naplánované odeslání?'
+      }
+      message={
+        confirm?.type === 'delete'
+          ? `Opravdu chcete smazat kampaň "${confirm?.name}"? Tato akce je nevratná.`
+          : confirm?.type === 'stop'
+          ? `Opravdu chcete zastavit odesílání kampaně "${confirm?.name}"? Zbývající zprávy nebudou odeslány.`
+          : `Opravdu chcete zrušit naplánované odeslání kampaně "${confirm?.name}"?`
+      }
+      onConfirm={() => {
+        if (confirm?.type === 'delete') handleDelete(confirm.id)
+        else handleCancel(confirm.id)
+      }}
+      onCancel={() => setConfirm(null)}
+    />
+  )
+  const createModal = <CampaignCreateModal open={showCreate} channel={channel} onClose={() => setShowCreate(false)} onCreated={load} />
+
+  // Telefon/tablet: karty, skládací filtry a mobilní detail; data, dialogy i akce zůstávají sdílené.
+  if (isMobile) {
+    return (
+      <div>
+        <CampaignsMobileList
+          channel={channel} campaigns={campaigns} total={total} loading={loading} error={error} debugMode={debugMode}
+          page={page} totalPages={totalPages} setPage={setPage} filters={filters} setFilters={setFilters}
+          statusOptions={STATUS_OPTIONS} statusMap={STATUS_MAP}
+          onReset={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem(storageKey) }}
+          onCreate={() => setShowCreate(true)} onOpen={openDetail} onAction={setConfirm}
+          fmtDate={formatDate} fmtDateTime={formatDateTime}
+        />
+        {detail && (
+          <CampaignsMobileDetail
+            detail={detail} channelLabel={CHANNEL_LABELS[channel] || channel} statusMap={STATUS_MAP}
+            logs={detailLogs} logsLoading={detailLogsLoading} onClose={() => setDetail(null)} onAction={setConfirm}
+            fmtDateTime={formatDateTime}
+          />
+        )}
+        {confirmDialog}
+        {createModal}
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -401,29 +455,9 @@ export default function CampaignsTab({ channel }) {
       )}
 
       {/* Confirm dialog */}
-      <ConfirmDialog
-        open={!!confirm}
-        danger
-        title={
-          confirm?.type === 'delete' ? 'Smazat kampaň?' :
-          confirm?.type === 'stop' ? 'Zastavit odesílání?' :
-          'Zrušit naplánované odeslání?'
-        }
-        message={
-          confirm?.type === 'delete'
-            ? `Opravdu chcete smazat kampaň "${confirm?.name}"? Tato akce je nevratná.`
-            : confirm?.type === 'stop'
-            ? `Opravdu chcete zastavit odesílání kampaně "${confirm?.name}"? Zbývající zprávy nebudou odeslány.`
-            : `Opravdu chcete zrušit naplánované odeslání kampaně "${confirm?.name}"?`
-        }
-        onConfirm={() => {
-          if (confirm?.type === 'delete') handleDelete(confirm.id)
-          else handleCancel(confirm.id)
-        }}
-        onCancel={() => setConfirm(null)}
-      />
+      {confirmDialog}
 
-      <CampaignCreateModal open={showCreate} channel={channel} onClose={() => setShowCreate(false)} onCreated={load} />
+      {createModal}
     </div>
   )
 }

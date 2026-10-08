@@ -8,6 +8,8 @@ import SearchInput from '../../components/ui/SearchInput'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import TemplateEditModal from './TemplateEditModal'
+import TemplatesMobile from './TemplatesMobile'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
 
@@ -19,6 +21,7 @@ const LANG_OPTIONS = [
 
 export default function MessageTemplatesTab({ channel }) {
   const debugMode = useDebugMode()
+  const isMobile = useIsMobile()
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -101,6 +104,15 @@ export default function MessageTemplatesTab({ channel }) {
 
   return (
     <div>
+      {isMobile ? (
+        <TemplatesMobile
+          channel={channel} channelLabel={CHANNEL_LABELS[channel]} totalCount={templates.length} filtered={filtered}
+          loading={loading} error={error} debugMode={debugMode} search={search} setSearch={setSearch}
+          langLabel={lang => LANG_OPTIONS.find(l => l.value === lang)?.label || lang || 'cs'}
+          onAdd={openNew} onEdit={openEdit} onDuplicate={handleDuplicate}
+          onToggle={tpl => setConfirm({ tpl, action: 'toggle' })} onDelete={tpl => setConfirm({ tpl, action: 'delete' })}
+        />
+      ) : (<>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{CHANNEL_LABELS[channel]} Šablony</h2>
@@ -163,6 +175,7 @@ export default function MessageTemplatesTab({ channel }) {
           </tbody>
         </Table>
       )}
+      </>)}
 
       {showEdit && (
         <TemplateEditModal channel={channel} template={editing} onClose={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); load() }} />

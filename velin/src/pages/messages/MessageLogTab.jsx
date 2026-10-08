@@ -8,6 +8,8 @@ import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
+import { useIsMobile } from '../../hooks/useIsMobile'
+import MessageLogMobile from './MessageLogMobile'
 
 const PER_PAGE = 25
 
@@ -43,6 +45,7 @@ const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
 
 export default function MessageLogTab({ channel }) {
   const debugMode = useDebugMode()
+  const isMobile = useIsMobile()
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -160,6 +163,24 @@ export default function MessageLogTab({ channel }) {
   function recipient(log) {
     if (channel === 'email') return log.recipient_email || '—'
     return log.recipient_phone || '—'
+  }
+
+  // Telefon/tablet: karty + skládací filtry (desktop níže beze změny)
+  if (isMobile) {
+    return (
+      <MessageLogMobile
+        channel={channel} channelLabel={CHANNEL_LABELS[channel]}
+        filters={filters} setFilters={setFilters} typeOptions={typeOptions}
+        statusOptions={STATUS_OPTIONS} statusMap={STATUS_MAP}
+        onReset={() => { setPage(1); setFilters({ ...defaultFilters }); try { localStorage.removeItem(storageKey) } catch { /* blokované úložiště */ } }}
+        logs={logs} total={total} loading={loading} error={error} debugMode={debugMode}
+        page={page} totalPages={totalPages} onPageChange={setPage}
+        selected={selected} onToggleOne={toggleOne} onToggleAll={toggleAll}
+        onDeleteSelected={deleteSelected} deleting={deleting}
+        detail={detail} onOpenDetail={setDetail} onCloseDetail={() => setDetail(null)}
+        recipientOf={recipient} formatDate={formatDate}
+      />
+    )
   }
 
   return (

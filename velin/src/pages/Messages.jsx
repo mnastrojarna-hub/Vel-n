@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useDebugMode } from '../hooks/useDebugMode'
+import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
+import { ChatMobileChannelTabs, ChatMobileSubTabs } from './messages/ChatMobileTabs'
 import ThreadList from './messages/ThreadList'
 import ChatPanel from './messages/ChatPanel'
 import MessageLogTab from './messages/MessageLogTab'
@@ -27,8 +30,18 @@ const SUB_TABS = [
   { key: 'templates', label: 'Šablony' },
 ]
 
+// Výška seznamu konverzací na mobilu: dynamický viewport (lišta prohlížeče), jinak 100vh.
+// Odečet = horní lišta + odsazení stránky + řada kanálů + spodní rezerva Layoutu (60 px) → stránka neroluje.
+const VH = typeof CSS !== 'undefined' && CSS.supports?.('height', '100dvh') ? '100dvh' : '100vh'
+const LIST_OFFSET_PHONE = 192
+const LIST_OFFSET_TABLET = 204
+
 export default function Messages() {
   const debugMode = useDebugMode()
+  const isMobile = useIsMobile()
+  const isTabletUp = useMediaQuery('(min-width: 768px)')
+  const location = useLocation()
+  const navigate = useNavigate()
   const [channel, setChannel] = useState('sms')
   const [subTab, setSubTab] = useState('log')
 
@@ -41,6 +54,40 @@ export default function Messages() {
   const [newMessage, setNewMessage] = useState('')
   const [creating, setCreating] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
+
+  // Mobil: otevřená konverzace = záznam v historii, takže systémové „zpět“
+  // (gesto na Androidu, tlačítko prohlížeče) zavře chat místo opuštění Zpráv. Desktop = jen stav.
+  const historyThreadId = location.state?.mgChatThread || null
+  const prevHistoryThreadId = useRef(historyThreadId)
+
+  function pushThreadEntry(threadId) {
+    navigate(location.pathname + location.search, { state: { ...(location.state || {}), mgChatThread: threadId } })
+  }
+
+  function openThread(thread) {
+    setSelected(thread)
+    if (isMobile) pushThreadEntry(thread.id)
+  }
+
+  function closeThread() {
+    if (historyThreadId && historyThreadId === selected?.id) navigate(-1)
+    else setSelected(null)
+  }
+
+  // Zastaralý záznam (reload s otevřeným chatem) odstraň, aby „zpět“ vždy odpovídalo otevřenému chatu.
+  useEffect(() => {
+    if (!location.state?.mgChatThread) return
+    const { mgChatThread, ...rest } = location.state
+    navigate(location.pathname + location.search, { replace: true, state: Object.keys(rest).length ? rest : null })
+  }, [])
+
+  useEffect(() => {
+    const popped = prevHistoryThreadId.current !== historyThreadId
+    prevHistoryThreadId.current = historyThreadId
+    if (!isMobile || channel !== 'chat' || !selected || historyThreadId === selected.id) return
+    if (popped) setSelected(null) // „zpět“ → zpět na seznam konverzací
+    else pushThreadEntry(selected.id) // tablet otočený z desktopové šířky: chat zůstane otevřený
+  }, [isMobile, channel, historyThreadId])
 
   async function loadCustomers() {
     const { data } = await debugAction('messages.loadCustomers', 'Messages', () =>
@@ -84,7 +131,7 @@ export default function Messages() {
         await debugAction('messages.insertMessage', 'Messages', () =>
           supabase.from('messages').insert(messageData)
         , messageData)
-        setSelected(thread)
+        openThread(thread)
       }
       setShowNew(false)
     } catch {}
@@ -113,8 +160,12 @@ export default function Messages() {
     }
   }
 
+  function selectChannel(key) {
+    setChannel(key); if (key !== 'chat') setSubTab('log')
+  }
+
   return (
-    <>
+    <div className="mg-msgs">
       {/* DIAGNOSTIKA */}
       {debugMode && (
         <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
@@ -125,6 +176,9 @@ export default function Messages() {
       )}
 
       {/* Hlavní tabs */}
+      {isMobile ? (
+        <ChatMobileChannelTabs channels={CHANNELS} active={channel} onSelect={selectChannel} />
+      ) : (
       <div className="flex gap-2 mb-4 flex-wrap">
         {CHANNELS.map(ch => (
           <button
@@ -144,9 +198,13 @@ export default function Messages() {
           </button>
         ))}
       </div>
+      )}
 
       {/* Pod-tabs (jen pro SMS / Email / WhatsApp) */}
-      {channel !== 'chat' && (
+      {channel !== 'chat' && isMobile && (
+        <ChatMobileSubTabs tabs={SUB_TABS} active={subTab} onSelect={setSubTab} />
+      )}
+      {channel !== 'chat' && !isMobile && (
         <div className="flex gap-1.5 mb-4">
           {SUB_TABS.map(st => (
             <button
@@ -170,14 +228,25 @@ export default function Messages() {
       {/* Obsah */}
       {channel === 'chat' ? (
         <>
+          {isMobile ? (
+            <>
+              {/* Mobil: seznam konverzací přes celou šířku, otevřený chat = celoobrazovkový překryv */}
+              <div className="bg-white rounded-card shadow-card overflow-hidden" style={{ height: `calc(${VH} - ${isTabletUp ? LIST_OFFSET_TABLET : LIST_OFFSET_PHONE}px)`, minHeight: 320 }}>
+                <ThreadList mobile selectedId={selected?.id} onSelect={openThread} onNewThread={openNewThread} />
+              </div>
+              {selected && <ChatPanel mobile thread={selected} onThreadUpdate={handleThreadUpdate} onBack={closeThread} />}
+            </>
+          ) : (
           <div className="flex bg-white rounded-card shadow-card overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
             <div className="flex-shrink-0" style={{ width: 320, borderRight: '1px solid #d4e8e0' }}>
               <ThreadList selectedId={selected?.id} onSelect={setSelected} onNewThread={openNewThread} />
             </div>
-            <div className="flex-1">
+            {/* minWidth 0: na užším desktopu (1024–1200 px) se panel vejde vedle seznamu a Odeslat zůstane vidět */}
+            <div className="flex-1" style={{ minWidth: 0 }}>
               <ChatPanel thread={selected} onThreadUpdate={handleThreadUpdate} />
             </div>
           </div>
+          )}
 
           {/* New thread modal */}
           <Modal open={showNew} title="Nová konverzace" onClose={() => setShowNew(false)}>
@@ -247,6 +316,6 @@ export default function Messages() {
       ) : (
         renderSubTab()
       )}
-    </>
+    </div>
   )
 }

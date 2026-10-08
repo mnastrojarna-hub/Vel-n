@@ -4,8 +4,9 @@ import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 
 import SearchInput from '../../components/ui/SearchInput'
 import Button from '../../components/ui/Button'
+import ChatMobileThreadItem from './ChatMobileThreadItem'
 
-export default function ThreadList({ selectedId, onSelect, onNewThread }) {
+export default function ThreadList({ selectedId, onSelect, onNewThread, mobile = false }) {
   const [threads, setThreads] = useState([])
   const [unreadCounts, setUnreadCounts] = useState({})
   const [loading, setLoading] = useState(true)
@@ -109,12 +110,14 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
           <span className="text-sm font-extrabold uppercase tracking-wide flex-1" style={{ color: '#1a2e22' }}>
             Konverzace
           </span>
-          <Button green small onClick={onNewThread}>+ Nová</Button>
+          {mobile
+            ? <Button green small onClick={onNewThread} style={{ minHeight: 40, padding: '8px 16px' }}>+ Nová</Button>
+            : <Button green small onClick={onNewThread}>+ Nová</Button>}
         </div>
-        <SearchInput value={search} onChange={v => setFilters(f => ({ ...f, search: v }))} placeholder="Hledat…" />
+        <SearchInput value={search} onChange={v => setFilters(f => ({ ...f, search: v }))} placeholder="Hledat…" fullWidth={mobile} />
         <select value={sortBy} onChange={e => setFilters(f => ({ ...f, sortBy: e.target.value }))}
           className="w-full rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none mt-2"
-          style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+          style={{ padding: mobile ? '9px 10px' : '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="last_message_at">Dle poslední zprávy</option>
           <option value="customer">Dle zákazníka (A-Z)</option>
           <option value="subject">Dle předmětu (A-Z)</option>
@@ -148,17 +151,26 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
             return (
               <div key={t.id}>
                 {groupHeader && (
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider px-4 py-2"
+                  <div className={`${mobile ? 'text-[11px] truncate' : 'text-[10px]'} font-extrabold uppercase tracking-wider px-4 py-2`}
                     style={{ background: '#f1faf7', color: '#1a2e22', borderBottom: '1px solid #d4e8e0' }}>
                     {groupHeader}
                   </div>
                 )}
+                {mobile ? (
+                  <ChatMobileThreadItem
+                    thread={t}
+                    selected={t.id === selectedId}
+                    unreadCount={unreadCounts[t.id] || 0}
+                    onClick={() => onSelect(t)}
+                  />
+                ) : (
                 <ThreadItem
                   thread={t}
                   selected={t.id === selectedId}
                   unreadCount={unreadCounts[t.id] || 0}
                   onClick={() => onSelect(t)}
                 />
+                )}
               </div>
             )
           })

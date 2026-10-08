@@ -2,12 +2,14 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { useDebugMode } from '../../hooks/useDebugMode'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 
 import RadioOption from './RadioOption'
 import ManualSendPreview from './ManualSendPreview'
+import ManualSendMobile from './ManualSendMobile'
 import { BulkSegmentSelector, SingleCustomerField } from './CustomerSearchField'
 import {
   CHANNEL_LABELS, CHAR_LIMITS, BULK_SEGMENTS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS,
@@ -16,6 +18,7 @@ import {
 
 export default function ManualSendTab({ channel }) {
   const debugMode = useDebugMode()
+  const isMobile = useIsMobile()
 
   // Send type: 'single' | 'bulk'
   const [sendType, setSendType] = useState('single')
@@ -313,6 +316,23 @@ export default function ManualSendTab({ channel }) {
       setResult({ ok: false, msg: e.message || 'Nepodařilo se odeslat zprávu' })
     }
     setSending(false)
+  }
+
+  // Telefon/tablet (≤ 1023 px): vlastní rozvržení nad stejným stavem a odesíláním; desktop níže beze změny
+  if (isMobile) {
+    return (
+      <ManualSendMobile
+        channel={channel} debugMode={debugMode} sendType={sendType} setSendType={setSendType}
+        bulk={{ bulkSegment, setBulkSegment, bulkCountry, setBulkCountry, bulkLanguage, setBulkLanguage, bulkCountLoading, bulkRecipientCount }}
+        single={{ selectedCustomer, clearCustomer, customerSearch, setCustomerSearch, customers, loadingCustomers, selectCustomer, recipientWarning }}
+        mode={mode} setMode={setMode} templates={templates}
+        selectedTemplateId={selectedTemplateId} setSelectedTemplateId={setSelectedTemplateId}
+        templateVariables={templateVariables} templateVars={templateVars} setTemplateVars={setTemplateVars}
+        subject={subject} setSubject={setSubject} body={body} setBody={setBody}
+        finalText={finalText} smsInfo={smsInfo} canSend={canSend} sending={sending} result={result} onSend={handleSend}
+        diag={{ selectedCustomer, recipientValid, contentValid }}
+      />
+    )
   }
 
   return (

@@ -5,6 +5,7 @@ import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import RichTextEditor from '../../components/ui/RichTextEditor'
 import { sanitizeHtml } from '../../lib/sanitize'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
 
@@ -70,6 +71,8 @@ function replaceVariables(content, vars) {
 }
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
+const M_ROW = { minHeight: 40 }
+const M_BTN = { flex: '1 1 0', justifyContent: 'center', minHeight: 44 }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }
@@ -88,6 +91,8 @@ export default function TemplateEditModal({ channel, template, onClose, onSaved 
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const textareaRef = useRef(null)
+  // Mobil/tablet: formulář a náhled pod sebou, bez pevných šířek, dotykové prvky ≥ 40 px
+  const m = useIsMobile()
 
   const detectedVars = useMemo(() => extractVariables(bodyTemplate), [bodyTemplate])
   const previewText = useMemo(() => replaceVariables(bodyTemplate, SAMPLE_VARS), [bodyTemplate])
@@ -164,9 +169,9 @@ export default function TemplateEditModal({ channel, template, onClose, onSaved 
 
   return (
     <Modal open title={isNew ? `Nová ${CHANNEL_LABELS[channel]} šablona` : `Upravit: ${template.name}`} onClose={onClose} wide>
-      <div className="flex gap-6" style={{ flexWrap: 'wrap' }}>
+      <div className="flex gap-6" style={m ? { flexWrap: 'wrap', flexDirection: 'column', gap: 16 } : { flexWrap: 'wrap' }}>
         {/* LEFT: Form */}
-        <div className="flex-1 space-y-3" style={{ minWidth: 340 }}>
+        <div className="flex-1 space-y-3" style={m ? { minWidth: 0, width: '100%', flex: 'none' } : { minWidth: 340 }}>
           <div>
             <Label>Slug</Label>
             <input type="text" value={slug} onChange={e => setSlug(e.target.value)} placeholder="napr. booking_confirmation" readOnly={!isNew}
@@ -203,13 +208,13 @@ export default function TemplateEditModal({ channel, template, onClose, onSaved 
                 <textarea ref={textareaRef} value={bodyTemplate} onChange={e => setBodyTemplate(e.target.value)}
                   placeholder="Text šablony… Použijte {{proměnné}} pro dynamický obsah."
                   className="w-full rounded-btn text-sm outline-none"
-                  style={{ ...inputStyle, minHeight: 180, resize: 'vertical', fontSize: 14, lineHeight: 1.6 }} />
+                  style={{ ...inputStyle, minHeight: 180, resize: 'vertical', fontSize: m ? 16 : 14, lineHeight: 1.6, ...(m ? { borderRadius: 16 } : {}) }} />
                 <div className="mt-2">
                   <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Vložit proměnnou:</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
+                  <div className="flex flex-wrap gap-1 mt-1" style={m ? { gap: 6 } : undefined}>
                     {AVAILABLE_VARS.map(v => (
                       <button key={v} onClick={() => insertVariable(v)} className="rounded-btn font-mono font-bold cursor-pointer border-none"
-                        style={{ padding: '3px 8px', fontSize: 10, background: detectedVars.includes(v) ? '#e8fee7' : '#f1faf7', border: detectedVars.includes(v) ? '1px solid #74FB71' : '1px solid #d4e8e0', color: '#2563eb' }}>
+                        style={{ padding: m ? '6px 10px' : '3px 8px', fontSize: m ? 12 : 10, ...(m ? { minHeight: 40 } : {}), background: detectedVars.includes(v) ? '#e8fee7' : '#f1faf7', border: detectedVars.includes(v) ? '1px solid #74FB71' : '1px solid #d4e8e0', color: '#2563eb' }}>
                         {`{{${v}}}`}
                       </button>
                     ))}
@@ -234,12 +239,12 @@ export default function TemplateEditModal({ channel, template, onClose, onSaved 
               <div className="mt-1" style={{ fontSize: 11, color: '#6b7280' }}>Tato šablona se automaticky odešle při události: {TRIGGER_OPTIONS.find(o => o.value === triggerType)?.label}</div>
             )}
           </div>
-          <div className="flex items-center gap-6 pt-1">
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div className="flex items-center gap-6 pt-1" style={m ? { flexWrap: 'wrap', rowGap: 4 } : undefined}>
+            <label className="flex items-center gap-2 cursor-pointer" style={m ? M_ROW : undefined}>
               <input type="checkbox" checked={isMarketing} onChange={e => setIsMarketing(e.target.checked)} className="accent-[#7c3aed]" style={{ width: 16, height: 16 }} />
               <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Marketingová šablona</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-2 cursor-pointer" style={m ? M_ROW : undefined}>
               <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="accent-[#1a8a18]" style={{ width: 16, height: 16 }} />
               <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Aktivní</span>
             </label>
@@ -247,14 +252,14 @@ export default function TemplateEditModal({ channel, template, onClose, onSaved 
         </div>
 
         {/* RIGHT: Preview */}
-        <div className="flex-shrink-0" style={{ width: 300, minWidth: 260 }}>
+        <div className="flex-shrink-0" style={m ? { width: '100%', minWidth: 0, paddingTop: 14, borderTop: '1px solid #e5e7eb' } : { width: 300, minWidth: 260 }}>
           <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Náhled</div>
           {channel === 'email' && previewSubject && (
             <div className="text-sm font-bold mb-2" style={{ color: '#0f1a14' }}>Předmět: {previewSubject}</div>
           )}
           {previewText ? (
             channel === 'email' ? (
-              <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 400, overflow: 'auto', fontSize: 13, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewText) }} />
+              <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 400, overflow: 'auto', fontSize: 13, lineHeight: 1.6, ...(m ? { overflowWrap: 'anywhere' } : {}) }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewText) }} />
             ) : channel === 'sms' ? (
               <div>
                 <div className="rounded-card" style={{ padding: '14px 16px', background: '#dcfce7', color: '#0f1a14', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', borderRadius: '16px 16px 4px 16px', maxHeight: 300, overflow: 'auto' }}>{previewText}</div>
@@ -272,7 +277,7 @@ export default function TemplateEditModal({ channel, template, onClose, onSaved 
               <div className="flex flex-wrap gap-1">
                 {detectedVars.map(v => (
                   <span key={v} className="inline-block rounded-btn font-mono font-bold"
-                    style={{ padding: '2px 6px', fontSize: 9, background: SAMPLE_VARS[v] ? '#dcfce7' : '#fef3c7', border: SAMPLE_VARS[v] ? '1px solid #86efac' : '1px solid #fbbf24', color: SAMPLE_VARS[v] ? '#1a8a18' : '#b45309' }}>
+                    style={{ padding: '2px 6px', fontSize: m ? 11 : 9, background: SAMPLE_VARS[v] ? '#dcfce7' : '#fef3c7', border: SAMPLE_VARS[v] ? '1px solid #86efac' : '1px solid #fbbf24', color: SAMPLE_VARS[v] ? '#1a8a18' : '#b45309' }}>
                     {`{{${v}}}`}{SAMPLE_VARS[v] ? '' : ' ⚠'}
                   </span>
                 ))}
@@ -284,8 +289,8 @@ export default function TemplateEditModal({ channel, template, onClose, onSaved 
 
       {err && <div className="mt-3 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{err}</div>}
       <div className="flex justify-end gap-2 mt-5 pt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
-        <Button onClick={onClose}>Zrušit</Button>
-        <Button green onClick={handleSave} disabled={!canSave}>{saving ? 'Ukládám…' : isNew ? 'Vytvořit' : 'Uložit'}</Button>
+        <Button onClick={onClose} style={m ? M_BTN : undefined}>Zrušit</Button>
+        <Button green onClick={handleSave} disabled={!canSave} style={m ? M_BTN : undefined}>{saving ? 'Ukládám…' : isNew ? 'Vytvořit' : 'Uložit'}</Button>
       </div>
     </Modal>
   )
