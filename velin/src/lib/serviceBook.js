@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { TASK_BY_ID } from '../components/fleet/serviceCatalog'
+import { TASK_BY_ID, TASK_ID_BY_LABEL } from '../components/fleet/serviceCatalog'
 
 // Sdílené helpery servisní knížky (Velín → Servis, detail motorky → Servis).
 // Zdroj dat: maintenance_log (záznamy), maintenance_schedules + RPC get_service_due (plány / hlídání),
@@ -154,6 +154,7 @@ export async function recordServiceDone(d, { km, date, toLog = true, note } = {}
   if (day > todayIso()) throw new Error('Datum provedení nemůže být v budoucnosti.')
   const kmNum = km === '' || km === null || km === undefined ? null : Number(km)
   if (kmNum !== null && (!Number.isFinite(kmNum) || kmNum < 0)) throw new Error('Neplatný stav tachometru.')
+  if (toLog && kmNum === null && d.interval_km) throw new Error('Plán je podle km — zadejte stav tachometru při provedení.')
   if (!toLog) { await setScheduleBaseline(d.schedule_id, { km: kmNum, date: day }); return null }
   const task = TASK_BY_ID[d.task_key]
   const label = task?.label || d.label
@@ -166,8 +167,20 @@ export async function recordServiceDone(d, { km, date, toLog = true, note } = {}
   if (error) throw error
   // plán bez klíče z katalogu trigger nepozná podle úkonu → baseline zapsat přímo
   if (!d.task_key) await setScheduleBaseline(d.schedule_id, { km: kmNum, date: day })
-  await audit('service_done_from_due', { moto_id: d.moto_id, task_key: d.task_key, schedule_id: d.schedule_id, log_id: data?.id, km: kmNum, date: day })
-  return data
+  // úkon byl i v naplánovaném / otevřeném servisu (společný servis) → z jeho checklistu ho odebrat, ať se nedělá znovu
+  // (jediný úkon záznamu necháme — záznam zruší / dokončí obsluha)
+  let removedFromOpen = false
+  if (d.open_log_id && d.task_key) {
+    const { data: open } = await supabase.from('maintenance_log').select('id, items, completed_date').eq('id', d.open_log_id).maybeSingle()
+    const items = Array.isArray(open?.items) ? open.items : []
+    const rest = items.filter(i => (i?.key || TASK_ID_BY_LABEL[i?.label]) !== d.task_key)
+    if (open && !open.completed_date && rest.length > 0 && rest.length < items.length) {
+      const { error: e2 } = await supabase.from('maintenance_log').update({ items: rest }).eq('id', open.id)
+      removedFromOpen = !e2
+    }
+  }
+  await audit('service_done_from_due', { moto_id: d.moto_id, task_key: d.task_key, schedule_id: d.schedule_id, log_id: data?.id, km: kmNum, date: day, removed_from_open_log: removedFromOpen ? d.open_log_id : null })
+  return { ...data, removedFromOpen }
 }
 
 export async function audit(action, details) {

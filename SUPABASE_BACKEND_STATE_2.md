@@ -261,12 +261,13 @@
 - **source** (TEXT NOT NULL DEFAULT 'manual', CHECK manual/default/preset) — manual = zadal admin (automatika nemění), default = základní standard z katalogu / karty motorky, preset = interval dle výrobce
 - **baseline_source** (TEXT, CHECK log/acquisition/manual/unknown) — odkud je „naposledy provedeno“ (log = dokončený servis s úkonem; acquisition = km/datum pořízení, neověřeno; manual = „Zapsat provedení“ ve Velíně; unknown = chybí i údaje o pořízení → stav `unknown`)
 - **notes** (TEXT), **updated_at** (timestamptz NOT NULL DEFAULT now())
+- **auto_inactive** (boolean NOT NULL DEFAULT false — `20261008c`) — true = plán vyřadil `service_plan_apply_presets` (úkon se motorky netýká / výrobce nepředepisuje); obnoví se sám, jakmile se úkon zase týká. active=false + auto_inactive=false = vyřadil admin (×) → znovu se nezakládá (jen p_reset)
 
 ### service_task_catalog (NEW 2026-10-08)
 - key PK, label, group_key, group_label, sort_order, kind (replace/check/adjust/repair/other), default_interval_km, default_interval_months, tracked bool, only_for (chain/shaft/belt/liquid/hydraulic/hours), moto_interval (oil/tire/full), implies text[], aliases text[], active, created_at, updated_at
 
 ### service_interval_presets (NEW 2026-10-08)
-- id, brand_pattern, model_pattern NOT NULL, year_from, year_to, task_key FK→service_task_catalog CASCADE, interval_km, interval_months, note, source_url, created_at, **unit** text NOT NULL DEFAULT 'km' CHECK km|mh (`20261008c` — jednotka interval_km; preset jen pro motorky se stejnou tracking_unit); UNIQUE (model_pattern, task_key, COALESCE(year_from,0), COALESCE(year_to,9999)). Seed `20261008d`: 186 řádků / 25 modelů; NULL/NULL = výrobce nepředepisuje.
+- id, brand_pattern, model_pattern NOT NULL, year_from, year_to, task_key FK→service_task_catalog CASCADE, interval_km, interval_months, note, source_url, created_at, **unit** text NOT NULL DEFAULT 'km' CHECK km|mh (`20261008c` — jednotka interval_km; preset jen pro motorky se stejnou tracking_unit); UNIQUE (model_pattern, task_key, COALESCE(year_from,0), COALESCE(year_to,9999)). Seed `20261008d`: 194 řádků / 25 modelů; NULL/NULL = výrobce nepředepisuje; preset bez interval_km (jen měsíce / NULL+NULL) platí nezávisle na jednotce.
 
 ### maintenance_invoices (NEW 2026-10-08)
 - id, maintenance_log_id FK→maintenance_log CASCADE, moto_id FK SET NULL, invoice_id FK→invoices SET NULL, financial_event_id FK→financial_events SET NULL, storage_bucket (DEFAULT 'invoices-received'), storage_path NOT NULL, file_name, mime_type, file_size, invoice_number, supplier_name, supplier_ico, amount numeric(12,2), issue_date, due_date, ocr_status (none/pending/done/failed), note, uploaded_by, uploaded_by_name, created_at

@@ -6,15 +6,24 @@
 --       (olejový filtr u dvoutaktu, baterie u dětské motorky, chladicí kapalina u vzduchem chlazené) → plán se
 --       nezakládá a existující AUTOMATICKÝ plán (source <> manual) se vyřadí; totéž pro úkon, který se motorky
 --       netýká pohonem / chlazením (po opravě karty motorky). Ruční plány admina se nemění.
+--       Automaticky vyřazený plán nese příznak maintenance_schedules.auto_inactive a OBNOVÍ se sám, jakmile se úkon
+--       motorky zase týká (oprava karty) — plán vyřazený adminem (×) se znovu nezakládá; vyřazený RUČNÍ plán se
+--       nikdy neobnovuje ani nenahrazuje. Preset bez km/Mh hodnoty (jen měsíce, nebo NULL/NULL) platí nezávisle na
+--       jednotce motorky.
 --  (C3) karty motorek: Royal Enfield Shotgun 650 a Yamaha PW 50 jsou vzduchem chlazené (plán chladicí kapaliny
 --       byl falešný), Aprilia SR GT 125 má řemen variátoru (ne kardan), doplněna značka u Husqvarna TC 65 /
 --       KTM 1290 Super Adventure / KTM SX 50 a pohon + motor u KTM 1290.
+--  (C4) update_moto_after_service: zpětně zapsané provedení (starší datum / nižší km než „naposledy“) se u plánu
+--       s baseline jen od pořízení / ručně / neznámé ZAPÍŠE (placeholder nesmí vyhrát nad skutečným záznamem);
+--       GREATEST (nikdy zpět) zůstává jen u baseline ze servisního záznamu.
 
 -- (C1)
 ALTER TABLE public.service_interval_presets ADD COLUMN IF NOT EXISTS unit text NOT NULL DEFAULT 'km';
 ALTER TABLE public.service_interval_presets DROP CONSTRAINT IF EXISTS service_interval_presets_unit_check;
 ALTER TABLE public.service_interval_presets ADD CONSTRAINT service_interval_presets_unit_check CHECK (unit IN ('km', 'mh'));
-COMMENT ON COLUMN public.service_interval_presets.unit IS 'Jednotka interval_km: km, nebo mh (motohodiny) — preset se použije jen u motorek se stejnou tracking_unit.';
+COMMENT ON COLUMN public.service_interval_presets.unit IS 'Jednotka interval_km: km, nebo mh (motohodiny) — preset s hodnotou interval_km se použije jen u motorek se stejnou tracking_unit; preset bez interval_km (jen měsíce / NULL+NULL = nepředepisuje) platí v obou jednotkách.';
+ALTER TABLE public.maintenance_schedules ADD COLUMN IF NOT EXISTS auto_inactive boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.maintenance_schedules.auto_inactive IS 'true = plán vyřadil service_plan_apply_presets (úkon se motorky netýká / výrobce nepředepisuje) — obnoví se sám, jakmile se úkon zase týká. false + active=false = vyřadil admin (znovu se nezakládá).';
 
 -- (C2)
 CREATE OR REPLACE FUNCTION public.service_plan_apply_presets(p_moto_id uuid DEFAULT NULL, p_reset boolean DEFAULT false) RETURNS jsonb
@@ -58,19 +67,19 @@ BEGIN
       IF v_applies THEN
         SELECT p.interval_km, p.interval_months, p.note INTO v_p_km, v_p_months, v_p_note
           FROM service_interval_presets p
-         WHERE p.task_key = c.key AND p.unit = v_unit
+         WHERE p.task_key = c.key AND (p.unit = v_unit OR p.interval_km IS NULL)   -- bez km/Mh hodnoty = nezávislý na jednotce
            AND m.model ILIKE p.model_pattern
            AND (p.brand_pattern IS NULL OR COALESCE(m.brand, '') ILIKE p.brand_pattern)
            AND (p.year_from IS NULL OR m.year IS NULL OR m.year >= p.year_from)
            AND (p.year_to IS NULL OR m.year IS NULL OR m.year <= p.year_to)
-         ORDER BY length(p.model_pattern) DESC, (p.brand_pattern IS NOT NULL) DESC
+         ORDER BY length(p.model_pattern) DESC, (p.unit = v_unit) DESC, (p.brand_pattern IS NOT NULL) DESC
          LIMIT 1;
         v_has_preset := FOUND;
       END IF;
 
       -- úkon se motorky netýká (pohon / chlazení) nebo ho výrobce nepředepisuje → automatický plán vyřadit
       IF NOT v_applies OR (v_has_preset AND v_p_km IS NULL AND v_p_months IS NULL) THEN
-        UPDATE maintenance_schedules s SET active = false, updated_at = now()
+        UPDATE maintenance_schedules s SET active = false, auto_inactive = true, updated_at = now()
          WHERE s.moto_id = m.id AND s.task_key = c.key AND s.active AND COALESCE(s.source, 'default') <> 'manual';
         GET DIAGNOSTICS v_cnt = ROW_COUNT;
         v_deactivated := v_deactivated + v_cnt;
@@ -100,8 +109,9 @@ BEGIN
 
       IF FOUND THEN
         IF NOT v_sched.active THEN
-          IF NOT p_reset THEN CONTINUE; END IF;   -- vyřazený plán admin nechce — cron ho znovu nezakládá
-          UPDATE maintenance_schedules SET active = true, interval_km = v_km, interval_days = v_days, source = v_source,
+          IF COALESCE(v_sched.source, 'default') = 'manual' THEN CONTINUE; END IF;   -- vyřazený ruční plán admina se neobnovuje ani nenahrazuje
+          IF NOT p_reset AND NOT v_sched.auto_inactive THEN CONTINUE; END IF;        -- vyřazený adminem — cron ho znovu nezakládá; automaticky vyřazený se obnoví
+          UPDATE maintenance_schedules SET active = true, auto_inactive = false, interval_km = v_km, interval_days = v_days, source = v_source,
                  schedule_type = CASE WHEN v_km IS NOT NULL AND v_days IS NOT NULL THEN 'both' WHEN v_km IS NOT NULL THEN 'mileage' ELSE 'time' END,
                  notes = COALESCE(v_p_note, notes), updated_at = now()
            WHERE id = v_sched.id;
@@ -148,7 +158,7 @@ BEGIN
 END $$;
 
 COMMENT ON FUNCTION public.service_plan_apply_presets(uuid, boolean) IS
-  'Plány „základního standardu“ pro motorku (NULL = všechny): interval výrobce (service_interval_presets, stejná jednotka km/mh; NULL/NULL = nepředepisuje → plán se vyřadí) > karta motorky (oil/tire/full) > katalog; úkony mimo pohon/chlazení motorky se vyřadí (jen automatické plány); ruční plány se nemění; vyřazený plán se znovu nezakládá (jen p_reset). Vrací {motos, created, updated, deactivated}. Volá cron (auto_schedule_services) a Velín.';
+  'Plány „základního standardu“ pro motorku (NULL = všechny): interval výrobce (service_interval_presets; preset s km/Mh jen ve stejné jednotce, bez km nezávisle; NULL/NULL = nepředepisuje → plán se vyřadí) > karta motorky (oil/tire/full) > katalog; úkony mimo pohon/chlazení motorky se vyřadí (jen automatické plány, auto_inactive=true → obnoví se samy, jakmile se úkon zase týká); ruční plány se nemění, vyřazený ruční se neobnovuje; plán vyřazený adminem se znovu nezakládá (jen p_reset). Vrací {motos, created, updated, deactivated}. Volá cron (auto_schedule_services) a Velín.';
 
 -- (C3) karty motorek
 UPDATE public.motorcycles SET engine_type = 'řadový dvouválec, vzduchem/olejem chlazený'
@@ -163,3 +173,66 @@ UPDATE public.motorcycles SET brand = COALESCE(NULLIF(brand, ''), 'KTM'), drivet
        engine_type = COALESCE(NULLIF(engine_type, ''), 'vidlicový dvouválec LC8, kapalinou chlazený')
  WHERE model ILIKE 'KTM 1290 Super Adventure%';
 UPDATE public.motorcycles SET brand = 'KTM' WHERE model ILIKE 'KTM SX 50%' AND NULLIF(brand, '') IS NULL;
+
+-- (C4) zpětně zapsané provedení u placeholder baseline
+CREATE OR REPLACE FUNCTION public.update_moto_after_service() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_keys text[];
+  v_old  text[] := '{}';
+  v_new  text[];
+  v_date date;
+BEGIN
+  IF NEW.moto_id IS NULL THEN RETURN NEW; END IF;
+
+  -- Bump odometru ze servisního čtení (nikdy nesnižovat).
+  IF NEW.km_at_service IS NOT NULL AND NEW.km_at_service > 0 THEN
+    UPDATE motorcycles
+       SET mileage = GREATEST(COALESCE(mileage, 0), NEW.km_at_service)
+     WHERE id = NEW.moto_id
+       AND COALESCE(mileage, 0) < NEW.km_at_service;
+  END IF;
+
+  IF COALESCE(NEW.status, '') = 'completed' AND NEW.is_test IS NOT TRUE THEN
+    v_date := COALESCE(NEW.completed_date::date, CURRENT_DATE);
+    UPDATE motorcycles
+       SET last_service_date = v_date
+     WHERE id = NEW.moto_id AND (last_service_date IS NULL OR last_service_date < v_date);
+
+    v_keys := public._service_done_task_keys(NEW.items, NEW.type, NEW.description);
+    IF TG_OP = 'UPDATE' AND COALESCE(OLD.status, '') = 'completed' THEN
+      v_old := public._service_done_task_keys(OLD.items, OLD.type, OLD.description);   -- editace starého záznamu
+    END IF;
+    v_new := ARRAY(SELECT unnest(v_keys) EXCEPT SELECT unnest(v_old));
+    IF COALESCE(array_length(v_new, 1), 0) > 0 THEN
+      -- baseline ze skutečného záznamu (log) nikdy necouvá (GREATEST — historie se může doplňovat v libovolném
+      -- pořadí); placeholder od pořízení / ručně / neznámá ustoupí skutečnému záznamu i staršímu.
+      UPDATE maintenance_schedules s
+         SET last_service_km   = CASE WHEN NEW.km_at_service IS NULL THEN s.last_service_km
+                                      WHEN s.baseline_source = 'log' THEN GREATEST(COALESCE(s.last_service_km, 0), NEW.km_at_service)
+                                      ELSE NEW.km_at_service END,
+             last_service_date = CASE WHEN s.baseline_source = 'log' THEN GREATEST(COALESCE(s.last_service_date, v_date), v_date) ELSE v_date END,
+             last_performed    = CASE WHEN s.baseline_source = 'log' THEN GREATEST(COALESCE(s.last_performed, v_date), v_date) ELSE v_date END,
+             next_due          = NULL,
+             baseline_source   = 'log',
+             updated_at        = now()
+       WHERE s.moto_id = NEW.moto_id AND s.active = true
+         AND (s.task_key = ANY (v_new)
+              OR (s.task_key IS NULL AND s.description IS NOT NULL AND EXISTS (
+                    SELECT 1 FROM unnest(v_new) k JOIN service_task_catalog c ON c.key = k
+                     WHERE lower(btrim(s.description)) = lower(c.label) OR lower(btrim(s.description)) = ANY (SELECT lower(x) FROM unnest(c.aliases) x))));
+    END IF;
+  END IF;
+
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  BEGIN
+    INSERT INTO debug_log(source, action, status, error_message, request_data)
+    VALUES ('update_moto_after_service', 'failed', 'error', SQLERRM,
+            jsonb_build_object('log_id', NEW.id, 'moto_id', NEW.moto_id));
+  EXCEPTION WHEN OTHERS THEN NULL; END;
+  RETURN NEW;
+END;
+$$;
