@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
 const CONFIDENCE_STYLES = {
@@ -26,10 +26,18 @@ const STATUS_LABELS = {
  *  - rejected: badge "Zamítnuto"
  *  - failed: badge "Chyba" + ai_error + tlačítko "Zkusit znovu"
  */
-export default function AiSuggestionPanel({ message, threadId, currentAdminId, onApprovedSent, mobile = false }) {
-  const [editing, setEditing] = useState(false)
-  const [editedText, setEditedText] = useState(message.ai_suggested_reply || '')
+export default function AiSuggestionPanel({ message, threadId, currentAdminId, onApprovedSent, mobile = false, editDrafts }) {
+  // editDrafts (Messages → ChatPanel): rozepsaná úprava přežije výměnu mobil ↔ desktop (otočení tabletu)
+  const savedEdit = editDrafts?.[message.id]
+  const [editing, setEditing] = useState(savedEdit !== undefined)
+  const [editedText, setEditedText] = useState(savedEdit ?? (message.ai_suggested_reply || ''))
   const [busy, setBusy] = useState('')
+
+  useEffect(() => {
+    if (!editDrafts) return
+    if (editing) editDrafts[message.id] = editedText
+    else delete editDrafts[message.id]
+  }, [editDrafts, message.id, editing, editedText])
 
   const status = message.ai_suggestion_status
   const reply = message.ai_suggested_reply

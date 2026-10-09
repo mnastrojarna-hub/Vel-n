@@ -7,20 +7,31 @@ import AiSuggestionPanel from './AiSuggestionPanel'
 import ChatMobilePanel from './ChatMobilePanel'
 
 // mobile: celoobrazovkový překryv (≤ 1023 px, viz ChatMobilePanel); onBack = návrat na seznam konverzací.
-export default function ChatPanel({ thread, onThreadUpdate, mobile = false, onBack }) {
+// draft: ref z Messages ({ reply, aiEdits }) — rozepsaný text přežije výměnu mobil ↔ desktop (otočení tabletu).
+export default function ChatPanel({ thread, onThreadUpdate, mobile = false, onBack, draft }) {
   const [messages, setMessages] = useState([])
   const [templates, setTemplates] = useState([])
   const [admins, setAdmins] = useState([])
   const [currentAdminId, setCurrentAdminId] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [reply, setReply] = useState('')
+  const [reply, setReplyState] = useState(() => draft?.current.reply ?? '')
   const [sending, setSending] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const scrollRef = useRef(null)
   const initialScroll = useRef(true)
+  const shownThreadId = useRef(thread?.id)
+  const aiEdits = draft?.current.aiEdits
+
+  function setReply(value) {
+    setReplyState(value)
+    if (draft) draft.current.reply = value
+  }
 
   useEffect(() => {
     initialScroll.current = true
+    // Jiné vlákno → rozepsané úpravy AI návrhů zahodit (jako dřív, kdy se jejich panely odpojily)
+    if (aiEdits && shownThreadId.current !== thread?.id) for (const k of Object.keys(aiEdits)) delete aiEdits[k]
+    shownThreadId.current = thread?.id
     if (thread) { loadMessages(); loadTemplates(); loadAdmins() }
   }, [thread?.id])
 
@@ -67,11 +78,11 @@ export default function ChatPanel({ thread, onThreadUpdate, mobile = false, onBa
   }, [thread?.id])
 
   // Posun na poslední zprávu jen uvnitř seznamu zpráv (scrollIntoView posouval i předky —
-  // rozdělený panel do strany a na mobilu celou stránku). První načtení vlákna = skok, pak plynule.
+  // rozdělený panel do strany a na mobilu celou stránku). První načtení vlákna na mobilu = skok, jinak plynule.
   useEffect(() => {
     const el = scrollRef.current
     if (!el || loading) return
-    const behavior = initialScroll.current ? 'auto' : 'smooth'
+    const behavior = (mobile && initialScroll.current) ? 'auto' : 'smooth'
     initialScroll.current = false
     if (typeof el.scrollTo === 'function') el.scrollTo({ top: el.scrollHeight, behavior })
     else el.scrollTop = el.scrollHeight
@@ -204,6 +215,7 @@ export default function ChatPanel({ thread, onThreadUpdate, mobile = false, onBa
         onAiSuggest={aiSuggestReply}
         onAiAction={loadMessages}
         onBack={onBack}
+        aiEdits={aiEdits}
       />
     )
   }
@@ -266,6 +278,7 @@ export default function ChatPanel({ thread, onThreadUpdate, mobile = false, onBa
               threadId={thread.id}
               currentAdminId={currentAdminId}
               onAiAction={loadMessages}
+              aiEdits={aiEdits}
             />
           ))
         )}
@@ -283,7 +296,8 @@ export default function ChatPanel({ thread, onThreadUpdate, mobile = false, onBa
                 if (tpl) applyTemplate(tpl)
               }}
               className="rounded-btn text-sm outline-none cursor-pointer"
-              style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
+              // flex 0 1 auto + minWidth 0: na užším desktopu (1024–1125 px) se zúží, jinak beze změny
+              style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', flex: '0 1 auto', minWidth: 0, maxWidth: '100%' }}
               value=""
             >
               <option value="">— Použít šablonu —</option>
@@ -316,7 +330,7 @@ export default function ChatPanel({ thread, onThreadUpdate, mobile = false, onBa
   )
 }
 
-function MessageBubble({ message, threadId, currentAdminId, onAiAction }) {
+function MessageBubble({ message, threadId, currentAdminId, onAiAction, aiEdits }) {
   const isAdmin = message.direction === 'admin' || message.direction === 'outbound'
   const isSystem = message.direction === 'system'
   const isCustomer = message.direction === 'customer' || message.direction === 'inbound'
@@ -361,6 +375,7 @@ function MessageBubble({ message, threadId, currentAdminId, onAiAction }) {
             threadId={threadId}
             currentAdminId={currentAdminId}
             onApprovedSent={onAiAction}
+            editDrafts={aiEdits}
           />
         )}
       </div>

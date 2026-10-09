@@ -188,32 +188,30 @@ export default function CampaignsTab({ channel }) {
   const createModal = <CampaignCreateModal open={showCreate} channel={channel} onClose={() => setShowCreate(false)} onCreated={load} />
 
   // Telefon/tablet: karty, skládací filtry a mobilní detail; data, dialogy i akce zůstávají sdílené.
-  if (isMobile) {
-    return (
-      <div>
-        <CampaignsMobileList
-          channel={channel} campaigns={campaigns} total={total} loading={loading} error={error} debugMode={debugMode}
-          page={page} totalPages={totalPages} setPage={setPage} filters={filters} setFilters={setFilters}
-          statusOptions={STATUS_OPTIONS} statusMap={STATUS_MAP}
-          onReset={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem(storageKey) }}
-          onCreate={() => setShowCreate(true)} onOpen={openDetail} onAction={setConfirm}
-          fmtDate={formatDate} fmtDateTime={formatDateTime}
-        />
-        {detail && (
-          <CampaignsMobileDetail
-            detail={detail} channelLabel={CHANNEL_LABELS[channel] || channel} statusMap={STATUS_MAP}
-            logs={detailLogs} logsLoading={detailLogsLoading} onClose={() => setDetail(null)} onAction={setConfirm}
-            fmtDateTime={formatDateTime}
-          />
-        )}
-        {confirmDialog}
-        {createModal}
-      </div>
-    )
-  }
-
+  // Dialogy stojí v obou rozvrženích na stejném místě stromu — při přechodu přes 1024 px
+  // (otočení tabletu) se průvodce novou kampaní nepřipojí znovu a rozepsaná kampaň nezmizí.
   return (
     <div>
+      {isMobile ? (
+        <>
+          <CampaignsMobileList
+            channel={channel} campaigns={campaigns} total={total} loading={loading} error={error} debugMode={debugMode}
+            page={page} totalPages={totalPages} setPage={setPage} filters={filters} setFilters={setFilters}
+            statusOptions={STATUS_OPTIONS} statusMap={STATUS_MAP}
+            onReset={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem(storageKey) }}
+            onCreate={() => setShowCreate(true)} onOpen={openDetail} onAction={setConfirm}
+            fmtDate={formatDate} fmtDateTime={formatDateTime}
+          />
+          {detail && (
+            <CampaignsMobileDetail
+              detail={detail} channelLabel={CHANNEL_LABELS[channel] || channel} statusMap={STATUS_MAP}
+              logs={detailLogs} logsLoading={detailLogsLoading} onClose={() => setDetail(null)} onAction={setConfirm}
+              fmtDateTime={formatDateTime}
+            />
+          )}
+        </>
+      ) : (
+      <>
       {/* Hlavička */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -452,6 +450,8 @@ export default function CampaignsTab({ channel }) {
             <Button onClick={() => setDetail(null)}>Zavřít</Button>
           </div>
         </Modal>
+      )}
+      </>
       )}
 
       {/* Confirm dialog */}

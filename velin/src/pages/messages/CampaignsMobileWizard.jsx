@@ -1,3 +1,4 @@
+import { useRef, useLayoutEffect } from 'react'
 import { useMediaQuery } from '../../hooks/useIsMobile'
 import Button from '../../components/ui/Button'
 
@@ -6,8 +7,15 @@ import Button from '../../components/ui/Button'
 const STEPS = ['Základní info', 'Příjemci', 'Náhled', 'Odeslání']
 
 export function CampaignsMobileStepper({ step }) {
+  // Každý krok začíná nahoře: okno Modal (rodič ukazatele, overflow:auto) jinak drží
+  // posun z předchozího kroku a krok 3/4 by se otevřel s polem nebo souhrnem mimo obraz.
+  const ref = useRef(null)
+  useLayoutEffect(() => {
+    const box = ref.current?.parentElement
+    if (box) box.scrollTop = 0
+  }, [step])
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${STEPS.length}, minmax(0, 1fr))`, marginBottom: 18 }}>
+    <div ref={ref} style={{ display: 'grid', gridTemplateColumns: `repeat(${STEPS.length}, minmax(0, 1fr))`, marginBottom: 18 }}>
       {STEPS.map((label, i) => {
         const num = i + 1
         const isActive = step === num
@@ -43,7 +51,42 @@ export function CampaignsMobileStepper({ step }) {
 
 const BTN = { minHeight: 44, width: '100%', justifyContent: 'center', padding: '10px 14px', textAlign: 'center' }
 
-export function CampaignsMobileFooter({ step, setStep, canNext, step4Valid, sending, scheduleMode, onSubmit }) {
+function plural(n) {
+  return n === 1 ? 'příjemce' : n >= 2 && n <= 4 ? 'příjemci' : 'příjemců'
+}
+
+// Krok 2: počet příjemců stále nad tlačítky — u prázdného segmentu je hned vidět, proč je „Další“ neaktivní.
+function RecipientLine({ count, loading }) {
+  const zero = !loading && count === 0
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex items-center rounded-btn"
+      style={{
+        gap: 8, minHeight: 34, padding: '5px 12px', fontSize: 14, lineHeight: 1.35, overflowWrap: 'anywhere',
+        background: zero ? '#fee2e2' : '#f1faf7', border: `1px solid ${zero ? '#fca5a5' : '#d4e8e0'}`, color: zero ? '#dc2626' : '#1a2e22',
+      }}
+    >
+      {loading ? (
+        <>
+          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-brand-gd shrink-0" />
+          <span className="font-bold">Počítám příjemce…</span>
+        </>
+      ) : zero ? (
+        <span className="font-bold">Žádní příjemci v tomto segmentu – zvolte jiný segment.</span>
+      ) : (
+        <>
+          <span aria-hidden style={{ fontSize: 18 }}>👥</span>
+          <span className="font-black" style={{ fontSize: 18, color: '#1a8a18' }}>{count}</span>
+          <span className="font-bold">{plural(count)}</span>
+        </>
+      )}
+    </div>
+  )
+}
+
+export function CampaignsMobileFooter({ step, setStep, canNext, step4Valid, sending, scheduleMode, onSubmit, recipientCount, recipientCountLoading }) {
   // Odsazení okna Modal: p-4 na telefonu, sm:p-7 od 640 px — lišta ho přetahuje až k okraji.
   const pad = useMediaQuery('(min-width: 640px)') ? 28 : 16
   const back = step > 1 && <Button onClick={() => setStep(s => s - 1)} style={BTN}>← Zpět</Button>
@@ -55,6 +98,7 @@ export function CampaignsMobileFooter({ step, setStep, canNext, step4Valid, send
         background: '#fff', borderTop: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', gap: 8,
       }}
     >
+      {step === 2 && <RecipientLine count={recipientCount} loading={recipientCountLoading} />}
       {step < 4 ? (
         <div style={{ display: 'grid', gridTemplateColumns: back ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 8 }}>
           {back}

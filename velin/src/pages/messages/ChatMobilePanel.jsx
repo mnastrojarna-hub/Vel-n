@@ -6,6 +6,25 @@ import ChatMobileComposer from './ChatMobileComposer'
 // Otevřená konverzace na mobilu/tabletu (≤ 1023 px): celoobrazovkový překryv jako v messengeru.
 // Výška = vizuální viewport, takže pole pro odpověď zůstává nad klávesnicí. Logika zůstává v ChatPanel.
 
+const FOCUSABLE = 'button:not([disabled]),select:not([disabled]),textarea:not([disabled]),input:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])'
+
+// „Zpět“ musí být nepřehlédnutelné: pilulka s výrazným šípem a textem (ne jen tenký znak).
+const BACK_BTN = {
+  height: 44,
+  padding: '0 14px 0 8px',
+  borderRadius: 999,
+  background: '#f1faf7',
+  border: '1px solid #d4e8e0',
+  color: '#1a2e22',
+  fontSize: 15,
+  fontWeight: 800,
+  cursor: 'pointer',
+  flexShrink: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+}
+
 const ICON_BTN = {
   width: 44,
   height: 44,
@@ -22,10 +41,11 @@ const ICON_BTN = {
 export default function ChatMobilePanel({
   thread, messages, loading, admins, templates, currentAdminId, scrollRef,
   reply, setReply, sending, aiLoading,
-  onSend, onToggleStatus, onAssign, onApplyTemplate, onAiSuggest, onAiAction, onBack,
+  onSend, onToggleStatus, onAssign, onApplyTemplate, onAiSuggest, onAiAction, onBack, aiEdits,
 }) {
   const { height, offsetTop } = useVisualViewport()
   const [showActions, setShowActions] = useState(false)
+  const dialogRef = useRef(null)
   const contentRef = useRef(null)
   const atBottom = useRef(true)
 
@@ -33,11 +53,50 @@ export default function ChatMobilePanel({
   const name = thread.profiles?.full_name || 'Zákazník'
   const email = thread.profiles?.email
 
+  // Fokus do překryvu a Tab jen uvnitř — seznam, záložky a menu pod ním jsou skryté a nesmí jít ovládat.
+  // Pole pro odpověď se nefokusuje (na telefonu by vyskočila klávesnice). Po zavření se fokus vrátí.
+  useEffect(() => {
+    const prev = document.activeElement
+    const dlg = dialogRef.current
+    dlg?.focus({ preventScroll: true })
+    const onFocusIn = e => { if (dlg && !dlg.contains(e.target)) dlg.focus({ preventScroll: true }) }
+    document.addEventListener('focusin', onFocusIn)
+    return () => {
+      document.removeEventListener('focusin', onFocusIn)
+      if (prev && prev.isConnected && typeof prev.focus === 'function') prev.focus({ preventScroll: true })
+    }
+  }, [])
+
+  function onKeyDown(e) {
+    if (e.key !== 'Tab') return
+    const f = [...dialogRef.current.querySelectorAll(FOCUSABLE)].filter(el => el.offsetParent !== null)
+    if (!f.length) return
+    const first = f[0], last = f[f.length - 1]
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { e.preventDefault(); last.focus() }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+  }
+
   // Kdo byl dole, zůstane dole i po otevření klávesnice, růstu pole pro odpověď nebo AI panelu.
+  // Výjimka: úprava AI návrhu (textarea v seznamu) — po změně výšky seznamu (klávesnice) ukaž začátek pole.
   useEffect(() => {
     const el = scrollRef.current
     if (!el || typeof ResizeObserver === 'undefined') return undefined
+    let lastH = el.clientHeight
     const ro = new ResizeObserver(() => {
+      const listResized = el.clientHeight !== lastH
+      lastH = el.clientHeight
+      const a = document.activeElement
+      if (a && a.tagName === 'TEXTAREA' && el.contains(a)) {
+        if (listResized) {
+          if (atBottom.current) el.scrollTop = el.scrollHeight // vejde-li se, zůstanou vidět i tlačítka pod polem
+          const r = a.getBoundingClientRect()
+          const s = el.getBoundingClientRect()
+          // Začátek pole pod hlavičku (i když je pole vyšší než seznam), jinak celé pole do viditelné části
+          if (r.top < s.top + 8 || r.height > s.height - 16) el.scrollTop += r.top - s.top - 8
+          else if (r.bottom > s.bottom - 8) el.scrollTop += r.bottom - s.bottom + 8
+        }
+        return // při psaní drží kurzor na očích prohlížeč sám
+      }
       if (atBottom.current) el.scrollTop = el.scrollHeight
     })
     ro.observe(el)
@@ -52,11 +111,15 @@ export default function ChatMobilePanel({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={`Konverzace – ${name}`}
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
       className="flex flex-col"
       style={{
+        outline: 'none',
         position: 'fixed',
         left: 0,
         right: 0,
@@ -66,10 +129,13 @@ export default function ChatMobilePanel({
         background: '#fff',
       }}
     >
-      {/* Hlavička */}
-      <div className="flex items-center shrink-0" style={{ minHeight: 56, gap: 4, padding: '6px 6px', borderBottom: '1px solid #d4e8e0', background: '#fff' }}>
-        <button type="button" aria-label="Zpět na konverzace" onClick={onBack} style={{ ...ICON_BTN, background: 'transparent', fontSize: 34, lineHeight: 1, paddingBottom: 4 }}>
-          ‹
+      {/* Hlavička — pevně nahoře; tah prstem po ní neroluje stránku pod překryvem (touchAction none) */}
+      <div className="flex items-center shrink-0" style={{ minHeight: 56, gap: 8, padding: '6px 8px', borderBottom: '1px solid #d4e8e0', background: '#fff', touchAction: 'none' }}>
+        <button type="button" aria-label="Zpět na konverzace" onClick={onBack} style={BACK_BTN}>
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          Zpět
         </button>
         <div style={{ flex: '1 1 auto', minWidth: 0 }}>
           <div className="truncate" style={{ fontSize: 15, fontWeight: 800, color: '#0f1a14' }}>{name}</div>
@@ -130,6 +196,7 @@ export default function ChatMobilePanel({
       {/* Zprávy */}
       <div
         ref={scrollRef}
+        data-mg-chat-list=""
         onScroll={onScroll}
         style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', background: '#f8fcfa' }}
       >
@@ -139,7 +206,7 @@ export default function ChatMobilePanel({
           ) : messages.length === 0 ? (
             <div className="text-center" style={{ padding: '32px 8px', fontSize: 14, color: '#1a2e22' }}>Zatím žádné zprávy</div>
           ) : (
-            <ChatMobileMessages messages={messages} threadId={thread.id} currentAdminId={currentAdminId} onAiAction={onAiAction} />
+            <ChatMobileMessages messages={messages} threadId={thread.id} currentAdminId={currentAdminId} onAiAction={onAiAction} aiEdits={aiEdits} />
           )}
         </div>
       </div>
@@ -155,6 +222,8 @@ export default function ChatMobilePanel({
         onAiSuggest={onAiSuggest}
         aiLoading={aiLoading}
         aiDisabled={messages.length === 0}
+        viewportHeight={height}
+        actionsOpen={showActions}
       />
     </div>
   )

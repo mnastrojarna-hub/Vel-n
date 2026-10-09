@@ -1,7 +1,5 @@
-import { useEffect, useRef } from 'react'
-
 // Mobilní (≤ 1023 px) přepínače sekce Zprávy: kanály jako 4 stejné segmenty v jedné řadě,
-// pod-záložky jako jedna vodorovně posuvná řada. Desktop je nepoužívá.
+// pod-záložky jako zalamovaná řada (všech 5 vždy vidět). Desktop je nepoužívá.
 
 export function ChatMobileChannelTabs({ channels, active, onSelect }) {
   return (
@@ -36,36 +34,21 @@ export function ChatMobileChannelTabs({ channels, active, onSelect }) {
 }
 
 export function ChatMobileSubTabs({ tabs, active, onSelect }) {
-  const rowRef = useRef(null)
-  const btnRefs = useRef({})
-
-  // Aktivní pod-záložku posuň do viditelné části řady jen vodorovně
-  // (scrollIntoView by posouval i svislé předky — celou stránku).
-  useEffect(() => {
-    const row = rowRef.current
-    const btn = btnRefs.current[active]
-    if (!row || !btn) return
-    const left = btn.offsetLeft // řada má position: relative → offset je vůči ní
-    const right = left + btn.offsetWidth
-    if (left < row.scrollLeft) row.scrollLeft = Math.max(0, left - 12)
-    else if (right > row.scrollLeft + row.clientWidth) row.scrollLeft = right - row.clientWidth + 12
-  }, [active])
-
+  // Zalamování místo vodorovného posouvání: na 360 px by Kampaně a Šablony byly schované mimo displej.
   return (
-    <div ref={rowRef} className="mg-hscroll flex mb-3" style={{ gap: 6, position: 'relative' }}>
+    <div className="flex flex-wrap mb-3" style={{ gap: 6 }}>
       {tabs.map(st => {
         const on = active === st.key
         return (
           <button
             key={st.key}
-            ref={el => { btnRefs.current[st.key] = el }}
             type="button"
             onClick={() => onSelect(st.key)}
             aria-pressed={on}
             className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer flex-shrink-0 whitespace-nowrap"
             style={{
-              minHeight: 38,
-              padding: '6px 14px',
+              minHeight: 40,
+              padding: '6px 12px',
               background: on ? '#e8fee7' : '#f1faf7',
               color: '#1a2e22',
               border: on ? '1px solid #74FB71' : '1px solid transparent',
