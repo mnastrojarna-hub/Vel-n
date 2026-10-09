@@ -8,6 +8,7 @@ import ServiceChecklistPicker from '../../components/fleet/ServiceChecklistPicke
 import { SERVICE_TASKS } from '../../components/fleet/serviceCatalog'
 import ServiceInvoicesPanel from './ServiceInvoicesPanel'
 import ServiceLogModal from './ServiceLogModal'
+import { technicianLocked } from './ServiceFormFields'
 
 /**
  * Karta OTEVŘENÉHO servisu (Aktivní v servisu / servisní knížka): technik odškrtává úkony s poznámkou,
@@ -38,12 +39,15 @@ export default function ServiceLogCard({ log, moto, onReload }) {
   const updateItem = (idx, field, value) => { dirty.current = true; setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it)) }
   const setReportDirty = (v) => { dirty.current = true; setReport(v) }
   const setReturnDateDirty = (v) => { dirty.current = true; setReturnDate(v) }
-  // technik se zapisuje až při DOKONČENÍ (DB trigger = kdo dokončil); průběžné uložení ho nepřiřazuje
-  const techPatch = () => (!log.technician_admin_id && me?.id) ? { technician_admin_id: me.id, performed_by: log.performed_by || me.name } : {}
+  // superadmin: technik se zapisuje až při DOKONČENÍ (DB trigger = kdo dokončil), průběžné uložení ho nepřiřazuje;
+  // běžný (servisní) účet zapisuje VŽDY pod sebou — nikdy za admina / jiného technika (hlídá i DB trigger)
+  const locked = technicianLocked(me)
+  const techPatch = () => locked ? { technician_admin_id: me.id, technician_id: null, performed_by: me.name }
+    : (!log.technician_admin_id && me?.id) ? { technician_admin_id: me.id, performed_by: log.performed_by || me.name } : {}
 
   async function persist(nextItems, extra = {}) {
     setSaving(true); setErr(null)
-    const { error } = await supabase.from('maintenance_log').update({ items: nextItems, technician_report: report.trim() || null, scheduled_date: returnDate || null, ...extra }).eq('id', log.id)
+    const { error } = await supabase.from('maintenance_log').update({ items: nextItems, technician_report: report.trim() || null, scheduled_date: returnDate || null, ...(locked ? techPatch() : {}), ...extra }).eq('id', log.id)
     setSaving(false)
     if (error) { setErr(error.message); return false }
     dirty.current = false

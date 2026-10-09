@@ -7,6 +7,8 @@ import ServiceBookCard from './ServiceBookCard'
 import ServiceLogCard from '../../pages/service/ServiceLogCard'
 import ServiceLogModal from '../../pages/service/ServiceLogModal'
 import { fetchServiceDue, fetchServiceInvoicesMap, unitLabel, logState, LOG_STATE, fmtDate, fmtKm, audit } from '../../lib/serviceBookData'
+import { useAdminIdentity } from '../../hooks/useAdminIdentity'
+import { technicianLocked } from '../../pages/service/ServiceFormFields'
 
 /**
  * Servisní knížka motorky — jedna komponenta pro detail motorky (Flotila → Servis) i Servis → Servisní knížka
@@ -25,6 +27,9 @@ export default function ServiceBook({ motoId, logAudit: logAuditProp, headerExtr
   const [modal, setModal] = useState(null)   // { entry } | { status }
   const [saving, setSaving] = useState(false)
   const logAudit = logAuditProp || ((action, details) => audit(action, details))
+  const me = useAdminIdentity()
+  // běžný (servisní) účet smí upravit jen otevřené servisy a své dokončené; cizí dokončené ne (hlídá i DB trigger)
+  const canEdit = (l) => !technicianLocked(me) || logState(l) !== 'completed' || (l.technician_admin_id ? l.technician_admin_id === me.id : !l.performed_by || l.performed_by === me.name)
 
   const loadAll = useCallback(async () => {
     const [motoRes, logRes, schedRes, invRes] = await Promise.all([
@@ -118,7 +123,7 @@ export default function ServiceBook({ motoId, logAudit: logAuditProp, headerExtr
       <ServicePlanCard moto={moto} due={due} schedules={schedules} partsBySchedule={partsBySchedule} inventoryItems={inventoryItems} unitLabel={unit}
         onChanged={loadAll} logAudit={logAudit} partsApi={partsApi} onAddSchedule={handleAddSchedule} saving={saving} existingTaskKeys={schedules.map(s => s.task_key).filter(Boolean)} />
 
-      <ServiceBookCard logs={logs} unitLabel={unit} invoicesByLog={invoicesByLog} onEdit={(l) => setModal({ entry: l })} />
+      <ServiceBookCard logs={logs} unitLabel={unit} invoicesByLog={invoicesByLog} onEdit={(l) => setModal({ entry: l })} canEdit={canEdit} />
 
       {modal && <ServiceLogModal entry={modal.entry || null} motoId={motoId} defaultStatus={modal.status || 'pending'} onClose={() => setModal(null)} onSaved={() => { setModal(null); loadAll() }} />}
     </div>

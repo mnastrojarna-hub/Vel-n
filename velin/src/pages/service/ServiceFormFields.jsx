@@ -19,13 +19,21 @@ export function Field({ label, hint, children, className = '' }) {
  * Technik: výchozí = přihlášený účet (login), nebo jiný účet Velína, nebo zaměstnanec / externí jméno.
  * value = { technician_admin_id, technician_id, performed_by }
  */
+/** Technik = přihlášený účet. Jiného technika (účet Velína, zaměstnanec, externí) smí zvolit JEN superadmin;
+ *  běžný (servisní) účet zapisuje vždy pod sebou — hlídá i DB trigger (maintenance_log_autofill). */
+export const technicianLocked = (me) => !!me && me.role !== 'superadmin'
 export function TechnicianSelect({ value, onChange, me }) {
+  const locked = technicianLocked(me)
   const [accounts, setAccounts] = useState([])
   const [employees, setEmployees] = useState([])
   useEffect(() => {
+    if (locked) return
     fetchVelinAccounts().then(setAccounts)
     supabase.from('acc_employees').select('id, name, position, hourly_rate').order('name').then(({ data }) => setEmployees(data || []))
-  }, [])
+  }, [locked])
+  if (locked) {
+    return <div className="text-sm font-bold rounded-btn" style={{ ...inputStyle, color: '#0f1a14' }}>{me.name} <span className="text-xs font-normal" style={{ color: '#6b7280' }}>— přihlášený účet (zapisuje se automaticky, nelze zapsat za jiného)</span></div>
+  }
   const mode = value.technician_admin_id ? `a:${value.technician_admin_id}` : value.technician_id ? `e:${value.technician_id}` : value.performed_by ? 'ext' : 'me'
   function select(v) {
     if (v === 'me') onChange({ technician_admin_id: me?.id || null, technician_id: null, performed_by: me?.name || '' })

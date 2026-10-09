@@ -9,7 +9,7 @@ import { SERVICE_TASKS, TASK_BY_ID } from '../../components/fleet/serviceCatalog
 import { SERVICE_LABEL_TO_ID } from '../../components/fleet/motoActionConstants'
 import { useAdminIdentity } from '../../hooks/useAdminIdentity'
 import { LOG_TYPE_LABELS, todayIso, audit, confirmServiceStart } from '../../lib/serviceBook'
-import { inputStyle, Field, TechnicianSelect, CostFields, STATUS_OPTIONS, SERVICE_TYPE_OPTIONS } from './ServiceFormFields'
+import { inputStyle, Field, TechnicianSelect, technicianLocked, CostFields, STATUS_OPTIONS, SERVICE_TYPE_OPTIONS } from './ServiceFormFields'
 import ServiceInvoicesPanel from './ServiceInvoicesPanel'
 
 /**
@@ -83,7 +83,10 @@ export default function ServiceLogModal({ entry, motoId: presetMotoId, defaultSt
         description: form.description.trim() || null, technician_report: form.technician_report.trim() || null,
         is_urgent: !!form.is_urgent, items,
         labor_hours: Number(form.labor_hours) || null, extra_cost: Number(form.extra_cost) || null, cost: Number(form.cost) || (calc || null),
-        technician_admin_id: form.technician_admin_id || null, technician_id: form.technician_id || null, performed_by: form.performed_by?.trim() || null,
+        // běžný (servisní) účet zapisuje vždy pod sebou — nikdy za admina / jiného technika (hlídá i DB trigger)
+        ...(technicianLocked(me)
+          ? { technician_admin_id: me.id, technician_id: null, performed_by: me.name }
+          : { technician_admin_id: form.technician_admin_id || null, technician_id: form.technician_id || null, performed_by: form.performed_by?.trim() || null }),
       }
       // km: zadané ručně se uloží, prázdné doplní DB ze stavu tachometru (km_auto)
       if (form.km !== '' && form.km !== null && form.km !== undefined) payload.km_at_service = Number(form.km)
@@ -162,7 +165,7 @@ export default function ServiceLogModal({ entry, motoId: presetMotoId, defaultSt
       </div>
 
       <div className="mt-4">
-        <Field label="Technik" hint="automaticky podle přihlášení">
+        <Field label="Technik" hint={technicianLocked(me) ? 'vždy přihlášený účet' : 'automaticky podle přihlášení; jiného technika může zvolit jen superadmin'}>
           <TechnicianSelect value={technician} onChange={t => setForm(f => ({ ...f, ...t }))} me={me} />
         </Field>
       </div>
