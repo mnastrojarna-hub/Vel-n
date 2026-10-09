@@ -144,6 +144,32 @@ export async function setScheduleBaseline(scheduleId, { km, date }) {
   await audit('service_schedule_baseline_set', { schedule_id: scheduleId, km, date })
 }
 
+/**
+ * „Provedeno“ z plánu údržby: založí DOKONČENÝ servisní záznam s tímto úkonem (datum + km) — DB trigger posune
+ * plán, zvedne tachometr a technikem je přihlášený účet; s toLog=false se jen zapíše „naposledy provedeno“.
+ * Výchozí = dnes + aktuální stav tachometru (zpětné provedení: jiné datum / km).
+ */
+export async function recordServiceDone(d, { km, date, toLog = true, note } = {}) {
+  const day = date || todayIso()
+  if (day > todayIso()) throw new Error('Datum provedení nemůže být v budoucnosti.')
+  const kmNum = km === '' || km === null || km === undefined ? null : Number(km)
+  if (kmNum !== null && (!Number.isFinite(kmNum) || kmNum < 0)) throw new Error('Neplatný stav tachometru.')
+  if (!toLog) { await setScheduleBaseline(d.schedule_id, { km: kmNum, date: day }); return null }
+  const task = TASK_BY_ID[d.task_key]
+  const label = task?.label || d.label
+  const payload = {
+    moto_id: d.moto_id, service_type: 'regular', status: 'completed', service_date: day, completed_date: day,
+    km_at_service: kmNum, items: [{ label, key: d.task_key || undefined, done: true, note: '' }],
+    description: note || `Zapsáno z plánu údržby: ${label}`,
+  }
+  const { data, error } = await supabase.from('maintenance_log').insert(payload).select('id').single()
+  if (error) throw error
+  // plán bez klíče z katalogu trigger nepozná podle úkonu → baseline zapsat přímo
+  if (!d.task_key) await setScheduleBaseline(d.schedule_id, { km: kmNum, date: day })
+  await audit('service_done_from_due', { moto_id: d.moto_id, task_key: d.task_key, schedule_id: d.schedule_id, log_id: data?.id, km: kmNum, date: day })
+  return data
+}
+
 export async function audit(action, details) {
   try {
     const { data: { user } } = await supabase.auth.getUser()
