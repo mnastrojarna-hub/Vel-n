@@ -5,7 +5,7 @@ import Button from '../ui/Button'
 import PartsPanel from './PartsPanel'
 import AddScheduleBtn from './AddScheduleBtn'
 import ServiceBundleBox from './ServiceBundleBox'
-import { DUE_STATE, BASELINE_LABELS, SOURCE_LABELS, fmtDate, fmtKm, intervalText, planServiceFromDue, recordServiceDone, applyServicePresets, todayIso } from '../../lib/serviceBook'
+import { DUE_STATE, BASELINE_LABELS, SOURCE_LABELS, fmtDate, fmtKm, intervalText, planServiceFromDue, recordServiceDone, applyServicePresets, acceptServiceState, todayIso } from '../../lib/serviceBook'
 import { groupDueByCatalogGroup } from '../../lib/serviceBundle'
 
 const inp = { padding: '4px 8px', background: '#fff', border: '1px solid #d4e8e0', fontSize: 13 }
@@ -45,7 +45,7 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
   const saveDone = (d) => run(d.schedule_id, async () => {
     const r = await recordServiceDone(d, done)
     setDone(null)
-    return `${d.label}: provedeno ${fmtDate(done.date)}${done.km !== '' ? ` při ${fmtKm(done.km, unitLabel)}` : ''} — ${r ? 'zapsáno do servisní knihy, plán posunut' : 'zapsáno jako poslední provedení'}`
+    return `${d.label}: provedeno ${fmtDate(done.date)}${done.km !== '' ? ` při ${fmtKm(done.km, unitLabel)}` : ''} — ${r ? `zapsáno do servisní knihy${r.removedFromOpen ? ' a odebráno z naplánovaného servisu' : ''}` : 'zapsáno jako poslední provedení'}`
   }, d.schedule_id)
   const saveEdit = () => run(editing.id, async () => {
     const { error } = await supabase.from('maintenance_schedules').update({ description: editing.description, interval_km: Number(editing.interval_km) || null, interval_days: Number(editing.interval_days) || null, source: 'manual', schedule_type: editing.interval_km && editing.interval_days ? 'both' : editing.interval_km ? 'mileage' : 'time' }).eq('id', editing.id)
@@ -53,6 +53,12 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
     await logAudit?.('schedule_updated', { schedule_id: editing.id, moto_id: moto.id }); setEditing(null)
     return 'Interval uložen'
   }, editing.id)
+  const acceptAll = () => {
+    const n = rows.filter(r => !r.open_log_id && ['overdue', 'due_soon', 'unknown'].includes(r.state)).length
+    if (!n) { setMsg({ text: 'Žádný plán není po termínu, blížící se ani neověřený — není co převzít.' }); return }
+    if (!window.confirm(`Převzít stav z jiné evidence: ${n} plánů (po termínu / blíží se / neověřeno) dostane „naposledy provedeno“ = dnes při ${fmtKm(moto?.mileage, unitLabel)}. Plány v pořádku se nemění; dokončený servis (např. zimní prohlídka) odpočet znovu přepíše. Pokračovat?`)) return
+    run('accept', async () => { const r = await acceptServiceState(moto.id, `stav převzat z evidence ${fmtDate(todayIso())}`); return `Převzato: ${r?.updated || 0} plánů počítá od dneška (${fmtKm(moto?.mileage, unitLabel)}).` })
+  }
   const applyStd = () => run('std', async () => { const r = await applyServicePresets(moto.id); return `Standardní plány: ${r?.created || 0} založeno, ${r?.updated || 0} aktualizováno${r?.deactivated ? `, ${r.deactivated} vyřazeno (netýká se)` : ''}` })
 
   return (
@@ -67,6 +73,7 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <button onClick={acceptAll} disabled={busy === 'accept'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer" style={{ padding: '6px 12px', background: '#e8fde8', color: '#1a8a18', border: 'none' }} title="Stav hlídaný jinde (papír): plány po termínu / blíží se / neověřené začnou počítat od dneška a aktuálního stavu tachometru">Vše v pořádku k dnešku</button>
           <button onClick={applyStd} disabled={busy === 'std'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer" style={{ padding: '6px 12px', background: '#eef2ff', color: '#4f46e5', border: 'none' }} title="Založí chybějící plány základního standardu dle výrobce / katalogu">Doplnit standardní plány</button>
           <AddScheduleBtn onAdd={onAddSchedule} saving={saving} unitLabel={unitLabel} existingTypes={(schedules || []).map(s => s.description)} existingTaskKeys={existingTaskKeys} />
         </div>
@@ -104,8 +111,8 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
                       </td>
                       <td style={{ ...td, whiteSpace: 'nowrap' }}>
                         {!d.open_log_id && d.state !== 'unknown' && <Btn onClick={() => plan(d)} color="#1a8a18" disabled={busy === d.schedule_id}>Naplánovat</Btn>}
-                        {!d.open_log_id && <Btn onClick={() => openDone(d)} color="#2563eb" title="Zapsat provedení: dnes při aktuálním stavu tachometru (lze upravit) → dokončený servisní záznam, plán se posune">Provedeno</Btn>}
-                        {d.open_log_id && <span className="text-xs" style={{ color: '#4f46e5' }} title="Úkon je v otevřeném servisu — dokončete ho v kartě servisu výše">v servisu</span>}
+                        <Btn onClick={() => openDone(d)} color="#2563eb" title="Zapsat provedení: dnes při aktuálním stavu tachometru (lze upravit) → dokončený servisní záznam, plán se posune">Provedeno</Btn>
+                        {d.open_log_id && <span className="text-xs" style={{ color: '#4f46e5' }} title="Úkon je v naplánovaném / otevřeném servisu (karta výše). „Provedeno“ ho zapíše samostatně a z checklistu toho servisu odebere.">naplánováno</span>}
                         <Btn onClick={() => setEditing(isE ? null : { id: d.schedule_id, description: d.sched?.description || d.label, interval_km: d.interval_km || '', interval_days: d.interval_days || '' })} color="#1a2e22">Interval</Btn>
                         <Btn onClick={() => setExpandedParts(expandedParts === d.schedule_id ? null : d.schedule_id)} color="#2563eb">{parts.length ? `${parts.length} dílů` : 'Díly'}</Btn>
                         <Btn onClick={() => deactivate(d)} color="#dc2626" title="Vyřadit plán">×</Btn>
@@ -121,8 +128,8 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
                           <input type="number" min="0" value={done.km} onChange={e => setDone(b => ({ ...b, km: e.target.value }))} placeholder={unitLabel} className="rounded outline-none" style={{ ...inp, width: 110 }} />
                           <span className="text-xs" style={{ color: '#1e3a8a' }}>{unitLabel}</span>
                           <label className="text-xs flex items-center gap-1 cursor-pointer" style={{ color: '#1e3a8a' }}><input type="checkbox" checked={done.toLog} onChange={e => setDone(b => ({ ...b, toLog: e.target.checked }))} /> zapsat do servisní knihy (dokončený servis s tímto úkonem)</label>
-                          <Button small green onClick={() => saveDone(d)} disabled={busy === d.schedule_id || !done.date}>{busy === d.schedule_id ? 'Ukládám…' : 'Uložit'}</Button><Button small onClick={() => setDone(null)}>Zrušit</Button>
-                          <div className="text-xs w-full" style={{ color: '#6b7280' }}>Předvyplněno dnes a aktuální stav tachometru ({fmtKm(moto?.mileage, unitLabel)}). Dřívější provedení: upravte datum a km — plán se počítá od nich.{!done.toLog ? ' Bez zápisu do knihy se jen nastaví „naposledy provedeno“ (bez záznamu v historii).' : ''}</div>
+                          <Button small green onClick={() => saveDone(d)} disabled={busy === d.schedule_id || !done.date || (done.toLog && !!d.interval_km && done.km === '')}>{busy === d.schedule_id ? 'Ukládám…' : 'Uložit'}</Button><Button small onClick={() => setDone(null)}>Zrušit</Button>
+                          <div className="text-xs w-full" style={{ color: '#6b7280' }}>Předvyplněno dnes a aktuální stav tachometru ({fmtKm(moto?.mileage, unitLabel)}). Dřívější provedení: upravte datum a km — plán se počítá od nich (novější provedení už zapsané v servisní knize má přednost).{d.interval_km && done.toLog ? ` U plánu podle ${unitLabel} je stav tachometru povinný.` : ''}{!done.toLog ? ' Bez zápisu do knihy se jen nastaví „naposledy provedeno“ (bez záznamu v historii).' : ''}</div>
                         </div>}
                         {isE && <div className="flex items-center gap-2 flex-wrap">
                           <input value={editing.description} onChange={e => setEditing(x => ({ ...x, description: e.target.value }))} placeholder="Popis" className="rounded outline-none" style={{ ...inp, width: 200 }} />
