@@ -347,7 +347,7 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
 
       {/* Footer buttons */}
       {isMobile ? (
-        <CampaignsMobileFooter step={step} setStep={setStep} canNext={canNext()} step4Valid={step4Valid} sending={sending} scheduleMode={scheduleMode} onSubmit={handleSubmit} />
+        <CampaignsMobileFooter step={step} setStep={setStep} canNext={canNext()} step4Valid={step4Valid} sending={sending} scheduleMode={scheduleMode} onSubmit={handleSubmit} recipientCount={recipientCount} recipientCountLoading={recipientCountLoading} />
       ) : (
       <div className="flex justify-between items-center mt-6 pt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
         <div>

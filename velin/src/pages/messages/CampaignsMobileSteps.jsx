@@ -10,6 +10,11 @@ const SEGMENTS = [
   { value: 'past_customers', icon: '🏍️', label: 'Minulí zákazníci', desc: 'Alespoň 1 dokončená rezervace' },
   { value: 'new_no_booking', icon: '👋', label: 'Noví bez rezervace', desc: 'Registrovaní, ale dosud si nepůjčili' },
 ]
+// Texty s diakritikou pro mobilní zobrazení (hodnoty filtrů zůstávají z messageHelpers)
+const COUNTRY_TEXT = { '': 'Všechny země', CZ: 'Česko', SK: 'Slovensko', DE: 'Německo', AT: 'Rakousko', PL: 'Polsko' }
+const LANG_TEXT = { '': 'Všechny jazyky', cs: 'Čeština', en: 'English', de: 'Deutsch' }
+const countryText = v => COUNTRY_TEXT[v] ?? COUNTRY_OPTIONS.find(o => o.value === v)?.label
+const langText = v => LANG_TEXT[v] ?? LANGUAGE_OPTIONS.find(o => o.value === v)?.label
 const H = { fontSize: 12, color: '#1a2e22', marginBottom: 8 }
 const LABEL = { fontSize: 13, color: '#1a2e22', marginBottom: 4 }
 const FIELD = { width: '100%', minWidth: 0, minHeight: 44, padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', display: 'block' }
@@ -34,7 +39,7 @@ function Choice({ active, onClick, children }) {
   )
 }
 
-export function CampaignsMobileStep2({ segment, setSegment, filterCountry, setFilterCountry, filterLanguage, setFilterLanguage, recipientCount, recipientCountLoading, channel }) {
+export function CampaignsMobileStep2({ segment, setSegment, filterCountry, setFilterCountry, filterLanguage, setFilterLanguage, channel }) {
   const cols = useCols()
   return (
     <div className="space-y-4">
@@ -59,20 +64,20 @@ export function CampaignsMobileStep2({ segment, setSegment, filterCountry, setFi
           <label className="block" style={{ minWidth: 0 }}>
             <div className="font-bold" style={LABEL}>Země původu</div>
             <select value={filterCountry} onChange={e => setFilterCountry(e.target.value)} className="rounded-btn outline-none cursor-pointer" style={FIELD}>
-              {COUNTRY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {COUNTRY_OPTIONS.map(o => <option key={o.value} value={o.value}>{countryText(o.value)}</option>)}
             </select>
           </label>
           <label className="block" style={{ minWidth: 0 }}>
             <div className="font-bold" style={LABEL}>Jazyk aplikace</div>
             <select value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)} className="rounded-btn outline-none cursor-pointer" style={FIELD}>
-              {LANGUAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {LANGUAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{langText(o.value)}</option>)}
             </select>
           </label>
         </div>
         {(filterCountry || filterLanguage) && (
           <div className="flex flex-wrap items-center" style={{ gap: 8, marginTop: 10 }}>
-            {filterCountry && <Badge label={`Země: ${COUNTRY_OPTIONS.find(o => o.value === filterCountry)?.label}`} color="#2563eb" bg="#dbeafe" />}
-            {filterLanguage && <Badge label={`Jazyk: ${LANGUAGE_OPTIONS.find(o => o.value === filterLanguage)?.label}`} color="#7c3aed" bg="#ede9fe" />}
+            {filterCountry && <Badge label={`Země: ${countryText(filterCountry)}`} color="#2563eb" bg="#dbeafe" />}
+            {filterLanguage && <Badge label={`Jazyk: ${langText(filterLanguage)}`} color="#7c3aed" bg="#ede9fe" />}
             <button
               type="button"
               onClick={() => { setFilterCountry(''); setFilterLanguage('') }}
@@ -85,23 +90,7 @@ export function CampaignsMobileStep2({ segment, setSegment, filterCountry, setFi
         )}
       </div>
 
-      <div className="flex items-center" style={{ gap: 8, minHeight: 40 }}>
-        {recipientCountLoading ? (
-          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-brand-gd" />
-        ) : (
-          <>
-            <span style={{ fontSize: 24 }}>👥</span>
-            <span className="text-2xl font-black" style={{ color: '#1a8a18' }}>{recipientCount}</span>
-            <span className="font-bold" style={{ fontSize: 14, color: '#1a2e22' }}>příjemců</span>
-          </>
-        )}
-      </div>
-
-      {recipientCount === 0 && !recipientCountLoading && (
-        <div className="rounded-card" style={{ ...NOTE, background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
-          Žádní příjemci v tomto segmentu. Zvolte jiný segment.
-        </div>
-      )}
+      {/* Počet příjemců (i upozornění na prázdný segment) ukazuje přilepená lišta průvodce nad tlačítky. */}
       <div className="rounded-card" style={{ ...NOTE, background: '#fffbeb', border: '1px solid #fbbf24', color: '#78350f' }}>
         ⚠️ Kampaň bude odeslána pouze zákazníkům s aktivním marketingovým souhlasem.
         Zákazníci bez souhlasu (marketing_consent=false) jsou automaticky vyloučeni.

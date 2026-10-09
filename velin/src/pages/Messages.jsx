@@ -40,6 +40,9 @@ export default function Messages() {
   const debugMode = useDebugMode()
   const isMobile = useIsMobile()
   const isTabletUp = useMediaQuery('(min-width: 768px)')
+  // Nízký displej (telefon na šířku): pevná výška seznamu by přetekla → seznam teče ve stránce a roluje jen ona.
+  const listOffset = isTabletUp ? LIST_OFFSET_TABLET : LIST_OFFSET_PHONE
+  const isShortViewport = useMediaQuery(`(max-height: ${320 + listOffset - 1}px)`)
   const location = useLocation()
   const navigate = useNavigate()
   const [channel, setChannel] = useState('sms')
@@ -56,17 +59,30 @@ export default function Messages() {
   const [customerSearch, setCustomerSearch] = useState('')
 
   // Mobil: otevřená konverzace = záznam v historii, takže systémové „zpět“
-  // (gesto na Androidu, tlačítko prohlížeče) zavře chat místo opuštění Zpráv. Desktop = jen stav.
+  // (gesto na Androidu/iOS, tlačítko prohlížeče) zavře chat místo opuštění Zpráv. Desktop = jen stav.
   const historyThreadId = location.state?.mgChatThread || null
   const prevHistoryThreadId = useRef(historyThreadId)
+  const threadCache = useRef({}) // otevřené konverzace podle id — „vpřed“ v prohlížeči je znovu otevře
 
-  function pushThreadEntry(threadId) {
-    navigate(location.pathname + location.search, { state: { ...(location.state || {}), mgChatThread: threadId } })
+  // Rozepsaná odpověď a úpravy AI návrhů mimo ChatPanel: při přechodu přes 1024 px (otočení tabletu,
+  // změna okna) se mobilní/desktopový ChatPanel vymění a text se nesmí ztratit. Objekt se nemění, jen obsah.
+  const chatDraft = useRef({ reply: '', aiEdits: {} })
+  function resetChatDraft() {
+    const d = chatDraft.current
+    d.reply = ''
+    for (const k of Object.keys(d.aiEdits)) delete d.aiEdits[k]
+  }
+
+  function pushThreadEntry(threadId, replace = false) {
+    navigate(location.pathname + location.search, { replace, state: { ...(location.state || {}), mgChatThread: threadId } })
   }
 
   function openThread(thread) {
+    threadCache.current[thread.id] = thread
     setSelected(thread)
-    if (isMobile) pushThreadEntry(thread.id)
+    // Aktuální záznam už konverzaci nese (po „vpřed“, opakované otevření) → nahradit, ne přidat další,
+    // jinak by první „zpět“ nic neudělalo.
+    if (isMobile) pushThreadEntry(thread.id, !!historyThreadId)
   }
 
   function closeThread() {
@@ -75,19 +91,36 @@ export default function Messages() {
   }
 
   // Zastaralý záznam (reload s otevřeným chatem) odstraň, aby „zpět“ vždy odpovídalo otevřenému chatu.
-  useEffect(() => {
-    if (!location.state?.mgChatThread) return
-    const { mgChatThread, ...rest } = location.state
+  function clearHistoryThread() {
+    const { mgChatThread, ...rest } = location.state || {}
     navigate(location.pathname + location.search, { replace: true, state: Object.keys(rest).length ? rest : null })
+  }
+  useEffect(() => {
+    if (location.state?.mgChatThread) clearHistoryThread()
   }, [])
 
   useEffect(() => {
     const popped = prevHistoryThreadId.current !== historyThreadId
     prevHistoryThreadId.current = historyThreadId
-    if (!isMobile || channel !== 'chat' || !selected || historyThreadId === selected.id) return
+    if (!isMobile || channel !== 'chat') return
+    if (!selected) {
+      // „Vpřed“ na záznam s konverzací → znovu ji otevři (jinak by seznam stál na záznamu chatu a „zpět“ nic neudělalo).
+      if (popped && historyThreadId) {
+        const cached = threadCache.current[historyThreadId]
+        if (cached) setSelected(cached)
+        else clearHistoryThread()
+      }
+      return
+    }
+    if (historyThreadId === selected.id) return
     if (popped) setSelected(null) // „zpět“ → zpět na seznam konverzací
-    else pushThreadEntry(selected.id) // tablet otočený z desktopové šířky: chat zůstane otevřený
+    else pushThreadEntry(selected.id, !!historyThreadId) // tablet otočený z desktopové šířky: chat zůstane otevřený
   }, [isMobile, channel, historyThreadId])
+
+  // Mobil: zavřená konverzace = prázdné pole pro další (text nesmí přejít k jinému zákazníkovi).
+  useEffect(() => { if (isMobile && !selected) resetChatDraft() }, [isMobile, selected])
+  // Odchod z kanálu Chat = ChatPanel zanikne i s rozepsaným textem (jako dřív).
+  useEffect(() => { if (channel !== 'chat') resetChatDraft() }, [channel])
 
   async function loadCustomers() {
     const { data } = await debugAction('messages.loadCustomers', 'Messages', () =>
@@ -139,6 +172,7 @@ export default function Messages() {
   }
 
   function handleThreadUpdate(updated) {
+    if (threadCache.current[updated.id]) threadCache.current[updated.id] = updated
     setSelected(updated)
   }
 
@@ -231,10 +265,10 @@ export default function Messages() {
           {isMobile ? (
             <>
               {/* Mobil: seznam konverzací přes celou šířku, otevřený chat = celoobrazovkový překryv */}
-              <div className="bg-white rounded-card shadow-card overflow-hidden" style={{ height: `calc(${VH} - ${isTabletUp ? LIST_OFFSET_TABLET : LIST_OFFSET_PHONE}px)`, minHeight: 320 }}>
+              <div className="bg-white rounded-card shadow-card overflow-hidden" style={isShortViewport ? undefined : { height: `calc(${VH} - ${listOffset}px)`, minHeight: 320 }}>
                 <ThreadList mobile selectedId={selected?.id} onSelect={openThread} onNewThread={openNewThread} />
               </div>
-              {selected && <ChatPanel mobile thread={selected} onThreadUpdate={handleThreadUpdate} onBack={closeThread} />}
+              {selected && <ChatPanel mobile thread={selected} onThreadUpdate={handleThreadUpdate} onBack={closeThread} draft={chatDraft} />}
             </>
           ) : (
           <div className="flex bg-white rounded-card shadow-card overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
@@ -243,7 +277,7 @@ export default function Messages() {
             </div>
             {/* minWidth 0: na užším desktopu (1024–1200 px) se panel vejde vedle seznamu a Odeslat zůstane vidět */}
             <div className="flex-1" style={{ minWidth: 0 }}>
-              <ChatPanel thread={selected} onThreadUpdate={handleThreadUpdate} />
+              <ChatPanel thread={selected} onThreadUpdate={handleThreadUpdate} draft={chatDraft} />
             </div>
           </div>
           )}

@@ -37,7 +37,7 @@ function DaySeparator({ iso }) {
   )
 }
 
-function Bubble({ message, threadId, currentAdminId, onAiAction }) {
+function Bubble({ message, threadId, currentAdminId, onAiAction, aiEdits }) {
   const isAdmin = message.direction === 'admin' || message.direction === 'outbound'
   const isSystem = message.direction === 'system'
   const isCustomer = message.direction === 'customer' || message.direction === 'inbound'
@@ -88,6 +88,7 @@ function Bubble({ message, threadId, currentAdminId, onAiAction }) {
             threadId={threadId}
             currentAdminId={currentAdminId}
             onApprovedSent={onAiAction}
+            editDrafts={aiEdits}
           />
         </div>
       </div>
@@ -101,7 +102,7 @@ function Bubble({ message, threadId, currentAdminId, onAiAction }) {
   )
 }
 
-export default function ChatMobileMessages({ messages, threadId, currentAdminId, onAiAction }) {
+export default function ChatMobileMessages({ messages, threadId, currentAdminId, onAiAction, aiEdits }) {
   let lastDay = null
   const items = []
   for (const m of messages) {
@@ -111,7 +112,7 @@ export default function ChatMobileMessages({ messages, threadId, currentAdminId,
       lastDay = key
     }
     items.push(
-      <Bubble key={m.id} message={m} threadId={threadId} currentAdminId={currentAdminId} onAiAction={onAiAction} />
+      <Bubble key={m.id} message={m} threadId={threadId} currentAdminId={currentAdminId} onAiAction={onAiAction} aiEdits={aiEdits} />
     )
   }
   return items

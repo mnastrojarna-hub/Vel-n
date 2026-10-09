@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import RadioOption from './RadioOption'
@@ -29,6 +30,19 @@ function missingHints({ channel, sendType, bulk, single, mode, selectedTemplateI
   return out
 }
 
+// Výsledek odeslání drží ManualSendTab až do dalšího odeslání. Jakmile obsluha začne
+// další zprávu (změna formuláře oproti stavu po odeslání), výsledek skryjeme a vrátíme
+// nápovědu „Pro odeslání: …“. Stav po odeslání = formulář v renderu, kdy výsledek přišel
+// (handleSend nastaví výsledek a vynuluje formulář v jedné dávce).
+function useResultDismissed(result, formKey) {
+  const [seen, setSeen] = useState({ result, key: formKey, dismissed: false })
+  let cur = seen
+  if (cur.result !== result) cur = { result, key: formKey, dismissed: false }
+  else if (result && !cur.dismissed && formKey !== cur.key) cur = { ...cur, dismissed: true }
+  if (cur !== seen) setSeen(cur)
+  return !!result && cur.dismissed
+}
+
 export default function ManualSendMobile(p) {
   const {
     channel, debugMode, sendType, setSendType, bulk, single, mode, setMode, templates,
@@ -37,7 +51,13 @@ export default function ManualSendMobile(p) {
   } = p
   const label = CHANNEL_LABELS[channel]
   const limit = CHAR_LIMITS[channel]
-  const hints = !canSend && !sending && !result?.ok ? missingHints(p) : []
+  const formKey = [
+    sendType, single.selectedCustomer?.id || '', single.customerSearch, bulk.bulkSegment, bulk.bulkCountry,
+    bulk.bulkLanguage, mode, selectedTemplateId, subject, body,
+  ].join('\u0001')
+  const resultDismissed = useResultDismissed(result, formKey)
+  const showResult = !!result && !resultDismissed
+  const hints = !canSend && !sending && (!result?.ok || resultDismissed) ? missingHints(p) : []
 
   return (
     <Card style={{ padding: 16, minWidth: 0 }}>
@@ -153,7 +173,7 @@ export default function ManualSendMobile(p) {
               Pro odeslání: {hints.join(' · ')}
             </div>
           )}
-          {result && (
+          {showResult && (
             <div role="status" className="rounded-card font-bold"
               style={{ marginTop: 10, padding: '10px 14px', fontSize: 14, overflowWrap: 'anywhere', color: result.ok ? '#1a6a18' : '#991b1b', background: result.ok ? '#dcfce7' : '#fee2e2' }}>
               {result.ok ? '✓ ' : '⚠ '}{result.msg}
