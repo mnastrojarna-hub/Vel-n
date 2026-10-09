@@ -8,7 +8,7 @@ import { SERVICE_TYPE_LABELS, LOG_TYPE_LABELS, fmtDate, fmtKm, fmtMoney, isLogCo
  * Servisní kniha motorky: chronologie DOKONČENÝCH servisů se zadáním, zprávou technika, úkony (✓ = provedeno),
  * km, technikem, cenou a doklady. Filtry: text, úkon (jen záznamy, kde byl proveden), rok.
  * Zdroj: maintenance_log (items s klíči z katalogu; starší záznamy párujeme podle štítku / aliasu).
- * Props: logs, unitLabel, invoicesByLog { logId: [maintenance_invoices] }, onEdit(log)
+ * Props: logs, unitLabel, invoicesByLog { logId: [maintenance_invoices] }, onEdit(log), canEdit(log) — běžný účet neupravuje cizí dokončené servisy
  */
 const TYPE_KEYS = { oil_change: ['oil_change', 'oil_filter'], tire_change: ['tire_front', 'tire_rear'], full_service: ['full_service'], winter_service: ['full_service'] }
 const logDate = l => (l.completed_date || l.service_date || l.created_at || '').slice(0, 10)
@@ -29,7 +29,7 @@ export function doneKeysOf(l) {
 }
 const sel = { padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', fontSize: 13, borderRadius: 50 }
 
-export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog = {}, onEdit }) {
+export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog = {}, onEdit, canEdit }) {
   const [q, setQ] = useState('')
   const [task, setTask] = useState('')
   const [year, setYear] = useState('')
@@ -90,7 +90,7 @@ export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog 
                     </td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{l.performed_by || '—'}</td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 700, color: '#0f1a14' }}>{fmtMoney(effectiveCost(l))}{Number(l.invoiced_amount) > 0 && Number(l.cost) > 0 && Number(l.cost) !== Number(l.invoiced_amount) ? <div className="text-xs font-normal" style={{ color: '#9ca3af' }}>odhad {fmtMoney(l.cost)}</div> : null}</td>
-                    <td style={{ padding: '8px 6px' }}>{onEdit && <button onClick={() => onEdit(l)} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#2563eb' }} title="Upravit záznam">✎</button>}</td>
+                    <td style={{ padding: '8px 6px' }}>{onEdit && (!canEdit || canEdit(l)) && <button onClick={() => onEdit(l)} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#2563eb' }} title="Upravit záznam">✎</button>}</td>
                   </tr>
                 )
               })}

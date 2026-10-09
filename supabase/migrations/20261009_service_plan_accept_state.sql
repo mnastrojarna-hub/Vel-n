@@ -4,7 +4,9 @@
 --  (1) service_plan_accept_state(p_moto_id, p_note, p_states): všem AKTIVNÍM plánům motorky (NULL = flotila),
 --      které jsou ve stavu po termínu / blíží se / neověřeno (dle get_service_due) a nejsou už v otevřeném
 --      servisu, nastaví „naposledy provedeno“ = dnes při aktuálním stavu tachometru (baseline_source = manual,
---      ruční termín zrušen, poznámka s původem). Plány v pořádku se nemění. Zápis do admin_audit_log.
+--      poznámka s původem; ruční termín v budoucnu zůstává). Plány v pořádku se nemění; plán, který se jen blíží
+--      a má „naposledy“ ze skutečného servisního záznamu (baseline log), se nemění (systém funguje správně).
+--      Jen superadmin (rozhodnutí majitele; podúčet ne). Zápis do admin_audit_log.
 --      Dokončený servisní záznam (zimní prohlídka s odškrtnutými úkony) baseline znovu přepíše (trigger).
 --  (2) jednorázové spuštění pro celou flotilu při nasazení.
 -- Idempotentní (CREATE OR REPLACE; opakované volání nic dalšího nemění).
@@ -24,7 +26,7 @@ DECLARE
   v_motos  uuid[] := '{}';
   v_ids    uuid[] := '{}';
 BEGIN
-  IF auth.uid() IS NOT NULL AND NOT public.is_admin() THEN
+  IF auth.uid() IS NOT NULL AND NOT public.is_superadmin() THEN
     RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
   END IF;
   v_note := COALESCE(NULLIF(btrim(p_note), ''), 'stav převzat z evidence ' || to_char(CURRENT_DATE, 'DD.MM.YYYY'));
@@ -33,13 +35,14 @@ BEGIN
     SELECT d.schedule_id, d.moto_id, d.current_km
       FROM public.get_service_due(p_moto_id) d
      WHERE d.state = ANY (p_states) AND d.open_log_id IS NULL
+       AND NOT (d.state = 'due_soon' AND d.baseline_source = 'log')   -- blížící se dle skutečného záznamu = v pořádku
   LOOP
     UPDATE maintenance_schedules s
        SET last_service_km   = CASE WHEN COALESCE(r.current_km, 0) > 0 THEN r.current_km ELSE s.last_service_km END,
            last_service_date = CURRENT_DATE,
            last_performed    = CURRENT_DATE,
            baseline_source   = 'manual',
-           next_due          = NULL,
+           next_due          = CASE WHEN s.next_due > CURRENT_DATE THEN s.next_due END,   -- budoucí ruční termín zůstává
            notes             = CASE WHEN NULLIF(btrim(COALESCE(s.notes, '')), '') IS NULL THEN v_note
                                     WHEN position(v_note IN s.notes) > 0 THEN s.notes
                                     ELSE s.notes || ' · ' || v_note END,
@@ -63,7 +66,7 @@ BEGIN
 END $$;
 
 COMMENT ON FUNCTION public.service_plan_accept_state(uuid, text, text[]) IS
-  '„Vše v pořádku k dnešku“ (2026-10-09): aktivním plánům motorky (NULL = flotila) ve stavu overdue/due_soon/unknown (dle get_service_due, ne v otevřeném servisu) nastaví naposledy provedeno = dnes při aktuálním stavu tachometru (baseline manual, next_due NULL, poznámka). Plány v pořádku nemění. Vrací {updated, motos, note}. Audit admin_audit_log. Volá Velín (knížka motorky, Servis → Plánované).';
+  '„Vše v pořádku k dnešku“ (2026-10-09): aktivním plánům motorky (NULL = flotila) ve stavu overdue/due_soon/unknown (dle get_service_due; ne v otevřeném servisu; ne due_soon s baseline log) nastaví naposledy provedeno = dnes při aktuálním stavu tachometru (baseline manual, poznámka; budoucí ruční termín zůstává). Plány v pořádku nemění. Jen superadmin. Vrací {updated, motos, note}. Audit admin_audit_log. Volá Velín (knížka motorky, Servis → Plánované).';
 
 REVOKE ALL ON FUNCTION public.service_plan_accept_state(uuid, text, text[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.service_plan_accept_state(uuid, text, text[]) TO authenticated, service_role;

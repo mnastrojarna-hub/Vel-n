@@ -84,7 +84,7 @@ export default function Service() {
 
       {tab === 'prehled' && <ServiceOverview />}
       {tab === 'aktivni' && <ActiveServiceTab onRefresh={loadStats} />}
-      {tab === 'planovane' && <ServiceSchedule />}
+      {tab === 'planovane' && <ServiceSchedule onRefresh={loadStats} />}
       {tab === 'kniha' && <ServiceBookIndex />}
       {tab === 'log' && <ServiceLog />}
       {tab === 'stk' && <StkTab />}
