@@ -5,7 +5,7 @@ import Button from '../ui/Button'
 import PartsPanel from './PartsPanel'
 import AddScheduleBtn from './AddScheduleBtn'
 import ServiceBundleBox from './ServiceBundleBox'
-import { DUE_STATE, BASELINE_LABELS, SOURCE_LABELS, fmtDate, fmtKm, intervalText, planServiceFromDue, recordServiceDone, applyServicePresets, todayIso } from '../../lib/serviceBook'
+import { DUE_STATE, BASELINE_LABELS, SOURCE_LABELS, fmtDate, fmtKm, intervalText, planServiceFromDue, recordServiceDone, applyServicePresets, acceptServiceState, todayIso } from '../../lib/serviceBook'
 import { groupDueByCatalogGroup } from '../../lib/serviceBundle'
 
 const inp = { padding: '4px 8px', background: '#fff', border: '1px solid #d4e8e0', fontSize: 13 }
@@ -53,6 +53,12 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
     await logAudit?.('schedule_updated', { schedule_id: editing.id, moto_id: moto.id }); setEditing(null)
     return 'Interval uložen'
   }, editing.id)
+  const acceptAll = () => {
+    const n = rows.filter(r => !r.open_log_id && ['overdue', 'due_soon', 'unknown'].includes(r.state)).length
+    if (!n) { setMsg({ text: 'Žádný plán není po termínu, blížící se ani neověřený — není co převzít.' }); return }
+    if (!window.confirm(`Převzít stav z jiné evidence: ${n} plánů (po termínu / blíží se / neověřeno) dostane „naposledy provedeno“ = dnes při ${fmtKm(moto?.mileage, unitLabel)}. Plány v pořádku se nemění; dokončený servis (např. zimní prohlídka) odpočet znovu přepíše. Pokračovat?`)) return
+    run('accept', async () => { const r = await acceptServiceState(moto.id, `stav převzat z evidence ${fmtDate(todayIso())}`); return `Převzato: ${r?.updated || 0} plánů počítá od dneška (${fmtKm(moto?.mileage, unitLabel)}).` })
+  }
   const applyStd = () => run('std', async () => { const r = await applyServicePresets(moto.id); return `Standardní plány: ${r?.created || 0} založeno, ${r?.updated || 0} aktualizováno${r?.deactivated ? `, ${r.deactivated} vyřazeno (netýká se)` : ''}` })
 
   return (
@@ -67,6 +73,7 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <button onClick={acceptAll} disabled={busy === 'accept'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer" style={{ padding: '6px 12px', background: '#e8fde8', color: '#1a8a18', border: 'none' }} title="Stav hlídaný jinde (papír): plány po termínu / blíží se / neověřené začnou počítat od dneška a aktuálního stavu tachometru">Vše v pořádku k dnešku</button>
           <button onClick={applyStd} disabled={busy === 'std'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer" style={{ padding: '6px 12px', background: '#eef2ff', color: '#4f46e5', border: 'none' }} title="Založí chybějící plány základního standardu dle výrobce / katalogu">Doplnit standardní plány</button>
           <AddScheduleBtn onAdd={onAddSchedule} saving={saving} unitLabel={unitLabel} existingTypes={(schedules || []).map(s => s.description)} existingTaskKeys={existingTaskKeys} />
         </div>

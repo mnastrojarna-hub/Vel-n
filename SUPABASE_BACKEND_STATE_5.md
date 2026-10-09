@@ -44,7 +44,7 @@ Detailní politiky:
 - **service_task_catalog, service_interval_presets** (NEW 2026-10-08, `20261008_service_book_schema.sql`): public SELECT (`*_public_read` USING true), admin ALL (`*_admin_write`); GRANT SELECT anon+authenticated
 - **maintenance_invoices** (NEW 2026-10-08): admin ALL (`maintenance_invoices_admin_all`); GRANT ALL authenticated + service_role
 - **service_provider_profiles** (NEW 2026-10-08): `service_provider_profiles_own` FOR ALL — `is_admin() AND (admin_id = auth.uid() OR is_superadmin())` (technik vidí/edituje jen svou hlavičku, superadmin vše); GRANT ALL authenticated + service_role
-- **Funkce servisu (2026-10-08):** `service_plan_apply_presets`, `auto_schedule_services`, `get_service_due`, `get_service_due_count`, `get_last_service_per_moto` — REVOKE FROM PUBLIC, anon (projekt má default EXECUTE pro anon); GRANT authenticated + service_role (auto_schedule_services jen service_role/cron)
+- **Funkce servisu (2026-10-08):** `service_plan_apply_presets`, `auto_schedule_services`, `get_service_due`, `get_service_due_count`, `get_last_service_per_moto`, **`service_plan_accept_state` (2026-10-09)** — REVOKE FROM PUBLIC, anon (projekt má default EXECUTE pro anon); GRANT authenticated + service_role (auto_schedule_services jen service_role/cron)
 - **emp_attendance:** admin ALL (is_admin)
 - **emp_vacations:** admin ALL (is_admin)
 - **emp_shifts:** admin ALL (is_admin)

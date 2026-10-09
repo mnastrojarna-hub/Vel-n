@@ -91,6 +91,18 @@ export async function applyServicePresets(motoId = null) {
 }
 
 /**
+ * „Vše v pořádku k dnešku“: plány po termínu / blíží se / neověřené (motorka, nebo NULL = flotila) dostanou
+ * „naposledy provedeno“ = dnes při aktuálním stavu tachometru (stav převzatý z jiné evidence). Plány v pořádku
+ * se nemění, dokončený servisní záznam baseline znovu přepíše.
+ */
+export async function acceptServiceState(motoId = null, note = null) {
+  const { data, error } = await supabase.rpc('service_plan_accept_state', { p_moto_id: motoId, p_note: note })
+  if (error) throw error
+  if (data && data.ok === false) throw new Error(data.error || 'forbidden')
+  return data
+}
+
+/**
  * Kontrola rezervací před naplánováním servisu (od `date` je motorka v servisu → nepůjde půjčit).
  * Probíhající pronájem = potvrdit, kolidující nadcházející rezervace = upozornit. Vrací false = zrušeno.
  */

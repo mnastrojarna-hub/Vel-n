@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
-import { fetchServiceDue, DUE_STATE, SOURCE_LABELS, BASELINE_LABELS, dueText, intervalText, fmtDate, fmtKm, planServiceFromDue, isoDateOf } from '../../lib/serviceBook'
+import { fetchServiceDue, DUE_STATE, SOURCE_LABELS, BASELINE_LABELS, dueText, intervalText, fmtDate, fmtKm, planServiceFromDue, isoDateOf, acceptServiceState, todayIso } from '../../lib/serviceBook'
 
 const FILTERS = [['attention', 'K řešení'], ['all', 'Vše'], ['planned', 'Naplánované'], ['stk', 'STK']]
 const STATE_ORDER = { overdue: 0, due_soon: 1, unknown: 2, ok: 3 }
@@ -55,6 +55,16 @@ export default function ServiceSchedule() {
     setBusy(null)
   }
   async function plan(r) { setBusy(r.schedule_id); try { const res = await planServiceFromDue(r, { date: r.planned_date || undefined }); if (res) await load() } catch (e) { alert(e.message) } setBusy(null) }
+  // „Vše v pořádku k dnešku“ pro celou flotilu — stav hlídaný jinde (papír); plány v pořádku se nemění
+  async function acceptFleet() {
+    const n = rows.filter(r => !r.open_log_id && ['overdue', 'due_soon', 'unknown'].includes(r.state)).length
+    if (!n) { alert('Žádný plán není po termínu, blížící se ani neověřený.'); return }
+    if (!window.confirm(`Převzít stav z jiné evidence pro CELOU flotilu: ${n} plánů (po termínu / blíží se / neověřeno) dostane „naposledy provedeno“ = dnes při aktuálním stavu tachometru každé motorky. Plány v pořádku se nemění; dokončený servis (zimní prohlídka) odpočet znovu přepíše. Pokračovat?`)) return
+    setBusy('accept')
+    try { const r = await acceptServiceState(null, `stav převzat z evidence ${fmtDate(todayIso())}`); alert(`Převzato: ${r?.updated || 0} plánů u ${r?.motos || 0} motorek počítá od dneška.`); await load() }
+    catch (e) { alert(`Nepodařilo se: ${e.message}`) }
+    setBusy(null)
+  }
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   const counts = rows.reduce((a, r) => { if (!r.open_log_id) a[r.state] = (a[r.state] || 0) + 1; return a }, {})
@@ -67,6 +77,7 @@ export default function ServiceSchedule() {
             style={{ padding: '6px 14px', background: filter === k ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none', boxShadow: filter === k ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{label}</button>
         ))}
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Hledat motorku / úkon…" className="rounded-btn text-sm outline-none" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 220 }} />
+        <button onClick={acceptFleet} disabled={busy === 'accept'} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer" style={{ padding: '6px 14px', background: '#e8fde8', color: '#1a8a18', border: 'none' }} title="Stav hlídaný jinde (papír): plány po termínu / blíží se / neověřené v celé flotile začnou počítat od dneška">Vše v pořádku k dnešku</button>
         <span className="ml-auto text-xs flex gap-3 font-bold">
           {['overdue', 'due_soon', 'unknown', 'ok'].map(k => counts[k] ? <span key={k} style={{ color: DUE_STATE[k].color }}>{DUE_STATE[k].label}: {counts[k]}</span> : null)}
           <span style={{ color: '#6b7280' }}>{list.length} řádků</span>
