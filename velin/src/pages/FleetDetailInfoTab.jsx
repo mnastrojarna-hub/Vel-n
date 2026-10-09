@@ -11,6 +11,7 @@ import RichTextEditor from '../components/ui/RichTextEditor'
 import { confirmTrailerBranchMove } from './BranchHelpers'
 import { moveMotos } from '../lib/motoMove'
 import { useOdometerPrompt } from '../components/fleet/OdometerReadingModal'
+import MileageCorrectionModal from '../components/fleet/MileageCorrectionModal'
 
 // Skupiny ŘP, které lze přiřadit vozidlu (OR — stačí, aby zákazník měl kteroukoliv).
 // 'N' = bez ŘP (dětské). Vícenásobný výběr: skútr může být A1 i B, přívěs B atd.
@@ -119,17 +120,10 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
   }, [moto.id])
 
   // Ruční korekce nájezdu — zapíše přes RPC (audit + srovnání na purchase_mileage).
-  async function handleCorrectMileage() {
-    const cur = moto.mileage != null ? String(moto.mileage) : ''
-    const input = window.prompt(`Zadej skutečný stav ${unitLabel}:`, cur)
-    if (input == null) return
-    const km = parseInt(String(input).replace(/[^\d]/g, ''), 10)
-    if (!Number.isFinite(km) || km < 0) { alert('Neplatná hodnota.'); return }
-    setCorrecting(true)
-    const { data, error: rpcErr } = await supabase.rpc('correct_motorcycle_mileage', { p_moto_id: moto.id, p_km: km, p_note: 'Ruční korekce ve Flotile' })
+  function handleMileageCorrected({ mileage, purchase_mileage }) {
     setCorrecting(false)
-    if (rpcErr) { alert('Korekce selhala: ' + rpcErr.message); return }
-    set('mileage', data?.mileage ?? km)
+    set('mileage', mileage)
+    set('purchase_mileage', purchase_mileage)
     onMotoReload && onMotoReload()
   }
   async function loadManual() {
@@ -258,11 +252,11 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{unit === 'mh' ? 'Nájezd (MH)' : 'Nájezd (km)'}</label>
             <div className="flex items-center gap-2">
               <input type="text" inputMode="decimal" value={moto.mileage || ''} onChange={e => set('mileage', e.target.value)} className="flex-1 rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
-              <button type="button" onClick={handleCorrectMileage} disabled={correcting}
+              <button type="button" onClick={() => setCorrecting(true)}
                 className="rounded-btn text-sm font-extrabold uppercase cursor-pointer whitespace-nowrap"
                 style={{ padding: '8px 12px', background: '#dbeafe', color: '#2563eb', border: 'none' }}
                 title="Ruční korekce s auditem (např. po načtení skutečného tachometru). Aktualizuje se i automaticky z předávacích protokolů.">
-                {correcting ? '…' : 'Korigovat'}
+                Korigovat
               </button>
             </div>
             <p className="text-xs mt-1" style={{ color: '#5b7065' }}>Aktualizuje se z předávacích protokolů (nejvyšší známý stav). „Korigovat“ = ruční oprava s auditem.</p>
@@ -486,6 +480,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
       <ServiceScheduleCard moto={moto} schedules={schedules} avgKm={avgKm} kmStats={kmStats} unitLabel={unitLabel} unit={unit} motoBookings={motoBookings} />
       <SOSIncidentsCard sosIncidents={sosIncidents} motoId={moto.id} />
       {odoModal}
+      {correcting && <MileageCorrectionModal moto={moto} onClose={() => setCorrecting(false)} onDone={handleMileageCorrected} />}
     </div>
   )
 }
