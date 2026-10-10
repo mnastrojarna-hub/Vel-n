@@ -11,6 +11,7 @@ import '../auth/widgets/toast_helper.dart';
 import 'document_camera_screen.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
+import 'docs_gate_provider.dart';
 import '../auth/auth_provider.dart';
 
 // Kontakt z CLAUDE.md — firma Bc. Petra Semorádová.
@@ -72,8 +73,10 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     if (_idType == 'passport') {
       final pp = t(context).tr('passport');
       return [
-        _ScanStep(ScanDocType.idCard, '📕', pp, front, 'passport_front'),
-        _ScanStep(ScanDocType.idCard, '📕', pp, back, 'passport_back'),
+        // Pas = vlastní typ (`documents.type` 'passport', Mindee model pasu);
+        // pro bránu kódů stačí jedna datová strana.
+        _ScanStep(ScanDocType.passport, '📕', pp, front, 'passport_front'),
+        _ScanStep(ScanDocType.passport, '📕', pp, back, 'passport_back'),
         _ScanStep(ScanDocType.driversLicense, '🏍️', dl, front, 'dl_front'),
         _ScanStep(ScanDocType.driversLicense, '🏍️', dl, back, 'dl_back'),
       ];
@@ -221,9 +224,10 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
 
       final uploadOk = uploadResult.ok;
 
-      // Pravidlo (b3): když je fotka uložená, krok NIKDY neselže — door codes
-      // se uvolní i bez OCR (fotka NEBO reálné OCR). OCR data jen navíc doplní
-      // profil (číslo/platnost/jméno/…); jejich absence není chyba.
+      // Pravidlo (b3): když je fotka uložená, krok NIKDY neselže — pro kódy
+      // rozhoduje fotka dané strany (+ platné údaje v profilu), ne OCR. OCR
+      // data jen navíc doplní profil (číslo/platnost/jméno/…); jejich
+      // absence není chyba.
       if (uploadOk) {
         String message;
         if (ocrDataOk) {
@@ -574,17 +578,46 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     }
   }
 
+  /// Přeskočená povinná strana (záloha, když brána dokladů neodpoví):
+  /// OP líc + rub, u pasu stačí jedna strana, ŘP líc + rub.
+  bool get _skippedRequired {
+    bool done(String k) => _completed[k] == true;
+    final keys = _sequence.map((s) => s.key).toList();
+    if (_idType == 'passport') {
+      keys.removeWhere((k) => k.startsWith('passport_'));
+      if (!done('passport_front') && !done('passport_back')) return true;
+    }
+    return keys.any((k) => !done(k));
+  }
+
   Future<void> _finalize() async {
     showMotoGoToast(context,
         icon: '⏳', title: t(context).tr('verifyingDocs'), message: '');
     await Future.delayed(const Duration(milliseconds: 500));
     try { await verifyCustomerDocs(OcrResult()); } catch (_) {}
+    // Kompletnost stran podle serverové brány (počítá i dřív nahrané fotky);
+    // bez odpovědi RPC podle kroků tohoto skenu.
+    final gate = await fetchDocsGateChecklist();
     if (!mounted) return;
     ref.invalidate(docsVerifiedProvider);
     ref.invalidate(profileProvider);
-    showMotoGoToast(context,
-        icon: '✅', title: t(context).tr('scanComplete'),
-        message: t(context).tr('docsUploadedVerified'));
+    final missing = gate != null
+        ? docsGateMissingLabels(context, gate, docsOnly: true)
+        : const <String>[];
+    if (gate != null ? missing.isNotEmpty : _skippedRequired) {
+      // Poctivě: kódy nepřijdou, dokud strana chybí (dřív „nahrány a ověřeny“).
+      showMotoGoToast(context,
+          icon: '⚠️', title: t(context).tr('docsScanIncompleteTitle'),
+          message: missing.isEmpty
+              ? t(context).tr('docsScanIncomplete')
+              : '${t(context).tr('docsScanIncomplete')}\n'
+                  '${t(context).tr('missing')}: ${missing.join(', ')}',
+          duration: const Duration(seconds: 6));
+    } else {
+      showMotoGoToast(context,
+          icon: '✅', title: t(context).tr('scanComplete'),
+          message: t(context).tr('docsUploadedVerified'));
+    }
     // Navigate back to docs screen when scanning just DL, otherwise go home
     if (widget.scanMode == 'dl_only') {
       context.go(Routes.docs);

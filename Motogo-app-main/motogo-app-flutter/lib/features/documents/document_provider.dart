@@ -460,14 +460,16 @@ class DocUploadResult {
 /// Uloží fotku dokladu přes edge fn `save-verification-document` (běží pod
 /// service_role → obejde RLS, fotka se uloží do bucketu `documents` + záznam
 /// do `public.documents`). Fotka se ukládá VŽDY (i když OCR selhalo —
-/// `mindee_status`), aby zákazník o nahranou fotku nikdy nepřišel a kódy ke
-/// dveřím se uvolnily (door-code pravidlo: fotka NEBO reálné OCR).
+/// `mindee_status`), aby zákazník o nahranou fotku nikdy nepřišel. Přístupové
+/// kódy server vydá až s fotkami líce i rubu OP (nebo pasu) a ŘP + platnými
+/// údaji (brána `get_docs_gate_checklist`, 2026-10-10).
 ///
 /// [mindeeOk] = OCR vrátilo data (ok) vs. selhalo (failed).
 /// [docSide] = 'front' | 'back' | null — strana dokladu (líc/rub). Ukládá se do
 /// `documents.metadata.side`; Velín podle ní řadí fotky do slotů Líc/Rub.
-/// Fallback: pokud edge fn selže, zapíšeme aspoň marker řádek do `documents`,
-/// takže se doklad eviduje a flow nikdy „neselže na nahrání".
+/// Selhání edge fn (nebo chybějící řádek dokladu) = chyba → skener nabídne
+/// opakování / kontakt. Dřívější záložní „marker“ řádek bez fotky
+/// (`mindee_verified/…`) zrušen 2026-10-10 — nebyl to doklad a uvolňoval kódy.
 Future<DocUploadResult> uploadDocPhoto(
   XFile photo,
   ScanDocType docType, {
@@ -496,29 +498,18 @@ Future<DocUploadResult> uploadDocPhoto(
       },
     );
     final data = res.data;
-    if (data is Map && data['success'] == true) {
-      final path = data['path']?.toString() ?? 'saved';
+    // `document_id` null = fotka v úložišti, ale řádek dokladu nevznikl →
+    // doklad se nepočítá, ať to zákazník zkusí znovu.
+    if (data is Map && data['success'] == true && data['document_id'] != null) {
+      final path = data['file_path']?.toString() ?? data['path']?.toString() ?? 'saved';
       debugPrint('[DocUpload] ✓ Photo saved via edge fn: ${docType.storageType}');
       return DocUploadResult(markerPath: path);
     }
-    debugPrint('[DocUpload] ⚠ edge fn nevrátila success: $data — fallback na marker');
+    debugPrint('[DocUpload] ✗ edge fn nevrátila success: $data');
+    final err = data is Map ? (data['warn'] ?? data['error'])?.toString() : null;
+    return DocUploadResult(errorDetail: err ?? 'upload_failed');
   } catch (e) {
-    debugPrint('[DocUpload] ⚠ edge fn selhala: $e — fallback na marker');
-  }
-
-  // Fallback: marker řádek (doklad se aspoň eviduje → kódy se uvolní).
-  try {
-    final marker = 'mindee_verified/${user.id}/${docType.storageType}';
-    await MotoGoSupabase.client.from('documents').insert({
-      'user_id': user.id,
-      'type': docType.storageType,
-      'file_name': docType.label,
-      'file_path': marker,
-    });
-    debugPrint('[DocUpload] ✓ Marker record inserted: ${docType.storageType}');
-    return DocUploadResult(markerPath: marker);
-  } catch (e) {
-    debugPrint('[DocUpload] ✗ Marker insert FAILED: $e');
+    debugPrint('[DocUpload] ✗ edge fn selhala: $e');
     return DocUploadResult(errorDetail: '$e');
   }
 }

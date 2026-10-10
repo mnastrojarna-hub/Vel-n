@@ -78,8 +78,12 @@ BEGIN
     RETURN jsonb_build_object('ok', true, 'child', true, 'reason', NULL, 'missing', '[]'::jsonb);
   END IF;
 
+  -- Rub se počítá jen jako JINÝ soubor než líc (jedna fotka zapsaná dvakrát
+  -- jako líc i rub nestačí). Strana: metadata (oprava ve Velínu) > název souboru.
   WITH d AS (
-    SELECT dd.type,
+    SELECT CASE WHEN dd.type IN ('id_card', 'id_photo') THEN 'id'
+                WHEN dd.type = 'passport' THEN 'pass' ELSE 'dl' END AS k,
+           dd.file_path,
            COALESCE(NULLIF(lower(btrim(dd.metadata->>'side')), ''),
                     CASE WHEN dd.file_path ~ '_front[_.]' THEN 'front'
                          WHEN dd.file_path ~ '_back[_.]'  THEN 'back' END) AS side
@@ -91,13 +95,18 @@ BEGIN
        AND (dd.file_path LIKE p_user_id::text || '/%' OR dd.file_path LIKE 'user-docs/' || p_user_id::text || '/%')
        AND EXISTS (SELECT 1 FROM storage.objects o WHERE o.bucket_id = 'documents' AND o.name = dd.file_path)
   )
-  SELECT COALESCE(bool_or(type IN ('id_card', 'id_photo') AND side = 'front'), false),
-         COALESCE(bool_or(type IN ('id_card', 'id_photo') AND side = 'back'), false),
-         COALESCE(bool_or(type = 'passport'), false),
-         COALESCE(bool_or(type IN ('drivers_license', 'license_photo') AND side = 'front'), false),
-         COALESCE(bool_or(type IN ('drivers_license', 'license_photo') AND side = 'back'), false)
-    INTO v_id_f, v_id_b, v_pass, v_dl_f, v_dl_b
-    FROM d;
+  SELECT EXISTS (SELECT 1 FROM d WHERE k = 'id' AND side = 'front'),
+         EXISTS (SELECT 1 FROM d f JOIN d b ON b.k = 'id' AND b.side = 'back' AND b.file_path <> f.file_path
+                  WHERE f.k = 'id' AND f.side = 'front')
+           OR (NOT EXISTS (SELECT 1 FROM d WHERE k = 'id' AND side = 'front')
+               AND EXISTS (SELECT 1 FROM d WHERE k = 'id' AND side = 'back')),
+         EXISTS (SELECT 1 FROM d WHERE k = 'pass'),
+         EXISTS (SELECT 1 FROM d WHERE k = 'dl' AND side = 'front'),
+         EXISTS (SELECT 1 FROM d f JOIN d b ON b.k = 'dl' AND b.side = 'back' AND b.file_path <> f.file_path
+                  WHERE f.k = 'dl' AND f.side = 'front')
+           OR (NOT EXISTS (SELECT 1 FROM d WHERE k = 'dl' AND side = 'front')
+               AND EXISTS (SELECT 1 FROM d WHERE k = 'dl' AND side = 'back'))
+    INTO v_id_f, v_id_b, v_pass, v_dl_f, v_dl_b;
 
   SELECT date_of_birth, license_expiry, license_verified_until, license_group::text[] AS groups
     INTO v_p FROM profiles WHERE id = p_user_id;
@@ -253,3 +262,14 @@ $$;
 
 REVOKE ALL ON FUNCTION public.get_docs_gate_checklist(uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_docs_gate_checklist(uuid, uuid) TO authenticated, service_role;
+
+-- 6) `apply_profile_license_group(p_user_id, p_group)` (jen v dashboardu, bez
+--    volajících v repu i v DB) byla spustitelná anonymně → kdokoli mohl
+--    libovolnému profilu přidat skupinu ŘP a obejít kontrolu skupiny.
+DO $$
+BEGIN
+  IF to_regprocedure('public.apply_profile_license_group(uuid, text)') IS NOT NULL THEN
+    REVOKE ALL ON FUNCTION public.apply_profile_license_group(uuid, text) FROM PUBLIC, anon, authenticated;
+    GRANT EXECUTE ON FUNCTION public.apply_profile_license_group(uuid, text) TO service_role;
+  END IF;
+END $$;

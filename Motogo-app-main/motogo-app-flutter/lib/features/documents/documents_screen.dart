@@ -10,6 +10,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
+import 'docs_gate_provider.dart';
 
 /// Moje doklady — matches Capacitor original s-docs screen.
 /// Shows: info banners, scan button (camera), upload button (gallery),
@@ -19,7 +20,9 @@ class DocumentsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final verifiedAsync = ref.watch(docsVerifiedProvider);
+    // Kompletnost dokladů dle brány kódů (obě strany OP/pasu a ŘP), bez
+    // odpovědi RPC dle profilových *_verified_at (docsScreenStatusProvider).
+    final verifiedAsync = ref.watch(docsScreenStatusProvider);
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -181,7 +184,7 @@ class DocumentsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
 
-            // Doc verification status — based solely on profile verification
+            // Doc verification status — brána kódů (obě strany), záloha profil
             verifiedAsync.when(
               data: (v) {
                 if (!v.hasIdOrPassport && !v.hasLicense) {
@@ -196,6 +199,7 @@ class DocumentsScreen extends ConsumerWidget {
                       const SizedBox(height: 4),
                       Text(t(context).tr('docsNotVerifiedDesc'),
                         style: const TextStyle(fontSize: 12, color: Color(0xFF78350F), height: 1.4)),
+                      if (v.gate != null && !v.gate!.ok) _GateMissingLine(gate: v.gate!),
                     ]),
                   );
                 }
@@ -218,8 +222,12 @@ class DocumentsScreen extends ConsumerWidget {
                       onReset: () => _resetDoc(context, ref, 'drivers_license'),
                       onScan: v.hasLicense ? null : () => context.push('${Routes.docScan}?mode=dl_only'),
                     ),
+                    // Co přesně chybí pro vydání kódů (strana dokladu, věk,
+                    // platnost / skupina ŘP) — jeden řádek dle brány.
+                    if (v.gate != null && !v.gate!.ok)
+                      _GateMissingLine(gate: v.gate!),
                     const SizedBox(height: 12),
-                    if (v.isComplete)
+                    if (v.codesReady)
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -269,6 +277,7 @@ class DocumentsScreen extends ConsumerWidget {
     final ok = await resetDocVerification(docType);
     if (!context.mounted) return;
     ref.invalidate(docsVerifiedProvider);
+    ref.invalidate(docsGateChecklistProvider);
     showMotoGoToast(context,
       icon: ok ? '✅' : '❌',
       title: ok ? t(context).tr('deleted') : t(context).error,
@@ -276,21 +285,58 @@ class DocumentsScreen extends ConsumerWidget {
     );
   }
 
+  /// Volba dokladu a strany pro fotku z galerie — bez ní se fotka dřív
+  /// ukládala vždy jako OP bez strany a pro vydání kódů se nepočítala.
+  /// Vrací (typ, strana, stepKey pro saveOcrToProfile); pas = jedna strana.
+  Future<(ScanDocType, String?, String)?> _pickGalleryDocKind(BuildContext context) {
+    final tr = t(context).tr;
+    final options = <(String, String, ScanDocType, String?, String)>[
+      ('🪪', '${tr('idCard')} – ${tr('frontSide')}', ScanDocType.idCard, 'front', 'id_front'),
+      ('🪪', '${tr('idCard')} – ${tr('backSide')}', ScanDocType.idCard, 'back', 'id_back'),
+      ('📕', tr('passport'), ScanDocType.passport, null, 'passport_front'),
+      ('🏍️', '${tr('driversLicense')} – ${tr('frontSide')}', ScanDocType.driversLicense, 'front', 'dl_front'),
+      ('🏍️', '${tr('driversLicense')} – ${tr('backSide')}', ScanDocType.driversLicense, 'back', 'dl_back'),
+    ];
+    return showModalBottomSheet<(ScanDocType, String?, String)>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(t(ctx).tr('galleryPickDocType'),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+            const SizedBox(height: 16),
+            ...options.map((o) => ListTile(
+                  leading: Text(o.$1, style: const TextStyle(fontSize: 22)),
+                  title: Text(o.$2, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  onTap: () => Navigator.pop(ctx, (o.$3, o.$4, o.$5)),
+                )),
+          ]),
+        ),
+      ),
+    );
+  }
+
   Future<void> _uploadFromGallery(BuildContext context, WidgetRef ref) async {
+    final kind = await _pickGalleryDocKind(context);
+    if (kind == null || !context.mounted) return;
+    final (docType, docSide, stepKey) = kind;
     final picker = ImagePicker();
     final photo = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1800);
     if (photo == null) return;
     if (!context.mounted) return;
     showMotoGoToast(context, icon: '⏳', title: t(context).tr('uploading'), message: t(context).tr('processingDoc'));
-    final result = await scanDocument(photo, ScanDocType.idCard);
-    final upload = await uploadDocPhoto(photo, ScanDocType.idCard, mindeeOk: result != null);
+    final result = await scanDocument(photo, docType);
+    final upload = await uploadDocPhoto(photo, docType, mindeeOk: result != null, docSide: docSide);
     if (result != null) {
-      await saveOcrToProfile(result, docType: ScanDocType.idCard);
+      await saveOcrToProfile(result, docType: docType, stepKey: stepKey);
     }
     if (!context.mounted) return;
     ref.invalidate(docsVerifiedProvider);
+    ref.invalidate(docsGateChecklistProvider);
     if (upload.ok) {
-      // Fotka uložená → doklad je nahraný (kódy se uvolní i bez OCR).
+      // Fotka uložená → strana dokladu je nahraná (kódy dle brány dokladů).
       showMotoGoToast(context, icon: '✅', title: t(context).tr('uploaded'), message: t(context).tr('docProcessed'));
     } else {
       // Upload nebo OCR selhaly — doveď uživatele na skener s kamerou,
@@ -303,7 +349,7 @@ class DocumentsScreen extends ConsumerWidget {
 }
 
 class _VerificationBanner extends StatelessWidget {
-  final DocsVerification verification;
+  final DocsScreenStatus verification;
   const _VerificationBanner({required this.verification});
 
   @override
@@ -346,6 +392,23 @@ class _VerificationBanner extends StatelessWidget {
           Text('${t(context).tr('missing')}: ${missing.join(", ")}', style: const TextStyle(fontSize: 11, color: Color(0xFF78350F))),
         ])),
       ]),
+    );
+  }
+}
+
+/// Jeden řádek „Chybí: …“ dle brány dokladů (co ještě drží přístupové kódy).
+class _GateMissingLine extends StatelessWidget {
+  final DocsGateChecklist gate;
+  const _GateMissingLine({required this.gate});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = docsGateMissingLabels(context, gate);
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text('${t(context).tr('missing')}: ${items.join(', ')}',
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF78350F), height: 1.4)),
     );
   }
 }
