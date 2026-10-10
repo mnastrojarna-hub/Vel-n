@@ -46,7 +46,7 @@ function lpiDefaults() {
         'chips' => [
             'postup' => ['Bez kauce', 'Výbava v ceně', 'Rezervace online za pár minut'],
             'prevzeti' => ['Převzetí v čase dle rezervace', 'Parkování zdarma', 'Bez kauce'],
-            'vraceni_pujcovna' => ['Poslední den do 24:00', 'Bez tankování a mytí', 'Bez kauce'],
+            'vraceni_pujcovna' => ['Poslední den do 24:00', 'Bez tankování', 'Bez kauce'],
             'vraceni_jinde' => ['Kdekoliv v Česku', 'Jasný ceník za km', 'Bez kauce'],
             'cena' => ['0 Kč kauce', 'Výbava řidiče v ceně', 'Bez skrytých poplatků'],
             'pristaveni' => ['Domů, na hotel i na nádraží', 'Po celém Česku', 'Bez kauce'],

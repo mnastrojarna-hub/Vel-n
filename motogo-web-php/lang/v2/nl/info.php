@@ -14,19 +14,19 @@ return ['pages' => ['landing_info' => [
     'chips' => [
         'postup' => ['Zonder borg', 'Rijuitrusting inbegrepen', 'Online reserveren in minuten'],
         'prevzeti' => ['Ophalen op jouw tijd', 'Gratis parkeren', 'Zonder borg'],
-        'vraceni_pujcovna' => ['Laatste dag tot 24:00', 'Zonder tanken of wassen', 'Zonder borg'],
+        'vraceni_pujcovna' => ['Laatste dag tot 24:00', 'Tanken hoeft niet', 'Zonder borg'],
         'vraceni_jinde' => ['Overal in Tsjechië', 'Duidelijke prijs per km', 'Zonder borg'],
         'cena' => ['€ 0 borg', 'Rijuitrusting inbegrepen', 'Geen verborgen kosten'],
         'pristaveni' => ['Naar je huis, hotel of station', 'In heel Tsjechië', 'Zonder borg'],
         'dokumenty' => ['Zonder borg', 'Helder contract', 'Veilig online betalen'],
         'faq' => ['Zonder borg', 'Rijuitrusting inbegrepen', 'AI-assistent 24/7'],
-        'kontakt' => ['2 vestigingen: Vysočina en Brno', 'Zelfbediening 24/7 bij Brno', 'Ca. 90 min van Praag'],
+        'kontakt' => ['2 vestigingen: Vysočina en Brno', 'Zelfbediening 24/7 bij Brno', 'Mezná: ca. 90 min van Praag'],
     ],
     'ai' => [
         'title' => 'AI-assistent 24/7',
         'text' => 'Geen antwoord gevonden? Vraag het Tomáš: hij antwoordt meteen, dag en nacht.',
         'card' => 'Vraag het Tomáš: direct antwoord',
-        'btn' => 'Vraag het',
+        'btn' => 'Stel je vraag',
     ],
     'contact' => [
         'branches_title' => 'Onze vestigingen',

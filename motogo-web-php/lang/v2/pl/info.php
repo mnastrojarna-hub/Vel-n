@@ -14,7 +14,7 @@ return ['pages' => ['landing_info' => [
     'chips' => [
         'postup' => ['Bez kaucji', 'Wyposażenie w cenie', 'Rezerwacja online w kilka minut'],
         'prevzeti' => ['Odbiór o wybranej godzinie', 'Bezpłatny parking', 'Bez kaucji'],
-        'vraceni_pujcovna' => ['Ostatni dzień do 24:00', 'Bez tankowania i mycia', 'Bez kaucji'],
+        'vraceni_pujcovna' => ['Ostatni dzień do 24:00', 'Bez tankowania', 'Bez kaucji'],
         'vraceni_jinde' => ['W całych Czechach', 'Jasny cennik za km', 'Bez kaucji'],
         'cena' => ['0 zł kaucji', 'Wyposażenie kierowcy w cenie', 'Bez ukrytych opłat'],
         'pristaveni' => ['Do domu, hotelu lub na dworzec', 'W całych Czechach', 'Bez kaucji'],
@@ -36,14 +36,14 @@ return ['pages' => ['landing_info' => [
             [
                 'badge' => 'Oddział z obsługą',
                 'title' => 'Mezná (Pelhřimov, Vysočina)',
-                'text' => 'Motocykl przekażemy ci osobiście o godzinie z rezerwacji, codziennie, także w weekendy i święta.',
+                'text' => 'Motocykl przekażemy ci osobiście o godzinie podanej w rezerwacji, codziennie, także w weekendy i święta.',
                 'chips' => ['Ok. 90 min z Pragi', 'Dostawa pod adres'],
             ],
             [
                 'badge' => 'Samoobsługa 24/7',
                 'title' => 'Velké Němčice (pod Brnem)',
-                'text' => 'Motocykl i wyposażenie odbierasz i zwracasz sam, kodami z aplikacji: w 100% nonstop, bez czekania.',
-                'chips' => ['30 min z Brna', '35 min z lotniska Brno'],
+                'text' => 'Motocykl i wyposażenie odbierasz i zwracasz sam, za pomocą kodów z aplikacji: w 100% non stop, bez czekania.',
+                'chips' => ['30 min z Brna', '35 min z lotniska w Brnie'],
             ],
         ],
     ],

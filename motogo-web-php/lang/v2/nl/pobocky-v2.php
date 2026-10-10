@@ -1,0 +1,88 @@
+<?php
+// NL texty landing v2 poboček (nizozemština, tykání „je/jij“; karty, průvodce, výbava, srovnání) —
+// struktura viz pages/pobocky-v2-texts.php (CS defaulty) a lang/v2/es/pobocky-v2.php.
+// branches[0] = Mezná, branches[1] = Velké Němčice. Dojezdové časy ověřené routováním
+// (viz pages/pobocky-v2-lib.php); ostatní fakta z textů poboček a FAQ.
+
+return ['pages' => ['pobocky' => ['v2' => [
+    'panel' => [
+        'cta_primary' => ['label' => 'RESERVEREN', 'href' => '/rezervace'],
+        'cta_secondary' => ['label' => 'BEKIJK MOTOREN', 'href' => '/katalog'],
+        'chips' => ['2 vestigingen: Vysočina en Brno', 'Zonder borg', 'Rijuitrusting inbegrepen'],
+    ],
+    'cards_title' => 'Kies je vestiging',
+    'book_here' => 'Hier reserveren',
+    'book_branch' => 'Reserveren bij deze vestiging',
+    'motos_branch' => 'Motoren van deze vestiging',
+    'motos_label' => 'motoren bij de vestiging',
+    'about_title' => 'Over de vestiging',
+    'hours_title' => 'Openingstijden',
+    'gear_title' => 'Uitrusting',
+    'in_bike_title' => 'In de motor vind je',
+    'guide_hint' => 'Loop het hele proces stap voor stap door.',
+    'guide_step' => 'Stap {n} van {total}',
+    'guide_prev' => 'Vorige',
+    'guide_next' => 'Volgende',
+    'guide_done' => 'Reserveren',
+    'map_title' => 'Zo kom je bij ons',
+    'map_open' => 'Openen in Google Maps',
+    'video_badge' => 'Video',
+    'video_lead' => 'Bekijk hoe het ophalen van de motor bij de vestiging verloopt, dan weet je vooraf wat je te wachten staat.',
+    'fleet_title' => 'Motoren bij deze vestiging',
+    'other_title' => 'Onze andere vestiging',
+    'compare_title' => 'Mezná of Velké Němčice',
+    'compare_intro' => 'Beide vestigingen in één oogopslag: kies de vestiging die het best bij je past.',
+    'compare' => [
+        ['label' => 'Overdracht van de motor', 'i' => 'user', 'v' => [['t' => 'Persoonlijk: we leggen alles uit en helpen met afstellen'], ['t' => 'Zelf, zonder personeel: codes uit de app en touchscreen']]],
+        ['label' => 'Openingstijden', 'i' => 'clock', 'v' => [['t' => 'Ma–zo op elk moment, ook op feestdagen; het tijdstip kies je in de reservering'], ['t' => '24/7; inleveren wanneer je wilt op de laatste dag, tot 24:00']]],
+        ['label' => 'Rijuitrusting inbegrepen', 'i' => 'helmet', 'v' => [['ok' => 1, 't' => 'Ja'], ['ok' => 1, 't' => 'Ja; motorlaarzen tegen meerprijs']]],
+        ['label' => 'Maten uitrusting', 'i' => 'tag', 'v' => [['t' => 'Jas en broek tot 6XL'], ['t' => 'Helm S–3XL; jas, broek en handschoenen tot 4XL']]],
+        ['label' => 'Regenkleding en extra uitrusting', 'i' => 'rain', 'v' => [['ok' => 1, 't' => 'Ja'], ['ok' => 0, 't' => 'Nee, alleen in Mezná']]],
+        ['label' => 'Bezorging op je adres', 'i' => 'truck', 'v' => [['ok' => 1, 't' => 'Ja, tegen meerprijs'], ['ok' => 0, 't' => 'Nee: ophalen en inleveren alleen bij de vestiging']]],
+        ['label' => 'Documenten', 'i' => 'doc', 'v' => [['t' => 'Upload ze online of we controleren ze ter plaatse'], ['t' => 'Vooraf online uploaden en laten verifiëren']]],
+        ['label' => 'Voorzieningen', 'i' => 'kiosk', 'v' => [['t' => 'Wifi, wc, paskamer en afsluitbare kluisjes'], ['t' => 'Kleedkamer (deur nr. 8), touchscreen en boxen met de motoren']]],
+        ['label' => 'Gratis parkeren', 'i' => 'parking', 'v' => [['ok' => 1, 't' => 'Ja, de hele huurperiode'], ['ok' => 1, 't' => 'Ja, de hele huurperiode']]],
+        ['label' => 'Bereikbaarheid', 'i' => 'car', 'v' => [['t' => 'Ca. 90 min van Praag'], ['t' => '20 min van het zuiden van Brno (ca. 30 min van het centrum), 35 min van de luchthaven en 1 u 40 min van Wenen']]],
+        ['label' => 'Motoren bij de vestiging', 'i' => 'moto', 'count' => 1, 'v' => [['t' => '{n}'], ['t' => '{n}']]],
+    ],
+    'branches' => [
+        [
+            'short' => 'Mezná',
+            'highlight' => 'We overhandigen je de motor persoonlijk en leggen alles uit',
+            'dist' => ['Ca. 90 min van Praag'],
+            'stats' => [['v' => '90 min', 'l' => 'van Praag (ca.)'], ['v' => '6XL', 'l' => 'max. maat uitrusting'], ['v' => 'ma–zo', 'l' => 'op elk moment']],
+            'facts' => [
+                ['i' => 'clock', 't' => 'Maandag t/m zondag, ook op feestdagen'], ['i' => 'user', 't' => 'Persoonlijke overdracht'],
+                ['i' => 'helmet', 't' => 'Uitrusting inbegrepen, maten tot 6XL'], ['i' => 'rain', 't' => 'Regenkleding te huur'],
+                ['i' => 'truck', 't' => 'Bezorging op je adres (tegen meerprijs)'], ['i' => 'parking', 't' => 'Gratis parkeren'], ['i' => 'shield', 't' => 'Zonder borg'],
+            ],
+            'guide' => ['Reservering en documenten', 'Aankomst bij de vestiging', 'Overdracht van motor en uitrusting', 'Motor inleveren'],
+            'gear' => [['i' => 'helmet', 't' => 'Helm'], ['i' => 'jacket', 't' => 'Jas'], ['i' => 'pants', 't' => 'Broek'], ['i' => 'gloves', 't' => 'Handschoenen'], ['i' => 'rain', 't' => 'Regenkleding']],
+            'sizes' => 'Jassen en broeken in maten tot 6XL',
+            'in_bike' => [],
+            'gallery' => ['Showroom van MotoGo24 in Mezná bij Pelhřimov', 'Motoren klaar voor verhuur', 'Adventure-motoren van MotoGo24', 'Opslag van uitrusting: helmen en kleding inbegrepen bij de huur'],
+        ],
+        [
+            'short' => 'Velké Němčice',
+            'highlight' => '100% 24/7 open, zonder personeel',
+            'dist' => ['20 min van het zuiden van Brno, ca. 30 min van het centrum', 'Ca. 35 min van luchthaven Brno-Tuřany', '1 u 40 min van Wenen'],
+            'stats' => [['v' => '24/7', 'l' => 'zonder personeel'], ['v' => '30 min', 'l' => 'van centrum Brno (ca.)'], ['v' => '35 min', 'l' => 'van luchthaven Brno (ca.)']],
+            'facts' => [
+                ['i' => 'phone', 't' => 'Ophalen met de code uit de app'], ['i' => 'parking', 't' => 'Gratis parkeren'],
+                ['i' => 'helmet', 't' => 'Rijuitrusting inbegrepen'], ['i' => 'percent', 't' => 'Ophalen vanaf 12:00: 1e dag halve prijs (2+ dagen)'],
+                ['i' => 'moon', 't' => 'Inleveren op de laatste dag tot 24:00'], ['i' => 'shield', 't' => 'Zonder borg'],
+            ],
+            'guide' => ['Reservering, betaling en documenten', 'Poort en parkeren', 'Kleedkamer en uitrusting', 'Protocol en motor', 'De poort bij vertrek', 'Motor inleveren'],
+            'gear' => [['i' => 'helmet', 't' => 'Helm'], ['i' => 'jacket', 't' => 'Jas met rugprotector'], ['i' => 'pants', 't' => 'Broek'], ['i' => 'gloves', 't' => 'Handschoenen'], ['i' => 'balaclava', 't' => 'Bivakmuts'], ['i' => 'boots', 't' => 'Laarzen (tegen meerprijs)']],
+            'sizes' => 'Helmen S–3XL; jassen, broeken en handschoenen tot 4XL (grotere in Mezná)',
+            'in_bike' => [['i' => 'vest', 't' => 'Veiligheidshesje'], ['i' => 'firstaid', 't' => 'EHBO-set'], ['i' => 'doc', 't' => 'Ongevalsformulier'], ['i' => 'lock', 't' => 'Schijfremslot'], ['i' => 'phone', 't' => 'Sleuteltje telefoonhouder']],
+            'gallery' => [
+                'Ophaalmodule van de zelfbedieningsvestiging: boxen met de motoren',
+                'Ophaalmodule met boxen 1–7 en de kleedkamer (deur nr. 8)',
+                'Touchscreen voor het invoeren van de code uit de app',
+                'Kastjes aan de rechterpaal van de poort: met de code uit de app open je het bovenste kastje met de sleutel van het hangslot',
+                'Parkeerplaats voor klanten: plekken 1–7 rechts langs het hek, gratis tijdens de huur',
+            ],
+        ],
+    ],
+]]]];
