@@ -1,0 +1,51 @@
+/* ===== MotoGo24 — Landing v2: sekce „Trasy a záznam jízdy“ (landing-routes.php) ===== */
+.lp-rt{margin:2rem 0}
+.lp-rt-box{position:relative;overflow:hidden;display:grid;gap:1.2rem;padding:1.4rem 1.05rem 1.3rem;border-radius:22px;background:linear-gradient(160deg,#eafbf0 0,#d9f5e4 55%,#c7efd6 100%);box-shadow:0 0 0 1px #cde9da,0 18px 36px -24px rgba(26,46,34,.55)}
+.lp-rt-eyebrow{display:inline-flex;margin:0 0 .5rem;padding:.25rem .65rem;border-radius:999px;background:#0e2a1c;color:#74fb71;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.lp-main .lp-rt h2{margin:0 0 .45rem;color:#0e2a1c;font-size:clamp(1.4rem,5.8vw,2.1rem);line-height:1.15;text-wrap:balance}
+.lp-rt-lead{margin:0 0 .9rem;color:#2c4a3a;font-size:.93rem;line-height:1.5}
+.lp-rt-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;margin:0 0 .9rem;padding:0;list-style:none}
+.lp-rt-stats li{display:flex;flex-direction:column;align-items:center;padding:.55rem .3rem;border-radius:14px;background:#fff;text-align:center;box-shadow:0 6px 14px -12px rgba(26,46,34,.6)}
+.lp-rt-stats b{color:#0e2a1c;font-size:1.2rem;font-weight:900;line-height:1.1}
+.lp-rt-stats span{color:#4a6b5a;font-size:.7rem;line-height:1.25}
+.lp-rt-list{display:grid;gap:.55rem;margin:0 0 1rem;padding:0;list-style:none}
+.lp-rt-item{display:grid;grid-template-columns:40px 1fr;gap:.65rem;align-items:start}
+.lp-rt-ico{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#0e2a1c;color:#74fb71}
+.lp-rt-ico .lp-ico2{width:22px;height:22px}
+.lp-rt-item b{display:block;color:#0e2a1c;font-size:.95rem;line-height:1.25}
+.lp-rt-item span span{display:block;color:#3c5a4a;font-size:.82rem;line-height:1.42}
+.lp-rt-stores{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+.lp-rt-ghost{color:#0e2a1c;background:#fff;border-color:#37cf63}
+.lp-rt-ghost:hover{color:#0e2a1c;background:#eafbf0}
+.lp-rt :focus-visible{outline:3px solid #1f9a4a;outline-offset:3px}
+/* Telefon s animovanou trasou */
+.lp-rt-phone{justify-self:center;width:min(210px,60vw);aspect-ratio:9/17;padding:9px;border-radius:34px;background:#0e2a1c;box-shadow:0 26px 40px -22px rgba(10,31,20,.75),inset 0 0 0 2px #2a5a3e}
+.lp-rt-screen{position:relative;width:100%;height:100%;overflow:hidden;border-radius:26px;background:#f2f7f3}
+.lp-rt-screen::before{content:"";position:absolute;top:8px;left:50%;width:70px;height:18px;margin-left:-35px;border-radius:12px;background:#0e2a1c;z-index:2}
+.lp-rt-map{position:absolute;inset:0;width:100%;height:100%}
+.lp-rt-road{fill:none;stroke:#d7e4dc;stroke-width:9;stroke-linecap:round}
+.lp-rt-water{fill:none;stroke:#cfe6f3;stroke-width:14;stroke-linecap:round}
+.lp-rt-pois circle{fill:#fff;stroke:#1f9a4a;stroke-width:2.5}
+.lp-rt-path{fill:none;stroke:#1f9a4a;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:340;stroke-dashoffset:340;animation:lpRtDraw 6s ease-in-out infinite}
+.lp-rt-a{fill:#0e2a1c;stroke:#74fb71;stroke-width:3}
+.lp-rt-b{fill:#74fb71;stroke:#0e2a1c;stroke-width:3;transform-origin:186px 44px;animation:lpRtPin 6s ease-in-out infinite}
+.lp-rt-card{position:absolute;left:8px;right:8px;bottom:8px;padding:.55rem .6rem;border-radius:16px;background:#0e2a1c;color:#fff;box-shadow:0 10px 20px -10px rgba(0,0,0,.5)}
+.lp-rt-card-t{display:block;margin-bottom:.35rem;font-size:.72rem;font-weight:800;color:#74fb71}
+.lp-rt-chips{display:grid;grid-template-columns:1fr 1fr;gap:.25rem}
+.lp-rt-chips i{font-style:normal;font-size:.7rem;font-weight:800;padding:.2rem .35rem;border-radius:8px;background:rgba(116,251,113,.14);text-align:center;white-space:nowrap}
+/* Mobil: telefon hned pod úvodem (vizuál je háček), pak čísla, seznam a obchody */
+@media(max-width:768px){
+  .lp-rt-text{display:contents}
+  .lp-rt-eyebrow{order:1;justify-self:start}.lp-main .lp-rt h2{order:2}.lp-rt-lead{order:3}.lp-rt-phone{order:4}.lp-rt-stats{order:5}.lp-rt-list{order:6}.lp-rt-stores{order:7}
+  .lp-rt-box{gap:0}.lp-rt-phone{margin:.2rem 0 1rem}.lp-rt-eyebrow{margin-bottom:.5rem}
+}
+@media(min-width:769px){
+  .lp-rt-box{grid-template-columns:1.25fr .75fr;align-items:center;gap:2rem;padding:2.4rem 2.4rem 2.2rem}
+  .lp-rt-list{grid-template-columns:1fr 1fr;gap:.9rem 1.2rem}
+  .lp-rt-stores{display:flex;gap:.7rem}
+  .lp-rt-stores .lp-btn{padding:.7rem 1.6rem}
+  .lp-rt-phone{width:250px}
+}
+@keyframes lpRtDraw{0%{stroke-dashoffset:340;opacity:1}45%,88%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:0;opacity:0}}
+@keyframes lpRtPin{0%,40%{transform:scale(.6)}50%{transform:scale(1.3)}58%,100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.lp-rt-path,.lp-rt-b{animation:none;stroke-dashoffset:0}}

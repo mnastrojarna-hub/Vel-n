@@ -90,11 +90,14 @@ function renderLpReviews($R, $T) {
     }
     $cards = '';
     foreach ($items as $x) {
-        $tr = lpS($T['reviews_tr'][lpS($x['id'] ?? '')] ?? ($x['text_' . $lang] ?? ''));
-        $text = ($lang !== 'cs' && $tr !== '') ? $tr : lpS($x['text']);
-        $note = ($lang !== 'cs' && $tr !== '') ? '<span class="lp-review-tr">' . he(lpS($T['reviews_translated'] ?? '')) . '</span>' : '';
-        $ts = strtotime(lpS($x['date'] ?? ''));
-        $date = $ts ? date($lang === 'cs' ? 'j. n. Y' : 'd/m/Y', $ts) : '';
+        $orig = lpS($x['lang'] ?? 'cs');
+        $tr = $orig === 'cs' ? lpS($T['reviews_tr'][lpS($x['id'] ?? '')] ?? '') : '';
+        $text = ($lang !== $orig && $tr !== '') ? $tr : lpS($x['text']);
+        $note = ($lang !== $orig && $tr !== '') ? '<span class="lp-review-tr">' . he(lpS($T['reviews_translated'] ?? '')) . '</span>' : '';
+        // date: Y-m-d → den/měsíc/rok, Y-m (Google ukazuje jen „před X týdny“) → měsíc/rok
+        $d = lpS($x['date'] ?? '');
+        $ts = strtotime(strlen($d) === 7 ? $d . '-01' : $d);
+        $date = $ts ? date(strlen($d) === 7 ? ($lang === 'cs' ? 'n/Y' : 'm/Y') : ($lang === 'cs' ? 'j. n. Y' : 'd/m/Y'), $ts) : '';
         $score = isset($x['rating']) ? lpStars($x['rating']) : (!empty($x['recommends']) ? '<span class="lp-rec">' . he(lpS($T['reviews_recommends'] ?? '')) . '</span>' : '');
         $cards .= '<li class="lp-review"><figure>' . $score .
             '<blockquote>' . he(lpPlain($text)) . '</blockquote>' .

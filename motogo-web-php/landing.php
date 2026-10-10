@@ -27,7 +27,7 @@ function landingV2Enabled() {
 
 /** Assety v2 pro renderPage() meta. */
 function lpPageMeta() {
-    return ['styles' => ['/css/landing.css', '/css/landing-trust.css'], 'scripts' => ['/js/landing.js'], 'body_class' => 'lp-v2'];
+    return ['styles' => ['/css/landing.css', '/css/landing-trust.css', '/css/landing-routes.css'], 'scripts' => ['/js/landing.js'], 'body_class' => 'lp-v2'];
 }
 
 /** CS defaulty textů v2. */
@@ -188,6 +188,7 @@ function lpIcon($name) {
 
 require_once __DIR__ . '/landing-sections.php';
 require_once __DIR__ . '/landing-trust.php';
+require_once __DIR__ . '/landing-routes.php';
 require_once __DIR__ . '/data/landing-trust.php';
 require_once __DIR__ . '/data/reviews.php';
 

@@ -3,7 +3,7 @@
 // Vkládá se z pages/home.php (require … vrací $content). Používá proměnné
 // z home.php: $sb, $motos, $posts, $C, $bannerHtml, $faqHtml, $reviewsHtml.
 // Pořadí pro mobil: hero (bez tlačítek) → akční panel → nabídka → motorky →
-// důvody (10 + rozbalení na 20) → recenze → „jen u nás“ → postup → pobočky →
+// důvody (10 + rozbalení na 20) → recenze → trasy (appka) → „víc než půjčovna“ → postup → pobočky →
 // FAQ → CTA → blog → rozcestník → SEO text (sbalený). Recenze z data/reviews.php
 // nahrazují starou sekci $reviewsHtml (DB tabulka recenzí).
 // Bez textů důvodů (prázdný seznam) zůstávají původní USP dlaždice.
@@ -53,6 +53,7 @@ return $bannerHtml .
     renderLpFleet($motos, $TC) .
     ($lpReasons !== '' ? $lpReasons : renderLpUsp($TC['usp_title'], 'web.landing.common.usp_title', $TH['usp'] ?? [], 'web.landing.home.usp', $lpMinPrice)) .
     $lpReviews .
+    renderLpRoutes($TC) .
     renderLpHighlights($TC['hl_title'] ?? '', 'web.landing.common.hl_title', $TC['highlights'] ?? [], 'web.landing.common.highlights') .
     renderLpSteps($lpOwnSteps ? $TH['steps_title'] : ($C['process']['title'] ?? ''), $lpOwnSteps ? 'web.landing.home.steps_title' : 'web.home.process.title', $lpStepList, $lpStepKey) .
     renderLpBranches($TC['branches_title'] ?? '', 'web.landing.common.branches_title', $TC['branches'] ?? [], 'web.landing.common.branches', $TC) .
