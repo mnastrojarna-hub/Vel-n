@@ -95,6 +95,11 @@ otevřením) — i když zákazník dveře mezitím otevře a zavře, může je 
 skončí až po vypnutí zámku (+ dozvuk ~0,9 s). Hudba, světlo kóje a venek se po zavření řídí jako dřív („Hudba/Světlo po zavření“),
 kód motorky zhasne světlo šatny i v této minutě. Na otevření se čeká větší z „Timeout otevření dveří“ a tohoto minima. Impulzní zámek (IBFM) beze změny.
 
+**Vypnutí zámku 2 s po otevření (1.2.9, 2026-10-10, zadání majitele):** magnet pod napětím nešel zavřít — jakmile kontakt hlásí
+otevřeno, držený zámek se vypne `timings.lock_release_after_open_s` (výchozí 2 s, 0–30; jen v mapě, Velín ho neposílá) po PRVNÍM
+otevření, i před uplynutím minima. Minimum tak platí jen pro čekání na otevření; po vypnutí lze dveře zavřít a do konce doběhu
+(„Světlo po zavření“) znovu otevřít v téže relaci jako dřív.
+
 **Režimy venku (2026-09-14):** venek se nastavuje JINAK než kóje 1–7 a šatna — ty se řídí společným časováním (sekce „Časování“),
 venek má v bloku „Venek“ vlastní dvojici přepínačů. **Venkovní světlo:** `Podle relací` (výchozí) \| **`NONSTOP`** (svítí pořád bez
 ohledu na zákazníky — pro venkovní prostor u pobočky; doběh se pak neuplatní) \| `Trvale zhasnuto` (nerozsvítí ani relace).

@@ -1,5 +1,7 @@
 """Držený zámek bez paměti (`timings.lock_hold_until_open`) — minimum držení po kódu `timings.lock_hold_min_s`
-(2026-10-06, zadání majitele „kiosek musí držet magnet dveří po zadání kódu alespoň 1 min“). Pomocný modul
+(2026-10-06, zadání majitele „kiosek musí držet magnet dveří po zadání kódu alespoň 1 min“) = okno pro OTEVŘENÍ;
+jakmile kontakt hlásí otevřeno, zámek se vypne `timings.lock_release_after_open_s` (výchozí 2 s) po otevření
+(2026-10-10, zadání majitele: zámek pod napětím nešel zavřít). Pomocný modul
 `zone_access` (veřejná jména re-exportuje); vše se volá POD zámkem `ZoneController._busy`.
 
 Okno „dveře jdou legálně otevřít“ (`lock_unlocked`) = zámek drží + krátký dozvuk po jeho vypnutí (`release_grace_s`):
@@ -22,6 +24,7 @@ log = logging.getLogger("motogo.zone")
 MAX_HOLD_MS = 0xFFFF * FLASH_STEP_MS   # strop HW časovače flash-on (~109 min)
 LOCK_HOLD_MIN_MAX_S = 600              # strop timings.lock_hold_min_s (config.LOCK_HOLD_MIN_RANGE_S)
 RELEASE_GRACE_MARGIN_S = 0.5           # rezerva dozvuku nad poll + SW debounce kontaktu
+RELEASE_AFTER_OPEN_S = 2               # výchozí timings.lock_release_after_open_s (2026-10-10)
 
 
 def lock_hold_min_s(zc: "ZoneController") -> int:
@@ -47,10 +50,30 @@ def hold_lock_ms(zc: "ZoneController") -> int:
     return int(min(MAX_HOLD_MS, max(FLASH_STEP_MS, (open_timeout_s(zc) + 1) * 1000)))
 
 
+def release_after_open_s(zc: "ZoneController") -> float:
+    """Doba od skutečného otevření dveří (kontakt), po které se držený zámek vypne — i před `lock_hold_min_s`
+    (2026-10-10, zadání majitele: magnet pod napětím nejde zavřít → 2 s po otevření proud vypnout)."""
+    try:
+        v = float(getattr(zc.timings, "lock_release_after_open_s", RELEASE_AFTER_OPEN_S))
+    except (TypeError, ValueError):
+        v = RELEASE_AFTER_OPEN_S
+    return max(0.0, v)       # rozsah 0–30 hlídá validate_hardware; ≥ lock_hold_min_s = rozhoduje minimum
+
+
 def lock_min_elapsed(zc: "ZoneController") -> bool:
-    """Uplynulo od sepnutí drženého zámku minimum `lock_hold_min_s`? (Nedržený zámek = ano.)"""
+    """Smí se držený zámek vypnout? Uplynulo minimum `lock_hold_min_s` od sepnutí, NEBO jsou dveře otevřené
+    (poprvé od sepnutí) aspoň `release_after_open_s`. (Nedržený zámek = ano.)"""
     since = getattr(zc, "lock_held_since", None)
-    return since is None or zc.clock() - since >= lock_hold_min_s(zc)
+    if since is None or zc.clock() - since >= lock_hold_min_s(zc):
+        return True
+    opened = getattr(zc, "lock_opened_at", None)
+    return opened is not None and zc.clock() - opened >= release_after_open_s(zc)
+
+
+def mark_opened(zc: "ZoneController") -> None:
+    """Kontakt hlásí otevřeno, zámek drží: od první takové chvíle běží `release_after_open_s` (2026-10-10)."""
+    if zc.lock_held and getattr(zc, "lock_opened_at", None) is None:
+        zc.lock_opened_at = zc.clock()
 
 
 def release_grace_s(zc: "ZoneController") -> float:
@@ -74,6 +97,7 @@ async def release_lock(zc: "ZoneController", why: str) -> None:
     if not zc.lock_held:
         return
     zc.lock_held, zc.lock_held_since, zc.lock_released_at = False, None, zc.clock()
+    zc.lock_opened_at = None
     lock = zc.zone.hw.lock
     if lock is None:
         return
@@ -84,8 +108,8 @@ async def release_lock(zc: "ZoneController", why: str) -> None:
 
 
 async def release_lock_if_due(zc: "ZoneController", why: str) -> bool:
-    """Otevření dveří / tick: vypne držený zámek, jen když už uplynulo minimum od kódu — jinak drží dál a vypne ho
-    `tick_locked` (důvod `min_hold`). Vrací True, když zámek už nedrží."""
+    """Otevření dveří / tick: vypne držený zámek, jen když už uplynulo minimum od kódu nebo 2 s od otevření dveří
+    (`lock_min_elapsed`) — jinak drží dál a vypne ho `tick_locked` (důvod `min_hold`). Vrací True, když zámek už nedrží."""
     if zc.lock_held and lock_min_elapsed(zc):
         await release_lock(zc, why)
     return not zc.lock_held

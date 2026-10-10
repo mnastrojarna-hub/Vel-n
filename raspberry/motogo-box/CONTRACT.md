@@ -113,6 +113,12 @@ mimo `TEMP_KINDS` → `ok=False, error='invalid_code', kind=''` (krátkodobý k�
   1.2.5). Impulzní zámek (`lock_hold_until_open: false`, IBFM) beze změny — nikdy se nedrží. Modul `lock_hold.py` (helpery, okno
   `lock_unlocked` = zámek drží + dozvuk `release_grace_s` = `polling.door_input_poll_ms + software_debounce_ms` + 0,5 s po vypnutí).
   Z Velína `hardware.timings.lock_hold_min_s` (volitelné; chybí = 60). Není v `ZONE_TIMING_KEYS`, nepočítá se do `hw_signature`. Automat §11.
+- **`TimingsCfg.lock_release_after_open_s` (1.2.9, 2026-10-10, zadání majitele „magnet pod napětím nejde zavřít — 2 s po otevření
+  proud vypnout“; výchozí 2, rozsah 0–30 s v `validate_hardware`):** jen s `lock_hold_until_open`. Při prvním otevření dveří (kontakt)
+  za drženého zámku zóna uloží `lock_opened_at` (`lock_hold.mark_opened`; v WAITING_FOR_OPEN→DOOR_OPEN i v CLOSED_CONFIRMATION→DOOR_OPEN,
+  znovuotevření odpočet neresetuje); `lock_min_elapsed` = minimum od kódu NEBO ≥ tato doba od `lock_opened_at` → `release_lock_if_due`
+  / `tick_locked` (`min_hold`) zámek vypne. Minimum `lock_hold_min_s` tak platí jen pro čekání na otevření. Nový grant / `release_lock`
+  `lock_opened_at` nuluje. Velín hodnotu neposílá (chybí = 2). Testy `test_lock_release_after_open.py`.
 - **`TimingsCfg.handover_idle_s` (2026-09-25, výchozí 600 — od 2026-09-29 dřív 120, §28):** doba bez dotyku, po níž overlay předávacího protokolu
   zmizí z displeje (položka zůstává nevyřízená, `then_open` se ruší). Z Velína `hardware.timings.handover_idle_s` (volitelné,
   `BranchRpiHardware*.jsx`), UI ho dostane v `snap['timings']` (§14/§16) — odpočet ale vždy z `handover.active.expires_at`.

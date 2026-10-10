@@ -16,7 +16,7 @@ from . import music_phase
 from .io_devices import FLASH_STEP_MS
 # Držený zámek bez paměti (minimum lock_hold_min_s, 2026-10-06) — re-export pro zone.py a testy.
 from .lock_hold import (MAX_HOLD_MS, hold_lock_ms, lock_hold_min_s, lock_unlocked, lock_wait,  # noqa: F401
-                        open_timeout_s, release_lock, release_lock_if_due)
+                        mark_opened, open_timeout_s, release_lock, release_lock_if_due)
 from .models import EventKind, Signal, ZoneState, now_iso
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -137,12 +137,13 @@ async def grant_locked(zc: "ZoneController", booking_id: str | None, kind: str, 
         if zc.timings.lock_hold_until_open:
             # Zámek bez paměti (2026-09-26): pod napětím od kódu, dokud kontakt nehlásí otevřeno (zone.evaluate_locked
             # → io.set off), nejdéle door_open_timeout_s (HW časovač modulu = pojistka i při pádu procesu).
-            # 2026-10-06: drží aspoň lock_hold_min_s od kódu i po otevření (release_lock_if_due / tick_locked).
+            # 2026-10-06: na otevření čeká aspoň lock_hold_min_s od kódu; 2026-10-10: po otevření dveří (kontakt) se
+            # vypne lock_release_after_open_s (2 s) — magnet pod napětím nejde zavřít (release_lock_if_due / tick_locked).
             # Čas PŘED zápisem: HW časovač běží od zápisu cívky, ověření (read_coils + retry) trvá až ~3 s.
             t0 = zc.clock()
             ok = lock is not None and await zc.io.hold(lock, hold_lock_ms(zc))
             if ok:
-                zc.lock_held, zc.lock_held_since = True, t0
+                zc.lock_held, zc.lock_held_since, zc.lock_opened_at = True, t0, None
         else:
             pulse_ms = int(zc.timings.lock_pulse_ms)
             # WAV645 flash-on běží v krocích po 100 ms (zaokrouhleno) — brána musí držet i tuto dobu.
