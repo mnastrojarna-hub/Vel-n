@@ -229,7 +229,7 @@ export function PhotosCard({ incident, isPhotoOnly, relatedIncidents, showLinkPh
                   <div className="text-sm font-extrabold mb-2" style={{ color: '#1a2e22' }}>
                     Vyberte incident ({relatedIncidents.length}):
                   </div>
-                  <div className="space-y-2" style={{ maxHeight: 200, overflowY: 'auto' }}>
+                  <div className="space-y-2 lg:max-h-[200px] lg:overflow-y-auto">
                     {relatedIncidents.map(ri => (
                       <div key={ri.id} className="flex items-center justify-between rounded-lg cursor-pointer"
                         style={{ padding: '8px 12px', background: '#f8fcfa', border: '1px solid #d4e8e0' }}

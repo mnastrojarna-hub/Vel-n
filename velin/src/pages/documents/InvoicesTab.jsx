@@ -259,7 +259,7 @@ export default function InvoicesTab() {
                 )
               })}
               {/* label="": v kartách bez popisku „Číslo“ */}
-              {invoices.length === 0 && <TRow><TD label="">Žádné faktury</TD></TRow>}
+              {invoices.length === 0 && <TRow><TD colSpan={8} label="">Žádné faktury</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

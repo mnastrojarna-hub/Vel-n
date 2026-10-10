@@ -105,7 +105,7 @@ export default function VelinUsers({ admin }) {
                 </TD>
               </TRow>
             ))}
-            {users.length === 0 && <TRow><TD className="mg-stack-full">Žádní uživatelé</TD></TRow>}
+            {users.length === 0 && <TRow><TD colSpan={7} className="mg-stack-full">Žádní uživatelé</TD></TRow>}
           </tbody>
         </Table>
       )}

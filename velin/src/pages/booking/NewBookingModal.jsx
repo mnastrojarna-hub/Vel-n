@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
 import Modal from '../../components/ui/Modal'
@@ -20,6 +20,10 @@ function isoDate(d) {
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
+// Mobil/tablet, krok 2: seznam motorek nemá vlastní scroll (roluje celý modal), proto lišta Zpět/Pokračovat
+// drží u spodního okraje modalu — jinak by „Pokračovat“ bylo až pod celým seznamem. Odsazení = vnitřní
+// odsazení Modalu (telefon 16 px, jinak 28 px), stejně jako stickyBarCls v Dokumentech. Desktop beze změny.
+const STEP2_BAR_TOUCH = ' sticky z-[6] -bottom-4 sm:-bottom-7 -mx-4 -mb-4 sm:-mx-7 sm:-mb-7 px-4 sm:px-7 py-3 bg-white border-t border-[#e2ece7]'
 function sameDay(a, b) { return a && b && isoDate(a) === isoDate(b) }
 function inRange(d, from, to) { return d >= from && d <= to }
 
@@ -27,7 +31,14 @@ export default function NewBookingModal({ onClose, onSaved }) {
   const [step, setStep] = useState(1)
   const [err, setErr] = useState(null)
   const [saving, setSaving] = useState(false)
-  const isMobile = useIsMobile() // < 1024 px: chyba vytvoření se ukáže u tlačítka (BookingStep3)
+  const isMobile = useIsMobile() // < 1024 px: chyba vytvoření u tlačítka (BookingStep3), seznam motorek bez vnitřního scrollu
+  const stepsRef = useRef(null) // ukazatel kroků — přes něj se najde posuvný modal
+  // Mobil/tablet: po změně kroku modal nahoru — seznam motorek už nemá vlastní scroll, takže krok 2 by jinak
+  // začínal uprostřed seznamu (odrolováno z kalendáře kroku 1) bez hlavičky a výběru pobočky. Desktop beze změny.
+  useEffect(() => {
+    const box = isMobile && stepsRef.current?.closest('.mg-modal')
+    if (box) box.scrollTop = 0
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return { m: n.getMonth(), y: n.getFullYear() } })
   const [startDate, setStartDate] = useState(null)
@@ -196,7 +207,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
   return (
     <Modal open title="Nová rezervace" onClose={onClose} wide>
       {/* kroky — na úzkém displeji se zalomí (jinak přetékaly mimo modal) */}
-      <div className="flex items-center gap-2 mb-5 max-lg:flex-wrap max-lg:gap-y-2">
+      <div ref={stepsRef} className="flex items-center gap-2 mb-5 max-lg:flex-wrap max-lg:gap-y-2">
         {STEP_LABELS.map((label, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="flex items-center gap-1 cursor-pointer" onClick={() => { if (i + 1 < step) setStep(i + 1) }}>
@@ -242,7 +253,8 @@ export default function NewBookingModal({ onClose, onSaved }) {
           {(loadingMotos || loadingBookings) ? (
             <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
           ) : (
-            <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+            // mobil/tablet: bez vnitřního posuvníku — roluje jen modal (vnořený scroll se na telefonu na šířku zasekával)
+            <div style={isMobile ? undefined : { maxHeight: 380, overflowY: 'auto' }}>
               {availableMotos.length === 0 && (
                 <div className="py-6 text-center">
                   <p className="text-sm" style={{ color: '#1a2e22' }}>Žádná motorka není volná v tomto termínu</p>
@@ -289,7 +301,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
               )}
             </div>
           )}
-          <div className="flex justify-between mt-4">
+          <div className={'flex justify-between mt-4' + (isMobile ? STEP2_BAR_TOUCH : '')}>
             <Button onClick={() => setStep(1)}>← Zpět</Button>
             <Button green onClick={() => { setErr(null); setStep(3) }} disabled={!selectedMoto}>Pokračovat →</Button>
           </div>

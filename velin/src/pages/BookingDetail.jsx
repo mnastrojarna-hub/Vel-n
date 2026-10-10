@@ -658,8 +658,8 @@ export default function BookingDetail() {
 
   return (
     <div>
-      {/* Mobil/tablet (< lg): štítky stavu se zalamují do dalších řádků (dřív přetékaly mimo obrazovku) */}
-      <div className="flex items-center gap-3 mb-5 max-lg:flex-wrap max-lg:gap-y-2">
+      {/* Štítky stavu se zalamují do dalších řádků (dřív přetékaly mimo obrazovku — mobil i desktop při mnoha štítcích) */}
+      <div className="flex flex-wrap items-center gap-3 gap-y-2 mb-5">
         <button onClick={() => navigate('/rezervace')} className="cursor-pointer max-lg:min-w-[40px] max-lg:min-h-[40px] max-lg:-ml-2" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>Rezervace</h2>
         <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>#{id?.slice(-8).toUpperCase()}</span>
@@ -683,9 +683,10 @@ export default function BookingDetail() {
             </span>
           )
         })()}
+        {/* Klikací pilulky prodloužení: pod lg výška ≥ 36 px pro prst (desktop beze změny) */}
         {booking.extends_booking_id && (
           <span onClick={() => navigate(`/rezervace/${booking.extends_booking_id}`)}
-            className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer"
+            className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer max-lg:inline-flex max-lg:items-center max-lg:min-h-[36px]"
             style={{ padding: '3px 8px', background: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}
             title="Navazující rezervace stejného zákazníka na stejnou motorku — jde o úpravu/prodloužení původní rezervace, ne o novou. Kliknutím otevřeš původní.">
             PRODLOUŽENÍ · #{booking.extends_booking_id.slice(-8).toUpperCase()}
@@ -693,7 +694,7 @@ export default function BookingDetail() {
         )}
         {extendedBy.length > 0 && (
           <span onClick={() => navigate(`/rezervace/${extendedBy[0].id}`)}
-            className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer"
+            className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer max-lg:inline-flex max-lg:items-center max-lg:min-h-[36px]"
             style={{ padding: '3px 8px', background: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}
             title={`Na tuto rezervaci navazuje prodloužení #${extendedBy[0].id.slice(-8).toUpperCase()} (${extendedBy.length}×). Kliknutím otevřeš navazující.`}>
             PRODLOUŽENO · #{extendedBy[0].id.slice(-8).toUpperCase()}

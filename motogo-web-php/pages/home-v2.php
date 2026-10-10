@@ -3,7 +3,10 @@
 // Vkládá se z pages/home.php (require … vrací $content). Používá proměnné
 // z home.php: $sb, $motos, $posts, $C, $bannerHtml, $faqHtml, $reviewsHtml.
 // Pořadí pro mobil: hero (bez tlačítek) → akční panel → nabídka → motorky →
-// proč my → postup → recenze → FAQ → CTA → blog → rozcestník → SEO text (sbalený).
+// důvody (10 + rozbalení na 20) → recenze → trasy (appka) → „víc než půjčovna“ → postup → pobočky →
+// FAQ → CTA → blog → rozcestník → SEO text (sbalený). Recenze z data/reviews.php
+// nahrazují starou sekci $reviewsHtml (DB tabulka recenzí).
+// Bez textů důvodů (prázdný seznam) zůstávají původní USP dlaždice.
 
 $T = lpTexts($sb);
 $TC = $T['common'];
@@ -25,6 +28,7 @@ $lpPanel = renderLpPanel([
     'assurance' => $TC['assurance'] ?? '',
     'season' => $TC['season_note'] ?? '',
     'keyBase' => 'web.landing.home',
+    'rating' => lpPanelRating($TC),
 ]);
 
 [$lpStepList, $lpStepKey] = lpSteps($T, 'home', $C['process']['steps'] ?? [], 'web.home.process.steps');
@@ -39,14 +43,21 @@ $lpAbout = renderLpMore(
     'lp-about'
 );
 
+$lpReasons = renderLpReasons($TC['reasons_title'] ?? '', 'web.landing.common.reasons_title', $TC['reasons_lead'] ?? '', $TC['reasons'] ?? [], 'web.landing.common.reasons', $TC, 10);
+$lpReviews = renderLpReviews(lpReviewsData(), $TC);
+
 return $bannerHtml .
     '<main id="content" class="lp-main">' .
     $lpPanel .
     renderLpOffer($TC) .
     renderLpFleet($motos, $TC) .
-    renderLpUsp($TC['usp_title'], 'web.landing.common.usp_title', $TH['usp'] ?? [], 'web.landing.home.usp', $lpMinPrice) .
+    ($lpReasons !== '' ? $lpReasons : renderLpUsp($TC['usp_title'], 'web.landing.common.usp_title', $TH['usp'] ?? [], 'web.landing.home.usp', $lpMinPrice)) .
+    $lpReviews .
+    renderLpRoutes($TC) .
+    renderLpHighlights($TC['hl_title'] ?? '', 'web.landing.common.hl_title', $TC['highlights'] ?? [], 'web.landing.common.highlights') .
     renderLpSteps($lpOwnSteps ? $TH['steps_title'] : ($C['process']['title'] ?? ''), $lpOwnSteps ? 'web.landing.home.steps_title' : 'web.home.process.title', $lpStepList, $lpStepKey) .
-    '<div class="container lp-flow">' . $reviewsHtml . $faqHtml . '</div>' .
+    renderLpBranches($TC['branches_title'] ?? '', 'web.landing.common.branches_title', $TC['branches'] ?? [], 'web.landing.common.branches', $TC) .
+    '<div class="container lp-flow">' . ($lpReviews !== '' ? '' : $reviewsHtml) . $faqHtml . '</div>' .
     renderLpCta($lpCtaData, $lpCtaKey) .
     renderLpBlog($posts, $C['blog'] ?? [], $TC) .
     renderLpExplore($TC['explore_title'], 'web.landing.common.explore_title', $C['signposts'] ?? [], 'web.home.signposts') .

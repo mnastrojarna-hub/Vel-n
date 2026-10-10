@@ -1,0 +1,88 @@
+<?php
+// PL texty landing v2 poboček (karty, průvodce, výbava, srovnání) — ruční PL texty, tykání „ty“.
+// Struktura = lang/v2/es/pobocky-v2.php (CS defaulty: pages/pobocky-v2-texts.php).
+// branches[0] = Mezná, branches[1] = Velké Němčice. Dojezdové časy ověřené routováním
+// (viz pages/pobocky-v2-lib.php); ostatní fakta z textů poboček a FAQ.
+
+return ['pages' => ['pobocky' => ['v2' => [
+    'panel' => [
+        'cta_primary' => ['label' => 'ZAREZERWUJ', 'href' => '/rezervace'],
+        'cta_secondary' => ['label' => 'ZOBACZ MOTOCYKLE', 'href' => '/katalog'],
+        'chips' => ['2 oddziały: Wysoczyna i Brno', 'Bez kaucji', 'Wyposażenie kierowcy w cenie'],
+    ],
+    'cards_title' => 'Wybierz swój oddział',
+    'book_here' => 'Zarezerwuj tutaj',
+    'book_branch' => 'Zarezerwuj w tym oddziale',
+    'motos_branch' => 'Motocykle tego oddziału',
+    'motos_label' => 'motocykli w oddziale',
+    'about_title' => 'O oddziale',
+    'hours_title' => 'Godziny otwarcia',
+    'gear_title' => 'Wyposażenie',
+    'in_bike_title' => 'W motocyklu znajdziesz',
+    'guide_hint' => 'Przejdź cały proces krok po kroku.',
+    'guide_step' => 'Krok {n} z {total}',
+    'guide_prev' => 'Wstecz',
+    'guide_next' => 'Dalej',
+    'guide_done' => 'Zarezerwuj',
+    'map_title' => 'Jak dojechać',
+    'map_open' => 'Otwórz w Mapach Google',
+    'video_badge' => 'Wideo',
+    'video_lead' => 'Zobacz, jak wygląda odbiór motocykla w oddziale – będziesz wiedzieć z góry, co cię czeka.',
+    'fleet_title' => 'Motocykle w tym oddziale',
+    'other_title' => 'Nasz drugi oddział',
+    'compare_title' => 'Mezná czy Velké Němčice',
+    'compare_intro' => 'Oba oddziały w skrócie: wybierz ten, który ci pasuje.',
+    'compare' => [
+        ['label' => 'Przekazanie motocykla', 'i' => 'user', 'v' => [['t' => 'Osobiście: wszystko wyjaśnimy i pomożemy ustawić motocykl'], ['t' => 'Samodzielnie, bez obsługi: kody z aplikacji i ekran dotykowy']]],
+        ['label' => 'Godziny otwarcia', 'i' => 'clock', 'v' => [['t' => 'Pn.–nd. o dowolnej porze, także w święta; godzinę wybierasz w rezerwacji'], ['t' => '24/7; zwrot o dowolnej porze ostatniego dnia, do 24:00']]],
+        ['label' => 'Wyposażenie kierowcy w cenie', 'i' => 'helmet', 'v' => [['ok' => 1, 't' => 'Tak'], ['ok' => 1, 't' => 'Tak; buty motocyklowe za dopłatą']]],
+        ['label' => 'Rozmiary wyposażenia', 'i' => 'tag', 'v' => [['t' => 'Kurtka i spodnie do 6XL'], ['t' => 'Kask S–3XL; kurtka, spodnie i rękawice do 4XL']]],
+        ['label' => 'Odzież przeciwdeszczowa i dodatkowe wyposażenie', 'i' => 'rain', 'v' => [['ok' => 1, 't' => 'Tak'], ['ok' => 0, 't' => 'Nie, tylko w oddziale Mezná']]],
+        ['label' => 'Dostawa pod adres', 'i' => 'truck', 'v' => [['ok' => 1, 't' => 'Tak, za dopłatą'], ['ok' => 0, 't' => 'Nie: odbiór i zwrot tylko w oddziale']]],
+        ['label' => 'Dokumenty', 'i' => 'doc', 'v' => [['t' => 'Prześlij je online albo sprawdzimy je na miejscu'], ['t' => 'Trzeba je wcześniej przesłać i zweryfikować online']]],
+        ['label' => 'Zaplecze', 'i' => 'kiosk', 'v' => [['t' => 'Wi-fi, WC, przebieralnia i zamykane szafki'], ['t' => 'Szatnia (drzwi nr 8), ekran dotykowy i boksy z motocyklami']]],
+        ['label' => 'Bezpłatny parking', 'i' => 'parking', 'v' => [['ok' => 1, 't' => 'Tak, przez cały czas wynajmu'], ['ok' => 1, 't' => 'Tak, przez cały czas wynajmu']]],
+        ['label' => 'Dojazd', 'i' => 'car', 'v' => [['t' => 'Ok. 90 min z Pragi'], ['t' => '20 min z południa Brna (ok. 30 min z centrum), 35 min z lotniska i 1 h 40 min z Wiednia']]],
+        ['label' => 'Motocykle w oddziale', 'i' => 'moto', 'count' => 1, 'v' => [['t' => '{n}'], ['t' => '{n}']]],
+    ],
+    'branches' => [
+        [
+            'short' => 'Mezná',
+            'highlight' => 'Przekażemy ci motocykl osobiście i wszystko wyjaśnimy',
+            'dist' => ['Ok. 90 min z Pragi'],
+            'stats' => [['v' => '90 min', 'l' => 'z Pragi (ok.)'], ['v' => '6XL', 'l' => 'maks. rozmiar wyposażenia'], ['v' => 'Pn–Nd', 'l' => 'o dowolnej porze']],
+            'facts' => [
+                ['i' => 'clock', 't' => 'Od poniedziałku do niedzieli, także w święta'], ['i' => 'user', 't' => 'Osobiste przekazanie'],
+                ['i' => 'helmet', 't' => 'Wyposażenie w cenie, rozmiary do 6XL'], ['i' => 'rain', 't' => 'Odzież przeciwdeszczowa do wypożyczenia'],
+                ['i' => 'truck', 't' => 'Dostawa pod adres (za dopłatą)'], ['i' => 'parking', 't' => 'Bezpłatny parking'], ['i' => 'shield', 't' => 'Bez kaucji'],
+            ],
+            'guide' => ['Rezerwacja i dokumenty', 'Przyjazd do oddziału', 'Przekazanie motocykla i wyposażenia', 'Zwrot motocykla'],
+            'gear' => [['i' => 'helmet', 't' => 'Kask'], ['i' => 'jacket', 't' => 'Kurtka'], ['i' => 'pants', 't' => 'Spodnie'], ['i' => 'gloves', 't' => 'Rękawice'], ['i' => 'rain', 't' => 'Odzież przeciwdeszczowa']],
+            'sizes' => 'Kurtki i spodnie w rozmiarach do 6XL',
+            'in_bike' => [],
+            'gallery' => ['Showroom MotoGo24 – Mezná koło Pelhřimova', 'Motocykle przygotowane do wynajmu', 'Motocykle adventure MotoGo24', 'Magazyn wyposażenia: kaski i odzież w cenie wynajmu'],
+        ],
+        [
+            'short' => 'Velké Němčice',
+            'highlight' => 'W 100% nonstop, bez obsługi',
+            'dist' => ['20 min z południa Brna, ok. 30 min z centrum', 'Ok. 35 min z lotniska Brno-Tuřany', '1 h 40 min z Wiednia'],
+            'stats' => [['v' => '24/7', 'l' => 'bez obsługi'], ['v' => '30 min', 'l' => 'z centrum Brna (ok.)'], ['v' => '35 min', 'l' => 'z lotniska Brno (ok.)']],
+            'facts' => [
+                ['i' => 'phone', 't' => 'Odbiór na kod z aplikacji'], ['i' => 'parking', 't' => 'Bezpłatny parking'],
+                ['i' => 'helmet', 't' => 'Wyposażenie kierowcy w cenie'], ['i' => 'percent', 't' => 'Odbiór od 12:00: 1. dzień za pół ceny (2+ dni)'],
+                ['i' => 'moon', 't' => 'Zwrot ostatniego dnia do 24:00'], ['i' => 'shield', 't' => 'Bez kaucji'],
+            ],
+            'guide' => ['Rezerwacja, płatność i dokumenty', 'Brama i parking', 'Szatnia i wyposażenie', 'Protokół i motocykl', 'Brama przy wyjeździe', 'Zwrot motocykla'],
+            'gear' => [['i' => 'helmet', 't' => 'Kask'], ['i' => 'jacket', 't' => 'Kurtka z ochraniaczem pleców'], ['i' => 'pants', 't' => 'Spodnie'], ['i' => 'gloves', 't' => 'Rękawice'], ['i' => 'balaclava', 't' => 'Kominiarka'], ['i' => 'boots', 't' => 'Buty (za dopłatą)']],
+            'sizes' => 'Kaski S–3XL; kurtki, spodnie i rękawice do 4XL (większe w oddziale Mezná)',
+            'in_bike' => [['i' => 'vest', 't' => 'Kamizelka odblaskowa'], ['i' => 'firstaid', 't' => 'Apteczka'], ['i' => 'doc', 't' => 'Oświadczenie o zdarzeniu drogowym'], ['i' => 'lock', 't' => 'Blokada tarczy'], ['i' => 'phone', 't' => 'Kluczyk do uchwytu na telefon']],
+            'gallery' => [
+                'Punkt odbioru oddziału samoobsługowego: boksy z motocyklami',
+                'Punkt odbioru z boksami 1–7 i szatnią (drzwi nr 8)',
+                'Ekran dotykowy do wpisania kodu z aplikacji',
+                'Skrytki na prawym słupku bramy: kodem z aplikacji otwierasz górną skrytkę z kluczem do kłódki bramy',
+                'Parking dla klientów: miejsca 1–7 po prawej przy ogrodzeniu, bezpłatnie przez cały czas wynajmu',
+            ],
+        ],
+    ],
+]]]];

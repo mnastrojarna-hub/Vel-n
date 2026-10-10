@@ -1,5 +1,8 @@
 /* ===== MotoGo24 — Landing v2 (mobile-first) — viz landing.php ===== */
 
+/* Animace tlačítek v hlavičce (header-app-btn) a sticky lišty jinak na mobilu přesahují o 1–2 px */
+body.lp-v2{overflow-x:clip}
+
 /* --- Hero: v2 nemá tlačítka v banneru; tělo textu skryté jako v původní verzi
    (bez tlačítek by ho jinak odkrylo pravidlo .banner-caption p:last-child) --- */
 .lp-v2 .banner-caption p[data-cms-key="web.home.hero.body"]{display:none!important}

@@ -57,7 +57,7 @@ function HandoverDeviceInfo({ handover, now }) {
         </HintBlock>
       )}
       {active && (
-        <div className="mt-2 p-2 rounded-lg text-[12px]" style={{ background: '#ede9fe', color: '#6d28d9' }}
+        <HintBlock className="mt-2 p-2 rounded-lg text-[12px]" style={{ background: '#ede9fe', color: '#6d28d9' }}
           title={`Rezervace ${txt(active.booking_id)}${active.needs_code ? ' · podpis se potvrzuje kódem motorky' : ''}`}>
           <span className="font-bold">📝 {active.stage === 'done' ? 'Protokol potvrzen' : 'Protokol k podpisu na displeji'}</span>
           {' — '}{txt(active.data.customer_name ?? '—')}
@@ -65,7 +65,7 @@ function HandoverDeviceInfo({ handover, now }) {
           {active.zone_label || active.zone != null ? ` · ${active.zone_label ? txt(active.zone_label) : `zóna ${txt(active.zone)}`}` : ''}
           {active.then_open === true ? ' · po podpisu se kóje otevře' : ''}
           {left != null && active.stage !== 'done' ? ` · bez dotyku zmizí za ${left} s` : ''}
-        </div>
+        </HintBlock>
       )}
       {pending.length > 0 && (
         <HintBlock className="mt-2 p-2 rounded-lg text-[12px] font-bold" style={{ background: '#dbeafe', color: '#1d4ed8' }} title={QUEUED_TITLE}>
@@ -94,9 +94,9 @@ function ZoneHandoverInfo({ handover, zoneNo, bookingId }) {
   return (
     <>
       {here && <div className="text-[11px] mt-0.5 font-bold" style={{ color: '#6d28d9' }}>📝 Protokol k podpisu — {txt(active.data.customer_name ?? '—')}</div>}
-      {isWaiting && <div className="text-[11px] mt-0.5" style={{ color: '#b45309' }} title={WAITING_TITLE}>📝 protokol čeká na podpis</div>}
-      {isQueued && <div className="text-[11px] mt-0.5" style={{ color: '#1d4ed8' }} title={QUEUED_TITLE}>📝 podepsáno na displeji, čeká na odeslání</div>}
-      {isFailed && <div className="text-[11px] mt-0.5 font-bold" style={{ color: '#dc2626' }} title={FAILED_TITLE}>Podpis z kiosku se nepodařilo uložit</div>}
+      {isWaiting && <HintBlock className="text-[11px] mt-0.5" style={{ color: '#b45309' }} title={WAITING_TITLE}>📝 protokol čeká na podpis</HintBlock>}
+      {isQueued && <HintBlock className="text-[11px] mt-0.5" style={{ color: '#1d4ed8' }} title={QUEUED_TITLE}>📝 podepsáno na displeji, čeká na odeslání</HintBlock>}
+      {isFailed && <HintBlock className="text-[11px] mt-0.5 font-bold" style={{ color: '#dc2626' }} title={FAILED_TITLE}>Podpis z kiosku se nepodařilo uložit</HintBlock>}
     </>
   )
 }

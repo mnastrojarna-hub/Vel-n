@@ -177,7 +177,8 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         <Card className="md:col-span-2">
           <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#b45309' }}>Uplatněné slevy a kódy</h3>
           <div className="p-4 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            {/* 3 sloupce až od 1280 px — při 1024–1279 dlouhý popisek slevy (pozdní vyzvednutí) přetékal sloupec */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
               {discountRows.map(r => (
                 <div key={r.key} className="min-w-0">
                   <InfoRow label={r.label} value={r.value} />

@@ -255,7 +255,7 @@ export default function LiabilitiesTab() {
                   </TRow>
                 )
               })}
-              {liabilities.length === 0 && <TRow><TD label="" className="mg-stack-full">Žádné závazky</TD></TRow>}
+              {liabilities.length === 0 && <TRow><TD colSpan={10} label="" className="mg-stack-full">Žádné závazky</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

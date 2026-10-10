@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Btn, txt, num, arr } from './BranchRpiUi'
+import { HintBlock } from './BranchRpiTouchHint'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 // ─── Historie sítě + logy z reportu diagnostiky (`report.netlog`, jednotka od 2026-09-26) ──────────
 // Vzorky health (á 30 s, 7 dní na jednotce) → výpadky internetu za 24 h / 7 dní (kdy, jak dlouho, stav LTE/modemu/
@@ -18,16 +20,26 @@ const LOG_CZ = {
   usbreset_log: 'Log USB resetů modemu',
 }
 
+const TIMELINE_TITLE = 'Časová osa 24 h: zelená = internet OK, červená = výpadek, šedá = neznámo; tmavší = modem pryč z USB'
+const sampleText = p => `${when(new Date((num(p.ts) ?? 0) * 1000).toISOString())} · internet ${p.i === true ? 'OK' : p.i === false ? 'VÝPADEK' : '?'} · LTE ${txt(p.l)} RSSI ${txt(p.r)} · brána ${txt(p.g)}${p.m ? ' · modem pryč' : ''}`
+
+// Dotyk (< 1024 px): legenda pod „i“ a klepnutí na proužek ukáže detail vzorku pod osou (na PC bubliny `title`)
 function Timeline({ series }) {
+  const mobile = useIsMobile()
+  const [sel, setSel] = useState(null)
   const pts = arr(series).map(obj)
   if (!pts.length) return null
+  const picked = mobile && sel != null ? pts[sel] : null
   return (
-    <div className="flex flex-wrap gap-px mt-1" title="Časová osa 24 h: zelená = internet OK, červená = výpadek, šedá = neznámo; tmavší = modem pryč z USB">
-      {pts.map((p, i) => (
-        <span key={i} style={{ width: 4, height: 14, background: p.i === true ? '#22c55e' : p.i === false ? '#ef4444' : '#cbd5e1', opacity: p.m ? 0.55 : 1 }}
-          title={`${when(new Date((num(p.ts) ?? 0) * 1000).toISOString())} · internet ${p.i === true ? 'OK' : p.i === false ? 'VÝPADEK' : '?'} · LTE ${txt(p.l)} RSSI ${txt(p.r)} · brána ${txt(p.g)}${p.m ? ' · modem pryč' : ''}`} />
-      ))}
-    </div>
+    <>
+      <HintBlock className="flex flex-wrap gap-px mt-1" title={TIMELINE_TITLE} hint={`${TIMELINE_TITLE}. Klepnutím na proužek zobrazíte detail vzorku.`}>
+        {pts.map((p, i) => (
+          <span key={i} style={{ width: 4, height: 14, background: p.i === true ? '#22c55e' : p.i === false ? '#ef4444' : '#cbd5e1', opacity: p.m ? 0.55 : 1, ...(picked && sel === i ? { outline: '2px solid #1a2e22' } : null) }}
+            title={sampleText(p)} onClick={mobile ? () => setSel(i) : undefined} />
+        ))}
+      </HintBlock>
+      {picked && <div className="text-[12px] mt-1" style={{ color: '#1a2e22' }}>Vzorek: {sampleText(picked)}</div>}
+    </>
   )
 }
 

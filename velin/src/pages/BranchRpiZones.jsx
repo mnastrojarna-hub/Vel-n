@@ -3,8 +3,9 @@ import { EmptyState } from './BranchHelpers'
 import { RpiSection, Btn, Chip, HintChip, ErrorBoundary, formatUptime, ageSeconds, formatAge, txt, num, arr, isRpiDevice, ACCESSORIES_LABEL, boxLabel, isGeneratedZoneLabel } from './BranchRpiUi'
 import { OutdoorTile } from './BranchRpiOutdoorTile'
 import { parseHandover, HandoverDeviceInfo, ZoneHandoverInfo } from './BranchRpiHandover'
-import { ScreenMirrorButton } from './BranchRpiScreen'
-import { HintBlock } from './BranchRpiTouchHint'
+import { ScreenMirrorButton, screenMirrorTitle } from './BranchRpiScreen'
+import { HintBlock, HintList } from './BranchRpiTouchHint'
+import * as T from './BranchRpiCmdTitles'
 
 // ─── Řídicí jednotka (Raspberry) — živý stav zón + příkazy ──────────────────
 // Zdroj: kiosk_devices.status (snapshot z kontraktu §14, RPC kiosk_report_status),
@@ -148,6 +149,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
   const nameMismatch = !!(hasStatusName(st) && branchName && shownName !== String(branchName))
   const pinLockedAt = st.pin_locked_until ? new Date(String(st.pin_locked_until)) : null
   const pinLockedUntil = pinLockedAt && !isNaN(pinLockedAt) && pinLockedAt.getTime() > now ? pinLockedAt : null
+  const modemModeTitle = `Režim v konfiguraci jednotky: ${txt(lte.mode)} · modem na USB hlásí: ${txt(lte.usb_mode ?? 'nevidím')}`
 
   async function send(command, params = {}, label) {
     const ok = await onCommand(dev, command, params)
@@ -172,7 +174,7 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
           const lteOk = lte.healthy !== false
           const viaOther = !!via && !/^(wwan|usb|ppp)/.test(String(via))
           if (!st.internet) return <Chip tone="red" title="Připojení k internetu (LTE)">Bez internetu</Chip>
-          if (viaOther) return <Chip tone={lteOk ? 'amber' : 'red'} title={`Internet jde přes ${via} (test mimo pobočku — na pobočce je jen LTE). LTE: ${lteOk ? 'v pořádku' : 'NEFUNKČNÍ — hlídka modem obnovuje'}`}>{`Internet přes ${via}${lteOk ? '' : ' · LTE nefunkční'}`}</Chip>
+          if (viaOther) return <HintChip tone={lteOk ? 'amber' : 'red'} title={`Internet jde přes ${via} (test mimo pobočku — na pobočce je jen LTE). LTE: ${lteOk ? 'v pořádku' : 'NEFUNKČNÍ — hlídka modem obnovuje'}`}>{`Internet přes ${via}${lteOk ? '' : ' · LTE nefunkční'}`}</HintChip>
           return <Chip tone="green" title="Připojení k internetu (LTE)">Internet OK</Chip>
         })()}
         {/* I/O síť: co zkontrolovat je na PC v bublině, na dotyku pod „i“ u čipu (HintChip) */}
@@ -195,11 +197,10 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
 
       {/* Název pobočky na displeji — musí být 1:1 s názvem pobočky ve Velíně */}
       {hasStatus && (
-        <div className="text-[11px] mt-1" style={{ color: nameMismatch ? '#b45309' : '#6b8c7a' }}
-          title="Název, který zákazník vidí v záhlaví displeje na pobočce. Jednotka ho bere VÝHRADNĚ z názvu pobočky ve Velíně — po přejmenování se propíše do 30 s (nebo hned tlačítkem „Synchronizovat konfiguraci“).">
+        <HintBlock className="text-[11px] mt-1" style={{ color: nameMismatch ? '#b45309' : '#6b8c7a' }} title={T.NAME_ON_DISPLAY_TITLE}>
           Na displeji pobočky: <b style={{ color: nameMismatch ? '#b45309' : '#1a2e22' }}>{shownName || '—'}</b>
           {nameMismatch && <> — ve Velíně je <b>{String(branchName)}</b>; jednotka si nový název stáhne do 30 s.</>}
-        </div>
+        </HintBlock>
       )}
 
       {/* Moduly + konfigurace */}
@@ -211,8 +212,8 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
           <span className="text-[11px] font-extrabold uppercase ml-2" style={{ color: '#6b8c7a' }}>Konfigurace:</span>
           <Chip tone={st.config_source === 'remote' ? 'blue' : 'amber'}>{st.config_source === 'remote' ? 'Velín' : st.config_source === 'local' ? 'lokální YAML' : '—'}</Chip>
           {playingZone != null && <Chip tone="green">♪ hraje zóna {playingZone}</Chip>}
-        {shellFree && <Chip tone="amber" title="Na displeji pobočky jde teď psát libovolné příkazy (servisní terminál). Každý příkaz se zapisuje do Hlášení a chyb.">
-          ⌨ Terminál odemčen ({shellMin} min)</Chip>}
+        {shellFree && <HintChip tone="amber" title={T.SHELL_FREE_TITLE}>
+          ⌨ Terminál odemčen ({shellMin} min)</HintChip>}
         </div>
       )}
       {updateLine && (
@@ -233,8 +234,9 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
         <div className="mt-2 p-2 rounded-lg text-[12px] flex items-center gap-2 flex-wrap" style={{ background: '#fee2e2', color: '#dc2626' }}>
           <span className="font-bold">⛔ Zadávání kódů na displeji zablokováno do {pinLockedUntil.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</span>
           <span>— po opakovaných chybných kódech (např. starý kód po přesunu motorky). Zákazník teď nezadá kód rezervace.</span>
-          <Btn tone="red" title="Okamžitě zruší blokaci zadávání na displeji pobočky; počítadlo chybných pokusů začne znovu od nuly."
+          <Btn tone="red" title={T.PIN_UNLOCK_TITLE}
             onClick={() => send('pin_unlock', {}, 'Zrušit blokaci zadávání')}>Zrušit blokaci zadávání</Btn>
+          <HintList items={[['Zrušit blokaci zadávání', T.PIN_UNLOCK_TITLE]]} />
         </div>
       )}
 
@@ -243,51 +245,56 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
       {servis && hasStatus && lte.mode != null && (
         <div className="flex items-center gap-2 flex-wrap mt-2 text-[11px]" style={{ color: '#6b8c7a' }}>
           <span className="font-extrabold uppercase">Modem:</span>
-          <Chip tone={lte.mode === 'rndis' ? 'blue' : 'gray'} title={`Režim v konfiguraci jednotky: ${txt(lte.mode)} · modem na USB hlásí: ${txt(lte.usb_mode ?? 'nevidím')}`}>
+          <Chip tone={lte.mode === 'rndis' ? 'blue' : 'gray'} title={modemModeTitle}>
             {String(lte.mode).toUpperCase()}{lte.usb_mode && lte.usb_mode !== lte.mode ? ` (USB: ${String(lte.usb_mode).toUpperCase()})` : ''}
           </Chip>
-          <span title="Kolikrát health monitor za posledních 24 h odpojil a připojil modem na USB (poslední stupeň obnovy před rebootem).">
+          <span title={T.USB_RESETS_TITLE}>
             USB resetů za 24 h: <b style={{ color: (lte.last24h?.usb_reset ?? 0) >= 3 ? '#dc2626' : '#1a2e22' }}>{txt(lte.last24h?.usb_reset ?? 0)}</b>
             {num(lte.mode_auto_after) > 0 && lte.mode !== 'rndis' && <> · po {txt(lte.mode_auto_after)} se přepne do RNDIS sama</>}
             {lte.usb_mode && lte.mode && lte.usb_mode !== lte.mode && <> · <b style={{ color: '#b45309' }}>nastavení ≠ modem na USB — jednotka srovná do 2 min</b></>}
             {lte.mode_switch_to && <> · poslední automatické přepnutí → {String(lte.mode_switch_to).toUpperCase()} {formatAge(lte.mode_switch_at ? Math.max(0, Math.round(now / 1000 - lte.mode_switch_at)) : null)}</>}
           </span>
           {lte.mode !== 'rndis' ? (
-            <Btn tone="gray" title="EXPERIMENTÁLNÍ — jen s technikem u modemu. Přepne modem SIM7600 do režimu RNDIS (síťová karta usb0 bez ModemManageru). Při testu 26. 9. modem po přepnutí ÚPLNĚ zmizel z USB a vrátilo ho až fyzické odpojení a zapojení; na pobočce bez obsluhy by jednotka zůstala offline. Výsledek přijde do Hlášení a chyb (LTE_MODE); jednotka si nesoulad nastavení a modemu do 2 minut srovná sama."
+            <Btn tone="gray" title={T.RNDIS_TITLE}
               onClick={() => confirmSend('POZOR: experimentální. Přepnout modem do režimu RNDIS? Internet vypadne na ~2 minuty a modem může zmizet z USB — pak pomůže jen fyzické odpojení a zapojení modemu. Pokračovat jen s technikem u jednotky.', 'lte_mode', { mode: 'rndis' }, 'Modem → RNDIS')}>Modem → RNDIS (experimentální)</Btn>
           ) : (
-            <Btn tone="gray" title="Vrátí modem do původního režimu QMI (ModemManager). Internet vypadne na ~2 minuty."
+            <Btn tone="gray" title={T.QMI_TITLE}
               onClick={() => confirmSend('Vrátit modem do režimu QMI? Internet pobočky vypadne na ~2 minuty.', 'lte_mode', { mode: 'qmi' }, 'Modem → QMI')}>Modem → QMI</Btn>
           )}
+          {/* Dotyk: bubliny čipu, resetů a tlačítka pod jedním „i“ (na PC beze změny) */}
+          <HintList items={[[`Režim ${String(lte.mode).toUpperCase()}`, modemModeTitle], ['USB resetů za 24 h', T.USB_RESETS_TITLE],
+            lte.mode !== 'rndis' ? ['Modem → RNDIS', T.RNDIS_TITLE] : ['Modem → QMI', T.QMI_TITLE]]} />
         </div>
       )}
 
       {/* Globální příkazy — provozní vždy; technické (sync, identifikace, aktualizace, reboot, terminál) jen v servisním režimu.
           „Zamknout terminál“ zůstává vidět vždy, když je odemčený, aby ho šlo zavřít i bez servisu. */}
       <div className="flex items-center gap-2 flex-wrap mt-2 pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
-        <Btn tone="red" title="Nouzové vypnutí: zhasne světla ve všech kójích i venku, zastaví hudbu, vypne signalizaci a odjistí relé. Dveře NEODEMYKÁ ani nezamyká. Použijte, když něco svítí nebo hraje a nemá."
+        <Btn tone="red" title={T.ALL_OFF_TITLE}
           onClick={() => confirmSend('Vypnout vše (zámky, světla, hudba, signalizace) na řídicí jednotce?', 'all_off', {}, 'Vše vypnout')}>Vše vypnout</Btn>
         <ScreenMirrorButton dev={dev} online={online} onCommand={onCommand} />
-        <Btn tone="amber" title="Restartuje jen program jednotky (ne celý Raspberry). Trvá pár sekund, zóny se znovu načtou. První pomoc, když se něco zaseklo."
+        <Btn tone="amber" title={T.RESTART_TITLE}
           onClick={() => confirmSend('Restartovat službu řídicí jednotky? Zóny se na pár sekund vypnou a znovu inicializují.', 'restart', {}, 'Restart služby')}>Restart služby</Btn>
         {servis && <>
-        <Btn tone="blue" title="Jednotka si HNED stáhne aktuální nastavení z Velína (hardware, dveře, kódy, hudbu) — jinak to udělá sama do 60 s. Použijte po úpravě nastavení, když nechcete čekat."
+        <Btn tone="blue" title={T.SYNC_TITLE}
           onClick={() => send('sync_config', {}, 'Synchronizovat konfiguraci')}>Synchronizovat konfiguraci</Btn>
-        <Btn tone="blue" title="Kterou pobočku mám před sebou? Na displeji této jednotky se zobrazí „Tady jsem 👋“ a signalizace VŠECH kójí 3× blikne zeleně. Slouží k rozpoznání, který řádek ve Velíně patří které fyzické jednotce — nic neotevírá, zákazníka to neomezí."
+        <Btn tone="blue" title={T.IDENTIFY_TITLE}
           onClick={() => send('identify', { label: 'Velín' }, 'Identifikuj')}>Identifikuj</Btn>
         <Btn tone="amber" onClick={() => confirmSend('Aktualizovat software řídicí jednotky (git pull + restart)? Naplánuje se a provede se, až bude kóje volná (nikdo uprostřed relace). Výsledek poznáte podle hlášené verze a řádku „Aktualizace“ níže.', 'update_software', {}, 'Aktualizovat software')}>Aktualizovat software</Btn>
-        <Btn tone="red" title="Restartuje celý počítač na pobočce. Cca minutu nejde zadat kód ani otevřít dveře — nedělejte, když je někdo v kóji."
+        <Btn tone="red" title={T.REBOOT_TITLE}
           onClick={() => confirmSend('Rebootovat Raspberry Pi? Pobočka bude cca 1 minutu nedostupná.', 'reboot', {}, 'Reboot RPi')}>Reboot RPi</Btn>
         </>}
         {(servis || shellFree) && <Btn tone={shellFree ? 'red' : 'gray'}
-          title={shellFree
-            ? 'Zamkne volné psaní příkazů na displeji pobočky (připravená tlačítka terminálu zůstanou).'
-            : 'Povolí na 30 minut psaní libovolných příkazů technikovi, který má u sebe jen DIAGNOSTICKÝ kód. Se servisním heslem terminál píše rovnou (a funguje i když je pobočka offline — příkaz odsud by tam stejně nedorazil). Běží pod uživatelem motogo (ne root), každý příkaz jde do Hlášení a chyb. Po 30 minutách se sám zamkne.'}
+          title={shellFree ? T.SHELL_LOCK_TITLE : T.SHELL_UNLOCK_TITLE}
           onClick={() => confirmSend(shellFree
             ? 'Zamknout volné psaní příkazů na displeji pobočky?'
             : 'Povolit na 30 minut psaní libovolných příkazů na displeji pobočky? Kdo zná diagnostický kód, dostane na místě příkazovou řádku jednotky.',
             'shell_unlock', { minutes: shellFree ? 0 : 30 }, shellFree ? 'Zamknout terminál' : 'Odemknout terminál')}>
           {shellFree ? 'Zamknout terminál' : '⌨ Terminál na displeji'}</Btn>}
+        {/* Dotyk: co které tlačítko dělá (na PC bublina u každého) — jedno „i“ na celou řadu */}
+        <HintList items={[['Vše vypnout', T.ALL_OFF_TITLE], ['Obrazovka', screenMirrorTitle(online)], ['Restart služby', T.RESTART_TITLE],
+          servis && ['Synchronizovat konfiguraci', T.SYNC_TITLE], servis && ['Identifikuj', T.IDENTIFY_TITLE], servis && ['Reboot RPi', T.REBOOT_TITLE],
+          (servis || shellFree) && (shellFree ? ['Zamknout terminál', T.SHELL_LOCK_TITLE] : ['Terminál na displeji', T.SHELL_UNLOCK_TITLE])]} />
         {sent && (now - sent.ts) < 60000 && <span className="text-[11px] font-bold" style={{ color: '#1a8a18' }}>{sent.text}</span>}
       </div>
 
@@ -342,6 +349,9 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor, servis = f
   const startedMs = z.session_started_at ? new Date(txt(z.session_started_at)).getTime() : NaN
   const started = Number.isFinite(startedMs) ? new Date(startedMs) : null
   const signalKey = txt(z.signal ?? '').toLowerCase()
+  const canFlip = !!(servis && door && onSaveDoor && z.closed_level != null)   // tlačítko „Otočit polaritu“
+  const musicTitle = z.speaker === false ? 'Zóna nemá reproduktor (Hardware → Audio: dveře bez výstupu) — po kódu tu hudba nehraje, není to chyba.'
+    : z.music_enabled === false ? 'Hudba je v této zóně vypnutá — po zadání kódu se nespustí (nastavení „Hudba“ u dveří nebo hlavní vypínač v sekci Audio)' : undefined
 
   function pickSignal(v) {
     setSig('')
@@ -370,11 +380,11 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor, servis = f
         </HintBlock>
       )}
       {z.contact_ref != null && (
-        <HintBlock className="text-[11px] mt-0.5 flex items-center gap-1 flex-wrap" style={{ color: '#1a2e22' }} hint={servis ? undefined : null}
-          title="Syrová hodnota dveřního vstupu z modulu (1 = kontakt sepnut mezi DI a DGND, 0 = rozpojeno; svorka COM na Relay (B) musí zůstat VOLNÁ) a úroveň, kterou program bere jako zavřeno (má být 1 — s 0 vypadá přerušený kabel jako zavřené dveře). „Změn od startu“ = kolikrát se vstup od startu jednotky změnil; 0 po otevření zámku = signál kontaktu nejde do modulu.">
+        <HintBlock className="text-[11px] mt-0.5 flex items-center gap-1 flex-wrap" style={{ color: '#1a2e22' }} title={T.CONTACT_TITLE}
+          hint={!servis ? null : canFlip ? <>{T.CONTACT_TITLE}<span className="block mt-1"><b>Otočit polaritu</b> — {T.POLARITY_TITLE}</span></> : undefined}>
           <span>vstup <b>{txt(z.contact_ref)}</b> = <b>{z.contact_raw === true ? 1 : z.contact_raw === false ? 0 : '?'}</b> · zavřeno = {txt(z.closed_level ?? '?')}{z.contact_changes != null && <> · změn od startu: <b>{txt(z.contact_changes)}</b>{num(z.contact_changes) === 0 && num(z.unlocks_since_start) > 0 && <span style={{ color: '#b91c1c' }}> (zámek otevřen {txt(z.unlocks_since_start)}×, vstup se nehnul)</span>}</>}</span>
-          {servis && door && onSaveDoor && z.closed_level != null && (
-            <Btn tone="gray" small title="Prohodí úroveň „Zavřeno =“ u těchto dveří (0 ↔ 1) a uloží do HW mapy — použijte, když program hlásí opačný stav, než dveře skutečně mají."
+          {canFlip && (
+            <Btn tone="gray" small title={T.POLARITY_TITLE}
               onClick={() => onSaveDoor(door.id, { hw: { ...(door.hw || {}), closed_level: num(z.closed_level) === 1 ? 0 : 1 } })}>Otočit polaritu</Btn>
           )}
         </HintBlock>
@@ -388,17 +398,16 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor, servis = f
       <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px]" style={{ color: '#6b8c7a' }}>
         <span>dveře <b style={{ color: doorColor }}>{doorTxt}</b></span>
         <span>· světlo <b style={{ color: z.light ? '#b45309' : '#6b8c7a' }}>{z.light ? 'svítí' : 'zhasnuto'}</b></span>
-        <span title={z.speaker === false ? 'Zóna nemá reproduktor (Hardware → Audio: dveře bez výstupu) — po kódu tu hudba nehraje, není to chyba.'
-          : z.music_enabled === false ? 'Hudba je v této zóně vypnutá — po zadání kódu se nespustí (nastavení „Hudba“ u dveří nebo hlavní vypínač v sekci Audio)' : undefined}>
+        <span title={musicTitle}>
           · hudba <b style={{ color: z.music ? '#1a8a18' : z.speaker === false ? '#6b8c7a' : z.music_enabled === false ? '#b45309' : '#6b8c7a' }}>
             {z.music ? 'hraje' : z.speaker === false ? 'bez reproduktoru' : z.music_enabled === false ? 'vypnuta' : 'ne'}</b>
         </span>
         <span>· signál {SIGNAL_CZ[signalKey] || (signalKey ? signalKey : '—')}</span>
       </div>
       {(z.booking_id || started) && (
-        <div className="text-[11px] mt-0.5" style={{ color: '#2563eb' }} title={txt(z.booking_id ?? '')}>
+        <HintBlock className="text-[11px] mt-0.5" style={{ color: '#2563eb' }} title={txt(z.booking_id ?? '')} hint={z.booking_id ? `Rezervace ${txt(z.booking_id)}` : null}>
           {z.booking_id ? `rezervace ${txt(z.booking_id).slice(0, 8)}…` : 'relace'}{started ? ` od ${started.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}` : ''}
-        </div>
+        </HintBlock>
       )}
       <ZoneHandoverInfo handover={handover} zoneNo={zoneNo} bookingId={z.booking_id} />
       {z.last_event != null && <div className="text-[10px] max-lg:text-[11px] mt-0.5" style={{ color: '#6b8c7a' }}>posl. událost: {txt(z.last_event)}</div>}
@@ -423,11 +432,13 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor, servis = f
           <option value="">Signál…</option>
           {SIGNALS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        <Btn tone="blue" small title="Zkontroluje, že v této kóji funguje světlo, barevná signalizace a reproduktor — postupně je na chvíli zapne. Zámek se NESEPNE, takže se dveře neotevřou. Dělejte na prázdné kóji."
+        <Btn tone="blue" small title={T.ZONE_TEST_TITLE}
           onClick={() => onSend('zone_test', zoneParams, `test zóny ${txt(zoneNo)}`)}>Test zóny</Btn>
-        <Btn tone="blue" small title="Jednotka 20 s sleduje dveřní kontakt této zóny. Během testu dveře otevřete a zase zavřete (skončete zavřenými). Výsledek za ~25 s v „Hlášení a chyby“: v pořádku / otočit polaritu / vstup se nemění (zapojení)."
+        <Btn tone="blue" small title={T.CONTACT_TEST_TITLE}
           onClick={() => onSend('contact_test', { ...zoneParams, seconds: 20 }, `test kontaktu (zóna ${txt(zoneNo)}) — teď dveře otevřete a zavřete, výsledek za ~25 s v Hlášení a chyby`)}>Test kontaktu</Btn>
         </>}
+        {/* Dotyk: proč hudba nehraje + co dělají testy (na PC bubliny) — jedno „i“ na dlaždici */}
+        <HintList items={[musicTitle && ['Hudba', musicTitle], servis && ['Test zóny', T.ZONE_TEST_TITLE], servis && ['Test kontaktu', T.CONTACT_TEST_TITLE]]} />
       </div>
     </div>
   )

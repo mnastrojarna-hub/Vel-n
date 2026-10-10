@@ -335,6 +335,14 @@ function i18nDictionary() {
                     : $pages;
             }
         }
+        // Landing v2: texty nových stránek po souborech lang/v2/<lang>/*.php (vrací ['pages' => [...]]),
+        // ať se jednotlivé stránky nepřepisují v jednom velkém pages_<lang>.php.
+        foreach ((glob(__DIR__ . '/lang/v2/' . $code . '/*.php') ?: []) as $f) {
+            $v2 = $loadFile($f);
+            if (isset($v2['pages']) && is_array($v2['pages'])) {
+                $base['pages'] = _i18nDeepMerge(is_array($base['pages'] ?? null) ? $base['pages'] : [], $v2['pages']);
+            }
+        }
         return $base;
     };
 

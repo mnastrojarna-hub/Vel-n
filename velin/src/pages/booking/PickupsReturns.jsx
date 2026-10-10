@@ -234,6 +234,8 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans, sh
       <div onClick={onClick} className="cursor-pointer hover:bg-[#e9f7f1] transition-colors md:max-lg:!border-b-0" style={wrap}>
         <div className="flex items-center gap-2">
           {typeTag}
+          {/* stav jako u jednořádkového řádku (od 1280 px) — jen „⇆ Rozdělit“ na desktopu, mobil beze změny */}
+          {showStatus && <span className="shrink-0 hidden xl:inline"><StatusBadge status={getDisplayStatus(ev.booking)} /></span>}
           <span className="ml-auto text-sm"><TimeCell ev={ev} t={t} /></span>
         </div>
         <div className="font-extrabold text-sm mt-1 truncate" style={{ color: '#0f1a14' }}>{ev.moto}{ev.spz ? ` · ${ev.spz}` : ''}</div>
@@ -433,7 +435,9 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.pickup.color }}>Odjezdy (vyzvednutí)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcomingPickups.length}</span>
               </div>
-              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense={isMobile} />
+              {/* „⇆ Rozdělit“: půlka šířky na jednořádkový řádek nestačí ani na 1440 px (motorka a zákazník oříznuté
+                  na 0 px, „Odbavit“ za okrajem karty) → vždy dvouřádkové karty jako na mobilu/tabletu */}
+              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense />
             </Card>
             <Card style={{ padding: 14 }}>
               <div className="flex items-center gap-2 mb-3">
@@ -441,7 +445,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.return.color }}>Návraty (vrácení)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#fef3c7', color: '#b45309', padding: '1px 9px' }}>{upcomingReturns.length}</span>
               </div>
-              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} showBranch={branchId === ''} dense={isMobile} />
+              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} showBranch={branchId === ''} dense />
             </Card>
           </div>
         ) : (

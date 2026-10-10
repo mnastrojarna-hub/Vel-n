@@ -122,7 +122,7 @@ export default function SuppliersTab() {
                   </TD>
                 </tr>
               ))}
-              {suppliers.length === 0 && <TRow><TD label="">Žádní dodavatelé</TD></TRow>}
+              {suppliers.length === 0 && <TRow><TD colSpan={6} label="">Žádní dodavatelé</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

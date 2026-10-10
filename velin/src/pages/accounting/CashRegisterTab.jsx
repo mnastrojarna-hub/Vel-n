@@ -142,7 +142,7 @@ export default function CashRegisterTab() {
                   <TD bold>{fmt(e.balance)}</TD>
                 </TRow>
               ))}
-              {entries.length === 0 && <TRow><TD label="">Žádné záznamy</TD></TRow>}
+              {entries.length === 0 && <TRow><TD label="" colSpan={6}>Žádné záznamy</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

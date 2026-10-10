@@ -21,6 +21,7 @@ import { isRealizedBooking } from '../../lib/revenueUtils'
 import { useTableSort, sortRows } from '../../components/sortableTable'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend, CartesianGrid } from 'recharts'
+import { pieLabels } from './pieLabels'
 
 const GRANULARITIES = [
   { id: 'day',   label: 'Dny',    days: 30 },
@@ -60,6 +61,17 @@ function formatBucket(iso, gran) {
   if (gran === 'month') return `${MONTHS_SHORT[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`
   // day / week
   return `${d.getDate()}.${d.getMonth() + 1}.`
+}
+
+// Nejširší text v px (canvas, písmo stránky) — pro šířku osy grafu s dlouhými popisky
+function maxTextWidth(list, fontPx) {
+  try {
+    const ctx = (maxTextWidth.ctx ||= document.createElement('canvas').getContext('2d'))
+    ctx.font = `${fontPx}px ${getComputedStyle(document.body).fontFamily}`
+    return Math.max(0, ...list.map(s => ctx.measureText(String(s)).width))
+  } catch {
+    return Math.max(0, ...list.map(s => String(s).length * fontPx * 0.65))
+  }
 }
 
 function pct(part, total) {
@@ -151,6 +163,12 @@ export default function Navstevnost() {
 
   const byHost = useMemo(() => allStats?.by_host || {}, [allStats])
   const hostList = useMemo(() => Object.entries(byHost).sort((a, b) => Number(b[1]) - Number(a[1])), [byHost])
+  // Šířka osy domén: původní 110 px (desktop, + 20 px levý okraj) / 150 px (mobil, bez okraje);
+  // širší jen když se nejdelší doména nevejde (text končí 8 px před osou, rezerva 4 px).
+  const hostAxisW = useMemo(() => {
+    const base = isMobile ? 150 : 110, marginLeft = isMobile ? 0 : 20
+    return Math.max(base, Math.ceil(maxTextWidth(hostList.map(([h]) => h), 10)) + 12 - marginLeft)
+  }, [hostList, isMobile])
 
   const total = Number(stats?.total_views || 0)
   const visitors = Number(stats?.unique_visitors || 0)
@@ -454,10 +472,11 @@ export default function Navstevnost() {
           <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>Návštěvnost dle domén</h3>
           {hostList.length === 0 ? <NoData /> : (
             <ResponsiveContainer width="100%" height={240}>
-              {/* mobil/tablet: širší osa domén bez levého okraje — delší doména se jinak ořízne */}
+              {/* mobil/tablet: širší osa domén bez levého okraje; osa se dál rozšíří, jen když se
+                  nejdelší doména nevejde (jinak se vlevo ořízne) — viz hostAxisW */}
               <BarChart data={hostList.map(([h, c]) => ({ host: h, count: Number(c) }))} layout="vertical" margin={{ left: isMobile ? 0 : 20 }}>
                 <XAxis type="number" fontSize={10} allowDecimals={false} />
-                <YAxis type="category" dataKey="host" fontSize={10} width={isMobile ? 150 : 110} />
+                <YAxis type="category" dataKey="host" fontSize={10} width={hostAxisW} />
                 <Tooltip />
                 <Bar dataKey="count" fill="#74FB71" radius={[0, 6, 6, 0]} />
               </BarChart>
@@ -469,7 +488,7 @@ export default function Navstevnost() {
           {typePie.length === 0 ? <NoData /> : (
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie data={typePie} dataKey="value" nameKey="name" outerRadius={85} label>
+                <Pie data={typePie} dataKey="value" nameKey="name" outerRadius="60%" {...pieLabels(typePie)}>
                   {typePie.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
                 <Legend />
@@ -494,7 +513,7 @@ export default function Navstevnost() {
           {devicePie.length === 0 ? <NoData /> : (
             <ResponsiveContainer width="100%" height={isMobile ? 250 : 200}>
               <PieChart>
-                <Pie data={devicePie} dataKey="value" nameKey="name" outerRadius={70} label>
+                <Pie data={devicePie} dataKey="value" nameKey="name" outerRadius="60%" {...pieLabels(devicePie)}>
                   {devicePie.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
                 <Legend />

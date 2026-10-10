@@ -1,0 +1,127 @@
+/* ===== MotoGo24 — Landing v2: pobočky — průvodce „Jak to probíhá“, výbava, fotogalerie =====
+   Bez JS: kroky pod sebou jako časová osa (i desktop). JS (js/landing-branch.js) na mobilu
+   přepne průvodce do režimu krokování (.is-stepper): jeden krok, tečky, Předchozí/Další. */
+
+/* --- Průvodce --- */
+.pb-guide{margin:2rem 0}
+.pb-guide-card{padding:1.35rem 1rem 1.1rem;border-radius:22px;color:#e8f5ee;background:radial-gradient(130% 100% at 0 0,#24563b,#0e2a1c 55%,#0a1f14);box-shadow:0 18px 40px -16px rgba(10,31,20,.55)}
+.lp-main .pb-guide h2{margin:0 0 .2rem;color:#fff}
+.pb-guide-hint{margin:0 0 1rem;font-size:.86rem;color:#a8d8bc}
+.pb-guide-list{display:grid;margin:0;padding:0;list-style:none}
+.pb-gstep{position:relative;display:grid;grid-template-columns:42px 1fr;gap:.75rem;padding-bottom:1rem}
+.pb-gstep-rail{position:relative;display:flex;justify-content:center}
+.pb-gstep-rail::after{content:"";position:absolute;top:48px;bottom:-1rem;left:50%;width:2px;margin-left:-1px;background:linear-gradient(#74fb71,rgba(116,251,113,.15));transform-origin:top}
+.pb-gstep:last-child .pb-gstep-rail::after{display:none}
+.pb-gstep-n{position:relative;z-index:1;display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:#74fb71;color:#08230f;font-size:1.1rem;font-weight:900;box-shadow:0 0 0 5px rgba(116,251,113,.15);transition:transform .45s cubic-bezier(.3,1.6,.5,1)}
+.pb-gstep-card{min-width:0;padding:.85rem .9rem .95rem;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(116,251,113,.18)}
+.pb-gstep-head{display:flex;align-items:center;gap:.7rem;margin-bottom:.55rem}
+.pb-gstep-ico{flex:0 0 auto;display:grid;place-items:center;width:48px;height:48px;border-radius:13px;background:#fff;box-shadow:0 6px 16px -8px rgba(0,0,0,.5)}
+.pb-gstep-ico img{width:32px;height:32px}
+.pb-gstep-ico .pb-ico{width:28px;height:28px;color:#0d6e0d}
+.lp-main .pb-gstep h3{margin:0;color:#fff;font-size:1.05rem;line-height:1.25}
+.pb-gstep p{margin:0;font-size:.9rem;line-height:1.6;color:#cfe3d8}
+.pb-gstep p strong{color:#fff}
+.pb-gstep-photos{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-top:.8rem}
+.pb-gstep-photos a{position:relative;display:block;overflow:hidden;aspect-ratio:4/3;border-radius:12px;background:#13301f}
+.pb-gstep-photos a:only-child{grid-column:1/-1;aspect-ratio:16/9}
+.pb-gstep-photos img{width:100%;height:100%;object-fit:cover;transition:transform .4s}
+.pb-gstep-photos a:hover img{transform:scale(1.06)}
+.pb-gstep-photos .pb-ico{position:absolute;right:.4rem;bottom:.4rem;width:32px;height:32px;padding:7px;border-radius:50%;background:rgba(10,31,20,.78);color:#74fb71}
+.pb-guide-bar{margin:0 0 .9rem}
+.pb-guide-bar[hidden]{display:none}
+.pb-guide-count{margin:0 0 .5rem;font-size:.78rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#74fb71}
+.pb-guide-dots{display:flex;gap:.35rem;margin:0 0 .55rem;padding:0;list-style:none}
+.pb-guide-dots li{flex:1}
+.pb-guide-dots button{width:100%;min-height:38px;padding:0;border:0;border-radius:10px;background:rgba(255,255,255,.08);color:#cfe7da;font:inherit;font-size:.86rem;font-weight:800;cursor:pointer;transition:background .2s,color .2s,transform .2s}
+.pb-guide-dots button.is-done{background:rgba(116,251,113,.24);color:#e8f5ee}
+.pb-guide-dots button[aria-current="step"]{background:#74fb71;color:#08230f;transform:translateY(-2px)}
+.pb-guide-prog{height:4px;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.12)}
+.pb-guide-prog i{display:block;width:0;height:100%;background:linear-gradient(90deg,#37cf63,#74fb71);transition:width .35s ease}
+.pb-guide-nav{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:.4rem}
+.pb-guide-done{flex:1 1 100%}
+.pb-guide-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-height:50px;padding:.6rem 1rem;border:2px solid #74fb71;border-radius:14px;background:transparent;color:#fff;font:inherit;font-size:.86rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;transition:background .2s,transform .15s}
+.pb-guide-btn[hidden]{display:none}
+.pb-guide-btn:active{transform:scale(.97)}
+.pb-guide-btn .lp-ico{width:18px;height:18px}
+.pb-guide-btn[data-dir="-1"] .lp-ico{transform:rotate(180deg)}
+.pb-guide-btn--next{background:#74fb71;color:#08230f}
+.pb-guide-btn:disabled{opacity:.35;cursor:default}
+.pb-admin-src{margin-top:1rem;padding:.75rem;border:1px dashed #74fb71;border-radius:12px;font-size:.8rem}
+
+/* Krokování (mobil + JS) */
+.pb-guide.is-stepper .pb-gstep{display:none;grid-template-columns:1fr;padding-bottom:0;opacity:1;transform:none}
+.pb-guide.is-stepper .pb-gstep.is-cur{display:grid;animation:pbIn .35s ease both}
+.pb-guide.is-stepper .pb-gstep.is-cur.is-back{animation-name:pbInBack}
+.pb-guide.is-stepper .pb-gstep-rail{display:none}
+.pb-guide.is-stepper .pb-guide-nav{display:grid;grid-template-columns:1fr 1.5fr;margin-top:.85rem}
+.pb-guide.is-stepper .pb-guide-done{display:none;grid-column:2}
+.pb-guide.is-stepper.is-last .pb-guide-done{display:inline-flex}
+.pb-guide.is-stepper.is-last .pb-guide-btn--next{display:none}
+
+/* --- Výbava --- */
+.pb-gear{margin:2rem 0}
+.pb-gear-card{padding:1.3rem 1.05rem;border-radius:20px;background:#fff;border:1px solid #d4e8e0;box-shadow:0 12px 30px -20px rgba(26,46,34,.45)}
+.pb-gear-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem;margin:0 0 1rem;padding:0;list-style:none}
+.pb-gear-grid li{flex:0 0 calc((100% - 1rem) / 3);min-width:0;display:flex;flex-direction:column;align-items:center;gap:.4rem;padding:.75rem .35rem;border-radius:14px;background:linear-gradient(180deg,#f3fbf7,#e6f5ee);border:1px solid #d4e8e0;color:#1a2e22;font-size:.76rem;font-weight:700;line-height:1.25;text-align:center;transition:transform .2s,box-shadow .2s}
+.pb-gear-grid li:hover{transform:translateY(-3px);box-shadow:0 10px 20px -12px rgba(26,46,34,.45)}
+.pb-gear-ico{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:#1a2e22;color:#74fb71}
+.pb-gear-ico .pb-ico{width:26px;height:26px}
+.pb-gear-size{display:flex;align-items:center;gap:.55rem;margin:0 0 1rem;padding:.7rem .9rem;border-radius:14px;background:#1a2e22;color:#fff;font-size:.88rem;font-weight:700;line-height:1.35}
+.pb-gear-size .pb-ico{width:22px;height:22px;color:#74fb71}
+.pb-gear-text{margin:0;font-size:.92rem;line-height:1.6;color:#2c4a3a}
+.lp-main .pb-gear h3{margin:1.2rem 0 .6rem;font-size:1rem}
+.pb-gear-grid--sm{margin-bottom:0}
+.pb-gear-grid--sm li{background:#fff}
+.pb-gear-grid--sm .pb-gear-ico{width:38px;height:38px;background:#e6f5ee;color:#0d6e0d}
+.pb-gear-grid--sm .pb-gear-ico .pb-ico{width:22px;height:22px}
+
+/* --- Fotogalerie (swipe karusel) --- */
+.pb-gallery{margin:2rem 0}
+.pb-gal-n{display:inline-flex;align-items:center;gap:.35rem;font-size:.9rem;font-weight:800;color:#0d6e0d}
+.pb-track{grid-auto-columns:84%}
+.pb-shot{min-width:0;scroll-snap-align:start}
+.pb-shot a{position:relative;display:block;overflow:hidden;aspect-ratio:4/3;border-radius:18px;background:#e6f2ed;box-shadow:0 8px 22px -12px rgba(26,46,34,.5)}
+.pb-shot img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
+.pb-shot a:hover img{transform:scale(1.05)}
+.pb-shot-cap{position:absolute;left:0;right:0;bottom:0;padding:2.4rem .85rem .75rem;background:linear-gradient(180deg,transparent,rgba(10,31,20,.9));color:#fff;font-size:.8rem;font-weight:600;line-height:1.35}
+.pb-shot-zoom{position:absolute;right:.6rem;top:.6rem;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.94);color:#0e2a1c;transition:transform .2s}
+.pb-shot a:hover .pb-shot-zoom{transform:scale(1.1)}
+.pb-gallery .lp-head{margin-bottom:.2rem}
+
+@media(min-width:561px) and (max-width:768px){.pb-track{grid-auto-columns:58%}}
+@media(min-width:769px){
+  .pb-track{grid-auto-columns:440px}
+  .pb-gear-card{padding:1.8rem}
+  .pb-gear-grid{gap:.75rem}
+  .pb-gear-grid li{flex:1 1 110px;max-width:170px;font-size:.84rem;padding:1rem .5rem}
+  .pb-gear-size{display:inline-flex}
+}
+@media(min-width:900px){
+  .pb-guide-card{padding:2.2rem 2.25rem 1.6rem}
+  .pb-guide-top{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:1.4rem}
+  .pb-guide-hint{margin:0}
+  .pb-gstep{grid-template-columns:64px 1fr;gap:1.1rem;padding-bottom:1.3rem}
+  .pb-gstep-n{width:56px;height:56px;font-size:1.35rem}
+  .pb-gstep-rail::after{top:62px;bottom:-1.3rem}
+  .pb-gstep-card{display:grid;grid-template-columns:1fr;gap:0 1.6rem;padding:1.2rem 1.35rem;transition:transform .25s,border-color .25s,background .25s}
+  .pb-gstep-card:hover{transform:translateX(4px);border-color:rgba(116,251,113,.5);background:rgba(255,255,255,.07)}
+  .pb-gstep-card:has(.pb-gstep-photos){grid-template-columns:1fr 320px}
+  .pb-gstep-head,.pb-gstep p{grid-column:1}
+  .pb-gstep-photos{grid-column:2;grid-row:1/span 2;align-self:start;margin:0}
+  .pb-guide-nav{justify-content:center;margin-top:.6rem}
+  .pb-guide-done{flex:0 0 auto;min-width:300px}
+}
+
+/* Animace (jen s JS) — osa se „protáhne“, číslo naskočí */
+.lp-js .pb-guide:not(.is-stepper) .pb-gstep-rail::after{transform:scaleY(0);transition:transform .8s ease .25s}
+.lp-js .pb-guide:not(.is-stepper) .pb-gstep.is-in .pb-gstep-rail::after{transform:none}
+.lp-js .pb-guide:not(.is-stepper) .pb-gstep .pb-gstep-n{transform:scale(.55)}
+.lp-js .pb-guide:not(.is-stepper) .pb-gstep.is-in .pb-gstep-n{transform:none}
+@keyframes pbIn{0%{opacity:0;transform:translateX(28px)}100%{opacity:1;transform:none}}
+@keyframes pbInBack{0%{opacity:0;transform:translateX(-28px)}100%{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+  .pb-guide.is-stepper .pb-gstep.is-cur{animation:none}
+  .lp-js .pb-guide .pb-gstep .pb-gstep-n,.lp-js .pb-guide .pb-gstep-rail::after{transform:none;transition:none}
+  .pb-gear-grid li,.pb-shot img,.pb-gstep-photos img,.pb-gstep-card{transition:none}
+  .pb-gear-grid li:hover,.pb-gstep-card:hover,.pb-shot a:hover img,.pb-gstep-photos a:hover img{transform:none}
+}

@@ -16,7 +16,7 @@ function lpH2($id, $title, $key) {
 
 /**
  * Akční panel hned pod hero. Mobil: H1 → lead → 2 CTA → chipy; desktop: text vlevo, CTA vpravo.
- * $o: h1, h1Key, lead, leadKey, priceChip, primary{label,href}, secondary{…}, chips[], keyBase, bg
+ * $o: h1, h1Key, lead, leadKey, priceChip, primary{label,href}, secondary{…}, chips[], keyBase, bg, rating (HTML z lpPanelRating)
  */
 function renderLpPanel($o) {
     $kb = $o['keyBase'];
@@ -37,6 +37,7 @@ function renderLpPanel($o) {
             '<a class="lp-btn lp-btn-primary" href="' . he(lpS($p['href'] ?? '') ?: '/rezervace') . '">' . lpIcon('cal') . '<span data-cms-key="' . $kb . '.cta_primary.label">' . he(lpPlain($p['label'] ?? '')) . '</span></a>' .
             '<a class="lp-btn lp-btn-ghost" href="' . he(lpS($s['href'] ?? '') ?: '/katalog') . '">' . lpIcon('moto') . '<span data-cms-key="' . $kb . '.cta_secondary.label">' . he(lpPlain($s['label'] ?? '')) . '</span></a>' .
             (lpPlain($o['assurance'] ?? '') !== '' ? '<p class="lp-assure" data-cms-key="web.landing.common.assurance">' . lpIcon('check') . he(lpPlain($o['assurance'])) . '</p>' : '') .
+            ($o['rating'] ?? '') .
         '</div>' .
         ($chips ? '<ul class="lp-chips">' . $chips . '</ul>' : '') .
         (lpPlain($o['season'] ?? '') !== '' ? '<p class="lp-season" data-cms-key="web.landing.common.season_note">' . lpIcon('cal') . he(lpPlain($o['season'])) . '</p>' : '') .

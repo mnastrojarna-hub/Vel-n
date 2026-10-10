@@ -1,0 +1,76 @@
+/* ===== MotoGo24 — Katalog v2: kompaktní karty, prázdný stav, úvod a sbalená kalkulačka ===== */
+/* Markup: pages/katalog-v2-ui.php (renderKatalogV2Card), JS: js/landing-catalog*.js. */
+.kf-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:.8rem;margin:0;padding:0;list-style:none}
+@media(min-width:360px){.kf-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}}
+@media(min-width:600px){.kf-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:.9rem}}
+@media(min-width:1000px){.kf-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:1.1rem}}
+.kf-grid.is-busy .kf-card{opacity:.55}
+.kf-grid.is-dates .kf-badge-av{display:none}
+.kf-card{position:relative;display:flex;flex-direction:column;min-width:0;overflow:hidden;border-radius:16px;background:#fff;border:1px solid #e1efe9;box-shadow:0 6px 18px -10px rgba(26,46,34,.35);transition:transform .22s ease,box-shadow .22s ease,border-color .22s,opacity .2s}
+.kf-card[hidden]{display:none}
+.kf-card-link{display:flex;flex:1;flex-direction:column;min-width:0;color:#1a2e22}
+.kf-card-link:hover{color:#1a2e22}
+.kf-card-link:focus-visible{outline:3px solid #37cf63;outline-offset:-3px;border-radius:16px}
+.kf-card-img{position:relative;aspect-ratio:4/3;overflow:hidden;background:linear-gradient(135deg,#e8f5ee,#d4e8e0)}
+.kf-card-img img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease}
+.kf-badge-av{position:absolute;left:.4rem;top:.4rem;display:inline-flex;align-items:center;gap:.3rem;max-width:calc(100% - .8rem);padding:.2rem .5rem;border-radius:999px;background:rgba(10,31,20,.82);color:#fff;font-size:.64rem;font-weight:700;line-height:1.2;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.kf-badge-av i{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:#74fb71;animation:lpDot 1.8s infinite}
+.kf-badge-av.is-later{background:rgba(255,255,255,.93);color:#1a2e22}
+.kf-tags{position:absolute;left:.4rem;right:.4rem;bottom:.4rem;display:flex;flex-wrap:wrap;gap:.25rem;margin:0}
+.kf-tag{padding:.14rem .42rem;border-radius:6px;background:#74fb71;color:#08230f;font-size:.6rem;font-weight:800;letter-spacing:.03em;line-height:1.3;text-transform:uppercase}
+.kf-tag--lic{background:rgba(10,31,20,.85);color:#fff}
+.kf-card-body{display:flex;flex:1;flex-direction:column;gap:.3rem;padding:.55rem .6rem .35rem}
+.kf-card-body h3{display:-webkit-box;margin:0;overflow:hidden;color:#1a2e22;font-size:.9rem;line-height:1.25;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.kf-specs{display:flex;flex-wrap:wrap;gap:.22rem;margin:0;padding:0;list-style:none}
+.kf-specs li{max-width:100%;overflow:hidden;padding:.08rem .42rem;border-radius:999px;background:#eef7f2;color:#2c4a3a;font-size:.66rem;font-weight:700;line-height:1.5;white-space:nowrap;text-overflow:ellipsis}
+.kf-br{display:flex;align-items:center;gap:.2rem;margin:0;color:#4a6b5a;font-size:.68rem;line-height:1.3}
+.kf-br .lp-ico{flex:0 0 auto;width:12px;height:12px;color:#0d6e0d}
+.kf-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .3rem;margin:auto 0 0;padding-top:.3rem;line-height:1.2}
+.kf-from{color:#0d6e0d;font-size:.95rem;font-weight:800}
+.kf-pd,.kf-days{color:#4a6b5a;font-size:.7rem;font-weight:600}
+.kf-days::after{content:"·";margin-left:.3rem}
+.kf-total{color:#0d6e0d;font-size:1.02rem;font-weight:900;animation:kfPop .35s ease}
+.kf-act{display:flex;gap:.35rem;padding:0 .6rem .6rem}
+.kf-book{display:inline-flex;flex:1;align-items:center;justify-content:center;gap:.3rem;min-width:0;min-height:42px;padding:.35rem .45rem;border-radius:12px;background:#1a2e22;color:#74fb71;font-size:.72rem;font-weight:800;letter-spacing:.02em;line-height:1.15;text-align:center;text-transform:uppercase;transition:background .2s,color .2s}
+.kf-book .lp-ico{flex:0 0 auto;width:15px;height:15px}
+.kf-book:hover{background:#0d6e0d;color:#fff}
+.kf-book.is-dates{background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f}
+.kf-book.is-dates:hover{background:linear-gradient(135deg,#a8ff9f,#5edc5a);color:#08230f}
+.kf-calc-btn{display:grid;flex:0 0 42px;place-items:center;height:42px;padding:0;border:1px solid #cfe3da;border-radius:12px;background:#fff;color:#0d6e0d;cursor:pointer;transition:border-color .2s,background .2s}
+.kf-calc-btn:hover{border-color:#74fb71;background:#f1fbf4}
+.kf-calc-btn .lp-ico{width:18px;height:18px}
+@media(max-width:399px){.kf-grid.is-dates .kf-calc-btn{display:none}.kf-specs li:nth-child(n+3){display:none}.kf-book{font-size:.66rem;letter-spacing:0}.kf-book .lp-ico{display:none}}
+@media(min-width:600px){.kf-card-body{padding:.7rem .8rem .45rem}.kf-card-body h3{font-size:1rem}.kf-act{padding:0 .8rem .8rem}.kf-specs li{font-size:.7rem}}
+@media(hover:hover) and (min-width:600px){
+  .kf-card:hover{transform:translateY(-4px);border-color:#9fdcb0;box-shadow:0 18px 34px -16px rgba(26,46,34,.5)}
+  .kf-card:hover .kf-card-img img{transform:scale(1.06)}
+}
+.kf-js .kf-card.is-in{animation:kfIn .35s ease both}
+
+/* Prázdný stav */
+.kf-empty{padding:2rem 1.2rem;border:1px dashed #b8d4c6;border-radius:18px;background:#fff;text-align:center}
+.kf-empty[hidden]{display:none}
+.kf-empty p{margin:0 0 .6rem}
+.kf-reset--btn{justify-content:center;padding:0 1.2rem;border:2px solid #1a2e22;border-radius:999px;text-decoration:none}
+
+/* Úvodní text — na mobilu sbalený na 2 řádky (jen s JS, text zůstává v DOM) */
+.kf-more{display:inline-flex;align-items:center;min-height:36px;margin:-.4rem 0 .2rem;padding:0;border:0;background:none;color:#0d6e0d;font:inherit;font-size:.82rem;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+@media(max-width:768px){
+  .kf-js .kf-intro.is-clamp{display:-webkit-box;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .kf-page .ccontent h1{margin-bottom:.35rem}
+  .kf-page .kc-sub{margin:0 0 .4rem;font-size:.98rem}
+  .kf-intro{margin-bottom:.5rem;font-size:.9rem;line-height:1.5}
+}
+@media(min-width:769px){.kf-more{display:none}}
+
+/* Kalkulačka pod mřížkou — na mobilu sbalená, otevře ji tlačítko / chip „Spočítat cenu“ */
+.kf-calc-tg{margin-top:.9rem;width:100%}
+.kf-js .kc.kf-closed .kc-grid{display:none}
+@media(min-width:900px){.kf-calc-tg{width:auto;min-width:260px}}
+@keyframes kfIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes kfPop{0%{transform:scale(.85);opacity:.4}100%{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){
+  .kf-card,.kf-card-img img,.kf-book{transition:none}
+  .kf-badge-av i,.kf-total,.kf-js .kf-card.is-in{animation:none}
+  .kf-card:hover,.kf-card:hover .kf-card-img img{transform:none}
+}

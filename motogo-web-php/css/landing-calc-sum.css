@@ -1,0 +1,112 @@
+/* ===== MotoGo24 — Katalog: kalkulačka ceny — souhrn („účtenka“), tlačítka na kartách,
+   mobilní lišta s cenou, desktop a animace. Viz pages/katalog-calc.php, css/landing-calc.css ===== */
+.kc-sum-in{position:relative;display:flex;flex-direction:column;gap:.7rem;padding:1rem .95rem 1rem;border-radius:18px;background:#fff;color:#1a2e22;box-shadow:0 14px 30px -14px rgba(0,0,0,.55);animation:kcIn .35s ease}
+.kc-sum-in::before{content:"";position:absolute;left:14px;right:14px;top:-6px;height:12px;background:radial-gradient(circle at 6px 6px,#0e2a1c 5px,transparent 5.5px) 0 0/16px 12px repeat-x;opacity:.9}
+.kc-sum-k{margin:0;color:#0d6e0d;font-size:.72rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.kc-sum-k--list{margin-top:.2rem}
+.kc-sum-p{margin:0;color:#4a6b5a;font-size:.88rem;line-height:1.45}
+.kc-sum-art{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:radial-gradient(circle,#e6fae2,#c9f3c3);color:#0d6e0d;animation:kcFloat 4s ease-in-out infinite}
+.kc-sum-art .lp-ico{width:30px;height:30px}
+.kc-dates{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .55rem}
+.kc-dates>.lp-ico{width:18px;height:18px;color:#37cf63}
+.kc-d{display:flex;flex-direction:column}
+.kc-d-k{color:#6c8a7b;font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.kc-d-v{font-size:.95rem;font-weight:800}
+.kc-nd{margin-left:auto;padding:.3rem .65rem;border-radius:999px;background:#0e2a1c;color:#74fb71;font-size:.8rem;font-weight:800}
+.kc-bars{display:flex;align-items:flex-end;gap:4px;height:78px;padding:.3rem .2rem 0;border-bottom:2px solid #e1efe9}
+.kc-bar{position:relative;display:flex;flex:1;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
+.kc-bar i{display:block;width:100%;max-width:34px;height:var(--h);border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#37cf63,#0d6e0d);transform-origin:bottom;animation:kcGrow .5s cubic-bezier(.2,.9,.3,1.2) both;animation-delay:calc(var(--i,0) * 45ms)}
+.kc-bar.is-we i{background:linear-gradient(180deg,#a8ff9f,#37cf63)}
+.kc-bar em{position:absolute;top:100%;margin-top:.2rem;display:flex;flex-direction:column;align-items:center;color:#6c8a7b;font-size:.6rem;font-style:normal;font-weight:700;line-height:1.2;text-transform:uppercase}
+.kc-bar em small{color:#0d6e0d;font-size:.62rem;font-weight:800}
+.kc-sum-cap{margin:-.3rem 0 0;color:#6c8a7b;font-size:.72rem;font-weight:600}
+.kc-sum .kc-bars.kc-bars--p{margin-bottom:1.9rem}
+.kc-bars:not(.kc-bars--dense){margin-bottom:1.1rem}
+.kc-bars--dense{gap:2px}
+.kc-rows{margin:0;padding:0;list-style:none;font-size:.84rem}
+.kc-rows li{display:grid;grid-template-columns:3.2rem 1fr auto;align-items:baseline;gap:.5rem;padding:.3rem 0;border-bottom:1px dashed #d4e8e0}
+.kc-r-d{font-weight:800;text-transform:capitalize}
+.kc-r-x{color:#6c8a7b;font-size:.76rem}
+.kc-r-v{font-weight:700;white-space:nowrap}
+.kc-total{display:flex;flex-direction:column;gap:.15rem;padding:.85rem .95rem;border-radius:14px;background:radial-gradient(120% 140% at 100% 0,#24563b,#0e2a1c 60%);color:#cfe7da}
+.kc-total-k{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.kc-total-v{color:#74fb71;font-size:2rem;font-weight:900;line-height:1.1;font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(116,251,113,.35)}
+.kc-total-s{font-size:.78rem}
+.kc-late{display:flex;align-items:center;gap:.65rem;padding:.6rem .7rem;border-radius:14px;background:linear-gradient(90deg,#e6fae2,#f6fff4);border:1px dashed #37cf63}
+.kc-late p{margin:0;font-size:.8rem;line-height:1.4;color:#1a2e22}
+.kc-late-t{font-weight:800}
+.kc-late-pct{display:grid;place-items:center;flex:0 0 auto;width:38px;height:38px;border-radius:50%;background:#74fb71;color:#08230f;font-size:1.15rem;font-weight:900;animation:kcPulse 2.4s ease-in-out infinite}
+.kc-inc{display:flex;flex-wrap:wrap;gap:.35rem;margin:0;padding:0;list-style:none}
+.kc-inc li{display:inline-flex;align-items:center;gap:.25rem;padding:.25rem .55rem;border-radius:999px;background:#eef8f3;color:#1a2e22;font-size:.72rem;font-weight:700}
+.kc-inc .lp-ico{width:13px;height:13px;color:#0d6e0d}
+.kc-sum .lp-btn{width:100%;min-height:54px;font-size:.95rem}
+.kc-sum .lp-btn-ghost{color:#1a2e22;background:#fff;border-color:#37cf63}
+.kc-sum .lp-btn-ghost:hover{background:#e6fae2;color:#1a2e22}
+.kc-assure{display:flex;align-items:flex-start;gap:.3rem;margin:-.2rem 0 0;color:#4a6b5a;font-size:.72rem;line-height:1.35}
+.kc-assure .lp-ico{flex:0 0 auto;width:14px;height:14px;color:#0d6e0d}
+.kc-reset{display:inline-flex;align-items:center;align-self:flex-start;gap:.3rem;min-height:36px;padding:.2rem .1rem;border:0;background:none;color:#4a6b5a;font:inherit;font-size:.78rem;font-weight:700;text-decoration:underline;cursor:pointer}
+.kc-reset .lp-ico{width:14px;height:14px}
+.kc-fx{margin:0;color:#6c8a7b;font-size:.68rem;line-height:1.35}
+.kc-warn{margin:0;padding:.55rem .7rem;border-radius:10px;background:#fff4e0;color:#8a4b00;font-size:.8rem;font-weight:600;line-height:1.4}
+.kc-free{display:grid;gap:.4rem;margin:0;padding:0;list-style:none}
+.kc-free li{animation:kcIn .35s ease both;animation-delay:calc(var(--i,0) * 50ms)}
+.kc-free-b{display:grid;grid-template-columns:54px 1fr auto;align-items:center;gap:.6rem;width:100%;padding:.4rem .55rem .4rem .4rem;border:1px solid #e1efe9;border-radius:12px;background:#f8fcfa;color:#1a2e22;font:inherit;text-align:left;cursor:pointer;transition:border-color .2s,transform .15s,box-shadow .2s}
+.kc-free-b:hover{border-color:#37cf63;transform:translateY(-1px);box-shadow:0 6px 14px -8px rgba(26,46,34,.4)}
+.kc-free-b img{width:54px;height:40px;border-radius:8px;object-fit:cover}
+.kc-free-m{display:flex;flex-direction:column;min-width:0}
+.kc-free-n{font-size:.82rem;font-weight:800;line-height:1.2}
+.kc-free-s{color:#6c8a7b;font-size:.68rem}
+.kc-free-p{display:inline-flex;align-items:center;gap:.2rem;color:#0d6e0d;font-size:.82rem;font-weight:900;white-space:nowrap}
+.kc-free-p .lp-ico{width:14px;height:14px;transition:transform .2s}
+.kc-free-b:hover .kc-free-p .lp-ico{transform:translateX(3px)}
+.kc-more{margin:0;color:#4a6b5a;font-size:.76rem;text-align:center}
+
+/* Tlačítko „Spočítat cenu“ na kartě katalogu (sourozenec odkazu karty) */
+/* Levý dolní roh fotky: výška fotky = šířka karty × poměr .moto-img (4/3, mobil 16/10), cqw bez podpory → nahoře */
+#katalog-grid>section{position:relative;container-type:inline-size}
+.kc-card-btn{position:absolute;left:.6rem;top:.6rem;z-index:2;display:inline-flex;align-items:center;gap:.3rem;min-height:40px;padding:.35rem .75rem;border:1px solid rgba(116,251,113,.6);border-radius:999px;background:rgba(10,31,20,.88);color:#74fb71;font:inherit;font-size:.72rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;cursor:pointer;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);box-shadow:0 6px 16px -6px rgba(0,0,0,.45);transition:background .2s,color .2s,transform .15s}
+.kc-card-btn{top:calc(75cqw - 48px)}
+@media(max-width:480px){.kc-card-btn{top:calc(62.5cqw - 48px)}}
+.kc-card-btn .lp-ico{width:15px;height:15px}
+.kc-card-btn:hover{background:#74fb71;color:#08230f}
+.kc-card-btn:active{transform:scale(.96)}
+@media(hover:hover){#katalog-grid>section:hover>.kc-card-btn{transform:translateY(-3px)}}
+.kc-card-btn:focus-visible{outline:3px solid #74fb71;outline-offset:2px}
+
+/* Mobilní lišta s cenou */
+.kc-sticky{position:fixed;left:0;right:0;bottom:0;z-index:950;display:grid;grid-template-columns:1fr auto;align-items:center;gap:.75rem;padding:.6rem .85rem calc(.6rem + env(safe-area-inset-bottom,0px));background:rgba(10,31,20,.95);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 -8px 24px rgba(0,0,0,.25);transform:translateY(110%);visibility:hidden;transition:transform .3s ease,visibility 0s linear .3s}
+.kc-sticky.is-on{transform:none;visibility:visible;transition:transform .3s ease,visibility 0s}
+.kc-sticky-t{display:flex;flex-direction:column;min-width:0;color:#cfe7da;font-size:.74rem;font-weight:700}
+.kc-sticky-m{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.kc-sticky-v{color:#74fb71;font-size:1.25rem;font-weight:900;line-height:1.15}
+.kc-sticky .lp-btn{min-height:48px;padding:.6rem 1.1rem;font-size:.86rem}
+@media(min-width:900px){.kc-sticky{display:none}}
+
+/* Desktop: výběr | kalendář | souhrn */
+@media(min-width:640px) and (max-width:899px){.kc-grid{grid-template-columns:1fr 1fr}.kc-pick{grid-column:1/-1}.kc-pick{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.kc-branch{margin:0}}
+@media(min-width:900px){
+  .kc-card{padding:1.8rem 1.8rem 1.6rem}
+  .kc-head{display:grid;grid-template-columns:1fr auto;align-items:end;gap:.3rem 2rem}
+  .kc-eyebrow,.kc-head h2,.kc-lead{grid-column:1}
+  .kc-steps{grid-column:2;grid-row:1/4;margin:0;align-self:center}
+  .kc-steps li{flex:0 0 auto;padding:.45rem .8rem}
+  .kc-grid{grid-template-columns:minmax(240px,.85fr) minmax(330px,1.15fr) minmax(290px,1fr);align-items:start;gap:1.4rem;margin-top:1.4rem}
+  .kc-seg{grid-template-columns:1fr}
+  .kc-opt-in{min-height:0;flex-direction:row;align-items:center;justify-content:space-between;padding:.6rem .8rem}
+  .kc-day{min-height:50px}
+}
+
+@keyframes kcIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes kcPop{0%{transform:scale(.8)}70%{transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes kcGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes kcFloat{0%,100%{transform:translate(0,0)}50%{transform:translate(-14px,10px)}}
+@keyframes kcShim{from{background-position:200% 0}to{background-position:-200% 0}}
+@keyframes kcSpin{to{transform:rotate(360deg)}}
+@keyframes kcPulse{0%,100%{box-shadow:0 0 0 0 rgba(116,251,113,.6)}60%{box-shadow:0 0 0 9px rgba(116,251,113,0)}}
+@media(prefers-reduced-motion:reduce){
+  .kc-card::before,.kc-card::after,.kc-sum-art,.kc-late-pct,.kc-pill i,.kc-day.is-wait,.kc-bar i,.kc-free li,.kc-sum-in,.kc-moto,.kc-day.is-start,.kc-day.is-end{animation:none}
+  .kc-sticky{transition:none}
+}
+
+/* Detail motorky (v2): ceník po dnech nad kalkulačkou, bez prázdného druhého sloupce */
+.moto-prices--kc{max-width:720px}

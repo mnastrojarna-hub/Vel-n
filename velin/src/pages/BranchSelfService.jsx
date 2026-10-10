@@ -10,7 +10,7 @@ import { BranchGateCodeBlock } from './BranchGateCode'
 import { RpiSection, Btn, Chip, usePersistentFlag, isRpiDevice, platformLabel, ACCESSORIES_LABEL, doorKindLabel, doorLabel, doorEventLabel, isProtocolEvent, isInfoDenied } from './BranchRpiUi'
 import KioskAlertsBanner from '../components/KioskAlertsBanner'
 import { useKioskAlerts } from '../hooks/useKioskAlerts'
-import { useTouchHint, HintedLabel, HintRow } from './BranchRpiTouchHint'
+import { useTouchHint, useTouchHintList, HintedLabel, HintRow, HintBlock } from './BranchRpiTouchHint'
 
 // ─── Tab: Samoobsluha (řídicí jednotka Raspberry) ─────────────────────────
 // Provozní část (vidí obsluha vždy): poplach „dveře bez kódu“, karta jednotky se zónami, poslední protokol diagnostiky,
@@ -24,6 +24,10 @@ const ONLINE_MS = 70 * 1000
 // (heartbeat_s + status_report_s), okno „online“ je 70 s — 15 s polling tedy stav udrží vždy aktuální.
 const DEVICE_POLL_MS = 15 * 1000
 const hasHw = d => !!(d?.hw && typeof d.hw === 'object' && Object.keys(d.hw).length > 0)
+// Bubliny tlačítek v hlavičce záložky (na dotyku pod „i“ za nimi)
+const RELOAD_TITLE = 'Znovu načte data záložky (zařízení, dveře, hesla, logy, kamery, FV, poslední diagnostiku).'
+const SERVIS_DESC = 'rozbalí blok „Nastavení a servis“ a ukáže technická tlačítka na kartě jednotky (modem, synchronizace, identifikace, aktualizace, reboot, terminál, testy zón). Volba se pamatuje v tomto prohlížeči.'
+const SERVIS_TITLE = `Servisní režim: ${SERVIS_DESC}`
 
 function TabSelfService({ branchId, branchName, motos }) {
   const [loading, setLoading] = useState(true)
@@ -276,6 +280,8 @@ function TabSelfService({ branchId, branchName, motos }) {
   const hasRpi = devices.some(isRpiDevice)
   // Bez jednotky nemá provozní část co ukázat → otevřít servis (Zařízení → Přidat), ať obsluha nekouká do prázdna
   useEffect(() => { if (!loading && cfg && !hasRpi && !servis) setServis(true) }, [loading, cfg, hasRpi])   // eslint-disable-line react-hooks/exhaustive-deps
+  // Dotyk: co dělají „Obnovit“ a „Servisní režim“ (na PC bubliny) — jedno „i“ za tlačítky (hook před návratem Spinneru)
+  const toolHint = useTouchHintList([['Obnovit', RELOAD_TITLE], ['Servisní režim', SERVIS_DESC]])
 
   if (loading) return <Spinner />
 
@@ -300,20 +306,22 @@ function TabSelfService({ branchId, branchName, motos }) {
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[12px]" style={{ color: '#6b8c7a' }}>Provoz pobočky přes řídicí jednotku Raspberry. Nastavení a technické nástroje jsou v servisním režimu.</span>
         <span className="ml-auto inline-flex items-center gap-2">
-          <Btn tone="blue" onClick={load} title="Znovu načte data záložky (zařízení, dveře, hesla, logy, kamery, FV, poslední diagnostiku).">Obnovit</Btn>
+          <Btn tone="blue" onClick={load} title={RELOAD_TITLE}>Obnovit</Btn>
           <Btn tone={servis ? 'amber' : 'gray'} onClick={() => setServis(v => !v)}
-            title="Servisní režim: rozbalí blok „Nastavení a servis“ a ukáže technická tlačítka na kartě jednotky (modem, synchronizace, identifikace, aktualizace, reboot, terminál, testy zón). Volba se pamatuje v tomto prohlížeči.">
+            title={SERVIS_TITLE}>
             🔧 Servisní režim {servis ? 'zap.' : 'vyp.'}
           </Btn>
+          {toolHint.toggle}
         </span>
+        <HintRow body={toolHint.body} />
       </div>
       <KioskAlertsBanner alerts={kioskAlerts.alerts} onAck={() => { kioskAlerts.reload(); load() }} compact />
       {error && <div className="p-2 rounded-card text-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>}
       {liveError && (
-        <div className="p-2 rounded-card text-sm" style={{ background: '#fef3c7', color: '#b45309' }}
+        <HintBlock className="p-2 rounded-card text-sm" style={{ background: '#fef3c7', color: '#b45309' }}
           title="Velín se nemůže doptat databáze na stav zařízení — údaje Online/Offline a „stav před…“ níže proto nemusí odpovídat skutečnosti.">
           Živé načítání stavu zařízení selhává: {liveError} — stav níže je z posledního úspěšného načtení.
-        </div>
+        </HintBlock>
       )}
 
       {!cfg ? (
@@ -449,6 +457,7 @@ function DevicesBlock({ devices, now, busy, onAdd, onSave, onDelete }) {
   )
 }
 
+const UNPAIRED_TITLE = 'Zatím se neozvalo — platforma se doplní po prvním heartbeatu; do té doby se bere jako řídicí jednotka (Raspberry)'
 const REBOOT_TITLE = 'OS má nainstalované nové jádro/knihovny (unattended-upgrades nebo Aktualizovat OS) — projeví se až po restartu OS. Restart spusťte z bloku Aktualizace řídicích jednotek na stránce Pobočky, až bude box volný.'
 const PAIR_ROW = 'lg:contents max-lg:grid max-lg:grid-cols-[48px_1fr_auto] max-lg:items-center max-lg:gap-2 max-lg:w-full'
 // Drobné čipy (typ, stav, úroveň) a „Kopírovat“ na této záložce: na dotyku (< 1024 px) 11 px, desktop 9–10 px beze změny
@@ -462,6 +471,7 @@ function DeviceRow({ dev, now, onSave, onDelete }) {
   // status.health.sys.reboot_required — OS čeká na restart (nové jádro); status je JSON z jednotky, číst defenzivně
   const rebootRequired = rpi && dev.status?.health?.sys?.reboot_required === true
   const rebootHint = useTouchHint(rebootRequired ? REBOOT_TITLE : null)   // dotyk: „i“ u čipu Restart OS
+  const platHint = useTouchHint(plat ? null : UNPAIRED_TITLE)              // dotyk: „i“ u čipu „nespárováno“
 
   return (
     <div className="p-3 rounded-card" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
@@ -473,10 +483,11 @@ function DeviceRow({ dev, now, onSave, onDelete }) {
           {online ? 'Online' : 'Offline'}
         </span>
         <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
-          title={plat ? 'Platforma nahlášená zařízením' : 'Zatím se neozvalo — platforma se doplní po prvním heartbeatu; do té doby se bere jako řídicí jednotka (Raspberry)'}
+          title={plat ? 'Platforma nahlášená zařízením' : UNPAIRED_TITLE}
           style={{ padding: '2px 6px', background: plat ? '#eef6f2' : '#fef3c7', color: plat ? '#1a2e22' : '#b45309' }}>
           {plat || 'nespárováno'}
         </span>
+        {platHint.toggle}
         <span className="text-[11px]" style={{ color: '#6b8c7a' }}>posl. {lastSeen}{dev.app_version ? ` · v${dev.app_version}` : ''}</span>
         {rebootRequired && (
           <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
@@ -493,6 +504,7 @@ function DeviceRow({ dev, now, onSave, onDelete }) {
         </button>
         <button onClick={() => onDelete(dev.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[36px]"
           style={{ padding: '4px 8px', background: '#fee2e2', color: '#dc2626' }}>Smazat</button>
+        <HintRow body={platHint.body} />
         <HintRow body={rebootHint.body} />
       </div>
 
@@ -537,11 +549,7 @@ function DoorsBlock({ doors, onEnsure, onSave, onDelete, busy }) {
                 style={{ padding: '2px 6px', background: d.door_kind === 'accessories' ? '#dbeafe' : '#dcfce7', color: d.door_kind === 'accessories' ? '#2563eb' : '#1a8a18', minWidth: 64, textAlign: 'center' }}>
                 {doorKindLabel(d)}
               </span>
-              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase self-center"
-                title={hasHw(d) ? `Řídicí jednotka: zóna ${d.hw?.zone ?? '?'} (mapování v bloku Řídicí jednotka — hardware)` : 'Bez HW mapy pro řídicí jednotku — nastavte v bloku Řídicí jednotka — hardware'}
-                style={{ padding: '2px 6px', background: hasHw(d) ? '#eef6f2' : '#fef3c7', color: hasHw(d) ? '#1a2e22' : '#b45309' }}>
-                {hasHw(d) ? `RPi zóna ${d.hw?.zone ?? '?'}` : 'bez RPi mapy'}
-              </span>
+              <DoorHwChip d={d} />
               {d.door_kind === 'accessories' && (
                 <Field label="Popis" value={d.label} onCommit={v => onSave(d.id, { label: v })} width={150}
                   title="Vlastní název šatny. Zobrazí se ve Velíně I NA DISPLEJI pobočky místo výchozího „Šatna“ — pozor, vlastní popis se NEPŘEKLÁDÁ do cizích jazyků. Prázdné = použije se výchozí název. Kóje motorek mají vždy jen číslo (motorky se mezi kójemi přesouvají)." />
@@ -699,6 +707,24 @@ function CamerasBlock({ cameras, onlineDevice, busy, servis, onAdd, onSave, onDe
   )
 }
 
+// Čip „RPi zóna N“ / „bez RPi mapy“ u dveří. Dotyk: „i“ jen u „bez RPi mapy“ (co s tím) — „RPi zóna N“ vysvětlivku nepotřebuje.
+function DoorHwChip({ d }) {
+  const hw = hasHw(d)
+  const h = useTouchHint(hw ? null : NO_HW_TITLE)
+  return (
+    <>
+      <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase self-center"
+        title={hw ? `Řídicí jednotka: zóna ${d.hw?.zone ?? '?'} (mapování v bloku Řídicí jednotka — hardware)` : NO_HW_TITLE}
+        style={{ padding: '2px 6px', background: hw ? '#eef6f2' : '#fef3c7', color: hw ? '#1a2e22' : '#b45309' }}>
+        {hw ? `RPi zóna ${d.hw?.zone ?? '?'}` : 'bez RPi mapy'}
+      </span>
+      {h.toggle && <span className="self-center inline-flex">{h.toggle}</span>}
+      <HintRow body={h.body} />
+    </>
+  )
+}
+const NO_HW_TITLE = 'Bez HW mapy pro řídicí jednotku — nastavte v bloku Řídicí jednotka — hardware'
+
 function CameraCard({ cam, onlineDevice, servis, onSave, onDelete, onRemote }) {
   const [edit, setEdit] = useState(false)
   const [tick, setTick] = useState(Date.now())
@@ -710,6 +736,8 @@ function CameraCard({ cam, onlineDevice, servis, onSave, onDelete, onRemote }) {
   }, [cam.kind, cam.snapshot_url])
 
   const sep = (cam.snapshot_url || '').includes('?') ? '&' : '?'
+  const akceTitle = !onlineDevice ? 'Žádná řídicí jednotka online' : 'Spustit akci kamery (HTTP GET z řídicí jednotky)'
+  const akceHint = useTouchHint(cam.control_url ? akceTitle : null)   // dotyk: „i“ u tlačítka Akce (na PC bublina)
   return (
     <div className="rounded-card overflow-hidden" style={{ background: '#0f1a14', border: '1px solid #d4e8e0' }}>
       <div style={{ aspectRatio: '16 / 9', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -730,16 +758,18 @@ function CameraCard({ cam, onlineDevice, servis, onSave, onDelete, onRemote }) {
           <div className="ml-auto flex gap-1">
             {cam.control_url && (
               <button onClick={() => onRemote('camera_control', { url: cam.control_url })} disabled={!onlineDevice}
-                title={!onlineDevice ? 'Žádná řídicí jednotka online' : 'Spustit akci kamery (HTTP GET z řídicí jednotky)'}
+                title={akceTitle}
                 className="rounded-btn text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[36px]"
                 style={{ padding: '3px 8px', background: '#dbeafe', color: '#2563eb', opacity: onlineDevice ? 1 : 0.5 }}>Akce</button>
             )}
+            {akceHint.toggle}
             {servis && (
               <button onClick={() => setEdit(e => !e)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[36px]"
                 style={{ padding: '3px 8px', background: '#eef6f2', color: '#1a2e22' }}>{edit ? 'Hotovo' : 'Upravit'}</button>
             )}
           </div>
         </div>
+        {akceHint.body && <div className="mb-1">{akceHint.body}</div>}
         {edit && (
           <div className="space-y-2 pt-1">
             <div className="flex gap-2 flex-wrap">

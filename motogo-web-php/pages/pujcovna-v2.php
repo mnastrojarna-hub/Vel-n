@@ -2,8 +2,8 @@
 // ===== Půjčovna motorek — landing v2 (viz landing.php) =====
 // Vkládá se z pages/pujcovna.php (require … vrací $content). Používá $sb, $C,
 // $bc, $faqHtml z pujcovna.php. Pořadí pro mobil: drobečková navigace →
-// akční panel s fotkou (H1 + 2 CTA) → nabídka → motorky → výhody → postup →
-// FAQ → CTA → SEO text (sbalený).
+// akční panel s fotkou (H1 + 2 CTA) → nabídka → motorky → důvody (10 + rozbalení
+// na 20; bez nich USP dlaždice) → recenze → postup → pobočky → FAQ → CTA → SEO text.
 
 $T = lpTexts($sb);
 $TC = $T['common'];
@@ -26,6 +26,7 @@ $lpPanel = renderLpPanel([
     'assurance' => $TC['assurance'] ?? '',
     'season' => $TC['season_note'] ?? '',
     'keyBase' => 'web.landing.pujcovna',
+    'rating' => lpPanelRating($TC),
     'bg' => BASE_URL . '/gfx/hero-banner-768.webp',
 ]);
 
@@ -38,6 +39,8 @@ $lpOwnUsp = is_array($TP['usp'] ?? null) && count(array_filter($TP['usp'], 'is_a
 $lpUsp = $lpOwnUsp
     ? renderLpUsp($TC['usp_title'], 'web.landing.common.usp_title', $TP['usp'], 'web.landing.pujcovna.usp', $lpMin)
     : renderLpUsp(is_array($C['benefits']['title'] ?? null) ? '' : ($C['benefits']['title'] ?? ''), 'web.pujcovna.benefits.title', $C['benefits']['items'] ?? [], 'web.pujcovna.benefits.items');
+
+$lpReasons = renderLpReasons($TC['reasons_title'] ?? '', 'web.landing.common.reasons_title', $TC['reasons_lead'] ?? '', $TC['reasons'] ?? [], 'web.landing.common.reasons', $TC, 10);
 
 $lpAbout = renderLpMore(
     $lpShortH1 ? ($C['intro']['h1'] ?? '') : $TP['about_title'],
@@ -52,8 +55,10 @@ return '<main id="content" class="lp-main lp-main--page"><div class="container">
     $lpPanel .
     renderLpOffer($TC) .
     renderLpFleet($lpMotos, $TC) .
-    $lpUsp .
+    ($lpReasons !== '' ? $lpReasons : $lpUsp) .
+    renderLpReviews(lpReviewsData(), $TC) .
     renderLpSteps($lpOwnSteps ? $TP['steps_title'] : ($C['process']['title'] ?? ''), $lpOwnSteps ? 'web.landing.pujcovna.steps_title' : 'web.pujcovna.process.title', $lpStepList, $lpStepKey) .
+    renderLpBranches($TC['branches_title'] ?? '', 'web.landing.common.branches_title', $TC['branches'] ?? [], 'web.landing.common.branches', $TC) .
     '<div class="container lp-flow">' . $faqHtml . '</div>' .
     renderLpCta($lpCtaData, $lpCtaKey) .
     $lpAbout .

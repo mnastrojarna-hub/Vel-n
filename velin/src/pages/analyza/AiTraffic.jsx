@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts'
 import { CreateApiKeyModal, RevokeApiKeyConfirm } from './ApiKeyModals'
+import { pieLabels } from './pieLabels'
 import { useTableSort, sortRows } from '../../components/sortableTable'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -26,6 +27,8 @@ const PERIODS = [
   { id: '30d', label: '30 dní', ms: 30 * 24 * 3600 * 1000 },
   { id: '90d', label: '90 dní', ms: 90 * 24 * 3600 * 1000 },
 ]
+
+const API_KEY_COLS = 'id, partner_name, partner_email, key_prefix, is_active, request_count, last_used_at, rate_limit_rpm, scopes, created_at, revoked_at'
 
 const SOURCE_COLORS = {
   crawler: '#74FB71', rest_api: '#4285f4', mcp: '#d4a017', widget: '#f97316', unknown: '#888',
@@ -123,7 +126,7 @@ export default function AiTraffic() {
       const to = new Date().toISOString()
       const [tr, pa, ci] = await Promise.all([
         supabase.rpc('get_ai_traffic_stats', { p_from: from, p_to: to }),
-        supabase.from('api_keys').select('id, partner_name, partner_email, key_prefix, is_active, request_count, last_used_at, rate_limit_rpm, scopes, created_at, revoked_at'),
+        supabase.from('api_keys').select(API_KEY_COLS),
         supabase.from('ai_citations').select('*').gte('observed_at', from).order('observed_at', { ascending: false }),
       ])
       // RPC / api_keys / ai_citations nemusí v DB ještě existovat
@@ -138,6 +141,15 @@ export default function AiTraffic() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Jen seznam partnerů (API klíče) BEZ celostránkového `loading` — po vytvoření klíče by
+  // spinner odmontoval CreateApiKeyModal a jednorázová obrazovka s klíčem by se neukázala.
+  async function loadPartners() {
+    try {
+      const { data, error: e } = await supabase.from('api_keys').select(API_KEY_COLS)
+      if (!e) setPartners(data || [])
+    } catch { /* seznam se obnoví při dalším načtení */ }
   }
 
   // ---- Derivace z RPC payloadu ----
@@ -221,8 +233,11 @@ export default function AiTraffic() {
           <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>Rozpad podle zdroje</h3>
           {sourcePieData.length > 0 ? (
             <ResponsiveContainer width="100%" height={isMobile ? 270 : 220}>
+              {/* poloměr v % volné plochy (bez legendy): popisky hodnot (+20 px vně výseče) se
+                  vejdou i nahoře a nepřekryjí legendu, ani když se legenda zalomí na 2 řádky;
+                  popisky malých sousedních výsečí se nepřepíšou přes sebe (pieLabels) */}
               <PieChart>
-                <Pie data={sourcePieData} dataKey="value" nameKey="name" outerRadius={80} label>
+                <Pie data={sourcePieData} dataKey="value" nameKey="name" outerRadius="60%" {...pieLabels(sourcePieData)}>
                   {sourcePieData.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
                 <Legend />
@@ -310,7 +325,7 @@ export default function AiTraffic() {
         )}
       </div>
 
-      {showCreateKey && <CreateApiKeyModal onClose={() => setShowCreateKey(false)} onCreated={loadData} />}
+      {showCreateKey && <CreateApiKeyModal onClose={() => setShowCreateKey(false)} onCreated={loadPartners} />}
       {revokeKey && <RevokeApiKeyConfirm apiKey={revokeKey} onClose={() => setRevokeKey(null)} onRevoked={loadData} />}
 
       {/* Top stránky / cesty */}
