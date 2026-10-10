@@ -352,7 +352,8 @@ function WorklistTab({ branches }) {
                 <div style={{ minWidth: 150 }}>
                   <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>
                     {tlabel(it.accessory_type)} {it.size}
-                    {it.audience === 'child' && <span className="ml-1 text-xs" title="dětská velikost">👶</span>}
+                    {/* Na dotyku tooltip nejde zobrazit → pod lg i viditelný text (desktop beze změny) */}
+                    {it.audience === 'child' && <span className="ml-1 text-xs" title="dětská velikost">👶<span className="lg:hidden font-bold" style={{ color: '#1a2e22', opacity: 0.75 }}> dětská velikost</span></span>}
                   </div>
                   <div className="text-xs" style={{ color: '#1a2e22', opacity: 0.7 }}>{bmap[it.branch_id] || '—'} · {fmtDay(it.shortage_date)}</div>
                 </div>
@@ -488,11 +489,6 @@ function PresunyTab({ branches }) {
     } finally { setBusy(false) }
   }
 
-  const Sel = ({ value, onChange, children }) => (
-    <select value={value} onChange={e => onChange(e.target.value)} className="rounded-btn text-sm outline-none max-lg:w-full max-lg:min-h-[40px]"
-      style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>{children}</select>
-  )
-
   return (
     <Card>
       <div className="text-sm mb-3" style={{ color: '#1a2e22', opacity: 0.7 }}>Přesun výbavy mezi centrálním skladem a pobočkami i mezi pobočkami navzájem.</div>
@@ -523,6 +519,12 @@ function PresunyTab({ branches }) {
     </Card>
   )
 }
+// Select Přesunů — MIMO komponentu (jako F u číselníku): definice uvnitř renderu znamenala při každém
+// překreslení nový typ komponenty → selecty se přemontovaly a ztratily fokus.
+const Sel = ({ value, onChange, children }) => (
+  <select value={value} onChange={e => onChange(e.target.value)} className="rounded-btn text-sm outline-none max-lg:w-full max-lg:min-h-[40px]"
+    style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>{children}</select>
+)
 const Field = ({ label, children }) => (
   <div className="flex flex-col gap-1 max-lg:min-w-0"><span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{label}</span>{children}</div>
 )

@@ -75,7 +75,7 @@ export function MotoSelectorCard({ incident, isActive, isMajor, showMotoSelector
               <div className="text-sm font-extrabold mb-2" style={{ color: '#1a2e22' }}>
                 Dostupné motorky ({availableMotos.length}):
               </div>
-              <div className="space-y-2" style={{ maxHeight: 300, overflowY: 'auto' }}>
+              <div className="space-y-2 lg:max-h-[300px] lg:overflow-y-auto">
                 {availableMotos.map(m => (
                   <div key={m.id} className="flex items-center justify-between rounded-lg cursor-pointer"
                     style={{ padding: '8px 12px', background: '#f8fcfa', border: '1px solid #d4e8e0' }}

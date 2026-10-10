@@ -233,7 +233,7 @@ export default function ContractsTab() {
                   </tr>
                 )
               })}
-              {contracts.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="">Žádné smlouvy</TD></tr>}
+              {contracts.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="" colSpan={9}>Žádné smlouvy</TD></tr>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

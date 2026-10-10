@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { describeSku, SKU_CONVENTION, SKU_RULES } from '../../lib/sku'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 function ConventionBox() {
   return (
@@ -24,11 +25,16 @@ function ConventionBox() {
 }
 
 function Popover({ children, onClose }) {
+  // telefon/tablet: místo bubliny u SKU (ta přečnívala přes okraj displeje) spodní panel přes šířku
+  const isMobile = useIsMobile()
+  const pos = isMobile
+    ? { position: 'fixed', left: 8, right: 8, bottom: 8, maxHeight: '70dvh', overflowY: 'auto' }
+    : { top: '100%', left: 0, marginTop: 4 }
   return (
     <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-40" onClick={e => { e.stopPropagation(); onClose() }} style={isMobile ? { background: 'rgba(15,26,20,.25)' } : undefined} />
       <div className="absolute z-50 rounded-card shadow-card" onClick={e => e.stopPropagation()}
-        style={{ top: '100%', left: 0, marginTop: 4, background: '#fff', padding: 14, border: '1px solid #d4e8e0' }}>
+        style={{ ...pos, background: '#fff', padding: 14, border: '1px solid #d4e8e0' }}>
         {children}
       </div>
     </>
@@ -37,7 +43,7 @@ function Popover({ children, onClose }) {
 
 const InfoIcon = ({ onClick }) => (
   <button onClick={onClick} title="Konvence SKU"
-    className="inline-flex items-center justify-center cursor-pointer shrink-0"
+    className="inline-flex items-center justify-center cursor-pointer shrink-0 max-lg:!w-7 max-lg:!h-7 max-lg:!text-[12px]"
     style={{ width: 15, height: 15, borderRadius: '50%', border: '1px solid #9bbcad', background: '#eef7f2', color: '#1a8a18', fontSize: 10, fontWeight: 900, lineHeight: 1 }}>
     i
   </button>

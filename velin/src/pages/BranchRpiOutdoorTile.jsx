@@ -1,4 +1,5 @@
 import { Btn, Chip, txt, num } from './BranchRpiUi'
+import { HintList } from './BranchRpiTouchHint'
 
 // ─── Dlaždice „Venek“ v živém stavu zón (status.outdoor, kontrakt §14) ───────
 // Venek není dveře — bez Otevřít a signálu. Příkazy light_on/light_off, music_on/music_off, zone_test
@@ -8,6 +9,11 @@ import { Btn, Chip, txt, num } from './BranchRpiUi'
 // Hodnoty ze zařízení jdou přes txt()/num() — JSON z jednotky nesmí shodit stránku.
 
 const NO_ZONE_TITLE = 'Venek nemá číslo zóny (hardware.outdoor.zone) — příkazy nelze adresovat'
+const VENEK_TITLE = 'Venek — prostor před displejem (zóna bez dveří)'
+const LIGHT_MODE_TITLE = 'Režim venkovního světla z nastavení hardwaru (blok Venek) — venek se nastavuje jinak než kóje a šatna'
+const MUSIC_MODE_TITLE = 'Režim hudby venku z nastavení hardwaru (blok Venek)'
+const ACTIVE_TITLE = 'Venek je aktivní, dokud běží aspoň jedna relace'
+const TEST_TITLE = 'Test venkovního světla (1 s) a hudby venku (3 s, jen multi); při běžící relaci jednotka test odmítne'
 
 function OutdoorTile({ o, onSend, servis = false }) {
   const zoneNo = num(o.zone)
@@ -24,20 +30,22 @@ function OutdoorTile({ o, onSend, servis = false }) {
   const musicMode = txt(o.music_mode) === '—' ? '' : String(o.music_mode)
   const LIGHT_MODE_CZ = { auto: 'světlo dle relací', always: 'světlo NONSTOP', off: 'světlo trvale zhasnuto' }
   const MUSIC_MODE_CZ = { session: 'hudba při kódu', always: 'hudba NONSTOP', off: 'hudba vypnuta' }
+  const lightTitle = light ? 'Zhasnout venkovní světlo (do další relace)' : 'Rozsvítit venkovní světlo (drží do vypnutí nebo do další relace — pak zhasne po doběhu)'
+  const musicTitle = out ? (music ? 'Zastavit hudbu venku' : 'Spustit hudbu venku (hraje do zastavení / doběhu)') : 'Venek nemá audio výstup (hudba venku jen v režimu multi)'
   return (
     <div className="p-2 rounded-card" style={{ background: active ? '#dcfce7' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       {/* Telefon/tablet: čipy režimů se zalomí pod název (jinak by „Venek“ zkrátily na „Ven…“) */}
       <div className="flex items-center gap-2 max-lg:flex-wrap">
         <span className="font-extrabold" style={{ color: '#0f1a14', fontSize: 15 }}>{txt(o.zone)}</span>
-        <span className="font-bold text-sm truncate" style={{ color: '#1a2e22' }} title="Venek — prostor před displejem (zóna bez dveří)">Venek</span>
+        <span className="font-bold text-sm truncate" style={{ color: '#1a2e22' }} title={VENEK_TITLE}>Venek</span>
         <span className="ml-auto flex items-center gap-1 flex-wrap justify-end">
           {lightMode && lightMode !== 'auto' && (
-            <Chip tone="blue" title="Režim venkovního světla z nastavení hardwaru (blok Venek) — venek se nastavuje jinak než kóje a šatna">{LIGHT_MODE_CZ[lightMode] || lightMode}</Chip>
+            <Chip tone="blue" title={LIGHT_MODE_TITLE}>{LIGHT_MODE_CZ[lightMode] || lightMode}</Chip>
           )}
           {musicMode && musicMode !== 'session' && (
-            <Chip tone="blue" title="Režim hudby venku z nastavení hardwaru (blok Venek)">{MUSIC_MODE_CZ[musicMode] || musicMode}</Chip>
+            <Chip tone="blue" title={MUSIC_MODE_TITLE}>{MUSIC_MODE_CZ[musicMode] || musicMode}</Chip>
           )}
-          <Chip tone={active ? 'green' : 'gray'} title="Venek je aktivní, dokud běží aspoň jedna relace">{active ? 'relace' : 'klid'}</Chip>
+          <Chip tone={active ? 'green' : 'gray'} title={ACTIVE_TITLE}>{active ? 'relace' : 'klid'}</Chip>
         </span>
       </div>
       <div className="text-[12px] mt-1" style={{ color: '#1a2e22' }}>
@@ -51,17 +59,23 @@ function OutdoorTile({ o, onSend, servis = false }) {
       </div>
       <div className="flex items-center gap-1 flex-wrap mt-2 pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
         <Btn tone={light ? 'amber' : 'gray'} small disabled={noZone}
-          title={noZone ? NO_ZONE_TITLE : light ? 'Zhasnout venkovní světlo (do další relace)' : 'Rozsvítit venkovní světlo (drží do vypnutí nebo do další relace — pak zhasne po doběhu)'}
+          title={noZone ? NO_ZONE_TITLE : lightTitle}
           onClick={() => onSend(light ? 'light_off' : 'light_on', params, `světlo ${light ? '⏹' : '▶'} (venek, zóna ${txt(zoneNo)})`)}>
           Světlo {light ? '⏹' : '▶'}
         </Btn>
         <Btn tone={music ? 'red' : 'green'} small disabled={noZone}
-          title={noZone ? NO_ZONE_TITLE : out ? (music ? 'Zastavit hudbu venku' : 'Spustit hudbu venku (hraje do zastavení / doběhu)') : 'Venek nemá audio výstup (hudba venku jen v režimu multi)'}
+          title={noZone ? NO_ZONE_TITLE : musicTitle}
           onClick={() => onSend(music ? 'music_off' : 'music_on', params, `hudba ${music ? '⏹' : '▶'} (venek, zóna ${txt(zoneNo)})`)}>
           Hudba {music ? '⏹' : '▶'}
         </Btn>
-        {servis && <Btn tone="blue" small disabled={noZone} title={noZone ? NO_ZONE_TITLE : 'Test venkovního světla (1 s) a hudby venku (3 s, jen multi); při běžící relaci jednotka test odmítne'}
+        {servis && <Btn tone="blue" small disabled={noZone} title={noZone ? NO_ZONE_TITLE : TEST_TITLE}
           onClick={() => onSend('zone_test', params, `test venku (zóna ${txt(zoneNo)})`)}>Test</Btn>}
+        {/* Dotyk: bubliny názvu, čipů režimů a tlačítek pod jedním „i“ (na PC beze změny) */}
+        <HintList items={[['Venek', VENEK_TITLE],
+          lightMode && lightMode !== 'auto' && [LIGHT_MODE_CZ[lightMode] || lightMode, LIGHT_MODE_TITLE],
+          musicMode && musicMode !== 'session' && [MUSIC_MODE_CZ[musicMode] || musicMode, MUSIC_MODE_TITLE],
+          [active ? 'relace' : 'klid', ACTIVE_TITLE],
+          ...(noZone ? [['Tlačítka', NO_ZONE_TITLE]] : [['Světlo', lightTitle], ['Hudba', musicTitle], servis && ['Test', TEST_TITLE]])]} />
       </div>
     </div>
   )

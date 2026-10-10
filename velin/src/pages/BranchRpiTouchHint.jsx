@@ -30,6 +30,22 @@ export function useTouchHint(text) {
 // Rozbalená vysvětlivka jako samostatná položka flex řádku (přes celou šířku) — null když je zavřená
 export const HintRow = ({ body }) => (body ? <span className="basis-full w-full">{body}</span> : null)
 
+// Více vysvětlivek pod JEDNÍM „i“ — řada tlačítek/čipů, kde má na PC každý prvek vlastní bublinu `title`
+// (příkazy karty jednotky, dlaždice zóny, řádek výstupu…). Jedno „i“ na řadu místo „i“ u každého tlačítka.
+// `items` = [[popisek, text], …]; položky bez textu (false/null) se vynechají, bez položek „i“ není.
+export function useTouchHintList(items) {
+  const list = (items || []).filter(it => it && it[1])
+  return useTouchHint(list.length ? (
+    <>{list.map(([label, text], i) => <span key={i} className={`block${i ? ' mt-1' : ''}`}><b>{label}</b> — {text}</span>)}</>
+  ) : null)
+}
+
+// Totéž jako prvek flex-wrap řádku: „i“ + rozbalený seznam hned za ním (přes celou šířku). Desktop: nic.
+export function HintList({ items }) {
+  const h = useTouchHintList(items)
+  return <>{h.toggle}<HintRow body={h.body} /></>
+}
+
 // Blok/řádek s vysvětlivkou v `title` (stavové řádky karty jednotky, dlaždice zóny…).
 // Desktop: přesně <Tag className style title>{children}</Tag>. Dotyk: na konci „i“ a pod ním rozbalený text.
 // `hint={null}` = na dotyku bez „i“ (např. technická vysvětlivka mimo servisní režim).

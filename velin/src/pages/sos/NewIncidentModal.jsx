@@ -458,7 +458,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
             </div>
           )}
           <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Náhradní motorka</div>
-          <div className="space-y-1" style={{ maxHeight: 220, overflowY: 'auto' }}>
+          <div className="space-y-1 lg:max-h-[220px] lg:overflow-y-auto">
             {motos.map(m => (
               <div key={m.id} onClick={() => setMoto(m)}
                 className="flex items-center justify-between rounded-lg cursor-pointer"

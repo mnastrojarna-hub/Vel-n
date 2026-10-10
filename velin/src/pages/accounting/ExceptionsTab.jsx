@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
 import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
@@ -159,8 +159,8 @@ export default function ExceptionsTab() {
                 const isEditing = editingId === exc.id
 
                 return (
-                  <>
-                    <TRow key={exc.id}>
+                  <Fragment key={exc.id}>
+                    <TRow>
                       <TD><RowCheckbox id={exc.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} stopPropagation={false} /></TD>
                       <TD>{exc.created_at ? new Date(exc.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                       {/* karta (mobil/tablet): důvod přes celou šířku */}
@@ -207,7 +207,7 @@ export default function ExceptionsTab() {
                     </TRow>
                     {/* Inline edit row */}
                     {isEditing && (
-                      <tr key={exc.id + '-edit'} className="fb-edit" style={{ background: '#f0f9ff', borderBottom: '1px solid #d4e8e0' }}>
+                      <tr className="fb-edit" style={{ background: '#f0f9ff', borderBottom: '1px solid #d4e8e0' }}>
                         <td colSpan={7} style={{ padding: '12px 16px' }}>
                           <div className="flex flex-wrap items-end gap-4">
                             <div className="max-md:w-full">
@@ -233,7 +233,7 @@ export default function ExceptionsTab() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 )
               })}
               {exceptions.length === 0 && <TRow><TD label="" className="mg-stack-full">{showResolved ? 'Žádné výjimky' : 'Žádné nevyřešené výjimky'}</TD></TRow>}

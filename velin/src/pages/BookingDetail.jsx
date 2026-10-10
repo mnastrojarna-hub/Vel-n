@@ -683,9 +683,10 @@ export default function BookingDetail() {
             </span>
           )
         })()}
+        {/* Klikací pilulky prodloužení: pod lg výška ≥ 36 px pro prst (desktop beze změny) */}
         {booking.extends_booking_id && (
           <span onClick={() => navigate(`/rezervace/${booking.extends_booking_id}`)}
-            className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer"
+            className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer max-lg:inline-flex max-lg:items-center max-lg:min-h-[36px]"
             style={{ padding: '3px 8px', background: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}
             title="Navazující rezervace stejného zákazníka na stejnou motorku — jde o úpravu/prodloužení původní rezervace, ne o novou. Kliknutím otevřeš původní.">
             PRODLOUŽENÍ · #{booking.extends_booking_id.slice(-8).toUpperCase()}
@@ -693,7 +694,7 @@ export default function BookingDetail() {
         )}
         {extendedBy.length > 0 && (
           <span onClick={() => navigate(`/rezervace/${extendedBy[0].id}`)}
-            className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer"
+            className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer max-lg:inline-flex max-lg:items-center max-lg:min-h-[36px]"
             style={{ padding: '3px 8px', background: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}
             title={`Na tuto rezervaci navazuje prodloužení #${extendedBy[0].id.slice(-8).toUpperCase()} (${extendedBy.length}×). Kliknutím otevřeš navazující.`}>
             PRODLOUŽENO · #{extendedBy[0].id.slice(-8).toUpperCase()}

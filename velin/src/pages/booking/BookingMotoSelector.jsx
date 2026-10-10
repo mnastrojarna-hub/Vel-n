@@ -20,7 +20,7 @@ export default function BookingMotoSelector({
               {selectedMoto?.model || booking.motorcycles?.model || '\u2014'}
             </div>
             <div className="text-xs" style={{ color: '#1a2e22' }}>
-              {selectedMoto?.spz || booking.motorcycles?.spz || '\u2014'} \u00b7 {selectedMoto?.category || '\u2014'}
+              {selectedMoto?.spz || booking.motorcycles?.spz || '\u2014'} {'\u00b7'} {selectedMoto?.category || '\u2014'}
             </div>
           </div>
           {motoChanged && (
@@ -69,7 +69,7 @@ export default function BookingMotoSelector({
                       <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>
                         {m.model} {isCurrent && <span className="text-xs font-bold" style={{ color: '#1a8a18' }}>(aktualni)</span>}
                       </div>
-                      <div className="text-xs" style={{ color: '#1a2e22' }}>{m.spz || '\u2014'} \u00b7 {m.category || '\u2014'}</div>
+                      <div className="text-xs" style={{ color: '#1a2e22' }}>{m.spz || '\u2014'} {'\u00b7'} {m.category || '\u2014'}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{price !== null ? fmtCZK(price) + ' Kč' : '\u2014'}</div>
@@ -89,7 +89,7 @@ export default function BookingMotoSelector({
                   {unavailableMotos.map(m => (
                     <div key={m.id} className="flex items-center gap-3 p-2 rounded-lg mb-1" style={{ background: '#fafafa', border: '1px solid #f3f4f6', opacity: 0.4 }}>
                       <div style={{ width: 56, height: 38, borderRadius: 6, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>&#127949;&#65039;</div>
-                      <div className="flex-1"><div className="text-sm font-bold" style={{ color: '#1a2e22' }}>{m.model}</div><div className="text-xs" style={{ color: '#1a2e22' }}>{m.spz || '\u2014'} \u00b7 Obsazena</div></div>
+                      <div className="flex-1"><div className="text-sm font-bold" style={{ color: '#1a2e22' }}>{m.model}</div><div className="text-xs" style={{ color: '#1a2e22' }}>{m.spz || '\u2014'} {'\u00b7'} Obsazena</div></div>
                     </div>
                   ))}
                 </>

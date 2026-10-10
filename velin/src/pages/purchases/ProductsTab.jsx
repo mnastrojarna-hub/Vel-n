@@ -162,7 +162,7 @@ export default function ProductsTab() {
                   </TD>
                 </tr>
               ))}
-              {products.length === 0 && <TRow><TD colSpan={8}>Žádné produkty</TD></TRow>}
+              {products.length === 0 && <TRow><TD colSpan={9}>Žádné produkty</TD></TRow>}
             </tbody>
           </Table>
           )}
