@@ -63,6 +63,9 @@ function lpDefaults() {
                 ['icon' => 'gfx/ico-sleva.svg', 'title' => 'Od {price}', 'text' => 'za den', 'price' => true],
             ],
             'about_title' => 'O půjčovně MotoGo24',
+            // Vlastní krátké kroky pro v2 (prázdné = kroky z CMS web.home.process.steps)
+            'steps_title' => '',
+            'steps' => [],
         ],
         'pujcovna' => [
             'lead' => 'Bez kauce, s výbavou v ceně a vyzvednutím nonstop. Rezervuj online na pár kliknutí.',
@@ -70,8 +73,18 @@ function lpDefaults() {
             'cta_secondary' => ['label' => 'VYBRAT MOTORKU', 'href' => '/katalog'],
             'chips' => ['Bez kauce', 'Výbava v ceně', 'Vyzvednutí nonstop'],
             'about_title' => 'Více o naší půjčovně',
+            // Prázdné = kroky z CMS web.pujcovna.process.steps; vyplněné = tyto (sdílí je i home)
+            'steps_title' => '',
+            'steps' => [],
         ],
     ];
+}
+
+/** Kroky pro v2: vlastní krátké z landing textů, jinak CMS kroky stránky. Vrací [steps, titleKey-base]. */
+function lpSteps($T, $page, $cmsSteps, $cmsKeyBase) {
+    $own = $T[$page]['steps'] ?? [];
+    if (is_array($own) && count(array_filter($own, 'is_array')) > 0) return [$own, 'web.landing.' . $page . '.steps'];
+    return [is_array($cmsSteps) ? $cmsSteps : [], $cmsKeyBase];
 }
 
 /** Sloučené texty v2 (CS default ← jazykový overlay ← DB ← Velín CMS). */

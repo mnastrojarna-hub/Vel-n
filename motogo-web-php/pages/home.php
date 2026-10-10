@@ -426,8 +426,10 @@ if (!empty($faqSchemaItems)) {
 }
 
 // HowTo schema z $C['process']['steps'] — návod "Jak si půjčit motorku v Motogo24".
+// Landing v2 HowTo vynechává: Google HowTo rich results od 9/2023 nezobrazuje a schéma
+// mělo natvrdo český název, CZK a kroky z CMS (v2 ukazuje vlastní krátké kroky).
 $howToSteps = [];
-if (!empty($C['process']['steps']) && is_array($C['process']['steps'])) {
+if (!$lpV2 && !empty($C['process']['steps']) && is_array($C['process']['steps'])) {
     foreach ($C['process']['steps'] as $i => $s) {
         $name = trim(strip_tags($s['title'] ?? ''));
         $text = trim(strip_tags($s['text'] ?? ''));

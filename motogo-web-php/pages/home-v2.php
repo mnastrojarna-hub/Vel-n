@@ -25,6 +25,9 @@ $lpPanel = renderLpPanel([
     'keyBase' => 'web.landing.home',
 ]);
 
+[$lpStepList, $lpStepKey] = lpSteps($T, 'home', $C['process']['steps'] ?? [], 'web.home.process.steps');
+$lpOwnSteps = strpos($lpStepKey, 'web.landing.') === 0 && trim((string)($TH['steps_title'] ?? '')) !== '';
+
 $lpAbout = renderLpMore(
     $lpShortH1 ? strip_tags((string)($C['h1'] ?? '')) : $TH['about_title'],
     $lpShortH1 ? 'web.home.h1' : 'web.landing.home.about_title',
@@ -38,7 +41,7 @@ return $bannerHtml .
     $lpPanel .
     renderLpFleet($motos, $TC) .
     renderLpUsp($TC['usp_title'], 'web.landing.common.usp_title', $TH['usp'] ?? [], 'web.landing.home.usp', $lpMinPrice) .
-    renderLpSteps($C['process']['title'] ?? '', 'web.home.process.title', $C['process']['steps'] ?? [], 'web.home.process.steps') .
+    renderLpSteps($lpOwnSteps ? $TH['steps_title'] : ($C['process']['title'] ?? ''), $lpOwnSteps ? 'web.landing.home.steps_title' : 'web.home.process.title', $lpStepList, $lpStepKey) .
     '<div class="container lp-flow">' . $reviewsHtml . $faqHtml . '</div>' .
     renderLpCta($C['cta'] ?? [], 'web.home.cta') .
     renderLpBlog($posts, $C['blog'] ?? [], $TC) .

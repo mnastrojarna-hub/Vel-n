@@ -1569,6 +1569,8 @@ return [
                     ['icon' => 'gfx/ico-sleva.svg', 'title' => 'Od {price}', 'text' => 'za den', 'price' => true],
                 ],
                 'about_title' => 'O půjčovně MotoGo24',
+                'steps_title' => '',
+                'steps' => [],
             ],
             'pujcovna' => [
                 'lead' => 'Bez kauce, s výbavou v ceně a vyzvednutím nonstop. Rezervuj online na pár kliknutí.',
@@ -1576,6 +1578,8 @@ return [
                 'cta_secondary' => ['label' => 'VYBRAT MOTORKU', 'href' => '/katalog'],
                 'chips' => ['Bez kauce', 'Výbava v ceně', 'Vyzvednutí nonstop'],
                 'about_title' => 'Více o naší půjčovně',
+                'steps_title' => '',
+                'steps' => [],
             ],
         ],
     ],

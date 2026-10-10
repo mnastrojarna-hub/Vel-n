@@ -1663,6 +1663,13 @@ return [
                     ['icon' => 'gfx/ico-sleva.svg', 'title' => 'Desde {price}', 'text' => 'por día', 'price' => true],
                 ],
                 'about_title' => 'Sobre MotoGo24',
+                'steps_title' => 'Así de fácil: 4 pasos',
+                'steps' => [
+                    ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Elige tu moto', 'text' => 'Touring, naked, supermoto, choppers, scooters 125 y motos infantiles.'],
+                    ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Reserva online', 'text' => 'Elige fechas y equipo y paga con tarjeta, Apple Pay o Google Pay.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Recoge la moto', 'text' => 'En Mezná (Vysočina) o en autoservicio junto a Brno. Desde Mezná también te la llevamos.'],
+                    ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '¡A rodar!', 'text' => 'Por la República Checa y el extranjero. Devuélvela el último día hasta las 24:00.'],
+                ],
             ],
             'pujcovna' => [
                 'lead' => 'Sin depósito, con equipo incluido y recogida 24/7. Reserva online en pocos clics.',
@@ -1670,6 +1677,13 @@ return [
                 'cta_secondary' => ['label' => 'ELIGE TU MOTO', 'href' => '/katalog'],
                 'chips' => ['Sin depósito', 'Equipo incluido', 'Recogida 24/7'],
                 'about_title' => 'Más sobre nuestro alquiler',
+                'steps_title' => 'Así de fácil: 4 pasos',
+                'steps' => [
+                    ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Elige tu moto', 'text' => 'Touring, naked, supermoto, choppers, scooters 125 y motos infantiles.'],
+                    ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Reserva online', 'text' => 'Elige fechas y equipo y paga con tarjeta, Apple Pay o Google Pay.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Recoge la moto', 'text' => 'En Mezná (Vysočina) o en autoservicio junto a Brno. Desde Mezná también te la llevamos.'],
+                    ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '¡A rodar!', 'text' => 'Por la República Checa y el extranjero. Devuélvela el último día hasta las 24:00.'],
+                ],
             ],
         ],
     ],

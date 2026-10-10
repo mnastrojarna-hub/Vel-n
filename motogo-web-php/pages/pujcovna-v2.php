@@ -23,6 +23,9 @@ $lpPanel = renderLpPanel([
     'bg' => BASE_URL . '/gfx/hero-banner-768.webp',
 ]);
 
+[$lpStepList, $lpStepKey] = lpSteps($T, 'pujcovna', $C['process']['steps'] ?? [], 'web.pujcovna.process.steps');
+$lpOwnSteps = strpos($lpStepKey, 'web.landing.') === 0 && trim((string)($TP['steps_title'] ?? '')) !== '';
+
 $lpAbout = renderLpMore(
     $TP['about_title'],
     'web.landing.pujcovna.about_title',
@@ -38,7 +41,7 @@ return '<main id="content" class="lp-main lp-main--page"><div class="container">
     $lpPanel .
     renderLpFleet($lpMotos, $TC) .
     renderLpUsp($lpBenefitsTitle, 'web.pujcovna.benefits.title', $C['benefits']['items'] ?? [], 'web.pujcovna.benefits.items') .
-    renderLpSteps($C['process']['title'] ?? '', 'web.pujcovna.process.title', $C['process']['steps'] ?? [], 'web.pujcovna.process.steps') .
+    renderLpSteps($lpOwnSteps ? $TP['steps_title'] : ($C['process']['title'] ?? ''), $lpOwnSteps ? 'web.landing.pujcovna.steps_title' : 'web.pujcovna.process.title', $lpStepList, $lpStepKey) .
     '<div class="container lp-flow">' . $faqHtml . '</div>' .
     renderLpCta($C['cta'] ?? [], 'web.pujcovna.cta') .
     $lpAbout .
