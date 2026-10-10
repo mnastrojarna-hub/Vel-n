@@ -332,7 +332,7 @@ export default function LongTermAssetsTab() {
                   </TRow>
                 )
               })}
-              {assets.length === 0 && <TRow><TD label="" className="mg-stack-full">Zadny dlouhodobý majetek</TD></TRow>}
+              {assets.length === 0 && <TRow><TD colSpan={11} label="" className="mg-stack-full">Zadny dlouhodobý majetek</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -358,7 +358,7 @@ export default function LongTermAssetsTab() {
                   <TD>{d.method === 'linear' ? 'Rovnomerne' : 'Zrychlene'}</TD>
                 </TRow>
               ))}
-              {depreciations.length === 0 && <TRow><TD label="">Žádné odpisy</TD></TRow>}
+              {depreciations.length === 0 && <TRow><TD colSpan={7} label="">Žádné odpisy</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

@@ -3,6 +3,7 @@
 // (useTouchHintList / HintList v BranchRpiTouchHint.jsx) — jinak by byl na telefonu a tabletu nedosažitelný.
 
 export const NAME_ON_DISPLAY_TITLE = 'Název, který zákazník vidí v záhlaví displeje na pobočce. Jednotka ho bere VÝHRADNĚ z názvu pobočky ve Velíně — po přejmenování se propíše do 30 s (nebo hned tlačítkem „Synchronizovat konfiguraci“).'
+export const PIN_UNLOCK_TITLE = 'Okamžitě zruší blokaci zadávání na displeji pobočky; počítadlo chybných pokusů začne znovu od nuly.'
 export const SHELL_FREE_TITLE = 'Na displeji pobočky jde teď psát libovolné příkazy (servisní terminál). Každý příkaz se zapisuje do Hlášení a chyb.'
 export const USB_RESETS_TITLE = 'Kolikrát health monitor za posledních 24 h odpojil a připojil modem na USB (poslední stupeň obnovy před rebootem).'
 export const RNDIS_TITLE = 'EXPERIMENTÁLNÍ — jen s technikem u modemu. Přepne modem SIM7600 do režimu RNDIS (síťová karta usb0 bez ModemManageru). Při testu 26. 9. modem po přepnutí ÚPLNĚ zmizel z USB a vrátilo ho až fyzické odpojení a zapojení; na pobočce bez obsluhy by jednotka zůstala offline. Výsledek přijde do Hlášení a chyb (LTE_MODE); jednotka si nesoulad nastavení a modemu do 2 minut srovná sama.'

@@ -231,7 +231,7 @@ export default function FinancialEventsTab() {
                     selectedIds={selectedIds} setSelectedIds={setSelectedIds} />
                 )
               })}
-              {events.length === 0 && <TRow><TD label="" className="mg-stack-full">Žádné financni události</TD></TRow>}
+              {events.length === 0 && <TRow><TD colSpan={9} label="" className="mg-stack-full">Žádné financni události</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

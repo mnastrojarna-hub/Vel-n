@@ -200,7 +200,7 @@ export default function FinanceOverviewTab({
                   <TD mono>{t.booking_id ? t.booking_id.slice(-8).toUpperCase() : '—'}</TD>
                 </tr>
               ))}
-              {transactions.length === 0 && <TRow><TD>Žádné transakce</TD></TRow>}
+              {transactions.length === 0 && <TRow><TD colSpan={6}>Žádné transakce</TD></TRow>}
             </tbody>
           </Table>
           </Card>

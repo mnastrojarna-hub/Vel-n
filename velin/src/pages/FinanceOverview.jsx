@@ -62,7 +62,7 @@ export default function FinanceOverview({ filters, setFilters, defaultFilters, c
           <tbody>{transactions.map(t => (<tr key={t.id} onClick={() => setDetailTx(t)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: '1px solid #d4e8e0' }}>
             <TD>{t.date ? new Date(t.date).toLocaleDateString('cs-CZ') : '\u2014'}</TD><TD><TypeBadge type={t._classified || classifyEntry(t)} /></TD><TD>{t.description || '\u2014'}</TD><TD bold color={(t._classified || classifyEntry(t)) === 'revenue' ? '#1a8a18' : '#dc2626'}>{fmt(Math.abs(t.amount))}</TD><TD>{t.category || '\u2014'}</TD><TD mono>{t.booking_id ? t.booking_id.slice(-8).toUpperCase() : '\u2014'}</TD>
           </tr>))}
-          {transactions.length === 0 && <TRow><TD>Zadne transakce</TD></TRow>}</tbody></Table>
+          {transactions.length === 0 && <TRow><TD colSpan={6}>Zadne transakce</TD></TRow>}</tbody></Table>
       </Card>
     </>)}
 

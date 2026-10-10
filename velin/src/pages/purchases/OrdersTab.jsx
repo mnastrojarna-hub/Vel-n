@@ -94,7 +94,7 @@ export default function OrdersTab() {
                   </TD>
                 </tr>
               ))}
-              {orders.length === 0 && <TRow><TD label="">Žádné objednávky</TD></TRow>}
+              {orders.length === 0 && <TRow><TD colSpan={6} label="">Žádné objednávky</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

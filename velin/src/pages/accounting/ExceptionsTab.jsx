@@ -208,7 +208,7 @@ export default function ExceptionsTab() {
                     {/* Inline edit row */}
                     {isEditing && (
                       <tr className="fb-edit" style={{ background: '#f0f9ff', borderBottom: '1px solid #d4e8e0' }}>
-                        <td colSpan={7} style={{ padding: '12px 16px' }}>
+                        <td colSpan={8} style={{ padding: '12px 16px' }}>
                           <div className="flex flex-wrap items-end gap-4">
                             <div className="max-md:w-full">
                               <MiniLabel>Částka (Kč)</MiniLabel>
@@ -236,7 +236,7 @@ export default function ExceptionsTab() {
                   </Fragment>
                 )
               })}
-              {exceptions.length === 0 && <TRow><TD label="" className="mg-stack-full">{showResolved ? 'Žádné výjimky' : 'Žádné nevyřešené výjimky'}</TD></TRow>}
+              {exceptions.length === 0 && <TRow><TD colSpan={8} label="" className="mg-stack-full">{showResolved ? 'Žádné výjimky' : 'Žádné nevyřešené výjimky'}</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

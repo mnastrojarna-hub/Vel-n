@@ -30,12 +30,17 @@ function fitLabel(s, maxW) {
 }
 
 function FleetDesktopTick(p) {
-  const last = p.index === p.visibleTicksCount - 1
+  // jen poslední bod u pravého okraje (payload.index > 0); jediná motorka má bod uprostřed → popisek beze změny
+  const last = p.index === p.visibleTicksCount - 1 && p.payload.index > 0
   const value = String(p.payload.value)
+  // první bod (≥ 2 body) u levého okraje: popisek je vystředěný pod bodem (šikmo −20°) → zkrátit jen když by
+  // jeho levá polovina přetekla levý okraj grafu (dlouhé názvy typu „Honda Africa Twin Adventure Sports…“)
+  const first = p.index === 0 && p.visibleTicksCount > 1
+  const label = last ? fitLabel(value, 112) : first ? fitLabel(value, Math.max(40, 2 * (p.payload.coordinate - 2) / Math.cos(Math.PI / 9))) : value
   return (
     <Text {...p} fontSize={9} fill="#1a2e22" className="recharts-cartesian-axis-tick-value"
       {...(last ? { x: p.payload.coordinate, textAnchor: 'end' } : {})}>
-      {last ? fitLabel(value, 112) : value}
+      {label}
     </Text>
   )
 }

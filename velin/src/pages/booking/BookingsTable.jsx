@@ -97,7 +97,7 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
             </tr>
           )
         })}
-        {bookings.length === 0 && <TRow><TD>Žádné rezervace</TD></TRow>}
+        {bookings.length === 0 && <TRow><TD colSpan={selected ? 14 : 13}>Žádné rezervace</TD></TRow>}
       </tbody>
     </Table>
   )
