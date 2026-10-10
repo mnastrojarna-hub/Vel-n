@@ -33,7 +33,7 @@
 .rez-v2 #rezervace-app ::placeholder{color:#7d978a;font-weight:500}
 .rez-v2 #rezervace-app input:not([type=checkbox]):not([type=radio]):focus,.rez-v2 #rezervace-app select:focus,.rez-v2 #rezervace-app textarea:focus{outline:0;border-color:#37cf63!important;background-color:#fff;box-shadow:0 0 0 4px rgba(116,251,113,.28)!important}
 .rez-v2 #rezervace-app input:is([type=text],[type=email])[required]:user-invalid{border-color:#e5484d;box-shadow:0 0 0 3px rgba(229,72,77,.12)}
-.rez-v2 #rezervace-app :is(button,.btn,a,label):focus-visible,.rz-side :focus-visible{outline:3px solid #37cf63;outline-offset:2px}
+.rez-v2 #rezervace-app :is(button,.btn,a):focus-visible,.rz-side :focus-visible{outline:3px solid #37cf63;outline-offset:2px}
 .rez-v2 #rezervace-app input:is([type=checkbox],[type=radio]){accent-color:var(--rz-g)}
 .rez-v2 #rezervace-app input:is([type=checkbox],[type=radio]):checked{animation:rzPop .28s ease}
 .rez-v2 #rezervace-app input:is([type=checkbox],[type=radio]):focus-visible{outline:3px solid #37cf63;outline-offset:2px}
@@ -110,9 +110,9 @@
 /* Souhrn ceny + hlavní CTA */
 .rez-v2 #rez-price-preview>div{position:relative;overflow:hidden;display:block!important;margin:1.1rem 0 .8rem!important;padding:1.05rem 1.2rem!important;border-radius:20px!important;background:var(--rz-dark)!important;color:#fff!important;font-size:1.22rem!important;box-shadow:0 18px 40px -18px rgba(10,31,20,.65),inset 0 0 0 1px rgba(116,251,113,.3);animation:rzIn .35s ease}
 .rez-v2 #rez-price-preview>div>div{color:#a8ff9f!important;font-size:.84rem!important;font-weight:700}
-.rez-v2 .rez-cta,.rez-v2 .rez-step2-pay .btn.btngreen{border-radius:16px!important;background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
-.rez-v2 .rez-cta,.rez-v2 .rez-step2-pay .btn.btngreen{min-height:56px;animation:rzGlow 2.4s ease-in-out infinite}
-.rez-v2 .rez-cta:disabled,.rez-v2 .rez-step2-pay .btn:disabled{opacity:.6;animation:none;cursor:progress}
+.rez-v2 .rez-cta,.rez-v2 .rez-step2-pay .btn.btngreen,.rez-v2 .rez-finish-docs{border-radius:16px!important;background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
+.rez-v2 .rez-cta,.rez-v2 .rez-step2-pay .btn.btngreen,.rez-v2 .rez-finish-docs{min-height:56px;animation:rzGlow 2.4s ease-in-out infinite}
+.rez-v2 .rez-cta:disabled,.rez-v2 .rez-step2-pay .btn:disabled,.rez-v2 .rez-finish-docs:disabled{opacity:.6;animation:none;cursor:progress}
 .rez-v2 .rz-hl{animation:rzHl .6s ease 3!important}
 @media(min-width:700px){.rez-v2 .rez-cta{min-width:380px}}
 
@@ -162,22 +162,22 @@
   .rez-v2 .pcontent.rz-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;column-gap:2rem;align-items:start}
   .rez-v2 .pcontent.rz-grid>*{grid-column:1}
   .rez-v2 .pcontent.rz-grid>.rz-side{display:block;grid-column:2;grid-row:1/span 4;align-self:stretch}
-  .rez-v2 .rez-section{scroll-margin-top:16px}
-  .rz-side-in::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,transparent,#74fb71,transparent);animation:rzScan 3.6s linear infinite;pointer-events:none}
-  .rz-side-in{position:sticky;top:1rem;display:flex;flex-direction:column;gap:1rem;overflow:hidden;padding:1.1rem;border-radius:22px;background:var(--rz-dark);color:#fff;box-shadow:0 22px 46px -22px rgba(10,31,20,.7),inset 0 0 0 1px rgba(116,251,113,.25)}
-  .rz-steps{position:static;margin:0;padding:0;border-radius:0;background:none;box-shadow:none}
-  .rz-steps ol{flex-direction:column;gap:6px}
-  .rz-steps ol::before,.rz-steps ol::after{left:15px;right:auto;top:16px;bottom:16px;width:2px;height:auto;margin:0}
-  .rz-steps ol::after{transform:scaleY(var(--rz-p,0));transform-origin:50% 0}
-  .rz-step{gap:.6rem;padding-right:.7rem}
-  .rz-step-t{max-width:100%;opacity:1;white-space:normal;line-height:1.25}
-  .rz-step:hover{color:#fff}
-  .rz-sum,.rz-sum.is-empty,.rz-side.rz-near .rz-sum,.rz-side.rz-kb .rz-sum,.rz-side.rz-cookie .rz-sum{position:static;flex-direction:column;align-items:stretch;gap:.8rem;max-width:none;margin:0;padding:1rem 0 0;border-top:1px dashed rgba(116,251,113,.3);border-radius:0;background:none;box-shadow:none;transform:none;opacity:1;pointer-events:auto}
-  .rz-sum-rows{display:flex;flex-direction:column;gap:.55rem;margin:0}
-  .rz-sum-rows dt{color:#9fc4b1;font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
-  .rz-sum-rows dd{margin:.1rem 0 0;color:#fff;font-size:.86rem;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
-  .rz-sum-tv{font-size:1.6rem}
-  .rz-sum-go{max-width:none;min-height:52px;font-size:.85rem;animation:rzGlow 2.4s ease-in-out infinite}
+  .rez-v2 .rz-grid .rez-section{scroll-margin-top:16px}
+  .rz-grid .rz-side-in::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,transparent,#74fb71,transparent);animation:rzScan 3.6s linear infinite;pointer-events:none}
+  .rz-grid .rz-side-in{position:sticky;top:1rem;display:flex;flex-direction:column;gap:1rem;overflow:hidden;padding:1.1rem;border-radius:22px;background:var(--rz-dark);color:#fff;box-shadow:0 22px 46px -22px rgba(10,31,20,.7),inset 0 0 0 1px rgba(116,251,113,.25)}
+  .rz-grid .rz-steps{position:static;margin:0;padding:0;border-radius:0;background:none;box-shadow:none}
+  .rz-grid .rz-steps ol{flex-direction:column;gap:6px}
+  .rz-grid .rz-steps ol::before,.rz-grid .rz-steps ol::after{left:15px;right:auto;top:16px;bottom:16px;width:2px;height:auto;margin:0}
+  .rz-grid .rz-steps ol::after{transform:scaleY(var(--rz-p,0));transform-origin:50% 0}
+  .rz-grid .rz-step{gap:.6rem;padding-right:.7rem}
+  .rz-grid .rz-step-t{max-width:100%;opacity:1;white-space:normal;line-height:1.25}
+  .rz-grid .rz-step:hover{color:#fff}
+  .rz-grid .rz-sum,.rz-grid .rz-sum.is-empty,.rz-grid .rz-side.rz-near .rz-sum,.rz-grid .rz-side.rz-kb .rz-sum,.rz-grid .rz-side.rz-cookie .rz-sum{position:static;flex-direction:column;align-items:stretch;gap:.8rem;max-width:none;margin:0;padding:1rem 0 0;border-top:1px dashed rgba(116,251,113,.3);border-radius:0;background:none;box-shadow:none;transform:none;opacity:1;pointer-events:auto}
+  .rz-grid .rz-sum-rows{display:flex;flex-direction:column;gap:.55rem;margin:0}
+  .rz-grid .rz-sum-rows dt{color:#9fc4b1;font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+  .rz-grid .rz-sum-rows dd{margin:.1rem 0 0;color:#fff;font-size:.86rem;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+  .rz-grid .rz-sum-tv{font-size:1.6rem}
+  .rz-grid .rz-sum-go{max-width:none;min-height:52px;font-size:.85rem;animation:rzGlow 2.4s ease-in-out infinite}
 }
 
 @keyframes rzScan{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
@@ -194,6 +194,6 @@
 .rez-v2 .rez-section.rz-rv.rz-rv-in{opacity:1;transform:none}
 @media print{.rez-v2 .rez-section.rz-rv{opacity:1;transform:none}.rz-side{display:none!important}}
 @media(prefers-reduced-motion:reduce){
-  .rez-v2 #rez-intro>div::before,.rez-v2 #rez-price-preview>div::after,.rz-side-in::before,.rez-v2 .rez-section,.rez-v2 .rez-cta,.rez-v2 .rez-step2-pay .btn,.rez-v2 .rez-step-num,.rez-v2 #rezervace-app input,.rez-v2 #rez-calendar .cal-day,.rez-v2 .time-chip,.rez-v2 .size-chip,.rez-v2 .lic-chip,.rez-v2 .size-pick,.rez-v2 .rez-loc-ico,.rez-v2 #rez-date-banner>div,.rez-v2 #rez-price-preview>div,.rz-sum,.rz-sum-tv,.rz-sum-go,.rz-step-n,.rz-step-t,.rz-steps li,.rz-steps ol::after,.rez-v2 .rz-hl{animation:none!important;transition:none!important}
+  .rez-v2 #rez-intro>div::before,.rez-v2 #rez-price-preview>div::after,.rz-side-in::before,.rez-v2 .rez-section,.rez-v2 .rez-cta,.rez-v2 .rez-step2-pay .btn,.rez-v2 .rez-finish-docs,.rez-v2 .rez-step-num,.rez-v2 #rezervace-app input,.rez-v2 #rez-calendar .cal-day,.rez-v2 .time-chip,.rez-v2 .size-chip,.rez-v2 .lic-chip,.rez-v2 .size-pick,.rez-v2 .rez-loc-ico,.rez-v2 #rez-date-banner>div,.rez-v2 #rez-price-preview>div,.rz-sum,.rz-sum-tv,.rz-sum-go,.rz-step-n,.rz-step-t,.rz-steps li,.rz-steps ol::after,.rez-v2 .rz-hl{animation:none!important;transition:none!important}
   .rez-v2 .rez-section.rz-rv{opacity:1;transform:none}
 }

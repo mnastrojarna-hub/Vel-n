@@ -185,16 +185,27 @@ function lpiTables($x, $root) {
  * .tab-content): každá otázka zpět do vlastní buňky, text za panely ven za .tab-content.
  */
 function lpiFaqStyle($doc, $x, $root) {
-    foreach ($x->query('.//details[contains(@class,"faq-item")]', $root) as $d) lpiAdd($d, 'lpi-faq-item');
+    foreach (iterator_to_array($x->query('.//details[contains(@class,"faq-item")]', $root)) as $d) {
+        lpiAdd($d, 'lpi-faq-item');
+        // Otázka z více uzlů (<span>…</span> text) by ve flex <summary> tvořila sloupce vedle sebe → jeden obal
+        $sum = $x->query('./summary', $d)->item(0);
+        if ($sum && $sum->childNodes->length > 1) { $q = lpiEl($doc, 'span', 'lpi-q'); lpiMoveKids($sum, $q); $sum->appendChild($q); }
+    }
     foreach ($x->query('.//ul[contains(concat(" ",normalize-space(@class)," ")," tabs ")]', $root) as $ul) $ul->setAttribute('class', 'lpi-tabs');
     foreach (iterator_to_array($x->query('.//div[@class="lpi-faq-list"]', $root)) as $g) {
         foreach (iterator_to_array($x->query('./div', $g)) as $cell) {
             $ds = iterator_to_array($x->query('.//details', $cell));
             $ref = $cell->nextSibling;
             foreach (array_slice($ds, 1) as $d) {
+                // Kategorie (filtr tabů) z nejbližšího vnořeného obalu — bez ní by otázka byla vidět ve všech tabech
+                $cat = $x->query('ancestor::div[@data-faq-category][1]', $d)->item(0);
                 $w = lpiEl($doc, 'div');
+                if ($cat) $w->setAttribute('data-faq-category', $cat->getAttribute('data-faq-category'));
                 $w->appendChild($d);
                 $g->insertBefore($w, $ref);
+            }
+            foreach (array_reverse(iterator_to_array($x->query('.//div[@data-faq-category]', $cell))) as $e) {
+                if (lpiText($e) === '' && !$x->query('.//img|.//iframe', $e)->length) $e->parentNode->removeChild($e);
             }
         }
     }

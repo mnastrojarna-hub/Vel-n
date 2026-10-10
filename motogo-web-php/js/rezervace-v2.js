@@ -92,7 +92,7 @@
     if (a && vis(a)) return { main: tx(a), extra: '', cta: a.parentNode.querySelector('.btn') };
     return null;
   }
-  var lastP = '', lastR = '';
+  var lastP = null, lastR = '';
   function updateSum() {
     var p = priceInfo();
     sum.hidden = !p; if (!p) { ctaEl = null; return; }
@@ -146,7 +146,7 @@
   }
   var tm = 0, raf = 0;
   function later() { if (!tm) tm = setTimeout(function () { tm = 0; sync(); }, 90); }
-  function onScroll() { if (!raf) raf = (w.requestAnimationFrame || setTimeout)(function () { raf = 0; track(); }); }
+  function onScroll() { if (raf) return; raf = 1; var f = function () { raf = 0; track(); }; if (w.requestAnimationFrame) w.requestAnimationFrame(f); else setTimeout(f, 16); }
   if ('MutationObserver' in w) new MutationObserver(later).observe(app, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
   ['change', 'input', 'click'].forEach(function (e) { app.addEventListener(e, later); });
   w.addEventListener('scroll', onScroll, { passive: true });
