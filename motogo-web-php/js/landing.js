@@ -1,0 +1,106 @@
+/* MotoGo24 — Landing v2 (viz landing.php): reveal animace, karusel motorek,
+   sticky CTA lišta na mobilu, sbalitelný SEO text. Bez závislostí. */
+(function () {
+  var d = document, b = d.body;
+  d.documentElement.classList.add('lp-js');
+  var rm = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var IO = 'IntersectionObserver' in window;
+  function each(sel, fn, root) { Array.prototype.forEach.call((root || d).querySelectorAll(sel), fn); }
+
+  // 1) Reveal on scroll
+  if (IO && !rm) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -8% 0px' });
+    each('.lp-reveal', function (el) { io.observe(el); });
+  } else {
+    each('.lp-reveal', function (el) { el.classList.add('is-in'); });
+  }
+
+  // 2) Karusel motorek — progress, šipky (jen myš), jednorázový „swipe“ náznak
+  each('[data-lp-track]', function (tr) {
+    var wrap = tr.parentNode, sec = wrap.parentNode;
+    var bar = sec.querySelector('.lp-progress i');
+    var prev = wrap.querySelector('.lp-nav-prev'), next = wrap.querySelector('.lp-nav-next');
+    function upd() {
+      var max = tr.scrollWidth - tr.clientWidth;
+      var vis = tr.scrollWidth ? tr.clientWidth / tr.scrollWidth : 1;
+      var pos = max > 0 ? tr.scrollLeft / max : 0;
+      if (bar) {
+        var w = Math.max(8, Math.min(100, vis * 100));
+        bar.style.width = w + '%';
+        bar.style.transform = 'translateX(' + (pos * (100 - w) / w * 100) + '%)';
+      }
+      if (prev) prev.disabled = tr.scrollLeft < 8;
+      if (next) next.disabled = tr.scrollLeft > max - 8;
+    }
+    function step(dir) {
+      var card = tr.querySelector('.lp-moto');
+      var dx = card ? card.getBoundingClientRect().width + 16 : tr.clientWidth * 0.8;
+      tr.scrollBy({ left: dir * dx * (window.innerWidth >= 1100 ? 3 : 2), behavior: rm ? 'auto' : 'smooth' });
+    }
+    if (prev && next && window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      prev.hidden = false; next.hidden = false;
+      prev.addEventListener('click', function () { step(-1); });
+      next.addEventListener('click', function () { step(1); });
+    }
+    var raf = 0;
+    tr.addEventListener('scroll', function () { if (!raf) raf = requestAnimationFrame(function () { raf = 0; upd(); }); }, { passive: true });
+    window.addEventListener('resize', upd);
+    upd();
+    if (IO && !rm && tr.scrollWidth > tr.clientWidth + 8) {
+      var ho = new IntersectionObserver(function (es) {
+        if (!es[0].isIntersecting) return;
+        ho.disconnect();
+        setTimeout(function () { if (tr.scrollLeft < 4) tr.classList.add('lp-nudge'); }, 400);
+      }, { threshold: 0.6 });
+      ho.observe(tr);
+      tr.addEventListener('pointerdown', function () { tr.classList.remove('lp-nudge'); }, { passive: true });
+    }
+  });
+
+  // 3) Sticky CTA lišta — po odscrollování tlačítek akčního panelu; skrytá, když je
+  //    vidět závěrečná výzva (.lp-cta) nebo patička (tam jsou tlačítka/kontakty)
+  var st = d.querySelector('[data-lp-sticky]'), sen = d.querySelector('[data-lp-sentinel]');
+  if (st && sen && IO) {
+    var past = false, foot = false, on = null, seen = [];
+    var apply = function () {
+      var v = past && !foot;
+      if (v === on) return;
+      on = v;
+      b.classList.toggle('lp-sticky-on', v);
+      st.setAttribute('aria-hidden', v ? 'false' : 'true');
+      each('a', function (a) { if (v) a.removeAttribute('tabindex'); else a.setAttribute('tabindex', '-1'); }, st);
+    };
+    new IntersectionObserver(function (es) {
+      var e = es[0];
+      past = !e.isIntersecting && e.boundingClientRect.top < 0;
+      b.classList.toggle('lp-cta-visible', e.isIntersecting);
+      apply();
+    }).observe(sen);
+    var eo = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        var k = seen.indexOf(e.target);
+        if (e.isIntersecting && k < 0) seen.push(e.target);
+        if (!e.isIntersecting && k >= 0) seen.splice(k, 1);
+      });
+      foot = seen.length > 0;
+      apply();
+    });
+    each('.lp-cta, footer', function (el) { eo.observe(el); });
+  }
+
+  // 4) Sbalitelný SEO text — v DOM zůstává celý (indexace), jen se vizuálně zkrátí
+  each('[data-lp-more]', function (s) {
+    var btn = s.querySelector('.lp-more-btn'), body = s.querySelector('.lp-more-body');
+    if (!btn || !body || body.scrollHeight < 260) return;
+    var set = function (collapsed) {
+      s.classList.toggle('is-collapsed', collapsed);
+      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      btn.textContent = btn.getAttribute(collapsed ? 'data-open' : 'data-close');
+    };
+    set(true);
+    btn.hidden = false;
+    btn.addEventListener('click', function () { set(!s.classList.contains('is-collapsed')); });
+  });
+})();

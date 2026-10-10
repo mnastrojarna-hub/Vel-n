@@ -2,6 +2,9 @@
 // ===== MotoGo24 Web PHP — Stránka Půjčovna motorek (CMS-driven) =====
 // Obsah lze editovat v app_settings klíč 'site.pujcovna'
 
+require_once __DIR__ . '/../landing.php';
+$lpV2 = landingV2Enabled();
+
 $sb = new SupabaseClient();
 
 $defaults = [
@@ -127,8 +130,8 @@ $ctaHtml = renderCta(
     $ctaButtonsKeyed
 );
 
-$content = '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent">' . $intro . $benefitsHtml . $stepsHtml . $faqHtml . $ctaHtml . '</div></div></main>';
+$content = $lpV2 ? require __DIR__ . '/pujcovna-v2.php' : ('<main id="content"><div class="container">' . $bc .
+    '<div class="ccontent">' . $intro . $benefitsHtml . $stepsHtml . $faqHtml . $ctaHtml . '</div></div></main>');
 
 // ===== Service + FAQPage JSON-LD =====
 // Service popisuje hlavní byznys — pronájem motorek — s areaServed,
@@ -177,7 +180,7 @@ if (!empty($faqSchemaItems)) {
   </script>';
 }
 
-renderPage($C['seo']['title'], $content, '/pujcovna-motorek', [
+renderPage($C['seo']['title'], $content, '/pujcovna-motorek', ($lpV2 ? lpPageMeta() : []) + [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'schema' => $serviceSchema . $faqSchema,

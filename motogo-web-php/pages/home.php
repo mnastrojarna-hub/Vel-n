@@ -3,6 +3,9 @@
 // Kompletní obsah je editovatelný přes app_settings klíč 'site.home' (JSONB).
 // Defaults níže jsou fallback, pokud v DB není nic.
 
+require_once __DIR__ . '/../landing.php';
+$lpV2 = landingV2Enabled();
+
 $sb = new SupabaseClient();
 $motos = $sb->fetchMotos();
 $posts = $sb->fetchCmsPages();
@@ -201,8 +204,9 @@ $ctaS = $hero['cta_secondary'];
 // (eyebrow/body/CTA) se nemění, mění se jen obrazové pozadí banneru.
 $heroCaption = '<div class="banner-wrapper"><div class="container"><div class="banner-caption">' .
     '<p data-cms-key="web.home.hero.eyebrow">' . sanitizeHtml($hero['eyebrow']) . '</p><p>&nbsp;</p>' .
-    '<p data-cms-key="web.home.hero.body">' . sanitizeHtml($hero['body']) . '</p><p>&nbsp;</p>' .
-    '<p><a class="btn ' . ($ctaP['cls'] ?? 'btngreen') . '" href="' . BASE_URL . $ctaP['href'] . '" data-cms-key="web.home.hero.cta_primary.label">' . $ctaP['label'] . '</a> <a class="btn ' . ($ctaS['cls'] ?? 'btndark') . '" href="' . BASE_URL . $ctaS['href'] . '" data-cms-key="web.home.hero.cta_secondary.label">' . $ctaS['label'] . '</a></p>' .
+    '<p data-cms-key="web.home.hero.body">' . sanitizeHtml($hero['body']) . '</p>' .
+    // Landing v2: tlačítka z hero pryč (na mobilu zakrývala banner) — jsou v akčním panelu pod ním.
+    ($lpV2 ? '' : '<p>&nbsp;</p><p><a class="btn ' . ($ctaP['cls'] ?? 'btngreen') . '" href="' . BASE_URL . $ctaP['href'] . '" data-cms-key="web.home.hero.cta_primary.label">' . $ctaP['label'] . '</a> <a class="btn ' . ($ctaS['cls'] ?? 'btndark') . '" href="' . BASE_URL . $ctaS['href'] . '" data-cms-key="web.home.hero.cta_secondary.label">' . $ctaS['label'] . '</a></p>') .
 '</div></div></div>';
 
 // Hero slideshow — automatický CSS crossfade hlavních fotek CELÉ aktuální
@@ -346,6 +350,7 @@ if (!empty($heroSlides) && $heroHasVideo) {
         . 'v.onerror=function(){clearTimeout(safety);clearTimeout(minT);nextV();};'
         . 'loadCur();}'
         . 'show(0);})();</script>';
+    if ($lpV2) [$slidesHtml, $heroJs] = lpHeroLazy($slidesHtml, $heroJs);
     $bannerHtml = '<div class="banner banner-slideshow banner-slideshow-js">' . $slidesHtml . $heroCaption . '</div>' . $heroJs;
 } elseif (!empty($heroSlides)) {
     // CSS-only crossfade: každý snímek viditelný $per s, celý cyklus = $per*N.
@@ -398,10 +403,10 @@ if (!empty($heroSlides) && $heroHasVideo) {
 
 $introHtml = !empty($C['intro']) ? '<p class="home-intro" data-cms-key="web.home.intro">' . sanitizeHtml($C['intro']) . '</p>' : '';
 
-$content = $bannerHtml .
+$content = $lpV2 ? require __DIR__ . '/home-v2.php' : ($bannerHtml .
     '<main id="content"><div class="container"><h1 data-cms-key="web.home.h1">' . $C['h1'] . '</h1>' . $introHtml .
     $signHtml . $motosHtml . $processHtml . $faqHtml . $reviewsHtml . $ctaHtml . $blogHtml .
-    '</div></main>';
+    '</div></main>');
 
 // ---- Strukturovaná data: FAQ + HowTo + AggregateRating ze sekcí výše ----
 
@@ -453,13 +458,13 @@ $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 $homeDesc = ($lang !== 'cs' && function_exists('t')) ? t('seo.home.description') : $C['seo']['description'];
 $homeKw   = ($lang !== 'cs' && function_exists('t')) ? t('seo.home.keywords')    : $C['seo']['keywords'];
 
-renderPage($C['seo']['title'], $content, '/', [
+renderPage($C['seo']['title'], $content, '/', ($lpV2 ? lpPageMeta() : []) + [
     'description' => $homeDesc,
     'keywords' => $homeKw,
     'og_image' => $C['seo']['og_image'] ?? null,
     'schema' => $faqSchema . $howToSchema,
     'aggregate_rating' => $aggRating,
-    'speakable' => ['h1', '.home-intro', '[aria-labelledby="catalogue"] > h2', '[aria-labelledby="process"]'],
+    'speakable' => $lpV2 ? ['h1', '.home-intro', '#catalogue', '#lp-process'] : ['h1', '.home-intro', '[aria-labelledby="catalogue"] > h2', '[aria-labelledby="process"]'],
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
     ],
