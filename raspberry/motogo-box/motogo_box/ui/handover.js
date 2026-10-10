@@ -14,6 +14,7 @@ MG.Handover = (function () {
       Od 2026-10-10 i doklady: zelená karta a technický průkaz.
       Od 2026-10-02 jen informativně (bez zaškrtávání) v kroku 2. Klíče = i18n `me.*` a edge `form.moto_equipment[]`. */
   const MOTO_GEAR = [
+    { key: 'luggage', ico: '🧳', note: true },           // 2026-10-10: každá motorka má kufr (cestovní) nebo tankvak
     { key: 'phone_holder', ico: '📱' },               // 2026-10-10 (zadání majitele): držák k němuž je klíč níže
     { key: 'phone_holder_key', ico: '🔑' },
     { key: 'disc_lock', ico: '🔒' },
@@ -164,6 +165,11 @@ MG.Handover = (function () {
       row.innerHTML = '<span class="ho-row-ico"></span><span class="ho-row-name"></span>';
       row.querySelector('.ho-row-ico').textContent = m.ico;
       row.querySelector('.ho-row-name').textContent = (m.qty ? m.qty + '× ' : '') + (MG.i18n.g('me', m.key) || m.key);
+      if (m.note) {        // vysvětlivka pod názvem (kufr × tankvak dle typu motorky)
+        const n = document.createElement('small'); n.className = 'ho-row-note';
+        n.textContent = MG.i18n.g('me', m.key + '_note') || '';
+        row.querySelector('.ho-row-name').appendChild(n);
+      }
       box.appendChild(row);
     });
   }

@@ -37,6 +37,8 @@ const EXTRA_GEAR_CHECKS = [
  * Klíče = kiosk `MOTO_GEAR`, appka `protocol_screen.dart _motoGear`.
  */
 export const MOTO_EQUIPMENT = [
+  // 2026-10-10 (zadání majitele): každá motorka má kufr (cestovní) nebo tankvak (sportovní, naked, supermoto).
+  { key: 'luggage', label: 'Kufr nebo tankvak (cestovní motorka kufr; sportovní, naked a supermoto tankvak)', qty: 1 },
   // 2026-10-10 (zadání majitele): držák na telefon — k němu patří klíč na dalším řádku.
   { key: 'phone_holder', label: 'Držák na telefon', qty: 1 },
   { key: 'phone_holder_key', label: 'Klíč k držáku mobilu', qty: 1 },
