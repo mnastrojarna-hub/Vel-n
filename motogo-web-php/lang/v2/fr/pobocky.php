@@ -9,7 +9,7 @@
 return ['pages' => ['pobocky' => [
     'seo' => [
         'title' => 'Agences | MotoGo24 – location de motos à Pelhřimov et Brno',
-        'description' => 'Agences de location de motos MotoGo24 : agence avec personnel à Mezná, près de Pelhřimov (Vysočina), et agence en libre-service à Velké Němčice, près de Brno : retrait de la moto à toute heure.',
+        'description' => 'Agences de location de motos MotoGo24 : agence avec personnel à Mezná, près de Pelhřimov (Vysočina), et agence en libre-service à Velké Němčice, près de Brno – retrait de la moto à toute heure.',
         'keywords' => 'agences MotoGo24, location moto Pelhřimov, location moto Brno, location moto libre-service, Velké Němčice, Mezná',
     ],
     'h1' => 'Agences MotoGo24',

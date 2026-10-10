@@ -3,8 +3,9 @@
 // Nové pořadí sekcí pro klíčové stránky (/ a /pujcovna-motorek): hero bez
 // tlačítek → akční panel (H1 + 2 CTA + USP chipy) → swipe karusel motorek →
 // USP dlaždice → kroky → FAQ → CTA → … → SEO text sbalený dole.
-// Zapíná se per jazyk (LANDING_V2_LANGS) — nejdřív jen ES na schválení,
-// pak rozšířit o další jazyky (= přidat lang/v2/<lang>/landing.php).
+// Zapíná se per jazyk (LANDING_V2_LANGS) — od 2026-10-10 všechny jazyky (pilot ES
+// schválen majitelem); stránka se v jazyce přepne jen s kompletními texty
+// lang/v2/<lang>/*.php (landingV2TextsReady), CS má defaulty v kódu.
 // ?landing=v2 / ?landing=v1 = náhled/vypnutí (v2 jen v jazyce s překladem
 // landing textů nebo v CS; page cache má query v klíči, canonical se nemění).
 // Texty: siteContent('landing') — CS defaulty v lpDefaults(), překlady
@@ -13,7 +14,7 @@
 // do lang/pages_cs.php. Render sekcí: landing-sections.php, landing-trust.php
 // (důvody, recenze, „jen u nás“, pobočky — defaulty data/landing-trust.php).
 
-const LANDING_V2_LANGS = ['es'];
+const LANDING_V2_LANGS = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl', 'uk'];
 
 function landingV2Enabled() {
     static $on = null;
@@ -75,16 +76,16 @@ function lpDefaults() {
             'card_book' => 'Rezervovat',
             'license_none' => 'Bez ŘP',
             // Volitelné (prázdné = nezobrazí se): mikrotext pod CTA, nabídka pod panelem, sezónní poznámka
-            'assurance' => '',
-            'offer' => '',
-            'season_note' => '',
+            'assurance' => 'Storno zdarma víc než 7 dní předem · Bezpečná platba',
+            'offer' => 'Vyzvedni si motorku od 12:00 a první den máš za polovinu (výpůjčka na 2 a více dní).',
+            'season_note' => 'Sezóna 2026 do 31. 10. · Termíny na 2027 rezervuj už teď (od 26. 3.).',
             // Volitelná náhrada CTA pásu (prázdný title = CTA z CMS stránky)
             'cta' => ['title' => '', 'text' => '', 'buttons' => []],
         ] + lpTrustDefaults(),
         'home' => $cta + [
             // Krátký H1 do panelu (prázdné = H1 z web.home.h1; vyplněné → dlouhé H1 jde do H2 sekce „O nás“)
             'h1' => '',
-            'lead' => '',
+            'lead' => 'Vyzvedni si ji nonstop v Mezné, 90 min od Prahy, nebo samoobslužně 24/7 ve Velkých Němčicích, 30 min od Brna.',
             // Volitelná náhrada eyebrow textu v hero (prázdné = web.home.hero.eyebrow)
             'hero_eyebrow' => '',
             'chips' => $chips,

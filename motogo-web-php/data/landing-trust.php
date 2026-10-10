@@ -3,9 +3,10 @@
 // Slučuje se do lpDefaults()['common'] (landing.php). Překlady: lang/v2/<lang>/landing.php,
 // Velín CMS klíče web.landing.common.*. Fakta ověřena 2026-10-10 (kampaň „8 důvodů“
 // na Google profilu, VOP, data/pobocky.php, appka loyalty). POZOR na rozdíly poboček:
-// vrácení bez mytí/tankování, doplňková výbava a zázemí (káva, WC, wifi…) = JEN Mezná;
-// samoobsluha Velké Němčice = výbava řidiče + vesta/lékárnička/zámek, šatna, parkování; motorku vrátit
-// umytou a natankovanou (pokyn majitele 2026-10-10 — POZOR: VOP čl. 5 l) zatím říká opak pro obě pobočky).
+// vrácení bez mytí, doplňková výbava a zázemí (káva, WC, wifi…) = JEN Mezná;
+// samoobsluha Velké Němčice = výbava řidiče + vesta/lékárnička/zámek, šatna, parkování. Vrácení (majitel
+// 2026-10-10): tankovat se nemusí nikde, mýt jen na samoobslužné pobočce — POZOR: VOP čl. 5 l) zatím
+// říká „bez mytí“ pro obě pobočky. Obě pobočky nonstop; telefon Po–Pá 8–17, AI 24/7.
 // Vzdálenosti: OSRM 2026-10-10 (Praha→Mezná 92 min, Brno→VN 28 min, letiště Brno→VN 36 min, Vídeň→VN 100 min).
 
 function lpTrustDefaults() {

@@ -17,6 +17,8 @@ unset($_m);
 require_once __DIR__ . '/../landing.php';
 $kcV2 = landingV2Enabled();
 if ($kcV2) require_once __DIR__ . '/katalog-calc.php';
+// Predikáty filtru (kategorie, fulltext) sdílené s v2 lištou filtrů (pages/katalog-v2-*.php)
+require_once __DIR__ . '/katalog-v2-lib.php';
 
 // REQUEST_URI obsahuje query string i případný trailing slash — normalizujeme,
 // jinak by /katalog/supermoto/ neprošlo přes níže uvedené porovnání cest a
@@ -192,31 +194,9 @@ if ($category) { $bc[] = $title; } else { $bc[1] = $title; }
 $filtered = $motos;
 
 if ($category) {
+    // Shoda kategorie (substring pravidla pro cestovní/naked/… + defensive cast): katalog-v2-lib.php
     $filtered = array_filter($filtered, function ($m) use ($category) {
-        // Defensive cast — `category` může být v DB array nebo object (jsonb),
-        // strtolower(array) hází PHP 8 TypeError → filter padá tiše.
-        $rawCat = $m['category'] ?? '';
-        if (is_array($rawCat) || is_object($rawCat)) $rawCat = '';
-        $cat = strtolower((string)$rawCat);
-        $fc = strtolower((string)$category);
-        if ($fc === 'cestovni') {
-            return strpos($cat, 'cestov') !== false || strpos($cat, 'adventure') !== false || strpos($cat, 'touring') !== false || strpos($cat, 'enduro') !== false;
-        } elseif ($fc === 'sportovni') {
-            return strpos($cat, 'sport') !== false || strpos($cat, 'supersport') !== false || strpos($cat, 'super sport') !== false;
-        } elseif ($fc === 'naked') {
-            return strpos($cat, 'naked') !== false || strpos($cat, 'street') !== false || strpos($cat, 'roadster') !== false;
-        } elseif ($fc === 'supermoto') {
-            return strpos($cat, 'supermoto') !== false || strpos($cat, 'super moto') !== false || strpos($cat, 'super-moto') !== false || strpos($cat, 'motard') !== false || $cat === 'sm';
-        } elseif ($fc === 'chopper') {
-            return strpos($cat, 'chopper') !== false || strpos($cat, 'cruiser') !== false || strpos($cat, 'bobber') !== false;
-        } elseif ($fc === 'scootery') {
-            return strpos($cat, 'scoot') !== false || strpos($cat, 'skut') !== false || strpos($cat, 'skút') !== false || strpos($cat, 'moped') !== false;
-        } elseif ($fc === 'detske') {
-            return strpos($cat, 'dets') !== false || strpos($cat, 'dět') !== false || (isset($m['license_required']) && strtoupper($m['license_required']) === 'N');
-        } elseif ($fc === 'ostatni') {
-            return strpos($cat, 'ostatn') !== false || strpos($cat, 'přívěs') !== false || strpos($cat, 'privs') !== false || strpos($cat, 'přív') !== false || strpos($cat, 'trailer') !== false || strpos($cat, 'other') !== false;
-        }
-        return $cat === $fc;
+        return katalogCategoryMatch($m, $category);
     });
 }
 if ($getLic) {
@@ -267,23 +247,9 @@ if ($getRiders === 2) {
 }
 if ($getQuery !== '') {
     $q = mb_strtolower($getQuery, 'UTF-8');
+    // Prohledávaný text (model, značka, kategorie, popis, výbava; jsonb-safe): katalog-v2-lib.php
     $filtered = array_filter($filtered, function ($m) use ($q) {
-        // BUGFIX 2026-05-18: `features` z DB může být ARRAY (jsonb sloupec),
-        // string konkatenace s polem v PHP 8 hází TypeError → search padal
-        // tiše nebo přes celou stránku. Bezpečné slíznutí všech polí.
-        $features = $m['features'] ?? '';
-        if (is_array($features)) $features = implode(' ', array_map('strval', $features));
-        $description = $m['description'] ?? '';
-        if (is_array($description) || is_object($description)) $description = '';
-        $hay = mb_strtolower(
-            (string)($m['model'] ?? '') . ' '
-            . (string)($m['brand'] ?? '') . ' '
-            . (string)($m['category'] ?? '') . ' '
-            . (string)$description . ' '
-            . (string)$features,
-            'UTF-8'
-        );
-        return strpos($hay, $q) !== false;
+        return strpos(katalogQueryHay($m), $q) !== false;
     });
 }
 
@@ -507,11 +473,20 @@ $content = '<main id="content"><div class="container">'
     . renderBreadcrumb($bc)
     . '<div class="ccontent"><h1' . $h1AttrCms . '>' . htmlspecialchars($displayH1) . '</h1>'
     . ($kcV2 ? kcSubtitle($sb, count($filtered)) : '')
-    . '<p data-cms-key="web.katalog.intro">' . $displayIntro . '</p>'
-    . ($kcV2 ? renderKatalogCalc($sb, $motos, ['branch' => $getBranch]) : '')
-    . $filterHtml
-    . $countHtml
-    . '<div id="katalog-grid" class="gr4">' . $gridHtml . '</div>'
+    . ($kcV2
+        // v2: lišta (termín / filtry / kalkulačka) + kompaktní karty, kalkulačka až pod mřížkou
+        ? '<p class="kf-intro" data-cms-key="web.katalog.intro">' . $displayIntro . '</p>'
+            . renderKatalogV2($sb, [
+                'motos' => $motos, 'filtered' => $filtered, 'path' => $path, 'cat' => (string)$category, 'getCat' => $getCat,
+                'q' => $getQuery, 'lic' => $getLic, 'branch' => $getBranch, 'abs' => $getAbs, 'riders' => $getRiders, 'sort' => $getSort,
+                'kw' => [$getKwMin, $getKwMax, $kwBoundMin, $kwBoundMax], 'pr' => [$getPriceMin, $getPriceMax, $priceBoundMin, $priceBoundMax],
+                'lics' => array_keys($lics), 'branches' => $branchOpts,
+            ])
+            . renderKatalogCalc($sb, $motos, ['branch' => $getBranch])
+        : '<p data-cms-key="web.katalog.intro">' . $displayIntro . '</p>'
+            . $filterHtml
+            . $countHtml
+            . '<div id="katalog-grid" class="gr4">' . $gridHtml . '</div>')
     . $outroHtml
     . '</div></div></main>';
 
@@ -551,7 +526,7 @@ $catDescriptions = [
 ];
 $catDesc = $category && isset($catDescriptions[$category]) ? $catDescriptions[$category] : t('katalog.seo.description');
 
-renderPage($title . ' | MotoGo24', $content, $path, ($kcV2 ? kcPageMeta() : []) + [
+renderPage($title . ' | MotoGo24', $content, $path, ($kcV2 ? kfPageMeta() : []) + [
     'description' => $catDesc,
     'keywords' => t('katalog.seo.keywords'),
     'schema' => $itemListSchema,

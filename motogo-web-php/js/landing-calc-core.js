@@ -52,7 +52,18 @@
     return map;
   };
 
+  // Jedno volání na motorku a den — sdílí kalkulačka i filtr termínu v katalogu (js/landing-catalog-dates.js);
+  // po chybě se záznam zahodí, ať jde zkusit znovu
+  var memo = {};
   K.fetchBooked = function (sb, id, today) {
+    var k = id + '|' + today;
+    if (!memo[k]) {
+      memo[k] = K.fetchBookedRaw(sb, id, today);
+      memo[k].catch(function () { delete memo[k]; });
+    }
+    return memo[k];
+  };
+  K.fetchBookedRaw = function (sb, id, today) {
     return fetch(sb.url + '/rest/v1/rpc/get_moto_booked_dates', {
       method: 'POST',
       headers: { apikey: sb.key, Authorization: 'Bearer ' + sb.key, 'Content-Type': 'application/json' },

@@ -14,7 +14,7 @@ return ['pages' => ['landing_info' => [
     'chips' => [
         'postup' => ['Sin fianza', 'Equipo de piloto incluido', 'Reserva online en minutos'],
         'prevzeti' => ['Recogida a tu hora', 'Aparcamiento gratis', 'Sin fianza'],
-        'vraceni_pujcovna' => ['Último día hasta las 24:00', 'Sin repostar ni lavar', 'Sin fianza'],
+        'vraceni_pujcovna' => ['Último día hasta las 24:00', 'Sin repostar', 'Sin fianza'],
         'vraceni_jinde' => ['En toda Chequia', 'Precio claro por km', 'Sin fianza'],
         'cena' => ['0 € de fianza', 'Equipo de piloto incluido', 'Sin cargos ocultos'],
         'pristaveni' => ['A tu casa, hotel o estación', 'En toda Chequia', 'Sin fianza'],

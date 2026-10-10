@@ -212,6 +212,15 @@
     a.parentNode.insertBefore(btn, a.nextSibling);
   });
 
+  // API pro katalog v2 (js/landing-catalog.js): motorka z karty / termín z filtru termínu
+  K.calcSet = function (o) {
+    o = o || {};
+    if (o.start && o.end && o.start >= today && o.end >= o.start) {
+      S.start = o.start; S.end = o.end; S.y = +o.start.slice(0, 4); S.mo = +o.start.slice(5, 7) - 1;
+    }
+    setMoto(o.moto || '');
+  };
+
   // Start: předvybraná pobočka (filtr ?pobocka=) / motorka (detail)
   var pre = C.pre || {}, pm = by[pre.moto] && !by[pre.moto].un ? pre.moto : '';
   S.branch = pre.branch && X.branch(pre.branch) && (!pm || by[pm].b === pre.branch) ? pre.branch : '';
