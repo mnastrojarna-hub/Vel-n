@@ -58,7 +58,7 @@ export default function InsuranceTab() {
             </TD>
           </TRow>
         ))}
-        {motos.length === 0 && <TRow><TD className="mg-stack-full">Žádné motorky</TD></TRow>}
+        {motos.length === 0 && <TRow><TD colSpan={4} className="mg-stack-full">Žádné motorky</TD></TRow>}
       </tbody>
     </Table>
   )

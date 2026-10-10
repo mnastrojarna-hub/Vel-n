@@ -243,8 +243,9 @@ export default function Finance() {
   return (
     <ErrorBoundary>
     <div>
-      {/* Mobil/tablet: záložky se zalamují do více řádků (všechny dosažitelné), desktop beze změny */}
-      <div className="flex flex-wrap lg:flex-nowrap gap-2 mb-5">
+      {/* Záložky se zalamují do více řádků (všechny dosažitelné) — 10 záložek se na jeden řádek vejde až
+          od ~1450 px obsahu stránky (1024–1440 px i notebooky 1366 přetékaly do strany); od 1500 px beze změny */}
+      <div className="flex flex-wrap min-[1500px]:flex-nowrap gap-2 mb-5">
         {FINANCE_TABS.map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
             className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer whitespace-nowrap lg:whitespace-normal"

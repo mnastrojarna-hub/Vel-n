@@ -234,8 +234,9 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
         <div className="mt-2 p-2 rounded-lg text-[12px] flex items-center gap-2 flex-wrap" style={{ background: '#fee2e2', color: '#dc2626' }}>
           <span className="font-bold">⛔ Zadávání kódů na displeji zablokováno do {pinLockedUntil.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</span>
           <span>— po opakovaných chybných kódech (např. starý kód po přesunu motorky). Zákazník teď nezadá kód rezervace.</span>
-          <Btn tone="red" title="Okamžitě zruší blokaci zadávání na displeji pobočky; počítadlo chybných pokusů začne znovu od nuly."
+          <Btn tone="red" title={T.PIN_UNLOCK_TITLE}
             onClick={() => send('pin_unlock', {}, 'Zrušit blokaci zadávání')}>Zrušit blokaci zadávání</Btn>
+          <HintList items={[['Zrušit blokaci zadávání', T.PIN_UNLOCK_TITLE]]} />
         </div>
       )}
 

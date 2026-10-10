@@ -146,7 +146,7 @@ export default function AutoOrdersTab() {
                       <TD label="" className="mg-stack-full">{(o.status === 'draft' || o.status === 'sent') && <button onClick={() => sendOrderEmail(o)} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>{o.status === 'draft' ? 'Odeslat email' : 'Preposlat'}</button>}</TD>
                     </tr>
                   ))}
-                  {orders.length === 0 && <TRow><TD label="" className="mg-stack-full">Žádné objednavky</TD></TRow>}
+                  {orders.length === 0 && <TRow><TD colSpan={8} label="" className="mg-stack-full">Žádné objednavky</TD></TRow>}
                 </tbody>
               </Table>
               <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -190,7 +190,7 @@ export default function AutoOrdersTab() {
                     </div></TD>
                   </TRow>
                 ))}
-                {rules.length === 0 && <TRow><TD label="" className="mg-stack-full">Žádná pravidla — pridejte prvni automatickou objednavku</TD></TRow>}
+                {rules.length === 0 && <TRow><TD colSpan={8} label="" className="mg-stack-full">Žádná pravidla — pridejte prvni automatickou objednavku</TD></TRow>}
               </tbody>
             </Table>
             </>

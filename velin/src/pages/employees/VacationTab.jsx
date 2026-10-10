@@ -105,7 +105,7 @@ export default function VacationTab() {
               </TD>
             </TRow>
           ))}
-          {vacations.length === 0 && <TRow><TD className="mg-stack-full">Žádné záznamy</TD></TRow>}
+          {vacations.length === 0 && <TRow><TD colSpan={7} className="mg-stack-full">Žádné záznamy</TD></TRow>}
         </tbody>
       </Table>
 

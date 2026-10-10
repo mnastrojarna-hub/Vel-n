@@ -129,7 +129,7 @@ export default function UploadedTab() {
                   </TD>
                 </TRow>
               ))}
-              {docs.length === 0 && <TRow><TD>Žádné nahrané doklady</TD></TRow>}
+              {docs.length === 0 && <TRow><TD colSpan={4}>Žádné nahrané doklady</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

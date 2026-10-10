@@ -335,7 +335,7 @@ export default function SentEmailsTab() {
                   </TRow>
                 )
               })}
-              {emails.length === 0 && <TRow><TD>Žádné zaslané emaily</TD></TRow>}
+              {emails.length === 0 && <TRow><TD colSpan={7}>Žádné zaslané emaily</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

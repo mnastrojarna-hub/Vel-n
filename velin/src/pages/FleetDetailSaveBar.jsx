@@ -22,12 +22,28 @@ export default function MobileSaveBar({ onSave, saving, error }) {
     let sc = el.parentElement
     while (sc && !/(auto|scroll)/.test(getComputedStyle(sc).overflowY)) sc = sc.parentElement
     if (sc) setPadBottom(parseFloat(getComputedStyle(sc).paddingBottom) || 0)
-    if (typeof IntersectionObserver === 'undefined') return undefined
-    const io = new IntersectionObserver(([e]) => {
-      setStuck(!e.isIntersecting && e.boundingClientRect.top > (e.rootBounds?.bottom ?? window.innerHeight))
-    })
-    io.observe(el)
-    return () => io.disconnect()
+    // Přilepená = sentinel je pod spodkem viditelné oblasti. Přepočet při scrollu (1× za snímek) i při
+    // změně rozvržení (IntersectionObserver) — samotný IO nezachytí skok přes celou obrazovku (např. z konce
+    // stránky zpět do formuláře) a lišta by pak zůstala bez chybové hlášky.
+    let raf = 0
+    const check = () => {
+      raf = 0
+      const bottom = Math.min(window.innerHeight, sc ? sc.getBoundingClientRect().bottom : Infinity)
+      setStuck(el.getBoundingClientRect().top > bottom)
+    }
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(check) }
+    const target = sc || window
+    check()
+    target.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    const io = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(schedule)
+    io?.observe(el)
+    return () => {
+      if (raf) cancelAnimationFrame(raf)
+      target.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      io?.disconnect()
+    }
   }, [isMobile])
 
   if (!isMobile) return null
