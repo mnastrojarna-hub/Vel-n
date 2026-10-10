@@ -1,6 +1,8 @@
 /* MotoGo24 — katalog v2: otevírání panelů (bottom sheet na mobilu, rozbalovací panel / popover
    na desktopu). Esc a klik mimo zavře, na mobilu modální (focus trap, zámek scrollu), fokus se
-   vrací na tlačítko. Používá js/landing-catalog.js (filtry) a js/landing-catalog-dates.js (termín). */
+   vrací na tlačítko. Používá js/landing-catalog.js (filtry) a js/landing-catalog-dates.js (termín).
+   F.initExtras: kalkulačka pod mřížkou (na mobilu sbalená, tlačítko na kartách), úvod na 2 řádky,
+   stín přilepené lišty. */
 (function (w) {
   var d = document, F = w.MGKF = w.MGKF || {};
   var mq = w.matchMedia ? w.matchMedia('(min-width: 900px)') : null;
@@ -51,7 +53,7 @@
     d.documentElement.classList.add('kf-sheet-open');
     if (!F.isDesk()) d.documentElement.classList.add('kf-lock');
     var t = el.querySelector('[data-kf-focus]') || focusables(el)[0];
-    if (t) setTimeout(function () { try { t.focus({ preventScroll: true }); } catch (e) { t.focus(); } }, F.rm ? 0 : 60);
+    if (t) setTimeout(function () { if (cur === el && !el.contains(d.activeElement)) try { t.focus({ preventScroll: true }); } catch (e) { t.focus(); } }, F.rm ? 0 : 60);
     if (F.onSheet) F.onSheet(el, true);
   };
   F.closeSheet = function (quiet) {
@@ -68,4 +70,67 @@
     if (F.onSheet) F.onSheet(el, false);
   };
   F.openEl = function () { return cur; };
+  // --- Drobné UI katalogu; vrací calc(id) = otevřít kalkulačku (motorka z karty, termín z filtru) ---
+  F.initExtras = function (o) {
+    var K = w.MGKC || {}, T = o.T, kcRoot = d.querySelector('[data-kc]'), tg = null, q = function (s) { return o.root.querySelector(s); };
+    function calc(id) {
+      if (!kcRoot) return;
+      var DT = o.dt();
+      kcRoot.classList.remove('kf-closed');
+      if (tg) tg.hidden = true;
+      if (K.calcSet && (id || (DT && DT.active()))) K.calcSet({ moto: id || '', start: DT && DT.start(), end: DT && DT.end() });
+      kcRoot.scrollIntoView({ behavior: F.rm ? 'auto' : 'smooth', block: 'start' });
+    }
+    if (kcRoot && o.kc && K.ico) {
+      q('[data-kf-calc]').hidden = false;
+      var un = {}, ico = q('[data-kf-calc] .lp-ico').outerHTML;
+      o.kc.motos.forEach(function (m) { if (m.un) un[m.id] = 1; });
+      Object.keys(o.cards).forEach(function (id) {
+        var li = o.cards[id], act = li.querySelector('.kf-act'), h = li.querySelector('h3');
+        if (!act || un[id]) return;
+        var b = d.createElement('button');
+        b.type = 'button'; b.className = 'kf-calc-btn'; b.setAttribute('data-id', id);
+        b.setAttribute('aria-label', T.f_calc + (h ? ': ' + h.textContent : ''));
+        b.title = T.f_calc;
+        b.innerHTML = ico;
+        act.appendChild(b);
+      });
+      var head = kcRoot.querySelector('.kc-head'), body = kcRoot.querySelector('.kc-grid');
+      if (head && body && !F.isDesk() && w.location.hash !== '#kalkulacka') {
+        body.id = body.id || 'kc-body';
+        kcRoot.classList.add('kf-closed');
+        tg = d.createElement('button');
+        tg.type = 'button'; tg.className = 'lp-btn lp-btn-primary kf-calc-tg';
+        tg.setAttribute('aria-expanded', 'false'); tg.setAttribute('aria-controls', body.id);
+        tg.innerHTML = K.ico('cal') + '<span>' + K.esc(T.f_calc_open) + '</span>';
+        head.appendChild(tg);
+        tg.addEventListener('click', function () {
+          kcRoot.classList.remove('kf-closed'); tg.setAttribute('aria-expanded', 'true'); tg.hidden = true;
+          var s = kcRoot.querySelector('#kc-moto'); if (s) s.focus({ preventScroll: true });
+        });
+      }
+    }
+    // Úvodní text na mobilu sbalený na 2 řádky (text zůstává v DOM)
+    var intro = d.querySelector('.kf-intro');
+    if (intro && w.innerWidth <= 768) {
+      intro.classList.add('is-clamp');
+      if (intro.scrollHeight > intro.clientHeight + 4) {
+        var mb = d.createElement('button');
+        mb.type = 'button'; mb.className = 'kf-more'; mb.setAttribute('aria-expanded', 'false'); mb.textContent = T.more_open;
+        intro.parentNode.insertBefore(mb, intro.nextSibling);
+        mb.addEventListener('click', function () {
+          var c = intro.classList.toggle('is-clamp');
+          mb.textContent = c ? T.more_open : T.more_close; mb.setAttribute('aria-expanded', c ? 'false' : 'true');
+        });
+      } else intro.classList.remove('is-clamp');
+    }
+    // Stín lišty, když je přilepená
+    if ('IntersectionObserver' in w) {
+      var sen = d.createElement('div');
+      sen.setAttribute('aria-hidden', 'true');
+      o.bar.parentNode.insertBefore(sen, o.bar);
+      new IntersectionObserver(function (es) { o.bar.classList.toggle('is-stuck', !es[0].isIntersecting); }).observe(sen);
+    }
+    return calc;
+  };
 })(window);

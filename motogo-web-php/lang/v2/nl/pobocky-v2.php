@@ -64,7 +64,7 @@ return ['pages' => ['pobocky' => ['v2' => [
         ],
         [
             'short' => 'Velké Němčice',
-            'highlight' => '100% 24/7 open, zonder personeel',
+            'highlight' => '100% nonstop, zonder personeel',
             'dist' => ['20 min van het zuiden van Brno, ca. 30 min van het centrum', 'Ca. 35 min van luchthaven Brno-Tuřany', '1 u 40 min van Wenen'],
             'stats' => [['v' => '24/7', 'l' => 'zonder personeel'], ['v' => '30 min', 'l' => 'van centrum Brno (ca.)'], ['v' => '35 min', 'l' => 'van luchthaven Brno (ca.)']],
             'facts' => [
@@ -75,7 +75,7 @@ return ['pages' => ['pobocky' => ['v2' => [
             'guide' => ['Reservering, betaling en documenten', 'Poort en parkeren', 'Kleedkamer en uitrusting', 'Protocol en motor', 'De poort bij vertrek', 'Motor inleveren'],
             'gear' => [['i' => 'helmet', 't' => 'Helm'], ['i' => 'jacket', 't' => 'Jas met rugprotector'], ['i' => 'pants', 't' => 'Broek'], ['i' => 'gloves', 't' => 'Handschoenen'], ['i' => 'balaclava', 't' => 'Bivakmuts'], ['i' => 'boots', 't' => 'Laarzen (tegen meerprijs)']],
             'sizes' => 'Helmen S–3XL; jassen, broeken en handschoenen tot 4XL (grotere in Mezná)',
-            'in_bike' => [['i' => 'vest', 't' => 'Veiligheidshesje'], ['i' => 'firstaid', 't' => 'EHBO-set'], ['i' => 'doc', 't' => 'Ongevalsformulier'], ['i' => 'lock', 't' => 'Schijfremslot'], ['i' => 'phone', 't' => 'Sleuteltje telefoonhouder']],
+            'in_bike' => [['i' => 'vest', 't' => 'Veiligheidshesje'], ['i' => 'firstaid', 't' => 'EHBO-set'], ['i' => 'doc', 't' => 'Schadeformulier'], ['i' => 'lock', 't' => 'Schijfremslot'], ['i' => 'phone', 't' => 'Sleuteltje telefoonhouder']],
             'gallery' => [
                 'Ophaalmodule van de zelfbedieningsvestiging: boxen met de motoren',
                 'Ophaalmodule met boxen 1–7 en de kleedkamer (deur nr. 8)',

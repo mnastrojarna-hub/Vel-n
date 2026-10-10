@@ -33,7 +33,7 @@ return ['pages' => ['pobocky' => ['v2' => [
     'compare_title' => 'Mezná czy Velké Němčice',
     'compare_intro' => 'Oba oddziały w skrócie: wybierz ten, który ci pasuje.',
     'compare' => [
-        ['label' => 'Przekazanie motocykla', 'i' => 'user', 'v' => [['t' => 'Osobiście: wszystko wyjaśnimy i pomożemy w ustawieniu'], ['t' => 'Samodzielnie, bez obsługi: kody z aplikacji i ekran dotykowy']]],
+        ['label' => 'Przekazanie motocykla', 'i' => 'user', 'v' => [['t' => 'Osobiście: wszystko wyjaśnimy i pomożemy ustawić motocykl'], ['t' => 'Samodzielnie, bez obsługi: kody z aplikacji i ekran dotykowy']]],
         ['label' => 'Godziny otwarcia', 'i' => 'clock', 'v' => [['t' => 'Pn.–nd. o dowolnej porze, także w święta; godzinę wybierasz w rezerwacji'], ['t' => '24/7; zwrot o dowolnej porze ostatniego dnia, do 24:00']]],
         ['label' => 'Wyposażenie kierowcy w cenie', 'i' => 'helmet', 'v' => [['ok' => 1, 't' => 'Tak'], ['ok' => 1, 't' => 'Tak; buty motocyklowe za dopłatą']]],
         ['label' => 'Rozmiary wyposażenia', 'i' => 'tag', 'v' => [['t' => 'Kurtka i spodnie do 6XL'], ['t' => 'Kask S–3XL; kurtka, spodnie i rękawice do 4XL']]],
@@ -64,11 +64,11 @@ return ['pages' => ['pobocky' => ['v2' => [
         ],
         [
             'short' => 'Velké Němčice',
-            'highlight' => 'Czynny w 100% 24/7, bez obsługi',
+            'highlight' => 'W 100% nonstop, bez obsługi',
             'dist' => ['20 min z południa Brna, ok. 30 min z centrum', 'Ok. 35 min z lotniska Brno-Tuřany', '1 h 40 min z Wiednia'],
             'stats' => [['v' => '24/7', 'l' => 'bez obsługi'], ['v' => '30 min', 'l' => 'z centrum Brna (ok.)'], ['v' => '35 min', 'l' => 'z lotniska Brno (ok.)']],
             'facts' => [
-                ['i' => 'phone', 't' => 'Odbiór z kodem z aplikacji'], ['i' => 'parking', 't' => 'Bezpłatny parking'],
+                ['i' => 'phone', 't' => 'Odbiór na kod z aplikacji'], ['i' => 'parking', 't' => 'Bezpłatny parking'],
                 ['i' => 'helmet', 't' => 'Wyposażenie kierowcy w cenie'], ['i' => 'percent', 't' => 'Odbiór od 12:00: 1. dzień za pół ceny (2+ dni)'],
                 ['i' => 'moon', 't' => 'Zwrot ostatniego dnia do 24:00'], ['i' => 'shield', 't' => 'Bez kaucji'],
             ],
@@ -77,8 +77,8 @@ return ['pages' => ['pobocky' => ['v2' => [
             'sizes' => 'Kaski S–3XL; kurtki, spodnie i rękawice do 4XL (większe w oddziale Mezná)',
             'in_bike' => [['i' => 'vest', 't' => 'Kamizelka odblaskowa'], ['i' => 'firstaid', 't' => 'Apteczka'], ['i' => 'doc', 't' => 'Oświadczenie o zdarzeniu drogowym'], ['i' => 'lock', 't' => 'Blokada tarczy'], ['i' => 'phone', 't' => 'Kluczyk do uchwytu na telefon']],
             'gallery' => [
-                'Moduł wydań oddziału samoobsługowego: boksy z motocyklami',
-                'Moduł wydań z boksami 1–7 i szatnią (drzwi nr 8)',
+                'Punkt odbioru oddziału samoobsługowego: boksy z motocyklami',
+                'Punkt odbioru z boksami 1–7 i szatnią (drzwi nr 8)',
                 'Ekran dotykowy do wpisania kodu z aplikacji',
                 'Skrytki na prawym słupku bramy: kodem z aplikacji otwierasz górną skrytkę z kluczem do kłódki bramy',
                 'Parking dla klientów: miejsca 1–7 po prawej przy ogrodzeniu, bezpłatnie przez cały czas wynajmu',

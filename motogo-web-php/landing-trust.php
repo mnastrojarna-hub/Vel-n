@@ -59,13 +59,19 @@ function renderLpReasons($title, $titleKey, $lead, $items, $keyBase, $T, $visibl
         (lpPlain($T['reasons_note'] ?? '') !== '' ? '<p class="lp-reasons-note" data-cms-key="web.landing.common.reasons_note">' . he(lpPlain($T['reasons_note'])) . '</p>' : '') . '</div></section>';
 }
 
+/** Číslo s 1 desetinným místem dle jazyka (en: 5.0, ostatní: 5,0). */
+function lpDec1($v) {
+    $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+    return number_format((float)$v, 1, $lang === 'en' ? '.' : ',', '');
+}
+
 /** Hvězdičky 0–5 (SVG, přístupný popisek). */
 function lpStars($rating) {
     $r = max(0, min(5, (float)$rating));
     $full = (int)round($r);
     $s = '';
     for ($i = 1; $i <= 5; $i++) $s .= '<i class="' . ($i <= $full ? 'on' : '') . '"></i>';
-    return '<span class="lp-stars" role="img" aria-label="' . he(str_replace('.', ',', (string)$r)) . ' / 5">' . $s . '</span>';
+    return '<span class="lp-stars" role="img" aria-label="' . he(lpDec1($r)) . ' / 5">' . $s . '</span>';
 }
 
 /**
@@ -82,7 +88,7 @@ function renderLpReviews($R, $T) {
     foreach ($aggs as $a) {
         $label = he(lpS($a['label'] ?? ''));
         $score = isset($a['rating'])
-            ? '<span class="lp-rbadge-r">' . he(number_format((float)$a['rating'], 1, ',', '')) . '</span>' . lpStars($a['rating'])
+            ? '<span class="lp-rbadge-r">' . he(lpDec1($a['rating'])) . '</span>' . lpStars($a['rating'])
             : (isset($a['recommend']) ? '<span class="lp-rbadge-r">' . he(str_replace('{p}', (string)(int)$a['recommend'], lpS($T['reviews_recommend_pct'] ?? '{p} %'))) . '</span><span class="lp-rec">' . he(lpS($T['reviews_recommends'] ?? '')) . '</span>' : '');
         $inner = '<span class="lp-rbadge-src">' . $label . '</span>' . $score .
             (isset($a['count']) ? '<span class="lp-rbadge-c">' . he(str_replace('{n}', (string)(int)$a['count'], lpS($T['reviews_count'] ?? '{n}'))) . '</span>' : '');
@@ -162,7 +168,7 @@ function lpPanelRating($T) {
     $R = function_exists('lpReviewsData') ? lpReviewsData() : [];
     foreach ((array)($R['aggregates'] ?? []) as $a) {
         if (!is_array($a) || !isset($a['rating'], $a['count']) || lpS($T['panel_rating'] ?? '') === '') continue;
-        $txt = str_replace(['{r}', '{n}'], [number_format((float)$a['rating'], 1, ',', ''), (string)(int)$a['count']], lpS($T['panel_rating']));
+        $txt = str_replace(['{r}', '{n}'], [lpDec1($a['rating']), (string)(int)$a['count']], lpS($T['panel_rating']));
         return '<a class="lp-rating" href="#lp-reviews-h">' . lpStars($a['rating']) . '<span data-cms-key="web.landing.common.panel_rating">' . he($txt) . '</span></a>';
     }
     return '';

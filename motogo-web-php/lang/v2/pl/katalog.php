@@ -25,7 +25,7 @@ return ['pages' => ['landing_katalog' => [
     'st_maint' => 'W serwisie: wybierz wolne dni w kalendarzu',
     'st_unavail' => 'Obecnie niedostępny',
     'detail' => 'Szczegóły motocykla',
-    'cal_any' => 'Bez wybranego motocykla zobaczysz dni, w które wolny jest co najmniej jeden motocykl.',
+    'cal_any' => 'Bez wybranego motocykla zobaczysz dni, w których wolny jest co najmniej jeden motocykl.',
     'cal_loading' => 'Wczytuję dostępność…',
     'cal_error' => 'Nie udało się wczytać dostępności.',
     'retry' => 'Spróbuj ponownie',

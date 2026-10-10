@@ -6,9 +6,11 @@
 (function () {
   var d = document, w = window, F = w.MGKF = w.MGKF || {}, K = w.MGKC || {};
   var root = d.querySelector('[data-kf]'), el = d.getElementById('kf-data');
-  if (!root || !el || !F.openSheet) return;
+  // Bez dat / modulů zůstane panel jako obyčejný formulář (třídu kf-js nastavuje inline skript)
+  var off = function () { d.documentElement.classList.remove('kf-js'); };
+  if (!root || !el || !F.openSheet) return off();
   var D, kc = null;
-  try { D = JSON.parse(el.textContent); } catch (e) { return; }
+  try { D = JSON.parse(el.textContent); } catch (e) { return off(); }
   try { kc = JSON.parse(d.getElementById('kc-data').textContent); } catch (e) {}
   var T = D.t, B = D.b, S = D.s, motos = D.motos, each = function (l, f) { Array.prototype.forEach.call(l, f); };
   var q = function (s) { return root.querySelector(s); }, qa = function (s) { return root.querySelectorAll(s); };
@@ -226,67 +228,8 @@
     try { t.focus({ preventScroll: true }); } catch (e) {}
   }
 
-  // --- Kalkulačka pod mřížkou (na mobilu sbalená) + tlačítko na kartách ---
-  var kcRoot = d.querySelector('[data-kc]'), tg = null;
-  function calc(id) {
-    if (!kcRoot) return;
-    kcRoot.classList.remove('kf-closed');
-    if (tg) tg.hidden = true;
-    if (K.calcSet && (id || (DT && DT.active()))) K.calcSet({ moto: id || '', start: DT && DT.start(), end: DT && DT.end() });
-    kcRoot.scrollIntoView({ behavior: F.rm ? 'auto' : 'smooth', block: 'start' });
-  }
-  if (kcRoot && kc) {
-    q('[data-kf-calc]').hidden = false;
-    var un = {};
-    kc.motos.forEach(function (m) { if (m.un) un[m.id] = 1; });
-    Object.keys(cards).forEach(function (id) {
-      var li = cards[id], act = li.querySelector('.kf-act'), h = li.querySelector('h3');
-      if (!act || un[id] || !K.ico) return;
-      var b = d.createElement('button');
-      b.type = 'button'; b.className = 'kf-calc-btn'; b.setAttribute('data-id', id);
-      b.setAttribute('aria-label', T.f_calc + (h ? ': ' + h.textContent : ''));
-      b.title = T.f_calc;
-      b.innerHTML = q('[data-kf-calc] .lp-ico').outerHTML;
-      act.appendChild(b);
-    });
-    var head = kcRoot.querySelector('.kc-head'), body = kcRoot.querySelector('.kc-grid');
-    if (head && body && !F.isDesk() && w.location.hash !== '#kalkulacka') {
-      body.id = body.id || 'kc-body';
-      kcRoot.classList.add('kf-closed');
-      tg = d.createElement('button');
-      tg.type = 'button'; tg.className = 'lp-btn lp-btn-primary kf-calc-tg';
-      tg.setAttribute('aria-expanded', 'false'); tg.setAttribute('aria-controls', body.id);
-      tg.innerHTML = K.ico ? K.ico('cal') + '<span>' + esc(T.f_calc_open) + '</span>' : esc(T.f_calc_open);
-      head.appendChild(tg);
-      tg.addEventListener('click', function () {
-        kcRoot.classList.remove('kf-closed'); tg.setAttribute('aria-expanded', 'true'); tg.hidden = true;
-        var s = kcRoot.querySelector('#kc-moto'); if (s) s.focus({ preventScroll: true });
-      });
-    }
-  }
-
-  // --- Úvodní text na mobilu sbalený na 2 řádky ---
-  var intro = d.querySelector('.kf-intro');
-  if (intro && w.innerWidth <= 768) {
-    intro.classList.add('is-clamp');
-    if (intro.scrollHeight > intro.clientHeight + 4) {
-      var mb = d.createElement('button');
-      mb.type = 'button'; mb.className = 'kf-more'; mb.setAttribute('aria-expanded', 'false'); mb.textContent = T.more_open;
-      intro.parentNode.insertBefore(mb, intro.nextSibling);
-      mb.addEventListener('click', function () {
-        var o = intro.classList.toggle('is-clamp');
-        mb.textContent = o ? T.more_open : T.more_close; mb.setAttribute('aria-expanded', o ? 'false' : 'true');
-      });
-    } else intro.classList.remove('is-clamp');
-  }
-
-  // --- Stín lišty, když je přilepená ---
-  if ('IntersectionObserver' in w) {
-    var sen = d.createElement('div');
-    sen.setAttribute('aria-hidden', 'true');
-    bar.parentNode.insertBefore(sen, bar);
-    new IntersectionObserver(function (es) { bar.classList.toggle('is-stuck', !es[0].isIntersecting); }).observe(sen);
-  }
+  // Kalkulačka pod mřížkou, sbalený úvod, stín lišty (landing-catalog-sheet.js)
+  var calc = F.initExtras({ root: root, bar: bar, kc: kc, T: T, cards: cards, dt: function () { return DT; } });
 
   DT = F.initDates ? F.initDates({ kc: kc, T: T, bar: bar, btn: q('[data-kf-open="dates"]'), motos: motos, cards: cards, plural: plural,
     passNoDate: function (m) { return pass(m, 'date'); }, apply: function () { apply(); }, count: function () { return lastVis; }, done: done }) : null;

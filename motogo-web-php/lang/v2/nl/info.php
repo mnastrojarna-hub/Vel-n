@@ -24,8 +24,8 @@ return ['pages' => ['landing_info' => [
     ],
     'ai' => [
         'title' => 'AI-assistent 24/7',
-        'text' => 'Geen antwoord gevonden? Vraag het Tomáš: hij antwoordt meteen, dag en nacht.',
-        'card' => 'Vraag het Tomáš: direct antwoord',
+        'text' => 'Geen antwoord gevonden? Vraag het aan Tomáš: hij antwoordt meteen, dag en nacht.',
+        'card' => 'Vraag het aan Tomáš: direct antwoord',
         'btn' => 'Stel je vraag',
     ],
     'contact' => [
