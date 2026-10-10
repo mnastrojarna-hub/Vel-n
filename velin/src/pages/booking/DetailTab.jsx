@@ -10,6 +10,7 @@ import { useBranchGateCode } from '../../lib/branchGate'
 import KioskReturnInfo from './KioskReturnInfo'
 import TempCodesList from './TempCodesList'
 import { effBranch } from '../../lib/bookingBranch'
+import { fetchDocsGate } from '../../lib/docsGate'
 
 // Stav motorky pro zobrazení: syrový `motorcycles.status` říká „V servisu" i motorce,
 // která má jen NAPLÁNOVANÝ servis v budoucnu (pending log). Otevřené záznamy
@@ -39,6 +40,10 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
   const [doorCodes, setDoorCodes] = useState([])
   const [bookingDiscounts, setBookingDiscounts] = useState([])
   const [motoOpenLogs, setMotoOpenLogs] = useState(null)
+  // Brána dokladů (backend get_docs_gate_checklist) — jen když už má rezervace ODESLANÝ kód:
+  // odeslané kódy platí dál (rozhodnutí majitele 2026-10-10), obsluha ale musí vidět neúplné doklady.
+  const [docsGate, setDocsGate] = useState(null)
+  const anyCodeSent = doorCodes.some(c => c.is_active && c.sent_to_customer)
   // Kód schránky s klíčem od vjezdové brány AKTUÁLNÍ pobočky motorky (branch_gate_access; null = pobočka bez brány).
   // Přistavení na adresu kód brány nedostává (stejné pravidlo jako SQL _booking_gate_code) → neukazovat ani ve Velínu.
   const branchGateCode = useBranchGateCode(booking?.motorcycles?.branch_id)
@@ -79,6 +84,12 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
   useEffect(() => {
     if (booking?.id) loadDoorCodes(booking.id, setDoorCodes)
   }, [booking?.id, booking?.moto_id])
+  useEffect(() => {
+    if (!booking?.id || !anyCodeSent) { setDocsGate(null); return }
+    let alive = true
+    fetchDocsGate({ bookingId: booking.id }).then(g => { if (alive) setDocsGate(g) })
+    return () => { alive = false }
+  }, [booking?.id, booking?.moto_id, anyCodeSent])
 
   useEffect(() => {
     const mid = booking?.motorcycles?.id
@@ -180,7 +191,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         </Card>
       )}
 
-      {doorCodes.length > 0 && <DoorCodesSection doorCodes={doorCodes} booking={booking} gateCode={gateCode} extra={<TempCodesList booking={booking} />} />}
+      {doorCodes.length > 0 && <DoorCodesSection doorCodes={doorCodes} booking={booking} gateCode={gateCode} docsGate={docsGate} extra={<TempCodesList booking={booking} />} />}
 
       <DatesAndPaymentSection booking={booking} bookingExtras={bookingExtras} sosIncidents={sosIncidents} onModify={onModify} error={error} actions={actions} onAction={onAction} />
 

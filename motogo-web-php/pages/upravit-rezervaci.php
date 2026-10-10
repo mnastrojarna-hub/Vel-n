@@ -39,7 +39,7 @@ $keys = [
     'editRez.doc.type.invoice_advance','editRez.doc.type.invoice_final','editRez.doc.type.invoice_shop',
     'editRez.doc.type.unknown','editRez.doc.type.rental_contract','editRez.doc.type.handover_protocol',
     'editRez.doc.uploadTitle','editRez.doc.uploadHelp','editRez.doc.idLabel','editRez.doc.licenseLabel',
-    'editRez.doc.uploadBtn','editRez.doc.updateBtn','editRez.doc.scanBtn','editRez.doc.galleryBtn','editRez.doc.archiveTitle',
+    'editRez.doc.uploadBtn','editRez.doc.updateBtn','editRez.doc.scanBtn','editRez.doc.galleryBtn','editRez.doc.archiveTitle','editRez.doc.passportAlt',
     'editRez.doc.finishBtn','editRez.doc.finishHelp','editRez.doc.finishSaving','editRez.doc.finishDone',
     'editRez.doc.finishCodesSent','editRez.doc.finishMissing','editRez.doc.finishError','editRez.doc.savedOk',
     'editRez.doc.uploadingMsg','editRez.doc.scanOk','editRez.doc.scanFail',

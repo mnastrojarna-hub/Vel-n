@@ -14,8 +14,9 @@ import { effBranch } from '../../lib/bookingBranch'
 // `hasLockerCode` = rezervace má aktivní kód šatny (DetailTab z branch_door_codes).
 export default function KioskReturnInfo({ booking, hasLockerCode = false }) {
   const id = booking?.id
-  // Pobočka rezervace (bookings.branch_id = kde převzal), u NULL pobočka motorky — přesun motorky po vrácení nemění
-  const selfService = effBranch(booking)?.type === SELF_SERVICE_BRANCH_TYPE
+  // Pobočka rezervace (bookings.branch_id = kde převzal; přesun motorky po vrácení nemění) NEBO aktuální
+  // pobočka motorky (vrací se na kiosku tam, kde motorka stojí — přesun během pronájmu)
+  const selfService = [effBranch(booking)?.type, booking?.motorcycles?.branches?.type].includes(SELF_SERVICE_BRANCH_TYPE)
   const [row, setRow] = useState(null)
   const [err, setErr] = useState(null)
 

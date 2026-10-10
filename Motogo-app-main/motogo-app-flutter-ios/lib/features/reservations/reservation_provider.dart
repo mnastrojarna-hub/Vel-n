@@ -118,6 +118,8 @@ final reservationByIdProvider =
 
 /// Door codes for a booking (branch_door_codes) — realtime stream.
 /// Reacts to code generation, release (withheld → sent), and deactivation.
+/// Stream je jen podnět k obnovení: RLS (2026-10-10) pouští zákazníkovi jen
+/// VYDANÉ kódy, stav zadržených (bez čísla) čte `_fetchDoorCodes` přes RPC.
 final doorCodesProvider =
     StreamProvider.family<List<DoorCode>, String>((ref, bookingId) async* {
   // Initial fetch
@@ -138,7 +140,24 @@ final doorCodesProvider =
   }
 });
 
+/// Aktivní kódy rezervace přes RPC `get_my_door_codes` — vrací i ZADRŽENÉ
+/// kódy (`door_code` NULL + `withheld_reason`), které přímý select po
+/// zpřísnění RLS (2026-10-10) už nevidí. Chyba RPC (starší backend) → původní
+/// select tabulky.
 Future<List<DoorCode>> _fetchDoorCodes(String bookingId) async {
+  try {
+    final res = await MotoGoSupabase.client
+        .rpc('get_my_door_codes', params: {'p_booking_id': bookingId});
+    if (res is List) {
+      return res
+          .whereType<Map>()
+          .map((e) => DoorCode.fromJson(Map<String, dynamic>.from(e)))
+          .where((c) => c.isActive)
+          .toList();
+    }
+  } catch (_) {
+    // fallback níže
+  }
   try {
     final res = await MotoGoSupabase.client
         .from('branch_door_codes')
@@ -173,6 +192,7 @@ Future<String?> releaseDoorCodes(String bookingId) async {
 class DoorCode {
   final String id;
   final String codeType; // motorcycle, accessories
+  /// Číslo kódu; '' u zadrženého kódu (RPC vrací `door_code` NULL).
   final String doorCode;
   final bool isActive;
   final bool sentToCustomer;

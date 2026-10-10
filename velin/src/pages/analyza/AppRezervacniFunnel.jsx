@@ -22,7 +22,7 @@ import { WrapTick, PHONE_QUERY, sideLegend } from './AnalyzaWrapTick'
 //
 // VŠE se počítá z EXISTUJÍCÍCH sloupců (bez změny appky):
 //   • `bookings` (booking_source='app', is_test=false): status, payment_status
-//   • doklady = computeDocVerification (fotka NEBO Mindee OCR verified_at; dětská N)
+//   • doklady = computeDocVerification (OP líc+rub nebo pas + ŘP líc+rub ze skutečných souborů; dětská N)
 //   • platforma (Android/iOS) = best-effort z `app_installations` dle poslední
 //     známé platformy zákazníka (user_id → nejnovější last_seen_at)
 //
@@ -83,7 +83,7 @@ export default function AppRezervacniFunnel() {
         supabase.from('profiles')
           .select('id, license_number, id_number, license_verified_at, id_verified_at, passport_verified_at, license_expiry, license_group'),
         supabase.from('documents')
-          .select('user_id, type')
+          .select('user_id, type, file_path, side:metadata->>side')   // strana + soubor pro docVerification
           .in('type', VERIFICATION_TYPES),
         supabase.from('motorcycles').select('id, license_required'),
         supabase.from('app_installations').select('user_id, platform, last_seen_at'),
