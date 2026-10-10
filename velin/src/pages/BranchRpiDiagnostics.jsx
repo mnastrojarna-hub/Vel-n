@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { EmptyState } from './BranchHelpers'
-import { RpiSection, Btn, Chip, ErrorBoundary, formatAge, ageSeconds, txt, num, arr, isRpiDevice } from './BranchRpiUi'
+import { RpiSection, Btn, Chip, HintChip, ErrorBoundary, formatAge, ageSeconds, txt, num, arr, isRpiDevice } from './BranchRpiUi'
+import { HintList } from './BranchRpiTouchHint'
 import { NetworkDetail, obj } from './BranchRpiDiagNetwork'
 import { ProtocolView } from './BranchRpiDiagProtocol'
 
@@ -69,6 +70,8 @@ function ReportView({ row, deviceName }) {
   )
 }
 
+const NETWORK_ONLY_TITLE = 'Jen síťové kroky (rozhraní, LTE, internet, Velín, moduly, LAN, ARP) — bez testu zón, 10–60 s'
+
 function RunRow({ r, deviceName, now, open, onToggle, onDelete }) {
   const s = obj(r.summary), problems = arr(r.problems), warnings = arr(s.warnings)
   const age = ageSeconds(r.created_at, now)
@@ -86,7 +89,7 @@ function RunRow({ r, deviceName, now, open, onToggle, onDelete }) {
         <span className="text-[11px]" style={{ color: '#6b8c7a' }}>({formatAge(age)})</span>
         <span className="text-[12px]">{deviceName} · {SOURCE_CZ[r.source] || txt(r.source)} · v{txt(r.app_version ?? '?')}</span>
         <Chip tone={mode === 'kompletní' ? 'blue' : 'gray'}>{mode}</Chip>
-        {mode === 'kompletní' && zTotal != null && <Chip tone={zTotal > 0 && zOk === zTotal ? 'green' : 'amber'} title="Zóny bez problému / celkem (0 = nespárováno / bez HW mapy)">zóny {zOk ?? '?'}/{zTotal}</Chip>}
+        {mode === 'kompletní' && zTotal != null && <HintChip tone={zTotal > 0 && zOk === zTotal ? 'green' : 'amber'} title="Zóny bez problému / celkem (0 = nespárováno / bez HW mapy)">zóny {zOk ?? '?'}/{zTotal}</HintChip>}
         <Chip tone={s.internet ? 'green' : 'red'}>{s.internet ? 'internet OK' : 'bez internetu'}</Chip>
         {s.lte != null && <Chip tone={s.lte === 'connected' ? 'blue' : 'amber'}>LTE {txt(s.lte)}</Chip>}
         <Chip tone={devOk != null && devOk === devTotal ? 'green' : 'amber'}>moduly {devOk ?? '?'}/{devTotal ?? '?'}</Chip>
@@ -183,7 +186,9 @@ function RpiDiagnosticsInner({ branchId, devices, cameras, now, onCommand, servi
               <Btn tone="dark" disabled={!online || busy} onClick={() => run(dev, 'full')} title={title}>
                 🔍 Kompletní diagnostika — {txt(dev.name || 'Raspberry')}
               </Btn>
-              {servis && <Btn tone="gray" small disabled={!online || busy} onClick={() => run(dev, 'network')} title="Jen síťové kroky (rozhraní, LTE, internet, Velín, moduly, LAN, ARP) — bez testu zón, 10–60 s">jen síť</Btn>}
+              {servis && <Btn tone="gray" small disabled={!online || busy} onClick={() => run(dev, 'network')} title={NETWORK_ONLY_TITLE}>jen síť</Btn>}
+              {/* Dotyk: proč je tlačítko vypnuté / co dělá „jen síť“ (na PC bublina) */}
+              <HintList items={[['Kompletní diagnostika', title], servis && ['jen síť', NETWORK_ONLY_TITLE]]} />
             </span>
           )
         })}

@@ -1,18 +1,23 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Btn } from './BranchRpiUi'
+import { useTouchHint, HintRow } from './BranchRpiTouchHint'
 import { startSession, keepalive, setControl, endSession, fetchFrame, subscribeFrames, pointInImage, fmtMb, KEEPALIVE_MS, SESSION_TTL_S } from './screenMirrorHelpers'
 
 // Tlačítko „Obrazovka“ na kartě jednotky + overlay přes celou obrazovku (CONTRACT §29). Zrcadlí displej kiosku
 // (JPEG snímky z jednotky, jen při změně, ≤ 1 fps); s přepínačem „Ovládat“ klepnutí do obrazu = dotyk na kiosku.
+// Vysvětlivka tlačítka (na PC bublina; na dotyku ji ukáže „i“ řady příkazů karty jednotky — BranchRpiZones.jsx)
+export const screenMirrorTitle = online => (online
+  ? 'Ukáže živě obrazovku displeje pobočky (jen když je panel otevřený; snímky jen při změně obrazu, ~50 kB, nejvýš 1/s, max 10 min). S přepínačem „Ovládat“ klepnutí do obrazu = dotyk na kiosku. Zákazník na displeji nic nepozná.'
+  : 'Jednotka je offline — obrazovku nelze zrcadlit.')
+const CONTROL_TITLE = 'Klepnutí do obrazu = dotyk na displeji pobočky (stejné jako prst zákazníka). Zapínejte jen, když víte, co děláte.'
+
 export function ScreenMirrorButton({ dev, online, onCommand }) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <Btn tone="blue" disabled={!online}
-        title={online
-          ? 'Ukáže živě obrazovku displeje pobočky (jen když je panel otevřený; snímky jen při změně obrazu, ~50 kB, nejvýš 1/s, max 10 min). S přepínačem „Ovládat“ klepnutí do obrazu = dotyk na kiosku. Zákazník na displeji nic nepozná.'
-          : 'Jednotka je offline — obrazovku nelze zrcadlit.'}
+        title={screenMirrorTitle(online)}
         onClick={() => setOpen(true)}>🖥 Obrazovka</Btn>
       {open && <ScreenMirrorOverlay dev={dev} onCommand={onCommand} onClose={() => setOpen(false)} />}
     </>
@@ -31,6 +36,7 @@ function ScreenMirrorOverlay({ dev, onCommand, onClose }) {
   const [dialogText, setDialogText] = useState('')
   const [tapMark, setTapMark] = useState(null)
   const imgRef = useRef(null)
+  const controlHint = useTouchHint(CONTROL_TITLE)   // dotyk: „i“ u přepínače „Ovládat“ (na PC bublina)
   const seqRef = useRef(-1)
   const sidRef = useRef(null)
 
@@ -120,10 +126,12 @@ function ScreenMirrorOverlay({ dev, onCommand, onClose }) {
         {error && <span className="font-bold" style={{ color: '#fca5a5' }}>· {error}</span>}
         {ended && <span className="font-bold" style={{ color: '#fde68a' }}>· relace na jednotce skončila — zavřete a otevřete znovu</span>}
         <label className="ml-auto flex items-center gap-2 cursor-pointer font-bold max-lg:min-h-[40px]" style={{ color: control ? '#fca5a5' : '#d4e8e0' }}
-          title="Klepnutí do obrazu = dotyk na displeji pobočky (stejné jako prst zákazníka). Zapínejte jen, když víte, co děláte.">
+          title={CONTROL_TITLE}>
           <input type="checkbox" checked={control} onChange={toggleControl} disabled={!sessionId} /> Ovládat
         </label>
+        {controlHint.toggle}
         <button onClick={onClose} className="rounded-btn font-extrabold cursor-pointer border-none max-lg:min-h-[40px] max-lg:min-w-[80px]" style={{ padding: '5px 12px', background: '#74FB71', color: '#1a2e22' }}>Zavřít</button>
+        <HintRow body={controlHint.body} />
       </div>
       <div className="flex-1 flex items-center justify-center relative" style={{ minHeight: 0, cursor: control ? 'crosshair' : 'default' }}>
         {src

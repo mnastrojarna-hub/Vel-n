@@ -6,6 +6,11 @@ import { fmtDate, fmtMoney } from '../../lib/serviceBook'
 import { extractInvoiceData, uploadInvoiceFile, registerServiceInvoice, fetchServiceInvoices, signedInvoiceUrl, deleteServiceInvoice } from '../../lib/serviceInvoices'
 
 const inp = { padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#0f1a14' }
+const INP = 'rounded-btn text-sm outline-none max-lg:block max-lg:w-full'
+// Popisek nad polem jen pod lg (placeholder po vyplnění zmizí); na desktopu label = display:contents → mřížka beze změny.
+const F = ({ label, className = '', children }) => (
+  <label className={`lg:contents ${className}`}><span className="lg:hidden block text-xs font-bold mb-0.5" style={{ color: '#1a2e22' }}>{label}</span>{children}</label>
+)
 
 /**
  * „+ Přidat fakturu“ u servisního záznamu: nahrání PDF / fotky dokladu, u fotky OCR (receive-invoice extract),
@@ -83,16 +88,14 @@ export default function ServiceInvoicesPanel({ log, moto, onChanged, compact = f
         <div className="mt-2 p-2 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #74FB71' }}>
           <div className="text-xs font-bold mb-2" style={{ color: '#1a2e22' }}>📄 {file?.name} {meta.ocr ? '· údaje vyčteny z fotky — zkontrolujte' : '· doplňte údaje dokladu'}</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-sm:grid-cols-1 max-lg:items-end">
-            <input value={meta.supplier_name} onChange={e => set('supplier_name', e.target.value)} placeholder="Dodavatel (servis)" className="rounded-btn text-sm outline-none" style={inp} />
-            <input value={meta.supplier_ico} onChange={e => set('supplier_ico', e.target.value)} placeholder="IČO" className="rounded-btn text-sm outline-none" style={inp} />
-            <input value={meta.invoice_number} onChange={e => set('invoice_number', e.target.value)} placeholder="Číslo dokladu" className="rounded-btn text-sm outline-none" style={inp} />
-            <input type="number" min="0" value={meta.amount} onChange={e => set('amount', e.target.value)} placeholder="Částka Kč *" className="rounded-btn text-sm outline-none" style={inp} />
-            <label className="lg:contents"><span className="lg:hidden block text-xs font-bold mb-0.5" style={{ color: '#1a2e22' }}>Datum vystavení</span>
-              <input type="date" value={meta.issue_date} onChange={e => set('issue_date', e.target.value)} className="rounded-btn text-sm outline-none max-lg:w-full" style={inp} title="Datum vystavení" /></label>
-            <label className="lg:contents"><span className="lg:hidden block text-xs font-bold mb-0.5" style={{ color: '#1a2e22' }}>Splatnost</span>
-              <input type="date" value={meta.due_date} onChange={e => set('due_date', e.target.value)} className="rounded-btn text-sm outline-none max-lg:w-full" style={inp} title="Splatnost" /></label>
+            <F label="Dodavatel (servis)"><input value={meta.supplier_name} onChange={e => set('supplier_name', e.target.value)} placeholder="Dodavatel (servis)" className={INP} style={inp} /></F>
+            <F label="IČO"><input value={meta.supplier_ico} onChange={e => set('supplier_ico', e.target.value)} placeholder="IČO" className={INP} style={inp} /></F>
+            <F label="Číslo dokladu"><input value={meta.invoice_number} onChange={e => set('invoice_number', e.target.value)} placeholder="Číslo dokladu" className={INP} style={inp} /></F>
+            <F label="Částka Kč *"><input type="number" min="0" value={meta.amount} onChange={e => set('amount', e.target.value)} placeholder="Částka Kč *" className={INP} style={inp} /></F>
+            <F label="Datum vystavení"><input type="date" value={meta.issue_date} onChange={e => set('issue_date', e.target.value)} className={INP} style={inp} title="Datum vystavení" /></F>
+            <F label="Splatnost"><input type="date" value={meta.due_date} onChange={e => set('due_date', e.target.value)} className={INP} style={inp} title="Splatnost" /></F>
           </div>
-          <input value={meta.note} onChange={e => set('note', e.target.value)} placeholder="Poznámka (volitelné)" className="w-full rounded-btn text-sm outline-none mt-2" style={inp} />
+          <F label="Poznámka (volitelné)" className="max-lg:block max-lg:mt-2"><input value={meta.note} onChange={e => set('note', e.target.value)} placeholder="Poznámka (volitelné)" className="w-full rounded-btn text-sm outline-none mt-2 max-lg:block max-lg:mt-0" style={inp} /></F>
           {err && <div className="text-xs mt-1" style={{ color: '#dc2626' }}>{err}</div>}
           <div className="flex gap-2 justify-end mt-2">
             <Button small onClick={() => { setMeta(null); setFile(null); setErr(null); if (inputRef.current) inputRef.current.value = '' }}>Zrušit</Button>

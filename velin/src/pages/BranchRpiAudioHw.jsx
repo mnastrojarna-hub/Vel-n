@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Btn, Chip, Input, Select, Checkbox, HintedCell, FIT_SELECT } from './BranchRpiUi'
 import { AUDIO_MODES, BRNO_AUDIO_OUTPUTS_EXAMPLE, audioMode, audioOutputNames, roleTypeError, toPhysical, fromPhysical, ZONE_REFS } from './BranchRpiHardwareDefaults'
 import { outdoorOf, outdoorOutOf, outdoorRelayError, doorCoils } from './BranchRpiOutdoorHelpers'
+import { HintList } from './BranchRpiTouchHint'
 
 // ─── Audio: režim, výstupy (`hardware.audio.{mode,outputs}`) ─────────────────
 // Kontrakt (music_contract §2): selector = jeden zesilovač + relé (výchozí, beze změny chování),
@@ -35,11 +36,19 @@ function outputsToRows(audio) {
   })
 }
 
-function PresenceChip({ player }) {
-  if (!player) return <Chip tone="gray" title="Jednotka o výstupu zatím nehlásí stav (uložte a počkejte na synchronizaci).">stav neznámý</Chip>
-  if (player.present === false) return <Chip tone="red" title={player.problem || ''}>karta NENALEZENA{player.problem ? ` — ${player.problem}` : ''}</Chip>
-  return <Chip tone={player.alive ? 'green' : 'amber'} title={`mpv: ${player.device || 'výchozí'}`}>{player.alive ? 'karta nalezena' : 'karta nalezena, mpv neběží'}</Chip>
+// Stav karty výstupu dle jednotky; `hint` = text pro „i“ na dotyku (u NENALEZENA je problém už v textu čipu)
+function presenceOf(player) {
+  if (!player) return { tone: 'gray', title: 'Jednotka o výstupu zatím nehlásí stav (uložte a počkejte na synchronizaci).', text: 'stav neznámý', hint: true }
+  if (player.present === false) return { tone: 'red', title: player.problem || '', text: `karta NENALEZENA${player.problem ? ` — ${player.problem}` : ''}`, hint: false }
+  return { tone: player.alive ? 'green' : 'amber', title: `mpv: ${player.device || 'výchozí'}`, text: player.alive ? 'karta nalezena' : 'karta nalezena, mpv neběží', hint: true }
 }
+function PresenceChip({ player }) {
+  const p = presenceOf(player)
+  return <Chip tone={p.tone} title={p.title}>{p.text}</Chip>
+}
+const USAGE_TITLE = 'Kdo výstup používá (dle uložené mapy)'
+const LOCKER_ONLY_TITLE = 'Dnešní zapojení: 1 USB→jack adaptér → zesilovač → reproduktor v šatně'
+const EXAMPLE_TITLE = 'Vyplní out1–out9 (venek = out9 nastavíte v bloku Venek); režim nepřepíná'
 
 // Kdo výstup používá (dveře dle uloženého hw + venek) — pro chip u řádku a blokaci smazání
 function outputUsage(doors, outdoor) {
@@ -161,9 +170,11 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave, onSaveDoor, sta
         </div>
         <div className="flex gap-2 max-lg:flex-wrap">
           <Btn tone="blue" onClick={add} disabled={disabled}>Přidat výstup</Btn>
-          <Btn tone="green" onClick={fillLockerOnly} disabled={disabled} title="Dnešní zapojení: 1 USB→jack adaptér → zesilovač → reproduktor v šatně">Jen šatna (1 výstup)</Btn>
-          <Btn tone="gray" onClick={fillExample} disabled={disabled} title="Vyplní out1–out9 (venek = out9 nastavíte v bloku Venek); režim nepřepíná">Vzor 9 výstupů (7 kójí, šatna, venek)</Btn>
+          <Btn tone="green" onClick={fillLockerOnly} disabled={disabled} title={LOCKER_ONLY_TITLE}>Jen šatna (1 výstup)</Btn>
+          <Btn tone="gray" onClick={fillExample} disabled={disabled} title={EXAMPLE_TITLE}>Vzor 9 výstupů (7 kójí, šatna, venek)</Btn>
           <Btn tone="dark" onClick={save} disabled={disabled || !dirty}>{dirty ? 'Uložit audio' : 'Uloženo'}</Btn>
+          {/* Dotyk: co vyplní tlačítka vzorů (na PC bublina) */}
+          <HintList items={[['Jen šatna', LOCKER_ONLY_TITLE], ['Vzor 9 výstupů', EXAMPLE_TITLE]]} />
         </div>
       </div>
       <div className="flex gap-2 flex-wrap items-end mb-2">
@@ -184,6 +195,8 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave, onSaveDoor, sta
             const name = r.name.trim()
             const badName = !NAME_RE.test(name) || nameCounts[name] > 1
             const who = usage[name]
+            const pres = presenceOf(players[name])
+            const testTitle = dirty ? 'Nejdřív uložte audio.' : !players[name] ? 'Jednotka výstup zatím nemá (uložte a počkejte na synchronizaci).' : 'Pípne 3 s z reproduktoru tohoto výstupu (i bez hudby).'
             return (
               <div key={r._k} className="flex items-end gap-2 flex-wrap p-2 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
                 <Input label="Název" width={100} value={r.name} placeholder="out1" invalid={badName}
@@ -200,10 +213,12 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave, onSaveDoor, sta
                   title="Reproduktor je na jednom kanálu zesilovače → mono hraje celý mix do obou kanálů (doporučeno)."
                   onChange={v => edit(i, { mono: v })} /></div>
                 <PresenceChip player={players[name]} />
-                <Chip tone={who?.length ? 'green' : 'gray'} title="Kdo výstup používá (dle uložené mapy)">{who?.length ? who.join(', ') : 'volný'}</Chip>
+                <Chip tone={who?.length ? 'green' : 'gray'} title={USAGE_TITLE}>{who?.length ? who.join(', ') : 'volný'}</Chip>
                 {onCommand && <Btn tone="blue" small onClick={() => testOutput(name)} disabled={disabled || dirty || !players[name]}
-                  title={dirty ? 'Nejdřív uložte audio.' : !players[name] ? 'Jednotka výstup zatím nemá (uložte a počkejte na synchronizaci).' : 'Pípne 3 s z reproduktoru tohoto výstupu (i bez hudby).'}
+                  title={testTitle}
                   style={{ alignSelf: 'center' }}>Test výstupu</Btn>}
+                {/* Dotyk: bubliny čipů stavu/použití a „Test výstupu“ pod jedním „i“ (na PC beze změny) */}
+                <HintList items={[pres.hint && [pres.text, pres.title], [who?.length ? who.join(', ') : 'volný', USAGE_TITLE], onCommand && ['Test výstupu', testTitle]]} />
                 <Btn tone="red" small onClick={() => remove(i)} disabled={disabled} style={{ alignSelf: 'center', marginLeft: 'auto' }}>Smazat</Btn>
               </div>
             )

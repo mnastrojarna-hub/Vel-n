@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { EmptyState } from './BranchHelpers'
-import { RpiSection, Btn, Chip, Input, Select, Checkbox } from './BranchRpiUi'
+import { RpiSection, Btn, Chip, HintChip, Input, Select, Checkbox } from './BranchRpiUi'
 import { DoorHwEditor } from './BranchRpiDoorHw'
 import { AudioOutputsEditor } from './BranchRpiAudioHw'
 import { OutdoorHwEditor } from './BranchRpiOutdoorHw'
@@ -208,7 +208,7 @@ function DevicesEditor({ hardware, disabled, onSave }) {
                   onChange={v => edit(i, { host: v })} />
                 {!isShelly && <Input label="Port" type="number" width={70} value={r.port} title="Síťový port Modbus TCP na relé modulu. Standardně 502 — měňte jen když jste ho v modulu přenastavili. Modul v továrním režimu (Modbus RTU přes TCP, port 4196) jednotka pozná a obslouží sama." onChange={v => edit(i, { port: v })} />}
                 {!isShelly && <Input label="Unit ID" type="number" width={70} value={r.unit_id} title="Adresa zařízení v protokolu Modbus (na štítku/v konfiguraci modulu). U modulů Waveshare standardně 1." onChange={v => edit(i, { unit_id: v })} />}
-                {isShelly && <Chip tone="blue" title="HTTP RPC, port 80">HTTP /rpc</Chip>}
+                {isShelly && <HintChip tone="blue" title="HTTP RPC, port 80">HTTP /rpc</HintChip>}
                 <Btn tone="red" small onClick={() => remove(i)} disabled={disabled} style={{ alignSelf: 'center', marginLeft: 'auto' }}>Smazat</Btn>
               </div>
             )

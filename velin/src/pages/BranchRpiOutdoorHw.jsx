@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Btn, Chip, Input, Select, HintedCell, FIT_SELECT } from './BranchRpiUi'
+import { Btn, Chip, HintChip, Input, Select, HintedCell, FIT_SELECT } from './BranchRpiUi'
+import { useTouchHint, HintRow } from './BranchRpiTouchHint'
 import { audioMode, audioOutputNames, toPhysical, fromPhysical } from './BranchRpiHardwareDefaults'
 import {
   outdoorOf, outdoorToDraft, draftToOutdoor, doorCoils, legacyOutdoorChannel, audioWithoutOutdoorChannel,
@@ -21,6 +22,10 @@ const MSG_COLOR = { red: '#dc2626', amber: '#b45309', green: '#1a8a18' }
 // V režimu selector jsou audio pole vypnutá (`disabled` — ani klávesnicí; jednotka: kanál venek v selectoru = upozornění,
 // hudba venku nehraje). Výstup venku pak nejde v bloku Venek změnit — editor audia proto v selectoru venek neblokuje.
 const SELECTOR_TITLE = 'Hudba venku hraje jen v režimu multi (Audio → režim)'
+const PARTIAL_TITLE = 'Klíč outdoor existuje, ale nemá světlo ani audio výstup (jednotka hlásí upozornění)'
+const MODES_TITLE = 'Venek má vlastní režim světla a hudby — kóje 1–7 a šatna se řídí časováním v sekci Časování'
+// Dotyk: čip ve sloupci + jeho „i“ vedle sebe (rozbalený text jde přes celý řádek — HintRow za sloupcem)
+const withToggle = (chip, h) => (h.toggle ? <span className="inline-flex items-center gap-1">{chip}{h.toggle}</span> : chip)
 
 function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
   const hw = useMemo(() => (hardware && typeof hardware === 'object' ? hardware : {}), [hardware])
@@ -51,6 +56,8 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
   const relayErr = (multi ? outdoorRelayError(draft.audio, devices, coils) : null) || shareErr
   const outErr = outdoorOutError(out, audio, doors)
   const afterBad = draft.light_after_close_s !== '' && !(parseInt(draft.light_after_close_s, 10) >= 0)
+  const stateHint = useTouchHint(!saved.configured && saved.present ? PARTIAL_TITLE : null)   // dotyk: „i“ u čipu stavu
+  const modesHint = useTouchHint(MODES_TITLE)                                                  // dotyk: „i“ u čipu Režimy
 
   function patch(fn) { setDraft(d => fn(d)); setDirty(true); setMsg(null) }
   const setRef = (key, part) => v => patch(d => ({ ...d, [key]: { ...d[key], [part]: v } }))
@@ -72,7 +79,7 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
   }
 
   const stateChip = saved.configured ? <Chip tone="green">nastaven</Chip>
-    : saved.present ? <Chip tone="amber" title="Klíč outdoor existuje, ale nemá světlo ani audio výstup (jednotka hlásí upozornění)">bez světla i audia</Chip>
+    : saved.present ? withToggle(<Chip tone="amber" title={PARTIAL_TITLE}>bez světla i audia</Chip>, stateHint)
       : <Chip tone="gray">nenastaven</Chip>
   return (
     <div className="p-3 rounded-card" style={{ background: '#f8fcfa', border: `1px solid ${dirty ? '#f59e0b' : '#d4e8e0'}` }}>
@@ -91,6 +98,7 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
           <Chip tone="blue">Venek</Chip>
           {stateChip}
         </div>
+        <HintRow body={stateHint.body} />
         <Input label="Zóna" type="number" min={1} width={64} value={draft.zone} invalid={!!zoneErr || (draft.zone !== '' && !(parseInt(draft.zone, 10) >= 1))}
           title={zoneErr || 'Popisné číslo venku pro Velín, diagnostiku a příkazy — nesmí kolidovat s číslem zóny dveří'}
           onChange={v => patch(d => ({ ...d, zone: v }))} />
@@ -111,7 +119,7 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
             <Input width={54} type="number" min={1} value={toPhysical(OUTDOOR_RELAY_ROLE, draft.audio.coil)} placeholder="R…" invalid={!!relayErr} disabled={!multi} onChange={v => setRef('audio', 'coil')(fromPhysical(OUTDOOR_RELAY_ROLE, v))} />
           </div>
         </HintedCell>
-        {!multi && <Chip tone="amber" title="Přepněte Audio → režim na multi a nastavte výstup venku">hudba venku jen v multi</Chip>}
+        {!multi && <HintChip tone="amber" title="Přepněte Audio → režim na multi a nastavte výstup venku">hudba venku jen v multi</HintChip>}
         <Input label="Doběh světla (s)" type="number" min={0} width={110} value={draft.light_after_close_s} placeholder="glob." invalid={afterBad}
           disabled={draft.light_mode !== LIGHT_MODE_AUTO}
           title={draft.light_mode !== LIGHT_MODE_AUTO
@@ -123,8 +131,9 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
       {/* Režimy venku: venek se nastavuje jinak než kóje a šatna — světlo tu může jet nonstop */}
       <div className="flex items-end gap-2 flex-wrap p-2 rounded-lg mt-2" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
         <div className="flex flex-col gap-1 self-center" style={{ minWidth: 76 }}>
-          <Chip tone="gray" title="Venek má vlastní režim světla a hudby — kóje 1–7 a šatna se řídí časováním v sekci Časování">Režimy</Chip>
+          {withToggle(<Chip tone="gray" title={MODES_TITLE}>Režimy</Chip>, modesHint)}
         </div>
+        <HintRow body={modesHint.body} />
         <Select label="Venkovní světlo" width={330} value={draft.light_mode} options={OUTDOOR_LIGHT_MODES}
           warn={draft.light_mode !== LIGHT_MODE_AUTO && !draft.light.dev}
           title={'Jak se chová venkovní osvětlení. „Podle relací“ = jako v kójích (rozsvítí se po zadání kódu a po doběhu zhasne). '
