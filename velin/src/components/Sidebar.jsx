@@ -76,7 +76,8 @@ export default function Sidebar({ admin, onSignOut }) {
     setMobileOpen(false)
   }
 
-  const sidebarContent = (
+  // Výsuvné menu (telefon + tablet < 1024 px) se nikdy nesbaluje na ikony — sbalení je jen pro desktop.
+  const renderContent = (collapsed, collapsible) => (
     <>
       {/* Logo */}
       <div
@@ -85,7 +86,7 @@ export default function Sidebar({ admin, onSignOut }) {
           padding: collapsed ? '16px 8px' : '20px',
           borderBottom: '1px solid rgba(255,255,255,.08)',
         }}
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={collapsible ? () => setCollapsed(c => !c) : undefined}
       >
         <div className="shrink-0">
           <Logo size={collapsed ? 38 : 44} />
@@ -189,7 +190,7 @@ export default function Sidebar({ admin, onSignOut }) {
     <>
       {/* Mobile hamburger */}
       <button
-        className="fixed top-3 left-3 z-50 md:hidden flex items-center justify-center"
+        className="fixed top-3 left-3 z-50 lg:hidden flex items-center justify-center"
         style={{
           width: 40,
           height: 40,
@@ -208,7 +209,7 @@ export default function Sidebar({ admin, onSignOut }) {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 md:hidden"
+          className="fixed inset-0 z-40 lg:hidden"
           style={{ background: 'rgba(0,0,0,.5)' }}
           onClick={() => setMobileOpen(false)}
         />
@@ -216,19 +217,19 @@ export default function Sidebar({ admin, onSignOut }) {
 
       {/* Sidebar - desktop */}
       <div
-        className="hidden md:flex flex-col shrink-0 transition-all"
+        className="hidden lg:flex flex-col shrink-0 transition-all"
         style={{
           width: collapsed ? 62 : 260,
           background: '#1a2e22',
           overflow: 'hidden',
         }}
       >
-        {sidebarContent}
+        {renderContent(collapsed, true)}
       </div>
 
-      {/* Sidebar - mobile */}
+      {/* Sidebar - telefon + tablet (výsuvné) */}
       <div
-        className={`fixed top-0 left-0 z-40 h-full flex flex-col md:hidden transition-transform ${
+        className={`fixed top-0 left-0 z-40 h-full flex flex-col lg:hidden transition-transform ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{
@@ -237,7 +238,7 @@ export default function Sidebar({ admin, onSignOut }) {
           overflow: 'hidden',
         }}
       >
-        {sidebarContent}
+        {renderContent(false, false)}
       </div>
     </>
   )

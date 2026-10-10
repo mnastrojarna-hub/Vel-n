@@ -7,7 +7,7 @@ import ErrorBoundary from './ErrorBoundary'
 export default function Layout({ admin, onSignOut }) {
   const location = useLocation()
   return (
-    <div className="flex h-screen overflow-hidden font-montserrat" style={{ background: '#dff0ec' }}>
+    <div className="mg-app flex h-screen overflow-hidden font-montserrat" style={{ background: '#dff0ec' }}>
       <Sidebar admin={admin} onSignOut={onSignOut} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Topbar />
