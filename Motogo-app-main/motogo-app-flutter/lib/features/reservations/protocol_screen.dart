@@ -42,14 +42,15 @@ class _Check {
   _Check(this.key, this.i18n, {this.checked = false});
 }
 
-/// Položka výbavy motorky (zrcadlo kiosku) — `{key, qty, checked}`.
+/// Položka výbavy motorky (zrcadlo kiosku) — `{key, qty, checked}`; od
+/// 2026-10-10 jen informativní (v motorce je vždy celá → checked: true).
 class _MotoGear {
   final String key;
   final String i18n;
   final int qty;
-  bool checked;
-  _MotoGear(this.key, this.i18n, {this.qty = 1, this.checked = true});
-  Map<String, dynamic> toJson() => {'key': key, 'qty': qty, 'checked': checked};
+  final String icon;
+  _MotoGear(this.key, this.i18n, {this.qty = 1, required this.icon});
+  Map<String, dynamic> toJson() => {'key': key, 'qty': qty, 'checked': true};
 }
 
 /// Chyba edge funkce v těle 200 (`{success:false, error:'…'}`).
@@ -97,36 +98,23 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
     _Check('gear', 'hpCheckGear', checked: _gear.isNotEmpty),
   ];
 
-  /// Výbava motorky — ZRCADLO kiosku (zadání majitele 2026-09-28): pevných
-  /// 7 položek (od 2026-10-10 i zelená karta + technický průkaz) předem
-  /// zaškrtnutých, leží v motorce (kufr / tankvak); zákazník
-  /// odškrtne, co chybí. Klíče = kiosk `MOTO_GEAR` / edge `form.moto_equipment`.
+  /// Výbava motorky — ZRCADLO kiosku (zadání majitele 2026-09-28): pevný
+  /// seznam, leží v motorce (kufr / tankvak). Od 2026-10-10 jako na kiosku jen
+  /// informativně (bez zaškrtávání, do dokumentu vždy předáno) + držák na
+  /// telefon, zelená karta a technický průkaz. Klíče = kiosk `MOTO_GEAR` /
+  /// edge `form.moto_equipment`.
   late final List<_MotoGear> _motoGear = [
-    _MotoGear('phone_holder_key', 'hpMePhoneHolderKey'),
-    _MotoGear('disc_lock', 'hpMeDiscLock'),
-    _MotoGear('accident_form', 'hpMeAccidentForm'),
-    _MotoGear('first_aid_kit', 'hpMeFirstAidKit'),
-    _MotoGear('reflective_vest', 'hpMeReflectiveVest', qty: 2),
+    _MotoGear('phone_holder', 'hpMePhoneHolder', icon: '📱'),
+    _MotoGear('phone_holder_key', 'hpMePhoneHolderKey', icon: '🔑'),
+    _MotoGear('disc_lock', 'hpMeDiscLock', icon: '🔒'),
+    _MotoGear('accident_form', 'hpMeAccidentForm', icon: '📝'),
+    _MotoGear('first_aid_kit', 'hpMeFirstAidKit', icon: '🩹'),
+    _MotoGear('reflective_vest', 'hpMeReflectiveVest', qty: 2, icon: '🦺'),
     // 2026-10-10: doklady k motorce (zelená karta, technický průkaz) — jako kiosk.
-    _MotoGear('green_card', 'hpMeGreenCard'),
-    _MotoGear('registration_certificate', 'hpMeRegistrationCert'),
+    _MotoGear('green_card', 'hpMeGreenCard', icon: '📗'),
+    _MotoGear('registration_certificate', 'hpMeRegistrationCert', icon: '📄'),
   ];
 
-  // Kotoučový zámek a reflexní prvky jsou od 2026-09-28 ve skupině „Výbava
-  // motorky“ výše (vesta 2×) — tady by se zdvojily a dokument by si mohl
-  // odporovat (edge je ze seznamu doplňků při poslané výbavě motorky vynechá).
-  late final List<_Check> _extraGear = [
-    _Check('phone_holder', 'hpXPhoneHolder'),
-    _Check('usb_adapter', 'hpXUsb'),
-    _Check('rain_suit', 'hpXRainSuit'),
-    _Check('rain_boots', 'hpXRainBoots'),
-    _Check('rain_gloves', 'hpXRainGloves'),
-    _Check('tie_net', 'hpXTieNet'),
-    _Check('tankbag_small', 'hpXTankbagS'),
-    _Check('tankbag_large', 'hpXTankbagL'),
-    _Check('back_protector', 'hpXBackProtector'),
-    _Check('chain_spray', 'hpXChainSpray'),
-  ];
 
   @override
   void initState() {
@@ -226,7 +214,6 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
     }
     final checks = <String, bool>{};
     for (final c in _checks) checks[c.key] = c.checked;
-    for (final c in _extraGear) checks[c.key] = c.checked;
     // Nic nepřevzato (vše odškrtnuto = odebráno z rezervace) → „výbava předána“ nesmí
     // zůstat ☑ (parita s kioskem/edge: gear = aspoň jedna převzatá položka).
     if (_gear.isNotEmpty && !_gear.any((g) => g.checked)) checks['gear'] = false;
@@ -355,21 +342,14 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
             ..._gear.map(_gearRow),
           ],
         ])),
-        // Výbava motorky — stejná skupina jako na displeji pobočky (kiosk):
-        // předem zaškrtnutá, poznámka o umístění, odškrtnout jen chybějící.
+        // Výbava motorky — stejná skupina jako na displeji pobočky (kiosk): jen
+        // informace, co je v motorce (2026-10-10 bez zaškrtávání). Doplňkové
+        // vybavení samoobsluha nenabízí (zadání majitele 2026-10-10) — sekce není.
         protocolCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           protocolTitle(tr.tr('hpMotoGear')),
           Text(tr.tr('hpMotoGearNote'), style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
           const SizedBox(height: 8),
-          ..._motoGear.map((m) => protocolToggleRow(
-              '${m.qty > 1 ? '${m.qty}× ' : ''}${tr.tr(m.i18n)}',
-              m.checked,
-              () => setState(() => m.checked = !m.checked))),
-        ])),
-        // Doplňkové vybavení
-        protocolCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          protocolTitle(tr.tr('hpExtraGear')),
-          ..._extraGear.map(_checkRow),
+          ..._motoGear.map((m) => protocolInfoRow(m.icon, '${m.qty > 1 ? '${m.qty}× ' : ''}${tr.tr(m.i18n)}')),
         ])),
         // Poškození
         protocolCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

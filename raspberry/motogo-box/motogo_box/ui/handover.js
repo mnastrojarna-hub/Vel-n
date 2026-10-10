@@ -14,6 +14,7 @@ MG.Handover = (function () {
       Od 2026-10-10 i doklady: zelená karta a technický průkaz.
       Od 2026-10-02 jen informativně (bez zaškrtávání) v kroku 2. Klíče = i18n `me.*` a edge `form.moto_equipment[]`. */
   const MOTO_GEAR = [
+    { key: 'phone_holder', ico: '📱' },               // 2026-10-10 (zadání majitele): držák k němuž je klíč níže
     { key: 'phone_holder_key', ico: '🔑' },
     { key: 'disc_lock', ico: '🔒' },
     { key: 'accident_form', ico: '📝' },

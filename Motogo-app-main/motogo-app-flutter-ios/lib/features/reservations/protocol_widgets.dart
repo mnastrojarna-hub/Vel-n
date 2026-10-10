@@ -24,6 +24,16 @@ Widget protocolTitle(String text) => Padding(
       child: Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
     );
 
+/// Informativní řádek bez zaškrtávání (výbava motorky — zrcadlo kiosku, 2026-10-10).
+Widget protocolInfoRow(String icon, String label) => Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(children: [
+        SizedBox(width: 22, child: Text(icon, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16))),
+        const SizedBox(width: 10),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: MotoGoColors.black))),
+      ]),
+    );
+
 /// Zaškrtávací řádek (celý řádek je klikací).
 Widget protocolToggleRow(String label, bool checked, VoidCallback onTap) => GestureDetector(
       onTap: onTap,

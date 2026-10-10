@@ -37,6 +37,8 @@ const EXTRA_GEAR_CHECKS = [
  * Klíče = kiosk `MOTO_GEAR`, appka `protocol_screen.dart _motoGear`.
  */
 export const MOTO_EQUIPMENT = [
+  // 2026-10-10 (zadání majitele): držák na telefon — k němu patří klíč na dalším řádku.
+  { key: 'phone_holder', label: 'Držák na telefon', qty: 1 },
   { key: 'phone_holder_key', label: 'Klíč k držáku mobilu', qty: 1 },
   { key: 'disc_lock', label: 'Kotoučový zámek', qty: 1 },
   { key: 'accident_form', label: 'Záznam o nehodě (formulář)', qty: 1 },
@@ -77,8 +79,9 @@ export function normalizeMotoEquipment(raw: unknown, defaultChecked: boolean | n
 }
 
 /** Doplňkové vybavení, které je při poslané skupině „Výbava motorky" v ní (kotoučový
- *  zámek, reflexní prvky = vesty) — v seznamu doplňků se pak nevypisuje (bez zdvojení). */
-const EXTRA_IN_MOTO_EQUIPMENT = new Set(['disc_lock', 'reflective'])
+ *  zámek, reflexní prvky = vesty, od 2026-10-10 i držák na telefon) — v seznamu doplňků
+ *  se pak nevypisuje (bez zdvojení). */
+const EXTRA_IN_MOTO_EQUIPMENT = new Set(['disc_lock', 'reflective', 'phone_holder'])
 
 export interface Vars {
   booking_number: string; today: string; company_name: string; customer_name: string
@@ -105,7 +108,9 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
   // Výbava motorky — kiosk i appka ji posílají (2026-09-28); starší build appky bez pole sekci nemá.
   const motoEq = Array.isArray(form.moto_equipment) ? form.moto_equipment as MotoEquipmentItem[] : []
   const checkList = HANDOVER_CHECKS.map((c) => `<div style="font-size:12px;margin:5px 0">${checks[c.key] ? '☑' : '☐'} ${esc(c.label)}</div>`).join('')
-  const extraList = EXTRA_GEAR_CHECKS.filter((c) => !(motoEq.length && EXTRA_IN_MOTO_EQUIPMENT.has(c.key)))
+  // Samoobsluha (kiosk / appka posílají výbavu motorky) doplňkové vybavení NENABÍZÍ (zadání majitele 2026-10-10) —
+  // vypíše se jen to, co starší build appky přesto zaškrtl; nic zaškrtnutého = sekce v dokumentu není.
+  const extraList = EXTRA_GEAR_CHECKS.filter((c) => !(motoEq.length && (EXTRA_IN_MOTO_EQUIPMENT.has(c.key) || !checks[c.key])))
     .map((c) => `<div style="font-size:12px;margin:5px 0">${checks[c.key] ? '☑' : '☐'} ${esc(c.label)}</div>`).join('')
   const accRows = accessories.map((a) => `<tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f8faf9;font-weight:600">${esc(a.label)}${a.extra ? ' <span style="font-weight:400;color:#666">(navíc)</span>' : ''}</td><td style="padding:6px 8px;border:1px solid #ddd">${esc(a.size || '')}</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center;width:80px;font-size:14px">${a.checked ? '☑' : '☐'}</td></tr>`).join('')
   const accTable = accRows
@@ -148,7 +153,7 @@ export function buildHtml(v: Vars, form: Record<string, unknown>, signature: str
     `<h3 style="font-size:13px;margin-top:14px">Kontrola předání</h3>${checkList}` +
     `<h3 style="font-size:13px;margin-top:14px">Zapůjčená výbava</h3>${accTable}${accNote}` +
     motoBlock +
-    `<h3 style="font-size:13px;margin-top:14px">Doplňkové vybavení</h3>${extraList}` +
+    (extraList || !motoEq.length ? `<h3 style="font-size:13px;margin-top:14px">Doplňkové vybavení</h3>${extraList}` : '') +
     `<h3 style="font-size:13px;margin-top:14px">Poškození</h3>${damageBlock}` +
     (notes ? `<h3 style="font-size:13px;margin-top:14px">Poznámky</h3><p style="font-size:12px">${escMulti(notes)}</p>` : '') +
     sigBlock + foot
