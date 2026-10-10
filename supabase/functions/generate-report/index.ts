@@ -54,7 +54,12 @@ async function generatePeriodReport(
     .gte('start_date', periodFrom)
     .lte('start_date', periodTo);
   if (branchId) {
-    bookingQuery = bookingQuery.eq('motorcycles.branch_id', branchId);
+    // Pobočka rezervace = bookings.branch_id (kde zákazník převzal; DB triggery 20261010b), u NULL
+    // záloha přes AKTUÁLNÍ motorky pobočky. (Dřív filtr na neembedovaný `motorcycles.branch_id`.)
+    if (!/^[0-9a-f-]{36}$/i.test(branchId)) throw new Error('Neplatné branch_id');
+    const { data: bm } = await admin.from('motorcycles').select('id').eq('branch_id', branchId);
+    const ids = (bm ?? []).map((m) => m.id).join(',') || '00000000-0000-0000-0000-000000000000';
+    bookingQuery = bookingQuery.or(`branch_id.eq.${branchId},and(branch_id.is.null,moto_id.in.(${ids}))`);
   }
   const { data: bookings } = await bookingQuery;
 

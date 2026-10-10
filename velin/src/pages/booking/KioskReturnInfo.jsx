@@ -5,6 +5,7 @@ import { SumRow } from './BookingUIHelpers'
 import { boxLabel } from '../BranchRpiUi'
 import { SELF_SERVICE_BRANCH_TYPE } from '../../lib/latePickup'
 import { isMissingRelation, fmtPragueWhen, kioskReturnView, kioskClockNote } from './kioskReturnHelpers'
+import { effBranch } from '../../lib/bookingBranch'
 
 // Blok „Vrácení na kiosku“ v detailu rezervace (2026-10-06): aktuální stav vrácení na samoobslužné pobočce
 // z `booking_kiosk_returns` (1 řádek na rezervaci, zapisuje jen server). Časy kóje a šatny jsou podle hodin
@@ -13,7 +14,8 @@ import { isMissingRelation, fmtPragueWhen, kioskReturnView, kioskClockNote } fro
 // `hasLockerCode` = rezervace má aktivní kód šatny (DetailTab z branch_door_codes).
 export default function KioskReturnInfo({ booking, hasLockerCode = false }) {
   const id = booking?.id
-  const selfService = booking?.motorcycles?.branches?.type === SELF_SERVICE_BRANCH_TYPE
+  // Pobočka rezervace (bookings.branch_id = kde převzal), u NULL pobočka motorky — přesun motorky po vrácení nemění
+  const selfService = effBranch(booking)?.type === SELF_SERVICE_BRANCH_TYPE
   const [row, setRow] = useState(null)
   const [err, setErr] = useState(null)
 

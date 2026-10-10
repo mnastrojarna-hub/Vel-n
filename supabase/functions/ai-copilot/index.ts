@@ -86,6 +86,11 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: userErr } = await supabaseAdmin.auth.getUser(token)
     if (userErr || !user) return jsonResponse({ error: 'Unauthorized' }, 401)
+    // BEZPEČNOST 2026-10-10: Copilot pracuje se service role (kódy dveří, doklady,
+    // zápisy) — volat ho smí JEN aktivní účet Velína (stejně jako is_admin()).
+    // Dřív stačil libovolný přihlášený zákazník z appky / webu.
+    const { data: adminRow } = await supabaseAdmin.from('admin_users').select('id').eq('id', user.id).eq('active', true).maybeSingle()
+    if (!adminRow) return jsonResponse({ error: 'Forbidden' }, 403)
     // User-scoped klient pro RPC s is_admin() guardem (auth.uid() musí být admin, ne NULL ze service role)
     const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } })
 

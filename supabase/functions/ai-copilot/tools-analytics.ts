@@ -1,6 +1,6 @@
 // Analytics tools 26-31: Branch/Moto/Category performance, Optimal fleet, Customers, Forecast
 import type { SB } from './tools-constants.ts'
-import { FLEET_CALC, fetchAnalyticsRawData, diffDays, isRealizedBooking, PAID_BOOKING_STATUSES } from './tools-constants.ts'
+import { FLEET_CALC, fetchAnalyticsRawData, diffDays, isRealizedBooking, PAID_BOOKING_STATUSES, bookingBranchOf, branchBookingsOr } from './tools-constants.ts'
 
 // deno-lint-ignore no-explicit-any
 type R = Record<string, any>
@@ -19,7 +19,8 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
       const stats = raw.branches.map((branch: R) => {
         const bmids = raw.motorcycles.filter((m: R) => m.branch_id === branch.id).map((m: R) => m.id)
         const mc = bmids.length
-        const bb = completed.filter((b: R) => bmids.includes(b.moto_id))
+        // Rezervace pobočky = bookings.branch_id (kde převzal), u NULL pobočka motorky; počty motorek = aktuální flotila
+        const bb = completed.filter((b: R) => bookingBranchOf(b, mbm) === branch.id)
         const rev = bb.reduce((s: number, b: R) => s + (b.total_price || 0), 0)
         const rd = bb.reduce((s: number, b: R) => s + diffDays(b.start_date, b.end_date), 0)
         const util = mc > 0 ? Math.round(rd / (mc * pd) * 1000) / 10 : 0
@@ -84,9 +85,10 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
       const branch = raw.branches.find((b: R) => b.id === branchId)
       if (!branch) return { error: 'Pobočka nenalezena' }
       const bMotos = raw.motorcycles.filter((m: R) => m.branch_id === branchId)
-      const bmIds = bMotos.map((m: R) => m.id)
-      const mcm: R = {}; for (const m of bMotos) mcm[m.id] = m.category || 'unknown'
-      const completed = raw.bookings.filter((b: R) => isRealizedBooking(b) && bmIds.includes(b.moto_id))
+      // Rezervace pobočky = bookings.branch_id (kde převzal), u NULL pobočka motorky; sloty = aktuální flotila
+      const mbm: R = {}, mcm: R = {}
+      for (const m of raw.motorcycles as R[]) { mbm[m.id] = m.branch_id; mcm[m.id] = m.category || 'unknown' }
+      const completed = raw.bookings.filter((b: R) => isRealizedBooking(b) && bookingBranchOf(b, mbm) === branchId)
       const cf: R = {}
       for (const m of bMotos) { const c = m.category || 'unknown'; if (!cf[c]) cf[c] = { count: 0, rev: 0, rd: 0 }; cf[c].count++ }
       for (const b of completed) { const c = mcm[b.moto_id] || 'unknown'; if (cf[c]) { cf[c].rev += b.total_price || 0; cf[c].rd += diffDays(b.start_date, b.end_date) } }
@@ -133,8 +135,9 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
     case 'forecast_predictions': {
       const ma = (input.months_ahead as number) || 3
       const branchId = input.branch_id as string | undefined
-      let bQ = sb.from('bookings').select('id, moto_id, total_price, start_date, end_date, status, payment_status, created_at').neq('status', 'cancelled').in('payment_status', PAID_BOOKING_STATUSES).eq('is_test', false).order('created_at', { ascending: true })
-      if (branchId) { const { data: bm } = await sb.from('motorcycles').select('id').eq('branch_id', branchId); const mids = (bm || []).map((m: R) => m.id); if (mids.length > 0) bQ = bQ.in('moto_id', mids); else return { error: 'Pobočka nemá žádné motorky' } }
+      let bQ = sb.from('bookings').select('id, moto_id, branch_id, total_price, start_date, end_date, status, payment_status, created_at').neq('status', 'cancelled').in('payment_status', PAID_BOOKING_STATUSES).eq('is_test', false).order('created_at', { ascending: true })
+      // Pobočka rezervace = bookings.branch_id (kde převzal), u NULL záloha přes AKTUÁLNÍ motorky pobočky
+      if (branchId) { const { data: bm } = await sb.from('motorcycles').select('id').eq('branch_id', branchId); const mids = (bm || []).map((m: R) => m.id); bQ = bQ.or(branchBookingsOr(branchId, mids)) }
       const { data: allB } = await bQ
       if (!allB || allB.length === 0) return { error: 'Nedostatek dat pro predikci', available_months: 0 }
       const md: R = {}; for (const b of allB) { const m = b.created_at.slice(0, 7); if (!md[m]) md[m] = { rev: 0, cnt: 0 }; md[m].rev += b.total_price || 0; md[m].cnt++ }

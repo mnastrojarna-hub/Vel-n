@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { FLEET_CALC, calcLocationEconomics } from '../../lib/fleetCalc'
 import TimePeriodSelector, { filterByPeriod, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import { effBranchId } from '../../lib/bookingBranch'
 import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
 
 const FLEET_COLUMNS = [
@@ -47,7 +48,7 @@ export default function DoporuceniLokaci() {
     try {
       const [lRes, bRes, mRes] = await Promise.all([
         supabase.from('branches').select('id, name, city, location, type'),
-        supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
+        supabase.from('bookings').select('id, moto_id, branch_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
         supabase.from('motorcycles').select('id, branch_id, category, model, purchase_price, status'),
       ])
       if (lRes.error) throw lRes.error; if (bRes.error) throw bRes.error; if (mRes.error) throw mRes.error
@@ -61,6 +62,10 @@ export default function DoporuceniLokaci() {
 
   const { locations, bookings, motorcycles } = raw
   const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
+  // Rezervace pobočky = bookings.branch_id (kde zákazník převzal), u NULL pobočka motorky;
+  // ekonomika dál po motorkách aktuální flotily pobočky (jen jejich rezervace NA té pobočce).
+  const motoBranchMap = Object.fromEntries(motorcycles.map(m => [m.id, m.branch_id]))
+  const completedAt = locId => completed.filter(b => effBranchId(b, motoBranchMap) === locId)
 
   // Build real utilization map by branchType × category
   const realUtilByType = {}
@@ -68,14 +73,14 @@ export default function DoporuceniLokaci() {
   for (const loc of locations) {
     const bt = loc.location || 'turistická'
     const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
-    const locCompleted = completed.filter(b => locMotos.some(m => m.id === b.moto_id))
+    const locCompleted = completedAt(loc.id)
     if (locCompleted.length === 0) continue
     if (!realUtilByType[bt]) { realUtilByType[bt] = {}; typeSourceNames[bt] = loc.name }
     for (const cat of Object.keys(FLEET_CALC.categoryParams)) {
       const catMotos = locMotos.filter(m => (m.category || '').toLowerCase() === cat)
       if (catMotos.length === 0) continue
       let totalRented = 0
-      for (const m of catMotos) totalRented += completed.filter(b => b.moto_id === m.id).reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
+      for (const m of catMotos) totalRented += locCompleted.filter(b => b.moto_id === m.id).reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
       const realUtil = totalRented / (catMotos.length * 365)
       const existing = realUtilByType[bt][cat]
       realUtilByType[bt][cat] = existing !== undefined ? (existing + realUtil) / 2 : realUtil
@@ -91,7 +96,7 @@ export default function DoporuceniLokaci() {
   const locStats = locations.map(loc => {
     const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
     const bt = loc.location || 'turistická'
-    const econ = calcLocationEconomics(locMotos, completed, bt, null, realUtilByType)
+    const econ = calcLocationEconomics(locMotos, completedAt(loc.id), bt, null, realUtilByType)
     return { ...loc, ...(econ.hasRealData ? econ : { ...econ, ...NO_DATA }), motoCount: locMotos.length }
   }).sort((a, b) => b.totalRevenue - a.totalRevenue)
 

@@ -297,7 +297,8 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
   const hasModification = booking.original_start_date && booking.original_end_date &&
     (_ld(booking.start_date) !== _ld(booking.original_start_date) || _ld(booking.end_date) !== _ld(booking.original_end_date))
 
-  const branchName = booking.motorcycles?.branches?.name
+  // Pobočka rezervace (bookings.branch_id = kde zákazník převzal), u NULL pobočka motorky — lib/bookingBranch.js effBranch
+  const branchName = (booking.branch || booking.motorcycles?.branches)?.name
   const pickupExtra = findFeeExtra(bookingExtras, 'pickup')
   const returnExtra = findFeeExtra(bookingExtras, 'return')
   const pickupFee = feeAmount(pickupExtra)
