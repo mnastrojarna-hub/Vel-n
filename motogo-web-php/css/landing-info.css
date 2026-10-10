@@ -8,7 +8,9 @@
 .lpi-body>section,.lpi-body>.lpi-block{margin:2rem 0}
 .lpi-body>section:first-child{margin-top:1.5rem}
 .lpi .lp-fleet{margin:1.5rem 0 2rem}
-.lpi-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.lpi-sr,.lpi .breadcrumb .lpi-crumb-cur{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+/* Drobečky: poslední položka = text H1 → jen pro čtečky, bez visícího oddělovače */
+.lpi .breadcrumb li:has(+.lpi-crumb-cur)::after{content:none}
 
 /* --- Nadpisy sekcí: neonová linka --- */
 .lpi-body h2{position:relative;margin:0 0 1rem;padding-top:.85rem;font-size:clamp(1.25rem,4.8vw,1.65rem);line-height:1.25;color:#1a2e22;text-wrap:balance}

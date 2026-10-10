@@ -48,7 +48,7 @@
 .lpi-branch-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:0;padding:0;list-style:none}
 .lpi-branch-chips .lp-chip{background:#eefbf0;border-color:#bfe8c9;color:#1a2e22}
 .lpi-branch-chips .lp-chip .lp-ico{color:#0d6e0d}
-.lpi-branch-btns{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:auto;padding-top:.35rem}
+.lpi-branch-btns{display:grid;grid-template-columns:1fr;gap:.5rem;margin-top:auto;padding-top:.35rem}
 .lpi-branch-btns .lp-btn{min-height:48px;padding:.6rem .5rem;font-size:.8rem}
 @media(min-width:769px){.lpi-branch-grid{grid-template-columns:1fr 1fr;gap:1.25rem}}
 @media(min-width:1100px){

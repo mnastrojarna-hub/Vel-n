@@ -83,8 +83,19 @@ function lpiMoveKids($from, $to, $start = null) {
     }
 }
 
+/** Kanonická cesta odkazu pro porovnání cílů: bez BASE_URL, lokalizovaný slug → český (/booking → /rezervace). */
+function lpiPath($href) {
+    $h = trim((string)$href);
+    if (BASE_URL !== '' && strpos($h, BASE_URL) === 0) $h = substr($h, strlen(BASE_URL));
+    if ($h === '' || $h[0] !== '/') return $h;
+    $q = strcspn($h, '?#');
+    $p = substr($h, 0, $q);
+    if (function_exists('i18nCanonicalPath')) $p = i18nCanonicalPath($p);
+    return (rtrim($p, '/') ?: '/') . substr($h, $q);
+}
+
 function lpiIsHref($a, $re) {
-    return $a instanceof DOMElement && preg_match($re, $a->getAttribute('href'));
+    return $a instanceof DOMElement && preg_match($re, lpiPath($a->getAttribute('href')));
 }
 
 /** <p> s blokovým obsahem (CMS: <p>…<div>…</div></p>) → <div class="lpi-p"> (prohlížeč by <p> rozdělil). */
@@ -168,10 +179,87 @@ function lpiTables($x, $root) {
     }
 }
 
-/** FAQ: nový styl položek, taby (stránka FAQ) jako chipy. */
-function lpiFaqStyle($x, $root) {
+/**
+ * FAQ: nový styl položek, taby (stránka FAQ) jako chipy. Opraví i rozbité HTML odpovědi
+ * z DB (neuzavřený <div> → zbytek otázek v jedné buňce mřížky a závěrečné CTA uvnitř
+ * .tab-content): každá otázka zpět do vlastní buňky, text za panely ven za .tab-content.
+ */
+function lpiFaqStyle($doc, $x, $root) {
     foreach ($x->query('.//details[contains(@class,"faq-item")]', $root) as $d) lpiAdd($d, 'lpi-faq-item');
     foreach ($x->query('.//ul[contains(concat(" ",normalize-space(@class)," ")," tabs ")]', $root) as $ul) $ul->setAttribute('class', 'lpi-tabs');
+    foreach (iterator_to_array($x->query('.//div[@class="lpi-faq-list"]', $root)) as $g) {
+        foreach (iterator_to_array($x->query('./div', $g)) as $cell) {
+            $ds = iterator_to_array($x->query('.//details', $cell));
+            $ref = $cell->nextSibling;
+            foreach (array_slice($ds, 1) as $d) {
+                $w = lpiEl($doc, 'div');
+                $w->appendChild($d);
+                $g->insertBefore($w, $ref);
+            }
+        }
+    }
+    foreach (iterator_to_array($x->query('.//div[contains(concat(" ",normalize-space(@class)," ")," tab-content ")]', $root)) as $tc) {
+        $out = [];
+        foreach ($tc->childNodes as $c) {
+            if (lpiHas($c, 'tab-pane')) $out = [];
+            else $out[] = $c;
+        }
+        $ref = $tc->nextSibling;
+        foreach ($out as $c) $tc->parentNode->insertBefore($c, $ref);
+    }
+}
+
+/** Poslední položka drobečkové navigace má stejný text jako H1 → zůstane jen pro čtečky (vizuálně by se titulek opakoval hned pod sebou). */
+function lpiCrumb($x, $bc, $h1) {
+    $li = $bc ? $x->query('.//li[last()]', $bc)->item(0) : null;
+    if (!$li) return;
+    $li->setAttribute('aria-current', 'page');
+    if (mb_strtolower(lpiText($li)) === mb_strtolower(lpiText($h1))) lpiAdd($li, 'lpi-crumb-cur');
+}
+
+/** Odstraní uzel a po něm prázdné obaly (p.lpi-btns, prázdná sekce) až po $root. */
+function lpiPrune($n, $root) {
+    $p = $n->parentNode;
+    if ($p) $p->removeChild($n);
+    while ($p instanceof DOMElement && $p !== $root && $p->parentNode && lpiText($p) === '' && !$p->getElementsByTagName('img')->length && !$p->getElementsByTagName('iframe')->length) {
+        $n = $p;
+        $p = $p->parentNode;
+        $p->removeChild($n);
+    }
+}
+
+/**
+ * Duplicitní CTA (stejný cíl): v hero a v závěrečné kartě (.lp-cta-card) smí být po jednom,
+ * v obsahu jen tam, kde cíl jinde není. Když karta jen opakuje popisek z hero (generické
+ * „Rezervovat online“ 2×), nahradí ho poslední kontextové tlačítko obsahu se stejným cílem
+ * (např. „Rezervovat vyzvednutí“). $hero = [[kanonická cesta, popisek], …]
+ */
+function lpiDedupeCtas($x, $root, $hero) {
+    $heroT = $heroL = $card = $body = [];
+    foreach ($hero as $h) { $heroT[$h[0]] = 1; $heroL[mb_strtolower($h[1])] = 1; }
+    foreach (iterator_to_array($x->query('.//a[contains(concat(" ",normalize-space(@class)," ")," lp-btn ")][@href]', $root)) as $a) {
+        $p = lpiPath($a->getAttribute('href'));
+        if ($p === '' || $p[0] === '#') continue;
+        if (!$x->query('ancestor::div[contains(concat(" ",@class," ")," lp-cta-card ")]', $a)->length) $body[$p][] = $a;
+        elseif (isset($card[$p])) lpiPrune($a, $root);
+        else $card[$p] = $a;
+    }
+    foreach ($body as $p => $list) {
+        if (!isset($heroT[$p]) && !isset($card[$p])) array_shift($list);
+        elseif (isset($card[$p]) && isset($heroL[mb_strtolower(lpiText($card[$p]))])) {
+            for ($i = count($list) - 1; $i >= 0; $i--) {
+                if (isset($heroL[mb_strtolower(lpiText($list[$i]))])) continue;
+                [$b] = array_splice($list, $i, 1);
+                $old = $card[$p];
+                $par = $b->parentNode;
+                $b->setAttribute('class', $old->getAttribute('class'));
+                $old->parentNode->replaceChild($b, $old);
+                if ($par instanceof DOMElement && lpiText($par) === '') lpiPrune($par, $root);
+                break;
+            }
+        }
+        foreach ($list as $a) lpiPrune($a, $root);
+    }
 }
 
 /** Číslo kroku z titulku („1. …“) vizuálně skryje (číslo kreslí kolečko); text zůstává pro čtečky/SEO. */

@@ -33,6 +33,24 @@ const LPI_BG = [
     'faq' => 'gfx/hero-banner-768.webp',
 ];
 
+/**
+ * Sdílené bloky landingu podle stránky — ne všude totéž (deduplikace, zadání majitele
+ * „pozor na duplicity“): fleet = pruh motorek (živé ceny), reviews = recenze,
+ * ai = výzva AI asistenta (FAQ: box pod otázkami, Kontakt: karta mezi kontakty).
+ * Stránka bez recenzí odkazuje hodnocení v hero na recenze na úvodní stránce.
+ */
+const LPI_BLOCKS = [
+    'postup' => ['fleet', 'reviews'],
+    'prevzeti' => ['reviews'],
+    'vraceni_pujcovna' => [],
+    'vraceni_jinde' => [],
+    'cena' => ['fleet'],
+    'pristaveni' => ['fleet'],
+    'dokumenty' => [],
+    'faq' => ['reviews', 'ai'],
+    'kontakt' => ['reviews', 'ai'],
+];
+
 /** CS defaulty textů nových prvků (cizí jazyky: lang/v2/<lang>/info.php). */
 function lpiDefaults() {
     return [
@@ -65,8 +83,8 @@ function lpiDefaults() {
             'detail' => 'Detail pobočky',
             'route' => 'Navigovat',
             'branches' => [
-                ['badge' => 'Obslužná pobočka', 'title' => 'Mezná u Pelhřimova', 'text' => 'Motorku ti předáme osobně v čase dle rezervace — každý den, i o víkendech a svátcích.', 'chips' => ['Cca 90 min z Prahy', 'Přistavení na adresu']],
-                ['badge' => 'Samoobsluha 24/7', 'title' => 'Velké Němčice u Brna', 'text' => 'Motorku i výbavu převezmeš a vrátíš sám kódy z aplikace — nonstop, bez čekání.', 'chips' => ['30 min z Brna', '35 min z letiště Brno']],
+                ['badge' => 'Obslužná pobočka', 'title' => 'Mezná u Pelhřimova', 'text' => 'Motorku ti předáme osobně v čase dle rezervace — každý den, i o víkendech a svátcích.', 'chips' => ['Cca 90 min z Prahy', 'Přistavení na adresu'], 'detail' => 'Detail pobočky Mezná', 'route' => 'Navigovat do Mezné'],
+                ['badge' => 'Samoobsluha 24/7', 'title' => 'Velké Němčice u Brna', 'text' => 'Motorku i výbavu převezmeš a vrátíš sám kódy z aplikace — nonstop, bez čekání.', 'chips' => ['30 min z Brna', '35 min z letiště Brno'], 'detail' => 'Detail pobočky Velké Němčice', 'route' => 'Navigovat do Velkých Němčic'],
             ],
         ],
     ];
@@ -119,37 +137,52 @@ function lpInfoWrap($html, $page, $sb) {
     $L = lpiTexts($sb);
     $admin = lpAdmin();
     $motos = $sb->fetchMotos();
+    $on = array_flip(LPI_BLOCKS[$page] ?? ['fleet', 'reviews']);
+    // Chipy hero, které už nese karta pobočky (Kontakt), se v hero neopakují
+    $skip = [];
+    if ($page === 'kontakt') foreach ((array)($L['contact']['branches'] ?? []) as $br) foreach ((array)($br['chips'] ?? []) as $c) $skip[mb_strtolower(lpPlain($c))] = 1;
+    $opt = ['reviews' => isset($on['reviews']), 'skip' => $skip,
+        // Kontakt: „Zavolat“ v hero jen když obsah nemá vlastní telefonní kartu (jinak by se volání opakovalo hned pod ním)
+        'call' => $page === 'kontakt' && !$x->query('.//a[starts-with(@href,"tel:")]', $cc)->length];
 
     lpiFixBlockP($doc, $x, $cc);
     lpiStripSpacers($x, $cc);
-    $hero = lpiHero($doc, $x, $h1, $page, $L, $TC, $motos);
+    lpiCrumb($x, $bc, $h1);
+    [$hero, $heroCtas] = lpiHero($doc, $x, $h1, $page, $L, $TC, $motos, $opt);
     lpiButtons($doc, $x, $cc);
-    if ($page === 'kontakt') lpiContact($doc, $x, $cc, $L, $TC);
+    if ($page === 'kontakt') lpiContact($doc, $x, $cc, $L, $TC, isset($on['ai']));
     lpiLists($x, $cc, $admin);
     lpiTables($x, $cc);
     lpiGrids($doc, $x, $cc, $admin, $L);
-    lpiFaqStyle($x, $cc);
-    [$blocks, $cut] = lpiBlocks($doc, $x, $cc, $L, $TC);
+    lpiFaqStyle($doc, $x, $cc);
+    [$blocks, $cut] = lpiBlocks($doc, $x, $cc, $L, $TC, isset($on['ai']) && $page !== 'kontakt');
+    lpiDedupeCtas($x, $cc, $heroCtas);
 
+    $mid = (isset($on['fleet']) ? renderLpFleet($motos, $TC) : '') .
+        (isset($on['reviews']) && function_exists('renderLpReviews') && function_exists('lpReviewsData') ? renderLpReviews(lpReviewsData(), $TC) : '');
+    if ($mid === '') $cut = PHP_INT_MAX;
     $partA = $partB = '';
     foreach ($blocks as $i => $s) {
+        if (!$s->parentNode) continue; // sekce vyprázdněná deduplikací
         if ($i < $cut) $partA .= lpiHtml($doc, $s); else $partB .= lpiHtml($doc, $s);
     }
     $tag = $cc->getAttribute('data-tag');
-    $open = '<div class="container"><div' . ($tag !== '' ? ' data-tag="' . he($tag) . '"' : '') . ' class="sections ccontent lpi-body">';
+    $open = '<div class="container"><div' . ($tag !== '' ? ' data-tag="' . he($tag) . '"' : '') . ' class="sections ccontent lpi-body' . ($mid === '' ? ' lpi-body--end' : '') . '">';
     $out = '<main id="content" class="lp-main lp-main--page lpi lpi--' . he(str_replace('_', '-', $page)) . '">' .
         ($bc ? '<div class="container">' . lpiHtml($doc, $bc) . '</div>' : '') .
         $hero .
         ($partA !== '' ? $open . $partA . '</div></div>' : '') .
-        renderLpFleet($motos, $TC) .
-        (function_exists('renderLpReviews') && function_exists('lpReviewsData') ? renderLpReviews(lpReviewsData(), $TC) : '') .
+        $mid .
         ($partB !== '' ? '<div class="container"><div class="ccontent lpi-body lpi-body--end">' . $partB . '</div></div>' : '') .
         '</main>' . renderLpSticky($TC);
     return substr($html, 0, $a) . lpiFinish($out) . substr($html, $b + 7);
 }
 
-/** Hero panel: H1 + intro + CTA (případné horní tlačítko stránky jako primární) + chipy. Prvky vyjme z DOM. */
-function lpiHero($doc, $x, $h1, $page, $L, $TC, $motos) {
+/**
+ * Hero panel: H1 + intro + CTA (případné horní tlačítko stránky jako primární) + chipy. Prvky vyjme z DOM.
+ * Vrací [html, [[kanonická cesta, popisek] tlačítek]] — pro deduplikaci CTA v obsahu.
+ */
+function lpiHero($doc, $x, $h1, $page, $L, $TC, $motos, $opt) {
     $par = $h1->parentNode;
     $lead = $top = null;
     for ($n = $h1->nextSibling; $n; $n = $n->nextSibling) {
@@ -176,22 +209,28 @@ function lpiHero($doc, $x, $h1, $page, $L, $TC, $motos) {
     if ($top) {
         $top->setAttribute('class', 'lp-btn lp-btn-primary');
         $top->insertBefore(lpiMark($doc, 'cal'), $top->firstChild);
+        $ctas = [[lpiPath($top->getAttribute('href')), lpiText($top)]];
         $primary = lpiHtml($doc, $top);
         $topP->parentNode->removeChild($topP);
     } else {
-        $primary = '<a class="lp-btn lp-btn-primary" href="/rezervace">' . lpIcon('cal') . '<span>' . he(lpPlain($L['cta_primary'] ?? '')) . '</span></a>';
+        $ctas = [['/rezervace', lpPlain($L['cta_primary'] ?? '')]];
+        $primary = '<a class="lp-btn lp-btn-primary" href="/rezervace">' . lpIcon('cal') . '<span>' . he($ctas[0][1]) . '</span></a>';
     }
-    $secondary = $page === 'kontakt'
-        ? '<a class="lp-btn lp-btn-ghost" href="' . he(PHONE_LINK) . '">' . lpiIcon('phone') . '<span>' . he(lpPlain($L['cta_call'] ?? '')) . '</span></a>'
-        : '<a class="lp-btn lp-btn-ghost" href="/katalog">' . lpIcon('moto') . '<span>' . he(lpPlain($L['cta_secondary'] ?? '')) . '</span></a>';
+    $call = !empty($opt['call']);
+    $ctas[] = [$call ? PHONE_LINK : '/katalog', lpPlain($L[$call ? 'cta_call' : 'cta_secondary'] ?? '')];
+    $secondary = '<a class="lp-btn lp-btn-ghost" href="' . he($ctas[1][0]) . '">' . ($call ? lpiIcon('phone') : lpIcon('moto')) . '<span>' . he($ctas[1][1]) . '</span></a>';
     if ($par instanceof DOMElement && $par->nodeName === 'section' && lpiText($par) === '' && !$x->query('.//img|.//iframe', $par)->length) {
         $par->parentNode->removeChild($par);
     }
     $chips = '';
     $min = lpMinPrice($motos);
     if ($min > 0 && lpS($TC['price_chip'] ?? '') !== '') $chips .= '<li class="lp-chip lp-chip--hot">' . he(str_replace('{price}', lpMoneyFrom($min), lpS($TC['price_chip']))) . '</li>';
+    $seen = (array)($opt['skip'] ?? []);
     foreach ((array)($L['chips'][$page] ?? []) as $c) {
-        if (lpPlain($c) !== '') $chips .= '<li class="lp-chip">' . lpIcon('check') . '<span>' . he(lpPlain($c)) . '</span></li>';
+        $k = mb_strtolower(lpPlain($c));
+        if ($k === '' || isset($seen[$k])) continue;
+        $seen[$k] = 1;
+        $chips .= '<li class="lp-chip">' . lpIcon('check') . '<span>' . he(lpPlain($c)) . '</span></li>';
     }
     $bg = '';
     if (isset(LPI_BG[$page])) {
@@ -200,9 +239,12 @@ function lpiHero($doc, $x, $h1, $page, $L, $TC, $motos) {
         $bg = '<img class="lp-panel-bg" src="/' . he($src) . '"' . $set . ' alt="' . he($h1Plain) . '" aria-hidden="true" decoding="async" fetchpriority="low">';
     }
     $assure = lpPlain($TC['assurance'] ?? '') !== '' ? '<p class="lp-assure">' . lpIcon('check') . he(lpPlain($TC['assurance'])) . '</p>' : '';
-    return '<section class="lp-panel lpi-hero' . ($bg ? ' lp-panel--bg' : '') . '" aria-labelledby="' . he($h1Id) . '"><div class="container"><div class="lp-panel-card">' . $bg .
+    $rating = function_exists('lpPanelRating') ? lpPanelRating($TC) : '';
+    // Bez sekce recenzí na stránce vede hodnocení na recenze na úvodní stránce (kotva by jinak nikam nevedla)
+    if (empty($opt['reviews'])) $rating = str_replace('href="#lp-reviews-h"', 'href="/#lp-reviews-h"', $rating);
+    return ['<section class="lp-panel lpi-hero' . ($bg ? ' lp-panel--bg' : '') . '" aria-labelledby="' . he($h1Id) . '"><div class="container"><div class="lp-panel-card">' . $bg .
         '<div class="lp-panel-text">' . $txt . '</div>' .
-        '<div class="lp-cta-row" data-lp-sentinel>' . $primary . $secondary . $assure . (function_exists('lpPanelRating') ? lpPanelRating($TC) : '') . '</div>' .
+        '<div class="lp-cta-row" data-lp-sentinel>' . $primary . $secondary . $assure . $rating . '</div>' .
         ($chips !== '' ? '<ul class="lp-chips">' . $chips . '</ul>' : '') .
-        '</div></div></section>';
+        '</div></div></section>', $ctas];
 }

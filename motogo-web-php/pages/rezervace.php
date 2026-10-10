@@ -3,6 +3,8 @@
 // PHP renderuje HTML shell + header/footer, JS zajišťuje interaktivitu
 // (kalendář, ceník, mapa, OCR, Stripe platby)
 
+require_once __DIR__ . '/../landing.php';
+
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('breadcrumb.reservation')]);
 
 // Předvyplnění z query stringu
@@ -219,7 +221,10 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 })();
 </script>';
 
-renderPage(t('rezervace.title'), $content . $rezervaceJs, '/rezervace', [
+// Landing v2 vzhled formuláře — JEN prezentace (css/rezervace-v2.css + js/rezervace-v2.js, logika beze změny);
+// mimo v2 (?landing=v1) se meta nemění → stránka je stejná jako dřív.
+$rezV2Meta = landingV2Enabled() ? ['styles' => ['/css/rezervace-v2.css'], 'scripts' => ['/js/rezervace-v2.js'], 'body_class' => 'rez-v2'] : [];
+renderPage(t('rezervace.title'), $content . $rezervaceJs, '/rezervace', $rezV2Meta + [
     'description' => t('rezervace.description'),
     'keywords' => t('rezervace.keywords'),
     'robots' => 'noindex,follow',

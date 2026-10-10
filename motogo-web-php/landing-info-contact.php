@@ -14,7 +14,7 @@ function lpiMapUrl($q) {
     return 'https://www.google.com/maps/dir/?api=1&destination=' . rawurlencode($q);
 }
 
-function lpiContact($doc, $x, $cc, $L, $TC) {
+function lpiContact($doc, $x, $cc, $L, $TC, $ai = true) {
     $K = (array)($L['contact'] ?? []);
     $quick = $x->query('.//div[contains(@class,"contact-quick-boxes")]', $cc)->item(0);
     $anchor = null;
@@ -37,7 +37,7 @@ function lpiContact($doc, $x, $cc, $L, $TC) {
             }
         }
         $A = (array)($L['ai'] ?? []);
-        $quick->appendChild(lpiFrag($doc, '<button type="button" class="lpi-ccard lpi-ccard--ai" data-lpi-ai><span class="lpi-ccard-ico"><i data-lpi-ico="spark"></i></span>' .
+        if ($ai) $quick->appendChild(lpiFrag($doc, '<button type="button" class="lpi-ccard lpi-ccard--ai" data-lpi-ai><span class="lpi-ccard-ico"><i data-lpi-ico="spark"></i></span>' .
             '<span class="lpi-ccard-txt"><small>' . he(lpPlain($A['title'] ?? '')) . '</small><strong>' . he(lpPlain($A['card'] ?? '')) . '</strong></span>' .
             '<span class="lpi-ccard-go"><i data-lpi-ico="arrow"></i></span></button>'));
         $anchor = $quick->parentNode;
@@ -76,7 +76,8 @@ function lpiContact($doc, $x, $cc, $L, $TC) {
     }
     foreach (iterator_to_array($x->query('./section[.//iframe]', $cc)) as $ms) {
         lpiAdd($ms, 'lpi-map lpi-panel');
-        $ms->appendChild(lpiFrag($doc, '<p class="lpi-btns"><a class="lp-btn lpi-btn-dark" href="' . he(lpiMapUrl(LPI_BRANCHES[0]['map'])) . '" target="_blank" rel="noopener"><i data-lpi-ico="route"></i>' . he(lpPlain($K['route'] ?? '')) . '</a></p>'));
+        // Navigace pod mapou jen bez karet poboček — karta Mezné ji už má (stejný cíl 2× = duplicita)
+        if ($brHtml === '') $ms->appendChild(lpiFrag($doc, '<p class="lpi-btns"><a class="lp-btn lpi-btn-dark" href="' . he(lpiMapUrl(LPI_BRANCHES[0]['map'])) . '" target="_blank" rel="noopener"><i data-lpi-ico="route"></i>' . he(lpPlain($K['route'] ?? '')) . '</a></p>'));
     }
     $sh = $x->query('./h2[@data-cms-key="web.kontakt.seo_text.title"]', $cc)->item(0);
     $first = $sh ?: $x->query('./section[contains(@class,"kontakt-outro")]', $cc)->item(0);
@@ -106,7 +107,8 @@ function lpiSocial($doc, $x, $s) {
     $s->appendChild($wrap);
 }
 
-/** Karty obou poboček (odkaz na detail /pobocky/<slug> + navigace Google Maps). */
+/** Karty obou poboček (odkaz na detail /pobocky/<slug> + navigace Google Maps). Popisky tlačítek nesou
+ *  název pobočky (branches[i].detail/route) — dvě karty vedle sebe tak nemají stejná tlačítka; bez nich obecný popisek. */
 function lpiBranchesHtml($K) {
     $cards = '';
     foreach (LPI_BRANCHES as $i => $b) {
@@ -125,8 +127,8 @@ function lpiBranchesHtml($K) {
             '<p class="lpi-branch-addr"><i data-lpi-ico="pin"></i><span>' . he($b['address']) . '</span></p>' .
             (lpPlain($t['text'] ?? '') !== '' ? '<p>' . he(lpPlain($t['text'])) . '</p>' : '') .
             ($chips !== '' ? '<ul class="lp-chips lpi-branch-chips">' . $chips . '</ul>' : '') .
-            '<div class="lpi-branch-btns"><a class="lp-btn lpi-btn-dark" href="' . $href . '"><span>' . he(lpPlain($K['detail'] ?? '')) . '</span><i data-lpi-ico="arrow"></i></a>' .
-            '<a class="lp-btn lpi-btn-line" href="' . he(lpiMapUrl($b['map'])) . '" target="_blank" rel="noopener"><i data-lpi-ico="route"></i><span>' . he(lpPlain($K['route'] ?? '')) . '</span></a></div>' .
+            '<div class="lpi-branch-btns"><a class="lp-btn lpi-btn-dark" href="' . $href . '"><span>' . he(lpPlain($t['detail'] ?? '') ?: lpPlain($K['detail'] ?? '')) . '</span><i data-lpi-ico="arrow"></i></a>' .
+            '<a class="lp-btn lpi-btn-line" href="' . he(lpiMapUrl($b['map'])) . '" target="_blank" rel="noopener"><i data-lpi-ico="route"></i><span>' . he(lpPlain($t['route'] ?? '') ?: lpPlain($K['route'] ?? '')) . '</span></a></div>' .
             '</div></article>';
     }
     if ($cards === '') return '';
