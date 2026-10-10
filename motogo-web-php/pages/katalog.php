@@ -13,6 +13,11 @@ $motos = $sb->fetchMotos();
 foreach ($motos as &$_m) { normalizeMoto($_m); }
 unset($_m);
 
+// Landing v2 (viz landing.php): podtitulek + kalkulačka ceny s kalendářem (pages/katalog-calc.php).
+require_once __DIR__ . '/../landing.php';
+$kcV2 = landingV2Enabled();
+if ($kcV2) require_once __DIR__ . '/katalog-calc.php';
+
 // REQUEST_URI obsahuje query string i případný trailing slash — normalizujeme,
 // jinak by /katalog/supermoto/ neprošlo přes níže uvedené porovnání cest a
 // kategorie by se nepoužila (katalog by ukázal všechny motorky).
@@ -501,7 +506,9 @@ $outroHtml = '<section class="katalog-outro">'
 $content = '<main id="content"><div class="container">'
     . renderBreadcrumb($bc)
     . '<div class="ccontent"><h1' . $h1AttrCms . '>' . htmlspecialchars($displayH1) . '</h1>'
+    . ($kcV2 ? kcSubtitle($sb, count($filtered)) : '')
     . '<p data-cms-key="web.katalog.intro">' . $displayIntro . '</p>'
+    . ($kcV2 ? renderKatalogCalc($sb, $motos, ['branch' => $getBranch]) : '')
     . $filterHtml
     . $countHtml
     . '<div id="katalog-grid" class="gr4">' . $gridHtml . '</div>'
@@ -544,7 +551,7 @@ $catDescriptions = [
 ];
 $catDesc = $category && isset($catDescriptions[$category]) ? $catDescriptions[$category] : t('katalog.seo.description');
 
-renderPage($title . ' | MotoGo24', $content, $path, [
+renderPage($title . ' | MotoGo24', $content, $path, ($kcV2 ? kcPageMeta() : []) + [
     'description' => $catDesc,
     'keywords' => t('katalog.seo.keywords'),
     'schema' => $itemListSchema,

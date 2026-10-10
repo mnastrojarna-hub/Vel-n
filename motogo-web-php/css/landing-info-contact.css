@@ -1,0 +1,77 @@
+/* ===== MotoGo24 — Landing v2: Kontakt (viz landing-info-contact.php) ===== */
+.lpi-stretch::after{content:"";position:absolute;inset:0;z-index:1;border-radius:inherit}
+
+/* --- Velké klikací kontaktní karty --- */
+.lpi-ccards{display:grid;gap:.7rem}
+.lpi-ccard{position:relative;display:flex;align-items:center;gap:.9rem;width:100%;min-height:78px;margin:0;padding:.9rem 1rem;border-radius:18px;background:#fff;border:1px solid #d4e8e0;color:#1a2e22;font:inherit;text-align:left;box-shadow:0 12px 26px -20px rgba(26,46,34,.6);transition:transform .2s,border-color .2s,box-shadow .2s;cursor:pointer}
+.lpi-ccard--box{cursor:default}
+.lpi-ccard:hover{transform:translateY(-2px);border-color:#74fb71;box-shadow:0 16px 30px -18px rgba(13,110,13,.5)}
+.lpi-ccard--box:hover{transform:none;border-color:#d4e8e0}
+.lpi-ccard>div,.lpi-ccard-txt{flex:1;min-width:0}
+.lpi-ccard p{margin:0;line-height:1.3}
+.lpi-ccard small,.lpi-ccard-txt small{display:block;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#4a6b5a}
+.lpi-ccard br{display:none}
+.lpi-ccard strong{display:block;margin-top:.15rem;font-size:1.08rem;font-weight:800;line-height:1.25;overflow-wrap:anywhere;color:#1a2e22}
+.lpi-ccard strong a{color:inherit;text-decoration:none}
+.lpi-ccard-ico{display:grid;place-items:center;flex:0 0 52px;width:52px;height:52px;border-radius:50%;background:#1a2e22;color:#74fb71}
+.lpi-ccard-ico .lp-ico{width:24px;height:24px}
+.lpi-ccard-go{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:50%;background:#eefbf0;color:#0d6e0d;transition:transform .2s}
+.lpi-ccard:hover .lpi-ccard-go{transform:translateX(3px)}
+.lpi-ccard-go .lp-ico{width:18px;height:18px}
+.lpi-ccard--phone{color:#e8f5ee;border-color:#2a5a3e;background:radial-gradient(130% 140% at 0 0,#2a6a45,#0e2a1c 60%,#0a1f14)}
+.lpi-ccard--phone small{color:#a8ff9f}
+.lpi-ccard--phone strong{color:#fff;font-size:1.3rem}
+.lpi-ccard--phone .lpi-ccard-ico{background:#74fb71;color:#08230f;animation:lpiRing 2.4s ease-out infinite}
+.lpi-ccard--phone .lpi-ccard-go{background:#74fb71;color:#08230f}
+.lpi-ccard--ai .lpi-ccard-ico{background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f}
+.lpi-ccard--ai strong{font-size:.95rem}
+@media(min-width:600px){.lpi-ccards{grid-template-columns:1fr 1fr}}
+@media(min-width:1100px){.lpi-ccards{grid-template-columns:1.25fr 1.25fr 1fr 1.25fr}}
+
+/* --- Pobočky --- */
+.lpi-branch-grid{display:grid;gap:1rem}
+.lpi-branch{display:flex;flex-direction:column;overflow:hidden;border-radius:22px;background:#fff;border:1px solid #d4e8e0;box-shadow:0 16px 36px -24px rgba(26,46,34,.6)}
+.lpi-branch-media{position:relative;aspect-ratio:16/9;overflow:hidden;background:#0e2a1c}
+.lpi-branch-img,.lpi-branch-img img{display:block;width:100%;height:100%}
+.lpi-branch-img img{object-fit:cover;transition:transform .6s ease}
+.lpi-branch:hover .lpi-branch-img img{transform:scale(1.05)}
+.lpi-branch-media::after{content:"";position:absolute;inset:auto 0 0;height:45%;background:linear-gradient(transparent,rgba(10,31,20,.55));pointer-events:none}
+.lpi-badge{position:absolute;left:.75rem;top:.75rem;z-index:1;display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .7rem;border-radius:999px;background:rgba(255,255,255,.94);color:#1a2e22;font-size:.72rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
+.lpi-badge--live{background:#1a2e22;color:#74fb71}
+.lpi-badge--live::before{content:"";width:8px;height:8px;border-radius:50%;background:#74fb71;animation:lpDot 1.8s infinite}
+.lpi-branch-body{display:flex;flex:1;flex-direction:column;gap:.55rem;padding:1rem 1.1rem 1.15rem}
+.lpi-branch-body h3{margin:0;font-size:1.2rem;line-height:1.25}
+.lpi-branch-body h3 a{color:#1a2e22;text-decoration:none}
+.lpi-branch-body h3 a:hover{color:#0d6e0d}
+.lpi-branch-body p{margin:0;font-size:.9rem;line-height:1.5;color:#2c4a3a}
+.lpi-branch-addr{display:flex;align-items:center;gap:.4rem;font-weight:700}
+.lpi-branch-addr .lp-ico{flex:0 0 auto;width:18px;height:18px;color:#0d6e0d}
+.lpi-branch-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:0;padding:0;list-style:none}
+.lpi-branch-chips .lp-chip{background:#eefbf0;border-color:#bfe8c9;color:#1a2e22}
+.lpi-branch-chips .lp-chip .lp-ico{color:#0d6e0d}
+.lpi-branch-btns{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:auto;padding-top:.35rem}
+.lpi-branch-btns .lp-btn{min-height:48px;padding:.6rem .5rem;font-size:.8rem}
+@media(min-width:769px){.lpi-branch-grid{grid-template-columns:1fr 1fr;gap:1.25rem}}
+
+/* --- Provozovna, sítě, CTA --- */
+.lpi-cinfo{display:grid;gap:1rem}
+.lpi-cinfo>div{display:grid;gap:1rem;align-content:start}
+.lpi-row{display:flex;align-items:flex-start;gap:.8rem;margin:0 0 .9rem}
+.lpi-row:last-child{margin-bottom:0}
+.lpi-row>p,.lpi-row>div{flex:1;min-width:0;margin:0}
+.lpi-row strong{display:block;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:#4a6b5a}
+.lpi-row div[style]{text-align:left!important}
+.lpi-row-ico{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:12px;background:#1a2e22;color:#74fb71}
+.lpi-row b{color:#1a2e22}
+.lpi-soc-list{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+.lpi-soc{position:relative;display:flex;align-items:center;gap:.6rem;margin:0;padding:.65rem .75rem;border-radius:14px;border:1px solid #d4e8e0;background:#f5fbf8;transition:border-color .2s,transform .2s}
+.lpi-soc:hover{transform:translateY(-2px);border-color:#74fb71}
+.lpi-soc .social-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:50%;background:#74fb71}
+.lpi-soc .social-icon img{width:20px;height:20px}
+.lpi-soc a{color:#1a2e22;font-weight:700;text-transform:capitalize;text-decoration:none}
+.lpi-cta--mini .lp-cta-card{height:100%}
+.lpi-cta--mini .lp-cta-btns .lp-btn:first-child{min-height:52px}
+.lpi-map .lpi-btns{margin-top:.9rem}
+.lpi-billing p{font-size:.88rem}
+@media(min-width:900px){.lpi-cinfo{grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start}}
+@media(prefers-reduced-motion:reduce){.lpi-ccard--phone .lpi-ccard-ico,.lpi-badge--live::before{animation:none}.lpi-branch-img img{transition:none}}
