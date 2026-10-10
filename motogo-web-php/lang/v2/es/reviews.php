@@ -1,0 +1,16 @@
+<?php
+// Překlady recenzí (data/reviews.php, klíč = id recenze) — landing v2, renderLpReviews().
+return ['pages' => ['landing' => ['common' => [
+    'reviews_tr' => [
+        'zdenek-firmy' => '¡Un alquiler perfecto! Trato estupendo, sin fianza, no tienes que preocuparte de lavar la moto y te prestan el equipamiento gratis. Rápido, honesto y sin complicaciones. No hay nada que reprochar.',
+        'petr-c-firmy' => 'Una experiencia genial. Valoro sobre todo el trato amable y servicial; todo salió sin ningún problema. La moto estaba lista a la hora acordada y además con el depósito lleno, así que pude salir enseguida. La entrega fue rápida, igual que la devolución, que se podía hacer en cualquier momento, incluso de noche. Otra gran ventaja: no hacía falta repostar antes de devolverla, así que te ahorras preocupaciones innecesarias.',
+        'marian-l-fb' => '… Lo resolví todo fácilmente con la app; los precios y las condiciones de alquiler, los mejores de todos los que encontré. Al llegar me recibió la dueña, muy simpática y amable. Me lo explicó todo y respondió con gusto a mis preguntas (temas técnicos…). La moto y los accesorios ya estaban preparados. La devolución también fue perfecta. … Muy satisfecho con el trato y también con la moto.',
+        'martin-o-firmy' => 'Un alquiler de motos perfecto: reserva sencilla, buenos precios, entrega rápida y fácil y, de regalo, unas carreteras espectaculares por la zona.',
+        'strdyna-firmy' => 'Por primera vez alquilé una trail de viaje para ir más cómodos los dos y ¡estoy encantado! … La moto (Benelli TRK 502 X) me esperaba en buen estado, lavada y con el depósito lleno, lista para salir; aparqué el coche justo al lado, en un parking vallado donde se quedó todo el fin de semana. Un trato estupendo de la dueña y una devolución sin problemas, incluso con un café para el camino.',
+        'hancl-firmy' => 'La moto estaba lista a la hora acordada. Toda la comunicación funcionó al 100 % desde el principio. … En la entrega, la dueña me lo explicó todo. … Otra cosa que valoro: si surge cualquier problema, basta con llamar. Excelente soporte técnico. … Lo que más me gustó: puedes devolver la moto por la noche. Web y app bonitas y claras. Recomiendo este alquiler: 10/10.',
+        'jan-r-fb' => 'Una empresa increíble y un equipo de gente que ama las motos. Solo puedo recomendarla a todos. Lo disfruté muchísimo. Amplia oferta de motos y de ropa que te pruebas con calma. Trato amable y cercano. Sencillamente genial. Muchas gracias.',
+        'dejv-m-firmy' => '… Cuando llegué a por la moto todo estaba preparado, me ofrecieron un café y me lo explicaron todo. La moto estaba en excelente estado, limpia y con el depósito prácticamente lleno. La devolución también fue fluida y totalmente profesional. Desde la comunicación y la reserva hasta la entrega. Los documentos llegaron con antelación, así que no hubo esperas innecesarias. …',
+        'pavel-s-fb' => 'Alquilamos dos scooters, ambos nuevos y en perfecto estado. El trato fue de diez y además son majos y muy tranquilos. ¡Gracias, lo recomendamos!',
+        'jan-m-firmy' => 'Normalmente no escribo reseñas, pero aquí tengo que sacar tiempo… Un trato excepcional, sin igual. Una señora muy atenta y agradable. Web, app y sistema de reservas estupendos. …',
+    ],
+]]]];

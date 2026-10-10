@@ -70,7 +70,7 @@ function lpStars($rating) {
 
 /**
  * Slider skutečných recenzí. $R = lpReviewsData() (data/reviews.php): aggregates [{label,rating|recommend,count,url}],
- * items [{source,author,rating|recommends,date Y-m-d,text,text_<lang>?}].
+ * items [{id,source,author,rating|recommends,date Y-m-d,text}]; překlad z $T['reviews_tr'][id] (lang/v2/<lang>/reviews.php).
  * Na cizím jazyce se ukáže překlad (text_<lang>) s poznámkou „přeloženo“, jinak originál.
  */
 function renderLpReviews($R, $T) {
@@ -90,7 +90,7 @@ function renderLpReviews($R, $T) {
     }
     $cards = '';
     foreach ($items as $x) {
-        $tr = lpS($x['text_' . $lang] ?? '');
+        $tr = lpS($T['reviews_tr'][lpS($x['id'] ?? '')] ?? ($x['text_' . $lang] ?? ''));
         $text = ($lang !== 'cs' && $tr !== '') ? $tr : lpS($x['text']);
         $note = ($lang !== 'cs' && $tr !== '') ? '<span class="lp-review-tr">' . he(lpS($T['reviews_translated'] ?? '')) . '</span>' : '';
         $ts = strtotime(lpS($x['date'] ?? ''));
