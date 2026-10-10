@@ -13,6 +13,7 @@ import { buildAllAgentMemory, autoExtractFlash } from '../lib/aiAgentMemory'
 import { recordOutcome } from '../lib/aiLearning'
 import { sanitizeHtml } from '../lib/sanitize'
 import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
+import { renderMarkdownMobile, useCopilotKeyboard, CopilotComposerMobile } from './AICopilotMobile'
 
 const QUICK_ACTIONS = [
   { cat: '📊 Přehledy', items: ['Kompletní denní přehled', 'Jak jsme na tom vs. minulý měsíc?', 'Týdenní statistiky'] },
@@ -51,10 +52,12 @@ export default function AICopilot() {
   const [configAgentId, setConfigAgentId] = useState(null)
   const bottomRef = useRef(null)
   const msgsRef = useRef(null)
-  // Mobil/tablet (< 1024 px): větší dotykové cíle. Telefon (< 768 px): jeden panel naráz —
-  // chat, nebo postranní panel (konverzace / agenti / log) s tlačítkem zpět. Desktop beze změny.
+  // Mobil/tablet (< 1024 px): větší dotykové cíle. Telefon (< 768 px, i na šířku — nízký displej):
+  // jeden panel naráz — chat, nebo postranní panel (konverzace / agenti / log) s tlačítkem zpět.
+  // Při psaní s otevřenou klávesnicí je chat v překryvu přes viditelnou plochu. Desktop beze změny.
   const isMobile = useIsMobile()
-  const isPhone = useMediaQuery('(max-width: 767px)')
+  const isPhone = useMediaQuery('(max-width: 767px), (max-width: 1023px) and (max-height: 520px)')
+  const kbd = useCopilotKeyboard(isMobile)
   const [mView, setMView] = useState('chat')
   const showSide = !isPhone || mView === 'side'
   const showChat = !isPhone || mView === 'chat'
@@ -68,7 +71,7 @@ export default function AICopilot() {
       return
     }
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, mView])
+  }, [messages, mView, kbd.open])
 
   const enabledCount = AGENTS.filter(a => agentConfig[a.id]?.enabled).length
 
@@ -212,7 +215,7 @@ export default function AICopilot() {
         </div>
       )}
 
-      <div className="flex rounded-card shadow-card overflow-hidden bg-white" style={{ height: isMobile ? 'max(calc(100dvh - 140px), 440px)' : 'calc(100vh - 140px)' }}>
+      <div className="flex rounded-card shadow-card overflow-hidden bg-white" style={kbd.style || { height: isMobile ? 'max(calc(100dvh - 140px), 240px)' : 'calc(100vh - 140px)' }}>
         {/* Sidebar */}
         <div className="flex-shrink-0 flex flex-col" style={isPhone ? { width: '100%', display: showSide ? undefined : 'none' } : { width: isMobile ? 290 : 240, borderRight: '1px solid #d4e8e0' }}>
           <div className="p-3" style={{ borderBottom: '1px solid #d4e8e0', ...(isPhone ? { display: 'flex', gap: 8 } : null) }}>
@@ -267,7 +270,7 @@ export default function AICopilot() {
 
         {/* Chat */}
         <div className={isMobile ? 'flex-1 flex flex-col min-w-0' : 'flex-1 flex flex-col'} style={showChat ? undefined : { display: 'none' }}>
-          {isPhone ? (
+          {isPhone ? (kbd.open && kbd.height < 500 ? null :
             <div className="p-3 flex items-center gap-3" style={{ borderBottom: '1px solid #d4e8e0' }}>
               <button onClick={() => setMView('side')} className="shrink-0 rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '0 12px', minHeight: 40, background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>‹ Konverzace</button>
               <div className="min-w-0 leading-tight">
@@ -323,7 +326,7 @@ export default function AICopilot() {
                   {m.role === 'user' ? (
                     <p className="text-sm" style={{ lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{m.content}</p>
                   ) : (
-                    <div className="text-sm" style={{ lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(m.content)) }} />
+                    <div className="text-sm" style={{ lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(isMobile ? renderMarkdownMobile(m.content, renderMarkdown) : renderMarkdown(m.content)) }} />
                   )}
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm" style={{ color: m.role === 'user' ? '#1a6a18' : '#1a2e22' }}>{m.timestamp ? new Date(m.timestamp).toLocaleTimeString('cs-CZ') : ''}</span>
@@ -345,12 +348,16 @@ export default function AICopilot() {
             <div ref={bottomRef} />
           </div>
 
-          <div className={isPhone ? 'p-2 flex gap-2 items-end' : 'p-3 flex gap-2'} style={{ borderTop: '1px solid #d4e8e0' }}>
-            <textarea value={input} onChange={e => setInput(e.target.value)} placeholder="Napište dotaz nebo příkaz…" className={isMobile ? 'flex-1 min-w-0 rounded-btn text-sm outline-none' : 'flex-1 rounded-btn text-sm outline-none'} style={{ padding: '10px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: 44, maxHeight: 120, resize: 'vertical' }} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendWithMessage(input.trim()) } }} />
+          {isMobile ? (
+            <CopilotComposerMobile value={input} onChange={setInput} onSend={() => handleSendWithMessage(input.trim())} sending={sending} setFocused={kbd.setFocused} />
+          ) : (
+          <div className="p-3 flex gap-2" style={{ borderTop: '1px solid #d4e8e0' }}>
+            <textarea value={input} onChange={e => setInput(e.target.value)} placeholder="Napište dotaz nebo příkaz…" className="flex-1 rounded-btn text-sm outline-none" style={{ padding: '10px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: 44, maxHeight: 120, resize: 'vertical' }} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendWithMessage(input.trim()) } }} />
             <Button green onClick={() => handleSendWithMessage(input.trim())} disabled={sending || !input.trim()}>
               {sending ? '...' : 'Odeslat'}
             </Button>
           </div>
+          )}
         </div>
       </div>
     </>
