@@ -37,7 +37,7 @@ function lpiContact($doc, $x, $cc, $L, $TC) {
             }
         }
         $A = (array)($L['ai'] ?? []);
-        $quick->appendChild(lpiFrag($doc, '<button type="button" class="lpi-ccard lpi-ccard--ai" data-lpi-ai hidden><span class="lpi-ccard-ico"><i data-lpi-ico="spark"></i></span>' .
+        $quick->appendChild(lpiFrag($doc, '<button type="button" class="lpi-ccard lpi-ccard--ai" data-lpi-ai><span class="lpi-ccard-ico"><i data-lpi-ico="spark"></i></span>' .
             '<span class="lpi-ccard-txt"><small>' . he(lpPlain($A['title'] ?? '')) . '</small><strong>' . he(lpPlain($A['card'] ?? '')) . '</strong></span>' .
             '<span class="lpi-ccard-go"><i data-lpi-ico="arrow"></i></span></button>'));
         $anchor = $quick->parentNode;

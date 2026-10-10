@@ -1,6 +1,6 @@
 /* MotoGo24 — Landing v2 informační stránky (viz landing-info.php): zkrácení
    dlouhých textů s „Číst dál“ (text zůstává v DOM celý) a tlačítka AI asistenta
-   (otevřou bublinu chatu; bez bubliny zůstanou skrytá). Bez závislostí. */
+   (otevřou bublinu chatu; bez bubliny se skryjí). Bez závislostí. */
 (function () {
   var d = document;
   function each(sel, fn) { Array.prototype.forEach.call(d.querySelectorAll(sel), fn); }
@@ -25,22 +25,21 @@
     el.parentNode.insertBefore(btn, el.nextSibling);
   });
 
-  // 2) AI asistent — jen když je na stránce (a povolená) bublina chatu
+  // 2) AI asistent — tlačítka otevřou bublinu chatu; bez (povolené) bubliny se výzvy skryjí
   function bubble() {
     var b = d.getElementById('motogo-ai-bubble');
     return b && b.style.display !== 'none' ? b : null;
   }
-  function initAi() {
-    if (!bubble()) return;
-    each('[data-lpi-ai-box][hidden]', function (el) { el.hidden = false; });
-    each('[data-lpi-ai]', function (el) {
-      el.hidden = false;
-      el.addEventListener('click', function () {
-        var b = bubble();
-        if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
-      });
+  each('[data-lpi-ai]', function (el) {
+    el.addEventListener('click', function () {
+      var b = bubble();
+      if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
     });
+  });
+  function check() {
+    if (bubble()) return;
+    each('[data-lpi-ai-box], button[data-lpi-ai].lpi-ccard', function (el) { el.hidden = true; });
   }
-  function later() { setTimeout(initAi, 700); }
+  function later() { setTimeout(check, 1500); }
   if (d.readyState === 'complete') later(); else window.addEventListener('load', later);
 })();

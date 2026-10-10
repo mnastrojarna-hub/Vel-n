@@ -100,7 +100,7 @@ function lpiFixBlockP($doc, $x, $root) {
 
 /** Prázdné odstavce-mezery (<p>&nbsp;</p>, p.sp, <p><br></p>) pryč — rozestupy řeší CSS. */
 function lpiStripSpacers($x, $root) {
-    foreach (iterator_to_array($x->query('.//p', $root)) as $p) {
+    foreach (iterator_to_array($x->query('.//p[not(@data-cms-key)]', $root)) as $p) {
         if ($x->query('.//*[not(self::br)]', $p)->length) continue;
         if (lpiText($p) === '') $p->parentNode->removeChild($p);
     }

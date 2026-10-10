@@ -82,6 +82,9 @@ function lpiTexts($sb) {
 /** Hook stránky → [content, meta]. Mimo v2 nebo při chybě: původní obsah, prázdná meta. */
 function lpInfoPage($content, $page, $sb) {
     if (!landingV2Enabled() || !class_exists('DOMDocument') || !is_string($content)) return [$content, []];
+    // Cizí jazyk bez textů wrapperu (lang/v2/<lang>/info.php) → raději v1 než české chipy na cizí stránce
+    $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+    if ($lang !== 'cs' && !is_array(t('pages.landing_info'))) return [$content, []];
     try {
         $out = lpInfoWrap($content, (string)$page, $sb);
     } catch (\Throwable $e) {
@@ -91,6 +94,7 @@ function lpInfoPage($content, $page, $sb) {
     if ($out === '') return [$content, []];
     $m = lpPageMeta();
     $m['styles'][] = '/css/landing-info.css';
+    $m['styles'][] = '/css/landing-info-parts.css';
     if ($page === 'kontakt') $m['styles'][] = '/css/landing-info-contact.css';
     $m['scripts'][] = '/js/landing-info.js';
     $m['body_class'] .= ' lpi-page';
@@ -138,6 +142,7 @@ function lpInfoWrap($html, $page, $sb) {
         $hero .
         ($partA !== '' ? $open . $partA . '</div></div>' : '') .
         renderLpFleet($motos, $TC) .
+        (function_exists('renderLpReviews') && function_exists('lpReviewsData') ? renderLpReviews(lpReviewsData(), $TC) : '') .
         ($partB !== '' ? '<div class="container"><div class="ccontent lpi-body lpi-body--end">' . $partB . '</div></div>' : '') .
         '</main>' . renderLpSticky($TC);
     return substr($html, 0, $a) . lpiFinish($out) . substr($html, $b + 7);
@@ -197,7 +202,7 @@ function lpiHero($doc, $x, $h1, $page, $L, $TC, $motos) {
     $assure = lpPlain($TC['assurance'] ?? '') !== '' ? '<p class="lp-assure">' . lpIcon('check') . he(lpPlain($TC['assurance'])) . '</p>' : '';
     return '<section class="lp-panel lpi-hero' . ($bg ? ' lp-panel--bg' : '') . '" aria-labelledby="' . he($h1Id) . '"><div class="container"><div class="lp-panel-card">' . $bg .
         '<div class="lp-panel-text">' . $txt . '</div>' .
-        '<div class="lp-cta-row" data-lp-sentinel>' . $primary . $secondary . $assure . '</div>' .
+        '<div class="lp-cta-row" data-lp-sentinel>' . $primary . $secondary . $assure . (function_exists('lpPanelRating') ? lpPanelRating($TC) : '') . '</div>' .
         ($chips !== '' ? '<ul class="lp-chips">' . $chips . '</ul>' : '') .
         '</div></div></section>';
 }

@@ -201,10 +201,10 @@ function lpiMore($doc, $x, $s, $TC, $id) {
     $s->appendChild($card);
 }
 
-/** Výzva k AI asistentovi (skrytá, JS ji ukáže jen když je na stránce bublina chatu). */
+/** Výzva k AI asistentovi (JS ji skryje, když na stránce není bublina chatu — bez posunu layoutu v běžném případě). */
 function lpiAiBox($L) {
     $A = (array)($L['ai'] ?? []);
-    return '<div class="lpi-ai" data-lpi-ai-box hidden><span class="lpi-ai-ico"><i data-lpi-ico="spark"></i></span>' .
+    return '<div class="lpi-ai" data-lpi-ai-box><span class="lpi-ai-ico"><i data-lpi-ico="spark"></i></span>' .
         '<p><strong>' . he(lpPlain($A['title'] ?? '')) . '</strong> ' . he(lpPlain($A['text'] ?? '')) . '</p>' .
         '<button type="button" class="lp-btn lpi-btn-dark" data-lpi-ai><i data-lpi-ico="chat"></i>' . he(lpPlain($A['btn'] ?? '')) . '</button></div>';
 }

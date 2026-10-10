@@ -1,0 +1,77 @@
+/* ===== MotoGo24 — Landing v2 info stránky: tabulky, FAQ, AI výzva, PDF dokumenty, CTA/sbalený text — viz landing-info.php ===== */
+/* --- Tabulky jako karty --- */
+.lpi-table{margin:1rem 0;overflow:visible}
+.lpi-table table{width:100%;margin:0;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:18px;background:#fff;border:1px solid #d4e8e0;box-shadow:0 12px 26px -20px rgba(26,46,34,.6)}
+.lpi-table th{padding:.85rem 1rem;background:#1a2e22;color:#74fb71;text-align:left;font-size:.78rem;letter-spacing:.05em;text-transform:uppercase}
+.lpi-table td{padding:.85rem 1rem;border-top:1px solid #e6f2ed;background:#fff;font-size:.9rem;line-height:1.5;color:#2c4a3a;vertical-align:top}
+.lpi-table .table tbody tr:nth-of-type(n){background:none}
+.lpi-table tbody tr:nth-child(even) td{background:#f5fbf8}
+.lpi-table td:first-child{font-weight:700;color:#1a2e22}
+@media(max-width:640px){
+  .lpi-table table,.lpi-table tbody,.lpi-table tr,.lpi-table td{display:block;width:auto}
+  .lpi-table table{overflow:visible;border:0;border-radius:0;background:none;box-shadow:none}
+  .lpi-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .lpi-table tr{margin:0 0 .6rem;padding:.9rem 1rem;border-radius:16px;background:#fff;border:1px solid #d4e8e0;box-shadow:0 10px 22px -18px rgba(26,46,34,.6)}
+  .lpi-table td,.lpi-table tbody tr:nth-child(even) td{padding:0;border:0;background:none}
+  .lpi-table--kv td:first-child{display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem}
+  .lpi-table--kv td:first-child::before{content:"";flex:0 0 auto;width:10px;height:10px;border-radius:50%;background:#74fb71;box-shadow:0 0 0 4px rgba(116,251,113,.22)}
+  .lpi-table:not(.lpi-table--kv) td[data-label]::before{content:attr(data-label);display:block;font-size:.7rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#0d6e0d}
+}
+
+/* --- FAQ --- */
+.lpi-faq-list{display:grid;gap:.6rem;margin:0}
+.lpi .tab-content,.lpi .tab-pane{margin:0;padding:0}
+.lpi .faq-item.lpi-faq-item{margin:0;border-radius:16px;border:1px solid #d4e8e0;background:#fff;box-shadow:0 10px 22px -20px rgba(26,46,34,.6);transition:border-color .2s,box-shadow .2s}
+.lpi .faq-item.lpi-faq-item[open]{border-color:#74fb71;box-shadow:0 14px 30px -20px rgba(13,110,13,.55)}
+.lpi .lpi-faq-item summary{padding:.95rem 1rem;font-size:.93rem;line-height:1.4;font-weight:700}
+.lpi .lpi-faq-item summary:hover{background:#f5fbf8}
+.lpi .lpi-faq-item summary::after{content:"+";width:32px;height:32px;border-radius:50%;background:#1a2e22;color:#74fb71;font-size:1.3rem;font-weight:600;transition:transform .25s ease,background .2s,color .2s}
+.lpi .lpi-faq-item summary:hover::after{background:#0d6e0d;color:#fff}
+.lpi .lpi-faq-item[open] summary::after{content:"+";transform:rotate(45deg);background:#74fb71;color:#08230f}
+.lpi .lpi-faq-item>p,.lpi .lpi-faq-item>div{padding:0 1rem 1rem;font-size:.9rem;line-height:1.6;color:#2c4a3a}
+.lpi .lpi-faq-item div div,.lpi .lpi-faq-item div p,.lpi .lpi-faq-item p p{padding:0}
+.lpi .lpi-faq-item[open]>:not(summary){animation:lpiFade .35s ease both}
+@media(min-width:900px){.lpi-faq-list{grid-template-columns:1fr 1fr;align-items:start;gap:.75rem 1rem}}
+.lpi-tabs{display:flex;gap:.45rem;margin:0 calc(-1 * var(--lp-g)) 1rem;padding:.25rem var(--lp-g) .55rem;overflow-x:auto;scrollbar-width:none;list-style:none}
+.lpi-tabs::-webkit-scrollbar{display:none}
+.lpi-tabs li{flex:0 0 auto}
+.lpi-tabs .tab{display:inline-flex;align-items:center;min-height:42px;padding:.35rem .95rem;border-radius:999px;border:1px solid #cfe3da;background:#fff;color:#1a2e22;font-size:.82rem;font-weight:700;white-space:nowrap;text-decoration:none;transition:background .2s,color .2s}
+.lpi-tabs .tab:hover{border-color:#74fb71;color:#1a2e22}
+.lpi-tabs .tab.active{background:#1a2e22;border-color:#1a2e22;color:#74fb71}
+@media(min-width:769px){.lpi-tabs{flex-wrap:wrap;margin:0 0 1.25rem;padding:0}}
+
+/* --- AI asistent (výzva pod FAQ) --- */
+.lpi-ai{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem 1rem;margin:1.1rem 0 0;padding:1rem 1.1rem;border-radius:18px;color:#e8f5ee;background:radial-gradient(120% 140% at 0 0,#24563b,#0e2a1c 60%)}
+.lpi-ai[hidden],.lpi-ccard[hidden]{display:none}
+.lpi-ai p{flex:1 1 220px;margin:0;font-size:.9rem;line-height:1.45;color:#cfe7da}
+.lpi-ai p strong{display:block;color:#fff;font-size:1rem}
+.lpi-ai-ico{display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;border-radius:50%;background:#74fb71;color:#08230f;animation:lpiRing 2.6s ease-out infinite}
+.lpi-ai .lp-btn{flex:1 1 100%;background:#74fb71;color:#08230f;border-color:#74fb71}
+@media(min-width:600px){.lpi-ai .lp-btn{flex:0 0 auto}}
+
+/* --- PDF dokumenty --- */
+.lpi-docs{display:grid;gap:.6rem;margin:1rem 0 0}
+.lpi-doc{display:flex;align-items:center;gap:.8rem;padding:.85rem .9rem;border-radius:16px;background:#fff;border:1px solid #d4e8e0;color:#1a2e22;text-decoration:none;box-shadow:0 10px 22px -20px rgba(26,46,34,.6);transition:transform .2s,border-color .2s}
+.lpi-doc:hover{transform:translateY(-2px);border-color:#74fb71;color:#1a2e22}
+.lpi-doc>img{flex:0 0 38px;width:38px;height:38px}
+.lpi-doc>div{flex:1;min-width:0}
+.lpi-doc h3{margin:0;font-size:.9rem;line-height:1.3;color:#1a2e22}
+.lpi-doc>div>span{display:block;margin-top:.1rem;font-size:.74rem;color:#4a6b5a}
+.lpi-doc-dl{flex:0 0 auto;display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .7rem;border-radius:999px;background:#1a2e22;color:#74fb71;font-size:.68rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
+.lpi-doc-dl img{width:13px;height:13px;filter:brightness(0) saturate(100%) invert(82%) sepia(36%) saturate(1500%) hue-rotate(64deg) brightness(106%) contrast(100%)}
+@media(max-width:380px){.lpi-doc-dl{padding:.5rem;font-size:0;gap:0}.lpi-doc-dl img{width:16px;height:16px}}
+@media(min-width:769px){.lpi-docs{grid-template-columns:1fr 1fr}}
+
+/* --- CTA karta + sbalený text --- */
+.lpi-cta .lp-cta-card{position:relative;overflow:hidden}
+.lpi-cta .lp-cta-card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,transparent,#74fb71,transparent);animation:lpScan 3.6s linear infinite}
+.lpi-cta-text{margin:0 0 1.1rem}
+.lpi-cta-text p{margin:0 0 .6rem;font-size:.92rem;line-height:1.55;color:#cfe7da}
+.lpi-cta-text p:last-child{margin-bottom:0}
+.lpi-cta-text a{color:#a8ff9f}
+.lpi-cta .lpi-clamp-btn{margin:-.6rem auto 1rem}
+.lpi .lp-more{margin:1.5rem 0 2rem}
+.lpi .lp-more h2::before{display:none}
+.lpi .lp-more h2{padding-top:0}
+.lpi-more .lpi-checks--div{margin-top:.75rem}
+
