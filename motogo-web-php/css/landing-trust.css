@@ -1,0 +1,138 @@
+/* ===== MotoGo24 — Landing v2: důvody, recenze, „Jen u MotoGo24“, pobočky (landing-trust.php) ===== */
+.lp-reasons,.lp-reviews,.lp-hls,.lp-brs{margin:2rem 0}
+.lp-ico2{display:block;width:26px;height:26px}
+
+/* --- Důvody „Proč jezdit s námi“ — tmavý pás jako v kampani --- */
+.lp-reasons{position:relative;overflow:hidden;padding:2.1rem 0 1.6rem;color:#e8f5ee;background:radial-gradient(90% 60% at 100% 0,#24563b 0,transparent 70%),radial-gradient(70% 50% at 0 100%,#173f2a 0,transparent 70%),#0a1f14}
+.lp-main .lp-reasons h2{color:#fff;font-size:clamp(1.4rem,5.8vw,2.1rem);line-height:1.15;margin:0 0 .4rem;text-wrap:balance}
+.lp-reasons h2 em,.lp-reasons h2 strong{font-style:normal;color:#74fb71}
+.lp-reasons-lead{margin:0 0 1.1rem;color:#cfe7da;font-size:.92rem;line-height:1.45}
+.lp-reasons-list{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:0;padding:0;list-style:none;counter-reset:none}
+.lp-reason{position:relative;display:grid;grid-template-columns:36px 1fr;align-items:center;gap:.45rem .55rem;min-width:0;overflow:hidden;padding:.7rem .7rem .75rem;border-radius:16px;background:linear-gradient(160deg,rgba(116,251,113,.1),rgba(255,255,255,.03) 60%);box-shadow:inset 0 0 0 1px rgba(116,251,113,.22);transition:transform .2s,box-shadow .2s}
+.lp-reason-n{position:absolute;right:.35rem;bottom:-.3rem;font-size:2.6rem;font-weight:900;line-height:1;color:transparent;-webkit-text-stroke:1px rgba(116,251,113,.2);pointer-events:none}
+.lp-reason-ico{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;color:#08230f;background:linear-gradient(135deg,#8dff86,#37cf63);box-shadow:0 6px 16px -8px rgba(116,251,113,.8)}
+.lp-reason-ico .lp-ico2{width:22px;height:22px}
+.lp-reason-t{font-size:.9rem;font-weight:800;line-height:1.18;color:#fff;hyphens:auto;text-wrap:balance}
+.lp-reason-s{position:relative;grid-column:1/-1;font-size:.76rem;line-height:1.38;color:#b9d6c6;hyphens:auto}
+.lp-reason-s b,.lp-reason-s strong{color:#74fb71;font-weight:700}
+.lp-reason--wide{grid-column:1/-1}
+.lp-js .lp-reason--extra{display:none}
+.lp-reasons.is-open .lp-reason--extra{display:grid}
+.lp-reasons-more{display:flex;align-items:center;justify-content:center;gap:.4rem;width:100%;min-height:48px;margin:.9rem 0 0;padding:.6rem 1rem;border:2px solid #74fb71;border-radius:14px;background:rgba(116,251,113,.08);color:#fff;font:inherit;font-weight:800;font-size:.88rem;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;transition:background .2s}
+.lp-reasons-more::after{content:"";width:9px;height:9px;margin-top:-4px;border:solid #74fb71;border-width:0 2.5px 2.5px 0;transform:rotate(45deg);transition:transform .2s}
+.lp-reasons.is-open .lp-reasons-more::after{margin-top:4px;transform:rotate(-135deg)}
+.lp-reasons-more:hover{background:rgba(116,251,113,.18)}
+.lp-reasons :focus-visible{outline:3px solid #74fb71;outline-offset:3px}
+@media(max-width:340px){.lp-reasons-list{grid-template-columns:1fr}}
+@media(min-width:769px){
+  .lp-reasons{padding:3rem 0 2.6rem}
+  .lp-reasons-list{grid-template-columns:repeat(4,1fr);gap:1rem}
+  .lp-reason{grid-template-columns:48px 1fr;gap:.6rem .75rem;padding:1.1rem 1rem 1.15rem}
+  .lp-reason:hover{transform:translateY(-4px);box-shadow:inset 0 0 0 1px rgba(116,251,113,.6),0 14px 30px -14px rgba(116,251,113,.45)}
+  .lp-reason-t{font-size:1.05rem}
+  .lp-reason-s{font-size:.86rem}
+  .lp-reason-ico{width:48px;height:48px;border-radius:12px}
+  .lp-reason-ico .lp-ico2{width:26px;height:26px}
+  .lp-reasons-more{width:auto;margin:1.4rem auto 0;padding:.6rem 1.6rem}
+}
+
+/* --- Recenze: odznaky zdrojů + karusel karet --- */
+.lp-rbadges{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;margin:0 0 .4rem}
+.lp-rbadge{display:flex;flex-direction:column;align-items:center;gap:.2rem;min-width:0;padding:.6rem .35rem .55rem;border-radius:14px;background:#fff;color:#1a2e22;text-align:center;text-decoration:none;font-size:.74rem;line-height:1.2;box-shadow:0 0 0 1px #d4e8e0,0 6px 14px -10px rgba(26,46,34,.5)}
+a.lp-rbadge:hover{box-shadow:0 0 0 2px #37cf63,0 6px 14px -10px rgba(26,46,34,.5);color:#1a2e22}
+.lp-rbadge-src{font-weight:800;font-size:.8rem}
+.lp-rbadge-r{font-weight:900;font-size:1.35rem;line-height:1.1}
+.lp-rbadge .lp-rec{align-self:center}
+.lp-rbadge-c{color:#4a6b5a}
+.lp-stars{display:inline-flex;gap:2px}
+.lp-stars i{width:14px;height:14px;background:#d6dfda;-webkit-mask:var(--lp-star) center/contain no-repeat;mask:var(--lp-star) center/contain no-repeat}
+.lp-stars i.on{background:#ffb400}
+.lp-reviews,.lp-hls{--lp-star:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z'/%3E%3C/svg%3E")}
+.lp-track--reviews{grid-auto-columns:84%}
+.lp-review{display:flex;scroll-snap-align:start}
+.lp-review figure{display:flex;flex-direction:column;gap:.55rem;width:100%;margin:0;padding:1rem 1rem .95rem;border-radius:18px;background:#fff;box-shadow:0 0 0 1px #dbeae3,0 12px 26px -18px rgba(26,46,34,.55)}
+.lp-review figure::before{content:"\201C";height:1.6rem;margin:-.35rem 0 -.6rem;font:900 3.2rem/1 Georgia,serif;color:#74fb71}
+.lp-review blockquote{flex:1 1 auto;margin:0;padding:0;border:0;color:#1a2e22;font-size:.9rem;line-height:1.5;display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden}
+.lp-review figcaption{display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .5rem;padding-top:.55rem;border-top:1px solid #e3efe9;font-size:.8rem}
+.lp-review-a{font-weight:800;color:#1a2e22}
+.lp-review-m{color:#5d7b6b}
+.lp-review-tr{flex-basis:100%;color:#7c958a;font-size:.72rem;font-style:italic}
+.lp-track.lp-nudge .lp-review{animation:lpNudge 1.2s ease-in-out 2}
+@media(min-width:561px) and (max-width:768px){.lp-track--reviews{grid-auto-columns:46%}}
+@media(min-width:769px){.lp-track--reviews{grid-auto-columns:360px}.lp-rbadges{display:flex;gap:.8rem}.lp-rbadge{flex:0 0 170px;padding:.75rem .6rem}}
+
+/* --- „Jen u MotoGo24“ — tmavá karta, animované vizuály --- */
+.lp-hls-card{position:relative;overflow:hidden;padding:1.4rem 1rem 1rem;border-radius:22px;color:#e8f5ee;background:radial-gradient(120% 90% at 0 0,#24563b 0,#0e2a1c 50%,#0a1f14 100%);box-shadow:0 18px 40px -16px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.22)}
+.lp-main .lp-hls h2{color:#fff;font-size:clamp(1.3rem,5.4vw,1.9rem);line-height:1.2;text-wrap:balance}
+.lp-hls-grid{display:grid;gap:.7rem;margin:0;padding:0;list-style:none}
+.lp-hl{display:grid;grid-template-columns:84px 1fr;grid-template-rows:auto 1fr auto;column-gap:.85rem;align-items:start;padding:.85rem;border-radius:16px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(116,251,113,.16)}
+.lp-hl-vis{grid-row:1/4;display:grid;place-items:center;width:84px;height:84px;border-radius:18px;background:rgba(116,251,113,.08);color:#74fb71;position:relative;overflow:hidden}
+.lp-main .lp-hl h3{margin:0 0 .25rem;color:#fff;font-size:1rem;line-height:1.25}
+.lp-hl p{margin:0;color:#b9d6c6;font-size:.84rem;line-height:1.45}
+.lp-hl-link{display:inline-flex;align-items:center;gap:.3rem;margin-top:.45rem;color:#74fb71;font-weight:800;font-size:.84rem;text-decoration:none}
+.lp-hl-link .lp-ico{width:16px;height:16px}
+.lp-hl-link:hover{color:#a8ff9f}
+.lp-hl-vis--kiosk b{position:relative;z-index:1;font-size:1.35rem;font-weight:900;color:#74fb71}
+.lp-hl-ring{position:absolute;inset:14px;border-radius:50%;border:3px solid rgba(116,251,113,.25);border-top-color:#74fb71;animation:lpSpin 2.4s linear infinite}
+.lp-hl-vis--ai .lp-ico2{width:40px;height:40px;margin-top:18px}
+.lp-hl-bubble{position:absolute;top:10px;right:9px;display:flex;gap:3px;padding:5px 7px;border-radius:10px 10px 10px 2px;background:#74fb71}
+.lp-hl-bubble i{width:5px;height:5px;border-radius:50%;background:#08230f;animation:lpType 1.2s ease-in-out infinite}
+.lp-hl-bubble i:nth-child(2){animation-delay:.15s}.lp-hl-bubble i:nth-child(3){animation-delay:.3s}
+.lp-hl-vis--app svg{width:72px;height:auto;fill:#74fb71}
+.lp-hl-route{stroke-dasharray:180;stroke-dashoffset:180;animation:lpDraw 3.2s ease-in-out infinite}
+.lp-hl-vis--loyalty{display:flex;align-items:flex-end;justify-content:center;gap:6px;padding:16px 14px}
+.lp-hl-vis--loyalty span{flex:1;height:var(--h);border-radius:4px 4px 2px 2px;background:linear-gradient(180deg,#8dff86,#37cf63);transform-origin:bottom;animation:lpBar 2.8s ease-in-out infinite}
+.lp-hl-vis--loyalty span:nth-child(2){animation-delay:.15s}.lp-hl-vis--loyalty span:nth-child(3){animation-delay:.3s}.lp-hl-vis--loyalty span:nth-child(4){animation-delay:.45s}
+.lp-hls :focus-visible{outline:3px solid #74fb71;outline-offset:3px}
+@media(min-width:769px){
+  .lp-hls-card{padding:2.2rem 2rem 2rem}
+  .lp-hls-grid{grid-template-columns:repeat(2,1fr);gap:1rem}
+  .lp-hl{grid-template-columns:96px 1fr;padding:1.1rem}
+  .lp-hl-vis{width:96px;height:96px}
+}
+@media(min-width:1100px){
+  .lp-hls-grid{grid-template-columns:repeat(4,1fr)}
+  .lp-hl{grid-template-columns:1fr;grid-template-rows:auto;align-content:start;row-gap:.35rem}
+  .lp-hl-vis{grid-row:auto;margin-bottom:.45rem}
+  .lp-reasons-list{grid-template-columns:repeat(5,1fr)}
+}
+
+/* --- Pobočky s dojezdem --- */
+.lp-brs-grid{display:grid;gap:.9rem;margin:0;padding:0;list-style:none}
+.lp-br{overflow:hidden;border-radius:20px;background:#fff;box-shadow:0 0 0 1px #dbeae3,0 16px 30px -22px rgba(26,46,34,.6)}
+.lp-br-img{position:relative;aspect-ratio:16/9;overflow:hidden;background:#0e2a1c}
+.lp-br-img img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .5s}
+.lp-br:hover .lp-br-img img{transform:scale(1.04)}
+.lp-br-badge{position:absolute;left:.7rem;top:.7rem;padding:.3rem .65rem;border-radius:999px;background:#74fb71;color:#08230f;font-size:.72rem;font-weight:900;letter-spacing:.03em;text-transform:uppercase;box-shadow:0 4px 12px -4px rgba(0,0,0,.4)}
+.lp-br-body{padding:.95rem 1rem 1.05rem}
+.lp-main .lp-br h3{margin:0 0 .3rem;font-size:1.12rem;line-height:1.25;color:#1a2e22}
+.lp-br-body>p{margin:0;color:#4a6b5a;font-size:.88rem;line-height:1.45}
+.lp-br-times{display:flex;flex-wrap:wrap;gap:.4rem;margin:.7rem 0 0;padding:0;list-style:none}
+.lp-br-times li{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .6rem .3rem .45rem;border-radius:999px;background:#eef8f2;color:#1a2e22;font-size:.8rem;font-weight:700}
+.lp-br-times .lp-ico2{width:16px;height:16px;color:#1f9a4a}
+.lp-br-cta{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem 1rem;margin-top:.9rem}
+.lp-br-cta .lp-btn{flex:1 1 auto;min-height:48px}
+.lp-br-more{display:inline-flex;align-items:center;gap:.3rem;color:#1a2e22;font-weight:800;font-size:.86rem;text-decoration:none}
+.lp-br-more .lp-ico{width:16px;height:16px}
+.lp-br :focus-visible{outline:3px solid #37cf63;outline-offset:3px}
+@media(min-width:769px){.lp-brs-grid{grid-template-columns:1fr 1fr;gap:1.2rem}.lp-br-cta .lp-btn{flex:0 0 auto;padding:.7rem 1.4rem}}
+
+@keyframes lpSpin{to{transform:rotate(360deg)}}
+@keyframes lpType{0%,60%,100%{transform:none;opacity:.5}30%{transform:translateY(-3px);opacity:1}}
+@keyframes lpDraw{0%{stroke-dashoffset:180}55%,80%{stroke-dashoffset:0}100%{stroke-dashoffset:-180}}
+@keyframes lpBar{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.6)}}
+@media(prefers-reduced-motion:reduce){
+  .lp-hl-ring,.lp-hl-bubble i,.lp-hl-route,.lp-hl-vis--loyalty span,.lp-track.lp-nudge .lp-review{animation:none}
+  .lp-hl-route{stroke-dashoffset:0}
+  .lp-reason,.lp-br-img img{transition:none}
+}
+.lp-rec{align-self:flex-start;display:inline-flex;align-items:center;gap:.3rem;padding:.15rem .55rem;border-radius:999px;background:#e7f0ff;color:#1b4fb8;font-size:.74rem;font-weight:800}
+.lp-rec::before{content:"";width:12px;height:12px;background:currentColor;-webkit-mask:var(--lp-thumb) center/contain no-repeat;mask:var(--lp-thumb) center/contain no-repeat}
+.lp-reviews{--lp-thumb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 10h4v11H2zM8 21h9.3a2 2 0 0 0 2-1.6l1.6-7.5A2 2 0 0 0 19 9.5h-5.2l.8-3.9a2 2 0 0 0-3.5-1.7L8 8.5z'/%3E%3C/svg%3E")}
+.lp-hl-stores{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
+.lp-hl-stores a{display:inline-flex;align-items:center;min-height:34px;padding:.2rem .7rem;border-radius:9px;background:#fff;color:#08230f;font-size:.76rem;font-weight:800;text-decoration:none}
+.lp-hl-stores a:hover{background:#74fb71;color:#08230f}
+.lp-rbadge .lp-rec{padding:.1rem .45rem;font-size:.64rem;white-space:nowrap}
+.lp-rbadge .lp-rec::before{width:10px;height:10px}
+.lp-reasons-note{margin:.8rem 0 0;color:#8fb3a1;font-size:.7rem;line-height:1.4}
+@media(min-width:769px){.lp-reasons-note{text-align:center;font-size:.76rem}}

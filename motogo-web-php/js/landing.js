@@ -1,5 +1,6 @@
-/* MotoGo24 — Landing v2 (viz landing.php): reveal animace, karusel motorek,
-   sticky CTA lišta na mobilu, sbalitelný SEO text. Bez závislostí. */
+/* MotoGo24 — Landing v2 (viz landing.php): reveal animace, karusely (motorky,
+   recenze s autoposunem), rozbalení výhod, sticky CTA lišta na mobilu, sbalitelný
+   SEO text. Bez závislostí. */
 (function () {
   var d = document, b = d.body;
   d.documentElement.classList.add('lp-js');
@@ -35,7 +36,7 @@
       if (next) next.disabled = tr.scrollLeft > max - 8;
     }
     function step(dir) {
-      var card = tr.querySelector('.lp-moto');
+      var card = tr.firstElementChild;
       var dx = card ? card.getBoundingClientRect().width + 16 : tr.clientWidth * 0.8;
       tr.scrollBy({ left: dir * dx * (window.innerWidth >= 1100 ? 3 : 2), behavior: rm ? 'auto' : 'smooth' });
     }
@@ -57,6 +58,46 @@
       ho.observe(tr);
       tr.addEventListener('pointerdown', function () { tr.classList.remove('lp-nudge'); }, { passive: true });
     }
+    // Recenze: pomalý automatický posun, jen když je karusel vidět a uživatel se ho nedotkl
+    if (tr.hasAttribute('data-lp-autoplay') && IO && !rm) {
+      var stop = false, vis = false, tm = 0;
+      var tick = function () {
+        if (stop || !vis || d.hidden) return;
+        var max = tr.scrollWidth - tr.clientWidth;
+        var card = tr.firstElementChild;
+        var dx = card ? card.getBoundingClientRect().width + 12 : tr.clientWidth * 0.8;
+        tr.scrollTo({ left: tr.scrollLeft >= max - 8 ? 0 : tr.scrollLeft + dx, behavior: 'smooth' });
+      };
+      new IntersectionObserver(function (es) {
+        vis = es[0].isIntersecting;
+        clearInterval(tm);
+        if (vis && !stop) tm = setInterval(tick, 5000);
+      }, { threshold: 0.5 }).observe(tr);
+      ['pointerdown', 'wheel', 'touchstart', 'focusin', 'keydown'].forEach(function (ev) {
+        tr.addEventListener(ev, function () { stop = true; clearInterval(tm); }, { passive: true });
+      });
+      each('.lp-nav', function (n) { n.addEventListener('click', function () { stop = true; clearInterval(tm); }); }, wrap);
+    }
+  });
+
+  // 2b) Důvody „Proč jezdit s námi“ — dalších N výhod po rozbalení (bez JS vidět vše)
+  each('[data-lp-reasons]', function (btn) {
+    var sec = btn.closest('.lp-reasons');
+    if (!sec) return;
+    btn.hidden = false;
+    btn.addEventListener('click', function () {
+      var open = !sec.classList.contains('is-open');
+      sec.classList.toggle('is-open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.textContent = btn.getAttribute(open ? 'data-close' : 'data-open');
+      if (open) {
+        var first = sec.querySelector('.lp-reason--extra');
+        each('.lp-reason--extra', function (el) { el.classList.add('is-in'); }, sec);
+        if (first) { first.setAttribute('tabindex', '-1'); first.focus({ preventScroll: true }); }
+      } else if (sec.getBoundingClientRect().top < 0) {
+        sec.scrollIntoView({ behavior: rm ? 'auto' : 'smooth' });
+      }
+    });
   });
 
   // 3) Sticky CTA lišta — po odscrollování tlačítek akčního panelu; skrytá, když je

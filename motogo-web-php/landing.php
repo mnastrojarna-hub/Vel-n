@@ -4,14 +4,14 @@
 // tlačítek → akční panel (H1 + 2 CTA + USP chipy) → swipe karusel motorek →
 // USP dlaždice → kroky → FAQ → CTA → … → SEO text sbalený dole.
 // Zapíná se per jazyk (LANDING_V2_LANGS) — nejdřív jen ES na schválení,
-// pak rozšířit o další jazyky (= doplnit 'pages.landing' do lang/pages_<lang>.php).
+// pak rozšířit o další jazyky (= přidat lang/v2/<lang>/landing.php).
 // ?landing=v2 / ?landing=v1 = náhled/vypnutí (v2 jen v jazyce s překladem
 // landing textů nebo v CS; page cache má query v klíči, canonical se nemění).
 // Texty: siteContent('landing') — CS defaulty v lpDefaults(), překlady
-// lang/pages_<lang>.php ('pages.landing'), Velín CMS klíče web.landing.*.
-// POZOR: blok 'landing' NEDÁVAT do lang/pages_cs.php, dokud se nerozhodne
-// o auto-překladu — „Přeložit vše naráz“ by jinak ruční ES texty přepsal.
-// Render sekcí je v landing-sections.php.
+// lang/v2/<lang>/landing.php ('pages.landing' — mimo pages_<lang>.php, aby je
+// auto-překlad nepřepsal), Velín CMS klíče web.landing.*. Blok 'landing' NEDÁVAT
+// do lang/pages_cs.php. Render sekcí: landing-sections.php, landing-trust.php
+// (důvody, recenze, „jen u nás“, pobočky — defaulty data/landing-trust.php).
 
 const LANDING_V2_LANGS = ['es'];
 
@@ -27,7 +27,7 @@ function landingV2Enabled() {
 
 /** Assety v2 pro renderPage() meta. */
 function lpPageMeta() {
-    return ['styles' => ['/css/landing.css'], 'scripts' => ['/js/landing.js'], 'body_class' => 'lp-v2'];
+    return ['styles' => ['/css/landing.css', '/css/landing-trust.css'], 'scripts' => ['/js/landing.js'], 'body_class' => 'lp-v2'];
 }
 
 /** CS defaulty textů v2. */
@@ -62,7 +62,7 @@ function lpDefaults() {
             'season_note' => '',
             // Volitelná náhrada CTA pásu (prázdný title = CTA z CMS stránky)
             'cta' => ['title' => '', 'text' => '', 'buttons' => []],
-        ],
+        ] + lpTrustDefaults(),
         'home' => $cta + [
             // Krátký H1 do panelu (prázdné = H1 z web.home.h1; vyplněné → dlouhé H1 jde do H2 sekce „O nás“)
             'h1' => '',
@@ -187,6 +187,9 @@ function lpIcon($name) {
 }
 
 require_once __DIR__ . '/landing-sections.php';
+require_once __DIR__ . '/landing-trust.php';
+require_once __DIR__ . '/data/landing-trust.php';
+require_once __DIR__ . '/data/reviews.php';
 
 /** CTA pás: vlastní z landing textů (vyplněný title), jinak CMS stránky. Vrací [cta, keyBase]. */
 function lpCta($T, $cmsCta, $cmsKeyBase) {
