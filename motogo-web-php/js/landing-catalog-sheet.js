@@ -30,7 +30,10 @@
       if (e.shiftKey && (d.activeElement === a || !cur.contains(d.activeElement))) { e.preventDefault(); z.focus(); }
       else if (!e.shiftKey && (d.activeElement === z || !cur.contains(d.activeElement))) { e.preventDefault(); a.focus(); }
     });
-    // Desktop: klik mimo panel i lištu zavře (scrim je průhledný)
+    // Desktop (nemodální): klik mimo zavře přes průhledný scrim, odchod fokusu z panelu taky
+    d.addEventListener('focusin', function (e) {
+      if (cur && F.isDesk() && !cur.contains(e.target) && e.target !== opener) F.closeSheet(true);
+    });
     if (mq && mq.addEventListener) mq.addEventListener('change', function () { if (cur) F.closeSheet(true); });
   };
   F.openSheet = function (el, btn) {

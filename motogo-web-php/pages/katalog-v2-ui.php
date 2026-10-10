@@ -22,7 +22,7 @@ function kfChip($type, $name, $val, $label, $on) {
 }
 
 /** Dvojitý posuvník (třídy range-* z main.css). $r = [min, max, boundMin, boundMax]. */
-function kfRange($key, $title, $names, $r, $step, $fmt, $aria, $maxLabel = '') {
+function kfRange($key, $title, $names, $r, $step, $fmt, $aria) {
     $span = max(1, $r[3] - $r[2]);
     $l = round(($r[0] - $r[2]) / $span * 100, 2);
     $rt = round(100 - ($r[1] - $r[2]) / $span * 100, 2);
@@ -30,7 +30,7 @@ function kfRange($key, $title, $names, $r, $step, $fmt, $aria, $maxLabel = '') {
         return '<input type="range" name="' . $names[$i] . '" class="range-input range-input-' . $cls . '" min="' . $r[2] . '" max="' . $r[3] . '" step="' . $step . '" value="' . $r[$i] . '" aria-label="' . he($aria[$i]) . '">';
     };
     return '<div class="kf-sec kf-range" data-kf-range="' . $key . '"><div class="range-header"><span class="range-title">' . he($title) . '</span>' .
-        '<span class="range-value" data-kf-rv>' . he($fmt($r[0]) . ' – ' . ($maxLabel !== '' && $r[1] >= $r[3] ? $maxLabel : $fmt($r[1]))) . '</span></div>' .
+        '<span class="range-value" data-kf-rv>' . he($fmt($r[0]) . ' – ' . $fmt($r[1])) . '</span></div>' .
         '<div class="range-slider"><div class="range-track"></div><div class="range-fill" style="left:' . $l . '%;right:' . $rt . '%"></div>' . $in(0, 'min') . $in(1, 'max') . '</div>' .
         '<div class="range-bounds"><span>' . he($fmt($r[2])) . '</span><span>' . he($fmt($r[3])) . '</span></div></div>';
 }
@@ -127,7 +127,7 @@ function renderKatalogV2($sb, $o) {
         '<input type="search" id="kf-q" name="q" value="' . he($o['q']) . '" placeholder="' . te('filters.searchPlaceholder') . '" enterkeyhint="search"></div>' .
         '<fieldset class="kf-sec"><legend>' . te('filters.license') . '</legend><div class="kf-chips">' . $lic . '</div></fieldset>' . $brs .
         kfRange('pr', $T['f_price'], ['cena_min', 'cena_max'], $o['pr'], 100, 'kfMoney', [t('filters.price.aria.min'), t('filters.price.aria.max')]) .
-        kfRange('kw', t('filters.power'), ['kw_min', 'kw_max'], $o['kw'], 1, $kwFmt, [t('filters.power.aria.min'), t('filters.power.aria.max')], t('filters.rangeMax')) .
+        kfRange('kw', t('filters.power'), ['kw_min', 'kw_max'], $o['kw'], 1, $kwFmt, [t('filters.power.aria.min'), t('filters.power.aria.max')]) .
         '<fieldset class="kf-sec"><legend>' . he($T['f_more']) . '</legend><div class="kf-chips">' .
             kfChip('checkbox', 'abs', '1', t('filters.absOnly'), $o['abs']) . kfChip('checkbox', 'jezdci', '2', t('filters.ridersTwo'), $o['riders'] === 2) . '</div></fieldset>' .
         '<fieldset class="kf-sec"><legend>' . te('filters.sort') . '</legend><div class="kf-chips">' . $sort . '</div></fieldset>' .
@@ -147,7 +147,7 @@ function renderKatalogV2($sb, $o) {
         's' => ['cat' => $active, 'lic' => strtoupper($o['lic']), 'br' => $o['branch'], 'kw' => [$o['kw'][0], $o['kw'][1]], 'pr' => [$o['pr'][0], $o['pr'][1]],
             'abs' => $o['abs'], 'two' => $o['riders'] === 2, 'q' => $o['q'], 'sort' => $o['sort']],
         'br' => (object)array_map(function ($n) { return trim(preg_replace('/^MotoGo24\s*/i', '', $n)) ?: $n; }, $o['branches']),
-        't' => $T + ['absOnly' => t('filters.absOnly'), 'ridersTwo' => t('filters.ridersTwo'), 'power' => t('filters.power'), 'max' => t('filters.rangeMax'), 'empty' => t('filters.empty')],
+        't' => $T + ['absOnly' => t('filters.absOnly'), 'ridersTwo' => t('filters.ridersTwo'), 'power' => t('filters.power'), 'empty' => t('filters.empty')],
     ];
     return '<script>document.documentElement.classList.add("kf-js")</script>' .
         '<div class="kf" data-kf>' . $bar . '<nav class="kf-cats" aria-label="' . te('filters.category') . '">' . $cats . '</nav>' .

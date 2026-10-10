@@ -23,7 +23,7 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   function plural(n) { return tpl(n === 1 ? T.f_count_one : (n >= 2 && n <= 4 ? T.f_count_few : T.f_count_many), { n: n }); }
   function money0(v) { return K.money ? K.money(cur, v, 0) : Math.round(v) + ' Kč'; }
-  function fmtR(k, a, b) { return k === 'kw' ? a + ' – ' + (b >= B.kw[1] ? T.max : b) + ' kW' : money0(a) + ' – ' + money0(b); }
+  function fmtR(k, a, b) { return k === 'kw' ? a + ' – ' + b + ' kW' : money0(a) + ' – ' + money0(b); }
   function moved(k) { return S[k][0] > B[k][0] || S[k][1] < B[k][1]; }
 
   // --- Predikáty (zrcadlo PHP filtru) ---
