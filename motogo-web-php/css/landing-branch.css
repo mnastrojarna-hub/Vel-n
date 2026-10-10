@@ -1,0 +1,133 @@
+/* ===== MotoGo24 — Landing v2: pobočky (přehled + detail) — viz pages/pobocky-v2-lib.php =====
+   Sdílené: ikony, odznak, hero, statistiky, fakta, info karty, video, mapa, druhá pobočka.
+   Přehled (karty poboček, srovnání): css/landing-branch-list.css; průvodce, výbava a galerie:
+   css/landing-branch-guide.css (detail). */
+
+.pb-ico{flex:0 0 auto;width:20px;height:20px}
+.pb-main section{scroll-margin-top:80px}
+.pb-main :focus-visible{outline:3px solid #0d6e0d;outline-offset:3px}
+.pb-hero-card :focus-visible,.pb-guide-card :focus-visible,.pb-map-card :focus-visible,.pb-video-card :focus-visible,.pb-card--self :focus-visible{outline-color:#74fb71}
+
+/* --- Odznak pobočky --- */
+.pb-badge{display:inline-flex;align-items:center;gap:.35rem;align-self:flex-start;padding:.32rem .7rem .32rem .5rem;border-radius:999px;background:rgba(10,31,20,.84);border:1px solid rgba(116,251,113,.45);color:#fff;font-size:.7rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;line-height:1.2;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.pb-badge .pb-ico{width:15px;height:15px;color:#74fb71}
+.pb-badge--self{background:#74fb71;border-color:#74fb71;color:#08230f;box-shadow:0 0 0 0 rgba(116,251,113,.6);animation:lpDot 2.4s infinite}
+.pb-badge--self .pb-ico{color:#08230f}
+
+/* --- Hero detailu --- */
+.pb-hero{margin:.25rem 0 0}
+.pb-hero-card{position:relative;overflow:hidden;border-radius:22px;color:#e8f5ee;background:radial-gradient(120% 140% at 100% 0,#24563b 0,#0e2a1c 55%,#0a1f14 100%);box-shadow:0 18px 40px -14px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.25)}
+.pb-hero-card::before{content:"";position:absolute;left:0;right:0;top:0;z-index:3;height:3px;background:linear-gradient(90deg,transparent,#74fb71,transparent);animation:lpScan 3.6s linear infinite}
+.pb-hero-media{position:relative;aspect-ratio:16/10;overflow:hidden;background:#13301f}
+.pb-hero-media img{width:100%;height:100%;object-fit:cover;transform-origin:60% 50%;animation:pbKen 16s ease-in-out infinite alternate}
+.pb-hero-media::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,31,20,.15) 0,rgba(14,42,28,0) 35%,#0e2a1c 100%);pointer-events:none}
+.pb-hero-media .pb-badge{position:absolute;left:.8rem;top:.8rem;z-index:2}
+.pb-hero-play{position:absolute;right:.8rem;top:.75rem;z-index:2;display:inline-flex;align-items:center;gap:.4rem;min-height:40px;padding:.3rem .85rem .3rem .3rem;border-radius:999px;background:rgba(255,255,255,.94);color:#0e2a1c;font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.pb-hero-play:hover{color:#0e2a1c;background:#fff}
+.pb-hero-play .pb-ico{width:30px;height:30px;padding:7px;border-radius:50%;background:#74fb71;color:#08230f;animation:lpDot 1.8s infinite}
+.pb-hero-body{position:relative;z-index:2;display:flex;flex-direction:column;gap:.8rem;margin-top:-2.4rem;padding:0 1.05rem 1.15rem}
+.lp-v2 .pb-hero h1{margin:0;color:#fff;font-size:clamp(1.5rem,6.6vw,2.4rem);line-height:1.12;text-wrap:balance;text-shadow:0 2px 14px rgba(0,0,0,.5)}
+.pb-hl{display:flex;align-items:flex-start;gap:.4rem;margin:0;color:#a8ff9f;font-size:.95rem;font-weight:800;line-height:1.3}
+.pb-hl .pb-ico{width:18px;height:18px;margin-top:1px;color:#74fb71}
+.pb-addr{display:inline-flex;align-items:center;gap:.4rem;align-self:flex-start;min-height:42px;padding:.3rem .8rem .3rem .5rem;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(116,251,113,.28);color:#e8f5ee;font-size:.86rem;font-weight:600;transition:background .2s}
+.pb-addr:hover{color:#fff;background:rgba(116,251,113,.16)}
+.pb-addr .pb-ico{width:18px;height:18px;color:#74fb71}
+.pb-addr span{text-decoration:underline dotted rgba(116,251,113,.7);text-underline-offset:3px}
+.pb-hero .lp-cta-row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.pb-hero .lp-btn{font-size:.82rem;letter-spacing:.01em}
+
+/* --- Statistiky + fakta --- */
+.pb-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin:0;padding:0;list-style:none}
+.pb-stat{display:flex;flex-direction:column;justify-content:center;gap:.15rem;min-width:0;padding:.6rem .7rem;border-radius:14px;background:rgba(116,251,113,.08);border:1px solid rgba(116,251,113,.22)}
+.pb-stat-v{font-size:1.45rem;font-weight:900;line-height:1.05;letter-spacing:-.01em;color:#74fb71;white-space:nowrap}
+.pb-stat-l{font-size:.74rem;line-height:1.25;color:#cfe7da}
+.pb-facts{display:flex;flex-wrap:wrap;gap:.35rem;margin:0;padding:0;list-style:none}
+.pb-facts li{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .65rem .3rem .45rem;border-radius:999px;background:rgba(116,251,113,.1);border:1px solid rgba(116,251,113,.3);color:#e8f5ee;font-size:.76rem;font-weight:700;line-height:1.25}
+.pb-facts .pb-ico{width:16px;height:16px;color:#74fb71}
+@media(max-width:519px){
+  .pb-hero .lp-cta-row{grid-template-columns:1fr}
+  .pb-hero .lp-btn{min-height:50px;font-size:.86rem}
+  .pb-hero-play{padding:.3rem}
+  .pb-hero-play span{display:none}
+}
+@media(max-width:340px){.pb-stat-v{font-size:1.2rem}}
+
+/* --- Info karty (o pobočce + provozní doba) --- */
+.pb-info,.pb-video,.pb-map,.pb-cards,.pb-cmp,.pb-other{margin:2rem 0}
+.pb-info{margin-top:1.25rem}
+.pb-info-grid{display:grid;gap:.8rem}
+.pb-info-card{padding:1.2rem 1.1rem 1.15rem;border-radius:18px;background:linear-gradient(180deg,#f3fbf7,#e6f5ee);border:1px solid #d4e8e0}
+.pb-info-ico{display:grid;place-items:center;width:44px;height:44px;margin-bottom:.6rem;border-radius:12px;background:#1a2e22;color:#74fb71}
+.lp-main .pb-info-card h2{margin:0 0 .4rem;font-size:1.12rem}
+.pb-info-card p{margin:0;font-size:.92rem;line-height:1.6;color:#2c4a3a}
+.pb-info-card--dark{background:radial-gradient(130% 120% at 0 0,#24563b,#0e2a1c 62%);border-color:#2a5a3e}
+.lp-main .pb-info-card--dark h2,.pb-info-card--dark p strong{color:#fff}
+.pb-info-card--dark p{color:#cfe7da}
+.pb-info-card--dark .pb-info-ico{background:#74fb71;color:#08230f}
+
+/* --- Video --- */
+.pb-video-card{padding:1rem;border-radius:20px;background:#0a1f14;box-shadow:0 18px 40px -16px rgba(10,31,20,.6)}
+.lp-main .pb-video-card h2{display:flex;align-items:center;gap:.6rem;margin:0 0 .85rem;color:#fff;font-size:1.05rem;line-height:1.3}
+.pb-video-ico{flex:0 0 auto;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#74fb71;color:#08230f}
+.pb-video-ico .pb-ico{width:16px;height:16px}
+.pb-video-txt p{margin:-.35rem 0 .85rem;font-size:.88rem;line-height:1.5;color:#cfe7da}
+.pb-video-frame{overflow:hidden;border-radius:14px;background:#000}
+.pb-video-frame video{display:block;width:100%;max-height:min(72vh,680px);background:#000}
+.pb-video-frame iframe{display:block;width:100%;aspect-ratio:16/9;border:0}
+
+/* --- Mapa --- */
+.pb-map-card{display:grid;overflow:hidden;border-radius:20px;color:#e8f5ee;background:radial-gradient(130% 120% at 0 0,#24563b,#0e2a1c 60%)}
+.pb-map-info{display:flex;flex-direction:column;gap:.75rem;padding:1.3rem 1.1rem}
+.lp-main .pb-map h2{margin:0;color:#fff}
+.pb-map-addr{display:flex;align-items:flex-start;gap:.4rem;margin:0;font-weight:700}
+.pb-map-addr .pb-ico,.pb-dist .pb-ico{color:#74fb71}
+.pb-dist{display:flex;flex-wrap:wrap;gap:.4rem;margin:0;padding:0;list-style:none}
+.pb-dist li{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .7rem .35rem .5rem;border-radius:999px;background:rgba(116,251,113,.12);border:1px solid rgba(116,251,113,.35);font-size:.8rem;font-weight:700}
+.pb-map-btn{align-self:flex-start;min-height:48px}
+.pb-map-btn .pb-ico{width:18px;height:18px}
+.pb-map-frame{min-height:260px;background:#13301f}
+.pb-map-frame iframe{display:block;width:100%;height:100%;min-height:260px;border:0}
+
+
+/* --- Druhá pobočka --- */
+.lp-main .pb-other h2{font-size:1.15rem}
+.pb-other-card{display:grid;grid-template-columns:104px 1fr auto;align-items:center;gap:.85rem;padding:.6rem .8rem .6rem .6rem;border-radius:18px;background:#fff;border:1px solid #d4e8e0;color:#1a2e22;box-shadow:0 10px 26px -16px rgba(26,46,34,.45);transition:transform .2s,box-shadow .2s}
+.pb-other-card:hover{color:#1a2e22;transform:translateY(-3px);box-shadow:0 16px 32px -16px rgba(26,46,34,.5)}
+.pb-other-card img{width:104px;height:80px;border-radius:12px;object-fit:cover}
+.pb-other-body{display:flex;flex-direction:column;align-items:flex-start;gap:.3rem;min-width:0}
+.pb-other-body .pb-badge{font-size:.6rem}
+.pb-other-t{font-size:1rem;font-weight:800;line-height:1.25}
+.pb-other-hl{font-size:.8rem;line-height:1.3;color:#4a6b5a}
+.pb-other-go .lp-ico{width:42px;height:42px;padding:11px;border-radius:50%;background:#1a2e22;color:#74fb71;transition:transform .2s}
+.pb-other-card:hover .pb-other-go .lp-ico{transform:translateX(3px)}
+
+/* --- Desktop --- */
+@media(min-width:769px){
+  .pb-info-grid{grid-template-columns:1.35fr 1fr;gap:1rem}
+  .pb-info-card{padding:1.6rem 1.6rem 1.5rem}
+  .pb-map-card{grid-template-columns:1fr 1.5fr}
+  .pb-map-info{justify-content:center;padding:2rem}
+  .pb-map-frame,.pb-map-frame iframe{min-height:360px}
+  .pb-other-card{grid-template-columns:150px 1fr auto;max-width:720px}
+  .pb-other-card img{width:150px;height:100px}
+}
+@media(min-width:900px){
+  .pb-hero-card{display:grid;grid-template-columns:1.08fr 1fr;min-height:470px}
+  .pb-hero-media{order:2;aspect-ratio:auto}
+  .pb-hero-media::after{background:linear-gradient(90deg,#0e2a1c 0,rgba(14,42,28,0) 30%)}
+  .pb-hero-body{order:1;justify-content:center;gap:1rem;margin:0;padding:2.4rem 2rem 2.4rem 2.4rem}
+  .pb-hero .pb-stats{grid-template-columns:repeat(4,1fr)}
+  .pb-hero .lp-btn{font-size:.92rem}
+  .pb-video-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);align-items:center;gap:1.75rem;padding:1.5rem}
+  .lp-main .pb-video-card h2{flex-direction:column;align-items:flex-start;gap:.9rem;font-size:1.45rem}
+  .pb-video-ico{width:56px;height:56px}
+  .pb-video-ico .pb-ico{width:22px;height:22px}
+  .pb-video-txt p{margin:0;font-size:.95rem}
+}
+
+@keyframes pbKen{0%{transform:scale(1.03)}100%{transform:scale(1.12) translate(-1.5%,-1%)}}
+@media(prefers-reduced-motion:reduce){
+  .pb-hero-media img,.pb-hero-card::before,.pb-hero-play .pb-ico,.pb-badge--self{animation:none}
+  .pb-other-card,.pb-addr{transition:none}
+  .pb-other-card:hover{transform:none}
+}

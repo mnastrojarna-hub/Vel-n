@@ -7,6 +7,7 @@
 // + fotogalerie (fotky z kódu, data/pobocky.php `gallery`).
 
 require_once __DIR__ . '/../data/pobocky.php';
+require_once __DIR__ . '/../landing.php';
 $sb = new SupabaseClient();
 $defaults = pobockyDefaults();
 $C = $sb->siteContent('pobocky', $defaults);
@@ -58,7 +59,11 @@ $content = pobockyCss() . '<main id="content"><div class="container">' . $bc
     . '<p>&nbsp;</p><p><a href="' . BASE_URL . '/pobocky" data-cms-key="web.pobocky.back_link">' . sanitizeHtml((string)($C['back_link'] ?? $defaults['back_link'])) . '</a></p>'
     . '</div></div></main>';
 
-renderPage(strip_tags((string)$b['seo_title']), $content, $path, [
+// Landing v2 (viz landing.php): nový vizuál detailu s průvodcem — pages/pobocka-detail-v2.php
+$lpV2 = landingV2Enabled();
+if ($lpV2) $content = require __DIR__ . '/pobocka-detail-v2.php';
+
+renderPage(strip_tags((string)$b['seo_title']), $content, $path, ($lpV2 ? pbV2Meta() : []) + [
     'description' => strip_tags((string)$b['seo_description']),
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],

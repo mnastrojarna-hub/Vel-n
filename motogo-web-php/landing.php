@@ -4,14 +4,14 @@
 // tlačítek → akční panel (H1 + 2 CTA + USP chipy) → swipe karusel motorek →
 // USP dlaždice → kroky → FAQ → CTA → … → SEO text sbalený dole.
 // Zapíná se per jazyk (LANDING_V2_LANGS) — nejdřív jen ES na schválení,
-// pak rozšířit o další jazyky (= doplnit 'pages.landing' do lang/pages_<lang>.php).
+// pak rozšířit o další jazyky (= přidat lang/v2/<lang>/landing.php).
 // ?landing=v2 / ?landing=v1 = náhled/vypnutí (v2 jen v jazyce s překladem
 // landing textů nebo v CS; page cache má query v klíči, canonical se nemění).
 // Texty: siteContent('landing') — CS defaulty v lpDefaults(), překlady
-// lang/pages_<lang>.php ('pages.landing'), Velín CMS klíče web.landing.*.
-// POZOR: blok 'landing' NEDÁVAT do lang/pages_cs.php, dokud se nerozhodne
-// o auto-překladu — „Přeložit vše naráz“ by jinak ruční ES texty přepsal.
-// Render sekcí je v landing-sections.php.
+// lang/v2/<lang>/landing.php ('pages.landing' — mimo pages_<lang>.php, aby je
+// auto-překlad nepřepsal), Velín CMS klíče web.landing.*. Blok 'landing' NEDÁVAT
+// do lang/pages_cs.php. Render sekcí: landing-sections.php, landing-trust.php
+// (důvody, recenze, „jen u nás“, pobočky — defaulty data/landing-trust.php).
 
 const LANDING_V2_LANGS = ['es'];
 
@@ -21,13 +21,31 @@ function landingV2Enabled() {
     $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
     $q = isset($_GET['landing']) ? (string)$_GET['landing'] : '';
     if ($q === 'v1') return $on = false;
-    if ($q === 'v2') return $on = ($lang === 'cs' || is_array(t('pages.landing')));
-    return $on = in_array($lang, LANDING_V2_LANGS, true);
+    if ($q === 'v2') return $on = landingV2TextsReady($lang);
+    return $on = in_array($lang, LANDING_V2_LANGS, true) && landingV2TextsReady($lang);
+}
+
+/**
+ * v2 jen tam, kde má jazyk texty všech bloků stránky (lang/v2/<lang>/*.php) — jinak
+ * zůstane přeložená v1 (nikdy české texty na cizí stránce). Stránka = kanonická
+ * cesta z routeru ($path v index.php). CS má defaulty v kódu.
+ */
+function landingV2TextsReady($lang) {
+    if ($lang === 'cs') return true;
+    $p = (string)($GLOBALS['path'] ?? '/');
+    $need = ['landing', 'reviews'];
+    if (strpos($p, '/katalog') === 0) $need[] = 'katalog';
+    elseif (strpos($p, '/pobocky') === 0) array_push($need, 'pobocky', 'pobocky-v2');
+    elseif (strpos($p, '/jak-pujcit') === 0 || $p === '/kontakt') $need[] = 'info';
+    foreach ($need as $f) {
+        if (!is_file(__DIR__ . '/lang/v2/' . basename($lang) . '/' . $f . '.php')) return false;
+    }
+    return true;
 }
 
 /** Assety v2 pro renderPage() meta. */
 function lpPageMeta() {
-    return ['styles' => ['/css/landing.css'], 'scripts' => ['/js/landing.js'], 'body_class' => 'lp-v2'];
+    return ['styles' => ['/css/landing.css', '/css/landing-trust.css', '/css/landing-routes.css'], 'scripts' => ['/js/landing.js'], 'body_class' => 'lp-v2'];
 }
 
 /** CS defaulty textů v2. */
@@ -62,7 +80,7 @@ function lpDefaults() {
             'season_note' => '',
             // Volitelná náhrada CTA pásu (prázdný title = CTA z CMS stránky)
             'cta' => ['title' => '', 'text' => '', 'buttons' => []],
-        ],
+        ] + lpTrustDefaults(),
         'home' => $cta + [
             // Krátký H1 do panelu (prázdné = H1 z web.home.h1; vyplněné → dlouhé H1 jde do H2 sekce „O nás“)
             'h1' => '',
@@ -187,6 +205,10 @@ function lpIcon($name) {
 }
 
 require_once __DIR__ . '/landing-sections.php';
+require_once __DIR__ . '/landing-trust.php';
+require_once __DIR__ . '/landing-routes.php';
+require_once __DIR__ . '/data/landing-trust.php';
+require_once __DIR__ . '/data/reviews.php';
 
 /** CTA pás: vlastní z landing textů (vyplněný title), jinak CMS stránky. Vrací [cta, keyBase]. */
 function lpCta($T, $cmsCta, $cmsKeyBase) {

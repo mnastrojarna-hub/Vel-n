@@ -1,0 +1,112 @@
+/* ===== MotoGo24 — Landing v2: informační stránky (Jak si půjčit, FAQ, Kontakt) — viz landing-info.php =====
+   Staví na css/landing.css (.lp-panel, .lp-btn, .lp-steps, .lp-cta-card, .lp-more, .lp-fleet). */
+
+/* --- Rozvržení --- */
+.lpi .ccontent{padding:.25rem 0 1.5rem}
+.lpi .lpi-body--end{padding-bottom:2.5rem}
+.lpi .ccontent section{margin-bottom:0}
+.lpi-body>section,.lpi-body>.lpi-block{margin:2rem 0}
+.lpi-body>section:first-child{margin-top:1.5rem}
+.lpi .lp-fleet{margin:1.5rem 0 2rem}
+.lpi-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* --- Nadpisy sekcí: neonová linka --- */
+.lpi-body h2{position:relative;margin:0 0 1rem;padding-top:.85rem;font-size:clamp(1.25rem,4.8vw,1.65rem);line-height:1.25;color:#1a2e22;text-wrap:balance}
+.lpi-body h2::before{content:"";position:absolute;left:0;top:0;width:44px;height:4px;border-radius:4px;background:linear-gradient(90deg,#74fb71,#37cf63)}
+.lpi-body .lp-cta-card h2{padding-top:1rem}
+.lpi-body .lp-cta-card h2::before{left:50%;transform:translateX(-50%)}
+.lpi-body .lp-steps-card h2{color:#fff}
+.lpi-sec>*+h2,.lpi-panel>*+h2{margin-top:1.75rem}
+/* Inline barvy/velikosti z CMS editoru nesmí rozbít tmavé karty a titulky kroků */
+.lpi-hero .lp-lead [style*="color"],.lp-cta-card [style*="color"],.lp-steps-card [style*="color"],.lpi-ai [style*="color"]{color:inherit!important}
+.lpi .lp-step-body h3 [style]{font-size:inherit!important;font-weight:inherit!important}
+
+/* --- Hero (doplněk k .lp-panel) --- */
+.lpi-hero .lp-lead{display:block;font-size:.93rem}
+.lpi-hero .lp-lead strong,.lpi-hero .lp-lead b{color:#fff}
+.lpi-hero .lp-lead a{color:#a8ff9f}
+.lpi-hero .lp-panel-bg{opacity:.5}
+@media(max-width:768px){.lp-js .lpi-lead.is-clamped{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}}
+.lp-js .lpi-cta-text.is-clamped{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.lpi-clamp-btn{display:inline-flex;align-items:center;min-height:36px;margin:.15rem 0 0;padding:0;border:0;background:none;color:#74fb71;font:inherit;font-size:.85rem;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+@media(min-width:900px){
+  .lpi-hero .lp-panel-bg{left:auto;width:62%;opacity:.8;-webkit-mask-image:linear-gradient(90deg,transparent,#000 55%);mask-image:linear-gradient(90deg,transparent,#000 55%)}
+  .lpi-hero .lp-lead{font-size:1rem;max-width:62ch}
+}
+
+/* --- Textové sekce a panely --- */
+.lpi-sec--text,.lpi-panel{padding:1.25rem 1.1rem;border-radius:20px;background:#fff;border:1px solid #d4e8e0;box-shadow:0 14px 34px -24px rgba(26,46,34,.55)}
+.lpi-sec p,.lpi-panel p,.lpi-faq>p{margin:0 0 .75rem;font-size:.95rem;line-height:1.65;color:#2c4a3a}
+.lpi-sec p:last-child,.lpi-panel p:last-child{margin-bottom:0}
+.lpi-panel h2{font-size:1.2rem}
+.lpi-panel h3,.lpi-panel h4{margin:.5rem 0 .4rem;color:#1a2e22}
+.lpi-cols{display:grid;gap:1rem}
+.lpi-sec iframe.map,.lpi-panel iframe.map{display:block;width:100%;height:300px;border:0;border-radius:16px}
+@media(min-width:900px){.lpi-cols{grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start}.lpi-sec--text,.lpi-panel{padding:1.75rem 2rem}}
+
+/* --- Seznamy s fajfkou --- */
+.lpi-checks{display:grid;gap:.5rem;margin:.6rem 0 1rem;padding:0;list-style:none}
+.lpi-checks>li,.lpi-checks--div>div{position:relative;padding-left:1.95rem;font-size:.93rem;line-height:1.5;color:#2c4a3a}
+.lpi-checks>li::before,.lpi-checks--div>div::before{content:"";position:absolute;left:0;top:.08rem;width:1.35rem;height:1.35rem;border-radius:50%;background:#1a2e22 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2374fb71' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/.85rem no-repeat}
+
+/* --- Tlačítka v obsahu --- */
+.lpi .lpi-btns{display:flex;flex-wrap:wrap;gap:.6rem;margin:1.1rem 0 1.5rem}
+.lpi .lpi-btns:last-child{margin-bottom:0}
+.lpi-sec--btns .lpi-btns{justify-content:center;margin:0}
+.lpi-btns .lp-btn{flex:1 1 100%}
+.lpi-btn-dark{background:#1a2e22;color:#74fb71;border:2px solid #1a2e22}
+.lpi-btn-dark:hover{background:#0d6e0d;border-color:#0d6e0d;color:#fff}
+.lpi-btn-line{background:#fff;color:#1a2e22;border:2px solid #1a2e22}
+.lpi-btn-line:hover{background:#1a2e22;color:#74fb71}
+.lpi-btn .lp-ico,.lpi-btn-dark .lp-ico,.lpi-btn-line .lp-ico{flex:0 0 auto}
+@media(min-width:600px){.lpi-btns .lp-btn{flex:0 0 auto;min-width:250px}}
+
+/* --- Ikonové karty (.wbox mřížky) --- */
+.lpi-cards{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin:0}
+.lpi-card{position:relative;display:flex;flex-direction:column;gap:.15rem;padding:1rem .9rem;border-radius:18px;background:#fff;border:1px solid #d4e8e0;box-shadow:0 12px 26px -20px rgba(26,46,34,.6);transition:transform .2s,box-shadow .2s,border-color .2s}
+.lpi-card:hover{transform:translateY(-3px);border-color:#74fb71;box-shadow:0 16px 30px -18px rgba(13,110,13,.5)}
+.lpi-card-ico{display:grid;place-items:center;width:52px;height:52px;margin:0 0 .55rem;border-radius:15px;background:radial-gradient(120% 120% at 20% 0,#2a6a45,#0e2a1c 70%);box-shadow:0 8px 18px -10px rgba(10,31,20,.8),inset 0 0 0 1px rgba(116,251,113,.3)}
+.lpi-card-ico img{width:32px;height:32px;filter:brightness(0) saturate(100%) invert(82%) sepia(36%) saturate(1500%) hue-rotate(64deg) brightness(106%) contrast(100%)}
+.lpi-card h3{margin:0 0 .2rem;font-size:.98rem;line-height:1.3;color:#1a2e22}
+.lpi-card p{margin:0;font-size:.84rem;line-height:1.45;color:#4a6b5a}
+.lpi-cards--rows{grid-template-columns:1fr}
+.lpi-cards--rows .lpi-card{display:grid;grid-template-columns:52px 1fr;column-gap:.9rem;align-items:start}
+.lpi-cards--rows .lpi-card-ico{grid-row:1/span 2;margin:0}
+.lpi-cards--rows .lpi-card h3{margin-top:.2rem}
+.lp-js .lpi-card.is-in .lpi-card-ico{animation:lpiPop .6s cubic-bezier(.3,1.6,.5,1) both;animation-delay:calc(var(--i,0)*70ms + .15s)}
+@media(min-width:769px){
+  .lpi-cards{grid-template-columns:repeat(3,1fr);gap:1rem}
+  .lpi-cards--rows{grid-template-columns:1fr 1fr}
+}
+@media(min-width:1100px){
+  .lpi-cards.lpi-c4{grid-template-columns:repeat(4,1fr)}
+  .lpi-cards.lpi-c5{grid-template-columns:repeat(5,1fr)}
+  .lpi-cards.lpi-c6{grid-template-columns:repeat(6,1fr)}
+  .lpi-cards--rows.lpi-c5{grid-template-columns:repeat(5,1fr)}
+  .lpi-cards--rows.lpi-c6{grid-template-columns:repeat(3,1fr)}
+  .lpi-cards--rows.lpi-c5 .lpi-card,.lpi-cards--rows.lpi-c6 .lpi-card{display:flex}
+  .lpi-cards--rows.lpi-c5 .lpi-card-ico,.lpi-cards--rows.lpi-c6 .lpi-card-ico{margin:0 0 .55rem}
+}
+
+/* --- Kroky (časová osa z landing.css) --- */
+.lpi .lp-steps-card{position:relative;overflow:hidden}
+.lpi .lp-steps-card::after{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(116,251,113,.18),transparent 70%);pointer-events:none}
+.lpi .lp-step-body img{width:34px;height:34px}
+.lpi .lp-steps-list .lp-step{align-content:start}
+.lpi .lp-step-body h3 p,.lpi .lp-step-body h3 span{margin:0}
+@media(min-width:900px){
+  .lpi-steps-list{row-gap:1.6rem}
+  .lpi-steps-list.lpi-c5{grid-template-columns:repeat(5,1fr);gap:1.6rem 1.25rem}
+  .lpi-steps-list.lpi-c5 .lp-step:nth-child(4n)::before{display:block}
+  .lpi-steps-list.lpi-c5 .lp-step::before{right:-1.25rem}
+  .lpi-steps-list.lpi-c5 .lp-step:nth-child(5n)::before,.lpi-steps-list .lp-step:last-child::before{display:none}
+}
+
+/* --- Animace --- */
+@keyframes lpiPop{0%{transform:scale(.6) rotate(-8deg);opacity:0}100%{transform:none;opacity:1}}
+@keyframes lpiFade{0%{opacity:0;transform:translateY(-4px)}100%{opacity:1;transform:none}}
+@keyframes lpiRing{0%{box-shadow:0 0 0 0 rgba(116,251,113,.55)}70%,100%{box-shadow:0 0 0 12px rgba(116,251,113,0)}}
+@media(prefers-reduced-motion:reduce){
+  .lpi-ai-ico,.lpi-cta .lp-cta-card::before,.lp-js .lpi-card.is-in .lpi-card-ico,.lpi .lpi-faq-item[open]>:not(summary){animation:none}
+  .lpi-card,.lpi-doc{transition:none}
+}

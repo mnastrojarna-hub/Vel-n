@@ -145,7 +145,11 @@ if (!empty($faqSchemaItems)) {
   </script>';
 }
 
-renderPage($C['seo']['title'], $content, $pagePath, [
+// Landing v2 (jen jazyky s v2, dnes ES): stejný obsah ve v2 vzhledu — viz landing-info.php
+require_once __DIR__ . '/../landing-info.php';
+[$content, $lpiMeta] = lpInfoPage($content, 'prevzeti', $sb);
+
+renderPage($C['seo']['title'], $content, $pagePath, $lpiMeta + [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'canonical' => 'https://www.motogo24.cz/jak-pujcit/prevzeti',

@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 
-// Spoluúčast (kauce) u zaviněné nehody / nezabezpečené krádeže — stejně jako
-// placené SOS flow v aplikaci (které bylo z aplikace zrušeno a žije už jen tady).
-const DEPOSIT = 30000
+// Bez kauce i u náhradní motorky (rozhodnutí majitele 2026-10-10, shodně s VOP 4d
+// „nevyžaduje složení vratné kauce“): u zaviněné nehody / nezabezpečené krádeže
+// zákazník platí jen nájem náhrady + přistavení, žádnou spoluúčast/kauci 30 000 Kč.
 
 // Strom incidentů — zrcadlí výběr v aplikaci (sos_report_screen.dart).
 //  flow: 'simple'            → jen založit incident
@@ -89,9 +89,8 @@ export default function NewIncidentModal({ onClose, onCreated }) {
   })()
   const dailyPrice = Number(moto?.price_weekday) || 0
   const motoTotal = dailyPrice * remainingDays
-  const depositVal = isFree ? 0 : DEPOSIT
   const feeVal = isFree ? 0 : (Number(deliveryFee) || 0)
-  const total = isFree ? 0 : (motoTotal + feeVal + depositVal)
+  const total = isFree ? 0 : (motoTotal + feeVal)
 
   // ── data ────────────────────────────────────────────────────────────
   async function searchCustomers(text) {
@@ -208,7 +207,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
         delivery_fee: feeVal,
         delivery_address: addr || null,
         delivery_city: city || null,
-        deposit: depositVal,
+        deposit: 0,
         payment_status: isFree ? 'free' : 'pending',
         payment_amount: total,
         customer_fault: !isFree,
@@ -423,7 +422,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
           <div>
             <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Co dál?</div>
             <div className="flex flex-col gap-2">
-              <ActionCard icon="🏍️" title={isFree ? 'Náhradní motorka — zdarma' : `Náhradní motorka — placená (${czk(DEPOSIT)} spoluúčast)`}
+              <ActionCard icon="🏍️" title={isFree ? 'Náhradní motorka — zdarma' : 'Náhradní motorka — placená (nájem + přistavení, bez kauce)'}
                 desc="Vybrat motorku, adresu přistavení a vyřešit platbu"
                 disabled={picked.flow === 'decision_accident' && fault === null || picked.flow === 'decision_theft' && secured === null}
                 onClick={async () => { setAction('replacement'); await loadMotos(); setScreen('replacement') }} />
@@ -501,7 +500,6 @@ export default function NewIncidentModal({ onClose, onCreated }) {
               <div style={{ color: '#b91c1c' }}>
                 <Row label={`🏍️ Nájem (${remainingDays} dní × ${czk(dailyPrice)})`} value={czk(motoTotal)} />
                 <Row label="🚛 Přistavení" value={czk(feeVal)} />
-                <Row label="🛡️ Spoluúčast (kauce)" value={czk(depositVal)} />
                 <div className="flex justify-between font-extrabold mt-1 pt-1" style={{ borderTop: '1px solid #fecaca' }}>
                   <span>Celkem k úhradě</span><span>{czk(total)}</span>
                 </div>

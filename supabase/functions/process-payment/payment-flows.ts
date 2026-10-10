@@ -245,9 +245,8 @@ export async function handleWebBookingCheckout(
  *
  *  Volá se z Velína (Nový incident / detail incidentu) přes
  *  `action: 'create_sos_payment_link'`. Zrcadlí placené SOS flow z aplikace:
- *  `amount` zahrnuje nájem náhrady + přistavení + spoluúčast (30 000 Kč).
- *  `bookings.total_price` ale ZŮSTÁVÁ jen nájem+přistavení (spoluúčast je vratná
- *  kauce, ne tržba) — shodné s tím, jak appka účtovala přes PaymentIntent.
+ *  `amount` = nájem náhrady + přistavení (od 2026-10-10 BEZ kauce/spoluúčasti
+ *  30 000 Kč — „bez kauce“ platí i u náhradní motorky, VOP 4d).
  *  Metadata `type:'sos'` → po zaplacení webhook-receiver zavolá `confirmSosPayment`
  *  a označí náhradní rezervaci jako `paid` (stejná cesta jako aplikace). */
 export async function handleSosPaymentLink(

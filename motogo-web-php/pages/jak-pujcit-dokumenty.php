@@ -184,7 +184,11 @@ $content = '<main id="content"><div class="container">' . $bc .
     $finalCtaSection .
     '</div></div></main>';
 
-renderPage($C['seo']['title'], $content, '/jak-pujcit/dokumenty', [
+// Landing v2 (jen jazyky s v2, dnes ES): stejný obsah ve v2 vzhledu — viz landing-info.php
+require_once __DIR__ . '/../landing-info.php';
+[$content, $lpiMeta] = lpInfoPage($content, 'dokumenty', $sb);
+
+renderPage($C['seo']['title'], $content, '/jak-pujcit/dokumenty', $lpiMeta + [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'breadcrumbs' => [

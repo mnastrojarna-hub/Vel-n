@@ -125,7 +125,11 @@ if (!empty($howToSteps)) {
 
 $combinedSchema = $faqSchema . $howToSchema;
 
-renderPage($C['seo']['title'], $content, '/jak-pujcit/postup', [
+// Landing v2 (jen jazyky s v2, dnes ES): stejný obsah ve v2 vzhledu — viz landing-info.php
+require_once __DIR__ . '/../landing-info.php';
+[$content, $lpiMeta] = lpInfoPage($content, 'postup', $sb);
+
+renderPage($C['seo']['title'], $content, '/jak-pujcit/postup', $lpiMeta + [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'schema' => $combinedSchema,

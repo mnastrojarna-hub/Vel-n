@@ -5,6 +5,10 @@
 $sb = new SupabaseClient();
 $motoId = $_GET['id'] ?? '';
 $motos = $sb->fetchMotos();
+// Landing v2 (viz landing.php): místo kalendáře dostupnosti kalkulačka ceny s předvybranou motorkou (pages/katalog-calc.php).
+require_once __DIR__ . '/../landing.php';
+$kcV2 = landingV2Enabled();
+if ($kcV2) require_once __DIR__ . '/katalog-calc.php';
 
 // Najdi motorku
 $moto = null;
@@ -316,7 +320,7 @@ foreach ($days as $i => $day) {
     if ($p) $priceRows[] = [$day, formatPrice($p)];
 }
 
-$pricesHtml = '<section class="moto-prices gr2"><div><h2>' . te('detail.priceTitle') . '</h2>' .
+$pricesHtml = '<section class="moto-prices' . ($kcV2 ? ' moto-prices--kc' : ' gr2') . '"><div><h2>' . te('detail.priceTitle') . '</h2>' .
     '<p>' . te('detail.priceLead') . '</p>';
 if ($priceRows) $pricesHtml .= renderTable([t('detail.priceHeaderDay'), t('detail.priceHeaderPrice')], $priceRows);
 // Vozík/přívěs (is_trailer) se půjčuje samostatně bez výbavy — větu „V ceně je zahrnuta výbava…" nezobrazujeme.
@@ -328,7 +332,8 @@ $pricesHtml .= '</div>';
 // specifikací výše (řádek "Minimální délka pronájmu") a vynucuje se na rezervační
 // stránce. Default je 1 den, tj. ve výchozím stavu žádné omezení.
 $calId = 'detail-cal-' . $moto['id'];
-$pricesHtml .= '<div class="moto-reservation"><h2>' . te('detail.availabilityTitle') . '</h2>' .
+if ($kcV2) $pricesHtml .= '</section>' . renderKatalogCalc($sb, $motos, ['moto' => (string)$moto['id'], 'ctx' => 'detail']);
+else $pricesHtml .= '<div class="moto-reservation"><h2>' . te('detail.availabilityTitle') . '</h2>' .
     '<p>' . te('detail.availabilityLead') . '</p>' .
     '<div id="' . $calId . '" class="calendar-placeholder"><div class="loading-overlay"><span class="spinner"></span> ' . te('detail.calendarLoading') . '</div></div>' .
     '<div class="calendar-icons gr3"><div><span class="cicon loosely">&nbsp;</span> ' . te('detail.calendarFree') . '</div><div><span class="cicon occupied">&nbsp;</span> ' . te('detail.calendarOccupied') . '</div><div><span class="cicon unconfirmed">&nbsp;</span> ' . te('detail.calendarPending') . '</div></div>' .
@@ -415,14 +420,21 @@ var CAL_I18N = {
       return await r.json();
     } catch(e){ return []; }
   }
+  // Den jako UTC ms z kalendarniho data (krok po 864e5 bez posunu DST)
+  function dayUtc(v){
+    if(v==null||v==="") return NaN;
+    var m=/^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(String(v));
+    if(m) return Date.UTC(+m[1],m[2]-1,+m[3]);
+    var t=new Date(v); return Date.UTC(t.getFullYear(),t.getMonth(),t.getDate());
+  }
   function buildBookedDays(bookings){
     var bookedDays = {}, now = new Date();
     (bookings||[]).forEach(function(b){
-      var s=new Date(b.start_date),e=new Date(b.end_date),d=new Date(s);
+      var s=dayUtc(b.start_date),e=dayUtc(b.end_date),d=s;
       var isPending=b.status==="pending",createdAt=b.created_at?new Date(b.created_at):null;
       var isRecent=createdAt&&(now-createdAt)<4*60*60*1000;
       var status=(isPending&&isRecent)?"unconfirmed":"occupied";
-      while(d<=e){var key=d.toISOString().split("T")[0];bookedDays[key]=status;d.setDate(d.getDate()+1);}
+      while(d<=e){var key=new Date(d).toISOString().split("T")[0];bookedDays[key]=status;d+=864e5;}
     });
     return bookedDays;
   }
@@ -701,7 +713,7 @@ $metaDescBuilt = mb_substr(preg_replace('/\s+/', ' ', $metaDescBuilt), 0, 140);
 // Trim na hranici slova, aby nebyla seknuta uprostred.
 $metaDescBuilt = preg_replace('/\s+\S*$/u', '', $metaDescBuilt);
 
-renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
+renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, ($kcV2 ? kcPageMeta() : []) + [
     'description' => htmlspecialchars($metaDescBuilt),
     'keywords' => t('detail.descKeywords', ['model' => $moto['model'] ?? '']),
     // SEO: og:image MAX 1200px / quality 85 (Facebook/Twitter optimal). Predtim

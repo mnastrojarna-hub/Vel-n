@@ -5,6 +5,7 @@
 // data/pobocky.php. Texty: Velín → Texty webu → Pobočky (`web.pobocky.*`).
 
 require_once __DIR__ . '/../data/pobocky.php';
+require_once __DIR__ . '/../landing.php';
 $sb = new SupabaseClient();
 $defaults = pobockyDefaults();
 $C = $sb->siteContent('pobocky', $defaults);
@@ -40,7 +41,11 @@ $content = pobockyCss() . '<main id="content"><div class="container">' . $bc
     . $ctaHtml
     . '</div></div></main>';
 
-renderPage(strip_tags((string)$C['seo']['title']), $content, '/pobocky', [
+// Landing v2 (viz landing.php): nový vizuál přehledu — pages/pobocky-v2.php
+$lpV2 = landingV2Enabled();
+if ($lpV2) $content = require __DIR__ . '/pobocky-v2.php';
+
+renderPage(strip_tags((string)$C['seo']['title']), $content, '/pobocky', ($lpV2 ? pbV2Meta('list') : []) + [
     'description' => strip_tags((string)$C['seo']['description']),
     'keywords' => strip_tags((string)$C['seo']['keywords']),
     'breadcrumbs' => [
