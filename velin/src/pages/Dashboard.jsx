@@ -196,7 +196,8 @@ export default function Dashboard() {
   return (
     <div>
       <KioskAlertsBanner alerts={kioskAlerts.alerts} onAck={kioskAlerts.reload} onOpenBranch={id => nav(`/pobocky?branch=${id}&tab=4`)} />
-      <div className="flex gap-3.5 mb-5 flex-wrap">
+      {/* tablet (640–1023 px): dlaždice v mřížce 3 + 3 místo 4 + 2 roztažených; telefon = flex-wrap (2 vedle sebe) */}
+      <div className="flex gap-3.5 mb-5 flex-wrap sm:max-lg:grid sm:max-lg:grid-cols-3">
         {clickable('/flotila', <Stat icon="🏍️" label="Aktivní motorky" value={`${data.activeMotos}/${data.totalMotos}`} sub={`Ø využití ${data.utilization}%`} />)}
         {clickable('/finance', <Stat icon="💰" label="Tržby tento měsíc" value={fmtShort(data.monthRevenue)} color="#f59e0b" sub="z přijatých plateb" />)}
         {clickable('/finance', <Stat icon="🗓️" label="Tržby minulý měsíc" value={fmtShort(data.lastMonthRevenue)} color="#f59e0b" sub="z přijatých plateb" />)}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { addLogListener, getLogBuffer, clearLogBuffer, exportLogText } from '../lib/debugLog'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 export default function DebugPanel() {
   const [open, setOpen] = useState(false)
@@ -7,6 +8,7 @@ export default function DebugPanel() {
   const [filter, setFilter] = useState('all')
   const [copied, setCopied] = useState(false)
   const logRef = useRef(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     return addLogListener(setLogs)
@@ -28,13 +30,15 @@ export default function DebugPanel() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-50 rounded-full cursor-pointer"
+        className="fixed bottom-2 right-2 lg:bottom-4 lg:right-4 z-50 rounded-full cursor-pointer"
         style={{
-          padding: '8px 16px',
+          // telefon/tablet: menší a poloprůhledné, ať plovoucí tlačítko nezakrývá obsah
+          padding: isMobile ? '5px 10px' : '8px 16px',
           background: errorCount > 0 ? '#dc2626' : '#1a2e22',
           color: '#fff',
           border: 'none',
-          fontSize: 13,
+          opacity: isMobile && errorCount === 0 ? 0.7 : 1,
+          fontSize: isMobile ? 11 : 13,
           fontWeight: 800,
           boxShadow: '0 4px 16px rgba(0,0,0,.3)',
         }}
