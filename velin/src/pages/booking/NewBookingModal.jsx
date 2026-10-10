@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
 import Modal from '../../components/ui/Modal'
@@ -32,6 +32,13 @@ export default function NewBookingModal({ onClose, onSaved }) {
   const [err, setErr] = useState(null)
   const [saving, setSaving] = useState(false)
   const isMobile = useIsMobile() // < 1024 px: chyba vytvoření u tlačítka (BookingStep3), seznam motorek bez vnitřního scrollu
+  const stepsRef = useRef(null) // ukazatel kroků — přes něj se najde posuvný modal
+  // Mobil/tablet: po změně kroku modal nahoru — seznam motorek už nemá vlastní scroll, takže krok 2 by jinak
+  // začínal uprostřed seznamu (odrolováno z kalendáře kroku 1) bez hlavičky a výběru pobočky. Desktop beze změny.
+  useEffect(() => {
+    const box = isMobile && stepsRef.current?.closest('.mg-modal')
+    if (box) box.scrollTop = 0
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return { m: n.getMonth(), y: n.getFullYear() } })
   const [startDate, setStartDate] = useState(null)
@@ -200,7 +207,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
   return (
     <Modal open title="Nová rezervace" onClose={onClose} wide>
       {/* kroky — na úzkém displeji se zalomí (jinak přetékaly mimo modal) */}
-      <div className="flex items-center gap-2 mb-5 max-lg:flex-wrap max-lg:gap-y-2">
+      <div ref={stepsRef} className="flex items-center gap-2 mb-5 max-lg:flex-wrap max-lg:gap-y-2">
         {STEP_LABELS.map((label, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="flex items-center gap-1 cursor-pointer" onClick={() => { if (i + 1 < step) setStep(i + 1) }}>

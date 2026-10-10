@@ -21,6 +21,7 @@ import { isRealizedBooking } from '../../lib/revenueUtils'
 import { useTableSort, sortRows } from '../../components/sortableTable'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend, CartesianGrid } from 'recharts'
+import { pieLabels } from './pieLabels'
 
 const GRANULARITIES = [
   { id: 'day',   label: 'Dny',    days: 30 },
@@ -487,7 +488,7 @@ export default function Navstevnost() {
           {typePie.length === 0 ? <NoData /> : (
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie data={typePie} dataKey="value" nameKey="name" outerRadius="60%" label>
+                <Pie data={typePie} dataKey="value" nameKey="name" outerRadius="60%" {...pieLabels(typePie)}>
                   {typePie.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
                 <Legend />
@@ -512,7 +513,7 @@ export default function Navstevnost() {
           {devicePie.length === 0 ? <NoData /> : (
             <ResponsiveContainer width="100%" height={isMobile ? 250 : 200}>
               <PieChart>
-                <Pie data={devicePie} dataKey="value" nameKey="name" outerRadius="60%" label>
+                <Pie data={devicePie} dataKey="value" nameKey="name" outerRadius="60%" {...pieLabels(devicePie)}>
                   {devicePie.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
                 <Legend />

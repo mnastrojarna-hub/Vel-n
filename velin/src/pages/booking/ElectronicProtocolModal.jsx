@@ -10,6 +10,7 @@ import { buildElectronicProtocolHtml, HANDOVER_CHECKS, EXTRA_GEAR_CHECKS, DAMAGE
 import { sendProtocolEmail } from './protocolEmail'
 import { loadAccessoryTypes } from '../BranchHelpers'
 import { useSaveErrorReveal } from './useSaveErrorReveal'
+import ProtocolGearEditor from './ProtocolGearEditor'
 
 // Elektronický předávací protokol / protokol o poškození — vyplnění na tabletu
 // (checkboxy + volný text) a podpis perem. Uloží podepsané HTML do generated_documents.
@@ -43,6 +44,10 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   // už podepsaný protokol (displej pobočky; starší buildy appky) se podruhé nevystavuje — `alreadySigned` modal zablokuje.
   const [selfService, setSelfService] = useState(false)
   const [alreadySigned, setAlreadySigned] = useState(null)
+  // Obslužná pobočka: výbavu lze v protokolu smazat i přidat (ProtocolGearEditor) — own_gear kvůli
+  // přidané výbavě řidiče, childSuffix = popisek dětské velikosti u dětské motorky (jako listAccessoryItems)
+  const [ownGear, setOwnGear] = useState(null)
+  const [childSuffix, setChildSuffix] = useState('')
   const custSig = useRef(null)
   const operSig = useRef(null)
   // < lg: chyba uložení se ukáže tam, kde operátor je (protokol má na telefonu ~2 800 px) — desktop beze změny
@@ -62,6 +67,8 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       setVars(v)
       const self = effBranch(booking)?.type === 'samoobslužná'   // pobočka rezervace, u NULL motorky
       setSelfService(self)
+      setOwnGear(booking.own_gear ?? null)
+      setChildSuffix(String(booking.motorcycles?.license_required || '').toUpperCase() === 'N' ? ' (dětská velikost)' : '')
       setAlreadySigned(!isDamage && self && booking.handover_protocol_filled_at ? booking.handover_protocol_filled_at : null)
       setMileage(isDamage ? '' : (booking.mileage_start ? String(booking.mileage_start) : ''))
       // origSize drží velikost z rezervace — při uložení se propíše jen skutečná změna
@@ -93,9 +100,6 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   function toggleHandover(key) { setChecks(c => ({ ...c, [key]: !c[key] })) }
   function toggleDamage(key) { setChecks(c => ({ ...c, [key]: { ...(c[key] || {}), checked: !c[key]?.checked } })) }
   function setDamageNote(key, note) { setChecks(c => ({ ...c, [key]: { ...(c[key] || {}), note } })) }
-  // Odškrtnutí vrací velikost z rezervace (origSize): dokument u nepřevzaté položky ukáže objednanou velikost, ne rozpracovanou změnu.
-  function toggleAccessory(i) { setAccessories(a => a.map((x, idx) => idx === i ? { ...x, checked: !x.checked, size: x.checked ? x.origSize : x.size } : x)) }
-  function setAccessorySize(i, size) { setAccessories(a => a.map((x, idx) => idx === i ? { ...x, size } : x)) }
 
   function verifyCode() {
     const ok = !!motoCode && codeInput.trim() === String(motoCode).trim()
@@ -120,14 +124,20 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       // položka (zákazník si ji nevzal) → NULL = položka z rezervace odebrána, ale až PO úspěšném uložení
       // protokolu (níže) — kdyby uložení selhalo, výbava v rezervaci nesmí zmizet. Historii (gear_changes
       // from→null) zapíše DB trigger track_booking_content_changes (admin). Ceny / booking_extras se NEMĚNÍ.
+      // Obslužná pobočka navíc: SMAZANÁ položka = jako nepřevzatá (NULL po uložení, v dokumentu není);
+      // PŘIDANÁ položka (výbava navíc) → velikost do prázdného sloupce PŘED uložením (jako změna velikosti).
       const removedUpd = {}
       if (!isDamage) {
         const upd = {}
         accessories.forEach(a => {
           if (!a.field) return
-          if (!a.checked) removedUpd[a.field] = null
+          const gone = a.deleted || !a.checked
+          if (a.added) { if (!gone && a.size) upd[a.field] = a.size; return }
+          if (gone) removedUpd[a.field] = null
           else if (a.size && a.size !== a.origSize) upd[a.field] = a.size
         })
+        // Přidaná výbava řidiče u rezervace „vlastní výbava“ → zákazník si půjčuje (pravidlo _booking_needs_locker)
+        if (ownGear === true && accessories.some(a => a.added && a.checked && !a.deleted && /^(helmet|jacket|pants|gloves)_size$/.test(a.field || ''))) upd.own_gear = false
         const hasSizeUpd = Object.keys(upd).length > 0
         if (hasSizeUpd || (selfService && Object.keys(removedUpd).length > 0)) {
           // Samoobsluha: stejný guard jako edge — podepsal-li zákazník mezitím na displeji pobočky,
@@ -144,7 +154,9 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
           }
         }
       }
-      const form = { mileage, visualState, notes, damageDesc, missingGear, accessories, checks, damage: handoverDamage, identityCodeRequired: !!motoCode, identityVerified: codeVerified }
+      // Do dokumentu: bez smazaných a bez přidaných, které si zákazník nakonec nevzal; přidané označit
+      const docAccessories = accessories.filter(a => !a.deleted && !(a.added && !a.checked)).map(a => (a.added ? { ...a, label: `${a.label} — přidáno při předání` } : a))
+      const form = { mileage, visualState, notes, damageDesc, missingGear, accessories: docAccessories, checks, damage: handoverDamage, identityCodeRequired: !!motoCode, identityVerified: codeVerified }
       const html = buildElectronicProtocolHtml({ type, vars, form, signatures: { customer: customerSig, operator: operatorSig } })
       const docId = crypto.randomUUID()
       const docName = (isDamage ? 'Protokol o poškození' : 'Předávací protokol') + ' (elektronický)'
@@ -198,7 +210,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       if (info.customerEmail) {
         try { emailResult = await sendProtocolEmail(info) } catch (e) { emailResult = { sent: false, error: e.message || String(e) } }
       }
-      if (gearRemovalFailed) window.alert('Protokol je uložený, ale odškrtnutou výbavu (' + accessories.filter(a => a.field && !a.checked).map(a => a.label || a.field).join(', ') + ') se nepodařilo odebrat z rezervace — upravte výbavu v rezervaci ručně.')
+      if (gearRemovalFailed) window.alert('Protokol je uložený, ale odškrtnutou výbavu (' + accessories.filter(a => a.field && !a.added && (a.deleted || !a.checked)).map(a => a.label || a.field).join(', ') + ') se nepodařilo odebrat z rezervace — upravte výbavu v rezervaci ručně.')
       onSaved && onSaved({ ...info, emailSent: emailResult.sent, emailError: emailResult.error, protocolStateSet, gearRemovalFailed })
     } catch (e) {
       // 23505 = unikátní index generated_documents_handover_once (protokol ze samoobsluhy už existuje)
@@ -345,39 +357,10 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
               </div>
             </div>
           ) : (
-            accessories.length > 0 && (
-              <div>
-                <h3 className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Předané příslušenství</h3>
-                <p style={{ fontSize: 12, color: '#4b5f52', marginBottom: 8 }}>Pokud zákazník dostal jinou velikost, změňte ji zde. Co si nevzal, odškrtněte — položka se z rezervace odebere. U zaškrtnutých položek se skutečnost propíše do rezervace a Logistiky zboží.</p>
-                <div className="space-y-2">
-                  {accessories.map((a, i) => {
-                    const opts = sizesByType[a.type] || []
-                    const optList = opts.includes(a.size) ? opts : [a.size, ...opts]
-                    // Nezaškrtnuto = nepřevzato → položka se při uložení z rezervace odebere (velikost zamčená)
-                    const off = !a.checked
-                    const sizeStyle = { padding: '6px 10px', borderRadius: 8, border: `1px solid ${!off && a.size !== a.origSize ? '#f59e0b' : '#b6dccb'}`, fontSize: 14, fontWeight: 700, background: off ? '#f1f5f3' : '#fff', color: off ? '#9ca3af' : undefined }
-                    return (
-                      <div key={i} className="flex items-center gap-3 p-2 rounded-lg max-sm:flex-wrap max-sm:gap-y-1" style={{ background: '#f8faf9' }}>
-                        <input type="checkbox" checked={a.checked} onChange={() => toggleAccessory(i)} style={cbStyle} />
-                        <span style={{ ...labelStyle, flex: 1, ...(off ? { textDecoration: 'line-through', color: '#9ca3af' } : {}) }} onClick={() => toggleAccessory(i)}>{a.label}</span>
-                        {opts.length > 0 ? (
-                          <select value={a.size} disabled={off} onChange={e => setAccessorySize(i, e.target.value)} style={sizeStyle}>
-                            {optList.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        ) : (
-                          <input type="text" value={a.size} disabled={off} onChange={e => setAccessorySize(i, e.target.value)}
-                            style={{ ...sizeStyle, width: 80, textAlign: 'center' }} />
-                        )}
-                        {off ? (
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', whiteSpace: 'nowrap' }}>nepřevzato — odebere se z rezervace</span>
-                        ) : a.size !== a.origSize && (
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#b45309', whiteSpace: 'nowrap' }}>bylo {a.origSize}</span>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+            // Obslužná pobočka: sekce i bez objednané výbavy (lze přidat); samoobsluha jen úprava velikosti / nepřevzato
+            (accessories.length > 0 || !selfService) && (
+              <ProtocolGearEditor accessories={accessories} setAccessories={setAccessories} sizesByType={sizesByType}
+                canEdit={!selfService} childSuffix={childSuffix} />
             )
           )}
 
