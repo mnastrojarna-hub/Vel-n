@@ -225,7 +225,7 @@ function Toolbar({ exec, setBlock, isActive, currentBlock, promptLink, promptIma
     // tlačítko), uložíme aktuální výběr v editoru DŘÍV, než klik přesune focus / otevře
     // nativní dialog. exec() ho pak před příkazem obnoví → barva i ostatní formátování
     // se aplikuje na to, co bylo vybrané.
-    <div style={toolbarStyle} onMouseDownCapture={() => captureSelection && captureSelection()}>
+    <div className="rte-toolbar" style={toolbarStyle} onMouseDownCapture={() => captureSelection && captureSelection()}>
       {/* Blok / nadpisy */}
       <select
         value={['h1','h2','h3','h4','blockquote','pre'].includes(block) ? block : 'p'}

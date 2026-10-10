@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AGENTS, loadAgentConfig, saveAgentConfig } from '../../lib/aiAgents'
 import { getMetrics, getAgentReadiness, calculateAutonomyScore, analyzeFailurePatterns, generatePromptSuggestions } from '../../lib/aiLearning'
 import { loadAutonomyRules, SCHEDULES, RISK_AUTO } from '../../lib/aiAutonomy'
 import Button from '../ui/Button'
+import { useIsMobile, useMediaQuery } from '../../hooks/useIsMobile'
 
 export default function AiAutonomyPanel() {
   const [config, setConfig] = useState(() => loadAgentConfig())
@@ -11,6 +12,14 @@ export default function AiAutonomyPanel() {
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [analysis, setAnalysis] = useState(null)
   const rules = loadAutonomyRules()
+  // Mobil/tablet: stavový pruh se zalamuje, tlačítka ≥ 40 px; telefon: karty agentů v 1 sloupci
+  const isMobile = useIsMobile()
+  const isPhone = useMediaQuery('(max-width: 767px)')
+  // Mobil: analýza se vykreslí pod všemi kartami — po výběru agenta k ní odscrollovat
+  const analysisRef = useRef(null)
+  useEffect(() => {
+    if (isMobile && selectedAgent) analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [selectedAgent, isMobile])
 
   function refresh() {
     setMetrics(getMetrics())
@@ -52,8 +61,9 @@ export default function AiAutonomyPanel() {
         background: autonomy.score >= 80 ? '#dcfce7' : autonomy.score >= 50 ? '#fef3c7' : '#fee2e2',
         border: '2px solid ' + (autonomy.score >= 80 ? '#22c55e' : autonomy.score >= 50 ? '#f59e0b' : '#ef4444'),
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        ...(isMobile ? { flexWrap: 'wrap', gap: 10 } : null),
       }}>
-        <div>
+        <div style={isMobile ? { flex: '1 1 220px', minWidth: 0 } : undefined}>
           <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>
             Autonomie: {autonomy.score}% — {autonomy.level}
           </div>
@@ -62,10 +72,10 @@ export default function AiAutonomyPanel() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button onClick={enableAll} style={{ fontSize: 11, padding: '4px 10px', background: '#dcfce7', border: '1px solid #22c55e', borderRadius: 6 }}>
+          <Button onClick={enableAll} style={{ fontSize: 11, padding: '4px 10px', background: '#dcfce7', border: '1px solid #22c55e', borderRadius: 6, minHeight: isMobile ? 40 : undefined }}>
             Zapnout vše
           </Button>
-          <Button onClick={emergencyStop} style={{ fontSize: 11, padding: '4px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #ef4444', borderRadius: 6 }}>
+          <Button onClick={emergencyStop} style={{ fontSize: 11, padding: '4px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #ef4444', borderRadius: 6, minHeight: isMobile ? 40 : undefined }}>
             NOUZOVÉ ZASTAVENÍ
           </Button>
         </div>
@@ -76,13 +86,13 @@ export default function AiAutonomyPanel() {
         <div style={{ height: 8, background: '#e5e7eb', borderRadius: 4, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${autonomy.score}%`, background: autonomy.score >= 80 ? '#22c55e' : autonomy.score >= 50 ? '#f59e0b' : '#ef4444', borderRadius: 4, transition: 'width 0.5s' }} />
         </div>
-        <div className="flex justify-between mt-1" style={{ fontSize: 10, color: '#999' }}>
+        <div className={isPhone ? 'flex flex-wrap justify-between gap-x-2 mt-1' : 'flex justify-between mt-1'} style={{ fontSize: isMobile ? 11 : 10, color: '#999' }}>
           <span>0% Manuální</span><span>50% Asistovaný</span><span>80% Dohled</span><span>95%+ Autonomní</span>
         </div>
       </div>
 
       {/* Agent cards */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className={isPhone ? 'grid grid-cols-1 gap-2' : 'grid grid-cols-2 gap-2'}>
         {AGENTS.map(a => {
           const m = metrics[a.id] || { total: 0, success: 0, confidence: 0 }
           const readiness = getAgentReadiness(a.id)
@@ -98,7 +108,7 @@ export default function AiAutonomyPanel() {
             }}>
               <div className="flex items-center gap-2 mb-1">
                 <span style={{ fontSize: 16 }}>{a.icon}</span>
-                <span className="text-sm font-bold" style={{ color: '#0f1a14', flex: 1, fontSize: 11 }}>{a.name}</span>
+                <span className="text-sm font-bold" style={{ color: '#0f1a14', flex: 1, fontSize: isMobile ? 12 : 11 }}>{a.name}</span>
                 <span style={{
                   fontSize: 9, padding: '1px 6px', borderRadius: 8,
                   background: readiness.color + '20', color: readiness.color, fontWeight: 700,
@@ -110,7 +120,7 @@ export default function AiAutonomyPanel() {
               <div style={{ height: 4, background: '#e5e7eb', borderRadius: 2, marginBottom: 4 }}>
                 <div style={{ height: '100%', width: `${m.confidence}%`, background: readiness.color, borderRadius: 2 }} />
               </div>
-              <div className="flex justify-between" style={{ fontSize: 10, color: '#999' }}>
+              <div className="flex justify-between" style={{ fontSize: isMobile ? 11 : 10, color: '#999' }}>
                 <span>{m.confidence}% conf.</span>
                 <span>{m.total} akcí</span>
                 <span>{SCHEDULES[rule.schedule]?.icon || '✋'} {RISK_AUTO[rule.autoConfirmRisk]?.label?.slice(0, 8) || 'Manuál'}</span>
@@ -122,12 +132,12 @@ export default function AiAutonomyPanel() {
 
       {/* Analysis detail */}
       {selectedAgent && analysis && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
+        <div ref={analysisRef} style={{ marginTop: 12, padding: 12, borderRadius: 10, background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>
               Analýza: {AGENTS.find(a => a.id === selectedAgent)?.name}
             </span>
-            <button onClick={() => setSelectedAgent(null)} style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#999' }}>✕</button>
+            <button onClick={() => setSelectedAgent(null)} style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#999', ...(isMobile ? { fontSize: 16, minWidth: 36, minHeight: 36 } : null) }}>✕</button>
           </div>
 
           {/* Failure patterns */}

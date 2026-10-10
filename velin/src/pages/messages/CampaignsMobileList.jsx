@@ -76,7 +76,7 @@ export default function CampaignsMobileList({
         </div>
       ) : (
         <>
-          <MobileCardList>
+          <MobileCardList tabletGrid>
             {campaigns.map(c => <CampaignCard key={c.id} c={c} statusMap={statusMap} onOpen={onOpen} onAction={onAction} fmtDate={fmtDate} fmtDateTime={fmtDateTime} />)}
           </MobileCardList>
           <Pager page={page} totalPages={totalPages} onPageChange={setPage} />

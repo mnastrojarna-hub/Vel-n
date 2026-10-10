@@ -14,7 +14,7 @@ function localIso(d) {
 const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 const MONTHS_FULL = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
 const navBtnStyle = { background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 800 }
-const NAV_TOUCH = 'max-lg:min-h-[40px] max-lg:min-w-[44px] shrink-0' // dotyková plocha na mobilu/tabletu
+const NAV_TOUCH = 'max-lg:min-h-[40px] max-lg:min-w-[44px] max-lg:shrink-0' // dotyková plocha na mobilu/tabletu
 
 // branchId = '' → všechny pobočky dohromady (+ rozpad obsazenosti po pobočkách), jinak jen motorky té pobočky
 export default function GlobalCalendar({ branchId = '', branches = [] }) {
@@ -198,14 +198,15 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
                           <div key={m.id} onClick={() => navigate(`/flotila/${m.id}`)}
                             className="p-3 rounded-lg cursor-pointer hover:ring-2 hover:ring-[#74FB71] transition-all"
                             style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 max-lg:flex-wrap max-lg:gap-y-0.5">
                               <span className="font-bold text-sm">{m.model}</span>
                               <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{m.spz}</span>
                             </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase" style={{ padding: '2px 6px', background: '#dcfce7', color: '#15803d' }}>Volná</span>
+                            {/* mobil/tablet: zalomit (pobočka a „Detail flotily“ se jinak mačkaly do 2 řádků) */}
+                            <div className="flex items-center gap-2 mt-1 max-lg:flex-wrap max-lg:gap-y-1">
+                              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold tracking-wide uppercase" style={{ padding: '2px 6px', background: '#dcfce7', color: '#15803d' }}>Volná</span>
                               {m.branches?.name && <span className="text-sm" style={{ color: '#1a2e22' }}>{m.branches.name}</span>}
-                              <span className="text-sm ml-auto" style={{ color: '#3dba3a' }}>Detail flotily →</span>
+                              <span className="text-sm ml-auto max-lg:whitespace-nowrap" style={{ color: '#3dba3a' }}>Detail flotily →</span>
                             </div>
                           </div>
                         ))}

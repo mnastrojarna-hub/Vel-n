@@ -100,7 +100,7 @@ export default function ServiceLogCard({ log, moto, onReload }) {
           <input type="date" value={returnDate} onChange={e => setReturnDateDirty(e.target.value)} className="rounded text-sm outline-none" style={{ padding: '2px 6px', background: '#fff', border: '1px solid #d4e8e0', width: 140 }} /></div>
         <Chip title={unit}>{fmtKm(log.km_at_service, '')}{log.km_auto && <span className="text-xs ml-1" style={{ color: '#6b7280' }} title="Doplněno automaticky ze stavu tachometru">auto</span>}</Chip>
         <Chip title="Technik">{log.performed_by || <span style={{ color: '#6b7280' }}>zapíše se podle loginu</span>}</Chip>
-        <div className="ml-auto"><button onClick={() => setEdit(true)} className="text-xs font-bold cursor-pointer rounded-btn" style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>Upravit záznam</button></div>
+        <div className="ml-auto"><button onClick={() => setEdit(true)} className="text-xs font-bold cursor-pointer rounded-btn px-2.5 py-1 max-lg:py-2 max-lg:px-3.5" style={{ background: '#dbeafe', color: '#2563eb', border: 'none' }}>Upravit záznam</button></div>
       </div>
 
       {log.description && <div className="text-sm p-2 rounded mb-2" style={{ background: '#fff', border: '1px solid #d4e8e0', color: '#0f1a14', whiteSpace: 'pre-wrap' }}><span className="font-extrabold">Zadání: </span>{log.description}</div>}
@@ -108,7 +108,7 @@ export default function ServiceLogCard({ log, moto, onReload }) {
       <div className="p-2 rounded-lg mb-2" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Úkony <span style={{ color: '#1a8a18' }}>{doneCount}/{items.length}</span></span>
-          <button onClick={() => setAdding(a => !a)} className="ml-auto text-xs font-extrabold uppercase cursor-pointer rounded-btn" style={{ padding: '3px 10px', background: adding ? '#f3f4f6' : '#74FB71', color: '#1a2e22', border: 'none' }} title="Technik přidá úkon, který zjistil navíc (nebyl objednaný)">{adding ? 'Zavřít' : '+ Přidat úkon'}</button>
+          <button onClick={() => setAdding(a => !a)} className="ml-auto text-xs font-extrabold uppercase cursor-pointer rounded-btn px-2.5 py-[3px] max-lg:py-2 max-lg:px-3.5" style={{ background: adding ? '#f3f4f6' : '#74FB71', color: '#1a2e22', border: 'none' }} title="Technik přidá úkon, který zjistil navíc (nebyl objednaný)">{adding ? 'Zavřít' : '+ Přidat úkon'}</button>
         </div>
         {items.length === 0 && !adding && <div className="text-xs" style={{ color: '#9ca3af' }}>Bez úkonů — přidejte, co se dělá.</div>}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-1">

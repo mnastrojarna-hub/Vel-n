@@ -105,8 +105,8 @@ export default function CustomServiceItems({ labels, onChange, compact = false }
               {labels.map((l, i) => (
                 <span key={l} className="inline-flex items-center gap-1 text-sm font-bold" style={{ padding: '3px 8px', borderRadius: 8, background: '#fff', border: '1px solid #b6dccb', color: '#0f1a14' }}>
                   ✎ Jiné {i + 1}: {l}
-                  <button type="button" onClick={() => remove(l)} title="Odebrat" className="cursor-pointer"
-                    style={{ background: 'none', border: 'none', color: '#dc2626', fontWeight: 800, padding: 0, lineHeight: 1 }}>×</button>
+                  <button type="button" onClick={() => remove(l)} title="Odebrat" className="cursor-pointer p-0 max-lg:px-2 max-lg:py-1 max-lg:text-base"
+                    style={{ background: 'none', border: 'none', color: '#dc2626', fontWeight: 800, lineHeight: 1 }}>×</button>
                 </span>
               ))}
             </div>
@@ -116,7 +116,7 @@ export default function CustomServiceItems({ labels, onChange, compact = false }
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
               onBlur={add}
               placeholder={`Jiné ${labels.length + 1} — např. výměna brzdových hadic, seřízení karburátoru…`}
-              className="flex-1 rounded-btn text-sm outline-none"
+              className="flex-1 rounded-btn text-sm outline-none max-lg:min-w-0"
               style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
             <button type="button" onClick={add} disabled={!draft.trim()} className="rounded-btn text-sm font-extrabold uppercase cursor-pointer disabled:opacity-50"
               style={{ padding: '6px 12px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>Přidat</button>

@@ -1,7 +1,9 @@
 // Společné stavební prvky mobilního (≤ 1023 px) rozvržení sekce Zprávy:
 // tabulky se na telefonu/tabletu vykreslují jako seznam karet. Desktop je nepoužívá.
 
-export function MobileCardList({ children, empty }) {
+// tabletGrid: od 768 px (tablet bez pevného menu = celá šířka) krátké karty ve dvou sloupcích,
+// karta je pak sloupec a řada akcí sedí dole, takže tlačítka sousedních karet lícují. Telefon beze změny.
+export function MobileCardList({ children, empty, tabletGrid = false }) {
   const items = Array.isArray(children) ? children.filter(Boolean) : children
   if (Array.isArray(items) && items.length === 0) {
     return (
@@ -10,6 +12,7 @@ export function MobileCardList({ children, empty }) {
       </div>
     )
   }
+  if (tabletGrid) return <div className="grid grid-cols-1 md:grid-cols-2 md:[&>*]:flex md:[&>*]:flex-col" style={{ gap: 10 }}>{items}</div>
   return <div className="flex flex-col" style={{ gap: 10 }}>{items}</div>
 }
 
@@ -42,10 +45,13 @@ export function MobileField({ label, children }) {
 }
 
 // Řada akčních tlačítek karty — dost velká pro prst (min. 40 px).
+// marginTop auto: v kartě-sloupci (tabletGrid) ji odsune ke spodnímu okraji, v běžné kartě je 0.
 export function MobileActions({ children }) {
   return (
-    <div className="flex flex-wrap" style={{ gap: 8, marginTop: 10 }} onClick={e => e.stopPropagation()}>
-      {children}
+    <div style={{ marginTop: 'auto', paddingTop: 10 }}>
+      <div className="flex flex-wrap" style={{ gap: 8 }} onClick={e => e.stopPropagation()}>
+        {children}
+      </div>
     </div>
   )
 }
@@ -62,4 +68,11 @@ export function MobileActionButton({ children, onClick, color = '#1a2e22', bg = 
       {children}
     </button>
   )
+}
+
+// E-mail se zalomí přednostně před „@", ne uprostřed slova (jinak overflowWrap kdekoli).
+export function breakable(text) {
+  if (typeof text !== 'string' || !text.includes('@')) return text
+  const at = text.indexOf('@')
+  return [text.slice(0, at), <wbr key="w" />, text.slice(at)]
 }

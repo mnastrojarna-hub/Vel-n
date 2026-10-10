@@ -26,7 +26,7 @@ export default function WebTextSection({ section, values, onSaved, pageUrl, webB
       <div className="w-full flex items-center gap-3" style={{ padding: '14px 16px' }}>
         <button
           onClick={() => setOpen(!open)}
-          className="flex-1 flex items-center gap-3 cursor-pointer text-left"
+          className="flex-1 flex items-center gap-3 cursor-pointer text-left max-lg:min-h-[40px]"
           style={{ background: 'none', border: 'none', padding: 0 }}
         >
           <span style={{ fontSize: 18, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>&#9654;</span>
@@ -50,7 +50,7 @@ export default function WebTextSection({ section, values, onSaved, pageUrl, webB
             href={sectionUrl}
             target="_blank" rel="noopener noreferrer"
             title={adminToken ? 'Otevřít sekci na webu (zvýrazní první text)' : 'Chybí cms_admin_token v app_settings'}
-            className="rounded-btn text-xs font-extrabold cursor-pointer shrink-0"
+            className="rounded-btn text-xs font-extrabold cursor-pointer shrink-0 max-lg:min-w-[40px] max-lg:min-h-[36px] max-lg:inline-flex max-lg:items-center max-lg:justify-center"
             style={{
               padding: '4px 8px', background: '#f1faf7', color: '#1a2e22',
               border: '1px solid #d4e8e0', textDecoration: 'none',
@@ -170,7 +170,7 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken, adminToken, webBa
 
   return (
     <div className="mt-3" data-cms-field={field.key} style={{ scrollMarginTop: 80 }}>
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-1 max-lg:flex-wrap max-lg:[overflow-wrap:anywhere]">
         <span
           className="inline-block w-2 h-2 rounded-full shrink-0"
           style={{ background: hasValue ? '#22c55e' : '#d4d4d8' }}
@@ -189,7 +189,7 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken, adminToken, webBa
             href={fieldUrl}
             target="_blank" rel="noopener noreferrer"
             title={hasToken ? 'Otevřít na webu a zvýraznit tento text' : 'Chybí cms_admin_token v app_settings (zvýraznění nebude fungovat)'}
-            className="rounded-btn text-xs font-extrabold cursor-pointer shrink-0"
+            className="rounded-btn text-xs font-extrabold cursor-pointer shrink-0 max-lg:min-w-[40px] max-lg:min-h-[36px] max-lg:inline-flex max-lg:items-center max-lg:justify-center"
             style={{
               padding: '2px 8px', background: '#f1faf7', color: '#1a2e22',
               border: '1px solid #d4e8e0', textDecoration: 'none',
@@ -225,7 +225,7 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken, adminToken, webBa
             <button
               onClick={save}
               disabled={saving}
-              className="rounded-btn text-xs font-extrabold uppercase cursor-pointer"
+              className="rounded-btn text-xs font-extrabold uppercase cursor-pointer max-lg:min-h-[40px] max-lg:min-w-[96px]"
               style={{ padding: '8px 14px', background: '#74FB71', color: '#1a2e22', border: 'none' }}
             >
               {saving ? '...' : 'Uložit'}
@@ -249,7 +249,7 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken, adminToken, webBa
               {rowId && savedVal && (
                 <button
                   onClick={() => runTranslate(rowId, savedVal)}
-                  className="rounded-btn text-xs font-extrabold cursor-pointer"
+                  className="rounded-btn text-xs font-extrabold cursor-pointer max-lg:min-h-[36px]"
                   style={{ padding: '4px 10px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}
                 >
                   Zkusit přeložit znovu

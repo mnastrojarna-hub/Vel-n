@@ -240,15 +240,16 @@ export default function SeoHealthTab({ onJumpToText }) {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <div style={{ flex: 1 }}>
+      {/* Mobil/tablet: tlačítko scanu se při nedostatku místa zalomí pod nadpis (desktop beze změny) */}
+      <div className="max-lg:flex-wrap" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div className="max-lg:min-w-[220px]" style={{ flex: 1 }}>
           <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>SEO Health — analýza živého webu</h2>
           <div style={{ fontSize: 12, color: '#6b7a72', marginTop: 2 }}>
             Kontroluje SKUTEČNÉ stránky na motogo24.cz (ne jen CMS texty).
             {checkedAt && <> Poslední scan: {new Date(checkedAt).toLocaleString('cs-CZ')}</>}
           </div>
         </div>
-        <button onClick={runScan} disabled={scanning} className="rounded-btn cursor-pointer"
+        <button onClick={runScan} disabled={scanning} className="rounded-btn cursor-pointer max-md:w-full max-lg:min-h-[40px]"
           style={{ padding: '8px 18px', background: '#74FB71', color: '#1a2e22', border: 'none', fontWeight: 800, fontSize: 13, textTransform: 'uppercase' }}>
           {scanning ? 'Skenuji…' : '↻ Znovu naskenovat'}
         </button>
@@ -267,7 +268,7 @@ export default function SeoHealthTab({ onJumpToText }) {
       {scanResults && (
         <>
           {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
+          <div className="grid grid-cols-2 md:grid-cols-4" style={{ gap: 12, marginBottom: 16 }}>
             <StatCard label={`Průměr (${totals.checked} stránek)`} value={`${totals.avg}%`} color={scoreColor(totals.avg)} />
             <StatCard label="K opravě hned" value={totals.critical} color="#dc2626" icon="⛔" />
             <StatCard label="Důležité" value={totals.important} color="#f59e0b" icon="⚠️" />
@@ -276,12 +277,12 @@ export default function SeoHealthTab({ onJumpToText }) {
 
           {/* Promote defaults */}
           {(missingDefaults > 0 || seedResult) && (
-            <div style={{ background: '#fffbeb', padding: 12, borderRadius: 8, marginBottom: 16, borderLeft: '4px solid #f59e0b', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ flex: 1, fontSize: 13 }}>
+            <div className="max-lg:flex-wrap" style={{ background: '#fffbeb', padding: 12, borderRadius: 8, marginBottom: 16, borderLeft: '4px solid #f59e0b', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className="max-lg:min-w-[220px]" style={{ flex: 1, fontSize: 13 }}>
                 {seedResult ? <span><strong style={{ color: '#16a34a' }}>✓ Uloženo!</strong> {seedResult.inserted} výchozích textů do DB.{seedResult.failed > 0 && <span style={{ color: '#dc2626' }}> {seedResult.failed} chyb.</span>}</span>
                   : <span><strong>📌 {missingDefaults} textů z Velínu není v databázi.</strong> Uloží je hromadně, existující ručně upravené se nepřepíšou.</span>}
               </div>
-              {!seedResult && <button onClick={promoteAllDefaults} disabled={seeding} className="rounded-btn cursor-pointer" style={{ padding: '8px 14px', background: '#1a2e22', color: '#74FB71', border: 'none', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{seeding ? 'Ukládám…' : `Uložit ${missingDefaults} textů`}</button>}
+              {!seedResult && <button onClick={promoteAllDefaults} disabled={seeding} className="rounded-btn cursor-pointer max-md:w-full max-lg:min-h-[40px]" style={{ padding: '8px 14px', background: '#1a2e22', color: '#74FB71', border: 'none', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{seeding ? 'Ukládám…' : `Uložit ${missingDefaults} textů`}</button>}
             </div>
           )}
 
@@ -295,12 +296,12 @@ export default function SeoHealthTab({ onJumpToText }) {
               { id: 'tip', label: '💡 Doporučení', count: reports.filter(r => r.issues.some(i => i.severity === 'tip')).length, color: '#16a34a' },
               { id: 'ok', label: '✓ Bez problémů', count: reports.filter(r => r.issues.length === 0).length, color: '#16a34a' },
             ].map(f => (
-              <button key={f.id} onClick={() => setFilter(f.id)} className="rounded-btn cursor-pointer"
+              <button key={f.id} onClick={() => setFilter(f.id)} className="rounded-btn cursor-pointer max-lg:min-h-[40px]"
                 style={{ padding: '6px 14px', fontSize: 13, fontWeight: 700, background: filter === f.id ? (f.color || '#1a2e22') : '#f1faf7', color: filter === f.id ? '#fff' : '#1a2e22', border: filter === f.id ? `2px solid ${f.color || '#1a2e22'}` : '2px solid transparent' }}>
                 {f.label} <span style={{ opacity: 0.7, fontSize: 11 }}>({f.count})</span>
               </button>
             ))}
-            <input type="text" placeholder="Hledat stránku…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 200, padding: '6px 12px', borderRadius: 8, border: '1px solid #d4e8e0' }} />
+            <input type="text" placeholder="Hledat stránku…" value={search} onChange={e => setSearch(e.target.value)} className="max-lg:min-h-[40px]" style={{ flex: 1, minWidth: 200, padding: '6px 12px', borderRadius: 8, border: '1px solid #d4e8e0' }} />
           </div>
 
           {/* Help */}
@@ -336,10 +337,11 @@ function PageRow({ report, expanded, onToggle, onFix, scoreColor, sevColor, sevI
   const c = { critical: issues.filter(i => i.severity === 'critical').length, important: issues.filter(i => i.severity === 'important').length, tip: issues.filter(i => i.severity === 'tip').length }
   return (
     <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2ece7', borderLeft: `5px solid ${color}`, overflow: 'hidden' }}>
-      <div onClick={onToggle} style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', background: expanded ? '#f1faf7' : '#fff' }}>
+      {/* Mobil: odznaky problémů se při nedostatku místa zalomí pod název stránky (vpravo) */}
+      <div onClick={onToggle} className="max-lg:flex-wrap" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', background: expanded ? '#f1faf7' : '#fff' }}>
         <div style={{ minWidth: 60, fontWeight: 800, fontSize: 22, color, textAlign: 'center' }}>{m.error ? '?' : `${score}%`}</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{icon} {label}<span style={{ marginLeft: 8, fontSize: 12, color: '#6b7a72', fontWeight: 400 }}>{path}</span></div>
+        <div className="max-lg:min-w-[200px] max-lg:[overflow-wrap:anywhere]" style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{icon} {label}<span className="max-lg:block max-lg:!ml-0" style={{ marginLeft: 8, fontSize: 12, color: '#6b7a72', fontWeight: 400 }}>{path}</span></div>
           <div style={{ fontSize: 12, color: '#6b7a72', marginTop: 3 }}>
             {m.error ? <span style={{ color: '#dc2626' }}>⚠️ {m.error}</span>
               : issues.length === 0 ? '✓ Vše v pořádku'
@@ -347,7 +349,7 @@ function PageRow({ report, expanded, onToggle, onFix, scoreColor, sevColor, sevI
             {!m.error && <> · {m.wordCount ?? 0} slov · {m.h1Count ?? 0} H1 · titulek {m.titleLen ?? 0}zn · popisek {m.descLen ?? 0}zn{m.imagesNoAlt > 0 && ` · ${m.imagesNoAlt} obr. bez alt`}</>}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div className="max-lg:ml-auto" style={{ display: 'flex', gap: 6 }}>
           {c.critical > 0 && <Badge color="#dc2626" icon="⛔" count={c.critical} />}
           {c.important > 0 && <Badge color="#f59e0b" icon="⚠️" count={c.important} />}
           {c.tip > 0 && <Badge color="#16a34a" icon="💡" count={c.tip} />}
@@ -362,18 +364,18 @@ function PageRow({ report, expanded, onToggle, onFix, scoreColor, sevColor, sevI
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
               {issues.map((iss, idx) => (
                 <div key={idx} style={{ background: '#fafafa', borderRadius: 8, padding: 12, borderLeft: `4px solid ${sevColor(iss.severity)}`, fontSize: 13 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <div className="max-lg:flex-wrap" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                     <div style={{ fontSize: 18 }}>{sevIcon(iss.severity)}</div>
-                    <div style={{ flex: 1 }}>
+                    <div className="max-lg:min-w-[200px] max-lg:[overflow-wrap:anywhere]" style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, color: sevColor(iss.severity), marginBottom: 4, fontSize: 14 }}>{iss.title}</div>
                       <div style={{ color: '#1a2e22', lineHeight: 1.5 }}>{iss.message}</div>
                       {iss.example && <div style={{ marginTop: 8, padding: '8px 12px', background: '#f0fdf4', borderRadius: 6, borderLeft: '3px solid #16a34a', fontSize: 12, color: '#14532d', whiteSpace: 'pre-wrap' }}><strong>👍 Příklad / doporučení:</strong>{' '}<span style={{ fontStyle: 'italic' }}>{iss.example}</span></div>}
                       {!iss.target && <div style={{ marginTop: 8, fontSize: 11, color: '#92400e', background: '#fffbeb', padding: '6px 10px', borderRadius: 6 }}>ℹ️ Tento text se neupravuje z Velínu — řídí ho kód webu (data soubory). Pokud ho chceš editovat z CMS, napiš vývojáři ať přidá pole.</div>}
                     </div>
                     {iss.target ? (
-                      <button onClick={() => onFix(iss.target)} className="rounded-btn cursor-pointer" style={{ background: '#74FB71', color: '#1a2e22', border: 'none', padding: '6px 14px', fontSize: 12, fontWeight: 800, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Opravit →</button>
+                      <button onClick={() => onFix(iss.target)} className="rounded-btn cursor-pointer max-lg:ml-auto max-lg:min-h-[40px]" style={{ background: '#74FB71', color: '#1a2e22', border: 'none', padding: '6px 14px', fontSize: 12, fontWeight: 800, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Opravit →</button>
                     ) : (
-                      <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' }}>—</span>
+                      <span className="max-lg:ml-auto" style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' }}>—</span>
                     )}
                   </div>
                 </div>
@@ -381,7 +383,7 @@ function PageRow({ report, expanded, onToggle, onFix, scoreColor, sevColor, sevI
             </div>
           )}
           <div style={{ marginTop: 12, fontSize: 12 }}>
-            <a href={`https://www.motogo24.cz${path}`} target="_blank" rel="noopener noreferrer" style={{ color: '#0d6e0d', textDecoration: 'underline', fontWeight: 600 }}>↗ Otevřít {path} na webu</a>
+            <a href={`https://www.motogo24.cz${path}`} target="_blank" rel="noopener noreferrer" className="max-lg:inline-flex max-lg:items-center max-lg:min-h-[40px] max-lg:[overflow-wrap:anywhere]" style={{ color: '#0d6e0d', textDecoration: 'underline', fontWeight: 600 }}>↗ Otevřít {path} na webu</a>
           </div>
         </div>
       )}
@@ -390,5 +392,5 @@ function PageRow({ report, expanded, onToggle, onFix, scoreColor, sevColor, sevI
 }
 
 function Badge({ color, icon, count }) {
-  return <span style={{ background: color, color: '#fff', fontSize: 11, padding: '3px 9px', borderRadius: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>{icon} {count}</span>
+  return <span className="max-lg:whitespace-nowrap" style={{ background: color, color: '#fff', fontSize: 11, padding: '3px 9px', borderRadius: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>{icon} {count}</span>
 }

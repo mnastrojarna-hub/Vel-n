@@ -16,15 +16,17 @@ export default function BookingsListMobile({ bookings, navigate, fmtDateRange, d
   return (
     <div>
       {selected && (
-        // s výběrem lišta drží nahoře (hromadná správa dosažitelná i u karet níž v seznamu)
-        <div className="flex items-center gap-2 mb-2 px-1" style={{ minHeight: 40, ...(selected.size > 0 ? { position: 'sticky', top: 0, zIndex: 5, background: '#dff0ec', padding: '6px 4px', boxShadow: '0 6px 10px -8px rgba(15,26,20,.25)' } : {}) }}>
+        // s výběrem lišta drží nahoře (hromadná správa dosažitelná i u karet níž v seznamu);
+        // záporné top = odsazení obsahu v Layoutu (p-3 / md:p-6), jinak by nad lištou prosvítaly karty
+        <div className={`flex items-center gap-2 mb-2 px-1${selected.size > 0 ? ' top-[-12px] md:top-[-24px]' : ''}`}
+          style={{ minHeight: 40, ...(selected.size > 0 ? { position: 'sticky', zIndex: 5, background: '#dff0ec', padding: '6px 4px', boxShadow: '0 6px 10px -8px rgba(15,26,20,.25)' } : {}) }}>
           <label className="flex items-center gap-2.5 cursor-pointer" style={{ minHeight: 40 }}>
             <input type="checkbox" checked={allSelected} onChange={toggleAll}
               className="accent-[#1a8a18] cursor-pointer" style={{ width: 20, height: 20 }} />
             <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Vybrat vše na stránce</span>
           </label>
           {selected.size > 0 && !onBulk && <span className="ml-auto text-sm font-bold" style={{ color: '#92400e' }}>Vybráno: {selected.size}</span>}
-          {/* telefon: hromadná správa u výběru (v liště by zabírala místo) */}
+          {/* hromadná správa přímo u výběru — lišta nahoře stránky po odscrollování není vidět */}
           {selected.size > 0 && onBulk && (
             <button onClick={onBulk}
               className="ml-auto rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer leading-tight"

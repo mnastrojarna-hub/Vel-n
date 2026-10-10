@@ -78,7 +78,7 @@ export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog 
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 700, color: '#0f1a14' }}>{fmtDate(logDate(l))}{l.is_urgent && <div className="text-xs font-bold" style={{ color: '#dc2626' }}>URGENT</div>}</td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{fmtKm(l.km_at_service, '')}{l.km_auto && <span title="automaticky ze stavu tachometru" style={{ color: '#9ca3af', fontSize: 10 }}> auto</span>}</td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{LOG_TYPE_LABELS[l.type] || SERVICE_TYPE_LABELS[l.service_type] || 'Servis'}</td>
-                    <td className="mg-stack-full" style={{ padding: '8px 10px', color: '#0f1a14', minWidth: 260 }}>
+                    <td className="mg-stack-full md:max-lg:!min-w-[200px]" style={{ padding: '8px 10px', color: '#0f1a14', minWidth: 260 }}>
                       {items.length > 0 && <div className="flex flex-wrap gap-1 mb-1">{items.map((i, idx) => (
                         <span key={idx} title={i.done === true ? 'Provedeno' : 'Neodškrtnuto — nepočítá se jako provedené'} className="text-xs font-bold" style={{ padding: '2px 7px', borderRadius: 7, background: i.done === true ? (task && (i.key || SERVICE_LABEL_TO_ID[i.label]) === task ? '#74FB71' : '#e8fde8') : '#f8fafc', border: `1px solid ${i.done === true ? '#b6dccb' : '#e5e7eb'}`, color: i.done === true ? '#0f1a14' : '#9ca3af' }}>
                           {i.done === true ? '✓ ' : ''}{i.custom ? '✎ ' : ''}{i.label}{i.added_by ? ' (navíc)' : ''}{i.done_legacy ? ' (historicky)' : ''}{i.note ? ` — ${i.note}` : ''}
@@ -90,7 +90,7 @@ export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog 
                     </td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{l.performed_by || '—'}</td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 700, color: '#0f1a14' }}>{fmtMoney(effectiveCost(l))}{Number(l.invoiced_amount) > 0 && Number(l.cost) > 0 && Number(l.cost) !== Number(l.invoiced_amount) ? <div className="text-xs font-normal" style={{ color: '#9ca3af' }}>odhad {fmtMoney(l.cost)}</div> : null}</td>
-                    <td style={{ padding: '8px 6px' }}>{onEdit && (!canEdit || canEdit(l)) && <button onClick={() => onEdit(l)} className="text-xs font-bold cursor-pointer max-md:text-sm max-md:rounded-btn max-md:px-4 max-md:py-2 max-md:!bg-[#dbeafe]" style={{ background: 'none', border: 'none', color: '#2563eb' }} title="Upravit záznam">✎<span className="md:hidden"> Upravit</span></button>}</td>
+                    <td style={{ padding: '8px 6px' }}>{onEdit && (!canEdit || canEdit(l)) && <button onClick={() => onEdit(l)} className="text-xs font-bold cursor-pointer max-md:text-sm max-md:rounded-btn max-md:px-4 max-md:py-2 max-md:!bg-[#dbeafe] md:max-lg:text-base md:max-lg:px-2 md:max-lg:py-1.5" style={{ background: 'none', border: 'none', color: '#2563eb' }} title="Upravit záznam">✎<span className="md:hidden"> Upravit</span></button>}</td>
                   </tr>
                 )
               })}

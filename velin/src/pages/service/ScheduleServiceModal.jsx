@@ -130,7 +130,7 @@ function InspectionMotoForm({ motos, onBack, onDone }) {
       </div>
       <div className="text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Vybráno: {selectedIds.size} motorek</div>
       <InspectionChecklist checks={checks} setChecks={setChecks} />
-      <div className="grid grid-cols-2 gap-3 mb-3 mt-3">
+      <div className="grid grid-cols-2 gap-3 mb-3 mt-3 max-sm:grid-cols-1">
         <div><label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Datum inspekce</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} /></div>
         <div><label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Poznámka</label><input value={note} onChange={e => setNote(e.target.value)} placeholder="Důvod inspekce…" className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} /></div>
       </div>
@@ -180,7 +180,7 @@ function InspectionBranchForm({ branches, motos, onBack, onDone }) {
           <label className="flex items-center gap-2 mt-2 cursor-pointer"><input type="checkbox" checked={includeMotos} onChange={e => setIncludeMotos(e.target.checked)} className="accent-[#1a8a18]" /><span className="text-xs font-bold" style={{ color: '#1a2e22' }}>Zahrnout inspekci všech motorek na pobočce</span></label>
         </div>
         <InspectionChecklist checks={checks} setChecks={setChecks} />
-        <div className="grid grid-cols-2 gap-3 mb-3 mt-3">
+        <div className="grid grid-cols-2 gap-3 mb-3 mt-3 max-sm:grid-cols-1">
           <div><label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Datum kontroly</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} /></div>
           <div><label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Poznámka</label><input value={note} onChange={e => setNote(e.target.value)} placeholder="Specifický důvod kontroly…" className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} /></div>
         </div>

@@ -279,7 +279,7 @@ export default function ImageUploader({
             <button
               type="button"
               onClick={() => setShowUrlInput(true)}
-              className="text-xs font-bold cursor-pointer bg-transparent border-none"
+              className="text-xs font-bold cursor-pointer bg-transparent border-none max-lg:min-h-[36px]"
               style={{ color: '#2563eb', padding: 0 }}
             >
               + Přidat přes URL

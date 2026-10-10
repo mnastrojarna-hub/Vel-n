@@ -249,15 +249,15 @@ export default function BlogWizard({ entry, onClose, onSaved }) {
     <Modal open title={titleText} onClose={handleClose} wide>
       {/* Restore prompt z localStorage */}
       {restoreOffer && (
-        <div className="mb-4 p-3 rounded-card flex items-center gap-3" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
-          <div className="flex-1 text-sm" style={{ color: '#78350f' }}>
+        <div className="mb-4 p-3 rounded-card flex items-center gap-3 max-lg:flex-wrap" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
+          <div className="flex-1 text-sm max-lg:min-w-[200px]" style={{ color: '#78350f' }}>
             <div className="font-extrabold">Máte rozepsaný článek z minula</div>
             <div className="text-xs mt-0.5" style={{ color: '#92400e' }}>
               {restoreOffer.form?.title || '(bez názvu)'} — chcete pokračovat tam, kde jste skončili?
             </div>
           </div>
-          <Button small onClick={discardRestore}>Zahodit</Button>
-          <Button small green onClick={acceptRestore}>Načíst</Button>
+          <Button small onClick={discardRestore} className="max-lg:ml-auto max-lg:min-h-[36px]">Zahodit</Button>
+          <Button small green onClick={acceptRestore} className="max-lg:min-h-[36px]">Načíst</Button>
         </div>
       )}
 
@@ -292,21 +292,22 @@ export default function BlogWizard({ entry, onClose, onSaved }) {
       {translateStatus && <TranslationStatus status={translateStatus} />}
 
       {/* Navigation */}
-      <div className="flex justify-between mt-5 items-center">
+      {/* Mobil: akční tlačítka se při nedostatku místa zalomí na vlastní řádek vpravo */}
+      <div className="flex justify-between mt-5 items-center max-lg:flex-wrap max-lg:gap-3">
         <div className="flex items-center gap-3">
           {step > 1 && <Button onClick={() => setStep(step - 1)}>Zpět</Button>}
           <AutosaveIndicator status={autosaveStatus} hasContent={formHasContent(form)} draftId={draftId} />
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleClose} disabled={translating || saving}>
+        <div className="flex gap-2 max-lg:ml-auto max-lg:flex-wrap max-lg:justify-end">
+          <Button onClick={handleClose} disabled={translating || saving} className="max-lg:!px-4 max-lg:whitespace-nowrap">
             {formHasContent(form) ? 'Uložit a zavřít' : 'Zavřít'}
           </Button>
           {step < 4 ? (
-            <Button green onClick={() => setStep(step + 1)} disabled={!canNext}>
+            <Button green onClick={() => setStep(step + 1)} disabled={!canNext} className="max-lg:!px-4 max-lg:whitespace-nowrap">
               Další krok
             </Button>
           ) : (
-            <Button green onClick={handlePublish} disabled={saving || translating || !form.title}>
+            <Button green onClick={handlePublish} disabled={saving || translating || !form.title} className="max-lg:!px-4">
               {publishLabel}
             </Button>
           )}

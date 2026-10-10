@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Btn, Chip, Input, Select, Label } from './BranchRpiUi'
+import { Btn, Chip, Input, Select, HintedCell } from './BranchRpiUi'
 import { audioMode, audioOutputNames, toPhysical, fromPhysical } from './BranchRpiHardwareDefaults'
 import {
   outdoorOf, outdoorToDraft, draftToOutdoor, doorCoils, legacyOutdoorChannel, audioWithoutOutdoorChannel,
@@ -81,7 +81,7 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
           <div className="text-[12px] font-extrabold uppercase" style={{ color: '#1a2e22' }}>Venek (zóna bez dveří) — venkovní osvětlení + hudba venku</div>
           <div className="text-[11px]" style={{ color: '#6b8c7a' }}>{HINT}</div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 max-lg:flex-wrap">
           <Btn tone="red" onClick={clear} disabled={disabled || !(saved.present || legacy)} title="Odstraní sekci outdoor z HW mapy">Vymazat venek</Btn>
           <Btn tone="dark" onClick={save} disabled={disabled || !dirty}>{dirty ? 'Uložit venek' : 'Uloženo'}</Btn>
         </div>
@@ -94,25 +94,23 @@ function OutdoorHwEditor({ hardware, doors, disabled, onSave }) {
         <Input label="Zóna" type="number" min={1} width={64} value={draft.zone} invalid={!!zoneErr || (draft.zone !== '' && !(parseInt(draft.zone, 10) >= 1))}
           title={zoneErr || 'Popisné číslo venku pro Velín, diagnostiku a příkazy — nesmí kolidovat s číslem zóny dveří'}
           onChange={v => patch(d => ({ ...d, zone: v }))} />
-        <div className="flex flex-col gap-0.5" title={lightErr || 'Venkovní osvětlení: relé Waveshare (zařízení + číslo relé R1… z potisku modulu)'}>
-          <Label>Světlo (relé)</Label>
+        <HintedCell title={lightErr || 'Venkovní osvětlení: relé Waveshare (zařízení + číslo relé R1… z potisku modulu)'} label="Světlo (relé)">
           <div className="flex gap-1">
             <Select width={96} value={draft.light.dev} options={devOpts(draft.light.dev)} invalid={!!lightErr} onChange={setRef('light', 'dev')} />
             <span className="self-center text-[11px] font-extrabold" style={{ color: '#6b8c7a', minWidth: 14 }}>R</span>
             <Input width={54} type="number" min={1} value={toPhysical(OUTDOOR_LIGHT_ROLE, draft.light.coil)} placeholder="R…" invalid={!!lightErr} onChange={v => setRef('light', 'coil')(fromPhysical(OUTDOOR_LIGHT_ROLE, v))} />
           </div>
-        </div>
+        </HintedCell>
         <Select label="Audio výstup" width={150} value={out} options={outOptions} invalid={!!outErr} warn={multi && !out} disabled={!multi}
           title={outErr || (!multi ? SELECTOR_TITLE : out ? `Výstup ${out} (outdoor.audio.out) — hraje při jakémkoli kódu` : 'Bez výstupu hudba venku nehraje')}
           onChange={setRef('audio', 'out')} />
-        <div className="flex flex-col gap-0.5" title={relayErr || (!multi ? SELECTOR_TITLE : 'Volitelné enable relé zesilovače venku (zařízení + číslo relé R1…)')}>
-          <Label>Enable relé (volit.)</Label>
+        <HintedCell title={relayErr || (!multi ? SELECTOR_TITLE : 'Volitelné enable relé zesilovače venku (zařízení + číslo relé R1…)')} label="Enable relé (volit.)">
           <div className="flex gap-1">
             <Select width={96} value={draft.audio.dev} options={devOpts(draft.audio.dev)} invalid={!!relayErr} disabled={!multi} onChange={setRef('audio', 'dev')} />
             <span className="self-center text-[11px] font-extrabold" style={{ color: '#6b8c7a', minWidth: 14 }}>R</span>
             <Input width={54} type="number" min={1} value={toPhysical(OUTDOOR_RELAY_ROLE, draft.audio.coil)} placeholder="R…" invalid={!!relayErr} disabled={!multi} onChange={v => setRef('audio', 'coil')(fromPhysical(OUTDOOR_RELAY_ROLE, v))} />
           </div>
-        </div>
+        </HintedCell>
         {!multi && <Chip tone="amber" title="Přepněte Audio → režim na multi a nastavte výstup venku">hudba venku jen v multi</Chip>}
         <Input label="Doběh světla (s)" type="number" min={0} width={110} value={draft.light_after_close_s} placeholder="glob." invalid={afterBad}
           disabled={draft.light_mode !== LIGHT_MODE_AUTO}

@@ -39,13 +39,13 @@ export default function ServiceChecklistPicker({ checked, onToggle, customLabels
             <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} style={{ accentColor: '#16a34a' }} /> vše
           </label>
         )}
-        <button type="button" onClick={() => setOpen(Object.fromEntries(SERVICE_GROUPS.map(g => [g.key, true])))} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#2563eb' }}>rozbalit vše</button>
+        <button type="button" onClick={() => setOpen(Object.fromEntries(SERVICE_GROUPS.map(g => [g.key, true])))} className="text-xs font-bold cursor-pointer max-lg:py-2" style={{ background: 'none', border: 'none', color: '#2563eb' }}>rozbalit vše</button>
       </div>
       <div className="space-y-1" style={{ maxHeight, overflowY: 'auto', paddingRight: 2 }}>
         {groups.map(g => (
           <div key={g.key} className="rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
             <button type="button" onClick={() => setOpen(o => ({ ...o, [g.key]: !isOpen(g) }))}
-              className="w-full flex items-center gap-2 cursor-pointer text-left" style={{ padding: compact ? '6px 10px' : '8px 12px', background: 'none', border: 'none' }}>
+              className={`w-full flex items-center gap-2 cursor-pointer text-left ${compact ? 'px-2.5 py-1.5' : 'px-3 py-2'} max-lg:py-2.5`} style={{ background: 'none', border: 'none' }}>
               <span style={{ fontSize: 11, transform: isOpen(g) ? 'rotate(90deg)' : 'none', transition: 'transform .15s', color: '#1a2e22' }}>▶</span>
               <span className="text-xs font-extrabold uppercase tracking-wide flex-1" style={{ color: '#1a8a18' }}>{g.label}</span>
               {g.selected > 0 && <span className="text-xs font-bold rounded-full" style={{ padding: '1px 8px', background: '#74FB71', color: '#1a2e22' }}>{g.selected}</span>}
@@ -56,7 +56,7 @@ export default function ServiceChecklistPicker({ checked, onToggle, customLabels
                 {g.items.map(i => {
                   const on = isChecked(i.id)
                   return (
-                    <label key={i.id} className="flex items-center gap-2 cursor-pointer rounded" style={{ padding: '4px 6px', background: on ? '#dcfce7' : '#fff', border: `1px solid ${on ? '#86efac' : '#e5efe9'}` }}>
+                    <label key={i.id} className="flex items-center gap-2 cursor-pointer rounded px-1.5 py-1 max-lg:py-1.5" style={{ background: on ? '#dcfce7' : '#fff', border: `1px solid ${on ? '#86efac' : '#e5efe9'}` }}>
                       <input type="checkbox" checked={on} onChange={() => onToggle(i.id)} style={{ accentColor: '#16a34a', width: 15, height: 15, cursor: 'pointer' }} />
                       <span className="text-sm" style={{ color: '#0f1a14', fontWeight: on ? 700 : 400 }}>
                         <span title={{ replace: 'výměna', check: 'kontrola', adjust: 'seřízení', repair: 'oprava' }[i.kind] || ''} style={{ fontSize: 11, marginRight: 4, opacity: .7 }}>{KIND_ICON[i.kind] || '•'}</span>{i.label}

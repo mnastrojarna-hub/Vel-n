@@ -15,7 +15,7 @@ const th = { padding: '6px 8px', color: '#1a2e22', fontSize: 11, textAlign: 'lef
 const td = { padding: '6px 8px', fontSize: 13, verticalAlign: 'top' }
 // Mimo komponentu: definice uvnitř by při každém renderu tlačítka odpojila a znovu připojila (ztráta kliknutí).
 const Note = ({ m }) => <div className="text-xs font-bold p-2 rounded" style={{ background: m.error ? '#fef2f2' : '#f1faf7', color: m.error ? '#dc2626' : '#1a8a18' }}>{m.text}</div>
-const Btn = ({ onClick, color, children, title, disabled }) => <button type="button" onClick={onClick} disabled={disabled} title={title} className="font-bold cursor-pointer px-[3px] py-0 max-lg:px-2 max-lg:py-2" style={{ background: 'none', border: 'none', color, fontSize: 12 }}>{children}</button>
+const Btn = ({ onClick, color, children, title, disabled }) => <button type="button" onClick={onClick} disabled={disabled} title={title} className="font-bold cursor-pointer px-[3px] py-0 max-lg:px-2 max-lg:py-2 max-lg:min-w-[36px]" style={{ background: 'none', border: 'none', color, fontSize: 12 }}>{children}</button>
 
 /**
  * Přehled servisních intervalů motorky — strukturovaná tabulka po skupinách (motor & olej, brzdy, …):
@@ -77,8 +77,8 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {isSuper && <button onClick={acceptAll} disabled={busy === 'accept'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer" style={{ padding: '6px 12px', background: '#e8fde8', color: '#1a8a18', border: 'none' }} title="Stav hlídaný jinde (papír): plány po termínu / blíží se / neověřené začnou počítat od dneška a aktuálního stavu tachometru (jen superadmin)">Vše v pořádku k dnešku</button>}
-          <button onClick={applyStd} disabled={busy === 'std'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer" style={{ padding: '6px 12px', background: '#eef2ff', color: '#4f46e5', border: 'none' }} title="Založí chybějící plány základního standardu dle výrobce / katalogu">Doplnit standardní plány</button>
+          {isSuper && <button onClick={acceptAll} disabled={busy === 'accept'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer px-3 py-1.5 max-lg:py-2.5" style={{ background: '#e8fde8', color: '#1a8a18', border: 'none' }} title="Stav hlídaný jinde (papír): plány po termínu / blíží se / neověřené začnou počítat od dneška a aktuálního stavu tachometru (jen superadmin)">Vše v pořádku k dnešku</button>}
+          <button onClick={applyStd} disabled={busy === 'std'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer px-3 py-1.5 max-lg:py-2.5" style={{ background: '#eef2ff', color: '#4f46e5', border: 'none' }} title="Založí chybějící plány základního standardu dle výrobce / katalogu">Doplnit standardní plány</button>
           <AddScheduleBtn onAdd={onAddSchedule} saving={saving} unitLabel={unitLabel} existingTypes={(schedules || []).map(s => s.description)} existingTaskKeys={existingTaskKeys} />
         </div>
       </div>
@@ -100,8 +100,9 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
                   const isD = done?.id === d.schedule_id, isE = editing?.id === d.schedule_id
                   const kmRem = d.km_remaining, dRem = d.days_remaining
                   const rowMsg = msg?.rowId === d.schedule_id ? msg : null
+                  const hasX = !!(isD || isE || rowMsg || expandedParts === d.schedule_id)   // řádek s editorem → na mobilu/tabletu jedna karta
                   return [
-                    <tr key={d.schedule_id} className="md:max-lg:!grid md:max-lg:grid-cols-2 md:max-lg:gap-x-4" style={{ borderTop: '1px solid #e5efe9', background: d.state === 'overdue' && !d.open_log_id ? '#fff5f5' : 'transparent' }}>
+                    <tr key={d.schedule_id} className={`md:max-lg:!grid md:max-lg:grid-cols-2 md:max-lg:gap-x-4${hasX ? ' max-lg:!mb-0 max-lg:!rounded-b-none' : ''}`} style={{ borderTop: '1px solid #e5efe9', background: d.state === 'overdue' && !d.open_log_id ? '#fff5f5' : 'transparent' }}>
                       <td style={td}><span className="text-xs font-extrabold rounded-full" style={{ padding: '1px 7px', background: st.bg, color: st.color, border: `1px solid ${st.border}`, whiteSpace: 'nowrap' }}>{st.label}</span></td>
                       <td style={{ ...td, fontWeight: 700, color: '#0f1a14' }}>{d.label}<div className="text-xs font-normal" style={{ color: '#9ca3af' }}>{SOURCE_LABELS[d.source] || d.source}{d.sched?.notes ? ` · ${d.sched.notes}` : ''}</div></td>
                       <td style={{ ...td, whiteSpace: 'nowrap', color: '#1a2e22' }}>{intervalText(d, unitLabel)}</td>
@@ -122,8 +123,8 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
                         <Btn onClick={() => deactivate(d)} color="#dc2626" title="Vyřadit plán">×</Btn>
                       </td>
                     </tr>,
-                    (isD || isE || rowMsg || expandedParts === d.schedule_id) && (
-                      <tr key={`${d.schedule_id}-x`}><td colSpan={7} style={{ padding: '0 8px 8px' }}>
+                    hasX && (
+                      <tr key={`${d.schedule_id}-x`} className="max-lg:!rounded-t-none max-lg:!pt-0"><td colSpan={7} style={{ padding: '0 8px 8px' }}>
                         {rowMsg && <div className="mb-1"><Note m={rowMsg} /></div>}
                         {isD && <div className="flex items-center gap-2 flex-wrap p-2 rounded" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
                           <span className="text-xs font-extrabold" style={{ color: '#1e3a8a' }}>{d.label} — provedeno dne</span>

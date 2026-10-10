@@ -157,7 +157,7 @@ export default function TranslateEverythingButton() {
             ? `🌍 Fáze ${phaseIdx + 1}/${PHASES.length} · ${progress.done}/${progress.total} (${pct}%)`
             : '🌍 Přeložit vše do EN/DE/ES/FR/NL/PL/UK'}
         </Button>
-        <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer" style={{ color: '#9a3412' }} title="Bez zaškrtnutí se doplní jen chybějící překlady. Zaškrtni, když jsi po překladu změnil český text (eyebrow, popisky tlačítek, …) a chceš ho přeložit znovu — přepíše i existující překlady (FAQ/blog/cms_variables). Trvá déle.">
+        <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer max-lg:min-h-[40px]" style={{ color: '#9a3412' }} title="Bez zaškrtnutí se doplní jen chybějící překlady. Zaškrtni, když jsi po překladu změnil český text (eyebrow, popisky tlačítek, …) a chceš ho přeložit znovu — přepíše i existující překlady (FAQ/blog/cms_variables). Trvá déle.">
           <input type="checkbox" checked={force} onChange={e => setForce(e.target.checked)} disabled={running} />
           přepsat i existující překlady
         </label>
@@ -173,19 +173,19 @@ export default function TranslateEverythingButton() {
         )}
       </div>
       {!running && doneSummary?.abort === 'insufficient_credits' && (
-        <div className="mt-3 rounded-btn text-sm" style={{ padding: '10px 14px', background: '#fff7ed', border: '1px solid #fdba74', color: '#7c2d12' }}>
+        <div className="mt-3 rounded-btn text-sm max-lg:!rounded-[14px]" style={{ padding: '10px 14px', background: '#fff7ed', border: '1px solid #fdba74', color: '#7c2d12' }}>
           <strong>Anthropic API kredit vyčerpán.</strong> Workflow zastaveno hned po prvním selhání (jinak by se 60+ requestů snažilo o totéž).
           Doplň kredit na <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>console.anthropic.com → Plans &amp; Billing</a> nebo přepni na jiný klíč v Supabase secrets (<code>ANTHROPIC_API_KEY</code>).
         </div>
       )}
       {!running && doneSummary?.abort === 'invalid_api_key' && (
-        <div className="mt-3 rounded-btn text-sm" style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fca5a5', color: '#7f1d1d' }}>
+        <div className="mt-3 rounded-btn text-sm max-lg:!rounded-[14px]" style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fca5a5', color: '#7f1d1d' }}>
           <strong>Neplatný Anthropic API klíč.</strong> Aktualizuj sekret <code>ANTHROPIC_API_KEY</code> v Supabase Edge Functions (Project Settings → Edge Functions → Secrets).
         </div>
       )}
       {!running && errors.length > 0 && (
         <details className="mt-2">
-          <summary className="text-xs cursor-pointer" style={{ color: '#dc2626' }}>
+          <summary className="text-xs cursor-pointer max-lg:py-[10px]" style={{ color: '#dc2626' }}>
             Zobrazit {errors.length} chyb
           </summary>
           <ul className="text-xs mt-2 space-y-1" style={{ color: '#6b8f7b' }}>

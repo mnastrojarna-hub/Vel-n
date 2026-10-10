@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Btn, Chip, Input, Select, Label, Checkbox } from './BranchRpiUi'
+import { Btn, Chip, Input, Select, Checkbox, HintedCell } from './BranchRpiUi'
 import { AUDIO_MODES, BRNO_AUDIO_OUTPUTS_EXAMPLE, audioMode, audioOutputNames, roleTypeError, toPhysical, fromPhysical, ZONE_REFS } from './BranchRpiHardwareDefaults'
 import { outdoorOf, outdoorOutOf, outdoorRelayError, doorCoils } from './BranchRpiOutdoorHelpers'
 
@@ -159,7 +159,7 @@ function AudioOutputsEditor({ hardware, doors, disabled, onSave, onSaveDoor, sta
             multi = každá místnost s reproduktorem má vlastní výstup (USB→jack adaptér + zesilovač) a hraje po kódu svých dveří. Dnes stačí „Jen šatna (1 výstup)“; další výstupy (kóje, venek) přidáte, až budou zapojené — dveře bez výstupu jsou „bez reproduktoru“ (po kódu nehrají, není to chyba). Zařízení: „Automaticky“ = jediná USB karta, u více adaptérů zvolte USB port (jednotka karty hlásí sama, bez terminálu). selector = 1 zesilovač + přepínací relé.
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 max-lg:flex-wrap">
           <Btn tone="blue" onClick={add} disabled={disabled}>Přidat výstup</Btn>
           <Btn tone="green" onClick={fillLockerOnly} disabled={disabled} title="Dnešní zapojení: 1 USB→jack adaptér → zesilovač → reproduktor v šatně">Jen šatna (1 výstup)</Btn>
           <Btn tone="gray" onClick={fillExample} disabled={disabled} title="Vyplní out1–out9 (venek = out9 nastavíte v bloku Venek); režim nepřepíná">Vzor 9 výstupů (7 kójí, šatna, venek)</Btn>
@@ -239,7 +239,7 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
         onChange={v => onPatch(p => ({ ...p, audio: { ...p.audio, coil: fromPhysical(AUDIO_ROLE, v) } }))} />
     </div>
   )
-  if (!multi) return <div className="flex flex-col gap-0.5" title={relayTitle}><Label>Audio</Label>{relay}</div>
+  if (!multi) return <HintedCell title={relayTitle} label="Audio">{relay}</HintedCell>
   const unknownOut = !!(out && !names.includes(out))
   const outOptions = [{ value: '', label: '— bez reproduktoru —' }, ...names.map(n => ({ value: n, label: n }))]
   if (unknownOut) outOptions.push({ value: out, label: `${out} (?)` })
@@ -247,15 +247,15 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
     : unknownOut ? `Výstup „${out}“ v seznamu výstupů nahoře neexistuje — jednotka by celou mapu odmítla. Vyberte existující, nebo ho doplňte v sekci Audio.`
       : !out ? 'Bez reproduktoru: po kódu tu hudba nehraje (není to chyba). Až bude reproduktor zapojený, vyberte jeho výstup.'
         : `Hudba této místnosti hraje přes výstup „${out}“ (nastavuje se v sekci Audio výše).`
+  // Bubliny jsou na PC u výstupu a u relé zvlášť; na dotyku obě vysvětlivky pod jedním „i“ u popisku
   return (
-    <div className="flex flex-col gap-0.5">
-      <Label>Audio výstup / relé (volit.)</Label>
-      <div className="flex gap-1">
+    <HintedCell label="Audio výstup / relé (volit.)" hint={`${outTitle} Relé: ${relayTitle}`}>
+      <div className="flex gap-1 max-sm:flex-wrap">
         <Select width={150} value={out} options={outOptions} invalid={dupOut || unknownOut} title={outTitle}
           onChange={v => onPatch(p => ({ ...p, audio: { ...p.audio, out: v } }))} />
         <span title={relayTitle}>{relay}</span>
       </div>
-    </div>
+    </HintedCell>
   )
 }
 

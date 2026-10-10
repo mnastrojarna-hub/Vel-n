@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { AGENTS } from '../../lib/aiAgents'
 import { getAgentLearningLog, getMetrics } from '../../lib/aiLearning'
 import { SEV, classify, descCz, detailCz } from './AiAgentFindingsConstants'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 export default function AiAgentFindingsPanel() {
   const [selected, setSelected] = useState('all')
@@ -11,6 +12,10 @@ export default function AiAgentFindingsPanel() {
   const [expanded, setExpanded] = useState({})
   const [showExport, setShowExport] = useState(false)
   const metrics = getMetrics()
+  // Mobil/tablet (< 1024 px): čitelnější písmo, dotykové cíle ≥ 36 px, zalamování; desktop beze změny
+  const isMobile = useIsMobile()
+  const mob = (o) => (isMobile ? o : null)
+  const chip = mob({ padding: '8px 12px', fontSize: 12, minHeight: 36 })
 
   const allFindings = []
   for (const a of AGENTS) {
@@ -59,26 +64,26 @@ export default function AiAgentFindingsPanel() {
   return (
     <div>
       {/* Souhrn */}
-      <div style={{ padding: '12px 16px', borderRadius: 12, marginBottom: 12, background: totP > 0 ? '#fef2f2' : totW > 0 ? '#fef3c7' : '#dcfce7', border: `2px solid ${totP > 0 ? '#ef4444' : totW > 0 ? '#f59e0b' : '#22c55e'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
+      <div style={{ padding: '12px 16px', borderRadius: 12, marginBottom: 12, background: totP > 0 ? '#fef2f2' : totW > 0 ? '#fef3c7' : '#dcfce7', border: `2px solid ${totP > 0 ? '#ef4444' : totW > 0 ? '#f59e0b' : '#22c55e'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', ...mob({ flexWrap: 'wrap', gap: 8 }) }}>
+        <div style={isMobile ? { flex: '1 1 220px', minWidth: 0 } : undefined}>
           <div style={{ fontWeight: 800, fontSize: 14, color: '#0f1a14' }}>{totP} {totP === 1 ? 'problém' : (totP >= 2 && totP <= 4) ? 'problémy' : 'problémů'} | {totW} {totW === 1 ? 'varování' : 'varování'} | {allFindings.length} kontrol celkem</div>
           <div style={{ fontSize: 11, color: '#666' }}>Nálezy z posledního tréninku všech {AGENTS.length} agentů</div>
         </div>
-        <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}><input type="checkbox" checked={showOk} onChange={e => setShowOk(e.target.checked)} /> Zobrazit i OK</label>
+        <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', ...mob({ fontSize: 13, gap: 6, minHeight: 36 }) }}><input type="checkbox" checked={showOk} onChange={e => setShowOk(e.target.checked)} /> Zobrazit i OK</label>
       </div>
 
       {/* Filtr agentů */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
-        <button onClick={() => setSelected('all')} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: selected === 'all' ? 700 : 400, cursor: 'pointer', border: selected === 'all' ? '2px solid #0f1a14' : '1px solid #e5e7eb', background: selected === 'all' ? '#0f1a14' : '#fff', color: selected === 'all' ? '#74FB71' : '#666' }}>Všichni ({totP + totW})</button>
-        {AGENTS.map(a => { const s = summary[a.id]; const has = s.problems > 0 || s.warnings > 0; return (<button key={a.id} onClick={() => setSelected(a.id)} style={{ padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: selected === a.id ? 700 : 400, border: selected === a.id ? '2px solid #0f1a14' : `1px solid ${has ? '#fecaca' : '#e5e7eb'}`, background: selected === a.id ? '#0f1a14' : has ? '#fef2f2' : '#fff', color: selected === a.id ? '#74FB71' : has ? '#dc2626' : '#666' }}>{a.icon} {s.problems > 0 ? s.problems : s.warnings > 0 ? s.warnings : 'ok'}</button>) })}
+        <button onClick={() => setSelected('all')} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: selected === 'all' ? 700 : 400, cursor: 'pointer', border: selected === 'all' ? '2px solid #0f1a14' : '1px solid #e5e7eb', background: selected === 'all' ? '#0f1a14' : '#fff', color: selected === 'all' ? '#74FB71' : '#666', ...chip }}>Všichni ({totP + totW})</button>
+        {AGENTS.map(a => { const s = summary[a.id]; const has = s.problems > 0 || s.warnings > 0; return (<button key={a.id} onClick={() => setSelected(a.id)} style={{ padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: selected === a.id ? 700 : 400, border: selected === a.id ? '2px solid #0f1a14' : `1px solid ${has ? '#fecaca' : '#e5e7eb'}`, background: selected === a.id ? '#0f1a14' : has ? '#fef2f2' : '#fff', color: selected === a.id ? '#74FB71' : has ? '#dc2626' : '#666', ...chip }}>{a.icon} {s.problems > 0 ? s.problems : s.warnings > 0 ? s.warnings : 'ok'}</button>) })}
       </div>
 
       {/* Akce */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-        <button onClick={checkAllProblems} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, border: '1px solid #d4e8e0', background: '#f8fcfa', cursor: 'pointer' }}>Vybrat všechny problémy</button>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8, ...mob({ flexWrap: 'wrap' }) }}>
+        <button onClick={checkAllProblems} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, border: '1px solid #d4e8e0', background: '#f8fcfa', cursor: 'pointer', ...chip }}>Vybrat všechny problémy</button>
         {checkedCount > 0 && (<>
-          <button onClick={uncheckAll} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' }}>Zrušit výběr</button>
-          <button onClick={exportSelected} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, border: 'none', background: '#0f1a14', color: '#74FB71', cursor: 'pointer', fontWeight: 700 }}>Reportovat vybrané ({checkedCount})</button>
+          <button onClick={uncheckAll} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', ...chip }}>Zrušit výběr</button>
+          <button onClick={exportSelected} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, border: 'none', background: '#0f1a14', color: '#74FB71', cursor: 'pointer', fontWeight: 700, ...chip }}>Reportovat vybrané ({checkedCount})</button>
         </>)}
       </div>
 
@@ -86,18 +91,18 @@ export default function AiAgentFindingsPanel() {
       {selected === 'all' && (
         <div className="grid grid-cols-3 gap-2" style={{ marginBottom: 12 }}>
           {AGENTS.map(a => { const s = summary[a.id]; return (<div key={a.id} onClick={() => setSelected(a.id)} style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${s.problems ? '#fecaca' : s.warnings ? '#fde68a' : '#d4e8e0'}`, background: s.problems ? '#fef2f2' : s.warnings ? '#fef3c7' : '#f8fcfa' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}><span style={{ fontSize: 14 }}>{a.icon}</span><span style={{ fontWeight: 700, fontSize: 11, color: '#0f1a14', flex: 1 }}>{a.name}</span></div>
-            <div style={{ fontSize: 10, color: '#666' }}>{s.total} kontrol | {s.confidence}%</div>
-            {s.problems > 0 && <div style={{ fontSize: 10, color: '#dc2626', fontWeight: 700 }}>{s.problems} {s.problems === 1 ? 'problém' : 'problémů'}</div>}
-            {s.warnings > 0 && <div style={{ fontSize: 10, color: '#92400e', fontWeight: 700 }}>{s.warnings} varování</div>}
-            {!s.problems && !s.warnings && s.total > 0 && <div style={{ fontSize: 10, color: '#22c55e' }}>Vše OK</div>}
-            {!s.total && <div style={{ fontSize: 10, color: '#999' }}>Netrénován</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}><span style={{ fontSize: 14 }}>{a.icon}</span><span style={{ fontWeight: 700, fontSize: isMobile ? 12 : 11, color: '#0f1a14', flex: 1 }}>{a.name}</span></div>
+            <div style={{ fontSize: isMobile ? 11 : 10, color: '#666' }}>{s.total} kontrol | {s.confidence}%</div>
+            {s.problems > 0 && <div style={{ fontSize: isMobile ? 11 : 10, color: '#dc2626', fontWeight: 700 }}>{s.problems} {s.problems === 1 ? 'problém' : 'problémů'}</div>}
+            {s.warnings > 0 && <div style={{ fontSize: isMobile ? 11 : 10, color: '#92400e', fontWeight: 700 }}>{s.warnings} varování</div>}
+            {!s.problems && !s.warnings && s.total > 0 && <div style={{ fontSize: isMobile ? 11 : 10, color: '#22c55e' }}>Vše OK</div>}
+            {!s.total && <div style={{ fontSize: isMobile ? 11 : 10, color: '#999' }}>Netrénován</div>}
           </div>) })}
         </div>
       )}
 
       {/* Seznam nálezů */}
-      <div style={{ maxHeight: 500, overflow: 'auto' }}>
+      <div style={{ maxHeight: isMobile ? 'none' : 500, overflow: 'auto' }}>
         {filtered.length === 0 && (<div style={{ textAlign: 'center', padding: 30, color: '#999', fontSize: 12 }}>{showOk ? 'Žádné záznamy. Spusťte trénink.' : 'Žádné problémy nalezeny. Zapněte "Zobrazit i OK" pro kompletní přehled.'}</div>)}
         {filtered.map((f, i) => {
           const agent = AGENTS.find(a => a.id === f.agentId)
@@ -106,16 +111,16 @@ export default function AiAgentFindingsPanel() {
           const isChecked = checked[i]
           return (
             <div key={i} style={{ marginBottom: 3, borderRadius: 8, background: sev.bg, border: `1px solid ${sev.color}33`, overflow: 'hidden' }}>
-              <div style={{ display: 'flex', gap: 6, padding: '6px 10px', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpanded(p => ({ ...p, [i]: !p[i] }))}>
+              <div style={{ display: 'flex', gap: 6, padding: '6px 10px', alignItems: 'center', cursor: 'pointer', ...mob({ padding: '8px 10px', minHeight: 44 }) }} onClick={() => setExpanded(p => ({ ...p, [i]: !p[i] }))}>
                 {(f.severity === 'fail' || f.severity === 'warn') && (<input type="checkbox" checked={!!isChecked} onChange={() => toggle(i)} onClick={e => e.stopPropagation()} style={{ width: 14, height: 14, cursor: 'pointer' }} />)}
-                <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, fontWeight: 700, background: sev.color, color: '#fff', minWidth: 55, textAlign: 'center' }}>{sev.label}</span>
+                <span style={{ fontSize: isMobile ? 10 : 9, padding: '1px 5px', borderRadius: 4, fontWeight: 700, background: sev.color, color: '#fff', minWidth: 55, textAlign: 'center', ...mob({ flexShrink: 0 }) }}>{sev.label}</span>
                 <span style={{ fontSize: 14 }}>{agent?.icon}</span>
-                <div style={{ flex: 1, fontSize: 11 }}><span style={{ fontWeight: 600, color: '#0f1a14' }}>{descCz(f)}</span></div>
-                <span style={{ fontSize: 10, color: '#999' }}>{f.timestamp ? new Date(f.timestamp).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                <div style={{ flex: 1, fontSize: isMobile ? 12 : 11, ...mob({ minWidth: 0 }) }}><span style={{ fontWeight: 600, color: '#0f1a14' }}>{descCz(f)}</span></div>
+                <span style={{ fontSize: isMobile ? 11 : 10, color: '#999' }}>{f.timestamp ? new Date(f.timestamp).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                 <span style={{ fontSize: 12, color: '#999', transform: isExpanded ? 'rotate(180deg)' : '', transition: 'transform 0.15s' }}>v</span>
               </div>
               {isExpanded && (
-                <div style={{ padding: '6px 10px 8px 36px', borderTop: `1px solid ${sev.color}22`, fontSize: 11 }}>
+                <div style={{ padding: '6px 10px 8px 36px', borderTop: `1px solid ${sev.color}22`, fontSize: 11, ...mob({ padding: '8px 12px 10px', fontSize: 12, overflowWrap: 'anywhere' }) }}>
                   <div style={{ color: '#666', marginBottom: 2 }}><strong>Agent:</strong> {agent?.name} ({f.agentId})</div>
                   <div style={{ color: '#666', marginBottom: 2 }}><strong>Akce:</strong> {f.action}</div>
                   {detailCz(f) && <div style={{ color: sev.color, marginBottom: 2 }}><strong>Detail:</strong> {detailCz(f)}</div>}
@@ -131,15 +136,15 @@ export default function AiAgentFindingsPanel() {
       {/* Export modal */}
       {showExport && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}>
-          <div style={{ background: '#fff', borderRadius: 16, width: '90%', maxWidth: 700, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '90%', maxWidth: 700, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', ...mob({ width: 'calc(100vw - 16px)', maxHeight: '92dvh' }) }}>
             <div style={{ padding: '14px 18px', borderBottom: '2px solid #d4e8e0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontWeight: 800, fontSize: 15 }}>Report nálezů — zkopírujte pro Claude Code</span>
-              <button onClick={() => setShowExport(false)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#999' }}>X</button>
+              <button onClick={() => setShowExport(false)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#999', ...mob({ minWidth: 40, minHeight: 40, flexShrink: 0 }) }}>X</button>
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
               <textarea value={showExport} readOnly style={{ width: '100%', minHeight: 300, fontSize: 11, padding: 10, borderRadius: 8, border: '1px solid #d4e8e0', fontFamily: 'monospace', lineHeight: 1.5, resize: 'vertical' }} />
             </div>
-            <div style={{ padding: '12px 18px', borderTop: '1px solid #d4e8e0', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <div style={{ padding: '12px 18px', borderTop: '1px solid #d4e8e0', display: 'flex', gap: 8, justifyContent: 'flex-end', ...mob({ flexWrap: 'wrap', padding: '10px 12px' }) }}>
               <button onClick={() => { navigator.clipboard.writeText(showExport); alert('Zkopírováno do schránky!') }} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#0f1a14', color: '#74FB71', cursor: 'pointer', fontWeight: 700 }}>Kopírovat do schránky</button>
               <button onClick={() => setShowExport(false)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #d4e8e0', background: '#fff', cursor: 'pointer' }}>Zavřít</button>
             </div>

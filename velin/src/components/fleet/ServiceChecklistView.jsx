@@ -59,7 +59,7 @@ export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, er
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-4 max-sm:grid-cols-1">
         <div>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servis od</label>
           <input type="date" value={serviceDateFrom} onChange={e => setServiceDateFrom(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />

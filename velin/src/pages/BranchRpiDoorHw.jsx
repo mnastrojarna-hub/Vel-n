@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Btn, Chip, Input, Select, Label, doorKindLabel } from './BranchRpiUi'
+import { Btn, Chip, Input, Select, HintedCell, doorKindLabel } from './BranchRpiUi'
 import { DoorAudioCell } from './BranchRpiAudioHw'
 import {
   ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, ZONE_LIGHT_OPTIONS, audioMode, channelKey, channelLabel, channelRangeError, defaultDoorHw, toPhysical, fromPhysical, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
 } from './BranchRpiHardwareDefaults'
 import { outdoorRefs } from './BranchRpiOutdoorHelpers'
+import { useMediaQuery } from '../hooks/useIsMobile'
+import { DoorHwSummary } from './BranchRpiDoorHwMobile'
+import { useTouchHint, HintRow } from './BranchRpiTouchHint'
 
 // ─── Editor `branch_doors.hw` — mapování zóny na kanály hardwaru ────────────
 // Lokální drafty per dveře (indexy od 0 jako v `hw`; políčka ukazují fyzická čísla R1…/DI1… — toPhysical/fromPhysical);
@@ -87,8 +90,9 @@ function DoorHwEditor({ doors, devices, audio, outdoor, busy, onSaveDoor }) {
 
   if (doors.length === 0) return null
 
+  // Vnořený scroll (max-h-96) jen na PC — na dotyku (< 1024 px) seznam roste se stránkou; telefon má řádky sbalené
   return (
-    <div className="space-y-1 max-h-96 overflow-y-auto">
+    <div className="space-y-1 lg:max-h-96 lg:overflow-y-auto">
       {prefilledDoors.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap text-[12px] font-bold p-2 rounded-lg" style={{ background: '#fef3c7', color: '#b45309' }}>
           <span>{prefilledDoors.length === 1 ? '1 dveře nemají mapu — předvyplněno' : `${prefilledDoors.length} dveří nemá mapu — předvyplněno`} podle čísla kóje (zámek R n + kontakt DI n na Relay (B), světlo R n na WAV645). Zkontrolujte zapojení a uložte.</span>
@@ -126,7 +130,20 @@ export function ChannelPrefix({ kind }) {
   return <span className="self-center text-[11px] font-extrabold" style={{ color: '#6b8c7a', minWidth: 14 }}>{kind === 'coil' ? 'R' : kind === 'input' ? 'DI' : 'id'}</span>
 }
 
-function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, dupOuts, outdoorZone, busy, msg, onPatch, onSave, onClear }) {
+// Telefon (< 768 px): sbalený souhrn s „Upravit“ (BranchRpiDoorHwMobile.jsx); rozbalený = plný editor + „Sbalit“.
+// Tablet a PC: vždy plný editor (beze změny).
+function DoorHwRow(props) {
+  const phone = useMediaQuery('(max-width: 767px)')
+  const [open, setOpen] = useState(false)
+  const configured = !!(props.door.hw && typeof props.door.hw === 'object' && Object.keys(props.door.hw).length)
+  if (phone && !open) return <DoorHwSummary {...props} configured={configured} onOpen={() => setOpen(true)} />
+  return <DoorHwFull {...props} onCollapse={phone ? () => setOpen(false) : null} />
+}
+
+const OWN_TIMING_TITLE = 'Časování jen pro tuto zónu. Prázdné pole = platí společné nastavení ze sekce „Časování“ výše. Kóje 1–7 nechte prázdné, aby byly stejné; šatně můžete nastavit vlastní doby.'
+
+function DoorHwFull({ door, draft, devices, audio, devOptions, dupes, dupZones, dupOuts, outdoorZone, busy, msg, onPatch, onSave, onClear, onCollapse }) {
+  const ownHint = useTouchHint(OWN_TIMING_TITLE)   // dotyk: „i“ u „Vlastní čas“ (na PC bublina)
   const isAcc = door.door_kind === 'accessories'
   const configured = !!(door.hw && typeof door.hw === 'object' && Object.keys(door.hw).length)
   const zoneNo = parseInt(draft.zone, 10)
@@ -159,8 +176,7 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
           const title = dup ? 'Tenhle kanál už používá jiná zóna nebo venek — každý zámek, kontakt, světlo i reproduktor smí patřit jen jedné zóně.' : typeErr ? `${typeErr} Povolené: ${role.types.join('/')}.` : rangeErr || role.hint
           const unknownDev = !!(ref.dev && !devices?.[ref.dev])
           return (
-            <div key={role.key} className="flex flex-col gap-0.5" title={title}>
-              <Label>{role.label}{role.key === 'lock' || role.key === 'contact' ? ' *' : ''}</Label>
+            <HintedCell key={role.key} title={title} label={`${role.label}${role.key === 'lock' || role.key === 'contact' ? ' *' : ''}`}>
               <div className="flex gap-1">
                 <Select width={96} value={ref.dev} options={unknownDev ? [...devOptions, { value: ref.dev, label: `${ref.dev} (?)` }] : devOptions}
                   invalid={bad}
@@ -170,25 +186,28 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
                   placeholder={role.kind === 'coil' ? 'R…' : role.kind === 'input' ? 'DI…' : 'id'} invalid={bad}
                   onChange={v => onPatch(p => ({ ...p, [role.key]: { ...p[role.key], [role.idx]: fromPhysical(role, v) } }))} />
               </div>
-            </div>
+            </HintedCell>
           )
         })}
-        <Input label="Zavřeno =" width={70} value={draft.closed_level} placeholder="glob."
+        {/* Dotyk: o 16 px širší, aby se „Zavřeno =“ i s tlačítkem „i“ vešlo na jeden řádek (tablet: Uložit zůstane vedle) */}
+        <Input label="Zavřeno =" width={70} value={draft.closed_level} placeholder="glob." className="max-lg:!w-[86px]"
           title="Jakou hodnotu hlásí vstup modulu, když jsou TYTO dveře zavřené (0 nebo 1). Prázdné = společné nastavení ze sekce „Dveřní kontakty“. Měňte jen když má tato zóna jinak zapojené čidlo."
           invalid={draft.closed_level !== '' && draft.closed_level !== '0' && draft.closed_level !== '1'}
           onChange={v => onPatch(p => ({ ...p, closed_level: v }))} />
         <div className="flex gap-1 self-center ml-auto">
           <Btn tone="dark" disabled={busy} onClick={onSave}>Uložit</Btn>
           <Btn tone="red" disabled={busy || !configured} onClick={onClear}>Vymazat</Btn>
+          {onCollapse && <Btn tone="gray" onClick={onCollapse}>Sbalit ▴</Btn>}
         </div>
       </div>
       {/* Individuální časování zóny — kóje 1–7 se obvykle nechávají prázdné (jedou na společném nastavení),
           šatna se tu dá nastavit jinak (převlékání trvá déle než zaparkování motorky) */}
       <div className="flex items-end gap-2 flex-wrap mt-1 pt-1" style={{ borderTop: '1px dashed #d4e8e0' }}>
         <span className="text-[10px] font-extrabold uppercase self-center" style={{ color: '#6b8c7a', minWidth: 76 }}
-          title="Časování jen pro tuto zónu. Prázdné pole = platí společné nastavení ze sekce „Časování“ výše. Kóje 1–7 nechte prázdné, aby byly stejné; šatně můžete nastavit vlastní doby.">
-          Vlastní čas
+          title={OWN_TIMING_TITLE}>
+          Vlastní čas{ownHint.toggle && <> {ownHint.toggle}</>}
         </span>
+        <HintRow body={ownHint.body} />
         <Select label="Hudba" width={168} value={draft.music_enabled ?? ''} options={ZONE_MUSIC_OPTIONS}
           warn={draft.music_enabled === '0'}
           title="Hraje v této kóji / šatně hudba po zadání kódu? „Podle pobočky“ = řídí se hlavním vypínačem v sekci Audio (výchozí, nechte u kójí 1–7). „Nehraje“ umlčí jen tuhle zónu, ostatní hrají dál. Dveří se to nijak netýká, otevírají se vždy."
@@ -201,7 +220,7 @@ function DoorHwRow({ door, draft, devices, audio, devOptions, dupes, dupZones, d
           const bad = v !== '' && !(parseInt(v, 10) >= 0)
           return (
             <Input key={f.key} label={`${f.label} (${f.unit})`} width={132} type="number" min={0} value={v} placeholder="glob."
-              invalid={bad} title={f.hint}
+              invalid={bad} title={f.hint} className="max-sm:!w-[calc(50%_-_4px)]"
               onChange={val => onPatch(p => ({ ...p, timings: { ...(p.timings || {}), [f.key]: val } }))} />
           )
         })}

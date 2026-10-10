@@ -118,10 +118,10 @@ export default function ServiceOverview({ onOpenMoto }) {
                 </div>
                 <div className="p-2 grid grid-cols-1 md:grid-cols-2 gap-1">
                   {g.rows.filter(r => !r.open_log_id && r.state !== 'ok').map(r => (
-                    <div key={r.schedule_id} className="flex items-center gap-2 text-sm rounded max-md:flex-wrap" style={{ padding: '3px 6px', background: '#fff', border: `1px solid ${DUE_STATE[r.state].border}` }}>
+                    <div key={r.schedule_id} className="flex items-center gap-2 text-sm rounded max-lg:flex-wrap" style={{ padding: '3px 6px', background: '#fff', border: `1px solid ${DUE_STATE[r.state].border}` }}>
                       <span style={{ color: DUE_STATE[r.state].color, fontSize: 10 }}>●</span>
-                      <span className="font-bold flex-1 max-md:basis-[calc(100%-24px)]" style={{ color: '#0f1a14' }}>{r.label}</span>
-                      <span className="text-xs max-md:flex-1 max-md:pl-4" style={{ color: DUE_STATE[r.state].color }}>{r.state === 'unknown' ? 'doplnit poslední provedení' : dueText(r, g.tracking_unit === 'mh' ? 'MH' : 'km')}</span>
+                      <span className="font-bold flex-1 max-lg:basis-[calc(100%-24px)]" style={{ color: '#0f1a14' }}>{r.label}</span>
+                      <span className="text-xs max-lg:flex-1 max-lg:pl-4" style={{ color: DUE_STATE[r.state].color }}>{r.state === 'unknown' ? 'doplnit poslední provedení' : dueText(r, g.tracking_unit === 'mh' ? 'MH' : 'km')}</span>
                       {r.state !== 'unknown' && <button onClick={e => { e.stopPropagation(); plan(r) }} disabled={busy === r.schedule_id} className="text-xs font-bold cursor-pointer max-lg:px-2 max-lg:py-2" style={{ background: 'none', border: 'none', color: '#1a8a18' }}>naplánovat</button>}
                     </div>
                   ))}

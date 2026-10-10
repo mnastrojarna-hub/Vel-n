@@ -10,6 +10,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import Button from '../ui/Button'
+import { useIsMobile, useMediaQuery } from '../../hooks/useIsMobile'
+
+// Telefon (< 768 px): mřížky sekcí do 1 sloupce. Tablet + desktop beze změny rozvržení.
+const PHONE_QUERY = '(max-width: 767px)'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Konstanty
@@ -93,17 +97,20 @@ export function useAgentConfig(settingsKey, defaultConfig) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function PanelHeader({ title, subtitle, saved, error, saving, onSave, onReset }) {
+  // Mobil/tablet: titulek a tlačítka se zalomí pod sebe, tlačítka ≥ 40 px
+  const isMobile = useIsMobile()
+  const btnStyle = isMobile ? { minHeight: 40 } : undefined
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-      <div>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, ...(isMobile ? { flexWrap: 'wrap', gap: 10 } : null) }}>
+      <div style={isMobile ? { flex: '1 1 260px', minWidth: 0 } : undefined}>
         <div style={{ fontSize: 15, fontWeight: 800, color: '#0f1a14' }}>{title}</div>
-        {subtitle && <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>{subtitle}</div>}
+        {subtitle && <div style={{ fontSize: isMobile ? 12 : 11, color: '#666', marginTop: 2 }}>{subtitle}</div>}
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         {saved && <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>Uloženo</span>}
         {error && <span style={{ fontSize: 11, color: '#dc2626' }}>{error}</span>}
-        {onReset && <Button small outline onClick={onReset}>Reset</Button>}
-        <Button small green onClick={onSave} disabled={saving}>
+        {onReset && <Button small outline onClick={onReset} style={btnStyle}>Reset</Button>}
+        <Button small green onClick={onSave} disabled={saving} style={btnStyle}>
           {saving ? 'Ukládám...' : 'Uložit'}
         </Button>
       </div>
@@ -126,22 +133,27 @@ export function CommonControls({
   personaPlaceholder = 'např. Rezervační asistent',
   extras,
 }) {
+  // Telefon: karty přes celou šířku (select s dlouhými volbami jinak přetéká)
+  const isPhone = useMediaQuery(PHONE_QUERY)
+  const isMobile = useIsMobile()
+  const full = isPhone ? { flex: '1 1 100%', minWidth: 0 } : null
   return (
-    <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: isPhone ? 10 : 16, marginBottom: 16, flexWrap: 'wrap' }}>
       <div style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#f8fcfa', flex: '0 0 auto' }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6 }}>Agent aktivní</div>
         <button onClick={() => onChange('enabled', !config.enabled)} style={{
           width: 48, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
           background: config.enabled ? '#22c55e' : '#d1d5db', position: 'relative', transition: 'background 0.2s',
+          ...(isMobile ? { width: 56, height: 32, borderRadius: 16 } : null),
         }}>
           <span style={{
-            position: 'absolute', top: 2, left: config.enabled ? 26 : 2, width: 20, height: 20,
+            position: 'absolute', top: isMobile ? 3 : 2, left: config.enabled ? (isMobile ? 27 : 26) : (isMobile ? 3 : 2), width: isMobile ? 26 : 20, height: isMobile ? 26 : 20,
             borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
           }} />
         </button>
       </div>
 
-      <div style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#f8fcfa', flex: 1, minWidth: 200 }}>
+      <div style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#f8fcfa', flex: 1, minWidth: 200, ...full }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6 }}>Název role / persony</div>
         <input
           value={config.persona_name || ''}
@@ -151,12 +163,12 @@ export function CommonControls({
         />
       </div>
 
-      <div style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#f8fcfa', flex: '0 0 auto', minWidth: 180 }}>
+      <div style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#f8fcfa', flex: '0 0 auto', minWidth: 180, ...full }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6 }}>Tón komunikace</div>
         <select
           value={config.tone}
           onChange={e => onChange('tone', e.target.value)}
-          style={{ width: '100%', fontSize: 12, padding: '6px 10px', borderRadius: 6, border: '1px solid #d4e8e0' }}
+          style={{ width: '100%', fontSize: 12, padding: '6px 10px', borderRadius: 6, border: '1px solid #d4e8e0', ...(isPhone ? { minWidth: 0, maxWidth: '100%' } : null) }}
         >
           {toneOptions.map(t => (
             <option key={t.value} value={t.value}>{t.label} — {t.desc}</option>
@@ -164,7 +176,7 @@ export function CommonControls({
         </select>
       </div>
 
-      <div style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#f8fcfa', flex: '0 0 auto', minWidth: 140 }}>
+      <div style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#f8fcfa', flex: '0 0 auto', minWidth: 140, ...full }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6 }}>Max tokenů</div>
         <input
           type="number"
@@ -188,11 +200,12 @@ export function CommonControls({
 
 export function PromptEditor({ value, onChange, label = 'Systémový prompt (hlavní zadání pro agenta)', minHeight = 160 }) {
   const [editing, setEditing] = useState(false)
+  const isMobile = useIsMobile()
   return (
     <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, border: '2px solid #d4e8e0', background: '#fff' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1a14' }}>{label}</span>
-        <button onClick={() => setEditing(!editing)} style={{ fontSize: 11, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+        <button onClick={() => setEditing(!editing)} style={{ fontSize: 11, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, ...(isMobile ? { fontSize: 13, padding: '8px 4px 8px 12px', minHeight: 36 } : null) }}>
           {editing ? 'Hotovo' : 'Upravit'}
         </button>
       </div>
@@ -218,21 +231,23 @@ export function PromptEditor({ value, onChange, label = 'Systémový prompt (hla
 
 export function TagList({ items, onAdd, onRemove, placeholder, color, bgColor, borderColor, icon }) {
   const [val, setVal] = useState('')
+  // Mobil/tablet: čitelné písmo a dotykové cíle (odebrat / přidat) ≥ 36 px
+  const isMobile = useIsMobile()
   return (
     <div>
       {items.map((s, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'start', gap: 4, marginBottom: 3, padding: '4px 8px', borderRadius: 6, background: bgColor, border: `1px solid ${borderColor}`, fontSize: 11 }}>
+        <div key={i} style={{ display: 'flex', alignItems: 'start', gap: 4, marginBottom: 3, padding: '4px 8px', borderRadius: 6, background: bgColor, border: `1px solid ${borderColor}`, fontSize: 11, ...(isMobile ? { fontSize: 12, alignItems: 'center', padding: '2px 2px 2px 8px', minWidth: 0 } : null) }}>
           <span style={{ marginTop: 1 }}>{icon}</span>
-          <span style={{ flex: 1, color }}>{s}</span>
-          <button onClick={() => onRemove(i)} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: 10, lineHeight: 1 }}>x</button>
+          <span style={{ flex: 1, color, ...(isMobile ? { minWidth: 0, overflowWrap: 'anywhere' } : null) }}>{s}</span>
+          <button onClick={() => onRemove(i)} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: 10, lineHeight: 1, ...(isMobile ? { fontSize: 14, minWidth: 36, minHeight: 36, flexShrink: 0 } : null) }}>x</button>
         </div>
       ))}
       <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
         <input value={val} onChange={e => setVal(e.target.value)} placeholder={placeholder}
           onKeyDown={e => { if (e.key === 'Enter' && val.trim()) { onAdd(val.trim()); setVal('') } }}
-          style={{ flex: 1, fontSize: 11, padding: '4px 8px', borderRadius: 6, border: '1px solid #d4e8e0' }} />
+          style={{ flex: 1, fontSize: 11, padding: '4px 8px', borderRadius: 6, border: '1px solid #d4e8e0', ...(isMobile ? { minWidth: 0, padding: '8px 10px' } : null) }} />
         <button onClick={() => { if (val.trim()) { onAdd(val.trim()); setVal('') } }}
-          style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: bgColor, color, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>+</button>
+          style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: bgColor, color, cursor: 'pointer', fontSize: 11, fontWeight: 700, ...(isMobile ? { fontSize: 16, minWidth: 40, minHeight: 40 } : null) }}>+</button>
       </div>
     </div>
   )
@@ -244,11 +259,15 @@ export function TagList({ items, onAdd, onRemove, placeholder, color, bgColor, b
 
 export function RulesGrid({ config, onChange, buildPreview }) {
   const [previewOpen, setPreviewOpen] = useState(false)
+  const isPhone = useMediaQuery(PHONE_QUERY)
+  const isMobile = useIsMobile()
+  // telefon 1 sloupec; tablet 2 sloupce s minmax(0, …), jinak pole (min. šířka inputu) přetečou kartu
+  const cols = isPhone ? 'minmax(0, 1fr)' : isMobile ? 'repeat(2, minmax(0, 1fr))' : '1fr 1fr'
   const situations = config.situations || []
   const mustDo = config.mustDo || []
   const forbidden = config.forbidden || []
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 12, marginBottom: 16 }}>
       <div style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#fff' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: '#0f1a14', marginBottom: 8 }}>
           Situační pravidla ({situations.length})
@@ -291,7 +310,7 @@ export function RulesGrid({ config, onChange, buildPreview }) {
       <div style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#fff' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#0f1a14' }}>Náhled promptu</span>
-          <button onClick={() => setPreviewOpen(!previewOpen)} style={{ fontSize: 11, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer' }}>
+          <button onClick={() => setPreviewOpen(!previewOpen)} style={{ fontSize: 11, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', ...(isMobile ? { fontSize: 13, minHeight: 36, padding: '0 4px 0 12px' } : null) }}>
             {previewOpen ? 'Skrýt' : 'Zobrazit'}
           </button>
         </div>
@@ -320,18 +339,21 @@ export function WelcomeLangBlock({
   label = 'Uvítací hláška (per jazyk)',
   hint,
 }) {
+  const isPhone = useMediaQuery(PHONE_QUERY)
+  const isMobile = useIsMobile()
+  const cols = isPhone ? 'minmax(0, 1fr)' : isMobile ? `repeat(${languages.length}, minmax(0, 1fr))` : `repeat(${languages.length}, 1fr)`
   return (
     <div style={{ marginBottom: 12, padding: '12px 16px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#fff' }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: '#0f1a14', marginBottom: hint ? 4 : 8 }}>{label}</div>
-      {hint && <div style={{ fontSize: 10, color: '#777', marginBottom: 8, lineHeight: 1.4 }}>{hint}</div>}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${languages.length}, 1fr)`, gap: 8 }}>
+      {hint && <div style={{ fontSize: isMobile ? 12 : 10, color: '#777', marginBottom: 8, lineHeight: 1.4 }}>{hint}</div>}
+      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 8 }}>
         {languages.map(([k, lbl]) => (
           <div key={k}>
-            <div style={{ fontSize: 10, color: '#666', marginBottom: 3 }}>{lbl}</div>
+            <div style={{ fontSize: isMobile ? 12 : 10, color: '#666', marginBottom: 3, ...(isMobile ? { fontWeight: 700 } : null) }}>{lbl}</div>
             <textarea
               value={config[k] || ''}
               onChange={e => onChange(k, e.target.value)}
-              rows={4}
+              rows={isPhone ? 7 : 4}
               style={{ width: '100%', fontSize: 11, padding: 6, borderRadius: 6, border: '1px solid #d4e8e0', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.4 }}
             />
           </div>
@@ -353,11 +375,12 @@ export function KnowledgeExtraBlock({
   placeholder,
   rows = 6,
 }) {
+  const isMobile = useIsMobile()
   return (
     <div style={{ marginBottom: 12, padding: '12px 16px', borderRadius: 10, border: '2px solid #fbbf24', background: '#fffbeb' }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>{label}</div>
       {helpText && (
-        <div style={{ fontSize: 11, color: '#78350f', marginBottom: 8, lineHeight: 1.5 }}>{helpText}</div>
+        <div style={{ fontSize: isMobile ? 12 : 11, color: '#78350f', marginBottom: 8, lineHeight: 1.5 }}>{helpText}</div>
       )}
       <textarea
         value={value || ''}
@@ -382,8 +405,10 @@ export function InfoBox({ children, color = 'blue' }) {
     amber: { bg: '#fffbeb', border: '#fcd34d', text: '#92400e' },
   }
   const c = palette[color] || palette.blue
+  // Mobil/tablet: dlouhé názvy (code) se zalomí, ať box nepřetéká; písmo čitelnější
+  const isMobile = useIsMobile()
   return (
-    <div style={{ padding: '10px 14px', borderRadius: 8, background: c.bg, border: `1px solid ${c.border}`, fontSize: 11, color: c.text, lineHeight: 1.5, marginBottom: 12 }}>
+    <div style={{ padding: '10px 14px', borderRadius: 8, background: c.bg, border: `1px solid ${c.border}`, fontSize: 11, color: c.text, lineHeight: 1.5, marginBottom: 12, ...(isMobile ? { overflowWrap: 'anywhere', fontSize: 12 } : null) }}>
       {children}
     </div>
   )

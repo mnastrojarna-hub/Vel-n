@@ -10,6 +10,7 @@ import AiAgentFindingsPanel from '../components/ai/AiAgentFindingsPanel'
 import AppAgentSettingsPanel from '../components/ai/AppAgentSettingsPanel'
 import WebAgentSettingsPanel from '../components/ai/WebAgentSettingsPanel'
 import CustomerMessagesAgentSettingsPanel from '../components/ai/CustomerMessagesAgentSettingsPanel'
+import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
 
 export default function AiOrchestrator() {
   const [briefing, setBriefing] = useState(null)
@@ -19,6 +20,10 @@ export default function AiOrchestrator() {
   const [rules, setRules] = useState(() => loadAutonomyRules())
   const [pending, setPending] = useState(null)
   const [tab, setTab] = useState('findings')
+  // Mobil/tablet (< 1024 px): záložky se zalamují jako „pilulky“, hlavičky karet se zalamují
+  const isMobile = useIsMobile()
+  const isPhone = useMediaQuery('(max-width: 767px)')
+  const ruleLabel = isPhone ? { display: 'flex', flexDirection: 'column', gap: 4, width: '100%' } : null
 
   const config = loadAgentConfig()
   const enabledAgents = AGENTS.filter(a => config[a.id]?.enabled)
@@ -84,7 +89,20 @@ export default function AiOrchestrator() {
         </p>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — na mobilu/tabletu zalomené pilulky (10 záložek se nevejde do řádku) */}
+      {isMobile ? (
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              padding: '8px 12px', minHeight: 40, fontSize: 13, fontWeight: tab === t.id ? 800 : 600, borderRadius: 10,
+              cursor: 'pointer', whiteSpace: 'nowrap', border: tab === t.id ? '2px solid #0f1a14' : '1px solid #d4e8e0',
+              background: tab === t.id ? '#0f1a14' : '#fff', color: tab === t.id ? '#74FB71' : '#1a2e22',
+            }}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+      ) : (
       <div className="flex gap-1 mb-4" style={{ borderBottom: '2px solid #d4e8e0', paddingBottom: 2 }}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
@@ -96,6 +114,7 @@ export default function AiOrchestrator() {
           </button>
         ))}
       </div>
+      )}
 
       {/* Findings Tab */}
       {tab === 'findings' && (
@@ -114,14 +133,14 @@ export default function AiOrchestrator() {
       {/* Briefing Tab */}
       {tab === 'briefing' && (
         <div className="rounded-card bg-white p-4 shadow-card">
-          <div className="flex items-center justify-between mb-3">
+          <div className={isMobile ? 'flex flex-wrap items-center justify-between gap-2 mb-3' : 'flex items-center justify-between mb-3'}>
             <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>Denní briefing — {new Date().toLocaleDateString('cs-CZ')}</span>
-            <Button green onClick={runBriefing} disabled={!!loading} style={{ fontSize: 12, padding: '6px 14px' }}>
+            <Button green onClick={runBriefing} disabled={!!loading} style={{ fontSize: 12, padding: '6px 14px', minHeight: isMobile ? 40 : undefined }}>
               {loading === 'generate_daily_briefing' ? 'Generuji...' : 'Vygenerovat briefing'}
             </Button>
           </div>
           {briefing ? (
-            <div className="text-sm" style={{ lineHeight: 1.7, color: '#1a2e22', whiteSpace: 'pre-wrap' }}>
+            <div className="text-sm" style={{ lineHeight: 1.7, color: '#1a2e22', whiteSpace: 'pre-wrap', ...(isMobile ? { overflowWrap: 'anywhere' } : null) }}>
               {briefing.response || JSON.stringify(briefing, null, 2)}
             </div>
           ) : (
@@ -135,14 +154,14 @@ export default function AiOrchestrator() {
       {/* Priorities Tab */}
       {tab === 'priorities' && (
         <div className="rounded-card bg-white p-4 shadow-card">
-          <div className="flex items-center justify-between mb-3">
+          <div className={isMobile ? 'flex flex-wrap items-center justify-between gap-2 mb-3' : 'flex items-center justify-between mb-3'}>
             <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>Fronta priorit</span>
-            <Button green onClick={runPriorities} disabled={!!loading} style={{ fontSize: 12, padding: '6px 14px' }}>
+            <Button green onClick={runPriorities} disabled={!!loading} style={{ fontSize: 12, padding: '6px 14px', minHeight: isMobile ? 40 : undefined }}>
               {loading ? 'Načítám...' : 'Načíst priority'}
             </Button>
           </div>
           {priorities ? (
-            <div className="text-sm" style={{ lineHeight: 1.7, color: '#1a2e22', whiteSpace: 'pre-wrap' }}>
+            <div className="text-sm" style={{ lineHeight: 1.7, color: '#1a2e22', whiteSpace: 'pre-wrap', ...(isMobile ? { overflowWrap: 'anywhere' } : null) }}>
               {priorities.response || JSON.stringify(priorities, null, 2)}
             </div>
           ) : (
@@ -156,9 +175,9 @@ export default function AiOrchestrator() {
       {/* Health Tab */}
       {tab === 'health' && (
         <div className="rounded-card bg-white p-4 shadow-card">
-          <div className="flex items-center justify-between mb-3">
+          <div className={isMobile ? 'flex flex-wrap items-center justify-between gap-2 mb-3' : 'flex items-center justify-between mb-3'}>
             <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>Zdraví AI agentů</span>
-            <Button green onClick={runHealth} disabled={!!loading} style={{ fontSize: 12, padding: '6px 14px' }}>
+            <Button green onClick={runHealth} disabled={!!loading} style={{ fontSize: 12, padding: '6px 14px', minHeight: isMobile ? 40 : undefined }}>
               {loading ? 'Kontroluji...' : 'Zkontrolovat'}
             </Button>
           </div>
@@ -179,7 +198,7 @@ export default function AiOrchestrator() {
             ))}
           </div>
           {health && (
-            <div className="mt-3 text-sm" style={{ lineHeight: 1.7, color: '#1a2e22', whiteSpace: 'pre-wrap' }}>
+            <div className="mt-3 text-sm" style={{ lineHeight: 1.7, color: '#1a2e22', whiteSpace: 'pre-wrap', ...(isMobile ? { overflowWrap: 'anywhere' } : null) }}>
               {health.response || JSON.stringify(health, null, 2)}
             </div>
           )}
@@ -200,17 +219,17 @@ export default function AiOrchestrator() {
                     <span className="text-sm font-bold" style={{ color: '#0f1a14', flex: 1 }}>{a.name}</span>
                   </div>
                   <div className="flex gap-3 flex-wrap">
-                    <label className="text-sm" style={{ color: '#666' }}>
+                    <label className="text-sm" style={{ color: '#666', ...ruleLabel }}>
                       Plán:
                       <select value={r.schedule || 'manual'} onChange={e => updateRule(a.id, 'schedule', e.target.value)}
-                        style={{ marginLeft: 4, fontSize: 12, padding: '2px 6px', borderRadius: 4, border: '1px solid #d4e8e0' }}>
+                        style={{ marginLeft: 4, fontSize: 12, padding: isMobile ? '6px 8px' : '2px 6px', borderRadius: 4, border: '1px solid #d4e8e0', maxWidth: isMobile ? '100%' : undefined, ...(isPhone ? { marginLeft: 0, width: '100%' } : null) }}>
                         {Object.entries(SCHEDULES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
                       </select>
                     </label>
-                    <label className="text-sm" style={{ color: '#666' }}>
+                    <label className="text-sm" style={{ color: '#666', ...ruleLabel }}>
                       Auto-confirm:
                       <select value={r.autoConfirmRisk || 'none'} onChange={e => updateRule(a.id, 'autoConfirmRisk', e.target.value)}
-                        style={{ marginLeft: 4, fontSize: 12, padding: '2px 6px', borderRadius: 4, border: '1px solid #d4e8e0' }}>
+                        style={{ marginLeft: 4, fontSize: 12, padding: isMobile ? '6px 8px' : '2px 6px', borderRadius: 4, border: '1px solid #d4e8e0', maxWidth: isMobile ? '100%' : undefined, ...(isPhone ? { marginLeft: 0, width: '100%' } : null) }}>
                         {Object.entries(RISK_AUTO).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                       </select>
                     </label>

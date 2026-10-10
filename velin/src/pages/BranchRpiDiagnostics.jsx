@@ -179,7 +179,7 @@ function RpiDiagnosticsInner({ branchId, devices, cameras, now, onCommand, servi
           const title = online ? 'Spustí kompletní diagnostiku na řídicí jednotce (trvá 1–4 min; zámky se nespínají)'
             : dev.last_seen_at ? 'Jednotka je offline' : 'Jednotka se ještě neozvala — spárujte ji (ID + token) na displeji'
           return (
-            <span key={dev.id} className="inline-flex items-center gap-1">
+            <span key={dev.id} className="inline-flex items-center gap-1 max-lg:flex-wrap">
               <Btn tone="dark" disabled={!online || busy} onClick={() => run(dev, 'full')} title={title}>
                 🔍 Kompletní diagnostika — {txt(dev.name || 'Raspberry')}
               </Btn>

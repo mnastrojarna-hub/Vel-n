@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import WebTextSection from './WebTextSection'
 import BlogSection from './BlogSection'
 import FaqSection from './FaqSection'
 import TranslateEverythingButton from '../../components/cms/TranslateEverythingButton'
 import { WEB_PAGES } from './webTextsPages'
+import CmsPagePickerMobile from './CmsPagePickerMobile'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 // Celkový počet textů
 const ALL_FIELDS = WEB_PAGES.flatMap(p => p.sections.flatMap(s => s.fields))
@@ -65,6 +67,19 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
   const [seeding, setSeeding] = useState(false)
   const [seedError, setSeedError] = useState(null)
   const [adminToken, setAdminToken] = useState('')
+  // Mobil/tablet (< 1024 px): seznam stránek je rozbalovací výběr nad editorem
+  const isMobile = useIsMobile()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const pickerRef = useRef(null)
+
+  function selectPage(id) {
+    setActivePage(id)
+    if (pickerOpen) {
+      // Po výběru seznam zavři a vrať se nahoru na editor zvolené stránky
+      setPickerOpen(false)
+      requestAnimationFrame(() => pickerRef.current?.scrollIntoView({ block: 'start' }))
+    }
+  }
 
   useEffect(() => { loadValues(); loadAdminToken() }, [])
 
@@ -159,6 +174,101 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
     return { total, filled, optional, missing }
   }
 
+  // Seznam stránek webu (PC: levý sloupec 220 px; mobil/tablet: obsah rozbalovacího výběru)
+  const pageNav = (
+    <>
+      <div className="text-xs font-extrabold uppercase mb-2" style={{ color: '#6b8f7b', letterSpacing: 1 }}>
+        Stránky webu ({WEB_PAGES.length})
+      </div>
+      {WEB_PAGES.map(p => {
+        const { total, filled, optional, missing } = filledCount(p)
+        const active = p.id === activePage
+        // SEO: 'allDone' = vsechna pole s neprazdnym defaultem ulozena
+        // (volitelne pole s default:'' se nepocitaji — PHP fallback je obslouzi).
+        const allDone = missing === 0 && !loading
+        // Procento dokoncenosti = filled / (filled+missing). Volitelne pole vyloucena.
+        const required = filled + missing
+        const pct = required > 0 ? Math.round((filled / required) * 100) : 100
+        return (
+          <button
+            key={p.id}
+            onClick={() => selectPage(p.id)}
+            className="w-full text-left mb-px cursor-pointer"
+            style={{
+              padding: '8px 12px', border: 'none', borderRadius: 10,
+              background: active ? '#1a2e22' : 'transparent',
+              color: active ? '#74FB71' : '#1a2e22',
+              fontSize: 13, fontWeight: active ? 800 : 600,
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span>{p.icon}</span>
+              <span className="flex-1 truncate">{p.label}</span>
+              {allDone && <span style={{ color: '#22c55e', fontSize: 11 }}>&#10003;</span>}
+              {!allDone && missing > 0 && (
+                <span style={{
+                  background: '#dc2626', color: '#fff', fontSize: isMobile ? 11 : 10,
+                  padding: '1px 5px', borderRadius: 8, fontWeight: 700
+                }}>{missing}</span>
+              )}
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: active ? 'rgba(255,255,255,.4)' : '#9ab3a5' }}>
+              {filled}/{required} povinných
+              {optional > 0 && <span style={{ opacity: 0.6 }}> · {optional} volit.</span>}
+            </div>
+          </button>
+        )
+      })}
+
+      {/* Blog sekce - oddělená */}
+      <div className="text-xs font-extrabold uppercase mt-4 mb-2" style={{ color: '#6b8f7b', letterSpacing: 1 }}>
+        Dynamický obsah
+      </div>
+      <button
+        onClick={() => selectPage('blog')}
+        className="w-full text-left mb-px cursor-pointer"
+        style={{
+          padding: '8px 12px', border: 'none', borderRadius: 10,
+          background: activePage === 'blog' ? '#1a2e22' : 'transparent',
+          color: activePage === 'blog' ? '#74FB71' : '#1a2e22',
+          fontSize: 13, fontWeight: activePage === 'blog' ? 800 : 600,
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <span>📰</span>
+          <span className="flex-1">Blog & články</span>
+        </div>
+        <div className="text-xs mt-0.5" style={{ color: activePage === 'blog' ? 'rgba(255,255,255,.4)' : '#9ab3a5' }}>
+          články z cms_pages
+        </div>
+      </button>
+
+      <button
+        onClick={() => selectPage('faq')}
+        className="w-full text-left mb-px cursor-pointer"
+        style={{
+          padding: '8px 12px', border: 'none', borderRadius: 10,
+          background: activePage === 'faq' ? '#1a2e22' : 'transparent',
+          color: activePage === 'faq' ? '#74FB71' : '#1a2e22',
+          fontSize: 13, fontWeight: activePage === 'faq' ? 800 : 600,
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <span>📋</span>
+          <span className="flex-1">Časté dotazy</span>
+        </div>
+        <div className="text-xs mt-0.5" style={{ color: activePage === 'faq' ? 'rgba(255,255,255,.4)' : '#9ab3a5' }}>
+          otázky z faq_items
+        </div>
+      </button>
+    </>
+  )
+
+  const pickerInfo = activePage === 'blog' ? { icon: '📰', label: 'Blog & články', sub: 'články z cms_pages' }
+    : activePage === 'faq' ? { icon: '📋', label: 'Časté dotazy', sub: 'otázky z faq_items' }
+    : page ? (() => { const c = filledCount(page); return { icon: page.icon, label: page.label, sub: `${c.filled}/${c.filled + c.missing} povinných` } })()
+    : { icon: '📄', label: '—' }
+
   return (
     <div>
       {/* Upozornění: chybí cms_admin_token → náhledy/zvýraznění textů na webu nefungují */}
@@ -171,8 +281,8 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
         </div>
       )}
       {/* Globální statistika — rozliseni filled/optional/missing */}
-      <div className="flex items-center gap-4 mb-4 p-3 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-        <div className="flex-1">
+      <div className="flex items-center gap-4 mb-4 p-3 rounded-card max-lg:flex-wrap" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+        <div className="flex-1 max-lg:min-w-[240px]">
           <div className="text-sm font-extrabold" style={{ color: '#1a2e22' }}>
             Texty webu:
             <span style={{ color: '#16a34a' }}> {totalFilled} uloženo</span>
@@ -201,7 +311,7 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
           <button
             onClick={seedDefaults}
             disabled={seeding || loading}
-            className="rounded-btn text-xs font-extrabold uppercase cursor-pointer shrink-0"
+            className="rounded-btn text-xs font-extrabold uppercase cursor-pointer shrink-0 max-md:w-full max-lg:min-h-[40px]"
             style={{ padding: '8px 16px', background: '#1a2e22', color: '#74FB71', border: 'none' }}
           >
             {seeding ? 'Ukládám...' : `Naplnit ${totalMissing} výchozích`}
@@ -216,7 +326,7 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
       {/* Jediné tlačítko pro celkovou synchronizaci překladů (master + cms_variables + FAQ + blog) */}
       <div className="mb-4 p-4 rounded-card" style={{ background: '#fff7ed', border: '2px solid #fed7aa' }}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="text-xs flex-1" style={{ color: '#9a3412', minWidth: 320 }}>
+          <div className="text-xs flex-1" style={{ color: '#9a3412', minWidth: 'min(320px, 100%)' }}>
             <strong>🌍 Multilingvní překlad — vše naráz</strong><br />
             Postupně přeloží do EN/DE/ES/FR/NL/PL: (1) pages master z CS šablon,
             (2) cms_variables (web.*), (3) FAQ položky, (4) blog články.
@@ -226,94 +336,17 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
         </div>
       </div>
 
-      <div className="flex gap-4" style={{ minHeight: '70vh' }}>
-        {/* Levý panel - stránky webu */}
-        <div className="shrink-0" style={{ width: 220 }}>
-          <div className="text-xs font-extrabold uppercase mb-2" style={{ color: '#6b8f7b', letterSpacing: 1 }}>
-            Stránky webu ({WEB_PAGES.length})
+      <div className="flex flex-col lg:flex-row gap-4" style={{ minHeight: '70vh' }}>
+        {/* Levý panel - stránky webu (mobil/tablet: rozbalovací výběr nad editorem) */}
+        {isMobile ? (
+          <CmsPagePickerMobile ref={pickerRef} open={pickerOpen} onToggle={() => setPickerOpen(o => !o)} {...pickerInfo}>
+            {pageNav}
+          </CmsPagePickerMobile>
+        ) : (
+          <div className="shrink-0" style={{ width: 220 }}>
+            {pageNav}
           </div>
-          {WEB_PAGES.map(p => {
-            const { total, filled, optional, missing } = filledCount(p)
-            const active = p.id === activePage
-            // SEO: 'allDone' = vsechna pole s neprazdnym defaultem ulozena
-            // (volitelne pole s default:'' se nepocitaji — PHP fallback je obslouzi).
-            const allDone = missing === 0 && !loading
-            // Procento dokoncenosti = filled / (filled+missing). Volitelne pole vyloucena.
-            const required = filled + missing
-            const pct = required > 0 ? Math.round((filled / required) * 100) : 100
-            return (
-              <button
-                key={p.id}
-                onClick={() => setActivePage(p.id)}
-                className="w-full text-left mb-px cursor-pointer"
-                style={{
-                  padding: '8px 12px', border: 'none', borderRadius: 10,
-                  background: active ? '#1a2e22' : 'transparent',
-                  color: active ? '#74FB71' : '#1a2e22',
-                  fontSize: 13, fontWeight: active ? 800 : 600,
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <span>{p.icon}</span>
-                  <span className="flex-1 truncate">{p.label}</span>
-                  {allDone && <span style={{ color: '#22c55e', fontSize: 11 }}>&#10003;</span>}
-                  {!allDone && missing > 0 && (
-                    <span style={{
-                      background: '#dc2626', color: '#fff', fontSize: 10,
-                      padding: '1px 5px', borderRadius: 8, fontWeight: 700
-                    }}>{missing}</span>
-                  )}
-                </div>
-                <div className="text-xs mt-0.5" style={{ color: active ? 'rgba(255,255,255,.4)' : '#9ab3a5' }}>
-                  {filled}/{required} povinných
-                  {optional > 0 && <span style={{ opacity: 0.6 }}> · {optional} volit.</span>}
-                </div>
-              </button>
-            )
-          })}
-
-          {/* Blog sekce - oddělená */}
-          <div className="text-xs font-extrabold uppercase mt-4 mb-2" style={{ color: '#6b8f7b', letterSpacing: 1 }}>
-            Dynamický obsah
-          </div>
-          <button
-            onClick={() => setActivePage('blog')}
-            className="w-full text-left mb-px cursor-pointer"
-            style={{
-              padding: '8px 12px', border: 'none', borderRadius: 10,
-              background: activePage === 'blog' ? '#1a2e22' : 'transparent',
-              color: activePage === 'blog' ? '#74FB71' : '#1a2e22',
-              fontSize: 13, fontWeight: activePage === 'blog' ? 800 : 600,
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <span>📰</span>
-              <span className="flex-1">Blog & články</span>
-            </div>
-            <div className="text-xs mt-0.5" style={{ color: activePage === 'blog' ? 'rgba(255,255,255,.4)' : '#9ab3a5' }}>
-              články z cms_pages
-            </div>
-          </button>
-
-          <button
-            onClick={() => setActivePage('faq')}
-            className="w-full text-left mb-px cursor-pointer"
-            style={{
-              padding: '8px 12px', border: 'none', borderRadius: 10,
-              background: activePage === 'faq' ? '#1a2e22' : 'transparent',
-              color: activePage === 'faq' ? '#74FB71' : '#1a2e22',
-              fontSize: 13, fontWeight: activePage === 'faq' ? 800 : 600,
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <span>📋</span>
-              <span className="flex-1">Časté dotazy</span>
-            </div>
-            <div className="text-xs mt-0.5" style={{ color: activePage === 'faq' ? 'rgba(255,255,255,.4)' : '#9ab3a5' }}>
-              otázky z faq_items
-            </div>
-          </button>
-        </div>
+        )}
 
         {/* Pravý panel - obsah stránky nebo blog/faq */}
         <div className="flex-1 min-w-0">
@@ -324,9 +357,9 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
           ) : page && (
             <>
               <div className="mb-4">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 max-lg:flex-wrap">
                   <span style={{ fontSize: 24 }}>{page.icon}</span>
-                  <div className="flex-1">
+                  <div className="flex-1 max-lg:min-w-[180px] max-lg:[overflow-wrap:anywhere]">
                     <h2 className="text-lg font-extrabold" style={{ color: '#0f1a14', margin: 0 }}>{page.label}</h2>
                     <div className="text-xs font-mono" style={{ color: '#6b8f7b' }}>{WEB_BASE_URL.replace(/^https?:\/\//, '')}{page.url}</div>
                   </div>
@@ -335,7 +368,7 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
                       href={buildWebUrl(WEB_BASE_URL, page.url, adminToken, '')}
                       target="_blank" rel="noopener noreferrer"
                       title={adminToken ? 'Otevřít stránku v admin režimu (zvýrazní všechny texty)' : 'Token cms_admin_token v app_settings chybí — zvýraznění nebude fungovat'}
-                      className="rounded-btn text-xs font-extrabold uppercase cursor-pointer shrink-0"
+                      className="rounded-btn text-xs font-extrabold uppercase cursor-pointer shrink-0 max-lg:min-h-[40px] max-lg:inline-flex max-lg:items-center max-md:ml-auto"
                       style={{
                         padding: '8px 14px',
                         background: adminToken ? '#1a2e22' : '#a8a8a8',
@@ -362,7 +395,7 @@ export default function WebTextsTab({ initialPageId, initialFieldKey, initialSec
                         href={buildWebUrl(WEB_BASE_URL, page.url, adminToken, '', { preview: v.id })}
                         target="_blank" rel="noopener noreferrer"
                         title={adminToken ? `Otevřít náhled: ${v.label}` : 'Chybí cms_admin_token v app_settings'}
-                        className="rounded-btn text-xs font-extrabold cursor-pointer"
+                        className="rounded-btn text-xs font-extrabold cursor-pointer max-lg:min-h-[36px] max-lg:inline-flex max-lg:items-center"
                         style={{
                           padding: '4px 10px',
                           background: adminToken ? '#f1faf7' : '#f5f5f5',

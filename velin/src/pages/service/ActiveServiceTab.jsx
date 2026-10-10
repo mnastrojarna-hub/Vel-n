@@ -210,9 +210,9 @@ export default function ActiveServiceTab({ onRefresh }) {
         <span className="text-xs font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>Zobrazit:</span>
         {TIME_FILTERS.map(f => (
           <button key={f.key} onClick={() => setTimeFilter(f.key)}
-            className="rounded-btn text-sm font-bold cursor-pointer"
+            className="rounded-btn text-sm font-bold cursor-pointer px-3.5 py-[5px] max-lg:py-2"
             style={{
-              padding: '5px 14px', border: 'none',
+              border: 'none',
               background: timeFilter === f.key ? '#74FB71' : '#f1faf7',
               color: '#1a2e22',
               boxShadow: timeFilter === f.key ? '0 2px 8px rgba(116,251,113,.3)' : 'none',

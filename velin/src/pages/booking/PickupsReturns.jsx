@@ -7,7 +7,7 @@ import DocsStatusPills, { loadDocScans } from '../../components/DocsStatusPills'
 import CheckInModal from './CheckInModal'
 import SwapModal from './SwapModal'
 import { shortBranchName } from './BranchChips'
-import { useMediaQuery } from '../../hooks/useIsMobile'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { revealBelowOnMobile } from './bookingsMobileScroll'
 
 // Odjezdy (vyzvednutí) a návraty (vrácení) — události seřazené podle data a času,
@@ -79,6 +79,9 @@ const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 const MONTHS_FULL = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
 const navBtnStyle = { background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 800 }
 const NAV_TOUCH = 'max-lg:min-h-[40px] max-lg:min-w-[44px]'
+// Tablet (768–1023 px): dvouřádkové karty (dense) ve 2 sloupcích — jednořádkový řádek tam ořezával
+// motorku, SPZ i zákazníka. Mezera 1 px s podkladem = dělicí čáry mřížky. Desktop beze změny.
+const DENSE_GRID = ' md:max-lg:grid md:max-lg:grid-cols-2 md:max-lg:gap-px md:max-lg:bg-[#eef5f1]'
 
 // odjezd = vyzvednutí (zákazník odjíždí na motorce), návrat = vrácení.
 // Ikona = šipka: odjezd ➡️ (ven), návrat ⬅️ (zpět na pobočku).
@@ -221,7 +224,7 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans, sh
 
   if (dense) {
     return (
-      <div onClick={onClick} className="cursor-pointer hover:bg-[#e9f7f1] transition-colors" style={wrap}>
+      <div onClick={onClick} className="cursor-pointer hover:bg-[#e9f7f1] transition-colors md:max-lg:!border-b-0" style={wrap}>
         <div className="flex items-center gap-2">
           {typeTag}
           <span className="ml-auto text-sm"><TimeCell ev={ev} t={t} /></span>
@@ -263,12 +266,12 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans, sh
   )
 }
 
-// dense = dvouřádkové karty (telefon < 768 px — jednořádkový řádek by se nevešel)
+// dense = dvouřádkové karty (mobil/tablet < 1024 px — jednořádkový řádek by se nevešel; tablet ve 2 sloupcích)
 function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap, scans, showBranch, dense = false }) {
   const shown = limit ? events.slice(0, limit) : events
   if (shown.length === 0) return <p className="text-sm" style={{ color: '#64748b', padding: '8px 4px' }}>Žádné nadcházející odjezdy ani návraty</p>
   return (
-    <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #eef5f1' }}>
+    <div className={'rounded-lg overflow-hidden' + (dense ? DENSE_GRID : '')} style={{ border: '1px solid #eef5f1' }}>
       {shown.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} dense={dense} showStatus={showStatus} onCheckIn={onCheckIn} onSwap={onSwap} scans={scans} showBranch={showBranch} onClick={() => onOpen(ev.booking.id)} />)}
     </div>
   )
@@ -277,7 +280,7 @@ function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap, scans
 // branchId (Rezervace → přepínač Pobočka): '' = všechny, id = jen ta pobočka; undefined (Dashboard) = vlastní výběr
 export default function PickupsReturns({ compact = false, onExpand, branchId }) {
   const navigate = useNavigate()
-  const isPhone = useMediaQuery('(max-width: 767px)') // telefon → události jako dvouřádkové karty (dense)
+  const isMobile = useIsMobile() // mobil/tablet → události jako dvouřádkové karty (dense)
   const dayDetailRef = useRef(null) // detail dne v kalendáři — na mobilu pod kalendářem
   const [bookings, setBookings] = useState([])
   const [branches, setBranches] = useState([])
@@ -355,7 +358,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
         {loading ? (
           <div className="py-6 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
         ) : (
-          <EventList events={upcoming} onOpen={openBooking} limit={8} onSwap={setSwapEvent} scans={scanStatus} dense={isPhone} />
+          <EventList events={upcoming} onOpen={openBooking} limit={8} onSwap={setSwapEvent} scans={scanStatus} dense={isMobile} />
         )}
         {swapEvent && (
           <SwapModal open prev={swapEvent.swapPrev} next={swapEvent.booking} onClose={() => setSwapEvent(null)} onDone={handleSwapDone} />
@@ -422,7 +425,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.pickup.color }}>Odjezdy (vyzvednutí)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcomingPickups.length}</span>
               </div>
-              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense={isPhone} />
+              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense={isMobile} />
             </Card>
             <Card style={{ padding: 14 }}>
               <div className="flex items-center gap-2 mb-3">
@@ -430,12 +433,12 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.return.color }}>Návraty (vrácení)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#fef3c7', color: '#b45309', padding: '1px 9px' }}>{upcomingReturns.length}</span>
               </div>
-              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} showBranch={branchId === ''} dense={isPhone} />
+              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} showBranch={branchId === ''} dense={isMobile} />
             </Card>
           </div>
         ) : (
           <Card style={{ padding: 14 }}>
-            <EventList events={upcoming} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense={isPhone} />
+            <EventList events={upcoming} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense={isMobile} />
           </Card>
         )
       ) : (
@@ -496,7 +499,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
               {selected.length === 0 ? (
                 <p className="text-sm" style={{ color: '#64748b' }}>Žádné odjezdy ani návraty v tento den</p>
               ) : (
-                <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #eef5f1' }}>
+                <div className={'rounded-lg overflow-hidden' + DENSE_GRID} style={{ border: '1px solid #eef5f1' }}>
                   {selected.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} dense onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} onClick={() => openBooking(ev.booking.id)} />)}
                 </div>
               )}

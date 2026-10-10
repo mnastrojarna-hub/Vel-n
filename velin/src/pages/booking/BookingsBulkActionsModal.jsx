@@ -175,7 +175,7 @@ export default function BookingsBulkActionsModal({ open, onClose, selectedBookin
       )}
 
       {mode === 'status' && (
-        <Section title="Změnit stav" onBack={() => setMode(null)}>
+        <Section title="Změnit stav" onBack={() => setMode(null)} mobileBack>
           <div className="grid grid-cols-2 gap-2 mb-3">
             <StatusBtn label="✓ Potvrdit (reserved)" color="#2563eb" onClick={() => handleStatusChange('reserved')} disabled={busy} />
             <StatusBtn label="▶ Aktivovat (running)" color="#16a34a" onClick={() => handleStatusChange('active')} disabled={busy} />
@@ -190,7 +190,7 @@ export default function BookingsBulkActionsModal({ open, onClose, selectedBookin
       )}
 
       {mode === 'payment' && (
-        <Section title="Označit platbu" onBack={() => setMode(null)}>
+        <Section title="Označit platbu" onBack={() => setMode(null)} mobileBack>
           <div className="grid grid-cols-2 gap-2">
             <StatusBtn label="✓ Zaplaceno" color="#16a34a" onClick={() => handlePaymentChange('paid')} disabled={busy} />
             <StatusBtn label="✗ Nezaplaceno" color="#dc2626" onClick={() => handlePaymentChange('unpaid')} disabled={busy} />
@@ -250,11 +250,13 @@ function Banner({ children, color, bg }) {
   return <div className="mb-3 p-3 rounded-card text-sm font-bold" style={{ background: bg, color }}>{children}</div>
 }
 
-function Section({ title, onBack, children }) {
+// mobileBack: sekce bez vlastního „Zpět“ — na mobilu/tabletu ho doplní (jinak jen křížek, který zruší i výběr)
+function Section({ title, onBack, children, mobileBack = false }) {
   return (
     <div className="p-4 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
       <div className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>{title}</div>
       {children}
+      {mobileBack && <div className="lg:hidden flex mt-4"><Button onClick={onBack}>← Zpět</Button></div>}
     </div>
   )
 }

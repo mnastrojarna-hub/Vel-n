@@ -35,10 +35,10 @@ export default function ServiceBundleBox({ moto, due, onPlanned, unitLabel = 'km
           const st = DUE_STATE[r.state]
           const on = !excluded.has(r.schedule_id)
           return (
-            <label key={r.schedule_id} className="flex items-center gap-2 cursor-pointer rounded text-sm" style={{ padding: '3px 6px', background: on ? '#fff' : '#f3f4f6', border: `1px solid ${st.border}` }}>
+            <label key={r.schedule_id} className="flex items-center gap-2 cursor-pointer rounded text-sm px-1.5 py-[3px] max-lg:py-1.5 max-md:flex-wrap max-md:gap-y-0" style={{ background: on ? '#fff' : '#f3f4f6', border: `1px solid ${st.border}` }}>
               <input type="checkbox" checked={on} onChange={() => toggle(r.schedule_id)} style={{ accentColor: '#16a34a' }} />
-              <span className="font-bold flex-1" style={{ color: on ? '#0f1a14' : '#9ca3af' }}>{r.label}</span>
-              <span className="text-xs" style={{ color: st.color }}>{r.state === 'ok' ? `vzít s sebou · ${dueText(r, unitLabel)}` : dueText(r, unitLabel)}</span>
+              <span className="font-bold flex-1 max-md:basis-[calc(100%-36px)]" style={{ color: on ? '#0f1a14' : '#9ca3af' }}>{r.label}</span>
+              <span className="text-xs max-md:pl-7" style={{ color: st.color }}>{r.state === 'ok' ? `vzít s sebou · ${dueText(r, unitLabel)}` : dueText(r, unitLabel)}</span>
             </label>
           )
         })}

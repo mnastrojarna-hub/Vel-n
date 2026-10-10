@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AGENTS } from '../../lib/aiAgents'
 import { getAgentPrompt, updateAgentPrompt } from '../../lib/aiAgentPrompts'
 import { getLongTermMemory, addLongTermMemory, removeLongTermMemory, clearLongTermMemory, getFlashMemory, clearFlashMemory, MEMORY_CATEGORIES } from '../../lib/aiAgentMemory'
+import { useIsMobile, useMediaQuery } from '../../hooks/useIsMobile'
 
 export default function AiAgentConfig({ agentId, onClose }) {
   const agent = AGENTS.find(a => a.id === agentId)
@@ -16,6 +17,14 @@ export default function AiAgentConfig({ agentId, onClose }) {
   const [memCat, setMemCat] = useState('general')
   const [tab, setTab] = useState('prompt')
   const [saved, setSaved] = useState(false)
+  // Mobil/tablet: modál přes šířku displeje (92dvh), posuvné záložky, dotykové cíle; desktop beze změny
+  const isMobile = useIsMobile()
+  // Telefon: 5 záložek vedle sebe jako ikona nad popiskem (všechny vidět bez posouvání)
+  const isPhone = useMediaQuery('(max-width: 767px)')
+  const mob = (o) => (isMobile ? o : null)
+  const xBtn = mob({ fontSize: 14, minWidth: 36, minHeight: 36, flexShrink: 0 })
+  const addBtn = mob({ minHeight: 40, minWidth: 40, flexShrink: 0 })
+  const field = mob({ minWidth: 0, padding: '8px 10px' })
 
   function save(data) {
     const next = { ...promptData, ...data }
@@ -61,31 +70,33 @@ export default function AiAgentConfig({ agentId, onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}>
-      <div style={{ background: '#fff', borderRadius: 16, width: '90%', maxWidth: 640, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '90%', maxWidth: 640, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', ...mob({ width: 'calc(100vw - 16px)', maxHeight: '92dvh' }) }}>
         {/* Header */}
         <div style={{ padding: '14px 18px', borderBottom: '2px solid #d4e8e0', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 22 }}>{agent.icon}</span>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, ...mob({ minWidth: 0 }) }}>
             <div style={{ fontWeight: 800, fontSize: 15, color: '#0f1a14' }}>{agent.name}</div>
             <div style={{ fontSize: 11, color: '#666' }}>{agent.desc}</div>
           </div>
           {saved && <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>Uloženo</span>}
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#999' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#999', ...mob({ minWidth: 40, minHeight: 40, flexShrink: 0 }) }}>✕</button>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #d4e8e0' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid #d4e8e0', ...mob({ overflowX: 'auto', flexShrink: 0 }) }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
               flex: 1, padding: '8px 4px', fontSize: 11, fontWeight: tab === t.id ? 700 : 400, border: 'none', cursor: 'pointer',
               background: tab === t.id ? '#f1faf7' : '#fff', color: tab === t.id ? '#0f1a14' : '#999',
               borderBottom: tab === t.id ? '2px solid #74FB71' : 'none',
-            }}>{t.icon} {t.label}</button>
+              ...mob({ flex: '1 0 auto', padding: '10px 10px', fontSize: 12, minHeight: 40, whiteSpace: 'nowrap' }),
+              ...(isPhone ? { flex: '1 1 0', minWidth: 0, padding: '6px 2px', minHeight: 50, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 } : null),
+            }}>{isPhone ? (<><span style={{ fontSize: 16, lineHeight: 1 }}>{t.icon}</span><span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.label}</span></>) : (<>{t.icon} {t.label}</>)}</button>
           ))}
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+        <div style={{ flex: 1, overflow: 'auto', padding: 16, ...mob({ padding: 12, minHeight: 0 }) }}>
           {/* PROMPT */}
           {tab === 'prompt' && (
             <div>
@@ -106,14 +117,14 @@ export default function AiAgentConfig({ agentId, onClose }) {
                 <div key={i} style={{ display: 'flex', alignItems: 'start', gap: 6, marginBottom: 6, padding: '6px 8px', borderRadius: 6, background: '#f1faf7', border: '1px solid #d4e8e0' }}>
                   <span style={{ fontSize: 12, color: '#22c55e', marginTop: 1 }}>🎯</span>
                   <span style={{ flex: 1, fontSize: 12, color: '#1a2e22' }}>{s}</span>
-                  <button onClick={() => removeSituation(i)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                  <button onClick={() => removeSituation(i)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 12, ...xBtn }}>✕</button>
                 </div>
               ))}
               <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                 <input value={newSituation} onChange={e => setNewSituation(e.target.value)} placeholder="Když nastane situace X, udělej Y..."
                   onKeyDown={e => e.key === 'Enter' && addSituation()}
-                  style={{ flex: 1, fontSize: 12, padding: '6px 10px', borderRadius: 6, border: '1px solid #d4e8e0' }} />
-                <button onClick={addSituation} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#74FB71', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>+ Přidat</button>
+                  style={{ flex: 1, fontSize: 12, padding: '6px 10px', borderRadius: 6, border: '1px solid #d4e8e0', ...field }} />
+                <button onClick={addSituation} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#74FB71', cursor: 'pointer', fontSize: 12, fontWeight: 700, ...addBtn }}>+ Přidat</button>
               </div>
             </div>
           )}
@@ -126,14 +137,14 @@ export default function AiAgentConfig({ agentId, onClose }) {
                 <div key={i} style={{ display: 'flex', alignItems: 'start', gap: 6, marginBottom: 6, padding: '6px 8px', borderRadius: 6, background: '#fef2f2', border: '1px solid #fecaca' }}>
                   <span style={{ fontSize: 12, marginTop: 1 }}>🚫</span>
                   <span style={{ flex: 1, fontSize: 12, color: '#dc2626' }}>{f}</span>
-                  <button onClick={() => removeForbiddenItem(i)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                  <button onClick={() => removeForbiddenItem(i)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 12, ...xBtn }}>✕</button>
                 </div>
               ))}
               <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                 <input value={newForbidden} onChange={e => setNewForbidden(e.target.value)} placeholder="Nikdy nedělej X..."
                   onKeyDown={e => e.key === 'Enter' && addForbiddenItem()}
-                  style={{ flex: 1, fontSize: 12, padding: '6px 10px', borderRadius: 6, border: '1px solid #d4e8e0' }} />
-                <button onClick={addForbiddenItem} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#fee2e2', color: '#dc2626', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>+ Přidat</button>
+                  style={{ flex: 1, fontSize: 12, padding: '6px 10px', borderRadius: 6, border: '1px solid #d4e8e0', ...field }} />
+                <button onClick={addForbiddenItem} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#fee2e2', color: '#dc2626', cursor: 'pointer', fontSize: 12, fontWeight: 700, ...addBtn }}>+ Přidat</button>
               </div>
             </div>
           )}
@@ -143,7 +154,7 @@ export default function AiAgentConfig({ agentId, onClose }) {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#0f1a14' }}>Dlouhodobá paměť ({longMem.length} záznamů)</div>
-                {longMem.length > 0 && <button onClick={() => { clearLongTermMemory(agentId); setLongMem([]) }} style={{ fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}>Vymazat vše</button>}
+                {longMem.length > 0 && <button onClick={() => { clearLongTermMemory(agentId); setLongMem([]) }} style={{ fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', ...mob({ fontSize: 13, minHeight: 36, flexShrink: 0 }) }}>Vymazat vše</button>}
               </div>
               {longMem.map((m, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'start', gap: 6, marginBottom: 4, padding: '5px 8px', borderRadius: 6, background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
@@ -152,17 +163,17 @@ export default function AiAgentConfig({ agentId, onClose }) {
                     <span style={{ fontSize: 12, color: '#1a2e22' }}>{m.text}</span>
                     <div style={{ fontSize: 10, color: '#999' }}>{new Date(m.timestamp).toLocaleString('cs-CZ')}</div>
                   </div>
-                  <button onClick={() => setLongMem(removeLongTermMemory(agentId, i))} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: 11 }}>✕</button>
+                  <button onClick={() => setLongMem(removeLongTermMemory(agentId, i))} style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: 11, ...xBtn }}>✕</button>
                 </div>
               ))}
-              <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-                <select value={memCat} onChange={e => setMemCat(e.target.value)} style={{ fontSize: 11, padding: '4px 6px', borderRadius: 4, border: '1px solid #d4e8e0' }}>
+              <div style={{ display: 'flex', gap: 4, marginTop: 8, ...mob({ flexWrap: 'wrap' }) }}>
+                <select value={memCat} onChange={e => setMemCat(e.target.value)} style={{ fontSize: 11, padding: '4px 6px', borderRadius: 4, border: '1px solid #d4e8e0', ...mob({ flex: '1 1 100%', padding: '8px 10px' }) }}>
                   {Object.entries(MEMORY_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
                 </select>
                 <input value={newMemory} onChange={e => setNewMemory(e.target.value)} placeholder="Zapamatuj si, že..."
                   onKeyDown={e => e.key === 'Enter' && addMem()}
-                  style={{ flex: 1, fontSize: 12, padding: '6px 10px', borderRadius: 6, border: '1px solid #d4e8e0' }} />
-                <button onClick={addMem} style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: '#74FB71', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>+</button>
+                  style={{ flex: 1, fontSize: 12, padding: '6px 10px', borderRadius: 6, border: '1px solid #d4e8e0', ...field }} />
+                <button onClick={addMem} style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: '#74FB71', cursor: 'pointer', fontSize: 12, fontWeight: 700, ...addBtn }}>+</button>
               </div>
             </div>
           )}
@@ -172,7 +183,7 @@ export default function AiAgentConfig({ agentId, onClose }) {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#0f1a14' }}>Flash paměť — aktuální session ({flashMem.length} záznamů)</div>
-                {flashMem.length > 0 && <button onClick={() => clearFlashMemory(agentId)} style={{ fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}>Vymazat</button>}
+                {flashMem.length > 0 && <button onClick={() => clearFlashMemory(agentId)} style={{ fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', ...mob({ fontSize: 13, minHeight: 36, flexShrink: 0 }) }}>Vymazat</button>}
               </div>
               <div style={{ fontSize: 11, color: '#999', marginBottom: 8 }}>Automaticky se plní během konverzace. Vymazáno při zavření prohlížeče.</div>
               {flashMem.length === 0 && <div style={{ fontSize: 12, color: '#999', textAlign: 'center', padding: 20 }}>Zatím žádné záznamy v aktuální session</div>}

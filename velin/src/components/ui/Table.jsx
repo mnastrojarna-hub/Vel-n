@@ -16,7 +16,9 @@ export function TRow({ children, header = false }) {
     <tr
       style={{
         borderBottom: '1px solid #d4e8e0',
-        background: header ? '#f1faf7' : 'transparent',
+        // datové řádky bez inline pozadí (průhledné = výchozí), jinak by přebilo
+        // bílé pozadí karet v kartovém režimu .mg-stack na telefonu
+        ...(header ? { background: '#f1faf7' } : {}),
       }}
     >
       {children}

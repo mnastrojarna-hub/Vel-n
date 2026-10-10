@@ -1,6 +1,7 @@
 import Modal from '../../components/ui/Modal'
 import { useMediaQuery } from '../../hooks/useIsMobile'
 import { CampaignStatusPill, SendProgress, STATUS_ACTIONS } from './CampaignsMobileList'
+import { breakable } from './MobileCard'
 
 // Detail kampaně na telefonu/tabletu: stejný obsah i akce jako na desktopu,
 // statistiky v dlaždicích, log příjemců jako seznam řádků, akce v liště dole.
@@ -92,7 +93,7 @@ export default function CampaignsMobileDetail({ detail, channelLabel, statusMap,
                   return (
                     <div key={log.id} className="flex items-center justify-between" style={{ gap: 10, padding: '9px 12px', borderTop: i ? '1px solid #d4e8e0' : 'none', minWidth: 0 }}>
                       <div style={{ minWidth: 0 }}>
-                        <div className="font-bold" style={{ fontSize: 14, color: '#0f1a14', overflowWrap: 'anywhere' }}>{log.recipient_email || log.recipient_phone || '—'}</div>
+                        <div className="font-bold" style={{ fontSize: 14, color: '#0f1a14', overflowWrap: 'anywhere' }}>{breakable(log.recipient_email || log.recipient_phone || '—')}</div>
                         <div className="font-mono" style={{ fontSize: 12, color: '#6b7280', marginTop: 1 }}>{fmtDateTime(log.created_at)}</div>
                       </div>
                       <span className="rounded-btn font-extrabold uppercase tracking-wide shrink-0" style={{ fontSize: 11, padding: '2px 8px', lineHeight: '16px', color: st.color, background: st.bg }}>{st.label}</span>

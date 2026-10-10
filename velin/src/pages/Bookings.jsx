@@ -34,8 +34,13 @@ const VIEWS = ['Seznam', 'Kalendář', 'Odjezdy a návraty']
 
 export default function Bookings() {
   const debugMode = useDebugMode()
-  // Telefon (< 768 px, i na šířku = nízký displej): kompaktní lišta — rychlé filtry schované pod „☰ Filtry“ (BookingsToolbarPhone)
-  const isPhone = useMediaQuery('(max-width: 767px), (max-width: 1023px) and (max-height: 520px)')
+  // Telefon (< 768 px, i na šířku): kompaktní lišta — rychlé filtry schované pod „☰ Filtry“ (BookingsToolbarPhone).
+  // Telefon na šířku poznáme podle kratší strany OBRAZOVKY (ne viewportu) — výška viewportu se mění
+  // s klávesnicí a lišta by se při psaní do hledání přepnula (ztráta fokusu) na malých tabletech.
+  const narrowPhone = useMediaQuery('(max-width: 767px)')
+  const belowDesktop = useMediaQuery('(max-width: 1023px)')
+  const phoneScreen = typeof window !== 'undefined' && Math.min(window.screen?.width || 9999, window.screen?.height || 9999) <= 520
+  const isPhone = narrowPhone || (belowDesktop && phoneScreen)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [bookings, setBookings] = useState([])
@@ -368,7 +373,7 @@ export default function Bookings() {
       ) : (
         <>
           <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} scanStatus={scanStatus} appInstalls={appInstalls} setDeleteConfirm={setDeleteConfirm} setCancelTarget={setCancelTarget}
-            selected={selected} setSelected={setSelected} branches={branches} onBulk={isPhone ? () => setShowBulk(true) : null} />
+            selected={selected} setSelected={setSelected} branches={branches} onBulk={() => setShowBulk(true)} />
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}

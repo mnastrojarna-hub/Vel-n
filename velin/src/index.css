@@ -113,7 +113,17 @@ body {
    např. „✕ odebrat“ u náhledů fotek) jsou vidět trvale a mají větší cíl. */
 @media (hover: none) {
   .mg-hover-reveal { opacity: 1 !important; }
-  .mg-hover-reveal button { min-width: 26px; min-height: 26px; }
+  .mg-hover-reveal button { min-height: 32px; }
+  .mg-hover-reveal button:last-child { min-width: 36px; min-height: 36px; }
+}
+
+/* Telefon + tablet: větší ✕ v modálech; dotyk: tlačítka lišty editoru textu ≥ 36 px. */
+@media (max-width: 1023px) {
+  .mg-modal-close { width: 40px !important; height: 40px !important; }
+}
+@media (max-width: 1023px) and (pointer: coarse) {
+  .rte-toolbar button, .rte-toolbar label { min-width: 36px !important; min-height: 36px; }
+  .rte-toolbar select { min-height: 36px; }
 }
 
 /* Dotyková zařízení: zaškrtávátka a přepínače aspoň 20 px (lépe se trefí prstem). */

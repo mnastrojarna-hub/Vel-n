@@ -26,7 +26,8 @@ function OutdoorTile({ o, onSend, servis = false }) {
   const MUSIC_MODE_CZ = { session: 'hudba při kódu', always: 'hudba NONSTOP', off: 'hudba vypnuta' }
   return (
     <div className="p-2 rounded-card" style={{ background: active ? '#dcfce7' : '#f1faf7', border: '1px solid #d4e8e0' }}>
-      <div className="flex items-center gap-2">
+      {/* Telefon/tablet: čipy režimů se zalomí pod název (jinak by „Venek“ zkrátily na „Ven…“) */}
+      <div className="flex items-center gap-2 max-lg:flex-wrap">
         <span className="font-extrabold" style={{ color: '#0f1a14', fontSize: 15 }}>{txt(o.zone)}</span>
         <span className="font-bold text-sm truncate" style={{ color: '#1a2e22' }} title="Venek — prostor před displejem (zóna bez dveří)">Venek</span>
         <span className="ml-auto flex items-center gap-1 flex-wrap justify-end">

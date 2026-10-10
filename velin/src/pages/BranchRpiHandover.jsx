@@ -1,4 +1,5 @@
 import { txt, num, arr } from './BranchRpiUi'
+import { HintBlock } from './BranchRpiTouchHint'
 
 // ─── Předávací protokol na displeji pobočky (kiosk_devices.status.handover, kontrakt §22) ────────
 // Jednotka hlásí (HandoverManager.status()):
@@ -51,9 +52,9 @@ function HandoverDeviceInfo({ handover, now }) {
   return (
     <>
       {failed.length > 0 && (
-        <div className="mt-2 p-2 rounded-lg text-[12px] font-bold" style={{ background: '#fee2e2', color: '#dc2626' }} title={FAILED_TITLE}>
+        <HintBlock className="mt-2 p-2 rounded-lg text-[12px] font-bold" style={{ background: '#fee2e2', color: '#dc2626' }} title={FAILED_TITLE}>
           Podpis z kiosku se nepodařilo uložit ({failed.length}): rezervace {failed.map(shortId).join(', ')}
-        </div>
+        </HintBlock>
       )}
       {active && (
         <div className="mt-2 p-2 rounded-lg text-[12px]" style={{ background: '#ede9fe', color: '#6d28d9' }}
@@ -67,14 +68,14 @@ function HandoverDeviceInfo({ handover, now }) {
         </div>
       )}
       {pending.length > 0 && (
-        <div className="mt-2 p-2 rounded-lg text-[12px] font-bold" style={{ background: '#dbeafe', color: '#1d4ed8' }} title={QUEUED_TITLE}>
+        <HintBlock className="mt-2 p-2 rounded-lg text-[12px] font-bold" style={{ background: '#dbeafe', color: '#1d4ed8' }} title={QUEUED_TITLE}>
           Podepsáno na displeji, čeká na odeslání ({pending.length}): rezervace {pending.map(shortId).join(', ')} — jednotka odešle po obnovení spojení
-        </div>
+        </HintBlock>
       )}
       {unsigned.length > 0 && (
-        <div className="text-[11px] mt-1" style={{ color: '#b45309' }} title={WAITING_TITLE}>
+        <HintBlock className="text-[11px] mt-1" style={{ color: '#b45309' }} title={WAITING_TITLE}>
           Nevyřízené protokoly na jednotce (bez podpisu): {unsigned.length}{unsigned.length <= 4 ? ` (${unsigned.map(shortId).join(', ')})` : ''}
-        </div>
+        </HintBlock>
       )}
     </>
   )

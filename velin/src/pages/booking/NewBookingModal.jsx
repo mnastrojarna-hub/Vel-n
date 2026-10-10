@@ -149,9 +149,9 @@ export default function NewBookingModal({ onClose, onSaved }) {
     return (
       <div>
         <div className="flex items-center justify-between mb-3">
-          <button onClick={() => setCalMonth(p => p.m === 0 ? { m: 11, y: p.y - 1 } : { m: p.m - 1, y: p.y })} className="cursor-pointer text-sm font-bold" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>←</button>
+          <button onClick={() => setCalMonth(p => p.m === 0 ? { m: 11, y: p.y - 1 } : { m: p.m - 1, y: p.y })} className="cursor-pointer text-sm font-bold max-lg:min-h-[40px] max-lg:min-w-[44px]" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>←</button>
           <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{MONTH_NAMES[m]} {y}</span>
-          <button onClick={() => setCalMonth(p => p.m === 11 ? { m: 0, y: p.y + 1 } : { m: p.m + 1, y: p.y })} className="cursor-pointer text-sm font-bold" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>→</button>
+          <button onClick={() => setCalMonth(p => p.m === 11 ? { m: 0, y: p.y + 1 } : { m: p.m + 1, y: p.y })} className="cursor-pointer text-sm font-bold max-lg:min-h-[40px] max-lg:min-w-[44px]" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>→</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
           {DAY_NAMES.map(n => <div key={n} className="text-sm font-bold text-center" style={{ color: '#1a2e22', padding: 4 }}>{n}</div>)}
@@ -257,8 +257,9 @@ export default function NewBookingModal({ onClose, onSaved }) {
               {availableMotos.map(m => {
                 const price = calcPrice(m.id); const isSelected = selectedMoto?.id === m.id
                 return (
-                  <div key={m.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer" onClick={() => setSelectedMoto(m)} style={{ background: isSelected ? '#eafbe9' : '#f8faf9', border: isSelected ? '2px solid #74FB71' : '1px solid #e5e7eb' }}>
-                    {m.image_url ? <img src={m.image_url} alt={m.model} style={{ width: 72, height: 48, objectFit: 'cover', borderRadius: 8 }} /> : <div style={{ width: 72, height: 48, borderRadius: 8, background: '#f1faf7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🏍️</div>}
+                  // telefon: menší náhled a mezery, ať zbude místo na název motorky
+                  <div key={m.id} className="flex items-center gap-4 max-sm:gap-2.5 p-3 rounded-lg mb-2 cursor-pointer" onClick={() => setSelectedMoto(m)} style={{ background: isSelected ? '#eafbe9' : '#f8faf9', border: isSelected ? '2px solid #74FB71' : '1px solid #e5e7eb' }}>
+                    {m.image_url ? <img src={m.image_url} alt={m.model} className="max-sm:shrink-0 max-sm:!w-12 max-sm:!h-9" style={{ width: 72, height: 48, objectFit: 'cover', borderRadius: 8 }} /> : <div className="max-sm:shrink-0 max-sm:!w-12 max-sm:!h-9" style={{ width: 72, height: 48, borderRadius: 8, background: '#f1faf7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🏍️</div>}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{m.model}</div>
                       <div className="text-sm" style={{ color: '#1a2e22' }}>{m.spz || '—'} · {m.category || '—'} · ŘP: {m.license_required || '—'}</div>

@@ -35,7 +35,7 @@ export default function CMS() {
           <button
             key={t}
             onClick={() => { debugLog('tab.switch', 'CMS', { tab: t }); setTab(t) }}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
             style={{
               padding: '8px 18px',
               background: tab === t ? '#74FB71' : '#f1faf7',

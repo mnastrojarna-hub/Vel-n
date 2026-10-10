@@ -15,8 +15,8 @@ export default function ServiceMotoBook({ admin }) {
   return (
     <div>
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <button onClick={() => navigate('/servis?tab=kniha')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
-        <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>Servisní knížka · {moto?.model || '…'}</h2>
+        <button onClick={() => navigate('/servis?tab=kniha')} className="cursor-pointer max-lg:w-10 max-lg:h-10 max-lg:shrink-0" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
+        <h2 className="font-extrabold text-lg max-md:basis-[calc(100%-52px)] max-md:min-w-0" style={{ color: '#0f1a14' }}>Servisní knížka · {moto?.model || '…'}</h2>
         {moto && <StatusBadge status={moto.status} />}
         <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{moto?.spz}</span>
         <span className="text-sm" style={{ color: '#6b7280' }}>{moto?.branches?.name}</span>

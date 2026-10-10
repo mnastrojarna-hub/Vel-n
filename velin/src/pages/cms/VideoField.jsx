@@ -38,16 +38,16 @@ export default function VideoField({ value, onChange, storagePrefix }) {
         <video src={url} controls preload="metadata" style={{ width: '100%', maxHeight: 260, borderRadius: 10, background: '#000', marginBottom: 8 }} />
       )}
       {url && isYt && (
-        <div className="text-xs mb-2" style={{ color: '#1a2e22' }}>▶ YouTube: <a href={url} target="_blank" rel="noopener noreferrer">{url}</a></div>
+        <div className="text-xs mb-2 max-lg:[overflow-wrap:anywhere]" style={{ color: '#1a2e22' }}>▶ YouTube: <a href={url} target="_blank" rel="noopener noreferrer">{url}</a></div>
       )}
       {!url && <div className="text-xs mb-2" style={{ color: '#6b8f7b' }}>Zatím bez videa — na webu ani v appce se sekce nezobrazí.</div>}
       <div className="flex gap-2 items-center flex-wrap">
-        <label className="rounded-btn text-xs font-extrabold cursor-pointer" style={{ padding: '8px 14px', background: '#1a2e22', color: '#fff' }}>
+        <label className="rounded-btn text-xs font-extrabold cursor-pointer max-lg:min-h-[40px] max-lg:inline-flex max-lg:items-center" style={{ padding: '8px 14px', background: '#1a2e22', color: '#fff' }}>
           {uploading ? 'Nahrávám…' : '⬆ Nahrát video'}
           <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={upload} disabled={uploading} style={{ display: 'none' }} />
         </label>
         {url && (
-          <button type="button" onClick={() => onChange('')} className="rounded-btn text-xs font-extrabold cursor-pointer"
+          <button type="button" onClick={() => onChange('')} className="rounded-btn text-xs font-extrabold cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '8px 14px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}>
             Odebrat video
           </button>

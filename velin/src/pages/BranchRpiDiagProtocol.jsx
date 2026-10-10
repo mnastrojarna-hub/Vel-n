@@ -139,8 +139,9 @@ function ProtocolSection({ sec }) {
         <span className="text-[11px]" style={{ color: '#6b8c7a' }}>{sec.items.length} kontrol</span>
       </div>
       {rest.length > 0 && (
-        <div className="overflow-x-auto mt-1">
-          <table className="text-[12px]" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
+        // Telefon: řádky jako karty (mg-stack, popisky ze záhlaví); tablet/PC tabulka
+        <div className="overflow-x-auto mt-1 mg-stack-wrap">
+          <table className="text-[12px] mg-stack" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
             <thead><tr>{['Stav', 'Kontrola', 'Zjištění', 'Co s tím'].map(h => <th key={h} className="text-left font-extrabold uppercase" style={{ padding: '2px 8px', color: '#6b8c7a', fontSize: 10, borderBottom: '1px solid #d4e8e0' }}>{h}</th>)}</tr></thead>
             <tbody>{rest.map(i => (
               <tr key={i.id} style={{ opacity: i.status === 'skip' ? 0.6 : 1 }}>
@@ -188,7 +189,7 @@ function ProtocolView({ r, row, deviceName }) {
       <FindingList title="Varování" items={m.warns} color="#b45309" />
       {sections.length === 0 && <div className="text-[12px] mt-2" style={{ color: '#b45309' }}>Protokol neobsahuje žádné sekce (neúplný report).</div>}
       {sections.map(sec => <ProtocolSection key={sec.key} sec={sec} />)}
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-2 flex items-center gap-2 max-lg:flex-wrap">
         <Btn tone="gray" small onClick={() => setNet(x => !x)}>{net ? 'Skrýt technický detail sítě' : 'Technický detail sítě'}</Btn>
         <span className="text-[11px]" style={{ color: '#6b8c7a' }}>syrové tabulky: rozhraní, LTE, internet, moduly, scan LAN, ARP, kroky, celý JSON</span>
       </div>

@@ -42,7 +42,7 @@ export default function AutoMessagesMobile({
           </div>
         </div>
       ) : (
-        <MobileCardList>
+        <MobileCardList tabletGrid>
           {rules.map(rule => (
             <MobileCard key={rule.id}>
               <div className="flex items-start justify-between" style={{ gap: 8 }}>

@@ -36,8 +36,10 @@ function Outages({ title, rows }) {
   return (
     <div className="mt-2">
       <div className="text-[11px] font-extrabold uppercase" style={{ color: '#6b8c7a' }}>{title} ({list.length})</div>
+      {/* Telefon: výpadky jako karty (mg-stack); tablet: 8 sloupců se posouvá uvnitř (desktop beze změny) */}
       {list.length === 0 ? <div className="text-[12px]" style={{ color: '#1a8a18' }}>bez výpadku</div> : (
-        <table className="text-[12px]" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
+        <div className="mg-stack-wrap max-lg:overflow-x-auto">
+        <table className="text-[12px] mg-stack" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
           <thead><tr>{['Začátek', 'Konec', 'Délka', 'LTE', 'Modem', 'Kabel', 'Brána', 'Obnova'].map(h => <th key={h} className="text-left uppercase" style={{ padding: '2px 8px', color: '#6b8c7a', fontSize: 10, borderBottom: '1px solid #d4e8e0' }}>{h}</th>)}</tr></thead>
           <tbody>{list.map((o, i) => (
             <tr key={i} style={{ background: o.open ? '#fee2e2' : undefined }}>
@@ -45,6 +47,7 @@ function Outages({ title, rows }) {
                 .map((c, j) => <td key={j} style={{ padding: '3px 8px', borderBottom: '1px solid #eef6f2', color: '#1a2e22' }}>{c}</td>)}
             </tr>))}</tbody>
         </table>
+        </div>
       )}
     </div>
   )

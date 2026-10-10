@@ -97,7 +97,7 @@ function RpiHardwareBlock({ cfg, doors, busy, onSaveCfg, onSaveDoor, onCreateDoo
     <RpiSection title="Řídicí jednotka (Raspberry) — hardware"
       hint="Modbus relé Waveshare + Shelly signalizace. Časování, audio, PIN bezpečnost i signalizaci řídicí jednotky nastavíte ZDE. Změny se do jednotky propíší při synchronizaci konfigurace (do 60 s nebo příkazem „Synchronizovat konfiguraci“ na kartě jednotky v servisním režimu)."
       action={
-        <div className="flex gap-2">
+        <div className="flex gap-2 max-lg:flex-wrap">
           <Btn tone="blue" onClick={onRefresh} disabled={disabled}>Obnovit</Btn>
           <Btn tone="dark" onClick={loadBrnoDefaults} disabled={disabled}>{loadingDefaults ? 'Načítám…' : 'Načíst výchozí mapu (šablona Brno, 8 zón + venek)'}</Btn>
         </div>
@@ -183,7 +183,7 @@ function DevicesEditor({ hardware, disabled, onSave }) {
   return (
     <SubBlock title="Zařízení (Modbus TCP / Shelly)" hint="Seznam hardwaru na pobočkové síti LAN: reléové moduly Waveshare (zámky, světla, audio, dveřní kontakty) a Shelly RGBWW (barevná signalizace u kójí). Název si volíte sami — odkazuje se na něj mapování dveří níže, takže po přejmenování zařízení upravte i zóny."
       action={
-        <div className="flex gap-2">
+        <div className="flex gap-2 max-lg:flex-wrap">
           <Btn tone="blue" onClick={add} disabled={disabled}>Přidat zařízení</Btn>
           <Btn tone="dark" onClick={save} disabled={disabled || !dirty}>{dirty ? 'Uložit zařízení' : 'Uloženo'}</Btn>
         </div>
@@ -296,6 +296,7 @@ function SettingsEditor({ hardware, disabled, onSave }) {
                 return (
                   <Input key={f.key} label={label} value={v} invalid={invalid} title={f.hint}
                     width={f.type === 'list' || f.type === 'text' ? 190 : 150}
+                    className={f.type === 'list' || f.type === 'text' ? 'max-sm:!w-full' : 'max-sm:!w-[calc(50%_-_4px)]'}
                     type={f.type === 'int' ? 'number' : 'text'} step={f.type === 'float' ? '0.1' : undefined} min={f.min}
                     onChange={val => edit(sec.key, f.key, val)} />
                 )

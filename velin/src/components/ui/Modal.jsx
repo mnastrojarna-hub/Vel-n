@@ -34,7 +34,7 @@ export default function Modal({ open, onClose, title, children, wide = false, no
           </h2>
           <button
             onClick={onClose}
-            className="cursor-pointer"
+            className="mg-modal-close cursor-pointer max-lg:shrink-0"
             style={{
               background: '#f1faf7',
               border: 'none',

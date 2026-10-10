@@ -1,4 +1,4 @@
-import { MobileCardList, MobileCard } from './MobileCard'
+import { MobileCardList, MobileCard, breakable } from './MobileCard'
 import MessageLogMobileFilters from './MessageLogMobileFilters'
 import MessageLogMobileDetail from './MessageLogMobileDetail'
 
@@ -88,13 +88,6 @@ export default function MessageLogMobile({
       />
     </div>
   )
-}
-
-// E-mail se zalomí přednostně před „@", ne uprostřed slova (jinak overflowWrap kdekoli).
-function breakable(text) {
-  if (typeof text !== 'string' || !text.includes('@')) return text
-  const at = text.indexOf('@')
-  return [text.slice(0, at), <wbr key="w" />, text.slice(at)]
 }
 
 function LogCard({ log, st, checked, onToggle, onOpen, recipient, time }) {
