@@ -139,9 +139,17 @@ function lpiLists($x, $root, $admin) {
     }
 }
 
+/** Úvodní pomlčku odstraní z prvního neprázdného textu položky (i uvnitř <strong>). */
 function lpiStripDash($el) {
-    for ($n = $el->firstChild; $n && $n->nodeType === XML_TEXT_NODE && lpiText($n) === ''; $n = $n->nextSibling);
-    if ($n && $n->nodeType === XML_TEXT_NODE) $n->nodeValue = preg_replace('/^[\s\x{00A0}]*[-–—•][\s\x{00A0}]*/u', '', $n->nodeValue);
+    foreach ($el->childNodes as $n) {
+        if ($n->nodeType === XML_TEXT_NODE) {
+            if (lpiText($n) === '') continue;
+            $n->nodeValue = preg_replace('/^[\s\x{00A0}]*[-–—•][\s\x{00A0}]*/u', '', $n->nodeValue);
+            return true;
+        }
+        if ($n instanceof DOMElement && (lpiStripDash($n) || lpiText($n) !== '')) return true;
+    }
+    return false;
 }
 
 /** Tabulky: popisky sloupců do data-label (mobil = karty). */

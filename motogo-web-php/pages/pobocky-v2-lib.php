@@ -5,17 +5,18 @@
 // Texty v2 = $C['v2'] (siteContent('pobocky') → lang/v2/<lang>/pobocky-v2.php
 // 'pages.pobocky.v2', případně Velín CMS web.pobocky.v2.*) přes CS defaulty níže.
 // Fakta jen z textů poboček (web.pobocky.*) a FAQ (parkování zdarma na obou
-// pobočkách, přistavení za příplatek); dojezdové časy (90 min z Prahy, 20 min
-// z Brna, 15 min z letiště Brno-Tuřany) dodal majitel (2026-10-10).
+// pobočkách, přistavení za příplatek); dojezdové časy ověřené routováním OSRM
+// (2026-10-10): Praha → Mezná ~92 min, jih Brna → VN ~19 min, centrum Brna ~28 min,
+// letiště Brno-Tuřany ~36 min, Vídeň ~100 min (majitelem uváděných „15 min z letiště“ nesedí).
 
 require_once __DIR__ . '/../landing.php';
 require_once __DIR__ . '/pobocky-v2-ui.php';
 
-/** Assety v2 pro renderPage() meta (landing + pobočky). */
-function pbV2Meta() {
+/** Assety v2 pro renderPage() meta (landing + pobočky). $page: 'list' = přehled, 'detail' = detail pobočky. */
+function pbV2Meta($page = 'detail') {
     $m = lpPageMeta();
     $m['styles'][] = '/css/landing-branch.css';
-    $m['styles'][] = '/css/landing-branch-guide.css';
+    $m['styles'][] = $page === 'list' ? '/css/landing-branch-list.css' : '/css/landing-branch-guide.css';
     $m['scripts'][] = '/js/landing-branch.js';
     return $m;
 }

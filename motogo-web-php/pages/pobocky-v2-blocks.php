@@ -38,7 +38,7 @@ function pbGuideHtml($V, $b, $k, $titles, $cfg, $gal, $rezHref) {
             if (!isset($gal[$gi])) continue;
             $ph .= '<a href="/' . he($gal[$gi][1]) . '" data-gallery="branch" data-index="' . (int)$gi . '" aria-label="' . $open . '"><img src="/' . he($gal[$gi][0]) . '" alt="' . he($gal[$gi][2]) . '" width="320" height="240" loading="lazy" decoding="async">' . pbIcon('zoom') . '</a>';
         }
-        $items .= '<li class="pb-gstep lp-reveal" id="krok-' . ($i + 1) . '" style="--i:' . $i . '" data-title="' . he($ttl) . '">' .
+        $items .= '<li class="pb-gstep lp-reveal" id="krok-' . ($i + 1) . '" style="--i:' . $i . '">' .
             '<div class="pb-gstep-rail"><span class="pb-gstep-n">' . ($i + 1) . '</span></div>' .
             '<div class="pb-gstep-card"><div class="pb-gstep-head"><span class="pb-gstep-ico">' . pbVisual($c[0] ?? 'check', $ttl) . '</span><h3>' . he($ttl) . '</h3></div>' .
             '<p>' . sanitizeHtml($html) . '</p>' . ($ph !== '' ? '<div class="pb-gstep-photos">' . $ph . '</div>' : '') . '</div></li>';
@@ -101,7 +101,7 @@ function pbGalleryHtml($gal, $title, $key, $T) {
 /** Srovnání poboček (tabulka; na mobilu karty řádků). $heads = [[title, href, badge, self]], $counts = [n, n]. */
 function pbCompareHtml($V, $heads, $counts) {
     $th = '';
-    foreach ($heads as $hd) $th .= '<th scope="col"><a href="' . he($hd[1]) . '">' . he(lpPlain($hd[0])) . '</a>' . pbBadge($hd[2], '', $hd[3]) . '</th>';
+    foreach ($heads as $hd) $th .= '<th scope="col" role="columnheader"><a href="' . he($hd[1]) . '">' . he(lpPlain($hd[0])) . '</a>' . pbBadge($hd[2], '', $hd[3]) . '</th>';
     $rows = '';
     foreach ((array)($V['compare'] ?? []) as $r) {
         if (!is_array($r) || lpPlain($r['label'] ?? '') === '') continue;
@@ -111,15 +111,16 @@ function pbCompareHtml($V, $heads, $counts) {
             $t = lpPlain($v['t'] ?? '');
             if (!empty($r['count'])) $t = str_replace('{n}', (string)(int)($counts[$c] ?? 0), $t);
             $ok = array_key_exists('ok', $v) ? ((int)$v['ok'] ? '<span class="pb-yes">' . pbIcon('check') . '</span>' : '<span class="pb-no">' . pbIcon('x') . '</span>') : '';
-            $tds .= '<td data-label="' . he(lpPlain($heads[$c][0] ?? '')) . '"' . (!empty($r['count']) ? ' class="pb-cmp-big"' : '') . '>' . $ok . '<span>' . he($t) . '</span></td>';
+            $tds .= '<td role="cell" data-label="' . he(lpPlain($heads[$c][0] ?? '')) . '"' . (!empty($r['count']) ? ' class="pb-cmp-big"' : '') . '>' . $ok . '<span>' . he($t) . '</span></td>';
         }
-        $rows .= '<tr class="lp-reveal"><th scope="row">' . pbIcon(lpS($r['i'] ?? 'check')) . '<span>' . he(lpPlain($r['label'])) . '</span></th>' . $tds . '</tr>';
+        $rows .= '<tr class="lp-reveal" role="row"><th scope="row" role="rowheader">' . pbIcon(lpS($r['i'] ?? 'check')) . '<span>' . he(lpPlain($r['label'])) . '</span></th>' . $tds . '</tr>';
     }
     if ($rows === '') return '';
     return '<section class="pb-cmp" aria-labelledby="pb-cmp-h"><div class="container"><div class="pb-cmp-card">' .
         '<h2 id="pb-cmp-h" data-cms-key="web.pobocky.v2.compare_title">' . he(lpPlain($V['compare_title'])) . '</h2>' .
         (lpPlain($V['compare_intro'] ?? '') !== '' ? '<p class="pb-cmp-intro" data-cms-key="web.pobocky.v2.compare_intro">' . he(lpPlain($V['compare_intro'])) . '</p>' : '') .
-        '<table class="pb-cmp-t"><thead><tr><td></td>' . $th . '</tr></thead><tbody>' . $rows . '</tbody></table></div></div></section>';
+        // role=… drží sémantiku tabulky i při display:grid na mobilu
+        '<table class="pb-cmp-t" role="table"><thead role="rowgroup"><tr role="row"><td role="cell"></td>' . $th . '</tr></thead><tbody role="rowgroup">' . $rows . '</tbody></table></div></div></section>';
 }
 
 /** Závěrečné CTA detailu: CMS texty web.pobocky.cta.* + motorky pobočky + odkaz zpět. */

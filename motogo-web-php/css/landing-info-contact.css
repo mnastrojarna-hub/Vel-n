@@ -25,8 +25,7 @@
 .lpi-ccard--phone .lpi-ccard-go{background:#74fb71;color:#08230f}
 .lpi-ccard--ai .lpi-ccard-ico{background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f}
 .lpi-ccard--ai strong{font-size:.95rem}
-@media(min-width:600px){.lpi-ccards{grid-template-columns:1fr 1fr}}
-@media(min-width:1100px){.lpi-ccards{grid-template-columns:1.25fr 1.25fr 1fr 1.25fr}}
+@media(min-width:600px){.lpi-ccards{grid-template-columns:1fr 1fr;gap:.85rem}}
 
 /* --- Pobočky --- */
 .lpi-branch-grid{display:grid;gap:1rem}
@@ -52,18 +51,29 @@
 .lpi-branch-btns{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:auto;padding-top:.35rem}
 .lpi-branch-btns .lp-btn{min-height:48px;padding:.6rem .5rem;font-size:.8rem}
 @media(min-width:769px){.lpi-branch-grid{grid-template-columns:1fr 1fr;gap:1.25rem}}
+@media(min-width:1100px){
+  .lpi-branch{flex-direction:row}
+  .lpi-branch-media{flex:0 0 36%;aspect-ratio:auto;min-height:100%}
+  .lpi-branch-btns .lp-btn{font-size:.76rem;letter-spacing:0}
+  .lpi-branch-media::after{inset:0 0 0 auto;width:40%;height:auto;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15))}
+  .lpi-branch-img{position:absolute;inset:0}
+  .lpi-branch-body{padding:1.25rem 1.35rem}
+}
 
 /* --- Provozovna, sítě, CTA --- */
 .lpi-cinfo{display:grid;gap:1rem}
-.lpi-cinfo>div{display:grid;gap:1rem;align-content:start}
+.lpi-cinfo>div{display:contents}
+.lpi-cinfo section{margin:0}
 .lpi-row{display:flex;align-items:flex-start;gap:.8rem;margin:0 0 .9rem}
 .lpi-row:last-child{margin-bottom:0}
 .lpi-row>p,.lpi-row>div{flex:1;min-width:0;margin:0}
 .lpi-row strong{display:block;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:#4a6b5a}
+.lpi-row strong+br,.lpi-row div:has(>br:only-child){display:none}
 .lpi-row div[style]{text-align:left!important}
 .lpi-row-ico{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:12px;background:#1a2e22;color:#74fb71}
 .lpi-row b{color:#1a2e22}
 .lpi-soc-list{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+.lpi-social .lpi-soc{margin:0}
 .lpi-soc{position:relative;display:flex;align-items:center;gap:.6rem;margin:0;padding:.65rem .75rem;border-radius:14px;border:1px solid #d4e8e0;background:#f5fbf8;transition:border-color .2s,transform .2s}
 .lpi-soc:hover{transform:translateY(-2px);border-color:#74fb71}
 .lpi-soc .social-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:50%;background:#74fb71}
@@ -73,5 +83,6 @@
 .lpi-cta--mini .lp-cta-btns .lp-btn:first-child{min-height:52px}
 .lpi-map .lpi-btns{margin-top:.9rem}
 .lpi-billing p{font-size:.88rem}
-@media(min-width:900px){.lpi-cinfo{grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start}}
+@media(min-width:769px){.lpi-cinfo{grid-template-columns:1fr 1fr;gap:1.25rem;align-items:stretch}.lpi-cinfo .lpi-cta--mini{grid-column:1/-1}}
+@media(min-width:1100px){.lpi-cinfo{grid-template-columns:1fr 1fr 1fr}.lpi-cinfo .lpi-cta--mini{grid-column:auto}}
 @media(prefers-reduced-motion:reduce){.lpi-ccard--phone .lpi-ccard-ico,.lpi-badge--live::before{animation:none}.lpi-branch-img img{transition:none}}

@@ -56,7 +56,7 @@
     var sub = [br ? br.n : '', X.cat(m.c), m.from > 0 ? tpl(T.from, { price: X.money(m.from) }) : ''].filter(Boolean).join(' · ');
     return (m.img ? '<img class="kc-moto-img" src="' + esc(m.img) + '" alt="' + esc(m.m) + '" width="96" height="64" decoding="async">' : '') +
       '<div class="kc-moto-b"><span class="kc-moto-n">' + esc(m.m) + '</span><span class="kc-moto-s">' + esc(sub) + '</span><span class="kc-pills">' + pills + '</span></div>' +
-      '<a class="kc-moto-a" href="' + esc(X.C.detail + '/' + encodeURIComponent(m.id)) + '">' + esc(T.detail) + K.ico('arrow') + '</a>';
+      (X.C.ctx === 'detail' && m.id === X.C.pre.moto ? '' : '<a class="kc-moto-a" href="' + esc(X.C.detail + '/' + encodeURIComponent(m.id)) + '">' + esc(T.detail) + K.ico('arrow') + '</a>');
   };
 
   function head(X) {
@@ -88,8 +88,8 @@
     var S = X.S, T = X.T, m = S.moto ? X.by[S.moto] : null;
     if (!S.start) {
       var wk = m ? [1, 2, 3, 4, 5, 6, 0].map(function (dw) { return { dow: dw, price: m.p[dw] }; }) : null;
-      return '<p class="kc-sum-k">' + esc(T.sum_title) + '</p>' + (wk ? '<p class="kc-sum-cap">' + esc(K.tpl(T.legend_price, { cur: X.C.cur.sym })) + '</p>' + bars(X, wk, true, true) : '<div class="kc-sum-art" aria-hidden="true">' + K.ico('cal') + '</div>') +
-        '<p class="kc-sum-p">' + esc(T.sum_empty) + '</p>' + (m ? cta(X, T.cta_moto, true) : '');
+      return '<p class="kc-sum-k">' + esc(T.sum_title) + '</p>' + (wk ? '<p class="kc-sum-cap">' + esc(T.chart + ' · ' + X.C.cur.sym) + '</p>' + bars(X, wk, true, true) : '<div class="kc-sum-art" aria-hidden="true">' + K.ico('cal') + '</div>') +
+        '<p class="kc-sum-p">' + esc(m ? T.sum_dates : T.sum_empty) + '</p>' + (m ? cta(X, T.cta_moto, true) : '');
     }
     if (!S.end) return head(X) + '<p class="kc-sum-p">' + esc(T.sum_pick_end) + '</p>' + foot(X);
     if (!m) return K.freeHtml(X) + cta(X, T.cta_any) + foot(X);

@@ -2,7 +2,8 @@
    Staví na css/landing.css (.lp-panel, .lp-btn, .lp-steps, .lp-cta-card, .lp-more, .lp-fleet). */
 
 /* --- Rozvržení --- */
-.lpi .ccontent{padding:.25rem 0 .5rem}
+.lpi .ccontent{padding:.25rem 0 1.5rem}
+.lpi .lpi-body--end{padding-bottom:2.5rem}
 .lpi .ccontent section{margin-bottom:0}
 .lpi-body>section,.lpi-body>.lpi-block{margin:2rem 0}
 .lpi-body>section:first-child{margin-top:1.5rem}
@@ -15,6 +16,10 @@
 .lpi-body .lp-cta-card h2{padding-top:1rem}
 .lpi-body .lp-cta-card h2::before{left:50%;transform:translateX(-50%)}
 .lpi-body .lp-steps-card h2{color:#fff}
+.lpi-sec>*+h2,.lpi-panel>*+h2{margin-top:1.75rem}
+/* Inline barvy/velikosti z CMS editoru nesmí rozbít tmavé karty a titulky kroků */
+.lpi-hero .lp-lead [style*="color"],.lp-cta-card [style*="color"],.lp-steps-card [style*="color"],.lpi-ai [style*="color"]{color:inherit!important}
+.lpi .lp-step-body h3 [style]{font-size:inherit!important;font-weight:inherit!important}
 
 /* --- Hero (doplněk k .lp-panel) --- */
 .lpi-hero .lp-lead{display:block;font-size:.93rem}
@@ -45,7 +50,9 @@
 .lpi-checks>li::before,.lpi-checks--div>div::before{content:"";position:absolute;left:0;top:.08rem;width:1.35rem;height:1.35rem;border-radius:50%;background:#1a2e22 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2374fb71' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/.85rem no-repeat}
 
 /* --- Tlačítka v obsahu --- */
-.lpi .lpi-btns{display:flex;flex-wrap:wrap;gap:.6rem;margin:1.1rem 0 0}
+.lpi .lpi-btns{display:flex;flex-wrap:wrap;gap:.6rem;margin:1.1rem 0 1.5rem}
+.lpi .lpi-btns:last-child{margin-bottom:0}
+.lpi-sec--btns .lpi-btns{justify-content:center;margin:0}
 .lpi-btns .lp-btn{flex:1 1 100%}
 .lpi-btn-dark{background:#1a2e22;color:#74fb71;border:2px solid #1a2e22}
 .lpi-btn-dark:hover{background:#0d6e0d;border-color:#0d6e0d;color:#fff}
@@ -75,7 +82,8 @@
   .lpi-cards.lpi-c4{grid-template-columns:repeat(4,1fr)}
   .lpi-cards.lpi-c5{grid-template-columns:repeat(5,1fr)}
   .lpi-cards.lpi-c6{grid-template-columns:repeat(6,1fr)}
-  .lpi-cards--rows.lpi-c5,.lpi-cards--rows.lpi-c6{grid-template-columns:repeat(3,1fr)}
+  .lpi-cards--rows.lpi-c5{grid-template-columns:repeat(5,1fr)}
+  .lpi-cards--rows.lpi-c6{grid-template-columns:repeat(3,1fr)}
   .lpi-cards--rows.lpi-c5 .lpi-card,.lpi-cards--rows.lpi-c6 .lpi-card{display:flex}
   .lpi-cards--rows.lpi-c5 .lpi-card-ico,.lpi-cards--rows.lpi-c6 .lpi-card-ico{margin:0 0 .55rem}
 }
@@ -84,6 +92,7 @@
 .lpi .lp-steps-card{position:relative;overflow:hidden}
 .lpi .lp-steps-card::after{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(116,251,113,.18),transparent 70%);pointer-events:none}
 .lpi .lp-step-body img{width:34px;height:34px}
+.lpi .lp-steps-list .lp-step{align-content:start}
 .lpi .lp-step-body h3 p,.lpi .lp-step-body h3 span{margin:0}
 @media(min-width:900px){
   .lpi-steps-list{row-gap:1.6rem}
@@ -98,6 +107,7 @@
 .lpi-table table{width:100%;margin:0;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:18px;background:#fff;border:1px solid #d4e8e0;box-shadow:0 12px 26px -20px rgba(26,46,34,.6)}
 .lpi-table th{padding:.85rem 1rem;background:#1a2e22;color:#74fb71;text-align:left;font-size:.78rem;letter-spacing:.05em;text-transform:uppercase}
 .lpi-table td{padding:.85rem 1rem;border-top:1px solid #e6f2ed;background:#fff;font-size:.9rem;line-height:1.5;color:#2c4a3a;vertical-align:top}
+.lpi-table .table tbody tr:nth-of-type(n){background:none}
 .lpi-table tbody tr:nth-child(even) td{background:#f5fbf8}
 .lpi-table td:first-child{font-weight:700;color:#1a2e22}
 @media(max-width:640px){

@@ -62,11 +62,15 @@
 .kc-more{margin:0;color:#4a6b5a;font-size:.76rem;text-align:center}
 
 /* Tlačítko „Spočítat cenu“ na kartě katalogu (sourozenec odkazu karty) */
-#katalog-grid>section{position:relative}
+/* Levý dolní roh fotky: výška fotky = šířka karty × poměr .moto-img (4/3, mobil 16/10), cqw bez podpory → nahoře */
+#katalog-grid>section{position:relative;container-type:inline-size}
 .kc-card-btn{position:absolute;left:.6rem;top:.6rem;z-index:2;display:inline-flex;align-items:center;gap:.3rem;min-height:40px;padding:.35rem .75rem;border:1px solid rgba(116,251,113,.6);border-radius:999px;background:rgba(10,31,20,.88);color:#74fb71;font:inherit;font-size:.72rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;cursor:pointer;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);box-shadow:0 6px 16px -6px rgba(0,0,0,.45);transition:background .2s,color .2s,transform .15s}
+.kc-card-btn{top:calc(75cqw - 48px)}
+@media(max-width:480px){.kc-card-btn{top:calc(62.5cqw - 48px)}}
 .kc-card-btn .lp-ico{width:15px;height:15px}
 .kc-card-btn:hover{background:#74fb71;color:#08230f}
 .kc-card-btn:active{transform:scale(.96)}
+@media(hover:hover){#katalog-grid>section:hover>.kc-card-btn{transform:translateY(-3px)}}
 .kc-card-btn:focus-visible{outline:3px solid #74fb71;outline-offset:2px}
 
 /* Mobilní lišta s cenou */
@@ -103,3 +107,6 @@
   .kc-card::before,.kc-card::after,.kc-sum-art,.kc-late-pct,.kc-pill i,.kc-day.is-wait,.kc-bar i,.kc-free li,.kc-sum-in,.kc-moto,.kc-day.is-start,.kc-day.is-end{animation:none}
   .kc-sticky{transition:none}
 }
+
+/* Detail motorky (v2): ceník po dnech nad kalkulačkou, bez prázdného druhého sloupce */
+.moto-prices--kc{max-width:720px}

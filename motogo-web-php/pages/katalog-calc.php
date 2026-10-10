@@ -17,6 +17,7 @@ function kcDefaults() {
         'eyebrow' => 'Kalkulačka ceny',
         'title' => 'Spočítej si cenu',
         'lead' => 'Vyber pobočku, motorku a termín — ukážeme volné dny a přesnou cenu. Jedním klepnutím pak přejdeš do rezervace se vším předvyplněným.',
+        'lead_detail' => 'Vyber termín — ukážeme volné dny a přesnou cenu této motorky. Jedním klepnutím pak přejdeš do rezervace se vším předvyplněným.',
         'step_branch' => 'Pobočka', 'step_moto' => 'Motorka', 'step_dates' => 'Termín',
         'branch_all' => 'Všechny', 'branch_count' => '{n} motorek',
         'branch_staffed' => 's obsluhou', 'branch_self' => 'samoobsluha nonstop',
@@ -37,6 +38,7 @@ function kcDefaults() {
         'prev' => 'Předchozí měsíc', 'next' => 'Další měsíc',
         'sum_title' => 'Tvoje cena',
         'sum_empty' => 'Vyber motorku a termín — cenu spočítáme hned, bez registrace.',
+        'sum_dates' => 'Vyber termín v kalendáři — cenu spočítáme hned, bez registrace.',
         'sum_pick_end' => 'Vyber den vrácení a uvidíš celkovou cenu.',
         'pickup' => 'Vyzvednutí', 'return' => 'Vrácení',
         'days_one' => '{n} den', 'days_few' => '{n} dny', 'days_many' => '{n} dní',
@@ -139,17 +141,21 @@ function kcData($motos, $T, $pre) {
 
 /**
  * Blok kalkulačky. $opts: branch (předvybraná pobočka z filtru ?pobocka=),
- * moto (předvybraná motorka — detail), id (kotva).
+ * moto (předvybraná motorka), ctx 'detail' (detail motorky: bez výběru pobočky,
+ * vlastní úvodní text, bez odkazu na tentýž detail), id (kotva).
  */
 function renderKatalogCalc($sb, $motos, $opts = []) {
     $T = kcTexts($sb);
+    $det = ($opts['ctx'] ?? '') === 'detail';
     $data = kcData($motos, $T, ['branch' => (string)($opts['branch'] ?? ''), 'moto' => (string)($opts['moto'] ?? '')]);
     if (!$data['motos']) return '';
+    $data['ctx'] = $det ? 'detail' : 'catalog';
     $k = 'web.landing_katalog.';
     $s = function ($key) use ($T, $k) { return '<span data-cms-key="' . $k . $key . '">' . he(lpPlain($T[$key] ?? '')) . '</span>'; };
-    $total = count($data['motos']);
+    $n = function ($i) { return '<span class="kc-n">' . $i . '</span>'; };
+    $o = $det ? 0 : 1; // detail: bez kroku „pobočka“ → Motorka = 1, Termín = 2
     $seg = '<label class="kc-opt"><input type="radio" name="kc-branch" value="" checked><span class="kc-opt-in"><span class="kc-opt-t">' . he(lpPlain($T['branch_all'])) . '</span>' .
-        '<span class="kc-opt-s">' . he(str_replace('{n}', (string)$total, lpPlain($T['branch_count']))) . '</span></span></label>';
+        '<span class="kc-opt-s">' . he(str_replace('{n}', (string)count($data['motos']), lpPlain($T['branch_count']))) . '</span></span></label>';
     foreach ($data['branches'] as $b) {
         $seg .= '<label class="kc-opt kc-opt--' . $b['k'] . '"><input type="radio" name="kc-branch" value="' . he($b['id']) . '"><span class="kc-opt-in">' .
             '<span class="kc-opt-t">' . lpIcon('pin') . he($b['n']) . '</span><span class="kc-opt-s">' . he(lpPlain($T[$b['k'] === 'self' ? 'branch_self' : 'branch_staffed'])) . '</span></span></label>';
@@ -157,20 +163,22 @@ function renderKatalogCalc($sb, $motos, $opts = []) {
     $calc = '<svg class="lp-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M16 11v6M8 15h2M12 15h2M8 18.5h2M12 18.5h2"/></svg>';
     $legend = '';
     foreach (['free', 'busy', 'pending', 'sel'] as $lg) $legend .= '<li class="kc-lg kc-lg--' . $lg . '"><i aria-hidden="true"></i>' . $s('legend_' . $lg) . '</li>';
-    return '<section class="kc" id="' . he($opts['id'] ?? 'kalkulacka') . '" aria-labelledby="kc-h" data-kc><div class="kc-card">' .
+    $lead = $det ? 'lead_detail' : 'lead';
+    return '<section class="kc' . ($det ? ' kc--detail' : '') . '" id="' . he($opts['id'] ?? 'kalkulacka') . '" aria-labelledby="kc-h" data-kc><div class="kc-card">' .
         '<header class="kc-head"><p class="kc-eyebrow">' . $calc . $s('eyebrow') . '</p>' .
         '<h2 id="kc-h" data-cms-key="' . $k . 'title">' . he(lpPlain($T['title'])) . '</h2>' .
-        '<p class="kc-lead" data-cms-key="' . $k . 'lead">' . he(lpPlain($T['lead'])) . '</p>' .
-        '<ol class="kc-steps" aria-hidden="true"><li data-kc-step="1"><span class="kc-n">1</span>' . $s('step_branch') . '</li><li data-kc-step="2"><span class="kc-n">2</span>' . $s('step_moto') . '</li><li data-kc-step="3"><span class="kc-n">3</span>' . $s('step_dates') . '</li></ol></header>' .
+        '<p class="kc-lead" data-cms-key="' . $k . $lead . '">' . he(lpPlain($T[$lead])) . '</p>' .
+        '<ol class="kc-steps" aria-hidden="true">' . ($det ? '' : '<li data-kc-step="1">' . $n(1) . $s('step_branch') . '</li>') .
+            '<li data-kc-step="2">' . $n(1 + $o) . $s('step_moto') . '</li><li data-kc-step="3">' . $n(2 + $o) . $s('step_dates') . '</li></ol></header>' .
         '<div class="kc-grid"><div class="kc-pick">' .
-            '<fieldset class="kc-branch"><legend class="kc-label"><span class="kc-n">1</span>' . $s('step_branch') . '</legend><div class="kc-seg">' . $seg . '</div></fieldset>' .
-            '<div class="kc-field"><label class="kc-label" for="kc-moto"><span class="kc-n">2</span>' . $s('step_moto') . '</label>' .
+            ($det ? '' : '<fieldset class="kc-branch"><legend class="kc-label">' . $n(1) . $s('step_branch') . '</legend><div class="kc-seg">' . $seg . '</div></fieldset>') .
+            '<div class="kc-field"><label class="kc-label" for="kc-moto">' . $n(1 + $o) . $s('step_moto') . '</label>' .
             '<div class="kc-select"><select id="kc-moto"><option value="">' . he(lpPlain($T['moto_any'])) . '</option></select></div>' .
             '<div class="kc-moto" data-kc-moto hidden></div></div></div>' .
-        '<div class="kc-cal"><p class="kc-label"><span class="kc-n">3</span>' . $s('step_dates') . '<span class="kc-hint" data-kc-hint aria-live="polite"></span></p>' .
+        '<div class="kc-cal"><p class="kc-label">' . $n(2 + $o) . $s('step_dates') . '<span class="kc-hint" data-kc-hint aria-live="polite"></span></p>' .
             '<div class="kc-cal-box" data-kc-cal></div>' .
             '<ul class="kc-legend">' . $legend . '</ul><p class="kc-note" data-kc-note></p></div>' .
-        '<div class="kc-sum" data-kc-sum aria-live="polite"><div class="kc-sum-in kc-sum--empty"><p class="kc-sum-k">' . he(lpPlain($T['sum_title'])) . '</p><p>' . he(lpPlain($T['sum_empty'])) . '</p></div></div>' .
+        '<div class="kc-sum" data-kc-sum aria-live="polite"><div class="kc-sum-in"><p class="kc-sum-k">' . he(lpPlain($T['sum_title'])) . '</p><p class="kc-sum-p">' . he(lpPlain($T['sum_empty'])) . '</p></div></div>' .
         '</div></div>' .
         '<script type="application/json" id="kc-data">' . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . '</script></section>';
 }

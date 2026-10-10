@@ -130,7 +130,10 @@ function lpiBlocks($doc, $x, $cc, $L, $TC) {
             if (!$faqDone) { $s->appendChild(lpiFrag($doc, lpiAiBox($L))); $faqDone = true; }
         } elseif ($r === 'sec' && $s->nodeName === 'section' && !preg_match('/(?:^|\s)lpi?-/', $s->getAttribute('class'))) {
             $rich = $x->query('.//*[contains(@class,"lpi-cards") or contains(@class,"lpi-cols") or contains(@class,"lpi-table") or contains(@class,"lpi-docs")]|.//iframe', $s)->length;
-            lpiAdd($s, 'lpi-sec' . ($rich ? '' : ' lpi-sec--text lp-reveal'));
+            $btnTxt = '';
+            foreach ($x->query('.//a[contains(@class,"lp-btn")]', $s) as $a) $btnTxt .= lpiText($a);
+            $onlyBtns = $btnTxt !== '' && str_replace(' ', '', lpiText($s)) === str_replace(' ', '', $btnTxt);
+            lpiAdd($s, 'lpi-sec' . ($onlyBtns ? ' lpi-sec--btns' : ($rich ? '' : ' lpi-sec--text lp-reveal')));
         }
         $roles[$i] = $r;
     }

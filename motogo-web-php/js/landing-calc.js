@@ -55,7 +55,8 @@
     need.forEach(function (id) {
       S.wait[id] = K.fetchBooked(C.sb, id, today).then(function (map) { S.bk[id] = map; }, function () { S.fail = true; }).then(function () {
         delete S.wait[id];
-        if (!Object.keys(S.wait).length && ready()) { check(); if (!S.start) jump(); }
+        if (Object.keys(S.wait).length) return;
+        if (ready()) { check(); if (!S.start) jump(); }
         render();
       });
     });

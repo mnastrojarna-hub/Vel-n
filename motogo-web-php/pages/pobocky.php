@@ -45,7 +45,7 @@ $content = pobockyCss() . '<main id="content"><div class="container">' . $bc
 $lpV2 = landingV2Enabled();
 if ($lpV2) $content = require __DIR__ . '/pobocky-v2.php';
 
-renderPage(strip_tags((string)$C['seo']['title']), $content, '/pobocky', ($lpV2 ? pbV2Meta() : []) + [
+renderPage(strip_tags((string)$C['seo']['title']), $content, '/pobocky', ($lpV2 ? pbV2Meta('list') : []) + [
     'description' => strip_tags((string)$C['seo']['description']),
     'keywords' => strip_tags((string)$C['seo']['keywords']),
     'breadcrumbs' => [
