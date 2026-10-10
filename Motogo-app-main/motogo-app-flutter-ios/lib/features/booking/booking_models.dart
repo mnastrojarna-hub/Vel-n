@@ -1,6 +1,7 @@
 /// Booking draft — collects all data during booking flow.
 
 import '../../core/date_days.dart';
+import 'self_service_gear.dart';
 
 class BookingDraft {
   String? motoId;
@@ -312,7 +313,15 @@ const bootSizesKids = ['33', '35'];
 /// Returns the size list for a gear [type] — one of
 /// `helmet` / `gloves` / `jacket` / `pants` / `boots` — switching to
 /// children's sizing when [kids] is true (dětská motorka, license_required='N').
-List<String> gearSizesFor(String type, {required bool kids}) {
+/// [selfService] = motorka na samoobslužné pobočce → dospělá řada zúžená
+/// pravidlem [selfServiceGearSizes] (helma S–3XL, bunda/kalhoty/rukavice
+/// max 4XL); dětské řady a boty beze změny.
+List<String> gearSizesFor(String type, {required bool kids, bool selfService = false}) {
+  final base = _gearSizesBase(type, kids: kids);
+  return selfService && !kids ? selfServiceGearSizes(type, base) : base;
+}
+
+List<String> _gearSizesBase(String type, {required bool kids}) {
   switch (type) {
     case 'gloves':
       return kids ? glovesSizesKids : glovesSizesAdult;

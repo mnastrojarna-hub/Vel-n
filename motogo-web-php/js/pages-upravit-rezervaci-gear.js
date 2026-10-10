@@ -20,7 +20,8 @@
   // Fallback velikosti, když se accessory_types nepodaří načíst
   var FALLBACK_SIZES = {
     helmet: ['XS', 'S', 'M', 'L', 'XL', '2XL'],
-    jacket: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+    // 2026-10-10: S–6XL jako /rezervace a appka (živá accessory_types řádek 'jacket' nemá)
+    jacket: ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'],
     pants: ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'],
     boots: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
     gloves: ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
@@ -93,14 +94,29 @@
     loadSizeCatalog().then(function (catalog) {
       var body = document.getElementById('edit-rez-gear-body');
       if (!body || ER.tab !== 'gear') return;
+      // Samoobsluha (2026-10-10, js/gear-ss-cap.js): kopie per render (cache _sizeCatalog
+      // je sdílená); uložená velikost mimo rozsah → nejbližší nabízená, nikdy prázdno.
+      var mc = b.motorcycles || {};
+      var ss = !!(mc.branches && mc.branches.type === 'samoobslužná');
+      var child = mc.license_required === 'N';
+      var cat = {};
+      TYPES.forEach(function (tp) {
+        var list = catalog[tp] || [];
+        cat[tp] = MG._ssCapGearSizes ? MG._ssCapGearSizes(tp, list, ss, child) : list;
+        if (MG._ssClampSize) {
+          [tp, 'passenger_' + tp].forEach(function (f) {
+            if (sizes[f]) sizes[f] = MG._ssClampSize(tp, sizes[f], cat[tp], ss, child);
+          });
+        }
+      });
       var labels = ER._GEAR_LABELS || {};
       var html = '<div class="edit-rez-gear-block"><h5>' + MG.t('rez.gear.rider') + '</h5>';
       TYPES.forEach(function (tp) {
-        html += chipRow(tp, labels[tp] || tp, catalog[tp], sizes[tp], true);
+        html += chipRow(tp, labels[tp] || tp, cat[tp], sizes[tp], true);
       });
       html += '</div><div class="edit-rez-gear-block" style="margin-top:1rem"><h5>' + MG.t('rez.gear.passenger') + '</h5>';
       TYPES.forEach(function (tp) {
-        html += chipRow('passenger_' + tp, labels[tp] || tp, catalog[tp], sizes['passenger_' + tp], true);
+        html += chipRow('passenger_' + tp, labels[tp] || tp, cat[tp], sizes['passenger_' + tp], true);
       });
       html += '</div>' +
         '<div id="edit-rez-gear-msg" class="muted" style="margin:.75rem 0;font-size:.9rem"></div>' +

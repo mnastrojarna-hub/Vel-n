@@ -39,7 +39,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   const [codeChecked, setCodeChecked] = useState(false)
   // Samoobslužná pobočka (branches.type = 'samoobslužná', shodně s DB _is_self_service_booking): podpis
   // ve Velíně nastaví bookings.handover_protocol_filled_at (hradlo kódu motorky na displeji, §1 návrhu);
-  // už podepsaný protokol (appka / displej) se podruhé nevystavuje — `alreadySigned` modal zablokuje.
+  // už podepsaný protokol (displej pobočky; starší buildy appky) se podruhé nevystavuje — `alreadySigned` modal zablokuje.
   const [selfService, setSelfService] = useState(false)
   const [alreadySigned, setAlreadySigned] = useState(null)
   const custSig = useRef(null)
@@ -129,7 +129,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
         })
         const hasSizeUpd = Object.keys(upd).length > 0
         if (hasSizeUpd || (selfService && Object.keys(removedUpd).length > 0)) {
-          // Samoobsluha: stejný guard jako edge — podepsal-li zákazník mezitím na displeji / v appce,
+          // Samoobsluha: stejný guard jako edge — podepsal-li zákazník mezitím na displeji pobočky,
           // jeho protokol je závazný a výbava v rezervaci se z Velína už nemění (0 zasažených řádků).
           // Jen odebrání bez změny velikosti → guard ověří select (zápis NULL až po uložení protokolu).
           let q = hasSizeUpd ? supabase.from('bookings').update(upd) : supabase.from('bookings').select('id')
@@ -138,7 +138,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
           const { data: rows, error: sErr } = await (hasSizeUpd ? q.select('id') : q)
           if (sErr) throw new Error('Propsání výbavy z protokolu (změna velikosti / odebrání položky) do rezervace selhalo: ' + sErr.message)
           if (selfService && !rows?.length) {
-            setError('Předávací protokol už je podepsán (aplikace / displej pobočky) — výbava v rezervaci se nemění a druhý protokol se nevystavuje. Podepsané PDF najdete v Dokumentech.')
+            setError('Předávací protokol už je podepsán (displej pobočky) — výbava v rezervaci se nemění a druhý protokol se nevystavuje. Podepsané PDF najdete v Dokumentech.')
             errReveal.reveal(); setSaving(false); return
           }
         }
@@ -168,7 +168,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       }
       // Samoobslužná pobočka: podpis ve Velíně = stav protokolu na rezervaci. Trigger
       // trg_handover_signed_notify_kiosk pak jednotce pošle protocol_signed (overlay na
-      // displeji zmizí / kóje se otevře) a appka přestane protokol vynucovat. `.is(null)`:
+      // displeji zmizí / kóje se otevře). `.is(null)`:
       // kdyby mezitím podepsal zákazník, jeho čas se nepřepíše. Obslužnou pobočku řeší
       // DB trigger _activate_on_handover_protocol_doc (aktivace + filled_at) — tam nic.
       let protocolStateSet = null
@@ -203,7 +203,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       // 23505 = unikátní index generated_documents_handover_once (protokol ze samoobsluhy už existuje)
       const dup = e?.code === '23505' || /handover_once/.test(e?.message || '')
       setError(dup
-        ? 'Předávací protokol už je podepsán (aplikace / displej pobočky) — najdete ho v Dokumentech. Druhý se nevystavuje.'
+        ? 'Předávací protokol už je podepsán (displej pobočky) — najdete ho v Dokumentech. Druhý se nevystavuje.'
         : 'Uložení selhalo: ' + e.message)
       errReveal.reveal()
     }
@@ -220,7 +220,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       {loading ? (
         <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
       ) : alreadySigned ? (
-        // Samoobsluha: protokol se podepisuje právě jednou (appka / displej / Velín) — podruhé se nevystavuje
+        // Samoobsluha: protokol se podepisuje právě jednou (displej pobočky / Velín) — podruhé se nevystavuje
         <div className="space-y-4">
           {vars && (
             <div className="p-3 rounded-card" style={{ background: '#f1faf7', fontSize: 13, color: '#1a2e22' }}>
@@ -229,7 +229,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
           )}
           <div className="p-3 rounded-card" style={{ background: '#dcfce7', color: '#166534', fontSize: 13 }}>
             <strong>Předávací protokol už je podepsán</strong> ({new Date(alreadySigned).toLocaleString('cs-CZ')}) — zákazník ho podepsal
-            v aplikaci nebo na displeji pobočky. Podepsané PDF je v Dokumentech; na samoobslužné pobočce se protokol podepisuje jen jednou.
+            na displeji pobočky. Podepsané PDF je v Dokumentech; na samoobslužné pobočce se protokol podepisuje jen jednou.
           </div>
           <div className="flex justify-end"><Button onClick={onClose}>Zavřít</Button></div>
         </div>

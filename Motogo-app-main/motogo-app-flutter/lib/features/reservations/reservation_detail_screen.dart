@@ -39,9 +39,9 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
   int _rating = 0;
   String _activeTab = 'detail'; // 'detail' or 'card'
   Timer? _refreshTimer;
-  // Okno protokolu už NEspouští otevření detailu (start_handover_protocol_window
-  // zrušeno 2026-09-25) — výzvu k podpisu dává výhradně kiosk (zavření šatny /
-  // kód motorky), appka na ni reaguje přes HandoverPromptWatcher.
+  // Předávací protokol samoobslužné pobočky se od 2026-10-10 vyplňuje
+  // a podepisuje JEN na displeji pobočky (kiosk) — appka ho nevyplňuje, ukáže
+  // až podepsané PDF v dokumentech rezervace (bookingDocsProvider).
 
   @override
   void initState() {
@@ -49,7 +49,6 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       ref.invalidate(reservationByIdProvider(widget.bookingId));
       ref.invalidate(doorCodesProvider(widget.bookingId));
-      ref.invalidate(handoverProtocolStateProvider(widget.bookingId));
       // podpis na kiosku / ve Velíně → tlačítko podepsaného protokolu bez restartu
       ref.invalidate(bookingDocsProvider(widget.bookingId));
     });
@@ -61,48 +60,14 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     super.dispose();
   }
 
-  // Výrazné upozornění na detailu samoobslužné rezervace v termínu — dokud zákazník
-  // protokol nepodepíše (can_fill). Po podpisu (appka/kiosk/Velín) zmizí hned:
-  // stream rezervací nese `handover_protocol_filled_at`, stav RPC se invaliduje.
-  Widget _protocolBanner(BuildContext context, Reservation res) {
-    if (res.protocolSigned) return const SizedBox.shrink();
-    final async = ref.watch(handoverProtocolStateProvider(res.id));
-    final s = async.asData?.value ?? const <String, dynamic>{};
-    if (s['can_fill'] != true) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: GestureDetector(
-        onTap: () => context.push(Routes.protocol, extra: res),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg)),
-          child: Row(children: [
-            const Text('📝', style: TextStyle(fontSize: 24)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(t(context).tr('protocolBannerTitle'),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black)),
-                const SizedBox(height: 2),
-                Text(t(context).tr('protocolBannerSub'),
-                    style: const TextStyle(fontSize: 12, color: Colors.black87)),
-              ]),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.black),
-          ]),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Real-time: změna řádku bookings (podpis protokolu, aktivace kódem, výzva
-    // z kiosku) → detail i stav protokolu hned znovu (5s timer je jen záloha).
+    // Real-time: změna řádku bookings (podpis protokolu na kiosku, aktivace
+    // kódem) → detail hned znovu (5s timer je jen záloha).
     ref.listen(reservationsProvider, (prev, next) {
       if (!next.hasValue || prev?.valueOrNull == next.valueOrNull) return;
       ref.invalidate(reservationByIdProvider(widget.bookingId));
-      ref.invalidate(handoverProtocolStateProvider(widget.bookingId));
+      ref.invalidate(bookingDocsProvider(widget.bookingId));
     });
     final resAsync = ref.watch(reservationByIdProvider(widget.bookingId));
     final doorCodesAsync = ref.watch(doorCodesProvider(widget.bookingId));
@@ -213,11 +178,6 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
               ),
             ),
           ),
-
-          // ===== UPOZORNĚNÍ: vyplnit předávací protokol (samoobslužná) =====
-          // Po celý termín (kalendářně) — rezervace je do podpisu „Nadcházející“.
-          if (res.branchType == 'samoobslužná' && res.inRentalTerm)
-            SliverToBoxAdapter(child: _protocolBanner(context, res)),
 
           if (_activeTab == 'detail') ...[
             // ===== MOTORCYCLE IMAGE =====

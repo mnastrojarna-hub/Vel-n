@@ -173,3 +173,23 @@ async def test_submit_code_gate_in_controller_codes(ctrl):
     await ctrl.handover.mark_signed_remote("b1", may_open=True)
     ctrl.api.resolve["123456"]["protocol"] = protocol("b1", required=False)
     assert (await cc.submit_code(ctrl, "123456", "ui"))["ok"] is True
+
+
+async def test_declined_item_keeps_booked_size_in_document(ctrl):
+    """Displej posune rezervovanou 6XL do rozsahu samoobsluhy (4XL); když ji zákazník NEBERE (✕), do edge/PDF jde
+    původní velikost z rezervace. Převzatá položka a položka navíc beze změny (2026-10-10)."""
+    hm, zc = ctrl.handover, ctrl.zones[3]
+    p = protocol("b1")
+    p["data"]["gear"] = [{"key": "jacket", "who": "rider", "field": "jacket_size", "size": "6XL"},
+                         {"key": "helmet", "who": "rider", "field": "helmet_size", "size": "XS"}]
+    await hm.require_before_open(rr_moto(proto=p), zc, "ui")
+    shown = {g["field"]: g["size"] for g in hm.status()["active"]["data"]["gear"]}
+    assert shown == {"jacket_size": "M", "helmet_size": "S"}      # nabídka z GEAR_SIZES (bunda jen M), helma od S
+    form = {"accessories": [
+        {"key": "jacket", "who": "rider", "field": "jacket_size", "size": "M", "checked": False},
+        {"key": "helmet", "who": "rider", "field": "helmet_size", "size": "S", "checked": True},
+        {"key": "gloves", "who": "rider", "field": "gloves_size", "size": "L", "checked": False, "added": True}]}
+    assert (await hm.submit("b1", form, SIG, None))["ok"]
+    sent = {a["field"]: a["size"] for a in ctrl.api.submits[0]["form"]["accessories"]}
+    assert sent == {"jacket_size": "6XL", "helmet_size": "S", "gloves_size": "L"}
+    assert form["accessories"][0]["size"] == "M"                 # vstup (formulář z UI) se nemění

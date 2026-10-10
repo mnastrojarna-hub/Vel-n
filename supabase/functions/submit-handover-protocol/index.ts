@@ -9,7 +9,8 @@
 // Tok: auth → rezervace → idempotence (already_filled) → stav (wrong_status/too_early;
 // too_early i před `release_at` — sleva za vyzvednutí od 12:00, odpověď nese release_at)
 // → propis výbavy do bookings (změněná velikost; NEpřevzatá položka = odebrání z rezervace,
-// sloupec → NULL; z kiosku i výbava převzatá NAVÍC — `gear_add`; ceny/booking_extras beze změny)
+// sloupec → NULL; z kiosku i výbava převzatá NAVÍC — `gear_add`; ceny/booking_extras beze změny;
+// jen velikost v rozsahu samoobsluhy — dospělá helma S–3XL, bunda/kalhoty/rukavice max. 4XL, gear.ts)
 // → HTML → PDF přes render-pdf (fallback HTML)
 // → bucket `documents` → ATOMICKÝ CLAIM handover_protocol_filled_at (UPDATE … WHERE
 // filled_at IS NULL; 0 řádků = podepsáno souběžně jinde → already_filled + úklid souboru)
@@ -81,7 +82,7 @@ serve(async (req) => {
     // ── Rezervace + vozidlo + pobočka (service role, obejde RLS) ───────────
     const { data: booking, error: bErr } = await admin
       .from('bookings')
-      .select('*, motorcycles!moto_id(model, spz, vin, mileage, tracking_unit, branch_id, branches(type))')
+      .select('*, motorcycles!moto_id(model, spz, vin, mileage, tracking_unit, branch_id, license_required, branches(type))')
       .eq('id', bookingId)
       .maybeSingle()
     if (bErr) return fail('db_error', 500, { detail: bErr.message })

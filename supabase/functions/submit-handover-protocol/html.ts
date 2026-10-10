@@ -32,9 +32,10 @@ const EXTRA_GEAR_CHECKS = [
 
 /**
  * Výbava motorky (zadání majitele 2026-09-28): pevná skupina v KAŽDÉM protokolu
- * samoobslužné pobočky — leží v motorce (kufr / tankvak), kiosk i appka (zrcadlo)
- * ji ukazují předem zaškrtnutou a zákazník může odškrtnout, co chybí.
- * Klíče = kiosk `MOTO_GEAR`, appka `protocol_screen.dart _motoGear`.
+ * samoobslužné pobočky — leží v motorce (kufr / tankvak), kiosk (a starší buildy
+ * appky) ji ukazuje předem zaškrtnutou a zákazník může odškrtnout, co chybí.
+ * Klíče = kiosk `MOTO_GEAR` (formulář v appce zrušen 2026-10-10; starší buildy
+ * posílají stejné klíče z `protocol_screen.dart _motoGear`).
  */
 export const MOTO_EQUIPMENT = [
   // 2026-10-10 (zadání majitele): každá motorka má kufr (cestovní) nebo tankvak (sportovní, naked, supermoto).

@@ -18,6 +18,11 @@ class EditExtrasSection extends StatelessWidget {
   final String pickupMethod;
   final String returnMethod;
   final bool isKids;
+
+  /// Motorka (i po výměně) stojí na SAMOOBSLUŽNÉ pobočce → užší řady velikostí
+  /// (helma S–3XL, bunda/kalhoty/rukavice max 4XL — [gearSizesFor]). Starší
+  /// uložená velikost mimo řadu zůstane jen v hlavičce („Zvoleno: 5XL“).
+  final bool selfService;
   final bool ownGear;
   final String? helmetSize, jacketSize, pantsSize, bootsSize, glovesSize;
   final String? passengerHelmetSize, passengerJacketSize, passengerPantsSize, passengerBootsSize;
@@ -41,6 +46,7 @@ class EditExtrasSection extends StatelessWidget {
     required this.pickupMethod,
     required this.returnMethod,
     this.isKids = false,
+    this.selfService = false,
     this.ownGear = false,
     this.loyaltyLevel = 0,
     required this.helmetSize, required this.jacketSize, required this.pantsSize,
@@ -79,7 +85,7 @@ class EditExtrasSection extends StatelessWidget {
     required ValueChanged<String> onPick,
     required VoidCallback onRemove,
   }) {
-    final sizes = gearSizesFor('boots', kids: isKids);
+    final sizes = gearSizesFor('boots', kids: isKids, selfService: selfService);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -139,15 +145,15 @@ class EditExtrasSection extends StatelessWidget {
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
             const SizedBox(height: 12),
             EditGearSizePicker(label: t(ctx).tr('helmet'), icon: Icons.sports_motorsports,
-              sizes: gearSizesFor('helmet', kids: false), selectedSize: ph,
+              sizes: gearSizesFor('helmet', kids: false, selfService: selfService), selectedSize: ph,
               onSizeSelected: (s) { setModal(() => ph = s); onPassengerHelmetSize(s); }),
             const SizedBox(height: 6),
             EditGearSizePicker(label: t(ctx).tr('jacket'), icon: Icons.checkroom,
-              sizes: gearSizesFor('jacket', kids: false), selectedSize: pj,
+              sizes: gearSizesFor('jacket', kids: false, selfService: selfService), selectedSize: pj,
               onSizeSelected: (s) { setModal(() => pj = s); onPassengerJacketSize(s); }),
             const SizedBox(height: 6),
             EditGearSizePicker(label: t(ctx).tr('pants'), icon: Icons.straighten,
-              sizes: gearSizesFor('pants', kids: false), selectedSize: pp,
+              sizes: gearSizesFor('pants', kids: false, selfService: selfService), selectedSize: pp,
               onSizeSelected: (s) { setModal(() => pp = s); onPassengerPantsSize(s); }),
             const SizedBox(height: 14),
             SizedBox(width: double.infinity, child: ElevatedButton(
@@ -304,15 +310,15 @@ class EditExtrasSection extends StatelessWidget {
           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.greenDarker)),
         const SizedBox(height: 6),
         EditGearSizePicker(label: t(context).tr('helmet'), icon: Icons.sports_motorsports,
-          sizes: gearSizesFor('helmet', kids: false),
+          sizes: gearSizesFor('helmet', kids: false, selfService: selfService),
           selectedSize: passengerHelmetSize, onSizeSelected: onPassengerHelmetSize),
         const SizedBox(height: 6),
         EditGearSizePicker(label: t(context).tr('jacket'), icon: Icons.checkroom,
-          sizes: gearSizesFor('jacket', kids: false),
+          sizes: gearSizesFor('jacket', kids: false, selfService: selfService),
           selectedSize: passengerJacketSize, onSizeSelected: onPassengerJacketSize),
         const SizedBox(height: 6),
         EditGearSizePicker(label: t(context).tr('pants'), icon: Icons.straighten,
-          sizes: gearSizesFor('pants', kids: false),
+          sizes: gearSizesFor('pants', kids: false, selfService: selfService),
           selectedSize: passengerPantsSize, onSizeSelected: onPassengerPantsSize),
       ],
 
@@ -338,19 +344,19 @@ class EditExtrasSection extends StatelessWidget {
       if (!ownGear) ...[
         const SizedBox(height: 6),
         EditGearSizePicker(label: t(context).tr('helmet'), icon: Icons.sports_motorsports,
-          sizes: gearSizesFor('helmet', kids: isKids),
+          sizes: gearSizesFor('helmet', kids: isKids, selfService: selfService),
           selectedSize: helmetSize, onSizeSelected: onHelmetSize),
         const SizedBox(height: 6),
         EditGearSizePicker(label: t(context).tr('jacket'), icon: Icons.checkroom,
-          sizes: gearSizesFor('jacket', kids: isKids),
+          sizes: gearSizesFor('jacket', kids: isKids, selfService: selfService),
           selectedSize: jacketSize, onSizeSelected: onJacketSize),
         const SizedBox(height: 6),
         EditGearSizePicker(label: t(context).tr('pants'), icon: Icons.straighten,
-          sizes: gearSizesFor('pants', kids: isKids),
+          sizes: gearSizesFor('pants', kids: isKids, selfService: selfService),
           selectedSize: pantsSize, onSizeSelected: onPantsSize),
         const SizedBox(height: 6),
         EditGearSizePicker(label: t(context).tr('gloves'), icon: Icons.back_hand_outlined,
-          sizes: gearSizesFor('gloves', kids: isKids),
+          sizes: gearSizesFor('gloves', kids: isKids, selfService: selfService),
           selectedSize: glovesSize, onSizeSelected: onGlovesSize),
         // Bez vlastní výbavy aspoň jeden kus (2026-10-05) — uložení zamyká jen
         // změna výbavy řidiče v této úpravě (jinak bez výbavy = bez kódu šatny).
