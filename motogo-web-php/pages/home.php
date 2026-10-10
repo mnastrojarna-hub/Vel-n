@@ -84,6 +84,8 @@ $defaults = [
 ];
 
 $C = $sb->siteContent('home', $defaults);
+// Landing v2: volitelná náhrada eyebrow textu v hero (sjednocení s krátkým H1 v panelu)
+if ($lpV2 && lpPlain(lpTexts($sb)['home']['hero_eyebrow'] ?? '') !== '') $C['hero']['eyebrow'] = lpTexts($sb)['home']['hero_eyebrow'];
 
 // ---- Signpost
 // SEO: pouzivame renderHeading() ktery prazdny <h2>/<h3> neemittuje (externi

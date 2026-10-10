@@ -61,17 +61,21 @@
 
   // 3) Sticky CTA lišta — po odscrollování tlačítek akčního panelu; skrytá, když je
   //    vidět závěrečná výzva (.lp-cta) nebo patička (tam jsou tlačítka/kontakty)
-  var st = d.querySelector('[data-lp-sticky]'), sen = d.querySelector('[data-lp-sentinel]');
+  //    a dokud je otevřená cookie lišta (ta má přednost)
+  var st = d.querySelector('[data-lp-sticky]'), sen = d.querySelector('[data-lp-sentinel]'), cs = d.getElementById('mg-consent');
   if (st && sen && IO) {
     var past = false, foot = false, on = null, seen = [];
     var apply = function () {
-      var v = past && !foot;
+      var v = past && !foot && !(cs && !cs.hidden);
       if (v === on) return;
       on = v;
       b.classList.toggle('lp-sticky-on', v);
       st.setAttribute('aria-hidden', v ? 'false' : 'true');
       each('a', function (a) { if (v) a.removeAttribute('tabindex'); else a.setAttribute('tabindex', '-1'); }, st);
+      // prvek s focusem (Tab) nesmí skončit pod lištou
+      d.documentElement.style.scrollPaddingBottom = v ? (st.offsetHeight + 12) + 'px' : '';
     };
+    if (cs && 'MutationObserver' in window) new MutationObserver(apply).observe(cs, { attributes: true, attributeFilter: ['hidden'] });
     new IntersectionObserver(function (es) {
       var e = es[0];
       past = !e.isIntersecting && e.boundingClientRect.top < 0;

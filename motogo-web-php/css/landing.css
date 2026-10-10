@@ -3,16 +3,28 @@
 /* --- Hero: v2 nemá tlačítka v banneru; tělo textu skryté jako v původní verzi
    (bez tlačítek by ho jinak odkrylo pravidlo .banner-caption p:last-child) --- */
 .lp-v2 .banner-caption p[data-cms-key="web.home.hero.body"]{display:none!important}
+/* Výška hero podle výšky okna (adresní řádek mobilu, nízké notebooky), ať jsou
+   H1 a obě CTA panelu na první obrazovce; na velkých displejích beze změny. */
+@media(max-width:480px){
+  .lp-v2{--lp-hero:clamp(170px,calc(100vh - 380px),340px)}
+  @supports(height:100svh){.lp-v2{--lp-hero:clamp(170px,calc(100svh - 380px),340px)}}
+}
+@media(min-width:769px){.lp-v2{--lp-hero:clamp(300px,calc(100vh - 330px),480px)}}
+@media(max-width:480px),(min-width:769px){
+  .lp-v2 .banner{min-height:var(--lp-hero)}
+  .lp-v2 .banner>img,.lp-v2 .banner>picture,.lp-v2 .banner>picture img{height:var(--lp-hero)}
+}
 
 /* --- Tlačítka --- */
 .lp-btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:.45rem;min-height:52px;padding:.7rem .9rem;border-radius:14px;font-weight:800;font-size:.9rem;letter-spacing:.02em;text-transform:uppercase;line-height:1.15;text-align:center;text-decoration:none;transition:transform .15s,box-shadow .2s,background .2s,color .2s}
 .lp-btn .lp-ico{flex:0 0 auto;width:19px;height:19px}
 .lp-btn:active{transform:scale(.97)}
 .lp-btn-primary{background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f;animation:lpGlow 2.2s ease-in-out infinite}
-.lp-btn-primary::after{content:"";position:absolute;top:0;left:-80%;width:50%;height:100%;background:linear-gradient(120deg,transparent,rgba(255,255,255,.75),transparent);transform:skewX(-22deg);animation:lpShine 3.2s ease-in-out infinite;pointer-events:none}
+.lp-btn-primary::after{content:"";position:absolute;top:0;left:0;width:50%;height:100%;background:linear-gradient(120deg,transparent,rgba(255,255,255,.75),transparent);transform:translateX(-160%) skewX(-22deg);animation:lpShine 3.2s ease-in-out infinite;pointer-events:none}
 .lp-btn-primary:hover{color:#08230f;background:linear-gradient(135deg,#a8ff9f,#5edc5a)}
 .lp-btn-ghost{background:rgba(255,255,255,.05);color:#fff;border:2px solid #74fb71}
 .lp-btn-ghost:hover{background:rgba(116,251,113,.16);color:#fff}
+.lp-panel-card :focus-visible,.lp-sticky :focus-visible,.lp-cta-card :focus-visible,.lp-steps-card :focus-visible,.lp-moto--all>a:focus-visible{outline:3px solid #74fb71;outline-offset:3px}
 
 /* --- Akční panel pod hero --- */
 .lp-main{display:block;--lp-g:1rem}
@@ -20,67 +32,71 @@
 @media(max-width:360px){.lp-main{--lp-g:.75rem}}
 .lp-panel{position:relative;z-index:3;margin:-2.25rem 0 0}
 .lp-main--page .lp-panel{margin-top:.25rem}
-.lp-panel-card{position:relative;overflow:hidden;border-radius:20px;padding:1.2rem 1.05rem 1.05rem;color:#e8f5ee;background:radial-gradient(120% 140% at 100% 0,#24563b 0,#0e2a1c 55%,#0a1f14 100%);box-shadow:0 18px 40px -14px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.25)}
+.lp-panel-card{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:.85rem;border-radius:20px;padding:1.2rem 1.05rem 1.05rem;color:#e8f5ee;background:radial-gradient(120% 140% at 100% 0,#24563b 0,#0e2a1c 55%,#0a1f14 100%);box-shadow:0 18px 40px -14px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.25)}
 .lp-panel-card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,transparent,#74fb71,transparent);animation:lpScan 3.6s linear infinite;z-index:1}
-.lp-panel-text,.lp-cta-row{position:relative;z-index:1}
-.lp-v2 .lp-panel h1{color:#fff;font-size:clamp(1.18rem,5vw,2rem);line-height:1.25;margin:0 0 .6rem;hyphens:none}
-.lp-lead{color:#cfe7da;font-size:.95rem;line-height:1.5;margin:0 0 .7rem}
-.lp-chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1rem;padding:0;list-style:none}
-.lp-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .65rem;border-radius:999px;background:rgba(116,251,113,.12);border:1px solid rgba(116,251,113,.35);font-size:.78rem;font-weight:700;color:#e8f5ee}
+.lp-panel-text,.lp-cta-row,.lp-chips{position:relative;z-index:1}
+.lp-v2 .lp-panel h1{color:#fff;font-size:clamp(1.3rem,5.6vw,2rem);line-height:1.22;margin:0;hyphens:none;text-wrap:balance}
+.lp-lead{color:#cfe7da;font-size:.95rem;line-height:1.5;margin:.55rem 0 0}
+.lp-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:0;padding:0;list-style:none}
+.lp-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.28rem .6rem;border-radius:999px;background:rgba(116,251,113,.12);border:1px solid rgba(116,251,113,.35);font-size:.74rem;font-weight:700;color:#e8f5ee}
 .lp-chip .lp-ico{width:14px;height:14px;color:#74fb71}
 .lp-chip--hot{background:#74fb71;border-color:#74fb71;color:#08230f;font-weight:800}
-@media(max-width:768px){
-  .lp-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-1.05rem;padding-right:1.05rem;-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
-  .lp-chips::-webkit-scrollbar{display:none}
-  .lp-chip{flex:0 0 auto;white-space:nowrap}
-}
-/* nízké displeje (iPhone SE apod.): menší hero, ať jsou CTA na první obrazovce */
-@media(max-width:480px) and (max-height:700px){
-  .lp-v2 .banner{min-height:250px}
-  .lp-v2 .banner>img,.lp-v2 .banner>picture,.lp-v2 .banner>picture img{height:250px}
-  .lp-lead{display:none}
-}
+.lp-assure{grid-column:1/-1;display:flex;align-items:flex-start;gap:.35rem;margin:.05rem 0 0;font-size:.74rem;line-height:1.35;color:#cfe7da}
+.lp-assure .lp-ico,.lp-season .lp-ico{flex:0 0 auto;width:14px;height:14px;color:#74fb71}
+.lp-season{position:relative;z-index:1;display:flex;align-items:center;gap:.4rem;margin:0;font-size:.76rem;line-height:1.35;color:#a8ff9f}
+/* Pruh s nabídkou pod panelem */
+.lp-offer{margin:1rem 0 0}
+.lp-offer-in{display:flex;align-items:center;gap:.7rem;margin:0;padding:.7rem .9rem;border-radius:14px;background:linear-gradient(90deg,#e6fae2,#f6fff4);border:1px dashed #37cf63;font-size:.86rem;font-weight:600;line-height:1.35;color:#1a2e22}
+.lp-offer-pct{flex:0 0 auto;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#74fb71;color:#08230f;font-size:1.1rem;font-weight:900}
+/* nízké telefony: podnadpis pryč, ať jsou CTA na první obrazovce */
+@media(max-width:480px) and (max-height:760px){.lp-lead{display:none}}
+@media(max-width:340px){.lp-btn{font-size:.8rem;letter-spacing:0;padding:.6rem .5rem}.lp-btn .lp-ico{display:none}}
 /* AI bublina nepřekrývá CTA akčního panelu — vrátí se po odscrollování (nad sticky lištou) */
-@media(max-width:768px){
-  #motogo-ai-bubble{transition:bottom .3s ease,opacity .25s ease,transform .25s ease}
-  body.lp-cta-visible #motogo-ai-bubble{opacity:0;transform:scale(.6);pointer-events:none}
-}
+#motogo-ai-bubble{transition:bottom .3s ease,opacity .25s ease,transform .25s ease}
+body.lp-cta-visible #motogo-ai-bubble{opacity:0;transform:scale(.6);pointer-events:none}
 .lp-cta-row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
 .lp-panel--bg .lp-panel-card{background:#0a1f14;padding-top:1.6rem}
-.lp-panel-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.38}
-.lp-panel--bg .lp-panel-card::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,31,20,.35) 0,rgba(10,31,20,.92) 70%)}
+.lp-panel-bg{pointer-events:none}
+.lp-panel-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
+.lp-panel--bg .lp-panel-card::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,31,20,.3) 0,rgba(10,31,20,.9) 72%)}
+.lp-panel--bg h1{text-shadow:0 2px 12px rgba(0,0,0,.55)}
 @media(min-width:900px){
   .lp-panel{margin-top:-3rem}
-  .lp-panel-card{display:grid;grid-template-columns:1.6fr 1fr;align-items:center;gap:2.25rem;padding:2rem 2.25rem}
-  .lp-chips{margin-bottom:0}
-  .lp-cta-row{grid-template-columns:1fr}
+  .lp-panel-card{display:grid;grid-template-columns:1.6fr 1fr;grid-template-areas:"text cta" "chips cta" "season cta";align-items:center;gap:.9rem 2.25rem;padding:2rem 2.25rem}
+  .lp-panel-text{grid-area:text}
+  .lp-chips{grid-area:chips}
+  .lp-season{grid-area:season}
+  .lp-cta-row{grid-area:cta;grid-template-columns:1fr}
   .lp-btn{min-height:58px;font-size:1rem}
   .lp-panel--bg .lp-panel-card::after{background:linear-gradient(90deg,rgba(10,31,20,.95) 0,rgba(10,31,20,.75) 55%,rgba(10,31,20,.45) 100%)}
 }
 
 /* --- Sekční hlavičky --- */
 .lp-fleet,.lp-usp,.lp-steps,.lp-explore{margin:2rem 0}
-.lp-head{display:flex;align-items:baseline;justify-content:space-between;gap:1rem}
+.lp-head{display:flex;align-items:center;justify-content:space-between;gap:1rem}
 .lp-main h2{font-size:1.35rem;margin:0 0 .85rem}
 .lp-head h2{margin:0}
-.lp-head-link{display:inline-flex;align-items:center;gap:.25rem;font-weight:700;font-size:.9rem;white-space:nowrap;color:#0d6e0d}
+.lp-head-link{display:inline-flex;align-items:center;gap:.25rem;min-height:44px;font-weight:700;font-size:.9rem;white-space:nowrap;color:#0d6e0d}
 .lp-head-link .lp-ico{width:16px;height:16px}
 
 /* --- Karusel motorek --- */
 .lp-cats{display:flex;gap:.4rem;overflow-x:auto;scrollbar-width:none;margin:.75rem calc(-1 * var(--lp-g)) .1rem;padding:.1rem var(--lp-g) .4rem}
 .lp-cats::-webkit-scrollbar,.lp-track::-webkit-scrollbar{display:none}
-.lp-cat{flex:0 0 auto;padding:.38rem .8rem;border-radius:999px;border:1px solid #cfe3da;background:#fff;color:#1a2e22;font-weight:600;font-size:.82rem;white-space:nowrap}
-.lp-cat b{margin-left:.15rem;color:#0d6e0d}
+.lp-cat{flex:0 0 auto;display:inline-flex;align-items:center;min-height:40px;padding:.3rem .85rem;border-radius:999px;border:1px solid #cfe3da;background:#fff;color:#1a2e22;font-weight:600;font-size:.82rem;white-space:nowrap}
+.lp-cat-p{margin-left:.3rem;font-weight:800;color:#0d6e0d}
 .lp-cat.is-on{background:#1a2e22;border-color:#1a2e22;color:#fff}
-.lp-cat.is-on b{color:#74fb71}
+.lp-cat.is-on .lp-cat-p{color:#74fb71}
 .lp-track-wrap{position:relative}
 .lp-track{display:grid;grid-auto-flow:column;grid-auto-columns:76%;gap:.8rem;margin:0;padding:.5rem var(--lp-g) 1rem;list-style:none;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 var(--lp-g);scrollbar-width:none;overscroll-behavior-x:contain}
-.lp-moto{scroll-snap-align:start;min-width:0}
-.lp-moto>a{display:flex;flex-direction:column;height:100%;overflow:hidden;border-radius:16px;background:#fff;border:1px solid #e1efe9;color:#1a2e22;box-shadow:0 6px 18px -8px rgba(26,46,34,.35);transition:transform .2s,box-shadow .2s}
-.lp-moto>a:hover{color:#1a2e22;transform:translateY(-3px);box-shadow:0 12px 26px -10px rgba(26,46,34,.45)}
+.lp-moto{position:relative;scroll-snap-align:start;min-width:0}
+.lp-moto-link,.lp-moto--all>a{display:flex;flex-direction:column;height:100%;overflow:hidden;border-radius:16px;background:#fff;border:1px solid #e1efe9;color:#1a2e22;box-shadow:0 6px 18px -8px rgba(26,46,34,.35);transition:transform .2s,box-shadow .2s}
+.lp-moto-link:hover{color:#1a2e22;transform:translateY(-3px);box-shadow:0 12px 26px -10px rgba(26,46,34,.45)}
+.lp-moto-book{position:absolute;right:.75rem;bottom:.8rem;display:inline-flex;align-items:center;gap:.25rem;min-height:40px;padding:.4rem .75rem;border-radius:999px;background:#1a2e22;color:#74fb71;font-size:.78rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
+.lp-moto-book .lp-ico{width:15px;height:15px}
+.lp-moto-book:hover{background:#0d6e0d;color:#fff}
 .lp-moto-img{position:relative;aspect-ratio:3/2;overflow:hidden;background:#e6f2ed}
 .lp-moto-img img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
-.lp-moto>a:hover .lp-moto-img img{transform:scale(1.05)}
+.lp-moto-link:hover .lp-moto-img img{transform:scale(1.05)}
 .lp-moto-badge{position:absolute;left:.6rem;top:.6rem;display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .55rem;border-radius:999px;background:rgba(10,31,20,.8);color:#fff;font-size:.7rem;font-weight:700;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .lp-moto-badge i{width:7px;height:7px;border-radius:50%;background:#74fb71;animation:lpDot 1.8s infinite}
 .lp-moto-badge--later{background:rgba(255,255,255,.92);color:#1a2e22}
@@ -89,16 +105,14 @@
 .lp-moto-body h3{margin:0;font-size:1rem;line-height:1.25}
 .lp-moto-meta{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;margin:0;font-size:.76rem;color:#4a6b5a}
 .lp-moto-meta .lp-ico{width:13px;height:13px;margin-right:.1rem;vertical-align:-2px}
-.lp-moto-price{display:flex;align-items:center;gap:.3rem;margin:auto 0 0;padding-top:.35rem}
-.lp-moto-from{font-size:1.15rem;font-weight:800;color:#0d6e0d}
+.lp-moto-price{display:flex;align-items:baseline;gap:.25rem;min-height:40px;margin:auto 0 0;padding:.6rem 6.6rem 0 0;white-space:nowrap}
+.lp-moto-from{font-size:1.05rem;font-weight:800;color:#0d6e0d}
 .lp-moto-pd{font-size:.78rem;color:#4a6b5a}
-.lp-moto-go{display:grid;place-items:center;width:34px;height:34px;margin-left:auto;border-radius:50%;background:#1a2e22;color:#74fb71}
-.lp-moto-go .lp-ico{width:16px;height:16px}
 .lp-moto--all>a{align-items:center;justify-content:center;gap:.9rem;padding:1.5rem;background:linear-gradient(160deg,#1a3a2a,#0a1f14);color:#fff;font-size:1.05rem;font-weight:800;text-align:center}
 .lp-moto--all>a:hover{color:#fff}
 .lp-moto--all .lp-ico{width:46px;height:46px;padding:11px;border-radius:50%;background:#74fb71;color:#08230f}
-.lp-progress{height:4px;overflow:hidden;border-radius:4px;background:#e1efe9}
-.lp-progress i{display:block;width:20%;height:100%;border-radius:4px;background:linear-gradient(90deg,#37cf63,#74fb71)}
+.lp-progress{height:4px;overflow:hidden;border-radius:4px;background:#cfe3da}
+.lp-progress i{display:block;width:20%;height:100%;border-radius:4px;background:linear-gradient(90deg,#0d6e0d,#37cf63)}
 .lp-fx{margin:.45rem 0 0;font-size:.74rem;color:#4a6b5a}
 .lp-nav{position:absolute;top:38%;z-index:2;display:grid;place-items:center;width:46px;height:46px;border:0;border-radius:50%;background:#1a2e22;color:#74fb71;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.25);transition:opacity .2s}
 .lp-nav[hidden]{display:none}
@@ -107,6 +121,7 @@
 .lp-nav-prev .lp-ico{transform:rotate(180deg)}
 .lp-nav-next{right:.75rem}
 .lp-track.lp-nudge .lp-moto{animation:lpNudge 1.2s ease-in-out 2}
+@media(min-width:561px) and (max-width:768px){.lp-track{grid-auto-columns:44%}.lp-track--blog{grid-auto-columns:46%}}
 @media(min-width:769px){
   .lp-cats{margin-left:0;margin-right:0;padding-left:0;padding-right:0;flex-wrap:wrap}
   .lp-track{grid-auto-columns:290px;gap:1rem;padding-left:max(1.25rem,calc((100% - 1200px)/2 + 1.25rem));padding-right:max(1.25rem,calc((100% - 1200px)/2 + 1.25rem));scroll-padding:0 max(1.25rem,calc((100% - 1200px)/2 + 1.25rem))}
@@ -135,7 +150,7 @@
 .lp-step:last-child::before{display:none}
 .lp-step-n{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:#74fb71;color:#08230f;font-weight:900;font-size:1.05rem;box-shadow:0 0 0 5px rgba(116,251,113,.15)}
 .lp-step-body{position:relative;padding-right:2.7rem}
-.lp-step-body img{position:absolute;right:0;top:0;width:34px;height:34px;filter:brightness(0) saturate(100%) invert(82%) sepia(36%) saturate(1500%) hue-rotate(64deg) brightness(106%) contrast(100%)}
+.lp-step-body img{position:absolute;right:0;top:0;display:block;width:34px;height:34px;object-fit:contain;filter:brightness(0) saturate(100%) invert(82%) sepia(36%) saturate(1500%) hue-rotate(64deg) brightness(106%) contrast(100%)}
 .lp-main .lp-step h3{margin:.45rem 0 .2rem;font-size:1rem;color:#fff}
 .lp-step p{margin:0;font-size:.86rem;line-height:1.45;color:#b8d4c6}
 .lp-step p strong{color:#e8f5ee}
@@ -193,13 +208,15 @@
 .lp-more-btn[hidden]{display:none}
 
 /* --- Sticky CTA lišta (mobil) --- */
-.lp-sticky{position:fixed;left:0;right:0;bottom:0;z-index:950;display:grid;grid-template-columns:1.3fr 1fr;gap:.5rem;padding:.6rem .75rem calc(.6rem + env(safe-area-inset-bottom,0px));background:rgba(10,31,20,.95);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 -8px 24px rgba(0,0,0,.25);transform:translateY(110%);transition:transform .3s ease;visibility:hidden}
+.lp-sticky{position:fixed;left:0;right:0;bottom:0;z-index:950;display:grid;grid-template-columns:1.3fr 1fr;gap:.5rem;padding:.6rem .75rem calc(.6rem + env(safe-area-inset-bottom,0px));background:rgba(10,31,20,.95);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 -8px 24px rgba(0,0,0,.25);transform:translateY(110%);transition:transform .3s ease,visibility 0s linear .3s;visibility:hidden}
 .lp-sticky .lp-btn{min-height:46px;font-size:.84rem;border-radius:12px}
-body.lp-sticky-on .lp-sticky{transform:none;visibility:visible}
+.lp-sticky .lp-btn-primary,.lp-sticky .lp-btn-primary::after{animation-play-state:paused}
+body.lp-sticky-on .lp-sticky{transform:none;visibility:visible;transition:transform .3s ease,visibility 0s}
+body.lp-sticky-on .lp-sticky .lp-btn-primary,body.lp-sticky-on .lp-sticky .lp-btn-primary::after{animation-play-state:running}
 @media(max-width:768px){
-  #Up{transition:bottom .3s ease}
   body.lp-sticky-on #motogo-ai-bubble{bottom:calc(76px + env(safe-area-inset-bottom,0px))!important}
-  body.lp-sticky-on #Up{bottom:calc(146px + env(safe-area-inset-bottom,0px))}
+  body.lp-sticky-on #Up{opacity:0;pointer-events:none}
+  body.lp-sticky-on.motogo-ai-open .lp-sticky{transform:translateY(110%);visibility:hidden}
 }
 @media(min-width:769px){.lp-sticky{display:none}}
 
@@ -210,7 +227,7 @@ body.lp-sticky-on .lp-sticky{transform:none;visibility:visible}
 .lp-js .lp-step.is-in::before{transform:none}
 @media(min-width:900px){.lp-js .lp-step::before{transform:scaleX(0)}}
 @keyframes lpGlow{0%,100%{box-shadow:0 8px 22px -8px rgba(116,251,113,.6),0 0 0 0 rgba(116,251,113,.45)}50%{box-shadow:0 8px 26px -6px rgba(116,251,113,.85),0 0 0 7px rgba(116,251,113,0)}}
-@keyframes lpShine{0%,60%{left:-80%}100%{left:160%}}
+@keyframes lpShine{0%,60%{transform:translateX(-160%) skewX(-22deg)}100%{transform:translateX(320%) skewX(-22deg)}}
 @keyframes lpScan{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
 @keyframes lpDot{0%{box-shadow:0 0 0 0 rgba(116,251,113,.7)}70%,100%{box-shadow:0 0 0 7px rgba(116,251,113,0)}}
 @keyframes lpNudge{0%,100%{transform:none}40%{transform:translateX(-26px)}}
