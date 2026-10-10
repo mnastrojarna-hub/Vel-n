@@ -83,7 +83,8 @@ export default function Sidebar({ admin, onSignOut }) {
       <div
         className="flex items-center gap-3 cursor-pointer shrink-0"
         style={{
-          padding: collapsed ? '16px 8px' : '20px',
+          // ve výsuvném menu vlevo místo pro plovoucí tlačítko ✕ (jinak překrývá logo)
+          padding: collapsed ? '16px 8px' : (collapsible ? '20px' : '20px 20px 20px 64px'),
           borderBottom: '1px solid rgba(255,255,255,.08)',
         }}
         onClick={collapsible ? () => setCollapsed(c => !c) : undefined}

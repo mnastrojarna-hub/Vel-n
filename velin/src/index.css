@@ -109,6 +109,18 @@ body {
   textarea { font-size: 16px !important; }
 }
 
+/* Zařízení bez myši: akce zobrazované jen při najetí myší (.mg-hover-reveal,
+   např. „✕ odebrat“ u náhledů fotek) jsou vidět trvale a mají větší cíl. */
+@media (hover: none) {
+  .mg-hover-reveal { opacity: 1 !important; }
+  .mg-hover-reveal button { min-width: 26px; min-height: 26px; }
+}
+
+/* Dotyková zařízení: zaškrtávátka a přepínače aspoň 20 px (lépe se trefí prstem). */
+@media (max-width: 1023px) and (pointer: coarse) {
+  input[type="checkbox"], input[type="radio"] { min-width: 20px; min-height: 20px; }
+}
+
 /* Karty místo tabulek na telefonu (< 768 px) — jen tabulky s třídou .mg-stack
    (<Table stack> nebo <table className="mg-stack">); varianta pro široké tabulky
    i na tabletu (< 1024 px): <Table stack="tablet"> = třídy mg-stack mg-stack-tab. Popisky buněk doplní

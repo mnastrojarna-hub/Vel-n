@@ -339,7 +339,7 @@ export default function ImageUploader({
                   style={{ border: '1px solid #d4e8e0' }}
                   onError={e => { e.target.style.opacity = 0.3 }}
                 />
-                <div className="absolute inset-x-0 bottom-0 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity" style={{ padding: 3 }}>
+                <div className="mg-hover-reveal absolute inset-x-0 bottom-0 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity" style={{ padding: 3 }}>
                   {!single && i !== 0 && showMainBadge ? (
                     <button
                       type="button"
