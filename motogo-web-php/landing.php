@@ -46,6 +46,8 @@ function lpDefaults() {
             'sticky_reserve' => 'Rezervovat',
             'sticky_motos' => 'Motorky',
             'price_chip' => 'Motorky od {price} / den',
+            // Jen u jiné měny než CZK: ceny jsou orientační přepočet, platí se v Kč
+            'fx_note' => 'Ceny v cizí měně jsou orientační, platba probíhá v Kč.',
         ],
         'home' => [
             // Krátký H1 do akčního panelu (prázdné = H1 z web.home.h1; pak dlouhé H1 → H2 sekce „O nás“)
@@ -233,7 +235,7 @@ function renderLpFleet($motos, $T) {
         '<div class="lp-track-wrap"><button type="button" class="lp-nav lp-nav-prev" aria-label="' . he($T['fleet_prev']) . '" hidden>' . lpIcon('arrow') . '</button>' .
         '<ul class="lp-track" data-lp-track>' . $cards . '</ul>' .
         '<button type="button" class="lp-nav lp-nav-next" aria-label="' . he($T['fleet_next']) . '" hidden>' . lpIcon('arrow') . '</button></div>' .
-        '<div class="container"><div class="lp-progress" aria-hidden="true"><i></i></div></div></section>';
+        '<div class="container"><div class="lp-progress" aria-hidden="true"><i></i></div>' . lpFxNote($T) . '</div></section>';
 }
 
 /** USP dlaždice. $items: [{icon,title,text,price?}], $keyBase CMS (web.landing.home.usp / web.pujcovna.benefits.items). */
@@ -280,7 +282,9 @@ function renderLpExplore($title, $titleKey, $items, $keyBase) {
         if (!is_array($s)) continue;
         $label = trim(strip_tags((string)($s['title'] ?? ''))) ?: trim(strip_tags((string)($s['btn'] ?? '')));
         if ($label === '') continue;
-        $html .= '<li><a href="' . htmlspecialchars($s['href'] ?? '/') . '"><img src="/' . htmlspecialchars(ltrim((string)($s['icon'] ?? ''), '/')) . '" alt="" aria-hidden="true" loading="lazy" width="32" height="32">' .
+        $href = (string)($s['href'] ?? '/');
+        if ($href === '/jak-pujcit') $href = '/jak-pujcit/postup'; // bez 301 hopu
+        $html .= '<li><a href="' . htmlspecialchars($href) . '"><img src="/' . htmlspecialchars(ltrim((string)($s['icon'] ?? ''), '/')) . '" alt="" aria-hidden="true" loading="lazy" width="32" height="32">' .
             '<span data-cms-key="' . $keyBase . '.' . $i . '.title">' . htmlspecialchars($label) . '</span></a></li>';
     }
     if ($html === '') return '';
@@ -322,7 +326,13 @@ function renderLpCta($cta, $keyBase) {
 function renderLpBlog($posts, $bl, $T) {
     if (empty($posts)) return '';
     $cards = '';
-    foreach (array_slice((array)$posts, 0, max(3, (int)($bl['limit'] ?? 3))) as $p) {
+    $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+    $shown = 0;
+    foreach ((array)$posts as $p) {
+        if ($shown >= max(3, (int)($bl['limit'] ?? 3))) break;
+        // Na cizím jazyce nepřeložené (české) články vynecháme
+        if ($lang !== 'cs' && localized($p, 'title', $lang) === (string)($p['title'] ?? '') && empty(lpTr($p)[$lang]['title'])) continue;
+        $shown++;
         $title = trim((string)localized($p, 'title')) ?: t('card.unnamedArticle');
         $img = (!empty($p['images'][0]) ? $p['images'][0] : '') ?: ($p['image_url'] ?? '');
         if ($img && strpos($img, 'http') !== 0) $img = BASE_URL . '/' . ltrim($img, '/'); elseif ($img) $img = imgUrlSized($img, 600);
@@ -355,4 +365,17 @@ function lpHeroLazy($slidesHtml, $heroJs) {
         . '["srcset","src","poster"].forEach(function(a){var v=m.getAttribute("data-lp-"+a);if(v!==null){m.setAttribute(a,v);m.removeAttribute("data-lp-"+a);}});});}';
     $js = str_replace('function show(i){clearT();', $hy . 'function show(i){hy(sl[i]);hy(sl[(i+1)%sl.length]);clearT();', $heroJs);
     return [$out, $js];
+}
+
+/** translations JSONB jako pole (REST může vrátit string). */
+function lpTr($row) {
+    $tr = $row['translations'] ?? [];
+    if (is_string($tr)) $tr = json_decode($tr, true);
+    return is_array($tr) ? $tr : [];
+}
+
+/** Poznámka k orientačním cenám v cizí měně (u CZK nic). */
+function lpFxNote($T) {
+    if (!function_exists('currencyDetect') || strtoupper(currencyDetect()) === 'CZK' || trim((string)($T['fx_note'] ?? '')) === '') return '';
+    return '<p class="lp-fx" data-cms-key="web.landing.common.fx_note">' . htmlspecialchars($T['fx_note']) . '</p>';
 }

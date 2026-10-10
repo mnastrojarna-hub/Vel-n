@@ -1553,6 +1553,7 @@ return [
                 'sticky_reserve' => 'Rezervovat',
                 'sticky_motos' => 'Motorky',
                 'price_chip' => 'Motorky od {price} / den',
+                'fx_note' => 'Ceny v cizí měně jsou orientační, platba probíhá v Kč.',
             ],
             'home' => [
                 'h1' => '',

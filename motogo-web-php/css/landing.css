@@ -99,6 +99,7 @@
 .lp-moto--all .lp-ico{width:46px;height:46px;padding:11px;border-radius:50%;background:#74fb71;color:#08230f}
 .lp-progress{height:4px;overflow:hidden;border-radius:4px;background:#e1efe9}
 .lp-progress i{display:block;width:20%;height:100%;border-radius:4px;background:linear-gradient(90deg,#37cf63,#74fb71)}
+.lp-fx{margin:.45rem 0 0;font-size:.74rem;color:#4a6b5a}
 .lp-nav{position:absolute;top:38%;z-index:2;display:grid;place-items:center;width:46px;height:46px;border:0;border-radius:50%;background:#1a2e22;color:#74fb71;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.25);transition:opacity .2s}
 .lp-nav[hidden]{display:none}
 .lp-nav:disabled{opacity:0;pointer-events:none}

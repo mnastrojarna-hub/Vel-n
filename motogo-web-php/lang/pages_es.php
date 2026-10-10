@@ -1647,6 +1647,7 @@ return [
                 'sticky_reserve' => 'Reservar',
                 'sticky_motos' => 'Ver motos',
                 'price_chip' => 'Motos desde {price}/día',
+                'fx_note' => 'Precios orientativos en euros; el pago se realiza en coronas checas (CZK).',
             ],
             'home' => [
                 'h1' => 'Alquiler de motos en la República Checa',
@@ -1658,7 +1659,7 @@ return [
                     ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => 'Sin depósito', 'text' => 'y sin cargos ocultos'],
                     ['icon' => 'gfx/vyber-vybavu.svg', 'title' => 'Equipo incluido', 'text' => 'casco, chaqueta, pantalón y guantes'],
                     ['icon' => 'gfx/ico-nonstop.svg', 'title' => '24/7', 'text' => 'recogida y devolución según tu reserva'],
-                    ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Sin límite de km', 'text' => 'también al extranjero'],
+                    ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Sin límite de km', 'text' => 'y viajes al extranjero según la carta verde'],
                     ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Reserva online', 'text' => 'en pocos clics'],
                     ['icon' => 'gfx/ico-sleva.svg', 'title' => 'Desde {price}', 'text' => 'por día', 'price' => true],
                 ],
@@ -1667,7 +1668,7 @@ return [
                 'steps' => [
                     ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Elige tu moto', 'text' => 'Touring, naked, supermoto, choppers, scooters 125 y motos infantiles.'],
                     ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Reserva online', 'text' => 'Elige fechas y equipo y paga con tarjeta, Apple Pay o Google Pay.'],
-                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Recoge la moto', 'text' => 'En Mezná (Vysočina) o en autoservicio junto a Brno. Desde Mezná también te la llevamos.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Recoge la moto', 'text' => 'En Mezná (Vysočina) o en autoservicio junto a Brno. Las motos de Mezná también a domicilio, con suplemento.'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '¡A rodar!', 'text' => 'Por la República Checa y el extranjero. Devuélvela el último día hasta las 24:00.'],
                 ],
             ],
@@ -1681,7 +1682,7 @@ return [
                 'steps' => [
                     ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Elige tu moto', 'text' => 'Touring, naked, supermoto, choppers, scooters 125 y motos infantiles.'],
                     ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Reserva online', 'text' => 'Elige fechas y equipo y paga con tarjeta, Apple Pay o Google Pay.'],
-                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Recoge la moto', 'text' => 'En Mezná (Vysočina) o en autoservicio junto a Brno. Desde Mezná también te la llevamos.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Recoge la moto', 'text' => 'En Mezná (Vysočina) o en autoservicio junto a Brno. Las motos de Mezná también a domicilio, con suplemento.'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '¡A rodar!', 'text' => 'Por la República Checa y el extranjero. Devuélvela el último día hasta las 24:00.'],
                 ],
             ],
