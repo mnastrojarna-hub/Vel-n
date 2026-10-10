@@ -163,7 +163,7 @@ send({type:'ready'});
 
   const tabBtn = (key, label) => (
     <button type="button" onClick={() => setMode(key)}
-      className="rounded-btn text-sm font-extrabold cursor-pointer border-none"
+      className="rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[36px]"
       style={{
         padding: '6px 14px',
         background: mode === key ? (key === 'wp' ? '#8b5cf6' : '#1a8a18') : '#f1faf7',

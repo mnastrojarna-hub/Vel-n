@@ -374,7 +374,7 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
 
   return (
     <Modal open title={isEdit ? `Upravit trasu: ${existing.name}` : 'Nová trasa'} onClose={onClose} wide>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FormField label="Název trasy *" value={form.name} onChange={v => set('name', v)} />
         <div>
           <label className={lbl} style={{ color: '#1a2e22' }}>Typ trasy</label>
@@ -400,18 +400,18 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
           placeholder="prázdné = dopočítá se z mapy" />
         <FormField label="Státy (oddělené čárkou)" value={form.countries} onChange={v => set('countries', v)}
           placeholder="např. Itálie, Švýcarsko" />
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className={lbl} style={{ color: '#1a2e22' }}>Popis trasy</label>
           <textarea value={form.description} onChange={e => set('description', e.target.value)}
             className="w-full rounded-btn text-sm outline-none"
             style={{ ...inputStyle, minHeight: 70, resize: 'vertical' }}
             placeholder="Co zákazníka na trase čeká, doporučení, zajímavosti…" />
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <div className="flex items-center gap-2 mb-1">
             <label className={lbl} style={{ color: '#1a2e22', marginBottom: 0 }}>Odkaz na Mapy.com / Google Maps — automatický import trasy</label>
             <button type="button" onClick={() => setShowLinkHelp(s => !s)} title="Kde vzít odkaz?"
-              className="cursor-pointer flex items-center justify-center"
+              className="cursor-pointer flex items-center justify-center shrink-0 max-lg:!w-7 max-lg:!h-7"
               style={{ width: 18, height: 18, borderRadius: '50%', background: '#8b5cf6', color: '#fff', border: 'none', fontSize: 12, fontWeight: 900, lineHeight: 1 }}>
               i
             </button>
@@ -423,11 +423,11 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
               <div><b>Google Maps</b> — přepni na <b>Trasu</b> (šipka „Navigovat") → <b>Sdílet nebo vložit mapu</b> / zkopíruj odkaz z adresního řádku (<code>google.com/maps/dir/…</code> i zkrácený <code>maps.app.goo.gl/…</code>).</div>
             </div>
           )}
-          <div className="flex gap-2 items-start">
+          <div className="flex gap-2 items-start max-sm:flex-col max-sm:items-stretch">
             <input type="text" value={form.mapy_url} onChange={e => { set('mapy_url', e.target.value); setImportErr(null); setImportMsg('') }}
               placeholder="Vlož mapy.com/s/… , maps.app.goo.gl/… , plnou URL nebo celý <iframe> kód"
               className="flex-1 rounded-btn text-sm outline-none" style={inputStyle} />
-            <Button green onClick={importFromMapy} disabled={importing || !form.mapy_url?.trim()}>
+            <Button green className="max-sm:justify-center" onClick={importFromMapy} disabled={importing || !form.mapy_url?.trim()}>
               {importing ? 'Načítám…' : '📥 Načíst trasu'}
             </Button>
           </div>
@@ -443,7 +443,7 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
       <div className="mt-5">
         <div className="flex items-center justify-between mb-2">
           <label className={lbl} style={{ color: '#1a2e22', marginBottom: 0 }}>Mapa trasy</label>
-          <Button small onClick={() => setShowMap(s => !s)}>{showMap ? 'Skrýt mapu' : '🗺️ Vybrat na mapě'}</Button>
+          <Button small className="max-lg:min-h-[36px]" onClick={() => setShowMap(s => !s)}>{showMap ? 'Skrýt mapu' : '🗺️ Vybrat na mapě'}</Button>
         </div>
         {showMap && (
           <>
@@ -465,24 +465,25 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
       <div className="mt-5">
         <div className="flex items-center justify-between mb-2">
           <label className={lbl} style={{ color: '#1a2e22', marginBottom: 0 }}>Body trasy (waypointy)</label>
-          <Button small onClick={addWp}>+ Bod</Button>
+          <Button small className="max-lg:min-h-[36px]" onClick={addWp}>+ Bod</Button>
         </div>
         <p className="text-xs mb-2" style={{ color: '#6b8f7b' }}>
           Souřadnice ve směru jízdy — první bod je start trasy{form.route_type === 'loop' ? ' a okruh se na něj vrací' : ''}.
           Geometrie se po uložení spočítá přes Mapy.com.
         </p>
         {waypoints.map((w, i) => (
-          <div key={i} className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-bold" style={{ color: '#8b5cf6', width: 18 }}>{i + 1}.</span>
+          <div key={i} className="flex items-center gap-2 mb-2 max-sm:flex-wrap">
+            <span className="text-xs font-bold shrink-0" style={{ color: '#8b5cf6', width: 18 }}>{i + 1}.</span>
             <input type="number" step="any" value={w.lat} onChange={e => setWp(i, 'lat', e.target.value)}
-              placeholder="šířka (lat)" className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 120 }} />
+              placeholder="šířka (lat)" className="rounded-btn text-sm outline-none max-sm:flex-1 max-sm:min-w-0" style={{ ...inputStyle, width: 120 }} />
             <input type="number" step="any" value={w.lng} onChange={e => setWp(i, 'lng', e.target.value)}
-              placeholder="délka (lng)" className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 120 }} />
+              placeholder="délka (lng)" className="rounded-btn text-sm outline-none max-sm:flex-1 max-sm:min-w-0" style={{ ...inputStyle, width: 120 }} />
+            <span className="hidden max-sm:block basis-full h-0" aria-hidden="true" />
             <input type="text" value={w.label} onChange={e => setWp(i, 'label', e.target.value)}
-              placeholder="popisek (volitelně)" className="flex-1 rounded-btn text-sm outline-none" style={inputStyle} />
-            <button onClick={() => moveWp(i, -1)} title="Nahoru" className="cursor-pointer" style={{ background: 'none', border: 'none', color: '#6b8f7b' }}>▲</button>
-            <button onClick={() => moveWp(i, 1)} title="Dolů" className="cursor-pointer" style={{ background: 'none', border: 'none', color: '#6b8f7b' }}>▼</button>
-            <button onClick={() => rmWp(i)} title="Odebrat" className="cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: 16 }}>✕</button>
+              placeholder="popisek (volitelně)" className="flex-1 rounded-btn text-sm outline-none min-w-0" style={inputStyle} />
+            <button onClick={() => moveWp(i, -1)} title="Nahoru" className="cursor-pointer max-lg:min-w-[32px] max-lg:min-h-[36px]" style={{ background: 'none', border: 'none', color: '#6b8f7b' }}>▲</button>
+            <button onClick={() => moveWp(i, 1)} title="Dolů" className="cursor-pointer max-lg:min-w-[32px] max-lg:min-h-[36px]" style={{ background: 'none', border: 'none', color: '#6b8f7b' }}>▼</button>
+            <button onClick={() => rmWp(i)} title="Odebrat" className="cursor-pointer max-lg:min-w-[32px] max-lg:min-h-[36px]" style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: 16 }}>✕</button>
           </div>
         ))}
       </div>
@@ -504,15 +505,15 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
 
       {/* ── Body zájmu (POI) ── */}
       <div className="mt-5">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 max-sm:flex-wrap max-sm:gap-2">
           <label className={lbl} style={{ color: '#1a2e22', marginBottom: 0 }}>Body zájmu (POI)</label>
-          <div className="flex gap-2">
-            <Button small onClick={() => projectWaypointsToPois()}
+          <div className="flex gap-2 max-sm:flex-wrap">
+            <Button small className="max-lg:min-h-[36px]" onClick={() => projectWaypointsToPois()}
               disabled={!waypoints.some(w => w.lat !== '' && w.lng !== '')}
               title="Přidá body zájmu z aktuálních bodů trasy (názvy doplní z mapy)">
               ↧ Z bodů trasy
             </Button>
-            <Button small onClick={addPoi}>+ Bod zájmu</Button>
+            <Button small className="max-lg:min-h-[36px]" onClick={addPoi}>+ Bod zájmu</Button>
           </div>
         </div>
         {pois.length === 0 && (
@@ -522,34 +523,34 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
           <div key={i} className="rounded-card mb-3" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', padding: 12 }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-extrabold" style={{ color: '#8b5cf6' }}>BOD ZÁJMU {i + 1}</span>
-              <button onClick={() => rmPoi(i)} className="cursor-pointer text-sm font-bold" style={{ background: 'none', border: 'none', color: '#dc2626' }}>Odebrat ✕</button>
+              <button onClick={() => rmPoi(i)} className="cursor-pointer text-sm font-bold max-lg:min-h-[36px]" style={{ background: 'none', border: 'none', color: '#dc2626' }}>Odebrat ✕</button>
             </div>
             {(p.lat === '' || p.lng === '' || p.lat == null || p.lng == null) && (
               <div className="text-xs font-bold mb-2 rounded-btn" style={{ color: '#b45309', background: '#fff7ed', border: '1px solid #fdba74', padding: '6px 10px' }}>
                 ⚠ Chybí souřadnice — tento bod zájmu se NEZOBRAZÍ jako pin na mapě v aplikaci. Klikni do mapy výše v režimu „📍 Bod zájmu", nebo vyplň lat/lng ručně.
               </div>
             )}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <FormField label="Název" value={p.name} onChange={v => setPoi(i, 'name', v)} />
               <div className="grid grid-cols-2 gap-2">
                 <FormField label="Šířka (lat)" value={p.lat} onChange={v => setPoi(i, 'lat', v)} type="number" />
                 <FormField label="Délka (lng)" value={p.lng} onChange={v => setPoi(i, 'lng', v)} type="number" />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className={lbl} style={{ color: '#1a2e22' }}>Krátký popis</label>
                 <textarea value={p.description} onChange={e => setPoi(i, 'description', e.target.value)}
                   className="w-full rounded-btn text-sm outline-none"
                   placeholder="Zobrazí se po kliknutí na tento bod zájmu v aplikaci"
                   style={{ ...inputStyle, minHeight: 48, resize: 'vertical' }} />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className={lbl} style={{ color: '#1a2e22' }}>Popis okolí</label>
                 <textarea value={p.surroundings} onChange={e => setPoi(i, 'surroundings', e.target.value)}
                   className="w-full rounded-btn text-sm outline-none"
                   placeholder="Co je v okolí bodu — tipy na zastávky, občerstvení, výhledy…"
                   style={{ ...inputStyle, minHeight: 48, resize: 'vertical' }} />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className={lbl} style={{ color: '#1a2e22' }}>Obrázky bodu zájmu</label>
                 <ImageUploader value={p.images} onChange={(urls) => setPoi(i, 'images', urls)}
                   folder={`routes/${existing?.id || 'new'}/poi`} showMainBadge
@@ -574,7 +575,7 @@ export default function TrasyModal({ existing, onClose, onSaved }) {
       </div>
 
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626', whiteSpace: 'pre-wrap' }}>{err}</p>}
-      <div className="flex justify-end items-center gap-3 mt-5">
+      <div className="flex justify-end items-center gap-3 mt-5 max-sm:flex-wrap">
         {saving && savingNote && <span className="text-sm" style={{ color: '#6b8f7b' }}>{savingNote}</span>}
         <Button onClick={onClose}>Zrušit</Button>
         <Button green onClick={handleSave} disabled={saving || !form.name?.trim()}>

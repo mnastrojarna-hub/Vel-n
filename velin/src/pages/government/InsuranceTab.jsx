@@ -35,7 +35,7 @@ export default function InsuranceTab() {
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
 
   return (
-    <Table>
+    <Table stack>
       <thead>
         <TRow header>
           <TH>Motorka</TH><TH>SPZ</TH><TH>Cena pojištění</TH><TH>Stav</TH>
@@ -58,7 +58,7 @@ export default function InsuranceTab() {
             </TD>
           </TRow>
         ))}
-        {motos.length === 0 && <TRow><TD>Žádné motorky</TD></TRow>}
+        {motos.length === 0 && <TRow><TD className="mg-stack-full">Žádné motorky</TD></TRow>}
       </tbody>
     </Table>
   )

@@ -27,7 +27,7 @@ export function SummaryCard({ label, value, color, count }) {
 export function MiniStat({ label, value, color }) {
   return (
     <div className="p-2 rounded-lg" style={{ background: '#f1faf7' }}>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-sm font-extrabold" style={{ color }}>{value}</div>
     </div>
   )

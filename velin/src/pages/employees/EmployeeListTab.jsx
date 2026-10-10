@@ -57,7 +57,8 @@ export default function EmployeeListTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <Table>
+          {/* 9 sloupců → na telefonu i tabletu karty (desktop beze změny) */}
+          <Table stack="tablet">
             <thead>
               <TRow header>
                 <TH>Jméno</TH><TH>Telefon</TH><TH>Email</TH><TH>Pozice</TH>
@@ -78,12 +79,12 @@ export default function EmployeeListTab() {
                   <TD><span className="text-sm font-bold" style={{ color: emp.active ? '#1a8a18' : '#dc2626' }}>
                     {emp.active ? 'Aktivní' : 'Neaktivní'}</span></TD>
                   <TD>
-                    <button onClick={() => setEditEmp(emp)} className="text-sm font-bold cursor-pointer"
+                    <button onClick={() => setEditEmp(emp)} className="text-sm font-bold cursor-pointer max-lg:py-2 max-lg:px-2"
                       style={{ color: '#2563eb', background: 'none', border: 'none' }}>Upravit</button>
                   </TD>
                 </TRow>
               ))}
-              {employees.length === 0 && <TRow><TD>Žádní zaměstnanci</TD></TRow>}
+              {employees.length === 0 && <TRow><TD className="mg-stack-full">Žádní zaměstnanci</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={Math.ceil(total / PER_PAGE)} onPageChange={setPage} />
@@ -131,7 +132,7 @@ function EmpModal({ emp, onClose, onSaved }) {
   return (
     <Modal open title={emp ? 'Upravit zaměstnance' : 'Novy zaměstnanec'} onClose={onClose}>
       {err && <div className="mb-3 p-2 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{err}</div>}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div><Lbl>Jméno</Lbl><input type="text" value={form.name} onChange={e => set('name', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         <div><Lbl>Pozice</Lbl><input type="text" value={form.position} onChange={e => set('position', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         <div><Lbl>Telefon</Lbl><input type="text" value={form.phone} onChange={e => set('phone', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>

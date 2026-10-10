@@ -105,7 +105,7 @@ export function HeaderCard({ incident, sev, sc, displayTitle, isActive, admins, 
                     Motorka nepojízdná
                   </span>
                   {!motoInService && moto?.status !== 'maintenance' && (
-                    <button onClick={setMotoToService} className="inline-block rounded-btn text-sm font-extrabold cursor-pointer" style={{
+                    <button onClick={setMotoToService} className="inline-block rounded-btn text-sm font-extrabold cursor-pointer max-lg:min-h-[40px]" style={{
                       padding: '4px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5',
                     }}>
                       🔧 Přesunout do servisu
@@ -237,7 +237,7 @@ export function NotesCard({ incidentNotes, noteText, setNoteText, addNote, savin
               className="w-full rounded-btn text-sm outline-none mb-2"
               style={{ padding: '8px 12px', background: '#fff', border: '1px solid #fde68a', resize: 'vertical' }}
             />
-            <Button onClick={addNote} disabled={savingNote || !noteText.trim()}
+            <Button onClick={addNote} disabled={savingNote || !noteText.trim()} className="max-lg:min-h-[40px]"
               style={{ background: '#fbbf24', color: '#78350f', fontSize: 13, padding: '6px 16px' }}>
               {savingNote ? 'Ukládám…' : 'Přidat poznámku'}
             </Button>

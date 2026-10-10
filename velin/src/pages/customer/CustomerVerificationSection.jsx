@@ -36,10 +36,10 @@ function OcrFieldsSummary({ fields }) {
   return (
     <div className="mt-2 p-2 rounded text-xs" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
       <div className="font-bold mb-1" style={{ color: '#1a2e22' }}>Naskenované údaje:</div>
-      {/* Telefon (< 640 px): 1 sloupec, jinak se hodnoty ořezávaly („Číslo dokladu: E…“) */}
+      {/* Telefon (< 640 px): 1 sloupec; < 1024 px se dlouhé hodnoty (MRZ, adresa) zalamují místo „…" */}
       <div className="grid gap-x-3 gap-y-0.5 grid-cols-1 sm:grid-cols-[1fr_1fr]" style={{ color: '#1a2e22' }}>
         {entries.map(([k, v]) => (
-          <div key={k} className="truncate">
+          <div key={k} className="truncate max-lg:whitespace-normal max-lg:break-words">
             <span style={{ color: '#5a6b63' }}>{OCR_FIELD_LABELS[k] || k}:</span>{' '}
             <span className="font-medium">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
           </div>
@@ -59,9 +59,9 @@ function DocPageRow({ doc, onPreview, onDelete, onSwapSide }) {
     <div className="p-2 rounded-lg" style={{ background: '#fff', border: status === 'failed' ? '1px solid #fcd34d' : '1px solid #d4e8e0' }}>
       <div className="flex items-center gap-2 flex-wrap">
         <span style={{ fontSize: 16 }}>{icon}</span>
-        {/* < 1024 px: název + datum na vlastním řádku (neořezaný), odznak a akce pod ním */}
+        {/* < 1024 px: název + datum na vlastním řádku (název se zalomí, ne „…"), odznak a akce pod ním */}
         <div className="flex-1 min-w-0 max-lg:basis-[calc(100%-32px)]">
-          <div className="text-sm font-bold truncate" style={{ color: '#1a2e22' }}>
+          <div className="text-sm font-bold truncate max-lg:whitespace-normal max-lg:break-words" style={{ color: '#1a2e22' }}>
             {doc.name || doc.file_name || doc.type}
           </div>
           <div className="text-xs" style={{ color: '#5a6b63' }}>
@@ -308,7 +308,7 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
 
       <div className="space-y-3 mb-4">
         {/* Řidičský průkaz */}
-        <div className="p-4 rounded-lg" style={{ background: licenseOptional ? '#f9fafb' : '#f1faf7' }}>
+        <div className="p-4 max-sm:p-3 rounded-lg" style={{ background: licenseOptional ? '#f9fafb' : '#f1faf7' }}>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span style={{ fontSize: 14 }}>{licenseOptional ? '➖' : vs.hasLicense ? '✅' : vs.licenseTypedOnly ? '⚠️' : '❌'}</span>
             <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Ridicsky prukaz (RP)</span>
@@ -355,7 +355,7 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
         </div>
 
         {/* Doklad totoznosti */}
-        <div className="p-4 rounded-lg" style={{ background: '#f1faf7' }}>
+        <div className="p-4 max-sm:p-3 rounded-lg" style={{ background: '#f1faf7' }}>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span style={{ fontSize: 14 }}>{vs.hasIdentity ? '✅' : vs.identityTypedOnly ? '⚠️' : '❌'}</span>
             <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Doklad totoznosti (OP nebo pas)</span>
@@ -458,12 +458,13 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
       {previewUrl && (
         <Modal open title={previewDoc?.name || 'Foto dokladu'} onClose={() => { setPreviewUrl(null); setPreviewDoc(null) }} wide>
           <div className="flex justify-center" style={{ background: '#0f1a14', padding: 12, borderRadius: 8 }}>
-            <img src={previewUrl} alt="doklad" style={{ maxWidth: '100%', maxHeight: 600, borderRadius: 4 }} />
+            {/* < 1024 px: výška fotky dle displeje (telefon na šířku nemá 600 px) */}
+            <img src={previewUrl} alt="doklad" className="max-h-[600px] max-lg:max-h-[60dvh]" style={{ maxWidth: '100%', borderRadius: 4 }} />
           </div>
           {previewDoc?.metadata?.ocr_fields && (
             <div className="mt-3"><OcrFieldsSummary fields={previewDoc.metadata.ocr_fields} /></div>
           )}
-          <div className="flex justify-between gap-3 mt-3">
+          <div className="flex justify-between gap-3 mt-3 max-sm:flex-wrap">
             <Button onClick={() => { setConfirmDelete(previewDoc); setPreviewUrl(null); setPreviewDoc(null) }}
               style={{ background: '#fee2e2', color: '#dc2626' }}>Smazat fotku</Button>
             <Button onClick={() => { setPreviewUrl(null); setPreviewDoc(null) }}>Zavřít</Button>

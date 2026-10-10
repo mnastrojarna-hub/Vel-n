@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
-import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP } from '../../components/sortableTable'
 
 const TOTAL_SLOTS = 8
 
@@ -152,21 +152,22 @@ export default function OptimalniFlotila() {
       {has3mo && (
         <>
           <div className="mb-5">
-            <select value={selectedLoc || ''} onChange={e => setSelectedLoc(e.target.value)} className="text-sm font-bold" style={{ padding: '8px 14px', borderRadius: 10, border: '2px solid #e5e7eb', background: '#fff', color: '#1a2e22', cursor: 'pointer', minWidth: 220 }}>
+            <select value={selectedLoc || ''} onChange={e => setSelectedLoc(e.target.value)} className="text-sm font-bold w-full md:w-auto" style={{ padding: '8px 14px', borderRadius: 10, border: '2px solid #e5e7eb', background: '#fff', color: '#1a2e22', cursor: 'pointer', minWidth: 220 }}>
               {locations.map(l => <option key={l.id} value={l.id}>{l.name} — {l.city}</option>)}
             </select>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-            <div style={{ ...cardStyle, overflowX: 'auto' }}>
+            {/* Telefon: řádky jako karty (mg-stack) */}
+            <div className={STACK_WRAP} style={{ ...cardStyle, padding: undefined, overflowX: 'auto' }}>
               <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Aktuální složení</div>
-              <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+              <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
                 <thead><SortableHeaderRow columns={CURRENT_COLUMNS} sort={currentSort.sort} toggle={currentSort.toggle} /></thead>
                 <tbody>
                   {cats.length === 0 && <tr><td colSpan={4} className="py-4 text-center" style={{ color: '#888' }}>Žádné motorky</td></tr>}
                   {sortRows(cats, CURRENT_COLUMNS, currentSort.sort).map(c => (
-                    <tr key={c.category} style={{ borderBottom: '1px solid #f3f4f6', background: c.recommended !== c.motorcycleCount ? '#fffbeb' : 'transparent' }}>
-                      <td className="py-2 px-3 font-semibold">{c.category}</td>
+                    <tr key={c.category} style={{ borderBottom: '1px solid #f3f4f6', background: c.recommended !== c.motorcycleCount ? '#fffbeb' : undefined }}>
+                      <td className="py-2 px-3 font-semibold mg-stack-full">{c.category}</td>
                       <td className="py-2 px-3">{c.motorcycleCount}</td>
                       <td className="py-2 px-3">{c.utilizationPct.toFixed(1)} %</td>
                       <td className="py-2 px-3">{Math.round(c.revenuePerSlot).toLocaleString('cs-CZ')} Kč</td>
@@ -175,15 +176,15 @@ export default function OptimalniFlotila() {
                 </tbody>
               </table>
             </div>
-            <div style={{ ...cardStyle, overflowX: 'auto' }}>
+            <div className={STACK_WRAP} style={{ ...cardStyle, padding: undefined, overflowX: 'auto' }}>
               <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Doporučené složení</div>
-              <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+              <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
                 <thead><SortableHeaderRow columns={RECOMMENDED_COLUMNS} sort={recommendedSort.sort} toggle={recommendedSort.toggle} /></thead>
                 <tbody>
                   {cats.length === 0 && <tr><td colSpan={3} className="py-4 text-center" style={{ color: '#888' }}>Žádné motorky</td></tr>}
                   {sortRows(cats, RECOMMENDED_COLUMNS, recommendedSort.sort).map(c => (
-                    <tr key={c.category} style={{ borderBottom: '1px solid #f3f4f6', background: c.recommended !== c.motorcycleCount ? '#fffbeb' : 'transparent' }}>
-                      <td className="py-2 px-3 font-semibold">{c.category}</td>
+                    <tr key={c.category} style={{ borderBottom: '1px solid #f3f4f6', background: c.recommended !== c.motorcycleCount ? '#fffbeb' : undefined }}>
+                      <td className="py-2 px-3 font-semibold mg-stack-full">{c.category}</td>
                       <td className="py-2 px-3">{c.recommended}</td>
                       <td className="py-2 px-3">{Math.round(c.revenuePerSlot).toLocaleString('cs-CZ')} Kč</td>
                     </tr>
@@ -203,14 +204,14 @@ export default function OptimalniFlotila() {
             <div><div className="text-xs font-bold uppercase mb-1" style={{ color: 'rgba(255,255,255,.5)' }}>Potenciál</div><div className="text-2xl font-extrabold" style={{ color: '#74FB71' }}>+{Math.round(loc.potentialAbs).toLocaleString('cs-CZ')} Kč <span className="text-sm ml-2" style={{ color: 'rgba(255,255,255,.6)' }}>/ +{loc.potentialPct.toFixed(1)}%</span></div></div>
           </div>
 
-          <div style={{ ...cardStyle, overflowX: 'auto' }}>
+          <div className={STACK_WRAP} style={{ ...cardStyle, padding: undefined, overflowX: 'auto' }}>
             <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Benchmark všech poboček</div>
-            <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+            <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
               <thead><SortableHeaderRow columns={BENCHMARK_COLUMNS} sort={benchmarkSort.sort} toggle={benchmarkSort.toggle} /></thead>
               <tbody>
                 {sortRows(benchmark, BENCHMARK_COLUMNS, benchmarkSort.sort).map(b => (
                   <tr key={b.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td className="py-2 px-3 font-semibold">{b.name}</td>
+                    <td className="py-2 px-3 font-semibold mg-stack-full">{b.name}</td>
                     <td className="py-2 px-3"><span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{b.location || '—'}</span></td>
                     {!b.hasBookings ? <td colSpan={3} className="py-2 px-3" style={{ color: '#888' }}>Nedostatek dat</td> : (
                       <>

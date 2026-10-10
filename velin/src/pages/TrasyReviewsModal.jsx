@@ -66,8 +66,8 @@ export default function TrasyReviewsModal({ route, onClose, onChanged }) {
         <div className="flex flex-col gap-3">
           {reviews.map(rev => (
             <div key={rev.id} className="rounded-card" style={{ background: rev.status === 'hidden' ? '#fef2f2' : '#f1faf7', border: '1px solid #d4e8e0', padding: 12 }}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between mb-1 max-sm:flex-wrap max-sm:gap-x-2">
+                <div className="flex items-center gap-2 max-sm:flex-wrap">
                   <span style={{ color: '#f59e0b', fontSize: 15, letterSpacing: 1 }}>{stars(rev.rating)}</span>
                   <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{names[rev.user_id] || 'Motorkář'}</span>
                   {rev.status === 'hidden' && <span className="text-[9px] font-extrabold uppercase rounded-btn" style={{ padding: '2px 6px', background: '#fee2e2', color: '#dc2626' }}>Skryto</span>}
@@ -84,7 +84,7 @@ export default function TrasyReviewsModal({ route, onClose, onChanged }) {
                   ))}
                 </div>
               )}
-              <div className="flex gap-2">
+              <div className="flex gap-2 max-lg:[&>button]:min-h-[36px]">
                 <SmallBtn color={rev.status === 'hidden' ? '#1a8a18' : '#b45309'} onClick={() => toggleHidden(rev)}>
                   {rev.status === 'hidden' ? 'Zobrazit' : 'Skrýt'}
                 </SmallBtn>

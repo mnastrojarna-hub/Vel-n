@@ -220,7 +220,7 @@ export function PhotosCard({ incident, isPhotoOnly, relatedIncidents, showLinkPh
             <div className="mt-3">
               {!showLinkPhotos ? (
                 <button onClick={() => setShowLinkPhotos(true)}
-                  className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                  className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                   style={{ padding: '8px 16px', background: '#2563eb', color: '#fff' }}>
                   Přiřadit fotky k incidentu u této rezervace
                 </button>
@@ -250,7 +250,7 @@ export function PhotosCard({ incident, isPhotoOnly, relatedIncidents, showLinkPh
                     ))}
                   </div>
                   <button onClick={() => setShowLinkPhotos(false)}
-                    className="mt-2 rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                    className="mt-2 rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                     style={{ padding: '6px 12px', background: '#f1faf7', color: '#1a2e22' }}>
                     Zrušit
                   </button>

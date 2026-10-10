@@ -1,7 +1,11 @@
 import { isRealizedBooking } from '../../lib/revenueUtils'
-import { useTableSort, sortRows } from '../../components/sortableTable'
+import { useTableSort, sortRows, TabScroll } from '../../components/sortableTable'
 
 const DAYS_CS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
+
+// Matice den × kategorie se na telefonu/tabletu posouvá do strany ve vlastním obalu (nadpis stojí) —
+// první sloupec (kategorie) zůstává přilepený vlevo, aby se řádky daly číst.
+const STICKY_FIRST = 'px-3 max-lg:sticky max-lg:left-0 max-lg:bg-white max-lg:shadow-[4px_0_6px_-4px_rgba(0,0,0,.15)]'
 
 const DAY_COLUMNS = [
   { label: 'Kategorie', key: 'label', str: true },
@@ -24,9 +28,9 @@ function HeatCell({ count, rowMax, total, bold }) {
   const ratio = rowMax > 0 ? count / rowMax : 0
   const pct = total > 0 ? (count / total) * 100 : 0
   return (
-    <td className="py-2 px-3 text-center" style={{ background: count > 0 ? `rgba(116,251,113,${(0.12 + ratio * 0.55).toFixed(2)})` : 'transparent' }}>
+    <td className="py-2 px-2 lg:px-3 text-center" style={{ background: count > 0 ? `rgba(116,251,113,${(0.12 + ratio * 0.55).toFixed(2)})` : 'transparent' }}>
       <div style={{ fontWeight: bold || ratio === 1 ? 800 : 600, color: '#1a2e22' }}>{count}</div>
-      <div style={{ fontSize: 10, color: '#5b6b62' }}>{count > 0 ? `${pct.toFixed(0)} %` : '—'}</div>
+      <div className="max-lg:whitespace-nowrap" style={{ fontSize: 10, color: '#5b6b62' }}>{count > 0 ? `${pct.toFixed(0)} %` : '—'}</div>
     </td>
   )
 }
@@ -66,36 +70,38 @@ export default function RezervaceDnyTydne({ bookings, motorcycles }) {
         Počet zaplacených rezervací podle dne, kdy motorka vyjíždí (start rezervace) — za celou dobu fungování, nezávisle na zvoleném období.
         Nejčastější den výjezdu celkem: <strong style={{ color: '#1a2e22' }}>{['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'][topIdx]}</strong>.
       </div>
-      <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-            {DAY_COLUMNS.map(c => (
-              <th key={c.key} className={`${c.center ? 'text-center' : 'text-left'} font-bold py-2 px-3`}
-                  style={{ color: '#1a2e22', cursor: 'pointer', userSelect: 'none' }}
-                  title="Seřadit dle sloupce" onClick={() => daySort.toggle(c.key)}>
-                {c.label}{daySort.sort?.key === c.key ? (daySort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {catRows.map(r => {
-            const rowMax = Math.max(...r.days)
-            return (
-              <tr key={r.label} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td className="py-2 px-3 font-semibold">{r.label}</td>
-                {r.days.map((c, i) => <HeatCell key={i} count={c} rowMax={rowMax} total={r.total} />)}
-                <td className="py-2 px-3 text-center font-bold">{r.total}</td>
-              </tr>
-            )
-          })}
-          <tr style={{ borderTop: '2px solid #e5e7eb', background: '#f9fdfb' }}>
-            <td className="py-2 px-3 font-extrabold">{totalRow.label}</td>
-            {totalRow.days.map((c, i) => <HeatCell key={i} count={c} rowMax={Math.max(...totalRow.days)} total={totalRow.total} bold />)}
-            <td className="py-2 px-3 text-center font-extrabold">{totalRow.total}</td>
-          </tr>
-        </tbody>
-      </table>
+      <TabScroll className="max-lg:overflow-x-auto" fade="all">
+        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+              {DAY_COLUMNS.map(c => (
+                <th key={c.key} className={`${c.center ? 'text-center' : 'text-left'} font-bold py-2 ${c.center ? 'px-2 lg:px-3' : STICKY_FIRST}`}
+                    style={{ color: '#1a2e22', cursor: 'pointer', userSelect: 'none' }}
+                    title="Seřadit dle sloupce" onClick={() => daySort.toggle(c.key)}>
+                  {c.label}{daySort.sort?.key === c.key ? (daySort.sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {catRows.map(r => {
+              const rowMax = Math.max(...r.days)
+              return (
+                <tr key={r.label} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td className={`py-2 font-semibold ${STICKY_FIRST}`}>{r.label}</td>
+                  {r.days.map((c, i) => <HeatCell key={i} count={c} rowMax={rowMax} total={r.total} />)}
+                  <td className="py-2 px-2 lg:px-3 text-center font-bold">{r.total}</td>
+                </tr>
+              )
+            })}
+            <tr style={{ borderTop: '2px solid #e5e7eb', background: '#f9fdfb' }}>
+              <td className={`py-2 font-extrabold ${STICKY_FIRST}`} style={{ background: '#f9fdfb' }}>{totalRow.label}</td>
+              {totalRow.days.map((c, i) => <HeatCell key={i} count={c} rowMax={Math.max(...totalRow.days)} total={totalRow.total} bold />)}
+              <td className="py-2 px-2 lg:px-3 text-center font-extrabold">{totalRow.total}</td>
+            </tr>
+          </tbody>
+        </table>
+      </TabScroll>
     </div>
   )
 }

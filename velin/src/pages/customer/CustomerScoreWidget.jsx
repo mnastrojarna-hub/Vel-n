@@ -335,7 +335,7 @@ function RatingControl({ value, onChange, saving }) {
               key={v}
               type="button"
               onClick={() => onChange(v)}
-              className="rounded-btn text-sm font-bold"
+              className="rounded-btn text-sm font-bold max-lg:min-h-[40px] max-lg:min-w-[48px]"
               style={{
                 padding: '6px 10px',
                 background: value === v ? (v > 0 ? '#1a8a18' : v < 0 ? '#dc2626' : '#0f1a14') : '#f3f4f6',

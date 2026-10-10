@@ -245,14 +245,15 @@ export default function CustomerDetail() {
       {customer.is_blocked && (
         <div className="p-3 rounded-card mb-4 flex items-center gap-3 max-sm:flex-wrap" style={{ background: '#fee2e2', border: '2px solid #dc2626' }}>
           <span style={{ fontSize: 20 }}>🚫</span>
-          <div>
+          {/* Telefon: ikona + text na prvním řádku, tlačítko Odblokovat pod nimi vpravo */}
+          <div className="max-sm:min-w-0 max-sm:basis-[calc(100%-44px)] max-sm:break-words">
             <div className="text-sm font-bold" style={{ color: '#dc2626' }}>Zakaznik je ZABLOKOVANY</div>
             {customer.blocked_reason && <div className="text-sm" style={{ color: '#7f1d1d' }}>Duvod: {customer.blocked_reason}</div>}
             {customer.blocked_at && <div className="text-sm" style={{ color: '#7f1d1d' }}>Od: {new Date(customer.blocked_at).toLocaleString('cs-CZ')}</div>}
           </div>
           <div className="flex-1" />
           <button onClick={() => setConfirmBlock(true)}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', background: '#dcfce7', color: '#1a8a18', border: 'none' }}>
             Odblokovat
           </button>
@@ -263,7 +264,7 @@ export default function CustomerDetail() {
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => { setShowResetPw(true); setResetPwMsg(null); setNewPassword(''); setResetPwMode('email') }}
-          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
           style={{ padding: '8px 16px', background: '#fef3c7', color: '#b45309', border: 'none' }}
         >
           Resetovat heslo
@@ -273,7 +274,7 @@ export default function CustomerDetail() {
       {/* Záložky: pod 1024 px se zalamují do více řádků, aby byly vidět všechny (Dokumenty … Reklamace) */}
       <div className="flex gap-2 mb-5 max-lg:flex-wrap">
         {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer" style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
+          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]" style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
             {t}
           </button>
         ))}
@@ -317,14 +318,14 @@ export default function CustomerDetail() {
             <div className="flex gap-2 max-sm:flex-wrap">
               <button
                 onClick={() => setResetPwMode('email')}
-                className="rounded-btn text-sm font-bold cursor-pointer"
+                className="rounded-btn text-sm font-bold cursor-pointer max-lg:min-h-[40px]"
                 style={{ padding: '6px 14px', background: resetPwMode === 'email' ? '#74FB71' : '#f1faf7', color: resetPwMode === 'email' ? '#1a2e22' : '#1a2e22', border: 'none' }}
               >
                 Poslat reset email
               </button>
               <button
                 onClick={() => setResetPwMode('manual')}
-                className="rounded-btn text-sm font-bold cursor-pointer"
+                className="rounded-btn text-sm font-bold cursor-pointer max-lg:min-h-[40px]"
                 style={{ padding: '6px 14px', background: resetPwMode === 'manual' ? '#74FB71' : '#f1faf7', color: resetPwMode === 'manual' ? '#1a2e22' : '#1a2e22', border: 'none' }}
               >
                 Nastavit heslo rucne

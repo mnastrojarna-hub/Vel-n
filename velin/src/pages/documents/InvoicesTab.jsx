@@ -158,7 +158,8 @@ export default function InvoicesTab() {
   return (
     <div>
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      {/* telefon i tablet 2×2, desktop 4 vedle sebe */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <SummaryCard label="Celkem faktur" value={summary.total} color="#0f1a14" />
         <SummaryCard label="Zaplaceno" value={fmt(summary.paid)} color="#1a8a18" />
         <SummaryCard label="Nezaplaceno" value={fmt(summary.unpaid)} color="#b45309" />
@@ -212,7 +213,8 @@ export default function InvoicesTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <Table>
+          {/* < 1024 px: řádky jako karty (8 sloupců + akce se nevejde) */}
+          <Table stack="tablet">
             <thead>
               <TRow header>
                 <TH>Číslo</TH><TH>Typ</TH><TH>Zákazník</TH><TH>Motorka</TH>
@@ -228,7 +230,7 @@ export default function InvoicesTab() {
                 return (
                   <TRow key={inv.id}>
                     <TD mono bold>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 max-lg:justify-end">
                         {inv.number || '—'}
                         {isSOS && <span title="SOS faktura" style={{ color: '#dc2626', fontSize: 14, fontWeight: 800 }}>SOS</span>}
                         {isModified && <span title="Změna rezervace" style={{ color: '#b45309', fontSize: 14, fontWeight: 800 }}>MOD</span>}
@@ -244,8 +246,8 @@ export default function InvoicesTab() {
                     </TD>
                     <TD><Badge label={st.label} color={st.color} bg={st.bg} /></TD>
                     <TD>{inv.issue_date ? new Date(inv.issue_date).toLocaleDateString('cs-CZ') : '—'}</TD>
-                    <TD>
-                      <div className="flex gap-1">
+                    <TD className="mg-stack-full">
+                      <div className="flex gap-1 max-lg:justify-end max-lg:flex-wrap">
                         <ActionBtn color="#2563eb" onClick={() => setDetail(inv)}>Náhled</ActionBtn>
                         <ActionBtn color="#1a2e22" onClick={() => handleDownload(inv)}>Stáhnout</ActionBtn>
                         {inv.status !== 'cancelled' && inv.status !== 'refunded' && (
@@ -295,7 +297,7 @@ function SummaryCard({ label, value, color }) {
 
 function ActionBtn({ children, color, onClick }) {
   return (
-    <button onClick={onClick} className="text-sm font-bold cursor-pointer"
+    <button onClick={onClick} className="text-sm font-bold cursor-pointer max-lg:min-h-[40px]"
       style={{ color, background: 'none', border: 'none', padding: '4px 6px' }}>{children}</button>
   )
 }

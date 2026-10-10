@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
+import { ROWS_WHITE } from './FinanceBStack'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import { useDebugMode } from '../../hooks/useDebugMode'
@@ -146,7 +147,7 @@ export default function TaxTab() {
       ) : filtered.length === 0 ? (
         <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné daňové záznamy</p></Card>
       ) : (
-        <Table>
+        <Table stack className={ROWS_WHITE}>
           <thead>
             <TRow header>
               <TH>Období</TH><TH>Typ</TH><TH>Základ daně</TH>

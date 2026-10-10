@@ -126,14 +126,14 @@ export default function CustomerComplaintsTab({ userId }) {
           <div className="flex gap-1 max-lg:flex-wrap">
             {FILTER_OPTIONS.map(opt => (
               <button key={opt.value} onClick={() => setStatusFilter(opt.value)}
-                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
                 style={{ padding: '6px 14px', background: statusFilter === opt.value ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none', boxShadow: statusFilter === opt.value ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
                 {opt.label}
               </button>
             ))}
           </div>
           <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}
-            className="rounded-btn text-sm font-bold outline-none cursor-pointer"
+            className="rounded-btn text-sm font-bold outline-none cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
             <option value="date_desc">Nejnovejsi</option>
             <option value="date_asc">Nejstarsi</option>
@@ -176,13 +176,13 @@ export default function CustomerComplaintsTab({ userId }) {
                 {booking && (
                   <div className="flex flex-wrap gap-2 mt-3">
                     <button onClick={() => navigate(`/rezervace/${c.booking_id}`)}
-                      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
                       style={{ padding: '6px 14px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
                       Detail rezervace
                     </button>
                     {booking.motorcycles?.id && (
                       <button onClick={() => navigate(`/flotila/${booking.motorcycles.id}`)}
-                        className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                        className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
                         style={{ padding: '6px 14px', background: '#f1faf7', color: '#1a2e22', border: 'none' }}>
                         Detail motorky
                       </button>
@@ -221,7 +221,7 @@ export default function CustomerComplaintsTab({ userId }) {
                             <span className="text-sm ml-2" style={{ color: '#1a2e22' }}>{booking.motorcycles?.spz || ''}</span>
                             <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{booking.start_date} → {booking.end_date}</span>
                           </div>
-                          <span className="text-sm font-bold">{booking.total_price?.toLocaleString('cs-CZ')} Kč</span>
+                          <span className="text-sm font-bold max-md:ml-auto">{booking.total_price?.toLocaleString('cs-CZ')} Kč</span>
                         </div>
                       </div>
                     )}

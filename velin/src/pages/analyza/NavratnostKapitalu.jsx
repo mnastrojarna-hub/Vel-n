@@ -6,7 +6,7 @@
 // (`opDays` z VykonMotorek: od data pořízení, nejdéle po dnešek) — motorka koupená
 // před 2 měsíci se splaceným 35 % tak ukáže odhad doplacení v řádu měsíců, ne roků.
 
-import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY, stickyStripe } from '../../components/sortableTable'
 
 const fmtKc = n => `${Math.round(n).toLocaleString('cs-CZ')} Kč`
 
@@ -66,39 +66,42 @@ export default function NavratnostKapitalu({ motoStats }) {
             <Card label="Splacené motorky" value={`${paidOff} / ${rows.length}`} sub="tržby ≥ pořizovací cena" />
           </div>
 
-          <div style={{ background: '#fff', borderRadius: 14, padding: 16, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
-            <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <SortableHeaderRow columns={ROI_COLUMNS} sort={roiSort.sort} toggle={roiSort.toggle} />
-              </thead>
-              <tbody>
-                {sortRows(rows, ROI_COLUMNS, roiSort.sort).map((m, i) => (
-                  <tr key={m.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent' }}>
-                    <td className="py-2 px-3 font-semibold">{m.model}</td>
-                    <td className="py-2 px-3">{m.brand || '—'}</td>
-                    <td className="py-2 px-3">{m.branchName}</td>
-                    <td className="py-2 px-3">{fmtKc(m.pp)}</td>
-                    <td className="py-2 px-3">{fmtKc(m.revenue)}</td>
-                    <td className="py-2 px-3" style={{ minWidth: 140 }}>
-                      <div className="flex items-center gap-2">
-                        <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#e5e7eb' }}>
-                          <div style={{ width: `${Math.min(m.returnPct, 100)}%`, height: '100%', borderRadius: 4, background: m.returnPct >= 100 ? '#16a34a' : '#74FB71' }} />
+          {/* Telefon: řádky jako karty (mg-stack), obal bez bílé karty a paddingu */}
+          <div className={STACK_WRAP} style={{ background: '#fff', borderRadius: 14, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+            <TabScroll>
+              <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
+                <thead>
+                  <SortableHeaderRow columns={ROI_COLUMNS} sort={roiSort.sort} toggle={roiSort.toggle} stickyFirst />
+                </thead>
+                <tbody>
+                  {sortRows(rows, ROI_COLUMNS, roiSort.sort).map((m, i) => (
+                    <tr key={m.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : undefined }}>
+                      <td className={`py-2 px-3 font-semibold mg-stack-full ${TAB_STICKY}`} style={stickyStripe(i)}>{m.model}</td>
+                      <td className="py-2 px-3">{m.brand || '—'}</td>
+                      <td className="py-2 px-3">{m.branchName}</td>
+                      <td className="py-2 px-3">{fmtKc(m.pp)}</td>
+                      <td className="py-2 px-3">{fmtKc(m.revenue)}</td>
+                      <td className="py-2 px-3" style={{ minWidth: 140 }}>
+                        <div className="flex items-center gap-2">
+                          <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#e5e7eb' }}>
+                            <div style={{ width: `${Math.min(m.returnPct, 100)}%`, height: '100%', borderRadius: 4, background: m.returnPct >= 100 ? '#16a34a' : '#74FB71' }} />
+                          </div>
+                          <span style={{ fontSize: 11, minWidth: 44, fontWeight: 700, color: m.returnPct >= 100 ? '#16a34a' : '#1a2e22' }}>{m.returnPct.toFixed(1)}%</span>
                         </div>
-                        <span style={{ fontSize: 11, minWidth: 44, fontWeight: 700, color: m.returnPct >= 100 ? '#16a34a' : '#1a2e22' }}>{m.returnPct.toFixed(1)}%</span>
-                      </div>
-                    </td>
-                    <td className="py-2 px-3">{m.annualReturnPct.toFixed(1)} %/rok</td>
-                    <td className="py-2 px-3">
-                      {m.remaining === 0
-                        ? <span style={{ color: '#16a34a', fontWeight: 700 }}>Splaceno</span>
-                        : m.paybackMonths != null
-                          ? `~${Math.ceil(m.paybackMonths)} měs.`
-                          : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                      <td className="py-2 px-3">{m.annualReturnPct.toFixed(1)} %/rok</td>
+                      <td className="py-2 px-3">
+                        {m.remaining === 0
+                          ? <span style={{ color: '#16a34a', fontWeight: 700 }}>Splaceno</span>
+                          : m.paybackMonths != null
+                            ? `~${Math.ceil(m.paybackMonths)} měs.`
+                            : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TabScroll>
             <div style={{ fontSize: 11, color: '#888', marginTop: 10 }}>
               Návratnost = tržby z UKONČENÝCH zaplacených rezervací za vybrané období (bez přičítání dárkových poukazů) / pořizovací cena (hrubá, bez odečtu nákladů).
               Roční tempo a odhad splacení se počítají z reálné doby provozu motorky — od data pořízení (bez něj od první rezervace), nejdéle po dnešek.

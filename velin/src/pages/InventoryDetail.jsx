@@ -113,9 +113,10 @@ export default function InventoryDetail() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-5">
-        <button onClick={() => navigate('/sklady')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
-        <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{item.name}</h2>
+      {/* mobil/tablet: hlavička se zalamuje, šipka zpět s dotykovým cílem 40 px */}
+      <div className="flex items-center gap-3 mb-5 max-lg:flex-wrap max-lg:gap-x-2 max-lg:gap-y-1">
+        <button onClick={() => navigate('/sklady')} className="cursor-pointer max-lg:min-w-[40px] max-lg:min-h-[40px] max-lg:-ml-2" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
+        <h2 className="font-extrabold text-lg max-lg:flex-1 max-lg:min-w-0 max-sm:basis-[calc(100%_-_52px)] max-lg:[overflow-wrap:anywhere]" style={{ color: '#0f1a14' }}>{item.name}</h2>
         <SkuTag sku={item.sku} />
         <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
           style={{ padding: '4px 10px', background: isLow ? '#fee2e2' : '#dcfce7', color: isLow ? '#dc2626' : '#1a8a18' }}>
@@ -134,7 +135,7 @@ export default function InventoryDetail() {
 
       {tab === 'Info' && (
         <Card>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Název" value={item.name} onChange={v => set('name', v)} />
             <Field label="SKU" value={item.sku} onChange={v => set('sku', v)} />
             <div>
@@ -168,11 +169,11 @@ export default function InventoryDetail() {
           {movements.length === 0 ? <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné pohyby</p> : (
             <div className="space-y-3">
               {movements.map(m => (
-                <div key={m.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
+                <div key={m.id} className="flex items-center gap-4 p-3 rounded-lg max-lg:gap-3" style={{ background: '#f1faf7' }}>
                   <MovementBadge type={m.type} />
-                  <div className="flex-1">
+                  <div className="flex-1 max-lg:min-w-0">
                     <span className="text-sm font-bold">{m.note || '—'}</span>
-                    <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>
+                    <span className="text-sm ml-3 max-lg:block max-lg:ml-0 max-lg:mt-0.5" style={{ color: '#1a2e22' }}>
                       {m.created_at ? new Date(m.created_at).toLocaleDateString('cs-CZ') : '—'}
                     </span>
                   </div>

@@ -100,8 +100,8 @@ export function CreateApiKeyModal({ onClose, onCreated }) {
             {error && <div style={{ marginTop: 12, padding: 10, background: '#fecaca', color: '#991b1b', borderRadius: 8, fontSize: 12 }}>{error}</div>}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
-              <button onClick={onClose} disabled={saving} style={btnSecondary}>Zrušit</button>
-              <button onClick={save} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.5 : 1 }}>
+              <button className="max-lg:min-h-[40px]" onClick={onClose} disabled={saving} style={btnSecondary}>Zrušit</button>
+              <button className="max-lg:min-h-[40px]" onClick={save} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.5 : 1 }}>
                 {saving ? 'Vytvářím...' : 'Vytvořit klíč'}
               </button>
             </div>
@@ -121,7 +121,7 @@ export function CreateApiKeyModal({ onClose, onCreated }) {
                   borderRadius: 8, fontSize: 12, fontFamily: 'monospace',
                   wordBreak: 'break-all', maxHeight: 80, overflow: 'auto',
                 }}>{createdKey.api_key}</code>
-                <button onClick={copyKey} style={{ ...btnPrimary, minWidth: 100 }}>
+                <button className="max-lg:min-h-[40px]" onClick={copyKey} style={{ ...btnPrimary, minWidth: 100 }}>
                   {copied ? '✓ Zkopírováno' : 'Zkopírovat'}
                 </button>
               </div>
@@ -136,7 +136,7 @@ export function CreateApiKeyModal({ onClose, onCreated }) {
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
-              <button onClick={onClose} style={btnPrimary}>Hotovo</button>
+              <button className="max-lg:min-h-[40px]" onClick={onClose} style={btnPrimary}>Hotovo</button>
             </div>
           </>
         )}
@@ -180,8 +180,8 @@ export function RevokeApiKeyConfirm({ apiKey, onClose, onRevoked }) {
         {error && <div style={{ marginTop: 12, padding: 10, background: '#fecaca', color: '#991b1b', borderRadius: 8, fontSize: 12 }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} disabled={saving} style={btnSecondary}>Zrušit</button>
-          <button onClick={revoke} disabled={saving} style={{ ...btnPrimary, background: '#dc2626', color: '#fff', opacity: saving ? 0.5 : 1 }}>
+          <button className="max-lg:min-h-[40px]" onClick={onClose} disabled={saving} style={btnSecondary}>Zrušit</button>
+          <button className="max-lg:min-h-[40px]" onClick={revoke} disabled={saving} style={{ ...btnPrimary, background: '#dc2626', color: '#fff', opacity: saving ? 0.5 : 1 }}>
             {saving ? 'Revokuji...' : 'Zneplatnit'}
           </button>
         </div>

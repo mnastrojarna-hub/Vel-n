@@ -19,6 +19,7 @@ import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts'
 import { CreateApiKeyModal, RevokeApiKeyConfirm } from './ApiKeyModals'
 import { useTableSort, sortRows } from '../../components/sortableTable'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const PERIODS = [
   { id: '7d',  label: '7 dní',  ms: 7  * 24 * 3600 * 1000 },
@@ -85,6 +86,7 @@ export default function AiTraffic() {
   const [showAddCitation, setShowAddCitation] = useState(false)
   const [showCreateKey, setShowCreateKey] = useState(false)
   const [revokeKey, setRevokeKey] = useState(null)
+  const isMobile = useIsMobile() // < 1024 px: vyšší koláč, ať se popisky výsečí neořežou / nepřekryjí legendu
   const PARTNER_COLUMNS = [
     { label: 'Partner', key: 'partner_name', str: true },
     { label: 'E-mail', key: 'partner_email', str: true },
@@ -183,7 +185,7 @@ export default function AiTraffic() {
         <div className="flex gap-2">
           {PERIODS.map(p => (
             <button key={p.id} onClick={() => setPeriod(p.id)}
-              className="rounded-btn text-xs font-bold cursor-pointer"
+              className="rounded-btn text-xs font-bold cursor-pointer max-lg:min-h-[40px]"
               style={{ padding: '6px 14px', background: period === p.id ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none' }}>
               {p.label}
             </button>
@@ -218,7 +220,7 @@ export default function AiTraffic() {
         <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5' }}>
           <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>Rozpad podle zdroje</h3>
           {sourcePieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={isMobile ? 270 : 220}>
               <PieChart>
                 <Pie data={sourcePieData} dataKey="value" nameKey="name" outerRadius={80} label>
                   {sourcePieData.map((d, i) => <Cell key={i} fill={d.color} />)}
@@ -244,15 +246,16 @@ export default function AiTraffic() {
         </div>
       </div>
 
-      {/* Partners (API keys) */}
-      <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5', marginBottom: 20 }}>
-        <div className="flex justify-between items-center mb-3">
+      {/* Partners (API keys) — telefon i tablet: řádky jako karty (mg-stack-tab, ať je Revoke
+          vždy vidět), obal bez bílé karty; desktop beze změny */}
+      <div className="mg-stack-wrap-tab p-0 lg:p-4 lg:border lg:border-[#e3e8e5]" style={{ background: '#fff', borderRadius: 14, marginBottom: 20 }}>
+        <div className="flex justify-between items-center mb-3 max-lg:gap-3">
           <div>
             <h3 className="font-extrabold text-sm" style={{ color: '#1a2e22' }}>API partneři</h3>
             <p style={{ color: '#888', fontSize: 11 }}>REST API klíče s rate-limity per partner. Klíč v plain textu se zobrazí pouze 1× při vytvoření.</p>
           </div>
           <button onClick={() => setShowCreateKey(true)}
-            className="rounded-btn text-xs font-bold cursor-pointer"
+            className="rounded-btn text-xs font-bold cursor-pointer max-lg:whitespace-nowrap max-lg:shrink-0 max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>
             + Nový API klíč
           </button>
@@ -260,8 +263,8 @@ export default function AiTraffic() {
         {partners.length === 0 ? (
           <p style={{ color: '#888', fontSize: 13 }}>Žádní partneři. Klíč vytvoříš tlačítkem nahoře nebo přes RPC <code>create_api_key()</code>.</p>
         ) : (
-          <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <div className="lg:overflow-x-auto">
+          <table className="w-full text-xs mg-stack mg-stack-tab">
             <thead>
               <tr style={{ borderBottom: '1px solid #e3e8e5', textAlign: 'left' }}>
                 {PARTNER_COLUMNS.map(c => (
@@ -278,7 +281,7 @@ export default function AiTraffic() {
             <tbody>
               {sortRows(partners, PARTNER_COLUMNS, partnerSort.sort).map(p => (
                 <tr key={p.id} style={{ borderBottom: '1px solid #f1f1f1' }}>
-                  <td className="p-2 font-bold" style={{ color: '#1a2e22' }}>{p.partner_name}</td>
+                  <td className="p-2 font-bold mg-stack-full" style={{ color: '#1a2e22' }}>{p.partner_name}</td>
                   <td className="p-2">{p.partner_email}</td>
                   <td className="p-2"><code style={{ background: '#f1faf7', padding: '2px 6px', borderRadius: 4, fontSize: 10 }}>{p.key_prefix}…</code></td>
                   <td className="p-2 text-right">{p.rate_limit_rpm}</td>
@@ -292,9 +295,9 @@ export default function AiTraffic() {
                       color: p.is_active && !p.revoked_at ? '#166534' : '#991b1b',
                     }}>{p.is_active && !p.revoked_at ? 'Aktivní' : 'Revokovaný'}</span>
                   </td>
-                  <td className="p-2">
+                  <td className="p-2 mg-stack-full">
                     {p.is_active && !p.revoked_at && (
-                      <button onClick={() => setRevokeKey(p)}
+                      <button onClick={() => setRevokeKey(p)} className="max-lg:min-h-[40px]"
                         style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
                         title="Zneplatnit klíč">Revoke</button>
                     )}
@@ -329,7 +332,7 @@ export default function AiTraffic() {
             <tbody>
               {sortRows(topPathsList, PATH_COLUMNS, pathSort.sort).map(([ep, c]) => (
                 <tr key={ep || 'unknown'}>
-                  <td className="p-2"><code style={{ background: '#f1faf7', padding: '2px 6px', borderRadius: 4 }}>{ep || '—'}</code></td>
+                  <td className="p-2"><code className="max-lg:break-all" style={{ background: '#f1faf7', padding: '2px 6px', borderRadius: 4 }}>{ep || '—'}</code></td>
                   <td className="p-2 text-right font-bold" style={{ color: '#1a2e22' }}>{c.toLocaleString('cs-CZ')}</td>
                 </tr>
               ))}
@@ -338,15 +341,15 @@ export default function AiTraffic() {
         )}
       </div>
 
-      {/* Citations (manual log) */}
-      <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5' }}>
-        <div className="flex justify-between items-center mb-3">
+      {/* Citations (manual log) — telefon: řádky jako karty (mg-stack) */}
+      <div className="mg-stack-wrap p-0 md:p-4 md:border md:border-[#e3e8e5]" style={{ background: '#fff', borderRadius: 14 }}>
+        <div className="flex justify-between items-center mb-3 max-lg:gap-3">
           <div>
             <h3 className="font-extrabold text-sm" style={{ color: '#1a2e22' }}>Citation tracking</h3>
             <p style={{ color: '#888', fontSize: 11 }}>Manuální log "kde nás zmínil ChatGPT/Claude/Perplexity"</p>
           </div>
           <button onClick={() => setShowAddCitation(s => !s)}
-            className="rounded-btn text-xs font-bold cursor-pointer"
+            className="rounded-btn text-xs font-bold cursor-pointer max-lg:whitespace-nowrap max-lg:shrink-0 max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>
             {showAddCitation ? 'Zavřít' : '+ Přidat citation'}
           </button>
@@ -357,8 +360,8 @@ export default function AiTraffic() {
         {citations.length === 0 ? (
           <p style={{ color: '#888', fontSize: 13, marginTop: 10 }}>Žádné záznamy. Když najdeš zmínku MotoGo24 v AI odpovědi, ulož ji pro tracking trendů.</p>
         ) : (
-          <div className="overflow-x-auto">
-          <table className="w-full text-xs mt-3">
+          <div className="md:overflow-x-auto">
+          <table className="w-full text-xs mt-3 mg-stack">
             <thead>
               <tr style={{ borderBottom: '1px solid #e3e8e5', textAlign: 'left' }}>
                 {CITATION_COLUMNS.map(cc => (
@@ -444,7 +447,7 @@ function AddCitationForm({ onSaved }) {
           style={{ padding: 8, borderRadius: 8, border: '1px solid #d4e8e0', fontSize: 12, gridColumn: '1 / -1', resize: 'vertical' }} />
       </div>
       <button onClick={save} disabled={saving || !form.query}
-        className="rounded-btn text-xs font-bold cursor-pointer mt-2"
+        className="rounded-btn text-xs font-bold cursor-pointer mt-2 max-lg:min-h-[40px]"
         style={{ padding: '8px 18px', background: '#74FB71', color: '#1a2e22', border: 'none', opacity: saving || !form.query ? 0.5 : 1 }}>
         {saving ? 'Ukládám...' : 'Uložit'}
       </button>

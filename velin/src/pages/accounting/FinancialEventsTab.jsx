@@ -10,6 +10,7 @@ import Pagination from '../../components/ui/Pagination'
 import EventEditModal from './EventEditModal'
 import EvRow from './FinancialEventRow'
 import { StatCard } from './FinancialEventDetail'
+import { TAB2, TOUCH_BTNS } from './FinanceBStack'
 import {
   PER_PAGE, STATUS_MAP, TYPE_MAP, SOURCE_LABELS, DOC_TYPE_MAP,
   CATEGORY_LABELS, ALL_STATUSES, ALL_TYPES, ALL_SOURCES, ALL_DOC_TYPES,
@@ -150,7 +151,7 @@ export default function FinancialEventsTab() {
 
   return (
     <div>
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <StatCard label="Čekající ke schválení" value={stats.pending} color="#b45309" />
         <StatCard label="Připraveno k exportu" value={stats.validated} color="#2563eb" />
         <StatCard label="Schváleno" value={stats.approved} color="#1a8a18" />
@@ -160,30 +161,33 @@ export default function FinancialEventsTab() {
       {stats.approved > 0 && <div className="mb-4"><Button green onClick={pushAllApprovedToFlexi} disabled={bulkPushing}>{bulkPushing ? 'Odesilam...' : `Poslat vse do Flexi (${stats.approved})`}</Button></div>}
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex items-center gap-1 flex-wrap rounded-btn" style={{ padding: '4px 10px', background: statusFilter.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+        <div className="flex items-center gap-1 flex-wrap rounded-btn max-md:w-full" style={{ padding: '4px 10px', background: statusFilter.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
           <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>Status:</span>
           {ALL_STATUSES.map(st => { const m = STATUS_MAP[st]; return (
-            <label key={st} className="flex items-center gap-1 cursor-pointer" style={{ padding: '3px 6px', borderRadius: 6, background: statusFilter.includes(st) ? '#74FB71' : 'transparent' }}>
+            <label key={st} className="flex items-center gap-1 cursor-pointer max-lg:min-h-[34px]" style={{ padding: '3px 6px', borderRadius: 6, background: statusFilter.includes(st) ? '#74FB71' : 'transparent' }}>
               <input type="checkbox" checked={statusFilter.includes(st)} onChange={() => toggleStatus(st)} className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
               <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{m.label}</span>
             </label>
           ) })}
         </div>
-        <select value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value) }} className="rounded-btn text-sm outline-none" style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+        <select value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value) }} className="rounded-btn text-sm outline-none max-md:flex-1 max-md:min-w-[140px]" style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <option value="">Všechny typy</option>
           {ALL_TYPES.map(t => <option key={t} value={t}>{TYPE_MAP[t]?.label || t}</option>)}
         </select>
-        <select value={sourceFilter} onChange={e => { setPage(1); setSourceFilter(e.target.value) }} className="rounded-btn text-sm outline-none" style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+        <select value={sourceFilter} onChange={e => { setPage(1); setSourceFilter(e.target.value) }} className="rounded-btn text-sm outline-none max-md:flex-1 max-md:min-w-[140px]" style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <option value="">Všechny zdroje</option>
           {ALL_SOURCES.map(s => <option key={s} value={s}>{SOURCE_LABELS[s]}</option>)}
         </select>
-        <select value={docTypeFilter} onChange={e => { setPage(1); setDocTypeFilter(e.target.value) }} className="rounded-btn text-sm outline-none" style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+        <select value={docTypeFilter} onChange={e => { setPage(1); setDocTypeFilter(e.target.value) }} className="rounded-btn text-sm outline-none max-md:flex-1 max-md:min-w-[140px]" style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <option value="">Všechny doklady</option>
           {ALL_DOC_TYPES.map(dt => <option key={dt} value={dt}>{DOC_TYPE_MAP[dt].label}</option>)}
         </select>
-        <input type="date" value={dateFrom} onChange={e => { setPage(1); setDateFrom(e.target.value) }} className="rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+        {/* mobil/tablet: obě data drží pohromadě (telefon přes celou šířku); desktop display:contents = beze změny */}
+        <div className="contents max-lg:flex max-lg:items-center max-lg:gap-3 max-md:w-full">
+        <input type="date" value={dateFrom} onChange={e => { setPage(1); setDateFrom(e.target.value) }} className="rounded-btn text-sm outline-none max-md:flex-1 max-md:min-w-0" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
         <span className="text-sm font-bold" style={{ color: '#6b7280' }}>{'\u2013'}</span>
-        <input type="date" value={dateTo} onChange={e => { setPage(1); setDateTo(e.target.value) }} className="rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+        <input type="date" value={dateTo} onChange={e => { setPage(1); setDateTo(e.target.value) }} className="rounded-btn text-sm outline-none max-md:flex-1 max-md:min-w-0" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+        </div>
         {(statusFilter.length > 0 || typeFilter || sourceFilter || docTypeFilter || dateFrom || dateTo) && (
           <button onClick={() => { setPage(1); setStatusFilter([]); setTypeFilter(''); setSourceFilter(''); setDocTypeFilter(''); setDateFrom(''); setDateTo('') }} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>Reset</button>
         )}
@@ -205,7 +209,7 @@ export default function FinancialEventsTab() {
             ], events.filter(e => selectedIds.has(e.id))) },
             { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} finančních událostí (i navázané závazky)?', onClick: async () => { await bulkDelete('financial_events', [...selectedIds], 'fin_events_bulk_deleted'); setSelectedIds(new Set()); load() } },
           ]} />
-          <Table>
+          <Table stack="tablet" className={`${TAB2} ${TOUCH_BTNS}`}>
             <thead><TRow header>
               <TH><SelectAllCheckbox items={events} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
               <TH>Datum</TH><TH>Typ</TH><TH>Doklad</TH><TH>Dodavatel</TH><TH>Částka</TH><TH>AI kategorie</TH><TH>Status</TH><TH>Akce</TH>
@@ -227,7 +231,7 @@ export default function FinancialEventsTab() {
                     selectedIds={selectedIds} setSelectedIds={setSelectedIds} />
                 )
               })}
-              {events.length === 0 && <TRow><TD>Žádné financni události</TD></TRow>}
+              {events.length === 0 && <TRow><TD label="" className="mg-stack-full">Žádné financni události</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

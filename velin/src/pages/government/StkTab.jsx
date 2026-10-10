@@ -76,7 +76,7 @@ export default function StkTab() {
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
 
   return (
-    <Table>
+    <Table stack>
       <thead>
         <TRow header>
           <TH>Motorka</TH><TH>SPZ</TH><TH>STK do</TH><TH>Dní do STK</TH><TH></TH>
@@ -93,7 +93,7 @@ export default function StkTab() {
               <TD>
                 {isEditing ? (
                   <input type="date" value={editVal} onChange={e => setEditVal(e.target.value)}
-                    className="rounded-btn text-sm outline-none"
+                    className="rounded-btn text-sm outline-none max-lg:!py-2"
                     style={{ padding: '4px 8px', background: '#fff', border: '1px solid #d4e8e0', width: 150 }} />
                 ) : (
                   m.stk_valid_until ? new Date(m.stk_valid_until).toLocaleDateString('cs-CZ') : '—'
@@ -108,15 +108,15 @@ export default function StkTab() {
                 {isEditing ? (
                   <div className="flex items-center gap-1">
                     <button onClick={() => saveStk(m.id)} disabled={saving === m.id}
-                      className="text-xs font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>
+                      className="text-xs font-bold cursor-pointer max-lg:py-2 max-lg:px-2" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>
                       {saving === m.id ? '…' : '✓ Uložit'}
                     </button>
                     <button onClick={() => setEditing(null)}
-                      className="text-xs cursor-pointer" style={{ color: '#6b7280', background: 'none', border: 'none' }}>✕</button>
+                      className="text-xs cursor-pointer max-lg:py-2 max-lg:px-3" style={{ color: '#6b7280', background: 'none', border: 'none' }}>✕</button>
                   </div>
                 ) : (
                   <button onClick={() => startEdit(m)}
-                    className="text-xs font-bold cursor-pointer"
+                    className="text-xs font-bold cursor-pointer max-lg:py-2 max-lg:px-2"
                     style={{ color: '#2563eb', background: 'none', border: 'none' }}>
                     Upravit
                   </button>
@@ -125,7 +125,7 @@ export default function StkTab() {
             </TRow>
           )
         })}
-        {motos.length === 0 && <TRow><TD colSpan={5}>Žádné motorky</TD></TRow>}
+        {motos.length === 0 && <TRow><TD colSpan={5} className="mg-stack-full">Žádné motorky</TD></TRow>}
       </tbody>
     </Table>
   )

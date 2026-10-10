@@ -10,6 +10,8 @@ import ImageUploader from '../../components/ui/ImageUploader'
 import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
 import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 import { autoTranslateRow } from '../../lib/autoTranslate'
+import { useIsMobile, useMediaQuery } from '../../hooks/useIsMobile'
+import ProductCardsMobile from './EshopProductCardsMobile'
 
 const PER_PAGE = 25
 
@@ -22,6 +24,8 @@ export default function ProductsTab() {
   const [detail, setDetail] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const isMobile = useIsMobile()
+  const isPhone = useMediaQuery('(max-width: 767px)') // telefon: hledání přes celou šířku
 
   useEffect(() => { load() }, [page, search])
 
@@ -89,7 +93,7 @@ export default function ProductsTab() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat produkt…" />
+        <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat produkt…" fullWidth={isPhone} />
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Přidat produkt</Button>
         </div>
@@ -100,6 +104,12 @@ export default function ProductsTab() {
       ) : (
         <>
           <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
+          {/* Telefon + tablet (< 1024 px): kompaktní karty (9 sloupců se nevejde, akce by byly mimo obraz); PC = tabulka beze změny */}
+          {isMobile ? (
+            <ProductCardsMobile products={products} selectedIds={selectedIds} setSelectedIds={setSelectedIds}
+              onEdit={setDetail} onToggle={toggleActive} onDelete={deleteProduct} fmt={fmt} totalStock={totalStock}
+              renderSizes={p => <SizesBreakdown product={p} />} />
+          ) : (
           <Table>
             <thead>
               <TRow header>
@@ -155,6 +165,7 @@ export default function ProductsTab() {
               {products.length === 0 && <TRow><TD colSpan={8}>Žádné produkty</TD></TRow>}
             </tbody>
           </Table>
+          )}
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
@@ -283,7 +294,7 @@ function ProductFormModal({ product, onClose, onSaved }) {
   return (
     <Modal open title={isEdit ? `Upravit: ${product.name}` : 'Nový produkt'} onClose={onClose} wide>
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><Label>Název produktu *</Label><Input value={form.name} onChange={v => set('name', v)} placeholder="Snapback čepice" /></div>
           <div><Label>SKU (kód)</Label><Input value={form.sku} onChange={v => set('sku', v)} placeholder="MG24-CAP-001" /></div>
         </div>

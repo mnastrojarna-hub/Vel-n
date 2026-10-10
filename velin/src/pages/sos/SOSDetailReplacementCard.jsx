@@ -26,7 +26,7 @@ export function DecisionCard({ incident, isActive, isMajor, isAccident, updateDe
           {isAccident && (
             <div className="mt-3">
               <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Zavinění: </span>
-              <div className="flex gap-2 mt-1">
+              <div className="flex gap-2 mt-1 max-sm:flex-wrap">
                 <button onClick={() => updateFault(true)}
                   className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                   style={{
@@ -66,7 +66,7 @@ export function MotoSelectorCard({ incident, isActive, isMajor, showMotoSelector
           </div>
           {!showMotoSelector ? (
             <button onClick={loadAvailableMotos}
-              className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+              className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
               style={{ padding: '8px 16px', background: '#2563eb', color: '#fff' }}>
               🏍️ Vybrat náhradní motorku
             </button>
@@ -93,7 +93,7 @@ export function MotoSelectorCard({ incident, isActive, isMajor, showMotoSelector
                 ))}
               </div>
               <button onClick={() => setShowMotoSelector(false)}
-                className="mt-2 rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                className="mt-2 rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '6px 12px', background: '#f1faf7', color: '#1a2e22' }}>
                 Zrušit
               </button>
@@ -232,7 +232,7 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
                 }
                 onRefresh?.()
               }}
-                className="mt-2 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                className="mt-2 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '8px 16px', background: '#dc2626', color: '#fff' }}>
                 🔄 Provést swap rezervací nyní
               </button>
@@ -243,7 +243,7 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
           {(incident.replacement_status === 'selecting' || incident.replacement_status === 'pending_payment') && (
             <div className="mt-3 flex gap-2">
               <button onClick={retriggerSosFab}
-                className="flex-1 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                className="flex-1 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '8px 12px', background: '#d97706', color: '#fff' }}>
                 🔔 Znovu vyvolat FAB v appce
               </button>
@@ -275,12 +275,12 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
                   />
                   <div className="flex gap-2">
                     <button onClick={() => { rejectReplacement(rejectReason); setShowRejectForm(false) }}
-                      className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                      className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                       style={{ padding: '8px 12px', background: '#dc2626', color: '#fff' }}>
                       Potvrdit zamítnutí
                     </button>
                     <button onClick={() => setShowRejectForm(false)}
-                      className="rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                      className="rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                       style={{ padding: '8px 12px', background: '#f1faf7', color: '#1a2e22' }}>
                       Zrušit
                     </button>
@@ -294,7 +294,7 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
           {incident.replacement_status === 'approved' && (
             <div className="mt-3 flex gap-2">
               <button onClick={() => updateReplacementStatus('dispatched')}
-                className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '8px 12px', background: '#2563eb', color: '#fff' }}>
                 Motorka na cestě
               </button>
@@ -303,7 +303,7 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
           {incident.replacement_status === 'dispatched' && (
             <div className="mt-3 flex gap-2">
               <button onClick={() => updateReplacementStatus('delivered')}
-                className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '8px 12px', background: '#1a8a18', color: '#fff' }}>
                 Doručeno zákazníkovi
               </button>

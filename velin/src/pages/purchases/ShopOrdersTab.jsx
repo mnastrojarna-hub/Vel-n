@@ -5,7 +5,9 @@ import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Pagination from '../../components/ui/Pagination'
 import SearchInput from '../../components/ui/SearchInput'
-import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import BulkActionsBar from '../../components/ui/BulkActionsBar'
+import { StackSelectAll, StackRowCheck } from './EshopStackChecks'
+import { useMediaQuery } from '../../hooks/useIsMobile'
 import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 import { NewShopOrderModal, ShopOrderDetail } from './ShopOrderModals'
 
@@ -31,6 +33,7 @@ export default function ShopOrdersTab() {
   const [detail, setDetail] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const isPhone = useMediaQuery('(max-width: 767px)') // telefon: hledání přes celou šířku
 
   useEffect(() => { load() }, [page, filters])
   useEffect(() => {
@@ -69,7 +72,7 @@ export default function ShopOrdersTab() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <SearchInput value={filters.search || ''} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat objednávku…" />
+        <SearchInput value={filters.search || ''} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat objednávku…" fullWidth={isPhone} />
         <CheckboxFilterGroup label="Stav" values={filters.statuses || []} onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }} options={STATUS_OPTIONS} />
         <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_shoporders_filters') }}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer" style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>Reset</button>
@@ -88,9 +91,10 @@ export default function ShopOrdersTab() {
       ) : (
         <>
           <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
-          <Table>
+          {/* stack = na telefonu karty místo tabulky (desktop beze změny) */}
+          <Table stack>
             <thead><TRow header>
-              <TH><SelectAllCheckbox items={orders} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
+              <TH><StackSelectAll items={orders} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
               <TH>Číslo</TH><TH>Zákazník</TH><TH>Datum</TH><TH>Celkem</TH><TH>Platba</TH><TH>Stav</TH>
             </TRow></thead>
             <tbody>
@@ -100,14 +104,14 @@ export default function ShopOrdersTab() {
                 return (
                   <tr key={o.id} onClick={() => setDetail(o)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                     style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(o.id) ? '#fef9c3' : undefined }}>
-                    <TD><RowCheckbox id={o.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
+                    <TD label=""><StackRowCheck id={o.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                     <TD mono bold>{o.order_number}</TD><TD>{o.customer_name || o.customer_email || '—'}</TD><TD>{fmtDate(o.created_at)}</TD><TD bold>{fmt(o.total)}</TD>
                     <TD><span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{ padding: '3px 8px', background: pc.bg, color: pc.color }}>{PAYMENT_LABELS[o.payment_status] || o.payment_status}</span></TD>
                     <TD><span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{ padding: '3px 8px', background: sc.bg, color: sc.color }}>{STATUS_LABELS[o.status] || o.status}</span></TD>
                   </tr>
                 )
               })}
-              {orders.length === 0 && <TRow><TD colSpan={7}>Žádné objednávky</TD></TRow>}
+              {orders.length === 0 && <TRow><TD colSpan={7} label="">Žádné objednávky</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -126,7 +130,7 @@ function CheckboxFilterGroup({ label, values, onChange, options }) {
     <div className="flex items-center gap-1 flex-wrap rounded-btn" style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
       {options.map(o => (
-        <label key={o.value} className="flex items-center gap-1 cursor-pointer" style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer max-lg:min-h-[34px]" style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
           <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)} className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
           <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
         </label>

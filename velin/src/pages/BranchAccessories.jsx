@@ -90,7 +90,7 @@ function TabAccessories({ accessories, loading, branchId, branchName, onRefresh 
           <div className="flex flex-wrap gap-2">
             {items.sort((a, b) => a.size.localeCompare(b.size, 'cs', { numeric: true })).map(item => (
               <div key={item.id}
-                className="flex items-center gap-2 rounded-lg cursor-pointer"
+                className="flex items-center gap-2 rounded-lg cursor-pointer max-lg:min-h-[40px]"
                 style={{ padding: '4px 10px', background: item.quantity > 0 ? '#f1faf7' : '#fff5f5', border: '1px solid #d4e8e0' }}
                 onClick={() => setEditItem(item)}>
                 <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{item.size}</span>
@@ -107,23 +107,23 @@ function TabAccessories({ accessories, loading, branchId, branchName, onRefresh 
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 max-lg:flex-wrap max-lg:gap-2">
         <div className="text-sm" style={{ color: '#1a2e22' }}>
           <strong>{accessories.length}</strong> typů, <strong>{totalItems}</strong> kusů celkem
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 max-lg:flex-wrap">
           <button onClick={() => setShowManageTypes(true)}
-            className="rounded-btn text-sm font-bold cursor-pointer border-none"
+            className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px] max-lg:whitespace-nowrap"
             style={{ padding: '5px 12px', background: '#f1faf7', color: '#1a2e22', border: '1px solid #d4e8e0' }}>
             Správa typů
           </button>
           <button onClick={() => setShowFillAll(true)} disabled={saving}
-            className="rounded-btn text-sm font-bold cursor-pointer border-none"
+            className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px] max-lg:whitespace-nowrap"
             style={{ padding: '5px 12px', background: '#dbeafe', color: '#2563eb' }}>
             Naplnit vše
           </button>
           <button onClick={() => setShowAdd(true)}
-            className="rounded-btn text-sm font-bold cursor-pointer border-none"
+            className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px] max-lg:whitespace-nowrap"
             style={{ padding: '5px 12px', background: '#1a2e22', color: '#74FB71' }}>
             + Přidat
           </button>
@@ -202,8 +202,8 @@ function AccessoryEditModal({ existing, branchId, branchName, accTypes, onSave, 
   const canSave = form.size && (delta <= 0 || (warehouseStock !== null && warehouseStock >= delta))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }}>
-      <div className="rounded-card" style={{ background: '#fff', padding: 24, minWidth: 320, maxWidth: 400 }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center max-lg:p-2" style={{ background: 'rgba(0,0,0,0.3)' }}>
+      <div className="rounded-card max-lg:max-h-[92dvh] max-lg:overflow-y-auto" style={{ background: '#fff', padding: 24, minWidth: 'min(320px, 100%)', maxWidth: 400 }}>
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>
           {existing ? 'Upravit příslušenství' : 'Přidat příslušenství'}
         </h3>
@@ -262,12 +262,12 @@ function AccessoryEditModal({ existing, branchId, branchName, accTypes, onSave, 
             </div>
           )}
         </div>
-        <div className="flex justify-between mt-4">
-          <div className="flex gap-2">
+        <div className="flex justify-between mt-4 max-lg:flex-wrap max-lg:gap-2">
+          <div className="flex gap-2 max-lg:flex-wrap">
             {existing && oldQty > 0 && !isConsumable && (
               <button onClick={() => onSave({ ...existing, quantity: 0 })}
                 disabled={saving}
-                className="rounded-btn text-sm font-bold cursor-pointer border-none"
+                className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
                 title={`Vrátí ${oldQty} ks do skladu`}
                 style={{ padding: '6px 14px', background: '#1d4ed8', color: '#fff' }}>
                 ↩ Vrátit vše do skladu ({oldQty} ks)
@@ -275,22 +275,22 @@ function AccessoryEditModal({ existing, branchId, branchName, accTypes, onSave, 
             )}
             {onDelete && (
               <button onClick={() => { onDelete(); onClose() }}
-                className="rounded-btn text-sm font-bold cursor-pointer border-none"
+                className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '6px 14px', background: '#fee2e2', color: '#dc2626' }}>
                 Smazat
               </button>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 max-lg:ml-auto">
             <button onClick={onClose}
-              className="rounded-btn text-sm font-bold cursor-pointer border-none"
+              className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
               style={{ padding: '6px 14px', background: '#f1faf7', color: '#1a2e22' }}>
               Zrušit
             </button>
             <button
               onClick={() => onSave({ id: existing?.id, type: form.type, size: form.size, quantity: form.quantity })}
               disabled={saving || !canSave}
-              className="rounded-btn text-sm font-bold cursor-pointer border-none"
+              className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
               style={{ padding: '6px 14px', background: '#1a2e22', color: '#74FB71', opacity: saving || !canSave ? 0.5 : 1 }}>
               {saving ? 'Ukládám...' : 'Uložit'}
             </button>

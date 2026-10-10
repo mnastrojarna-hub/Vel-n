@@ -4,11 +4,10 @@ import SkuTag from '../../components/ui/SkuTag'
 // (Sklady, Logistika → Sklad, Finance → Sklad). Desktop dál vykresluje tabulku v Inventory.jsx.
 
 const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
-const CAT_LABELS = { material: 'Materiál', inventory: 'Zboží', supplies: 'Spotřební materiál', prislusenstvi: 'Příslušenství' }
 
-function Info({ label, children, color, wide }) {
+function Info({ label, children, color, span2 }) {
   return (
-    <div style={{ minWidth: 0, gridColumn: wide ? '1 / -1' : undefined }}>
+    <div style={{ minWidth: 0, gridColumn: span2 ? 'span 2' : undefined }}>
       <div className="font-extrabold uppercase tracking-wide" style={{ fontSize: 11, color: '#4a6357' }}>{label}</div>
       <div style={{ fontSize: 13, fontWeight: 600, color: color || '#0f1a14', overflowWrap: 'anywhere' }}>{children}</div>
     </div>
@@ -61,12 +60,12 @@ export default function StockInventoryCards({ items, selectedIds, setSelectedIds
               <div onClick={e => e.stopPropagation()} style={{ marginTop: 6, fontSize: 13, overflowWrap: 'anywhere' }}>
                 <SkuTag sku={item.sku} />
               </div>
-              <div className="grid grid-cols-3" style={{ gap: '8px 12px', marginTop: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px 12px', marginTop: 10 }}>
                 <Info label="Sklad" color={isLow ? '#dc2626' : '#0f1a14'}><b>{item.stock ?? 0}</b></Info>
                 <Info label="Minimum">{item.min_stock ?? 0}</Info>
                 <Info label="Cena/ks">{item.unit_price ? fmt(item.unit_price) : '—'}</Info>
-                <Info label="Kategorie">{CAT_LABELS[item.category] || item.category || '—'}</Info>
-                <Info label="Dodavatel" wide>{item.suppliers?.name || '—'}</Info>
+                <Info label="Kategorie">{item.category || '—'}</Info>
+                <Info label="Dodavatel" span2>{item.suppliers?.name || '—'}</Info>
               </div>
               {canIssue && (
                 <button type="button" onClick={e => { e.stopPropagation(); onIssue(item) }}

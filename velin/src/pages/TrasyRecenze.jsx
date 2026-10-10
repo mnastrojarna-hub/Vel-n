@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import SearchInput from '../components/ui/SearchInput'
 import Button from '../components/ui/Button'
 import { SmallBtn } from './BranchHelpers'
+import { useMediaQuery } from '../hooks/useIsMobile'
 
 const FILTERS = [
   { id: 'all', label: 'Vše' },
@@ -34,6 +35,7 @@ export default function TrasyRecenze({ routes, onOpenRoute, onChanged }) {
   const [totals, setTotals] = useState(null)            // {count, comments, hidden, avg}
   const [confirm, setConfirm] = useState(null)          // recenze čekající na potvrzení smazání
   const reqId = useRef(0)                               // zahození odpovědí staršího dotazu
+  const isPhone = useMediaQuery('(max-width: 639px)')   // telefon: hledání přes celou šířku
 
   const routeById = useMemo(() => {
     const m = {}
@@ -172,11 +174,11 @@ export default function TrasyRecenze({ routes, onOpenRoute, onChanged }) {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Hledat trasu nebo text recenze…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Hledat trasu nebo text recenze…" fullWidth={isPhone} />
         <div className="flex gap-1 flex-wrap">
           {FILTERS.map(f => (
             <button key={f.id} onClick={() => setFilter(f.id)}
-              className="rounded-btn text-xs font-extrabold cursor-pointer"
+              className="rounded-btn text-xs font-extrabold cursor-pointer max-lg:min-h-[36px]"
               style={{
                 padding: '6px 12px', border: 'none',
                 background: filter === f.id ? '#74FB71' : '#f1faf7', color: '#1a2e22',
@@ -215,7 +217,7 @@ export default function TrasyRecenze({ routes, onOpenRoute, onChanged }) {
                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <button onClick={() => route && onOpenRoute?.(route)}
                         disabled={!route}
-                        className="text-sm font-extrabold truncate"
+                        className="text-sm font-extrabold truncate max-lg:min-h-[32px]"
                         title={route ? 'Otevřít trasu' : undefined}
                         style={{
                           background: 'none', border: 'none', padding: 0, maxWidth: 360,
@@ -249,7 +251,7 @@ export default function TrasyRecenze({ routes, onOpenRoute, onChanged }) {
                       ))}
                     </div>
                   )}
-                  <div className="flex gap-2 items-center">
+                  <div className="flex gap-2 items-center max-sm:flex-wrap max-lg:[&>button]:min-h-[36px]">
                     <SmallBtn color={isHidden ? '#1a8a18' : '#b45309'} onClick={() => toggleHidden(rev)}>
                       {isHidden ? 'Zobrazit' : 'Skrýt'}
                     </SmallBtn>

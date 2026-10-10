@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { calcBikeEconomicsReal, calcBikeEconomicsIdle } from '../../lib/fleetCalc'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
-import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY } from '../../components/sortableTable'
 
 const BRANCH_COLUMNS = [
   { label: 'Název', key: 'name', str: true },
@@ -188,32 +188,35 @@ export default function VykonPobocek() {
         ))}
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
-        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <SortableHeaderRow columns={has3mo ? BRANCH_COLUMNS : BRANCH_COLUMNS.filter(c => c.key !== 'classification')} sort={branchSort.sort} toggle={branchSort.toggle} />
-          </thead>
-          <tbody>
-            {sortRows(branchStats, BRANCH_COLUMNS, branchSort.sort).map(b => (
-              <tr key={b.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td className="py-2 px-3 font-semibold">{b.name}</td>
-                <td className="py-2 px-3">
-                  <span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{b.location || '—'}</span>
-                </td>
-                <td className="py-2 px-3">{Math.round(b.revenue).toLocaleString('cs-CZ')} Kč</td>
-                <td className="py-2 px-3">{Math.round(b.revenuePerMoto).toLocaleString('cs-CZ')} Kč</td>
-                <td className="py-2 px-3">{b.avgProfitPerBike != null ? `${Math.round(b.avgProfitPerBike).toLocaleString('cs-CZ')} Kč` : '—'}</td>
-                <td className="py-2 px-3">{b.reservationCount}</td>
-                <td className="py-2 px-3">{b.utilizationPct.toFixed(1)} %</td>
-                {has3mo && (
+      {/* Telefon: řádky jako karty (mg-stack), obal bez bílé karty a paddingu */}
+      <div className={STACK_WRAP} style={{ background: '#fff', borderRadius: 14, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+        <TabScroll>
+          <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
+            <thead>
+              <SortableHeaderRow columns={has3mo ? BRANCH_COLUMNS : BRANCH_COLUMNS.filter(c => c.key !== 'classification')} sort={branchSort.sort} toggle={branchSort.toggle} stickyFirst />
+            </thead>
+            <tbody>
+              {sortRows(branchStats, BRANCH_COLUMNS, branchSort.sort).map(b => (
+                <tr key={b.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td className={`py-2 px-3 font-semibold mg-stack-full ${TAB_STICKY}`}>{b.name}</td>
                   <td className="py-2 px-3">
-                    <span style={{ background: classColors[b.classification]?.bg, color: classColors[b.classification]?.color, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 700 }}>{b.classification}</span>
+                    <span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{b.location || '—'}</span>
                   </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <td className="py-2 px-3">{Math.round(b.revenue).toLocaleString('cs-CZ')} Kč</td>
+                  <td className="py-2 px-3">{Math.round(b.revenuePerMoto).toLocaleString('cs-CZ')} Kč</td>
+                  <td className="py-2 px-3">{b.avgProfitPerBike != null ? `${Math.round(b.avgProfitPerBike).toLocaleString('cs-CZ')} Kč` : '—'}</td>
+                  <td className="py-2 px-3">{b.reservationCount}</td>
+                  <td className="py-2 px-3">{b.utilizationPct.toFixed(1)} %</td>
+                  {has3mo && (
+                    <td className="py-2 px-3">
+                      <span style={{ background: classColors[b.classification]?.bg, color: classColors[b.classification]?.color, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 700 }}>{b.classification}</span>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TabScroll>
       </div>
 
       {!has3mo && <NoData />}
@@ -230,16 +233,16 @@ export default function VykonPobocek() {
         </ResponsiveContainer>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+      <div className={STACK_WRAP} style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
         <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Srovnání podle typu pobočky</div>
-        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+        <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <SortableHeaderRow columns={TYPE_COLUMNS} sort={typeSort.sort} toggle={typeSort.toggle} />
           </thead>
           <tbody>
             {sortRows(byType, TYPE_COLUMNS, typeSort.sort).map(t => (
               <tr key={t.type} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td className="py-2 px-3 font-semibold">{t.type}</td>
+                <td className="py-2 px-3 font-semibold mg-stack-full">{t.type}</td>
                 <td className="py-2 px-3">{t.count}</td>
                 <td className="py-2 px-3">{Math.round(t.avgRevenue).toLocaleString('cs-CZ')} Kč</td>
                 <td className="py-2 px-3">{t.avgUtilization.toFixed(1)} %</td>

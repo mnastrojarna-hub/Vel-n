@@ -404,7 +404,8 @@ export default function EmailTemplatesTab() {
                 style={{ padding: '4px 10px', background: cat.bg, color: cat.color }}>{cat.label}</span>
               <span className="text-sm" style={{ color: '#6b7280' }}>{grouped[cat.value].length} {grouped[cat.value].length === 1 ? 'šablona' : grouped[cat.value].length < 5 ? 'šablony' : 'šablon'}</span>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            {/* telefon 1 sloupec, tablet i desktop 2 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {grouped[cat.value].map(t => (
                 <TemplateCard key={t.id} template={t} onEdit={() => setEditing(t)} />
               ))}
@@ -458,7 +459,8 @@ function TemplateCard({ template, onEdit }) {
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-1">
+      {/* < 1024 px: název nad štítky (vedle sebe by se název smáčkl do úzkého sloupce) */}
+      <div className="flex flex-col items-start gap-1 lg:flex-row lg:items-center lg:justify-between lg:gap-0 mb-1">
         <h4 className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{template.name}</h4>
         <div className="flex items-center gap-1 flex-wrap">
           <Badge label={chanDef.label} color={chanDef.color} bg={chanDef.bg} />
@@ -488,14 +490,14 @@ function TemplateCard({ template, onEdit }) {
       {vars.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
           {vars.map(v => (
-            <span key={v} className="inline-block rounded-btn text-[9px] font-mono font-bold"
+            <span key={v} className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-mono font-bold"
               style={{ padding: '2px 6px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
               {`{{${v}}}`}
             </span>
           ))}
         </div>
       )}
-      <Button onClick={onEdit} style={{ padding: '4px 14px', fontSize: 13 }}>Upravit</Button>
+      <Button onClick={onEdit} className="max-lg:min-h-[40px]" style={{ padding: '4px 14px', fontSize: 13 }}>Upravit</Button>
     </Card>
   )
 }
@@ -509,7 +511,7 @@ function extractVars(content) {
 function SentEmailsTable({ emails }) {
   if (emails.length === 0) return <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné odeslané e-maily</p></Card>
   return (
-    <Table>
+    <Table stack="tablet">
       <thead><TRow header><TH>Příjemce</TH><TH>Šablona</TH><TH>Předmět</TH><TH>Stav</TH><TH>Datum</TH></TRow></thead>
       <tbody>
         {emails.map(e => {
@@ -741,7 +743,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       {testOk && <p className="mt-3 text-sm font-bold" style={{ color: '#1a8a18' }}>{testOk}</p>}
-      <div className="flex justify-between gap-3 mt-5">
+      <div className="flex flex-wrap lg:flex-nowrap justify-between gap-3 mt-5">
         <div className="flex gap-2">
           <Button onClick={() => setShowPreview(true)}>Náhled</Button>
           <Button onClick={handleTestSend} disabled={testing}>{testing ? 'Odesílám…' : 'Odeslat test'}</Button>
@@ -831,7 +833,7 @@ function FullEmailPreviewModal({ subject, bodyHtml, attachments, fromEmail, toEm
               )
             })}
           </div>
-          <div className="text-[10px] mt-2" style={{ color: '#6b7280' }}>
+          <div className="text-[10px] max-lg:text-xs mt-2" style={{ color: '#6b7280' }}>
             Klikni na přílohu pro náhled. V reálném e-mailu jsou tyto soubory generovány v okamžiku odeslání podle booking/order ID — zde zobrazujeme ukázkový obsah.
           </div>
         </div>

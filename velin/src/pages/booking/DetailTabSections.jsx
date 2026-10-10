@@ -366,7 +366,8 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
 
       {/* Místo + pojištění */}
       <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-        <div className="grid grid-cols-3 gap-3">
+        {/* Telefon (< 640 px): adresy pod sebou — ve 2 sloupcích se adresa i tlačítka mapy lámaly po slovech */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <AddressBlock label="Přistavení" method={booking.pickup_method} address={booking.pickup_address} branchName={branchName} lat={booking.pickup_lat} lng={booking.pickup_lng} fee={pickupFee} time={isLegacyNoPickupTime(booking.pickup_time) ? 'kdykoliv 1. den' : fmtTimeHM(booking.pickup_time)} />
           <AddressBlock label="Vrácení" method={booking.return_method} address={booking.return_address} branchName={branchName} lat={booking.return_lat} lng={booking.return_lng} fee={returnFee} time={fmtTimeHM(booking.return_time)} />
           <div className="rounded-lg p-3" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>

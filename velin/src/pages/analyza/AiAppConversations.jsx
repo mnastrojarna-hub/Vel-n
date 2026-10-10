@@ -123,7 +123,7 @@ export default function AiAppConversations() {
         <div className="flex gap-2 flex-wrap">
           {PERIODS.map(p => (
             <button key={p.id} onClick={() => setPeriod(p.id)}
-              className="rounded-btn text-xs font-bold cursor-pointer"
+              className="rounded-btn text-xs font-bold cursor-pointer max-lg:min-h-[40px]"
               style={{ padding: '6px 14px', background: period === p.id ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none' }}>
               {p.label}
             </button>
@@ -143,6 +143,7 @@ export default function AiAppConversations() {
           placeholder="Hledat v textu konverzace, jménu, emailu, booking ID..."
           value={search}
           onChange={e => setSearch(e.target.value)}
+          className="max-md:!basis-full"
           style={{ flex: '1 1 240px', padding: '6px 12px', borderRadius: 8, border: '1px solid #d4e8e0', fontSize: 13 }}
         />
       </div>
@@ -152,8 +153,10 @@ export default function AiAppConversations() {
           Žádné konverzace pro toto období / filtr.
         </div>
       ) : (
-        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e3e8e5', overflowX: 'auto' }}>
-          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+        // Telefon: konverzace jako karty (mg-stack), klik na kartu otevře detail; náhled zprávy
+        // je nahoře přes celou šířku (karta = flex sloupec, náhled order-first)
+        <div className="mg-stack-wrap md:border md:border-[#e3e8e5]" style={{ background: '#fff', borderRadius: 14, overflowX: 'auto' }}>
+          <table className="mg-stack" style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
             <thead style={{ background: '#f1faf7' }}>
               <tr style={{ textAlign: 'left' }}>
                 {CONV_COLUMNS.map(c => (
@@ -174,7 +177,7 @@ export default function AiAppConversations() {
                 })()
                 const prof = profiles[r.user_id] || {}
                 return (
-                  <tr key={r.id}
+                  <tr key={r.id} className="max-md:!flex max-md:!flex-col"
                     onClick={() => setSelected(r)}
                     style={{ cursor: 'pointer', borderTop: '1px solid #e3e8e5' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'}
@@ -188,7 +191,7 @@ export default function AiAppConversations() {
                     <td style={{ padding: '8px 12px', textAlign: 'center' }}>
                       {r.booking_id ? <span style={{ color: '#166534', fontWeight: 700 }}>✓</span> : <span style={{ color: '#ccc' }}>—</span>}
                     </td>
-                    <td style={{ padding: '8px 12px', color: '#444', maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <td className="mg-stack-full max-md:order-first max-md:font-semibold" style={{ padding: '8px 12px', color: '#444', maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {String(lastUserMsg ?? '').slice(0, 120)}
                     </td>
                   </tr>
@@ -227,13 +230,14 @@ function ConversationDrawer({ row, profile, onClose }) {
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
       <div
         onClick={e => e.stopPropagation()}
-        style={{ width: 'min(640px, 100vw)', height: '100vh', background: '#fff', overflowY: 'auto', boxShadow: '-12px 0 32px rgba(0,0,0,.2)' }}>
+        className="h-screen max-lg:h-[100dvh]"
+        style={{ width: 'min(640px, 100vw)', background: '#fff', overflowY: 'auto', boxShadow: '-12px 0 32px rgba(0,0,0,.2)' }}>
         <div style={{ position: 'sticky', top: 0, background: '#1a2e22', color: '#74FB71', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 1 }}>
           <div>
             <div style={{ fontSize: 11, opacity: .7, letterSpacing: '.5px' }}>ZÁKAZNÍK</div>
             <div style={{ fontSize: 13 }}>{profile?.full_name || profile?.email || row.user_id}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#74FB71', fontSize: 22, cursor: 'pointer' }}>✕</button>
+          <button onClick={onClose} className="max-lg:min-w-[40px] max-lg:min-h-[40px]" style={{ background: 'none', border: 'none', color: '#74FB71', fontSize: 22, cursor: 'pointer' }}>✕</button>
         </div>
 
         <div style={{ padding: 18 }}>

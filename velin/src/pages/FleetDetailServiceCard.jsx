@@ -182,7 +182,7 @@ export function ServiceScheduleCard({ moto, schedules, avgKm, kmStats, unitLabel
                   <span className="font-bold" style={{ color: overdue ? '#dc2626' : mergedWithWinter ? '#2563eb' : '#1a2e22' }}>
                     {planDate.toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' })}
                   </span>
-                  {!dbDate && !mergedWithWinter && <span title="Automatický odhad (Út/St bez rezervace)">~</span>}
+                  {!dbDate && !mergedWithWinter && <><span title="Automatický odhad (Út/St bez rezervace)">~</span><span className="lg:hidden">Automatický odhad (Út/St bez rezervace)</span></>}
                 </div>
               )}
             </div>
@@ -207,6 +207,8 @@ export function ServiceScheduleCard({ moto, schedules, avgKm, kmStats, unitLabel
                   {winterDate.toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' })}
                 </span>
                 <span title="Automatický odhad (Po–Pá bez rezervace)">~</span>
+                {/* Dotyk (< lg): význam „~“ z title vypsaný textem */}
+                <span className="lg:hidden">Automatický odhad (Po–Pá bez rezervace)</span>
               </div>
             </div>
           )

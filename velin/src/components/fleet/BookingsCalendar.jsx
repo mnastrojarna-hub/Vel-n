@@ -157,12 +157,15 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
             const day = i + 1
             const info = getDayInfo(day)
             const isService = info.type === 'service'
+            // Mobil: klepnutý den — outline (čárkovaný border nepotvrzených by zvýraznění přebil)
+            const tapped = isMobile && tapInfo?.day === day
             return (
               <div key={day} title={info.label} onClick={() => handleDayClick(day)} className="max-lg:!py-[10px]" style={{
                 textAlign: 'center', padding: '8px 2px', borderRadius: 8,
                 background: info.bg, color: info.color, fontSize: 12, fontWeight: 800,
                 cursor: isService ? 'pointer' : info.type === 'free' ? 'pointer' : 'default',
-                border: info.border || (isMobile && tapInfo?.day === day ? '2px solid #0f1a14' : 'none'),
+                border: info.border || 'none',
+                outline: tapped ? '2px solid #0f1a14' : undefined, outlineOffset: tapped ? 1 : undefined,
                 position: 'relative',
               }}>
                 {day}
@@ -223,10 +226,10 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
                     onClick={() => setExpandedLog(isOpen ? null : m)}
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#fef2f2', borderRadius: isOpen ? '10px 10px 0 0' : 10, cursor: 'pointer', fontSize: 12, border: '1px solid #fecaca' }}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 max-lg:flex-wrap max-lg:gap-y-0.5 max-lg:min-w-0">
                       <span style={{ fontWeight: 800, color: '#dc2626', transform: isOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform .2s', display: 'inline-block' }}>▶</span>
                       <span style={{ fontWeight: 700, color: '#991b1b' }}>{sType}</span>
-                      <span style={{ color: '#7f1d1d' }}>{dateFrom}{dateTo && dateTo !== dateFrom ? ` → ${dateTo}` : ''}</span>
+                      <span style={{ color: '#7f1d1d' }} className="max-lg:whitespace-nowrap">{dateFrom}{dateTo && dateTo !== dateFrom ? ` → ${dateTo}` : ''}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {m.completed_date
@@ -258,10 +261,10 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
                           <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servisní úkony</div>
                           <div className="space-y-1">
                             {items.map((item, idx) => (
-                              <div key={idx} className="flex items-center gap-2 p-2 rounded max-lg:flex-wrap" style={{ background: item.done ? '#dcfce7' : '#f9fafb', border: '1px solid ' + (item.done ? '#86efac' : '#e5e7eb'), fontSize: 13 }}>
+                              <div key={idx} className="flex items-center gap-2 p-2 rounded max-lg:flex-wrap max-lg:gap-y-0.5" style={{ background: item.done ? '#dcfce7' : '#f9fafb', border: '1px solid ' + (item.done ? '#86efac' : '#e5e7eb'), fontSize: 13 }}>
                                 <span style={{ color: item.done ? '#16a34a' : '#9ca3af', fontWeight: 700 }}>{item.done ? '✓' : '○'}</span>
-                                <span style={{ color: item.done ? '#16a34a' : '#374151', textDecoration: item.done ? 'line-through' : 'none' }}>{item.custom ? '✎ ' : ''}{item.label}</span>
-                                {item.note && <span style={{ color: '#6b7280', marginLeft: 8, fontStyle: 'italic' }}>— {item.note}</span>}
+                                <span style={{ color: item.done ? '#16a34a' : '#374151', textDecoration: item.done ? 'line-through' : 'none' }} className="max-lg:flex-1 max-lg:min-w-0">{item.custom ? '✎ ' : ''}{item.label}</span>
+                                {item.note && <span style={{ color: '#6b7280', marginLeft: 8, fontStyle: 'italic' }} className="max-lg:basis-full max-lg:!ml-[18px]">— {item.note}</span>}
                               </div>
                             ))}
                           </div>

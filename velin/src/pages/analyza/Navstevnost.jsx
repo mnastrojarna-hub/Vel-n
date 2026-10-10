@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { isRealizedBooking } from '../../lib/revenueUtils'
 import { useTableSort, sortRows } from '../../components/sortableTable'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend, CartesianGrid } from 'recharts'
 
 const GRANULARITIES = [
@@ -76,6 +77,7 @@ export default function Navstevnost() {
   const [allStats, setAllStats] = useState(null) // host = null (pro chipy domén + KPI když "vše")
   const [stats, setStats] = useState(null)       // aplikovaný host filtr
   const [biz, setBiz] = useState(null)           // reální zákazníci: rezervace + tržby za stejné období
+  const isMobile = useIsMobile()                 // < 1024 px: úzké karty grafů (popisky domén, koláč zařízení)
 
   useEffect(() => { loadData() }, [gran, custom, host])
   useEffect(() => { loadBiz() }, [gran, custom])
@@ -239,7 +241,7 @@ export default function Navstevnost() {
         <div className="flex gap-2 flex-wrap">
           {GRANULARITIES.map(g => (
             <button key={g.id} onClick={() => { setCustom({ from: '', to: '' }); setGran(g.id) }}
-              className="rounded-btn text-xs font-bold cursor-pointer"
+              className="rounded-btn text-xs font-bold cursor-pointer max-lg:min-h-[40px]"
               style={{ padding: '6px 14px', background: (!custom.from && gran === g.id) ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none' }}>
               {g.label}
             </button>
@@ -256,7 +258,7 @@ export default function Navstevnost() {
         <input type="date" value={custom.to} onChange={e => setCustom(c => ({ ...c, to: e.target.value }))}
           style={{ padding: '5px 9px', borderRadius: 8, border: '1px solid #d4e8e0', fontSize: 12, color: '#1a2e22' }} />
         {(custom.from || custom.to) && (
-          <button onClick={() => setCustom({ from: '', to: '' })}
+          <button onClick={() => setCustom({ from: '', to: '' })} className="max-lg:min-h-[40px] max-lg:px-2"
             style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
             Zrušit
           </button>
@@ -268,13 +270,13 @@ export default function Navstevnost() {
       <div className="flex items-center gap-2 mb-5 flex-wrap" style={{ background: '#fff', borderRadius: 12, padding: '10px 14px', border: '1px solid #e3e8e5' }}>
         <span className="text-xs font-bold uppercase" style={{ color: '#888', letterSpacing: 1 }}>Doména:</span>
         <button onClick={() => setHost(null)}
-          className="rounded-btn text-xs font-bold cursor-pointer"
+          className="rounded-btn text-xs font-bold cursor-pointer max-lg:min-h-[40px]"
           style={{ padding: '6px 14px', background: host === null ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none' }}>
           Všechny
         </button>
         {hostList.map(([h, c]) => (
           <button key={h} onClick={() => setHost(h)}
-            className="rounded-btn text-xs font-bold cursor-pointer"
+            className="rounded-btn text-xs font-bold cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', background: host === h ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none' }}>
             {h} <span style={{ color: host === h ? '#1a2e22' : '#999', fontWeight: 500 }}>({Number(c).toLocaleString('cs-CZ')})</span>
           </button>
@@ -360,7 +362,7 @@ export default function Navstevnost() {
             <table style={{ borderCollapse: 'separate', borderSpacing: 2, margin: '0 auto' }}>
               <thead>
                 <tr>
-                  <th style={{ width: 34 }} />
+                  <th className="max-lg:sticky max-lg:left-0 max-lg:bg-white" style={{ width: 34 }} />
                   {Array.from({ length: 24 }, (_, h) => (
                     <th key={h} style={{ fontSize: 9, color: '#aaa', fontWeight: 600, padding: 0, width: 20 }}>
                       {h % 3 === 0 ? String(h).padStart(2, '0') : ''}
@@ -371,7 +373,7 @@ export default function Navstevnost() {
               <tbody>
                 {[1, 2, 3, 4, 5, 6, 7].map(d => (
                   <tr key={d}>
-                    <td style={{ fontSize: 11, fontWeight: 700, color: '#1a2e22', textAlign: 'right', paddingRight: 6, whiteSpace: 'nowrap' }}>
+                    <td className="max-lg:sticky max-lg:left-0 max-lg:bg-white" style={{ fontSize: 11, fontWeight: 700, color: '#1a2e22', textAlign: 'right', paddingRight: 6, whiteSpace: 'nowrap' }}>
                       {DOW_LABELS[d]}
                     </td>
                     {Array.from({ length: 24 }, (_, h) => {
@@ -452,9 +454,10 @@ export default function Navstevnost() {
           <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>Návštěvnost dle domén</h3>
           {hostList.length === 0 ? <NoData /> : (
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={hostList.map(([h, c]) => ({ host: h, count: Number(c) }))} layout="vertical" margin={{ left: 20 }}>
+              {/* mobil/tablet: širší osa domén bez levého okraje — delší doména se jinak ořízne */}
+              <BarChart data={hostList.map(([h, c]) => ({ host: h, count: Number(c) }))} layout="vertical" margin={{ left: isMobile ? 0 : 20 }}>
                 <XAxis type="number" fontSize={10} allowDecimals={false} />
-                <YAxis type="category" dataKey="host" fontSize={10} width={110} />
+                <YAxis type="category" dataKey="host" fontSize={10} width={isMobile ? 150 : 110} />
                 <Tooltip />
                 <Bar dataKey="count" fill="#74FB71" radius={[0, 6, 6, 0]} />
               </BarChart>
@@ -489,7 +492,7 @@ export default function Navstevnost() {
         <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5' }}>
           <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>Zařízení</h3>
           {devicePie.length === 0 ? <NoData /> : (
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={isMobile ? 250 : 200}>
               <PieChart>
                 <Pie data={devicePie} dataKey="value" nameKey="name" outerRadius={70} label>
                   {devicePie.map((d, i) => <Cell key={i} fill={d.color} />)}
@@ -555,7 +558,7 @@ function ListCard({ title, hint, rows, mono, link }) {
           <tbody>
             {sorted.map(({ label, count }, i) => (
               <tr key={i} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                <td className="p-2" style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={label}>
+                <td className="p-2 max-lg:!whitespace-normal max-lg:break-all" style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={label}>
                   {mono
                     ? (link && /^https?:\/\//i.test(label)
                         ? <a href={label} target="_blank" rel="noopener noreferrer" style={{ color: '#1a8c1a' }}><code style={{ background: '#f1faf7', padding: '2px 6px', borderRadius: 4 }}>{label}</code></a>

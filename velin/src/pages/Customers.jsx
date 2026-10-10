@@ -180,9 +180,10 @@ export default function Customers() {
         <div className="mb-5 p-4 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Rozšířené filtry</span>
-            <button onClick={resetFilters} className="text-sm font-bold cursor-pointer underline" style={{ color: '#1a2e22' }}>Resetovat</button>
+            <button onClick={resetFilters} className="text-sm font-bold cursor-pointer underline max-lg:py-2" style={{ color: '#1a2e22' }}>Resetovat</button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Telefon: 2 sloupce, pole zarovnaná dolů (dvouřádkový popisek „Zdroj registrace" je nerozhodí) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-sm:items-end">
             <FilterField label="Město" value={filters.city} onChange={v => setF('city', v)} />
             <div>
               <FLabel>Země</FLabel>
@@ -325,7 +326,7 @@ function CheckboxFilterGroup({ label, values, onChange, options }) {
       style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
       {options.map(o => (
-        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer max-lg:min-h-[36px]"
           style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
           <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
             className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />

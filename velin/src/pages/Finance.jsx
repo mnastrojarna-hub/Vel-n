@@ -271,7 +271,7 @@ export default function Finance() {
               <button key={st.id} onClick={() => setAccountingSubTab(st.id)}
                 className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
                 style={{
-                  padding: '6px 14px',
+                  padding: isMobile ? '9px 14px' : '6px 14px',
                   background: accountingSubTab === st.id ? '#1a2e22' : '#f1faf7',
                   color: accountingSubTab === st.id ? '#74FB71' : '#1a2e22',
                   border: 'none',

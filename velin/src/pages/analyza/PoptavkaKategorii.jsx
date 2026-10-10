@@ -3,7 +3,9 @@ import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
-import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP } from '../../components/sortableTable'
+import { useMediaQuery } from '../../hooks/useIsMobile'
+import { PHONE_QUERY, sideLegend } from './AnalyzaWrapTick'
 
 const COLORS = ['#74FB71', '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d', '#0d3520', '#eab308', '#f59e0b', '#dc2626']
 
@@ -22,6 +24,7 @@ export default function PoptavkaKategorii() {
   const [raw, setRaw] = useState(null)
   const [period, setPeriod] = useState({ type: 'all' })
   const catSort = useTableSort(CAT_COLUMNS, { key: 'avgUtilization', dir: 'desc' })
+  const isPhone = useMediaQuery(PHONE_QUERY)
 
   useEffect(() => { loadData() }, [])
 
@@ -73,16 +76,17 @@ export default function PoptavkaKategorii() {
       <TimePeriodSelector value={period} onChange={setPeriod} />
       {completed.length === 0 && <div className="p-4 text-center mb-4" style={{ background: '#f3f4f6', borderRadius: 14, color: '#6b7280' }}>Žádné dokončené rezervace pro vybrané období</div>}
 
-      <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+      {/* Telefon: řádky jako karty (mg-stack) */}
+      <div className={STACK_WRAP} style={{ background: '#fff', borderRadius: 14, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
         <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Poptávka podle kategorií</div>
-        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+        <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <SortableHeaderRow columns={CAT_COLUMNS} sort={catSort.sort} toggle={catSort.toggle} />
           </thead>
           <tbody>
             {sortRows(catStats, CAT_COLUMNS, catSort.sort).map(c => (
               <tr key={c.category} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td className="py-2 px-3 font-semibold">{c.category}</td>
+                <td className="py-2 px-3 font-semibold mg-stack-full">{c.category}</td>
                 <td className="py-2 px-3">{c.motorcycleCount}</td>
                 <td className="py-2 px-3">{c.reservationCount}</td>
                 <td className="py-2 px-3">{c.avgUtilization.toFixed(1)} %</td>
@@ -97,13 +101,13 @@ export default function PoptavkaKategorii() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div style={{ background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
           <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Podíl revenue podle kategorie</div>
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={isPhone ? 310 : 260}>
             <PieChart>
               <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={100} paddingAngle={2}>
                 {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
               <Tooltip formatter={v => [`${Number(v).toLocaleString('cs-CZ')} Kč`, 'Revenue']} />
-              <Legend layout="vertical" align="right" verticalAlign="middle" />
+              <Legend {...sideLegend(isPhone)} />
             </PieChart>
           </ResponsiveContainer>
         </div>

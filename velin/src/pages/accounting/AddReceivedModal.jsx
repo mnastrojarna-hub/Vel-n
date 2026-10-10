@@ -100,7 +100,7 @@ export default function AddReceivedModal({ onClose, onSaved }) {
   return (
     <Modal open title="Nova přijatá faktura" onClose={onClose}>
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><Label>Číslo faktury *</Label><input value={form.number} onChange={e => set('number', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="FV-2026-0001" /></div>
           <div><Label>Datum vystaveni</Label><input type="date" value={form.issue_date} onChange={e => set('issue_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         </div>
@@ -117,19 +117,19 @@ export default function AddReceivedModal({ onClose, onSaved }) {
             </div>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><Label>ICO dodavatele</Label><input value={form.supplier_ico} onChange={e => set('supplier_ico', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
           <div><Label>Bankovni ucet</Label><input value={form.supplier_bank_account} onChange={e => set('supplier_bank_account', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><Label>Částka (Kč) *</Label><input type="number" value={form.total} onChange={e => set('total', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
           <div><Label>Variabilni symbol</Label><input value={form.variable_symbol} onChange={e => set('variable_symbol', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><Label>Splatnost</Label><input type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
           <div><Label>Zpusob platby</Label><select value={form.payment_method} onChange={e => set('payment_method', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>{PAYMENT_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}</select></div>
         </div>
-        <div><Label>Typ nakladu * {aiSuggested && <span style={{ color: '#7c3aed', fontWeight: 400, fontSize: 10 }}>(AI navrh)</span>}</Label>
+        <div><Label>Typ nakladu * {aiSuggested && <span className="text-[11px] lg:text-[10px]" style={{ color: '#7c3aed', fontWeight: 400 }}>(AI navrh)</span>}</Label>
           <select value={form.category} onChange={e => { set('category', e.target.value); setAiSuggested(false) }} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, borderColor: aiSuggested ? '#7c3aed' : '#d4e8e0' }}>
             {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>

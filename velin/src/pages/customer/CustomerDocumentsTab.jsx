@@ -314,14 +314,14 @@ export default function CustomerDocumentsTab({ userId }) {
           <div className="flex gap-1 max-lg:flex-wrap">
             {DOC_FILTER_OPTIONS.map(opt => (
               <button key={opt.value} onClick={() => { setTypeFilter(opt.value); setPage(1) }}
-                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
                 style={{ padding: '6px 14px', background: typeFilter === opt.value ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none', boxShadow: typeFilter === opt.value ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
                 {opt.label}
               </button>
             ))}
           </div>
           <select value={sortOrder} onChange={e => { setSortOrder(e.target.value); setPage(1) }}
-            className="rounded-btn text-sm font-bold outline-none cursor-pointer"
+            className="rounded-btn text-sm font-bold outline-none cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
             <option value="date_desc">Nejnovější</option>
             <option value="date_asc">Nejstarší</option>
@@ -365,8 +365,9 @@ export default function CustomerDocumentsTab({ userId }) {
       {viewDoc && (
         <Modal open title={viewDoc.number ? `Faktura ${viewDoc.number}` : (viewDoc.document_templates?.name || viewDoc.file_name || viewDoc.name || 'Dokument')} onClose={() => { setViewDoc(null); setViewHtml(null) }} wide>
           {viewHtml ? (
+            // < 1024 px: výška náhledu dle displeje (telefon na šířku), ať se patička s tlačítky vejde
             <div className="border rounded-lg overflow-auto" style={{ maxHeight: 600, background: '#fff' }}>
-              <iframe srcDoc={viewHtml} style={{ width: '100%', height: 550, border: 'none' }} title="Náhled dokumentu" />
+              <iframe srcDoc={viewHtml} className="h-[550px] max-lg:h-[min(550px,60dvh)]" style={{ width: '100%', border: 'none' }} title="Náhled dokumentu" />
             </div>
           ) : (
             <div className="py-8 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>Dokument nemá náhled.</div>
@@ -388,7 +389,7 @@ export default function CustomerDocumentsTab({ userId }) {
             </div>
           )}
           <div className="flex justify-center" style={{ background: '#0f1a14', padding: 12, borderRadius: 8 }}>
-            <img src={viewImage.url} alt="doklad" style={{ maxWidth: '100%', maxHeight: 600, borderRadius: 4 }} />
+            <img src={viewImage.url} alt="doklad" className="max-h-[600px] max-lg:max-h-[60dvh]" style={{ maxWidth: '100%', borderRadius: 4 }} />
           </div>
           <div className="flex justify-end gap-3 mt-4">
             <Button onClick={() => handleDownload({ kind: 'verification', raw: viewImage.doc })}>Stáhnout</Button>

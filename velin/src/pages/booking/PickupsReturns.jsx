@@ -353,7 +353,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
           <span className="text-base">➡️⬅️</span>
           <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#0f1a14' }}>Odjezdy a návraty</h3>
           <span className="inline-block rounded-full text-sm font-extrabold" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcoming.length}</span>
-          <span className="ml-auto text-sm font-bold" style={{ color: '#1a8a18' }}>Otevřít kalendář →</span>
+          <span className="ml-auto text-sm font-bold max-lg:whitespace-nowrap" style={{ color: '#1a8a18' }}>Otevřít kalendář →</span>
         </div>
         {loading ? (
           <div className="py-6 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>

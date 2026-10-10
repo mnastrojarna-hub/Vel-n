@@ -43,10 +43,12 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
     }}>
       <Card>
         <div className="flex items-start gap-3">
-          <div className="text-2xl">{typeIcon}</div>
+          {/* Telefon: ikona v řádku nadpisu (sloupec ikony by ubral šířku obsahu a akcím) */}
+          <div className="text-2xl max-sm:hidden">{typeIcon}</div>
           <div className="flex-1 min-w-0">
             {/* Nadpis + kategorie */}
             <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="sm:hidden text-xl leading-none" aria-hidden="true">{typeIcon}</span>
               <span className="inline-block rounded-btn text-[9px] max-lg:text-xs font-extrabold tracking-wider uppercase"
                 style={{ padding: '3px 10px', background: typeCat.bg, color: typeCat.color, letterSpacing: '0.08em' }}>
                 {typeCat.label}
@@ -195,7 +197,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                     <a href={mapyLinkUrl(inc.latitude, inc.longitude)}
                       target="_blank" rel="noopener noreferrer"
                       onClick={e => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 ml-2 text-sm font-bold px-2 py-0.5 max-lg:py-1.5 rounded-btn"
+                      className="inline-flex items-center gap-1 ml-2 text-sm font-bold px-2 py-0.5 max-lg:py-1.5 max-lg:min-h-[36px] rounded-btn"
                       style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
                       Mapy.cz ↗
                     </a>
@@ -207,7 +209,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                   <a href={mapyLinkUrl(inc.latitude, inc.longitude)}
                     target="_blank" rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
-                    className="inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 max-lg:py-1.5 rounded-btn"
+                    className="inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 max-lg:py-1.5 max-lg:min-h-[36px] rounded-btn"
                     style={{ background: '#f1faf7', color: '#1a2e22', textDecoration: 'none' }}>
                     Mapy.cz
                   </a>

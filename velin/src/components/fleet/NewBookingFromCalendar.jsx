@@ -254,7 +254,7 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
                   <div className="text-sm" style={{ color: '#1a2e22' }}>{selectedCustomer.email}</div>
                   {selectedCustomer.phone && <div className="text-sm" style={{ color: '#1a2e22' }}>{selectedCustomer.phone}</div>}
                   <button onClick={() => { setSelectedCustomer(null); setCustomerSearch('') }}
-                    className="text-sm font-bold cursor-pointer mt-1" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Změnit</button>
+                    className="text-sm font-bold cursor-pointer mt-1 max-lg:min-h-[36px] max-lg:pr-3" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Změnit</button>
                 </div>
               ) : (
                 <div>

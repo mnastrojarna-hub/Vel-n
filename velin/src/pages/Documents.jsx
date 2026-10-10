@@ -16,12 +16,13 @@ export default function Documents() {
 
   return (
     <div>
-      <div className="flex gap-2 mb-5">
+      {/* Mobil/tablet (< 1024 px): záložky se zalamují do řádků (všechny vidět, nic nepřečnívá); desktop beze změny */}
+      <div className="flex flex-wrap lg:flex-nowrap gap-2 mb-5">
         {TABS.map(t => (
           <button
             key={t}
             onClick={() => { debugLog('tab.switch', 'Documents', { tab: t }); setTab(t) }}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px] max-lg:whitespace-nowrap"
             style={{
               padding: '8px 18px',
               background: tab === t ? '#74FB71' : '#f1faf7',

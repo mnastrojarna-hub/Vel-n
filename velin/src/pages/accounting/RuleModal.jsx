@@ -51,15 +51,15 @@ export default function RuleModal({ rule, onClose, onSaved }) {
     <Modal open title={rule ? 'Upravit pravidlo' : 'Nove automaticke pravidlo'} onClose={onClose} wide>
       <div className="space-y-3">
         <div><Label>Typ triggeru</Label>
-          <div className="flex gap-2">
+          <div className="flex gap-2 max-lg:flex-wrap">
             {[{ v: 'stock_low', l: 'Nizky sklad' }, { v: 'interval', l: 'Pravidelny interval' }, { v: 'manual', l: 'Jednorazova' }].map(t => (
               <button key={t.v} onClick={() => set('trigger_type', t.v)}
-                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
                 style={{ padding: '6px 14px', background: form.trigger_type === t.v ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none' }}>{t.l}</button>
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><Label>Skladova položka</Label>
             <select value={form.inventory_item_id} onChange={e => set('inventory_item_id', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
               <option value="">— Vyberte —</option>

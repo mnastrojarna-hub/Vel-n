@@ -8,6 +8,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
 import { useDebugMode } from '../../hooks/useDebugMode'
+import { ROWS_WHITE } from './FinanceAStack'
 
 const PER_PAGE = 25
 const defaultFilters = { search: '', types: [], sort: 'date_desc' }
@@ -64,7 +65,8 @@ export default function CashRegisterTab() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
+      {/* Mobil/tablet: filtry se zalamují (desktop beze změny) */}
+      <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 mb-4">
         <input type="text" value={filters.search} onChange={e => { setPage(1); setFilters(f => ({ ...f, search: e.target.value })) }}
           placeholder="Hledat popis…"
           className="rounded-btn text-sm outline-none"
@@ -109,7 +111,7 @@ export default function CashRegisterTab() {
             ], entries.filter(e => selectedIds.has(e.id))) },
             { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} pokladních záznamů?', onClick: async () => { await bulkDelete('cash_register', [...selectedIds], 'cash_register_bulk_deleted'); setSelectedIds(new Set()); load() } },
           ]} />
-          <Table>
+          <Table stack className={ROWS_WHITE}>
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={entries} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
@@ -140,7 +142,7 @@ export default function CashRegisterTab() {
                   <TD bold>{fmt(e.balance)}</TD>
                 </TRow>
               ))}
-              {entries.length === 0 && <TRow><TD>Žádné záznamy</TD></TRow>}
+              {entries.length === 0 && <TRow><TD label="">Žádné záznamy</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

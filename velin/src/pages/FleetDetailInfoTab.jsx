@@ -29,6 +29,9 @@ function derivePrimaryLicense(groups) {
   return g[0]
 }
 
+// Vysvětlivka k volbě Vozík (desktop: title, dotyk: text pod volbou)
+const TRAILER_HINT = 'Tento kus je vozík/přívěs — půjde přidat jako příslušenství „Vozík“ k rezervaci jiné motorky (web 400 Kč/den, app zdarma). Nabízí se JEN u motorek z obslužné pobočky — samoobslužná vozík nevydává.'
+
 // Parametry, které lze zobrazit v "Krátkém popisu" na detailu motorky na webu.
 // Klíče odpovídají větvím switch() v motogo-web-php/pages/katalog-detail.php.
 const SHORT_DESC_FIELDS = [
@@ -334,19 +337,21 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
             })()}
             <p className="text-xs mt-1" style={{ color: '#5b7065' }}>Web i appka motorku zobrazí každému, kdo má alespoň jednu z vybraných skupin. Např. skútr: A1 + B, přívěs: B.</p>
           </div>
-          <div className="flex items-center gap-6 max-lg:flex-wrap max-lg:gap-y-3">
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div className="flex items-center gap-6 max-lg:flex-wrap max-lg:gap-y-1">
+            <label className="flex items-center gap-2 cursor-pointer max-lg:min-h-[36px]">
               <input type="checkbox" checked={moto.has_abs || false} onChange={e => set('has_abs', e.target.checked)} />
               <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>ABS</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-2 cursor-pointer max-lg:min-h-[36px]">
               <input type="checkbox" checked={moto.has_asc || false} onChange={e => set('has_asc', e.target.checked)} />
               <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>ASC</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer" title="Tento kus je vozík/přívěs — půjde přidat jako příslušenství „Vozík“ k rezervaci jiné motorky (web 400 Kč/den, app zdarma). Nabízí se JEN u motorek z obslužné pobočky — samoobslužná vozík nevydává.">
+            <label className="flex items-center gap-2 cursor-pointer max-lg:min-h-[36px]" title={TRAILER_HINT}>
               <input type="checkbox" checked={moto.is_trailer || false} onChange={e => set('is_trailer', e.target.checked)} />
               <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Vozík (lze přidat jako příslušenství)</span>
             </label>
+            {/* Dotyk (< lg): vysvětlivka z title (bez myši nedostupná) jako text pod volbami */}
+            <p className="lg:hidden basis-full text-xs" style={{ color: '#5b7065' }}>{TRAILER_HINT}</p>
           </div>
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pobočka</label>
@@ -400,7 +405,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
                 const arr = Array.isArray(moto.short_desc_fields) ? moto.short_desc_fields : []
                 const sel = arr.includes(o.key)
                 return (
-                  <label key={o.key} className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: '#1a2e22' }}>
+                  <label key={o.key} className="flex items-center gap-2 cursor-pointer text-sm max-lg:min-h-[36px]" style={{ color: '#1a2e22' }}>
                     <input type="checkbox" checked={sel} onChange={e => set('short_desc_fields', e.target.checked ? [...arr, o.key] : arr.filter(k => k !== o.key))} />
                     <span>{o.label}</span>
                   </label>

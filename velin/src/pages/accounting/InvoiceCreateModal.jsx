@@ -4,6 +4,8 @@ import { debugLog, debugError } from '../../lib/debugLog'
 import { createInvoice, calculateTotals, renderAndStoreInvoicePdf, generateInvoiceNumber } from '../../lib/invoiceUtils'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
+import { useMediaQuery } from '../../hooks/useIsMobile'
+import FinanceAInvoiceItemsMobile from './FinanceAInvoiceItemsMobile'
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 
@@ -39,6 +41,7 @@ const REASON_PRESETS = [
 const today = () => new Date().toISOString().slice(0, 10)
 
 export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking }) {
+  const isPhone = useMediaQuery('(max-width: 639px)')
   const [customers, setCustomers] = useState([])
   const [bookings, setBookings] = useState([])
   const [inventory, setInventory] = useState([])
@@ -264,7 +267,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
         </div>
 
         {/* Zákazník + Rezervace (s vyhledáváním) */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label>Zákazník *</Label>
             <SearchableSelect value={form.customer_id} onChange={v => set('customer_id', v)} placeholder="Hledat zákazníka…"
@@ -284,7 +287,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
             className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="Např. oprava poškození, pozdní vrácení…" />
           <div className="flex flex-wrap gap-1 mt-2">
             {REASON_PRESETS.map(p => (
-              <button key={p} onClick={() => applyPreset(p)} className="text-sm cursor-pointer rounded-btn"
+              <button key={p} onClick={() => applyPreset(p)} className="text-sm cursor-pointer rounded-btn max-lg:min-h-[34px]"
                 style={{ padding: '3px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>{p}</button>
             ))}
           </div>
@@ -295,15 +298,17 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
           <div className="flex items-center justify-between mb-1">
             <Label>Položky faktury</Label>
             <div className="relative">
-              <button onClick={() => setShowStock(s => !s)} className="text-sm font-bold cursor-pointer rounded-btn"
+              <button onClick={() => setShowStock(s => !s)} className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[36px]"
                 style={{ padding: '4px 12px', background: '#e8fde8', border: '1px solid #74FB71', color: '#1a2e22' }}>+ Ze skladu</button>
               {showStock && (
-                <div className="absolute right-0 z-20 mt-1" style={{ width: 340 }}>
+                <div className="absolute right-0 z-20 mt-1" style={{ width: 'min(340px, calc(100vw - 48px))' }}>
                   <StockPicker inventory={inventory} onPick={addStockItem} onClose={() => setShowStock(false)} />
                 </div>
               )}
             </div>
           </div>
+          {/* Telefon: položky jako karty (úzká tabulka by popis stlačila na pár px) */}
+          {isPhone ? <FinanceAInvoiceItemsMobile items={items} updateItem={updateItem} removeItem={removeItem} /> : (
           <div className="rounded-lg overflow-x-auto" style={{ border: '1px solid #d4e8e0' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
@@ -334,14 +339,15 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
                     </td>
                     <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>{((it.unit_price || 0) * (it.qty || 1)).toLocaleString('cs-CZ')} Kč</td>
                     <td style={{ padding: 4 }}>
-                      {items.length > 1 && <button onClick={() => removeItem(i)} className="cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: 14 }}>✕</button>}
+                      {items.length > 1 && <button onClick={() => removeItem(i)} className="cursor-pointer max-lg:min-w-[32px] max-lg:min-h-[32px]" style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: 14 }}>✕</button>}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <button onClick={addItem} className="mt-2 text-sm font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#2563eb' }}>+ Přidat položku ručně</button>
+          )}
+          <button onClick={addItem} className="mt-2 text-sm font-bold cursor-pointer max-lg:min-h-[36px]" style={{ background: 'none', border: 'none', color: '#2563eb' }}>+ Přidat položku ručně</button>
         </div>
 
         {/* Odpočet záloh / přijatých plateb (ZF / DP) — pro doklad „K úhradě 0 Kč" */}
@@ -356,11 +362,11 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
                 const active = items.some(it => it.deduct_id === inv.id)
                 const label = DEDUCT_LABEL[inv.type] || 'Doklad'
                 return (
-                  <div key={inv.id} className="flex items-center justify-between rounded-btn" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }}>
+                  <div key={inv.id} className="flex items-center justify-between rounded-btn max-lg:flex-wrap max-lg:gap-2" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }}>
                     <span className="text-sm" style={{ color: '#0f1a14' }}>
                       <strong>{label}</strong> {inv.number} — {fmt(Number(inv.total) || 0)}
                     </span>
-                    <button onClick={() => toggleDeduction(inv)} className="text-sm font-bold cursor-pointer rounded-btn"
+                    <button onClick={() => toggleDeduction(inv)} className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[36px]"
                       style={{ padding: '4px 12px', border: '1px solid', borderColor: active ? '#dc2626' : '#74FB71',
                         background: active ? '#fee2e2' : '#e8fde8', color: active ? '#dc2626' : '#1a2e22' }}>
                       {active ? '− Zrušit odpočet' : '+ Odečíst'}
@@ -393,7 +399,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
         </div>
 
         {/* Platba + data */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <Label>Způsob platby</Label>
             <select value={form.payment_method} onChange={e => set('payment_method', e.target.value)}
@@ -413,7 +419,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
               className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <Label>Datum vystavení</Label>
             <input type="date" value={form.issue_date} onChange={e => set('issue_date', e.target.value)}

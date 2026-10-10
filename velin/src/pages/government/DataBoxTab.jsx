@@ -126,7 +126,7 @@ export default function DataBoxTab() {
           {result.instructions && (
             <div className="text-sm mt-1" style={{ color: '#92400e' }}>{result.instructions}</div>
           )}
-          <button onClick={() => setResult(null)} className="text-sm mt-2 underline cursor-pointer" style={{ color: '#166534', background: 'none', border: 'none' }}>Zavřít</button>
+          <button onClick={() => setResult(null)} className="text-sm mt-2 underline cursor-pointer max-lg:py-2 max-lg:pr-3" style={{ color: '#166534', background: 'none', border: 'none' }}>Zavřít</button>
         </Card>
       )}
 
@@ -142,7 +142,7 @@ export default function DataBoxTab() {
         ) : reports.length === 0 ? (
           <p className="text-sm py-2" style={{ color: '#6b7280' }}>Žádné schválené výkazy. Schvalte je nejdřív v záložce Státní správa → Výkazy a přiznání.</p>
         ) : (
-          <Table>
+          <Table stack>
             <thead>
               <TRow header>
                 <TH>Výkaz</TH>
@@ -160,7 +160,7 @@ export default function DataBoxTab() {
                   <TD>
                     <button onClick={() => setConfirmReport(r)}
                       disabled={sending === r.id}
-                      className="rounded-btn text-xs font-bold cursor-pointer"
+                      className="rounded-btn text-xs font-bold cursor-pointer max-lg:!py-2.5 max-lg:!px-4"
                       style={{ padding: '4px 12px', background: '#2563eb', border: 'none', color: '#fff' }}>
                       {sending === r.id ? 'Odesílám...' : 'Odeslat datovkou'}
                     </button>
@@ -178,7 +178,7 @@ export default function DataBoxTab() {
           <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>
             Odeslané výkazy
           </h3>
-          <Table>
+          <Table stack>
             <thead>
               <TRow header>
                 <TH>Výkaz</TH>

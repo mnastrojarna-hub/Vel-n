@@ -8,7 +8,9 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
-import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import BulkActionsBar from '../../components/ui/BulkActionsBar'
+import { StackSelectAll, StackRowCheck } from './EshopStackChecks'
+import { useMediaQuery } from '../../hooks/useIsMobile'
 import { exportToCsv, bulkDelete } from '../../lib/bulkActions'
 
 const PER_PAGE = 25
@@ -32,6 +34,7 @@ export default function SuppliersTab() {
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState(null)
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const isPhone = useMediaQuery('(max-width: 767px)') // telefon: hledání přes celou šířku
 
   useEffect(() => { load() }, [page, filters])
 
@@ -65,7 +68,7 @@ export default function SuppliersTab() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat dodavatele…" />
+        <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat dodavatele…" fullWidth={isPhone} />
         {filters.search && (
           <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_suppliers_filters') }}
             className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
@@ -95,10 +98,11 @@ export default function SuppliersTab() {
       ) : (
         <>
           <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
-          <Table>
+          {/* stack = na telefonu karty místo tabulky (desktop beze změny) */}
+          <Table stack>
             <thead>
               <TRow header>
-                <TH><SelectAllCheckbox items={suppliers} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
+                <TH><StackSelectAll items={suppliers} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Název</TH><TH>IČO</TH><TH>Kontakt</TH><TH>Email</TH><TH>Kategorie</TH>
               </TRow>
             </thead>
@@ -106,7 +110,7 @@ export default function SuppliersTab() {
               {suppliers.map(s => (
                 <tr key={s.id} onClick={() => setEditing(s)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                   style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(s.id) ? '#fef9c3' : undefined }}>
-                  <TD><RowCheckbox id={s.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
+                  <TD label=""><StackRowCheck id={s.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                   <TD bold>{s.name}</TD>
                   <TD mono>{s.ico || '—'}</TD>
                   <TD>{s.contact_person || '—'}</TD>
@@ -118,7 +122,7 @@ export default function SuppliersTab() {
                   </TD>
                 </tr>
               ))}
-              {suppliers.length === 0 && <TRow><TD>Žádní dodavatelé</TD></TRow>}
+              {suppliers.length === 0 && <TRow><TD label="">Žádní dodavatelé</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -161,13 +165,14 @@ function SupplierModal({ entry, onClose, onSaved }) {
 
   return (
     <Modal open title={entry ? 'Upravit dodavatele' : 'Nový dodavatel'} onClose={onClose}>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2"><Label>Název</Label><input value={form.name} onChange={e => set('name', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+      {/* telefon: 1 sloupec (sm: = od 640 px původní 2 sloupce) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2"><Label>Název</Label><input value={form.name} onChange={e => set('name', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>IČO</Label><input value={form.ico} onChange={e => set('ico', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Kategorie</Label><input value={form.category} onChange={e => set('category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Kontaktní osoba</Label><input value={form.contact_person} onChange={e => set('contact_person', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Telefon</Label><input value={form.phone} onChange={e => set('phone', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div className="col-span-2"><Label>Email</Label><input type="email" value={form.email} onChange={e => set('email', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div className="sm:col-span-2"><Label>Email</Label><input type="email" value={form.email} onChange={e => set('email', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">

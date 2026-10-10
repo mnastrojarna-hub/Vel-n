@@ -5,7 +5,7 @@ import { CATEGORY_LABELS, ASSET_TYPE_LABELS, PAYMENT_LABELS, DOC_TYPE_MAP, SOURC
 export function MiniLabel({ label, value, mono }) {
   return (
     <div className="mb-1">
-      <span className="text-[9px] font-extrabold uppercase tracking-wide" style={{ color: '#6b7280' }}>{label}: </span>
+      <span className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide" style={{ color: '#6b7280' }}>{label}: </span>
       <span className={`text-sm font-bold ${mono ? 'font-mono' : ''}`} style={{ color: '#1a2e22' }}>{value}</span>
     </div>
   )
@@ -14,7 +14,7 @@ export function MiniLabel({ label, value, mono }) {
 export function StatCard({ label, value, color }) {
   return (
     <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-lg font-extrabold" style={{ color }}>{value}</div>
     </div>
   )
@@ -47,7 +47,7 @@ export default function EventDetail({ event }) {
     <div className="flex flex-wrap gap-6">
       {storagePath && (
         <div style={{ minWidth: 200, maxWidth: 300 }}>
-          <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#2563eb' }}>Doklad</div>
+          <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#2563eb' }}>Doklad</div>
           {photoLoading ? (
             <div className="text-sm" style={{ color: '#6b7280' }}>Nacitam...</div>
           ) : photoUrl ? (
@@ -61,7 +61,7 @@ export default function EventDetail({ event }) {
       )}
 
       <div>
-        <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Dokladova data</div>
+        <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Dokladova data</div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-1">
           <MiniLabel label="Dodavatel" value={meta.supplier_name || '\u2014'} />
           <MiniLabel label="ICO" value={meta.supplier_ico || '\u2014'} mono />
@@ -76,7 +76,7 @@ export default function EventDetail({ event }) {
         </div>
         {Array.isArray(meta.line_items) && meta.line_items.length > 0 && (
           <div className="mt-2">
-            <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#6b7280' }}>Polo\u017eky{meta.source_language && meta.source_language !== 'cs' ? ' (orig \u2192 CZ)' : ''}</div>
+            <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#6b7280' }}>Polo\u017eky{meta.source_language && meta.source_language !== 'cs' ? ' (orig \u2192 CZ)' : ''}</div>
             <div className="flex flex-col gap-0.5" style={{ maxWidth: 460 }}>
               {meta.line_items.slice(0, 12).map((it, i) => (
                 <div key={i} className="text-xs flex justify-between gap-3" style={{ color: '#1a2e22' }}>
@@ -91,7 +91,7 @@ export default function EventDetail({ event }) {
 
       {ai && (
         <div>
-          <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#7c3aed' }}>AI klasifikace</div>
+          <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#7c3aed' }}>AI klasifikace</div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1">
             <MiniLabel label="Kategorie" value={CATEGORY_LABELS[ai.category] || ai.category || '\u2014'} />
             <MiniLabel label="Ucet" value={ai.suggested_account || '\u2014'} mono />
@@ -103,7 +103,7 @@ export default function EventDetail({ event }) {
 
       {assetCls && (
         <div>
-          <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#b45309' }}>Majetek a odpisy</div>
+          <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#b45309' }}>Majetek a odpisy</div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1">
             <MiniLabel label="Typ majetku" value={ASSET_TYPE_LABELS[assetCls] || assetCls} />
             {ai?.asset_name && <MiniLabel label="Položka" value={ai.asset_name} />}
@@ -127,7 +127,7 @@ export default function EventDetail({ event }) {
 
       {(event.document_type || event.metadata?.document_type) && (
         <div>
-          <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#0891b2' }}>Typ dokladu & smerovani</div>
+          <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#0891b2' }}>Typ dokladu & smerovani</div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1">
             <MiniLabel label="Typ dokladu" value={(DOC_TYPE_MAP[event.document_type || event.metadata?.document_type] || DOC_TYPE_MAP.other).label} />
             <MiniLabel label="Smerovano do" value={(DOC_TYPE_MAP[event.document_type || event.metadata?.document_type] || DOC_TYPE_MAP.other).route || '\u2014'} />
@@ -137,7 +137,7 @@ export default function EventDetail({ event }) {
       )}
 
       <div>
-        <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#6b7280' }}>Info</div>
+        <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#6b7280' }}>Info</div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-1">
           <MiniLabel label="ID" value={event.id?.slice(0, 8)} mono />
           <MiniLabel label="Confidence" value={event.confidence_score != null ? `${(event.confidence_score * 100).toFixed(0)}%` : '\u2014'} />

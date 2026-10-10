@@ -20,7 +20,7 @@ export default function AiConversations() {
         <h2 className="text-xl font-extrabold" style={{ color: '#1a2e22', marginRight: 8 }}>AI konverzace</h2>
         {SOURCES.map(s => (
           <button key={s.id} onClick={() => setSource(s.id)}
-            className="rounded-btn text-xs font-bold cursor-pointer"
+            className="rounded-btn text-xs font-bold cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', background: source === s.id ? '#1a2e22' : '#f1faf7', color: source === s.id ? '#74FB71' : '#1a2e22', border: 'none' }}>
             {s.label}
           </button>

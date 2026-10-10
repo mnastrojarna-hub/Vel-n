@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
-import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY, stickyStripe } from '../../components/sortableTable'
 import NavratnostKapitalu from './NavratnostKapitalu'
 import RezervaceDnyTydne from './RezervaceDnyTydne'
 
@@ -148,40 +148,43 @@ export default function VykonMotorek() {
       {completed.length === 0 && <div className="p-4 text-center mb-4" style={{ background: '#f3f4f6', borderRadius: 14, color: '#6b7280' }}>Žádné dokončené rezervace pro vybrané období</div>}
 
       {/* Ranking table */}
-      <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+      {/* Telefon: řádky jako karty (mg-stack), obal bez bílé karty a paddingu */}
+      <div className={STACK_WRAP} style={{ background: '#fff', borderRadius: 14, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
         <div className="font-bold" style={{ color: '#1a2e22' }}>Ranking motorek podle zisku na 1 km</div>
         <div className="mb-3" style={{ fontSize: 11, color: '#888' }}>Revenue = pouze UKONČENÉ zaplacené rezervace (dle zvoleného období), bez přičítání dárkových poukazů. Zisk na 1 km se počítá vždy CELKOVĚ: celkové tržby motorky z ukončených rezervací / celkový nájezd (aktuální km dle posledního předávacího protokolu − km při nákupu). Kliknutím na záhlaví sloupce seřadíš sestupně, dalším klikem vzestupně; motorky bez hodnoty jsou vždy na konci.</div>
-        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <SortableHeaderRow columns={RANK_COLUMNS} sort={rankSort.sort} toggle={rankSort.toggle} />
-          </thead>
-          <tbody>
-            {sortedMotoStats.map((m, i) => (
-              <tr key={m.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent' }}>
-                <td className="py-2 px-3 font-semibold">{m.model}</td>
-                <td className="py-2 px-3">{m.brand || '—'}</td>
-                <td className="py-2 px-3">{m.category || '—'}</td>
-                <td className="py-2 px-3">{m.branchName}</td>
-                <td className="py-2 px-3">{m.reservationCount}</td>
-                <td className="py-2 px-3">{m.rentedDays}</td>
-                <td className="py-2 px-3">{m.avgDaysPerReservation.toFixed(1)}</td>
-                <td className="py-2 px-3">{Math.round(m.revenue).toLocaleString('cs-CZ')} Kč</td>
-                <td className="py-2 px-3">{m.kmDriven > 0 ? `${Math.round(m.kmDriven).toLocaleString('cs-CZ')} ${m.kmUnit}` : '—'}</td>
-                <td className="py-2 px-3 font-semibold" style={{ color: '#166534' }}>{m.revenuePerKm != null ? `${m.revenuePerKm.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} Kč` : '—'}</td>
-                <td className="py-2 px-3">{m.revenuePerKm != null ? `${Math.round(m.revenuePerKm * 100).toLocaleString('cs-CZ')} Kč` : '—'}</td>
-                <td className="py-2 px-3" style={{ minWidth: 120 }}>
-                  <div className="flex items-center gap-2">
-                    <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#e5e7eb' }}>
-                      <div style={{ width: `${Math.min(m.utilizationIndex, 100)}%`, height: '100%', borderRadius: 4, background: '#74FB71' }} />
+        <TabScroll>
+          <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
+            <thead>
+              <SortableHeaderRow columns={RANK_COLUMNS} sort={rankSort.sort} toggle={rankSort.toggle} stickyFirst />
+            </thead>
+            <tbody>
+              {sortedMotoStats.map((m, i) => (
+                <tr key={m.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : undefined }}>
+                  <td className={`py-2 px-3 font-semibold mg-stack-full ${TAB_STICKY}`} style={stickyStripe(i)}>{m.model}</td>
+                  <td className="py-2 px-3">{m.brand || '—'}</td>
+                  <td className="py-2 px-3">{m.category || '—'}</td>
+                  <td className="py-2 px-3">{m.branchName}</td>
+                  <td className="py-2 px-3">{m.reservationCount}</td>
+                  <td className="py-2 px-3">{m.rentedDays}</td>
+                  <td className="py-2 px-3">{m.avgDaysPerReservation.toFixed(1)}</td>
+                  <td className="py-2 px-3">{Math.round(m.revenue).toLocaleString('cs-CZ')} Kč</td>
+                  <td className="py-2 px-3">{m.kmDriven > 0 ? `${Math.round(m.kmDriven).toLocaleString('cs-CZ')} ${m.kmUnit}` : '—'}</td>
+                  <td className="py-2 px-3 font-semibold" style={{ color: '#166534' }}>{m.revenuePerKm != null ? `${m.revenuePerKm.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} Kč` : '—'}</td>
+                  <td className="py-2 px-3">{m.revenuePerKm != null ? `${Math.round(m.revenuePerKm * 100).toLocaleString('cs-CZ')} Kč` : '—'}</td>
+                  <td className="py-2 px-3" style={{ minWidth: 120 }}>
+                    <div className="flex items-center gap-2">
+                      <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#e5e7eb' }}>
+                        <div style={{ width: `${Math.min(m.utilizationIndex, 100)}%`, height: '100%', borderRadius: 4, background: '#74FB71' }} />
+                      </div>
+                      <span style={{ fontSize: 11, minWidth: 40 }}>{m.utilizationIndex.toFixed(1)}%</span>
                     </div>
-                    <span style={{ fontSize: 11, minWidth: 40 }}>{m.utilizationIndex.toFixed(1)}%</span>
-                  </div>
-                </td>
-                <td className="py-2 px-3">{Math.round(m.avgDailyRate).toLocaleString('cs-CZ')} Kč</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </td>
+                  <td className="py-2 px-3">{Math.round(m.avgDailyRate).toLocaleString('cs-CZ')} Kč</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TabScroll>
       </div>
 
       {/* Výjezdy dle dne v týdnu — vždy za celou dobu fungování */}
@@ -192,9 +195,9 @@ export default function VykonMotorek() {
 
       {/* Brand table - only show conclusions if enough data */}
       {has3mo ? (
-        <div style={{ background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+        <div className={STACK_WRAP} style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
           <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Výkon značek</div>
-          <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+          <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <SortableHeaderRow columns={BRAND_COLUMNS} sort={brandSort.sort} toggle={brandSort.toggle} />
             </thead>
@@ -204,12 +207,12 @@ export default function VykonMotorek() {
                 const dotColor = sc > 0.6 ? '#22c55e' : sc >= 0.3 ? '#eab308' : '#dc2626'
                 return (
                   <tr key={b.brand} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td className="py-2 px-3 font-semibold">{b.brand}</td>
+                    <td className="py-2 px-3 font-semibold mg-stack-full">{b.brand}</td>
                     <td className="py-2 px-3">{b.count}</td>
                     <td className="py-2 px-3">{b.avgUtilization.toFixed(1)} %</td>
                     <td className="py-2 px-3">{Math.round(b.revenuePerMoto).toLocaleString('cs-CZ')} Kč</td>
                     <td className="py-2 px-3">
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-2 max-md:justify-end">
                         <span style={{ width: 10, height: 10, borderRadius: '50%', background: dotColor, display: 'inline-block' }} />
                         {sc.toFixed(2)}
                       </span>

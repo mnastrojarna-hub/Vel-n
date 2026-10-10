@@ -60,11 +60,12 @@ export function VoucherModal({ open, existing, onClose, onSaved }) {
 
   return (
     <Modal open noBackdropClose title={isEdit ? `Upravit: ${existing?.code}` : 'Nový dárkový poukaz'} onClose={onClose}>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2">
+      {/* telefon: 1 sloupec (sm: = od 640 px původní 2 sloupce) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2">
           <Label>Kód poukazu</Label>
           <div className="flex gap-2">
-            <input value={form.code} onChange={e => set('code', e.target.value.toUpperCase())} className="flex-1 rounded-btn text-sm outline-none font-mono" style={inputStyle} placeholder="MGXXXXXX" disabled={isEdit} />
+            <input value={form.code} onChange={e => set('code', e.target.value.toUpperCase())} className="flex-1 rounded-btn text-sm outline-none font-mono max-sm:min-w-0" style={inputStyle} placeholder="MGXXXXXX" disabled={isEdit} />
             {!isEdit && <button onClick={() => set('code', generateCode())} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>Generovat</button>}
           </div>
           {isEdit && <span className="text-sm" style={{ color: '#1a2e22' }}>Kód nelze měnit po vytvoření</span>}
@@ -74,10 +75,10 @@ export function VoucherModal({ open, existing, onClose, onSaved }) {
         <div><Label>Kategorie</Label><select value={form.category} onChange={e => set('category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>{CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
         <div><Label>Zdroj</Label><select value={form.source} onChange={e => set('source', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}><option value="">— neurčeno —</option><option value="slevomat">Slevomat</option><option value="eshop">E-shop</option><option value="spoluprace">Spolupráce</option><option value="vraceni">Vrácení</option><option value="ostatni">Ostatní</option></select></div>
         <div><Label>Jméno kupujícího</Label><input value={form.buyer_name} onChange={e => set('buyer_name', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="Jan Novák" /></div>
-        <div className="col-span-2"><Label>Email kupujícího</Label><input type="email" value={form.buyer_email} onChange={e => set('buyer_email', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="jan@email.cz" /></div>
+        <div className="sm:col-span-2"><Label>Email kupujícího</Label><input type="email" value={form.buyer_email} onChange={e => set('buyer_email', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="jan@email.cz" /></div>
         <div><Label>Platnost od</Label><input type="date" value={form.valid_from} onChange={e => set('valid_from', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Platnost do</Label><input type="date" value={form.valid_until} onChange={e => set('valid_until', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div className="col-span-2"><Label>Popis / poznámka</Label><textarea value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} placeholder="Dárkový poukaz k narozeninám…" /></div>
+        <div className="sm:col-span-2"><Label>Popis / poznámka</Label><textarea value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} placeholder="Dárkový poukaz k narozeninám…" /></div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">

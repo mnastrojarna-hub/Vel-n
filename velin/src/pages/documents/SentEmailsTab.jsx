@@ -298,7 +298,8 @@ export default function SentEmailsTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <Table>
+          {/* < 1024 px: řádky jako karty (7 sloupců s dlouhým předmětem se nevejde) */}
+          <Table stack="tablet">
             <thead>
               <TRow header>
                 <TH><input type="checkbox" checked={emails.length > 0 && selected.size === emails.length} onChange={toggleAll} className="accent-[#1a8a18] cursor-pointer" style={{ width: 15, height: 15 }} /></TH>
@@ -324,7 +325,7 @@ export default function SentEmailsTab() {
                     <TD>
                       {e.body_html && (
                         <button onClick={() => setPreview(e)}
-                          className="text-sm font-bold cursor-pointer"
+                          className="text-sm font-bold cursor-pointer max-lg:min-h-[40px]"
                           style={{ color: '#2563eb', background: 'none', border: 'none', padding: '4px 6px' }}>
                           Náhled
                         </button>
@@ -368,19 +369,20 @@ export default function SentEmailsTab() {
                   const filename = (typeof a === 'string' ? a : a?.filename) || `příloha-${i + 1}`
                   const storagePath = typeof a === 'object' ? a?.storage_path : null
                   return (
-                    <li key={i} className="flex items-center gap-2 py-1">
+                    // < 1024 px: tlačítka se zalomí pod název souboru (jinak by název zúžila na pár znaků)
+                    <li key={i} className="flex items-center gap-2 py-1 max-lg:flex-wrap">
                       <span style={{ color: '#1a8a18', fontSize: 14 }}>📎</span>
-                      <span style={{ fontFamily: 'monospace', fontSize: 12, flex: 1 }}>{filename}</span>
+                      <span className="flex-1 max-lg:basis-[calc(100%-30px)] max-lg:[overflow-wrap:anywhere]" style={{ fontFamily: 'monospace', fontSize: 12 }}>{filename}</span>
                       {storagePath ? (
                         <>
                           <button onClick={() => openAttachment(storagePath, filename)}
-                            className="text-sm font-bold cursor-pointer rounded-btn"
+                            className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[36px]"
                             style={{ padding: '4px 10px', background: '#e0e7ff', border: '1px solid #a5b4fc', color: '#3730a3' }}
                             title="Otevřít v novém okně">
                             Náhled
                           </button>
                           <button onClick={() => downloadAttachment(storagePath, filename)}
-                            className="text-sm font-bold cursor-pointer rounded-btn"
+                            className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[36px]"
                             style={{ padding: '4px 10px', background: '#dcfce7', border: '1px solid #86efac', color: '#166534' }}
                             title="Stáhnout soubor">
                             Stáhnout

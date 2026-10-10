@@ -207,13 +207,14 @@ export default function DoporuceniLokaci() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <div className="text-xs font-bold mb-2" style={{ color: '#888' }}>Doporučená flotila ({calcResult.fleet.reduce((s, f) => s + f.n, 0)} motorek)</div>
-                  <div className="overflow-x-auto">
-                  <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+                  {/* Telefon: kategorie jako karty (mg-stack) — 4 sloupce se do úzké karty nevešly */}
+                  <div className="md:overflow-x-auto">
+                  <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
                     <thead><SortableHeaderRow columns={FLEET_COLUMNS} sort={fleetSort.sort} toggle={fleetSort.toggle} /></thead>
                     <tbody>
                       {sortRows(calcResult.econ.breakdown, FLEET_COLUMNS, fleetSort.sort).map((b, i) => (
                         <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                          <td className="py-1 px-2 font-semibold">{b.category}</td>
+                          <td className="py-1 px-2 font-semibold mg-stack-full">{b.category}</td>
                           <td className="py-1 px-2 font-bold" style={{ color: '#166534' }}>{b.count}×</td>
                           <td className="py-1 px-2">{Math.round(b.annualRevenue).toLocaleString('cs-CZ')} Kč</td>
                           <td className="py-1 px-2" style={{ color: b.annualProfit > 0 ? '#166534' : '#dc2626' }}>{Math.round(b.annualProfit).toLocaleString('cs-CZ')} Kč</td>

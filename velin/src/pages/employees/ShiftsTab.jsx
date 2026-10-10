@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
+import { useMediaQuery } from '../../hooks/useIsMobile'
+import EmpShiftsDayMobile from './EmpShiftsDayMobile'
 
 const SHIFT_MAP = {
   morning: { label: 'Rano', color: '#b45309', bg: '#fef3c7' },
@@ -12,6 +14,8 @@ const SHIFT_MAP = {
   free: { label: 'Volno', color: '#6b7280', bg: '#f3f4f6' },
 }
 const DAYS_CS = ['Po', 'Ut', 'St', 'Ct', 'Pa', 'So', 'Ne']
+// Pod 1024 px přichycený první sloupec (jméno) při vodorovném posunu týdne
+const STICKY = 'max-lg:sticky max-lg:left-0 max-lg:z-[1] max-lg:bg-white max-lg:shadow-[6px_0_6px_-6px_rgba(15,26,20,.18)]'
 
 function getWeekDates(offset = 0) {
   const now = new Date()
@@ -31,6 +35,7 @@ export default function ShiftsTab() {
   const [weekOffset, setWeekOffset] = useState(0)
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(null)
+  const isPhone = useMediaQuery('(max-width: 639px)')
 
   const weekDates = getWeekDates(weekOffset)
 
@@ -63,25 +68,31 @@ export default function ShiftsTab() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
-        <button onClick={() => setWeekOffset(w => w - 1)} className="rounded-btn cursor-pointer"
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 flex-wrap">
+        <button onClick={() => setWeekOffset(w => w - 1)} className="rounded-btn cursor-pointer max-lg:min-w-[40px] max-lg:min-h-[40px]"
           style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>◀</button>
         <span className="text-sm font-extrabold" style={{ color: '#1a2e22' }}>{weekLabel}</span>
-        <button onClick={() => setWeekOffset(w => w + 1)} className="rounded-btn cursor-pointer"
+        <button onClick={() => setWeekOffset(w => w + 1)} className="rounded-btn cursor-pointer max-lg:min-w-[40px] max-lg:min-h-[40px]"
           style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>▶</button>
-        <button onClick={() => setWeekOffset(0)} className="rounded-btn cursor-pointer text-sm font-bold"
+        <button onClick={() => setWeekOffset(0)} className="rounded-btn cursor-pointer text-sm font-bold max-lg:min-h-[40px]"
           style={{ padding: '6px 12px', background: '#74FB71', border: 'none', color: '#1a2e22' }}>Dnes</button>
       </div>
 
+      {/* Telefon (< 640 px): výběr dne + seznam (EmpShiftsDayMobile). Tablet: užší sloupce = celý
+          týden bez posunu; když se nevejde, posouvá se uvnitř karty a jméno zůstává přichycené vlevo. */}
+      {isPhone ? (
+        <EmpShiftsDayMobile weekDates={weekDates} employees={employees} shiftMap={shiftMap}
+          shiftTypes={SHIFT_MAP} dayNames={DAYS_CS} onOpen={setShowAdd} />
+      ) : (
       <Card>
         <div className="overflow-x-auto">
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th className="text-left text-sm font-extrabold uppercase p-2" style={{ color: '#1a2e22', minWidth: 140 }}>Zamestnanec</th>
+                <th className={`text-left text-sm font-extrabold uppercase p-2 min-w-[104px] md:min-w-[112px] lg:min-w-[140px] ${STICKY}`} style={{ color: '#1a2e22' }}>Zamestnanec</th>
                 {weekDates.map((d, i) => (
-                  <th key={d} className="text-center text-sm font-extrabold uppercase p-2" style={{ color: '#1a2e22', minWidth: 100 }}>
-                    {DAYS_CS[i]}<br /><span className="text-[10px] font-bold" style={{ color: '#6b7280' }}>{new Date(d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}</span>
+                  <th key={d} className="text-center text-sm font-extrabold uppercase p-2 min-w-[72px] md:min-w-[76px] lg:min-w-[100px]" style={{ color: '#1a2e22' }}>
+                    {DAYS_CS[i]}<br /><span className="text-[10px] max-lg:text-xs font-bold" style={{ color: '#6b7280' }}>{new Date(d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}</span>
                   </th>
                 ))}
               </tr>
@@ -89,7 +100,7 @@ export default function ShiftsTab() {
             <tbody>
               {employees.map(emp => (
                 <tr key={emp.id} style={{ borderTop: '1px solid #d4e8e0' }}>
-                  <td className="text-sm font-bold p-2" style={{ color: '#1a2e22' }}>{emp.name}</td>
+                  <td className={`text-sm font-bold p-2 ${STICKY}`} style={{ color: '#1a2e22' }}>{emp.name}</td>
                   {weekDates.map(date => {
                     const shift = shiftMap[`${emp.id}_${date}`]
                     const st = shift ? SHIFT_MAP[shift.shift_type] : null
@@ -99,9 +110,9 @@ export default function ShiftsTab() {
                           className="rounded-lg cursor-pointer transition-all hover:ring-2 hover:ring-green-300"
                           style={{ padding: '8px 4px', background: st ? st.bg : '#f9fafb', border: `1px solid ${st ? st.color + '30' : '#e5e7eb'}`, minHeight: 40 }}>
                           {shift ? <>
-                            <div className="text-[10px] font-bold" style={{ color: st?.color }}>{st?.label}</div>
-                            {shift.start_time && <div className="text-[9px]" style={{ color: '#6b7280' }}>{shift.start_time?.slice(0, 5)}-{shift.end_time?.slice(0, 5)}</div>}
-                          </> : <div className="text-[10px]" style={{ color: '#d1d5db' }}>+</div>}
+                            <div className="text-[10px] max-lg:text-[11px] font-bold" style={{ color: st?.color }}>{st?.label}</div>
+                            {shift.start_time && <div className="text-[9px] max-lg:text-[10px]" style={{ color: '#6b7280' }}>{shift.start_time?.slice(0, 5)}-{shift.end_time?.slice(0, 5)}</div>}
+                          </> : <div className="text-[10px] max-lg:text-sm" style={{ color: '#d1d5db' }}>+</div>}
                         </div>
                       </td>
                     )
@@ -112,6 +123,7 @@ export default function ShiftsTab() {
           </table>
         </div>
       </Card>
+      )}
 
       {showAdd && <ShiftModal {...showAdd} branches={branches}
         onClose={() => setShowAdd(null)} onSaved={() => { setShowAdd(null); loadShifts() }} />}
@@ -176,7 +188,7 @@ function ShiftModal({ empId, date, shift, branches, onClose, onSaved }) {
         <div><Lbl>Poznámka</Lbl><input type="text" value={form.note} onChange={e => set('note', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
       </div>
       <div className="flex justify-between mt-4">
-        {shift ? <button onClick={remove} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button> : <div />}
+        {shift ? <button onClick={remove} className="text-sm font-bold cursor-pointer max-lg:py-2.5 max-lg:pr-3" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button> : <div />}
         <div className="flex gap-2"><Button onClick={onClose}>Zrušit</Button>
           <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Uložit'}</Button></div>
       </div>

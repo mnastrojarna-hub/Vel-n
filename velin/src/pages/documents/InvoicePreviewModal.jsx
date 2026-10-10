@@ -170,14 +170,15 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
         <div>
           <p className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Upravit položky</p>
           {items.map((it, i) => (
-            <div key={i} className="flex gap-2 mb-2">
+            // telefon (< 640 px): popis na celý řádek, množství a cena pod ním (vedle sebe přečnívají z modálu)
+            <div key={i} className="flex gap-2 mb-2 max-sm:flex-wrap">
               <input value={it.description} onChange={e => { const n = [...items]; n[i] = { ...n[i], description: e.target.value }; setItems(n) }}
-                className="flex-1 text-sm rounded-btn outline-none" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
+                className="flex-1 max-sm:basis-full max-sm:min-w-0 text-sm rounded-btn outline-none" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
                 placeholder="Popis" />
               <input type="number" value={it.qty} onChange={e => { const n = [...items]; n[i] = { ...n[i], qty: Number(e.target.value) }; setItems(n) }}
-                className="w-16 text-sm rounded-btn outline-none text-center" style={{ padding: '6px 4px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+                className="w-16 max-sm:flex-1 max-sm:min-w-0 text-sm rounded-btn outline-none text-center" style={{ padding: '6px 4px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
               <input type="number" value={it.unit_price} onChange={e => { const n = [...items]; n[i] = { ...n[i], unit_price: Number(e.target.value) }; setItems(n) }}
-                className="w-24 text-sm rounded-btn outline-none text-right" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+                className="w-24 max-sm:flex-1 max-sm:min-w-0 text-sm rounded-btn outline-none text-right" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
             </div>
           ))}
           <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Poznámka…"
@@ -194,15 +195,16 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
             dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />
 
           {/* Actions */}
+          {/* < 1024 px: tlačítka uvnitř skupin se zalamují (jinak přečnívají z modálu) */}
           <div className="flex flex-wrap justify-between gap-3 mt-4">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap lg:flex-nowrap gap-2">
               <Button onClick={handlePrint}>Tisk / PDF</Button>
               <Button onClick={handleStore} disabled={storing}>{storing ? 'Ukládám…' : 'Uložit do dokumentů'}</Button>
               <Button onClick={handleSendEmail} disabled={sending}>
                 {sending ? 'Odesílám…' : 'Odeslat zákazníkovi'}
               </Button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap lg:flex-nowrap gap-2">
               {invoice.status === 'issued' && (
                 <Button green onClick={handleMarkPaid}>Označit jako zaplacenou</Button>
               )}

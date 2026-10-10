@@ -244,7 +244,8 @@ export default function GeneratedTab() {
       ) : (
         <>
           <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
-          <Table>
+          {/* < 1024 px: řádky jako karty (7 sloupců se na telefon ani tablet nevejde) */}
+          <Table stack="tablet">
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={docs} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
@@ -269,12 +270,12 @@ export default function GeneratedTab() {
                     <TD mono>{d.bookings?.id ? d.bookings.id.slice(-8).toUpperCase() : '—'}</TD>
                     <TD>{d.created_at ? new Date(d.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                     <TD>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 max-lg:justify-end">
                         <button onClick={() => showPreviewModal(d)}
-                          className="text-sm font-bold cursor-pointer"
+                          className="text-sm font-bold cursor-pointer max-lg:min-h-[40px]"
                           style={{ color: '#2563eb', background: 'none', border: 'none', padding: '4px 6px' }}>Náhled</button>
                         <button onClick={() => download(d)}
-                          className="text-sm font-bold cursor-pointer"
+                          className="text-sm font-bold cursor-pointer max-lg:min-h-[40px]"
                           style={{ color: '#1a2e22', background: 'none', border: 'none', padding: '4px 6px' }}>Stáhnout</button>
                       </div>
                     </TD>
@@ -293,7 +294,7 @@ export default function GeneratedTab() {
           {preview.filled_data && (
             <div className="mb-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
               <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Vyplněná data</div>
-              <div className="grid grid-cols-2 gap-1 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-sm">
                 {Object.entries(preview.filled_data).filter(([k]) => !k.startsWith('_')).map(([k, v]) => (
                   <div key={k}>
                     <span style={{ color: '#1a2e22' }}>{k}: </span>

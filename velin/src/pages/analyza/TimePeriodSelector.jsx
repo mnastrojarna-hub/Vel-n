@@ -53,6 +53,9 @@ export function hasMinimumData(bookings) {
 // Re-export pro zpětnou kompatibilitu všech importů `diffDays` v Analýze.
 export { rentalDays as diffDays } from '../../lib/rentalDays'
 
+// Telefon/tablet: tlačítka a výběry období min. 40 px vysoké (dotyk); desktop beze změny.
+const TOUCH = 'max-lg:min-h-[40px]'
+
 export default function TimePeriodSelector({ value, onChange }) {
   const [showCustom, setShowCustom] = useState(value.type === 'custom')
   const now = new Date()
@@ -81,40 +84,40 @@ export default function TimePeriodSelector({ value, onChange }) {
     <div className="flex flex-wrap items-center gap-2 mb-5" style={{ background: '#fff', borderRadius: 12, padding: '10px 14px', boxShadow: '0 1px 4px rgba(0,0,0,.04)' }}>
       <span className="text-xs font-bold uppercase" style={{ color: '#888', letterSpacing: 1 }}>Období:</span>
 
-      <button style={btnStyle(value.type === 'all')} onClick={() => { setShowCustom(false); onChange({ type: 'all' }) }}>Celkem</button>
+      <button className={TOUCH} style={btnStyle(value.type === 'all')} onClick={() => { setShowCustom(false); onChange({ type: 'all' }) }}>Celkem</button>
 
-      <button style={btnStyle(value.type === 'month')} onClick={() => { setShowCustom(false); onChange({ type: 'month', year: currentYear, month: currentMonth }) }}>Měsíc</button>
+      <button className={TOUCH} style={btnStyle(value.type === 'month')} onClick={() => { setShowCustom(false); onChange({ type: 'month', year: currentYear, month: currentMonth }) }}>Měsíc</button>
       {value.type === 'month' && (
         <>
-          <select value={value.month} onChange={e => onChange({ ...value, month: Number(e.target.value) })} style={selStyle}>
+          <select value={value.month} onChange={e => onChange({ ...value, month: Number(e.target.value) })} className={TOUCH} style={selStyle}>
             {MONTHS_CS.map((m, i) => <option key={i} value={i}>{m}</option>)}
           </select>
-          <select value={value.year} onChange={e => onChange({ ...value, year: Number(e.target.value) })} style={selStyle}>
+          <select value={value.year} onChange={e => onChange({ ...value, year: Number(e.target.value) })} className={TOUCH} style={selStyle}>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </>
       )}
 
-      <button style={btnStyle(value.type === 'calendar_year')} onClick={() => { setShowCustom(false); onChange({ type: 'calendar_year', year: currentYear }) }}>Kalendářní rok</button>
+      <button className={TOUCH} style={btnStyle(value.type === 'calendar_year')} onClick={() => { setShowCustom(false); onChange({ type: 'calendar_year', year: currentYear }) }}>Kalendářní rok</button>
       {value.type === 'calendar_year' && (
-        <select value={value.year} onChange={e => onChange({ ...value, year: Number(e.target.value) })} style={selStyle}>
+        <select value={value.year} onChange={e => onChange({ ...value, year: Number(e.target.value) })} className={TOUCH} style={selStyle}>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       )}
 
-      <button style={btnStyle(value.type === 'fiscal_year')} onClick={() => { setShowCustom(false); onChange({ type: 'fiscal_year', year: currentYear }) }}>Účetní rok</button>
+      <button className={TOUCH} style={btnStyle(value.type === 'fiscal_year')} onClick={() => { setShowCustom(false); onChange({ type: 'fiscal_year', year: currentYear }) }}>Účetní rok</button>
       {value.type === 'fiscal_year' && (
-        <select value={value.year} onChange={e => onChange({ ...value, year: Number(e.target.value) })} style={selStyle}>
+        <select value={value.year} onChange={e => onChange({ ...value, year: Number(e.target.value) })} className={TOUCH} style={selStyle}>
           {years.map(y => <option key={y} value={y}>{`${y - 1}/${y}`}</option>)}
         </select>
       )}
 
-      <button style={btnStyle(value.type === 'custom')} onClick={() => { setShowCustom(true); onChange({ type: 'custom', from: '', to: '' }) }}>Vlastní</button>
+      <button className={TOUCH} style={btnStyle(value.type === 'custom')} onClick={() => { setShowCustom(true); onChange({ type: 'custom', from: '', to: '' }) }}>Vlastní</button>
       {value.type === 'custom' && (
         <>
-          <input type="date" value={value.from || ''} onChange={e => onChange({ ...value, from: e.target.value })} style={selStyle} />
+          <input type="date" value={value.from || ''} onChange={e => onChange({ ...value, from: e.target.value })} className={TOUCH} style={selStyle} />
           <span className="text-xs font-bold" style={{ color: '#888' }}>—</span>
-          <input type="date" value={value.to || ''} onChange={e => onChange({ ...value, to: e.target.value })} style={selStyle} />
+          <input type="date" value={value.to || ''} onChange={e => onChange({ ...value, to: e.target.value })} className={TOUCH} style={selStyle} />
         </>
       )}
     </div>

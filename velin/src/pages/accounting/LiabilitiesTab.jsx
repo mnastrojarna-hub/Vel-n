@@ -9,6 +9,7 @@ import Card from '../../components/ui/Card'
 import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
 import { useDebugMode } from '../../hooks/useDebugMode'
+import { TAB2, TOUCH_BTNS, CB_ROW } from './FinanceBStack'
 
 const PER_PAGE = 25
 
@@ -166,16 +167,16 @@ export default function LiabilitiesTab() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
-        <Button green onClick={() => setShowAdd(true)}>+ Novy závazek</Button>
+      <div className="flex items-center gap-3 mb-4 max-lg:flex-wrap">
+        <Button green onClick={() => setShowAdd(true)} className="max-md:w-full max-md:justify-center">+ Novy závazek</Button>
         <select value={filters.type} onChange={e => { setPage(1); setFilters(f => ({ ...f, type: e.target.value })) }}
-          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none max-md:w-full"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="">Všechny typy</option>
           {LIABILITY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         <select value={filters.status} onChange={e => { setPage(1); setFilters(f => ({ ...f, status: e.target.value })) }}
-          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none max-md:w-full"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="">Všechny stavy</option>
           {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -185,7 +186,7 @@ export default function LiabilitiesTab() {
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <MiniStat label="Neuhrazeno celkem" value={fmt(summary.total)} color="#dc2626" />
         <MiniStat label="Po splatnosti" value={fmt(summary.overdue)} color="#b45309" />
         {Object.entries(summary.byType).slice(0, 2).map(([type, val]) => (
@@ -206,7 +207,7 @@ export default function LiabilitiesTab() {
             ], liabilities.filter(l => selectedIds.has(l.id))) },
             { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} závazků (i navázané finanční události)?', onClick: async () => { await bulkDelete('acc_liabilities', [...selectedIds], 'liabilities_bulk_deleted'); setSelectedIds(new Set()); load() } },
           ]} />
-          <Table>
+          <Table stack="tablet" className={`${TAB2} ${CB_ROW} ${TOUCH_BTNS}`}>
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={liabilities} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
@@ -242,19 +243,19 @@ export default function LiabilitiesTab() {
                         {STATUS_OPTIONS.find(s => s.value === l.status)?.label || l.status}
                       </span>
                     </TD>
-                    <TD>
-                      <div className="flex gap-1">
-                        <button onClick={() => setDetail(l)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#2563eb' }}>Detail</button>
+                    <TD label="" className="mg-stack-full">
+                      <div className="flex gap-1 max-lg:flex-wrap">
+                        <button onClick={() => setDetail(l)} className="text-sm font-bold cursor-pointer bg-transparent border-none max-lg:px-2" style={{ color: '#2563eb' }}>Detail</button>
                         {l.status !== 'paid' && (
-                          <button onClick={() => markPaid(l.id, remaining)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>Uhradit</button>
+                          <button onClick={() => markPaid(l.id, remaining)} className="text-sm font-bold cursor-pointer bg-transparent border-none max-lg:px-2" style={{ color: '#1a8a18' }}>Uhradit</button>
                         )}
-                        <button onClick={() => deleteLiability(l.id)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#dc2626' }}>Smazat</button>
+                        <button onClick={() => deleteLiability(l.id)} className="text-sm font-bold cursor-pointer bg-transparent border-none max-lg:px-2" style={{ color: '#dc2626' }}>Smazat</button>
                       </div>
                     </TD>
                   </TRow>
                 )
               })}
-              {liabilities.length === 0 && <TRow><TD>Žádné závazky</TD></TRow>}
+              {liabilities.length === 0 && <TRow><TD label="" className="mg-stack-full">Žádné závazky</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -349,7 +350,7 @@ function DetailRow({ label, value }) {
 function MiniStat({ label, value, color }) {
   return (
     <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-[9px] max-lg:text-[11px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-sm font-extrabold" style={{ color }}>{value}</div>
     </div>
   )

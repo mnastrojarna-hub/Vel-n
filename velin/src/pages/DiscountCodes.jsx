@@ -16,12 +16,13 @@ export default function DiscountCodes() {
       <h1 className="text-2xl font-extrabold mb-1" style={{ color: '#1a2e22' }}>Slevové kódy</h1>
       <p className="text-sm mb-5" style={{ color: '#888' }}>Promo kódy & Dárkové poukazy</p>
 
-      <div className="flex gap-2 mb-5">
+      {/* flex-wrap + nowrap: na telefonu se záložky zalomí celé (ne text uvnitř tlačítka); PC beze změny */}
+      <div className="flex flex-wrap gap-2 mb-5">
         {TABS.map(t => (
           <button
             key={t}
             onClick={() => { debugLog('tab.switch', 'DiscountCodes', { tab: t }); setTab(t) }}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer whitespace-nowrap max-lg:min-h-[40px]"
             style={{
               padding: '8px 18px',
               background: tab === t ? '#74FB71' : '#f1faf7',

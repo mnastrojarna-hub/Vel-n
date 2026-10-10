@@ -14,6 +14,9 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../components/ui/BulkActionsBar'
 import { bulkUpdate, bulkDelete, exportToCsv } from '../lib/bulkActions'
 import { PromoModal, PromoDetailModal } from './PromoCodesModals'
+import MobileFilters from './DiscountCodesMobileFilters'
+import { PromoCardsMobile } from './DiscountCodesCardsMobile'
+import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
 
 const PER_PAGE = 25
 
@@ -57,6 +60,8 @@ export default function PromoCodes() {
   const [detailCode, setDetailCode] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const isMobile = useIsMobile()
+  const isPhone = useMediaQuery('(max-width: 767px)') // telefon: hledací pole přes celou šířku
 
   useEffect(() => { loadCodes() }, [page, filters])
   useEffect(() => { autoExpirePromos(); autoDeactivateExhausted(); loadSummary() }, [])
@@ -271,11 +276,15 @@ export default function PromoCodes() {
           value={filters.search}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
           placeholder="Hledat kód…"
+          fullWidth={isPhone}
         />
+        {/* telefon: filtry schované pod tlačítkem „Filtry (n)“; tablet/PC beze změny */}
+        <MobileFilters active={(filters.statuses?.length || 0) + (filters.redeemed?.length || 0) + (filters.types?.length || 0) + (filters.sources?.length || 0) + (filters.customer?.trim() ? 1 : 0)}>
         <SearchInput
           value={filters.customer}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, customer: v })) }}
           placeholder="Zákazník (kódy z vrácení)…"
+          fullWidth={isPhone}
         />
         <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
@@ -296,6 +305,7 @@ export default function PromoCodes() {
           style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
           Reset
         </button>
+        </MobileFilters>
         <div className="ml-auto">
           <Button green onClick={openCreate}>+ Nový promo kód</Button>
         </div>
@@ -313,6 +323,12 @@ export default function PromoCodes() {
       ) : (
         <>
           <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
+          {/* Telefon + tablet (< 1024 px): karty (sloupec Akce by byl mimo obraz); PC = tabulka beze změny */}
+          {isMobile ? (
+            <PromoCardsMobile codes={codes} owners={owners} selectedIds={selectedIds} setSelectedIds={setSelectedIds}
+              onDetail={setDetailCode} onOwner={o => navigate(`/zakaznici/${o.userId}`)} onToggle={toggleStatus}
+              onEdit={openEdit} onDelete={setDeleteConfirm} />
+          ) : (
           <Table>
             <thead>
               <TRow header>
@@ -403,6 +419,7 @@ export default function PromoCodes() {
               {codes.length === 0 && <TRow><TD colSpan={8}>Žádné promo kódy</TD></TRow>}
             </tbody>
           </Table>
+          )}
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
@@ -438,7 +455,7 @@ export default function PromoCodes() {
 
 function SummaryCard({ label, value, color }) {
   return (
-    <Card>
+    <Card className="max-md:!py-3 max-md:!px-4">
       <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-xl font-extrabold" style={{ color }}>{value}</div>
     </Card>
@@ -476,7 +493,7 @@ function CheckboxFilterGroup({ label, values, onChange, options }) {
       style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
       {options.map(o => (
-        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer max-lg:min-h-[34px]"
           style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
           <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
             className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
@@ -501,16 +518,16 @@ function SortControl({ options, sortBy, sortDir, onChange }) {
   const by = options.some(o => o.value === sortBy) ? sortBy : options[0].value
   const dir = sortDir === 'asc' ? 'asc' : 'desc'
   return (
-    <div className="flex items-center gap-1 rounded-btn"
+    <div className="flex items-center gap-1 rounded-btn max-lg:flex-wrap"
       style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>Řadit:</span>
       <select value={by} onChange={e => onChange(e.target.value, dir)}
-        className="rounded-btn text-sm font-bold cursor-pointer outline-none"
+        className="rounded-btn text-sm font-bold cursor-pointer outline-none max-lg:min-h-[36px]"
         style={{ padding: '4px 8px', background: '#fff', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
       <button onClick={() => onChange(by, dir === 'asc' ? 'desc' : 'asc')}
-        className="rounded-btn text-sm font-extrabold cursor-pointer"
+        className="rounded-btn text-sm font-extrabold cursor-pointer max-lg:min-h-[36px]"
         title={dir === 'asc' ? 'Vzestupně (klikni pro sestupně)' : 'Sestupně (klikni pro vzestupně)'}
         style={{ padding: '4px 10px', background: '#74FB71', border: 'none', color: '#1a2e22' }}>
         {dir === 'asc' ? '↑ Vzestupně' : '↓ Sestupně'}

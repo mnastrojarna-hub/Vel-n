@@ -166,7 +166,7 @@ export default function PoiEditModal({ poi, onClose, onSaved, onError }) {
           Aktivní (zobrazuje se v appce)
         </label>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 max-lg:[&>button]:min-h-[40px] max-lg:[&>button]:!px-4">
           <SmallBtn color="#6b7280" onClick={onClose}>Zrušit</SmallBtn>
           <SmallBtn color="#1a8a18" onClick={saving ? undefined : save}>{saving ? 'Ukládám…' : 'Uložit'}</SmallBtn>
         </div>

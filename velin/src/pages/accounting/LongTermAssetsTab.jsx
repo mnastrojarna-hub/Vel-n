@@ -9,6 +9,7 @@ import Card from '../../components/ui/Card'
 import Pagination from '../../components/ui/Pagination'
 import { useDebugMode } from '../../hooks/useDebugMode'
 import { AddAssetModal, AssetDetailModal } from './LongTermAssetsModals'
+import { TAB2, TOUCH_BTNS, ROWS_WHITE, CB_ROW } from './FinanceBStack'
 
 const PER_PAGE = 25
 
@@ -225,7 +226,7 @@ export default function LongTermAssetsTab() {
       <div className="flex gap-2 mb-4">
         {['assets', 'depreciations'].map(t => (
           <button key={t} onClick={() => { setSubTab(t); setPage(1) }}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', background: subTab === t ? '#1a2e22' : '#f1faf7', color: subTab === t ? '#74FB71' : '#1a2e22', border: 'none' }}>
             {t === 'assets' ? 'Majetek' : 'Odpisy'}
           </button>
@@ -249,12 +250,13 @@ export default function LongTermAssetsTab() {
           </div>
           <div className="flex flex-wrap gap-2">
             {unlinkedMotos.map(m => (
-              <div key={m.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#fff', border: '1px solid #fcd34d' }}>
-                <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{m.model}</span>
-                {m.spz && <span className="text-xs font-mono" style={{ color: '#6b7280' }}>{m.spz}</span>}
+              // telefon: každá motorka na celý řádek (název | SPZ | tlačítko), nic se nezalamuje uprostřed
+              <div key={m.id} className="flex items-center gap-2 p-2 rounded-lg max-md:w-full" style={{ background: '#fff', border: '1px solid #fcd34d' }}>
+                <span className="text-sm font-bold max-md:flex-1 max-md:min-w-0" style={{ color: '#1a2e22' }}>{m.model}</span>
+                {m.spz && <span className="text-xs font-mono max-lg:whitespace-nowrap" style={{ color: '#6b7280' }}>{m.spz}</span>}
                 <button onClick={() => addMotoToAssets(m)}
                   disabled={addingMotoId === m.id}
-                  className="text-xs font-bold cursor-pointer rounded"
+                  className="text-xs font-bold cursor-pointer rounded max-lg:min-h-[36px] max-lg:!px-3 max-lg:whitespace-nowrap max-lg:shrink-0"
                   style={{ padding: '2px 8px', background: '#1a8a18', color: '#fff', border: 'none', opacity: addingMotoId === m.id ? 0.5 : 1 }}>
                   {addingMotoId === m.id ? '...' : '+ Pridat'}
                 </button>
@@ -287,7 +289,7 @@ export default function LongTermAssetsTab() {
             ], assets.filter(a => selectedIds.has(a.id))) },
             { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} položek dlouhodobého majetku?', onClick: async () => { await bulkDelete('acc_long_term_assets', [...selectedIds], 'long_assets_bulk_deleted'); setSelectedIds(new Set()); load() } },
           ]} />
-          <Table>
+          <Table stack="tablet" className={`${TAB2} ${CB_ROW} ${TOUCH_BTNS}`}>
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={assets} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
@@ -324,20 +326,20 @@ export default function LongTermAssetsTab() {
                         <span className="text-xs" style={{ color: '#6b7280' }}>—</span>
                       )}
                     </TD>
-                    <TD>
-                      <button onClick={() => setDetail(a)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#2563eb' }}>Detail</button>
+                    <TD label="" className="mg-stack-full">
+                      <button onClick={() => setDetail(a)} className="text-sm font-bold cursor-pointer bg-transparent border-none max-lg:px-2" style={{ color: '#2563eb' }}>Detail</button>
                     </TD>
                   </TRow>
                 )
               })}
-              {assets.length === 0 && <TRow><TD>Zadny dlouhodobý majetek</TD></TRow>}
+              {assets.length === 0 && <TRow><TD label="" className="mg-stack-full">Zadny dlouhodobý majetek</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       ) : (
         <>
-          <Table>
+          <Table stack className={ROWS_WHITE}>
             <thead>
               <TRow header>
                 <TH>Majetek</TH><TH>Rok</TH><TH>Rok odpisů</TH><TH>Roční odpis</TH>
@@ -356,7 +358,7 @@ export default function LongTermAssetsTab() {
                   <TD>{d.method === 'linear' ? 'Rovnomerne' : 'Zrychlene'}</TD>
                 </TRow>
               ))}
-              {depreciations.length === 0 && <TRow><TD>Žádné odpisy</TD></TRow>}
+              {depreciations.length === 0 && <TRow><TD label="">Žádné odpisy</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -372,7 +374,7 @@ export default function LongTermAssetsTab() {
 function MiniStat({ label, value, color }) {
   return (
     <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-[9px] max-lg:text-[11px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-sm font-extrabold" style={{ color }}>{value}</div>
     </div>
   )

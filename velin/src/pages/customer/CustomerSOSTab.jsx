@@ -142,14 +142,14 @@ export default function CustomerSOSTab({ userId }) {
           <div className="flex gap-1 max-lg:flex-wrap">
             {STATUS_OPTIONS.map(opt => (
               <button key={opt.value} onClick={() => setStatusFilter(opt.value)}
-                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
                 style={{ padding: '6px 14px', background: statusFilter === opt.value ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none', boxShadow: statusFilter === opt.value ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
                 {opt.label}
               </button>
             ))}
           </div>
           <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}
-            className="rounded-btn text-sm font-bold outline-none cursor-pointer"
+            className="rounded-btn text-sm font-bold outline-none cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
             <option value="date_desc">Nejnovější</option>
             <option value="date_asc">Nejstarší</option>
@@ -194,14 +194,14 @@ export default function CustomerSOSTab({ userId }) {
                 {/* Akční tlačítka — vždy viditelná */}
                 <div className="flex flex-wrap gap-2 mt-3">
                   <button onClick={() => navigate('/sos', { state: { openIncidentId: inc.id } })}
-                    className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                    className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
                     style={{ padding: '6px 14px', background: '#fee2e2', color: '#dc2626', border: 'none' }}>
                     Detail v SOS panelu
                   </button>
 
                   {inc.booking_id && (
                     <button onClick={() => navigate(`/rezervace/${inc.booking_id}`)}
-                      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
                       style={{ padding: '6px 14px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
                       Původní rezervace
                     </button>
@@ -209,7 +209,7 @@ export default function CustomerSOSTab({ userId }) {
 
                   {inc.replacement_booking_id && (
                     <button onClick={() => navigate(`/rezervace/${inc.replacement_booking_id}`)}
-                      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
                       style={{ padding: '6px 14px', background: '#dcfce7', color: '#1a8a18', border: 'none' }}>
                       Náhradní rezervace
                     </button>
@@ -299,7 +299,7 @@ export default function CustomerSOSTab({ userId }) {
                         <div className="space-y-2">
                           {messages[inc.id].map(msg => (
                             <div key={msg.id} className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-                              <div className="flex items-center gap-2 mb-1">
+                              <div className="flex items-center gap-2 mb-1 max-lg:flex-wrap">
                                 <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{msg.type === 'sos_response' ? 'Admin' : msg.type || 'Zpráva'}</span>
                                 <span className="text-sm" style={{ color: '#1a2e22' }}>{msg.created_at ? new Date(msg.created_at).toLocaleString('cs-CZ') : ''}</span>
                                 {msg.read_at && <Badge label="Přečteno" color="#1a8a18" bg="#dcfce7" />}

@@ -9,6 +9,7 @@ import Card from '../../components/ui/Card'
 import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
 import { useDebugMode } from '../../hooks/useDebugMode'
+import { TAB2, TOUCH_BTNS, CB_ROW } from './FinanceBStack'
 
 const PER_PAGE = 25
 const CATEGORIES = [
@@ -84,7 +85,7 @@ export default function ShortTermAssetsTab() {
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <MiniStat label="Krátkodobý majetek celkem" value={fmt(summary.total)} color="#1a2e22" />
         {Object.entries(summary.byCategory).slice(0, 3).map(([cat, val]) => (
           <MiniStat key={cat} label={CATEGORIES.find(c => c.value === cat)?.label || cat} value={fmt(val)} color="#2563eb" />
@@ -103,7 +104,7 @@ export default function ShortTermAssetsTab() {
             ], assets.filter(a => selectedIds.has(a.id))) },
             { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} položek krátkodobého majetku?', onClick: async () => { await bulkDelete('acc_short_term_assets', [...selectedIds], 'short_assets_bulk_deleted'); setSelectedIds(new Set()); load() } },
           ]} />
-          <Table>
+          <Table stack="tablet" className={`${TAB2} ${CB_ROW} ${TOUCH_BTNS}`}>
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={assets} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
@@ -126,17 +127,17 @@ export default function ShortTermAssetsTab() {
                       {a.status === 'active' ? 'Aktivní' : a.status === 'disposed' ? 'Vyřazeno' : a.status}
                     </span>
                   </TD>
-                  <TD>
-                    <div className="flex gap-1">
-                      <button onClick={() => setDetail(a)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#2563eb' }}>Detail</button>
+                  <TD label="" className="mg-stack-full">
+                    <div className="flex gap-1 max-lg:flex-wrap">
+                      <button onClick={() => setDetail(a)} className="text-sm font-bold cursor-pointer bg-transparent border-none max-lg:px-2" style={{ color: '#2563eb' }}>Detail</button>
                       {a.status === 'active' && (
-                        <button onClick={() => dispose(a.id)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#dc2626' }}>Vyradit</button>
+                        <button onClick={() => dispose(a.id)} className="text-sm font-bold cursor-pointer bg-transparent border-none max-lg:px-2" style={{ color: '#dc2626' }}>Vyradit</button>
                       )}
                     </div>
                   </TD>
                 </TRow>
               ))}
-              {assets.length === 0 && <TRow><TD>Zadny krátkodobý majetek</TD></TRow>}
+              {assets.length === 0 && <TRow><TD label="" className="mg-stack-full">Zadny krátkodobý majetek</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -236,7 +237,7 @@ function DetailRow({ label, value }) {
 function MiniStat({ label, value, color }) {
   return (
     <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-[9px] max-lg:text-[11px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-sm font-extrabold" style={{ color }}>{value}</div>
     </div>
   )

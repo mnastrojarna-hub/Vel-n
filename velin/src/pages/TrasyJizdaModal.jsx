@@ -120,9 +120,9 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
       style={{ background: 'rgba(15,26,20,.55)' }} onClick={onClose}>
-      <div className="rounded-card w-full" onClick={e => e.stopPropagation()}
+      <div className="mg-modal rounded-card w-full" onClick={e => e.stopPropagation()}
         style={{ background: '#fff', maxWidth: 860, maxHeight: '92vh', overflowY: 'auto' }}>
         {/* hlavička */}
         <div className="flex items-center justify-between gap-3 p-4"
@@ -137,7 +137,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
               {ride.source === 'manual' ? ' · ručně vytvořená' : ' · automatický záznam'}
             </p>
           </div>
-          <button onClick={onClose} className="cursor-pointer text-xl font-bold"
+          <button onClick={onClose} className="cursor-pointer text-xl font-bold shrink-0 max-lg:min-w-[40px] max-lg:min-h-[40px]"
             style={{ background: 'none', border: 'none', color: '#6b8f7b' }}>✕</button>
         </div>
 
@@ -180,7 +180,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
           )}
 
           {stuck && (
-            <div className="rounded-card" style={{
+            <div className="rounded-card max-lg:[&>button]:min-h-[36px]" style={{
               background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 12px',
             }}>
               <p className="text-xs mb-2" style={{ color: '#991b1b' }}>
@@ -228,7 +228,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
           )}
 
           {/* editace jízdy */}
-          <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-[1fr_1fr]">
             <div style={{ gridColumn: '1 / -1' }}>
               {label('Název jízdy')}
               <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} />
@@ -266,7 +266,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
                 {points.map(p => (
                   <div key={p.id} className="rounded-card"
                     style={{ background: '#f1faf7', border: '1px solid #d4e8e0', padding: '10px 12px' }}>
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap max-lg:[&>button]:min-h-[36px]">
                       <span className="text-[9px] font-extrabold uppercase rounded-btn"
                         style={{ padding: '2px 6px', background: '#e8ffe8', color: '#1a8a18' }}>
                         {kindLabel(p.kind)}
@@ -308,7 +308,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
                                 style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid #d4e8e0' }} />
                             </a>
                             <button onClick={() => removePhoto(p, url)} title="Odebrat fotku"
-                              className="cursor-pointer"
+                              className="cursor-pointer max-lg:!w-[26px] max-lg:!h-[26px] max-lg:!leading-[22px]"
                               style={{
                                 position: 'absolute', top: -6, right: -6, width: 20, height: 20,
                                 borderRadius: '50%', background: '#dc2626', color: '#fff',

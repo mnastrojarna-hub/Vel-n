@@ -2,6 +2,7 @@ import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
+import { ROWS_WHITE } from './FinanceAStack'
 
 export function findBestMatch(dl, invoices) {
   let bestMatch = null
@@ -60,7 +61,7 @@ export function findBestMatch(dl, invoices) {
 export function StatCard({ label, value, color }) {
   return (
     <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-lg font-extrabold" style={{ color }}>{value}</div>
     </div>
   )
@@ -69,7 +70,7 @@ export function StatCard({ label, value, color }) {
 export function MiniField({ label, value, mono }) {
   return (
     <div>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#6b7280' }}>{label}</div>
+      <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#6b7280' }}>{label}</div>
       <div className={`text-sm font-bold ${mono ? 'font-mono' : ''}`} style={{ color: '#1a2e22' }}>{value}</div>
     </div>
   )
@@ -90,8 +91,8 @@ export function DeliveryNoteDetailModal({ detail, setDetail, fmt }) {
 
       {Array.isArray(detail.items) && detail.items.length > 0 && (
         <div className="mb-4">
-          <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Položky</div>
-          <Table>
+          <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Položky</div>
+          <Table stack className={ROWS_WHITE}>
             <thead>
               <TRow header><TH>Popis</TH><TH>Množství</TH><TH>Cena/ks</TH><TH>Celkem</TH></TRow>
             </thead>
@@ -111,7 +112,7 @@ export function DeliveryNoteDetailModal({ detail, setDetail, fmt }) {
 
       {detail.extracted_data && (
         <div className="mb-4">
-          <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#7c3aed' }}>AI extrahovaná data</div>
+          <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#7c3aed' }}>AI extrahovaná data</div>
           <pre className="text-xs p-3 rounded" style={{ background: '#f1faf7', color: '#1a2e22', whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
             {JSON.stringify(detail.extracted_data, null, 2)}
           </pre>
@@ -120,7 +121,7 @@ export function DeliveryNoteDetailModal({ detail, setDetail, fmt }) {
 
       {detail.photo_url && (
         <div className="mb-4">
-          <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#2563eb' }}>Sken dokladu</div>
+          <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#2563eb' }}>Sken dokladu</div>
           <a href={detail.photo_url} target="_blank" rel="noopener noreferrer">
             <img src={detail.photo_url} alt="DL sken" style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, border: '1px solid #d4e8e0' }} />
           </a>
@@ -129,7 +130,7 @@ export function DeliveryNoteDetailModal({ detail, setDetail, fmt }) {
 
       {detail.notes && (
         <div className="mb-4">
-          <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#6b7280' }}>Poznámky</div>
+          <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#6b7280' }}>Poznámky</div>
           <p className="text-sm" style={{ color: '#1a2e22', whiteSpace: 'pre-wrap' }}>{detail.notes}</p>
         </div>
       )}
@@ -169,14 +170,14 @@ export function MatchModal({ matchModal, setMatchModal, matchSearch, setMatchSea
             const supplierMatch = matchModal.supplier_name &&
               (inv.notes || '').toLowerCase().includes((matchModal.supplier_name || '').toLowerCase())
             return (
-              <div key={inv.id} className="flex items-center justify-between p-2 rounded mb-1 cursor-pointer hover:bg-[#e8fde8]"
+              <div key={inv.id} className="flex items-center justify-between p-2 rounded mb-1 cursor-pointer hover:bg-[#e8fde8] max-lg:flex-wrap max-lg:gap-2"
                 style={{ background: amountMatch && supplierMatch ? '#dcfce7' : amountMatch ? '#fef3c7' : '#f9fafb', border: '1px solid #d4e8e0' }}
                 onClick={() => matchDlToInvoice(matchModal, inv.id)}>
                 <div>
                   <span className="text-sm font-mono font-bold" style={{ color: '#1a2e22' }}>{inv.number || '—'}</span>
                   <span className="ml-2 text-sm" style={{ color: '#6b7280' }}>{inv.notes?.split('\n')[0]?.slice(0, 40) || ''}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 max-lg:flex-wrap">
                   <span className="text-sm font-bold" style={{ color: amountMatch ? '#1a8a18' : '#b45309' }}>{fmt(inv.total)}</span>
                   {amountMatch && <Badge label="Částka OK" color="#1a8a18" bg="#dcfce7" />}
                   {supplierMatch && <Badge label="Dodavatel OK" color="#2563eb" bg="#dbeafe" />}

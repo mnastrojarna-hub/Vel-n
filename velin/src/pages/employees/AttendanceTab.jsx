@@ -69,19 +69,22 @@ export default function AttendanceTab() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
+        {/* Telefon: výběr zaměstnance přes celou šířku, navigace měsícem pohromadě na dalším řádku */}
         <select value={selEmp || ''} onChange={e => setSelEmp(e.target.value)}
-          className="rounded-btn text-sm outline-none font-bold"
+          className="rounded-btn text-sm outline-none font-bold w-full sm:w-auto"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
-        <button onClick={() => setMonth(m => m === 0 ? (setYear(y => y - 1), 11) : m - 1)}
-          className="rounded-btn cursor-pointer" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>◀</button>
-        <span className="text-sm font-extrabold" style={{ color: '#1a2e22' }}>{monthNames[month]} {year}</span>
-        <button onClick={() => setMonth(m => m === 11 ? (setYear(y => y + 1), 0) : m + 1)}
-          className="rounded-btn cursor-pointer" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>▶</button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setMonth(m => m === 0 ? (setYear(y => y - 1), 11) : m - 1)}
+            className="rounded-btn cursor-pointer max-lg:min-w-[40px] max-lg:min-h-[40px]" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>◀</button>
+          <span className="text-sm font-extrabold" style={{ color: '#1a2e22' }}>{monthNames[month]} {year}</span>
+          <button onClick={() => setMonth(m => m === 11 ? (setYear(y => y + 1), 0) : m + 1)}
+            className="rounded-btn cursor-pointer max-lg:min-w-[40px] max-lg:min-h-[40px]" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>▶</button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Odpracovano</div>
           <div className="text-lg font-extrabold" style={{ color: '#1a8a18' }}>{totalHours.toFixed(1)} h</div></Card>
         <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Pritomnost</div>
@@ -111,13 +114,22 @@ export default function AttendanceTab() {
                   border: `1px solid ${st ? st.color + '40' : '#d4e8e0'}`,
                 }}>
                 <div className="text-sm font-extrabold" style={{ color: '#1a2e22' }}>{day}</div>
+                {/* Telefon (< 640 px): název stavu se do ~40px buňky nevejde → barevná tečka + legenda pod kalendářem */}
                 {rec && <>
-                  <div className="text-[9px] font-bold mt-1" style={{ color: st?.color }}>{st?.label}</div>
-                  {rec.hours_worked > 0 && <div className="text-[9px] font-bold" style={{ color: '#6b7280' }}>{rec.hours_worked}h</div>}
+                  <div className="text-[9px] sm:max-md:text-[11px] md:max-lg:text-xs font-bold mt-1 max-sm:hidden" style={{ color: st?.color }}>{st?.label}</div>
+                  <span className="sm:hidden block mx-auto mt-1 rounded-full" style={{ width: 9, height: 9, background: st?.color || '#6b7280' }} />
+                  {rec.hours_worked > 0 && <div className="text-[9px] max-lg:text-[11px] font-bold" style={{ color: '#6b7280' }}>{rec.hours_worked}h</div>}
                 </>}
               </div>
             )
           })}
+        </div>
+        <div className="sm:hidden flex flex-wrap gap-x-3 gap-y-1.5 mt-3">
+          {Object.entries(STATUS_MAP).map(([k, v]) => (
+            <span key={k} className="inline-flex items-center gap-1.5 text-xs font-bold" style={{ color: v.color }}>
+              <span className="rounded-full shrink-0" style={{ width: 9, height: 9, background: v.color }} />{v.label}
+            </span>
+          ))}
         </div>
       </Card>
 
@@ -193,7 +205,7 @@ function AttendanceModal({ day, rec, empId, year, month, onClose, onSaved }) {
         <div><Lbl>Poznámka</Lbl><input type="text" value={form.note} onChange={e => set('note', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
       </div>
       <div className="flex justify-between mt-4">
-        {rec ? <button onClick={remove} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button> : <div />}
+        {rec ? <button onClick={remove} className="text-sm font-bold cursor-pointer max-lg:py-2.5 max-lg:pr-3" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button> : <div />}
         <div className="flex gap-2">
           <Button onClick={onClose}>Zrušit</Button>
           <Button green onClick={save} disabled={saving}>{saving ? 'Ukladam...' : 'Uložit'}</Button>

@@ -361,7 +361,7 @@ export default function SOSPanel() {
               { key: 'all', label: 'Vše', count: incidents.length },
             ].map(f => (
               <button key={f.key} onClick={() => { setFilter(f.key); setSelectedIncident(null) }}
-                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none max-lg:min-h-[38px]"
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none max-lg:min-h-[38px] max-sm:!px-2.5"
                 style={{
                   padding: '5px 12px',
                   background: filter === f.key ? '#1a2e22' : '#f1faf7',
@@ -382,7 +382,7 @@ export default function SOSPanel() {
                 : baseList.length
               return (
                 <button key={f.key} onClick={() => { setSeverityFilter(f.key); setSubFilter('all') }}
-                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none max-lg:min-h-[38px]"
+                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none max-lg:min-h-[38px] max-sm:!px-2.5"
                   style={{
                     padding: '5px 10px',
                     background: severityFilter === f.key ? '#1a2e22' : '#f1faf7',
@@ -450,7 +450,7 @@ export default function SOSPanel() {
 
       {selectedIncident && (
         <div className={isMobile ? 'w-full min-w-0' : 'w-1/2 overflow-y-auto'} style={isMobile ? undefined : { maxHeight: 'calc(100vh - 100px)' }}>
-          <SOSMobileBackBar onBack={() => setSelectedIncident(null)} />
+          <SOSMobileBackBar onBack={() => setSelectedIncident(null)} title={selectedIncident.title || TYPE_LABELS[selectedIncident.type] || 'Incident'} />
           <SOSDetailPanel
             incident={selectedIncident}
             onClose={() => setSelectedIncident(null)}

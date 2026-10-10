@@ -428,7 +428,8 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
 
   return (<>
     <Modal open title={`Upravit rezervaci #${booking.id?.slice(-8).toUpperCase()}`} onClose={onClose} wide>
-      <div style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
+      {/* < lg: výška dle viditelné plochy (dvh, iOS lišty) — jinak dvojí scroll s modalem (92dvh); desktop beze změny */}
+      <div className="max-lg:!max-h-[calc(92dvh-112px)]" style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
         {error && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13, fontWeight: 600 }}>{error}</div>}
 
         {/* DATES */}
@@ -460,7 +461,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
                 {datesChanged && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {fmtDate(origStart)}</div>}
                 <input type="time" value={effPickupTime} onChange={e => { if (!pickupTimeLocked) setPickupTime(e.target.value) }} disabled={pickupTimeLocked}
                   title={pickupTimeLocked ? 'Motorka uz byla vyzvednuta — cas vyzvednuti nelze zmenit' : 'Cas vyzvednuti'}
-                  className={`mt-1 text-xs font-bold rounded outline-none ${pickupTimeLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`} style={{ padding: '2px 6px', background: pickupTimeLocked ? '#f3f4f6' : '#fff', border: `1px solid ${pickupTimeChanged ? '#2563eb' : '#d4e8e0'}`, color: pickupTimeChanged ? '#2563eb' : '#1a2e22' }} />
+                  className={`mt-1 text-xs font-bold rounded outline-none max-lg:min-h-[36px] ${pickupTimeLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`} style={{ padding: '2px 6px', background: pickupTimeLocked ? '#f3f4f6' : '#fff', border: `1px solid ${pickupTimeChanged ? '#2563eb' : '#d4e8e0'}`, color: pickupTimeChanged ? '#2563eb' : '#1a2e22' }} />
                 {pickupTimeChanged && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {isLegacyNoPickupTime(origPickupTime) ? 'bez casu' : (origPickupTime || '\u2014')}</div>}
                 {!pickupTimeChanged && isLegacyNoPickupTime(origPickupTime) && <div className="text-xs" style={{ color: '#9ca3af' }}>00:01 = bez casu (kdykoliv 1. den)</div>}
                 {pickupTimeLocked && <div className="text-xs" style={{ color: '#9ca3af' }}>po vyzvednuti zamceno</div>}
@@ -470,7 +471,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
                 <div className="text-sm font-extrabold" style={{ color: datesChanged ? '#2563eb' : '#0f1a14' }}>{endDate ? fmtDate(endDate) : '\u2014'}</div>
                 {datesChanged && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {fmtDate(origEnd)}</div>}
                 <input type="time" value={returnTime} onChange={e => setReturnTime(e.target.value)} title="Cas vraceni"
-                  className="mt-1 text-xs font-bold rounded outline-none cursor-pointer" style={{ padding: '2px 6px', background: '#fff', border: `1px solid ${returnTime !== origReturnTime ? '#2563eb' : '#d4e8e0'}`, color: returnTime !== origReturnTime ? '#2563eb' : '#1a2e22' }} />
+                  className="mt-1 text-xs font-bold rounded outline-none cursor-pointer max-lg:min-h-[36px]" style={{ padding: '2px 6px', background: '#fff', border: `1px solid ${returnTime !== origReturnTime ? '#2563eb' : '#d4e8e0'}`, color: returnTime !== origReturnTime ? '#2563eb' : '#1a2e22' }} />
                 {returnTime !== origReturnTime && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {origReturnTime || '\u2014'}</div>}
               </div>
               <div>
@@ -481,7 +482,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
               {calStep > 0 && (
                 <div className="flex items-end">
                   <button onClick={() => { setStartDate(origStart); setEndDate(origEnd); setCalStep(0) }}
-                    className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', padding: 0 }}>Zrusit zmenu</button>
+                    className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]" style={{ color: '#dc2626', background: 'none', border: 'none', padding: 0 }}>Zrusit zmenu</button>
                 </div>
               )}
             </div>

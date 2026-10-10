@@ -10,6 +10,7 @@ import Card from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import { sanitizeHtml } from '../../lib/sanitize'
+import { ROWS_WHITE, TOUCH_BTNS, CARD_PHONE } from './FinanceBStack'
 
 const REPORT_LABELS = {
   vat_return: 'Přiznání k DPH',
@@ -118,8 +119,8 @@ export default function ReportsTab() {
 
       {error && <div className="mb-3 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
-      {/* Reports table */}
-      <Card>
+      {/* Reports table — telefon: řádky jako karty, obalová Card průhledná */}
+      <Card className={reports.length > 0 && !loading ? CARD_PHONE : ''}>
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>
           Výkazy a přiznání — {year}
         </h3>
@@ -132,7 +133,7 @@ export default function ReportsTab() {
             Žádné výkazy. Klikněte "Stáhnout vše z Flexi" pro import.
           </p>
         ) : (
-          <Table>
+          <Table stack className={`${ROWS_WHITE} ${TOUCH_BTNS}`}>
             <thead>
               <TRow header>
                 <TH>Typ</TH>
@@ -158,7 +159,7 @@ export default function ReportsTab() {
                     </TD>
                     <TD><span className="text-sm" style={{ color: '#6b7280' }}>{fmt(r.created_at)}</span></TD>
                     <TD><span className="text-sm" style={{ color: '#6b7280' }}>{fmt(r.approved_at)}</span></TD>
-                    <TD>
+                    <TD label="" className="mg-stack-full">
                       <div className="flex gap-1 flex-wrap">
                         <button onClick={() => setDetail(r)}
                           className="rounded-btn text-xs font-bold cursor-pointer"

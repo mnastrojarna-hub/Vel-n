@@ -211,11 +211,12 @@ export default function ResendMailTab() {
         <Card>
           <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Zákazníci ({customers.length})</h4>
           {customers.map(c => (
+            // < 1024 px: jméno, e-mail a telefon pod sebou (dlouhý e-mail jinak vytlačí štítek jazyka mimo kartu)
             <div key={c.id} onClick={() => selectCustomer(c)} className="flex items-center gap-3 p-3 rounded-lg mb-2 hover:shadow-sm transition-shadow" style={rowSel(false)}>
-              <div className="flex-1">
-                <span className="text-sm font-bold">{c.full_name || '(bez jména)'}</span>
-                <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{c.email || '—'}</span>
-                {c.phone && <span className="text-sm ml-3" style={{ color: '#6b7280' }}>{c.phone}</span>}
+              <div className="flex-1 max-lg:min-w-0">
+                <span className="text-sm font-bold max-lg:block">{c.full_name || '(bez jména)'}</span>
+                <span className="text-sm ml-3 max-lg:ml-0 max-lg:block max-lg:[overflow-wrap:anywhere]" style={{ color: '#1a2e22' }}>{c.email || '—'}</span>
+                {c.phone && <span className="text-sm ml-3 max-lg:ml-0 max-lg:block" style={{ color: '#6b7280' }}>{c.phone}</span>}
               </div>
               <Badge label={langLabel(c.language)} color="#1a2e22" bg="#e2f5ec" />
             </div>
@@ -225,11 +226,11 @@ export default function ResendMailTab() {
 
       {selectedCustomer && (
         <Card>
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>
+          <div className="flex items-center justify-between mb-3 max-lg:flex-wrap max-lg:gap-x-3">
+            <h4 className="text-sm font-extrabold uppercase tracking-wide max-lg:[overflow-wrap:anywhere]" style={{ color: '#1a2e22' }}>
               {selectedCustomer.full_name} · {selectedCustomer.email}
             </h4>
-            <button onClick={() => { setSelectedCustomer(null); setSelected(null) }} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>← Zpět na výsledky</button>
+            <button onClick={() => { setSelectedCustomer(null); setSelected(null) }} className="text-sm font-bold cursor-pointer max-lg:min-h-[40px]" style={{ color: '#2563eb', background: 'none', border: 'none' }}>← Zpět na výsledky</button>
           </div>
 
           {loadingItems ? <div className="py-6 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div> : (
@@ -238,7 +239,7 @@ export default function ResendMailTab() {
               {bookings.length === 0 ? <p style={{ fontSize: 13, color: '#9ca3af', marginBottom: 10 }}>Žádné rezervace</p> : bookings.map(b => {
                 const isSel = selected?.kind === 'booking' && selected.data.id === b.id
                 return (
-                  <div key={b.id} onClick={() => setSelected({ kind: 'booking', data: b })} className="flex items-center gap-3 p-3 rounded-lg mb-2 transition-shadow" style={rowSel(isSel)}>
+                  <div key={b.id} onClick={() => setSelected({ kind: 'booking', data: b })} className="flex items-center gap-3 p-3 rounded-lg mb-2 transition-shadow max-lg:flex-wrap max-lg:gap-y-1.5" style={rowSel(isSel)}>
                     <span style={{ fontSize: 16 }}>🏍️</span>
                     <span className="text-sm font-bold font-mono">{b.id.slice(-8).toUpperCase()}</span>
                     <span className="text-sm">{b.motorcycles?.model || '—'}</span>
@@ -253,7 +254,7 @@ export default function ResendMailTab() {
               {orders.map(o => {
                 const isSel = selected?.kind === 'order' && selected.data.id === o.id
                 return (
-                  <div key={o.id} onClick={() => setSelected({ kind: 'order', data: o })} className="flex items-center gap-3 p-3 rounded-lg mb-2 transition-shadow" style={rowSel(isSel)}>
+                  <div key={o.id} onClick={() => setSelected({ kind: 'order', data: o })} className="flex items-center gap-3 p-3 rounded-lg mb-2 transition-shadow max-lg:flex-wrap max-lg:gap-y-1.5" style={rowSel(isSel)}>
                     <span style={{ fontSize: 16 }}>📦</span>
                     <span className="text-sm font-bold font-mono">{o.order_number || o.id.slice(-8).toUpperCase()}</span>
                     <span className="text-sm" style={{ color: '#1a2e22' }}>{(o.created_at || '').slice(0, 10)}</span>

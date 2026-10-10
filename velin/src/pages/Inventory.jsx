@@ -12,12 +12,16 @@ import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
 import SkuTag, { SkuConventionInfo } from '../components/ui/SkuTag'
 import { validateSku } from '../lib/sku'
+import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
+import StockInventoryCards from './stock/StockInventoryCards'
 
 const PER_PAGE = 25
 
 export default function Inventory() {
   const debugMode = useDebugMode()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
+  const isPhone = useMediaQuery('(max-width: 639px)')
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -76,6 +80,7 @@ export default function Inventory() {
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <SearchInput
+          fullWidth={isPhone}
           value={filters.search}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
           placeholder="Hledat SKU, název…"
@@ -85,12 +90,13 @@ export default function Inventory() {
           options={[{ value: 'low', label: 'Nízké zásoby' }, { value: 'ok', label: 'Dostatečné' }]} />
         {(filters.search || filters.category || (filters.stocks?.length > 0)) && (
           <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_inventory_filters') }}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
             Reset
           </button>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        {/* mobil/tablet: vlastní řádek zarovnaný vlevo (popover konvence SKU se vejde na šířku displeje) */}
+        <div className="ml-auto flex items-center gap-2 max-lg:ml-0 max-lg:w-full max-lg:justify-between">
           <SkuConventionInfo />
           <Button green onClick={() => setShowAdd(true)}>+ Nová položka</Button>
         </div>
@@ -122,6 +128,10 @@ export default function Inventory() {
             ], items.filter(i => selectedIds.has(i.id))) },
             { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} skladových položek?', onClick: async () => { await bulkDelete('inventory', [...selectedIds], 'inventory_bulk_deleted'); setSelectedIds(new Set()); load() } },
           ]} />
+          {isMobile ? (
+            <StockInventoryCards items={items} selectedIds={selectedIds} setSelectedIds={setSelectedIds}
+              onOpen={item => navigate(`/sklady/${item.id}`)} onIssue={setIssueItem} />
+          ) : (
           <Table>
             <thead>
               <TRow header>
@@ -173,6 +183,7 @@ export default function Inventory() {
               {items.length === 0 && <TRow><TD>Žádné položky</TD></TRow>}
             </tbody>
           </Table>
+          )}
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
@@ -189,11 +200,11 @@ function CheckboxFilterGroup({ label, values, onChange, options }) {
     else onChange([...values, val])
   }
   return (
-    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+    <div className="flex items-center gap-1 flex-wrap rounded-btn max-sm:w-full max-sm:rounded-[14px]"
       style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
       {options.map(o => (
-        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer max-lg:min-h-[36px]"
           style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
           <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
             className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
@@ -273,7 +284,7 @@ function AddItemModal({ onClose, onSaved }) {
 
   return (
     <Modal open title="Nová skladová položka" onClose={onClose}>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kategorie</label>
           <select value={form.category} onChange={e => set('category', e.target.value)}
@@ -311,7 +322,7 @@ function AddItemModal({ onClose, onSaved }) {
           </>
         ) : null}
 
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <div className="flex items-center justify-between mb-1">
             <label className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Název</label>
             {isAcc && (
@@ -326,7 +337,7 @@ function AddItemModal({ onClose, onSaved }) {
             className="w-full rounded-btn text-sm outline-none"
             style={{ padding: '8px 12px', background: (isAcc && !skuManual && skuType && skuSize) ? '#f5f5f5' : '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>SKU</label>
           <input type="text" value={form.sku} onChange={e => set('sku', e.target.value)}
             disabled={isAcc && !skuManual}

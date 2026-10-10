@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import TrasyJizdaMapa from '../TrasyJizdaMapa'
 import { trackQuality, fmtGap } from '../../lib/rideTrack'
+import { useMediaQuery } from '../../hooks/useIsMobile'
 
 // Detail rezervace → „Mapa a poloha": kde zákazník právě je a kudy dosud jel.
 //
@@ -52,6 +53,8 @@ export default function BookingLiveMap({ bookingId, booking }) {
   // volba", což není pravda.
   const [justDiscarded, setJustDiscarded] = useState(false)
   const timerRef = useRef(null)
+  // Telefon na šířku (nízký displej): mapa 420 px by byla vyšší než obrazovka a dotyk na ní stránku neposune
+  const lowScreen = useMediaQuery('(max-width: 1023px) and (max-height: 520px)')
 
   const load = useCallback(async (silent) => {
     if (!silent) setLoading(true)
@@ -208,12 +211,13 @@ export default function BookingLiveMap({ bookingId, booking }) {
               : `Naposledy viděn ${fmtTime(data.last_fix_at)}`,
           }}
           fitKey={data.ride_id}
-          height={420}
+          height={lowScreen ? 260 : 420}
         />
       </div>
 
       <div className="rounded-card" style={card}>
-        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+        {/* Telefon (< 640 px): dlaždice po dvou (při min. 150 px vycházel jen 1 sloupec) */}
+        <div className="grid gap-2 max-sm:!grid-cols-[repeat(auto-fit,minmax(130px,1fr))]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
           {[
             ['📏', 'Ujeto', `${Number(data.distance_km || 0).toFixed(1)} km`],
             ['⏱️', 'Celkový čas', fmtDur(data.duration_min)],

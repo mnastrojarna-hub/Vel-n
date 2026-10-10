@@ -203,24 +203,28 @@ function LoyaltyChip({ userId }) {
 
   if (!st) return null
   const penalty = Number(st.penalty_points) || 0
+  const pointsInfo = `Body: ${st.points} (základ ${st.raw_points}, bonus ${st.bonus_points}, strop ${st.floor_points}, penalizace ${penalty})`
   return (
-    <div className="rounded-xl px-3 py-2 min-w-0" style={{ background: penalty > 0 ? '#fee2e2' : '#dcfce7' }}>
-      <div className="text-[10px] font-bold uppercase tracking-wide truncate"
+    // Telefon: přes celou šířku mřížky; < 1024 px se texty nezkracují a rozpis bodů
+    // (na desktopu jen v tooltipu) je vidět pod rankem — na dotyku tooltip nejde otevřít
+    <div className="rounded-xl px-3 py-2 min-w-0 max-sm:col-span-2" style={{ background: penalty > 0 ? '#fee2e2' : '#dcfce7' }}>
+      <div className="text-[10px] font-bold uppercase tracking-wide truncate max-lg:whitespace-normal"
         style={{ color: penalty > 0 ? C.red : '#16a34a', opacity: 0.65 }}>
         Věrnostní rank{penalty > 0 ? ' · degradován' : ''}
       </div>
-      <div className="text-sm font-extrabold truncate" style={{ color: penalty > 0 ? C.red : '#16a34a' }}
-        title={`Body: ${st.points} (základ ${st.raw_points}, bonus ${st.bonus_points}, strop ${st.floor_points}, penalizace ${penalty})`}>
+      <div className="text-sm font-extrabold truncate max-lg:whitespace-normal" style={{ color: penalty > 0 ? C.red : '#16a34a' }}
+        title={pointsInfo}>
         {st.rank_name} · {st.percent} %
       </div>
-      <div className="flex gap-1 mt-1">
+      <div className="lg:hidden text-[11px] font-semibold" style={{ color: penalty > 0 ? C.red : '#16a34a', opacity: 0.8 }}>{pointsInfo}</div>
+      <div className="flex gap-1 mt-1 max-lg:flex-wrap max-lg:gap-2">
         <button onClick={() => adjust(-1)} disabled={busy}
-          className="text-[10px] font-extrabold uppercase cursor-pointer rounded-btn px-[6px] py-[2px] max-lg:px-3 max-lg:py-2"
+          className="text-[10px] font-extrabold uppercase cursor-pointer rounded-btn px-[6px] py-[2px] max-lg:px-3 max-lg:py-2 max-lg:text-xs max-lg:whitespace-nowrap"
           style={{ background: '#fff', color: C.red, border: '1px solid #fca5a5' }}
           title="Ruční degradace o 1 rank (např. po nehodě). Zapíše se do historie úprav.">−1 rank</button>
         {penalty > 0 && (
           <button onClick={() => adjust(1)} disabled={busy}
-            className="text-[10px] font-extrabold uppercase cursor-pointer rounded-btn px-[6px] py-[2px] max-lg:px-3 max-lg:py-2"
+            className="text-[10px] font-extrabold uppercase cursor-pointer rounded-btn px-[6px] py-[2px] max-lg:px-3 max-lg:py-2 max-lg:text-xs max-lg:whitespace-nowrap"
             style={{ background: '#fff', color: '#16a34a', border: '1px solid #86efac' }}
             title="Vrátit zpět 1 rank z dřívější degradace.">+1 rank</button>
         )}

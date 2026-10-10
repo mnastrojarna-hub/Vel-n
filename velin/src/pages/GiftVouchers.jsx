@@ -12,6 +12,9 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../components/ui/BulkActionsBar'
 import { bulkUpdate, bulkDelete, exportToCsv, logAdminAudit } from '../lib/bulkActions'
 import { VoucherModal, RedeemModal } from './GiftVouchersModals'
+import MobileFilters from './DiscountCodesMobileFilters'
+import { VoucherCardsMobile } from './DiscountCodesCardsMobile'
+import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
 
 const PER_PAGE = 25
 const CATEGORIES = [
@@ -57,6 +60,8 @@ export default function GiftVouchers() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [redeemModal, setRedeemModal] = useState(null)
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const isMobile = useIsMobile()
+  const isPhone = useMediaQuery('(max-width: 767px)') // telefon: hledací pole přes celou šířku
 
   useEffect(() => { loadVouchers() }, [page, filters])
   useEffect(() => { autoExpireVouchers(); loadSummary() }, [])
@@ -252,7 +257,10 @@ export default function GiftVouchers() {
           value={filters.search}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
           placeholder="Hledat kód, jméno, email…"
+          fullWidth={isPhone}
         />
+        {/* telefon: filtry schované pod tlačítkem „Filtry (n)“; tablet/PC beze změny */}
+        <MobileFilters active={(filters.statuses?.length || 0) + (filters.sources?.length || 0)}>
         <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
           options={[{ value: 'active', label: 'Aktivní' }, { value: 'redeemed', label: 'Uplatněné' }, { value: 'expired', label: 'Expirované' }, { value: 'cancelled', label: 'Zrušené' }]} />
@@ -266,6 +274,7 @@ export default function GiftVouchers() {
           style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
           Reset
         </button>
+        </MobileFilters>
         <div className="ml-auto">
           <Button green onClick={() => { setEditVoucher(null); setShowModal(true) }}>+ Nový poukaz</Button>
         </div>
@@ -283,6 +292,14 @@ export default function GiftVouchers() {
       ) : (
         <>
           <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
+          {/* Telefon + tablet (< 1024 px): karty (sloupec Akce by byl mimo obraz); PC = tabulka beze změny */}
+          {isMobile ? (
+            <VoucherCardsMobile vouchers={vouchers} selectedIds={selectedIds} setSelectedIds={setSelectedIds}
+              onDetail={setDetailVoucher} onRedeem={setRedeemModal} onCancel={setDeleteConfirm}
+              onEdit={v => { setEditVoucher(v); setShowModal(true); setDetailVoucher(null) }} renderStatus={statusBadge}
+              categoryLabel={v => CATEGORIES.find(c => c.value === v.category)?.label || v.category || '—'}
+              sourceLabel={v => SOURCE_LABELS[v.source] || v.source || '—'} />
+          ) : (
           <Table>
             <thead>
               <TRow header>
@@ -338,6 +355,7 @@ export default function GiftVouchers() {
               {vouchers.length === 0 && <TRow><TD colSpan={9}>Žádné dárkové poukazy</TD></TRow>}
             </tbody>
           </Table>
+          )}
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
@@ -367,7 +385,7 @@ export default function GiftVouchers() {
               </div>
             )}
           </div>
-          <div className="flex justify-end gap-3 mt-5">
+          <div className="flex justify-end gap-3 mt-5 max-sm:flex-wrap">
             <Button onClick={() => setDetailVoucher(null)}>Zavřít</Button>
             {detailVoucher.status === 'active' && (
               <Button onClick={() => { setRedeemModal(detailVoucher); setDetailVoucher(null) }} style={{ background: '#1a8a18', color: '#fff' }}>Uplatnit</Button>
@@ -413,7 +431,7 @@ export default function GiftVouchers() {
 
 function SummaryCard({ label, value, color }) {
   return (
-    <Card>
+    <Card className="max-md:!py-3 max-md:!px-4">
       <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-xl font-extrabold" style={{ color }}>{value}</div>
     </Card>
@@ -424,7 +442,7 @@ function DetailRow({ label, value, mono }) {
   return (
     <div>
       <div className="text-sm font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{label}</div>
-      <div className={`text-sm font-semibold ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div>
+      <div className={`text-sm font-semibold max-lg:[overflow-wrap:anywhere] ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div>
     </div>
   )
 }
@@ -451,7 +469,7 @@ function CheckboxFilterGroup({ label, values, onChange, options }) {
       style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
       {options.map(o => (
-        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer max-lg:min-h-[34px]"
           style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
           <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
             className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
@@ -476,16 +494,16 @@ function SortControl({ options, sortBy, sortDir, onChange }) {
   const by = options.some(o => o.value === sortBy) ? sortBy : options[0].value
   const dir = sortDir === 'asc' ? 'asc' : 'desc'
   return (
-    <div className="flex items-center gap-1 rounded-btn"
+    <div className="flex items-center gap-1 rounded-btn max-lg:flex-wrap"
       style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>Řadit:</span>
       <select value={by} onChange={e => onChange(e.target.value, dir)}
-        className="rounded-btn text-sm font-bold cursor-pointer outline-none"
+        className="rounded-btn text-sm font-bold cursor-pointer outline-none max-lg:min-h-[36px]"
         style={{ padding: '4px 8px', background: '#fff', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
       <button onClick={() => onChange(by, dir === 'asc' ? 'desc' : 'asc')}
-        className="rounded-btn text-sm font-extrabold cursor-pointer"
+        className="rounded-btn text-sm font-extrabold cursor-pointer max-lg:min-h-[36px]"
         title={dir === 'asc' ? 'Vzestupně (klikni pro sestupně)' : 'Sestupně (klikni pro vzestupně)'}
         style={{ padding: '4px 10px', background: '#74FB71', border: 'none', color: '#1a2e22' }}>
         {dir === 'asc' ? '↑ Vzestupně' : '↓ Sestupně'}
