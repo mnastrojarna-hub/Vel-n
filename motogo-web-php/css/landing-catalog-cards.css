@@ -5,6 +5,7 @@
 @media(min-width:600px){.kf-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:.9rem}}
 @media(min-width:1000px){.kf-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:1.1rem}}
 .kf-grid.is-busy .kf-card{opacity:.55}
+.kf-grid.is-dates .kf-badge-av{display:none}
 .kf-card{position:relative;display:flex;flex-direction:column;min-width:0;overflow:hidden;border-radius:16px;background:#fff;border:1px solid #e1efe9;box-shadow:0 6px 18px -10px rgba(26,46,34,.35);transition:transform .22s ease,box-shadow .22s ease,border-color .22s,opacity .2s}
 .kf-card[hidden]{display:none}
 .kf-card-link{display:flex;flex:1;flex-direction:column;min-width:0;color:#1a2e22}
@@ -21,7 +22,7 @@
 .kf-card-body{display:flex;flex:1;flex-direction:column;gap:.3rem;padding:.55rem .6rem .35rem}
 .kf-card-body h3{display:-webkit-box;margin:0;overflow:hidden;color:#1a2e22;font-size:.9rem;line-height:1.25;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .kf-specs{display:flex;flex-wrap:wrap;gap:.22rem;margin:0;padding:0;list-style:none}
-.kf-specs li{padding:.08rem .42rem;border-radius:999px;background:#eef7f2;color:#2c4a3a;font-size:.66rem;font-weight:700;line-height:1.5;white-space:nowrap}
+.kf-specs li{max-width:100%;overflow:hidden;padding:.08rem .42rem;border-radius:999px;background:#eef7f2;color:#2c4a3a;font-size:.66rem;font-weight:700;line-height:1.5;white-space:nowrap;text-overflow:ellipsis}
 .kf-br{display:flex;align-items:center;gap:.2rem;margin:0;color:#4a6b5a;font-size:.68rem;line-height:1.3}
 .kf-br .lp-ico{flex:0 0 auto;width:12px;height:12px;color:#0d6e0d}
 .kf-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .3rem;margin:auto 0 0;padding-top:.3rem;line-height:1.2}

@@ -39,7 +39,7 @@ return ['pages' => ['pobocky' => ['v2' => [
         ['label' => 'Rain gear & extra equipment', 'i' => 'rain', 'v' => [['ok' => 1, 't' => 'Yes'], ['ok' => 0, 't' => 'No, Mezná only']]],
         ['label' => 'Delivery to your address', 'i' => 'truck', 'v' => [['ok' => 1, 't' => 'Yes, for a surcharge'], ['ok' => 0, 't' => 'No: pick-up and return at the branch only']]],
         ['label' => 'Documents', 'i' => 'doc', 'v' => [['t' => 'Upload them online, or we check them on the spot'], ['t' => 'Must be uploaded and verified online in advance']]],
-        ['label' => 'Facilities', 'i' => 'kiosk', 'v' => [['t' => 'Wi-Fi, WC, changing cubicle and lockable lockers'], ['t' => 'Locker room (door no. 8), touchscreen and bike bays']]],
+        ['label' => 'Facilities', 'i' => 'kiosk', 'v' => [['t' => 'Wi-Fi, WC, changing room and lockers'], ['t' => 'Locker room (door no. 8), touchscreen and bike bays']]],
         ['label' => 'Free parking', 'i' => 'parking', 'v' => [['ok' => 1, 't' => 'Yes, for the whole rental'], ['ok' => 1, 't' => 'Yes, for the whole rental']]],
         ['label' => 'Getting there', 'i' => 'car', 'v' => [['t' => 'About 90 min from Prague'], ['t' => '20 min from southern Brno (about 30 min from the centre), 35 min from the airport, 1 h 40 min from Vienna']]],
         ['label' => 'Bikes at the branch', 'i' => 'moto', 'count' => 1, 'v' => [['t' => '{n}'], ['t' => '{n}']]],
@@ -51,7 +51,7 @@ return ['pages' => ['pobocky' => ['v2' => [
             'dist' => ['About 90 min from Prague'],
             'stats' => [['v' => '90 min', 'l' => 'from Prague (approx.)'], ['v' => '6XL', 'l' => 'max. gear size'], ['v' => 'Mon–Sun', 'l' => 'any time']],
             'facts' => [
-                ['i' => 'clock', 't' => 'Monday to Sunday, incl. holidays'], ['i' => 'user', 't' => 'Personal handover'],
+                ['i' => 'clock', 't' => 'Mon–Sun nonstop, incl. holidays'], ['i' => 'user', 't' => 'Personal handover'],
                 ['i' => 'helmet', 't' => 'Gear included, sizes up to 6XL'], ['i' => 'rain', 't' => 'Rain gear for rent'],
                 ['i' => 'truck', 't' => 'Delivery to your address (surcharge)'], ['i' => 'parking', 't' => 'Free parking'], ['i' => 'shield', 't' => 'No deposit'],
             ],
@@ -59,11 +59,11 @@ return ['pages' => ['pobocky' => ['v2' => [
             'gear' => [['i' => 'helmet', 't' => 'Helmet'], ['i' => 'jacket', 't' => 'Jacket'], ['i' => 'pants', 't' => 'Trousers'], ['i' => 'gloves', 't' => 'Gloves'], ['i' => 'rain', 't' => 'Rain gear']],
             'sizes' => 'Jackets and trousers in sizes up to 6XL',
             'in_bike' => [],
-            'gallery' => ['MotoGo24 showroom in Mezná near Pelhřimov', 'Bikes ready to rent', 'MotoGo24 adventure bikes', 'Gear store: helmets and clothing included in the rental'],
+            'gallery' => ['MotoGo24 showroom in Mezná near Pelhřimov', 'Bikes ready to rent', 'MotoGo24 adventure bikes', 'Gear room: helmets and clothing included in the rental'],
         ],
         [
             'short' => 'Velké Němčice',
-            'highlight' => '100% open 24/7, no staff',
+            'highlight' => 'Open 24/7, 100% self-service',
             'dist' => ['20 min from southern Brno, about 30 min from the centre', 'About 35 min from Brno-Tuřany airport', '1 h 40 min from Vienna'],
             'stats' => [['v' => '24/7', 'l' => 'no staff'], ['v' => '30 min', 'l' => 'from Brno centre (approx.)'], ['v' => '35 min', 'l' => 'from Brno airport (approx.)']],
             'facts' => [
@@ -76,8 +76,8 @@ return ['pages' => ['pobocky' => ['v2' => [
             'sizes' => 'Helmets S–3XL; jackets, trousers and gloves up to 4XL (larger sizes in Mezná)',
             'in_bike' => [['i' => 'vest', 't' => 'Reflective vest'], ['i' => 'firstaid', 't' => 'First-aid kit'], ['i' => 'doc', 't' => 'Accident report form'], ['i' => 'lock', 't' => 'Disc lock'], ['i' => 'phone', 't' => 'Phone-holder key']],
             'gallery' => [
-                'Pick-up unit of the self-service branch: bays with the bikes',
-                'Pick-up unit with bays 1–7 and the locker room (door no. 8)',
+                'Pick-up station of the self-service branch: bays with the bikes',
+                'Pick-up station with bays 1–7 and the locker room (door no. 8)',
                 'Touchscreen for entering the app code',
                 'Lockboxes on the right gate pillar: the app code opens the upper lockbox with the gate padlock key',
                 'Customer car park: spaces 1–7 on the right by the fence, free during the rental',

@@ -26,13 +26,13 @@ return ['pages' => ['pobocky' => ['v2' => [
     'map_title' => 'Anfahrt',
     'map_open' => 'In Google Maps öffnen',
     'video_badge' => 'Video',
-    'video_lead' => 'Sieh dir an, wie die Übernahme des Motorrads in der Filiale abläuft, dann weißt du vorher, was dich erwartet.',
+    'video_lead' => 'Sieh dir an, wie die Übernahme des Motorrads in der Filiale abläuft – so weißt du schon vorher, was dich erwartet.',
     'fleet_title' => 'Motorräder in dieser Filiale',
     'other_title' => 'Unsere zweite Filiale',
     'compare_title' => 'Mezná oder Velké Němčice',
     'compare_intro' => 'Beide Filialen auf einen Blick: Wähle die, die zu dir passt.',
     'compare' => [
-        ['label' => 'Übergabe des Motorrads', 'i' => 'user', 'v' => [['t' => 'Persönlich: Wir erklären alles und helfen beim Einstellen'], ['t' => 'Selbst, ohne Personal: Codes aus der App und Touchscreen']]],
+        ['label' => 'Übergabe des Motorrads', 'i' => 'user', 'v' => [['t' => 'Persönlich: Wir erklären alles und helfen beim Einstellen'], ['t' => 'Selbstständig, ohne Personal: Codes aus der App und Touchscreen']]],
         ['label' => 'Öffnungszeiten', 'i' => 'clock', 'v' => [['t' => 'Mo–So rund um die Uhr, auch an Feiertagen; die Zeit wählst du bei der Reservierung'], ['t' => '24/7; Rückgabe jederzeit am letzten Tag bis 24:00 Uhr']]],
         ['label' => 'Fahrerausrüstung inklusive', 'i' => 'helmet', 'v' => [['ok' => 1, 't' => 'Ja'], ['ok' => 1, 't' => 'Ja; Motorradstiefel gegen Aufpreis']]],
         ['label' => 'Ausrüstungsgrößen', 'i' => 'tag', 'v' => [['t' => 'Jacke und Hose bis 6XL'], ['t' => 'Helm S–3XL; Jacke, Hose und Handschuhe bis 4XL']]],
@@ -41,7 +41,7 @@ return ['pages' => ['pobocky' => ['v2' => [
         ['label' => 'Dokumente', 'i' => 'doc', 'v' => [['t' => 'Online hochladen, sonst prüfen wir sie vor Ort'], ['t' => 'Vorab online hochladen und verifizieren lassen']]],
         ['label' => 'Ausstattung', 'i' => 'kiosk', 'v' => [['t' => 'WLAN, WC, Umkleidekabine und abschließbare Spinde'], ['t' => 'Umkleide (Tür Nr. 8), Touchscreen und Boxen mit den Motorrädern']]],
         ['label' => 'Kostenloses Parken', 'i' => 'parking', 'v' => [['ok' => 1, 't' => 'Ja, während der gesamten Miete'], ['ok' => 1, 't' => 'Ja, während der gesamten Miete']]],
-        ['label' => 'Anfahrt', 'i' => 'car', 'v' => [['t' => 'Ca. 90 Min. von Prag'], ['t' => '20 Min. vom Süden Brnos (ca. 30 Min. vom Zentrum), 35 Min. vom Flughafen und 1 Std. 40 Min. von Wien']]],
+        ['label' => 'Anfahrt', 'i' => 'car', 'v' => [['t' => 'Ca. 90 Min. von Prag'], ['t' => '20 Min. vom Südrand von Brno (ca. 30 Min. vom Zentrum), 35 Min. vom Flughafen und 1 Std. 40 Min. von Wien']]],
         ['label' => 'Motorräder in der Filiale', 'i' => 'moto', 'count' => 1, 'v' => [['t' => '{n}'], ['t' => '{n}']]],
     ],
     'branches' => [
@@ -64,7 +64,7 @@ return ['pages' => ['pobocky' => ['v2' => [
         [
             'short' => 'Velké Němčice',
             'highlight' => 'Zu 100 % nonstop geöffnet, ohne Personal',
-            'dist' => ['20 Min. vom Süden Brnos, ca. 30 Min. vom Zentrum', 'Ca. 35 Min. vom Flughafen Brno-Tuřany', 'Ca. 1 Std. 40 Min. von Wien'],
+            'dist' => ['20 Min. vom Südrand von Brno, ca. 30 Min. vom Zentrum', 'Ca. 35 Min. vom Flughafen Brno-Tuřany', 'Ca. 1 Std. 40 Min. von Wien'],
             'stats' => [['v' => '24/7', 'l' => 'ohne Personal'], ['v' => '30 Min.', 'l' => 'ab Zentrum Brno (ca.)'], ['v' => '35 Min.', 'l' => 'ab Flughafen Brno (ca.)']],
             'facts' => [
                 ['i' => 'phone', 't' => 'Übernahme per Code aus der App'], ['i' => 'parking', 't' => 'Kostenloses Parken'],

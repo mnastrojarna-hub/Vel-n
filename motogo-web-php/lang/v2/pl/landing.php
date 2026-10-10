@@ -89,7 +89,7 @@ return ['pages' => ['landing' => [
         'hl_title' => 'Więcej niż wypożyczalnia',
         'highlights' => [
             ['kind' => 'kiosk', 'title' => 'Autonomiczny oddział 24/7', 'text' => 'Odbierz i oddaj motocykl nawet o 3 w nocy. Kody z aplikacji otwierają szatnię i boks z twoim motocyklem.', 'href' => '/pobocky/velke-nemcice', 'cta' => 'Jak to działa'],
-            ['kind' => 'ai', 'title' => 'Asystent AI 24/7', 'text' => 'Doradzi w wyborze motocykla, rezerwacji i trasy, o każdej porze na stronie i w aplikacji.'],
+            ['kind' => 'ai', 'title' => 'Asystent AI 24/7', 'text' => 'Pomoże z wyborem motocykla, rezerwacją i trasą, o każdej porze na stronie i w aplikacji.'],
             ['kind' => 'app', 'title' => 'Wszystko w aplikacji', 'text' => 'Rezerwacja i jej zmiany, dokumenty, kody do oddziału i SOS w trasie, w jednym miejscu.', 'stores' => true],
             ['kind' => 'loyalty', 'title' => 'Program lojalnościowy', 'text' => 'Każda jazda podnosi twoją rangę: do 20% rabatu, a od rangi 3 wyposażenie pasażera i buty gratis.'],
         ],
@@ -103,7 +103,7 @@ return ['pages' => ['landing' => [
     ],
     'home' => [
         'h1' => 'Wypożyczalnia motocykli w Czechach',
-        'lead' => 'Odbierz motocykl 24/7 w oddziale Mezná, 90 min z Pragi, lub w samoobsłudze 30 min od Brna.',
+        'lead' => 'Odbierz motocykl 24/7 w oddziale Mezná, 90 min z Pragi, lub w samoobsłudze 30 min z Brna.',
         'hero_eyebrow' => '<strong>Twoja motocyklowa przygoda</strong> w Czechach',
         'cta_primary' => ['label' => 'ZAREZERWUJ', 'href' => '/rezervace'],
         'cta_secondary' => ['label' => 'ZOBACZ MOTOCYKLE', 'href' => '#catalogue'],

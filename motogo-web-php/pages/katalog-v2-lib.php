@@ -77,7 +77,7 @@ function kfTexts($sb) {
     $T = [];
     foreach (kfDefaults() as $k => $v) $T[$k] = lpPlain($own[$k] ?? $v) ?: $v;
     $lp = lpTexts($sb)['common'] ?? [];
-    foreach (['fleet_all_cats', 'fleet_from', 'fleet_per_day', 'license', 'license_none', 'card_book', 'more_open', 'more_close'] as $k) {
+    foreach (['fleet_title', 'fleet_all_cats', 'fleet_from', 'fleet_per_day', 'license', 'license_none', 'card_book', 'more_open', 'more_close'] as $k) {
         $T[$k] = lpPlain($lp[$k] ?? '');
     }
     return $c = $T;

@@ -104,6 +104,7 @@
     lastVis = vis;
     var busy = !!(DT && DT.busy());
     grid.classList.toggle('is-busy', busy && !(DT && DT.fail()));
+    grid.classList.toggle('is-dates', !!(DT && DT.active()));
     grid.setAttribute('aria-busy', busy ? 'true' : 'false');
     countEl.textContent = plural(vis) + (busy && kc ? ' · ' + (DT.fail() ? kc.t.cal_error : kc.t.cal_loading) : '');
     emptyEl.hidden = vis > 0;
@@ -206,19 +207,24 @@
     if (t.classList.contains('kf-calc-btn')) { calc(t.getAttribute('data-id')); return; }
     if (t.hasAttribute('data-kf-cat')) {
       var c = t.getAttribute('data-kf-cat');
-      if (D.base) { e.preventDefault(); S.cat = c; apply(); return; }
+      if (D.base || c === S.cat) { e.preventDefault(); if (c !== S.cat) { S.cat = c; apply(); } return; }
       var u = params(); u.delete('kategorie'); // stránka kategorie → přechod na jinou (SEO URL), filtry jdou s sebou
       var s = u.toString(); t.setAttribute('href', t.getAttribute('href').split('?')[0] + (s ? '?' + s : ''));
       return;
     }
     var k = t.getAttribute('data-kf-rm');
-    if (k === 'all') { reset(); return; }
-    if (k === 'dates') { DT.clear(); return; }
+    if (k === 'all') { reset(); refocus(); return; }
+    if (k === 'dates') { DT.clear(); refocus(); return; }
     if (k === 'lic') S.lic = ''; else if (k === 'br') S.br = ''; else if (k === 'kw' || k === 'pr') S[k] = B[k].slice();
     else if (k === 'abs') S.abs = false; else if (k === 'two') S.two = false; else if (k === 'q') S.q = '';
     setInputs(); apply();
-    var nx = activeEl.querySelector('.kf-ac'); (nx || countEl).focus && nx && nx.focus();
+    refocus();
   });
+  // Odebraný chip zmizí — fokus na další chip, jinak na tlačítko Filtry
+  function refocus() {
+    var nx = activeEl.hidden ? null : activeEl.querySelector('.kf-ac'), t = nx || q('[data-kf-open="panel"]');
+    try { t.focus({ preventScroll: true }); } catch (e) {}
+  }
 
   // --- Kalkulačka pod mřížkou (na mobilu sbalená) + tlačítko na kartách ---
   var kcRoot = d.querySelector('[data-kc]'), tg = null;
@@ -287,4 +293,7 @@
   q('[data-kf-open="panel"]').hidden = false;
   setInputs();
   apply(true);
+  // Aktivní kategorie (např. Ostatní na konci řady) vidět i na úzkém displeji
+  var cats = q('.kf-cats'), on = cats && cats.querySelector('.kf-cat.is-on');
+  if (on && on.offsetLeft + on.offsetWidth > cats.clientWidth) cats.scrollLeft = on.offsetLeft - 12;
 })();
