@@ -20,7 +20,7 @@ return ['pages' => ['landing_info' => [
         'pristaveni' => ['Naar je huis, hotel of station', 'In heel Tsjechië', 'Zonder borg'],
         'dokumenty' => ['Zonder borg', 'Helder contract', 'Veilig online betalen'],
         'faq' => ['Zonder borg', 'Rijuitrusting inbegrepen', 'AI-assistent 24/7'],
-        'kontakt' => ['2 vestigingen: Vysočina en Brno', 'Zelfbediening 24/7 bij Brno', 'Online reserveren'],
+        'kontakt' => ['2 vestigingen: Vysočina en Brno', 'Zelfbediening 24/7 bij Brno', 'Online reservering'],
     ],
     'ai' => [
         'title' => 'AI-assistent 24/7',

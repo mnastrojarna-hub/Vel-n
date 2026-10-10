@@ -19,7 +19,8 @@
 }
 
 /* --- FAQ --- */
-.lpi-faq-list{display:grid;gap:.6rem;margin:0}
+.lpi-faq-list{display:grid;grid-template-columns:minmax(0,1fr);gap:.6rem;margin:0}
+.lpi .lpi-faq-item .lpi-q{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
 .lpi .tab-content,.lpi .tab-pane{margin:0;padding:0}
 .lpi .faq-item.lpi-faq-item{margin:0;border-radius:16px;border:1px solid #d4e8e0;background:#fff;box-shadow:0 10px 22px -20px rgba(26,46,34,.6);transition:border-color .2s,box-shadow .2s}
 .lpi .faq-item.lpi-faq-item[open]{border-color:#74fb71;box-shadow:0 14px 30px -20px rgba(13,110,13,.55)}
@@ -31,7 +32,7 @@
 .lpi .lpi-faq-item>p,.lpi .lpi-faq-item>div{padding:0 1rem 1rem;font-size:.9rem;line-height:1.6;color:#2c4a3a}
 .lpi .lpi-faq-item div div,.lpi .lpi-faq-item div p,.lpi .lpi-faq-item p p{padding:0}
 .lpi .lpi-faq-item[open]>:not(summary){animation:lpiFade .35s ease both}
-@media(min-width:900px){.lpi-faq-list{grid-template-columns:1fr 1fr;align-items:start;gap:.75rem 1rem}}
+@media(min-width:900px){.lpi-faq-list{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:.75rem 1rem}}
 .lpi-tabs{display:flex;gap:.45rem;margin:0 calc(-1 * var(--lp-g)) 1rem;padding:.25rem var(--lp-g) .55rem;overflow-x:auto;scrollbar-width:none;list-style:none}
 .lpi-tabs::-webkit-scrollbar{display:none}
 .lpi-tabs li{flex:0 0 auto}
@@ -50,17 +51,20 @@
 @media(min-width:600px){.lpi-ai .lp-btn{flex:0 0 auto}}
 
 /* --- PDF dokumenty --- */
-.lpi-docs{display:grid;gap:.6rem;margin:1rem 0 0}
+.lpi-docs{display:grid;grid-template-columns:minmax(0,1fr);gap:.6rem;margin:1rem 0 0}
 .lpi-doc{display:flex;align-items:center;gap:.8rem;padding:.85rem .9rem;border-radius:16px;background:#fff;border:1px solid #d4e8e0;color:#1a2e22;text-decoration:none;box-shadow:0 10px 22px -20px rgba(26,46,34,.6);transition:transform .2s,border-color .2s}
 .lpi-doc:hover{transform:translateY(-2px);border-color:#74fb71;color:#1a2e22}
 .lpi-doc>img{flex:0 0 38px;width:38px;height:38px}
 .lpi-doc>div{flex:1;min-width:0}
-.lpi-doc h3{margin:0;font-size:.9rem;line-height:1.3;color:#1a2e22}
+.lpi-doc h3{margin:0;font-size:.9rem;line-height:1.3;color:#1a2e22;overflow-wrap:anywhere}
+.lpi-doc h3:lang(de){hyphens:auto}
 .lpi-doc>div>span{display:block;margin-top:.1rem;font-size:.74rem;color:#4a6b5a}
 .lpi-doc-dl{flex:0 0 auto;display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .7rem;border-radius:999px;background:#1a2e22;color:#74fb71;font-size:.68rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
 .lpi-doc-dl img{width:13px;height:13px;filter:brightness(0) saturate(100%) invert(82%) sepia(36%) saturate(1500%) hue-rotate(64deg) brightness(106%) contrast(100%)}
 @media(max-width:380px){.lpi-doc-dl{padding:.5rem;font-size:0;gap:0}.lpi-doc-dl img{width:16px;height:16px}}
-@media(min-width:769px){.lpi-docs{grid-template-columns:1fr 1fr}}
+/* Dlouhý popisek (DE „HERUNTERLADEN“) by kartu roztáhl přes okraj → do 440 px jen ikona (text zůstává pro čtečky) */
+@media(max-width:440px){.lpi-doc-dl--long{padding:.5rem;font-size:0;gap:0}.lpi-doc-dl--long img{width:16px;height:16px}}
+@media(min-width:769px){.lpi-docs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* --- CTA karta + sbalený text --- */
 .lpi-cta .lp-cta-card{position:relative;overflow:hidden}

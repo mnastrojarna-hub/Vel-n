@@ -20,7 +20,7 @@ return ['pages' => ['landing_info' => [
         'pristaveni' => ['To your home, hotel or train station', 'Across Czechia', 'No deposit'],
         'dokumenty' => ['No deposit', 'Clear contract', 'Secure online payment'],
         'faq' => ['No deposit', 'Rider gear included', 'AI assistant 24/7'],
-        'kontakt' => ['2 branches: Vysočina & Brno', 'Self-service 24/7 near Brno', 'Book online'],
+        'kontakt' => ['2 branches: Vysočina & Brno', 'Self-service 24/7 near Brno', 'Online booking'],
     ],
     'ai' => [
         'title' => 'AI assistant 24/7',

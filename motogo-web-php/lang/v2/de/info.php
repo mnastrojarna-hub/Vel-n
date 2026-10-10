@@ -5,7 +5,7 @@
 // Struktura = lang/v2/es/info.php (schválený pilot); CS defaulty: lpiDefaults() v landing-info.php.
 return ['pages' => ['landing_info' => [
     'cta_primary' => 'RESERVIEREN',
-    'cta_secondary' => 'MOTORRAD WÄHLEN',
+    'cta_secondary' => 'MOTORRÄDER ANSEHEN',
     'cta_call' => 'ANRUFEN',
     'reserve' => 'Motorrad reservieren',
     'steps_title' => 'Schritt für Schritt',
@@ -20,7 +20,7 @@ return ['pages' => ['landing_info' => [
         'pristaveni' => ['Nach Hause, ins Hotel oder zum Bahnhof', 'In ganz Tschechien', 'Keine Kaution'],
         'dokumenty' => ['Keine Kaution', 'Verständlicher Vertrag', 'Sichere Online-Zahlung'],
         'faq' => ['Keine Kaution', 'Fahrerausrüstung inklusive', 'KI-Assistent 24/7'],
-        'kontakt' => ['2 Filialen: Vysočina und Brno', 'Selbstbedienung 24/7 bei Brno', 'Online buchen'],
+        'kontakt' => ['2 Filialen: Vysočina und Brno', 'Selbstbedienung 24/7 bei Brno', 'Online-Reservierung'],
     ],
     'ai' => [
         'title' => 'KI-Assistent 24/7',

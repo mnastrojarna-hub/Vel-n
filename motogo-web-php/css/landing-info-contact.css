@@ -61,7 +61,7 @@
 }
 
 /* --- Provozovna, sítě, CTA --- */
-.lpi-cinfo{display:grid;gap:1rem}
+.lpi-cinfo{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}
 .lpi-cinfo>div{display:contents}
 .lpi-cinfo section{margin:0}
 .lpi-row{display:flex;align-items:flex-start;gap:.8rem;margin:0 0 .9rem}
@@ -79,6 +79,7 @@
 .lpi-soc .social-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:50%;background:#74fb71}
 .lpi-soc .social-icon img{width:20px;height:20px}
 .lpi-soc a{color:#1a2e22;font-weight:700;text-transform:capitalize;text-decoration:none}
+@media(max-width:359px){.lpi-soc-list{grid-template-columns:1fr}}
 .lpi-cta--mini .lp-cta-card{height:100%}
 .lpi-cta--mini .lp-cta-btns .lp-btn:first-child{min-height:52px}
 .lpi-map .lpi-btns{margin-top:.9rem}

@@ -1,0 +1,195 @@
+/* ===== MotoGo24 — Detail motorky v2 (pages/katalog-detail.php při landingV2Enabled()) =====
+   Hooky v katalog-detail.php ($kcV2): .md-hero (swipe galerie .md-track + tmavý panel .md-head),
+   .md-info, .md-specs, .md-gear, .md-rev (recenze z landing-trust.php), .md-sticky. JS: js/moto-detail-v2.js
+   (počítadlo/šipky/náhledy galerie, ikony parametrů a výbavy, sticky lišta). Kalkulačka: landing-calc*.css. */
+.md{--md-g:1.25rem;--lp-star:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z'/%3E%3C/svg%3E");--md-calc:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h12v18H6zM9 7h6M9 11h1M12 11h1M15 11v6M9 15h1M12 15h1M9 18h1M12 18h1'/%3E%3C/svg%3E");--md-doc:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h6'/%3E%3C/svg%3E");--md-zoom:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2374fb71' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7'/%3E%3C/svg%3E");--md-check:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2308230f' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");--md-play:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2374fb71'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E")}
+@media(max-width:480px){.md{--md-g:.9rem}}
+.md-info h2,.md-info h3,.md .moto-specs>h2,.md .moto-prices h2,.md .moto-related>h2{margin:0 0 .8rem;color:#0e2a1c;font-size:clamp(1.25rem,5vw,1.55rem);line-height:1.2;letter-spacing:-.01em}
+.md-info h3{font-size:clamp(1.1rem,4.4vw,1.3rem)}
+
+/* --- Hero: navigace, galerie, panel --- */
+.md-hero{display:flex;flex-direction:column;gap:1rem;margin:0 0 2rem}
+.md-hero>.moto-nav{order:3;margin:0;padding:0}
+.md .moto-nav a{border:1px solid #cfe3da;border-radius:999px;background:#fff;color:#1a2e22;box-shadow:none;font-size:.8rem;font-weight:700}
+.md .moto-nav a:hover{background:#eef7f2;color:#0a1f14}
+.md .moto-nav .moto-nav-back{border-color:#0e2a1c;background:#0e2a1c;color:#74fb71}
+.md .moto-nav .moto-nav-back:hover{background:#1a3a2a;color:#a8ff9f}
+.md .moto-nav .moto-nav-disabled{border:0;background:none}
+@media(max-width:768px){.md .moto-nav .moto-nav-back{flex:1 1 100%}.md .moto-nav a{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+
+.md-gallery{position:relative;margin:0 calc(-1 * var(--md-g));container-type:inline-size}
+.md-track{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;background:#0e2a1c}
+.md-track::-webkit-scrollbar{display:none}
+.md-track .moto-thumbs-wrap,.md-track .moto-thumbs{display:contents}
+.md-track .moto-thumbs-nav{display:none}
+.md-track .moto-video,.md-track .moto-photo,.md-track .moto-thumbs>div{position:relative;flex:0 0 100%;min-width:0;aspect-ratio:4/3;scroll-snap-align:center;scroll-snap-stop:always}
+.md-track .moto-video{height:auto!important;margin:0!important;border-radius:0!important;box-shadow:none!important}
+.md-track a{display:block;height:100%;cursor:zoom-in}
+.md-track a::after{content:"";position:absolute;top:.7rem;right:.7rem;width:34px;height:34px;border-radius:50%;background:rgba(10,31,20,.72) var(--md-zoom) center/16px no-repeat;pointer-events:none}
+.md-track .gallery-img{height:100%;border-radius:0}
+.md-track .gallery-img img{display:block;width:100%;height:100%;object-fit:contain}
+.md-track a:focus-visible{outline:3px solid #74fb71;outline-offset:-3px}
+.md-count{position:absolute;left:.75rem;top:.75rem;z-index:2;padding:.22rem .6rem;border-radius:999px;background:rgba(10,31,20,.75);color:#fff;font-size:.74rem;font-weight:700;letter-spacing:.03em;pointer-events:none}
+.md-arr{position:absolute;top:40%;top:calc(37.5cqw - 22px);z-index:2;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:50%;background:rgba(10,31,20,.78);color:#74fb71;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.25);transition:background .2s,transform .2s}
+.md-arr:hover{background:#0e2a1c;transform:scale(1.06)}
+.md-arr[hidden]{display:none}
+.md-arr svg{width:20px;height:20px}
+.md-arr--prev{left:.75rem}
+.md-arr--prev svg{transform:rotate(180deg)}
+.md-arr--next{right:.75rem}
+.md-thumbs{display:none}
+
+.md-head{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:1rem;margin:0;padding:1.15rem 1.05rem 1.1rem;border-radius:20px;color:#e8f5ee;background:radial-gradient(120% 140% at 100% 0,#24563b 0,#0e2a1c 55%,#0a1f14 100%);box-shadow:0 18px 40px -14px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.25)}
+.md-head::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,transparent,#74fb71,transparent);animation:lpScan 3.6s linear infinite}
+.md-head-main{display:flex;flex-direction:column;align-items:flex-start;gap:.6rem;min-width:0}
+.md-head h1{margin:0;color:#fff;font-size:clamp(1.45rem,6.4vw,2.1rem);line-height:1.18;hyphens:none;text-wrap:balance}
+.md-head .moto-h1-suffix{color:#9fc4b1;font-weight:500}
+.md-head .moto-badge-available,.md-head .moto-badge-busy{margin:0}
+.md-chips{margin:0}
+.md-head .moto-branch-info{display:block;margin:0;color:#cfe7da;font-size:.8rem;line-height:1.45}
+.md-head .moto-branch-info strong{color:#fff}
+.md-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:.1rem .4rem;margin:.1rem 0 0;line-height:1.1}
+.md-price b{color:#74fb71;font-size:clamp(1.6rem,7vw,2rem);font-weight:900;letter-spacing:-.01em}
+.md-price span{color:#cfe7da;font-size:.9rem;font-weight:700}
+.md-head>.md-cta{position:static;z-index:auto;width:auto}
+.md-cta .lp-btn{min-width:0}
+.md-calc-btn::before{content:"";flex:0 0 auto;width:19px;height:19px;background:currentColor;-webkit-mask:var(--md-calc) center/contain no-repeat;mask:var(--md-calc) center/contain no-repeat}
+.md-head :focus-visible{outline:3px solid #74fb71;outline-offset:3px}
+@media(max-width:340px){.md-calc-btn::before{display:none}}
+
+@media(min-width:769px){
+  .md-gallery{margin:0}
+  .md-track{border-radius:18px;box-shadow:0 18px 40px -22px rgba(10,31,20,.6)}
+  .md-thumbs{position:relative;display:flex;gap:.5rem;margin:.6rem 0 0;padding:0 0 .25rem;overflow-x:auto;scrollbar-width:thin}
+  .md-thumbs button{position:relative;flex:0 0 88px;aspect-ratio:4/3;padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;background:#0e2a1c;cursor:pointer;opacity:.6;transition:opacity .2s,border-color .2s}
+  .md-thumbs button:hover,.md-thumbs button[aria-current=true]{opacity:1}
+  .md-thumbs button[aria-current=true]{border-color:#37cf63}
+  .md-thumbs button:focus-visible{outline:3px solid #37cf63;outline-offset:1px}
+  .md-thumbs img{display:block;width:100%;height:100%;object-fit:cover}
+  .md-thumbs .is-video::after{content:"";position:absolute;inset:0;margin:auto;width:28px;height:28px;border-radius:50%;background:rgba(10,31,20,.78) var(--md-play) 58% 50%/13px no-repeat}
+}
+@media(min-width:900px){
+  .md-hero{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(330px,1fr);grid-template-areas:"nav nav" "gal head";align-items:start;gap:1rem 2rem}
+  .md-hero>.moto-nav{grid-area:nav;order:0}
+  .md-gallery{grid-area:gal}
+  .md-head{grid-area:head;gap:1.25rem;padding:1.6rem 1.5rem 1.4rem}
+  .md-head h1{font-size:clamp(1.6rem,2.4vw,2.2rem)}
+  .md-head .moto-h1-suffix{display:block;margin:.25rem 0 0;font-size:.5em}
+  .md-cta{grid-template-columns:1fr}
+}
+
+/* --- Popis, základní údaje, výbava a výhody, návod --- */
+.md-info{margin:0 0 2rem}
+.md-info .moto-shortdesc{columns:auto;margin:0}
+.md-info .moto-shortdesc>p{display:none}
+.md-info .moto-desc-rich{margin:0 0 1.75rem;padding:1.2rem 1.15rem;border:1px solid #d4e8e0;border-radius:18px;background:#fff;box-shadow:0 12px 26px -20px rgba(26,46,34,.55);color:#1a2e22;font-size:.95rem;line-height:1.65}
+.md-info .moto-desc-rich p{margin:0 0 .6rem}
+.md-info .moto-desc-rich>:last-child{margin-bottom:0}
+.md-info .moto-shortdesc ul{margin:0 0 1.75rem;padding:0;list-style:none}
+.md-info .moto-shortdesc li{color:#1a2e22;font-size:.9rem;list-style:none}
+.md-info .moto-shortdesc h2+ul{padding:.15rem 1rem;border:1px solid #d4e8e0;border-radius:16px;background:#f3fbf7}
+.md-info h2+ul li{display:flex;justify-content:space-between;align-items:baseline;gap:.4rem 1rem;padding:.6rem 0;border-bottom:1px solid #e0eee7;font-weight:700;text-align:right}
+.md-info h2+ul li:last-child{border-bottom:0}
+.md-info h2+ul strong{flex:0 0 auto;max-width:55%;color:#4a6b5a;font-weight:600;text-align:left}
+.md-info h3+ul li{position:relative;padding:.35rem 0 .35rem 2rem;line-height:1.45}
+.md-info h3+ul li::before{content:"";display:block;position:absolute;left:0;top:.42rem;width:1.3rem;height:1.3rem;border-radius:50%;background:#74fb71 var(--md-check) center/.8rem no-repeat}
+@media(min-width:600px){.md-info h3+ul{columns:2;column-gap:1.5rem}.md-info h3+ul li{break-inside:avoid}}
+@media(min-width:900px){
+  .md-info .moto-shortdesc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:2.5rem;align-items:start}
+  .md-info .moto-shortdesc>*{grid-column:1}
+  .md-info .moto-shortdesc>.moto-desc-rich{grid-column:1/-1}
+  .md-info .moto-shortdesc>h3,.md-info .moto-shortdesc>h3+ul{grid-column:2}
+  .md-info .moto-shortdesc>h3{grid-row:2}
+  .md-info .moto-shortdesc>h3+ul{grid-row:3;columns:auto}
+  .md-info .moto-shortdesc:not(:has(>h2))>h3,.md-info .moto-shortdesc:not(:has(>h2))>h3+ul{grid-column:1/-1}
+  .md-info .moto-shortdesc:not(:has(>h2))>h3+ul{columns:2}
+}
+.md .moto-desc-block{margin:-.5rem 0 2rem}
+.md .moto-desc-block p{margin:0}
+.md .moto-desc-block .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 1.2rem;border:2px solid #1a2e22;border-radius:999px;background:#fff;color:#1a2e22;font-size:.88rem;font-weight:800;box-shadow:none}
+.md .moto-desc-block .btn::after{display:none}
+.md .moto-desc-block .btn::before{content:"";width:18px;height:18px;background:currentColor;-webkit-mask:var(--md-doc) center/contain no-repeat;mask:var(--md-doc) center/contain no-repeat}
+.md .moto-desc-block .btn:hover{background:#1a2e22;color:#74fb71;box-shadow:none}
+
+/* --- Technické parametry: mřížka s ikonami (SVG doplní JS do .md-spec-i) --- */
+.md .moto-specs{margin:0 0 2rem}
+.md-specs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem;margin:0;padding:0;list-style:none}
+.md-spec{display:grid;grid-template-columns:28px minmax(0,1fr);grid-template-areas:"i l" "v v";align-items:center;align-content:start;gap:.4rem .5rem;min-width:0;padding:.65rem .7rem .7rem;border:1px solid #d9ebe2;border-radius:14px;background:linear-gradient(180deg,#f6fcf9,#ebf6f0)}
+.md-spec-i{grid-area:i;align-self:start;box-sizing:border-box;width:28px;height:28px;padding:5px;border-radius:8px;background:#fff;color:#0d6e0d;box-shadow:0 4px 10px -6px rgba(26,46,34,.45)}
+.md-spec-l{grid-area:l;color:#4a6b5a;font-size:.72rem;font-weight:600;line-height:1.25}
+.md-spec-v{grid-area:v;color:#1a2e22;font-size:.92rem;font-weight:800;line-height:1.3;overflow-wrap:anywhere}
+@media(min-width:600px){.md-specs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:900px){.md-specs{grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem}.md-spec{grid-template-columns:32px minmax(0,1fr);padding:.8rem .85rem .85rem}.md-spec-i{width:32px;height:32px;padding:6px}}
+
+/* --- Ceník po dnech + co je v ceně --- */
+.md .moto-prices--kc{max-width:none;margin:0 0 1rem}
+.md .moto-prices--kc>div>p{margin:0 0 .8rem;color:#4a6b5a}
+.md .moto-prices .table-responsive{margin:0;border:1px solid #d4e8e0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 12px 26px -20px rgba(26,46,34,.55)}
+.md .moto-prices .table{width:100%;margin:0;border-collapse:collapse}
+.md .moto-prices .table th{padding:.6rem 1rem;background:#0e2a1c;color:#a8ff9f;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.md .moto-prices .table td{padding:.62rem 1rem;border-top:1px solid #e3efe9;border-bottom:0;background:#fff;color:#1a2e22;font-size:.92rem}
+.md .moto-prices .table tbody tr:nth-child(odd) td{background:#f7fcf9}
+.md .moto-prices .table th:last-child,.md .moto-prices .table td:last-child{text-align:right}
+.md .moto-prices .table td:last-child{color:#0d6e0d;font-weight:800;white-space:nowrap}
+.md-gear{display:flex;flex-direction:column;gap:.85rem;margin:1rem 0 0;padding:1.1rem 1.1rem 1.15rem;border:1px solid #d4e8e0;border-radius:18px;background:linear-gradient(150deg,#f3fbf7,#e1f3e9)}
+.md-gear-ico{display:flex;flex-wrap:wrap;gap:.55rem}
+.md-gear-ico i{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:#fff;color:#0d6e0d;box-shadow:0 6px 14px -8px rgba(26,46,34,.45)}
+.md-gear-ico svg{width:30px;height:30px;stroke-width:1.8}
+.md .md-gear p{margin:0;color:#1a2e22;font-size:.95rem;line-height:1.5}
+@media(min-width:900px){
+  .md .moto-prices--kc>div{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);column-gap:2rem;align-items:start}
+  .md .moto-prices--kc>div>*{grid-column:1}
+  .md .moto-prices--kc>div>.md-gear{grid-column:2;grid-row:3;margin:0;padding:1.4rem 1.5rem}
+  .md .moto-prices--kc>div:not(:has(.md-gear)){max-width:720px;display:block}
+}
+
+/* --- Recenze (landing-trust.php uvnitř obsahu) --- */
+.md-rev{--lp-g:var(--md-g)}
+.md-rev .lp-reviews{margin:0 0 2rem}
+.md-rev .container{max-width:none;padding:0}
+.md-rev .lp-track-wrap{margin:0 calc(-1 * var(--md-g))}
+@media(min-width:769px){.md-rev .lp-track-wrap{margin:0}.md-rev .lp-track{padding-left:0;padding-right:0;scroll-padding:0}}
+
+/* --- Podobné motorky: swipe řada kompaktních karet (karty z renderMotoCard) --- */
+.md .moto-related{margin:0 0 2rem}
+.md .moto-related .gr4{display:grid;grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:72%;gap:.8rem;margin:0 calc(-1 * var(--md-g));padding:.3rem var(--md-g) 1rem;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 var(--md-g);scrollbar-width:none;overscroll-behavior-x:contain}
+.md .moto-related .gr4::-webkit-scrollbar{display:none}
+.md .moto-related .gr4>section{min-width:0;margin:0;scroll-snap-align:start}
+.md .moto-related .moto-wrapper{border-color:#e1efe9;border-radius:16px;box-shadow:0 6px 18px -10px rgba(26,46,34,.35)}
+.md .moto-related .moto-img::after{display:none}
+.md .moto-related .moto-card-badge{top:.5rem;left:.5rem;right:auto;background:rgba(10,31,20,.82);color:#fff;font-size:.64rem}
+.md .moto-related .moto-desc{padding:.65rem .75rem .3rem}
+.md .moto-related .moto-desc ul{display:flex;flex-wrap:wrap;gap:.25rem}
+.md .moto-related .moto-desc li{padding:.08rem .45rem;border-radius:999px;background:#eef7f2;color:#2c4a3a;font-size:.68rem;font-weight:700;line-height:1.5}
+.md .moto-related .moto-desc li::before{content:none}
+.md .moto-related .moto-desc li.moto-card-model{flex:1 1 100%;margin:0 0 .2rem;padding:0;background:none}
+.md .moto-related .moto-card-model h3{margin:0;color:#1a2e22;font-size:.98rem;line-height:1.25}
+.md .moto-related .moto-branch-line{margin:.45rem 0 0;font-size:.72rem}
+.md .moto-related .moto-price{margin:.35rem 0 0;font-size:.95rem;font-weight:800}
+.md .moto-related .moto-btn{padding:.25rem .75rem .8rem;text-align:left}
+.md .moto-related .btngreen-small{min-height:0;padding:.45rem .85rem;border-radius:999px;background:#1a2e22;color:#74fb71;box-shadow:none;font-size:.74rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
+@media(min-width:600px){.md .moto-related .gr4{grid-auto-columns:42%}}
+@media(min-width:900px){.md .moto-related .gr4{grid-auto-flow:row;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin:0;padding:0;overflow:visible}}
+
+/* --- SEO text dole --- */
+.md .moto-detail-outro{margin:0 0 1rem;padding:1.25rem 1.15rem;border:1px solid #d4e8e0;border-radius:18px;background:#f3faf6;color:#2c4a3a;font-size:.92rem;line-height:1.6}
+.md .moto-detail-outro h2{font-size:1.15rem}
+.md .moto-detail-outro p:last-child{margin-bottom:0}
+@media(min-width:900px){.md .moto-detail-outro{padding:1.75rem 2rem}}
+
+/* --- Sticky lišta (mobil): cena + Rezervovat; ustoupí liště kalkulačky (.kc-sticky) --- */
+.md-sticky{position:fixed;left:0;right:0;bottom:0;z-index:950;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.75rem;padding:.6rem .85rem calc(.6rem + env(safe-area-inset-bottom,0px));background:rgba(10,31,20,.95);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 -8px 24px rgba(0,0,0,.25);transform:translateY(110%);visibility:hidden;transition:transform .3s ease,visibility 0s linear .3s}
+.md-sticky.is-on{transform:none;visibility:visible;transition:transform .3s ease,visibility 0s}
+.md-sticky-t{display:flex;flex-direction:column;min-width:0;color:#cfe7da;font-size:.74rem;font-weight:700}
+.md-sticky-m{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.md-sticky-v{color:#74fb71;font-size:1.2rem;font-weight:900;line-height:1.15;white-space:nowrap}
+.md-sticky-v small{color:#cfe7da;font-size:.72rem;font-weight:700}
+.md-sticky .lp-btn{min-height:48px;padding:.6rem 1.1rem;font-size:.86rem;border-radius:12px}
+.md-sticky :focus-visible{outline:3px solid #74fb71;outline-offset:3px}
+@media(max-width:768px){
+  body.md-sticky-on #motogo-ai-bubble{bottom:calc(76px + env(safe-area-inset-bottom,0px))!important}
+  body.md-sticky-on #Up{opacity:0;pointer-events:none}
+  body.md-sticky-on.motogo-ai-open .md-sticky{transform:translateY(110%);visibility:hidden}
+}
+@media(min-width:769px){.md-sticky{display:none}}
+@media(prefers-reduced-motion:reduce){.md-head::before{animation:none}.md-sticky,.md-arr,.md-thumbs button{transition:none}}
