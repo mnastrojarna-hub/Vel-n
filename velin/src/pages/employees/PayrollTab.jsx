@@ -91,7 +91,7 @@ export default function PayrollTab() {
               </TD>
             </TRow>
           ))}
-          {payrolls.length === 0 && <TRow><TD className="mg-stack-full">Žádné záznamy</TD></TRow>}
+          {payrolls.length === 0 && <TRow><TD colSpan={10} className="mg-stack-full">Žádné záznamy</TD></TRow>}
         </tbody>
       </Table>
 

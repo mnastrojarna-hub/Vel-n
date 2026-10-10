@@ -137,7 +137,7 @@ export default function ShortTermAssetsTab() {
                   </TD>
                 </TRow>
               ))}
-              {assets.length === 0 && <TRow><TD label="" className="mg-stack-full">Zadny krátkodobý majetek</TD></TRow>}
+              {assets.length === 0 && <TRow><TD colSpan={8} label="" className="mg-stack-full">Zadny krátkodobý majetek</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

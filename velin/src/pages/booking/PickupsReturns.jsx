@@ -9,7 +9,7 @@ import CheckInModal from './CheckInModal'
 import SwapModal from './SwapModal'
 import { shortBranchName } from './BranchChips'
 import { effBranchId, effBranch, BOOKING_BRANCH_EMBED } from '../../lib/bookingBranch'
-import { useIsMobile, useMediaQuery } from '../../hooks/useIsMobile'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { revealBelowOnMobile } from './bookingsMobileScroll'
 
 // Odjezdy (vyzvednutí) a návraty (vrácení) — události seřazené podle data a času,
@@ -84,10 +84,6 @@ const NAV_TOUCH = 'max-lg:min-h-[40px] max-lg:min-w-[44px]'
 // Tablet (768–1023 px): dvouřádkové karty (dense) ve 2 sloupcích — jednořádkový řádek tam ořezával
 // motorku, SPZ i zákazníka. Mezera 1 px s podkladem = dělicí čáry mřížky. Desktop beze změny.
 const DENSE_GRID = ' md:max-lg:grid md:max-lg:grid-cols-2 md:max-lg:gap-px md:max-lg:bg-[#eef5f1]'
-// Úzký desktop (1024–1439 px) v režimu „⇆ Rozdělit“: půlka šířky na jednořádkový řádek nestačí
-// (motorka a zákazník oříznuté na 0 px, „Odbavit“ za okrajem karty) → stejné dvouřádkové karty
-// jako na mobilu/tabletu. Od 1440 px beze změny.
-const SPLIT_DENSE_QUERY = '(max-width: 1439px)'
 
 // odjezd = vyzvednutí (zákazník odjíždí na motorce), návrat = vrácení.
 // Ikona = šipka: odjezd ➡️ (ven), návrat ⬅️ (zpět na pobočku).
@@ -238,7 +234,7 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans, sh
       <div onClick={onClick} className="cursor-pointer hover:bg-[#e9f7f1] transition-colors md:max-lg:!border-b-0" style={wrap}>
         <div className="flex items-center gap-2">
           {typeTag}
-          {/* stav jako u jednořádkového řádku (od 1280 px) — jen „⇆ Rozdělit“ na úzkém desktopu, mobil beze změny */}
+          {/* stav jako u jednořádkového řádku (od 1280 px) — jen „⇆ Rozdělit“ na desktopu, mobil beze změny */}
           {showStatus && <span className="shrink-0 hidden xl:inline"><StatusBadge status={getDisplayStatus(ev.booking)} /></span>}
           <span className="ml-auto text-sm"><TimeCell ev={ev} t={t} /></span>
         </div>
@@ -295,7 +291,6 @@ function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap, scans
 export default function PickupsReturns({ compact = false, onExpand, branchId }) {
   const navigate = useNavigate()
   const isMobile = useIsMobile() // mobil/tablet → události jako dvouřádkové karty (dense)
-  const splitDense = useMediaQuery(SPLIT_DENSE_QUERY) // „⇆ Rozdělit“ do 1439 px → dvouřádkové karty
   const dayDetailRef = useRef(null) // detail dne v kalendáři — na mobilu pod kalendářem
   const [bookings, setBookings] = useState([])
   const [branches, setBranches] = useState([])
@@ -440,7 +435,9 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.pickup.color }}>Odjezdy (vyzvednutí)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcomingPickups.length}</span>
               </div>
-              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense={isMobile || splitDense} />
+              {/* „⇆ Rozdělit“: půlka šířky na jednořádkový řádek nestačí ani na 1440 px (motorka a zákazník oříznuté
+                  na 0 px, „Odbavit“ za okrajem karty) → vždy dvouřádkové karty jako na mobilu/tabletu */}
+              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense />
             </Card>
             <Card style={{ padding: 14 }}>
               <div className="flex items-center gap-2 mb-3">
@@ -448,7 +445,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.return.color }}>Návraty (vrácení)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#fef3c7', color: '#b45309', padding: '1px 9px' }}>{upcomingReturns.length}</span>
               </div>
-              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} showBranch={branchId === ''} dense={isMobile || splitDense} />
+              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} showBranch={branchId === ''} dense />
             </Card>
           </div>
         ) : (

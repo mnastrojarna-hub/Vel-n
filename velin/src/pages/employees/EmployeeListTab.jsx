@@ -84,7 +84,7 @@ export default function EmployeeListTab() {
                   </TD>
                 </TRow>
               ))}
-              {employees.length === 0 && <TRow><TD className="mg-stack-full">Žádní zaměstnanci</TD></TRow>}
+              {employees.length === 0 && <TRow><TD colSpan={9} className="mg-stack-full">Žádní zaměstnanci</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={Math.ceil(total / PER_PAGE)} onPageChange={setPage} />

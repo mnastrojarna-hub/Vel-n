@@ -87,7 +87,7 @@ export default function DocumentsTab() {
               </TRow>
             )
           })}
-          {docs.length === 0 && <TRow><TD className="mg-stack-full">Žádné dokumenty</TD></TRow>}
+          {docs.length === 0 && <TRow><TD colSpan={7} className="mg-stack-full">Žádné dokumenty</TD></TRow>}
         </tbody>
       </Table>
 

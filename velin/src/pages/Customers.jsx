@@ -302,7 +302,7 @@ export default function Customers() {
                   <TD>{topBranch(c.id)}</TD>
                 </tr>
               ))}
-              {customers.length === 0 && <TRow><TD>Žádní zákazníci</TD></TRow>}
+              {customers.length === 0 && <TRow><TD colSpan={15}>Žádní zákazníci</TD></TRow>}
             </tbody>
           </Table>
           )}

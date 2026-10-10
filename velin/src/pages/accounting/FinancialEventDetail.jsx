@@ -76,7 +76,7 @@ export default function EventDetail({ event }) {
         </div>
         {Array.isArray(meta.line_items) && meta.line_items.length > 0 && (
           <div className="mt-2">
-            <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#6b7280' }}>Polo\u017eky{meta.source_language && meta.source_language !== 'cs' ? ' (orig \u2192 CZ)' : ''}</div>
+            <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#6b7280' }}>Položky{meta.source_language && meta.source_language !== 'cs' ? ' (orig \u2192 CZ)' : ''}</div>
             <div className="flex flex-col gap-0.5" style={{ maxWidth: 460 }}>
               {meta.line_items.slice(0, 12).map((it, i) => (
                 <div key={i} className="text-xs flex justify-between gap-3" style={{ color: '#1a2e22' }}>

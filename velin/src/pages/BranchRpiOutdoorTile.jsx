@@ -9,7 +9,8 @@ import { HintList } from './BranchRpiTouchHint'
 // Hodnoty ze zařízení jdou přes txt()/num() — JSON z jednotky nesmí shodit stránku.
 
 const NO_ZONE_TITLE = 'Venek nemá číslo zóny (hardware.outdoor.zone) — příkazy nelze adresovat'
-const VENEK_TITLE = 'Venek — prostor před displejem (zóna bez dveří)'
+const VENEK_DESC = 'prostor před displejem (zóna bez dveří)'
+const VENEK_TITLE = `Venek — ${VENEK_DESC}`
 const LIGHT_MODE_TITLE = 'Režim venkovního světla z nastavení hardwaru (blok Venek) — venek se nastavuje jinak než kóje a šatna'
 const MUSIC_MODE_TITLE = 'Režim hudby venku z nastavení hardwaru (blok Venek)'
 const ACTIVE_TITLE = 'Venek je aktivní, dokud běží aspoň jedna relace'
@@ -71,7 +72,7 @@ function OutdoorTile({ o, onSend, servis = false }) {
         {servis && <Btn tone="blue" small disabled={noZone} title={noZone ? NO_ZONE_TITLE : TEST_TITLE}
           onClick={() => onSend('zone_test', params, `test venku (zóna ${txt(zoneNo)})`)}>Test</Btn>}
         {/* Dotyk: bubliny názvu, čipů režimů a tlačítek pod jedním „i“ (na PC beze změny) */}
-        <HintList items={[['Venek', VENEK_TITLE],
+        <HintList items={[['Venek', VENEK_DESC],
           lightMode && lightMode !== 'auto' && [LIGHT_MODE_CZ[lightMode] || lightMode, LIGHT_MODE_TITLE],
           musicMode && musicMode !== 'session' && [MUSIC_MODE_CZ[musicMode] || musicMode, MUSIC_MODE_TITLE],
           [active ? 'relace' : 'klid', ACTIVE_TITLE],

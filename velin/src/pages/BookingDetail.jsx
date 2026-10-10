@@ -658,8 +658,8 @@ export default function BookingDetail() {
 
   return (
     <div>
-      {/* Mobil/tablet (< lg): štítky stavu se zalamují do dalších řádků (dřív přetékaly mimo obrazovku) */}
-      <div className="flex items-center gap-3 mb-5 max-lg:flex-wrap max-lg:gap-y-2">
+      {/* Štítky stavu se zalamují do dalších řádků (dřív přetékaly mimo obrazovku — mobil i desktop při mnoha štítcích) */}
+      <div className="flex flex-wrap items-center gap-3 gap-y-2 mb-5">
         <button onClick={() => navigate('/rezervace')} className="cursor-pointer max-lg:min-w-[40px] max-lg:min-h-[40px] max-lg:-ml-2" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>Rezervace</h2>
         <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>#{id?.slice(-8).toUpperCase()}</span>

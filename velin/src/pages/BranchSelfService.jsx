@@ -10,7 +10,7 @@ import { BranchGateCodeBlock } from './BranchGateCode'
 import { RpiSection, Btn, Chip, usePersistentFlag, isRpiDevice, platformLabel, ACCESSORIES_LABEL, doorKindLabel, doorLabel, doorEventLabel, isProtocolEvent, isInfoDenied } from './BranchRpiUi'
 import KioskAlertsBanner from '../components/KioskAlertsBanner'
 import { useKioskAlerts } from '../hooks/useKioskAlerts'
-import { useTouchHint, HintedLabel, HintRow, HintBlock } from './BranchRpiTouchHint'
+import { useTouchHint, useTouchHintList, HintedLabel, HintRow, HintBlock } from './BranchRpiTouchHint'
 
 // ─── Tab: Samoobsluha (řídicí jednotka Raspberry) ─────────────────────────
 // Provozní část (vidí obsluha vždy): poplach „dveře bez kódu“, karta jednotky se zónami, poslední protokol diagnostiky,
@@ -24,6 +24,10 @@ const ONLINE_MS = 70 * 1000
 // (heartbeat_s + status_report_s), okno „online“ je 70 s — 15 s polling tedy stav udrží vždy aktuální.
 const DEVICE_POLL_MS = 15 * 1000
 const hasHw = d => !!(d?.hw && typeof d.hw === 'object' && Object.keys(d.hw).length > 0)
+// Bubliny tlačítek v hlavičce záložky (na dotyku pod „i“ za nimi)
+const RELOAD_TITLE = 'Znovu načte data záložky (zařízení, dveře, hesla, logy, kamery, FV, poslední diagnostiku).'
+const SERVIS_DESC = 'rozbalí blok „Nastavení a servis“ a ukáže technická tlačítka na kartě jednotky (modem, synchronizace, identifikace, aktualizace, reboot, terminál, testy zón). Volba se pamatuje v tomto prohlížeči.'
+const SERVIS_TITLE = `Servisní režim: ${SERVIS_DESC}`
 
 function TabSelfService({ branchId, branchName, motos }) {
   const [loading, setLoading] = useState(true)
@@ -276,6 +280,8 @@ function TabSelfService({ branchId, branchName, motos }) {
   const hasRpi = devices.some(isRpiDevice)
   // Bez jednotky nemá provozní část co ukázat → otevřít servis (Zařízení → Přidat), ať obsluha nekouká do prázdna
   useEffect(() => { if (!loading && cfg && !hasRpi && !servis) setServis(true) }, [loading, cfg, hasRpi])   // eslint-disable-line react-hooks/exhaustive-deps
+  // Dotyk: co dělají „Obnovit“ a „Servisní režim“ (na PC bubliny) — jedno „i“ za tlačítky (hook před návratem Spinneru)
+  const toolHint = useTouchHintList([['Obnovit', RELOAD_TITLE], ['Servisní režim', SERVIS_DESC]])
 
   if (loading) return <Spinner />
 
@@ -300,12 +306,14 @@ function TabSelfService({ branchId, branchName, motos }) {
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[12px]" style={{ color: '#6b8c7a' }}>Provoz pobočky přes řídicí jednotku Raspberry. Nastavení a technické nástroje jsou v servisním režimu.</span>
         <span className="ml-auto inline-flex items-center gap-2">
-          <Btn tone="blue" onClick={load} title="Znovu načte data záložky (zařízení, dveře, hesla, logy, kamery, FV, poslední diagnostiku).">Obnovit</Btn>
+          <Btn tone="blue" onClick={load} title={RELOAD_TITLE}>Obnovit</Btn>
           <Btn tone={servis ? 'amber' : 'gray'} onClick={() => setServis(v => !v)}
-            title="Servisní režim: rozbalí blok „Nastavení a servis“ a ukáže technická tlačítka na kartě jednotky (modem, synchronizace, identifikace, aktualizace, reboot, terminál, testy zón). Volba se pamatuje v tomto prohlížeči.">
+            title={SERVIS_TITLE}>
             🔧 Servisní režim {servis ? 'zap.' : 'vyp.'}
           </Btn>
+          {toolHint.toggle}
         </span>
+        <HintRow body={toolHint.body} />
       </div>
       <KioskAlertsBanner alerts={kioskAlerts.alerts} onAck={() => { kioskAlerts.reload(); load() }} compact />
       {error && <div className="p-2 rounded-card text-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>}

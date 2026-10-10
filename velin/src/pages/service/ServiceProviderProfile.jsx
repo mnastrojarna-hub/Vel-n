@@ -33,8 +33,8 @@ export default function ServiceProviderProfile() {
       </div>
       {open && (
         <div className="mt-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
-            {/* popisek nad polem jen pod lg (placeholder po vyplnění zmizí); na desktopu label = display:contents → mřížka beze změny */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {/* popisek nad polem jen pod lg (placeholder po vyplnění zmizí); na desktopu label = display:contents → mřížka beze změny; 4 sloupce až od lg (na tabletu 768 se adresa/e-mail ořezávaly) */}
             {FIELDS.map(([k, label]) => (
               <label key={k} className="lg:contents"><span className="lg:hidden block text-xs font-bold mb-0.5" style={{ color: '#1a2e22' }}>{label}</span>
                 <input value={form[k] || ''} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} placeholder={label} className="rounded-btn text-sm outline-none max-lg:block max-lg:w-full" style={inp} /></label>

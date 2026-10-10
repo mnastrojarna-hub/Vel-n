@@ -180,7 +180,7 @@ export default function Inventory() {
                   </tr>
                 )
               })}
-              {items.length === 0 && <TRow><TD>Žádné položky</TD></TRow>}
+              {items.length === 0 && <TRow><TD colSpan={10}>Žádné položky</TD></TRow>}
             </tbody>
           </Table>
           )}

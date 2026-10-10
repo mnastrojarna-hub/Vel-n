@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts'
 import { CreateApiKeyModal, RevokeApiKeyConfirm } from './ApiKeyModals'
+import { pieLabels } from './pieLabels'
 import { useTableSort, sortRows } from '../../components/sortableTable'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -233,9 +234,10 @@ export default function AiTraffic() {
           {sourcePieData.length > 0 ? (
             <ResponsiveContainer width="100%" height={isMobile ? 270 : 220}>
               {/* poloměr v % volné plochy (bez legendy): popisky hodnot (+20 px vně výseče) se
-                  vejdou i nahoře a nepřekryjí legendu, ani když se legenda zalomí na 2 řádky */}
+                  vejdou i nahoře a nepřekryjí legendu, ani když se legenda zalomí na 2 řádky;
+                  popisky malých sousedních výsečí se nepřepíšou přes sebe (pieLabels) */}
               <PieChart>
-                <Pie data={sourcePieData} dataKey="value" nameKey="name" outerRadius="60%" label>
+                <Pie data={sourcePieData} dataKey="value" nameKey="name" outerRadius="60%" {...pieLabels(sourcePieData)}>
                   {sourcePieData.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
                 <Legend />
