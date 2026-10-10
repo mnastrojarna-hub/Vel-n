@@ -43,7 +43,7 @@ return ['pages' => ['landing_info' => [
                 'badge' => 'Autoservicio 24/7',
                 'title' => 'Velké Němčice (junto a Brno)',
                 'text' => 'Recoges y devuelves la moto y el equipo tú solo, con los códigos de la app: 100 % non-stop, sin esperas.',
-                'chips' => ['A 20 min de Brno', 'A 15 min del aeropuerto de Brno'],
+                'chips' => ['A 30 min de Brno', 'A 35 min del aeropuerto de Brno'],
             ],
         ],
     ],

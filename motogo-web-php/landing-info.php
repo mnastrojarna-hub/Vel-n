@@ -66,7 +66,7 @@ function lpiDefaults() {
             'route' => 'Navigovat',
             'branches' => [
                 ['badge' => 'Obslužná pobočka', 'title' => 'Mezná u Pelhřimova', 'text' => 'Motorku ti předáme osobně v čase dle rezervace — každý den, i o víkendech a svátcích.', 'chips' => ['Cca 90 min z Prahy', 'Přistavení na adresu']],
-                ['badge' => 'Samoobsluha 24/7', 'title' => 'Velké Němčice u Brna', 'text' => 'Motorku i výbavu převezmeš a vrátíš sám kódy z aplikace — nonstop, bez čekání.', 'chips' => ['20 min z Brna', '15 min z letiště Brno']],
+                ['badge' => 'Samoobsluha 24/7', 'title' => 'Velké Němčice u Brna', 'text' => 'Motorku i výbavu převezmeš a vrátíš sám kódy z aplikace — nonstop, bez čekání.', 'chips' => ['30 min z Brna', '35 min z letiště Brno']],
             ],
         ],
     ];

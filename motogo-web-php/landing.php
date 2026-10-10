@@ -21,8 +21,26 @@ function landingV2Enabled() {
     $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
     $q = isset($_GET['landing']) ? (string)$_GET['landing'] : '';
     if ($q === 'v1') return $on = false;
-    if ($q === 'v2') return $on = ($lang === 'cs' || is_array(t('pages.landing')));
-    return $on = in_array($lang, LANDING_V2_LANGS, true);
+    if ($q === 'v2') return $on = landingV2TextsReady($lang);
+    return $on = in_array($lang, LANDING_V2_LANGS, true) && landingV2TextsReady($lang);
+}
+
+/**
+ * v2 jen tam, kde má jazyk texty všech bloků stránky (lang/v2/<lang>/*.php) — jinak
+ * zůstane přeložená v1 (nikdy české texty na cizí stránce). Stránka = kanonická
+ * cesta z routeru ($path v index.php). CS má defaulty v kódu.
+ */
+function landingV2TextsReady($lang) {
+    if ($lang === 'cs') return true;
+    $p = (string)($GLOBALS['path'] ?? '/');
+    $need = ['landing', 'reviews'];
+    if (strpos($p, '/katalog') === 0) $need[] = 'katalog';
+    elseif (strpos($p, '/pobocky') === 0) array_push($need, 'pobocky', 'pobocky-v2');
+    elseif (strpos($p, '/jak-pujcit') === 0 || $p === '/kontakt') $need[] = 'info';
+    foreach ($need as $f) {
+        if (!is_file(__DIR__ . '/lang/v2/' . basename($lang) . '/' . $f . '.php')) return false;
+    }
+    return true;
 }
 
 /** Assety v2 pro renderPage() meta. */
