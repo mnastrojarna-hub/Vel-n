@@ -11,13 +11,18 @@ MG.Handover = (function () {
   const TOUCH_MS = 5000, SUBMIT_TIMEOUT_MS = 60000, CODE_LEN = 6, DONE_GUARD_MS = 15000, WAIT_MS = 4000;
   const GEAR_ICON = { helmet: '🪖', jacket: '🧥', pants: '👖', boots: '🥾', gloves: '🧤' };
   /** Výbava motorky (zadání majitele 2026-09-28): v KAŽDÉM protokolu z displeje; leží v motorce (kufr / tankvak).
+      Od 2026-10-10 i doklady: zelená karta a technický průkaz.
       Od 2026-10-02 jen informativně (bez zaškrtávání) v kroku 2. Klíče = i18n `me.*` a edge `form.moto_equipment[]`. */
   const MOTO_GEAR = [
+    { key: 'luggage', ico: '🧳', note: true },           // 2026-10-10: každá motorka má kufr (cestovní) nebo tankvak
+    { key: 'phone_holder', ico: '📱' },               // 2026-10-10 (zadání majitele): držák k němuž je klíč níže
     { key: 'phone_holder_key', ico: '🔑' },
     { key: 'disc_lock', ico: '🔒' },
     { key: 'accident_form', ico: '📝' },
     { key: 'first_aid_kit', ico: '🩹' },
     { key: 'reflective_vest', ico: '🦺', qty: 2 },
+    { key: 'green_card', ico: '📗' },                 // 2026-10-10 (zadání majitele): doklady k motorce, jen informativně
+    { key: 'registration_certificate', ico: '📄' },
   ];
   const LOCALE = { cs: 'cs-CZ', en: 'en-GB', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', nl: 'nl-NL', pl: 'pl-PL', uk: 'uk-UA' };
   let deps = null;    // { post, showStatus, getState }
@@ -160,6 +165,11 @@ MG.Handover = (function () {
       row.innerHTML = '<span class="ho-row-ico"></span><span class="ho-row-name"></span>';
       row.querySelector('.ho-row-ico').textContent = m.ico;
       row.querySelector('.ho-row-name').textContent = (m.qty ? m.qty + '× ' : '') + (MG.i18n.g('me', m.key) || m.key);
+      if (m.note) {        // vysvětlivka pod názvem (kufr × tankvak dle typu motorky)
+        const n = document.createElement('small'); n.className = 'ho-row-note';
+        n.textContent = MG.i18n.g('me', m.key + '_note') || '';
+        row.querySelector('.ho-row-name').appendChild(n);
+      }
       box.appendChild(row);
     });
   }

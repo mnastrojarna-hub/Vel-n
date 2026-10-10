@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import Card from '../../components/ui/Card'
 import { shortBranchName } from './BranchChips'
+import { effBranchId } from '../../lib/bookingBranch'
 import { revealBelowOnMobile } from './bookingsMobileScroll'
 
 function localIso(d) {
@@ -44,7 +45,7 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
       // trailer_moto_id = kus přiřazený jako příslušenství „Vozík" — blokuje
       // jeho kalendář stejně jako přímá rezervace (parita s get_moto_booked_dates).
       supabase.from('bookings')
-        .select('id, start_date, end_date, status, moto_id, trailer_moto_id, is_test, profiles(full_name), motorcycles!moto_id(model, spz, branch_id), trailer:motorcycles!trailer_moto_id(model, spz, branch_id), total_price')
+        .select('id, start_date, end_date, status, moto_id, trailer_moto_id, branch_id, is_test, profiles(full_name), motorcycles!moto_id(model, spz, branch_id), trailer:motorcycles!trailer_moto_id(model, spz, branch_id), total_price')
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
       supabase.from('motorcycles').select('id, model, spz, branch_id, branches(name)').eq('status', 'active'),
@@ -59,7 +60,8 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
   const daysInMonth = new Date(year, mon + 1, 0).getDate()
   const firstDayOfWeek = (new Date(year, mon, 1).getDay() + 6) % 7
   const todayStr = localIso(new Date())
-  // Pobočka: motorky (a vozíky) té pobočky; rezervace, jejíž motorka nebo vozík na ní stojí
+  // Pobočka: motorky (a vozíky) té pobočky; rezervace té pobočky (bookings.branch_id = kde zákazník
+  // převzal, u NULL pobočka motorky — lib/bookingBranch.js) nebo jejíž vozík na ní stojí
   const branchNameOf = Object.fromEntries([
     ...motos.filter(m => m.branch_id && m.branches?.name).map(m => [m.branch_id, shortBranchName(m.branches.name)]),
     ...(branches || []).map(b => [b.id, shortBranchName(b.name)]),
@@ -71,7 +73,7 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
     .sort((a, b) => (branchNameOf[a] || '').localeCompare(branchNameOf[b] || '', 'cs'))
 
   const visibleBookings = (hideTest ? bookings.filter(b => !b.is_test) : bookings)
-    .filter(b => !branchId || b.motorcycles?.branch_id === branchId || b.trailer?.branch_id === branchId)
+    .filter(b => !branchId || effBranchId(b) === branchId || b.trailer?.branch_id === branchId)
   const occupiedIds = (list) => new Set(list.flatMap(b => [b.moto_id, b.trailer_moto_id].filter(id => id && (!branchId || scopeIds.has(id)))))
   // „Všechny pobočky“: obsazenost každé pobočky zvlášť (tooltip dne + panel vybraného dne)
   function branchBreakdown(dayList) {
@@ -176,7 +178,7 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
                         <span className="font-bold text-sm">{b.motorcycles?.model || '—'}</span>
                         <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span>
                         <StatusBadge status={getDisplayStatus(b)} />
-                        {!branchId && b.motorcycles?.branch_id && <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#e0f2fe', color: '#0369a1' }}>{branchNameOf[b.motorcycles.branch_id] || 'Pobočka'}</span>}
+                        {!branchId && effBranchId(b) && <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#e0f2fe', color: '#0369a1' }}>{branchNameOf[effBranchId(b)] || 'Pobočka'}</span>}
                         {b.is_test && <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" title="Testovací rezervace (obsazenost kalendáře)" style={{ background: '#f3e8ff', color: '#7c3aed' }}>TEST</span>}
                       </div>
                       <div className="text-sm" style={{ color: '#1a2e22' }}>

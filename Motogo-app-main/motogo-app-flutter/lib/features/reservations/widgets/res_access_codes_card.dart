@@ -93,7 +93,8 @@ class ResAccessCodesCard extends ConsumerWidget {
               // Kód motorky kiosk pustí až po podepsaném předávacím
               // protokolu → poznámka pod VYDANÝM kódem samoobslužné
               // pobočky, dokud podpis chybí (zadržený kód / obslužná
-              // pobočka protokol v appce neřeší).
+              // pobočka ji nemá). Jen informace — protokol se od 2026-10-10
+              // vyplňuje a podepisuje výhradně na displeji pobočky.
               ...sorted.map((c) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     ResDetailRow(
                       label: c.codeType == 'motorcycle' ? t(context).tr('motoCode') : lockerLabel,
@@ -103,11 +104,8 @@ class ResAccessCodesCard extends ConsumerWidget {
                     if (c.codeType == 'motorcycle' && c.sentToCustomer && res.isSelfService && !res.protocolSigned)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6),
-                        child: GestureDetector(
-                          onTap: () => context.push(Routes.protocol, extra: res),
-                          child: Text('📝 ${t(context).tr('protocolFirst')}',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.amber)),
-                        ),
+                        child: Text('📝 ${t(context).tr('protocolFirst')}',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.amber)),
                       ),
                   ])),
               // Vlastní výbava bez nároku na šatnu — žádný kód šatny nechybí

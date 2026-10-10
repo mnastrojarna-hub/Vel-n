@@ -14,6 +14,7 @@ import BranchDetailModal from './BranchDetailModal'
 import FleetUpdatesBlock from './FleetUpdates'
 import BranchesListMobile from './BranchesListMobile'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { effBranchId } from '../lib/bookingBranch'
 
 class BranchesErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null } }
@@ -119,29 +120,21 @@ function Branches() {
         console.warn('[Branches] motorcycles stats failed:', e.message)
       }
 
-      // Load active bookings per branch
+      // Load active bookings per branch — pobočka rezervace (bookings.branch_id = kde zákazník
+      // převzal), u NULL pobočka motorky (lib/bookingBranch.js)
       try {
         const { data: bookings } = await supabase
           .from('bookings')
-          .select('id, moto_id')
+          .select('id, branch_id, motorcycles!moto_id(branch_id)')
           .in('status', ['active', 'reserved', 'pending'])
         if (bookings && bookings.length > 0) {
-          const motoIds = [...new Set(bookings.map(b => b.moto_id).filter(Boolean))]
-          if (motoIds.length > 0) {
-            const { data: motosForBookings } = await supabase
-              .from('motorcycles')
-              .select('id, branch_id')
-              .in('id', motoIds)
-            const motoToBranch = {}
-            ;(motosForBookings || []).forEach(m => { motoToBranch[m.id] = m.branch_id })
-            const bs = {}
-            bookings.forEach(b => {
-              const bid = motoToBranch[b.moto_id]
-              if (!bid) return
-              bs[bid] = (bs[bid] || 0) + 1
-            })
-            setBookingStats(bs)
-          }
+          const bs = {}
+          bookings.forEach(b => {
+            const bid = effBranchId(b)
+            if (!bid) return
+            bs[bid] = (bs[bid] || 0) + 1
+          })
+          setBookingStats(bs)
         }
       } catch (e) {
         console.warn('[Branches] booking stats failed:', e.message)

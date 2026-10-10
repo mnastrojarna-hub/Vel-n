@@ -23,6 +23,7 @@ import PaymentConfirmModal from './booking/PaymentConfirmModal'
 import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 import BookingDamagePanel from './booking/BookingDamagePanel'
 import { kioskReturnedAt } from './booking/kioskReturnHelpers'
+import { BOOKING_BRANCH_EMBED } from '../lib/bookingBranch'
 
 export default function BookingDetail() {
   const debugMode = useDebugMode()
@@ -104,7 +105,7 @@ export default function BookingDetail() {
     setLoading(true)
     const result = await debugAction('booking.load', 'BookingDetail', () =>
       supabase.from('bookings')
-        .select('*, motorcycles!moto_id(id, model, spz, status, branch_id, tracking_unit, branches(name, type)), profiles(id, full_name, email, phone, city)')
+        .select(`*, ${BOOKING_BRANCH_EMBED}, motorcycles!moto_id(id, model, spz, status, branch_id, tracking_unit, branches(name, type)), profiles(id, full_name, email, phone, city)`)
         .eq('id', id).single()
     , { booking_id: id })
     if (result?.error) setError(result.error.message)

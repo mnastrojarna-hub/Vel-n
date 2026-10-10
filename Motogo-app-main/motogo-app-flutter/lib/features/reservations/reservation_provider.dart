@@ -9,26 +9,6 @@ import 'reservation_models.dart';
 const _bookingSelect =
     '*, motorcycles!moto_id(*, branches(name, address, city, gps_lat, gps_lng, type))';
 
-/// Stav předávacího protokolu (samoobslužná pobočka) — `get_handover_protocol_state`.
-/// Vrací `{is_self_service, started_at, deadline (od 2026-09-25 vždy NULL —
-/// automatické vyplnění zrušeno), filled_at, autofilled, locked, can_fill,
-/// needs_locker, gear_collected_at, prompted_at, start_date, mileage (int|null —
-/// stav km/motohodin při převzetí, vyplňuje server; od 2026-09-29), mileage_unit
-/// ('km'|'mh')}`. `can_fill` =
-/// samoobsluha, reserved/active, nepodepsáno a (výzva z kiosku NEBO den
-/// vyzvednutí). Real-time podnět dává stream rezervací (`reservationsProvider`,
-/// sloupce `handover_protocol_*`), tenhle provider se po něm invaliduje.
-final handoverProtocolStateProvider =
-    FutureProvider.family<Map<String, dynamic>, String>((ref, bookingId) async {
-  try {
-    final res = await MotoGoSupabase.client
-        .rpc('get_handover_protocol_state', params: {'p_booking_id': bookingId});
-    return (res as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
-  } catch (_) {
-    return <String, dynamic>{};
-  }
-});
-
 /// Odkaz na Google recenze — čte se ze stejného zdroje jako e-mailové šablony
 /// (`app_settings.google_review_url`), aby appka i mail vedly na FUNKČNÍ odkaz.
 /// Fallback shodný s edge fn `send-invoice-email`.
@@ -138,6 +118,8 @@ final reservationByIdProvider =
 
 /// Door codes for a booking (branch_door_codes) — realtime stream.
 /// Reacts to code generation, release (withheld → sent), and deactivation.
+/// Stream je jen podnět k obnovení: RLS (2026-10-10) pouští zákazníkovi jen
+/// VYDANÉ kódy, stav zadržených (bez čísla) čte `_fetchDoorCodes` přes RPC.
 final doorCodesProvider =
     StreamProvider.family<List<DoorCode>, String>((ref, bookingId) async* {
   // Initial fetch
@@ -158,7 +140,24 @@ final doorCodesProvider =
   }
 });
 
+/// Aktivní kódy rezervace přes RPC `get_my_door_codes` — vrací i ZADRŽENÉ
+/// kódy (`door_code` NULL + `withheld_reason`), které přímý select po
+/// zpřísnění RLS (2026-10-10) už nevidí. Chyba RPC (starší backend) → původní
+/// select tabulky.
 Future<List<DoorCode>> _fetchDoorCodes(String bookingId) async {
+  try {
+    final res = await MotoGoSupabase.client
+        .rpc('get_my_door_codes', params: {'p_booking_id': bookingId});
+    if (res is List) {
+      return res
+          .whereType<Map>()
+          .map((e) => DoorCode.fromJson(Map<String, dynamic>.from(e)))
+          .where((c) => c.isActive)
+          .toList();
+    }
+  } catch (_) {
+    // fallback níže
+  }
   try {
     final res = await MotoGoSupabase.client
         .from('branch_door_codes')
@@ -193,6 +192,7 @@ Future<String?> releaseDoorCodes(String bookingId) async {
 class DoorCode {
   final String id;
   final String codeType; // motorcycle, accessories
+  /// Číslo kódu; '' u zadrženého kódu (RPC vrací `door_code` NULL).
   final String doorCode;
   final bool isActive;
   final bool sentToCustomer;

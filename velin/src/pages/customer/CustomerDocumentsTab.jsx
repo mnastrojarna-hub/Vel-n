@@ -11,7 +11,8 @@ import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
 import CustomerVerificationSection from './CustomerVerificationSection'
-import { computeDocVerification } from '../../lib/docVerification'
+import { computeDocVerification, isChildMotoRow, isMarkerPath } from '../../lib/docVerification'
+import { customerDocsVerdicts, worstVerdict } from '../../lib/docsGate'
 
 const DOC_ICONS = {
   contract: '📋', rental_contract: '📋', protocol: '📝', handover_protocol: '📝',
@@ -65,6 +66,8 @@ export default function CustomerDocumentsTab({ userId }) {
   const [profile, setProfile] = useState(null)
   const [verificationDocs, setVerificationDocs] = useState([])
   const [upcomingBookings, setUpcomingBookings] = useState([])
+  // Verdikt dokladů per nadcházející dospělá rezervace — backend get_docs_gate_checklist (lib/docsGate)
+  const [verdicts, setVerdicts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [viewDoc, setViewDoc] = useState(null)
@@ -91,8 +94,8 @@ export default function CustomerDocumentsTab({ userId }) {
         supabase.from('documents').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('invoices').select('*').eq('customer_id', userId).order('issue_date', { ascending: false, nullsFirst: false }),
         supabase.from('generated_documents').select('*').eq('customer_id', userId).order('created_at', { ascending: false }),
-        supabase.from('profiles').select('id, full_name, license_number, license_expiry, license_group, id_number, id_verified_at, license_verified_at, passport_verified_at').eq('id', userId).single(),
-        supabase.from('bookings').select('id, status, start_date, end_date, motorcycles!moto_id(model, license_required)').eq('user_id', userId).in('status', ['pending', 'reserved', 'active']).order('start_date', { ascending: true }),
+        supabase.from('profiles').select('id, full_name, license_number, license_expiry, license_verified_until, license_group, date_of_birth, id_number, id_verified_at, license_verified_at, passport_verified_at').eq('id', userId).single(),
+        supabase.from('bookings').select('id, status, start_date, end_date, motorcycles!moto_id(model, license_required, license_groups)').eq('user_id', userId).in('status', ['pending', 'reserved', 'active']).order('start_date', { ascending: true }),
       ])
       if (docsRes.error) throw docsRes.error
 
@@ -114,9 +117,13 @@ export default function CustomerDocumentsTab({ userId }) {
       setDocs(allDocs.filter(d => !VERIFICATION_TYPES.includes(d.type) && !INVOICE_SYNCED_TYPES.includes(d.type)))
       setInvoices(invRes.data || [])
       setGeneratedDocs(genRes.data || [])
-      setVerificationDocs(allDocs.filter(d => VERIFICATION_TYPES.includes(d.type)))
+      const vDocs = allDocs.filter(d => VERIFICATION_TYPES.includes(d.type))
+      const bks = bkRes.data || []
+      setVerificationDocs(vDocs)
       setProfile(profRes.data || null)
-      setUpcomingBookings(bkRes.data || [])
+      setUpcomingBookings(bks)
+      const childOnly = bks.length > 0 && bks.every(b => isChildMotoRow(b.motorcycles))
+      setVerdicts(childOnly || !profRes.data ? [] : await customerDocsVerdicts(vDocs, profRes.data, bks))
     } catch (e) {
       setError(e.message)
     }
@@ -148,7 +155,9 @@ export default function CustomerDocumentsTab({ userId }) {
       const st = d?.metadata?.mindee_status
       const side = d?.metadata?.side
       const sideLabel = side === 'front' ? ' — líc' : side === 'back' ? ' — rub' : ''
-      const typeBadge = st === 'ok'
+      const typeBadge = isMarkerPath(d?.file_path)
+        ? { label: 'Ověřovací doklad · záznam bez fotky', color: '#b91c1c', bg: '#fee2e2' }
+        : st === 'ok'
         ? { label: 'Ověřovací doklad · Mindee OK', color: '#1a8a18', bg: '#dcfce7' }
         : st === 'failed'
           ? { label: 'Ověřovací doklad · Mindee neověřil — ke kontrole', color: '#b45309', bg: '#fef3c7' }
@@ -195,11 +204,14 @@ export default function CustomerDocumentsTab({ userId }) {
   async function handleViewVerification(doc) {
     setError(null)
     if (!doc.file_path) { setError('Tento doklad nemá uloženou fotku.'); return }
+    if (isMarkerPath(doc.file_path)) { setError('Záznam bez fotky — doklad je potřeba nahrát znovu.'); return }
     try {
       const { data, error: err } = await supabase.storage.from('documents').createSignedUrl(doc.file_path, 60 * 5)
       if (err) throw err
       setViewImage({ url: data.signedUrl, doc })
-    } catch (e) { setError(`Náhled dokladu selhal: ${e.message}`) }
+    } catch (e) {
+      setError(/not found/i.test(e?.message || '') ? 'Soubor v úložišti chybí — doklad je potřeba nahrát znovu' : `Náhled dokladu selhal: ${e.message}`)
+    }
   }
 
   async function handleViewGeneratedDoc(doc) {
@@ -285,12 +297,14 @@ export default function CustomerDocumentsTab({ userId }) {
   const pagedItems = filteredItems.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   // Kontext nadcházejících rezervací — určuje, jestli vůbec potřebujeme ŘP
-  const hasAdultBooking = upcomingBookings.some(b => String(b.motorcycles?.license_required || '').toUpperCase() !== 'N')
+  const hasAdultBooking = upcomingBookings.some(b => !isChildMotoRow(b.motorcycles))
   const allChildOnly = upcomingBookings.length > 0 && !hasAdultBooking
   const noUpcoming = upcomingBookings.length === 0
-  // Pro dětské-only rezervace platí relaxovaná pravidla (stejně jako backend `check_booking_docs_status`)
-  const effectiveLicenseRequired = allChildOnly ? 'N' : null
-  const vs = computeDocVerification(verificationDocs, profile, effectiveLicenseRequired)
+  // Dětské-only rezervace: doklady se nevyžadují (backend _docs_gate_checklist). Jinak NEJHORŠÍ
+  // backendový verdikt přes dospělé rezervace; záloha klientský helper (bez rezervace = dnešek).
+  const vs = allChildOnly
+    ? computeDocVerification(verificationDocs, profile, 'N')
+    : (worstVerdict(verdicts) || computeDocVerification(verificationDocs, profile, null))
 
   return (
     <div className="space-y-5">
@@ -298,6 +312,7 @@ export default function CustomerDocumentsTab({ userId }) {
 
       <CustomerVerificationSection
         vs={vs}
+        verdicts={allChildOnly ? [] : verdicts}
         profile={profile}
         verificationDocs={verificationDocs}
         upcomingBookings={upcomingBookings}

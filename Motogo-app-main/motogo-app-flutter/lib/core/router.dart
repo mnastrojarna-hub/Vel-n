@@ -37,8 +37,6 @@ import '../features/messages/ai_agent_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/profile/permissions_screen.dart';
 import '../features/reservations/reservation_edit_screen.dart';
-import '../features/reservations/protocol_screen.dart';
-import '../features/reservations/reservation_models.dart';
 import '../features/shop/shop_checkout_screen.dart';
 import '../features/shop/shop_screen.dart';
 import '../features/branches/branches_info_screen.dart';
@@ -109,7 +107,6 @@ class Routes {
   static const String sosDone = '/sos/done';
   static const String aiAgent = '/ai-agent';
   static const String permissions = '/permissions';
-  static const String protocol = '/protocol';
   static const String loyalty = '/loyalty';
   /// PRIMÁRNÍ obrazovka sekce — od 2026-09-16 zobrazuje MÍSTA (dřív seznam
   /// tras). Spodní lišta na ni odkazuje beze změny.
@@ -168,7 +165,6 @@ const _authRequired = {
   Routes.sosPayment,
   Routes.sosDone,
   Routes.checkout,
-  Routes.protocol,
 };
 
 /// Notifier that triggers GoRouter redirect re-evaluation on auth changes.
@@ -244,17 +240,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.docScan,
         builder: (context, state) => DocumentScannerScreen(
           scanMode: state.uri.queryParameters['mode'],
-        ),
-      ),
-
-      // Předávací protokol (samoobslužná) — přes celou obrazovku BEZ spodní
-      // lišty (fullscreenDialog). Otevírá ho banner/tlačítko v detailu
-      // rezervace i vynucená výzva z kiosku (HandoverPromptWatcher) — zavřít lze.
-      GoRoute(
-        path: Routes.protocol,
-        pageBuilder: (context, state) => MaterialPage(
-          fullscreenDialog: true,
-          child: ProtocolScreen(reservation: state.extra as Reservation?),
         ),
       ),
 

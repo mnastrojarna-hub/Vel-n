@@ -6,6 +6,7 @@ import { doorLabel } from '../BranchRpiUi'
 import { SELF_SERVICE_BRANCH_TYPE } from '../../lib/latePickup'
 import { isMissingRelation, fmtPragueWhen } from './kioskReturnHelpers'
 import TempCodeModal from './TempCodeModal'
+import { effBranch, effBranchId } from '../../lib/bookingBranch'
 
 const chip = { padding: '3px 10px' }
 const CODE_COLS = 'id, door_id, code, valid_from, valid_until, note, created_at, revoked_at, use_count, last_used_at'
@@ -22,13 +23,13 @@ function codeState(c, now) {
 
 // Krátkodobé kódy rezervace (2026-10-06, D4) — část karty „Přístupové kódy“ v detailu rezervace: tlačítko
 // „Vydat krátkodobý kód“ (dveře pobočky, kde byla motorka vrácena na kiosku — booking_kiosk_returns.branch_id;
-// bez vrácení samoobslužná pobočka motorky; jen aktivní dveře) + seznam vydaných kódů (platí / vypršel / zrušen,
+// bez vrácení samoobslužná pobočka rezervace; jen aktivní dveře) + seznam vydaných kódů (platí / vypršel / zrušen,
 // počet použití) s „Zrušit“ — seznam VŽDY, i když motorka mezitím přejela na pobočku s obsluhou (živý kód musí jít
 // zrušit). Bez nasazené tabulky `branch_temp_codes` se skryje.
 export default function TempCodesList({ booking }) {
   const b = booking || {}
-  const selfService = b.motorcycles?.branches?.type === SELF_SERVICE_BRANCH_TYPE
-  const branchId = b.motorcycles?.branch_id
+  const selfService = effBranch(b)?.type === SELF_SERVICE_BRANCH_TYPE
+  const branchId = b.motorcycles?.branch_id   // AKTUÁLNÍ umístění motorky (kóje, „motorka je teď jinde“)
   const [retBranchId, setRetBranchId] = useState(undefined)   // undefined = ještě nenačteno
   const [doors, setDoors] = useState([])
   const [motoBox, setMotoBox] = useState(null)
@@ -65,9 +66,9 @@ export default function TempCodesList({ booking }) {
     return () => { alive = false }
   }, [b.id, loadCodes])
 
-  // Dveře: pobočka vrácení (tam zůstala zapomenutá věc), jinak samoobslužná pobočka motorky — až po načtení
+  // Dveře: pobočka vrácení (tam zůstala zapomenutá věc), jinak samoobslužná pobočka rezervace — až po načtení
   // řádku vrácení (jinak by se nejdřív nabídly dveře pobočky, kam motorka mezitím přejela)
-  const doorBranchId = retBranchId === undefined ? null : (retBranchId || (selfService ? branchId : null))
+  const doorBranchId = retBranchId === undefined ? null : (retBranchId || (selfService ? effBranchId(b) : null))
   useEffect(() => {
     setDoors([]); setMotoBox(null)
     if (!doorBranchId) return

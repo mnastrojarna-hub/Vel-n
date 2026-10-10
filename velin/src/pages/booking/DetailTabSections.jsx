@@ -188,7 +188,8 @@ const OWN_GEAR_REASON = 'Vlastní výbava'
 // `gateCode` = kód schránky s klíčem od vjezdové brány pobočky motorky (branch_gate_access, 2026-10-04) — jen pobočka
 // s bránou; pak pořadí jako u zákazníka: brána → šatna → motorka. Bez brány beze změny (motorka, šatna).
 // `extra` = obsah na konec karty (krátkodobé kódy TempCodesList, 2026-10-06).
-export function DoorCodesSection({ doorCodes, booking, gateCode = null, extra = null }) {
+// `docsGate` = backendová brána dokladů (get_docs_gate_checklist, načítá DetailTab jen při odeslaném kódu).
+export function DoorCodesSection({ doorCodes, booking, gateCode = null, docsGate = null, extra = null }) {
   const b = booking || {}
   // Přednost aktivní a nejnovější řádek — po změně motorky zůstávají v DB staré neaktivní kódy
   const motoCode = pickDoorCode(doorCodes, 'motorcycle')
@@ -201,6 +202,8 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null, extra = 
   const forState = liveCodes.length ? liveCodes : doorCodes
   const allSent = forState.every(c => c.sent_to_customer)
   const withheld = forState.find(c => c.withheld_reason && c.withheld_reason !== OWN_GEAR_REASON)?.withheld_reason
+  // Kódy už odešly, ale doklady podle aktuálního pravidla nejsou kompletní (kódy platí dál — vidět to musí obsluha)
+  const docsIncomplete = liveCodes.length > 0 && allSent && docsGate?.ok === false
   // Stav předávacího protokolu (hradlo kódu motorky na displeji pobočky) — sloupce z migrace 20260925.
   // Hradlo má jen SAMOOBSLUŽNÁ pobočka (motorcycles.branches.type); na obslužné kódy vznikají také,
   // ale protokol podepisuje obsluha → „Čeká na protokol“ tam nesvítí.
@@ -236,9 +239,10 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null, extra = 
           {motoCode?.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dbeafe', color: '#2563eb' }}>Aktivní</span>}
           {motoCode && !motoCode.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#f3f4f6', color: '#6b7280' }}>Neaktivní</span>}
           {withheld && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#b45309' }}>Zadrzeno: {withheld}</span>}
+          {docsIncomplete && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626' }} title="Kódy už zákazník dostal a zůstávají platné, ale doklady podle aktuální kontroly nejsou kompletní — doplňte je (Dokumenty / detail zákazníka → Nahrát doklady).">Doklady neúplné: {docsGate.reason || 'doklady chybí'}</span>}
           {signed && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dcfce7', color: '#1a8a18' }} title={selfService ? 'Předávací protokol je podepsaný — kód motorky kóji otevře. PDF je v Dokumentech.' : 'Předávací protokol je podepsaný (odbavení obsluhou). PDF je v Dokumentech.'}>📝 Protokol podepsán {dt(signed)}</span>}
           {releaseAt && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#92400e' }} title={`Rezervace má slevu za vyzvednutí od 12:00 — kód šatny i motorky kiosk přijme až ${fmtPragueDateTime(releaseAt)} (dřív ukáže hlášku a výzvu k úpravě času vyzvednutí). Dřívější čas vyzvednutí = sleva zanikne, rozdíl se doplatí a kód platí hned.`}>{LATE_PICKUP_KIOSK_CHIP}</span>}
-          {awaitsProtocol && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#ede9fe', color: '#6d28d9' }} title="Kód motorky se na displeji ověří, ale kóje se otevře až po podpisu předávacího protokolu — na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky) nebo v aplikaci.">📝 Čeká na protokol</span>}
+          {awaitsProtocol && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#ede9fe', color: '#6d28d9' }} title="Kód motorky se na displeji ověří, ale kóje se otevře až po podpisu předávacího protokolu na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky).">📝 Čeká na protokol</span>}
         </div>
         {(b.gear_collected_at || (b.handover_protocol_prompted_at && !signed)) && (
           <div className="text-xs mt-2" style={{ color: '#4a5a52' }}>
@@ -300,7 +304,8 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
   const hasModification = booking.original_start_date && booking.original_end_date &&
     (_ld(booking.start_date) !== _ld(booking.original_start_date) || _ld(booking.end_date) !== _ld(booking.original_end_date))
 
-  const branchName = booking.motorcycles?.branches?.name
+  // Pobočka rezervace (bookings.branch_id = kde zákazník převzal), u NULL pobočka motorky — lib/bookingBranch.js effBranch
+  const branchName = (booking.branch || booking.motorcycles?.branches)?.name
   const pickupExtra = findFeeExtra(bookingExtras, 'pickup')
   const returnExtra = findFeeExtra(bookingExtras, 'return')
   const pickupFee = feeAmount(pickupExtra)

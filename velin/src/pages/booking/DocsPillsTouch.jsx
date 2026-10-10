@@ -4,6 +4,9 @@
 //  - písmo 11 px místo 10 px (jako ostatní štítky na kartě),
 //  - CO chybí je přímo v pilulce („Č ✗ chybí ŘP", „📷 ½ chybí OP/pas") — title/hover
 //    na dotykovém displeji nejde přečíst.
+// 📷 ✓ = (OP líc + rub NEBO pas) + ŘP líc + rub ze skutečných souborů (loadDocScans), OCR nestačí.
+import { scanMissing } from '../../components/DocsStatusPills'
+
 const filled = v => !!(v != null && String(v).trim() !== '')
 const ID = 'OP/pas'
 
@@ -18,10 +21,10 @@ export default function DocsPillsTouch({ profile, scan, requireLicense = true })
   const idNum = filled(p.id_number)
   const licNum = filled(p.license_number)
   const numbersOk = requireLicense ? (idNum && licNum) : idNum
-  const licScan = s.license || filled(p.license_verified_at)
-  const idScan = s.id || s.passport || filled(p.id_verified_at) || filled(p.passport_verified_at)
+  const licScan = !!s.license
+  const idScan = !!(s.id || s.passport)
   const scanOk = requireLicense ? (licScan && idScan) : idScan
-  const scanPartial = !scanOk && (licScan || idScan)
+  const scanPartial = !scanOk && (licScan || idScan || s.licenseAny || s.idAny)
   // ŘP se u dětské motorky (N) nevyžaduje → v textu „chybí" ho neuvádíme
   const missing = (idOk, licOk) => [!idOk && ID, requireLicense && !licOk && 'ŘP'].filter(Boolean).join(' + ')
   return (
@@ -30,8 +33,8 @@ export default function DocsPillsTouch({ profile, scan, requireLicense = true })
         ? pill('Č ✓', requireLicense ? 'Čísla dokladů vyplněna (doklad totožnosti + ŘP)' : 'Číslo dokladu totožnosti vyplněno (dětská motorka — ŘP netřeba)', '#166534', '#dcfce7')
         : pill(`Č ✗ chybí ${missing(idNum, licNum)}`, 'Chybí čísla dokladů v profilu zákazníka', '#b91c1c', '#fee2e2')}
       {scanOk
-        ? pill('📷 ✓', 'Doklady naskenované (fotka nebo OCR sken)', '#166534', '#dcfce7')
-        : pill(`📷 ${scanPartial ? '½' : '✗'} chybí ${missing(idScan, licScan)}`, scanPartial ? 'Naskenován jen jeden doklad' : 'Doklady nenaskenované',
+        ? pill('📷 ✓', 'Fotky dokladů kompletní (OP líc + rub nebo pas, ŘP líc + rub)', '#166534', '#dcfce7')
+        : pill(`📷 ${scanPartial ? '½' : '✗'} chybí ${scanMissing(s, requireLicense)}`, scanPartial ? 'Fotky dokladů neúplné' : 'Doklady nenafocené',
           scanPartial ? '#b45309' : '#b91c1c', scanPartial ? '#fef3c7' : '#fee2e2')}
     </span>
   )

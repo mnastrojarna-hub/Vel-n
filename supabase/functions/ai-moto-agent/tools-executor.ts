@@ -192,7 +192,7 @@ export async function executeTool(
         summary: gateNote + (rows.length === 0
           ? 'K rezervaci zatím nejsou vygenerované žádné přístupové kódy (typicky nezaplacená rezervace nebo obslužná pobočka).'
           : withheld.length > 0
-            ? `Kódy existují, ale ${withheld.length} z nich je ZADRŽENÝCH: ${withheld.map(c => c.withheld_reason || 'důvod neuveden').join('; ')}. Vysvětli zákazníkovi PŘESNĚ tenhle důvod a jak ho odstranit (doplnit doklady v appce → kódy se uvolní automaticky).`
+            ? `Kódy existují, ale ${withheld.length} z nich je ZADRŽENÝCH: ${withheld.map(c => c.withheld_reason || 'důvod neuveden').join('; ')}. Vysvětli zákazníkovi PŘESNĚ tenhle důvod a jak ho odstranit (doplnit v appce, co chybí: fotky OP líc + rub nebo pasu a ŘP líc + rub, v profilu datum narození (18+ k začátku pronájmu), platnost ŘP do konce pronájmu a skupinu ŘP pro motorku → kódy se uvolní automaticky; „Zákazníkovi není 18 let“ doplněním nevyřeší — ať volá +420 774 256 271).`
             : 'Všechny kódy jsou vydané a odeslané — zákazník je má v appce (detail rezervace / Zprávy), v e-mailu, SMS i WhatsApp.') + gateSummary,
         never_reveal: 'Samotné číslice kódu (ani kódu schránky s klíčem od brány) tool nevrací a agent je NIKDY nesděluje, nepotvrzuje ani neodhaduje.',
       }

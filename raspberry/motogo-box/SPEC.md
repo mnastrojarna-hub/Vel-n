@@ -318,7 +318,8 @@ Doporučená časování:
 
 ```yaml
 lock_pulse_ms: 800
-lock_hold_min_s: 60        # jen lock_hold_until_open: zámek bez paměti drží od kódu aspoň 60 s (2026-10-06)
+lock_hold_min_s: 60        # jen lock_hold_until_open: zámek bez paměti drží od kódu aspoň 60 s (2026-10-06) — okno pro otevření
+lock_release_after_open_s: 2   # jen lock_hold_until_open: po otevření dveří (kontakt) vypnout zámek za 2 s i před minimem (2026-10-10)
 door_open_timeout_s: 30
 door_close_debounce_ms: 1000
 light_after_close_s: 30
@@ -328,7 +329,7 @@ forced_open_debounce_ms: 500
 pin_entry_timeout_s: 20
 ```
 
-**Platný PIN:** 1. Ověřit kód dle Velína (`kiosk_resolve_code`, offline HMAC cache): rezervace = 6 číslic, servisní a diagnostické kódy alfanumerické — délku jednotka nekontroluje (`pin_length` odstraněno, §13 rozhodnutí 2026-09-11). 2. Ověřit rezervaci a časové okno. 3. Zjistit zone_id. 4. Ověřit dostupnost modulu zámku a kontaktu (Shelly signalizace od 2026-09-25 a modul světla od 2026-09-26 NEblokují — výpadek se jen hlásí jako `signal_offline`). 5. Ověřit, že dveře nejsou už otevřené. 6. Zapnout bílé světlo. 7. Přepnout signalizaci červená → zelená. 8. Vybrat reproduktor. 9. Spustit hudbu. 10. Poslat zámku 800ms hardware impulz — nebo s `timings.lock_hold_until_open: true` (2026-09-26, zámky bez paměti) držet zámek pod napětím přes HW časovač modulu až `door_open_timeout_s`; vypne se, jakmile kontakt hlásí otevřeno (nebo při timeoutu / all-off) — od 2026-10-06 (zadání majitele „magnet aspoň 1 min“) ale nejdřív `timings.lock_hold_min_s` (výchozí 60 s) od kódu: čekání na otevření = větší z `door_open_timeout_s` a `lock_hold_min_s`, otevřené a znovu zavřené dveře jdou v tomto okně otevřít znovu (stejná relace, žádný poplach), relace skončí (SECURED) až po vypnutí zámku a krátkém dozvuku (~0,9 s, zpoždění kontaktu) — hudba, světlo kóje a venek se ale řídí jako dřív (konec doběhu = jako SECURED), kód motorky zhasne světlo šatny i v tomto okně; druhý kód v okně: dveře otevřené během jeho zpracování nejsou poplach; `0` = vypnout hned otevřením. Impulzní zámek se nikdy nedrží. Hudba (krok 9) po kódu hraje vždy od začátku. 11. Zapsat událost ACCESS_GRANTED. 12. Čekat na otevření kontaktu.
+**Platný PIN:** 1. Ověřit kód dle Velína (`kiosk_resolve_code`, offline HMAC cache): rezervace = 6 číslic, servisní a diagnostické kódy alfanumerické — délku jednotka nekontroluje (`pin_length` odstraněno, §13 rozhodnutí 2026-09-11). 2. Ověřit rezervaci a časové okno. 3. Zjistit zone_id. 4. Ověřit dostupnost modulu zámku a kontaktu (Shelly signalizace od 2026-09-25 a modul světla od 2026-09-26 NEblokují — výpadek se jen hlásí jako `signal_offline`). 5. Ověřit, že dveře nejsou už otevřené. 6. Zapnout bílé světlo. 7. Přepnout signalizaci červená → zelená. 8. Vybrat reproduktor. 9. Spustit hudbu. 10. Poslat zámku 800ms hardware impulz — nebo s `timings.lock_hold_until_open: true` (2026-09-26, zámky bez paměti) držet zámek pod napětím přes HW časovač modulu až `door_open_timeout_s`; vypne se, jakmile kontakt hlásí otevřeno (nebo při timeoutu / all-off) — od 2026-10-06 (zadání majitele „magnet aspoň 1 min“) ale nejdřív `timings.lock_hold_min_s` (výchozí 60 s) od kódu: čekání na otevření = větší z `door_open_timeout_s` a `lock_hold_min_s`, otevřené a znovu zavřené dveře jdou v tomto okně otevřít znovu (stejná relace, žádný poplach), relace skončí (SECURED) až po vypnutí zámku a krátkém dozvuku (~0,9 s, zpoždění kontaktu) — hudba, světlo kóje a venek se ale řídí jako dřív (konec doběhu = jako SECURED), kód motorky zhasne světlo šatny i v tomto okně; druhý kód v okně: dveře otevřené během jeho zpracování nejsou poplach; od 2026-10-10 (1.2.9, magnet pod napětím nešel zavřít) se ale zámek vypne `timings.lock_release_after_open_s` (výchozí 2 s) po PRVNÍM otevření dveří i před uplynutím minima — minimum tak platí jen pro čekání na otevření; `0` = vypnout hned otevřením. Impulzní zámek se nikdy nedrží. Hudba (krok 9) po kódu hraje vždy od začátku. 11. Zapsat událost ACCESS_GRANTED. 12. Čekat na otevření kontaktu.
 
 **Platný PIN — krok 2a (2026-10-01, výdej až od 12:00):** zákaznický kód (šatna i motorka) rezervace se slevou za pozdní
 vyzvednutí (samoobslužná pobočka, převzetí na pobočce, `late_pickup_discount_amount > 0`, ještě nevyzvednutá) platí až od
@@ -367,8 +368,9 @@ v kroku 2 vrací „Zpět“ nejdřív na krok 1 s velikostmi) — položka zůs
 JEN kódem motorky téže rezervace nebo dalším zavřením šatny téže rezervace; `then_open` platí výhradně dokud je overlay viditelný
 (dismiss/idle/restart ho ruší — kóje se nikdy neotevře bez zákazníka u displeje). Zákazník s vlastní výbavou (bez šatny) dostane
 protokol po zadání kódu motorky, PŘED otevřením (krok 2b). Nikdo nedostane motorku bez podepsaného protokolu; podpis se NIKDY
-neztratí (trvalá fronta `protocol_queue`, odeslání i po výpadku LTE); po podpisu kdekoli (kiosk / appka / Velín) protokol zmizí
-z displeje i appky real-time (příkaz `protocol_signed`, pojistka `protocols[]` při syncu). Automatické vyplnění po 1 h je zrušeno.
+neztratí (trvalá fronta `protocol_queue`, odeslání i po výpadku LTE); po podpisu kdekoli (kiosk / Velín / starší appka) protokol zmizí
+z displeje real-time (příkaz `protocol_signed`, pojistka `protocols[]` při syncu). Automatické vyplnění po 1 h je zrušeno.
+Od 2026-10-10 appka protokol samoobsluhy k podpisu nenabízí (§13, rozhodnutí 2026-10-10); chipy velikostí jen v rozsahu samoobsluhy.
 
 **Dveře zůstanou otevřené déle než 10 minut:** hudbu vypnout; bílé světlo lze ponechat; zelenou rozblikat; zobrazit chybu na displeji; odeslat vzdálené upozornění; opakovat upozornění například po 10, 20 a 30 minutách.
 
@@ -560,6 +562,19 @@ motorky (`ACCESS_GRANTED` kind motorcycle), ne při podpisu; PDF česky, kiosk/a
 zůstává fail-open (jednotka otevírá i bez LTE, `protocol` bez dat = bez hradla), ale podpis se NIKDY neztratí (trvalá fronta,
 §10). Známé okno nasazení: starší software jednotky po nasazení DB/edge NEhradluje (motorka bez protokolu) až do hromadné
 aktualizace z Velína (§25 CONTRACT) — SQL/edge jsou pro něj aditivní.
+
+### Rozhodnutí majitele (2026-10-10) — protokol převzetí jen na displeji + velikosti výbavy (1.2.11)
+
+1. **Protokol převzetí na samoobsluze se podepisuje JEN na displeji pobočky** — platí to, co zákazník podepíše na kiosku. Appka
+   ho k vyplnění nenabízí (banner, vynucená výzva i obrazovka protokolu zrušeny) a podepsaný ukáže až dle reality (PDF
+   v Dokumentech rezervace); push po zavření šatny vyzývá k podpisu na displeji pobočky. Hláška `protocol_required` na kiosku
+   (8 jazyků) bez „nebo v aplikaci“. Edge `submit-handover-protocol` dál přijímá `mode: customer` (starší buildy appky v telefonech)
+   a takový podpis kiosk převezme příkazem `protocol_signed` jako dosud (CONTRACT §28 beze změny).
+2. **Velikosti výbavy na samoobsluze:** helma S–3XL, bunda, kalhoty a rukavice nejvýš 4XL (větší velikosti nabízí Mezná);
+   boty, kukla a dětská motorka beze změny. Kiosk nabízí jen velikosti v rozsahu (`gear_limits.py`, pořadí XXS < XS < S < … <
+   2XL = XXL < 3XL < 4XL < 5XL < 6XL), chybějící řádek číselníku (živě `jacket`) doplní záložní řadou S–4XL; rezervovaná velikost
+   mimo rozsah se na displeji předvybere jako nejbližší povolená (5XL/6XL → 4XL, helma XS → S, nikdy prázdná) a podpisem se tak
+   zapíše do rezervace. Edge velikost mimo rozsah do rezervace nezapíše; totéž pravidlo uplatňuje web, appka i úprava rezervace.
 
 ### Rozhodnutí majitele (2026-10-06) — dokončení vrácení na kiosku + krátkodobý kód
 

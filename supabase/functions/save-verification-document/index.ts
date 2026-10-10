@@ -156,7 +156,9 @@ serve(async (req) => {
     file_name: filePath.split('/').pop(),
     name: `${meta.label}${docSide ? (docSide === 'front' ? ' — líc' : ' — rub') : ''} (web ${mindeeStatus === 'ok' ? 'sken' : '— manuální'})`,
   }
-  // metadata sloupec — pokud ještě neexistuje (migrace nedoběhla), dělá se fallback bez něj
+  // metadata — při chybě zápisu (např. neuložitelná OCR pole) se zkusí znovu
+  // jen se základní metadatou: strana (líc/rub) a zdroj nesmí chybět, jinak
+  // řádek nesplní bránu dokladů pro vydání kódů (2026-10-10)
   const rowWithMeta = {
     ...row,
     metadata: {
@@ -171,9 +173,13 @@ serve(async (req) => {
   let docId: string | null = null
   let ins = await sb.from('documents').insert(rowWithMeta).select('id').single()
   if (ins.error && /metadata/i.test(ins.error.message || '')) {
-    const ins2 = await sb.from('documents').insert(row).select('id').single()
+    const rowMinMeta = {
+      ...row,
+      metadata: { source: 'web', mindee_status: mindeeStatus, captured_at: new Date().toISOString(), side: docSide },
+    }
+    const ins2 = await sb.from('documents').insert(rowMinMeta).select('id').single()
     if (ins2.error) {
-      console.error('[save-verification-document] insert failed (no metadata):', ins2.error.message)
+      console.error('[save-verification-document] insert failed (minimal metadata):', ins2.error.message)
       // i tak fotka v storage je — vrátíme částečný success
       return jsonRes({ success: true, document_id: null, file_path: filePath, warn: 'documents row insert failed' })
     }
@@ -189,7 +195,8 @@ serve(async (req) => {
   // nepřihlášený nový web zákazník nemůže psát do profilu napřímo (RLS), takže
   // naskenovaná čísla se dosud ztrácela. Zde je zapíšeme serverově. Jen při
   // úspěšném OCR (mindeeStatus==='ok' → ocrFields != null). Reálné OCR = ověření,
-  // proto nastavujeme i *_verified_at (uvolní přístupové kódy ke dveřím).
+  // proto nastavujeme i *_verified_at (od 2026-10-10 samo kódy NEvydá — brána
+  // dokladů chce skutečné fotky OP líc+rub / pas a ŘP líc+rub, viz check_booking_docs_status).
   if (ocrFields) {
     const dateRe = /^\d{4}-\d{2}-\d{2}$/
     const f = ocrFields as Record<string, unknown>

@@ -1,15 +1,14 @@
 // Přepínač pobočky pro Rezervace (seznam, kalendář, odjezdy a návraty) — „Všechny pobočky“ nebo jedna pobočka.
-// Pobočka rezervace = pobočka její motorky (motorcycles.branch_id); bookings.branch_id appka ani web nevyplňují.
+// Pobočka rezervace = bookings.branch_id (kde zákazník převzal, plní DB trigger), u NULL pobočka motorky — lib/bookingBranch.js.
+import { effBranchId } from '../../lib/bookingBranch'
 
 /** Krátký název pobočky bez značky („MotoGo24 Brno Velké Němčice“ → „Brno Velké Němčice“). */
 export function shortBranchName(name) {
   return String(name || '').replace(/^\s*moto\s*go\s*24\s*/i, '').trim() || String(name || '')
 }
 
-/** Pobočka rezervace: motorka (aktuální umístění), jinak bookings.branch_id. */
-export function bookingBranchId(b) {
-  return b?.motorcycles?.branch_id || b?.branch_id || null
-}
+/** Pobočka rezervace: bookings.branch_id, jinak motorka (aktuální umístění). */
+export const bookingBranchId = effBranchId
 
 export default function BranchChips({ branches, value, onChange }) {
   if (!branches || branches.length < 2) return null

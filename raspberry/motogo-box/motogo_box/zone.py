@@ -65,8 +65,12 @@ class ZoneController:
         self.lock_gate: asyncio.Lock = asyncio.Lock()   # controller nahradí sdíleným zámkem pulzů
         self.lock_held = False       # lock_hold_until_open: relé zámku sepnuté, dokud se dveře neotevřou (zone_access)
         self.lock_held_since: float | None = None   # clock() sepnutí drženého zámku — minimum lock_hold_min_s (2026-10-06)
+        self.lock_opened_at: float | None = None    # clock() 1. otevření dveří při drženém zámku — vypnutí po 2 s (2026-10-10)
         self.lock_released_at: float | None = None  # clock() vypnutí drženého zámku — dozvuk lock_hold.release_grace_s
         self.lock_wait: bool = False   # CLOSED_CONFIRMATION po doběhu jen kvůli drženému zámku (lock_hold.lock_wait)
+        # Šatna (2026-10-10, zadání majitele): relace výbavy drží hudbu i relaci (znovuotevření = táž relace) až do kódu
+        # motorky — dveře lze libovolně otevírat/zavírat; pojistka maximum_session_s od zavření (zone_access.wardrobe_hold).
+        self.hold_until_moto_code: bool = False
         self.light_off_on_secure: bool = False   # šatna: kód motorky přišel v doběhu → po něm světlo nedržet
         self.contact_raw: bool | None = None   # syrová hodnota DI kontaktu z posledního pollu (controller_loops.poll_loop)
         self.contact_changes: int = 0          # kolikrát se syrová hodnota od startu změnila (poll_loop; diagnostika „mrtvý vstup“)
@@ -104,6 +108,7 @@ class ZoneController:
         # Hook controlleru po DOOR_OPEN→CLOSED_CONFIRMATION (zavření šatny → předávací protokol, handover.py);
         # volá se POD `_busy` ještě s `booking_id` relace, chyba hooku automat nikdy neshodí.
         self.on_session_closed: Callable[["ZoneController"], Awaitable[None]] | None = None
+        self.on_session_reopened: Callable[["ZoneController"], Awaitable[None]] | None = None   # šatna → skrýt protokol
 
     # ─── pomocné ─────────────────────────────────────────────────────────────
     @property
@@ -252,6 +257,7 @@ class ZoneController:
         self.alerts_sent = set()
         self.lock_wait = False
         self.light_off_on_secure = False
+        self.hold_until_moto_code = False
         self.session_ctx = {}
 
     # ─── start a vstup kontaktu ─────────────────────────────────────────────
@@ -346,7 +352,8 @@ class ZoneController:
             self.state = ZoneState.DOOR_OPEN
             self.latch_released = False          # otevřením se zámek mechanicky vrátil do zajištěného stavu
             self.opened_at = self.clock()
-            # Držený zámek (lock_hold_until_open) vypnout — až po minimu od kódu (lock_hold_min_s), jinak ho vypne tick.
+            # Držený zámek (lock_hold_until_open) vypnout lock_release_after_open_s (2 s) po otevření — vypne ho tick.
+            zone_access.mark_opened(self)
             await zone_access.release_lock_if_due(self, "dveře otevřeny")
             await self.emit_event(EventKind.DOOR_OPENED, message=f"{self.zone.display_name}: dveře otevřeny")
         elif self.state == ZoneState.DOOR_OPEN and closed:
@@ -366,10 +373,16 @@ class ZoneController:
         elif self.state == ZoneState.CLOSED_CONFIRMATION and not closed:
             self.state = ZoneState.DOOR_OPEN     # stejná relace pokračuje
             self.closed_at, self.lock_wait = None, False
+            zone_access.mark_opened(self)        # zámek drží (zavřeno dřív než za 2 s) → odpočet běží od 1. otevření
             if not self.light_on:                # zhaslo po light_after_close_s, zámek ale ještě držel (2026-10-06)
                 await self.set_light(True)
             await self.signal(Signal.GREEN_PULSE if self.overtime else Signal.GREEN)
             await self.emit_event(EventKind.DOOR_OPENED, message=f"{self.zone.display_name}: dveře znovu otevřeny")
+            if self.on_session_reopened is not None:
+                try:
+                    await self.on_session_reopened(self)
+                except Exception:  # noqa: BLE001
+                    log.exception("Zóna %s: hook po znovuotevření dveří selhal", self.number)
 
     async def _late_open_locked(self) -> None:
         """Otevření po OPEN_TIMEOUT (zámek zůstal odjištěný, SPEC §2): pokračování povolené relace."""
@@ -456,6 +469,9 @@ class ZoneController:
         Doběh po zavření (CLOSED_CONFIRMATION, dveře zavřené): světlo zhasne s koncem doběhu místo držení
         (`light_off_on_secure`); ve fázi `lock_wait` (jen držený zámek, 2026-10-06) hned — jako dřív po SECURED."""
         async with self._busy:
+            if self.hold_until_moto_code:        # šatna: hudba hraje až do kódu motorky (2026-10-10) — teď stop
+                self.hold_until_moto_code = False
+                await self.music_stop()
             if self.state == ZoneState.CLOSED_CONFIRMATION and self.door_closed is True:
                 self.light_off_on_secure = True
                 if not self.lock_wait:

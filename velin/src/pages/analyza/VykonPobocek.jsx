@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { calcBikeEconomicsReal, calcBikeEconomicsIdle } from '../../lib/fleetCalc'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import { effBranchId } from '../../lib/bookingBranch'
 import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY } from '../../components/sortableTable'
 
 const BRANCH_COLUMNS = [
@@ -62,7 +63,7 @@ export default function VykonPobocek() {
     setLoading(true); setError(null)
     try {
       const [bRes, mRes, lRes] = await Promise.all([
-        supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
+        supabase.from('bookings').select('id, moto_id, branch_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
         supabase.from('motorcycles').select('id, branch_id, model, category, brand, status'),
         supabase.from('branches').select('id, name, city, location, type'),
       ])
@@ -93,8 +94,10 @@ export default function VykonPobocek() {
   const now = new Date()
   const branchStats = locations.map(loc => {
     const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
-    const locMotoIds = new Set(locMotos.map(m => m.id))
-    const locCompleted = completed.filter(b => locMotoIds.has(b.moto_id))
+    // Rezervace pobočky = bookings.branch_id (kde zákazník převzal), u NULL pobočka motorky;
+    // počty motorek a vytíženost dál na aktuální flotile pobočky.
+    const atLoc = b => effBranchId(b, motoBranchMap) === loc.id
+    const locCompleted = completed.filter(atLoc)
     const revenue = locCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
     const reservationCount = locCompleted.length
     const motorcycleCount = locMotos.length
@@ -130,16 +133,16 @@ export default function VykonPobocek() {
         bookings.filter(isRealizedBooking),
         { type: 'month', year: period.month === 0 ? period.year - 1 : period.year, month: period.month === 0 ? 11 : period.month - 1 },
         'created_at'
-      ).filter(b => locMotoIds.has(b.moto_id))
+      ).filter(atLoc)
       const prevM = prevCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
       classification = classifyGrowth(thisM, prevM)
     } else if (has3mo) {
       const thisYear = now.getFullYear()
       const thisMonth = now.getMonth()
-      const thisMonthRev = bookings.filter(b => isRealizedBooking(b) && locMotoIds.has(b.moto_id))
+      const thisMonthRev = bookings.filter(b => isRealizedBooking(b) && atLoc(b))
         .filter(b => { const d = new Date(b.created_at); return d.getMonth() === thisMonth && d.getFullYear() === thisYear })
         .reduce((s, b) => s + (Number(b.total_price) || 0), 0)
-      const lastYearRev = bookings.filter(b => isRealizedBooking(b) && locMotoIds.has(b.moto_id))
+      const lastYearRev = bookings.filter(b => isRealizedBooking(b) && atLoc(b))
         .filter(b => { const d = new Date(b.created_at); return d.getMonth() === thisMonth && d.getFullYear() === thisYear - 1 })
         .reduce((s, b) => s + (Number(b.total_price) || 0), 0)
       classification = classifyGrowth(thisMonthRev, lastYearRev)

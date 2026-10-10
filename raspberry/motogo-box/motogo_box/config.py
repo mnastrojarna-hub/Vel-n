@@ -240,6 +240,9 @@ class TimingsCfg:
     # Jen s lock_hold_until_open (2026-10-06, zadání majitele): zámek (magnet) drží od kódu ASPOŇ tolik sekund, i když se
     # dveře mezitím otevřou; čekání na otevření = max(door_open_timeout_s, tato hodnota). 0 = vypnout hned otevřením.
     lock_hold_min_s: int = 60
+    # Jen s lock_hold_until_open (2026-10-10, zadání majitele): po skutečném otevření dveří (kontakt) se zámek vypne
+    # za tolik sekund, i když minimum od kódu ještě neuplynulo — zámek pod napětím nejde zavřít. 0 = hned otevřením.
+    lock_release_after_open_s: float = 2
     door_open_timeout_s: int = 30
     door_close_debounce_ms: int = 1000
     light_after_close_s: int = 30
@@ -491,6 +494,7 @@ WARNING_PREFIX = "Upozornění:"
 CHANNEL_LIMITS = {"wav645": {"coil": 16, "input": 0}, "wav617": {"coil": 8, "input": 8}, "shelly_rgbww": {"light": 5}}
 LOCK_PULSE_RANGE_MS = (100, 5000)
 LOCK_HOLD_MIN_RANGE_S = (0, 600)      # timings.lock_hold_min_s (minimální držení zámku po kódu, 2026-10-06)
+LOCK_RELEASE_AFTER_OPEN_RANGE_S = (0, 30)   # timings.lock_release_after_open_s (vypnutí zámku po otevření, 2026-10-10)
 
 
 def validate_hardware(hw: HardwareConfig) -> list[str]:
@@ -556,6 +560,10 @@ def validate_hardware(hw: HardwareConfig) -> list[str]:
     if not lo <= int(hw.timings.lock_hold_min_s) <= hi:
         problems.append(f"timings.lock_hold_min_s {hw.timings.lock_hold_min_s} je mimo rozsah {lo}–{hi} s "
                         f"(minimální držení zámku po kódu).")
+    lo, hi = LOCK_RELEASE_AFTER_OPEN_RANGE_S
+    if not lo <= float(hw.timings.lock_release_after_open_s) <= hi:
+        problems.append(f"timings.lock_release_after_open_s {hw.timings.lock_release_after_open_s} je mimo rozsah "
+                        f"{lo}–{hi} s (vypnutí zámku po otevření dveří).")
     problems.extend(validate_audio(hw, CHANNEL_LIMITS))
     problems.extend(validate_outdoor(hw, CHANNEL_LIMITS, seen))   # venek: světlo nikdy na kanálu zóny
     return problems

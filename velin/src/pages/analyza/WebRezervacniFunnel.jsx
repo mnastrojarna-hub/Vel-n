@@ -20,7 +20,7 @@ import { WrapTick, PHONE_QUERY, sideLegend } from './AnalyzaWrapTick'
 //   • `completed_device` = zařízení v kroku 2 (klik „Pokračovat k platbě")
 //   • `checkout_started_at` / `stripe_checkout_url` = klik na platbu → Stripe brána (krok 3)
 //   • `payment_status`   = unpaid → paid (zaplaceno)
-//   • doklady = computeDocVerification (fotka NEBO Mindee OCR verified_at; dětská motorka N bez ŘP)
+//   • doklady = computeDocVerification (OP líc+rub nebo pas + ŘP líc+rub ze skutečných souborů; dětská motorka N bez ŘP)
 //
 // 4 vzájemně se vylučující koše (priorita shora):
 //   paid_docs_done  → Zaplaceno + doklady (dokončeno)
@@ -123,7 +123,7 @@ export default function WebRezervacniFunnel() {
         supabase.from('profiles')
           .select('id, license_number, id_number, license_verified_at, id_verified_at, passport_verified_at, license_expiry, license_group'),
         supabase.from('documents')
-          .select('user_id, type')
+          .select('user_id, type, file_path, side:metadata->>side')   // strana + soubor pro docVerification
           .in('type', VERIFICATION_TYPES),
         supabase.from('motorcycles').select('id, license_required'),
       ])

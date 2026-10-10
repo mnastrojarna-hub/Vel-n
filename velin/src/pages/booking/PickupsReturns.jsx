@@ -8,6 +8,7 @@ import DocsPillsTouch from './DocsPillsTouch'
 import CheckInModal from './CheckInModal'
 import SwapModal from './SwapModal'
 import { shortBranchName } from './BranchChips'
+import { effBranchId, effBranch, BOOKING_BRANCH_EMBED } from '../../lib/bookingBranch'
 import { useIsMobile, useMediaQuery } from '../../hooks/useIsMobile'
 import { revealBelowOnMobile } from './bookingsMobileScroll'
 
@@ -67,8 +68,8 @@ function detectSwapPairs(bookings) {
       for (const b of list) {
         if (a.id === b.id || a.moto_id === b.moto_id) continue
         if (dateOnly(b.start_date) !== nextIso) continue
-        if (a.motorcycles?.branches?.type !== 'obslužná') continue
-        if (b.motorcycles?.branches?.type !== 'obslužná') continue
+        if (effBranch(a)?.type !== 'obslužná') continue
+        if (effBranch(b)?.type !== 'obslužná') continue
         pairs[b.id] = a
       }
     }
@@ -122,7 +123,7 @@ function pickupDone(b, protocolIds) {
   if (!!b.picked_up_at || b.status === 'active' || b.status === 'completed') return true
   // Samoobslužná pobočka (2026-09-28): zákazník podepisuje protokol PŘED zadáním kódu
   // motorky — samotný podpis převzetí neznamená („Vydáno" = kód + protokol).
-  if (b.motorcycles?.branches?.type === 'samoobslužná') return false
+  if (effBranch(b)?.type === 'samoobslužná') return false
   return !!b.handover_protocol_filled_at || protocolIds?.has(b.id)
 }
 function returnDone(b) {
@@ -136,14 +137,15 @@ function buildEvents(bookings, protocolIds, swapPairs) {
   // (v datu/čase startu nové rezervace). Vrácení staré řeší přímo SwapModal.
   const predIds = swapPairs ? new Set(Object.values(swapPairs).map(a => a.id)) : new Set()
   for (const b of bookings) {
-    const branch = b.motorcycles?.branches?.name || null
+    // Pobočka rezervace (bookings.branch_id; aktivní = kde převzal), u NULL pobočka motorky
+    const branch = effBranch(b)?.name || null
     const base = {
       booking: b,
       customer: b.profiles?.full_name || 'Zákazník',
       moto: b.motorcycles?.model || '—',
       spz: b.motorcycles?.spz || null,
       branch,
-      branchType: b.motorcycles?.branches?.type || null,
+      branchType: effBranch(b)?.type || null,
       // Odjezd vyřízen (i protokolem/aktivací) + nejlepší známý čas vyzvednutí pro
       // pravidlo „návrat nejdříve 2 h po vyzvednutí".
       pickupDone: pickupDone(b, protocolIds),
@@ -317,7 +319,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
   async function loadData() {
     setLoading(true)
     const { data } = await supabase.from('bookings')
-      .select('id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, handover_protocol_filled_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, ended_by_sos, profiles(full_name, id_number, license_number, id_verified_at, license_verified_at, passport_verified_at), motorcycles!moto_id(model, spz, branch_id, license_required, branches(name, type))')
+      .select(`id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, handover_protocol_filled_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, branch_id, ended_by_sos, ${BOOKING_BRANCH_EMBED}, profiles(full_name, id_number, license_number, id_verified_at, license_verified_at, passport_verified_at), motorcycles!moto_id(model, spz, branch_id, license_required, branches(name, type))`)
       .in('status', ['reserved', 'active', 'pending'])
       // Nezaplacené rezervace (unpaid) se v odjezdech a návratech nezobrazují —
       // dokud zákazník nezaplatí, není co odbavovat.
@@ -341,7 +343,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
 
   const activeBranch = branchId !== undefined ? branchId : branchFilter
   const filtered = useMemo(
-    () => (activeBranch ? bookings.filter(b => b.motorcycles?.branch_id === activeBranch) : bookings),
+    () => (activeBranch ? bookings.filter(b => effBranchId(b) === activeBranch) : bookings),
     [bookings, activeBranch]
   )
   const swapPairs = useMemo(() => detectSwapPairs(bookings), [bookings])

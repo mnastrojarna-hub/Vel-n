@@ -35,8 +35,9 @@ Vedený tok **šatna → předávací protokol → motorka** (rozhodnutí uživa
    1) velikosti zapůjčené výbavy → „Pokračovat“, 2) výbava motorky + podpis + kód (bez zapůjčené výbavy rovnou krok 2). Bez podepsaného protokolu se kóje
    motorky NEOTEVŘE — kód motorky bez podpisu protokol zobrazí a po podpisu kóji otevře sám (`then_open`). Bez dotyku 120 s
    nebo tlačítkem „Zpět“ (v kroku 2 nejdřív zpět na krok 1) protokol zmizí a znovu ho vyvolá jen kód motorky (nebo další zavření šatny) téže rezervace. Podpis se
-   nikdy neztratí (trvalá fronta `protocol_queue`, odešle se i po výpadku LTE); podpis v appce/Velíně protokol z displeje
-   odstraní real-time (příkaz `protocol_signed`). Automatické vyplnění po 1 h je zrušeno.
+   nikdy neztratí (trvalá fronta `protocol_queue`, odešle se i po výpadku LTE); podpis ve Velíně (nebo ve starší verzi appky)
+   protokol z displeje odstraní real-time (příkaz `protocol_signed`). Automatické vyplnění po 1 h je zrušeno. **Od 2026-10-10
+   se protokol samoobsluhy podepisuje JEN na displeji pobočky** — appka ho k vyplnění nenabízí, podepsaný ukáže v dokumentech.
 3. Zadá **kód k motorce** → otevře se kóje konkrétní motorky (`box_number` → zóna). Rezervace se aktivuje při otevření kóje
    (jako dosud), ne podpisem.
 4. Při otevření se v kóji **rozsvítí bílé světlo, signalizace přejde na zelenou a začne hrát hudba**
@@ -94,6 +95,22 @@ odjištěný aspoň `timings.lock_hold_min_s` (Velín → Časování „Minimá
 otevřením) — i když zákazník dveře mezitím otevře a zavře, může je v té minutě otevřít znovu (stejná relace, žádný poplach); relace
 skončí až po vypnutí zámku (+ dozvuk ~0,9 s). Hudba, světlo kóje a venek se po zavření řídí jako dřív („Hudba/Světlo po zavření“),
 kód motorky zhasne světlo šatny i v této minutě. Na otevření se čeká větší z „Timeout otevření dveří“ a tohoto minima. Impulzní zámek (IBFM) beze změny.
+
+**Vypnutí zámku 2 s po otevření (1.2.9, 2026-10-10, zadání majitele):** magnet pod napětím nešel zavřít — jakmile kontakt hlásí
+otevřeno, držený zámek se vypne `timings.lock_release_after_open_s` (výchozí 2 s, 0–30; jen v mapě, Velín ho neposílá) po PRVNÍM
+otevření, i před uplynutím minima. Minimum tak platí jen pro čekání na otevření; po vypnutí lze dveře zavřít a do konce doběhu
+(„Světlo po zavření“) znovu otevřít v téže relaci jako dřív.
+
+**Šatna drží hudbu do kódu motorky (1.2.10, 2026-10-10, zadání majitele):** po kódu šatny s rezervací (ne vrácení, ne krátkodobý
+kód) hraje hudba šatny bez ohledu na dveře, dokud zákazník nezadá kód motorky (kóje motorky se otevře) — dveře šatny lze mezitím
+libovolně otevírat a zavírat (táž relace, žádný poplach „otevřeno bez kódu“). Protokol převzetí se ukáže při každém zavření šatny
+a při jejím otevření se schová. Pojistka: bez kódu motorky relace skončí `maximum_session_s` po posledním zavření.
+
+**Velikosti výbavy na samoobsluze + protokol jen na displeji (1.2.11, 2026-10-10, zadání majitele):** protokol nabízí helmu
+jen S–3XL a bundu, kalhoty a rukavice nejvýš 4XL (boty, kukla a dětská motorka beze změny; modul `gear_limits.py`, CONTRACT §28).
+Chybí-li typ v číselníku (živě bunda), použije se záložní řada S–4XL. Rezervovaná velikost mimo rozsah (např. bunda 6XL, helma XS)
+se na displeji předvybere jako nejbližší povolená (4XL, S) a podpisem se tak zapíše do rezervace (edge mimo rozsah nic nezapíše).
+Hláška „Kóje se otevře až po podpisu“ už nezmiňuje appku — protokol samoobsluhy se podepisuje jen na displeji pobočky.
 
 **Režimy venku (2026-09-14):** venek se nastavuje JINAK než kóje 1–7 a šatna — ty se řídí společným časováním (sekce „Časování“),
 venek má v bloku „Venek“ vlastní dvojici přepínačů. **Venkovní světlo:** `Podle relací` (výchozí) \| **`NONSTOP`** (svítí pořád bez
@@ -404,7 +421,7 @@ k selhalo“** a tlačítko **„Znovu synchronizovat“** (= `sync_config`, sel
 | `http_get` / `camera_control` | `url` | HTTP GET na LAN (kamery, měnič) |
 | `diagnostics` | `mode?` (`full` výchozí / `network` = jen síť), `cameras?` (seznam z Velína), `reason?` | kompletní diagnostika pobočky na pozadí (1–4 min; `network` 10–60 s); report + protokol → `kiosk_report_diagnostics` (Velín blok „Kompletní diagnostika pobočky") |
 | `screen_mirror` / `screen_input` | `session_id`, `on`, `control` / `kind` tap\|dialog, `x`, `y`, `text` | **2026-09-27:** zrcadlení obrazovky do Velína přes Chrome DevTools (jen 127.0.0.1:9222) + klepnutí z Velína („Ovládat“); karta jednotky → „🖥 Obrazovka“; jen dokud je panel ve Velíně otevřený (max 10 min, ≤ 1 fps, jen změny, ~50 kB/snímek), kiosk nic nezobrazuje — CONTRACT §29 |
-| `protocol_signed` | `booking_id` | předávací protokol podepsán jinde (appka / Velín — vkládá DB trigger po podpisu): jednotka ho sundá z displeje; kóji otevře jen když zákazník právě u displeje čeká s právě zadaným kódem motorky. Pojistka = `protocols[]` při dalším `sync_config`. Starší software hlásí `unknown_command` — není to porucha |
+| `protocol_signed` | `booking_id` | předávací protokol podepsán jinde (Velín / starší verze appky — vkládá DB trigger po podpisu): jednotka ho sundá z displeje; kóji otevře jen když zákazník právě u displeje čeká s právě zadaným kódem motorky. Pojistka = `protocols[]` při dalším `sync_config`. Starší software hlásí `unknown_command` — není to porucha |
 
 Příkazy chodí přes Supabase Realtime (broadcast) s pojistkou pollingu každých 10 s; výsledek
 se hlásí přes `kiosk_complete_command`. Živý stav zón vidí Velín z `kiosk_report_status` (30 s).
@@ -539,7 +556,7 @@ odmítne; červený běh = chyba psql (issue se nezakládá).
 | kód odmítnut „Chyba spojení" | není internet ani cache | `journalctl -u motogo-health`, `mmcli -m any`; cache se plní po prvním úspěšném `kiosk_sync_config` |
 | „Příliš mnoho neplatných pokusů" | PIN lockout (5 pokusů / 5 min → 15 min) | počkat nebo restart controlleru (lockout je v SQLite — přežije restart) |
 | kód (šatna i motorka) odmítnut hláškou „Vyzvednutí až od 12:00“ (`error: pickup_too_early`, Velín: ACCESS_DENIED s důvodem `pickup_too_early`) | rezervace má slevu za vyzvednutí od 12:00 → kiosk ji vydá až od `release_at` = 12:00 Prahy v den začátku (CONTRACT §31) — správné chování, do lockoutu se nepočítá | zákazník počká do 12:00, nebo změní čas vyzvednutí na dřívější (appka / motogo24.cz/upravit-rezervaci; sleva zanikne, doplatí rozdíl) — DB trigger `trg_booking_kiosk_release_sync` vyžádá resync a kód platí hned (offline jednotka až po obnově spojení); kontrola v SQL editoru Supabase `select _kiosk_release_at('<booking_id>')` (NULL = bez hradla); nouzově Velín „Otevřít dveře“ |
-| kód motorky kóji neotevře, na displeji se objeví předávací protokol | rezervace nemá podepsaný protokol (`protocol.required`) — správné chování vedeného toku (CONTRACT §28) | zákazník podepíše na displeji (potvrdí kódem motorky) nebo v appce; po podpisu se kóje otevře sama / další kód motorky projde. Servisní kódy 39301A–H a `open_door` z Velína protokol obcházejí |
+| kód motorky kóji neotevře, na displeji se objeví předávací protokol | rezervace nemá podepsaný protokol (`protocol.required`) — správné chování vedeného toku (CONTRACT §28) | zákazník podepíše na displeji (potvrdí kódem motorky; appka od 2026-10-10 podpis nenabízí); po podpisu se kóje otevře sama / další kód motorky projde. Servisní kódy 39301A–H a `open_door` z Velína protokol obcházejí |
 | zákazník nemůže vrátit motorku — displej odmítá stav tachometru („nižší než poslední známý“ / „příliš vysoký“) | zadává špatně, nebo je chybný poslední známý stav motorky (`motorcycles.mileage`, překlep ve Velíně) či start rezervace; Velín vidí události `ODOMETER_REJECTED` (Hlášení, source `odometer`) s hodnotou a mezemi | ověřit stav po telefonu; chybný stav opravit ve Velíně „Korekce nájezdu“ (projeví se do 60 s — sync, online hned), případně kóji otevřít z Velína („Otevřít dveře“) nebo pevným servisním kódem; mez se počítá jako poslední známý stav až start + 1000 km × dny (24 mth/den) |
 | stav tachometru se nedostal do Velína (`api/state → odometer.pending[]` / `failed[]`, událost `ODOMETER_UPLOAD_FAILED`) | `pending` = bez internetu nebo RPC `kiosk_submit_odometer` ještě není nasazená (404) — opakuje se samo á 30 s bez limitu; `failed` = server čtení trvale odmítl (`forbidden` rezervace bez kódu motorky pobočky, `not_found`, `conflict`) | internet / nasazení SQL; po opravě Velín „Znovu synchronizovat“ (vrátí `failed` do fronty). Čtení se nikdy nezahodí; čekající (`pending`) zvedá spodní mez i km dalšího převzetí téže motorky, `failed` už ne |
 | protokol se po zavření šatny neukázal | restart jednotky uprostřed relace šatny (zóna bez `booking_id`), šatna otevřená servisním kódem, nebo `protocol` chybí (starší backend / cache → fail-open) | nic nehrozí: kód motorky protokol vynutí sám (`protocol_required`); nevyřízené (skryté) položky = `api/state → handover.waiting[]` (`pending[]` jsou naopak už PODEPSANÉ podpisy čekající na odeslání), `journalctl -u motogo-controller \| grep motogo.handover` |

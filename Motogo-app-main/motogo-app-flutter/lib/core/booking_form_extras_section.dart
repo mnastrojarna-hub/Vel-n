@@ -30,6 +30,8 @@ class BookingFormExtrasSection extends ConsumerWidget {
   /// kódem bez obsluhy) → dlaždice „Vozík" se vůbec nenabídne. Vozík je jen
   /// na obslužné pobočce; backend to hlídá i sám (`get_trailer_availability`
   /// s `p_moto_id` + trigger `trg_check_trailer_overlap`).
+  /// Zároveň zužuje řady velikostí výbavy řidiče i spolujezdce (helma S–3XL,
+  /// bunda/kalhoty/rukavice max 4XL — [gearSizesFor], zadání 2026-10-10).
   final bool selfService;
 
   /// Motorka, ke které se vozík přidává — jde do `get_trailer_availability`.
@@ -107,25 +109,25 @@ class BookingFormExtrasSection extends ConsumerWidget {
               t(context).tr('helmet'),
               draft.helmetSize,
               (s) => onUpd((d) => d.copyWith(helmetSize: () => s)),
-              sizes: gearSizesFor('helmet', kids: isKids),
+              sizes: gearSizesFor('helmet', kids: isKids, selfService: selfService),
             ),
             bookingGearRow(
               t(context).tr('gloves'),
               draft.glovesSize,
               (s) => onUpd((d) => d.copyWith(glovesSize: () => s)),
-              sizes: gearSizesFor('gloves', kids: isKids),
+              sizes: gearSizesFor('gloves', kids: isKids, selfService: selfService),
             ),
             bookingGearRow(
               t(context).tr('jacket'),
               draft.jacketSize,
               (s) => onUpd((d) => d.copyWith(jacketSize: () => s)),
-              sizes: gearSizesFor('jacket', kids: isKids),
+              sizes: gearSizesFor('jacket', kids: isKids, selfService: selfService),
             ),
             bookingGearRow(
               t(context).tr('pants'),
               draft.pantsSize,
               (s) => onUpd((d) => d.copyWith(pantsSize: () => s)),
-              sizes: gearSizesFor('pants', kids: isKids),
+              sizes: gearSizesFor('pants', kids: isKids, selfService: selfService),
             ),
           ],
           const SizedBox(height: 10),
@@ -179,11 +181,12 @@ class BookingFormExtrasSection extends ConsumerWidget {
                   onUpd((d) => d.copyWith(extras: ne));
                 } else if (isSpolujezdec) {
                   showPassengerGearSheet(context, item, ref,
-                      (ne) => onUpd((d) => d.copyWith(extras: ne)));
+                      (ne) => onUpd((d) => d.copyWith(extras: ne)),
+                      selfService: selfService);
                 } else if (item.sizes.isNotEmpty) {
                   showSizeDialog(context, item, ref,
                       (ne) => onUpd((d) => d.copyWith(extras: ne)),
-                      sizesOverride: gearSizesFor('boots', kids: isKids));
+                      sizesOverride: gearSizesFor('boots', kids: isKids, selfService: selfService));
                 } else {
                   final ne = List<SelectedExtra>.from(draft.extras);
                   ne.add(SelectedExtra(

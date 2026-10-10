@@ -8,8 +8,9 @@ import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
-import 'document_models.dart';
 import 'document_provider.dart';
+import 'docs_gate_provider.dart';
+import 'docs_gate_widgets.dart';
 
 /// Moje doklady — matches Capacitor original s-docs screen.
 /// Shows: info banners, scan button (camera), upload button (gallery),
@@ -19,7 +20,11 @@ class DocumentsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final verifiedAsync = ref.watch(docsVerifiedProvider);
+    // Kompletnost dokladů dle brány kódů (obě strany OP/pasu a ŘP), bez
+    // odpovědi RPC dle profilových *_verified_at (docsScreenStatusProvider).
+    // Obnova po nahrání = změna závislosti → `skipLoadingOnReload`, ať stav
+    // neprobliká (jako dřív u přímo invalidovaného docsVerifiedProvider).
+    final verifiedAsync = ref.watch(docsScreenStatusProvider);
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -61,6 +66,7 @@ class DocumentsScreen extends ConsumerWidget {
           children: [
             // Info banner — only when docs are NOT verified
             verifiedAsync.when(
+              skipLoadingOnReload: true,
               data: (v) {
                 if (v.isComplete) return const SizedBox.shrink();
                 return Container(
@@ -87,6 +93,7 @@ class DocumentsScreen extends ConsumerWidget {
 
             // Verification status
             verifiedAsync.when(
+              skipLoadingOnReload: true,
               data: (v) => _VerificationBanner(verification: v),
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
@@ -134,6 +141,7 @@ class DocumentsScreen extends ConsumerWidget {
 
             // NASKENOVAT POUZE ŘP button — shown when OP verified but ŘP missing
             verifiedAsync.when(
+              skipLoadingOnReload: true,
               data: (v) {
                 if (v.hasIdOrPassport && !v.hasLicense) {
                   return Padding(
@@ -181,8 +189,9 @@ class DocumentsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
 
-            // Doc verification status — based solely on profile verification
+            // Doc verification status — brána kódů (obě strany), záloha profil
             verifiedAsync.when(
+              skipLoadingOnReload: true,
               data: (v) {
                 if (!v.hasIdOrPassport && !v.hasLicense) {
                   return Container(
@@ -196,6 +205,7 @@ class DocumentsScreen extends ConsumerWidget {
                       const SizedBox(height: 4),
                       Text(t(context).tr('docsNotVerifiedDesc'),
                         style: const TextStyle(fontSize: 12, color: Color(0xFF78350F), height: 1.4)),
+                      if (v.gate != null && !v.gate!.ok) DocsGateMissingLine(gate: v.gate!),
                     ]),
                   );
                 }
@@ -218,8 +228,12 @@ class DocumentsScreen extends ConsumerWidget {
                       onReset: () => _resetDoc(context, ref, 'drivers_license'),
                       onScan: v.hasLicense ? null : () => context.push('${Routes.docScan}?mode=dl_only'),
                     ),
+                    // Co přesně chybí pro vydání kódů (strana dokladu, věk,
+                    // platnost / skupina ŘP) — jeden řádek dle brány.
+                    if (v.gate != null && !v.gate!.ok)
+                      DocsGateMissingLine(gate: v.gate!),
                     const SizedBox(height: 12),
-                    if (v.isComplete)
+                    if (v.codesReady)
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -269,6 +283,7 @@ class DocumentsScreen extends ConsumerWidget {
     final ok = await resetDocVerification(docType);
     if (!context.mounted) return;
     ref.invalidate(docsVerifiedProvider);
+    ref.invalidate(docsGateChecklistProvider);
     showMotoGoToast(context,
       icon: ok ? '✅' : '❌',
       title: ok ? t(context).tr('deleted') : t(context).error,
@@ -277,20 +292,24 @@ class DocumentsScreen extends ConsumerWidget {
   }
 
   Future<void> _uploadFromGallery(BuildContext context, WidgetRef ref) async {
+    final kind = await pickGalleryDocKind(context);
+    if (kind == null || !context.mounted) return;
+    final (docType, docSide, stepKey) = kind;
     final picker = ImagePicker();
     final photo = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1800);
     if (photo == null) return;
     if (!context.mounted) return;
     showMotoGoToast(context, icon: '⏳', title: t(context).tr('uploading'), message: t(context).tr('processingDoc'));
-    final result = await scanDocument(photo, ScanDocType.idCard);
-    final upload = await uploadDocPhoto(photo, ScanDocType.idCard, mindeeOk: result != null);
+    final result = await scanDocument(photo, docType);
+    final upload = await uploadDocPhoto(photo, docType, mindeeOk: result != null, docSide: docSide);
     if (result != null) {
-      await saveOcrToProfile(result, docType: ScanDocType.idCard);
+      await saveOcrToProfile(result, docType: docType, stepKey: stepKey);
     }
     if (!context.mounted) return;
     ref.invalidate(docsVerifiedProvider);
+    ref.invalidate(docsGateChecklistProvider);
     if (upload.ok) {
-      // Fotka uložená → doklad je nahraný (kódy se uvolní i bez OCR).
+      // Fotka uložená → strana dokladu je nahraná (kódy dle brány dokladů).
       showMotoGoToast(context, icon: '✅', title: t(context).tr('uploaded'), message: t(context).tr('docProcessed'));
     } else {
       // Upload nebo OCR selhaly — doveď uživatele na skener s kamerou,
@@ -303,7 +322,7 @@ class DocumentsScreen extends ConsumerWidget {
 }
 
 class _VerificationBanner extends StatelessWidget {
-  final DocsVerification verification;
+  final DocsScreenStatus verification;
   const _VerificationBanner({required this.verification});
 
   @override

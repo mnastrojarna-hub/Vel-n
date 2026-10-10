@@ -43,7 +43,7 @@
 
   // Výchozí české texty — když klíč v MG_I18N chybí, MG.t vrací samotný klíč.
   var DEF_TITLE = 'Na samoobslužné pobočce zatím není k dispozici';
-  var DEF_TEXT = 'Motorky ze samoobslužné pobočky se přebírají i vracejí pouze na pobočce — nonstop (24/7) pomocí kódu, který dostanete po zaplacení. Přistavení na adresu ani odvoz z adresy u nich zatím nenabízíme; v budoucnu tuto službu zapneme.';
+  var DEF_TEXT = 'Motorky ze samoobslužné pobočky se přebírají i vracejí pouze na pobočce — nonstop (24/7) pomocí kódu, který dostanete po zaplacení a ověření dokladů. Přistavení na adresu ani odvoz z adresy u nich zatím nenabízíme; v budoucnu tuto službu zapneme.';
 
   var flag = { loaded: false, loading: false, enabled: false };
   var ssBranchIds = null; // { <branch_id>: 1 } — jen pro karty motorek na /upravit-rezervaci
