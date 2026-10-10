@@ -17,7 +17,7 @@ export function HeaderCard({ incident, sev, sc, displayTitle, isActive, admins, 
   }
   return (
       <Card>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 max-sm:flex-wrap max-sm:gap-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl">{TYPE_ICONS[incident.type] || '⚠️'}</span>
             <div>
@@ -29,17 +29,17 @@ export function HeaderCard({ incident, sev, sc, displayTitle, isActive, admins, 
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
+          <div className="flex items-center gap-2 max-sm:ml-auto">
+            <span className="inline-block rounded-btn text-[9px] max-lg:text-xs font-extrabold tracking-wide uppercase"
               style={{ padding: '2px 7px', background: sev.bg, color: sev.color }}>{sev.label}</span>
-            <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
+            <span className="inline-block rounded-btn text-[9px] max-lg:text-xs font-extrabold tracking-wide uppercase"
               style={{ padding: '2px 7px', background: sc.bg, color: sc.color }}>{sc.label}</span>
-            <button onClick={onClose} className="text-sm font-bold cursor-pointer"
+            <button onClick={onClose} aria-label="Zavřít detail" className="text-sm font-bold cursor-pointer max-lg:min-w-[36px] max-lg:min-h-[36px]"
               style={{ color: '#1a2e22', background: 'none', border: 'none' }}>✕</button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
           <InfoRow label="ID" value={incident.id?.slice(0, 8)} mono />
           <InfoRow label="Nahlášeno" value={incident.created_at ? new Date(incident.created_at).toLocaleString('cs-CZ') : '—'} />
           <InfoRow label="Kontakt" value={incident.contact_phone || customer?.phone || incident.profiles?.phone} />
@@ -105,7 +105,7 @@ export function HeaderCard({ incident, sev, sc, displayTitle, isActive, admins, 
                     Motorka nepojízdná
                   </span>
                   {!motoInService && moto?.status !== 'maintenance' && (
-                    <button onClick={setMotoToService} className="inline-block rounded-btn text-sm font-extrabold cursor-pointer" style={{
+                    <button onClick={setMotoToService} className="inline-block rounded-btn text-sm font-extrabold cursor-pointer max-lg:min-h-[40px]" style={{
                       padding: '4px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5',
                     }}>
                       🔧 Přesunout do servisu
@@ -140,7 +140,7 @@ export function HeaderCard({ incident, sev, sc, displayTitle, isActive, admins, 
         <div className="mt-3 flex items-center gap-2">
           <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Přiřadit:</span>
           <select value={incident.assigned_to || ''} onChange={e => assignAdmin(e.target.value)}
-            className="rounded-btn text-sm outline-none cursor-pointer"
+            className="rounded-btn text-sm outline-none cursor-pointer max-lg:min-h-[40px] max-sm:min-w-0 max-sm:flex-1"
             style={{ padding: '4px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
             <option value="">Nepřiřazeno</option>
             {admins.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -165,14 +165,14 @@ export function HeaderCard({ incident, sev, sc, displayTitle, isActive, admins, 
             <div className="mt-3 flex flex-wrap gap-2">
               {incident.status === 'reported' && (
                 <button onClick={() => updateIncidentStatus('acknowledged')}
-                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                   style={{ padding: '8px 16px', background: '#fef3c7', color: '#b45309' }}>
                   Potvrdit příjem
                 </button>
               )}
               {(incident.status === 'reported' || incident.status === 'acknowledged') && (
                 <button onClick={() => updateIncidentStatus('in_progress')}
-                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                   style={{ padding: '8px 16px', background: '#dbeafe', color: '#2563eb' }}>
                   Začít řešit
                 </button>
@@ -181,7 +181,7 @@ export function HeaderCard({ incident, sev, sc, displayTitle, isActive, admins, 
                 <button
                   onClick={allPreResolveComplete ? () => updateIncidentStatus('resolved') : undefined}
                   disabled={!allPreResolveComplete}
-                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                   style={{
                     padding: '8px 16px',
                     background: allPreResolveComplete ? '#dcfce7' : '#e5e7eb',
@@ -237,7 +237,7 @@ export function NotesCard({ incidentNotes, noteText, setNoteText, addNote, savin
               className="w-full rounded-btn text-sm outline-none mb-2"
               style={{ padding: '8px 12px', background: '#fff', border: '1px solid #fde68a', resize: 'vertical' }}
             />
-            <Button onClick={addNote} disabled={savingNote || !noteText.trim()}
+            <Button onClick={addNote} disabled={savingNote || !noteText.trim()} className="max-lg:min-h-[40px]"
               style={{ background: '#fbbf24', color: '#78350f', fontSize: 13, padding: '6px 16px' }}>
               {savingNote ? 'Ukládám…' : 'Přidat poznámku'}
             </Button>

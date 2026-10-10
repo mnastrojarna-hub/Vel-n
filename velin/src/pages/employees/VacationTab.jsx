@@ -70,16 +70,17 @@ export default function VacationTab() {
         <Button green onClick={() => setShowAdd(true)}>+ Nova zadost</Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Narok</div>
+      {/* Telefon: 3 kompaktní dlaždice v jedné řadě (globální pravidlo by z grid-cols-3 udělalo 2 + 1) */}
+      <div className="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-2 sm:gap-3 mb-4">
+        <Card className="max-sm:!p-3"><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Narok</div>
           <div className="text-lg font-extrabold" style={{ color: '#2563eb' }}>{totalDays} dni</div></Card>
-        <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Cerpano</div>
+        <Card className="max-sm:!p-3"><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Cerpano</div>
           <div className="text-lg font-extrabold" style={{ color: '#b45309' }}>{usedDays} dni</div></Card>
-        <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Zbyva</div>
+        <Card className="max-sm:!p-3"><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Zbyva</div>
           <div className="text-lg font-extrabold" style={{ color: remaining > 0 ? '#1a8a18' : '#dc2626' }}>{remaining} dni</div></Card>
       </div>
 
-      <Table>
+      <Table stack>
         <thead>
           <TRow header>
             <TH>Od</TH><TH>Do</TH><TH>Dni</TH><TH>Typ</TH><TH>Stav</TH><TH>Poznámka</TH><TH>Akce</TH>
@@ -94,17 +95,17 @@ export default function VacationTab() {
               <TD><Badge {...(TYPE_MAP[v.type] || TYPE_MAP.other)} /></TD>
               <TD><Badge {...(STATUS_MAP[v.status] || STATUS_MAP.pending)} /></TD>
               <TD>{v.note || '—'}</TD>
-              <TD>
+              <TD className={v.status === 'pending' ? undefined : 'mg-hide-phone'}>
                 {v.status === 'pending' && <>
-                  <button onClick={() => approve(v.id)} className="text-sm font-bold cursor-pointer mr-2"
+                  <button onClick={() => approve(v.id)} className="text-sm font-bold cursor-pointer mr-2 max-lg:py-2 max-lg:px-2"
                     style={{ color: '#1a8a18', background: 'none', border: 'none' }}>Schválit</button>
-                  <button onClick={() => reject(v.id)} className="text-sm font-bold cursor-pointer"
+                  <button onClick={() => reject(v.id)} className="text-sm font-bold cursor-pointer max-lg:py-2 max-lg:px-2"
                     style={{ color: '#dc2626', background: 'none', border: 'none' }}>Zamitnout</button>
                 </>}
               </TD>
             </TRow>
           ))}
-          {vacations.length === 0 && <TRow><TD>Žádné záznamy</TD></TRow>}
+          {vacations.length === 0 && <TRow><TD className="mg-stack-full">Žádné záznamy</TD></TRow>}
         </tbody>
       </Table>
 
@@ -147,7 +148,7 @@ function VacModal({ empId, onClose, onSaved }) {
   return (
     <Modal open title="Nova zadost o dovolenou" onClose={onClose}>
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><Lbl>Od</Lbl><input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
           <div><Lbl>Do</Lbl><input type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         </div>

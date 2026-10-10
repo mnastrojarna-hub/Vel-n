@@ -20,7 +20,7 @@ const STATUS = {
 function Badge({ status }) {
   const s = STATUS[status] || STATUS.pending
   return (
-    <span className="text-xs font-bold rounded-btn" style={{ padding: '3px 10px', background: s.bg, color: s.fg }}>
+    <span className="text-xs font-bold rounded-btn max-lg:inline-block" style={{ padding: '3px 10px', background: s.bg, color: s.fg }}>
       {s.label}
     </span>
   )
@@ -28,7 +28,8 @@ function Badge({ status }) {
 
 function Stat({ label, value, color }) {
   return (
-    <div className="rounded-card" style={{ padding: '16px 20px', background: '#fff', border: '1px solid #eef2ef', minWidth: 140 }}>
+    // telefon (< 768 px): 3 stejně široké dlaždice v řadě (jinak každá na vlastním řádku různé šířky)
+    <div className="rounded-card max-md:flex-1 max-md:!min-w-[92px] max-md:!px-3" style={{ padding: '16px 20px', background: '#fff', border: '1px solid #eef2ef', minWidth: 140 }}>
       <div className="text-3xl font-extrabold" style={{ color }}>{value}</div>
       <div className="text-xs font-bold uppercase tracking-wide" style={{ color: '#888' }}>{label}</div>
     </div>
@@ -107,8 +108,10 @@ export default function Slevomat() {
         </div>
       )}
 
-      <div className="rounded-card" style={{ background: '#fff', border: '1px solid #eef2ef', overflow: 'hidden' }}>
-        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+      {/* mg-stack = na telefonu karty místo tabulky (jinak by se sloupce za „Uplatněno u nás“ ořízly); PC beze změny */}
+      {/* tablet (768–1023): co se přesto nevejde, posune se uvnitř karty (ne ořízne) */}
+      <div className="rounded-card mg-stack-wrap max-md:!border-0 md:max-lg:!overflow-x-auto" style={{ background: '#fff', border: '1px solid #eef2ef', overflow: 'hidden' }}>
+        <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f7faf9', color: '#888', textAlign: 'left' }}>
               <th style={{ padding: '10px 14px' }}>Kód</th>
@@ -137,7 +140,7 @@ export default function Slevomat() {
                   <td style={{ padding: '10px 14px', color: '#666' }}>{fmt(r.redeemed_at)}</td>
                   <td style={{ padding: '10px 14px', color: '#666' }}>{fmt(r.slevomat_applied_at)}</td>
                   <td style={{ padding: '10px 14px', textAlign: 'center', color: '#666' }}>{r.slevomat_apply_attempts || 0}</td>
-                  <td style={{ padding: '10px 14px', color: '#b42318', fontSize: 12, maxWidth: 320 }}>{r.slevomat_apply_error || ''}</td>
+                  <td className="max-lg:[overflow-wrap:anywhere]" style={{ padding: '10px 14px', color: '#b42318', fontSize: 12, maxWidth: 320 }}>{r.slevomat_apply_error || ''}</td>
                 </tr>
               )
             })}

@@ -24,7 +24,8 @@ export default function BookingPriceCalc({
         </div>
       )}
       <div className="p-4 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-        <div className="space-y-2">
+        {/* < lg: částka (poslední span řádku) se neláme („-49,19 / Kč“) a má odstup od popisku */}
+        <div className="space-y-2 max-lg:[&_span:last-child]:whitespace-nowrap max-lg:[&_span:last-child]:pl-3">
           <div className="flex justify-between text-sm"><span style={{ color: '#1a2e22' }}>Původní cena (zaplaceno)</span><span className="font-bold" style={{ color: '#0f1a14' }}>{fmtCZK(origPaidPrice)} Kč</span></div>
           {origCalcPrice > 0 && origCalcPrice !== origPaidPrice && <div className="flex justify-between text-xs"><span style={{ color: '#9ca3af' }}>Dle ceníku (původní motorka × {origDays}d)</span><span style={{ color: '#9ca3af' }}>{fmtCZK(origCalcPrice)} Kč</span></div>}
           <div className="flex justify-between text-sm"><span style={{ color: '#1a2e22' }}>Nová cena dle ceníku ({days}d)</span><span className="font-bold" style={{ color: '#0f1a14' }}>{fmtCZK(newCalcPrice)} Kč</span></div>

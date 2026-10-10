@@ -33,7 +33,8 @@ export function CheckboxFilterGroup({ label, values, onChange, options }) {
       style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
       {options.map(o => (
-        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+        // max-lg: vyšší dotyková plocha zaškrtávátek na mobilu/tabletu
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer max-lg:min-h-[34px]"
           style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
           <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
             className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />

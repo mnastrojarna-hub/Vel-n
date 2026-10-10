@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import { mapyLinkUrl } from '../lib/mapyCz'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { DETAIL_TABS, maxMotosForBranch, isSelfService, SELF_SERVICE_LAYOUT_NOTE, Spinner, EmptyState, DRow } from './BranchHelpers'
 import { TabAccessories } from './BranchAccessories'
 import { TabDoorCodes } from './BranchDoorCodes'
@@ -18,6 +19,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
   const [doorCodes, setDoorCodes] = useState([])
   const [loadingCodes, setLoadingCodes] = useState(true)
   const [activeBookings, setActiveBookings] = useState([])
+  const isMobile = useIsMobile()   // < 1024 px: záložky jako mřížka dlaždic (všech 6 vidět bez posouvání)
 
   useEffect(() => {
     loadMotos()
@@ -116,8 +118,8 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
   return (
     <Modal open title={`Pobočka: ${branch.name}`} onClose={onClose} wide>
       {/* Status bar */}
-      <div className="flex items-center gap-3 mb-4">
-        <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+      <div className="flex items-center gap-3 mb-4 max-lg:flex-wrap max-lg:gap-2">
+        <span className="inline-block rounded-btn text-[10px] max-lg:text-[11px] font-extrabold tracking-wide uppercase"
           style={{
             padding: '3px 10px',
             background: branch.is_open ? '#dcfce7' : '#fee2e2',
@@ -130,7 +132,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
             Kód: {branch.branch_code}
           </span>
         )}
-        <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+        <span className="inline-block rounded-btn text-[10px] max-lg:text-[11px] font-extrabold tracking-wide uppercase"
           style={{
             padding: '3px 10px',
             background: branch.active === false ? '#fee2e2' : '#f1faf7',
@@ -141,15 +143,15 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b" style={{ borderColor: '#d4e8e0' }}>
+      <div className={isMobile ? 'grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-4' : 'flex gap-1 mb-4 border-b'} style={{ borderColor: '#d4e8e0' }}>
         {DETAIL_TABS.map((t, i) => (
           <button key={t} onClick={() => setTab(i)}
-            className="text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
+            className={`text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none${isMobile ? ' min-h-[42px] leading-tight' : ''}`}
             style={{
-              padding: '8px 16px',
-              background: tab === i ? '#1a2e22' : 'transparent',
+              padding: isMobile ? '6px 8px' : '8px 16px',
+              background: tab === i ? '#1a2e22' : (isMobile ? '#f1faf7' : 'transparent'),
               color: tab === i ? '#74FB71' : '#1a2e22',
-              borderRadius: '8px 8px 0 0',
+              borderRadius: isMobile ? 10 : '8px 8px 0 0',
             }}>
             {t}
           </button>
@@ -208,7 +210,7 @@ function TabInfo({ branch, branchStats, bookings }) {
             <DRow label="GPS" value={`${branch.gps_lat}, ${branch.gps_lng}`} mono />
             <a href={mapyLinkUrl(branch.gps_lat, branch.gps_lng)}
               target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 rounded-btn mt-1"
+              className="inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 rounded-btn mt-1 max-lg:min-h-[36px] max-lg:px-3"
               style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
               Otevřít v Mapy.cz
             </a>
@@ -241,8 +243,12 @@ function TabInfo({ branch, branchStats, bookings }) {
   )
 }
 
+// Šipky pořadí kójí na dotyku: dlaždice 36 × 36 px místo 10px znaků
+const ARROW_TOUCH = { width: 36, height: 36, background: '#f1faf7', borderRadius: 8, lineHeight: '36px' }
+
 function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
   const [saving, setSaving] = useState(false)
+  const isMobile = useIsMobile()   // < 1024 px: větší šipky pořadí, řádek motorky na 2 řádky
   const selfService = isSelfService(branch)
   const maxMotos = maxMotosForBranch(branch)
 
@@ -337,7 +343,7 @@ function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 max-lg:flex-wrap max-lg:gap-2">
         <div className="text-sm" style={{ color: '#1a2e22' }}>
           <strong>{motos.length}</strong> {selfService ? `z ${maxMotos} kójí motorek` : `motorek na pobočce (max ${maxMotos})`}
           {selfService && (
@@ -348,7 +354,7 @@ function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
         <div className="flex gap-2">
           {hasUnassigned && (
             <button onClick={autoAssignBoxNumbers} disabled={saving}
-              className="rounded-btn text-sm font-bold cursor-pointer border-none"
+              className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
               style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', opacity: saving ? 0.5 : 1 }}>
               Auto-přiřadit čísla kojí
             </button>
@@ -372,13 +378,13 @@ function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
         </div>
       )}
 
-      <div className="space-y-1 max-h-96 overflow-y-auto">
+      <div className="space-y-1 max-h-96 overflow-y-auto max-lg:max-h-none">
         {sorted.map((m, i) => {
           const st = statusLabels[m.status] || statusLabels.active
           return (
-            <div key={m.id} className="flex items-center text-sm gap-1" style={{ padding: '6px 8px', background: i % 2 === 0 ? '#f8fcfa' : '#fff', borderRadius: 8 }}>
-              {/* Box number */}
-              <div className="flex items-center gap-0.5 mr-1" style={{ minWidth: 70 }}>
+            <div key={m.id} className="flex items-center text-sm gap-1 max-lg:flex-wrap" style={{ padding: '6px 8px', background: i % 2 === 0 ? '#f8fcfa' : '#fff', borderRadius: 8 }}>
+              {/* Box number — telefon (max-sm:order-*): 1. řádek kóje + šipky + pole kóje, 2. model + SPZ, 3. km + stav */}
+              <div className="flex items-center gap-0.5 mr-1 max-sm:order-1" style={{ minWidth: 70 }}>
                 <span className="font-mono font-extrabold text-sm" style={{
                   color: m.box_number != null ? '#1a2e22' : '#dc2626',
                   background: m.box_number != null ? '#dcfce7' : '#fee2e2',
@@ -391,28 +397,30 @@ function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
                   {m.box_number != null ? `#${m.box_number}` : '—'}
                 </span>
                 {/* Move arrows */}
-                <div className="flex flex-col" style={{ lineHeight: 0 }}>
+                <div className="flex flex-col max-lg:flex-row max-lg:gap-1 max-lg:ml-1" style={{ lineHeight: 0 }}>
                   <button onClick={() => swapBoxNumbers(i, i - 1)} disabled={i === 0 || saving}
                     className="cursor-pointer border-none bg-transparent"
-                    style={{ padding: 0, fontSize: 10, color: i === 0 ? '#ccc' : '#1a2e22', lineHeight: '12px' }}
+                    style={{ padding: 0, fontSize: isMobile ? 14 : 10, color: i === 0 ? '#ccc' : '#1a2e22', lineHeight: '12px', ...(isMobile ? ARROW_TOUCH : null) }}
                     title="Posunout nahoru">
                     ▲
                   </button>
                   <button onClick={() => swapBoxNumbers(i, i + 1)} disabled={i === sorted.length - 1 || saving}
                     className="cursor-pointer border-none bg-transparent"
-                    style={{ padding: 0, fontSize: 10, color: i === sorted.length - 1 ? '#ccc' : '#1a2e22', lineHeight: '12px' }}
+                    style={{ padding: 0, fontSize: isMobile ? 14 : 10, color: i === sorted.length - 1 ? '#ccc' : '#1a2e22', lineHeight: '12px', ...(isMobile ? ARROW_TOUCH : null) }}
                     title="Posunout dolů">
                     ▼
                   </button>
                 </div>
               </div>
               {/* Moto info */}
-              <span className="font-bold" style={{ color: '#0f1a14' }}>{m.model}</span>
-              <span className="ml-1 font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz || '—'}</span>
-              <span className="ml-auto mr-2 text-sm" style={{ color: '#1a2e22' }}>
+              <span className="font-bold max-sm:order-4" style={{ color: '#0f1a14' }}>{m.model}</span>
+              <span className="ml-1 font-mono text-sm max-sm:order-5" style={{ color: '#1a2e22' }}>{m.spz || '—'}</span>
+              <span className="hidden max-sm:block max-sm:order-3 basis-full h-0" aria-hidden />{/* telefon: zalomení za 1. a 2. řádkem */}
+              <span className="hidden max-sm:block max-sm:order-6 basis-full h-0" aria-hidden />
+              <span className="ml-auto mr-2 text-sm max-sm:order-7 max-sm:ml-0" style={{ color: '#1a2e22' }}>
                 {m.mileage ? `${m.mileage.toLocaleString('cs-CZ')} km` : ''}
               </span>
-              <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold tracking-wide uppercase max-sm:order-8"
                 style={{ padding: '2px 6px', background: st.bg, color: st.color }}>
                 {st.label}
               </span>
@@ -423,9 +431,9 @@ function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
                 defaultValue={m.box_number ?? ''}
                 disabled={saving}
                 title={`Kóje motorky na pobočce (1–${maxMotos}). Prázdné = bez přiřazené kóje.`}
-                className="rounded-btn text-sm outline-none font-mono ml-1"
+                className="rounded-btn text-sm outline-none font-mono ml-1 max-lg:min-h-[36px] max-sm:order-2 max-sm:ml-auto"
                 style={{
-                  width: 54, padding: '2px 4px', textAlign: 'center',
+                  width: isMobile ? 64 : 54, padding: '2px 4px', textAlign: 'center',
                   background: m.box_number == null ? '#fffbeb' : '#f1faf7',
                   border: `1px solid ${m.box_number == null ? '#fbbf24' : '#d4e8e0'}`,
                 }}

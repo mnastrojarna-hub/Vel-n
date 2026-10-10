@@ -8,6 +8,7 @@ import { buildDocVars, listAccessoryItems } from './bookingDocTemplates'
 import { buildElectronicProtocolHtml, HANDOVER_CHECKS, EXTRA_GEAR_CHECKS, DAMAGE_CHECKS } from './bookingDocElectronic'
 import { sendProtocolEmail } from './protocolEmail'
 import { loadAccessoryTypes } from '../BranchHelpers'
+import { useSaveErrorReveal } from './useSaveErrorReveal'
 
 // Elektronický předávací protokol / protokol o poškození — vyplnění na tabletu
 // (checkboxy + volný text) a podpis perem. Uloží podepsané HTML do generated_documents.
@@ -43,11 +44,13 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   const [alreadySigned, setAlreadySigned] = useState(null)
   const custSig = useRef(null)
   const operSig = useRef(null)
+  // < lg: chyba uložení se ukáže tam, kde operátor je (protokol má na telefonu ~2 800 px) — desktop beze změny
+  const errReveal = useSaveErrorReveal()
 
   useEffect(() => { if (open) load() }, [open, bookingId, type])
 
   async function load() {
-    setLoading(true); setError(null)
+    setLoading(true); setError(null); errReveal.clear()
     try {
       const { data: booking, error: bErr } = await supabase.from('bookings').select('*, motorcycles!moto_id(model, spz, vin, year, license_required, branches(type, address, zip, city))').eq('id', bookingId).single()
       if (bErr || !booking) throw new Error('Rezervace nenalezena: ' + (bErr?.message || 'no data'))
@@ -102,12 +105,13 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
     // Identita: pokud má rezervace kód k motorce, musí se před uložením ověřit.
     if (motoCode && !codeVerified) {
       setError('Ověřte kód k motorce (identita zákazníka) — zadejte kód, který zákazník obdržel, a klikněte na „Ověřit“.')
+      errReveal.reveal('top') // < lg: posun nahoru na chybu a kolonku kódu hned pod ní
       return
     }
     setSaving(true); setError(null)
     try {
       const customerSig = custSig.current?.toDataURL() || null
-      if (!customerSig) { setError('Chybí podpis nájemce — podepište se prosím perem.'); setSaving(false); return }
+      if (!customerSig) { setError('Chybí podpis nájemce — podepište se prosím perem.'); errReveal.reveal(); setSaving(false); return }
       const operatorSig = operSig.current?.toDataURL() || null
       // Skutečnost z protokolu propíšeme do rezervace — UPDATE *_size sloupců spustí trigger
       // gear_shortage_on_booking → přepočet deficitů v Logistice zboží.
@@ -135,7 +139,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
           if (sErr) throw new Error('Propsání výbavy z protokolu (změna velikosti / odebrání položky) do rezervace selhalo: ' + sErr.message)
           if (selfService && !rows?.length) {
             setError('Předávací protokol už je podepsán (aplikace / displej pobočky) — výbava v rezervaci se nemění a druhý protokol se nevystavuje. Podepsané PDF najdete v Dokumentech.')
-            setSaving(false); return
+            errReveal.reveal(); setSaving(false); return
           }
         }
       }
@@ -201,6 +205,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       setError(dup
         ? 'Předávací protokol už je podepsán (aplikace / displej pobočky) — najdete ho v Dokumentech. Druhý se nevystavuje.'
         : 'Uložení selhalo: ' + e.message)
+      errReveal.reveal()
     }
     setSaving(false)
   }
@@ -230,7 +235,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
         </div>
       ) : (
         <div className="space-y-5">
-          {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
+          {error && !errReveal.nearActions && <div ref={errReveal.topRef} className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
           {vars && (
             <div className="p-3 rounded-card" style={{ background: '#f1faf7', fontSize: 13, color: '#1a2e22' }}>
               <strong>{vars.customer_name}</strong> · {vars.moto_model} ({vars.moto_spz}) · {vars.rental_period}
@@ -351,7 +356,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
                     const off = !a.checked
                     const sizeStyle = { padding: '6px 10px', borderRadius: 8, border: `1px solid ${!off && a.size !== a.origSize ? '#f59e0b' : '#b6dccb'}`, fontSize: 14, fontWeight: 700, background: off ? '#f1f5f3' : '#fff', color: off ? '#9ca3af' : undefined }
                     return (
-                      <div key={i} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: '#f8faf9' }}>
+                      <div key={i} className="flex items-center gap-3 p-2 rounded-lg max-sm:flex-wrap max-sm:gap-y-1" style={{ background: '#f8faf9' }}>
                         <input type="checkbox" checked={a.checked} onChange={() => toggleAccessory(i)} style={cbStyle} />
                         <span style={{ ...labelStyle, flex: 1, ...(off ? { textDecoration: 'line-through', color: '#9ca3af' } : {}) }} onClick={() => toggleAccessory(i)}>{a.label}</span>
                         {opts.length > 0 ? (
@@ -398,7 +403,9 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
             <SignaturePad ref={custSig} label={`Podpis nájemce — ${vars?.customer_name || ''}`} />
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          {/* < lg: chyba uložení nad tlačítky (useSaveErrorReveal) */}
+          {error && errReveal.nearActions && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
+          <div ref={errReveal.actionsRef} className="flex justify-end gap-3 pt-2 max-lg:flex-wrap">
             <Button onClick={onClose} disabled={saving}>Zrušit</Button>
             <Button green onClick={handleSave} disabled={saving}>{saving ? 'Ukládám…' : 'Uložit podepsaný protokol'}</Button>
           </div>

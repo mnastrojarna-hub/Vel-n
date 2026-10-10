@@ -1,12 +1,12 @@
 import { TRow, TH, TD, Table } from '../../components/ui/Table'
-import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
-import { paymentStatusInfo } from './bookingConstants'
-import { rentalDays } from '../../lib/rentalDays'
 import DocsStatusPills from '../../components/DocsStatusPills'
-import AppInstallBadge from '../../components/AppInstallBadge'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { shortBranchName, bookingBranchId } from './BranchChips'
+import { bookingDaysInfo, DaysDelta, SourceTags, PaymentPill, StatusTags } from './bookingsListParts'
+import BookingsListMobile from './BookingsListMobile'
 
-export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, scanStatus = {}, appInstalls = {}, setDeleteConfirm, setCancelTarget, selected, setSelected, branches = [] }) {
+export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, scanStatus = {}, appInstalls = {}, setDeleteConfirm, setCancelTarget, selected, setSelected, branches = [], onBulk = null }) {
+  const isMobile = useIsMobile() // < 1024 px → karty (BookingsListMobile), desktop tabulka beze změny
   const branchName = Object.fromEntries((branches || []).map(br => [br.id, shortBranchName(br.name)]))
   // `selected` je Map<id, row> — drží celé řádky napříč stránkami, aby hromadná akce zahrnula i výběr z jiných stránek
   const allSelected = bookings.length > 0 && selected && bookings.every(b => selected.has(b.id))
@@ -22,6 +22,10 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
     const next = new Map(selected)
     if (checked) next.set(row.id, row); else next.delete(row.id)
     setSelected(next)
+  }
+  if (isMobile) {
+    return <BookingsListMobile bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} scanStatus={scanStatus} appInstalls={appInstalls}
+      setDeleteConfirm={setDeleteConfirm} setCancelTarget={setCancelTarget} selected={selected} allSelected={allSelected} toggleAll={toggleAll} toggleOne={toggleOne} branchName={branchName} onBulk={onBulk} />
   }
   return (
     <Table>
@@ -39,12 +43,7 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
       </thead>
       <tbody>
         {bookings.map(b => {
-          const toLocalDate = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
-          const days = b.start_date && b.end_date ? rentalDays(b.start_date, b.end_date) : '—'
-          const hasDateChange = b.original_start_date && b.original_end_date &&
-            (toLocalDate(b.start_date) !== toLocalDate(b.original_start_date) || toLocalDate(b.end_date) !== toLocalDate(b.original_end_date))
-          const origDays = hasDateChange ? rentalDays(b.original_start_date, b.original_end_date) : null
-          const daysDelta = origDays !== null && typeof days === 'number' ? days - origDays : null
+          const info = bookingDaysInfo(b)
           const isSelected = selected?.has(b.id)
           const rowBg = isSelected ? '#fef9c3'
             : b.booking_source === 'web' ? '#eff6ff'
@@ -62,43 +61,16 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
                 </TD>
               )}
               <TD mono>{b.id?.slice(-8).toUpperCase()}</TD>
-              <TD bold>{b.customer_name || b.profiles?.full_name || '—'}{b.booking_source === 'web' ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb' }}>WEB</span> : b.booking_source === 'app' ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#16a34a' }}>APP</span> : null}{b.created_via_ai ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fef3c7', color: '#92400e' }} title="Vytvořeno přes AI asistenta">🤖 AI</span> : null}<AppInstallBadge install={appInstalls[b.user_id]} /></TD>
+              <TD bold>{b.customer_name || b.profiles?.full_name || '—'}<SourceTags b={b} install={appInstalls[b.user_id]} /></TD>
               <TD>{b.motorcycles?.model || '—'} <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span></TD>
               {/* pobočka = pobočka motorky (přistavení na adresu = 🚚 + pobočka motorky) */}
               <TD>{branchName[bookingBranchId(b)] || '—'}{b.pickup_method === 'delivery' ? <span className="ml-1" title="Přistavení na adresu">🚚</span> : null}</TD>
               <TD>{fmtDateRange(b.start_date)}</TD>
               <TD>{fmtDateRange(b.end_date)}</TD>
-              <TD>{days}{hasDateChange && daysDelta !== 0 && (() => {
-                const lbl = daysDelta > 0 ? `+${daysDelta}d` : `${daysDelta}d`
-                const lbg = daysDelta > 0 ? '#dbeafe' : '#fee2e2'
-                const lcol = daysDelta > 0 ? '#2563eb' : '#dc2626'
-                return <span className="ml-1 text-[9px] font-extrabold px-1 py-0.5 rounded-btn" style={{ background: lbg, color: lcol }}>{lbl}</span>
-              })()}</TD>
+              <TD>{info.days}<DaysDelta info={info} /></TD>
               <TD bold>{(dpTotals[b.id] || b.total_price) ? `${Number(dpTotals[b.id] || b.total_price).toLocaleString('cs-CZ')} Kč` : '—'}</TD>
-              <TD>
-                {(() => {
-                  const pay = paymentStatusInfo(b)
-                  return (
-                    <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
-                      style={{ padding: '3px 8px', background: pay.bg, color: pay.color }}>
-                      {pay.label}
-                    </span>
-                  )
-                })()}
-              </TD>
-              <TD>
-                <StatusBadge status={getDisplayStatus(b)} />
-                {/* Navazující rezervace (stejný zákazník + motorka, termín den po dni) = prezentuje se jako prodloužení, ne nová */}
-                {b.extends_booking_id && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" title={`Navazuje na rezervaci #${b.extends_booking_id.slice(-8).toUpperCase()} — úprava/prodloužení, ne nová rezervace`} style={{ background: '#e0e7ff', color: '#4338ca' }}>PRODLOUŽENÍ</span>}
-                {b.is_test && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" title="Testovací rezervace (obsazenost kalendáře) — pro zákazníky viditelná jako obsazeno" style={{ background: '#f3e8ff', color: '#7c3aed' }}>TEST</span>}
-                {b.sos_replacement && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18' }}>SOS</span>}
-                {b.ended_by_sos && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fee2e2', color: '#b91c1c' }}>SOS</span>}
-                {b.complaint_status && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fef3c7', color: '#92400e' }}>RKL</span>}
-                {/* Upraveno = má historii změn (i změna jen času/výbavy/místa bez posunu termínu) */}
-                {Array.isArray(b.modification_history) && b.modification_history.length > 0 &&
-                  <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" title={`Historie úprav: ${b.modification_history.length}×`}
-                    style={{ background: '#fef3c7', color: '#d97706' }}>✏️ {b.modification_history.length}×</span>}
-              </TD>
+              <TD><PaymentPill b={b} /></TD>
+              <TD><StatusTags b={b} /></TD>
               <TD>
                 {/* KROK 4 = čísla dokladů z profilu; SKEN = fotka/OCR. Bez ŘP u dětské
                     motorky (N). Sdílené UI s Customers.jsx (DocsStatusPills). */}

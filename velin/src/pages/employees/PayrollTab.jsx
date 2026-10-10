@@ -51,7 +51,7 @@ export default function PayrollTab() {
       </div>
 
       {emp && (
-        <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Hrubá mzda</div>
             <div className="text-lg font-extrabold" style={{ color: '#1a2e22' }}>{fmt(emp.gross_salary)}</div></Card>
           <Card><div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Roční hrubé</div>
@@ -63,7 +63,8 @@ export default function PayrollTab() {
         </div>
       )}
 
-      <Table>
+      {/* 10 sloupců → na telefonu i tabletu karty (desktop beze změny) */}
+      <Table stack="tablet" className="mg-stack-2col">
         <thead>
           <TRow header>
             <TH>Období</TH><TH>Hrubá</TH><TH>SP zamest.</TH><TH>ZP zamest.</TH>
@@ -90,7 +91,7 @@ export default function PayrollTab() {
               </TD>
             </TRow>
           ))}
-          {payrolls.length === 0 && <TRow><TD>Žádné záznamy</TD></TRow>}
+          {payrolls.length === 0 && <TRow><TD className="mg-stack-full">Žádné záznamy</TD></TRow>}
         </tbody>
       </Table>
 

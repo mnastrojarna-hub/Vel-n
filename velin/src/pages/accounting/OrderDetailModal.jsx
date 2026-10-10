@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
+import { ROWS_WHITE } from './FinanceBStack'
 
 const STATUS_LABELS = { draft: 'Koncept', sent: 'Odesláno', received: 'Prijato', cancelled: 'Zrušeno' }
 
@@ -36,18 +37,18 @@ export default function OrderDetailModal({ order, onClose, onUpdated, onSendEmai
 
   return (
     <Modal open title={`Objednavka ${order.order_number || `#${order.id?.slice(0, 8)}`}`} onClose={onClose} wide>
-      <div className="mb-3 text-sm grid grid-cols-2 gap-2" style={{ color: '#1a2e22' }}>
+      <div className="mb-3 text-sm grid grid-cols-1 sm:grid-cols-2 gap-2" style={{ color: '#1a2e22' }}>
         <div>Dodavatel: <strong>{order.suppliers?.name || '\u2014'}</strong></div>
         <div>Email: <strong>{order.suppliers?.contact_email || '\u2014'}</strong></div>
         <div>Stav: <strong>{STATUS_LABELS[order.status] || order.status}</strong></div>
         <div>Vytvořeno: <strong>{order.created_at ? new Date(order.created_at).toLocaleString('cs-CZ') : '\u2014'}</strong></div>
         {order.sent_at && <div>Odesláno: <strong>{new Date(order.sent_at).toLocaleString('cs-CZ')}</strong></div>}
-        {order.notes && <div className="col-span-2">Poznamky: <strong>{order.notes}</strong></div>}
+        {order.notes && <div className="sm:col-span-2">Poznamky: <strong>{order.notes}</strong></div>}
       </div>
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
-        <Table>
+        <Table stack className={ROWS_WHITE}>
           <thead><TRow header><TH>Položka</TH><TH>SKU</TH><TH>Množství</TH><TH>Cena/ks</TH><TH>Celkem</TH></TRow></thead>
           <tbody>
             {items.map(it => (
@@ -59,11 +60,12 @@ export default function OrderDetailModal({ order, onClose, onUpdated, onSendEmai
                 <TD bold>{fmt((it.quantity || 0) * (it.unit_price || 0))}</TD>
               </TRow>
             ))}
-            <TRow><TD /><TD /><TD /><TD bold>Celkem:</TD><TD bold>{fmt(total)}</TD></TRow>
+            {/* telefon (karta): jen „Celkem: částka“ — prázdné buňky skryté */}
+            <TRow><TD className="mg-hide-phone" /><TD className="mg-hide-phone" /><TD className="mg-hide-phone" /><TD bold className="mg-hide-phone">Celkem:</TD><TD bold label="Celkem">{fmt(total)}</TD></TRow>
           </tbody>
         </Table>
       )}
-      <div className="flex justify-end gap-3 mt-5">
+      <div className="flex justify-end gap-3 mt-5 max-lg:flex-wrap">
         {order.status === 'draft' && (
           <button onClick={() => { onClose(); onSendEmail(order) }} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '8px 16px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>Odeslat email</button>
         )}

@@ -45,7 +45,8 @@ export default function SOSTimeline({ incidentId }) {
       {events.map(e => (
         <div key={e.id} className="flex items-start gap-2">
           <div className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ background: '#74FB71' }} />
-          <div>
+          {/* Telefon/tablet: dlouhé texty (URL, e-mail) zalomit, nevytlačovat do strany */}
+          <div className="max-lg:min-w-0 max-lg:[overflow-wrap:anywhere]">
             <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{e.action || e.description || '—'}</div>
             {e.data?.note && <div className="text-sm" style={{ color: '#1a2e22' }}>{e.data.note}</div>}
             {e.data?.latitude && e.data?.longitude && (

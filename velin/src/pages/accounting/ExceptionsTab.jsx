@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
+import { TAB2_GRID, TOUCH_BTNS } from './FinanceBStack'
 
 const PER_PAGE = 25
 
@@ -115,7 +116,7 @@ export default function ExceptionsTab() {
     <div>
       {/* Toggle resolved */}
       <div className="flex items-center gap-3 mb-4">
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label className="flex items-center gap-2 cursor-pointer max-lg:min-h-[36px]">
           <input type="checkbox" checked={showResolved} onChange={e => { setPage(1); setShowResolved(e.target.checked) }}
             className="cursor-pointer" style={{ accentColor: '#1a8a18' }} />
           <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Zobrazit vyřešené</span>
@@ -141,7 +142,8 @@ export default function ExceptionsTab() {
             ], exceptions.filter(e => selectedIds.has(e.id))) },
             { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} výjimek?', onClick: async () => { await bulkDelete('financial_exceptions', [...selectedIds], 'exceptions_bulk_deleted'); setSelectedIds(new Set()); load() } },
           ]} />
-          <Table>
+          {/* karty bílé, řádek úprav (fb-edit) si drží světle modrý podklad */}
+          <Table stack="tablet" className={`${TAB2_GRID} max-lg:[&>table>tbody>tr:not(.fb-edit)]:!bg-white ${TOUCH_BTNS}`}>
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={exceptions} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
@@ -161,7 +163,8 @@ export default function ExceptionsTab() {
                     <TRow key={exc.id}>
                       <TD><RowCheckbox id={exc.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} stopPropagation={false} /></TD>
                       <TD>{exc.created_at ? new Date(exc.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
-                      <TD>
+                      {/* karta (mobil/tablet): důvod přes celou šířku */}
+                      <TD label="" className="mg-stack-full">
                         <span className="text-sm font-bold" style={{ color: '#dc2626' }}>{exc.reason || '—'}</span>
                         {exc.resolution_note && (
                           <div className="text-sm mt-0.5" style={{ color: '#059669' }}>Řešení: {exc.resolution_note}</div>
@@ -185,7 +188,7 @@ export default function ExceptionsTab() {
                           <Badge label="Čeká" color="#dc2626" bg="#fee2e2" />
                         )}
                       </TD>
-                      <TD>
+                      <TD label="" className="mg-stack-full">
                         {!isResolved && (
                           <div className="flex gap-1 flex-wrap">
                             <button onClick={() => setResolveExc(exc)}
@@ -204,26 +207,26 @@ export default function ExceptionsTab() {
                     </TRow>
                     {/* Inline edit row */}
                     {isEditing && (
-                      <tr key={exc.id + '-edit'} style={{ background: '#f0f9ff', borderBottom: '1px solid #d4e8e0' }}>
+                      <tr key={exc.id + '-edit'} className="fb-edit" style={{ background: '#f0f9ff', borderBottom: '1px solid #d4e8e0' }}>
                         <td colSpan={7} style={{ padding: '12px 16px' }}>
                           <div className="flex flex-wrap items-end gap-4">
-                            <div>
+                            <div className="max-md:w-full">
                               <MiniLabel>Částka (Kč)</MiniLabel>
                               <input type="number" value={editForm.amount_czk}
                                 onChange={e => setEditForm(f => ({ ...f, amount_czk: e.target.value }))}
-                                className="rounded-btn text-sm outline-none" style={inputStyle} />
+                                className="rounded-btn text-sm outline-none max-md:w-full" style={inputStyle} />
                             </div>
-                            <div>
+                            <div className="max-md:w-full">
                               <MiniLabel>DUZP</MiniLabel>
                               <input type="date" value={editForm.duzp}
                                 onChange={e => setEditForm(f => ({ ...f, duzp: e.target.value }))}
-                                className="rounded-btn text-sm outline-none" style={inputStyle} />
+                                className="rounded-btn text-sm outline-none max-md:w-full" style={inputStyle} />
                             </div>
-                            <div>
+                            <div className="max-md:w-full">
                               <MiniLabel>Dodavatel</MiniLabel>
                               <input type="text" value={editForm.supplier_name}
                                 onChange={e => setEditForm(f => ({ ...f, supplier_name: e.target.value }))}
-                                className="rounded-btn text-sm outline-none" style={inputStyle} placeholder="Název dodavatele" />
+                                className="rounded-btn text-sm outline-none max-md:w-full" style={inputStyle} placeholder="Název dodavatele" />
                             </div>
                             <Button green onClick={() => handleSaveEdit(exc.id)}>Uložit</Button>
                           </div>
@@ -233,7 +236,7 @@ export default function ExceptionsTab() {
                   </>
                 )
               })}
-              {exceptions.length === 0 && <TRow><TD>{showResolved ? 'Žádné výjimky' : 'Žádné nevyřešené výjimky'}</TD></TRow>}
+              {exceptions.length === 0 && <TRow><TD label="" className="mg-stack-full">{showResolved ? 'Žádné výjimky' : 'Žádné nevyřešené výjimky'}</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -263,8 +266,8 @@ function ResolveModal({ exc, onClose, onResolve }) {
       {/* Invoice detail */}
       {fe && (
         <div className="mb-4 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-          <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Detail faktury</div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="text-[9px] max-lg:text-[11px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Detail faktury</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <DetailItem label="Dodavatel" value={fe.metadata?.supplier_name || '—'} />
             <DetailItem label="Částka" value={`${(fe.amount_czk || 0).toLocaleString('cs-CZ')} Kč`} />
             <DetailItem label="Číslo faktury" value={fe.metadata?.invoice_number || '—'} />
@@ -278,19 +281,19 @@ function ResolveModal({ exc, onClose, onResolve }) {
       {/* AI classification suggestion */}
       {ai && (
         <div className="mb-4 p-3 rounded-lg" style={{ background: '#faf5ff', border: '1px solid #d8b4fe' }}>
-          <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#7c3aed' }}>AI návrh klasifikace</div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="text-[9px] max-lg:text-[11px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#7c3aed' }}>AI návrh klasifikace</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <DetailItem label="Kategorie" value={ai.category || '—'} />
             <DetailItem label="Účet" value={ai.suggested_account || '—'} />
             <DetailItem label="Opakující se" value={ai.is_recurring ? 'Ano' : 'Ne'} />
-            <div className="col-span-2"><DetailItem label="Poznámka" value={ai.classification_note || '—'} /></div>
+            <div className="sm:col-span-2"><DetailItem label="Poznámka" value={ai.classification_note || '—'} /></div>
           </div>
         </div>
       )}
 
       {/* Reason */}
       <div className="mb-4 p-3 rounded-lg" style={{ background: '#fee2e2', border: '1px solid #fca5a5' }}>
-        <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#dc2626' }}>Důvod výjimky</div>
+        <div className="text-[9px] max-lg:text-[11px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#dc2626' }}>Důvod výjimky</div>
         <div className="text-sm font-bold" style={{ color: '#dc2626' }}>{exc.reason}</div>
       </div>
 
@@ -316,7 +319,7 @@ function ConfidenceBar({ score }) {
   const bg = pct >= 85 ? '#dcfce7' : pct >= 70 ? '#fef3c7' : '#fee2e2'
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 max-lg:justify-end">
       <div className="w-16 h-2 rounded-full overflow-hidden" style={{ background: '#e5e7eb' }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
       </div>
@@ -328,14 +331,14 @@ function ConfidenceBar({ score }) {
 function DetailItem({ label, value }) {
   return (
     <div>
-      <span className="text-[9px] font-extrabold uppercase tracking-wide" style={{ color: '#6b7280' }}>{label}: </span>
+      <span className="text-[9px] max-lg:text-[11px] font-extrabold uppercase tracking-wide" style={{ color: '#6b7280' }}>{label}: </span>
       <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{value}</span>
     </div>
   )
 }
 
 function MiniLabel({ children }) {
-  return <label className="block text-[9px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{children}</label>
+  return <label className="block text-[9px] max-lg:text-[11px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{children}</label>
 }
 
 const inputStyle = { padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', minWidth: 140 }

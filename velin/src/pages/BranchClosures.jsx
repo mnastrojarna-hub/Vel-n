@@ -144,21 +144,21 @@ export function TabClosures({ branch }) {
 
       {/* Nové období */}
       <div className="flex flex-wrap items-end gap-2 mb-3">
-        <div>
+        <div className="max-sm:flex-1 max-sm:min-w-[140px]">
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Zavřeno od</label>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={INPUT_STYLE} />
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={INPUT_STYLE} className="max-sm:w-full max-lg:min-h-[40px]" />
         </div>
-        <div>
+        <div className="max-sm:flex-1 max-sm:min-w-[140px]">
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Zavřeno do</label>
-          <input type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)} style={INPUT_STYLE} />
+          <input type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)} style={INPUT_STYLE} className="max-sm:w-full max-lg:min-h-[40px]" />
         </div>
         <div className="flex-1" style={{ minWidth: 180 }}>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Důvod (nepovinné)</label>
           <input type="text" value={reason} placeholder="např. zimní sezona"
-            onChange={e => setReason(e.target.value)} style={{ ...INPUT_STYLE, width: '100%' }} />
+            onChange={e => setReason(e.target.value)} style={{ ...INPUT_STYLE, width: '100%' }} className="max-lg:min-h-[40px]" />
         </div>
         <button onClick={handleAdd} disabled={saving || !from || !to}
-          className="rounded-btn text-sm font-extrabold cursor-pointer border-none"
+          className="rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px] max-sm:w-full"
           style={{ padding: '8px 16px', background: '#1a2e22', color: '#74FB71', opacity: saving || !from || !to ? 0.5 : 1 }}>
           {saving ? 'Ukládám…' : 'Přidat období'}
         </button>
@@ -175,12 +175,12 @@ export function TabClosures({ branch }) {
             const past = r.closed_to < today
             const now = r.closed_from <= today && r.closed_to >= today
             return (
-              <div key={r.id} className="flex items-center gap-2 text-sm"
+              <div key={r.id} className="flex items-center gap-2 text-sm max-lg:flex-wrap"
                 style={{ padding: '8px 10px', background: i % 2 === 0 ? '#f8fcfa' : '#fff', borderRadius: 8, opacity: past ? 0.55 : 1 }}>
-                <span className="font-bold font-mono" style={{ color: '#0f1a14' }}>
+                <span className="font-bold font-mono max-lg:whitespace-nowrap" style={{ color: '#0f1a14' }}>
                   {fmtDate(r.closed_from)} – {fmtDate(r.closed_to)}
                 </span>
-                <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
+                <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold tracking-wide uppercase"
                   style={{
                     padding: '2px 6px',
                     background: now ? '#fee2e2' : past ? '#f3f4f6' : '#fef3c7',
@@ -190,7 +190,7 @@ export function TabClosures({ branch }) {
                 </span>
                 {r.reason && <span style={{ color: '#1a2e22' }}>{r.reason}</span>}
                 <button onClick={() => setDeleteRow(r)}
-                  className="ml-auto rounded-btn text-sm font-bold cursor-pointer border-none"
+                  className="ml-auto rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[36px]"
                   style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626' }}>
                   Smazat
                 </button>

@@ -94,7 +94,8 @@ export default function PoiEditModal({ poi, onClose, onSaved, onError }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }} onClick={onClose}>
-      <div className="bg-white rounded-card p-5" style={{ width: 560, maxWidth: '92vw', maxHeight: '88vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+      {/* < 1024 px: výška dle skutečně viditelné plochy (mobilní lišta prohlížeče), užší okraje */}
+      <div className="bg-white rounded-card p-5 max-lg:!max-h-[88dvh] max-sm:!p-4" style={{ width: 560, maxWidth: '92vw', maxHeight: '88vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <h3 className="font-bold mb-3" style={{ fontSize: 15 }}>{isNew ? 'Nové místo v katalogu' : 'Upravit místo'}</h3>
 
         <label className="block text-xs font-bold mb-1">Název</label>
@@ -166,7 +167,7 @@ export default function PoiEditModal({ poi, onClose, onSaved, onError }) {
           Aktivní (zobrazuje se v appce)
         </label>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 max-lg:[&>button]:min-h-[40px] max-lg:[&>button]:!px-4">
           <SmallBtn color="#6b7280" onClick={onClose}>Zrušit</SmallBtn>
           <SmallBtn color="#1a8a18" onClick={saving ? undefined : save}>{saving ? 'Ukládám…' : 'Uložit'}</SmallBtn>
         </div>

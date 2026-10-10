@@ -87,3 +87,95 @@ body {
   .mg-msgs select,
   .mg-msgs textarea { font-size: 16px !important; }
 }
+
+/* ============================================================
+   MOBIL + TABLET (≤ 1023 px) — společný základ všech záložek.
+   Desktop (≥ 1024 px) se nemění: vše je uvnitř max-width dotazů
+   nebo @supports s hodnotou shodnou s desktopem (dvh = vh).
+   ============================================================ */
+
+/* Výška aplikace i modálů dle skutečně viditelné plochy (mobilní Safari/Chrome
+   s lištou adresy) — jinak je spodek stránky/modálu schovaný pod lištou. */
+@supports (height: 100dvh) {
+  .mg-app { height: 100dvh; }
+  .mg-modal { max-height: 92dvh !important; }
+}
+
+/* Dotyková zařízení: písmo polí 16 px, jinak iOS Safari při fokusu přiblíží
+   stránku a rozhodí rozvržení (platí pro všechny záložky, nejen Zprávy). */
+@media (max-width: 1023px) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select,
+  textarea { font-size: 16px !important; }
+}
+
+/* Zařízení bez myši: akce zobrazované jen při najetí myší (.mg-hover-reveal,
+   např. „✕ odebrat“ u náhledů fotek) jsou vidět trvale a mají větší cíl. */
+@media (hover: none) {
+  .mg-hover-reveal { opacity: 1 !important; }
+  .mg-hover-reveal button { min-height: 32px; min-width: 32px; font-size: 11px !important; }
+  .mg-hover-top { top: 0; bottom: auto !important; }
+  .mg-hover-reveal button:last-child { min-width: 36px; min-height: 36px; }
+}
+
+/* Telefon + tablet: větší ✕ v modálech; dotyk: tlačítka lišty editoru textu ≥ 36 px. */
+@media (max-width: 1023px) {
+  .mg-modal-close { width: 40px !important; height: 40px !important; }
+}
+@media (max-width: 1023px) and (pointer: coarse) {
+  .rte-toolbar button, .rte-toolbar label { min-width: 36px !important; min-height: 36px; }
+  .rte-toolbar select { min-height: 36px; }
+  /* editovatelná plocha editoru textu (inline 12–14 px) — 16 px, jinak iOS při psaní přiblíží stránku */
+  .rte-content[contenteditable="true"], [contenteditable="true"] { font-size: 16px !important; }
+}
+
+/* Dotyková zařízení: zaškrtávátka a přepínače aspoň 20 px (lépe se trefí prstem). */
+@media (max-width: 1023px) and (pointer: coarse) {
+  input[type="checkbox"], input[type="radio"] { min-width: 20px; min-height: 20px; }
+}
+
+/* Karty místo tabulek na telefonu (< 768 px) — jen tabulky s třídou .mg-stack
+   (<Table stack> nebo <table className="mg-stack">); varianta pro široké tabulky
+   i na tabletu (< 1024 px): <Table stack="tablet"> = třídy mg-stack mg-stack-tab. Popisky buněk doplní
+   lib/stackTables.js ze záhlaví; řaditelná záhlaví zůstanou jako čipy.
+   Pomocné třídy buněk: .mg-stack-full (přes celou šířku, bez popisku),
+   .mg-hide-phone (na telefonu skrýt). */
+@media (max-width: 767px) {
+  .mg-stack-wrap { background: transparent !important; box-shadow: none !important; overflow: visible !important; border-radius: 0 !important; }
+  table.mg-stack, table.mg-stack > tbody, table.mg-stack > tfoot { display: block; width: 100%; }
+  table.mg-stack > thead { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; background: transparent !important; }
+  table.mg-stack > thead > tr { display: contents; }
+  table.mg-stack > thead th { display: none; }
+  table.mg-stack > thead th.mg-sort { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px !important; min-height: 34px; border-radius: 50px; background: #fff; box-shadow: 0 2px 8px rgba(15,26,20,.08); font-size: 11px !important; white-space: nowrap; }
+  table.mg-stack > thead th.mg-sort[data-mg-sorted] { background: #74FB71; color: #1a2e22 !important; }
+  table.mg-stack > thead th.mg-sort[data-mg-selall]::after { content: 'Vybrat vše'; font-weight: 800; }
+  table.mg-stack > tbody > tr, table.mg-stack > tfoot > tr { display: block; background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(15,26,20,.08); margin-bottom: 10px; padding: 6px 0; border: none !important; }
+  table.mg-stack > tbody > tr > td, table.mg-stack > tfoot > tr > td { display: flow-root; padding: 7px 14px !important; text-align: right !important; border: none !important; white-space: normal !important; overflow-wrap: anywhere; width: auto !important; max-width: none !important; min-width: 0 !important; }
+  table.mg-stack > tbody > tr > td::before, table.mg-stack > tfoot > tr > td::before { content: attr(data-label); font-family: 'Montserrat', 'Segoe UI', sans-serif; float: left; width: 40%; margin-right: 10px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; line-height: 1.5; color: #4a6357; overflow-wrap: break-word; }
+  table.mg-stack td:not([data-label])::before, table.mg-stack td[data-label=""]::before, table.mg-stack td.mg-stack-full::before { content: none; }
+  table.mg-stack td:not([data-label]), table.mg-stack td[data-label=""], table.mg-stack td.mg-stack-full { text-align: left !important; }
+  table.mg-stack .mg-hide-phone, .mg-hide-phone { display: none !important; }
+}
+@media (max-width: 1023px) {
+  .mg-stack-wrap-tab { background: transparent !important; box-shadow: none !important; overflow: visible !important; border-radius: 0 !important; }
+  table.mg-stack-tab, table.mg-stack-tab > tbody, table.mg-stack-tab > tfoot { display: block; width: 100%; }
+  table.mg-stack-tab > thead { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; background: transparent !important; }
+  table.mg-stack-tab > thead > tr { display: contents; }
+  table.mg-stack-tab > thead th { display: none; }
+  table.mg-stack-tab > thead th.mg-sort { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px !important; min-height: 34px; border-radius: 50px; background: #fff; box-shadow: 0 2px 8px rgba(15,26,20,.08); font-size: 11px !important; white-space: nowrap; }
+  table.mg-stack-tab > thead th.mg-sort[data-mg-sorted] { background: #74FB71; color: #1a2e22 !important; }
+  table.mg-stack-tab > thead th.mg-sort[data-mg-selall]::after { content: 'Vybrat vše'; font-weight: 800; }
+  table.mg-stack-tab > tbody > tr, table.mg-stack-tab > tfoot > tr { display: block; background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(15,26,20,.08); margin-bottom: 10px; padding: 6px 0; border: none !important; }
+  table.mg-stack-tab > tbody > tr > td, table.mg-stack-tab > tfoot > tr > td { display: flow-root; padding: 7px 14px !important; text-align: right !important; border: none !important; white-space: normal !important; overflow-wrap: anywhere; width: auto !important; max-width: none !important; min-width: 0 !important; }
+  table.mg-stack-tab > tbody > tr > td::before, table.mg-stack-tab > tfoot > tr > td::before { content: attr(data-label); font-family: 'Montserrat', 'Segoe UI', sans-serif; float: left; width: 40%; margin-right: 10px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; line-height: 1.5; color: #4a6357; overflow-wrap: break-word; }
+  table.mg-stack-tab td:not([data-label])::before, table.mg-stack-tab td[data-label=""]::before, table.mg-stack-tab td.mg-stack-full::before { content: none; }
+  table.mg-stack-tab td:not([data-label]), table.mg-stack-tab td[data-label=""], table.mg-stack-tab td.mg-stack-full { text-align: left !important; }
+}
+
+/* Volitelně: karta řádku široké tabulky (stack="tablet") se na tabletu (768–1023 px)
+   rozloží do 2 sloupců „popisek: hodnota“ — kratší karty. Třída na <Table className>. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .mg-stack-2col > table.mg-stack-tab > tbody > tr { display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; }
+  .mg-stack-2col > table.mg-stack-tab > tbody > tr > td.mg-stack-full,
+  .mg-stack-2col > table.mg-stack-tab > tbody > tr > td[data-label=""] { grid-column: 1 / -1; }
+}

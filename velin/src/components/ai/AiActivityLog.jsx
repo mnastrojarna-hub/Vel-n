@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { AGENTS } from '../../lib/aiAgents'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 export default function AiActivityLog({ limit = 20 }) {
   const [actions, setActions] = useState([])
   const [loading, setLoading] = useState(true)
+  const isMobile = useIsMobile() // mobil/tablet: větší „Obnovit“, seznam bez vnořeného scrollu (posouvá se celý panel)
 
   useEffect(() => { load() }, [])
 
@@ -40,9 +42,9 @@ export default function AiActivityLog({ limit = 20 }) {
     <div>
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>AI Aktivita ({actions.length})</span>
-        <button onClick={load} style={{ fontSize: 11, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer' }}>Obnovit</button>
+        <button onClick={load} style={{ fontSize: 11, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', ...(isMobile ? { fontSize: 13, minHeight: 36, padding: '0 4px 0 12px' } : null) }}>Obnovit</button>
       </div>
-      <div style={{ maxHeight: 400, overflow: 'auto' }}>
+      <div style={{ maxHeight: isMobile ? 'none' : 400, overflow: 'auto' }}>
         {actions.map((a, i) => {
           const agent = getAgentForTool(a.tool)
           const isOk = a.success !== false
@@ -71,7 +73,7 @@ export default function AiActivityLog({ limit = 20 }) {
                   {a.result.summary}
                 </div>
               )}
-              <div className="text-sm" style={{ color: '#999', fontSize: 10, marginTop: 2 }}>
+              <div className="text-sm" style={{ color: '#999', fontSize: isMobile ? 11 : 10, marginTop: 2 }}>
                 {a.created_at ? new Date(a.created_at).toLocaleString('cs-CZ') : ''}
                 {agent ? ` — ${agent.name}` : ''}
               </div>

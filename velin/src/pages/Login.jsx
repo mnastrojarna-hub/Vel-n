@@ -250,7 +250,7 @@ export default function Login({ user, onSignIn }) {
               <button
                 type="button"
                 onClick={() => goTo('forgot')}
-                className="text-sm font-bold underline"
+                className="text-sm font-bold underline max-lg:py-2.5 max-lg:px-3"
                 style={{ color: '#1a2e22', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 Zapomenuté heslo?
@@ -306,7 +306,7 @@ export default function Login({ user, onSignIn }) {
               <button
                 type="button"
                 onClick={() => goTo('login')}
-                className="text-sm font-bold underline"
+                className="text-sm font-bold underline max-lg:py-2.5 max-lg:px-3"
                 style={{ color: '#1a2e22', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 ← Zpět na přihlášení
@@ -408,7 +408,7 @@ export default function Login({ user, onSignIn }) {
               <button
                 type="button"
                 onClick={() => goTo('forgot')}
-                className="text-sm font-bold underline"
+                className="text-sm font-bold underline max-lg:py-2.5 max-lg:px-3"
                 style={{ color: '#1a2e22', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 ← Poslat kód znovu

@@ -30,9 +30,10 @@ export function CustomerBookings({ userId }) {
       {bookings.length === 0 ? <EmptyState text="Zadne rezervace" /> : (
         <div className="space-y-3">
           {bookings.map(b => (
-            <div key={b.id} className="flex items-center gap-4 p-3 rounded-lg cursor-pointer hover:bg-[#e8f5e9]"
+            // Telefon (< 768 px): popis rezervace na celý řádek, stav / cena / odkaz na motorku pod ním
+            <div key={b.id} className="flex items-center gap-4 p-3 rounded-lg cursor-pointer hover:bg-[#e8f5e9] max-md:flex-wrap max-md:gap-x-3 max-md:gap-y-2"
               style={{ background: '#f1faf7' }} onClick={() => navigate(`/rezervace/${b.id}`)}>
-              <div className="flex-1">
+              <div className="flex-1 max-md:basis-full max-md:min-w-0 max-md:break-words">
                 <span className="font-bold text-sm">{b.motorcycles?.model || '\u2014'}</span>
                 <span className="text-sm font-mono ml-2" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span>
                 <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{b.start_date} {'\u2192'} {b.end_date}</span>
@@ -41,7 +42,7 @@ export function CustomerBookings({ userId }) {
               <span className="text-sm font-bold">{b.total_price?.toLocaleString('cs-CZ')} Kč</span>
               {b.motorcycles?.id && (
                 <button onClick={e => { e.stopPropagation(); navigate(`/flotila/${b.motorcycles.id}`) }}
-                  className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>
+                  className="text-sm font-bold cursor-pointer max-md:ml-auto max-lg:py-2" style={{ color: '#2563eb', background: 'none', border: 'none' }}>
                   {'\u2192'} Motorka
                 </button>
               )}

@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { AGENTS, loadAgentConfig, saveAgentConfig } from '../../lib/aiAgents'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 export default function AiAgentPanel({ config, onChange, onConfigAgent }) {
   const [editingId, setEditingId] = useState(null)
   const [corrText, setCorrText] = useState('')
+  // Mobil/tablet: větší přepínač a tlačítka pro dotyk; desktop beze změny
+  const isMobile = useIsMobile()
+  const mob = (o) => (isMobile ? o : null)
 
   function toggle(agentId) {
     const next = { ...config, [agentId]: { ...config[agentId], enabled: !config[agentId]?.enabled } }
@@ -60,7 +64,7 @@ export default function AiAgentPanel({ config, onChange, onConfigAgent }) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 16 }}>{agent.icon}</span>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, ...mob({ minWidth: 0 }) }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#0f1a14' }}>{agent.name}</div>
                 <div style={{ fontSize: 11, color: '#666' }}>{agent.desc}</div>
               </div>
@@ -69,29 +73,31 @@ export default function AiAgentPanel({ config, onChange, onConfigAgent }) {
                 style={{
                   width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer',
                   background: isOn ? '#74FB71' : '#d1d5db', position: 'relative', transition: 'background 0.2s',
+                  ...mob({ width: 48, height: 28, borderRadius: 14, flexShrink: 0 }),
                 }}
               >
                 <span style={{
-                  width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                  position: 'absolute', top: 2, transition: 'left 0.2s',
-                  left: isOn ? 18 : 2, boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  width: isMobile ? 22 : 16, height: isMobile ? 22 : 16, borderRadius: '50%', background: '#fff',
+                  position: 'absolute', top: isMobile ? 3 : 2, transition: 'left 0.2s',
+                  left: isOn ? (isMobile ? 23 : 18) : (isMobile ? 3 : 2), boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                 }} />
               </button>
             </div>
 
             {isOn && (
-              <div style={{ marginTop: 6, paddingLeft: 28 }}>
+              <div style={{ marginTop: 6, paddingLeft: 28, ...mob({ paddingLeft: 4 }) }}>
                 {/* Config button */}
                 {onConfigAgent && (
                   <button onClick={() => onConfigAgent(agent.id)} style={{
                     fontSize: 11, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe',
                     borderRadius: 4, padding: '2px 8px', cursor: 'pointer', marginBottom: 4, display: 'block',
+                    ...mob({ fontSize: 12, padding: '6px 10px', minHeight: 36 }),
                   }}>
                     📝 Zadání + Paměť
                   </button>
                 )}
                 {/* Auto-confirm toggle */}
-                <label style={{ fontSize: 11, color: '#666', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                <label style={{ fontSize: 11, color: '#666', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', ...mob({ fontSize: 12, gap: 6, minHeight: 36 }) }}>
                   <input type="checkbox" checked={cfg.autoConfirm || false} onChange={() => toggleAutoConfirm(agent.id)} style={{ width: 12, height: 12 }} />
                   Auto-potvrzení (bez dialogu)
                 </label>
@@ -105,10 +111,11 @@ export default function AiAgentPanel({ config, onChange, onConfigAgent }) {
                         padding: '2px 6px', borderRadius: 4, marginBottom: 2,
                         display: 'flex', alignItems: 'center', gap: 4,
                       }}>
-                        <span style={{ flex: 1 }}>{c}</span>
+                        <span style={{ flex: 1, ...mob({ minWidth: 0, overflowWrap: 'anywhere' }) }}>{c}</span>
                         <button onClick={() => removeCorrection(agent.id, i)} style={{
                           background: 'none', border: 'none', color: '#dc2626',
                           cursor: 'pointer', fontSize: 10, padding: 0,
+                          ...mob({ fontSize: 13, minWidth: 32, minHeight: 32, flexShrink: 0 }),
                         }}>✕</button>
                       </div>
                     ))}
@@ -123,22 +130,25 @@ export default function AiAgentPanel({ config, onChange, onConfigAgent }) {
                       onChange={e => setCorrText(e.target.value)}
                       placeholder="Instrukce pro agenta..."
                       onKeyDown={e => e.key === 'Enter' && addCorrection(agent.id)}
-                      style={{ flex: 1, fontSize: 11, padding: '3px 6px', borderRadius: 4, border: '1px solid #d4e8e0' }}
+                      style={{ flex: 1, fontSize: 11, padding: '3px 6px', borderRadius: 4, border: '1px solid #d4e8e0', ...mob({ minWidth: 0, padding: '6px 8px' }) }}
                       autoFocus
                     />
                     <button onClick={() => addCorrection(agent.id)} style={{
                       fontSize: 11, padding: '3px 8px', borderRadius: 4,
                       background: '#74FB71', border: 'none', cursor: 'pointer',
+                      ...mob({ fontSize: 15, minWidth: 36, minHeight: 36, flexShrink: 0 }),
                     }}>+</button>
                     <button onClick={() => { setEditingId(null); setCorrText('') }} style={{
                       fontSize: 11, padding: '3px 6px', borderRadius: 4,
                       background: '#e5e7eb', border: 'none', cursor: 'pointer',
+                      ...mob({ fontSize: 13, minWidth: 36, minHeight: 36, flexShrink: 0 }),
                     }}>✕</button>
                   </div>
                 ) : (
                   <button onClick={() => setEditingId(agent.id)} style={{
                     fontSize: 11, color: '#2563eb', background: 'none',
                     border: 'none', cursor: 'pointer', padding: 0, marginTop: 4,
+                    ...mob({ fontSize: 12, minHeight: 36 }),
                   }}>
                     + Přidat korekci
                   </button>

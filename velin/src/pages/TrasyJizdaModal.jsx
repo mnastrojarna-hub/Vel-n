@@ -14,6 +14,11 @@ const fmtDur = (min) => min == null ? '—' : (min < 60 ? `${min} min` : `${Math
 const fmtSec = (sec) => !sec ? '—' : fmtDur(Math.round(sec / 60))
 const fmtSpeed = (v) => v == null || Number(v) <= 0 ? '—' : `${Math.round(Number(v))} km/h`
 const kindLabel = (k) => k === 'start' ? 'Start' : k === 'end' ? 'Cíl' : 'Zastávka'
+// < 1024 px: na nízkém displeji (telefon na šířku) nižší mapa — jinak vyplní celou
+// plochu mezi lepivou hlavičkou a patičkou a tah prstem jen posouvá mapu, ne detail.
+const MAP_H = 'max-lg:!h-[min(320px,45dvh)]'
+// Telefon na šířku (nízký displej): tenčí lepivá hlavička a patička → víc místa pro obsah.
+const LOW_PAD = 'max-lg:[@media(max-height:500px)]:!py-2'
 
 export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }) {
   const [name, setName] = useState(ride.name || '')
@@ -120,12 +125,12 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
       style={{ background: 'rgba(15,26,20,.55)' }} onClick={onClose}>
-      <div className="rounded-card w-full" onClick={e => e.stopPropagation()}
+      <div className="mg-modal rounded-card w-full" onClick={e => e.stopPropagation()}
         style={{ background: '#fff', maxWidth: 860, maxHeight: '92vh', overflowY: 'auto' }}>
         {/* hlavička */}
-        <div className="flex items-center justify-between gap-3 p-4"
+        <div className={`flex items-center justify-between gap-3 p-4 ${LOW_PAD}`}
           style={{ borderBottom: '1px solid #d4e8e0', position: 'sticky', top: 0, background: '#fff', zIndex: 2 }}>
           <div className="min-w-0">
             <h3 className="font-extrabold text-lg truncate" style={{ color: '#0f1a14' }}>
@@ -137,7 +142,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
               {ride.source === 'manual' ? ' · ručně vytvořená' : ' · automatický záznam'}
             </p>
           </div>
-          <button onClick={onClose} className="cursor-pointer text-xl font-bold"
+          <button onClick={onClose} className="cursor-pointer text-xl font-bold shrink-0 max-lg:min-w-[40px] max-lg:min-h-[40px]"
             style={{ background: 'none', border: 'none', color: '#6b8f7b' }}>✕</button>
         </div>
 
@@ -145,12 +150,13 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
           {err && <p className="text-sm" style={{ color: '#dc2626' }}>{err}</p>}
 
           {track === null ? (
-            <div className="rounded-card flex justify-center items-center"
+            <div className={`rounded-card flex justify-center items-center ${MAP_H}`}
               style={{ border: '1px solid #d4e8e0', height: 320, background: '#f1faf7' }}>
               <div className="animate-spin rounded-full h-7 w-7 border-t-2 border-brand-gd" />
             </div>
           ) : (
             <TrasyJizdaMapa
+              heightClass={MAP_H}
               track={track}
               points={points}
               fitKey={ride.id}
@@ -180,7 +186,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
           )}
 
           {stuck && (
-            <div className="rounded-card" style={{
+            <div className="rounded-card max-lg:[&>button]:min-h-[36px]" style={{
               background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 12px',
             }}>
               <p className="text-xs mb-2" style={{ color: '#991b1b' }}>
@@ -215,7 +221,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
             ].map(([emoji, label, value]) => (
               <div key={label} className="rounded-card"
                 style={{ background: '#f1faf7', border: '1px solid #d4e8e0', padding: '8px 10px' }}>
-                <div className="text-[10px] font-extrabold uppercase" style={{ color: '#6b8f7b' }}>
+                <div className="text-[10px] font-extrabold uppercase max-lg:text-[11px]" style={{ color: '#6b8f7b' }}>
                   {emoji} {label}
                 </div>
                 <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{value}</div>
@@ -223,12 +229,12 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
             ))}
           </div>
           {ride.booking_id && (
-            <a href={`/rezervace/${ride.booking_id}`} className="text-sm font-extrabold"
+            <a href={`/rezervace/${ride.booking_id}`} className="text-sm font-extrabold max-lg:flex max-lg:items-center max-lg:min-h-[36px]"
               style={{ color: '#1a8a18' }}>🔗 Otevřít rezervaci této výpůjčky</a>
           )}
 
           {/* editace jízdy */}
-          <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-[1fr_1fr]">
             <div style={{ gridColumn: '1 / -1' }}>
               {label('Název jízdy')}
               <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} />
@@ -266,7 +272,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
                 {points.map(p => (
                   <div key={p.id} className="rounded-card"
                     style={{ background: '#f1faf7', border: '1px solid #d4e8e0', padding: '10px 12px' }}>
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap max-lg:[&>button]:min-h-[36px]">
                       <span className="text-[9px] font-extrabold uppercase rounded-btn"
                         style={{ padding: '2px 6px', background: '#e8ffe8', color: '#1a8a18' }}>
                         {kindLabel(p.kind)}
@@ -279,7 +285,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
                           if (v !== (p.name || '')) savePoint(p, { name: v })
                         }}
                         style={{ ...inputStyle, flex: 1, minWidth: 180, padding: '5px 10px' }} />
-                      <span className="text-[10px]" style={{ color: '#8aab99' }}>
+                      <span className="text-[10px] max-lg:text-xs" style={{ color: '#8aab99' }}>
                         {Number(p.lat).toFixed(4)}, {Number(p.lng).toFixed(4)}
                       </span>
                       {confirmDel === p.id ? (
@@ -308,7 +314,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
                                 style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid #d4e8e0' }} />
                             </a>
                             <button onClick={() => removePhoto(p, url)} title="Odebrat fotku"
-                              className="cursor-pointer"
+                              className="cursor-pointer max-lg:!w-[30px] max-lg:!h-[30px] max-lg:!leading-[26px] max-lg:!top-[-9px] max-lg:!right-[-9px]"
                               style={{
                                 position: 'absolute', top: -6, right: -6, width: 20, height: 20,
                                 borderRadius: '50%', background: '#dc2626', color: '#fff',
@@ -326,7 +332,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
         </div>
 
         {/* patička */}
-        <div className="flex gap-2 justify-end p-4"
+        <div className={`flex gap-2 justify-end p-4 ${LOW_PAD}`}
           style={{ borderTop: '1px solid #d4e8e0', position: 'sticky', bottom: 0, background: '#fff' }}>
           <button onClick={onClose} className="rounded-btn text-sm font-extrabold cursor-pointer"
             style={{ padding: '8px 16px', background: '#f1faf7', color: '#1a2e22', border: 'none' }}>

@@ -85,9 +85,9 @@ function SingleServiceForm({ motos, onBack, onDone }) {
         </div>
       ) : (
         <div>
-          <div className="flex items-center gap-2 mb-3 p-2 rounded" style={{ background: '#dcfce7', border: '1px solid #1a8a18' }}>
+          <div className="flex items-center gap-2 mb-3 p-2 rounded max-lg:flex-wrap" style={{ background: '#dcfce7', border: '1px solid #1a8a18' }}>
             <span className="font-bold text-sm">{selected?.model}</span><span className="font-mono text-sm">{selected?.spz}</span>
-            <button onClick={() => setMotoId('')} className="ml-auto text-xs cursor-pointer" style={{ color: '#6b7280', background: 'none', border: 'none' }}>Změnit motorku</button>
+            <button onClick={() => setMotoId('')} className="ml-auto text-xs cursor-pointer max-lg:min-h-[36px] max-lg:px-2 max-lg:shrink-0 max-lg:whitespace-nowrap" style={{ color: '#6b7280', background: 'none', border: 'none' }}>Změnit motorku</button>
           </div>
           <ServiceChecklistView moto={selected} onConfirm={handleConfirm} onBack={onBack} busy={busy} error={error} />
         </div>
@@ -121,7 +121,7 @@ function InspectionMotoForm({ motos, onBack, onDone }) {
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hledat model / SPZ…" className="w-full rounded-btn text-sm outline-none mb-2" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
       <div style={{ maxHeight: 180, overflowY: 'auto' }} className="space-y-1 mb-3">
         {filtered.map(m => (
-          <label key={m.id} className="flex items-center gap-2 p-2 rounded cursor-pointer" style={{ background: selectedIds.has(m.id) ? '#dcfce7' : '#f9fafb', border: `1px solid ${selectedIds.has(m.id) ? '#1a8a18' : '#e5e7eb'}` }}>
+          <label key={m.id} className="flex items-center gap-2 p-2 rounded cursor-pointer max-md:flex-wrap" style={{ background: selectedIds.has(m.id) ? '#dcfce7' : '#f9fafb', border: `1px solid ${selectedIds.has(m.id) ? '#1a8a18' : '#e5e7eb'}` }}>
             <input type="checkbox" checked={selectedIds.has(m.id)} onChange={() => toggle(m.id)} className="accent-[#1a8a18]" style={{ width: 16, height: 16 }} />
             <span className="font-bold text-sm">{m.model}</span><span className="font-mono text-xs" style={{ color: '#6b7280' }}>{m.spz}</span>
             <span className="text-xs ml-auto" style={{ color: '#6b7280' }}>{m.branches?.name || '—'}</span>
@@ -130,7 +130,7 @@ function InspectionMotoForm({ motos, onBack, onDone }) {
       </div>
       <div className="text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Vybráno: {selectedIds.size} motorek</div>
       <InspectionChecklist checks={checks} setChecks={setChecks} />
-      <div className="grid grid-cols-2 gap-3 mb-3 mt-3">
+      <div className="grid grid-cols-2 gap-3 mb-3 mt-3 max-sm:grid-cols-1">
         <div><label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Datum inspekce</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} /></div>
         <div><label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Poznámka</label><input value={note} onChange={e => setNote(e.target.value)} placeholder="Důvod inspekce…" className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} /></div>
       </div>
@@ -180,7 +180,7 @@ function InspectionBranchForm({ branches, motos, onBack, onDone }) {
           <label className="flex items-center gap-2 mt-2 cursor-pointer"><input type="checkbox" checked={includeMotos} onChange={e => setIncludeMotos(e.target.checked)} className="accent-[#1a8a18]" /><span className="text-xs font-bold" style={{ color: '#1a2e22' }}>Zahrnout inspekci všech motorek na pobočce</span></label>
         </div>
         <InspectionChecklist checks={checks} setChecks={setChecks} />
-        <div className="grid grid-cols-2 gap-3 mb-3 mt-3">
+        <div className="grid grid-cols-2 gap-3 mb-3 mt-3 max-sm:grid-cols-1">
           <div><label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Datum kontroly</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} /></div>
           <div><label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Poznámka</label><input value={note} onChange={e => setNote(e.target.value)} placeholder="Specifický důvod kontroly…" className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} /></div>
         </div>

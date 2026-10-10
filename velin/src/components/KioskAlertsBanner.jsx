@@ -25,22 +25,26 @@ export default function KioskAlertsBanner({ alerts, onAck, onOpenBranch, compact
       </div>
       <div className="space-y-1.5">
         {alerts.map(a => (
-          <div key={a.id} className="flex items-center gap-2 flex-wrap rounded-btn"
+          // mobil/tablet (< lg): řádek se láme do více řádků → menší zaoblení místo „pilulky“
+          <div key={a.id} className="flex items-center gap-2 flex-wrap lg:rounded-btn max-lg:rounded-xl"
             style={{ background: '#fff', padding: '6px 10px', fontSize: 13, color: '#1a2e22' }}>
-            {onOpenBranch && (
-              <button onClick={() => onOpenBranch(a.branch_id)} className="font-extrabold underline cursor-pointer border-none"
-                style={{ background: 'none', color: '#b91c1c', padding: 0 }}>
-                {a.branches?.name || 'Pobočka'}
-              </button>
-            )}
-            <span className="font-bold">{a.title}</span>
-            <span style={{ color: '#6b8c7a' }}>· {fmtAlertTime(a.created_at)}</span>
-            {a.closed_at
-              ? <span style={{ color: '#1a8a18' }}>· dveře znovu zavřeny {fmtAlertTime(a.closed_at)}</span>
-              : <span className="font-bold" style={{ color: '#dc2626' }}>· dveře jsou stále otevřené</span>}
+            {/* desktop: obal neexistuje (contents); mobil/tablet: text se zalamuje vlevo, „Potvrdit“ zůstává vpravo */}
+            <div className="lg:contents max-lg:flex-1 max-lg:min-w-0 max-lg:flex max-lg:flex-wrap max-lg:items-center max-lg:gap-x-2 max-lg:gap-y-0.5">
+              {onOpenBranch && (
+                <button onClick={() => onOpenBranch(a.branch_id)} className="font-extrabold underline cursor-pointer border-none p-0 max-lg:py-1.5"
+                  style={{ background: 'none', color: '#b91c1c' }}>
+                  {a.branches?.name || 'Pobočka'}
+                </button>
+              )}
+              <span className="font-bold">{a.title}</span>
+              <span style={{ color: '#6b8c7a' }}>· {fmtAlertTime(a.created_at)}</span>
+              {a.closed_at
+                ? <span style={{ color: '#1a8a18' }}>· dveře znovu zavřeny {fmtAlertTime(a.closed_at)}</span>
+                : <span className="font-bold" style={{ color: '#dc2626' }}>· dveře jsou stále otevřené</span>}
+            </div>
             <button onClick={() => ack(a)} disabled={busy === a.id}
-              className="ml-auto rounded-btn text-[11px] font-extrabold uppercase cursor-pointer border-none"
-              style={{ padding: '4px 10px', background: '#1a2e22', color: '#74FB71', opacity: busy === a.id ? 0.6 : 1 }}
+              className="ml-auto rounded-btn text-[11px] font-extrabold uppercase cursor-pointer border-none px-2.5 py-1 max-lg:px-4 max-lg:min-h-[36px] max-lg:shrink-0"
+              style={{ background: '#1a2e22', color: '#74FB71', opacity: busy === a.id ? 0.6 : 1 }}
               title="Potvrdit, že jste poplach viděli — zmizí z Velína (zůstane v logu otevření).">
               {busy === a.id ? '…' : 'Potvrdit'}
             </button>

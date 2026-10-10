@@ -158,7 +158,8 @@ export default function InvoicesTab() {
   return (
     <div>
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      {/* telefon i tablet 2×2, desktop 4 vedle sebe */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <SummaryCard label="Celkem faktur" value={summary.total} color="#0f1a14" />
         <SummaryCard label="Zaplaceno" value={fmt(summary.paid)} color="#1a8a18" />
         <SummaryCard label="Nezaplaceno" value={fmt(summary.unpaid)} color="#b45309" />
@@ -212,7 +213,8 @@ export default function InvoicesTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <Table>
+          {/* < 1024 px: řádky jako karty (8 sloupců + akce se nevejde) */}
+          <Table stack="tablet">
             <thead>
               <TRow header>
                 <TH>Číslo</TH><TH>Typ</TH><TH>Zákazník</TH><TH>Motorka</TH>
@@ -228,7 +230,7 @@ export default function InvoicesTab() {
                 return (
                   <TRow key={inv.id}>
                     <TD mono bold>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 max-lg:justify-end">
                         {inv.number || '—'}
                         {isSOS && <span title="SOS faktura" style={{ color: '#dc2626', fontSize: 14, fontWeight: 800 }}>SOS</span>}
                         {isModified && <span title="Změna rezervace" style={{ color: '#b45309', fontSize: 14, fontWeight: 800 }}>MOD</span>}
@@ -244,8 +246,8 @@ export default function InvoicesTab() {
                     </TD>
                     <TD><Badge label={st.label} color={st.color} bg={st.bg} /></TD>
                     <TD>{inv.issue_date ? new Date(inv.issue_date).toLocaleDateString('cs-CZ') : '—'}</TD>
-                    <TD>
-                      <div className="flex gap-1">
+                    <TD className="mg-stack-full">
+                      <div className="flex gap-1 max-lg:justify-end max-lg:flex-wrap">
                         <ActionBtn color="#2563eb" onClick={() => setDetail(inv)}>Náhled</ActionBtn>
                         <ActionBtn color="#1a2e22" onClick={() => handleDownload(inv)}>Stáhnout</ActionBtn>
                         {inv.status !== 'cancelled' && inv.status !== 'refunded' && (
@@ -256,7 +258,8 @@ export default function InvoicesTab() {
                   </TRow>
                 )
               })}
-              {invoices.length === 0 && <TRow><TD>Žádné faktury</TD></TRow>}
+              {/* label="": v kartách bez popisku „Číslo“ */}
+              {invoices.length === 0 && <TRow><TD label="">Žádné faktury</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -295,7 +298,7 @@ function SummaryCard({ label, value, color }) {
 
 function ActionBtn({ children, color, onClick }) {
   return (
-    <button onClick={onClick} className="text-sm font-bold cursor-pointer"
+    <button onClick={onClick} className="text-sm font-bold cursor-pointer max-lg:min-h-[40px]"
       style={{ color, background: 'none', border: 'none', padding: '4px 6px' }}>{children}</button>
   )
 }
@@ -306,11 +309,12 @@ function CheckboxFilterGroup({ label, values, onChange, options }) {
     else onChange([...values, val])
   }
   return (
-    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+    // telefon: skupina se zalamuje do více řádků → menší zaoblení; < 1024 px vyšší klepací plocha voleb
+    <div className="flex items-center gap-1 flex-wrap rounded-btn max-sm:rounded-2xl"
       style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
       {options.map(o => (
-        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer max-lg:min-h-[34px]"
           style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
           <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
             className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />

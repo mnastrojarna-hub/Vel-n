@@ -17,7 +17,7 @@ export default function EvRow({ ev, st, tp, dt, catLabel, supplierName, isExpand
         <TD><Badge label={tp.label} color={tp.color} bg={tp.bg} /></TD>
         <TD>
           {dt ? <Badge label={dt.label} color={dt.color} bg={dt.bg} /> : <span style={{ color: '#d4d4d8' }}>{'\u2014'}</span>}
-          {dt?.route && <div className="text-[8px] font-bold mt-0.5" style={{ color: '#6b7280' }}>{'\u2192'} {dt.route}</div>}
+          {dt?.route && <div className="text-[11px] lg:text-[8px] font-bold mt-0.5" style={{ color: '#6b7280' }}>{'\u2192'} {dt.route}</div>}
         </TD>
         <TD><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{supplierName}</span></TD>
         <TD bold color={ev.event_type === 'revenue' ? '#1a8a18' : '#dc2626'}>{fmt(ev.amount_czk)}</TD>
@@ -26,7 +26,7 @@ export default function EvRow({ ev, st, tp, dt, catLabel, supplierName, isExpand
         </TD>
         <TD><Badge label={st.label} color={st.color} bg={st.bg} /></TD>
         <TD>
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex gap-1 flex-wrap max-lg:justify-end">
             {canApprove && (
               <button onClick={onApprove} disabled={isActing}
                 className="text-sm font-bold cursor-pointer rounded"

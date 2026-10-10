@@ -76,16 +76,18 @@ export default function Sidebar({ admin, onSignOut }) {
     setMobileOpen(false)
   }
 
-  const sidebarContent = (
+  // Výsuvné menu (telefon + tablet < 1024 px) se nikdy nesbaluje na ikony — sbalení je jen pro desktop.
+  const renderContent = (collapsed, collapsible) => (
     <>
       {/* Logo */}
       <div
         className="flex items-center gap-3 cursor-pointer shrink-0"
         style={{
-          padding: collapsed ? '16px 8px' : '20px',
+          // ve výsuvném menu vlevo místo pro plovoucí tlačítko ✕ (jinak překrývá logo)
+          padding: collapsed ? '16px 8px' : (collapsible ? '20px' : '20px 20px 20px 64px'),
           borderBottom: '1px solid rgba(255,255,255,.08)',
         }}
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={collapsible ? () => setCollapsed(c => !c) : undefined}
       >
         <div className="shrink-0">
           <Logo size={collapsed ? 38 : 44} />
@@ -173,13 +175,21 @@ export default function Sidebar({ admin, onSignOut }) {
               {admin?.role || 'Správce'}
             </div>
           </div>
-          <button
-            onClick={onSignOut}
-            className="text-sm font-bold uppercase opacity-40 hover:opacity-100 transition-opacity cursor-pointer bg-transparent border-none text-white"
-            title="Odhlásit se"
-          >
-            ↗
-          </button>
+          {collapsible ? (
+            <button
+              onClick={onSignOut}
+              className="text-sm font-bold uppercase opacity-40 hover:opacity-100 transition-opacity cursor-pointer bg-transparent border-none text-white"
+              title="Odhlásit se"
+            >
+              ↗
+            </button>
+          ) : (
+            // výsuvné menu (telefon/tablet): popsané tlačítko, ne jen šipka viditelná při najetí myší
+            <button onClick={onSignOut} className="shrink-0 cursor-pointer text-sm font-bold text-white"
+              style={{ minHeight: 40, padding: '0 12px', borderRadius: 12, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)' }}>
+              ↗ Odhlásit
+            </button>
+          )}
         </div>
       )}
     </>
@@ -189,7 +199,7 @@ export default function Sidebar({ admin, onSignOut }) {
     <>
       {/* Mobile hamburger */}
       <button
-        className="fixed top-3 left-3 z-50 md:hidden flex items-center justify-center"
+        className="fixed top-3 left-3 z-50 lg:hidden flex items-center justify-center"
         style={{
           width: 40,
           height: 40,
@@ -208,7 +218,7 @@ export default function Sidebar({ admin, onSignOut }) {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 md:hidden"
+          className="fixed inset-0 z-40 lg:hidden"
           style={{ background: 'rgba(0,0,0,.5)' }}
           onClick={() => setMobileOpen(false)}
         />
@@ -216,19 +226,19 @@ export default function Sidebar({ admin, onSignOut }) {
 
       {/* Sidebar - desktop */}
       <div
-        className="hidden md:flex flex-col shrink-0 transition-all"
+        className="hidden lg:flex flex-col shrink-0 transition-all"
         style={{
           width: collapsed ? 62 : 260,
           background: '#1a2e22',
           overflow: 'hidden',
         }}
       >
-        {sidebarContent}
+        {renderContent(collapsed, true)}
       </div>
 
-      {/* Sidebar - mobile */}
+      {/* Sidebar - telefon + tablet (výsuvné) */}
       <div
-        className={`fixed top-0 left-0 z-40 h-full flex flex-col md:hidden transition-transform ${
+        className={`fixed top-0 left-0 z-40 h-full flex flex-col lg:hidden transition-transform ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{
@@ -237,7 +247,7 @@ export default function Sidebar({ admin, onSignOut }) {
           overflow: 'hidden',
         }}
       >
-        {sidebarContent}
+        {renderContent(false, false)}
       </div>
     </>
   )

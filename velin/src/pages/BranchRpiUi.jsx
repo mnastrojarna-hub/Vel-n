@@ -1,4 +1,5 @@
 import { Component, useState } from 'react'
+import { useTouchHint, HintRow } from './BranchRpiTouchHint'
 
 // ─── Sdílené UI prvky pro bloky Raspberry řídicí jednotky (Samoobsluha) ─────
 // Stejný vizuální jazyk jako BranchSelfService.jsx (inline styly + Tailwind utility).
@@ -115,7 +116,7 @@ class ErrorBoundary extends Component {
         <div className="font-bold">{this.props.title || 'Blok'} — zobrazení selhalo (neplatná data ze zařízení).</div>
         <div className="mt-1" style={{ color: '#b45309' }}>{String(this.state.error?.message || this.state.error)}</div>
         <button type="button" onClick={() => this.setState({ error: null })}
-          className="rounded-btn text-[11px] font-bold cursor-pointer border-none mt-2" style={{ padding: '4px 8px', background: '#fff', color: '#dc2626' }}>Zkusit znovu</button>
+          className="rounded-btn text-[11px] font-bold cursor-pointer border-none mt-2 max-lg:min-h-[36px]" style={{ padding: '4px 8px', background: '#fff', color: '#dc2626' }}>Zkusit znovu</button>
       </div>
     )
   }
@@ -152,7 +153,7 @@ function RpiSection({ title, hint, children, action, collapsible = false, open =
     <div className="rounded-card" style={{ border: '1px solid #d4e8e0', background: '#fff' }}>
       <div className="flex items-center gap-2 flex-wrap" style={{ padding: '10px 14px' }}>
         <button type="button" onClick={onToggle}
-          className="flex items-center gap-3 flex-wrap text-left cursor-pointer border-none bg-transparent flex-1" style={{ padding: 0 }}>
+          className="flex items-center gap-3 flex-wrap text-left cursor-pointer border-none bg-transparent flex-1 max-lg:min-h-[36px]" style={{ padding: 0 }}>
           <span style={{ color: '#1a2e22', fontSize: 14 }}>{open ? '▾' : '▸'}</span>
           <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{title}</span>
           {summary}
@@ -183,26 +184,44 @@ function usePersistentFlag(key, def = false) {
   return [v, set]
 }
 
+// Na dotyku (< 1024 px) větší cíl prstu: běžné 40 px, malé 36 px (desktop beze změny)
 function Btn({ children, tone = 'gray', onClick, disabled, title, small, style }) {
   const t = TONES[tone] || TONES.gray
   return (
     <button type="button" onClick={onClick} disabled={disabled} title={title}
-      className={`rounded-btn font-bold cursor-pointer border-none ${small ? 'text-[11px]' : 'text-[12px]'}`}
+      className={`rounded-btn font-bold cursor-pointer border-none ${small ? 'text-[11px] max-lg:min-h-[36px]' : 'text-[12px] max-lg:min-h-[40px]'}`}
       style={{ padding: small ? '4px 8px' : '5px 10px', ...t, opacity: disabled ? 0.45 : 1, ...style }}>
       {children}
     </button>
   )
 }
 
+// Telefon/tablet: dlouhý text čipu (např. chyba z jednotky) se zalomí místo přetečení karty a písmo je 11 px
+// jako u ostatních stavových čipů (desktop beze změny 9 px)
 function Chip({ children, tone = 'gray', title }) {
   const t = TONES[tone] || TONES.gray
   return (
-    <span title={title} className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+    <span title={title} className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase max-lg:max-w-full max-lg:!whitespace-normal max-lg:break-words"
       style={{ padding: '2px 6px', ...t, whiteSpace: 'nowrap' }}>
       {children}
     </span>
   )
 }
+
+// Čip s detailem v `title` — na dotyku (< 1024 px) navíc tlačítko „i“, které detail rozbalí na celý řádek
+// pod čipem (rodič = flex-wrap řádek). `hint` = text jen pro dotyk (null = bez „i“, např. když jednotka detail
+// nehlásí). Desktop: vykreslí se jen <Chip> beze změny.
+function HintChip({ children, tone, title, hint }) {
+  const h = useTouchHint(hint === undefined ? title : hint)
+  const chip = <Chip tone={tone} title={title}>{children}</Chip>
+  if (!h.toggle) return chip
+  // Čip a jeho „i“ drží pohromadě (při zalomení řádku se od sebe neodtrhnou — jinak by „i“ vypadalo jako u sousedního čipu)
+  return <><span className="inline-flex items-center gap-1 max-w-full">{chip}{h.toggle}</span><HintRow body={h.body} /></>
+}
+
+// Výběr zařízení v mapování (název volí obsluha): na dotyku šířka podle nejdelší volby (min. 96 px), ať při
+// 16px písmu není název uříznutý („wav617a“ vs. „wav617b“); desktop drží pevnou šířku z `width`
+const FIT_SELECT = 'max-lg:!w-auto max-lg:min-w-[96px]'
 
 function Label({ children }) {
   return <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }}>{children}</span>
@@ -215,37 +234,68 @@ const inputStyle = (invalid, warn) => ({
   color: '#0f1a14',
 })
 
+// Popisek pole + na dotyku tlačítko „i“ s vysvětlivkou (BranchRpiTouchHint.jsx; na desktopu jen popisek)
+function FieldLabel({ label, hint }) {
+  if (!label) return null
+  if (!hint.toggle) return <Label>{label}</Label>
+  return <span className="flex items-center gap-1.5"><Label>{label}</Label>{hint.toggle}</span>
+}
+
 // Textové / číselné pole s popiskem (řízené, hodnota se drží v rodiči).
 // `disabled` = skutečně vypnuté pole (ani klávesnicí), zešedlé; `title` na obalu zůstává čitelný i při disabled.
-function Input({ label, value, onChange, type = 'text', width, placeholder, invalid, warn, title, min, step, disabled }) {
+// Telefon/tablet: pevná šířka nikdy nepřeteče kontejner (max-w-full); `className` = úprava šířky z volajícího.
+// Rozbalená vysvětlivka (jen dotyk) roztáhne pole přes celý řádek (basis-full), ať se text nemačká do úzkého sloupce.
+function Input({ label, value, onChange, type = 'text', width, placeholder, invalid, warn, title, min, step, disabled, className = '' }) {
+  const hint = useTouchHint(title)
   return (
-    <label className="flex flex-col gap-0.5" style={{ width, opacity: disabled ? 0.5 : 1 }} title={title}>
-      {label && <Label>{label}</Label>}
+    <label className={`flex flex-col gap-0.5 max-lg:max-w-full ${className}${hint.body ? ' basis-full' : ''}`} style={{ width, opacity: disabled ? 0.5 : 1 }} title={title}>
+      <FieldLabel label={label} hint={hint} />
       <input type={type} value={value ?? ''} placeholder={placeholder} min={min} step={step} disabled={disabled}
         onChange={e => onChange(e.target.value)}
         className="rounded-btn text-sm outline-none" style={inputStyle(invalid, warn)} />
+      {hint.body}
     </label>
   )
 }
 
-function Select({ label, value, onChange, options, width, invalid, warn, title, disabled }) {
+function Select({ label, value, onChange, options, width, invalid, warn, title, disabled, className = '' }) {
+  const hint = useTouchHint(title)
   return (
-    <label className="flex flex-col gap-0.5" style={{ width, opacity: disabled ? 0.5 : 1 }} title={title}>
-      {label && <Label>{label}</Label>}
+    <label className={`flex flex-col gap-0.5 max-lg:max-w-full ${className}${hint.body ? ' basis-full' : ''}`} style={{ width, opacity: disabled ? 0.5 : 1 }} title={title}>
+      <FieldLabel label={label} hint={hint} />
       <select value={value ?? ''} onChange={e => onChange(e.target.value)} disabled={disabled}
         className="rounded-btn text-sm outline-none" style={{ ...inputStyle(invalid, warn), background: invalid ? '#fee2e2' : '#fff' }}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
+      {hint.body}
     </label>
   )
 }
 
 function Checkbox({ label, checked, onChange, title }) {
-  return (
+  const hint = useTouchHint(title)
+  const box = (
     <label className="flex items-center gap-1.5 text-sm cursor-pointer" style={{ color: '#1a2e22' }} title={title}>
       <input type="checkbox" checked={!!checked} onChange={e => onChange(e.target.checked)} />
       <span className="text-[12px] font-bold">{label}</span>
+      {hint.toggle}
     </label>
+  )
+  if (!hint.toggle) return box
+  return <span className={`flex flex-col gap-1 max-w-full${hint.body ? ' basis-full' : ''}`}>{box}{hint.body}</span>
+}
+
+// Buňka s vlastním obsahem (např. zařízení + číslo kanálu) a popiskem s vysvětlivkou v `title`.
+// Desktop: totéž co <div title><Label/>…</div>; dotyk: „i“ u popisku, rozbalený text přes celý řádek.
+// `hint` = text jen pro dotyk, když buňka na PC `title` nemá (bubliny jsou tam na jednotlivých polích).
+function HintedCell({ title, hint, label, children }) {
+  const h = useTouchHint(hint ?? title)
+  return (
+    <div className={`flex flex-col gap-0.5 max-lg:max-w-full${h.body ? ' basis-full' : ''}`} title={title}>
+      <FieldLabel label={label} hint={h} />
+      {children}
+      {h.body}
+    </div>
   )
 }
 
@@ -275,7 +325,7 @@ function formatAge(sec) {
 }
 
 export {
-  RpiSection, usePersistentFlag, Btn, Chip, Label, Input, Select, Checkbox, TONES, formatUptime, ageSeconds, formatAge,
+  RpiSection, usePersistentFlag, Btn, Chip, HintChip, FIT_SELECT, Label, FieldLabel, HintedCell, Input, Select, Checkbox, TONES, formatUptime, ageSeconds, formatAge,
   ErrorBoundary, txt, num, arr, isRpiDevice, isTabletDevice, platformLabel,
   ACCESSORIES_LABEL, OUTDOOR_LABEL, isAccessoriesDoor, boxLabel, doorKindLabel, doorLabel, isGeneratedZoneLabel,
   DOOR_EVENT_CZ, doorEventName, doorEventLabel, isProtocolEvent,

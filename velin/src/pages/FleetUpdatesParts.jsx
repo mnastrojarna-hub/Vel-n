@@ -15,7 +15,14 @@ const thCls = 'text-left text-[11px] font-extrabold uppercase tracking-wide'
 const thStyle = { padding: '6px 8px', color: '#6b8c7a', borderBottom: '1px solid #d4e8e0' }
 const tdStyle = { padding: '6px 8px', fontSize: 12, color: '#0f1a14', borderBottom: '1px solid #eef6f2', verticalAlign: 'top' }
 const TH = ({ children }) => <th className={thCls} style={thStyle}>{children}</th>
-const TD = ({ children, mono, bold }) => <td style={{ ...tdStyle, fontFamily: mono ? 'monospace' : 'inherit', fontWeight: bold ? 700 : 500 }}>{children}</td>
+// full = v kartě (mobil) buňka přes celou šířku bez popisku; u mono buňky má popisek karty písmo appky, ne monospace
+const TD = ({ children, mono, bold, full }) => (
+  <td className={[mono && 'max-lg:[&::before]:font-montserrat', full && 'mg-stack-full'].filter(Boolean).join(' ') || undefined}
+    style={{ ...tdStyle, fontFamily: mono ? 'monospace' : 'inherit', fontWeight: bold ? 700 : 500 }}>{children}</td>
+)
+// Telefon (< 768 px): tabulky jako karty „popisek: hodnota“ (mg-stack v index.css, popisky z hlavičky)
+const WRAP = 'overflow-x-auto mg-stack-wrap'
+const TABLE = 'w-full border-collapse mg-stack'
 
 // 1) Nejnovější verze
 export function ReleasesList({ releases }) {
@@ -23,7 +30,7 @@ export function ReleasesList({ releases }) {
     <RpiSection title="Nejnovější verze programu"
       hint="Release = commit v main, který změnil raspberry/motogo-box (zapisuje GitHub Action release-motogo-box). Push do main NIKDY neaktualizuje jednotky sám — aktualizace se spouští vědomě tlačítkem níže nebo noční automatikou.">
       {releases.length === 0 ? <EmptyState text="Zatím žádný release v kiosk_releases." /> : (
-        <div className="overflow-x-auto"><table className="w-full border-collapse">
+        <div className={WRAP}><table className={TABLE}>
           <thead><tr><TH>Verze</TH><TH>Commit</TH><TH>Zpráva</TH><TH>Datum</TH><TH>Autor</TH></tr></thead>
           <tbody>{releases.map((r, i) => (
             <tr key={r.id} style={{ background: i === 0 ? '#f1faf7' : 'transparent' }}>
@@ -46,7 +53,7 @@ export function DevicesTable({ devices, latest, now, onDeviceCommand, busy }) {
     <RpiSection title="Řídicí jednotky (Raspberry) — verze a OS"
       hint="Každá jednotka hlásí svou verzi v heartbeatu; „aktuální“ = shoda s nejnovějším releasem. Bezpečnostní záplaty OS instaluje unattended-upgrades sám v noci ve 4:00 (bez restartu). Restart OS a plný apt full-upgrade se spouští jen odsud — jednotka je provede, až bude kóje volná.">
       {devices.length === 0 ? <EmptyState text="Žádná aktivní řídicí jednotka (Raspberry)." /> : (
-        <div className="overflow-x-auto"><table className="w-full border-collapse">
+        <div className={`${WRAP} mg-stack-wrap-tab mg-stack-2col`}><table className={`${TABLE} mg-stack-tab`}>{/* 7 sloupců: karty i na tabletu (tam 2 sloupce popisek: hodnota) */}
           <thead><tr><TH>Pobočka</TH><TH>Jednotka</TH><TH>Verze</TH><TH>Stav</TH><TH>Aktualizace</TH><TH>OS</TH><TH>Akce</TH></tr></thead>
           <tbody>{devices.map(dev => {
             const online = isOnline(dev, now)
@@ -59,7 +66,7 @@ export function DevicesTable({ devices, latest, now, onDeviceCommand, busy }) {
                 <TD>{txt(dev.name)}</TD>
                 <TD mono>{txt(dev.app_version)}</TD>
                 <TD>
-                  <div className="flex gap-1 flex-wrap">
+                  <div className="flex gap-1 flex-wrap max-lg:justify-end">
                     <Chip tone={online ? 'green' : dev.last_seen_at ? 'red' : 'amber'}>{online ? 'Online' : dev.last_seen_at ? 'Offline' : 'Nespárováno'}</Chip>
                     {current != null && dev.app_version && <Chip tone={current ? 'green' : 'amber'}>{current ? 'Aktuální' : 'Zastaralá'}</Chip>}
                   </div>
@@ -72,8 +79,8 @@ export function DevicesTable({ devices, latest, now, onDeviceCommand, busy }) {
                   </div>
                   {sys.reboot_required === true && <Chip tone="amber" title="OS má nainstalované nové jádro/knihovny — projeví se až po restartu OS">Restart OS potřebný</Chip>}
                 </TD>
-                <TD>
-                  <div className="flex gap-1 flex-wrap">
+                <TD full>{/* Akce: v kartě celý řádek, tlačítka vedle sebe vpravo */}
+                  <div className="flex gap-1 flex-wrap max-lg:justify-end">
                     <Btn tone="amber" small disabled={busy || !online} title={online ? 'Příkaz reboot — jednotka restartuje OS, až bude box volný (nikdo uprostřed relace)' : 'Jednotka je offline'}
                       onClick={() => { if (window.confirm(`Restartovat OS na „${deviceLabel(dev)}“? Provede se, až bude box volný (čeká nejdéle „čekání na klid“ z nastavení); pobočka pak bude cca 1 minutu nedostupná.`)) onDeviceCommand(dev, 'reboot', { wait_idle: true }, 'Restart OS') }}>Restart OS</Btn>
                     <Btn tone="blue" small disabled={busy || !online} title={online ? 'apt full-upgrade jen na této jednotce (až bude kóje volná)' : 'Jednotka je offline'}
@@ -110,7 +117,7 @@ export function RolloutPanel({ rollout, rows, devById, onCancel, onTick, busy })
         Postup: kanárek „{canary ? deviceLabel(canary) : '?'}“ → sledování {rollout.soak_minutes} min bez chyb → zbytek poboček. Každá jednotka restartuje program až ve chvíli, kdy v boxu nikdo není (čeká max. {Math.round(rollout.wait_idle_s / 60)} min).
         {rollout.status === 'canary' && rollout.canary_started_at && ` Kanárek dostal příkaz ${fmtTime(rollout.canary_started_at)}.`}
       </div>
-      <div className="overflow-x-auto mt-2"><table className="w-full border-collapse">
+      <div className={`${WRAP} mt-2`}><table className={TABLE}>
         <thead><tr><TH>Jednotka</TH><TH>Role</TH><TH>Stav</TH><TH>Verze před → po</TH><TH>Detail</TH></tr></thead>
         <tbody>{sorted.map(r => (
           <tr key={r.device_id}>
@@ -160,7 +167,7 @@ export function HistoryList({ history }) {
   return (
     <RpiSection title="Historie" hint="Posledních 10 dokončených hromadných aktualizací.">
       {history.length === 0 ? <EmptyState text="Zatím žádná hromadná aktualizace." /> : (
-        <div className="overflow-x-auto"><table className="w-full border-collapse">
+        <div className={WRAP}><table className={TABLE}>
           <thead><tr><TH>Datum</TH><TH>Typ</TH><TH>Režim</TH><TH>Verze</TH><TH>Výsledek</TH><TH>Chyba</TH></tr></thead>
           <tbody>{history.map(r => {
             const res = r.result || {}

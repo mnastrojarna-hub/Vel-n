@@ -2,7 +2,7 @@ import Button from './Button'
 
 export default function ExportBar() {
   return (
-    <div className="flex gap-2 mt-4 pt-3" style={{ borderTop: '1px solid #d4e8e0' }}>
+    <div className="flex flex-wrap gap-2 mt-4 pt-3" style={{ borderTop: '1px solid #d4e8e0' }}>
       <span
         className="text-sm font-bold mr-1"
         style={{ color: '#1a2e22', lineHeight: '30px' }}

@@ -159,12 +159,12 @@ export default function InstallsChart() {
             📈 Instalace appky v čase <span style={{ fontWeight: 600, color: '#7a8b82', textTransform: 'none' }}>({bucketNote})</span>
           </h3>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button style={btnStyle(mode === 'new')} onClick={() => setMode('new')}>Nové</button>
-            <button style={btnStyle(mode === 'cum')} onClick={() => setMode('cum')}>Celkem</button>
+            <button className="max-lg:min-h-[40px]" style={btnStyle(mode === 'new')} onClick={() => setMode('new')}>Nové</button>
+            <button className="max-lg:min-h-[40px]" style={btnStyle(mode === 'cum')} onClick={() => setMode('cum')}>Celkem</button>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {RANGES.map((r) => (
-              <button key={r.label} style={btnStyle(range.label === r.label)} onClick={() => setRange(r)}>{r.label}</button>
+              <button key={r.label} className="max-lg:min-h-[40px]" style={btnStyle(range.label === r.label)} onClick={() => setRange(r)}>{r.label}</button>
             ))}
           </div>
         </div>

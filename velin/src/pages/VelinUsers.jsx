@@ -67,7 +67,8 @@ export default function VelinUsers({ admin }) {
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
-        <Table>
+        // 7 sloupců → na telefonu i tabletu karty; akce přes celou šířku karty (desktop beze změny)
+        <Table stack="tablet" className="mg-stack-2col">
           <thead>
             <TRow header>
               <TH>Jméno</TH><TH>E-mail</TH><TH>Role</TH><TH>Vidí sekce</TH>
@@ -86,17 +87,17 @@ export default function VelinUsers({ admin }) {
                 <TD>{fmtDate(u.last_login_at)}</TD>
                 <TD><span className="text-sm font-bold" style={{ color: u.active ? '#1a8a18' : '#dc2626' }}>
                   {u.active ? 'Aktivní' : 'Neaktivní'}</span></TD>
-                <TD>
-                  <div className="flex gap-3 flex-wrap">
-                    <button onClick={() => setEditUser(u)} className="text-sm font-bold cursor-pointer"
+                <TD className="mg-stack-full">
+                  <div className="flex gap-3 flex-wrap max-lg:gap-1 max-lg:-mx-2">
+                    <button onClick={() => setEditUser(u)} className="text-sm font-bold cursor-pointer max-lg:py-2 max-lg:px-2"
                       style={{ color: '#2563eb', background: 'none', border: 'none' }}>Upravit</button>
                     {!isSelf(u) && (
                       <>
-                        <button onClick={() => setConfirm({ kind: 'toggle', user: u })} className="text-sm font-bold cursor-pointer"
+                        <button onClick={() => setConfirm({ kind: 'toggle', user: u })} className="text-sm font-bold cursor-pointer max-lg:py-2 max-lg:px-2"
                           style={{ color: '#b45309', background: 'none', border: 'none' }}>
                           {u.active ? 'Deaktivovat' : 'Aktivovat'}
                         </button>
-                        <button onClick={() => setConfirm({ kind: 'remove', user: u })} className="text-sm font-bold cursor-pointer"
+                        <button onClick={() => setConfirm({ kind: 'remove', user: u })} className="text-sm font-bold cursor-pointer max-lg:py-2 max-lg:px-2"
                           style={{ color: '#dc2626', background: 'none', border: 'none' }}>Odebrat přístup</button>
                       </>
                     )}
@@ -104,7 +105,7 @@ export default function VelinUsers({ admin }) {
                 </TD>
               </TRow>
             ))}
-            {users.length === 0 && <TRow><TD>Žádní uživatelé</TD></TRow>}
+            {users.length === 0 && <TRow><TD className="mg-stack-full">Žádní uživatelé</TD></TRow>}
           </tbody>
         </Table>
       )}

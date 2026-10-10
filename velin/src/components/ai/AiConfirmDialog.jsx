@@ -1,8 +1,12 @@
 import { RISK_LEVELS, getAgentForTool } from '../../lib/aiAgents'
 import Button from '../ui/Button'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 export default function AiConfirmDialog({ actions, onConfirm, onReject, onEdit }) {
+  // Mobil/tablet: dialog přes šířku displeje, tlačítka se zalomí a mají ≥ 40 px; desktop beze změny
+  const isMobile = useIsMobile()
   if (!actions || actions.length === 0) return null
+  const mob = (o) => (isMobile ? o : null)
 
   const riskOrder = { high: 0, medium: 1, low: 2 }
   const sorted = [...actions].sort((a, b) => (riskOrder[a.risk] || 2) - (riskOrder[b.risk] || 2))
@@ -18,6 +22,7 @@ export default function AiConfirmDialog({ actions, onConfirm, onReject, onEdit }
       <div style={{
         background: '#fff', borderRadius: 16, maxWidth: 560, width: '90%',
         maxHeight: '80vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        ...mob({ width: 'calc(100vw - 16px)', maxHeight: '92dvh' }),
       }}>
         {/* Header */}
         <div style={{
@@ -78,21 +83,25 @@ export default function AiConfirmDialog({ actions, onConfirm, onReject, onEdit }
         <div style={{
           padding: '12px 20px', borderTop: '1px solid #d4e8e0',
           display: 'flex', gap: 8, justifyContent: 'flex-end',
+          ...mob({ flexWrap: 'wrap', padding: '12px 14px' }),
         }}>
           <Button onClick={onReject} style={{
             background: '#fee2e2', color: '#dc2626', border: 'none',
             fontSize: 13, padding: '8px 16px', borderRadius: 8,
+            ...mob({ minHeight: 40, flex: '1 1 auto', justifyContent: 'center' }),
           }}>
             Zamítnout
           </Button>
           <Button onClick={onEdit} style={{
             background: '#fef3c7', color: '#92400e', border: 'none',
             fontSize: 13, padding: '8px 16px', borderRadius: 8,
+            ...mob({ minHeight: 40, flex: '1 1 auto', justifyContent: 'center' }),
           }}>
             Upravit zadání
           </Button>
           <Button green onClick={onConfirm} style={{
             fontSize: 13, padding: '8px 20px', borderRadius: 8,
+            ...mob({ minHeight: 40, flex: '1 1 100%', justifyContent: 'center' }),
           }}>
             Potvrdit a provést
           </Button>

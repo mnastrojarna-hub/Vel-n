@@ -19,9 +19,9 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
   const isEnded = booking.ended_by_sos
 
   return (
-    <Card className="col-span-2">
+    <Card className="md:col-span-2">
       <div className="p-4 rounded-lg" style={{ background: isReplacement ? '#dcfce7' : '#fee2e2', border: `2px solid ${isReplacement ? '#86efac' : '#fca5a5'}` }}>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 max-lg:flex-wrap max-lg:gap-2">
           <h3 className="text-sm font-extrabold" style={{ color: isReplacement ? '#1a8a18' : '#b91c1c' }}>
             {isReplacement ? '🏍️ Náhradní motorka (SOS)' : '🆘 Ukončeno kvůli SOS incidentu'}
           </h3>
@@ -33,7 +33,7 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
           )}
         </div>
         {inc && (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-3" style={{ padding: '10px 12px', background: 'rgba(255,255,255,.6)', borderRadius: 8 }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-3" style={{ padding: '10px 12px', background: 'rgba(255,255,255,.6)', borderRadius: 8 }}>
             <InfoRow label="Typ incidentu" value={<span style={{ fontWeight: 800 }}>{SOS_TYPE_LABELS[inc.type] || inc.type}</span>} />
             <InfoRow label="Stav incidentu" value={
               <span className="inline-block rounded-full text-xs font-extrabold" style={{ padding: '2px 10px', ...(inc.status === 'resolved' || inc.status === 'closed' ? { background: '#dcfce7', color: '#1a8a18' } : { background: '#fee2e2', color: '#dc2626' }) }}>
@@ -46,18 +46,18 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
             <InfoRow label="Nahlášeno" value={inc.created_at ? new Date(inc.created_at).toLocaleString('cs-CZ') : '—'} />
             {inc.resolved_at && <InfoRow label="Vyřešeno" value={new Date(inc.resolved_at).toLocaleString('cs-CZ')} />}
             {inc.damage_severity && <InfoRow label="Poškození" value={{ none: 'Žádné', cosmetic: 'Kosmetické', functional: 'Funkční', totaled: 'Totální škoda' }[inc.damage_severity] || inc.damage_severity} />}
-            {inc.description && <div className="col-span-2"><InfoRow label="Popis" value={inc.description} /></div>}
+            {inc.description && <div className="md:col-span-2"><InfoRow label="Popis" value={inc.description} /></div>}
             {inc.latitude && inc.longitude && (
-              <div className="col-span-2">
+              <div className="md:col-span-2">
                 <InfoRow label="Poloha zákazníka" value={
                   <span className="inline-flex items-center flex-wrap gap-2">
                     <span className="text-xs font-mono" style={{ color: '#6b7280' }}>GPS: {Number(inc.latitude).toFixed(6)}, {Number(inc.longitude).toFixed(6)}</span>
                     <a href={mapyLinkUrl(inc.latitude, inc.longitude)} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
+                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-btn max-lg:min-h-[32px]" style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
                       📍 Mapy.cz ↗
                     </a>
                     <a href={mapyNavigateUrl(inc.latitude, inc.longitude)} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18', textDecoration: 'none' }}>
+                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-btn max-lg:min-h-[32px]" style={{ background: '#dcfce7', color: '#1a8a18', textDecoration: 'none' }}>
                       Navigovat ↗
                     </a>
                   </span>
@@ -67,8 +67,8 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
           </div>
         )}
         {(rd.replacement_model || rd.payment_amount) && (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-3" style={{ padding: '10px 12px', background: 'rgba(255,255,255,.6)', borderRadius: 8 }}>
-            <div className="col-span-2 text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Náhradní motorka</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-3" style={{ padding: '10px 12px', background: 'rgba(255,255,255,.6)', borderRadius: 8 }}>
+            <div className="md:col-span-2 text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Náhradní motorka</div>
             {rd.replacement_model && <InfoRow label="Model" value={rd.replacement_model} />}
             {rd.daily_price > 0 && <InfoRow label="Denní cena" value={`${Number(rd.daily_price).toLocaleString('cs-CZ')} Kč`} />}
             {(rd.original_end_date || rd.remaining_days) && (() => {
@@ -106,7 +106,7 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
             {sosIncidents.slice(1).map(i2 => (
               <div key={i2.id} className="py-1 flex items-center flex-wrap gap-x-2" style={{ fontSize: 13 }}>
                 <button onClick={() => navigate('/sos', { state: { openIncidentId: i2.id } })}
-                  className="font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', fontFamily: 'monospace', fontSize: 13, padding: 0 }}>
+                  className="font-bold cursor-pointer max-lg:min-h-[32px]" style={{ color: '#dc2626', background: 'none', border: 'none', fontFamily: 'monospace', fontSize: 13, padding: 0 }}>
                   #{i2.id.slice(-8).toUpperCase()}
                 </button>
                 <span>{SOS_TYPE_LABELS[i2.type] || i2.type}{i2.severity ? ` (${i2.severity})` : ''} — {SOS_STATUS_LABELS[i2.status] || i2.status}</span>
@@ -162,12 +162,12 @@ export function AddressBlock({ label, method, address, branchName, lat, lng, fee
       {(mapLink || navLink) && (
         <div className="flex flex-wrap gap-2 mt-2">
           {mapLink && (
-            <a href={mapLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-extrabold rounded-btn" style={{ padding: '4px 10px', background: '#dbeafe', color: '#1d4ed8', textDecoration: 'none', border: '1px solid #bfdbfe' }}>
+            <a href={mapLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-extrabold rounded-btn max-lg:min-h-[34px]" style={{ padding: '4px 10px', background: '#dbeafe', color: '#1d4ed8', textDecoration: 'none', border: '1px solid #bfdbfe' }}>
               📍 Mapy.cz ↗
             </a>
           )}
           {navLink && (
-            <a href={navLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-extrabold rounded-btn" style={{ padding: '4px 10px', background: '#dcfce7', color: '#166534', textDecoration: 'none', border: '1px solid #bbf7d0' }}>
+            <a href={navLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-extrabold rounded-btn max-lg:min-h-[34px]" style={{ padding: '4px 10px', background: '#dcfce7', color: '#166534', textDecoration: 'none', border: '1px solid #bbf7d0' }}>
               🧭 Navigovat ↗
             </a>
           )}
@@ -210,7 +210,7 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null, extra = 
   const motoCell = <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kod k motorce</div><div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{motoCode?.door_code || '—'}</div></div>
 
   return (
-    <Card className="col-span-2">
+    <Card className="md:col-span-2">
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Pristupove kody k pobocce</h3>
       <div className="p-4 rounded-lg" style={{ background: allSent ? '#dcfce7' : withheld ? '#fef3c7' : '#f1faf7', border: `1px solid ${allSent ? '#86efac' : withheld ? '#fcd34d' : '#d4e8e0'}` }}>
         <div className={`grid ${gateCode ? 'grid-cols-3' : 'grid-cols-2'} gap-4 mb-3`}>
@@ -267,7 +267,7 @@ export function LocationShareRow({ sosIncidents }) {
             <span className="text-sm">{new Date(inc.created_at).toLocaleString('cs-CZ')}</span>
             {inc.address && <span className="text-sm font-medium">— {inc.address}</span>}
             {hasGps && <span className="text-xs" style={{ color: '#6b7280' }}>GPS: {Number(inc.latitude).toFixed(6)}, {Number(inc.longitude).toFixed(6)}</span>}
-            {link && <a href={link} target="_blank" rel="noopener noreferrer" className="text-xs font-bold" style={{ color: '#2563eb', textDecoration: 'none' }}>Mapa ↗</a>}
+            {link && <a href={link} target="_blank" rel="noopener noreferrer" className="text-xs font-bold max-lg:inline-flex max-lg:items-center max-lg:min-h-[32px] max-lg:px-1" style={{ color: '#2563eb', textDecoration: 'none' }}>Mapa ↗</a>}
           </div>
         )
       })}
@@ -311,7 +311,7 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
   const cardText = cardLabel(booking.card_brand, booking.card_last4)
 
   return (
-    <Card className="col-span-2">
+    <Card className="md:col-span-2">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h3 className="text-base font-extrabold uppercase tracking-wider" style={{ color: '#0f1a14' }}>Termín a platba</h3>
         {!['cancelled', 'completed'].includes(booking.status) && (
@@ -366,7 +366,8 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
 
       {/* Místo + pojištění */}
       <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-        <div className="grid grid-cols-3 gap-3">
+        {/* Telefon (< 640 px): adresy pod sebou — ve 2 sloupcích se adresa i tlačítka mapy lámaly po slovech */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <AddressBlock label="Přistavení" method={booking.pickup_method} address={booking.pickup_address} branchName={branchName} lat={booking.pickup_lat} lng={booking.pickup_lng} fee={pickupFee} time={isLegacyNoPickupTime(booking.pickup_time) ? 'kdykoliv 1. den' : fmtTimeHM(booking.pickup_time)} />
           <AddressBlock label="Vrácení" method={booking.return_method} address={booking.return_address} branchName={branchName} lat={booking.return_lat} lng={booking.return_lng} fee={returnFee} time={fmtTimeHM(booking.return_time)} />
           <div className="rounded-lg p-3" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
@@ -403,7 +404,7 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
             )}
             {stripeUrl && (
               <a href={stripeUrl} target="_blank" rel="noopener noreferrer" title={booking.stripe_payment_intent_id}
-                className="inline-flex items-center gap-1 mt-1 text-[11px] font-extrabold rounded-btn"
+                className="inline-flex items-center gap-1 mt-1 text-[11px] font-extrabold rounded-btn max-lg:min-h-[30px]"
                 style={{ padding: '2px 6px', background: '#ede9fe', color: '#6d28d9', textDecoration: 'none', border: '1px solid #ddd6fe' }}>
                 Stripe ↗
               </a>
@@ -485,7 +486,7 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
         ) : null
       })()}
       {error && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{error}</p>}
-      <div className="flex gap-3 mt-5">
+      <div className="flex gap-3 mt-5 max-lg:flex-wrap">
         {actions.map(a => (
           <Button key={a.status} onClick={() => onAction(a)} green={a.green}
             style={a.danger ? { background: '#dc2626', color: '#fff', boxShadow: '0 4px 16px rgba(220,38,38,.25)' } : undefined}>

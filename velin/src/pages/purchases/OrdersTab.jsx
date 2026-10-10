@@ -7,7 +7,8 @@ import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
 import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
-import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import BulkActionsBar from '../../components/ui/BulkActionsBar'
+import { StackSelectAll, StackRowCheck } from './EshopStackChecks'
 import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 
 const PER_PAGE = 25
@@ -65,10 +66,11 @@ export default function OrdersTab() {
       ) : (
         <>
           <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
-          <Table>
+          {/* stack = na telefonu karty místo tabulky (desktop beze změny) */}
+          <Table stack>
             <thead>
               <TRow header>
-                <TH><SelectAllCheckbox items={orders} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
+                <TH><StackSelectAll items={orders} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Číslo</TH><TH>Dodavatel</TH><TH>Datum</TH><TH>Celkem</TH><TH>Stav</TH>
               </TRow>
             </thead>
@@ -76,7 +78,7 @@ export default function OrdersTab() {
               {orders.map(o => (
                 <tr key={o.id} onClick={() => setDetail(o)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                   style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(o.id) ? '#fef9c3' : undefined }}>
-                  <TD><RowCheckbox id={o.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
+                  <TD label=""><StackRowCheck id={o.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                   <TD mono bold>{o.order_number || `#${o.id?.slice(0, 8)}`}</TD>
                   <TD>{o.suppliers?.name || '—'}</TD>
                   <TD>{o.created_at ? new Date(o.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
@@ -92,7 +94,7 @@ export default function OrdersTab() {
                   </TD>
                 </tr>
               ))}
-              {orders.length === 0 && <TRow><TD>Žádné objednávky</TD></TRow>}
+              {orders.length === 0 && <TRow><TD label="">Žádné objednávky</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -160,20 +162,21 @@ function NewOrderModal({ onClose, onSaved }) {
         <div>
           <Label>Položky</Label>
           {items.map((it, idx) => (
-            <div key={idx} className="flex items-center gap-2 mb-2">
+            // Telefon: výběr položky přes celý řádek, Ks / Cena / ✕ pod ním (max-sm = jen < 640 px)
+            <div key={idx} className="flex items-center gap-2 mb-2 max-sm:flex-wrap">
               <select value={it.item_id} onChange={e => updateItem(idx, 'item_id', e.target.value)}
-                className="flex-1 rounded-btn text-sm outline-none" style={inputStyle}>
+                className="flex-1 rounded-btn text-sm outline-none max-sm:basis-full max-sm:min-w-0" style={inputStyle}>
                 <option value="">— Položka —</option>
                 {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({i.sku})</option>)}
               </select>
               <input type="number" value={it.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)}
-                placeholder="Ks" className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 70 }} />
+                placeholder="Ks" className="rounded-btn text-sm outline-none max-sm:flex-1 max-sm:min-w-0" style={{ ...inputStyle, width: 70 }} />
               <input type="number" value={it.unit_price} onChange={e => updateItem(idx, 'unit_price', e.target.value)}
                 placeholder="Cena/ks" className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 100 }} />
-              <button onClick={() => removeItem(idx)} className="text-sm cursor-pointer bg-transparent border-none" style={{ color: '#dc2626' }}>✕</button>
+              <button onClick={() => removeItem(idx)} className="text-sm cursor-pointer bg-transparent border-none max-lg:min-w-[36px] max-lg:min-h-[36px]" style={{ color: '#dc2626' }}>✕</button>
             </div>
           ))}
-          <button onClick={addItem} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>+ Přidat položku</button>
+          <button onClick={addItem} className="text-sm font-bold cursor-pointer bg-transparent border-none max-lg:min-h-[36px]" style={{ color: '#1a8a18' }}>+ Přidat položku</button>
         </div>
 
         <div><Label>Poznámky</Label><textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} /></div>
@@ -238,7 +241,8 @@ function OrderDetail({ order, onClose, onUpdated }) {
       {loading ? (
         <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
       ) : (
-        <Table>
+        // stack = karty na telefonu; prázdné buňky a popisek součtu se tam skryjí (mg-hide-phone)
+        <Table stack>
           <thead><TRow header><TH>Položka</TH><TH>SKU</TH><TH>Množství</TH><TH>Cena/ks</TH><TH>Celkem</TH></TRow></thead>
           <tbody>
             {items.map(it => (
@@ -250,7 +254,7 @@ function OrderDetail({ order, onClose, onUpdated }) {
                 <TD bold>{fmt((it.quantity || 0) * (it.unit_price || 0))}</TD>
               </TRow>
             ))}
-            <TRow><TD /><TD /><TD /><TD bold>Celkem:</TD><TD bold>{fmt(total)}</TD></TRow>
+            <TRow><TD className="mg-hide-phone" /><TD className="mg-hide-phone" /><TD className="mg-hide-phone" /><TD bold className="mg-hide-phone">Celkem:</TD><TD bold label="Celkem">{fmt(total)}</TD></TRow>
           </tbody>
         </Table>
       )}

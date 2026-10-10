@@ -148,7 +148,8 @@ export default function TaxReturnsTab() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
+      {/* Mobil: tlačítka i hlavička karty se zalamují (desktop beze změny) */}
+      <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 mb-4">
         <Button green onClick={() => generateTaxReturn(prevYear)} disabled={generating}>
           {generating ? 'Generuji...' : `Generovat DP za ${prevYear}`}
         </Button>
@@ -166,7 +167,7 @@ export default function TaxReturnsTab() {
       ) : (
         returns.map(r => (
           <Card key={r.id} className="mb-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 max-lg:flex-wrap max-lg:gap-2">
               <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>
                 Daňové přiznání {r.year}
               </h3>
@@ -176,7 +177,7 @@ export default function TaxReturnsTab() {
                   {r.status === 'submitted' ? 'Podano' : 'Připraveno'}
                 </span>
                 {r.status !== 'submitted' && (
-                  <button onClick={() => markSubmitted(r.id)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#b45309' }}>Oznacit podano</button>
+                  <button onClick={() => markSubmitted(r.id)} className="text-sm font-bold cursor-pointer bg-transparent border-none max-lg:min-h-[36px]" style={{ color: '#b45309' }}>Oznacit podano</button>
                 )}
               </div>
             </div>
@@ -186,7 +187,8 @@ export default function TaxReturnsTab() {
               <MiniStat label="Výdaje celkem" value={fmt(r.deductible_expenses)} color="#dc2626" />
               <MiniStat label="Základ daně" value={fmt(r.rounded_tax_base)} color="#1a2e22" />
             </div>
-            <div className="grid grid-cols-4 gap-3 mb-3">
+            {/* Telefon 2 sloupce, tablet 4 (globální pravidlo by dalo 3 + 1) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
               <MiniStat label="Daň 15%" value={fmt(r.income_tax_15)} color="#6b7280" />
               <MiniStat label="Daň 23%" value={fmt(r.income_tax_23)} color="#6b7280" />
               <MiniStat label="Sleva na poplatnika" value={fmt(r.tax_discount)} color="#2563eb" />
@@ -211,7 +213,7 @@ export default function TaxReturnsTab() {
 function MiniStat({ label, value, color }) {
   return (
     <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-sm font-extrabold" style={{ color }}>{value}</div>
     </div>
   )

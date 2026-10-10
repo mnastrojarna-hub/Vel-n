@@ -232,6 +232,7 @@ export default function AppCrashReports() {
         </span>
         <button
           onClick={() => load()}
+          className="max-lg:min-h-[40px]"
           style={{ marginLeft: 'auto', padding: '6px 14px', background: '#74FB71', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
         >
           Obnovit
@@ -240,6 +241,7 @@ export default function AppCrashReports() {
           <button
             onClick={deleteAll}
             disabled={deleting}
+            className="max-lg:min-h-[40px]"
             title="Smaže všechna hlášení odpovídající aktivnímu filtru (nevratné)"
             style={{ padding: '6px 14px', background: '#fde8e8', color: '#9a2a2a', border: '1px solid #f0c0c0', borderRadius: 8, fontWeight: 700, cursor: deleting ? 'wait' : 'pointer', fontSize: 13, opacity: deleting ? 0.6 : 1 }}
           >
@@ -253,6 +255,7 @@ export default function AppCrashReports() {
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
+            className="max-lg:min-h-[40px]"
             style={{
               padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700,
               background: filter === f.key ? '#1a2e22' : '#f1faf7',

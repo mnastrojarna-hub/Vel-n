@@ -1,12 +1,14 @@
 import { FField, FLabel, FSelWrap } from './BookingsFilters'
 
-export default function BookingsExtendedFilters({ filters, setF, branches, resetFilters }) {
+// quick = rychlé filtry z lišty — jen na telefonu, kde se lišta zkracuje (BookingsToolbarPhone)
+export default function BookingsExtendedFilters({ filters, setF, branches, resetFilters, quick = null }) {
   return (
     <div className="mb-5 p-4 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Rozšířené filtry rezervací</span>
-        <button onClick={resetFilters} className="text-sm font-bold cursor-pointer underline" style={{ color: '#1a2e22' }}>Resetovat</button>
+        <button onClick={resetFilters} className="text-sm font-bold cursor-pointer underline max-lg:min-h-[36px] max-lg:px-1" style={{ color: '#1a2e22' }}>Resetovat</button>
       </div>
+      {quick && <div className="flex flex-wrap gap-2 mb-4">{quick}</div>}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <FField label="Zákazník" value={filters.customer} onChange={v => setF('customer', v)} />
         <FField label="Model motorky" value={filters.motoModel} onChange={v => setF('motoModel', v)} />

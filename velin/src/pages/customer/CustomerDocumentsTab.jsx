@@ -311,17 +311,17 @@ export default function CustomerDocumentsTab({ userId }) {
       <Card>
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <SearchInput value={search} onChange={v => { setSearch(v); setPage(1) }} placeholder="Hledat v dokumentech…" />
-          <div className="flex gap-1">
+          <div className="flex gap-1 max-lg:flex-wrap">
             {DOC_FILTER_OPTIONS.map(opt => (
               <button key={opt.value} onClick={() => { setTypeFilter(opt.value); setPage(1) }}
-                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
                 style={{ padding: '6px 14px', background: typeFilter === opt.value ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none', boxShadow: typeFilter === opt.value ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
                 {opt.label}
               </button>
             ))}
           </div>
           <select value={sortOrder} onChange={e => { setSortOrder(e.target.value); setPage(1) }}
-            className="rounded-btn text-sm font-bold outline-none cursor-pointer"
+            className="rounded-btn text-sm font-bold outline-none cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
             <option value="date_desc">Nejnovější</option>
             <option value="date_asc">Nejstarší</option>
@@ -338,19 +338,20 @@ export default function CustomerDocumentsTab({ userId }) {
             {pagedItems.map(item => {
               const tp = item.typeBadge || (DOC_TYPE_LABELS[item.type] ? { label: DOC_TYPE_LABELS[item.type], color: '#1a2e22', bg: '#f1faf7' } : null)
               return (
-                <div key={`${item.kind}-${item.id}`} className="flex items-center gap-4 p-3 rounded-lg cursor-pointer hover:shadow-sm transition-shadow"
+                // Telefon (< 768 px): ikona + název na prvním řádku, částka / datum / akce pod ním
+                <div key={`${item.kind}-${item.id}`} className="flex items-center gap-4 p-3 rounded-lg cursor-pointer hover:shadow-sm transition-shadow max-md:flex-wrap max-md:gap-x-3 max-md:gap-y-1"
                   style={{ background: '#f1faf7' }} onClick={() => handleViewItem(item)}>
                   <span style={{ fontSize: 16 }}>{item.icon}</span>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 max-md:basis-[calc(100%-40px)] max-md:break-words">
                     <span className="text-sm font-bold">{item.name}</span>
                     {tp && <Badge label={tp.label} color={tp.color} bg={tp.bg} style={{ marginLeft: 8 }} />}
                   </div>
                   {item.amount != null && <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{item.amount.toLocaleString('cs-CZ')} Kč</span>}
                   <span className="text-sm" style={{ color: '#1a2e22' }}>{item.date || '—'}</span>
-                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => handleViewItem(item)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Náhled</button>
-                    <button onClick={() => handlePrint(item)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Tisk</button>
-                    <button onClick={() => handleDownload(item)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stáhnout</button>
+                  <div className="flex gap-2 max-md:ml-auto max-lg:gap-3" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => handleViewItem(item)} className="text-sm font-bold cursor-pointer max-lg:py-2" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Náhled</button>
+                    <button onClick={() => handlePrint(item)} className="text-sm font-bold cursor-pointer max-lg:py-2" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Tisk</button>
+                    <button onClick={() => handleDownload(item)} className="text-sm font-bold cursor-pointer max-lg:py-2" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stáhnout</button>
                   </div>
                 </div>
               )
@@ -364,13 +365,14 @@ export default function CustomerDocumentsTab({ userId }) {
       {viewDoc && (
         <Modal open title={viewDoc.number ? `Faktura ${viewDoc.number}` : (viewDoc.document_templates?.name || viewDoc.file_name || viewDoc.name || 'Dokument')} onClose={() => { setViewDoc(null); setViewHtml(null) }} wide>
           {viewHtml ? (
+            // < 1024 px: výška náhledu dle displeje (telefon na šířku), ať se patička s tlačítky vejde
             <div className="border rounded-lg overflow-auto" style={{ maxHeight: 600, background: '#fff' }}>
-              <iframe srcDoc={viewHtml} style={{ width: '100%', height: 550, border: 'none' }} title="Náhled dokumentu" />
+              <iframe srcDoc={viewHtml} className="h-[550px] max-lg:h-[min(550px,60dvh)]" style={{ width: '100%', border: 'none' }} title="Náhled dokumentu" />
             </div>
           ) : (
             <div className="py-8 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>Dokument nemá náhled.</div>
           )}
-          <div className="flex justify-end gap-3 mt-4">
+          <div className="flex justify-end gap-3 mt-4 max-sm:flex-wrap">
             {viewHtml && <Button onClick={() => openPrintWindow(viewHtml)}>Tisk / PDF</Button>}
             <Button onClick={() => handleDownload({ kind: viewDoc.number ? 'invoice' : 'document', raw: viewDoc })}>Stáhnout</Button>
             <Button onClick={() => { setViewDoc(null); setViewHtml(null) }}>Zavřít</Button>
@@ -387,7 +389,7 @@ export default function CustomerDocumentsTab({ userId }) {
             </div>
           )}
           <div className="flex justify-center" style={{ background: '#0f1a14', padding: 12, borderRadius: 8 }}>
-            <img src={viewImage.url} alt="doklad" style={{ maxWidth: '100%', maxHeight: 600, borderRadius: 4 }} />
+            <img src={viewImage.url} alt="doklad" className="max-h-[600px] max-lg:max-h-[60dvh]" style={{ maxWidth: '100%', borderRadius: 4 }} />
           </div>
           <div className="flex justify-end gap-3 mt-4">
             <Button onClick={() => handleDownload({ kind: 'verification', raw: viewImage.doc })}>Stáhnout</Button>

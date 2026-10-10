@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
-import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY } from '../../components/sortableTable'
 
 const SEASONAL_COLUMNS = [
   { label: 'Pobočka', key: 'locName', str: true },
@@ -233,7 +233,7 @@ export default function DoporuceniPresunu() {
                       <div className="text-xs mb-1" style={{ color: '#888' }}>Z: <span className="font-semibold" style={{ color: '#1a2e22' }}>{r.fromName}</span> ({(r.fromUtil * 100).toFixed(0)}%)</div>
                       <div className="text-xs mb-1" style={{ color: '#888' }}>→ Do: <span className="font-semibold" style={{ color: '#166534' }}>{r.toName}</span> ({(r.toUtil * 100).toFixed(0)}%)</div>
                       <div className="text-xs mb-3" style={{ color: '#854d0e' }}>Vyšší poptávka o {r.diffPp} p.b.</div>
-                      <button onClick={() => togglePlan(r.motoId, r.toLocId)} className="text-xs font-bold cursor-pointer" style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: isP ? '#74FB71' : '#f1faf7', color: '#1a2e22' }}>{isP ? '✓ Naplánováno' : '✓ Naplánovat'}</button>
+                      <button onClick={() => togglePlan(r.motoId, r.toLocId)} className="text-xs font-bold cursor-pointer max-lg:min-h-[40px]" style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: isP ? '#74FB71' : '#f1faf7', color: '#1a2e22' }}>{isP ? '✓ Naplánováno' : '✓ Naplánovat'}</button>
                     </div>
                   )
                 })}
@@ -245,13 +245,14 @@ export default function DoporuceniPresunu() {
           <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: '2px solid #e5e7eb' }}>
             <div className="text-lg font-extrabold mb-4" style={{ color: '#1a2e22' }}>Sezónní přesuny</div>
             {seasonalRows.length === 0 ? <div style={{ ...cardStyle, textAlign: 'center', padding: 24, color: '#888' }}>Žádná sezónní data</div> : (
-              <div style={{ ...cardStyle, overflowX: 'auto' }}>
-                <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+              // Telefon: řádky jako karty (mg-stack), obal bez bílé karty a paddingu
+              <div className={STACK_WRAP} style={{ ...cardStyle, padding: undefined, overflowX: 'auto' }}>
+                <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
                   <thead><SortableHeaderRow columns={SEASONAL_COLUMNS} sort={seasonalSort.sort} toggle={seasonalSort.toggle} /></thead>
                   <tbody>
                     {sortRows(seasonalRows, SEASONAL_COLUMNS, seasonalSort.sort).map((r, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                        <td className="py-2 px-3 font-semibold">{r.locName}</td>
+                        <td className="py-2 px-3 font-semibold mg-stack-full">{r.locName}</td>
                         <td className="py-2 px-3">{r.cat}</td>
                         {['leto', 'jaro_podzim', 'zima'].map(s => <td key={s} className="py-2 px-3"><span style={{ ...seasonCellStyle(r[s]), borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 700 }}>{(r[s] * 100).toFixed(0)}%</span></td>)}
                         <td className="py-2 px-3 font-bold text-xs" style={{ color: r.hasSeasonal ? '#854d0e' : '#166534' }}>{r.recommendation}</td>
@@ -269,8 +270,8 @@ export default function DoporuceniPresunu() {
             {bulkRelocations.length === 0 ? (
               <div style={{ ...cardStyle, textAlign: 'center', padding: 24 }}><div className="font-bold" style={{ color: '#166534' }}>✅ Žádné hromadné relokace potřeba</div></div>
             ) : (
-              <div style={{ ...cardStyle, overflowX: 'auto' }}>
-                <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+              <div className={STACK_WRAP} style={{ ...cardStyle, padding: undefined, overflowX: 'auto' }}>
+                <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
                   <thead><SortableHeaderRow columns={BULK_COLUMNS} sort={bulkSort.sort} toggle={bulkSort.toggle} /></thead>
                   <tbody>
                     {sortRows(bulkRelocations, BULK_COLUMNS, bulkSort.sort).map((r, i) => {
@@ -278,13 +279,13 @@ export default function DoporuceniPresunu() {
                       const isBP = bulkPlanned.some(b => `${b.category}_${b.fromLocationId}_${b.toLocationId}` === bKey)
                       return (
                         <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                          <td className="py-2 px-3 font-semibold">{r.category}</td>
+                          <td className="py-2 px-3 font-semibold mg-stack-full">{r.category}</td>
                           <td className="py-2 px-3">{r.fromLoc.name}</td>
                           <td className="py-2 px-3">{(r.fromUtil * 100).toFixed(1)}%</td>
                           <td className="py-2 px-3">{r.toLoc.name}</td>
                           <td className="py-2 px-3">{(r.toUtil * 100).toFixed(1)}%</td>
                           <td className="py-2 px-3 font-bold">{r.count}</td>
-                          <td className="py-2 px-3"><button onClick={() => toggleBulkPlan(r.category, r.fromLoc.id, r.toLoc.id, r.count)} className="text-xs font-bold cursor-pointer" style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: isBP ? '#e5e7eb' : '#f1faf7', color: isBP ? '#6b7280' : '#1a2e22' }}>{isBP ? '✓ Naplánováno' : 'Naplánovat'}</button></td>
+                          <td className="py-2 px-3 mg-stack-full"><button onClick={() => toggleBulkPlan(r.category, r.fromLoc.id, r.toLoc.id, r.count)} className="text-xs font-bold cursor-pointer max-lg:min-h-[40px]" style={{ padding: '5px 12px', borderRadius: 8, border: 'none', background: isBP ? '#e5e7eb' : '#f1faf7', color: isBP ? '#6b7280' : '#1a2e22' }}>{isBP ? '✓ Naplánováno' : 'Naplánovat'}</button></td>
                         </tr>
                       )
                     })}
@@ -297,16 +298,17 @@ export default function DoporuceniPresunu() {
           {/* Buy Score */}
           <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: '2px solid #e5e7eb' }}>
             <div className="text-lg font-extrabold mb-4" style={{ color: '#1a2e22' }}>Top kandidáti na dokoupení</div>
-            <div style={{ ...cardStyle, overflowX: 'auto' }}>
-              <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-                <thead><SortableHeaderRow columns={BUY_COLUMNS} sort={buySort.sort} toggle={buySort.toggle} /></thead>
+            <div className={STACK_WRAP} style={{ ...cardStyle, padding: undefined, overflowX: 'auto' }}>
+              <TabScroll>
+              <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
+                <thead><SortableHeaderRow columns={BUY_COLUMNS} sort={buySort.sort} toggle={buySort.toggle} stickyFirst /></thead>
                 <tbody>
                   {sortRows(buyScores, BUY_COLUMNS, buySort.sort).map((b, i) => {
                     const sc = b.buyScore > 0.4 ? '#166534' : b.buyScore >= 0.2 ? '#854d0e' : '#991b1b'
                     const sbg = b.buyScore > 0.4 ? '#dcfce7' : b.buyScore >= 0.2 ? '#fef9c3' : '#fecaca'
                     return (
                       <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                        <td className="py-2 px-3 font-semibold">{b.model}</td>
+                        <td className={`py-2 px-3 font-semibold mg-stack-full ${TAB_STICKY}`}>{b.model}</td>
                         <td className="py-2 px-3">{b.brand || '—'}</td>
                         <td className="py-2 px-3">{b.category}</td>
                         <td className="py-2 px-3">{(b.roi * 100).toFixed(1)}%</td>
@@ -320,6 +322,7 @@ export default function DoporuceniPresunu() {
                   {buyScores.length === 0 && <tr><td colSpan={8} className="py-4 text-center" style={{ color: '#888' }}>Žádné modely k hodnocení</td></tr>}
                 </tbody>
               </table>
+              </TabScroll>
             </div>
           </div>
 

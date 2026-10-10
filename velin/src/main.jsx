@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import './index.css'
+import { installStackTables } from './lib/stackTables'
 
 // Po nasazení nové verze na Vercel přestanou existovat staré hashované chunky —
 // dlouho otevřená záložka Velína pak při lazy-loadu stránky/modalu dostane 404
@@ -19,6 +20,8 @@ window.addEventListener('vite:preloadError', () => {
   try { sessionStorage.setItem('velin_chunk_reload_at', String(Date.now())) } catch { /* ignore */ }
   window.location.reload()
 })
+
+installStackTables()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import BulkActionsBar from '../../components/ui/BulkActionsBar'
 import { exportToCsv, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
@@ -12,6 +12,7 @@ import Pagination from '../../components/ui/Pagination'
 import { useDebugMode } from '../../hooks/useDebugMode'
 import AddReceivedModal from './AddReceivedModal'
 import { STATUS_MAP, STATUS_OPTIONS, FLEXI_STATUS_MAP, CATEGORY_LABELS, PER_PAGE, LS_KEY, AIDetail, CheckboxFilterGroup } from './receivedInvoicesConstants'
+import { TAB_ROW } from './FinanceAStack'
 
 const defaultFilters = { search: '', statuses: [], sort: 'date_desc' }
 
@@ -301,7 +302,7 @@ export default function ReceivedInvoicesTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <Table>
+          <Table stack="tablet">
             <thead>
               <TRow header>
                 <TH>
@@ -324,9 +325,10 @@ export default function ReceivedInvoicesTab() {
                 const catLabel = aiClass?.category ? (CATEGORY_LABELS[aiClass.category] || aiClass.category) : null
 
                 return (
-                  <>
-                    <TRow key={inv.id}>
-                      <TD>
+                  <Fragment key={inv.id}>
+                    <tr key={inv.id} className={TAB_ROW} style={{ borderBottom: '1px solid #d4e8e0' }}>
+                      {/* Karta (mobil/tablet): prázdná buňka bez zaškrtávátka se skryje */}
+                      <TD className={canPush ? undefined : 'max-lg:!hidden'}>
                         {canPush ? (
                           <input type="checkbox" checked={selected.has(inv.id)}
                             onChange={() => toggleSelect(inv.id)} className="cursor-pointer" style={{ accentColor: '#1a8a18' }} />
@@ -359,26 +361,26 @@ export default function ReceivedInvoicesTab() {
                         )}
                       </TD>
                       <TD>
-                        <div className="flex gap-1 flex-wrap">
+                        <div className="flex gap-1 flex-wrap max-lg:justify-end">
                           {inv.status !== 'paid' && (
-                            <button onClick={() => markPaid(inv)} className="text-sm font-bold cursor-pointer"
+                            <button onClick={() => markPaid(inv)} className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]"
                               style={{ color: '#1a8a18', background: 'none', border: 'none', padding: '4px 6px' }}>Zaplatit</button>
                           )}
                           {canPush && (
                             <button onClick={() => pushToFlexi(inv.id)}
                               disabled={isPushing}
-                              className="text-sm font-bold cursor-pointer"
+                              className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]"
                               style={{ color: '#2563eb', background: 'none', border: 'none', padding: '4px 6px', opacity: isPushing ? 0.5 : 1 }}>
                               {isPushing ? '…' : '→ Flexi'}
                             </button>
                           )}
                           {fe && (
-                            <button onClick={() => setDocView(fe)} className="text-sm font-bold cursor-pointer"
+                            <button onClick={() => setDocView(fe)} className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]"
                               style={{ color: '#7c3aed', background: 'none', border: 'none', padding: '4px 6px' }}>Doklad</button>
                           )}
                         </div>
                       </TD>
-                    </TRow>
+                    </tr>
                     {/* AI classification expanded row */}
                     {isExpanded && aiClass && (
                       <tr key={inv.id + '-ai'} style={{ background: '#faf5ff', borderBottom: '1px solid #d4e8e0' }}>
@@ -388,14 +390,14 @@ export default function ReceivedInvoicesTab() {
                             <AIDetail label="Navrhovaný účet" value={aiClass.suggested_account} mono />
                             <AIDetail label="Opakující se" value={aiClass.is_recurring ? 'Ano' : 'Ne'} />
                             <AIDetail label="Poznámka" value={aiClass.classification_note} />
-                            <div className="flex gap-2 ml-auto">
+                            <div className="flex gap-2 ml-auto max-lg:flex-wrap">
                               <button onClick={() => { acceptClassification(inv.id); setExpandedAI(null) }}
-                                className="text-sm font-bold cursor-pointer rounded-btn"
+                                className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[40px]"
                                 style={{ padding: '6px 14px', background: '#dcfce7', border: '1px solid #86efac', color: '#1a8a18' }}>
                                 Přijmout klasifikaci
                               </button>
                               <button onClick={() => { rejectClassification(inv.id); setExpandedAI(null) }}
-                                className="text-sm font-bold cursor-pointer rounded-btn"
+                                className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[40px]"
                                 style={{ padding: '6px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
                                 Odmítnout a upravit
                               </button>
@@ -404,10 +406,10 @@ export default function ReceivedInvoicesTab() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 )
               })}
-              {invoices.length === 0 && <TRow><TD>Žádné přijaté faktury</TD></TRow>}
+              {invoices.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="">Žádné přijaté faktury</TD></tr>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

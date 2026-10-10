@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { EmptyState } from './BranchHelpers'
-import { RpiSection, Btn, Chip, ErrorBoundary, formatUptime, ageSeconds, formatAge, txt, num, arr, isRpiDevice, ACCESSORIES_LABEL, boxLabel, isGeneratedZoneLabel } from './BranchRpiUi'
+import { RpiSection, Btn, Chip, HintChip, ErrorBoundary, formatUptime, ageSeconds, formatAge, txt, num, arr, isRpiDevice, ACCESSORIES_LABEL, boxLabel, isGeneratedZoneLabel } from './BranchRpiUi'
 import { OutdoorTile } from './BranchRpiOutdoorTile'
 import { parseHandover, HandoverDeviceInfo, ZoneHandoverInfo } from './BranchRpiHandover'
 import { ScreenMirrorButton } from './BranchRpiScreen'
+import { HintBlock } from './BranchRpiTouchHint'
 
 // ─── Řídicí jednotka (Raspberry) — živý stav zón + příkazy ──────────────────
 // Zdroj: kiosk_devices.status (snapshot z kontraktu §14, RPC kiosk_report_status),
@@ -174,14 +175,19 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
           if (viaOther) return <Chip tone={lteOk ? 'amber' : 'red'} title={`Internet jde přes ${via} (test mimo pobočku — na pobočce je jen LTE). LTE: ${lteOk ? 'v pořádku' : 'NEFUNKČNÍ — hlídka modem obnovuje'}`}>{`Internet přes ${via}${lteOk ? '' : ' · LTE nefunkční'}`}</Chip>
           return <Chip tone="green" title="Připojení k internetu (LTE)">Internet OK</Chip>
         })()}
-        {lanBad && <Chip tone="red" title={lanBad.title}>{lanBad.text}{lan.state ? ` (${txt(lan.state)})` : ''}</Chip>}
+        {/* I/O síť: co zkontrolovat je na PC v bublině, na dotyku pod „i“ u čipu (HintChip) */}
+        {lanBad && <HintChip tone="red" title={lanBad.title}>{lanBad.text}{lan.state ? ` (${txt(lan.state)})` : ''}</HintChip>}
+        {/* LTE / CPU / Disk: detail (RSRP, reconnecty, throttling, RAM) je na PC v bublině, na dotyku pod „i“ (HintChip);
+            „i“ jen když jednotka detail hlásí — jinak by rozbalilo samé pomlčky */}
         {lte.state != null && (
-          <Chip tone={lte.state === 'connected' ? 'blue' : 'amber'} title={`LTE ${txt(lte.state)} · RSRP ${txt(lte.rsrp)} dBm · reconnectů ${txt(lte.reconnects ?? 0)} · USB resetů ${txt(lte.usb_resets ?? 0)}`}>
+          <HintChip tone={lte.state === 'connected' ? 'blue' : 'amber'} title={`LTE ${txt(lte.state)} · RSRP ${txt(lte.rsrp)} dBm · reconnectů ${txt(lte.reconnects ?? 0)} · USB resetů ${txt(lte.usb_resets ?? 0)}`}>
             LTE {txt(lte.operator ?? lte.state)}{num(lte.rssi) != null ? ` ${num(lte.rssi)} dBm` : ''}
-          </Chip>
+          </HintChip>
         )}
-        {cpuTemp != null && <Chip tone={cpuTemp > 75 ? 'red' : cpuTemp > 65 ? 'amber' : 'gray'} title={`Throttled ${txt(sys.throttled)} · load ${txt(sys.load1)}`}>CPU {Math.round(cpuTemp)} °C</Chip>}
-        {diskFree != null && <Chip tone={diskFree < 10 ? 'red' : 'gray'} title={`Volná RAM ${txt(sys.mem_free_pct)} %`}>Disk {Math.round(diskFree)} % volné</Chip>}
+        {cpuTemp != null && <HintChip tone={cpuTemp > 75 ? 'red' : cpuTemp > 65 ? 'amber' : 'gray'} title={`Throttled ${txt(sys.throttled)} · load ${txt(sys.load1)}`}
+          hint={sys.throttled != null || sys.load1 != null ? `Throttled ${txt(sys.throttled)} · load ${txt(sys.load1)}` : null}>CPU {Math.round(cpuTemp)} °C</HintChip>}
+        {diskFree != null && <HintChip tone={diskFree < 10 ? 'red' : 'gray'} title={`Volná RAM ${txt(sys.mem_free_pct)} %`}
+          hint={sys.mem_free_pct != null ? `Volná RAM ${txt(sys.mem_free_pct)} %` : null}>Disk {Math.round(diskFree)} % volné</HintChip>}
         <span className="ml-auto text-[11px] font-bold" style={{ color: stale ? '#b45309' : '#6b8c7a' }}>
           {stale && hasStatus ? '⚠ ' : ''}stav {formatAge(statusAge)}{stale && statusAge != null ? ' — nemusí být aktuální' : ''}
         </span>
@@ -294,13 +300,14 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
         ) : zones.length === 0 ? (
           <EmptyState text="Jednotka nehlásí žádné zóny — Servisní režim → „Nastavení a servis“ → Dveře („Vytvořit dveře z kojí + doplnit HW mapu“) nebo Řídicí jednotka — hardware." />
         ) : (
-          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
+          // min(…, 100%): na úzkém telefonu (≤ 320 px) dlaždice nepřeteče kartu; od 250 px šířky beze změny
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(250px, 100%), 1fr))' }}>
             {zones.map((z, i) => <ZoneTile key={`${txt(z.zone)}-${txt(z.door_id)}-${i}`} z={z} door={doorMap[z.door_id]} handover={handover} onSend={send} onConfirm={confirmSend} onSaveDoor={onSaveDoor} servis={servis} />)}
           </div>
         )}
         {/* Venek (zóna bez dveří) — za mřížkou zón, jen když je v HW mapě nastaven */}
         {hasStatus && outdoor && (
-          <div className="grid gap-2 mt-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
+          <div className="grid gap-2 mt-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(250px, 100%), 1fr))' }}>
             <OutdoorTile o={outdoor} onSend={send} servis={servis} />
           </div>
         )}
@@ -355,28 +362,28 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor, servis = f
         {arr(z.io_problems).length > 0 && <span> ({arr(z.io_problems).map(txt).join(', ')})</span>}
       </div>
       {z.kind === 'accessories' && z.light_until_moto_code != null && (
-        <div className="text-[11px] mt-0.5" style={{ color: z.light_until_moto_code ? '#1a8a18' : '#b45309' }}
+        <HintBlock className="text-[11px] mt-0.5" style={{ color: z.light_until_moto_code ? '#1a8a18' : '#b45309' }}
           title={z.light_until_moto_code
             ? 'Světlo šatny po zavření dveří svítí dál a zhasne ho až kód motorky (pojistka: maximální doba relace).'
             : 'Světlo šatny zhasne po zavření dveří jako v kóji. Má-li svítit do kódu motorky: mapování dveří → Šatna → Světlo = „Šatna — svítí do kódu motorky“.'}>
           světlo: {z.light_until_moto_code ? 'svítí do kódu motorky' : 'zhasne po zavření — nastavte „svítí do kódu motorky“'}
-        </div>
+        </HintBlock>
       )}
       {z.contact_ref != null && (
-        <div className="text-[11px] mt-0.5 flex items-center gap-1 flex-wrap" style={{ color: '#1a2e22' }}
+        <HintBlock className="text-[11px] mt-0.5 flex items-center gap-1 flex-wrap" style={{ color: '#1a2e22' }} hint={servis ? undefined : null}
           title="Syrová hodnota dveřního vstupu z modulu (1 = kontakt sepnut mezi DI a DGND, 0 = rozpojeno; svorka COM na Relay (B) musí zůstat VOLNÁ) a úroveň, kterou program bere jako zavřeno (má být 1 — s 0 vypadá přerušený kabel jako zavřené dveře). „Změn od startu“ = kolikrát se vstup od startu jednotky změnil; 0 po otevření zámku = signál kontaktu nejde do modulu.">
           <span>vstup <b>{txt(z.contact_ref)}</b> = <b>{z.contact_raw === true ? 1 : z.contact_raw === false ? 0 : '?'}</b> · zavřeno = {txt(z.closed_level ?? '?')}{z.contact_changes != null && <> · změn od startu: <b>{txt(z.contact_changes)}</b>{num(z.contact_changes) === 0 && num(z.unlocks_since_start) > 0 && <span style={{ color: '#b91c1c' }}> (zámek otevřen {txt(z.unlocks_since_start)}×, vstup se nehnul)</span>}</>}</span>
           {servis && door && onSaveDoor && z.closed_level != null && (
             <Btn tone="gray" small title="Prohodí úroveň „Zavřeno =“ u těchto dveří (0 ↔ 1) a uloží do HW mapy — použijte, když program hlásí opačný stav, než dveře skutečně mají."
               onClick={() => onSaveDoor(door.id, { hw: { ...(door.hw || {}), closed_level: num(z.closed_level) === 1 ? 0 : 1 } })}>Otočit polaritu</Btn>
           )}
-        </div>
+        </HintBlock>
       )}
       {arr(z.signal_offline).length > 0 && (
-        <div className="text-[11px] mt-0.5" style={{ color: '#b45309' }}
+        <HintBlock className="text-[11px] mt-0.5" style={{ color: '#b45309' }}
           title="Modul světla nebo Shelly signalizace této zóny neodpovídá. Dveře a hudba fungují normálně — chybí jen světlo / barevná signalizace. Pokud modul není zapojený, smažte ho u dveří a ze seznamu zařízení.">
           světlo / signalizace nedostupné: {arr(z.signal_offline).map(txt).join(', ')}
-        </div>
+        </HintBlock>
       )}
       <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px]" style={{ color: '#6b8c7a' }}>
         <span>dveře <b style={{ color: doorColor }}>{doorTxt}</b></span>
@@ -394,7 +401,7 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor, servis = f
         </div>
       )}
       <ZoneHandoverInfo handover={handover} zoneNo={zoneNo} bookingId={z.booking_id} />
-      {z.last_event != null && <div className="text-[10px] mt-0.5" style={{ color: '#6b8c7a' }}>posl. událost: {txt(z.last_event)}</div>}
+      {z.last_event != null && <div className="text-[10px] max-lg:text-[11px] mt-0.5" style={{ color: '#6b8c7a' }}>posl. událost: {txt(z.last_event)}</div>}
       <div className="flex items-center gap-1 flex-wrap mt-2 pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
         <Btn tone="dark" small
           onClick={() => onConfirm(`Otevřít ${name} (zóna ${txt(zoneNo)})? Zámek dostane impulz a spustí se plná přístupová sekvence.`, 'open_door',
@@ -412,7 +419,7 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor, servis = f
         </Btn>
         {servis && <>
         <select value={sig} onChange={e => pickSignal(e.target.value)} title="Ruční nastavení signalizace"
-          className="rounded-btn text-[11px] font-bold outline-none cursor-pointer" style={{ padding: '4px 6px', background: '#fff', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+          className="rounded-btn text-[11px] font-bold outline-none cursor-pointer max-lg:min-h-[36px]" style={{ padding: '4px 6px', background: '#fff', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="">Signál…</option>
           {SIGNALS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>

@@ -3,6 +3,7 @@ import {
   KnowledgeExtraBlock, InfoBox,
   DEFAULT_TONE_OPTIONS, buildSystemPromptPreview,
 } from './_settingsPrimitives'
+import { useIsMobile, useMediaQuery } from '../../hooks/useIsMobile'
 
 const SETTINGS_KEY = 'ai_customer_messages_config'
 
@@ -77,11 +78,12 @@ Tvůj výstup je vždy NÁVRH. Admin má vždy poslední slovo.`,
 
 function ChannelsCard({ config, onChange }) {
   const channels = config.channels || {}
+  const isMobile = useIsMobile() // mobil/tablet: čitelnější popisy kanálů
   const toggle = (key) => onChange('channels', { ...channels, [key]: !channels[key] })
   return (
     <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#fff' }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1a14', marginBottom: 4 }}>Kanály, kde agent navrhuje odpovědi</div>
-      <div style={{ fontSize: 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
+      <div style={{ fontSize: isMobile ? 12 : 11, color: '#666', marginBottom: 10, lineHeight: 1.4 }}>
         Vypni kanál, kde zatím nechceš, aby agent zasahoval. Vypnutý kanál Velín ve frontě zpráv ignoruje.
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
@@ -109,7 +111,7 @@ function ChannelsCard({ config, onChange }) {
                   {on ? 'ON' : 'OFF'}
                 </span>
               </div>
-              <div style={{ fontSize: 10, color: '#666', lineHeight: 1.3 }}>{ch.desc}</div>
+              <div style={{ fontSize: isMobile ? 12 : 10, color: '#666', lineHeight: 1.3 }}>{ch.desc}</div>
             </button>
           )
         })}
@@ -120,12 +122,15 @@ function ChannelsCard({ config, onChange }) {
 
 function ModeCard({ config, onChange }) {
   const mode = config.mode || 'suggest_only'
+  // Telefon (< 768 px): volby režimu pod sebou
+  const isPhone = useMediaQuery('(max-width: 767px)')
+  const isMobile = useIsMobile()
   return (
     <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, border: `2px solid ${mode === 'auto_send' ? '#dc2626' : '#fbbf24'}`, background: mode === 'auto_send' ? '#fef2f2' : '#fffbeb' }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: mode === 'auto_send' ? '#991b1b' : '#92400e', marginBottom: 8 }}>
         Režim práce {mode === 'auto_send' ? '— POZOR: AUTO ODESÍLÁNÍ' : '— Bezpečný (jen návrhy)'}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isPhone ? 'minmax(0, 1fr)' : isMobile ? 'repeat(2, minmax(0, 1fr))' : '1fr 1fr', gap: 8 }}>
         {MODES.map(m => {
           const active = mode === m.value
           return (
@@ -142,7 +147,7 @@ function ModeCard({ config, onChange }) {
               <div style={{ fontSize: 12, fontWeight: 800, color: active ? '#0f1a14' : '#666', marginBottom: 4 }}>
                 {m.label}
               </div>
-              <div style={{ fontSize: 10, color: '#555', lineHeight: 1.4 }}>{m.desc}</div>
+              <div style={{ fontSize: isMobile ? 12 : 10, color: '#555', lineHeight: 1.4 }}>{m.desc}</div>
             </button>
           )
         })}

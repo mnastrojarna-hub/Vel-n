@@ -3,7 +3,9 @@ import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
-import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY, stickyStripe } from '../../components/sortableTable'
+import { useMediaQuery } from '../../hooks/useIsMobile'
+import { PHONE_QUERY, sideLegend } from './AnalyzaWrapTick'
 
 const COLORS = ['#74FB71', '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d', '#eab308', '#f59e0b', '#dc2626', '#7c3aed']
 
@@ -33,6 +35,7 @@ export default function AnalyzaZakazniku() {
   const [period, setPeriod] = useState({ type: 'all' })
   const [appStats, setAppStats] = useState(null)
   const custSort = useTableSort(CUSTOMER_COLUMNS, { key: 'revenue', dir: 'desc' })
+  const isPhone = useMediaQuery(PHONE_QUERY)
 
   useEffect(() => { loadData() }, [])
 
@@ -220,13 +223,13 @@ export default function AnalyzaZakazniku() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <div style={cardStyle}>
           <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Segmentace zákazníků</div>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={isPhone ? 270 : 220}>
             <PieChart>
               <Pie data={segmentData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2}>
                 {segmentData.map((s, i) => <Cell key={i} fill={s.color} />)}
               </Pie>
               <Tooltip />
-              <Legend layout="vertical" align="right" verticalAlign="middle" />
+              <Legend {...sideLegend(isPhone)} />
             </PieChart>
           </ResponsiveContainer>
           <div className="flex flex-wrap gap-2 mt-3">
@@ -255,7 +258,8 @@ export default function AnalyzaZakazniku() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <div style={cardStyle}>
           <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Zdroj rezervací</div>
-          <ResponsiveContainer width="100%" height={180}>
+          {/* telefon: legenda se zalomí do 2 řádků → vyšší graf, ať nepřekryje koláč */}
+          <ResponsiveContainer width="100%" height={isPhone ? 220 : 180}>
             <PieChart>
               <Pie data={sourceData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} paddingAngle={2}>
                 {sourceData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -299,30 +303,33 @@ export default function AnalyzaZakazniku() {
       </div>
 
       {/* Top customers table */}
-      <div style={{ ...cardStyle, overflowX: 'auto', marginBottom: 24 }}>
+      {/* Telefon: karty (mg-stack); tablet: posun do strany s přilepeným jménem */}
+      <div className={STACK_WRAP} style={{ ...cardStyle, padding: undefined, overflowX: 'auto', marginBottom: 24 }}>
         <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Top zákazníci podle obratu</div>
         <div className="mb-2" style={{ fontSize: 11, color: '#888' }}>Zobrazuje se 20 zákazníků dle zvoleného řazení (klik na záhlaví sloupce, ▼/▲).</div>
-        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+        <TabScroll>
+        <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
           <thead>
-            <SortableHeaderRow columns={CUSTOMER_COLUMNS} sort={custSort.sort} toggle={custSort.toggle} />
+            <SortableHeaderRow columns={CUSTOMER_COLUMNS} sort={custSort.sort} toggle={custSort.toggle} stickyFirst />
           </thead>
           <tbody>
             {sortRows(customerStats, CUSTOMER_COLUMNS, custSort.sort).slice(0, 20).map((c, i) => (
-              <tr key={c.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent' }}>
-                <td className="py-2 px-3 font-semibold">{c.full_name || c.email || '—'}</td>
+              <tr key={c.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : undefined }}>
+                <td className={`py-2 px-3 font-semibold mg-stack-full ${TAB_STICKY}`} style={stickyStripe(i)}>{c.full_name || c.email || '—'}</td>
                 <td className="py-2 px-3">{c.city || '—'}</td>
                 <td className="py-2 px-3">{c.bookingCount}</td>
                 <td className="py-2 px-3">{c.avgDays.toFixed(1)}</td>
                 <td className="py-2 px-3 font-bold" style={{ color: '#166534' }}>{Math.round(c.revenue).toLocaleString('cs-CZ')} Kč</td>
                 <td className="py-2 px-3">{c.avgRating != null ? `${c.avgRating.toFixed(1)}` : '—'}</td>
                 <td className="py-2 px-3">
-                  <div className="flex flex-wrap gap-1">{c.categories.map(cat => <span key={cat} style={{ background: '#f3f4f6', borderRadius: 6, padding: '1px 6px', fontSize: 10, fontWeight: 700 }}>{cat}</span>)}</div>
+                  <div className="flex flex-wrap gap-1 max-md:justify-end">{c.categories.map(cat => <span key={cat} style={{ background: '#f3f4f6', borderRadius: 6, padding: '1px 6px', fontSize: 10, fontWeight: 700 }}>{cat}</span>)}</div>
                 </td>
                 <td className="py-2 px-3 text-xs">{c.lastBooking ? new Date(c.lastBooking).toLocaleDateString('cs-CZ') : '—'}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        </TabScroll>
       </div>
 
       {!has3mo && <NoData />}

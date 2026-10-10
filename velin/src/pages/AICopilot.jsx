@@ -12,6 +12,15 @@ import { buildAgentPromptsText } from '../lib/aiAgentPrompts'
 import { buildAllAgentMemory, autoExtractFlash } from '../lib/aiAgentMemory'
 import { recordOutcome } from '../lib/aiLearning'
 import { sanitizeHtml } from '../lib/sanitize'
+import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
+import { renderMarkdownMobile, useCopilotKeyboard, CopilotComposerMobile } from './AICopilotMobile'
+import AiCopilotPhoneHeader from '../components/ai/AiCopilotPhoneHeader'
+
+// Telefon na šířku (nízký displej). Karta chatu pak sahá od 12 px pod lištou až nad plovoucí
+// tlačítko LOG (34 px od spodu); záporné okraje ruší horní md:p-6 a spodní rezervu 60 px obsahu
+// Layoutu, aby se stránka neposouvala. Výška pro zprávy ~170 px místo ~124 px (844×390).
+const LOW_PHONE = '(max-width: 1023px) and (max-height: 520px)'
+const LOW_PHONE_CARD = { height: 'calc(100dvh - 112px)', marginBottom: -20 }
 
 const QUICK_ACTIONS = [
   { cat: '📊 Přehledy', items: ['Kompletní denní přehled', 'Jak jsme na tom vs. minulý měsíc?', 'Týdenní statistiky'] },
@@ -49,9 +58,28 @@ export default function AICopilot() {
   const [sidebarTab, setSidebarTab] = useState('conversations') // conversations | agents | activity
   const [configAgentId, setConfigAgentId] = useState(null)
   const bottomRef = useRef(null)
+  const msgsRef = useRef(null)
+  // Mobil/tablet (< 1024 px): větší dotykové cíle. Telefon (< 768 px, i na šířku — nízký displej):
+  // jeden panel naráz — chat, nebo postranní panel (konverzace / agenti / log) s tlačítkem zpět.
+  // Při psaní s otevřenou klávesnicí je chat v překryvu přes viditelnou plochu. Desktop beze změny.
+  const isMobile = useIsMobile()
+  const isPhone = useMediaQuery(`(max-width: 767px), ${LOW_PHONE}`)
+  const isLowPhone = useMediaQuery(LOW_PHONE)
+  const kbd = useCopilotKeyboard(isMobile)
+  const [mView, setMView] = useState('chat')
+  const showSide = !isPhone || mView === 'side'
+  const showChat = !isPhone || mView === 'chat'
 
   useEffect(() => { loadConversations() }, [])
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+  useEffect(() => {
+    // Mobil/tablet: posouvat jen seznam zpráv (ne celou stránku); prázdný úvod (rychlé akce) nechat nahoře
+    if (isMobile) {
+      const el = msgsRef.current
+      if (el && messages.length && showChat) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+      return
+    }
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, mView, kbd.open])
 
   const enabledCount = AGENTS.filter(a => agentConfig[a.id]?.enabled).length
 
@@ -195,11 +223,14 @@ export default function AICopilot() {
         </div>
       )}
 
-      <div className="flex rounded-card shadow-card overflow-hidden bg-white" style={{ height: 'calc(100vh - 140px)' }}>
+      <div className={`flex rounded-card shadow-card overflow-hidden bg-white${isLowPhone && !kbd.style && !debugMode ? ' md:-mt-3' : ''}`} style={kbd.style || (isLowPhone ? LOW_PHONE_CARD : { height: isMobile ? 'max(calc(100dvh - 140px), 240px)' : 'calc(100vh - 140px)' })}>
         {/* Sidebar */}
-        <div className="flex-shrink-0 flex flex-col" style={{ width: 240, borderRight: '1px solid #d4e8e0' }}>
-          <div className="p-3" style={{ borderBottom: '1px solid #d4e8e0' }}>
-            <Button green onClick={startNew} style={{ width: '100%', fontSize: 13, padding: '6px 12px' }}>+ Nová konverzace</Button>
+        <div className="flex-shrink-0 flex flex-col" style={isPhone ? { width: '100%', display: showSide ? undefined : 'none' } : { width: isMobile ? 290 : 240, borderRight: '1px solid #d4e8e0' }}>
+          <div className="p-3" style={{ borderBottom: '1px solid #d4e8e0', ...(isPhone ? { display: 'flex', gap: 8 } : null) }}>
+            {isPhone && (
+              <button onClick={() => setMView('chat')} className="shrink-0 rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '0 12px', minHeight: 40, background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>‹ Zpět</button>
+            )}
+            <Button green onClick={() => { startNew(); setMView('chat') }} style={{ width: '100%', fontSize: 13, padding: '6px 12px', ...(isMobile ? { minHeight: 40, justifyContent: 'center' } : null) }}>+ Nová konverzace</Button>
           </div>
 
           {/* Sidebar tabs */}
@@ -210,7 +241,8 @@ export default function AICopilot() {
               { id: 'activity', icon: '📋', label: 'Log' },
             ].map(t => (
               <button key={t.id} onClick={() => setSidebarTab(t.id)} style={{
-                flex: 1, padding: '6px 4px', fontSize: 10, fontWeight: sidebarTab === t.id ? 700 : 400,
+                flex: 1, padding: isMobile ? '10px 2px' : '6px 4px', fontSize: isPhone ? 12 : isMobile ? 11 : 10, fontWeight: sidebarTab === t.id ? 700 : 400,
+                ...(isMobile ? { whiteSpace: 'nowrap', minHeight: 40 } : null),
                 border: 'none', cursor: 'pointer', background: sidebarTab === t.id ? '#f1faf7' : '#fff',
                 color: sidebarTab === t.id ? '#0f1a14' : '#999',
                 borderBottom: sidebarTab === t.id ? '2px solid #74FB71' : 'none',
@@ -229,13 +261,13 @@ export default function AICopilot() {
           ) : (
             <div className="flex-1 overflow-auto">
               {conversations.map(c => (
-                <div key={c.id} onClick={() => selectConversation(c)} className="cursor-pointer transition-colors" style={{
+                <div key={c.id} onClick={() => { selectConversation(c); setMView('chat') }} className="cursor-pointer transition-colors" style={{
                   padding: '10px 14px', background: activeConv?.id === c.id ? '#f1faf7' : 'transparent',
                   borderBottom: '1px solid #d4e8e0', borderLeft: activeConv?.id === c.id ? '3px solid #74FB71' : '3px solid transparent',
                 }}>
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-bold truncate" style={{ color: '#0f1a14', flex: 1 }}>{c.title || 'Konverzace'}</div>
-                    <button onClick={(e) => deleteConversation(e, c.id)} className="ml-1 flex-shrink-0 rounded-full hover:bg-red-100 transition-colors" style={{ width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 14, lineHeight: 1 }} title="Smazat">✕</button>
+                    <button onClick={(e) => deleteConversation(e, c.id)} className="ml-1 flex-shrink-0 rounded-full hover:bg-red-100 transition-colors" style={{ width: isMobile ? 36 : 22, height: isMobile ? 36 : 22, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 14, lineHeight: 1 }} title="Smazat">✕</button>
                   </div>
                   <div className="text-sm mt-0.5" style={{ color: '#1a2e22' }}>{c.updated_at ? new Date(c.updated_at).toLocaleDateString('cs-CZ') : ''}</div>
                 </div>
@@ -245,11 +277,15 @@ export default function AICopilot() {
         </div>
 
         {/* Chat */}
-        <div className="flex-1 flex flex-col">
+        <div className={isMobile ? 'flex-1 flex flex-col min-w-0' : 'flex-1 flex flex-col'} style={showChat ? undefined : { display: 'none' }}>
+          {isPhone ? (kbd.open && kbd.height < 500 ? null :
+            <AiCopilotPhoneHeader compact={isLowPhone} enabledCount={enabledCount} onBack={() => setMView('side')} />
+          ) : (
           <div className="p-4 flex items-center" style={{ borderBottom: '1px solid #d4e8e0' }}>
             <span className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>AI Copilot</span>
             <span className="ml-2 text-sm" style={{ color: '#1a2e22' }}>— {enabledCount} agentů aktivních</span>
           </div>
+          )}
 
           {messages.length > 50 && (
             <div style={{ background: '#fef3c7', borderBottom: '1px solid #fbbf24', padding: '6px 14px', fontSize: 13, color: '#92400e' }}>
@@ -257,7 +293,7 @@ export default function AICopilot() {
             </div>
           )}
 
-          <div className="flex-1 overflow-auto p-4 space-y-3" style={{ background: '#f8fcfa' }}>
+          <div ref={msgsRef} className="flex-1 overflow-auto p-4 space-y-3" style={{ background: '#f8fcfa' }}>
             {messages.length === 0 && (
               <div className="text-center py-8">
                 <div className="text-3xl mb-3">🤖</div>
@@ -265,17 +301,17 @@ export default function AICopilot() {
                 <div className="text-sm mt-1 mb-4" style={{ color: '#1a2e22' }}>
                   {enabledCount} agentů | 100+ nástrojů | Plný přístup k celé databázi + encyklopedie a návod k obsluze systému
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-left" style={{ maxWidth: 600, margin: '0 auto' }}>
+                <div className={isPhone ? 'grid grid-cols-1 gap-2 text-left' : 'grid grid-cols-2 gap-2 text-left'} style={{ maxWidth: 600, margin: '0 auto' }}>
                   {QUICK_ACTIONS.map(qa => (
                     <div key={qa.cat} style={{ border: '1px solid #d4e8e0', borderRadius: 8, overflow: 'hidden' }}>
-                      <button onClick={() => setOpenCats(o => ({ ...o, [qa.cat]: !o[qa.cat] }))} className="w-full text-left text-sm font-bold cursor-pointer flex items-center justify-between" style={{ padding: '8px 12px', background: openCats[qa.cat] ? '#f1faf7' : '#fff', color: '#0f1a14' }}>
+                      <button onClick={() => setOpenCats(o => ({ ...o, [qa.cat]: !o[qa.cat] }))} className="w-full text-left text-sm font-bold cursor-pointer flex items-center justify-between" style={{ padding: '8px 12px', background: openCats[qa.cat] ? '#f1faf7' : '#fff', color: '#0f1a14', ...(isMobile ? { minHeight: 44 } : null) }}>
                         {qa.cat}
                         <span style={{ fontSize: 10, color: '#1a2e22' }}>{openCats[qa.cat] ? '▲' : '▼'}</span>
                       </button>
                       {openCats[qa.cat] && (
                         <div style={{ borderTop: '1px solid #d4e8e0' }}>
                           {qa.items.map(q => (
-                            <button key={q} onClick={() => handleSendWithMessage(q)} className="w-full text-left text-sm cursor-pointer hover:bg-green-50 transition-colors" style={{ padding: '6px 12px', color: '#1a2e22', borderBottom: '1px solid #f1faf7' }}>{q}</button>
+                            <button key={q} onClick={() => handleSendWithMessage(q)} className="w-full text-left text-sm cursor-pointer hover:bg-green-50 transition-colors" style={{ padding: isMobile ? '10px 12px' : '6px 12px', color: '#1a2e22', borderBottom: '1px solid #f1faf7' }}>{q}</button>
                           ))}
                         </div>
                       )}
@@ -288,15 +324,15 @@ export default function AICopilot() {
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
                 {m.role === 'assistant' && <div className="flex-shrink-0 text-lg mt-1">🤖</div>}
-                <div className="rounded-card max-w-[75%]" style={{ padding: '10px 14px', background: m.role === 'user' ? '#74FB71' : '#fff', color: m.role === 'user' ? '#1a2e22' : '#0f1a14', boxShadow: '0 2px 8px rgba(15,26,20,.06)' }}>
+                <div className={isPhone ? 'rounded-card max-w-[85%] min-w-0' : 'rounded-card max-w-[75%]'} style={{ padding: '10px 14px', background: m.role === 'user' ? '#74FB71' : '#fff', color: m.role === 'user' ? '#1a2e22' : '#0f1a14', boxShadow: '0 2px 8px rgba(15,26,20,.06)', ...(isMobile ? { overflowWrap: 'anywhere' } : null) }}>
                   {m.role === 'user' ? (
                     <p className="text-sm" style={{ lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{m.content}</p>
                   ) : (
-                    <div className="text-sm" style={{ lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(m.content)) }} />
+                    <div className="text-sm" style={{ lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(isMobile ? renderMarkdownMobile(m.content, renderMarkdown) : renderMarkdown(m.content)) }} />
                   )}
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm" style={{ color: m.role === 'user' ? '#1a6a18' : '#1a2e22' }}>{m.timestamp ? new Date(m.timestamp).toLocaleTimeString('cs-CZ') : ''}</span>
-                    {m.isError && <button onClick={() => { const q = getLastUserMessage(); if (q) handleSendWithMessage(q) }} className="text-sm cursor-pointer hover:underline" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>Zkusit znovu</button>}
+                    {m.isError && <button onClick={() => { const q = getLastUserMessage(); if (q) handleSendWithMessage(q) }} className="text-sm cursor-pointer hover:underline" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0, ...(isMobile ? { minHeight: 32, padding: '0 6px' } : null) }}>Zkusit znovu</button>}
                   </div>
                 </div>
                 {m.role === 'user' && <div className="flex-shrink-0 text-lg mt-1">👤</div>}
@@ -314,12 +350,16 @@ export default function AICopilot() {
             <div ref={bottomRef} />
           </div>
 
+          {isMobile ? (
+            <CopilotComposerMobile value={input} onChange={setInput} onSend={() => handleSendWithMessage(input.trim())} sending={sending} setFocused={kbd.setFocused} />
+          ) : (
           <div className="p-3 flex gap-2" style={{ borderTop: '1px solid #d4e8e0' }}>
             <textarea value={input} onChange={e => setInput(e.target.value)} placeholder="Napište dotaz nebo příkaz…" className="flex-1 rounded-btn text-sm outline-none" style={{ padding: '10px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: 44, maxHeight: 120, resize: 'vertical' }} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendWithMessage(input.trim()) } }} />
             <Button green onClick={() => handleSendWithMessage(input.trim())} disabled={sending || !input.trim()}>
               {sending ? '...' : 'Odeslat'}
             </Button>
           </div>
+          )}
         </div>
       </div>
     </>

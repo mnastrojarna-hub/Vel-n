@@ -47,12 +47,12 @@ export default function BlogSection() {
       </div>
 
       {/* Tlačítko nový článek */}
-      <div className="flex items-center gap-3 mb-4 p-4 rounded-card" style={{ background: '#f1faf7', border: '2px dashed #74FB71' }}>
-        <div className="flex-1">
+      <div className="flex items-center gap-3 mb-4 p-4 rounded-card max-lg:flex-wrap" style={{ background: '#f1faf7', border: '2px dashed #74FB71' }}>
+        <div className="flex-1 max-lg:min-w-[200px]">
           <div className="text-sm font-extrabold" style={{ color: '#1a2e22' }}>Přidat nový článek na blog</div>
           <div className="text-xs mt-0.5" style={{ color: '#6b8f7b' }}>Průvodce vás provede 4 kroky: název, obsah, obrázky a publikace</div>
         </div>
-        <Button green onClick={() => setShowWizard(true)}>+ Nový článek</Button>
+        <Button green onClick={() => setShowWizard(true)} className="max-lg:ml-auto">+ Nový článek</Button>
       </div>
 
       {/* Seznam článků */}
@@ -88,7 +88,7 @@ function ArticleRow({ article, onToggle, onDelete, onEdit }) {
   const a = article
   const tags = a.tags || []
   return (
-    <div className="flex items-center gap-3 p-3 rounded-card" style={{ background: '#fff', border: '1px solid #e2ece7' }}>
+    <div className="flex items-center gap-3 p-3 rounded-card max-lg:flex-wrap" style={{ background: '#fff', border: '1px solid #e2ece7' }}>
       {/* Náhled obrázku */}
       {a.image_url ? (
         <div className="shrink-0 rounded overflow-hidden" style={{ width: 60, height: 40 }}>
@@ -99,10 +99,11 @@ function ArticleRow({ article, onToggle, onDelete, onEdit }) {
         <div className="shrink-0 flex items-center justify-center rounded" style={{ width: 60, height: 40, background: '#e2ece7', color: '#9ab3a5', fontSize: 18 }}>📝</div>
       )}
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-extrabold text-sm truncate" style={{ color: '#0f1a14' }}>{a.title}</span>
+      {/* Info (mobil: akce se zalomí pod něj) */}
+      <div className="flex-1 min-w-0 max-lg:min-w-[180px]">
+        {/* Mobil: celý název se zalomí (místo uříznutí na pár znaků), štítek pod něj */}
+        <div className="flex items-center gap-2 max-lg:flex-wrap">
+          <span className="font-extrabold text-sm truncate max-lg:whitespace-normal max-lg:[overflow-wrap:anywhere]" style={{ color: '#0f1a14' }}>{a.title}</span>
           <span
             className="text-xs font-bold rounded-btn shrink-0"
             style={{
@@ -122,7 +123,7 @@ function ArticleRow({ article, onToggle, onDelete, onEdit }) {
       </div>
 
       {/* Akce */}
-      <div className="flex gap-1 shrink-0">
+      <div className="flex gap-1 shrink-0 max-lg:ml-auto max-lg:gap-2">
         <SmBtn label="Upravit" onClick={onEdit} />
         <SmBtn label={a.published ? 'Skrýt' : 'Zveřejnit'} onClick={onToggle} />
         <SmBtn label="Smazat" onClick={onDelete} danger />
@@ -133,7 +134,7 @@ function ArticleRow({ article, onToggle, onDelete, onEdit }) {
 
 function SmBtn({ label, onClick, danger }) {
   return (
-    <button onClick={onClick} className="rounded-btn text-xs font-bold cursor-pointer"
+    <button onClick={onClick} className="rounded-btn text-xs font-bold cursor-pointer max-lg:min-h-[36px] max-lg:!px-3"
       style={{
         padding: '4px 10px', border: 'none',
         background: danger ? '#fee2e2' : '#f1faf7',

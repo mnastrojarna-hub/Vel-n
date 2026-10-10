@@ -7,6 +7,8 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
+import { useMediaQuery } from '../../hooks/useIsMobile'
+import { TAB2, TOUCH_BTNS, CB_ROW } from './FinanceBStack'
 
 const PER_PAGE = 25
 
@@ -22,6 +24,7 @@ export default function SuppliersTab() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [statsSupplier, setStatsSupplier] = useState(null)
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const isPhone = useMediaQuery('(max-width: 767px)')
 
   useEffect(() => { load() }, [page, search])
 
@@ -55,9 +58,9 @@ export default function SuppliersTab() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat dodavatele, IČO…" />
-        <div className="ml-auto">
-          <Button green onClick={() => setShowAdd(true)}>+ Nový dodavatel</Button>
+        <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat dodavatele, IČO…" fullWidth={isPhone} />
+        <div className="ml-auto max-md:w-full">
+          <Button green onClick={() => setShowAdd(true)} className="max-md:w-full max-md:justify-center">+ Nový dodavatel</Button>
         </div>
       </div>
 
@@ -79,7 +82,7 @@ export default function SuppliersTab() {
             ], suppliers.filter(s => selectedIds.has(s.id))) },
             { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} dodavatelů?', onClick: async () => { await bulkDelete('suppliers', [...selectedIds], 'suppliers_acc_bulk_deleted'); setSelectedIds(new Set()); load() } },
           ]} />
-          <Table>
+          <Table stack="tablet" className={`${TAB2} ${CB_ROW} ${TOUCH_BTNS}`}>
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={suppliers} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
@@ -97,8 +100,8 @@ export default function SuppliersTab() {
                   <TD mono>{s.bank_account || '—'}</TD>
                   <TD>{s.default_category || '—'}</TD>
                   <TD>{s.contact_email || '—'}</TD>
-                  <TD>
-                    <div className="flex gap-1">
+                  <TD label="" className="mg-stack-full">
+                    <div className="flex gap-1 max-lg:flex-wrap">
                       <button onClick={() => setStatsSupplier(s)}
                         className="text-sm font-bold cursor-pointer"
                         style={{ color: '#7c3aed', background: 'none', border: 'none', padding: '4px 6px' }}>
@@ -118,7 +121,7 @@ export default function SuppliersTab() {
                   </TD>
                 </TRow>
               ))}
-              {suppliers.length === 0 && <TRow><TD>Žádní dodavatelé</TD></TRow>}
+              {suppliers.length === 0 && <TRow><TD label="" className="mg-stack-full">Žádní dodavatelé</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -208,7 +211,7 @@ function SupplierModal({ supplier, onClose, onSaved }) {
         </div>
         <div><Label>Adresa</Label><input value={form.address} onChange={e => set('address', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Bankovní účet</Label><input value={form.bank_account} onChange={e => set('bank_account', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label>Výchozí kategorie</Label>
             <select value={form.default_category} onChange={e => set('default_category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
@@ -266,7 +269,8 @@ function SupplierStatsModal({ supplier, onClose }) {
   return (
     <Modal open title={`Analýza — ${supplier.name}`} onClose={onClose}>
       <div style={{ maxHeight: '74vh', overflowY: 'auto' }}>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+        {/* telefon (< 640 px) dlaždice pod sebou, tablet 2 sloupce — popisky se nelámou uprostřed slova; desktop 3 sloupce */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
           <Stat label="Dokladů celkem" value={count} color="#1a2e22" />
           <Stat label="Zaúčtováno/zaplaceno" value={approved} color="#1a8a18" />
           <Stat label="Obrat celkem" value={fmt(total)} color="#1a2e22" />
@@ -295,7 +299,7 @@ function SupplierStatsModal({ supplier, onClose }) {
 function Stat({ label, value, color }) {
   return (
     <div className="p-3 rounded-card" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-[10px] max-lg:text-[11px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-base font-extrabold" style={{ color }}>{value}</div>
     </div>
   )

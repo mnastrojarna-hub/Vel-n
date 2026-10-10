@@ -12,6 +12,8 @@ import { StatCard, SmallBtn } from './BranchHelpers'
 import BranchModal from './BranchModal'
 import BranchDetailModal from './BranchDetailModal'
 import FleetUpdatesBlock from './FleetUpdates'
+import BranchesListMobile from './BranchesListMobile'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 class BranchesErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null } }
@@ -58,6 +60,7 @@ function Branches() {
   const [bookingStats, setBookingStats] = useState({})
   const [detailTab, setDetailTab] = useState(0)
   const [searchParams, setSearchParams] = useSearchParams()
+  const isMobile = useIsMobile()               // < 1024 px: karty místo tabulky (BranchesListMobile)
   const kioskAlerts = useKioskAlerts()          // poplach samoobsluhy (dveře bez kódu) → ikona v řádku pobočky
   const alertsByBranch = {}
   for (const a of kioskAlerts.alerts) (alertsByBranch[a.branch_id] ||= []).push(a)
@@ -248,8 +251,8 @@ function Branches() {
 
   return (
     <div>
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+      {/* Summary cards (telefon: 2 sloupce, poslední přes celou šířku — bez osamocené karty) */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5 max-md:[&>:last-child]:col-span-2">
         <StatCard label="Celkem poboček" value={branches.length} color="#0f1a14" />
         <StatCard label="Otevřené" value={openCount} color="#1a8a18" />
         <StatCard label="Motorek celkem" value={totalMotos} color="#2563eb" />
@@ -258,8 +261,10 @@ function Branches() {
       </div>
 
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Hledat pobočku, kód, město..." />
-        <div className="flex gap-1">
+        <div className="max-lg:w-full">
+          <SearchInput value={search} onChange={setSearch} placeholder="Hledat pobočku, kód, město..." fullWidth={isMobile} />
+        </div>
+        <div className="flex flex-wrap lg:flex-nowrap gap-1">
           {[
             { key: 'all', label: 'Vše' },
             { key: 'open', label: 'Otevřené' },
@@ -268,7 +273,7 @@ function Branches() {
             { key: 'inactive', label: 'Neaktivní' },
           ].map(f => (
             <button key={f.key} onClick={() => setStatusFilter(f.key)}
-              className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
+              className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
               style={{
                 padding: '6px 12px',
                 background: statusFilter === f.key ? '#1a2e22' : '#f1faf7',
@@ -320,6 +325,10 @@ function Branches() {
             <Button green onClick={() => { setEditing(null); setShowModal(true) }}>+ Vytvořit pobočku</Button>
           </div>
         </Card>
+      ) : isMobile ? (
+        <BranchesListMobile branches={branches} filtered={filtered} stats={stats} bookingStats={bookingStats} alertsByBranch={alertsByBranch}
+          onOpen={b => { setDetailTab(0); setDetail(b) }} onToggleOpen={toggleOpen} onToggleActive={toggleActive}
+          onEdit={b => { setEditing(b); setShowModal(true) }} onDelete={b => setDeleteConfirm(b)} />
       ) : (
         <Table>
           <thead>

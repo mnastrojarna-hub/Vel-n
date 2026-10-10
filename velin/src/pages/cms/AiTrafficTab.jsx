@@ -15,9 +15,10 @@
  * po překročení 1000 záznamů v okně by se KPI tvrdě uťala. RPC vrací
  * jeden JSON s agregáty bez ohledu na velikost tabulky.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 // Známé statické stránky webu — drží se shodně s sitemap.php
 const STATIC_PAGES = [
@@ -106,6 +107,12 @@ export default function AiTrafficTab() {
   const [pageDetail, setPageDetail] = useState(null)
   const [pageDetailLoading, setPageDetailLoading] = useState(false)
   const [trafficMissing, setTrafficMissing] = useState(false)
+  // Mobil/tablet: detail stránky se vykreslí pod dlouhým seznamem → po výběru na něj posuň
+  const isMobile = useIsMobile()
+  const detailRef = useRef(null)
+  useEffect(() => {
+    if (isMobile && selectedPath) requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }, [selectedPath, isMobile])
 
   useEffect(() => { loadData() }, [period])
 
@@ -228,10 +235,10 @@ export default function AiTrafficTab() {
             návštěvnosti (ta je v <strong>Analýza → Návštěvnost</strong>). Které stránky AI čtou a kolik vede k rezervaci.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 max-lg:flex-wrap">
           {PERIODS.map(p => (
             <button key={p.id} onClick={() => setPeriod(p.id)}
-              className="rounded-btn text-xs font-bold cursor-pointer"
+              className="rounded-btn text-xs font-bold cursor-pointer max-lg:min-h-[40px]"
               style={{
                 padding: '6px 14px',
                 background: period === p.id ? '#74FB71' : '#f1faf7',
@@ -258,10 +265,11 @@ export default function AiTrafficTab() {
       )}
 
       {/* Tabulka per stránka */}
-      <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5' }}>
+      {/* Telefon: řádky tabulky jako karty (mg-stack), obal bez bílého pozadí */}
+      <div className="mg-stack-wrap max-md:!p-0 max-md:!border-0" style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5' }}>
         <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>AI requesty per stránka</h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="w-full text-xs">
+        <div className="mg-stack-wrap" style={{ overflowX: 'auto' }}>
+          <table className="w-full text-xs mg-stack">
             <thead>
               <tr style={{ borderBottom: '1px solid #e3e8e5', textAlign: 'left' }}>
                 <th className="p-2">Stránka</th>
@@ -273,19 +281,20 @@ export default function AiTrafficTab() {
             </thead>
             <tbody>
               {pageRows.map((p, i) => (
-                <tr key={p.path} style={{
+                <tr key={p.path} className="max-md:relative" style={{
                   borderBottom: '1px solid #f1f1f1',
                   background: selectedPath === p.path ? '#f1faf7' : (i % 2 ? '#fafdfb' : '#fff'),
                   cursor: 'pointer',
                 }} onClick={() => handleSelectPath(p.path)}>
-                  <td className="p-2">
-                    <div className="font-bold" style={{ color: '#1a2e22' }}>{p.label}</div>
-                    <div style={{ color: '#888', fontSize: 10 }}>{p.path}</div>
+                  <td className="p-2 mg-stack-full">
+                    {/* Telefon: vpravo nahoře v kartě je odkaz „otevřít ↗“ (absolutně) → text mu uhne */}
+                    <div className="font-bold max-md:text-sm max-md:mr-[76px]" style={{ color: '#1a2e22' }}>{p.label}</div>
+                    <div className="max-md:mr-[76px]" style={{ color: '#888', fontSize: isMobile ? 12 : 10 }}>{p.path}</div>
                   </td>
                   <td className="p-2 text-right font-bold" style={{ color: p.total > 0 ? '#1a2e22' : '#bbb' }}>
                     {p.total.toLocaleString('cs-CZ')}
                   </td>
-                  <td className="p-2 text-right" style={{ fontSize: 10, color: '#666' }}>
+                  <td className={`p-2 text-right${Object.keys(p.by_bot).length ? '' : ' mg-hide-phone'}`} style={{ fontSize: isMobile ? 11 : 10, color: '#666' }}>
                     {Object.entries(p.by_bot).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([bot, c]) => (
                       <span key={bot} style={{
                         display: 'inline-block', padding: '2px 6px', borderRadius: 8, marginLeft: 4,
@@ -298,10 +307,11 @@ export default function AiTrafficTab() {
                   <td className="p-2 text-right" style={{ color: p.bookings > 0 ? '#166534' : '#bbb', fontWeight: 700 }}>
                     {p.bookings || '—'}
                   </td>
-                  <td className="p-2 text-right">
+                  <td className="p-2 text-right max-md:absolute max-md:top-[4px] max-md:right-0" data-label="">
                     <a href={`https://www.motogo24.cz${p.path}`} target="_blank" rel="noopener noreferrer"
                        onClick={e => e.stopPropagation()}
-                       style={{ color: '#1a8c1a', fontSize: 11, textDecoration: 'underline' }}>otevřít ↗</a>
+                       className="max-lg:inline-flex max-lg:items-center max-lg:min-h-[36px] max-lg:whitespace-nowrap"
+                       style={{ color: '#1a8c1a', fontSize: isMobile ? 13 : 11, textDecoration: 'underline' }}>otevřít ↗</a>
                   </td>
                 </tr>
               ))}
@@ -312,7 +322,7 @@ export default function AiTrafficTab() {
 
       {/* Detail drawer */}
       {selectedPath && (
-        <div style={{ marginTop: 16, background: '#fff', borderRadius: 14, padding: 16, border: '2px solid #74FB71' }}>
+        <div ref={detailRef} style={{ marginTop: 16, background: '#fff', borderRadius: 14, padding: 16, border: '2px solid #74FB71', scrollMarginTop: 12 }}>
           <div className="flex justify-between items-start mb-3">
             <div>
               <h3 className="font-extrabold text-sm" style={{ color: '#1a2e22' }}>
@@ -320,7 +330,7 @@ export default function AiTrafficTab() {
               </h3>
               <p style={{ color: '#888', fontSize: 11 }}>{selectedPath}</p>
             </div>
-            <button onClick={() => { setSelectedPath(null); setPageDetail(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 16 }}>✕</button>
+            <button onClick={() => { setSelectedPath(null); setPageDetail(null) }} className="max-lg:min-w-[40px] max-lg:min-h-[40px]" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 16 }}>✕</button>
           </div>
 
           {pageDetailLoading ? (

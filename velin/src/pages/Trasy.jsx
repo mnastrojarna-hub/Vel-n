@@ -13,6 +13,8 @@ import TrasyKatalogMist from './TrasyKatalogMist'
 import TrasyPoiDuplicates from './TrasyPoiDuplicates'
 import TrasyRecenze from './TrasyRecenze'
 import TrasyJizdy from './TrasyJizdy'
+import { TrasyRouteCards } from './TrasyMobileCards'
+import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
 
 // ─── Error boundary (stejný vzor jako Branches) ──────────────────────
 class TrasyErrorBoundary extends Component {
@@ -77,6 +79,8 @@ function Trasy() {
   const [selected, setSelected] = useState(new Set())          // hromadný výběr tras
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
   const [bulkGeo, setBulkGeo] = useState(null)                 // {done,total} při dopočtu map
+  const isMobile = useIsMobile()                               // < 1024 px: karty místo tabulky
+  const isPhone = useMediaQuery('(max-width: 639px)')
 
   useEffect(() => { load() }, [])
 
@@ -409,7 +413,7 @@ function Trasy() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-5 max-sm:gap-2 max-sm:[&_.rounded-card]:!p-3 max-sm:[&_.mb-2]:!mb-1">
         <div onClick={() => setTab('routes')} className="cursor-pointer" title="Zobrazit trasy">
           <StatCard label="Tras celkem" value={routes.length} color="#0f1a14" />
         </div>
@@ -465,12 +469,12 @@ function Trasy() {
       ) : (
       <>
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Hledat trasu…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Hledat trasu…" fullWidth={isPhone} />
         {allCountries.length > 0 && (
           <select
             value={countryFilter}
             onChange={e => setCountryFilter(e.target.value)}
-            className="rounded-btn text-sm font-bold outline-none cursor-pointer"
+            className="rounded-btn text-sm font-bold outline-none cursor-pointer max-sm:flex-1 max-sm:min-w-0"
             style={{ padding: '7px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
             <option value="all">🌍 Všechny státy</option>
             {allCountries.map(c => <option key={c} value={c}>{c}</option>)}
@@ -480,7 +484,7 @@ function Trasy() {
           value={sortBy}
           onChange={e => setSortBy(e.target.value)}
           title="Řadit dle"
-          className="rounded-btn text-sm font-bold outline-none cursor-pointer"
+          className="rounded-btn text-sm font-bold outline-none cursor-pointer max-sm:flex-1 max-sm:min-w-0"
           style={{ padding: '7px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="default">↕ Řadit dle…</option>
           <option value="name">Název (A–Z)</option>
@@ -489,8 +493,8 @@ function Trasy() {
           <option value="rating">Hodnocení</option>
           <option value="newest">Nejnovější</option>
         </select>
-        <div className="ml-auto">
-          <Button green onClick={() => { setEditing(null); setShowModal(true) }}>+ Nová trasa</Button>
+        <div className="ml-auto max-sm:basis-full">
+          <Button green className="max-sm:w-full max-sm:justify-center" onClick={() => { setEditing(null); setShowModal(true) }}>+ Nová trasa</Button>
         </div>
       </div>
 
@@ -504,8 +508,10 @@ function Trasy() {
         </div>
       )}
 
+      {/* < 1024 px: lišta hromadných akcí drží nahoře při scrollu — jinak by po zaškrtnutí
+          karty dole v seznamu nebyla vidět (je nad komunitními návrhy i celým seznamem). */}
       {selected.size > 0 && (
-        <div className="mb-4 flex items-center gap-3 flex-wrap rounded-card"
+        <div className="mb-4 flex items-center gap-3 flex-wrap rounded-card max-lg:gap-2 max-lg:[&>button]:min-h-[36px] max-lg:sticky max-md:-top-3 md:max-lg:-top-6 max-lg:z-20 max-lg:shadow-[0_6px_20px_rgba(15,26,20,.18)]"
           style={{ background: '#eef6ff', border: '1px solid #bfdbfe', padding: '10px 14px' }}>
           <span className="text-sm font-extrabold" style={{ color: '#1d4ed8' }}>
             Vybráno tras: {selected.size}
@@ -528,19 +534,21 @@ function Trasy() {
           </div>
 
           {pendingRoutes.map(r => (
-            <div key={r.id} className="flex items-center gap-3 mb-2 rounded-btn" style={{ background: '#fff', padding: '8px 10px', border: '1px solid #fed7aa' }}>
+            <div key={r.id} className="flex items-center gap-3 mb-2 rounded-btn max-sm:flex-wrap max-sm:!rounded-[14px]" style={{ background: '#fff', padding: '8px 10px', border: '1px solid #fed7aa' }}>
               <span className="text-xs font-bold" style={{ background: '#8b5cf6', color: '#fff', padding: '2px 7px', borderRadius: 6 }}>TRASA</span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold truncate" style={{ color: '#1a2e22' }}>{r.name}</div>
-                {r.mapy_url && <a href={r.mapy_url} target="_blank" rel="noreferrer" className="text-xs underline truncate block" style={{ color: '#2563eb' }}>{r.mapy_url}</a>}
+                {r.mapy_url && <a href={r.mapy_url} target="_blank" rel="noreferrer" className="text-xs underline truncate block max-lg:py-1.5" style={{ color: '#2563eb' }}>{r.mapy_url}</a>}
               </div>
-              <Button small onClick={() => openRoute(r)}>Otevřít & doplnit</Button>
-              <button onClick={() => rejectRoute(r)} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>Zamítnout</button>
+              <div className="flex items-center gap-3 basis-full justify-end sm:contents">
+                <Button small className="max-lg:min-h-[36px]" onClick={() => openRoute(r)}>Otevřít & doplnit</Button>
+                <button onClick={() => rejectRoute(r)} className="text-xs font-bold cursor-pointer max-lg:min-h-[36px] max-lg:px-2" style={{ background: 'none', border: 'none', color: '#dc2626' }}>Zamítnout</button>
+              </div>
             </div>
           ))}
 
           {pendingPois.map(p => (
-            <div key={p.id} className="flex items-center gap-3 mb-2 rounded-btn" style={{ background: '#fff', padding: '8px 10px', border: '1px solid #fed7aa' }}>
+            <div key={p.id} className="flex items-center gap-3 mb-2 rounded-btn max-sm:flex-wrap max-sm:!rounded-[14px]" style={{ background: '#fff', padding: '8px 10px', border: '1px solid #fed7aa' }}>
               {p.image_url
                 ? <img src={p.image_url} alt={p.name} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8 }} onError={e => { e.target.style.opacity = 0.3 }} />
                 : <div style={{ width: 44, height: 44, borderRadius: 8, background: '#e2f5ec', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📍</div>}
@@ -551,8 +559,10 @@ function Trasy() {
                   {p.description ? `${p.description.slice(0, 60)} · ` : ''}{Number(p.lat).toFixed(4)}, {Number(p.lng).toFixed(4)}
                 </div>
               </div>
-              <Button small green onClick={() => setPoiStatus(p, 'approved')}>Schválit</Button>
-              <button onClick={() => setPoiStatus(p, 'rejected')} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>Zamítnout</button>
+              <div className="flex items-center gap-3 basis-full justify-end sm:contents">
+                <Button small green className="max-lg:min-h-[36px]" onClick={() => setPoiStatus(p, 'approved')}>Schválit</Button>
+                <button onClick={() => setPoiStatus(p, 'rejected')} className="text-xs font-bold cursor-pointer max-lg:min-h-[36px] max-lg:px-2" style={{ background: 'none', border: 'none', color: '#dc2626' }}>Zamítnout</button>
+              </div>
             </div>
           ))}
         </div>
@@ -573,6 +583,11 @@ function Trasy() {
             <Button green onClick={() => { setEditing(null); setShowModal(true) }}>+ Vytvořit trasu</Button>
           </div>
         </Card>
+      ) : isMobile ? (
+        <TrasyRouteCards rows={sorted} filtered={filtered} selected={selected} setSelected={setSelected}
+          toggleSel={toggleSel} poiCounts={poiCounts} reviewStats={reviewStats} openingRoute={openingRoute}
+          onOpen={openRoute} onToggleActive={toggleActive} onDelete={setDeleteConfirm} onReviews={setReviewsFor}
+          typeLabel={TYPE_LABEL} emptyText={filtered.length === 0 && routes.length > 0 ? 'Žádné trasy neodpovídají filtru' : ''} />
       ) : (
         <Table>
           <thead>

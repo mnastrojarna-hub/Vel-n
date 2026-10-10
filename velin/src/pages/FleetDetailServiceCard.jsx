@@ -97,7 +97,7 @@ export function ServiceScheduleCard({ moto, schedules, avgKm, kmStats, unitLabel
   return (
     <Card>
       <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Nájezd a servis</h3>
-      <div className="flex gap-4 mb-3 flex-wrap">
+      <div className="flex gap-4 mb-3 flex-wrap max-sm:grid max-sm:grid-cols-2 max-sm:gap-3">
         <div className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
           <div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Měsíční průměr</div>
           <div className="text-lg font-extrabold">{avgKm != null ? `${avgKm.toLocaleString('cs-CZ')} ${unitLabel}` : '—'}</div>
@@ -166,7 +166,7 @@ export function ServiceScheduleCard({ moto, schedules, avgKm, kmStats, unitLabel
 
           return (
             <div key={s.id} className="flex flex-col gap-1 p-2 rounded-lg mb-1" style={{ background: overdue ? '#fee2e2' : dueSoon ? '#fef3c7' : mergedWithWinter ? '#dbeafe' : '#f1faf7', fontSize: 12 }}>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 max-lg:flex-wrap max-lg:gap-y-1">
                 <span className="font-bold">{s.description}</span>
                 <span style={{ color: '#1a2e22' }}>každých {s.interval_km?.toLocaleString('cs-CZ')} {unitLabel}</span>
                 {dueSoon && <span className="font-extrabold" style={{ fontSize: 9, background: '#f59e0b', color: '#fff', borderRadius: 4, padding: '1px 5px' }}>BLÍŽÍ SE SERVIS</span>}
@@ -177,12 +177,12 @@ export function ServiceScheduleCard({ moto, schedules, avgKm, kmStats, unitLabel
                 </span>
               </div>
               {planDate && (
-                <div className="flex items-center gap-1" style={{ color: '#6b7280', fontSize: 11 }}>
+                <div className="flex items-center gap-1 max-lg:flex-wrap" style={{ color: '#6b7280', fontSize: 11 }}>
                   <span>{mergedWithWinter ? 'Sloučeno se zimním servisem:' : 'Plánovaný servis:'}</span>
                   <span className="font-bold" style={{ color: overdue ? '#dc2626' : mergedWithWinter ? '#2563eb' : '#1a2e22' }}>
                     {planDate.toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' })}
                   </span>
-                  {!dbDate && !mergedWithWinter && <span title="Automatický odhad (Út/St bez rezervace)">~</span>}
+                  {!dbDate && !mergedWithWinter && <><span title="Automatický odhad (Út/St bez rezervace)">~</span><span className="lg:hidden">Automatický odhad (Út/St bez rezervace)</span></>}
                 </div>
               )}
             </div>
@@ -196,17 +196,19 @@ export function ServiceScheduleCard({ moto, schedules, avgKm, kmStats, unitLabel
           const winterDate = findWinterServiceDate(winterYear, motoBookings)
           return (
             <div className="flex flex-col gap-1 p-2 rounded-lg mb-1" style={{ background: '#dbeafe', fontSize: 12 }}>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 max-lg:flex-wrap max-lg:gap-y-1">
                 <span className="font-bold" style={{ color: '#2563eb' }}>Velký zimní servis</span>
                 <span style={{ color: '#1a2e22' }}>leden–únor {winterYear}</span>
                 <span className="ml-auto font-bold" style={{ color: '#2563eb' }}>bez ohledu na {unitLabel}</span>
               </div>
-              <div className="flex items-center gap-1" style={{ color: '#6b7280', fontSize: 11 }}>
+              <div className="flex items-center gap-1 max-lg:flex-wrap" style={{ color: '#6b7280', fontSize: 11 }}>
                 <span>Plánovaný servis:</span>
                 <span className="font-bold" style={{ color: '#2563eb' }}>
                   {winterDate.toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' })}
                 </span>
                 <span title="Automatický odhad (Po–Pá bez rezervace)">~</span>
+                {/* Dotyk (< lg): význam „~“ z title vypsaný textem */}
+                <span className="lg:hidden">Automatický odhad (Po–Pá bez rezervace)</span>
               </div>
             </div>
           )
@@ -231,7 +233,7 @@ export function SOSIncidentsCard({ sosIncidents, motoId }) {
           const typeLabels = { theft: '🔒 Krádež', accident_minor: '💥 Lehká nehoda', accident_major: '💥 Závažná nehoda', breakdown_minor: '🔧 Drobná závada', breakdown_major: '🔧 Velká porucha', defect_question: '❓ Dotaz', location_share: '📍 Poloha', other: '📋 Jiné' }
           const statusColors = { reported: '#fee2e2', acknowledged: '#fef3c7', in_progress: '#dbeafe', resolved: '#dcfce7', closed: '#f3f4f6' }
           return (
-            <div key={inc.id} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer" style={{ background: statusColors[inc.status] || '#f3f4f6', fontSize: 12 }}
+            <div key={inc.id} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer max-lg:flex-wrap max-lg:gap-y-1" style={{ background: statusColors[inc.status] || '#f3f4f6', fontSize: 12 }}
               onClick={() => navigate('/sos', { state: { openIncidentId: inc.id } })}>
               <span className="font-extrabold">{typeLabels[inc.type] || inc.type}</span>
               <span style={{ color: '#1a2e22' }}>{inc.status}</span>

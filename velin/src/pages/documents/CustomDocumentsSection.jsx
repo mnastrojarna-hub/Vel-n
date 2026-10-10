@@ -115,7 +115,8 @@ export default function CustomDocumentsSection() {
         <div className="grid grid-cols-1 gap-3">
           {docs.map(d => (
             <Card key={d.id}>
-              <div className="flex items-start justify-between gap-3 flex-wrap">
+              {/* < 1024 px: popis nahoře přes celou šířku, tlačítka pod ním se zalamují */}
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 lg:flex-wrap">
                 <div className="flex items-start gap-3" style={{ minWidth: 0, flex: 1 }}>
                   <span style={{ fontSize: 26 }}>{d.kind === 'pdf' ? '📎' : '📄'}</span>
                   <div style={{ minWidth: 0 }}>
@@ -135,7 +136,7 @@ export default function CustomDocumentsSection() {
                     {trMsg[d.id] && <p className="text-sm mt-1" style={{ color: trMsg[d.id].ok ? '#15803d' : '#dc2626' }}>{trMsg[d.id].text}</p>}
                   </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex flex-wrap lg:flex-nowrap gap-2 shrink-0">
                   {d.kind === 'pdf' && d.pdf_path
                     ? <a href={d.pdf_path} target="_blank" rel="noopener"><Button>Otevřít PDF</Button></a>
                     : <Button onClick={() => setPreview(d)}>Náhled</Button>}
@@ -266,9 +267,10 @@ function EditCustomDocModal({ doc, existingSlugs, onClose, onSaved }) {
     } catch (e) { setErr(e.message || String(e)) } finally { setSaving(false) }
   }
 
+  // Odsazení lišty = vnitřní odsazení Modalu (telefon < 640 px: 16 px, jinak 28 px) — třídy stickyBarCls
   const stickyBar = {
-    position: 'sticky', bottom: -28, left: 0, right: 0, background: '#fff', borderTop: '1px solid #e2ece7',
-    margin: '16px -28px -28px', padding: '14px 28px', display: 'flex', justifyContent: 'flex-end', gap: 12, zIndex: 2,
+    position: 'sticky', left: 0, right: 0, background: '#fff', borderTop: '1px solid #e2ece7',
+    display: 'flex', justifyContent: 'flex-end', gap: 12,
   }
 
   return (
@@ -348,7 +350,7 @@ function EditCustomDocModal({ doc, existingSlugs, onClose, onSaved }) {
 
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
 
-      <div style={stickyBar}>
+      <div className={stickyBarCls} style={stickyBar}>
         <Button onClick={onClose}>Zrušit</Button>
         <Button green onClick={handleSave} disabled={saving || uploading}>{saving ? 'Ukládám…' : isNew ? 'Vytvořit' : 'Uložit'}</Button>
       </div>
@@ -356,6 +358,9 @@ function EditCustomDocModal({ doc, existingSlugs, onClose, onSaved }) {
   )
 }
 
+// Spodní lišta modálu přilepená k okraji: záporné okraje = padding Modalu (p-4 / sm:p-7).
+// z-index < 1024 px nad lepicí lištou RichTextEditoru (z 5) — na telefonu by jinak překryla Uložit/Zrušit.
+const stickyBarCls = '-bottom-4 sm:-bottom-7 mt-4 -mx-4 -mb-4 sm:-mx-7 sm:-mb-7 px-4 sm:px-7 py-[14px] z-[2] max-lg:z-[6]'
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>

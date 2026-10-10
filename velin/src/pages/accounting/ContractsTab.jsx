@@ -7,6 +7,7 @@ import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
+import { TAB_ROW } from './FinanceAStack'
 
 const PER_PAGE = 25
 
@@ -129,7 +130,7 @@ export default function ContractsTab() {
   return (
     <div>
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <StatCard label="Celkem smluv" value={stats.total} color="#1a2e22" />
         <StatCard label="Aktivní" value={stats.active} color="#1a8a18" />
         <StatCard label="Ke schválení" value={stats.pending} color="#b45309" />
@@ -140,7 +141,7 @@ export default function ContractsTab() {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {FILTER_GROUPS.map(f => (
           <button key={f.value} onClick={() => { setPage(1); setFilterGroup(f.value) }}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[36px]"
             style={{
               padding: '6px 14px',
               background: filterGroup === f.value ? '#1a2e22' : '#f1faf7',
@@ -175,7 +176,7 @@ export default function ContractsTab() {
             ], contracts.filter(c => selectedIds.has(c.id))) },
             { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} smluv?', onClick: async () => { await bulkDelete('contracts', [...selectedIds], 'contracts_bulk_deleted'); setSelectedIds(new Set()); load() } },
           ]} />
-          <Table>
+          <Table stack="tablet">
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={contracts} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
@@ -191,7 +192,7 @@ export default function ContractsTab() {
                   new Date(c.valid_until) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
                 return (
-                  <TRow key={c.id}>
+                  <tr key={c.id} className={TAB_ROW} style={{ borderBottom: '1px solid #d4e8e0' }}>
                     <TD><RowCheckbox id={c.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                     <TD mono bold>{c.contract_number || '—'}</TD>
                     <TD><Badge label={ct.label} color={ct.color} bg={ct.bg} /></TD>
@@ -203,36 +204,36 @@ export default function ContractsTab() {
                         {c.valid_from ? new Date(c.valid_from).toLocaleDateString('cs-CZ') : '—'}
                         {c.valid_until ? ` — ${new Date(c.valid_until).toLocaleDateString('cs-CZ')}` : ' — neurčito'}
                       </span>
-                      {isExpiringSoon && <span className="ml-1 text-[9px] font-bold" style={{ color: '#dc2626' }}>BRZY VYPRŠÍ</span>}
+                      {isExpiringSoon && <span className="ml-1 text-[11px] lg:text-[9px] font-bold" style={{ color: '#dc2626' }}>BRZY VYPRŠÍ</span>}
                     </TD>
                     <TD><Badge label={st.label} color={st.color} bg={st.bg} /></TD>
                     <TD>
-                      <div className="flex gap-1 flex-wrap">
+                      <div className="flex gap-1 flex-wrap max-lg:justify-end">
                         <button onClick={() => setDetail(c)}
-                          className="text-sm font-bold cursor-pointer rounded"
+                          className="text-sm font-bold cursor-pointer rounded max-lg:min-h-[36px]"
                           style={{ color: '#2563eb', background: '#dbeafe', border: 'none', padding: '4px 10px' }}>
                           Detail
                         </button>
                         {c.status === 'pending' && (
                           <button onClick={() => approveContract(c)}
-                            className="text-sm font-bold cursor-pointer rounded"
+                            className="text-sm font-bold cursor-pointer rounded max-lg:min-h-[36px]"
                             style={{ color: '#fff', background: '#1a8a18', border: 'none', padding: '4px 10px' }}>
                             Schválit
                           </button>
                         )}
                         {c.status === 'active' && (
                           <button onClick={() => terminateContract(c)}
-                            className="text-sm font-bold cursor-pointer rounded"
+                            className="text-sm font-bold cursor-pointer rounded max-lg:min-h-[36px]"
                             style={{ color: '#dc2626', background: '#fee2e2', border: '1px solid #fca5a5', padding: '4px 10px' }}>
                             Ukončit
                           </button>
                         )}
                       </div>
                     </TD>
-                  </TRow>
+                  </tr>
                 )
               })}
-              {contracts.length === 0 && <TRow><TD>Žádné smlouvy</TD></TRow>}
+              {contracts.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="">Žádné smlouvy</TD></tr>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -258,7 +259,7 @@ export default function ContractsTab() {
           {/* Employee link */}
           {detail.employee_id && (
             <div className="mb-4 p-3 rounded" style={{ background: '#fef3c7', border: '1px solid #fcd34d' }}>
-              <span className="text-[9px] font-extrabold uppercase tracking-wide" style={{ color: '#b45309' }}>Zaměstnanec: </span>
+              <span className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide" style={{ color: '#b45309' }}>Zaměstnanec: </span>
               <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{detail.employee_name || detail.employee_id.slice(0, 8)}</span>
             </div>
           )}
@@ -266,7 +267,7 @@ export default function ContractsTab() {
           {/* AI extracted data */}
           {detail.extracted_data && (
             <div className="mb-4">
-              <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#7c3aed' }}>AI extrahovaná data</div>
+              <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#7c3aed' }}>AI extrahovaná data</div>
               <pre className="text-xs p-3 rounded" style={{ background: '#f1faf7', color: '#1a2e22', whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
                 {JSON.stringify(detail.extracted_data, null, 2)}
               </pre>
@@ -276,7 +277,7 @@ export default function ContractsTab() {
           {/* Photo */}
           {detail.photo_url && (
             <div className="mb-4">
-              <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#2563eb' }}>Sken dokumentu</div>
+              <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#2563eb' }}>Sken dokumentu</div>
               <a href={detail.photo_url} target="_blank" rel="noopener noreferrer">
                 <img src={detail.photo_url} alt="Sken smlouvy" style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, border: '1px solid #d4e8e0' }} />
               </a>
@@ -285,7 +286,7 @@ export default function ContractsTab() {
 
           {detail.notes && (
             <div className="mb-4">
-              <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#6b7280' }}>Poznámky</div>
+              <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#6b7280' }}>Poznámky</div>
               <p className="text-sm" style={{ color: '#1a2e22', whiteSpace: 'pre-wrap' }}>{detail.notes}</p>
             </div>
           )}
@@ -316,7 +317,7 @@ export default function ContractsTab() {
 function StatCard({ label, value, color }) {
   return (
     <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-lg font-extrabold" style={{ color }}>{value}</div>
     </div>
   )
@@ -325,7 +326,7 @@ function StatCard({ label, value, color }) {
 function MiniField({ label, value, mono }) {
   return (
     <div>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#6b7280' }}>{label}</div>
+      <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#6b7280' }}>{label}</div>
       <div className={`text-sm font-bold ${mono ? 'font-mono' : ''}`} style={{ color: '#1a2e22' }}>{value}</div>
     </div>
   )

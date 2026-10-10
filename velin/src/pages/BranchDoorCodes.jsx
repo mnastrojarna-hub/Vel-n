@@ -188,19 +188,19 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
           </div>
           <div className="space-y-1">
             {bookingsWithoutCodes.map(b => (
-              <div key={b.id} className="flex items-center gap-2 rounded-lg" style={{ padding: '6px 10px', background: '#fee2e2', border: '1px solid #fca5a5' }}>
+              <div key={b.id} className="flex items-center gap-2 rounded-lg max-lg:flex-wrap" style={{ padding: '6px 10px', background: '#fee2e2', border: '1px solid #fca5a5' }}>
                 <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
                   {b.profiles?.full_name || 'Neznámý'}
                 </span>
                 <span className="text-sm" style={{ color: '#1a2e22' }}>
                   {new Date(b.start_date).toLocaleDateString('cs-CZ')} — {new Date(b.end_date).toLocaleDateString('cs-CZ')}
                 </span>
-                <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
+                <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold tracking-wide uppercase"
                   style={{ padding: '2px 6px', background: b.status === 'active' ? '#dcfce7' : '#dbeafe', color: b.status === 'active' ? '#1a8a18' : '#2563eb' }}>
                   {b.status === 'active' ? 'Aktivní' : 'Nadcházející'}
                 </span>
                 <button onClick={() => emergencyGenerateCodes(b)} disabled={generating}
-                  className="ml-auto rounded-btn text-sm font-bold cursor-pointer border-none"
+                  className="ml-auto rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
                   style={{ padding: '4px 10px', background: '#dc2626', color: '#fff', opacity: generating ? 0.5 : 1 }}>
                   {generating ? 'Generuji...' : 'Nouzově generovat'}
                 </button>
@@ -218,7 +218,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
         {activeCodes.length === 0 ? (
           <EmptyState text="Žádné aktivní kódy — kódy se vytvoří automaticky při aktivaci rezervace" />
         ) : (
-          <div className="space-y-1 max-h-60 overflow-y-auto">
+          <div className="space-y-1 max-h-60 overflow-y-auto max-lg:max-h-none">
             {activeCodes.map(c => (
               <DoorCodeRow key={c.id} code={c} onDeactivate={deactivateCode} onResend={resendCode} selfService={selfService} />
             ))}
@@ -232,7 +232,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
           <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
             Historie kódů (posledních {inactiveCodes.length})
           </div>
-          <div className="space-y-1 max-h-40 overflow-y-auto">
+          <div className="space-y-1 max-h-40 overflow-y-auto max-lg:max-h-none">
             {inactiveCodes.map(c => (
               <DoorCodeRow key={c.id} code={c} onActivate={activateCode} inactive
                 canActivate={!(c.code_type === 'accessories' && c.withheld_reason === OWN_GEAR_REASON) || lockerAllowed[c.booking_id] === true} />
@@ -255,14 +255,14 @@ function DoorCodeRow({ code, onDeactivate, onActivate, onResend, inactive, canAc
     && booking.handover_protocol_filled_at == null && ['reserved', 'active'].includes(booking.status)
 
   return (
-    <div className="flex items-center gap-2 text-sm rounded-lg"
+    <div className="flex items-center gap-2 text-sm rounded-lg max-lg:flex-wrap max-lg:gap-y-1.5"
       style={{
         padding: '6px 10px',
         background: inactive ? '#f3f4f6' : (isMotorcycle ? '#f1faf7' : '#eff6ff'),
         border: `1px solid ${inactive ? '#e5e7eb' : (isMotorcycle ? '#d4e8e0' : '#bfdbfe')}`,
         opacity: inactive ? 0.6 : 1,
       }}>
-      <span className="inline-block rounded-btn text-[8px] font-extrabold tracking-wide uppercase"
+      <span className="inline-block rounded-btn text-[8px] max-lg:text-[11px] font-extrabold tracking-wide uppercase"
         style={{
           padding: '2px 6px',
           background: isMotorcycle ? '#dcfce7' : '#dbeafe',
@@ -282,25 +282,25 @@ function DoorCodeRow({ code, onDeactivate, onActivate, onResend, inactive, canAc
         {booking?.profiles?.full_name || ''}
       </span>
       {code.withheld_reason && (
-        <span className="inline-block rounded-btn text-[8px] font-bold"
+        <span className="inline-block rounded-btn text-[8px] max-lg:text-[11px] font-bold"
           style={{ padding: '2px 6px', background: '#fef3c7', color: '#b45309' }}>
           Zadržen: {code.withheld_reason === OWN_GEAR_REASON ? OWN_GEAR_LABEL : code.withheld_reason}
         </span>
       )}
       {!code.sent_to_customer && !inactive && (
-        <span className="inline-block rounded-btn text-[8px] font-bold"
+        <span className="inline-block rounded-btn text-[8px] max-lg:text-[11px] font-bold"
           style={{ padding: '2px 6px', background: '#fee2e2', color: '#dc2626' }}>
           Neodesláno
         </span>
       )}
       {code.sent_to_customer && (
-        <span className="inline-block rounded-btn text-[8px] font-bold"
+        <span className="inline-block rounded-btn text-[8px] max-lg:text-[11px] font-bold"
           style={{ padding: '2px 6px', background: '#dcfce7', color: '#1a8a18' }}>
           Odesláno
         </span>
       )}
       {awaitsProtocol && (
-        <span className="inline-block rounded-btn text-[8px] font-bold"
+        <span className="inline-block rounded-btn text-[8px] max-lg:text-[11px] font-bold"
           title="Zákazník ještě nepodepsal předávací protokol. Kód motorky se ověří, ale kóje se otevře až po podpisu — na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky) nebo v aplikaci."
           style={{ padding: '2px 6px', background: '#ede9fe', color: '#6d28d9' }}>
           📝 Čeká na protokol
@@ -310,21 +310,21 @@ function DoorCodeRow({ code, onDeactivate, onActivate, onResend, inactive, canAc
         {!inactive && onResend && !code.sent_to_customer && (
           <button onClick={() => onResend(code)}
             title="Uvolní všechny zadržené kódy rezervace (kromě držených výměnou motorky) a pošle zákazníkovi zprávu v aplikaci, SMS/WhatsApp i e-mail s kódy — jako automatické uvolnění po dokladech."
-            className="rounded-btn text-[10px] font-bold cursor-pointer border-none"
+            className="rounded-btn text-[10px] max-lg:text-[12px] max-lg:min-h-[36px] max-lg:!px-3 font-bold cursor-pointer border-none"
             style={{ padding: '2px 8px', background: '#dbeafe', color: '#2563eb' }}>
             Odeslat
           </button>
         )}
         {!inactive && onDeactivate && (
           <button onClick={() => onDeactivate(code.id)}
-            className="rounded-btn text-[10px] font-bold cursor-pointer border-none"
+            className="rounded-btn text-[10px] max-lg:text-[12px] max-lg:min-h-[36px] max-lg:!px-3 font-bold cursor-pointer border-none"
             style={{ padding: '2px 8px', background: '#fee2e2', color: '#dc2626' }}>
             Deaktivovat
           </button>
         )}
         {inactive && onActivate && canActivate && (
           <button onClick={() => onActivate(code)}
-            className="rounded-btn text-[10px] font-bold cursor-pointer border-none"
+            className="rounded-btn text-[10px] max-lg:text-[12px] max-lg:min-h-[36px] max-lg:!px-3 font-bold cursor-pointer border-none"
             style={{ padding: '2px 8px', background: '#dcfce7', color: '#1a8a18' }}>
             Aktivovat
           </button>

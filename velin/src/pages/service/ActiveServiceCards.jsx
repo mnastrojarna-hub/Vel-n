@@ -27,9 +27,9 @@ export function MotoCard({ m, logs: mLogs, expanded, setExpanded, onAction, onRe
 
   return (
     <Card style={isStuck ? { border: '2px solid #dc2626' } : hasUrgent ? { border: '2px solid #f87171' } : undefined}>
-      <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => setExpanded(e => ({ ...e, [m.id]: !e[m.id] }))}>
+      <div className="flex items-center gap-3 cursor-pointer select-none max-md:flex-wrap max-md:gap-y-2" onClick={() => setExpanded(e => ({ ...e, [m.id]: !e[m.id] }))}>
         <span style={{ fontSize: 14, fontWeight: 700, transition: 'transform .2s', transform: isExp ? 'rotate(90deg)' : 'rotate(0deg)', color: '#1a2e22' }}>▶</span>
-        <div className="flex-1 flex items-center gap-2 flex-wrap">
+        <div className="flex-1 flex items-center gap-2 flex-wrap max-md:basis-[calc(100%-30px)]">
           <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{m.model}</span>
           <span className="font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz}</span>
           {m.branches?.name && <span className="text-sm" style={{ color: '#1a2e22' }}>{m.branches.name}</span>}
@@ -46,8 +46,8 @@ export function MotoCard({ m, logs: mLogs, expanded, setExpanded, onAction, onRe
           : <StatusBadge status={isStuck ? m.status : 'maintenance'} />}
         {mLogs.length > 0 && <span className="text-sm font-bold" style={{ color: '#b45309' }}>{mLogs.length} záznam{mLogs.length > 1 ? 'y' : ''}</span>}
         <button onClick={e => { e.stopPropagation(); onAction(m) }}
-          className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
-          style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>Správa</button>
+          className="rounded-btn text-sm font-extrabold uppercase cursor-pointer px-[10px] py-1 max-lg:py-2 max-lg:px-3.5 max-md:ml-auto"
+          style={{ background: '#dbeafe', color: '#2563eb', border: 'none' }}>Správa</button>
       </div>
       {isExp && (
         <div className="mt-4 space-y-3">
@@ -69,9 +69,9 @@ export function UnavailableMotoCard({ m, logs: mLogs, expanded, setExpanded, onA
 
   return (
     <Card style={{ border: '2px solid #c4b5fd' }}>
-      <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => setExpanded(e => ({ ...e, [m.id]: !e[m.id] }))}>
+      <div className="flex items-center gap-3 cursor-pointer select-none max-md:flex-wrap max-md:gap-y-2" onClick={() => setExpanded(e => ({ ...e, [m.id]: !e[m.id] }))}>
         <span style={{ fontSize: 14, fontWeight: 700, transition: 'transform .2s', transform: isExp ? 'rotate(90deg)' : 'rotate(0deg)', color: '#7c3aed' }}>▶</span>
-        <div className="flex-1 flex items-center gap-2 flex-wrap">
+        <div className="flex-1 flex items-center gap-2 flex-wrap max-md:basis-[calc(100%-30px)]">
           <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{m.model}</span>
           <span className="font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz}</span>
           {m.branches?.name && <span className="text-sm" style={{ color: '#1a2e22' }}>{m.branches.name}</span>}
@@ -82,8 +82,8 @@ export function UnavailableMotoCard({ m, logs: mLogs, expanded, setExpanded, onA
         <StatusBadge status="unavailable" />
         {mLogs.length > 0 && <span className="text-sm font-bold" style={{ color: '#7c3aed' }}>{mLogs.length} záznam{mLogs.length > 1 ? 'y' : ''}</span>}
         <button onClick={e => { e.stopPropagation(); onAction(m) }}
-          className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
-          style={{ padding: '4px 10px', background: '#ede9fe', color: '#7c3aed', border: 'none' }}>Správa</button>
+          className="rounded-btn text-sm font-extrabold uppercase cursor-pointer px-[10px] py-1 max-lg:py-2 max-lg:px-3.5 max-md:ml-auto"
+          style={{ background: '#ede9fe', color: '#7c3aed', border: 'none' }}>Správa</button>
       </div>
       {isExp && (
         <div className="mt-4 space-y-3">
@@ -127,9 +127,9 @@ export function NoLogCard({ motoId, onReload }) {
   return (
     <div className="p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
       <div className="text-sm font-bold mb-2" style={{ color: '#b45309' }}>Motorka v servisu bez záznamu.</div>
-      <div className="flex gap-2 items-end">
+      <div className="flex gap-2 items-end max-md:flex-wrap">
         <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Popište závadu…"
-          className="flex-1 rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0', minHeight: 40, resize: 'vertical' }} />
+          className="flex-1 rounded-btn text-sm outline-none max-md:basis-full" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0', minHeight: 40, resize: 'vertical' }} />
         <Button onClick={create} disabled={saving || !desc.trim()} style={{ fontSize: 13, padding: '6px 12px' }}>{saving ? 'Ukládám…' : 'Vytvořit'}</Button>
         <Button green onClick={endDirect} disabled={ending} style={{ fontSize: 13, padding: '6px 12px' }}>{ending ? 'Vracím…' : 'Ukončit servis'}</Button>
       </div>

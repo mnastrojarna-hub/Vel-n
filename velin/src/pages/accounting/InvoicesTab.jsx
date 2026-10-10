@@ -13,6 +13,7 @@ import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
 import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
+import { TAB_ROW } from './FinanceAStack'
 
 const PER_PAGE = 25
 
@@ -216,7 +217,7 @@ export default function InvoicesTab() {
           </span>
           <span className="flex items-center gap-2">
             <SmallBtn onClick={() => setDetailInv(savedInv)}>Detail</SmallBtn>
-            <button onClick={() => setSavedInv(null)} className="cursor-pointer"
+            <button onClick={() => setSavedInv(null)} className="cursor-pointer max-lg:min-w-[36px] max-lg:min-h-[36px]"
               style={{ background: 'none', border: 'none', color: '#1a2e22', fontSize: 14 }}>✕</button>
           </span>
         </div>
@@ -227,7 +228,7 @@ export default function InvoicesTab() {
       ) : (
         <>
           <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
-          <Table>
+          <Table stack="tablet">
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={invoices} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
@@ -241,11 +242,11 @@ export default function InvoicesTab() {
                 const isModified = inv.bookings?.modification_history && Array.isArray(inv.bookings.modification_history) && inv.bookings.modification_history.length > 0
                 return (
                 <tr key={inv.id} onClick={() => setDetailInv(inv)}
-                  className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
+                  className={`cursor-pointer hover:bg-[#f1faf7] transition-colors ${TAB_ROW}`}
                   style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(inv.id) ? '#fef9c3' : undefined }}>
                   <TD><RowCheckbox id={inv.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                   <TD mono bold>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 max-lg:justify-end">
                       {inv.number || '—'}
                       {isSOS && <span title="SOS faktura" style={{ color: '#dc2626', fontSize: 12, fontWeight: 800 }}>SOS</span>}
                       {isModified && <span title="Změna rezervace" style={{ color: '#b45309', fontSize: 12, fontWeight: 800 }}>MOD</span>}
@@ -262,14 +263,14 @@ export default function InvoicesTab() {
                   <TD>{inv.due_date ? new Date(inv.due_date).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD><StatusBadge status={inv.status || 'pending'} /></TD>
                   <TD>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 max-lg:justify-end">
                       <SmallBtn onClick={() => generatePdf(inv.id)}>PDF</SmallBtn>
                       <SmallBtn onClick={() => sendEmail(inv.id)}>Email</SmallBtn>
                     </div>
                   </TD>
                 </tr>
               )})}
-              {invoices.length === 0 && <TRow><TD>Žádné faktury</TD></TRow>}
+              {invoices.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="">Žádné faktury</TD></tr>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -314,7 +315,7 @@ function DRow({ label, value, mono }) {
 
 function SmallBtn({ children, onClick }) {
   return (
-    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[36px] max-lg:min-w-[60px]"
       style={{ padding: '3px 8px', background: '#f1faf7', color: '#1a2e22', border: 'none' }}>
       {children}
     </button>

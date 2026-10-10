@@ -72,6 +72,7 @@ export default function AplikaceStats() {
       </div>
       <button
         onClick={load}
+        className="max-lg:min-h-[40px]"
         style={{ marginTop: 10, padding: '6px 14px', background: '#74FB71', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}
       >
         Zkusit znovu
@@ -83,7 +84,8 @@ export default function AplikaceStats() {
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 16 }}>
+      {/* Telefon: dlaždice ve 2 sloupcích (min. 140 px), jinak původní mřížka 180 px */}
+      <div className="grid-cols-[repeat(auto-fit,minmax(180px,1fr))] max-md:grid-cols-[repeat(auto-fit,minmax(140px,1fr))]" style={{ display: 'grid', gap: 14, marginBottom: 16 }}>
         {CARDS.map((c) => (
           <div
             key={c.key}

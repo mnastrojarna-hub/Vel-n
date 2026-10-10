@@ -60,7 +60,7 @@ export default function Statistics() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex items-center gap-3 mb-5 max-lg:flex-wrap">
         <Button green onClick={handleGenerateReport} disabled={generating}>
           {generating ? 'Generuji…' : 'Generovat report'}
         </Button>
@@ -77,8 +77,9 @@ export default function Statistics() {
       </div>
       )}
 
-      <div className="grid grid-cols-2 gap-5">
-        <div className="col-span-2">
+      {/* mobil/tablet (< lg): grafy pod sebou přes celou šířku — dvousloupec je na telefonu nečitelný */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="lg:col-span-2">
           <ChartWrapper name="RevenueChart" onError={e => setChartErrors(ce => [...ce, 'Revenue: ' + e])}>
             <RevenueChart />
           </ChartWrapper>
@@ -95,7 +96,7 @@ export default function Statistics() {
         <ChartWrapper name="BookingsByStatus" onError={e => setChartErrors(ce => [...ce, 'Bookings: ' + e])}>
           <BookingsByStatus />
         </ChartWrapper>
-        <div className="col-span-2">
+        <div className="lg:col-span-2">
           <ChartWrapper name="CustomerRetention" onError={e => setChartErrors(ce => [...ce, 'Retention: ' + e])}>
             <CustomerRetention />
           </ChartWrapper>

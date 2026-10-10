@@ -22,13 +22,13 @@ export default function RefundAmountPicker({ total, pct, amount, onChange }) {
       <div className="flex gap-2 mb-2">
         {[100, 50, 0].map(p => (
           <button key={p} type="button" onClick={() => applyPct(p)}
-            className="rounded-btn text-sm font-extrabold cursor-pointer"
+            className="rounded-btn text-sm font-extrabold cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', border: '1px solid #d4e8e0', background: Number(pct) === p && amountNum === Math.round(total * p / 100) ? '#74FB71' : '#fff', color: '#1a2e22' }}>
             {p} %
           </button>
         ))}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 max-lg:flex-wrap">
         <label className="flex items-center gap-1 text-sm" style={{ color: '#1a2e22' }}>
           <input type="number" min="0" max="100" step="1" value={pct} onChange={e => applyPct(e.target.value)}
             className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 70 }} />

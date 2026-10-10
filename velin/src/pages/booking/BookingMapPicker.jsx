@@ -30,7 +30,7 @@ export default function BookingMapPicker({ showMapPicker, setShowMapPicker, setP
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#fff', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', background: '#fff', borderBottom: '1px solid #e5e7eb', zIndex: 1 }}>
-        <button onClick={() => setShowMapPicker(null)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>{'✕'}</button>
+        <button onClick={() => setShowMapPicker(null)} className="max-lg:min-w-[40px] max-lg:min-h-[40px]" style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>{'✕'}</button>
         <span style={{ fontSize: 15, fontWeight: 700 }}>Vyberte misto na mape</span>
         <button onClick={confirm}
           style={{ background: '#1a8a18', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>

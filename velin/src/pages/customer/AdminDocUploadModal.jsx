@@ -394,7 +394,7 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
         <div className="flex flex-wrap gap-2">
           {FLOWS.map(f => (
             <button key={f.key} onClick={() => selectFlow(f.key)} disabled={busy || capturing}
-              className="rounded-btn text-sm font-bold cursor-pointer"
+              className="rounded-btn text-sm font-bold cursor-pointer max-lg:min-h-[40px]"
               style={{
                 padding: '6px 12px', border: 'none',
                 background: flowKey === f.key ? '#74FB71' : '#f1faf7',
@@ -414,7 +414,7 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
                 const done = !!saved[sideKey(flow, s)]
                 return (
                   <button key={s.side || i} onClick={() => selectStep(i)} disabled={busy || capturing}
-                    className="rounded-btn text-sm font-bold cursor-pointer"
+                    className="rounded-btn text-sm font-bold cursor-pointer max-lg:min-h-[40px]"
                     style={{
                       padding: '6px 12px', border: 'none',
                       background: stepIdx === i ? '#74FB71' : '#f1faf7',
@@ -438,9 +438,10 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
       {imageData ? (
         <div className="mb-3">
           <div className="flex justify-center" style={{ background: '#0f1a14', padding: 12, borderRadius: 8 }}>
-            <img src={imageData} alt="náhled dokladu" style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 4 }} />
+            {/* < 1024 px: výška dle displeje — na telefonu na šířku zůstane Uložit / Vyfotit na obrazovce */}
+            <img src={imageData} alt="náhled dokladu" className="max-h-[360px] max-lg:max-h-[min(360px,50dvh)]" style={{ maxWidth: '100%', borderRadius: 4 }} />
           </div>
-          <div className="flex justify-between gap-3 mt-3">
+          <div className="flex justify-between gap-3 mt-3 max-sm:flex-wrap">
             <Button onClick={retake} disabled={busy}>Znovu</Button>
             <Button green onClick={uploadCurrent} disabled={busy}>
               {busy ? 'Ukládám…' : `Uložit: ${docType.label}`}
@@ -454,8 +455,8 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
             <div>
               <div className="flex justify-center" style={{ background: '#0f1a14', padding: 12, borderRadius: 8 }}>
                 <div style={{ position: 'relative', maxWidth: '100%', lineHeight: 0 }}>
-                  <video ref={videoRef} playsInline muted autoPlay
-                    style={{ display: 'block', maxWidth: '100%', maxHeight: 360, borderRadius: 4 }} />
+                  <video ref={videoRef} playsInline muted autoPlay className="max-h-[360px] max-lg:max-h-[min(360px,50dvh)]"
+                    style={{ display: 'block', maxWidth: '100%', borderRadius: 4 }} />
                   {/* Vodící rámeček ve tvaru dokladu – pomáhá se zarovnáním a ostřením.
                       Snímek se po vyfocení ořízne přesně na tento rámeček (cropRectForGuide). */}
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>

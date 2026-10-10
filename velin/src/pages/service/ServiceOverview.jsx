@@ -88,7 +88,7 @@ export default function ServiceOverview({ onOpenMoto }) {
                   <span className="font-mono text-xs" style={{ color: '#1a2e22' }}>{m?.spz}</span>
                   <span className="text-xs" style={{ color: '#6b7280' }}>{m?.branches?.name || ''}</span>
                   <span className="text-xs" style={{ color: '#1a2e22' }}>od {fmtDate(l.service_date)}{l.scheduled_date ? ` → ${fmtDate(l.scheduled_date)}` : ''}</span>
-                  <span className="text-xs flex-1 truncate" style={{ color: '#1a2e22' }}>{items.length > 0 ? `${items.filter(i => i.done).length}/${items.length} úkonů: ${items.slice(0, 4).map(i => i.label).join(', ')}${items.length > 4 ? '…' : ''}` : (l.description || '')}</span>
+                  <span className="text-xs flex-1 truncate max-lg:basis-full" style={{ color: '#1a2e22' }}>{items.length > 0 ? `${items.filter(i => i.done).length}/${items.length} úkonů: ${items.slice(0, 4).map(i => i.label).join(', ')}${items.length > 4 ? '…' : ''}` : (l.description || '')}</span>
                   <span className="text-xs font-bold" style={{ color: '#1a2e22' }}>{l.performed_by || '—'}</span>
                 </div>
               )
@@ -108,21 +108,21 @@ export default function ServiceOverview({ onOpenMoto }) {
                   <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{g.model}</span>
                   <span className="font-mono text-xs" style={{ color: '#1a2e22' }}>{g.spz}</span>
                   <span className="text-xs" style={{ color: '#1a2e22' }}>{fmtKm(g.rows[0]?.current_km, g.tracking_unit === 'mh' ? 'MH' : 'km')}</span>
-                  <span className="ml-auto flex gap-2 text-xs font-bold">
+                  <span className="ml-auto flex gap-2 text-xs font-bold max-md:ml-0 max-md:w-full max-md:flex-wrap max-md:items-center max-md:gap-x-3 max-md:gap-y-1">
                     {g.overdue > 0 && <span style={{ color: DUE_STATE.overdue.color }}>{g.overdue} po termínu</span>}
                     {g.due_soon > 0 && <span style={{ color: DUE_STATE.due_soon.color }}>{g.due_soon} blíží se</span>}
                     {g.unknown > 0 && <span style={{ color: DUE_STATE.unknown.color }}>{g.unknown} neověřeno</span>}
-                    {computeBundle(g.rows) && <button onClick={e => { e.stopPropagation(); planBundle(g) }} disabled={busy === g.moto_id} className="rounded-btn font-extrabold uppercase cursor-pointer" style={{ padding: '2px 10px', background: '#74FB71', color: '#1a2e22', border: 'none', fontSize: 11 }} title="Založí jeden servisní záznam se všemi úkony po termínu / blížícími se">Naplánovat společně</button>}
+                    {computeBundle(g.rows) && <button onClick={e => { e.stopPropagation(); planBundle(g) }} disabled={busy === g.moto_id} className="rounded-btn font-extrabold uppercase cursor-pointer px-[10px] py-[2px] max-lg:py-2" style={{ background: '#74FB71', color: '#1a2e22', border: 'none', fontSize: 11 }} title="Založí jeden servisní záznam se všemi úkony po termínu / blížícími se">Naplánovat společně</button>}
                     <span style={{ color: '#2563eb' }}>servisní knížka →</span>
                   </span>
                 </div>
                 <div className="p-2 grid grid-cols-1 md:grid-cols-2 gap-1">
                   {g.rows.filter(r => !r.open_log_id && r.state !== 'ok').map(r => (
-                    <div key={r.schedule_id} className="flex items-center gap-2 text-sm rounded" style={{ padding: '3px 6px', background: '#fff', border: `1px solid ${DUE_STATE[r.state].border}` }}>
+                    <div key={r.schedule_id} className="flex items-center gap-2 text-sm rounded max-lg:flex-wrap" style={{ padding: '3px 6px', background: '#fff', border: `1px solid ${DUE_STATE[r.state].border}` }}>
                       <span style={{ color: DUE_STATE[r.state].color, fontSize: 10 }}>●</span>
-                      <span className="font-bold flex-1" style={{ color: '#0f1a14' }}>{r.label}</span>
-                      <span className="text-xs" style={{ color: DUE_STATE[r.state].color }}>{r.state === 'unknown' ? 'doplnit poslední provedení' : dueText(r, g.tracking_unit === 'mh' ? 'MH' : 'km')}</span>
-                      {r.state !== 'unknown' && <button onClick={e => { e.stopPropagation(); plan(r) }} disabled={busy === r.schedule_id} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#1a8a18' }}>naplánovat</button>}
+                      <span className="font-bold flex-1 max-lg:basis-[calc(100%-24px)]" style={{ color: '#0f1a14' }}>{r.label}</span>
+                      <span className="text-xs max-lg:flex-1 max-lg:pl-4" style={{ color: DUE_STATE[r.state].color }}>{r.state === 'unknown' ? 'doplnit poslední provedení' : dueText(r, g.tracking_unit === 'mh' ? 'MH' : 'km')}</span>
+                      {r.state !== 'unknown' && <button onClick={e => { e.stopPropagation(); plan(r) }} disabled={busy === r.schedule_id} className="text-xs font-bold cursor-pointer max-lg:px-2 max-lg:py-2" style={{ background: 'none', border: 'none', color: '#1a8a18' }}>naplánovat</button>}
                     </div>
                   ))}
                 </div>

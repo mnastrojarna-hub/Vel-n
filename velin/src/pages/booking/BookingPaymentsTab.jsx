@@ -86,7 +86,7 @@ export default function BookingPaymentsTab({ bookingId }) {
       {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
       {/* Generate buttons */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 max-lg:flex-wrap">
         <Button green onClick={() => handleGenerateInvoice('proforma')} disabled={generating === 'proforma'}>
           {generating === 'proforma' ? 'Vystavuji…' : 'Vystavit zálohovou fakturu'}
         </Button>
@@ -109,7 +109,7 @@ export default function BookingPaymentsTab({ bookingId }) {
             const st = STATUS_MAP[inv.status] || STATUS_MAP.draft
             const isCreditNote = inv.type === 'credit_note'
             return (
-              <div key={inv.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: isCreditNote ? '#fef2f2' : '#f1faf7', border: isCreditNote ? '1px solid #fca5a5' : 'none' }}>
+              <div key={inv.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1" style={{ background: isCreditNote ? '#fef2f2' : '#f1faf7', border: isCreditNote ? '1px solid #fca5a5' : 'none' }}>
                 <span className="text-sm font-bold font-mono" style={isCreditNote ? { color: '#dc2626' } : {}}>{inv.number || '—'}</span>
                 <Badge label={tp.label} color={tp.color} bg={tp.bg} />
                 <span className="text-sm font-bold" style={{ color: isCreditNote ? '#dc2626' : inv.status === 'paid' ? '#1a8a18' : '#0f1a14' }}>
@@ -117,7 +117,7 @@ export default function BookingPaymentsTab({ bookingId }) {
                 </span>
                 <Badge label={st.label} color={st.color} bg={st.bg} />
                 <span className="text-sm" style={{ color: '#1a2e22' }}>{inv.issue_date || '—'}</span>
-                <button onClick={() => setViewInvoice(inv)} className="text-sm font-bold cursor-pointer ml-auto"
+                <button onClick={() => setViewInvoice(inv)} className="text-sm font-bold cursor-pointer ml-auto max-lg:min-h-[36px] max-lg:px-1"
                   style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button>
               </div>
             )
@@ -133,7 +133,7 @@ export default function BookingPaymentsTab({ bookingId }) {
         ) : (
           entries.map(e => (
             <div key={e.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
-              <div className="flex-1">
+              <div className="flex-1 max-lg:min-w-0">
                 <span className="text-sm font-bold">{e.description || 'Platba'}</span>
                 <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{e.date || e.created_at?.slice(0, 10) || '—'}</span>
               </div>
@@ -190,7 +190,7 @@ function InvoiceViewModal({ invoice, onClose }) {
           Náhled faktury není dostupný. Částka: {(invoice.total || 0).toLocaleString('cs-CZ')} Kč
         </div>
       )}
-      <div className="flex justify-end gap-3 mt-4">
+      <div className="flex justify-end gap-3 mt-4 max-lg:flex-wrap">
         {html && (
           <Button onClick={() => printInvoiceHtml(html)}>Tisk / PDF</Button>
         )}

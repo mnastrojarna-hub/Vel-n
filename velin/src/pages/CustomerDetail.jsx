@@ -230,25 +230,30 @@ export default function CustomerDetail() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-5">
-        <button onClick={() => navigate('/zakaznici')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
-        <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{customer.full_name || 'Zákazník'}</h2>
+      {/* < 1024 px: hlavička se zalomí (dlouhé jméno + odznaky), šipka zpět má dotykovou plochu 40 px
+          a zůstává vedle jména; na desktopu je obal `contents` = rozvržení beze změny */}
+      <div className="flex items-center gap-3 mb-5 max-lg:flex-wrap max-lg:gap-x-2 max-lg:gap-y-1">
+        <div className="flex items-center gap-1 min-w-0 lg:contents">
+        <button onClick={() => navigate('/zakaznici')} className="cursor-pointer max-lg:w-10 max-lg:h-10 max-lg:-ml-2 max-lg:shrink-0" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
+        <h2 className="font-extrabold text-lg max-lg:min-w-0 max-lg:break-words" style={{ color: '#0f1a14' }}>{customer.full_name || 'Zákazník'}</h2>
+        </div>
         <ScoreBadge userId={id} />
         <AppInstallBadge install={appInstall} />
       </div>
 
       {/* Blocked banner */}
       {customer.is_blocked && (
-        <div className="p-3 rounded-card mb-4 flex items-center gap-3" style={{ background: '#fee2e2', border: '2px solid #dc2626' }}>
+        <div className="p-3 rounded-card mb-4 flex items-center gap-3 max-sm:flex-wrap" style={{ background: '#fee2e2', border: '2px solid #dc2626' }}>
           <span style={{ fontSize: 20 }}>🚫</span>
-          <div>
+          {/* Telefon: ikona + text na prvním řádku, tlačítko Odblokovat pod nimi vpravo */}
+          <div className="max-sm:min-w-0 max-sm:basis-[calc(100%-44px)] max-sm:break-words">
             <div className="text-sm font-bold" style={{ color: '#dc2626' }}>Zakaznik je ZABLOKOVANY</div>
             {customer.blocked_reason && <div className="text-sm" style={{ color: '#7f1d1d' }}>Duvod: {customer.blocked_reason}</div>}
             {customer.blocked_at && <div className="text-sm" style={{ color: '#7f1d1d' }}>Od: {new Date(customer.blocked_at).toLocaleString('cs-CZ')}</div>}
           </div>
           <div className="flex-1" />
           <button onClick={() => setConfirmBlock(true)}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', background: '#dcfce7', color: '#1a8a18', border: 'none' }}>
             Odblokovat
           </button>
@@ -259,16 +264,17 @@ export default function CustomerDetail() {
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => { setShowResetPw(true); setResetPwMsg(null); setNewPassword(''); setResetPwMode('email') }}
-          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
           style={{ padding: '8px 16px', background: '#fef3c7', color: '#b45309', border: 'none' }}
         >
           Resetovat heslo
         </button>
       </div>
 
-      <div className="flex gap-2 mb-5">
+      {/* Záložky: pod 1024 px se zalamují do více řádků, aby byly vidět všechny (Dokumenty … Reklamace) */}
+      <div className="flex gap-2 mb-5 max-lg:flex-wrap">
         {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer" style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
+          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]" style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
             {t}
           </button>
         ))}
@@ -309,17 +315,17 @@ export default function CustomerDetail() {
       {showResetPw && (
         <Modal open title="Resetovat heslo zakaznika" onClose={() => setShowResetPw(false)}>
           <div className="space-y-3">
-            <div className="flex gap-2">
+            <div className="flex gap-2 max-sm:flex-wrap">
               <button
                 onClick={() => setResetPwMode('email')}
-                className="rounded-btn text-sm font-bold cursor-pointer"
+                className="rounded-btn text-sm font-bold cursor-pointer max-lg:min-h-[40px]"
                 style={{ padding: '6px 14px', background: resetPwMode === 'email' ? '#74FB71' : '#f1faf7', color: resetPwMode === 'email' ? '#1a2e22' : '#1a2e22', border: 'none' }}
               >
                 Poslat reset email
               </button>
               <button
                 onClick={() => setResetPwMode('manual')}
-                className="rounded-btn text-sm font-bold cursor-pointer"
+                className="rounded-btn text-sm font-bold cursor-pointer max-lg:min-h-[40px]"
                 style={{ padding: '6px 14px', background: resetPwMode === 'manual' ? '#74FB71' : '#f1faf7', color: resetPwMode === 'manual' ? '#1a2e22' : '#1a2e22', border: 'none' }}
               >
                 Nastavit heslo rucne

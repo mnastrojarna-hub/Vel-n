@@ -3,10 +3,12 @@ import { supabase } from '../../lib/supabase'
 import { AGENTS, loadAgentConfig, getEnabledTools, getAgentCorrections } from '../../lib/aiAgents'
 import { buildAgentPromptsText } from '../../lib/aiAgentPrompts'
 import { buildAllAgentMemory } from '../../lib/aiAgentMemory'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 export default function AiDashboardWidget() {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const isMobile = useIsMobile() // mobil/tablet: tlačítko ≥ 40 px, čitelnější drobné písmo
 
   async function runBriefing() {
     setLoading(true)
@@ -45,6 +47,7 @@ export default function AiDashboardWidget() {
           padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
           background: loading ? '#d1d5db' : '#74FB71', color: '#1a2e22',
           fontSize: 12, fontWeight: 700,
+          ...(isMobile ? { minHeight: 40, flexShrink: 0 } : null),
         }}>
           {loading ? 'Generuji...' : 'Denní přehled'}
         </button>
@@ -55,7 +58,7 @@ export default function AiDashboardWidget() {
         {AGENTS.filter(a => config[a.id]?.enabled).map(a => (
           <span key={a.id} title={a.name} style={{
             display: 'inline-flex', alignItems: 'center', gap: 2,
-            padding: '2px 6px', borderRadius: 6, fontSize: 10,
+            padding: '2px 6px', borderRadius: 6, fontSize: isMobile ? 11 : 10,
             background: '#f1faf7', border: '1px solid #d4e8e0',
           }}>
             {a.icon} <span style={{ color: '#666' }}>{a.name.split(' ')[0]}</span>
@@ -75,7 +78,7 @@ export default function AiDashboardWidget() {
       )}
 
       {!result && !loading && (
-        <div style={{ fontSize: 11, color: '#999', textAlign: 'center', padding: 8 }}>
+        <div style={{ fontSize: isMobile ? 12 : 11, color: '#999', textAlign: 'center', padding: 8 }}>
           Klikněte "Denní přehled" nebo použijte Ctrl+K pro AI asistenta
         </div>
       )}

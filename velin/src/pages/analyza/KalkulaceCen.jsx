@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { isRealizedBooking } from '../../lib/revenueUtils'
-import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY, stickyStripe } from '../../components/sortableTable'
 import { DEFAULT_PARAMS, DAY_COEF, DAY_LABELS, calcMotoPrice, serviceIntervals, seasonDaysPerYear } from '../../lib/priceCalc'
 
 // Analýza → Kalkulace cen: přepis horní tabulky excelu „Moto ceny.xlsx“.
@@ -87,11 +87,13 @@ export default function KalkulaceCen() {
     <div>
       <div style={{ ...card, background: '#f1faf7' }}>
         <div className="font-bold mb-2" style={{ color: '#1a2e22' }}>Parametry kalkulace <span style={{ fontWeight: 400, fontSize: 12, color: '#666' }}>— jen analýza, reálný ceník se nemění</span></div>
-        <div className="flex gap-3 flex-wrap">
+        {/* Telefon: parametry ve 2 sloupcích přes celou šířku; od tabletu původní řádek polí */}
+        <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap">
           {PARAM_FIELDS.map(([k, label, step]) => (
             <label key={k} style={{ fontSize: 11, color: '#555' }}>{label}<br />
               <input type="number" step={step} value={form[k]} onChange={e => setF(k, e.target.value)}
-                style={{ width: 120, padding: '6px 8px', borderRadius: 8, border: '1px solid #cfe5d9', fontWeight: 700, color: '#1a2e22' }} />
+                className="w-full md:w-[120px]"
+                style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid #cfe5d9', fontWeight: 700, color: '#1a2e22' }} />
             </label>
           ))}
         </div>
@@ -104,13 +106,15 @@ export default function KalkulaceCen() {
         <Kpi value={noKm} label="Bez dat o km/den (průměr)" />
       </div>
 
-      <div style={{ ...card, overflowX: 'auto' }}>
-        <table className="w-full text-sm" style={{ borderCollapse: 'collapse', whiteSpace: 'nowrap' }}>
-          <thead><SortableHeaderRow columns={COLUMNS} sort={sort.sort} toggle={sort.toggle} /></thead>
+      {/* Telefon: karty (mg-stack); tablet: posun do strany s přilepeným modelem */}
+      <div className={STACK_WRAP} style={{ ...card, padding: undefined, overflowX: 'auto' }}>
+        <TabScroll>
+        <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse', whiteSpace: 'nowrap' }}>
+          <thead><SortableHeaderRow columns={COLUMNS} sort={sort.sort} toggle={sort.toggle} stickyFirst /></thead>
           <tbody>
             {sortRows(rows, COLUMNS, sort.sort).map((r, i) => (
-              <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent', opacity: r.ok ? 1 : 0.55 }}>
-                <td className="py-2 px-3 font-semibold">{r.model}</td>
+              <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : undefined, opacity: r.ok ? 1 : 0.55 }}>
+                <td className={`py-2 px-3 font-semibold mg-stack-full ${TAB_STICKY}`} style={stickyStripe(i)}>{r.model}</td>
                 <td className="py-2 px-3 font-mono">{r.spz}</td>
                 <td className="py-2 px-3">{r.ok ? fmtKc(r.purchase) : <span style={{ color: '#b45309' }}>chybí</span>}</td>
                 <td className="py-2 px-3" title={r.kmPerDayRaw == null ? `Bez protokolů s km — průměr ${p.kmPerDay} km/den` : `Z dat: ${fmt(r.kmObserved)} ${r.unit} za ${r.kmObservedDays} půjčených dní (${r.kmSource === 'tachometr' ? 'tachometr − koupeno s km' : 'předávací protokoly'}; čtení pod „koupeno s km“ ${fmt(r.purchaseKm)} podlaženo)${r.kmSource === 'mimo' ? ` → mimo ${p.kmPerDayMin}–${p.kmPerDayMax} km/den, použit průměr ${p.kmPerDay}` : ''}`}>
@@ -141,6 +145,7 @@ export default function KalkulaceCen() {
             ))}
           </tbody>
         </table>
+        </TabScroll>
         <p className="text-xs mt-3" style={{ color: '#6b7280', whiteSpace: 'normal' }}>
           Servis/rok = nájezd/rok × Kč/km. Nájezd/rok = km na půjčený den × půjčené dny/rok; km/den z předávacích protokolů (najeté km rezervace / její dny, čtení pod „koupeno s km“ podlaženo),
           mimo {p.kmPerDayMin}–{p.kmPerDayMax} km/den se nahradí průměrem {p.kmPerDay} (hodnota z dat v závorce); <sup>o</sup> = průměr bez dat.

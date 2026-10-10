@@ -65,30 +65,32 @@ export default function ServiceInvoicesPanel({ log, moto, onChanged, compact = f
         <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Faktury / doklady k servisu</span>
         {rows.length > 0 && <span className="text-xs font-bold" style={{ color: '#1a8a18' }}>{rows.length}× · {fmtMoney(total)}</span>}
         <input ref={inputRef} type="file" accept="application/pdf,image/*" style={{ display: 'none' }} onChange={e => pick(e.target.files?.[0])} />
-        <button type="button" onClick={() => inputRef.current?.click()} disabled={busy || !log?.id} className="ml-auto rounded-btn text-xs font-extrabold uppercase cursor-pointer disabled:opacity-50"
-          style={{ padding: '5px 12px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>+ Přidat fakturu</button>
+        <button type="button" onClick={() => inputRef.current?.click()} disabled={busy || !log?.id} className="ml-auto rounded-btn text-xs font-extrabold uppercase cursor-pointer disabled:opacity-50 px-3 py-[5px] max-lg:py-2"
+          style={{ background: '#74FB71', color: '#1a2e22', border: 'none' }}>+ Přidat fakturu</button>
       </div>
       {!log?.id && <div className="text-xs" style={{ color: '#9ca3af' }}>Doklady lze nahrát po uložení záznamu.</div>}
       {rows.map(r => (
         <div key={r.id} className="flex items-center gap-2 flex-wrap text-sm py-1" style={{ borderTop: '1px solid #eef5f1' }}>
-          <button type="button" onClick={() => open(r)} className="font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#2563eb', padding: 0 }} title="Otevřít doklad">📎 {r.invoice_number || r.file_name || 'doklad'}</button>
+          <button type="button" onClick={() => open(r)} className="font-bold cursor-pointer p-0 max-lg:py-1.5" style={{ background: 'none', border: 'none', color: '#2563eb' }} title="Otevřít doklad">📎 {r.invoice_number || r.file_name || 'doklad'}</button>
           <span style={{ color: '#1a2e22' }}>{r.supplier_name || '—'}</span>
           <span className="font-bold" style={{ color: '#0f1a14' }}>{fmtMoney(r.amount)}</span>
           <span className="text-xs" style={{ color: '#6b7280' }}>{fmtDate(r.issue_date)}{r.uploaded_by_name ? ` · nahrál ${r.uploaded_by_name}` : ''}</span>
-          <button type="button" onClick={() => remove(r)} disabled={busy} className="ml-auto text-xs cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }} title="Smazat doklad">✕</button>
+          <button type="button" onClick={() => remove(r)} disabled={busy} className="ml-auto text-xs cursor-pointer max-lg:text-base max-lg:px-2 max-lg:py-1" style={{ background: 'none', border: 'none', color: '#dc2626' }} title="Smazat doklad">✕</button>
         </div>
       ))}
       {busy && !meta && <div className="text-xs mt-1" style={{ color: '#6b7280' }}>Čtu doklad…</div>}
       {meta && (
         <div className="mt-2 p-2 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #74FB71' }}>
           <div className="text-xs font-bold mb-2" style={{ color: '#1a2e22' }}>📄 {file?.name} {meta.ocr ? '· údaje vyčteny z fotky — zkontrolujte' : '· doplňte údaje dokladu'}</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-sm:grid-cols-1 max-lg:items-end">
             <input value={meta.supplier_name} onChange={e => set('supplier_name', e.target.value)} placeholder="Dodavatel (servis)" className="rounded-btn text-sm outline-none" style={inp} />
             <input value={meta.supplier_ico} onChange={e => set('supplier_ico', e.target.value)} placeholder="IČO" className="rounded-btn text-sm outline-none" style={inp} />
             <input value={meta.invoice_number} onChange={e => set('invoice_number', e.target.value)} placeholder="Číslo dokladu" className="rounded-btn text-sm outline-none" style={inp} />
             <input type="number" min="0" value={meta.amount} onChange={e => set('amount', e.target.value)} placeholder="Částka Kč *" className="rounded-btn text-sm outline-none" style={inp} />
-            <input type="date" value={meta.issue_date} onChange={e => set('issue_date', e.target.value)} className="rounded-btn text-sm outline-none" style={inp} title="Datum vystavení" />
-            <input type="date" value={meta.due_date} onChange={e => set('due_date', e.target.value)} className="rounded-btn text-sm outline-none" style={inp} title="Splatnost" />
+            <label className="lg:contents"><span className="lg:hidden block text-xs font-bold mb-0.5" style={{ color: '#1a2e22' }}>Datum vystavení</span>
+              <input type="date" value={meta.issue_date} onChange={e => set('issue_date', e.target.value)} className="rounded-btn text-sm outline-none max-lg:w-full" style={inp} title="Datum vystavení" /></label>
+            <label className="lg:contents"><span className="lg:hidden block text-xs font-bold mb-0.5" style={{ color: '#1a2e22' }}>Splatnost</span>
+              <input type="date" value={meta.due_date} onChange={e => set('due_date', e.target.value)} className="rounded-btn text-sm outline-none max-lg:w-full" style={inp} title="Splatnost" /></label>
           </div>
           <input value={meta.note} onChange={e => set('note', e.target.value)} placeholder="Poznámka (volitelné)" className="w-full rounded-btn text-sm outline-none mt-2" style={inp} />
           {err && <div className="text-xs mt-1" style={{ color: '#dc2626' }}>{err}</div>}

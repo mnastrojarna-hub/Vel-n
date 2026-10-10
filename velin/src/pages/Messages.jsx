@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useDebugMode } from '../hooks/useDebugMode'
 import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
 import { ChatMobileChannelTabs, ChatMobileSubTabs } from './messages/ChatMobileTabs'
+import ChatMobileNewCustomer from './messages/ChatMobileNewCustomer'
 import ThreadList from './messages/ThreadList'
 import ChatPanel from './messages/ChatPanel'
 import MessageLogTab from './messages/MessageLogTab'
@@ -35,6 +36,8 @@ const SUB_TABS = [
 const VH = typeof CSS !== 'undefined' && CSS.supports?.('height', '100dvh') ? '100dvh' : '100vh'
 const LIST_OFFSET_PHONE = 192
 const LIST_OFFSET_TABLET = 204
+// Tlačítka modálu „Nová konverzace“ na dotyku: půl na půl, výška pro prst
+const M_BTN = { flex: '1 1 0', justifyContent: 'center', minHeight: 44 }
 
 export default function Messages() {
   const debugMode = useDebugMode()
@@ -289,6 +292,10 @@ export default function Messages() {
                 <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
                   Zákazník
                 </label>
+                {isMobile ? (
+                  <ChatMobileNewCustomer customers={customers} filteredCustomers={filteredCustomers} customerId={newCustomerId}
+                    onSelect={setNewCustomerId} search={customerSearch} onSearch={setCustomerSearch} />
+                ) : (<>
                 <input
                   type="text"
                   placeholder="Hledat zákazníka…"
@@ -309,6 +316,7 @@ export default function Messages() {
                     <option key={c.id} value={c.id}>{c.full_name || 'Bez jména'} ({c.email})</option>
                   ))}
                 </select>
+                </>)}
               </div>
 
               <div>
@@ -339,8 +347,8 @@ export default function Messages() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <Button onClick={() => setShowNew(false)}>Zrušit</Button>
-                <Button green onClick={handleCreateThread} disabled={creating || !newCustomerId || !newMessage.trim()}>
+                <Button onClick={() => setShowNew(false)} style={isMobile ? M_BTN : undefined}>Zrušit</Button>
+                <Button green onClick={handleCreateThread} disabled={creating || !newCustomerId || !newMessage.trim()} style={isMobile ? M_BTN : undefined}>
                   {creating ? 'Vytvářím…' : 'Odeslat'}
                 </Button>
               </div>

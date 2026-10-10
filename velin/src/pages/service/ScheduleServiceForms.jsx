@@ -63,7 +63,7 @@ export function RecurringForm({ motos, branches = [], onBack, onDone }) {
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hledat model / SPZ…" className="w-full rounded-btn text-sm outline-none mb-2" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
       <div style={{ maxHeight: 150, overflowY: 'auto' }} className="space-y-1 mb-3">
         {filtered.map(m => (
-          <label key={m.id} className="flex items-center gap-2 p-2 rounded cursor-pointer" style={{ background: selectedIds.has(m.id) ? '#dcfce7' : '#f9fafb', border: `1px solid ${selectedIds.has(m.id) ? '#1a8a18' : '#e5e7eb'}` }}>
+          <label key={m.id} className="flex items-center gap-2 p-2 rounded cursor-pointer max-md:flex-wrap" style={{ background: selectedIds.has(m.id) ? '#dcfce7' : '#f9fafb', border: `1px solid ${selectedIds.has(m.id) ? '#1a8a18' : '#e5e7eb'}` }}>
             <input type="checkbox" checked={selectedIds.has(m.id)} onChange={() => toggle(m.id)} className="accent-[#1a8a18]" style={{ width: 16, height: 16 }} />
             <span className="font-bold text-sm">{m.model}</span><span className="font-mono text-xs" style={{ color: '#6b7280' }}>{m.spz}</span>
             <span className="text-xs ml-auto" style={{ color: '#6b7280' }}>{m.branches?.name || '—'}</span>
@@ -86,7 +86,7 @@ export function RecurringForm({ motos, branches = [], onBack, onDone }) {
       <div className="mb-3">
         <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Preferované dny (servis se naplánuje na nejbližší volný)</label>
         <div className="flex gap-1">
-          {WEEKDAYS.map((d, i) => <button key={i} onClick={() => toggleDay(i)} className="rounded text-xs font-bold cursor-pointer" style={{ width: 36, height: 30, border: 'none', background: preferredDays.has(i) ? '#1a8a18' : '#f1faf7', color: preferredDays.has(i) ? '#fff' : '#1a2e22' }}>{d}</button>)}
+          {WEEKDAYS.map((d, i) => <button key={i} onClick={() => toggleDay(i)} className="rounded text-xs font-bold cursor-pointer w-9 h-[30px] max-lg:h-10" style={{ border: 'none', background: preferredDays.has(i) ? '#1a8a18' : '#f1faf7', color: preferredDays.has(i) ? '#fff' : '#1a2e22' }}>{d}</button>)}
         </div>
       </div>
       <div className="mb-4"><label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Popis</label><input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Typ servisu / kontroly…" className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} /></div>
@@ -124,7 +124,7 @@ export function MotoPicker({ motos, search, setSearch, onSelect }) {
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hledat model / SPZ…" className="w-full rounded-btn text-sm outline-none mb-2" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
       <div style={{ maxHeight: 280, overflowY: 'auto' }} className="space-y-1">
         {motos.map(m => (
-          <div key={m.id} onClick={() => onSelect(m.id)} className="flex items-center gap-2 p-2 rounded cursor-pointer" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+          <div key={m.id} onClick={() => onSelect(m.id)} className="flex items-center gap-2 p-2 rounded cursor-pointer max-md:flex-wrap" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
             <span className="font-bold text-sm">{m.model}</span><span className="font-mono text-xs" style={{ color: '#6b7280' }}>{m.spz}</span>
             <span className="text-xs font-bold" style={{ color: statusColor[m.status] || '#6b7280' }}>{statusLabel[m.status] || m.status}</span>
             <span className="text-xs ml-auto" style={{ color: '#6b7280' }}>{m.branches?.name || '—'}</span>

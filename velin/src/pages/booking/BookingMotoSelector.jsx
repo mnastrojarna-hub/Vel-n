@@ -8,7 +8,7 @@ export default function BookingMotoSelector({
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Motorka</h3>
         <button onClick={() => setChangingMoto(!changingMoto)}
-          className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>
+          className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>
           {changingMoto ? 'Skryt vyber' : 'Zmenit motorku'}
         </button>
       </div>
@@ -27,7 +27,7 @@ export default function BookingMotoSelector({
             <div className="text-right">
               <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {booking.motorcycles?.model}</div>
               <button onClick={() => { setSelectedMotoId(booking.moto_id); setChangingMoto(false) }}
-                className="text-xs font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', padding: 0 }}>
+                className="text-xs font-bold cursor-pointer max-lg:min-h-[36px]" style={{ color: '#dc2626', background: 'none', border: 'none', padding: 0 }}>
                 Vratit puvodni
               </button>
             </div>

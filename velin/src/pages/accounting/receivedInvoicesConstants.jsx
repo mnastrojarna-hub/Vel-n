@@ -36,7 +36,7 @@ export const CATEGORY_LABELS = {
 export function AIDetail({ label, value, mono }) {
   return (
     <div>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#7c3aed' }}>{label}</div>
+      <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#7c3aed' }}>{label}</div>
       <div className={`text-sm font-bold ${mono ? 'font-mono' : ''}`} style={{ color: '#1a2e22' }}>{value || '\u2014'}</div>
     </div>
   )

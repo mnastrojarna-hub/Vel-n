@@ -103,7 +103,7 @@ export default function Topbar() {
       }}
     >
       <div className="flex items-center gap-3 min-w-0">
-        <div className="w-8 md:hidden shrink-0" />
+        <div className="w-8 lg:hidden shrink-0" />
         <h1 className="m-0 text-lg md:text-xl font-black truncate" style={{ color: '#0f1a14' }}>
           {label}
         </h1>
@@ -131,7 +131,7 @@ export default function Topbar() {
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="relative cursor-pointer bg-transparent border-none text-xl"
+            className="relative cursor-pointer bg-transparent border-none text-xl max-lg:min-w-[40px] max-lg:min-h-[40px]"
             style={{ lineHeight: 1 }}
             title="Notifikace"
           >

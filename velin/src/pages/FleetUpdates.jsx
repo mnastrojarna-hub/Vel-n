@@ -114,7 +114,8 @@ function FleetUpdatesInner() {
         className="w-full flex items-center gap-3 flex-wrap text-left cursor-pointer border-none bg-transparent"
         style={{ padding: '14px 20px' }}>
         <span style={{ color: '#1a2e22', fontSize: 14 }}>{open ? '▾' : '▸'}</span>
-        <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Aktualizace řídicích jednotek (všechny pobočky)</span>
+        {/* < 1024 px: nadpis hned vedle šipky (jinak by šipka zůstala sama na řádku), souhrn pod ním */}
+        <span className="text-sm font-extrabold uppercase tracking-wide max-lg:basis-[calc(100%-40px)]" style={{ color: '#1a2e22' }}>Aktualizace řídicích jednotek (všechny pobočky)</span>
         <span className="text-[12px]" style={{ color: '#6b8c7a' }}>{summary}</span>
         {active && <Chip tone={ROLLOUT_STATUS_TONE[active.status]}>{phaseText(active, activeRows, devById)}</Chip>}
         {error && !open && <Chip tone="red">chyba načtení</Chip>}
@@ -149,7 +150,7 @@ function FleetUpdatesInner() {
                   title={active ? 'Už běží hromadná aktualizace' : 'apt full-upgrade na všech jednotkách (kanárek → sledování → zbytek)'}>
                   Aktualizovat OS na všech pobočkách
                 </Btn>
-                <button type="button" onClick={load} disabled={busy} className="ml-auto text-[11px] font-bold cursor-pointer underline" style={{ background: 'none', border: 'none', color: '#6b8c7a' }}>
+                <button type="button" onClick={load} disabled={busy} className="ml-auto text-[11px] font-bold cursor-pointer underline max-lg:min-h-[36px]" style={{ background: 'none', border: 'none', color: '#6b8c7a' }}>
                   Obnovit (naposledy {new Date(now).toLocaleTimeString('cs-CZ')})
                 </button>
               </div>

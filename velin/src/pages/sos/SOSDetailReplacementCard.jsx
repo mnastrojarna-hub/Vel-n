@@ -11,7 +11,7 @@ export function DecisionCard({ incident, isActive, isMajor, isAccident, updateDe
           <div className="flex flex-wrap gap-2 mb-3">
             {Object.entries(DECISION_LABELS).map(([key, label]) => (
               <button key={key} onClick={() => updateDecision(key)}
-                className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{
                   padding: '6px 14px',
                   background: incident.customer_decision === key ? '#1a2e22' : '#f1faf7',
@@ -26,9 +26,9 @@ export function DecisionCard({ incident, isActive, isMajor, isAccident, updateDe
           {isAccident && (
             <div className="mt-3">
               <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Zavinění: </span>
-              <div className="flex gap-2 mt-1">
+              <div className="flex gap-2 mt-1 max-sm:flex-wrap">
                 <button onClick={() => updateFault(true)}
-                  className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                  className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                   style={{
                     padding: '5px 12px',
                     background: incident.customer_fault === true ? '#dc2626' : '#f1faf7',
@@ -37,7 +37,7 @@ export function DecisionCard({ incident, isActive, isMajor, isAccident, updateDe
                   Zákazník (platí)
                 </button>
                 <button onClick={() => updateFault(false)}
-                  className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                  className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                   style={{
                     padding: '5px 12px',
                     background: incident.customer_fault === false ? '#1a8a18' : '#f1faf7',
@@ -66,7 +66,7 @@ export function MotoSelectorCard({ incident, isActive, isMajor, showMotoSelector
           </div>
           {!showMotoSelector ? (
             <button onClick={loadAvailableMotos}
-              className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+              className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
               style={{ padding: '8px 16px', background: '#2563eb', color: '#fff' }}>
               🏍️ Vybrat náhradní motorku
             </button>
@@ -86,14 +86,14 @@ export function MotoSelectorCard({ incident, isActive, isMajor, showMotoSelector
                         {m.spz} · {m.branches?.name || '—'} · {m.price_weekday || '?'} Kč/den
                       </div>
                     </div>
-                    <span className="text-sm font-extrabold" style={{ color: '#2563eb' }}>
+                    <span className="text-sm font-extrabold max-lg:shrink-0 max-lg:whitespace-nowrap max-lg:ml-2" style={{ color: '#2563eb' }}>
                       {swapping ? '⏳' : 'Vybrat →'}
                     </span>
                   </div>
                 ))}
               </div>
               <button onClick={() => setShowMotoSelector(false)}
-                className="mt-2 rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                className="mt-2 rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '6px 12px', background: '#f1faf7', color: '#1a2e22' }}>
                 Zrušit
               </button>
@@ -107,12 +107,12 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
   if (!incident.replacement_data) return null
   return (
         <Card>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 max-sm:flex-wrap max-sm:gap-2">
             <h4 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#dc2626' }}>
               Objednávka náhradní motorky
             </h4>
             {incident.replacement_status && (
-              <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase" style={{
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-xs font-extrabold tracking-wide uppercase" style={{
                 padding: '2px 7px',
                 background: (REPLACEMENT_STATUS_COLORS[incident.replacement_status] || {}).bg || '#f1faf7',
                 color: (REPLACEMENT_STATUS_COLORS[incident.replacement_status] || {}).color || '#1a2e22',
@@ -126,7 +126,7 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
           <div className="rounded-lg text-sm" style={{
             padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', lineHeight: 1.8,
           }}>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
               <InfoRow label="Motorka" value={incident.replacement_data.replacement_model} />
               {replacementMoto && <InfoRow label="SPZ" value={replacementMoto.spz} mono />}
               {replacementMoto?.branches?.name && <InfoRow label="Pobočka" value={replacementMoto.branches.name} />}
@@ -182,7 +182,7 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
               <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a8a18' }}>
                 Přepnutí rezervace
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                 <InfoRow label="Původní rez." value={`#${(incident.replacement_data.original_booking_id || incident.original_booking_id || '').slice(-8).toUpperCase()}`} mono />
                 <InfoRow label="Nová rez." value={`#${(incident.replacement_data.replacement_booking_id || incident.replacement_booking_id || '').slice(-8).toUpperCase()}`} mono />
                 {incident.replacement_data.original_end_date && (
@@ -232,7 +232,7 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
                 }
                 onRefresh?.()
               }}
-                className="mt-2 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                className="mt-2 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '8px 16px', background: '#dc2626', color: '#fff' }}>
                 🔄 Provést swap rezervací nyní
               </button>
@@ -243,7 +243,7 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
           {(incident.replacement_status === 'selecting' || incident.replacement_status === 'pending_payment') && (
             <div className="mt-3 flex gap-2">
               <button onClick={retriggerSosFab}
-                className="flex-1 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                className="flex-1 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '8px 12px', background: '#d97706', color: '#fff' }}>
                 🔔 Znovu vyvolat FAB v appce
               </button>
@@ -275,12 +275,12 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
                   />
                   <div className="flex gap-2">
                     <button onClick={() => { rejectReplacement(rejectReason); setShowRejectForm(false) }}
-                      className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                      className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                       style={{ padding: '8px 12px', background: '#dc2626', color: '#fff' }}>
                       Potvrdit zamítnutí
                     </button>
                     <button onClick={() => setShowRejectForm(false)}
-                      className="rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                      className="rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                       style={{ padding: '8px 12px', background: '#f1faf7', color: '#1a2e22' }}>
                       Zrušit
                     </button>
@@ -294,7 +294,7 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
           {incident.replacement_status === 'approved' && (
             <div className="mt-3 flex gap-2">
               <button onClick={() => updateReplacementStatus('dispatched')}
-                className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '8px 12px', background: '#2563eb', color: '#fff' }}>
                 Motorka na cestě
               </button>
@@ -303,7 +303,7 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
           {incident.replacement_status === 'dispatched' && (
             <div className="mt-3 flex gap-2">
               <button onClick={() => updateReplacementStatus('delivered')}
-                className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '8px 12px', background: '#1a8a18', color: '#fff' }}>
                 Doručeno zákazníkovi
               </button>

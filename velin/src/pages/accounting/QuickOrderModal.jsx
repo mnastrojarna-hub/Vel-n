@@ -65,17 +65,18 @@ export default function QuickOrderModal({ onClose, onSaved }) {
         </div>
         <div><Label>Položky</Label>
           {items.map((it, idx) => (
-            <div key={idx} className="flex items-center gap-2 mb-2">
-              <select value={it.item_id} onChange={e => selectItem(idx, e.target.value)} className="flex-1 rounded-btn text-sm outline-none" style={inputStyle}>
+            // telefon: položka na celý řádek, pod ní ks + cena + odebrat
+            <div key={idx} className="flex items-center gap-2 mb-2 max-md:flex-wrap max-md:pb-2 max-md:border-b max-md:border-[#e3efe9]">
+              <select value={it.item_id} onChange={e => selectItem(idx, e.target.value)} className="flex-1 rounded-btn text-sm outline-none max-md:basis-full max-md:min-w-0" style={inputStyle}>
                 <option value="">— Položka —</option>
                 {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({i.sku})</option>)}
               </select>
-              <input type="number" value={it.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)} placeholder="Ks" className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 70 }} />
-              <input type="number" value={it.unit_price} onChange={e => updateItem(idx, 'unit_price', e.target.value)} placeholder="Cena/ks" className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 100 }} />
-              <button onClick={() => removeItem(idx)} className="text-sm cursor-pointer bg-transparent border-none" style={{ color: '#dc2626' }}>{'\u2715'}</button>
+              <input type="number" value={it.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)} placeholder="Ks" className="rounded-btn text-sm outline-none max-md:flex-1 max-md:min-w-0" style={{ ...inputStyle, width: 70 }} />
+              <input type="number" value={it.unit_price} onChange={e => updateItem(idx, 'unit_price', e.target.value)} placeholder="Cena/ks" className="rounded-btn text-sm outline-none max-md:flex-1 max-md:min-w-0" style={{ ...inputStyle, width: 100 }} />
+              <button onClick={() => removeItem(idx)} className="text-sm cursor-pointer bg-transparent border-none max-lg:min-w-[36px] max-lg:min-h-[36px]" style={{ color: '#dc2626' }}>{'\u2715'}</button>
             </div>
           ))}
-          <button onClick={addItem} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>+ Pridat polozku</button>
+          <button onClick={addItem} className="text-sm font-bold cursor-pointer bg-transparent border-none max-lg:min-h-[36px]" style={{ color: '#1a8a18' }}>+ Pridat polozku</button>
         </div>
         <div><Label>Poznamky</Label>
           <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} />

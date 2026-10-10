@@ -13,6 +13,7 @@ import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
 import { exportToCsv, bulkDelete } from '../../lib/bulkActions'
+import { TAB_ROW, ROWS_WHITE, STACK_CARD, STACK_CARD_TAB } from './FinanceAStack'
 
 const PER_PAGE = 25
 
@@ -131,7 +132,7 @@ export default function CreditNotesTab() {
   return (
     <div>
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
         <StatCard label="Celkem dobropisů" value={stats.count} color="#dc2626" />
         <StatCard label="Celkem vráceno" value={fmt(stats.totalRefunded)} color="#dc2626" />
         <StatCard label="Tento měsíc" value={stats.thisMonthCount} color="#b45309" />
@@ -158,14 +159,14 @@ export default function CreditNotesTab() {
       ) : (
         <>
           {/* Credit Notes Table */}
-          <Card className="mb-5">
+          <Card className={`mb-5 ${STACK_CARD_TAB}`}>
             <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#dc2626' }}>Dobropisy (DB)</h3>
             {creditNotes.length === 0 ? (
               <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné dobropisy</p>
             ) : (
               <>
               <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
-              <Table>
+              <Table stack="tablet">
                 <thead>
                   <TRow header>
                     <TH><SelectAllCheckbox items={creditNotes} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
@@ -174,7 +175,7 @@ export default function CreditNotesTab() {
                 </thead>
                 <tbody>
                   {creditNotes.map(cn => (
-                    <tr key={cn.id} className="cursor-pointer hover:bg-[#fef2f2] transition-colors"
+                    <tr key={cn.id} className={`cursor-pointer hover:bg-[#fef2f2] transition-colors ${TAB_ROW}`}
                       style={{ borderBottom: '1px solid #fecaca', background: selectedIds.has(cn.id) ? '#fef9c3' : undefined }} onClick={() => handleView(cn)}>
                       <TD><RowCheckbox id={cn.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                       <TD mono bold style={{ color: '#dc2626' }}>{cn.number || '—'}</TD>
@@ -190,7 +191,7 @@ export default function CreditNotesTab() {
                       <TD>{cn.issue_date ? new Date(cn.issue_date).toLocaleDateString('cs-CZ') : '—'}</TD>
                       <TD><Badge label="Dobropis" color="#dc2626" bg="#fee2e2" /></TD>
                       <TD>
-                        <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                        <div className="flex gap-1 max-lg:justify-end" onClick={e => e.stopPropagation()}>
                           <SmallBtn onClick={() => handleView(cn)}>Náhled</SmallBtn>
                           <SmallBtn onClick={() => handlePrint(cn)}>PDF</SmallBtn>
                         </div>
@@ -205,12 +206,12 @@ export default function CreditNotesTab() {
           </Card>
 
           {/* Refund Accounting Entries */}
-          <Card>
+          <Card className={STACK_CARD}>
             <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#dc2626' }}>Vrácené platby (účetní záznamy)</h3>
             {refundEntries.length === 0 ? (
               <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné vrácené platby</p>
             ) : (
-              <Table>
+              <Table stack className={ROWS_WHITE}>
                 <thead>
                   <TRow header>
                     <TH>Datum</TH><TH>Popis</TH><TH>Částka</TH><TH>Rezervace</TH>
@@ -258,7 +259,7 @@ function StatCard({ label, value, color }) {
 
 function SmallBtn({ children, onClick }) {
   return (
-    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[36px] max-lg:min-w-[60px]"
       style={{ padding: '3px 8px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>
       {children}
     </button>

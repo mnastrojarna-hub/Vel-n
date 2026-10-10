@@ -36,10 +36,11 @@ const fmtDT = (d) => d ? new Date(d).toLocaleString('cs-CZ', { day: 'numeric', m
 export function WidgetCard({ icon, title, onOpen, children }) {
   return (
     <Card>
-      <div className="flex items-center justify-between mb-2.5">
-        <div className="text-[13px] font-extrabold" style={{ color: '#0f1a14' }}>{icon} {title}</div>
+      {/* mobil/tablet (< lg): mezera mezi nadpisem a odkazem, „Zobrazit →“ nezalomit + větší dotyková plocha (záporný okraj = stejná výška hlavičky) */}
+      <div className="flex items-center justify-between mb-2.5 max-lg:gap-2">
+        <div className="text-[13px] font-extrabold max-lg:min-w-0" style={{ color: '#0f1a14' }}>{icon} {title}</div>
         {onOpen && (
-          <button onClick={onOpen} className="text-[11px] font-extrabold uppercase tracking-wide cursor-pointer"
+          <button onClick={onOpen} className="text-[11px] font-extrabold uppercase tracking-wide cursor-pointer max-lg:shrink-0 max-lg:whitespace-nowrap max-lg:min-h-[36px] max-lg:-my-2 max-lg:pl-3"
             style={{ background: 'none', border: 'none', color: '#1a8a18' }}>
             Zobrazit →
           </button>
@@ -53,13 +54,15 @@ export function WidgetCard({ icon, title, onOpen, children }) {
 export function Row({ onClick, title, sub, right, badge }) {
   return (
     <div onClick={onClick}
-      className={`flex items-center mb-1.5 ${onClick ? 'cursor-pointer hover:brightness-95 transition-all' : ''}`}
+      className={`flex items-center mb-1.5 max-sm:flex-wrap ${onClick ? 'cursor-pointer hover:brightness-95 transition-all' : ''}`}
       style={{ padding: '8px 10px', background: '#f1faf7', borderRadius: 12, fontSize: 12 }}>
-      <div className="flex-1 min-w-0">
-        <div className="font-bold truncate" style={{ color: '#0f1a14' }}>{title}</div>
-        {sub && <div className="text-sm truncate" style={{ color: '#1a2e22' }}>{sub}</div>}
+      {/* mobil/tablet (< lg): celý text se zalamuje místo oříznutí na jeden řádek — jinak by zmizela data (termín, e-mail…) */}
+      <div className="flex-1 min-w-0 max-sm:basis-auto">
+        <div className="font-bold lg:truncate max-lg:[overflow-wrap:anywhere]" style={{ color: '#0f1a14' }}>{title}</div>
+        {sub && <div className="text-sm lg:truncate max-lg:[overflow-wrap:anywhere]" style={{ color: '#1a2e22' }}>{sub}</div>}
       </div>
-      <div className="text-right ml-2 shrink-0">
+      {/* telefon (< 640 px): když se dlouhý text nevejde vedle částky/štítku, ty se zalomí pod něj (text má celou šířku) */}
+      <div className="text-right ml-2 shrink-0 max-sm:ml-auto max-sm:mt-1 max-sm:flex max-sm:items-center max-sm:gap-2 max-sm:empty:hidden">
         {right && <div className="font-extrabold" style={{ color: '#3dba3a' }}>{right}</div>}
         {badge}
       </div>
@@ -76,7 +79,7 @@ export function BookingRowsCard({ icon, title, bookings, nav, dateField }) {
     <WidgetCard icon={icon} title={title} onOpen={() => nav('/rezervace')}>
       {bookings.length === 0 ? <Empty>Žádné rezervace</Empty> : bookings.map(b => (
         <Row key={b.id} onClick={() => nav(`/rezervace/${b.id}`)}
-          title={<>{b.customer_name || 'Zákazník'}{b.created_via_ai ? ' 🤖' : ''}{b.extends_booking_id ? <span className="ml-1 text-[9px] font-extrabold px-1 py-0.5 rounded-btn align-middle" title={`Navazuje na rezervaci #${b.extends_booking_id.slice(-8).toUpperCase()} — prodloužení, ne nová rezervace`} style={{ background: '#e0e7ff', color: '#4338ca' }}>PRODLOUŽENÍ</span> : null}</>}
+          title={<>{b.customer_name || 'Zákazník'}{b.created_via_ai ? ' 🤖' : ''}{b.extends_booking_id ? <span className="ml-1 text-[9px] max-lg:text-[11px] font-extrabold px-1 py-0.5 rounded-btn align-middle" title={`Navazuje na rezervaci #${b.extends_booking_id.slice(-8).toUpperCase()} — prodloužení, ne nová rezervace`} style={{ background: '#e0e7ff', color: '#4338ca' }}>PRODLOUŽENÍ</span> : null}</>}
           sub={`${b.motorcycle_name || 'Motorka'} · ${fmtD(b.start_date)} – ${fmtD(b.end_date)}${dateField === 'created_at' ? ` · vytvořeno ${fmtDT(b.created_at)}` : ''}`}
           right={b.total_price ? fmtKc(b.total_price) : null}
           badge={STATUS_MAP[getDisplayStatus(b)] && <Badge {...STATUS_MAP[getDisplayStatus(b)]} />}
@@ -185,11 +188,11 @@ export function StkCard({ stkExpiring, nav }) {
       {stkExpiring.length > 0 ? stkExpiring.slice(0, 4).map(m => {
         const days = Math.ceil((new Date(m.stk_valid_until) - new Date()) / 86400000)
         return (
-          <div key={m.id} onClick={() => nav(`/flotila/${m.id}`)} className="flex items-center text-sm mb-1 cursor-pointer hover:brightness-95"
+          <div key={m.id} onClick={() => nav(`/flotila/${m.id}`)} className="flex items-center text-sm mb-1 cursor-pointer hover:brightness-95 max-lg:min-h-[40px]"
             style={{ padding: '6px 10px', background: days < 0 ? '#fee2e2' : '#fef3c7', borderRadius: 8 }}>
             <span className="font-bold" style={{ color: '#0f1a14' }}>{m.model}</span>
-            <span className="ml-2 font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz}</span>
-            <span className="ml-auto font-bold" style={{ color: days < 0 ? '#dc2626' : '#b45309' }}>
+            <span className="ml-2 font-mono text-sm max-lg:whitespace-nowrap" style={{ color: '#1a2e22' }}>{m.spz}</span>
+            <span className="ml-auto font-bold max-lg:whitespace-nowrap max-lg:pl-2" style={{ color: days < 0 ? '#dc2626' : '#b45309' }}>
               {days < 0 ? `${Math.abs(days)} dní po` : `za ${days} dní`}
             </span>
           </div>
@@ -233,7 +236,7 @@ export function VisitorsCard({ visitors, nav }) {
     <WidgetCard icon="🌍" title="Návštěvnost webu (7 dní)" onOpen={() => nav('/analyza')}>
       {!visitors ? <Empty>Návštěvnost zatím není aktivní</Empty> : (
         <>
-          <div className="flex gap-5 mb-2">
+          <div className="flex gap-5 mb-2 max-lg:flex-wrap max-lg:gap-y-1">
             <div><span className="text-xl font-black" style={{ color: '#1a8a18' }}>{visitors.visitors.toLocaleString('cs-CZ')}</span>
               <span className="text-sm font-medium ml-1.5" style={{ color: '#1a2e22' }}>návštěvníků</span></div>
             <div><span className="text-xl font-black" style={{ color: '#3b82f6' }}>{visitors.views.toLocaleString('cs-CZ')}</span>
@@ -250,7 +253,7 @@ export function AiConvCard({ ai, nav }) {
   return (
     <WidgetCard icon="🤖" title="AI konverzace na webu (7 dní)" onOpen={() => nav('/analyza')}>
       {!ai ? <Empty>Žádná data</Empty> : (
-        <div className="flex gap-5">
+        <div className="flex gap-5 max-lg:flex-wrap max-lg:gap-y-1">
           <div><span className="text-xl font-black" style={{ color: '#7c3aed' }}>{ai.total}</span>
             <span className="text-sm font-medium ml-1.5" style={{ color: '#1a2e22' }}>konverzací</span></div>
           <div><span className="text-xl font-black" style={{ color: '#1a8a18' }}>{ai.bookings}</span>

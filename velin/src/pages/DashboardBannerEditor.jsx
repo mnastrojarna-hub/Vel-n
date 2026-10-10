@@ -41,7 +41,8 @@ export default function BannerEditor() {
     <Card>
       <div className="flex items-center justify-between mb-3">
         <div className="text-[13px] font-extrabold" style={{ color: '#0f1a14' }}>📢 Banner v aplikaci</div>
-        <label className="flex items-center gap-2 cursor-pointer">
+        {/* mobil/tablet (< lg): větší přepínač a dotyková plocha */}
+        <label className="flex items-center gap-2 cursor-pointer max-lg:min-h-[40px] max-lg:pl-2">
           <span className="text-xs font-bold" style={{ color: banner.enabled ? '#1a8a18' : '#8aab99' }}>
             {banner.enabled ? 'Zapnuto' : 'Vypnuto'}
           </span>
@@ -49,7 +50,7 @@ export default function BannerEditor() {
             type="checkbox"
             checked={banner.enabled}
             onChange={e => setBanner(prev => ({ ...prev, enabled: e.target.checked }))}
-            className="w-4 h-4 accent-green-500"
+            className="w-4 h-4 accent-green-500 max-lg:w-6 max-lg:h-6"
           />
         </label>
       </div>
@@ -69,14 +70,14 @@ export default function BannerEditor() {
           <div className="flex-1">
             <label className="text-xs font-bold block mb-1" style={{ color: '#1a2e22' }}>Barva pozadí</label>
             <div className="flex items-center gap-2">
-              <input type="color" value={banner.bg} onChange={e => setBanner(prev => ({ ...prev, bg: e.target.value }))} className="w-8 h-8 rounded cursor-pointer border-0" />
+              <input type="color" value={banner.bg} onChange={e => setBanner(prev => ({ ...prev, bg: e.target.value }))} className="w-8 h-8 rounded cursor-pointer border-0 max-lg:w-10 max-lg:h-10" />
               <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{banner.bg}</span>
             </div>
           </div>
           <div className="flex-1">
             <label className="text-xs font-bold block mb-1" style={{ color: '#1a2e22' }}>Barva textu</label>
             <div className="flex items-center gap-2">
-              <input type="color" value={banner.color} onChange={e => setBanner(prev => ({ ...prev, color: e.target.value }))} className="w-8 h-8 rounded cursor-pointer border-0" />
+              <input type="color" value={banner.color} onChange={e => setBanner(prev => ({ ...prev, color: e.target.value }))} className="w-8 h-8 rounded cursor-pointer border-0 max-lg:w-10 max-lg:h-10" />
               <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{banner.color}</span>
             </div>
           </div>
@@ -89,7 +90,7 @@ export default function BannerEditor() {
         <button
           onClick={saveBanner}
           disabled={saving}
-          className="w-full py-2 rounded-lg text-sm font-bold text-white mt-1"
+          className="w-full py-2 rounded-lg text-sm font-bold text-white mt-1 max-lg:py-2.5"
           style={{ background: saving ? '#8aab99' : '#1a8a18' }}
         >
           {saving ? 'Ukládání...' : 'Uložit banner'}

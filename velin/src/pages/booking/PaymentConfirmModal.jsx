@@ -162,7 +162,7 @@ export default function PaymentConfirmModal({ open, onClose, onConfirm, saving, 
         {MANUAL_PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
       </select>
 
-      <div className="grid grid-cols-2 gap-3 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div>
           <label className={labelCls} style={{ color: '#1a2e22' }}>Variabilní symbol</label>
           <input type="text" value={vs} onChange={e => setVs(e.target.value)}

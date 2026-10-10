@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod } from './TimePeriodSelector'
-import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
+import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY, stickyStripe } from '../../components/sortableTable'
 
 const MOTO_COLUMNS = [
   { label: 'Model', key: 'model', str: true },
@@ -140,17 +140,18 @@ export default function VykonNajezd() {
         </div>
       )}
 
-      {/* Per motorka */}
-      <div style={cardStyle}>
+      {/* Per motorka — telefon: karty (mg-stack), tablet: posun do strany s přilepeným modelem */}
+      <div className={STACK_WRAP} style={{ ...cardStyle, padding: undefined }}>
         <div className="font-bold mb-3" style={th}>Nájezd podle motorky</div>
-        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+        <TabScroll>
+        <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
           <thead>
-            <SortableHeaderRow columns={MOTO_COLUMNS} sort={motoSort.sort} toggle={motoSort.toggle} />
+            <SortableHeaderRow columns={MOTO_COLUMNS} sort={motoSort.sort} toggle={motoSort.toggle} stickyFirst />
           </thead>
           <tbody>
             {sortRows(motoStats, MOTO_COLUMNS, motoSort.sort).map((m, i) => (
-              <tr key={m.moto_id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent' }}>
-                <td className="py-2 px-3 font-semibold">{m.model}</td>
+              <tr key={m.moto_id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : undefined }}>
+                <td className={`py-2 px-3 font-semibold mg-stack-full ${TAB_STICKY}`} style={stickyStripe(i)}>{m.model}</td>
                 <td className="py-2 px-3 font-mono">{m.spz}</td>
                 <td className="py-2 px-3" style={{ minWidth: 160 }}>
                   <div className="flex items-center gap-2">
@@ -172,20 +173,21 @@ export default function VykonNajezd() {
             {motoStats.length === 0 && <tr><td colSpan={10} className="py-3 px-3" style={{ color: '#888' }}>Žádná data pro vybrané období.</td></tr>}
           </tbody>
         </table>
+        </TabScroll>
         <p className="text-xs mt-2" style={{ color: '#6b7280' }}>Najeto celkem = aktuální km (dle posledního předávacího protokolu) − km při nákupu; km, se kterými byla motorka koupena, se do nájezdu nepočítají. Ø na kalendářní/půjčovní den = celkový průměr od pořízení (nezávisí na zvoleném období).</p>
       </div>
 
       {/* Per zákazník */}
-      <div style={cardStyle}>
+      <div className={STACK_WRAP} style={{ ...cardStyle, padding: undefined }}>
         <div className="font-bold mb-3" style={th}>Nájezd podle zákazníka</div>
-        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+        <table className="w-full text-sm mg-stack" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <SortableHeaderRow columns={CUST_COLUMNS} sort={custSort.sort} toggle={custSort.toggle} />
           </thead>
           <tbody>
             {sortRows(custStats, CUST_COLUMNS, custSort.sort).map((c, i) => (
-              <tr key={c.user_id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent' }}>
-                <td className="py-2 px-3 font-semibold">{c.name}</td>
+              <tr key={c.user_id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : undefined }}>
+                <td className="py-2 px-3 font-semibold mg-stack-full">{c.name}</td>
                 <td className="py-2 px-3">{c.totalKm.toLocaleString('cs-CZ')} km</td>
                 <td className="py-2 px-3">{c.rentals}</td>
                 <td className="py-2 px-3">{c.kmPerRental.toLocaleString('cs-CZ')} km</td>

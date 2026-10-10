@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Badge from '../../components/ui/Badge'
+import { TAB_ROW } from './FinanceAStack'
 
 // Platby DODAVATELŮM — historie odeslaných i neodeslaných plateb (přijaté faktury).
 // Odesláno = invoice.status='paid' (paid_date), Neodesláno = ostatní.
@@ -77,14 +78,19 @@ export default function PaymentsTab() {
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {[['all', 'Vše'], ['sent', 'Odeslané'], ['unsent', 'Neodeslané']].map(([k, l]) => (
-          <button key={k} onClick={() => setF(o => ({ ...o, status: k }))} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          <button key={k} onClick={() => setF(o => ({ ...o, status: k }))} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[36px]"
             style={{ padding: '6px 14px', border: 'none', background: f.status === k ? '#1a2e22' : '#f1faf7', color: f.status === k ? '#74FB71' : '#1a2e22' }}>{l}</button>
         ))}
-        <input value={f.search} onChange={e => setF(o => ({ ...o, search: e.target.value }))} placeholder="Dodavatel, č. dokladu, VS…" style={{ ...inp, minWidth: 200 }} />
-        <label className="text-xs font-bold" style={{ color: '#1a2e22' }}>Od</label>
-        <input type="date" value={f.from} onChange={e => setF(o => ({ ...o, from: e.target.value }))} style={inp} />
-        <label className="text-xs font-bold" style={{ color: '#1a2e22' }}>Do</label>
-        <input type="date" value={f.to} onChange={e => setF(o => ({ ...o, to: e.target.value }))} style={inp} />
+        <input value={f.search} onChange={e => setF(o => ({ ...o, search: e.target.value }))} placeholder="Dodavatel, č. dokladu, VS…" className="max-sm:w-full" style={{ ...inp, minWidth: 200 }} />
+        {/* Mobil: popisek drží u svého data (na desktopu display:contents = beze změny) */}
+        <span className="flex items-center gap-2 max-sm:w-full lg:contents">
+          <label className="text-xs font-bold max-sm:w-6" style={{ color: '#1a2e22' }}>Od</label>
+          <input type="date" value={f.from} onChange={e => setF(o => ({ ...o, from: e.target.value }))} className="max-sm:flex-1 max-sm:min-w-0" style={inp} />
+        </span>
+        <span className="flex items-center gap-2 max-sm:w-full lg:contents">
+          <label className="text-xs font-bold max-sm:w-6" style={{ color: '#1a2e22' }}>Do</label>
+          <input type="date" value={f.to} onChange={e => setF(o => ({ ...o, to: e.target.value }))} className="max-sm:flex-1 max-sm:min-w-0" style={inp} />
+        </span>
         <input type="number" value={f.min} onChange={e => setF(o => ({ ...o, min: e.target.value }))} placeholder="Kč od" style={{ ...inp, width: 90 }} />
         <input type="number" value={f.max} onChange={e => setF(o => ({ ...o, max: e.target.value }))} placeholder="Kč do" style={{ ...inp, width: 90 }} />
         <select value={f.sort} onChange={e => setF(o => ({ ...o, sort: e.target.value }))} style={inp}>
@@ -95,11 +101,11 @@ export default function PaymentsTab() {
 
       {loading ? <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
         : (
-          <Table>
+          <Table stack="tablet">
             <thead><TRow header><TH>Dodavatel</TH><TH>Č. dokladu</TH><TH>VS</TH><TH>Částka</TH><TH>Splatnost</TH><TH>Odesláno</TH><TH>Stav</TH><TH>Akce</TH></TRow></thead>
             <tbody>
               {list.map(inv => (
-                <TRow key={inv.id}>
+                <tr key={inv.id} className={TAB_ROW} style={{ borderBottom: '1px solid #d4e8e0' }}>
                   <TD><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{supplierOf(inv)}</span></TD>
                   <TD mono bold>{inv.number || '—'}</TD>
                   <TD mono>{inv.variable_symbol || '—'}</TD>
@@ -109,12 +115,12 @@ export default function PaymentsTab() {
                   <TD>{isSent(inv) ? <Badge label="Odesláno" color="#1a8a18" bg="#dcfce7" /> : <Badge label="Neodesláno" color="#b45309" bg="#fef3c7" />}</TD>
                   <TD>
                     {isSent(inv)
-                      ? <button onClick={() => markUnsent(inv)} disabled={busy === inv.id} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', padding: '4px 6px' }}>Zrušit odeslání</button>
-                      : <button onClick={() => markSent(inv)} disabled={busy === inv.id} className="text-sm font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none', padding: '4px 6px' }}>Označit odeslané</button>}
+                      ? <button onClick={() => markUnsent(inv)} disabled={busy === inv.id} className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]" style={{ color: '#dc2626', background: 'none', border: 'none', padding: '4px 6px' }}>Zrušit odeslání</button>
+                      : <button onClick={() => markSent(inv)} disabled={busy === inv.id} className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]" style={{ color: '#1a8a18', background: 'none', border: 'none', padding: '4px 6px' }}>Označit odeslané</button>}
                   </TD>
-                </TRow>
+                </tr>
               ))}
-              {list.length === 0 && <TRow><TD>Žádné platby</TD></TRow>}
+              {list.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="">Žádné platby</TD></tr>}
             </tbody>
           </Table>
         )}

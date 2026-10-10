@@ -219,7 +219,7 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
 
       <div className="mb-4">
         <div className="text-sm font-bold mb-2" style={{ color: '#1a2e22' }}>Vybrané motorky:</div>
-        <div className="flex flex-wrap gap-1.5 max-h-24 overflow-auto p-2 rounded-btn" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+        <div className="flex flex-wrap gap-1.5 max-h-24 overflow-auto p-2 rounded-btn max-lg:!rounded-xl" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           {selectedMotos.map(m => (
             <span key={m.id} className="text-xs font-bold px-2 py-1 rounded-btn" style={{ background: '#fff', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
               {m.model} <span className="font-mono" style={{ color: '#6b7280' }}>{m.spz}</span>
@@ -287,7 +287,7 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
 
       {mode === 'book' && (
         <Section title="Hromadná blokace (interní rezervace)" onBack={() => setMode(null)}>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
             <div>
               <Label>Od</Label>
               <input type="date" value={bookingFrom} onChange={e => setBookingFrom(e.target.value)}

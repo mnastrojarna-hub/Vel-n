@@ -36,11 +36,11 @@ export default function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existi
   const existingNorm = existingTypes.map(norm)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.4)' }} onClick={e => { if (e.target === e.currentTarget) reset() }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center max-lg:p-2" style={{ background: 'rgba(0,0,0,.4)' }} onClick={e => { if (e.target === e.currentTarget) reset() }}>
       <div className="rounded-card shadow-xl w-full max-w-lg" style={{ background: '#fff', maxHeight: '85vh', overflow: 'auto' }}>
         <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid #d4e8e0' }}>
           <h3 className="font-extrabold text-base" style={{ color: '#0f1a14' }}>{step === 1 ? 'Vyberte typ servisu' : 'Nastaveni planu'}</h3>
-          <button onClick={reset} className="text-lg font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#6b7280' }}>{'\u00d7'}</button>
+          <button onClick={reset} className="text-lg font-bold cursor-pointer max-lg:w-9 max-lg:h-9" style={{ background: 'none', border: 'none', color: '#6b7280' }}>{'\u00d7'}</button>
         </div>
         {step === 1 && (
           <div className="p-4"><div className="grid grid-cols-2 gap-2">
@@ -64,7 +64,7 @@ export default function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existi
         )}
         {step === 2 && (
           <div className="p-4 space-y-4">
-            <button onClick={() => setStep(1)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>{'\u2190'} Zpet na vyber typu</button>
+            <button onClick={() => setStep(1)} className="text-sm font-bold cursor-pointer max-lg:min-h-[36px] max-lg:pr-3" style={{ color: '#2563eb', background: 'none', border: 'none' }}>{'\u2190'} Zpet na vyber typu</button>
             {selected && selected !== 'custom' && <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#dcfce7' }}><span style={{ fontSize: 18 }}>{SERVICE_PRESETS.find(p => p.key === selected)?.icon}</span><span className="font-bold text-sm" style={{ color: '#166534' }}>{form.description}</span></div>}
             {selected === 'custom' && <div><label className="block text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Nazev servisu</label><input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="napr. Vymena svicek, Kontrola ventilu..." autoFocus className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} /></div>}
             <div><label className="block text-xs font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Intervaly</label>

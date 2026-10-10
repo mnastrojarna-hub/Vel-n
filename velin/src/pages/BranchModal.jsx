@@ -103,7 +103,7 @@ function BranchModal({ existing, onClose, onSaved }) {
 
   return (
     <Modal open title={isEdit ? `Upravit: ${existing.name}` : 'Nová pobočka'} onClose={onClose} wide>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FormField label="Název pobočky *" value={form.name} onChange={v => set('name', v)} />
         <FormField label="Kód pobočky" value={form.branch_code} onChange={v => set('branch_code', v)}
           placeholder="Automaticky generován pokud prázdný" />
@@ -127,23 +127,23 @@ function BranchModal({ existing, onClose, onSaved }) {
             <option value="obslužná">Obslužná — servisní místo (max 24 motorek)</option>
           </select>
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <FormField label="Adresa" value={form.address} onChange={v => set('address', v)} />
         </div>
         <FormField label="GPS šířka" value={form.gps_lat} onChange={v => set('gps_lat', v)} type="number"
           placeholder="např. 49.7437" />
         <FormField label="GPS délka" value={form.gps_lng} onChange={v => set('gps_lng', v)} type="number"
           placeholder="např. 15.3386" />
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Poznámky</label>
           <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
             className="w-full rounded-btn text-sm outline-none"
             style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: 60, resize: 'vertical' }} />
         </div>
-        <div className="col-span-2 flex items-center gap-4 flex-wrap">
+        <div className="sm:col-span-2 flex items-center gap-4 flex-wrap">
           <label className="flex items-center gap-2 cursor-pointer">
             <div onClick={() => set('is_open', !form.is_open)}
-              className="rounded-btn font-extrabold text-sm cursor-pointer border-none"
+              className="rounded-btn font-extrabold text-sm cursor-pointer border-none max-lg:min-h-[40px] max-lg:flex max-lg:items-center"
               style={{
                 padding: '6px 16px',
                 background: form.is_open ? '#1a8a18' : '#dc2626',
@@ -153,7 +153,7 @@ function BranchModal({ existing, onClose, onSaved }) {
               {form.is_open ? 'OTEVŘENÁ — Nonstop' : 'ZAVŘENÁ'}
             </div>
           </label>
-          <label className="flex items-center gap-2">
+          <label className="flex items-center gap-2 max-lg:min-h-[40px]">
             <input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)} />
             <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Pobočka je aktivní</span>
           </label>

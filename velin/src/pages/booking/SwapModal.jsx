@@ -101,9 +101,10 @@ export default function SwapModal({ open, prev, next, onClose, onDone }) {
           je <strong>předávací protokol nové motorky</strong>.
         </div>
 
-        <div className="flex justify-end gap-3">
-          <Button onClick={onClose} disabled={busy}>Zrušit</Button>
-          <Button green disabled={busy} onClick={() => { setError(null); setPhase('protocol') }}>
+        {/* telefon: tlačítka pod sebou přes celou šířku (dlouhý popisek se jinak lámal do 4 řádků) */}
+        <div className="flex justify-end gap-3 max-sm:flex-col-reverse">
+          <Button onClick={onClose} disabled={busy} className="max-sm:justify-center">Zrušit</Button>
+          <Button green disabled={busy} className="max-sm:justify-center" onClick={() => { setError(null); setPhase('protocol') }}>
             {busy ? 'Provádím…' : '✍️ Podepsat protokol nové motorky a vyměnit'}
           </Button>
         </div>

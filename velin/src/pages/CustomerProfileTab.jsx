@@ -112,7 +112,7 @@ function ConsentRow({ label, desc, checked, onChange, required = false, readOnly
       {readOnly ? (
         <span className="text-xs font-extrabold rounded-full px-3 py-1 whitespace-nowrap" style={{ background: bg, color: col, border: `1.5px solid ${border}` }}>{stateLabel}</span>
       ) : (
-        <button type="button" onClick={() => onChange(!checked)} className="text-xs font-extrabold rounded-full px-3 py-1 cursor-pointer whitespace-nowrap transition" style={{ background: bg, color: col, border: `1.5px solid ${border}` }}>{stateLabel}</button>
+        <button type="button" onClick={() => onChange(!checked)} className="text-xs font-extrabold rounded-full px-3 py-1 cursor-pointer whitespace-nowrap transition max-lg:min-h-[36px] max-lg:min-w-[56px] max-lg:px-4 max-lg:shrink-0" style={{ background: bg, color: col, border: `1.5px solid ${border}` }}>{stateLabel}</button>
       )}
     </div>
   )
@@ -203,25 +203,29 @@ function LoyaltyChip({ userId }) {
 
   if (!st) return null
   const penalty = Number(st.penalty_points) || 0
+  const pointsInfo = `Body: ${st.points} (základ ${st.raw_points}, bonus ${st.bonus_points}, strop ${st.floor_points}, penalizace ${penalty})`
   return (
-    <div className="rounded-xl px-3 py-2 min-w-0" style={{ background: penalty > 0 ? '#fee2e2' : '#dcfce7' }}>
-      <div className="text-[10px] font-bold uppercase tracking-wide truncate"
+    // Telefon: přes celou šířku mřížky; < 1024 px se texty nezkracují a rozpis bodů
+    // (na desktopu jen v tooltipu) je vidět pod rankem — na dotyku tooltip nejde otevřít
+    <div className="rounded-xl px-3 py-2 min-w-0 max-sm:col-span-2" style={{ background: penalty > 0 ? '#fee2e2' : '#dcfce7' }}>
+      <div className="text-[10px] font-bold uppercase tracking-wide truncate max-lg:whitespace-normal"
         style={{ color: penalty > 0 ? C.red : '#16a34a', opacity: 0.65 }}>
         Věrnostní rank{penalty > 0 ? ' · degradován' : ''}
       </div>
-      <div className="text-sm font-extrabold truncate" style={{ color: penalty > 0 ? C.red : '#16a34a' }}
-        title={`Body: ${st.points} (základ ${st.raw_points}, bonus ${st.bonus_points}, strop ${st.floor_points}, penalizace ${penalty})`}>
+      <div className="text-sm font-extrabold truncate max-lg:whitespace-normal" style={{ color: penalty > 0 ? C.red : '#16a34a' }}
+        title={pointsInfo}>
         {st.rank_name} · {st.percent} %
       </div>
-      <div className="flex gap-1 mt-1">
+      <div className="lg:hidden text-[11px] font-semibold" style={{ color: penalty > 0 ? C.red : '#16a34a', opacity: 0.8 }}>{pointsInfo}</div>
+      <div className="flex gap-1 mt-1 max-lg:flex-wrap max-lg:gap-2">
         <button onClick={() => adjust(-1)} disabled={busy}
-          className="text-[10px] font-extrabold uppercase cursor-pointer rounded-btn"
-          style={{ padding: '2px 6px', background: '#fff', color: C.red, border: '1px solid #fca5a5' }}
+          className="text-[10px] font-extrabold uppercase cursor-pointer rounded-btn px-[6px] py-[2px] max-lg:px-3 max-lg:py-2 max-lg:text-xs max-lg:whitespace-nowrap"
+          style={{ background: '#fff', color: C.red, border: '1px solid #fca5a5' }}
           title="Ruční degradace o 1 rank (např. po nehodě). Zapíše se do historie úprav.">−1 rank</button>
         {penalty > 0 && (
           <button onClick={() => adjust(1)} disabled={busy}
-            className="text-[10px] font-extrabold uppercase cursor-pointer rounded-btn"
-            style={{ padding: '2px 6px', background: '#fff', color: '#16a34a', border: '1px solid #86efac' }}
+            className="text-[10px] font-extrabold uppercase cursor-pointer rounded-btn px-[6px] py-[2px] max-lg:px-3 max-lg:py-2 max-lg:text-xs max-lg:whitespace-nowrap"
+            style={{ background: '#fff', color: '#16a34a', border: '1px solid #86efac' }}
             title="Vrátit zpět 1 rank z dřívější degradace.">+1 rank</button>
         )}
       </div>
@@ -259,9 +263,9 @@ export default function ProfileTab({ customer, set, error, saving, onSave, onDel
         {/* Osobní údaje */}
         <Card>
           <SectionTitle>Osobní údaje</SectionTitle>
-          <div className="grid grid-cols-2 gap-3.5">
-            <div className="col-span-2"><Field label="Jméno" value={customer.full_name} onChange={v => set('full_name', v)} /></div>
-            <div className="col-span-2"><Field label="Email" value={customer.email} disabled /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="sm:col-span-2"><Field label="Jméno" value={customer.full_name} onChange={v => set('full_name', v)} /></div>
+            <div className="sm:col-span-2"><Field label="Email" value={customer.email} disabled /></div>
             <Field label="Telefon" value={customer.phone} onChange={v => set('phone', v)} />
             <Field label={`Datum narození${age ? ` · ${age}` : ''}`} value={customer.date_of_birth} onChange={v => set('date_of_birth', v)} type="date" />
           </div>
@@ -292,7 +296,7 @@ export default function ProfileTab({ customer, set, error, saving, onSave, onDel
         {/* Doklady a oprávnění */}
         <Card className="lg:col-span-2">
           <SectionTitle>Doklady a oprávnění</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
             <DocBox title="Doklad totožnosti" badge={<VerifyBadge verified={!!customer.id_verified_at} date={fmtDate(customer.id_verified_at)} />}>
               <Field label="Číslo dokladu" value={customer.id_number} onChange={v => set('id_number', v)} />
               <Info label="Platnost do" value={fmtDate(customer.id_verified_until)} />
@@ -389,7 +393,7 @@ export default function ProfileTab({ customer, set, error, saving, onSave, onDel
           {customer.is_blocked ? 'Odblokovat' : 'Zablokovat'}
         </button>
         <div className="flex-1" />
-        <button onClick={onDelete} className="text-sm font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: C.red, opacity: 0.8 }}>
+        <button onClick={onDelete} className="text-sm font-bold cursor-pointer max-lg:py-2.5" style={{ background: 'none', border: 'none', color: C.red, opacity: 0.8 }}>
           Smazat zákazníka
         </button>
       </div>

@@ -5,6 +5,8 @@ import Inventory from './Inventory'
 import SkuTag, { SkuConventionInfo } from '../components/ui/SkuTag'
 import { buildSku, parseSku, normalizeSlug } from '../lib/sku'
 import { accSku, deductFromWarehouse, returnToWarehouse, loadAccessoryTypes } from './BranchHelpers'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { StockReceiveLineMobile, StockCalendarPickInfo } from './stock/StockLogistikaMobile'
 
 // Bezpečné volání RPC: supabase builder NEMÁ .catch() (jen .then) → přímé `.rpc(...).catch()` hází
 // TypeError. Tady chytneme síťovou výjimku a vrátíme null (volající si ošetří).
@@ -72,7 +74,7 @@ export default function Logistika() {
   const showBranch = tab === 'calendar' || tab === 'worklist'
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="lg:p-6">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-black" style={{ color: '#0f1a14' }}>📦 Logistika zboží</h1>
@@ -92,7 +94,7 @@ export default function Logistika() {
       <div className="flex gap-2 mb-4 flex-wrap">
         {TABS.map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)}
-            className="text-sm font-bold cursor-pointer rounded-btn"
+            className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[40px]"
             style={{ padding: '8px 16px', border: 'none', background: tab === k ? '#1a2e22' : '#e8f3ee', color: tab === k ? '#74FB71' : '#1a2e22' }}>
             {l}
           </button>
@@ -115,10 +117,12 @@ function CalendarTab({ branchId, from, to, setFrom, setTo }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [def, setDef] = useState({ count: 0, min: null, max: null })
+  const isMobile = useIsMobile()
+  const [pick, setPick] = useState(null)   // mobil: detail klepnuté buňky (místo tooltipu)
 
   const load = useCallback(async () => {
     if (!branchId) return
-    setLoading(true)
+    setLoading(true); setPick(null)
     // Recompute deficitů na CELÝ horizont této pobočky → kalendář i Chybí kus i banner sedí
     try { await supabase.rpc('detect_gear_shortages_for_window', { p_branch_id: branchId, p_from: todayIso(), p_to: addDaysIso(120) }) } catch { /* noop */ }
     const { data, error } = await supabase.rpc('get_branch_gear_calendar', { p_branch_id: branchId, p_from: from, p_to: to })
@@ -155,14 +159,19 @@ function CalendarTab({ branchId, from, to, setFrom, setTo }) {
   return (
     <Card>
       <div className="flex items-center gap-3 mb-3 flex-wrap">
-        <label className="text-sm font-bold" style={{ color: '#1a2e22' }}>Od</label>
-        <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-          className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-        <label className="text-sm font-bold" style={{ color: '#1a2e22' }}>Do</label>
-        <input type="date" value={to} onChange={e => setTo(e.target.value)}
-          className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+        {/* mobil/tablet: popisek + datum drží pohromadě (desktop: display contents = beze změny) */}
+        <span className="flex items-center gap-3 lg:contents max-sm:w-full">
+          <label className="text-sm font-bold max-sm:w-6" style={{ color: '#1a2e22' }}>Od</label>
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+            className="rounded-btn text-sm outline-none max-sm:flex-1 max-sm:min-w-0" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+        </span>
+        <span className="flex items-center gap-3 lg:contents max-sm:w-full">
+          <label className="text-sm font-bold max-sm:w-6" style={{ color: '#1a2e22' }}>Do</label>
+          <input type="date" value={to} onChange={e => setTo(e.target.value)}
+            className="rounded-btn text-sm outline-none max-sm:flex-1 max-sm:min-w-0" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+        </span>
         {[['14 dní', 14], ['30 dní', 30], ['90 dní', 90]].map(([l, n]) => (
-          <button key={n} onClick={() => preset(n)} className="text-xs font-bold cursor-pointer rounded-btn"
+          <button key={n} onClick={() => preset(n)} className="text-xs font-bold cursor-pointer rounded-btn max-lg:min-h-[36px]"
             style={{ padding: '5px 10px', border: '1px solid #d4e8e0', background: '#fff', color: '#1a2e22' }}>{l}</button>
         ))}
         <div className="flex items-center gap-3 ml-auto text-xs" style={{ color: '#1a2e22' }}>
@@ -171,12 +180,12 @@ function CalendarTab({ branchId, from, to, setFrom, setTo }) {
       </div>
 
       {outOfRange && (
-        <div className="mb-3 rounded-btn flex items-center gap-3 flex-wrap" style={{ padding: '10px 12px', background: '#fff5f5', border: '1px solid #fca5a5' }}>
+        <div className="mb-3 rounded-btn max-lg:rounded-[14px] flex items-center gap-3 flex-wrap" style={{ padding: '10px 12px', background: '#fff5f5', border: '1px solid #fca5a5' }}>
           <span className="text-sm font-bold" style={{ color: '#dc2626' }}>
             ⚠ Na této pobočce je {def.count} deficitů ({fmtDay(def.min)} – {fmtDay(def.max)}), část je mimo zobrazené období.
           </span>
           <button onClick={() => { setFrom(def.min < todayIso() ? todayIso() : def.min); setTo(def.max) }}
-            className="text-xs font-bold cursor-pointer rounded-btn" style={{ padding: '5px 10px', border: 'none', background: '#dc2626', color: '#fff' }}>
+            className="text-xs font-bold cursor-pointer rounded-btn max-lg:min-h-[36px]" style={{ padding: '5px 10px', border: 'none', background: '#dc2626', color: '#fff' }}>
             Zobrazit období deficitů
           </button>
         </div>
@@ -210,6 +219,7 @@ function CalendarTab({ branchId, from, to, setFrom, setTo }) {
                           const fg = deficit > 0 ? '#dc2626' : (stock > 0 && free === 0) ? '#b45309' : (stock > 0 ? '#16a34a' : '#9ca3af')
                           return (
                             <td key={d} title={`Skladem ${stock} · Vybookováno ${c?.booked ?? 0}`}
+                              onClick={isMobile ? () => setPick({ title: `${tlabel(line.type)} ${line.size} · ${fmtDay(d)}`, stock, booked: c?.booked ?? 0, free, deficit }) : undefined}
                               style={{ padding: '3px 4px', textAlign: 'center', background: bg, color: fg, fontWeight: 800, borderRadius: 4, minWidth: 34 }}>
                               {deficit > 0 ? `−${deficit}` : (stock > 0 ? free : '·')}
                             </td>
@@ -221,6 +231,7 @@ function CalendarTab({ branchId, from, to, setFrom, setTo }) {
                 </table>
               </div>
             )}
+            {isMobile && nonCons.length > 0 && <StockCalendarPickInfo pick={pick} onClose={() => setPick(null)} />}
 
             <SectionTitle>Spotřební</SectionTitle>
             {cons.length === 0 ? <Empty /> : (
@@ -326,7 +337,7 @@ function WorklistTab({ branches }) {
         <div className="flex items-center gap-3 flex-wrap">
           <ActBtn disabled={loading} color="#1a2e22" onClick={() => load(true)}>🔄 Přepočítat</ActBtn>
           <ActBtn disabled={busy === 'auto'} color="#f59e0b" onClick={autoOrderAll}>🔁 Objednat automaticky vše</ActBtn>
-          <label className="text-sm flex items-center gap-1.5 cursor-pointer" style={{ color: '#1a2e22' }}>
+          <label className="text-sm flex items-center gap-1.5 cursor-pointer max-lg:min-h-[36px]" style={{ color: '#1a2e22' }}>
             <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} /> Zobrazit i vyřešené
           </label>
         </div>
@@ -337,7 +348,7 @@ function WorklistTab({ branches }) {
         : (
           <div className="flex flex-col gap-2">
             {items.map(it => (
-              <div key={it.id} className="flex items-center gap-3 flex-wrap rounded-btn" style={{ padding: '10px 12px', background: '#f9fdfb', border: '1px solid #e2eee8' }}>
+              <div key={it.id} className="flex items-center gap-3 flex-wrap rounded-btn max-lg:rounded-[14px]" style={{ padding: '10px 12px', background: '#f9fdfb', border: '1px solid #e2eee8' }}>
                 <div style={{ minWidth: 150 }}>
                   <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>
                     {tlabel(it.accessory_type)} {it.size}
@@ -396,7 +407,7 @@ function TransferModal({ it, branchName, onClose, onDone }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.5)' }} onClick={onClose}>
-      <div className="rounded-card" style={{ background: '#fff', padding: 20, width: 'min(92vw, 440px)' }} onClick={e => e.stopPropagation()}>
+      <div className="rounded-card max-lg:max-h-[92dvh] max-lg:overflow-y-auto" style={{ background: '#fff', padding: 20, width: 'min(92vw, 440px)' }} onClick={e => e.stopPropagation()}>
         <div className="text-base font-black mb-1" style={{ color: '#0f1a14' }}>Přesun: {tlabel(it.accessory_type)} {it.size}</div>
         <div className="text-xs mb-3" style={{ color: '#1a2e22', opacity: 0.7 }}>Cíl: {branchName} · {fmtDay(it.shortage_date)} · chybí {it.deficit_qty} ks</div>
         <div className="flex items-center gap-2 mb-3">
@@ -409,7 +420,7 @@ function TransferModal({ it, branchName, onClose, onDone }) {
           : (
             <div className="flex flex-col gap-1.5">
               {sources.map(s => (
-                <div key={s.branch_id} className="flex items-center gap-3 rounded-btn" style={{ padding: '8px 12px', background: '#f9fdfb', border: '1px solid #e2eee8' }}>
+                <div key={s.branch_id} className="flex items-center gap-3 rounded-btn max-lg:rounded-[14px]" style={{ padding: '8px 12px', background: '#f9fdfb', border: '1px solid #e2eee8' }}>
                   <div className="flex-1">
                     <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{s.branch_name}</div>
                     <div className="text-xs" style={{ color: '#16a34a' }}>volných {s.free_qty} ks</div>
@@ -419,7 +430,7 @@ function TransferModal({ it, branchName, onClose, onDone }) {
               ))}
             </div>
           )}
-        <button onClick={onClose} className="mt-4 text-sm font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#64748b' }}>Zavřít</button>
+        <button onClick={onClose} className="mt-4 text-sm font-bold cursor-pointer max-lg:min-h-[40px]" style={{ background: 'none', border: 'none', color: '#64748b' }}>Zavřít</button>
       </div>
     </div>
   )
@@ -478,7 +489,7 @@ function PresunyTab({ branches }) {
   }
 
   const Sel = ({ value, onChange, children }) => (
-    <select value={value} onChange={e => onChange(e.target.value)} className="rounded-btn text-sm outline-none"
+    <select value={value} onChange={e => onChange(e.target.value)} className="rounded-btn text-sm outline-none max-lg:w-full max-lg:min-h-[40px]"
       style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>{children}</select>
   )
 
@@ -487,12 +498,12 @@ function PresunyTab({ branches }) {
       <div className="text-sm mb-3" style={{ color: '#1a2e22', opacity: 0.7 }}>Přesun výbavy mezi centrálním skladem a pobočkami i mezi pobočkami navzájem.</div>
       <div className="flex gap-2 mb-4 flex-wrap">
         {[['wh2branch', 'Sklad → Pobočka'], ['branch2wh', 'Pobočka → Sklad'], ['branch2branch', 'Pobočka → Pobočka']].map(([k, l]) => (
-          <button key={k} onClick={() => setDir(k)} className="text-sm font-bold cursor-pointer rounded-btn"
+          <button key={k} onClick={() => setDir(k)} className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[40px]"
             style={{ padding: '6px 12px', border: 'none', background: dir === k ? '#1a2e22' : '#e8f3ee', color: dir === k ? '#74FB71' : '#1a2e22' }}>{l}</button>
         ))}
       </div>
 
-      <div className="flex items-end gap-3 flex-wrap">
+      <div className="flex items-end gap-3 flex-wrap max-lg:grid max-lg:grid-cols-2 md:max-lg:grid-cols-4">
         {(dir === 'branch2wh' || dir === 'branch2branch') && (
           <Field label="Z pobočky"><Sel value={fromBranch} onChange={setFromBranch}><option value="">—</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</Sel></Field>
         )}
@@ -502,10 +513,10 @@ function PresunyTab({ branches }) {
         <Field label="Typ"><Sel value={type} onChange={v => { setType(v); setSize('') }}><option value="">—</option>{physicalTypes(accTypes).map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</Sel></Field>
         <Field label="Velikost"><Sel value={size} onChange={setSize}><option value="">—</option>{sizes.map(s => <option key={s} value={s}>{s}</option>)}</Sel></Field>
         <Field label="Počet">
-          <input type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} className="rounded-btn text-sm outline-none w-20"
+          <input type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} className="rounded-btn text-sm outline-none w-20 max-lg:w-full max-lg:min-h-[40px]"
             style={{ padding: '7px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
         </Field>
-        <button onClick={go} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn"
+        <button onClick={go} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[40px] max-lg:col-span-2"
           style={{ padding: '8px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>{busy ? 'Přesouvám…' : 'Přesunout'}</button>
       </div>
       {msg && <div className="mt-3 text-sm font-bold" style={{ color: msg.err ? '#dc2626' : '#16a34a' }}>{msg.t}</div>}
@@ -513,12 +524,12 @@ function PresunyTab({ branches }) {
   )
 }
 const Field = ({ label, children }) => (
-  <div className="flex flex-col gap-1"><span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{label}</span>{children}</div>
+  <div className="flex flex-col gap-1 max-lg:min-w-0"><span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{label}</span>{children}</div>
 )
 
 function ActBtn({ children, color, onClick, disabled }) {
   return (
-    <button onClick={onClick} disabled={disabled} className="text-xs font-bold cursor-pointer rounded-btn"
+    <button onClick={onClick} disabled={disabled} className="text-xs font-bold cursor-pointer rounded-btn max-lg:min-h-[36px]"
       style={{ padding: '5px 10px', border: `1px solid ${color}`, background: '#fff', color, opacity: disabled ? 0.5 : 1 }}>{children}</button>
   )
 }
@@ -551,6 +562,7 @@ function NaskladneniTab() {
   const [ocrDoc, setOcrDoc] = useState(null)   // data pro commit (zápis do financí až po Uložit)
   const [catalog, setCatalog] = useState([])
   const [pendingDl, setPendingDl] = useState([])   // Fáze 6 — faktury bez dohledaného DL
+  const isMobile = useIsMobile()
 
   useEffect(() => { loadAccessoryTypes().then(setAccTypes) }, [])
   useEffect(() => { supabase.from('sku_catalog').select('sku,name,category,type,size,aliases').then(({ data }) => setCatalog(data || [])) }, [])
@@ -739,12 +751,12 @@ function NaskladneniTab() {
   return (
     <Card>
       {pendingDl.length > 0 && (
-        <div className="mb-3 rounded-btn" style={{ padding: '10px 12px', background: '#fff7ed', border: '1px solid #fdba74' }}>
+        <div className="mb-3 rounded-btn max-lg:rounded-[14px]" style={{ padding: '10px 12px', background: '#fff7ed', border: '1px solid #fdba74' }}>
           <div className="text-sm font-extrabold mb-1" style={{ color: '#b45309' }}>⚠ Chybí dodací list ({pendingDl.length})</div>
           <div className="text-xs font-semibold mb-2" style={{ color: '#92400e' }}>Faktury naskladněné bez spárovaného DL. Až DL dorazí, naskladni ho z fotky — spáruje se a znovu se nenaskladní.</div>
           <div className="flex flex-col gap-1">
             {pendingDl.slice(0, 6).map(r => (
-              <div key={r.id} className="text-xs flex items-center gap-2 flex-wrap" style={{ color: '#7c2d12' }}>
+              <div key={r.id} className="text-xs flex items-center gap-2 flex-wrap max-sm:pb-1.5 max-sm:border-b max-sm:border-[#fed7aa]" style={{ color: '#7c2d12' }}>
                 <span className="font-bold">{r.supplier_name || 'dodavatel ?'}</span>
                 {r.doc_number ? <span className="font-mono">· {r.doc_number}</span> : null}
                 {r.variable_symbol ? <span>· VS {r.variable_symbol}</span> : null}
@@ -758,36 +770,37 @@ function NaskladneniTab() {
       )}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         {[['ocr', '📷 Vyfotit / nahrát'], ['dl', 'Z dodacího listu'], ['invoice', 'Z přijaté faktury'], ['manual', 'Ručně']].map(([k, l]) => (
-          <button key={k} onClick={() => setDocType(k)} className="text-sm font-bold cursor-pointer rounded-btn"
+          <button key={k} onClick={() => setDocType(k)} className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[40px]"
             style={{ padding: '6px 12px', border: 'none', background: docType === k ? '#1a2e22' : '#e8f3ee', color: docType === k ? '#74FB71' : '#1a2e22' }}>{l}</button>
         ))}
         {docType === 'ocr' && (
-          <label className="rounded-btn text-sm font-bold cursor-pointer inline-flex items-center" style={{ padding: '7px 12px', background: '#1a2e22', color: '#74FB71', opacity: ocrBusy ? 0.6 : 1 }}>
+          <label className="rounded-btn text-sm font-bold cursor-pointer inline-flex items-center max-lg:min-h-[40px]" style={{ padding: '7px 12px', background: '#1a2e22', color: '#74FB71', opacity: ocrBusy ? 0.6 : 1 }}>
             {ocrBusy ? 'Čtu doklad…' : '📷 Vybrat / vyfotit fakturu'}
             <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} disabled={ocrBusy} onChange={e => handleOcr(e.target.files?.[0])} />
           </label>
         )}
         {(docType === 'dl' || docType === 'invoice') && (
-          <select value={docId} onChange={e => pickDoc(e.target.value)} className="rounded-btn text-sm outline-none" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', minWidth: 260 }}>
+          <select value={docId} onChange={e => pickDoc(e.target.value)} className="rounded-btn text-sm outline-none max-sm:w-full max-lg:min-h-[40px]" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', minWidth: 260 }}>
             <option value="">— vyber doklad —</option>
             {docs.map(d => <option key={d.id} value={d.id}>{docType === 'dl' ? (d.dl_number || '—') : (d.number || '—')} · {d.supplier_name || (d.notes?.split('\n')[0]) || ''} · {(Array.isArray(d.items) ? d.items.length : 0)} pol.</option>)}
           </select>
         )}
-        {docType === 'manual' && <button onClick={() => setLines(ls => [...ls, mkLine('', 0, 1)])} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '6px 12px', border: '1px solid #1a2e22', background: '#fff', color: '#1a2e22' }}>+ Řádek</button>}
-        <span className="ml-auto"><SkuConventionInfo /></span>
+        {docType === 'manual' && <button onClick={() => setLines(ls => [...ls, mkLine('', 0, 1)])} className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[40px]" style={{ padding: '6px 12px', border: '1px solid #1a2e22', background: '#fff', color: '#1a2e22' }}>+ Řádek</button>}
+        {/* mobil/tablet: vlastní řádek vlevo — popover konvence se vejde na šířku displeje */}
+        <span className="ml-auto max-lg:ml-0 max-lg:w-full"><SkuConventionInfo /></span>
       </div>
       {docType === 'ocr' && ocrInfo && ocrInfo.isProforma && (
-        <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
+        <div className="mb-2 rounded-btn max-lg:rounded-[14px] text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
           ⚠ Zálohová faktura (proforma) — zboží zatím nedorazilo, <b>nenaskladňuje se</b>. Po <b>Uložit</b> se zapíše jen jako evidence do finanční události.
         </div>
       )}
       {docType === 'ocr' && ocrInfo && ocrInfo.dup && ocrInfo.dup.status !== 'new' && (
         ocrInfo.dup.status === 'duplicate_full' ? (
-          <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
+          <div className="mb-2 rounded-btn max-lg:rounded-[14px] text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
             ⛔ Duplicita — tento doklad už je zaevidovaný{ocrInfo.dup.match?.created_at ? ` (${new Date(ocrInfo.dup.match.created_at).toLocaleDateString('cs-CZ')})` : ''}: {ocrInfo.type === 'delivery_note' ? 'zboží je naskladněné' : 'je ve skladu i ve financích'}. Uložením vznikne duplicita (systém se před uložením zeptá).
           </div>
         ) : (
-          <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#fff7ed', color: '#b45309', border: '1px solid #fdba74' }}>
+          <div className="mb-2 rounded-btn max-lg:rounded-[14px] text-sm font-bold" style={{ padding: '8px 12px', background: '#fff7ed', color: '#b45309', border: '1px solid #fdba74' }}>
             {ocrInfo.dup.status === 'need_stock'
               ? '↪ Tato faktura už je ve financích — Uložit doplní jen naskladnění (finance se znovu nezapíší).'
               : '↪ Toto zboží už je naskladněné — Uložit doplní jen finanční evidenci (sklad se znovu nenavýší).'}
@@ -796,17 +809,17 @@ function NaskladneniTab() {
       )}
       {docType === 'ocr' && ocrInfo && ocrInfo.assetDup && ocrInfo.assetDup.status !== 'new' && (
         ocrInfo.assetDup.status === 'duplicate_full' ? (
-          <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
+          <div className="mb-2 rounded-btn max-lg:rounded-[14px] text-sm font-bold" style={{ padding: '8px 12px', background: '#fff5f5', color: '#dc2626', border: '1px solid #fca5a5' }}>
             ⛔ Tento majetek už je kompletně evidovaný{ocrInfo.assetDup.label ? `: ${ocrInfo.assetDup.label}` : ''} (cena i doklad). Uložením vznikne duplicita.
           </div>
         ) : (
-          <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#eef6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+          <div className="mb-2 rounded-btn max-lg:rounded-[14px] text-sm font-bold" style={{ padding: '8px 12px', background: '#eef6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
             ℹ {ocrInfo.assetDup.kind === 'motorcycle' ? 'Tato motorka už je ve flotile' : 'Tento majetek už existuje'}{ocrInfo.assetDup.label ? `: ${ocrInfo.assetDup.label}` : ''}. Po schválení události se k němu jen <b>doplní chybějící doklad</b> (cena, faktura, odpisy) — <b>nevznikne duplicita</b>.
           </div>
         )
       )}
       {docType === 'ocr' && ocrInfo && !ocrInfo.isProforma && (
-        <div className="mb-2 rounded-btn text-sm font-bold" style={{ padding: '8px 12px', background: '#e3f6e8', color: '#16a34a', border: '1px solid #bbf7d0' }}>
+        <div className="mb-2 rounded-btn max-lg:rounded-[14px] text-sm font-bold" style={{ padding: '8px 12px', background: '#e3f6e8', color: '#16a34a', border: '1px solid #bbf7d0' }}>
           ✓ {ocrInfo.type === 'delivery_note' ? 'Dodací list' : 'Faktura'}: {ocrInfo.supplier || 'dodavatel ?'}{ocrInfo.number ? ` · ${ocrInfo.number}` : ''} · {ocrInfo.count} položek
           {ocrInfo.lang && ocrInfo.lang !== 'cs' ? ` · přeloženo z „${ocrInfo.lang}"` : ''}
           {ocrInfo.currency && ocrInfo.currency !== 'CZK' ? (ocrInfo.fxFailed ? ` · ⚠ kurz ČNB nenačten — ceny v ${ocrInfo.currency}` : ` · ceny převedeny ${ocrInfo.currency}→CZK (ČNB ${ocrInfo.fxDate || ''})`) : ''}
@@ -816,7 +829,7 @@ function NaskladneniTab() {
         </div>
       )}
       {docType === 'ocr' && ocrInfo && (
-        <div className="mb-2 text-xs flex flex-wrap gap-x-4 gap-y-1 rounded-btn" style={{ color: '#1a2e22', padding: '6px 10px', background: '#f1faf7', border: '1px solid #e2eee8' }}>
+        <div className="mb-2 text-xs flex flex-wrap gap-x-4 gap-y-1 rounded-btn max-lg:rounded-[14px]" style={{ color: '#1a2e22', padding: '6px 10px', background: '#f1faf7', border: '1px solid #e2eee8' }}>
           {[['Č. dokladu', ocrInfo.number], ['Částka', ocrInfo.amount != null ? `${Number(ocrInfo.amount).toLocaleString('cs-CZ')} Kč` : null], ['Splatnost', ocrInfo.due], ['Vystaveno', ocrInfo.issue], ['VS', ocrInfo.vs], ['IČO', ocrInfo.ico], ['Č. účtu', ocrInfo.bank], ['Platba', ocrInfo.pay]]
             .filter(([, v]) => v).map(([k, v]) => <span key={k}><b>{k}:</b> {v}</span>)}
         </div>
@@ -828,7 +841,11 @@ function NaskladneniTab() {
       {lines.length === 0 ? <div className="py-8 text-center text-sm" style={{ color: '#1a2e22', opacity: 0.5 }}>Vyber doklad nebo přidej řádek.</div>
         : (
           <div className="flex flex-col gap-2">
-            {lines.map((l, i) => (
+            {lines.map((l, i) => isMobile ? (
+              <StockReceiveLineMobile key={i} line={l} cats={ITEM_CATS} def={catDef(l.cat)} types={physicalTypes(accTypes)}
+                sizes={accTypes.find(t => t.key === l.type)?.sizes || []} sku={lineSku(l)}
+                onChange={patch => upd(i, patch)} onRemove={() => setLines(ls => ls.filter((_, j) => j !== i))} />
+            ) : (
               <div key={i} className="flex items-center gap-2 flex-wrap rounded-btn" style={{ padding: '8px 10px', background: '#f9fdfb', border: '1px solid #e2eee8' }}>
                 <input value={l.name} onChange={e => upd(i, { name: e.target.value })} placeholder="Název položky" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #d4e8e0', flex: '1 1 160px', minWidth: 120 }} />
                 <select value={l.cat} onChange={e => upd(i, { cat: e.target.value, type: '', size: '' })} className="rounded-btn text-xs outline-none" style={{ padding: '5px 6px', background: '#fff', border: '1px solid #d4e8e0', maxWidth: 230 }}>
@@ -859,8 +876,8 @@ function NaskladneniTab() {
         )}
       {lines.length > 0 && (
         <div className="flex justify-end items-center gap-3 mt-4">
-          <button onClick={discard} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 16px', border: '1px solid #dc2626', background: '#fff', color: '#dc2626', opacity: busy ? 0.5 : 1 }}>Zahodit</button>
-          <button onClick={stockAll} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '9px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>{busy ? 'Ukládám…' : (ocrInfo?.isProforma ? 'Uložit doklad (jen finance)' : `Uložit (${lines.filter(l => lineSku(l) && Number(l.qty) > 0).length})`)}</button>
+          <button onClick={discard} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[44px]" style={{ padding: '9px 16px', border: '1px solid #dc2626', background: '#fff', color: '#dc2626', opacity: busy ? 0.5 : 1 }}>Zahodit</button>
+          <button onClick={stockAll} disabled={busy} className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[44px]" style={{ padding: '9px 18px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>{busy ? 'Ukládám…' : (ocrInfo?.isProforma ? 'Uložit doklad (jen finance)' : `Uložit (${lines.filter(l => lineSku(l) && Number(l.qty) > 0).length})`)}</button>
         </div>
       )}
     </Card>
@@ -894,15 +911,15 @@ function CatalogTab() {
     <Card>
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Hledat SKU / název / alias…"
-          className="rounded-btn text-sm outline-none" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', minWidth: 220 }} />
+          className="rounded-btn text-sm outline-none max-sm:flex-1 max-sm:basis-full" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', minWidth: 220 }} />
         <select value={cat} onChange={e => setCat(e.target.value)} className="rounded-btn text-sm outline-none" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <option value="">Vše</option>
           {['prislusenstvi', 'dily', 'material', 'zbozi', 'spotrebni'].map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <span className="text-sm" style={{ color: '#1a2e22', opacity: 0.6 }}>{filtered.length} položek</span>
-        <span className="ml-auto flex items-center gap-2">
+        <span className="ml-auto flex items-center gap-2 max-lg:ml-0 max-lg:w-full max-lg:justify-between">
           <SkuConventionInfo />
-          <button onClick={() => setAdd(true)} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '7px 14px', border: 'none', background: '#1a2e22', color: '#74FB71' }}>+ Položka</button>
+          <button onClick={() => setAdd(true)} className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[40px]" style={{ padding: '7px 14px', border: 'none', background: '#1a2e22', color: '#74FB71' }}>+ Položka</button>
         </span>
       </div>
       <div className="text-xs mb-2" style={{ color: '#1a2e22', opacity: 0.6 }}>
@@ -911,19 +928,19 @@ function CatalogTab() {
       {loading ? <div className="py-8 text-center text-sm" style={{ opacity: 0.5 }}>Načítám…</div>
         : filtered.length === 0 ? <div className="py-8 text-center text-sm" style={{ opacity: 0.5 }}>Žádné položky. Nasaď SQL `sku_catalog` + seed, nebo přidej položku.</div>
         : (
-          <div className="overflow-x-auto">
-            <table className="text-sm w-full" style={{ borderCollapse: 'collapse' }}>
+          <div className="overflow-x-auto mg-stack-wrap">
+            <table className="text-sm w-full mg-stack" style={{ borderCollapse: 'collapse' }}>
               <thead><tr style={{ borderBottom: '1px solid #d4e8e0' }}>
                 {['SKU', 'Název', 'Kategorie', 'Aliasy', ''].map(h => <th key={h} className="text-left text-xs font-extrabold uppercase" style={{ padding: '6px 8px', color: '#1a2e22' }}>{h}</th>)}
               </tr></thead>
               <tbody>
                 {filtered.map(r => (
                   <tr key={r.id} style={{ borderBottom: '1px solid #eef5f1' }}>
-                    <td style={{ padding: '5px 8px' }}><SkuTag sku={r.sku} /></td>
+                    <td className="mg-stack-full" style={{ padding: '5px 8px' }}><SkuTag sku={r.sku} /></td>
                     <td style={{ padding: '5px 8px', color: '#0f1a14' }}>{r.name}</td>
                     <td style={{ padding: '5px 8px', color: '#1a2e22' }}>{r.category}</td>
                     <td style={{ padding: '5px 8px', color: '#1a2e22', opacity: 0.7, fontSize: 12 }}>{(r.aliases || []).join(', ')}</td>
-                    <td style={{ padding: '5px 8px' }}><button onClick={() => del(r.id)} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#dc2626' }}>✕</button></td>
+                    <td className="mg-stack-full" style={{ padding: '5px 8px' }}><button onClick={() => del(r.id)} className="text-xs font-bold cursor-pointer md:max-lg:min-w-[36px] md:max-lg:min-h-[36px] max-md:min-h-[36px] max-md:w-full max-md:rounded-btn max-md:!border max-md:!border-solid max-md:!border-[#fca5a5]" style={{ background: 'none', border: 'none', color: '#dc2626' }}>✕<span className="md:hidden"> Smazat</span></button></td>
                   </tr>
                 ))}
               </tbody>
@@ -934,6 +951,10 @@ function CatalogTab() {
     </Card>
   )
 }
+
+// Pole formuláře číselníku — MIMO komponentu modálu: definice uvnitř renderu vytvářela při každém
+// stisku klávesy nový typ komponenty → input se přemontoval a ztratil fokus (na mobilu zavřelo klávesnici).
+const F = ({ label, children }) => <div className="flex flex-col gap-1"><span className="text-xs font-extrabold uppercase" style={{ color: '#1a2e22' }}>{label}</span>{children}</div>
 
 function CatalogAddModal({ accTypes, onClose, onSaved }) {
   const [cat, setCat] = useState('zbozi')
@@ -962,12 +983,11 @@ function CatalogAddModal({ accTypes, onClose, onSaved }) {
     onSaved()
   }
 
-  const F = ({ label, children }) => <div className="flex flex-col gap-1"><span className="text-xs font-extrabold uppercase" style={{ color: '#1a2e22' }}>{label}</span>{children}</div>
   const inp = { padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 10, outline: 'none', fontSize: 14 }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.5)' }} onClick={onClose}>
-      <div className="rounded-card" style={{ background: '#fff', padding: 20, width: 'min(94vw, 440px)' }} onClick={e => e.stopPropagation()}>
+      <div className="rounded-card max-lg:max-h-[92dvh] max-lg:overflow-y-auto" style={{ background: '#fff', padding: 20, width: 'min(94vw, 440px)' }} onClick={e => e.stopPropagation()}>
         <div className="text-base font-black mb-3" style={{ color: '#0f1a14' }}>Nová položka číselníku</div>
         <div className="flex flex-col gap-3">
           <F label="Kategorie">
@@ -976,7 +996,7 @@ function CatalogAddModal({ accTypes, onClose, onSaved }) {
             </select>
           </F>
           {isAcc ? (
-            <div className="flex gap-3">
+            <div className="flex gap-3 max-lg:[&>*]:flex-1">
               <F label="Typ"><select value={type} onChange={e => { setType(e.target.value); setSize('') }} style={inp}><option value="">—</option>{physicalTypes(accTypes).map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select></F>
               <F label="Velikost"><select value={size} onChange={e => setSize(e.target.value)} style={inp}><option value="">—</option>{sizes.map(s => <option key={s} value={s}>{s}</option>)}</select></F>
             </div>
@@ -989,8 +1009,8 @@ function CatalogAddModal({ accTypes, onClose, onSaved }) {
           {err && <div className="text-sm" style={{ color: '#dc2626' }}>{err}</div>}
         </div>
         <div className="flex justify-end gap-3 mt-4">
-          <button onClick={onClose} className="text-sm font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#64748b' }}>Zrušit</button>
-          <button onClick={save} disabled={busy || !sku} className="text-sm font-bold cursor-pointer rounded-btn" style={{ padding: '8px 16px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: (busy || !sku) ? 0.5 : 1 }}>{busy ? 'Ukládám…' : 'Přidat'}</button>
+          <button onClick={onClose} className="text-sm font-bold cursor-pointer max-lg:min-h-[40px]" style={{ background: 'none', border: 'none', color: '#64748b' }}>Zrušit</button>
+          <button onClick={save} disabled={busy || !sku} className="text-sm font-bold cursor-pointer rounded-btn max-lg:min-h-[40px]" style={{ padding: '8px 16px', border: 'none', background: '#1a2e22', color: '#74FB71', opacity: (busy || !sku) ? 0.5 : 1 }}>{busy ? 'Ukládám…' : 'Přidat'}</button>
         </div>
       </div>
     </div>

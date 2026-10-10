@@ -40,7 +40,7 @@ function AddServiceFromCalendar({ motoId, moto, onClose, onSaved }) {
 
   return (
     <Modal open title="Nová servisní událost" onClose={onClose} wide>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Typ</label>
           <select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>

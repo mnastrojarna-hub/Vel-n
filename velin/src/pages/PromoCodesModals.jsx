@@ -6,7 +6,7 @@ import Button from '../components/ui/Button'
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) { return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label> }
-function DetailRow({ label, value, mono }) { return (<div><div className="text-sm font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{label}</div><div className={`text-sm font-semibold ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div></div>) }
+function DetailRow({ label, value, mono }) { return (<div><div className="text-sm font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{label}</div><div className={`text-sm font-semibold max-lg:[overflow-wrap:anywhere] ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div></div>) } // max-lg: dlouhé hodnoty (e-mail, ID) se na telefonu zalomí
 
 export function PromoModal({ existing, onClose, onSaved }) {
   const isEdit = !!existing
@@ -39,8 +39,9 @@ export function PromoModal({ existing, onClose, onSaved }) {
 
   return (
     <Modal open title={isEdit ? `Upravit: ${existing.code}` : 'Nový promo kód'} onClose={onClose}>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2"><Label>Kód</Label><input value={form.code} onChange={e => set('code', e.target.value.toUpperCase())} className="w-full rounded-btn text-sm outline-none font-mono" style={inputStyle} placeholder="LETO2026" disabled={isEdit} />{isEdit && <span className="text-sm" style={{ color: '#1a2e22' }}>Kód nelze měnit po vytvoření</span>}</div>
+      {/* telefon: 1 sloupec (sm: = od 640 px původní 2 sloupce) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2"><Label>Kód</Label><input value={form.code} onChange={e => set('code', e.target.value.toUpperCase())} className="w-full rounded-btn text-sm outline-none font-mono" style={inputStyle} placeholder="LETO2026" disabled={isEdit} />{isEdit && <span className="text-sm" style={{ color: '#1a2e22' }}>Kód nelze měnit po vytvoření</span>}</div>
         <div><Label>Typ slevy</Label><select value={form.discount_type} onChange={e => set('discount_type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}><option value="percent">Procenta (%)</option><option value="fixed">Pevná částka (Kč)</option></select></div>
         <div><Label>Hodnota slevy</Label><input type="number" value={form.discount_value} onChange={e => set('discount_value', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder={form.discount_type === 'percent' ? '10' : '500'} /></div>
         <div><Label>Platnost od</Label><input type="date" value={form.valid_from} onChange={e => set('valid_from', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
@@ -82,7 +83,7 @@ export function PromoDetailModal({ code, owner, onClose, onEdit }) {
         <h4 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Historie pouziti</h4>
         {loadingUsage ? <div className="text-sm" style={{ color: '#1a2e22' }}>Nacitam...</div> : usage.length === 0 ? <div className="text-sm" style={{ color: '#1a2e22' }}>Zatim nepouzito</div> : (
           <div className="space-y-2 max-h-48 overflow-auto">
-            {usage.map(u => <div key={u.id} className="flex items-center gap-3 p-2 rounded-lg text-sm" style={{ background: '#f1faf7' }}><span className="font-bold">{u.profiles?.full_name || u.profiles?.email || 'Neznámý'}</span><span style={{ color: '#1a2e22' }}>{u.used_at ? new Date(u.used_at).toLocaleString('cs-CZ') : ''}</span><span className="ml-auto font-bold" style={{ color: '#1a8a18' }}>-{u.discount_applied?.toLocaleString('cs-CZ')} Kč</span></div>)}
+            {usage.map(u => <div key={u.id} className="flex items-center gap-3 p-2 rounded-lg text-sm max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-1" style={{ background: '#f1faf7' }}><span className="font-bold max-sm:min-w-0 max-sm:[overflow-wrap:anywhere]">{u.profiles?.full_name || u.profiles?.email || 'Neznámý'}</span><span style={{ color: '#1a2e22' }}>{u.used_at ? new Date(u.used_at).toLocaleString('cs-CZ') : ''}</span><span className="ml-auto font-bold" style={{ color: '#1a8a18' }}>-{u.discount_applied?.toLocaleString('cs-CZ')} Kč</span></div>)}
           </div>
         )}
       </div>

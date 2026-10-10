@@ -8,6 +8,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
 import { findBestMatch, StatCard, MiniField, DeliveryNoteDetailModal, MatchModal } from './DeliveryNotesHelpers'
+import { TAB_ROW } from './FinanceAStack'
 
 const PER_PAGE = 25
 
@@ -185,7 +186,7 @@ export default function DeliveryNotesTab() {
   return (
     <div>
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <StatCard label="Celkem DL" value={stats.total} color="#1a2e22" />
         <StatCard label="Napárováno" value={stats.matched} color="#1a8a18" />
         <StatCard label="DL čeká na FA" value={stats.unmatched} color="#b45309" />
@@ -210,7 +211,7 @@ export default function DeliveryNotesTab() {
           { value: 'missing_dl', label: 'FA bez DL' },
         ].map(f => (
           <button key={f.value} onClick={() => { setPage(1); setFilter(f.value) }}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[36px]"
             style={{
               padding: '6px 14px',
               background: filter === f.value ? '#1a2e22' : '#f1faf7',
@@ -242,7 +243,7 @@ export default function DeliveryNotesTab() {
             ], notes.filter(n => selectedIds.has(n.id) && !n._isInvoice)) },
             { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} dodacích listů?', onClick: async () => { await bulkDelete('delivery_notes', [...selectedIds], 'delivery_notes_bulk_deleted'); setSelectedIds(new Set()); load() } },
           ]} />
-          <Table>
+          <Table stack="tablet">
             <thead>
               <TRow header>
                 <TH><SelectAllCheckbox items={notes.filter(n => !n._isInvoice)} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
@@ -264,8 +265,9 @@ export default function DeliveryNotesTab() {
                 const itemCount = Array.isArray(dl.items) ? dl.items.length : 0
 
                 return (
-                  <TRow key={dl.id}>
-                    <TD>{!dl._isInvoice && <RowCheckbox id={dl.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} />}</TD>
+                  <tr key={dl.id} className={TAB_ROW} style={{ borderBottom: '1px solid #d4e8e0' }}>
+                    {/* Karta (mobil/tablet): faktura bez DL nemá zaškrtávátko → prázdnou buňku skrýt */}
+                    <TD className={dl._isInvoice ? 'max-lg:!hidden' : undefined}>{!dl._isInvoice && <RowCheckbox id={dl.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} />}</TD>
                     <TD mono bold>{dl.dl_number || '—'}</TD>
                     <TD><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{dl.supplier_name || '—'}</span></TD>
                     <TD bold>{fmt(dl.total_amount)}</TD>
@@ -274,38 +276,38 @@ export default function DeliveryNotesTab() {
                     <TD>
                       <Badge label={st.label} color={st.color} bg={st.bg} />
                       {dl.match_method === 'ai' && (
-                        <span className="ml-1 text-[9px] font-bold" style={{ color: '#7c3aed' }}>
+                        <span className="ml-1 text-[11px] lg:text-[9px] font-bold" style={{ color: '#7c3aed' }}>
                           AI {dl.match_confidence ? `${(dl.match_confidence * 100).toFixed(0)}%` : ''}
                         </span>
                       )}
                     </TD>
                     <TD>
-                      <div className="flex gap-1 flex-wrap">
+                      <div className="flex gap-1 flex-wrap max-lg:justify-end">
                         <button onClick={() => setDetail(dl)}
-                          className="text-sm font-bold cursor-pointer rounded"
+                          className="text-sm font-bold cursor-pointer rounded max-lg:min-h-[36px]"
                           style={{ color: '#2563eb', background: '#dbeafe', border: 'none', padding: '4px 10px' }}>
                           Detail
                         </button>
                         {!isInvoice && !dl.matched_invoice_id && (
                           <button onClick={() => openMatchModal(dl)}
-                            className="text-sm font-bold cursor-pointer rounded"
+                            className="text-sm font-bold cursor-pointer rounded max-lg:min-h-[36px]"
                             style={{ color: '#fff', background: '#1a8a18', border: 'none', padding: '4px 10px' }}>
                             Párovat
                           </button>
                         )}
                         {!isInvoice && dl.matched_invoice_id && (
                           <button onClick={() => unmatchDl(dl)}
-                            className="text-sm font-bold cursor-pointer rounded"
+                            className="text-sm font-bold cursor-pointer rounded max-lg:min-h-[36px]"
                             style={{ color: '#dc2626', background: '#fee2e2', border: '1px solid #fca5a5', padding: '4px 10px' }}>
                             Zrušit
                           </button>
                         )}
                       </div>
                     </TD>
-                  </TRow>
+                  </tr>
                 )
               })}
-              {notes.length === 0 && <TRow><TD>{filter === 'missing_dl' ? 'Žádné faktury bez DL' : 'Žádné dodací listy'}</TD></TRow>}
+              {notes.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="">{filter === 'missing_dl' ? 'Žádné faktury bez DL' : 'Žádné dodací listy'}</TD></tr>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

@@ -11,6 +11,7 @@ import { isoDate, toDate, fmtDate, fmtCZK, fmtTimeHM, countDays, calcDayBreakdow
 import { findFeeExtra, feeAmount } from './DetailTabSections'
 import { latePickupDiscount, kioskReleaseGate, LATE_PICKUP_KIOSK_HINT, fmtPragueDateTime, isLegacyNoPickupTime } from '../../lib/latePickup'
 import { SELF_SERVICE_TYPE } from '../BranchHelpers'
+import { useSaveErrorReveal } from './useSaveErrorReveal'
 
 export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const origStart = toDate(booking.start_date)
@@ -66,6 +67,8 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const [ownGear, setOwnGear] = useState(origOwnGear)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  // < lg: chyba uložení nad tlačítky + posun k nim (obsah ~1 900 px, nahoře by ji nikdo neviděl) — desktop beze změny
+  const errReveal = useSaveErrorReveal()
   const [loadingMotos, setLoadingMotos] = useState(false)
   // Věrnostní rank zákazníka (jen app rezervace) — doplatek za pronájem se
   // automaticky snižuje o % dle aktuálního ranku (RPC get_booking_loyalty_rate;
@@ -232,27 +235,27 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   }
 
   async function handleSave() {
-    if (!startDate || !endDate) { setError('Vyberte termin'); return }
-    if (selectedMotoId && occupiedMotoIds.has(selectedMotoId)) { setError('Vybrana motorka je v terminu obsazena'); return }
+    if (!startDate || !endDate) { setError('Vyberte termin'); errReveal.reveal(); return }
+    if (selectedMotoId && occupiedMotoIds.has(selectedMotoId)) { setError('Vybrana motorka je v terminu obsazena'); errReveal.reveal(); return }
     // Incident 2026-10-01 („vratka místo doplatku"): u běžící rezervace už
     // vyzvednutí proběhlo a pole poplatku je SOUČET obou stran — přidání
     // přistavení/odvozu proto nesmí poplatek snížit ani nechat stejný.
     if (booking.status === 'active' && pickupMethod !== origDelivery.pickup) {
-      setError('Vyzvednuti uz probehlo — zpusob vyzvednuti u bezici rezervace nelze zmenit.'); return
+      setError('Vyzvednuti uz probehlo — zpusob vyzvednuti u bezici rezervace nelze zmenit.'); errReveal.reveal(); return
     }
     const addedSides = (pickupMethod === 'delivery' && origDelivery.pickup !== 'delivery' ? 1 : 0)
       + (returnMethod === 'delivery' && origDelivery.ret !== 'delivery' ? 1 : 0)
     const removedSide = (pickupMethod !== 'delivery' && origDelivery.pickup === 'delivery')
       || (returnMethod !== 'delivery' && origDelivery.ret === 'delivery')
     if (addedSides > 0 && !removedSide && newDeliveryFee < origDelivery.fee + 1000 * addedSides) {
-      setError(`Poplatek za doruceni je SOUCET obou stran — po pridani pristaveni/odvozu musi byt aspon ${(origDelivery.fee + 1000 * addedSides).toLocaleString('cs-CZ')} Kc (puvodni ${origDelivery.fee.toLocaleString('cs-CZ')} Kc + nova strana).`); return
+      setError(`Poplatek za doruceni je SOUCET obou stran — po pridani pristaveni/odvozu musi byt aspon ${(origDelivery.fee + 1000 * addedSides).toLocaleString('cs-CZ')} Kc (puvodni ${origDelivery.fee.toLocaleString('cs-CZ')} Kc + nova strana).`); errReveal.reveal(); return
     }
     // Přidání jedné strany + odebrání druhé v jednom uložení: kontrola výše se
     // neuplatní (poplatek smí klesnout), ale každá strana s přistavením stojí
     // aspoň 1 000 Kč — jinak by se nová strana „zaplatila" vratkou za odebranou.
     const sidesAfter = (pickupMethod === 'delivery' ? 1 : 0) + (returnMethod === 'delivery' ? 1 : 0)
     if (addedSides > 0 && removedSide && newDeliveryFee < 1000 * sidesAfter) {
-      setError(`Poplatek za doruceni musi byt aspon ${(1000 * sidesAfter).toLocaleString('cs-CZ')} Kc (1 000 Kc za kazdou stranu s pristavenim/odvozem).`); return
+      setError(`Poplatek za doruceni musi byt aspon ${(1000 * sidesAfter).toLocaleString('cs-CZ')} Kc (1 000 Kc za kazdou stranu s pristavenim/odvozem).`); errReveal.reveal(); return
     }
     setSaving(true); setError(null)
     try {
@@ -408,7 +411,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
       // VÝJIMKA: při nezaplaceném doplatku (mod_surcharge_due > 0) trigger mail ODLOŽÍ —
       // odejde až po „Potvrdit doplatek" v detailu rezervace (confirm_booking_surcharge).
       onSaved()
-    } catch (e) { setError(e.message) }
+    } catch (e) { setError(e.message); errReveal.reveal() }
     finally { setSaving(false) }
   }
 
@@ -428,24 +431,25 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
 
   return (<>
     <Modal open title={`Upravit rezervaci #${booking.id?.slice(-8).toUpperCase()}`} onClose={onClose} wide>
-      <div style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
-        {error && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13, fontWeight: 600 }}>{error}</div>}
+      {/* < lg: výška dle viditelné plochy (dvh, iOS lišty) — jinak dvojí scroll s modalem (92dvh); desktop beze změny */}
+      <div className="max-lg:!max-h-[calc(92dvh-112px)]" style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
+        {error && !errReveal.nearActions && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13, fontWeight: 600 }}>{error}</div>}
 
         {/* DATES */}
         <div className="mb-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 max-lg:flex-wrap max-lg:gap-2">
             <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Termin</h3>
             {calStep === 0 ? (
-              <button onClick={() => setCalStep(startInPast ? 2 : 1)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>Zmenit termin</button>
+              <button onClick={() => setCalStep(startInPast ? 2 : 1)} className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>Zmenit termin</button>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 max-lg:flex-wrap">
                 {startInPast ? (
                   <span className="text-sm font-bold" style={{ color: '#f59e0b' }}>Rezervace bezi — kliknete na nove datum vraceni</span>
                 ) : (<>
                   <span className="text-sm font-bold" style={{ color: '#f59e0b' }}>{calStep === 1 ? 'Kliknete na datum vyzvednuti' : 'Kliknete na datum vraceni'}</span>
-                  <button onClick={() => setCalStep(1)} className="text-xs font-bold cursor-pointer" title="Zmenit datum vyzvednuti"
+                  <button onClick={() => setCalStep(1)} className="text-xs font-bold cursor-pointer max-lg:min-h-[36px] max-lg:min-w-[44px]" title="Zmenit datum vyzvednuti"
                     style={{ padding: '3px 10px', borderRadius: 999, background: calStep === 1 ? '#74FB71' : '#f1faf7', border: calStep === 1 ? '2px solid #3dba3a' : '1px solid #d4e8e0', color: '#0f1a14' }}>OD</button>
-                  <button onClick={() => setCalStep(2)} className="text-xs font-bold cursor-pointer" title="Zmenit datum vraceni"
+                  <button onClick={() => setCalStep(2)} className="text-xs font-bold cursor-pointer max-lg:min-h-[36px] max-lg:min-w-[44px]" title="Zmenit datum vraceni"
                     style={{ padding: '3px 10px', borderRadius: 999, background: calStep === 2 ? '#74FB71' : '#f1faf7', border: calStep === 2 ? '2px solid #3dba3a' : '1px solid #d4e8e0', color: '#0f1a14' }}>DO</button>
                 </>)}
               </div>
@@ -460,7 +464,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
                 {datesChanged && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {fmtDate(origStart)}</div>}
                 <input type="time" value={effPickupTime} onChange={e => { if (!pickupTimeLocked) setPickupTime(e.target.value) }} disabled={pickupTimeLocked}
                   title={pickupTimeLocked ? 'Motorka uz byla vyzvednuta — cas vyzvednuti nelze zmenit' : 'Cas vyzvednuti'}
-                  className={`mt-1 text-xs font-bold rounded outline-none ${pickupTimeLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`} style={{ padding: '2px 6px', background: pickupTimeLocked ? '#f3f4f6' : '#fff', border: `1px solid ${pickupTimeChanged ? '#2563eb' : '#d4e8e0'}`, color: pickupTimeChanged ? '#2563eb' : '#1a2e22' }} />
+                  className={`mt-1 text-xs font-bold rounded outline-none max-lg:min-h-[36px] ${pickupTimeLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`} style={{ padding: '2px 6px', background: pickupTimeLocked ? '#f3f4f6' : '#fff', border: `1px solid ${pickupTimeChanged ? '#2563eb' : '#d4e8e0'}`, color: pickupTimeChanged ? '#2563eb' : '#1a2e22' }} />
                 {pickupTimeChanged && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {isLegacyNoPickupTime(origPickupTime) ? 'bez casu' : (origPickupTime || '\u2014')}</div>}
                 {!pickupTimeChanged && isLegacyNoPickupTime(origPickupTime) && <div className="text-xs" style={{ color: '#9ca3af' }}>00:01 = bez casu (kdykoliv 1. den)</div>}
                 {pickupTimeLocked && <div className="text-xs" style={{ color: '#9ca3af' }}>po vyzvednuti zamceno</div>}
@@ -470,7 +474,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
                 <div className="text-sm font-extrabold" style={{ color: datesChanged ? '#2563eb' : '#0f1a14' }}>{endDate ? fmtDate(endDate) : '\u2014'}</div>
                 {datesChanged && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {fmtDate(origEnd)}</div>}
                 <input type="time" value={returnTime} onChange={e => setReturnTime(e.target.value)} title="Cas vraceni"
-                  className="mt-1 text-xs font-bold rounded outline-none cursor-pointer" style={{ padding: '2px 6px', background: '#fff', border: `1px solid ${returnTime !== origReturnTime ? '#2563eb' : '#d4e8e0'}`, color: returnTime !== origReturnTime ? '#2563eb' : '#1a2e22' }} />
+                  className="mt-1 text-xs font-bold rounded outline-none cursor-pointer max-lg:min-h-[36px]" style={{ padding: '2px 6px', background: '#fff', border: `1px solid ${returnTime !== origReturnTime ? '#2563eb' : '#d4e8e0'}`, color: returnTime !== origReturnTime ? '#2563eb' : '#1a2e22' }} />
                 {returnTime !== origReturnTime && <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {origReturnTime || '\u2014'}</div>}
               </div>
               <div>
@@ -481,7 +485,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
               {calStep > 0 && (
                 <div className="flex items-end">
                   <button onClick={() => { setStartDate(origStart); setEndDate(origEnd); setCalStep(0) }}
-                    className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', padding: 0 }}>Zrusit zmenu</button>
+                    className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]" style={{ color: '#dc2626', background: 'none', border: 'none', padding: 0 }}>Zrusit zmenu</button>
                 </div>
               )}
             </div>
@@ -523,7 +527,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         {/* VLASTNÍ VÝBAVA — rozhoduje o kódu šatny (samoobsluha); velikosti se mění jen v el. protokolu */}
         <div className="mb-5">
           <label className="block text-xs font-bold uppercase mb-1" style={{ color: '#1a2e22' }}>Vlastní výbava (bez šatny)</label>
-          <select value={ownGear} onChange={e => setOwnGear(e.target.value)} className="text-sm rounded-btn outline-none"
+          <select value={ownGear} onChange={e => setOwnGear(e.target.value)} className="text-sm rounded-btn outline-none max-lg:w-full"
             style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
             <option value="">Neuvedeno — odvodí se z velikostí výbavy</option>
             <option value="true">Ano — vlastní výbava, kód šatny se nevydává</option>
@@ -543,14 +547,17 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full text-sm rounded-btn outline-none" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }} placeholder="Interni poznamky k uprave..." />
         </div>
 
+        {/* < lg: chyba uložení nad tlačítky (useSaveErrorReveal) */}
+        {error && errReveal.nearActions && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13, fontWeight: 600 }}>{error}</div>}
+
         {/* ACTIONS */}
-        <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid #e5e7eb' }}>
+        <div ref={errReveal.actionsRef} className="flex items-center justify-between pt-3 max-lg:flex-wrap max-lg:gap-3" style={{ borderTop: '1px solid #e5e7eb' }}>
           <div className="text-xs" style={{ color: '#9ca3af' }}>
             {hasChanges ? (
               <span style={{ color: '#2563eb', fontWeight: 700 }}>Zmeny: {[datesChanged && 'termin', timesChanged && 'cas', motoChanged && 'motorka', deliveryChanged && 'doruceni', ownGearChanged && 'vlastni vybava', notes !== (booking.notes || '') && 'poznamky'].filter(Boolean).join(', ')}</span>
             ) : 'Zadne zmeny'}
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 max-lg:ml-auto">
             <Button onClick={onClose}>Zrusit</Button>
             <Button green onClick={handleSave} disabled={saving || !hasChanges || !startDate || !endDate}>{saving ? 'Ukladam...' : 'Ulozit zmeny'}</Button>
           </div>

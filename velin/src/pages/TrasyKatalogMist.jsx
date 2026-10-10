@@ -8,6 +8,8 @@ import { SmallBtn, Spinner, EmptyState } from './BranchHelpers'
 import PoiReviewsModal from './PoiReviewsModal'
 import PoiEditModal from './TrasyKatalogMistModal'
 import { POI_CATS, POI_SOURCES, POI_COUNTRIES, catLabel, poiPhoto } from '../lib/poiCategories'
+import { TrasyPoiCards } from './TrasyMobileCards'
+import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
 
 // Sekce „Zajímavá místa (katalog)" v záložce Trasy — správa tabulky
 // points_of_interest (~40 tis. samostatných bodů zájmu pro appku: přehrady,
@@ -16,6 +18,13 @@ import { POI_CATS, POI_SOURCES, POI_COUNTRIES, catLabel, poiPhoto } from '../lib
 // a HROMADNÉ akce (bez nich nešlo přetřídit tisíce řádků jinak než migrací).
 
 const PAGE = 50
+// Mobil/tablet: filtry se nesmí roztáhnout přes šířku displeje; na telefonu dva vedle sebe.
+const SEL_M = 'max-lg:max-w-full sm:max-lg:max-w-[260px] max-sm:flex-[1_1_40%] max-sm:min-w-0'
+// Dotyková zařízení: tlačítka SmallBtn v řádku aspoň 36 px vysoká.
+const TOUCH = 'max-lg:[&>button]:min-h-[36px]'
+// Mobil/tablet: panel hromadných akcí zůstává při scrollu nahoře (jinak není po zaškrtnutí karty vidět);
+// záporný top = odsazení scroll kontejneru (p-3 / md:p-6), lišta pak přiléhá k horní liště.
+const STICKY_M = 'max-lg:sticky max-md:-top-3 md:max-lg:-top-6 max-lg:z-20 max-lg:shadow-[0_6px_20px_rgba(15,26,20,.18)]'
 const SELECT_COLS = 'id, name, description, surroundings, category, country, lat, lng, image_url, images, source, is_active, created_at'
 
 export default function TrasyKatalogMist() {
@@ -41,6 +50,8 @@ export default function TrasyKatalogMist() {
   const [bulk, setBulk] = useState(null)              // { kind, value, count }
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(null)
+  const isMobile = useIsMobile()
+  const isPhone = useMediaQuery('(max-width: 639px)')
 
   // Jeden filtr = jeden dotaz; používá ho i „vybrat vše dle filtru".
   const applyFilters = useCallback((q) => {
@@ -219,44 +230,44 @@ export default function TrasyKatalogMist() {
   }
 
   return (
-    <Card className="mt-6">
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+    <Card className="mt-6 max-sm:!px-3">
+      <div className={`flex flex-wrap items-center gap-3 mb-4 max-sm:gap-2 ${TOUCH}`}>
         <h2 className="font-bold" style={{ fontSize: 16 }}>📍 Zajímavá místa (katalog) — {total.toLocaleString('cs-CZ')}</h2>
         <SmallBtn color="#1a8a18" onClick={() => setEditing({
           _new: true, name: '', description: '', surroundings: '', category: 'lookout',
           country: 'CZ', lat: '', lng: '', image_url: '', is_active: true,
         })}>+ Nové místo</SmallBtn>
         <div className="flex-1" />
-        <SearchInput value={search} onChange={setSearch} placeholder="Hledat v názvu i popisu…" />
-        <select style={sel} value={cat} onChange={e => setCat(e.target.value)}>
+        <SearchInput value={search} onChange={setSearch} placeholder="Hledat v názvu i popisu…" fullWidth={isPhone} />
+        <select className={SEL_M} style={sel} value={cat} onChange={e => setCat(e.target.value)}>
           <option value="all">Všechny kategorie</option>
           {Object.entries(POI_CATS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <select style={sel} value={country} onChange={e => setCountry(e.target.value)}>
+        <select className={SEL_M} style={sel} value={country} onChange={e => setCountry(e.target.value)}>
           <option value="all">Všechny země</option>
           {POI_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select style={sel} value={source} onChange={e => setSource(e.target.value)}>
+        <select className={SEL_M} style={sel} value={source} onChange={e => setSource(e.target.value)}>
           {POI_SOURCES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <select style={sel} value={sortBy} onChange={e => setSortBy(e.target.value)} title="Řadit dle">
+        <select className={SEL_M} style={sel} value={sortBy} onChange={e => setSortBy(e.target.value)} title="Řadit dle">
           <option value="default">↕ Řadit dle…</option>
           <option value="name">Název (A–Z)</option>
           <option value="rating">Hodnocení (stránka)</option>
           <option value="newest">Nejnovější</option>
         </select>
-        <select style={sel} value={minRating} onChange={e => setMinRating(e.target.value)} title="Min. hodnocení (aktuální stránka)">
+        <select className={SEL_M} style={sel} value={minRating} onChange={e => setMinRating(e.target.value)} title="Min. hodnocení (aktuální stránka)">
           <option value="all">★ min (vše)</option>
           <option value="3">★ 3+</option>
           <option value="4">★ 4+</option>
           <option value="4.5">★ 4,5+</option>
         </select>
-        <select style={sel} value={photo} onChange={e => setPhoto(e.target.value)} title="Fotka">
+        <select className={SEL_M} style={sel} value={photo} onChange={e => setPhoto(e.target.value)} title="Fotka">
           <option value="all">🖼 fotka: vše</option>
           <option value="with">🖼 s fotkou</option>
           <option value="without">🚫 bez fotky</option>
         </select>
-        <select style={sel} value={active} onChange={e => setActive(e.target.value)} title="Stav">
+        <select className={SEL_M} style={sel} value={active} onChange={e => setActive(e.target.value)} title="Stav">
           <option value="all">stav: vše</option>
           <option value="yes">jen aktivní</option>
           <option value="no">jen skryté</option>
@@ -270,7 +281,7 @@ export default function TrasyKatalogMist() {
       {/* Výběr dle filtru je vidět VŽDY — dřív byl schovaný v panelu, který se
           objevil až po ručním zaškrtnutí řádku, takže funkce, kvůli které
           hromadné akce vznikly, nešla vůbec najít. */}
-      <div className="flex flex-wrap items-center gap-2 mb-3">
+      <div className={`flex flex-wrap items-center gap-2 mb-3 ${TOUCH}`}>
         <SmallBtn color="#374151" disabled={busy || total === 0} onClick={selectAllFiltered}>
           ☑ Vybrat vše dle filtru ({total.toLocaleString('cs-CZ')})
         </SmallBtn>
@@ -278,14 +289,14 @@ export default function TrasyKatalogMist() {
       </div>
 
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 p-3 mb-3 rounded-card" style={{ background: '#ecfdf5', border: '1px solid #bbf7d0' }}>
+        <div className={`flex flex-wrap items-center gap-2 p-3 mb-3 rounded-card ${TOUCH} ${STICKY_M}`} style={{ background: '#ecfdf5', border: '1px solid #bbf7d0' }}>
           <span className="text-sm font-bold">Vybráno {selected.size.toLocaleString('cs-CZ')} míst</span>
-          <select style={sel} defaultValue="" disabled={busy}
+          <select className={SEL_M} style={sel} defaultValue="" disabled={busy}
             onChange={e => { if (e.target.value) { setBulk({ kind: 'category', value: e.target.value, count: selected.size }); e.target.value = '' } }}>
             <option value="">Změnit kategorii…</option>
             {Object.entries(POI_CATS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-          <select style={sel} defaultValue="" disabled={busy}
+          <select className={SEL_M} style={sel} defaultValue="" disabled={busy}
             onChange={e => { if (e.target.value) { setBulk({ kind: 'country', value: e.target.value, count: selected.size }); e.target.value = '' } }}>
             <option value="">Změnit zemi…</option>
             {POI_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -306,6 +317,11 @@ export default function TrasyKatalogMist() {
         <EmptyState text="Žádná místa neodpovídají filtru." />
       ) : (
         <>
+          {isMobile ? (
+            <TrasyPoiCards rows={displayRows} selected={selected} allOnPage={allOnPage} togglePage={togglePage}
+              toggleRow={toggleRow} stats={stats} onEdit={p => setEditing({ ...p })} onReviews={setReviewsFor}
+              onToggleActive={toggleActive} onDelete={setDeleteConfirm} />
+          ) : (
           <Table>
             <TRow header>
               <TH><input type="checkbox" checked={allOnPage} onChange={togglePage} title="Vybrat stránku" /></TH>
@@ -325,8 +341,9 @@ export default function TrasyKatalogMist() {
                 </TD>
                 <TD>{catLabel(p.category)}</TD>
                 <TD>{p.country || '—'}</TD>
-                <TD className="text-xs" style={{ whiteSpace: 'nowrap' }}>{p.lat?.toFixed(4)}, {p.lng?.toFixed(4)}</TD>
-                <TD className="text-xs">{p.source || '—'}</TD>
+                {/* bez className: TD ho dřív ignoroval — desktop tak zůstává beze změny */}
+                <TD>{p.lat?.toFixed(4)}, {p.lng?.toFixed(4)}</TD>
+                <TD>{p.source || '—'}</TD>
                 <TD>
                   <span className="text-xs font-bold px-2 py-1 rounded-full"
                     style={p.is_active ? { background: '#dcfce7', color: '#166534' } : { background: '#f3f4f6', color: '#6b7280' }}>
@@ -348,10 +365,11 @@ export default function TrasyKatalogMist() {
               </TRow>
             ))}
           </Table>
+          )}
 
-          <div className="flex items-center justify-between mt-3 text-sm">
+          <div className="flex items-center justify-between mt-3 text-sm max-sm:flex-wrap max-sm:gap-2">
             <span style={{ color: '#6b7280' }}>Stránka {page + 1} / {pages} ({total.toLocaleString('cs-CZ')} míst)</span>
-            <div className="flex gap-2 items-center">
+            <div className={`flex gap-2 items-center ${TOUCH}`}>
               <SmallBtn color="#374151" onClick={() => setPage(p => Math.max(0, p - 1))}>‹ Předchozí</SmallBtn>
               <input type="number" min={1} max={pages} value={page + 1} style={{ ...sel, width: 80 }}
                 onChange={e => {

@@ -111,26 +111,26 @@ export default function FaqSection() {
       </div>
 
       {/* Add CTA */}
-      <div className="flex items-center gap-3 mb-4 p-4 rounded-card" style={{ background: '#f1faf7', border: '2px dashed #74FB71' }}>
-        <div className="flex-1">
+      <div className="flex items-center gap-3 mb-4 p-4 rounded-card max-lg:flex-wrap" style={{ background: '#f1faf7', border: '2px dashed #74FB71' }}>
+        <div className="flex-1 max-lg:min-w-[200px]">
           <div className="text-sm font-extrabold" style={{ color: '#1a2e22' }}>Přidat novou otázku</div>
           <div className="text-xs mt-0.5" style={{ color: '#6b8f7b' }}>Vyber kategorii, napiš otázku a odpověď. HTML v odpovědi je povolený.</div>
         </div>
         <div className="text-xs font-bold mr-2" style={{ color: '#1a2e22' }}>
           {totalPublished} publikováno · ⭐ {featuredCount} na home
         </div>
-        <Button green onClick={() => setShowAdd(true)}>+ Nová otázka</Button>
+        <Button green onClick={() => setShowAdd(true)} className="max-lg:ml-auto">+ Nová otázka</Button>
       </div>
 
       {/* Filter */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-4 max-lg:flex-wrap">
         <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
-          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none max-md:w-full max-lg:max-w-full max-lg:min-h-[40px]"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="">Všechny kategorie</option>
           {allCategories.map(c => <option key={c.key} value={c.key}>{c.label} ({items.filter(i => i.category_key === c.key).length})</option>)}
         </select>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <label className="flex items-center gap-2 text-sm cursor-pointer max-lg:min-h-[40px]">
           <input type="checkbox" checked={onlyUnpublished} onChange={e => setOnlyUnpublished(e.target.checked)} />
           Jen nepublikované
         </label>
@@ -194,10 +194,11 @@ export default function FaqSection() {
 function FaqRow({ item, onEdit, onTogglePublished, onToggleFeatured, onDelete }) {
   const it = item
   return (
-    <div className="flex items-center gap-3 p-3 rounded-card mb-1"
+    <div className="flex items-center gap-3 p-3 rounded-card mb-1 max-lg:flex-wrap"
       style={{ background: '#fff', border: '1px solid #e2ece7', opacity: it.published ? 1 : 0.6 }}>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+      {/* Mobil: odznaky i akce se zalomí, otázka má celou šířku */}
+      <div className="flex-1 min-w-0 max-lg:min-w-[200px]">
+        <div className="flex items-center gap-2 max-lg:flex-wrap">
           <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}
             dangerouslySetInnerHTML={{ __html: sanitizeHtml(stripTagsLite(it.question)) }} />
           {it.featured_home && (
@@ -213,7 +214,7 @@ function FaqRow({ item, onEdit, onTogglePublished, onToggleFeatured, onDelete })
         <div className="text-xs mt-1 truncate" style={{ color: '#6b8f7b' }}
           dangerouslySetInnerHTML={{ __html: sanitizeHtml(stripTagsLite(it.answer).slice(0, 160) + (it.answer.length > 160 ? '…' : '')) }} />
       </div>
-      <div className="flex gap-1 shrink-0">
+      <div className="flex gap-1 shrink-0 max-lg:ml-auto max-lg:flex-wrap max-lg:gap-2">
         <SmBtn label="Upravit" onClick={onEdit} />
         <SmBtn label={it.featured_home ? '★ Home' : '☆ Home'} onClick={onToggleFeatured} active={it.featured_home} />
         <SmBtn label={it.published ? 'Skrýt' : 'Zveřejnit'} onClick={onTogglePublished} />
@@ -230,7 +231,7 @@ function stripTagsLite(html) {
 function SmBtn({ label, onClick, danger, active }) {
   return (
     <button onClick={onClick}
-      className="rounded-btn text-xs font-bold cursor-pointer"
+      className="rounded-btn text-xs font-bold cursor-pointer max-lg:min-h-[36px] max-lg:!px-3"
       style={{
         padding: '4px 10px', border: 'none',
         background: danger ? '#fee2e2' : (active ? '#fef3c7' : '#f1faf7'),
@@ -333,7 +334,7 @@ function FaqEditor({ entry, categories, onClose, onSaved }) {
   return (
     <Modal open title={entry ? 'Upravit otázku' : 'Nová otázka'} onClose={onClose} wide>
       <div className="space-y-3">
-        <div className="flex gap-3">
+        <div className="flex gap-3 max-md:flex-col">
           <div className="flex-1">
             <Label>Kategorie</Label>
             <select value={form.category_key} onChange={e => pickCategory(e.target.value)}
@@ -341,13 +342,13 @@ function FaqEditor({ entry, categories, onClose, onSaved }) {
               {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
             </select>
           </div>
-          <div style={{ width: 160 }}>
+          <div className="w-full md:w-[160px]">
             <Label>Pořadí</Label>
             <input type="number" value={form.sort_order} onChange={e => set('sort_order', e.target.value)}
               className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
           </div>
         </div>
-        <div className="text-xs" style={{ color: '#6b8f7b', marginTop: -4 }}>
+        <div className="text-xs max-lg:!mt-1.5" style={{ color: '#6b8f7b', marginTop: -4 }}>
           Klíč: <code>{form.category_key}</code> · Název: <input
             type="text" value={form.category_label} onChange={e => set('category_label', e.target.value)}
             style={{ padding: '2px 6px', background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 6, fontSize: 12, marginLeft: 4 }}
@@ -377,12 +378,12 @@ function FaqEditor({ entry, categories, onClose, onSaved }) {
           </div>
         </div>
 
-        <div className="flex gap-4 items-center">
+        <div className="flex gap-4 items-center max-lg:flex-wrap">
           <label className="flex items-center gap-2 cursor-pointer text-sm">
             <input type="checkbox" checked={form.published} onChange={e => set('published', e.target.checked)} />
             <span style={{ fontWeight: 700 }}>Publikováno</span>
           </label>
-          <label className="flex items-center gap-2 cursor-pointer text-sm">
+          <label className="flex items-center gap-2 cursor-pointer text-sm max-lg:flex-wrap">
             <input type="checkbox" checked={form.featured_home} onChange={e => set('featured_home', e.target.checked)} />
             <span style={{ fontWeight: 700 }}>⭐ Zobrazit i na home</span>
             <span className="text-xs" style={{ color: '#9ab3a5' }}>(prvních 4 podle pořadí)</span>

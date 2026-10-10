@@ -22,7 +22,7 @@ export default function AppInstallBadge({ install }) {
     .join(' + ')
   const seen = install.lastSeen ? new Date(install.lastSeen).toLocaleDateString('cs-CZ') : '—'
   return (
-    <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn"
+    <span className="ml-1 text-[9px] max-lg:text-[11px] font-extrabold px-1.5 py-0.5 rounded-btn"
       title={`Má nainstalovanou aplikaci MotoGo24${plats ? ` (${plats})` : ''} — naposledy aktivní ${seen}`}
       style={{ background: '#f3e8ff', color: '#7e22ce', whiteSpace: 'nowrap' }}>
       📱 APPKA

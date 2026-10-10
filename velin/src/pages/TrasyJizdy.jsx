@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import SearchInput from '../components/ui/SearchInput'
 import { SmallBtn } from './BranchHelpers'
 import TrasyJizdaModal from './TrasyJizdaModal'
+import { useMediaQuery } from '../hooks/useIsMobile'
 
 // Projeté jízdy zákazníků („Moje jízdy" v appce): stopa GPS z výpůjčky
 // (vzniká automaticky, když má zákazník povolenou polohu) + zastávky s
@@ -56,6 +57,7 @@ export default function TrasyJizdy({ onChanged }) {
   const [search, setSearch] = useState('')
   const [detail, setDetail] = useState(null)
   const [confirm, setConfirm] = useState(null)
+  const isPhone = useMediaQuery('(max-width: 639px)')   // telefon: hledání přes celou šířku
 
   useEffect(() => { load() /* eslint-disable-next-line */ }, [])
 
@@ -164,11 +166,11 @@ export default function TrasyJizdy({ onChanged }) {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Hledat jízdu, jezdce, motorku…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Hledat jízdu, jezdce, motorku…" fullWidth={isPhone} />
         <div className="flex gap-1 flex-wrap">
           {FILTERS.map(f => (
             <button key={f.id} onClick={() => setFilter(f.id)}
-              className="rounded-btn text-xs font-extrabold cursor-pointer"
+              className="rounded-btn text-xs font-extrabold cursor-pointer max-lg:min-h-[36px]"
               style={{
                 padding: '6px 12px', border: 'none',
                 background: filter === f.id ? '#74FB71' : '#f1faf7', color: '#1a2e22',
@@ -210,7 +212,7 @@ export default function TrasyJizdy({ onChanged }) {
                 <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
                   <div className="flex items-center gap-2 min-w-0 flex-wrap">
                     <button onClick={() => setDetail({ ...ride, points: pts })}
-                      className="text-sm font-extrabold cursor-pointer truncate" title="Otevřít detail jízdy"
+                      className="text-sm font-extrabold cursor-pointer truncate max-lg:min-h-[32px]" title="Otevřít detail jízdy"
                       style={{ background: 'none', border: 'none', color: '#1a8a18', padding: 0, maxWidth: 360 }}>
                       🏍️ {ride.name || 'Projetá jízda'}
                     </button>
@@ -238,7 +240,7 @@ export default function TrasyJizdy({ onChanged }) {
                   <span className="text-xs" style={{ color: '#6b8f7b' }}>{fmtDate(ride.started_at)}</span>
                 </div>
 
-                <div className="flex gap-3 flex-wrap text-xs font-bold mb-2" style={{ color: '#4a6357' }}>
+                <div className="flex gap-3 flex-wrap text-xs font-bold mb-2 max-lg:items-center" style={{ color: '#4a6357' }}>
                   <span title="Celkem ujeto">📏 {Number(ride.distance_km || 0).toFixed(1)} km</span>
                   <span title="Celkový čas (start → konec)">⏱️ {fmtDur(ride.duration_min)}</span>
                   <span title="Čas jízdy (v pohybu)">🏍️ {fmtSec(ride.moving_sec)}</span>
@@ -254,7 +256,7 @@ export default function TrasyJizdy({ onChanged }) {
                   <span>📷 {photoCount(ride.id)} fotek</span>
                   {ride.moto_name && <span>🛵 {ride.moto_name}</span>}
                   {ride.booking_id && (
-                    <a href={`/rezervace/${ride.booking_id}`} style={{ color: '#1a8a18' }}>🔗 rezervace</a>
+                    <a href={`/rezervace/${ride.booking_id}`} className="max-lg:inline-flex max-lg:items-center max-lg:min-h-[32px]" style={{ color: '#1a8a18' }}>🔗 rezervace</a>
                   )}
                 </div>
 
@@ -264,7 +266,7 @@ export default function TrasyJizdy({ onChanged }) {
                   </p>
                 )}
 
-                <div className="flex gap-2 items-center flex-wrap">
+                <div className="flex gap-2 items-center flex-wrap max-lg:[&>button]:min-h-[36px]">
                   <SmallBtn color="#1a8a18" onClick={() => setDetail({ ...ride, points: pts })}>
                     Detail a úpravy
                   </SmallBtn>

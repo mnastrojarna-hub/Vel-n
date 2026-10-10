@@ -163,7 +163,7 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
                       const moto = MOTO_LICENSE_GROUPS.includes(g)
                       return (
                         <button key={g} onClick={() => toggleGroup(g)}
-                          className="rounded-btn text-sm font-bold cursor-pointer"
+                          className="rounded-btn text-sm font-bold cursor-pointer max-lg:min-h-[38px] max-lg:min-w-[52px]"
                           style={{ padding: '5px 12px', border: 'none', background: on ? '#74FB71' : '#f1faf7', color: '#1a2e22', boxShadow: on ? '0 3px 12px rgba(116,251,113,.35)' : 'none' }}>
                           {g}{moto ? ' 🏍️' : ''}
                         </button>

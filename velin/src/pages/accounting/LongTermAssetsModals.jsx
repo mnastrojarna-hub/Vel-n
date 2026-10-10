@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
+import { ROWS_WHITE } from './FinanceBStack'
 
 const CATEGORIES = [
   { value: 'vehicles', label: 'Dopravni prostredky' }, { value: 'machinery', label: 'Stroje a pristroje' },
@@ -96,7 +97,7 @@ export function AssetDetailModal({ asset, onClose }) {
       </div>
       <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Historie odpisů</div>
       {loading ? <div className="py-4 text-center text-sm" style={{ color: '#6b7280' }}>Nacitam...</div> : depEntries.length === 0 ? <div className="py-2 text-sm" style={{ color: '#6b7280' }}>Žádné odpisy</div> : (
-        <Table><thead><TRow header><TH>Rok</TH><TH>Číslo</TH><TH>Roční odpis</TH><TH>Kumulativne</TH><TH>Zbyva</TH></TRow></thead>
+        <Table stack className={ROWS_WHITE}><thead><TRow header><TH>Rok</TH><TH>Číslo</TH><TH>Roční odpis</TH><TH>Kumulativne</TH><TH>Zbyva</TH></TRow></thead>
           <tbody>{depEntries.map(d => <TRow key={d.id}><TD>{d.year}</TD><TD>{d.year_number}.</TD><TD bold color="#dc2626">{fmt(d.annual_amount)}</TD><TD>{fmt(d.cumulative_amount)}</TD><TD color="#1a8a18">{fmt(d.remaining_value)}</TD></TRow>)}</tbody>
         </Table>
       )}

@@ -14,10 +14,11 @@ export default function Purchases() {
 
   return (
     <div>
-      <div className="flex gap-2 mb-5">
+      {/* flex-wrap: na telefonu se záložky zalomí na 2 řádky (všechny vidět); na PC se vejdou do 1 řádku */}
+      <div className="flex flex-wrap gap-2 mb-5">
         {TABS.map(t => (
           <button key={t} onClick={() => { debugLog('tab.switch', 'Purchases', { tab: t }); setTab(t) }}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer whitespace-nowrap max-lg:min-h-[40px]"
             style={{
               padding: '8px 18px',
               background: tab === t ? '#74FB71' : '#f1faf7',

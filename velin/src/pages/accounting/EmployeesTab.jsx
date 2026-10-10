@@ -6,6 +6,7 @@ import Card from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
+import { TAB2, TOUCH_BTNS, ROWS_WHITE } from './FinanceBStack'
 
 const PER_PAGE = 25
 
@@ -86,7 +87,7 @@ export default function EmployeesTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <Table>
+          <Table stack="tablet" className={`${TAB2} ${TOUCH_BTNS}`}>
             <thead>
               <TRow header>
                 <TH>Jméno</TH><TH>Typ smlouvy</TH><TH>Hrubá mzda</TH>
@@ -118,7 +119,7 @@ export default function EmployeesTab() {
                   </TD>
                 </TRow>
               ))}
-              {employees.length === 0 && <TRow><TD>Žádní zamestnanci</TD></TRow>}
+              {employees.length === 0 && <TRow><TD label="" className="mg-stack-full">Žádní zamestnanci</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -132,7 +133,7 @@ export default function EmployeesTab() {
           {payrolls.length === 0 ? (
             <p className="text-sm" style={{ color: '#6b7280' }}>Žádné záznamy o mzdach</p>
           ) : (
-            <Table>
+            <Table stack className={ROWS_WHITE}>
               <thead>
                 <TRow header>
                   <TH>Období</TH><TH>Hrubá</TH><TH>Soc. pojištění</TH>

@@ -75,7 +75,7 @@ export default function TemplatesMobile({
           </div>
         </div>
       ) : (
-        <MobileCardList>
+        <MobileCardList tabletGrid>
           {filtered.map(tpl => {
             const preview = plainText(tpl.body_template || tpl.content || '')
             return (
@@ -108,14 +108,16 @@ export default function TemplatesMobile({
                     Předmět: {tpl.subject_template || tpl.subject}
                   </div>
                 )}
-                <div
-                  style={{
-                    marginTop: 8, padding: '8px 10px', borderRadius: 12, background: '#f8fcfa', border: '1px solid #d4e8e0',
-                    fontSize: 14, lineHeight: 1.45, color: preview ? '#0f1a14' : '#6b7280', overflowWrap: 'anywhere',
-                    display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                  }}
-                >
-                  {preview || '(prázdná)'}
+                {/* Odsazení na obalu: ořez 3 řádků je pak na hraně textu a 4. řádek nepřesahuje do spodního odsazení */}
+                <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 12, background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
+                  <div
+                    style={{
+                      fontSize: 14, lineHeight: 1.45, color: preview ? '#0f1a14' : '#6b7280', overflowWrap: 'anywhere',
+                      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    }}
+                  >
+                    {preview || '(prázdná)'}
+                  </div>
                 </div>
 
                 <MobileActions>

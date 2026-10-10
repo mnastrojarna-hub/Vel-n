@@ -119,11 +119,11 @@ function ScreenMirrorOverlay({ dev, onCommand, onClose }) {
         <span>· zbývá {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</span>
         {error && <span className="font-bold" style={{ color: '#fca5a5' }}>· {error}</span>}
         {ended && <span className="font-bold" style={{ color: '#fde68a' }}>· relace na jednotce skončila — zavřete a otevřete znovu</span>}
-        <label className="ml-auto flex items-center gap-2 cursor-pointer font-bold" style={{ color: control ? '#fca5a5' : '#d4e8e0' }}
+        <label className="ml-auto flex items-center gap-2 cursor-pointer font-bold max-lg:min-h-[40px]" style={{ color: control ? '#fca5a5' : '#d4e8e0' }}
           title="Klepnutí do obrazu = dotyk na displeji pobočky (stejné jako prst zákazníka). Zapínejte jen, když víte, co děláte.">
           <input type="checkbox" checked={control} onChange={toggleControl} disabled={!sessionId} /> Ovládat
         </label>
-        <button onClick={onClose} className="rounded-btn font-extrabold cursor-pointer border-none" style={{ padding: '5px 12px', background: '#74FB71', color: '#1a2e22' }}>Zavřít</button>
+        <button onClick={onClose} className="rounded-btn font-extrabold cursor-pointer border-none max-lg:min-h-[40px] max-lg:min-w-[80px]" style={{ padding: '5px 12px', background: '#74FB71', color: '#1a2e22' }}>Zavřít</button>
       </div>
       <div className="flex-1 flex items-center justify-center relative" style={{ minHeight: 0, cursor: control ? 'crosshair' : 'default' }}>
         {src
@@ -138,8 +138,8 @@ function ScreenMirrorOverlay({ dev, onCommand, onClose }) {
             <div className="text-[11px] font-extrabold uppercase" style={{ color: '#b45309' }}>Dialog na displeji ({dialog.type})</div>
             <div className="text-sm mb-2">{dialog.message}</div>
             {control ? (
-              <div className="flex gap-2">
-                {dialog.type === 'prompt' && <input className="flex-1 rounded-btn px-2 py-1 text-sm" style={{ border: '1px solid #d4e8e0' }} value={dialogText} onChange={e => setDialogText(e.target.value)} placeholder="hodnota" />}
+              <div className="flex gap-2 max-sm:flex-wrap">
+                {dialog.type === 'prompt' && <input className="flex-1 rounded-btn px-2 py-1 text-sm max-lg:min-w-0 max-sm:basis-full" style={{ border: '1px solid #d4e8e0' }} value={dialogText} onChange={e => setDialogText(e.target.value)} placeholder="hodnota" />}
                 <Btn tone="green" onClick={() => answerDialog(dialog.type === 'prompt' ? dialogText : '')}>OK</Btn>
                 <Btn tone="gray" onClick={() => answerDialog(null)}>Zrušit</Btn>
               </div>

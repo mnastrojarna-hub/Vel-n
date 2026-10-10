@@ -127,10 +127,10 @@ export default function FeatureFlagsTab() {
         return (
           <Card key={f.id}>
             <div className="flex items-start gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
+              <div className="flex-1 max-lg:min-w-0 max-lg:[overflow-wrap:anywhere]">
+                <div className="flex items-center gap-2 max-lg:flex-wrap">
                   <div className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{meta?.title || f.key || f.name || 'Bez názvu'}</div>
-                  <code style={{ fontSize: 11, background: '#eef5f1', color: '#1a8c1a', padding: '1px 6px', borderRadius: 4 }}>{f.key || f.name}</code>
+                  <code className="max-lg:[overflow-wrap:anywhere]" style={{ fontSize: 11, background: '#eef5f1', color: '#1a8c1a', padding: '1px 6px', borderRadius: 4 }}>{f.key || f.name}</code>
                   <span style={{ fontSize: 11, fontWeight: 700, color: f.enabled ? '#16a34a' : '#9ca3af' }}>
                     {f.enabled ? '● ZAPNUTO' : '○ VYPNUTO'}
                   </span>
@@ -164,7 +164,7 @@ function ToggleSwitch({ enabled, onToggle }) {
   return (
     <button
       onClick={onToggle}
-      className="relative cursor-pointer transition-colors shrink-0"
+      className="relative cursor-pointer transition-colors shrink-0 max-lg:before:content-[''] max-lg:before:absolute max-lg:before:-inset-2"
       style={{
         width: 48,
         height: 26,

@@ -10,6 +10,7 @@ import { BranchGateCodeBlock } from './BranchGateCode'
 import { RpiSection, Btn, Chip, usePersistentFlag, isRpiDevice, platformLabel, ACCESSORIES_LABEL, doorKindLabel, doorLabel, doorEventLabel, isProtocolEvent, isInfoDenied } from './BranchRpiUi'
 import KioskAlertsBanner from '../components/KioskAlertsBanner'
 import { useKioskAlerts } from '../hooks/useKioskAlerts'
+import { useTouchHint, HintedLabel, HintRow } from './BranchRpiTouchHint'
 
 // ─── Tab: Samoobsluha (řídicí jednotka Raspberry) ─────────────────────────
 // Provozní část (vidí obsluha vždy): poplach „dveře bez kódu“, karta jednotky se zónami, poslední protokol diagnostiky,
@@ -318,7 +319,7 @@ function TabSelfService({ branchId, branchName, motos }) {
       {!cfg ? (
         <div className="p-4 rounded-card text-center" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <p className="text-sm mb-3" style={{ color: '#1a2e22' }}>Tato pobočka zatím nemá nastavenou samoobsluhu (řídicí jednotka Raspberry).</p>
-          <button onClick={ensureConfig} disabled={busy} className="rounded-btn text-sm font-bold cursor-pointer border-none"
+          <button onClick={ensureConfig} disabled={busy} className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
             style={{ padding: '8px 16px', background: '#1a2e22', color: '#74FB71' }}>
             {busy ? 'Zakládám…' : 'Aktivovat samoobsluhu'}
           </button>
@@ -361,18 +362,21 @@ function TabSelfService({ branchId, branchName, motos }) {
   )
 }
 
-// `title` = vysvětlivka v bublině po najetí myší (co pole znamená a k čemu slouží)
+// `title` = vysvětlivka v bublině po najetí myší (co pole znamená a k čemu slouží); na dotyku tlačítko „i“ (useTouchHint)
 function Field({ label, value, onCommit, placeholder, type = 'text', width, title }) {
   const [v, setV] = useState(value ?? '')
+  const hint = useTouchHint(title)
   useEffect(() => { setV(value ?? '') }, [value])
+  const labelEl = <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }}>{label}</span>
   return (
-    <label className="flex flex-col gap-0.5" style={{ width }} title={title}>
-      <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }}>{label}</span>
+    <label className={`flex flex-col gap-0.5 max-lg:max-w-full${hint.body ? ' basis-full' : ''}`} style={{ width }} title={title}>
+      {hint.toggle ? <span className="flex items-center gap-1.5">{labelEl}{hint.toggle}</span> : labelEl}
       <input type={type} value={v} placeholder={placeholder}
         onChange={e => setV(e.target.value)}
         onBlur={() => { if ((v ?? '') !== (value ?? '')) onCommit(type === 'number' ? (parseInt(v) || 0) : v) }}
         className="rounded-btn text-sm outline-none"
         style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+      {hint.body}
     </label>
   )
 }
@@ -389,7 +393,7 @@ function AuditBlock({ events, doors, devices }) {
       {events.length === 0 ? (
         <EmptyState text="Zatím žádné záznamy" />
       ) : (
-        <div className="space-y-1 max-h-60 overflow-y-auto">
+        <div className="space-y-1 max-h-60 overflow-y-auto max-lg:max-h-[60vh]">
           {events.map(e => {
             const d = doorMap[e.door_id]
             const doorName = doorLabel(d)
@@ -398,10 +402,10 @@ function AuditBlock({ events, doors, devices }) {
             const proto = isProtocolEvent(e)
             const evLabel = doorEventLabel(e)
             return (
-              <div key={e.id} className="flex items-center gap-2 p-2 rounded-lg text-sm" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
+              <div key={e.id} className="flex items-center gap-2 p-2 rounded-lg text-sm flex-wrap lg:flex-nowrap" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
                 <span style={{ width: 8, height: 8, borderRadius: 999, background: proto ? '#2563eb' : e.success ? '#1a8a18' : isInfoDenied(e) ? '#d97706' : '#dc2626', display: 'inline-block' }} />
                 <span className="font-bold" style={{ color: '#0f1a14' }}>{doorName}</span>
-                <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+                <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
                   style={{ padding: '2px 6px', background: '#eef6f2', color: '#1a2e22' }}>{kindLabel[e.kind] || e.kind || '—'}</span>
                 {evLabel && <span className="text-[12px]" style={{ color: proto ? '#2563eb' : '#1a2e22' }}>{proto ? '📝 ' : ''}{evLabel}</span>}
                 {devMap[e.device_id]?.name && <span className="text-[12px]" style={{ color: '#6b8c7a' }}>{devMap[e.device_id].name}</span>}
@@ -423,13 +427,13 @@ function DevicesBlock({ devices, now, busy, onAdd, onSave, onDelete }) {
     <RpiSection title="Zařízení (řídicí jednotka Raspberry)"
       hint="Každá jednotka má unikátní ID + token — zadejte je na displeji (setup obrazovka nebo servisní panel → Přepárovat). Platforma se doplní po prvním ozvání. Online = poslední ozvání < 70 s. Ovládání jednotky je na její kartě nahoře.">
       <div className="flex items-end gap-2 mb-3 flex-wrap">
-        <label className="flex flex-col gap-0.5" style={{ width: 220 }}>
-          <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }} title="Jak se zařízení jmenuje ve Velíně — ať poznáte, která jednotka je která (např. „Velké Němčice — řídicí jednotka“). Po přidání dostane ID a token, které zadáte na displeji jednotky.">Název nového zařízení</span>
+        <HintedLabel className="flex flex-col gap-0.5 max-lg:max-w-full max-sm:!w-full" style={{ width: 220 }} text="Název nového zařízení"
+          hint="Jak se zařízení jmenuje ve Velíně — ať poznáte, která jednotka je která (např. „Velké Němčice — řídicí jednotka“). Po přidání dostane ID a token, které zadáte na displeji jednotky.">
           <input value={name} onChange={e => setName(e.target.value)} placeholder="např. Brno — řídicí jednotka"
             className="rounded-btn text-sm outline-none" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-        </label>
+        </HintedLabel>
         <button onClick={() => { onAdd(name); setName('') }} disabled={busy}
-          className="rounded-btn text-sm font-bold cursor-pointer border-none"
+          className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
           style={{ padding: '6px 12px', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>Přidat zařízení</button>
       </div>
       {devices.length === 0 ? (
@@ -445,6 +449,11 @@ function DevicesBlock({ devices, now, busy, onAdd, onSave, onDelete }) {
   )
 }
 
+const REBOOT_TITLE = 'OS má nainstalované nové jádro/knihovny (unattended-upgrades nebo Aktualizovat OS) — projeví se až po restartu OS. Restart spusťte z bloku Aktualizace řídicích jednotek na stránce Pobočky, až bude box volný.'
+const PAIR_ROW = 'lg:contents max-lg:grid max-lg:grid-cols-[48px_1fr_auto] max-lg:items-center max-lg:gap-2 max-lg:w-full'
+// Drobné čipy (typ, stav, úroveň) a „Kopírovat“ na této záložce: na dotyku (< 1024 px) 11 px, desktop 9–10 px beze změny
+const COPY_BTN = 'rounded-btn text-[10px] max-lg:text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[34px]'
+
 function DeviceRow({ dev, now, onSave, onDelete }) {
   const online = dev.last_seen_at && (now - new Date(dev.last_seen_at).getTime()) < ONLINE_MS
   const lastSeen = dev.last_seen_at ? new Date(dev.last_seen_at).toLocaleString('cs-CZ') : 'nikdy'
@@ -452,46 +461,53 @@ function DeviceRow({ dev, now, onSave, onDelete }) {
   const plat = platformLabel(dev)   // '' = zatím se neozvalo (platform NULL)
   // status.health.sys.reboot_required — OS čeká na restart (nové jádro); status je JSON z jednotky, číst defenzivně
   const rebootRequired = rpi && dev.status?.health?.sys?.reboot_required === true
+  const rebootHint = useTouchHint(rebootRequired ? REBOOT_TITLE : null)   // dotyk: „i“ u čipu Restart OS
 
   return (
     <div className="p-3 rounded-card" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
       <div className="flex items-center gap-2 flex-wrap mb-2">
         <span style={{ width: 10, height: 10, borderRadius: 999, background: online ? '#1a8a18' : '#dc2626', display: 'inline-block' }} />
         <Field label="Název" value={dev.name} onCommit={v => onSave(dev.id, { name: v })} width={200} />
-        <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+        <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
           style={{ padding: '2px 6px', background: online ? '#dcfce7' : '#fee2e2', color: online ? '#1a8a18' : '#dc2626' }}>
           {online ? 'Online' : 'Offline'}
         </span>
-        <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+        <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
           title={plat ? 'Platforma nahlášená zařízením' : 'Zatím se neozvalo — platforma se doplní po prvním heartbeatu; do té doby se bere jako řídicí jednotka (Raspberry)'}
           style={{ padding: '2px 6px', background: plat ? '#eef6f2' : '#fef3c7', color: plat ? '#1a2e22' : '#b45309' }}>
           {plat || 'nespárováno'}
         </span>
         <span className="text-[11px]" style={{ color: '#6b8c7a' }}>posl. {lastSeen}{dev.app_version ? ` · v${dev.app_version}` : ''}</span>
         {rebootRequired && (
-          <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
-            title="OS má nainstalované nové jádro/knihovny (unattended-upgrades nebo Aktualizovat OS) — projeví se až po restartu OS. Restart spusťte z bloku Aktualizace řídicích jednotek na stránce Pobočky, až bude box volný."
+          <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
+            title={REBOOT_TITLE}
             style={{ padding: '2px 6px', background: '#fef3c7', color: '#b45309' }}>
             Restart OS potřebný
           </span>
         )}
+        {rebootHint.toggle}
         <button onClick={() => onSave(dev.id, { is_active: !dev.is_active })}
-          className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+          className="rounded-btn text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[36px]"
           style={{ padding: '4px 8px', background: dev.is_active ? '#fef3c7' : '#dcfce7', color: dev.is_active ? '#b45309' : '#1a8a18' }}>
           {dev.is_active ? 'Deaktivovat' : 'Aktivovat'}
         </button>
-        <button onClick={() => onDelete(dev.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+        <button onClick={() => onDelete(dev.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[36px]"
           style={{ padding: '4px 8px', background: '#fee2e2', color: '#dc2626' }}>Smazat</button>
+        <HintRow body={rebootHint.body} />
       </div>
 
       {/* Párovací údaje */}
       <div className="flex items-center gap-2 flex-wrap mb-2 text-[12px]" style={{ color: '#1a2e22' }}>
-        <span className="font-bold">ID:</span>
-        <code style={{ background: '#eef6f2', padding: '2px 6px', borderRadius: 6 }}>{dev.id}</code>
-        <button onClick={() => copy(dev.id)} className="rounded-btn text-[10px] font-bold cursor-pointer border-none" style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>Kopírovat</button>
-        <span className="font-bold ml-2">Token:</span>
-        <code style={{ background: '#eef6f2', padding: '2px 6px', borderRadius: 6 }}>{dev.device_token}</code>
-        <button onClick={() => copy(dev.device_token)} className="rounded-btn text-[10px] font-bold cursor-pointer border-none" style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>Kopírovat</button>
+        <span className={PAIR_ROW}>
+          <span className="font-bold">ID:</span>
+          <code className="max-lg:break-all" style={{ background: '#eef6f2', padding: '2px 6px', borderRadius: 6 }}>{dev.id}</code>
+          <button onClick={() => copy(dev.id)} className={COPY_BTN} style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>Kopírovat</button>
+        </span>
+        <span className={PAIR_ROW}>
+          <span className="font-bold ml-2 max-lg:ml-0">Token:</span>
+          <code className="max-lg:break-all" style={{ background: '#eef6f2', padding: '2px 6px', borderRadius: 6 }}>{dev.device_token}</code>
+          <button onClick={() => copy(dev.device_token)} className={COPY_BTN} style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>Kopírovat</button>
+        </span>
       </div>
 
     </div>
@@ -505,7 +521,7 @@ function DoorsBlock({ doors, onEnsure, onSave, onDelete, busy }) {
     <RpiSection title="Dveře (kóje 1–7 + šatna)"
       hint="Jedny dveře pro každou kóji (dle čísla boxu motorky) a šatnu. Tlačítko založí chybějící dveře podle čísel kójí motorek a dveřím bez HW mapy doplní výchozí mapu (jednotka zná jen dveře s mapou); zapojení upravíte v bloku „Řídicí jednotka — hardware“ níže."
       action={
-        <button onClick={onEnsure} disabled={busy} className="rounded-btn text-sm font-bold cursor-pointer border-none"
+        <button onClick={onEnsure} disabled={busy} className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
           style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', opacity: busy ? 0.5 : 1 }}>
           {busy ? 'Pracuji…' : 'Vytvořit dveře z kojí + doplnit HW mapu'}
         </button>
@@ -513,15 +529,15 @@ function DoorsBlock({ doors, onEnsure, onSave, onDelete, busy }) {
       {doors.length === 0 ? (
         <EmptyState text="Žádné dveře. Nejdřív přiřaďte čísla kojí (záložka Motorky & Koje), pak klikněte „Vytvořit dveře z kojí“." />
       ) : (
-        <div className="space-y-1 max-h-72 overflow-y-auto">
+        <div className="space-y-1 max-h-72 overflow-y-auto max-lg:max-h-none">
           {doors.map(d => (
             <div key={d.id} className="flex items-end gap-2 p-2 rounded-lg flex-wrap"
               style={{ background: d.door_kind === 'accessories' ? '#eff6ff' : '#f1faf7', border: '1px solid #d4e8e0' }}>
-              <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase self-center"
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase self-center"
                 style={{ padding: '2px 6px', background: d.door_kind === 'accessories' ? '#dbeafe' : '#dcfce7', color: d.door_kind === 'accessories' ? '#2563eb' : '#1a8a18', minWidth: 64, textAlign: 'center' }}>
                 {doorKindLabel(d)}
               </span>
-              <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase self-center"
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase self-center"
                 title={hasHw(d) ? `Řídicí jednotka: zóna ${d.hw?.zone ?? '?'} (mapování v bloku Řídicí jednotka — hardware)` : 'Bez HW mapy pro řídicí jednotku — nastavte v bloku Řídicí jednotka — hardware'}
                 style={{ padding: '2px 6px', background: hasHw(d) ? '#eef6f2' : '#fef3c7', color: hasHw(d) ? '#1a2e22' : '#b45309' }}>
                 {hasHw(d) ? `RPi zóna ${d.hw?.zone ?? '?'}` : 'bez RPi mapy'}
@@ -530,7 +546,7 @@ function DoorsBlock({ doors, onEnsure, onSave, onDelete, busy }) {
                 <Field label="Popis" value={d.label} onCommit={v => onSave(d.id, { label: v })} width={150}
                   title="Vlastní název šatny. Zobrazí se ve Velíně I NA DISPLEJI pobočky místo výchozího „Šatna“ — pozor, vlastní popis se NEPŘEKLÁDÁ do cizích jazyků. Prázdné = použije se výchozí název. Kóje motorek mají vždy jen číslo (motorky se mezi kójemi přesouvají)." />
               )}
-              <button onClick={() => onDelete(d.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none self-center"
+              <button onClick={() => onDelete(d.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none self-center max-lg:min-h-[36px]"
                 style={{ padding: '6px 8px', background: '#fee2e2', color: '#dc2626' }}>Smazat</button>
             </div>
           ))}
@@ -547,26 +563,26 @@ function ServiceCodesBlock({ codes, onAdd, onToggle, onDelete, busy }) {
   return (
     <RpiSection title="Servisní hesla" hint="Heslo technika zadané na displeji místo zákaznického kódu otevře servisní panel (otevírání všech dveří, světla, hudba, restart). Účel „jen diagnostika“ spustí pouze diagnostiku pobočky (nic neotevírá).">
       <div className="flex items-end gap-2 mb-2 flex-wrap">
-        <label className="flex flex-col gap-0.5" style={{ width: 160 }}>
-          <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }} title="Kód, který technik zadá na displeji pobočky místo zákaznického kódu. Otevře servisní panel (podle účelu níže). Volte něco, co se nedá uhodnout, a po odchodu technika heslo vypněte nebo smažte.">Heslo</span>
+        <HintedLabel className="flex flex-col gap-0.5 max-sm:!w-full" style={{ width: 160 }} text="Heslo"
+          hint="Kód, který technik zadá na displeji pobočky místo zákaznického kódu. Otevře servisní panel (podle účelu níže). Volte něco, co se nedá uhodnout, a po odchodu technika heslo vypněte nebo smažte.">
           <input value={code} onChange={e => setCode(e.target.value)} placeholder="např. servis2026"
             className="rounded-btn text-sm outline-none" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-        </label>
-        <label className="flex flex-col gap-0.5" style={{ width: 200 }}>
-          <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }} title="Poznámka, komu heslo patří (např. „Technik Petr“). Slouží jen vám — abyste věděli, které heslo zrušit, když někdo skončí.">Komu patří (volitelné)</span>
+        </HintedLabel>
+        <HintedLabel className="flex flex-col gap-0.5 max-sm:!w-full" style={{ width: 200 }} text="Komu patří (volitelné)"
+          hint="Poznámka, komu heslo patří (např. „Technik Petr“). Slouží jen vám — abyste věděli, které heslo zrušit, když někdo skončí.">
           <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Technik Petr"
             className="rounded-btn text-sm outline-none" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-        </label>
-        <label className="flex flex-col gap-0.5" style={{ width: 190 }}>
-          <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }} title="Co heslo na displeji umožní. „Servisní panel (vše)“ = otevírání všech dveří, ovládání světel a hudby, restart jednotky. „Jen diagnostika sítě“ = spustí pouze kontrolu pobočky, nic neotevře — pro externí techniky.">Účel</span>
+        </HintedLabel>
+        <HintedLabel className="flex flex-col gap-0.5 max-sm:!w-full" style={{ width: 190 }} text="Účel"
+          hint="Co heslo na displeji umožní. „Servisní panel (vše)“ = otevírání všech dveří, ovládání světel a hudby, restart jednotky. „Jen diagnostika sítě“ = spustí pouze kontrolu pobočky, nic neotevře — pro externí techniky.">
           <select value={action} onChange={e => setAction(e.target.value)}
             className="rounded-btn text-sm outline-none" style={{ padding: '6px 8px', background: '#fff', border: '1px solid #d4e8e0' }}>
             <option value="service">Servisní panel (vše)</option>
             <option value="diagnostics">Jen diagnostika sítě</option>
           </select>
-        </label>
+        </HintedLabel>
         <button onClick={() => { onAdd(code, label, action); setCode(''); setLabel(''); setAction('service') }} disabled={busy || !code.trim()}
-          className="rounded-btn text-sm font-bold cursor-pointer border-none"
+          className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
           style={{ padding: '6px 12px', background: '#1a2e22', color: '#74FB71', opacity: (busy || !code.trim()) ? 0.5 : 1 }}>Přidat</button>
       </div>
       {codes.length === 0 ? (
@@ -574,20 +590,20 @@ function ServiceCodesBlock({ codes, onAdd, onToggle, onDelete, busy }) {
       ) : (
         <div className="space-y-1">
           {codes.map(c => (
-            <div key={c.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
+            <div key={c.id} className="flex items-center gap-2 p-2 rounded-lg flex-wrap lg:flex-nowrap" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
               <span className="font-mono font-extrabold text-sm" style={{ color: '#0f1a14' }}>{c.code}</span>
               {c.label && <span className="text-sm" style={{ color: '#1a2e22' }}>{c.label}</span>}
               {c.action === 'diagnostics' && (
-                <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase" style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>jen diagnostika</span>
+                <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase" style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>jen diagnostika</span>
               )}
-              <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
                 style={{ padding: '2px 6px', background: c.is_active ? '#dcfce7' : '#f3f4f6', color: c.is_active ? '#1a8a18' : '#6b8c7a' }}>
                 {c.is_active ? 'Aktivní' : 'Vypnuté'}
               </span>
               <div className="ml-auto flex gap-1">
-                <button onClick={() => onToggle(c)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+                <button onClick={() => onToggle(c)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[36px]"
                   style={{ padding: '4px 8px', background: '#dbeafe', color: '#2563eb' }}>{c.is_active ? 'Vypnout' : 'Zapnout'}</button>
-                <button onClick={() => onDelete(c.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+                <button onClick={() => onDelete(c.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[36px]"
                   style={{ padding: '4px 8px', background: '#fee2e2', color: '#dc2626' }}>Smazat</button>
               </div>
             </div>
@@ -655,7 +671,7 @@ function Metric({ label, value, color }) {
 function Flag({ on, labelOn, labelOff }) {
   if (on == null) return null
   return (
-    <span className="inline-block rounded-btn text-[10px] font-extrabold uppercase"
+    <span className="inline-block rounded-btn text-[10px] max-lg:text-[11px] font-extrabold uppercase"
       style={{ padding: '3px 8px', background: on ? '#dcfce7' : '#eef6f2', color: on ? '#1a8a18' : '#6b8c7a' }}>
       {on ? labelOn : labelOff}
     </span>
@@ -667,13 +683,13 @@ function CamerasBlock({ cameras, onlineDevice, busy, servis, onAdd, onSave, onDe
   return (
     <RpiSection title="Kamerový systém" hint="Náhled (snapshot/HLS/iframe) a ovládání kamer. Ovládací akce (HTTP GET na LAN) posílá online řídicí jednotka."
       action={servis && (
-        <button onClick={onAdd} disabled={busy} className="rounded-btn text-sm font-bold cursor-pointer border-none"
+        <button onClick={onAdd} disabled={busy} className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
           style={{ padding: '4px 10px', background: '#1a2e22', color: '#74FB71', opacity: busy ? 0.5 : 1 }}>Přidat kameru</button>
       )}>
       {cameras.length === 0 ? (
         <EmptyState text="Žádné kamery. Přidejte kameru a zadejte URL náhledu." />
       ) : (
-        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))' }}>
           {cameras.map(cam => (
             <CameraCard key={cam.id} cam={cam} onlineDevice={onlineDevice} servis={servis} onSave={onSave} onDelete={onDelete} onRemote={onRemote} />
           ))}
@@ -710,16 +726,16 @@ function CameraCard({ cam, onlineDevice, servis, onSave, onDelete, onRemote }) {
       <div className="p-2">
         <div className="flex items-center gap-2 mb-1">
           <span className="font-bold text-sm" style={{ color: '#fff' }}>{cam.name || 'Kamera'}</span>
-          <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase" style={{ padding: '2px 6px', background: '#1a2e22', color: '#74FB71' }}>{cam.kind}</span>
+          <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase" style={{ padding: '2px 6px', background: '#1a2e22', color: '#74FB71' }}>{cam.kind}</span>
           <div className="ml-auto flex gap-1">
             {cam.control_url && (
               <button onClick={() => onRemote('camera_control', { url: cam.control_url })} disabled={!onlineDevice}
                 title={!onlineDevice ? 'Žádná řídicí jednotka online' : 'Spustit akci kamery (HTTP GET z řídicí jednotky)'}
-                className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+                className="rounded-btn text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[36px]"
                 style={{ padding: '3px 8px', background: '#dbeafe', color: '#2563eb', opacity: onlineDevice ? 1 : 0.5 }}>Akce</button>
             )}
             {servis && (
-              <button onClick={() => setEdit(e => !e)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+              <button onClick={() => setEdit(e => !e)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[36px]"
                 style={{ padding: '3px 8px', background: '#eef6f2', color: '#1a2e22' }}>{edit ? 'Hotovo' : 'Upravit'}</button>
             )}
           </div>
@@ -728,8 +744,8 @@ function CameraCard({ cam, onlineDevice, servis, onSave, onDelete, onRemote }) {
           <div className="space-y-2 pt-1">
             <div className="flex gap-2 flex-wrap">
               <Field label="Název" value={cam.name} onCommit={v => onSave(cam.id, { name: v })} width={150} title="Jak se kamera jmenuje ve Velíně (např. „Vjezd“, „Kóje 1–4“). Slouží jen k orientaci." />
-              <label className="flex flex-col gap-0.5" style={{ width: 120 }}>
-                <span className="text-[11px] font-bold" style={{ color: '#9fb8ac' }} title="Jak se obraz zobrazí ve Velíně. snapshot = jeden obrázek obnovovaný á 5 s (nejspolehlivější); mjpeg = plynulý obraz z kamery; hls / iframe = přehrávač nebo stránka NVR vložená do rámu.">Typ náhledu</span>
+              <HintedLabel className="flex flex-col gap-0.5 max-lg:max-w-full" style={{ width: 120 }} text="Typ náhledu" textStyle={{ color: '#9fb8ac' }}
+                hint="Jak se obraz zobrazí ve Velíně. snapshot = jeden obrázek obnovovaný á 5 s (nejspolehlivější); mjpeg = plynulý obraz z kamery; hls / iframe = přehrávač nebo stránka NVR vložená do rámu.">
                 <select value={cam.kind} onChange={e => onSave(cam.id, { kind: e.target.value })}
                   className="rounded-btn text-sm outline-none" style={{ padding: '6px 8px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
                   <option value="snapshot">snapshot (JPEG)</option>
@@ -737,12 +753,12 @@ function CameraCard({ cam, onlineDevice, servis, onSave, onDelete, onRemote }) {
                   <option value="hls">hls (iframe)</option>
                   <option value="iframe">iframe</option>
                 </select>
-              </label>
+              </HintedLabel>
             </div>
             <Field label="Snapshot URL (JPEG)" value={cam.snapshot_url} onCommit={v => onSave(cam.id, { snapshot_url: v })} placeholder="http://nvr/cam1/snapshot.jpg" width="100%" title="Adresa jednoho obrázku z kamery (JPEG). Velín si ho sám obnovuje každých 5 s — nejšetrnější způsob náhledu. Používá se u typu „snapshot“." />
             <Field label="Stream URL (HLS/MJPEG/iframe)" value={cam.stream_url} onCommit={v => onSave(cam.id, { stream_url: v })} placeholder="https://nvr/cam1/index.m3u8" width="100%" title="Adresa živého přenosu — podle zvoleného typu náhledu (mjpeg / hls / iframe). Pro snapshot se nepoužívá." />
             <Field label="Ovládací URL (PTZ/relé — HTTP GET z jednotky)" value={cam.control_url} onCommit={v => onSave(cam.id, { control_url: v })} placeholder="http://nvr/cam1/preset?n=1" width="100%" title="Volitelná adresa akce kamery (natočení na přednastavenou pozici, sepnutí relé). Po vyplnění se u kamery objeví tlačítko „Akce“ — adresu zavolá jednotka přímo z pobočkové sítě, ne váš prohlížeč." />
-            <button onClick={() => onDelete(cam.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none"
+            <button onClick={() => onDelete(cam.id)} className="rounded-btn text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[36px]"
               style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626' }}>Smazat kameru</button>
           </div>
         )}
@@ -760,10 +776,10 @@ function DiagnosticsBlock({ logs, devices }) {
       {logs.length === 0 ? (
         <EmptyState text="Žádné záznamy — vše běží bez chyb." />
       ) : (
-        <div className="space-y-1 max-h-72 overflow-y-auto">
+        <div className="space-y-1 max-h-72 overflow-y-auto max-lg:max-h-[60vh]">
           {logs.map(l => (
-            <div key={l.id} className="flex items-center gap-2 p-2 rounded-lg text-sm" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
-              <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+            <div key={l.id} className="flex items-center gap-2 p-2 rounded-lg text-sm flex-wrap lg:flex-nowrap" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
                 style={{ padding: '2px 6px', background: (l.level === 'info' ? '#eef6f2' : '#fee2e2'), color: color[l.level] || '#1a2e22' }}>
                 {l.level}
               </span>

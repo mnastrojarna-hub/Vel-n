@@ -15,7 +15,7 @@ const th = { padding: '6px 8px', color: '#1a2e22', fontSize: 11, textAlign: 'lef
 const td = { padding: '6px 8px', fontSize: 13, verticalAlign: 'top' }
 // Mimo komponentu: definice uvnitř by při každém renderu tlačítka odpojila a znovu připojila (ztráta kliknutí).
 const Note = ({ m }) => <div className="text-xs font-bold p-2 rounded" style={{ background: m.error ? '#fef2f2' : '#f1faf7', color: m.error ? '#dc2626' : '#1a8a18' }}>{m.text}</div>
-const Btn = ({ onClick, color, children, title, disabled }) => <button type="button" onClick={onClick} disabled={disabled} title={title} className="font-bold cursor-pointer" style={{ background: 'none', border: 'none', color, fontSize: 12, padding: '0 3px' }}>{children}</button>
+const Btn = ({ onClick, color, children, title, disabled }) => <button type="button" onClick={onClick} disabled={disabled} title={title} className="font-bold cursor-pointer px-[3px] py-0 max-lg:px-2 max-lg:py-2 max-lg:min-w-[36px]" style={{ background: 'none', border: 'none', color, fontSize: 12 }}>{children}</button>
 
 /**
  * Přehled servisních intervalů motorky — strukturovaná tabulka po skupinách (motor & olej, brzdy, …):
@@ -77,8 +77,8 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {isSuper && <button onClick={acceptAll} disabled={busy === 'accept'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer" style={{ padding: '6px 12px', background: '#e8fde8', color: '#1a8a18', border: 'none' }} title="Stav hlídaný jinde (papír): plány po termínu / blíží se / neověřené začnou počítat od dneška a aktuálního stavu tachometru (jen superadmin)">Vše v pořádku k dnešku</button>}
-          <button onClick={applyStd} disabled={busy === 'std'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer" style={{ padding: '6px 12px', background: '#eef2ff', color: '#4f46e5', border: 'none' }} title="Založí chybějící plány základního standardu dle výrobce / katalogu">Doplnit standardní plány</button>
+          {isSuper && <button onClick={acceptAll} disabled={busy === 'accept'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer px-3 py-1.5 max-lg:py-2.5" style={{ background: '#e8fde8', color: '#1a8a18', border: 'none' }} title="Stav hlídaný jinde (papír): plány po termínu / blíží se / neověřené začnou počítat od dneška a aktuálního stavu tachometru (jen superadmin)">Vše v pořádku k dnešku</button>}
+          <button onClick={applyStd} disabled={busy === 'std'} className="rounded-btn text-xs font-extrabold uppercase cursor-pointer px-3 py-1.5 max-lg:py-2.5" style={{ background: '#eef2ff', color: '#4f46e5', border: 'none' }} title="Založí chybějící plány základního standardu dle výrobce / katalogu">Doplnit standardní plány</button>
           <AddScheduleBtn onAdd={onAddSchedule} saving={saving} unitLabel={unitLabel} existingTypes={(schedules || []).map(s => s.description)} existingTaskKeys={existingTaskKeys} />
         </div>
       </div>
@@ -86,22 +86,23 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
       <ServiceBundleBox moto={moto} due={rows} onPlanned={onChanged} unitLabel={unitLabel} />
       {rows.length === 0 && <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné plány — klikněte na „Doplnit standardní plány“.</p>}
       {rows.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+        <div className="overflow-x-auto mg-stack-wrap mg-stack-wrap-tab">
+          <table className="w-full border-collapse mg-stack mg-stack-tab">
             <thead><tr style={{ background: '#f1faf7', borderBottom: '1px solid #d4e8e0' }}>
               {['Stav', 'Úkon', 'Interval', 'Naposledy', `Příští při ${unitLabel}`, 'Příští datum', ''].map((h, i) => <th key={i} className="font-extrabold uppercase tracking-wide" style={th}>{h}</th>)}
             </tr></thead>
             <tbody>
               {groupDueByCatalogGroup(rows).map(g => [
-                <tr key={`g-${g.key}`}><td colSpan={7} className="text-xs font-extrabold uppercase tracking-wide" style={{ padding: '8px 8px 2px', color: '#1a8a18' }}>{g.label}</td></tr>,
+                <tr key={`g-${g.key}`} className="max-lg:!bg-transparent max-lg:!shadow-none max-lg:!mb-1 max-lg:!p-0"><td colSpan={7} className="text-xs font-extrabold uppercase tracking-wide" style={{ padding: '8px 8px 2px', color: '#1a8a18' }}>{g.label}</td></tr>,
                 ...g.rows.map(d => {
                   const st = d.open_log_id ? { label: 'Naplánováno', color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe' } : (DUE_STATE[d.state] || DUE_STATE.unknown)
                   const parts = partsBySchedule[d.schedule_id] || []
                   const isD = done?.id === d.schedule_id, isE = editing?.id === d.schedule_id
                   const kmRem = d.km_remaining, dRem = d.days_remaining
                   const rowMsg = msg?.rowId === d.schedule_id ? msg : null
+                  const hasX = !!(isD || isE || rowMsg || expandedParts === d.schedule_id)   // řádek s editorem → na mobilu/tabletu jedna karta
                   return [
-                    <tr key={d.schedule_id} style={{ borderTop: '1px solid #e5efe9', background: d.state === 'overdue' && !d.open_log_id ? '#fff5f5' : 'transparent' }}>
+                    <tr key={d.schedule_id} className={`md:max-lg:!grid md:max-lg:grid-cols-2 md:max-lg:gap-x-4${hasX ? ' max-lg:!mb-0 max-lg:!rounded-b-none' : ''}`} style={{ borderTop: '1px solid #e5efe9', background: d.state === 'overdue' && !d.open_log_id ? '#fff5f5' : 'transparent' }}>
                       <td style={td}><span className="text-xs font-extrabold rounded-full" style={{ padding: '1px 7px', background: st.bg, color: st.color, border: `1px solid ${st.border}`, whiteSpace: 'nowrap' }}>{st.label}</span></td>
                       <td style={{ ...td, fontWeight: 700, color: '#0f1a14' }}>{d.label}<div className="text-xs font-normal" style={{ color: '#9ca3af' }}>{SOURCE_LABELS[d.source] || d.source}{d.sched?.notes ? ` · ${d.sched.notes}` : ''}</div></td>
                       <td style={{ ...td, whiteSpace: 'nowrap', color: '#1a2e22' }}>{intervalText(d, unitLabel)}</td>
@@ -113,7 +114,7 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
                         {d.est_date && d.next_km != null && <div className="text-xs" style={{ color: '#6b7280' }}>~{fmtDate(d.est_date)} odhad dle nájezdu</div>}
                         {!d.next_date && !d.est_date && !d.planned_date && <span style={{ color: '#9ca3af' }}>—</span>}
                       </td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                      <td className="md:max-lg:col-span-2" style={{ ...td, whiteSpace: 'nowrap' }}>
                         {!d.open_log_id && d.state !== 'unknown' && <Btn onClick={() => plan(d)} color="#1a8a18" disabled={busy === d.schedule_id}>Naplánovat</Btn>}
                         <Btn onClick={() => openDone(d)} color="#2563eb" title="Zapsat provedení: dnes při aktuálním stavu tachometru (lze upravit) → dokončený servisní záznam, plán se posune">Provedeno</Btn>
                         {d.open_log_id && <span className="text-xs" style={{ color: '#4f46e5' }} title="Úkon je v naplánovaném / otevřeném servisu (karta výše). „Provedeno“ ho zapíše samostatně a z checklistu toho servisu odebere.">naplánováno</span>}
@@ -122,8 +123,8 @@ export default function ServicePlanCard({ moto, due, schedules, partsBySchedule 
                         <Btn onClick={() => deactivate(d)} color="#dc2626" title="Vyřadit plán">×</Btn>
                       </td>
                     </tr>,
-                    (isD || isE || rowMsg || expandedParts === d.schedule_id) && (
-                      <tr key={`${d.schedule_id}-x`}><td colSpan={7} style={{ padding: '0 8px 8px' }}>
+                    hasX && (
+                      <tr key={`${d.schedule_id}-x`} className="max-lg:!rounded-t-none max-lg:!pt-0"><td colSpan={7} style={{ padding: '0 8px 8px' }}>
                         {rowMsg && <div className="mb-1"><Note m={rowMsg} /></div>}
                         {isD && <div className="flex items-center gap-2 flex-wrap p-2 rounded" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
                           <span className="text-xs font-extrabold" style={{ color: '#1e3a8a' }}>{d.label} — provedeno dne</span>

@@ -404,7 +404,8 @@ export default function EmailTemplatesTab() {
                 style={{ padding: '4px 10px', background: cat.bg, color: cat.color }}>{cat.label}</span>
               <span className="text-sm" style={{ color: '#6b7280' }}>{grouped[cat.value].length} {grouped[cat.value].length === 1 ? 'šablona' : grouped[cat.value].length < 5 ? 'šablony' : 'šablon'}</span>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            {/* telefon 1 sloupec, tablet i desktop 2 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {grouped[cat.value].map(t => (
                 <TemplateCard key={t.id} template={t} onEdit={() => setEditing(t)} />
               ))}
@@ -458,7 +459,8 @@ function TemplateCard({ template, onEdit }) {
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-1">
+      {/* < 1024 px: název nad štítky (vedle sebe by se název smáčkl do úzkého sloupce) */}
+      <div className="flex flex-col items-start gap-1 lg:flex-row lg:items-center lg:justify-between lg:gap-0 mb-1">
         <h4 className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{template.name}</h4>
         <div className="flex items-center gap-1 flex-wrap">
           <Badge label={chanDef.label} color={chanDef.color} bg={chanDef.bg} />
@@ -471,13 +473,13 @@ function TemplateCard({ template, onEdit }) {
       <div className="text-xs font-mono mb-2" style={{ color: '#6b7280' }}>{template.slug}</div>
 
       {isEmptyBody && (
-        <div className="rounded-btn text-xs mb-2" style={{ padding: '6px 10px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b' }}>
+        <div className="rounded-btn max-lg:rounded-2xl text-xs mb-2" style={{ padding: '6px 10px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b' }}>
           ⚠️ Šablona má prázdné tělo — při odeslání se použije systémový fallback text z kódu, který tady ve Velíně nevidíš. Doplň prosím obsah níže.
         </div>
       )}
 
-      {/* Info box */}
-      <div className="rounded-btn text-xs mb-2" style={{ padding: '8px 10px', background: '#f8faf9', border: '1px solid #e5e7eb', lineHeight: 1.6, color: '#374151' }}>
+      {/* Info box (< 1024 px víceřádkový → max-lg:rounded-2xl místo „pilulky“, text nenaráží do oblých rohů) */}
+      <div className="rounded-btn max-lg:rounded-2xl text-xs mb-2" style={{ padding: '8px 10px', background: '#f8faf9', border: '1px solid #e5e7eb', lineHeight: 1.6, color: '#374151' }}>
         {meta.info && <div className="mb-1">{meta.info}</div>}
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1" style={{ fontSize: 11 }}>
           <span><strong style={{ color: '#1a2e22' }}>Spouštěč:</strong> {meta.trigger || '—'}</span>
@@ -488,14 +490,14 @@ function TemplateCard({ template, onEdit }) {
       {vars.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
           {vars.map(v => (
-            <span key={v} className="inline-block rounded-btn text-[9px] font-mono font-bold"
+            <span key={v} className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-mono font-bold"
               style={{ padding: '2px 6px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
               {`{{${v}}}`}
             </span>
           ))}
         </div>
       )}
-      <Button onClick={onEdit} style={{ padding: '4px 14px', fontSize: 13 }}>Upravit</Button>
+      <Button onClick={onEdit} className="max-lg:min-h-[40px]" style={{ padding: '4px 14px', fontSize: 13 }}>Upravit</Button>
     </Card>
   )
 }
@@ -509,7 +511,7 @@ function extractVars(content) {
 function SentEmailsTable({ emails }) {
   if (emails.length === 0) return <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné odeslané e-maily</p></Card>
   return (
-    <Table>
+    <Table stack="tablet">
       <thead><TRow header><TH>Příjemce</TH><TH>Šablona</TH><TH>Předmět</TH><TH>Stav</TH><TH>Datum</TH></TRow></thead>
       <tbody>
         {emails.map(e => {
@@ -656,7 +658,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
   return (
     <Modal open title={isNew ? 'Nová e-mailová šablona' : `Upravit: ${template.name}`} onClose={onClose} wide>
       {/* Info panel */}
-      <div className="rounded-btn mb-4" style={{ padding: '12px 14px', background: '#f8faf9', border: '1px solid #d4e8e0' }}>
+      <div className="rounded-btn max-lg:rounded-2xl mb-4" style={{ padding: '12px 14px', background: '#f8faf9', border: '1px solid #d4e8e0' }}>
         <div className="text-sm mb-1" style={{ color: '#374151', lineHeight: 1.6 }}>{meta.info}</div>
         <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ fontSize: 12 }}>
           <span><strong style={{ color: '#1a2e22' }}>Spouštěč:</strong> {meta.trigger || '—'}</span>
@@ -726,7 +728,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
           </div>
         </div>
 
-        <div className="rounded-btn" style={{ padding: '10px 14px', background: '#f8faf9', border: '1px solid #d4e8e0' }}>
+        <div className="rounded-btn max-lg:rounded-2xl" style={{ padding: '10px 14px', background: '#f8faf9', border: '1px solid #d4e8e0' }}>
           <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kdy se šablona odešle</div>
           <div className="text-xs" style={{ color: '#374151', lineHeight: 1.6 }}>{meta.trigger || '—'}</div>
           <div className="text-[11px] mt-2" style={{ color: '#6b7280' }}>
@@ -741,7 +743,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       {testOk && <p className="mt-3 text-sm font-bold" style={{ color: '#1a8a18' }}>{testOk}</p>}
-      <div className="flex justify-between gap-3 mt-5">
+      <div className="flex flex-wrap lg:flex-nowrap justify-between gap-3 mt-5">
         <div className="flex gap-2">
           <Button onClick={() => setShowPreview(true)}>Náhled</Button>
           <Button onClick={handleTestSend} disabled={testing}>{testing ? 'Odesílám…' : 'Odeslat test'}</Button>
@@ -790,7 +792,7 @@ function FullEmailPreviewModal({ subject, bodyHtml, attachments, fromEmail, toEm
   return (
     <Modal open title="Náhled e-mailu — jak ho uvidí zákazník" onClose={onClose} wide>
       {/* Resend-like meta panel */}
-      <div className="rounded-btn mb-3" style={{ padding: 12, background: '#f8faf9', border: '1px solid #d4e8e0', fontSize: 12, lineHeight: 1.7 }}>
+      <div className="rounded-btn max-lg:rounded-2xl mb-3" style={{ padding: 12, background: '#f8faf9', border: '1px solid #d4e8e0', fontSize: 12, lineHeight: 1.7 }}>
         <div><strong style={{ color: '#1a2e22' }}>Od:</strong> <span className="font-mono" style={{ color: '#374151' }}>{fromEmail}</span></div>
         <div><strong style={{ color: '#1a2e22' }}>Komu:</strong> <span className="font-mono" style={{ color: '#374151' }}>{toEmail}</span></div>
         <div><strong style={{ color: '#1a2e22' }}>Reply-To:</strong> <span className="font-mono" style={{ color: '#374151' }}>{replyTo}</span></div>
@@ -809,7 +811,7 @@ function FullEmailPreviewModal({ subject, bodyHtml, attachments, fromEmail, toEm
 
       {/* Přílohy — seznam s klik-na-otevři */}
       {attachments && attachments.length > 0 ? (
-        <div className="rounded-btn mb-3" style={{ padding: 12, background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+        <div className="rounded-btn max-lg:rounded-2xl mb-3" style={{ padding: 12, background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <div className="text-xs font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
             Přílohy ({attachments.length})
           </div>
@@ -826,17 +828,17 @@ function FullEmailPreviewModal({ subject, bodyHtml, attachments, fromEmail, toEm
                   }}>
                   <span style={{ fontSize: 14 }}>{m.icon}</span>
                   <span>{m.label}</span>
-                  <span style={{ color: '#9ca3af', fontSize: 10, fontFamily: 'monospace' }}>{m.file}</span>
+                  <span className="text-[10px] max-lg:text-[11px]" style={{ color: '#9ca3af', fontFamily: 'monospace' }}>{m.file}</span>
                 </button>
               )
             })}
           </div>
-          <div className="text-[10px] mt-2" style={{ color: '#6b7280' }}>
+          <div className="text-[10px] max-lg:text-xs mt-2" style={{ color: '#6b7280' }}>
             Klikni na přílohu pro náhled. V reálném e-mailu jsou tyto soubory generovány v okamžiku odeslání podle booking/order ID — zde zobrazujeme ukázkový obsah.
           </div>
         </div>
       ) : (
-        <div className="rounded-btn mb-3 text-xs" style={{ padding: 8, background: '#fef3c7', border: '1px solid #fde68a', color: '#78350f' }}>
+        <div className="rounded-btn max-lg:rounded-2xl mb-3 text-xs" style={{ padding: 8, background: '#fef3c7', border: '1px solid #fde68a', color: '#78350f' }}>
           ℹ️ Tato šablona neobsahuje žádné přílohy.
         </div>
       )}
@@ -922,11 +924,12 @@ function CheckboxFilterGroup({ label, values, onChange, options }) {
     else onChange([...values, val])
   }
   return (
-    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+    // telefon: skupina se zalamuje do více řádků → menší zaoblení; < 1024 px vyšší klepací plocha voleb
+    <div className="flex items-center gap-1 flex-wrap rounded-btn max-sm:rounded-2xl"
       style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
       {options.map(o => (
-        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer max-lg:min-h-[34px]"
           style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
           <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
             className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />

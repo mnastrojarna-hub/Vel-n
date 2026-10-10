@@ -6,6 +6,7 @@ import { Table, TRow, TH, TD } from '../components/ui/Table'
 import { classifyEntry } from '../lib/revenueUtils'
 import { DetailRow, SummaryCard, MiniStat, CheckboxFilterGroup, TypeBadge } from './financeHelpers'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts'
+import { ROWS_WHITE, STACK_CARD } from './accounting/FinanceAStack'
 
 const PERIODS = [
   { value: 'month', label: 'Mesic' },
@@ -71,7 +72,7 @@ export default function FinancePrehledTab({
       <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
     ) : (
       <>
-        <div className="grid grid-cols-4 gap-4 mb-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
           <SummaryCard label="Mesicni trzby" value={fmt(summary.revenue)} color="#1a8a18" />
           <SummaryCard label="Mesicni naklady" value={fmt(summary.expense)} color="#dc2626" />
           <SummaryCard label="Zisk" value={fmt(profit)} color={profit >= 0 ? '#1a8a18' : '#dc2626'} />
@@ -115,12 +116,12 @@ export default function FinancePrehledTab({
 
     {detailTx && (
       <Modal open title="Detail transakce" onClose={() => setDetailTx(null)}>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <DetailRow label="Datum" value={detailTx.date ? new Date(detailTx.date).toLocaleDateString('cs-CZ') : '\u2014'} />
           <DetailRow label="Typ" value={classifyEntry(detailTx) === 'revenue' ? 'Prijem' : 'Vydaj'} />
           <DetailRow label="Castka" value={fmt(detailTx.amount)} />
           <DetailRow label="Kategorie" value={detailTx.category || '\u2014'} />
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <DetailRow label="Popis" value={detailTx.description || '\u2014'} />
           </div>
           {detailTx.booking_id && <DetailRow label="ID rezervace" value={detailTx.booking_id} mono />}
@@ -138,22 +139,22 @@ function InvoiceSumsOverview({ invoiceSums, fmt }) {
   return (
     <Card className="mb-5">
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Prehled dle typu</h3>
-      <div className="grid grid-cols-4 gap-3 mb-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
         <MiniStat label="Zalohy (ZF)" value={fmt(invoiceSums.zf)} color="#2563eb" />
         <MiniStat label="Doklady k platbe (DP)" value={fmt(invoiceSums.dp)} color="#0891b2" />
         <MiniStat label="Konecne (KF)" value={fmt(invoiceSums.kf)} color="#1a8a18" />
         <MiniStat label="Pronajem (dokonceno)" value={fmt(invoiceSums.rental)} color="#059669" />
       </div>
-      <div className="grid grid-cols-4 gap-3 mb-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
         <MiniStat label="E-shop prodeje" value={fmt(invoiceSums.eshop)} color="#8b5cf6" />
         <MiniStat label="Shop ZF" value={fmt(invoiceSums.shopZf)} color="#7c3aed" />
         <MiniStat label="Shop KF" value={fmt(invoiceSums.shopKf)} color="#059669" />
         <MiniStat label="Poukazy (slevy)" value={fmt(invoiceSums.vouchers)} color="#b45309" />
       </div>
       {(invoiceSums.creditNotes > 0 || invoiceSums.creditNotesCount > 0) && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="col-span-2 p-2 rounded-lg" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
-            <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#991b1b' }}>Dobropisy (DB) — vrácené platby</div>
+            <div className="text-[11px] lg:text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#991b1b' }}>Dobropisy (DB) — vrácené platby</div>
             <div className="text-sm font-extrabold" style={{ color: '#dc2626' }}>−{fmt(invoiceSums.creditNotes)} ({invoiceSums.creditNotesCount}×)</div>
           </div>
         </div>
@@ -170,12 +171,12 @@ function InvoicesTable({ recentInvoices, fmt }) {
   const statusColors = { draft: '#6b7280', issued: '#b45309', paid: '#1a8a18', cancelled: '#dc2626', refunded: '#6b7280' }
 
   return (
-    <Card className="mb-5">
+    <Card className={`mb-5 ${STACK_CARD}`}>
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Faktury (ZF, DP, KF)</h3>
       {recentInvoices.length === 0 ? (
         <p style={{ color: '#1a2e22', fontSize: 13 }}>Zadne faktury</p>
       ) : (
-        <Table>
+        <Table stack className={ROWS_WHITE}>
           <thead>
             <TRow header>
               <TH>Cislo</TH><TH>Typ</TH><TH>Zakaznik</TH><TH>Castka</TH><TH>Stav</TH><TH>Datum</TH>
@@ -204,9 +205,9 @@ function InvoicesTable({ recentInvoices, fmt }) {
 function ShopPaymentsTable({ shopPayments, fmt }) {
   if (shopPayments.length === 0) return null
   return (
-    <Card className="mb-5">
+    <Card className={`mb-5 ${STACK_CARD}`}>
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Platby z e-shopu</h3>
-      <Table>
+      <Table stack className={ROWS_WHITE}>
         <thead>
           <TRow header>
             <TH>Objednavka</TH><TH>Zakaznik</TH><TH>Castka</TH><TH>Zpusob</TH><TH>Datum</TH>
@@ -230,9 +231,9 @@ function ShopPaymentsTable({ shopPayments, fmt }) {
 
 function AccountingEntriesTable({ transactions, setDetailTx, fmt }) {
   return (
-    <Card className="mb-5">
+    <Card className={`mb-5 ${STACK_CARD}`}>
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Ucetni zaznamy (platby za rezervace)</h3>
-      <Table>
+      <Table stack className={ROWS_WHITE}>
         <thead>
           <TRow header>
             <TH>Datum</TH><TH>Typ</TH><TH>Popis</TH><TH>Castka</TH><TH>Kategorie</TH><TH>Rezervace</TH>
@@ -251,7 +252,7 @@ function AccountingEntriesTable({ transactions, setDetailTx, fmt }) {
               <TD mono>{t.booking_id ? t.booking_id.slice(-8).toUpperCase() : '\u2014'}</TD>
             </tr>
           ))}
-          {transactions.length === 0 && <TRow><TD>Zadne transakce</TD></TRow>}
+          {transactions.length === 0 && <TRow><TD label="">Zadne transakce</TD></TRow>}
         </tbody>
       </Table>
     </Card>

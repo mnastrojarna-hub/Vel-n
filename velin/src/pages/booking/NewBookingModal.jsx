@@ -5,6 +5,7 @@ import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import BookingStep3 from './BookingStep3'
 import { latePickupDiscount } from '../../lib/latePickup'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const STEP_LABELS = ['Termín', 'Motorka', 'Zákazník & shrnutí']
 const DAY_NAMES = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
@@ -26,6 +27,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
   const [step, setStep] = useState(1)
   const [err, setErr] = useState(null)
   const [saving, setSaving] = useState(false)
+  const isMobile = useIsMobile() // < 1024 px: chyba vytvoření se ukáže u tlačítka (BookingStep3)
 
   const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return { m: n.getMonth(), y: n.getFullYear() } })
   const [startDate, setStartDate] = useState(null)
@@ -149,9 +151,9 @@ export default function NewBookingModal({ onClose, onSaved }) {
     return (
       <div>
         <div className="flex items-center justify-between mb-3">
-          <button onClick={() => setCalMonth(p => p.m === 0 ? { m: 11, y: p.y - 1 } : { m: p.m - 1, y: p.y })} className="cursor-pointer text-sm font-bold" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>←</button>
+          <button onClick={() => setCalMonth(p => p.m === 0 ? { m: 11, y: p.y - 1 } : { m: p.m - 1, y: p.y })} className="cursor-pointer text-sm font-bold max-lg:min-h-[40px] max-lg:min-w-[44px]" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>←</button>
           <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{MONTH_NAMES[m]} {y}</span>
-          <button onClick={() => setCalMonth(p => p.m === 11 ? { m: 0, y: p.y + 1 } : { m: p.m + 1, y: p.y })} className="cursor-pointer text-sm font-bold" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>→</button>
+          <button onClick={() => setCalMonth(p => p.m === 11 ? { m: 0, y: p.y + 1 } : { m: p.m + 1, y: p.y })} className="cursor-pointer text-sm font-bold max-lg:min-h-[40px] max-lg:min-w-[44px]" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>→</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
           {DAY_NAMES.map(n => <div key={n} className="text-sm font-bold text-center" style={{ color: '#1a2e22', padding: 4 }}>{n}</div>)}
@@ -193,18 +195,20 @@ export default function NewBookingModal({ onClose, onSaved }) {
 
   return (
     <Modal open title="Nová rezervace" onClose={onClose} wide>
-      <div className="flex items-center gap-2 mb-5">
+      {/* kroky — na úzkém displeji se zalomí (jinak přetékaly mimo modal) */}
+      <div className="flex items-center gap-2 mb-5 max-lg:flex-wrap max-lg:gap-y-2">
         {STEP_LABELS.map((label, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="flex items-center gap-1 cursor-pointer" onClick={() => { if (i + 1 < step) setStep(i + 1) }}>
               <div className="text-sm font-extrabold rounded-full flex items-center justify-center" style={{ width: 22, height: 22, background: step > i + 1 ? '#74FB71' : step === i + 1 ? '#0f1a14' : '#e5e7eb', color: step === i + 1 ? '#fff' : step > i + 1 ? '#0f1a14' : '#9ca3af' }}>{step > i + 1 ? '✓' : i + 1}</div>
-              <span className="text-sm font-bold uppercase tracking-wide" style={{ color: step === i + 1 ? '#0f1a14' : '#1a2e22' }}>{label}</span>
+              <span className="text-sm font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: step === i + 1 ? '#0f1a14' : '#1a2e22' }}>{label}</span>
             </div>
-            {i < STEP_LABELS.length - 1 && <div style={{ width: 24, height: 1, background: '#d4e8e0' }} />}
+            {i < STEP_LABELS.length - 1 && <div className="max-sm:!w-3" style={{ width: 24, height: 1, background: '#d4e8e0' }} />}
           </div>
         ))}
       </div>
-      {err && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{err}</div>}
+      {/* mobil/tablet v kroku 3: chyba u tlačítka „Vytvořit…“ — tady nahoře by byla mimo odrolovaný výřez */}
+      {err && !(isMobile && step === 3) && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{err}</div>}
 
       {step === 1 && (
         <div>
@@ -256,8 +260,9 @@ export default function NewBookingModal({ onClose, onSaved }) {
               {availableMotos.map(m => {
                 const price = calcPrice(m.id); const isSelected = selectedMoto?.id === m.id
                 return (
-                  <div key={m.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer" onClick={() => setSelectedMoto(m)} style={{ background: isSelected ? '#eafbe9' : '#f8faf9', border: isSelected ? '2px solid #74FB71' : '1px solid #e5e7eb' }}>
-                    {m.image_url ? <img src={m.image_url} alt={m.model} style={{ width: 72, height: 48, objectFit: 'cover', borderRadius: 8 }} /> : <div style={{ width: 72, height: 48, borderRadius: 8, background: '#f1faf7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🏍️</div>}
+                  // telefon: menší náhled a mezery, ať zbude místo na název motorky
+                  <div key={m.id} className="flex items-center gap-4 max-sm:gap-2.5 p-3 rounded-lg mb-2 cursor-pointer" onClick={() => setSelectedMoto(m)} style={{ background: isSelected ? '#eafbe9' : '#f8faf9', border: isSelected ? '2px solid #74FB71' : '1px solid #e5e7eb' }}>
+                    {m.image_url ? <img src={m.image_url} alt={m.model} className="max-sm:shrink-0 max-sm:!w-12 max-sm:!h-9" style={{ width: 72, height: 48, objectFit: 'cover', borderRadius: 8 }} /> : <div className="max-sm:shrink-0 max-sm:!w-12 max-sm:!h-9" style={{ width: 72, height: 48, borderRadius: 8, background: '#f1faf7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🏍️</div>}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{m.model}</div>
                       <div className="text-sm" style={{ color: '#1a2e22' }}>{m.spz || '—'} · {m.category || '—'} · ŘP: {m.license_required || '—'}</div>
@@ -291,7 +296,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
         </div>
       )}
 
-      {step === 3 && <BookingStep3 selectedMoto={selectedMoto} startDate={startDate} endDate={endDate} days={days} totalPrice={totalPrice} firstDayPrice={selectedMoto ? firstDayPrice(selectedMoto.id) : 0} customers={customers} onBack={() => setStep(2)} onCreate={handleCreate} saving={saving} noPayment={noPayment} setNoPayment={setNoPayment} />}
+      {step === 3 && <BookingStep3 selectedMoto={selectedMoto} startDate={startDate} endDate={endDate} days={days} totalPrice={totalPrice} firstDayPrice={selectedMoto ? firstDayPrice(selectedMoto.id) : 0} customers={customers} onBack={() => setStep(2)} onCreate={handleCreate} err={isMobile ? err : null} saving={saving} noPayment={noPayment} setNoPayment={setNoPayment} />}
     </Modal>
   )
 }

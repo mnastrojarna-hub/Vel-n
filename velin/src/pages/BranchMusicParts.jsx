@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Btn, Chip, Select, formatAge, ageSeconds, txt, isRpiDevice } from './BranchRpiUi'
+import { Btn, Chip, HintChip, Select, formatAge, ageSeconds, txt, isRpiDevice } from './BranchRpiUi'
 import { ACCEPT, targetOptions, publicUrl, downloadUrl, formatBytes, libraryStatus, libraryChip, audioModeOf, targetLabel, formatEndTime, parseEndTime } from './branchMusicHelpers'
 
 // ─── Hudba pobočky — dílčí komponenty (drop zóna, řádek skladby, stav jednotky) ──
@@ -67,7 +67,7 @@ function TrackEndInput({ track, busy, onEnd }) {
         Konec
         <input value={draft} placeholder="celá" disabled={busy} onChange={e => { setDraft(e.target.value); setErr(null) }} onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setDraft(stored); setErr(null) } }}
-          className="rounded-btn text-[11px] outline-none"
+          className="rounded-btn text-[11px] outline-none max-lg:min-h-[36px]"
           style={{ padding: '4px 6px', width: 64, background: err ? '#fee2e2' : '#fff', border: `1px solid ${err ? '#dc2626' : '#d4e8e0'}` }} />
       </label>
       {err && <span className="text-[11px] font-bold" style={{ color: '#dc2626' }}>{err}</span>}
@@ -89,7 +89,8 @@ function TrackRow({ track, doors, index, count, busy, role, onMove, onRename, on
   }
   return (
     <div className="flex items-center gap-2 p-2 rounded-lg flex-wrap" style={{ background: track.is_active ? '#f8fcfa' : '#f3f4f6', border: '1px solid #d4e8e0', opacity: track.is_active ? 1 : 0.7 }}>
-      <div className="flex flex-col">
+      {/* Telefon/tablet: ▲▼ vedle sebe, každé ≥ 40 px široké s mezerou (pořadí = uvítací/návratová skladba, překlep je prohodí) */}
+      <div className="flex flex-col max-lg:flex-row max-lg:gap-2 max-lg:[&>button]:min-w-[40px]">
         <Btn small tone="gray" disabled={busy || index === 0} onClick={() => onMove(-1)} title="Posunout výš" style={{ padding: '1px 6px' }}>▲</Btn>
         <Btn small tone="gray" disabled={busy || index >= count - 1} onClick={() => onMove(1)} title="Posunout níž" style={{ padding: '1px 6px' }}>▼</Btn>
       </div>
@@ -99,24 +100,24 @@ function TrackRow({ track, doors, index, count, busy, role, onMove, onRename, on
       {editing ? (
         <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); setDraft(track.title || '') } }}
-          className="rounded-btn text-sm outline-none" style={{ padding: '4px 8px', background: '#fff', border: '1px solid #74FB71', minWidth: 200 }} />
+          className="rounded-btn text-sm outline-none max-lg:flex-1 max-lg:!min-w-0 max-lg:basis-[180px]" style={{ padding: '4px 8px', background: '#fff', border: '1px solid #74FB71', minWidth: 200 }} />
       ) : (
-        <button type="button" onClick={() => setEditing(true)} title="Název skladby ve Velíně — kliknutím ho přejmenujete. Slouží jen k orientaci v seznamu, zákazník ho nikde nevidí." className="text-sm font-bold text-left cursor-pointer border-none"
+        <button type="button" onClick={() => setEditing(true)} title="Název skladby ve Velíně — kliknutím ho přejmenujete. Slouží jen k orientaci v seznamu, zákazník ho nikde nevidí." className="text-sm font-bold text-left cursor-pointer border-none max-lg:min-h-[32px]"
           style={{ background: 'none', color: '#0f1a14', padding: 0, minWidth: 120 }}>{txt(track.title)}</button>
       )}
       <span className="text-[11px]" style={{ color: '#6b8c7a' }}>{txt(track.ext).toUpperCase()} · {formatBytes(track.size_bytes)}</span>
       {!track.is_active && <Chip tone="amber">Vypnuto</Chip>}
-      <audio controls preload="none" src={url} style={{ height: 30, maxWidth: 240 }} />
+      <audio controls preload="none" src={url} style={{ height: 30, maxWidth: 240 }} className="max-sm:!max-w-full max-sm:basis-full" />
       <TrackEndInput track={track} busy={busy} onEnd={onEnd} />
-      <div className="ml-auto flex items-center gap-1 flex-wrap">
+      <div className="ml-auto flex items-center gap-1 flex-wrap max-lg:w-full">
         <select value={track.target} onChange={e => onTarget(e.target.value)} disabled={busy} title="Přesunout do jiného cíle"
-          className="rounded-btn text-[11px] outline-none" style={{ padding: '4px 6px', background: '#fff', border: '1px solid #d4e8e0', maxWidth: 170 }}>
+          className="rounded-btn text-[11px] outline-none max-lg:flex-1 max-lg:min-w-[180px] max-lg:!max-w-none max-lg:min-h-[36px]" style={{ padding: '4px 6px', background: '#fff', border: '1px solid #d4e8e0', maxWidth: 170 }}>
           {targetOptions(doors).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           {!targetOptions(doors).some(o => o.value === track.target) && <option value={track.target}>{targetLabel(track.target, doors)}</option>}
         </select>
         <Btn small tone={track.is_active ? 'amber' : 'green'} disabled={busy} onClick={onToggle}>{track.is_active ? 'Vypnout' : 'Zapnout'}</Btn>
         <a href={downloadUrl(track.file_path, fileName)} download={fileName} target="_blank" rel="noreferrer"
-          className="rounded-btn text-[11px] font-bold" style={{ padding: '4px 8px', background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>Stáhnout</a>
+          className="rounded-btn text-[11px] font-bold max-lg:inline-flex max-lg:items-center max-lg:min-h-[36px]" style={{ padding: '4px 8px', background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>Stáhnout</a>
         <Btn small tone="red" disabled={busy} onClick={onDelete}>Smazat</Btn>
       </div>
     </div>
@@ -144,7 +145,7 @@ function UnitSyncStatus({ devices, now, onCommand }) {
           <div key={dev.id} className="flex items-center gap-2 flex-wrap p-2 rounded-lg text-[12px]" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
             <span style={{ width: 8, height: 8, borderRadius: 999, background: online ? '#1a8a18' : '#dc2626', display: 'inline-block' }} />
             <span className="font-bold">{txt(dev.name || 'Raspberry')}</span>
-            <Chip tone={chip.tone} title={targets || 'Jednotka zatím nehlásí stav knihovny (starší software nebo bez heartbeatu)'}>Jednotka: {chip.text}</Chip>
+            <HintChip tone={chip.tone} title={targets || 'Jednotka zatím nehlásí stav knihovny (starší software nebo bez heartbeatu)'}>Jednotka: {chip.text}</HintChip>
             {mode && <Chip tone={mode === 'multi' ? 'blue' : 'gray'} title={mode === 'multi' ? 'Každý kanál má vlastní zvukový výstup' : 'Jeden zesilovač + reléový přepínač — hraje vždy jen jedna kóje, venek nefunguje'}>režim {mode}</Chip>}
             {lib?.last_sync_at && <span style={{ color: '#6b8c7a' }}>sync {formatAge(ageSeconds(lib.last_sync_at, now))}</span>}
             <span className="ml-auto flex items-center gap-2">

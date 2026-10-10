@@ -87,7 +87,7 @@ export default function ServiceLog() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <Table>
+          <Table stack="tablet">
             <thead>
               <TRow header>
                 <TH>Motorka</TH><TH>SPZ</TH><TH>Typ</TH><TH>Do servisu</TH>
@@ -104,7 +104,7 @@ export default function ServiceLog() {
                     onEdit={() => setEditing(l)} fmt={fmt} />
                 )
               })}
-              {logs.length === 0 && <TRow><TD>Žádné servisní záznamy</TD></TRow>}
+              {logs.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="">Žádné servisní záznamy</TD></tr>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -121,7 +121,7 @@ export default function ServiceLog() {
 function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
   return (
     <>
-      <tr onClick={onToggle} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: isExpanded ? 'none' : '1px solid #d4e8e0' }}>
+      <tr onClick={onToggle} className={`cursor-pointer hover:bg-[#f1faf7] transition-colors md:max-lg:!grid md:max-lg:grid-cols-2 md:max-lg:gap-x-4${isExpanded ? ' max-lg:!mb-0 max-lg:!rounded-b-none' : ''}`} style={{ borderBottom: isExpanded ? 'none' : '1px solid #d4e8e0' }}>
         <TD bold>{l.motorcycles?.model || '—'}</TD>
         <TD mono>{l.motorcycles?.spz || '—'}</TD>
         <TD><span>{TYPE_LABELS[l.type] || { regular: 'Pravidelný', extraordinary: 'Mimořádný', repair: 'Oprava' }[l.service_type] || l.type || '—'}</span>{l.is_urgent && <span className="ml-1 text-xs font-bold px-1 py-0.5 rounded" style={{ background: '#dc2626', color: '#fff' }}>URGENT</span>}</TD>
@@ -133,7 +133,7 @@ function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
         <TD>{l.performed_by || '—'}</TD>
       </tr>
       {isExpanded && (
-        <tr style={{ borderBottom: '1px solid #d4e8e0' }}>
+        <tr className="max-lg:!rounded-t-none max-lg:!py-0 max-lg:overflow-hidden" style={{ borderBottom: '1px solid #d4e8e0' }}>
           <td colSpan={9} style={{ padding: '8px 12px', background: '#f1faf7' }}>
             {l.items && Array.isArray(l.items) && l.items.length > 0 && (
               <div className="mb-3">
@@ -163,8 +163,8 @@ function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
               </div>
             )}
             <button onClick={e => { e.stopPropagation(); onEdit() }}
-              className="mt-2 rounded-btn text-sm font-bold cursor-pointer"
-              style={{ padding: '4px 12px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>Upravit</button>
+              className="mt-2 rounded-btn text-sm font-bold cursor-pointer px-3 py-1 max-lg:py-2 max-lg:px-4"
+              style={{ background: '#dbeafe', color: '#2563eb', border: 'none' }}>Upravit</button>
           </td>
         </tr>
       )}
@@ -182,8 +182,8 @@ function CheckboxFilterGroup({ label, values, onChange, options }) {
       style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
       {options.map(o => (
-        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
-          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer px-1.5 py-[3px] max-lg:py-1.5"
+          style={{ borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
           <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
             className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
           <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>

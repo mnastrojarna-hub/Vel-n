@@ -73,8 +73,8 @@ export default function PoiReviewsModal({ poi, poiType = 'catalog', onClose, onC
         <div className="flex flex-col gap-3">
           {comments.map(r => (
             <div key={r.id} className="rounded-card" style={{ background: r.status === 'hidden' ? '#fef2f2' : '#f1faf7', border: '1px solid #d4e8e0', padding: 12 }}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between mb-1 max-sm:flex-wrap max-sm:gap-x-2">
+                <div className="flex items-center gap-2 max-sm:flex-wrap">
                   <span style={{ color: '#f59e0b', fontSize: 15, letterSpacing: 1 }}>{stars(r.rating)}</span>
                   <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{names[r.user_id] || 'Motorkář'}</span>
                   {r.status === 'hidden' && <span className="text-[9px] font-extrabold uppercase rounded-btn" style={{ padding: '2px 6px', background: '#fee2e2', color: '#dc2626' }}>Skryto</span>}
@@ -91,7 +91,7 @@ export default function PoiReviewsModal({ poi, poiType = 'catalog', onClose, onC
                   ))}
                 </div>
               )}
-              <div className="flex gap-2">
+              <div className="flex gap-2 max-lg:[&>button]:min-h-[36px]">
                 <SmallBtn color={r.status === 'hidden' ? '#1a8a18' : '#b45309'} onClick={() => toggleHidden(r)}>
                   {r.status === 'hidden' ? 'Zobrazit' : 'Skrýt'}
                 </SmallBtn>
@@ -105,13 +105,13 @@ export default function PoiReviewsModal({ poi, poiType = 'catalog', onClose, onC
               <p className="text-xs font-bold mb-2" style={{ color: '#6b8f7b' }}>Hodnocení bez komentáře ({bare.length})</p>
               <div className="flex flex-col gap-1">
                 {bare.map(r => (
-                  <div key={r.id} className="flex items-center justify-between rounded-btn" style={{ background: r.status === 'hidden' ? '#fef2f2' : '#f7fbf9', border: '1px solid #e2efe8', padding: '6px 10px' }}>
+                  <div key={r.id} className="flex items-center justify-between rounded-btn max-sm:flex-wrap max-sm:gap-1 max-sm:!rounded-[14px]" style={{ background: r.status === 'hidden' ? '#fef2f2' : '#f7fbf9', border: '1px solid #e2efe8', padding: '6px 10px' }}>
                     <div className="flex items-center gap-2">
                       <span style={{ color: '#f59e0b', fontSize: 13, letterSpacing: 1 }}>{stars(r.rating)}</span>
                       <span className="text-xs" style={{ color: '#1a2e22' }}>{names[r.user_id] || 'Motorkář'}</span>
                       {r.status === 'hidden' && <span className="text-[9px] font-extrabold uppercase" style={{ color: '#dc2626' }}>Skryto</span>}
                     </div>
-                    <div className="flex gap-2 items-center">
+                    <div className="flex gap-2 items-center max-lg:[&>button]:min-h-[36px]">
                       <span className="text-xs" style={{ color: '#6b8f7b' }}>{new Date(r.created_at).toLocaleDateString('cs-CZ')}</span>
                       <SmallBtn color={r.status === 'hidden' ? '#1a8a18' : '#b45309'} onClick={() => toggleHidden(r)}>
                         {r.status === 'hidden' ? 'Zobrazit' : 'Skrýt'}

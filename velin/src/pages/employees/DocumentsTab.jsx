@@ -58,7 +58,7 @@ export default function DocumentsTab() {
         {expiredCount > 0 && <span className="text-sm font-bold" style={{ color: '#dc2626' }}>{expiredCount} expirovanych</span>}
       </div>
 
-      <Table>
+      <Table stack>
         <thead>
           <TRow header>
             <TH>Název</TH><TH>Typ</TH><TH>Popis</TH><TH>Platnost od</TH><TH>Platnost do</TH><TH>Stav</TH><TH>Akce</TH>
@@ -77,17 +77,17 @@ export default function DocumentsTab() {
                 <TD><span className="text-sm font-bold" style={{ color: expired ? '#dc2626' : '#1a8a18' }}>
                   {expired ? 'Expirovano' : 'Platny'}</span></TD>
                 <TD>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 max-md:justify-end">
                     {d.file_url && <a href={d.file_url} target="_blank" rel="noopener noreferrer"
-                      className="text-sm font-bold" style={{ color: '#2563eb' }}>Stáhnout</a>}
-                    <button onClick={() => deleteDoc(d.id)} className="text-sm font-bold cursor-pointer"
+                      className="text-sm font-bold max-lg:inline-block max-lg:py-2 max-lg:px-2" style={{ color: '#2563eb' }}>Stáhnout</a>}
+                    <button onClick={() => deleteDoc(d.id)} className="text-sm font-bold cursor-pointer max-lg:py-2 max-lg:px-2"
                       style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button>
                   </div>
                 </TD>
               </TRow>
             )
           })}
-          {docs.length === 0 && <TRow><TD>Žádné dokumenty</TD></TRow>}
+          {docs.length === 0 && <TRow><TD className="mg-stack-full">Žádné dokumenty</TD></TRow>}
         </tbody>
       </Table>
 
@@ -129,7 +129,7 @@ function DocModal({ empId, onClose, onSaved }) {
           className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         <div><Lbl>URL souboru</Lbl><input type="url" value={form.file_url} onChange={e => set('file_url', e.target.value)}
           placeholder="https://..." className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><Lbl>Platnost od</Lbl><input type="date" value={form.valid_from} onChange={e => set('valid_from', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
           <div><Lbl>Platnost do</Lbl><input type="date" value={form.valid_until} onChange={e => set('valid_until', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={iStyle} /></div>
         </div>

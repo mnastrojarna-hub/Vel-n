@@ -106,7 +106,7 @@ export default function VelinUserModal({ admin, user, onClose, onSaved }) {
         )}
         {editing && !pwMode && (
           <div className="sm:col-span-2">
-            <button type="button" onClick={() => setPwMode(true)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>
+            <button type="button" onClick={() => setPwMode(true)} className="text-sm font-bold cursor-pointer max-lg:text-left max-lg:!py-2" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>
               Nastavit nové heslo (uživatel si ho může změnit i sám přes „Zapomenuté heslo?“)
             </button>
           </div>
@@ -120,8 +120,8 @@ export default function VelinUserModal({ admin, user, onClose, onSaved }) {
         ) : (
           <>
             <div className="flex gap-3 mb-2">
-              <button type="button" onClick={() => set('sections', ASSIGNABLE_SECTIONS.map(s => s.id))} className="text-xs font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>Vybrat vše</button>
-              <button type="button" onClick={() => set('sections', [])} className="text-xs font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', padding: 0 }}>Zrušit výběr</button>
+              <button type="button" onClick={() => set('sections', ASSIGNABLE_SECTIONS.map(s => s.id))} className="text-xs font-bold cursor-pointer max-lg:!py-2.5 max-lg:!pr-2" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>Vybrat vše</button>
+              <button type="button" onClick={() => set('sections', [])} className="text-xs font-bold cursor-pointer max-lg:!py-2.5 max-lg:!px-2" style={{ color: '#dc2626', background: 'none', border: 'none', padding: 0 }}>Zrušit výběr</button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {ASSIGNABLE_SECTIONS.map(s => (

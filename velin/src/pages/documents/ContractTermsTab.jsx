@@ -208,7 +208,8 @@ export default function ContractTermsTab() {
           const vars = TEMPLATE_VARS[ct.type] || []
           return (
             <Card key={ct.type}>
-              <div className="flex items-start justify-between gap-3 flex-wrap">
+              {/* < 1024 px: popis nahoře přes celou šířku, tlačítka pod ním se zalamují */}
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 lg:flex-wrap">
                 <div className="flex items-start gap-3" style={{ minWidth: 0, flex: 1 }}>
                   <span style={{ fontSize: 28 }}>{ct.icon}</span>
                   <div style={{ minWidth: 0 }}>
@@ -235,7 +236,7 @@ export default function ContractTermsTab() {
                     {tpl && trMsg[ct.type] && <p className="text-sm mt-1" style={{ color: trMsg[ct.type].ok ? '#15803d' : '#dc2626' }}>{trMsg[ct.type].text}</p>}
                   </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex flex-wrap lg:flex-nowrap gap-2 shrink-0">
                   {tpl && (
                     <Button onClick={() => setPreview(tpl)}>
                       Náhled
@@ -358,12 +359,11 @@ function EditContractModal({ template, onClose, onSaved }) {
     } catch (e) { setErr(e.message || String(e)) } finally { setSaving(false) }
   }
 
+  // Odsazení lišty = vnitřní odsazení Modalu (telefon < 640 px: 16 px, jinak 28 px) — třídy stickyBarCls
   const stickyBar = {
-    position: 'sticky', bottom: -28, left: 0, right: 0,
+    position: 'sticky', left: 0, right: 0,
     background: '#fff', borderTop: '1px solid #e2ece7',
-    margin: '16px -28px -28px', padding: '14px 28px',
     display: 'flex', justifyContent: 'space-between', gap: 12,
-    zIndex: 2,
   }
 
   return (
@@ -405,11 +405,12 @@ function EditContractModal({ template, onClose, onSaved }) {
 
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
 
-      <div style={stickyBar}>
-        <Button onClick={() => setShowPreview(true)}>Náhled</Button>
-        <div className="flex gap-2">
-          <Button onClick={onClose}>Zrušit</Button>
-          <Button green onClick={handleSave} disabled={saving || !name || !content}>
+      {/* telefon: užší tlačítka, aby se lišta vešla do jednoho řádku (jinak zabírá 2 řádky nad editorem) */}
+      <div className={stickyBarCls} style={stickyBar}>
+        <Button onClick={() => setShowPreview(true)} className="max-sm:!px-4">Náhled</Button>
+        <div className="flex gap-2 max-lg:ml-auto">
+          <Button onClick={onClose} className="max-sm:!px-4">Zrušit</Button>
+          <Button green onClick={handleSave} disabled={saving || !name || !content} className="max-sm:!px-4">
             {saving ? 'Ukládám…' : isNew ? 'Vytvořit' : 'Uložit'}
           </Button>
         </div>
@@ -460,6 +461,9 @@ function extractVars(content) {
   return matches ? [...new Set(matches.map(m => m.replace(/[{}]/g, '')))] : []
 }
 
+// Spodní lišta modálu přilepená k okraji: záporné okraje = padding Modalu (p-4 / sm:p-7), na úzkém displeji se zalamuje.
+// z-index < 1024 px nad lepicí lištou RichTextEditoru (z 5) — na telefonu by jinak při posunu překryla Uložit/Zrušit.
+const stickyBarCls = '-bottom-4 sm:-bottom-7 mt-4 -mx-4 -mb-4 sm:-mx-7 sm:-mb-7 px-4 sm:px-7 py-[14px] flex-wrap lg:flex-nowrap z-[2] max-lg:z-[6]'
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>

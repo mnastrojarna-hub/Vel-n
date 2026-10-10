@@ -16,7 +16,7 @@ export default function Modal({ open, onClose, title, children, wide = false, no
       onClick={noBackdropClose ? undefined : onClose}
     >
       <div
-        className="bg-white rounded-card shadow-card relative p-4 sm:p-7"
+        className="mg-modal bg-white rounded-card shadow-card relative p-4 sm:p-7"
         style={{
           width: wide ? 720 : 520,
           maxWidth: '100%',
@@ -34,7 +34,7 @@ export default function Modal({ open, onClose, title, children, wide = false, no
           </h2>
           <button
             onClick={onClose}
-            className="cursor-pointer"
+            className="mg-modal-close cursor-pointer max-lg:shrink-0"
             style={{
               background: '#f1faf7',
               border: 'none',

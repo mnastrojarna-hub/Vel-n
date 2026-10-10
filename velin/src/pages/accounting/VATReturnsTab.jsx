@@ -12,6 +12,7 @@ import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import Modal from '../../components/ui/Modal'
+import { ROWS_WHITE, CARD_PHONE } from './FinanceBStack'
 
 export default function FlexiReportsTab() {
   const [flexiOk, setFlexiOk] = useState(null)
@@ -62,7 +63,7 @@ export default function FlexiReportsTab() {
     <div>
       {/* Connection status */}
       <Card className="mb-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between max-lg:flex-wrap max-lg:gap-3">
           <div>
             <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Abra Flexi</h3>
             {flexiOk ? (
@@ -86,7 +87,7 @@ export default function FlexiReportsTab() {
 
       {/* DPH status */}
       <Card className="mb-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between max-lg:flex-wrap max-lg:gap-3">
           <div>
             <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>DPH</h3>
             <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
@@ -104,13 +105,13 @@ export default function FlexiReportsTab() {
 
       {error && <div className="mb-3 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
-      {/* Sync log */}
-      <Card className="mb-4">
+      {/* Sync log — telefon: řádky jako karty, obalová Card průhledná */}
+      <Card className={`mb-4 ${syncLog.length > 0 ? CARD_PHONE : ''}`}>
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Poslední synchronizace</h3>
         {syncLog.length === 0 ? (
           <p className="text-sm" style={{ color: '#6b7280' }}>Žádné záznamy</p>
         ) : (
-          <Table>
+          <Table stack className={ROWS_WHITE}>
             <thead>
               <TRow header>
                 <TH>Cas</TH><TH>Smer</TH><TH>Endpoint</TH><TH>Metoda</TH><TH>Status</TH><TH>Trvani</TH>

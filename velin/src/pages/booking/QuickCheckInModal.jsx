@@ -137,7 +137,7 @@ export default function QuickCheckInModal({ open, onClose, onDone }) {
             <div className="flex items-start gap-2">
               <div className="flex-1"><BookingSummaryBox b={booking} /></div>
               <button onClick={() => { setBooking(null); setCodeInput('') }} disabled={saving}
-                title="Vyhledat jiný kód" className="cursor-pointer"
+                title="Vyhledat jiný kód" className="cursor-pointer max-lg:min-h-[36px]"
                 style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 800, color: '#1a2e22', whiteSpace: 'nowrap' }}>
                 ↩ Jiný kód
               </button>

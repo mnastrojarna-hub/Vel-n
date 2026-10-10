@@ -279,7 +279,7 @@ export default function ImageUploader({
             <button
               type="button"
               onClick={() => setShowUrlInput(true)}
-              className="text-xs font-bold cursor-pointer bg-transparent border-none"
+              className="text-xs font-bold cursor-pointer bg-transparent border-none max-lg:min-h-[36px]"
               style={{ color: '#2563eb', padding: 0 }}
             >
               + Přidat přes URL
@@ -293,7 +293,7 @@ export default function ImageUploader({
                 onChange={e => setUrlInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddUrl() } }}
                 placeholder="https://…"
-                className="flex-1 rounded-btn text-sm outline-none"
+                className="flex-1 max-lg:min-w-0 rounded-btn text-sm outline-none"
                 style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
               />
               <button
@@ -339,7 +339,7 @@ export default function ImageUploader({
                   style={{ border: '1px solid #d4e8e0' }}
                   onError={e => { e.target.style.opacity = 0.3 }}
                 />
-                <div className="absolute inset-x-0 bottom-0 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity" style={{ padding: 3 }}>
+                <div className="mg-hover-reveal absolute inset-x-0 bottom-0 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity" style={{ padding: 3 }}>
                   {!single && i !== 0 && showMainBadge ? (
                     <button
                       type="button"

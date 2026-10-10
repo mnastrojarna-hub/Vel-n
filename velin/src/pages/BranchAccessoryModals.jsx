@@ -14,8 +14,8 @@ function FillAllModal({ branchId, branchName, accessories, accTypes, onClose, on
 
   if (loading || !invMap) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }}>
-        <div className="rounded-card" style={{ background: '#fff', padding: 24, minWidth: 360 }}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center max-lg:p-2" style={{ background: 'rgba(0,0,0,0.3)' }}>
+        <div className="rounded-card" style={{ background: '#fff', padding: 24, minWidth: 'min(360px, 100%)' }}>
           <Spinner />
         </div>
       </div>
@@ -65,8 +65,8 @@ function FillAllModal({ branchId, branchName, accessories, accTypes, onClose, on
   const missingLines = lines.filter(l => l.stock === 0 && l.current === 0)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }}>
-      <div className="rounded-card" style={{ background: '#fff', padding: 24, minWidth: 380, maxWidth: 500, maxHeight: '80vh', overflow: 'auto' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center max-lg:p-2" style={{ background: 'rgba(0,0,0,0.3)' }}>
+      <div className="rounded-card max-lg:!p-4 max-lg:!max-h-[92dvh]" style={{ background: '#fff', padding: 24, minWidth: 'min(380px, 100%)', maxWidth: 500, maxHeight: '80vh', overflow: 'auto' }}>
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>
           Naplnit pobočku ze skladu
         </h3>
@@ -77,7 +77,7 @@ function FillAllModal({ branchId, branchName, accessories, accTypes, onClose, on
               Doplní se ({fillLines.length}):
             </div>
             {fillLines.map(l => (
-              <div key={`${l.type}-${l.size}`} className="flex items-center justify-between text-sm py-1"
+              <div key={`${l.type}-${l.size}`} className="flex items-center justify-between text-sm py-1 max-lg:flex-wrap max-lg:gap-x-2"
                 style={{ borderBottom: '1px solid #d4e8e0' }}>
                 <span>{l.label} {l.size}{l.is_consumable ? ' (spotřební)' : ''}</span>
                 <span style={{ color: '#1a8a18' }}>+{l.toAdd} ks (sklad: {l.stock})</span>
@@ -114,13 +114,13 @@ function FillAllModal({ branchId, branchName, accessories, accTypes, onClose, on
 
         <div className="flex justify-end gap-2 mt-4">
           <button onClick={onClose}
-            className="rounded-btn text-sm font-bold cursor-pointer border-none"
+            className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', background: '#f1faf7', color: '#1a2e22' }}>
             Zavřít
           </button>
           {fillLines.length > 0 && (
             <button onClick={handleConfirm} disabled={saving}
-              className="rounded-btn text-sm font-bold cursor-pointer border-none"
+              className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
               style={{ padding: '6px 14px', background: '#1a2e22', color: '#74FB71', opacity: saving ? 0.5 : 1 }}>
               {saving ? 'Přenáším...' : `Potvrdit (${canFill} položek)`}
             </button>
@@ -187,8 +187,8 @@ function ManageTypesModal({ onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }}>
-      <div className="rounded-card" style={{ background: '#fff', padding: 24, minWidth: 420, maxWidth: 540, maxHeight: '80vh', overflow: 'auto' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center max-lg:p-2" style={{ background: 'rgba(0,0,0,0.3)' }}>
+      <div className="rounded-card max-lg:!p-4 max-lg:!max-h-[92dvh]" style={{ background: '#fff', padding: 24, minWidth: 'min(420px, 100%)', maxWidth: 540, maxHeight: '80vh', overflow: 'auto' }}>
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>
           Správa typů příslušenství
         </h3>
@@ -196,7 +196,7 @@ function ManageTypesModal({ onClose, onSaved }) {
         {loading ? <Spinner /> : (
           <div className="space-y-2 mb-4">
             {types.map(t => (
-              <div key={t.id || t.key} className="flex items-center justify-between rounded-lg"
+              <div key={t.id || t.key} className="flex items-center justify-between rounded-lg max-lg:flex-wrap max-lg:gap-2"
                 style={{ padding: '6px 10px', background: t.is_active !== false ? '#f1faf7' : '#f5f5f5', border: '1px solid #d4e8e0' }}>
                 <div>
                   <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{t.label}</span>
@@ -231,13 +231,13 @@ function ManageTypesModal({ onClose, onSaved }) {
                     pricing_unit: t.pricing_unit || 'per_booking',
                     audience: t.audience || 'adult',
                   })}
-                    className="rounded-btn text-xs font-bold cursor-pointer border-none"
+                    className="rounded-btn text-xs font-bold cursor-pointer border-none max-lg:min-h-[36px] max-lg:!px-3"
                     style={{ padding: '3px 8px', background: '#dbeafe', color: '#2563eb' }}>
                     Upravit
                   </button>
                   {t.id && (
                     <button onClick={() => handleToggleActive(t)}
-                      className="rounded-btn text-xs font-bold cursor-pointer border-none"
+                      className="rounded-btn text-xs font-bold cursor-pointer border-none max-lg:min-h-[36px] max-lg:!px-3"
                       style={{ padding: '3px 8px', background: t.is_active !== false ? '#fee2e2' : '#dcfce7', color: t.is_active !== false ? '#dc2626' : '#1a8a18' }}>
                       {t.is_active !== false ? 'Deaktivovat' : 'Aktivovat'}
                     </button>
@@ -253,7 +253,7 @@ function ManageTypesModal({ onClose, onSaved }) {
             <div className="text-sm font-extrabold" style={{ color: '#1a2e22' }}>
               {editForm.id ? 'Upravit typ' : 'Nový typ'}
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Klíč (slug)</label>
                 <input value={editForm.key} disabled={!!editForm.id}
@@ -276,7 +276,7 @@ function ManageTypesModal({ onClose, onSaved }) {
                 className="w-full rounded-btn text-sm outline-none"
                 style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} placeholder="UNI nebo XS, S, M, L, XL, XXL" />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Cena (Kč)</label>
                 <input type="number" min={0} step={1} value={editForm.price_czk}
@@ -312,8 +312,8 @@ function ManageTypesModal({ onClose, onSaved }) {
                 <option value="both">👤👶 Obojí (dospělý + dětský)</option>
               </select>
             </div>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-1 cursor-pointer">
+            <div className="flex items-center gap-3 max-lg:flex-wrap">
+              <label className="flex items-center gap-1 cursor-pointer max-lg:min-h-[36px]">
                 <input type="checkbox" checked={editForm.is_consumable}
                   onChange={e => setEditForm(f => ({ ...f, is_consumable: e.target.checked }))} />
                 <span className="text-sm font-bold" style={{ color: '#92400e' }}>Spotřební zboží</span>
@@ -327,10 +327,10 @@ function ManageTypesModal({ onClose, onSaved }) {
             {err && <div className="text-sm" style={{ color: '#dc2626' }}>{err}</div>}
             <div className="flex gap-2">
               <button onClick={() => setEditForm(null)}
-                className="rounded-btn text-sm font-bold cursor-pointer border-none"
+                className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '5px 12px', background: '#f1faf7', color: '#1a2e22' }}>Zrušit</button>
               <button onClick={handleSave} disabled={saving}
-                className="rounded-btn text-sm font-bold cursor-pointer border-none"
+                className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
                 style={{ padding: '5px 12px', background: '#1a2e22', color: '#74FB71' }}>
                 {saving ? 'Ukládám...' : 'Uložit'}
               </button>
@@ -338,7 +338,7 @@ function ManageTypesModal({ onClose, onSaved }) {
           </div>
         ) : (
           <button onClick={() => setEditForm({ key: '', label: '', sizesText: 'UNI', is_consumable: true, sort_order: types.length + 1, price_czk: 0, pricing_unit: 'per_booking', audience: 'adult' })}
-            className="rounded-btn text-sm font-bold cursor-pointer border-none mb-3"
+            className="rounded-btn text-sm font-bold cursor-pointer border-none mb-3 max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', background: '#1a2e22', color: '#74FB71' }}>
             + Nový typ
           </button>
@@ -346,7 +346,7 @@ function ManageTypesModal({ onClose, onSaved }) {
 
         <div className="flex justify-end mt-3">
           <button onClick={onSaved}
-            className="rounded-btn text-sm font-bold cursor-pointer border-none"
+            className="rounded-btn text-sm font-bold cursor-pointer border-none max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', background: '#f1faf7', color: '#1a2e22' }}>
             Zavřít
           </button>

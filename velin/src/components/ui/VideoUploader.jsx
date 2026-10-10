@@ -175,7 +175,7 @@ export default function VideoUploader({
                   className="w-full h-full object-cover rounded-lg"
                   style={{ border: '1px solid #d4e8e0', background: '#000' }}
                 />
-                <div className="absolute inset-x-0 bottom-0 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity" style={{ padding: 3 }}>
+                <div className="mg-hover-reveal mg-hover-top absolute inset-x-0 bottom-0 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity" style={{ padding: 3 }}>
                   {i !== 0 ? (
                     <button
                       type="button"
@@ -190,7 +190,8 @@ export default function VideoUploader({
                   ) : <span />}
                   <button
                     type="button"
-                    onClick={() => handleRemove(url)}
+                    // dotyk: akce jsou vidět trvale vedle ovládání videa → odebrání raději potvrdit
+                    onClick={() => { if (window.matchMedia?.('(hover: none)').matches && !window.confirm('Odebrat toto video?')) return; handleRemove(url) }}
                     title="Odebrat"
                     className="cursor-pointer"
                     style={{

@@ -11,6 +11,7 @@ import Badge from '../../components/ui/Badge'
 import QuickOrderModal from './QuickOrderModal'
 import RuleModal from './RuleModal'
 import OrderDetailModal from './OrderDetailModal'
+import { TAB2, TAB2_GRID, TOUCH_BTNS, CB_ROW } from './FinanceBStack'
 
 const PER_PAGE = 25
 const STATUS_LABELS = { draft: 'Koncept', sent: 'Odesláno', received: 'Prijato', cancelled: 'Zrušeno' }
@@ -88,12 +89,19 @@ export default function AutoOrdersTab() {
 
   const totalPages = Math.ceil(total / PER_PAGE)
   const fmt = n => n ? `${Number(n).toLocaleString('cs-CZ')} Kč` : '\u2014'
+  // Klik na řádek / kartu objednávky otevře detail (sdílené TD onClick nepředává, proto na <tr>) —
+  // kromě buňky zaškrtávátka (první) a akcí (poslední), jako původní onClick na buňkách 2–7
+  function openDetail(e, o) {
+    const td = e.target.closest('td'), tr = e.currentTarget
+    if (td && (td === tr.firstElementChild || td === tr.lastElementChild)) return
+    setDetail(o)
+  }
 
   return (
     <div>
       <div className="flex gap-2 mb-4">
-        <button onClick={() => { setTab('orders'); setPage(1) }} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer" style={{ padding: '6px 14px', background: tab === 'orders' ? '#1a2e22' : '#f1faf7', color: tab === 'orders' ? '#74FB71' : '#1a2e22', border: 'none', boxShadow: tab === 'orders' ? '0 2px 8px rgba(26,46,34,.25)' : 'none' }}>Objednavky</button>
-        <button onClick={() => { setTab('rules'); setPage(1) }} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer" style={{ padding: '6px 14px', background: tab === 'rules' ? '#1a2e22' : '#f1faf7', color: tab === 'rules' ? '#74FB71' : '#1a2e22', border: 'none', boxShadow: tab === 'rules' ? '0 2px 8px rgba(26,46,34,.25)' : 'none' }}>Automaticka pravidla</button>
+        <button onClick={() => { setTab('orders'); setPage(1) }} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]" style={{ padding: '6px 14px', background: tab === 'orders' ? '#1a2e22' : '#f1faf7', color: tab === 'orders' ? '#74FB71' : '#1a2e22', border: 'none', boxShadow: tab === 'orders' ? '0 2px 8px rgba(26,46,34,.25)' : 'none' }}>Objednavky</button>
+        <button onClick={() => { setTab('rules'); setPage(1) }} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]" style={{ padding: '6px 14px', background: tab === 'rules' ? '#1a2e22' : '#f1faf7', color: tab === 'rules' ? '#74FB71' : '#1a2e22', border: 'none', boxShadow: tab === 'rules' ? '0 2px 8px rgba(26,46,34,.25)' : 'none' }}>Automaticka pravidla</button>
       </div>
 
       {resultMsg && <div className="mb-3 p-3 rounded-card" style={{ background: '#dcfce7', color: '#1a8a18', fontSize: 13 }}>{resultMsg}</div>}
@@ -117,28 +125,28 @@ export default function AutoOrdersTab() {
                 ], orders.filter(o => selOrderIds.has(o.id))) },
                 { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} objednávek?', onClick: async () => { await bulkDelete('purchase_orders', [...selOrderIds], 'auto_orders_bulk_deleted'); setSelOrderIds(new Set()); load() } },
               ]} />
-              <Table>
+              <Table stack="tablet" className={`${TAB2_GRID} ${CB_ROW} ${TOUCH_BTNS}`}>
                 <thead><TRow header>
                   <TH><SelectAllCheckbox items={orders} selectedIds={selOrderIds} setSelectedIds={setSelOrderIds} /></TH>
                   <TH>Číslo</TH><TH>Dodavatel</TH><TH>Email</TH><TH>Datum</TH><TH>Celkem</TH><TH>Stav</TH><TH>Akce</TH>
                 </TRow></thead>
                 <tbody>
                   {orders.map(o => (
-                    <tr key={o.id} className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
+                    <tr key={o.id} onClick={e => openDetail(e, o)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                       style={{ borderBottom: '1px solid #d4e8e0', background: selOrderIds.has(o.id) ? '#fef9c3' : undefined }}>
                       <TD><RowCheckbox id={o.id} selectedIds={selOrderIds} setSelectedIds={setSelOrderIds} /></TD>
-                      <TD mono bold onClick={() => setDetail(o)}>{o.order_number || `#${o.id?.slice(0, 8)}`}</TD>
-                      <TD onClick={() => setDetail(o)}>{o.suppliers?.name || '\u2014'}</TD>
-                      <TD onClick={() => setDetail(o)}><span style={{ fontSize: 12, color: '#6b7280' }}>{o.suppliers?.contact_email || '\u2014'}</span></TD>
-                      <TD onClick={() => setDetail(o)}>{o.created_at ? new Date(o.created_at).toLocaleDateString('cs-CZ') : '\u2014'}</TD>
-                      <TD bold onClick={() => setDetail(o)}>{fmt(o.total_amount)}</TD>
-                      <TD onClick={() => setDetail(o)}>
+                      <TD mono bold>{o.order_number || `#${o.id?.slice(0, 8)}`}</TD>
+                      <TD>{o.suppliers?.name || '\u2014'}</TD>
+                      <TD><span style={{ fontSize: 12, color: '#6b7280' }}>{o.suppliers?.contact_email || '\u2014'}</span></TD>
+                      <TD>{o.created_at ? new Date(o.created_at).toLocaleDateString('cs-CZ') : '\u2014'}</TD>
+                      <TD bold>{fmt(o.total_amount)}</TD>
+                      <TD>
                         <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{ padding: '4px 10px', background: o.status === 'received' ? '#dcfce7' : o.status === 'sent' ? '#dbeafe' : o.status === 'cancelled' ? '#fee2e2' : '#fef3c7', color: o.status === 'received' ? '#1a8a18' : o.status === 'sent' ? '#2563eb' : o.status === 'cancelled' ? '#dc2626' : '#b45309' }}>{STATUS_LABELS[o.status] || o.status}</span>
                       </TD>
-                      <TD>{(o.status === 'draft' || o.status === 'sent') && <button onClick={() => sendOrderEmail(o)} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>{o.status === 'draft' ? 'Odeslat email' : 'Preposlat'}</button>}</TD>
+                      <TD label="" className="mg-stack-full">{(o.status === 'draft' || o.status === 'sent') && <button onClick={() => sendOrderEmail(o)} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>{o.status === 'draft' ? 'Odeslat email' : 'Preposlat'}</button>}</TD>
                     </tr>
                   ))}
-                  {orders.length === 0 && <TRow><TD>Žádné objednavky</TD></TRow>}
+                  {orders.length === 0 && <TRow><TD label="" className="mg-stack-full">Žádné objednavky</TD></TRow>}
                 </tbody>
               </Table>
               <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -149,7 +157,7 @@ export default function AutoOrdersTab() {
 
       {tab === 'rules' && (
         <>
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-4 max-lg:flex-wrap">
             <p className="text-sm" style={{ color: '#6b7280' }}>Pravidla automaticky vytvareji objednavky a posilaji emaily dodavatelum.</p>
             <div className="ml-auto"><Button green onClick={() => setShowNewRule(true)}>+ Nove pravidlo</Button></div>
           </div>
@@ -160,7 +168,7 @@ export default function AutoOrdersTab() {
               { label: 'Deaktivovat', icon: '⏸', onClick: async () => { await bulkUpdate('auto_order_rules', [...selRuleIds], { is_active: false }, 'auto_rules_bulk_deactivated'); setSelRuleIds(new Set()); load() } },
               { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} pravidel?', onClick: async () => { await bulkDelete('auto_order_rules', [...selRuleIds], 'auto_rules_bulk_deleted'); setSelRuleIds(new Set()); load() } },
             ]} />
-            <Table>
+            <Table stack="tablet" className={`${TAB2} ${CB_ROW} ${TOUCH_BTNS}`}>
               <thead><TRow header>
                 <TH><SelectAllCheckbox items={rules} selectedIds={selRuleIds} setSelectedIds={setSelRuleIds} /></TH>
                 <TH>Položka</TH><TH>Dodavatel</TH><TH>Typ</TH><TH>Množství</TH><TH>Stav</TH><TH>Poslední spuštění</TH><TH>Akce</TH>
@@ -173,16 +181,16 @@ export default function AutoOrdersTab() {
                     <TD>{r.suppliers?.name || '\u2014'}</TD>
                     <TD><Badge label={TRIGGER_LABELS[r.trigger_type] || r.trigger_type} color={TRIGGER_COLORS[r.trigger_type] || '#6b7280'} bg={TRIGGER_BGS[r.trigger_type] || '#f3f4f6'} />{r.trigger_type === 'stock_low' && <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 4 }}>{'\u2264'}{r.threshold_quantity}</span>}{r.trigger_type === 'interval' && <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 4 }}>/{r.interval_days}d</span>}</TD>
                     <TD bold>{r.order_quantity || '\u2014'} ks</TD>
-                    <TD><span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer" onClick={() => toggleRule(r)} style={{ padding: '4px 10px', background: r.is_active ? '#dcfce7' : '#f3f4f6', color: r.is_active ? '#1a8a18' : '#6b7280' }}>{r.is_active ? 'Aktivní' : 'Neaktivní'}</span></TD>
+                    <TD><span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer max-lg:!py-2" onClick={() => toggleRule(r)} style={{ padding: '4px 10px', background: r.is_active ? '#dcfce7' : '#f3f4f6', color: r.is_active ? '#1a8a18' : '#6b7280' }}>{r.is_active ? 'Aktivní' : 'Neaktivní'}</span></TD>
                     <TD>{r.last_triggered_at ? new Date(r.last_triggered_at).toLocaleString('cs-CZ') : '\u2014'}</TD>
-                    <TD><div className="flex gap-1">
+                    <TD label="" className="mg-stack-full"><div className="flex gap-1 max-lg:flex-wrap">
                       <button onClick={() => runRuleNow(r)} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '4px 8px', background: '#dcfce7', color: '#1a8a18', border: 'none' }}>Spustit</button>
                       <button onClick={() => setEditRule(r)} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '4px 8px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>Upravit</button>
                       <button onClick={() => deleteRule(r.id)} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '4px 8px', background: '#fee2e2', color: '#dc2626', border: 'none' }}>Smazat</button>
                     </div></TD>
                   </TRow>
                 ))}
-                {rules.length === 0 && <TRow><TD>Žádná pravidla — pridejte prvni automatickou objednavku</TD></TRow>}
+                {rules.length === 0 && <TRow><TD label="" className="mg-stack-full">Žádná pravidla — pridejte prvni automatickou objednavku</TD></TRow>}
               </tbody>
             </Table>
             </>

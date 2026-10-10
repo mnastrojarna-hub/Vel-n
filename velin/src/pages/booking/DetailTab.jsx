@@ -131,12 +131,12 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
   })()
 
   return (
-    <div className="grid grid-cols-2 gap-5">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
       <Card>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Zákazník</h3>
           {booking.profiles?.id && (
-            <button onClick={() => navigate(`/zakaznici/${booking.profiles.id}`)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>→ Detail zákazníka</button>
+            <button onClick={() => navigate(`/zakaznici/${booking.profiles.id}`)} className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]" style={{ color: '#2563eb', background: 'none', border: 'none' }}>→ Detail zákazníka</button>
           )}
         </div>
         <InfoRow label="Jméno" value={booking.profiles?.full_name} />
@@ -149,7 +149,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Motorka</h3>
           {booking.motorcycles?.id && (
-            <button onClick={() => navigate(`/flotila/${booking.motorcycles.id}`)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>→ Detail motorky</button>
+            <button onClick={() => navigate(`/flotila/${booking.motorcycles.id}`)} className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]" style={{ color: '#2563eb', background: 'none', border: 'none' }}>→ Detail motorky</button>
           )}
         </div>
         <InfoRow label="Model" value={booking.motorcycles?.model} />
@@ -161,10 +161,10 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
       <SOSSection booking={booking} sosIncidents={sosIncidents} navigate={navigate} />
 
       {(discountRows.length > 0 || booking.discount_amount > 0) && (
-        <Card className="col-span-2">
+        <Card className="md:col-span-2">
           <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#b45309' }}>Uplatněné slevy a kódy</h3>
           <div className="p-4 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
               {discountRows.map(r => (
                 <div key={r.key} className="min-w-0">
                   <InfoRow label={r.label} value={r.value} />
@@ -183,13 +183,13 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
       <DatesAndPaymentSection booking={booking} bookingExtras={bookingExtras} sosIncidents={sosIncidents} onModify={onModify} error={error} actions={actions} onAction={onAction} />
 
       {booking.status === 'cancelled' && (
-        <Card className="col-span-2">
+        <Card className="md:col-span-2">
           <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#dc2626' }}>Informace o zrušení</h3>
           <div className="p-4 rounded-lg" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <InfoRow label="Zdroj" value={CANCEL_SOURCE_LABELS[booking.cancelled_by_source] || booking.cancelled_by_source || '—'} />
               <InfoRow label="Kdy" value={booking.cancelled_at ? new Date(booking.cancelled_at).toLocaleString('cs-CZ') : '—'} />
-              <div className="col-span-2"><InfoRow label="Důvod" value={booking.cancellation_reason || '—'} /></div>
+              <div className="sm:col-span-2"><InfoRow label="Důvod" value={booking.cancellation_reason || '—'} /></div>
               <InfoRow label="Email odeslán" value={booking.cancellation_notified ? 'Ano' : 'Ne'} />
               {cancellation && (
                 <InfoRow label="Vráceno" value={Number(cancellation.refund_amount) > 0
@@ -204,12 +204,12 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
       {/* Vrácení na kiosku samoobslužné pobočky (booking_kiosk_returns, 2026-10-06) — bez řádku se nezobrazí */}
       <KioskReturnInfo booking={booking} hasLockerCode={doorCodes.some(c => c.code_type === 'accessories' && c.is_active)} />
 
-      <Card className="col-span-2">
+      <Card className="md:col-span-2">
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#1a2e22' }}>Doplňující informace</h3>
         <BookingSummary booking={booking} bookingExtras={bookingExtras} />
       </Card>
 
-      <Card className="col-span-2">
+      <Card className="md:col-span-2">
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#1a2e22' }}>Timeline</h3>
         <Timeline booking={booking} />
       </Card>

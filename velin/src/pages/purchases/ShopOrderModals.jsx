@@ -11,6 +11,7 @@ const PAYMENT_LABELS = { pending: 'Nezaplaceno', paid: 'Zaplaceno', refunded: 'V
 const PAYMENT_COLORS = { pending: { bg: '#fee2e2', color: '#dc2626' }, paid: { bg: '#dcfce7', color: '#1a8a18' }, refunded: { bg: '#f3f4f6', color: '#1a2e22' }, failed: { bg: '#fee2e2', color: '#dc2626' } }
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
+const H = 'mg-hide-phone' // buňka skrytá v kartovém zobrazení na telefonu
 function Label({ children }) { return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label> }
 function Input({ value, onChange, placeholder }) { return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /> }
 
@@ -42,7 +43,7 @@ export function NewShopOrderModal({ onClose, onSaved }) {
   return (
     <Modal open title="Nová e-shop objednávka" onClose={onClose} wide>
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><Label>Jméno zákazníka</Label><Input value={form.customer_name} onChange={v => set('customer_name', v)} /></div>
           <div><Label>Email</Label><Input value={form.customer_email} onChange={v => set('customer_email', v)} /></div>
           <div><Label>Telefon</Label><Input value={form.customer_phone} onChange={v => set('customer_phone', v)} /></div>
@@ -51,23 +52,24 @@ export function NewShopOrderModal({ onClose, onSaved }) {
           <div><Label>IČO</Label><Input value={form.customer_ico} onChange={v => set('customer_ico', v)} /></div>
           <div><Label>DIČ</Label><Input value={form.customer_dic} onChange={v => set('customer_dic', v)} /></div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><Label>Doručovací adresa</Label><textarea value={form.shipping_address} onChange={e => set('shipping_address', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 50, resize: 'vertical' }} /></div>
           <div><Label>Fakturační adresa</Label><textarea value={form.billing_address} onChange={e => set('billing_address', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 50, resize: 'vertical' }} /></div>
         </div>
         <div>
           <Label>Položky</Label>
           {items.map((it, idx) => (
-            <div key={idx} className="flex items-center gap-2 mb-2">
-              <input value={it.product_name} onChange={e => updateItem(idx, 'product_name', e.target.value)} placeholder="Název produktu" className="flex-1 rounded-btn text-sm outline-none" style={inputStyle} />
-              <input value={it.product_sku} onChange={e => updateItem(idx, 'product_sku', e.target.value)} placeholder="SKU" className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 90 }} />
+            // Telefon: název přes celý řádek, SKU / Ks / Cena / ✕ pod ním (max-sm = jen < 640 px)
+            <div key={idx} className="flex items-center gap-2 mb-2 max-sm:flex-wrap">
+              <input value={it.product_name} onChange={e => updateItem(idx, 'product_name', e.target.value)} placeholder="Název produktu" className="flex-1 rounded-btn text-sm outline-none max-sm:basis-full" style={inputStyle} />
+              <input value={it.product_sku} onChange={e => updateItem(idx, 'product_sku', e.target.value)} placeholder="SKU" className="rounded-btn text-sm outline-none max-sm:flex-1 max-sm:min-w-0" style={{ ...inputStyle, width: 90 }} />
               <input type="number" value={it.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)} placeholder="Ks" className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 60 }} />
               <input type="number" value={it.unit_price} onChange={e => updateItem(idx, 'unit_price', e.target.value)} placeholder="Cena/ks" className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 100 }} />
-              <button onClick={() => removeItem(idx)} className="text-sm cursor-pointer bg-transparent border-none" style={{ color: '#dc2626' }}>✕</button>
+              <button onClick={() => removeItem(idx)} className="text-sm cursor-pointer bg-transparent border-none max-lg:min-w-[36px] max-lg:min-h-[36px]" style={{ color: '#dc2626' }}>✕</button>
             </div>
           ))}
           <div className="flex items-center gap-3">
-            <button onClick={addItem} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>+ Přidat položku</button>
+            <button onClick={addItem} className="text-sm font-bold cursor-pointer bg-transparent border-none max-lg:min-h-[36px]" style={{ color: '#1a8a18' }}>+ Přidat položku</button>
             {subtotal > 0 && <span className="text-sm font-bold ml-auto" style={{ color: '#1a2e22' }}>Celkem: {subtotal.toLocaleString('cs-CZ')} Kč</span>}
           </div>
         </div>
@@ -218,9 +220,10 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
 
   return (
     <Modal open title={`Objednávka ${order.order_number}`} onClose={onClose} wide>
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1"><div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Zákazník / fakturační údaje</div><button onClick={() => { setBilling(pickBilling(ord)); setEditBilling(e => !e) }} className="text-xs font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>{editBilling ? 'Zrušit' : 'Upravit'}</button></div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        {/* max-lg: dlouhý e-mail / adresa se na telefonu a tabletu zalomí místo přetečení */}
+        <div className="max-lg:min-w-0 max-lg:[overflow-wrap:anywhere]">
+          <div className="flex items-center gap-2 mb-1"><div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Zákazník / fakturační údaje</div><button onClick={() => { setBilling(pickBilling(ord)); setEditBilling(e => !e) }} className="text-xs font-bold cursor-pointer bg-transparent border-none max-lg:min-h-[36px] max-lg:px-2" style={{ color: '#1a8a18' }}>{editBilling ? 'Zrušit' : 'Upravit'}</button></div>
           <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{ord.customer_name || '—'}</div>
           {ord.customer_company && <div className="text-sm" style={{ color: '#1a2e22' }}>{ord.customer_company}</div>}
           {(ord.customer_ico || ord.customer_dic) && <div className="text-sm" style={{ color: '#1a2e22' }}>{ord.customer_ico ? `IČO: ${ord.customer_ico}` : ''}{ord.customer_dic ? `${ord.customer_ico ? ' · ' : ''}DIČ: ${ord.customer_dic}` : ''}</div>}
@@ -242,7 +245,7 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
       {editBilling && (
         <div className="mb-4 p-3 rounded-btn" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Úprava fakturačních údajů zákazníka</div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><Label>Jméno</Label><Input value={billing.customer_name} onChange={v => setB('customer_name', v)} /></div>
             <div><Label>Firma</Label><Input value={billing.customer_company} onChange={v => setB('customer_company', v)} /></div>
             <div><Label>IČO</Label><Input value={billing.customer_ico} onChange={v => setB('customer_ico', v)} /></div>
@@ -262,7 +265,7 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
       <div className="mb-4 p-3 rounded-btn" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
         <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1e40af' }}>Doklady</div>
         <div className="text-xs mb-2" style={{ color: '#1e40af' }}>Přegeneruje aktuální doklad s upravenými údaji a <strong>přepíše původní</strong> v databázi (číslo dokladu zůstává).</div>
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2 max-sm:flex-wrap">
           <label className="text-sm font-bold" style={{ color: '#1e40af' }}>Datum dokladu (vystavení i splatnost):</label>
           <input type="date" value={docDate} onChange={e => setDocDate(e.target.value)} className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #bfdbfe' }} />
         </div>
@@ -279,12 +282,12 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
             const typeLabel = inv.type === 'payment_receipt' ? 'DP (doklad k přijaté platbě)' : inv.type === 'shop_proforma' ? 'ZF (zálohová)' : inv.type === 'shop_final' ? 'Faktura' : inv.type
             const cancelled = inv.status === 'cancelled'
             return (
-              <div key={inv.id} className="flex items-center gap-2 py-1 text-sm" style={{ borderTop: '1px solid #dbeafe', opacity: cancelled ? 0.5 : 1 }}>
+              <div key={inv.id} className="flex items-center gap-2 py-1 text-sm max-sm:flex-wrap" style={{ borderTop: '1px solid #dbeafe', opacity: cancelled ? 0.5 : 1 }}>
                 <span className="font-bold" style={{ color: '#1e3a8a', minWidth: 140 }}>{typeLabel}</span>
                 <span className="font-mono" style={{ color: '#1e40af' }}>{inv.number}</span>
                 {cancelled && <span className="text-xs" style={{ color: '#dc2626' }}>(zrušeno)</span>}
                 <span className="ml-auto" style={{ color: '#64748b' }}>{fmt(inv.total)}</span>
-                <button onClick={() => openInvoice(inv)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>Otevřít</button>
+                <button onClick={() => openInvoice(inv)} className="text-sm font-bold cursor-pointer bg-transparent border-none max-lg:min-h-[36px] max-lg:px-2" style={{ color: '#1a8a18' }}>Otevřít</button>
               </div>
             )
           })}
@@ -301,15 +304,16 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
         </div>
       )}
       {loading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div> : (
-        <Table>
+        // stack = karty na telefonu; prázdné buňky a popisky součtů se tam skryjí (mg-hide-phone), částka nese vlastní popisek
+        <Table stack>
           <thead><TRow header><TH>Produkt</TH><TH>SKU</TH><TH>Množství</TH><TH>Cena/ks</TH><TH>Celkem</TH></TRow></thead>
           <tbody>
             {items.map(it => <TRow key={it.id}><TD bold>{it.product_name}</TD><TD mono>{it.product_sku || '—'}</TD><TD>{it.quantity}</TD><TD>{fmt(it.unit_price)}</TD><TD bold>{fmt(it.total_price)}</TD></TRow>)}
-            {items.length === 0 && <TRow><TD colSpan={5}>Žádné položky</TD></TRow>}
-            <TRow><TD /><TD /><TD /><TD bold>Mezisoučet:</TD><TD bold>{fmt(order.subtotal)}</TD></TRow>
-            {Number(order.shipping_cost) > 0 && <TRow><TD /><TD /><TD /><TD>Doprava:</TD><TD>{fmt(order.shipping_cost)}</TD></TRow>}
-            {Number(order.discount) > 0 && <TRow><TD /><TD /><TD /><TD>Sleva:</TD><TD style={{ color: '#dc2626' }}>-{fmt(order.discount)}</TD></TRow>}
-            <TRow><TD /><TD /><TD /><TD bold style={{ fontSize: 14 }}>Celkem:</TD><TD bold style={{ fontSize: 14 }}>{fmt(order.total)}</TD></TRow>
+            {items.length === 0 && <TRow><TD colSpan={5} label="">Žádné položky</TD></TRow>}
+            <TRow><TD className={H} /><TD className={H} /><TD className={H} /><TD bold className={H}>Mezisoučet:</TD><TD bold label="Mezisoučet">{fmt(order.subtotal)}</TD></TRow>
+            {Number(order.shipping_cost) > 0 && <TRow><TD className={H} /><TD className={H} /><TD className={H} /><TD className={H}>Doprava:</TD><TD label="Doprava">{fmt(order.shipping_cost)}</TD></TRow>}
+            {Number(order.discount) > 0 && <TRow><TD className={H} /><TD className={H} /><TD className={H} /><TD className={H}>Sleva:</TD><TD label="Sleva" style={{ color: '#dc2626' }}>-{fmt(order.discount)}</TD></TRow>}
+            <TRow><TD className={H} /><TD className={H} /><TD className={H} /><TD bold className={H} style={{ fontSize: 14 }}>Celkem:</TD><TD bold label="Celkem" style={{ fontSize: 14 }}>{fmt(order.total)}</TD></TRow>
           </tbody>
         </Table>
       )}

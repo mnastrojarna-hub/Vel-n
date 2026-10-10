@@ -171,7 +171,7 @@ export default function ServiceLogModal({ entry, motoId: presetMotoId, defaultSt
       </div>
 
       <div className="mt-4">
-        <button type="button" onClick={() => setShowCosts(s => !s)} className="text-sm font-extrabold uppercase tracking-wide cursor-pointer" style={{ background: 'none', border: 'none', color: '#2563eb', padding: 0 }}>
+        <button type="button" onClick={() => setShowCosts(s => !s)} className="text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[36px] max-lg:pr-3" style={{ background: 'none', border: 'none', color: '#2563eb', padding: 0 }}>
           {showCosts ? '▾' : '▸'} Náklady {entry?.invoiced_amount > 0 ? `· faktury ${Number(entry.invoiced_amount).toLocaleString('cs-CZ')} Kč` : ''}
         </button>
         {showCosts && <div className="mt-2"><CostFields form={form} set={set} invoiced={entry?.invoiced_amount || 0} /></div>}

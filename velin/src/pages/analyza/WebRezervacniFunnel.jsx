@@ -5,6 +5,8 @@ import TimePeriodSelector, { filterByPeriod, getTimePeriodLabel } from './TimePe
 import { PAID_BOOKING_STATUSES } from '../../lib/revenueUtils'
 import { computeDocVerification } from '../../lib/docVerification'
 import { useTableSort, sortRows } from '../../components/sortableTable'
+import { useMediaQuery } from '../../hooks/useIsMobile'
+import { WrapTick, PHONE_QUERY, sideLegend } from './AnalyzaWrapTick'
 
 // ───────────────────────────────────────────────────────────────────────────
 // Web rezervační funnel — kde zákazníci na webu (motogo24.cz) odpadávají.
@@ -85,7 +87,7 @@ function FlowPhaseToggle({ value, onChange }) {
           const active = value === p.key
           return (
             <button key={p.key} onClick={() => onChange(p.key)}
-              className="text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+              className="text-xs font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
               style={{
                 padding: '7px 12px', border: 'none',
                 borderRight: i < FLOW_PHASES.length - 1 ? '1px solid #d4e8e0' : 'none',
@@ -107,6 +109,7 @@ export default function WebRezervacniFunnel() {
   const [period, setPeriod] = useState({ type: 'all' })
   const [flowPhase, setFlowPhase] = useState('all') // 'all' | 'before' | 'after' — starý/nový web flow
   const stageSort = useTableSort(STAGE_DEVICE_COLUMNS)
+  const isPhone = useMediaQuery(PHONE_QUERY)
 
   useEffect(() => { loadData() }, [])
 
@@ -325,7 +328,8 @@ export default function WebRezervacniFunnel() {
           <div className="text-sm font-extrabold mb-3" style={{ color: '#1a2e22' }}>Počty podle stavu</div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={bucketBarData} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} />
+              {/* telefon: názvy stavů zalomené pod sloupcem (jinak se překrývají) */}
+              <XAxis dataKey="name" interval={0} {...(isPhone ? { tick: <WrapTick width={64} />, height: 44 } : { tick: { fontSize: 10 } })} />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
               <Tooltip />
               <Bar dataKey="count" radius={[6, 6, 0, 0]} name="Rezervací">
@@ -345,13 +349,13 @@ export default function WebRezervacniFunnel() {
             {pcUnf > 0 && <span> ({(mobileUnf / pcUnf).toFixed(2)}× více na mobilu)</span>}
           </div>
           {unfinishedPie.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={isPhone ? 260 : 220}>
               <PieChart>
                 <Pie data={unfinishedPie} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2}>
                   {unfinishedPie.map((s, i) => <Cell key={i} fill={s.color} />)}
                 </Pie>
                 <Tooltip />
-                <Legend layout="vertical" align="right" verticalAlign="middle" />
+                <Legend {...sideLegend(isPhone)} />
               </PieChart>
             </ResponsiveContainer>
           ) : <div className="text-sm" style={{ color: '#888' }}>Žádné nedokončené rezervace.</div>}

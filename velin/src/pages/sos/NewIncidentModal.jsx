@@ -343,12 +343,12 @@ export default function NewIncidentModal({ onClose, onCreated }) {
                 <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{c.full_name || '—'}</div>
                 <div className="text-sm" style={{ color: '#1a2e22' }}>{c.phone || ''} {c.email ? '· ' + c.email : ''}</div>
               </div>
-              <span style={{ color: '#2563eb' }}>Vybrat →</span>
+              <span className="max-lg:shrink-0 max-lg:whitespace-nowrap max-lg:ml-2" style={{ color: '#2563eb' }}>Vybrat →</span>
             </div>
           ))}
           <div className="flex justify-end mt-4">
             <button disabled={!customer} onClick={() => setScreen('type')}
-              className="rounded-btn text-sm font-extrabold cursor-pointer border-none disabled:opacity-40"
+              className="rounded-btn text-sm font-extrabold cursor-pointer border-none disabled:opacity-40 max-lg:min-h-[40px]"
               style={{ padding: '9px 18px', background: '#1a2e22', color: '#74FB71' }}>
               Pokračovat →
             </button>
@@ -372,7 +372,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
             </div>
           ) : (
             <div className="space-y-2">
-              <button onClick={() => setCategory(null)} className="text-sm font-extrabold cursor-pointer border-none mb-1"
+              <button onClick={() => setCategory(null)} className="text-sm font-extrabold cursor-pointer border-none mb-1 max-lg:min-h-[40px] max-lg:pr-3"
                 style={{ background: 'transparent', color: '#1a2e22' }}>← {category.label}</button>
               {category.items.map(it => (
                 <button key={it.type} onClick={() => {
@@ -389,7 +389,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
             </div>
           )}
           <div className="flex justify-start mt-4">
-            <button onClick={() => setScreen('customer')} className="text-sm font-extrabold cursor-pointer border-none"
+            <button onClick={() => setScreen('customer')} className="text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
               style={{ padding: '8px 14px', background: '#f1faf7', color: '#1a2e22', borderRadius: 10 }}>← Zpět</button>
           </div>
         </div>
@@ -403,7 +403,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
           {picked.flow === 'decision_accident' && (
             <div>
               <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Zavinění</div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 max-sm:flex-wrap">
                 <ChoiceBtn active={fault === true} danger onClick={() => setFault(true)}>Zákazník (platí)</ChoiceBtn>
                 <ChoiceBtn active={fault === false} onClick={() => setFault(false)}>Cizí zavinění (zdarma)</ChoiceBtn>
               </div>
@@ -413,7 +413,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
           {picked.flow === 'decision_theft' && (
             <div>
               <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Byla motorka zabezpečená?</div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 max-sm:flex-wrap">
                 <ChoiceBtn active={secured === true} onClick={() => setSecured(true)}>Ano — zabezpečená (zdarma)</ChoiceBtn>
                 <ChoiceBtn active={secured === false} danger onClick={() => setSecured(false)}>Ne (placená náhrada)</ChoiceBtn>
               </div>
@@ -443,7 +443,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
           </div>
 
           <div className="flex justify-start">
-            <button onClick={() => setScreen('type')} className="text-sm font-extrabold cursor-pointer border-none"
+            <button onClick={() => setScreen('type')} className="text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
               style={{ padding: '8px 14px', background: '#f1faf7', color: '#1a2e22', borderRadius: 10 }}>← Zpět</button>
           </div>
         </div>
@@ -473,7 +473,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
             {motos.length === 0 && <div className="text-sm" style={{ color: '#b45309' }}>Žádné dostupné motorky.</div>}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="text-sm font-bold" style={{ color: '#1a2e22' }}>Adresa přistavení</label>
               <input value={addr} onChange={e => setAddr(e.target.value)} className="w-full rounded-btn text-sm outline-none"
@@ -510,10 +510,10 @@ export default function NewIncidentModal({ onClose, onCreated }) {
           </div>
 
           <div className="flex justify-between">
-            <button onClick={() => setScreen('decision')} className="text-sm font-extrabold cursor-pointer border-none"
+            <button onClick={() => setScreen('decision')} className="text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
               style={{ padding: '8px 14px', background: '#f1faf7', color: '#1a2e22', borderRadius: 10 }}>← Zpět</button>
             <button disabled={loading || !moto || !activeBooking} onClick={finalizeReplacement}
-              className="rounded-btn text-sm font-extrabold cursor-pointer border-none disabled:opacity-40"
+              className="rounded-btn text-sm font-extrabold cursor-pointer border-none disabled:opacity-40 max-lg:min-h-[40px]"
               style={{ padding: '9px 18px', background: '#1a2e22', color: '#74FB71' }}>
               {loading ? '⏳' : isFree ? 'Objednat zdarma →' : 'Pokračovat k platbě →'}
             </button>
@@ -527,7 +527,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
           <div className="rounded-lg text-sm font-extrabold" style={{ padding: '10px 12px', background: '#fef2f2', color: '#b91c1c' }}>
             K úhradě: {czk(total)} {moto ? `· ${moto.model}` : ''}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 max-sm:flex-wrap">
             <ChoiceBtn active={payMethod === 'stripe'} onClick={() => setPayMethod('stripe')}>Stripe odkaz</ChoiceBtn>
             <ChoiceBtn active={payMethod === 'manual'} onClick={() => setPayMethod('manual')}>Ruční potvrzení</ChoiceBtn>
           </div>
@@ -538,7 +538,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
               po zaplacení se náhradní rezervace automaticky označí jako uhrazená.
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <label className="text-sm font-bold" style={{ color: '#1a2e22' }}>Způsob platby</label>
                 <select value={manualMethod} onChange={e => setManualMethod(e.target.value)} className="w-full rounded-btn text-sm outline-none"
@@ -556,7 +556,7 @@ export default function NewIncidentModal({ onClose, onCreated }) {
 
           <div className="flex justify-end">
             <button disabled={loading} onClick={payMethod === 'stripe' ? payStripe : payManual}
-              className="rounded-btn text-sm font-extrabold cursor-pointer border-none disabled:opacity-40"
+              className="rounded-btn text-sm font-extrabold cursor-pointer border-none disabled:opacity-40 max-lg:min-h-[40px]"
               style={{ padding: '9px 18px', background: '#1a2e22', color: '#74FB71' }}>
               {loading ? '⏳' : payMethod === 'stripe' ? 'Vytvořit platební odkaz' : 'Potvrdit platbu'}
             </button>
@@ -575,17 +575,17 @@ export default function NewIncidentModal({ onClose, onCreated }) {
             <div>
               <div className="text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>Platební odkaz (pošlete zákazníkovi):</div>
               <div className="flex gap-2">
-                <input readOnly value={result.checkoutUrl} className="flex-1 rounded-btn text-sm outline-none"
+                <input readOnly value={result.checkoutUrl} className="flex-1 rounded-btn text-sm outline-none max-lg:min-w-0"
                   style={{ padding: '8px 10px', border: '1px solid #d4e8e0', background: '#f8fcfa' }} />
                 <button onClick={() => navigator.clipboard?.writeText(result.checkoutUrl)}
-                  className="rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                  className="rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
                   style={{ padding: '8px 14px', background: '#2563eb', color: '#fff' }}>Kopírovat</button>
               </div>
               <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>Odkaz byl také odeslán zákazníkovi do aplikace.</div>
             </div>
           )}
           <div className="flex justify-end">
-            <button onClick={onClose} className="rounded-btn text-sm font-extrabold cursor-pointer border-none"
+            <button onClick={onClose} className="rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
               style={{ padding: '9px 18px', background: '#1a2e22', color: '#74FB71' }}>Hotovo</button>
           </div>
         </div>
@@ -627,7 +627,7 @@ const MANUAL_LABELS = {
 function ChoiceBtn({ active, danger, onClick, children }) {
   return (
     <button onClick={onClick}
-      className="rounded-btn text-sm font-extrabold cursor-pointer border-none"
+      className="rounded-btn text-sm font-extrabold cursor-pointer border-none max-lg:min-h-[40px]"
       style={{
         padding: '8px 14px',
         background: active ? (danger ? '#dc2626' : '#1a8a18') : '#f1faf7',

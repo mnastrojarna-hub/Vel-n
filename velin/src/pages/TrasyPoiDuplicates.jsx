@@ -75,8 +75,8 @@ export default function TrasyPoiDuplicates() {
   const sel = { padding: '7px 10px', borderRadius: 8, border: '1px solid #d6ddd8', fontSize: 13, background: '#fff' }
 
   return (
-    <Card className="mt-6">
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+    <Card className="mt-6 max-sm:!px-3">
+      <div className="flex flex-wrap items-center gap-3 mb-4 max-lg:[&>button]:min-h-[36px]">
         <h2 className="font-bold" style={{ fontSize: 16 }}>♊ Duplicitní místa</h2>
         <div className="flex-1" />
         <select style={sel} value={country} onChange={e => setCountry(e.target.value)}>
@@ -127,11 +127,11 @@ export default function TrasyPoiDuplicates() {
                       const me = p[k], other = p[k === 'a' ? 'b' : 'a']
                       if (!me) return null
                       return (
-                        <div key={k} className="flex gap-2 items-start" style={{ flex: '1 1 280px', minWidth: 260 }}>
+                        <div key={k} className="flex gap-2 items-start" style={{ flex: '1 1 280px', minWidth: 'min(260px, 100%)' }}>
                           {poiPhoto(me)
-                            ? <img src={poiPhoto(me)} alt="" loading="lazy" style={{ width: 62, height: 46, objectFit: 'cover', borderRadius: 6 }} />
-                            : <div style={{ width: 62, height: 46, borderRadius: 6, background: '#f3f4f6', display: 'grid', placeItems: 'center', fontSize: 11, color: '#9ca3af' }}>bez foto</div>}
-                          <div style={{ minWidth: 0 }}>
+                            ? <img src={poiPhoto(me)} alt="" loading="lazy" className="max-lg:shrink-0" style={{ width: 62, height: 46, objectFit: 'cover', borderRadius: 6 }} />
+                            : <div className="max-lg:shrink-0" style={{ width: 62, height: 46, borderRadius: 6, background: '#f3f4f6', display: 'grid', placeItems: 'center', fontSize: 11, color: '#9ca3af' }}>bez foto</div>}
+                          <div className="max-lg:[&>button]:min-h-[36px]" style={{ minWidth: 0 }}>
                             <div className="font-semibold text-sm">{me.name}</div>
                             <div className="text-xs" style={{ color: '#6b7280' }}>
                               {catLabel(me.category)} · {me.country || '—'} · {Number(me.lat).toFixed(4)}, {Number(me.lng).toFixed(4)}

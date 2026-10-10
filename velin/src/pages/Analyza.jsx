@@ -29,12 +29,14 @@ export default function Analyza() {
       <h1 className="text-2xl font-extrabold mb-1" style={{ color: '#1a2e22' }}>Analýza</h1>
       <p className="text-sm mb-5" style={{ color: '#888' }}>Fleet & Customer Intelligence</p>
 
-      <div className="flex gap-2 mb-5 flex-wrap">
+      {/* 16 záložek se zalamuje (všechny vidět); na dotyku min. výška 40 px.
+          Telefon: kompaktnější čipy (menší odsazení a písmo), ať lišta nezabere celou obrazovku. */}
+      <div className="flex gap-2 max-md:gap-1.5 mb-5 flex-wrap">
         {TABS.map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px] max-md:!px-3 max-md:!py-1 max-md:text-xs max-md:tracking-normal"
             style={{
               padding: '8px 18px',
               background: tab === t ? '#74FB71' : '#f1faf7',

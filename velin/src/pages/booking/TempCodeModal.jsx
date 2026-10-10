@@ -90,7 +90,7 @@ export default function TempCodeModal({ open, onClose, booking, doors, defaultDo
       <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Platnost</label>
       <div className="flex gap-2 mb-3 flex-wrap">
         {MINUTES.map(m => (
-          <button key={m} type="button" onClick={() => setMinutes(m)} className="rounded-btn text-sm font-extrabold cursor-pointer"
+          <button key={m} type="button" onClick={() => setMinutes(m)} className="rounded-btn text-sm font-extrabold cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '6px 14px', background: minutes === m ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: minutes === m ? 'none' : '1px solid #d4e8e0' }}>
             {m} min
           </button>
