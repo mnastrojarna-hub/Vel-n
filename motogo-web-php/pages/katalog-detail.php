@@ -420,14 +420,21 @@ var CAL_I18N = {
       return await r.json();
     } catch(e){ return []; }
   }
+  // Den jako UTC ms z kalendarniho data (krok po 864e5 bez posunu DST)
+  function dayUtc(v){
+    if(v==null||v==="") return NaN;
+    var m=/^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(String(v));
+    if(m) return Date.UTC(+m[1],m[2]-1,+m[3]);
+    var t=new Date(v); return Date.UTC(t.getFullYear(),t.getMonth(),t.getDate());
+  }
   function buildBookedDays(bookings){
     var bookedDays = {}, now = new Date();
     (bookings||[]).forEach(function(b){
-      var s=new Date(b.start_date),e=new Date(b.end_date),d=new Date(s);
+      var s=dayUtc(b.start_date),e=dayUtc(b.end_date),d=s;
       var isPending=b.status==="pending",createdAt=b.created_at?new Date(b.created_at):null;
       var isRecent=createdAt&&(now-createdAt)<4*60*60*1000;
       var status=(isPending&&isRecent)?"unconfirmed":"occupied";
-      while(d<=e){var key=d.toISOString().split("T")[0];bookedDays[key]=status;d.setDate(d.getDate()+1);}
+      while(d<=e){var key=new Date(d).toISOString().split("T")[0];bookedDays[key]=status;d+=864e5;}
     });
     return bookedDays;
   }
