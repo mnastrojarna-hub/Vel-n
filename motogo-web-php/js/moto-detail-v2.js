@@ -5,7 +5,6 @@
 (function () {
   var d = document, b = d.body, W = window;
   var rm = !!(W.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-  var IO = 'IntersectionObserver' in W;
   function each(sel, fn, root) { Array.prototype.forEach.call((root || d).querySelectorAll(sel), fn); }
   var ICO = {
     year: 'M4 5h16v15H4zM16 3v4M8 3v4M4 10h16',
@@ -62,7 +61,7 @@
     g.appendChild(cnt);
     var fine = !!(W.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches);
     [-1, 1].forEach(function (dir) {
-      var src = g.querySelector(dir < 0 ? '.moto-thumbs-prev' : '.moto-thumbs-next'), a = d.createElement('button');
+      var src = (lb || g).querySelector(dir < 0 ? '.mg-lb-prev' : '.mg-lb-next'), a = d.createElement('button');
       a.type = 'button';
       a.className = 'md-arr md-arr--' + (dir < 0 ? 'prev' : 'next');
       a.setAttribute('aria-label', (src && src.getAttribute('aria-label')) || '');
@@ -112,12 +111,18 @@
     upd();
   });
 
-  // 3) Sticky lišta — po odscrollování CTA panelu; skrytá u kalkulačky, patičky, cookie lišty a liště kalkulačky
+  // 3) Sticky lišta — po odscrollování CTA panelu; skrytá u kalkulačky, patičky, cookie lišty a když je
+  //    vidět lišta kalkulačky. Polohu čteme při scrollu (IntersectionObserver nehlásí skok nahoru přes celou stránku).
   var st = d.querySelector('[data-md-sticky]'), sen = d.querySelector('[data-md-sentinel]');
-  if (!st || !sen || !IO) return;
-  var past = false, seen = [], on = null, kc = d.querySelector('.kc-sticky'), cs = d.getElementById('mg-consent');
+  if (!st || !sen) return;
+  var on = null, cta = null, rq = 0, kc = d.querySelector('.kc-sticky'), cs = d.getElementById('mg-consent');
+  var zones = [d.getElementById('kalkulacka'), d.querySelector('footer')].filter(Boolean);
+  function inView(el) { var r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < W.innerHeight; }
   function apply() {
-    var v = past && !seen.length && !(kc && kc.classList.contains('is-on')) && !(cs && !cs.hidden) && W.innerWidth < 769;
+    rq = 0;
+    var r = sen.getBoundingClientRect(), vis = r.bottom > 0 && r.top < W.innerHeight;
+    if (vis !== cta) { cta = vis; b.classList.toggle('lp-cta-visible', vis); }
+    var v = r.bottom < 0 && !zones.some(inView) && !(kc && kc.classList.contains('is-on')) && !(cs && !cs.hidden) && W.innerWidth < 769;
     if (v === on) return;
     on = v;
     st.classList.toggle('is-on', v);
@@ -126,25 +131,13 @@
     each('a', function (a) { if (v) a.removeAttribute('tabindex'); else a.setAttribute('tabindex', '-1'); }, st);
     d.documentElement.style.scrollPaddingBottom = v ? (st.offsetHeight + 12) + 'px' : '';
   }
-  new IntersectionObserver(function (es) {
-    var e = es[0];
-    past = !e.isIntersecting && e.boundingClientRect.top < 0;
-    b.classList.toggle('lp-cta-visible', e.isIntersecting);
-    apply();
-  }).observe(sen);
-  var eo = new IntersectionObserver(function (es) {
-    es.forEach(function (e) {
-      var k = seen.indexOf(e.target);
-      if (e.isIntersecting && k < 0) seen.push(e.target);
-      if (!e.isIntersecting && k >= 0) seen.splice(k, 1);
-    });
-    apply();
-  });
-  each('#kalkulacka, footer', function (el) { eo.observe(el); });
+  function req() { if (!rq) rq = requestAnimationFrame(apply); }
+  W.addEventListener('scroll', req, { passive: true });
+  W.addEventListener('resize', req);
   if ('MutationObserver' in W) {
-    var mo = new MutationObserver(apply);
+    var mo = new MutationObserver(req);
     if (kc) mo.observe(kc, { attributes: true, attributeFilter: ['class'] });
     if (cs) mo.observe(cs, { attributes: true, attributeFilter: ['hidden'] });
   }
-  W.addEventListener('resize', apply);
+  apply();
 })();

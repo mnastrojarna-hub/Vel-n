@@ -79,3 +79,5 @@
 .lpi .lp-more h2{padding-top:0}
 .lpi-more .lpi-checks--div{margin-top:.75rem}
 
+/* Omezení pohybu — až za definicemi animací tohoto souboru (v landing-info.css by je tento soubor přebil) */
+@media(prefers-reduced-motion:reduce){.lpi-ai-ico,.lpi-cta .lp-cta-card::before,.lpi .lpi-faq-item[open]>:not(summary){animation:none}.lpi-doc{transition:none}}

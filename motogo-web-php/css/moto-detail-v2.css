@@ -3,7 +3,11 @@
    .md-info, .md-specs, .md-gear, .md-rev (recenze z landing-trust.php), .md-sticky. JS: js/moto-detail-v2.js
    (počítadlo/šipky/náhledy galerie, ikony parametrů a výbavy, sticky lišta). Kalkulačka: landing-calc*.css. */
 .md{--md-g:1.25rem;--lp-star:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z'/%3E%3C/svg%3E");--md-calc:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h12v18H6zM9 7h6M9 11h1M12 11h1M15 11v6M9 15h1M12 15h1M9 18h1M12 18h1'/%3E%3C/svg%3E");--md-doc:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h6'/%3E%3C/svg%3E");--md-zoom:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2374fb71' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7'/%3E%3C/svg%3E");--md-check:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2308230f' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");--md-play:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2374fb71'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E")}
+/* --md-g = boční odsazení .container z main.css (plné šířky na mobilu přes záporný okraj) */
+@media(max-width:1200px){.md{--md-g:1.5rem}}
+@media(max-width:768px){.md{--md-g:1rem}}
 @media(max-width:480px){.md{--md-g:.9rem}}
+@media(max-width:360px){.md{--md-g:.75rem}}
 .md-info h2,.md-info h3,.md .moto-specs>h2,.md .moto-prices h2,.md .moto-related>h2{margin:0 0 .8rem;color:#0e2a1c;font-size:clamp(1.25rem,5vw,1.55rem);line-height:1.2;letter-spacing:-.01em}
 .md-info h3{font-size:clamp(1.1rem,4.4vw,1.3rem)}
 
