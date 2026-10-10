@@ -691,9 +691,16 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
 .banner>picture,.banner>picture>img,.banner>img{width:100%;height:380px;object-fit:cover;display:block}
 @media(min-width:769px){.banner{min-height:480px}.banner>picture,.banner>picture>img,.banner>img{height:480px}}
   </style>
-  <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">
+  <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">';
+    // Page-specific styly/skripty (např. landing v2 — css/landing.css, js/landing.js)
+    foreach ((array)($meta['styles'] ?? []) as $st) {
+        echo '
+  <link rel="stylesheet" href="' . assetUrl($st) . '">';
+    }
+    $bodyClasses = trim(($currentPath === '/' ? 'homepage ' : '') . (string)($meta['body_class'] ?? ''));
+    echo '
 </head>
-<body' . ($currentPath === '/' ? ' class="homepage"' : '') . '>
+<body' . ($bodyClasses !== '' ? ' class="' . htmlspecialchars($bodyClasses) . '"' : '') . '>
 ';
     // GTM/Sklik se NIKDY nevkládá přímo do HTML — banner JS je injektne
     // až po souhlasu. Viz renderConsentManager() na konci stránky.
@@ -752,6 +759,10 @@ window.MG_I18N = Object.assign(window.MG_I18N || {}, ' . $cartI18n . ');
 <script src="' . assetUrl('/js/cart.js') . '" defer></script>
 <script src="' . assetUrl('/js/header-auth.js') . '" defer></script>
 <script src="' . assetUrl('/js/header-app.js') . '" defer></script>';
+    foreach ((array)($meta['scripts'] ?? []) as $sc) {
+        echo '
+<script src="' . assetUrl($sc) . '" defer></script>';
+    }
 
     echo renderInlineJs();
 
