@@ -8,7 +8,7 @@ export default function BookingDeliverySection({
   return (
     <div className="mb-5">
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Pristaveni a vraceni</h3>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-bold uppercase mb-1" style={{ color: '#1a2e22' }}>Vyzvednuti</label>
           <select value={pickupMethod} onChange={e => setPickupMethod(e.target.value)} className="w-full text-sm font-bold cursor-pointer" style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #d4e8e0', background: '#f1faf7', color: '#1a2e22' }}>

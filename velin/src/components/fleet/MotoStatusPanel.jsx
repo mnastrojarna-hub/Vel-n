@@ -20,7 +20,7 @@ export default function MotoStatusPanel({
       {success && <div className="mb-4 p-3 rounded-card" style={{ background: '#dcfce7', color: '#1a8a18', fontSize: 13 }}>{success}</div>}
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
-      <div className="flex items-center gap-3 mb-5 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <div className="flex items-center gap-3 mb-5 p-3 rounded-lg max-lg:flex-wrap max-lg:gap-y-1" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
         <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{moto.model}</span>
         <span className="font-mono text-sm" style={{ color: '#1a2e22' }}>{moto.spz}</span>
         <StatusBadge status={moto.status} />
@@ -45,8 +45,8 @@ export default function MotoStatusPanel({
 
       <div className="mb-5">
         <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Přesunout na pobočku</h3>
-        <div className="flex items-center gap-2">
-          <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} className="flex-1 rounded-btn text-sm outline-none"
+        <div className="flex items-center gap-2 max-md:flex-wrap">
+          <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} className="flex-1 rounded-btn text-sm outline-none max-lg:min-w-0 max-md:basis-full"
             style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
             <option value="">— Vyberte cílovou pobočku —</option>
             {branches.filter(b => b.id !== moto.branch_id).map(b => <option key={b.id} value={b.id}>{b.name}{!b.active ? ' (neaktivní)' : ''}</option>)}

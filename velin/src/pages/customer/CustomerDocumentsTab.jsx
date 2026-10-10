@@ -311,7 +311,7 @@ export default function CustomerDocumentsTab({ userId }) {
       <Card>
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <SearchInput value={search} onChange={v => { setSearch(v); setPage(1) }} placeholder="Hledat v dokumentech…" />
-          <div className="flex gap-1">
+          <div className="flex gap-1 max-lg:flex-wrap">
             {DOC_FILTER_OPTIONS.map(opt => (
               <button key={opt.value} onClick={() => { setTypeFilter(opt.value); setPage(1) }}
                 className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
@@ -338,19 +338,20 @@ export default function CustomerDocumentsTab({ userId }) {
             {pagedItems.map(item => {
               const tp = item.typeBadge || (DOC_TYPE_LABELS[item.type] ? { label: DOC_TYPE_LABELS[item.type], color: '#1a2e22', bg: '#f1faf7' } : null)
               return (
-                <div key={`${item.kind}-${item.id}`} className="flex items-center gap-4 p-3 rounded-lg cursor-pointer hover:shadow-sm transition-shadow"
+                // Telefon (< 768 px): ikona + název na prvním řádku, částka / datum / akce pod ním
+                <div key={`${item.kind}-${item.id}`} className="flex items-center gap-4 p-3 rounded-lg cursor-pointer hover:shadow-sm transition-shadow max-md:flex-wrap max-md:gap-x-3 max-md:gap-y-1"
                   style={{ background: '#f1faf7' }} onClick={() => handleViewItem(item)}>
                   <span style={{ fontSize: 16 }}>{item.icon}</span>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 max-md:basis-[calc(100%-40px)] max-md:break-words">
                     <span className="text-sm font-bold">{item.name}</span>
                     {tp && <Badge label={tp.label} color={tp.color} bg={tp.bg} style={{ marginLeft: 8 }} />}
                   </div>
                   {item.amount != null && <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{item.amount.toLocaleString('cs-CZ')} Kč</span>}
                   <span className="text-sm" style={{ color: '#1a2e22' }}>{item.date || '—'}</span>
-                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => handleViewItem(item)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Náhled</button>
-                    <button onClick={() => handlePrint(item)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Tisk</button>
-                    <button onClick={() => handleDownload(item)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stáhnout</button>
+                  <div className="flex gap-2 max-md:ml-auto max-lg:gap-3" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => handleViewItem(item)} className="text-sm font-bold cursor-pointer max-lg:py-2" style={{ color: '#2563eb', background: 'none', border: 'none' }}>Náhled</button>
+                    <button onClick={() => handlePrint(item)} className="text-sm font-bold cursor-pointer max-lg:py-2" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Tisk</button>
+                    <button onClick={() => handleDownload(item)} className="text-sm font-bold cursor-pointer max-lg:py-2" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stáhnout</button>
                   </div>
                 </div>
               )
@@ -370,7 +371,7 @@ export default function CustomerDocumentsTab({ userId }) {
           ) : (
             <div className="py-8 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>Dokument nemá náhled.</div>
           )}
-          <div className="flex justify-end gap-3 mt-4">
+          <div className="flex justify-end gap-3 mt-4 max-sm:flex-wrap">
             {viewHtml && <Button onClick={() => openPrintWindow(viewHtml)}>Tisk / PDF</Button>}
             <Button onClick={() => handleDownload({ kind: viewDoc.number ? 'invoice' : 'document', raw: viewDoc })}>Stáhnout</Button>
             <Button onClick={() => { setViewDoc(null); setViewHtml(null) }}>Zavřít</Button>

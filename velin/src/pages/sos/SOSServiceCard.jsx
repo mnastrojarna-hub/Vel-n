@@ -64,8 +64,8 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: '#dc2626' }}>
+      <div className="flex items-center justify-between mb-3 max-sm:flex-wrap max-sm:gap-2">
+        <h4 className="text-[10px] max-lg:text-xs font-extrabold uppercase tracking-wider" style={{ color: '#dc2626' }}>
           URGENT Servisní záznam
         </h4>
         <div className="flex items-center gap-2">
@@ -78,7 +78,7 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
             <span className="text-xs font-bold" style={{ color: '#16a34a' }}>Uloženo</span>
           )}
           <button onClick={() => setExpanded(!expanded)}
-            className="text-xs font-bold px-2 py-1 rounded"
+            className="text-xs font-bold px-2 py-1 rounded max-lg:min-h-[36px] max-lg:px-3"
             style={{ background: '#f1faf7', color: '#1a2e22', border: '1px solid #d4e8e0' }}>
             {expanded ? 'Sbalit' : 'Upravit detaily'}
           </button>
@@ -113,7 +113,7 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
           {/* SOS specific types */}
           <div className="mb-4">
             <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#dc2626' }}>Typ SOS události</div>
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
               {SOS_SERVICE_TYPES.map(item => (
                 <label key={item.id} className="flex items-center gap-2 p-2 rounded cursor-pointer"
                   style={{ background: checkedItems[item.id] ? '#fee2e2' : '#f1faf7', border: `1px solid ${checkedItems[item.id] ? '#dc2626' : '#d4e8e0'}` }}>
@@ -131,7 +131,7 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
             {SERVICE_CHECKLIST.map(group => (
               <div key={group.group}>
                 <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{group.group}</div>
-                <div className="grid grid-cols-2 gap-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                   {group.items.map(item => (
                     <label key={item.id} className="flex items-center gap-2 p-2 rounded cursor-pointer"
                       style={{ background: checkedItems[item.id] ? '#dcfce7' : '#f1faf7', border: `1px solid ${checkedItems[item.id] ? '#1a8a18' : '#d4e8e0'}` }}>
@@ -156,7 +156,7 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
           </div>
 
           {/* Date range */}
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <div>
               <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servis od</label>
               <input type="date" value={serviceDateFrom} onChange={e => setServiceDateFrom(e.target.value)}
@@ -181,7 +181,7 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between max-sm:flex-wrap max-sm:gap-2">
             <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
               {checkedCount > 0 ? `Zaškrtnuto: ${checkedCount} položek` : 'Nic nezaškrtnuto'}
             </span>

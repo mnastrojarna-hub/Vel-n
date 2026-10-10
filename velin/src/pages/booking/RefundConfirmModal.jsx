@@ -43,7 +43,7 @@ export default function RefundConfirmModal({ open, onClose, totalPrice, defaultA
         )}
       </div>
       {error && <p className="text-sm mb-3" style={{ color: '#dc2626' }}>{error}</p>}
-      <div className="flex justify-end gap-3 mt-2">
+      <div className="flex justify-end gap-3 mt-2 max-lg:flex-wrap">
         <Button onClick={onClose}>Zpět</Button>
         <Button onClick={() => onConfirm({ amount: clamped })} disabled={saving || !amountValid}
           style={{ background: '#1a8a18', color: '#fff', boxShadow: '0 4px 16px rgba(26,138,24,.25)' }}>

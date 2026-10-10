@@ -139,7 +139,7 @@ export default function TempCodesList({ booking }) {
             <span className="text-xs" style={{ color: '#6b7280' }}>vydán {fmtPragueWhen(c.created_at)}</span>
             {c.note && <span className="text-xs italic" style={{ color: '#4a5a52' }}>„{c.note}“</span>}
             {st.live && (
-              <button onClick={() => setRevoke(c)} disabled={busy} className="ml-auto rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+              <button onClick={() => setRevoke(c)} disabled={busy} className="ml-auto rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[36px]"
                 style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: 'none' }}>Zrušit</button>
             )}
           </div>

@@ -351,7 +351,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
                     const off = !a.checked
                     const sizeStyle = { padding: '6px 10px', borderRadius: 8, border: `1px solid ${!off && a.size !== a.origSize ? '#f59e0b' : '#b6dccb'}`, fontSize: 14, fontWeight: 700, background: off ? '#f1f5f3' : '#fff', color: off ? '#9ca3af' : undefined }
                     return (
-                      <div key={i} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: '#f8faf9' }}>
+                      <div key={i} className="flex items-center gap-3 p-2 rounded-lg max-sm:flex-wrap max-sm:gap-y-1" style={{ background: '#f8faf9' }}>
                         <input type="checkbox" checked={a.checked} onChange={() => toggleAccessory(i)} style={cbStyle} />
                         <span style={{ ...labelStyle, flex: 1, ...(off ? { textDecoration: 'line-through', color: '#9ca3af' } : {}) }} onClick={() => toggleAccessory(i)}>{a.label}</span>
                         {opts.length > 0 ? (
@@ -398,7 +398,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
             <SignaturePad ref={custSig} label={`Podpis nájemce — ${vars?.customer_name || ''}`} />
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-3 pt-2 max-lg:flex-wrap">
             <Button onClick={onClose} disabled={saving}>Zrušit</Button>
             <Button green onClick={handleSave} disabled={saving}>{saving ? 'Ukládám…' : 'Uložit podepsaný protokol'}</Button>
           </div>

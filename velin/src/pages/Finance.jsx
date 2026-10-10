@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
+import { useIsMobile } from '../hooks/useIsMobile'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { classifyEntry, isTestInvoice, isVoidInvoice, summarizeInvoices, sumInvoiceRevenue } from '../lib/revenueUtils'
 import FinanceOverview from './FinanceOverview'
@@ -40,6 +41,7 @@ const ACCOUNTING_SUBTABS = [
 
 export default function Finance() {
   const debugMode = useDebugMode()
+  const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState('Přehled')
   const [accountingSubTab, setAccountingSubTab] = useState('events')
   const [summary, setSummary] = useState({ revenue: 0, expense: 0, unpaid: 0, unpaidCount: 0 })
@@ -241,11 +243,12 @@ export default function Finance() {
   return (
     <ErrorBoundary>
     <div>
-      <div className="flex gap-2 mb-5">
+      {/* Mobil/tablet: záložky se zalamují do více řádků (všechny dosažitelné), desktop beze změny */}
+      <div className="flex flex-wrap lg:flex-nowrap gap-2 mb-5">
         {FINANCE_TABS.map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
-            style={{ padding: '8px 18px', background: activeTab === t ? '#74FB71' : '#f1faf7', color: activeTab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: activeTab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer whitespace-nowrap lg:whitespace-normal"
+            style={{ padding: isMobile ? '10px 14px' : '8px 18px', background: activeTab === t ? '#74FB71' : '#f1faf7', color: activeTab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: activeTab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
             {t}
           </button>
         ))}

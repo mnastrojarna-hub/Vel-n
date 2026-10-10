@@ -52,7 +52,7 @@ export default function ComplaintsTab({ bookingId, booking, setBooking }) {
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 max-lg:flex-wrap max-lg:gap-2">
         <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Reklamace</h3>
         <Button green onClick={() => setShowAdd(!showAdd)}>+ Nová reklamace</Button>
       </div>
@@ -79,7 +79,7 @@ export default function ComplaintsTab({ bookingId, booking, setBooking }) {
         <div className="space-y-3">
           {complaints.map(c => (
             <div key={c.id} className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 max-lg:flex-wrap">
                 <span className="font-bold text-sm" style={{ color: '#0f1a14' }}>{c.subject}</span>
                 <span className="text-sm font-extrabold uppercase px-2 py-0.5 rounded-btn" style={{ background: statusBgs[c.status] || '#f3f4f6', color: statusColors[c.status] || '#6b7280' }}>
                   {statusLabels[c.status] || c.status}
@@ -89,7 +89,7 @@ export default function ComplaintsTab({ bookingId, booking, setBooking }) {
               {c.description && <p className="text-sm mb-2" style={{ color: '#1a2e22' }}>{c.description}</p>}
               {c.resolution && <p className="text-sm mb-2" style={{ color: '#1a8a18' }}><strong>Řešení:</strong> {c.resolution}</p>}
               {c.status !== 'resolved' && c.status !== 'rejected' && (
-                <div className="flex gap-1 mt-2">
+                <div className="flex gap-1 mt-2 max-lg:flex-wrap max-lg:gap-2">
                   {c.status === 'open' && <SmallActionBtn onClick={() => updateStatus(c.id, 'in_progress')} color="#2563eb" bg="#dbeafe">Řešit</SmallActionBtn>}
                   <SmallActionBtn onClick={() => updateStatus(c.id, 'resolved')} color="#1a8a18" bg="#dcfce7">Vyřešeno</SmallActionBtn>
                   <SmallActionBtn onClick={() => updateStatus(c.id, 'rejected')} color="#6b7280" bg="#f3f4f6">Zamítnout</SmallActionBtn>

@@ -79,9 +79,9 @@ export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, er
 
       {error && <div className="mb-3 p-2 rounded text-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between max-md:flex-wrap max-md:gap-2">
         <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{checkedCount > 0 ? `Zaškrtnuto: ${checkedCount} úkonů` : 'Nic nezaškrtnuto'}</span>
-        <div className="flex gap-2">
+        <div className="flex gap-2 max-md:ml-auto">
           <Button onClick={onBack}>Zpět</Button>
           <Button green onClick={handleConfirm} disabled={busy || (!note.trim() && checkedCount === 0)}>
             {busy ? (editMode ? 'Ukládám…' : 'Odesílám…') : (editMode ? 'Uložit změny' : 'Odeslat do servisu')}

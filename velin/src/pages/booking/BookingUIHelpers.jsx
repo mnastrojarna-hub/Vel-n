@@ -2,8 +2,9 @@ export function InfoRow({ label, value, accent }) {
   const v = value === 0 || value === '0' ? value : (value || '—')
   return (
     <div className="flex items-baseline gap-3 py-[3px]" style={{ borderBottom: '1px solid #e8f1ec' }}>
-      <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#4a5a52', minWidth: 95, flexShrink: 0 }}>{label}</span>
-      <span className="text-sm font-semibold" style={{ color: accent || '#0f1a14' }}>{v}</span>
+      {/* < lg: dlouhý popisek se smí zalomit a hodnota (e-mail, částka) nepřeteče kartu */}
+      <span className="text-xs font-extrabold uppercase tracking-wide shrink-0 max-lg:shrink max-lg:max-w-[50%]" style={{ color: '#4a5a52', minWidth: 95 }}>{label}</span>
+      <span className="text-sm font-semibold max-lg:min-w-0 max-lg:[overflow-wrap:anywhere]" style={{ color: accent || '#0f1a14' }}>{v}</span>
     </div>
   )
 }
@@ -12,8 +13,8 @@ export function SumRow({ label, value, color, strong }) {
   if (value === undefined || value === null || value === '') return null
   return (
     <div className="flex gap-3 py-[4px]" style={{ borderBottom: '1px solid #eef4f0', fontSize: 13 }}>
-      <span className="font-bold" style={{ color: '#4a5a52', minWidth: 165, flexShrink: 0 }}>{label}</span>
-      <span className={strong ? 'font-extrabold' : 'font-semibold'} style={{ color: color || '#0f1a14' }}>{value}</span>
+      <span className="font-bold shrink-0 min-w-[165px] max-sm:min-w-0 max-sm:w-[42%]" style={{ color: '#4a5a52' }}>{label}</span>
+      <span className={`${strong ? 'font-extrabold' : 'font-semibold'} max-lg:min-w-0 max-lg:[overflow-wrap:anywhere]`} style={{ color: color || '#0f1a14' }}>{value}</span>
     </div>
   )
 }
@@ -29,7 +30,7 @@ export function SectionHeading({ children, color = '#1a2e22', className = '' }) 
 
 export function SmallActionBtn({ children, onClick, color, bg }) {
   return (
-    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[36px] max-lg:min-w-[44px]"
       style={{ padding: '3px 8px', background: bg, color, border: 'none' }}>{children}</button>
   )
 }

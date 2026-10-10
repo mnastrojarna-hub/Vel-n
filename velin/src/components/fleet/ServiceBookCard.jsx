@@ -51,7 +51,7 @@ export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog 
         <span className="text-xs" style={{ color: '#6b7280' }}>{filtered.length}{filtered.length !== completed.length ? ` z ${completed.length}` : ''} dokončených servisů · náklady {fmtMoney(totalCost)}{openCount > 0 ? ` · ${openCount} otevřených (výše)` : ''}</span>
       </div>
       <div className="flex items-center gap-2 flex-wrap mb-3">
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Hledat v zadání, zprávě, úkonech, technikovi…" className="text-sm outline-none" style={{ ...sel, width: 280 }} />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Hledat v zadání, zprávě, úkonech, technikovi…" className="text-sm outline-none" style={{ ...sel, width: 280, maxWidth: '100%' }} />
         <select value={task} onChange={e => setTask(e.target.value)} className="text-sm outline-none" style={sel}>
           <option value="">Všechny úkony</option>
           {SERVICE_GROUPS.map(g => { const its = g.items.filter(i => usedKeys.has(i.id)); return its.length ? <optgroup key={g.key} label={g.label}>{its.map(i => <option key={i.id} value={i.id}>{i.label}</option>)}</optgroup> : null })}
@@ -64,8 +64,8 @@ export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog 
 
       {completed.length === 0 ? <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádný dokončený servis — kniha se plní po dokončení servisu.</p>
       : filtered.length === 0 ? <p style={{ color: '#6b7280', fontSize: 13 }}>Žádný záznam neodpovídá filtru.</p> : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse" style={{ fontSize: 13 }}>
+        <div className="overflow-x-auto mg-stack-wrap">
+          <table className="w-full border-collapse mg-stack" style={{ fontSize: 13 }}>
             <thead><tr style={{ background: '#f1faf7', borderBottom: '1px solid #d4e8e0' }}>
               {['Datum', unitLabel, 'Typ', 'Úkony · zadání · zpráva technika', 'Technik', 'Cena', ''].map((h, i) => <th key={i} className="text-left text-xs font-extrabold uppercase tracking-wide" style={{ padding: '8px 10px', color: '#1a2e22' }}>{h}</th>)}
             </tr></thead>
@@ -78,7 +78,7 @@ export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog 
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 700, color: '#0f1a14' }}>{fmtDate(logDate(l))}{l.is_urgent && <div className="text-xs font-bold" style={{ color: '#dc2626' }}>URGENT</div>}</td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{fmtKm(l.km_at_service, '')}{l.km_auto && <span title="automaticky ze stavu tachometru" style={{ color: '#9ca3af', fontSize: 10 }}> auto</span>}</td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{LOG_TYPE_LABELS[l.type] || SERVICE_TYPE_LABELS[l.service_type] || 'Servis'}</td>
-                    <td style={{ padding: '8px 10px', color: '#0f1a14', minWidth: 260 }}>
+                    <td className="mg-stack-full" style={{ padding: '8px 10px', color: '#0f1a14', minWidth: 260 }}>
                       {items.length > 0 && <div className="flex flex-wrap gap-1 mb-1">{items.map((i, idx) => (
                         <span key={idx} title={i.done === true ? 'Provedeno' : 'Neodškrtnuto — nepočítá se jako provedené'} className="text-xs font-bold" style={{ padding: '2px 7px', borderRadius: 7, background: i.done === true ? (task && (i.key || SERVICE_LABEL_TO_ID[i.label]) === task ? '#74FB71' : '#e8fde8') : '#f8fafc', border: `1px solid ${i.done === true ? '#b6dccb' : '#e5e7eb'}`, color: i.done === true ? '#0f1a14' : '#9ca3af' }}>
                           {i.done === true ? '✓ ' : ''}{i.custom ? '✎ ' : ''}{i.label}{i.added_by ? ' (navíc)' : ''}{i.done_legacy ? ' (historicky)' : ''}{i.note ? ` — ${i.note}` : ''}
@@ -90,7 +90,7 @@ export default function ServiceBookCard({ logs, unitLabel = 'km', invoicesByLog 
                     </td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: '#1a2e22' }}>{l.performed_by || '—'}</td>
                     <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 700, color: '#0f1a14' }}>{fmtMoney(effectiveCost(l))}{Number(l.invoiced_amount) > 0 && Number(l.cost) > 0 && Number(l.cost) !== Number(l.invoiced_amount) ? <div className="text-xs font-normal" style={{ color: '#9ca3af' }}>odhad {fmtMoney(l.cost)}</div> : null}</td>
-                    <td style={{ padding: '8px 6px' }}>{onEdit && (!canEdit || canEdit(l)) && <button onClick={() => onEdit(l)} className="text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#2563eb' }} title="Upravit záznam">✎</button>}</td>
+                    <td style={{ padding: '8px 6px' }}>{onEdit && (!canEdit || canEdit(l)) && <button onClick={() => onEdit(l)} className="text-xs font-bold cursor-pointer max-md:text-sm max-md:rounded-btn max-md:px-4 max-md:py-2 max-md:!bg-[#dbeafe]" style={{ background: 'none', border: 'none', color: '#2563eb' }} title="Upravit záznam">✎<span className="md:hidden"> Upravit</span></button>}</td>
                   </tr>
                 )
               })}

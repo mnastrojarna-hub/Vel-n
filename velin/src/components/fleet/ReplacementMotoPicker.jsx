@@ -50,10 +50,10 @@ export default function ReplacementMotoPicker({ branchId, excludeMotoId, onSelec
       </div>
       <div style={{ maxHeight: 250, overflowY: 'auto' }} className="space-y-1">
         {filtered.map(m => (
-          <div key={m.id} onClick={() => setSelected(m.id)} className="flex items-center gap-2 p-2 rounded cursor-pointer"
+          <div key={m.id} onClick={() => setSelected(m.id)} className="flex items-center gap-2 p-2 rounded cursor-pointer max-md:flex-wrap"
             style={{ background: selected === m.id ? '#dcfce7' : '#f9fafb', border: `1px solid ${selected === m.id ? '#1a8a18' : '#e5e7eb'}` }}>
             <input type="radio" checked={selected === m.id} readOnly style={{ accentColor: '#1a8a18' }} />
-            <div className="flex-1">
+            <div className="flex-1 max-md:basis-[calc(100%-30px)]">
               <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{m.model}</span>
               <span className="text-sm font-mono ml-2" style={{ color: '#6b7280' }}>{m.spz}</span>
             </div>

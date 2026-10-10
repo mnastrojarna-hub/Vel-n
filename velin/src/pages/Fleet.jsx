@@ -12,6 +12,8 @@ import Modal from '../components/ui/Modal'
 import MotoActionModal from '../components/fleet/MotoActionModal'
 import FleetBulkActionsModal from '../components/fleet/FleetBulkActionsModal'
 import AddMotoModal from './FleetAddMotoModal'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { FleetMobileFilters, FleetMobileCards } from './FleetListMobile'
 
 const PER_PAGE = 25
 
@@ -26,11 +28,24 @@ const CATEGORIES = [
   { value: 'ostatni', label: 'Ostatní (přívěs…)' },
 ]
 
+const STATUS_OPTIONS = [{ value: 'active', label: 'Aktivní' }, { value: 'maintenance', label: 'V servisu' }, { value: 'unavailable', label: 'Dočasně vyřazené' }, { value: 'retired', label: 'Trvale vyřazené' }]
+const SORT_OPTIONS = [
+  { value: 'model', label: 'Dle názvu' },
+  { value: 'manual', label: 'Dle pořadí (ruční)' },
+  { value: 'utilization', label: 'Nejvíce vytížené' },
+  { value: 'acquired_desc', label: 'Datum ↓ nejnovější' },
+  { value: 'acquired_asc', label: 'Datum ↑ nejstarší' },
+  { value: 'mileage_desc', label: 'Km ↓ nejvyšší' },
+  { value: 'mileage_asc', label: 'Km ↑ nejnižší' },
+]
+
 const CAT_LABELS = { cestovni: 'Cestovní', sportovni: 'Sportovní', naked: 'Naked', supermoto: 'Supermoto', chopper: 'Chopper', scootery: 'Skútry', detske: 'Dětské', ostatni: 'Ostatní' }
 
 export default function Fleet() {
   const debugMode = useDebugMode()
   const navigate = useNavigate()
+  // Telefon + tablet (≤ 1023 px): skládací filtry a karty místo tabulky; desktop beze změny.
+  const isMobile = useIsMobile()
   const [motos, setMotos] = useState([])
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(true)
@@ -197,8 +212,15 @@ export default function Fleet() {
 
   const totalPages = Math.ceil(total / PER_PAGE)
 
+  const resetFilters = () => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_fleet_filters') }
+
   return (
     <div>
+      {isMobile ? (
+        <FleetMobileFilters filters={filters} update={patch => { setPage(1); setFilters(f => ({ ...f, ...patch })) }} onReset={resetFilters}
+          branches={branches} categories={CATEGORIES} statusOptions={STATUS_OPTIONS} sortOptions={SORT_OPTIONS}
+          selectedCount={selected.size} onBulk={() => setShowBulk(true)} onAdd={() => setShowAdd(true)} />
+      ) : (
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <SearchInput
           value={filters.search}
@@ -207,7 +229,7 @@ export default function Fleet() {
         />
         <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
-          options={[{ value: 'active', label: 'Aktivní' }, { value: 'maintenance', label: 'V servisu' }, { value: 'unavailable', label: 'Dočasně vyřazené' }, { value: 'retired', label: 'Trvale vyřazené' }]} />
+          options={STATUS_OPTIONS} />
         <FilterSelect
           value={filters.branch}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, branch: v })) }}
@@ -227,15 +249,7 @@ export default function Fleet() {
         <FilterSelect
           value={filters.sort}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, sort: v })) }}
-          options={[
-            { value: 'model', label: 'Dle názvu' },
-            { value: 'manual', label: 'Dle pořadí (ruční)' },
-            { value: 'utilization', label: 'Nejvíce vytížené' },
-            { value: 'acquired_desc', label: 'Datum ↓ nejnovější' },
-            { value: 'acquired_asc', label: 'Datum ↑ nejstarší' },
-            { value: 'mileage_desc', label: 'Km ↓ nejvyšší' },
-            { value: 'mileage_asc', label: 'Km ↑ nejnižší' },
-          ]}
+          options={SORT_OPTIONS}
         />
         <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-sm font-extrabold uppercase tracking-wide"
           style={{ padding: '8px 14px', background: filters.occupiedToday ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: filters.occupiedToday ? '#1a2e22' : '#1a2e22' }}>
@@ -252,7 +266,7 @@ export default function Fleet() {
             className="rounded-btn text-sm outline-none cursor-pointer"
             style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }} />
         </div>
-        <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_fleet_filters') }}
+        <button onClick={resetFilters}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
           style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
           Reset
@@ -265,6 +279,7 @@ export default function Fleet() {
           <Button green onClick={() => setShowAdd(true)}>+ Nová motorka</Button>
         </div>
       </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>
@@ -290,6 +305,10 @@ export default function Fleet() {
         </div>
       ) : (
         <>
+          {isMobile ? (
+            <FleetMobileCards motos={motos} selected={selected} setSelected={setSelected} missingAssetDocs={missingAssetDocs}
+              catLabels={CAT_LABELS} onOpen={m => navigate(`/flotila/${m.id}`)} onAction={setActionMoto} />
+          ) : (
           <Table>
             <thead>
               <TRow header>
@@ -374,6 +393,7 @@ export default function Fleet() {
               )}
             </tbody>
           </Table>
+          )}
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}

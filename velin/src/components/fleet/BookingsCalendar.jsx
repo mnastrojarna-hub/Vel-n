@@ -7,6 +7,7 @@ import Modal from '../ui/Modal'
 import StatusBadge, { getDisplayStatus } from '../ui/StatusBadge'
 import NewBookingFromCalendar from './NewBookingFromCalendar'
 import AddServiceFromCalendar from './AddServiceFromCalendar'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 const MONTHS = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
@@ -33,8 +34,11 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
   const [showAddService, setShowAddService] = useState(false)
   const [selectedDay, setSelectedDay] = useState(null)
   const [expandedLog, setExpandedLog] = useState(null)
+  // Mobil/tablet: popisek obsazeného dne (na desktopu je jen v title při najetí myší) se po klepnutí vypíše pod kalendář.
+  const isMobile = useIsMobile()
+  const [tapInfo, setTapInfo] = useState(null)
 
-  useEffect(() => { loadData() }, [motoId, month])
+  useEffect(() => { loadData(); setTapInfo(null) }, [motoId, month])
 
   async function loadData() {
     setLoading(true)
@@ -119,6 +123,10 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
       }
       return
     }
+    if (isMobile && info.type !== 'free') {
+      setTapInfo(prev => prev?.day === day ? null : { day, label: info.label })
+      return
+    }
     if (info.type === 'free') {
       const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       setSelectedDay(dateStr)
@@ -132,14 +140,14 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
     <>
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <button onClick={() => setMonth(new Date(year, mon - 1, 1))} style={navBtnStyle}>←</button>
+          <button onClick={() => setMonth(new Date(year, mon - 1, 1))} style={navBtnStyle} className="max-lg:!px-4 max-lg:!py-2">←</button>
           <span style={{ fontWeight: 800, fontSize: 15 }}>{MONTHS[mon]} {year}</span>
-          <button onClick={() => setMonth(new Date(year, mon + 1, 1))} style={navBtnStyle}>→</button>
+          <button onClick={() => setMonth(new Date(year, mon + 1, 1))} style={navBtnStyle} className="max-lg:!px-4 max-lg:!py-2">→</button>
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <Button green onClick={() => setShowAddBooking(true)}>+ Nová rezervace</Button>
-          <Button onClick={() => setShowAddService(true)} style={{ background: '#dbeafe', color: '#2563eb' }}>+ Servisní událost</Button>
+          <Button green onClick={() => setShowAddBooking(true)} className="max-lg:flex-1 max-lg:justify-center max-lg:!px-3">+ Nová rezervace</Button>
+          <Button onClick={() => setShowAddService(true)} style={{ background: '#dbeafe', color: '#2563eb' }} className="max-lg:flex-1 max-lg:justify-center max-lg:!px-3">+ Servisní událost</Button>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
@@ -150,11 +158,11 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
             const info = getDayInfo(day)
             const isService = info.type === 'service'
             return (
-              <div key={day} title={info.label} onClick={() => handleDayClick(day)} style={{
+              <div key={day} title={info.label} onClick={() => handleDayClick(day)} className="max-lg:!py-[10px]" style={{
                 textAlign: 'center', padding: '8px 2px', borderRadius: 8,
                 background: info.bg, color: info.color, fontSize: 12, fontWeight: 800,
                 cursor: isService ? 'pointer' : info.type === 'free' ? 'pointer' : 'default',
-                border: info.border || 'none',
+                border: info.border || (isMobile && tapInfo?.day === day ? '2px solid #0f1a14' : 'none'),
                 position: 'relative',
               }}>
                 {day}
@@ -165,6 +173,12 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
             )
           })}
         </div>
+
+        {isMobile && tapInfo && (
+          <div style={{ marginTop: 10, padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 10, fontSize: 13, fontWeight: 700, color: '#1a2e22' }}>
+            {tapInfo.day}. {mon + 1}. — {tapInfo.label}
+          </div>
+        )}
 
         {/* Legenda */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 14, fontSize: 13, fontWeight: 700 }}>
@@ -179,12 +193,12 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
         {bookings.length > 0 && (
           <div style={{ marginTop: 16 }}>
             {bookings.map(b => (
-              <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#f1faf7', borderRadius: 10, marginBottom: 4, fontSize: 12 }}>
-                <div>
-                  <span style={{ fontWeight: 700 }}>{b.profiles?.full_name || 'Zákazník'}</span>
-                  <span style={{ color: '#1a2e22', marginLeft: 8 }}>{b.start_date.split('T')[0]} → {b.end_date.split('T')[0]}</span>
+              <div key={b.id} className="max-lg:flex-wrap max-lg:gap-x-2 max-lg:gap-y-1.5" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#f1faf7', borderRadius: 10, marginBottom: 4, fontSize: 12 }}>
+                <div className="max-lg:min-w-0">
+                  <span style={{ fontWeight: 700 }} className="max-sm:block">{b.profiles?.full_name || 'Zákazník'}</span>
+                  <span style={{ color: '#1a2e22', marginLeft: 8 }} className="max-sm:!ml-0">{b.start_date.split('T')[0]} → {b.end_date.split('T')[0]}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 max-lg:ml-auto">
                   <StatusBadge status={getDisplayStatus(b)} />
                   <span style={{ fontWeight: 800, color: '#3dba3a' }}>{Number(b.total_price).toLocaleString('cs-CZ')} Kč</span>
                 </div>
@@ -223,7 +237,7 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
                   </div>
                   {isOpen && (
                     <div style={{ padding: '12px', background: '#fff', border: '1px solid #fecaca', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3" style={{ fontSize: 13 }}>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mb-3" style={{ fontSize: 13 }}>
                         <div><span style={{ fontWeight: 700, color: '#1a2e22' }}>Typ:</span> {sType}</div>
                         <div><span style={{ fontWeight: 700, color: '#1a2e22' }}>Stav:</span> {m.completed_date ? 'Dokončeno' : m.status === 'in_service' ? 'V servisu' : 'Naplánováno'}</div>
                         <div><span style={{ fontWeight: 700, color: '#1a2e22' }}>Servis od:</span> {dateFrom}</div>
@@ -244,7 +258,7 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
                           <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servisní úkony</div>
                           <div className="space-y-1">
                             {items.map((item, idx) => (
-                              <div key={idx} className="flex items-center gap-2 p-2 rounded" style={{ background: item.done ? '#dcfce7' : '#f9fafb', border: '1px solid ' + (item.done ? '#86efac' : '#e5e7eb'), fontSize: 13 }}>
+                              <div key={idx} className="flex items-center gap-2 p-2 rounded max-lg:flex-wrap" style={{ background: item.done ? '#dcfce7' : '#f9fafb', border: '1px solid ' + (item.done ? '#86efac' : '#e5e7eb'), fontSize: 13 }}>
                                 <span style={{ color: item.done ? '#16a34a' : '#9ca3af', fontWeight: 700 }}>{item.done ? '✓' : '○'}</span>
                                 <span style={{ color: item.done ? '#16a34a' : '#374151', textDecoration: item.done ? 'line-through' : 'none' }}>{item.custom ? '✎ ' : ''}{item.label}</span>
                                 {item.note && <span style={{ color: '#6b7280', marginLeft: 8, fontStyle: 'italic' }}>— {item.note}</span>}

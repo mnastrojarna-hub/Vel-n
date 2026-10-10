@@ -82,13 +82,13 @@ export default function ServiceSchedule({ onRefresh }) {
         ))}
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Hledat motorku / úkon…" className="rounded-btn text-sm outline-none" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 220 }} />
         {isSuper && <button onClick={acceptFleet} disabled={busy === 'accept'} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer" style={{ padding: '6px 14px', background: '#e8fde8', color: '#1a8a18', border: 'none' }} title="Stav hlídaný jinde (papír): plány po termínu / blíží se / neověřené v celé flotile začnou počítat od dneška (jen superadmin)">Vše v pořádku k dnešku</button>}
-        <span className="ml-auto text-xs flex gap-3 font-bold">
+        <span className="ml-auto text-xs flex gap-3 font-bold max-md:basis-full max-md:ml-0 max-md:flex-wrap max-md:gap-y-1">
           {['overdue', 'due_soon', 'unknown', 'ok'].map(k => counts[k] ? <span key={k} style={{ color: DUE_STATE[k].color }}>{DUE_STATE[k].label}: {counts[k]}</span> : null)}
           <span style={{ color: '#6b7280' }}>{list.length} řádků</span>
         </span>
       </div>
 
-      <Table>
+      <Table stack="tablet">
         <thead><TRow header><TH>Stav</TH><TH>Motorka</TH><TH>Úkon</TH><TH>Interval</TH><TH>Naposledy</TH><TH>Zbývá</TH><TH>Odhad / termín</TH><TH></TH></TRow></thead>
         <tbody>
           {list.map(r => {
@@ -97,7 +97,7 @@ export default function ServiceSchedule({ onRefresh }) {
             const isEd = editing === r.schedule_id
             return (
               <TRow key={r.schedule_id}>
-                <TD><span className="text-xs font-extrabold rounded-full" style={{ padding: '2px 8px', background: st.bg, color: st.color }}>{st.label}</span></TD>
+                <TD><span className="text-xs font-extrabold rounded-full max-lg:whitespace-nowrap" style={{ padding: '2px 8px', background: st.bg, color: st.color }}>{st.label}</span></TD>
                 <TD bold><span className="cursor-pointer" onClick={() => navigate(`/servis/motorka/${r.moto_id}`)} title="Servisní knížka">{r.model}</span><div className="text-xs font-mono font-normal" style={{ color: '#6b7280' }}>{r.spz}</div></TD>
                 <TD>{r.label}{r.group_label && <div className="text-xs" style={{ color: '#9ca3af' }}>{r.group_label}{r.source ? ` · ${SOURCE_LABELS[r.source] || r.source}` : ''}</div>}</TD>
                 <TD>{r.isStk ? '2 roky' : intervalText(r, unit)}</TD>
@@ -117,12 +117,12 @@ export default function ServiceSchedule({ onRefresh }) {
                     </span>
                   )}
                 </TD>
-                <TD>{!r.isStk && !r.open_log_id && r.state !== 'unknown' && <button onClick={() => plan(r)} disabled={busy === r.schedule_id} className="text-xs font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>Naplánovat</button>}
-                    {r.open_log_id && <button onClick={() => navigate(`/servis/motorka/${r.moto_id}`)} className="text-xs font-bold cursor-pointer" style={{ color: '#4f46e5', background: 'none', border: 'none' }}>otevřít</button>}</TD>
+                <TD>{!r.isStk && !r.open_log_id && r.state !== 'unknown' && <button onClick={() => plan(r)} disabled={busy === r.schedule_id} className="text-xs font-bold cursor-pointer max-lg:py-2 max-lg:px-1" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>Naplánovat</button>}
+                    {r.open_log_id && <button onClick={() => navigate(`/servis/motorka/${r.moto_id}`)} className="text-xs font-bold cursor-pointer max-lg:py-2 max-lg:px-1" style={{ color: '#4f46e5', background: 'none', border: 'none' }}>otevřít</button>}</TD>
               </TRow>
             )
           })}
-          {list.length === 0 && <TRow><TD>{filter === 'attention' ? 'Nic k řešení — všechny intervaly v pořádku.' : 'Žádné plány pro zvolený filtr.'}</TD></TRow>}
+          {list.length === 0 && <TRow><TD label="">{filter === 'attention' ? 'Nic k řešení — všechny intervaly v pořádku.' : 'Žádné plány pro zvolený filtr.'}</TD></TRow>}
         </tbody>
       </Table>
       <div className="mt-3 text-xs" style={{ color: '#6b7280' }}>~ = odhad termínu z průměrného denního nájezdu od pořízení · klikněte na datum pro ruční termín · „Neověřeno“ = v servisní knížce motorky doplňte poslední provedení</div>

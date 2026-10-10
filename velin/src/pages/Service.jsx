@@ -73,8 +73,8 @@ export default function Service() {
 
       <div className="flex gap-2 mb-4 flex-wrap">
         {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
-            style={{ padding: '8px 18px', background: tab === t.key ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none', boxShadow: tab === t.key ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
+          <button key={t.key} onClick={() => setTab(t.key)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer px-[18px] py-2 max-lg:py-2.5"
+            style={{ background: tab === t.key ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none', boxShadow: tab === t.key ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
             {t.label}
           </button>
         ))}

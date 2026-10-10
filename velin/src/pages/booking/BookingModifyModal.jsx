@@ -433,19 +433,19 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
 
         {/* DATES */}
         <div className="mb-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 max-lg:flex-wrap max-lg:gap-2">
             <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Termin</h3>
             {calStep === 0 ? (
-              <button onClick={() => setCalStep(startInPast ? 2 : 1)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>Zmenit termin</button>
+              <button onClick={() => setCalStep(startInPast ? 2 : 1)} className="text-sm font-bold cursor-pointer max-lg:min-h-[36px]" style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>Zmenit termin</button>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 max-lg:flex-wrap">
                 {startInPast ? (
                   <span className="text-sm font-bold" style={{ color: '#f59e0b' }}>Rezervace bezi — kliknete na nove datum vraceni</span>
                 ) : (<>
                   <span className="text-sm font-bold" style={{ color: '#f59e0b' }}>{calStep === 1 ? 'Kliknete na datum vyzvednuti' : 'Kliknete na datum vraceni'}</span>
-                  <button onClick={() => setCalStep(1)} className="text-xs font-bold cursor-pointer" title="Zmenit datum vyzvednuti"
+                  <button onClick={() => setCalStep(1)} className="text-xs font-bold cursor-pointer max-lg:min-h-[36px] max-lg:min-w-[44px]" title="Zmenit datum vyzvednuti"
                     style={{ padding: '3px 10px', borderRadius: 999, background: calStep === 1 ? '#74FB71' : '#f1faf7', border: calStep === 1 ? '2px solid #3dba3a' : '1px solid #d4e8e0', color: '#0f1a14' }}>OD</button>
-                  <button onClick={() => setCalStep(2)} className="text-xs font-bold cursor-pointer" title="Zmenit datum vraceni"
+                  <button onClick={() => setCalStep(2)} className="text-xs font-bold cursor-pointer max-lg:min-h-[36px] max-lg:min-w-[44px]" title="Zmenit datum vraceni"
                     style={{ padding: '3px 10px', borderRadius: 999, background: calStep === 2 ? '#74FB71' : '#f1faf7', border: calStep === 2 ? '2px solid #3dba3a' : '1px solid #d4e8e0', color: '#0f1a14' }}>DO</button>
                 </>)}
               </div>
@@ -523,7 +523,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         {/* VLASTNÍ VÝBAVA — rozhoduje o kódu šatny (samoobsluha); velikosti se mění jen v el. protokolu */}
         <div className="mb-5">
           <label className="block text-xs font-bold uppercase mb-1" style={{ color: '#1a2e22' }}>Vlastní výbava (bez šatny)</label>
-          <select value={ownGear} onChange={e => setOwnGear(e.target.value)} className="text-sm rounded-btn outline-none"
+          <select value={ownGear} onChange={e => setOwnGear(e.target.value)} className="text-sm rounded-btn outline-none max-lg:w-full"
             style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
             <option value="">Neuvedeno — odvodí se z velikostí výbavy</option>
             <option value="true">Ano — vlastní výbava, kód šatny se nevydává</option>
@@ -544,13 +544,13 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         </div>
 
         {/* ACTIONS */}
-        <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid #e5e7eb' }}>
+        <div className="flex items-center justify-between pt-3 max-lg:flex-wrap max-lg:gap-3" style={{ borderTop: '1px solid #e5e7eb' }}>
           <div className="text-xs" style={{ color: '#9ca3af' }}>
             {hasChanges ? (
               <span style={{ color: '#2563eb', fontWeight: 700 }}>Zmeny: {[datesChanged && 'termin', timesChanged && 'cas', motoChanged && 'motorka', deliveryChanged && 'doruceni', ownGearChanged && 'vlastni vybava', notes !== (booking.notes || '') && 'poznamky'].filter(Boolean).join(', ')}</span>
             ) : 'Zadne zmeny'}
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 max-lg:ml-auto">
             <Button onClick={onClose}>Zrusit</Button>
             <Button green onClick={handleSave} disabled={saving || !hasChanges || !startDate || !endDate}>{saving ? 'Ukladam...' : 'Ulozit zmeny'}</Button>
           </div>

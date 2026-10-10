@@ -40,7 +40,7 @@ export default function BookingCancelModal({ open, onClose, cancelReason, setCan
       {paid && (
         <>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>1. Vrácení platby (zaplaceno {total.toLocaleString('cs-CZ')} Kč)</label>
-          <div className="flex gap-2 mb-3">
+          <div className="flex gap-2 mb-3 max-sm:flex-col">
             <button type="button" onClick={() => { setRefundMode('refund'); setRefund({ pct: '100', amount: String(total) }) }}
               className="rounded-btn text-sm font-extrabold cursor-pointer" style={modeBtnStyle(refundMode === 'refund', '#74FB71')}>
               S vratkou peněz a dobropisem
@@ -85,7 +85,7 @@ export default function BookingCancelModal({ open, onClose, cancelReason, setCan
         </>
       )}
       {error && <p className="text-sm mb-3" style={{ color: '#dc2626' }}>{error}</p>}
-      <div className="flex justify-end gap-3 mt-2">
+      <div className="flex justify-end gap-3 mt-2 max-lg:flex-wrap">
         <Button onClick={onClose}>Zpět</Button>
         <Button onClick={() => onCancel(paid ? { amount: finalAmount } : {})}
           disabled={saving || !cancelReason || (cancelReason === 'admin' && !cancelReasonCustom) || !modeChosen || !amountValid}

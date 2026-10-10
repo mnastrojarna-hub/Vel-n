@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import Card from '../../components/ui/Card'
 import { shortBranchName } from './BranchChips'
+import { revealBelowOnMobile } from './bookingsMobileScroll'
 
 function localIso(d) {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
@@ -13,6 +14,7 @@ function localIso(d) {
 const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 const MONTHS_FULL = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
 const navBtnStyle = { background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 800 }
+const NAV_TOUCH = 'max-lg:min-h-[40px] max-lg:min-w-[44px] shrink-0' // dotyková plocha na mobilu/tabletu
 
 // branchId = '' → všechny pobočky dohromady (+ rozpad obsazenosti po pobočkách), jinak jen motorky té pobočky
 export default function GlobalCalendar({ branchId = '', branches = [] }) {
@@ -22,6 +24,7 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
   const [month, setMonth] = useState(new Date())
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState(null)
+  const detailRef = useRef(null) // detail dne — na mobilu pod kalendářem
   const [showFree, setShowFree] = useState(false)
   // Skrýt testovací rezervace (is_test) z kalendáře — jen pohled admina;
   // pro zákazníky (web/app přes get_moto_booked_dates) zůstávají obsazené vždy.
@@ -110,9 +113,9 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
       <div className="lg:col-span-2">
         <Card>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <button onClick={prevMonth} style={navBtnStyle}>←</button>
-            <span style={{ fontWeight: 800, fontSize: 15 }}>{MONTHS_FULL[mon]} {year} · {branchId ? (branchNameOf[branchId] || 'Pobočka') : 'všechny pobočky'}</span>
-            <button onClick={nextMonth} style={navBtnStyle}>→</button>
+            <button onClick={prevMonth} style={navBtnStyle} className={NAV_TOUCH}>←</button>
+            <span className="max-lg:text-center max-lg:px-2" style={{ fontWeight: 800, fontSize: 15 }}>{MONTHS_FULL[mon]} {year} · {branchId ? (branchNameOf[branchId] || 'Pobočka') : 'všechny pobočky'}</span>
+            <button onClick={nextMonth} style={navBtnStyle} className={NAV_TOUCH}>→</button>
           </div>
           <label className="flex items-center gap-1.5 cursor-pointer mb-3 text-sm font-extrabold uppercase tracking-wide"
             title="Skrýt testovací rezervace z kalendáře — pro zákazníky na webu/v appce zůstávají obsazené"
@@ -129,7 +132,7 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
               const day = i + 1
               const info = getDayInfo(day)
               return (
-                <div key={day} title={info.label} onClick={() => setSelectedDay(day)}
+                <div key={day} title={info.label} onClick={() => { setSelectedDay(day); revealBelowOnMobile(detailRef.current) }}
                   style={{ textAlign: 'center', padding: '10px 2px', borderRadius: 8, background: info.bg, color: info.color, fontSize: 12, fontWeight: 800, cursor: 'pointer', outline: selectedDay === day ? '2px solid #0f1a14' : 'none' }}>
                   <div>{day}</div>
                   {info.count > 0 && <div style={{ fontSize: 9, marginTop: 2, opacity: 0.8 }}>{info.count}/{totalMotos}</div>}
@@ -145,7 +148,7 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
           </div>
         </Card>
       </div>
-      <div>
+      <div ref={detailRef}>
         <Card>
           {selectedDay ? (
             <>
@@ -169,7 +172,7 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
                 <div className="space-y-2">
                   {dayDetail.map(b => (
                     <div key={b.id} className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 max-lg:flex-wrap max-lg:gap-y-1">
                         <span className="font-bold text-sm">{b.motorcycles?.model || '—'}</span>
                         <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span>
                         <StatusBadge status={getDisplayStatus(b)} />

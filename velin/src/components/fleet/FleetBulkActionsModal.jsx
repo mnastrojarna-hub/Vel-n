@@ -287,7 +287,7 @@ export default function FleetBulkActionsModal({ open, onClose, selectedMotos, on
 
       {mode === 'book' && (
         <Section title="Hromadná blokace (interní rezervace)" onBack={() => setMode(null)}>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
             <div>
               <Label>Od</Label>
               <input type="date" value={bookingFrom} onChange={e => setBookingFrom(e.target.value)}

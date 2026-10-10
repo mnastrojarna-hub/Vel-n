@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
@@ -7,6 +7,8 @@ import DocsStatusPills, { loadDocScans } from '../../components/DocsStatusPills'
 import CheckInModal from './CheckInModal'
 import SwapModal from './SwapModal'
 import { shortBranchName } from './BranchChips'
+import { useMediaQuery } from '../../hooks/useIsMobile'
+import { revealBelowOnMobile } from './bookingsMobileScroll'
 
 // Odjezdy (vyzvednutí) a návraty (vrácení) — události seřazené podle data a času,
 // kdy se zákazník má dostavit na pobočku. Plus kalendář (heatmapa) zvýrazňující
@@ -76,6 +78,7 @@ function detectSwapPairs(bookings) {
 const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 const MONTHS_FULL = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
 const navBtnStyle = { background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 800 }
+const NAV_TOUCH = 'max-lg:min-h-[40px] max-lg:min-w-[44px]'
 
 // odjezd = vyzvednutí (zákazník odjíždí na motorce), návrat = vrácení.
 // Ikona = šipka: odjezd ➡️ (ven), návrat ⬅️ (zpět na pobočku).
@@ -171,8 +174,10 @@ const checkInBtnStyle = {
   fontSize: 12, fontWeight: 800, color: '#1a2e22', cursor: 'pointer', whiteSpace: 'nowrap',
   boxShadow: '0 2px 8px rgba(116,251,113,.35)',
 }
+// max-lg: dotyková plocha ≥ 36 px na mobilu/tabletu (desktop beze změny)
+const TOUCH_BTN = 'max-lg:min-h-[36px] max-lg:min-w-[72px]'
 const CheckInBtn = ({ ev, onCheckIn }) => (
-  <button title="Odbavit" style={checkInBtnStyle}
+  <button title="Odbavit" style={checkInBtnStyle} className={TOUCH_BTN}
     onClick={(e) => { e.stopPropagation(); onCheckIn(ev) }}>Odbavit</button>
 )
 
@@ -183,7 +188,7 @@ const swapBtnStyle = {
   boxShadow: '0 2px 8px rgba(37,99,235,.35)',
 }
 const SwapBtn = ({ ev, onSwap }) => (
-  <button title="Výměna motorky (bez přerušení)" style={swapBtnStyle}
+  <button title="Výměna motorky (bez přerušení)" style={swapBtnStyle} className={TOUCH_BTN}
     onClick={(e) => { e.stopPropagation(); onSwap(ev) }}>🔄 Výměna</button>
 )
 
@@ -258,12 +263,13 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans, sh
   )
 }
 
-function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap, scans, showBranch }) {
+// dense = dvouřádkové karty (telefon < 768 px — jednořádkový řádek by se nevešel)
+function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap, scans, showBranch, dense = false }) {
   const shown = limit ? events.slice(0, limit) : events
   if (shown.length === 0) return <p className="text-sm" style={{ color: '#64748b', padding: '8px 4px' }}>Žádné nadcházející odjezdy ani návraty</p>
   return (
     <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #eef5f1' }}>
-      {shown.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} showStatus={showStatus} onCheckIn={onCheckIn} onSwap={onSwap} scans={scans} showBranch={showBranch} onClick={() => onOpen(ev.booking.id)} />)}
+      {shown.map((ev, i) => <EventRow key={ev.booking.id + '_' + ev.type + '_' + i} ev={ev} dense={dense} showStatus={showStatus} onCheckIn={onCheckIn} onSwap={onSwap} scans={scans} showBranch={showBranch} onClick={() => onOpen(ev.booking.id)} />)}
     </div>
   )
 }
@@ -271,6 +277,8 @@ function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap, scans
 // branchId (Rezervace → přepínač Pobočka): '' = všechny, id = jen ta pobočka; undefined (Dashboard) = vlastní výběr
 export default function PickupsReturns({ compact = false, onExpand, branchId }) {
   const navigate = useNavigate()
+  const isPhone = useMediaQuery('(max-width: 767px)') // telefon → události jako dvouřádkové karty (dense)
+  const dayDetailRef = useRef(null) // detail dne v kalendáři — na mobilu pod kalendářem
   const [bookings, setBookings] = useState([])
   const [branches, setBranches] = useState([])
   const [branchFilter, setBranchFilter] = useState('')
@@ -347,7 +355,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
         {loading ? (
           <div className="py-6 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
         ) : (
-          <EventList events={upcoming} onOpen={openBooking} limit={8} onSwap={setSwapEvent} scans={scanStatus} />
+          <EventList events={upcoming} onOpen={openBooking} limit={8} onSwap={setSwapEvent} scans={scanStatus} dense={isPhone} />
         )}
         {swapEvent && (
           <SwapModal open prev={swapEvent.swapPrev} next={swapEvent.booking} onClose={() => setSwapEvent(null)} onDone={handleSwapDone} />
@@ -374,7 +382,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
 
   const toggleBtn = (key, label) => (
     <button onClick={() => setSubView(key)}
-      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
       style={{ padding: '7px 14px', border: '1px solid #d4e8e0',
         background: subView === key ? '#74FB71' : '#f1faf7', color: '#1a2e22',
         boxShadow: subView === key ? '0 4px 14px rgba(116,251,113,.35)' : 'none' }}>
@@ -389,7 +397,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
         {toggleBtn('calendar', '🗓️ Kalendář')}
         {subView === 'list' && (
           <button onClick={() => setSplitList(s => !s)}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '7px 14px', border: '1px solid #d4e8e0', background: splitList ? '#74FB71' : '#f1faf7', color: '#1a2e22' }}>
             {splitList ? '⇆ Společně' : '⇆ Rozdělit'}
           </button>
@@ -414,7 +422,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.pickup.color }}>Odjezdy (vyzvednutí)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcomingPickups.length}</span>
               </div>
-              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} />
+              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense={isPhone} />
             </Card>
             <Card style={{ padding: 14 }}>
               <div className="flex items-center gap-2 mb-3">
@@ -422,12 +430,12 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.return.color }}>Návraty (vrácení)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#fef3c7', color: '#b45309', padding: '1px 9px' }}>{upcomingReturns.length}</span>
               </div>
-              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} showBranch={branchId === ''} />
+              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} showBranch={branchId === ''} dense={isPhone} />
             </Card>
           </div>
         ) : (
           <Card style={{ padding: 14 }}>
-            <EventList events={upcoming} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} />
+            <EventList events={upcoming} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense={isPhone} />
           </Card>
         )
       ) : (
@@ -435,9 +443,9 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
           <div className="lg:col-span-2">
             <Card>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <button onClick={() => setMonth(new Date(year, mon - 1, 1))} style={navBtnStyle}>←</button>
+                <button onClick={() => setMonth(new Date(year, mon - 1, 1))} style={navBtnStyle} className={NAV_TOUCH}>←</button>
                 <span style={{ fontWeight: 800, fontSize: 15 }}>{MONTHS_FULL[mon]} {year}</span>
-                <button onClick={() => setMonth(new Date(year, mon + 1, 1))} style={navBtnStyle}>→</button>
+                <button onClick={() => setMonth(new Date(year, mon + 1, 1))} style={navBtnStyle} className={NAV_TOUCH}>→</button>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
                 {DAYS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: '#1a2e22', padding: 4 }}>{d}</div>)}
@@ -452,7 +460,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                   const isSel = iso === selectedDay
                   const h = heatColor(evs.length, monthMax)
                   return (
-                    <div key={day} onClick={() => setSelectedDay(iso)}
+                    <div key={day} onClick={() => { setSelectedDay(iso); revealBelowOnMobile(dayDetailRef.current) }}
                       title={evs.length ? `${evs.length} událostí (➡️ ${pickups} / ⬅️ ${returns})` : 'Žádný odjezd ani návrat'}
                       style={{ minHeight: 60, padding: '5px 4px', borderRadius: 8, cursor: 'pointer',
                         background: h.bg, color: h.color, border: `1px solid ${h.border}`,
@@ -482,7 +490,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
               </div>
             </Card>
           </div>
-          <div>
+          <div ref={dayDetailRef}>
             <Card>
               <h3 className="text-sm font-extrabold mb-3" style={{ color: '#0f1a14' }}>{selectedDay ? fmtDay(selectedDay) : 'Vyberte den'}</h3>
               {selected.length === 0 ? (

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
+import { useMediaQuery } from '../hooks/useIsMobile'
 import { loadDocScans } from '../components/DocsStatusPills'
 import { loadAppInstalls } from '../components/AppInstallBadge'
 import Button from '../components/ui/Button'
@@ -20,6 +21,7 @@ import BranchChips from './booking/BranchChips'
 import { CheckboxFilterGroup, FilterSelect } from './booking/BookingsFilters'
 import { CANCEL_REASONS, PAYMENT_STATUS_FILTER_OPTIONS } from './booking/bookingConstants'
 import { cancelBookingFromVelin } from './booking/bookingMessageHelpers'
+import BookingsToolbarPhone from './booking/BookingsToolbarPhone'
 import { autoCancelStale, autoActivateReserved, autoFixPendingPaid, autoGenerateKF } from './booking/bookingsAutoFix'
 
 function localIso(d) {
@@ -32,6 +34,8 @@ const VIEWS = ['Seznam', 'Kalendář', 'Odjezdy a návraty']
 
 export default function Bookings() {
   const debugMode = useDebugMode()
+  // Telefon (< 768 px, i na šířku = nízký displej): kompaktní lišta — rychlé filtry schované pod „☰ Filtry“ (BookingsToolbarPhone)
+  const isPhone = useMediaQuery('(max-width: 767px), (max-width: 1023px) and (max-height: 520px)')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [bookings, setBookings] = useState([])
@@ -261,8 +265,49 @@ export default function Bookings() {
     }
   }
 
+  // Rychlé filtry seznamu — desktop/tablet v liště, telefon v panelu „☰ Filtry“
+  const quickFilters = (
+    <>
+      <CheckboxFilterGroup label="Stav" values={filters.statuses}
+        onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
+        options={[{ value: 'pending', label: 'Čekající' }, { value: 'upcoming', label: 'Nadcházející' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
+      <CheckboxFilterGroup label="Platba" values={filters.paymentStatuses}
+        onChange={v => { setPage(1); setFilters(f => ({ ...f, paymentStatuses: v })) }}
+        options={PAYMENT_STATUS_FILTER_OPTIONS} />
+      <FilterSelect value={filters.sortBy} onChange={v => setF('sortBy', v)}
+        options={[{ value: 'start_date', label: 'Datum začátku' }, { value: 'end_date', label: 'Datum konce' }, { value: 'total_price', label: 'Částka' }, { value: 'created_at', label: 'Vytvořeno' }]} />
+      <FilterSelect value={filters.sortDir} onChange={v => setF('sortDir', v)}
+        options={[{ value: 'desc', label: '↓ Sestupně' }, { value: 'asc', label: '↑ Vzestupně' }]} />
+      <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-sm font-extrabold uppercase tracking-wide"
+        style={{ padding: '8px 14px', background: filters.futureOnly ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: filters.futureOnly ? '#1a2e22' : '#1a2e22' }}>
+        <input type="checkbox" checked={filters.futureOnly} onChange={e => setF('futureOnly', e.target.checked)} className="accent-[#1a8a18]" />
+        Jen budoucí
+      </label>
+      <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-sm font-extrabold uppercase tracking-wide"
+        title="Skrýt testovací rezervace (obsazenost kalendáře) — pro zákazníky na webu/v appce zůstávají viditelné"
+        style={{ padding: '8px 14px', background: filters.hideTest ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+        <input type="checkbox" checked={filters.hideTest} onChange={e => setF('hideTest', e.target.checked)} className="accent-[#1a8a18]" />
+        Skrýt testovací
+      </label>
+    </>
+  )
+  const filtersBtn = (
+    <button onClick={() => setShowFilters(!showFilters)}
+      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+      style={{ padding: '8px 14px', background: showFilters ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: showFilters ? '#1a2e22' : '#1a2e22' }}>
+      ☰ Filtry {activeFilterCount > 0 && <span className="ml-1 inline-block rounded-full text-sm" style={{ background: '#74FB71', color: '#1a2e22', padding: '1px 6px' }}>{activeFilterCount}</span>}
+    </button>
+  )
+
   return (
     <div>
+      {isPhone ? (
+        <BookingsToolbarPhone views={VIEWS} view={view} setView={setView} search={filters.search}
+          onSearch={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
+          showFilters={showFilters} setShowFilters={setShowFilters}
+          filterCount={activeFilterCount + (filters.futureOnly ? 1 : 0) + (filters.hideTest ? 1 : 0)}
+          onNew={() => setShowAdd(true)} />
+      ) : (
       <div className="flex flex-wrap items-center gap-3 mb-5">
         {VIEWS.map(v => (
           <button key={v} onClick={() => setView(v)}
@@ -274,32 +319,8 @@ export default function Bookings() {
         {view === 'Seznam' && (
           <>
             <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat zákazníka, motorku…" />
-            <CheckboxFilterGroup label="Stav" values={filters.statuses}
-              onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
-              options={[{ value: 'pending', label: 'Čekající' }, { value: 'upcoming', label: 'Nadcházející' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
-            <CheckboxFilterGroup label="Platba" values={filters.paymentStatuses}
-              onChange={v => { setPage(1); setFilters(f => ({ ...f, paymentStatuses: v })) }}
-              options={PAYMENT_STATUS_FILTER_OPTIONS} />
-            <FilterSelect value={filters.sortBy} onChange={v => setF('sortBy', v)}
-              options={[{ value: 'start_date', label: 'Datum začátku' }, { value: 'end_date', label: 'Datum konce' }, { value: 'total_price', label: 'Částka' }, { value: 'created_at', label: 'Vytvořeno' }]} />
-            <FilterSelect value={filters.sortDir} onChange={v => setF('sortDir', v)}
-              options={[{ value: 'desc', label: '↓ Sestupně' }, { value: 'asc', label: '↑ Vzestupně' }]} />
-            <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-sm font-extrabold uppercase tracking-wide"
-              style={{ padding: '8px 14px', background: filters.futureOnly ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: filters.futureOnly ? '#1a2e22' : '#1a2e22' }}>
-              <input type="checkbox" checked={filters.futureOnly} onChange={e => setF('futureOnly', e.target.checked)} className="accent-[#1a8a18]" />
-              Jen budoucí
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-sm font-extrabold uppercase tracking-wide"
-              title="Skrýt testovací rezervace (obsazenost kalendáře) — pro zákazníky na webu/v appce zůstávají viditelné"
-              style={{ padding: '8px 14px', background: filters.hideTest ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-              <input type="checkbox" checked={filters.hideTest} onChange={e => setF('hideTest', e.target.checked)} className="accent-[#1a8a18]" />
-              Skrýt testovací
-            </label>
-            <button onClick={() => setShowFilters(!showFilters)}
-              className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
-              style={{ padding: '8px 14px', background: showFilters ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: showFilters ? '#1a2e22' : '#1a2e22' }}>
-              ☰ Filtry {activeFilterCount > 0 && <span className="ml-1 inline-block rounded-full text-sm" style={{ background: '#74FB71', color: '#1a2e22', padding: '1px 6px' }}>{activeFilterCount}</span>}
-            </button>
+            {quickFilters}
+            {filtersBtn}
           </>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -312,12 +333,13 @@ export default function Bookings() {
           <Button green onClick={() => setShowAdd(true)}>+ Nová rezervace</Button>
         </div>
       </div>
+      )}
 
       {/* Pobočka — společně pro seznam, kalendář i odjezdy a návraty (zadání majitele 2026-10-06) */}
       <BranchChips branches={branches} value={filters.branch} onChange={id => setF('branch', id)} />
 
       {showFilters && view === 'Seznam' && (
-        <BookingsExtendedFilters filters={filters} setF={setF} branches={branches} resetFilters={resetFilters} />
+        <BookingsExtendedFilters filters={filters} setF={setF} branches={branches} resetFilters={resetFilters} quick={isPhone ? quickFilters : null} />
       )}
 
       {error && (
@@ -346,7 +368,7 @@ export default function Bookings() {
       ) : (
         <>
           <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} scanStatus={scanStatus} appInstalls={appInstalls} setDeleteConfirm={setDeleteConfirm} setCancelTarget={setCancelTarget}
-            selected={selected} setSelected={setSelected} branches={branches} />
+            selected={selected} setSelected={setSelected} branches={branches} onBulk={isPhone ? () => setShowBulk(true) : null} />
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}

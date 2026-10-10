@@ -13,6 +13,8 @@ import Modal from '../components/ui/Modal'
 import CustomersBulkActionsModal from './CustomersBulkActionsModal'
 import DocsStatusPills, { loadDocScans } from '../components/DocsStatusPills'
 import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
+import { useIsMobile } from '../hooks/useIsMobile'
+import CustomerListMobile from './customer/CustomerListMobile'
 
 const PER_PAGE = 25
 
@@ -27,6 +29,8 @@ const LICENSE_GROUPS = ['A', 'A1', 'A2', 'AM', 'B']
 export default function Customers() {
   const debugMode = useDebugMode()
   const navigate = useNavigate()
+  // < 1024 px: místo 15sloupcové tabulky karty (CustomerListMobile); desktop beze změny
+  const isMobile = useIsMobile()
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -229,6 +233,13 @@ export default function Customers() {
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          {isMobile ? (
+            <CustomerListMobile customers={customers} selected={selected} appInstalls={appInstalls} scanStatus={scanStatus}
+              stat={{ avgPrice, avgDays, topMoto, topBranch }}
+              onOpen={cid => navigate(`/zakaznici/${cid}`)}
+              onToggle={(c, on) => { const next = new Map(selected); if (on) next.set(c.id, c); else next.delete(c.id); setSelected(next) }}
+              onToggleAll={on => { const next = new Map(selected); customers.forEach(c => on ? next.set(c.id, c) : next.delete(c.id)); setSelected(next) }} />
+          ) : (
           <Table>
             <thead>
               <TRow header>
@@ -290,6 +301,7 @@ export default function Customers() {
               {customers.length === 0 && <TRow><TD>Žádní zákazníci</TD></TRow>}
             </tbody>
           </Table>
+          )}
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
@@ -390,7 +402,7 @@ function AddCustomerModal({ onClose, onSaved }) {
 
   return (
     <Modal open title="Nový zákazník" onClose={onClose}>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Jméno" value={form.full_name} onChange={v => set('full_name', v)} />
         <Field label="Email" value={form.email} onChange={v => set('email', v)} />
         <Field label="Telefon" value={form.phone} onChange={v => set('phone', v)} />

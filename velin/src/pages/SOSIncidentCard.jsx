@@ -47,7 +47,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
           <div className="flex-1 min-w-0">
             {/* Nadpis + kategorie */}
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wider uppercase"
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-xs font-extrabold tracking-wider uppercase"
                 style={{ padding: '3px 10px', background: typeCat.bg, color: typeCat.color, letterSpacing: '0.08em' }}>
                 {typeCat.label}
               </span>
@@ -55,12 +55,12 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                 {displayTitle}
               </span>
               {isHeavy && (
-                <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
+                <span className="inline-block rounded-btn text-[9px] max-lg:text-xs font-extrabold tracking-wide uppercase"
                   style={{ padding: '2px 7px', background: sev.bg, color: sev.color }}>
                   {sev.label}
                 </span>
               )}
-              <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-xs font-extrabold tracking-wide uppercase"
                 style={{ padding: '2px 7px', background: sc.bg, color: sc.color }}>
                 {sc.label}
               </span>
@@ -108,7 +108,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                 padding: '6px 10px', background: '#fffbeb', color: '#92400e',
                 borderLeft: '3px solid #fbbf24', lineHeight: 1.5,
               }}>
-                <span className="font-extrabold text-[9px] uppercase tracking-wide">Poznámka: </span>
+                <span className="font-extrabold text-[9px] max-lg:text-xs uppercase tracking-wide">Poznámka: </span>
                 {inc.admin_notes.length > 100 ? inc.admin_notes.slice(0, 100) + '…' : inc.admin_notes}
               </div>
             )}
@@ -170,7 +170,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
             )}
 
             {/* Info grid */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm mt-1">
               <div>
                 <span style={{ color: '#1a2e22' }}>Zákazník: </span>
                 <b style={{ color: '#0f1a14' }}>{inc.profiles?.full_name || '—'}</b>
@@ -188,14 +188,14 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                 <b style={{ color: '#0f1a14' }}>{formatTimeAgo(inc.created_at)}</b>
               </div>
               {(inc.address || (inc.latitude && inc.longitude)) && (
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <span style={{ color: '#1a2e22' }}>Poloha: </span>
                   <b style={{ color: '#1a8a18' }}>{inc.address || `${Number(inc.latitude).toFixed(4)}, ${Number(inc.longitude).toFixed(4)}`}</b>
                   {inc.latitude && inc.longitude && (
                     <a href={mapyLinkUrl(inc.latitude, inc.longitude)}
                       target="_blank" rel="noopener noreferrer"
                       onClick={e => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 ml-2 text-sm font-bold px-2 py-0.5 rounded-btn"
+                      className="inline-flex items-center gap-1 ml-2 text-sm font-bold px-2 py-0.5 max-lg:py-1.5 rounded-btn"
                       style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
                       Mapy.cz ↗
                     </a>
@@ -203,11 +203,11 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                 </div>
               )}
               {inc.latitude && inc.longitude && !inc.address && (
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <a href={mapyLinkUrl(inc.latitude, inc.longitude)}
                     target="_blank" rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
-                    className="inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 rounded-btn"
+                    className="inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 max-lg:py-1.5 rounded-btn"
                     style={{ background: '#f1faf7', color: '#1a2e22', textDecoration: 'none' }}>
                     Mapy.cz
                   </a>
@@ -254,7 +254,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
 
 function ActionBtn({ label, color, bg, onClick }) {
   return (
-    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
       style={{ padding: '5px 12px', background: bg, color, border: 'none' }}>
       {label}
     </button>
@@ -313,7 +313,7 @@ if (markers.length > 1) { map.fitBounds([[${minLat}, ${minLng}], [${maxLat}, ${m
           const sc = STATUS_COLORS[inc.status] || STATUS_COLORS.reported
           return (
             <button key={inc.id} onClick={() => onSelect(inc)}
-              className="rounded-btn text-sm font-bold cursor-pointer flex items-center gap-1"
+              className="rounded-btn text-sm font-bold cursor-pointer flex items-center gap-1 max-lg:min-h-[38px] max-lg:text-left"
               style={{ padding: '4px 10px', background: sc.bg, color: sc.color, border: 'none' }}>
               {typeIcon} {inc.profiles?.full_name || 'Zákazník'} · {Number(inc.latitude).toFixed(4)}, {Number(inc.longitude).toFixed(4)}
             </button>

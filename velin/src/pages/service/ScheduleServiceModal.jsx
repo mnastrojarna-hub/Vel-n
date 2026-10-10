@@ -121,7 +121,7 @@ function InspectionMotoForm({ motos, onBack, onDone }) {
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hledat model / SPZ…" className="w-full rounded-btn text-sm outline-none mb-2" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
       <div style={{ maxHeight: 180, overflowY: 'auto' }} className="space-y-1 mb-3">
         {filtered.map(m => (
-          <label key={m.id} className="flex items-center gap-2 p-2 rounded cursor-pointer" style={{ background: selectedIds.has(m.id) ? '#dcfce7' : '#f9fafb', border: `1px solid ${selectedIds.has(m.id) ? '#1a8a18' : '#e5e7eb'}` }}>
+          <label key={m.id} className="flex items-center gap-2 p-2 rounded cursor-pointer max-md:flex-wrap" style={{ background: selectedIds.has(m.id) ? '#dcfce7' : '#f9fafb', border: `1px solid ${selectedIds.has(m.id) ? '#1a8a18' : '#e5e7eb'}` }}>
             <input type="checkbox" checked={selectedIds.has(m.id)} onChange={() => toggle(m.id)} className="accent-[#1a8a18]" style={{ width: 16, height: 16 }} />
             <span className="font-bold text-sm">{m.model}</span><span className="font-mono text-xs" style={{ color: '#6b7280' }}>{m.spz}</span>
             <span className="text-xs ml-auto" style={{ color: '#6b7280' }}>{m.branches?.name || '—'}</span>

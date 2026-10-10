@@ -29,7 +29,7 @@ export default function ServiceProviderProfile() {
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Přihlášen: {me.name}</span>
         <span className="text-xs" style={{ color: '#6b7280' }}>{form.company_name ? `${form.company_name}${form.ico ? ` · IČO ${form.ico}` : ''}` : 'fakturační údaje nevyplněny'}</span>
-        <button onClick={() => setOpen(o => !o)} className="ml-auto text-xs font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#2563eb' }}>{open ? 'skrýt' : 'Moje fakturační údaje'}</button>
+        <button onClick={() => setOpen(o => !o)} className="ml-auto text-xs font-bold cursor-pointer max-lg:py-2" style={{ background: 'none', border: 'none', color: '#2563eb' }}>{open ? 'skrýt' : 'Moje fakturační údaje'}</button>
       </div>
       {open && (
         <div className="mt-3">

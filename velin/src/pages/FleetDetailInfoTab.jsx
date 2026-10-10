@@ -204,7 +204,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
   return (
     <div className="space-y-5">
       <Card>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Model" value={moto.model} onChange={v => set('model', v)} />
           <Field label="SPZ" value={moto.spz} onChange={v => set('spz', v)} />
           <div>
@@ -237,7 +237,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>STK platné do</label>
             <div className="flex items-center gap-2">
               <input type="date" value={moto.stk_valid_until || ''} onChange={e => set('stk_valid_until', e.target.value)}
-                className="flex-1 rounded-btn text-sm outline-none"
+                className="flex-1 rounded-btn text-sm outline-none max-lg:min-w-0"
                 style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
               {moto.stk_valid_until && (() => {
                 const days = Math.ceil((new Date(moto.stk_valid_until) - new Date()) / 86400000)
@@ -251,7 +251,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{unit === 'mh' ? 'Nájezd (MH)' : 'Nájezd (km)'}</label>
             <div className="flex items-center gap-2">
-              <input type="text" inputMode="decimal" value={moto.mileage || ''} onChange={e => set('mileage', e.target.value)} className="flex-1 rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+              <input type="text" inputMode="decimal" value={moto.mileage || ''} onChange={e => set('mileage', e.target.value)} className="flex-1 rounded-btn text-sm outline-none max-lg:min-w-0" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
               <button type="button" onClick={() => setCorrecting(true)}
                 className="rounded-btn text-sm font-extrabold uppercase cursor-pointer whitespace-nowrap"
                 style={{ padding: '8px 12px', background: '#dbeafe', color: '#2563eb', border: 'none' }}
@@ -334,7 +334,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
             })()}
             <p className="text-xs mt-1" style={{ color: '#5b7065' }}>Web i appka motorku zobrazí každému, kdo má alespoň jednu z vybraných skupin. Např. skútr: A1 + B, přívěs: B.</p>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6 max-lg:flex-wrap max-lg:gap-y-3">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={moto.has_abs || false} onChange={e => set('has_abs', e.target.checked)} />
               <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>ABS</span>
@@ -353,7 +353,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium" style={{ color: '#0f1a14' }}>{moto.branches?.name || '—'}</span>
               <button onClick={() => setShowMigrate(!showMigrate)}
-                className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
+                className="rounded-btn text-sm font-extrabold uppercase cursor-pointer max-lg:min-h-[36px]"
                 style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
                 Přesunout
               </button>
@@ -361,7 +361,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
             {showMigrate && (
               <div className="flex items-center gap-2 mt-2 p-2 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
                 <select value={migrateTo} onChange={e => setMigrateTo(e.target.value)}
-                  className="flex-1 rounded-btn text-sm outline-none"
+                  className="flex-1 rounded-btn text-sm outline-none max-lg:min-w-0"
                   style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }}>
                   <option value="">— Vyberte pobočku —</option>
                   {branches.filter(b => b.id !== moto.branch_id).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -415,7 +415,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Návod k motorce (PDF)</span>
-              <label className="rounded-btn text-sm font-extrabold cursor-pointer"
+              <label className="rounded-btn text-sm font-extrabold cursor-pointer max-lg:!py-2"
                 style={{ padding: '4px 14px', background: '#dbeafe', color: '#2563eb' }}>
                 {uploadingManual ? 'Nahrávám...' : manualUrl ? 'Aktualizovat' : '+ Nahrát'}
                 <input type="file" accept=".pdf" onChange={handleManualUpload} className="hidden" />
@@ -427,7 +427,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
                     Zobrazit PDF ↗
                   </a>
                   <button type="button" onClick={handleManualDelete} disabled={uploadingManual}
-                    className="rounded-btn text-sm font-extrabold cursor-pointer"
+                    className="rounded-btn text-sm font-extrabold cursor-pointer max-lg:!py-2"
                     style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626', border: 'none' }}>
                     Smazat
                   </button>
@@ -443,7 +443,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
             <div className="flex items-center gap-2 flex-wrap">
               <input type="url" value={externalUrl} onChange={e => setExternalUrl(e.target.value)}
                 placeholder="https://www.priklad-vyrobce.cz/manual.html"
-                className="flex-1 min-w-[260px] rounded-btn text-sm outline-none"
+                className="flex-1 min-w-[260px] rounded-btn text-sm outline-none max-sm:min-w-0 max-sm:basis-full"
                 style={{ padding: '8px 12px', background: '#fff', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
               <button type="button" onClick={handleExternalSave} disabled={savingExternal}
                 className="rounded-btn text-sm font-extrabold cursor-pointer"
@@ -471,7 +471,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
 
         <PhotoGallery motoId={moto.id} />
         {error && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{error}</p>}
-        <div className="flex gap-3 mt-6">
+        <div className="flex gap-3 mt-6 max-lg:flex-wrap">
           <Button green onClick={onSave} disabled={saving}>{saving ? 'Ukládám…' : 'Uložit'}</Button>
           <Button outline onClick={onDeactivate}>{moto.status === 'unavailable' ? 'Aktivovat' : 'Deaktivovat'}</Button>
           <Button onClick={onDelete} style={{ color: '#dc2626' }}>Smazat</Button>

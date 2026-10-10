@@ -139,7 +139,7 @@ export default function CustomerSOSTab({ userId }) {
       <Card>
         <div className="flex flex-wrap items-center gap-3 mb-1">
           <SearchInput value={search} onChange={v => setSearch(v)} placeholder="Hledat v incidentech…" />
-          <div className="flex gap-1">
+          <div className="flex gap-1 max-lg:flex-wrap">
             {STATUS_OPTIONS.map(opt => (
               <button key={opt.value} onClick={() => setStatusFilter(opt.value)}
                 className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
@@ -183,7 +183,7 @@ export default function CustomerSOSTab({ userId }) {
                       <Badge label={sev.label} color={sev.color} bg={sev.bg} />
                       <Badge label={st.label} color={st.color} bg={st.bg} />
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-sm" style={{ color: '#1a2e22' }}>
+                    <div className="flex items-center gap-3 mt-1 text-sm max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-0.5" style={{ color: '#1a2e22' }}>
                       <span>{inc.created_at ? new Date(inc.created_at).toLocaleString('cs-CZ') : '—'}</span>
                       {inc._moto && <span>🏍 {inc._moto.model} ({inc._moto.spz})</span>}
                     </div>
@@ -342,16 +342,16 @@ function InfoField({ label, value, span2 }) {
 
 function BookingLink({ label, booking, moto, badge, onClick }) {
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:shadow-sm transition-shadow"
+    <div className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:shadow-sm transition-shadow max-md:flex-wrap"
       style={{ background: '#f1faf7' }} onClick={onClick}>
       <span style={{ fontSize: 14 }}>📅</span>
-      <div className="flex-1">
+      <div className="flex-1 max-md:min-w-0 max-md:basis-[calc(100%-40px)]">
         <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{label}</span>
         {moto && <span className="text-sm ml-2" style={{ color: '#1a2e22' }}>🏍 {moto.model} ({moto.spz})</span>}
         <span className="text-sm ml-2" style={{ color: '#1a2e22' }}>{booking.start_date} → {booking.end_date}</span>
       </div>
       {badge && <Badge label={badge.label} color={badge.color} bg={badge.bg} />}
-      <span className="text-sm font-bold" style={{ color: '#2563eb' }}>→</span>
+      <span className="text-sm font-bold max-md:ml-auto" style={{ color: '#2563eb' }}>→</span>
     </div>
   )
 }

@@ -222,20 +222,21 @@ export default function FleetDetail() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-5">
-        <button onClick={() => navigate('/flotila')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
-        <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{moto.model}</h2>
+      {/* Mobil/tablet (max-lg): hlavička se zalamuje; na telefonu (max-sm) název přes celý 1. řádek, stav + SPZ + Správa pod ním */}
+      <div className="flex items-center gap-3 mb-5 max-lg:flex-wrap max-lg:gap-y-2">
+        <button onClick={() => navigate('/flotila')} className="cursor-pointer max-lg:w-10 max-lg:h-10 max-lg:shrink-0" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
+        <h2 className="font-extrabold text-lg max-sm:basis-[calc(100%-52px)] max-lg:min-w-0" style={{ color: '#0f1a14' }}>{moto.model}</h2>
         <StatusBadge status={moto.status} />
         <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{moto.spz}</span>
         <button onClick={() => setShowActionModal(true)}
-          className="rounded-btn text-sm font-extrabold uppercase cursor-pointer ml-auto"
+          className="rounded-btn text-sm font-extrabold uppercase cursor-pointer ml-auto max-lg:min-h-[40px]"
           style={{ padding: '6px 14px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
           Správa motorky
         </button>
       </div>
       <div className="flex gap-2 mb-5 flex-wrap">
         {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
             style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{t}</button>
         ))}
       </div>

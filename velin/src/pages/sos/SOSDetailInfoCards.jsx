@@ -51,7 +51,7 @@ export function CustomerCard({ customer, incident }) {
   return (
       <Card>
         <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Zákazník</h4>
-        <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
           <InfoRow label="Jméno" value={customer?.full_name || incident.profiles?.full_name} />
           <InfoRow label="Telefon" value={customer?.phone || incident.profiles?.phone} />
           <InfoRow label="Email" value={customer?.email || incident.profiles?.email} />
@@ -66,7 +66,7 @@ export function MotoCard({ moto }) {
   return (
         <Card>
           <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Motorka</h4>
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             <InfoRow label="Model" value={moto.model} />
             <InfoRow label="SPZ" value={moto.spz} mono />
             <InfoRow label="VIN" value={moto.vin} mono />
@@ -82,7 +82,7 @@ export function BookingCard({ booking }) {
   return (
         <Card>
           <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Rezervace</h4>
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             <InfoRow label="ID" value={booking.id?.slice(-8).toUpperCase()} mono />
             <InfoRow label="Stav" value={booking.status} />
             <InfoRow label="Od" value={booking.start_date} />
@@ -122,12 +122,12 @@ L.marker([${incident.latitude}, ${incident.longitude}]).addTo(map);
             </span>
             <a href={mapyLinkUrl(incident.latitude, incident.longitude)}
               target="_blank" rel="noopener noreferrer"
-              className="text-sm font-bold underline" style={{ color: '#2563eb' }}>
+              className="text-sm font-bold underline max-lg:inline-flex max-lg:items-center max-lg:min-h-[36px] max-lg:px-1" style={{ color: '#2563eb' }}>
               Mapy.cz
             </a>
             <a href={mapyNavigateUrl(incident.latitude, incident.longitude)}
               target="_blank" rel="noopener noreferrer"
-              className="text-sm font-bold underline" style={{ color: '#b45309' }}>
+              className="text-sm font-bold underline max-lg:inline-flex max-lg:items-center max-lg:min-h-[36px] max-lg:px-1" style={{ color: '#b45309' }}>
               Navigovat
             </a>
           </div>
@@ -243,7 +243,7 @@ export function PhotosCard({ incident, isPhotoOnly, relatedIncidents, showLinkPh
                             {ri.photos?.length ? ` · ${ri.photos.length} fotek` : ''}
                           </div>
                         </div>
-                        <span className="text-sm font-extrabold" style={{ color: '#2563eb' }}>
+                        <span className="text-sm font-extrabold max-lg:shrink-0 max-lg:whitespace-nowrap max-lg:ml-2" style={{ color: '#2563eb' }}>
                           {linkingPhotos ? '⏳' : 'Přiřadit →'}
                         </span>
                       </div>

@@ -308,15 +308,16 @@ function RatingControl({ value, onChange, saving }) {
   const col = value > 0 ? '#1a8a18' : value < 0 ? '#dc2626' : '#1a2e22'
   return (
     <div>
-      <div className="flex items-center gap-3">
+      {/* Telefon (< 640 px): rychlé volby −10 … +10 na vlastním řádku */}
+      <div className="flex items-center gap-3 max-sm:flex-wrap">
         <button
           type="button"
           onClick={() => onChange(value - 1)}
           disabled={value <= -10}
-          className="rounded-btn font-extrabold text-lg flex items-center justify-center"
+          className="rounded-btn font-extrabold text-lg flex items-center justify-center max-lg:shrink-0"
           style={{ width: 40, height: 40, background: '#fee2e2', color: '#dc2626', opacity: value <= -10 ? 0.4 : 1 }}
         >−</button>
-        <div className="flex flex-col items-center" style={{ minWidth: 70 }}>
+        <div className="flex flex-col items-center max-lg:shrink-0" style={{ minWidth: 70 }}>
           <span className="text-2xl font-extrabold" style={{ color: col }}>{value > 0 ? `+${value}` : value}</span>
           <span className="text-xs" style={{ color: '#1a2e22' }}>{saving ? 'uklada…' : 'bodu'}</span>
         </div>
@@ -324,11 +325,11 @@ function RatingControl({ value, onChange, saving }) {
           type="button"
           onClick={() => onChange(value + 1)}
           disabled={value >= 10}
-          className="rounded-btn font-extrabold text-lg flex items-center justify-center"
+          className="rounded-btn font-extrabold text-lg flex items-center justify-center max-lg:shrink-0"
           style={{ width: 40, height: 40, background: '#dcfce7', color: '#1a8a18', opacity: value >= 10 ? 0.4 : 1 }}
         >+</button>
         <div className="flex-1" />
-        <div className="flex gap-1 flex-wrap justify-end">
+        <div className="flex gap-1 flex-wrap justify-end max-sm:basis-full max-sm:justify-start">
           {[-10, -5, 0, 5, 10].map(v => (
             <button
               key={v}

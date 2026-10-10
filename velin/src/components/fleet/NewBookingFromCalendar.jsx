@@ -110,9 +110,9 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
     return (
       <div>
         <div className="flex items-center justify-between mb-3">
-          <button onClick={() => setCalMonth(p => p.m === 0 ? { m: 11, y: p.y - 1 } : { m: p.m - 1, y: p.y })} className="cursor-pointer text-sm font-bold" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>←</button>
+          <button onClick={() => setCalMonth(p => p.m === 0 ? { m: 11, y: p.y - 1 } : { m: p.m - 1, y: p.y })} className="cursor-pointer text-sm font-bold max-lg:!px-4 max-lg:!py-2" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>←</button>
           <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{MONTHS[m]} {y}</span>
-          <button onClick={() => setCalMonth(p => p.m === 11 ? { m: 0, y: p.y + 1 } : { m: p.m + 1, y: p.y })} className="cursor-pointer text-sm font-bold" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>→</button>
+          <button onClick={() => setCalMonth(p => p.m === 11 ? { m: 0, y: p.y + 1 } : { m: p.m + 1, y: p.y })} className="cursor-pointer text-sm font-bold max-lg:!px-4 max-lg:!py-2" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 10px', color: '#1a2e22' }}>→</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
           {DAYS.map(n => <div key={n} className="text-sm font-bold text-center" style={{ color: '#1a2e22', padding: 4 }}>{n}</div>)}
@@ -192,7 +192,7 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
   return (
     <Modal open title="Nová rezervace" onClose={onClose} wide>
       {/* Stepper */}
-      <div className="flex items-center gap-2 mb-5">
+      <div className="flex items-center gap-2 mb-5 max-lg:flex-wrap">
         {STEP_LABELS.map((label, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="flex items-center gap-1 cursor-pointer" onClick={() => { if (i + 1 < step) setStep(i + 1) }}>
@@ -230,7 +230,7 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
           {renderCalendar()}
           {startDate && (
             <div className="mt-4 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-              <div className="flex gap-6">
+              <div className="flex gap-6 max-lg:flex-wrap max-lg:gap-y-2">
                 <div><span className="text-sm font-bold uppercase" style={{ color: '#1a2e22' }}>Vyzvednutí</span><div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{fmtDate(startDate)}</div></div>
                 <div><span className="text-sm font-bold uppercase" style={{ color: '#1a2e22' }}>Vrácení</span><div className="text-sm font-bold" style={{ color: endDate ? '#0f1a14' : '#d1d5db' }}>{endDate ? fmtDate(endDate) : 'Vyberte…'}</div></div>
                 {days > 0 && <div><span className="text-sm font-bold uppercase" style={{ color: '#1a2e22' }}>Dní</span><div className="text-sm font-bold" style={{ color: '#1a8a18' }}>{days}</div></div>}
@@ -245,7 +245,7 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
       {/* Step 2: Customer & Summary */}
       {step === 2 && (
         <div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Zákazník</label>
               {selectedCustomer ? (
@@ -265,7 +265,7 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
                   {filteredCustomers.length > 0 && (
                     <div className="mt-1 rounded-lg" style={{ border: '1px solid #d4e8e0', maxHeight: 180, overflowY: 'auto' }}>
                       {filteredCustomers.map(c => (
-                        <div key={c.id} className="p-2 cursor-pointer text-sm hover:bg-green-50"
+                        <div key={c.id} className="p-2 cursor-pointer text-sm hover:bg-green-50 max-lg:py-3"
                           style={{ borderBottom: '1px solid #f1faf7' }}
                           onClick={() => { setSelectedCustomer(c); setCustomerSearch('') }}>
                           <span className="font-bold">{c.full_name}</span>
@@ -331,9 +331,9 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className="flex justify-between mt-5">
-            <Button onClick={() => setStep(1)}>← Zpět</Button>
-            <Button green onClick={handleCreate} disabled={saving || !selectedCustomer}>
+          <div className="flex justify-between mt-5 max-sm:flex-col-reverse max-sm:gap-2">
+            <Button onClick={() => setStep(1)} className="max-sm:justify-center">← Zpět</Button>
+            <Button green onClick={handleCreate} disabled={saving || !selectedCustomer} className="max-sm:justify-center">
               {saving ? 'Vytvářím…' : noPayment ? 'Vytvořit (zaplaceno)' : 'Vytvořit a odeslat k platbě'}
             </Button>
           </div>

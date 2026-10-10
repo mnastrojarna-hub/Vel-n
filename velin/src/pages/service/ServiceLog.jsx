@@ -87,7 +87,7 @@ export default function ServiceLog() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <Table>
+          <Table stack="tablet">
             <thead>
               <TRow header>
                 <TH>Motorka</TH><TH>SPZ</TH><TH>Typ</TH><TH>Do servisu</TH>
@@ -104,7 +104,7 @@ export default function ServiceLog() {
                     onEdit={() => setEditing(l)} fmt={fmt} />
                 )
               })}
-              {logs.length === 0 && <TRow><TD>Žádné servisní záznamy</TD></TRow>}
+              {logs.length === 0 && <TRow><TD label="">Žádné servisní záznamy</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -121,7 +121,7 @@ export default function ServiceLog() {
 function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
   return (
     <>
-      <tr onClick={onToggle} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: isExpanded ? 'none' : '1px solid #d4e8e0' }}>
+      <tr onClick={onToggle} className="cursor-pointer hover:bg-[#f1faf7] transition-colors md:max-lg:!grid md:max-lg:grid-cols-2 md:max-lg:gap-x-4" style={{ borderBottom: isExpanded ? 'none' : '1px solid #d4e8e0' }}>
         <TD bold>{l.motorcycles?.model || '—'}</TD>
         <TD mono>{l.motorcycles?.spz || '—'}</TD>
         <TD><span>{TYPE_LABELS[l.type] || { regular: 'Pravidelný', extraordinary: 'Mimořádný', repair: 'Oprava' }[l.service_type] || l.type || '—'}</span>{l.is_urgent && <span className="ml-1 text-xs font-bold px-1 py-0.5 rounded" style={{ background: '#dc2626', color: '#fff' }}>URGENT</span>}</TD>
@@ -163,8 +163,8 @@ function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
               </div>
             )}
             <button onClick={e => { e.stopPropagation(); onEdit() }}
-              className="mt-2 rounded-btn text-sm font-bold cursor-pointer"
-              style={{ padding: '4px 12px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>Upravit</button>
+              className="mt-2 rounded-btn text-sm font-bold cursor-pointer px-3 py-1 max-lg:py-2 max-lg:px-4"
+              style={{ background: '#dbeafe', color: '#2563eb', border: 'none' }}>Upravit</button>
           </td>
         </tr>
       )}

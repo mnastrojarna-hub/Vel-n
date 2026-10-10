@@ -230,7 +230,7 @@ export default function ActiveServiceTab({ onRefresh }) {
             className="w-full rounded-btn text-sm outline-none mb-3" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
           <div style={{ maxHeight: 300, overflowY: 'auto' }} className="space-y-1">
             {filtered.map(m => (
-              <div key={m.id} onClick={() => selectMoto(m)} className="flex items-center gap-3 p-2 rounded cursor-pointer" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <div key={m.id} onClick={() => selectMoto(m)} className="flex items-center gap-3 p-2 rounded cursor-pointer max-md:flex-wrap max-md:gap-y-1" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
                 <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{m.model}</span>
                 <span className="font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz}</span>
                 <span className="text-xs font-bold" style={{ color: statusColor[m.status] || '#6b7280' }}>{statusLabel[m.status] || m.status}</span>

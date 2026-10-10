@@ -119,7 +119,7 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
 
   return (
     <Modal open wide title="Nová motorka" onClose={onClose}>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FormField label="Model" value={form.model} onChange={v => set('model', v)} />
         <FormField label="SPZ" value={form.spz} onChange={v => set('spz', v)} />
         <FormField label="VIN" value={form.vin} onChange={v => set('vin', v)} />
@@ -153,7 +153,7 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
       />
 
       <h4 className="text-sm font-extrabold uppercase tracking-widest mt-5 mb-3" style={{ color: '#1a2e22' }}>Servisní intervaly</h4>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FormField label="Olej — interval (km)" value={form.oil_interval_km} onChange={v => set('oil_interval_km', v)} type="number" />
         <FormField label="Olej — interval (dní)" value={form.oil_interval_days} onChange={v => set('oil_interval_days', v)} type="number" />
         <FormField label="Pneumatiky — interval (km)" value={form.tire_interval_km} onChange={v => set('tire_interval_km', v)} type="number" />

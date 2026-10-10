@@ -40,7 +40,7 @@ export default function KioskReturnInfo({ booking, hasLockerCode = false }) {
   if (!row) {
     if (!err || !selfService) return null
     return (
-      <Card className="col-span-2">
+      <Card className="md:col-span-2">
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Vrácení na kiosku</h3>
         <p className="text-sm" style={{ color: '#dc2626' }}>Stav vrácení se nepodařilo načíst: {err}</p>
       </Card>
@@ -61,7 +61,7 @@ export default function KioskReturnInfo({ booking, hasLockerCode = false }) {
     : (done && hasLockerCode && !row.codes_closed_at ? 'do konce termínu — šatna po vrácení zatím nezavřena' : null)
 
   return (
-    <Card className="col-span-2">
+    <Card className="md:col-span-2">
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#1a2e22' }}>Vrácení na kiosku</h3>
       <div className="p-4 rounded-lg mb-3" style={{ background: v.tone.bg, border: `1px solid ${v.tone.border}` }}>
         <div className="text-sm font-extrabold" style={{ color: v.tone.color }}>{v.title}</div>

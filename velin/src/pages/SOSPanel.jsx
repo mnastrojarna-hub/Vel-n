@@ -6,6 +6,8 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import SOSDetailPanel from './sos/SOSDetailPanel'
 import NewIncidentModal from './sos/NewIncidentModal'
+import SOSMobileBackBar from './sos/SOSMobileBackBar'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { askEndBookingOnResolve } from './sos/SOSDetailHandlers'
 import { IncidentCard, SOSMap } from './SOSIncidentCard'
 import { TYPE_LABELS, SEVERITY_MAP, STATUS_COLORS, LIGHT_AUTO_ACK, TYPE_FILTERS, SUB_FILTERS } from './SOSConstants'
@@ -25,6 +27,27 @@ export default function SOSPanel() {
   const [showNewIncident, setShowNewIncident] = useState(false)
   useEffect(() => { try { localStorage.setItem('velin_sos_filters', JSON.stringify({ filter, severityFilter, subFilter })) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filter, severityFilter, subFilter])
   const openIncidentHandled = useRef(null)
+  // Telefon/tablet: detail nahrazuje seznam (celá šířka) — pamatuj pozici seznamu pro návrat
+  const isMobile = useIsMobile()
+  const rootRef = useRef(null)
+  const listScrollRef = useRef(0)
+  const prevSelRef = useRef(null)
+  const scrollHost = () => (isMobile ? rootRef.current?.closest('.overflow-y-auto') : null)
+  // Pozici seznamu je nutné uložit PŘED skrytím seznamu (jinak ji prohlížeč ořízne na výšku detailu)
+  function selectIncident(inc) {
+    const host = scrollHost()
+    if (host && !selectedIncident) listScrollRef.current = host.scrollTop
+    setSelectedIncident(inc)
+  }
+  useEffect(() => {
+    const id = selectedIncident?.id || null
+    const host = scrollHost()
+    if (host) {
+      if (id && id !== prevSelRef.current) host.scrollTop = 0
+      else if (!id && prevSelRef.current) host.scrollTop = listScrollRef.current
+    }
+    prevSelRef.current = id
+  }, [selectedIncident?.id])
 
   // Auto-acknowledge light faults
   async function autoAcknowledge(incidentId, type) {
@@ -276,9 +299,9 @@ export default function SOSPanel() {
 
   return (
     <>
-    <div className="flex gap-5" style={{ minHeight: 'calc(100vh - 100px)' }}>
-      {/* Left: incident list */}
-      <div className={selectedIncident ? 'w-1/2' : 'w-full'} style={{ transition: 'width .2s' }}>
+    <div ref={rootRef} className="flex gap-5" style={{ minHeight: 'calc(100vh - 100px)' }}>
+      {/* Left: incident list (telefon/tablet: při otevřeném detailu skrytý) */}
+      <div className={selectedIncident ? 'w-1/2 max-lg:hidden' : 'w-full'} style={{ transition: 'width .2s' }}>
 
         {/* === DASHBOARD HEADER === */}
         <div className="mb-4">
@@ -313,12 +336,12 @@ export default function SOSPanel() {
               </span>
             )}
 
-            <div className="ml-auto flex items-center gap-2">
-              <Button onClick={() => setShowNewIncident(true)} green style={{ fontSize: 13 }}>
+            <div className="ml-auto flex items-center gap-2 max-sm:w-full max-sm:flex-wrap">
+              <Button onClick={() => setShowNewIncident(true)} green style={{ fontSize: 13 }} className="max-sm:flex-auto max-sm:justify-center max-sm:whitespace-nowrap max-sm:!px-4">
                 + Nový incident
               </Button>
               {!notifyEnabled ? (
-                <Button onClick={enableNotifications} style={{ background: '#fef3c7', color: '#92400e', fontSize: 13 }}>
+                <Button onClick={enableNotifications} style={{ background: '#fef3c7', color: '#92400e', fontSize: 13 }} className="max-sm:flex-auto max-sm:justify-center max-sm:whitespace-nowrap max-sm:!px-4">
                   Zapnout notifikace
                 </Button>
               ) : (
@@ -338,7 +361,7 @@ export default function SOSPanel() {
               { key: 'all', label: 'Vše', count: incidents.length },
             ].map(f => (
               <button key={f.key} onClick={() => { setFilter(f.key); setSelectedIncident(null) }}
-                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none max-lg:min-h-[38px]"
                 style={{
                   padding: '5px 12px',
                   background: filter === f.key ? '#1a2e22' : '#f1faf7',
@@ -348,7 +371,9 @@ export default function SOSPanel() {
               </button>
             ))}
 
-            <span style={{ width: 1, height: 20, background: '#d4e8e0', margin: '0 4px' }} />
+            <span className="max-sm:hidden" style={{ width: 1, height: 20, background: '#d4e8e0', margin: '0 4px' }} />
+            {/* Telefon: typové filtry na nový řádek (oddělené od stavových) */}
+            <span className="sm:hidden basis-full h-0" />
 
             {/* Type filter */}
             {TYPE_FILTERS.map(f => {
@@ -357,7 +382,7 @@ export default function SOSPanel() {
                 : baseList.length
               return (
                 <button key={f.key} onClick={() => { setSeverityFilter(f.key); setSubFilter('all') }}
-                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none max-lg:min-h-[38px]"
                   style={{
                     padding: '5px 10px',
                     background: severityFilter === f.key ? '#1a2e22' : '#f1faf7',
@@ -372,7 +397,7 @@ export default function SOSPanel() {
           {/* Sub-filtry pro nehody/poruchy */}
           {SUB_FILTERS[severityFilter] && (
             <div className="flex items-center gap-1 mt-2 flex-wrap">
-              <span className="text-[9px] font-bold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>Filtr:</span>
+              <span className="text-[9px] max-lg:text-xs font-bold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>Filtr:</span>
               {SUB_FILTERS[severityFilter].map(sf => {
                 const sfCount = sf.types
                   ? baseList.filter(i => sf.types.includes(i.type)).length
@@ -381,7 +406,7 @@ export default function SOSPanel() {
                     : baseList.filter(i => TYPE_FILTERS.find(t => t.key === severityFilter)?.types?.includes(i.type)).length
                 return (
                   <button key={sf.key} onClick={() => setSubFilter(sf.key)}
-                    className="rounded-btn text-[9px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                    className="rounded-btn text-[9px] max-lg:text-xs max-lg:min-h-[34px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
                     style={{
                       padding: '3px 8px',
                       background: subFilter === sf.key ? '#1a2e22' : '#f8fcfa',
@@ -397,14 +422,14 @@ export default function SOSPanel() {
         </div>
 
         {/* === SOS MAPA — zobrazí se ve filtru Ostatní nebo když jsou incidenty s GPS === */}
-        {severityFilter === 'ostatni' && <SOSMap incidents={displayed} onSelect={setSelectedIncident} />}
+        {severityFilter === 'ostatni' && <SOSMap incidents={displayed} onSelect={selectIncident} />}
 
         {/* === INCIDENT LIST === */}
         <div className="grid grid-cols-1 gap-3 mb-6">
           {displayed.map(inc => (
             <IncidentCard key={inc.id} incident={inc}
               selected={selectedIncident?.id === inc.id}
-              onSelect={() => setSelectedIncident(inc)}
+              onSelect={() => selectIncident(inc)}
               onUpdateStatus={updateStatus}
               onAddTimeline={addTimelineEntry}
             />
@@ -424,7 +449,8 @@ export default function SOSPanel() {
       </div>
 
       {selectedIncident && (
-        <div className="w-1/2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 100px)' }}>
+        <div className={isMobile ? 'w-full min-w-0' : 'w-1/2 overflow-y-auto'} style={isMobile ? undefined : { maxHeight: 'calc(100vh - 100px)' }}>
+          <SOSMobileBackBar onBack={() => setSelectedIncident(null)} />
           <SOSDetailPanel
             incident={selectedIncident}
             onClose={() => setSelectedIncident(null)}

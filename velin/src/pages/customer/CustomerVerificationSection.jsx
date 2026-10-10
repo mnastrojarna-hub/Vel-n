@@ -36,7 +36,8 @@ function OcrFieldsSummary({ fields }) {
   return (
     <div className="mt-2 p-2 rounded text-xs" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
       <div className="font-bold mb-1" style={{ color: '#1a2e22' }}>Naskenované údaje:</div>
-      <div className="grid gap-x-3 gap-y-0.5" style={{ gridTemplateColumns: '1fr 1fr', color: '#1a2e22' }}>
+      {/* Telefon (< 640 px): 1 sloupec, jinak se hodnoty ořezávaly („Číslo dokladu: E…“) */}
+      <div className="grid gap-x-3 gap-y-0.5 grid-cols-1 sm:grid-cols-[1fr_1fr]" style={{ color: '#1a2e22' }}>
         {entries.map(([k, v]) => (
           <div key={k} className="truncate">
             <span style={{ color: '#5a6b63' }}>{OCR_FIELD_LABELS[k] || k}:</span>{' '}
@@ -58,7 +59,8 @@ function DocPageRow({ doc, onPreview, onDelete, onSwapSide }) {
     <div className="p-2 rounded-lg" style={{ background: '#fff', border: status === 'failed' ? '1px solid #fcd34d' : '1px solid #d4e8e0' }}>
       <div className="flex items-center gap-2 flex-wrap">
         <span style={{ fontSize: 16 }}>{icon}</span>
-        <div className="flex-1 min-w-0">
+        {/* < 1024 px: název + datum na vlastním řádku (neořezaný), odznak a akce pod ním */}
+        <div className="flex-1 min-w-0 max-lg:basis-[calc(100%-32px)]">
           <div className="text-sm font-bold truncate" style={{ color: '#1a2e22' }}>
             {doc.name || doc.file_name || doc.type}
           </div>
@@ -70,16 +72,16 @@ function DocPageRow({ doc, onPreview, onDelete, onSwapSide }) {
         {/* Oprava špatně označené strany (např. rub uložený jako líc) — přepíše
             metadata.side i popisek, přeskupení v Líc/Rub slotech řeší reload. */}
         {onSwapSide && (
-          <button onClick={() => onSwapSide(doc)} className="text-sm font-bold cursor-pointer"
+          <button onClick={() => onSwapSide(doc)} className="text-sm font-bold cursor-pointer max-lg:py-2"
             style={{ color: '#b45309', background: 'none', border: 'none' }}>
             {side === 'back' ? '⇄ Je to líc' : '⇄ Je to rub'}
           </button>
         )}
         {doc.file_path && (
-          <button onClick={() => onPreview(doc)} className="text-sm font-bold cursor-pointer"
+          <button onClick={() => onPreview(doc)} className="text-sm font-bold cursor-pointer max-lg:py-2"
             style={{ color: '#2563eb', background: 'none', border: 'none' }}>Náhled</button>
         )}
-        <button onClick={() => onDelete(doc)} className="text-sm font-bold cursor-pointer"
+        <button onClick={() => onDelete(doc)} className="text-sm font-bold cursor-pointer max-lg:py-2"
           style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button>
       </div>
       {status === 'ok' && <OcrFieldsSummary fields={ocr} />}

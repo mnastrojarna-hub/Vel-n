@@ -127,7 +127,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
     return (
       <div className="rounded-card" style={{ ...card, background: '#fef2f2', border: '1px solid #fecaca' }}>
         <p className="text-sm font-bold" style={{ color: '#dc2626' }}>{err}</p>
-        <button onClick={() => load(false)} className="rounded-btn text-xs font-extrabold cursor-pointer mt-2"
+        <button onClick={() => load(false)} className="rounded-btn text-xs font-extrabold cursor-pointer mt-2 max-lg:min-h-[40px]"
           style={{ padding: '6px 12px', border: 'none', background: '#f1faf7', color: '#1a2e22' }}>
           Zkusit znovu
         </button>
@@ -152,7 +152,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
           Appka naposledy online: {fmtTime(data?.app_last_seen)}
           {' · '}stav rezervace: {data?.booking_status || booking?.status || '—'}
         </p>
-        <button onClick={() => load(false)} className="rounded-btn text-xs font-extrabold cursor-pointer mt-3"
+        <button onClick={() => load(false)} className="rounded-btn text-xs font-extrabold cursor-pointer mt-3 max-lg:min-h-[40px]"
           style={{ padding: '6px 12px', border: 'none', background: '#f1faf7', color: '#1a2e22' }}>
           Obnovit
         </button>
@@ -170,7 +170,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
   const stuck = recording && ageSec > 3 * 3600
 
   const badge = (bg, color, text) => (
-    <span className="text-[10px] font-extrabold uppercase rounded-btn"
+    <span className="text-[10px] max-lg:text-[11px] font-extrabold uppercase rounded-btn"
       style={{ padding: '3px 8px', background: bg, color }}>{text}</span>
   )
 
@@ -228,7 +228,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
           ].map(([emoji, label, value]) => (
             <div key={label} className="rounded-card"
               style={{ background: '#f1faf7', border: '1px solid #d4e8e0', padding: '8px 10px' }}>
-              <div className="text-[10px] font-extrabold uppercase" style={{ color: '#6b8f7b' }}>
+              <div className="text-[10px] max-lg:text-[11px] font-extrabold uppercase" style={{ color: '#6b8f7b' }}>
                 {emoji} {label}
               </div>
               <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{value}</div>
@@ -258,7 +258,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
               jízda. (Server ho uklidí sám do tří hodin — tímhle to jde hned.)
             </p>
             <button onClick={closeStuck} disabled={closing}
-              className="rounded-btn text-xs font-extrabold cursor-pointer"
+              className="rounded-btn text-xs font-extrabold cursor-pointer max-lg:min-h-[40px]"
               style={{
                 padding: '6px 12px', border: 'none', background: '#dc2626',
                 color: '#fff', opacity: closing ? .6 : 1,

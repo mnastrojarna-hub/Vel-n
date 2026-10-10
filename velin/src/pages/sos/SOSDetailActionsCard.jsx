@@ -6,7 +6,7 @@ export function ActionsCard({ incident, isActive, isAccident, isMajor, motoInSer
   if (!isActive) return null
   return (
         <Card>
-          <h4 className="text-[10px] font-extrabold uppercase tracking-wider mb-3" style={{ color: '#1a2e22' }}>
+          <h4 className="text-[10px] max-lg:text-xs font-extrabold uppercase tracking-wider mb-3" style={{ color: '#1a2e22' }}>
             Akce pro tento incident
           </h4>
           <div className="flex flex-wrap gap-2">
@@ -157,14 +157,14 @@ export function ActionsCard({ incident, isActive, isAccident, isMajor, motoInSer
 
           {/* Číslo policejního spisu — inline input */}
           {(incident.type === 'theft' || isAccident) && (
-            <div className="flex items-center gap-2 mt-3">
+            <div className="flex items-center gap-2 mt-3 max-sm:flex-col max-sm:items-stretch">
               <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>
                 Číslo PČR spisu:
               </span>
               <input type="text" value={policeNumber} onChange={e => setPoliceNumber(e.target.value)}
                 placeholder="KRPX-12345/ČJ-2026"
                 onBlur={() => saveField('police_report_number', policeNumber)}
-                className="flex-1 rounded-btn text-sm outline-none font-mono"
+                className="flex-1 rounded-btn text-sm outline-none font-mono max-lg:min-w-0 max-lg:min-h-[40px]"
                 style={{ padding: '5px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
               />
             </div>

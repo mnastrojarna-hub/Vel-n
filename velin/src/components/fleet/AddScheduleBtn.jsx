@@ -36,11 +36,11 @@ export default function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existi
   const existingNorm = existingTypes.map(norm)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.4)' }} onClick={e => { if (e.target === e.currentTarget) reset() }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center max-lg:p-2" style={{ background: 'rgba(0,0,0,.4)' }} onClick={e => { if (e.target === e.currentTarget) reset() }}>
       <div className="rounded-card shadow-xl w-full max-w-lg" style={{ background: '#fff', maxHeight: '85vh', overflow: 'auto' }}>
         <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid #d4e8e0' }}>
           <h3 className="font-extrabold text-base" style={{ color: '#0f1a14' }}>{step === 1 ? 'Vyberte typ servisu' : 'Nastaveni planu'}</h3>
-          <button onClick={reset} className="text-lg font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#6b7280' }}>{'\u00d7'}</button>
+          <button onClick={reset} className="text-lg font-bold cursor-pointer max-lg:w-9 max-lg:h-9" style={{ background: 'none', border: 'none', color: '#6b7280' }}>{'\u00d7'}</button>
         </div>
         {step === 1 && (
           <div className="p-4"><div className="grid grid-cols-2 gap-2">

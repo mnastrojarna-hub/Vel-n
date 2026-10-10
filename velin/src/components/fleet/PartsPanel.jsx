@@ -14,8 +14,8 @@ export default function PartsPanel({ parts, inventoryItems, scheduleId, onAdd, o
         <p style={{ color: '#6b7280', fontSize: 12 }}>{inventoryItems.length === 0 ? 'Sklad není pro tento účet dostupný nebo je prázdný — díly přidá správce.' : 'Žádné díly — klikněte + Přidat díl'}</p>
       )}
       {parts.map(p => (
-        <div key={p.id} className="flex items-center gap-2 mb-1 p-2 rounded" style={{ background: '#fff' }}>
-          <span className="flex-1 font-bold">{p.inventory?.name || '\u2014'}</span>
+        <div key={p.id} className="flex items-center gap-2 mb-1 p-2 rounded max-md:flex-wrap" style={{ background: '#fff' }}>
+          <span className="flex-1 font-bold max-md:basis-full">{p.inventory?.name || '\u2014'}</span>
           <span className="font-mono" style={{ color: '#6b7280' }}>{p.inventory?.sku || ''}</span>
           <span style={{ color: (p.inventory?.stock || 0) < p.quantity ? '#dc2626' : '#1a8a18', fontWeight: 700 }}>
             sklad: {p.inventory?.stock ?? '?'}
@@ -24,13 +24,13 @@ export default function PartsPanel({ parts, inventoryItems, scheduleId, onAdd, o
           <input type="number" min={1} value={p.quantity}
             onChange={e => onUpdateQty(p.id, e.target.value)}
             className="rounded text-xs text-center outline-none" style={{ width: 40, padding: '2px 4px', border: '1px solid #d1d5db' }} />
-          <button onClick={() => onRemove(p.id, scheduleId)} className="text-xs font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>{'\u00d7'}</button>
+          <button onClick={() => onRemove(p.id, scheduleId)} className="text-xs font-bold cursor-pointer max-lg:px-2 max-lg:py-1" style={{ color: '#dc2626', background: 'none', border: 'none' }}>{'\u00d7'}</button>
         </div>
       ))}
       {adding ? (
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex items-center gap-2 mt-2 max-md:flex-wrap">
           <select value={selItem} onChange={e => setSelItem(e.target.value)}
-            className="rounded text-xs outline-none flex-1" style={{ padding: '4px 6px', border: '1px solid #d1d5db', background: '#fff' }}>
+            className="rounded text-xs outline-none flex-1 max-lg:min-w-0 max-md:basis-full" style={{ padding: '4px 6px', border: '1px solid #d1d5db', background: '#fff' }}>
             <option value="">— Vyberte dil —</option>
             {available.map(i => (
               <option key={i.id} value={i.id}>{i.name} ({i.sku || '\u2014'}) — sklad: {i.stock}</option>
@@ -39,11 +39,11 @@ export default function PartsPanel({ parts, inventoryItems, scheduleId, onAdd, o
           <input type="number" min={1} value={selQty} onChange={e => setSelQty(e.target.value)}
             className="rounded text-xs text-center outline-none" style={{ width: 40, padding: '4px', border: '1px solid #d1d5db' }} />
           <button onClick={() => { if (selItem) { onAdd(scheduleId, selItem, selQty); setAdding(false); setSelItem(''); setSelQty(1) } }}
-            disabled={!selItem} className="text-xs font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>Pridat</button>
-          <button onClick={() => setAdding(false)} className="text-xs cursor-pointer" style={{ color: '#6b7280', background: 'none', border: 'none' }}>Zrusit</button>
+            disabled={!selItem} className="text-xs font-bold cursor-pointer max-lg:px-2 max-lg:py-2" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>Pridat</button>
+          <button onClick={() => setAdding(false)} className="text-xs cursor-pointer max-lg:px-2 max-lg:py-2" style={{ color: '#6b7280', background: 'none', border: 'none' }}>Zrusit</button>
         </div>
       ) : (
-        <button onClick={() => setAdding(true)} className="text-xs font-bold cursor-pointer mt-1" style={{ color: '#2563eb', background: 'none', border: 'none' }}>+ Pridat dil</button>
+        <button onClick={() => setAdding(true)} className="text-xs font-bold cursor-pointer mt-1 max-lg:py-2" style={{ color: '#2563eb', background: 'none', border: 'none' }}>+ Pridat dil</button>
       )}
     </div>
   )

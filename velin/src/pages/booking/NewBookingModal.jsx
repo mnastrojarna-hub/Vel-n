@@ -193,14 +193,15 @@ export default function NewBookingModal({ onClose, onSaved }) {
 
   return (
     <Modal open title="Nová rezervace" onClose={onClose} wide>
-      <div className="flex items-center gap-2 mb-5">
+      {/* kroky — na úzkém displeji se zalomí (jinak přetékaly mimo modal) */}
+      <div className="flex items-center gap-2 mb-5 max-lg:flex-wrap max-lg:gap-y-2">
         {STEP_LABELS.map((label, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="flex items-center gap-1 cursor-pointer" onClick={() => { if (i + 1 < step) setStep(i + 1) }}>
               <div className="text-sm font-extrabold rounded-full flex items-center justify-center" style={{ width: 22, height: 22, background: step > i + 1 ? '#74FB71' : step === i + 1 ? '#0f1a14' : '#e5e7eb', color: step === i + 1 ? '#fff' : step > i + 1 ? '#0f1a14' : '#9ca3af' }}>{step > i + 1 ? '✓' : i + 1}</div>
-              <span className="text-sm font-bold uppercase tracking-wide" style={{ color: step === i + 1 ? '#0f1a14' : '#1a2e22' }}>{label}</span>
+              <span className="text-sm font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: step === i + 1 ? '#0f1a14' : '#1a2e22' }}>{label}</span>
             </div>
-            {i < STEP_LABELS.length - 1 && <div style={{ width: 24, height: 1, background: '#d4e8e0' }} />}
+            {i < STEP_LABELS.length - 1 && <div className="max-sm:!w-3" style={{ width: 24, height: 1, background: '#d4e8e0' }} />}
           </div>
         ))}
       </div>

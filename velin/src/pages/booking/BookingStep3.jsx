@@ -25,7 +25,8 @@ export default function BookingStep3({ selectedMoto, startDate, endDate, days, t
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-4">
+      {/* telefon: zákazník a shrnutí pod sebou */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Zákazník</label>
           {selectedCustomer ? (
@@ -34,7 +35,7 @@ export default function BookingStep3({ selectedMoto, startDate, endDate, days, t
               <div className="text-sm" style={{ color: '#1a2e22' }}>{selectedCustomer.email}</div>
               {selectedCustomer.phone && <div className="text-sm" style={{ color: '#1a2e22' }}>{selectedCustomer.phone}</div>}
               <button onClick={() => { setSelectedCustomer(null); setCustomerSearch('') }}
-                className="text-sm font-bold cursor-pointer mt-1" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Změnit</button>
+                className="text-sm font-bold cursor-pointer mt-1 max-lg:min-h-[36px]" style={{ color: '#dc2626', background: 'none', border: 'none' }}>Změnit</button>
             </div>
           ) : (
             <div>
@@ -111,9 +112,9 @@ export default function BookingStep3({ selectedMoto, startDate, endDate, days, t
         </div>
       </div>
 
-      <div className="flex justify-between mt-5">
-        <Button onClick={onBack}>← Zpět</Button>
-        <Button green onClick={() => onCreate({ selectedCustomer, pickupTime, notes })} disabled={saving || !selectedCustomer}>
+      <div className="flex justify-between mt-5 max-sm:flex-col-reverse max-sm:gap-2">
+        <Button onClick={onBack} className="max-sm:justify-center">← Zpět</Button>
+        <Button green className="max-sm:justify-center" onClick={() => onCreate({ selectedCustomer, pickupTime, notes })} disabled={saving || !selectedCustomer}>
           {saving ? 'Vytvářím…' : noPayment ? 'Vytvořit (zaplaceno)' : 'Vytvořit a odeslat k platbě'}
         </Button>
       </div>

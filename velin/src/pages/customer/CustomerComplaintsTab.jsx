@@ -123,7 +123,7 @@ export default function CustomerComplaintsTab({ userId }) {
       <Card>
         <div className="flex flex-wrap items-center gap-3 mb-1">
           <SearchInput value={search} onChange={v => setSearch(v)} placeholder="Hledat v reklamacich…" />
-          <div className="flex gap-1">
+          <div className="flex gap-1 max-lg:flex-wrap">
             {FILTER_OPTIONS.map(opt => (
               <button key={opt.value} onClick={() => setStatusFilter(opt.value)}
                 className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
@@ -164,7 +164,7 @@ export default function CustomerComplaintsTab({ userId }) {
                       <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{c.subject || 'Reklamace'}</span>
                       <Badge label={st.label} color={st.color} bg={st.bg} />
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-sm" style={{ color: '#1a2e22' }}>
+                    <div className="flex items-center gap-3 mt-1 text-sm max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-0.5" style={{ color: '#1a2e22' }}>
                       <span>{c.created_at ? new Date(c.created_at).toLocaleString('cs-CZ') : '—'}</span>
                       {booking?.motorcycles && <span>🏍 {booking.motorcycles.model} ({booking.motorcycles.spz})</span>}
                     </div>
@@ -213,10 +213,10 @@ export default function CustomerComplaintsTab({ userId }) {
                     {booking && (
                       <div>
                         <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Propojena rezervace</div>
-                        <div className="p-3 rounded-lg flex items-center gap-3 cursor-pointer" style={{ background: '#f1faf7' }}
+                        <div className="p-3 rounded-lg flex items-center gap-3 cursor-pointer max-md:flex-wrap" style={{ background: '#f1faf7' }}
                           onClick={() => navigate(`/rezervace/${c.booking_id}`)}>
                           <span style={{ fontSize: 16 }}>🏍</span>
-                          <div className="flex-1">
+                          <div className="flex-1 max-md:min-w-0 max-md:basis-[calc(100%-40px)]">
                             <span className="text-sm font-bold">{booking.motorcycles?.model || '—'}</span>
                             <span className="text-sm ml-2" style={{ color: '#1a2e22' }}>{booking.motorcycles?.spz || ''}</span>
                             <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{booking.start_date} → {booking.end_date}</span>

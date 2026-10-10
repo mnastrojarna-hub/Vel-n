@@ -122,13 +122,13 @@ export default function SOSWorkflowStepper({ incident, timelineActions, motoInSe
       background: isResolved ? '#f0fdf4' : '#fffbeb',
       border: isResolved ? '2px solid #86efac' : '2px solid #fbbf24',
     }}>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-extrabold uppercase tracking-wider" style={{
+      <div className="flex items-center justify-between mb-3 max-lg:gap-2">
+        <span className="text-[10px] max-lg:text-xs font-extrabold uppercase tracking-wider" style={{
           color: isResolved ? '#1a8a18' : '#b45309',
         }}>
           Postup řešení: {workflow.label}
         </span>
-        <span className="text-[10px] font-extrabold uppercase tracking-wider" style={{
+        <span className="text-[10px] max-lg:text-xs font-extrabold uppercase tracking-wider" style={{
           color: isResolved ? '#1a8a18' : '#b45309',
         }}>
           {completedCount}/{totalCount}
@@ -177,7 +177,7 @@ export default function SOSWorkflowStepper({ incident, timelineActions, motoInSe
               }}>
                 {step.label}
                 {isCurrent && !isResolved && (
-                  <span className="ml-1 text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded"
+                  <span className="ml-1 text-[9px] max-lg:text-[11px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded"
                     style={{ background: '#fef3c7', color: '#b45309' }}>
                     aktuální
                   </span>

@@ -41,7 +41,7 @@ export const DAMAGE_LABELS = {
 export function WorkflowBtn({ label, icon, done, onClick }) {
   return (
     <button onClick={done ? undefined : onClick}
-      className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none inline-flex items-center gap-1"
+      className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none inline-flex items-center gap-1 max-lg:min-h-[40px]"
       style={{
         padding: '6px 14px',
         background: done ? '#dcfce7' : '#f1faf7',
@@ -59,8 +59,8 @@ export function WorkflowBtn({ label, icon, done, onClick }) {
 export function InfoRow({ label, value, mono }) {
   return (
     <div className="flex items-center gap-2 mb-1">
-      <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 55 }}>{label}</span>
-      <span className={`text-sm font-medium ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value || '—'}</span>
+      <span className="text-sm font-extrabold uppercase tracking-wide max-lg:shrink-0" style={{ color: '#1a2e22', minWidth: 55 }}>{label}</span>
+      <span className={`text-sm font-medium max-lg:min-w-0 max-lg:[overflow-wrap:anywhere] ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value || '—'}</span>
     </div>
   )
 }
