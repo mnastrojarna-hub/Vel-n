@@ -116,7 +116,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
   }
 
   return (
-    <Modal open title={`Pobočka: ${branch.name}`} onClose={onClose} wide>
+    <Modal open title={`Pobočka: ${branch.name}`} onClose={onClose} wide stickyHeader>
       {/* Status bar */}
       <div className="flex items-center gap-3 mb-4 max-lg:flex-wrap max-lg:gap-2">
         <span className="inline-block rounded-btn text-[10px] max-lg:text-[11px] font-extrabold tracking-wide uppercase"

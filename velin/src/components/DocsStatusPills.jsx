@@ -10,6 +10,9 @@
  *  - scan         = { license, id, passport } z dávkového dotazu na `documents`
  *  - requireLicense = false → ŘP se nevyžaduje (dětská motorka „N" v rezervacích)
  */
+import { useIsMobile } from '../hooks/useIsMobile'
+import DocsPillsTouch from '../pages/booking/DocsPillsTouch'
+
 const filled = v => !!(v != null && String(v).trim() !== '')
 
 const pill = (label, title, color, bg) => (
@@ -18,6 +21,9 @@ const pill = (label, title, color, bg) => (
 )
 
 export default function DocsStatusPills({ profile, scan, requireLicense = true }) {
+  // telefon/tablet: varianta s textem „chybí …“ přímo v pilulce (desktop beze změny)
+  const isMobile = useIsMobile()
+  if (isMobile) return <DocsPillsTouch profile={profile} scan={scan} requireLicense={requireLicense} />
   const p = profile || {}
   const s = scan || { license: false, id: false, passport: false }
   const idNum = filled(p.id_number)
