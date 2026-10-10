@@ -220,6 +220,17 @@ class HandoverManager:
         await self._show(item, None)
         return "protocol"
 
+    def on_wardrobe_opened(self, zone: int, booking_id: str | None) -> bool:
+        """Šatna znovu otevřena (2026-10-10): viditelný protokol šatny této rezervace schovat — při otevřených dveřích
+        se protokol neukazuje, další zavření ho ukáže znovu. Rozepsaný podpis (in_flight) ani then_open se neruší."""
+        item = self.items.get(str(booking_id or ""))
+        if item is None or not item.visible or item.stage != STAGE_PROTOCOL or item.in_flight \
+                or item.then_open is not None or item.kind_origin != "accessories" or item.zone != zone:
+            return False
+        item.visible = False
+        self._save()
+        return True
+
     async def require_before_open(self, rr: ResolveResult, zc: "ZoneController", source: str) -> bool:
         """Kód motorky: True = kóji NEotevírat, overlay protokolu s then_open (po podpisu se otevře sama)."""
         bid = str(rr.booking_id or "")

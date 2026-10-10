@@ -155,6 +155,7 @@ class BoxController:
             zc.lock_gate = self.lock_gate
             zc.music_store = self.storage                   # uvítací / návratová skladba (music_phase)
             zc.on_session_closed = self._session_closed     # zavření šatny → protokol na displeji
+            zc.on_session_reopened = self._session_reopened # znovuotevření šatny → protokol schovat (2026-10-10)
             self.zones[z.number] = zc
         self.pin_guard.sec = hw.security
 
@@ -163,6 +164,12 @@ class BoxController:
         Servisní otevření (booking_id None) ani kóje motorek protokol nespouští."""
         if zc.zone.kind == "accessories" and zc.booking_id:
             await self.handover.on_wardrobe_closed(zc.number, zc.booking_id)
+
+    async def _session_reopened(self, zc: ZoneController) -> None:
+        """CLOSED_CONFIRMATION→DOOR_OPEN zákaznické relace šatny: protokol se při otevřených dveřích nezobrazuje
+        (2026-10-10, zadání majitele) — schová se; další zavření ho ukáže znovu (`on_wardrobe_closed`)."""
+        if zc.zone.kind == "accessories" and zc.booking_id:
+            self.handover.on_wardrobe_opened(zc.number, zc.booking_id)
 
     async def _hw_startup(self) -> None:
         """§12: all relays off → Shelly off → audio off → načíst kontakty → stav zón."""
@@ -467,7 +474,7 @@ class BoxController:
             self.last_error = event.message
         if event.kind == EventKind.ACCESS_GRANTED and event.code_kind == "motorcycle" and not event.detail.get("temp"):
             for zc in self.zones.values():        # šatna se světlem „do kódu motorky“ (2026-09-25) → zhasnout
-                if zc.light_until_moto_code and zc.light_on:
+                if (zc.light_until_moto_code and zc.light_on) or zc.hold_until_moto_code:   # + hudba šatny (2026-10-10)
                     asyncio.create_task(zc.light_off_after_moto_code(), name=f"motogo.light_off.{zc.number}")
         if event.kind in cc.NOTICE_KINDS:
             self.ui_notice = {"title": event.message, "kind": "error", "ts": time.time(),

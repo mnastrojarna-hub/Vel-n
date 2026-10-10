@@ -119,6 +119,15 @@ mimo `TEMP_KINDS` → `ok=False, error='invalid_code', kind=''` (krátkodobý k�
   znovuotevření odpočet neresetuje); `lock_min_elapsed` = minimum od kódu NEBO ≥ tato doba od `lock_opened_at` → `release_lock_if_due`
   / `tick_locked` (`min_hold`) zámek vypne. Minimum `lock_hold_min_s` tak platí jen pro čekání na otevření. Nový grant / `release_lock`
   `lock_opened_at` nuluje. Velín hodnotu neposílá (chybí = 2). Testy `test_lock_release_after_open.py`.
+- **Šatna drží hudbu a relaci do kódu motorky (1.2.10, 2026-10-10, zadání majitele):** `submit_code` po úspěšném kódu šatny
+  s rezervací (ne vrácení, ne `temp`) nastaví `ZoneController.hold_until_moto_code` (nuluje `reset_session`). Dokud platí
+  (`zone_access.wardrobe_hold`): `music_after_close_s` hudbu nezastaví, po `light_after_close_s` zóna nejde do SECURED, ale do fáze
+  `lock_wait` BEZ zastavení hudby (znovuotevření = DOOR_OPEN téže relace, nikdy FORCED_OPEN; venek zónu nepočítá). Konec: ACCESS_GRANTED
+  `motorcycle` (ne temp) → `light_off_after_moto_code` hudbu hned zastaví (i při otevřených dveřích) a relace doběhne do SECURED;
+  pojistka `maximum_session_s` od posledního zavření (pak i bez drženého světla). Opakovaný kód šatny téže rezervace = hudba bez
+  přetáčení (`restart=False`). Znovuotevření šatny (CLOSED_CONFIRMATION→DOOR_OPEN) volá `on_session_reopened` →
+  `HandoverManager.on_wardrobe_opened` schová viditelný protokol šatny (ne `then_open`, ne rozepsaný podpis); další zavření ho
+  ukáže znovu (bez 2. PROTOCOL_SHOWN). Testy `test_wardrobe_music_hold.py`.
 - **`TimingsCfg.handover_idle_s` (2026-09-25, výchozí 600 — od 2026-09-29 dřív 120, §28):** doba bez dotyku, po níž overlay předávacího protokolu
   zmizí z displeje (položka zůstává nevyřízená, `then_open` se ruší). Z Velína `hardware.timings.handover_idle_s` (volitelné,
   `BranchRpiHardware*.jsx`), UI ho dostane v `snap['timings']` (§14/§16) — odpočet ale vždy z `handover.active.expires_at`.

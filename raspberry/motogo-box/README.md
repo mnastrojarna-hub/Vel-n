@@ -100,6 +100,11 @@ otevřeno, držený zámek se vypne `timings.lock_release_after_open_s` (výchoz
 otevření, i před uplynutím minima. Minimum tak platí jen pro čekání na otevření; po vypnutí lze dveře zavřít a do konce doběhu
 („Světlo po zavření“) znovu otevřít v téže relaci jako dřív.
 
+**Šatna drží hudbu do kódu motorky (1.2.10, 2026-10-10, zadání majitele):** po kódu šatny s rezervací (ne vrácení, ne krátkodobý
+kód) hraje hudba šatny bez ohledu na dveře, dokud zákazník nezadá kód motorky (kóje motorky se otevře) — dveře šatny lze mezitím
+libovolně otevírat a zavírat (táž relace, žádný poplach „otevřeno bez kódu“). Protokol převzetí se ukáže při každém zavření šatny
+a při jejím otevření se schová. Pojistka: bez kódu motorky relace skončí `maximum_session_s` po posledním zavření.
+
 **Režimy venku (2026-09-14):** venek se nastavuje JINAK než kóje 1–7 a šatna — ty se řídí společným časováním (sekce „Časování“),
 venek má v bloku „Venek“ vlastní dvojici přepínačů. **Venkovní světlo:** `Podle relací` (výchozí) \| **`NONSTOP`** (svítí pořád bez
 ohledu na zákazníky — pro venkovní prostor u pobočky; doběh se pak neuplatní) \| `Trvale zhasnuto` (nerozsvítí ani relace).
