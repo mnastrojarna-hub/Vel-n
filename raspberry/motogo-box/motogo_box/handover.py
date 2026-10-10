@@ -21,6 +21,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
+from . import gear_limits as gl
 from . import handover_submit as hs
 from .handover_lock import DEFAULT_LOCK_S, HandoverLock, iso_ts
 from .models import ACCESSORIES_NAME, Event, EventKind, ResolveResult
@@ -220,6 +221,17 @@ class HandoverManager:
         await self._show(item, None)
         return "protocol"
 
+    def on_wardrobe_opened(self, zone: int, booking_id: str | None) -> bool:
+        """Šatna znovu otevřena (2026-10-10): viditelný protokol šatny této rezervace schovat — při otevřených dveřích
+        se protokol neukazuje, další zavření ho ukáže znovu. Rozepsaný podpis (in_flight) ani then_open se neruší."""
+        item = self.items.get(str(booking_id or ""))
+        if item is None or not item.visible or item.stage != STAGE_PROTOCOL or item.in_flight \
+                or item.then_open is not None or item.kind_origin != "accessories" or item.zone != zone:
+            return False
+        item.visible = False
+        self._save()
+        return True
+
     async def require_before_open(self, rr: ResolveResult, zc: "ZoneController", source: str) -> bool:
         """Kód motorky: True = kóji NEotevírat, overlay protokolu s then_open (po podpisu se otevře sama)."""
         bid = str(rr.booking_id or "")
@@ -375,9 +387,11 @@ class HandoverManager:
 
     # ─── snapshot (bez podpisů a formulářů — jde i do kiosk_report_status) ──
     def _sizes(self, is_child: bool) -> dict:
+        """Číselník pro displej bez velikostí mimo rozsah samoobsluhy (+ záloha chybějícího klíče, `gear_limits`)."""
         gs = self.gear_sizes if isinstance(self.gear_sizes, dict) else {}
         group = gs.get("child" if is_child else "adult") or gs.get("adult") or gs
-        return {k: list(group.get(k) or []) for k in GEAR_KEYS} if isinstance(group, dict) else {}
+        group = group if isinstance(group, dict) else {}
+        return {k: gl.allowed_sizes(k, group.get(k), is_child) for k in GEAR_KEYS}
 
     def status(self) -> dict:
         item, now = self.active(), self.clock()
@@ -388,9 +402,12 @@ class HandoverManager:
                                                      else f"Zóna {item.zone}")
             to_valid = self.then_open_valid(item, now)
             expires = (item.shown_at or now) + DONE_TTL_S if item.stage == STAGE_DONE else item.last_touch + self.idle_s
+            sizes, data = self._sizes(item.is_child), dict(item.data)   # item.data beze změny (persist/reconcile)
+            if "gear" in data:          # rezervovaná velikost mimo rozsah → nejbližší povolená (5XL → 4XL)
+                data["gear"] = gl.clamp_gear(data["gear"], sizes, item.is_child)
             active = {"booking_id": item.booking_id, "stage": item.stage, "zone": item.zone, "zone_label": label,
                       "kind": zc.zone.kind if zc else item.kind_origin, "kind_origin": item.kind_origin, "then_open": to_valid,
-                      "needs_code": not to_valid, "data": dict(item.data), "sizes": self._sizes(item.is_child),
+                      "needs_code": not to_valid, "data": data, "sizes": sizes,
                       "is_child": bool(item.is_child), "needs_locker": bool(item.needs_locker),
                       "shown_at": iso_ts(item.shown_at), "expires_at": iso_ts(expires), "saving": item.in_flight}
         return {"active": active, "pending": list(self.queue_state.get("pending", [])),

@@ -99,8 +99,8 @@ class Reservation {
   final bool? ownGear;
   /// Předávací protokol (samoobslužná pobočka): začátek okna (historie),
   /// čas podpisu (NULL = nepodepsáno → motorka se na kiosku neotevře),
-  /// poslední výzva z displeje pobočky (každá nová hodnota = appka otevře
-  /// protokol přes celou obrazovku) a první zavření šatny.
+  /// poslední výzva z displeje pobočky (od 2026-10-10 jen informace —
+  /// protokol se vyplňuje výhradně na kiosku) a první zavření šatny.
   final DateTime? handoverProtocolStartedAt;
   final DateTime? handoverProtocolFilledAt;
   final DateTime? handoverProtocolPromptedAt;
@@ -279,7 +279,7 @@ class Reservation {
   static DateTime? _ts(dynamic v) =>
       v == null ? null : DateTime.tryParse(v.toString());
 
-  /// Samoobslužná pobočka (kiosk, kódy, předávací protokol v appce).
+  /// Samoobslužná pobočka (kiosk, kódy, předávací protokol na displeji pobočky).
   bool get isSelfService => branchType == 'samoobslužná';
 
   /// Čas vyzvednutí jako HH:MM (DB `time` vrací HH:MM:SS); null = bez času,
@@ -313,7 +313,7 @@ class Reservation {
     return at != null && DateTime.now().toUtc().isBefore(at);
   }
 
-  /// Předávací protokol už je podepsaný (v appce, na displeji nebo ve Velíně).
+  /// Předávací protokol už je podepsaný (na displeji pobočky, ve Velíně nebo dřív v appce).
   bool get protocolSigned => handoverProtocolFilledAt != null;
 
   /// Čas SKUTEČNÉHO vydání motorky („Vydáno“ v detailu, start nahrávání jízdy),
@@ -373,8 +373,8 @@ class Reservation {
   /// podpis předávacího protokolu / DB `active`), i když termín už běží —
   /// stejně jako Velín a seznam na webu. Vydaná před začátkem termínu (obsluha
   /// podepsala protokol večer předem) je už „Aktivní“. Kalendářní „termín
-  /// běží“ = [inRentalTerm] — na něm visí kódy ke dveřím, výzva a tlačítko
-  /// protokolu, dokumenty, zámek souhlasů, záznam jízdy a globální SOS
+  /// běží“ = [inRentalTerm] — na něm visí kódy ke dveřím, dokumenty,
+  /// zámek souhlasů, záznam jízdy a globální SOS
   /// (potřebné právě PŘED vydáním).
   ResStatus get displayStatus {
     final s = _calendarStatus;

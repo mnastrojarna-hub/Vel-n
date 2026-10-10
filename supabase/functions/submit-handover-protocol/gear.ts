@@ -14,6 +14,60 @@ export type GearWho = 'rider' | 'passenger'
 const GEAR_LABELS: Record<GearKey, string> = { helmet: 'Helma', jacket: 'Bunda', pants: 'Kalhoty', boots: 'Boty', gloves: 'Rukavice' }
 const WHO_LABELS: Record<GearWho, string> = { rider: 'řidič', passenger: 'spolujezdec' }
 
+// Velikosti na SAMOOBSLUŽNÉ pobočce (zadání majitele 2026-10-10) — edge je vždy samoobsluha (index.ts
+// odmítá not_self_service). Jen dospělá motorka: helma S–3XL, bunda/kalhoty/rukavice max. 4XL; boty,
+// velikosti mimo pořadí (čísla, dětské popisky) a dětská motorka (license_required 'N') beze změny.
+// Filtr podle POŘADÍ (trim + upper, aliasy XXL…). Parita: kiosk gear_limits.py, web gear-ss-cap.js, appka.
+const SIZE_RANK: Record<string, number> = {
+  XXS: 0, XS: 1, S: 2, M: 3, L: 4, XL: 5, '2XL': 6, XXL: 6, '3XL': 7, XXXL: 7, '4XL': 8, XXXXL: 8, '5XL': 9, XXXXXL: 9,
+  '6XL': 10, XXXXXXL: 10,
+}
+const SS_LIMITS: Partial<Record<GearKey, [number, number]>> = { // [min, max] rank
+  helmet: [SIZE_RANK.S, SIZE_RANK['3XL']], jacket: [0, SIZE_RANK['4XL']], pants: [0, SIZE_RANK['4XL']], gloves: [0, SIZE_RANK['4XL']],
+}
+// Záloha pro klíč bez aktivního neprázdného řádku v accessory_types (živá DB 2026-10-10: `jacket` chybí) — jen dospělá motorka.
+const SS_FALLBACK: Partial<Record<GearKey, string[]>> = {
+  helmet: ['S', 'M', 'L', 'XL', '2XL', '3XL'],
+  jacket: ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'],
+  pants: ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'],
+  gloves: ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'],
+}
+
+/** Smí se velikost vydat na samoobsluze? Dětská motorka / klíč bez pravidla / velikost mimo pořadí = ano. */
+export function selfServiceSizeOk(key: string, size: string, isChild: boolean): boolean {
+  const lim = SS_LIMITS[key as GearKey]
+  const r = SIZE_RANK[String(size ?? '').trim().toUpperCase()]
+  if (isChild || !lim || r === undefined) return true
+  return r >= lim[0] && r <= lim[1]
+}
+
+/** Dětská motorka rezervace (`motorcycles!moto_id(license_required)` v selectu index.ts). */
+export function bookingIsChild(booking: Record<string, unknown>): boolean {
+  return ((booking.motorcycles || {}) as Record<string, unknown>).license_required === 'N'
+}
+
+/**
+ * Velikosti, které smí protokol zapsat do rezervace: aktivní `accessory_types.sizes` (všechna audience),
+ * u dospělé motorky ∪ záloha pro chybějící klíč a filtr samoobsluhy (5XL/6XL, helma XS → nezapíše se).
+ */
+export function allowedSizes(types: Array<{ key: string; sizes: string[] | null; is_active: boolean | null }>, isChild: boolean): Map<string, Set<string>> {
+  const allowed = new Map<string, Set<string>>()
+  const listed = new Set<string>() // klíč s aktivním neprázdným řádkem (jako gear_sizes kiosku) → bez zálohy
+  for (const t of types) {
+    if (t.is_active === false) continue
+    const s = allowed.get(t.key) ?? new Set<string>()
+    for (const x of t.sizes || []) {
+      const v = String(x).trim()
+      if (!v) continue
+      listed.add(t.key)
+      if (selfServiceSizeOk(t.key, v, isChild)) s.add(v)
+    }
+    allowed.set(t.key, s)
+  }
+  if (!isChild) for (const [k, list] of Object.entries(SS_FALLBACK)) if (!listed.has(k)) allowed.set(k, new Set(list))
+  return allowed
+}
+
 export interface AccessoryItem {
   key?: GearKey; who?: GearWho; field?: string; label?: string; size?: string; checked?: boolean
   /** Nastaví edge: nepřevzatá položka, kterou z rezervace skutečně odebrala (sloupec → NULL). */
@@ -88,7 +142,8 @@ type Admin = any
 
 /**
  * Změny výbavy k propsání do rezervace. Bere se JEN položka s vazbou na sloupec:
- * - převzatá (checked) a v rezervaci je: jiná velikost z číselníku `accessory_types.sizes` → nová velikost;
+ * - převzatá (checked) a v rezervaci je: jiná velikost z číselníku (`allowedSizes` — accessory_types v rozsahu
+ *   samoobsluhy, 2026-10-10) → nová velikost;
  * - NEpřevzatá a v rezervaci je: sloupec → NULL (odebrána z rezervace) + `a.removed = true`;
  *   poslaná `size` je původní z rezervace a NIKDY se nepropisuje;
  * - převzatá a v rezervaci NENÍ = výbava NAVÍC (2026-10-05, zadání majitele: „co si vezme navíc, musí být v
@@ -103,15 +158,11 @@ export async function resolveGearUpdates(admin: Admin, booking: Record<string, u
   const linked = items.filter((a) => a.field && a.key && a.who)
   const res: SizeUpdates = { updates: {}, changes: {} }
   if (!linked.length) return res
-  const allowed = new Map<string, Set<string>>()
+  let allowed = new Map<string, Set<string>>()
   if (linked.some((a) => a.checked && a.size)) {
-    const { data: types } = await admin.from('accessory_types').select('key, sizes, is_active').in('key', [...GEAR_KEYS])
-    for (const t of (types || []) as Array<{ key: string; sizes: string[] | null; is_active: boolean | null }>) {
-      if (t.is_active === false) continue
-      const s = allowed.get(t.key) ?? new Set<string>()
-      for (const x of t.sizes || []) s.add(String(x).trim())
-      allowed.set(t.key, s)
-    }
+    const { data: types, error } = await admin.from('accessory_types').select('key, sizes, is_active').in('key', [...GEAR_KEYS])
+    // chyba dotazu = bez číselníku i zálohy → velikost se nezapíše (jako dřív)
+    if (!error) allowed = allowedSizes((types || []) as Array<{ key: string; sizes: string[] | null; is_active: boolean | null }>, bookingIsChild(booking))
   }
   const currentOf = (a: AccessoryItem) => String(booking[a.field as string] ?? '').trim()
   for (const a of linked) {
