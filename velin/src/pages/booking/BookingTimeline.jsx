@@ -1,5 +1,6 @@
 import { CANCEL_SOURCE_LABELS } from './bookingConstants'
 import { useMediaQuery } from '../../hooks/useIsMobile'
+import { effBranch } from '../../lib/bookingBranch'
 
 // „Vydáno" na POBOČCE (samoobslužná i obslužná) až po podepsaném předávacím protokolu
 // (2026-09-28, parita s appkou `res_modification_history._issuedAt`): same-day platba
@@ -7,7 +8,7 @@ import { useMediaQuery } from '../../hooks/useIsMobile'
 // Svoz/přistavení a starší dokončené rezervace (před protokoly) beze změny.
 function issuedAt(b) {
   if (!b.picked_up_at) return null
-  const type = b.motorcycles?.branches?.type
+  const type = effBranch(b)?.type   // pobočka rezervace (kde převzal), u NULL pobočka motorky
   const delivery = b.pickup_method === 'delivery' || !!(b.pickup_address || '').trim()
   if (!['obslužná', 'samoobslužná'].includes(type) || delivery) return b.picked_up_at
   if (!b.handover_protocol_filled_at) return (b.returned_at || b.status === 'completed') ? b.picked_up_at : null

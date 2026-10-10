@@ -272,10 +272,18 @@ serve(async (req) => {
     // kdy se adresa pobočky nepoužije), protože řídí časy ve smlouvě níže.
     let branchSelfService = false
     try {
-      const { data: motoWithBranch } = await supabase.from('motorcycles')
-        .select('branch_id, branches(name, address, city, type)').eq('id', booking.moto_id).single()
-      if (motoWithBranch?.branches) {
-        const br = motoWithBranch.branches as any
+      // Pobočka REZERVACE = bookings.branch_id (kde zákazník převzal; DB triggery 20261010b), u NULL
+      // pobočka motorky — regenerace dokladu po přesunu motorky nesmí vzít adresu/režim nové pobočky.
+      let brId = (booking.branch_id as string | null) || null
+      if (!brId) {
+        const { data: motoBr } = await supabase.from('motorcycles').select('branch_id').eq('id', booking.moto_id).single()
+        brId = motoBr?.branch_id || null
+      }
+      const { data: brRow } = brId
+        ? await supabase.from('branches').select('name, address, city, type').eq('id', brId).maybeSingle()
+        : { data: null }
+      if (brRow) {
+        const br = brRow as any
         branchSelfService = br.type === 'samoobslužná'
         if (!booking.pickup_address) {
           branchName = br.name || ''

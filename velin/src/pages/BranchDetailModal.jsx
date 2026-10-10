@@ -87,6 +87,9 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
     setLoadingCodes(false)
   }
 
+  // Kontrola „rezervace bez kódů“ (záložka Kódy): ZÁMĚRNĚ podle AKTUÁLNÍ pobočky motorky, ne bookings.branch_id —
+  // kódy dveří aktivních/potvrzených rezervací jdou s motorkou (_door_codes_follow_moto) a nouzové generování
+  // je zakládá na této pobočce. U nevyzvednutých rezervací je to stejné jako pobočka rezervace.
   async function loadActiveBookings() {
     try {
       const { data: branchMotos } = await supabase

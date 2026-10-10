@@ -124,11 +124,12 @@ export async function execReadFinance(name: string, input: R, sb: SB): Promise<u
           sb.from('motorcycles').select('id, model, brand, spz, status, mileage, image_url, category, year').eq('branch_id', branchId),
           sb.from('branch_accessories').select('*').eq('branch_id', branchId),
           sb.from('branch_door_codes').select('*').eq('branch_id', branchId).eq('is_active', true),
-          sb.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, total_price, payment_status').in('status', ['active', 'reserved']),
+          sb.from('bookings').select('id, user_id, moto_id, branch_id, start_date, end_date, status, total_price, payment_status').in('status', ['active', 'reserved']),
         ])
         if (!branchR.data) return { error: 'Pobočka nenalezena' }
         const bmIds = (motosR.data || []).map((m: R) => m.id)
-        const bb = (bookR.data || []).filter((b: R) => bmIds.includes(b.moto_id))
+        // Rezervace pobočky = bookings.branch_id (kde převzal), u NULL pobočka motorky
+        const bb = (bookR.data || []).filter((b: R) => b.branch_id ? b.branch_id === branchId : bmIds.includes(b.moto_id))
         const uids = [...new Set(bb.map((b: R) => b.user_id).filter(Boolean))]
         const { data: profiles } = uids.length > 0 ? await sb.from('profiles').select('id, full_name, email, phone').in('id', uids) : { data: [] }
         const pm: R = {}; for (const p of (profiles || [])) pm[p.id] = p

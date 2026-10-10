@@ -5,6 +5,7 @@ import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import SignaturePad from '../../components/ui/SignaturePad'
 import { buildDocVars, listAccessoryItems } from './bookingDocTemplates'
+import { effBranch, BOOKING_BRANCH_EMBED } from '../../lib/bookingBranch'
 import { buildElectronicProtocolHtml, HANDOVER_CHECKS, EXTRA_GEAR_CHECKS, DAMAGE_CHECKS } from './bookingDocElectronic'
 import { sendProtocolEmail } from './protocolEmail'
 import { loadAccessoryTypes } from '../BranchHelpers'
@@ -52,14 +53,14 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   async function load() {
     setLoading(true); setError(null); errReveal.clear()
     try {
-      const { data: booking, error: bErr } = await supabase.from('bookings').select('*, motorcycles!moto_id(model, spz, vin, year, license_required, branches(type, address, zip, city))').eq('id', bookingId).single()
+      const { data: booking, error: bErr } = await supabase.from('bookings').select(`*, ${BOOKING_BRANCH_EMBED}, motorcycles!moto_id(model, spz, vin, year, license_required, branches(type, address, zip, city))`).eq('id', bookingId).single()
       if (bErr || !booking) throw new Error('Rezervace nenalezena: ' + (bErr?.message || 'no data'))
       let customer = {}
       if (booking.user_id) { const { data: prof } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry').eq('id', booking.user_id).single(); if (prof) customer = prof }
       const v = buildDocVars(booking, customer, bookingId)
       v._customer_id = customer.id || booking.user_id || null
       setVars(v)
-      const self = booking.motorcycles?.branches?.type === 'samoobslužná'
+      const self = effBranch(booking)?.type === 'samoobslužná'   // pobočka rezervace, u NULL motorky
       setSelfService(self)
       setAlreadySigned(!isDamage && self && booking.handover_protocol_filled_at ? booking.handover_protocol_filled_at : null)
       setMileage(isDamage ? '' : (booking.mileage_start ? String(booking.mileage_start) : ''))

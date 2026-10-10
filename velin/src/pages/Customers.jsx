@@ -15,6 +15,7 @@ import DocsStatusPills, { loadDocScans } from '../components/DocsStatusPills'
 import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 import { useIsMobile } from '../hooks/useIsMobile'
 import CustomerListMobile from './customer/CustomerListMobile'
+import { effBranch } from '../lib/bookingBranch'
 
 const PER_PAGE = 25
 
@@ -107,7 +108,7 @@ export default function Customers() {
       const ids = custs.map(c => c.id)
       if (!ids.length) { setStats({}); return }
       const { data: bks } = await supabase.from('bookings')
-        .select('user_id, total_price, start_date, end_date, status, booking_source, moto_id, motorcycles!moto_id(model, branches(name))')
+        .select('user_id, total_price, start_date, end_date, status, booking_source, moto_id, branch_id, branch:branches!bookings_branch_id_fkey(name), motorcycles!moto_id(model, branches(name))')
         .in('user_id', ids.slice(0, 50))
       if (!bks) return
       const map = {}
@@ -120,7 +121,9 @@ export default function Customers() {
         s.days += d
         if (b.booking_source) s.sources.add(b.booking_source)
         if (b.motorcycles?.model) s.motos[b.motorcycles.model] = (s.motos[b.motorcycles.model] || 0) + 1
-        if (b.motorcycles?.branches?.name) s.branches[b.motorcycles.branches.name] = (s.branches[b.motorcycles.branches.name] || 0) + 1
+        // Pobočka rezervace (bookings.branch_id = kde převzal), u NULL pobočka motorky
+        const brName = effBranch(b)?.name
+        if (brName) s.branches[brName] = (s.branches[brName] || 0) + 1
         if (b.status === 'incident') s.incidents++
       })
       setStats(map)

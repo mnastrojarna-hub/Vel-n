@@ -9,6 +9,7 @@ import { SOSSection, DoorCodesSection, DatesAndPaymentSection } from './DetailTa
 import { useBranchGateCode } from '../../lib/branchGate'
 import KioskReturnInfo from './KioskReturnInfo'
 import TempCodesList from './TempCodesList'
+import { effBranch } from '../../lib/bookingBranch'
 
 // Stav motorky pro zobrazení: syrový `motorcycles.status` říká „V servisu" i motorce,
 // která má jen NAPLÁNOVANÝ servis v budoucnu (pending log). Otevřené záznamy
@@ -155,7 +156,8 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         <InfoRow label="Model" value={booking.motorcycles?.model} />
         <InfoRow label="SPZ" value={booking.motorcycles?.spz} />
         <InfoRow label="Stav" value={motoStatusDisplay(booking.motorcycles?.status, motoOpenLogs)} />
-        <InfoRow label="Pobočka" value={booking.motorcycles?.branches?.name} />
+        {/* Pobočka rezervace (bookings.branch_id = kde zákazník převzal), u NULL pobočka motorky */}
+        <InfoRow label="Pobočka" value={effBranch(booking)?.name} />
       </Card>
 
       <SOSSection booking={booking} sosIncidents={sosIncidents} navigate={navigate} />

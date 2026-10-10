@@ -23,6 +23,7 @@ import { CANCEL_REASONS, PAYMENT_STATUS_FILTER_OPTIONS } from './booking/booking
 import { cancelBookingFromVelin } from './booking/bookingMessageHelpers'
 import BookingsToolbarPhone from './booking/BookingsToolbarPhone'
 import { autoCancelStale, autoActivateReserved, autoFixPendingPaid, autoGenerateKF } from './booking/bookingsAutoFix'
+import { branchOrFilter } from '../lib/bookingBranch'
 
 function localIso(d) {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
@@ -168,8 +169,9 @@ export default function Bookings() {
         // Skrýt testovací rezervace (is_test) — NULL/false = reálná, projde vždy
         if (filters.hideTest) query = query.not('is_test', 'is', true)
         if (searchOr) query = query.or(searchOr)
-        // Pobočka = pobočka motorky; filtrováno na serveru (dřív až po stránkování → stránka mohla být prázdná)
-        if (branchMotoIds) query = query.in('moto_id', branchMotoIds.length ? branchMotoIds : ['00000000-0000-0000-0000-000000000000'])
+        // Pobočka rezervace = bookings.branch_id (kde zákazník převzal), u NULL záloha přes motorky pobočky;
+        // filtrováno na serveru (dřív až po stránkování → stránka mohla být prázdná). Další .or() = AND se searchOr.
+        if (branchMotoIds) query = query.or(branchOrFilter(filters.branch, branchMotoIds))
         return query.order(filters.sortBy, { ascending: filters.sortDir === 'asc' })
           .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       }, { page, filters })

@@ -83,8 +83,11 @@ export function buildDocVars(booking, customer, bookingId) {
   // (late_pickup_discount_amount > 0 — kiosk ji dřív nevydá), jinak od 00:01; konec
   // 24:00. Zvolený čas vyzvednutí jde zvlášť do {{pickup_time}} ('00:01' = bez času).
   // Web/AI přistavení má method 'store' + adresu → čas zůstává.
-  const selfService = moto.branches?.type === 'samoobslužná'
-  const brAddr = [moto.branches?.address, [moto.branches?.zip, moto.branches?.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+  // Pobočka rezervace (embed `branch` = bookings.branch_id, kde zákazník převzal), u NULL pobočka motorky —
+  // regenerace dokladu po přesunu motorky nesmí vzít adresu/režim nové pobočky.
+  const br = booking.branch || moto.branches || {}
+  const selfService = br.type === 'samoobslužná'
+  const brAddr = [br.address, [br.zip, br.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
   const ssPickup = selfService && booking.pickup_method !== 'delivery' && !booking.pickup_address
   const storedPickup = String(booking.pickup_time || '').startsWith('00:01') ? '' : (booking.pickup_time || '')
   const lateGranted = Number(booking.late_pickup_discount_amount || 0) > 0
@@ -105,7 +108,7 @@ export function buildDocVars(booking, customer, bookingId) {
     pickup_time: ssPickup ? (storedPickup || '00:01') : storedPickup,
     rental_period: `${fmtDate(booking.start_date)} \u2014 ${fmtDate(booking.end_date)} (${days} dni)`,
     total_price_words: '',
-    // místo převzetí/vrácení na pobočce = pobočka motorky (Brno Velké Němčice ≠ Mezná)
+    // místo převzetí/vrácení na pobočce = pobočka rezervace (Brno Velké Němčice ≠ Mezná)
     pickup_location: booking.pickup_address || brAddr || 'Mezna 9, 393 01 Mezna',
     return_location: booking.return_address || brAddr || 'Mezna 9, 393 01 Mezna',
     mileage: String(booking.mileage_start || ''),
