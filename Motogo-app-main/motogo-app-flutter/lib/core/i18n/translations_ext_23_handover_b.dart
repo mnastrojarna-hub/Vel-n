@@ -4,7 +4,7 @@ const Map<String, Map<String, String>> translationsExt23HandoverB = {
   'es': {
     'lockerCode': 'Código del vestuario',
     'motoCode': 'Código de la moto',
-    'protocolFirst': 'Firme primero el protocolo de entrega',
+    'protocolFirst': 'Firme primero el protocolo de entrega en la pantalla de la sucursal',
     'ownGearNoLocker': 'Equipo propio — sin código de vestuario',
     'protocolSignedToast': 'Protocolo firmado. Ahora solo introduzca el código de la moto en la pantalla de la sucursal.',
     'protocolSignedElsewhere': 'El protocolo ya ha sido firmado — en la pantalla de la sucursal o en otro dispositivo.',
@@ -67,7 +67,7 @@ const Map<String, Map<String, String>> translationsExt23HandoverB = {
   'fr': {
     'lockerCode': 'Code du vestiaire',
     'motoCode': 'Code de la moto',
-    'protocolFirst': 'Signez d\'abord le protocole de remise',
+    'protocolFirst': 'Signez d\'abord le protocole de remise sur l\'écran de l\'agence',
     'ownGearNoLocker': 'Équipement personnel — pas de code de vestiaire',
     'protocolSignedToast': 'Protocole signé. Il ne reste qu\'à saisir le code de la moto sur l\'écran de l\'agence.',
     'protocolSignedElsewhere': 'Le protocole a déjà été signé — sur l\'écran de l\'agence ou sur un autre appareil.',
@@ -130,7 +130,7 @@ const Map<String, Map<String, String>> translationsExt23HandoverB = {
   'nl': {
     'lockerCode': 'Code kleedruimte',
     'motoCode': 'Code motor',
-    'protocolFirst': 'Onderteken eerst het overdrachtsprotocol',
+    'protocolFirst': 'Onderteken eerst het overdrachtsprotocol op het scherm van de filiaal',
     'ownGearNoLocker': 'Eigen uitrusting — geen code kleedruimte',
     'protocolSignedToast': 'Protocol ondertekend. Voer nu alleen nog de motorcode in op het scherm van de vestiging.',
     'protocolSignedElsewhere': 'Het protocol is al ondertekend — op het scherm van de vestiging of op een ander apparaat.',

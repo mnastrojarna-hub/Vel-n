@@ -9,26 +9,6 @@ import 'reservation_models.dart';
 const _bookingSelect =
     '*, motorcycles!moto_id(*, branches(name, address, city, gps_lat, gps_lng, type))';
 
-/// Stav předávacího protokolu (samoobslužná pobočka) — `get_handover_protocol_state`.
-/// Vrací `{is_self_service, started_at, deadline (od 2026-09-25 vždy NULL —
-/// automatické vyplnění zrušeno), filled_at, autofilled, locked, can_fill,
-/// needs_locker, gear_collected_at, prompted_at, start_date, mileage (int|null —
-/// stav km/motohodin při převzetí, vyplňuje server; od 2026-09-29), mileage_unit
-/// ('km'|'mh')}`. `can_fill` =
-/// samoobsluha, reserved/active, nepodepsáno a (výzva z kiosku NEBO den
-/// vyzvednutí). Real-time podnět dává stream rezervací (`reservationsProvider`,
-/// sloupce `handover_protocol_*`), tenhle provider se po něm invaliduje.
-final handoverProtocolStateProvider =
-    FutureProvider.family<Map<String, dynamic>, String>((ref, bookingId) async {
-  try {
-    final res = await MotoGoSupabase.client
-        .rpc('get_handover_protocol_state', params: {'p_booking_id': bookingId});
-    return (res as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
-  } catch (_) {
-    return <String, dynamic>{};
-  }
-});
-
 /// Odkaz na Google recenze — čte se ze stejného zdroje jako e-mailové šablony
 /// (`app_settings.google_review_url`), aby appka i mail vedly na FUNKČNÍ odkaz.
 /// Fallback shodný s edge fn `send-invoice-email`.

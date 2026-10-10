@@ -116,11 +116,13 @@ async def release_lock_if_due(zc: "ZoneController", why: str) -> bool:
 
 
 async def lock_wait(zc: "ZoneController") -> None:
-    """CLOSED_CONFIRMATION po doběhu (`light_after_close_s`), zámek ale ještě drží / dozvuk (`lock_unlocked`): relace
+    """CLOSED_CONFIRMATION po doběhu (`light_after_close_s`), zámek ale ještě drží / dozvuk (`lock_unlocked`) nebo šatna
+    čeká na kód motorky (`zone_access.wardrobe_hold`, 2026-10-10 — hudba pak NEzastaví): relace
     trvá (znovuotevření = DOOR_OPEN téže relace), jinak jako dřív po SECURED — hudba jednou stop, světlo kóje zhasne
     (šatna `light_until_moto_code` drží, dokud nepřišel kód motorky), venek zónu nepočítá (`zc.lock_wait`)."""
     if not zc.lock_wait:
         zc.lock_wait = zc.music_done = True
-        await zc.music_stop()
+        if not getattr(zc, "hold_until_moto_code", False):   # šatna: hudba hraje do kódu motorky (2026-10-10)
+            await zc.music_stop()
     if zc.light_on and (not zc.light_until_moto_code or zc.light_off_on_secure):
         await zc.set_light(False)

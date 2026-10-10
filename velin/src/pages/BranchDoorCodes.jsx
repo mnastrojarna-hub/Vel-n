@@ -333,7 +333,7 @@ function DoorCodeRow({ code, onDeactivate, onActivate, onResend, inactive, canAc
       )}
       {awaitsProtocol && (
         <span className="inline-block rounded-btn text-[8px] max-lg:text-[11px] font-bold"
-          title="Zákazník ještě nepodepsal předávací protokol. Kód motorky se ověří, ale kóje se otevře až po podpisu — na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky) nebo v aplikaci."
+          title="Zákazník ještě nepodepsal předávací protokol. Kód motorky se ověří, ale kóje se otevře až po podpisu na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky)."
           style={{ padding: '2px 6px', background: '#ede9fe', color: '#6d28d9' }}>
           📝 Čeká na protokol
         </span>

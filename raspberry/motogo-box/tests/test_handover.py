@@ -208,6 +208,19 @@ async def test_reconcile_absent_never_opens_nor_marks_signed(ctrl):
     assert hm.items == {} and hm.status()["active"] is None and hm.signed == {}
 
 
+async def test_reconcile_selfservice_sizes_display_only(ctrl):
+    """Samoobsluha (2026-10-10, gear_limits.py): sync s 5XL/6XL → displej 4XL; persist drží rezervaci beze změny."""
+    hm = ctrl.handover
+    hm.remember(rr_moto(proto=protocol("b1")))
+    await hm.on_wardrobe_closed(8, "b1")
+    fresh = protocol("b1")
+    fresh["data"]["gear"] = [{"key": "jacket", "who": "rider", "field": "jacket_size", "size": "6XL"}]
+    await hm.reconcile([fresh], {"adult": {"jacket": ["L", "XL", "4XL", "5XL", "6XL"], "helmet": ["XS", "S"]}})
+    a = hm.status()["active"]
+    assert a["sizes"]["jacket"] == ["L", "XL", "4XL"] and a["sizes"]["helmet"] == ["S"] and a["sizes"]["boots"] == []
+    assert a["data"]["gear"][0]["size"] == "4XL" and hm.state_dict()["items"][0]["data"]["gear"][0]["size"] == "6XL"
+
+
 async def test_reconcile_filled_marks_signed_but_never_opens(ctrl):
     """Explicitní `required=false` ze sync = potvrzený podpis, kóje se ale z cesty sync nikdy neotevře."""
     hm, zc = ctrl.handover, ctrl.zones[3]

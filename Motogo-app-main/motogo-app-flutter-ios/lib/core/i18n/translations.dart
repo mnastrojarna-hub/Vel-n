@@ -47,6 +47,7 @@ import 'translations_ext_30_gate_a.dart';
 import 'translations_ext_30_gate_b.dart';
 import 'translations_ext_30_gate_c.dart';
 import 'translations_ext_31_docs_gate.dart';
+import 'translations_ext_31_gear_limits.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -94,6 +95,7 @@ final translations = _mergeAll([
   translationsExt30GateB,
   translationsExt30GateC,
   translationsExt31DocsGate,
+  translationsExt31GearLimits,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

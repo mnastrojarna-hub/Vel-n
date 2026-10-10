@@ -5,7 +5,7 @@ const Map<String, Map<String, String>> translationsExt23HandoverA = {
   'cs': {
     'lockerCode': 'Kód šatny',
     'motoCode': 'Kód motorky',
-    'protocolFirst': 'Nejdřív podepište předávací protokol',
+    'protocolFirst': 'Nejdřív podepište předávací protokol na displeji pobočky',
     'ownGearNoLocker': 'Vlastní výbava — bez kódu šatny',
     'protocolSignedToast': 'Protokol podepsán. Na displeji pobočky teď stačí zadat kód motorky.',
     'protocolSignedElsewhere': 'Protokol už byl podepsán — na displeji pobočky nebo v jiném zařízení.',
@@ -68,7 +68,7 @@ const Map<String, Map<String, String>> translationsExt23HandoverA = {
   'en': {
     'lockerCode': 'Locker code',
     'motoCode': 'Motorcycle code',
-    'protocolFirst': 'Sign the handover protocol first',
+    'protocolFirst': 'Sign the handover protocol on the branch display first',
     'ownGearNoLocker': 'Own gear — no locker code',
     'protocolSignedToast': 'Protocol signed. Now just enter the motorcycle code on the branch display.',
     'protocolSignedElsewhere': 'The protocol has already been signed — on the branch display or another device.',
@@ -131,7 +131,7 @@ const Map<String, Map<String, String>> translationsExt23HandoverA = {
   'de': {
     'lockerCode': 'Code der Umkleide',
     'motoCode': 'Code des Motorrads',
-    'protocolFirst': 'Unterschreiben Sie zuerst das Übergabeprotokoll',
+    'protocolFirst': 'Unterschreiben Sie zuerst das Übergabeprotokoll am Display der Filiale',
     'ownGearNoLocker': 'Eigene Ausrüstung – kein Umkleide-Code',
     'protocolSignedToast': 'Protokoll unterschrieben. Geben Sie jetzt nur noch den Motorrad-Code am Display der Filiale ein.',
     'protocolSignedElsewhere': 'Das Protokoll wurde bereits unterschrieben – am Display der Filiale oder auf einem anderen Gerät.',

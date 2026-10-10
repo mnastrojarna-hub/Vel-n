@@ -420,7 +420,11 @@ class SupabaseClient {
                 // Jinak by `cmsDeepMerge` přepsal hezký překlad ČESKÝM textem
                 // hned po uložení v Velínu (reportovaný bug s hero bannerem).
                 if (!is_string($cand) || $cand === '') {
-                    continue;
+                    // Výjimka: odkaz (klíč *.href) je jazykově nezávislý — slug
+                    // lokalizuje až i18nLocalizeHrefs(). Bez ní platil starý
+                    // auto-překlad (hero „RESERVA“ vedlo v ES/EN/DE/… na /jak-pujcit).
+                    if (substr($tail, -5) !== '.href' || !is_string($val) || $val === '') continue;
+                    $cand = $val;
                 }
                 $val = $cand;
             }

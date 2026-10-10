@@ -119,6 +119,15 @@ mimo `TEMP_KINDS` → `ok=False, error='invalid_code', kind=''` (krátkodobý k�
   znovuotevření odpočet neresetuje); `lock_min_elapsed` = minimum od kódu NEBO ≥ tato doba od `lock_opened_at` → `release_lock_if_due`
   / `tick_locked` (`min_hold`) zámek vypne. Minimum `lock_hold_min_s` tak platí jen pro čekání na otevření. Nový grant / `release_lock`
   `lock_opened_at` nuluje. Velín hodnotu neposílá (chybí = 2). Testy `test_lock_release_after_open.py`.
+- **Šatna drží hudbu a relaci do kódu motorky (1.2.10, 2026-10-10, zadání majitele):** `submit_code` po úspěšném kódu šatny
+  s rezervací (ne vrácení, ne `temp`) nastaví `ZoneController.hold_until_moto_code` (nuluje `reset_session`). Dokud platí
+  (`zone_access.wardrobe_hold`): `music_after_close_s` hudbu nezastaví, po `light_after_close_s` zóna nejde do SECURED, ale do fáze
+  `lock_wait` BEZ zastavení hudby (znovuotevření = DOOR_OPEN téže relace, nikdy FORCED_OPEN; venek zónu nepočítá). Konec: ACCESS_GRANTED
+  `motorcycle` (ne temp) → `light_off_after_moto_code` hudbu hned zastaví (i při otevřených dveřích) a relace doběhne do SECURED;
+  pojistka `maximum_session_s` od posledního zavření (pak i bez drženého světla). Opakovaný kód šatny téže rezervace = hudba bez
+  přetáčení (`restart=False`). Znovuotevření šatny (CLOSED_CONFIRMATION→DOOR_OPEN) volá `on_session_reopened` →
+  `HandoverManager.on_wardrobe_opened` schová viditelný protokol šatny (ne `then_open`, ne rozepsaný podpis); další zavření ho
+  ukáže znovu (bez 2. PROTOCOL_SHOWN). Testy `test_wardrobe_music_hold.py`.
 - **`TimingsCfg.handover_idle_s` (2026-09-25, výchozí 600 — od 2026-09-29 dřív 120, §28):** doba bez dotyku, po níž overlay předávacího protokolu
   zmizí z displeje (položka zůstává nevyřízená, `then_open` se ruší). Z Velína `hardware.timings.handover_idle_s` (volitelné,
   `BranchRpiHardware*.jsx`), UI ho dostane v `snap['timings']` (§14/§16) — odpočet ale vždy z `handover.active.expires_at`.
@@ -803,8 +812,9 @@ Dokud běží root skript aktualizace (`updater.state == 'running'`) nebo trvá 
 `handover` = `HandoverManager.status()` (§28, 2026-09-25; klíč VŽDY přítomen): `active` = právě viditelná položka protokolu
 nebo `null` — `stage` `protocol` (formulář) | `done` (krátká hláška po podpisu jinde / bez nároku), `zone`/`zone_label`/`kind`
 = zóna a druh kódu, který položku vyvolal, `then_open` (po podpisu se kóje otevře sama — kód motorky byl právě zadán),
-`needs_code` (= `not then_open`: UI musí vyžádat kód motorky téže rezervace), `data` = `protocol.data` (§22), `sizes` = číselník
-`gear_sizes.adult|child` dle `is_child` (child chybí → adult), `expires_at` (ISO; `last_touch + handover_idle_s`, u `done`
+`needs_code` (= `not then_open`: UI musí vyžádat kód motorky téže rezervace), `data` = `protocol.data` (§22; od 1.2.11 kopie
+s `gear[i].size` posunutou `gear_limits.clamp` do rozsahu samoobsluhy — položka i persist drží rezervaci beze změny), `sizes` = číselník
+`gear_sizes.adult|child` dle `is_child` (child chybí → adult), od 1.2.11 prohnaný `gear_limits.allowed_sizes` (§28), `expires_at` (ISO; `last_touch + handover_idle_s`, u `done`
 `shown_at + 5 s`) = JEDINÝ zdroj odpočtu v UI (`last_touch` se do snapshotu nedává), `saving` (= `in_flight`: podpis z displeje se
 právě ukládá/odesílá — UI drží spinner, dismiss/idle položku nezavře). Fronta podpisů (`protocol_queue_status`, §7): `pending[]`
 = PODEPSANÉ na displeji, čekající na odeslání (síť/5xx/404, opakuje se každých 30 s), `failed[]` = podpis edge TRVALE odmítla
@@ -1903,6 +1913,20 @@ class HandoverManager:
     def retry_failed(self) -> int                # protocol_queue failed → pending + wake (příkaz reload/sync_config §13)
     async def flush(self) -> int                 # = handover_submit.flush (protocol_loop)
     def refresh_queue(self) -> None ; def state_dict(self) -> dict ; def status(self) -> dict   # snapshot['handover'] (§14) vč. `lock`
+        # 1.2.11: active.sizes = _sizes(is_child) přes gear_limits.allowed_sizes; active.data = kopie, gear = gear_limits.clamp_gear
+
+# gear_limits.py (1.2.11, 2026-10-10, zadání majitele) — velikosti výbavy na samoobsluze (jednotka je VŽDY samoobsluha)
+ORDER = ("XXS","XS","S","M","L","XL","2XL","3XL","4XL","5XL","6XL") ; ALIASES = {"XXL":"2XL","XXXL":"3XL","XXXXL":"4XL",…}
+LIMITS = {"helmet": ("S","3XL"), "jacket": (None,"4XL"), "pants": (None,"4XL"), "gloves": (None,"4XL")}   # boots/kukla bez meze
+FALLBACK = {"helmet": S..3XL, "jacket"|"pants"|"gloves": S..4XL}   # klíč chybí / prázdný v gear_sizes (živě chybí `jacket`)
+def rank(size) -> int | None                 # trim + upper + alias; None = pořadí hodnotu nezná (čísla bot, dětské texty)
+def size_ok(key, size, is_child=False) -> bool   # dětská motorka, klíč bez meze a neznámá hodnota → vždy True
+def allowed_sizes(key, sizes, is_child=False) -> list   # dospělý: prázdno → FALLBACK; filtr size_ok; pořadí/zápis z číselníku
+def clamp(key, size, offered, is_child=False)    # mimo rozsah → NEJBLIŽŠÍ dle pořadí z `offered` (shoda vzdálenosti → dřívější),
+                                                 #   bez kandidáta mez (4XL / S / 3XL); NIKDY prázdno; v rozsahu / neznámé beze změny
+def clamp_gear(gear, sizes, is_child=False)      # kopie data.gear se clamp velikostmi (vstup nemění); deterministické (UI gearSig)
+# UI (handover.js) beze změny: předvybraná velikost je po clamp v nabídce, `unshift` tak přidá jen hodnotu v rozsahu mimo číselník.
+# Podpis zapíše posunutou velikost do rezervace (edge gear.ts tutéž mez vynucuje i pro appku). Testy test_gear_limits.py.
 
 # handover_lock.py (2026-09-28) — zámek přejímky: po zavření šatny jen kódy téže rezervace, dokud se neotevře kóje motorky
 DEFAULT_LOCK_S = 300 ; def iso_ts(ts) -> str | None
