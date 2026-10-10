@@ -1,7 +1,7 @@
 // Seznam rezervací na mobilu a tabletu (< 1024 px) — karty místo 14sloupcové tabulky
 // (na tabletu tabulka schovávala vše za sloupcem Částka). Stejná data i akce jako
 // BookingsTable: klik = detail, zaškrtnutí pro hromadnou správu, Storno / Smazat.
-import DocsStatusPills from '../../components/DocsStatusPills'
+import DocsPillsTouch from './DocsPillsTouch'
 import { bookingBranchId } from './BranchChips'
 import { bookingDaysInfo, DaysDelta, SourceTags, PaymentPill, StatusTags } from './bookingsListParts'
 
@@ -77,8 +77,9 @@ export default function BookingsListMobile({ bookings, navigate, fmtDateRange, d
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm mt-1" style={{ color: '#0f1a14' }}>
                 <span><span style={lbl}>Pobočka </span>{branchName[bookingBranchId(b)] || '—'}{b.pickup_method === 'delivery' ? <span className="ml-1">🚚 přistavení</span> : null}</span>
-                <span className="inline-flex items-center gap-1.5"><span style={lbl}>Doklady</span>
-                  <DocsStatusPills profile={b.profiles} scan={scanStatus[b.user_id]}
+                {/* doklady: 11 px a co chybí přímo v pilulce (title na dotyku nejde přečíst) */}
+                <span className="inline-flex items-center gap-1.5 min-w-0"><span style={lbl}>Doklady</span>
+                  <DocsPillsTouch profile={b.profiles} scan={scanStatus[b.user_id]}
                     requireLicense={String(b.motorcycles?.license_required || '').toUpperCase() !== 'N'} />
                 </span>
               </div>

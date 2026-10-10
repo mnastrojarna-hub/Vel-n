@@ -175,13 +175,21 @@ export default function Sidebar({ admin, onSignOut }) {
               {admin?.role || 'Správce'}
             </div>
           </div>
-          <button
-            onClick={onSignOut}
-            className="text-sm font-bold uppercase opacity-40 hover:opacity-100 transition-opacity cursor-pointer bg-transparent border-none text-white"
-            title="Odhlásit se"
-          >
-            ↗
-          </button>
+          {collapsible ? (
+            <button
+              onClick={onSignOut}
+              className="text-sm font-bold uppercase opacity-40 hover:opacity-100 transition-opacity cursor-pointer bg-transparent border-none text-white"
+              title="Odhlásit se"
+            >
+              ↗
+            </button>
+          ) : (
+            // výsuvné menu (telefon/tablet): popsané tlačítko, ne jen šipka viditelná při najetí myší
+            <button onClick={onSignOut} className="shrink-0 cursor-pointer text-sm font-bold text-white"
+              style={{ minHeight: 40, padding: '0 12px', borderRadius: 12, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)' }}>
+              ↗ Odhlásit
+            </button>
+          )}
         </div>
       )}
     </>

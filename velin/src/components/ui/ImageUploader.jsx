@@ -293,7 +293,7 @@ export default function ImageUploader({
                 onChange={e => setUrlInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddUrl() } }}
                 placeholder="https://…"
-                className="flex-1 rounded-btn text-sm outline-none"
+                className="flex-1 max-lg:min-w-0 rounded-btn text-sm outline-none"
                 style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
               />
               <button

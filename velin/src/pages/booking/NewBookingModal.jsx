@@ -5,6 +5,7 @@ import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import BookingStep3 from './BookingStep3'
 import { latePickupDiscount } from '../../lib/latePickup'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const STEP_LABELS = ['Termín', 'Motorka', 'Zákazník & shrnutí']
 const DAY_NAMES = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
@@ -26,6 +27,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
   const [step, setStep] = useState(1)
   const [err, setErr] = useState(null)
   const [saving, setSaving] = useState(false)
+  const isMobile = useIsMobile() // < 1024 px: chyba vytvoření se ukáže u tlačítka (BookingStep3)
 
   const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return { m: n.getMonth(), y: n.getFullYear() } })
   const [startDate, setStartDate] = useState(null)
@@ -205,7 +207,8 @@ export default function NewBookingModal({ onClose, onSaved }) {
           </div>
         ))}
       </div>
-      {err && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{err}</div>}
+      {/* mobil/tablet v kroku 3: chyba u tlačítka „Vytvořit…“ — tady nahoře by byla mimo odrolovaný výřez */}
+      {err && !(isMobile && step === 3) && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{err}</div>}
 
       {step === 1 && (
         <div>
@@ -293,7 +296,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
         </div>
       )}
 
-      {step === 3 && <BookingStep3 selectedMoto={selectedMoto} startDate={startDate} endDate={endDate} days={days} totalPrice={totalPrice} firstDayPrice={selectedMoto ? firstDayPrice(selectedMoto.id) : 0} customers={customers} onBack={() => setStep(2)} onCreate={handleCreate} saving={saving} noPayment={noPayment} setNoPayment={setNoPayment} />}
+      {step === 3 && <BookingStep3 selectedMoto={selectedMoto} startDate={startDate} endDate={endDate} days={days} totalPrice={totalPrice} firstDayPrice={selectedMoto ? firstDayPrice(selectedMoto.id) : 0} customers={customers} onBack={() => setStep(2)} onCreate={handleCreate} err={isMobile ? err : null} saving={saving} noPayment={noPayment} setNoPayment={setNoPayment} />}
     </Modal>
   )
 }

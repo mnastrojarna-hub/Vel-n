@@ -405,7 +405,7 @@ function AuditBlock({ events, doors, devices }) {
               <div key={e.id} className="flex items-center gap-2 p-2 rounded-lg text-sm flex-wrap lg:flex-nowrap" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
                 <span style={{ width: 8, height: 8, borderRadius: 999, background: proto ? '#2563eb' : e.success ? '#1a8a18' : isInfoDenied(e) ? '#d97706' : '#dc2626', display: 'inline-block' }} />
                 <span className="font-bold" style={{ color: '#0f1a14' }}>{doorName}</span>
-                <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+                <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
                   style={{ padding: '2px 6px', background: '#eef6f2', color: '#1a2e22' }}>{kindLabel[e.kind] || e.kind || '—'}</span>
                 {evLabel && <span className="text-[12px]" style={{ color: proto ? '#2563eb' : '#1a2e22' }}>{proto ? '📝 ' : ''}{evLabel}</span>}
                 {devMap[e.device_id]?.name && <span className="text-[12px]" style={{ color: '#6b8c7a' }}>{devMap[e.device_id].name}</span>}
@@ -451,7 +451,8 @@ function DevicesBlock({ devices, now, busy, onAdd, onSave, onDelete }) {
 
 const REBOOT_TITLE = 'OS má nainstalované nové jádro/knihovny (unattended-upgrades nebo Aktualizovat OS) — projeví se až po restartu OS. Restart spusťte z bloku Aktualizace řídicích jednotek na stránce Pobočky, až bude box volný.'
 const PAIR_ROW = 'lg:contents max-lg:grid max-lg:grid-cols-[48px_1fr_auto] max-lg:items-center max-lg:gap-2 max-lg:w-full'
-const COPY_BTN = 'rounded-btn text-[10px] font-bold cursor-pointer border-none max-lg:min-h-[34px]'
+// Drobné čipy (typ, stav, úroveň) a „Kopírovat“ na této záložce: na dotyku (< 1024 px) 11 px, desktop 9–10 px beze změny
+const COPY_BTN = 'rounded-btn text-[10px] max-lg:text-[11px] font-bold cursor-pointer border-none max-lg:min-h-[34px]'
 
 function DeviceRow({ dev, now, onSave, onDelete }) {
   const online = dev.last_seen_at && (now - new Date(dev.last_seen_at).getTime()) < ONLINE_MS
@@ -467,18 +468,18 @@ function DeviceRow({ dev, now, onSave, onDelete }) {
       <div className="flex items-center gap-2 flex-wrap mb-2">
         <span style={{ width: 10, height: 10, borderRadius: 999, background: online ? '#1a8a18' : '#dc2626', display: 'inline-block' }} />
         <Field label="Název" value={dev.name} onCommit={v => onSave(dev.id, { name: v })} width={200} />
-        <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+        <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
           style={{ padding: '2px 6px', background: online ? '#dcfce7' : '#fee2e2', color: online ? '#1a8a18' : '#dc2626' }}>
           {online ? 'Online' : 'Offline'}
         </span>
-        <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+        <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
           title={plat ? 'Platforma nahlášená zařízením' : 'Zatím se neozvalo — platforma se doplní po prvním heartbeatu; do té doby se bere jako řídicí jednotka (Raspberry)'}
           style={{ padding: '2px 6px', background: plat ? '#eef6f2' : '#fef3c7', color: plat ? '#1a2e22' : '#b45309' }}>
           {plat || 'nespárováno'}
         </span>
         <span className="text-[11px]" style={{ color: '#6b8c7a' }}>posl. {lastSeen}{dev.app_version ? ` · v${dev.app_version}` : ''}</span>
         {rebootRequired && (
-          <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+          <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
             title={REBOOT_TITLE}
             style={{ padding: '2px 6px', background: '#fef3c7', color: '#b45309' }}>
             Restart OS potřebný
@@ -532,11 +533,11 @@ function DoorsBlock({ doors, onEnsure, onSave, onDelete, busy }) {
           {doors.map(d => (
             <div key={d.id} className="flex items-end gap-2 p-2 rounded-lg flex-wrap"
               style={{ background: d.door_kind === 'accessories' ? '#eff6ff' : '#f1faf7', border: '1px solid #d4e8e0' }}>
-              <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase self-center"
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase self-center"
                 style={{ padding: '2px 6px', background: d.door_kind === 'accessories' ? '#dbeafe' : '#dcfce7', color: d.door_kind === 'accessories' ? '#2563eb' : '#1a8a18', minWidth: 64, textAlign: 'center' }}>
                 {doorKindLabel(d)}
               </span>
-              <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase self-center"
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase self-center"
                 title={hasHw(d) ? `Řídicí jednotka: zóna ${d.hw?.zone ?? '?'} (mapování v bloku Řídicí jednotka — hardware)` : 'Bez HW mapy pro řídicí jednotku — nastavte v bloku Řídicí jednotka — hardware'}
                 style={{ padding: '2px 6px', background: hasHw(d) ? '#eef6f2' : '#fef3c7', color: hasHw(d) ? '#1a2e22' : '#b45309' }}>
                 {hasHw(d) ? `RPi zóna ${d.hw?.zone ?? '?'}` : 'bez RPi mapy'}
@@ -593,9 +594,9 @@ function ServiceCodesBlock({ codes, onAdd, onToggle, onDelete, busy }) {
               <span className="font-mono font-extrabold text-sm" style={{ color: '#0f1a14' }}>{c.code}</span>
               {c.label && <span className="text-sm" style={{ color: '#1a2e22' }}>{c.label}</span>}
               {c.action === 'diagnostics' && (
-                <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase" style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>jen diagnostika</span>
+                <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase" style={{ padding: '2px 6px', background: '#dbeafe', color: '#2563eb' }}>jen diagnostika</span>
               )}
-              <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
                 style={{ padding: '2px 6px', background: c.is_active ? '#dcfce7' : '#f3f4f6', color: c.is_active ? '#1a8a18' : '#6b8c7a' }}>
                 {c.is_active ? 'Aktivní' : 'Vypnuté'}
               </span>
@@ -670,7 +671,7 @@ function Metric({ label, value, color }) {
 function Flag({ on, labelOn, labelOff }) {
   if (on == null) return null
   return (
-    <span className="inline-block rounded-btn text-[10px] font-extrabold uppercase"
+    <span className="inline-block rounded-btn text-[10px] max-lg:text-[11px] font-extrabold uppercase"
       style={{ padding: '3px 8px', background: on ? '#dcfce7' : '#eef6f2', color: on ? '#1a8a18' : '#6b8c7a' }}>
       {on ? labelOn : labelOff}
     </span>
@@ -725,7 +726,7 @@ function CameraCard({ cam, onlineDevice, servis, onSave, onDelete, onRemote }) {
       <div className="p-2">
         <div className="flex items-center gap-2 mb-1">
           <span className="font-bold text-sm" style={{ color: '#fff' }}>{cam.name || 'Kamera'}</span>
-          <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase" style={{ padding: '2px 6px', background: '#1a2e22', color: '#74FB71' }}>{cam.kind}</span>
+          <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase" style={{ padding: '2px 6px', background: '#1a2e22', color: '#74FB71' }}>{cam.kind}</span>
           <div className="ml-auto flex gap-1">
             {cam.control_url && (
               <button onClick={() => onRemote('camera_control', { url: cam.control_url })} disabled={!onlineDevice}
@@ -778,7 +779,7 @@ function DiagnosticsBlock({ logs, devices }) {
         <div className="space-y-1 max-h-72 overflow-y-auto max-lg:max-h-[60vh]">
           {logs.map(l => (
             <div key={l.id} className="flex items-center gap-2 p-2 rounded-lg text-sm flex-wrap lg:flex-nowrap" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0' }}>
-              <span className="inline-block rounded-btn text-[9px] font-extrabold uppercase"
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase"
                 style={{ padding: '2px 6px', background: (l.level === 'info' ? '#eef6f2' : '#fee2e2'), color: color[l.level] || '#1a2e22' }}>
                 {l.level}
               </span>

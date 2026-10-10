@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Btn, Chip, Input, Select, Checkbox, HintedCell } from './BranchRpiUi'
+import { Btn, Chip, Input, Select, Checkbox, HintedCell, FIT_SELECT } from './BranchRpiUi'
 import { AUDIO_MODES, BRNO_AUDIO_OUTPUTS_EXAMPLE, audioMode, audioOutputNames, roleTypeError, toPhysical, fromPhysical, ZONE_REFS } from './BranchRpiHardwareDefaults'
 import { outdoorOf, outdoorOutOf, outdoorRelayError, doorCoils } from './BranchRpiOutdoorHelpers'
 
@@ -232,7 +232,7 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
       : 'Relé audio přepínače pro tuto místnost (modul + relé). V režimu „selector“ je jen jedno ozvučení a relé přepíná, do které kóje jde zvuk.'
   const relay = (
     <div className="flex gap-1">
-      <Select width={96} value={ref.dev} options={unknownDev ? [...devOptions, { value: ref.dev, label: `${ref.dev} (?)` }] : devOptions}
+      <Select width={96} className={FIT_SELECT} value={ref.dev} options={unknownDev ? [...devOptions, { value: ref.dev, label: `${ref.dev} (?)` }] : devOptions}
         invalid={dup || !!typeErr} onChange={v => onPatch(p => ({ ...p, audio: { ...p.audio, dev: v } }))} />
       <span className="self-center text-[11px] font-extrabold" style={{ color: '#6b8c7a', minWidth: 14 }}>R</span>
       <Input width={54} type="number" min={1} value={toPhysical(AUDIO_ROLE, ref.coil)} placeholder="R…" invalid={dup || !!typeErr}
@@ -251,9 +251,10 @@ function DoorAudioCell({ zoneNo, audioRef, audio, devices, devOptions, dup, dupO
   return (
     <HintedCell label="Audio výstup / relé (volit.)" hint={`${outTitle} Relé: ${relayTitle}`}>
       <div className="flex gap-1 max-sm:flex-wrap">
-        <Select width={150} value={out} options={outOptions} invalid={dupOut || unknownOut} title={outTitle}
+        <Select width={150} className={FIT_SELECT} value={out} options={outOptions} invalid={dupOut || unknownOut} title={outTitle}
           onChange={v => onPatch(p => ({ ...p, audio: { ...p.audio, out: v } }))} />
-        <span title={relayTitle}>{relay}</span>
+        {/* Dotyk: relé nesmí přetéct buňku ani s dlouhým názvem zařízení (výběr se pak zúží na min. 96 px) */}
+        <span title={relayTitle} className="max-lg:max-w-full">{relay}</span>
       </div>
     </HintedCell>
   )

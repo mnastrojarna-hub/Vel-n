@@ -40,7 +40,7 @@ function Outages({ title, rows }) {
       {list.length === 0 ? <div className="text-[12px]" style={{ color: '#1a8a18' }}>bez výpadku</div> : (
         <div className="mg-stack-wrap max-lg:overflow-x-auto">
         <table className="text-[12px] mg-stack" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-          <thead><tr>{['Začátek', 'Konec', 'Délka', 'LTE', 'Modem', 'Kabel', 'Brána', 'Obnova'].map(h => <th key={h} className="text-left uppercase" style={{ padding: '2px 8px', color: '#6b8c7a', fontSize: 10, borderBottom: '1px solid #d4e8e0' }}>{h}</th>)}</tr></thead>
+          <thead><tr>{['Začátek', 'Konec', 'Délka', 'LTE', 'Modem', 'Kabel', 'Brána', 'Obnova'].map(h => <th key={h} className="text-left uppercase max-lg:!text-[11px]" style={{ padding: '2px 8px', color: '#6b8c7a', fontSize: 10, borderBottom: '1px solid #d4e8e0' }}>{h}</th>)}</tr></thead>
           <tbody>{list.map((o, i) => (
             <tr key={i} style={{ background: o.open ? '#fee2e2' : undefined }}>
               {[when(o.start_iso), o.open ? 'TRVÁ' : when(o.end_iso), dur(o.duration_s), txt(o.lte), o.modem_gone ? 'pryč z USB' : 'vidět', txt(o.lan ?? 'OK'), txt(o.gw_dev ?? '—'), arr(o.actions).map(txt).join(', ') || '—']

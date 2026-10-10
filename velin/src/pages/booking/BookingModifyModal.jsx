@@ -11,6 +11,7 @@ import { isoDate, toDate, fmtDate, fmtCZK, fmtTimeHM, countDays, calcDayBreakdow
 import { findFeeExtra, feeAmount } from './DetailTabSections'
 import { latePickupDiscount, kioskReleaseGate, LATE_PICKUP_KIOSK_HINT, fmtPragueDateTime, isLegacyNoPickupTime } from '../../lib/latePickup'
 import { SELF_SERVICE_TYPE } from '../BranchHelpers'
+import { useSaveErrorReveal } from './useSaveErrorReveal'
 
 export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const origStart = toDate(booking.start_date)
@@ -66,6 +67,8 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const [ownGear, setOwnGear] = useState(origOwnGear)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  // < lg: chyba uložení nad tlačítky + posun k nim (obsah ~1 900 px, nahoře by ji nikdo neviděl) — desktop beze změny
+  const errReveal = useSaveErrorReveal()
   const [loadingMotos, setLoadingMotos] = useState(false)
   // Věrnostní rank zákazníka (jen app rezervace) — doplatek za pronájem se
   // automaticky snižuje o % dle aktuálního ranku (RPC get_booking_loyalty_rate;
@@ -232,27 +235,27 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   }
 
   async function handleSave() {
-    if (!startDate || !endDate) { setError('Vyberte termin'); return }
-    if (selectedMotoId && occupiedMotoIds.has(selectedMotoId)) { setError('Vybrana motorka je v terminu obsazena'); return }
+    if (!startDate || !endDate) { setError('Vyberte termin'); errReveal.reveal(); return }
+    if (selectedMotoId && occupiedMotoIds.has(selectedMotoId)) { setError('Vybrana motorka je v terminu obsazena'); errReveal.reveal(); return }
     // Incident 2026-10-01 („vratka místo doplatku"): u běžící rezervace už
     // vyzvednutí proběhlo a pole poplatku je SOUČET obou stran — přidání
     // přistavení/odvozu proto nesmí poplatek snížit ani nechat stejný.
     if (booking.status === 'active' && pickupMethod !== origDelivery.pickup) {
-      setError('Vyzvednuti uz probehlo — zpusob vyzvednuti u bezici rezervace nelze zmenit.'); return
+      setError('Vyzvednuti uz probehlo — zpusob vyzvednuti u bezici rezervace nelze zmenit.'); errReveal.reveal(); return
     }
     const addedSides = (pickupMethod === 'delivery' && origDelivery.pickup !== 'delivery' ? 1 : 0)
       + (returnMethod === 'delivery' && origDelivery.ret !== 'delivery' ? 1 : 0)
     const removedSide = (pickupMethod !== 'delivery' && origDelivery.pickup === 'delivery')
       || (returnMethod !== 'delivery' && origDelivery.ret === 'delivery')
     if (addedSides > 0 && !removedSide && newDeliveryFee < origDelivery.fee + 1000 * addedSides) {
-      setError(`Poplatek za doruceni je SOUCET obou stran — po pridani pristaveni/odvozu musi byt aspon ${(origDelivery.fee + 1000 * addedSides).toLocaleString('cs-CZ')} Kc (puvodni ${origDelivery.fee.toLocaleString('cs-CZ')} Kc + nova strana).`); return
+      setError(`Poplatek za doruceni je SOUCET obou stran — po pridani pristaveni/odvozu musi byt aspon ${(origDelivery.fee + 1000 * addedSides).toLocaleString('cs-CZ')} Kc (puvodni ${origDelivery.fee.toLocaleString('cs-CZ')} Kc + nova strana).`); errReveal.reveal(); return
     }
     // Přidání jedné strany + odebrání druhé v jednom uložení: kontrola výše se
     // neuplatní (poplatek smí klesnout), ale každá strana s přistavením stojí
     // aspoň 1 000 Kč — jinak by se nová strana „zaplatila" vratkou za odebranou.
     const sidesAfter = (pickupMethod === 'delivery' ? 1 : 0) + (returnMethod === 'delivery' ? 1 : 0)
     if (addedSides > 0 && removedSide && newDeliveryFee < 1000 * sidesAfter) {
-      setError(`Poplatek za doruceni musi byt aspon ${(1000 * sidesAfter).toLocaleString('cs-CZ')} Kc (1 000 Kc za kazdou stranu s pristavenim/odvozem).`); return
+      setError(`Poplatek za doruceni musi byt aspon ${(1000 * sidesAfter).toLocaleString('cs-CZ')} Kc (1 000 Kc za kazdou stranu s pristavenim/odvozem).`); errReveal.reveal(); return
     }
     setSaving(true); setError(null)
     try {
@@ -408,7 +411,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
       // VÝJIMKA: při nezaplaceném doplatku (mod_surcharge_due > 0) trigger mail ODLOŽÍ —
       // odejde až po „Potvrdit doplatek" v detailu rezervace (confirm_booking_surcharge).
       onSaved()
-    } catch (e) { setError(e.message) }
+    } catch (e) { setError(e.message); errReveal.reveal() }
     finally { setSaving(false) }
   }
 
@@ -430,7 +433,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
     <Modal open title={`Upravit rezervaci #${booking.id?.slice(-8).toUpperCase()}`} onClose={onClose} wide>
       {/* < lg: výška dle viditelné plochy (dvh, iOS lišty) — jinak dvojí scroll s modalem (92dvh); desktop beze změny */}
       <div className="max-lg:!max-h-[calc(92dvh-112px)]" style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
-        {error && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13, fontWeight: 600 }}>{error}</div>}
+        {error && !errReveal.nearActions && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13, fontWeight: 600 }}>{error}</div>}
 
         {/* DATES */}
         <div className="mb-5">
@@ -544,8 +547,11 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full text-sm rounded-btn outline-none" style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }} placeholder="Interni poznamky k uprave..." />
         </div>
 
+        {/* < lg: chyba uložení nad tlačítky (useSaveErrorReveal) */}
+        {error && errReveal.nearActions && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13, fontWeight: 600 }}>{error}</div>}
+
         {/* ACTIONS */}
-        <div className="flex items-center justify-between pt-3 max-lg:flex-wrap max-lg:gap-3" style={{ borderTop: '1px solid #e5e7eb' }}>
+        <div ref={errReveal.actionsRef} className="flex items-center justify-between pt-3 max-lg:flex-wrap max-lg:gap-3" style={{ borderTop: '1px solid #e5e7eb' }}>
           <div className="text-xs" style={{ color: '#9ca3af' }}>
             {hasChanges ? (
               <span style={{ color: '#2563eb', fontWeight: 700 }}>Zmeny: {[datesChanged && 'termin', timesChanged && 'cas', motoChanged && 'motorka', deliveryChanged && 'doruceni', ownGearChanged && 'vlastni vybava', notes !== (booking.notes || '') && 'poznamky'].filter(Boolean).join(', ')}</span>

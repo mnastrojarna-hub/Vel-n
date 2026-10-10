@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { EmptyState } from './BranchHelpers'
-import { RpiSection, Btn, Chip, ErrorBoundary, formatUptime, ageSeconds, formatAge, txt, num, arr, isRpiDevice, ACCESSORIES_LABEL, boxLabel, isGeneratedZoneLabel } from './BranchRpiUi'
+import { RpiSection, Btn, Chip, HintChip, ErrorBoundary, formatUptime, ageSeconds, formatAge, txt, num, arr, isRpiDevice, ACCESSORIES_LABEL, boxLabel, isGeneratedZoneLabel } from './BranchRpiUi'
 import { OutdoorTile } from './BranchRpiOutdoorTile'
 import { parseHandover, HandoverDeviceInfo, ZoneHandoverInfo } from './BranchRpiHandover'
 import { ScreenMirrorButton } from './BranchRpiScreen'
-import { useTouchHint, HintRow, HintBlock } from './BranchRpiTouchHint'
+import { HintBlock } from './BranchRpiTouchHint'
 
 // ─── Řídicí jednotka (Raspberry) — živý stav zón + příkazy ──────────────────
 // Zdroj: kiosk_devices.status (snapshot z kontraktu §14, RPC kiosk_report_status),
@@ -148,7 +148,6 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
   const nameMismatch = !!(hasStatusName(st) && branchName && shownName !== String(branchName))
   const pinLockedAt = st.pin_locked_until ? new Date(String(st.pin_locked_until)) : null
   const pinLockedUntil = pinLockedAt && !isNaN(pinLockedAt) && pinLockedAt.getTime() > now ? pinLockedAt : null
-  const lanHint = useTouchHint(lanBad?.title)   // dotyk: „i“ u čipu I/O sítě (co zkontrolovat; na PC bublina)
 
   async function send(command, params = {}, label) {
     const ok = await onCommand(dev, command, params)
@@ -176,15 +175,19 @@ function RpiDeviceCard({ dev, doors, now, onCommand, branchName, onSaveDoor, ser
           if (viaOther) return <Chip tone={lteOk ? 'amber' : 'red'} title={`Internet jde přes ${via} (test mimo pobočku — na pobočce je jen LTE). LTE: ${lteOk ? 'v pořádku' : 'NEFUNKČNÍ — hlídka modem obnovuje'}`}>{`Internet přes ${via}${lteOk ? '' : ' · LTE nefunkční'}`}</Chip>
           return <Chip tone="green" title="Připojení k internetu (LTE)">Internet OK</Chip>
         })()}
-        {lanBad && <Chip tone="red" title={lanBad.title}>{lanBad.text}{lan.state ? ` (${txt(lan.state)})` : ''}</Chip>}
-        {lanHint.toggle}<HintRow body={lanHint.body} />
+        {/* I/O síť: co zkontrolovat je na PC v bublině, na dotyku pod „i“ u čipu (HintChip) */}
+        {lanBad && <HintChip tone="red" title={lanBad.title}>{lanBad.text}{lan.state ? ` (${txt(lan.state)})` : ''}</HintChip>}
+        {/* LTE / CPU / Disk: detail (RSRP, reconnecty, throttling, RAM) je na PC v bublině, na dotyku pod „i“ (HintChip);
+            „i“ jen když jednotka detail hlásí — jinak by rozbalilo samé pomlčky */}
         {lte.state != null && (
-          <Chip tone={lte.state === 'connected' ? 'blue' : 'amber'} title={`LTE ${txt(lte.state)} · RSRP ${txt(lte.rsrp)} dBm · reconnectů ${txt(lte.reconnects ?? 0)} · USB resetů ${txt(lte.usb_resets ?? 0)}`}>
+          <HintChip tone={lte.state === 'connected' ? 'blue' : 'amber'} title={`LTE ${txt(lte.state)} · RSRP ${txt(lte.rsrp)} dBm · reconnectů ${txt(lte.reconnects ?? 0)} · USB resetů ${txt(lte.usb_resets ?? 0)}`}>
             LTE {txt(lte.operator ?? lte.state)}{num(lte.rssi) != null ? ` ${num(lte.rssi)} dBm` : ''}
-          </Chip>
+          </HintChip>
         )}
-        {cpuTemp != null && <Chip tone={cpuTemp > 75 ? 'red' : cpuTemp > 65 ? 'amber' : 'gray'} title={`Throttled ${txt(sys.throttled)} · load ${txt(sys.load1)}`}>CPU {Math.round(cpuTemp)} °C</Chip>}
-        {diskFree != null && <Chip tone={diskFree < 10 ? 'red' : 'gray'} title={`Volná RAM ${txt(sys.mem_free_pct)} %`}>Disk {Math.round(diskFree)} % volné</Chip>}
+        {cpuTemp != null && <HintChip tone={cpuTemp > 75 ? 'red' : cpuTemp > 65 ? 'amber' : 'gray'} title={`Throttled ${txt(sys.throttled)} · load ${txt(sys.load1)}`}
+          hint={sys.throttled != null || sys.load1 != null ? `Throttled ${txt(sys.throttled)} · load ${txt(sys.load1)}` : null}>CPU {Math.round(cpuTemp)} °C</HintChip>}
+        {diskFree != null && <HintChip tone={diskFree < 10 ? 'red' : 'gray'} title={`Volná RAM ${txt(sys.mem_free_pct)} %`}
+          hint={sys.mem_free_pct != null ? `Volná RAM ${txt(sys.mem_free_pct)} %` : null}>Disk {Math.round(diskFree)} % volné</HintChip>}
         <span className="ml-auto text-[11px] font-bold" style={{ color: stale ? '#b45309' : '#6b8c7a' }}>
           {stale && hasStatus ? '⚠ ' : ''}stav {formatAge(statusAge)}{stale && statusAge != null ? ' — nemusí být aktuální' : ''}
         </span>
@@ -398,7 +401,7 @@ function ZoneTile({ z, door, handover, onSend, onConfirm, onSaveDoor, servis = f
         </div>
       )}
       <ZoneHandoverInfo handover={handover} zoneNo={zoneNo} bookingId={z.booking_id} />
-      {z.last_event != null && <div className="text-[10px] mt-0.5" style={{ color: '#6b8c7a' }}>posl. událost: {txt(z.last_event)}</div>}
+      {z.last_event != null && <div className="text-[10px] max-lg:text-[11px] mt-0.5" style={{ color: '#6b8c7a' }}>posl. událost: {txt(z.last_event)}</div>}
       <div className="flex items-center gap-1 flex-wrap mt-2 pt-2" style={{ borderTop: '1px dashed #d4e8e0' }}>
         <Btn tone="dark" small
           onClick={() => onConfirm(`Otevřít ${name} (zóna ${txt(zoneNo)})? Zámek dostane impulz a spustí se plná přístupová sekvence.`, 'open_door',

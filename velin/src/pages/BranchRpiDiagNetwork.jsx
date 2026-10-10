@@ -17,7 +17,7 @@ function Table({ head, rows }) {
     // Telefon: řádky jako karty (mg-stack, popisky ze záhlaví); tablet/PC tabulka se scrollem
     <div className="overflow-x-auto mg-stack-wrap">
       <table className="text-[12px] mg-stack" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-        <thead><tr>{head.map(h => <th key={h} className="text-left font-extrabold uppercase" style={{ padding: '2px 8px', color: '#6b8c7a', fontSize: 10, borderBottom: '1px solid #d4e8e0' }}>{h}</th>)}</tr></thead>
+        <thead><tr>{head.map(h => <th key={h} className="text-left font-extrabold uppercase max-lg:!text-[11px]" style={{ padding: '2px 8px', color: '#6b8c7a', fontSize: 10, borderBottom: '1px solid #d4e8e0' }}>{h}</th>)}</tr></thead>
         <tbody>{rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j} style={{ padding: '3px 8px', borderBottom: '1px solid #eef6f2', color: '#1a2e22', verticalAlign: 'top' }}>{c === '' ? '—' : txt(c)}</td>)}</tr>)}</tbody>
       </table>
     </div>

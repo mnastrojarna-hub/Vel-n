@@ -27,7 +27,7 @@ export default function BookingMotoSelector({
             <div className="text-right">
               <div className="text-xs" style={{ color: '#9ca3af' }}>bylo: {booking.motorcycles?.model}</div>
               <button onClick={() => { setSelectedMotoId(booking.moto_id); setChangingMoto(false) }}
-                className="text-xs font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', padding: 0 }}>
+                className="text-xs font-bold cursor-pointer max-lg:min-h-[36px]" style={{ color: '#dc2626', background: 'none', border: 'none', padding: 0 }}>
                 Vratit puvodni
               </button>
             </div>

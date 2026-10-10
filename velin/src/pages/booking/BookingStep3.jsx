@@ -1,14 +1,25 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Button from '../../components/ui/Button'
 import { latePickupDiscount, LATE_PICKUP_LABEL, LATE_PICKUP_HINT, LATE_PICKUP_KIOSK_HINT, SELF_SERVICE_BRANCH_TYPE } from '../../lib/latePickup'
 
 function fmtDate(d) { return d ? d.toLocaleDateString('cs-CZ') : '—' }
 
-export default function BookingStep3({ selectedMoto, startDate, endDate, days, totalPrice, firstDayPrice, customers, onBack, onCreate, saving, noPayment, setNoPayment }) {
+export default function BookingStep3({ selectedMoto, startDate, endDate, days, totalPrice, firstDayPrice, customers, onBack, onCreate, err, saving, noPayment, setNoPayment }) {
   const [customerSearch, setCustomerSearch] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [pickupTime, setPickupTime] = useState('09:00')
   const [notes, setNotes] = useState('')
+  // err chodí jen na mobilu/tabletu (NewBookingModal) — vykreslí se nad tlačítky a modal
+  // k ní doroluje, jinak by po neúspěšném „Vytvořit…“ chyba zůstala nahoře mimo výřez.
+  const actionsRef = useRef(null)
+  useEffect(() => {
+    const el = actionsRef.current; const box = el?.closest('.mg-modal')
+    if (!err || !box) return
+    const r = el.getBoundingClientRect(); const b = box.getBoundingClientRect()
+    // celý blok (chyba + tlačítka) do výřezu; kdyby byl delší než výřez, má přednost začátek chyby
+    const delta = r.bottom > b.bottom ? Math.min(r.bottom - b.bottom + 16, r.top - b.top - 16) : r.top < b.top ? r.top - b.top - 16 : 0
+    if (delta) box.scrollBy({ top: delta, behavior: 'smooth' })
+  }, [err])
 
   // Sleva 50 % na 1. den při vyzvednutí od 12:00 (2+ dní) — stejný výpočet
   // provede handleCreate při uložení (lib/latePickup.js).
@@ -112,11 +123,14 @@ export default function BookingStep3({ selectedMoto, startDate, endDate, days, t
         </div>
       </div>
 
-      <div className="flex justify-between mt-5 max-sm:flex-col-reverse max-sm:gap-2">
-        <Button onClick={onBack} className="max-sm:justify-center">← Zpět</Button>
-        <Button green className="max-sm:justify-center" onClick={() => onCreate({ selectedCustomer, pickupTime, notes })} disabled={saving || !selectedCustomer}>
-          {saving ? 'Vytvářím…' : noPayment ? 'Vytvořit (zaplaceno)' : 'Vytvořit a odeslat k platbě'}
-        </Button>
+      <div ref={actionsRef}>
+        {err && <div role="alert" className="p-3 rounded-lg mt-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{err}</div>}
+        <div className="flex justify-between mt-5 max-sm:flex-col-reverse max-sm:gap-2">
+          <Button onClick={onBack} className="max-sm:justify-center">← Zpět</Button>
+          <Button green className="max-sm:justify-center" onClick={() => onCreate({ selectedCustomer, pickupTime, notes })} disabled={saving || !selectedCustomer}>
+            {saving ? 'Vytvářím…' : noPayment ? 'Vytvořit (zaplaceno)' : 'Vytvořit a odeslat k platbě'}
+          </Button>
+        </div>
       </div>
     </div>
   )

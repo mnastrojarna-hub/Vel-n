@@ -139,10 +139,10 @@ function ProtocolSection({ sec }) {
         <span className="text-[11px]" style={{ color: '#6b8c7a' }}>{sec.items.length} kontrol</span>
       </div>
       {rest.length > 0 && (
-        // Telefon: řádky jako karty (mg-stack, popisky ze záhlaví); tablet/PC tabulka
+        // Telefon: řádky jako karty (mg-stack, popisky ze záhlaví); tablet/PC tabulka (záhlaví na tabletu 11 px, PC 10 px)
         <div className="overflow-x-auto mt-1 mg-stack-wrap">
           <table className="text-[12px] mg-stack" style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-            <thead><tr>{['Stav', 'Kontrola', 'Zjištění', 'Co s tím'].map(h => <th key={h} className="text-left font-extrabold uppercase" style={{ padding: '2px 8px', color: '#6b8c7a', fontSize: 10, borderBottom: '1px solid #d4e8e0' }}>{h}</th>)}</tr></thead>
+            <thead><tr>{['Stav', 'Kontrola', 'Zjištění', 'Co s tím'].map(h => <th key={h} className="text-left font-extrabold uppercase max-lg:!text-[11px]" style={{ padding: '2px 8px', color: '#6b8c7a', fontSize: 10, borderBottom: '1px solid #d4e8e0' }}>{h}</th>)}</tr></thead>
             <tbody>{rest.map(i => (
               <tr key={i.id} style={{ opacity: i.status === 'skip' ? 0.6 : 1 }}>
                 <td style={{ padding: '3px 8px', borderBottom: '1px solid #eef6f2', verticalAlign: 'top' }}><StatusChip status={i.status} /></td>

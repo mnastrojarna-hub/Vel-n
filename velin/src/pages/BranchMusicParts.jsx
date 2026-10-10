@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Btn, Chip, Select, formatAge, ageSeconds, txt, isRpiDevice } from './BranchRpiUi'
+import { Btn, Chip, HintChip, Select, formatAge, ageSeconds, txt, isRpiDevice } from './BranchRpiUi'
 import { ACCEPT, targetOptions, publicUrl, downloadUrl, formatBytes, libraryStatus, libraryChip, audioModeOf, targetLabel, formatEndTime, parseEndTime } from './branchMusicHelpers'
 
 // ─── Hudba pobočky — dílčí komponenty (drop zóna, řádek skladby, stav jednotky) ──
@@ -89,7 +89,8 @@ function TrackRow({ track, doors, index, count, busy, role, onMove, onRename, on
   }
   return (
     <div className="flex items-center gap-2 p-2 rounded-lg flex-wrap" style={{ background: track.is_active ? '#f8fcfa' : '#f3f4f6', border: '1px solid #d4e8e0', opacity: track.is_active ? 1 : 0.7 }}>
-      <div className="flex flex-col max-lg:flex-row max-lg:gap-1">
+      {/* Telefon/tablet: ▲▼ vedle sebe, každé ≥ 40 px široké s mezerou (pořadí = uvítací/návratová skladba, překlep je prohodí) */}
+      <div className="flex flex-col max-lg:flex-row max-lg:gap-2 max-lg:[&>button]:min-w-[40px]">
         <Btn small tone="gray" disabled={busy || index === 0} onClick={() => onMove(-1)} title="Posunout výš" style={{ padding: '1px 6px' }}>▲</Btn>
         <Btn small tone="gray" disabled={busy || index >= count - 1} onClick={() => onMove(1)} title="Posunout níž" style={{ padding: '1px 6px' }}>▼</Btn>
       </div>
@@ -144,7 +145,7 @@ function UnitSyncStatus({ devices, now, onCommand }) {
           <div key={dev.id} className="flex items-center gap-2 flex-wrap p-2 rounded-lg text-[12px]" style={{ background: '#f8fcfa', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
             <span style={{ width: 8, height: 8, borderRadius: 999, background: online ? '#1a8a18' : '#dc2626', display: 'inline-block' }} />
             <span className="font-bold">{txt(dev.name || 'Raspberry')}</span>
-            <Chip tone={chip.tone} title={targets || 'Jednotka zatím nehlásí stav knihovny (starší software nebo bez heartbeatu)'}>Jednotka: {chip.text}</Chip>
+            <HintChip tone={chip.tone} title={targets || 'Jednotka zatím nehlásí stav knihovny (starší software nebo bez heartbeatu)'}>Jednotka: {chip.text}</HintChip>
             {mode && <Chip tone={mode === 'multi' ? 'blue' : 'gray'} title={mode === 'multi' ? 'Každý kanál má vlastní zvukový výstup' : 'Jeden zesilovač + reléový přepínač — hraje vždy jen jedna kóje, venek nefunguje'}>režim {mode}</Chip>}
             {lib?.last_sync_at && <span style={{ color: '#6b8c7a' }}>sync {formatAge(ageSeconds(lib.last_sync_at, now))}</span>}
             <span className="ml-auto flex items-center gap-2">

@@ -131,7 +131,7 @@ export default function Topbar() {
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="relative cursor-pointer bg-transparent border-none text-xl"
+            className="relative cursor-pointer bg-transparent border-none text-xl max-lg:min-w-[40px] max-lg:min-h-[40px]"
             style={{ lineHeight: 1 }}
             title="Notifikace"
           >

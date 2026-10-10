@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import Card from '../../components/ui/Card'
 import DocsStatusPills, { loadDocScans } from '../../components/DocsStatusPills'
+import DocsPillsTouch from './DocsPillsTouch'
 import CheckInModal from './CheckInModal'
 import SwapModal from './SwapModal'
 import { shortBranchName } from './BranchChips'
@@ -200,10 +201,14 @@ const SwapBtn = ({ ev, onSwap }) => (
 // Stav dokladů zákazníka (Č = vypsaná čísla, 📷 = sken/fotka) — stejné pilulky
 // jako v seznamu rezervací (BookingsTable), ať je před odbavením hned vidět,
 // jestli má zákazník nahrané fotky dokladů a vyplněná čísla.
-const DocsPills = ({ ev, scans }) => ev.booking.user_id ? (
-  <DocsStatusPills profile={ev.booking.profiles} scan={scans?.[ev.booking.user_id]}
+// Mobil/tablet: DocsPillsTouch (11 px + co chybí přímo v pilulce); desktop beze změny.
+function DocsPills({ ev, scans }) {
+  const touch = useIsMobile()
+  if (!ev.booking.user_id) return null
+  const Pills = touch ? DocsPillsTouch : DocsStatusPills
+  return <Pills profile={ev.booking.profiles} scan={scans?.[ev.booking.user_id]}
     requireLicense={String(ev.booking.motorcycles?.license_required || '').toUpperCase() !== 'N'} />
-) : null
+}
 
 function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans, showBranch }) {
   const t = TYPE[ev.type]
@@ -230,7 +235,8 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans, sh
           <span className="ml-auto text-sm"><TimeCell ev={ev} t={t} /></span>
         </div>
         <div className="font-extrabold text-sm mt-1 truncate" style={{ color: '#0f1a14' }}>{ev.moto}{ev.spz ? ` · ${ev.spz}` : ''}</div>
-        <div className="flex items-center gap-2">
+        {/* mobil/tablet: delší pilulky dokladů (co chybí) se zalomí pod jméno, ať ho neořežou */}
+        <div className="flex items-center gap-2 max-lg:flex-wrap max-lg:gap-y-1">
           <span className="text-sm truncate" style={{ color: '#1a2e22', minWidth: 0 }}>{ev.customer} <span className="font-mono" style={{ color: '#64748b' }}>{bookingNo(ev.booking.id)}</span></span>
           <span className="shrink-0 ml-auto"><DocsPills ev={ev} scans={scans} /></span>
         </div>

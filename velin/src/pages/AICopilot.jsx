@@ -14,6 +14,13 @@ import { recordOutcome } from '../lib/aiLearning'
 import { sanitizeHtml } from '../lib/sanitize'
 import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
 import { renderMarkdownMobile, useCopilotKeyboard, CopilotComposerMobile } from './AICopilotMobile'
+import AiCopilotPhoneHeader from '../components/ai/AiCopilotPhoneHeader'
+
+// Telefon na šířku (nízký displej). Karta chatu pak sahá od 12 px pod lištou až nad plovoucí
+// tlačítko LOG (34 px od spodu); záporné okraje ruší horní md:p-6 a spodní rezervu 60 px obsahu
+// Layoutu, aby se stránka neposouvala. Výška pro zprávy ~170 px místo ~124 px (844×390).
+const LOW_PHONE = '(max-width: 1023px) and (max-height: 520px)'
+const LOW_PHONE_CARD = { height: 'calc(100dvh - 112px)', marginBottom: -20 }
 
 const QUICK_ACTIONS = [
   { cat: '📊 Přehledy', items: ['Kompletní denní přehled', 'Jak jsme na tom vs. minulý měsíc?', 'Týdenní statistiky'] },
@@ -56,7 +63,8 @@ export default function AICopilot() {
   // jeden panel naráz — chat, nebo postranní panel (konverzace / agenti / log) s tlačítkem zpět.
   // Při psaní s otevřenou klávesnicí je chat v překryvu přes viditelnou plochu. Desktop beze změny.
   const isMobile = useIsMobile()
-  const isPhone = useMediaQuery('(max-width: 767px), (max-width: 1023px) and (max-height: 520px)')
+  const isPhone = useMediaQuery(`(max-width: 767px), ${LOW_PHONE}`)
+  const isLowPhone = useMediaQuery(LOW_PHONE)
   const kbd = useCopilotKeyboard(isMobile)
   const [mView, setMView] = useState('chat')
   const showSide = !isPhone || mView === 'side'
@@ -215,7 +223,7 @@ export default function AICopilot() {
         </div>
       )}
 
-      <div className="flex rounded-card shadow-card overflow-hidden bg-white" style={kbd.style || { height: isMobile ? 'max(calc(100dvh - 140px), 240px)' : 'calc(100vh - 140px)' }}>
+      <div className={`flex rounded-card shadow-card overflow-hidden bg-white${isLowPhone && !kbd.style && !debugMode ? ' md:-mt-3' : ''}`} style={kbd.style || (isLowPhone ? LOW_PHONE_CARD : { height: isMobile ? 'max(calc(100dvh - 140px), 240px)' : 'calc(100vh - 140px)' })}>
         {/* Sidebar */}
         <div className="flex-shrink-0 flex flex-col" style={isPhone ? { width: '100%', display: showSide ? undefined : 'none' } : { width: isMobile ? 290 : 240, borderRight: '1px solid #d4e8e0' }}>
           <div className="p-3" style={{ borderBottom: '1px solid #d4e8e0', ...(isPhone ? { display: 'flex', gap: 8 } : null) }}>
@@ -271,13 +279,7 @@ export default function AICopilot() {
         {/* Chat */}
         <div className={isMobile ? 'flex-1 flex flex-col min-w-0' : 'flex-1 flex flex-col'} style={showChat ? undefined : { display: 'none' }}>
           {isPhone ? (kbd.open && kbd.height < 500 ? null :
-            <div className="p-3 flex items-center gap-3" style={{ borderBottom: '1px solid #d4e8e0' }}>
-              <button onClick={() => setMView('side')} className="shrink-0 rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '0 12px', minHeight: 40, background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>‹ Konverzace</button>
-              <div className="min-w-0 leading-tight">
-                <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>AI Copilot</div>
-                <div className="text-sm" style={{ color: '#1a2e22' }}>— {enabledCount} agentů aktivních</div>
-              </div>
-            </div>
+            <AiCopilotPhoneHeader compact={isLowPhone} enabledCount={enabledCount} onBack={() => setMView('side')} />
           ) : (
           <div className="p-4 flex items-center" style={{ borderBottom: '1px solid #d4e8e0' }}>
             <span className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>AI Copilot</span>

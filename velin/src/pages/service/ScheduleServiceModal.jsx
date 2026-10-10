@@ -85,9 +85,9 @@ function SingleServiceForm({ motos, onBack, onDone }) {
         </div>
       ) : (
         <div>
-          <div className="flex items-center gap-2 mb-3 p-2 rounded" style={{ background: '#dcfce7', border: '1px solid #1a8a18' }}>
+          <div className="flex items-center gap-2 mb-3 p-2 rounded max-lg:flex-wrap" style={{ background: '#dcfce7', border: '1px solid #1a8a18' }}>
             <span className="font-bold text-sm">{selected?.model}</span><span className="font-mono text-sm">{selected?.spz}</span>
-            <button onClick={() => setMotoId('')} className="ml-auto text-xs cursor-pointer" style={{ color: '#6b7280', background: 'none', border: 'none' }}>Změnit motorku</button>
+            <button onClick={() => setMotoId('')} className="ml-auto text-xs cursor-pointer max-lg:min-h-[36px] max-lg:px-2 max-lg:shrink-0 max-lg:whitespace-nowrap" style={{ color: '#6b7280', background: 'none', border: 'none' }}>Změnit motorku</button>
           </div>
           <ServiceChecklistView moto={selected} onConfirm={handleConfirm} onBack={onBack} busy={busy} error={error} />
         </div>

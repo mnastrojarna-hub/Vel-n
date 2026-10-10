@@ -105,7 +105,7 @@ export default function CustomServiceItems({ labels, onChange, compact = false }
               {labels.map((l, i) => (
                 <span key={l} className="inline-flex items-center gap-1 text-sm font-bold" style={{ padding: '3px 8px', borderRadius: 8, background: '#fff', border: '1px solid #b6dccb', color: '#0f1a14' }}>
                   ✎ Jiné {i + 1}: {l}
-                  <button type="button" onClick={() => remove(l)} title="Odebrat" className="cursor-pointer p-0 max-lg:px-2 max-lg:py-1 max-lg:text-base"
+                  <button type="button" onClick={() => remove(l)} title="Odebrat" className="cursor-pointer p-0 max-lg:min-w-[36px] max-lg:min-h-[36px] max-lg:-my-[3px] max-lg:-mr-2 max-lg:text-lg"
                     style={{ background: 'none', border: 'none', color: '#dc2626', fontWeight: 800, lineHeight: 1 }}>×</button>
                 </span>
               ))}

@@ -1,5 +1,5 @@
 import { Component, useState } from 'react'
-import { useTouchHint } from './BranchRpiTouchHint'
+import { useTouchHint, HintRow } from './BranchRpiTouchHint'
 
 // ─── Sdílené UI prvky pro bloky Raspberry řídicí jednotky (Samoobsluha) ─────
 // Stejný vizuální jazyk jako BranchSelfService.jsx (inline styly + Tailwind utility).
@@ -196,16 +196,32 @@ function Btn({ children, tone = 'gray', onClick, disabled, title, small, style }
   )
 }
 
-// Telefon/tablet: dlouhý text čipu (např. chyba z jednotky) se zalomí místo přetečení karty (desktop beze změny)
+// Telefon/tablet: dlouhý text čipu (např. chyba z jednotky) se zalomí místo přetečení karty a písmo je 11 px
+// jako u ostatních stavových čipů (desktop beze změny 9 px)
 function Chip({ children, tone = 'gray', title }) {
   const t = TONES[tone] || TONES.gray
   return (
-    <span title={title} className="inline-block rounded-btn text-[9px] font-extrabold uppercase max-lg:max-w-full max-lg:!whitespace-normal max-lg:break-words"
+    <span title={title} className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold uppercase max-lg:max-w-full max-lg:!whitespace-normal max-lg:break-words"
       style={{ padding: '2px 6px', ...t, whiteSpace: 'nowrap' }}>
       {children}
     </span>
   )
 }
+
+// Čip s detailem v `title` — na dotyku (< 1024 px) navíc tlačítko „i“, které detail rozbalí na celý řádek
+// pod čipem (rodič = flex-wrap řádek). `hint` = text jen pro dotyk (null = bez „i“, např. když jednotka detail
+// nehlásí). Desktop: vykreslí se jen <Chip> beze změny.
+function HintChip({ children, tone, title, hint }) {
+  const h = useTouchHint(hint === undefined ? title : hint)
+  const chip = <Chip tone={tone} title={title}>{children}</Chip>
+  if (!h.toggle) return chip
+  // Čip a jeho „i“ drží pohromadě (při zalomení řádku se od sebe neodtrhnou — jinak by „i“ vypadalo jako u sousedního čipu)
+  return <><span className="inline-flex items-center gap-1 max-w-full">{chip}{h.toggle}</span><HintRow body={h.body} /></>
+}
+
+// Výběr zařízení v mapování (název volí obsluha): na dotyku šířka podle nejdelší volby (min. 96 px), ať při
+// 16px písmu není název uříznutý („wav617a“ vs. „wav617b“); desktop drží pevnou šířku z `width`
+const FIT_SELECT = 'max-lg:!w-auto max-lg:min-w-[96px]'
 
 function Label({ children }) {
   return <span className="text-[11px] font-bold" style={{ color: '#6b8c7a' }}>{children}</span>
@@ -275,7 +291,7 @@ function Checkbox({ label, checked, onChange, title }) {
 function HintedCell({ title, hint, label, children }) {
   const h = useTouchHint(hint ?? title)
   return (
-    <div className={`flex flex-col gap-0.5${h.body ? ' basis-full' : ''}`} title={title}>
+    <div className={`flex flex-col gap-0.5 max-lg:max-w-full${h.body ? ' basis-full' : ''}`} title={title}>
       <FieldLabel label={label} hint={h} />
       {children}
       {h.body}
@@ -309,7 +325,7 @@ function formatAge(sec) {
 }
 
 export {
-  RpiSection, usePersistentFlag, Btn, Chip, Label, FieldLabel, HintedCell, Input, Select, Checkbox, TONES, formatUptime, ageSeconds, formatAge,
+  RpiSection, usePersistentFlag, Btn, Chip, HintChip, FIT_SELECT, Label, FieldLabel, HintedCell, Input, Select, Checkbox, TONES, formatUptime, ageSeconds, formatAge,
   ErrorBoundary, txt, num, arr, isRpiDevice, isTabletDevice, platformLabel,
   ACCESSORIES_LABEL, OUTDOOR_LABEL, isAccessoriesDoor, boxLabel, doorKindLabel, doorLabel, isGeneratedZoneLabel,
   DOOR_EVENT_CZ, doorEventName, doorEventLabel, isProtocolEvent,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Btn, Chip, Input, Select, HintedCell, doorKindLabel } from './BranchRpiUi'
+import { Btn, Chip, Input, Select, HintedCell, FIT_SELECT, doorKindLabel } from './BranchRpiUi'
 import { DoorAudioCell } from './BranchRpiAudioHw'
 import {
   ZONE_REFS, ZONE_TIMING_FIELDS, ZONE_MUSIC_OPTIONS, ZONE_LIGHT_OPTIONS, audioMode, channelKey, channelLabel, channelRangeError, defaultDoorHw, toPhysical, fromPhysical, findDuplicateChannels, findDuplicateZones, findDuplicateOutputs, roleTypeError, draftToHw, hwToDraft,
@@ -178,7 +178,7 @@ function DoorHwFull({ door, draft, devices, audio, devOptions, dupes, dupZones, 
           return (
             <HintedCell key={role.key} title={title} label={`${role.label}${role.key === 'lock' || role.key === 'contact' ? ' *' : ''}`}>
               <div className="flex gap-1">
-                <Select width={96} value={ref.dev} options={unknownDev ? [...devOptions, { value: ref.dev, label: `${ref.dev} (?)` }] : devOptions}
+                <Select width={96} className={FIT_SELECT} value={ref.dev} options={unknownDev ? [...devOptions, { value: ref.dev, label: `${ref.dev} (?)` }] : devOptions}
                   invalid={bad}
                   onChange={v => onPatch(p => ({ ...p, [role.key]: { ...p[role.key], dev: v } }))} />
                 <ChannelPrefix kind={role.kind} />
@@ -203,16 +203,17 @@ function DoorHwFull({ door, draft, devices, audio, devOptions, dupes, dupZones, 
       {/* Individuální časování zóny — kóje 1–7 se obvykle nechávají prázdné (jedou na společném nastavení),
           šatna se tu dá nastavit jinak (převlékání trvá déle než zaparkování motorky) */}
       <div className="flex items-end gap-2 flex-wrap mt-1 pt-1" style={{ borderTop: '1px dashed #d4e8e0' }}>
-        <span className="text-[10px] font-extrabold uppercase self-center" style={{ color: '#6b8c7a', minWidth: 76 }}
+        <span className="text-[10px] max-lg:text-[11px] font-extrabold uppercase self-center" style={{ color: '#6b8c7a', minWidth: 76 }}
           title={OWN_TIMING_TITLE}>
           Vlastní čas{ownHint.toggle && <> {ownHint.toggle}</>}
         </span>
         <HintRow body={ownHint.body} />
-        <Select label="Hudba" width={168} value={draft.music_enabled ?? ''} options={ZONE_MUSIC_OPTIONS}
+        {/* Dotyk: šířka podle nejdelší volby (16px písmo by „Hraje po zadání kódu“ / „Jako kóje — zhasne po zavření“ uřízlo) */}
+        <Select label="Hudba" width={168} className="max-lg:!w-auto" value={draft.music_enabled ?? ''} options={ZONE_MUSIC_OPTIONS}
           warn={draft.music_enabled === '0'}
           title="Hraje v této kóji / šatně hudba po zadání kódu? „Podle pobočky“ = řídí se hlavním vypínačem v sekci Audio (výchozí, nechte u kójí 1–7). „Nehraje“ umlčí jen tuhle zónu, ostatní hrají dál. Dveří se to nijak netýká, otevírají se vždy."
           onChange={v => onPatch(p => ({ ...p, music_enabled: v }))} />
-        <Select label="Světlo" width={214} value={draft.light_until_moto_code ?? ''} options={ZONE_LIGHT_OPTIONS}
+        <Select label="Světlo" width={214} className="max-lg:!w-auto" value={draft.light_until_moto_code ?? ''} options={ZONE_LIGHT_OPTIONS}
           title="Kdy zhasne bílé světlo zóny. „Jako kóje“ = zhasne po zavření dveří (doběh „Světlo po zavření“, u kójí 0 s = hned). „Šatna“ = po zavření dveří svítí dál a zhasne ho až kód motorky, který zákazník zadá po podpisu protokolu (pojistka: max. doba relace zóny)."
           onChange={v => onPatch(p => ({ ...p, light_until_moto_code: v }))} />
         {ZONE_TIMING_FIELDS.map(f => {

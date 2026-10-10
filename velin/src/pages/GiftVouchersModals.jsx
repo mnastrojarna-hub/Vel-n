@@ -23,13 +23,23 @@ function generateCode() {
   return code
 }
 
-export function VoucherModal({ open, existing, onClose, onSaved }) {
+// Výchozí stav formuláře: Upravit = hodnoty vybraného poukazu, Nový = čistý formulář s novým kódem
+function initForm(existing) {
+  return existing
+    ? { code: existing.code || '', amount: existing.amount?.toString() || '', currency: existing.currency || 'CZK', category: existing.category || 'gift', source: existing.source || '', buyer_name: existing.buyer_name || '', buyer_email: existing.buyer_email || '', valid_from: (existing.valid_from || '').slice(0, 10), valid_until: (existing.valid_until || '').slice(0, 10), description: existing.description || '' }
+    : { code: generateCode(), amount: '', currency: 'CZK', category: 'gift', source: '', buyer_name: '', buyer_email: '', valid_from: new Date().toISOString().split('T')[0], valid_until: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0], description: '' }
+}
+
+// Rodič (GiftVouchers) drží modál vykreslený trvale → formulář se připojí znovu při KAŽDÉM otevření,
+// jinak by si držel stav z prvního renderu (Upravit = prázdný formulář s novým kódem → přepis poukazu)
+export function VoucherModal(props) {
+  if (!props.open) return null
+  return <VoucherForm key={props.existing?.id || 'new'} {...props} />
+}
+
+function VoucherForm({ existing, onClose, onSaved }) {
   const isEdit = !!existing
-  const [form, setForm] = useState(
-    existing
-      ? { code: existing.code || '', amount: existing.amount?.toString() || '', currency: existing.currency || 'CZK', category: existing.category || 'gift', source: existing.source || '', buyer_name: existing.buyer_name || '', buyer_email: existing.buyer_email || '', valid_from: existing.valid_from || '', valid_until: existing.valid_until || '', description: existing.description || '' }
-      : { code: generateCode(), amount: '', currency: 'CZK', category: 'gift', source: '', buyer_name: '', buyer_email: '', valid_from: new Date().toISOString().split('T')[0], valid_until: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0], description: '' }
-  )
+  const [form, setForm] = useState(() => initForm(existing))
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -55,8 +65,6 @@ export function VoucherModal({ open, existing, onClose, onSaved }) {
   async function logAudit(action, details) {
     try { const { data: { user } } = await supabase.auth.getUser(); await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, new_data: details }) } catch {}
   }
-
-  if (!open) return null
 
   return (
     <Modal open noBackdropClose title={isEdit ? `Upravit: ${existing?.code}` : 'Nový dárkový poukaz'} onClose={onClose}>

@@ -89,6 +89,13 @@ export default function AutoOrdersTab() {
 
   const totalPages = Math.ceil(total / PER_PAGE)
   const fmt = n => n ? `${Number(n).toLocaleString('cs-CZ')} Kč` : '\u2014'
+  // Klik na řádek / kartu objednávky otevře detail (sdílené TD onClick nepředává, proto na <tr>) —
+  // kromě buňky zaškrtávátka (první) a akcí (poslední), jako původní onClick na buňkách 2–7
+  function openDetail(e, o) {
+    const td = e.target.closest('td'), tr = e.currentTarget
+    if (td && (td === tr.firstElementChild || td === tr.lastElementChild)) return
+    setDetail(o)
+  }
 
   return (
     <div>
@@ -125,15 +132,15 @@ export default function AutoOrdersTab() {
                 </TRow></thead>
                 <tbody>
                   {orders.map(o => (
-                    <tr key={o.id} className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
+                    <tr key={o.id} onClick={e => openDetail(e, o)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                       style={{ borderBottom: '1px solid #d4e8e0', background: selOrderIds.has(o.id) ? '#fef9c3' : undefined }}>
                       <TD><RowCheckbox id={o.id} selectedIds={selOrderIds} setSelectedIds={setSelOrderIds} /></TD>
-                      <TD mono bold onClick={() => setDetail(o)}>{o.order_number || `#${o.id?.slice(0, 8)}`}</TD>
-                      <TD onClick={() => setDetail(o)}>{o.suppliers?.name || '\u2014'}</TD>
-                      <TD onClick={() => setDetail(o)}><span style={{ fontSize: 12, color: '#6b7280' }}>{o.suppliers?.contact_email || '\u2014'}</span></TD>
-                      <TD onClick={() => setDetail(o)}>{o.created_at ? new Date(o.created_at).toLocaleDateString('cs-CZ') : '\u2014'}</TD>
-                      <TD bold onClick={() => setDetail(o)}>{fmt(o.total_amount)}</TD>
-                      <TD onClick={() => setDetail(o)}>
+                      <TD mono bold>{o.order_number || `#${o.id?.slice(0, 8)}`}</TD>
+                      <TD>{o.suppliers?.name || '\u2014'}</TD>
+                      <TD><span style={{ fontSize: 12, color: '#6b7280' }}>{o.suppliers?.contact_email || '\u2014'}</span></TD>
+                      <TD>{o.created_at ? new Date(o.created_at).toLocaleDateString('cs-CZ') : '\u2014'}</TD>
+                      <TD bold>{fmt(o.total_amount)}</TD>
+                      <TD>
                         <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{ padding: '4px 10px', background: o.status === 'received' ? '#dcfce7' : o.status === 'sent' ? '#dbeafe' : o.status === 'cancelled' ? '#fee2e2' : '#fef3c7', color: o.status === 'received' ? '#1a8a18' : o.status === 'sent' ? '#2563eb' : o.status === 'cancelled' ? '#dc2626' : '#b45309' }}>{STATUS_LABELS[o.status] || o.status}</span>
                       </TD>
                       <TD label="" className="mg-stack-full">{(o.status === 'draft' || o.status === 'sent') && <button onClick={() => sendOrderEmail(o)} className="rounded-btn text-sm font-bold cursor-pointer" style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>{o.status === 'draft' ? 'Odeslat email' : 'Preposlat'}</button>}</TD>

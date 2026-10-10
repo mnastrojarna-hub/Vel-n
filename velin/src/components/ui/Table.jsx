@@ -38,9 +38,10 @@ export function TH({ children, className = '' }) {
 }
 
 // className / label = jen pro kartové zobrazení na telefonu (mg-stack-full, mg-hide-phone, vlastní popisek).
-export function TD({ children, bold = false, color, mono = false, className, label }) {
+export function TD({ children, bold = false, color, mono = false, className, label, onClick }) {
   return (
     <td
+      onClick={onClick}
       className={className}
       data-label={label}
       style={{

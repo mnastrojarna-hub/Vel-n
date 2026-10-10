@@ -199,7 +199,8 @@ function DevicesEditor({ hardware, disabled, onSave }) {
                   title={badName ? 'Název musí být unikátní, malá písmena/číslice/-/_'
                     : 'Vlastní zkratka zařízení, kterou se na něj odkazuje mapování dveří níže (např. wav645, shelly1). Malá písmena, číslice, - a _.'}
                   onChange={v => edit(i, { name: v })} />
-                <Select label="Typ" width={200} value={r.type} options={DEVICE_TYPES}
+                {/* Dotyk: šířka podle nejdelší volby — „WAV617 (8 relé + 8 vstupů)“ se při 16px písmu do 200 px nevejde */}
+                <Select label="Typ" width={200} className="max-lg:!w-auto" value={r.type} options={DEVICE_TYPES}
                   title="Druh modulu. WAV645 (16 relé) = zámky a další relé; WAV617 = Modbus POE ETH Relay (B) (8 relé + 8 vstupů) = dveřní kontakty, světla, audio i zámky; Shelly Pro RGBWW PM = barevná signalizace u kójí."
                   onChange={v => edit(i, { type: v })} />
                 <Input label="Host (IP)" width={140} value={r.host} placeholder="192.168.50.20" invalid={!r.host.trim()}

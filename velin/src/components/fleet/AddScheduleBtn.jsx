@@ -64,7 +64,7 @@ export default function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existi
         )}
         {step === 2 && (
           <div className="p-4 space-y-4">
-            <button onClick={() => setStep(1)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>{'\u2190'} Zpet na vyber typu</button>
+            <button onClick={() => setStep(1)} className="text-sm font-bold cursor-pointer max-lg:min-h-[36px] max-lg:pr-3" style={{ color: '#2563eb', background: 'none', border: 'none' }}>{'\u2190'} Zpet na vyber typu</button>
             {selected && selected !== 'custom' && <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#dcfce7' }}><span style={{ fontSize: 18 }}>{SERVICE_PRESETS.find(p => p.key === selected)?.icon}</span><span className="font-bold text-sm" style={{ color: '#166534' }}>{form.description}</span></div>}
             {selected === 'custom' && <div><label className="block text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Nazev servisu</label><input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="napr. Vymena svicek, Kontrola ventilu..." autoFocus className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} /></div>}
             <div><label className="block text-xs font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Intervaly</label>

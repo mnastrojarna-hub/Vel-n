@@ -88,7 +88,7 @@ export default function ServiceOverview({ onOpenMoto }) {
                   <span className="font-mono text-xs" style={{ color: '#1a2e22' }}>{m?.spz}</span>
                   <span className="text-xs" style={{ color: '#6b7280' }}>{m?.branches?.name || ''}</span>
                   <span className="text-xs" style={{ color: '#1a2e22' }}>od {fmtDate(l.service_date)}{l.scheduled_date ? ` → ${fmtDate(l.scheduled_date)}` : ''}</span>
-                  <span className="text-xs flex-1 truncate max-md:basis-full" style={{ color: '#1a2e22' }}>{items.length > 0 ? `${items.filter(i => i.done).length}/${items.length} úkonů: ${items.slice(0, 4).map(i => i.label).join(', ')}${items.length > 4 ? '…' : ''}` : (l.description || '')}</span>
+                  <span className="text-xs flex-1 truncate max-lg:basis-full" style={{ color: '#1a2e22' }}>{items.length > 0 ? `${items.filter(i => i.done).length}/${items.length} úkonů: ${items.slice(0, 4).map(i => i.label).join(', ')}${items.length > 4 ? '…' : ''}` : (l.description || '')}</span>
                   <span className="text-xs font-bold" style={{ color: '#1a2e22' }}>{l.performed_by || '—'}</span>
                 </div>
               )

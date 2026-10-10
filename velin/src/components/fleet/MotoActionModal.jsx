@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { purgeWebCache } from '../../lib/webCache'
 import Modal from '../ui/Modal'
@@ -12,6 +12,7 @@ import { fetchBlockingBookings, fetchActiveBookings, blockingBookingsMessage } f
 import { confirmTrailerBranchMove } from '../../pages/BranchHelpers'
 import { moveMotos } from '../../lib/motoMove'
 import { useOdometerPrompt } from './OdometerReadingModal'
+import { MOBILE_QUERY } from '../../hooks/useIsMobile'
 
 export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [branches, setBranches] = useState([])
@@ -33,6 +34,15 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [openLogs, setOpenLogs] = useState([])
   // Přesun obslužná ↔ samoobslužná jen se stavem tachometru (okno nad touto modálkou)
   const [odoModal, askOdometer] = useOdometerPrompt()
+  // Telefon/tablet: přepnutí obsahu okna (správa ↔ checklist ↔ výběr náhrady) začíná nahoře —
+  // okno (.mg-modal, overflow:auto) jinak drží posun z předchozí obrazovky a nadpis, nápověda
+  // i hledání checklistu zůstanou mimo obraz. Značka topRef je skrytá (bez vlivu na rozvržení).
+  const topRef = useRef(null)
+  const view = showChecklist ? 'checklist' : showReplacement ? 'replacement' : showDeactReplace ? 'deact' : 'status'
+  useLayoutEffect(() => {
+    const box = topRef.current?.closest('.mg-modal')
+    if (box && window.matchMedia?.(MOBILE_QUERY).matches) box.scrollTop = 0
+  }, [view])
 
   useEffect(() => {
     if (open && moto?.id) {
@@ -299,6 +309,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     <>
     <Modal open={open} onClose={showChecklist ? () => setShowChecklist(false) : onClose}
       title={showChecklist ? `${moto.model} — ${checklistEdit ? 'Upravit servisní plán' : 'Servisní checklist'}` : `${moto.model} — Správa`} wide>
+      <i ref={topRef} hidden />
 
       {showChecklist ? (
         <ServiceChecklistView moto={moto}

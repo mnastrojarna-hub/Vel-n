@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
-import { sanitizeHtml } from '../../lib/sanitize'
+import InvoicePreviewHtml from './InvoicePreviewHtml'
 
 const TYPE_MAP = {
   proforma: { label: 'Zálohová', color: '#2563eb', bg: '#dbeafe' },
@@ -190,9 +190,8 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
         </div>
       ) : (
         <>
-          {/* Invoice HTML preview */}
-          <div className="rounded-card" style={{ border: '1px solid #d4e8e0', maxHeight: 420, overflow: 'auto', background: '#fff' }}
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />
+          {/* Invoice HTML preview (< 1024 px: na telefonu se 2sloupcové bloky skládají pod sebe) */}
+          <InvoicePreviewHtml html={html} />
 
           {/* Actions */}
           {/* < 1024 px: tlačítka uvnitř skupin se zalamují (jinak přečnívají z modálu) */}
