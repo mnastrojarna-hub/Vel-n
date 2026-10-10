@@ -47,7 +47,7 @@ return ['pages' => ['landing' => [
             ['icon' => 'shield', 'title' => 'Szkody pokryte w 100%', 'text' => 'Ochrona z umowy: przy wypadku twój udział własny wynosi 0 zł.*'],
             ['icon' => 'helmet', 'title' => 'Wyposażenie w cenie', 'text' => 'Odzież motocyklowa, kamizelka, apteczka i blokada tarczy. W oddziale Mezná także odzież przeciwdeszczowa.'],
             ['icon' => 'infinity', 'title' => 'Bez limitu km i wyjazdy za granicę', 'text' => 'Jedź, dokąd chcesz i jak daleko chcesz (w strefie Zielonej Karty).'],
-            ['icon' => 'fuel', 'title' => 'Oddajesz, jak ci wygodnie', 'text' => 'Bez tankowania do pełna. W oddziale Mezná nie musisz go nawet myć; w samoobsłudze oddaj go umytego.'],
+            ['icon' => 'fuel', 'title' => 'Oddajesz, jak ci wygodnie', 'text' => 'Nie musisz tankować do pełna. W oddziale Mezná nie musisz nawet myć motocykla; w samoobsłudze oddaj go umytego.'],
             ['icon' => 'calendar', 'title' => 'Rezerwacja i płatność online', 'text' => 'Załatwisz w kilka minut, nawet w niedzielę wieczorem.'],
             ['icon' => 'app', 'title' => 'Własna aplikacja', 'text' => 'Zmiany w rezerwacji, SOS, program lojalnościowy i trasy w jednym miejscu.'],
             ['icon' => 'coffee', 'title' => 'Zaplecze za darmo', 'text' => 'W oddziale Mezná: kawa, woda, WC, wi-fi, przebieralnia i szafki. Parking dla twojego auta w obu oddziałach.'],
@@ -120,7 +120,7 @@ return ['pages' => ['landing' => [
         'steps_title' => 'To proste: 4 kroki',
         'steps' => [
             ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Wybierz motocykl', 'text' => 'Turystyczne, naked, supermoto, choppery, skutery 125 i motocykle dla dzieci.'],
-            ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Zarezerwuj online', 'text' => 'Wybierz termin i wyposażenie, a zapłać kartą, Apple Pay lub Google Pay.'],
+            ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Zarezerwuj online', 'text' => 'Wybierz termin i wyposażenie, zapłać kartą, Apple Pay lub Google Pay.'],
             ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Odbierz motocykl', 'text' => 'W oddziale Mezná (Wysoczyna) lub w samoobsłudze pod Brnem. Motocykle z oddziału Mezná dowieziemy ci pod adres (za dopłatą).'],
             ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'W drogę!', 'text' => 'Po Czechach i za granicą. W oddziale Mezná oddasz motocykl o wybranej godzinie; w samoobsłudze ostatniego dnia do 24:00.'],
         ],
@@ -143,7 +143,7 @@ return ['pages' => ['landing' => [
         'steps_title' => 'To proste: 4 kroki',
         'steps' => [
             ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Wybierz motocykl', 'text' => 'Turystyczne, naked, supermoto, choppery, skutery 125 i motocykle dla dzieci.'],
-            ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Zarezerwuj online', 'text' => 'Wybierz termin i wyposażenie, a zapłać kartą, Apple Pay lub Google Pay.'],
+            ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Zarezerwuj online', 'text' => 'Wybierz termin i wyposażenie, zapłać kartą, Apple Pay lub Google Pay.'],
             ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Odbierz motocykl', 'text' => 'W oddziale Mezná (Wysoczyna) lub w samoobsłudze pod Brnem. Motocykle z oddziału Mezná dowieziemy ci pod adres (za dopłatą).'],
             ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'W drogę!', 'text' => 'Po Czechach i za granicą. W oddziale Mezná oddasz motocykl o wybranej godzinie; w samoobsłudze ostatniego dnia do 24:00.'],
         ],

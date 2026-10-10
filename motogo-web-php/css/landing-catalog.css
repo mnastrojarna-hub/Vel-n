@@ -1,0 +1,131 @@
+/* ===== MotoGo24 — Katalog v2: lišta filtrů, chipy, panel (bottom sheet / rozbalovací), termín ===== */
+/* Markup: pages/katalog-v2-ui.php, JS: js/landing-catalog*.js. Karty: css/landing-catalog-cards.css. */
+.kf{position:relative;margin:.9rem 0 1.5rem;--kf-g:1rem}
+@media(max-width:480px){.kf{--kf-g:.9rem}}
+@media(max-width:360px){.kf{--kf-g:.75rem}}
+.kf :focus-visible{outline:3px solid #37cf63;outline-offset:2px}
+.kf-page .kc-jump{display:none}
+
+/* --- Lišta (sticky jen s JS) --- */
+.kf-bar{position:relative;z-index:30;margin:0 calc(-1 * var(--kf-g,1rem));padding:.5rem var(--kf-g,1rem)}
+.kf-js .kf-bar{position:sticky;top:0}
+.kf-js .kf-bar::before{content:"";position:absolute;inset:0;z-index:-1;background:rgba(223,240,236,.9);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 8px 18px -14px rgba(10,31,20,.55);opacity:0;transition:opacity .2s}
+.kf-js .kf-bar.is-stuck::before{opacity:1}
+.kf-bar-in{display:flex;gap:.45rem}
+.kf-btn{position:relative;display:inline-flex;flex:1 1 auto;align-items:center;justify-content:center;gap:.4rem;min-width:0;min-height:46px;padding:.45rem .8rem;border:1px solid #cfe3da;border-radius:14px;background:#fff;color:#1a2e22;font:inherit;font-size:.84rem;font-weight:800;line-height:1.1;white-space:nowrap;cursor:pointer;box-shadow:0 4px 12px -8px rgba(26,46,34,.4);transition:border-color .2s,background .2s,transform .15s}
+.kf-btn[hidden]{display:none}
+.kf-btn:hover{border-color:#74fb71;color:#1a2e22}
+.kf-btn:active{transform:scale(.97)}
+.kf-btn .lp-ico{flex:0 0 auto;width:19px;height:19px;color:#0d6e0d}
+.kf-btn-l{overflow:hidden;text-overflow:ellipsis}
+.kf-btn--date{flex-grow:1.4;background:radial-gradient(120% 140% at 100% 0,#24563b 0,#0e2a1c 60%);border-color:#0e2a1c;color:#fff}
+.kf-btn--date .lp-ico{color:#74fb71}
+.kf-btn--date:hover{color:#fff;border-color:#74fb71}
+.kf-btn--date.is-set{background:linear-gradient(135deg,#8dff86,#37cf63);border-color:#37cf63;color:#08230f}
+.kf-btn--date.is-set .lp-ico{color:#08230f}
+.kf-btn[aria-expanded="true"]{border-color:#37cf63;box-shadow:0 0 0 3px rgba(116,251,113,.3)}
+.kf-nf{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 .3rem;border-radius:999px;background:#0d6e0d;color:#fff;font-size:.7rem}
+.kf-nf[hidden]{display:none}
+@media(max-width:439px){.kf-btn--calc{flex:0 0 46px;padding:0}.kf-btn--calc .kf-btn-l{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}}
+
+/* --- Chipy kategorií --- */
+.kf-cats{display:flex;gap:.4rem;overflow-x:auto;scrollbar-width:none;margin:.35rem calc(-1 * var(--kf-g,1rem)) 0;padding:.15rem var(--kf-g,1rem) .45rem;scroll-padding:0 var(--kf-g,1rem)}
+.kf-cats::-webkit-scrollbar{display:none}
+.kf-cat{flex:0 0 auto;display:inline-flex;align-items:center;gap:.35rem;min-height:40px;padding:.3rem .8rem;border-radius:999px;border:1px solid #cfe3da;background:#fff;color:#1a2e22;font-weight:700;font-size:.82rem;white-space:nowrap;transition:background .2s,border-color .2s,color .2s}
+.kf-cat:hover{border-color:#74fb71;color:#1a2e22}
+.kf-cat-n{display:inline-grid;place-items:center;min-width:22px;height:20px;padding:0 .35rem;border-radius:999px;background:#e6f5ee;color:#0d6e0d;font-size:.7rem;font-weight:800}
+.kf-cat.is-on{background:#1a2e22;border-color:#1a2e22;color:#fff}
+.kf-cat.is-on .kf-cat-n{background:#74fb71;color:#08230f}
+.kf-cat.is-zero{opacity:.5}
+
+/* --- Počet + aktivní filtry --- */
+.kf-res{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .6rem;margin:.35rem 0 .7rem}
+.kf-count{margin:0;color:#1a2e22;font-size:.92rem;font-weight:800}
+.kf-active{display:flex;flex-wrap:wrap;gap:.35rem}
+.kf-active[hidden]{display:none}
+.kf-ac{display:inline-flex;align-items:center;gap:.25rem;min-height:34px;padding:.2rem .35rem .2rem .7rem;border:1px solid #9fdcb0;border-radius:999px;background:#e8fce8;color:#0d4f1c;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer}
+.kf-ac .lp-ico{width:16px;height:16px;padding:2px;border-radius:50%;background:rgba(13,110,13,.12)}
+.kf-ac:hover{background:#d4f7d4}
+.kf-ac--clear{padding:.2rem .7rem;border-style:dashed;background:none;color:#1a2e22}
+
+/* --- Panel filtrů: bez JS obyčejný formulář --- */
+.kf-panel{margin:.6rem 0 0;padding:1rem;border:1px solid #d4e8e0;border-radius:18px;background:#fff;color:#1a2e22}
+.kf-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.4rem}
+.kf-sheet-t{display:flex;align-items:center;gap:.45rem;margin:0;font-size:1.1rem;font-weight:800}
+.kf-sheet-t .lp-ico{color:#0d6e0d}
+.kf-x{display:grid;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:50%;background:#eef7f2;color:#1a2e22;cursor:pointer}
+html:not(.kf-js) .kf-x{display:none}
+.kf-sec{margin:0;padding:.8rem 0;border:0;border-top:1px solid #e6f0eb;min-width:0}
+.kf-sec:first-child{border-top:0}
+.kf-sec legend{float:left;width:100%;margin:0 0 .5rem;padding:0;font-size:.82rem;font-weight:800;color:#1a2e22}
+.kf-sec legend+*{clear:both}
+.kf-chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.kf-chip{position:relative;cursor:pointer}
+.kf-chip input{position:absolute;opacity:0;width:1px;height:1px}
+.kf-chip span{display:inline-flex;align-items:center;min-height:40px;padding:.35rem .85rem;border:1.5px solid #cfe3da;border-radius:999px;background:#fff;font-size:.82rem;font-weight:700;transition:background .15s,border-color .15s,color .15s}
+.kf-chip:hover span{border-color:#74fb71}
+.kf-chip input:checked+span{background:#1a2e22;border-color:#1a2e22;color:#fff}
+.kf-chip input[type=checkbox]:checked+span{background:#e8fce8;border-color:#37cf63;color:#0d4f1c}
+.kf-chip input[type=checkbox]:checked+span::before{content:"✓";margin-right:.35rem;font-weight:900;color:#0d6e0d}
+.kf-chip input:focus-visible+span{outline:3px solid #37cf63;outline-offset:2px}
+.kf-search{position:relative;display:flex;align-items:center}
+.kf-search .lp-ico{position:absolute;left:.85rem;width:18px;height:18px;color:#4a6b5a;pointer-events:none}
+.kf-search input{width:100%;min-height:46px;padding:.6rem 1rem .6rem 2.5rem;border:1.5px solid #cfe3da;border-radius:14px;background:#f7fcf9;color:#1a2e22;font:inherit;font-size:16px}
+.kf-search input:focus{outline:0;border-color:#37cf63;box-shadow:0 0 0 3px rgba(116,251,113,.3);background:#fff}
+.kf-range .range-header{margin-bottom:.5rem}
+.kf-range .range-slider{height:30px;margin:0 4px}
+.kf-range .range-input{height:30px}
+.kf-range .range-input::-webkit-slider-thumb{width:26px;height:26px}
+.kf-range .range-input::-moz-range-thumb{width:26px;height:26px}
+.kf-range .range-input:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 5px rgba(116,251,113,.55)}
+.kf-range .range-input:focus-visible::-moz-range-thumb{box-shadow:0 0 0 5px rgba(116,251,113,.55)}
+.kf-foot{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding-top:.8rem;border-top:1px solid #e6f0eb}
+.kf-reset{display:inline-flex;align-items:center;min-height:44px;padding:0 .3rem;border:0;background:none;color:#1a2e22;font:inherit;font-size:.85rem;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.kf-apply{flex:1;max-width:280px;min-height:50px}
+
+/* --- S JS: panel a termín jako bottom sheet (mobil) --- */
+.kf-scrim{position:fixed;inset:0;z-index:1;background:rgba(10,31,20,.55);opacity:0;visibility:hidden;transition:opacity .25s,visibility 0s linear .25s}
+.kf-scrim.is-on{opacity:1;visibility:visible;transition:opacity .25s}
+.kf-js .kf-panel,.kf-dates{position:fixed;left:0;right:0;bottom:0;z-index:2;display:flex;flex-direction:column;max-height:88vh;margin:0;padding:.9rem 1rem calc(.8rem + env(safe-area-inset-bottom,0px));border:0;border-radius:22px 22px 0 0;box-shadow:0 -14px 40px rgba(10,31,20,.35);transform:translateY(105%);visibility:hidden;transition:transform .3s ease,visibility 0s linear .3s}
+@supports(height:100dvh){.kf-js .kf-panel,.kf-dates{max-height:88dvh}}
+.kf-js .kf-panel.is-open,.kf-dates.is-open{transform:none;visibility:visible;transition:transform .3s ease}
+.kf-js .kf-panel::before,.kf-dates::before{content:"";align-self:center;flex:0 0 auto;width:42px;height:5px;margin:-.35rem 0 .5rem;border-radius:5px;background:#cfe3da}
+.kf-js .kf-sheet-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;margin:0 -1rem;padding:0 1rem}
+.kf-js .kf-foot{flex:0 0 auto}
+html.kf-lock{overflow:hidden}
+html.kf-sheet-open #motogo-ai-bubble,html.kf-sheet-open #Up,html.kf-sheet-open .kc-sticky{opacity:0!important;pointer-events:none!important}
+.kf-bar.is-raised{z-index:10001}
+
+/* Termín (tmavý jako kalkulačka; kalendář = K.calHtml z landing-calc-view.js) */
+.kf-dates{color:#e8f5ee;background:radial-gradient(120% 70% at 100% 0,#24563b 0,#0e2a1c 55%,#0a1f14 100%)}
+.kf-dates::before{background:rgba(255,255,255,.25)}
+.kf-dates .kf-sheet-t{color:#fff}
+.kf-dates .kf-sheet-t .lp-ico{color:#74fb71}
+.kf-dates .kf-x{background:rgba(255,255,255,.1);color:#fff}
+.kf-dates :focus-visible{outline:3px solid #74fb71;outline-offset:2px}
+.kf-dates-lead{margin:0 0 .6rem;color:#cfe7da;font-size:.84rem;line-height:1.45}
+.kf-dates-hint{margin:0 0 .45rem;color:#a8ff9f;font-size:.8rem;font-weight:700}
+.kf-dates .kf-foot{border-top-color:rgba(116,251,113,.18)}
+.kf-dates .kf-reset{color:#cfe7da}
+.kf-dates .kc-day{min-height:42px}
+
+/* --- Desktop: panel jako rozbalovací řádek pod lištou, termín jako popover --- */
+@media(min-width:900px){
+  .kf-bar{margin:0;padding:.55rem 0}
+  .kf-js .kf-bar::before{left:-1rem;right:-1rem;border-radius:0 0 16px 16px}
+  .kf-bar-in{justify-content:flex-start}
+  .kf-btn{flex:0 0 auto;padding:.45rem 1.1rem}
+  .kf-cats{flex-wrap:wrap;margin-left:0;margin-right:0;padding-left:0;padding-right:0}
+  .kf-js .kf-panel,.kf-dates{position:absolute;left:0;right:auto;top:calc(100% + .35rem);bottom:auto;width:100%;max-height:min(72vh,620px);padding:1.1rem 1.4rem 1rem;border:1px solid #d4e8e0;border-radius:20px;box-shadow:0 24px 50px -18px rgba(10,31,20,.45);transform:translateY(-8px);opacity:0;transition:transform .2s ease,opacity .2s ease,visibility 0s linear .2s}
+  .kf-js .kf-panel.is-open,.kf-dates.is-open{transform:none;opacity:1;transition:transform .2s ease,opacity .2s ease}
+  .kf-js .kf-panel::before,.kf-dates::before{display:none}
+  .kf-js .kf-panel .kf-sheet-body{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 1.75rem;align-content:start}
+  .kf-js .kf-panel .kf-sec{border-top:0;padding:.6rem 0}
+  .kf-js .kf-panel .kf-search{grid-column:1/-1}
+  .kf-dates{width:440px;border-color:rgba(116,251,113,.3)}
+  .kf-scrim{background:transparent}
+  .kf-foot{justify-content:flex-end}
+}
+@media(prefers-reduced-motion:reduce){
+  .kf-js .kf-panel,.kf-dates,.kf-scrim,.kf-btn,.kf-js .kf-bar::before{transition:none!important}
+}
