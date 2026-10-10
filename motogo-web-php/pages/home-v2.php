@@ -28,6 +28,7 @@ $lpPanel = renderLpPanel([
     'assurance' => $TC['assurance'] ?? '',
     'season' => $TC['season_note'] ?? '',
     'keyBase' => 'web.landing.home',
+    'rating' => lpPanelRating($TC),
 ]);
 
 [$lpStepList, $lpStepKey] = lpSteps($T, 'home', $C['process']['steps'] ?? [], 'web.home.process.steps');

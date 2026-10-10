@@ -37,6 +37,7 @@ function lpTrustDefaults() {
             ['icon' => 'check', 'title' => 'Storno zdarma', 'text' => 'Zrušení víc než 7 dní předem bez poplatku.'],
         ],
         'reasons_note' => '* Krytí neplatí při jízdě pod vlivem, bez řidičáku a při úmyslu; nevztahuje se na krádež ani zapůjčenou výbavu (VOP čl. 7).',
+        'panel_rating' => '{r} · {n} hodnocení na Google',
         'reviews_title' => 'Co o nás říkají motorkáři',
         'reviews_count' => '{n} hodnocení',
         'reviews_recommend_pct' => '{p} %',

@@ -47,7 +47,7 @@ a.lp-rbadge:hover{box-shadow:0 0 0 2px #37cf63,0 6px 14px -10px rgba(26,46,34,.5
 .lp-stars{display:inline-flex;gap:2px}
 .lp-stars i{width:14px;height:14px;background:#d6dfda;-webkit-mask:var(--lp-star) center/contain no-repeat;mask:var(--lp-star) center/contain no-repeat}
 .lp-stars i.on{background:#ffb400}
-.lp-reviews,.lp-hls{--lp-star:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z'/%3E%3C/svg%3E")}
+.lp-main{--lp-star:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z'/%3E%3C/svg%3E")}
 .lp-track--reviews{grid-auto-columns:84%}
 .lp-review{display:flex;scroll-snap-align:start}
 .lp-review figure{display:flex;flex-direction:column;gap:.55rem;width:100%;margin:0;padding:1rem 1rem .95rem;border-radius:18px;background:#fff;box-shadow:0 0 0 1px #dbeae3,0 12px 26px -18px rgba(26,46,34,.55)}
@@ -136,3 +136,7 @@ a.lp-rbadge:hover{box-shadow:0 0 0 2px #37cf63,0 6px 14px -10px rgba(26,46,34,.5
 .lp-rbadge .lp-rec::before{width:10px;height:10px}
 .lp-reasons-note{margin:.8rem 0 0;color:#8fb3a1;font-size:.7rem;line-height:1.4}
 @media(min-width:769px){.lp-reasons-note{text-align:center;font-size:.76rem}}
+/* Hodnocení v akčním panelu (nad ohybem) */
+.lp-rating{grid-column:1/-1;display:inline-flex;align-items:center;gap:.4rem;justify-self:start;color:#e8f5ee;font-size:.76rem;font-weight:700;text-decoration:none}
+.lp-rating .lp-stars i{width:13px;height:13px}
+.lp-rating:hover{color:#74fb71}

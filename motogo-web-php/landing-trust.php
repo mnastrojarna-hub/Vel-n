@@ -153,3 +153,14 @@ function renderLpBranches($title, $titleKey, $items, $keyBase, $T) {
     [$h2, $aria] = lpH2('lp-br-h', $title, $titleKey);
     return '<section class="lp-brs"' . $aria . '><div class="container">' . $h2 . '<ul class="lp-brs-grid">' . $html . '</ul></div></section>';
 }
+
+/** Řádek hodnocení do akčního panelu („★★★★★ 5,0 · 53 hodnocení na Google“) → odkaz na sekci recenzí. */
+function lpPanelRating($T) {
+    $R = function_exists('lpReviewsData') ? lpReviewsData() : [];
+    foreach ((array)($R['aggregates'] ?? []) as $a) {
+        if (!is_array($a) || !isset($a['rating'], $a['count']) || lpS($T['panel_rating'] ?? '') === '') continue;
+        $txt = str_replace(['{r}', '{n}'], [number_format((float)$a['rating'], 1, ',', ''), (string)(int)$a['count']], lpS($T['panel_rating']));
+        return '<a class="lp-rating" href="#lp-reviews-h">' . lpStars($a['rating']) . '<span data-cms-key="web.landing.common.panel_rating">' . he($txt) . '</span></a>';
+    }
+    return '';
+}

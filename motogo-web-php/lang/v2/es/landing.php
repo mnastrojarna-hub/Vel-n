@@ -64,6 +64,7 @@ return ['pages' => ['landing' => [
             ['icon' => 'check', 'title' => 'Cancelación gratis', 'text' => 'Sin coste si cancelas más de 7 días antes.'],
         ],
         'reasons_note' => '* No aplica si conduces bajo los efectos del alcohol o drogas, sin carné o con intención; no cubre el robo ni el equipo prestado (condiciones generales, art. 7).',
+        'panel_rating' => '{r} · {n} reseñas en Google',
         'reviews_title' => 'Lo que dicen los moteros',
         'reviews_count' => '{n} reseñas',
         'reviews_recommend_pct' => '{p} %',

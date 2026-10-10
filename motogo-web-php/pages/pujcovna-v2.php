@@ -26,6 +26,7 @@ $lpPanel = renderLpPanel([
     'assurance' => $TC['assurance'] ?? '',
     'season' => $TC['season_note'] ?? '',
     'keyBase' => 'web.landing.pujcovna',
+    'rating' => lpPanelRating($TC),
     'bg' => BASE_URL . '/gfx/hero-banner-768.webp',
 ]);
 
