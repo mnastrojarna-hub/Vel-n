@@ -13,6 +13,8 @@ const Map<String, Map<String, String>> translationsExt24SelfService = {
     'hpMeAccidentForm': 'Záznam o nehodě',
     'hpMeFirstAidKit': 'Lékárnička',
     'hpMeReflectiveVest': 'Reflexní vesta',
+    'hpMeGreenCard': 'Zelená karta',
+    'hpMeRegistrationCert': 'Technický průkaz',
   },
   'en': {
     'ssNoDeliveryShort': 'Not available at a self-service branch yet',
@@ -25,6 +27,8 @@ const Map<String, Map<String, String>> translationsExt24SelfService = {
     'hpMeAccidentForm': 'Accident report form',
     'hpMeFirstAidKit': 'First-aid kit',
     'hpMeReflectiveVest': 'Reflective vest',
+    'hpMeGreenCard': 'Green card (insurance)',
+    'hpMeRegistrationCert': 'Vehicle registration certificate',
   },
   'de': {
     'ssNoDeliveryShort': 'An einer Selbstbedienungs-Filiale noch nicht verfügbar',
@@ -37,6 +41,8 @@ const Map<String, Map<String, String>> translationsExt24SelfService = {
     'hpMeAccidentForm': 'Unfallbericht (Formular)',
     'hpMeFirstAidKit': 'Verbandskasten',
     'hpMeReflectiveVest': 'Warnweste',
+    'hpMeGreenCard': 'Grüne Versicherungskarte',
+    'hpMeRegistrationCert': 'Fahrzeugschein',
   },
   'es': {
     'ssNoDeliveryShort': 'Todavía no disponible en una sucursal de autoservicio',
@@ -49,6 +55,8 @@ const Map<String, Map<String, String>> translationsExt24SelfService = {
     'hpMeAccidentForm': 'Parte de accidente (formulario)',
     'hpMeFirstAidKit': 'Botiquín',
     'hpMeReflectiveVest': 'Chaleco reflectante',
+    'hpMeGreenCard': 'Carta verde (seguro)',
+    'hpMeRegistrationCert': 'Permiso de circulación',
   },
   'fr': {
     'ssNoDeliveryShort': 'Pas encore disponible dans une agence en libre-service',
@@ -61,6 +69,8 @@ const Map<String, Map<String, String>> translationsExt24SelfService = {
     'hpMeAccidentForm': 'Constat d’accident (formulaire)',
     'hpMeFirstAidKit': 'Trousse de premiers secours',
     'hpMeReflectiveVest': 'Gilet réfléchissant',
+    'hpMeGreenCard': 'Carte verte (assurance)',
+    'hpMeRegistrationCert': 'Certificat d’immatriculation',
   },
   'nl': {
     'ssNoDeliveryShort': 'Bij een zelfbedieningsvestiging nog niet beschikbaar',
@@ -73,6 +83,8 @@ const Map<String, Map<String, String>> translationsExt24SelfService = {
     'hpMeAccidentForm': 'Schadeformulier (ongeval)',
     'hpMeFirstAidKit': 'EHBO-kit',
     'hpMeReflectiveVest': 'Reflecterend hesje',
+    'hpMeGreenCard': 'Groene kaart (verzekering)',
+    'hpMeRegistrationCert': 'Kentekenbewijs',
   },
   'pl': {
     'ssNoDeliveryShort': 'W oddziale samoobsługowym jeszcze niedostępne',
@@ -85,6 +97,8 @@ const Map<String, Map<String, String>> translationsExt24SelfService = {
     'hpMeAccidentForm': 'Formularz zgłoszenia wypadku',
     'hpMeFirstAidKit': 'Apteczka',
     'hpMeReflectiveVest': 'Kamizelka odblaskowa',
+    'hpMeGreenCard': 'Zielona karta',
+    'hpMeRegistrationCert': 'Dowód rejestracyjny',
   },
   'uk': {
     'ssNoDeliveryShort': 'У філії самообслуговування поки що недоступно',
@@ -97,5 +111,7 @@ const Map<String, Map<String, String>> translationsExt24SelfService = {
     'hpMeAccidentForm': 'Бланк повідомлення про ДТП',
     'hpMeFirstAidKit': 'Аптечка',
     'hpMeReflectiveVest': 'Світловідбивний жилет',
+    'hpMeGreenCard': 'Зелена карта (страхування)',
+    'hpMeRegistrationCert': 'Техпаспорт (свідоцтво про реєстрацію)',
   },
 };

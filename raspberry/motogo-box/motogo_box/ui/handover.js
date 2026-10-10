@@ -11,6 +11,7 @@ MG.Handover = (function () {
   const TOUCH_MS = 5000, SUBMIT_TIMEOUT_MS = 60000, CODE_LEN = 6, DONE_GUARD_MS = 15000, WAIT_MS = 4000;
   const GEAR_ICON = { helmet: '🪖', jacket: '🧥', pants: '👖', boots: '🥾', gloves: '🧤' };
   /** Výbava motorky (zadání majitele 2026-09-28): v KAŽDÉM protokolu z displeje; leží v motorce (kufr / tankvak).
+      Od 2026-10-10 i doklady: zelená karta a technický průkaz.
       Od 2026-10-02 jen informativně (bez zaškrtávání) v kroku 2. Klíče = i18n `me.*` a edge `form.moto_equipment[]`. */
   const MOTO_GEAR = [
     { key: 'phone_holder_key', ico: '🔑' },
@@ -18,6 +19,8 @@ MG.Handover = (function () {
     { key: 'accident_form', ico: '📝' },
     { key: 'first_aid_kit', ico: '🩹' },
     { key: 'reflective_vest', ico: '🦺', qty: 2 },
+    { key: 'green_card', ico: '📗' },                 // 2026-10-10 (zadání majitele): doklady k motorce, jen informativně
+    { key: 'registration_certificate', ico: '📄' },
   ];
   const LOCALE = { cs: 'cs-CZ', en: 'en-GB', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', nl: 'nl-NL', pl: 'pl-PL', uk: 'uk-UA' };
   let deps = null;    // { post, showStatus, getState }

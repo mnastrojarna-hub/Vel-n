@@ -42,6 +42,9 @@ export const MOTO_EQUIPMENT = [
   { key: 'accident_form', label: 'Záznam o nehodě (formulář)', qty: 1 },
   { key: 'first_aid_kit', label: 'Lékárnička', qty: 1 },
   { key: 'reflective_vest', label: 'Reflexní vesta', qty: 2 },
+  // 2026-10-10 (zadání majitele): doklady k motorce — kiosk je ukazuje informativně jako ostatní výbavu.
+  { key: 'green_card', label: 'Zelená karta', qty: 1 },
+  { key: 'registration_certificate', label: 'Technický průkaz', qty: 1 },
 ] as const
 export const MOTO_EQUIPMENT_NOTE = 'Uložena v motorce — v kufru nebo v tankvaku. Nájemce ji přebírá spolu s motorkou a vrací ji s ní.'
 

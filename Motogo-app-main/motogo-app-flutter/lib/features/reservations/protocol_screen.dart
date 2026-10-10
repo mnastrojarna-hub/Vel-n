@@ -98,7 +98,8 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
   ];
 
   /// Výbava motorky — ZRCADLO kiosku (zadání majitele 2026-09-28): pevných
-  /// 5 položek předem zaškrtnutých, leží v motorce (kufr / tankvak); zákazník
+  /// 7 položek (od 2026-10-10 i zelená karta + technický průkaz) předem
+  /// zaškrtnutých, leží v motorce (kufr / tankvak); zákazník
   /// odškrtne, co chybí. Klíče = kiosk `MOTO_GEAR` / edge `form.moto_equipment`.
   late final List<_MotoGear> _motoGear = [
     _MotoGear('phone_holder_key', 'hpMePhoneHolderKey'),
@@ -106,6 +107,9 @@ class _ProtocolState extends ConsumerState<ProtocolScreen> {
     _MotoGear('accident_form', 'hpMeAccidentForm'),
     _MotoGear('first_aid_kit', 'hpMeFirstAidKit'),
     _MotoGear('reflective_vest', 'hpMeReflectiveVest', qty: 2),
+    // 2026-10-10: doklady k motorce (zelená karta, technický průkaz) — jako kiosk.
+    _MotoGear('green_card', 'hpMeGreenCard'),
+    _MotoGear('registration_certificate', 'hpMeRegistrationCert'),
   ];
 
   // Kotoučový zámek a reflexní prvky jsou od 2026-09-28 ve skupině „Výbava
