@@ -9,6 +9,7 @@ import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { sanitizeHtml } from '../../lib/sanitize'
+import { DocCheckAll, DocCheckRow } from './DocStackChecks'
 
 const PER_PAGE = 25
 
@@ -302,7 +303,7 @@ export default function SentEmailsTab() {
           <Table stack="tablet">
             <thead>
               <TRow header>
-                <TH><input type="checkbox" checked={emails.length > 0 && selected.size === emails.length} onChange={toggleAll} className="accent-[#1a8a18] cursor-pointer" style={{ width: 15, height: 15 }} /></TH>
+                <TH><DocCheckAll><input type="checkbox" checked={emails.length > 0 && selected.size === emails.length} onChange={toggleAll} className="accent-[#1a8a18] cursor-pointer" style={{ width: 15, height: 15 }} /></DocCheckAll></TH>
                 <TH>Příjemce</TH><TH>Předmět</TH><TH>Šablona</TH>
                 <TH>Stav</TH><TH>Datum</TH><TH>Akce</TH>
               </TRow>
@@ -312,7 +313,7 @@ export default function SentEmailsTab() {
                 const st = STATUS_MAP[e.status] || { label: e.status || '—', color: '#1a2e22', bg: '#f3f4f6' }
                 return (
                   <TRow key={e.id}>
-                    <TD><input type="checkbox" checked={selected.has(e.id)} onChange={() => toggleOne(e.id)} className="accent-[#1a8a18] cursor-pointer" style={{ width: 15, height: 15 }} /></TD>
+                    <TD label=""><DocCheckRow><input type="checkbox" checked={selected.has(e.id)} onChange={() => toggleOne(e.id)} className="accent-[#1a8a18] cursor-pointer" style={{ width: 15, height: 15 }} /></DocCheckRow></TD>
                     <TD bold>{e.recipient_email || '—'}</TD>
                     <TD>{e.subject || '—'}</TD>
                     <TD>
@@ -369,10 +370,11 @@ export default function SentEmailsTab() {
                   const filename = (typeof a === 'string' ? a : a?.filename) || `příloha-${i + 1}`
                   const storagePath = typeof a === 'object' ? a?.storage_path : null
                   return (
-                    // < 1024 px: tlačítka se zalomí pod název souboru (jinak by název zúžila na pár znaků)
-                    <li key={i} className="flex items-center gap-2 py-1 max-lg:flex-wrap">
+                    // telefon (< 640 px): tlačítka se zalomí pod název souboru (jinak by název zúžila na pár znaků);
+                    // tablet má místa dost → řádek jako na PC, jen dlouhý název se smí zalomit kdekoli
+                    <li key={i} className="flex items-center gap-2 py-1 max-sm:flex-wrap">
                       <span style={{ color: '#1a8a18', fontSize: 14 }}>📎</span>
-                      <span className="flex-1 max-lg:basis-[calc(100%-30px)] max-lg:[overflow-wrap:anywhere]" style={{ fontFamily: 'monospace', fontSize: 12 }}>{filename}</span>
+                      <span className="flex-1 max-lg:min-w-0 max-sm:basis-[calc(100%-30px)] max-lg:[overflow-wrap:anywhere]" style={{ fontFamily: 'monospace', fontSize: 12 }}>{filename}</span>
                       {storagePath ? (
                         <>
                           <button onClick={() => openAttachment(storagePath, filename)}
@@ -414,11 +416,12 @@ function CheckboxFilterGroup({ label, values, onChange, options }) {
     else onChange([...values, val])
   }
   return (
-    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+    // telefon: skupina se zalamuje do více řádků → menší zaoblení; < 1024 px vyšší klepací plocha voleb
+    <div className="flex items-center gap-1 flex-wrap rounded-btn max-sm:rounded-2xl"
       style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
       <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
       {options.map(o => (
-        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer max-lg:min-h-[34px]"
           style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
           <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
             className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />

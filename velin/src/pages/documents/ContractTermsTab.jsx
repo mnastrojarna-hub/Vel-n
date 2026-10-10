@@ -364,7 +364,6 @@ function EditContractModal({ template, onClose, onSaved }) {
     position: 'sticky', left: 0, right: 0,
     background: '#fff', borderTop: '1px solid #e2ece7',
     display: 'flex', justifyContent: 'space-between', gap: 12,
-    zIndex: 2,
   }
 
   return (
@@ -406,11 +405,12 @@ function EditContractModal({ template, onClose, onSaved }) {
 
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
 
+      {/* telefon: užší tlačítka, aby se lišta vešla do jednoho řádku (jinak zabírá 2 řádky nad editorem) */}
       <div className={stickyBarCls} style={stickyBar}>
-        <Button onClick={() => setShowPreview(true)}>Náhled</Button>
-        <div className="flex gap-2">
-          <Button onClick={onClose}>Zrušit</Button>
-          <Button green onClick={handleSave} disabled={saving || !name || !content}>
+        <Button onClick={() => setShowPreview(true)} className="max-sm:!px-4">Náhled</Button>
+        <div className="flex gap-2 max-lg:ml-auto">
+          <Button onClick={onClose} className="max-sm:!px-4">Zrušit</Button>
+          <Button green onClick={handleSave} disabled={saving || !name || !content} className="max-sm:!px-4">
             {saving ? 'Ukládám…' : isNew ? 'Vytvořit' : 'Uložit'}
           </Button>
         </div>
@@ -461,8 +461,9 @@ function extractVars(content) {
   return matches ? [...new Set(matches.map(m => m.replace(/[{}]/g, '')))] : []
 }
 
-// Spodní lišta modálu přilepená k okraji: záporné okraje = padding Modalu (p-4 / sm:p-7), na úzkém displeji se zalamuje
-const stickyBarCls = '-bottom-4 sm:-bottom-7 mt-4 -mx-4 -mb-4 sm:-mx-7 sm:-mb-7 px-4 sm:px-7 py-[14px] flex-wrap lg:flex-nowrap'
+// Spodní lišta modálu přilepená k okraji: záporné okraje = padding Modalu (p-4 / sm:p-7), na úzkém displeji se zalamuje.
+// z-index < 1024 px nad lepicí lištou RichTextEditoru (z 5) — na telefonu by jinak při posunu překryla Uložit/Zrušit.
+const stickyBarCls = '-bottom-4 sm:-bottom-7 mt-4 -mx-4 -mb-4 sm:-mx-7 sm:-mb-7 px-4 sm:px-7 py-[14px] flex-wrap lg:flex-nowrap z-[2] max-lg:z-[6]'
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>

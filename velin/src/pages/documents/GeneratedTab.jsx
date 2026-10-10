@@ -12,6 +12,7 @@ import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components
 import { bulkDelete, exportToCsv } from '../../lib/bulkActions'
 import { uploadHtmlAsPdf } from '../../lib/htmlToPdf'
 import { sanitizeHtml } from '../../lib/sanitize'
+import { DocCheckAll, DocCheckRow } from './DocStackChecks'
 
 const PER_PAGE = 25
 
@@ -248,7 +249,7 @@ export default function GeneratedTab() {
           <Table stack="tablet">
             <thead>
               <TRow header>
-                <TH><SelectAllCheckbox items={docs} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
+                <TH><DocCheckAll><SelectAllCheckbox items={docs} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></DocCheckAll></TH>
                 <TH>Typ</TH><TH>Zákazník</TH><TH>Motorka</TH>
                 <TH>Rezervace</TH><TH>Datum</TH><TH>Akce</TH>
               </TRow>
@@ -259,7 +260,7 @@ export default function GeneratedTab() {
                 const docType = resolveDocType(d)
                 return (
                   <tr key={d.id} style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(d.id) ? '#fef9c3' : undefined }}>
-                    <TD><RowCheckbox id={d.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
+                    <TD label=""><DocCheckRow><RowCheckbox id={d.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></DocCheckRow></TD>
                     <TD>
                       <Badge label={typeName}
                         color={docType === 'rental_contract' ? '#2563eb' : docType === 'vop' ? '#059669' : '#b45309'}
@@ -459,7 +460,7 @@ function CheckboxFilterGroup({ label, options, selected, onChange }) {
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{label}:</span>
       {options.map(opt => (
-        <label key={opt.value} className="flex items-center gap-1 cursor-pointer text-sm" style={{ color: '#1a2e22' }}>
+        <label key={opt.value} className="flex items-center gap-1 cursor-pointer text-sm max-lg:min-h-[34px]" style={{ color: '#1a2e22' }}>
           <input
             type="checkbox"
             checked={selected.includes(opt.value)}

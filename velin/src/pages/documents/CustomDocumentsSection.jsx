@@ -270,7 +270,7 @@ function EditCustomDocModal({ doc, existingSlugs, onClose, onSaved }) {
   // Odsazení lišty = vnitřní odsazení Modalu (telefon < 640 px: 16 px, jinak 28 px) — třídy stickyBarCls
   const stickyBar = {
     position: 'sticky', left: 0, right: 0, background: '#fff', borderTop: '1px solid #e2ece7',
-    display: 'flex', justifyContent: 'flex-end', gap: 12, zIndex: 2,
+    display: 'flex', justifyContent: 'flex-end', gap: 12,
   }
 
   return (
@@ -358,8 +358,9 @@ function EditCustomDocModal({ doc, existingSlugs, onClose, onSaved }) {
   )
 }
 
-// Spodní lišta modálu přilepená k okraji: záporné okraje = padding Modalu (p-4 / sm:p-7)
-const stickyBarCls = '-bottom-4 sm:-bottom-7 mt-4 -mx-4 -mb-4 sm:-mx-7 sm:-mb-7 px-4 sm:px-7 py-[14px]'
+// Spodní lišta modálu přilepená k okraji: záporné okraje = padding Modalu (p-4 / sm:p-7).
+// z-index < 1024 px nad lepicí lištou RichTextEditoru (z 5) — na telefonu by jinak překryla Uložit/Zrušit.
+const stickyBarCls = '-bottom-4 sm:-bottom-7 mt-4 -mx-4 -mb-4 sm:-mx-7 sm:-mb-7 px-4 sm:px-7 py-[14px] z-[2] max-lg:z-[6]'
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
