@@ -6,7 +6,9 @@ import { supabase } from '../../lib/supabase'
 // Admin dodatečné nahrání fotek dokladů za zákazníka.
 // REUSE existující infrastruktury: edge fn `scan-document` (Mindee OCR) +
 // `save-verification-document` (uložení fotky + řádek v documents → trigger
-// release_withheld_door_codes uvolní zadržené kódy). Nové je jen UX/UI ve Velíně.
+// release_withheld_door_codes uvolní zadržené kódy, ale JEN když je brána dokladů
+// kompletní — OP líc + rub nebo pas, ŘP líc + rub, 18+, platný ŘP, skupina; jedna
+// strana nestačí). Nové je jen UX/UI ve Velíně.
 //
 // Focení má 100% stejný flow jako appka / web rezervace (pages-rezervace-camera.js):
 //   1) z jednoho stisku se pořídí BURST více snímků (BURST_FRAMES),
@@ -55,11 +57,20 @@ function stripB64(dataUrl) {
 }
 
 // Má OCR výsledek alespoň jedno použitelné pole pro daný typ dokladu?
-// (Stejná logika jako _rezOcrBurst na webu.)
+// (Stejná logika jako _rezOcrBurst na webu.) Klíče = výstup scan-document
+// (mindee-parser.ts): datum narození `dob`, platnost dokladu `expiryDate`.
 function hasUsefulFields(scan, d) {
   if (!d || typeof d !== 'object') return false
-  if (scan === 'dl') return !!(d.licenseNumber || d.licenseCategory || d.licenseExpiry || d.idNumber)
-  return !!(d.idNumber || d.firstName || d.lastName || d.dateOfBirth)
+  if (scan === 'dl') return !!(d.licenseNumber || d.licenseCategory || d.licenseExpiry || d.expiryDate || d.idNumber)
+  return !!(d.idNumber || d.firstName || d.lastName || d.dob)
+}
+
+// scan-document vrací platnost jako `expiryDate`; profil i save-verification-document čtou
+// `licenseExpiry` → u ŘP namapovat (jinak se platnost z OCR nikdy neuložila).
+function normalizeOcrFields(scan, d) {
+  if (!d || typeof d !== 'object') return d
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(d.expiryDate || ''))
+  return scan === 'dl' && !d.licenseExpiry && iso ? { ...d, licenseExpiry: d.expiryDate } : d
 }
 
 // Doklady jsou organizované do "flow" — uživatel vybere doklad a pak KONKRÉTNÍ
@@ -319,7 +330,7 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
           )
           if (ok) {
             ocrStatus = 'ok'
-            fields = ocr.data
+            fields = normalizeOcrFields(docType.scan, ocr.data)
             bestB64 = b64 // ulož ten snímek, který se reálně přečetl
             break
           }
@@ -385,7 +396,7 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
             ? (result.mode === 'camera'
                 ? <>{' '}Pokračujte: vyfoťte <strong>{result.nextLabel}</strong> — kamera je připravená.</>
                 : <>{' '}Pokračujte: vyfoťte nebo nahrajte <strong>{result.nextLabel}</strong>.</>)
-            : <>{' '}Zadržené kódy k boxu se uvolní, jakmile jsou doklady kompletní.</>}
+            : <>{' '}Kódy k boxu se uvolní samy, až bude vše kompletní: OP líc + rub (nebo pas), ŘP líc + rub, datum narození (18+), platnost ŘP do konce pronájmu a skupina ŘP pro motorku.</>}
         </div>
       )}
 

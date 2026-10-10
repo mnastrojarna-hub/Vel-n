@@ -8,9 +8,9 @@ import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
-import 'document_models.dart';
 import 'document_provider.dart';
 import 'docs_gate_provider.dart';
+import 'docs_gate_widgets.dart';
 
 /// Moje doklady — matches Capacitor original s-docs screen.
 /// Shows: info banners, scan button (camera), upload button (gallery),
@@ -22,6 +22,8 @@ class DocumentsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Kompletnost dokladů dle brány kódů (obě strany OP/pasu a ŘP), bez
     // odpovědi RPC dle profilových *_verified_at (docsScreenStatusProvider).
+    // Obnova po nahrání = změna závislosti → `skipLoadingOnReload`, ať stav
+    // neprobliká (jako dřív u přímo invalidovaného docsVerifiedProvider).
     final verifiedAsync = ref.watch(docsScreenStatusProvider);
 
     return Scaffold(
@@ -64,6 +66,7 @@ class DocumentsScreen extends ConsumerWidget {
           children: [
             // Info banner — only when docs are NOT verified
             verifiedAsync.when(
+              skipLoadingOnReload: true,
               data: (v) {
                 if (v.isComplete) return const SizedBox.shrink();
                 return Container(
@@ -90,6 +93,7 @@ class DocumentsScreen extends ConsumerWidget {
 
             // Verification status
             verifiedAsync.when(
+              skipLoadingOnReload: true,
               data: (v) => _VerificationBanner(verification: v),
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
@@ -137,6 +141,7 @@ class DocumentsScreen extends ConsumerWidget {
 
             // NASKENOVAT POUZE ŘP button — shown when OP verified but ŘP missing
             verifiedAsync.when(
+              skipLoadingOnReload: true,
               data: (v) {
                 if (v.hasIdOrPassport && !v.hasLicense) {
                   return Padding(
@@ -186,6 +191,7 @@ class DocumentsScreen extends ConsumerWidget {
 
             // Doc verification status — brána kódů (obě strany), záloha profil
             verifiedAsync.when(
+              skipLoadingOnReload: true,
               data: (v) {
                 if (!v.hasIdOrPassport && !v.hasLicense) {
                   return Container(
@@ -199,7 +205,7 @@ class DocumentsScreen extends ConsumerWidget {
                       const SizedBox(height: 4),
                       Text(t(context).tr('docsNotVerifiedDesc'),
                         style: const TextStyle(fontSize: 12, color: Color(0xFF78350F), height: 1.4)),
-                      if (v.gate != null && !v.gate!.ok) _GateMissingLine(gate: v.gate!),
+                      if (v.gate != null && !v.gate!.ok) DocsGateMissingLine(gate: v.gate!),
                     ]),
                   );
                 }
@@ -225,7 +231,7 @@ class DocumentsScreen extends ConsumerWidget {
                     // Co přesně chybí pro vydání kódů (strana dokladu, věk,
                     // platnost / skupina ŘP) — jeden řádek dle brány.
                     if (v.gate != null && !v.gate!.ok)
-                      _GateMissingLine(gate: v.gate!),
+                      DocsGateMissingLine(gate: v.gate!),
                     const SizedBox(height: 12),
                     if (v.codesReady)
                       Container(
@@ -285,41 +291,8 @@ class DocumentsScreen extends ConsumerWidget {
     );
   }
 
-  /// Volba dokladu a strany pro fotku z galerie — bez ní se fotka dřív
-  /// ukládala vždy jako OP bez strany a pro vydání kódů se nepočítala.
-  /// Vrací (typ, strana, stepKey pro saveOcrToProfile); pas = jedna strana.
-  Future<(ScanDocType, String?, String)?> _pickGalleryDocKind(BuildContext context) {
-    final tr = t(context).tr;
-    final options = <(String, String, ScanDocType, String?, String)>[
-      ('🪪', '${tr('idCard')} – ${tr('frontSide')}', ScanDocType.idCard, 'front', 'id_front'),
-      ('🪪', '${tr('idCard')} – ${tr('backSide')}', ScanDocType.idCard, 'back', 'id_back'),
-      ('📕', tr('passport'), ScanDocType.passport, null, 'passport_front'),
-      ('🏍️', '${tr('driversLicense')} – ${tr('frontSide')}', ScanDocType.driversLicense, 'front', 'dl_front'),
-      ('🏍️', '${tr('driversLicense')} – ${tr('backSide')}', ScanDocType.driversLicense, 'back', 'dl_back'),
-    ];
-    return showModalBottomSheet<(ScanDocType, String?, String)>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(t(ctx).tr('galleryPickDocType'),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
-            const SizedBox(height: 16),
-            ...options.map((o) => ListTile(
-                  leading: Text(o.$1, style: const TextStyle(fontSize: 22)),
-                  title: Text(o.$2, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                  onTap: () => Navigator.pop(ctx, (o.$3, o.$4, o.$5)),
-                )),
-          ]),
-        ),
-      ),
-    );
-  }
-
   Future<void> _uploadFromGallery(BuildContext context, WidgetRef ref) async {
-    final kind = await _pickGalleryDocKind(context);
+    final kind = await pickGalleryDocKind(context);
     if (kind == null || !context.mounted) return;
     final (docType, docSide, stepKey) = kind;
     final picker = ImagePicker();
@@ -392,23 +365,6 @@ class _VerificationBanner extends StatelessWidget {
           Text('${t(context).tr('missing')}: ${missing.join(", ")}', style: const TextStyle(fontSize: 11, color: Color(0xFF78350F))),
         ])),
       ]),
-    );
-  }
-}
-
-/// Jeden řádek „Chybí: …“ dle brány dokladů (co ještě drží přístupové kódy).
-class _GateMissingLine extends StatelessWidget {
-  final DocsGateChecklist gate;
-  const _GateMissingLine({required this.gate});
-
-  @override
-  Widget build(BuildContext context) {
-    final items = docsGateMissingLabels(context, gate);
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Text('${t(context).tr('missing')}: ${items.join(', ')}',
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF78350F), height: 1.4)),
     );
   }
 }

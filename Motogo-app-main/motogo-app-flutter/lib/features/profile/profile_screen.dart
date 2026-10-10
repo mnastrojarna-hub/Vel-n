@@ -295,8 +295,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           label: t(context).tr('dob'),
           value: _dob,
           firstYear: DateTime.now().year - 100,
-          // Půjčovna jen od 18 let (brána přístupových kódů 2026-10-10).
-          lastYear: DateTime.now().year - 18,
+          // Půjčovna jen od 18 let (brána přístupových kódů 2026-10-10);
+          // už uložený mladší ročník zůstane v nabídce (jinak assert dropdownu).
+          lastYear: (_dob != null && _dob!.year > DateTime.now().year - 18)
+              ? _dob!.year
+              : DateTime.now().year - 18,
           yearsDescending: true,
           onChanged: (d) => setState(() => _dob = d),
         ),

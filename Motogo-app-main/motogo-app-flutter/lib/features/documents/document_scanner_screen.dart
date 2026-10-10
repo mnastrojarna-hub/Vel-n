@@ -600,6 +600,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     final gate = await fetchDocsGateChecklist();
     if (!mounted) return;
     ref.invalidate(docsVerifiedProvider);
+    ref.invalidate(docsGateChecklistProvider);
     ref.invalidate(profileProvider);
     final missing = gate != null
         ? docsGateMissingLabels(context, gate, docsOnly: true)

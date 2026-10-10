@@ -66,6 +66,10 @@ export function generateInvoiceHtml(data) {
   const isPaymentReceipt = data.type === 'payment_receipt'
   const isCreditNote = data.type === 'credit_note'
   const isShopFinal = data.type === 'shop_final'
+  // Čísla přístupových kódů jen když jsou VŠECHNY aktivní kódy zákazníkovi vydané
+  // (sent_to_customer, bez withheld_reason) — jinak jen poznámka „budou zaslány po ověření dokladů"
+  const codesReleased = (data.door_codes || []).length > 0
+    && data.door_codes.every(c => c.sent_to_customer === true && !c.withheld_reason && c.door_code)
 
   const titleBase = isCreditNote ? 'Dobropis'
     : isPaymentReceipt ? 'Doklad k přijaté platbě'
@@ -317,8 +321,8 @@ export function generateInvoiceHtml(data) {
 
   ${data.door_codes && data.door_codes.length > 0 ? `<div style="margin:0 32px 8px;padding:10px;background:#e0f2fe;border-radius:6px;border:1px solid #0284c7">
     <div style="font-size:11px;font-weight:800;color:#0c4a6e;letter-spacing:1.5px;margin-bottom:4px">PŘÍSTUPOVÉ KÓDY K POBOČCE</div>
-    ${data.door_codes.filter(c => !c.withheld_reason).map(dc => `<div style="font-size:12px;font-weight:700;color:#0c4a6e;padding:2px 0">${dc.code_type === 'motorcycle' ? 'Kód k motorce' : 'Kód šatny'}: <span style="font-size:16px;letter-spacing:3px;color:#0369a1;font-family:'Courier New',monospace">${dc.door_code}</span></div>`).join('')}
-    ${data.door_codes.some(c => c.withheld_reason) ? '<div style="font-size:11px;font-weight:600;color:#b45309;margin-top:4px">Kódy budou zaslány po ověření dokladů (OP/pas/ŘP).</div>' : '<div style="font-size:10px;color:#164e63;margin-top:4px">Kódy jsou platné pouze po dobu trvání pronájmu.</div>'}
+    ${codesReleased ? data.door_codes.map(dc => `<div style="font-size:12px;font-weight:700;color:#0c4a6e;padding:2px 0">${dc.code_type === 'motorcycle' ? 'Kód k motorce' : 'Kód šatny'}: <span style="font-size:16px;letter-spacing:3px;color:#0369a1;font-family:'Courier New',monospace">${dc.door_code}</span></div>`).join('') : ''}
+    ${!codesReleased ? '<div style="font-size:11px;font-weight:600;color:#b45309;margin-top:4px">Kódy budou zaslány po ověření dokladů (OP/pas/ŘP).</div>' : '<div style="font-size:10px;color:#164e63;margin-top:4px">Kódy jsou platné pouze po dobu trvání pronájmu.</div>'}
   </div>` : ''}
 
   ${data.notes ? `<div style="margin:0 32px 8px;padding:7px 12px;background:#fffbeb;border-left:3px solid #f59e0b;font-size:11px;color:#78350f"><strong>Poznámka:</strong> ${data.notes}</div>` : ''}
