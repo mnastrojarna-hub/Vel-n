@@ -64,7 +64,7 @@ export default function PayrollTab() {
       )}
 
       {/* 10 sloupců → na telefonu i tabletu karty (desktop beze změny) */}
-      <Table stack="tablet">
+      <Table stack="tablet" className="mg-stack-2col">
         <thead>
           <TRow header>
             <TH>Období</TH><TH>Hrubá</TH><TH>SP zamest.</TH><TH>ZP zamest.</TH>

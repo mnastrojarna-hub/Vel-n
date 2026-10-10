@@ -58,7 +58,7 @@ export default function EmployeeListTab() {
       ) : (
         <>
           {/* 9 sloupců → na telefonu i tabletu karty (desktop beze změny) */}
-          <Table stack="tablet">
+          <Table stack="tablet" className="mg-stack-2col">
             <thead>
               <TRow header>
                 <TH>Jméno</TH><TH>Telefon</TH><TH>Email</TH><TH>Pozice</TH>

@@ -8,19 +8,39 @@ const SignaturePad = forwardRef(function SignaturePad({ height = 170, label }, r
   const last = useRef({ x: 0, y: 0 })
   const [empty, setEmpty] = useState(true)
 
+  // Velikost plátna dle skutečné velikosti prvku; při změně (otočení tabletu, zalomení
+  // modálu, zoom) se plátno přepočítá a dosavadní tahy se zachovají na stejném místě.
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const ratio = window.devicePixelRatio || 1
-    const rect = canvas.getBoundingClientRect()
-    canvas.width = Math.max(1, rect.width) * ratio
-    canvas.height = Math.max(1, rect.height) * ratio
-    const ctx = canvas.getContext('2d')
-    ctx.scale(ratio, ratio)
-    ctx.lineWidth = 2.2
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.strokeStyle = '#0f1a14'
+    const setup = (keep) => {
+      const ratio = window.devicePixelRatio || 1
+      const rect = canvas.getBoundingClientRect()
+      const w = Math.max(1, rect.width) * ratio
+      const h = Math.max(1, rect.height) * ratio
+      if (keep && canvas.width === Math.floor(w) && canvas.height === Math.floor(h)) return
+      let snap = null
+      if (keep && canvas.width > 1 && canvas.height > 1) {
+        snap = document.createElement('canvas')
+        snap.width = canvas.width
+        snap.height = canvas.height
+        snap.getContext('2d').drawImage(canvas, 0, 0)
+      }
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (snap) ctx.drawImage(snap, 0, 0)
+      ctx.scale(ratio, ratio)
+      ctx.lineWidth = 2.2
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.strokeStyle = '#0f1a14'
+    }
+    setup(false)
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(() => setup(true))
+    ro.observe(canvas)
+    return () => ro.disconnect()
   }, [])
 
   function pos(e) {
@@ -56,7 +76,7 @@ const SignaturePad = forwardRef(function SignaturePad({ height = 170, label }, r
     <div>
       <div className="flex items-center justify-between mb-1">
         {label && <span style={{ fontSize: 12, fontWeight: 700, color: '#1a2e22' }}>{label}</span>}
-        <button type="button" onClick={clear} style={{ fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 'auto' }}>Smazat podpis</button>
+        <button type="button" onClick={clear} className="max-lg:min-h-[36px] max-lg:px-2 max-lg:!text-[13px]" style={{ fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 'auto' }}>Smazat podpis</button>
       </div>
       <canvas
         ref={canvasRef}

@@ -129,7 +129,8 @@ export function CreateApiKeyModal({ onClose, onCreated }) {
 
             <div style={{ marginTop: 12, padding: 12, background: '#f1faf7', borderRadius: 8, fontSize: 11 }}>
               <p style={{ margin: 0, marginBottom: 6 }}><strong>Použití v requestu:</strong></p>
-              <code style={{ display: 'block', padding: 8, background: '#fff', borderRadius: 6, color: '#1a2e22' }}>
+              {/* telefon: dlouhá URL se zalomí (jinak se modal posouvá do strany) */}
+              <code className="max-lg:break-all" style={{ display: 'block', padding: 8, background: '#fff', borderRadius: 6, color: '#1a2e22' }}>
                 curl -H "X-Api-Key: {createdKey.api_key.slice(0, 24)}..." \<br />
                 &nbsp;&nbsp;https://api.motogo24.cz/api/v1/motorcycles
               </code>

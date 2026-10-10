@@ -8,13 +8,24 @@
 const QUERY = '(max-width: 1023px)'
 const ARROWS = /[▲▼↑↓⇅]/g
 
+function toggleAttr(el, name, on) {
+  if (on && !el.hasAttribute(name)) el.setAttribute(name, '')
+  else if (!on && el.hasAttribute(name)) el.removeAttribute(name)
+}
+
 function headerLabels(table) {
   const head = table.tHead?.rows[0] || [...table.rows].find(r => r.cells[0]?.tagName === 'TH')
   if (!head) return []
   const labels = []
   for (const th of head.cells) {
     const text = (th.innerText || th.textContent || '').replace(ARROWS, '').replace(/\s+/g, ' ').trim()
-    if (th.tagName === 'TH' && !th.classList.contains('mg-sort') && (th.querySelector('input[type="checkbox"]') || getComputedStyle(th).cursor === 'pointer')) th.classList.add('mg-sort')
+    if (th.tagName === 'TH') {
+      const box = th.querySelector('input[type="checkbox"]')
+      if (!th.classList.contains('mg-sort') && (box || getComputedStyle(th).cursor === 'pointer')) th.classList.add('mg-sort')
+      // samotné zaškrtávátko bez textu → čip „Vybrat vše“; seřazený sloupec (▲/▼) → zvýrazněný čip
+      toggleAttr(th, 'data-mg-selall', !!box && !text)
+      toggleAttr(th, 'data-mg-sorted', /[▲▼↑↓]/.test(th.textContent || ''))
+    }
     for (let i = 0; i < (th.colSpan || 1); i++) labels.push(text)
   }
   return labels
@@ -26,10 +37,13 @@ function labelTable(table) {
   for (const body of table.tBodies) {
     for (const row of body.rows) {
       let col = 0
+      // řádek s jedinou buňkou (prázdný stav „Žádné …“ — sdílené TD nepředává colSpan) = přes celou šířku
+      const lone = row.cells.length === 1 && labels.length > 1
       for (const cell of row.cells) {
         if (cell.tagName === 'TD') {
-          if (cell.colSpan > 1 && !cell.classList.contains('mg-stack-full')) cell.classList.add('mg-stack-full')
-          const label = cell.colSpan > 1 ? '' : (labels[col] || '')
+          const full = cell.colSpan > 1 || lone
+          if (full && !cell.classList.contains('mg-stack-full')) cell.classList.add('mg-stack-full')
+          const label = full ? '' : (labels[col] || '')
           if (!cell.hasAttribute('data-label') || cell.dataset.mgAuto === '1') {
             if (cell.getAttribute('data-label') !== label) cell.setAttribute('data-label', label)
             cell.dataset.mgAuto = '1'

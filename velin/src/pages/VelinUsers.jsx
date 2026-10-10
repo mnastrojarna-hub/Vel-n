@@ -68,7 +68,7 @@ export default function VelinUsers({ admin }) {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         // 7 sloupců → na telefonu i tabletu karty; akce přes celou šířku karty (desktop beze změny)
-        <Table stack="tablet">
+        <Table stack="tablet" className="mg-stack-2col">
           <thead>
             <TRow header>
               <TH>Jméno</TH><TH>E-mail</TH><TH>Role</TH><TH>Vidí sekce</TH>
