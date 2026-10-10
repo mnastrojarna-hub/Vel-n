@@ -179,7 +179,7 @@ export const PAGE_POTVRZENI = {
         { key: 'web.layout.confirm.success.docsVerified', label: 'Štítek „Ověřeny"', default: 'Ověřeny' },
         { key: 'web.layout.confirm.success.docsNotVerified', label: 'Štítek „Neověřeny"', default: 'Neověřeny' },
         { key: 'web.layout.confirm.success.nextBookingDocsDone', label: 'Hláška — doklady ověřeny (žádná akce)', type: 'textarea', default: 'Doklady jsme ověřili — žádná akce není potřeba.' },
-        { key: 'web.layout.confirm.success.nextBookingDocsMissing', label: 'Hláška — doklady neověřeny (výzva)', type: 'textarea', default: 'Doklady zatím nejsou ověřené — ověř je dodatečně v úpravě rezervace (foto OP/pasu + ŘP). Bez ověření ti nepošleme přístupové kódy: na samoobslužné pobočce se bez nich dovnitř nedostaneš, na obslužné pobočce doklady zkontrolujeme při převzetí na místě.' },
+        { key: 'web.layout.confirm.success.nextBookingDocsMissing', label: 'Hláška — doklady neověřeny (výzva)', type: 'textarea', default: 'Doklady zatím nejsou kompletní — doplň je v úpravě rezervace (líc i rub OP nebo stranu pasu s fotkou, líc i rub ŘP; nájemce 18+, ŘP platný do konce pronájmu se skupinou pro tuto motorku). Bez nich ti nepošleme přístupové kódy: na samoobslužné pobočce se bez nich dovnitř nedostaneš, na obslužné pobočce doklady zkontrolujeme při převzetí na místě.' },
         { key: 'web.layout.confirm.success.editReservation', label: 'Tlačítko „Upravit / zrušit rezervaci"', default: 'Upravit / zrušit rezervaci' },
       ]
     },
@@ -195,7 +195,7 @@ export const PAGE_POTVRZENI = {
         { key: 'web.layout.confirm.paydocs.emailInfo', label: 'Hláška o e-mailu (ZF+DP)', type: 'textarea', default: 'Doklad o přijaté platbě (zálohovou fakturu i doklad o platbě) jsme ti právě poslali e-mailem.' },
         { key: 'web.layout.confirm.paydocs.step1', label: 'Krok 1 — čísla dokladů', type: 'textarea', default: 'Vyplň čísla dokladu totožnosti (OP/pas) a řidičského průkazu.' },
         { key: 'web.layout.confirm.paydocs.step2', label: 'Krok 2 — foto dokladů', type: 'textarea', default: 'Nahraj fotky dokladů (OP/pas + ŘP). Bez jejich ověření ti nepošleme přístupové kódy — na samoobslužné pobočce je nahrání nezbytné, bez kódů se dovnitř nedostaneš. Na obslužné pobočce doklady případně zkontrolujeme při převzetí na místě.' },
-        { key: 'web.layout.confirm.paydocs.step3', label: 'Krok 3 — potvrzení', type: 'textarea', default: 'Jakmile doklady vyplníš, potvrdíme rezervaci a pošleme smlouvu i přístupový kód k motorce (máš-li zapůjčenou výbavu, i kód šatny).' },
+        { key: 'web.layout.confirm.paydocs.step3', label: 'Krok 3 — potvrzení', type: 'textarea', default: 'Jakmile doklady vyplníš, potvrdíme rezervaci a pošleme smlouvu. Přístupový kód k motorce (máš-li zapůjčenou výbavu, i kód šatny) pošleme po nahrání líce i rubu OP (nebo pasu) i ŘP a kontrole údajů.' },
         { key: 'web.layout.confirm.paydocs.continueDocs', label: 'Tlačítko „Pokračovat na krok 4"', default: 'Pokračovat na krok 4 — doklady' },
         { key: 'web.layout.confirm.paydocs.later', label: 'Tlačítko „Doplním později"', default: 'Doplním doklady později' },
       ]
@@ -209,7 +209,7 @@ export const PAGE_POTVRZENI = {
         { key: 'web.layout.confirm.qrdocs.lead', label: 'Úvod', type: 'textarea', default: 'Moc děkujeme za nahrání dokladů. Rezervaci dokončíme, jakmile dorazí vaše platba.' },
         { key: 'web.layout.confirm.qrdocs.payInfo', label: 'Info o platbě QR/převodem', type: 'textarea', default: 'Platíte QR kódem / bankovním převodem. Jakmile platbu odešlete, ověříme ji obvykle do 4 hodin (v pracovní době) a rezervaci potvrdíme.' },
         { key: 'web.layout.confirm.qrdocs.emailInfo', label: 'Info o e-mailu s platebními údaji', type: 'textarea', default: 'Platební údaje (QR kód, číslo účtu a variabilní symbol) i zálohovou fakturu najdete v e-mailu, který jsme vám poslali.' },
-        { key: 'web.layout.confirm.qrdocs.codesInfo', label: 'Info o kódech po platbě', type: 'textarea', default: 'Po připsání platby vám e-mailem, SMS i WhatsAppem pošleme potvrzení rezervace, smlouvu a přístupový kód k motorce (máte-li zapůjčenou výbavu, i kód šatny).' },
+        { key: 'web.layout.confirm.qrdocs.codesInfo', label: 'Info o kódech po platbě', type: 'textarea', default: 'Po připsání platby vám e-mailem, SMS i WhatsAppem pošleme potvrzení rezervace a smlouvu. Přístupový kód k motorce (máte-li zapůjčenou výbavu, i kód šatny) pošleme, jakmile budou doklady kompletní a v pořádku.' },
       ]
     },
     // Pozn.: stav „Pending" má 4 nezávislé varianty. Každá se zobrazí v jiné situaci:

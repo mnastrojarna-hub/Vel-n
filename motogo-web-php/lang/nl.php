@@ -1483,7 +1483,7 @@ return [
     'editRez.doc.finishSaving' => 'Opslaan en verifiëren…',
     'editRez.doc.finishDone' => 'Klaar! Uw documenten zijn opgeslagen.',
     'editRez.doc.finishCodesSent' => 'Klaar! Uw documenten zijn opgeslagen en we hebben u de toegangscodes gemaild.',
-    'editRez.doc.finishMissing' => 'Uw documenten zijn nog niet compleet — upload beide zijden van uw ID-kaart/paspoort en rijbewijs.',
+    'editRez.doc.finishMissing' => 'Uw documenten zijn nog niet compleet — upload de voor- en achterkant van uw ID-kaart (of de fotopagina van uw paspoort) en de voor- en achterkant van uw rijbewijs.',
     'editRez.doc.finishError' => 'Opslaan mislukt. Probeer het opnieuw.',
     'editRez.doc.savedOk' => 'Document opgeslagen ✓',
     // ===== Bevestigingsdialoog (generiek) + documentscan =====

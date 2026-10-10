@@ -1505,7 +1505,7 @@ return [
     'editRez.doc.finishSaving' => 'Guardando y verificando…',
     'editRez.doc.finishDone' => '¡Listo! Tus documentos están guardados.',
     'editRez.doc.finishCodesSent' => '¡Listo! Tus documentos están guardados y te hemos enviado los códigos de acceso por correo.',
-    'editRez.doc.finishMissing' => 'Tus documentos aún no están completos: sube ambas caras del DNI/pasaporte y del carné de conducir.',
+    'editRez.doc.finishMissing' => 'Tus documentos aún no están completos: sube el anverso y el reverso del DNI (o la página con foto del pasaporte) y el anverso y el reverso del carné de conducir.',
     'editRez.doc.finishError' => 'No se pudo guardar. Inténtalo de nuevo.',
     'editRez.doc.savedOk' => 'Documento guardado ✓',
     // ===== Diálogo de confirmación (genérico) + escaneo de documentos =====

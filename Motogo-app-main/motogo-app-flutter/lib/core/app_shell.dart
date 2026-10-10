@@ -123,7 +123,7 @@ class AppShell extends ConsumerWidget {
     // Kompletnost OP/pasu + ŘP podle brány dokladů (obě strany, stejně jako
     // Moje doklady); bez odpovědi RPC zpět na profilové `*_verified_at`.
     final docsComplete =
-        ref.watch(docsScreenStatusProvider).valueOrNull?.isComplete ?? true;
+        ref.watch(docsFabStatusProvider).valueOrNull?.isComplete ?? true;
     final docsFabDismissed = ref.watch(_docsFabDismissedProvider);
     final showDocsFab = hasActiveBooking && !docsComplete &&
         !docsScreens.contains(location) && !docsFabDismissed &&
