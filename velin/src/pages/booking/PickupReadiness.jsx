@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
-import { computeDocVerification, MOTO_LICENSE_GROUPS } from '../../lib/docVerification'
+import { MOTO_LICENSE_GROUPS, identityMissing, licenseMissing, fmtYmd, parseLicenseExpiry } from '../../lib/docVerification'
+import { bookingDocsVerdict } from '../../lib/docsGate'
 import AdminDocUploadModal from '../customer/AdminDocUploadModal'
 import ElectronicProtocolModal from './ElectronicProtocolModal'
 
@@ -10,6 +11,8 @@ import ElectronicProtocolModal from './ElectronicProtocolModal'
 //   2) Doklady — nahrát chybějící doklady (ŘP / OP / pas) přes OCR.
 //   3) Protokol — podpis předávacího protokolu → označení vyzvednutí.
 // Dětská motorka (license_required = 'N') doklady nevyžaduje — rovnou protokol.
+// Verdikt dokladů = backend get_docs_gate_checklist pro rezervaci (stejné pravidlo jako
+// vydání kódů: OP líc+rub nebo pas, ŘP líc+rub, 18+, platnost ŘP, skupina) — lib/docsGate.
 
 const VERIFICATION_TYPES = ['drivers_license', 'license_photo', 'id_card', 'id_photo', 'passport']
 const ALL_GROUPS = ['AM', 'A1', 'A2', 'A', 'B']
@@ -30,8 +33,7 @@ function StepHead({ n, label, done }) {
 export default function PickupReadiness({ booking, onClose, onProtocolDone, verifiedCode = '' }) {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState(null)
-  const [docs, setDocs] = useState([])
-  const [licenseRequired, setLicenseRequired] = useState(null)
+  const [vs, setVs] = useState(null)
   const [showUpload, setShowUpload] = useState(false)
   const [showProtocol, setShowProtocol] = useState(false)
   const [error, setError] = useState(null)
@@ -40,6 +42,7 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
   const [licExp, setLicExp] = useState('')
   const [groups, setGroups] = useState([])
   const [idNo, setIdNo] = useState('')
+  const [dob, setDob] = useState('')
   const [savingData, setSavingData] = useState(false)
 
   useEffect(() => { load(true) }, [booking?.id])
@@ -53,16 +56,16 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
     setError(null)
     try {
       const [docsRes, profRes, bkRes] = await Promise.all([
-        supabase.from('documents').select('id, type, metadata, created_at').eq('user_id', booking.user_id).in('type', VERIFICATION_TYPES).order('created_at', { ascending: false }),
-        supabase.from('profiles').select('id, license_expiry, license_group, license_number, id_number, id_verified_at, license_verified_at, passport_verified_at').eq('id', booking.user_id).single(),
-        supabase.from('bookings').select('motorcycles!moto_id(license_required)').eq('id', booking.id).single(),
+        supabase.from('documents').select('id, user_id, type, file_path, metadata, created_at').eq('user_id', booking.user_id).in('type', VERIFICATION_TYPES).order('created_at', { ascending: false }),
+        supabase.from('profiles').select('id, license_expiry, license_verified_until, license_group, date_of_birth, license_number, id_number, id_verified_at, license_verified_at, passport_verified_at').eq('id', booking.user_id).single(),
+        supabase.from('bookings').select('id, start_date, end_date, motorcycles!moto_id(license_required, license_groups)').eq('id', booking.id).single(),
       ])
-      setDocs(docsRes.data || [])
       const p = profRes.data || null
+      setVs(await bookingDocsVerdict(docsRes.data || [], p || { id: booking.user_id }, bkRes?.data || { id: booking.id }))
       setProfile(p)
-      setLicenseRequired(bkRes?.data?.motorcycles?.license_required ?? null)
+      setDob(p?.date_of_birth ? String(p.date_of_birth).slice(0, 10) : '')
       setLicNo(p?.license_number || '')
-      setLicExp(p?.license_expiry ? String(p.license_expiry).slice(0, 10) : '')
+      setLicExp(parseLicenseExpiry({ license_expiry: p?.license_expiry }) || '')   // i DD.MM.YYYY → date input
       setGroups(Array.isArray(p?.license_group) ? p.license_group : [])
       setIdNo(p?.id_number || '')
     } catch (e) { setError(e.message) }
@@ -78,12 +81,20 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
     )
   }
   if (loading) return <div className="py-6 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
+  if (!vs) {
+    return (
+      <div className="space-y-3">
+        <div style={note('#dc2626', '#fee2e2', '#dc2626')}>{error || 'Stav dokladů se nepodařilo načíst.'}</div>
+        <div className="flex justify-end"><Button onClick={onClose}>Zavřít</Button></div>
+      </div>
+    )
+  }
 
-  const vs = computeDocVerification(docs, profile, licenseRequired)
   const isChild = vs.isChildMoto
+  const reqGroups = (vs.requiredGroups || ['A']).join('/')
   // Čísla dokladů (ŘP i OP/pas) jsou POVINNÁ — bez nich odbavení nepustí a operátor
   // je vyzván k doplnění (dřív se ptalo jen na platnost/skupiny ŘP, ne na číslo OP/pasu).
-  const dataOk = isChild || (vs.licenseNumberFilled && vs.idNumberFilled && vs.licenseValid && vs.licenseGroupFilled && vs.hasMotoGroup)
+  const dataOk = isChild || (vs.licenseNumberFilled && vs.idNumberFilled && vs.licenseValid && vs.licenseGroupFilled && vs.hasMotoGroup && vs.ageOk)
   const docsOk = isChild || (vs.hasLicense && vs.hasIdentity)
   // Protokol (a tím odbavení) lze otevřít, až když jsou vyplněná čísla dokladů (dataOk)
   // i ověřené doklady (allOk) — jinak by šlo odbavit s prázdným číslem OP/pasu.
@@ -98,6 +109,7 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
     if (licExp) { upd.license_expiry = licExp; upd.license_verified_until = licExp }
     if (groups.length) upd.license_group = groups
     if (idNo.trim()) upd.id_number = idNo.trim()
+    if (dob) upd.date_of_birth = dob
     try {
       const { error: e } = await supabase.from('profiles').update(upd).eq('id', booking.user_id)
       if (e) throw e
@@ -136,13 +148,14 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
           <div className="p-3 rounded-card" style={{ background: '#f8faf9', border: '1px solid #eef5f1', order: 2 }}>
             <StepHead n={2} label="Údaje dokladů (ŘP + číslo OP/pasu)" done={dataOk} />
             {dataOk ? (
-              <div className="text-sm" style={{ color: '#15803d' }}>✓ Čísla dokladů, platnost i skupiny ŘP v pořádku ({(profile?.license_group || []).join(', ')}, platí do {profile?.license_expiry}).</div>
+              <div className="text-sm" style={{ color: '#15803d' }}>✓ Čísla dokladů, věk 18+, platnost i skupiny ŘP v pořádku ({(profile?.license_group || []).join(', ')}, platí do {vs.licenseExpiryDate ? fmtYmd(vs.licenseExpiryDate) : profile?.license_expiry}).</div>
             ) : (
               <div className="space-y-2">
                 {!vs.licenseNumberFilled && <div style={note('#b45309', '#fffbeb', '#92400e')}>Není vyplněné číslo ŘP.</div>}
                 {!vs.idNumberFilled && <div style={note('#b45309', '#fffbeb', '#92400e')}>Není vyplněné číslo dokladu totožnosti (OP/pas).</div>}
-                {!vs.licenseValid && <div style={note('#b45309', '#fffbeb', '#92400e')}>{profile?.license_expiry ? 'ŘP je expirovaný — ověřte a opravte platnost.' : 'Není vyplněná platnost ŘP.'}</div>}
-                {(!vs.licenseGroupFilled || !vs.hasMotoGroup) && <div style={note('#b45309', '#fffbeb', '#92400e')}>Chybí skupina ŘP pro motorku (A/A2/A1/AM).</div>}
+                {!vs.ageOk && <div style={note('#b45309', '#fffbeb', '#92400e')}>{vs.dateOfBirth || profile?.date_of_birth ? 'Zákazníkovi k začátku pronájmu není 18 let — ověřte datum narození.' : 'Není vyplněné datum narození.'}</div>}
+                {!vs.licenseValid && <div style={note('#b45309', '#fffbeb', '#92400e')}>{vs.licenseExpiryDate ? `ŘP platí jen do ${fmtYmd(vs.licenseExpiryDate)} — nestačí do konce pronájmu, ověřte a opravte platnost.` : profile?.license_expiry ? `Platnost ŘP je nečitelná (${profile.license_expiry}) — zadejte ji znovu.` : 'Není vyplněná platnost ŘP.'}</div>}
+                {(!vs.licenseGroupFilled || !vs.hasMotoGroup) && <div style={note('#b45309', '#fffbeb', '#92400e')}>Skupina ŘP nepokrývá motorku (potřeba {reqGroups}).</div>}
                 <div>
                   <label className="text-xs font-bold" style={{ color: '#1a2e22' }}>Číslo ŘP</label>
                   <input value={licNo} onChange={e => setLicNo(e.target.value)} style={inputStyle} placeholder="číslo ŘP" />
@@ -150,6 +163,10 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
                 <div>
                   <label className="text-xs font-bold" style={{ color: '#1a2e22' }}>Číslo dokladu totožnosti (OP/pas)</label>
                   <input value={idNo} onChange={e => setIdNo(e.target.value)} style={inputStyle} placeholder="číslo OP nebo pasu" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold" style={{ color: '#1a2e22' }}>Datum narození</label>
+                  <input type="date" value={dob} onChange={e => setDob(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
                   <label className="text-xs font-bold" style={{ color: '#1a2e22' }}>Platnost ŘP do</label>
@@ -184,8 +201,8 @@ export default function PickupReadiness({ booking, onClose, onProtocolDone, veri
             ) : (
               <div className="space-y-2">
                 <div className="text-sm" style={{ color: '#1a2e22' }}>
-                  {!vs.hasLicense && <div>• Chybí ověřený řidičský průkaz</div>}
-                  {!vs.hasIdentity && <div>• Chybí ověřený doklad totožnosti (OP/pas)</div>}
+                  {!vs.hasLicense && <div>• {licenseMissing(vs)}</div>}
+                  {!vs.hasIdentity && <div>• {identityMissing(vs)}</div>}
                 </div>
                 <Button green onClick={() => setShowUpload(true)}>+ Nahrát doklady</Button>
               </div>

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { generateDoorCode, Spinner, EmptyState } from './BranchHelpers'
+import { fetchDocsGate } from '../lib/docsGate'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 
 // Důvod zadržení kódu šatny, který zapisuje DB trigger _sync_locker_code u rezervace bez zapůjčené výbavy
 // (hodnota v DB — NEMĚNIT). Obsluze se ukazuje OWN_GEAR_LABEL: vlastní výbava i „nic nevybral“ (20261005g).
@@ -24,6 +26,9 @@ async function bookingNeedsLocker(bookingId) {
 function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onRefresh, selfService = false }) {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState(null)
+  const [notice, setNotice] = useState(null)
+  // „Odeslat“ při neúplných dokladech: { code, missing[] } → potvrzení, že je obsluha ověřila osobně
+  const [releaseConfirm, setReleaseConfirm] = useState(null)
   // Zadržené kódy šatny („Vlastní výbava“): booking_id → smí se znovu aktivovat? (nárok podle RPC)
   const [lockerAllowed, setLockerAllowed] = useState({})
   // Pobočka s vjezdovou bránou (branch_gate_access): ruční znovuodeslání dá kód brány na 1. řádek (brána → šatna → motorka)
@@ -51,19 +56,13 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
     setGenerating(true)
     setError(null)
     try {
-      const { data: docs } = await supabase
-        .from('documents')
-        .select('id, type')
-        .eq('user_id', booking.user_id)
-        .in('type', ['contract', 'protocol'])
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('license_number')
-        .eq('id', booking.user_id)
-        .maybeSingle()
-
-      const hasDocuments = (docs && docs.length > 0) || profile?.license_number
-      const withheldReason = hasDocuments ? null : 'Chybí doklady (OP/pas/ŘP)'
+      // Doklady = backendová brána (get_docs_gate_checklist, stejné pravidlo jako DB trigger
+      // auto_generate_door_codes). Dřív stačil JAKÝKOLI řádek smlouvy/protokolu nebo číslo ŘP
+      // (smlouvu má každá rezervace) → nouzové kódy šly zákazníkovi i bez dokladů. Nejde-li
+      // brána vyhodnotit, kódy se zadrží (pojistka trg_zz_door_codes_docs_gate to vynutí i tak).
+      const gate = await fetchDocsGate({ bookingId: booking.id })
+      const hasDocuments = gate?.ok === true
+      const withheldReason = hasDocuments ? null : (gate?.reason || 'Doklady nelze ověřit')
       // Kód šatny JEN když má zákazník v šatně co vyzvednout (parita s auto_generate_door_codes)
       const needsLocker = await bookingNeedsLocker(booking.id)
 
@@ -93,7 +92,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: 'door_codes_emergency_generated',
-        new_data: { booking_id: booking.id, branch_id: branchId, withheld: !hasDocuments, locker: needsLocker },
+        new_data: { booking_id: booking.id, branch_id: branchId, withheld: !hasDocuments, docs_reason: withheldReason, locker: needsLocker },
       })
 
       onRefresh()
@@ -123,12 +122,13 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
         if (!(await bookingNeedsLocker(code.booking_id))) { setError('Rezervace je bez zapůjčené výbavy — kód šatny nelze aktivovat. Kód šatny vznikne sám, až zákazník zadá velikost výbavy (appka / web → Upravit rezervaci → Výbava).'); return }
         upd.withheld_reason = null
       }
-      const { error: uErr } = await supabase.from('branch_door_codes').update(upd).eq('id', code.id)
+      const { data: updRows, error: uErr } = await supabase.from('branch_door_codes').update(upd).eq('id', code.id).select('sent_to_customer')
       if (uErr) throw uErr
       // Obnovený kód šatny, který už zákazník dřív dostal, oznámit v appce (push doplní trg_push_on_admin_message) —
       // reaktivace z Velína nejde přes trigger _sync_locker_code, který zprávu posílá sám. Neodeslaný kód
-      // (sent_to_customer=false) nabídne tlačítko „Odeslat“.
-      if (ownGearRow && code.sent_to_customer && code.bookings?.user_id) {
+      // (sent_to_customer=false) nabídne tlačítko „Odeslat“. Stav bere z řádku PO zápisu: pojistka
+      // trg_zz_door_codes_docs_gate kód bez kompletních dokladů zadrží → číslo kódu se neposílá.
+      if (ownGearRow && updRows?.[0]?.sent_to_customer === true && code.bookings?.user_id) {
         await supabase.from('admin_messages').insert({
           user_id: code.bookings.user_id, booking_id: code.booking_id, title: 'Kód šatny',
           message: `Kód šatny byl obnoven: ${code.door_code}`, type: 'info',
@@ -140,24 +140,37 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
     }
   }
 
-  // „Odeslat“ u zadrženého kódu (obsluha ověřila doklady osobně): RPC admin_release_door_codes
-  // (20261004f) uvolní VŠECHNY zadržené aktivní kódy rezervace (kromě držených výměnou motorky —
-  // ty uvolní až vrácení původní motorky) a pošle zákazníkovi totéž co automatické uvolnění:
-  // zprávu v appce (+ push; u pobočky s bránou brána → šatna → motorka + postup), SMS/WhatsApp
-  // a e-mail s kódy. Dřív jen UPDATE + info zpráva — bez SMS a e-mailu.
+  // „Odeslat“ u zadrženého kódu: RPC admin_release_door_codes (20261004f, audit 20261010c) uvolní
+  // VŠECHNY zadržené aktivní kódy rezervace (kromě držených výměnou motorky — ty uvolní až vrácení
+  // původní motorky) a pošle zákazníkovi zprávu v appce (+ push; u pobočky s bránou brána → šatna →
+  // motorka + postup), SMS/WhatsApp a e-mail s kódy. RPC uvolní i BEZ kompletních dokladů (vědomé
+  // ruční rozhodnutí) → Velín nejdřív načte bránu dokladů a při neúplných chce výslovné potvrzení,
+  // že obsluha doklady ověřila osobně (co chybělo, zapíše RPC do admin_audit_log).
   async function resendCode(code) {
+    setError(null); setNotice(null)
+    const gate = await fetchDocsGate({ bookingId: code.booking_id })
+    if (gate?.ok !== true) {
+      setReleaseConfirm({ code, missing: gate ? (gate.missing || []) : ['Stav dokladů se nepodařilo ověřit'] })
+      return
+    }
+    await doRelease(code)
+  }
+
+  async function doRelease(code) {
+    setReleaseConfirm(null)
     try {
       const { data, error: rErr } = await supabase.rpc('admin_release_door_codes', { p_booking_id: code.booking_id })
       if (rErr) throw rErr
-      if (!data?.success) throw new Error(data?.error || 'Kódy se nepodařilo uvolnit')
+      if (!data?.success) throw new Error((data?.error || 'Kódy se nepodařilo uvolnit') + (data?.docs_reason ? ` (doklady: ${data.docs_reason})` : ''))
 
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: 'door_code_resent',
-        new_data: { code_id: code.id, booking_id: code.booking_id, released: data.released },
+        new_data: { code_id: code.id, booking_id: code.booking_id, released: data.released, docs_reason: data.docs_reason || null },
       })
 
+      if (data.docs_reason) setNotice(`Kódy odeslány (${data.released}×) na potvrzení obsluhy — doklady při odeslání neúplné: ${data.docs_reason}`)
       onRefresh()
     } catch (e) {
       setError(e.message)
@@ -179,6 +192,25 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
       {error && (
         <div className="mb-3 p-2 rounded-card text-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>
       )}
+      {notice && (
+        <div className="mb-3 p-2 rounded-card text-sm" style={{ background: '#fef3c7', color: '#92400e' }}>{notice}</div>
+      )}
+
+      <ConfirmDialog
+        open={!!releaseConfirm}
+        danger
+        title="Doklady neúplné — odeslat kódy?"
+        message={releaseConfirm && (
+          <>
+            <span className="block mb-2">Zákazník podle kontroly dokladů nemá vše potřebné:</span>
+            {releaseConfirm.missing.map(m => <span key={m} className="block" style={{ color: '#b45309' }}>• {m}</span>)}
+            <span className="block mt-2 font-bold">Potvrzením prohlašuji, že jsem doklady zákazníka osobně ověřil(a).</span>
+            <span className="block mt-1">Kódy (brána / šatna / motorka) se hned odešlou SMS/WhatsApp, e-mailem i v aplikaci; uvolnění i to, co chybělo, se zapíše do auditu.</span>
+          </>
+        )}
+        onConfirm={() => doRelease(releaseConfirm.code)}
+        onCancel={() => setReleaseConfirm(null)}
+      />
 
       {/* Bookings without codes — trigger failure fallback */}
       {bookingsWithoutCodes.length > 0 && (
@@ -301,7 +333,7 @@ function DoorCodeRow({ code, onDeactivate, onActivate, onResend, inactive, canAc
       )}
       {awaitsProtocol && (
         <span className="inline-block rounded-btn text-[8px] max-lg:text-[11px] font-bold"
-          title="Zákazník ještě nepodepsal předávací protokol. Kód motorky se ověří, ale kóje se otevře až po podpisu — na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky) nebo v aplikaci."
+          title="Zákazník ještě nepodepsal předávací protokol. Kód motorky se ověří, ale kóje se otevře až po podpisu na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky)."
           style={{ padding: '2px 6px', background: '#ede9fe', color: '#6d28d9' }}>
           📝 Čeká na protokol
         </span>
@@ -309,7 +341,7 @@ function DoorCodeRow({ code, onDeactivate, onActivate, onResend, inactive, canAc
       <div className="ml-auto flex gap-1">
         {!inactive && onResend && !code.sent_to_customer && (
           <button onClick={() => onResend(code)}
-            title="Uvolní všechny zadržené kódy rezervace (kromě držených výměnou motorky) a pošle zákazníkovi zprávu v aplikaci, SMS/WhatsApp i e-mail s kódy — jako automatické uvolnění po dokladech."
+            title="Ruční uvolnění: uvolní všechny zadržené kódy rezervace (kromě držených výměnou motorky) a hned je pošle zákazníkovi (zpráva v aplikaci, SMS/WhatsApp, e-mail). Při neúplných dokladech se Velín zeptá na potvrzení, že je obsluha ověřila osobně — zapíše se do auditu."
             className="rounded-btn text-[10px] max-lg:text-[12px] max-lg:min-h-[36px] max-lg:!px-3 font-bold cursor-pointer border-none"
             style={{ padding: '2px 8px', background: '#dbeafe', color: '#2563eb' }}>
             Odeslat

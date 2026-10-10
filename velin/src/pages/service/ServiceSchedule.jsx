@@ -113,6 +113,8 @@ export default function ServiceSchedule({ onRefresh }) {
                   ) : (
                     <span className="cursor-pointer max-lg:inline-flex max-lg:items-center max-lg:gap-1 max-lg:min-h-[36px] max-lg:-my-2.5 max-lg:pl-3" onClick={() => { setEditing(r.schedule_id); setDateVal(r.planned_date || isoDateOf(r.est_date) || '') }} title="Klikněte pro ruční termín">
                       {r.planned_date ? <b style={{ color: '#2563eb' }}>{fmtDate(r.planned_date)}</b> : r.est_date ? <>{fmtDate(r.est_date)} <span style={{ fontSize: 10, color: '#6b7280' }} title={`odhad z Ø ${r.avg_daily_km} ${unit}/den`}>~</span></> : '—'}
+                      {/* dotyk nemá hover/title → viditelná ikonka úpravy (klik probublá na span → editor); desktop beze změny */}
+                      <button type="button" className="lg:hidden text-base font-bold cursor-pointer px-1.5 py-1 leading-none" style={{ color: '#2563eb', background: 'none', border: 'none' }} aria-label="Upravit ruční termín">✎</button>
                       {r.planned_date && <button onClick={e => { e.stopPropagation(); saveDate(r, null) }} className="ml-1 text-xs cursor-pointer max-lg:text-base max-lg:px-2 max-lg:py-1" style={{ color: '#6b7280', background: 'none', border: 'none' }} title="Zrušit ruční termín">↺</button>}
                     </span>
                   )}

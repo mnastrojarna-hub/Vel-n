@@ -37,11 +37,25 @@ export function isRealizedBooking(b: Record<string, any>): boolean {
   return !!b && b.status !== 'cancelled' && b.is_test !== true && PAID_BOOKING_STATUSES.includes(b.payment_status)
 }
 
+// Pobočka rezervace = bookings.branch_id (kde zákazník převzal; DB triggery 20261010b — do vyzvednutí jde
+// s motorkou, pak zmrazená). U NULL (před doběhnutím migrace) záloha na AKTUÁLNÍ pobočku motorky.
+// deno-lint-ignore no-explicit-any
+export function bookingBranchOf(b: Record<string, any>, motoBranchMap: Record<string, any>): string | null {
+  return b?.branch_id || motoBranchMap[b?.moto_id] || null
+}
+// .or() filtr „rezervace pobočky“ se zálohou přes motorky pobočky (moto_id IN) u NULL branch_id
+export function branchBookingsOr(branchId: string, motoIds: string[]): string {
+  const nil = '00000000-0000-0000-0000-000000000000'
+  const bid = /^[0-9a-f-]{36}$/i.test(String(branchId)) ? branchId : nil   // vstup od AI → jen UUID do filtru
+  const ids = motoIds.length ? motoIds.join(',') : nil
+  return `branch_id.eq.${bid},and(branch_id.is.null,moto_id.in.(${ids}))`
+}
+
 export async function fetchAnalyticsRawData(sb: SB, months: number) {
   const since = new Date()
   since.setMonth(since.getMonth() - months)
   const [bRes, mRes, lRes, pRes] = await Promise.all([
-    sb.from('bookings').select('id, user_id, moto_id, start_date, end_date, total_price, status, created_at, booking_source, rating, payment_status, is_test').gte('created_at', since.toISOString()).eq('is_test', false),
+    sb.from('bookings').select('id, user_id, moto_id, branch_id, start_date, end_date, total_price, status, created_at, booking_source, rating, payment_status, is_test').gte('created_at', since.toISOString()).eq('is_test', false),
     sb.from('motorcycles').select('id, model, brand, category, branch_id, status, purchase_price, mileage'),
     sb.from('branches').select('id, name, city, type'),
     sb.from('profiles').select('id, full_name, email, city, license_group, riding_experience, created_at, is_test_account').eq('is_test_account', false),

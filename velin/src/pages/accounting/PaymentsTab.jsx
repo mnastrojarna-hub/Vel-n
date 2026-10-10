@@ -120,7 +120,7 @@ export default function PaymentsTab() {
                   </TD>
                 </tr>
               ))}
-              {list.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="">Žádné platby</TD></tr>}
+              {list.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="" colSpan={8}>Žádné platby</TD></tr>}
             </tbody>
           </Table>
         )}

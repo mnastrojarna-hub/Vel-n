@@ -4,6 +4,7 @@ import { debugAction } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
+import ShopOrderTotalsMobile from './ShopOrderTotalsMobile'
 
 const STATUS_LABELS = { new: 'Nová', confirmed: 'Potvrzeno', processing: 'Zpracovává se', shipped: 'Odesláno', delivered: 'Doručeno', cancelled: 'Zrušeno', returned: 'Vráceno', refunded: 'Refundováno' }
 const STATUS_COLORS = { new: { bg: '#dbeafe', color: '#2563eb' }, confirmed: { bg: '#dcfce7', color: '#1a8a18' }, processing: { bg: '#fef3c7', color: '#b45309' }, shipped: { bg: '#e0e7ff', color: '#4338ca' }, delivered: { bg: '#dcfce7', color: '#15803d' }, cancelled: { bg: '#fee2e2', color: '#dc2626' }, returned: { bg: '#fef3c7', color: '#92400e' }, refunded: { bg: '#f3f4f6', color: '#1a2e22' } }
@@ -11,7 +12,7 @@ const PAYMENT_LABELS = { pending: 'Nezaplaceno', paid: 'Zaplaceno', refunded: 'V
 const PAYMENT_COLORS = { pending: { bg: '#fee2e2', color: '#dc2626' }, paid: { bg: '#dcfce7', color: '#1a8a18' }, refunded: { bg: '#f3f4f6', color: '#1a2e22' }, failed: { bg: '#fee2e2', color: '#dc2626' } }
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
-const H = 'mg-hide-phone' // buňka skrytá v kartovém zobrazení na telefonu
+const H = 'mg-hide-phone' // skryté v kartovém zobrazení na telefonu (< 768 px)
 function Label({ children }) { return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label> }
 function Input({ value, onChange, placeholder }) { return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /> }
 
@@ -303,20 +304,23 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
           <div className="text-xs mt-1" style={{ color: '#166534' }}>Kódy + notifikace odeslány zákazníkovi do aplikace automaticky.</div>
         </div>
       )}
-      {loading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div> : (
-        // stack = karty na telefonu; prázdné buňky a popisky součtů se tam skryjí (mg-hide-phone), částka nese vlastní popisek
+      {loading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div> : (<>
+        {/* stack = karty na telefonu; řádky součtů (2. tbody) se tam skryjí a nahradí je jeden blok ShopOrderTotalsMobile */}
         <Table stack>
           <thead><TRow header><TH>Produkt</TH><TH>SKU</TH><TH>Množství</TH><TH>Cena/ks</TH><TH>Celkem</TH></TRow></thead>
           <tbody>
             {items.map(it => <TRow key={it.id}><TD bold>{it.product_name}</TD><TD mono>{it.product_sku || '—'}</TD><TD>{it.quantity}</TD><TD>{fmt(it.unit_price)}</TD><TD bold>{fmt(it.total_price)}</TD></TRow>)}
             {items.length === 0 && <TRow><TD colSpan={5} label="">Žádné položky</TD></TRow>}
-            <TRow><TD className={H} /><TD className={H} /><TD className={H} /><TD bold className={H}>Mezisoučet:</TD><TD bold label="Mezisoučet">{fmt(order.subtotal)}</TD></TRow>
-            {Number(order.shipping_cost) > 0 && <TRow><TD className={H} /><TD className={H} /><TD className={H} /><TD className={H}>Doprava:</TD><TD label="Doprava">{fmt(order.shipping_cost)}</TD></TRow>}
-            {Number(order.discount) > 0 && <TRow><TD className={H} /><TD className={H} /><TD className={H} /><TD className={H}>Sleva:</TD><TD label="Sleva" style={{ color: '#dc2626' }}>-{fmt(order.discount)}</TD></TRow>}
-            <TRow><TD className={H} /><TD className={H} /><TD className={H} /><TD bold className={H} style={{ fontSize: 14 }}>Celkem:</TD><TD bold label="Celkem" style={{ fontSize: 14 }}>{fmt(order.total)}</TD></TRow>
+          </tbody>
+          <tbody className={H}>
+            <TRow><TD /><TD /><TD /><TD bold>Mezisoučet:</TD><TD bold>{fmt(order.subtotal)}</TD></TRow>
+            {Number(order.shipping_cost) > 0 && <TRow><TD /><TD /><TD /><TD>Doprava:</TD><TD>{fmt(order.shipping_cost)}</TD></TRow>}
+            {Number(order.discount) > 0 && <TRow><TD /><TD /><TD /><TD>Sleva:</TD><TD style={{ color: '#dc2626' }}>-{fmt(order.discount)}</TD></TRow>}
+            <TRow><TD /><TD /><TD /><TD bold style={{ fontSize: 14 }}>Celkem:</TD><TD bold style={{ fontSize: 14 }}>{fmt(order.total)}</TD></TRow>
           </tbody>
         </Table>
-      )}
+        <ShopOrderTotalsMobile order={order} fmt={fmt} />
+      </>)}
       {order.notes && <div className="mt-3 p-3 rounded-btn text-sm" style={{ background: '#f1faf7', color: '#1a2e22' }}><strong>Poznámky:</strong> {order.notes}</div>}
       <div className="flex justify-end gap-2 mt-5 flex-wrap">
         {order.payment_status === 'pending' && <Button onClick={() => updatePayment('paid')} disabled={updating}>Zaplaceno</Button>}

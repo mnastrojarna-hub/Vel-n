@@ -11,7 +11,10 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
   if (!booking.sos_replacement && !booking.ended_by_sos && sosIncidents.length === 0) return null
   const SOS_TYPE_LABELS = { theft: 'Krádež', accident_minor: 'Lehká nehoda', accident_major: 'Těžká nehoda', breakdown_minor: 'Lehká porucha', breakdown_major: 'Těžká porucha', defect_question: 'Dotaz na závadu', location_share: 'Sdílení polohy', other: 'Jiné' }
   const SOS_STATUS_LABELS = { reported: 'Nahlášeno', acknowledged: 'Přijato', in_progress: 'Řeší se', resolved: 'Vyřešeno', closed: 'Uzavřeno' }
-  const SOS_SEVERITY_COLORS = { critical: { bg: '#dc2626', color: '#fff' }, high: { bg: '#f97316', color: '#fff' }, medium: { bg: '#f59e0b', color: '#fff' }, low: { bg: '#6b7280', color: '#fff' } }
+  // Pozor: klíč musí být `background` (dřív `bg` → React ho ignoroval a pilulka byla bílý text bez pozadí).
+  // Odstíny ztmavené tak, aby bílý text drobného písma byl čitelný (kontrast ≥ 4.5:1); neznámá závažnost = neutrální šedá s tmavým textem.
+  const SOS_SEVERITY_COLORS = { critical: { background: '#dc2626', color: '#fff' }, high: { background: '#c2410c', color: '#fff' }, medium: { background: '#b45309', color: '#fff' }, low: { background: '#6b7280', color: '#fff' } }
+  const SOS_SEVERITY_FALLBACK = { background: '#e5e7eb', color: '#1f2937' }
   const SOS_DECISION_LABELS = { replacement_moto: 'Náhradní motorka', end_ride: 'Ukončení jízdy + odtah', continue: 'Pokračuje v jízdě', waiting: 'Čeká na rozhodnutí' }
   const inc = sosIncidents[0]
   const rd = inc?.replacement_data || {}
@@ -40,7 +43,7 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
                 {SOS_STATUS_LABELS[inc.status] || inc.status}
               </span>
             } />
-            {inc.severity && <InfoRow label="Závažnost" value={<span className="inline-block rounded-full text-xs font-extrabold" style={{ padding: '2px 10px', ...(SOS_SEVERITY_COLORS[inc.severity] || { bg: '#6b7280', color: '#fff' }) }}>{inc.severity.toUpperCase()}</span>} />}
+            {inc.severity && <InfoRow label="Závažnost" value={<span className="inline-block rounded-full text-xs font-extrabold" style={{ padding: '2px 10px', ...(SOS_SEVERITY_COLORS[inc.severity] || SOS_SEVERITY_FALLBACK) }}>{inc.severity.toUpperCase()}</span>} />}
             {inc.customer_decision && <InfoRow label="Rozhodnutí zákazníka" value={SOS_DECISION_LABELS[inc.customer_decision] || inc.customer_decision} />}
             <InfoRow label="Zavinění" value={inc.customer_fault === true ? '⚠️ Zákazník' : inc.customer_fault === false ? '✅ Nezaviněno' : '—'} />
             <InfoRow label="Nahlášeno" value={inc.created_at ? new Date(inc.created_at).toLocaleString('cs-CZ') : '—'} />
@@ -185,7 +188,8 @@ const OWN_GEAR_REASON = 'Vlastní výbava'
 // `gateCode` = kód schránky s klíčem od vjezdové brány pobočky motorky (branch_gate_access, 2026-10-04) — jen pobočka
 // s bránou; pak pořadí jako u zákazníka: brána → šatna → motorka. Bez brány beze změny (motorka, šatna).
 // `extra` = obsah na konec karty (krátkodobé kódy TempCodesList, 2026-10-06).
-export function DoorCodesSection({ doorCodes, booking, gateCode = null, extra = null }) {
+// `docsGate` = backendová brána dokladů (get_docs_gate_checklist, načítá DetailTab jen při odeslaném kódu).
+export function DoorCodesSection({ doorCodes, booking, gateCode = null, docsGate = null, extra = null }) {
   const b = booking || {}
   // Přednost aktivní a nejnovější řádek — po změně motorky zůstávají v DB staré neaktivní kódy
   const motoCode = pickDoorCode(doorCodes, 'motorcycle')
@@ -198,6 +202,8 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null, extra = 
   const forState = liveCodes.length ? liveCodes : doorCodes
   const allSent = forState.every(c => c.sent_to_customer)
   const withheld = forState.find(c => c.withheld_reason && c.withheld_reason !== OWN_GEAR_REASON)?.withheld_reason
+  // Kódy už odešly, ale doklady podle aktuálního pravidla nejsou kompletní (kódy platí dál — vidět to musí obsluha)
+  const docsIncomplete = liveCodes.length > 0 && allSent && docsGate?.ok === false
   // Stav předávacího protokolu (hradlo kódu motorky na displeji pobočky) — sloupce z migrace 20260925.
   // Hradlo má jen SAMOOBSLUŽNÁ pobočka (motorcycles.branches.type); na obslužné kódy vznikají také,
   // ale protokol podepisuje obsluha → „Čeká na protokol“ tam nesvítí.
@@ -233,9 +239,10 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null, extra = 
           {motoCode?.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dbeafe', color: '#2563eb' }}>Aktivní</span>}
           {motoCode && !motoCode.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#f3f4f6', color: '#6b7280' }}>Neaktivní</span>}
           {withheld && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#b45309' }}>Zadrzeno: {withheld}</span>}
+          {docsIncomplete && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626' }} title="Kódy už zákazník dostal a zůstávají platné, ale doklady podle aktuální kontroly nejsou kompletní — doplňte je (Dokumenty / detail zákazníka → Nahrát doklady).">Doklady neúplné: {docsGate.reason || 'doklady chybí'}</span>}
           {signed && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dcfce7', color: '#1a8a18' }} title={selfService ? 'Předávací protokol je podepsaný — kód motorky kóji otevře. PDF je v Dokumentech.' : 'Předávací protokol je podepsaný (odbavení obsluhou). PDF je v Dokumentech.'}>📝 Protokol podepsán {dt(signed)}</span>}
           {releaseAt && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#92400e' }} title={`Rezervace má slevu za vyzvednutí od 12:00 — kód šatny i motorky kiosk přijme až ${fmtPragueDateTime(releaseAt)} (dřív ukáže hlášku a výzvu k úpravě času vyzvednutí). Dřívější čas vyzvednutí = sleva zanikne, rozdíl se doplatí a kód platí hned.`}>{LATE_PICKUP_KIOSK_CHIP}</span>}
-          {awaitsProtocol && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#ede9fe', color: '#6d28d9' }} title="Kód motorky se na displeji ověří, ale kóje se otevře až po podpisu předávacího protokolu — na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky) nebo v aplikaci.">📝 Čeká na protokol</span>}
+          {awaitsProtocol && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#ede9fe', color: '#6d28d9' }} title="Kód motorky se na displeji ověří, ale kóje se otevře až po podpisu předávacího protokolu na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky).">📝 Čeká na protokol</span>}
         </div>
         {(b.gear_collected_at || (b.handover_protocol_prompted_at && !signed)) && (
           <div className="text-xs mt-2" style={{ color: '#4a5a52' }}>
@@ -297,7 +304,8 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
   const hasModification = booking.original_start_date && booking.original_end_date &&
     (_ld(booking.start_date) !== _ld(booking.original_start_date) || _ld(booking.end_date) !== _ld(booking.original_end_date))
 
-  const branchName = booking.motorcycles?.branches?.name
+  // Pobočka rezervace (bookings.branch_id = kde zákazník převzal), u NULL pobočka motorky — lib/bookingBranch.js effBranch
+  const branchName = (booking.branch || booking.motorcycles?.branches)?.name
   const pickupExtra = findFeeExtra(bookingExtras, 'pickup')
   const returnExtra = findFeeExtra(bookingExtras, 'return')
   const pickupFee = feeAmount(pickupExtra)

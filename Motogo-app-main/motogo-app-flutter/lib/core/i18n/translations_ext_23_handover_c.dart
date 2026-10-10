@@ -4,7 +4,7 @@ const Map<String, Map<String, String>> translationsExt23HandoverC = {
   'pl': {
     'lockerCode': 'Kod szatni',
     'motoCode': 'Kod motocykla',
-    'protocolFirst': 'Najpierw podpisz protokół zdawczo-odbiorczy',
+    'protocolFirst': 'Najpierw podpisz protokół zdawczo-odbiorczy na wyświetlaczu oddziału',
     'ownGearNoLocker': 'Własne wyposażenie — bez kodu szatni',
     'protocolSignedToast': 'Protokół podpisany. Teraz wystarczy wpisać kod motocykla na wyświetlaczu oddziału.',
     'protocolSignedElsewhere': 'Protokół został już podpisany — na wyświetlaczu oddziału lub na innym urządzeniu.',
@@ -67,7 +67,7 @@ const Map<String, Map<String, String>> translationsExt23HandoverC = {
   'uk': {
     'lockerCode': 'Код роздягальні',
     'motoCode': 'Код мотоцикла',
-    'protocolFirst': 'Спочатку підпишіть акт приймання-передачі',
+    'protocolFirst': 'Спочатку підпишіть акт приймання-передачі на дисплеї філії',
     'ownGearNoLocker': 'Власне екіпірування — без коду роздягальні',
     'protocolSignedToast': 'Акт підписано. Тепер лише введіть код мотоцикла на дисплеї відділення.',
     'protocolSignedElsewhere': 'Акт уже підписано — на дисплеї відділення або на іншому пристрої.',

@@ -10,6 +10,7 @@ import '../../core/supabase_client.dart';
 import '../auth/auth_provider.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../booking/booking_models.dart';
+import '../booking/self_service_gear.dart';
 import '../booking/booking_validator.dart';
 import '../booking/widgets/address_picker.dart';
 import '../catalog/moto_model.dart';
@@ -539,6 +540,26 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _passengerPantsSize == null &&
         _passengerGlovesSize == null) {
       missing.add(t(context).tr('gearPassenger'));
+    }
+    // Samoobslužná pobočka (zadání majitele 2026-10-10): helma S–3XL, bunda,
+    // kalhoty a rukavice max 4XL — výběr nabízí jen tyto řady. Starší uložená
+    // velikost mimo rozsah (5XL/6XL, helma XS) se při načtení NEmění (jinak by
+    // se rozsvítila změna); uložení zamkne, jen když zákazník danou výbavu
+    // měnil nebo přešel motorkou na samoobslužnou pobočku. Dětská výbava
+    // a rukavice spolujezdce (tady se nevybírají) se nekontrolují.
+    if (_effBranchType == selfServiceBranchType) {
+      final movedIn = b.branchType != selfServiceBranchType;
+      bool off(String type, String? s) => !selfServiceSizeAllowed(type, s);
+      final riderOff = b.motoLicenseRequired != 'N' && !_ownGear &&
+          (riderTouched || movedIn) &&
+          (off('helmet', _helmetSize) || off('jacket', _jacketSize) ||
+              off('pants', _pantsSize) || off('gloves', _glovesSize));
+      final passengerOff = _selectedExtras.contains('spolujezdec') &&
+          (passengerTouched || movedIn) &&
+          (off('helmet', _passengerHelmetSize) ||
+              off('jacket', _passengerJacketSize) ||
+              off('pants', _passengerPantsSize));
+      if (riderOff || passengerOff) missing.add(t(context).tr('gearSizeSelfServiceLimit'));
     }
     return missing;
   }
@@ -1398,6 +1419,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               pickupMethod: _pickupMethod,
               returnMethod: _returnMethod,
               isKids: _booking!.motoLicenseRequired == 'N',
+              selfService: _effBranchType == selfServiceBranchType,
               ownGear: _ownGear,
               loyaltyLevel: _appOnlyLevel(
                   ref.watch(loyaltyStatusProvider).valueOrNull?.level ?? 0),

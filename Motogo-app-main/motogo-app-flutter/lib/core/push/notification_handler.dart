@@ -119,7 +119,8 @@ class NotificationHandler {
         if (id != null) context.push('/reservations/$id');
         break;
       case 'handover_protocol':
-        // Předávací protokol (samoobslužná) → detail rezervace (banner + tlačítko)
+        // Předávací protokol (samoobslužná) → detail rezervace; vyplňuje se
+        // jen na displeji pobočky, podepsané PDF je v dokumentech rezervace.
         if (id != null) context.push('/reservations/$id');
         break;
       case 'door_codes':

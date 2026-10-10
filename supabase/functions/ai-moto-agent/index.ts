@@ -203,7 +203,7 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
           const typ = b.type === 'samoobslužná'
             ? 'SAMOOBSLUŽNÁ (výdej i vrácení 24/7 přístupovým kódem)'
             : b.type === 'obslužná'
-              ? 'OBSLUŽNÁ (motorku předává a přebírá OBSLUHA osobně; čas dle domluvy. Přístupové kódy z e-mailu tu zákazník dostává TAKÉ a nejsou omyl — neotvírají dveře, slouží jako IDENTIFIKACE: nahlásí je obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není povinný, ale doporučuje se — urychlí odbavení)'
+              ? 'OBSLUŽNÁ (motorku předává a přebírá OBSLUHA osobně; čas dle domluvy. Přístupové kódy z e-mailu tu zákazník dostává TAKÉ a nejsou omyl — neotvírají dveře, slouží jako IDENTIFIKACE: nahlásí je obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), doporučuje se ale — urychlí odbavení)'
               : 'typ neuveden — režim výdeje ověř přes get_branches, netvrď samoobsluhu'
           return `${i + 1}. **${b.name || addr || 'pobočka'}** — ${addr || 'adresa přes get_branches'} — ${typ}${b.has_gate === true ? `; ${GATE_BRANCH_NOTE_CS}` : ''}${b.notes ? `; pozn.: ${b.notes}` : ''}`
         })

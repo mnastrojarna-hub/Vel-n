@@ -8,7 +8,8 @@ import DocsPillsTouch from './DocsPillsTouch'
 import CheckInModal from './CheckInModal'
 import SwapModal from './SwapModal'
 import { shortBranchName } from './BranchChips'
-import { useIsMobile } from '../../hooks/useIsMobile'
+import { effBranchId, effBranch, BOOKING_BRANCH_EMBED } from '../../lib/bookingBranch'
+import { useIsMobile, useMediaQuery } from '../../hooks/useIsMobile'
 import { revealBelowOnMobile } from './bookingsMobileScroll'
 
 // Odjezdy (vyzvednutí) a návraty (vrácení) — události seřazené podle data a času,
@@ -67,8 +68,8 @@ function detectSwapPairs(bookings) {
       for (const b of list) {
         if (a.id === b.id || a.moto_id === b.moto_id) continue
         if (dateOnly(b.start_date) !== nextIso) continue
-        if (a.motorcycles?.branches?.type !== 'obslužná') continue
-        if (b.motorcycles?.branches?.type !== 'obslužná') continue
+        if (effBranch(a)?.type !== 'obslužná') continue
+        if (effBranch(b)?.type !== 'obslužná') continue
         pairs[b.id] = a
       }
     }
@@ -83,6 +84,10 @@ const NAV_TOUCH = 'max-lg:min-h-[40px] max-lg:min-w-[44px]'
 // Tablet (768–1023 px): dvouřádkové karty (dense) ve 2 sloupcích — jednořádkový řádek tam ořezával
 // motorku, SPZ i zákazníka. Mezera 1 px s podkladem = dělicí čáry mřížky. Desktop beze změny.
 const DENSE_GRID = ' md:max-lg:grid md:max-lg:grid-cols-2 md:max-lg:gap-px md:max-lg:bg-[#eef5f1]'
+// Úzký desktop (1024–1439 px) v režimu „⇆ Rozdělit“: půlka šířky na jednořádkový řádek nestačí
+// (motorka a zákazník oříznuté na 0 px, „Odbavit“ za okrajem karty) → stejné dvouřádkové karty
+// jako na mobilu/tabletu. Od 1440 px beze změny.
+const SPLIT_DENSE_QUERY = '(max-width: 1439px)'
 
 // odjezd = vyzvednutí (zákazník odjíždí na motorce), návrat = vrácení.
 // Ikona = šipka: odjezd ➡️ (ven), návrat ⬅️ (zpět na pobočku).
@@ -118,7 +123,7 @@ function pickupDone(b, protocolIds) {
   if (!!b.picked_up_at || b.status === 'active' || b.status === 'completed') return true
   // Samoobslužná pobočka (2026-09-28): zákazník podepisuje protokol PŘED zadáním kódu
   // motorky — samotný podpis převzetí neznamená („Vydáno" = kód + protokol).
-  if (b.motorcycles?.branches?.type === 'samoobslužná') return false
+  if (effBranch(b)?.type === 'samoobslužná') return false
   return !!b.handover_protocol_filled_at || protocolIds?.has(b.id)
 }
 function returnDone(b) {
@@ -132,14 +137,15 @@ function buildEvents(bookings, protocolIds, swapPairs) {
   // (v datu/čase startu nové rezervace). Vrácení staré řeší přímo SwapModal.
   const predIds = swapPairs ? new Set(Object.values(swapPairs).map(a => a.id)) : new Set()
   for (const b of bookings) {
-    const branch = b.motorcycles?.branches?.name || null
+    // Pobočka rezervace (bookings.branch_id; aktivní = kde převzal), u NULL pobočka motorky
+    const branch = effBranch(b)?.name || null
     const base = {
       booking: b,
       customer: b.profiles?.full_name || 'Zákazník',
       moto: b.motorcycles?.model || '—',
       spz: b.motorcycles?.spz || null,
       branch,
-      branchType: b.motorcycles?.branches?.type || null,
+      branchType: effBranch(b)?.type || null,
       // Odjezd vyřízen (i protokolem/aktivací) + nejlepší známý čas vyzvednutí pro
       // pravidlo „návrat nejdříve 2 h po vyzvednutí".
       pickupDone: pickupDone(b, protocolIds),
@@ -232,6 +238,8 @@ function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans, sh
       <div onClick={onClick} className="cursor-pointer hover:bg-[#e9f7f1] transition-colors md:max-lg:!border-b-0" style={wrap}>
         <div className="flex items-center gap-2">
           {typeTag}
+          {/* stav jako u jednořádkového řádku (od 1280 px) — jen „⇆ Rozdělit“ na úzkém desktopu, mobil beze změny */}
+          {showStatus && <span className="shrink-0 hidden xl:inline"><StatusBadge status={getDisplayStatus(ev.booking)} /></span>}
           <span className="ml-auto text-sm"><TimeCell ev={ev} t={t} /></span>
         </div>
         <div className="font-extrabold text-sm mt-1 truncate" style={{ color: '#0f1a14' }}>{ev.moto}{ev.spz ? ` · ${ev.spz}` : ''}</div>
@@ -287,6 +295,7 @@ function EventList({ events, onOpen, limit, showStatus, onCheckIn, onSwap, scans
 export default function PickupsReturns({ compact = false, onExpand, branchId }) {
   const navigate = useNavigate()
   const isMobile = useIsMobile() // mobil/tablet → události jako dvouřádkové karty (dense)
+  const splitDense = useMediaQuery(SPLIT_DENSE_QUERY) // „⇆ Rozdělit“ do 1439 px → dvouřádkové karty
   const dayDetailRef = useRef(null) // detail dne v kalendáři — na mobilu pod kalendářem
   const [bookings, setBookings] = useState([])
   const [branches, setBranches] = useState([])
@@ -310,7 +319,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
   async function loadData() {
     setLoading(true)
     const { data } = await supabase.from('bookings')
-      .select('id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, handover_protocol_filled_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, ended_by_sos, profiles(full_name, id_number, license_number, id_verified_at, license_verified_at, passport_verified_at), motorcycles!moto_id(model, spz, branch_id, license_required, branches(name, type))')
+      .select(`id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, handover_protocol_filled_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, branch_id, ended_by_sos, ${BOOKING_BRANCH_EMBED}, profiles(full_name, id_number, license_number, id_verified_at, license_verified_at, passport_verified_at), motorcycles!moto_id(model, spz, branch_id, license_required, branches(name, type))`)
       .in('status', ['reserved', 'active', 'pending'])
       // Nezaplacené rezervace (unpaid) se v odjezdech a návratech nezobrazují —
       // dokud zákazník nezaplatí, není co odbavovat.
@@ -334,7 +343,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
 
   const activeBranch = branchId !== undefined ? branchId : branchFilter
   const filtered = useMemo(
-    () => (activeBranch ? bookings.filter(b => b.motorcycles?.branch_id === activeBranch) : bookings),
+    () => (activeBranch ? bookings.filter(b => effBranchId(b) === activeBranch) : bookings),
     [bookings, activeBranch]
   )
   const swapPairs = useMemo(() => detectSwapPairs(bookings), [bookings])
@@ -431,7 +440,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.pickup.color }}>Odjezdy (vyzvednutí)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#dcfce7', color: '#15803d', padding: '1px 9px' }}>{upcomingPickups.length}</span>
               </div>
-              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense={isMobile} />
+              <EventList events={upcomingPickups} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} onSwap={setSwapEvent} scans={scanStatus} showBranch={branchId === ''} dense={isMobile || splitDense} />
             </Card>
             <Card style={{ padding: 14 }}>
               <div className="flex items-center gap-2 mb-3">
@@ -439,7 +448,7 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
                 <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: TYPE.return.color }}>Návraty (vrácení)</h3>
                 <span className="inline-block rounded-full text-sm font-extrabold ml-auto" style={{ background: '#fef3c7', color: '#b45309', padding: '1px 9px' }}>{upcomingReturns.length}</span>
               </div>
-              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} showBranch={branchId === ''} dense={isMobile} />
+              <EventList events={upcomingReturns} onOpen={openBooking} showStatus onCheckIn={setCheckInEvent} scans={scanStatus} showBranch={branchId === ''} dense={isMobile || splitDense} />
             </Card>
           </div>
         ) : (

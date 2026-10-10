@@ -252,7 +252,7 @@ function AccountingEntriesTable({ transactions, setDetailTx, fmt }) {
               <TD mono>{t.booking_id ? t.booking_id.slice(-8).toUpperCase() : '\u2014'}</TD>
             </tr>
           ))}
-          {transactions.length === 0 && <TRow><TD label="">Zadne transakce</TD></TRow>}
+          {transactions.length === 0 && <TRow><TD label="" colSpan={6}>Zadne transakce</TD></TRow>}
         </tbody>
       </Table>
     </Card>

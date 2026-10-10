@@ -103,6 +103,23 @@ async def _verify_code(hm: "HandoverManager", booking_id: str, code: str | None,
     return None, {"error": "code_mismatch"}
 
 
+def _restore_declined_sizes(form: dict, data: Any) -> None:
+    """Nepřevzatá objednaná položka (`checked: false`, ne `added`) nese do dokumentu PŮVODNÍ velikost z rezervace —
+    displej ji ukazuje posunutou do rozsahu samoobsluhy (gear_limits.clamp, 2026-10-10), PDF ale má říct, co bylo
+    objednáno (edge sloupec stejně NULLuje). Mění jen kopii formuláře."""
+    acc = form.get("accessories")
+    gear = data.get("gear") if isinstance(data, dict) else None
+    if not isinstance(acc, list) or not isinstance(gear, list):
+        return
+    booked = {str(g.get("field")): g.get("size") for g in gear if isinstance(g, dict) and g.get("field")}
+    out = []
+    for a in acc:
+        if isinstance(a, dict) and a.get("checked") is False and not a.get("added") and booked.get(str(a.get("field"))):
+            a = {**a, "size": booked[str(a.get("field"))]}
+        out.append(a)
+    form["accessories"] = out
+
+
 async def submit(hm: "HandoverManager", booking_id: str, form: Any, signature: Any, code: str | None,
                  source: str = "ui") -> dict:
     """`POST /api/protocol/submit` → `{ok, status: saved|queued|already_filled, opened|null, error}`
@@ -129,6 +146,7 @@ async def submit(hm: "HandoverManager", booking_id: str, form: Any, signature: A
     hm.inflight.add(bid)
     hm.lock.touch(bid)                # podpis = aktivita zamčené rezervace (kdyby se kóje po podpisu neotevřela)
     form = dict(form) if isinstance(form, dict) else {}
+    _restore_declined_sizes(form, item.data)
     om = getattr(hm.ctrl, "odometer", None)       # km převzetí určuje jednotka, ne prohlížeč (rozhodnutí 2026-09-29)
     km = om.pickup_mileage(item.data, item.moto_id) if om is not None else None
     if km is not None:

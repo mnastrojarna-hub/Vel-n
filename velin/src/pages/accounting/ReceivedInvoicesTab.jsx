@@ -409,7 +409,7 @@ export default function ReceivedInvoicesTab() {
                   </Fragment>
                 )
               })}
-              {invoices.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="">Žádné přijaté faktury</TD></tr>}
+              {invoices.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="" colSpan={11}>Žádné přijaté faktury</TD></tr>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

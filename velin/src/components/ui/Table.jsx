@@ -38,10 +38,13 @@ export function TH({ children, className = '' }) {
 }
 
 // className / label = jen pro kartové zobrazení na telefonu (mg-stack-full, mg-hide-phone, vlastní popisek).
-export function TD({ children, bold = false, color, mono = false, className, label, onClick }) {
+// onClick / style / colSpan se předávají na <td> (dřív se tiše zahazovaly — např. červené částky
+// dobropisů, prázdný řádek přes celou šířku, klik na buňku).
+export function TD({ children, bold = false, color, mono = false, className, label, onClick, style, colSpan }) {
   return (
     <td
       onClick={onClick}
+      colSpan={colSpan}
       className={className}
       data-label={label}
       style={{
@@ -50,6 +53,7 @@ export function TD({ children, bold = false, color, mono = false, className, lab
         fontWeight: bold ? 700 : 500,
         color: color || '#0f1a14',
         fontFamily: mono ? 'monospace' : 'inherit',
+        ...style,
       }}
     >
       {children}

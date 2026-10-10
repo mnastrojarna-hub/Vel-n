@@ -157,11 +157,12 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
   /// krok výbavy skrývá) — základní výbava řidiče se u něj nevyžaduje.
   /// Returns a human-readable list of missing items — empty list means OK.
   List<String> _missingGearSizes(BuildContext context, BookingDraft d,
-      {required bool kids, bool trailer = false}) {
+      {required bool kids, bool trailer = false, bool selfService = false}) {
     final missing = <String>[];
-    // jen velikost z nabízené řady (dětská ↔ dospělá) — jinou formulář neukáže, zákazník ji nevybral
+    // jen velikost z nabízené řady (dětská ↔ dospělá, samoobsluha) — jinou formulář neukáže, zákazník ji nevybral
     bool none(String type, String? s) =>
-        s == null || s.trim().isEmpty || !gearSizesFor(type, kids: kids).contains(s);
+        s == null || s.trim().isEmpty ||
+        !gearSizesFor(type, kids: kids, selfService: selfService).contains(s);
     if (!trailer && !d.ownGear && none('helmet', d.helmetSize) && none('jacket', d.jacketSize) &&
         none('pants', d.pantsSize) && none('gloves', d.glovesSize)) {
       missing.add(t(context).tr('gearBasicPickOne'));
@@ -364,7 +365,8 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
     final hasDates = draft.startDate != null && draft.endDate != null;
     final dc = hasDates ? draft.dayCount : 0;
     final isKids = moto.licenseRequired == 'N';
-    // Samoobslužná pobočka vozík nevydává (výdej 24/7 kódem, bez obsluhy).
+    // Samoobslužná pobočka vozík nevydává (výdej 24/7 kódem, bez obsluhy)
+    // a má užší řady velikostí výbavy (helma S–3XL, ostatní max 4XL).
     final selfService = moto.branchType == 'samoobslužná';
     // Vozík zbylý z dříve vybrané motorky z OBSLUŽNÉ pobočky — jinak by se
     // skrytá dlaždice propsala do rezervace a DB ji odmítla
@@ -439,10 +441,12 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
             ));
       });
     }
-    // Velikost řidiče mimo nabízenou řadu (předvyplněná z profilu po dětské ↔ dospělé motorce)
-    // formulář neukáže → vynulovat, ať se neuloží velikost, kterou zákazník neviděl (2026-10-05).
+    // Velikost řidiče mimo nabízenou řadu (předvyplněná z profilu po dětské ↔ dospělé motorce,
+    // na samoobsluze helma XS / 5XL+ — 2026-10-10) formulář neukáže → vynulovat, ať se
+    // neuloží velikost, kterou zákazník neviděl (2026-10-05).
     bool offList(String type, String? s) =>
-        s != null && s.trim().isNotEmpty && !gearSizesFor(type, kids: isKids).contains(s);
+        s != null && s.trim().isNotEmpty &&
+        !gearSizesFor(type, kids: isKids, selfService: selfService).contains(s);
     if (offList('helmet', draft.helmetSize) || offList('jacket', draft.jacketSize) ||
         offList('pants', draft.pantsSize) || offList('gloves', draft.glovesSize)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -454,8 +458,8 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
             ));
       });
     }
-    final missingSizes =
-        _missingGearSizes(context, draft, kids: isKids, trailer: moto.isTrailer);
+    final missingSizes = _missingGearSizes(context, draft,
+        kids: isKids, trailer: moto.isTrailer, selfService: selfService);
     // „Na pobočce“ u samoobsluhy = adresa pobočky VYBRANÉ motorky z DB
     // (kus v Brně se vydává tam); obslužná pobočka má text beze změny.
     final String? branchLabel = selfServiceBranchLabel(

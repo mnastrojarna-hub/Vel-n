@@ -319,6 +319,9 @@ function i18nDictionary() {
     };
     $loadLang = function ($code) use ($loadFile) {
         $base = $loadFile(__DIR__ . '/lang/' . $code . '.php');
+        // Doplňkové klíče brány dokladů (lang/docs_gate.php = [ '<code>' => [klíč => text] ])
+        $extra = $loadFile(__DIR__ . '/lang/docs_gate.php');
+        if (isset($extra[$code]) && is_array($extra[$code])) $base = array_merge($base, $extra[$code]);
         $pages = $loadFile(__DIR__ . '/lang/pages_' . $code . '.php');
         if (!empty($pages)) {
             // pages_xx.php vrací buď [ 'pages' => [...] ] nebo rovnou strom — sjednotíme.

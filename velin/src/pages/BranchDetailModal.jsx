@@ -87,6 +87,9 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
     setLoadingCodes(false)
   }
 
+  // Kontrola „rezervace bez kódů“ (záložka Kódy): ZÁMĚRNĚ podle AKTUÁLNÍ pobočky motorky, ne bookings.branch_id —
+  // kódy dveří aktivních/potvrzených rezervací jdou s motorkou (_door_codes_follow_moto) a nouzové generování
+  // je zakládá na této pobočce. U nevyzvednutých rezervací je to stejné jako pobočka rezervace.
   async function loadActiveBookings() {
     try {
       const { data: branchMotos } = await supabase
@@ -116,7 +119,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
   }
 
   return (
-    <Modal open title={`Pobočka: ${branch.name}`} onClose={onClose} wide>
+    <Modal open title={`Pobočka: ${branch.name}`} onClose={onClose} wide stickyHeader>
       {/* Status bar */}
       <div className="flex items-center gap-3 mb-4 max-lg:flex-wrap max-lg:gap-2">
         <span className="inline-block rounded-btn text-[10px] max-lg:text-[11px] font-extrabold tracking-wide uppercase"

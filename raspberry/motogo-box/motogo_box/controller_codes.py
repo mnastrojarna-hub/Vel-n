@@ -414,6 +414,8 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
         handover_locker.mark_opened(ctrl.storage, rr.booking_id, now)   # výzva „nejdřív šatna“ už ne
     if ok and handover is not None and rr.kind == "accessories":
         handover.remember(rr)                 # protokol k rezervaci pro okamžik zavření šatny
+    if ok and rr.kind == "accessories" and rr.booking_id and not returning and not rr.temp:
+        zc.hold_until_moto_code = True        # šatna: hudba + relace až do kódu motorky (2026-10-10, zone_access.wardrobe_hold)
     if ok and lock is not None and rr.kind == "motorcycle" and rr.booking_id:   # None by uvolnil zámek KOHOKOLI (temp kód)
         lock.release(rr.booking_id, "kóje motorky otevřena")   # přejímka dokončena → další zákazník na řadě
     if not ok:

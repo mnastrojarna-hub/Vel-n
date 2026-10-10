@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
+import { effBranchId } from '../../lib/bookingBranch'
 import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY } from '../../components/sortableTable'
 
 const SEASONAL_COLUMNS = [
@@ -70,7 +71,7 @@ export default function DoporuceniPresunu() {
     try {
       const [mRes, bRes, lRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, brand, category, branch_id, purchase_price, status'),
-        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
+        supabase.from('bookings').select('moto_id, branch_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
         supabase.from('branches').select('id, name, location, type'),
       ])
       if (mRes.error) throw mRes.error
@@ -160,14 +161,16 @@ export default function DoporuceniPresunu() {
   // Seasonal
   const SEASON_DAYS = { leto: 92, jaro_podzim: 153, zima: 120 }
   function getSeason(date) { const m = new Date(date).getMonth() + 1; if (m >= 6 && m <= 8) return 'leto'; if ((m >= 3 && m <= 5) || (m >= 9 && m <= 10)) return 'jaro_podzim'; return 'zima' }
+  // Sezónnost po pobočkách: pobočka rezervace (bookings.branch_id = kde zákazník převzal), u NULL pobočka motorky
   const seasonalMap = {}
   for (const b of completed) {
     const moto = motorcycles.find(mm => mm.id === b.moto_id)
-    if (!moto || !moto.branch_id) continue
+    const lid = effBranchId(b) || moto?.branch_id
+    if (!moto || !lid) continue
     const cat = (moto.category || '').toLowerCase()
     if (!cat) continue
-    const key = `${moto.branch_id}_${cat}`
-    if (!seasonalMap[key]) seasonalMap[key] = { lid: moto.branch_id, cat, leto: 0, jaro_podzim: 0, zima: 0 }
+    const key = `${lid}_${cat}`
+    if (!seasonalMap[key]) seasonalMap[key] = { lid, cat, leto: 0, jaro_podzim: 0, zima: 0 }
     seasonalMap[key][getSeason(b.start_date || b.created_at)] += diffDays(b.start_date, b.end_date)
   }
   const seasonalRows = []

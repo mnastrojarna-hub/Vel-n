@@ -626,7 +626,9 @@ serve(async (req) => {
         const bkEndDate = booking.end_date ? String(booking.end_date).slice(0, 10) : null
         if (!bkEndDate || bkEndDate >= new Date().toISOString().slice(0, 10)) {
           try {
-            const { data: codes } = await supabase.from('branch_door_codes').select('code_type, door_code, withheld_reason').eq('booking_id', booking_id).eq('is_active', true)
+            // sent_to_customer: na doklad jen VYDANÉ kódy (2026-10-10 — brána dokladů);
+            // šablona při jakémkoli nevydaném aktivním kódu nevytiskne žádný.
+            const { data: codes } = await supabase.from('branch_door_codes').select('code_type, door_code, withheld_reason, sent_to_customer').eq('booking_id', booking_id).eq('is_active', true)
             if (codes && codes.length > 0) doorCodes = codes
           } catch (e) { console.warn('Failed to fetch door codes:', e) }
         }

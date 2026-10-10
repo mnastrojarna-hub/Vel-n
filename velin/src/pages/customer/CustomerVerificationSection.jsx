@@ -4,160 +4,9 @@ import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { supabase } from '../../lib/supabase'
+import { docSide, isMarkerPath, fmtYmd, isChildMotoRow, hasMotoLicenseGroup } from '../../lib/docVerification'
 import AdminDocUploadModal from './AdminDocUploadModal'
-
-const SIDE_LABEL = { front: 'Líc', back: 'Rub' }
-
-const OCR_FIELD_LABELS = {
-  document_number: 'Číslo dokladu',
-  given_names: 'Jméno',
-  surname: 'Příjmení',
-  birth_date: 'Datum narození',
-  expiry_date: 'Platnost do',
-  issue_date: 'Datum vydání',
-  nationality: 'Národnost',
-  sex: 'Pohlaví',
-  mrz: 'MRZ',
-  categories: 'Skupiny',
-  authority: 'Vydáno',
-  address: 'Adresa',
-}
-
-function MindeeStatusBadge({ status }) {
-  if (status === 'ok') return <Badge label="Mindee sken OK" color="#1a8a18" bg="#dcfce7" />
-  if (status === 'failed') return <Badge label="Mindee selhal — manuální" color="#b45309" bg="#fef3c7" />
-  return <Badge label="Foto v archivu" color="#1a2e22" bg="#f1faf7" />
-}
-
-function OcrFieldsSummary({ fields }) {
-  if (!fields || typeof fields !== 'object') return null
-  const entries = Object.entries(fields).filter(([_, v]) => v != null && v !== '')
-  if (!entries.length) return null
-  return (
-    <div className="mt-2 p-2 rounded text-xs" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-      <div className="font-bold mb-1" style={{ color: '#1a2e22' }}>Naskenované údaje:</div>
-      {/* Telefon (< 640 px): 1 sloupec; < 1024 px se dlouhé hodnoty (MRZ, adresa) zalamují místo „…" */}
-      <div className="grid gap-x-3 gap-y-0.5 grid-cols-1 sm:grid-cols-[1fr_1fr]" style={{ color: '#1a2e22' }}>
-        {entries.map(([k, v]) => (
-          <div key={k} className="truncate max-lg:whitespace-normal max-lg:break-words">
-            <span style={{ color: '#5a6b63' }}>{OCR_FIELD_LABELS[k] || k}:</span>{' '}
-            <span className="font-medium">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function DocPageRow({ doc, onPreview, onDelete, onSwapSide }) {
-  const status = doc?.metadata?.mindee_status
-  const captured = doc?.metadata?.captured_at || doc?.created_at
-  const ocr = doc?.metadata?.ocr_fields
-  const side = doc?.metadata?.side
-  const icon = status === 'ok' ? '✅' : status === 'failed' ? '⚠️' : '📷'
-  return (
-    <div className="p-2 rounded-lg" style={{ background: '#fff', border: status === 'failed' ? '1px solid #fcd34d' : '1px solid #d4e8e0' }}>
-      <div className="flex items-center gap-2 flex-wrap">
-        <span style={{ fontSize: 16 }}>{icon}</span>
-        {/* < 1024 px: název + datum na vlastním řádku (název se zalomí, ne „…"), odznak a akce pod ním */}
-        <div className="flex-1 min-w-0 max-lg:basis-[calc(100%-32px)]">
-          <div className="text-sm font-bold truncate max-lg:whitespace-normal max-lg:break-words" style={{ color: '#1a2e22' }}>
-            {doc.name || doc.file_name || doc.type}
-          </div>
-          <div className="text-xs" style={{ color: '#5a6b63' }}>
-            {captured ? new Date(captured).toLocaleString('cs-CZ') : '—'}
-          </div>
-        </div>
-        <MindeeStatusBadge status={status} />
-        {/* Oprava špatně označené strany (např. rub uložený jako líc) — přepíše
-            metadata.side i popisek, přeskupení v Líc/Rub slotech řeší reload. */}
-        {onSwapSide && (
-          <button onClick={() => onSwapSide(doc)} className="text-sm font-bold cursor-pointer max-lg:py-2"
-            style={{ color: '#b45309', background: 'none', border: 'none' }}>
-            {side === 'back' ? '⇄ Je to líc' : '⇄ Je to rub'}
-          </button>
-        )}
-        {doc.file_path && (
-          <button onClick={() => onPreview(doc)} className="text-sm font-bold cursor-pointer max-lg:py-2"
-            style={{ color: '#2563eb', background: 'none', border: 'none' }}>Náhled</button>
-        )}
-        <button onClick={() => onDelete(doc)} className="text-sm font-bold cursor-pointer max-lg:py-2"
-          style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button>
-      </div>
-      {status === 'ok' && <OcrFieldsSummary fields={ocr} />}
-      {status === 'failed' && (
-        <div className="mt-2 text-xs italic" style={{ color: '#92400e' }}>
-          Mindee OCR selhal — fotka je uložená v archivu, údaje doplňte ručně do profilu zákazníka.
-        </div>
-      )}
-    </div>
-  )
-}
-
-function groupDocsBySide(docs) {
-  const out = { front: null, back: null, other: [] }
-  // newest first (callers should pre-sort DESC); pick the most recent per slot
-  for (const d of docs) {
-    const side = d?.metadata?.side
-    if (side === 'front' && !out.front) out.front = d
-    else if (side === 'back' && !out.back) out.back = d
-    else out.other.push(d)
-  }
-  return out
-}
-
-function ScanCounts({ docs }) {
-  if (!docs || !docs.length) return null
-  const ok = docs.filter(d => d?.metadata?.mindee_status === 'ok').length
-  const fail = docs.filter(d => d?.metadata?.mindee_status === 'failed').length
-  const legacy = docs.length - ok - fail
-  return (
-    <div className="text-xs mb-2" style={{ color: '#1a2e22' }}>
-      Celkem skenů: <strong>{docs.length}</strong>
-      {' '}• Mindee OK: <strong style={{ color: ok > 0 ? '#1a8a18' : '#1a2e22' }}>{ok}</strong>
-      {' '}• Manuálně (Mindee selhal): <strong style={{ color: fail > 0 ? '#b45309' : '#1a2e22' }}>{fail}</strong>
-      {legacy > 0 && <> • Legacy: <strong>{legacy}</strong></>}
-    </div>
-  )
-}
-
-function DocSlots({ docs, requireBothSides, onPreview, onDelete, onSwapSide, emptyNote }) {
-  if (!docs || !docs.length) {
-    return (
-      <div className="text-xs italic mt-2" style={{ color: '#5a6b63' }}>
-        {emptyNote || 'Žádné nahrané fotky.'}
-      </div>
-    )
-  }
-  const grouped = groupDocsBySide(docs)
-  return (
-    <div className="space-y-2 mt-2">
-      <ScanCounts docs={docs} />
-      {requireBothSides ? (
-        <>
-          <div className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#5a6b63' }}>{SIDE_LABEL.front}</div>
-          {grouped.front
-            ? <DocPageRow doc={grouped.front} onPreview={onPreview} onDelete={onDelete} onSwapSide={onSwapSide} />
-            : <div className="p-2 rounded-lg text-xs" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>⚠️ Chybí líc</div>}
-          <div className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#5a6b63' }}>{SIDE_LABEL.back}</div>
-          {grouped.back
-            ? <DocPageRow doc={grouped.back} onPreview={onPreview} onDelete={onDelete} onSwapSide={onSwapSide} />
-            : <div className="p-2 rounded-lg text-xs" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>⚠️ Chybí rub</div>}
-          {grouped.other.length > 0 && (
-            <>
-              <div className="text-xs font-extrabold uppercase tracking-wide pt-1" style={{ color: '#5a6b63' }}>Další / starší fotky</div>
-              {grouped.other.map(d => <DocPageRow key={d.id} doc={d} onPreview={onPreview} onDelete={onDelete} onSwapSide={onSwapSide} />)}
-            </>
-          )}
-        </>
-      ) : (
-        [grouped.front, grouped.back, ...grouped.other]
-          .filter(Boolean)
-          .map(d => <DocPageRow key={d.id} doc={d} onPreview={onPreview} onDelete={onDelete} />)
-      )}
-    </div>
-  )
-}
+import { DocSlots, OcrFieldsSummary } from './CustomerDocSlots'
 
 function formatBookingRange(b) {
   const s = b?.start_date ? new Date(b.start_date).toLocaleDateString('cs-CZ') : '—'
@@ -165,7 +14,8 @@ function formatBookingRange(b) {
   return `${s} – ${e}`
 }
 
-function BookingContextBanner({ upcomingBookings, allChildOnly, hasAdultBooking, noUpcoming }) {
+// Verdikt dokladů PER rezervace (backend get_docs_gate_checklist) — `verdicts` = Map booking_id → vs
+function BookingContextBanner({ upcomingBookings, allChildOnly, hasAdultBooking, noUpcoming, verdicts }) {
   if (noUpcoming) {
     return (
       <div className="p-3 mb-3 rounded-lg text-xs" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
@@ -178,13 +28,19 @@ function BookingContextBanner({ upcomingBookings, allChildOnly, hasAdultBooking,
       <div className="font-bold mb-1">Aktivní / nadcházející rezervace ({upcomingBookings.length}):</div>
       <ul className="space-y-0.5">
         {upcomingBookings.map(b => {
-          const isChild = String(b.motorcycles?.license_required || '').toUpperCase() === 'N'
+          const v = verdicts?.get(b.id)
+          const isChild = v ? v.isChildMoto : isChildMotoRow(b.motorcycles)
           return (
             <li key={b.id}>
               {isChild ? '🧒' : '🏍️'} {b.motorcycles?.model || 'Motorka'} · {formatBookingRange(b)} · {' '}
               <span style={{ color: isChild ? '#1a8a18' : '#1a2e22' }}>
                 {isChild ? 'dětská — bez dokladů' : 'vyžaduje ŘP + OP/Pas'}
               </span>
+              {!isChild && v && (
+                <span style={{ color: v.allOk ? '#1a8a18' : '#b45309' }}>
+                  {' · '}{v.allOk ? '✅ doklady kompletní' : `⚠️ ${v.reason || 'doklady neúplné'}`}
+                </span>
+              )}
             </li>
           )
         })}
@@ -196,14 +52,16 @@ function BookingContextBanner({ upcomingBookings, allChildOnly, hasAdultBooking,
       )}
       {hasAdultBooking && (
         <div className="mt-2" style={{ color: '#b45309' }}>
-          🏍️ Pro dospělou motorku je potřeba ověřený ŘP + OP/Pas, jinak kódy NELZE uvolnit.
+          🏍️ Pro dospělou motorku je potřeba OP (líc + rub) nebo pas, ŘP (líc + rub), věk 18+, platnost ŘP do konce pronájmu a skupina ŘP pro motorku — jinak kódy NELZE uvolnit.
         </div>
       )}
     </div>
   )
 }
 
-export default function CustomerVerificationSection({ vs, profile, verificationDocs, upcomingBookings = [], hasAdultBooking = false, allChildOnly = false, noUpcoming = false, onChanged }) {
+// `vs` = NEJHORŠÍ verdikt přes nadcházející dospělé rezervace (backend get_docs_gate_checklist, záloha
+// klient — lib/docsGate.js); `verdicts` = [{ booking, vs }] pro výpis per rezervace.
+export default function CustomerVerificationSection({ vs, verdicts = [], profile, verificationDocs, upcomingBookings = [], hasAdultBooking = false, allChildOnly = false, noUpcoming = false, onChanged }) {
   // Pro dětskou-only rezervaci se ŘP zobrazuje jen informativně — backend kódy stejně uvolní
   const licenseOptional = allChildOnly && !vs.hasLicense
   // Skupiny A/A2/A1 jsou irelevantní, když není potřeba ŘP
@@ -219,23 +77,36 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
   const idCardDocs = (verificationDocs || []).filter(d => d.type === 'id_card' || d.type === 'id_photo')
   const passportDocs = (verificationDocs || []).filter(d => d.type === 'passport')
   const anyManual = (verificationDocs || []).some(d => d.metadata?.mindee_status === 'failed')
+  const verdictMap = new Map(verdicts.filter(x => x.booking).map(x => [x.booking.id, x.vs]))
+  const missing = Array.isArray(vs.missing) ? vs.missing : []
+  // Nahrát doklady jde VŽDY, když něco chybí (dřív jen při !allOk podle volného pravidla)
+  const needsUpload = !vs.allOk || missing.length > 0 || !vs.hasLicense || !vs.hasIdentity
+  const reqGroups = (vs.requiredGroups || ['A']).join('/')
+  const expTxt = vs.licenseExpiryDate ? fmtYmd(vs.licenseExpiryDate) : profile?.license_expiry
+  // Bez konkrétní motorky (žádná dospělá rezervace) backend stačí AM/B — pro „připraven na motorku“
+  // ale musí mít skupinu pro motorky (A/A2/A1/AM), jinak by B-only zákazník svítil zeleně.
+  const motoGroupOk = vs.requiredGroups ? vs.hasMotoGroup : hasMotoLicenseGroup(profile?.license_group)
 
   async function openPreview(doc) {
     setError(null)
     if (!doc.file_path) { setError('Tento záznam nemá uloženou fotku.'); return }
+    if (isMarkerPath(doc.file_path)) { setError('Záznam bez fotky — doklad je potřeba nahrát znovu.'); return }
     try {
       const { data, error: e } = await supabase.storage.from('documents').createSignedUrl(doc.file_path, 60 * 5)
       if (e) throw e
       setPreviewUrl(data.signedUrl); setPreviewDoc(doc)
-    } catch (e) { setError('Náhled selhal: ' + e.message) }
+    } catch (e) {
+      setError(/not found/i.test(e?.message || '') ? 'Soubor v úložišti chybí — doklad je potřeba nahrát znovu' : 'Náhled selhal: ' + e.message)
+    }
   }
 
   // Oprava chybně označené strany dokladu (historicky se rub ukládal jako líc,
-  // protože upload modal stranu nenabízel). Přepne metadata.side front⇄back
-  // (bez strany → 'back', protože líc bývá ten správně označený) + opraví popisek.
-  async function swapSide(doc) {
+  // protože upload modal stranu nenabízel). Zapíše metadata.side (`target` z tlačítka;
+  // fotka bez strany má dvě explicitní volby) + opraví popisek. UPDATE documents spustí
+  // backendový přepočet brány dokladů (zadržené kódy uvolní sám) → reload ukáže nový stav.
+  async function swapSide(doc, target) {
     setError(null)
-    const next = doc?.metadata?.side === 'back' ? 'front' : 'back'
+    const next = target === 'front' || target === 'back' ? target : (docSide(doc) === 'back' ? 'front' : 'back')
     const nextLabel = next === 'front' ? 'líc' : 'rub'
     const upd = { metadata: { ...(doc.metadata || {}), side: next } }
     if (doc.name) {
@@ -255,7 +126,7 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
   async function performDelete(doc) {
     setDeleting(true); setError(null)
     try {
-      if (doc.file_path) {
+      if (doc.file_path && !isMarkerPath(doc.file_path)) {
         try { await supabase.storage.from('documents').remove([doc.file_path]) } catch {}
       }
       const { error: e } = await supabase.from('documents').delete().eq('id', doc.id)
@@ -279,14 +150,15 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
         allChildOnly={allChildOnly}
         hasAdultBooking={hasAdultBooking}
         noUpcoming={noUpcoming}
+        verdicts={verdictMap}
       />
 
-      {/* Admin: dodatečné nahrání dokladů — jen když zákazník nemá ověřené doklady */}
-      {!vs.allOk && profile?.id && (
+      {/* Admin: dodatečné nahrání dokladů — kdykoli něco chybí */}
+      {needsUpload && profile?.id && (
         <div className="mb-3 flex items-center gap-3 flex-wrap">
           <Button green onClick={() => setShowUpload(true)}>+ Nahrát doklady</Button>
           <span className="text-xs" style={{ color: '#5a6b63' }}>
-            Vyfoťte nebo nahrajte doklad za zákazníka — proběhne OCR a kódy k boxu se uvolní.
+            Vyfoťte nebo nahrajte doklad za zákazníka (každou stranu zvlášť) — proběhne OCR; kódy k boxu se uvolní samy, až bude vše kompletní.
           </span>
         </div>
       )}
@@ -310,22 +182,22 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
         {/* Řidičský průkaz */}
         <div className="p-4 max-sm:p-3 rounded-lg" style={{ background: licenseOptional ? '#f9fafb' : '#f1faf7' }}>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span style={{ fontSize: 14 }}>{licenseOptional ? '➖' : vs.hasLicense ? '✅' : vs.licenseTypedOnly ? '⚠️' : '❌'}</span>
+            <span style={{ fontSize: 14 }}>{licenseOptional ? '➖' : vs.hasLicense ? '✅' : (vs.licFront || vs.licBack || vs.licenseTypedOnly) ? '⚠️' : '❌'}</span>
             <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Ridicsky prukaz (RP)</span>
             {licenseOptional ? (
               <Badge label="Pro dětskou motorku není potřeba" color="#1a8a18" bg="#dcfce7" />
             ) : (
               <Badge
-                label={vs.hasLicensePhoto ? 'Vyfoceno' : vs.licenseOcrVerified ? 'Overeno pres OCR' : vs.licenseTypedOnly ? 'Zadano rucne — neovereno' : 'Chybi'}
-                color={vs.hasLicense ? '#1a8a18' : vs.licenseTypedOnly ? '#b45309' : '#dc2626'}
-                bg={vs.hasLicense ? '#dcfce7' : vs.licenseTypedOnly ? '#fef3c7' : '#fee2e2'}
+                label={vs.hasLicense ? 'Lic + rub nahrany' : (vs.licFront || vs.licBack) ? `Lic ${vs.licFront ? '✓' : '✗'} / Rub ${vs.licBack ? '✓' : '✗'}` : vs.licenseOcrVerified ? 'Jen OCR — chybi fotky' : vs.licenseTypedOnly ? 'Zadano rucne — neovereno' : 'Chybi'}
+                color={vs.hasLicense ? '#1a8a18' : (vs.licFront || vs.licBack || vs.licenseTypedOnly) ? '#b45309' : '#dc2626'}
+                bg={vs.hasLicense ? '#dcfce7' : (vs.licFront || vs.licBack || vs.licenseTypedOnly) ? '#fef3c7' : '#fee2e2'}
               />
             )}
           </div>
           {!licenseOptional && (
             <div className="flex flex-wrap gap-2">
               <Badge
-                label={vs.licenseValid ? `Platny do ${profile?.license_expiry}` : profile?.license_expiry ? `Expirovany (${profile.license_expiry})` : 'Platnost nevyplnena'}
+                label={vs.licenseValid ? `Platny do ${expTxt}` : vs.licenseExpiryDate ? `Neplatny k terminu pronajmu (do ${expTxt})` : profile?.license_expiry ? `Platnost necitelna (${profile.license_expiry})` : 'Platnost nevyplnena'}
                 color={vs.licenseValid ? '#1a8a18' : '#dc2626'}
                 bg={vs.licenseValid ? '#dcfce7' : '#fee2e2'}
               />
@@ -336,9 +208,9 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
               />
               {showAdultGroupCheck && (
                 <Badge
-                  label={profile.license_group.some(g => ['A', 'A2', 'A1', 'AM'].includes(g)) ? 'Skupina pro motorky OK' : 'Chybi skupina A/A2/A1'}
-                  color={profile.license_group.some(g => ['A', 'A2', 'A1', 'AM'].includes(g)) ? '#1a8a18' : '#dc2626'}
-                  bg={profile.license_group.some(g => ['A', 'A2', 'A1', 'AM'].includes(g)) ? '#dcfce7' : '#fee2e2'}
+                  label={vs.requiredGroups ? (vs.hasMotoGroup ? `Skupina pro motorku OK (${reqGroups})` : `Skupina nestaci (potreba ${reqGroups})`) : (motoGroupOk ? 'Skupina pro motorky OK' : 'Chybi skupina A/A2/A1/AM')}
+                  color={motoGroupOk ? '#1a8a18' : '#dc2626'}
+                  bg={motoGroupOk ? '#dcfce7' : '#fee2e2'}
                 />
               )}
             </div>
@@ -348,22 +220,27 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
             emptyNote={licenseOptional
               ? 'Fotka ŘP nenahrána — pro aktuální dětskou rezervaci není potřeba. Pokud si zákazník později rezervuje dospělou motorku, bude nutné ŘP doplnit.'
               : vs.licenseDataOnly
-                ? `Fotka ŘP nenahrána (volitelná). Číslo ŘP ${profile?.license_number ? `(${profile.license_number}) ` : ''}je ověřené přes OCR a uložené v profilu — odbavení i kódy k boxu fungují.`
+                ? `⚠️ Fotky ŘP nenahrány. Číslo ŘP ${profile?.license_number ? `(${profile.license_number}) ` : ''}je přečtené přes OCR, ale bez fotky líce i rubu se kódy k boxu NEUVOLNÍ — nahrajte obě strany.`
                 : vs.licenseTypedOnly
-                  ? `⚠️ Číslo ŘP ${profile?.license_number ? `(${profile.license_number}) ` : ''}je zadané jen ručně ve formuláři — NENÍ ověřené přes OCR ani nahraná fotka. Doklad je potřeba naskenovat (Mindee) nebo nahrát fotku.`
+                  ? `⚠️ Číslo ŘP ${profile?.license_number ? `(${profile.license_number}) ` : ''}je zadané jen ručně ve formuláři — NENÍ nahraná fotka. Je potřeba nahrát líc i rub ŘP.`
                   : 'Žádné nahrané fotky.'} />
         </div>
 
         {/* Doklad totoznosti */}
         <div className="p-4 max-sm:p-3 rounded-lg" style={{ background: '#f1faf7' }}>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span style={{ fontSize: 14 }}>{vs.hasIdentity ? '✅' : vs.identityTypedOnly ? '⚠️' : '❌'}</span>
+            <span style={{ fontSize: 14 }}>{vs.hasIdentity ? '✅' : (vs.idFront || vs.idBack || vs.identityTypedOnly) ? '⚠️' : '❌'}</span>
             <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Doklad totoznosti (OP nebo pas)</span>
             <Badge
-              label={(vs.hasIdCard || vs.hasPassport) ? 'Vyfoceno' : vs.idOcrVerified ? 'Overeno pres OCR' : vs.identityTypedOnly ? 'Zadano rucne — neovereno' : 'Chybi'}
-              color={vs.hasIdentity ? '#1a8a18' : vs.identityTypedOnly ? '#b45309' : '#dc2626'}
-              bg={vs.hasIdentity ? '#dcfce7' : vs.identityTypedOnly ? '#fef3c7' : '#fee2e2'}
+              label={vs.hasIdentity ? 'Vyfoceno' : (vs.idFront || vs.idBack) ? `OP lic ${vs.idFront ? '✓' : '✗'} / rub ${vs.idBack ? '✓' : '✗'}` : vs.idOcrVerified ? 'Jen OCR — chybi fotky' : vs.identityTypedOnly ? 'Zadano rucne — neovereno' : 'Chybi'}
+              color={vs.hasIdentity ? '#1a8a18' : (vs.idFront || vs.idBack || vs.identityTypedOnly) ? '#b45309' : '#dc2626'}
+              bg={vs.hasIdentity ? '#dcfce7' : (vs.idFront || vs.idBack || vs.identityTypedOnly) ? '#fef3c7' : '#fee2e2'}
             />
+            {!allChildOnly && (
+              <Badge
+                label={vs.ageOk ? `Vek 18+ OK${vs.dateOfBirth ? ` (nar. ${fmtYmd(vs.dateOfBirth)})` : ''}` : vs.dateOfBirth ? 'Mladsi 18 let' : 'Chybi datum narozeni'}
+                color={vs.ageOk ? '#1a8a18' : '#dc2626'} bg={vs.ageOk ? '#dcfce7' : '#fee2e2'} />
+            )}
             {vs.hasIdCard && <Badge label="Obcansky prukaz" color="#1a8a18" bg="#dcfce7" />}
             {vs.hasPassport && <Badge label="Cestovni pas" color="#1a8a18" bg="#dcfce7" />}
           </div>
@@ -386,12 +263,12 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
 
           {idCardDocs.length === 0 && passportDocs.length === 0 && (
             vs.idOcrVerified ? (
-              <div className="mt-3 p-2 rounded-lg text-xs" style={{ background: '#f1faf7', color: '#1a2e22', border: '1px solid #d4e8e0' }}>
-                ✅ Doklad totožnosti je ověřený přes OCR — číslo {profile?.id_number ? `(${profile.id_number}) ` : ''}je uložené v profilu. Fotka nahraná není (volitelná) — odbavení i kódy k boxu fungují.
+              <div className="mt-3 p-2 rounded-lg text-xs" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>
+                ⚠️ Číslo dokladu {profile?.id_number ? `(${profile.id_number}) ` : ''}je přečtené přes OCR, ale fotka nahraná není — bez OP (líc + rub) nebo pasu se kódy k boxu NEUVOLNÍ.
               </div>
             ) : vs.identityTypedOnly ? (
               <div className="mt-3 p-2 rounded-lg text-xs" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>
-                ⚠️ Číslo dokladu {profile?.id_number ? `(${profile.id_number}) ` : ''}je zadané jen ručně ve formuláři — NENÍ ověřené přes OCR ani nahraná fotka. Zákazník musí naskenovat (Mindee) nebo nahrát OP (líc + rub) nebo pas.
+                ⚠️ Číslo dokladu {profile?.id_number ? `(${profile.id_number}) ` : ''}je zadané jen ručně ve formuláři — NENÍ nahraná fotka. Je potřeba nahrát OP (líc + rub) nebo pas.
               </div>
             ) : (
               <div className="mt-3 p-2 rounded-lg text-xs" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>
@@ -418,16 +295,17 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
       ) : noUpcoming ? (
         <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <div className="flex items-center gap-2 flex-wrap">
-            <span style={{ fontSize: 16 }}>{vs.allOk ? '✅' : 'ℹ️'}</span>
+            <span style={{ fontSize: 16 }}>{vs.allOk && motoGroupOk ? '✅' : 'ℹ️'}</span>
             <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
-              {vs.allOk
+              {vs.allOk && motoGroupOk
                 ? 'Doklady ověřeny — zákazník je připraven na jakoukoliv budoucí rezervaci'
                 : 'Žádná aktuální rezervace — kódy k boxu se nyní neřeší'}
             </span>
           </div>
-          {!vs.allOk && (
+          {!(vs.allOk && motoGroupOk) && (
             <div className="text-xs mt-2" style={{ color: '#1a2e22' }}>
-              Pro budoucí rezervaci dospělé motorky bude potřeba nahrát: ŘP (s platnou skupinou A/A2/A1/AM) + OP nebo pas. Pro dětské motorky doklady nepotřeba.
+              Pro budoucí rezervaci dospělé motorky bude potřeba: OP (líc + rub) nebo pas, ŘP (líc + rub) s platností do konce pronájmu a skupinou pro danou motorku, datum narození (18+). Pro dětské motorky doklady nepotřeba.
+              {missing.length > 0 && <> Teď chybí: {missing.join('; ')}.</>}
             </div>
           )}
         </div>
@@ -439,18 +317,23 @@ export default function CustomerVerificationSection({ vs, profile, verificationD
               {vs.allOk ? 'Vsechny doklady overeny — kody k boxu mohou byt uvolneny' : 'Doklady neuplne — kody k boxu NELZE uvolnit'}
             </span>
           </div>
+          {/* Co chybí = backend missing[] (get_docs_gate_checklist); u více rezervací per rezervace */}
           {!vs.allOk && (
             <ul className="mt-2 space-y-1" style={{ fontSize: 12, color: '#92400e' }}>
-              {!vs.hasLicense && (vs.licenseTypedOnly
-                ? <li>• Ridicsky prukaz: cislo je zadane jen rucne (bez OCR skenu i fotky) — NENI overeno, kody nelze uvolnit</li>
-                : <li>• Chybi ridicsky prukaz — neni nahrana fotka ani overene cislo RP (OCR) v profilu</li>)}
-              {vs.hasLicense && !vs.licenseValid && <li>• Ridicsky prukaz je neplatny nebo expirovany (platnost neni vyplnena nebo uz uplynula)</li>}
-              {vs.hasLicense && !vs.licenseGroupFilled && <li>• Ridicske skupiny nejsou vyplneny v profilu</li>}
-              {vs.hasLicense && vs.licenseGroupFilled && !vs.hasMotoGroup && <li>• Zakaznik nema ridicskou skupinu pro motorky (A/A2/A1/AM)</li>}
-              {!vs.hasIdentity && (vs.identityTypedOnly
-                ? <li>• Doklad totoznosti: cislo je zadane jen rucne (bez OCR skenu i fotky) — NENI overeno, kody nelze uvolnit</li>
-                : <li>• Chybi doklad totoznosti — neni nahrana fotka OP/pasu ani overene cislo (OCR) v profilu</li>)}
+              {verdicts.length > 1
+                ? verdicts.filter(x => !x.vs.allOk).map(x => (
+                  <li key={x.booking?.id || 'none'}>• {x.booking?.motorcycles?.model || 'Rezervace'} · {formatBookingRange(x.booking)}: {x.vs.reason || 'doklady neúplné'}</li>
+                ))
+                : missing.map(m => <li key={m}>• {m}</li>)}
+              {(vs.licenseTypedOnly || vs.identityTypedOnly || vs.licenseDataOnly || vs.identityDataOnly) && (
+                <li>• Čísla dokladů zadaná ručně nebo přečtená OCR fotky nenahrazují — je potřeba nahrát fotky dokladů</li>
+              )}
             </ul>
+          )}
+          {vs.source === 'client' && (
+            <div className="text-xs mt-2" style={{ color: '#5a6b63' }}>
+              Kontrola na serveru je nedostupná — stav spočítán ve Velíně (bez ověření, že soubory v úložišti existují).
+            </div>
           )}
         </div>
       )}

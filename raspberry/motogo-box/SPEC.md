@@ -368,8 +368,9 @@ v kroku 2 vrací „Zpět“ nejdřív na krok 1 s velikostmi) — položka zůs
 JEN kódem motorky téže rezervace nebo dalším zavřením šatny téže rezervace; `then_open` platí výhradně dokud je overlay viditelný
 (dismiss/idle/restart ho ruší — kóje se nikdy neotevře bez zákazníka u displeje). Zákazník s vlastní výbavou (bez šatny) dostane
 protokol po zadání kódu motorky, PŘED otevřením (krok 2b). Nikdo nedostane motorku bez podepsaného protokolu; podpis se NIKDY
-neztratí (trvalá fronta `protocol_queue`, odeslání i po výpadku LTE); po podpisu kdekoli (kiosk / appka / Velín) protokol zmizí
-z displeje i appky real-time (příkaz `protocol_signed`, pojistka `protocols[]` při syncu). Automatické vyplnění po 1 h je zrušeno.
+neztratí (trvalá fronta `protocol_queue`, odeslání i po výpadku LTE); po podpisu kdekoli (kiosk / Velín / starší appka) protokol zmizí
+z displeje real-time (příkaz `protocol_signed`, pojistka `protocols[]` při syncu). Automatické vyplnění po 1 h je zrušeno.
+Od 2026-10-10 appka protokol samoobsluhy k podpisu nenabízí (§13, rozhodnutí 2026-10-10); chipy velikostí jen v rozsahu samoobsluhy.
 
 **Dveře zůstanou otevřené déle než 10 minut:** hudbu vypnout; bílé světlo lze ponechat; zelenou rozblikat; zobrazit chybu na displeji; odeslat vzdálené upozornění; opakovat upozornění například po 10, 20 a 30 minutách.
 
@@ -561,6 +562,19 @@ motorky (`ACCESS_GRANTED` kind motorcycle), ne při podpisu; PDF česky, kiosk/a
 zůstává fail-open (jednotka otevírá i bez LTE, `protocol` bez dat = bez hradla), ale podpis se NIKDY neztratí (trvalá fronta,
 §10). Známé okno nasazení: starší software jednotky po nasazení DB/edge NEhradluje (motorka bez protokolu) až do hromadné
 aktualizace z Velína (§25 CONTRACT) — SQL/edge jsou pro něj aditivní.
+
+### Rozhodnutí majitele (2026-10-10) — protokol převzetí jen na displeji + velikosti výbavy (1.2.11)
+
+1. **Protokol převzetí na samoobsluze se podepisuje JEN na displeji pobočky** — platí to, co zákazník podepíše na kiosku. Appka
+   ho k vyplnění nenabízí (banner, vynucená výzva i obrazovka protokolu zrušeny) a podepsaný ukáže až dle reality (PDF
+   v Dokumentech rezervace); push po zavření šatny vyzývá k podpisu na displeji pobočky. Hláška `protocol_required` na kiosku
+   (8 jazyků) bez „nebo v aplikaci“. Edge `submit-handover-protocol` dál přijímá `mode: customer` (starší buildy appky v telefonech)
+   a takový podpis kiosk převezme příkazem `protocol_signed` jako dosud (CONTRACT §28 beze změny).
+2. **Velikosti výbavy na samoobsluze:** helma S–3XL, bunda, kalhoty a rukavice nejvýš 4XL (větší velikosti nabízí Mezná);
+   boty, kukla a dětská motorka beze změny. Kiosk nabízí jen velikosti v rozsahu (`gear_limits.py`, pořadí XXS < XS < S < … <
+   2XL = XXL < 3XL < 4XL < 5XL < 6XL), chybějící řádek číselníku (živě `jacket`) doplní záložní řadou S–4XL; rezervovaná velikost
+   mimo rozsah se na displeji předvybere jako nejbližší povolená (5XL/6XL → 4XL, helma XS → S, nikdy prázdná) a podpisem se tak
+   zapíše do rezervace. Edge velikost mimo rozsah do rezervace nezapíše; totéž pravidlo uplatňuje web, appka i úprava rezervace.
 
 ### Rozhodnutí majitele (2026-10-06) — dokončení vrácení na kiosku + krátkodobý kód
 

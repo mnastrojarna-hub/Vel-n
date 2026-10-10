@@ -89,12 +89,14 @@ export default function AiOrchestrator() {
         </p>
       </div>
 
-      {/* Tabs — na mobilu/tabletu zalomené pilulky (10 záložek se nevejde do řádku) */}
+      {/* Tabs — na mobilu/tabletu zalomené pilulky (10 záložek se nevejde do řádku).
+          Telefon: kompaktní čipy (menší odsazení/písmo, výška 36 px) — 4 řádky místo 5, všechny záložky vidět. */}
       {isMobile ? (
-        <div className="flex flex-wrap gap-1.5 mb-4">
+        <div className={isPhone ? 'flex flex-wrap gap-1 mb-3' : 'flex flex-wrap gap-1.5 mb-4'}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
-              padding: '8px 12px', minHeight: 40, fontSize: 13, fontWeight: tab === t.id ? 800 : 600, borderRadius: 10,
+              padding: isPhone ? '4px 10px' : '8px 12px', minHeight: isPhone ? 36 : 40, fontSize: isPhone ? 12 : 13,
+              fontWeight: tab === t.id ? 800 : 600, borderRadius: isPhone ? 8 : 10,
               cursor: 'pointer', whiteSpace: 'nowrap', border: tab === t.id ? '2px solid #0f1a14' : '1px solid #d4e8e0',
               background: tab === t.id ? '#0f1a14' : '#fff', color: tab === t.id ? '#74FB71' : '#1a2e22',
             }}>

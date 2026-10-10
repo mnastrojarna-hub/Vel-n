@@ -17,12 +17,14 @@ import 'i18n/i18n_provider.dart';
 /// Stačí vybrat ALESPOŇ JEDEN kus (zadání majitele 2026-09-28: spolujezdec
 /// chce třeba jen helmu) — nevybrané kusy se neukládají (sloupec zůstane NULL).
 /// Calls [onExtrasUpdated] with the updated extras list after confirm.
+/// [selfService] = motorka na samoobslužné pobočce → užší řady velikostí.
 void showPassengerGearSheet(
   BuildContext ctx,
   ExtraCatalogItem item,
   WidgetRef ref,
-  void Function(List<SelectedExtra>) onExtrasUpdated,
-) {
+  void Function(List<SelectedExtra>) onExtrasUpdated, {
+  bool selfService = false,
+}) {
   final sizes = <String, String?>{
     'Helma': null, 'Rukavice': null, 'Bunda': null, 'Kalhoty': null,
   };
@@ -60,7 +62,7 @@ void showPassengerGearSheet(
                     fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Wrap(spacing: 6, runSpacing: 6,
-                    children: _passengerGearSizes(e.key).map((s) {
+                    children: _passengerGearSizes(e.key, selfService).map((s) {
                       final a = sizes[e.key] == s;
                       return GestureDetector(
                         onTap: () => ss(() =>
@@ -121,19 +123,16 @@ void showPassengerGearSheet(
 }
 
 /// Adult passenger gear sizes per Czech gear label. Passengers only exist on
-/// adult bikes, so these are always the adult lists.
-List<String> _passengerGearSizes(String czLabel) {
-  switch (czLabel) {
-    case 'Rukavice':
-      return glovesSizesAdult;
-    case 'Bunda':
-      return jacketSizesAdult;
-    case 'Kalhoty':
-      return pantsSizesAdult;
-    case 'Helma':
-    default:
-      return helmetSizesAdult;
-  }
+/// adult bikes, so these are always the adult lists ([selfService] = řady
+/// samoobslužné pobočky, viz [gearSizesFor]).
+List<String> _passengerGearSizes(String czLabel, bool selfService) {
+  final type = switch (czLabel) {
+    'Rukavice' => 'gloves',
+    'Bunda' => 'jacket',
+    'Kalhoty' => 'pants',
+    _ => 'helmet',
+  };
+  return gearSizesFor(type, kids: false, selfService: selfService);
 }
 
 /// Single-item size picker (e.g. boot size for extras).

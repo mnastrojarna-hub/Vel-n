@@ -12,6 +12,7 @@ import { confirmTrailerBranchMove } from './BranchHelpers'
 import { moveMotos } from '../lib/motoMove'
 import { useOdometerPrompt } from '../components/fleet/OdometerReadingModal'
 import MileageCorrectionModal from '../components/fleet/MileageCorrectionModal'
+import MobileSaveBar from './FleetDetailSaveBar'
 
 // Skupiny ŘP, které lze přiřadit vozidlu (OR — stačí, aby zákazník měl kteroukoliv).
 // 'N' = bez ŘP (dětské). Vícenásobný výběr: skútr může být A1 i B, přívěs B atd.
@@ -476,8 +477,10 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
 
         <PhotoGallery motoId={moto.id} />
         {error && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{error}</p>}
-        <div className="flex gap-3 mt-6 max-lg:flex-wrap">
-          <Button green onClick={onSave} disabled={saving}>{saving ? 'Ukládám…' : 'Uložit'}</Button>
+        {/* < lg: „Uložit“ v liště přilepené ke spodku obrazovky (formulář je na telefonu tisíce px dlouhý) */}
+        <MobileSaveBar onSave={onSave} saving={saving} error={error} />
+        <div className="flex gap-3 mt-6 max-lg:mt-2 max-lg:flex-wrap">
+          <Button green onClick={onSave} disabled={saving} className="max-lg:hidden">{saving ? 'Ukládám…' : 'Uložit'}</Button>
           <Button outline onClick={onDeactivate}>{moto.status === 'unavailable' ? 'Aktivovat' : 'Deaktivovat'}</Button>
           <Button onClick={onDelete} style={{ color: '#dc2626' }}>Smazat</Button>
         </div>
