@@ -508,8 +508,10 @@ function Trasy() {
         </div>
       )}
 
+      {/* < 1024 px: lišta hromadných akcí drží nahoře při scrollu — jinak by po zaškrtnutí
+          karty dole v seznamu nebyla vidět (je nad komunitními návrhy i celým seznamem). */}
       {selected.size > 0 && (
-        <div className="mb-4 flex items-center gap-3 flex-wrap rounded-card max-lg:gap-2 max-lg:[&>button]:min-h-[36px]"
+        <div className="mb-4 flex items-center gap-3 flex-wrap rounded-card max-lg:gap-2 max-lg:[&>button]:min-h-[36px] max-lg:sticky max-md:-top-3 md:max-lg:-top-6 max-lg:z-20 max-lg:shadow-[0_6px_20px_rgba(15,26,20,.18)]"
           style={{ background: '#eef6ff', border: '1px solid #bfdbfe', padding: '10px 14px' }}>
           <span className="text-sm font-extrabold" style={{ color: '#1d4ed8' }}>
             Vybráno tras: {selected.size}
@@ -536,7 +538,7 @@ function Trasy() {
               <span className="text-xs font-bold" style={{ background: '#8b5cf6', color: '#fff', padding: '2px 7px', borderRadius: 6 }}>TRASA</span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold truncate" style={{ color: '#1a2e22' }}>{r.name}</div>
-                {r.mapy_url && <a href={r.mapy_url} target="_blank" rel="noreferrer" className="text-xs underline truncate block" style={{ color: '#2563eb' }}>{r.mapy_url}</a>}
+                {r.mapy_url && <a href={r.mapy_url} target="_blank" rel="noreferrer" className="text-xs underline truncate block max-lg:py-1.5" style={{ color: '#2563eb' }}>{r.mapy_url}</a>}
               </div>
               <div className="flex items-center gap-3 basis-full justify-end sm:contents">
                 <Button small className="max-lg:min-h-[36px]" onClick={() => openRoute(r)}>Otevřít & doplnit</Button>

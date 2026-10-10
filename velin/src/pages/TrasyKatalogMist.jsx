@@ -19,9 +19,12 @@ import { useIsMobile, useMediaQuery } from '../hooks/useIsMobile'
 
 const PAGE = 50
 // Mobil/tablet: filtry se nesmí roztáhnout přes šířku displeje; na telefonu dva vedle sebe.
-const SEL_M = 'max-lg:max-w-full max-sm:flex-[1_1_40%] max-sm:min-w-0'
+const SEL_M = 'max-lg:max-w-full sm:max-lg:max-w-[260px] max-sm:flex-[1_1_40%] max-sm:min-w-0'
 // Dotyková zařízení: tlačítka SmallBtn v řádku aspoň 36 px vysoká.
 const TOUCH = 'max-lg:[&>button]:min-h-[36px]'
+// Mobil/tablet: panel hromadných akcí zůstává při scrollu nahoře (jinak není po zaškrtnutí karty vidět);
+// záporný top = odsazení scroll kontejneru (p-3 / md:p-6), lišta pak přiléhá k horní liště.
+const STICKY_M = 'max-lg:sticky max-md:-top-3 md:max-lg:-top-6 max-lg:z-20 max-lg:shadow-[0_6px_20px_rgba(15,26,20,.18)]'
 const SELECT_COLS = 'id, name, description, surroundings, category, country, lat, lng, image_url, images, source, is_active, created_at'
 
 export default function TrasyKatalogMist() {
@@ -286,7 +289,7 @@ export default function TrasyKatalogMist() {
       </div>
 
       {selected.size > 0 && (
-        <div className={`flex flex-wrap items-center gap-2 p-3 mb-3 rounded-card ${TOUCH}`} style={{ background: '#ecfdf5', border: '1px solid #bbf7d0' }}>
+        <div className={`flex flex-wrap items-center gap-2 p-3 mb-3 rounded-card ${TOUCH} ${STICKY_M}`} style={{ background: '#ecfdf5', border: '1px solid #bbf7d0' }}>
           <span className="text-sm font-bold">Vybráno {selected.size.toLocaleString('cs-CZ')} míst</span>
           <select className={SEL_M} style={sel} defaultValue="" disabled={busy}
             onChange={e => { if (e.target.value) { setBulk({ kind: 'category', value: e.target.value, count: selected.size }); e.target.value = '' } }}>

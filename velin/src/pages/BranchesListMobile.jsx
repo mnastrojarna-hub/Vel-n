@@ -25,16 +25,22 @@ export default function BranchesListMobile({ branches, filtered, stats, bookingS
             style={{ padding: 14, background: alerts.length > 0 ? '#fee2e2' : '#fff', opacity: b.active === false ? 0.6 : 1 }}>
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
-                <div className="font-extrabold" style={{ fontSize: 15, color: '#0f1a14', overflowWrap: 'anywhere' }}>{b.name}</div>
+                <div className="font-extrabold" style={{ fontSize: 15, color: '#0f1a14', overflowWrap: 'anywhere' }}>
+                  {b.name} <span aria-hidden style={{ color: '#6b8c7a' }}>›</span>{/* klepnutí na kartu = detail pobočky */}
+                </div>
                 <div className="text-[13px]" style={{ color: '#4a6357' }}>
                   <span className="font-mono font-bold">{b.branch_code || '—'}</span>{b.city ? ` · ${b.city}` : ''}
                 </div>
               </div>
-              <button onClick={e => { e.stopPropagation(); onToggleOpen(b) }}
-                className="shrink-0 rounded-btn text-[11px] font-extrabold tracking-wide uppercase cursor-pointer min-h-[36px]"
-                style={{ padding: '4px 12px', background: b.is_open ? '#dcfce7' : '#fff', color: b.is_open ? '#1a8a18' : '#dc2626', border: `1px solid ${b.is_open ? '#bbf7d0' : '#fca5a5'}` }}>
-                {b.is_open ? 'Otevřená' : 'Zavřená'}
-              </button>
+              {/* Provoz = sloupec „Provoz“ desktopové tabulky (odkazuje na něj i varování nahoře) */}
+              <div className="shrink-0 flex flex-col items-end gap-0.5">
+                <span className="text-[11px] font-extrabold uppercase tracking-wide" style={{ color: '#4a6357' }}>Provoz</span>
+                <button onClick={e => { e.stopPropagation(); onToggleOpen(b) }}
+                  className="rounded-btn text-[11px] font-extrabold tracking-wide uppercase cursor-pointer min-h-[36px]"
+                  style={{ padding: '4px 12px', background: b.is_open ? '#dcfce7' : '#fff', color: b.is_open ? '#1a8a18' : '#dc2626', border: `1px solid ${b.is_open ? '#bbf7d0' : '#fca5a5'}` }}>
+                  {b.is_open ? 'Otevřená' : 'Zavřená'}
+                </button>
+              </div>
             </div>
 
             {alerts.length > 0 && (
@@ -62,7 +68,7 @@ export default function BranchesListMobile({ branches, filtered, stats, bookingS
               <span>Rezervace: <b style={{ color: bk > 0 ? '#8b5cf6' : '#1a2e22' }}>{bk}</b></span>
             </div>
 
-            <div className="flex flex-wrap gap-2 pt-1" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-wrap gap-2 pt-1 mt-auto" onClick={e => e.stopPropagation()}>{/* mt-auto: tlačítka dole i v natažené kartě (tablet, 2 sloupce) */}
               <button onClick={() => onEdit(b)} className={BTN} style={{ padding: '6px 14px', background: '#dbeafe', color: '#2563eb' }}>Upravit</button>
               <button onClick={() => onToggleActive(b)} className={BTN}
                 style={{ padding: '6px 14px', background: b.active === false ? '#dcfce7' : '#fef3c7', color: b.active === false ? '#1a8a18' : '#b45309' }}>

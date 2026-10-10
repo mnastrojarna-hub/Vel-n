@@ -251,8 +251,8 @@ function Branches() {
 
   return (
     <div>
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+      {/* Summary cards (telefon: 2 sloupce, poslední přes celou šířku — bez osamocené karty) */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5 max-md:[&>:last-child]:col-span-2">
         <StatCard label="Celkem poboček" value={branches.length} color="#0f1a14" />
         <StatCard label="Otevřené" value={openCount} color="#1a8a18" />
         <StatCard label="Motorek celkem" value={totalMotos} color="#2563eb" />

@@ -148,7 +148,7 @@ body {
   table.mg-stack > thead th.mg-sort[data-mg-selall]::after { content: 'Vybrat vše'; font-weight: 800; }
   table.mg-stack > tbody > tr, table.mg-stack > tfoot > tr { display: block; background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(15,26,20,.08); margin-bottom: 10px; padding: 6px 0; border: none !important; }
   table.mg-stack > tbody > tr > td, table.mg-stack > tfoot > tr > td { display: flow-root; padding: 7px 14px !important; text-align: right !important; border: none !important; white-space: normal !important; overflow-wrap: anywhere; width: auto !important; max-width: none !important; min-width: 0 !important; }
-  table.mg-stack > tbody > tr > td::before, table.mg-stack > tfoot > tr > td::before { content: attr(data-label); float: left; width: 40%; margin-right: 10px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; line-height: 1.5; color: #4a6357; overflow-wrap: break-word; }
+  table.mg-stack > tbody > tr > td::before, table.mg-stack > tfoot > tr > td::before { content: attr(data-label); font-family: 'Montserrat', 'Segoe UI', sans-serif; float: left; width: 40%; margin-right: 10px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; line-height: 1.5; color: #4a6357; overflow-wrap: break-word; }
   table.mg-stack td:not([data-label])::before, table.mg-stack td[data-label=""]::before, table.mg-stack td.mg-stack-full::before { content: none; }
   table.mg-stack td:not([data-label]), table.mg-stack td[data-label=""], table.mg-stack td.mg-stack-full { text-align: left !important; }
   table.mg-stack .mg-hide-phone, .mg-hide-phone { display: none !important; }
@@ -164,7 +164,7 @@ body {
   table.mg-stack-tab > thead th.mg-sort[data-mg-selall]::after { content: 'Vybrat vše'; font-weight: 800; }
   table.mg-stack-tab > tbody > tr, table.mg-stack-tab > tfoot > tr { display: block; background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(15,26,20,.08); margin-bottom: 10px; padding: 6px 0; border: none !important; }
   table.mg-stack-tab > tbody > tr > td, table.mg-stack-tab > tfoot > tr > td { display: flow-root; padding: 7px 14px !important; text-align: right !important; border: none !important; white-space: normal !important; overflow-wrap: anywhere; width: auto !important; max-width: none !important; min-width: 0 !important; }
-  table.mg-stack-tab > tbody > tr > td::before, table.mg-stack-tab > tfoot > tr > td::before { content: attr(data-label); float: left; width: 40%; margin-right: 10px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; line-height: 1.5; color: #4a6357; overflow-wrap: break-word; }
+  table.mg-stack-tab > tbody > tr > td::before, table.mg-stack-tab > tfoot > tr > td::before { content: attr(data-label); font-family: 'Montserrat', 'Segoe UI', sans-serif; float: left; width: 40%; margin-right: 10px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; line-height: 1.5; color: #4a6357; overflow-wrap: break-word; }
   table.mg-stack-tab td:not([data-label])::before, table.mg-stack-tab td[data-label=""]::before, table.mg-stack-tab td.mg-stack-full::before { content: none; }
   table.mg-stack-tab td:not([data-label]), table.mg-stack-tab td[data-label=""], table.mg-stack-tab td.mg-stack-full { text-align: left !important; }
 }

@@ -211,7 +211,7 @@ function StatCard({ label, value, color }) {
 function SmallBtn({ children, color, onClick, disabled }) {
   return (
     <button onClick={disabled ? undefined : onClick} disabled={!!disabled}
-      className="text-sm font-bold"
+      className="text-sm font-bold max-lg:min-h-[36px]"
       style={{
         color, background: 'none', border: 'none', padding: '4px 6px',
         cursor: disabled ? 'not-allowed' : 'pointer',

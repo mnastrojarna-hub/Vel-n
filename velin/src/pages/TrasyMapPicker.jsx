@@ -185,7 +185,10 @@ send({type:'ready'});
             : 'Klik = přidá zelený bod zájmu (zastávka)'}
         </span>
       </div>
-      <iframe ref={iframeRef} title="Mapa trasy" style={{ width: '100%', height: 340, border: 'none', display: 'block' }} srcDoc={srcDoc} />
+      {/* < 1024 px: na nízkém displeji (telefon na šířku) nižší mapa — jinak vyplní celý modál
+          a tah prstem jen posouvá mapu, modál nejde doscrollovat k dalším polím. */}
+      <iframe ref={iframeRef} title="Mapa trasy" className="max-lg:!h-[min(340px,55dvh)]"
+        style={{ width: '100%', height: 340, border: 'none', display: 'block' }} srcDoc={srcDoc} />
     </div>
   )
 }

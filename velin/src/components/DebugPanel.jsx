@@ -30,9 +30,10 @@ export default function DebugPanel() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-2 right-2 lg:bottom-4 lg:right-4 z-50 rounded-full cursor-pointer"
+        className="fixed bottom-2 right-2 lg:bottom-4 lg:right-4 z-[45] lg:z-50 rounded-full cursor-pointer"
         style={{
-          // telefon/tablet: menší a poloprůhledné, ať plovoucí tlačítko nezakrývá obsah
+          // telefon/tablet: menší a poloprůhledné, ať plovoucí tlačítko nezakrývá obsah;
+          // z-[45] = pod modály (z-50), aby nepřekrývalo jejich tlačítka
           padding: isMobile ? '5px 10px' : '8px 16px',
           background: errorCount > 0 ? '#dc2626' : '#1a2e22',
           color: '#fff',

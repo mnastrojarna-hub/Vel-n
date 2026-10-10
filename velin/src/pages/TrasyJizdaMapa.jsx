@@ -19,8 +19,9 @@ import { splitTrackOnGaps } from '../lib/rideTrack'
 //   live   {lat,lng,ageSec,isLive} | null   – aktuální poloha (nahrávaná jízda)
 //   height number                           – výška mapy (px)
 //   fitKey any                              – změna hodnoty = přerámovat mapu
+//   heightClass string                      – volitelné třídy výšky (např. nižší mapa na mobilu)
 export default function TrasyJizdaMapa({
-  track = [], points = [], live = null, height = 320, fitKey = null,
+  track = [], points = [], live = null, height = 320, fitKey = null, heightClass,
 }) {
   const iframeRef = useRef(null)
   const readyRef = useRef(false)
@@ -200,7 +201,7 @@ send({type:'ready'});
 
   if (failed) {
     return (
-      <div className="rounded-card flex items-center justify-center text-center"
+      <div className={`rounded-card flex items-center justify-center text-center${heightClass ? ' ' + heightClass : ''}`}
         style={{ border: '1px solid #fecaca', background: '#fef2f2', height, padding: 16 }}>
         <p className="text-sm font-bold" style={{ color: '#991b1b' }}>
           Mapu se nepodařilo načíst (knihovna Leaflet z unpkg.com je nedostupná).
@@ -212,7 +213,7 @@ send({type:'ready'});
 
   return (
     <div className="rounded-card overflow-hidden" style={{ border: '1px solid #d4e8e0' }}>
-      <iframe ref={iframeRef} title="Mapa jízdy" srcDoc={srcDoc}
+      <iframe ref={iframeRef} title="Mapa jízdy" srcDoc={srcDoc} className={heightClass}
         style={{ width: '100%', height, border: 'none', display: 'block' }} />
     </div>
   )

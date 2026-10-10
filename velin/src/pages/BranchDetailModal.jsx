@@ -119,7 +119,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
     <Modal open title={`Pobočka: ${branch.name}`} onClose={onClose} wide>
       {/* Status bar */}
       <div className="flex items-center gap-3 mb-4 max-lg:flex-wrap max-lg:gap-2">
-        <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+        <span className="inline-block rounded-btn text-[10px] max-lg:text-[11px] font-extrabold tracking-wide uppercase"
           style={{
             padding: '3px 10px',
             background: branch.is_open ? '#dcfce7' : '#fee2e2',
@@ -132,7 +132,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
             Kód: {branch.branch_code}
           </span>
         )}
-        <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+        <span className="inline-block rounded-btn text-[10px] max-lg:text-[11px] font-extrabold tracking-wide uppercase"
           style={{
             padding: '3px 10px',
             background: branch.active === false ? '#fee2e2' : '#f1faf7',
@@ -243,8 +243,8 @@ function TabInfo({ branch, branchStats, bookings }) {
   )
 }
 
-// Šipky pořadí kójí na dotyku: dlaždice 32 × 32 px místo 10px znaků
-const ARROW_TOUCH = { width: 32, height: 32, background: '#f1faf7', borderRadius: 8, lineHeight: '32px' }
+// Šipky pořadí kójí na dotyku: dlaždice 36 × 36 px místo 10px znaků
+const ARROW_TOUCH = { width: 36, height: 36, background: '#f1faf7', borderRadius: 8, lineHeight: '36px' }
 
 function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
   const [saving, setSaving] = useState(false)
@@ -383,8 +383,8 @@ function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
           const st = statusLabels[m.status] || statusLabels.active
           return (
             <div key={m.id} className="flex items-center text-sm gap-1 max-lg:flex-wrap" style={{ padding: '6px 8px', background: i % 2 === 0 ? '#f8fcfa' : '#fff', borderRadius: 8 }}>
-              {/* Box number */}
-              <div className="flex items-center gap-0.5 mr-1" style={{ minWidth: 70 }}>
+              {/* Box number — telefon (max-sm:order-*): 1. řádek kóje + šipky + pole kóje, 2. model + SPZ, 3. km + stav */}
+              <div className="flex items-center gap-0.5 mr-1 max-sm:order-1" style={{ minWidth: 70 }}>
                 <span className="font-mono font-extrabold text-sm" style={{
                   color: m.box_number != null ? '#1a2e22' : '#dc2626',
                   background: m.box_number != null ? '#dcfce7' : '#fee2e2',
@@ -413,13 +413,14 @@ function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
                 </div>
               </div>
               {/* Moto info */}
-              <span className="font-bold" style={{ color: '#0f1a14' }}>{m.model}</span>
-              <span className="ml-1 font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz || '—'}</span>
-              <span className="hidden max-sm:block basis-full h-0" aria-hidden />{/* telefon: km, stav a kóje na 2. řádek */}
-              <span className="ml-auto mr-2 text-sm" style={{ color: '#1a2e22' }}>
+              <span className="font-bold max-sm:order-4" style={{ color: '#0f1a14' }}>{m.model}</span>
+              <span className="ml-1 font-mono text-sm max-sm:order-5" style={{ color: '#1a2e22' }}>{m.spz || '—'}</span>
+              <span className="hidden max-sm:block max-sm:order-3 basis-full h-0" aria-hidden />{/* telefon: zalomení za 1. a 2. řádkem */}
+              <span className="hidden max-sm:block max-sm:order-6 basis-full h-0" aria-hidden />
+              <span className="ml-auto mr-2 text-sm max-sm:order-7 max-sm:ml-0" style={{ color: '#1a2e22' }}>
                 {m.mileage ? `${m.mileage.toLocaleString('cs-CZ')} km` : ''}
               </span>
-              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold tracking-wide uppercase"
+              <span className="inline-block rounded-btn text-[9px] max-lg:text-[11px] font-extrabold tracking-wide uppercase max-sm:order-8"
                 style={{ padding: '2px 6px', background: st.bg, color: st.color }}>
                 {st.label}
               </span>
@@ -430,7 +431,7 @@ function TabMotorcycles({ motos, loading, statusLabels, branch, onRefresh }) {
                 defaultValue={m.box_number ?? ''}
                 disabled={saving}
                 title={`Kóje motorky na pobočce (1–${maxMotos}). Prázdné = bez přiřazené kóje.`}
-                className="rounded-btn text-sm outline-none font-mono ml-1 max-lg:min-h-[36px]"
+                className="rounded-btn text-sm outline-none font-mono ml-1 max-lg:min-h-[36px] max-sm:order-2 max-sm:ml-auto"
                 style={{
                   width: isMobile ? 64 : 54, padding: '2px 4px', textAlign: 'center',
                   background: m.box_number == null ? '#fffbeb' : '#f1faf7',

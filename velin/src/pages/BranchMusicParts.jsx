@@ -101,7 +101,7 @@ function TrackRow({ track, doors, index, count, busy, role, onMove, onRename, on
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); setDraft(track.title || '') } }}
           className="rounded-btn text-sm outline-none max-lg:flex-1 max-lg:!min-w-0 max-lg:basis-[180px]" style={{ padding: '4px 8px', background: '#fff', border: '1px solid #74FB71', minWidth: 200 }} />
       ) : (
-        <button type="button" onClick={() => setEditing(true)} title="Název skladby ve Velíně — kliknutím ho přejmenujete. Slouží jen k orientaci v seznamu, zákazník ho nikde nevidí." className="text-sm font-bold text-left cursor-pointer border-none"
+        <button type="button" onClick={() => setEditing(true)} title="Název skladby ve Velíně — kliknutím ho přejmenujete. Slouží jen k orientaci v seznamu, zákazník ho nikde nevidí." className="text-sm font-bold text-left cursor-pointer border-none max-lg:min-h-[32px]"
           style={{ background: 'none', color: '#0f1a14', padding: 0, minWidth: 120 }}>{txt(track.title)}</button>
       )}
       <span className="text-[11px]" style={{ color: '#6b8c7a' }}>{txt(track.ext).toUpperCase()} · {formatBytes(track.size_bytes)}</span>
