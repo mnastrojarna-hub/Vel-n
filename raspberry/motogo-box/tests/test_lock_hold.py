@@ -11,9 +11,11 @@ from tests.test_diagnostics import sim  # noqa: F401 — fixture
 from tests.test_zone import Rig, rig_secured
 
 
-async def rig_hold(min_s: int = 60, **timings) -> Rig:
+async def rig_hold(min_s: int = 60, after_open_s: float = 1000, **timings) -> Rig:
+    """`after_open_s` výchozí 1000 = bez vypnutí po otevření (testy okna 2026-10-06); 2 s testuje test_lock_release_after_open."""
     r = await rig_secured()
     r.hw.timings.lock_hold_until_open, r.hw.timings.lock_hold_min_s = True, min_s
+    r.hw.timings.lock_release_after_open_s = after_open_s
     for k, v in timings.items():
         setattr(r.hw.timings, k, v)
     r.zc._timings_cache = None

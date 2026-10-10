@@ -65,6 +65,7 @@ class ZoneController:
         self.lock_gate: asyncio.Lock = asyncio.Lock()   # controller nahradí sdíleným zámkem pulzů
         self.lock_held = False       # lock_hold_until_open: relé zámku sepnuté, dokud se dveře neotevřou (zone_access)
         self.lock_held_since: float | None = None   # clock() sepnutí drženého zámku — minimum lock_hold_min_s (2026-10-06)
+        self.lock_opened_at: float | None = None    # clock() 1. otevření dveří při drženém zámku — vypnutí po 2 s (2026-10-10)
         self.lock_released_at: float | None = None  # clock() vypnutí drženého zámku — dozvuk lock_hold.release_grace_s
         self.lock_wait: bool = False   # CLOSED_CONFIRMATION po doběhu jen kvůli drženému zámku (lock_hold.lock_wait)
         self.light_off_on_secure: bool = False   # šatna: kód motorky přišel v doběhu → po něm světlo nedržet
@@ -346,7 +347,8 @@ class ZoneController:
             self.state = ZoneState.DOOR_OPEN
             self.latch_released = False          # otevřením se zámek mechanicky vrátil do zajištěného stavu
             self.opened_at = self.clock()
-            # Držený zámek (lock_hold_until_open) vypnout — až po minimu od kódu (lock_hold_min_s), jinak ho vypne tick.
+            # Držený zámek (lock_hold_until_open) vypnout lock_release_after_open_s (2 s) po otevření — vypne ho tick.
+            zone_access.mark_opened(self)
             await zone_access.release_lock_if_due(self, "dveře otevřeny")
             await self.emit_event(EventKind.DOOR_OPENED, message=f"{self.zone.display_name}: dveře otevřeny")
         elif self.state == ZoneState.DOOR_OPEN and closed:
@@ -366,6 +368,7 @@ class ZoneController:
         elif self.state == ZoneState.CLOSED_CONFIRMATION and not closed:
             self.state = ZoneState.DOOR_OPEN     # stejná relace pokračuje
             self.closed_at, self.lock_wait = None, False
+            zone_access.mark_opened(self)        # zámek drží (zavřeno dřív než za 2 s) → odpočet běží od 1. otevření
             if not self.light_on:                # zhaslo po light_after_close_s, zámek ale ještě držel (2026-10-06)
                 await self.set_light(True)
             await self.signal(Signal.GREEN_PULSE if self.overtime else Signal.GREEN)
