@@ -127,7 +127,7 @@ export default function SOSServiceCard({ incident, serviceLog, onUpdate, busy })
           </div>
 
           {/* Standard service checklist */}
-          <div className="space-y-4 mb-4" style={{ maxHeight: 350, overflowY: 'auto' }}>
+          <div className="space-y-4 mb-4 lg:max-h-[350px] lg:overflow-y-auto">
             {SERVICE_CHECKLIST.map(group => (
               <div key={group.group}>
                 <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{group.group}</div>

@@ -11,7 +11,10 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
   if (!booking.sos_replacement && !booking.ended_by_sos && sosIncidents.length === 0) return null
   const SOS_TYPE_LABELS = { theft: 'Krádež', accident_minor: 'Lehká nehoda', accident_major: 'Těžká nehoda', breakdown_minor: 'Lehká porucha', breakdown_major: 'Těžká porucha', defect_question: 'Dotaz na závadu', location_share: 'Sdílení polohy', other: 'Jiné' }
   const SOS_STATUS_LABELS = { reported: 'Nahlášeno', acknowledged: 'Přijato', in_progress: 'Řeší se', resolved: 'Vyřešeno', closed: 'Uzavřeno' }
-  const SOS_SEVERITY_COLORS = { critical: { bg: '#dc2626', color: '#fff' }, high: { bg: '#f97316', color: '#fff' }, medium: { bg: '#f59e0b', color: '#fff' }, low: { bg: '#6b7280', color: '#fff' } }
+  // Pozor: klíč musí být `background` (dřív `bg` → React ho ignoroval a pilulka byla bílý text bez pozadí).
+  // Odstíny ztmavené tak, aby bílý text drobného písma byl čitelný (kontrast ≥ 4.5:1); neznámá závažnost = neutrální šedá s tmavým textem.
+  const SOS_SEVERITY_COLORS = { critical: { background: '#dc2626', color: '#fff' }, high: { background: '#c2410c', color: '#fff' }, medium: { background: '#b45309', color: '#fff' }, low: { background: '#6b7280', color: '#fff' } }
+  const SOS_SEVERITY_FALLBACK = { background: '#e5e7eb', color: '#1f2937' }
   const SOS_DECISION_LABELS = { replacement_moto: 'Náhradní motorka', end_ride: 'Ukončení jízdy + odtah', continue: 'Pokračuje v jízdě', waiting: 'Čeká na rozhodnutí' }
   const inc = sosIncidents[0]
   const rd = inc?.replacement_data || {}
@@ -40,7 +43,7 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
                 {SOS_STATUS_LABELS[inc.status] || inc.status}
               </span>
             } />
-            {inc.severity && <InfoRow label="Závažnost" value={<span className="inline-block rounded-full text-xs font-extrabold" style={{ padding: '2px 10px', ...(SOS_SEVERITY_COLORS[inc.severity] || { bg: '#6b7280', color: '#fff' }) }}>{inc.severity.toUpperCase()}</span>} />}
+            {inc.severity && <InfoRow label="Závažnost" value={<span className="inline-block rounded-full text-xs font-extrabold" style={{ padding: '2px 10px', ...(SOS_SEVERITY_COLORS[inc.severity] || SOS_SEVERITY_FALLBACK) }}>{inc.severity.toUpperCase()}</span>} />}
             {inc.customer_decision && <InfoRow label="Rozhodnutí zákazníka" value={SOS_DECISION_LABELS[inc.customer_decision] || inc.customer_decision} />}
             <InfoRow label="Zavinění" value={inc.customer_fault === true ? '⚠️ Zákazník' : inc.customer_fault === false ? '✅ Nezaviněno' : '—'} />
             <InfoRow label="Nahlášeno" value={inc.created_at ? new Date(inc.created_at).toLocaleString('cs-CZ') : '—'} />

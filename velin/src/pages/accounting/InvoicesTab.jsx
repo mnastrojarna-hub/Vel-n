@@ -270,7 +270,7 @@ export default function InvoicesTab() {
                   </TD>
                 </tr>
               )})}
-              {invoices.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="">Žádné faktury</TD></tr>}
+              {invoices.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="" colSpan={10}>Žádné faktury</TD></tr>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

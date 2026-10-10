@@ -365,9 +365,10 @@ export default function CustomerDocumentsTab({ userId }) {
       {viewDoc && (
         <Modal open title={viewDoc.number ? `Faktura ${viewDoc.number}` : (viewDoc.document_templates?.name || viewDoc.file_name || viewDoc.name || 'Dokument')} onClose={() => { setViewDoc(null); setViewHtml(null) }} wide>
           {viewHtml ? (
-            // < 1024 px: výška náhledu dle displeje (telefon na šířku), ať se patička s tlačítky vejde
+            // < 1024 px: výška náhledu = výška modalu (92dvh) minus hlavička a patička (~176 px, pod 640 px
+            // se tlačítka zalomí → ~206 px), ať se celý modal vejde a patička je vidět i na telefonu na šířku
             <div className="border rounded-lg overflow-auto" style={{ maxHeight: 600, background: '#fff' }}>
-              <iframe srcDoc={viewHtml} className="h-[550px] max-lg:h-[min(550px,60dvh)]" style={{ width: '100%', border: 'none' }} title="Náhled dokumentu" />
+              <iframe srcDoc={viewHtml} className="h-[550px] max-lg:h-[min(550px,calc(92dvh_-_180px))] max-sm:h-[min(550px,calc(92dvh_-_210px))]" style={{ width: '100%', border: 'none' }} title="Náhled dokumentu" />
             </div>
           ) : (
             <div className="py-8 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>Dokument nemá náhled.</div>

@@ -307,7 +307,7 @@ export default function DeliveryNotesTab() {
                   </tr>
                 )
               })}
-              {notes.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="">{filter === 'missing_dl' ? 'Žádné faktury bez DL' : 'Žádné dodací listy'}</TD></tr>}
+              {notes.length === 0 && <tr style={{ borderBottom: '1px solid #d4e8e0' }}><TD label="" colSpan={8}>{filter === 'missing_dl' ? 'Žádné faktury bez DL' : 'Žádné dodací listy'}</TD></tr>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
