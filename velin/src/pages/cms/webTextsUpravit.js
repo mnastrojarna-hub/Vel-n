@@ -368,7 +368,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
         { key: 'web.layout.editRez.doc.notAvailable', label: 'Hláška „Není k dispozici"', default: 'Doklad není momentálně dostupný.' },
         { key: 'web.layout.editRez.doc.close', label: 'Tlačítko „Zavřít"', default: 'Zavřít' },
         { key: 'web.layout.editRez.doc.uploadTitle', label: 'Nadpis „Nahrát doklady"', default: 'Nahrát / aktualizovat doklady' },
-        { key: 'web.layout.editRez.doc.uploadHelp', label: 'Pomocný text k nahrávání', type: 'textarea', default: 'Nahrajte občanku/pas a řidičák — sken proběhne přes Mindee OCR. Bez ověřených dokladů systém nevydá přístupové kódy k motorce.' },
+        { key: 'web.layout.editRez.doc.uploadHelp', label: 'Pomocný text k nahrávání', type: 'textarea', default: 'Nahrajte líc i rub občanky (nebo stranu pasu s fotkou) a líc i rub řidičáku. Přístupové kódy k motorce vydáme, až bude vše nahrané a údaje v pořádku (18+, ŘP platný do konce pronájmu se skupinou pro tuto motorku).' },
         { key: 'web.layout.editRez.doc.idLabel', label: 'Label „Občanka / pas"', default: 'Občanka / pas' },
         { key: 'web.layout.editRez.doc.licenseLabel', label: 'Label „Řidičský průkaz"', default: 'Řidičský průkaz' },
         { key: 'web.layout.editRez.doc.uploadBtn', label: 'Tlačítko „Nahrát" (legacy)', default: 'Nahrát' },

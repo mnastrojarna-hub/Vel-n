@@ -1382,7 +1382,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
 
       // Karta (default nebo QR fallback): resume URL → krok platby na webu.
       // V NOVÉM flow zákazník nejdřív zaplatí a AŽ POTOM (samostatný krok) doplní
-      // čísla dokladů + volitelný sken — proto v chatu žádné doklady neřešíme.
+      // doklady (fotky OP/pas + ŘP líc i rub — bez nich kódy nepřijdou) — proto v chatu žádné doklady neřešíme.
       const paymentUrl = `https://www.motogo24.cz/rezervace?resume=${bookingId}`
       return {
         success: true,
@@ -1393,7 +1393,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         password_notice: passwordNotice,
         payment_method: 'card',
         payment_url: paymentUrl,
-        message: 'Rezervace vytvořena. NEPIŠ URL do textu — systém k tvé odpovědi automaticky doplní tlačítko "Pokračovat k platbě". Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + věta "Rezervaci jsem vytvořil — klikni na tlačítko níže a otevře se zabezpečená platba kartou (Stripe). Po zaplacení tě systém navede na doplnění čísel dokladů (OP/ŘP); teď v chatu je řešit nemusíš. Potvrzení a přístupové údaje ti dorazí e-mailem."',
+        message: 'Rezervace vytvořena. NEPIŠ URL do textu — systém k tvé odpovědi automaticky doplní tlačítko "Pokračovat k platbě". Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + věta "Rezervaci jsem vytvořil — klikni na tlačítko níže a otevře se zabezpečená platba kartou (Stripe). Po zaplacení tě systém navede na nahrání dokladů (fotky OP líc + rub nebo pasu a ŘP líc + rub — bez nich přístupové kódy nepřijdou); teď v chatu je řešit nemusíš. Potvrzení a přístupové údaje ti dorazí e-mailem."',
       }
     }
     case 'find_my_booking': {

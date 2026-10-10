@@ -19,6 +19,7 @@
 // =============================================================================
 
 import { renderGateCodesBox } from './branch-gate.ts'
+import { docsReasonInfo } from './docs-reason.ts'
 
 export type Lang = 'cs' | 'en' | 'de' | 'nl' | 'es' | 'fr' | 'pl' | 'uk'
 export const SUPPORTED_LANGS: Lang[] = ['cs', 'en', 'de', 'nl', 'es', 'fr', 'pl', 'uk']
@@ -388,16 +389,26 @@ const DOCS_REQUIRED_BLOCK_LABELS: Record<Lang, { title: string; intro: string; c
   },
 }
 
-export function renderDocsRequiredBlock(lang: Lang, docsUrl: string): string {
+// `reason` (C11, 2026-10-10) = konkrétní důvod zadržení (docs-reason.ts): řádek
+// „Důvod: …“; věk / skupina ŘP / propadlý ŘP navíc kontakt s telefonem a — když
+// jiný důvod není — jiný nadpis a tlačítko „Zkontrolovat doklady“. Bez reason
+// výstup 1:1 jako dřív.
+export function renderDocsRequiredBlock(lang: Lang, docsUrl: string, reason = ''): string {
   const t = DOCS_REQUIRED_BLOCK_LABELS[lang] || DOCS_REQUIRED_BLOCK_LABELS.cs
+  const r = docsReasonInfo(lang, reason)
+  const onlyBlocker = r.blocker && !r.docs
+  const p = (m: string, size: number, txt: string) =>
+    `<p style="margin:${m};font-size:${size}px;color:#7c2d12;line-height:1.5">${txt}</p>`
   const cta = docsUrl
-    ? `<div style="text-align:center;margin:14px 0 4px"><a href="${docsUrl}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:12px 24px;border-radius:25px;text-decoration:none;font-weight:800;font-size:14px">${t.cta}</a></div>`
+    ? `<div style="text-align:center;margin:14px 0 4px"><a href="${docsUrl}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:12px 24px;border-radius:25px;text-decoration:none;font-weight:800;font-size:14px">${onlyBlocker ? r.ctaCheck : t.cta}</a></div>`
     : ''
   return `
 <div style="background:#fff7ed;border-radius:12px;padding:16px 20px;margin:20px 0;border:1px solid #fdba74">
-  <h3 style="margin:0 0 8px 0;color:#9a3412;font-size:15px">${t.title}</h3>
-  <p style="margin:6px 0;font-size:13px;color:#7c2d12;line-height:1.5">${t.intro}</p>${cta}
-  <p style="margin:10px 0 0 0;font-size:12px;color:#7c2d12;line-height:1.5">${t.inPerson}</p>
+  <h3 style="margin:0 0 8px 0;color:#9a3412;font-size:15px">${onlyBlocker ? r.title : t.title}</h3>${r.line ? `
+  ${p('6px 0', 13, `<strong>${r.label}:</strong> ${r.line}`)}` : ''}${onlyBlocker ? '' : `
+  ${p('6px 0', 13, t.intro)}`}${r.blocker ? `
+  ${p('6px 0', 13, r.alt)}` : ''}${cta}${onlyBlocker ? '' : `
+  ${p('10px 0 0 0', 12, t.inPerson)}`}
 </div>`
 }
 

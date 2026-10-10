@@ -614,6 +614,17 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
               : '${t(context).tr('docsScanIncomplete')}\n'
                   '${t(context).tr('missing')}: ${missing.join(', ')}',
           duration: const Duration(seconds: 6));
+    } else if (gate != null && !gate.ok) {
+      // Strany jsou, ale brána dál drží kódy (datum narození / 18+ /
+      // platnost či skupina ŘP) — žádné „nahrány a ověřeny“.
+      final rest = docsGateMissingLabels(context, gate);
+      showMotoGoToast(context,
+          icon: '⚠️', title: t(context).tr('scanComplete'),
+          message: rest.isEmpty
+              ? t(context).tr('codesStillWithheld')
+              : '${t(context).tr('codesStillWithheld')}\n'
+                  '${t(context).tr('missing')}: ${rest.join(', ')}',
+          duration: const Duration(seconds: 6));
     } else {
       showMotoGoToast(context,
           icon: '✅', title: t(context).tr('scanComplete'),

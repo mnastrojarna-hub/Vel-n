@@ -346,7 +346,7 @@ export const PAGE_REZERVACE = {
         // „ⓘ <volba> — <tento text>", po kliku se rozbalí vysvětlení. Platí pro /rezervace i /upravit-rezervaci
         // (js/pages-rezervace-selfservice.js).
         { key: 'web.layout.rez.pickup.selfServiceNoDelivery', label: 'Samoobsluha — řádek „zatím není k dispozici" (rezervace i úprava)', default: 'Na samoobslužné pobočce zatím není k dispozici' },
-        { key: 'web.layout.rez.pickup.selfServiceNoDeliveryText', label: 'Samoobsluha — vysvětlení po rozbalení (rezervace i úprava)', type: 'textarea', default: 'Motorky ze samoobslužné pobočky se přebírají i vracejí pouze na pobočce — nonstop (24/7) pomocí kódu, který dostanete po zaplacení. Přistavení na adresu ani odvoz z adresy u nich zatím nenabízíme; v budoucnu tuto službu zapneme.' },
+        { key: 'web.layout.rez.pickup.selfServiceNoDeliveryText', label: 'Samoobsluha — vysvětlení po rozbalení (rezervace i úprava)', type: 'textarea', default: 'Motorky ze samoobslužné pobočky se přebírají i vracejí pouze na pobočce — nonstop (24/7) pomocí kódu, který dostanete po zaplacení a ověření dokladů. Přistavení na adresu ani odvoz z adresy u nich zatím nenabízíme; v budoucnu tuto službu zapneme.' },
         { key: 'web.layout.rez.return.title', label: 'Nadpis „Čas vrácení"', default: 'Čas vrácení motorky' },
         { key: 'web.layout.rez.return.sub', label: 'Popis „Čas vrácení"', default: 'V kolik hodin vrátíte motorku na uvedené adrese?' },
       ]
