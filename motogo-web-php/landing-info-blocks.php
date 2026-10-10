@@ -95,8 +95,8 @@ function lpiDocs($x, $g) {
     foreach ($x->query('./a/span[contains(@class,"btn")]', $g) as $s) $s->setAttribute('class', 'lpi-doc-dl');
 }
 
-/** Holé uzly → sekce, role sekcí, CTA/outro úpravy. Vrací [bloky, index pro pruh motorek]. */
-function lpiBlocks($doc, $x, $cc, $L, $TC) {
+/** Holé uzly → sekce, role sekcí, CTA/outro úpravy. $ai = výzva AI pod první FAQ. Vrací [bloky, index pro pruh motorek]. */
+function lpiBlocks($doc, $x, $cc, $L, $TC, $ai = true) {
     $out = [];
     $grp = null;
     foreach (iterator_to_array($cc->childNodes) as $n) {
@@ -127,7 +127,7 @@ function lpiBlocks($doc, $x, $cc, $L, $TC) {
         elseif ($r === 'more' && !lpiHas($s, 'lp-more')) lpiMore($doc, $x, $s, $TC, 'lpi-more-' . $i);
         elseif ($r === 'faq') {
             lpiAdd($s, 'lpi-faq');
-            if (!$faqDone) { $s->appendChild(lpiFrag($doc, lpiAiBox($L))); $faqDone = true; }
+            if ($ai && !$faqDone) { $s->appendChild(lpiFrag($doc, lpiAiBox($L))); $faqDone = true; }
         } elseif ($r === 'sec' && $s->nodeName === 'section' && !preg_match('/(?:^|\s)lpi?-/', $s->getAttribute('class'))) {
             $rich = $x->query('.//*[contains(@class,"lpi-cards") or contains(@class,"lpi-cols") or contains(@class,"lpi-table") or contains(@class,"lpi-docs")]|.//iframe', $s)->length;
             $btnTxt = '';
