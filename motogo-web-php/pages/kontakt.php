@@ -252,7 +252,7 @@ if (is_array($branches)) {
             . $geo
             . ',' . $hours
             . ($brType !== '' ? ',"description":' . json_encode($brType . ($brNotes !== '' ? ' — ' . $brNotes : ''), JSON_UNESCAPED_UNICODE) : ($brNotes !== '' ? ',"description":' . json_encode($brNotes, JSON_UNESCAPED_UNICODE) : ''))
-            . ',"priceRange":"990 – 5000 Kč/den"'
+            . ',"priceRange":"' . number_format(ldPriceLow(), 0, ',', ' ') . ' – ' . number_format(ldPriceHigh(), 0, ',', ' ') . ' Kč/den"'
             . '}';
     }
 }

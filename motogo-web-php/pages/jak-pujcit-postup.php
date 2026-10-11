@@ -115,8 +115,8 @@ if (!empty($howToSteps)) {
         . ',"description":' . json_encode($howToDesc, JSON_UNESCAPED_UNICODE)
         . ',"image":"https://www.motogo24.cz/gfx/hero-banner.jpg"'
         . ',"totalTime":"PT15M"'
-        . ',"estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"990"}'
-        . ',"supply":[{"@type":"HowToSupply","name":"Občanský průkaz nebo cestovní pas"},{"@type":"HowToSupply","name":"Řidičský průkaz (skupina A1/A2/A nebo B pro dětské motorky)"},{"@type":"HowToSupply","name":"Platební karta (Visa/Mastercard, Apple Pay, Google Pay) nebo QR platba / bankovní převod"}]'
+        . ',"estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"' . ldPriceLow() . '"}'
+        . ',"supply":[{"@type":"HowToSupply","name":"Občanský průkaz nebo cestovní pas"},{"@type":"HowToSupply","name":' . json_encode(ldLicenseSupply(), JSON_UNESCAPED_UNICODE) . '},{"@type":"HowToSupply","name":"Platební karta (Visa/Mastercard, Apple Pay, Google Pay) nebo QR platba / bankovní převod"}]'
         . ',"tool":[{"@type":"HowToTool","name":"Mobilní telefon nebo počítač s internetem"}]'
         . ',"step":[' . implode(',', $howToSteps) . ']'
         . '}
