@@ -159,3 +159,6 @@ body.menu-open .header{z-index:1002}
 .rez-qr-pay-tbl td.big{font-size:1.25rem}
 .rez-qr-pay-warn{max-width:520px;margin:0 auto 1rem;padding:.85rem 1rem;background:#fef2f2;border-radius:10px;color:#b91c1c;font-weight:700;font-size:.9rem}
 .rez-qr-pay-note{max-width:520px;margin:0 auto 1.2rem;color:#4b5563;font-size:.85rem}
+
+/* 2026-10-11: vyprodaná velikost (products.size_stock = 0) */
+.shop-size-chip[disabled]{opacity:.4;cursor:not-allowed;text-decoration:line-through}
