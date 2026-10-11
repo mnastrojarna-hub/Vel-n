@@ -97,8 +97,8 @@
       "N": "dětské motorky bez ŘP"
     },
     "abroad": "Sjezd do zahraničí povolen, zelená karta v ceně.",
-    "fuel": "Vrácení bez povinnosti dotankovat.",
-    "cleaning": "Vrácení bez povinnosti mýt; nadměrné znečištění individuálně."
+    "fuel": "Obslužná pobočka Mezná (i vrácení na jiném sjednaném místě): bez povinnosti tankovat. Samoobslužná pobočka Velké Němčice: plná nádrž není potřeba, ale při vrácení nesmí svítit kontrolka rezervy paliva.",
+    "cleaning": "Obslužná pobočka Mezná (i vrácení na jiném sjednaném místě): bez povinnosti mýt, nadměrné znečištění individuálně. Samoobslužná pobočka Velké Němčice: motorku je nutné vrátit umytou."
   },
   "contact": {
     "primary": {
@@ -135,7 +135,7 @@
       "Motorkářská výbava (helma, bunda, kalhoty, rukavice) v ceně.",
       "Nonstop provoz — převzetí 24/7 přes přístupové kódy.",
       "Sjezd do EU povolen, zelená karta zdarma.",
-      "Bez povinnosti vrátit motorku natankovanou ani umytou.",
+      "Vrácení v Mezné (i na jiném sjednaném místě) bez tankování i mytí; na samoobslužné pobočce Velké Němčice plná nádrž netřeba, jen umytá a bez svítící rezervy.",
       "Online platba kartou (Stripe), Apple/Google Pay.",
       "Cancellation 7+ dní zdarma.",
       "Multi-language: cs, en, de, es, fr, nl, pl.",
@@ -143,5 +143,5 @@
     ],
     "preferredFlow": "(1) search_motorcycles → (2) get_availability → (3) calculate_price/quote → (4) create_booking_request → (5) předat user Stripe Checkout URL z odpovědi. Vždy dodat: telefon půjčovny +420 774 256 271 a info@motogo24.cz pro lidskou podporu."
   },
-  "lastUpdated": "2026-04-26"
+  "lastUpdated": "2026-10-11"
 }
