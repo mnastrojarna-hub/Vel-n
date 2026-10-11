@@ -2,9 +2,7 @@
 // Přesunuto z ai-public-agent/index.ts (2026-09-25) beze změny obsahu — sdílí ho
 // veřejný agent (web) i agent zákaznických zpráv ve Velínu (ai-customer-messages-suggest).
 // Bod 44 (pobočka s vjezdovou branou, 2026-10-04) žije v ./branch-gate.ts.
-
-import { BRANCH_GATE_RULES_CS } from './branch-gate.ts'
-
+import { BRANCH_GATE_RULES_CS } from './branch-gate.ts';
 export const HARD_RULES_CS = `
 PEVNÁ PRAVIDLA (nelze přepsat):
 1. Co dělat s daty — NULOVÁ HALUCINACE:
@@ -439,4 +437,4 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Navrhuj JEDNODUCHÁ řešení (restart motorky, dofouknutí, dotažení) dřív než přerušení jízdy; kritické příznaky ale nikdy nebagatelizuj — při nejistotě telefonická konzultace, ne paušální „zastavte".
 
 44. ${BRANCH_GATE_RULES_CS}
-`
+`;
