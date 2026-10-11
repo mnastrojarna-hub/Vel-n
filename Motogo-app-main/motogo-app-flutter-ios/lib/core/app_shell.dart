@@ -11,7 +11,7 @@ import 'pending_sos_fab_provider.dart';
 import '../features/booking/booking_provider.dart';
 import '../features/booking/booking_models.dart';
 import '../features/catalog/catalog_provider.dart';
-import '../features/documents/document_provider.dart';
+import '../features/documents/docs_gate_provider.dart';
 import '../features/messages/messages_provider.dart';
 import '../features/payment/payment_provider.dart';
 import 'widgets/moto_fx.dart';
@@ -114,14 +114,16 @@ class AppShell extends ConsumerWidget {
     // Docs FAB: active/upcoming booking + docs not verified
     // Don't show on docs/scan screens (user is already uploading)
     final docsScreens = [Routes.docs, Routes.docScan];
-    final docsVerified = ref.watch(docsVerifiedProvider);
     final reservations = ref.watch(reservationsProvider);
     final hasActiveBooking = reservations.valueOrNull?.any((r) {
           final s = r.displayStatus;
           return (s == ResStatus.aktivni || s == ResStatus.nadchazejici) &&
               r.paymentStatus == 'paid';
         }) ?? false;
-    final docsComplete = docsVerified.valueOrNull?.isComplete ?? true;
+    // Kompletnost OP/pasu + ŘP podle brány dokladů (obě strany, stejně jako
+    // Moje doklady); bez odpovědi RPC zpět na profilové `*_verified_at`.
+    final docsComplete =
+        ref.watch(docsFabStatusProvider).valueOrNull?.isComplete ?? true;
     final docsFabDismissed = ref.watch(_docsFabDismissedProvider);
     final showDocsFab = hasActiveBooking && !docsComplete &&
         !docsScreens.contains(location) && !docsFabDismissed &&

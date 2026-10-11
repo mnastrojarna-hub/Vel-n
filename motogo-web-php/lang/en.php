@@ -1529,7 +1529,7 @@ return [
     'editRez.doc.finishSaving' => 'Saving and verifying…',
     'editRez.doc.finishDone' => 'Done! Your documents are saved.',
     'editRez.doc.finishCodesSent' => 'Done! Your documents are saved and we have emailed you the access codes.',
-    'editRez.doc.finishMissing' => 'Your documents are not complete yet — please upload both sides of your ID/passport and driving licence.',
+    'editRez.doc.finishMissing' => 'Your documents are not complete yet — please upload the front and back of your ID card (or the passport photo page) and the front and back of your driving licence.',
     'editRez.doc.finishError' => 'Saving failed. Please try again.',
     'editRez.doc.savedOk' => 'Document saved ✓',
     // ===== Confirmation dialog (generic) + document scan =====

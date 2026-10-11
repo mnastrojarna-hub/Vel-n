@@ -1518,7 +1518,7 @@ return [
     'editRez.doc.finishSaving' => 'Speichern und prüfen…',
     'editRez.doc.finishDone' => 'Fertig! Ihre Dokumente sind gespeichert.',
     'editRez.doc.finishCodesSent' => 'Fertig! Ihre Dokumente sind gespeichert und wir haben Ihnen die Zugangscodes per E-Mail geschickt.',
-    'editRez.doc.finishMissing' => 'Ihre Dokumente sind noch nicht vollständig — bitte laden Sie beide Seiten von Ausweis/Reisepass und Führerschein hoch.',
+    'editRez.doc.finishMissing' => 'Ihre Dokumente sind noch nicht vollständig — bitte laden Sie Vorder- und Rückseite Ihres Ausweises (oder die Fotoseite des Reisepasses) sowie Vorder- und Rückseite Ihres Führerscheins hoch.',
     'editRez.doc.finishError' => 'Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.',
     'editRez.doc.savedOk' => 'Dokument gespeichert ✓',
     // ===== Bestätigungsdialog (generisch) + Dokumentenscan =====

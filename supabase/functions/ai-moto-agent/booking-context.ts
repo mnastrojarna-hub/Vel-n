@@ -219,7 +219,7 @@ Pobočku, její REŽIM a u samoobsluhy i ČÍSLO KÓJE máš v KONTEXTU REZERVAC
 ### OBSLUŽNÁ pobočka (motorku předává a přebírá obsluha):
 1. Motorku vydává OBSLUHA osobně, čas podle domluvy / otevírací doby pobočky — NE 24/7 samoobsluhou.
 2. Přístupové kódy z e-mailu tu zákazník dostává TAKÉ a nejsou omyl: neotvírají dveře, slouží jako IDENTIFIKACE — nahlásí je obsluze, ta podle nich rezervaci dohledá (předání ~2 minuty).
-3. Doklady (OP/pas + ŘP) se dokládají obsluze na místě; sken předem není povinný, ale odbavení urychlí.
+3. Doklady (OP/pas + ŘP) se dokládají obsluze na místě; sken předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), ale odbavení urychlí.
 4. Předávací protokol vyplňuje a řeší OBSLUHA — zákazník v appce nic vyplňovat nemusí; rezervace se překlopí na „probíhá“ až podpisem protokolu.
 5. Vrácení: podle otevírací doby / domluvy s obsluhou, převzetí stroje potvrdí obsluha.
 

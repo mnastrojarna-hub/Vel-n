@@ -1195,7 +1195,9 @@ serve(async (req) => {
       // 2) Jinak ov\u011b\u0159 p\u0159es RPC check_booking_docs_status (NULL = doklady OK, jinak d\u016fvod).
       // výměna motorky ani vlastní výbava (kód šatny bez nároku) ≠ chybějící doklady
       const NOT_DOCS_REASONS = new Set(['Vraťte nejdřív původní motorku', 'Vlastní výbava'])
-      let needsDocs = doorCodeRows.some(c => !!c.withheld_reason && !NOT_DOCS_REASONS.has(c.withheld_reason))
+      // Konkrétní důvod do bloku (C11): věk / skupina ŘP / propadlý ŘP ≠ „nahrajte doklady“.
+      let docsReason = doorCodeRows.find(c => !!c.withheld_reason && !NOT_DOCS_REASONS.has(c.withheld_reason))?.withheld_reason || ''
+      let needsDocs = !!docsReason
       if (!needsDocs && doorCodeRows.length === 0) {
         try {
           const { data: b } = await supabase
@@ -1210,7 +1212,7 @@ serve(async (req) => {
               p_end_date: b.end_date,
               p_moto_id: b.moto_id || null,
             })
-            if (reason) needsDocs = true
+            if (reason) { needsDocs = true; docsReason = String(reason) }
           }
         } catch { /* ignore */ }
       }
@@ -1219,11 +1221,11 @@ serve(async (req) => {
         // po platbě), ne na /upravit-rezervaci — zákazník pokračuje tam, kde skončil.
         const docsLink = docs_url || `${siteForLang(custLang)}/rezervace?resume=${booking_id}`
         vars.docs_url = docsLink
-        vars.door_codes_block = renderDocsRequiredBlock(custLang, docsLink)
+        vars.door_codes_block = renderDocsRequiredBlock(custLang, docsLink, docsReason)
         if (gate) {
           // Pobočka s bránou: za výzvu k dokladům postup BEZ kódu brány.
           const proc = gateProc(gate, false, await loadNeedsLocker(supabase, booking_id, doorCodeRows))
-          gateBlockFor = (l) => renderDocsRequiredBlock(l, docsLink) + proc(l)
+          gateBlockFor = (l) => renderDocsRequiredBlock(l, docsLink, docsReason) + proc(l)
           vars.door_codes_block = gateBlockFor(custLang)
         }
       }

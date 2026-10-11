@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
+import '../auth/auth_provider.dart';
 import 'document_provider.dart';
 
 /// Brána dokladů pro vydání přístupových kódů (RPC `get_docs_gate_checklist`,
@@ -92,6 +93,17 @@ final docsScreenStatusProvider =
   final profile = ref.watch(docsVerifiedProvider.future);
   final gate = ref.watch(docsGateChecklistProvider.future);
   return DocsScreenStatus(await profile, await gate);
+});
+
+/// Totéž pro proaktivní FAB „doklady nejsou ověřeny“ v AppShell — vlastní
+/// cache, aby trvale sledovaný FAB nedržel naživu [docsGateChecklistProvider]
+/// (Moje doklady si bránu načtou čerstvě při každém otevření). Znovu po
+/// přihlášení / odhlášení a po nahrání dokladů (invalidace docsVerified).
+final docsFabStatusProvider =
+    FutureProvider.autoDispose<DocsScreenStatus>((ref) async {
+  ref.watch(authStateProvider.select((s) => s.valueOrNull?.user.id));
+  final profile = await ref.watch(docsVerifiedProvider.future);
+  return DocsScreenStatus(profile, await fetchDocsGateChecklist());
 });
 
 /// Co chybí pro vydání kódů — lokalizované krátké položky za „Chybí:“

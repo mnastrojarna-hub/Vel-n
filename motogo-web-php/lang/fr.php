@@ -1504,7 +1504,7 @@ return [
     'editRez.doc.finishSaving' => 'Enregistrement et vérification…',
     'editRez.doc.finishDone' => 'Terminé ! Vos documents sont enregistrés.',
     'editRez.doc.finishCodesSent' => 'Terminé ! Vos documents sont enregistrés et nous vous avons envoyé les codes d\'accès par e-mail.',
-    'editRez.doc.finishMissing' => 'Vos documents ne sont pas encore complets — veuillez télécharger les deux faces de votre carte d\'identité/passeport et de votre permis de conduire.',
+    'editRez.doc.finishMissing' => 'Vos documents ne sont pas encore complets — veuillez téléverser le recto et le verso de votre carte d\'identité (ou la page avec photo du passeport) ainsi que le recto et le verso de votre permis de conduire.',
     'editRez.doc.finishError' => 'L\'enregistrement a échoué. Veuillez réessayer.',
     'editRez.doc.savedOk' => 'Document enregistré ✓',
     // ===== Dialogue de confirmation (générique) + scan de documents =====

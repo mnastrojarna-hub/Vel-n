@@ -1483,7 +1483,7 @@ return [
     'editRez.doc.finishSaving' => 'Zapisywanie i weryfikacja…',
     'editRez.doc.finishDone' => 'Gotowe! Twoje dokumenty zostały zapisane.',
     'editRez.doc.finishCodesSent' => 'Gotowe! Twoje dokumenty zostały zapisane, a kody dostępu wysłaliśmy e-mailem.',
-    'editRez.doc.finishMissing' => 'Twoje dokumenty nie są jeszcze kompletne — prześlij obie strony dowodu/paszportu oraz prawa jazdy.',
+    'editRez.doc.finishMissing' => 'Twoje dokumenty nie są jeszcze kompletne — prześlij przód i tył dowodu (lub stronę paszportu ze zdjęciem) oraz przód i tył prawa jazdy.',
     'editRez.doc.finishError' => 'Zapis nie powiódł się. Spróbuj ponownie.',
     'editRez.doc.savedOk' => 'Dokument zapisany ✓',
     // ===== Okno potwierdzenia (ogólne) + skan dokumentu =====

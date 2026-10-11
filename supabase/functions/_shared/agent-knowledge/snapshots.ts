@@ -112,7 +112,7 @@ export function formatBranchesSnapshot(branches: BranchRow[]): string {
     const typ = b.type === 'samoobslužná'
       ? 'SAMOOBSLUŽNÁ (výdej i vrácení 24/7 přístupovým kódem, doklady se ověřují předem online; rezervaci se slevou za vyzvednutí od 12:00 vydá kiosk až od 12:00 v den začátku)'
       : b.type === 'obslužná'
-        ? 'OBSLUŽNÁ (motorku předává a přebírá OBSLUHA osobně, čas dle otevírací doby / domluvy — NENÍ to samoobslužný výdej kódem. Přístupové kódy z e-mailu tu ale zákazník DOSTÁVÁ taky a NEJSOU omyl: slouží jako IDENTIFIKACE — při převzetí je řekne obsluze, ta podle nich rezervaci dohledá a zákazníka ověří. Sken/foto dokladů předem není povinný, ale DOPORUČUJE se: kdo si vše vyřídí předem, má vše připravené, u obsluhy jen nahlásí kódy a předání zabere ~2 minuty — zvlášť když odjíždí víc motorek najednou)'
+        ? 'OBSLUŽNÁ (motorku předává a přebírá OBSLUHA osobně, čas dle otevírací doby / domluvy — NENÍ to samoobslužný výdej kódem. Přístupové kódy z e-mailu tu ale zákazník DOSTÁVÁ taky a NEJSOU omyl: slouží jako IDENTIFIKACE — při převzetí je řekne obsluze, ta podle nich rezervaci dohledá a zákazníka ověří. Sken/foto dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), ale DOPORUČUJE se: kdo si vše vyřídí předem, má vše připravené, u obsluhy jen nahlásí kódy a předání zabere ~2 minuty — zvlášť když odjíždí víc motorek najednou)'
         : `typ neuveden — režim výdeje ověř přes \`get_branches\`/firmu, netvrď samoobsluhu`
     const oh = b.opening_hours ? `; otevírací doba: ${b.opening_hours}` : ''
     const notes = b.notes ? `; pozn.: ${b.notes}` : ''

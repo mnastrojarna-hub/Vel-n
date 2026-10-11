@@ -43,6 +43,8 @@ $keys = [
     'editRez.doc.finishBtn','editRez.doc.finishHelp','editRez.doc.finishSaving','editRez.doc.finishDone',
     'editRez.doc.finishCodesSent','editRez.doc.finishMissing','editRez.doc.finishError','editRez.doc.savedOk',
     'editRez.doc.uploadingMsg','editRez.doc.scanOk','editRez.doc.scanFail',
+    'editRez.doc.gateIntro','editRez.doc.gateIdentity','editRez.doc.gateLicense','editRez.doc.gateDob','editRez.doc.gateAge',
+    'editRez.doc.gateExpiry','editRez.doc.gateExpired','editRez.doc.gateGroupMissing','editRez.doc.gateGroup','editRez.doc.gateSwap',
     // Skupina ŘP + platnost při dodatečném nahrání dokladů
     'editRez.doc.licTitle','editRez.doc.licHelp','editRez.doc.licGroupLabel','editRez.doc.licExpiryLabel',
     'editRez.doc.licNone','editRez.doc.licSaved','editRez.doc.licSaveErr','editRez.doc.licExpiryInvalid',
