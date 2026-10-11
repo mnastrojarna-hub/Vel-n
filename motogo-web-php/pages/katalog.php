@@ -71,34 +71,46 @@ $katalogDefaults = [
     ],
 ];
 
+// 2026-10-11: modely v textech z AKTUÁLNÍ flotily (Velín), ne napevno — {models} = až 3 modely kategorie
+$kfModels = function ($cat) use ($motos) {
+    $names = [];
+    foreach ($motos as $m) {
+        if (strtolower((string)($m['category'] ?? '')) !== $cat || !empty($m['is_trailer'])) continue;
+        $n = trim((string)($m['model'] ?? ''));
+        if ($n !== '' && !in_array($n, $names, true)) $names[] = $n;
+        if (count($names) >= 3) break;
+    }
+    return $names ? implode(', ', array_map(function ($n) { return '<strong>' . htmlspecialchars($n, ENT_QUOTES) . '</strong>'; }, $names)) : '';
+};
+
 // Per-kategorie outro — Seobility hlásil 'Duplicate content' na /katalog/{cestovni,
 // naked,detske} + /katalog protože všechny sdílely stejný outro text. Každá kategorie
 // dostává vlastní unikátní outro (řeší duplicate i SEO klíčovku per cíl).
 $categoryOutros = [
     'cestovni' => [
         'title' => 'Cestovní motorky k pronájmu — pro dlouhé túry a dovolené',
-        'body1' => 'Cestovní (touring) a adventure motorky v naší flotile jsou stavěné na dlouhé vzdálenosti — vyšší posed, pohodlné sedadlo pro řidiče i spolujezdce, velká nádrž s dojezdem 300–400 km a kufry pro zavazadla. Najdete tu klasické cestovní stroje jako <strong>Honda Africa Twin</strong>, <strong>BMW R 1200 GS Adventure</strong> nebo <strong>Benelli TRK</strong> — všechny pravidelně servisované a připravené na trasu po ČR i do zahraničí.',
-        'body2' => 'Půjčujeme bez kauce, zelenou kartu i mezinárodní doklady dáváme automaticky a v ceně máte kompletní výbavu pro řidiče. Pokud plánujete delší cestu (5+ dní), nabízíme automatickou slevu — promítne se přímo do online rezervace. Pro spolujezdce si můžete doobjednat výbavu (helma, bunda, kukla) za příplatek.',
+        'body1' => 'Cestovní (touring) a adventure motorky v naší flotile jsou stavěné na dlouhé vzdálenosti — vyšší posed, pohodlné sedadlo pro řidiče i spolujezdce, velká nádrž s dojezdem 300–400 km a kufry pro zavazadla. ' . (($mm = $kfModels('cestovni')) ? 'Aktuálně u nás najdete například ' . $mm . ' — všechny pravidelně servisované a připravené na trasu po ČR i do zahraničí.' : 'Všechny jsou pravidelně servisované a připravené na trasu po ČR i do zahraničí.'),
+        'body2' => 'Půjčujeme bez kauce, zelenou kartu i mezinárodní doklady dáváme automaticky a v ceně máte kompletní výbavu pro řidiče. Pro spolujezdce si můžete doobjednat výbavu (helma, bunda, kukla) za příplatek.',
     ],
     'naked' => [
         'title' => 'Naked motorky — sportovně laděné stroje pro každodenní jízdu',
-        'body1' => 'Naked motorky bez kapotáže nabízejí <strong>nezaměnitelný pocit svobody</strong> a přímé spojení s motorem. Hodí se na rychlou jízdu městem, víkendové výlety i na zábavu v zatáčkách. V naší flotile najdete například <strong>Kawasaki Z 900</strong> nebo <strong>Yamaha MT-09 Street Rally</strong> — všechny ve výborném technickém stavu, s nízkým nájezdem a pravidelným servisem.',
+        'body1' => 'Naked motorky bez kapotáže nabízejí <strong>nezaměnitelný pocit svobody</strong> a přímé spojení s motorem. Hodí se na rychlou jízdu městem, víkendové výlety i na zábavu v zatáčkách. ' . (($mm = $kfModels('naked')) ? 'V naší flotile najdete například ' . $mm . ' — všechny ve výborném technickém stavu a s pravidelným servisem.' : 'Všechny jsou ve výborném technickém stavu a s pravidelným servisem.'),
         'body2' => 'Půjčujeme bez kauce a výbava pro řidiče (helma, bunda, kalhoty, rukavice) je vždy v ceně. Před vyzvednutím motorku společně prohlédneme a vysvětlíme vám její specifika. Pokud nemáte zkušenost s konkrétní třídou výkonu, rádi poradíme s výběrem.',
     ],
     'supermoto' => [
         'title' => 'Supermoto motorky — lehké a hbité stroje pro městský zlob',
-        'body1' => 'Supermoto kombinuje výhody enduro motorky (lehkost, dlouhé pružení, vysoký posed) se silničními pneumatikami a kotoučovými brzdami. Výsledek je <strong>velmi hbitý stroj</strong>, který si rozumí s městským provozem, polními cestami i krátkými túrami po Vysočině. V katalogu najdete například <strong>Yamaha XT660 X</strong> — klasické supermoto s velkým jednoválcovým srdcem.',
+        'body1' => 'Supermoto kombinuje výhody enduro motorky (lehkost, dlouhé pružení, vysoký posed) se silničními pneumatikami a kotoučovými brzdami. Výsledek je <strong>velmi hbitý stroj</strong>, který si rozumí s městským provozem, polními cestami i krátkými túrami po Vysočině. ' . (($mm = $kfModels('supermoto')) ? 'V katalogu najdete například ' . $mm . '.' : ''),
         'body2' => 'Tyto motorky vyžadují řidičské oprávnění A nebo A2 a hodí se spíš zkušenějším jezdcům, kteří si chtějí užít hravost a lehkost stroje. Půjčujeme bez kauce, výbavu řidiče máte v ceně. Při vyzvednutí vám vysvětlíme specifika jízdy s vyšším posedem a důraz na vyvážení.',
     ],
-    'naked_chopper' => [
+    'chopper' => [
         'title' => 'Chopper a cruiser motorky pro pohodovou jízdu',
         'body1' => 'Chopper a cruiser motorky jsou stavěné pro <strong>pohodlnou jízdu na dlouhé vzdálenosti</strong> — nízký posed, tažné držení těla, charakteristický zvuk dvouválcového motoru a estetika klasiky. Hodí se na nedělní výlet i na delší cestu po ČR.',
         'body2' => 'V naší flotile rozšiřujeme nabídku průběžně — pokud máte konkrétní model na mysli, ozvěte se nám. Půjčujeme bez kauce a výbavu řidiče máte v ceně. Při vyzvednutí vám předáme klíče, dokumenty a kompletní výbavu.',
     ],
     'detske' => [
         'title' => 'Dětské motorky — bezpečná zábava pro malé jezdce',
-        'body1' => 'Dětské elektromotorky a malé motorky s nízkým výkonem (do 4,1 kW) si můžete půjčit <strong>bez řidičského oprávnění</strong> a využít je na zahradě, tábořišti nebo v rámci jezdeckého kurzu pro děti. V katalogu najdete například <strong>Yamaha PW 50</strong> — legendu mezi dětskými stroji, která se vyrábí prakticky beze změny už desítky let.',
-        'body2' => 'Před každou jízdou doporučujeme dítěti přečíst základní bezpečnostní pravidla a vždy ho vybavit helmou a chrániči (k zapůjčení v ceně). Doručujeme motorku po celé ČR — domluvíme se na čase i adrese přistavení přímo při rezervaci.',
+        'body1' => 'Dětské motorky si můžete půjčit <strong>bez řidičského oprávnění</strong> a využít je na zahradě, tábořišti nebo v rámci jezdeckého kurzu pro děti.' . (($mm = $kfModels('detske')) ? ' V katalogu najdete například ' . $mm . '.' : ''),
+        'body2' => 'Před každou jízdou doporučujeme dítěti přečíst základní bezpečnostní pravidla a vždy ho vybavit helmou a chrániči. Termín, pobočku i případné přistavení si domluvíte přímo při rezervaci.',
     ],
     'sportovni' => [
         'title' => 'Sportovní motorky — adrenalin a výkon pro zkušené jezdce',
@@ -125,7 +137,16 @@ $C = $sb->siteContent('katalog' . ($category ? '_' . $category : ''), $katalogDe
 // Pro kategorie subpages necháme dynamický nadpis z překladů, jen sdílený intro lze přepsat
 // H1 extension: kategorie ("Cestovní motorky" má jen ~16 px) doplníme o "k pronájmu na Vysočině"
 // aby přesáhly Seobility 120 px limit (řeší 'H1 too short' na všech /katalog/{kat}).
-$h1Suffix = ' k pronájmu na Vysočině';
+// 2026-10-11: lokalizovaně a z poboček, kde motorky kategorie reálně stojí (dřív česky natvrdo „na Vysočině“)
+$kfLang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+$kfRent = ['cs' => 'k pronájmu', 'en' => 'for rent', 'de' => 'zur Miete', 'es' => 'en alquiler', 'fr' => 'à louer', 'nl' => 'te huur', 'pl' => 'do wynajęcia', 'uk' => 'в оренду'][$kfLang] ?? 'k pronájmu';
+$kfCities = [];
+foreach ($motos as $m) {
+    if ($category && strtolower((string)($m['category'] ?? '')) !== $category) continue;
+    $city = trim((string)($m['branches']['city'] ?? ''));
+    if ($city !== '' && !in_array($city, $kfCities, true)) $kfCities[] = $city;
+}
+$h1Suffix = ' ' . $kfRent . ($kfCities ? ' — ' . implode(', ', $kfCities) : '');
 $displayH1 = $category ? ($title . $h1Suffix) : ($C['h1'] ?? $title);
 $displayIntro = $C['intro'] ?? t('filters.catalogLead');
 $outroTitle = $C['outro']['title'] ?? $katalogDefaults['outro']['title'];

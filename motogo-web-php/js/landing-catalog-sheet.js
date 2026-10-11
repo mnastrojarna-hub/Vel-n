@@ -48,6 +48,12 @@
     void el.offsetWidth; // start přechodu po zrušení hidden
     el.classList.add('is-open');
     if (opener) opener.setAttribute('aria-expanded', 'true');
+    // Desktop: panel pod ohybem (karta níž než dřív) → posun tak, aby byl celý vidět
+    if (F.isDesk() && !bar.classList.contains('is-float')) w.requestAnimationFrame(function () {
+      if (cur !== el) return;
+      var r = el.getBoundingClientRect(), row = bar.parentNode;
+      if (r.bottom > w.innerHeight && row) w.scrollBy({ top: Math.min(r.bottom - w.innerHeight + 16, row.getBoundingClientRect().top - 12), behavior: F.rm ? 'auto' : 'smooth' });
+    });
     bar.classList.add('is-raised');
     scrim.classList.add('is-on');
     d.documentElement.classList.add('kf-sheet-open');
@@ -72,13 +78,17 @@
   F.openEl = function () { return cur; };
   // --- Přepínač režimu karty .km: role tablist/tab/tabpanel (bez JS je přepínač skrytý a oba režimy
   //     vidět), šipky + Home/End s roving tabindexem, automatická aktivace. Vrací setMode(m). ---
-  F.initMode = function () {
+  F.initMode = function (onUserCalc) {
     var km = d.querySelector('[data-km]'), tabs = km ? Array.prototype.slice.call(km.querySelectorAll('[data-km-tab]')) : [];
     if (!tabs.length) return function () {};
     tabs[0].parentNode.setAttribute('role', 'tablist');
-    function set(m, focus) {
-      if (km.getAttribute('data-mode') !== m) F.closeSheet(true);
+    function set(m, focus, user) {
+      var changed = km.getAttribute('data-mode') !== m;
+      if (changed) F.closeSheet(true);
       km.setAttribute('data-mode', m);
+      if (user && m !== 'calc' && w.location.hash === '#kalkulacka') try { history.replaceState(history.state, '', w.location.pathname + w.location.search); } catch (e) {}
+      if (changed && F.onMode) F.onMode(m);
+      if (changed && user && m === 'calc' && onUserCalc) onUserCalc();
       tabs.forEach(function (t) {
         var on = t.getAttribute('data-km-tab') === m;
         t.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -90,25 +100,26 @@
       var p = d.getElementById(t.getAttribute('aria-controls'));
       t.setAttribute('role', 'tab');
       if (p) { p.setAttribute('role', 'tabpanel'); p.setAttribute('aria-labelledby', t.id); }
-      t.addEventListener('click', function () {
-        var m = t.getAttribute('data-km-tab');
-        set(m);
-        if (m !== 'calc' && w.location.hash === '#kalkulacka') try { history.replaceState(history.state, '', w.location.pathname + w.location.search); } catch (e) {}
-      });
+      t.addEventListener('click', function () { set(t.getAttribute('data-km-tab'), false, true); });
       t.addEventListener('keydown', function (e) {
         var k = e.key, n = tabs.length, j = k === 'ArrowRight' ? i + 1 : k === 'ArrowLeft' ? i - 1 : k === 'Home' ? 0 : k === 'End' ? n - 1 : null;
         if (j === null) return;
         e.preventDefault();
-        set(tabs[(j + n) % n].getAttribute('data-km-tab'), true);
+        set(tabs[(j + n) % n].getAttribute('data-km-tab'), true, true);
       });
     });
     set('find');
+    km.setAttribute('data-km-ready', ''); // CSS skrývá neaktivní režim až po inicializaci (jinak no-JS vzhled)
     return set;
   };
   // --- Drobné UI katalogu; vrací calc(id) = režim kalkulačky (motorka z karty, termín z filtru) ---
   F.initExtras = function (o) {
     var K = w.MGKC || {}, T = o.T, kcRoot = d.querySelector('[data-kc]'), km = d.querySelector('[data-km]'), q = function (s) { return o.root.querySelector(s); };
-    var setMode = F.initMode();
+    // Přepnutí na kalkulačku záložkou převezme termín z filtru (motorku nechá)
+    var setMode = F.initMode(function () {
+      var DT = o.dt();
+      if (kcRoot && K.calcSet && DT && DT.active()) K.calcSet({ keepMoto: true, start: DT.start(), end: DT.end() });
+    });
     function calc(id, now) {
       if (!kcRoot) return;
       var DT = o.dt();
@@ -148,13 +159,22 @@
       } else intro.classList.remove('is-clamp');
     }
     // Lišta Termín/Filtry/🧮 se přilepí nahoru, jen když řádek s poli odjel NAD viewport (ne pod ohyb)
-    var row = o.bar.parentNode;
+    // + jen dokud je na obrazovce mřížka motorek (ne přes SEO text / FAQ / patičku pod katalogem)
+    var row = o.bar.parentNode, grid = d.getElementById('katalog-grid');
     if ('IntersectionObserver' in w && row && row.classList.contains('km-row--bar')) {
-      new IntersectionObserver(function (es) { var e = es[0]; o.bar.classList.toggle('is-float', !e.isIntersecting && e.boundingClientRect.top < 0); }).observe(row);
+      var gone = false, inGrid = true;
+      var upd = function () {
+        var f = gone && inGrid && (!km || km.getAttribute('data-mode') !== 'calc');
+        if (f && !o.bar.classList.contains('is-float')) row.style.minHeight = o.bar.offsetHeight + 'px';
+        o.bar.classList.toggle('is-float', f);
+      };
+      new IntersectionObserver(function (es) { var e = es[0]; gone = !e.isIntersecting && e.boundingClientRect.top < 0; upd(); }, { rootMargin: '-24px 0px 0px 0px' }).observe(row);
+      if (grid) new IntersectionObserver(function (es) { inGrid = es[0].isIntersecting; upd(); }, { rootMargin: '-80px 0px 0px 0px' }).observe(grid);
+      F.onMode = function () { upd(); };
     }
     // Odkaz /katalog#kalkulacka (i během návštěvy) otevře režim kalkulačky (po sbalení úvodu)
     var hash = function (e) { if (w.location.hash === '#kalkulacka') calc('', !e); };
-    hash();
+    setTimeout(hash, 0); // až po F.initDates (termín z URL se tak předá i kalkulačce)
     w.addEventListener('hashchange', hash);
     return calc;
   };

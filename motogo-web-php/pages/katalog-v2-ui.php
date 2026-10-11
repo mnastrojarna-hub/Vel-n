@@ -165,11 +165,12 @@ function renderKatalogV2($sb, $o) {
     $find = '<div class="km-pane km-find" id="km-find"><div class="km-row"><p class="km-lab"><span class="km-n">' . lpIcon('moto') . '</span>' . he($T['f_type']) . '</p>' .
         '<nav class="kf-cats" aria-label="' . te('filters.category') . '">' . $cats . '</nav></div>' .
         '<div class="km-row km-row--bar">' . $bar . '</div>' .
-        '<div class="kf-res"><h2 class="sr-only">' . he($T['fleet_title']) . '</h2><p class="kf-count" data-kf-count aria-live="polite">' . he(kfCount($T, $nVis)) . '</p>' .
+        '<div class="kf-res"><p class="kf-count" data-kf-count aria-live="polite">' . he(kfCount($T, $nVis)) . '</p>' .
         '<a class="km-go" href="#katalog-grid">' . he($T['f_go']) . lpIcon('arrow') . '</a><div class="kf-active" role="group" data-kf-active aria-label="' . he($T['f_active']) . '" hidden></div></div></div>';
     return '<script>document.documentElement.classList.add("kf-js")</script>' .
         '<div class="kf" data-kf><section class="km" data-km data-mode="find">' . $top . $find .
         ($calcHtml === '' ? '' : '<div class="km-pane km-calc" id="km-calc">' . $calcHtml . '</div>') . '</section>' .
+        '<h2 class="sr-only">' . he($T['fleet_title']) . '</h2>' . // nadpis mřížky i v režimu kalkulačky (čtečky)
         '<ul id="katalog-grid" class="kf-grid" data-kf-grid aria-label="' . te('filters.aria.catalog') . '">' . $cards . '</ul>' .
         '<div class="kf-empty" data-kf-empty' . ($nVis ? ' hidden' : '') . '><p data-kf-empty-t>' . te('filters.empty') . '</p><p><a class="kf-reset kf-reset--btn" href="' . he($action) . '" data-kf-reset>' . te('filters.clearFilters') . '</a></p></div>' .
         '<script type="application/json" id="kf-data">' . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . '</script></div>';

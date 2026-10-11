@@ -85,6 +85,13 @@ $priceText = $price > 0 ? formatPrice($price) : '';
 $stock = (int)($product['stock_quantity'] ?? 0);
 $sku = trim((string)($product['sku'] ?? ''));
 $sizes = is_array($product['sizes'] ?? null) ? array_filter($product['sizes']) : [];
+// Sklad po velikostech (Velín → Produkty, products.size_stock {velikost: ks}); 2026-10-11:
+// vyprodaná velikost nejde vybrat a „Skladem“ = součet volných velikostí
+$sizeStock = is_array($product['size_stock'] ?? null) ? $product['size_stock'] : [];
+if ($sizes && $sizeStock) {
+    $stock = 0;
+    foreach ($sizes as $sz) $stock += max(0, (int)($sizeStock[(string)$sz] ?? 0));
+}
 
 // Specs (bez velikostí — ty jsou nyní interaktivní selector v CTA bloku)
 $specsRows = [];
@@ -113,7 +120,9 @@ if ($stock > 0) {
         $sizesPickerHtml .= '<div class="shop-size-chips" role="radiogroup" aria-label="' . te('shop.detail.chooseSize') . '">';
         foreach ($sizes as $sz) {
             $sizeEsc = htmlspecialchars((string)$sz, ENT_QUOTES, 'UTF-8');
-            $sizesPickerHtml .= '<button type="button" class="shop-size-chip" data-size="' . $sizeEsc . '" role="radio" aria-checked="false">' . $sizeEsc . '</button>';
+            $out = $sizeStock && (int)($sizeStock[(string)$sz] ?? 0) <= 0;
+            $sizesPickerHtml .= '<button type="button" class="shop-size-chip' . ($out ? ' is-out' : '') . '" data-size="' . $sizeEsc . '" role="radio" aria-checked="false"'
+                . ($out ? ' disabled aria-disabled="true" title="' . te('shop.outOfStock') . '"' : '') . '>' . $sizeEsc . '</button>';
         }
         $sizesPickerHtml .= '</div>';
         $sizesPickerHtml .= '<p class="shop-size-error" data-shop-size-error hidden>' . te('shop.detail.sizeRequired') . '</p>';

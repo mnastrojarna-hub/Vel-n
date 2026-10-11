@@ -40,6 +40,7 @@ return ['pages' => ['landing_katalog' => [
     'range_busy' => 'W tym okresie jest zajęty dzień. Wybierz inny termin.',
     'moto_busy' => 'Ten motocykl nie jest wolny w twoim terminie: wybierz inny.',
     'min_days' => 'Ten motocykl wypożyczamy na co najmniej {n} dni.',
+    'max_days' => 'Ten motocykl wypożyczamy na maksymalnie {n} dni.',
     'prev' => 'Poprzedni miesiąc',
     'next' => 'Następny miesiąc',
     'sum_title' => 'Twoja cena',
