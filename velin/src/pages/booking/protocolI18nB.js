@@ -1,6 +1,6 @@
 // Texty elektronického protokolu z Velína — nl, pl, uk (klíče viz protocolI18n.js PROTO_CS). Sdílené popisky
 // (strany, kontrola předání, výbava, doplňky, poškození, podpis nájemce) = doslova edge submit-handover-protocol/i18n-*.ts,
-// aby protokol z displeje/appky a z Velína zněl stejně. Generováno skriptem (W3), ruční úpravy dovoleny.
+// aby protokol z displeje/appky a z Velína zněl stejně; ostatní (protokol o poškození, ověření identity, patička) jen Velín.
 
 export const PROTO_B = {
   nl: {

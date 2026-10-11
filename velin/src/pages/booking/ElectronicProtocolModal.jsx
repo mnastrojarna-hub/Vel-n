@@ -7,6 +7,7 @@ import SignaturePad from '../../components/ui/SignaturePad'
 import { buildDocVars, listAccessoryItems } from './bookingDocTemplates'
 import { effBranch, BOOKING_BRANCH_EMBED } from '../../lib/bookingBranch'
 import { buildElectronicProtocolHtml, HANDOVER_CHECKS, EXTRA_GEAR_CHECKS, DAMAGE_CHECKS } from './bookingDocElectronic'
+import { protocolLang } from './protocolI18n'
 import { sendProtocolEmail } from './protocolEmail'
 import { loadAccessoryTypes } from '../BranchHelpers'
 import { useSaveErrorReveal } from './useSaveErrorReveal'
@@ -22,6 +23,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [vars, setVars] = useState(null)
+  const [docLang, setDocLang] = useState('cs')   // bookings.language → dvojjazyčný protokol (protocolI18n.js)
   const [accessories, setAccessories] = useState([])
   // Číselník velikostí per typ výbavy (accessory_types) — pro změnu velikosti při předání
   const [sizesByType, setSizesByType] = useState({})
@@ -68,6 +70,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       const self = effBranch(booking)?.type === 'samoobslužná'   // pobočka rezervace, u NULL motorky
       setSelfService(self)
       setOwnGear(booking.own_gear ?? null)
+      setDocLang(booking.language || 'cs')
       setChildSuffix(String(booking.motorcycles?.license_required || '').toUpperCase() === 'N' ? ' (dětská velikost)' : '')
       setAlreadySigned(!isDamage && self && booking.handover_protocol_filled_at ? booking.handover_protocol_filled_at : null)
       setMileage(isDamage ? '' : (booking.mileage_start ? String(booking.mileage_start) : ''))
@@ -157,10 +160,10 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       // Do dokumentu: bez smazaných a bez přidaných, které si zákazník nakonec nevzal; přidané označit
       const docAccessories = accessories.filter(a => !a.deleted && !(a.added && !a.checked)).map(a => (a.added ? { ...a, label: `${a.label} — přidáno při předání` } : a))
       const form = { mileage, visualState, notes, damageDesc, missingGear, accessories: docAccessories, checks, damage: handoverDamage, identityCodeRequired: !!motoCode, identityVerified: codeVerified }
-      const html = buildElectronicProtocolHtml({ type, vars, form, signatures: { customer: customerSig, operator: operatorSig } })
+      const html = buildElectronicProtocolHtml({ type, vars, form, signatures: { customer: customerSig, operator: operatorSig }, lang: docLang })
       const docId = crypto.randomUUID()
       const docName = (isDamage ? 'Protokol o poškození' : 'Předávací protokol') + ' (elektronický)'
-      const filled = { ...vars, _signed_html: html, _doc_name: docName, _doc_type: type, _electronic: true, _signed_at: new Date().toISOString() }
+      const filled = { ...vars, _signed_html: html, _doc_name: docName, _doc_type: type, _electronic: true, _signed_at: new Date().toISOString(), _lang: protocolLang(docLang) }
       // PDF nahrajeme PŘED insertem, aby sync trigger (generated_documents → documents)
       // viděl reálnou cestu k souboru a zákazník dostal funkční dokument v appce.
       let pdfPath = null
