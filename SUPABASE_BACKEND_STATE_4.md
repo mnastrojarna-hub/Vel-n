@@ -46,7 +46,8 @@
 | `trg_sos_auto_timeline` | sos_incidents (INSERT) | sos_auto_timeline() |
 | `trg_sos_incidents_updated` | sos_incidents | update_updated_at() |
 | `trg_email_templates_updated` | email_templates | update_updated_at() |
-| ~~`trg_document_templates_updated`~~ | ~~document_templates~~ | **NENÍ V ŽIVÉ DB** — ověřeno snapshotem 2026-06-18 (`document_templates` nemá žádný trigger). Dříve dokumentováno jako aktivní `update_updated_at()`, ale v reálné DB neexistuje. |
+| `trg_document_templates_updated` | document_templates (BEFORE UPDATE) | **NEW 2026-10-11 (`20261011_i18n_customer_language.sql`):** `update_updated_at()` — Velín i AI podle `updated_at` poznají změnu české šablony (dřív trigger chyběl, viz snapshot 2026-06-18). |
+| `trg_booking_inherit_language` | bookings (BEFORE INSERT, WHEN continues_booking_id IS NOT NULL OR replacement_for_booking_id IS NOT NULL) | **NEW 2026-10-11 (`20261011_i18n_customer_language.sql`):** `_booking_inherit_language()` — navazující rezervace (výměna motorky, SOS náhrada) z výchozí 'cs' převezme jazyk původní rezervace. Abecedně před `trg_set_booking_branch` (nekoliduje). |
 | `trg_app_settings_updated` | app_settings | update_updated_at() |
 | `trg_vouchers_updated` | vouchers | update_updated_at() |
 | `trg_service_orders_updated` | service_orders | update_updated_at() |
