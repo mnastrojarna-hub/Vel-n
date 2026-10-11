@@ -47,10 +47,10 @@ export const QR_FALLBACK: Record<QrLang, QrFallbackTexts> = {
   de: {
     title: 'Zahlungsdaten — QR / Banküberweisung',
     surchargeTitle: 'Nachzahlung für die Reservierungsänderung — QR / Banküberweisung',
-    intro: (b) => ' für deine Reservierung ' + b + '. Bitte überweise den Betrag per Banküberweisung oder scanne den QR-Code in deiner Banking-App.',
-    surchargeIntro: (b) => ' ' + b + ' ist eine Nachzahlung verbunden. Bitte überweise sie per Banküberweisung oder scanne den QR-Code in deiner Banking-App.',
+    intro: (b) => ' für deine Reservierung ' + b + '. Bitte zahle den Betrag per Banküberweisung oder scanne den QR-Code in deiner Banking-App.',
+    surchargeIntro: (b) => ' ' + b + ' ist eine Nachzahlung verbunden. Bitte zahle sie per Banküberweisung oder scanne den QR-Code in deiner Banking-App.',
     qrAlt: 'QR-Zahlung',
-    amount: 'Betrag', account: 'Kontonummer', bank: 'Bank', vs: 'Variabler Symbol',
+    amount: 'Betrag', account: 'Kontonummer', bank: 'Bank', vs: 'Variables Symbol',
     deadline: '⏱ Bitte zahle innerhalb von 4 Stunden. Ist die Zahlung bis dahin nicht eingegangen, wird die Reservierung automatisch storniert und der Termin wieder freigegeben.',
     after: 'Sobald die Zahlung eingegangen ist, bestätigen wir deine Reservierung und schicken dir die Bestätigung mit den Zugangsdaten. Die Vorschussrechnung findest du im Anhang.',
     card: 'Wenn du lieber mit Karte zahlst (sofortige Bestätigung), kannst du die Reservierung mit einer Online-Zahlung im Reservierungsformular abschließen.',
