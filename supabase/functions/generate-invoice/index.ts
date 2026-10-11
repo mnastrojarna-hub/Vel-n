@@ -190,6 +190,24 @@ function extraLabel(name: string, booking: any): string {
   return `${name} (${size})`
 }
 
+// 2026-10-11 (audit edge-auth): ZÁKAZNÍK (appka) smí jen běžný doklad z DB dat —
+// bez ručních položek/částek/data/VS/textu splatnosti/kódů, bez přegenerování a renderu
+// existujícího; zdroj jen booking/shop; typ jen ZF/DP (DP jen k zaplacené, viz níže).
+// Appka posílá jen type+booking_id|order_id(+source 'booking', send_email, amount).
+const USER_INVOICE_TYPES = ['advance', 'proforma', 'shop_proforma', 'payment_receipt']
+const USER_IGNORED_FIELDS = ['extra_items', 'voucher_codes', 'price_difference', 'regenerate',
+  'invoice_date', 'render_existing', 'variable_symbol', 'due_note']
+async function readInvoiceBody(req: Request, kind: string): Promise<any> {
+  const b = await req.json()
+  if (kind !== 'user' || !b || typeof b !== 'object') return b
+  const o = { ...b }
+  for (const k of USER_IGNORED_FIELDS) delete o[k]
+  // rezervace = vždy 'booking' (jiný zdroj obchází dedup .eq('source','booking') → nový doklad při každém volání)
+  if (o.booking_id) o.source = 'booking'
+  else if (o.source !== 'shop') delete o.source
+  return o
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -211,7 +229,7 @@ serve(async (req) => {
       price_difference, // source='edit': částka doplatku (Kč) — posílá send-booking-email z trigger payloadu
       variable_symbol: reqVariableSymbol, // QR/převod ZF: číselný VS pro párování platby (jinak = číslo dokladu)
       due_note: reqDueNote, // QR/převod ZF: text splatnosti do bloku bankovní platby (např. "Splatnost do 4 hodin")
-    } = await req.json()
+    } = await readInvoiceBody(req, caller.kind)
     if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
 
     let voucher_codes: string[] | undefined = explicitVoucherCodes
@@ -231,6 +249,21 @@ serve(async (req) => {
         ownerOk = !!ord && ord.customer_id === caller.userId
       }
       if (!ownerOk) return forbidden(CORS, 'not_owner')
+    }
+    if (caller.kind === 'user') {
+      // viz USER_INVOICE_TYPES: KF/FV/shop_final zákazník nevystaví (shop_final by navíc
+      // service voláním vystavil DP i nezaplacené objednávce); DP jen po zaplacení.
+      if (type && (typeof type !== 'string' || !USER_INVOICE_TYPES.includes(type))) return forbidden(CORS, 'type_not_allowed')
+      if (booking_id && order_id) { // vlastnictví výše ověřeno jen u booking_id
+        const { data: o2 } = await supabase.from('shop_orders').select('customer_id').eq('id', order_id).maybeSingle()
+        if (!o2 || o2.customer_id !== caller.userId) return forbidden(CORS, 'not_owner')
+      }
+      if (type === 'payment_receipt') {
+        const { data: paidRow } = booking_id
+          ? await supabase.from('bookings').select('payment_status').eq('id', booking_id).maybeSingle()
+          : await supabase.from('shop_orders').select('payment_status').eq('id', order_id).maybeSingle()
+        if (!['paid', 'partial_refund'].includes(String(paidRow?.payment_status || ''))) return forbidden(CORS, 'not_paid')
+      }
     }
     const COMPANY = await loadCompanyInfo(supabase)
 

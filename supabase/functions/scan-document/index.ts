@@ -1,5 +1,11 @@
+// OCR dokladů (OP / pas / ŘP) přes Mindee v2 — volá appka (JWT), Velín (admin JWT)
+// a web rezervace (host bez session s booking_id živé rezervace / přihlášený s JWT).
+// 2026-10-11: dřív otevřená proxy na placenou Mindee kvótu bez kontroly volajícího —
+// teď resolveDocCaller (_shared/auth.ts), base64 max 12 MB znaků, čísla dokladů se
+// nelogují. Funkce nic nezapisuje kromě debug_log.
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveDocCaller } from '../_shared/auth.ts'
 import {
   parseV2Result, extractLicenseCategory, getModelId,
   debugLog, pollForResult, MINDEE_ENQUEUE_URL
@@ -15,18 +21,34 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+const MAX_B64_CHARS = 12_000_000 // ≈ 9 MB obrázku; web/Velín/appka posílají ≤ 1600–1800 px JPEG
+const jsonErr = (error: string, status: number) =>
+  new Response(JSON.stringify({ success: false, error }), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   const startTime = Date.now()
 
+  // Nevalidní JSON / velikost / volající se odmítnou BEZ zápisu do debug_log
+  // (dřív každé anonymní volání zapsalo řádek)
+  let body: any
+  try { body = await req.json() } catch { return jsonErr('Invalid JSON', 400) }
+  if (typeof body?.image_base64 === 'string' && body.image_base64.length > MAX_B64_CHARS) {
+    return jsonErr('image_too_large', 413)
+  }
+  const who = await resolveDocCaller(req,
+    body?.user_id ? String(body.user_id) : null,
+    body?.booking_id ? String(body.booking_id) : null,
+    { targetOptional: true, legacyUser: true })
+  if (!who.ok) return jsonErr(who.reason, who.status)
+  const user_id = who.userId
+
   try {
-    const body = await req.json()
-    const { image_base64, document_type, user_id } = body
+    const { image_base64, document_type } = body
 
     console.log('[scan-document] Invoked: document_type=' + (document_type || 'id') +
-      ' user_id=' + (user_id || 'anon') +
+      ' via=' + who.via + ' user_id=' + (user_id || '-') +
       ' image_len=' + (image_base64 ? image_base64.length : 0) +
       ' MINDEE_KEY_SET=' + (!!MINDEE_API_KEY))
 
@@ -35,6 +57,7 @@ serve(async (req) => {
 
     await debugLog('invoke', docType, 'started', {
       document_type: docType, user_id: user_id || null,
+      via: who.via, caller_id: who.callerId, booking_id: who.bookingId,
       image_length: image_base64 ? image_base64.length : 0,
       mindee_key_set: !!MINDEE_API_KEY,
       model_id: modelId ? '***' + modelId.slice(-4) : 'MISSING',
@@ -220,13 +243,14 @@ serve(async (req) => {
         const dlMatch = rawText.match(/\b([A-Z]{2})\s*(\d{6})\b/)
         if (dlMatch) {
           data.licenseNumber = dlMatch[1] + ' ' + dlMatch[2]
-          console.log('[scan-document] Extracted DL number from raw text: ' + data.licenseNumber)
+          console.log('[scan-document] Extracted DL number from raw text') // hodnotu nelogovat (PII)
         }
       }
 
-      console.log('[scan-document] DL fields: licenseNumber=' + (data.licenseNumber || 'null') +
-        ', licenseCategory=' + (data.licenseCategory || 'null') +
-        ', idNumber=' + (data.idNumber || 'null'))
+      // jen příznaky přítomnosti — čísla dokladů do logů nepatří (2026-10-11)
+      console.log('[scan-document] DL fields: licenseNumber=' + (!!data.licenseNumber) +
+        ', licenseCategory=' + (!!data.licenseCategory) +
+        ', idNumber=' + (!!data.idNumber))
     }
 
     const durationMs = Date.now() - startTime

@@ -51,12 +51,16 @@ verify_jwt = false
 [functions.send-booking-email]
 verify_jwt = false
 
-# OCR skener dokladů (OP/ŘP/pas) — volá web rezervace ANONYMNĚ (krok 2, nepřihlášený
-# zákazník) jen s apikey. BEZ verify_jwt=false → 401 a nejde naskenovat doklad.
+# OCR skener dokladů (OP/ŘP/pas) — volá i host webu BEZ JWT (krok 2, QR na mobil,
+# odkazy z mailů), proto OFF. Vlastní ověření resolveDocCaller (_shared/auth.ts):
+# service / aktivní admin / JWT vlastníka / booking_id ŽIVÉ rezervace; přechodně
+# i user_id zákazníka s živou rezervací (starý web JS bez booking_id) — 2026-10-11.
 [functions.scan-document]
 verify_jwt = false
 
-# Uložení fotky verifikačního dokladu — taktéž anonymní web volání z rezervace. OFF.
+# Uložení fotky verifikačního dokladu — host webu bez JWT, proto OFF. Vlastní ověření
+# resolveDocCaller: service / aktivní admin / JWT vlastníka (jen za sebe) / booking_id
+# ŽIVÉ rezervace (zápis pod vlastníka rezervace); 401/403 bez orákula — 2026-10-11.
 [functions.save-verification-document]
 verify_jwt = false
 
