@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../../core/i18n/app_lang.dart';
 import '../../core/i18n/i18n_provider.dart';
@@ -27,14 +28,18 @@ class LegalDocText {
 /// `get_document_translation`. RPC vrací NULL, když překlad chybí nebo je
 /// ZASTARALÝ (česká verze se od překladu změnila — migrace 20261011
 /// `translation_src`), takže se zákazníkovi nikdy neukáže stará verze
-/// podmínek: místo ní dostane závaznou češtinu s poznámkou.
+/// podmínek: místo ní dostane závaznou češtinu s poznámkou. Před migrací
+/// (sloupec `translation_src` v DB chybí) RPC vrací i zastaralý překlad —
+/// pak platí totéž co pro web, edge i Velín: překlad nelze ověřit = zastaralý.
 /// `null` = dokument se nepodařilo načíst (offline / chyba serveru).
 Future<LegalDocText?> loadLegalDoc(String slug, String lang) async {
   final l = normalizeAppLang(lang);
   try {
     if (l != 'cs') {
       final tr = await _fetch(slug, l);
-      if (tr != null) return LegalDocText(tr, LegalDocKind.translation);
+      if (tr != null && await _freshnessTracked()) {
+        return LegalDocText(tr, LegalDocKind.translation);
+      }
     }
     final cs = await _fetch(slug, 'cs');
     if (cs == null) return null;
@@ -42,6 +47,26 @@ Future<LegalDocText?> loadLegalDoc(String slug, String lang) async {
   } catch (e) {
     debugPrint('[LEGAL] $slug/$l load failed: $e');
     return null;
+  }
+}
+
+/// true = DB eviduje čerstvost překladů (`document_templates.translation_src`,
+/// migrace 20261011) a RPC vrací jen aktuální překlad. Kladný výsledek se
+/// pamatuje do konce běhu appky; záporný se ověří znovu (migrace mohla doběhnout).
+bool _freshnessColumn = false;
+
+Future<bool> _freshnessTracked() async {
+  if (_freshnessColumn) return true;
+  try {
+    await MotoGoSupabase.client
+        .from('document_templates')
+        .select('translation_src')
+        .limit(1);
+    return _freshnessColumn = true;
+  } on PostgrestException catch (e) {
+    // 42703 = sloupec neexistuje → migrace ještě neproběhla.
+    if (e.code == '42703' || e.message.contains('translation_src')) return false;
+    return true; // jiná chyba — rozhodne RPC (jeho chyba = „nenačteno")
   }
 }
 

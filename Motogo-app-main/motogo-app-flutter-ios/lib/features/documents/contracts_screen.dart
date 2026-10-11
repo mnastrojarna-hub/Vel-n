@@ -366,6 +366,9 @@ Future<void> showLegalDocument(BuildContext ctx, String slug) async {
 /// (`generated_documents.doc_name`, `documents.file_name`) slouží jen jako
 /// název souboru — v cizojazyčné appce byly nadpisy česky.
 String docDisplayTitle(AppTranslations tr, UserDocument d) {
+  // Česká appka beze změny (pravidlo 1): český název z DB, jako dosud.
+  final dbName = d.name?.trim() ?? '';
+  if (tr.lang == 'cs' && dbName.isNotEmpty) return dbName;
   final key = d.typeKey;
   if (key != null) return tr.tr(key);
   return d.name ?? d.type;

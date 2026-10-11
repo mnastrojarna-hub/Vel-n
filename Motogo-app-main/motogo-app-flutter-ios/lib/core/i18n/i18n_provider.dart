@@ -79,11 +79,17 @@ class LocaleNotifier extends StateNotifier<Locale> {
   /// Po přihlášení srovná jazyk profilu s appkou: když si zákazník jazyk v
   /// appce nevybral (nová instalace bez výběru), převezme jazyk z profilu;
   /// jinak zapíše volbu appky do `profiles.language` (detect_customer_language
-  /// pak posílá e-maily/SMS ve stejném jazyce).
+  /// pak posílá e-maily/SMS ve stejném jazyce). Také při startu s uloženým
+  /// přihlášením (`initialSession`) — zákazník přihlášený už před opravou
+  /// výběru jazyka se znovu nepřihlašuje a jeho profil by zůstal 'cs'.
   void _listenAuth() {
     try {
       _authSub = MotoGoSupabase.client.auth.onAuthStateChange.listen((data) {
-        if (data.event == AuthChangeEvent.signedIn) unawaited(_syncWithProfile());
+        final e = data.event;
+        if (e == AuthChangeEvent.signedIn ||
+            (e == AuthChangeEvent.initialSession && data.session != null)) {
+          unawaited(_syncWithProfile());
+        }
       });
     } catch (_) {/* Supabase ještě není inicializovaný (testy) */}
   }

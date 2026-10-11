@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -89,7 +91,9 @@ class LanguageOverlay extends ConsumerWidget {
     await prefs.setString('mg_locale', code);
     await ref.read(localeProvider.notifier).setLocale(Locale(code));
     // Měna podle jazyka (CZK/EUR/PLN) — jen když si ji zákazník ručně nezvolil.
-    await ref.read(currencyProvider.notifier).followLanguage(code);
+    // Bez await: stahování kurzů ČNB (timeout 8 s) nesmí držet uvítací
+    // obrazovku — měna se přepne hned, kurzy dorazí na pozadí.
+    unawaited(ref.read(currencyProvider.notifier).followLanguage(code));
     onDone();
   }
 }

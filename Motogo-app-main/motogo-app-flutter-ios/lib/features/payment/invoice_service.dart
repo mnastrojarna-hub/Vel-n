@@ -41,25 +41,54 @@ class InvoiceService {
     } catch (_) {}
   }
 
-  /// Smlouva + VOP k rezervaci v JAZYCE REZERVACE (`bookings.language`).
-  /// Edge `generate-document` bere jeden dokument na volání
-  /// ({template_slug, booking_id, language}) — dřívější `{types: [...]}` vracel
-  /// 400 a dokumenty nevznikaly. Předávací protokol se z šablony negeneruje
-  /// (jen reálně podepsaný elektronický — zadání majitele 2026-09-29).
-  static Future<void> generateBookingDocs(String bookingId, {String? fallbackLang}) async {
-    var lang = normalizeAppLang(fallbackLang ?? lastKnownAppLang);
+  /// Smlouva + VOP k rezervaci — jen JAKO ZÁLOHA. Primárně je generuje
+  /// `send-booking-email` (přílohy booking_reserved / booking_modified dle
+  /// Velínu) v jazyce zákazníka. Souběžné volání z appky by vyrobilo druhou
+  /// verzi (duplicitní řádek v Dokumentech, PDF navíc) a mohlo smazat soubor
+  /// přílohy e-mailu (generate-document maže starší verze téhož typu). Appka
+  /// proto počká, až e-mail doběhne, a vygeneruje jen dokument, který k
+  /// rezervaci pořád chybí. Jazyk určí edge (`detect_customer_language`,
+  /// zákazník smí jen jazyk rezervace). Předávací protokol se z šablony
+  /// negeneruje (jen reálně podepsaný — zadání majitele 2026-09-29).
+  /// Dřívější `{types: [...]}` vracel 400 a nikdy nic nevyrobil.
+  static Future<void> generateBookingDocs(String bookingId) async {
+    await Future.delayed(const Duration(seconds: 45));
+    final client = MotoGoSupabase.client;
+    final have = <String>{};
+    var lang = normalizeAppLang(lastKnownAppLang);
     try {
-      final row = await MotoGoSupabase.client
+      final row = await client
           .from('bookings')
           .select('language')
           .eq('id', bookingId)
           .maybeSingle();
       final l = row?['language'] as String?;
       if (l != null && l.isNotEmpty) lang = normalizeAppLang(l);
-    } catch (_) {/* jazyk appky */}
+      final gen = await client
+          .from('generated_documents')
+          .select('template_id')
+          .eq('booking_id', bookingId);
+      final ids = (gen as List)
+          .map((r) => (r as Map)['template_id'])
+          .whereType<String>()
+          .toSet();
+      if (ids.isNotEmpty) {
+        final tpls = await client
+            .from('document_templates')
+            .select('id, type')
+            .inFilter('id', ids.toList());
+        for (final r in (tpls as List)) {
+          final ty = (r as Map)['type'];
+          if (ty is String) have.add(ty);
+        }
+      }
+    } catch (_) {
+      return; // stav nejde ověřit → raději nic (žádná duplicita)
+    }
     for (final slug in const ['rental_contract', 'vop']) {
+      if (have.contains(slug)) continue;
       try {
-        await MotoGoSupabase.client.functions.invoke('generate-document', body: {
+        await client.functions.invoke('generate-document', body: {
           'template_slug': slug,
           'booking_id': bookingId,
           'language': lang,
