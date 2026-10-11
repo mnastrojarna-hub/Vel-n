@@ -235,7 +235,7 @@ return [
             'handover' => [
                 'title' => 'Overdracht en teruggave',
                 'items' => [
-                    'Het&nbsp;<strong>ophalen</strong>&nbsp;gebeurt in Pelhřimov (Mezná 9) of gebruik&nbsp;<a href="/jak-pujcit/pristaveni">bezorging</a>.',
+                    'Het&nbsp;<strong>ophalen</strong>&nbsp;gebeurt in Pelhřimov (Mezná 9) of bij de zelfbedieningsvestiging in Velké Němčice bij Brno; vanuit Mezná kun je ook&nbsp;<a href="/jak-pujcit/pristaveni">bezorging</a> gebruiken.',
                     'Bij de overdracht ontvang je&nbsp;<strong>sleutels, uitrusting en documenten</strong>&nbsp;(kentekenbewijs, groene kaart, ongevalsformulier).',
                     '<strong>Teruggave</strong>&nbsp;op elk moment van de laatste huurdag (ook om middernacht). In Mezná is wassen of tanken niet nodig; bij de zelfbedieningsvestiging lever je de motor gewassen in en zonder brandend reservelampje.',
                 ],

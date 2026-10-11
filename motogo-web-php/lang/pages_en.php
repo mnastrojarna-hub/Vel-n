@@ -536,7 +536,7 @@ return [
             'handover' => [
                 'title' => 'Handover and return',
                 'items' => [
-                    '<strong>Pick-up</strong>&nbsp;is in Pelhřimov (Mezná 9), or use&nbsp;<a href="/jak-pujcit/pristaveni">delivery</a>.',
+                    '<strong>Pick-up</strong>&nbsp;is in Pelhřimov (Mezná 9) or at the self-service branch in Velké Němčice near Brno; from Mezná you can also use&nbsp;<a href="/jak-pujcit/pristaveni">delivery</a>.',
                     'At the handover you get the&nbsp;<strong>keys, gear and documents</strong>&nbsp;(registration certificate, green card, accident report form).',
                     '<strong>Return</strong>&nbsp;any time on the last day of your rental (even at midnight). In Mezná there\'s no need to refuel or wash the bike; at the self-service branch, return it washed and with the reserve light off.',
                 ],

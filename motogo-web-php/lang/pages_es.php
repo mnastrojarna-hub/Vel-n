@@ -538,7 +538,7 @@ return [
             'handover' => [
                 'title' => 'Entrega y devolución',
                 'items' => [
-                    'La&nbsp;<strong>recogida</strong>&nbsp;es en Pelhřimov (Mezná 9), o puedes pedir la&nbsp;<a href="/jak-pujcit/pristaveni">entrega de la moto</a>.',
+                    'La&nbsp;<strong>recogida</strong>&nbsp;es en Pelhřimov (Mezná 9) o en la sucursal de autoservicio de Velké Němčice, cerca de Brno; desde Mezná también puedes pedir la&nbsp;<a href="/jak-pujcit/pristaveni">entrega de la moto</a>.',
                     'En la entrega recibes&nbsp;<strong>las llaves y el equipamiento; los documentos te llegan por e-mail</strong>.',
                     '<strong>Devolución</strong>&nbsp;en cualquier momento del último día del alquiler (incluso a medianoche). En Mezná no tienes que repostar ni lavar la moto; en la sucursal de autoservicio, cerca de Brno, devuélvela lavada y sin el testigo de reserva encendido.',
                 ],

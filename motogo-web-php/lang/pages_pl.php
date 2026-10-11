@@ -235,7 +235,7 @@ return [
             'handover' => [
                 'title' => 'Przekazanie i zwrot',
                 'items' => [
-                    '<strong>Odbiór</strong>&nbsp;odbywa się w Pelhřimovie (Mezná 9) lub skorzystaj z&nbsp;<a href="/jak-pujcit/pristaveni">podstawienia</a>.',
+                    '<strong>Odbiór</strong>&nbsp;odbywa się w Pelhřimovie (Mezná 9) lub w samoobsługowym oddziale Velké Němčice koło Brna; z oddziału Mezná możesz też skorzystać z&nbsp;<a href="/jak-pujcit/pristaveni">podstawienia</a>.',
                     'Przy przekazaniu otrzymujesz&nbsp;<strong>kluczyki, wyposażenie i dokumenty</strong>&nbsp;(dowód rejestracyjny, zielona karta, formularz wypadkowy).',
                     '<strong>Zwrot</strong>&nbsp;o dowolnej porze w ostatnim dniu wynajmu (nawet o północy). W oddziale Mezná nie trzeba myć ani tankować; w oddziale samoobsługowym oddaj motocykl umyty i bez świecącej kontrolki rezerwy.',
                 ],

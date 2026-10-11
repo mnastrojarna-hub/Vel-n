@@ -537,7 +537,7 @@ return [
             'handover' => [
                 'title' => 'Übergabe und Rückgabe',
                 'items' => [
-                    'Die <strong>Abholung</strong>&nbsp;ist in Pelhřimov (Mezná 9) – oder du nutzt unsere&nbsp;<a href="/jak-pujcit/pristaveni">Lieferung</a>.',
+                    'Die <strong>Abholung</strong>&nbsp;ist in Pelhřimov (Mezná 9) oder an der Selbstbedienungsfiliale in Velké Němčice bei Brno – von Mezná aus kannst du auch unsere&nbsp;<a href="/jak-pujcit/pristaveni">Lieferung</a> nutzen.',
                     'Bei der Übergabe bekommst du&nbsp;<strong>Schlüssel, Ausrüstung und Dokumente</strong>&nbsp;(Fahrzeugschein, Grüne Karte, Unfallbericht).',
                     'Die <strong>Rückgabe</strong>&nbsp;ist jederzeit am letzten Miettag möglich (auch um Mitternacht). In Mezná musst du weder tanken noch waschen; an der Selbstbedienungsfiliale bring das Motorrad gewaschen zurück, ohne dass die Reserveleuchte leuchtet.',
                 ],

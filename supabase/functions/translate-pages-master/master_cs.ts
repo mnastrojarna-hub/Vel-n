@@ -922,7 +922,7 @@ export const MASTER_CS_BUNDLED = {
             "handover": {
                 "title": "Předání a vrácení",
                 "items": [
-                    "<strong>Převzetí</strong>&nbsp;probíhá v Pelhřimově (Mezná 9) nebo využijte&nbsp;<a href=\"/jak-pujcit/pristaveni\">přistavení</a>.",
+                    "<strong>Převzetí</strong>&nbsp;probíhá v Pelhřimově (Mezná 9) nebo na samoobslužné pobočce ve Velkých Němčicích u Brna; z Mezné můžete využít i&nbsp;<a href=\"/jak-pujcit/pristaveni\">přistavení</a>.",
                     "Při předání obdržíte&nbsp;<strong>klíče, výbavu a dokumenty</strong>&nbsp;(malý TP, zelená karta, formulář nehody).",
                     "<strong>Vrácení</strong>&nbsp;kdykoli během posledního dne výpůjčky (i o půlnoci). V Mezné není nutné mýt ani tankovat; na samoobslužné pobočce vraťte motorku umytou a bez svítící rezervy."
                 ]
@@ -1072,7 +1072,7 @@ export const MASTER_CS_BUNDLED = {
                     {
                         "icon": "gfx/predani-motorky.svg",
                         "title": "3. Převzetí",
-                        "text": "Vyzvedněte si motorku v naší půjčovně motorek v Pelhřimově."
+                        "text": "Převezměte si motorku osobně v Mezné u Pelhřimova (odtud ji můžeme i přistavit kamkoli v ČR), nebo si ji vyzvedněte sami na samoobslužné pobočce ve Velkých Němčicích u Brna."
                     },
                     {
                         "icon": "gfx/uzij-si-jizdu.svg",
@@ -1235,7 +1235,7 @@ export const MASTER_CS_BUNDLED = {
                 "items": [
                     {
                         "q": "Jak si mohu rezervovat motorku?",
-                        "a": "Motorku si můžeš rezervovat přes náš online rezervační systém přímo tady na webu. Případně se nám můžeš ozvat e-mailem, telefonicky nebo přes naše sociální sítě."
+                        "a": "Motorku si můžeš rezervovat přes náš online rezervační systém přímo tady na webu nebo v aplikaci MotoGo24, která je zdarma na Google Play (Android) i v App Store (iPhone). Případně se nám můžeš ozvat e-mailem, telefonicky nebo přes naše sociální sítě."
                     },
                     {
                         "q": "Můžu si motorku půjčit i bez předchozí rezervace?",

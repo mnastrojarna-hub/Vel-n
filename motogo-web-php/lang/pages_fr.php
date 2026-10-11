@@ -538,7 +538,7 @@ return [
             'handover' => [
                 'title' => 'Remise et restitution',
                 'items' => [
-                    'La <strong>prise en charge</strong>&nbsp;se fait à Pelhřimov (Mezná 9) – ou profite de notre&nbsp;<a href="/jak-pujcit/pristaveni">livraison</a>.',
+                    'La <strong>prise en charge</strong>&nbsp;se fait à Pelhřimov (Mezná 9) ou à l\'agence en libre-service de Velké Němčice, près de Brno – depuis Mezná, profite aussi de notre&nbsp;<a href="/jak-pujcit/pristaveni">livraison</a>.',
                     'À la remise, tu reçois&nbsp;<strong>les clés, l\'équipement et les documents</strong>&nbsp;(certificat d\'immatriculation, carte verte, constat d\'accident).',
                     'La <strong>restitution</strong>&nbsp;est possible à toute heure le dernier jour de la location (même à minuit). À Mezná, pas besoin de faire le plein ni de laver la moto ; à l\'agence en libre-service, rends-la lavée et sans voyant de réserve allumé.',
                 ],
