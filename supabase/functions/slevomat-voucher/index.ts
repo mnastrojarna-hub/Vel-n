@@ -21,7 +21,8 @@
  * Config:   app_settings.slevomat_voucher_map = { "<variant|product id>": <Kč>, ... }
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsResponse, jsonResponse, errorResponse } from '../_shared/cors.ts';
+import { corsResponse, jsonResponse, errorResponse, corsHeaders } from '../_shared/cors.ts';
+import { isTrustedCaller, forbidden } from '../_shared/auth.ts';
 
 const SLEVOMAT_API = 'https://www.slevomat.cz/api';
 
@@ -83,6 +84,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const code = (body.code ?? '').trim();
     if (!code) return errorResponse('Chybí kód voucheru', 400);
     if (action !== 'check' && action !== 'apply') return errorResponse('Neznámá akce (check|apply)', 400);
+    // BEZPEČNOST 2026-10-11: 'apply' (nahlášení uplatnění na Slevomat = kód se
+    // zákazníkovi „spálí“) smí jen důvěryhodný volající — DB triggery
+    // redeem_booking_discounts_on_paid / slevomat_auto_apply_on_redeem
+    // (Bearer app_settings.service_role_key) nebo aktivní admin. 'check' zůstává
+    // veřejný (web / appka ověřují kód v rezervačním formuláři).
+    if (action === 'apply' && !(await isTrustedCaller(req))) return forbidden(corsHeaders, 'trusted_caller_only');
 
     const sb = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -176,6 +183,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // CHECK — ověření voucheru u Slevomatu + založení řádku ve `vouchers`
     // (web rezervace: pole „Kód poukazu"). Beze změny chování.
     // =====================================================================
+    // BEZPEČNOST 2026-10-11: u nás už NEaktivní voucher (redeemed/expired/cancelled)
+    // check NIKDY nepřepíše zpět na 'active' (upsert níže) — dřív stačilo zavolat
+    // check znovu, když u nás proběhlo uplatnění, ale apply na Slevomatu selhal
+    // (1109 / přechodná chyba), a voucher šel použít podruhé.
+    const { data: local, error: localErr } = await sb.from('vouchers').select('status').eq('code', code).maybeSingle();
+    if (localErr) return errorResponse('Voucher se nepodařilo ověřit — zkuste to prosím za chvíli znovu.', 503);
+    if (local && local.status !== 'active') {
+      const why = local.status === 'redeemed' ? ERR[1105]
+        : local.status === 'cancelled' ? ERR[1107] : 'Platnost voucheru vypršela';
+      return jsonResponse({ valid: false, action, status: local.status, error: why }, 200);
+    }
+
     const check = await callSlevomat('vouchercheck');
     await logSlevomat('vouchercheck', check);
     const json = check.json;
@@ -206,7 +225,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (vd.validFrom) row.valid_from = String(vd.validFrom).slice(0, 10);
     if (vd.validTo) row.valid_until = String(vd.validTo).slice(0, 10);
 
-    const { data: voucher, error: upErr } = await sb
+    // Existující řádek jen aktualizuj, dokud je 'active' (souběžné uplatnění mezi
+    // čtením výše a zápisem ho tak nevrátí do hry); nový kód založ jako dřív.
+    const { data: voucher, error: upErr } = local
+      ? await sb.from('vouchers').update(row).eq('code', code).eq('status', 'active')
+        .select('id, code, amount, status').maybeSingle()
+      : await sb
       .from('vouchers')
       .upsert(row, { onConflict: 'code' })
       .select('id, code, amount, status')

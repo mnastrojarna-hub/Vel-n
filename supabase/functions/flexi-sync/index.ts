@@ -5,11 +5,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS, jsonResponse, pullReport } from './flexi-api.ts'
 import { pushInvoice, pushExpense, pushAsset, pullVatReport, pullAccountingState } from './flexi-pushers.ts'
+import { forbidden, requireAdminOrService } from '../_shared/auth.ts'
+
+// Velín nerozlišuje práva podle role (jen permissions.sections) → každý aktivní účet Velína.
+const VELIN_ROLES = ['superadmin', 'manager', 'operator', 'viewer', 'admin']
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
   }
+
+  // 2026-10-11: GET i POST jen service_role nebo AKTIVNÍ účet Velína (dřív bez ověření —
+  // finanční data, přepis výkazů flexi_reports, push do účetnictví).
+  const auth = await requireAdminOrService(req, { roles: VELIN_ROLES })
+  if (!auth.ok) return forbidden(CORS, auth.reason)
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',

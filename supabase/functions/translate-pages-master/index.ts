@@ -17,17 +17,21 @@
  * Zdroj CS masteru (priorita):
  *   1) `body.master_url` — per-call HTTP fetch (Velín ho posílat nemusí)
  *   2) `app_settings.master_url` — per-projekt HTTP fetch (přes SQL nastavitelný)
+ *   (1 i 2 jen https na doménách webu motogo24.* — URL dostává cms_admin_token)
  *   3) `app_settings.pages_master_cs` — JSONB snapshot v DB (volitelný override)
  *   4) bundled `master_cs.ts` — vždy dostupný, regeneruje se přes
  *      `php motogo-web-php/scripts/build_master_json.php` po editaci CS textů
  *
- * Bezpečnost: vyžaduje JWT (admin volá z Velínu).
+ * Bezpečnost (2026-10-11): jen service_role nebo AKTIVNÍ účet Velína (is_admin) —
+ * dřív stačil JWT libovolného zákazníka a body.master_url na cizí server mu
+ * vynesl cms_admin_token (zápis HTML webu přes cms-save).
  * Sekret: ANTHROPIC_API_KEY.
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { MASTER_CS_BUNDLED } from './master_cs.ts'
+import { bearerToken, isTrustedCaller } from '../_shared/auth.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -58,6 +62,35 @@ const MODEL = 'claude-haiku-4-5-20251001'
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
+}
+
+// Master URL dostává v query cms_admin_token → jen https na doménách webu (2026-10-11;
+// = I18N_DOMAIN_MAP v motogo-web-php/i18n.php, vč. www. a subdomén).
+const MASTER_HOSTS = ['motogo24.cz', 'motogo24.com', 'motogo24.at', 'motogo24.es', 'motogo24.pl', 'motogo24.fr', 'motogo24.nl']
+function allowedMasterUrl(raw: unknown): string | null {
+  try {
+    const u = new URL(String(raw ?? '').trim())
+    const h = u.hostname.toLowerCase()
+    if (u.protocol !== 'https:' || u.username || u.password || u.port) return null
+    return MASTER_HOSTS.some(d => h === d || h.endsWith('.' + d)) ? u.toString() : null
+  } catch {
+    return null
+  }
+}
+
+/** fetch s ručním sledováním přesměrování — každý skok musí zůstat na povolené doméně. */
+async function fetchMasterUrl(url: string): Promise<Response> {
+  let current = url
+  for (let hop = 0; hop < 5; hop++) {
+    const res = await fetch(current, { redirect: 'manual' })
+    const loc = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null
+    if (!loc) return res
+    await res.body?.cancel()
+    const next = allowedMasterUrl(new URL(loc, current).toString())
+    if (!next) throw new Error('redirect outside allowed master hosts')
+    current = next
+  }
+  throw new Error('too many redirects')
 }
 
 function buildSystemPrompt(targetLang: string, langName: string): string {
@@ -94,7 +127,7 @@ async function fetchMaster(masterUrls: string[], sb: ReturnType<typeof createCli
       for (const baseUrl of masterUrls) {
         const url = `${baseUrl}?token=${encodeURIComponent(String(cmsAdminToken))}` + (page ? `&page=${encodeURIComponent(page)}` : '')
         try {
-          const res = await fetch(url, { redirect: 'follow' })
+          const res = await fetchMasterUrl(url)
           if (!res.ok) {
             errors.push(`${baseUrl}: HTTP ${res.status}`)
             continue
@@ -207,11 +240,9 @@ serve(async (req: Request): Promise<Response> => {
   try {
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-    const authHeader = req.headers.get('Authorization') || ''
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-    if (!token) return jsonResponse({ error: 'unauthorized' }, 401)
-    const { data: { user } } = await sb.auth.getUser(token)
-    if (!user) return jsonResponse({ error: 'unauthorized' }, 401)
+    // 2026-10-11: jen service_role nebo AKTIVNÍ účet Velína (dřív stačil JWT zákazníka).
+    if (!bearerToken(req)) return jsonResponse({ error: 'unauthorized' }, 401)
+    if (!(await isTrustedCaller(req))) return jsonResponse({ error: 'forbidden: Velín account required' }, 403)
 
     const body = await req.json().catch(() => ({}))
     const action = body.action || 'list'
@@ -221,11 +252,15 @@ serve(async (req: Request): Promise<Response> => {
     // commitem `php motogo-web-php/scripts/build_master_json.php`.
     let masterUrls: string[] = []
     if (body.master_url) {
-      masterUrls = [String(body.master_url)]
+      const allowed = allowedMasterUrl(body.master_url)
+      if (!allowed) return jsonResponse({ error: 'master_url must be https on a motogo24 web domain' }, 400)
+      masterUrls = [allowed]
     } else {
       const { data: urlRow } = await sb.from('app_settings').select('value').eq('key', 'master_url').maybeSingle()
       const settingMasterUrl = typeof urlRow?.value === 'string' ? urlRow.value : (urlRow?.value ?? '')
-      if (settingMasterUrl) masterUrls = [String(settingMasterUrl)]
+      const allowed = settingMasterUrl ? allowedMasterUrl(settingMasterUrl) : null
+      if (allowed) masterUrls = [allowed]
+      else if (settingMasterUrl) console.warn('translate-pages-master: app_settings.master_url mimo povolené domény — použije se snapshot')
     }
     const targetLangs: string[] = Array.isArray(body.target_langs) && body.target_langs.length
       ? body.target_langs.filter((l: string) => LANG_NAMES[l])

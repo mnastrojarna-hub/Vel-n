@@ -5,6 +5,13 @@
 
 ## 6. RLS POLITIKY (kompletní)
 
+### Bezpečnost 2026-10-11 (`20261011b_…_b_confirm.sql`, `20261011d_…_b_views_storage.sql`)
+- `bookings_anon_pending_realtime` ZRUŠENA (anon četl všechny rozpracované web rezervace vč. UUID a údajů). Důsledek: nepřihlášený host na PC nevidí banner „pokračuješ na mobilu“ (přihlášený ano).
+- `booking_complaints`: politika „Admin full access“ s USING (true) pro PUBLIC nahrazena `booking_complaints_admin_all` (is_admin); anon bez práv.
+- Pohledy `v_recent_crashes`, `v_user_debug_timeline`, `v_api_performance`, `v_screen_error_rate`: `security_invoker = true`, bez anon (dřív obcházely RLS → jména/e-maily/ladicí logy).
+- `profiles_user_update` (USING id = auth.uid(), bez WITH CHECK) zůstává — sloupce chrání trigger `_trg_guard_customer_profile_columns` (STATE_4).
+- `booking_discounts` (`20261011d_…_c_booking_discounts.sql`): RLS ZAPNUTÁ (dřív vypnutá + anon/authenticated INSERT/UPDATE → kdokoli připsal slevu k cizí rezervaci). Politiky: `booking_discounts_admin_all` (is_admin), `booking_discounts_owner_select` (vlastník rezervace), `booking_discounts_owner_insert` (vlastník jen k NEZAPLACENÉ rezervaci — appka před platbou). anon bez práv; DEFINER RPC/triggery a edge beze změny.
+
 > **2026-10-10 (`20261010c_door_codes_guard_rls.sql`, APLIKUJE AUTO-DEPLOY po merge):** `branch_door_codes` politika **„Customer read own codes“** (SELECT) nově `USING (sent_to_customer = true AND vlastní rezervace)` — zákazník přes REST ani realtime NEvidí číslo ZADRŽENÉHO kódu (dřív ho appka stahovala a jen skrývala v UI). Stav zadržení bez čísla vrací RPC `get_my_door_codes`. „Admin full access“ beze změny.
 
 Všechny tabulky mají RLS zapnuté. Vzory:
@@ -105,6 +112,9 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 ---
 
 ## 8. EDGE FUNKCE (~~32~~ aktivních po cleanup; **ověřeno ze snapshotu 2026-06-24 — v repu reálně ~40 adresářů funkcí**)
+- **2026-10-11 ověření volajícího v edge (bez SQL):** `_shared/auth.ts` — admin jen AKTIVNÍ (`admin_users.active`), service = env `SUPABASE_SERVICE_ROLE_KEY` NEBO `app_settings.service_role_key` (sb_secret_, cache 60 s) NEBO service JWT uznaný Auth API; nepodepsané JWT se nedekódují; nový `isTrustedCaller(req)` (service / aktivní admin libovolné role). Funkce: `process-payment` (booking/sos/extension: vlastník nebo admin/service, částka ≥ cena rezervace − 1 Kč jinak 409 `amount_mismatch`, `extension` bez `change` = 409, neznámý typ 400; `create_sos_payment_link` jen trusted + `sos_replacement`; voucher větev s `order_id` → produktová větev s cenou z DB; Stripe zákazník jen přes `auth.getUser`), `process-refund` (zákazník: jen vlastní reserved/active, důvod `edit_shortening`/`moto_swap`, vratka ≤ ověřený přeplatek ze Stripe/Fio − aktuální cena, cena nesmí být pod spodní mezí z ceníku → jinak `refund_needs_staff` + mail obsluze; objednávky jen obsluha), `manage-payment-methods` (getUser, cizí kartu neodpojí), `send-cancellation-email` / `send-invoice-email` / `send-booking-email` (jen trusted — DB pg_net s app_settings klíčem, edge s env klíčem, Velín), `generate-invoice` (zákazník bez vlastních položek/čísel/dat, payment_receipt jen zaplaceno), `send-recovery-otp` (stejná odpověď, cooldown 60 s přes message_log), `translate-pages-master` / `translate-content` (jen trusted; master_url jen https domény motogo24.*), `flexi-sync`, `datova-schranka`, `auto-check-service-parts` (requireAdminOrService), `send-message` (oprava kontroly admina — dřív hledal neexistující `admin_users.user_id`), `qr-payment` (příplatek jen trusted, opakované volání bez nových mailů), `slevomat-voucher` (apply jen trusted, check nevrátí uplatněný poukaz na aktivní), `admin-reset-password` (aktivní). **Po nasazení vyměnit `cms_admin_token`** (mohl uniknout přes translate-pages-master).
+
+- **2026-10-11 `save-verification-document` + `scan-document`:** vlastní ověření volajícího `resolveDocCaller` (`_shared/auth.ts`): service role (env klíč i `app_settings.service_role_key`), aktivní admin, přihlášený zákazník jen sám za sebe, bez přihlášení jen s `booking_id` ŽIVÉ rezervace (cíl = vlastník rezervace). `scan-document` přechodně přijme i samotné `user_id` uživatele s živou rezervací (`via=legacy_user`, stávající web) — **odstranit po nahrání nového webu**. Limit 12 MB, čísla dokladů se nelogují, generické 401/403. `verify_jwt` zůstává false (host nemá JWT). `ai-public-agent`: klientovi jde jen název toolu + URL přesměrování, z výsledků toolů se odstraňují plná UUID rezervací/uživatelů.
 
 > **2026-06-24 (ověření proti živému snapshotu):** v `supabase/functions/` reálně existují i adresáře funkcí, které tu dosud chyběly: **`cms-admin-auth`, `extract-document`, `seo-check`, `slevomat-voucher`** — doplněny do tabulky níže. Všechny mají `verify_jwt = false` v `config.toml`. Historické počty „28/32" jsou orientační a neaktuální (viz pozn. níže).
 
@@ -195,6 +205,8 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 ---
 
 ## 9. STORAGE BUCKETY
+
+- **`media` od 2026-10-11:** zrušeny „Auth update/delete/upload media“ (jakýkoli přihlášený zákazník mohl přepsat/smazat cokoli). Nově `media_admin_all` (ALL, is_admin) + zákaznické INSERT jen do vlastních složek appky: `media_user_poi_upload` (`user-pois/<uid>/`), stávající `media_poi_review_upload` (`poi-reviews/`), `media_ride_upload` (`rides/`), `media_route_review_upload` (`route-reviews/`). Veřejné čtení beze změny.
 
 | Bucket | Přístup | Použití |
 |--------|---------|---------|

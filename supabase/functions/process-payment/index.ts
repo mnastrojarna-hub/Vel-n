@@ -6,6 +6,7 @@ import Stripe from 'https://esm.sh/stripe@14'
 import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentType, PaymentRequest, getOrCreateStripeCustomer, resolveStripeLocale } from './stripe-customer.ts'
 import { authClassify } from '../_shared/auth.ts'
 import { handleWebBookingCheckout, handleWebShopCheckout, handleSosPaymentLink } from './payment-flows.ts'
+import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
 
 // Otisk místa rezervace (delivery_fee + způsob a adresa obou stran) —
 // webhook-receiver ho porovná s aktuálním řádkem (stejný výpočet tam).
@@ -313,7 +314,11 @@ Deno.serve(async (req: Request) => {
     }
 
     // --- Velín operátor: Stripe odkaz pro placenou SOS náhradu ---
+    // BEZPEČNOST 2026-10-11: jen aktivní admin libovolné role (Velín NewIncidentModal,
+    // pravidlo jako is_admin()) nebo service klíč — částka je z požadavku a zaplacení
+    // odkazu označí rezervaci paid + active (webhook confirmSosPayment).
     if ((body as Record<string, unknown>).action === 'create_sos_payment_link') {
+      if (!(await isTrustedCaller(req))) return forbidden(CORS, 'trusted_caller_only')
       const supabaseAdmin = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -335,8 +340,21 @@ Deno.serve(async (req: Request) => {
       return await handleWebShopCheckout(body)
     }
 
-    const { booking_id, order_id, incident_id, amount, currency, method, type, mode, payment_method_id, change } = body
+    const { incident_id, amount, currency, method, type, mode, payment_method_id, change } = body
     const paymentType: PaymentType = type || 'booking'
+    // BEZPEČNOST 2026-10-11: jen známé typy (appka booking/extension/sos/shop, web
+    // booking/extension/shop). Neznámý typ dřív bez přihlášení založil PI a přepsal
+    // libovolné rezervaci bookings.stripe_payment_intent_id. U 'shop' se booking_id
+    // ignoruje (appka ho neposílá; vlastník se ověřuje jen u objednávky).
+    if (!['booking', 'shop', 'extension', 'sos'].includes(paymentType)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Neznámý typ platby.', code: 'invalid_type' }),
+        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+    const booking_id = paymentType === 'shop' ? undefined : body.booking_id
+    // `let` — u rezervačních typů se cizí/nečekající order_id zahodí (viz níže).
+    let order_id = body.order_id
     const paymentMode = mode || 'intent'
     const explicitSuccessUrl = (body as Record<string, unknown>).success_url as string | undefined
     const explicitCancelUrl = (body as Record<string, unknown>).cancel_url as string | undefined
@@ -415,6 +433,68 @@ Deno.serve(async (req: Request) => {
           error: `Cena objednávky se přepočítala na ${serverCzk} Kč. Vraťte se prosím do košíku a objednávku odešlete znovu.`,
           code: 'amount_mismatch', server_total: serverCzk,
         })
+      }
+    }
+
+    // ── Rezervace / SOS / doplatek: kdo platí a kolik hlídá SERVER (2026-10-11) ──
+    // Dřív šlo BEZ přihlášení poslat {type:'booking'|'sos', booking_id, amount:15}
+    // (nebo 'extension' bez `change`) a zaplacením 15 Kč rezervaci označit paid
+    // (webhook confirm_payment / confirmSosPayment částku nekontroluje). Nově:
+    //  • 'extension' jen s payloadem změny — ten ocení validátor níže (fail closed),
+    //  • 'booking'/'sos': přihlášený VLASTNÍK (nebo admin / service_role) a částka
+    //    NESMÍ být nižší než bookings.total_price. Vyšší smí: appka k nové rezervaci
+    //    přičítá upsell z e-shopu (payment_screen _amount) a objednávku zakládá až
+    //    po platbě. 0 Kč / 100% sleva jde dál do FREE větve (ověřuje si ji sama),
+    //  • 'sos' jen pro náhradní rezervaci ze SOS výměny (sos_replacement),
+    //  • order_id u těchto typů jen čekající objednávka TÉHOŽ zákazníka — jinak se
+    //    zahodí (dřív se cizí objednávce přepsal stripe_payment_intent_id).
+    if (paymentType === 'booking' || paymentType === 'sos' || paymentType === 'extension') {
+      const json = (status: number, payload: Record<string, unknown>) => new Response(
+        JSON.stringify({ success: false, ...payload }),
+        { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
+      if (paymentType === 'extension' && !(change && typeof change === 'object')) {
+        return json(409, {
+          error: 'Nepodařilo se ověřit změnu rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
+          code: 'validation_unavailable',
+        })
+      }
+      const amt = Number(amount)
+      if (!Number.isFinite(amt)) return json(400, { error: 'Neplatná částka.', code: 'invalid_amount' })
+      const sbChk = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+      const { data: bkc, error: bkcErr } = await sbChk.from('bookings')
+        .select('user_id, total_price, sos_replacement')
+        .eq('id', booking_id!).maybeSingle()
+      if (bkcErr) return json(503, { error: 'Nepodařilo se ověřit rezervaci — zkuste to prosím za chvíli znovu.', code: 'validation_unavailable' })
+      if (!bkc) return json(404, { error: 'Rezervace nebyla nalezena.', code: 'booking_not_found' })
+      if (paymentType !== 'extension') {
+        // (doplatek si vlastníka ověřuje ve validátoru níže)
+        const who = await authClassify(req)
+        if (who.kind === 'none') {
+          return json(401, { error: 'Přihlášení chybí nebo vypršelo — přihlaste se prosím znovu.', code: 'auth_required' })
+        }
+        const owner = who.kind === 'service' || who.kind === 'admin' ||
+          (who.kind === 'user' && !!who.userId && who.userId === bkc.user_id)
+        if (!owner) return json(403, { error: 'Tuto rezervaci nelze zaplatit z tohoto účtu.', code: 'forbidden' })
+        if (paymentType === 'sos' && bkc.sos_replacement !== true) {
+          return json(409, { error: 'Rezervace není SOS náhradou.', code: 'not_sos_replacement' })
+        }
+        const serverCzk = Math.round(Number(bkc.total_price) || 0)
+        if (amt > 0 && Math.round(amt) < serverCzk - 1) {
+          return json(409, {
+            error: `Cena rezervace je ${serverCzk} Kč. Obnovte prosím rezervaci a zaplaťte znovu.`,
+            code: 'amount_mismatch', server_total: serverCzk,
+          })
+        }
+      }
+      if (order_id) {
+        const { data: ordc } = await sbChk.from('shop_orders')
+          .select('customer_id, payment_status').eq('id', order_id).maybeSingle()
+        if (!ordc || ordc.payment_status !== 'pending' || !bkc.user_id || ordc.customer_id !== bkc.user_id) {
+          order_id = undefined
+        }
       }
     }
 
