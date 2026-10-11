@@ -39,6 +39,7 @@ return ['pages' => ['landing_katalog' => [
     'range_busy' => 'Un jour de cette période est déjà pris. Choisis d\'autres dates.',
     'moto_busy' => 'Cette moto n\'est pas libre à tes dates : choisis-en d\'autres.',
     'min_days' => 'Cette moto se loue au minimum {n} jours.',
+    'max_days' => 'Cette moto se loue au maximum {n} jours.',
     'prev' => 'Mois précédent',
     'next' => 'Mois suivant',
     'sum_title' => 'Ton prix',

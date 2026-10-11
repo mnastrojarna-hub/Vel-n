@@ -39,6 +39,7 @@ return ['pages' => ['landing_katalog' => [
     'range_busy' => 'Hay un día ocupado en ese periodo. Elige otras fechas.',
     'moto_busy' => 'Esta moto no está libre en tus fechas: elige otras.',
     'min_days' => 'Esta moto se alquila como mínimo {n} días.',
+    'max_days' => 'Esta moto se alquila como máximo {n} días.',
     'prev' => 'Mes anterior',
     'next' => 'Mes siguiente',
     'sum_title' => 'Tu precio',

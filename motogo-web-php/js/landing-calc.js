@@ -155,7 +155,7 @@
   d.body.appendChild(bar);
   function sticky() {
     var m = S.moto ? by[S.moto] : null, bd = m && S.end ? K.breakdown(m, S.start, S.end) : null;
-    var on = !!bd && bd.days.length >= (m.min || 1) && !sumVis && window.innerWidth < 900;
+    var on = !!bd && bd.days.length >= (m.min || 1) && !(m.max > 0 && bd.days.length > m.max) && !sumVis && window.innerWidth < 900;
     if (bd) {
       bar.innerHTML = '<span class="kc-sticky-t"><span class="kc-sticky-m">' + K.esc(m.m + ' · ' + X.days(bd.days.length)) + '</span><span class="kc-sticky-v">' + K.esc(X.money(bd.total)) + '</span></span>' +
         '<a class="lp-btn lp-btn-primary" href="' + K.esc(X.href()) + '"' + (on ? '' : ' tabindex="-1"') + '>' + K.ico('cal') + '<span>' + K.esc(T.sticky) + '</span></a>';

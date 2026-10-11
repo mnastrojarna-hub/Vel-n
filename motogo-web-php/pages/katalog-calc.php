@@ -35,6 +35,7 @@ function kcDefaults() {
         'range_busy' => 'V tomto rozmezí je obsazený den. Vyber jiný termín.',
         'moto_busy' => 'Tahle motorka v tvém termínu volná není — vyber jiný.',
         'min_days' => 'Tuhle motorku půjčujeme minimálně na {n} dní.',
+        'max_days' => 'Tuhle motorku půjčujeme nejdéle na {n} dní.',
         'prev' => 'Předchozí měsíc', 'next' => 'Další měsíc',
         'sum_title' => 'Tvoje cena',
         'sum_empty' => 'Vyber motorku a termín — cenu spočítáme hned, bez registrace.',
@@ -110,7 +111,7 @@ function kcData($motos, $T, $pre) {
         $out[] = [
             'id' => $m['id'], 'm' => trim(safeStr($m['model'] ?? '')) ?: t('card.unnamedMotorcycle'), 'c' => $cat, 'b' => $bid,
             'st' => safeStr($m['status'] ?? ''), 'na' => safeStr($m['next_available_date'] ?? ''), 'un' => !empty($m['available_unknown']),
-            'min' => max(1, (int)($m['min_rental_days'] ?? 1)), 'tr' => !empty($m['is_trailer']), 'p' => $p, 'from' => getMinPrice($m),
+            'min' => max(1, (int)($m['min_rental_days'] ?? 1)), 'max' => max(0, (int)($m['max_rental_days'] ?? 0)), 'tr' => !empty($m['is_trailer']), 'p' => $p, 'from' => getMinPrice($m),
             'img' => $img ? imgUrlSized($img, 240) : '',
         ];
     }
