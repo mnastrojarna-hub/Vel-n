@@ -10,6 +10,7 @@
 - `booking_complaints`: politika „Admin full access“ s USING (true) pro PUBLIC nahrazena `booking_complaints_admin_all` (is_admin); anon bez práv.
 - Pohledy `v_recent_crashes`, `v_user_debug_timeline`, `v_api_performance`, `v_screen_error_rate`: `security_invoker = true`, bez anon (dřív obcházely RLS → jména/e-maily/ladicí logy).
 - `profiles_user_update` (USING id = auth.uid(), bez WITH CHECK) zůstává — sloupce chrání trigger `_trg_guard_customer_profile_columns` (STATE_4).
+- `booking_discounts` (`20261011d_…_c_booking_discounts.sql`): RLS ZAPNUTÁ (dřív vypnutá + anon/authenticated INSERT/UPDATE → kdokoli připsal slevu k cizí rezervaci). Politiky: `booking_discounts_admin_all` (is_admin), `booking_discounts_owner_select` (vlastník rezervace), `booking_discounts_owner_insert` (vlastník jen k NEZAPLACENÉ rezervaci — appka před platbou). anon bez práv; DEFINER RPC/triggery a edge beze změny.
 
 > **2026-10-10 (`20261010c_door_codes_guard_rls.sql`, APLIKUJE AUTO-DEPLOY po merge):** `branch_door_codes` politika **„Customer read own codes“** (SELECT) nově `USING (sent_to_customer = true AND vlastní rezervace)` — zákazník přes REST ani realtime NEvidí číslo ZADRŽENÉHO kódu (dřív ho appka stahovala a jen skrývala v UI). Stav zadržení bez čísla vrací RPC `get_my_door_codes`. „Admin full access“ beze změny.
 
