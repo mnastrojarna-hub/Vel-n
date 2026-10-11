@@ -74,7 +74,7 @@ return [
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Alquiler de motos',
-    'footer.aboutText' => 'Bienvenido a Motogo24, tu <strong>alquiler de motos en Pelhřimov</strong>. Ofrecemos <strong>alquiler de motos</strong> para locales y turistas. Elige entre nuestras motos deportivas o enduro y reserva online en tres pasos.',
+    'footer.aboutText' => '¡Bienvenido a MotoGo24, tu&nbsp;<strong>alquiler de motos en Pelhřimov</strong>! Ofrecemos <strong>alquiler de motos</strong> para residentes y turistas. Elige entre nuestra amplia oferta de motos y reserva online en tres pasos. ¡Descubre con nosotros rutas en moto por la República Checa y el extranjero!',
     'footer.socialTitle' => 'Alquiler de motos en redes sociales',
     'footer.helpTitle' => '¿Necesitas ayuda?',
     'footer.callUs' => 'LLÁMANOS',
@@ -251,13 +251,13 @@ return [
     'cms.contract.description' => 'Contrato de alquiler de moto MotoGo24 — objeto del alquiler, duración, precio, obligaciones del arrendatario y arrendador.',
 
     // ===== SEO meta defaults (por idioma) =====
-    'seo.default.description' => 'Alquiler de motos en la región de Vysočina, República Checa — motos de turismo, sport, enduro e infantiles. Alquiler 24/7, sin depósito, equipo incluido, reserva online.',
+    'seo.default.description' => 'Alquiler de motos en la región de Vysočina, República Checa — motos de turismo, naked, supermoto, chopper, scooters e infantiles. Alquiler 24/7, sin depósito, equipo incluido, reserva online.',
     'seo.default.keywords' => 'alquiler de motos República Checa',
     // Strukturovaná data (layout.php JSON-LD)
-    'seo.org.description' => 'Alquiler de motos en la región de Vysočina, República Checa — motos de carretera, naked, supermoto, enduro e infantiles. Sin depósito, equipo incluido, abierto 24/7.',
+    'seo.org.description' => 'Alquiler de motos en la región de Vysočina, República Checa — motos de turismo, naked, supermoto, chopper, scooters e infantiles. Sin depósito, equipo incluido, abierto 24/7.',
     'seo.org.slogan' => 'Alquila tu moto sin depósito. 24/7. Online.',
-    'seo.service.description' => 'Alquiler de motos en la región de Vysočina. Alquiler de motos a corto y largo plazo en la República Checa. Motos de turismo, naked, supermoto, enduro, deportivas e infantiles. Sin depósito, equipo de motorista incluido, reserva online con pago con tarjeta, recogida disponible 24/7. Entrega fuera de la sucursal posible, viajes por la UE permitidos, carta verde incluida.',
-    'seo.home.description' => 'Alquila una moto en la región de Vysočina. Sin depósito, equipo incluido, servicio 24/7. Motos de turismo, sport, enduro e infantiles. Reserva online.',
+    'seo.service.description' => 'Alquiler de motos en la región de Vysočina. Alquiler de motos a corto y largo plazo en la República Checa. Motos de turismo, naked, supermoto, chopper, scooters e infantiles. Sin depósito, equipo de motorista incluido, reserva online con pago con tarjeta, recogida disponible 24/7. Entrega fuera de la sucursal posible, viajes por la UE permitidos, carta verde incluida.',
+    'seo.home.description' => 'Alquila una moto en la región de Vysočina. Sin depósito, equipo incluido, servicio 24/7. Motos de turismo, naked, supermoto, chopper, scooters e infantiles. Reserva online.',
     'seo.home.keywords' => 'alquiler de motos República Checa',
 
     // ===== Potvrzení =====
@@ -644,11 +644,11 @@ return [
     'filters.empty' => 'Según los filtros seleccionados, actualmente no tenemos motos disponibles.',
     'filters.clearFilters' => 'Eliminar filtros',
     'filters.countLine' => 'Encontradas <strong>{count}</strong> de {total} motos',
-    'filters.catalogLead' => 'Elige entre nuestra oferta de <strong>motos de turismo, deportivas, enduro e infantiles</strong>. Puedes filtrar por categoría, permiso de conducir, potencia, precio y otros parámetros.',
+    'filters.catalogLead' => 'Elige entre nuestra oferta de <strong>motos de turismo, naked, supermoto, chopper, scooters e infantiles</strong>. Puedes filtrar por categoría, permiso de conducir, potencia, precio y otros parámetros.',
     'filters.aria.catalog' => 'catálogo de motos',
 
     // ===== Katalog SEO =====
-    'katalog.seo.description' => 'Catálogo de motos de alquiler en Vysočina. Filtro por categoría, permiso, potencia y precio. Motos de turismo, deportivas, enduro e infantiles. Reserva online.',
+    'katalog.seo.description' => 'Catálogo de motos de alquiler en Vysočina. Filtro por categoría, permiso, potencia y precio. Motos de turismo, naked, supermoto, chopper, scooters e infantiles. Reserva online.',
     'katalog.seo.keywords' => 'alquiler de motos República Checa',
 
     // ===== Detail motorky =====

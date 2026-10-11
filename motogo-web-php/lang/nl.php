@@ -69,7 +69,7 @@ return [
     'menu.editReservation.aria' => 'Reservering bewerken of annuleren',
 
     'footer.aboutTitle' => 'Motorverhuur',
-    'footer.aboutText' => 'Welkom bij Motogo24, je <strong>motorverhuur in Pelhřimov</strong>! Wij bieden <strong>motorverhuur</strong> voor lokale rijders en toeristen. Kies uit onze sport- of enduromotoren en reserveer online in drie stappen.',
+    'footer.aboutText' => 'Welkom bij MotoGo24, jouw&nbsp;<strong>motorverhuur in Pelhřimov</strong>! Wij bieden <strong>motorverhuur</strong> voor inwoners en toeristen. Kies uit ons ruime aanbod aan motoren en reserveer online in drie stappen. Ontdek met ons motorroutes in Tsjechië en daarbuiten!',
     'footer.socialTitle' => 'Motorverhuur op sociale media',
     'footer.helpTitle' => 'Heb je advies nodig?',
     'footer.callUs' => 'BEL ONS',
@@ -238,13 +238,13 @@ return [
     'cms.contract.description' => 'MotoGo24 huurovereenkomst voor motorverhuur — onderwerp van de huur, duur, prijs, verplichtingen van huurder en verhuurder.',
 
     // ===== SEO meta defaults (per taal) =====
-    'seo.default.description' => 'Motorverhuur in de regio Vysočina, Tsjechië — toer-, sport-, enduro- en kindermotoren. 24/7 verhuur, zonder borg, uitrusting inbegrepen, online reserveren.',
+    'seo.default.description' => 'Motorverhuur in de regio Vysočina, Tsjechië — toer-, naked-, supermoto- en kindermotoren, choppers en scooters. 24/7 verhuur, zonder borg, uitrusting inbegrepen, online reserveren.',
     'seo.default.keywords' => 'motorverhuur Tsjechië',
     // Strukturovaná data (layout.php JSON-LD)
-    'seo.org.description' => 'Motorverhuur in de regio Vysočina, Tsjechië — straat-, naked-, supermoto-, enduro- en kindermotoren. Geen borg, uitrusting inbegrepen, 24/7 open.',
+    'seo.org.description' => 'Motorverhuur in de regio Vysočina, Tsjechië — toer-, naked-, supermoto- en kindermotoren, choppers en scooters. Geen borg, uitrusting inbegrepen, 24/7 open.',
     'seo.org.slogan' => 'Huur een motor zonder borg. 24/7. Online.',
-    'seo.service.description' => 'Motorverhuur in de regio Vysočina. Korte- en langetermijnverhuur van motoren in Tsjechië. Toer-, naked-, supermoto-, enduro-, sport- en kindermotoren. Geen borg, motoruitrusting inbegrepen, online reserveren met kaartbetaling, ophalen 24/7 mogelijk. Bezorging buiten het filiaal mogelijk, rijden binnen de EU toegestaan, groene kaart inbegrepen.',
-    'seo.home.description' => 'Huur een motor in de regio Vysočina. Zonder borg, uitrusting inbegrepen, 24/7 service. Toer-, sport-, enduro- en kindermotoren. Online reserveren.',
+    'seo.service.description' => 'Motorverhuur in de regio Vysočina. Korte- en langetermijnverhuur van motoren in Tsjechië. Toer-, naked-, supermoto- en kindermotoren, choppers en scooters. Geen borg, motoruitrusting inbegrepen, online reserveren met kaartbetaling, ophalen 24/7 mogelijk. Bezorging buiten het filiaal mogelijk, rijden binnen de EU toegestaan, groene kaart inbegrepen.',
+    'seo.home.description' => 'Huur een motor in de regio Vysočina. Zonder borg, uitrusting inbegrepen, 24/7 service. Toer-, naked-, supermoto- en kindermotoren, choppers en scooters. Online reserveren.',
     'seo.home.keywords' => 'motorverhuur Tsjechië',
 
     'confirm.titleBooking' => 'Reserveringsbevestiging | MotoGo24',
@@ -628,10 +628,10 @@ return [
     'filters.empty' => 'Met de gekozen filters zijn momenteel geen motoren beschikbaar.',
     'filters.clearFilters' => 'Filters wissen',
     'filters.countLine' => '<strong>{count}</strong> van {total} motoren gevonden',
-    'filters.catalogLead' => 'Kies uit ons aanbod aan <strong>toer-, sport-, enduro- en kindermotoren</strong>. Filteren kan op categorie, rijbewijs, vermogen, prijs en andere parameters.',
+    'filters.catalogLead' => 'Kies uit ons aanbod aan <strong>toer-, naked-, supermoto- en kindermotoren, choppers en scooters</strong>. Filteren kan op categorie, rijbewijs, vermogen, prijs en andere parameters.',
     'filters.aria.catalog' => 'motorcatalogus',
 
-    'katalog.seo.description' => 'Motorcatalogus voor verhuur in Vysočina. Filter op categorie, rijbewijs, vermogen en prijs. Toer-, sport-, enduro- en kindermotoren. Online reservering.',
+    'katalog.seo.description' => 'Motorcatalogus voor verhuur in Vysočina. Filter op categorie, rijbewijs, vermogen en prijs. Toer-, naked-, supermoto- en kindermotoren, choppers en scooters. Online reservering.',
     'katalog.seo.keywords' => 'motorverhuur Tsjechië',
 
     'detail.notFoundTitle' => 'Motor niet gevonden – Motogo24',
