@@ -89,4 +89,13 @@ return ['pages' => ['landing_katalog' => [
     'f_active' => 'Actieve filters',
     'f_none_dates' => 'Met deze filters is er in die periode geen motor vrij. Probeer andere dagen of verwijder een filter.',
     'f_calc_open' => 'Prijscalculator openen',
+    // Karta s přepínačem režimu [Najít motorku | Spočítat cenu] (CS defaulty kfDefaults())
+    'f_mode_aria' => 'Wat wil je doen?',
+    'f_mode_find' => 'Motor vinden',
+    'f_mode_find_sub' => 'Aanbod filteren',
+    'f_mode_calc_sub' => 'Vrije dagen en prijs',
+    'f_type' => 'Type motor',
+    'f_dates_ph' => 'Kies data',
+    'f_filters_hint' => 'Rijbewijs, filiaal…',
+    'f_go' => 'Tonen',
 ]]];

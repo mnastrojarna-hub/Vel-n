@@ -1,0 +1,132 @@
+/* ===== MotoGo24 — Katalog v2: karta .km s přepínačem režimu [Najít motorku | Spočítat cenu] ===== */
+/* Markup: renderKatalogV2() (pages/katalog-v2-ui.php), JS: MGKF.initMode (js/landing-catalog-sheet.js).
+   Načítá se PO landing-catalog*.css. .km NESMÍ tvořit stacking context (isolation, z-index, transform,
+   filter, overflow:hidden) — jinak se rozbijí bottom sheety a desktopový panel filtrů. */
+.km{position:relative;margin:.4rem 0 1rem;border-radius:22px;background:#fff;border:1px solid #d4e8e0;box-shadow:0 4px 14px rgba(26,46,34,.05),0 22px 44px -30px rgba(10,31,20,.45);scroll-margin-top:12px}
+.km[data-mode=calc]{border-color:#0e2a1c;background:#0a1f14}
+/* Horní tmavý pruh s přepínačem — stejná grafika jako kalkulačka */
+.km-top{position:relative;overflow:hidden;padding:.5rem;border-radius:21px 21px 0 0;border-bottom:1px solid rgba(116,251,113,.16);background:radial-gradient(120% 160% at 100% 0,#24563b 0,#0e2a1c 55%,#0a1f14 100%)}
+.km-top::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,transparent,#74fb71,transparent);animation:lpScan 3.6s linear infinite}
+.km-sw{display:grid;grid-template-columns:1fr 1fr;gap:.35rem;padding:.3rem;border-radius:17px;background:rgba(255,255,255,.06);border:1px solid rgba(116,251,113,.22)}
+.km-tab{display:flex;align-items:center;gap:.45rem;min-width:0;min-height:54px;padding:.4rem .45rem;border:0;border-radius:13px;background:transparent;color:#cfe7da;font:inherit;text-align:left;cursor:pointer;transition:background .2s,color .2s,box-shadow .2s}
+.km-tab:hover{background:rgba(255,255,255,.08);color:#fff}
+.km-tab:focus-visible{outline:3px solid #74fb71;outline-offset:2px}
+.km-ti{display:grid;place-items:center;flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:rgba(116,251,113,.14);color:#74fb71}
+.km-ti .lp-ico{width:17px;height:17px}
+.km-tt{display:flex;flex-direction:column;min-width:0;line-height:1.15}
+.km-tt b{font-size:.86rem;font-weight:800;overflow-wrap:anywhere}
+.km-tt small{margin-top:.15rem;color:#9fbfae;font-size:.7rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.km-tab[aria-selected=true]{background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f;box-shadow:0 8px 20px -8px rgba(116,251,113,.75),inset 0 0 0 1px rgba(255,255,255,.35)}
+.km-tab[aria-selected=true] .km-ti{background:#08230f;color:#74fb71}
+.km-tab[aria-selected=true] small{color:#0d4f1c}
+html:not(.kf-js) .km-top{display:none}
+
+/* Režim „Najít motorku“ = filtr (bílá karta, zelená kolečka/ikony jako kroky rezervace) */
+.km-find{position:relative;padding:.8rem .75rem 0}
+.km-row+.km-row{margin-top:.75rem}
+.km-lab{display:flex;align-items:center;gap:.5rem;margin:0 0 .5rem;color:#1a2e22;font-size:.92rem;font-weight:800;line-height:1.2}
+.km-n{display:grid;place-items:center;flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:#74fb71;color:#1a2e22;box-shadow:0 2px 6px rgba(116,251,113,.45)}
+.km-n .lp-ico{width:16px;height:16px}
+.km .kf-cats{margin:0 -.75rem;padding:.1rem .75rem .35rem;scroll-padding:0 .75rem}
+.km .kf-cat{min-height:40px;background:#f7fcf9}
+.km .kf-cat.is-on{background:#1a2e22}
+/* Termín + Filtry jako pole formuláře (vzhled selectů rezervace) */
+.km .kf-bar{position:relative;margin:0;padding:0}
+.km .kf-bar::before{display:none}
+.km .kf-bar-in{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.km .kf-btn.km-field,.km .kf-btn.km-field.kf-btn--date{justify-content:flex-start;gap:.4rem;min-height:58px;padding:.45rem;border:1px solid #74fb71;border-radius:14px;background:#fff;color:#1a2e22;box-shadow:0 2px 8px rgba(116,251,113,.18);text-align:left}
+.km .kf-btn.km-field:hover{border-color:#37cf63;background:#f7fcf9}
+.km .kf-btn.km-field .km-n{width:26px;height:26px}
+.km .kf-btn.km-field .km-n .lp-ico{width:15px;height:15px;color:#1a2e22}
+.km-ft{display:flex;flex-direction:column;min-width:0;flex:1 1 auto;line-height:1.2}
+.km-k{color:#0d6e0d;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.km .km-field .kf-btn-l{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:.1rem;font-size:.84rem;font-weight:700;line-height:1.15;color:#1a2e22;white-space:normal;overflow-wrap:break-word}
+.km-chev{flex:0 0 auto;width:7px;height:7px;margin-right:.1rem;border-right:2px solid #0d6e0d;border-bottom:2px solid #0d6e0d;transform:rotate(45deg) translate(-2px,-2px)}
+.km .km-field .kf-nf{position:absolute;top:-7px;right:-5px;min-width:22px;height:22px;background:#0d6e0d;box-shadow:0 0 0 2px #fff}
+.km .kf-btn.km-field.is-set{border-color:#37cf63;background:#e8fce8}
+.km .kf-btn.km-field[aria-expanded=true]{border-color:#37cf63;box-shadow:0 0 0 3px rgba(116,251,113,.35)}
+.km [data-kf-calc]{display:none!important}
+/* Po odscrollování karty se lišta Termín/Filtry/🧮 přilepí nahoru (is-float = JS) */
+.kf-js .km-row--bar{min-height:58px}
+/* Pozadí s blurem jen na ::before — backdrop-filter na liště by z ní udělal containing block
+   pro position:fixed (bottom sheet a scrim by se zavřely do lišty) */
+.km .kf-bar.is-float{position:fixed;top:0;left:0;right:0;z-index:40;padding:.45rem max(.75rem,calc((100vw - 1160px)/2))}
+.kf-js .km .kf-bar.is-float::before{display:block;inset:0;border-radius:0;background:rgba(223,240,236,.94);box-shadow:0 8px 18px -12px rgba(10,31,20,.55);opacity:1}
+.km .kf-bar.is-float.is-raised{z-index:10001}
+.km .kf-bar.is-float .km-field{min-height:46px}
+.km .kf-bar.is-float .km-k{display:none}
+.km .kf-bar.is-float .km-field .kf-btn-l{margin-top:0}
+@media(max-width:599px){.km .kf-bar.is-float .km-field .kf-btn-l{font-size:.78rem}}
+.km .kf-bar.is-float .km-n{width:24px;height:24px}
+.km .kf-bar.is-float .kf-bar-in{grid-template-columns:1fr 1fr auto}
+.km .kf-bar.is-float [data-kf-calc]{display:inline-flex!important;min-height:46px;min-width:46px;border-color:#0e2a1c;background:radial-gradient(120% 140% at 100% 0,#24563b 0,#0e2a1c 60%);color:#fff}
+.km .kf-bar.is-float [data-kf-calc] .lp-ico{color:#74fb71}
+/* Patička filtru: živý počet + skok na motorky + aktivní filtry */
+.km .kf-res{margin:.8rem -.75rem 0;padding:.55rem .75rem .6rem;border-top:1px solid #e6f0eb;border-radius:0 0 21px 21px;background:#f4fbf7}
+.km .kf-count{display:inline-flex;align-items:center;gap:.4rem}
+.km .kf-count::before{content:"";flex:0 0 auto;width:9px;height:9px;border-radius:50%;background:#37cf63;box-shadow:0 0 0 3px rgba(55,207,99,.2)}
+.km .kf-active{order:3;flex-basis:100%}
+.km-go{order:2;display:inline-flex;align-items:center;gap:.3rem;margin-left:auto;min-height:36px;padding:.2rem .8rem;border-radius:999px;background:#1a2e22;color:#fff;font-size:.78rem;font-weight:800;white-space:nowrap}
+.km-go:hover{color:#74fb71}
+.km-go .lp-ico{width:15px;height:15px;transform:rotate(90deg)}
+.kf-js .km~.kf-grid{scroll-margin-top:72px}
+
+/* Režim „Spočítat cenu“ = stávající kalkulačka uvnitř karty (tmavá) */
+.km-calc .kc{margin:0!important}
+.km-calc .kc-card{border-radius:0 0 21px 21px;box-shadow:none}
+.kf-js .km-calc .kc-card{padding-top:.9rem}
+.kf-js .km-calc .kc-card::before{display:none}
+/* Nadpis kalkulačky nese přepínač — h2 zůstává pro aria-labelledby (bez JS je vidět) */
+.kf-js .km-calc .kc-eyebrow,.kf-js .km-calc #kc-h{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.kf-js .km-calc .kc-lead{margin-top:0}
+html:not(.kf-js) .km .kf-res{border-radius:0}
+.kf-js .km[data-mode=find] .km-calc,.kf-js .km[data-mode=calc] .km-find{display:none}
+.km-pane{animation:kmIn .25s ease}
+@keyframes kmIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+@media(max-width:380px){.km-tt small{display:none}.km-tab{min-height:50px}}
+/* Užší telefony: menší písmo hodnot, v přilepené liště (a pod 375 px všude) pole bez ikony,
+   ať se nejdelší slovo hodnoty (např. „Führerschein,“ / „Посвідчення,“) vejde bez zalomení */
+@media(max-width:389px){
+  .km .km-field .kf-btn-l{font-size:.78rem}
+  .km .kf-bar.is-float .kf-btn.km-field .km-n{display:none}
+  .km .kf-bar.is-float .kf-btn.km-field{padding-left:.65rem}
+}
+@media(max-width:374px){
+  .km-tab{gap:.35rem;padding:.4rem .35rem}
+  .km-ti{width:24px;height:24px}
+  .km-ti .lp-ico{width:14px;height:14px}
+  .km-tt b{font-size:.78rem}
+  .km .kf-btn.km-field .km-n{display:none}
+  .km .kf-btn.km-field{padding-left:.65rem}
+  .km .kf-bar.is-float .kf-bar-in{gap:.35rem}
+  .km .kf-bar.is-float .km-field .kf-btn-l{font-size:.74rem}
+}
+@media(min-width:900px){
+  .km{margin-top:.6rem}
+  .km-top{padding:.6rem}
+  .km-tab{gap:.7rem;min-height:62px;padding:.5rem 1rem}
+  .km-tt b{font-size:1rem}
+  .km-tt small{font-size:.76rem}
+  .km-ti{width:36px;height:36px}
+  .km-ti .lp-ico{width:20px;height:20px}
+  .km-find{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:1.5rem;padding:1.05rem 1.3rem 1.15rem}
+  .km-find>.km-row:first-child{grid-column:1/-1}
+  .km-row+.km-row{margin-top:.9rem}
+  .km .kf-cats{margin:0;padding:.1rem 0 0;flex-wrap:wrap}
+  /* Rozbalovací panel filtrů / popover termínu se kotví na .km-find, v přilepené liště na ní */
+  .km .kf-bar:not(.is-float){position:static}
+  .km .kf-bar-in{grid-template-columns:240px 270px}
+  .km .kf-bar.is-float .kf-bar-in{grid-template-columns:240px 270px auto}
+  .kf-js .km .kf-bar.is-float .kf-panel{left:max(.75rem,calc((100vw - 1160px)/2));width:min(1160px,calc(100% - 1.5rem))}
+  .km .kf-bar.is-float .kf-dates{left:max(.75rem,calc((100vw - 1160px)/2))}
+  .km .kf-res{align-self:end;justify-content:flex-end;margin:0;padding:0 0 .35rem;border:0;background:none}
+  .km .kf-active{order:1;flex-basis:auto}
+  .km .kf-count{order:0}
+  .km-go{margin-left:.4rem;min-height:40px;padding:.2rem 1rem}
+  .km .km-field .kf-btn-l{font-size:.9rem}
+  .kf-js .km-calc .kc-card{padding:1.1rem 1.4rem 1.3rem}
+}
+/* Užší desktop: aktivní filtry pod počtem (vedle polí je na ně málo místa) */
+@media(min-width:900px) and (max-width:1199px){.km .kf-active{order:3;flex-basis:100%;justify-content:flex-end}}
+@media(prefers-reduced-motion:reduce){.km-top::before,.km-pane{animation:none}}

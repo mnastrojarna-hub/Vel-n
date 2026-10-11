@@ -89,4 +89,13 @@ return ['pages' => ['landing_katalog' => [
     'f_active' => 'Активні фільтри',
     'f_none_dates' => 'З цими фільтрами на ці дати вільних мотоциклів немає. Спробуй інші дні або послаб фільтри.',
     'f_calc_open' => 'Відкрити калькулятор',
+    // Karta s přepínačem režimu [Najít motorku | Spočítat cenu] (CS defaulty kfDefaults())
+    'f_mode_aria' => 'Що хочеш зробити?',
+    'f_mode_find' => 'Знайти мотоцикл',
+    'f_mode_find_sub' => 'Фільтр пропозиції',
+    'f_mode_calc_sub' => 'Вільні дні й ціна',
+    'f_type' => 'Тип мотоцикла',
+    'f_dates_ph' => 'Обери дні',
+    'f_filters_hint' => 'Посвідчення, філія…',
+    'f_go' => 'Показати',
 ]]];

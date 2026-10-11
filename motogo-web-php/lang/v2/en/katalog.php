@@ -89,4 +89,13 @@ return ['pages' => ['landing_katalog' => [
     'f_active' => 'Active filters',
     'f_none_dates' => 'No bikes match these filters on those dates. Try other days or remove a filter.',
     'f_calc_open' => 'Open calculator',
+    // Karta s přepínačem režimu [Najít motorku | Spočítat cenu] (CS defaulty kfDefaults())
+    'f_mode_aria' => 'What would you like to do?',
+    'f_mode_find' => 'Find a bike',
+    'f_mode_find_sub' => 'Filter the fleet',
+    'f_mode_calc_sub' => 'Free days & price',
+    'f_type' => 'Bike type',
+    'f_dates_ph' => 'Pick dates',
+    'f_filters_hint' => 'Licence, branch…',
+    'f_go' => 'Show',
 ]]];
