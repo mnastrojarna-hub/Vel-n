@@ -5,6 +5,12 @@
 
 ## 6. RLS POLITIKY (kompletní)
 
+### Bezpečnost 2026-10-11 (`20261011b_…_b_confirm.sql`, `20261011d_…_b_views_storage.sql`)
+- `bookings_anon_pending_realtime` ZRUŠENA (anon četl všechny rozpracované web rezervace vč. UUID a údajů). Důsledek: nepřihlášený host na PC nevidí banner „pokračuješ na mobilu“ (přihlášený ano).
+- `booking_complaints`: politika „Admin full access“ s USING (true) pro PUBLIC nahrazena `booking_complaints_admin_all` (is_admin); anon bez práv.
+- Pohledy `v_recent_crashes`, `v_user_debug_timeline`, `v_api_performance`, `v_screen_error_rate`: `security_invoker = true`, bez anon (dřív obcházely RLS → jména/e-maily/ladicí logy).
+- `profiles_user_update` (USING id = auth.uid(), bez WITH CHECK) zůstává — sloupce chrání trigger `_trg_guard_customer_profile_columns` (STATE_4).
+
 > **2026-10-10 (`20261010c_door_codes_guard_rls.sql`, APLIKUJE AUTO-DEPLOY po merge):** `branch_door_codes` politika **„Customer read own codes“** (SELECT) nově `USING (sent_to_customer = true AND vlastní rezervace)` — zákazník přes REST ani realtime NEvidí číslo ZADRŽENÉHO kódu (dřív ho appka stahovala a jen skrývala v UI). Stav zadržení bez čísla vrací RPC `get_my_door_codes`. „Admin full access“ beze změny.
 
 Všechny tabulky mají RLS zapnuté. Vzory:
@@ -106,6 +112,8 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 
 ## 8. EDGE FUNKCE (~~32~~ aktivních po cleanup; **ověřeno ze snapshotu 2026-06-24 — v repu reálně ~40 adresářů funkcí**)
 
+- **2026-10-11 `save-verification-document` + `scan-document`:** vlastní ověření volajícího `resolveDocCaller` (`_shared/auth.ts`): service role (env klíč i `app_settings.service_role_key`), aktivní admin, přihlášený zákazník jen sám za sebe, bez přihlášení jen s `booking_id` ŽIVÉ rezervace (cíl = vlastník rezervace). `scan-document` přechodně přijme i samotné `user_id` uživatele s živou rezervací (`via=legacy_user`, stávající web) — **odstranit po nahrání nového webu**. Limit 12 MB, čísla dokladů se nelogují, generické 401/403. `verify_jwt` zůstává false (host nemá JWT). `ai-public-agent`: klientovi jde jen název toolu + URL přesměrování, z výsledků toolů se odstraňují plná UUID rezervací/uživatelů.
+
 > **2026-06-24 (ověření proti živému snapshotu):** v `supabase/functions/` reálně existují i adresáře funkcí, které tu dosud chyběly: **`cms-admin-auth`, `extract-document`, `seo-check`, `slevomat-voucher`** — doplněny do tabulky níže. Všechny mají `verify_jwt = false` v `config.toml`. Historické počty „28/32" jsou orientační a neaktuální (viz pozn. níže).
 
 ### V repozitáři (~~28~~ — všechny deployované)
@@ -195,6 +203,8 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 ---
 
 ## 9. STORAGE BUCKETY
+
+- **`media` od 2026-10-11:** zrušeny „Auth update/delete/upload media“ (jakýkoli přihlášený zákazník mohl přepsat/smazat cokoli). Nově `media_admin_all` (ALL, is_admin) + zákaznické INSERT jen do vlastních složek appky: `media_user_poi_upload` (`user-pois/<uid>/`), stávající `media_poi_review_upload` (`poi-reviews/`), `media_ride_upload` (`rides/`), `media_route_review_upload` (`route-reviews/`). Veřejné čtení beze změny.
 
 | Bucket | Přístup | Použití |
 |--------|---------|---------|

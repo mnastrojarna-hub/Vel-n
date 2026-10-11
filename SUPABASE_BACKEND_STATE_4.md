@@ -5,6 +5,10 @@
 
 ## 5. TRIGGERY
 
+### Bezpečnost 2026-10-11 (`20261011_profiles_customer_column_guard.sql`, `20261011a_web_booking_pii_guard.sql`)
+- `_trg_guard_customer_profile_columns` (BEFORE INSERT OR UPDATE na `profiles`, fce `_guard_customer_profile_columns()` SECURITY INVOKER): jen při PŘÍMÉM zápisu zákazníka (current_user anon/authenticated a ne admin) ponechá admin/serverové sloupce (`email`, `created_at`, `registration_source`, `stripe_customer_id`, `password_last4_bcrypt`, `is_blocked`, `blocked_at`, `blocked_reason`, `is_test_account`, `reliability_score`, `docs_verified_at`, `docs_verification_status`, `marketing_consent_at`, `loyalty_bonus_points`, `loyalty_points_floor`, `loyalty_points_penalty`, `loyalty_celebrated_level`); změněné ne-NULL `id_/passport_/license_verified_at` = `now()`. Zákazník dál mění svá data (jméno, kontakt, adresa, OP/pas/ŘP, datum narození, skupina, platnost, velikosti, souhlasy, jazyk). DEFINER RPC, edge (service role) a Velín nedotčeny.
+- `trg_profiles_ignore_masked_docs` (BEFORE UPDATE OF id_number, license_number na `profiles`): maska `••••…` z resume se nikdy nezapíše.
+
 > **Živý stav: 90 triggerů** (snapshot 2026-06-24). Digest je proti tomuto snapshotu plně sesynchronizován — všechny živé triggery jsou níže zdokumentovány (bulkové `_updated`/`_updated_at` jsou vypsány buď přímo, nebo souhrnně v sekci „Doplněno 2026-06-04 ze snapshotu"), a všechny triggery dříve dokumentované jako odstraněné (SMAZÁN/DROPPED/NAHRAZENO/NENÍ V ŽIVÉ DB) v snapshotu 2026-06-24 skutečně chybí. Ze snapshotu 2026-06-24 nepřibyl ani neubyl žádný trigger oproti stavu 2026-06-23 (loyalty doména `loyalty_monthly_winners` / „loyalty award" žádný trigger nemá — věrnostní logika běží přes `trg_validate_app_loyalty` a RPC/cron, nikoli přes vlastní trigger).
 
 ### Z migrací

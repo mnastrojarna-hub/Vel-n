@@ -374,7 +374,7 @@ const PUBLIC_TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        booking_id: { type: 'string', description: 'UUID rezervace, typicky z potvrzovacího emailu zákazníka.' },
+        booking_id: { type: 'string', description: 'Číslo rezervace `#XXXXXXXX` (z potvrzovacího e-mailu nebo booking_number z lookup_my_bookings), plné UUID, nebo odkaz „Upravit rezervaci".' },
         contact: { type: 'string', description: 'VOLITELNÉ — vyplň až ve FULL ověření (změna za peníze). Email NEBO telefon, na který přišlo potvrzení (email = obsahuje @, jinak CZ telefon 9 číslic).' },
         password_last4: { type: 'string', description: 'VOLITELNÉ — vyplň až ve FULL ověření (změna za peníze). POSLEDNÍ 4 znaky hesla (string). NIKDY si je nevymýšlej. U LIGHT (jen číslo rezervace) nech prázdné — server vrátí stav bez PII.' },
       },
@@ -383,7 +383,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'lookup_my_bookings',
-    description: 'READ-ONLY ověření rezervací zákazníka podle E-MAILU NEBO TELEFONU — BEZ HESLA. Použij VŽDY, když zákazník chce ověřit stav rezervace a NEMÁ číslo `#XXXXXXXX`, ale dá e-mail nebo telefon, na který rezervoval (typicky „nemám číslo, ale mail je …", „už mi přišla rezervace", „je to zaplacené?"). Vrací `bookings[]`: booking_number (`#XXXXXXXX`), booking_id (plné UUID pro další tooly), status (pending/reserved/active/completed/cancelled), payment_status (unpaid/paid/partial_refund/refund_pending/refunded), booking_source (web/app), start_date, end_date, total_price, moto_name, pickup_method, created_at, confirmed_at, abandoned_email_sent + reserved_email_sent (bool) a `emails` = přehled reálně odeslaných mailů (template_slug, subject, status, sent_at). NEOBSAHUJE citlivá data (číslo dokladu, ŘP, heslo, celé bydliště). SLOUŽÍ JEN KE ČTENÍ — úprava rezervace za peníze dál vyžaduje heslo (find_my_booking FULL + apply_booking_change). Ověření zaplacení: podívej se na `payment_status` a jestli je mezi `emails` slug `booking_reserved`/`web_booking_reserved` (chodí AŽ po platbě) vs. jen `booking_abandoned` (Nedokončená rezervace = NEzaplaceno). NIKDY netvrď stav rezervace bez zavolání tohoto toolu nebo find_my_booking.',
+    description: 'READ-ONLY ověření rezervací zákazníka podle E-MAILU NEBO TELEFONU — BEZ HESLA. Použij VŽDY, když zákazník chce ověřit stav rezervace a NEMÁ číslo `#XXXXXXXX`, ale dá e-mail nebo telefon, na který rezervoval (typicky „nemám číslo, ale mail je …", „už mi přišla rezervace", „je to zaplacené?"). Vrací `bookings[]`: booking_number (`#XXXXXXXX` — tím rezervaci předáš dalším toolům, např. find_my_booking / get_booking_emails; plné UUID tool NEVRACÍ a nevymýšlej ho), status (pending/reserved/active/completed/cancelled), payment_status (unpaid/paid/partial_refund/refund_pending/refunded), booking_source (web/app), start_date, end_date, total_price, moto_name, pickup_method, created_at, confirmed_at, abandoned_email_sent + reserved_email_sent (bool) a `emails` = přehled reálně odeslaných mailů (template_slug, subject, status, sent_at). NEOBSAHUJE citlivá data (číslo dokladu, ŘP, heslo, celé bydliště). SLOUŽÍ JEN KE ČTENÍ — úprava rezervace za peníze dál vyžaduje heslo (find_my_booking FULL + apply_booking_change). Ověření zaplacení: podívej se na `payment_status` a jestli je mezi `emails` slug `booking_reserved`/`web_booking_reserved` (chodí AŽ po platbě) vs. jen `booking_abandoned` (Nedokončená rezervace = NEzaplaceno). NIKDY netvrď stav rezervace bez zavolání tohoto toolu nebo find_my_booking.',
     input_schema: {
       type: 'object',
       properties: {
@@ -490,6 +490,25 @@ const PUBLIC_TOOLS = [
 // (booking_number = id.slice(-8).toUpperCase()), NE první blok. Plné UUID je jen v odkazu
 // „Upravit rezervaci" (?id=…). Přijmeme proto obojí: plné UUID (i bez pomlček / z celého
 // odkazu) bereme rovnou; 8znakovou hex referenci přeložíme přes RPC resolve_booking_ref.
+// 2026-10-11 bezpečnost: z výsledků toolů odstraní plná UUID rezervací a uživatelů
+// (booking_id → booking_number „#XXXXXXXX“, user_id pryč).
+const UUID_FULL = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function redactBookingIds(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(redactBookingIds)
+  if (!v || typeof v !== 'object') return v
+  const out: Record<string, unknown> = {}
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (k === 'user_id' || k === 'customer_id') continue
+    if (k === 'booking_id' && typeof val === 'string' && UUID_FULL.test(val)) {
+      if (!('booking_number' in (v as Record<string, unknown>))) out.booking_number = '#' + val.slice(-8).toUpperCase()
+      continue
+    }
+    out[k] = typeof val === 'string' && /resume=[0-9a-f-]{36}/i.test(val)
+      ? val.replace(/resume=[0-9a-f-]{36}/gi, 'resume=…') : redactBookingIds(val)
+  }
+  return out
+}
+
 async function resolveBookingRef(raw: unknown): Promise<{ id?: string; error?: string }> {
   const s = String(raw ?? '').trim()
   if (!s) return { error: 'missing_inputs' }
@@ -1869,7 +1888,10 @@ async function runClaudeLoop(
       apiMessages.push({ role: 'assistant', content: data.content })
       const toolResults: Array<Record<string, unknown>> = []
       for (const tb of toolBlocks) {
-        const result = await execPublicTool(String(tb.name), tb.input as Record<string, unknown>, lang)
+        const raw = await execPublicTool(String(tb.name), tb.input as Record<string, unknown>, lang)
+        // 2026-10-11 bezpečnost: plné UUID rezervace = klíč k osobním údajům (resume odkaz) —
+        // modelu ani klientovi ho nedáváme (kromě vlastní právě vytvořené rezervace).
+        const result = String(tb.name) === 'create_booking_request' ? raw : redactBookingIds(raw)
         toolUses.push({ name: String(tb.name), input: tb.input as Record<string, unknown>, result })
         toolResults.push({
           type: 'tool_result', tool_use_id: tb.id,
@@ -2041,7 +2063,13 @@ serve(async (req) => {
       bookingCreated,
     )
 
-    return new Response(JSON.stringify({ reply, tool_uses: toolUses, booking_url: bookingUrl, session_id: sessionId }), {
+    // 2026-10-11 bezpečnost: klientovi jen to, co widget používá (název toolu + URL přesměrování)
+    const publicToolUses = toolUses.map((tu) => ({
+      name: tu.name,
+      result: tu.name === 'redirect_to_booking' && (tu.result as Record<string, unknown>)?.url
+        ? { url: (tu.result as Record<string, unknown>).url } : undefined,
+    }))
+    return new Response(JSON.stringify({ reply, tool_uses: publicToolUses, booking_url: bookingUrl, session_id: sessionId }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {
