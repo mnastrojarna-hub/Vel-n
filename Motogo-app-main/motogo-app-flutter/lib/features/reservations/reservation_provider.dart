@@ -313,27 +313,27 @@ class SosIncident {
 
   String get shortId => '#${id.substring(id.length - 8).toUpperCase()}';
 
-  String get typeLabel {
-    const labels = {
-      'theft': 'Krádež',
-      'accident_minor': 'Nehoda (lehká)',
-      'accident_major': 'Nehoda (těžká)',
-      'breakdown_minor': 'Porucha (lehká)',
-      'breakdown_major': 'Porucha (těžká)',
-      'defect_question': 'Závada / dotaz',
-      'other': 'Jiné',
-    };
-    return labels[type] ?? type;
-  }
+  /// i18n klíč typu incidentu (UI: `t(context).tr(typeKey)`); neznámý typ
+  /// se zobrazí tak, jak je.
+  String get typeKey => const {
+        'theft': 'theft',
+        'accident_minor': 'accidentMinorLabel',
+        'accident_major': 'accidentMajorLabel',
+        'breakdown_minor': 'breakdownMinorLabel',
+        'breakdown_major': 'breakdownMajorLabel',
+        'defect_question': 'defectQuestionLabel',
+        'location_share': 'shareLocation',
+        'other': 'other',
+      }[type] ??
+      type;
 
-  String get statusLabel {
-    const labels = {
-      'reported': 'Nahlášeno',
-      'acknowledged': 'Přijato',
-      'in_progress': 'Řeší se',
-      'resolved': 'Vyřešeno',
-      'closed': 'Uzavřeno',
-    };
-    return labels[status] ?? status;
-  }
+  /// i18n klíč stavu incidentu.
+  String get statusKey => const {
+        'reported': 'reported',
+        'acknowledged': 'accepted',
+        'in_progress': 'inProgress',
+        'resolved': 'resolved',
+        'closed': 'closed',
+      }[status] ??
+      status;
 }

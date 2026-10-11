@@ -13,10 +13,16 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
 
+// Všech 8 jazyků zákazníků (send-message hledá šablonu podle jazyka zákazníka, audit DB-11)
 const LANG_OPTIONS = [
   { value: 'cs', label: 'Čeština' },
   { value: 'en', label: 'English' },
   { value: 'de', label: 'Deutsch' },
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Français' },
+  { value: 'nl', label: 'Nederlands' },
+  { value: 'pl', label: 'Polski' },
+  { value: 'uk', label: 'Українська' },
 ]
 
 export default function MessageTemplatesTab({ channel }) {

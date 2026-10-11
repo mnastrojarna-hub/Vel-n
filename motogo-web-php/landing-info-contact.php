@@ -1,8 +1,9 @@
 <?php
 // ===== MotoGo24 Web PHP — Landing v2 info stránky: Kontakt (viz landing-info.php) =====
 // Rychlé kontakty → velké klikací karty (+ AI asistent), pod nimi obě pobočky
-// jako karty (detail + navigace), provozovna/provozní doba/sítě jako panely,
-// mapa s navigací, fakturační údaje a SEO text níž (SEO sbalené).
+// jako karty (detail + navigace s názvem pobočky), provozovna/provozní doba/sítě
+// jako panely, mapa (navigace pod ní jen bez karet poboček — jinak duplicita),
+// fakturační údaje a SEO text níž (SEO sbalené).
 
 /** Pobočky na Kontaktu — slug/adresa/mapa/fotka z kódu; texty z lpiTexts()['contact']['branches']. */
 const LPI_BRANCHES = [

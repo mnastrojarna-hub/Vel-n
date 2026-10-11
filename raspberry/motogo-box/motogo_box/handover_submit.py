@@ -26,6 +26,15 @@ SIGNATURE_PREFIX = "data:image/png;base64,"
 SIGNATURE_RE = re.compile(r"data:image/png;base64,[A-Za-z0-9+/=]+")   # podmnožina SIG_RE edge (jen PNG, §0.3)
 SIGNATURE_MAX_BYTES = 150 * 1024      # edge odmítá větší (413 signature_too_large) — odmítnout hned na displeji
 QUEUE_BATCH = 20
+DOC_LANGS = ("cs", "en", "de", "es", "fr", "nl", "pl", "uk")   # jazyky obrazovky (ui/i18n.js LANGS) = edge DOC_LANGS
+
+
+def doc_lang(raw: Any) -> str | None:
+    """Jazyk obrazovky při podpisu → `payload.lang` pro edge (protokol „jazyk zákazníka / česky“, závazná čeština).
+    `cs` (výchozí obrazovka, po nečinnosti se na ni displej vrací) a neplatná hodnota → None: pole se neposílá a edge
+    vezme jazyk rezervace (`detect_customer_language`) — cizinec, který lištu jazyků nepoužil, tak nedostane jen českou verzi."""
+    lang = raw.strip().lower() if isinstance(raw, str) else ""
+    return lang if lang in DOC_LANGS and lang != "cs" else None
 
 
 def signature_bytes(signature: Any) -> int | None:
@@ -146,12 +155,15 @@ async def submit(hm: "HandoverManager", booking_id: str, form: Any, signature: A
     hm.inflight.add(bid)
     hm.lock.touch(bid)                # podpis = aktivita zamčené rezervace (kdyby se kóje po podpisu neotevřela)
     form = dict(form) if isinstance(form, dict) else {}
+    lang = doc_lang(form.pop("lang", None))       # webserver přidá jazyk obrazovky do kopie formuláře (§28)
     _restore_declined_sizes(form, item.data)
     om = getattr(hm.ctrl, "odometer", None)       # km převzetí určuje jednotka, ne prohlížeč (rozhodnutí 2026-09-29)
     km = om.pickup_mileage(item.data, item.moto_id) if om is not None else None
     if km is not None:
         form["mileage"] = str(km)
     payload = {"booking_id": bid, "form": form, "signature": signature, "signed_at": now_iso()}
+    if lang:                                      # do trvalé fronty i edge (supabase_api rozbalí payload do těla requestu)
+        payload["lang"] = lang
     stored = True
     try:
         hm.ctrl.storage.protocol_queue_put(bid, payload, kv=(KV_HANDOVER, hm.state_dict()))

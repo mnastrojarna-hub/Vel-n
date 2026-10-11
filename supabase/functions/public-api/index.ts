@@ -25,6 +25,8 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { normLang, siteUrl } from '../_shared/agent-knowledge/site-url.ts'
+import { branchPublicFieldsEn } from '../_shared/agent-knowledge/branch-facts.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -201,6 +203,8 @@ async function handleBranches(): Promise<Response> {
   if (error) return jsonResponse({ error: error.message }, 500)
   // Neaktivní / zavřená pobočka se nikde nenabízí (stejně jako web a AI agent).
   const branches = (data || []).filter((b: Record<string, unknown>) => b.active !== false && b.is_open !== false)
+    // + mode / opening_hours_text (čitelně; obě pobočky NONSTOP — majitel 2026-10-10), syrová pole beze změny
+    .map((b: Record<string, unknown>) => ({ ...b, ...branchPublicFieldsEn(b) }))
   return jsonResponse({ count: branches.length, branches })
 }
 
@@ -281,6 +285,19 @@ async function handleQuote(req: Request): Promise<Response> {
 
 async function handleCreateBooking(req: Request): Promise<Response> {
   const body = await req.json() as Record<string, unknown>
+  // Souhlasy + datum narození (audit i18n AI-09): bez p_consent_* create_web_booking uložil do
+  // profilu souhlasy (i marketing) jako true bez reálného souhlasu zákazníka.
+  if (body.consent_vop !== true || body.consent_gdpr !== true) {
+    return jsonResponse({ error: 'Explicit customer consent required: consent_vop=true (General Terms + rental contract, Czech version binding) and consent_gdpr=true (personal data processing).' }, 400)
+  }
+  const dob = String(body.date_of_birth || '').slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || isNaN(new Date(dob).getTime())) {
+    return jsonResponse({ error: 'date_of_birth (YYYY-MM-DD) is required — the renter must be 18+.' }, 400)
+  }
+  // Jazyk zákazníka: body.language → Accept-Language → cs (dosavadní chování). Řídí smlouvu,
+  // VOP, e-maily (bookings.language) i jazyk platební stránky.
+  const acceptLang = (req.headers.get('accept-language') || '').slice(0, 2)
+  const bookLang = normLang(body.language, normLang(acceptLang, 'cs'))
   // Mapuj API parametry na create_web_booking signature
   const { data, error } = await sb.rpc('create_web_booking', {
     p_moto_id: body.moto_id,
@@ -316,12 +333,21 @@ async function handleCreateBooking(req: Request): Promise<Response> {
     p_passenger_gloves_size: body.passenger_gloves_size ?? null,
     p_passenger_boots_size: body.passenger_boots_size ?? null,
     p_return_time: body.return_time ?? null,
+    p_date_of_birth: dob,
+    p_consent_vop: true,
+    p_consent_gdpr: true,
+    p_marketing_consent: body.marketing_consent === true,
   })
   if (error) return jsonResponse({ error: error.message }, 400)
+  const bookingId = (data as Record<string, unknown>)?.booking_id
+  const { error: langErr } = await sb.rpc('set_booking_language', { p_booking_id: bookingId, p_language: bookLang })
+  if (langErr) console.warn('[public-api] set_booking_language failed:', langErr.message)
   return jsonResponse({
     ...((data as Record<string, unknown>) || {}),
-    payment_url: `https://www.motogo24.cz/rezervace?id=${(data as Record<string, unknown>)?.booking_id}`,
-    next_step: 'Otevřete payment_url pro dokončení platby přes Stripe.',
+    language: bookLang,
+    // ?resume= (web /rezervace čte jen resume; dřívější ?id= vedl na prázdný formulář) v jazyce zákazníka
+    payment_url: siteUrl(bookLang, `/rezervace?resume=${bookingId}`),
+    next_step: 'Open payment_url to complete the payment (card / Apple Pay / Google Pay, or QR / bank transfer). Then upload ID and driving licence photos in the booking.',
   })
 }
 
@@ -562,9 +588,14 @@ function buildOpenApiSpec() {
             required: true,
             content: { 'application/json': { schema: {
               type: 'object',
-              required: ['moto_id', 'start_date', 'end_date', 'customer_name', 'customer_email', 'customer_phone'],
+              required: ['moto_id', 'start_date', 'end_date', 'customer_name', 'customer_email', 'customer_phone', 'date_of_birth', 'consent_vop', 'consent_gdpr'],
               properties: {
                 moto_id: { type: 'string', format: 'uuid' },
+                date_of_birth: { type: 'string', format: 'date', description: 'Renter date of birth (18+).' },
+                language: { type: 'string', enum: ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl', 'uk'], description: 'Customer language — contract, General Terms, e-mails and payment page. Default: Accept-Language, else cs.' },
+                consent_vop: { type: 'boolean', description: 'Must be true — explicit consent to the General Terms and rental contract (Czech version binding).' },
+                consent_gdpr: { type: 'boolean', description: 'Must be true — explicit consent to personal data processing.' },
+                marketing_consent: { type: 'boolean', default: false },
                 start_date: { type: 'string', format: 'date' },
                 end_date: { type: 'string', format: 'date' },
                 customer_name: { type: 'string' },

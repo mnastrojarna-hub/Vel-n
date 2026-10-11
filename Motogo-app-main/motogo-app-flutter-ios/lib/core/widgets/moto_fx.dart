@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme.dart';
+import '../i18n/i18n_provider.dart';
 
 /// MotoGo FX — sdílené animace pro „Duolingo-like" zážitek s mototématikou.
 ///
@@ -526,16 +527,16 @@ class _MotoIntroOverlayState extends State<MotoIntroOverlay>
                         opacity: nameIn,
                         child: Transform.translate(
                           offset: Offset(0, 14 * (1 - nameIn)),
-                          child: const Column(children: [
-                            Text('MOTO GO 24',
+                          child: Column(children: [
+                            const Text('MOTO GO 24',
                                 style: TextStyle(
                                     fontSize: 26,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 4,
                                     color: MotoGoColors.green)),
-                            SizedBox(height: 6),
-                            Text('PŮJČOVNA MOTOREK',
-                                style: TextStyle(
+                            const SizedBox(height: 6),
+                            Text(t(context).tr('logoSubtitle'),
+                                style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 5,

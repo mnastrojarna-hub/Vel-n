@@ -16,6 +16,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { QR_TEXTS, invoiceSuffix, loadBookingLanguage, normalizeQrLang, pickQrLang, spdMessage } from './texts.ts'
+import { customerEmailHtml, fmtAmount, row, surchargeEmailHtml } from './fallback-html.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -32,7 +34,6 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const fmtAmount = (n: number) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2)
 const json = (o: unknown, status = 200) =>
   new Response(JSON.stringify(o), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
@@ -99,8 +100,12 @@ serve(async (req) => {
       if (v.bank_name) bank = String(v.bank_name)
     } catch { /* fallback */ }
 
+    // Jazyk zákazníka (texts.ts): platný `locale` z požadavku > bookings.language > 'cs'.
+    const lang = pickQrLang(locale, normalizeQrLang(locale) ? null : await loadBookingLanguage(sb, booking_id))
+    const T = QR_TEXTS[lang]
+
     const bookingNumber = String(booking_id).slice(-8).toUpperCase()
-    const spd = buildSpd(iban, amount, vs, 'MotoGo24 ' + (surcharge ? 'doplatek ' : '') + bookingNumber)
+    const spd = buildSpd(iban, amount, vs, spdMessage(lang, !!surcharge, bookingNumber))
     const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=' + encodeURIComponent(spd)
 
     // 4) ZF (bank blok + VS + splatnost 4 h). Reuse existující advance ZF, ať se netvoří duplikáty.
@@ -123,7 +128,7 @@ serve(async (req) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SERVICE_KEY, apikey: SERVICE_KEY },
           body: JSON.stringify({
-            type: 'advance', booking_id, source: 'booking', language: locale || 'cs',
+            type: 'advance', booking_id, source: 'booking', language: lang,
             variable_symbol: vs, due_note: 'do 4 hodin od vystavení',
           }),
         })
@@ -144,17 +149,15 @@ serve(async (req) => {
       const attachment_paths = invoicePath
         ? [{ filename: (invoiceNumber || 'zalohova-faktura') + '.pdf', path: invoicePath }]
         : []
-      const subject = surcharge
-        ? 'Doplatek k rezervaci #' + bookingNumber + ' — QR / bankovní převod'
-        : 'Platební údaje k rezervaci #' + bookingNumber + ' — QR / bankovní převod'
+      const subject = surcharge ? T.subjectSurcharge(bookingNumber) : T.subject(bookingNumber)
       // Placeholdery pro šablonu = 1:1 znění mailu, který dosud chodil (viz
       // customerEmailHtml). `lead` a `invoice_suffix` skládají podmíněné části
       // (jméno / číslo ZF), aby text šablony zůstal 1:1 a přitom editovatelný.
       // Surcharge šablona začíná "{{lead}} <strong>#X</strong> se váže doplatek."
       // → lead = "Jméno, k úpravě vaší rezervace" / "K úpravě vaší rezervace".
-      const surchargeLead = (custName ? custName + ', k' : 'K') + ' úpravě vaší rezervace'
+      // Lead / invoice_suffix v jazyce zákazníka (šablonu send-email přeloží) — texts.ts.
       const tvars = {
-        lead: surcharge ? surchargeLead : (custName ? custName + ', děkujeme' : 'Děkujeme'),
+        lead: surcharge ? T.surchargeLead(custName) : T.thanks(custName),
         booking_number: bookingNumber,
         qr_url: qrUrl,
         amount: fmtAmount(amount) + ' Kč',
@@ -162,7 +165,7 @@ serve(async (req) => {
         iban: iban.replace(/(.{4})/g, '$1 ').trim(),
         bank,
         vs,
-        invoice_suffix: invoiceNumber ? ' (č. ' + invoiceNumber + ')' : '',
+        invoice_suffix: invoiceSuffix(lang, invoiceNumber),
       }
       const postEmail = (payload: Record<string, unknown>) =>
         fetch(SUPABASE_URL + '/functions/v1/send-email', {
@@ -176,7 +179,7 @@ serve(async (req) => {
           to: custEmail,
           template_slug: surcharge ? 'booking_qr_payment_surcharge' : 'booking_qr_payment',
           template_vars: tvars,
-          language: locale || 'cs',
+          language: lang,
           booking_id,
           attachment_paths,
         })
@@ -190,8 +193,8 @@ serve(async (req) => {
             to: custEmail,
             subject,
             raw_html: surcharge
-              ? surchargeEmailHtml({ custName, amount, account, iban, bank, vs, qrUrl, bookingNumber })
-              : customerEmailHtml({ custName, amount, account, iban, bank, vs, qrUrl, bookingNumber, invoiceNumber }),
+              ? surchargeEmailHtml({ custName, amount, account, iban, bank, vs, qrUrl, bookingNumber }, lang)
+              : customerEmailHtml({ custName, amount, account, iban, bank, vs, qrUrl, bookingNumber, invoiceNumber }, lang),
             booking_id,
             attachment_paths,
           })
@@ -222,57 +225,8 @@ serve(async (req) => {
   }
 })
 
-function row(label: string, value: string, big = false): string {
-  return `<tr>
-    <td style="padding:8px 0;color:#16a34a;font-weight:600;font-size:13px">${label}</td>
-    <td style="padding:8px 0;text-align:right;color:#0f1a14;font-weight:700;font-size:${big ? '18px' : '14px'};font-variant-numeric:tabular-nums">${value}</td>
-  </tr>`
-}
-
-// Fallback HTML — 1:1 se šablonou email_templates('booking_qr_payment') i s
-// mailem, který dosud chodil. Použije se, jen když šablona chybí/je vypnutá.
-function customerEmailHtml(p: {
-  custName: string; amount: number; account: string; iban: string; bank: string;
-  vs: string; qrUrl: string; bookingNumber: string; invoiceNumber: string | null
-}): string {
-  return `
-  <h2 style="margin:0 0 6px;font-size:20px;color:#0f1a14">Platební údaje — QR / bankovní převod</h2>
-  <p style="margin:0 0 16px;color:#374151;font-size:14px">${p.custName ? p.custName + ', d' : 'D'}ěkujeme za rezervaci <strong>#${p.bookingNumber}</strong>. Uhraďte prosím částku bankovním převodem nebo naskenováním QR kódu v mobilní bankovní aplikaci.</p>
-  <div style="text-align:center;margin:0 0 16px"><img src="${p.qrUrl}" alt="QR Platba" style="width:240px;height:240px;border:1px solid #e5e7eb;border-radius:12px"></div>
-  <table style="width:100%;border-collapse:collapse;margin:0 0 14px">
-    ${row('Částka', fmtAmount(p.amount) + ' Kč', true)}
-    ${row('Číslo účtu', p.account)}
-    ${row('IBAN', p.iban.replace(/(.{4})/g, '$1 ').trim())}
-    ${row('Banka', p.bank)}
-    ${row('Variabilní symbol', p.vs)}
-  </table>
-  <p style="margin:0 0 10px;padding:12px 14px;background:#fef2f2;border-radius:10px;color:#b91c1c;font-weight:700;font-size:14px">⏱ Platbu prosím proveďte do 4 hodin. Pokud se do té doby nepřipíše, rezervace se automaticky zruší a termín se uvolní.</p>
-  <p style="margin:0 0 6px;color:#374151;font-size:13px">Po připsání platby vám rezervaci potvrdíme a pošleme potvrzení s přístupovými údaji. Zálohovou fakturu najdete v příloze.${p.invoiceNumber ? ' (č. ' + p.invoiceNumber + ')' : ''}</p>
-  <p style="margin:0;color:#6b7280;font-size:12px">Platíte-li raději kartou (okamžité potvrzení), můžete rezervaci dokončit online platbou v rezervačním formuláři.</p>
-  `
-}
-
-// Fallback HTML pro DOPLATEK za úpravu rezervace — bez 4h splatnosti a bez ZF
-// (rezervace je zaplacená, nic se automaticky neruší; doklad přijde po potvrzení).
-function surchargeEmailHtml(p: {
-  custName: string; amount: number; account: string; iban: string; bank: string;
-  vs: string; qrUrl: string; bookingNumber: string
-}): string {
-  return `
-  <h2 style="margin:0 0 6px;font-size:20px;color:#0f1a14">Doplatek za úpravu rezervace — QR / bankovní převod</h2>
-  <p style="margin:0 0 16px;color:#374151;font-size:14px">${p.custName ? p.custName + ', k' : 'K'} úpravě vaší rezervace <strong>#${p.bookingNumber}</strong> se váže doplatek. Uhraďte ho prosím bankovním převodem nebo naskenováním QR kódu v mobilní bankovní aplikaci.</p>
-  <div style="text-align:center;margin:0 0 16px"><img src="${p.qrUrl}" alt="QR Platba" style="width:240px;height:240px;border:1px solid #e5e7eb;border-radius:12px"></div>
-  <table style="width:100%;border-collapse:collapse;margin:0 0 14px">
-    ${row('Částka', fmtAmount(p.amount) + ' Kč', true)}
-    ${row('Číslo účtu', p.account)}
-    ${row('IBAN', p.iban.replace(/(.{4})/g, '$1 ').trim())}
-    ${row('Banka', p.bank)}
-    ${row('Variabilní symbol', p.vs)}
-  </table>
-  <p style="margin:0;color:#374151;font-size:13px">Po připsání platby vám úpravu rezervace potvrdíme e-mailem spolu s dokladem o platbě a aktualizovanou smlouvou.</p>
-  `
-}
-
+// row(), customerEmailHtml() a surchargeEmailHtml() (záložní mail zákazníkovi v 8 jazycích)
+// jsou ve fallback-html.ts; provozní mail na info@ zůstává česky.
 function opsEmailHtml(p: {
   custName: string; custEmail: string | null; amount: number; vs: string; bookingNumber: string; account: string; surcharge?: boolean
 }): string {

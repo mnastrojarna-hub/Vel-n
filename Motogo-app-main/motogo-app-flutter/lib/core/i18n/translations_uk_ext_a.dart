@@ -24,7 +24,7 @@ const translationsUkExt1 = <String, Map<String, String>>{
     'homeFilterLicenseGroup': 'КАТЕГОРІЯ ПОСВІДЧЕННЯ',
     'homeFilterLicenseAll': 'Усе',
     'homeFilterLicenseA1': 'A1 (до 125 см³)',
-    'homeFilterLicenseAM': 'AM (мопед)',
+    'homeFilterLicenseAM': 'AM (до 50 см³)',
     'homeFilterLicenseA2': 'A2 (до 35 кВт)',
     'homeFilterLicenseA': 'A (повна)',
     'homeFilterLicenseB': 'B (авто)',
@@ -109,7 +109,7 @@ const translationsUkExt1 = <String, Map<String, String>>{
     'specYes': 'Так',
     'specNo': 'Ні',
     // Pricing table
-    'pricingCurrencyPerDay': 'Kč/день',
+    'pricingCurrencyPerDay': 'CZK/день',
     'pricingNote': 'Ціни остаточні. 1 день = календарний день (0:01–24:00), а не 24 год від отримання.',
     // Price footer
     'priceFrom': 'ЦІНА ВІД',

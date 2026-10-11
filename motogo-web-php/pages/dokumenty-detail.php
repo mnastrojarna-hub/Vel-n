@@ -37,6 +37,20 @@ function fillDocVars($html) {
     }, $html);
 }
 
+// Šablony z Velína (i jejich překlady) bývají celé HTML dokumenty (<!DOCTYPE>, <html>,
+// <head>, <meta>, <title>, <body>). Do <article> patří jen obsah těla — druhý <title>
+// a <meta> uvnitř stránky jsou nevalidní (sanitizeHtml odstraní jen <style>/<script>).
+function mgDocBodyHtml($html) {
+    if (!is_string($html) || $html === '') return '';
+    if (preg_match('#<body\b[^>]*>(.*)</body\s*>#is', $html, $m)) $html = $m[1];
+    $html = preg_replace('#<!DOCTYPE[^>]*>#i', '', $html);
+    $html = preg_replace('#<head\b[^>]*>.*?</head\s*>#is', '', $html);
+    $html = preg_replace('#<title\b[^>]*>.*?</title\s*>#is', '', $html);
+    $html = preg_replace('#<(meta|link)\b[^>]*>#i', '', $html);
+    $html = preg_replace('#</?(html|head|body)\b[^>]*>#i', '', $html);
+    return trim((string)$html);
+}
+
 // Mapa veřejných slug → ['type' => document_templates.type, 'title' => přeložený název].
 // Kanonický seznam je v components.php::mgPublicDocuments(). `gdpr` má i zkrácený alias.
 $DOC_MAP = [];
@@ -51,26 +65,48 @@ $slug    = $_GET['doc_slug'] ?? '';
 $wantPdf = !empty($_GET['format']) && $_GET['format'] === 'pdf';
 $entry   = $DOC_MAP[$slug] ?? null;
 
+// Jazyk zobrazeného obsahu na cizojazyčné stránce: null = čeština (cs web),
+// 'translated' = čerstvý překlad, 'czech' = závazná česká verze (překlad chybí
+// nebo je zastaralý) → nad textem lokalizovaný banner „Závazná je česká verze…“.
+$docLangState = null;
 $tpl = null;
 if ($entry) {
-    // Pevná smluvní šablona (document_templates) — obsah v jazyce návštěvníka řeší
-    // níže RPC get_document_translation (content_translations[lang]); přeložený NÁZEV
-    // bere z name_translations[lang] (plní ho edge fn translate-document), fallback i18n.
+    // Pevná smluvní šablona (document_templates). Překlad obsahu se použije JEN když
+    // je čerstvý: translation_src[lang] == sha1(content_html) (stejná kontrola jako
+    // SQL get_document_translation po migraci 20261011). Starý překlad (např. VOP se
+    // spoluúčastí 30 000 Kč) se nikdy neukáže — místo něj česká verze + banner.
+    // Název: name_translations[lang] jen když to není český text, jinak i18n název.
     $row = $sb->fetchDocumentTemplate($entry['type']);
     if ($row) {
+        $rawHtml = (string)($row['content_html'] ?? '');
         if ($lang !== 'cs') {
+            $docLangState = 'czech';
             $nt = $row['name_translations'] ?? null;
             if (is_string($nt)) { $dec = json_decode($nt, true); $nt = is_array($dec) ? $dec : null; }
-            if (is_array($nt) && !empty($nt[$lang]) && is_string($nt[$lang])) $entry['title'] = $nt[$lang];
+            $ntName = is_array($nt) ? SupabaseClient::docNameTranslation($nt[$lang] ?? null, $row['name'] ?? '') : '';
+            if ($ntName !== '') $entry['title'] = $ntName;
+            if (SupabaseClient::docTranslationFresh($row['translation_src'] ?? null, $lang, $row['content_html'] ?? null)) {
+                try {
+                    $translated = $sb->rpcScalar('get_document_translation', [
+                        'p_template_slug' => $entry['type'],
+                        'p_language'      => $lang,
+                    ]);
+                    if (is_string($translated) && trim($translated) !== '') {
+                        $rawHtml = $translated;
+                        $docLangState = 'translated';
+                    }
+                } catch (\Throwable $e) { /* fallback na CZ originál */ }
+            }
         }
         $tpl = [
-            'content_html' => $row['content_html'] ?? '',
+            'content_html' => mgDocBodyHtml($rawHtml),
             'version'      => $row['version'] ?? 1,
             'updated_at'   => $row['updated_at'] ?? null,
         ];
     }
 } else {
-    // Vlastní dokument vytvořený ve Velíně (tabulka custom_documents).
+    // Vlastní dokument vytvořený ve Velíně (tabulka custom_documents). fetchCustomDocument
+    // vrací v `translations` jen čerstvé překlady (otisk content_html|pdf_path).
     $cd = $sb->fetchCustomDocument($slug);
     if ($cd) {
         $isPdf = (($cd['kind'] ?? 'html') === 'pdf');
@@ -82,6 +118,7 @@ if ($entry) {
             $pdfUrl = $cd['pdf_path'] ?? '';
             if ($pdfUrl) { header('Location: ' . $pdfUrl, true, 302); exit; }
         }
+        if ($lang !== 'cs') $docLangState = $hasTrHtml ? 'translated' : 'czech';
         $trTitle = localized($cd, 'title');
         $entry = ['type' => null, 'title' => $trTitle !== '' ? $trTitle : ($cd['title'] ?? 'Dokument')];
         $bodyHtml = $isPdf ? $trHtml : localized($cd, 'content_html');
@@ -99,23 +136,21 @@ if (!$entry) {
     return;
 }
 
-// Obsah v jazyce návštěvníka: u dokumentů z `document_templates` zkus pro non-CZ
-// přeloženou variantu přes RPC get_document_translation (čte content_translations[lang]).
-// Pokud překlad neexistuje (RPC vrátí null) → fallback na CZ originál content_html,
-// aby dokument nebyl nikdy prázdný. Vlastní dokumenty (custom_documents) překlad
-// řeší výše přes `localized()` — `$entry['type']` je null.
 $rawHtml = $tpl && !empty($tpl['content_html']) ? $tpl['content_html'] : '';
-if ($lang !== 'cs' && !empty($entry['type'])) {
-    try {
-        $translated = $sb->rpc('get_document_translation', [
-            'p_template_slug' => $entry['type'],
-            'p_language'      => $lang,
-        ]);
-        if (is_string($translated) && trim($translated) !== '') {
-            $rawHtml = $translated;
-        }
-    } catch (\Throwable $e) { /* fallback na CZ originál */ }
+
+// Jazyková poznámka nad textem (jen cizí jazyk): česká verze je vždy právně závazná.
+$docLangNote = '';
+if ($docLangState === 'czech') {
+    $docLangNote = te('doc.czechBinding');
+} elseif ($docLangState === 'translated') {
+    $csUrl = function_exists('i18nUrlForLang') ? i18nUrlForLang('cs', '/dokumenty/' . $slug, true) : '';
+    $docLangNote = te('doc.translationNote')
+        . ($csUrl !== '' ? ' <a href="' . htmlspecialchars($csUrl) . '" hreflang="cs" lang="cs">' . te('doc.czechVersionLink') . '</a>' : '');
 }
+$docLangNoteHtml = $docLangNote !== ''
+    ? '<p class="doc-lang-note" role="note" style="margin:0 0 14px;padding:10px 14px;border-left:4px solid #74FB71;background:#f1faf7;border-radius:6px;color:#1a2e22;font-size:14px;line-height:1.5">' . $docLangNote . '</p>'
+    : '';
+$docBodyLangAttr = ($docLangState === 'czech') ? ' lang="cs"' : '';
 
 // Stejné CSS jako Velín RichTextEditor (ContentEditable .rte-content) — WYSIWYG
 // parita: co admin vidí v editoru, to se vyrenderuje na webu i v PDF / tisku.
@@ -164,7 +199,11 @@ if ($wantPdf) {
     echo '<meta name="robots" content="noindex, nofollow">';
     echo '<style>' . $DOC_CSS . '</style></head>';
     echo '<body class="doc-render" onload="setTimeout(function(){window.print()},250)">';
-    echo $tplHtml ?: '<p>' . htmlspecialchars(t('doc.notPublished')) . '</p>';
+    if ($tplHtml) {
+        echo $docLangNoteHtml . ($docBodyLangAttr !== '' ? '<div' . $docBodyLangAttr . '>' . $tplHtml . '</div>' : $tplHtml);
+    } else {
+        echo '<p>' . htmlspecialchars(t('doc.notPublished')) . '</p>';
+    }
     echo '</body></html>';
     exit;
 }
@@ -183,9 +222,9 @@ $body = '<main id="content"><div class="container">' . $bc;
 $body .= '<style>' . $DOC_CSS . '</style>';
 $body .= '<div class="ccontent">';
 // H1 extension: krátké názvy dokumentů (např. "Předávací protokol" = 18 px)
-// jsou pod Seobility limit 120 px. Doplňujeme suffix "| MotoGo24 půjčovna motorek"
-// pro kontext SEO klíčovky. Krátký název dokumentu zůstává vizuálně dominantní.
-$body .= '<h1>' . $title . ' <span class="doc-h1-suffix">| MotoGo24 půjčovna motorek</span></h1>';
+// jsou pod Seobility limit 120 px. Doplňujeme suffix (doc.h1Suffix, cs "| MotoGo24
+// půjčovna motorek") pro kontext SEO klíčovky. Krátký název zůstává vizuálně dominantní.
+$body .= '<h1>' . $title . ' <span class="doc-h1-suffix">' . te('doc.h1Suffix') . '</span></h1>';
 
 if (!$tpl || empty($tplHtml)) {
     $body .= '<p>' . htmlspecialchars(t('doc.notPublished')) . ' <a href="' . BASE_URL . '/kontakt">' . htmlspecialchars(t('common.contactUs')) . '</a></p>';
@@ -196,12 +235,13 @@ if (!$tpl || empty($tplHtml)) {
             'date' => date('d. m. Y', strtotime($tpl['updated_at'])),
         ])) . '</p>';
     }
+    $body .= $docLangNoteHtml;
     $body .= '<div class="no-print" style="display:flex;gap:8px;margin:12px 0 20px">';
     $body .= '<a class="btn btngreen" href="' . htmlspecialchars($pdfHref) . '" target="_blank" rel="noopener nofollow">'
           .  '<img src="' . BASE_URL . '/gfx/ico-stahnout.svg" alt="" style="height:16px;vertical-align:middle;margin-right:6px">'
           .  htmlspecialchars(t('doc.download')) . '</a>';
     $body .= '</div>';
-    $body .= '<article class="doc-render" style="border:1px solid #e2ece7;border-radius:12px;background:#fff;padding:24px">'
+    $body .= '<article class="doc-render"' . $docBodyLangAttr . ' style="border:1px solid #e2ece7;border-radius:12px;background:#fff;padding:24px">'
           .  $tplHtml
           .  '</article>';
 }
@@ -229,9 +269,11 @@ $body .= '</div></div></main>';
 // Bohatsi meta description: title + standardni kontext (pujcovna + adresa).
 // Bez kontextu byl Seobility 'meta description too short' na vsech /dokumenty/* (cca 17-50 znaku).
 // Seobility limit ~1000 px = ~155 znaku (Czech s diakritikou ~6 px/znak).
-$metaDesc = $entry['title']
-    . ' u půjčovny motorek MotoGo24 Pelhřimov — vzor pro půjčení motocyklu. Bez kauce, výbava v ceně, nonstop provoz na Vysočině.';
-$metaDesc = preg_replace('/\s+\S*$/u', '', mb_substr(preg_replace('/\s+/', ' ', $metaDesc), 0, 155));
+// Zkrácení jen když text limit přesahuje (dřív se poslední slovo uřízlo vždy → „…provoz na“).
+$metaDesc = preg_replace('/\s+/', ' ', (string)t('doc.metaDesc', ['title' => $entry['title']]));
+if (mb_strlen($metaDesc) > 155) {
+    $metaDesc = preg_replace('/\s+\S*$/u', '', mb_substr($metaDesc, 0, 155));
+}
 
 renderPage($entry['title'] . ' | MotoGo24', $body, '/dokumenty/' . $slug, [
     'description' => $metaDesc,

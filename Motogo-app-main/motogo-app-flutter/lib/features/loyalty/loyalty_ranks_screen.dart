@@ -11,6 +11,7 @@ import '../../core/widgets/moto_fx.dart';
 import '../booking/booking_models.dart' show loyaltyFreeGearLevel;
 import 'loyalty_provider.dart';
 import 'loyalty_levels_provider.dart';
+import 'rank_names.dart';
 import 'loyalty_leaderboard_section.dart';
 
 /// Celostránkový animovaný přehled věrnostních ranků.
@@ -176,6 +177,8 @@ class _HeroState extends State<_Hero> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     final s = widget.status;
     final tr = widget.tr;
+    // Pozor: v builderu níže je lokální `t` (animace) — překlady přes `trs`.
+    final trs = t(context);
     // Bez statusu (nepřihlášen) — uvítací varianta s prvním rankem.
     final color = s?.color ?? MotoGoColors.green;
     final isLegend = s?.isLegend ?? false;
@@ -251,7 +254,7 @@ class _HeroState extends State<_Hero> with SingleTickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  _rankName(s?.rankName ?? 'Startér', color, isLegend),
+                  _rankName(s?.rankNameFor(trs) ?? localizedRankName(trs, 1, 'Startér'), color, isLegend),
                   const SizedBox(height: 8),
                   // Velké procento slevy (count-up).
                   _rankName('$pct %', color, isLegend, big: true),
@@ -293,7 +296,7 @@ class _HeroState extends State<_Hero> with SingleTickerProviderStateMixin {
                             ? tr('loyaltyMaxRank')
                             : tr('loyaltyNextRank')
                                 .replaceAll('{n}', '${s.bookingsToNext}')
-                                .replaceAll('{next}', s.nextRankName!)
+                                .replaceAll('{next}', s.nextRankNameFor(trs)!)
                                 .replaceAll('{pct}', '${s.nextPercent ?? ''}')),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
@@ -408,7 +411,7 @@ class _RankTile extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Text(
-                        level.name,
+                        level.nameFor(t(context)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

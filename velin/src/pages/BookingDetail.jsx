@@ -24,6 +24,7 @@ import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 import BookingDamagePanel from './booking/BookingDamagePanel'
 import { kioskReturnedAt } from './booking/kioskReturnHelpers'
 import { BOOKING_BRANCH_EMBED } from '../lib/bookingBranch'
+import { generateBookingDoc, bookingDocLang } from '../lib/docLanguage'
 
 export default function BookingDetail() {
   const debugMode = useDebugMode()
@@ -105,7 +106,7 @@ export default function BookingDetail() {
     setLoading(true)
     const result = await debugAction('booking.load', 'BookingDetail', () =>
       supabase.from('bookings')
-        .select(`*, ${BOOKING_BRANCH_EMBED}, motorcycles!moto_id(id, model, spz, status, branch_id, tracking_unit, branches(name, type)), profiles(id, full_name, email, phone, city)`)
+        .select(`*, ${BOOKING_BRANCH_EMBED}, motorcycles!moto_id(id, model, spz, status, branch_id, tracking_unit, branches(name, type)), profiles(id, full_name, email, phone, city, language)`)
         .eq('id', id).single()
     , { booking_id: id })
     if (result?.error) setError(result.error.message)
@@ -131,8 +132,8 @@ export default function BookingDetail() {
           if (newStatus === 'active') d.picked_up_at = update.picked_up_at
           else d.confirmed_at = update.confirmed_at
           Promise.allSettled([
-            supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: d.id } }),
-            supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: d.id } }),
+            generateBookingDoc('rental_contract', d.id, bookingDocLang(d)),
+            generateBookingDoc('vop', d.id, bookingDocLang(d)),
           ]).catch(() => {})
         }
       }
@@ -140,8 +141,8 @@ export default function BookingDetail() {
         const { data: genDocs } = await supabase.from('generated_documents').select('id').eq('booking_id', d.id).limit(1)
         if (!genDocs || genDocs.length === 0) {
           Promise.allSettled([
-            supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: d.id } }),
-            supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: d.id } }),
+            generateBookingDoc('rental_contract', d.id, bookingDocLang(d)),
+            generateBookingDoc('vop', d.id, bookingDocLang(d)),
           ]).catch(() => {})
         }
       }
@@ -211,8 +212,8 @@ export default function BookingDetail() {
         try { await generateAdvanceInvoice(id, 'booking') } catch (e) { invoiceErrors.push(`ZF: ${e.message}`) }
         try { await generatePaymentReceipt(id, 'booking') } catch (e) { invoiceErrors.push(`DP: ${e.message}`) }
         Promise.allSettled([
-          supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: id } }),
-          supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: id } }),
+          generateBookingDoc('rental_contract', id, bookingDocLang(booking)),
+          generateBookingDoc('vop', id, bookingDocLang(booking)),
           supabase.functions.invoke('send-booking-email', { body: { ...emailBody, type: 'booking_reserved' } }),
         ]).catch(() => {})
       } else if (newStatus === 'active') {
@@ -227,9 +228,9 @@ export default function BookingDetail() {
           }
         } catch (e) { console.error('[Invoice] check existing:', e.message) }
         Promise.allSettled([
-          supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: id } }),
-          supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: id } }),
-          supabase.functions.invoke('generate-document', { body: { template_slug: 'handover_protocol', booking_id: id } }),
+          generateBookingDoc('rental_contract', id, bookingDocLang(booking)),
+          generateBookingDoc('vop', id, bookingDocLang(booking)),
+          generateBookingDoc('handover_protocol', id, bookingDocLang(booking)),
         ]).catch(() => {})
       } else if (newStatus === 'completed') {
         try {

@@ -1,4 +1,4 @@
-/* ===== MotoGo24 — Katalog v2: kompaktní karty, prázdný stav, úvod a sbalená kalkulačka ===== */
+/* ===== MotoGo24 — Katalog v2: kompaktní karty, prázdný stav a úvod ===== */
 /* Markup: pages/katalog-v2-ui.php (renderKatalogV2Card), JS: js/landing-catalog*.js. */
 .kf-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:.8rem;margin:0;padding:0;list-style:none}
 @media(min-width:360px){.kf-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}}
@@ -63,10 +63,6 @@
 }
 @media(min-width:769px){.kf-more{display:none}}
 
-/* Kalkulačka pod mřížkou — na mobilu sbalená, otevře ji tlačítko / chip „Spočítat cenu“ */
-.kf-calc-tg{margin-top:.9rem;width:100%}
-.kf-js .kc.kf-closed .kc-grid{display:none}
-@media(min-width:900px){.kf-calc-tg{width:auto;min-width:260px}}
 @keyframes kfIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes kfPop{0%{transform:scale(.85);opacity:.4}100%{transform:none;opacity:1}}
 @media(prefers-reduced-motion:reduce){

@@ -92,7 +92,7 @@ function lpiDocs($x, $g) {
     $g->setAttribute('class', 'lpi-docs');
     foreach (iterator_to_array($x->query('.//*[@style]', $g)) as $el) $el->removeAttribute('style');
     foreach ($x->query('./a', $g) as $a) lpiAdd($a, 'lpi-doc lp-reveal');
-    foreach ($x->query('./a/span[contains(@class,"btn")]', $g) as $s) $s->setAttribute('class', 'lpi-doc-dl');
+    foreach ($x->query('./a/span[contains(@class,"btn")]', $g) as $s) $s->setAttribute('class', 'lpi-doc-dl' . (mb_strlen(lpiText($s)) >= 12 ? ' lpi-doc-dl--long' : ''));
 }
 
 /** Holé uzly → sekce, role sekcí, CTA/outro úpravy. $ai = výzva AI pod první FAQ. Vrací [bloky, index pro pruh motorek]. */

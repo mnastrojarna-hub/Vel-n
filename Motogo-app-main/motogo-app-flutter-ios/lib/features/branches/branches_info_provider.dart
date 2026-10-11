@@ -91,11 +91,15 @@ final branchesInfoProvider =
       final tail = key.substring(prefix.length);
       String? val = r['value']?.toString();
       if (lang != 'cs') {
-        // {lang: {value: '…'}} nebo {lang: '…'}; bez překladu zůstane český text.
+        // {lang: {value: '…'}} nebo {lang: '…'}; chybí-li překlad do jazyka,
+        // raději angličtina než čeština; bez obou zůstane český text.
         final tr = r['translations'];
-        final cand = tr is Map ? tr[lang] : null;
-        final s = cand is Map ? cand['value']?.toString() : cand?.toString();
-        if (s != null && s.trim().isNotEmpty) val = s;
+        String? pick(String l) {
+          final cand = tr is Map ? tr[l] : null;
+          final s = cand is Map ? cand['value']?.toString() : cand?.toString();
+          return (s != null && s.trim().isNotEmpty) ? s : null;
+        }
+        val = pick(lang) ?? pick('en') ?? val;
       }
       if (val != null && val.trim().isNotEmpty) out[tail] = val;
     }

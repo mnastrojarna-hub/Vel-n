@@ -3,7 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
-import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentRequest, resolveReturnOrigin, resolveStripeLocale, withLangParam } from './stripe-customer.ts'
+import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentRequest, resolveReturnOrigin, resolveSiteLang, resolveStripeLocale, withLangParam } from './stripe-customer.ts'
 
 /** Handle web anonymous booking checkout (no auth required) */
 export async function handleWebBookingCheckout(
@@ -23,6 +23,19 @@ export async function handleWebBookingCheckout(
     return new Response(JSON.stringify({ error: 'Booking not found or already paid' }), {
       status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
     })
+  }
+
+  // Pojistka jazyka (audit 2026-10-10): web volá set_booking_language hned po vytvoření
+  // rezervace; kdyby to selhalo, zůstala by 'cs' a smlouva, VOP i e-maily po zaplacení
+  // by šly česky. Jen čerstvá nezaplacená webová rezervace, jen z výchozí 'cs'.
+  const siteLang = resolveSiteLang(body.locale)
+  const bkLang = booking as unknown as { created_at?: string; language?: string }
+  const fresh = Date.now() - new Date(bkLang.created_at || 0).getTime() < 2 * 3600_000
+  if (siteLang !== 'cs' && (bkLang.language || 'cs') === 'cs' && fresh) {
+    const { error: langErr } = await supabaseAdmin.from('bookings')
+      .update({ language: siteLang } as never).eq('id', body.booking_id!).eq('language', 'cs')
+    if (langErr) console.warn('[WebBookingCheckout] language update failed:', langErr.message)
+    else bkLang.language = siteLang
   }
 
   const amountCzk = booking.total_price || body.amount || 0
@@ -563,7 +576,7 @@ export async function handleWebShopCheckout(
       notes: isPrint ? 'Fyzický poukaz (tisk + poštovné)' : 'Elektronický poukaz',
       // i18n: jazyk zákazníka z webu (cs/en/de/nl/es/fr/pl) → voucher_purchased mail
       // i SMS dorazí přeložené (detect_customer_language čte shop_orders.language).
-      language: resolveStripeLocale(body.locale),
+      language: resolveSiteLang(body.locale),
     })
     if (insertOrderError) {
       console.error('[WebShopCheckout] shop_orders insert failed:', insertOrderError.message)

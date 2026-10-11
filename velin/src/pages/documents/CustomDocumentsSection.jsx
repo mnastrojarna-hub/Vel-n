@@ -6,7 +6,8 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import RichTextEditor, { buildPreviewHtml } from '../../components/ui/RichTextEditor'
-import { translateDocument, TRANSLATE_TARGET_LANGS } from '../../lib/autoTranslate'
+import { TR_LANGS, useSourceHashes, pickLangs, runDocTranslation, translateAllRows, bulkResultText } from './docTranslations'
+import TranslationStatusChips from './TranslationStatusChips'
 
 // Vlastní dokumenty vytvořené ve Velíně (mimo 5 pevných smluvních typů).
 // Tabulka: custom_documents (title, slug, description, kind 'html'|'pdf',
@@ -33,32 +34,31 @@ export default function CustomDocumentsSection() {
   const [translatingId, setTranslatingId] = useState(null)
   const [trMsg, setTrMsg] = useState({}) // id -> { ok, text }
 
-  async function handleTranslate(doc, { force = false } = {}) {
+  const [bulk, setBulk] = useState(null) // null | { text } | { text, done:true }
+  const bulkBusy = !!bulk && !bulk.done
+
+  // Jeden dokument: bez voleb chybějící + ZASTARALÉ jazyky, { force } všechny, { langs } jen zadané.
+  // Po jednom jazyce s opakováním — full-doc / PDF překlad je pomalý; jeden jazyk se vejde do limitu edge fn.
+  async function handleTranslate(doc, opts = {}) {
+    const setMsg = v => setTrMsg(m => ({ ...m, [doc.id]: v }))
     setTranslatingId(doc.id)
-    const already = force ? [] : Object.keys(doc.translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k))
-    const todo = TRANSLATE_TARGET_LANGS.filter(l => !already.includes(l))
+    const todo = await pickLangs('custom_documents', doc, opts)
     if (todo.length === 0) {
       setTranslatingId(null)
-      setTrMsg(m => ({ ...m, [doc.id]: { ok: true, text: `Vše už přeloženo (${already.join(', ')}). Pro nové přeložení použij „Přeložit znovu vše".` } }))
+      setMsg({ ok: true, text: 'Všechny překlady jsou aktuální. Pro nové přeložení použij „Přeložit znovu vše".' })
       return
     }
-    const done = [...already]
-    const failed = []
-    // Po jednom jazyce, s opakováním (transientní rate-limit) — full-doc / PDF
-    // překlad je pomalý; jeden jazyk per invokace edge fn se vejde do limitu.
-    for (const lang of todo) {
-      setTrMsg(m => ({ ...m, [doc.id]: { ok: true, text: `Překládám… ${lang} · hotovo: ${done.join(', ') || '–'}${failed.length ? ` · selhalo: ${failed.map(f => f.split(':')[0]).join(', ')}` : ''}` } }))
-      let ok = false, lastErr = ''
-      for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
-        if (attempt > 1) await new Promise(r => setTimeout(r, 2500))
-        const res = await translateDocument({ table: 'custom_documents', id: doc.id, target_langs: [lang] })
-        if (res?.success && res.translations?.[lang]) ok = true
-        else lastErr = (res?.errors && Object.values(res.errors)[0]) || (res?.details && Object.values(res.details)[0]) || res?.error || 'neznámá chyba'
-      }
-      if (ok) done.push(lang); else failed.push(`${lang}: ${lastErr}`)
-    }
+    await runDocTranslation('custom_documents', doc, todo, setMsg)
     setTranslatingId(null)
-    setTrMsg(m => ({ ...m, [doc.id]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${done.join(', ') || '–'} · selhalo — ${failed.join('; ')} (klikni „Přeložit" znovu pro dokončení)` : `Hotovo — přeloženo do: ${done.join(', ')}` } }))
+    load()
+  }
+
+  // Všechny vlastní dokumenty naráz: bez force chybějící + zastaralé, s force úplně vše znovu.
+  async function handleTranslateAll({ force = false } = {}) {
+    if (force && !window.confirm(`Přeložit znovu všechny vlastní dokumenty do ${TR_LANGS.length} jazyků (${TR_LANGS.join(', ')}) — i ty aktuální? Trvá to desítky minut, nechte stránku otevřenou.`)) return
+    setBulk({ text: 'Překládám…' })
+    const res = await translateAllRows('custom_documents', docs, { force, labelOf: d => d.title || d.slug, onText: text => setBulk({ text }) })
+    setBulk({ text: bulkResultText(res, 'Vlastní dokumenty'), done: true })
     load()
   }
 
@@ -76,6 +76,7 @@ export default function CustomDocumentsSection() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  const srcHashes = useSourceHashes('custom_documents', docs)
 
   async function handleDelete(doc) {
     setToDelete(null)
@@ -96,8 +97,9 @@ export default function CustomDocumentsSection() {
           <p className="text-sm mt-1" style={{ color: '#1a2e22' }}>
             Vlastní texty nebo nahraná PDF. Se zapnutým „Zobrazit na webu" se automaticky objeví v sekci
             {' '}<strong>Dokumenty a návody</strong> na webu vedle ostatních ke stažení. Pro cizojazyčné verze webu
-            klikni <strong>🌍 Přeložit</strong> — Claude přeloží obsah (i z nahraného PDF) do 6 jazyků; cizojazyčná
-            verze se pak zobrazí jako přeložená HTML stránka (český originál zůstává beze změny).
+            klikni <strong>🌍 Přeložit</strong> — Claude přeloží obsah (i z nahraného PDF) do {TR_LANGS.length} jazyků ({TR_LANGS.join(', ')}); cizojazyčná
+            verze se pak zobrazí jako přeložená HTML stránka (český originál zůstává beze změny). Po změně textu nebo PDF je překlad
+            {' '}<strong>ZASTARALÝ</strong> a web místo něj ukáže závaznou českou verzi, dokud ho znovu nepřeložíte.
           </p>
         </div>
         <Button green onClick={() => setEditing({ kind: 'html', title: '', slug: '', description: '', content_html: '', pdf_path: '', show_on_web: true, sort_order: (docs.reduce((m, d) => Math.max(m, d.sort_order || 0), 0) + 10), active: true })}>
@@ -106,6 +108,16 @@ export default function CustomDocumentsSection() {
       </div>
 
       {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
+
+      {docs.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button onClick={() => handleTranslateAll()} disabled={bulkBusy || !!translatingId}>
+            {bulkBusy ? 'Překládám…' : `🌍 Přeložit chybějící a zastaralé (${TR_LANGS.length} jazyků)`}
+          </Button>
+          <Button onClick={() => handleTranslateAll({ force: true })} disabled={bulkBusy || !!translatingId}>Přeložit znovu vše (force)</Button>
+          {bulk && <span className="text-sm" style={{ color: bulk.done ? '#15803d' : '#6b7a72' }}>{bulk.text}</span>}
+        </div>
+      )}
 
       {docs.length === 0 ? (
         <div className="p-3 rounded-card text-center" style={{ background: '#f1faf7', fontSize: 13, color: '#1a2e22' }}>
@@ -131,8 +143,10 @@ export default function CustomDocumentsSection() {
                       <span>/dokumenty/{d.slug}</span>
                       <span>{d.kind === 'pdf' ? 'PDF' : `HTML · ${(d.content_html || '').length} znaků`}</span>
                       {d.updated_at && <span>upraveno {new Date(d.updated_at).toLocaleDateString('cs-CZ')}</span>}
-                      <span>{(() => { const ks = Object.keys(d.translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)); return ks.length ? `🌍 přeloženo: ${ks.join(', ')}` : '🌍 jen česky' })()}</span>
                     </div>
+                    <TranslationStatusChips table="custom_documents" row={d} srcHash={srcHashes[d.id]}
+                      busy={translatingId === d.id || bulkBusy}
+                      onTranslateLang={lang => handleTranslate(d, { langs: [lang] })} />
                     {trMsg[d.id] && <p className="text-sm mt-1" style={{ color: trMsg[d.id].ok ? '#15803d' : '#dc2626' }}>{trMsg[d.id].text}</p>}
                   </div>
                 </div>
@@ -140,9 +154,9 @@ export default function CustomDocumentsSection() {
                   {d.kind === 'pdf' && d.pdf_path
                     ? <a href={d.pdf_path} target="_blank" rel="noopener"><Button>Otevřít PDF</Button></a>
                     : <Button onClick={() => setPreview(d)}>Náhled</Button>}
-                  <Button onClick={() => handleTranslate(d)} disabled={translatingId === d.id}>{translatingId === d.id ? 'Překládám…' : '🌍 Přeložit'}</Button>
-                  {translatingId !== d.id && Object.keys(d.translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)).length > 0 && (
-                    <Button onClick={() => handleTranslate(d, { force: true })}>Přeložit znovu vše</Button>
+                  <Button onClick={() => handleTranslate(d)} disabled={translatingId === d.id || bulkBusy}>{translatingId === d.id ? 'Překládám…' : '🌍 Přeložit'}</Button>
+                  {translatingId !== d.id && Object.keys(d.translations || {}).some(k => TR_LANGS.includes(k)) && (
+                    <Button onClick={() => handleTranslate(d, { force: true })} disabled={bulkBusy}>Přeložit znovu vše</Button>
                   )}
                   <Button green onClick={() => setEditing(d)}>Upravit</Button>
                   <Button onClick={() => setToDelete(d)}>Smazat</Button>

@@ -4,6 +4,7 @@ import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
+import { generateBookingDoc, bookingDocLang } from '../../lib/docLanguage'
 
 // Mapování jazyka na vlaječku/label pro náhled (informativní).
 const LANG_LABEL = { cs: '🇨🇿 Čeština', en: '🇬🇧 English', de: '🇩🇪 Deutsch', es: '🇪🇸 Español', fr: '🇫🇷 Français', nl: '🇳🇱 Nederlands', pl: '🇵🇱 Polski', uk: '🇺🇦 Українська' }
@@ -20,13 +21,13 @@ const STATUS_LABEL = {
  * Flow dle zadání: vyber zákazníka (jméno/e-mail/telefon) → zobrazí se jeho
  * rezervace + objednávky → vyber jednu → vyber e-mailovou šablonu → odeslat.
  * E-mail odešle edge fn `send-booking-email`, která sama:
- *   - detekuje jazyk zákazníka (profiles.language → bookings.language → shop_orders.language → cs)
+ *   - detekuje jazyk zákazníka (bookings.language / shop_orders.language → profiles.language → cs)
  *     a přeloží Velín šablonu + vygeneruje přílohy (smlouva/VOP) v jazyce zákazníka,
  *   - vyzvedne/přiloží aktuální faktury (ZF/DP/KF) a smlouvu/VOP.
  *
  * Volitelný přepínač „Přegenerovat přílohy" před odesláním přepíše stávající
- * doklady aktuálními daty (generate-invoice regenerate:true + generate-document,
- * který staré verze přemaže) — případ aktualizace smlouvy / úpravy rezervace.
+ * doklady aktuálními daty (generate-invoice regenerate:true + generate-document
+ * v jazyce rezervace, který staré verze přemaže) — případ aktualizace smlouvy / úpravy rezervace.
  */
 export default function ResendMailTab() {
   const [query, setQuery] = useState('')
@@ -87,12 +88,11 @@ export default function ResendMailTab() {
     setLoadingItems(false)
   }
 
-  // Jazyk, který edge fn pravděpodobně použije (mirror detect_customer_language priority).
+  // Jazyk, který edge fn pravděpodobně použije (mirror živé detect_customer_language:
+  // rezervace/objednávka → profil → cs; audit 2026-10-10 — profil až jako záloha).
   function effectiveLang() {
-    if (selectedCustomer?.language) return selectedCustomer.language
-    if (selected?.kind === 'booking') return selected.data.language || 'cs'
-    if (selected?.kind === 'order') return selected.data.language || 'cs'
-    return 'cs'
+    if (selected?.data?.language) return selected.data.language
+    return selectedCustomer?.language || 'cs'
   }
 
   async function regenerateAttachments() {
@@ -103,8 +103,9 @@ export default function ResendMailTab() {
       const tasks = [
         inv({ regenerate: true, booking_id: bid, type: 'advance' }),
         inv({ regenerate: true, booking_id: bid, type: 'payment_receipt' }),
-        supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: bid } }),
-        supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: bid } }),
+        // smlouva/VOP v jazyce zákazníka — bez jazyka by česká verze přepsala (smazala) zákaznickou
+        generateBookingDoc('rental_contract', bid, bookingDocLang(selected.data, selectedCustomer?.language)),
+        generateBookingDoc('vop', bid, bookingDocLang(selected.data, selectedCustomer?.language)),
       ]
       // KF (konečná faktura) vystavuje DB trigger s číslem KF-… — generate-invoice
       // s type='final' by vyrobil JINÝ doklad (prefix FV, přepočítané položky).

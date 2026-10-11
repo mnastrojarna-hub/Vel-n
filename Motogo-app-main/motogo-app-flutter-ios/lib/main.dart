@@ -80,22 +80,24 @@ Future<void> _initAndRun() async {
   ErrorWidget.builder = (FlutterErrorDetails details) {
     // Report build error
     CrashReportService.instance.reportFlutterError(details);
-    return const Material(
-      color: Color(0xFFDFF0EC), // MotoGoColors.bg
+    // Bez BuildContextu s lokalizací → poslední známý jazyk appky.
+    final tr = AppTranslations.of(lastKnownAppLang);
+    return Material(
+      color: const Color(0xFFDFF0EC), // MotoGoColors.bg
       child: Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('🔄', style: TextStyle(fontSize: 36)),
-              SizedBox(height: 12),
-              Text('Restartujte aplikaci',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
+              const Text('🔄', style: TextStyle(fontSize: 36)),
+              const SizedBox(height: 12),
+              Text(tr.tr('restartApp'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
                       color: Color(0xFF1A2E22))),
-              SizedBox(height: 6),
-              Text('Omlouváme se za komplikace.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF6B8F7B))),
+              const SizedBox(height: 6),
+              Text(tr.tr('sorryInconvenience'),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF6B8F7B))),
             ],
           ),
         ),
@@ -159,7 +161,8 @@ Future<void> _initAndRun() async {
   // Měna (CZK/EUR/PLN, parita s webem): načti volbu + kurzy z cache,
   // čerstvé kurzy ČNB dotáhni na pozadí (cache 15 min, fallback chain).
   final langPrefs = await SharedPreferences.getInstance();
-  await Money.init(defaultLang: langPrefs.getString('mg_language'));
+  await Money.init(
+      defaultLang: langPrefs.getString('mg_language') ?? langPrefs.getString('mg_locale'));
   unawaited(Money.refreshRates());
 
   runApp(const ProviderScope(child: MotoGoApp()));

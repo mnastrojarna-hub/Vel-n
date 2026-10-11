@@ -1,8 +1,8 @@
 /* MotoGo24 — katalog v2: otevírání panelů (bottom sheet na mobilu, rozbalovací panel / popover
    na desktopu). Esc a klik mimo zavře, na mobilu modální (focus trap, zámek scrollu), fokus se
    vrací na tlačítko. Používá js/landing-catalog.js (filtry) a js/landing-catalog-dates.js (termín).
-   F.initExtras: kalkulačka pod mřížkou (na mobilu sbalená, tlačítko na kartách), úvod na 2 řádky,
-   stín přilepené lišty. */
+   F.initMode: přepínač karty .km [Najít motorku | Spočítat cenu] (kalkulačka je v kartě),
+   F.initExtras: tlačítko kalkulačky na kartách, úvod na 2 řádky, přilepená lišta (is-float). */
 (function (w) {
   var d = document, F = w.MGKF = w.MGKF || {};
   var mq = w.matchMedia ? w.matchMedia('(min-width: 900px)') : null;
@@ -70,16 +70,53 @@
     if (F.onSheet) F.onSheet(el, false);
   };
   F.openEl = function () { return cur; };
-  // --- Drobné UI katalogu; vrací calc(id) = otevřít kalkulačku (motorka z karty, termín z filtru) ---
+  // --- Přepínač režimu karty .km: role tablist/tab/tabpanel (bez JS je přepínač skrytý a oba režimy
+  //     vidět), šipky + Home/End s roving tabindexem, automatická aktivace. Vrací setMode(m). ---
+  F.initMode = function () {
+    var km = d.querySelector('[data-km]'), tabs = km ? Array.prototype.slice.call(km.querySelectorAll('[data-km-tab]')) : [];
+    if (!tabs.length) return function () {};
+    tabs[0].parentNode.setAttribute('role', 'tablist');
+    function set(m, focus) {
+      if (km.getAttribute('data-mode') !== m) F.closeSheet(true);
+      km.setAttribute('data-mode', m);
+      tabs.forEach(function (t) {
+        var on = t.getAttribute('data-km-tab') === m;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
+        if (on && focus) t.focus();
+      });
+    }
+    tabs.forEach(function (t, i) {
+      var p = d.getElementById(t.getAttribute('aria-controls'));
+      t.setAttribute('role', 'tab');
+      if (p) { p.setAttribute('role', 'tabpanel'); p.setAttribute('aria-labelledby', t.id); }
+      t.addEventListener('click', function () {
+        var m = t.getAttribute('data-km-tab');
+        set(m);
+        if (m !== 'calc' && w.location.hash === '#kalkulacka') try { history.replaceState(history.state, '', w.location.pathname + w.location.search); } catch (e) {}
+      });
+      t.addEventListener('keydown', function (e) {
+        var k = e.key, n = tabs.length, j = k === 'ArrowRight' ? i + 1 : k === 'ArrowLeft' ? i - 1 : k === 'Home' ? 0 : k === 'End' ? n - 1 : null;
+        if (j === null) return;
+        e.preventDefault();
+        set(tabs[(j + n) % n].getAttribute('data-km-tab'), true);
+      });
+    });
+    set('find');
+    return set;
+  };
+  // --- Drobné UI katalogu; vrací calc(id) = režim kalkulačky (motorka z karty, termín z filtru) ---
   F.initExtras = function (o) {
-    var K = w.MGKC || {}, T = o.T, kcRoot = d.querySelector('[data-kc]'), tg = null, q = function (s) { return o.root.querySelector(s); };
-    function calc(id) {
+    var K = w.MGKC || {}, T = o.T, kcRoot = d.querySelector('[data-kc]'), km = d.querySelector('[data-km]'), q = function (s) { return o.root.querySelector(s); };
+    var setMode = F.initMode();
+    function calc(id, now) {
       if (!kcRoot) return;
       var DT = o.dt();
-      kcRoot.classList.remove('kf-closed');
-      if (tg) tg.hidden = true;
+      setMode('calc');
+      // Kotva #kalkulacka (i nativní skok prohlížeče) skončí na horní hraně karty, ne pod přepínačem
+      if (km) kcRoot.style.scrollMarginTop = Math.round(kcRoot.getBoundingClientRect().top - km.getBoundingClientRect().top + 12) + 'px';
       if (K.calcSet && (id || (DT && DT.active()))) K.calcSet({ moto: id || '', start: DT && DT.start(), end: DT && DT.end() });
-      kcRoot.scrollIntoView({ behavior: F.rm ? 'auto' : 'smooth', block: 'start' });
+      (km || kcRoot).scrollIntoView({ behavior: F.rm || now ? 'auto' : 'smooth', block: 'start' });
     }
     if (kcRoot && o.kc && K.ico) {
       q('[data-kf-calc]').hidden = false;
@@ -95,20 +132,6 @@
         b.innerHTML = ico;
         act.appendChild(b);
       });
-      var head = kcRoot.querySelector('.kc-head'), body = kcRoot.querySelector('.kc-grid');
-      if (head && body && !F.isDesk() && w.location.hash !== '#kalkulacka') {
-        body.id = body.id || 'kc-body';
-        kcRoot.classList.add('kf-closed');
-        tg = d.createElement('button');
-        tg.type = 'button'; tg.className = 'lp-btn lp-btn-primary kf-calc-tg';
-        tg.setAttribute('aria-expanded', 'false'); tg.setAttribute('aria-controls', body.id);
-        tg.innerHTML = K.ico('cal') + '<span>' + K.esc(T.f_calc_open) + '</span>';
-        head.appendChild(tg);
-        tg.addEventListener('click', function () {
-          kcRoot.classList.remove('kf-closed'); tg.setAttribute('aria-expanded', 'true'); tg.hidden = true;
-          var s = kcRoot.querySelector('#kc-moto'); if (s) s.focus({ preventScroll: true });
-        });
-      }
     }
     // Úvodní text na mobilu sbalený na 2 řádky (text zůstává v DOM)
     var intro = d.querySelector('.kf-intro');
@@ -124,13 +147,15 @@
         });
       } else intro.classList.remove('is-clamp');
     }
-    // Stín lišty, když je přilepená
-    if ('IntersectionObserver' in w) {
-      var sen = d.createElement('div');
-      sen.setAttribute('aria-hidden', 'true');
-      o.bar.parentNode.insertBefore(sen, o.bar);
-      new IntersectionObserver(function (es) { o.bar.classList.toggle('is-stuck', !es[0].isIntersecting); }).observe(sen);
+    // Lišta Termín/Filtry/🧮 se přilepí nahoru, jen když řádek s poli odjel NAD viewport (ne pod ohyb)
+    var row = o.bar.parentNode;
+    if ('IntersectionObserver' in w && row && row.classList.contains('km-row--bar')) {
+      new IntersectionObserver(function (es) { var e = es[0]; o.bar.classList.toggle('is-float', !e.isIntersecting && e.boundingClientRect.top < 0); }).observe(row);
     }
+    // Odkaz /katalog#kalkulacka (i během návštěvy) otevře režim kalkulačky (po sbalení úvodu)
+    var hash = function (e) { if (w.location.hash === '#kalkulacka') calc('', !e); };
+    hash();
+    w.addEventListener('hashchange', hash);
     return calc;
   };
 })(window);

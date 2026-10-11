@@ -105,8 +105,10 @@ export async function autoTranslate({ table, id, fields, target_langs, onStatus 
  * `table`: 'custom_documents' | 'document_templates'. U custom_documents typu PDF
  * Claude přečte přiložené PDF přímo a vrátí přeložený obsah jako HTML.
  * Vrací { success, translations?, errors?, error? }. Nehází výjimky.
+ * Velín posílá vždy jen jazyky, které chce (znovu) přeložit — `force` zaručí přepsání
+ * i aktuálního překladu (tlačítka „Přeložit znovu“), kdyby edge fn čerstvé jazyky přeskakovala.
  */
-export async function translateDocument({ table, id, target_langs }) {
+export async function translateDocument({ table, id, target_langs, force = true }) {
   if (!table || !id) return { success: false, error: 'missing_table_or_id' }
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -118,13 +120,13 @@ export async function translateDocument({ table, id, target_langs }) {
         'apikey': supabaseAnonKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ table, id, target_langs }),
+      body: JSON.stringify({ table, id, target_langs, force }),
     })
     const data = await response.json().catch(() => ({}))
     if (!response.ok || !data?.success) {
       return { success: false, error: data?.error || `HTTP ${response.status}`, details: data?.details }
     }
-    return { success: true, translations: data.translations || {}, errors: data.errors }
+    return { success: true, translations: data.translations || {}, errors: data.errors, skipped: data.skipped }
   } catch (e) {
     return { success: false, error: e?.message || String(e) }
   }

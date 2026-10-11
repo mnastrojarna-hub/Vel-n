@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/net_image.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import 'sos_timeline_i18n.dart';
 import 'sos_provider.dart';
 import '../../core/currency.dart';
 import '../auth/widgets/toast_helper.dart';
@@ -283,8 +284,8 @@ class SosDetailScreen extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('🆘 SOS Incident',
-                      style: TextStyle(fontSize: 16,
+                  Text('🆘 ${t(context).tr('sosIncidentTitle')}',
+                      style: const TextStyle(fontSize: 16,
                           fontWeight: FontWeight.w900, color: MotoGoColors.black)),
                   Text(inc.id.substring(inc.id.length - 8).toUpperCase(),
                       style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
@@ -342,8 +343,8 @@ class SosDetailScreen extends ConsumerWidget {
 
               // Timeline (realtime)
               _Card(children: [
-                const Text('📋 Timeline',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800,
+                Text('📋 ${t(context).tr('timelineTitle')}',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800,
                         color: MotoGoColors.black)),
                 const SizedBox(height: 8),
                 timelineAsync.when(
@@ -362,7 +363,7 @@ class SosDetailScreen extends ConsumerWidget {
                         Expanded(child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                          Text(e.action,
+                          Text(localizeSosAction(t(context), e.action),
                               style: const TextStyle(fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: MotoGoColors.black)),

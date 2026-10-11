@@ -20,7 +20,7 @@ return ['pages' => ['landing_info' => [
         'pristaveni' => ['Nach Hause, ins Hotel oder zum Bahnhof', 'In ganz Tschechien', 'Keine Kaution'],
         'dokumenty' => ['Keine Kaution', 'Verständlicher Vertrag', 'Sichere Online-Zahlung'],
         'faq' => ['Keine Kaution', 'Fahrerausrüstung inklusive', 'KI-Assistent 24/7'],
-        'kontakt' => ['2 Filialen: Vysočina und Brno', 'Selbstbedienung 24/7 bei Brno', 'Online buchen'],
+        'kontakt' => ['2 Filialen: Vysočina und Brno', 'Selbstbedienung 24/7 bei Brno', 'Online-Reservierung'],
     ],
     'ai' => [
         'title' => 'KI-Assistent 24/7',

@@ -2,6 +2,7 @@
 // Payment confirmation functions for booking, shop, SOS + financial event ingestion
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveBookingLanguage, resolveOrderLanguage } from './customer-lang.ts'
 
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 
@@ -209,6 +210,8 @@ export async function confirmBookingPayment(
           } catch { docsOk = false }
           mailType = docsOk ? 'booking_reserved' : 'invoice_payment_receipt'
         }
+        // Jazyk zákazníka explicitně (mail + smlouva/VOP v příloze); undefined → send-booking-email dohledá sám.
+        const language = await resolveBookingLanguage(supabase, bookingId)
         try {
           const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
             method: 'POST', headers,
@@ -223,6 +226,7 @@ export async function confirmBookingPayment(
               total_price: booking.total_price,
               source: source,
               manual_url: moto?.manual_url || '',
+              language,
             }),
           })
           try {
@@ -231,7 +235,7 @@ export async function confirmBookingPayment(
               action: resp.ok ? 'payment_receipt_mail_sent' : 'payment_receipt_mail_http_error',
               component: 'send-booking-email',
               status: resp.ok ? 'ok' : 'error',
-              request_data: { booking_id: bookingId, source, http_status: resp.status },
+              request_data: { booking_id: bookingId, source, http_status: resp.status, language: language ?? null },
               error_message: resp.ok ? null : (await resp.text().catch(() => `HTTP ${resp.status}`)),
             })
           } catch { /* ignore */ }
@@ -342,6 +346,8 @@ export async function confirmSosPayment(
       if (booking?.profiles?.email) {
         const profile = booking.profiles as { full_name?: string; email?: string }
         const moto = booking.motorcycles as { model?: string } | null
+        // SOS náhrada vzniká s výchozím 'cs' → jazyk převezme z původní rezervace (customer-lang.ts).
+        const language = await resolveBookingLanguage(supabase, bookingId)
         try {
           await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
             method: 'POST', headers,
@@ -355,6 +361,7 @@ export async function confirmSosPayment(
               end_date: booking.end_date,
               total_price: booking.total_price,
               source: booking.booking_source || 'app',
+              language,
             }),
           })
         } catch { /* ignore */ }
@@ -486,6 +493,9 @@ export async function confirmShopPayment(
         .select('code, amount, valid_until')
         .eq('order_id', orderId)
 
+      // Jazyk objednávky (shop_orders.language) pro voucher mail + odkazy na FV; undefined → volaný dohledá sám.
+      const language = await resolveOrderLanguage(supabase, orderId)
+
       // FV (shop_final) pro elektronický voucher se vygeneruje přes generate-invoice
       // ale email-bound je pro něj voucher_purchased (ne shop_order_shipped) — FV slouží
       // jen jako účetní doklad ve Velínu.
@@ -493,7 +503,7 @@ export async function confirmShopPayment(
         try {
           await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
             method: 'POST', headers,
-            body: JSON.stringify({ type: 'shop_final', order_id: orderId, send_email: false }),
+            body: JSON.stringify({ type: 'shop_final', order_id: orderId, send_email: false, language }),
           })
         } catch { /* ignore */ }
       }
@@ -520,6 +530,7 @@ export async function confirmShopPayment(
               order_number: orderNum,
               order_id: orderId,
               source: 'web',
+              language,
             }),
           })
         } catch (e) { console.warn('[confirmShopPayment] voucher email failed:', e) }

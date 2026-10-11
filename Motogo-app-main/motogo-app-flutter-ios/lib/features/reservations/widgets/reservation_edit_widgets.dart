@@ -236,9 +236,9 @@ class EditGearSizePicker extends StatelessWidget {
           Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
           const Spacer(),
           if (selectedSize != null)
-            Text('Zvoleno: $selectedSize',
+            Text(t(context).trArgs('chosenSize', {'size': selectedSize}),
               style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.greenDark)),
-          const Text('  ZDARMA', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
+          Text('  ${t(context).tr('gearFree').toUpperCase()}', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
         ]),
         const SizedBox(height: 6),
         Wrap(spacing: 5, runSpacing: 5,

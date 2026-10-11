@@ -103,6 +103,11 @@ return [
     'footer.contract' => 'Mietvertrag',
     'footer.partners' => 'Für Partner',
     'footer.partnersTitle' => 'Partner',
+    // Patička — alt texty log partnerů
+    'footer.partner.kudyznudyAlt' => 'Kudyznudy.cz – der beste Start in deinen Ausflug',
+    'footer.partner.atlasAlt' => 'Atlas Česka – Reiseführer durch Tschechien',
+    'footer.partner.bikeangelAlt' => 'bikeAngel – GPS-Tracker und Alarmanlage für Motorräder',
+    'footer.partner.vysocinaAlt' => 'Vysočina – offizielle Destinationsmarke',
     'footer.toTop' => 'NACH OBEN',
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-Mail',
@@ -168,6 +173,20 @@ return [
     'doc.notPublished' => 'Dieses Dokument wurde noch nicht veröffentlicht.',
     'doc.cardView' => 'Dokument · ansehen',
 
+    // Jazyk smluvního dokumentu (dokumenty-detail.php): závazná je vždy česká verze
+    'doc.h1Suffix' => '| MotoGo24 Motorradvermietung',
+    'doc.metaDesc' => '{title} — MotoGo24 Motorradvermietung in Pelhřimov, Vysočina (Tschechien). Keine Kaution, Ausrüstung inklusive, 24/7.',
+    'doc.czechBinding' => 'Verbindlich ist die tschechische Fassung; die Übersetzung bereiten wir gerade vor.',
+    'doc.translationNote' => 'Diese Übersetzung dient nur zur Information; verbindlich ist die tschechische Fassung.',
+    'doc.czechVersionLink' => 'Tschechische Fassung',
+    // Kontakt (pages/kontakt.php): mapa, fotky provozovny, typ pobočky v JSON-LD
+    'contact.mapAria' => 'Karte: hier findest du uns',
+    'contact.photoAlt.1' => 'Showroom der Motorradvermietung MotoGo24 in Pelhřimov',
+    'contact.photoAlt.2' => 'MotoGo24 Filiale — Motorräder bereit zur Miete',
+    'contact.photoAlt.3' => 'Adventure-Motorräder bei MotoGo24',
+    'contact.photoAlt.4' => 'Ausrüstungslager — Helme und Bekleidung im Mietpreis inklusive',
+    'contact.branchType.staffed' => 'Filiale mit Personal',
+    'contact.branchType.self' => 'Selbstbedienungsfiliale',
     // Breadcrumby
     'breadcrumb.home' => 'Startseite',
     'breadcrumb.catalog' => 'Motorradkatalog',
@@ -233,6 +252,10 @@ return [
     // ===== SEO meta defaults (pro Sprache) =====
     'seo.default.description' => 'Motorradvermietung in der Region Vysočina, Tschechien — Touren-, Sport-, Enduro- und Kinder-Motorräder. 24/7-Vermietung, keine Kaution, Ausrüstung inklusive, Online-Buchung.',
     'seo.default.keywords' => 'Motorradvermietung Tschechien',
+    // Strukturovaná data (layout.php JSON-LD)
+    'seo.org.description' => 'Motorradvermietung in der Region Vysočina, Tschechien — Straßen-, Naked-, Supermoto-, Enduro- und Kindermotorräder. Keine Kaution, Ausrüstung inklusive, rund um die Uhr geöffnet.',
+    'seo.org.slogan' => 'Leih dir ein Motorrad ohne Kaution. Rund um die Uhr. Online.',
+    'seo.service.description' => 'Motorradvermietung in der Region Vysočina. Kurz- und Langzeitmiete von Motorrädern in Tschechien. Touren-, Naked-, Supermoto-, Enduro-, Sport- und Kindermotorräder. Keine Kaution, Motorradausrüstung inklusive, Online-Buchung mit Kartenzahlung, Übernahme rund um die Uhr. Lieferung außerhalb der Filiale möglich, Fahrten in die EU erlaubt, Grüne Karte inklusive.',
     'seo.home.description' => 'Mieten Sie ein Motorrad in der Region Vysočina. Keine Kaution, Ausrüstung im Preis, 24/7-Service. Touren-, Sport-, Enduro- und Kinder-Motorräder. Online buchen.',
     'seo.home.keywords' => 'Motorradvermietung Tschechien',
 
@@ -991,6 +1014,13 @@ return [
     // ===== Breadcrumb / FAQ / Galerie =====
     'breadcrumb.shop' => 'Shop',
     'faq.empty' => 'In dieser Kategorie gibt es noch keine Fragen.',
+    // FAQ záložky podle faq_items.category_key (DB category_label je jen česky)
+    'faq.cat.borrowing' => 'Miete & Rückgabe',
+    'faq.cat.conditions' => 'Ausrüstung & Bedingungen',
+    'faq.cat.delivery' => 'Lieferung',
+    'faq.cat.reservations' => 'Reservierung',
+    'faq.cat.travel' => 'Fahrten ins Ausland',
+    'faq.cat.vouchers' => 'Gutscheine',
     'gallery.openImage' => 'Foto in der Galerie öffnen',
     'gallery.prev' => 'Vorheriges Foto',
     'gallery.next' => 'Nächstes Foto',

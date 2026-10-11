@@ -7,7 +7,9 @@
 // klientem (`sb`) a jazykem (`lang`).
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { GATE_BRANCHES_NOTICE_CS, markGateBranches } from '../_shared/agent-knowledge/branch-gate.ts'
+import { siteUrl } from '../_shared/agent-knowledge/site-url.ts'
+import { getLegalDocument } from '../_shared/agent-knowledge/legal-docs.ts'
+import { getBranchesTool } from '../_shared/agent-knowledge/branch-facts.ts'
 
 function motoDisplayName(brand: string | null | undefined, model: string | null | undefined): string {
   const b = (brand || '').trim()
@@ -16,18 +18,6 @@ function motoDisplayName(brand: string | null | undefined, model: string | null 
   if (!m) return b
   if (m.toLowerCase().startsWith(b.toLowerCase())) return m
   return `${b} ${m}`
-}
-
-function stripHtmlFull(html: string): string {
-  return String(html || '')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<\/(p|div|li|tr|h[1-6])>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#3[49];/g, "'")
-    .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
 }
 
 // Anthropic tool definice — informační nástroje (read-only).
@@ -92,12 +82,12 @@ export const PUBLIC_READ_TOOLS = [
   },
   {
     name: 'get_legal_document',
-    description: 'Vrátí PŘESNÉ aktuální znění oficiálních smluvních/právních dokumentů (VOP, nájemní/zápůjční smlouva, předávací protokol, GDPR, webové dokumenty). POUŽIJ, když se zákazník ptá na smluvní/právní detail mimo get_policies/get_faq — vyčíslení škody, spoluúčast, odpovědnost za poškození, reklamace, zpracování osobních údajů, sankce. Bez `document` vrátí seznam; s `document` plné znění; s `query` relevantní úryvky. Cituj VÝHRADNĚ to, co tool vrátí.',
+    description: 'Vrátí ZÁVAZNÉ ČESKÉ znění (pole `text`) oficiálních smluvních/právních dokumentů (VOP, nájemní/zápůjční smlouva, předávací protokol, GDPR, webové dokumenty) + odkaz `url` v jazyce zákazníka; ověřený aktuální překlad jen v `translation`, je-li. Částky, odpovědnost, lhůty a články ber jen z českého textu, zákazníkovi odpověz v jeho jazyce a řekni, že závazná je česká verze. POUŽIJ, když se zákazník ptá na smluvní/právní detail mimo get_policies/get_faq — vyčíslení škody, spoluúčast, odpovědnost za poškození, reklamace, zpracování osobních údajů, sankce. Bez `document` vrátí seznam; s `document` plné znění; s `query` relevantní úryvky. Cituj VÝHRADNĚ to, co tool vrátí.',
     input_schema: {
       type: 'object' as const,
       properties: {
         document: { type: 'string', description: 'Klíč dokumentu — `vop`, `rental_contract`, `handover_protocol`, `gdpr`, nebo slug webového dokumentu. Vynech pro seznam.' },
-        query: { type: 'string', description: 'Volitelně klíčová slova — vrátí jen relevantní úseky.' },
+        query: { type: 'string', description: 'Volitelně ČESKÁ klíčová slova (dokument je česky) — vrátí jen relevantní úseky.' },
       },
     },
   },
@@ -108,7 +98,7 @@ export const PUBLIC_READ_TOOLS = [
   },
   {
     name: 'get_branches',
-    description: 'Vrátí seznam poboček MotoGo24 s adresou, GPS a otevíracími hodinami.',
+    description: 'Vrátí seznam poboček MotoGo24 s adresou, GPS, typem/režimem výdeje (`mode`) a provozní dobou (`opening_hours_text`; obě pobočky fungují NONSTOP).',
     input_schema: { type: 'object' as const, properties: {} },
   },
   {
@@ -301,7 +291,7 @@ export async function execPublicReadTool(
             features: m.features,
             suitable_for: typeof m.suitable_for === 'string' ? String(m.suitable_for).slice(0, 500) : null,
             image_url: m.image_url,
-            url: `https://www.motogo24.cz/katalog/${m.id}`,
+            url: siteUrl(lang, `/katalog/${m.id}`), // web v jazyce zákazníka (motogo24.cz je vždy česky)
           }
           if (licGroup === 'B' && m.license_required === 'A1') {
             base.license_note = 'Stroj skupiny A1 s automatickou převodovkou — v ČR ho smí řídit i držitel ŘP B (dle zákonných podmínek délky držení ŘP). Zákazníkovi to výslovně řekni a podmínky ať si ověří dle svého ŘP.'
@@ -503,109 +493,9 @@ export async function execPublicReadTool(
       }
     }
     case 'get_legal_document': {
-      try {
-        const want = typeof args.document === 'string' ? String(args.document).trim().toLowerCase() : ''
-        const query = typeof args.query === 'string' ? String(args.query).trim() : ''
-        const L = (lang || 'cs').slice(0, 2)
-        const MAX = 12000
-
-        const { data: tpls } = await sb.from('document_templates')
-          .select('type, name, content_html, content_translations, name_translations')
-          .eq('active', true).order('version', { ascending: false })
-        const { data: customs } = await sb.from('custom_documents')
-          .select('slug, title, content_html, kind, pdf_path, translations')
-          .eq('active', true).eq('show_on_web', true).order('sort_order', { ascending: true })
-
-        type Doc = { key: string; title: string; text: string; kind: string; url?: string }
-        const docs: Doc[] = []
-        const seen = new Set<string>()
-        for (const t of (tpls || []) as Record<string, unknown>[]) {
-          const key = String(t.type || '')
-          if (!key || seen.has(key)) continue
-          seen.add(key)
-          const ct = (t.content_translations as Record<string, string> | null)?.[L]
-          const nt = (t.name_translations as Record<string, string> | null)?.[L]
-          const html = (L !== 'cs' && ct) ? ct : String(t.content_html || '')
-          docs.push({ key, title: String((L !== 'cs' && nt) || t.name || key), text: stripHtmlFull(html), kind: 'html' })
-        }
-        for (const c of (customs || []) as Record<string, unknown>[]) {
-          const key = String(c.slug || '')
-          if (!key || seen.has(key)) continue
-          seen.add(key)
-          const tr = (c.translations as Record<string, { title?: string; content_html?: string }> | null)?.[L] || {}
-          const html = (L !== 'cs' && tr.content_html) ? tr.content_html : String(c.content_html || '')
-          docs.push({
-            key, title: String((L !== 'cs' && tr.title) || c.title || key),
-            text: stripHtmlFull(html), kind: String(c.kind || 'html'),
-            url: (c.pdf_path as string) || `https://www.motogo24.cz/dokumenty/${key}`,
-          })
-        }
-
-        if (docs.length === 0) {
-          return {
-            source: 'empty', documents: [],
-            notice: 'V systému nejsou publikované žádné smluvní dokumenty. NEPŘEBÍREJ smluvní detaily z hlavy — řekni, že přesné znění zákazník dostane ve smlouvě/VOP, nebo odkaž na info@motogo24.cz / +420 774 256 271.',
-          }
-        }
-
-        if (!want) {
-          return {
-            source: 'documents',
-            available: docs.map((d) => ({ key: d.key, title: d.title, kind: d.kind, has_text: d.text.length > 0, url: d.url })),
-            hint: 'Zavolej znovu s parametrem `document` = jeden z těchto `key` (a volitelně `query`). Cituj jen to, co tool vrátí.',
-          }
-        }
-
-        const match = docs.find((d) => d.key.toLowerCase() === want)
-          || docs.find((d) => d.key.toLowerCase().includes(want) || d.title.toLowerCase().includes(want))
-        if (!match) {
-          return { source: 'documents', error: `Dokument "${want}" nenalezen.`, available: docs.map((d) => ({ key: d.key, title: d.title })) }
-        }
-        if (!match.text) {
-          return {
-            source: 'documents', key: match.key, title: match.title, kind: match.kind, url: match.url,
-            notice: 'Tento dokument je na webu jen jako PDF — strojový text k citaci nemám. Odkaž zákazníka na uvedenou URL nebo na kontakt.',
-          }
-        }
-
-        if (query) {
-          const text = match.text
-          const lc = text.toLowerCase()
-          const terms = query.toLowerCase().split(/\s+/).filter((w) => w.length >= 3)
-          const hits: number[] = []
-          for (const term of terms) {
-            let from = 0
-            for (;;) {
-              const i = lc.indexOf(term, from)
-              if (i < 0 || hits.length > 40) break
-              hits.push(i); from = i + term.length
-            }
-          }
-          if (hits.length > 0) {
-            hits.sort((a, b) => a - b)
-            const win: Array<[number, number]> = []
-            for (const i of hits) {
-              const s = Math.max(0, i - 400), e = Math.min(text.length, i + 400)
-              const last = win[win.length - 1]
-              if (last && s <= last[1]) last[1] = Math.max(last[1], e)
-              else win.push([s, e])
-            }
-            let excerpt = win.map(([s, e]) => (s > 0 ? '…' : '') + text.slice(s, e).trim() + (e < text.length ? '…' : '')).join('\n\n———\n\n')
-            if (excerpt.length > MAX) excerpt = excerpt.slice(0, MAX) + '…'
-            return {
-              source: 'documents', key: match.key, title: match.title, mode: 'excerpts', query, text: excerpt,
-              instruction: 'Odpověz výhradně z tohoto znění. Pokud konkrétní odpověď v úryvcích NENÍ, přiznej to a odkaž zákazníka na plný text dokumentu / kontakt — nedomýšlej.',
-            }
-          }
-        }
-        const full = match.text.length > MAX ? match.text.slice(0, MAX) + '\n…[zkráceno — plné znění na webu]' : match.text
-        return {
-          source: 'documents', key: match.key, title: match.title, kind: match.kind, url: match.url, mode: 'full', text: full,
-          instruction: 'Cituj a parafrázuj VÝHRADNĚ z tohoto znění. Co tu výslovně není, si nedomýšlej — přiznej, že to dokument neuvádí, a odkaž na kontakt.',
-        }
-      } catch (e) {
-        return { error: `Nepodařilo se načíst dokumenty: ${(e as Error).message}` }
-      }
+      // Sdílená implementace s webovým agentem (_shared/agent-knowledge/legal-docs.ts, 2026-10-11):
+      // ČESKÝ master = zdroj pravdy, překlad jen čerstvý (sha1 otisk), url v jazyce zákazníka.
+      return await getLegalDocument(sb, args, lang)
     }
     case 'get_extras_catalog': {
       // Dva zdroje: `extras_catalog` (top case, GPS, přistavení…) + `accessory_types` (ceník
@@ -632,51 +522,9 @@ export async function execPublicReadTool(
       }
     }
     case 'get_branches': {
-      // select('*') SCHVÁLNĚ — dřívější výčet sloupců obsahoval i sloupce, které v DB
-      // `branches` neexistují (zip, lat, lng, email, opening_hours) → PostgREST 42703,
-      // chyba se tiše zahodila a tool vrátil prázdný seznam. Reálný incident 2026-08-05:
-      // zákazník v appce bez rezervace dostal „seznam poboček je prázdný, adresy nedostupné".
-      const { data, error } = await sb.from('branches').select('*').order('name')
-      // is_open === false = trvale zavřená pobočka: nenabízet (zákazník tam nic
-      // nezarezervuje). Když tím seznam vyjde prázdný, projde se fallback níž —
-      // agent NIKDY netvrdí „pobočky nemáme" (incident 2026-08-05).
-      const rows = ((data || []) as Array<Record<string, unknown>>)
-        .filter((b) => b.active !== false && b.is_open !== false)
-      // has_gate = vjezdová brána se schránkou na klíč (RPC branch_has_gate — jen příznak, NIKDY kód)
-      await markGateBranches(sb, rows)
-      if (error || rows.length === 0) {
-        // Prázdno/chyba NIKDY nesmí vést k „pobočky nemáme" — dej agentovi fallback adresu firmy.
-        const { data: ci } = await sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
-        const c = (ci?.value || {}) as Record<string, unknown>
-        return {
-          branches: [],
-          ...(error ? { error: `Načtení poboček selhalo: ${error.message}` } : {}),
-          fallback_contact: {
-            name: c.name || 'MotoGo24',
-            address: c.address || 'Mezná 9, 393 01 Pelhřimov',
-            phone: c.phone || '+420 774 256 271',
-            email: c.email || 'info@motogo24.cz',
-          },
-          notice: 'Seznam poboček se teď nepodařilo načíst — TECHNICKÁ chyba, NE stav reality. NIKDY zákazníkovi netvrď, že žádné pobočky nemáme nebo že je seznam v databázi prázdný. Vyzvednutí motorky probíhá na naší pobočce — pošli zákazníka na adresu ve `fallback_contact` (hlavní výdejní místo) a nabídni telefon/e-mail pro potvrzení detailů.',
-        }
-      }
-      return {
-        branches: rows.map((b) => {
-          const lat = b.lat ?? b.gps_lat ?? null
-          const lng = b.lng ?? b.gps_lng ?? null
-          return {
-            id: b.id, name: b.name,
-            address: [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', '),
-            lat, lng,
-            maps_url: (lat != null && lng != null) ? `https://mapy.cz/zakladni?q=${lat},${lng}` : null,
-            phone: b.phone ?? null, email: b.email ?? null,
-            opening_hours: b.opening_hours || null,
-            is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
-            has_gate: b.has_gate === true,
-          }
-        }),
-        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou). Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), doporučuje se ale (urychlí odbavení, zvlášť při více odjezdech najednou). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — ALE výdej motorky proběhne vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje). Nikdy neslibuj okamžité vyzvednutí hned po rezervaci.' + (rows.some((b) => b.has_gate === true) ? GATE_BRANCHES_NOTICE_CS : ''),
-      }
+      // Sdílená implementace s webovým agentem (_shared/agent-knowledge/branch-facts.ts, 2026-10-11):
+      // čitelná provozní doba, NONSTOP fakta majitele, příprava 1–6 h JEN u obslužné pobočky (AI-13).
+      return await getBranchesTool(sb)
     }
     case 'validate_promo_or_voucher': {
       const code = String(args.code || '').trim()

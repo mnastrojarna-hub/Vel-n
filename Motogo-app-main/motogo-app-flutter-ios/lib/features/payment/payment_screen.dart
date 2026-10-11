@@ -9,6 +9,8 @@ import '../../core/theme.dart';
 import '../../core/currency.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/i18n/app_lang.dart';
+import '../../core/debug_logger.dart';
 import '../../core/supabase_client.dart';
 import '../../core/pending_booking_fab_provider.dart';
 import '../auth/widgets/toast_helper.dart';
@@ -289,14 +291,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   /// PostgREST pak celý INSERT odmítne (PGRST204 neznámý sloupec). Rezervace
   /// nesmí kvůli tomu spadnout: zopakovat bez `own_gear` (NULL → DB si nárok
   /// na šatnu odvodí z prázdných velikostí řidiče, stejný výsledek).
+  ///
+  /// Totéž pro jazyk: živá DB před migrací 20261011 nezná 'uk'
+  /// (`bookings_language_check`, 23514) → zopakovat s 'en', ať ukrajinský
+  /// zákazník rezervaci dokončí (dokumenty a e-maily pak dostane anglicky).
   Future<Map<String, dynamic>> _insertBooking(Map<String, dynamic> row) async {
     try {
       return await MotoGoSupabase.client.from('bookings').insert(row).select().single();
     } on PostgrestException catch (e) {
       final unknownOwnGear = e.code == 'PGRST204' && row.containsKey('own_gear') && e.message.contains('own_gear');
-      if (!unknownOwnGear) rethrow;
-      row.remove('own_gear');
-      return await MotoGoSupabase.client.from('bookings').insert(row).select().single();
+      final badLanguage = isLanguageCheckViolation(e) && row['language'] != 'en';
+      if (!unknownOwnGear && !badLanguage) rethrow;
+      if (unknownOwnGear) row.remove('own_gear');
+      if (badLanguage) {
+        AppDebugLogger.instance.log(LogCategory.booking, 'booking_language_fallback',
+            data: {'language': row['language']});
+        row['language'] = 'en';
+      }
+      return _insertBooking(row);
     }
   }
 
@@ -459,7 +471,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         'booking_source': 'app',
         // i18n: jazyk zákazníka (z aktuálního locale appky) → maily/SMS/push
         // dorazí přeložené do příslušného jazyka (detect_customer_language).
-        'language': ref.read(localeProvider).languageCode,
+        'language': normalizeAppLang(ref.read(localeProvider).languageCode),
         // Poznámka zákazníka z rezervačního formuláře → Velín (BookingDetail).
         if ((draft.notes ?? '').trim().isNotEmpty)
           'notes': draft.notes!.trim(),
@@ -767,7 +779,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     if (result.errorCode == PaymentErrorCode.authExpired) {
       _showError(
         title: t(context).tr('sessionExpired'),
-        message: '${result.errorMessage ?? ''}\n${t(context).tr('bookingSaved')}',
+        message: PaymentErrorMapper.authExpired(t(context).lang).message,
         buttonLabel: t(context).tr('login'),
         onButton: () {
           if (mounted) context.go(Routes.login);
@@ -775,10 +787,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       );
       return;
     }
+    // Text serveru/Stripe (česky / anglicky) jen pro českou appku — ostatní
+    // jazyky dostanou lokalizovanou hlášku podle kódu.
+    final lang = t(context).lang;
     final info = PaymentErrorMapper.fromEdge(
       declineCode: result.declineCode,
-      rawMessage: result.errorMessage,
-      lang: t(context).lang,
+      rawMessage: lang == 'cs' ? result.errorMessage : null,
+      lang: lang,
     );
     final counter =
         '\n\n(${t(context).tr('attempt')} $_attempts ${t(context).tr('of')} $maxPaymentAttempts)';
@@ -978,13 +993,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     final code = result.errorCode;
     // Odmítnutí změny serverem PŘED platbou (409/403 s `code`) → přeložená
     // hláška podle kódu; jinak by zákazník viděl český text serveru.
-    final msg = PaymentErrorMapper.serverRefusal(t(context).lang, result.serverCode) ??
-        (result.errorMessage ?? '');
+    final lang = t(context).lang;
+    final serverText = result.errorMessage ?? '';
+    final msg = PaymentErrorMapper.serverRefusal(lang, result.serverCode) ??
+        (lang == 'cs' && code == PaymentErrorCode.serverError && serverText.isNotEmpty
+            ? serverText
+            : PaymentErrorMapper.serviceError(lang, code).message);
 
     if (code == PaymentErrorCode.authExpired) {
       _showError(
         title: t(context).tr('sessionExpired'),
-        message: '$msg\n${t(context).tr('bookingSaved')}',
+        message: msg,
         buttonLabel: t(context).tr('login'),
         onButton: () {
           if (mounted) context.go(Routes.login);

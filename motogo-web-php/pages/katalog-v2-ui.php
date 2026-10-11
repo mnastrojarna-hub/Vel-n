@@ -1,7 +1,9 @@
 <?php
-// ===== Katalog v2 — lišta (termín / filtry / kalkulačka), chipy kategorií, panel filtrů,
-// aktivní filtry a mřížka kompaktních karet. Data a texty: pages/katalog-v2-lib.php.
-// Bez JS: panel = obyčejný GET formulář (stejné parametry jako v1), kategorie = odkazy.
+// ===== Katalog v2 — karta .km s přepínačem režimu [Najít motorku | Spočítat cenu]:
+// filtr (chipy kategorií, pole Termín / Filtry, panel filtrů, počet + aktivní filtry) a
+// kalkulačka ($o['calc'] = renderKatalogCalc), pod kartou mřížka kompaktních karet.
+// Data a texty: pages/katalog-v2-lib.php. Bez JS: přepínač skrytý, oba režimy vidět,
+// panel = obyčejný GET formulář (stejné parametry jako v1), kategorie = odkazy.
 // S JS (js/landing-catalog*.js): okamžité filtrování nad kf-data, bottom sheet / rozbalovací
 // panel, filtr termínu s cenou za termín na kartách. CSS: css/landing-catalog*.css.
 
@@ -76,7 +78,8 @@ function renderKatalogV2Card($m, $T, $hidden, $eager) {
 
 /**
  * Celý blok v2 katalogu. $o: motos (vše), filtered (výsledek PHP filtru, seřazený), path (kanonická),
- * cat (efektivní kategorie), getCat, q, lic, branch, kw/pr [min,max,bmin,bmax], abs, riders, sort, lics, branches.
+ * cat (efektivní kategorie), getCat, q, lic, branch, kw/pr [min,max,bmin,bmax], abs, riders, sort, lics, branches,
+ * calc (HTML kalkulačky z renderKatalogCalc; '' = karta bez přepínače, jen filtr).
  */
 function renderKatalogV2($sb, $o) {
     $T = kfTexts($sb);
@@ -133,12 +136,14 @@ function renderKatalogV2($sb, $o) {
         '<fieldset class="kf-sec"><legend>' . te('filters.sort') . '</legend><div class="kf-chips">' . $sort . '</div></fieldset>' .
         '</div><div class="kf-foot"><a class="kf-reset" href="' . he($action) . '" data-kf-reset>' . he($T['f_clear']) . '</a>' .
         '<button type="submit" class="lp-btn lp-btn-primary kf-apply"><span data-kf-show>' . he(str_replace('{count}', kfCount($T, $nVis), $T['f_show'])) . '</span></button></div></form>';
-    $btn = function ($attrs, $ico, $label, $extra = '') {
-        return '<button type="button" class="kf-btn" ' . $attrs . '>' . $ico . '<span class="kf-btn-l">' . he($label) . '</span>' . $extra . '</button>';
+    // Pole filtru (vzhled selectu rezervace): ikona, popisek, hodnota (.kf-btn-l plní JS), šipka
+    $btn = function ($attrs, $ico, $key, $val, $extra = '') {
+        return '<button type="button" class="kf-btn km-field" ' . $attrs . '><span class="km-n">' . $ico . '</span><span class="km-ft"><span class="km-k">' . he($key) . '</span>' .
+            '<span class="kf-btn-l">' . he($val) . '</span></span>' . $extra . '<span class="km-chev" aria-hidden="true"></span></button>';
     };
     $bar = '<div class="kf-bar" data-kf-bar><div class="kf-bar-in">' .
-        $btn('data-kf-open="dates" aria-haspopup="dialog" aria-expanded="false" aria-controls="kf-dates" hidden', lpIcon('cal'), $T['f_dates']) .
-        $btn('data-kf-open="panel" aria-expanded="false" aria-controls="kf-panel" hidden', kfIcon('sliders'), $T['f_filters'], '<span class="kf-nf" data-kf-nf hidden></span>') .
+        $btn('data-kf-open="dates" aria-haspopup="dialog" aria-expanded="false" aria-controls="kf-dates" hidden', lpIcon('cal'), $T['f_dates'], $T['f_dates_ph']) .
+        $btn('data-kf-open="panel" aria-expanded="false" aria-controls="kf-panel" hidden', kfIcon('sliders'), $T['f_filters'], $T['f_filters_hint'], '<span class="kf-nf" data-kf-nf hidden></span>') .
         '<a class="kf-btn kf-btn--calc" href="#kalkulacka" data-kf-calc hidden>' . kfIcon('calc') . '<span class="kf-btn-l">' . he($T['f_calc']) . '</span></a>' .
         '</div>' . $panel . '</div>';
     $data = [
@@ -149,9 +154,22 @@ function renderKatalogV2($sb, $o) {
         'br' => (object)array_map(function ($n) { return trim(preg_replace('/^MotoGo24\s*/i', '', $n)) ?: $n; }, $o['branches']),
         't' => $T + ['absOnly' => t('filters.absOnly'), 'ridersTwo' => t('filters.ridersTwo'), 'power' => t('filters.power'), 'empty' => t('filters.empty')],
     ];
+    // Přepínač režimu (role tablist/tab/tabpanel doplní JS — bez JS je skrytý a oba režimy jsou vidět)
+    $calcHtml = (string)($o['calc'] ?? '');
+    $tab = function ($key, $ico, $title, $sub) {
+        return '<button type="button" class="km-tab" id="km-tab-' . $key . '" data-km-tab="' . $key . '" aria-controls="km-' . $key . '">' .
+            '<span class="km-ti">' . $ico . '</span><span class="km-tt"><b>' . he($title) . '</b><small>' . he($sub) . '</small></span></button>';
+    };
+    $top = $calcHtml === '' ? '' : '<div class="km-top"><div class="km-sw" aria-label="' . he($T['f_mode_aria']) . '">' .
+        $tab('find', kfIcon('search'), $T['f_mode_find'], $T['f_mode_find_sub']) . $tab('calc', kfIcon('calc'), $T['f_calc'], $T['f_mode_calc_sub']) . '</div></div>';
+    $find = '<div class="km-pane km-find" id="km-find"><div class="km-row"><p class="km-lab"><span class="km-n">' . lpIcon('moto') . '</span>' . he($T['f_type']) . '</p>' .
+        '<nav class="kf-cats" aria-label="' . te('filters.category') . '">' . $cats . '</nav></div>' .
+        '<div class="km-row km-row--bar">' . $bar . '</div>' .
+        '<div class="kf-res"><h2 class="sr-only">' . he($T['fleet_title']) . '</h2><p class="kf-count" data-kf-count aria-live="polite">' . he(kfCount($T, $nVis)) . '</p>' .
+        '<a class="km-go" href="#katalog-grid">' . he($T['f_go']) . lpIcon('arrow') . '</a><div class="kf-active" role="group" data-kf-active aria-label="' . he($T['f_active']) . '" hidden></div></div></div>';
     return '<script>document.documentElement.classList.add("kf-js")</script>' .
-        '<div class="kf" data-kf>' . $bar . '<nav class="kf-cats" aria-label="' . te('filters.category') . '">' . $cats . '</nav>' .
-        '<div class="kf-res"><h2 class="sr-only">' . he($T['fleet_title']) . '</h2><p class="kf-count" data-kf-count aria-live="polite">' . he(kfCount($T, $nVis)) . '</p><div class="kf-active" role="group" data-kf-active aria-label="' . he($T['f_active']) . '" hidden></div></div>' .
+        '<div class="kf" data-kf><section class="km" data-km data-mode="find">' . $top . $find .
+        ($calcHtml === '' ? '' : '<div class="km-pane km-calc" id="km-calc">' . $calcHtml . '</div>') . '</section>' .
         '<ul id="katalog-grid" class="kf-grid" data-kf-grid aria-label="' . te('filters.aria.catalog') . '">' . $cards . '</ul>' .
         '<div class="kf-empty" data-kf-empty' . ($nVis ? ' hidden' : '') . '><p data-kf-empty-t>' . te('filters.empty') . '</p><p><a class="kf-reset kf-reset--btn" href="' . he($action) . '" data-kf-reset>' . te('filters.clearFilters') . '</a></p></div>' .
         '<script type="application/json" id="kf-data">' . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . '</script></div>';

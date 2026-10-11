@@ -1,6 +1,7 @@
 // ===== _shared/agent-knowledge/knowledge-base.ts =====
-// Přesunuto z ai-public-agent/index.ts (2026-09-25) beze změny obsahu — sdílí ho
-// veřejný agent (web) i agent zákaznických zpráv ve Velínu (ai-customer-messages-suggest).
+// Přesunuto z ai-public-agent/index.ts (2026-09-25) — sdílí ho veřejný agent (web) i agent
+// zákaznických zpráv ve Velínu (ai-customer-messages-suggest). FAQ v jazyce zákazníka,
+// smluvní dokumenty VŽDY v českém (závazném) znění (2026-10-11).
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -58,8 +59,9 @@ export async function loadKnowledgeBase(sb: SupabaseClient, lang: string): Promi
         .select('category_key, category_label, question, answer, translations, sort_order')
         .eq('published', true)
         .order('category_key', { ascending: true }).order('sort_order', { ascending: true }),
+      // Jen český master (content_html) — viz komentář u legalBlock níže.
       sb.from('document_templates')
-        .select('type, name, content_html, content_translations, name_translations')
+        .select('type, name, content_html')
         .eq('active', true).order('version', { ascending: false }),
       sb.from('app_settings').select('value').eq('key', 'site.policies').maybeSingle(),
     ])
@@ -75,7 +77,10 @@ export async function loadKnowledgeBase(sb: SupabaseClient, lang: string): Promi
     }
     if (faqs.length) faqBlock = `ČASTÉ DOTAZY (FAQ) — KOMPLETNÍ, ${faqs.length} položek:\n${faqs.join('\n')}`
 
-    // Smluvní/právní dokumenty — VOP, nájemní smlouva, předávací protokol, GDPR (nejvyšší aktivní verze)
+    // Smluvní/právní dokumenty — VOP, nájemní smlouva, předávací protokol, GDPR (nejvyšší aktivní verze).
+    // VŽDY ČESKÝ MASTER (audit i18n 2026-10-10, AI-01): uložené překlady byly stará právní verze
+    // („spoluúčast do 30 000 Kč“ místo 0 Kč) a agent je citoval jako „přesné znění“. Model zákazníkovi
+    // české znění přeloží; čerstvý ověřený překlad (sha1 otisk) vrací jen tool get_legal_document.
     const WANT = new Set(['vop', 'rental_contract', 'handover_protocol', 'gdpr'])
     const seen = new Set<string>()
     const docs: string[] = []
@@ -84,16 +89,14 @@ export async function loadKnowledgeBase(sb: SupabaseClient, lang: string): Promi
       const key = String(t.type || '')
       if (!WANT.has(key) || seen.has(key)) continue
       seen.add(key)
-      const ct = (t.content_translations as Record<string, string> | null)?.[L]
-      const nt = (t.name_translations as Record<string, string> | null)?.[L]
-      const title = String((L !== 'cs' && nt) || t.name || key)
-      let text = stripHtmlToText((L !== 'cs' && ct) ? ct : String(t.content_html || ''))
+      const title = String(t.name || key)
+      let text = stripHtmlToText(String(t.content_html || ''))
       if (!text) continue
       let note = ''
       if (text.length > PER_DOC) { text = text.slice(0, PER_DOC); note = `\n  […zkráceno — doslovné úplné znění získáš přes get_legal_document(document='${key}')]` }
       docs.push(`### ${title} (klíč: ${key})\n${text}${note}`)
     }
-    if (docs.length) legalBlock = `OFICIÁLNÍ SMLUVNÍ A PRÁVNÍ DOKUMENTY — PŘESNÉ ZNĚNÍ:\n${docs.join('\n\n')}`
+    if (docs.length) legalBlock = `OFICIÁLNÍ SMLUVNÍ A PRÁVNÍ DOKUMENTY — ZÁVAZNÉ ČESKÉ ZNĚNÍ (jediný zdroj pravdy pro částky, odpovědnost, lhůty a čísla článků; zákazníkovi ho přelož do jeho jazyka a řekni, že závazná je česká verze; při rozporu s FAQ či jiným textem platí toto znění):\n${docs.join('\n\n')}`
 
     // Strukturované podmínky půjčovny (site.policies)
     const pol = (polRes.data?.value as Record<string, unknown>) || {}

@@ -460,6 +460,22 @@ async def test_protocol_endpoints(env):
     assert r.status == 413 and (await r.json()) == {"ok": False, "error": "body_too_large"}
 
 
+async def test_protocol_submit_passes_screen_lang_in_form_copy(env):
+    """`lang` (jazyk obrazovky, §28) jde do kopie formuláře; ověří ho až handover_submit.doc_lang."""
+    client, ctrl, *_ = env
+    ctrl.handover = FakeHandover()
+    sig = "data:image/png;base64,AAAA"
+    await client.post("/api/protocol/submit", json={"booking_id": "b1", "form": {"mileage": "12"}, "signature": sig,
+                                                    "lang": "de"})
+    assert ctrl.handover.calls[-1] == ("submit", "b1", {"mileage": "12", "lang": "de"}, sig, None, "ui")
+    await client.post("/api/protocol/submit", json={"booking_id": "b1", "signature": sig, "lang": "uk"})
+    assert ctrl.handover.calls[-1][2] == {"lang": "uk"}                  # bez formuláře
+    for bad in (5, "", None, ["en"]):                                   # ne-řetězec / prázdné → formulář beze změny
+        await client.post("/api/protocol/submit", json={"booking_id": "b1", "form": {"mileage": "1"}, "signature": sig,
+                                                        "lang": bad})
+        assert ctrl.handover.calls[-1][2] == {"mileage": "1"}, bad
+
+
 async def test_state_timings_include_handover_idle(env):
     client, ctrl, *_ = env
     from types import SimpleNamespace

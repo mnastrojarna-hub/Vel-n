@@ -122,7 +122,7 @@ if (stripos($mapSrc, 'mapy.cz') !== false || $mapSrc === '') {
 }
 $mapSection = '<section>' .
     '<h2 data-cms-key="web.kontakt.map.title">' . htmlspecialchars($C['map']['title']) . '</h2>' .
-    '<p><iframe aria-label="Mapa kde nás najdete" class="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen src="' . htmlspecialchars($mapSrc) . '"></iframe></p></section>';
+    '<p><iframe aria-label="' . te('contact.mapAria') . '" class="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen src="' . htmlspecialchars($mapSrc) . '"></iframe></p></section>';
 
 $seoText = '<h2 data-cms-key="web.kontakt.seo_text.title">' . htmlspecialchars($C['seo_text']['title']) . '</h2><p data-cms-key="web.kontakt.seo_text.body">' . $C['seo_text']['body'] . '</p>';
 
@@ -139,10 +139,10 @@ $kontaktOutroHtml = '<section class="kontakt-outro">'
 // Respektuje prefers-reduced-motion (zobrazí jen první fotku) — řešeno v main.css.
 // Fotky lze přepsat z CMS přes klíč `place_photos`, jinak fallback níže.
 $placeDefaults = [
-    ['img' => 'gfx/provozovna-1.jpg', 'alt' => 'Showroom půjčovny motorek MotoGo24 v Pelhřimově'],
-    ['img' => 'gfx/provozovna-2.jpg', 'alt' => 'Provozovna MotoGo24 — motorky připravené k zapůjčení'],
-    ['img' => 'gfx/provozovna-3.jpg', 'alt' => 'Adventure motorky v půjčovně MotoGo24'],
-    ['img' => 'gfx/provozovna-4.jpg', 'alt' => 'Sklad výbavy — helmy a oblečení v ceně zápůjčky'],
+    ['img' => 'gfx/provozovna-1.jpg', 'alt' => t('contact.photoAlt.1')],
+    ['img' => 'gfx/provozovna-2.jpg', 'alt' => t('contact.photoAlt.2')],
+    ['img' => 'gfx/provozovna-3.jpg', 'alt' => t('contact.photoAlt.3')],
+    ['img' => 'gfx/provozovna-4.jpg', 'alt' => t('contact.photoAlt.4')],
 ];
 $placePhotos = (isset($C['place_photos']) && is_array($C['place_photos']) && !empty($C['place_photos']))
     ? $C['place_photos'] : $placeDefaults;
@@ -222,6 +222,11 @@ if (is_array($branches)) {
         $brLng  = isset($br['gps_lng']) ? (float)$br['gps_lng'] : (isset($br['longitude']) ? (float)$br['longitude'] : null);
         $isOpen = !empty($br['is_open']);
         $brType = (string)($br['type'] ?? '');
+        // DB typ je česky ('obslužná' / 'samoobslužná') → v cizím jazyce i18n popis.
+        if ($brType !== '' && function_exists('i18nDetectLanguage') && i18nDetectLanguage() !== 'cs') {
+            $brTypeKey = ['obslužná' => 'contact.branchType.staffed', 'samoobslužná' => 'contact.branchType.self'][$brType] ?? null;
+            if ($brTypeKey) $brType = (string)t($brTypeKey);
+        }
         $brNotes = trim((string)localized($br, 'notes'));
 
         $hours = $isOpen
