@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { purgeWebCache } from '../../lib/webCache'
 import Button from '../../components/ui/Button'
 import ReplacementMotoPicker from '../../components/fleet/ReplacementMotoPicker'
 import { confirmTrailerBranchMove } from '../BranchHelpers'
@@ -8,7 +9,9 @@ import { useOdometerPrompt } from '../../components/fleet/OdometerReadingModal'
 
 const SEASON_START = 3, SEASON_END = 9
 
-export default function ServiceMotoActions({ moto, logs, onDone }) {
+export default function ServiceMotoActions({ moto, logs, onDone: onDoneRaw }) {
+  // stav / pobočka motorky na webu hned (ne až po vypršení cache)
+  const onDone = (...a) => { purgeWebCache(); return onDoneRaw?.(...a) }
   const [mode, setMode] = useState(null) // 'deactivate' | 'retire' | 'reschedule'
   const [busy, setBusy] = useState(false)
   const [rescheduleDate, setRescheduleDate] = useState('')

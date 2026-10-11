@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { purgeWebCache } from '../lib/webCache'
 import { debugAction } from '../lib/debugLog'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
@@ -97,6 +98,7 @@ function BranchModal({ existing, onClose, onSaved }) {
       if (branchId && payload.notes) {
         autoTranslateRow({ table: 'branches', id: branchId, row: { notes: payload.notes } })
       }
+      purgeWebCache() // pobočka na webu hned (katalog, kalkulačka, kontakt)
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { purgeWebCache } from '../../lib/webCache'
 import Card from '../ui/Card'
 import Button from '../ui/Button'
 
@@ -100,6 +101,7 @@ export default function PricingTab({ motoId }) {
         new_data: { moto_id: motoId },
       })
       setSuccess(true)
+      purgeWebCache() // ceny na webu hned, ne až po vypršení cache (~40 min)
       setTimeout(() => setSuccess(false), 3000)
     } catch (e) {
       setError(e.message)

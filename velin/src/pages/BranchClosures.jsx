@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { purgeWebCache } from '../lib/webCache'
 import { debugAction } from '../lib/debugLog'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { branchOrFilter } from '../lib/bookingBranch'
@@ -108,6 +109,7 @@ export function TabClosures({ branch }) {
         setConflictNote('Období je uložené, ale kontrola stávajících rezervací v termínu selhala — ověřte je ručně v Rezervacích.')
       }
       setFrom(''); setTo(''); setReason('')
+      purgeWebCache() // dostupnost na webu hned
       load()
     } catch (e) {
       setErr(`Uložení selhalo: ${e.message}`)
@@ -127,6 +129,7 @@ export function TabClosures({ branch }) {
         action: 'branch_closure_deleted',
         new_data: { branch: branch.name, from: row.closed_from, to: row.closed_to },
       })
+      purgeWebCache() // dostupnost na webu hned
       load()
     } catch (e) {
       setErr(`Smazání selhalo: ${e.message}`)
