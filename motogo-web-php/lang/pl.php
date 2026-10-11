@@ -66,7 +66,7 @@ return [
     'menu.areas.jihocesky' => 'Kraj południowoczeski',
     'menu.reservation' => 'REZERWACJA',
     'menu.editReservation' => 'Edytuj rezerwację',
-    'menu.editReservation.aria' => 'Edytuj rezerwację – zmiana terminu, miejsca, motocykla lub rozmiarów odzieży, przedłużenie, skrócenie lub anulowanie',
+    'menu.editReservation.aria' => 'Edytuj rezerwację – zmiana terminu, miejsca, motocykla lub rozmiarów wyposażenia, przedłużenie, skrócenie lub anulowanie',
     'menu.editReservation.sub' => 'termin · motocykl · anulacja',
 
     'footer.aboutTitle' => 'Wypożyczalnia motocykli',

@@ -77,7 +77,8 @@ function mgBannerContrast($a, $b) {
 /**
  * Barvy z Velínu s garancí čitelnosti: pokud kontrast textu vůči pozadí
  * klesne pod 4.5:1 (WCAG AA), použije se bílá nebo tmavě zelená — ta, která
- * má vůči pozadí vyšší kontrast.
+ * má vůči pozadí vyšší kontrast. U středně šedých pozadí (jas ~0.18–0.22),
+ * kde 4.5:1 nesplní ani jedna, se použije černá (ta ho splní vždy).
  * @return array [bg, fg]
  */
 function mgBannerColors(array $b) {
@@ -85,6 +86,7 @@ function mgBannerColors(array $b) {
     $fg = mgBannerHex($b['color'] ?? null) ?: MG_TOPBANNER_DEFAULT_FG;
     if (mgBannerContrast($bg, $fg) < 4.5) {
         $fg = mgBannerContrast($bg, '#ffffff') >= mgBannerContrast($bg, '#0f1a14') ? '#ffffff' : '#0f1a14';
+        if (mgBannerContrast($bg, $fg) < 4.5) $fg = '#000000';
     }
     return [$bg, $fg];
 }
@@ -125,7 +127,7 @@ function renderTopBanner($banner = null) {
         . 'font-size:clamp(.75rem,.68rem + .4vw,.875rem);line-height:1.35;letter-spacing:.01em;'
         . 'text-align:center;padding:.42rem max(1rem,env(safe-area-inset-right)) .42rem max(1rem,env(safe-area-inset-left));'
         . 'border-bottom:1px solid rgba(128,128,128,.28)">'
-        . '<p style="margin:0 auto;max-width:1200px;overflow-wrap:anywhere"'
+        . '<p style="margin:0 auto;max-width:1200px;word-wrap:break-word;overflow-wrap:anywhere"'
         . ($isCsFallback ? ' lang="cs"' : '') . '>' . $esc($text) . '</p>'
         . '</div>';
 }
