@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { fetchAllResult } from '../../lib/branchFleet'
 import { isRealizedBooking } from '../../lib/revenueUtils'
 import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY, stickyStripe } from '../../components/sortableTable'
 import { DEFAULT_PARAMS, DAY_COEF, DAY_LABELS, calcMotoPrice, serviceIntervals, seasonDaysPerYear } from '../../lib/priceCalc'
@@ -48,9 +49,9 @@ export default function KalkulaceCen() {
     try {
       const [mRes, bRes, lRes, oRes, segRes, kmRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, brand, spz, status, is_trailer, purchase_price, acquired_at, price_mon, price_weekday, tracking_unit'),
-        supabase.from('bookings').select('id, moto_id, start_date, end_date, status, payment_status, is_test'),
-        supabase.from('maintenance_log').select('moto_id, service_date, completed_date, status, is_test'),
-        supabase.from('service_orders').select('moto_id, created_at, completed_at, status, is_test'),
+        fetchAllResult(() => supabase.from('bookings').select('id, moto_id, start_date, end_date, status, payment_status, is_test').order('id')),
+        fetchAllResult(() => supabase.from('maintenance_log').select('moto_id, service_date, completed_date, status, is_test').order('id')),
+        fetchAllResult(() => supabase.from('service_orders').select('moto_id, created_at, completed_at, status, is_test').order('id')),
         supabase.rpc('analytics_moto_rental_km'),
         supabase.rpc('analytics_moto_km'),
       ])

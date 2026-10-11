@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { fetchAllResult } from '../../lib/branchFleet'
 import TimePeriodSelector, { filterByPeriod } from './TimePeriodSelector'
 import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY, stickyStripe } from '../../components/sortableTable'
 
@@ -42,7 +43,7 @@ export default function VykonNajezd() {
       const [segRes, motoRes, profRes, motoKmRes] = await Promise.all([
         supabase.rpc('analytics_moto_rental_km'),
         supabase.from('motorcycles').select('id, model, spz, tracking_unit'),
-        supabase.from('profiles').select('id, full_name, email'),
+        fetchAllResult(() => supabase.from('profiles').select('id, full_name, email').order('id')),
         supabase.rpc('analytics_moto_km'),
       ])
       if (segRes.error) throw segRes.error

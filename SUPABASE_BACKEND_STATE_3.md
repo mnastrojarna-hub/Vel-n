@@ -5,6 +5,10 @@
 
 ## 4. RPC FUNKCE (callable z frontendu)
 
+### Pobočka rezervace v2 (2026-10-11, `20261011e_booking_branch_follow.sql`, `20261011f_booking_branch_reattribution.sql`, APLIKUJE AUTO-DEPLOY po merge)
+- `_booking_branch_follows(status, picked_up_at, handover_protocol_filled_at, start_date)` STABLE — true jen pro živou nevyzvednutou rezervaci do konce dne začátku (Praha). Používají `_booking_set_branch` a `_booking_branch_follow_moto` (obě nové verze). Interní (bez EXECUTE pro anon).
+- 20261011f = jednorázový přepočet historie (jen ne-živé, ne-testovací rezervace; přeskočí ruční změny a už přepočtené), diagnostika stejným jádrem v chatu (read-only).
+
 > **Živý snapshot 2026-06-24:** 174 funkcí celkem v `public` (RPC + trigger funkce dohromady; trigger funkce s `RETURNS trigger` jsou primárně dokumentované v STATE_4). Tato část dokumentuje RPC/helpery callable z frontendu/cronu.
 
 ### Existující v migracích

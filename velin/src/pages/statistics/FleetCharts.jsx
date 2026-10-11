@@ -5,10 +5,30 @@ import {
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile, useMediaQuery } from '../../hooks/useIsMobile'
+import { isRealizedBooking } from '../../lib/revenueUtils'
+import { effBranchId } from '../../lib/bookingBranch'
+import { fetchAllRows, buildFleetTimeline, dayNum } from '../../lib/branchFleet'
 
 import Card from '../../components/ui/Card'
 
 const COLORS = ['#74FB71', '#3dba3a', '#1a8a18', '#fbbf24', '#f87171']
+
+// Karty počítají z rezervací (tabulky moto_performance / branch_performance nikdo neplní a dotazy na ně
+// mířily na neexistující sloupce → grafy byly tiše prázdné). Obrat = realizované rezervace (revenueUtils),
+// pobočka = pobočka REZERVACE (bookings.branch_id, u NULL pobočka motorky). Jedno načtení pro všechny 3 karty.
+let statsCache = null
+function loadFleetStats() {
+  if (statsCache && Date.now() - statsCache.ts < 30000) return statsCache.promise
+  const one = r => { if (r.error) throw r.error; return r.data || [] }
+  const promise = Promise.all([
+    fetchAllRows(() => supabase.from('bookings').select('id, moto_id, trailer_moto_id, branch_id, start_date, end_date, total_price, status, payment_status, is_test').not('is_test', 'is', true).order('id')),
+    supabase.from('motorcycles').select('id, model, branch_id, category, status, acquired_at, created_at, is_trailer').then(one),
+    supabase.from('branches').select('id, name').then(one),
+  ]).then(([bookings, motorcycles, branches]) => ({ bookings, motorcycles, branches }))
+  statsCache = { ts: Date.now(), promise }
+  promise.catch(() => { statsCache = null })
+  return promise
+}
 
 // Desktop popisek osy X „Vytíženost flotily“ (šikmo −20°, ukotvený středem jako dřív). POSLEDNÍ popisek končí
 // přímo u svého bodu (kotva end, x = skutečná souřadnice bodu) — se středem přečníval pravý okraj grafu a ořízl
@@ -53,16 +73,16 @@ export function FleetUtilization() {
 
   useEffect(() => { load() }, [])
 
+  // Vytíženost = dny realizovaného pronájmu / dny, kdy motorka byla ve flotile, za posledních 365 dní (bez vozíků)
   async function load() {
-    const { data: perf } = await supabase
-      .from('moto_performance')
-      .select('moto_id, utilization_rate, motorcycles(model)')
-      .order('utilization_rate', { ascending: false })
-      .limit(10)
-    setData((perf || []).map(p => ({
-      name: p.motorcycles?.model || 'Motorka',
-      využití: p.utilization_rate || 0,
-    })))
+    try {
+      const { bookings, motorcycles } = await loadFleetStats()
+      const today = dayNum(new Date())
+      const tl = buildFleetTimeline({ motorcycles, bookings, moves: [], fromDay: today - 364, toDay: today, today })
+      setData(tl.motos.filter(t => t.loc.length > 0)
+        .map(t => ({ name: t.moto.model || 'Motorka', využití: Math.round(t.rented.reduce((a, b) => a + b, 0) / t.loc.length * 1000) / 10 }))
+        .sort((a, b) => b.využití - a.využití).slice(0, 10))
+    } catch (e) { console.error('FleetUtilization', e); setData([]) }
     setLoading(false)
   }
 
@@ -97,15 +117,14 @@ export function TopMotoRevenue() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data: perf } = await supabase
-      .from('moto_performance')
-      .select('moto_id, total_revenue, motorcycles(model)')
-      .order('total_revenue', { ascending: false })
-      .limit(5)
-    setData((perf || []).map(p => ({
-      name: p.motorcycles?.model || 'Motorka',
-      tržby: p.total_revenue || 0,
-    })))
+    try {
+      const { bookings, motorcycles } = await loadFleetStats()
+      const rev = {}
+      for (const b of bookings) if (b.moto_id && isRealizedBooking(b)) rev[b.moto_id] = (rev[b.moto_id] || 0) + (Number(b.total_price) || 0)
+      const model = Object.fromEntries(motorcycles.map(m => [m.id, m.model]))
+      setData(Object.entries(rev).sort((a, b) => b[1] - a[1]).slice(0, 5)
+        .map(([id, v]) => ({ name: model[id] || 'Motorka', tržby: Math.round(v) })))
+    } catch (e) { console.error('TopMotoRevenue', e); setData([]) }
     setLoading(false)
   }
 
@@ -137,15 +156,20 @@ export function BranchComparison() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data: bp } = await supabase
-      .from('branch_performance')
-      .select('*, branches(name)')
-      .order('total_revenue', { ascending: false })
-    setData((bp || []).map(b => ({
-      name: b.branches?.name || 'Pobočka',
-      tržby: b.total_revenue || 0,
-      rezervace: b.total_bookings || 0,
-    })))
+    try {
+      const { bookings, motorcycles, branches } = await loadFleetStats()
+      const mb = Object.fromEntries(motorcycles.map(m => [m.id, m.branch_id]))
+      const agg = {}
+      for (const b of bookings) {
+        if (!isRealizedBooking(b)) continue
+        const id = effBranchId(b, mb)
+        if (!id) continue
+        const a = agg[id] ||= { tržby: 0, rezervace: 0 }
+        a.tržby += Number(b.total_price) || 0; a.rezervace++
+      }
+      setData(branches.map(br => ({ name: br.name || 'Pobočka', tržby: Math.round(agg[br.id]?.tržby || 0), rezervace: agg[br.id]?.rezervace || 0 }))
+        .sort((a, b) => b.tržby - a.tržby))
+    } catch (e) { console.error('BranchComparison', e); setData([]) }
     setLoading(false)
   }
 

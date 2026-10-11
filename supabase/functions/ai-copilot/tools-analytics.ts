@@ -1,6 +1,12 @@
 // Analytics tools 26-31: Branch/Moto/Category performance, Optimal fleet, Customers, Forecast
 import type { SB } from './tools-constants.ts'
-import { FLEET_CALC, fetchAnalyticsRawData, diffDays, isRealizedBooking, PAID_BOOKING_STATUSES, bookingBranchOf, branchBookingsOr } from './tools-constants.ts'
+import { FLEET_CALC, fetchAnalyticsRawData, diffDays, isRealizedBooking, PAID_BOOKING_STATUSES, bookingBranchOf, branchBookingsOr, fetchAllRows } from './tools-constants.ts'
+import { branchFleetStats, profitPerMotoYear, MIN_EXPOSURE_DAYS } from './tools-branch-fleet.ts'
+
+// Výkon poboček: JEDNO přiřazení — rezervace/obrat = pobočka rezervace (bookings.branch_id, u NULL pobočka
+// motorky); flotila/obsazenost/zisk = moto-dny motorek, které na pobočce v okně reálně stály
+// (tools-branch-fleet.ts = port velin/src/lib/branchFleet.js). Ne aktuální flotila pobočky.
+const FLEET_NOTE = 'Pobočka rezervace = kde zákazník převzal (bookings.branch_id). Flotila, obsazenost, obrat/motorku a zisk/motorku z moto-dnů: motorka se počítá pobočce jen za dny, kdy tam reálně stála (přesun dnes = až od dneška; přesuny před 30. 9. 2026 nejsou zalogované → do té doby poslední známá pobočka). motorcycle_count = aktuální počet; avg_fleet = průměr v období. Méně než ' + MIN_EXPOSURE_DAYS + ' moto-dní → per-motorku null.'
 
 // deno-lint-ignore no-explicit-any
 type R = Record<string, any>
@@ -10,32 +16,32 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
     case 'analyze_branch_performance': {
       const pm = (input.period_months as number) || 6
       const raw = await fetchAnalyticsRawData(sb, pm)
-      const pd = pm * 30, nd = new Date()
+      const fleet = await branchFleetStats(sb, pm, raw.motorcycles)
+      const nd = new Date()
       const cms = new Date(nd.getFullYear(), nd.getMonth(), 1).toISOString()
       const pms = new Date(nd.getFullYear(), nd.getMonth() - 1, 1).toISOString()
       const completed = raw.bookings.filter((b: R) => isRealizedBooking(b))
-      const mbm: R = {}, mcm: R = {}
-      for (const m of raw.motorcycles) { mbm[m.id] = m.branch_id; mcm[m.id] = m.category || 'unknown' }
+      const mbm: R = {}, mById: R = {}
+      for (const m of raw.motorcycles) { mbm[m.id] = m.branch_id; mById[m.id] = m }
       const stats = raw.branches.map((branch: R) => {
-        const bmids = raw.motorcycles.filter((m: R) => m.branch_id === branch.id).map((m: R) => m.id)
-        const mc = bmids.length
-        // Rezervace pobočky = bookings.branch_id (kde převzal), u NULL pobočka motorky; počty motorek = aktuální flotila
+        const mc = raw.motorcycles.filter((m: R) => m.branch_id === branch.id && !m.is_trailer).length
         const bb = completed.filter((b: R) => bookingBranchOf(b, mbm) === branch.id)
-        const rev = bb.reduce((s: number, b: R) => s + (b.total_price || 0), 0)
-        const rd = bb.reduce((s: number, b: R) => s + diffDays(b.start_date, b.end_date), 0)
-        const util = mc > 0 ? Math.round(rd / (mc * pd) * 1000) / 10 : 0
-        const cats = bmids.map((id: string) => mcm[id] || 'naked')
-        const avgSvc = cats.reduce((s: number, cat: string) => { const p = FLEET_CALC.categoryParams[cat] || FLEET_CALC.categoryParams['naked']; return s + p.avgServicePerEvent * p.servicesPerYear + p.insuranceCleaningYear }, 0) / Math.max(1, cats.length)
-        const profit = mc > 0 ? Math.round((rev - avgSvc * mc - rev * FLEET_CALC.marketingPct - FLEET_CALC.otherFixedPerBike * mc) / mc) : 0
-        const curRev = bb.filter((b: R) => b.created_at >= cms).reduce((s: number, b: R) => s + (b.total_price || 0), 0)
-        const prevRev = bb.filter((b: R) => b.created_at >= pms && b.created_at < cms).reduce((s: number, b: R) => s + (b.total_price || 0), 0)
+        const rev = bb.reduce((s: number, b: R) => s + (Number(b.total_price) || 0), 0)
+        const st = fleet.byBranch[branch.id]
+        const md = st?.motoDays || 0, rd = st?.rentedDays || 0
+        const avgFleet = fleet.days > 0 ? md / fleet.days : 0
+        const ok = md >= MIN_EXPOSURE_DAYS && avgFleet > 0
+        const ppy = profitPerMotoYear(st, mById)
+        const curRev = bb.filter((b: R) => b.created_at >= cms).reduce((s: number, b: R) => s + (Number(b.total_price) || 0), 0)
+        const prevRev = bb.filter((b: R) => b.created_at >= pms && b.created_at < cms).reduce((s: number, b: R) => s + (Number(b.total_price) || 0), 0)
         const chg = prevRev > 0 ? (curRev / prevRev - 1) * 100 : 0
-        return { id: branch.id, name: branch.name, city: branch.city, type: branch.type, motorcycle_count: mc, reservations: bb.length, revenue: rev, revenue_per_moto: mc > 0 ? Math.round(rev / mc) : 0, utilization_pct: util, rented_days: rd, profit_per_moto: profit, trend: chg > 10 ? 'Rostoucí' : chg < -5 ? 'Klesající' : 'Stagnující', trend_change_pct: Math.round(chg * 10) / 10 }
+        return { id: branch.id, name: branch.name, city: branch.city, type: branch.type, motorcycle_count: mc, avg_fleet: Math.round(avgFleet * 10) / 10, moto_days: md, reservations: bb.length, revenue: rev, revenue_per_moto: ok ? Math.round(rev / avgFleet) : null, utilization_pct: md > 0 ? Math.round(rd / md * 1000) / 10 : 0, rented_days: rd, profit_per_moto: ppy != null ? Math.round(ppy) : null, trend: chg > 10 ? 'Rostoucí' : chg < -5 ? 'Klesající' : 'Stagnující', trend_change_pct: Math.round(chg * 10) / 10 }
       })
       const totalRev = stats.reduce((s: number, b: R) => s + b.revenue, 0)
       const totalRes = stats.reduce((s: number, b: R) => s + b.reservations, 0)
-      const avgUtil = stats.length > 0 ? Math.round(stats.reduce((s: number, b: R) => s + b.utilization_pct, 0) / stats.length * 10) / 10 : 0
-      return { branches: stats, totals: { revenue: totalRev, reservations: totalRes, avg_utilization: avgUtil }, period_months: pm }
+      const tmd = stats.reduce((s: number, b: R) => s + b.moto_days, 0), trd = stats.reduce((s: number, b: R) => s + b.rented_days, 0)
+      const avgUtil = tmd > 0 ? Math.round(trd / tmd * 1000) / 10 : 0
+      return { branches: stats, totals: { revenue: totalRev, reservations: totalRes, avg_utilization: avgUtil }, period_months: pm, method: FLEET_NOTE }
     }
 
     case 'analyze_motorcycle_performance': {
@@ -81,24 +87,30 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
       if (!branchId) return { error: 'branch_id je povinný parametr' }
       const pm = (input.period_months as number) || 6
       const raw = await fetchAnalyticsRawData(sb, pm)
-      const pd = pm * 30
       const branch = raw.branches.find((b: R) => b.id === branchId)
       if (!branch) return { error: 'Pobočka nenalezena' }
-      const bMotos = raw.motorcycles.filter((m: R) => m.branch_id === branchId)
-      // Rezervace pobočky = bookings.branch_id (kde převzal), u NULL pobočka motorky; sloty = aktuální flotila
+      const fleet = await branchFleetStats(sb, pm, raw.motorcycles)
+      const pd = fleet.days
+      const st = fleet.byBranch[branchId]
+      const bMotos = raw.motorcycles.filter((m: R) => m.branch_id === branchId && !m.is_trailer)
+      // Rezervace = pobočka rezervace; sloty/obsazenost = moto-dny kategorie na pobočce; count = AKTUÁLNÍ počet kusů
       const mbm: R = {}, mcm: R = {}
       for (const m of raw.motorcycles as R[]) { mbm[m.id] = m.branch_id; mcm[m.id] = m.category || 'unknown' }
       const completed = raw.bookings.filter((b: R) => isRealizedBooking(b) && bookingBranchOf(b, mbm) === branchId)
       const cf: R = {}
-      for (const m of bMotos) { const c = m.category || 'unknown'; if (!cf[c]) cf[c] = { count: 0, rev: 0, rd: 0 }; cf[c].count++ }
-      for (const b of completed) { const c = mcm[b.moto_id] || 'unknown'; if (cf[c]) { cf[c].rev += b.total_price || 0; cf[c].rd += diffDays(b.start_date, b.end_date) } }
-      const current = Object.entries(cf).map(([cat, d]: [string, R]) => ({ category: cat, count: d.count, revenue: d.rev, utilization_pct: d.count > 0 ? Math.round(d.rd / (d.count * pd) * 1000) / 10 : 0, revenue_per_slot: d.count > 0 ? Math.round(d.rev / d.count) : 0 }))
+      const cfe = (c: string) => (cf[c] ||= { count: 0, rev: 0, md: st?.cats[c]?.motoDays || 0, rd: st?.cats[c]?.rentedDays || 0 })
+      for (const m of bMotos) cfe(m.category || 'unknown').count++
+      for (const c of Object.keys(st?.cats || {})) cfe(c)
+      for (const b of completed) cfe(mcm[b.moto_id] || 'unknown').rev += Number(b.total_price) || 0
+      const minSlots = pd > 0 ? Math.min(MIN_EXPOSURE_DAYS, pd) / pd : 0
+      const perSlot = (rev: number, md: number) => (pd > 0 && (md > 0 || rev > 0) ? Math.round(rev / Math.max(md / pd, minSlots)) : 0)
+      const current = Object.entries(cf).map(([cat, d]: [string, R]) => ({ category: cat, count: d.count, avg_fleet: pd > 0 ? Math.round(d.md / pd * 10) / 10 : 0, revenue: d.rev, utilization_pct: d.md > 0 ? Math.round(d.rd / d.md * 1000) / 10 : 0, revenue_per_slot: perSlot(d.rev, d.md) }))
       const bt = (branch.type as string) || 'turistická'
       const bud = FLEET_CALC.branchUtilization[bt] || FLEET_CALC.branchUtilization['turistická']
       const scores: Array<{ category: string; score: number; erps: number; up: number }> = []
       for (const [cat, params] of Object.entries(FLEET_CALC.categoryParams)) {
         const uf = bud[cat] || 0.3
-        const ex = cf[cat]; const ru = ex && ex.count > 0 ? ex.rd / (ex.count * pd) : uf
+        const ex = cf[cat]; const ru = ex && ex.md >= MIN_EXPOSURE_DAYS ? ex.rd / ex.md : uf
         const up = Math.round(ru * 1000) / 10; const erps = Math.round(params.avgDailyRate * pd * ru)
         if (up > 40) scores.push({ category: cat, score: erps * ru, erps, up })
       }
@@ -108,9 +120,9 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
       const rec = scores.map(c => { const slots = Math.max(1, Math.round(ts > 0 ? (c.score / ts) * 8 : 0)); assigned += slots; return { category: c.category, slots, expected_revenue_per_slot: c.erps, utilization_pct: c.up } })
       while (assigned > 8 && rec.length > 0) { const mi = rec.reduce((mi, r, i) => r.slots > 1 && r.expected_revenue_per_slot < (rec[mi]?.expected_revenue_per_slot || Infinity) ? i : mi, 0); rec[mi].slots--; assigned-- }
       while (assigned < 8 && rec.length > 0) { const mi = rec.reduce((mi, r, i) => r.expected_revenue_per_slot > (rec[mi]?.expected_revenue_per_slot || 0) ? i : mi, 0); rec[mi].slots++; assigned++ }
-      const crps = bMotos.length > 0 ? Math.round(completed.reduce((s: number, b: R) => s + (b.total_price || 0), 0) / bMotos.length) : 0
+      const crps = perSlot(completed.reduce((s: number, b: R) => s + (Number(b.total_price) || 0), 0), st?.motoDays || 0)
       const orps = rec.length > 0 ? Math.round(rec.reduce((s, r) => s + r.expected_revenue_per_slot * r.slots, 0) / 8) : 0
-      return { branch: { id: branch.id, name: branch.name, type: bt }, current, recommended: rec, potential: { current_rev_per_slot: crps, optimized_rev_per_slot: orps, improvement_pct: crps > 0 ? Math.round((orps / crps - 1) * 1000) / 10 : 0 }, period_months: pm }
+      return { branch: { id: branch.id, name: branch.name, type: bt }, current, recommended: rec, potential: { current_rev_per_slot: crps, optimized_rev_per_slot: orps, improvement_pct: crps > 0 ? Math.round((orps / crps - 1) * 1000) / 10 : 0 }, period_months: pm, method: FLEET_NOTE }
     }
 
     case 'analyze_customers': {
@@ -135,10 +147,14 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
     case 'forecast_predictions': {
       const ma = (input.months_ahead as number) || 3
       const branchId = input.branch_id as string | undefined
-      let bQ = sb.from('bookings').select('id, moto_id, branch_id, total_price, start_date, end_date, status, payment_status, created_at').neq('status', 'cancelled').in('payment_status', PAID_BOOKING_STATUSES).eq('is_test', false).order('created_at', { ascending: true })
       // Pobočka rezervace = bookings.branch_id (kde převzal), u NULL záloha přes AKTUÁLNÍ motorky pobočky
-      if (branchId) { const { data: bm } = await sb.from('motorcycles').select('id').eq('branch_id', branchId); const mids = (bm || []).map((m: R) => m.id); bQ = bQ.or(branchBookingsOr(branchId, mids)) }
-      const { data: allB } = await bQ
+      let bOr: string | null = null
+      if (branchId) { const { data: bm } = await sb.from('motorcycles').select('id').eq('branch_id', branchId); const mids = (bm || []).map((m: R) => m.id); bOr = branchBookingsOr(branchId, mids) }
+      const allB = await fetchAllRows(() => {
+        let q = sb.from('bookings').select('id, moto_id, branch_id, total_price, start_date, end_date, status, payment_status, created_at').neq('status', 'cancelled').in('payment_status', PAID_BOOKING_STATUSES).not('is_test', 'is', true)
+        if (bOr) q = q.or(bOr)
+        return q.order('created_at', { ascending: true }).order('id')
+      })
       if (!allB || allB.length === 0) return { error: 'Nedostatek dat pro predikci', available_months: 0 }
       const md: R = {}; for (const b of allB) { const m = b.created_at.slice(0, 7); if (!md[m]) md[m] = { rev: 0, cnt: 0 }; md[m].rev += b.total_price || 0; md[m].cnt++ }
       const sm = Object.keys(md).sort()

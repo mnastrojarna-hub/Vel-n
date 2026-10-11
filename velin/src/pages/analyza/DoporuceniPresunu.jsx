@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
-import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
+import TimePeriodSelector, { filterByPeriod, hasMinimumData } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
-import { effBranchId } from '../../lib/bookingBranch'
+import { fetchAllRows, loadMotoMoves, periodWindow, buildFleetTimeline, summarizeByBranch, dayMonth, MIN_EXPOSURE_DAYS } from '../../lib/branchFleet'
 import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY } from '../../components/sortableTable'
 
 const SEASONAL_COLUMNS = [
@@ -69,17 +69,25 @@ export default function DoporuceniPresunu() {
   async function loadData() {
     setLoading(true); setError(null)
     try {
-      const [mRes, bRes, lRes] = await Promise.all([
-        supabase.from('motorcycles').select('id, model, brand, category, branch_id, purchase_price, status'),
-        supabase.from('bookings').select('moto_id, branch_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
+      const [mRes, bookings, lRes, moves] = await Promise.all([
+        supabase.from('motorcycles').select('id, model, brand, category, branch_id, purchase_price, status, acquired_at, created_at, is_trailer'),
+        fetchAllRows(() => supabase.from('bookings').select('id, moto_id, trailer_moto_id, branch_id, start_date, end_date, total_price, status, created_at, payment_status, is_test').not('is_test', 'is', true).order('id')),
         supabase.from('branches').select('id, name, location, type'),
+        loadMotoMoves(),
       ])
       if (mRes.error) throw mRes.error
-      if (bRes.error) throw bRes.error
       if (lRes.error) throw lRes.error
-      setRaw({ motorcycles: mRes.data || [], bookings: bRes.data || [], locations: lRes.data || [] })
+      setRaw({ motorcycles: (mRes.data || []).filter(m => !m.is_trailer), bookings, locations: lRes.data || [], moves })
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
+
+  // Kde motorky v období reálně stály (moto-dny, lib/branchFleet.js) — obsazenost pobočky × kategorie
+  const fleet = useMemo(() => {
+    if (!raw) return null
+    const win = periodWindow(period, raw.bookings)
+    const tl = buildFleetTimeline({ motorcycles: raw.motorcycles, bookings: raw.bookings, moves: raw.moves, fromDay: win.fromDay, toDay: win.toDay })
+    return { tl, byBranch: summarizeByBranch(tl, m => (m.category || '').toLowerCase()) }
+  }, [raw, period])
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2" style={{ borderColor: '#74FB71' }} /></div>
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
@@ -89,37 +97,38 @@ export default function DoporuceniPresunu() {
   const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
   const has3mo = hasMinimumData(bookings)
 
-  let periodDays = 365
-  if (period.type === 'month') periodDays = new Date(period.year, period.month + 1, 0).getDate()
-  else if (period.type === 'custom' && period.from && period.to) periodDays = Math.max(1, diffDays(period.from, period.to))
-
   const locMap = {}
   for (const l of locations) locMap[l.id] = l
+  const { tl, byBranch } = fleet
+  const tlByMoto = Object.fromEntries(tl.motos.map(t => [t.moto.id, t]))
 
-  // Per-moto stats
+  // Per-moto stats. Obsazenost = dny pronájmu / dny, kdy motorka v období reálně byla ve flotile — na své
+  // AKTUÁLNÍ pobočce (≥ MIN_EXPOSURE_DAYS dní tam), jinak za celé období (právě přesunutá motorka).
   const motoStats = motorcycles.map(m => {
     const mc = completed.filter(b => b.moto_id === m.id)
-    const rentedDays = mc.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
     const revenue = mc.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
-    const utilization = rentedDays / periodDays
+    const t = tlByMoto[m.id]
+    let present = 0, rented = 0, presentCur = 0, rentedCur = 0
+    for (let i = 0; i < (t?.loc.length || 0); i++) {
+      present++; if (t.rented[i]) rented++
+      if (m.branch_id && t.loc[i] === m.branch_id) { presentCur++; if (t.rented[i]) rentedCur++ }
+    }
+    const utilization = presentCur >= MIN_EXPOSURE_DAYS ? rentedCur / presentCur : (present > 0 ? rented / present : 0)
     const pp = Number(m.purchase_price) || 0
     const annualCosts = pp * 0.20
     const roi = pp > 0 ? (revenue - annualCosts) / pp : 0
-    return { ...m, rentedDays, revenue, reservationCount: mc.length, utilization, purchasePrice: pp, roi }
+    return { ...m, rentedDays: rented, revenue, reservationCount: mc.length, utilization, purchasePrice: pp, roi }
   })
 
-  // Per loc×cat utilization
+  // Per loc×cat utilization = dny pronájmu / moto-dny kategorie na pobočce; count = AKTUÁLNÍ počet kusů (kolik lze přesunout)
   const locCatUtil = {}
-  for (const m of motoStats) {
-    const cat = (m.category || '').toLowerCase()
-    const lid = m.branch_id
-    if (!cat || !lid) continue
-    const key = `${lid}_${cat}`
-    if (!locCatUtil[key]) locCatUtil[key] = { total: 0, count: 0 }
-    locCatUtil[key].total += m.utilization
-    locCatUtil[key].count++
+  for (const [lid, st] of Object.entries(byBranch)) {
+    for (const [cat, c] of Object.entries(st.cats)) {
+      if (!cat || c.motoDays < MIN_EXPOSURE_DAYS) continue
+      const count = motorcycles.filter(m => m.branch_id === lid && (m.category || '').toLowerCase() === cat).length
+      locCatUtil[`${lid}_${cat}`] = { avg: c.rentedDays / c.motoDays, count, motoDays: c.motoDays }
+    }
   }
-  for (const k in locCatUtil) locCatUtil[k].avg = locCatUtil[k].total / locCatUtil[k].count
 
   // Relocations
   const relocations = []
@@ -158,27 +167,27 @@ export default function DoporuceniPresunu() {
   // Retiring
   const retiring = motoStats.filter(m => m.utilization < 0.40 || (m.roi < 0.20 && m.purchasePrice > 0))
 
-  // Seasonal
-  const SEASON_DAYS = { leto: 92, jaro_podzim: 153, zima: 120 }
-  function getSeason(date) { const m = new Date(date).getMonth() + 1; if (m >= 6 && m <= 8) return 'leto'; if ((m >= 3 && m <= 5) || (m >= 9 && m <= 10)) return 'jaro_podzim'; return 'zima' }
-  // Sezónnost po pobočkách: pobočka rezervace (bookings.branch_id = kde zákazník převzal), u NULL pobočka motorky
+  // Seasonal — po dnech časové osy: den pronájmu jde pobočce rezervace (bookings.branch_id), nečinný den
+  // pobočce, kde motorka stála; obsazenost sezóny = dny pronájmu / moto-dny pobočky × kategorie v sezóně.
+  function seasonOfMonth(m) { if (m >= 6 && m <= 8) return 'leto'; if ((m >= 3 && m <= 5) || (m >= 9 && m <= 10)) return 'jaro_podzim'; return 'zima' }
   const seasonalMap = {}
-  for (const b of completed) {
-    const moto = motorcycles.find(mm => mm.id === b.moto_id)
-    const lid = effBranchId(b) || moto?.branch_id
-    if (!moto || !lid) continue
-    const cat = (moto.category || '').toLowerCase()
+  for (const t of tl.motos) {
+    const cat = (t.moto.category || '').toLowerCase()
     if (!cat) continue
-    const key = `${lid}_${cat}`
-    if (!seasonalMap[key]) seasonalMap[key] = { lid, cat, leto: 0, jaro_podzim: 0, zima: 0 }
-    seasonalMap[key][getSeason(b.start_date || b.created_at)] += diffDays(b.start_date, b.end_date)
+    for (let i = 0; i < t.loc.length; i++) {
+      const lid = t.loc[i]
+      if (!lid) continue
+      const key = `${lid}_${cat}`, sn = seasonOfMonth(dayMonth(t.start + i))
+      const e = seasonalMap[key] ||= { lid, cat, md: { leto: 0, jaro_podzim: 0, zima: 0 }, rd: { leto: 0, jaro_podzim: 0, zima: 0 } }
+      e.md[sn]++; if (t.rented[i]) e.rd[sn]++
+    }
   }
   const seasonalRows = []
   for (const key in seasonalMap) {
     const s = seasonalMap[key]
-    const mc = locCatUtil[`${s.lid}_${s.cat}`]?.count || 0
-    if (mc === 0) continue
-    const utilL = s.leto / (mc * SEASON_DAYS.leto), utilJP = s.jaro_podzim / (mc * SEASON_DAYS.jaro_podzim), utilZ = s.zima / (mc * SEASON_DAYS.zima)
+    if (s.rd.leto + s.rd.jaro_podzim + s.rd.zima === 0) continue
+    const u = sn => (s.md[sn] > 0 ? s.rd[sn] / s.md[sn] : 0)
+    const utilL = u('leto'), utilJP = u('jaro_podzim'), utilZ = u('zima')
     const maxU = Math.max(utilL, utilJP, utilZ), minU = Math.min(utilL, utilJP, utilZ)
     let rec = 'Stabilní'
     if (maxU > 0.75 && minU < 0.45) {
