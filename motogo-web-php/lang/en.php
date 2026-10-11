@@ -68,8 +68,9 @@ return [
     'menu.areas.jihomoravsky' => 'South Moravian Region',
     'menu.areas.jihocesky' => 'South Bohemian Region',
     'menu.reservation' => 'BOOK NOW',
-    'menu.editReservation' => 'Manage booking',
-    'menu.editReservation.aria' => 'Edit or cancel reservation',
+    'menu.editReservation' => 'Edit reservation',
+    'menu.editReservation.aria' => 'Edit reservation – change dates, place, motorcycle or gear sizes, extend, shorten or cancel',
+    'menu.editReservation.sub' => 'dates · bike · cancellation',
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Motorcycle rental',
@@ -1503,7 +1504,7 @@ return [
     'rez.map.title' => 'Pick a location on the map (Mapy.cz)',
     'rez.map.confirm' => 'Confirm',
     'rez.return.stateTitle' => 'What condition should the motorcycle be returned in?',
-    'rez.return.stateText' => 'Just return the motorcycle with fuel above the reserve (the reserve light is off). Don\'t worry about washing or cleaning — that\'s our job.',
+    'rez.return.stateText' => 'At the staffed branch in Mezná and when returning elsewhere, you don\'t need to refuel or wash the motorcycle. At the self-service branch, return it washed and with the reserve light off — a full tank isn\'t needed.',
     'rez.alert.emailExists' => 'We already have this e-mail on file. Please log in to continue, or reset your password.',
     'rez.alert.emailMismatch' => 'The logged-in account does not match the e-mail you entered. Please log out and try again.',
     'rez.alert.minRentalDays' => 'The minimum rental for this motorbike is {count} days. Please choose a longer period.',

@@ -204,7 +204,7 @@ return [
                     ],
                     [
                         '<strong>Brandstof &amp; reiniging</strong>',
-                        'Teruggave zonder verplichting tot tanken of wassen. Overmatig vuil wordt individueel afgehandeld.',
+                        'In Mezná en bij teruggave op een andere plek hoef je niet te tanken of te wassen. Bij de zelfbedieningsvestiging lever je de motor gewassen in en zonder brandend reservelampje (een volle tank is niet nodig). Overmatig vuil wordt individueel afgehandeld.',
                     ],
                     [
                         '<strong>Bezorging / ophalen</strong>',
@@ -237,7 +237,7 @@ return [
                 'items' => [
                     'Het&nbsp;<strong>ophalen</strong>&nbsp;gebeurt in Pelhřimov (Mezná 9) of gebruik&nbsp;<a href="/jak-pujcit/pristaveni">bezorging</a>.',
                     'Bij de overdracht ontvang je&nbsp;<strong>sleutels, uitrusting en documenten</strong>&nbsp;(kentekenbewijs, groene kaart, ongevalsformulier).',
-                    '<strong>Teruggave</strong>&nbsp;op elk moment van de laatste huurdag (ook om middernacht). Wassen of tanken is niet nodig.',
+                    '<strong>Teruggave</strong>&nbsp;op elk moment van de laatste huurdag (ook om middernacht). In Mezná is wassen of tanken niet nodig; bij de zelfbedieningsvestiging lever je de motor gewassen in en zonder brandend reservelampje.',
                 ],
             ],
             'privacy' => [
@@ -554,7 +554,7 @@ return [
                     ],
                     [
                         'q' => 'Moet ik hem met een volle tank en schoon terugbrengen?',
-                        'a' => 'Nee. Bij ons tank of was je niet. Let er alleen op dat het reservelampje niet brandt.&nbsp;',
+                        'a' => 'Nee. Bij teruggave op een andere plek hoef je niet te tanken of te wassen.&nbsp;',
                     ],
                     [
                         'q' => 'Kan ik de motor bij teruggave op een andere locatie eerder terugbrengen dan afgesproken?&nbsp;',
@@ -709,7 +709,7 @@ return [
                     [
                         'icon' => 'gfx/predani-motorky.svg',
                         'title' => '3. Ophalen',
-                        'text' => 'Haal de motor op bij onze verhuur in Pelhřimov.',
+                        'text' => 'Haal de motor persoonlijk op in Mezná bij Pelhřimov (van daaruit bezorgen we hem ook overal in Tsjechië) of zelf bij de zelfbedieningsvestiging in Velké Němčice bij Brno.',
                     ],
                     [
                         'icon' => 'gfx/uzij-si-jizdu.svg',
@@ -889,7 +889,7 @@ return [
                 'items' => [
                     [
                         'q' => 'Hoe kan ik een motor reserveren?',
-                        'a' => 'Je kunt een motor reserveren via ons online reserveringssysteem direct hier op de site. Of neem contact op via e-mail, telefoon of social media.',
+                        'a' => 'Je kunt een motor reserveren via ons online reserveringssysteem direct hier op de site of in de MotoGo24-app, gratis in Google Play (Android) en in de App Store (iPhone). Of neem contact op via e-mail, telefoon of social media.',
                     ],
                     [
                         'q' => 'Kan ik een motor huren zonder vooraf te reserveren?',
@@ -1119,7 +1119,7 @@ return [
                     [
                         'icon' => 'gfx/vrat-motorku-vcas.svg',
                         'title' => '12. Breng de motor terug',
-                        'text' => 'Breng de motor op tijd terug – persoonlijk bij de verhuur in Pelhřimov, of op de afgesproken plek. Tanken of wassen is niet nodig.',
+                        'text' => 'Breng de motor op tijd terug – persoonlijk bij de verhuur in Pelhřimov, of op de afgesproken plek; tanken of wassen is niet nodig. Bij de zelfbedieningsvestiging in Velké Němčice lever je hem gewassen in en zonder brandend reservelampje.',
                     ],
                 ],
             ],
@@ -1432,7 +1432,7 @@ return [
                     ],
                     [
                         'q' => 'Moet ik hem met een volle tank en schoon terugbrengen?',
-                        'a' => 'Nee. Bij ons tank of was je niet. Let er alleen op dat het reservelampje niet brandt.&nbsp;',
+                        'a' => 'Nee. In Mezná hoef je niet te tanken of te wassen. Bij de zelfbedieningsvestiging in Velké Němčice hoeft de tank ook niet vol – lever de motor alleen gewassen in en let erop dat het reservelampje niet brandt.&nbsp;',
                     ],
                     [
                         'q' => 'Kan ik de motor eerder bij de verhuur terugbrengen dan afgesproken?',

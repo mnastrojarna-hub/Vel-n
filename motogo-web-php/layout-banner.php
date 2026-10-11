@@ -5,13 +5,14 @@
  * Zdroj: app_settings.header_banner (edituje Velín → Dashboard → „Banner“):
  *   { enabled: bool, text: string (CZ), bg: "#rrggbb", color: "#rrggbb",
  *     translations?: { en: string, de: …, uk: … },   // auto-překlad z Velínu
- *     translations_src?: "fnv1a32:xxxxxxxx" }         // otisk CZ textu, ze kterého
+ *     translations_src?: "<sha1 hex>" }               // otisk CZ textu, ze kterého
  *                                                     // překlady vznikly
  * Překlad se použije jen když je ČERSTVÝ (translations_src == otisk aktuálního
  * `text`) — po změně CZ textu, dokud Velín nedopřeloží, se ukáže čeština.
- * Otisk = FNV-1a 32 bit nad UTF-8 bajty `text` přesně jak je uložen, zápis
- * "fnv1a32:" + 8 hex číslic malými písmeny. Stejně ho počítá Velín
- * (src/pages/bannerI18n.js) i appka (lib/core/banner_provider.dart).
+ * Otisk = SHA-1 (40 hex, malá písmena) nad UTF-8 bajty `text` přesně tak, jak
+ * je uložen (bez ořezu) — stejná konvence jako `translation_src` smluv.
+ * Stejně ho počítá Velín (src/pages/bannerI18n.js) i appka
+ * (lib/core/banner_provider.dart).
  *
  * Data přes SupabaseClient->fetchSetting() (file-cache 30 min, Velín po uložení
  * volá purgeWebCache). Styly jsou inline atributy → validní HTML, žádný
@@ -23,16 +24,9 @@
 const MG_TOPBANNER_DEFAULT_BG = '#1a2e22';
 const MG_TOPBANNER_DEFAULT_FG = '#74fb71';
 
-/** Otisk CZ textu banneru (FNV-1a 32 bit nad UTF-8 bajty). */
+/** Otisk CZ textu banneru (SHA-1 hex nad UTF-8 bajty, bez ořezu). */
 function mgBannerFingerprint($text) {
-    $s = (string)$text;
-    $h = 0x811c9dc5;
-    $n = strlen($s);
-    for ($i = 0; $i < $n; $i++) {
-        $h ^= ord($s[$i]);
-        $h = ($h * 0x01000193) & 0xFFFFFFFF;
-    }
-    return 'fnv1a32:' . sprintf('%08x', $h);
+    return sha1((string)$text);
 }
 
 /**
@@ -41,11 +35,13 @@ function mgBannerFingerprint($text) {
  */
 function mgBannerLocalizedText(array $b, $lang, &$isCs = null) {
     $isCs = true;
-    $cs = trim((string)($b['text'] ?? ''));
+    $raw = isset($b['text']) && is_string($b['text']) ? $b['text'] : '';
+    $cs = trim($raw);
     if ($lang === 'cs' || $cs === '') return $cs;
     $tr = $b['translations'] ?? null;
     if (!is_array($tr) || !isset($tr[$lang]) || !is_string($tr[$lang])) return $cs;
-    if (($b['translations_src'] ?? '') !== mgBannerFingerprint((string)($b['text'] ?? ''))) return $cs;
+    $src = $b['translations_src'] ?? '';
+    if (!is_string($src) || strtolower($src) !== mgBannerFingerprint($raw)) return $cs;
     $t = trim($tr[$lang]);
     if ($t === '') return $cs;
     $isCs = false;

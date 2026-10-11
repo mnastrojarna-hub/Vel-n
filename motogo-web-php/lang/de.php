@@ -68,8 +68,9 @@ return [
     'menu.areas.jihomoravsky' => 'Südmährische Region',
     'menu.areas.jihocesky' => 'Südböhmische Region',
     'menu.reservation' => 'RESERVIERUNG',
-    'menu.editReservation' => 'Reservierung verwalten',
-    'menu.editReservation.aria' => 'Reservierung bearbeiten oder stornieren',
+    'menu.editReservation' => 'Reservierung bearbeiten',
+    'menu.editReservation.aria' => 'Reservierung bearbeiten – Termin, Ort, Motorrad oder Ausrüstungsgrößen ändern, verlängern, verkürzen oder stornieren',
+    'menu.editReservation.sub' => 'Termin · Motorrad · Storno',
 
     // Footer
     'footer.aboutTitle' => 'Motorradvermietung',
@@ -1492,7 +1493,7 @@ return [
     'rez.map.title' => 'Wählen Sie einen Ort auf der Karte (Mapy.cz)',
     'rez.map.confirm' => 'Bestätigen',
     'rez.return.stateTitle' => 'In welchem Zustand muss das Motorrad zurückgegeben werden?',
-    'rez.return.stateText' => 'Geben Sie das Motorrad einfach mit Kraftstoff über der Reserve zurück (die Reserveleuchte ist aus). Um Waschen oder Reinigen müssen Sie sich nicht kümmern — das ist unsere Aufgabe.',
+    'rez.return.stateText' => 'In der Filiale Mezná mit Personal und bei Rückgabe an einem anderen Ort müssen Sie das Motorrad weder tanken noch waschen. An der Selbstbedienungsfiliale geben Sie es bitte gewaschen zurück, ohne dass die Reserveleuchte leuchtet — Volltanken ist nicht nötig.',
     'rez.alert.emailExists' => 'Diese E-Mail ist bei uns bereits hinterlegt. Bitte melden Sie sich an, um fortzufahren, oder setzen Sie Ihr Passwort zurück.',
     'rez.alert.emailMismatch' => 'Das angemeldete Konto stimmt nicht mit der eingegebenen E-Mail überein. Bitte melden Sie sich ab und versuchen Sie es erneut.',
     'rez.alert.minRentalDays' => 'Die Mindestmietdauer für dieses Motorrad beträgt {count} Tage. Bitte wählen Sie einen längeren Zeitraum.',
