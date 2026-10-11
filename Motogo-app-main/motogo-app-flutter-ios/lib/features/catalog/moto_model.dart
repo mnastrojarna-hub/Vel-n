@@ -400,20 +400,22 @@ class Motorcycle {
   }
 
   /// Spec list for detail screen — mirrors specs[] from motos.js.
-  List<MapEntry<String, String>> get specList {
+  /// [tr] = `t(context).tr` — popisky i Ano/Ne v jazyce appky (dřív česky).
+  List<MapEntry<String, String>> specList(String Function(String) tr) {
     final list = <MapEntry<String, String>>[];
-    if (engineCc != null) list.add(MapEntry('Motor', '$engineCc cc${engineType != null ? ' $engineType' : ''}'));
-    if (powerKw != null) list.add(MapEntry('Výkon', '$powerKw kW${powerHp != null ? ' / $powerHp k' : ''}'));
-    if (torqueNm != null) list.add(MapEntry('Točivý moment', '$torqueNm Nm'));
-    if (weightKg != null) list.add(MapEntry('Hmotnost', '$weightKg kg'));
-    if (fuelTankL != null) list.add(MapEntry('Nádrž', '$fuelTankL L'));
-    if (seatHeightMm != null) list.add(MapEntry('Sedlo', '$seatHeightMm mm'));
+    if (engineCc != null) list.add(MapEntry(tr('specEngine'), '$engineCc cc${engineType != null ? ' $engineType' : ''}'));
+    if (powerKw != null) list.add(MapEntry(tr('specPower'), '$powerKw kW${powerHp != null ? ' / $powerHp ${tr('sdHpUnit')}' : ''}'));
+    if (torqueNm != null) list.add(MapEntry(tr('specTorque'), '$torqueNm Nm'));
+    if (weightKg != null) list.add(MapEntry(tr('specWeight'), '$weightKg kg'));
+    if (fuelTankL != null) list.add(MapEntry(tr('specFuelTank'), '$fuelTankL L'));
+    if (seatHeightMm != null) list.add(MapEntry(tr('specSeatHeight'), '$seatHeightMm mm'));
     if (licenseGroupsOrFallback.isNotEmpty) {
       final lg = licenseGroupsOrFallback;
       final shown = lg.length == 1 && lg.first == 'N' ? 'N' : lg.where((g) => g != 'N').join(' / ');
-      if (shown.isNotEmpty) list.add(MapEntry('ŘP kategorie', shown));
+      if (shown.isNotEmpty) list.add(MapEntry(tr('specLicenseCategory'), shown));
     }
-    if (hasAbs != null) list.add(MapEntry('ABS / ASC', '${hasAbs! ? "Ano" : "Ne"} / ${hasAsc == true ? "Ano" : "Ne"}'));
+    String yn(bool v) => tr(v ? 'specYes' : 'specNo');
+    if (hasAbs != null) list.add(MapEntry(tr('specAbsAsc'), '${yn(hasAbs!)} / ${yn(hasAsc == true)}'));
     return list;
   }
 
@@ -513,8 +515,8 @@ class DayPrices {
     return total;
   }
 
-  /// Day labels for pricing card display.
-  static const dayLabels = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
+  /// i18n klíče zkratek dnů (Po–Ne) pro ceník.
+  static const dayLabelKeys = ['calMon', 'calTue', 'calWed', 'calThu', 'calFri', 'calSat', 'calSun'];
 
   List<double> get asList => [mon, tue, wed, thu, fri, sat, sun];
 }

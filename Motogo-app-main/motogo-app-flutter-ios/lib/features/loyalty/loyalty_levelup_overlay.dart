@@ -695,7 +695,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
       Shadow(color: accent.withValues(alpha: 0.5), blurRadius: 36),
     ];
     final text = Text(
-      status.rankName.toUpperCase(),
+      status.rankNameFor(t(context)).toUpperCase(),
       textAlign: TextAlign.center,
       style: TextStyle(
         fontSize: 30,

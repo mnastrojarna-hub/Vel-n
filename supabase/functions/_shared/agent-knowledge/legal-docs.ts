@@ -65,6 +65,10 @@ export async function getLegalDocument(sb: SupabaseClient, args: Record<string, 
     const want = typeof args.document === 'string' ? String(args.document).trim().toLowerCase() : ''
     const query = typeof args.query === 'string' ? String(args.query).trim() : ''
     const MAX = 12000
+    // Plné znění: české VOP mají ~26 tis. znaků a čl. 7 (škody, spoluúčast, krádež) začíná až za
+    // ~12 tis. — dřívější strop 12 000 ho uřízl. Cizojazyčný `query` v českém textu nic nenajde a
+    // spadne sem, proto plný český text vracíme celý (strop jen pojistka proti extrémům).
+    const MAX_FULL = 32000
     const docs = await loadDocs(sb, lang)
     if (docs.length === 0) {
       return {
@@ -111,11 +115,12 @@ export async function getLegalDocument(sb: SupabaseClient, args: Record<string, 
         if (excerpt.length > MAX) excerpt = excerpt.slice(0, MAX) + '…'
         return { ...head, mode: 'excerpts', query, text: excerpt, instruction: `Odpověz výhradně z tohoto znění. Pokud konkrétní odpověď v úryvcích NENÍ, přiznej to a odkaž na plný text / kontakt — nedomýšlej. Dotazuj se česky (dokument je česky). ${BINDING}` }
       }
-      // query nic nenašlo → plný (zkrácený) text, ať rozhodne model
+      // query nic nenašlo (např. cizojazyčná slova) → plný český text, ať rozhodne model
     }
     const cut = (s: string, n: number) => s.length > n ? s.slice(0, n) + '\n…[zkráceno — plné znění na webu]' : s
     return {
-      ...head, mode: 'full', text: cut(match.text, MAX),
+      ...head, mode: 'full', text: cut(match.text, MAX_FULL),
+      ...(query ? { query, query_note: 'Klíčová slova v českém textu nic nenašla — vracím celé české znění (příště se ptej česky).' } : {}),
       ...(match.translation ? { translation: cut(match.translation, 8000) } : {}),
       instruction: `Cituj a parafrázuj VÝHRADNĚ z tohoto znění. Co tu výslovně není, si nedomýšlej — přiznej, že to dokument neuvádí, a odkaž na kontakt. ${BINDING}`,
     }

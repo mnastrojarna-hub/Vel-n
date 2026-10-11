@@ -11,7 +11,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
-import '../../core/data/legal_texts.dart';
+import 'legal_doc_loader.dart';
 import 'booking_doc_viewer.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'document_models.dart';
@@ -93,7 +93,7 @@ class ContractsScreen extends ConsumerWidget {
                 ),
               ...contracts.map((d) => _DocTile(
                 icon: switch (d.type) { 'contract' => '📄', 'protocol_damage' => '⚠️', _ => '📝' },
-                title: d.name ?? d.typeLabel,
+                title: docDisplayTitle(t(context), d),
                 subtitle: '${d.createdAt.day}. ${d.createdAt.month}. ${d.createdAt.year}',
                 onTap: () => _openDoc(context, d),
               )),
@@ -103,126 +103,39 @@ class ContractsScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
         error: (e, st) {
           debugPrint('[CONTRACTS_SCREEN] Provider error: $e\n$st');
-          return Center(child: Text('Chyba: $e', style: const TextStyle(color: MotoGoColors.red, fontSize: 12)));
+          return Center(child: Text(t(context).tr('loadingError'), style: const TextStyle(color: MotoGoColors.red, fontSize: 12)));
         },
       ),
     );
   }
 
   Future<void> _showVop(BuildContext context) async {
-    await _showLegalFromSupabase(context, 'vop', 'Všeobecné obchodní podmínky');
+    await showLegalDocument(context, 'vop');
   }
 
   Future<void> _showGdpr(BuildContext context) async {
-    await _showLegalFromSupabase(context, 'gdpr', 'Zpracování osobních údajů');
-  }
-
-  /// Load legal text from document_templates table in Supabase and open in WebView.
-  /// Falls back to local LegalTexts if fetch fails.
-  /// Locale-aware: prefers the translated `content_translations[lang]` /
-  /// `name_translations[lang]`, falls back to the Czech `content_html` / `name`.
-  Future<void> _showLegalFromSupabase(BuildContext ctx, String type, String fallbackTitle) async {
-    final lang = Localizations.localeOf(ctx).languageCode;
-    String title = fallbackTitle;
-    String? contentHtml;
-    try {
-      final res = await MotoGoSupabase.client
-          .from('document_templates')
-          .select('name, content_html, content_translations, name_translations')
-          .eq('type', type)
-          .eq('active', true)
-          .order('version', ascending: false)
-          .limit(1)
-          .maybeSingle();
-      if (res != null) {
-        title = _localizedName(res, lang) ?? fallbackTitle;
-        final raw = _localizedContent(res, lang);
-        if (raw.isNotEmpty) contentHtml = raw;
-      }
-    } catch (e) {
-      debugPrint('[CONTRACTS] Legal text fetch failed ($type): $e');
-    }
-
-    // Build HTML body — use DB content or fallback plain text wrapped in <p>
-    final String bodyHtml;
-    if (contentHtml != null) {
-      bodyHtml = contentHtml;
-    } else {
-      final plainText = type == 'vop' ? LegalTexts.vopSummary : LegalTexts.gdprSummary;
-      bodyHtml = '<p>${plainText.replaceAll('\n\n', '</p><p>').replaceAll('\n', '<br/>')}</p>';
-    }
-
-    if (!ctx.mounted) return;
-
-    final html = _wrapHtml(title, bodyHtml, consent: true);
-    final dataUri = 'data:text/html;charset=utf-8;base64,${base64Encode(utf8.encode(html))}';
-    Navigator.of(ctx).push(MaterialPageRoute(
-      builder: (_) => DocWebViewScreen(url: dataUri, title: title),
-    ));
+    await showLegalDocument(context, 'gdpr');
   }
 
   /// Show a translated document-template *sample* (vzor) — damage protocol.
-  /// Reads the localized template from `document_templates`; if none
-  /// is available yet, shows a short notice instead of a wrong fallback.
-  Future<void> _showTemplateSample(BuildContext ctx, String type, String fallbackTitle) async {
+  /// Text přes [loadLegalDoc]: čerstvý překlad, jinak závazná čeština s
+  /// poznámkou; nadpis vždy z lokalizovaného UI (DB názvy bývají česky).
+  Future<void> _showTemplateSample(BuildContext ctx, String type, String title) async {
     final lang = Localizations.localeOf(ctx).languageCode;
-    String title = fallbackTitle;
-    String contentHtml = '';
-    try {
-      final res = await MotoGoSupabase.client
-          .from('document_templates')
-          .select('name, content_html, content_translations, name_translations')
-          .eq('type', type)
-          .eq('active', true)
-          .order('version', ascending: false)
-          .limit(1)
-          .maybeSingle();
-      if (res != null) {
-        // Vzor (bez konkrétní rezervace): preferuj přeložený název šablony;
-        // když překlad chybí, použij UŽ lokalizovaný UI titulek (NE český DB
-        // `name`, jinak má cizojazyčná appka český nadpis „Předávací protokol").
-        final tn = res['name_translations'];
-        if (tn is Map && tn[lang] is String && (tn[lang] as String).trim().isNotEmpty) {
-          title = (tn[lang] as String).trim();
-        }
-        // Nevyplněné {{placeholdery}} (vzor nemá data rezervace) nahraď prázdným
-        // polem — ať se zákazníkovi nezobrazují syrové značky „{{customer_name}}".
-        contentHtml = _stripPlaceholders(_localizedContent(res, lang));
-      }
-    } catch (e) {
-      debugPrint('[CONTRACTS] Template sample fetch failed ($type): $e');
-    }
-
-    final bodyHtml = contentHtml.isNotEmpty
-        ? contentHtml
-        : '<p>${ctx.mounted ? t(ctx).tr('noOtherDocs') : ''}</p>';
+    final tr = t(ctx);
+    final doc = await loadLegalDoc(type, lang);
+    final bodyHtml = doc == null
+        ? legalMessageHtml(tr.tr('legalLoadFailed'))
+        // Nevyplněné {{placeholdery}} (vzor nemá data rezervace) nahraď
+        // prázdným polem — ať se nezobrazují syrové značky „{{customer_name}}".
+        : legalNoticeHtml(tr, doc.kind) + _stripPlaceholders(doc.html);
 
     if (!ctx.mounted) return;
-    final html = _wrapHtml(title, bodyHtml);
+    final html = wrapDocHtml(title, bodyHtml);
     final dataUri = 'data:text/html;charset=utf-8;base64,${base64Encode(utf8.encode(html))}';
     Navigator.of(ctx).push(MaterialPageRoute(
       builder: (_) => DocWebViewScreen(url: dataUri, title: title),
     ));
-  }
-
-  /// Pick the localized template name (`name_translations[lang]`) or the CZ `name`.
-  String? _localizedName(Map<String, dynamic> row, String lang) {
-    final tr = row['name_translations'];
-    if (tr is Map && tr[lang] is String && (tr[lang] as String).trim().isNotEmpty) {
-      return (tr[lang] as String).trim();
-    }
-    final name = row['name'];
-    return name is String && name.trim().isNotEmpty ? name.trim() : null;
-  }
-
-  /// Pick the localized template HTML (`content_translations[lang]`) or CZ `content_html`.
-  String _localizedContent(Map<String, dynamic> row, String lang) {
-    final tr = row['content_translations'];
-    if (tr is Map && tr[lang] is String && (tr[lang] as String).trim().isNotEmpty) {
-      return (tr[lang] as String).trim();
-    }
-    final raw = row['content_html'];
-    return raw is String ? raw.trim() : '';
   }
 
   /// Open contract/protocol — REÁLNÝ dokument 1:1 (podepsané HTML z
@@ -231,7 +144,8 @@ class ContractsScreen extends ConsumerWidget {
   /// dat rezervace; protokol NIKDY (šablona není vyplněný protokol — zadání
   /// majitele 2026-09-29) → hláška.
   Future<void> _openDoc(BuildContext context, UserDocument doc) async {
-    final title = doc.name ?? doc.typeLabel;
+    final tr = t(context);
+    final title = docDisplayTitle(tr, doc);
     debugPrint('[CONTRACTS] Opening doc: id=${doc.id}, type=${doc.type}, bookingId=${doc.bookingId}');
 
     // Historický záznam přímo z generated_documents → otevři PŘESNĚ tento
@@ -260,22 +174,10 @@ class ContractsScreen extends ConsumerWidget {
       return;
     }
 
-    // Fetch template from document_templates
+    // Šablona v jazyce appky: čerstvý překlad, jinak závazná čeština s
+    // poznámkou (nikdy zastaralý překlad) — viz [loadLegalDoc].
     final dbType = _docTypeToTemplateType(doc.type);
-    String? templateHtml;
-    try {
-      final tplRes = await MotoGoSupabase.client
-          .from('document_templates')
-          .select('content_html')
-          .eq('type', dbType)
-          .eq('active', true)
-          .order('version', ascending: false)
-          .limit(1)
-          .maybeSingle();
-      templateHtml = tplRes?['content_html'] as String?;
-    } catch (e) {
-      debugPrint('[CONTRACTS] Template fetch failed: $e');
-    }
+    final tpl = await loadLegalDoc(dbType, tr.lang);
 
     // Fetch booking data if available
     Map<String, String> vars = _companyVars();
@@ -287,25 +189,23 @@ class ContractsScreen extends ConsumerWidget {
             .eq('id', doc.bookingId!)
             .maybeSingle();
         if (bRes != null) {
-          vars = _buildVars(bRes);
+          vars = _buildVars(bRes, tr);
         }
       } catch (e) {
         debugPrint('[CONTRACTS] Booking data fetch failed: $e');
       }
     }
 
-    // Build HTML body
-    String bodyHtml;
-    if (templateHtml != null && templateHtml.isNotEmpty) {
-      bodyHtml = _replacePlaceholders(templateHtml, vars);
-    } else {
-      bodyHtml = _fallbackHtml(doc.type, vars);
-    }
+    // Bez šablony (offline / chyba) žádná improvizovaná česká smlouva —
+    // lokalizovaná hláška, že dokument zatím není k dispozici.
+    final bodyHtml = tpl == null
+        ? legalMessageHtml(tr.tr('docNotAvailableYet'))
+        : legalNoticeHtml(tr, tpl.kind) + _replacePlaceholders(tpl.html, vars);
 
     if (!context.mounted) return;
 
     // Render HTML in WebView via data URI
-    final html = _wrapHtml(title, bodyHtml);
+    final html = wrapDocHtml(title, bodyHtml);
     final dataUri = 'data:text/html;charset=utf-8;base64,${base64Encode(utf8.encode(html))}';
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => DocWebViewScreen(url: dataUri, title: title),
@@ -329,11 +229,11 @@ class ContractsScreen extends ConsumerWidget {
   };
 
   /// Build all placeholder vars from booking + moto + profile data.
-  Map<String, String> _buildVars(Map<String, dynamic> b) {
+  Map<String, String> _buildVars(Map<String, dynamic> b, AppTranslations tr) {
     final m = b['motorcycles'] as Map<String, dynamic>?;
     final p = b['profiles'] as Map<String, dynamic>?;
 
-    final motoName = m?['model'] as String? ?? 'Motorka';
+    final motoName = m?['model'] as String? ?? tr.motorcycle;
     final pName = p?['full_name'] as String? ?? '—';
     final pStreet = p?['street'] as String? ?? '';
     final pCity = p?['city'] as String? ?? '';
@@ -399,7 +299,7 @@ class ContractsScreen extends ConsumerWidget {
           : (isLegacyAllDayPickupTime(storedPickup) ? '' : storedPickup),
       'end_time': '24:00',
       'days': '$days',
-      'rental_period': '${fmtDate(startDate)} — ${fmtDate(endDate)} ($days dní)',
+      'rental_period': '${fmtDate(startDate)} — ${fmtDate(endDate)} ($days ${tr.daysWord(days)})',
       'total_price': '${totalPrice.round()}',
       'total_price_words': '',
       'daily_rate': '$dailyRate',
@@ -440,43 +340,35 @@ class ContractsScreen extends ConsumerWidget {
     }
     return result;
   }
+}
 
-  /// Fallback HTML when no template available.
-  String _fallbackHtml(String type, Map<String, String> v) {
-    if (type == 'protocol') {
-      return '<h3>Předávací protokol</h3>'
-          '<p><strong>${v['company_name']}</strong></p>'
-          '<p><strong>${v['customer_name']}</strong></p>'
-          '<p>Motorka: ${v['moto_model']}</p>'
-          '<p>SPZ: ${v['moto_spz']}</p>'
-          '<p>Datum převzetí: ${v['start_date']}</p>'
-          '<p>Datum vrácení: ${v['end_date']}</p>';
-    }
-    return '<h3>Nájemní smlouva</h3>'
-        '<p><strong>Pronajímatel:</strong> ${v['company_name']}, ${v['company_address']}, IČ: ${v['company_ico']}</p>'
-        '<p><strong>Nájemce:</strong> ${v['customer_name']}, ${v['customer_address']}, ŘP: ${v['customer_license']}</p>'
-        '<h4>Předmět nájmu</h4>'
-        '<p>${v['moto_model']}, SPZ: ${v['moto_spz']}, VIN: ${v['moto_vin']}</p>'
-        '<p>Období: ${v['rental_period']}</p>'
-        '<h4>Cena</h4>'
-        '<p>Celkem: ${v['total_price']} Kč</p>';
-  }
+/// Otevře VOP / GDPR ([slug] = `vop` | `gdpr`) v jazyce appky: čerstvý překlad
+/// s poznámkou, že závazné je české znění, jinak závazná čeština s poznámkou,
+/// že překlad zatím není. Offline → lokalizovaná hláška (dřív zastaralé české
+/// shrnutí se špatnými údaji o spoluúčasti a pojištění).
+Future<void> showLegalDocument(BuildContext ctx, String slug) async {
+  final tr = t(ctx);
+  final title = tr.tr(slug == 'gdpr' ? 'dataProcessing' : 'termsOfService');
+  final doc = await loadLegalDoc(slug, tr.lang);
+  final bodyHtml = doc == null
+      ? legalMessageHtml(tr.tr('legalLoadFailed'))
+      : legalNoticeHtml(tr, doc.kind) + doc.html;
+  if (!ctx.mounted) return;
+  final html = wrapDocHtml(title, bodyHtml,
+      consentNote: doc == null ? null : tr.tr('consentGivenAtBooking'));
+  final dataUri = 'data:text/html;charset=utf-8;base64,${base64Encode(utf8.encode(html))}';
+  Navigator.of(ctx).push(MaterialPageRoute(
+    builder: (_) => DocWebViewScreen(url: dataUri, title: title),
+  ));
+}
 
-  /// Wrap body HTML in a full HTML document with basic styling.
-  /// Patička „Souhlas udělen při rezervaci (zaškrtnutím podmínek)“ JEN u VOP/GDPR
-  /// (`consent`) — u protokolů/smluv neplatí (podpis je elektronický na kiosku /
-  /// ve Velíně / v appce; zadání majitele 2026-09-29).
-  String _wrapHtml(String title, String body, {bool consent = false}) => '''<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-body{font-family:system-ui,-apple-system,sans-serif;padding:16px;color:#1A2E22;font-size:13px;line-height:1.6}
-h3{font-size:16px;font-weight:900;margin:0 0 12px}
-h4{font-size:13px;font-weight:800;margin:16px 0 6px}
-p{margin:4px 0}
-</style></head><body>$body${consent ? '''
-<div style="margin-top:14px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:11px;color:#1a8a18;font-weight:700;">
-&#10003; Souhlas udělen při rezervaci (zaškrtnutím podmínek)</div>''' : ''}
-</body></html>''';
+/// Nadpis dokumentu podle TYPU v jazyce appky. České názvy z DB
+/// (`generated_documents.doc_name`, `documents.file_name`) slouží jen jako
+/// název souboru — v cizojazyčné appce byly nadpisy česky.
+String docDisplayTitle(AppTranslations tr, UserDocument d) {
+  final key = d.typeKey;
+  if (key != null) return tr.tr(key);
+  return d.name ?? d.type;
 }
 
 class _DocTile extends StatelessWidget {

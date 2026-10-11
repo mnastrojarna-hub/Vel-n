@@ -211,7 +211,7 @@ class EditExtrasSection extends StatelessWidget {
               fontWeight: checked ? FontWeight.w700 : FontWeight.w400,
               color: checked ? MotoGoColors.greenDark : MotoGoColors.g400)),
           ])),
-          Text(_gearFree ? 'ZDARMA' : '+${Money.czk(price)}',
+          Text(_gearFree ? t(context).tr('gearFree').toUpperCase() : '+${Money.czk(price)}',
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.greenDark)),
         ])),
     );
@@ -328,7 +328,7 @@ class EditExtrasSection extends StatelessWidget {
       Row(children: [
         Text(t(context).tr('rider'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.greenDarker)),
         const SizedBox(width: 6),
-        const Text('· zdarma', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
+        Text('· ${t(context).tr('gearFree').toLowerCase()}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
         const Spacer(),
         GestureDetector(
           onTap: () => onOwnGearChanged(!ownGear),

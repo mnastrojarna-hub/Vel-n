@@ -61,9 +61,9 @@ class UpsellSection extends ConsumerWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Z e-shopu MotoGo24',
-                    style: TextStyle(
+                  Text(
+                    t(context).tr('upsellFromShop'),
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: MotoGoColors.g400,
@@ -171,7 +171,7 @@ class _ProductTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        product.name,
+                        product.nameFor(t(context).lang),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -219,9 +219,9 @@ class _ProductTile extends StatelessWidget {
             // Inline size picker (visible when product needs size)
             if (product.needsSize) ...[
               const SizedBox(height: 6),
-              const Text(
-                'Velikost:',
-                style: TextStyle(
+              Text(
+                '${t(context).tr('sizeLabel')}:',
+                style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: MotoGoColors.g400,

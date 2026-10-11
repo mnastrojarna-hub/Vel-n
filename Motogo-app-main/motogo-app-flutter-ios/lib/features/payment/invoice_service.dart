@@ -1,3 +1,5 @@
+import '../../core/i18n/app_lang.dart';
+import '../../core/i18n/i18n_provider.dart' show lastKnownAppLang;
 import '../../core/supabase_client.dart';
 
 /// Invoice generation service — mirrors generate-invoice + generate-document
@@ -39,18 +41,31 @@ class InvoiceService {
     } catch (_) {}
   }
 
-  /// Generate booking documents (contract + VOP + handover protocol).
-  static Future<void> generateBookingDocs(
-    String bookingId, [
-    bool regenerate = false,
-  ]) async {
+  /// Smlouva + VOP k rezervaci v JAZYCE REZERVACE (`bookings.language`).
+  /// Edge `generate-document` bere jeden dokument na volání
+  /// ({template_slug, booking_id, language}) — dřívější `{types: [...]}` vracel
+  /// 400 a dokumenty nevznikaly. Předávací protokol se z šablony negeneruje
+  /// (jen reálně podepsaný elektronický — zadání majitele 2026-09-29).
+  static Future<void> generateBookingDocs(String bookingId, {String? fallbackLang}) async {
+    var lang = normalizeAppLang(fallbackLang ?? lastKnownAppLang);
     try {
-      await MotoGoSupabase.client.functions.invoke('generate-document', body: {
-        'booking_id': bookingId,
-        'types': ['rental_contract', 'vop', 'handover_protocol'],
-        'regenerate': regenerate,
-      });
-    } catch (_) {}
+      final row = await MotoGoSupabase.client
+          .from('bookings')
+          .select('language')
+          .eq('id', bookingId)
+          .maybeSingle();
+      final l = row?['language'] as String?;
+      if (l != null && l.isNotEmpty) lang = normalizeAppLang(l);
+    } catch (_) {/* jazyk appky */}
+    for (final slug in const ['rental_contract', 'vop']) {
+      try {
+        await MotoGoSupabase.client.functions.invoke('generate-document', body: {
+          'template_slug': slug,
+          'booking_id': bookingId,
+          'language': lang,
+        });
+      } catch (_) {}
+    }
   }
 
   /// Generate cancellation receipt with refund info.

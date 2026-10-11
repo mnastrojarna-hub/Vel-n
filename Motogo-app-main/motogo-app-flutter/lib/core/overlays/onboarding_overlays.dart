@@ -175,7 +175,7 @@ class _PermissionOverlayState extends State<PermissionOverlay> {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Material(
       color: MotoGoColors.black.withValues(alpha: 0.97),
       child: SafeArea(

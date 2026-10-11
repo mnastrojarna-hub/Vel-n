@@ -3,6 +3,7 @@ import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../payment/booking_upsell_provider.dart';
 import '../booking_models.dart';
+import '../../loyalty/rank_names.dart';
 import '../price_calculator.dart';
 import '../../../core/currency.dart';
 
@@ -27,6 +28,7 @@ class PriceSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tr = t(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -42,14 +44,15 @@ class PriceSummaryCard extends StatelessWidget {
 
           // Base price
           _PriceRow(
-            label: 'Motorka × ${breakdown.days} ${_dayWord(breakdown.days)}',
+            label: '${tr.motorcycle} × ${breakdown.days} ${tr.daysWord(breakdown.days)}',
             value: '${Money.czk(breakdown.basePrice)}',
           ),
 
           // Individual extras (each item separately)
           for (final extra in extras)
             _PriceRow(
-              label: '${extra.name}${extra.size != null ? ' (vel. ${extra.size})' : ''}',
+              label: '${extraLabel(tr.tr, extra.id, extra.name)}'
+                  '${extra.size != null ? ' (${tr.tr('sizeLabel').toLowerCase()} ${extra.size})' : ''}',
               // Od [loyaltyFreeGearLevel] je gear za 0 Kč → „Zdarma".
               value: extra.price == 0
                   ? t(context).tr('gearFree')
@@ -80,7 +83,7 @@ class PriceSummaryCard extends StatelessWidget {
           // Discount (promo kód / voucher)
           if (breakdown.discountTotal > 0)
             _PriceRow(
-              label: 'Sleva',
+              label: tr.tr('discountLabel'),
               value: '−${Money.czk(breakdown.discountTotal)}',
               valueColor: MotoGoColors.greenDarker,
               valueBold: true,
@@ -98,7 +101,7 @@ class PriceSummaryCard extends StatelessWidget {
           // Věrnostní sleva (ranky) — JEN pro rezervace v aplikaci
           if (breakdown.loyaltyDiscount > 0) ...[
             _PriceRow(
-              label: '★ ${t(context).tr('loyaltyDiscountLabel').replaceAll('{rank}', breakdown.loyaltyRankName ?? '').replaceAll('{pct}', '${breakdown.loyaltyPercent}')}',
+              label: '★ ${tr.tr('loyaltyDiscountLabel').replaceAll('{rank}', localizedRankName(tr, breakdown.loyaltyLevel, breakdown.loyaltyRankName ?? '')).replaceAll('{pct}', '${breakdown.loyaltyPercent}')}',
               value: '−${Money.czk(breakdown.loyaltyDiscount)}',
               valueColor: MotoGoColors.greenDarker,
               valueBold: true,
@@ -113,9 +116,9 @@ class PriceSummaryCard extends StatelessWidget {
           ],
 
           // Deposit note
-          const _PriceRow(
-            label: '✓ Záloha se neúčtuje',
-            value: '0 Kč',
+          _PriceRow(
+            label: tr.tr('depositNotChargedCheck'),
+            value: Money.czk(0),
             subtle: true,
           ),
 
@@ -129,9 +132,9 @@ class PriceSummaryCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Celkem (cena konečná)',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.black),
+              Text(
+                tr.totalFinal,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: MotoGoColors.black),
               ),
               Text(
                 '${Money.czk(_totalWithUpsell)}',
@@ -141,9 +144,9 @@ class PriceSummaryCard extends StatelessWidget {
           ),
 
           const SizedBox(height: 4),
-          const Text(
-            'Cena bez DPH, nejsme plátci',
-            style: TextStyle(fontSize: 9, color: MotoGoColors.g400),
+          Text(
+            tr.tr('priceVatNote'),
+            style: const TextStyle(fontSize: 9, color: MotoGoColors.g400),
           ),
         ],
       ),
@@ -159,12 +162,6 @@ class PriceSummaryCard extends StatelessWidget {
       }
     }
     return prefix;
-  }
-
-  String _dayWord(int n) {
-    if (n == 1) return 'den';
-    if (n < 5) return 'dny';
-    return 'dní';
   }
 }
 

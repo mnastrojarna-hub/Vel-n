@@ -26,7 +26,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normLang, siteUrl } from '../_shared/agent-knowledge/site-url.ts'
-import { formatOpeningHours, branchModeCs } from '../_shared/agent-knowledge/branch-facts.ts'
+import { branchModeCs, branchPublicFieldsEn } from '../_shared/agent-knowledge/branch-facts.ts'
 import { LANG_ENUM, keyFacts, dbFaq, foreignTravelCs, factsMarkdown } from './facts.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -348,13 +348,8 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
       if (error) throw new Error(error.message)
       // Neaktivní / zavřená pobočka se nikde nenabízí (stejně jako web a AI agent).
       const branches = (data || []).filter((b: Record<string, unknown>) => b.active !== false && b.is_open !== false)
-        .map((b: Record<string, unknown>) => ({
-          ...b,
-          // Čitelně (jsonb opening_hours) + režim; obě pobočky NONSTOP (majitel 2026-10-10).
-          opening_hours_text: b.type === 'samoobslužná' ? 'NONSTOP (0–24 h, self-service with access code)' : (formatOpeningHours(b.opening_hours) || 'NONSTOP (0–24 h, handover by staff at the booked time)'),
-          mode: b.type === 'samoobslužná' ? 'self-service (24/7 access code, no staff)' : b.type === 'obslužná' ? 'staffed (handover by staff at the booked time, nonstop)' : null,
-          mode_cs: branchModeCs(b.type),
-        }))
+        // Čitelně (jsonb opening_hours) + režim; obě pobočky NONSTOP (majitel 2026-10-10).
+        .map((b: Record<string, unknown>) => ({ ...b, ...branchPublicFieldsEn(b), mode_cs: branchModeCs(b.type) }))
       return { count: branches.length, branches }
     }
 
@@ -404,8 +399,8 @@ async function readResource(uri: string): Promise<{ uri: string; mimeType: strin
     return { uri, mimeType: 'application/json', text: JSON.stringify(motos) }
   }
   if (uri === 'motogo://branches') {
-    const { data } = await sb.from('branches').select('*')
-    const branches = (data || []).filter((b: Record<string, unknown>) => b.active !== false && b.is_open !== false)
+    // Stejná data jako tool (režim + čitelná provozní doba), ne syrový jsonb opening_hours.
+    const { branches } = await execTool('motogo_get_branches', {}) as { branches: unknown[] }
     return { uri, mimeType: 'application/json', text: JSON.stringify(branches) }
   }
   if (uri === 'motogo://faq') {

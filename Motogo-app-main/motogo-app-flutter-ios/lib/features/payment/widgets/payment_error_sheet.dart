@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme.dart';
+import '../../../core/i18n/i18n_provider.dart';
 
 /// Persistent bottom sheet for payment errors — stays visible until
 /// the user taps the action button. Each error scenario gets a specific
@@ -163,9 +164,9 @@ class _ErrorSheetContent extends StatelessWidget {
 
             // Support contact
             const SizedBox(height: 16),
-            const Text(
-              'Pot\u0159ebujete pomoc? Napi\u0161te n\u00e1m na info@motogo24.cz',
-              style: TextStyle(
+            Text(
+              t(context).tr('paymentHelpLine'),
+              style: const TextStyle(
                 fontSize: MotoGoTypo.sizeSm,
                 fontWeight: MotoGoTypo.w500,
                 color: MotoGoColors.g400,

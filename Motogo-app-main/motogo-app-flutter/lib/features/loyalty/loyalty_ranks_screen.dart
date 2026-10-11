@@ -29,6 +29,8 @@ class LoyaltyRanksScreen extends ConsumerWidget {
     final status = ref.watch(loyaltyStatusProvider).valueOrNull;
     final levelsAsync = ref.watch(loyaltyLevelsProvider);
     String tr(String key) => t(context).tr(key);
+    // Pozor: níže je lokální `t` (animace) — překlady přes `trs`.
+    final trs = t(context);
 
     return Scaffold(
       backgroundColor: MotoGoColors.gradientTop,
@@ -252,7 +254,7 @@ class _HeroState extends State<_Hero> with SingleTickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  _rankName(s?.rankNameFor(t(context)) ?? localizedRankName(t(context), 1, 'Startér'), color, isLegend),
+                  _rankName(s?.rankNameFor(trs) ?? localizedRankName(trs, 1, 'Startér'), color, isLegend),
                   const SizedBox(height: 8),
                   // Velké procento slevy (count-up).
                   _rankName('$pct %', color, isLegend, big: true),
@@ -294,7 +296,7 @@ class _HeroState extends State<_Hero> with SingleTickerProviderStateMixin {
                             ? tr('loyaltyMaxRank')
                             : tr('loyaltyNextRank')
                                 .replaceAll('{n}', '${s.bookingsToNext}')
-                                .replaceAll('{next}', s.nextRankNameFor(t(context))!)
+                                .replaceAll('{next}', s.nextRankNameFor(trs)!)
                                 .replaceAll('{pct}', '${s.nextPercent ?? ''}')),
                     textAlign: TextAlign.center,
                     style: const TextStyle(

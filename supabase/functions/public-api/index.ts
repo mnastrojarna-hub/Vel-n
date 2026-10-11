@@ -26,6 +26,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normLang, siteUrl } from '../_shared/agent-knowledge/site-url.ts'
+import { branchPublicFieldsEn } from '../_shared/agent-knowledge/branch-facts.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -202,6 +203,8 @@ async function handleBranches(): Promise<Response> {
   if (error) return jsonResponse({ error: error.message }, 500)
   // Neaktivní / zavřená pobočka se nikde nenabízí (stejně jako web a AI agent).
   const branches = (data || []).filter((b: Record<string, unknown>) => b.active !== false && b.is_open !== false)
+    // + mode / opening_hours_text (čitelně; obě pobočky NONSTOP — majitel 2026-10-10), syrová pole beze změny
+    .map((b: Record<string, unknown>) => ({ ...b, ...branchPublicFieldsEn(b) }))
   return jsonResponse({ count: branches.length, branches })
 }
 

@@ -23,7 +23,18 @@ export function formatOpeningHours(oh: unknown): string | null {
     const all = o.all ?? o.default
     return all != null ? formatOpeningHours(String(all)) : null
   }
-  return days.map((d) => `${DAY_CS[d]} ${String(o[d]).replace(/^closed$/i, 'zavřeno')}`).join(', ')
+  return days.map((d) => `${DAY_CS[d]} ${dayText(o[d])}`).join(', ')
+}
+
+// Hodnota dne: 'HH:MM-HH:MM' | 'closed' | {open, close} | cokoli jiného (nikdy „[object Object]")
+function dayText(v: unknown): string {
+  if (v && typeof v === 'object') {
+    const r = v as Record<string, unknown>
+    if (r.closed === true) return 'zavřeno'
+    if (r.open != null || r.close != null) return `${r.open ?? '?'}-${r.close ?? '?'}`
+    try { return JSON.stringify(v) } catch { return '?' }
+  }
+  return String(v).replace(/^closed$/i, 'zavřeno')
 }
 
 /** Text režimu pobočky pro tooly a snapshoty (dle typu + majitelova fakta 2026-10-10). */
@@ -36,6 +47,16 @@ export function branchModeCs(type: unknown): string {
 }
 
 export const BRANCHES_TOOL_NOTICE_CS = 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky (`mode` ho shrnuje). OBĚ pobočky fungují NONSTOP (potvrzeno majitelem): "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně v čase z rezervace (kdykoli 0–24 h). Nikdy neuváděj zavírací dny ani hodiny, které nejsou v `opening_hours_text`. Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), doporučuje se ale (urychlí odbavení, zvlášť při více odjezdech najednou). NIKDY netvrď, že výdej je VŠUDE samoobslužný, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — u OBSLUŽNÉ pobočky proběhne výdej nejdřív 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje), tam neslibuj okamžité vyzvednutí. U SAMOOBSLUŽNÉ pobočky se volí jen čas VYZVEDNUTÍ (hodina předem potřeba není, rezervovat lze i na dnešek) — čas vrácení ne (vrací se kdykoli poslední den do 24:00). Vyzvednutí od 12:00 při výpůjčce 2+ dny = sleva 50 % na 1. den, ale kiosk takovou rezervaci (motorku i šatnu) vydá až od 12:00 v den začátku; kdo ji potřebuje dřív, změní v Upravit rezervaci (web/appka) čas vyzvednutí na dřívější — sleva zanikne, rozdíl doplatí a kód platí hned. U přistavení platí čas min. aktuální + 6 h. Vrácení: tankovat není potřeba; umýt motorku je nutné jen na samoobslužné pobočce.'
+
+/** Pole pro externí kanály (MCP, public API) anglicky: režim + čitelná provozní doba (obě NONSTOP). */
+export function branchPublicFieldsEn(b: Record<string, unknown>): { mode: string | null; opening_hours_text: string } {
+  const self = b.type === 'samoobslužná'
+  return {
+    mode: self ? 'self-service (24/7 access code, no staff)' : b.type === 'obslužná' ? 'staffed (handover by staff at the booked time, nonstop)' : null,
+    opening_hours_text: self ? 'NONSTOP (0–24 h, self-service with access code)'
+      : (formatOpeningHours(b.opening_hours) || 'NONSTOP (0–24 h, handover by staff at the booked time)'),
+  }
+}
 
 /** Implementace toolu get_branches (web agent i agent v appce). */
 export async function getBranchesTool(sb: SupabaseClient): Promise<unknown> {

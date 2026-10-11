@@ -39,21 +39,20 @@ class UserDocument {
   String? get storagePath => filePath;
   String? get name => fileName;
 
-  // TODO: Move typeLabel to UI layer where BuildContext is available,
-  // then use i18n keys: docContract, docProformaInvoice, docPaymentReceipt,
-  // docFinalInvoice, docHandoverProtocol.
-  String get typeLabel => switch (type) {
-    'contract' => '📄 Smlouva',
-    'vop' => '📋 VOP',
-    'invoice_advance' => '🧾 Zálohová faktura',
-    'payment_receipt' => '💰 Doklad k platbě',
-    'invoice_final' => '🧾 Konečná faktura',
-    'protocol' => '📝 Předávací protokol',
-    'protocol_damage' => '⚠️ Protokol o poškození',
-    'id_card' => '🪪 Občanský průkaz',
-    'drivers_license' => '🏍️ Řidičský průkaz',
-    'passport' => '📕 Pas',
-    _ => '📄 $type',
+  /// i18n klíč nadpisu podle typu dokumentu (UI: `t(context).tr(typeKey)`).
+  /// null = neznámý typ → UI ukáže název souboru.
+  String? get typeKey => switch (type) {
+    'contract' => 'rentalContract',
+    'vop' => 'termsOfService',
+    'invoice_advance' => 'docProformaInvoice',
+    'payment_receipt' => 'docPaymentReceipt',
+    'invoice_final' => 'docFinalInvoice',
+    'protocol' => 'docHandoverProtocol',
+    'protocol_damage' => 'damageProtocol',
+    'id_card' => 'idCard',
+    'drivers_license' => 'driversLicense',
+    'passport' => 'passport',
+    _ => null,
   };
 }
 
@@ -125,14 +124,16 @@ class UserInvoice {
     );
   }
 
-  String get typeLabel => switch (type) {
-    'proforma' || 'advance' => 'Zálohová faktura',
-    'final' => 'Konečná faktura',
-    'shop_final' => 'Shop faktura',
-    'shop_proforma' => 'Shop zálohová faktura',
-    'payment_receipt' => 'Doklad k platbě',
-    'credit_note' => 'Dobropis',
-    _ => type,
+  /// i18n klíč typu dokladu (číslo dokladu má v UI přednost). Doklady samy
+  /// zůstávají česky (daňové doklady), překládá se jen popisek v appce.
+  String get typeKey => switch (type) {
+    'proforma' || 'advance' => 'docProformaInvoice',
+    'final' => 'docFinalInvoice',
+    'shop_final' => 'docShopInvoice',
+    'shop_proforma' => 'docShopProforma',
+    'payment_receipt' => 'docPaymentReceipt',
+    'credit_note' => 'docCreditNote',
+    _ => 'docInvoiceGeneric',
   };
 
   bool get isCreditNote => type == 'credit_note';
@@ -220,9 +221,10 @@ extension ScanDocTypeExt on ScanDocType {
     ScanDocType.passport => 'passport',
   };
 
-  String get label => switch (this) {
-    ScanDocType.idCard => '🪪 Občanský průkaz',
-    ScanDocType.driversLicense => '🏍️ Řidičský průkaz',
-    ScanDocType.passport => '📕 Cestovní pas',
+  /// i18n klíč názvu dokladu.
+  String get labelKey => switch (this) {
+    ScanDocType.idCard => 'idCard',
+    ScanDocType.driversLicense => 'driversLicense',
+    ScanDocType.passport => 'passport',
   };
 }

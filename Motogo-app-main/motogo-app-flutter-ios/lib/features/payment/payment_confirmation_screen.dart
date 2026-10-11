@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/supabase_client.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/i18n/server_reasons.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/booking_rules.dart';
 import '../../core/widgets/pickup_location_link.dart';
@@ -598,8 +599,9 @@ class _DocsStatusCard extends StatelessWidget {
         ? (info.isChildBike
             ? tr.tr('docsChildBikeBody')
             : tr.tr('docsVerifiedBody'))
-        : (info.missingReason?.isNotEmpty == true
-            ? '${info.missingReason}\n\n${tr.tr('docsMissingBody')}'
+        // Důvod z DB je česky → přeložit (neznámý se v cizí appce vynechá).
+        : (localizeServerReason(tr, info.missingReason) != null
+            ? '${localizeServerReason(tr, info.missingReason)}\n\n${tr.tr('docsMissingBody')}'
             : tr.tr('docsMissingBody'));
 
     return Container(
