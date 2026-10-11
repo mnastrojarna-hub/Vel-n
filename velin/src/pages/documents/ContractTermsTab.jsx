@@ -170,7 +170,8 @@ export default function ContractTermsTab() {
 
       {srcMissing && (
         <div className="p-3 rounded-card" style={{ background: '#fef3c7', border: '1px solid #fde68a', fontSize: 12, color: '#92400e' }}>
-          Evidence aktuálnosti překladů (sloupec <code>translation_src</code>) ještě není v databázi — všechny existující překlady se proto zobrazují jako zastaralé.
+          Evidence aktuálnosti překladů (sloupec <code>translation_src</code>) ještě není v databázi — všechny existující překlady se proto zobrazují jako zastaralé
+          a „Přeložit“ do té doby přeloží znovu všechny jazyky (aktuálnost se nemá kam uložit).
         </div>
       )}
 
@@ -330,7 +331,7 @@ function EditContractModal({ template, onClose, onSaved }) {
           name,
           content_html: content,
           version: newVersion,
-          updated_at: new Date().toISOString(), // tabulka nemá trigger updated_at (STATE_4)
+          updated_at: new Date().toISOString(), // trigger updated_at má tabulka až od migrace 20261011 — do té doby jen takto
           ...(updatedBy ? { updated_by: updatedBy } : {}),
         }
         // Bez .select() — vyhneme se PostgREST RETURNING přes RLS, které občas

@@ -126,7 +126,7 @@ export async function translateDocument({ table, id, target_langs, force = true 
     if (!response.ok || !data?.success) {
       return { success: false, error: data?.error || `HTTP ${response.status}`, details: data?.details }
     }
-    return { success: true, translations: data.translations || {}, errors: data.errors }
+    return { success: true, translations: data.translations || {}, errors: data.errors, skipped: data.skipped }
   } catch (e) {
     return { success: false, error: e?.message || String(e) }
   }

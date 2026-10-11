@@ -73,6 +73,8 @@ export async function translateOneLang(table, id, lang) {
     if (attempt > 1) await new Promise(r => setTimeout(r, 2500))
     const res = await translateDocument({ table, id, target_langs: [lang] })
     if (res?.success && res.translations?.[lang]) return { ok: true }
+    // Prázdný dokument (bez textu / bez PDF) — opakování nepomůže
+    if (res?.success && res.skipped === 'no_content') return { ok: false, error: 'dokument nemá obsah (text ani PDF)' }
     lastErr = (res?.errors && Object.values(res.errors)[0]) || (res?.details && Object.values(res.details)[0]) || res?.error || 'neznámá chyba'
   }
   return { ok: false, error: lastErr }

@@ -8,6 +8,8 @@ const LOOK = {
   missing: { bg: '#f1f5f4', color: '#6b7a72', text: 'chybí', title: 'Překlad neexistuje — zákazník dostane závaznou českou verzi.' },
   checking: { bg: '#f1f5f4', color: '#6b7a72', text: '…', title: 'Ověřuji aktuálnost překladu…' },
 }
+// Plný název do tooltipu — „UK“ = ukrajinština (ne angličtina UK)
+const LANG_NAME = { en: 'Angličtina', de: 'Němčina', es: 'Španělština', fr: 'Francouzština', nl: 'Nizozemština', pl: 'Polština', uk: 'Ukrajinština' }
 
 export default function TranslationStatusChips({ table, row, srcHash, busy, onTranslateLang }) {
   return (
@@ -17,7 +19,7 @@ export default function TranslationStatusChips({ table, row, srcHash, busy, onTr
         const st = translationStatus(table, row, lang, srcHash)
         const look = LOOK[st] || LOOK.checking
         return (
-          <span key={lang} title={look.title} className="inline-flex items-center gap-1 rounded-btn text-sm"
+          <span key={lang} title={`${LANG_NAME[lang] || lang} — ${look.title}`} className="inline-flex items-center gap-1 rounded-btn text-sm"
             style={{ padding: '2px 8px', background: look.bg, color: look.color }}>
             <strong>{lang.toUpperCase()}</strong>
             <span style={{ fontWeight: st === 'stale' ? 800 : 500 }}>{look.text}</span>
