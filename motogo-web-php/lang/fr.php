@@ -73,12 +73,12 @@ return [
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Location de motos',
-    'footer.aboutText' => 'Bienvenue chez Motogo24, votre <strong>location de motos à Pelhřimov</strong> ! Nous proposons la <strong>location de motos</strong> pour les locaux comme pour les touristes. Choisissez parmi notre offre de motos sportives ou enduro et réservez en ligne en trois étapes.',
+    'footer.aboutText' => 'Bienvenue chez MotoGo24, ta&nbsp;<strong>location de motos à Pelhřimov</strong> ! Nous proposons la <strong>location de motos</strong> aux habitants comme aux touristes. Choisis parmi notre large gamme de motos et réserve en ligne en trois étapes. Découvre avec nous des itinéraires à moto en République tchèque et à l\'étranger !',
     'footer.socialTitle' => 'Location de motos sur les réseaux sociaux',
     'footer.helpTitle' => 'Besoin de conseils ?',
     'footer.callUs' => 'APPELEZ-NOUS',
     'footer.companyLine1' => 'Location de motos Motogo24',
-    'footer.openHours' => 'LUN – DIM 00:00 – 24:00 (24h/24)',
+    'footer.openHours' => 'LUN - DIM 00:00 – 24:00 (retrait et restitution des motos selon ta réservation) LUN - VEN 08:00 – 17:00 (support technique)',
     'footer.openHoursIcon' => 'Heures d\'ouverture',
     'footer.copyright' => '© Location de motos Vysočina Motogo24 - tous droits réservés',
     'footer.sitemap' => 'Plan du site',
@@ -250,13 +250,13 @@ return [
     'cms.contract.description' => 'Contrat de location de moto MotoGo24 — objet de la location, durée, prix, obligations du locataire et du bailleur.',
 
     // ===== SEO meta defaults (par langue) =====
-    'seo.default.description' => 'Location de motos dans la région de Vysočina, République tchèque — motos de tourisme, sport, enduro et enfants. Location 24h/24, sans caution, équipement inclus, réservation en ligne.',
+    'seo.default.description' => 'Location de motos dans la région de Vysočina, République tchèque — motos de tourisme, roadsters, supermotards, choppers, scooters et motos pour enfants. Location 24h/24, sans caution, équipement inclus, réservation en ligne.',
     'seo.default.keywords' => 'location moto République tchèque',
     // Strukturovaná data (layout.php JSON-LD)
-    'seo.org.description' => 'Location de motos dans la région de Vysočina, République tchèque — motos routières, roadsters, supermotards, enduros et motos pour enfants. Sans caution, équipement inclus, ouvert 24h/24.',
+    'seo.org.description' => 'Location de motos dans la région de Vysočina, République tchèque — motos de tourisme, roadsters, supermotards, choppers, scooters et motos pour enfants. Sans caution, équipement inclus, ouvert 24h/24.',
     'seo.org.slogan' => 'Loue une moto sans caution. 24h/24. En ligne.',
-    'seo.service.description' => 'Location de motos dans la région de Vysočina. Location de motos de courte et longue durée en République tchèque. Motos de tourisme, roadsters, supermotards, enduros, sportives et motos pour enfants. Sans caution, équipement motard inclus, réservation en ligne avec paiement par carte, prise en charge possible 24h/24. Livraison hors agence possible, déplacements dans l\'UE autorisés, carte verte incluse.',
-    'seo.home.description' => 'Louez une moto dans la région de Vysočina. Sans caution, équipement inclus, service 24h/24. Motos de tourisme, sport, enduro et enfants. Réservation en ligne.',
+    'seo.service.description' => 'Location de motos dans la région de Vysočina. Location de motos de courte et longue durée en République tchèque. Motos de tourisme, roadsters, supermotards, choppers, scooters et motos pour enfants. Sans caution, équipement motard inclus, réservation en ligne avec paiement par carte, prise en charge possible 24h/24. Livraison hors agence possible, déplacements dans l\'UE autorisés, carte verte incluse.',
+    'seo.home.description' => 'Louez une moto dans la région de Vysočina. Sans caution, équipement inclus, service 24h/24. Motos de tourisme, roadsters, supermotards, choppers, scooters et motos pour enfants. Réservation en ligne.',
     'seo.home.keywords' => 'location moto République tchèque',
 
     // ===== Potvrzení =====
@@ -643,11 +643,14 @@ return [
     'filters.empty' => 'Selon les filtres choisis, nous n\'avons actuellement aucune moto.',
     'filters.clearFilters' => 'Effacer les filtres',
     'filters.countLine' => 'Trouvées : <strong>{count}</strong> sur {total} motos',
-    'filters.catalogLead' => 'Choisissez parmi notre offre de <strong>motos de tourisme, sportives, enduro et pour enfants</strong>. Vous pouvez filtrer par catégorie, permis de conduire, puissance, prix et autres critères.',
+    'filters.catalogLead' => 'Choisissez parmi notre offre de <strong>motos de tourisme, roadsters, supermotards, choppers, scooters et motos pour enfants</strong>. Vous pouvez filtrer par catégorie, permis de conduire, puissance, prix et autres critères.',
     'filters.aria.catalog' => 'catalogue de motos',
 
     // ===== Katalog SEO =====
-    'katalog.seo.description' => 'Catalogue de motos à louer dans la région de Vysočina. Filtre par catégorie, permis, puissance et prix. Motos de tourisme, sportives, enduro et pour enfants. Réservation en ligne.',
+    'katalog.seo.description' => 'Catalogue de motos à louer dans la région de Vysočina. Filtre par catégorie, permis, puissance et prix. Motos de tourisme, roadsters, supermotards, choppers, scooters et motos pour enfants. Réservation en ligne.',
+    'detail.metaRent' => 'Loue la {model}',
+    'detail.metaNoDeposit' => 'sans caution chez MotoGo24 {place}',
+    'detail.metaDefault' => 'équipement inclus, réservation en ligne, retrait et retour 24h/24 selon ta réservation',
     'katalog.seo.keywords' => 'location moto République tchèque',
 
     // ===== Detail motorky =====
@@ -937,7 +940,7 @@ return [
     'checkout.contact.email' => 'E-mail',
     'checkout.contact.phone' => 'Téléphone',
     'checkout.shipping.title' => 'Mode de livraison',
-    'checkout.shipping.sub' => 'Le retrait en agence est gratuit. Zásilkovna et la Poste tchèque livrent en 1 à 3 jours ouvrés.',
+    'checkout.shipping.sub' => 'Le retrait en agence est gratuit. La Poste tchèque livre en 1 à 3 jours ouvrés.',
     'checkout.shipping.pickup' => 'Retrait en agence',
     'checkout.shipping.pickupSub' => 'Mezná 9, 393 01 Pelhřimov · sur rendez-vous téléphonique',
     'checkout.shipping.post' => 'Poste tchèque — Colis en main propre',

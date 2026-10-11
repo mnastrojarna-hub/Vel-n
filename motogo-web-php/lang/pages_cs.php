@@ -1353,7 +1353,7 @@ return [
                 'address_label' => 'Adresa:',
                 'address' => 'Mezná 9, 393 01 Pelhřimov',
                 'hours_label' => 'Provozní doba:',
-                'hours' => 'PO – NE: 00:00 – 24:00 (nonstop)<br>Včetně víkendů a svátků',
+                'hours' => 'PO – NE: 00:00 – 24:00 (výdej a příjem motorek dle rezervace), včetně víkendů a svátků<br>Telefon: PO – PÁ 8:00 – 17:00',
                 'billing_title' => 'Fakturační údaje',
                 'billing_name' => 'Bc. Petra Semorádová',
                 'billing_address' => 'Mezná 9, 393 01 Pelhřimov',

@@ -14,6 +14,7 @@ $pbAll = $sb->fetchMotos();
 $pbCards = '';
 $pbHeads = [];
 $pbCounts = [];
+$pbBids = [];
 foreach (array_keys($defaults['branches']) as $i) {
     $b = pobockyBranch($C, $defaults, $i);
     $k = 'web.pobocky.branches.' . $i;
@@ -22,8 +23,9 @@ foreach (array_keys($defaults['branches']) as $i) {
     $bid = strtolower(trim(lpS($b['branch_id'] ?? '')));
     $n = count(lpFleet(pbBranchMotos($pbAll, $bid)));
     $pbCounts[] = $n;
+    $pbBids[] = $bid;
     $stats = is_array($VB['stats'] ?? null) ? $VB['stats'] : [];
-    if ($n > 0) $stats[] = ['v' => (string)$n, 'l' => $V['motos_label']];
+    if ($n > 0) $stats[] = ['v' => (string)$n, 'l' => $V['motos_label'], 'live' => $bid];
     $href = '/pobocky/' . $b['slug'];
     $pbHeads[] = [$VB['short'] ?? $b['title'], $href, $b['badge'], $cfg['self']];
     $pbCards .= pbCardHtml([
@@ -67,7 +69,7 @@ return '<main id="content" class="lp-main lp-main--page pb-main"><div class="con
     $pbPanel .
     '<section class="pb-cards" aria-labelledby="pb-cards-h"><div class="container"><h2 id="pb-cards-h" data-cms-key="web.pobocky.v2.cards_title">' . he(lpPlain($V['cards_title'])) . '</h2>' .
     '<div class="pb-cards-grid">' . $pbCards . '</div></div></section>' .
-    pbCompareHtml($V, $pbHeads, $pbCounts) .
+    pbCompareHtml($V, $pbHeads, $pbCounts, $pbBids) .
     renderLpFleet($pbAll, $TC) .
     pbCtaHtml($cta, $V, '/rezervace', '', '') .
     '</main>' .

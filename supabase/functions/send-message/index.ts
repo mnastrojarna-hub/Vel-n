@@ -147,14 +147,34 @@ serve(async (req) => {
     if (raw_body) {
       body = raw_body
     } else if (template_slug) {
-      const { data: tpl, error: tplErr } = await supabase
-        .from('message_templates')
-        .select('body_template, wa_template_id, is_marketing')
-        .eq('slug', template_slug)
-        .eq('channel', channel)
-        .eq('language', language)
-        .eq('is_active', true)
-        .maybeSingle()
+      // Šablona v jazyce zákazníka; když pro jazyk ŽÁDNÁ neexistuje (typicky uk), záložně
+      // en → cs + debug_log (dřív 404 = zákazník nedostal nic). Existuje-li v jazyce, ale je
+      // vypnutá (is_active=false), respektuje se vypnutí — žádná záloha.
+      const reqLang = String(language || 'cs').toLowerCase().slice(0, 2)
+      let tpl: { body_template?: string; wa_template_id?: string; is_marketing?: boolean } | null = null
+      let tplErr: unknown = null
+      let usedLang = reqLang
+      for (const l of [...new Set([reqLang, 'en', 'cs'])]) {
+        const { data: rows, error } = await supabase
+          .from('message_templates')
+          .select('body_template, wa_template_id, is_marketing, is_active')
+          .eq('slug', template_slug)
+          .eq('channel', channel)
+          .eq('language', l)
+        if (error) { tplErr = error; break }
+        const list = (rows || []) as Array<{ is_active?: boolean; body_template?: string; wa_template_id?: string; is_marketing?: boolean }>
+        const active = list.find((r) => r.is_active)
+        if (active) { tpl = active; usedLang = l; break }
+        if (list.length) break // šablona v jazyce existuje, ale je vypnutá → neposílat
+      }
+      if (tpl && usedLang !== reqLang) {
+        try {
+          await supabase.from('debug_log').insert({
+            source: 'send-message', action: 'sms_template_fallback', component: channel, status: 'warning',
+            request_data: { template_slug, channel, requested_language: reqLang, used_language: usedLang, booking_id: booking_id || null },
+          })
+        } catch { /* ignore */ }
+      }
 
       if (tplErr || !tpl) {
         return jsonResponse({

@@ -441,7 +441,7 @@ if (!$lpV2 && !empty($C['process']['steps']) && is_array($C['process']['steps'])
 }
 $howToSchema = '';
 if (!empty($howToSteps)) {
-    $howToSchema = '<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Jak si půjčit motorku v MotoGo24","description":"Snadný 4krokový postup — výběr motorky, online rezervace, převzetí na pobočce v Pelhřimově, jízda.","totalTime":"PT10M","estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"990"},"supply":[{"@type":"HowToSupply","name":"Řidičský průkaz odpovídající skupiny (AM/A1/A2/A nebo B)"},{"@type":"HowToSupply","name":"Občanský průkaz nebo pas"},{"@type":"HowToSupply","name":"Platební karta (Visa/Mastercard, Apple/Google Pay)"}],"tool":[{"@type":"HowToTool","name":"Online rezervační formulář"}],"step":[' . implode(',', $howToSteps) . ']}</script>';
+    $howToSchema = '<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Jak si půjčit motorku v MotoGo24","description":"Snadný 4krokový postup — výběr motorky, online rezervace, převzetí na pobočce v Pelhřimově, jízda.","totalTime":"PT10M","estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"' . ldPriceLow() . '"},"supply":[{"@type":"HowToSupply","name":' . json_encode(ldLicenseSupply(), JSON_UNESCAPED_UNICODE) . '},{"@type":"HowToSupply","name":"Občanský průkaz nebo pas"},{"@type":"HowToSupply","name":"Platební karta (Visa/Mastercard, Apple/Google Pay)"}],"tool":[{"@type":"HowToTool","name":"Online rezervační formulář"}],"step":[' . implode(',', $howToSteps) . ']}</script>';
 }
 
 // AggregateRating z reálných reviews — pokud máme aspoň 1 recenzi s ratingem.

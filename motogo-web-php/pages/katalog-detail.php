@@ -434,7 +434,8 @@ $aiPageCtx = json_encode([
     'category' => $moto['category'] ?? null,
     'license_required' => $moto['license_required'] ?? null,
     'power_kw' => $moto['power_kw'] ?? null,
-    'price_min_kc' => $moto['price_min'] ?? ($moto['price_mon'] ?? null),
+    'price_min_kc' => getMinPrice($moto) ?: null,   // sloupec price_min neexistuje — nejnižší denní cena
+    'license_groups' => motoLicenseGroups($moto),
     'status' => $moto['status'] ?? null,
     'available_today' => $isAvailableToday,
 ], JSON_UNESCAPED_UNICODE);
@@ -580,10 +581,11 @@ var CAL_I18N = {
 
 // Sdílená SEO outro sekce — Velín → Texty webu → Detail motorky
 $motoDetailDefaults = [
+    // = znění majitele ve Velíně (web.katalog_detail.outro.*, 2026-10); jazyk bez překladu ve Velínu bere lang/v2/<lang>
     'outro' => [
-        'title' => 'Půjčení motorky bez kauce a se vším všudy',
-        'body1' => 'Každou motorku v naší flotile pečlivě udržujeme — pravidelný servis, kompletní pneumatiky, plně natankovaná nádrž a vyzkoušené brzdy jsou samozřejmost. Před každým vyzvednutím motorku připravíme, prohlédneme s vámi její stav a předáme vám klíče, dokumenty a kompletní výbavu pro řidiče (helma, bunda, kalhoty a rukavice) — to vše je <strong>v ceně nájmu</strong>. Půjčujeme <strong>bez kauce</strong> a otevřeno máme <strong>nonstop</strong>, takže si motorku můžete vyzvednout i mimo standardní pracovní dobu.',
-        'body2' => 'Při rezervaci si zvolíte termín a způsob vyzvednutí — buď přímo u nás v půjčovně v Pelhřimově, nebo si necháte motorku <strong>přistavit</strong> na konkrétní adresu na Vysočině či po ČR. S motorkou můžete vyjet i do zahraničí — dostanete zelenou kartu a všechny potřebné dokumenty. Pokud byste cestou narazili na technický problém, máme nonstop SOS linku a do 24 hodin zařídíme náhradní motorku, aby vás nic nezdrželo.',
+        'title' => 'Půjčení motorky bez obav a stresu',
+        'body1' => 'Všechny motorky v naší flotile pečlivě udržujeme — pravidelný servis, kontrola pneumatik, brzd a celkového stavu stroje jsou samozřejmost. Před každým vyzvednutím motorku připravíme, prohlédneme její stav, vyfotíme a vystavíme předávací protokol.<br>Motocykly půjčujeme <strong>bez kauce (i při první rezervaci)</strong> a check-in si uděláš jednoduše <strong>online</strong> sám/sama z pohodlí domova. <strong>Rezervaci můžeš i po zaplacení dál spravovat.</strong> Potřebuješ změnit termín? Vyměnit motorku? Prodloužit výpůjčku? Není problém. Úpravy můžeš provádět opakovaně na webu v sekci <strong>Upravit rezervaci</strong> nebo ve své <strong>aplikaci</strong> MotoGo24 — a to dokonce 1 den před výpůjčkou dle VOP.',
+        'body2' => '<strong>S našimi motorkami můžeš bez obav vyrazit do zahraničí — i mimo EU!</strong> Stačí se řídit pokyny v zelené kartě. <strong>Neomezujeme ani najeté kilometry</strong>, takže nemusíš mít strach z doplatků za překročené limity — u nás žádné nenajdeš.<br>Pokud bys cestou narazil/a na jakýkoliv problém, jednoduše nás kontaktuj. <strong>Pro naše zákazníky jsme na telefonu k dispozici 24/7.</strong>',
     ],
 ];
 $MDC = $sb->siteContent('katalog_detail', $motoDetailDefaults);
@@ -651,10 +653,12 @@ if (!empty($engineParts)) {
     $vehicleProps[] = '"vehicleEngine":{"@type":"EngineSpecification",' . implode(',', $engineParts) . '}';
 }
 
-// License required (kategorie ŘP)
-if (!empty($moto['license_required'])) {
+// Skupiny ŘP (license_groups, fallback license_required). Půjčujeme od 18 let; dětské motorky ('N')
+// řidičák nepotřebují a půjčuje je dospělý → bez audience (dřív natvrdo věk A=24 / A2=18 / jinak 16).
+$ldGroups = array_values(array_diff(motoLicenseGroups($moto), ['N']));
+if ($ldGroups) {
     $vehicleProps[] = '"requiresSubscription":false';
-    $vehicleProps[] = '"audience":{"@type":"Audience","audienceType":"' . htmlspecialchars((string)$moto['license_required']) . ' driving license holders","requiredMinAge":' . ((string)$moto['license_required'] === 'A' ? 24 : ((string)$moto['license_required'] === 'A2' ? 18 : 16)) . '}';
+    $vehicleProps[] = '"audience":{"@type":"Audience","audienceType":' . json_encode(implode('/', $ldGroups) . ' driving license holders') . ',"requiredMinAge":18}';
 }
 
 // Branch info → seller
@@ -744,19 +748,22 @@ if (!empty($allImages)) {
 // byl Seobility 'meta description too short' u motorek bez DB description (jen
 // fallback ~70 znaku). Ridime se 150-180 znaky (Google snippet cap).
 $metaDescParts = [];
-$metaDescParts[] = 'Půjč si ' . ($moto['model'] ?? 'motorku');
+$metaDescParts[] = str_replace('{model}', (string)($moto['model'] ?? 'MotoGo24'), t('detail.metaRent'));
 $metaDescSpec = [];
 if (!empty($moto['engine_cc'])) $metaDescSpec[] = $moto['engine_cc'] . ' ccm';
 if (!empty($moto['power_kw']))  $metaDescSpec[] = $moto['power_kw'] . ' kW';
-if (!empty($moto['category']))  $metaDescSpec[] = $moto['category'];
+if (!empty($moto['category']))  $metaDescSpec[] = mb_strtolower(categoryLabel($moto['category']), 'UTF-8');
 if ($metaDescSpec) $metaDescParts[0] .= ' (' . implode(', ', $metaDescSpec) . ')';
-$metaDescParts[] = 'bez kauce u MotoGo24 Pelhřimov';
+// Místo = město pobočky motorky (motorky z Velkých Němčic dřív hlásily „Pelhřimov“)
+$metaDescParts[] = str_replace('{place}', trim((string)(is_array($branch) && !empty($branch['city']) ? $branch['city'] : 'Pelhřimov')), t('detail.metaNoDeposit'));
 if ($motoDesc !== '') {
-    $metaDescParts[] = trim(strip_tags($motoDesc));
+    $metaDescParts[] = trim(html_entity_decode(strip_tags($motoDesc), ENT_QUOTES | ENT_HTML5, 'UTF-8'));   // bez &amp;#039; (escapuje se jen jednou níže)
 } else {
-    $metaDescParts[] = 'výbava v ceně, online rezervace, nonstop provoz na Vysočině';
+    $metaDescParts[] = t('detail.metaDefault');
 }
-$metaDescBuilt = implode('. ', array_filter($metaDescParts)) . '.';
+// Věty za tečkou s velkým písmenem („…). Bez kauce u…“)
+$metaDescParts = array_map(function ($x) { $x = (string)$x; return mb_strtoupper(mb_substr($x, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($x, 1, null, 'UTF-8'); }, array_values(array_filter($metaDescParts)));
+$metaDescBuilt = implode('. ', $metaDescParts) . '.';
 // Seobility limit ~1000 px = ~140 znaku (Czech s diakritikou ~7 px/znak).
 // 155 znaku produkovalo 1004-1019 px (tesne nad limit) — sniženo na 140.
 $metaDescBuilt = mb_substr(preg_replace('/\s+/', ' ', $metaDescBuilt), 0, 140);
@@ -771,7 +778,7 @@ if ($kcV2) {
     $mdMeta['body_class'] = trim(($mdMeta['body_class'] ?? '') . ' md-v2');
 }
 renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, $mdMeta + [
-    'description' => htmlspecialchars($metaDescBuilt),
+    'description' => $metaDescBuilt,   // escapuje renderPage (dřív dvakrát → &amp;#039;)
     'keywords' => t('detail.descKeywords', ['model' => $moto['model'] ?? '']),
     // SEO: og:image MAX 1200px / quality 85 (Facebook/Twitter optimal). Predtim
     // raw URL z Supabase = 3-5 MB jpg (Seobility 'Large file size' issue).

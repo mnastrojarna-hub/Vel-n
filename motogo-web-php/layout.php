@@ -4,6 +4,8 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/i18n.php';
 require_once __DIR__ . '/i18n_currency.php';
+require_once __DIR__ . '/layout-ld.php';
+require_once __DIR__ . '/layout-banner.php';
 
 // Menu struktura — labels jsou klíče i18n, route zůstává stejná napříč jazyky.
 // `tc()` obalí text spanem `data-cms-key="web.layout.<key>"` jen pro adminy
@@ -524,6 +526,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
 
     $htmlLang = i18nHtmlLang();
     $ogLocale = i18nOgLocale();
+    $ld = ldBusinessJson($siteOrigin);   // fakta JSON-LD z Velína (layout-ld.php)
     echo '<!DOCTYPE html>
 <html lang="' . htmlspecialchars($htmlLang) . '" dir="ltr" prefix="og: https://ogp.me/ns#">
 <head>
@@ -586,25 +589,23 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "@id": "' . $siteOrigin . '/#organization",
         "name": "MotoGo24 — půjčovna motorek Vysočina",
         "alternateName": ["MotoGo24","Motogo24 Pelhřimov","Motopůjčovna MotoGo24","Motopůjčovna Vysočina","Motopůjčovna Pelhřimov","Půjčovna motorek Vysočina","MotoGo24 motorcycle rental"],
-        "legalName": "Bc. Petra Semorádová",
+        "legalName": ' . $ld['legalName'] . ',
         "description": ' . $ldStr(t('seo.org.description')) . ',
         "slogan": ' . $ldStr(t('seo.org.slogan')) . ',
         "url": "' . $siteOrigin . '",
         "logo": {"@type":"ImageObject","url":"' . $siteOrigin . '/gfx/logo.svg","width":512,"height":512},
         "image": "' . $siteOrigin . '/gfx/hero-banner.jpg",
-        "email": "info@motogo24.cz",
-        "telephone": "+420 774 256 271",
-        "taxID": "21874263",
-        "vatID": "CZ21874263",
+        "email": ' . $ld['email'] . ',
+        "telephone": ' . $ld['phone'] . ',
+        "taxID": ' . $ld['taxID'] . $ld['vat'] . ',
         "foundingDate": "2024-07-31",
-        "founder": {"@type":"Person","name":"Bc. Petra Semorádová"},
-        "priceRange": "990 – 5000 Kč/den",
-        "currenciesAccepted": "CZK, EUR, USD",
+        "founder": {"@type":"Person","name":' . $ld['legalName'] . '}' . $ld['priceRange'] . ',
+        "currenciesAccepted": "CZK",
         "paymentAccepted": "Credit Card, Debit Card, Apple Pay, Google Pay, Bank Transfer",
         "knowsLanguage": ["cs","en","de","es","fr","nl","pl","uk"],
         "keywords": "motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, pronájem motorek, půjčovna motocyklů, motorka bez kauce, MotoGo24",
         "address": {"@type":"PostalAddress","streetAddress":"Mezná 9","addressLocality":"Pelhřimov","postalCode":"393 01","addressRegion":"Vysočina","addressCountry":"CZ"},
-        "geo": {"@type":"GeoCoordinates","latitude":49.3464,"longitude":15.2119},
+        "geo": {"@type":"GeoCoordinates","latitude":49.3464,"longitude":15.2119}' . $ld['department'] . ',
         "hasMap": "https://mapy.cz/zakladni?q=Mezn%C3%A1%209%20Pelh%C5%99imov",
         "openingHoursSpecification": {"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"00:00","closes":"23:59"},
         "areaServed": [
@@ -620,7 +621,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
           {"@type":"Country","name":"Španělsko"}
         ],
         "contactPoint": [
-          {"@type":"ContactPoint","telephone":"+420 774 256 271","email":"info@motogo24.cz","contactType":"customer service","areaServed":["CZ","SK","AT","DE","PL","FR","BE","NL","ES"],"availableLanguage":["cs","en","de","pl","sk","fr","nl","es"]}
+          {"@type":"ContactPoint","telephone":' . $ld['phone'] . ',"email":' . $ld['email'] . ',"contactType":"customer service","hoursAvailable":{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday"],"opens":"08:00","closes":"17:00"},"areaServed":["CZ","SK","AT","DE","PL","FR","BE","NL","ES"],"availableLanguage":["cs","en","de","pl","sk","fr","nl","es"]}
         ],
         "hasOfferCatalog": {
           "@type":"OfferCatalog",
@@ -660,12 +661,9 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "availableChannel": [
           {"@type":"ServiceChannel","serviceUrl":"' . $siteOrigin . $lp('/rezervace') . '","name":"Online rezervační formulář"},
           {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api","name":"Veřejné REST API pro AI agenty a partnery"},
-          {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server","name":"MCP server (Model Context Protocol)"},
-          {"@type":"ServiceChannel","servicePhone":"+420 774 256 271","name":"Telefon (24/7)"},
-          {"@type":"ServiceChannel","serviceUrl":"https://wa.me/420774256271","name":"WhatsApp"}
+          {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server","name":"MCP server (Model Context Protocol)"}' . $ld['channels'] . '
         ],
-        "termsOfService": "' . $siteOrigin . $lp('/dokumenty/obchodni-podminky') . '",
-        "offers": {"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"990","highPrice":"5000","offerCount":50,"availability":"https://schema.org/InStock","seller":{"@id":"' . $siteOrigin . '/#organization"}}
+        "termsOfService": "' . $siteOrigin . $lp('/dokumenty/obchodni-podminky') . '"' . $ld['offers'] . '
       }
     ]
   }
@@ -707,6 +705,8 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
 ';
     // GTM/Sklik se NIKDY nevkládá přímo do HTML — banner JS je injektne
     // až po souhlasu. Viz renderConsentManager() na konci stránky.
+    // Horní pruh s oznámením (app_settings.header_banner — stejný jako v appce).
+    echo renderTopBanner();
     // Lokalizace interních odkazů (menu, footer, CMS obsah) na slug aktuálního
     // jazyka — i18nLocalizeHrefs() přepisuje jen root-relativní href="/...",
     // absolutní hreflang/switcher URL nesahá. Pro cs no-op.

@@ -87,6 +87,8 @@
 - **docs_fill_seconds** (integer, **NEW 2026-07-10**) — doba platba → doklady (rezerva pro budoucí měření).
 - **chosen_payment_method** (text, **NEW 2026-07-10**) — zvolená platební metoda na kroku 2 (`card`/`qr`), i u NEZAPLACENÝCH web rezervací (QR má i `pay_channel='qr'`; toto doplní i volbu karty, kterou jinak Velín u nezaplacené nepozná). Plní RPC `set_web_booking_chosen_method` z `_rezSubmitPayment`. Velín `WebRezervacniFunnel` + `BookingSummary` „Zvolená platba".
 
+- **language** (text NOT NULL DEFAULT 'cs') — jazyk zákazníka pro smlouvu, VOP, e-maily, SMS, předávací protokol a AI (zdroj pravdy: `detect_customer_language` čte nejdřív rezervaci). CHECK `bookings_language_check` = cs en de nl es fr pl **uk** (uk od 2026-10-11, `20261011_i18n_customer_language.sql`). Plní: appka při vložení rezervace, web + AI přes `set_booking_language` hned po vytvoření (od 2026-10-11 funkce v DB opět existuje), pojistka v `process-payment` (čerstvá nezaplacená webová rezervace z výchozí 'cs'); navazující rezervace (výměna motorky `continues_booking_id`, SOS náhrada `replacement_for_booking_id`) převezmou jazyk původní rezervace triggerem `trg_booking_inherit_language`.
+
 ### booking_complaints
 - id (uuid PK), booking_id (refs bookings), customer_id (refs profiles)
 - subject (text NOT NULL), description (text)
@@ -123,7 +125,7 @@
 - **date_of_birth** — datum narození
 - **avatar_url** — URL avataru
 - **preferred_branch** — preferovaná pobočka
-- **language** — jazyk (cs/en/de)
+- **language** — jazyk zákazníka; CHECK `profiles_language_check` = cs en de nl es fr pl **uk** (uk od 2026-10-11, `20261011_i18n_customer_language.sql`). `set_booking_language` převezme jazyk webové rezervace do ČERSTVÉHO profilu (< 2 h, dosud 'cs'), aby cron e-maily čtoucí profil šly správně.
 - **is_test_account** (boolean DEFAULT false) — testovací účet z AI tréninku
 - **is_blocked** (boolean DEFAULT false) — zákazník zablokován
 - **blocked_at** (timestamptz) — datum blokace
@@ -381,7 +383,7 @@ Servisní zakázky navázané na motorky/servisní záznamy.
 - **confirmed_at** — datum potvrzení (přidáno migrací)
 - **stripe_payment_intent_id** — Stripe Payment Intent ID (pro refundy)
 - **stripe_session_id** — Stripe Checkout Session ID
-- **language** (text NOT NULL DEFAULT 'cs') — i18n customer comms (2026-05-03)
+- **language** (text NOT NULL DEFAULT 'cs') — i18n customer comms (2026-05-03); CHECK `shop_orders_language_check` + **uk** (2026-10-11, `20261011_i18n_customer_language.sql`); nastavuje `set_shop_order_language` (web checkout.js, appka shop_provider) a `process-payment` (voucher checkout, `resolveSiteLang`)
 - created_at, updated_at
 
 ### products (nové sloupce)

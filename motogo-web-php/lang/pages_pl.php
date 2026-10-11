@@ -972,7 +972,7 @@ return [
                 'address_label' => 'Adres:',
                 'address' => 'Mezná 9, 393 01 Pelhřimov',
                 'hours_label' => 'Godziny otwarcia:',
-                'hours' => 'PN – ND: 00:00 – 24:00 (całodobowo)<br>W tym weekendy i święta',
+                'hours' => 'PN – ND: 00:00 – 24:00 (odbiór i zwrot zgodnie z rezerwacją), także w weekendy i święta<br>Telefon: PN – PT 8:00 – 17:00',
                 'billing_title' => 'Dane do faktury',
                 'billing_name' => 'Bc. Petra Semorádová',
                 'billing_address' => 'Mezná 9, 393 01 Pelhřimov',

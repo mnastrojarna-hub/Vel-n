@@ -69,12 +69,12 @@ return [
     'menu.editReservation.aria' => 'Edytuj lub anuluj rezerwację',
 
     'footer.aboutTitle' => 'Wypożyczalnia motocykli',
-    'footer.aboutText' => 'Witamy w Motogo24, twojej <strong>wypożyczalni motocykli w Pelhřimovie</strong>! Oferujemy <strong>wypożyczanie motocykli</strong> dla mieszkańców i turystów. Wybierz spośród motocykli sportowych lub enduro i zarezerwuj online w trzech krokach.',
+    'footer.aboutText' => 'Witaj w MotoGo24, twojej&nbsp;<strong>wypożyczalni motocykli w Pelhřimovie</strong>! Oferujemy <strong>wynajem motocykli</strong> dla mieszkańców i turystów. Wybierz z naszej szerokiej oferty motocykli i zarezerwuj online w trzech krokach. Odkrywaj z nami trasy motocyklowe w Czechach i za granicą!',
     'footer.socialTitle' => 'Wypożyczalnia motocykli w mediach społecznościowych',
     'footer.helpTitle' => 'Potrzebujesz porady?',
     'footer.callUs' => 'ZADZWOŃ DO NAS',
     'footer.companyLine1' => 'Wypożyczalnia motocykli Motogo24',
-    'footer.openHours' => 'PN – ND 00:00 – 24:00 (całodobowo)',
+    'footer.openHours' => 'PN - ND 00:00 – 24:00 (odbiór i zwrot motocykli zgodnie z rezerwacją) PN - PT 08:00 – 17:00 (wsparcie techniczne)',
     'footer.openHoursIcon' => 'Godziny otwarcia',
     'footer.copyright' => '© Wypożyczalnia motocykli Vysočina Motogo24 – wszelkie prawa zastrzeżone',
     'footer.sitemap' => 'Mapa strony',
@@ -238,13 +238,13 @@ return [
     'cms.contract.description' => 'Umowa najmu motocykla MotoGo24 — przedmiot najmu, czas trwania, cena, obowiązki najemcy i wynajmującego.',
 
     // ===== SEO meta defaults (na język) =====
-    'seo.default.description' => 'Wypożyczalnia motocykli w regionie Vysočina, Czechy — motocykle turystyczne, sportowe, enduro i dla dzieci. Wynajem 24/7, bez kaucji, wyposażenie w cenie, rezerwacja online.',
+    'seo.default.description' => 'Wypożyczalnia motocykli w regionie Vysočina, Czechy — motocykle turystyczne, naked, supermoto, choppery, skutery i motocykle dla dzieci. Wynajem 24/7, bez kaucji, wyposażenie w cenie, rezerwacja online.',
     'seo.default.keywords' => 'wypożyczalnia motocykli Czechy',
     // Strukturovaná data (layout.php JSON-LD)
-    'seo.org.description' => 'Wypożyczalnia motocykli w regionie Vysočina, Czechy — motocykle szosowe, naked, supermoto, enduro i dla dzieci. Bez kaucji, wyposażenie w cenie, czynne 24/7.',
+    'seo.org.description' => 'Wypożyczalnia motocykli w regionie Vysočina, Czechy — motocykle turystyczne, naked, supermoto, choppery, skutery i motocykle dla dzieci. Bez kaucji, wyposażenie w cenie, czynne 24/7.',
     'seo.org.slogan' => 'Wypożycz motocykl bez kaucji. 24/7. Online.',
-    'seo.service.description' => 'Wypożyczalnia motocykli w regionie Vysočina. Krótko- i długoterminowy wynajem motocykli w Czechach. Motocykle turystyczne, naked, supermoto, enduro, sportowe i dla dzieci. Bez kaucji, wyposażenie motocyklowe w cenie, rezerwacja online z płatnością kartą, odbiór możliwy 24/7. Możliwa dostawa poza oddział, wyjazdy do UE dozwolone, zielona karta w cenie.',
-    'seo.home.description' => 'Wypożycz motocykl w regionie Vysočina. Bez kaucji, wyposażenie w cenie, obsługa całodobowa. Motocykle turystyczne, sportowe, enduro i dla dzieci. Rezerwacja online.',
+    'seo.service.description' => 'Wypożyczalnia motocykli w regionie Vysočina. Krótko- i długoterminowy wynajem motocykli w Czechach. Motocykle turystyczne, naked, supermoto, choppery, skutery i motocykle dla dzieci. Bez kaucji, wyposażenie motocyklowe w cenie, rezerwacja online z płatnością kartą, odbiór możliwy 24/7. Możliwa dostawa poza oddział, wyjazdy do UE dozwolone, zielona karta w cenie.',
+    'seo.home.description' => 'Wypożycz motocykl w regionie Vysočina. Bez kaucji, wyposażenie w cenie, obsługa całodobowa. Motocykle turystyczne, naked, supermoto, choppery, skutery i motocykle dla dzieci. Rezerwacja online.',
     'seo.home.keywords' => 'wypożyczalnia motocykli Czechy',
 
     'confirm.titleBooking' => 'Potwierdzenie rezerwacji | MotoGo24',
@@ -628,10 +628,13 @@ return [
     'filters.empty' => 'Z wybranymi filtrami nie mamy obecnie żadnych motocykli.',
     'filters.clearFilters' => 'Wyczyść filtry',
     'filters.countLine' => 'Znaleziono <strong>{count}</strong> z {total} motocykli',
-    'filters.catalogLead' => 'Wybierz spośród naszej oferty <strong>motocykli turystycznych, sportowych, enduro i dla dzieci</strong>. Możesz filtrować według kategorii, prawa jazdy, mocy, ceny i innych parametrów.',
+    'filters.catalogLead' => 'Wybierz spośród naszej oferty <strong>motocykli turystycznych, naked, supermoto, chopperów, skuterów i motocykli dla dzieci</strong>. Możesz filtrować według kategorii, prawa jazdy, mocy, ceny i innych parametrów.',
     'filters.aria.catalog' => 'katalog motocykli',
 
-    'katalog.seo.description' => 'Katalog motocykli do wynajęcia w Vysočina. Filtr według kategorii, prawa jazdy, mocy i ceny. Motocykle turystyczne, sportowe, enduro i dla dzieci. Rezerwacja online.',
+    'katalog.seo.description' => 'Katalog motocykli do wynajęcia w Vysočina. Filtr według kategorii, prawa jazdy, mocy i ceny. Motocykle turystyczne, naked, supermoto, choppery, skutery i motocykle dla dzieci. Rezerwacja online.',
+    'detail.metaRent' => 'Wypożycz {model}',
+    'detail.metaNoDeposit' => 'bez kaucji w MotoGo24 {place}',
+    'detail.metaDefault' => 'wyposażenie w cenie, rezerwacja online, odbiór i zwrot 24/7 zgodnie z rezerwacją',
     'katalog.seo.keywords' => 'wypożyczalnia motocykli Czechy',
 
     'detail.notFoundTitle' => 'Motocykl nie znaleziony – Motogo24',
@@ -916,7 +919,7 @@ return [
     'checkout.contact.email' => 'E-mail',
     'checkout.contact.phone' => 'Telefon',
     'checkout.shipping.title' => 'Sposób dostawy',
-    'checkout.shipping.sub' => 'Odbiór osobisty jest darmowy. Zásilkovna i Poczta Czeska dostarczają w 1–3 dni robocze.',
+    'checkout.shipping.sub' => 'Odbiór osobisty jest darmowy. Poczta Czeska dostarcza w 1–3 dni robocze.',
     'checkout.shipping.pickup' => 'Odbiór osobisty',
     'checkout.shipping.pickupSub' => 'Mezná 9, 393 01 Pelhřimov · po wcześniejszym uzgodnieniu telefonicznym',
     'checkout.shipping.post' => 'Poczta Czeska — Paczka do ręki',

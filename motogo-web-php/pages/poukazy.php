@@ -34,10 +34,11 @@ $defaults = [
     'how' => [
         'title' => 'Jak poukaz využít',
         'items' => [
-            '<strong>Cestovní motorky</strong> – víkendový roadtrip po Vysočině i celé ČR.',
-            '<strong>Sportovní motorky</strong> – adrenalinová jízda v zatáčkách.',
-            '<strong>Enduro</strong> – lehký terén a dobrodružství mimo hlavní cesty.',
-            '<strong>Dětské motorky</strong> – první jízdy pro malé jezdce pod dohledem.',
+            // = znění majitele ve Velíně (web.poukazy.how.items.*, 2026-10) — kategorie, které flotila opravdu má
+            '<strong>Cestovní motorky</strong> – víkendový roadtrip po Vysočině, celé ČR i v zahraničí.',
+            '<strong>Naked motorky</strong> – dynamická jízda plná zábavy a adrenalinu.',
+            '<strong>Supermoto</strong> – adrenalinová jízda v zatáčkách. <strong>Choppery a cruisery</strong> – pohodová vyjížďka ve stylu, kde je cesta cílem.',
+            '<strong>Dětské motorky</strong> – první jízdy pro malé jezdce pod dohledem. <strong>Skútry</strong> – jednoduché svezení bez řazení, ideální na výlet po okolí.',
         ],
     ],
     'catalog_cta' => ['label' => 'ZOBRAZIT KATALOG MOTOREK', 'href' => '/katalog'],
@@ -48,12 +49,12 @@ $defaults = [
             ['q' => 'Jak poukaz doručíte?', 'a' => '<strong>Okamžitě e-mailem</strong> po úhradě. Na požádání umíme připravit i dárkový tisk v provozovně.'],
             ['q' => 'Musí obdarovaný skládat kauci?', 'a' => 'Ne. <strong>Půjčujeme bez kauce</strong>. Podmínky jsou jasné a férové, výbava řidiče je v ceně.'],
             ['q' => 'Lze změnit termín uplatnění?', 'a' => 'Ano, <strong>termín lze po domluvě změnit</strong> dle dostupnosti konkrétní motorky v našem kalendáři.'],
-            ['q' => 'Na jaké motorky lze voucher uplatnit?', 'a' => 'Na <strong>cestovní, sportovní, enduro i dětské motorky</strong> v nabídce Motogo24 – podle zvolené hodnoty poukazu.'],
+            ['q' => 'Na jaké motorky lze voucher uplatnit?', 'a' => 'Poukaz můžeš uplatnit na všechny motorky v nabídce Motogo24 – podle zvolené hodnoty poukazu.'],
         ],
     ],
     'cta' => [
         'title' => 'Dárkový poukaz na pronájem motorky – Vysočina',
-        'text' => 'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s <strong>nonstop provozem</strong>, <strong>bez kauce</strong> a <strong>výbavou v ceně</strong>. Dárkový voucher je ideální volba, jak darovat <em>motorbike rental</em> zážitek – od <strong>cestovních</strong> přes <strong>sportovní</strong> až po <strong>enduro</strong> a <strong>dětské motorky</strong>.',
+        'text' => 'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s <strong>nonstop provozem</strong>, <strong>bez kauce</strong> a <strong>výbavou v ceně</strong>. Dárkový voucher je ideální volba, jak darovat <em>motorbike rental</em> zážitek – od <strong>cestovních</strong> přes <strong>naked</strong> a <strong>supermoto</strong> až po <strong>dětské motorky, choppery</strong> nebo <strong>skútry</strong>.',
         'buttons' => [['label' => 'OBJEDNAT VOUCHER', 'href' => '/koupit-darkovy-poukaz', 'cls' => 'btndark pulse']],
     ],
 ];

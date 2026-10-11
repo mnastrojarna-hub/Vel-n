@@ -73,12 +73,12 @@ return [
 
     // Footer
     'footer.aboutTitle' => 'Motorradvermietung',
-    'footer.aboutText' => 'Willkommen bei Motogo24, Ihrer <strong>Motorradvermietung in Pelhřimov</strong>! Wir bieten <strong>Motorradverleih</strong> für Einheimische und Touristen. Wählen Sie aus unserem Angebot an Sport- und Endurorrädern und reservieren Sie online in drei Schritten.',
+    'footer.aboutText' => 'Willkommen bei MotoGo24, deiner&nbsp;<strong>Motorradvermietung in Pelhřimov</strong>! Wir bieten <strong>Motorradverleih</strong> für Einheimische und Touristen. Wähle aus unserem großen Angebot an Motorrädern und reserviere online in drei Schritten. Entdecke mit uns Motorradstrecken in Tschechien und im Ausland!',
     'footer.socialTitle' => 'Motorradvermietung in sozialen Netzwerken',
     'footer.helpTitle' => 'Brauchen Sie Beratung?',
     'footer.callUs' => 'RUFEN SIE UNS AN',
     'footer.companyLine1' => 'Motorradvermietung Motogo24',
-    'footer.openHours' => 'MO – SO 00:00 – 24:00 (rund um die Uhr)',
+    'footer.openHours' => 'MO - SO 00:00 – 24:00 (Motorradausgabe und -rückgabe laut Buchung) MO - FR 08:00 – 17:00 (technischer Support)',
     'footer.openHoursIcon' => 'Öffnungszeiten',
     'footer.copyright' => '© Motorradvermietung Vysočina Motogo24 – alle Rechte vorbehalten',
     'footer.sitemap' => 'Sitemap',
@@ -250,13 +250,13 @@ return [
     'cms.contract.description' => 'MotoGo24 Mietvertrag für Motorradverleih — Mietgegenstand, Dauer, Preis, Pflichten von Mieter und Vermieter.',
 
     // ===== SEO meta defaults (pro Sprache) =====
-    'seo.default.description' => 'Motorradvermietung in der Region Vysočina, Tschechien — Touren-, Sport-, Enduro- und Kinder-Motorräder. 24/7-Vermietung, keine Kaution, Ausrüstung inklusive, Online-Buchung.',
+    'seo.default.description' => 'Motorradvermietung in der Region Vysočina, Tschechien — Touren-, Naked-, Supermoto- und Kindermotorräder, Chopper und Roller. 24/7-Vermietung, keine Kaution, Ausrüstung inklusive, Online-Buchung.',
     'seo.default.keywords' => 'Motorradvermietung Tschechien',
     // Strukturovaná data (layout.php JSON-LD)
-    'seo.org.description' => 'Motorradvermietung in der Region Vysočina, Tschechien — Straßen-, Naked-, Supermoto-, Enduro- und Kindermotorräder. Keine Kaution, Ausrüstung inklusive, rund um die Uhr geöffnet.',
+    'seo.org.description' => 'Motorradvermietung in der Region Vysočina, Tschechien — Touren-, Naked-, Supermoto- und Kindermotorräder, Chopper und Roller. Keine Kaution, Ausrüstung inklusive, rund um die Uhr geöffnet.',
     'seo.org.slogan' => 'Leih dir ein Motorrad ohne Kaution. Rund um die Uhr. Online.',
-    'seo.service.description' => 'Motorradvermietung in der Region Vysočina. Kurz- und Langzeitmiete von Motorrädern in Tschechien. Touren-, Naked-, Supermoto-, Enduro-, Sport- und Kindermotorräder. Keine Kaution, Motorradausrüstung inklusive, Online-Buchung mit Kartenzahlung, Übernahme rund um die Uhr. Lieferung außerhalb der Filiale möglich, Fahrten in die EU erlaubt, Grüne Karte inklusive.',
-    'seo.home.description' => 'Mieten Sie ein Motorrad in der Region Vysočina. Keine Kaution, Ausrüstung im Preis, 24/7-Service. Touren-, Sport-, Enduro- und Kinder-Motorräder. Online buchen.',
+    'seo.service.description' => 'Motorradvermietung in der Region Vysočina. Kurz- und Langzeitmiete von Motorrädern in Tschechien. Touren-, Naked-, Supermoto- und Kindermotorräder, Chopper und Roller. Keine Kaution, Motorradausrüstung inklusive, Online-Buchung mit Kartenzahlung, Übernahme rund um die Uhr. Lieferung außerhalb der Filiale möglich, Fahrten in die EU erlaubt, Grüne Karte inklusive.',
+    'seo.home.description' => 'Mieten Sie ein Motorrad in der Region Vysočina. Keine Kaution, Ausrüstung im Preis, 24/7-Service. Touren-, Naked-, Supermoto- und Kindermotorräder, Chopper und Roller. Online buchen.',
     'seo.home.keywords' => 'Motorradvermietung Tschechien',
 
     // Confirm
@@ -797,11 +797,14 @@ return [
     'filters.empty' => 'Mit den gewählten Filtern sind derzeit keine Motorräder verfügbar.',
     'filters.clearFilters' => 'Filter zurücksetzen',
     'filters.countLine' => '<strong>{count}</strong> von {total} Motorrädern gefunden',
-    'filters.catalogLead' => 'Wählen Sie aus unserem Angebot an <strong>Tourer-, Sport-, Enduro- und Kindermotorrädern</strong>. Sie können nach Kategorie, Führerschein, Leistung, Preis und weiteren Parametern filtern.',
+    'filters.catalogLead' => 'Wählen Sie aus unserem Angebot an <strong>Touren-, Naked-, Supermoto- und Kindermotorrädern, Choppern und Rollern</strong>. Sie können nach Kategorie, Führerschein, Leistung, Preis und weiteren Parametern filtern.',
     'filters.aria.catalog' => 'Motorradkatalog',
 
     // Katalog SEO
-    'katalog.seo.description' => 'Motorradkatalog zur Miete in Vysočina. Filter nach Kategorie, Führerschein, Leistung und Preis. Touren-, Sport-, Enduro- und Kindermotorräder. Online-Reservierung.',
+    'katalog.seo.description' => 'Motorradkatalog zur Miete in Vysočina. Filter nach Kategorie, Führerschein, Leistung und Preis. Touren-, Naked-, Supermoto- und Kindermotorräder, Chopper und Roller. Online-Reservierung.',
+    'detail.metaRent' => 'Miete die {model}',
+    'detail.metaNoDeposit' => 'ohne Kaution bei MotoGo24 {place}',
+    'detail.metaDefault' => 'Ausrüstung inklusive, Online-Buchung, Abholung und Rückgabe rund um die Uhr laut Buchung',
     'katalog.seo.keywords' => 'Motorradvermietung Tschechien',
 
     // Detail motorky
@@ -1091,7 +1094,7 @@ return [
     'checkout.contact.email' => 'E-Mail',
     'checkout.contact.phone' => 'Telefon',
     'checkout.shipping.title' => 'Versandart',
-    'checkout.shipping.sub' => 'Abholung in der Filiale ist kostenlos. Zásilkovna und Tschechische Post liefern in 1–3 Werktagen.',
+    'checkout.shipping.sub' => 'Abholung in der Filiale ist kostenlos. Die Tschechische Post liefert in 1–3 Werktagen.',
     'checkout.shipping.pickup' => 'Abholung in der Filiale',
     'checkout.shipping.pickupSub' => 'Mezná 9, 393 01 Pelhřimov · nach telefonischer Vereinbarung',
     'checkout.shipping.post' => 'Tschechische Post — Paket in die Hand',
