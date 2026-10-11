@@ -75,7 +75,8 @@ function wordsCZ(abs: number): string {
   const thousands = Math.floor((abs % 1000000) / 1000)
   if (thousands > 0) {
     if (thousands === 1) parts.push('tisíc')
-    else parts.push(wordsCZ(thousands).replace('dvě', 'dva') + (thousands < 5 ? ' tisíce' : ' tisíc'))
+    // jen koncové „dvě/jedna“ (200 000 = „dvě stě tisíc“, ne „dva stě“; 21 000 = „dvacet jeden tisíc“)
+    else parts.push(wordsCZ(thousands).replace(/dvě$/, 'dva').replace(/jedna$/, 'jeden') + (thousands < 5 ? ' tisíce' : ' tisíc'))
   }
   const rest = abs % 1000
   if (rest > 0) {

@@ -26,6 +26,14 @@ export function formatOpeningHours(oh: unknown): string | null {
   return days.map((d) => `${DAY_CS[d]} ${dayText(o[d])}`).join(', ')
 }
 
+/** Provozní doba z DB jen když je NONSTOP, jinak null. Majitel 2026-10-10 potvrdil NONSTOP u obou
+ *  poboček (owner-facts.ts); jiný údaj (starý seed Po–Pá 8–18, So 9–14, Ne zavřeno — data opravuje
+ *  migrace 20261011_i18n_customer_language) by závazným faktům odporoval → agent ho nedostane. */
+export function nonstopHours(oh: unknown): string | null {
+  const t = formatOpeningHours(oh)
+  return t && t.startsWith('NONSTOP') ? t : null
+}
+
 // Hodnota dne: 'HH:MM-HH:MM' | 'closed' | {open, close} | cokoli jiného (nikdy „[object Object]")
 function dayText(v: unknown): string {
   if (v && typeof v === 'object') {
@@ -54,7 +62,7 @@ export function branchPublicFieldsEn(b: Record<string, unknown>): { mode: string
   return {
     mode: self ? 'self-service (24/7 access code, no staff)' : b.type === 'obslužná' ? 'staffed (handover by staff at the booked time, nonstop)' : null,
     opening_hours_text: self ? 'NONSTOP (0–24 h, self-service with access code)'
-      : (formatOpeningHours(b.opening_hours) || 'NONSTOP (0–24 h, handover by staff at the booked time)'),
+      : 'NONSTOP (0–24 h, handover by staff at the booked time)', // viz nonstopHours (fakta majitele)
   }
 }
 
@@ -90,7 +98,7 @@ export async function getBranchesTool(sb: SupabaseClient): Promise<unknown> {
         maps_url: (lat != null && lng != null) ? `https://mapy.cz/zakladni?q=${lat},${lng}` : null,
         phone: b.phone ?? null, email: b.email ?? null,
         type: b.type, mode: branchModeCs(b.type),
-        opening_hours_text: b.type === 'samoobslužná' ? 'NONSTOP (Po–Ne 0–24 h, kódem)' : (formatOpeningHours(b.opening_hours) || 'NONSTOP (Po–Ne 0–24 h) — čas předání dle rezervace'),
+        opening_hours_text: b.type === 'samoobslužná' ? 'NONSTOP (Po–Ne 0–24 h, kódem)' : (nonstopHours(b.opening_hours) || 'NONSTOP (Po–Ne 0–24 h) — čas předání dle rezervace'),
         notes: b.notes, has_gate: b.has_gate === true,
       }
     }),

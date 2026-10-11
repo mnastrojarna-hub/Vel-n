@@ -149,7 +149,8 @@ serve(async (req) => {
       mode = lang === 'cs' ? 'cs' : 'cs_binding'
       await logDebug('doc_template_fallback', 'warning', { template_slug, booking_id }, tErr?.message)
     }
-    const retranslating = mode === 'cs_binding' && hasDbContent ? enqueueRetranslation(template, lang) : false
+    // Překlad sdíleného právního textu (placený) vyžádá jen service_role / Velín, nikdy zákazník (EDGE-DOC-18).
+    const retranslating = mode === 'cs_binding' && hasDbContent && who.kind !== 'user' ? enqueueRetranslation(template, lang) : false
 
     const vars = buildVars({
       booking, bookingId: booking_id, customer, moto: booking.motorcycles || {}, extras, branchName, branchAddress,

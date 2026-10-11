@@ -527,6 +527,7 @@ serve(async (req) => {
         es: 'El importe se devolverá mediante transferencia bancaria a tu cuenta en un plazo de 14 días (la reserva no se pagó con tarjeta).',
         fr: 'La somme sera remboursée par virement sur votre compte sous 14 jours (la réservation n\'a pas été payée par carte).',
         pl: 'Kwotę zwrócimy przelewem na Twoje konto w ciągu 14 dni (rezerwacja nie została opłacona kartą).',
+        uk: 'Суму повернемо банківським переказом на ваш рахунок протягом 14 днів (бронювання не було оплачено карткою).',
       }
       templateHtml += `<p><strong>${manualNotes[custLang] || manualNotes.cs}</strong></p>`
     }

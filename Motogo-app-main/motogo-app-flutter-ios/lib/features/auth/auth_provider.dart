@@ -83,8 +83,9 @@ class AuthService {
   /// Translation helper (no BuildContext available). [lang] je kód jazyka
   /// appky (viz [_lang]); když v něm klíč chybí, spadne na češtinu.
   static String _tr(String key, [String lang = 'cs']) {
+    final fallback = lang != 'cs' ? translations['en'] : null;
     return translations[lang]?[key] ??
-        (lang != 'cs' ? translations['en']?[key] : null) ??
+        fallback?[key] ??
         translations['cs']?[key] ??
         key;
   }

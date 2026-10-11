@@ -348,8 +348,9 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
       if (error) throw new Error(error.message)
       // Neaktivní / zavřená pobočka se nikde nenabízí (stejně jako web a AI agent).
       const branches = (data || []).filter((b: Record<string, unknown>) => b.active !== false && b.is_open !== false)
-        // Čitelně (jsonb opening_hours) + režim; obě pobočky NONSTOP (majitel 2026-10-10).
-        .map((b: Record<string, unknown>) => ({ ...b, ...branchPublicFieldsEn(b), mode_cs: branchModeCs(b.type) }))
+        // Režim + čitelná provozní doba místo syrového jsonb opening_hours (AI klient by četl starý seed
+        // „Ne zavřeno“); obě pobočky NONSTOP (majitel 2026-10-10).
+        .map(({ opening_hours: _oh, ...b }: Record<string, unknown>) => ({ ...b, ...branchPublicFieldsEn(b), mode_cs: branchModeCs(b.type) }))
       return { count: branches.length, branches }
     }
 

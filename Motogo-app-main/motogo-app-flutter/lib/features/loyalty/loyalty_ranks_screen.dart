@@ -29,8 +29,6 @@ class LoyaltyRanksScreen extends ConsumerWidget {
     final status = ref.watch(loyaltyStatusProvider).valueOrNull;
     final levelsAsync = ref.watch(loyaltyLevelsProvider);
     String tr(String key) => t(context).tr(key);
-    // Pozor: níže je lokální `t` (animace) — překlady přes `trs`.
-    final trs = t(context);
 
     return Scaffold(
       backgroundColor: MotoGoColors.gradientTop,
@@ -179,6 +177,8 @@ class _HeroState extends State<_Hero> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     final s = widget.status;
     final tr = widget.tr;
+    // Pozor: v builderu níže je lokální `t` (animace) — překlady přes `trs`.
+    final trs = t(context);
     // Bez statusu (nepřihlášen) — uvítací varianta s prvním rankem.
     final color = s?.color ?? MotoGoColors.green;
     final isLegend = s?.isLegend ?? false;

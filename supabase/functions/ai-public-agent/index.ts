@@ -1475,7 +1475,8 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
   if (type === 'other' && (canon || path)) type = pageTypeFromPath(canon || path)
   const title = trimStr(ctx.title, 200)
   const h1 = trimStr(ctx.h1, 200)
-  const motoId = trimStr(ctx.moto_id, 100)
+  // Starší widget na .com (/catalog/<uuid>) moto_id nepozná — dopočti z kanonické cesty.
+  const motoId = trimStr(ctx.moto_id, 100) || (type === 'moto_detail' ? (canon.match(/^\/katalog\/([0-9a-f-]{36})$/i)?.[1] || '') : '')
   const slug = trimStr(ctx.slug, 200)
   const selection = trimStr(ctx.selection, 500)
   const lines: string[] = []

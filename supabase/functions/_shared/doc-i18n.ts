@@ -91,10 +91,11 @@ export function bindingNoticeHtml(lang: string): string {
   return `<div lang="${lang}" style="margin:0 0 16px;padding:12px 14px;border:1px solid #f59e0b;background:#fffbeb;border-radius:6px;font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;line-height:1.5;color:#78350f"><strong>${n.title}</strong><br>${n.body}</div>`
 }
 
-/** Placeholdery šablon ({{var}}, {var}, %s) jako seřazený seznam — kontrola, že je překlad zachoval. */
+/** Placeholdery šablon ({{var}}, {var}, %s) jako seřazený seznam — kontrola, že je překlad zachoval.
+ *  Porovnává se PŘESNÝ zápis: dosazení (generate-document, send-*) hledá doslova `{{var}}`, takže
+ *  `{{ var }}` z překladu by zůstal v dokumentu / mailu nevyplněný (resp. by se vymazal). */
 export function placeholderList(s: string): string[] {
-  return (String(s || '').match(/\{\{\s*[A-Za-z0-9_.]+\s*\}\}|\{[A-Za-z0-9_]+\}|%s/g) || [])
-    .map((p) => p.replace(/\s+/g, '')).sort()
+  return (String(s || '').match(/\{\{\s*[A-Za-z0-9_.]+\s*\}\}|\{[A-Za-z0-9_]+\}|%s/g) || []).sort()
 }
 export function samePlaceholders(a: string, b: string): boolean {
   const x = placeholderList(a), y = placeholderList(b)

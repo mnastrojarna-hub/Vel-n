@@ -3,7 +3,7 @@
 // veřejný agent (web) i agent zákaznických zpráv ve Velínu (ai-customer-messages-suggest).
 
 import { GATE_BRANCH_NOTE_CS } from './branch-gate.ts'
-import { formatOpeningHours } from './branch-facts.ts'
+import { nonstopHours } from './branch-facts.ts'
 
 export type CompanyInfo = {
   name?: string
@@ -43,7 +43,7 @@ export type BranchRow = {
   city: string | null
   zip: string | null
   type: string | null       // 'samoobslužná' | 'obslužná' (viz velin/src/pages/BranchModal.jsx)
-  opening_hours: unknown        // jsonb {mo:'00:00-24:00',…} nebo text — vykresli přes formatOpeningHours (dřív „[object Object]“)
+  opening_hours: unknown        // jsonb {mo:'00:00-24:00',…} nebo text — vykresli přes nonstopHours/formatOpeningHours (dřív „[object Object]“)
   notes: string | null
   id?: string | null
   has_gate?: boolean         // vjezdová brána se schránkou na klíč (markGateBranches — jen příznak, NIKDY kód)
@@ -115,7 +115,7 @@ export function formatBranchesSnapshot(branches: BranchRow[]): string {
       : b.type === 'obslužná'
         ? 'OBSLUŽNÁ — NONSTOP (motorku předává a přebírá OBSLUHA osobně v čase z rezervace, kdykoli 0–24 h; výdej nejdřív 1–6 h po vytvoření a zaplacení rezervace — NENÍ to samoobslužný výdej kódem. Přístupové kódy z e-mailu tu ale zákazník DOSTÁVÁ taky a NEJSOU omyl: slouží jako IDENTIFIKACE — při převzetí je řekne obsluze, ta podle nich rezervaci dohledá a zákazníka ověří. Sken/foto dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), ale DOPORUČUJE se: kdo si vše vyřídí předem, má vše připravené, u obsluhy jen nahlásí kódy a předání zabere ~2 minuty — zvlášť když odjíždí víc motorek najednou)'
         : `typ neuveden — režim výdeje ověř přes \`get_branches\`/firmu, netvrď samoobsluhu`
-    const ohText = b.type === 'samoobslužná' ? null : formatOpeningHours(b.opening_hours)
+    const ohText = b.type === 'samoobslužná' ? null : nonstopHours(b.opening_hours) // jiný než NONSTOP údaj odporuje faktům majitele
     const oh = ohText ? `; otevírací doba: ${ohText}` : ''
     const notes = b.notes ? `; pozn.: ${b.notes}` : ''
     const gate = b.has_gate === true ? `; ${GATE_BRANCH_NOTE_CS}` : ''

@@ -87,14 +87,22 @@ async function save(admin: Admin, table: string, id: string, done: Record<string
     const ct = obj(cur.content_translations), nt = obj(cur.name_translations)
     for (const [lang, r] of Object.entries(done)) {
       ct[lang] = r.content_html
-      if (r.meta.name) nt[lang] = r.meta.name; else delete nt[lang] // český „překlad“ názvu pryč (EDGE-DOC-13)
+      // Nový název; když překlad názvu selhal, zůstane dosavadní — jen český „překlad“ názvu pryč (EDGE-DOC-13).
+      if (r.meta.name) nt[lang] = r.meta.name
+      else if (String(nt[lang] ?? '').trim() === String(cur.name ?? '').trim()) delete nt[lang]
       src[lang] = srcHash
     }
     payload.content_translations = ct; payload.name_translations = nt
   } else {
     const tr = obj(cur.translations)
     for (const [lang, r] of Object.entries(done)) {
-      tr[lang] = { ...r.meta, content_html: r.content_html }
+      // Selhal-li překlad titulku/popisu, zůstane dosavadní přeložený (ne český) — obsah je vždy nový.
+      const prev = obj(tr[lang]), meta: Row = { ...r.meta }
+      for (const k of ['title', 'description']) {
+        const p = String(prev[k] ?? '').trim()
+        if (!(k in meta) && p && p !== String(cur[k] ?? '').trim()) meta[k] = prev[k]
+      }
+      tr[lang] = { ...meta, content_html: r.content_html }
       src[lang] = srcHash
     }
     payload.translations = tr

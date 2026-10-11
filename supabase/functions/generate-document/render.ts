@@ -27,7 +27,8 @@ export async function htmlToPdf(html: string): Promise<Uint8Array | null> {
  *  `lang` = jazyk TEXTU dokumentu (závazná česká verze = cs). */
 export function wrapDocument(htmlContent: string, title: string, lang: string): string {
   if (/^\s*(?:<!doctype|<html\b)/i.test(htmlContent)) return htmlContent
-  return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><title>${title}</title><style>
+  const t = String(title || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))
+  return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><title>${t}</title><style>
 body { margin: 0; padding: 24px; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 12px; line-height: 1.6; color: #0f1a14; background: #fff; }
 p { margin: 0 0 10px; }
 h1 { font-size: 1.8em; font-weight: 800; margin: 14px 0 8px; }

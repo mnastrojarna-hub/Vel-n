@@ -180,8 +180,9 @@ class AppTranslations {
   /// Chybějící klíč: cizí jazyk → angličtina (srozumitelnější než čeština),
   /// pak čeština, nakonec samotný klíč.
   String _get(String key) {
+    final fallback = lang != 'cs' ? translations['en'] : null;
     return translations[lang]?[key] ??
-        (lang != 'cs' ? translations['en']?[key] : null) ??
+        fallback?[key] ??
         translations['cs']?[key] ??
         key;
   }
