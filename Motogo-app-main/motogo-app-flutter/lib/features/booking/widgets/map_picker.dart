@@ -274,9 +274,9 @@ class _MapPickerState extends State<MapPickerScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Vyberte místo na mapě',
-                    style: TextStyle(
+                  Text(
+                    t(context).tr('selectPlaceOnMap'),
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
@@ -319,7 +319,7 @@ class _MapPickerState extends State<MapPickerScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _loading ? 'Hledám adresu...' : (_address.isEmpty ? t(context).tr('moveMapToPickup') : _address),
+                          _loading ? t(context).tr('searchingAddress') : (_address.isEmpty ? t(context).tr('moveMapToPickup') : _address),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -339,7 +339,7 @@ class _MapPickerState extends State<MapPickerScreen> {
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size.fromHeight(50),
                     ),
-                    child: const Text('Potvrdit adresu →'),
+                    child: Text('${t(context).tr('confirmAddressAction')} →'),
                   ),
                 ],
               ),

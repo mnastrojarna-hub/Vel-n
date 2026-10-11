@@ -3,6 +3,7 @@
 // veřejný agent (web) i agent zákaznických zpráv ve Velínu (ai-customer-messages-suggest).
 
 import { GATE_BRANCH_NOTE_CS } from './branch-gate.ts'
+import { nonstopHours } from './branch-facts.ts'
 
 export type CompanyInfo = {
   name?: string
@@ -42,7 +43,7 @@ export type BranchRow = {
   city: string | null
   zip: string | null
   type: string | null       // 'samoobslužná' | 'obslužná' (viz velin/src/pages/BranchModal.jsx)
-  opening_hours: string | null
+  opening_hours: unknown        // jsonb {mo:'00:00-24:00',…} nebo text — vykresli přes nonstopHours/formatOpeningHours (dřív „[object Object]“)
   notes: string | null
   id?: string | null
   has_gate?: boolean         // vjezdová brána se schránkou na klíč (markGateBranches — jen příznak, NIKDY kód)
@@ -110,11 +111,12 @@ export function formatBranchesSnapshot(branches: BranchRow[]): string {
   const lines = branches.map((b, i) => {
     const addr = [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', ')
     const typ = b.type === 'samoobslužná'
-      ? 'SAMOOBSLUŽNÁ (výdej i vrácení 24/7 přístupovým kódem, doklady se ověřují předem online; rezervaci se slevou za vyzvednutí od 12:00 vydá kiosk až od 12:00 v den začátku)'
+      ? 'SAMOOBSLUŽNÁ — NONSTOP (výdej i vrácení 24/7 přístupovým kódem, doklady se ověřují předem online; rezervaci se slevou za vyzvednutí od 12:00 vydá kiosk až od 12:00 v den začátku)'
       : b.type === 'obslužná'
-        ? 'OBSLUŽNÁ (motorku předává a přebírá OBSLUHA osobně, čas dle otevírací doby / domluvy — NENÍ to samoobslužný výdej kódem. Přístupové kódy z e-mailu tu ale zákazník DOSTÁVÁ taky a NEJSOU omyl: slouží jako IDENTIFIKACE — při převzetí je řekne obsluze, ta podle nich rezervaci dohledá a zákazníka ověří. Sken/foto dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), ale DOPORUČUJE se: kdo si vše vyřídí předem, má vše připravené, u obsluhy jen nahlásí kódy a předání zabere ~2 minuty — zvlášť když odjíždí víc motorek najednou)'
+        ? 'OBSLUŽNÁ — NONSTOP (motorku předává a přebírá OBSLUHA osobně v čase z rezervace, kdykoli 0–24 h; výdej nejdřív 1–6 h po vytvoření a zaplacení rezervace — NENÍ to samoobslužný výdej kódem. Přístupové kódy z e-mailu tu ale zákazník DOSTÁVÁ taky a NEJSOU omyl: slouží jako IDENTIFIKACE — při převzetí je řekne obsluze, ta podle nich rezervaci dohledá a zákazníka ověří. Sken/foto dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), ale DOPORUČUJE se: kdo si vše vyřídí předem, má vše připravené, u obsluhy jen nahlásí kódy a předání zabere ~2 minuty — zvlášť když odjíždí víc motorek najednou)'
         : `typ neuveden — režim výdeje ověř přes \`get_branches\`/firmu, netvrď samoobsluhu`
-    const oh = b.opening_hours ? `; otevírací doba: ${b.opening_hours}` : ''
+    const ohText = b.type === 'samoobslužná' ? null : nonstopHours(b.opening_hours) // jiný než NONSTOP údaj odporuje faktům majitele
+    const oh = ohText ? `; otevírací doba: ${ohText}` : ''
     const notes = b.notes ? `; pozn.: ${b.notes}` : ''
     const gate = b.has_gate === true ? `; ${GATE_BRANCH_NOTE_CS}` : ''
     return `${i + 1}. **${b.name || addr || 'pobočka'}** — ${addr || 'adresa v `get_branches`'} — ${typ}${oh}${gate}${notes}`
@@ -123,7 +125,7 @@ export function formatBranchesSnapshot(branches: BranchRow[]): string {
 ${lines.join('\n')}
 
 PRAVIDLA NAD TÍMTO SEZNAMEM (BEZPODMÍNEČNÁ):
-- Režim výdeje a vrácení (samoobslužně kódem 24/7 vs. předání s obsluhou) říkej VÝHRADNĚ podle typu KONKRÉTNÍ pobočky výše. NIKDY netvrď paušálně „výdej je samoobslužný a nonstop" — platí to JEN pro pobočku typu SAMOOBSLUŽNÁ.
+- Režim výdeje a vrácení (samoobslužně kódem vs. předání s obsluhou) říkej VÝHRADNĚ podle typu KONKRÉTNÍ pobočky výše. NIKDY netvrď paušálně „výdej je samoobslužný" — samoobsluha kódem platí JEN pro pobočku typu SAMOOBSLUŽNÁ. NONSTOP provoz (výdej i vrácení kdykoli 0–24 h dle času v rezervaci) ale platí pro OBĚ pobočky — nikdy netvrď zavírací dny ani hodiny (potvrzeno majitelem 2026-10-10).
 - Přístupové kódy chodí e-mailem ke KAŽDÉ rezervaci bez ohledu na typ pobočky — NIKDY netvrď, že zákazník s rezervací na OBSLUŽNÉ pobočce kódy nedostane, že jde o omyl nebo o „jiný kód" (reálný incident 2026-08-23: agent v Mezné kódy popřel a pak se zmateně opravoval). Liší se jen POUŽITÍ kódů: u SAMOOBSLUŽNÉ pobočky otvírají dveře/box 24/7; u OBSLUŽNÉ nic neotvírají — jsou to IDENTIFIKAČNÍ kódy: zákazník je při převzetí řekne obsluze, ta podle nich rezervaci dohledá a identifikuje ho, nic dalšího netřeba a za ~2 minuty odjíždí. Sken/foto dokladů předem tam není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale i tady přijdou až s kompletními doklady), ale DOPORUČ ho: urychlí odbavení (zvlášť když odjíždí víc motorek najednou) — zákazník si tak vše vyřídí sám předem a na místě jen nahlásí kódy.
 - Rezervaci lze VYTVOŘIT kdykoliv 24/7 bez ohledu na typ pobočky — to s režimem výdeje nezaměňuj.
 - Zákazník BEZ rezervace (i hypotetický dotaz „kdybych si zarezervoval, kde si motorku vyzvednu?", „kde jste", „kde je pobočka"): odpověz ROVNOU adresou pobočky z tohoto seznamu — vyzvednutí probíhá na pobočce (je-li jich víc, volí se při rezervaci). NIKDY netvrď, že seznam poboček je prázdný, že adresa bude až v rezervaci, nebo že informace není dostupná.

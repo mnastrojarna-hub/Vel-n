@@ -160,12 +160,12 @@ void showSizeDialog(
           color: const Color(0xFFD4E8E0),
           borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 14),
-        Text('Vyberte velikost – ${item.name}',
+        Text('${t(c).tr('selectSizeTitle')} – ${extraLabel(t(c).tr, item.id, item.name)}',
           style: const TextStyle(fontSize: 15,
             fontWeight: FontWeight.w800)),
-        if (item.description != null) ...[
+        if (extraDescription(t(c).tr, item.id, item.description) != null) ...[
           const SizedBox(height: 4),
-          Text(item.description!,
+          Text(extraDescription(t(c).tr, item.id, item.description)!,
             style: const TextStyle(fontSize: 12,
               color: Color(0xFF8AAB99))),
         ],

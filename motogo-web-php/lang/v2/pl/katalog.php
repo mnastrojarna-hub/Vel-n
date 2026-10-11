@@ -91,4 +91,13 @@ return ['pages' => ['landing_katalog' => [
     'f_active' => 'Aktywne filtry',
     'f_none_dates' => 'Przy tych filtrach w tym terminie nie ma wolnego motocykla. Spróbuj innych dni lub usuń któryś filtr.',
     'f_calc_open' => 'Otwórz kalkulator',
+    // Karta s přepínačem režimu [Najít motorku | Spočítat cenu] (CS defaulty kfDefaults())
+    'f_mode_aria' => 'Co chcesz zrobić?',
+    'f_mode_find' => 'Znajdź motocykl',
+    'f_mode_find_sub' => 'Filtruj ofertę',
+    'f_mode_calc_sub' => 'Wolne dni i cena',
+    'f_type' => 'Typ motocykla',
+    'f_dates_ph' => 'Wybierz dni',
+    'f_filters_hint' => 'Prawo jazdy, oddział…',
+    'f_go' => 'Pokaż',
 ]]];

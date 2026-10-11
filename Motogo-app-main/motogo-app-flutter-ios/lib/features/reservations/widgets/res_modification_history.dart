@@ -6,6 +6,9 @@ import '../reservation_provider.dart';
 import 'res_detail_card.dart';
 import 'res_detail_row.dart';
 import '../../../core/currency.dart';
+import '../../../core/date_days.dart';
+
+String _capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
 /// Comprehensive reservation history — shows ALL changes and events:
 /// date modifications, motorcycle changes, location/method changes,
@@ -129,7 +132,7 @@ class ResModificationHistory extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              desc.type[0].toUpperCase() + desc.type.substring(1),
+              _capitalize(desc.typeText(t(context).tr)),
               style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
@@ -146,12 +149,12 @@ class ResModificationHistory extends StatelessWidget {
       const SizedBox(height: 8),
       ResDetailRow(
         label: t(context).tr('originalTerm'),
-        value: '$osFmt – $oeFmt (${desc.origDays} dní)',
+        value: '$osFmt – $oeFmt (${desc.origDays} ${t(context).daysWord(desc.origDays)})',
         valueColor: const Color(0xFFB45309),
       ),
       ResDetailRow(
         label: t(context).tr('newTerm'),
-        value: '$csFmt – $ceFmt (${desc.newDays} dní)',
+        value: '$csFmt – $ceFmt (${desc.newDays} ${t(context).daysWord(desc.newDays)})',
         valueColor: desc.color,
       ),
     ]);
@@ -193,7 +196,7 @@ class ResModificationHistory extends StatelessWidget {
         (v == null || v.isEmpty) ? '—' : (v.length >= 5 ? v.substring(0, 5) : v);
     // Chip: u záznamu bez posunu termínu popiš skutečný druh změny
     // (ModDescription by ukázal jen „beze změny").
-    var typeLabel = hm.type;
+    var typeLabel = hm.typeText(t(context).tr);
     var typeColor = hm.color;
     if (!mod.hasDateChange) {
       if (mod.hasMotoChange) {
@@ -218,15 +221,14 @@ class ResModificationHistory extends StatelessWidget {
       final fromS = DateTime.tryParse(mod.fromStart);
       final toS = DateTime.tryParse(mod.toStart);
       if (fromS != null && toS != null) {
-        final startDiff = DateTime(toS.year, toS.month, toS.day)
-            .difference(DateTime(fromS.year, fromS.month, fromS.day))
-            .inDays;
+        // Kalendářní rozdíl — `difference().inDays` přes změnu času lže o den.
+        final startDiff = calendarDaysInclusive(fromS, toS) - 1;
         if (startDiff != 0) {
           changes.add(_changeRow(
             t(context).tr('startLabel'),
             _fmtDate(mod.fromStart),
             _fmtDate(mod.toStart),
-            startDiff > 0 ? '+$startDiff d' : '${startDiff} d',
+            '${startDiff > 0 ? '+' : ''}$startDiff ${t(context).tr('dayAbbr')}',
             startDiff > 0
                 ? const Color(0xFF2563EB)
                 : const Color(0xFFDC2626),
@@ -237,15 +239,13 @@ class ResModificationHistory extends StatelessWidget {
       final fromE = DateTime.tryParse(mod.fromEnd);
       final toE = DateTime.tryParse(mod.toEnd);
       if (fromE != null && toE != null) {
-        final endDiff = DateTime(toE.year, toE.month, toE.day)
-            .difference(DateTime(fromE.year, fromE.month, fromE.day))
-            .inDays;
+        final endDiff = calendarDaysInclusive(fromE, toE) - 1;
         if (endDiff != 0) {
           changes.add(_changeRow(
             t(context).tr('endLabel'),
             _fmtDate(mod.fromEnd),
             _fmtDate(mod.toEnd),
-            endDiff > 0 ? '+$endDiff d' : '${endDiff} d',
+            '${endDiff > 0 ? '+' : ''}$endDiff ${t(context).tr('dayAbbr')}',
             endDiff > 0
                 ? const Color(0xFF2563EB)
                 : const Color(0xFFDC2626),
@@ -586,14 +586,14 @@ class ResModificationHistory extends StatelessWidget {
                       color: MotoGoColors.red.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(50),
                     ),
-                    child: Text(inc.typeLabel,
+                    child: Text(t(context).tr(inc.typeKey),
                         style: const TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
                             color: MotoGoColors.red)),
                   ),
                   const Spacer(),
-                  Text(inc.statusLabel,
+                  Text(t(context).tr(inc.statusKey),
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,

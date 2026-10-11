@@ -36,9 +36,10 @@ class StripeService {
     try {
       final session = MotoGoSupabase.currentSession;
       if (session == null) {
+        // Text je jen technický log — UI hlášku skládá z kódu
+        // (PaymentErrorMapper.serviceError) v jazyce zákazníka.
         return PaymentResult.error(
-          'Vaše přihlášení vypršelo. Pro dokončení platby '
-          'se prosím znovu přihlaste.',
+          'session expired',
           code: PaymentErrorCode.authExpired,
         );
       }
@@ -70,9 +71,10 @@ class StripeService {
 
       if (response.statusCode == 401) {
         await handleAuthError(AuthException('401 from process-payment'));
+        // Text je jen technický log — UI hlášku skládá z kódu
+        // (PaymentErrorMapper.serviceError) v jazyce zákazníka.
         return PaymentResult.error(
-          'Vaše přihlášení vypršelo. Pro dokončení platby '
-          'se prosím znovu přihlaste.',
+          'session expired',
           code: PaymentErrorCode.authExpired,
         );
       }
@@ -101,7 +103,7 @@ class StripeService {
         // Off-session selhal (typicky declined / expired / authentication denied).
         // Vracíme strukturovanou chybu, aby PaymentScreen mohl spadnout do
         // Payment Sheetu se sdělením „Karta selhala, zkuste znovu".
-        final msg = (data['message'] as String?) ?? 'Strhnutí uložené karty selhalo.';
+        final msg = (data['message'] as String?) ?? '';
         return PaymentResult.offSessionFailed(
           message: msg,
           errorCode: data['error_code'] as String?,
@@ -123,11 +125,11 @@ class StripeService {
         );
       }
 
+      // Text serveru (česky) appka ukáže jen české appce; jinak lokalizovaná
+      // hláška z kódu (PaymentErrorMapper.serviceError).
       final serverMsg = data['error'] as String?;
       return PaymentResult.error(
-        serverMsg ??
-            'Server vrátil neočekávanou odpověď (HTTP ${response.statusCode}). '
-                'Zkuste to prosím znovu.',
+        serverMsg ?? '',
         code: PaymentErrorCode.serverError,
         // Stabilní kód odmítnutí (409/403 u doplatkové změny: trailer_staffed_only,
         // trailer_unavailable, stale_booking, forbidden…) → klient překládá.
@@ -135,14 +137,13 @@ class StripeService {
       );
     } on TimeoutException {
       return PaymentResult.error(
-        'Spojení se serverem trvá příliš dlouho. '
-        'Zkontrolujte připojení k internetu a zkuste platbu znovu.',
+        'timeout',
         code: PaymentErrorCode.timeout,
       );
     } catch (e) {
+      debugPrint('[Stripe] createPaymentIntent failed: $e');
       return PaymentResult.error(
-        'Nepodařilo se spojit s platebním serverem. '
-        'Zkontrolujte připojení k internetu a zkuste to znovu.',
+        'network error',
         code: PaymentErrorCode.networkError,
       );
     }

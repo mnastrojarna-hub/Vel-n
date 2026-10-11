@@ -239,7 +239,7 @@ class BookingFormExtrasSection extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item.name,
+                          extraLabel(t(context).tr, item.id, item.name),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -248,10 +248,10 @@ class BookingFormExtrasSection extends ConsumerWidget {
                         ),
                         Text(
                           sel && selExtra?.size != null
-                              ? 'Velikost: ${selExtra!.size}'
+                              ? '${t(context).tr('sizeLabel')}: ${selExtra!.size}'
                               : needSize
                                   ? '⚠ ${t(context).tr('clickSelectSize')}'
-                                  : item.description ?? '',
+                                  : extraDescription(t(context).tr, item.id, item.description) ?? '',
                           style: TextStyle(
                             fontSize: 10,
                             color: needSize

@@ -161,7 +161,8 @@ s číslem dveří = číslo zóny šatny: „Šatna otevřena — dveře č. 8�
 „Šatna — dveře č. 8: vezměte si výbavu a zavřete dveře“ (`i18n-locker.js` skupina `lk`, bez známé zóny původní texty). Soubory protokolu: `ui/handover.js`
 (overlay, `MG.Handover`), `ui/signature.js` (podpis prstem, PNG 800×260 ≤ 150 kB), `ui/style-handover.css` a texty `ho.*`/`g.*`
 v 8 jazycích v `ui/i18n-handover.js` (slučuje se do `MG.i18n`; v `i18n.js` jsou jen `hint2`, texty úspěchu a chyby `protocol_required`/
-`protocol_failed`/`handover_in_progress`); PDF protokolu je česky.
+`protocol_failed`/`handover_in_progress`); PDF protokolu je česky, od 1.2.12 u jiného jazyka dvojjazyčně „jazyk zákazníka / česky“ (závazné české znění;
+jazyk obrazovky jde jako `lang`, u češtiny jazyk rezervace — CONTRACT §28).
 **Stav tachometru při vrácení (2026-09-29, CONTRACT §30):** kód motorky při VRACENÍ (motorka je po převzetí u zákazníka
 ≥ 60 min) otevře přes displej kartu „Stav tachometru při vrácení“ (u motorek na motohodiny „Stav motohodin“): název kóje, pole
 s šedým placeholderem = poslední známý stav (např. „10 000 km“), řádek „Poslední známý stav…“, číselník, „Zpět“ a „Potvrdit

@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/native/gps_service.dart';
 import '../../core/i18n/i18n_provider.dart';
+import 'sos_timeline_i18n.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'sos_provider.dart';
 
@@ -49,7 +50,7 @@ class _SosTheftState extends ConsumerState<SosTheftScreen> {
       if (mounted) showMotoGoToast(context, icon: '✅', title: t(context).tr('theftReported'), message: t(context).tr('motoGoInformed'));
     } catch (e) {
       setState(() => _submitting = false);
-      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: '$e');
+      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: sosErrorMessage(t(context), e));
     }
   }
 

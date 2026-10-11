@@ -32,10 +32,16 @@ const SAMPLE_VARS = {
   price: '2 500 Kč',
 }
 
+// Všech 8 jazyků zákazníků (send-message hledá šablonu podle jazyka zákazníka, audit DB-11)
 const LANG_OPTIONS = [
   { value: 'cs', label: 'Čeština' },
   { value: 'en', label: 'English' },
   { value: 'de', label: 'Deutsch' },
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Français' },
+  { value: 'nl', label: 'Nederlands' },
+  { value: 'pl', label: 'Polski' },
+  { value: 'uk', label: 'Українська' },
 ]
 
 const TRIGGER_OPTIONS = [

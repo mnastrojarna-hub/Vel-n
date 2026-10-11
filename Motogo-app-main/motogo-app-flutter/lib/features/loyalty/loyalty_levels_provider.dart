@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/supabase_client.dart';
+import '../../core/i18n/i18n_provider.dart' show AppTranslations;
+import 'rank_names.dart';
 
 /// Jeden věrnostní rank z tabulky `loyalty_levels` (level 1–20).
 ///
@@ -22,6 +24,9 @@ class LoyaltyLevel {
   });
 
   bool get isLegend => level >= 20;
+
+  /// Název ranku v jazyce appky (DB vrací česky).
+  String nameFor(AppTranslations tr) => localizedRankName(tr, level, name);
 
   factory LoyaltyLevel.fromJson(Map<dynamic, dynamic> j) => LoyaltyLevel(
         level: (j['level'] as num?)?.toInt() ?? 1,

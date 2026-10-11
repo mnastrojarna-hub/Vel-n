@@ -175,7 +175,7 @@ function renderFooter() {
     $vysocinaHtml = '';
     foreach (['vysocina.webp', 'vysocina.png', 'vysocina.svg', 'vysocina.jpg'] as $vysF) {
         if (is_file(__DIR__ . '/gfx/' . $vysF)) {
-            $vysocinaHtml = '<a class="footer-partner" href="https://www.vysocina.eu" target="_blank" rel="noopener" aria-label="Vysočina"><img src="' . BASE_URL . '/gfx/' . $vysF . '" alt="Vysočina – oficiální destinační značka" loading="lazy" height="90"></a>';
+            $vysocinaHtml = '<a class="footer-partner" href="https://www.vysocina.eu" target="_blank" rel="noopener" aria-label="Vysočina"><img src="' . BASE_URL . '/gfx/' . $vysF . '" alt="' . te('footer.partner.vysocinaAlt') . '" loading="lazy" height="90"></a>';
             break;
         }
     }
@@ -206,10 +206,10 @@ function renderFooter() {
     '</div></div>' .
     '<div class="footer-partners"><div class="container">' .
         '<span class="footer-partners-label">' . tc('footer.partnersTitle') . '</span>' .
-        '<a class="footer-partner" href="https://www.kudyznudy.cz/?utm_source=kzn&amp;utm_medium=partneri_kzn&amp;utm_campaign=banner" target="_blank" rel="noopener" aria-label="Kudy z nudy"><img src="https://www.kudyznudy.cz/getmedia/e258ea1e-6a92-4443-940f-fdafe8da106e/1012102023-online-bannery-hq-180x150.jpg.aspx" alt="Kudyznudy.cz – nejlepší začátek výletu" loading="lazy" width="180" height="150"></a>' .
+        '<a class="footer-partner" href="https://www.kudyznudy.cz/?utm_source=kzn&amp;utm_medium=partneri_kzn&amp;utm_campaign=banner" target="_blank" rel="noopener" aria-label="Kudy z nudy"><img src="https://www.kudyznudy.cz/getmedia/e258ea1e-6a92-4443-940f-fdafe8da106e/1012102023-online-bannery-hq-180x150.jpg.aspx" alt="' . te('footer.partner.kudyznudyAlt') . '" loading="lazy" width="180" height="150"></a>' .
         '<a class="footer-partner" href="https://www.slevomat.cz" target="_blank" rel="noopener" aria-label="Slevomat Group"><img src="' . BASE_URL . '/gfx/slevomat-group.png" alt="Slevomat Group" loading="lazy" width="494" height="116"></a>' .
-        '<a class="footer-partner" href="https://www.atlasceska.cz" target="_blank" rel="noopener" aria-label="Atlas Česka"><img src="' . BASE_URL . '/gfx/atlasceska.png" alt="Atlas Česka" loading="lazy" width="265" height="55"></a>' .
-        '<a class="footer-partner" href="https://bikeangel.eu/" target="_blank" rel="noopener" aria-label="bikeAngel"><img src="' . BASE_URL . '/gfx/bikeangel.svg" alt="bikeAngel – GPS tracker a alarm pro motorky" loading="lazy" width="1566" height="429"></a>' .
+        '<a class="footer-partner" href="https://www.atlasceska.cz" target="_blank" rel="noopener" aria-label="Atlas Česka"><img src="' . BASE_URL . '/gfx/atlasceska.png" alt="' . te('footer.partner.atlasAlt') . '" loading="lazy" width="265" height="55"></a>' .
+        '<a class="footer-partner" href="https://bikeangel.eu/" target="_blank" rel="noopener" aria-label="bikeAngel"><img src="' . BASE_URL . '/gfx/bikeangel.svg" alt="' . te('footer.partner.bikeangelAlt') . '" loading="lazy" width="1566" height="429"></a>' .
         $vysocinaHtml .
         '<div class="footer-partner footer-partner-ta"><div id="TA_rated863" class="TA_rated"><ul id="AKTO3nY" class="TA_links ewSpz5"><li id="gRjuuxDtbpg" class="JzvG62adkG6"><a target="_blank" href="https://www.tripadvisor.com.au/Attraction_Review-g1600819-d34461468-Reviews-MotoGo24-Pelhrimov_Vysocina_Region_Moravia.html"><img src="https://www.tripadvisor.com.au/img/cdsi/img2/badges/ollie-11424-2.gif" alt="TripAdvisor"/></a></li></ul></div><script async src="https://www.jscache.com/wejs?wtype=rated&amp;uniq=863&amp;locationId=34461468&amp;lang=en_AU&amp;display_version=2" data-loadtrk onload="this.loadtrk=true"></script></div>' .
     '</div></div>' .
@@ -440,6 +440,8 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     // Lokalizované slugy pro absolutní URL ve strukturovaných datech (JSON-LD)
     // — na cizojazyčné doméně musí katalog/dokumenty mířit na přeložený slug.
     $lp = function ($p) { return function_exists('i18nLocalizePath') ? i18nLocalizePath($p) : $p; };
+    // JSON string pro přeložené texty v JSON-LD (description/slogan dle jazyka stránky).
+    $ldStr = function ($s) { return json_encode((string)$s, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); };
 
     // Default description per-jazyk (cs/en/de/fr/es/nl/pl) — bez tohoto fallbacku
     // by Google na .com indexoval cizojazycne stranky s ceskym defaultnim popiskem.
@@ -585,8 +587,8 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "name": "MotoGo24 — půjčovna motorek Vysočina",
         "alternateName": ["MotoGo24","Motogo24 Pelhřimov","Motopůjčovna MotoGo24","Motopůjčovna Vysočina","Motopůjčovna Pelhřimov","Půjčovna motorek Vysočina","MotoGo24 motorcycle rental"],
         "legalName": "Bc. Petra Semorádová",
-        "description": "Motopůjčovna a půjčovna motorek na Vysočině — silniční, naked, supermoto, enduro i dětské motorky. Bez kauce, výbava v ceně, nonstop provoz.",
-        "slogan": "Půjč si motorku bez kauce. Nonstop. Online.",
+        "description": ' . $ldStr(t('seo.org.description')) . ',
+        "slogan": ' . $ldStr(t('seo.org.slogan')) . ',
         "url": "' . $siteOrigin . '",
         "logo": {"@type":"ImageObject","url":"' . $siteOrigin . '/gfx/logo.svg","width":512,"height":512},
         "image": "' . $siteOrigin . '/gfx/hero-banner.jpg",
@@ -651,7 +653,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "@id": "' . $siteOrigin . '/#service-rental",
         "serviceType": "Pronájem motocyklů (motorcycle rental)",
         "name": "Motopůjčovna MotoGo24 — půjčovna motorek Vysočina",
-        "description": "Motopůjčovna na Vysočině. Krátkodobý i dlouhodobý pronájem motocyklů v Česku. Cestovní, naked, supermoto, enduro, sportovní i dětské motorky. Bez kauce, motorkářská výbava v ceně, online rezervace s platbou kartou, nonstop dostupnost převzetí. Možnost přistavení mimo pobočku, sjezd do EU povolen, zelená karta v ceně.",
+        "description": ' . $ldStr(t('seo.service.description')) . ',
         "provider": {"@id":"' . $siteOrigin . '/#organization"},
         "areaServed": [{"@type":"Country","name":"Česko"},{"@type":"Country","name":"Slovensko"},{"@type":"Country","name":"Rakousko"},{"@type":"Country","name":"Německo"},{"@type":"Country","name":"Polsko"},{"@type":"Country","name":"Francie"},{"@type":"Country","name":"Belgie"},{"@type":"Country","name":"Nizozemsko"},{"@type":"Country","name":"Španělsko"}],
         "audience": {"@type":"PeopleAudience","audienceType":"Motorkáři, turisté, firmy, dárky pro blízké"},

@@ -28,6 +28,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { authClassify } from '../_shared/auth.ts'
 import { buildHtml, normalizeMotoEquipment, type Signer, type Vars } from './html.ts'
+import { makeTr, resolveProtocolLang } from './i18n.ts'
 import { bookingGearItems, normalizeAccessories, resolveGearUpdates } from './gear.ts'
 import {
   CORS, fail, fmtDate, json, parseSignedAt, positiveKm, pragueDay, removeDocument, resolvePickupKm, SIG_MAX_APP,
@@ -204,6 +205,10 @@ serve(async (req) => {
     form.mileage = pickupKm != null ? String(pickupKm) : ''
     form.mileage_unit = mileageUnit
 
+    // ── Jazyk dokumentu (audit EDGE-DOC-10): cs = jen česky, jinak dvojjazyčně (i18n.ts) ──
+    const docLang = await resolveProtocolLang(admin, body.lang ?? form.lang, booking.user_id, bookingId)
+    delete form.lang
+
     // ── Zákazník ───────────────────────────────────────────────────────────
     let customer: Record<string, unknown> = {}
     if (booking.user_id) {
@@ -252,7 +257,7 @@ serve(async (req) => {
     }
 
     // ── Dokument do bucketu PŘED claimem (viz hlavička) ────────────────────
-    const html = buildHtml(vars, form, signature, signer)
+    const html = buildHtml(vars, form, signature, signer, docLang)
     const docId = crypto.randomUUID()
     let pdfPath = ''
     try { pdfPath = await storeDocument(admin, bookingId, docId, html) } catch (e) {
@@ -273,6 +278,7 @@ serve(async (req) => {
       _signed_html: html,
       _doc_name: 'Předávací protokol (elektronický)',
       _doc_type: 'handover_protocol',
+      _lang: docLang, // jazyk dokumentu (cs = jen česky, jinak dvojjazyčně s českým závazným zněním)
       _electronic: true,
       _autofilled: false,
       _self_service: true,
@@ -324,8 +330,9 @@ serve(async (req) => {
               moto_model: vars.moto_model,
               rental_period: vars.rental_period,
               booking_number: bn,
-              doc_name: 'Předávací protokol',
+              doc_name: docLang === 'cs' ? 'Předávací protokol' : `${makeTr(docLang).plain('title')} / Předávací protokol`,
             },
+            language: docLang,
             customer_id: booking.user_id || null,
             booking_id: bookingId,
             attachment_paths: [{ filename, path: pdfPath }],

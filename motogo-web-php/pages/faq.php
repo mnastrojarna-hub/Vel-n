@@ -24,10 +24,23 @@ $C = $sb->siteContent('faq', $defaults);
 $rows = $sb->fetchFaqItems();
 
 // Group by category, použij localized() pro překlady (translations jsonb)
+// Názvy záložek: v češtině z DB (category_label, editovatelné ve Velíně); v cizím
+// jazyce i18n klíč faq.cat.<category_key> — translate-content category_label nepřekládá,
+// takže by jinak byly záložky česky ve všech jazycích. Neznámá kategorie → DB štítek.
+$catLabelI18n = function ($r) use ($lang) {
+    $fallback = $r['category_label'] ?? ($r['category_key'] ?? 'other');
+    if ($lang === 'cs') return localized($r, 'category_label', $lang) ?: $fallback;
+    $tr = localized($r, 'category_label', $lang);
+    if ($tr !== '' && $tr !== ($r['category_label'] ?? '')) return $tr;
+    $key = 'faq.cat.' . ($r['category_key'] ?? '');
+    $label = t($key);
+    return (is_string($label) && $label !== '' && $label !== $key) ? $label : $fallback;
+};
+
 $categories = [];
 foreach ($rows as $r) {
     $catKey = $r['category_key'] ?? 'other';
-    $catLabel = localized($r, 'category_label', $lang) ?: ($r['category_label'] ?? $catKey);
+    $catLabel = $catLabelI18n($r);
     if (!isset($categories[$catKey])) {
         $categories[$catKey] = ['label' => $catLabel, 'items' => []];
     }

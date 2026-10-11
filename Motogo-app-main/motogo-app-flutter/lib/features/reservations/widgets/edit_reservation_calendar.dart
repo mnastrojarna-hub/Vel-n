@@ -128,8 +128,11 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
       widget.onError(t(context).tr('cannotSelectPast'));
       return;
     }
-    final lenDays = origE.difference(origS).inDays; // 0-based offset
-    final newEnd = d.add(Duration(days: lenDays));
+    // Kalendářní dny (DST-safe, viz core/date_days.dart): `difference().inDays`
+    // i `add(Duration(days:))` počítají absolutní hodiny a přes změnu času
+    // posunou konec o den.
+    final lenDays = calendarDaysInclusive(origS, origE) - 1; // 0-based offset
+    final newEnd = DateTime(d.year, d.month, d.day + lenDays);
 
     // Re-tap on the already-chosen new start → reset to original dates.
     final curStart = widget.newStart != null ? _d(widget.newStart!) : origS;
@@ -170,7 +173,7 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
         widget.onError(t(context).tr('cannotSelectPast'));
         return;
       }
-      if (!_isRangeFree(d, origS.subtract(const Duration(days: 1)))) {
+      if (!_isRangeFree(d, DateTime(origS.year, origS.month, origS.day - 1))) {
         widget.onError(t(context).tr('occupiedDaysBetween'));
         return;
       }

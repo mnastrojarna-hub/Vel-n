@@ -319,9 +319,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
   }) {
     // DB zápis selhal — příčina je technická, ne fotografická.
     if (!uploadOk) {
-      return 'Záznam o dokladu se nepodařilo uložit na server.'
-          '\n\nZkuste to prosím znovu. Pokud problém přetrvává, '
-          'kontaktujte nás.'
+      return '${t(context).tr('scanSaveFailed')}'
           '\n\n[${step.docType.apiType} | upload_failed'
           '${uploadResult.errorDetail != null && uploadResult.errorDetail!.length < 80
               ? '\n${uploadResult.errorDetail}' : ''}]';
@@ -338,50 +336,25 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
 
   /// Specifická výzva čeho dosáhnout pro úspěšný scan dané strany.
   String _guidanceForStep(_ScanStep step) {
-    switch (step.key) {
-      case 'id_front':
-        return 'Nafoťte znovu PŘEDNÍ stranu OP. Musí být vidět '
-            'jméno, příjmení, fotografie, číslo dokladu a platnost. '
-            'Doklad dejte na tmavý podklad, bez odlesků a ořezů.';
-      case 'id_back':
-        return 'Nafoťte znovu ZADNÍ stranu OP. Stačí aby byla čitelná '
-            'adresa trvalého bydliště. Dbejte na ostrost a dostatek světla.';
-      case 'passport_front':
-        return 'Nafoťte znovu stránku pasu s fotografií a MRZ kódem '
-            '(dvouřádkový kód dole). Číslo pasu musí být čitelné.';
-      case 'passport_back':
-        return 'Nafoťte znovu stránku pasu s adresou. Text musí '
-            'být čitelný a celý v rámečku.';
-      case 'dl_front':
-        return 'Nafoťte znovu PŘEDNÍ stranu ŘP. Musí být čitelné '
-            'číslo ŘP (bod 5) a datum platnosti (bod 4b). '
-            'Doklad rovně, bez odlesků.';
-      case 'dl_back':
-        return 'Nafoťte znovu ZADNÍ stranu ŘP. Stačí aby byla čitelná '
-            'tabulka skupin (A, B, A1 ...) — slouží jen k potvrzení '
-            'skupin z přední strany.';
-      default:
-        return 'Zkuste prosím doklad vyfotit znovu v lepším '
-            'světle a bez odlesků.';
-    }
+    final key = switch (step.key) {
+      'id_front' => 'scanGuideIdFront',
+      'id_back' => 'scanGuideIdBack',
+      'passport_front' => 'scanGuidePassportFront',
+      'passport_back' => 'scanGuidePassportBack',
+      'dl_front' => 'scanGuideDlFront',
+      'dl_back' => 'scanGuideDlBack',
+      _ => 'scanGuideDefault',
+    };
+    return t(context).tr(key);
   }
 
   /// Lidsky srozumitelný důvod proč OCR nenašel potřebná pole.
   String _missingFieldsReason(_ScanStep step) {
     final isBack = step.key.endsWith('_back');
     if (step.docType == ScanDocType.driversLicense) {
-      if (isBack) {
-        return 'Na zadní straně ŘP nebyla rozpoznána tabulka skupin. '
-            'Stačí zaostřit na tabulku skupin (A, B, A1 ...).';
-      }
-      return 'Na přední straně ŘP nebylo rozpoznáno číslo ani datum '
-          'platnosti. Bez těchto údajů nelze doklad ověřit.';
+      return t(context).tr(isBack ? 'scanMissingDlBack' : 'scanMissingDlFront');
     }
-    if (isBack) {
-      return 'Na zadní straně nebyla rozpoznána adresa trvalého bydliště.';
-    }
-    return 'Na přední straně nebylo rozpoznáno jméno, číslo dokladu '
-        'ani datum platnosti.';
+    return t(context).tr(isBack ? 'scanMissingBack' : 'scanMissingFront');
   }
 
   /// Build user-friendly error message with diagnostics.
@@ -394,7 +367,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     // Diagnostic line shown at bottom of every error
     final diag = '\n\n[${step.docType.apiType} | $code'
         '${http != null ? ' | HTTP $http' : ''}'
-        '${att > 1 ? ' | pokus $att' : ''}]'
+        '${att > 1 ? ' | #$att' : ''}]'
         '${detail != null && detail.length < 120 ? '\n$detail' : ''}';
 
     switch (code) {
@@ -681,9 +654,9 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
         Padding(padding: const EdgeInsets.all(20), child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _badge('🔒 Zabezpečené rozpoznávání'),
+            _badge('🔒 ${t(context).tr('secureRecognition')}'),
             const SizedBox(width: 8),
-            _badge('📱 Data uložena v telefonu'),
+            _badge('📱 ${t(context).tr('dataStoredLocally')}'),
           ],
         )),
         _badge('🇪🇺 EU GDPR compliant'),
@@ -880,7 +853,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
           ],
           if (!ok && remaining > 0) ...[
             const SizedBox(height: 10),
-            Text('Zbývá pokusů: $remaining',
+            Text(t(context).trArgs('scanAttemptsLeft', {'n': remaining}),
               style: const TextStyle(fontSize: 12,
                 color: Color(0xFFFBBF24), fontWeight: FontWeight.w700)),
           ],
@@ -922,9 +895,9 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const Text('📞', style: TextStyle(fontSize: 48)),
           const SizedBox(height: 16),
-          const Text('Pomůžeme vám osobně',
+          Text(t(context).tr('scanHelpTitle'),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900,
               color: Colors.white)),
           const SizedBox(height: 8),
           Text(_resultTitle, textAlign: TextAlign.center,
@@ -932,9 +905,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
               fontWeight: FontWeight.w700, color: Colors.white70)),
           const SizedBox(height: 14),
           Text(
-            'Sken dokladu se nepodařil po $_kMaxAttemptsPerStep pokusech. '
-            'Zavolejte nám nebo napište — dokončíme ověření ručně a '
-            'vaše rezervace bude připravena.',
+            t(context).trArgs('scanHelpText', {'n': _kMaxAttemptsPerStep}),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13,
               color: Colors.white70, height: 1.5),
@@ -956,7 +927,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
           const SizedBox(height: 22),
           _contactBtn(
             icon: '📞',
-            label: 'Zavolat $_kSupportPhone',
+            label: '${t(context).tr('callLabel')} $_kSupportPhone',
             onTap: () => _launchExternal(
               'tel:${_kSupportPhone.replaceAll(' ', '')}'),
             primary: true,
@@ -964,7 +935,8 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
           const SizedBox(height: 10),
           _contactBtn(
             icon: '✉️',
-            label: 'Napsat $_kSupportEmail',
+            label: '${t(context).tr('scanWriteBtn')} $_kSupportEmail',
+            // Předmět pro obsluhu (Velín) zůstává česky.
             onTap: () => _launchExternal(
               'mailto:$_kSupportEmail?subject='
               '${Uri.encodeComponent('Ověření dokladů — $_resultTitle')}'),
@@ -978,16 +950,16 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
               _resultAttempt = 0;
               _resultKind = _ResultKind.none;
             }),
-            child: const Text('Zkusit přesto ještě jednou',
-              style: TextStyle(color: Colors.white54, fontSize: 13)),
+            child: Text(t(context).tr('scanTryAgainAnyway'),
+              style: const TextStyle(color: Colors.white54, fontSize: 13)),
           ),
           TextButton(
             onPressed: () async {
               await _disposeCamera();
               if (mounted) _safePop();
             },
-            child: const Text('Zavřít skener',
-              style: TextStyle(color: Colors.white38, fontSize: 13)),
+            child: Text(t(context).tr('scanCloseScanner'),
+              style: const TextStyle(color: Colors.white38, fontSize: 13)),
           ),
         ]),
       )),
