@@ -5,7 +5,7 @@
 // Struktura = lang/v2/es/info.php (schválený pilot); CS defaulty: lpiDefaults() v landing-info.php.
 return ['pages' => ['landing_info' => [
     'cta_primary' => 'RESERVIEREN',
-    'cta_secondary' => 'MOTORRÄDER ANSEHEN',
+    'cta_secondary' => 'MOTORRAD WÄHLEN',
     'cta_call' => 'ANRUFEN',
     'reserve' => 'Motorrad reservieren',
     'steps_title' => 'Schritt für Schritt',
