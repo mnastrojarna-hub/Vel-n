@@ -104,6 +104,11 @@ return [
     'footer.contract' => 'Contrato de alquiler',
     'footer.partners' => 'Para socios',
     'footer.partnersTitle' => 'Socios',
+    // Patička — alt texty log partnerů
+    'footer.partner.kudyznudyAlt' => 'Kudyznudy.cz – el mejor comienzo para tu excursión',
+    'footer.partner.atlasAlt' => 'Atlas Česka – guía de viajes por Chequia',
+    'footer.partner.bikeangelAlt' => 'bikeAngel – localizador GPS y alarma para motos',
+    'footer.partner.vysocinaAlt' => 'Vysočina – marca oficial del destino',
     'footer.toTop' => 'ARRIBA',
     'footer.iconPhone' => 'Teléfono',
     'footer.iconEmail' => 'Correo',
@@ -169,6 +174,20 @@ return [
     'doc.notPublished' => 'Este documento aún no ha sido publicado.',
     'doc.cardView' => 'Documento · ver',
 
+    // Jazyk smluvního dokumentu (dokumenty-detail.php): závazná je vždy česká verze
+    'doc.h1Suffix' => '| MotoGo24 alquiler de motos',
+    'doc.metaDesc' => '{title} — MotoGo24, alquiler de motos en Pelhřimov, Vysočina (República Checa). Sin depósito, equipo incluido, 24/7.',
+    'doc.czechBinding' => 'La versión vinculante es la checa; estamos preparando la traducción.',
+    'doc.translationNote' => 'Esta traducción es solo informativa; la versión vinculante es la checa.',
+    'doc.czechVersionLink' => 'Versión checa',
+    // Kontakt (pages/kontakt.php): mapa, fotky provozovny, typ pobočky v JSON-LD
+    'contact.mapAria' => 'Mapa: dónde encontrarnos',
+    'contact.photoAlt.1' => 'Sala de exposición de MotoGo24, alquiler de motos en Pelhřimov',
+    'contact.photoAlt.2' => 'Sucursal de MotoGo24 — motos listas para alquilar',
+    'contact.photoAlt.3' => 'Motos adventure en MotoGo24',
+    'contact.photoAlt.4' => 'Almacén de equipo — cascos y ropa incluidos en el alquiler',
+    'contact.branchType.staffed' => 'sucursal con personal',
+    'contact.branchType.self' => 'sucursal de autoservicio',
     // ===== Breadcrumby (statické labely) =====
     'breadcrumb.home' => 'Inicio',
     'breadcrumb.catalog' => 'Catálogo de motos',
@@ -234,6 +253,10 @@ return [
     // ===== SEO meta defaults (por idioma) =====
     'seo.default.description' => 'Alquiler de motos en la región de Vysočina, República Checa — motos de turismo, sport, enduro e infantiles. Alquiler 24/7, sin depósito, equipo incluido, reserva online.',
     'seo.default.keywords' => 'alquiler de motos República Checa',
+    // Strukturovaná data (layout.php JSON-LD)
+    'seo.org.description' => 'Alquiler de motos en la región de Vysočina, República Checa — motos de carretera, naked, supermoto, enduro e infantiles. Sin depósito, equipo incluido, abierto 24/7.',
+    'seo.org.slogan' => 'Alquila tu moto sin depósito. 24/7. Online.',
+    'seo.service.description' => 'Alquiler de motos en la región de Vysočina. Alquiler de motos a corto y largo plazo en la República Checa. Motos de turismo, naked, supermoto, enduro, deportivas e infantiles. Sin depósito, equipo de motorista incluido, reserva online con pago con tarjeta, recogida disponible 24/7. Entrega fuera de la sucursal posible, viajes por la UE permitidos, carta verde incluida.',
     'seo.home.description' => 'Alquila una moto en la región de Vysočina. Sin depósito, equipo incluido, servicio 24/7. Motos de turismo, sport, enduro e infantiles. Reserva online.',
     'seo.home.keywords' => 'alquiler de motos República Checa',
 
@@ -838,6 +861,13 @@ return [
     // ===== Breadcrumb / FAQ / Galería =====
     'breadcrumb.shop' => 'Tienda',
     'faq.empty' => 'Aún no hay preguntas en esta categoría.',
+    // FAQ záložky podle faq_items.category_key (DB category_label je jen česky)
+    'faq.cat.borrowing' => 'Alquiler y devolución',
+    'faq.cat.conditions' => 'Equipo y condiciones',
+    'faq.cat.delivery' => 'Entrega',
+    'faq.cat.reservations' => 'Reservas',
+    'faq.cat.travel' => 'Viajes al extranjero',
+    'faq.cat.vouchers' => 'Vales',
     'gallery.openImage' => 'Abrir foto en la galería',
     'gallery.prev' => 'Foto anterior',
     'gallery.next' => 'Siguiente foto',

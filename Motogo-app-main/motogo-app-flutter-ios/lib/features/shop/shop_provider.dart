@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth_guard.dart';
+import '../../core/i18n/app_lang.dart';
 import '../../core/supabase_client.dart';
 import '../booking/booking_models.dart';
 import 'shop_models.dart';
@@ -123,13 +125,16 @@ Future<ShopOrderResult> createShopOrder({
     });
     if (res is Map && res['order_id'] != null) {
       final orderId = res['order_id'] as String;
-      // i18n: ulož jazyk zákazníka do shop_orders.language (pro maily/SMS/push)
+      // i18n: ulož jazyk zákazníka do shop_orders.language (pro maily/SMS/push).
+      // RPC obnovila migrace 20261011 (vč. 'uk'); bez ní objednávka zůstane 'cs'.
       try {
         await MotoGoSupabase.client.rpc('set_shop_order_language', params: {
           'p_order_id': orderId,
-          'p_language': language,
+          'p_language': normalizeAppLang(language),
         });
-      } catch (_) { /* ignore — log only, neni kritické */ }
+      } catch (e) {
+        debugPrint('[Shop] set_shop_order_language failed: $e');
+      }
       return ShopOrderResult(
         orderId: orderId,
         total: (res['total'] as num?)?.toDouble(),

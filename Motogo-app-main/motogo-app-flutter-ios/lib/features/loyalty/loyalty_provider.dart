@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/pending_booking_fab_provider.dart';
 import '../../core/supabase_client.dart';
+import '../../core/i18n/i18n_provider.dart' show AppTranslations;
+import 'rank_names.dart';
 import '../auth/auth_provider.dart';
 
 /// Věrnostní rank zákazníka — výsledek RPC `get_loyalty_status`.
@@ -53,6 +55,13 @@ class LoyaltyStatus {
   });
 
   bool get isMax => level >= maxLevel;
+
+  /// Název ranku v jazyce appky (DB/RPC vrací česky).
+  String rankNameFor(AppTranslations tr) => localizedRankName(tr, level, rankName);
+
+  /// Název dalšího ranku (level + 1) v jazyce appky.
+  String? nextRankNameFor(AppTranslations tr) =>
+      nextRankName == null ? null : localizedRankName(tr, level + 1, nextRankName!);
 
   /// Level 20 „Legenda MotoGo" — místo plné barvy zlato-oranžový gradient.
   bool get isLegend => level >= 20;

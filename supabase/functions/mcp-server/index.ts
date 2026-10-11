@@ -25,6 +25,9 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { normLang, siteUrl } from '../_shared/agent-knowledge/site-url.ts'
+import { branchModeCs, branchPublicFieldsEn } from '../_shared/agent-knowledge/branch-facts.ts'
+import { LANG_ENUM, keyFacts, dbFaq, foreignTravelCs, factsMarkdown } from './facts.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -79,6 +82,7 @@ const TOOLS = [
         kw_min: { type: 'number', description: 'Minimum engine power in kW' },
         kw_max: { type: 'number', description: 'Maximum engine power in kW' },
         price_max: { type: 'number', description: 'Maximum price per day in CZK' },
+        language: { type: 'string', enum: LANG_ENUM, description: 'Language of the end customer — returned links open the website in it (default en).' },
       },
     },
   },
@@ -117,7 +121,7 @@ const TOOLS = [
   },
   {
     name: 'motogo_create_booking',
-    description: 'Create a booking. Returns booking_id and Stripe payment_url for the customer. Customer completes payment on payment_url. ALWAYS confirm with user before calling — this creates a real reservation.',
+    description: 'Create a booking. Returns booking_id and payment_url (website in the customer\'s language) for the customer. Customer completes payment on payment_url. ALWAYS confirm with user before calling — this creates a real reservation. Requires the customer\'s EXPLICIT consent to the General Terms (incl. rental contract; the Czech version is binding) and to personal data processing (GDPR), date of birth (renter 18+) and the customer\'s language (contract, terms and e-mails are sent in it).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -134,21 +138,29 @@ const TOOLS = [
         extras: { type: 'array', items: { type: 'object' } },
         promo_code: { type: 'string' },
         note: { type: 'string' },
+        date_of_birth: { type: 'string', format: 'date', description: 'Renter date of birth YYYY-MM-DD (must be 18+).' },
+        language: { type: 'string', enum: LANG_ENUM, description: 'Language the customer speaks — contract, General Terms, e-mails and payment page use it.' },
+        consent_vop: { type: 'boolean', description: 'true ONLY if the customer explicitly agreed to the General Terms and rental contract.' },
+        consent_gdpr: { type: 'boolean', description: 'true ONLY if the customer explicitly agreed to personal data processing (GDPR).' },
+        marketing_consent: { type: 'boolean', description: 'Optional newsletter consent (default false).' },
       },
-      required: ['moto_id', 'start_date', 'end_date', 'customer_name', 'customer_email', 'customer_phone'],
+      required: ['moto_id', 'start_date', 'end_date', 'customer_name', 'customer_email', 'customer_phone', 'date_of_birth', 'language', 'consent_vop', 'consent_gdpr'],
     },
   },
   {
     name: 'motogo_get_branches',
-    description: 'List MotoGo24 rental branches with address and GPS coordinates. Currently 1 branch in Mezná near Pelhřimov, Vysočina.',
+    description: 'List MotoGo24 rental branches with address, GPS, mode and opening hours. Two branches, both NONSTOP: Mezná near Pelhřimov (staffed handover at the booked time) and Velké Němčice (100 % self-service with access codes).',
     inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'motogo_get_faq',
-    description: 'Get the FAQ entries (questions + answers) about MotoGo24 rental policies. Optional query filters by keyword.',
+    description: 'Get key facts (deposit, damage cover, branches, cancellation, travel ban…) and the FAQ (questions + answers) in the requested language. Optional query filters by keyword (in that language).',
     inputSchema: {
       type: 'object',
-      properties: { query: { type: 'string', description: 'Optional keyword filter' } },
+      properties: {
+        query: { type: 'string', description: 'Optional keyword filter' },
+        language: { type: 'string', enum: LANG_ENUM, description: 'FAQ language (default en).' },
+      },
     },
   },
   {
@@ -217,7 +229,7 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
           min_price_per_day: Math.min(...['price_mon','price_tue','price_wed','price_thu','price_fri','price_sat','price_sun']
             .map((k) => Number((m as Record<string, unknown>)[k] || 0)).filter((p) => p > 0)),
           ideal_usage: m.ideal_usage, image_url: m.image_url,
-          url: `https://www.motogo24.cz/katalog/${m.id}`,
+          url: siteUrl(normLang(args.language, 'en'), `/katalog/${m.id}`),
         })),
       }
     }
@@ -281,6 +293,14 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
 
     case 'motogo_create_booking': {
       const a = args as Record<string, unknown>
+      // Souhlasy + datum narození + jazyk (audit i18n AI-09): bez p_consent_* create_web_booking
+      // uložil do profilu souhlasy (i marketing) jako true bez reálného souhlasu zákazníka.
+      if (a.consent_vop !== true || a.consent_gdpr !== true) {
+        throw new Error('Explicit customer consent required: consent_vop=true (General Terms + rental contract) and consent_gdpr=true (personal data processing).')
+      }
+      const dob = String(a.date_of_birth || '').slice(0, 10)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || isNaN(new Date(dob).getTime())) throw new Error('date_of_birth (YYYY-MM-DD) is required.')
+      const bookLang = normLang(a.language, 'en')
       // Parita s webem/appkou (zadání 2026-10-01 večer): čas vyzvednutí se volí
       // u všech poboček (řídí slevu za vyzvednutí od 12:00), výchozí 10:00 —
       // NIKDY 12:00 (dala by slevu a u samoobsluhy výdej až od 12:00).
@@ -304,13 +324,22 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
         p_passenger_helmet_size: null, p_passenger_jacket_size: null,
         p_passenger_gloves_size: null, p_passenger_boots_size: null,
         p_return_time: (ssBranch && !a.return_address && !a.delivery_address) ? '23:59' : null,
+        p_date_of_birth: dob,
+        p_consent_vop: true,
+        p_consent_gdpr: true,
+        p_marketing_consent: a.marketing_consent === true,
       })
       if (error) throw new Error(error.message)
       const r = data as Record<string, unknown>
+      // Jazyk rezervace → smlouva, VOP, e-maily (RPC z migrace 20261011_i18n_customer_language).
+      const { error: langErr } = await sb.rpc('set_booking_language', { p_booking_id: r.booking_id, p_language: bookLang })
+      if (langErr) console.warn('[mcp] set_booking_language failed:', langErr.message)
       return {
         ...r,
-        payment_url: `https://www.motogo24.cz/rezervace?id=${r.booking_id}`,
-        next_step: 'Customer must visit payment_url to complete Stripe payment.',
+        language: bookLang,
+        // ?resume= (web /rezervace čte jen resume; dřívější ?id= vedl na prázdný formulář) v jazyce zákazníka
+        payment_url: siteUrl(bookLang, `/rezervace?resume=${r.booking_id}`),
+        next_step: 'Customer must open payment_url to pay (card / Apple Pay / Google Pay, or QR / bank transfer on the website). After payment the customer uploads ID and driving licence photos in the booking; access codes / handover details then arrive by e-mail.',
       }
     }
 
@@ -319,28 +348,21 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
       if (error) throw new Error(error.message)
       // Neaktivní / zavřená pobočka se nikde nenabízí (stejně jako web a AI agent).
       const branches = (data || []).filter((b: Record<string, unknown>) => b.active !== false && b.is_open !== false)
+        // Režim + čitelná provozní doba místo syrového jsonb opening_hours (AI klient by četl starý seed
+        // „Ne zavřeno“); obě pobočky NONSTOP (majitel 2026-10-10).
+        .map(({ opening_hours: _oh, ...b }: Record<string, unknown>) => ({ ...b, ...branchPublicFieldsEn(b), mode_cs: branchModeCs(b.type) }))
       return { count: branches.length, branches }
     }
 
     case 'motogo_get_faq': {
-      // Pull from our static FAQ markdown via web (cached) — simpler than DB (would need a cms_pages slug=faq).
-      // Stačí krátký dictionary: nejčastější otázky.
-      const faqs = [
-        { q: 'Jak si rezervovat motorku?', a: 'Online přes formulář na motogo24.cz/rezervace, nebo přes MCP nástroj motogo_create_booking. Telefon +420 774 256 271.' },
-        { q: 'Musím složit kauci?', a: 'Ne — MotoGo24 půjčuje bez kauce. Žádná blokace peněz na kartě.' },
-        { q: 'Co je v ceně?', a: 'Pronájem motorky, motorkářská výbava (helma, bunda, kalhoty, rukavice), povinné ručení.' },
-        { q: 'Jaký řidičský průkaz potřebuji?', a: 'Skupina A pro silnější stroje, A2 do 35 kW, A1 do 11 kW. Dětské motorky bez ŘP (ručí zákonný zástupce).' },
-        { q: 'Můžu jet do zahraničí?', a: 'Ano, sjezd do zahraničí povolen. Zelená karta v ceně.' },
-        { q: 'Kde si motorku vyzvednu?', a: 'Mezná 9, Pelhřimov, Vysočina. Volitelně přistavení kamkoliv v ČR za příplatek.' },
-        { q: 'Můžu storno?', a: 'Bezplatné storno minimálně 7 dní před převzetím. Později individuálně.' },
-        { q: 'Jak platím?', a: 'Předem online přes Stripe: karta (Visa, Mastercard, Amex), Apple Pay, Google Pay; na webu i QR platba / bankovní převod. V mobilní aplikaci karta + Apple Pay (iPhone) / Google Pay (Android). Hotovost nepřijímáme.' },
-        { q: 'Máte mobilní aplikaci?', a: 'Ano — iPhone: https://apps.apple.com/cz/app/id6806045151, Android: https://play.google.com/store/apps/details?id=com.motogo24.app' },
-        { q: 'Otevírací doba?', a: '24/7 nonstop, 365 dní v roce. Vyzvednutí přes přístupové kódy.' },
-        { q: 'Minimální věk?', a: '18 let pro dospělé motorky. Dětské motorky bez věkového limitu (ručí rodič).' },
-      ]
+      // Klíčová fakta (opravená dle majitele 2026-10-10 + site.policies) + FAQ z DB v jazyce klienta
+      // (dřív 11 natvrdo českých odpovědí s chybami: zahraničí bez omezení, 24/7 přes kódy, 1 pobočka…).
+      const lang = normLang(args.language, 'en')
       const query = String(args.query || '').toLowerCase()
-      const filtered = query ? faqs.filter((f) => (f.q + ' ' + f.a).toLowerCase().includes(query)) : faqs
-      return { count: filtered.length, faqs: filtered }
+      const facts = keyFacts(lang, await foreignTravelCs(sb))
+      const keyHits = query ? facts.filter((f) => (f.q + ' ' + f.a).toLowerCase().includes(query)) : facts
+      const faqs = (await dbFaq(sb, lang, query)).slice(0, 40)
+      return { language: lang, binding_language: 'cs', key_facts: keyHits, count: faqs.length, faqs }
     }
 
     case 'motogo_validate_promo': {
@@ -362,20 +384,11 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
 
 async function readResource(uri: string): Promise<{ uri: string; mimeType: string; text: string }> {
   if (uri === 'motogo://about') {
+    const facts = keyFacts('en', await foreignTravelCs(sb))
     return {
       uri, mimeType: 'text/markdown',
-      text: `# MotoGo24
-
-Czech motorcycle rental in Mezná near Pelhřimov (Vysočina region).
-
-- **No deposit** — no card hold
-- **Riding gear included** — helmet, jacket, pants, gloves
-- **24/7 nonstop** — pickup via access codes
-- **Online booking** — Stripe payment
-
-Contact: +420 774 256 271 · info@motogo24.cz · Mezná 9, 393 01 Pelhřimov, CZ
-GPS: 49.3464, 15.2119
-Web: https://www.motogo24.cz`,
+      text: factsMarkdown('MotoGo24 — motorcycle rental, Czech Republic (Vysočina)', facts)
+        + `\nContact: +420 774 256 271 (Mon–Fri 8:00–17:00) · info@motogo24.cz · Mezná 9, 393 01 Pelhřimov, CZ\nWeb: https://www.motogo24.cz (cs) · ${siteUrl('en', '/')} (en, de, es, fr, nl, pl, uk via ?lang=)\n`,
     }
   }
   if (uri === 'motogo://motorcycles') {
@@ -387,44 +400,20 @@ Web: https://www.motogo24.cz`,
     return { uri, mimeType: 'application/json', text: JSON.stringify(motos) }
   }
   if (uri === 'motogo://branches') {
-    const { data } = await sb.from('branches').select('*')
-    const branches = (data || []).filter((b: Record<string, unknown>) => b.active !== false && b.is_open !== false)
+    // Stejná data jako tool (režim + čitelná provozní doba), ne syrový jsonb opening_hours.
+    const { branches } = await execTool('motogo_get_branches', {}) as { branches: unknown[] }
     return { uri, mimeType: 'application/json', text: JSON.stringify(branches) }
   }
   if (uri === 'motogo://faq') {
-    const faqs = await execTool('motogo_get_faq', {}) as { faqs: Array<{q:string;a:string}> }
+    const faqs = await execTool('motogo_get_faq', { language: 'en' }) as { key_facts: Array<{q:string;a:string}>; faqs: Array<{q:string;a:string}> }
     let md = '# MotoGo24 FAQ\n\n'
-    for (const f of faqs.faqs) md += `## ${f.q}\n\n${f.a}\n\n`
+    for (const f of [...faqs.key_facts, ...faqs.faqs]) md += `## ${f.q}\n\n${f.a}\n\n`
     return { uri, mimeType: 'text/markdown', text: md }
   }
   if (uri === 'motogo://policies') {
     return {
       uri, mimeType: 'text/markdown',
-      text: `# MotoGo24 Rental Policies
-
-## Deposit
-**None.** No money held on customer's card.
-
-## Cancellation
-- Free cancellation: at least 7 days before pickup
-- Later: individual agreement
-
-## License Requirements
-- **A**: unlimited, min. age 24 (or 21 with 2y A2 experience)
-- **A2**: up to 35 kW, min. age 18
-- **A1**: up to 11 kW, 125 ccm, min. age 16
-- **B**: automatic scooters up to 125 ccm (CZ specific, 2y B experience)
-- **N**: kids motorcycles, no license needed (parent guarantor)
-
-## Abroad
-Allowed. Green card included.
-
-## Fuel & Cleaning
-Return without need to refuel or wash. Excessive dirt — individual.
-
-## Late Return
-Please return on time. Late returns charged per agreement (other bookings).
-`,
+      text: factsMarkdown('MotoGo24 Rental Policies (summary — the Czech General Terms are binding)', keyFacts('en', await foreignTravelCs(sb))),
     }
   }
   throw new Error(`Unknown resource: ${uri}`)
@@ -493,7 +482,7 @@ serve(async (req) => {
         provider: 'MotoGo24',
         contact: 'info@motogo24.cz',
         homepage: 'https://www.motogo24.cz',
-        languages: ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl'],
+        languages: LANG_ENUM,
         currencies: ['CZK'],
         regions: ['CZ', 'SK', 'AT', 'DE', 'PL'],
       },

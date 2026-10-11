@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../booking_ui_helpers.dart' show showAddrBottomSheet;
 import '../map_launcher.dart' show launchMapPicker;
+import '../price_calculator.dart' show PriceCalculator;
 import '../../../core/booking_form_locked_option.dart';
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
@@ -13,6 +14,11 @@ import '../../../core/i18n/i18n_provider.dart';
 /// in the reservation-edit ListView (field scrolled to top, rest empty).
 class AddressPickerWidget extends StatefulWidget {
   final String label;
+
+  /// true = vyzvednutí (přistavení na adresu), false = vrácení (odvoz z
+  /// adresy). Dřív se odvozovalo z [label] == 'Vyzvednutí' — v cizojazyčné
+  /// appce tak vyzvednutí ukazovalo „odvoz z adresy".
+  final bool isPickup;
   final String method;
   final ValueChanged<String> onMethodChanged;
   final ValueChanged<AddressResult> onAddressChanged;
@@ -29,6 +35,7 @@ class AddressPickerWidget extends StatefulWidget {
   const AddressPickerWidget({
     super.key,
     required this.label,
+    this.isPickup = true,
     required this.method,
     required this.onMethodChanged,
     required this.onAddressChanged,
@@ -70,12 +77,13 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
     }
   }
 
+  String _deliveryTitle(BuildContext context) =>
+      t(context).tr(widget.isPickup ? 'deliveryToAddress' : 'returnFromAddress');
+
   void _openAddressSheet() {
     showAddrBottomSheet(
       context,
-      widget.label == 'Vyzvednutí'
-          ? 'Přistavení na vaši adresu'
-          : 'Odvoz z vaší adresy',
+      _deliveryTitle(context),
       _city,
       _street,
       (city, addr) {
@@ -106,32 +114,31 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = t(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _RadioOption(
-          label: 'Na pobočce',
+          label: tr.tr('atBranch'),
           sublabel: widget.branchLabel ?? 'Mezná 9, Pelhřimov',
-          price: 'Zdarma',
+          price: tr.free,
           selected: widget.method == 'store',
           onTap: () => widget.onMethodChanged('store'),
         ),
         const SizedBox(height: 6),
         if (widget.deliveryBlocked)
           BookingLockedOptionTile(
-            label: widget.label == 'Vyzvednutí'
-                ? 'Přistavení na vaši adresu'
-                : 'Odvoz z vaší adresy',
+            label: _deliveryTitle(context),
             shortReason: t(context).tr('ssNoDeliveryShort'),
             info: t(context).tr('ssNoDeliveryInfo'),
           )
         else
           _RadioOption(
-            label: widget.label == 'Vyzvednutí'
-                ? 'Přistavení na vaši adresu'
-                : 'Odvoz z vaší adresy',
-            sublabel: '1 000 Kč + 40 Kč/km',
-            price: 'od 1 000 Kč',
+            label: _deliveryTitle(context),
+            sublabel: '${Money.czk(PriceCalculator.deliveryBase)} + '
+                '${Money.czk(PriceCalculator.deliveryPerKm)}/km',
+            price: tr.trArgs('fromPriceValue',
+                {'price': Money.czk(PriceCalculator.deliveryBase)}),
             selected: widget.method == 'delivery',
             onTap: () => widget.onMethodChanged('delivery'),
           ),
@@ -153,7 +160,7 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
                     child: Text(
                         _city.isNotEmpty
                             ? '${_street.isNotEmpty ? '$_street, ' : ''}$_city'
-                            : 'Klikněte pro zadání adresy',
+                            : tr.tr('clickEnterAddress'),
                         style: TextStyle(
                             fontSize: 12,
                             color: _city.isNotEmpty

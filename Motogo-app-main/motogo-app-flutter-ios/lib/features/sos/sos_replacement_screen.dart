@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/supabase_client.dart';
 import '../../core/i18n/i18n_provider.dart';
+import 'sos_timeline_i18n.dart';
 import '../../core/widgets/address_autocomplete_field.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../catalog/catalog_provider.dart';
@@ -79,7 +80,7 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
         'description': 'Adresa: $_addrStreet, $_addrCity',
       });
     } catch (e) {
-      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: '$e');
+      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: sosErrorMessage(t(context), e));
       setState(() => _loading = false);
       return;
     }

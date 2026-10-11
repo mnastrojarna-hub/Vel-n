@@ -39,7 +39,7 @@ class PricingTable extends StatelessWidget {
                 ),
                 child: Column(children: [
                   Text(
-                    DayPrices.dayLabels[i].toUpperCase(),
+                    t(context).tr(DayPrices.dayLabelKeys[i]).toUpperCase(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

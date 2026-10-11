@@ -393,7 +393,7 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => DocWebViewScreen(
           htmlContent: html,
-          title: invoice.number ?? invoice.typeLabel,
+          title: invoice.number ?? t(context).tr(invoice.typeKey),
         ),
       ));
     } catch (e) {

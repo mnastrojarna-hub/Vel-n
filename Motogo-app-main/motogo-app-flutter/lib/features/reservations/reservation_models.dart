@@ -1,5 +1,6 @@
 import 'dart:ui' show Color;
 import '../../core/date_days.dart';
+import '../../core/i18n/i18n_provider.dart' show AppTranslations, lastKnownAppLang;
 import '../../core/booking_rules.dart';
 
 /// Zaplacená rezervace i po vratce z úpravy (`partial_refund`/`refund_pending`).
@@ -194,7 +195,7 @@ class Reservation {
     return Reservation(
       id: json['id'] as String,
       motoId: json['moto_id'] as String?,
-      motoName: moto?['model'] as String? ?? 'Motorka',
+      motoName: moto?['model'] as String? ?? AppTranslations.of(lastKnownAppLang).motorcycle,
       motoImage: moto?['image_url'] as String?,
       category: moto?['category'] as String?,
       branchName: branch?['name'] as String?,
@@ -649,22 +650,55 @@ class ModificationEntry {
       fromReturnAddress != toReturnAddress;
 }
 
+/// Druh změny termínu (text v jazyce appky přes [ModDescription.typeText]).
+enum ModKind { extended, shortened, shifted, unchanged }
+
 /// Describes a modification: type, color, detail text.
-/// Mirrors _descMod() from reservations-edit.js.
+/// Mirrors _descMod() from reservations-edit.js. Texty skládá UI přes i18n
+/// klíče (dřív pevná čeština „prodlouženo o N d“ ve všech jazycích).
 class ModDescription {
-  final String type;
-  final String detail;
+  final ModKind kind;
+  /// Rozdíl délky pronájmu ve dnech (nové − původní).
+  final int dayDelta;
+  /// Posun začátku / konce v kalendářních dnech (záporné = dříve).
+  final int startShift;
+  final int endShift;
   final int origDays;
   final int newDays;
   final Color color;
 
   const ModDescription({
-    required this.type,
-    required this.detail,
+    required this.kind,
+    required this.dayDelta,
+    required this.startShift,
+    required this.endShift,
     required this.origDays,
     required this.newDays,
     required this.color,
   });
+
+  /// Krátký popis druhu změny („prodlouženo o 2 d“) — [tr] = `t(context).tr`.
+  String typeText(String Function(String) tr) {
+    String n(String key, int v) => tr(key).replaceAll('{n}', '$v');
+    return switch (kind) {
+      ModKind.extended => n('modExtendedBy', dayDelta.abs()),
+      ModKind.shortened => n('modShortenedBy', dayDelta.abs()),
+      ModKind.shifted => tr('modShifted'),
+      ModKind.unchanged => tr('modUnchanged'),
+    };
+  }
+
+  /// Podrobnosti posunu („začátek dříve o 1 d, konec později o 2 d“).
+  String detailText(String Function(String) tr) {
+    String n(String key, int v) => tr(key).replaceAll('{n}', '$v');
+    final parts = <String>[
+      if (startShift < 0) n('modStartEarlier', startShift.abs()),
+      if (startShift > 0) n('modStartLater', startShift),
+      if (endShift > 0) n('modEndLater', endShift),
+      if (endShift < 0) n('modEndEarlier', endShift.abs()),
+    ];
+    return parts.isNotEmpty ? parts.join(', ') : typeText(tr);
+  }
 
   static ModDescription describe(
     String fromStart, String fromEnd, String toStart, String toEnd,
@@ -678,38 +712,35 @@ class ModDescription {
     final fe = _nd(fromEnd);
     final ts = _nd(toStart);
     final te = _nd(toEnd);
-    final sd = ts.difference(fs).inDays;
-    final ed = te.difference(fe).inDays;
+    // Kalendářní rozdíl (ne `difference().inDays` — přes přechod letního
+    // času vyjde o den méně, viz core/date_days.dart).
+    final sd = calendarDaysInclusive(fs, ts) - 1;
+    final ed = calendarDaysInclusive(fe, te) - 1;
     final origD = calendarDaysInclusive(fs, fe);
     final newD = calendarDaysInclusive(ts, te);
     final dd = newD - origD;
 
-    final parts = <String>[];
-    if (sd < 0) parts.add('začátek dříve o ${sd.abs()} d');
-    else if (sd > 0) parts.add('začátek později o $sd d');
-    if (ed > 0) parts.add('konec později o $ed d');
-    else if (ed < 0) parts.add('konec dříve o ${ed.abs()} d');
-
-    String type;
-    Color color;
+    final ModKind kind;
+    final Color color;
     if (dd > 0) {
-      type = 'prodlouženo o $dd d';
+      kind = ModKind.extended;
       color = const Color(0xFF2563EB);
     } else if (dd < 0) {
-      type = 'zkráceno o ${dd.abs()} d';
+      kind = ModKind.shortened;
       color = const Color(0xFFDC2626);
     } else if (sd != 0 || ed != 0) {
-      type = 'posunuto';
+      kind = ModKind.shifted;
       color = const Color(0xFF92400E);
     } else {
-      type = 'beze změny';
+      kind = ModKind.unchanged;
       color = const Color(0xFF4A6357);
     }
 
-    final detail = parts.isNotEmpty ? parts.join(', ') : type;
     return ModDescription(
-      type: type,
-      detail: detail,
+      kind: kind,
+      dayDelta: dd,
+      startShift: sd,
+      endShift: ed,
       origDays: origD < 1 ? 1 : origD,
       newDays: newD < 1 ? 1 : newD,
       color: color,

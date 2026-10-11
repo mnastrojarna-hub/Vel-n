@@ -70,7 +70,14 @@ class AdminMessage {
   final bool read;
   final DateTime createdAt;
 
-  AdminMessage({required this.id, this.title, this.message, this.type, this.read = false, required this.createdAt});
+  /// Volitelné překlady `{lang: text}` (sloupce `title_translations` /
+  /// `message_translations` — až je DB bude mít; do té doby prázdné a
+  /// zobrazí se `title` / `message` tak, jak je).
+  final Map<String, dynamic> titleTranslations;
+  final Map<String, dynamic> messageTranslations;
+
+  AdminMessage({required this.id, this.title, this.message, this.type, this.read = false, required this.createdAt,
+      this.titleTranslations = const {}, this.messageTranslations = const {}});
 
   factory AdminMessage.fromJson(Map<String, dynamic> json) => AdminMessage(
     id: json['id'] as String,
@@ -79,7 +86,19 @@ class AdminMessage {
     type: json['type'] as String?,
     read: json['read'] as bool? ?? false,
     createdAt: DateTime.parse(json['created_at'] as String),
+    titleTranslations: json['title_translations'] is Map
+        ? Map<String, dynamic>.from(json['title_translations'] as Map) : const {},
+    messageTranslations: json['message_translations'] is Map
+        ? Map<String, dynamic>.from(json['message_translations'] as Map) : const {},
   );
+
+  static String? _pick(Map<String, dynamic> tr, String lang, String? base) {
+    final v = tr[lang];
+    return (v is String && v.trim().isNotEmpty) ? v : base;
+  }
+
+  String? titleFor(String lang) => _pick(titleTranslations, lang, title);
+  String? messageFor(String lang) => _pick(messageTranslations, lang, message);
 
   String get icon => switch (type) {
     'sos_response' || 'sos_auto' => '🚑',

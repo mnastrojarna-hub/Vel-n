@@ -222,7 +222,7 @@ class _ProductCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(product.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MotoGoColors.black), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(product.nameFor(t(context).lang), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MotoGoColors.black), maxLines: 2, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

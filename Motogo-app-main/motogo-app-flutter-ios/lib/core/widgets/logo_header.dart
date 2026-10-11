@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../theme.dart';
+import '../i18n/i18n_provider.dart';
 import 'moto_fx.dart';
 import '../../features/loyalty/loyalty_provider.dart';
 import '../../features/loyalty/loyalty_ranks_screen.dart';
@@ -116,7 +117,7 @@ class LogoRow extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
-                'PŮJČOVNA MOTOREK',
+                t(context).tr('logoSubtitle'),
                 style: TextStyle(
                   fontSize: subtitleSize,
                   fontWeight: FontWeight.w700,

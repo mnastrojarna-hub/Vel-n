@@ -5,14 +5,16 @@
 // obsah vyrenderuje jako dřív a před renderPage() zavolá:
 //   [$content, $lpiMeta] = lpInfoPage($content, '<klic>', $sb);
 //   renderPage(…, $lpiMeta + [ …původní meta… ]);
-// Mimo v2 (landingV2Enabled() = false → CS a ostatní jazyky) vrací obsah
+// Mimo v2 (landingV2Enabled() = false, např. ?landing=v1) vrací obsah
 // BEZE ZMĚNY a prázdná meta → výstup je bajtově shodný s původním.
 // Ve v2 HTML <main> projde DOM post-procesorem (landing-info-dom.php):
 // hero panel (H1 + intro + CTA + chipy), kroky jako časová osa, mřížky jako
 // ikonové karty, tabulky jako karty, FAQ akordeon, CTA jako tmavá karta,
-// závěrečný SEO text sbalený, pruh motorek, sticky lišta. Text se NEMAŽE —
-// jen se přeskupí/sbalí (v DOM zůstává celý). FAQPage/HowTo schema a canonical
-// řeší stránka mimo <main>, wrapper je nemění. Kontakt: landing-info-contact.php.
+// závěrečný SEO text sbalený, bloky dle LPI_BLOCKS, sticky lišta. Text se NEMAŽE —
+// jen se přeskupí/sbalí (v DOM zůstává celý). Výjimka = deduplikace: CTA se
+// stejným cílem jako hero/závěrečná karta (lpiDedupeCtas) a drobeček = H1 (jen
+// pro čtečky). FAQPage/HowTo schema a canonical řeší stránka mimo <main>,
+// wrapper je nemění. Kontakt: landing-info-contact.php.
 // Texty nových prvků: CS defaulty lpiDefaults() ← lang/v2/<lang>/info.php
 // ('pages.landing_info') ← Velín CMS (web.landing_info.*).
 
@@ -138,9 +140,14 @@ function lpInfoWrap($html, $page, $sb) {
     $admin = lpAdmin();
     $motos = $sb->fetchMotos();
     $on = array_flip(LPI_BLOCKS[$page] ?? ['fleet', 'reviews']);
-    // Chipy hero, které už nese karta pobočky (Kontakt), se v hero neopakují
+    // Chip hero se neopakuje, když stejný krátký text už nese obsah stránky (karta výhody „bez skrytých
+    // poplatků.“) nebo karta pobočky (Kontakt) — porovnání bez velikosti písmen a koncové interpunkce
     $skip = [];
-    if ($page === 'kontakt') foreach ((array)($L['contact']['branches'] ?? []) as $br) foreach ((array)($br['chips'] ?? []) as $c) $skip[mb_strtolower(lpPlain($c))] = 1;
+    if ($page === 'kontakt') foreach ((array)($L['contact']['branches'] ?? []) as $br) foreach ((array)($br['chips'] ?? []) as $c) $skip[lpiNorm(lpPlain($c))] = 1;
+    foreach ($x->query('.//p|.//li|.//h2|.//h3|.//h4|.//*[@data-cms-key]', $cc) as $e) {
+        $t = lpiText($e);
+        if ($t !== '' && mb_strlen($t) <= 60) $skip[lpiNorm($t)] = 1;
+    }
     $opt = ['reviews' => isset($on['reviews']), 'skip' => $skip,
         // Kontakt: „Zavolat“ v hero jen když obsah nemá vlastní telefonní kartu (jinak by se volání opakovalo hned pod ním)
         'call' => $page === 'kontakt' && !$x->query('.//a[starts-with(@href,"tel:")]', $cc)->length];
@@ -156,7 +163,8 @@ function lpInfoWrap($html, $page, $sb) {
     lpiGrids($doc, $x, $cc, $admin, $L);
     lpiFaqStyle($doc, $x, $cc);
     [$blocks, $cut] = lpiBlocks($doc, $x, $cc, $L, $TC, isset($on['ai']) && $page !== 'kontakt');
-    lpiDedupeCtas($x, $cc, $heroCtas);
+    // Editor Velínu (inline CMS) vidí všechna tlačítka — i ta skrytá deduplikací, aby šla upravit
+    if (!$admin) lpiDedupeCtas($x, $cc, $heroCtas);
 
     $mid = (isset($on['fleet']) ? renderLpFleet($motos, $TC) : '') .
         (isset($on['reviews']) && function_exists('renderLpReviews') && function_exists('lpReviewsData') ? renderLpReviews(lpReviewsData(), $TC) : '');
@@ -227,7 +235,7 @@ function lpiHero($doc, $x, $h1, $page, $L, $TC, $motos, $opt) {
     if ($min > 0 && lpS($TC['price_chip'] ?? '') !== '') $chips .= '<li class="lp-chip lp-chip--hot">' . he(str_replace('{price}', lpMoneyFrom($min), lpS($TC['price_chip']))) . '</li>';
     $seen = (array)($opt['skip'] ?? []);
     foreach ((array)($L['chips'][$page] ?? []) as $c) {
-        $k = mb_strtolower(lpPlain($c));
+        $k = lpiNorm(lpPlain($c));
         if ($k === '' || isset($seen[$k])) continue;
         $seen[$k] = 1;
         $chips .= '<li class="lp-chip">' . lpIcon('check') . '<span>' . he(lpPlain($c)) . '</span></li>';

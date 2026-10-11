@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../debug_logger.dart';
 import '../supabase_client.dart';
+import 'app_lang.dart';
 import 'translations.dart';
 
 /// Supported languages — mirrors lang-select.js overlay.
@@ -17,7 +22,11 @@ const supportedLocales = [
   Locale('uk'), // Українська
 ];
 
+/// Zdroj pravdy jazyka appky. Uvítací výběr jazyka (LanguageOverlay) i
+/// Nastavení ukládají sem; `mg_locale` je jen příznak „úvodní výběr proběhl"
+/// (a jazyk starších instalací, kde overlay zapisoval jen tento klíč).
 const _langKey = 'mg_language';
+const _legacyLangKey = 'mg_locale';
 
 /// Posledni znamy jazyk appky (zdroj pravdy = localeProvider). Slouzi jako
 /// fallback pro `t()`, kdyz `Localizations.localeOf` jeste neni pripravene
@@ -26,6 +35,10 @@ const _langKey = 'mg_language';
 /// value"). Drzime ho synchronne, aby preklad nikdy nespadl.
 String _lastKnownLang = 'cs';
 
+/// Poslední známý jazyk appky — pro místa bez BuildContextu (chybová
+/// obrazovka, služby).
+String get lastKnownAppLang => _lastKnownLang;
+
 /// Current locale provider.
 final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>(
   (ref) => LocaleNotifier(),
@@ -33,33 +46,113 @@ final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>(
 
 class LocaleNotifier extends StateNotifier<Locale> {
   LocaleNotifier() : super(const Locale('cs')) {
-    _load();
+    _loaded = _load();
+    _listenAuth();
   }
+
+  late final Future<void> _loaded;
+  StreamSubscription<AuthState>? _authSub;
+
+  /// true = zákazník si jazyk v appce zvolil (uvítací overlay / Nastavení).
+  bool _hasLocalChoice = false;
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final code = prefs.getString(_langKey);
+    var code = prefs.getString(_langKey);
+    // Starší instalace: uvítací overlay ukládal jen `mg_locale` a jazyk se
+    // nikdy nepoužil → převezmi ho a ulož jako `mg_language`.
+    if (code == null) {
+      final legacy = prefs.getString(_legacyLangKey);
+      if (legacy != null && legacy.isNotEmpty) {
+        code = normalizeAppLang(legacy);
+        await prefs.setString(_langKey, code);
+      }
+    }
     if (code != null) {
-      state = Locale(code);
+      _hasLocalChoice = true;
+      code = normalizeAppLang(code);
+      if (mounted) state = Locale(code);
       _lastKnownLang = code;
     }
   }
 
-  Future<void> setLocale(Locale locale) async {
-    state = locale;
-    _lastKnownLang = locale.languageCode;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_langKey, locale.languageCode);
+  /// Po přihlášení srovná jazyk profilu s appkou: když si zákazník jazyk v
+  /// appce nevybral (nová instalace bez výběru), převezme jazyk z profilu;
+  /// jinak zapíše volbu appky do `profiles.language` (detect_customer_language
+  /// pak posílá e-maily/SMS ve stejném jazyce). Také při startu s uloženým
+  /// přihlášením (`initialSession`) — zákazník přihlášený už před opravou
+  /// výběru jazyka se znovu nepřihlašuje a jeho profil by zůstal 'cs'.
+  void _listenAuth() {
+    try {
+      _authSub = MotoGoSupabase.client.auth.onAuthStateChange.listen((data) {
+        final e = data.event;
+        if (e == AuthChangeEvent.signedIn ||
+            (e == AuthChangeEvent.initialSession && data.session != null)) {
+          unawaited(_syncWithProfile());
+        }
+      });
+    } catch (_) {/* Supabase ještě není inicializovaný (testy) */}
+  }
 
-    // Save to profile if logged in
+  Future<void> _syncWithProfile() async {
+    await _loaded;
     final user = MotoGoSupabase.currentUser;
-    if (user != null) {
-      try {
-        await MotoGoSupabase.client.from('profiles').update({
-          'language': locale.languageCode,
-        }).eq('id', user.id);
-      } catch (_) {}
+    if (user == null) return;
+    try {
+      final row = await MotoGoSupabase.client
+          .from('profiles')
+          .select('language')
+          .eq('id', user.id)
+          .maybeSingle();
+      final profileLang = row?['language'] as String?;
+      if (!_hasLocalChoice) {
+        if (profileLang != null && appLanguageCodes.contains(profileLang)) {
+          await setLocale(Locale(profileLang), syncProfile: false);
+        }
+        return;
+      }
+      if (profileLang != state.languageCode) {
+        await _saveProfileLang(state.languageCode);
+      }
+    } catch (e) {
+      AppDebugLogger.instance.log(LogCategory.api, 'profile_lang_sync_failed', detail: e.toString());
     }
+  }
+
+  Future<void> _saveProfileLang(String code) async {
+    final user = MotoGoSupabase.currentUser;
+    if (user == null) return;
+    try {
+      await MotoGoSupabase.client
+          .from('profiles')
+          .update({'language': code}).eq('id', user.id);
+    } catch (e) {
+      // Živá DB před migrací 20261011 nezná 'uk' (CHECK) — profil pak nese
+      // nejbližší podporovaný jazyk, ať e-maily nechodí česky.
+      if (isLanguageCheckViolation(e) && code != 'en') {
+        await _saveProfileLang('en');
+        return;
+      }
+      AppDebugLogger.instance.log(LogCategory.api, 'profile_lang_save_failed',
+          detail: e.toString(), data: {'language': code});
+    }
+  }
+
+  Future<void> setLocale(Locale locale, {bool syncProfile = true}) async {
+    final code = normalizeAppLang(locale.languageCode);
+    state = Locale(code);
+    _lastKnownLang = code;
+    _hasLocalChoice = syncProfile || _hasLocalChoice;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_langKey, code);
+    // Save to profile if logged in
+    if (syncProfile) await _saveProfileLang(code);
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
   }
 }
 
@@ -90,13 +183,43 @@ class AppTranslations {
     return AppTranslations(languageCode);
   }
 
+  /// Chybějící klíč: cizí jazyk → angličtina (srozumitelnější než čeština),
+  /// pak čeština, nakonec samotný klíč.
   String _get(String key) {
-    return translations[lang]?[key] ?? translations['cs']?[key] ?? key;
+    final fallback = lang != 'cs' ? translations['en'] : null;
+    return translations[lang]?[key] ??
+        fallback?[key] ??
+        translations['cs']?[key] ??
+        key;
   }
 
   /// Generic translation lookup — for keys without a dedicated getter.
   /// Usage: t(context).tr('fillEmailAndPassword')
   String tr(String key) => _get(key);
+
+  /// Překlad s dosazením `{placeholder}` hodnot.
+  String trArgs(String key, Map<String, Object?> args) {
+    var s = _get(key);
+    args.forEach((k, v) => s = s.replaceAll('{$k}', '${v ?? ''}'));
+    return s;
+  }
+
+  /// Slovo „den/dny/dní" ve správném tvaru pro jazyk (cs/pl/uk mají tři
+  /// tvary, ostatní jazyky dva).
+  String daysWord(int n) {
+    final a = n.abs();
+    if (lang == 'cs') {
+      return a == 1 ? _get('day1') : (a >= 2 && a <= 4 ? _get('days24') : _get('days5'));
+    }
+    if (lang == 'pl' || lang == 'uk') {
+      if (a == 1) return _get('day1');
+      final m10 = a % 10, m100 = a % 100;
+      final few = m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14);
+      if (lang == 'uk' && m10 == 1 && m100 != 11) return _get('day1');
+      return few ? _get('days24') : _get('days5');
+    }
+    return a == 1 ? _get('day1') : _get('days5');
+  }
 
   // Auth
   String get login => _get('login');

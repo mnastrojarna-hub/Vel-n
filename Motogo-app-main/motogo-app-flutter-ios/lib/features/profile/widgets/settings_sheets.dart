@@ -136,7 +136,9 @@ void showCurrencyPickerSheet(BuildContext context) {
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             subtitle: c.code == 'CZK'
                 ? null
-                : Text('1 ${c.code} ≈ ${(Money.rates[c.code] ?? 0).toStringAsFixed(2)} Kč (ČNB)',
+                // Kurz ČNB — mimo češtinu mezinárodní zkratky (CZK / CNB).
+                : Text('1 ${c.code} ≈ ${(Money.rates[c.code] ?? 0).toStringAsFixed(2)} '
+                    '${t(ctx).lang == 'cs' ? 'Kč (ČNB)' : 'CZK (CNB)'}',
                     style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
             trailing: sheetRef.read(currencyProvider) == c.code
                 ? const Icon(Icons.check, color: MotoGoColors.greenDark)

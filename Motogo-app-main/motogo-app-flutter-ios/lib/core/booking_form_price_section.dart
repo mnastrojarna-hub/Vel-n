@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_ui_helpers.dart';
 import 'i18n/i18n_provider.dart';
+import '../features/loyalty/rank_names.dart';
 import 'currency.dart';
 
 /// Price breakdown summary card inside the booking form.
@@ -87,7 +88,8 @@ class BookingFormPriceSection extends StatelessWidget {
               bookingPriceRow(
                 t(context)
                     .tr('loyaltyDiscountLabel')
-                    .replaceAll('{rank}', bd.loyaltyRankName ?? '')
+                    .replaceAll('{rank}',
+                        localizedRankName(t(context), bd.loyaltyLevel, bd.loyaltyRankName ?? ''))
                     .replaceAll('{pct}', '${bd.loyaltyPercent}'),
                 '−${Money.czk(bd.loyaltyDiscount)}',
                 color: const Color(0xFF1A8A18),
@@ -100,7 +102,7 @@ class BookingFormPriceSection extends StatelessWidget {
                 '−${Money.czk(bd.latePickupDiscount)}',
                 color: const Color(0xFF1A8A18),
               ),
-            bookingPriceRow('✓ ${t(context).tr('depositNotCharged')}', '0 Kč', subtle: true),
+            bookingPriceRow('✓ ${t(context).tr('depositNotCharged')}', Money.czk(0), subtle: true),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Divider(color: Color(0xFFD4E8E0), height: 1),

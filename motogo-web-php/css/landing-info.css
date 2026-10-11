@@ -42,13 +42,13 @@
 .lpi-sec p:last-child,.lpi-panel p:last-child{margin-bottom:0}
 .lpi-panel h2{font-size:1.2rem}
 .lpi-panel h3,.lpi-panel h4{margin:.5rem 0 .4rem;color:#1a2e22}
-.lpi-cols{display:grid;gap:1rem}
+.lpi-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}
 .lpi-sec iframe.map,.lpi-panel iframe.map{display:block;width:100%;height:300px;border:0;border-radius:16px}
 @media(min-width:900px){.lpi-cols{grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start}.lpi-sec--text,.lpi-panel{padding:1.75rem 2rem}}
 
 /* --- Seznamy s fajfkou --- */
-.lpi-checks{display:grid;gap:.5rem;margin:.6rem 0 1rem;padding:0;list-style:none}
-.lpi-checks>li,.lpi-checks--div>div{position:relative;padding-left:1.95rem;font-size:.93rem;line-height:1.5;color:#2c4a3a}
+.lpi-checks{display:grid;grid-template-columns:minmax(0,1fr);gap:.5rem;margin:.6rem 0 1rem;padding:0;list-style:none}
+.lpi-checks>li,.lpi-checks--div>div{position:relative;padding-left:1.95rem;overflow-wrap:anywhere;font-size:.93rem;line-height:1.5;color:#2c4a3a}
 .lpi-checks>li::before,.lpi-checks--div>div::before{content:"";position:absolute;left:0;top:.08rem;width:1.35rem;height:1.35rem;border-radius:50%;background:#1a2e22 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2374fb71' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/.85rem no-repeat}
 
 /* --- Tlačítka v obsahu --- */
@@ -64,14 +64,16 @@
 @media(min-width:600px){.lpi-btns .lp-btn{flex:0 0 auto;min-width:250px}}
 
 /* --- Ikonové karty (.wbox mřížky) --- */
-.lpi-cards{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin:0}
+.lpi-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem;margin:0}
 .lpi-card{position:relative;display:flex;flex-direction:column;gap:.15rem;padding:1rem .9rem;border-radius:18px;background:#fff;border:1px solid #d4e8e0;box-shadow:0 12px 26px -20px rgba(26,46,34,.6);transition:transform .2s,box-shadow .2s,border-color .2s}
 .lpi-card:hover{transform:translateY(-3px);border-color:#74fb71;box-shadow:0 16px 30px -18px rgba(13,110,13,.5)}
 .lpi-card-ico{display:grid;place-items:center;width:52px;height:52px;margin:0 0 .55rem;border-radius:15px;background:radial-gradient(120% 120% at 20% 0,#2a6a45,#0e2a1c 70%);box-shadow:0 8px 18px -10px rgba(10,31,20,.8),inset 0 0 0 1px rgba(116,251,113,.3)}
 .lpi-card-ico img{width:32px;height:32px;filter:brightness(0) saturate(100%) invert(82%) sepia(36%) saturate(1500%) hue-rotate(64deg) brightness(106%) contrast(100%)}
-.lpi-card h3{margin:0 0 .2rem;font-size:.98rem;line-height:1.3;color:#1a2e22}
+.lpi-card h3{margin:0 0 .2rem;font-size:.98rem;line-height:1.3;color:#1a2e22;overflow-wrap:anywhere}
 .lpi-card p{margin:0;font-size:.84rem;line-height:1.45;color:#4a6b5a}
-.lpi-cards--rows{grid-template-columns:1fr}
+.lpi-cards--rows{grid-template-columns:minmax(0,1fr)}
+/* Dlouhá německá složená slova v úzkých dlaždicích: dělení slov (jinak zalomení kdekoli) */
+@media(max-width:480px){.lpi-card h3:lang(de),.lpi-checks>li:lang(de){hyphens:auto}}
 .lpi-cards--rows .lpi-card{display:grid;grid-template-columns:52px 1fr;column-gap:.9rem;align-items:start}
 .lpi-cards--rows .lpi-card-ico{grid-row:1/span 2;margin:0}
 .lpi-cards--rows .lpi-card h3{margin-top:.2rem}

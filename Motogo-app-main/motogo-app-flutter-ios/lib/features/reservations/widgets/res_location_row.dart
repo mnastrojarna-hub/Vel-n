@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
 
 /// Location row widget showing pickup/return location with optional navigation.
@@ -42,7 +43,7 @@ class ResLocationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final typeLabel = isDelivery ? 'Přistavení' : 'Pobočka';
+    final typeLabel = t(context).tr(isDelivery ? 'deliveryLabel' : 'branchPrefix');
     final icon = isDelivery ? Icons.local_shipping_outlined : Icons.store_outlined;
     final displayAddress = address ?? '–';
     final hasNavTarget = (lat != null && lng != null) ||

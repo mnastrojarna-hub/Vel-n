@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../theme.dart';
 import '../router.dart';
+import '../i18n/i18n_provider.dart';
 import '../../features/reservations/reservation_provider.dart' show reservationsProvider;
 import '../../features/sos/sos_provider.dart' show hasActiveRentalProvider;
 import 'push_service.dart';
@@ -86,7 +87,7 @@ class NotificationHandler {
         ),
         duration: Duration(seconds: duration),
         action: SnackBarAction(
-          label: 'Zobrazit',
+          label: AppTranslations.of(lastKnownAppLang).tr('manualView'),
           textColor: MotoGoColors.green,
           onPressed: () => _handleDeepLink(data),
         ),

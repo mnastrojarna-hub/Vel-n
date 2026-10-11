@@ -210,8 +210,8 @@ class _CardTile extends StatelessWidget {
                       color: MotoGoColors.greenPale,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text('PRIORITNÍ',
-                        style: TextStyle(
+                    child: Text(t(context).tr('priority'),
+                        style: const TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                             color: MotoGoColors.greenDarker)),

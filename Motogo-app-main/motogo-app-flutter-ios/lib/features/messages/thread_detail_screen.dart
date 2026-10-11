@@ -112,7 +112,7 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
                     ),
                   ),
                 ),
-                title: Text(thread?.subject ?? 'Konverzace',
+                title: Text(thread?.subject ?? t(context).tr('conversation'),
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
                 backgroundColor: MotoGoColors.dark,
                 bottom: thread != null ? PreferredSize(
@@ -168,7 +168,7 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                             decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(50)),
-                            child: Text(_sending ? '⏳' : 'Odeslat',
+                            child: Text(_sending ? '⏳' : t(context).tr('send'),
                               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
                           ),
                         ),

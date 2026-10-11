@@ -177,11 +177,11 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
           ),
 
         // === SPECS GRID ===
-        if (moto.specList.isNotEmpty)
+        if (moto.specList(t(context).tr).isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: SpecsSection(specs: moto.specList),
+              child: SpecsSection(specs: moto.specList(t(context).tr)),
             ),
           ),
 

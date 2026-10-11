@@ -195,7 +195,9 @@ Widget bookingAddrTile(String? city, String? address,
           const SizedBox(width: 8),
           Expanded(child: Text(
             hasAddr ? '${address ?? ""}, $city'
-                : (context != null ? t(context).tr('clickEnterAddress') : 'Klikněte pro zadání adresy'),
+                : (context != null
+                    ? t(context).tr('clickEnterAddress')
+                    : AppTranslations.of(lastKnownAppLang).tr('clickEnterAddress')),
             style: TextStyle(fontSize: 12,
               color: hasAddr ? const Color(0xFF0F1A14)
                   : const Color(0xFF8AAB99),
@@ -914,7 +916,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
           autofocus: true,
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
-            hintText: 'Zadejte adresu...',
+            hintText: t(context).tr('enterAddress'),
             prefixIcon: const Icon(Icons.search, size: 18),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10)))),
@@ -955,7 +957,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
             Expanded(child: OutlinedButton.icon(
               onPressed: _openMap,
               icon: const Icon(Icons.map_outlined, size: 16),
-              label: const Text('Mapa'))),
+              label: Text(t(context).tr('map')))),
           ],
         ]),
         // Distance / status
@@ -989,8 +991,8 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
               foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(50))),
-            child: const Text('POTVRDIT ADRESU',
-              style: TextStyle(fontWeight: FontWeight.w800)))),
+            child: Text(t(context).tr('confirmAddressBtn'),
+              style: const TextStyle(fontWeight: FontWeight.w800)))),
       ]));
   }
 }
@@ -1080,7 +1082,7 @@ class _PromoSheetBodyState extends State<_PromoSheetBody> {
             child: _loading
               ? const SizedBox(width: 16, height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('UPLATNIT', style: TextStyle(
+              : Text(t(context).tr('applyCode'), style: const TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w800))),
         ]),
         if (_msg != null)
