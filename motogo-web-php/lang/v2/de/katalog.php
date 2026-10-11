@@ -89,4 +89,13 @@ return ['pages' => ['landing_katalog' => [
     'f_active' => 'Aktive Filter',
     'f_none_dates' => 'Mit diesen Filtern ist an diesen Tagen kein Motorrad frei. Versuch andere Tage oder entferne einen Filter.',
     'f_calc_open' => 'Preisrechner öffnen',
+    // Karta s přepínačem režimu [Najít motorku | Spočítat cenu] (CS defaulty kfDefaults())
+    'f_mode_aria' => 'Was möchtest du tun?',
+    'f_mode_find' => 'Motorrad finden',
+    'f_mode_find_sub' => 'Angebot filtern',
+    'f_mode_calc_sub' => 'Freie Tage & Preis',
+    'f_type' => 'Motorradtyp',
+    'f_dates_ph' => 'Tage wählen',
+    'f_filters_hint' => 'Führerschein, Filiale…',
+    'f_go' => 'Anzeigen',
 ]]];

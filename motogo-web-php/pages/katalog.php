@@ -474,15 +474,15 @@ $content = '<main id="content"><div class="container">'
     . '<div class="ccontent"><h1' . $h1AttrCms . '>' . htmlspecialchars($displayH1) . '</h1>'
     . ($kcV2 ? kcSubtitle($sb, count($filtered)) : '')
     . ($kcV2
-        // v2: lišta (termín / filtry / kalkulačka) + kompaktní karty, kalkulačka až pod mřížkou
+        // v2: karta s přepínačem [Najít motorku (filtr) | Spočítat cenu (kalkulačka)] + kompaktní karty
         ? '<p class="kf-intro" data-cms-key="web.katalog.intro">' . $displayIntro . '</p>'
             . renderKatalogV2($sb, [
                 'motos' => $motos, 'filtered' => $filtered, 'path' => $path, 'cat' => (string)$category, 'getCat' => $getCat,
                 'q' => $getQuery, 'lic' => $getLic, 'branch' => $getBranch, 'abs' => $getAbs, 'riders' => $getRiders, 'sort' => $getSort,
                 'kw' => [$getKwMin, $getKwMax, $kwBoundMin, $kwBoundMax], 'pr' => [$getPriceMin, $getPriceMax, $priceBoundMin, $priceBoundMax],
                 'lics' => array_keys($lics), 'branches' => $branchOpts,
+                'calc' => renderKatalogCalc($sb, $motos, ['branch' => $getBranch]),
             ])
-            . renderKatalogCalc($sb, $motos, ['branch' => $getBranch])
         : '<p data-cms-key="web.katalog.intro">' . $displayIntro . '</p>'
             . $filterHtml
             . $countHtml
