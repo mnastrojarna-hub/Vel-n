@@ -5,6 +5,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/i18n.php';
 require_once __DIR__ . '/i18n_currency.php';
 require_once __DIR__ . '/layout-ld.php';
+require_once __DIR__ . '/layout-banner.php';
 
 // Menu struktura — labels jsou klíče i18n, route zůstává stejná napříč jazyky.
 // `tc()` obalí text spanem `data-cms-key="web.layout.<key>"` jen pro adminy
@@ -704,6 +705,8 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
 ';
     // GTM/Sklik se NIKDY nevkládá přímo do HTML — banner JS je injektne
     // až po souhlasu. Viz renderConsentManager() na konci stránky.
+    // Horní pruh s oznámením (app_settings.header_banner — stejný jako v appce).
+    echo renderTopBanner();
     // Lokalizace interních odkazů (menu, footer, CMS obsah) na slug aktuálního
     // jazyka — i18nLocalizeHrefs() přepisuje jen root-relativní href="/...",
     // absolutní hreflang/switcher URL nesahá. Pro cs no-op.
