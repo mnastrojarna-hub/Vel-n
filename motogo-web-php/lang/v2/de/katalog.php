@@ -39,6 +39,7 @@ return ['pages' => ['landing_katalog' => [
     'range_busy' => 'In diesem Zeitraum ist ein Tag belegt. Wähle einen anderen Termin.',
     'moto_busy' => 'Dieses Motorrad ist in deinem Zeitraum nicht frei: Wähle einen anderen.',
     'min_days' => 'Dieses Motorrad vermieten wir für mindestens {n} Tage.',
+    'max_days' => 'Dieses Motorrad vermieten wir für höchstens {n} Tage.',
     'prev' => 'Vorheriger Monat',
     'next' => 'Nächster Monat',
     'sum_title' => 'Dein Preis',

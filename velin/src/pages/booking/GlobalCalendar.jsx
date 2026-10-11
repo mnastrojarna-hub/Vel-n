@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 import Card from '../../components/ui/Card'
 import { shortBranchName } from './BranchChips'
 import { effBranchId } from '../../lib/bookingBranch'
+import { fetchAllRows, loadMotoMoves, buildFleetTimeline, dayNum } from '../../lib/branchFleet'
 import { revealBelowOnMobile } from './bookingsMobileScroll'
 
 function localIso(d) {
@@ -34,6 +35,35 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
 
   useEffect(() => { loadData() }, [month])
 
+  // Historie (rezervace + zalogované přesuny) → kde motorky v daný den stály (lib/branchFleet.js), aby
+  // obsazenost minulých měsíců nepočítala s DNEŠNÍ flotilou pobočky. Bez historie = dnešní flotila.
+  const [hist, setHist] = useState(null)
+  useEffect(() => { loadHist() }, [])
+  async function loadHist() {
+    try {
+      const [anchors, moves] = await Promise.all([
+        fetchAllRows(() => supabase.from('bookings').select('id, moto_id, trailer_moto_id, branch_id, start_date, end_date, status, payment_status, is_test')
+          .not('is_test', 'is', true).neq('status', 'cancelled').order('id')),
+        loadMotoMoves(),
+      ])
+      setHist({ anchors, moves })
+    } catch (e) { console.warn('GlobalCalendar: historie flotily', e?.message || e); setHist(null) }
+  }
+  const fleetDays = useMemo(() => {
+    if (!hist || !motos.length) return null
+    const fromDay = dayNum(new Date(month.getFullYear(), month.getMonth(), 1)), toDay = dayNum(new Date(month.getFullYear(), month.getMonth() + 1, 0))
+    const tl = buildFleetTimeline({ motorcycles: motos, bookings: hist.anchors, moves: hist.moves, fromDay, toDay, includeTrailers: true })
+    const days = Array.from({ length: toDay - fromDay + 1 }, () => ({ all: [], by: {} }))
+    for (const t of tl.motos) {
+      for (let i = 0; i < t.loc.length; i++) {
+        const cell = days[t.start + i - fromDay], b = t.loc[i]
+        cell.all.push(t.moto)
+        if (b) (cell.by[b] ||= []).push(t.moto)
+      }
+    }
+    return days
+  }, [hist, motos, month])
+
   async function loadData() {
     setLoading(true)
     const start = new Date(month.getFullYear(), month.getMonth(), 1)
@@ -48,7 +78,7 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
         .select('id, start_date, end_date, status, moto_id, trailer_moto_id, branch_id, is_test, profiles(full_name), motorcycles!moto_id(model, spz, branch_id), trailer:motorcycles!trailer_moto_id(model, spz, branch_id), total_price')
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
-      supabase.from('motorcycles').select('id, model, spz, branch_id, branches(name)').eq('status', 'active'),
+      supabase.from('motorcycles').select('id, model, spz, branch_id, status, acquired_at, created_at, is_trailer, branches(name)').eq('status', 'active'),
     ])
     setBookings(bRes.data || [])
     setMotos(mRes.data || [])
@@ -66,21 +96,28 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
     ...motos.filter(m => m.branch_id && m.branches?.name).map(m => [m.branch_id, shortBranchName(m.branches.name)]),
     ...(branches || []).map(b => [b.id, shortBranchName(b.name)]),
   ])
-  const scopeMotos = branchId ? motos.filter(m => m.branch_id === branchId) : motos
-  const scopeIds = new Set(scopeMotos.map(m => m.id))
-  const totalMotos = scopeMotos.length || 1
-  const branchIds = [...new Set(motos.map(m => m.branch_id).filter(Boolean))]
-    .sort((a, b) => (branchNameOf[a] || '').localeCompare(branchNameOf[b] || '', 'cs'))
+  // Motorky pobočky (id) v daný den měsíce: dle historie, jinak dnešní flotila; bez id = celá flotila
+  const motosOn = (day, id) => {
+    const cell = fleetDays?.[day - 1]
+    if (!cell) return id ? motos.filter(m => m.branch_id === id) : motos
+    return id ? (cell.by[id] || []) : cell.all
+  }
+  const branchIds = [...new Set([
+    ...motos.map(m => m.branch_id), ...bookings.map(b => effBranchId(b)), ...(fleetDays || []).flatMap(c => Object.keys(c.by)),
+  ].filter(Boolean))].sort((a, b) => (branchNameOf[a] || '').localeCompare(branchNameOf[b] || '', 'cs'))
 
   const visibleBookings = (hideTest ? bookings.filter(b => !b.is_test) : bookings)
     .filter(b => !branchId || effBranchId(b) === branchId || b.trailer?.branch_id === branchId)
-  const occupiedIds = (list) => new Set(list.flatMap(b => [b.moto_id, b.trailer_moto_id].filter(id => id && (!branchId || scopeIds.has(id)))))
+  // Obsazené kusy pobočky = motorky rezervací TÉ pobočky (pobočka rezervace) + jejich vozíky / vozíky pobočky
+  const occupiedIds = (list, id = branchId) => new Set(list.flatMap(b => [
+    !id || effBranchId(b) === id ? b.moto_id : null,
+    !id || effBranchId(b) === id || b.trailer?.branch_id === id ? b.trailer_moto_id : null,
+  ].filter(Boolean)))
   // „Všechny pobočky“: obsazenost každé pobočky zvlášť (tooltip dne + panel vybraného dne)
-  function branchBreakdown(dayList) {
-    const occ = new Set(dayList.flatMap(b => [b.moto_id, b.trailer_moto_id].filter(Boolean)))
+  function branchBreakdown(dayList, day) {
     return branchIds.map(id => {
-      const ms = motos.filter(m => m.branch_id === id)
-      return { id, name: branchNameOf[id] || 'Pobočka', busy: ms.filter(m => occ.has(m.id)).length, total: ms.length }
+      const busy = occupiedIds(dayList, id).size
+      return { id, name: branchNameOf[id] || 'Pobočka', busy, total: Math.max(motosOn(day, id).length, busy) }
     })
   }
 
@@ -93,14 +130,15 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
     const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const dayBookings = getDayBookings(day)
     const occupiedCount = occupiedIds(dayBookings).size
+    const totalMotos = Math.max(motosOn(day, branchId).length, occupiedCount, 1)
     const isToday = dateStr === todayStr
     const ratio = occupiedCount / totalMotos
     const perBranch = !branchId && branchIds.length > 1
-      ? '\n' + branchBreakdown(dayBookings).map(x => `${x.name}: ${x.busy}/${x.total}`).join('\n') : ''
-    if (occupiedCount === 0) return { bg: isToday ? '#bbf7d0' : '#dcfce7', color: '#15803d', label: 'Vše volné' + perBranch, count: 0 }
-    if (ratio >= 1) return { bg: '#166534', color: '#fff', label: `Plně obsazeno (${occupiedCount}/${totalMotos})` + perBranch, count: occupiedCount }
-    if (ratio >= 0.5) return { bg: '#15803d', color: '#fff', label: `${occupiedCount}/${totalMotos} obsazeno` + perBranch, count: occupiedCount }
-    return { bg: '#4ade80', color: '#0f1a14', label: `${occupiedCount}/${totalMotos} obsazeno` + perBranch, count: occupiedCount }
+      ? '\n' + branchBreakdown(dayBookings, day).map(x => `${x.name}: ${x.busy}/${x.total}`).join('\n') : ''
+    if (occupiedCount === 0) return { bg: isToday ? '#bbf7d0' : '#dcfce7', color: '#15803d', label: 'Vše volné' + perBranch, count: 0, total: totalMotos }
+    if (ratio >= 1) return { bg: '#166534', color: '#fff', label: `Plně obsazeno (${occupiedCount}/${totalMotos})` + perBranch, count: occupiedCount, total: totalMotos }
+    if (ratio >= 0.5) return { bg: '#15803d', color: '#fff', label: `${occupiedCount}/${totalMotos} obsazeno` + perBranch, count: occupiedCount, total: totalMotos }
+    return { bg: '#4ade80', color: '#0f1a14', label: `${occupiedCount}/${totalMotos} obsazeno` + perBranch, count: occupiedCount, total: totalMotos }
   }
 
   const prevMonth = () => setMonth(new Date(year, mon - 1, 1))
@@ -137,7 +175,7 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
                 <div key={day} title={info.label} onClick={() => { setSelectedDay(day); revealBelowOnMobile(detailRef.current) }}
                   style={{ textAlign: 'center', padding: '10px 2px', borderRadius: 8, background: info.bg, color: info.color, fontSize: 12, fontWeight: 800, cursor: 'pointer', outline: selectedDay === day ? '2px solid #0f1a14' : 'none' }}>
                   <div>{day}</div>
-                  {info.count > 0 && <div style={{ fontSize: 9, marginTop: 2, opacity: 0.8 }}>{info.count}/{totalMotos}</div>}
+                  {info.count > 0 && <div style={{ fontSize: 9, marginTop: 2, opacity: 0.8 }}>{info.count}/{info.total}</div>}
                 </div>
               )
             })}
@@ -157,7 +195,7 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
               <h3 className="text-sm font-extrabold mb-3" style={{ color: '#0f1a14' }}>{selectedDay}. {MONTHS_FULL[mon]} {year}</h3>
               {!branchId && branchIds.length > 1 && (
                 <div className="flex flex-wrap gap-2 mb-3">
-                  {branchBreakdown(dayDetail).map(x => (
+                  {branchBreakdown(dayDetail, selectedDay).map(x => (
                     <span key={x.id} className="inline-block rounded-btn text-sm font-bold" style={{ padding: '3px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
                       {x.name}: <b>{x.busy}/{x.total}</b> obsazeno
                     </span>
@@ -191,7 +229,7 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
                   ))}
                   {showFree && (() => {
                     const occupiedMotoIds = new Set(dayDetail.flatMap(b => [b.moto_id, b.trailer_moto_id].filter(Boolean)))
-                    const freeMotos = scopeMotos.filter(m => !occupiedMotoIds.has(m.id))
+                    const freeMotos = motosOn(selectedDay, branchId).filter(m => !occupiedMotoIds.has(m.id))
                     if (freeMotos.length === 0) return <p style={{ color: '#1a2e22', fontSize: 12, marginTop: 8 }}>Žádné volné motorky</p>
                     return (
                       <>

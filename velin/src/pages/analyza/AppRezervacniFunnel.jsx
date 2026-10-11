@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
+import { fetchAllResult } from '../../lib/branchFleet'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import TimePeriodSelector, { filterByPeriod, getTimePeriodLabel } from './TimePeriodSelector'
 import { PAID_BOOKING_STATUSES } from '../../lib/revenueUtils'
@@ -77,16 +78,16 @@ export default function AppRezervacniFunnel() {
     setLoading(true); setError(null)
     try {
       const [bRes, pRes, dRes, mRes, iRes] = await Promise.all([
-        supabase.from('bookings')
+        fetchAllResult(() => supabase.from('bookings')
           .select('id, user_id, moto_id, created_at, status, payment_status, is_test, booking_source')
-          .eq('booking_source', 'app'),
-        supabase.from('profiles')
-          .select('id, license_number, id_number, license_verified_at, id_verified_at, passport_verified_at, license_expiry, license_group'),
-        supabase.from('documents')
+          .eq('booking_source', 'app').order('id')),
+        fetchAllResult(() => supabase.from('profiles')
+          .select('id, license_number, id_number, license_verified_at, id_verified_at, passport_verified_at, license_expiry, license_group').order('id')),
+        fetchAllResult(() => supabase.from('documents')
           .select('user_id, type, file_path, side:metadata->>side')   // strana + soubor pro docVerification
-          .in('type', VERIFICATION_TYPES),
+          .in('type', VERIFICATION_TYPES).order('id')),
         supabase.from('motorcycles').select('id, license_required'),
-        supabase.from('app_installations').select('user_id, platform, last_seen_at'),
+        fetchAllResult(() => supabase.from('app_installations').select('user_id, platform, last_seen_at').order('device_id')),
       ])
       if (bRes.error) throw bRes.error
       if (pRes.error) throw pRes.error

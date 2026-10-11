@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { fetchAllResult } from '../../lib/branchFleet'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
 import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY, stickyStripe } from '../../components/sortableTable'
@@ -54,7 +55,7 @@ export default function VykonMotorek() {
     try {
       const [mRes, bRes, brRes, kmRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status, acquired_at, tracking_unit'),
-        supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
+        fetchAllResult(() => supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test').order('id')),
         supabase.from('branches').select('id, name'),
         supabase.rpc('analytics_moto_km'),
       ])

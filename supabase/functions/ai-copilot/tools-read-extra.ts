@@ -108,11 +108,12 @@ export async function execReadExtra(name: string, input: R, sb: SB): Promise<unk
     }
 
     case 'get_performance_stats': {
+      // Tabulky moto_performance / branch_performance nic neplní (a sloupec updated_at nemají → dotaz dřív padal).
       const [motoR, branchR] = await Promise.all([
-        sb.from('moto_performance').select('*').order('updated_at', { ascending: false }).limit(30),
-        sb.from('branch_performance').select('*').order('updated_at', { ascending: false }).limit(10),
+        sb.from('moto_performance').select('*').order('created_at', { ascending: false }).limit(30),
+        sb.from('branch_performance').select('*').order('created_at', { ascending: false }).limit(10),
       ])
-      return { moto_performance: motoR.data || [], branch_performance: branchR.data || [] }
+      return { moto_performance: motoR.data || [], branch_performance: branchR.data || [], note: 'Tabulky se automaticky neplní — výkon poboček počítá analyze_branch_performance (pobočka rezervace + moto-dny), výkon motorek analyze_motorcycle_performance.' }
     }
 
     default: return null

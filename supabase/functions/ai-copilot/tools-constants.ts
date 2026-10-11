@@ -51,16 +51,31 @@ export function branchBookingsOr(branchId: string, motoIds: string[]): string {
   return `branch_id.eq.${bid},and(branch_id.is.null,moto_id.in.(${ids}))`
 }
 
+/** Všechny řádky (PostgREST vrací max. 1000 na dotaz — dřív se analýzy tiše uřízly); makeQuery = () => builder s .order(). */
+// deno-lint-ignore no-explicit-any
+export async function fetchAllRows(makeQuery: () => any, pageSize = 1000): Promise<Record<string, any>[]> {
+  // deno-lint-ignore no-explicit-any
+  const out: Record<string, any>[] = []
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await makeQuery().range(from, from + pageSize - 1)
+    if (error) throw new Error(error.message)
+    for (const r of data || []) out.push(r)
+    if (!data || data.length < pageSize) return out
+  }
+}
+
 export async function fetchAnalyticsRawData(sb: SB, months: number) {
   const since = new Date()
   since.setMonth(since.getMonth() - months)
-  const [bRes, mRes, lRes, pRes] = await Promise.all([
-    sb.from('bookings').select('id, user_id, moto_id, branch_id, start_date, end_date, total_price, status, created_at, booking_source, rating, payment_status, is_test').gte('created_at', since.toISOString()).eq('is_test', false),
-    sb.from('motorcycles').select('id, model, brand, category, branch_id, status, purchase_price, mileage'),
+  const [bookings, mRes, lRes, profiles] = await Promise.all([
+    fetchAllRows(() => sb.from('bookings').select('id, user_id, moto_id, branch_id, start_date, end_date, total_price, status, created_at, booking_source, rating, payment_status, is_test').gte('created_at', since.toISOString()).not('is_test', 'is', true).order('id')),
+    sb.from('motorcycles').select('id, model, brand, category, branch_id, status, purchase_price, mileage, acquired_at, created_at, is_trailer'),
     sb.from('branches').select('id, name, city, type'),
-    sb.from('profiles').select('id, full_name, email, city, license_group, riding_experience, created_at, is_test_account').eq('is_test_account', false),
+    fetchAllRows(() => sb.from('profiles').select('id, full_name, email, city, license_group, riding_experience, created_at, is_test_account').not('is_test_account', 'is', true).order('id')),
   ])
-  return { bookings: bRes.data || [], motorcycles: mRes.data || [], branches: lRes.data || [], profiles: pRes.data || [] }
+  // deno-lint-ignore no-explicit-any
+  type Row = Record<string, any>
+  return { bookings, motorcycles: (mRes.data || []) as Row[], branches: (lRes.data || []) as Row[], profiles }
 }
 
 export function diffDays(start: string, end: string): number {

@@ -1,5 +1,5 @@
 // ===== process-payment/stripe-customer.ts =====
-// Stripe customer management + JWT decode + types + constants
+// Stripe customer management (user via auth.getUser) + types + constants
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
@@ -102,40 +102,30 @@ export const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// Decode JWT payload without verification (gateway already verified)
-export function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const parts = token.split('.')
-    if (parts.length !== 3) return null
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
-    return payload
-  } catch { return null }
-}
-
-// Get or create Stripe Customer for the authenticated user
+// Get or create Stripe Customer for the authenticated user.
+// BEZPEČNOST 2026-10-11: uživatele určuje VÝHRADNĚ auth.getUser (podpis ověří
+// Auth server). Dřív se bral `sub` z nepodepsaně dekódovaného JWT — verify_jwt=false
+// = gateway nic neověřuje, takže podvržený token s cizím `sub` dostal Stripe
+// customer oběti (uložené karty, ephemeral key). Neplatný/expirovaný token → null.
 export async function getOrCreateStripeCustomer(
   supabase: ReturnType<typeof createClient>,
   req: Request
 ): Promise<string | null> {
   try {
     const authHeader = req.headers.get('authorization') || ''
-    const token = authHeader.replace('Bearer ', '')
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim()
     if (!token) return null
 
-    const jwtPayload = decodeJwtPayload(token)
-    let userId = jwtPayload?.sub as string | null
-    let userEmail = (jwtPayload?.email as string) || null
-
-    if (!userId) {
-      try {
-        const { data: { user: authUser } } = await supabase.auth.getUser(token)
-        if (authUser) {
-          userId = authUser.id
-          userEmail = authUser.email || null
-        }
-      } catch (e) {
-        console.warn('getUser fallback failed:', e)
+    let userId: string | null = null
+    let userEmail: string | null = null
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser(token)
+      if (authUser) {
+        userId = authUser.id
+        userEmail = authUser.email || null
       }
+    } catch (e) {
+      console.warn('getUser failed:', e)
     }
 
     if (!userId) return null

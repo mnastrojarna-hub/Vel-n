@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { fetchAllResult } from '../../lib/branchFleet'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
@@ -43,10 +44,10 @@ export default function AnalyzaZakazniku() {
     setLoading(true); setError(null)
     try {
       const [pRes, bRes, mRes, iRes, aRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, email, phone, city, date_of_birth, license_group, riding_experience, preferred_branch, created_at'),
-        supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, total_price, status, created_at, rating, booking_source, payment_status, is_test'),
+        fetchAllResult(() => supabase.from('profiles').select('id, full_name, email, phone, city, date_of_birth, license_group, riding_experience, preferred_branch, created_at').order('id')),
+        fetchAllResult(() => supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, total_price, status, created_at, rating, booking_source, payment_status, is_test').order('id')),
         supabase.from('motorcycles').select('id, model, category, branch_id'),
-        supabase.from('invoices').select('id, customer_id, total, status, issue_date, type').eq('type', 'issued'),
+        fetchAllResult(() => supabase.from('invoices').select('id, customer_id, total, status, issue_date, type').eq('type', 'issued').order('id')),
         supabase.rpc('get_app_installation_stats'),
       ])
       if (pRes.error) throw pRes.error

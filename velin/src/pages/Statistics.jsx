@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction, debugLog, debugError } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import { isRevenueEntry } from '../lib/revenueUtils'
+import { fetchAllRows } from '../lib/branchFleet'
 import RevenueChart from './statistics/RevenueChart'
 import { FleetUtilization, TopMotoRevenue, BranchComparison } from './statistics/FleetCharts'
 import { BookingsByStatus, CustomerRetention } from './statistics/BookingCharts'
@@ -23,13 +24,14 @@ export default function Statistics() {
         supabase.from('bookings').select('id', { count: 'exact', head: true }),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('motorcycles').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('accounting_entries').select('type, amount, category, description'),
+        // stránkovaně — PostgREST vrací max. 1000 řádků, součet by se tiše uřízl
+        fetchAllRows(() => supabase.from('accounting_entries').select('type, amount, category, description').order('id')),
       ]))
       setStats({
         bookings: bk.count || 0,
         customers: pr.count || 0,
         motos: mo.count || 0,
-        revenue: (ae.data || []).filter(e => isRevenueEntry(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
+        revenue: (ae || []).filter(e => isRevenueEntry(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
       })
     } catch (e) { debugError('statistics.quickStats', 'Statistics', e) }
   }
@@ -39,15 +41,25 @@ export default function Statistics() {
     setGenerating(true)
     setError(null)
     try {
+      // Edge generate-report vyžaduje period_from/period_to (dřív posíláno jen `period` → vždy 400)
+      // a vrací JSON reportu (žádné `url`) → stáhne se jako soubor.
       const now = new Date()
-      const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
       const { data, error } = await debugAction('report.generate', 'Statistics', () =>
         supabase.functions.invoke('generate-report', {
-          body: { type: 'monthly', period },
+          body: { type: 'monthly', period_from: `${ym}-01`, period_to: `${ym}-${String(lastDay).padStart(2, '0')}` },
         })
       )
       if (error) throw error
-      if (data?.url) window.open(data.url, '_blank')
+      if (data?.success === false) throw new Error(data.error || 'neznámá chyba')
+      if (data?.url) { window.open(data.url, '_blank'); return }
+      const blob = new Blob([JSON.stringify(data?.data ?? data, null, 2)], { type: 'application/json' })
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `motogo24-report-${ym}.json`
+      document.body.appendChild(a); a.click(); a.remove()
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000)
     } catch (e) {
       debugError('report.generate', 'Statistics', e)
       setError('Generování reportu selhalo: ' + e.message)

@@ -108,6 +108,7 @@
       : esc(T.late_one)) + '</p></div>';
     if (!m.tr) h += '<ul class="kc-inc">' + (T.includes || []).map(function (s) { return '<li>' + K.ico('check') + esc(s) + '</li>'; }).join('') + '</ul>';
     if (n < (m.min || 1)) return h + '<p class="kc-warn">' + esc(tpl(T.min_days, { n: m.min })) + '</p>' + foot(X);
+    if (m.max > 0 && n > m.max) return h + '<p class="kc-warn">' + esc(tpl(T.max_days || T.min_days, { n: m.max })) + '</p>' + foot(X);
     return h + cta(X, T.cta) + foot(X);
   };
 
@@ -117,7 +118,7 @@
     X.pool().forEach(function (id) {
       var m = X.by[id], b = X.S.bk[id] || {};
       for (var x = S.start; x <= S.end; x = K.add(x, 1)) if (b[x]) return;
-      if (n < (m.min || 1)) return;
+      if (n < (m.min || 1) || (m.max > 0 && n > m.max)) return;
       rows.push({ m: m, t: K.breakdown(m, S.start, S.end).total });
     });
     rows.sort(function (a, b) { return ((a.m.c === 'detske') - (b.m.c === 'detske')) || a.t - b.t; });

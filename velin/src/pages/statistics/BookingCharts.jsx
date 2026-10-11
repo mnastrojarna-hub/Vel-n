@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { supabase } from '../../lib/supabase'
+import { fetchAllRows } from '../../lib/branchFleet'
 
 import Card from '../../components/ui/Card'
 
@@ -27,7 +28,8 @@ export function BookingsByStatus() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data: bookings } = await supabase.from('bookings').select('status').not('is_test', 'is', true)
+    let bookings = null
+    try { bookings = await fetchAllRows(() => supabase.from('bookings').select('status').not('is_test', 'is', true).order('id')) } catch (e) { console.error('BookingsByStatus', e) }
     if (bookings) {
       const counts = {}
       bookings.forEach(b => { counts[b.status] = (counts[b.status] || 0) + 1 })
@@ -86,11 +88,11 @@ export function CustomerRetention() {
       })
     }
 
-    const { data: bookings } = await supabase
-      .from('bookings')
-      .select('user_id, start_date')
-      .not('is_test', 'is', true)
-      .gte('start_date', months[0].start)
+    let bookings = null
+    try {
+      bookings = await fetchAllRows(() => supabase.from('bookings').select('user_id, start_date')
+        .not('is_test', 'is', true).gte('start_date', months[0].start).order('id'))
+    } catch (e) { console.error('CustomerRetention', e) }
 
     if (bookings) {
       // Count users with >1 booking as "returning"

@@ -39,6 +39,7 @@ return ['pages' => ['landing_katalog' => [
     'range_busy' => 'There is a booked day in that range. Choose other dates.',
     'moto_busy' => 'This bike isn\'t available on your dates: choose others.',
     'min_days' => 'Minimum rental for this bike is {n} days.',
+    'max_days' => 'Maximum rental for this bike is {n} days.',
     'prev' => 'Previous month',
     'next' => 'Next month',
     'sum_title' => 'Your price',

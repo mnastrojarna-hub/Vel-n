@@ -13,8 +13,8 @@
  * POST /functions/v1/save-verification-document
  * Body:
  *   {
- *     user_id:        string (uuid),         // POVINNÉ — vlastník dokladu
- *     booking_id:     string (uuid)|null,    // volitelné — vazba na rezervaci
+ *     user_id:        string (uuid),         // vlastník dokladu (povinné, není-li booking_id)
+ *     booking_id:     string (uuid)|null,    // vazba na rezervaci; u hosta bez session = oprávnění
  *     doc_type:       'id' | 'dl' | 'passport',  // klient používá id/dl, pas pošle 'id' s passport=true (zde mapujeme)
  *     image_base64:   string,                // POVINNÉ — JPEG base64 (s nebo bez data: prefixu)
  *     mindee_status:  'ok' | 'failed',       // proběhl Mindee OCR úspěšně?
@@ -26,19 +26,24 @@
  *
  * Odpověď:
  *   200 { success: true, document_id, file_path }
- *   4xx { success: false, error }
+ *   4xx { success: false, error }   (401 auth_required / 403 forbidden — bez detailu)
  *
- * Bezpečnost:
- *   - Žádný token check (anonymous flow z webu) — místo toho ověříme, že
- *     `user_id` skutečně existuje v `auth.users` a fotku uložíme pod cestu
- *     `<user_id>/...`, takže útočník bez znalosti UUID nemůže nikam zapsat
- *     cizímu zákazníkovi smysluplně. Validace velikosti a MIME zabrání zneužití.
- *   - Maximální velikost obrázku: 8 MB (cca 11 MB base64).
- *   - Pokud `booking_id` neodpovídá `user_id` v `bookings.user_id`, fn vrátí 403.
+ * Bezpečnost (2026-10-11 — dřív žádná kontrola volajícího, stačilo cizí UUID):
+ *   - Volajícího ověří `resolveDocCaller` (_shared/auth.ts): service_role,
+ *     aktivní admin (Velín), přihlášený zákazník sám za sebe (appka, web s JWT),
+ *     host bez session jen s booking_id ŽIVÉ rezervace (pending/reserved/active,
+ *     konec dle Prahy ≥ dnes) → cíl = vlastník rezervace. verify_jwt zůstává false.
+ *   - Zápis jde VŽDY pod ověřeného vlastníka (`<owner>/...`, documents, profil).
+ *   - „User not found" (404) jen pro admin/service; jinak obecné 403 (bez orákula).
+ *   - Nositel odkazu (via booking) nepřepíše čísla dokladů ověřená PŘED založením
+ *     té rezervace (vlastníkova stará data); skeny v rámci rezervace přepisuje.
+ *   - Max. 8 MB obrázek; base64 nad 12 MB znaků se odmítne ještě před dekódováním.
+ *   - metadata.via / uploaded_by = audit, kdo doklad nahrál.
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveDocCaller } from '../_shared/auth.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -50,6 +55,7 @@ const CORS = {
 }
 
 const MAX_BYTES = 8 * 1024 * 1024 // 8 MB raw
+const MAX_B64_CHARS = 12_000_000  // ochrana před dekódováním (8 MB ≈ 10,7 M znaků base64)
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
 
 const DOC_TYPE_MAP: Record<string, { dbType: string; ext: string; label: string }> = {
@@ -77,7 +83,7 @@ serve(async (req) => {
   try { body = await req.json() }
   catch { return jsonRes({ success: false, error: 'Invalid JSON' }, 400) }
 
-  const userId = String(body?.user_id || '').trim()
+  const userIdRaw = String(body?.user_id || '').trim()
   const bookingId = body?.booking_id ? String(body.booking_id).trim() : null
   const docTypeRaw = String(body?.doc_type || 'id').trim().toLowerCase()
   const imageB64Raw = String(body?.image_base64 || '')
@@ -90,12 +96,20 @@ serve(async (req) => {
   const docSide: 'front' | 'back' | null =
     docSideRaw === 'front' || docSideRaw === 'back' ? docSideRaw : null
 
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+  if (!userIdRaw && !bookingId) return jsonRes({ success: false, error: 'Missing user_id' }, 400)
+  if (userIdRaw && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userIdRaw)) {
     return jsonRes({ success: false, error: 'Invalid user_id' }, 400)
   }
   const meta = DOC_TYPE_MAP[docTypeRaw]
   if (!meta) return jsonRes({ success: false, error: 'Invalid doc_type (id|dl|passport)' }, 400)
   if (!imageB64Raw) return jsonRes({ success: false, error: 'Missing image_base64' }, 400)
+  if (imageB64Raw.length > MAX_B64_CHARS) return jsonRes({ success: false, error: 'Image too large (>8MB)' }, 413)
+
+  // Kdo volá a za koho (2026-10-11) — PŘED dekódováním a jakýmkoli zápisem
+  const who = await resolveDocCaller(req, userIdRaw || null, bookingId)
+  if (!who.ok) return jsonRes({ success: false, error: who.reason }, who.status)
+  const userId = who.userId as string
+  const privileged = who.via === 'admin' || who.via === 'service'
 
   // Strip data: prefix
   const cleanB64 = imageB64Raw.includes(',') ? imageB64Raw.split(',')[1] : imageB64Raw
@@ -111,26 +125,17 @@ serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  // Ověř, že uživatel existuje (zabrání zápisu pod náhodné UUID)
+  // Ověř, že profil existuje (404 jen pro admin/service — jinak bez orákula).
+  // Vazbu booking_id ↔ vlastník už ověřil resolveDocCaller.
   try {
     const { data: prof, error: profErr } = await sb.from('profiles').select('id').eq('id', userId).maybeSingle()
     if (profErr || !prof) {
-      return jsonRes({ success: false, error: 'User not found' }, 404)
+      return privileged
+        ? jsonRes({ success: false, error: 'User not found' }, 404)
+        : jsonRes({ success: false, error: 'forbidden' }, 403)
     }
   } catch {
     return jsonRes({ success: false, error: 'User check failed' }, 500)
-  }
-
-  // Pokud klient poslal booking_id, ověř, že patří tomuto user_id
-  if (bookingId) {
-    try {
-      const { data: bk } = await sb.from('bookings').select('id, user_id').eq('id', bookingId).maybeSingle()
-      if (!bk || bk.user_id !== userId) {
-        return jsonRes({ success: false, error: 'Booking does not match user' }, 403)
-      }
-    } catch {
-      return jsonRes({ success: false, error: 'Booking check failed' }, 500)
-    }
   }
 
   // Cesta v bucketu: <user_id>/<dbType>[_<side>]_<timestamp>.<ext>
@@ -167,6 +172,7 @@ serve(async (req) => {
       ocr_fields: ocrFields,
       captured_at: new Date().toISOString(),
       side: docSide, // 'front' | 'back' | null (pas)
+      via: who.via, uploaded_by: who.callerId, // audit (2026-10-11)
     },
   }
 
@@ -175,7 +181,7 @@ serve(async (req) => {
   if (ins.error && /metadata/i.test(ins.error.message || '')) {
     const rowMinMeta = {
       ...row,
-      metadata: { source: 'web', mindee_status: mindeeStatus, captured_at: new Date().toISOString(), side: docSide },
+      metadata: { source: 'web', mindee_status: mindeeStatus, captured_at: new Date().toISOString(), side: docSide, via: who.via, uploaded_by: who.callerId },
     }
     const ins2 = await sb.from('documents').insert(rowMinMeta).select('id').single()
     if (ins2.error) {
@@ -200,33 +206,60 @@ serve(async (req) => {
   if (ocrFields) {
     const dateRe = /^\d{4}-\d{2}-\d{2}$/
     const f = ocrFields as Record<string, unknown>
-    const idNum = typeof f.idNumber === 'string' ? f.idNumber.trim() : ''
-    const licNum = typeof f.licenseNumber === 'string' ? f.licenseNumber.trim() : ''
+    // čísla jen znaky dokladu (jako set_web_booking_docs, 2026-10-11) — ocr_fields
+    // posílá klient, do profilu (→ web value="…", smlouvy) nesmí projít HTML
+    const docNo = (v: unknown) => typeof v === 'string' ? v.replace(/[^0-9A-Za-zÀ-žА-яЁёЇїІіЄєҐґ /.-]/g, '').trim().slice(0, 30) : ''
+    const idNum = docNo(f.idNumber)
+    const licNum = docNo(f.licenseNumber)
     const licExp = typeof f.licenseExpiry === 'string' ? f.licenseExpiry.trim() : ''
     const dob = typeof f.dob === 'string' ? f.dob.trim() : ''
     const nowIso = new Date().toISOString()
     const upd: Record<string, unknown> = {}
 
-    if (meta.dbType === 'id_card' && idNum) { upd.id_number = idNum; upd.id_verified_at = nowIso }
-    if (meta.dbType === 'passport' && idNum) { upd.id_number = idNum; upd.passport_verified_at = nowIso }
+    // Stav profilu (dřív jen license_expiry). Nositel odkazu (via booking, ne
+    // vlastník/admin) nepřepíše číslo ověřené PŘED založením této rezervace —
+    // stejně jako set_web_booking_docs (2026-10-11); nenačtený profil = chránit.
+    let cur: Record<string, unknown> | null = null
+    try {
+      const { data } = await sb.from('profiles')
+        .select('license_expiry, date_of_birth, id_verified_at, passport_verified_at, license_verified_at').eq('id', userId).maybeSingle()
+      cur = (data as Record<string, unknown> | null) ?? null
+    } catch { cur = null }
+    const bkCreated = who.booking?.created_at ? Date.parse(who.booking.created_at) : NaN
+    const keptBefore = (k: string) => who.via === 'booking' &&
+      (!cur || isNaN(bkCreated) || (!!cur[k] && Date.parse(String(cur[k])) < bkCreated))
+    const keepId = keptBefore('id_verified_at') || keptBefore('passport_verified_at')
+    const keepLic = keptBefore('license_verified_at')
+
+    if (meta.dbType === 'id_card' && idNum && !keepId) { upd.id_number = idNum; upd.id_verified_at = nowIso }
+    if (meta.dbType === 'passport' && idNum && !keepId) { upd.id_number = idNum; upd.passport_verified_at = nowIso }
     if (meta.dbType === 'drivers_license') {
-      if (licNum) { upd.license_number = licNum; upd.license_verified_at = nowIso }
-      if (dateRe.test(licExp)) {
+      if (licNum && !keepLic) { upd.license_number = licNum; upd.license_verified_at = nowIso }
+      if (dateRe.test(licExp) && !keepLic) {
         // PLATNOST ŘP ROZHODUJE ZÁKAZNÍK (2026-09-20): `license_expiry` je jeho
         // údaj z registrace / profilu a sken ho NEPŘEPISUJE — špatně přečtený
         // rok jinak držel přístupové kódy s hláškou „ŘP propadlý". Doplní se
         // jen do prázdného pole; `license_verified_until` = hodnota z OCR
         // (záznam pro úřady, tiskne se do smlouvy) se ukládá vždy.
         upd.license_verified_until = licExp
-        let curExp = ''
-        try {
-          const { data: prof } = await sb.from('profiles').select('license_expiry').eq('id', userId).maybeSingle()
-          curExp = String((prof as Record<string, unknown> | null)?.license_expiry ?? '').trim()
-        } catch { /* profil se nenačetl → raději nepřepisovat */ curExp = 'x' }
+        // profil se nenačetl → raději nepřepisovat
+        const curExp = cur ? String(cur.license_expiry ?? '').trim() : 'x'
         if (!curExp) upd.license_expiry = licExp
       }
     }
-    if (dateRe.test(dob)) upd.date_of_birth = dob
+    // Datum narození nositel odkazu nevidí (get_web_booking_resume) → jen doplní
+    // prázdné; přepíše jen u účtu, který tato rezervace právě založila (jako
+    // set_web_booking_docs, 2026-10-11). Nenačtený profil = nepřepisovat.
+    if (dateRe.test(dob)) {
+      let dobOk = who.via !== 'booking' || (!!cur && !cur.date_of_birth)
+      if (!dobOk && cur && who.bookingId) {
+        try {
+          const { data: fresh } = await sb.rpc('_web_booking_created_account', { p_booking_id: who.bookingId })
+          dobOk = fresh === true
+        } catch { dobOk = false }
+      }
+      if (dobOk) upd.date_of_birth = dob
+    }
 
     if (Object.keys(upd).length) {
       try {

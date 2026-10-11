@@ -75,10 +75,7 @@ function sitemapEntry($base, $path, $changefreq, $priority, $lastmod, $alternate
 $static = [
     ['loc' => '/',                       'priority' => '1.0',  'changefreq' => 'weekly'],
     ['loc' => '/katalog',                'priority' => '0.9',  'changefreq' => 'weekly'],
-    ['loc' => '/katalog/cestovni',       'priority' => '0.8',  'changefreq' => 'weekly'],
-    ['loc' => '/katalog/naked',          'priority' => '0.8',  'changefreq' => 'weekly'],
-    ['loc' => '/katalog/supermoto',      'priority' => '0.8',  'changefreq' => 'weekly'],
-    ['loc' => '/katalog/detske',         'priority' => '0.8',  'changefreq' => 'weekly'],
+    // /katalog/<kategorie> — dynamicky níže: jen kategorie, které ve flotile (Velín) reálně mají motorky
     ['loc' => '/pujcovna-motorek',       'priority' => '0.8',  'changefreq' => 'monthly'],
     // Oblasti — rozcestník krajů (SEO "motopůjčovna {město}"). Detaily krajů se
     // doplní níže dynamicky z data/oblasti.php (jeden zdroj pravdy).
@@ -129,6 +126,13 @@ foreach (oblastiRegions() as $r) {
 
 // Dynamické: motorky z DB — image extension obsahuje image_url + images[]
 $motos = $sb->fetchMotos();
+// Kategorie katalogu podle aktuální flotily (2026-10-11; dřív napevno 4, chyběl chopper/skútry/ostatní)
+require_once __DIR__ . '/pages/katalog-v2-lib.php';
+foreach (KF_CATS as $cat) {
+    foreach ($motos as $m) {
+        if (katalogCategoryMatch($m, $cat)) { echo sitemapEntry($base, '/katalog/' . $cat, 'weekly', '0.8', $today); break; }
+    }
+}
 foreach ($motos as $m) {
     if (empty($m['id'])) continue;
     $lastmod = !empty($m['updated_at']) ? substr($m['updated_at'], 0, 10) : $today;

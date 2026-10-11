@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
-import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
+import TimePeriodSelector, { filterByPeriod, hasMinimumData } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
 import { effBranchId } from '../../lib/bookingBranch'
+import { fetchAllRows, loadMotoMoves, periodWindow, buildFleetTimeline, summarizeByBranch, MIN_EXPOSURE_DAYS } from '../../lib/branchFleet'
 import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP } from '../../components/sortableTable'
 
 const TOTAL_SLOTS = 8
@@ -74,18 +75,26 @@ export default function OptimalniFlotila() {
   async function loadData() {
     setLoading(true); setError(null)
     try {
-      const [lRes, mRes, bRes] = await Promise.all([
+      const [lRes, mRes, bookings, moves] = await Promise.all([
         supabase.from('branches').select('id, name, city, location, type'),
-        supabase.from('motorcycles').select('id, branch_id, category, status'),
-        supabase.from('bookings').select('moto_id, branch_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
+        supabase.from('motorcycles').select('id, branch_id, category, status, acquired_at, created_at, is_trailer'),
+        fetchAllRows(() => supabase.from('bookings').select('id, moto_id, trailer_moto_id, branch_id, start_date, end_date, total_price, status, created_at, payment_status, is_test').not('is_test', 'is', true).order('id')),
+        loadMotoMoves(),
       ])
       if (lRes.error) throw lRes.error
       if (mRes.error) throw mRes.error
-      if (bRes.error) throw bRes.error
-      setRaw({ locations: lRes.data || [], motorcycles: mRes.data || [], bookings: bRes.data || [] })
+      setRaw({ locations: lRes.data || [], motorcycles: mRes.data || [], bookings, moves })
       if (lRes.data?.length > 0) setSelectedLoc(lRes.data[0].id)
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
+
+  // Sloty pobočky = moto-dny motorek dané kategorie, které na pobočce v období reálně stály (lib/branchFleet.js)
+  const fleet = useMemo(() => {
+    if (!raw) return null
+    const win = periodWindow(period, raw.bookings)
+    const tl = buildFleetTimeline({ motorcycles: raw.motorcycles, bookings: raw.bookings, moves: raw.moves, fromDay: win.fromDay, toDay: win.toDay })
+    return { win, byBranch: summarizeByBranch(tl, m => (m.category || '').toLowerCase()) }
+  }, [raw, period])
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2" style={{ borderColor: '#74FB71' }} /></div>
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
@@ -95,30 +104,31 @@ export default function OptimalniFlotila() {
   const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
   const has3mo = hasMinimumData(bookings)
 
-  let periodDays = 365
-  if (period.type === 'month') periodDays = new Date(period.year, period.month + 1, 0).getDate()
-  else if (period.type === 'custom' && period.from && period.to) periodDays = Math.max(1, diffDays(period.from, period.to))
-
   const motoLocMap = {}, motoCatMap = {}
   for (const m of motorcycles) { motoLocMap[m.id] = m.branch_id; motoCatMap[m.id] = (m.category || '').toLowerCase() }
+  const { win, byBranch } = fleet
+  // Slot = průměrná motorka v období (moto-dny ÷ dny období); pod MIN_EXPOSURE_DAYS moto-dní se jmenovatel
+  // drží na min. „jednom motoměsíci“, aby 1 výpůjčka u motorky přesunuté včera nedala nesmyslný Rev/slot.
+  const minSlots = win.days > 0 ? Math.min(MIN_EXPOSURE_DAYS, win.days) / win.days : 0
+  const perSlot = (rev, motoDays) => (win.days > 0 && (motoDays > 0 || rev > 0) ? rev / Math.max(motoDays / win.days, minSlots) : 0)
 
   const locData = {}
   for (const loc of locations) {
-    const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
-    // Rezervace pobočky = bookings.branch_id (kde zákazník převzal), u NULL pobočka motorky;
-    // počty motorek (sloty) dál na aktuální flotile pobočky.
+    // „Počet“ v Aktuálním složení = AKTUÁLNÍ flotila pobočky (bez vozíků) — vůči ní se počítá doporučený rozdíl;
+    // obsazenost a Rev/slot z moto-dnů a rezervací pobočky (bookings.branch_id, u NULL pobočka motorky).
+    const locMotos = motorcycles.filter(m => m.branch_id === loc.id && !m.is_trailer)
     const locCompleted = completed.filter(b => effBranchId(b, motoLocMap) === loc.id)
-    const cats = [...new Set(locMotos.map(m => (m.category || '').toLowerCase()).filter(Boolean))]
+    const st = byBranch[loc.id]
+    const cats = [...new Set([...locMotos.map(m => (m.category || '').toLowerCase()), ...Object.keys(st?.cats || {})].filter(Boolean))]
     const hasBookings = locCompleted.length > 0
 
     const catScores = cats.map(cat => {
-      const catMotos = locMotos.filter(m => (m.category || '').toLowerCase() === cat)
-      const mc = catMotos.length
+      const mc = locMotos.filter(m => (m.category || '').toLowerCase() === cat).length
+      const cd = st?.cats[cat] || { motoDays: 0, rentedDays: 0 }
       const catCompleted = locCompleted.filter(b => motoCatMap[b.moto_id] === cat)
       const totalRevenue = catCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
-      const rentedDays = catCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
-      const utilizationPct = mc > 0 ? (rentedDays / (mc * periodDays)) * 100 : 0
-      const revenuePerSlot = mc > 0 ? totalRevenue / mc : 0
+      const utilizationPct = cd.motoDays > 0 ? (cd.rentedDays / cd.motoDays) * 100 : 0
+      const revenuePerSlot = perSlot(totalRevenue, cd.motoDays)
       const score = revenuePerSlot * (utilizationPct / 100)
       return { category: cat, motorcycleCount: mc, totalRevenue, utilizationPct, revenuePerSlot, score }
     })
@@ -126,7 +136,7 @@ export default function OptimalniFlotila() {
     const optimal = computeOptimalFleet(catScores)
     const totalMotos = locMotos.length
     const totalRevenue = locCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
-    const currentRevPerSlot = totalMotos > 0 ? totalRevenue / totalMotos : 0
+    const currentRevPerSlot = perSlot(totalRevenue, st?.motoDays || 0)
     let optimizedRevPerSlot = 0
     const totalRecommended = optimal.reduce((s, c) => s + c.recommended, 0)
     if (totalRecommended > 0) optimizedRevPerSlot = optimal.reduce((s, c) => s + c.revenuePerSlot * c.recommended, 0) / totalRecommended

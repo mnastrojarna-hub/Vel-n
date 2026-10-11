@@ -17,6 +17,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { fetchAllResult } from '../../lib/branchFleet'
 import { isRealizedBooking } from '../../lib/revenueUtils'
 import { useTableSort, sortRows } from '../../components/sortableTable'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -101,10 +102,10 @@ export default function Navstevnost() {
   async function loadBiz() {
     try {
       const { from, to } = range()
-      const { data, error: e } = await supabase
+      const { data, error: e } = await fetchAllResult(() => supabase
         .from('bookings')
         .select('total_price, payment_status, status, booking_source, created_at, is_test')
-        .gte('created_at', from).lte('created_at', to)
+        .gte('created_at', from).lte('created_at', to).order('id'))
       if (e) { setBiz(null); return }
       const acc = { web: { count: 0, paid: 0, revenue: 0 }, app: { count: 0, paid: 0, revenue: 0 } }
       for (const b of (data || [])) {

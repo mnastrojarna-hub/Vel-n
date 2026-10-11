@@ -39,6 +39,7 @@ return ['pages' => ['landing_katalog' => [
     'range_busy' => 'In deze periode zit een bezette dag. Kies een andere periode.',
     'moto_busy' => 'Deze motor is niet vrij in jouw periode: kies een andere.',
     'min_days' => 'Deze motor verhuren we voor minimaal {n} dagen.',
+    'max_days' => 'Deze motor verhuren we voor maximaal {n} dagen.',
     'prev' => 'Vorige maand',
     'next' => 'Volgende maand',
     'sum_title' => 'Jouw prijs',

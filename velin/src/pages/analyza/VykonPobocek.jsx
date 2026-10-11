@@ -1,20 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { calcBikeEconomicsReal, calcBikeEconomicsIdle } from '../../lib/fleetCalc'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
 import { effBranchId } from '../../lib/bookingBranch'
+import { fetchAllRows, loadMotoMoves, periodWindow, buildFleetTimeline, summarizeByBranch, profitPerMotoYear, MIN_EXPOSURE_DAYS } from '../../lib/branchFleet'
 import { useTableSort, sortRows, SortableHeaderRow, STACK_WRAP, TabScroll, TAB_STICKY } from '../../components/sortableTable'
 
 const BRANCH_COLUMNS = [
   { label: 'Název', key: 'name', str: true },
   { label: 'Typ', key: 'location', str: true },
   { label: 'Obrat', key: 'revenue' },
-  { label: 'Obrat/motorku', key: 'revenuePerMoto' },
-  { label: 'Odhad ročního zisku/motorku', key: 'avgProfitPerBike', title: 'Roční projekce zisku na motorku jen ze skutečných rezervací pobočky (nevypůjčené kusy = jen fixní roční náklady, mohou jít do mínusu). NE zisk za zvolené období — proto není srovnatelný s Obratem/motorku za období.' },
+  { label: 'Obrat/motorku', key: 'revenuePerMoto', title: `Obrat pobočky / průměrný počet motorek, které na pobočce v období reálně stály (moto-dny ÷ dny období). Motorka přesunutá na jinou pobočku se počítá jen za dny strávené na té pobočce (dny pronájmu = pobočka rezervace). Méně než ${MIN_EXPOSURE_DAYS} moto-dní = „—“.` },
+  { label: 'Odhad ročního zisku/motorku', key: 'avgProfitPerBike', title: `Roční projekce zisku na motorku ze skutečných rezervací pobočky: (tržby pronájmů v období × (1 − marketing) − fixní roční náklady motorek poměrně dle dnů na pobočce) × 365 / moto-dny. Motorka přesunutá dnes nese náklady pobočky až ode dneška. NE zisk za zvolené období — proto není srovnatelný s Obratem/motorku za období. Méně než ${MIN_EXPOSURE_DAYS} moto-dní = „—“. Přesuny před 30. 9. 2026 nejsou zalogované — do té doby se bere poslední známá pobočka (rezervace).` },
   { label: 'Rezervace', key: 'reservationCount' },
-  { label: 'Obsazenost %', key: 'utilizationPct' },
+  { label: 'Obsazenost %', key: 'utilizationPct', title: 'Dny pronájmu na pobočce / moto-dny pobočky v období (kolik dní tam motorky reálně stály; do dneška).' },
   { label: 'Klasifikace', key: 'classification', str: true },
 ]
 
@@ -62,17 +62,26 @@ export default function VykonPobocek() {
   async function loadData() {
     setLoading(true); setError(null)
     try {
-      const [bRes, mRes, lRes] = await Promise.all([
-        supabase.from('bookings').select('id, moto_id, branch_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
-        supabase.from('motorcycles').select('id, branch_id, model, category, brand, status'),
+      // Rezervace stránkovaně (PostgREST vrací max. 1000 řádků) + přesuny motorek pro moto-dny poboček
+      const [bookings, mRes, lRes, moves] = await Promise.all([
+        fetchAllRows(() => supabase.from('bookings').select('id, moto_id, trailer_moto_id, branch_id, start_date, end_date, total_price, status, created_at, payment_status, is_test').not('is_test', 'is', true).order('id')),
+        supabase.from('motorcycles').select('id, branch_id, model, category, brand, status, acquired_at, created_at, is_trailer'),
         supabase.from('branches').select('id, name, city, location, type'),
+        loadMotoMoves(),
       ])
-      if (bRes.error) throw bRes.error
       if (mRes.error) throw mRes.error
       if (lRes.error) throw lRes.error
-      setRaw({ bookings: bRes.data || [], motorcycles: mRes.data || [], locations: lRes.data || [] })
+      setRaw({ bookings, motorcycles: mRes.data || [], locations: lRes.data || [], moves })
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
+
+  // Flotila pobočky v čase (lib/branchFleet.js): kde motorky v období reálně stály — ne aktuální flotila.
+  const fleet = useMemo(() => {
+    if (!raw) return null
+    const win = periodWindow(period, raw.bookings)
+    const tl = buildFleetTimeline({ motorcycles: raw.motorcycles, bookings: raw.bookings, moves: raw.moves, fromDay: win.fromDay, toDay: win.toDay })
+    return { win, byBranch: summarizeByBranch(tl) }
+  }, [raw, period])
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2" style={{ borderColor: '#74FB71' }} /></div>
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
@@ -85,45 +94,30 @@ export default function VykonPobocek() {
 
   const motoBranchMap = {}
   for (const m of motorcycles) motoBranchMap[m.id] = m.branch_id
-
-  // Determine period days for utilization calc
-  let periodDays = 365
-  if (period.type === 'month') periodDays = new Date(period.year, period.month + 1, 0).getDate()
-  else if (period.type === 'custom' && period.from && period.to) periodDays = Math.max(1, diffDays(period.from, period.to))
+  const motosById = Object.fromEntries(motorcycles.map(m => [m.id, m]))
+  const { win, byBranch } = fleet
 
   const now = new Date()
   const branchStats = locations.map(loc => {
-    const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
-    // Rezervace pobočky = bookings.branch_id (kde zákazník převzal), u NULL pobočka motorky;
-    // počty motorek a vytíženost dál na aktuální flotile pobočky.
+    // JEDNO přiřazení pro vše: rezervace/obrat/dny pronájmu = pobočka rezervace (bookings.branch_id, u NULL
+    // pobočka motorky); flotila = moto-dny motorek, které na pobočce v období reálně stály (lib/branchFleet.js).
     const atLoc = b => effBranchId(b, motoBranchMap) === loc.id
     const locCompleted = completed.filter(atLoc)
     const revenue = locCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
     const reservationCount = locCompleted.length
-    const motorcycleCount = locMotos.length
-    const revenuePerMoto = motorcycleCount > 0 ? revenue / motorcycleCount : 0
+    const st = byBranch[loc.id]
+    const motoDays = st?.motoDays || 0
+    const motorcycleCount = win.days > 0 ? motoDays / win.days : 0 // průměrná flotila v období
+    const revenuePerMoto = motoDays >= MIN_EXPOSURE_DAYS && motorcycleCount > 0 ? revenue / motorcycleCount : null
 
     const days = locCompleted.map(b => diffDays(b.start_date, b.end_date))
     const avgDays = days.length > 0 ? days.reduce((a, b) => a + b, 0) / days.length : 0
-    const totalRentedDays = days.reduce((a, b) => a + b, 0)
-    const utilizationPct = motorcycleCount > 0 ? (totalRentedDays / (motorcycleCount * periodDays)) * 100 : 0
+    const rentedDays = st?.rentedDays || 0
+    const utilizationPct = motoDays > 0 ? (rentedDays / motoDays) * 100 : 0
 
-    // Odhad ročního zisku/motorku — JEN ze skutečných rezervací pobočky.
-    // Nevypůjčené kusy se počítají reálně (0 obrat → jen fixní náklady), NE
-    // idealizovaným benchmarkem (ten patří do Doporučení lokací). Průměr přes
-    // celou flotilu pobočky, aby číslo odpovídalo realitě vytíženosti.
-    let avgProfitPerBike = null
-    if (locMotos.length > 0) {
-      let profitSum = 0
-      for (const m of locMotos) {
-        const mBookings = locCompleted.filter(b => b.moto_id === m.id)
-        const econ = mBookings.length > 0
-          ? calcBikeEconomicsReal(m, mBookings)
-          : calcBikeEconomicsIdle(m)
-        if (econ) profitSum += econ.annualProfit
-      }
-      avgProfitPerBike = profitSum / locMotos.length
-    }
+    // Odhad ročního zisku/motorku — JEN ze skutečných rezervací pobočky (ne benchmark). Fixní náklady
+    // nese pobočka jen za dny, kdy u ní motorka stála → přesun dnes ji nepropadne do mínusu zpětně.
+    const avgProfitPerBike = profitPerMotoYear(st, motosById)
 
     // Classification: compare current period to previous period (only if enough data)
     let classification = 'Nedostatek dat'
@@ -148,16 +142,16 @@ export default function VykonPobocek() {
       classification = classifyGrowth(thisMonthRev, lastYearRev)
     }
 
-    return { ...loc, revenue, reservationCount, motorcycleCount, revenuePerMoto, avgDays, utilizationPct, classification, avgProfitPerBike }
+    return { ...loc, revenue, reservationCount, motorcycleCount, motoDays, rentedDays, revenuePerMoto, avgDays, utilizationPct, classification, avgProfitPerBike }
   })
 
   const totalRevenue = branchStats.reduce((s, b) => s + b.revenue, 0)
   const totalReservations = branchStats.reduce((s, b) => s + b.reservationCount, 0)
   const allDays = completed.map(b => diffDays(b.start_date, b.end_date))
   const avgDaysTotal = allDays.length > 0 ? allDays.reduce((a, b) => a + b, 0) / allDays.length : 0
-  const totalMotos = motorcycles.length
-  const totalRented = allDays.reduce((a, b) => a + b, 0)
-  const avgUtilization = totalMotos > 0 ? (totalRented / (totalMotos * periodDays)) * 100 : 0
+  const totalMotoDays = branchStats.reduce((s, b) => s + b.motoDays, 0)
+  const totalRented = branchStats.reduce((s, b) => s + b.rentedDays, 0)
+  const avgUtilization = totalMotoDays > 0 ? (totalRented / totalMotoDays) * 100 : 0
 
   const typeMap = {}
   for (const b of branchStats) {
@@ -206,7 +200,7 @@ export default function VykonPobocek() {
                     <span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{b.location || '—'}</span>
                   </td>
                   <td className="py-2 px-3">{Math.round(b.revenue).toLocaleString('cs-CZ')} Kč</td>
-                  <td className="py-2 px-3">{Math.round(b.revenuePerMoto).toLocaleString('cs-CZ')} Kč</td>
+                  <td className="py-2 px-3">{b.revenuePerMoto != null ? `${Math.round(b.revenuePerMoto).toLocaleString('cs-CZ')} Kč` : '—'}</td>
                   <td className="py-2 px-3">{b.avgProfitPerBike != null ? `${Math.round(b.avgProfitPerBike).toLocaleString('cs-CZ')} Kč` : '—'}</td>
                   <td className="py-2 px-3">{b.reservationCount}</td>
                   <td className="py-2 px-3">{b.utilizationPct.toFixed(1)} %</td>

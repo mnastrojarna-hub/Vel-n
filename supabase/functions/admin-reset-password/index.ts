@@ -46,14 +46,14 @@ serve(async (req: Request): Promise<Response> => {
       })
     }
 
-    // Zkontroluj admin oprávnění
+    // Zkontroluj admin oprávnění (2026-10-11: jen AKTIVNÍ účet Velína — jako is_admin())
     const { data: adminUser } = await adminClient
       .from('admin_users')
-      .select('id, role')
+      .select('id, role, active')
       .eq('id', caller.id)
       .single()
 
-    if (!adminUser || !['superadmin', 'admin'].includes(adminUser.role)) {
+    if (!adminUser || adminUser.active !== true || !['superadmin', 'admin'].includes(adminUser.role)) {
       return new Response(JSON.stringify({ error: 'Admin access required' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

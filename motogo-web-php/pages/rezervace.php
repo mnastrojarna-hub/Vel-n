@@ -168,7 +168,7 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 <script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
 <script src="' . assetUrl('/js/gear-ss-cap.js') . '"></script>
 <script>
-// Vynucení min_rental_days z DB (per-motorka, nastavuje admin ve Velíně).
+// Vynucení min_rental_days / max_rental_days z DB (per-motorka, nastavuje admin ve Velíně).
 // Default je 1 den. Hookne se na _rezPickDate (po vyběru rozsahu v kalendáři),
 // při překroceni minima zobrazi alert a vyresetuje výběr. Beží JEN když je
 // min_rental_days > 1, jinak žádné omezeni.
@@ -183,8 +183,24 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
     var r = MG._rez || {}; if (!r.startDate || !r.endDate) return true;
     var m = selectedMoto(); if (!m) return true;
     var minDays = parseInt(m.min_rental_days, 10) || 1;
-    if (minDays <= 1) return true;
     var n = dayCount(r.startDate, r.endDate);
+    // 2026-10-11: i maximální délka z Velína (max_rental_days), dřív šlo rezervovat libovolně dlouho
+    var maxDays = parseInt(m.max_rental_days, 10) || 0;
+    if (maxDays > 0 && n > maxDays) {
+      var lg = ((window.MOTOGO_CONFIG || {}).LANG || document.documentElement.lang || "cs").slice(0, 2);
+      var mx = { cs: "Maximální délka pronájmu této motorky je {n} dní. Zvolte prosím kratší termín.",
+        en: "The maximum rental for this bike is {n} days. Please choose a shorter period.",
+        de: "Dieses Motorrad vermieten wir für höchstens {n} Tage. Bitte wähle einen kürzeren Zeitraum.",
+        es: "Esta moto se alquila como máximo {n} días. Elige un periodo más corto.",
+        fr: "Cette moto se loue au maximum {n} jours. Choisis une période plus courte.",
+        nl: "Deze motor verhuren we voor maximaal {n} dagen. Kies een kortere periode.",
+        pl: "Ten motocykl wypożyczamy na maksymalnie {n} dni. Wybierz krótszy termin.",
+        uk: "Цей мотоцикл здаємо щонайбільше на {n} дн. Обери коротший термін." };
+      alert((mx[lg] || mx.cs).replace("{n}", maxDays));
+      if (typeof MG._rezResetDates === "function") MG._rezResetDates();
+      return false;
+    }
+    if (minDays <= 1) return true;
     if (n < minDays) {
       var msg = (MG.t && MG.t("rez.alert.minRentalDays", { count: minDays }))
         || ("Minimální délka pronájmu této motorky je " + minDays + " dní. Zvolte prosím delší termín.");
