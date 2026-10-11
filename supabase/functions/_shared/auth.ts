@@ -8,6 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+const ADMIN_ROLES = ['admin', 'superadmin', 'manager', 'operator']
 
 /** Vytáhne Bearer token z Authorization hlavičky (nebo apikey). */
 export function bearerToken(req: Request): string {
@@ -17,67 +18,160 @@ export function bearerToken(req: Request): string {
 }
 
 /**
- * service_role = přesná shoda s env klíčem (fast-path), NEBO JWT s claim
- * role:service_role, jehož PODPIS ověřil PostgREST (projekt může mít víc
- * platných service_role klíčů po rotaci JWT secretu / migraci API klíčů).
- *
- * BEZPEČNOSTNÍ FIX 2026-09-22 (5. kolo review vozíku): dřív stačilo payload
- * jen DEKÓDOVAT — u verify_jwt=false gateway podpis neověřuje, takže
- * nepodepsaný token `x.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.y` prošel jako
- * service_role do každé funkce nad tímto helperem (refundy, maily, push,
- * doplatky…). Teď se claim-only token ověří HEAD dotazem přes PostgREST:
- * podvržený / expirovaný → 401 (PGRST301) → false. Přesná shoda s env klíčem
- * (interní volání) síť nepotřebuje.
+ * service_role = přesná shoda s env SUPABASE_SERVICE_ROLE_KEY, NEBO s
+ * app_settings.service_role_key (DB triggery / pg_net / crony; sb_secret_… se env
+ * klíči NEROVNÁ — STATE_6 2026-07-07, dřív helper tato volání odmítal), NEBO JWT,
+ * který jako service_role uzná samo Auth API (víc platných klíčů po rotaci).
+ * 2026-10-11: payload JWT se NIKDY nedekóduje (verify_jwt=false = podpis nikdo
+ * neověřil) — rozhoduje jen shoda klíče nebo server.
  */
 export async function isServiceRole(token: string): Promise<boolean> {
-  if (!token) return false
-  if (SERVICE_KEY && token === SERVICE_KEY) return true
+  const t = unquote(token)
+  if (!t) return false
+  if (await isKnownServiceKey(t)) return true
+  return await authApiSaysService(t)
+}
+
+// ── Pomocné (2026-10-11) ── app_settings.service_role_key čte service klient,
+// cache v isolate KEY_TTL_MS; při neshodě nové čtení nejdřív po KEY_RETRY_MS
+// (rotace bez minutového výpadku, cizí tokeny nečtou DB u každého requestu);
+// souběžná volání sdílí jeden dotaz; chyba čtení = poslední známý klíč.
+const KEY_TTL_MS = 60_000
+const KEY_RETRY_MS = 10_000
+const JWT_SHAPE = /^[\w-]+\.[\w-]+\.[\w-]+$/
+let settingsKey = ''
+let settingsKeyAt = 0
+let settingsKeyLoad: Promise<void> | null = null
+let svcClient: ReturnType<typeof createClient> | null = null
+const verifiedJwts = new Map<string, number>() // service JWT → ověřeno do (ms)
+
+function svc() {
+  svcClient ??= createClient(SUPABASE_URL, SERVICE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  return svcClient
+}
+
+/** Klíč mohl přijít jako JSON string (jsonb bez `#>> '{}'`) → obalený "…". */
+function unquote(s: string): string {
+  const t = (s || '').trim()
+  return t.length > 1 && t.startsWith('"') && t.endsWith('"') ? t.slice(1, -1).trim() : t
+}
+
+/** Porovnání tajných klíčů v konstantním čase (prázdný klíč se nerovná ničemu). */
+function sameKey(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false
+  let d = 0
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return d === 0
+}
+
+async function readSettingsKey(): Promise<void> {
   try {
-    const parts = token.split('.')
-    if (parts.length !== 3) return false
-    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-    const payload = JSON.parse(atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4)))
-    if (payload?.role !== 'service_role') return false
-  } catch {
-    return false
+    const { data, error } = await svc()
+      .from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()
+    if (!error) {
+      const v = (data as { value?: unknown } | null)?.value
+      settingsKey = typeof v === 'string' ? unquote(v) : ''
+    }
+  } catch { /* poslední známý klíč */ }
+  settingsKeyAt = Date.now()
+}
+
+/** Přesná shoda s env service klíčem nebo s app_settings.service_role_key. */
+async function isKnownServiceKey(t: string): Promise<boolean> {
+  if (sameKey(t, SERVICE_KEY)) return true
+  if (!SUPABASE_URL || !SERVICE_KEY) return false
+  const age = Date.now() - settingsKeyAt
+  if (age < KEY_TTL_MS && sameKey(t, settingsKey)) return true
+  if (age >= KEY_RETRY_MS) {
+    settingsKeyLoad ??= readSettingsKey().finally(() => { settingsKeyLoad = null })
+    await settingsKeyLoad
   }
+  return sameKey(t, settingsKey)
+}
+
+/** JWT, který Auth API přijme na admin endpointu (= service_role, podpis ověřil server). */
+async function authApiSaysService(t: string): Promise<boolean> {
+  if (!SUPABASE_URL || t === ANON_KEY || !JWT_SHAPE.test(t)) return false
+  if ((verifiedJwts.get(t) ?? 0) > Date.now()) return true
   try {
-    const probe = createClient(SUPABASE_URL, ANON_KEY || token, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?page=1&per_page=1`, {
+      headers: { apikey: ANON_KEY || t, Authorization: `Bearer ${t}` },
     })
-    const { error } = await probe.from('admin_users').select('id', { head: true, count: 'exact' })
-    return !error
+    await r.body?.cancel()
+    if (!r.ok) return false
+    if (verifiedJwts.size >= 8) verifiedJwts.clear()
+    verifiedJwts.set(t, Date.now() + KEY_TTL_MS)
+    return true
   } catch {
     return false
   }
 }
 
+type Classified =
+  | { kind: 'service' }
+  // role jen u AKTIVNÍHO admina; activeAdmin = is_admin() (aktivní řádek i s role NULL)
+  | { kind: 'user'; userId: string; adminRole: string | null; activeAdmin: boolean }
+  | { kind: 'none'; reason: string }
+
+/** Jádro: klíč → service; relace (ověří VÝHRADNĚ auth.getUser) → user (+ aktivní admin). */
+async function classifyCaller(req: Request): Promise<Classified> {
+  const t = unquote(bearerToken(req))
+  if (!t) return { kind: 'none', reason: 'missing_token' }
+  if (await isKnownServiceKey(t)) return { kind: 'service' }
+  if (t !== ANON_KEY && JWT_SHAPE.test(t)) {
+    const { data: { user }, error } = await svc().auth.getUser(t)
+    if (!error && user) {
+      const { data: row, error: rowErr } = await svc()
+        .from('admin_users').select('role, active').eq('id', user.id).maybeSingle()
+      const r = row as { role?: string | null; active?: boolean | null } | null
+      // admin_users.active (NOT NULL DEFAULT true) — deaktivovaný účet = zákazník (jako is_admin())
+      const activeAdmin = !rowErr && !!r && r.active === true
+      const adminRole = activeAdmin && r?.role ? String(r.role) : null
+      return { kind: 'user', userId: user.id, adminRole, activeAdmin }
+    }
+    // service_role JWT nemá `sub` → getUser selže; rozhodne Auth API
+    if (await authApiSaysService(t)) return { kind: 'service' }
+  }
+  return { kind: 'none', reason: 'invalid_token' }
+}
+
 /**
- * Ověří, že volající je service_role NEBO přihlášený admin (admin_users).
- * Vrací { ok, reason } — při ok=false má funkce vrátit 401/403.
+ * Ověří, že volající je service_role NEBO přihlášený AKTIVNÍ admin (admin_users,
+ * role z opts.roles). Vrací { ok, reason } — při ok=false má funkce vrátit 401/403.
  */
 export async function requireAdminOrService(
   req: Request,
   opts: { roles?: string[] } = {},
 ): Promise<{ ok: boolean; userId?: string; reason?: string }> {
-  const token = bearerToken(req)
-  if (!token) return { ok: false, reason: 'missing_token' }
-  if (await isServiceRole(token)) return { ok: true }
-
-  const allowed = opts.roles ?? ['admin', 'superadmin', 'manager', 'operator']
+  const allowed = opts.roles ?? ADMIN_ROLES
   try {
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY)
-    const { data: { user }, error } = await admin.auth.getUser(token)
-    if (error || !user) return { ok: false, reason: 'invalid_token' }
-    const { data: row } = await admin
-      .from('admin_users')
-      .select('id, role')
-      .eq('id', user.id)
-      .maybeSingle()
-    if (!row || !allowed.includes(row.role)) return { ok: false, reason: 'not_admin' }
-    return { ok: true, userId: user.id }
+    const c = await classifyCaller(req)
+    if (c.kind === 'service') return { ok: true }
+    if (c.kind === 'none') return { ok: false, reason: c.reason }
+    if (!c.adminRole || !allowed.includes(c.adminRole)) return { ok: false, reason: 'not_admin' }
+    return { ok: true, userId: c.userId }
   } catch (e) {
     return { ok: false, reason: 'auth_error' }
+  }
+}
+
+/**
+ * Důvěryhodný volající (2026-10-11): service klíč (env / app_settings — DB triggery,
+ * pg_net, crony, jiné edge funkce), service JWT uznaný Auth API, nebo přihlášený
+ * AKTIVNÍ admin libovolné role (jako SQL is_admin(); opts.roles zúží role).
+ * Zákazník ani anon NE — pro funkce bez legitimního zákaznického volajícího.
+ */
+export async function isTrustedCaller(req: Request, opts: { roles?: string[] } = {}): Promise<boolean> {
+  try {
+    const c = await classifyCaller(req)
+    if (c.kind === 'service') return true
+    if (c.kind !== 'user') return false
+    // bez opts.roles přesně is_admin(): aktivní řádek admin_users (i role NULL — sloupec je nullable)
+    return opts.roles ? !!c.adminRole && opts.roles.includes(c.adminRole) : c.activeAdmin
+  } catch {
+    return false
   }
 }
 
@@ -93,26 +187,22 @@ export function forbidden(corsHeaders: Record<string, string>, reason = 'forbidd
  * Zařadí volajícího: 'service' | 'admin' | 'user' | 'none'.
  * Pro funkce, které smí volat i přihlášený ZÁKAZNÍK (appka) — funkce si pak
  * sama ověří vlastnictví booking_id/order_id přes vrácené userId.
+ * 'admin' = AKTIVNÍ admin_users řádek s rolí z opts.adminRoles; deaktivovaný = 'user'.
  */
 export async function authClassify(
   req: Request,
   opts: { adminRoles?: string[] } = {},
 ): Promise<{ kind: 'service' | 'admin' | 'user' | 'none'; userId?: string }> {
-  const token = bearerToken(req)
-  if (!token) return { kind: 'none' }
-  if (await isServiceRole(token)) return { kind: 'service' }
-  const adminRoles = opts.adminRoles ?? ['admin', 'superadmin', 'manager', 'operator']
+  const adminRoles = opts.adminRoles ?? ADMIN_ROLES
   try {
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY)
-    const { data: { user }, error } = await admin.auth.getUser(token)
-    if (error || !user) return { kind: 'none' }
-    const { data: row } = await admin
-      .from('admin_users')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle()
-    if (row && adminRoles.includes(row.role)) return { kind: 'admin', userId: user.id }
-    return { kind: 'user', userId: user.id }
+    const c = await classifyCaller(req)
+    if (c.kind === 'service') return { kind: 'service' }
+    if (c.kind === 'user') {
+      return c.adminRole && adminRoles.includes(c.adminRole)
+        ? { kind: 'admin', userId: c.userId }
+        : { kind: 'user', userId: c.userId }
+    }
+    return { kind: 'none' }
   } catch {
     return { kind: 'none' }
   }

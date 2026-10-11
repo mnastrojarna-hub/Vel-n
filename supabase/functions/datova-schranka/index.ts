@@ -8,6 +8,7 @@
 //   3. If not: Return file path for manual upload
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { forbidden, requireAdminOrService } from '../_shared/auth.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -44,6 +45,10 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return jsonResponse({ error: 'Method not allowed' }, 405)
   }
+
+  // 2026-10-11: odeslání výkazu na úřad jen service_role nebo admin (dřív bez ověření).
+  const auth = await requireAdminOrService(req)
+  if (!auth.ok) return forbidden(CORS, auth.reason)
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',

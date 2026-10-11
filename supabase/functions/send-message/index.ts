@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { bearerToken, isTrustedCaller } from '../_shared/auth.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -110,24 +111,12 @@ serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
   try {
-    // Auth check: service_role key or admin JWT
-    const authHeader = req.headers.get('authorization') || ''
-    const token = authHeader.replace('Bearer ', '')
-
-    if (token !== SUPABASE_SERVICE_KEY) {
-      // Verify as admin JWT
-      const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
-      if (authErr || !user) {
-        return jsonResponse({ success: false, error: 'Unauthorized' }, 401)
-      }
-      const { data: admin } = await supabase
-        .from('admin_users')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle()
-      if (!admin) {
-        return jsonResponse({ success: false, error: 'Forbidden — admin only' }, 403)
-      }
+    // Auth (2026-10-11): service klíč (env — send-broadcast, ai-customer-messages-suggest;
+    // app_settings.service_role_key — DB send_message_via_edge) nebo AKTIVNÍ účet Velína.
+    // Dřív se admin hledal podle neexistujícího admin_users.user_id → Velín vždy 403.
+    if (!bearerToken(req)) return jsonResponse({ success: false, error: 'Unauthorized' }, 401)
+    if (!(await isTrustedCaller(req))) {
+      return jsonResponse({ success: false, error: 'Forbidden — admin only' }, 403)
     }
 
     const {

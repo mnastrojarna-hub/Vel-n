@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { isTrustedCaller } from '../_shared/auth.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normalizeLang, helpCardLabels, invoiceEmailSnippets, type Lang } from './i18n.ts'
 
@@ -233,6 +234,10 @@ const TYPE_LABELS: Record<string, string> = {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  // 2026-10-11 (audit edge-auth): jen service klíč (env / app_settings) nebo AKTIVNÍ
+  // admin (Velín). Dřív bez kontroly = otevřený relay HTML mailů z noreply@ a doklady
+  // na libovolnou adresu. Volá ji výhradně Velín (admin JWT).
+  if (!(await isTrustedCaller(req))) return jsonResponse({ success: false, error: 'forbidden' }, 403)
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 

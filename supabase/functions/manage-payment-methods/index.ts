@@ -20,16 +20,6 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   httpClient: Stripe.createFetchHttpClient(),
 })
 
-// Decode JWT payload without verification (gateway already verified)
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const parts = token.split('.')
-    if (parts.length !== 3) return null
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
-    return payload
-  } catch { return null }
-}
-
 /** Sync all Stripe payment methods for a customer to the Supabase payment_methods table */
 async function syncCardsToSupabase(
   supabase: ReturnType<typeof createClient>,
@@ -83,9 +73,12 @@ Deno.serve(async (req: Request) => {
   )
 
   try {
-    // Authenticate user — JWT already verified by Supabase gateway
+    // Authenticate user. BEZPEČNOST 2026-10-11: verify_jwt=false → gateway NIC
+    // neověřuje; uživatele určuje VÝHRADNĚ auth.getUser (podpis ověří Auth server).
+    // Dřív se bral `sub` z nepodepsaně dekódovaného JWT → podvržený token s cizím
+    // `sub` vypsal / odpojil karty oběti.
     const authHeader = req.headers.get('authorization') || ''
-    const token = authHeader.replace('Bearer ', '')
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim()
     if (!token) {
       return new Response(
         JSON.stringify({ success: false, error: 'Unauthorized' }),
@@ -93,22 +86,16 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    // Decode JWT directly (gateway already verified signature)
-    const jwtPayload = decodeJwtPayload(token)
-    let userId = jwtPayload?.sub as string | null
-    let userEmail = (jwtPayload?.email as string) || null
-
-    // Fallback: try getUser if JWT decode fails
-    if (!userId) {
-      try {
-        const { data: { user: authUser } } = await supabase.auth.getUser(token)
-        if (authUser) {
-          userId = authUser.id
-          userEmail = authUser.email || null
-        }
-      } catch (e) {
-        console.warn('getUser fallback failed:', e)
+    let userId: string | null = null
+    let userEmail: string | null = null
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser(token)
+      if (authUser) {
+        userId = authUser.id
+        userEmail = authUser.email || null
       }
+    } catch (e) {
+      console.warn('getUser failed:', e)
     }
 
     if (!userId) {
@@ -253,7 +240,23 @@ Deno.serve(async (req: Request) => {
         .eq('user_id', user.id)
         .maybeSingle()
       if (ownerErr || !ownedCard) {
-        // Card not in DB — still try Stripe cleanup and return success
+        // Karta není v DB u tohoto uživatele. BEZPEČNOST 2026-10-11: dřív se přesto
+        // odpojila (detach) — šlo tak smazat CIZÍ kartu podle pm_ id. Nově jen karta
+        // připojená k VLASTNÍMU Stripe zákazníkovi (DB mohla zaostat za Stripe), jinak 403.
+        let ownedInStripe = false
+        if (customerId) {
+          try {
+            const pmChk = await stripe.paymentMethods.retrieve(payment_method_id)
+            const pmCust = typeof pmChk.customer === 'string' ? pmChk.customer : pmChk.customer?.id
+            ownedInStripe = !!pmCust && pmCust === customerId
+          } catch { /* neexistuje / Stripe chyba → nevlastní */ }
+        }
+        if (!ownedInStripe) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Karta nebyla nalezena nebo vám nepatří.' }),
+            { status: 403, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
+        }
         try { await stripe.paymentMethods.detach(payment_method_id) } catch { /* ignore */ }
         return new Response(
           JSON.stringify({ success: true, action: 'delete' }),

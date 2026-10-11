@@ -171,10 +171,24 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
 
+    // Anti-enumeration (2026-10-11, audit edge-auth): TĚLO odpovědi je ve všech
+    // úspěšných větvích stejné ({success:true}) — dřív `sent:false/true` prozradilo,
+    // zda e-mail patří zákazníkovi / uživateli Velína. Klienti (web, Velín, appka)
+    // `sent` nečtou, jen chybu / HTTP status.
     if (!foundUserId) {
-      // Anti-enumeration: stejná odpověď
-      return jsonResponse({ success: true, sent: false })
+      return jsonResponse({ success: true })
     }
+
+    // Cooldown 60 s na adresu (2026-10-11): opakované volání nezaplaví schránku ani
+    // nezneplatní právě odeslaný kód (každé generateLink vydá nový OTP). Evidence =
+    // message_log (recipient_email + template_slug 'recovery_otp'); chyba dotazu → posílá se.
+    try {
+      const since = new Date(Date.now() - 60 * 1000).toISOString()
+      const { data: recent } = await admin.from('message_log').select('id')
+        .eq('template_slug', 'recovery_otp').eq('recipient_email', email).eq('status', 'sent')
+        .gte('created_at', since).limit(1)
+      if (recent && recent.length > 0) return jsonResponse({ success: true })
+    } catch { /* cooldown nesmí zablokovat reset */ }
 
     // Generate recovery link → vrátí email_otp (token uložen v auth.users)
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
@@ -194,24 +208,31 @@ serve(async (req: Request): Promise<Response> => {
     const sendRes = await sendViaResend(email, html, subject)
     if (!sendRes.ok) {
       console.error('[send-recovery-otp] resend err', sendRes.error)
-      return jsonResponse({ success: false, error: 'send_failed', detail: sendRes.error }, 500)
+      return jsonResponse({ success: false, error: 'send_failed' }, 500)
     }
 
-    // Log do message_log (best-effort, nezávisí na něm response)
+    // Log do message_log (best-effort, nezávisí na něm response). 2026-10-11: skutečné
+    // sloupce (recipient_email, external_id) — dřívější `recipient`/`provider_response`
+    // neexistují, insert tiše selhával a cooldown výše by neměl z čeho číst. Kód NEukládat.
     try {
-      await admin.from('message_log').insert({
+      const { error: logErr } = await admin.from('message_log').insert({
         channel: 'email',
-        recipient: email,
+        direction: 'outbound',
+        recipient_email: email,
+        customer_id: lookup?.id ?? null, // FK profiles — u uživatele Velína bez profilu null
         template_slug: 'recovery_otp',
+        content_preview: subject.slice(0, 160),
+        external_id: sendRes.id || null,
         status: 'sent',
-        provider_response: { id: sendRes.id },
+        is_marketing: false,
         metadata: { user_id: foundUserId },
       })
+      if (logErr) console.warn('[send-recovery-otp] message_log insert failed', logErr.message)
     } catch (e) {
       console.warn('[send-recovery-otp] message_log insert failed', e)
     }
 
-    return jsonResponse({ success: true, sent: true })
+    return jsonResponse({ success: true })
   } catch (err) {
     console.error('[send-recovery-otp] exception', err)
     return jsonResponse({ success: false, error: (err as Error).message }, 500)
