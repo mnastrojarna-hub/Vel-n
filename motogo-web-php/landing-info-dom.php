@@ -51,6 +51,11 @@ function lpiText($n) {
     return trim(preg_replace('/[\s\x{00A0}]+/u', ' ', (string)$n->textContent));
 }
 
+/** Text pro porovnání duplicit: malá písmena, jedna mezera, bez koncové interpunkce. */
+function lpiNorm($s) {
+    return preg_replace('/[\s.!?:;,…]+$/u', '', mb_strtolower(trim(preg_replace('/[\s\x{00A0}]+/u', ' ', (string)$s))));
+}
+
 function lpiHas($el, $c) {
     return $el instanceof DOMElement && strpos(' ' . preg_replace('/\s+/', ' ', $el->getAttribute('class')) . ' ', ' ' . $c . ' ') !== false;
 }
@@ -189,7 +194,8 @@ function lpiFaqStyle($doc, $x, $root) {
         lpiAdd($d, 'lpi-faq-item');
         // Otázka z více uzlů (<span>…</span> text) by ve flex <summary> tvořila sloupce vedle sebe → jeden obal
         $sum = $x->query('./summary', $d)->item(0);
-        if ($sum && $sum->childNodes->length > 1) { $q = lpiEl($doc, 'span', 'lpi-q'); lpiMoveKids($sum, $q); $sum->appendChild($q); }
+        // (klíč Velínu přímo na <summary> = editor upravuje jeho obsah → obal tam nedávat)
+        if ($sum && $sum->childNodes->length > 1 && !$sum->hasAttribute('data-cms-key')) { $q = lpiEl($doc, 'span', 'lpi-q'); lpiMoveKids($sum, $q); $sum->appendChild($q); }
     }
     foreach ($x->query('.//ul[contains(concat(" ",normalize-space(@class)," ")," tabs ")]', $root) as $ul) $ul->setAttribute('class', 'lpi-tabs');
     foreach (iterator_to_array($x->query('.//div[@class="lpi-faq-list"]', $root)) as $g) {

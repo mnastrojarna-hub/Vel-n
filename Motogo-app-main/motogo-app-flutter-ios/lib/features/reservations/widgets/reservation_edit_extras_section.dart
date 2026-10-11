@@ -181,7 +181,7 @@ class EditExtrasSection extends StatelessWidget {
   }
 
   /// Paid add-on card (checkbox style) — whole card is tappable.
-  Widget _paidCard({
+  Widget _paidCard(BuildContext context, {
     required bool checked,
     required String label,
     required String sub,
@@ -211,7 +211,7 @@ class EditExtrasSection extends StatelessWidget {
               fontWeight: checked ? FontWeight.w700 : FontWeight.w400,
               color: checked ? MotoGoColors.greenDark : MotoGoColors.g400)),
           ])),
-          Text(_gearFree ? 'ZDARMA' : '+${Money.czk(price)}',
+          Text(_gearFree ? t(context).tr('gearFree').toUpperCase() : '+${Money.czk(price)}',
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.greenDark)),
         ])),
     );
@@ -264,7 +264,7 @@ class EditExtrasSection extends StatelessWidget {
       // === Placené doplňky — modal na zaškrtnutí, rozbalené při výběru ===
       // Dětská motorka nikdy nemá spolujezdce → skryj výbavu i boty spolujezdce.
       if (!isKids)
-        _paidCard(
+        _paidCard(context,
           checked: passengerSelected,
           label: t(context).tr('passengerGearLabel'),
           sub: t(context).tr('passengerGearSub'),
@@ -281,7 +281,7 @@ class EditExtrasSection extends StatelessWidget {
               _showPassengerGearSheet(context);
             }
           }),
-      _paidCard(
+      _paidCard(context,
         checked: selectedExtras.contains('boty_ridic'),
         label: t(context).tr('driverBootsLabel'),
         sub: _bootsSub(context, selectedExtras.contains('boty_ridic'), bootsSize),
@@ -292,7 +292,7 @@ class EditExtrasSection extends StatelessWidget {
           onPick: (s) { onBootsSize(s); _addExtra('boty_ridic'); },
           onRemove: () { onBootsSize(null); _removeExtra('boty_ridic'); })),
       if (!isKids)
-        _paidCard(
+        _paidCard(context,
           checked: selectedExtras.contains('boty_spolujezdec'),
           label: t(context).tr('bootsPassengerLabel'),
           sub: _bootsSub(context, selectedExtras.contains('boty_spolujezdec'), passengerBootsSize),
@@ -328,7 +328,7 @@ class EditExtrasSection extends StatelessWidget {
       Row(children: [
         Text(t(context).tr('rider'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.greenDarker)),
         const SizedBox(width: 6),
-        const Text('· zdarma', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
+        Text('· ${t(context).tr('gearFree').toLowerCase()}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
         const Spacer(),
         GestureDetector(
           onTap: () => onOwnGearChanged(!ownGear),

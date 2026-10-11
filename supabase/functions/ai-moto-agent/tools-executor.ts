@@ -313,7 +313,7 @@ export async function executeTool(
           battery_low: 'Pod 12V omezte spotřebu. Jumpstart: + na +, - na kostru. -> SOS',
           fuel_reserve: 'Rezerva 2-4 L, dojezd cca 30-80 km. Tankujte Natural 95/98.',
           rain_riding: 'Rain mód, snížená rychlost, zvětšené rozestupy, pozor na kanály a listy.',
-          emergency_contact: 'MotoGo24: +420 774 256 271 (24/7), info@motogo24.cz',
+          emergency_contact: 'MotoGo24: SOS tlačítko v aplikaci (24/7); telefon +420 774 256 271 (Po–Pá 8:00–17:00), info@motogo24.cz',
         },
       }
     }

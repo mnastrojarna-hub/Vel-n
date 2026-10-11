@@ -140,9 +140,14 @@ function lpInfoWrap($html, $page, $sb) {
     $admin = lpAdmin();
     $motos = $sb->fetchMotos();
     $on = array_flip(LPI_BLOCKS[$page] ?? ['fleet', 'reviews']);
-    // Chipy hero, které už nese karta pobočky (Kontakt), se v hero neopakují
+    // Chip hero se neopakuje, když stejný krátký text už nese obsah stránky (karta výhody „bez skrytých
+    // poplatků.“) nebo karta pobočky (Kontakt) — porovnání bez velikosti písmen a koncové interpunkce
     $skip = [];
-    if ($page === 'kontakt') foreach ((array)($L['contact']['branches'] ?? []) as $br) foreach ((array)($br['chips'] ?? []) as $c) $skip[mb_strtolower(lpPlain($c))] = 1;
+    if ($page === 'kontakt') foreach ((array)($L['contact']['branches'] ?? []) as $br) foreach ((array)($br['chips'] ?? []) as $c) $skip[lpiNorm(lpPlain($c))] = 1;
+    foreach ($x->query('.//p|.//li|.//h2|.//h3|.//h4|.//*[@data-cms-key]', $cc) as $e) {
+        $t = lpiText($e);
+        if ($t !== '' && mb_strlen($t) <= 60) $skip[lpiNorm($t)] = 1;
+    }
     $opt = ['reviews' => isset($on['reviews']), 'skip' => $skip,
         // Kontakt: „Zavolat“ v hero jen když obsah nemá vlastní telefonní kartu (jinak by se volání opakovalo hned pod ním)
         'call' => $page === 'kontakt' && !$x->query('.//a[starts-with(@href,"tel:")]', $cc)->length];
@@ -230,7 +235,7 @@ function lpiHero($doc, $x, $h1, $page, $L, $TC, $motos, $opt) {
     if ($min > 0 && lpS($TC['price_chip'] ?? '') !== '') $chips .= '<li class="lp-chip lp-chip--hot">' . he(str_replace('{price}', lpMoneyFrom($min), lpS($TC['price_chip']))) . '</li>';
     $seen = (array)($opt['skip'] ?? []);
     foreach ((array)($L['chips'][$page] ?? []) as $c) {
-        $k = mb_strtolower(lpPlain($c));
+        $k = lpiNorm(lpPlain($c));
         if ($k === '' || isset($seen[$k])) continue;
         $seen[$k] = 1;
         $chips .= '<li class="lp-chip">' . lpIcon('check') . '<span>' . he(lpPlain($c)) . '</span></li>';

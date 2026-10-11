@@ -369,6 +369,33 @@ const defaultExtras = [
   ),
 ];
 
+/// i18n klíče názvů / popisů známých doplňků (dle `id`). Do DB
+/// (`booking_extras.name`, Velín) jde dál český název z katalogu — appka ho
+/// jen ZOBRAZUJE v jazyce zákazníka.
+const extraNameKeys = <String, String>{
+  'extra-spolujezdec': 'passengerGearLabel',
+  'extra-boty-ridic': 'driverBootsLabel',
+  'extra-boty-spolu': 'bootsPassengerLabel',
+  'extra-vozik': 'gearTrailer',
+};
+const extraDescKeys = <String, String>{
+  'extra-spolujezdec': 'passengerGearSub',
+  'extra-boty-ridic': 'extraBootsDesc',
+  'extra-boty-spolu': 'extraBootsDesc',
+};
+
+/// Přeložený název doplňku ([tr] = `t(context).tr`); neznámé id → [name] z DB.
+String extraLabel(String Function(String) tr, String id, String name) {
+  final k = extraNameKeys[id];
+  return k == null ? name : tr(k);
+}
+
+/// Přeložený popis doplňku; neznámé id → [desc] z DB.
+String? extraDescription(String Function(String) tr, String id, String? desc) {
+  final k = extraDescKeys[id];
+  return k == null ? desc : tr(k);
+}
+
 /// Od tohoto věrnostního ranku (loyalty level) má zákazník veškerou placenou
 /// výbavu — výbavu i obuv řidiče a spolujezdce — ZDARMA. Platí VÝHRADNĚ
 /// v aplikaci (`bookings.booking_source = 'app'`); web žádnou věrnostní

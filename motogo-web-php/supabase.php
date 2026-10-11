@@ -115,6 +115,73 @@ class SupabaseClient {
     }
 
     /**
+     * RPC vracející SKALÁR (text/number/boolean), např. get_document_translation.
+     * rpc() vrací vždy pole — JSON skalár (`"<h1>…"`) by zahodil na [] (tak web
+     * nikdy neukázal přeložený dokument). Vrací dekódovanou hodnotu, při chybě
+     * nebo SQL NULL vrací null.
+     */
+    public function rpcScalar($function, $params = []) {
+        $res = $this->_request($this->url . '/rest/v1/rpc/' . $function, $params);
+        if ($res['code'] < 200 || $res['code'] >= 300 || $res['body'] === '') return null;
+        return json_decode($res['body'], true);
+    }
+
+    /**
+     * Existuje sloupec? (PostgREST vrací 400 / 42703 pro neznámý sloupec.) Výsledek
+     * se cachuje jako ostatní data. Slouží k toleranci kódu před/po migraci
+     * (např. translation_src z 20261011_i18n_customer_language.sql).
+     */
+    public function hasColumn($table, $column) {
+        $key = 'col_' . $table . '.' . $column;
+        $cached = $this->cacheGet($key);
+        if ($cached !== null) return !empty($cached['v']);
+        $res = $this->_request($this->url . '/rest/v1/' . $table . '?select=' . rawurlencode($column) . '&limit=1');
+        $ok = ($res['code'] >= 200 && $res['code'] < 300);
+        // Cachujeme jen jednoznačnou odpověď (2xx / 400) — výpadek sítě ne.
+        if ($ok || $res['code'] === 400) $this->cacheSet($key, ['v' => $ok]);
+        return $ok;
+    }
+
+    /**
+     * Jeden HTTP požadavek na Supabase REST (GET, nebo POST když $data !== null).
+     * @return array{code:int, body:string} code 0 = síťová chyba / curl chybí
+     */
+    private function _request($url, $data = null) {
+        if (!function_exists('curl_init')) {
+            @error_log('[MotoGo24] curl extension nedostupné');
+            return ['code' => 0, 'body' => ''];
+        }
+        try {
+            $headers = [
+                'apikey: ' . $this->key,
+                'Authorization: Bearer ' . $this->key,
+                'Accept: application/json',
+            ];
+            $opts = [
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 8,
+                CURLOPT_CONNECTTIMEOUT => 3,
+            ];
+            if ($data !== null) {
+                $opts[CURLOPT_POST] = true;
+                $opts[CURLOPT_POSTFIELDS] = json_encode($data);
+                $headers[] = 'Content-Type: application/json';
+            }
+            $opts[CURLOPT_HTTPHEADER] = $headers;
+            $ch = curl_init();
+            curl_setopt_array($ch, $opts);
+            $response = curl_exec($ch);
+            $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            return ['code' => $httpCode, 'body' => is_string($response) ? $response : ''];
+        } catch (\Throwable $e) {
+            @error_log('[MotoGo24] request failed: ' . $e->getMessage());
+        }
+        return ['code' => 0, 'body' => ''];
+    }
+
+    /**
      * GET request s curl.
      */
     private function _get($url) {
@@ -539,10 +606,14 @@ class SupabaseClient {
     // ===== DOCUMENT TEMPLATES (Velín → Smluvní texty) =====
     // Zdroj pravdy pro veřejné dokumenty/návody (VOP, smlouva, GDPR, protokoly).
     // Vrací nejnovější aktivní verzi šablony pro daný `type`.
+    // translation_src = {lang: sha1 českého zdroje, ze kterého překlad vznikl} — sloupec
+    // přidává migrace 20261011_i18n_customer_language.sql; do té doby se nečte (žádný
+    // překlad pak není prokazatelně čerstvý → web ukáže závaznou českou verzi).
     public function fetchDocumentTemplate($type) {
+        $src = $this->hasColumn('document_templates', 'translation_src') ? ',translation_src' : '';
         $result = $this->query(
             'document_templates',
-            'id,type,name,content_html,version,updated_at,name_translations',
+            'id,type,name,content_html,version,updated_at,name_translations' . $src,
             ['type=eq.' . $type, 'active=eq.true'],
             'version.desc'
         );
@@ -553,9 +624,11 @@ class SupabaseClient {
      * Mapa type → name_translations ({lang: "<přeložený název>"}) pro všechny aktivní
      * smluvní šablony. Pro výpis karet na /jak-pujcit/dokumenty v jazyce návštěvníka.
      * Vrací [] když sloupec ještě neexistuje (graceful degradace na i18n názvy).
+     * Hodnoty, které jsou jen český název uložený jako „překlad“, se vyřadí
+     * (docNameTranslation) → volající použije i18n název doc.title.<type>.
      */
     public function fetchDocTemplateNameTranslations() {
-        $rows = $this->query('document_templates', 'type,name_translations,active', ['active=eq.true'], 'version.desc');
+        $rows = $this->query('document_templates', 'type,name,name_translations,active', ['active=eq.true'], 'version.desc');
         if (!is_array($rows)) return [];
         $out = [];
         foreach ($rows as $r) {
@@ -563,35 +636,93 @@ class SupabaseClient {
             if ($t === null || isset($out[$t])) continue;
             $nt = $r['name_translations'] ?? null;
             if (is_string($nt)) { $d = json_decode($nt, true); $nt = is_array($d) ? $d : null; }
-            if (is_array($nt)) $out[$t] = $nt;
+            if (!is_array($nt)) continue;
+            $clean = [];
+            foreach ($nt as $lng => $v) {
+                $v = self::docNameTranslation($v, $r['name'] ?? '');
+                if ($v !== '') $clean[$lng] = $v;
+            }
+            $out[$t] = $clean;
         }
         return $out;
+    }
+
+    /**
+     * Přeložený název dokumentu, nebo '' když je to ve skutečnosti český text
+     * (shodný s českým názvem nebo s českými znaky — translate-document při
+     * neúplné odpovědi modelu ukládal zdrojový název jako „překlad“).
+     */
+    public static function docNameTranslation($value, $czName) {
+        if (!is_string($value)) return '';
+        $v = trim($value);
+        if ($v === '') return '';
+        if (is_string($czName) && mb_strtolower(trim($czName), 'UTF-8') === mb_strtolower($v, 'UTF-8')) return '';
+        if (preg_match('/[ěščřžůťďňýĚŠČŘŽŮŤĎŇÝ]/u', $v)) return '';
+        return $v;
+    }
+
+    /**
+     * Je překlad dokumentu do $lang čerstvý? Jen když translation_src[$lang] == sha1
+     * aktuálního českého zdroje (document_templates: content_html; custom_documents:
+     * content_html . '|' . pdf_path) — stejná podmínka jako SQL get_document_translation.
+     * Chybějící sloupec / otisk = zastaralý (česká verze se od překladu mohla změnit).
+     */
+    public static function docTranslationFresh($translationSrc, $lang, $sourceText) {
+        if (is_string($translationSrc)) { $d = json_decode($translationSrc, true); $translationSrc = is_array($d) ? $d : null; }
+        if (!is_array($translationSrc) || !is_string($sourceText) || !is_string($lang)) return false;
+        $fp = $translationSrc[$lang] ?? null;
+        return is_string($fp) && $fp !== '' && hash_equals(sha1($sourceText), strtolower(trim($fp)));
+    }
+
+    /** custom_documents: ponechá v `translations` jen čerstvé jazyky (viz docTranslationFresh). */
+    private static function freshCustomTranslations(array $row) {
+        $tr = $row['translations'] ?? null;
+        if (is_string($tr)) { $d = json_decode($tr, true); $tr = is_array($d) ? $d : null; }
+        if (!is_array($tr)) return $row;
+        $srcText = (string)($row['content_html'] ?? '') . '|' . (string)($row['pdf_path'] ?? '');
+        $fresh = [];
+        foreach ($tr as $lng => $v) {
+            if (self::docTranslationFresh($row['translation_src'] ?? null, (string)$lng, $srcText)) $fresh[$lng] = $v;
+        }
+        $row['translations'] = $fresh;
+        return $row;
     }
 
     /**
      * Vlastní dokumenty vytvořené ve Velíně (tabulka `custom_documents`).
      * Pro výpis na webu „Dokumenty a návody" — jen aktivní a označené `show_on_web`.
      * Vrací [] pokud tabulka ještě neexistuje (graceful degradace).
+     * `translations` obsahují jen čerstvé překlady (zastaralé → česká verze / PDF).
      */
     public function fetchCustomDocuments() {
+        $src = $this->hasColumn('custom_documents', 'translation_src') ? ',translation_src' : '';
         $rows = $this->query(
             'custom_documents',
-            'id,title,slug,description,kind,pdf_path,sort_order,translations',
+            'id,title,slug,description,kind,content_html,pdf_path,sort_order,translations' . $src,
             ['active=eq.true', 'show_on_web=eq.true'],
             'sort_order.asc,title.asc'
         );
-        return is_array($rows) ? $rows : [];
+        if (!is_array($rows)) return [];
+        foreach ($rows as $i => $r) {
+            if (!is_array($r)) continue;
+            $r = self::freshCustomTranslations($r);
+            unset($r['content_html']); // jen pro otisk — výpis ho nepotřebuje
+            $rows[$i] = $r;
+        }
+        return $rows;
     }
 
-    /** Jeden vlastní dokument podle slugu (jen aktivní). */
+    /** Jeden vlastní dokument podle slugu (jen aktivní); `translations` jen čerstvé. */
     public function fetchCustomDocument($slug) {
+        $src = $this->hasColumn('custom_documents', 'translation_src') ? ',translation_src' : '';
         $rows = $this->query(
             'custom_documents',
-            'id,title,slug,description,kind,content_html,pdf_path,version,updated_at,translations',
+            'id,title,slug,description,kind,content_html,pdf_path,version,updated_at,translations' . $src,
             ['slug=eq.' . $slug, 'active=eq.true'],
             'version.desc'
         );
-        return is_array($rows) ? ($rows[0] ?? null) : null;
+        $row = is_array($rows) ? ($rows[0] ?? null) : null;
+        return is_array($row) ? self::freshCustomTranslations($row) : null;
     }
 
     public function fetchCmsPages($tag = null) {

@@ -3,7 +3,7 @@
    přebíjí !important, vložené <style> (#mg-rezcal-styles, #mg-lic-styles) vyšší specificitou. Vlastní prvky = .rz-*. */
 .rez-v2{--rz-d:#0e2a1c;--rz-n:#74fb71;--rz-g:#0d6e0d;--rz-t:#1a2e22;--rz-m:#4a6b5a;--rz-l:#dcebe3;--rz-dark:radial-gradient(120% 140% at 100% 0,#24563b 0,#0e2a1c 55%,#0a1f14 100%);overflow-x:clip}
 .rez-v2 #content{background:linear-gradient(180deg,#eaf6ef 0,#f5faf7 380px)}
-.rez-v2 .pcontent>h1{font-size:clamp(1.6rem,6.4vw,2.35rem);font-weight:900;letter-spacing:-.015em;line-height:1.15;margin:0 0 1rem}
+.rez-v2 .pcontent>h1{font-size:clamp(1.3rem,6vw,2.35rem);font-weight:900;letter-spacing:-.015em;line-height:1.15;margin:0 0 1rem;hyphens:auto;overflow-wrap:break-word}
 .rez-v2 .pcontent>h1::after{content:"";display:block;width:56px;height:4px;margin-top:.55rem;border-radius:4px;background:linear-gradient(90deg,#74fb71,#37cf63)}
 .rez-v2 #rezervace-app>.loading-overlay{border-radius:20px;background:#fff;border:1px solid var(--rz-l);color:var(--rz-m);font-weight:600}
 
@@ -16,7 +16,7 @@
 .rez-v2 #rez-intro p:last-child,.rez-v2 #rez-intro p:last-child strong{color:#a8ff9f!important}
 
 /* Karty kroků */
-.rez-v2 .rez-section{margin:0 0 1rem;padding:1.15rem 1rem 1.1rem;border:1px solid var(--rz-l);border-radius:20px;background:#fff;box-shadow:0 12px 30px -22px rgba(14,42,28,.45);transition:box-shadow .3s,border-color .3s;scroll-margin-top:68px}
+.rez-v2 .rez-section{margin:0 0 1rem;padding:1.15rem 1rem 1.1rem;border:1px solid var(--rz-l);border-radius:20px;background:#fff;box-shadow:0 12px 30px -22px rgba(14,42,28,.45);transition:box-shadow .3s,border-color .3s;scroll-margin-top:10px}
 .rez-v2 .rez-section:hover{box-shadow:0 14px 34px -20px rgba(14,42,28,.5)}
 .rez-v2 .rez-section.rz-cur{border-color:rgba(55,207,99,.6);box-shadow:0 0 0 1px rgba(116,251,113,.35),0 16px 36px -20px rgba(14,42,28,.55)}
 .rez-v2 .rez-section-head{gap:.7rem;margin:0 0 1rem;padding:0 0 .85rem;border-bottom:1px dashed #e1ede7}
@@ -53,20 +53,22 @@
 .rez-v2 #rez-calendar .rezcal-nav button{width:40px;height:40px;background:rgba(255,255,255,.08);border:1px solid rgba(116,251,113,.4);color:var(--rz-n)}
 .rez-v2 #rez-calendar .rezcal-nav button:hover{background:rgba(116,251,113,.2);transform:scale(1.06)}
 .rez-v2 #rez-calendar .rezcal-title{color:#fff;font-size:1.08rem}
-.rez-v2 #rez-calendar .rezcal-mhead{color:#9fc4b1;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em}
-.rez-v2 #rez-calendar .cal-header{color:#8fb3a1}
+.rez-v2 #rez-calendar .rezcal-mhead{color:#b9d6c7;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em}
+.rez-v2 #rez-calendar .cal-header{color:#b9d6c7}
 .rez-v2 #rez-calendar .cal-grid{gap:4px}
+@media(max-width:420px){.rez-v2 #rez-calendar{padding:.75rem .4rem .7rem}.rez-v2 #rez-calendar .cal-grid{gap:3px}.rez-v2 #rez-calendar .cal-day{aspect-ratio:auto;min-height:42px}}
 .rez-v2 #rez-calendar .cal-day{border:1px solid transparent;border-radius:12px;color:#fff;transition:transform .12s,background .15s,border-color .15s,box-shadow .15s}
 .rez-v2 #rez-calendar .cal-day.free{background:rgba(116,251,113,.14);border-color:rgba(116,251,113,.32);color:#fff}
 .rez-v2 #rez-calendar .cal-day.free:not(.sel-start):not(.sel-end):hover{background:rgba(116,251,113,.3);border-color:#74fb71;transform:translateY(-2px);box-shadow:0 8px 16px -8px rgba(116,251,113,.7)}
 .rez-v2 #rez-calendar .cal-day.occupied{background:repeating-linear-gradient(135deg,rgba(255,255,255,.07) 0 4px,transparent 4px 8px);color:rgba(255,255,255,.38)}
 .rez-v2 #rez-calendar .cal-day.occupied span:last-child{text-decoration:line-through}
 .rez-v2 #rez-calendar .cal-day.unconfirmed{background:none;border:1px dashed rgba(255,211,107,.75);color:rgba(255,255,255,.6)}
-.rez-v2 #rez-calendar .cal-day.past{background:none;color:rgba(255,255,255,.24);opacity:1}
-.rez-v2 #rez-calendar .cal-day.in-range{background:rgba(116,251,113,.42);border-color:transparent;border-radius:8px;color:#fff}
+.rez-v2 #rez-calendar .cal-day.past{background:none;color:rgba(255,255,255,.36);opacity:1}
+.rez-v2 #rez-calendar .cal-day .dn{opacity:.85}
+.rez-v2 #rez-calendar .cal-day.in-range{background:rgba(116,251,113,.28);border-color:rgba(116,251,113,.6);border-radius:8px;color:#fff}
 .rez-v2 #rez-calendar .cal-day.sel-start,.rez-v2 #rez-calendar .cal-day.sel-end{background:linear-gradient(135deg,#8dff86,#37cf63);border-color:transparent;color:#08230f;box-shadow:0 0 0 2px rgba(116,251,113,.35),0 8px 18px -6px rgba(116,251,113,.9);animation:rzPop .3s ease}
 .rez-v2 #rez-calendar .cal-day.today{outline:2px solid rgba(255,255,255,.75);outline-offset:-2px}
-.rez-v2 #rez-calendar .calendar-icons{color:#cfe7da}
+.rez-v2 #rez-calendar .calendar-icons,.rez-v2 #rez-calendar .calendar-icons>div{color:#cfe7da}
 .rez-v2 #rez-calendar .cicon{width:12px;height:12px;border-radius:4px}
 .rez-v2 #rez-calendar .cicon.loosely{background:rgba(116,251,113,.3);border:1px solid #74fb71}
 .rez-v2 #rez-calendar .cicon.selrange{background:linear-gradient(135deg,#8dff86,#37cf63)}
@@ -97,7 +99,8 @@
 .rez-v2 .gear-card:not(.open) .gear-size-panel{padding-top:0;padding-bottom:0}
 .rez-v2 .gear-price{border-radius:999px;background:var(--rz-d);color:var(--rz-n)}
 .rez-v2 .gear-price-free{background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f}
-.rez-v2 .gear-card .gear-size-panel-hint{font-style:normal;color:#6c8a7b}
+.rez-v2 .gear-card .gear-size-panel-hint{font-style:normal;color:#4f7060}
+.rez-v2 .rez-time-chips-label span{color:#4f7060!important}
 .rez-v2 .size-pick{background:#e6fae2;color:var(--rz-g)}
 .rez-v2 .size-pick[data-empty="0"]{background:var(--rz-d);color:var(--rz-n);animation:rzPop .28s ease}
 .rez-v2 #rez-note-toggle{min-height:52px;border:1px solid var(--rz-l)!important;border-radius:16px!important;box-shadow:0 8px 20px -18px rgba(14,42,28,.5);transition:border-color .2s}
@@ -115,6 +118,8 @@
 .rez-v2 .rez-cta:disabled,.rez-v2 .rez-step2-pay .btn:disabled,.rez-v2 .rez-finish-docs:disabled{opacity:.6;animation:none;cursor:progress}
 .rez-v2 .rz-hl{animation:rzHl .6s ease 3!important}
 @media(min-width:700px){.rez-v2 .rez-cta{min-width:380px}}
+.rez-v2 .rez-step2-pay{justify-content:center}
+.rez-v2 .rez-step2-pay .btn{flex:1 1 12rem}
 
 /* Krok 2 (doklady, faktura, platba) */
 .rez-v2 .rez-moto-hero{border-radius:22px;box-shadow:0 18px 40px -18px rgba(10,31,20,.6)}
@@ -132,11 +137,11 @@
 /* Vlastní prvky: krokový ukazatel + souhrn (mobil: lišta nahoře a dole; ≥1100 px boční panel) */
 .rz-side,.rz-side-in{display:contents}
 .rz-steps[hidden],.rz-sum[hidden]{display:none!important}
-.rz-steps{position:sticky;top:.5rem;z-index:60;margin:0 0 1rem;padding:5px;border-radius:999px;background:#0e2a1c;box-shadow:0 12px 26px -12px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.25)}
+.rz-steps{position:sticky;top:.5rem;z-index:60;box-sizing:border-box;height:42px;margin:0 0 1rem;padding:5px;border-radius:999px;background:#0e2a1c;box-shadow:0 12px 26px -12px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.25)}
 .rz-steps ol{position:relative;display:flex;gap:4px;margin:0;padding:0;list-style:none}
 .rz-steps ol::before,.rz-steps ol::after{content:"";position:absolute;left:16px;right:16px;top:50%;height:2px;margin-top:-1px;background:rgba(255,255,255,.14)}
 .rz-steps ol::after{background:var(--rz-n);transform:scaleX(var(--rz-p,0));transform-origin:0 50%;transition:transform .45s ease}
-.rz-steps li{position:relative;z-index:1;display:flex;flex:0 0 auto;min-width:0;transition:flex-grow .35s ease}
+.rz-steps li{position:relative;z-index:1;display:flex;flex:0 1 auto;min-width:32px;transition:flex-grow .35s ease}
 .rz-steps li.is-cur{flex:1 1 auto}
 .rz-step{display:flex;align-items:center;gap:0;width:100%;min-width:32px;min-height:32px;padding:0;border:0;border-radius:999px;background:none;color:#b8d4c6;font:inherit;font-size:.78rem;font-weight:800;cursor:pointer;text-align:left}
 .rz-step-n{display:inline-grid;place-items:center;flex:0 0 auto;width:32px;height:32px;border-radius:50%;background:#173826;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);color:#cfe7da;font-size:.82rem;font-weight:900;transition:background .25s,color .25s,box-shadow .25s,transform .25s}
@@ -146,11 +151,11 @@
 .rz-step.is-cur .rz-step-n{background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f;box-shadow:0 0 0 3px rgba(116,251,113,.3)}
 .rz-step.is-cur .rz-step-t{max-width:100%;opacity:1}
 .rz-step:hover .rz-step-n{transform:scale(1.08)}
-.rz-sum{position:fixed;left:.6rem;right:.6rem;bottom:.6rem;z-index:80;display:flex;align-items:center;gap:.75rem;max-width:640px;margin:0 auto;padding:.6rem .6rem .6rem 1rem;border-radius:18px;background:var(--rz-dark);color:#fff;box-shadow:0 18px 40px -10px rgba(10,31,20,.7),inset 0 0 0 1px rgba(116,251,113,.3);transition:transform .35s ease,opacity .3s ease}
-.rz-sum.is-empty,.rz-side.rz-near .rz-sum,.rz-side.rz-kb .rz-sum,.rz-side.rz-cookie .rz-sum{transform:translateY(130%);opacity:0;pointer-events:none}
+.rz-sum{position:fixed;left:.6rem;right:.6rem;bottom:.6rem;z-index:80;display:flex;align-items:center;gap:.75rem;max-width:640px;margin:0 auto;padding:.6rem .6rem .6rem 1rem;border-radius:18px;background:var(--rz-dark);color:#fff;box-shadow:0 18px 40px -10px rgba(10,31,20,.7),inset 0 0 0 1px rgba(116,251,113,.3);transition:transform .35s ease,opacity .3s ease,visibility 0s}
+.rz-sum.is-empty,.rz-side.rz-near .rz-sum,.rz-side.rz-kb .rz-sum,.rz-side.rz-cookie .rz-sum{transform:translateY(130%);opacity:0;pointer-events:none;visibility:hidden;transition:transform .35s ease,opacity .3s ease,visibility 0s .35s}
 .rz-sum-rows{display:none}
 .rz-sum-tot{display:flex;flex-direction:column;flex:1;min-width:0}
-.rz-sum-tl{color:#9fc4b1;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.rz-sum-tl{color:#b9d6c7;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .rz-sum-tv{color:var(--rz-n);font-size:1.25rem;font-weight:900;line-height:1.2;font-variant-numeric:tabular-nums}
 .rz-sum-tv.rz-bump{animation:rzBump .45s ease}
 .rz-sum-tx{color:#a8ff9f;font-size:.72rem;font-weight:600;line-height:1.3}
@@ -158,26 +163,40 @@
 .rz-sum-go{flex:0 1 auto;max-width:56%;min-height:48px;padding:.55rem .9rem;border:0;border-radius:14px;background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f;font:inherit;font-size:.78rem;font-weight:800;line-height:1.2;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;transition:transform .15s}
 .rz-sum-go:active{transform:scale(.97)}
 .rz-sum-go[hidden]{display:none}
+@media(max-width:1099px){
+  .rez-v2 .pcontent:not(.rz-on)>#rezervace-app{margin-top:calc(42px + 2rem)}
+  html:has(>body.rez-v2){scroll-padding:58px 0 96px}
+}
 @media(min-width:1100px){
   .rez-v2 .pcontent.rz-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;column-gap:2rem;align-items:start}
   .rez-v2 .pcontent.rz-grid>*{grid-column:1}
   .rez-v2 .pcontent.rz-grid>.rz-side{display:block;grid-column:2;grid-row:1/span 4;align-self:stretch}
   .rez-v2 .rz-grid .rez-section{scroll-margin-top:16px}
   .rz-grid .rz-side-in::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,transparent,#74fb71,transparent);animation:rzScan 3.6s linear infinite;pointer-events:none}
-  .rz-grid .rz-side-in{position:sticky;top:1rem;display:flex;flex-direction:column;gap:1rem;overflow:hidden;padding:1.1rem;border-radius:22px;background:var(--rz-dark);color:#fff;box-shadow:0 22px 46px -22px rgba(10,31,20,.7),inset 0 0 0 1px rgba(116,251,113,.25)}
-  .rz-grid .rz-steps{position:static;margin:0;padding:0;border-radius:0;background:none;box-shadow:none}
+  .rz-grid .rz-side-in{position:sticky;top:1rem;display:flex;flex-direction:column;gap:1rem;max-height:calc(100vh - 2rem);overflow:hidden auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#2d6a48 transparent;padding:1.1rem;border-radius:22px;background:var(--rz-dark);color:#fff;box-shadow:0 22px 46px -22px rgba(10,31,20,.7),inset 0 0 0 1px rgba(116,251,113,.25)}
+  .rz-grid .rz-steps{position:static;height:auto;margin:0;padding:0;border-radius:0;background:none;box-shadow:none}
   .rz-grid .rz-steps ol{flex-direction:column;gap:6px}
   .rz-grid .rz-steps ol::before,.rz-grid .rz-steps ol::after{left:15px;right:auto;top:16px;bottom:16px;width:2px;height:auto;margin:0}
   .rz-grid .rz-steps ol::after{transform:scaleY(var(--rz-p,0));transform-origin:50% 0}
   .rz-grid .rz-step{gap:.6rem;padding-right:.7rem}
   .rz-grid .rz-step-t{max-width:100%;opacity:1;white-space:normal;line-height:1.25}
   .rz-grid .rz-step:hover{color:#fff}
-  .rz-grid .rz-sum,.rz-grid .rz-sum.is-empty,.rz-grid .rz-side.rz-near .rz-sum,.rz-grid .rz-side.rz-kb .rz-sum,.rz-grid .rz-side.rz-cookie .rz-sum{position:static;flex-direction:column;align-items:stretch;gap:.8rem;max-width:none;margin:0;padding:1rem 0 0;border-top:1px dashed rgba(116,251,113,.3);border-radius:0;background:none;box-shadow:none;transform:none;opacity:1;pointer-events:auto}
+  .rz-grid .rz-side .rz-sum{position:static;flex-direction:column;align-items:stretch;gap:.8rem;max-width:none;margin:0;padding:1rem 0 0;border-top:1px dashed rgba(116,251,113,.3);border-radius:0;background:none;box-shadow:none;transform:none;opacity:1;pointer-events:auto;visibility:visible}
   .rz-grid .rz-sum-rows{display:flex;flex-direction:column;gap:.55rem;margin:0}
-  .rz-grid .rz-sum-rows dt{color:#9fc4b1;font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+  .rz-grid .rz-sum-rows dt{color:#b9d6c7;font-size:.68rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
   .rz-grid .rz-sum-rows dd{margin:.1rem 0 0;color:#fff;font-size:.86rem;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
   .rz-grid .rz-sum-tv{font-size:1.6rem}
   .rz-grid .rz-sum-go{max-width:none;min-height:52px;font-size:.85rem;animation:rzGlow 2.4s ease-in-out infinite}
+}
+/* nízký desktop (notebook 1366×768 ≈ 650 px výšky okna): kroky v řádku jako na mobilu, ať souhrn + tlačítko zůstanou vidět */
+@media(min-width:1100px) and (max-height:820px){
+  .rz-grid .rz-steps ol{flex-direction:row;gap:4px}
+  .rz-grid .rz-steps ol::before,.rz-grid .rz-steps ol::after{left:16px;right:16px;top:50%;bottom:auto;width:auto;height:2px;margin-top:-1px}
+  .rz-grid .rz-steps ol::after{transform:scaleX(var(--rz-p,0));transform-origin:0 50%}
+  .rz-grid .rz-step{gap:0;padding-right:0}
+  .rz-grid .rz-step.is-cur{gap:.45rem;padding-right:.8rem}
+  .rz-grid .rz-step-t{max-width:0;opacity:0;white-space:nowrap}
+  .rz-grid .rz-step.is-cur .rz-step-t{max-width:100%;opacity:1}
 }
 
 @keyframes rzScan{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
@@ -188,12 +207,12 @@
 @keyframes rzRing{0%,100%{box-shadow:0 0 0 2px rgba(116,251,113,.35),0 6px 14px -6px rgba(14,42,28,.7)}50%{box-shadow:0 0 0 5px rgba(116,251,113,.18),0 6px 14px -6px rgba(14,42,28,.7)}}
 @keyframes rzHl{0%,100%{transform:none}50%{transform:scale(1.04)}}
 /* Nástup karet při přechodu mezi kroky / odhalení při scrollu (třídy přidává js/rezervace-v2.js) */
-.rez-v2 .rez-section.rz-enter{animation:rzIn .5s ease both}
+.rez-v2 .rez-section.rz-enter{animation:rzIn .5s ease backwards}
 .rez-v2 .rez-section.rz-d1{animation-delay:.07s}.rez-v2 .rez-section.rz-d2{animation-delay:.14s}.rez-v2 .rez-section.rz-d3{animation-delay:.21s}.rez-v2 .rez-section.rz-d4{animation-delay:.28s}.rez-v2 .rez-section.rz-d5{animation-delay:.35s}
 .rez-v2 .rez-section.rz-rv{opacity:0;transform:translateY(18px);transition:opacity .55s ease,transform .55s ease,box-shadow .3s,border-color .3s}
-.rez-v2 .rez-section.rz-rv.rz-rv-in{opacity:1;transform:none}
+.rez-v2 .rez-section.rz-rv.rz-rv-in,.rez-v2 .rez-section.rz-rv:focus-within{opacity:1;transform:none}
 @media print{.rez-v2 .rez-section.rz-rv{opacity:1;transform:none}.rz-side{display:none!important}}
 @media(prefers-reduced-motion:reduce){
-  .rez-v2 #rez-intro>div::before,.rez-v2 #rez-price-preview>div::after,.rz-side-in::before,.rez-v2 .rez-section,.rez-v2 .rez-cta,.rez-v2 .rez-step2-pay .btn,.rez-v2 .rez-finish-docs,.rez-v2 .rez-step-num,.rez-v2 #rezervace-app input,.rez-v2 #rez-calendar .cal-day,.rez-v2 .time-chip,.rez-v2 .size-chip,.rez-v2 .lic-chip,.rez-v2 .size-pick,.rez-v2 .rez-loc-ico,.rez-v2 #rez-date-banner>div,.rez-v2 #rez-price-preview>div,.rz-sum,.rz-sum-tv,.rz-sum-go,.rz-step-n,.rz-step-t,.rz-steps li,.rz-steps ol::after,.rez-v2 .rz-hl{animation:none!important;transition:none!important}
+  .rez-v2 #rez-intro>div::before,.rez-v2 #rez-price-preview>div::after,.rz-side-in::before,.rz-steps ol::after,.rez-v2 :is(.rez-section,.rez-cta,.rez-step2-pay .btn,.rez-finish-docs,.rez-step-num,#rezervace-app input,#rez-calendar .cal-day,.time-chip,.size-chip,.lic-chip,.size-pick,.rez-loc-ico,#rez-date-banner>div,#rez-price-preview>div,.rz-hl),.rz-side :is(.rz-sum,.rz-sum-tv,.rz-sum-go,.rz-step-n,.rz-step-t,li){animation:none!important;transition:none!important}
   .rez-v2 .rez-section.rz-rv{opacity:1;transform:none}
 }

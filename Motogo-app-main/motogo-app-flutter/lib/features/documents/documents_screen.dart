@@ -316,7 +316,7 @@ class DocumentsScreen extends ConsumerWidget {
       // kde má full retry + contact fallback flow.
       showMotoGoToast(context, icon: '⚠️',
           title: t(context).tr('scanFailed'),
-          message: 'Zkuste prosím naskenovat doklad kamerou.');
+          message: t(context).tr('scanUseCamera'));
     }
   }
 }

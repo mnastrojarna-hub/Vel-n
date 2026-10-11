@@ -7,6 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
 import { confirmBookingPayment, confirmSosPayment, confirmShopPayment, ingestFinancialEvent } from './payment-confirmers.ts'
 import { syncCardFromSetupSession, syncCardsForCustomer } from './stripe-card-sync.ts'
+import { resolveBookingLanguage } from './customer-lang.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -837,6 +838,8 @@ Deno.serve(async (req: Request) => {
           //    Interní refund na ŽIVÉ rezervaci mail NEposílá — potvrzení úpravy
           //    řeší trg_booking_modified_email / příslušné flow.
           if ((shouldCancel || alreadyCancelled) && linkedBooking.profiles?.email) {
+            // Jazyk zákazníka explicitně; undefined → send-cancellation-email dohledá sám.
+            const language = await resolveBookingLanguage(supabase, linkedBooking.id)
             await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-cancellation-email`, {
               method: 'POST',
               headers: {
@@ -857,6 +860,7 @@ Deno.serve(async (req: Request) => {
                 refund_amount: refundCzk,
                 refund_percent: refundPct,
                 source: linkedBooking.booking_source || 'app',
+                language,
               }),
             }).catch(e => console.warn('Webhook safety-net mail failed:', e?.message))
           }

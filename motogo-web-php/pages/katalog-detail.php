@@ -326,7 +326,7 @@ if ($manualHref !== '') {
 // Technická specifikace — na desktopu dvě tabulky vedle sebe, na mobilu zůstává jedna (původní layout)
 $descSpecsHtml .= '<section class="moto-specs"><h2>' . te('detail.specsTitle') . '</h2>';
 if ($specsRows && $kcV2) {
-    // v2: mřížka s ikonami (ikonu přiřadí CSS podle data-ico; popisek → klíč parametru)
+    // v2: mřížka s ikonami (SVG doplní js/moto-detail-v2.js podle data-ico; popisek → klíč parametru)
     $mdIco = [];
     foreach (['specYear' => 'year', 'specColor' => 'color', 'specEngineCc' => 'engine', 'specEngineKw' => 'power', 'specTorque' => 'torque',
         'specEngineTypeRow' => 'engine', 'specTransmission' => 'gear', 'specDrivetrain' => 'chain', 'specTopSpeed' => 'speed',

@@ -359,10 +359,15 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       _onSuccess(orderId);
     } else {
       if (!mounted) return;
-      final info = PaymentErrorMapper.fromEdge(
-        rawMessage: result.errorMessage,
-        lang: t(context).lang,
-      );
+      // Kód chyby → lokalizovaná hláška (technický text služby se neukazuje;
+      // text serveru jen české appce).
+      final lang = t(context).lang;
+      final serverText = result.errorMessage ?? '';
+      final info = lang == 'cs' &&
+              result.errorCode == PaymentErrorCode.serverError &&
+              serverText.isNotEmpty
+          ? PaymentErrorMapper.fromEdge(rawMessage: serverText, lang: lang)
+          : PaymentErrorMapper.serviceError(lang, result.errorCode);
       PaymentErrorSheet.show(context,
           title: info.title,
           message: info.message,

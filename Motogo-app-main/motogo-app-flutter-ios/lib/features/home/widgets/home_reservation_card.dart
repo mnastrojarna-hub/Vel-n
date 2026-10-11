@@ -93,7 +93,8 @@ class HomeReservationCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${reservation.shortId} · ${_statusLabel(context, status) == 'PŘIPRAVENO' ? 'Nadcházející' : reservation.dateRange}',
+                    // (Dřívější porovnání s 'PŘIPRAVENO' nikdy neplatilo — vždy termín.)
+                    '${reservation.shortId} · ${reservation.dateRange}',
                     style: const TextStyle(
                       fontSize: 11,
                       color: MotoGoColors.g400,

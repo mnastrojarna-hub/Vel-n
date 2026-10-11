@@ -11,6 +11,7 @@ import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/native/gps_service.dart';
 import '../../core/i18n/i18n_provider.dart';
+import 'sos_timeline_i18n.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'sos_provider.dart';
 
@@ -261,7 +262,7 @@ class SosReportScreen extends ConsumerWidget {
         isFault: isFault,
       );
     } catch (e) {
-      if (context.mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: '$e');
+      if (context.mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: sosErrorMessage(t(context), e));
       return;
     }
 

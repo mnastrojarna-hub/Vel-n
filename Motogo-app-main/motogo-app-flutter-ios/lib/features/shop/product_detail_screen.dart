@@ -93,15 +93,15 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: Text(product.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: MotoGoColors.black), maxLines: 2, overflow: TextOverflow.ellipsis)),
+                    Expanded(child: Text(product.nameFor(t(context).lang), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: MotoGoColors.black), maxLines: 2, overflow: TextOverflow.ellipsis)),
                     const SizedBox(width: 12),
                     Text('${Money.czk(product.price)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: MotoGoColors.greenDarker)),
                   ],
                 ),
 
-                if (product.description != null) ...[
+                if (product.descriptionFor(t(context).lang) != null) ...[
                   const SizedBox(height: 6),
-                  Text(product.description!, style: const TextStyle(fontSize: 12, height: 1.4, color: MotoGoColors.g600), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(product.descriptionFor(t(context).lang)!, style: const TextStyle(fontSize: 12, height: 1.4, color: MotoGoColors.g600), maxLines: 2, overflow: TextOverflow.ellipsis),
                 ],
 
                 // Color & material — compact row
@@ -109,13 +109,13 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                   const SizedBox(height: 8),
                   Row(children: [
                     if (product.color != null) ...[
-                      Text('Barva: ', style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
-                      Text(product.color!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
+                      Text('${t(context).tr('sdColor')}: ', style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
+                      Text(product.colorFor(t(context).lang)!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
                       if (product.material != null) const SizedBox(width: 16),
                     ],
                     if (product.material != null) ...[
                       Text('${t(context).tr('material')}: ', style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
-                      Text(product.material!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
+                      Text(product.materialFor(t(context).lang)!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
                     ],
                   ]),
                 ],

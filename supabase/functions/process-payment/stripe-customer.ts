@@ -37,11 +37,21 @@ export function resolveReturnOrigin(origin: string | null | undefined, locale: s
   return SITE_URL
 }
 
-/** Pick a Stripe Checkout `locale` value supported by Stripe; falls back to 'cs'. */
-export function resolveStripeLocale(locale: string | null | undefined): string {
-  const lang = (locale || '').toLowerCase()
+/** Jazyk webu/zákazníka (cs…uk) — pro uložené sloupce `language` (rezervace, objednávka); jinak 'cs'. */
+export function resolveSiteLang(locale: string | null | undefined): string {
+  const lang = (locale || '').toLowerCase().slice(0, 2)
   if (SUPPORTED_LANGS.includes(lang as typeof SUPPORTED_LANGS[number])) return lang
   return 'cs'
+}
+
+/** Stripe Checkout `locale`. Stripe ukrajinštinu nepodporuje (neplatná hodnota = chyba
+ *  vytvoření session = zákazník nezaplatí) → 'auto' (jazyk prohlížeče). Bez jazyka 'cs'. */
+export function resolveStripeLocale(locale: string | null | undefined): string {
+  const lang = (locale || '').toLowerCase().slice(0, 2)
+  if (!lang) return 'cs'
+  if (lang === 'uk') return 'auto'
+  if (SUPPORTED_LANGS.includes(lang as typeof SUPPORTED_LANGS[number])) return lang
+  return 'auto'
 }
 
 /** Append `&lang=xx` to a Stripe redirect URL if non-default. Default cs/en stay clean. */
@@ -67,7 +77,7 @@ export interface PaymentRequest {
   source?: string
   /** Browser origin (https://motogo24.cz / https://motogo24.com) — Stripe redirects back here. */
   origin?: string
-  /** Active website language (cs/en/de/es/fr/nl/pl) — propagates to thank-you page. */
+  /** Active website language (cs/en/de/es/fr/nl/pl/uk) — propagates to thank-you page. */
   locale?: string
   /** Optional explicit Stripe redirect URLs — used by web extension flow to return to /upravit-rezervaci. */
   success_url?: string

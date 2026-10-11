@@ -4,6 +4,11 @@ import { TOOLS } from './tools-definitions.ts'
 import { executeTool } from './tools-executor.ts'
 import { loadAgentConfig, buildSystemPrompt, buildDateHeader, formatBookingContext, formatMultipleBookingsContext, SEASON_NOTE, APP_PAY_NOTE } from './booking-context.ts'
 import { BRANCH_GATE_RULES_CS, GATE_BRANCH_NOTE_CS, markBookingsGate, markGateBranches } from '../_shared/agent-knowledge/branch-gate.ts'
+import { normLang, webLinksBlock } from '../_shared/agent-knowledge/site-url.ts'
+import { customerLanguage, replyLanguageRule } from '../_shared/agent-knowledge/customer-language.ts'
+import { agentMsg } from '../_shared/agent-knowledge/agent-messages.ts'
+import { LEGAL_SOURCE_RULES_CS, ownerFactsCs } from '../_shared/agent-knowledge/owner-facts.ts'
+import { branchModeCs } from '../_shared/agent-knowledge/branch-facts.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -26,7 +31,12 @@ serve(async (req) => {
     // Bez něj platí dosavadní heuristika „update poslední konverzace uživatele" — ta se
     // ale při dvou souběžných konverzacích slévá; appka by měla id začít posílat.
     const convId = (typeof conversation_id === 'string' && /^[0-9a-f-]{8,40}$/i.test(conversation_id)) ? conversation_id : null
-    const userLang = (typeof lang === 'string' && lang.trim()) ? lang.trim().slice(0, 5) : 'cs'
+    // Jazyk appky (8 jazyků) = záloha; jazyk zákazníka = podle jeho zpráv (audit i18n 2026-10-10, AI-06).
+    const userLang = normLang(lang)
+    const custLang = customerLanguage([
+      ...(Array.isArray(conversation_history) ? conversation_history as Array<{ role?: string; content?: unknown }> : []),
+      { role: 'user', content: typeof message === 'string' ? message : '' },
+    ], userLang)
 
     if (!message || typeof message !== 'string') {
       return new Response(JSON.stringify({ error: 'Missing message' }), {
@@ -64,7 +74,7 @@ serve(async (req) => {
     // na fallback a Anthropic se volal dál — nešlo ho provozně utnout).
     if (agentConfig?.enabled === false) {
       return new Response(JSON.stringify({
-        reply: 'AI asistent je momentálně vypnutý. Ozvěte se nám prosím na +420 774 256 271 nebo info@motogo24.cz — v nouzi použijte SOS tlačítko v aplikaci.',
+        reply: agentMsg(custLang, 'appDisabled'),
         suggest_sos: false,
       }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
     }
@@ -201,9 +211,9 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
         const brLines = brRows.map((b, i) => {
           const addr = [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', ')
           const typ = b.type === 'samoobslužná'
-            ? 'SAMOOBSLUŽNÁ (výdej i vrácení 24/7 přístupovým kódem)'
+            ? branchModeCs(b.type)
             : b.type === 'obslužná'
-              ? 'OBSLUŽNÁ (motorku předává a přebírá OBSLUHA osobně; čas dle domluvy. Přístupové kódy z e-mailu tu zákazník dostává TAKÉ a nejsou omyl — neotvírají dveře, slouží jako IDENTIFIKACE: nahlásí je obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), doporučuje se ale — urychlí odbavení)'
+              ? `${branchModeCs(b.type)} (Přístupové kódy z e-mailu tu zákazník dostává TAKÉ a nejsou omyl — neotvírají dveře, slouží jako IDENTIFIKACE: nahlásí je obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), doporučuje se ale — urychlí odbavení)`
               : 'typ neuveden — režim výdeje ověř přes get_branches, netvrď samoobsluhu'
           return `${i + 1}. **${b.name || addr || 'pobočka'}** — ${addr || 'adresa přes get_branches'} — ${typ}${b.has_gate === true ? `; ${GATE_BRANCH_NOTE_CS}` : ''}${b.notes ? `; pozn.: ${b.notes}` : ''}`
         })
@@ -234,7 +244,11 @@ Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. K
     // i FALLBACK prompt a má přednost před výsledky nástrojů (get_faq…) — text: APP_PAY_NOTE.
     // Pobočka s vjezdovou branou (2026-10-04): tři kódy, postup, „kód schránky nikdy
     // nesdělovat“, Mezná → Němčice nepřistavujeme — pro config i FALLBACK prompt.
+    // Závazná fakta provozovatele + „právní fakta jen z českého znění" + odkazy na web v jazyce
+    // zákazníka + pravidlo jazyka odpovědi (dřív „výchozí jazyk čeština", app jazyk se ignoroval).
     const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext + branchesContext + SEASON_NOTE + APP_PAY_NOTE + '\n\n## ' + BRANCH_GATE_RULES_CS
+      + '\n\n## ' + ownerFactsCs() + '\n\n## ' + LEGAL_SOURCE_RULES_CS
+      + '\n\n## ' + webLinksBlock(custLang) + '\n\n' + replyLanguageRule(custLang, userLang)
 
     // -- Agentic loop --
     let finalText = ''
@@ -285,7 +299,7 @@ Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. K
         // a historie se neztratí; zákazník nemusí nic opakovat, stačí napsat „pokračuj".
         console.error(`Anthropic API failed (iteration ${i}):`, response?.status || 'no-resp', String(lastErr).slice(0, 300))
         return new Response(JSON.stringify({
-          reply: 'Omlouvám se, odpověď mi teď trvala moc dlouho. Napište prosím jen „pokračuj" — celou konverzaci si pamatuji a navážu, nemusíte nic opakovat.',
+          reply: agentMsg(custLang, 'appTimeout'),
           suggest_sos: false,
         }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
       }
@@ -314,7 +328,7 @@ Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. K
 
         for (const toolCall of toolCalls) {
           console.log(`ai-moto-agent: tool call [${i}] ${toolCall.name}`, JSON.stringify(toolCall.input))
-          const result = await executeTool(toolCall.name, toolCall.input || {}, supabaseAdmin, user.id, userLang)
+          const result = await executeTool(toolCall.name, toolCall.input || {}, supabaseAdmin, user.id, custLang)
           toolResults.push({
             type: 'tool_result',
             tool_use_id: toolCall.id,
@@ -327,12 +341,12 @@ Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. K
       }
 
       const textBlocks = (aiResult.content || []).filter((c: { type: string }) => c.type === 'text')
-      finalText = textBlocks.map((c: { text: string }) => c.text).join('\n') || 'Odpověď nedostupná.'
+      finalText = textBlocks.map((c: { text: string }) => c.text).join('\n') || agentMsg(custLang, 'appNoReply')
       break
     }
 
     if (!finalText) {
-      finalText = 'Omlouvám se, nepodařilo se dokončit analýzu. Zkuste prosím znovu.'
+      finalText = agentMsg(custLang, 'appAnalysisFail')
     }
 
     // -- Parse ---JSON--- block from final response --

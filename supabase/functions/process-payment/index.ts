@@ -3,7 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
-import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentType, PaymentRequest, getOrCreateStripeCustomer } from './stripe-customer.ts'
+import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentType, PaymentRequest, getOrCreateStripeCustomer, resolveStripeLocale } from './stripe-customer.ts'
 import { authClassify } from '../_shared/auth.ts'
 import { handleWebBookingCheckout, handleWebShopCheckout, handleSosPaymentLink } from './payment-flows.ts'
 
@@ -1004,6 +1004,18 @@ Deno.serve(async (req: Request) => {
     }
 
     // -- MODE: CHECKOUT --
+    // Jazyk stránky Stripe: z requestu (locale), jinak jazyk rezervace/objednávky — dřív
+    // natvrdo 'cs' (web „upravit rezervaci“ locale neposílá).
+    const checkoutLocale = async (): Promise<string> => {
+      if (body.locale) return resolveStripeLocale(body.locale)
+      try {
+        const sb = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+        const { data } = paymentType === 'shop'
+          ? await sb.from('shop_orders').select('language').eq('id', order_id!).maybeSingle()
+          : await sb.from('bookings').select('language').eq('id', booking_id!).maybeSingle()
+        return resolveStripeLocale((data as { language?: string } | null)?.language || 'cs')
+      } catch { return 'cs' }
+    }
     let successPath: string
     let cancelPath: string
 
@@ -1050,7 +1062,7 @@ Deno.serve(async (req: Request) => {
       success_url: finalSuccessUrl,
       cancel_url: finalCancelUrl,
       metadata,
-      locale: 'cs',
+      locale: await checkoutLocale(),
     }
 
     if (customerId) {

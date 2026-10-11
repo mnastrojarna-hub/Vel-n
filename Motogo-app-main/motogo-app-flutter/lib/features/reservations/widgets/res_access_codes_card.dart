@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
 import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/i18n/server_reasons.dart';
 import '../../auth/widgets/toast_helper.dart';
 import '../booking_gate_provider.dart';
 import '../reservation_models.dart';
@@ -98,7 +99,9 @@ class ResAccessCodesCard extends ConsumerWidget {
               ...sorted.map((c) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     ResDetailRow(
                       label: c.codeType == 'motorcycle' ? t(context).tr('motoCode') : lockerLabel,
-                      value: c.sentToCustomer ? c.doorCode : (c.withheldReason ?? t(context).tr('awaitingDocs')),
+                      value: c.sentToCustomer
+                          ? c.doorCode
+                          : (localizeServerReason(t(context), c.withheldReason) ?? t(context).tr('awaitingDocs')),
                       bold: c.sentToCustomer,
                     ),
                     if (c.codeType == 'motorcycle' && c.sentToCustomer && res.isSelfService && !res.protocolSigned)

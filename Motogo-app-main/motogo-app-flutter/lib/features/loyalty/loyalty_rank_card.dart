@@ -82,7 +82,7 @@ class LoyaltyRankCard extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: _rankNameText(
-                        status.rankName.toUpperCase(),
+                        status.rankNameFor(t(context)).toUpperCase(),
                         status,
                         fontSize: 14,
                       ),
@@ -140,7 +140,7 @@ class LoyaltyRankCard extends ConsumerWidget {
             Text(
               tr('loyaltyNextRank')
                   .replaceAll('{n}', '${status.bookingsToNext}')
-                  .replaceAll('{next}', status.nextRankName!)
+                  .replaceAll('{next}', status.nextRankNameFor(t(context))!)
                   .replaceAll('{pct}', '${status.nextPercent ?? ''}'),
               style: const TextStyle(
                 fontSize: 11,

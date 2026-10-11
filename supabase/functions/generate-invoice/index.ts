@@ -927,7 +927,7 @@ serve(async (req) => {
     // (web/QR) na faktuře — účetní text zůstává česky (doklad k přijaté platbě).
     let invLang = 'cs'
     try {
-      const SUP = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl']
+      const SUP = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl', 'uk'] // uk: odkazy .com (audit EDGE-DOC-22)
       const explicit = String(reqLanguage || '').toLowerCase().slice(0, 2)
       if (SUP.includes(explicit)) {
         invLang = explicit

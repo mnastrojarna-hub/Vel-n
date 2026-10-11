@@ -103,6 +103,11 @@ return [
     'footer.contract' => 'Contrat de location',
     'footer.partners' => 'Pour les partenaires',
     'footer.partnersTitle' => 'Partenaires',
+    // Patička — alt texty log partnerů
+    'footer.partner.kudyznudyAlt' => 'Kudyznudy.cz – le meilleur départ pour ton excursion',
+    'footer.partner.atlasAlt' => 'Atlas Česka – guide de voyage en Tchéquie',
+    'footer.partner.bikeangelAlt' => 'bikeAngel – traceur GPS et alarme pour motos',
+    'footer.partner.vysocinaAlt' => 'Vysočina – marque officielle de la destination',
     'footer.toTop' => 'HAUT',
     'footer.iconPhone' => 'Téléphone',
     'footer.iconEmail' => 'E-mail',
@@ -168,6 +173,20 @@ return [
     'doc.notPublished' => "Ce document n'a pas encore été publié.",
     'doc.cardView' => 'Document · consulter',
 
+    // Jazyk smluvního dokumentu (dokumenty-detail.php): závazná je vždy česká verze
+    'doc.h1Suffix' => '| MotoGo24 location de motos',
+    'doc.metaDesc' => '{title} — MotoGo24, location de motos à Pelhřimov, Vysočina (Tchéquie). Sans caution, équipement inclus, 24h/24.',
+    'doc.czechBinding' => 'Seule la version tchèque fait foi ; la traduction est en cours de préparation.',
+    'doc.translationNote' => 'Cette traduction est fournie à titre informatif ; seule la version tchèque fait foi.',
+    'doc.czechVersionLink' => 'Version tchèque',
+    // Kontakt (pages/kontakt.php): mapa, fotky provozovny, typ pobočky v JSON-LD
+    'contact.mapAria' => 'Carte : où nous trouver',
+    'contact.photoAlt.1' => 'Showroom de MotoGo24, location de motos à Pelhřimov',
+    'contact.photoAlt.2' => 'Agence MotoGo24 — motos prêtes à louer',
+    'contact.photoAlt.3' => 'Motos adventure chez MotoGo24',
+    'contact.photoAlt.4' => 'Réserve d\'équipement — casques et vêtements inclus dans la location',
+    'contact.branchType.staffed' => 'agence avec personnel',
+    'contact.branchType.self' => 'agence en libre-service',
     // ===== Breadcrumby (statické labely) =====
     'breadcrumb.home' => 'Accueil',
     'breadcrumb.catalog' => 'Catalogue de motos',
@@ -233,6 +252,10 @@ return [
     // ===== SEO meta defaults (par langue) =====
     'seo.default.description' => 'Location de motos dans la région de Vysočina, République tchèque — motos de tourisme, sport, enduro et enfants. Location 24h/24, sans caution, équipement inclus, réservation en ligne.',
     'seo.default.keywords' => 'location moto République tchèque',
+    // Strukturovaná data (layout.php JSON-LD)
+    'seo.org.description' => 'Location de motos dans la région de Vysočina, République tchèque — motos routières, roadsters, supermotards, enduros et motos pour enfants. Sans caution, équipement inclus, ouvert 24h/24.',
+    'seo.org.slogan' => 'Loue une moto sans caution. 24h/24. En ligne.',
+    'seo.service.description' => 'Location de motos dans la région de Vysočina. Location de motos de courte et longue durée en République tchèque. Motos de tourisme, roadsters, supermotards, enduros, sportives et motos pour enfants. Sans caution, équipement motard inclus, réservation en ligne avec paiement par carte, prise en charge possible 24h/24. Livraison hors agence possible, déplacements dans l\'UE autorisés, carte verte incluse.',
     'seo.home.description' => 'Louez une moto dans la région de Vysočina. Sans caution, équipement inclus, service 24h/24. Motos de tourisme, sport, enduro et enfants. Réservation en ligne.',
     'seo.home.keywords' => 'location moto République tchèque',
 
@@ -837,6 +860,13 @@ return [
     // ===== Fil d'Ariane / FAQ / Galerie =====
     'breadcrumb.shop' => 'Boutique',
     'faq.empty' => 'Aucune question dans cette catégorie pour le moment.',
+    // FAQ záložky podle faq_items.category_key (DB category_label je jen česky)
+    'faq.cat.borrowing' => 'Location et restitution',
+    'faq.cat.conditions' => 'Équipement et conditions',
+    'faq.cat.delivery' => 'Livraison',
+    'faq.cat.reservations' => 'Réservations',
+    'faq.cat.travel' => 'Voyages à l\'étranger',
+    'faq.cat.vouchers' => 'Bons cadeaux',
     'gallery.openImage' => 'Ouvrir la photo dans la galerie',
     'gallery.prev' => 'Photo précédente',
     'gallery.next' => 'Photo suivante',

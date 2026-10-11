@@ -138,16 +138,23 @@
     if (n !== near) { near = n; tog(side, 'rz-near', n); }
     var ck = d.querySelector('.mg-consent'); tog(side, 'rz-cookie', !!(ck && !ck.hidden && vis(ck)));
   }
+  // formulář vykreslen (ne jen „načítám“) — do té doby CSS drží místo pro lištu kroků (.pcontent:not(.rz-on))
+  function ready() { return !!app.querySelector('.rez-section') || !app.querySelector('.loading-overlay'); }
+  var rdy = false;
   function sync() {
     var ss = sections();
     buildSteps(ss); secs = ss; animateNew(ss); updateSum();
+    rdy = ready(); tog(host, 'rz-on', rdy);
     tog(host, 'rz-grid', !steps.hidden || !sum.hidden);
     track();
   }
   var tm = 0, raf = 0;
   function later() { if (!tm) tm = setTimeout(function () { tm = 0; sync(); }, 90); }
+  // první vykreslení formuláře / přechod kroku: lišta + rozvržení ve STEJNÉM snímku jako obsah (mikroúloha
+  // MutationObserveru běží před vykreslením) → žádný posun obsahu (CLS); ostatní změny s odstupem 90 ms
+  function onMut() { if (ready() !== rdy) sync(); else later(); }
   function onScroll() { if (raf) return; raf = 1; var f = function () { raf = 0; track(); }; if (w.requestAnimationFrame) w.requestAnimationFrame(f); else setTimeout(f, 16); }
-  if ('MutationObserver' in w) new MutationObserver(later).observe(app, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+  if ('MutationObserver' in w) new MutationObserver(onMut).observe(app, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
   ['change', 'input', 'click'].forEach(function (e) { app.addEventListener(e, later); });
   w.addEventListener('scroll', onScroll, { passive: true });
   w.addEventListener('resize', onScroll, { passive: true });

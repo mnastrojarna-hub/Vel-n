@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/supabase_client.dart';
+import '../../core/i18n/i18n_provider.dart' show AppTranslations, lastKnownAppLang;
 import 'document_models.dart';
 
 /// Resize image for OCR — max 1600px, 80% JPEG.
@@ -603,9 +604,8 @@ Future<String?> saveOcrToProfile(
       if (backNum != null && backNum.isNotEmpty &&
           frontNum != null && frontNum.isNotEmpty) {
         if (_normalizeDocNum(backNum) != _normalizeDocNum(frontNum)) {
-          warning = 'Číslo ŘP na zadní straně ($backNum) neodpovídá '
-              'přední straně ($frontNum). Zkuste prosím obě strany '
-              'vyfotit znovu, aby se shodovaly.';
+          warning = AppTranslations.of(lastKnownAppLang).trArgs(
+              'scanDlNumberMismatch', {'back': backNum, 'front': frontNum});
           debugPrint('[DocScan] DL number mismatch: front=$frontNum back=$backNum');
         }
       }
@@ -715,8 +715,9 @@ Future<String?> saveOcrToProfile(
     return warning;
   } catch (e) {
     debugPrint('[DocScan] ⚠ Profile update failed: $e');
-    // Return warning message but don't crash — photo is already saved
-    return e.toString();
+    // Return warning message but don't crash — photo is already saved.
+    // Syrovou výjimku zákazník nevidí — lokalizovaná hláška.
+    return AppTranslations.of(lastKnownAppLang).tr('saveWarning');
   }
 }
 

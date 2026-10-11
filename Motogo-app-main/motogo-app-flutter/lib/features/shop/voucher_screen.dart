@@ -96,7 +96,7 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
                     borderRadius: BorderRadius.circular(50),
                     border: Border.all(color: active ? MotoGoColors.green : MotoGoColors.g200, width: 2),
                   ),
-                  child: Text('$amt Kč', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: active ? Colors.black : MotoGoColors.black)),
+                  child: Text('$amt ${tr.lang == 'cs' ? 'Kč' : 'CZK'}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: active ? Colors.black : MotoGoColors.black)),
                 ),
               );
             }).toList()..add(
@@ -119,7 +119,8 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
             TextField(
               controller: _customCtrl,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: tr.tr('amountMin'), suffixText: 'Kč'),
+              // Poukaz je v CZK; mimo češtinu mezinárodní zkratka (jako uk/amountMin).
+              decoration: InputDecoration(labelText: tr.tr('amountMin'), suffixText: tr.lang == 'cs' ? 'Kč' : 'CZK'),
               // Ořez AŽ při odchodu z pole — clamp na každý stisk klávesy
               // nechával v poli původní číslo, zatímco se kupovala jiná částka.
               onChanged: (v) {
