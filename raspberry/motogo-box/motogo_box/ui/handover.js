@@ -387,7 +387,8 @@ MG.Handover = (function () {
       gear_add: true,
       moto_equipment: motoEquipment(),
     };
-    const body = { booking_id: a.booking_id, form, signature };
+    // lang = jazyk obrazovky → protokol „jazyk zákazníka / česky“ (cs = jazyk rezervace; jednotka ověří, §28)
+    const body = { booking_id: a.booking_id, form, signature, lang: MG.i18n.lang };
     if (a.needs_code) body.code = S.code;
     setMsg(null);
     setSaving(true);

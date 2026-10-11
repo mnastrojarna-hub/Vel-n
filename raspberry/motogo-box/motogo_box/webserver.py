@@ -433,13 +433,17 @@ class WebServer:
         return body, bid, getattr(self.ctrl, "handover", None)
 
     async def _protocol_submit(self, request: web.Request) -> web.Response:
-        """`{booking_id, code?, form, signature}` → `{ok, status, opened|null, error}` (handover_submit)."""
+        """`{booking_id, code?, form, signature, lang?}` → `{ok, status, opened|null, error}` (handover_submit).
+        `lang` = jazyk obrazovky (§28) jde v kopii formuláře; ověří a do payloadu přesune `handover_submit.doc_lang`."""
         body, bid, handover = await self._protocol_body(request)
         if bid is None:
             return _err("missing_booking_id")
         if handover is None:
             return _json({"ok": False, "status": None, "opened": None, "error": "not_pending"})
-        res = await handover.submit(bid, body.get("form"), body.get("signature"), body.get("code"), source="ui")
+        form, lang = body.get("form"), body.get("lang")
+        if isinstance(lang, str) and lang:
+            form = {**(form if isinstance(form, dict) else {}), "lang": lang}
+        res = await handover.submit(bid, form, body.get("signature"), body.get("code"), source="ui")
         return _json(res if isinstance(res, dict) else {"ok": False, "error": "bad_result"})
 
     async def _protocol_dismiss(self, request: web.Request) -> web.Response:

@@ -1962,7 +1962,7 @@ async def submit(hm, booking_id, form, signature, code, source="ui") -> dict   #
     #   hm.lock.touch(bid) (podpis = aktivita zámku). 2026-09-29 (§30): `form.mileage` určuje JEDNOTKA —
     #   `ctrl.odometer.pickup_mileage(item.data, item.moto_id)` = max(data.mileage, neodeslané vrácení téže motorky, vrácení přijaté
     #   serverem < 5 min) (UI hodnota se přepíše).
-    # pořadí: (1) storage.protocol_queue_put(bid, {booking_id, form, signature, signed_at}, kv=('handover', state_dict()))
+    # pořadí: (1) storage.protocol_queue_put(bid, {booking_id, form, signature, signed_at, lang?}, kv=('handover', state_dict()))
     #   — JEDNA transakce (§7); výjimka → stored=False; Event PROTOCOL_SIGNED; (2) upload_one → saved | already_filled |
     #   queued (síť/5xx/404) | failed (4xx trvale); položka pryč z items; not stored ∧ result ∈ {queued, failed} → error
     #   'storage_failed' (podpis se NEVYDÁ); (3) signed[bid]=now → open_zone(then_open) → opened | error = důvod;
@@ -1972,6 +1972,16 @@ async def upload_one(hm, booking_id, payload) -> str   # api.submit_protocol: ok
                                                  #   permanent → protocol_queue_fail(failed) + PROTOCOL_UPLOAD_FAILED → 'failed'; jinak fail(pending) + wake → 'queued'
 async def flush(hm) -> int                       # protocol_loop: pending nejstarší první (batch 20), přeskočí inflight; první 'queued' = konec (síť)
 ```
+
+**Jazyk protokolu (1.2.12, 2026-10-11, audit EDGE-DOC-10):** UI posílá v `POST /api/protocol/submit` volitelné pole `lang` =
+jazyk obrazovky při podpisu (`MG.i18n.lang`, jeden z `cs en de es fr nl pl uk`); webserver ho vloží do KOPIE formuláře
+(`form.lang`, řetězec; jiný typ / prázdné se ignoruje) a `handover_submit.doc_lang` ho z formuláře vyjme a ověří: platný jazyk
+≠ `cs` → `payload.lang` (trvalá fronta i tělo edge — `submit_protocol` rozbaluje payload, takže edge dostane `body.lang`
+a `form` bez `lang`); `cs` (výchozí obrazovka, po nečinnosti se na ni displej vrací) i neplatná hodnota → pole se neposílá a edge
+vezme jazyk rezervace (`detect_customer_language`). Edge `submit-handover-protocol` (mode `kiosk`) pak vytvoří protokol
+„jazyk zákazníka / česky“ se závazným českým zněním (cs = jen česky, beze změny) a e-mail zákazníkovi pošle s `language` téhož
+jazyka. Položky fronty ze starších verzí (bez `lang`) se odesílají beze změny (= jazyk rezervace). Žádný nový příkaz, žádná
+změna sítě ani DB.
 
 `protocol_loop` (`controller_loops`, každých `PROTOCOL_FLUSH_S` = 30 s + hned po `handover.wake` — nový podpis, obnovené spojení
 v heartbeat smyčce, `retry_failed`): `handover.flush()`. `success`/`already_filled` → řádek smazat + `signed`, 4xx mimo 404/408/429 →

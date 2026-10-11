@@ -558,7 +558,8 @@ Další pravidla: nikdy nedržet zámek trvale pod napětím; nikdy neaktivovat 
 Zásady: kiosk vede zákazníka krok za krokem, špatné pořadí nepustí (§9 krok 2b, odstavec „Šatna“; od 2026-09-29 kód motorky
 rezervace s výbavou v šatně nejdřív vyzve „Nejdřív zadejte kód šatny“ — měkce: druhé zadání do 10 min projde, `handover_locker.py`); protokol po podpisu zmizí
 z kiosku i appky real-time, podepsané PDF v Dokumentech zůstává; aktivace rezervace (reserved → active) zůstává při otevření kóje
-motorky (`ACCESS_GRANTED` kind motorcycle), ne při podpisu; PDF česky, kiosk/appka vícejazyčně (8 jazyků); offline filosofie
+motorky (`ACCESS_GRANTED` kind motorcycle), ne při podpisu; PDF česky, kiosk/appka vícejazyčně (8 jazyků; od 1.2.12 PDF u jiného jazyka
+dvojjazyčně se závazným českým zněním — `lang` obrazovky / jazyk rezervace, CONTRACT §28); offline filosofie
 zůstává fail-open (jednotka otevírá i bez LTE, `protocol` bez dat = bez hradla), ale podpis se NIKDY neztratí (trvalá fronta,
 §10). Známé okno nasazení: starší software jednotky po nasazení DB/edge NEhradluje (motorka bez protokolu) až do hromadné
 aktualizace z Velína (§25 CONTRACT) — SQL/edge jsou pro něj aditivní.
