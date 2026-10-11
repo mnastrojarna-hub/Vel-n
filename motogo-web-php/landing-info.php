@@ -139,6 +139,13 @@ function lpInfoWrap($html, $page, $sb) {
     $L = lpiTexts($sb);
     $admin = lpAdmin();
     $motos = $sb->fetchMotos();
+    // Přistavení jezdí jen z obslužné pobočky (Mezná) — samoobslužná (Velké Němčice) přistavení nemá,
+    // takže pás motorek i „od X Kč“ jen z motorek obslužných poboček (branches.type, ne natvrdo id).
+    if ($page === 'pristaveni' && is_array($motos)) {
+        $motos = array_values(array_filter($motos, function ($m) {
+            return is_array($m) && (($m['branches']['type'] ?? '') === 'obslužná');
+        }));
+    }
     $on = array_flip(LPI_BLOCKS[$page] ?? ['fleet', 'reviews']);
     // Chip hero se neopakuje, když stejný krátký text už nese obsah stránky (karta výhody „bez skrytých
     // poplatků.“) nebo karta pobočky (Kontakt) — porovnání bez velikosti písmen a koncové interpunkce
