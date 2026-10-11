@@ -648,6 +648,9 @@ return [
 
     // ===== Katalog SEO =====
     'katalog.seo.description' => 'Catalogue de motos à louer dans la région de Vysočina. Filtre par catégorie, permis, puissance et prix. Motos de tourisme, roadsters, supermotards, choppers, scooters et motos pour enfants. Réservation en ligne.',
+    'detail.metaRent' => 'Loue la {model}',
+    'detail.metaNoDeposit' => 'sans caution chez MotoGo24 {place}',
+    'detail.metaDefault' => 'équipement inclus, réservation en ligne, retrait et retour 24h/24 selon ta réservation',
     'katalog.seo.keywords' => 'location moto République tchèque',
 
     // ===== Detail motorky =====

@@ -632,6 +632,9 @@ return [
     'filters.aria.catalog' => 'motorcatalogus',
 
     'katalog.seo.description' => 'Motorcatalogus voor verhuur in Vysočina. Filter op categorie, rijbewijs, vermogen en prijs. Toer-, naked-, supermoto- en kindermotoren, choppers en scooters. Online reservering.',
+    'detail.metaRent' => 'Huur de {model}',
+    'detail.metaNoDeposit' => 'zonder borg bij MotoGo24 {place}',
+    'detail.metaDefault' => 'uitrusting inbegrepen, online reserveren, ophalen en terugbrengen 24/7 volgens je reservering',
     'katalog.seo.keywords' => 'motorverhuur Tsjechië',
 
     'detail.notFoundTitle' => 'Motor niet gevonden – Motogo24',

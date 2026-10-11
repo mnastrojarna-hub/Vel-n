@@ -1383,6 +1383,9 @@ return [
 
     // ===== Katalog SEO =====
     'katalog.seo.description' => 'Katalog motorek k pronájmu na Vysočině. Filtr dle kategorie, ŘP, výkonu a ceny. Cestovní, naked, supermoto, choppery, skútry i dětské motorky. Online rezervace.',
+    'detail.metaRent' => 'Půjč si {model}',
+    'detail.metaNoDeposit' => 'bez kauce u MotoGo24 {place}',
+    'detail.metaDefault' => 'výbava v ceně, online rezervace, výdej i vrácení nonstop dle rezervace',
     'katalog.seo.keywords' => 'katalog motorek k pronájmu, půjčovna motorek Vysočina, půjčit motorku, pronájem motocyklu, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka bez kauce, online rezervace motorky, MotoGo24 Pelhřimov',
 
     // ===== Galerie / Lightbox =====

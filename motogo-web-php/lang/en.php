@@ -899,6 +899,9 @@ return [
 
     // ===== Catalogue SEO =====
     'katalog.seo.description' => 'Motorcycle rental catalogue in the Vysočina region. Filter by category, licence, power and price. Touring, naked, supermoto, chopper, scooter and kids\' motorcycles. Online booking.',
+    'detail.metaRent' => 'Rent the {model}',
+    'detail.metaNoDeposit' => 'no deposit at MotoGo24 {place}',
+    'detail.metaDefault' => 'gear included, online booking, pick-up and return 24/7 as booked',
     'katalog.seo.keywords' => 'motorcycle rental Czech Republic',
 
     // ===== Motorcycle detail =====

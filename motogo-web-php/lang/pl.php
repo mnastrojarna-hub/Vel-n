@@ -632,6 +632,9 @@ return [
     'filters.aria.catalog' => 'katalog motocykli',
 
     'katalog.seo.description' => 'Katalog motocykli do wynajęcia w Vysočina. Filtr według kategorii, prawa jazdy, mocy i ceny. Motocykle turystyczne, naked, supermoto, choppery, skutery i motocykle dla dzieci. Rezerwacja online.',
+    'detail.metaRent' => 'Wypożycz {model}',
+    'detail.metaNoDeposit' => 'bez kaucji w MotoGo24 {place}',
+    'detail.metaDefault' => 'wyposażenie w cenie, rezerwacja online, odbiór i zwrot 24/7 zgodnie z rezerwacją',
     'katalog.seo.keywords' => 'wypożyczalnia motocykli Czechy',
 
     'detail.notFoundTitle' => 'Motocykl nie znaleziony – Motogo24',

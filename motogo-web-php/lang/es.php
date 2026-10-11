@@ -649,6 +649,9 @@ return [
 
     // ===== Katalog SEO =====
     'katalog.seo.description' => 'Catálogo de motos de alquiler en Vysočina. Filtro por categoría, permiso, potencia y precio. Motos de turismo, naked, supermoto, chopper, scooters e infantiles. Reserva online.',
+    'detail.metaRent' => 'Alquila la {model}',
+    'detail.metaNoDeposit' => 'sin fianza en MotoGo24 {place}',
+    'detail.metaDefault' => 'equipo incluido, reserva online, recogida y devolución 24/7 según tu reserva',
     'katalog.seo.keywords' => 'alquiler de motos República Checa',
 
     // ===== Detail motorky =====

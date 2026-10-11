@@ -802,6 +802,9 @@ return [
 
     // Katalog SEO
     'katalog.seo.description' => 'Motorradkatalog zur Miete in Vysočina. Filter nach Kategorie, Führerschein, Leistung und Preis. Touren-, Naked-, Supermoto- und Kindermotorräder, Chopper und Roller. Online-Reservierung.',
+    'detail.metaRent' => 'Miete die {model}',
+    'detail.metaNoDeposit' => 'ohne Kaution bei MotoGo24 {place}',
+    'detail.metaDefault' => 'Ausrüstung inklusive, Online-Buchung, Abholung und Rückgabe rund um die Uhr laut Buchung',
     'katalog.seo.keywords' => 'Motorradvermietung Tschechien',
 
     // Detail motorky
