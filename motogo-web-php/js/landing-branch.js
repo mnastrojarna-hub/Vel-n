@@ -94,6 +94,7 @@
         var f = function (t) {
           if (t0 === null) t0 = t;
           var p = Math.min(1, (t - t0) / 900);
+          to = parseInt(el.getAttribute('data-pb-count'), 10) || to;   // živá hodnota (3) může přijít během animace
           el.textContent = String(Math.round(to * (1 - Math.pow(1 - p, 3))));
           if (p < 1) requestAnimationFrame(f);
         };
@@ -102,5 +103,31 @@
       });
     }, { threshold: 0.6 });
     each('[data-pb-count]', function (el) { co.observe(el); });
+  }
+
+  // 3) Živý počet motorek pobočky: HTML nese hodnotu z cache serveru (až ~40 min stará) → po načtení
+  //    jeden dotaz na REST se stejným pravidlem jako supabase.php fetchMotos + lpFleet (active/maintenance,
+  //    otevřená pobočka, bez kategorie „ostatni“, s fotkou). Chyba / prázdná odpověď = zůstane serverová.
+  var live = d.querySelectorAll('[data-live-motos]'), C = window.MOTOGO_CONFIG || {};
+  if (live.length && C.SUPABASE_URL && C.SUPABASE_ANON_KEY && window.fetch) {
+    fetch(C.SUPABASE_URL + '/rest/v1/motorcycles?select=branch_id,category,image_url,images,branches(is_open)&status=in.(active,maintenance)',
+      { headers: { apikey: C.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + C.SUPABASE_ANON_KEY } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (rows) {
+        if (!Array.isArray(rows) || !rows.length) return;
+        var n = {};
+        rows.forEach(function (m) {
+          if (!m || m.category === 'ostatni' || (m.branches && m.branches.is_open === false)) return;
+          if (!m.image_url && !(m.images && m.images[0])) return;
+          var b = String(m.branch_id || '').toLowerCase();
+          n[b] = (n[b] || 0) + 1;
+        });
+        Array.prototype.forEach.call(live, function (el) {
+          var v = n[String(el.getAttribute('data-live-motos')).toLowerCase()] || 0;
+          if (el.hasAttribute('data-pb-count')) el.setAttribute('data-pb-count', v);
+          el.textContent = String(v);
+        });
+      })
+      .catch(function () { /* offline → serverová hodnota */ });
   }
 })();

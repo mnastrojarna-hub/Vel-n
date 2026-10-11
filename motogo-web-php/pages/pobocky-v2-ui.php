@@ -58,13 +58,14 @@ function pbBadge($badge, $key, $self) {
         '<span' . ($key !== '' ? ' data-cms-key="' . he($key) . '"' : '') . '>' . he(lpPlain($badge)) . '</span></span>';
 }
 
-/** Statistiky (velká čísla) — [['v','l']]. Čistě číselná hodnota dostane počítadlo (JS). */
+/** Statistiky (velká čísla) — [['v','l','live'?]]. Čistě číselná hodnota dostane počítadlo (JS);
+ *  'live' = branch_id → počet motorek pobočky JS po načtení obnoví živě (js/landing-branch.js). */
 function pbStatsHtml($stats, $cls = '') {
     $h = '';
     foreach ((array)$stats as $i => $s) {
         $v = lpPlain($s['v'] ?? '');
         if ($v === '') continue;
-        $num = preg_match('/^(\d+)(.*)$/u', $v, $m) ? '<span data-pb-count="' . (int)$m[1] . '">' . he($m[1]) . '</span>' . he($m[2]) : he($v);
+        $num = preg_match('/^(\d+)(.*)$/u', $v, $m) ? '<span data-pb-count="' . (int)$m[1] . '"' . (lpS($s['live'] ?? '') !== '' ? ' data-live-motos="' . he(lpS($s['live'])) . '"' : '') . '>' . he($m[1]) . '</span>' . he($m[2]) : he($v);
         $h .= '<li class="pb-stat lp-reveal" style="--i:' . (int)$i . '"><span class="pb-stat-v">' . $num . '</span><span class="pb-stat-l">' . he(lpPlain($s['l'] ?? '')) . '</span></li>';
     }
     return $h !== '' ? '<ul class="pb-stats' . ($cls !== '' ? ' ' . $cls : '') . '">' . $h . '</ul>' : '';

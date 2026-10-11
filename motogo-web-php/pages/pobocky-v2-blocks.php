@@ -98,8 +98,9 @@ function pbGalleryHtml($gal, $title, $key, $T) {
         '<div class="container"><div class="lp-progress" aria-hidden="true"><i></i></div></div></section>';
 }
 
-/** Srovnání poboček (tabulka; na mobilu karty řádků). $heads = [[title, href, badge, self]], $counts = [n, n]. */
-function pbCompareHtml($V, $heads, $counts) {
+/** Srovnání poboček (tabulka; na mobilu karty řádků). $heads = [[title, href, badge, self]], $counts = [n, n],
+ *  $bids = [branch_id, branch_id] → počet motorek obnoví JS živě (data-live-motos). */
+function pbCompareHtml($V, $heads, $counts, $bids = []) {
     $th = '';
     foreach ($heads as $hd) $th .= '<th scope="col" role="columnheader"><a href="' . he($hd[1]) . '">' . he(lpPlain($hd[0])) . '</a>' . pbBadge($hd[2], '', $hd[3]) . '</th>';
     $rows = '';
@@ -109,9 +110,13 @@ function pbCompareHtml($V, $heads, $counts) {
         foreach ([0, 1] as $c) {
             $v = (array)($r['v'][$c] ?? []);
             $t = lpPlain($v['t'] ?? '');
-            if (!empty($r['count'])) $t = str_replace('{n}', (string)(int)($counts[$c] ?? 0), $t);
+            $th2 = he($t);
+            if (!empty($r['count'])) {
+                $live = lpS($bids[$c] ?? '') !== '' ? ' data-live-motos="' . he(lpS($bids[$c])) . '"' : '';
+                $th2 = str_replace('{n}', '<span' . $live . '>' . (int)($counts[$c] ?? 0) . '</span>', he($t));
+            }
             $ok = array_key_exists('ok', $v) ? ((int)$v['ok'] ? '<span class="pb-yes">' . pbIcon('check') . '</span>' : '<span class="pb-no">' . pbIcon('x') . '</span>') : '';
-            $tds .= '<td role="cell" data-label="' . he(lpPlain($heads[$c][0] ?? '')) . '"' . (!empty($r['count']) ? ' class="pb-cmp-big"' : '') . '>' . $ok . '<span>' . he($t) . '</span></td>';
+            $tds .= '<td role="cell" data-label="' . he(lpPlain($heads[$c][0] ?? '')) . '"' . (!empty($r['count']) ? ' class="pb-cmp-big"' : '') . '>' . $ok . '<span>' . $th2 . '</span></td>';
         }
         $rows .= '<tr class="lp-reveal" role="row"><th scope="row" role="rowheader">' . pbIcon(lpS($r['i'] ?? 'check')) . '<span>' . he(lpPlain($r['label'])) . '</span></th>' . $tds . '</tr>';
     }

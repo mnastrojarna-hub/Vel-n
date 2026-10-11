@@ -21,7 +21,7 @@ $pbMaps = pbMapsHref($mapQ);
 $pbMotos = pbBranchMotos($sb->fetchMotos(), $branchId);
 $pbCount = count(lpFleet($pbMotos));
 $pbStats = is_array($VB['stats'] ?? null) ? $VB['stats'] : [];
-if ($pbCount > 0) $pbStats[] = ['v' => (string)$pbCount, 'l' => $V['motos_label']];
+if ($pbCount > 0) $pbStats[] = ['v' => (string)$pbCount, 'l' => $V['motos_label'], 'live' => strtolower(trim((string)$branchId))];
 
 // Video: URL je jazykově nezávislá, ale CMS klíč bez překladu se v cizím jazyce přeskočí → vezmeme CS hodnotu.
 $pbVideoUrl = lpS($b['video'] ?? '');
