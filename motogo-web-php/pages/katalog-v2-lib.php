@@ -66,6 +66,15 @@ function kfDefaults() {
         'f_active' => 'Aktivní filtry',
         'f_none_dates' => 'V tomto termínu teď podle filtrů nic volného není. Zkus jiné dny nebo uvolni filtry.',
         'f_calc_open' => 'Otevřít kalkulačku',
+        // Karta s přepínačem režimu [Najít motorku | Spočítat cenu] (renderKatalogV2)
+        'f_mode_aria' => 'Co chceš udělat?',
+        'f_mode_find' => 'Najít motorku',
+        'f_mode_find_sub' => 'Filtr nabídky',
+        'f_mode_calc_sub' => 'Volné dny a cena',
+        'f_type' => 'Typ motorky',
+        'f_dates_ph' => 'Vyber dny',
+        'f_filters_hint' => 'ŘP, pobočka…',
+        'f_go' => 'Zobrazit',
     ];
 }
 
@@ -138,6 +147,7 @@ function kfPageMeta() {
     $m = kcPageMeta();
     $m['styles'][] = '/css/landing-catalog.css';
     $m['styles'][] = '/css/landing-catalog-cards.css';
+    $m['styles'][] = '/css/landing-catalog-mode.css';
     foreach (['/js/landing-catalog-sheet.js', '/js/landing-catalog-dates.js', '/js/landing-catalog.js'] as $s) $m['scripts'][] = $s;
     $m['body_class'] = trim(($m['body_class'] ?? '') . ' kf-page');
     return $m;

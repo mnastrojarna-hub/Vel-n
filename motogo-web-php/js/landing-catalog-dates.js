@@ -172,7 +172,7 @@
       update: function () {
         cards();
         var on = active(), l = o.btn.querySelector('.kf-btn-l');
-        if (l) l.textContent = on ? range() : FT.f_dates;
+        if (l) l.textContent = on ? range() : FT.f_dates_ph;
         o.btn.classList.toggle('is-set', on);
         o.btn.setAttribute('aria-label', on ? FT.f_dates + ': ' + range() : FT.f_dates);
         if (F.openEl() === sheet) render(); else if (show) show.textContent = tpl(FT.f_show, { count: o.plural(o.count()) });

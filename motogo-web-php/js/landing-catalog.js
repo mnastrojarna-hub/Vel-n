@@ -2,7 +2,7 @@
    Predikáty i řazení zrcadlí PHP filtr v pages/katalog.php (stejné výsledky jako GET formulář),
    URL drží stejné parametry (?kategorie=&ridicak=&pobocka=&kw_min=…&razeni=, + start/end termínu).
    Fulltext ?q= filtruje server (qm), jeho změna stránku znovu načte. Panely: landing-catalog-sheet.js,
-   termín: landing-catalog-dates.js, kalkulačka (landing-calc*.js) je pod mřížkou, na mobilu sbalená. */
+   termín: landing-catalog-dates.js, kalkulačka (landing-calc*.js) = režim „Spočítat cenu“ karty .km. */
 (function () {
   var d = document, w = window, F = w.MGKF = w.MGKF || {}, K = w.MGKC || {};
   var root = d.querySelector('[data-kf]'), el = d.getElementById('kf-data');
@@ -16,6 +16,7 @@
   var q = function (s) { return root.querySelector(s); }, qa = function (s) { return root.querySelectorAll(s); };
   var bar = q('[data-kf-bar]'), form = q('[data-kf-panel]'), grid = q('[data-kf-grid]'), countEl = q('[data-kf-count]');
   var activeEl = q('[data-kf-active]'), emptyEl = q('[data-kf-empty]'), showEl = q('[data-kf-show]'), nfEl = q('[data-kf-nf]');
+  var fbEl = q('[data-kf-open="panel"]'), flEl = fbEl.querySelector('.kf-btn-l');
   var cur = kc ? kc.cur : { code: 'CZK', rate: 1, dec: 0, sym: 'Kč' }, cards = {}, R = {}, lastVis = 0, DT = null;
   var KEYS = ['ridicak', 'pobocka', 'kw_min', 'kw_max', 'cena_min', 'cena_max', 'abs', 'jezdci', 'q', 'razeni', 'start', 'end'];
   S.cat = String(S.cat || '').toLowerCase(); S.lic = String(S.lic || '').toUpperCase();
@@ -123,6 +124,9 @@
     var act = actives(), x = K.ico ? K.ico('x') : '×', h = '';
     nfEl.hidden = !act.length;
     nfEl.textContent = act.length;
+    // Pole „Filtry“ ukazuje shrnutí aktivních filtrů (např. „ŘP A2 · Mezná“), jinak nápovědu
+    if (flEl) flEl.textContent = act.length ? act.map(function (a) { return a[1]; }).join(' · ') : T.f_filters_hint;
+    fbEl.classList.toggle('is-set', act.length > 0);
     if (DT && DT.active()) act.unshift(['dates', DT.chip()]);
     act.forEach(function (a) { h += '<button type="button" class="kf-ac" data-kf-rm="' + a[0] + '" aria-label="' + esc(tpl(T.f_remove, { label: a[1] })) + '"><span>' + esc(a[1]) + '</span>' + x + '</button>'; });
     if (act.length) h += '<button type="button" class="kf-ac kf-ac--clear" data-kf-rm="all">' + esc(T.f_clear) + '</button>';
@@ -228,12 +232,12 @@
     try { t.focus({ preventScroll: true }); } catch (e) {}
   }
 
-  // Kalkulačka pod mřížkou, sbalený úvod, stín lišty (landing-catalog-sheet.js)
+  // Přepínač režimu karty + kalkulačka, sbalený úvod, přilepená lišta (landing-catalog-sheet.js)
   var calc = F.initExtras({ root: root, bar: bar, kc: kc, T: T, cards: cards, dt: function () { return DT; } });
 
   DT = F.initDates ? F.initDates({ kc: kc, T: T, bar: bar, btn: q('[data-kf-open="dates"]'), motos: motos, cards: cards, plural: plural,
     passNoDate: function (m) { return pass(m, 'date'); }, apply: function () { apply(); }, count: function () { return lastVis; }, done: done }) : null;
-  q('[data-kf-open="panel"]').hidden = false;
+  fbEl.hidden = false;
   setInputs();
   apply(true);
   // Aktivní kategorie (např. Ostatní na konci řady) vidět i na úzkém displeji
