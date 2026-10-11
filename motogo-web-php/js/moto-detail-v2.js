@@ -50,6 +50,8 @@
     var tr = g.querySelector('.md-track');
     var sl = tr ? tr.querySelectorAll('.moto-video,.moto-photo,.moto-thumbs>div') : [];
     var n = sl.length, cur = -1, raf = 0, tb = [];
+    // Tab: jen odkaz zobrazeného snímku (ostatní šipkami ←/→, tlačítky nebo náhledy) — ne 25+ zastávek před „Rezervovat“
+    var lk = Array.prototype.map.call(sl, function (s) { return s.querySelector('a'); });
     if (n < 2) return;
     var lb = d.getElementById('mg-lightbox');
     var tpl = (lb && lb.getAttribute('data-counter-tpl')) || '{current} / {total}';
@@ -72,10 +74,12 @@
     });
     var th = d.createElement('div');
     th.className = 'md-thumbs';
+    th.tabIndex = -1; // posuvný pás bez fokusovatelných dětí by jinak Chrome zařadil do Tab pořadí
     Array.prototype.forEach.call(sl, function (s, i) {
       var im = s.querySelector('img'), v = s.querySelector('video'), u = im ? im.getAttribute('src') : (v && v.getAttribute('poster'));
       var bt = d.createElement('button');
       bt.type = 'button';
+      bt.tabIndex = -1;
       if (v) bt.className = 'is-video';
       bt.setAttribute('aria-label', num(i));
       if (u) { var t = d.createElement('img'); t.src = u; t.alt = ''; t.loading = 'lazy'; t.decoding = 'async'; bt.appendChild(t); }
@@ -93,6 +97,7 @@
       cur = i;
       cnt.textContent = num(i);
       tb.forEach(function (x, k) { x.setAttribute('aria-current', k === i ? 'true' : 'false'); });
+      lk.forEach(function (a, k) { if (a) a.tabIndex = k === i ? 0 : -1; });
       if (th.scrollWidth > th.clientWidth) th.scrollTo({ left: tb[i].offsetLeft - (th.clientWidth - tb[i].offsetWidth) / 2, behavior: rm ? 'auto' : 'smooth' });
       if (vid && i !== vi && !vid.paused) { vid.pause(); ours = true; }
       else if (vid && i === vi && ours) { ours = false; var p = vid.play(); if (p && p.catch) p.catch(function () {}); }
@@ -101,7 +106,10 @@
     tr.addEventListener('keydown', function (e) {
       if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
       e.preventDefault();
-      go(cur + (e.key === 'ArrowRight' ? 1 : -1));
+      // fokus jde se snímkem (jinak by zůstal na skrytém snímku a Enter by otevřel jinou fotku)
+      var t = ((cur + (e.key === 'ArrowRight' ? 1 : -1)) % n + n) % n, f = sl[t].querySelector('a,video');
+      go(t);
+      if (f && tr.contains(d.activeElement)) f.focus({ preventScroll: true });
     });
     var rt = 0;
     W.addEventListener('resize', function () {

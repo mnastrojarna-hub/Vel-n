@@ -1,7 +1,7 @@
 /// All translations — merged from base files.
 /// Key structure mirrors _t() lookups from the original app.
 /// Covers: auth, booking, reservations, SOS, shop, profile, common UI.
-/// Languages: cs, en, de, es, fr, nl, pl
+/// Languages: cs, en, de, es, fr, nl, pl, uk
 ///
 /// Split into partial files by language group:
 ///   translations_cs_pl.dart   — cs, pl
@@ -48,6 +48,12 @@ import 'translations_ext_30_gate_b.dart';
 import 'translations_ext_30_gate_c.dart';
 import 'translations_ext_31_docs_gate.dart';
 import 'translations_ext_31_gear_limits.dart';
+import 'translations_ext_32_app_ui_a.dart';
+import 'translations_ext_32_app_ui_b.dart';
+import 'translations_ext_33_docscan_a.dart';
+import 'translations_ext_33_docscan_b.dart';
+import 'translations_ext_34_sos_timeline.dart';
+import 'translations_ext_35_loyalty_ranks.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -96,6 +102,12 @@ final translations = _mergeAll([
   translationsExt30GateC,
   translationsExt31DocsGate,
   translationsExt31GearLimits,
+  translationsExt32AppUiA,
+  translationsExt32AppUiB,
+  translationsExt33DocScanA,
+  translationsExt33DocScanB,
+  translationsExt34SosTimeline,
+  translationsExt35LoyaltyRanks,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

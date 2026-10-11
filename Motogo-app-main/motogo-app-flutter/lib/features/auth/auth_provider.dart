@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
 import '../../core/debug_logger.dart';
+import '../../core/i18n/app_lang.dart';
 import '../../core/i18n/translations.dart';
 import 'auth_error_mapper.dart';
 
@@ -82,7 +83,10 @@ class AuthService {
   /// Translation helper (no BuildContext available). [lang] je kód jazyka
   /// appky (viz [_lang]); když v něm klíč chybí, spadne na češtinu.
   static String _tr(String key, [String lang = 'cs']) {
-    return translations[lang]?[key] ?? translations['cs']?[key] ?? key;
+    return translations[lang]?[key] ??
+        (lang != 'cs' ? translations['en']?[key] : null) ??
+        translations['cs']?[key] ??
+        key;
   }
 
   /// Jazyk pro chybové hlášky. Přepínač jazyka v appce ukládá `mg_language`,
@@ -263,8 +267,9 @@ class AuthService {
 
       // Jazyk appky ([_lang]) → uloží se do profiles.language při registraci,
       // aby maily (potvrzení, úprava, dokončení) chodily přeložené i bez
-      // rezervace. detect_customer_language čte profiles.language jako první
-      // v pořadí (před bookings/shop_orders). Fallback 'cs'.
+      // rezervace. detect_customer_language bere jazyk rezervace / objednávky
+      // (bookings.language, shop_orders.language) a profil až po nich —
+      // proto appka posílá jazyk i do každé rezervace. Fallback 'cs'.
       // POZOR: dřív se četl JEN klíč `mg_locale`, který plní pouze uvítací
       // overlay při prvním spuštění — kdo si jazyk přepnul až v Nastavení
       // (klíč `mg_language`), dostal do profilu 'cs'. [_lang] čte obojí.
@@ -278,7 +283,7 @@ class AuthService {
       // skupina ŘP, jazyk) — přesně jako `create_web_booking` na webu.
       final pData = <String, dynamic>{
         if (profile != null) ...profile, // vč. license_group jako pole stringů
-        'language': lang,
+        'language': normalizeAppLang(lang),
       };
 
       bool savedProfile = false;
@@ -290,7 +295,11 @@ class AuthService {
             savedProfile = true;
             break;
           }
-        } catch (_) {
+          // Živá DB před migrací 20261011 nezná 'uk' (CHECK) — RPC vrací
+          // chybu místo výjimky; jazyk nesmí shodit uložení adresy a dokladů.
+          if (res2 is Map && isLanguageCheckViolation(res2)) pData['language'] = 'en';
+        } catch (e) {
+          if (isLanguageCheckViolation(e)) pData['language'] = 'en';
           if (attempt == 3) break;
         }
         await Future.delayed(const Duration(milliseconds: 600));
@@ -302,7 +311,15 @@ class AuthService {
         final fallback = Map<String, dynamic>.from(pData)..remove('license_group');
         try {
           await _client.from('profiles').update(fallback).eq('id', res.user!.id);
-        } catch (_) {/* neblokuj registraci */}
+        } catch (e) {
+          if (isLanguageCheckViolation(e)) {
+            try {
+              await _client
+                  .from('profiles')
+                  .update({...fallback, 'language': 'en'}).eq('id', res.user!.id);
+            } catch (_) {/* neblokuj registraci */}
+          }
+        }
         final lic = (profile?['license_group'] as List?)
                 ?.map((e) => '$e'.trim().toUpperCase())
                 .where((e) => e.isNotEmpty)
@@ -404,10 +421,10 @@ class AuthService {
   // Stejný flow jako web /rezervace a /upravit-rezervaci.
   static Future<String?> resetPassword(String email) async {
     try {
-      // i18n: jazyk z uloženého locale appky → OTP mail dorazí přeložený
-      // (edge fn jinak fallbackuje na profiles.language, pak 'cs').
-      final prefs = await SharedPreferences.getInstance();
-      final lang = (prefs.getString('mg_locale') ?? 'cs').split(RegExp(r'[-_]')).first;
+      // i18n: aktuální jazyk appky (mg_language ?? mg_locale) → OTP mail
+      // dorazí přeložený (edge fn jinak fallbackuje na profiles.language, pak
+      // 'cs'). Dřív se četl jen `mg_locale` = jazyk z prvního spuštění.
+      final lang = normalizeAppLang(await _lang());
       final res = await _client.functions.invoke(
         'send-recovery-otp',
         body: {'email': email.trim().toLowerCase(), 'language': lang},
@@ -416,13 +433,15 @@ class AuthService {
       // Klient pokračuje na OTP screen — pokud zákazník zadá kód, který
       // nedorazil, verifyOtp selže a zobrazí správnou hlášku.
       if (res.status >= 500) {
-        return 'Server je nedostupný, zkuste to prosím za chvíli.';
+        return _tr('serverUnavailable', lang);
       }
       return null;
     } on FunctionException catch (e) {
-      return e.details?.toString() ?? 'Reset hesla se nepodařil.';
+      AppDebugLogger.instance.auth('reset_password_failed', detail: '${e.status}: ${e.details}');
+      return _tr(e.status >= 500 ? 'serverUnavailable' : 'resetFailed', await _lang());
     } catch (e) {
-      return e.toString();
+      AppDebugLogger.instance.auth('reset_password_failed', detail: e.toString());
+      return _tr('resetFailed', await _lang());
     }
   }
 

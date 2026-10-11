@@ -99,6 +99,11 @@ return [
     'footer.contract' => 'Umowa najmu',
     'footer.partners' => 'Dla partnerów',
     'footer.partnersTitle' => 'Partnerzy',
+    // Patička — alt texty log partnerů
+    'footer.partner.kudyznudyAlt' => 'Kudyznudy.cz – najlepszy początek wycieczki',
+    'footer.partner.atlasAlt' => 'Atlas Česka – przewodnik po Czechach',
+    'footer.partner.bikeangelAlt' => 'bikeAngel – lokalizator GPS i alarm do motocykli',
+    'footer.partner.vysocinaAlt' => 'Vysočina – oficjalna marka turystyczna regionu',
     'footer.toTop' => 'DO GÓRY',
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-mail',
@@ -161,6 +166,20 @@ return [
     'doc.notPublished' => 'Ten dokument nie został jeszcze opublikowany.',
     'doc.cardView' => 'Dokument · wyświetl',
 
+    // Jazyk smluvního dokumentu (dokumenty-detail.php): závazná je vždy česká verze
+    'doc.h1Suffix' => '| MotoGo24 wypożyczalnia motocykli',
+    'doc.metaDesc' => '{title} — MotoGo24, wypożyczalnia motocykli w Pelhřimovie, Vysočina (Czechy). Bez kaucji, wyposażenie w cenie, 24/7.',
+    'doc.czechBinding' => 'Wiążąca jest wersja czeska; tłumaczenie jest w przygotowaniu.',
+    'doc.translationNote' => 'To tłumaczenie ma charakter informacyjny; wiążąca jest wersja czeska.',
+    'doc.czechVersionLink' => 'Wersja czeska',
+    // Kontakt (pages/kontakt.php): mapa, fotky provozovny, typ pobočky v JSON-LD
+    'contact.mapAria' => 'Mapa: gdzie nas znaleźć',
+    'contact.photoAlt.1' => 'Salon wypożyczalni motocykli MotoGo24 w Pelhřimovie',
+    'contact.photoAlt.2' => 'Oddział MotoGo24 — motocykle gotowe do wypożyczenia',
+    'contact.photoAlt.3' => 'Motocykle adventure w wypożyczalni MotoGo24',
+    'contact.photoAlt.4' => 'Magazyn wyposażenia — kaski i odzież w cenie wynajmu',
+    'contact.branchType.staffed' => 'oddział z obsługą',
+    'contact.branchType.self' => 'oddział samoobsługowy',
     'breadcrumb.home' => 'Strona główna',
     'breadcrumb.catalog' => 'Katalog motocykli',
     'breadcrumb.howto' => 'Jak wypożyczyć',
@@ -221,6 +240,10 @@ return [
     // ===== SEO meta defaults (na język) =====
     'seo.default.description' => 'Wypożyczalnia motocykli w regionie Vysočina, Czechy — motocykle turystyczne, sportowe, enduro i dla dzieci. Wynajem 24/7, bez kaucji, wyposażenie w cenie, rezerwacja online.',
     'seo.default.keywords' => 'wypożyczalnia motocykli Czechy',
+    // Strukturovaná data (layout.php JSON-LD)
+    'seo.org.description' => 'Wypożyczalnia motocykli w regionie Vysočina, Czechy — motocykle szosowe, naked, supermoto, enduro i dla dzieci. Bez kaucji, wyposażenie w cenie, czynne 24/7.',
+    'seo.org.slogan' => 'Wypożycz motocykl bez kaucji. 24/7. Online.',
+    'seo.service.description' => 'Wypożyczalnia motocykli w regionie Vysočina. Krótko- i długoterminowy wynajem motocykli w Czechach. Motocykle turystyczne, naked, supermoto, enduro, sportowe i dla dzieci. Bez kaucji, wyposażenie motocyklowe w cenie, rezerwacja online z płatnością kartą, odbiór możliwy 24/7. Możliwa dostawa poza oddział, wyjazdy do UE dozwolone, zielona karta w cenie.',
     'seo.home.description' => 'Wypożycz motocykl w regionie Vysočina. Bez kaucji, wyposażenie w cenie, obsługa całodobowa. Motocykle turystyczne, sportowe, enduro i dla dzieci. Rezerwacja online.',
     'seo.home.keywords' => 'wypożyczalnia motocykli Czechy',
 
@@ -816,6 +839,13 @@ return [
     // ===== Breadcrumb / FAQ / Galeria =====
     'breadcrumb.shop' => 'Sklep',
     'faq.empty' => 'W tej kategorii nie ma jeszcze żadnych pytań.',
+    // FAQ záložky podle faq_items.category_key (DB category_label je jen česky)
+    'faq.cat.borrowing' => 'Wynajem i zwrot',
+    'faq.cat.conditions' => 'Wyposażenie i warunki',
+    'faq.cat.delivery' => 'Dostawa',
+    'faq.cat.reservations' => 'Rezerwacje',
+    'faq.cat.travel' => 'Wyjazdy za granicę',
+    'faq.cat.vouchers' => 'Bony',
     'gallery.openImage' => 'Otwórz zdjęcie w galerii',
     'gallery.prev' => 'Poprzednie zdjęcie',
     'gallery.next' => 'Następne zdjęcie',

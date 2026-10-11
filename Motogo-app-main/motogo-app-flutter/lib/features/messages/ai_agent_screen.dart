@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/i18n/app_lang.dart';
 import '../../core/supabase_client.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../sos/sos_provider.dart' show hasActiveRentalProvider;
@@ -77,7 +78,7 @@ class _AiAgentState extends State<AiAgentScreen> {
     // Samotná fotka bez textu: backend vyžaduje neprázdnou zprávu.
     if (text.isEmpty) text = t(context).tr('aiPhotoOnlyMsg');
 
-    final lang = Localizations.localeOf(context).languageCode;
+    final lang = normalizeAppLang(Localizations.localeOf(context).languageCode);
 
     setState(() {
       _messages.add(_ChatMsg(text: text, isBot: false, images: images));

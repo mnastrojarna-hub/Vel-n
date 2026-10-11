@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../currency.dart';
 import '../theme.dart';
 import '../i18n/i18n_provider.dart';
 import '../native/permission_service.dart';
@@ -7,7 +9,9 @@ import '../native/permission_service.dart';
 /// Language selection overlay — shown on first app launch.
 /// Mirrors lang-overlay from index.html + lang-select.js.
 /// Checks mg_locale in SharedPreferences (same as mg_lang in localStorage).
-class LanguageOverlay extends StatelessWidget {
+/// Zvolený jazyk se hned POUŽIJE (localeProvider → UI, rezervace, e-maily,
+/// smlouvy) — dřív se jen uložil do `mg_locale`, který appka nečetla.
+class LanguageOverlay extends ConsumerWidget {
   final VoidCallback onDone;
   const LanguageOverlay({super.key, required this.onDone});
 
@@ -28,7 +32,7 @@ class LanguageOverlay extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Material(
       color: MotoGoColors.black.withValues(alpha: 0.97),
       child: SafeArea(
@@ -57,14 +61,14 @@ class LanguageOverlay extends StatelessWidget {
                         Expanded(child: _LangBtn(
                           flag: _langs[i1].$2,
                           name: _langs[i1].$3,
-                          onTap: () => _selectLang(_langs[i1].$1, context),
+                          onTap: () => _selectLang(_langs[i1].$1, ref),
                         )),
                         const SizedBox(width: 10),
                         if (i2 < _langs.length)
                           Expanded(child: _LangBtn(
                             flag: _langs[i2].$2,
                             name: _langs[i2].$3,
-                            onTap: () => _selectLang(_langs[i2].$1, context),
+                            onTap: () => _selectLang(_langs[i2].$1, ref),
                           ))
                         else
                           const Expanded(child: SizedBox()),
@@ -80,9 +84,12 @@ class LanguageOverlay extends StatelessWidget {
     );
   }
 
-  Future<void> _selectLang(String code, BuildContext context) async {
+  Future<void> _selectLang(String code, WidgetRef ref) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('mg_locale', code);
+    await ref.read(localeProvider.notifier).setLocale(Locale(code));
+    // Měna podle jazyka (CZK/EUR/PLN) — jen když si ji zákazník ručně nezvolil.
+    await ref.read(currencyProvider.notifier).followLanguage(code);
     onDone();
   }
 }
@@ -168,7 +175,7 @@ class _PermissionOverlayState extends State<PermissionOverlay> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Material(
       color: MotoGoColors.black.withValues(alpha: 0.97),
       child: SafeArea(

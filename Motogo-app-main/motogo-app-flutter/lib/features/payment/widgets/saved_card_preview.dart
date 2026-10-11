@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/i18n/i18n_provider.dart';
 import '../payment_provider.dart';
 
 /// Displays a preview of the user's saved (default) Stripe card.
@@ -39,8 +40,8 @@ class SavedCardPreview extends StatelessWidget {
             ],
           ),
         ),
-        const Text('Ulo\u017een\u00e1 karta',
-            style: TextStyle(
+        Text(t(context).tr('savedCard'),
+            style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: MotoGoColors.greenDarker)),

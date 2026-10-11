@@ -21,6 +21,8 @@
 /* --- FAQ --- */
 .lpi-faq-list{display:grid;grid-template-columns:minmax(0,1fr);gap:.6rem;margin:0}
 .lpi .lpi-faq-item .lpi-q{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+/* dlouhá složená slova (DE) v otázce bez obalu .lpi-q (anonymní flex položka) a v odpovědi */
+.lpi .lpi-faq-item summary,.lpi .lpi-faq-item>p,.lpi .lpi-faq-item>div{overflow-wrap:anywhere}
 .lpi .tab-content,.lpi .tab-pane{margin:0;padding:0}
 .lpi .faq-item.lpi-faq-item{margin:0;border-radius:16px;border:1px solid #d4e8e0;background:#fff;box-shadow:0 10px 22px -20px rgba(26,46,34,.6);transition:border-color .2s,box-shadow .2s}
 .lpi .faq-item.lpi-faq-item[open]{border-color:#74fb71;box-shadow:0 14px 30px -20px rgba(13,110,13,.55)}

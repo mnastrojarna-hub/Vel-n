@@ -9,10 +9,15 @@
  *
  * Konfigurovatelný z Velínu přes app_settings.ai_public_agent_config:
  *   { persona_name, system_prompt, situations, mustDo, forbidden, tone, max_tokens, enabled,
- *     welcome_cs, welcome_en, welcome_de }
+ *     welcome_cs, welcome_en, welcome_de, … welcome_<lang> pro všech 8 jazyků (čte jen widget) }
  *
  * POST body:
- *   { messages: [{role, content}], lang?: 'cs'|'en'|'de'|... }
+ *   { messages: [{role, content}], lang?: 'cs'|'en'|'de'|'es'|'fr'|'nl'|'pl'|'uk' (UI jazyk webu = jen hint) }
+ *
+ * Jazyk zákazníka (2026-10-11, audit i18n): server ho odhadne z jeho zpráv (customer-language.ts,
+ * hint = lang). Podle něj: odkazy (site-url.ts — .cz česky, .com + ?lang= ostatní), FAQ, jazyk
+ * rezervace (set_booking_language, model ho předá v customer_language), záložní hlášky (8 jazyků).
+ * Smluvní dokumenty VŽDY z českého (závazného) znění; překlad jen čerstvý (sha1 otisk).
  *
  * Response:
  *   { reply, tool_uses?: [...], booking_url?: string }
@@ -23,10 +28,15 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { readManual } from '../_shared/manual-reader.ts'
 import { getBundledManualText } from '../_shared/manual-texts/index.ts'
 import { type CompanyInfo, type FleetMoto, type BranchRow, motoDisplayName, formatFleetSnapshot, formatBranchesSnapshot } from '../_shared/agent-knowledge/snapshots.ts'
-import { loadKnowledgeBase, stripHtmlToText } from '../_shared/agent-knowledge/knowledge-base.ts'
+import { loadKnowledgeBase } from '../_shared/agent-knowledge/knowledge-base.ts'
 import { buildCompanyBrain, MOTO_KNOWLEDGE_TIPS } from '../_shared/agent-knowledge/company-brain.ts'
 import { HARD_RULES_CS } from '../_shared/agent-knowledge/hard-rules.ts'
-import { GATE_BRANCHES_NOTICE_CS, markGateBranches } from '../_shared/agent-knowledge/branch-gate.ts'
+import { markGateBranches } from '../_shared/agent-knowledge/branch-gate.ts'
+import { canonicalPath, normLang, siteUrl, webLinksBlock } from '../_shared/agent-knowledge/site-url.ts'
+import { customerLanguage, LANG_NAME_CS } from '../_shared/agent-knowledge/customer-language.ts'
+import { agentMsg } from '../_shared/agent-knowledge/agent-messages.ts'
+import { getLegalDocument } from '../_shared/agent-knowledge/legal-docs.ts'
+import { getBranchesTool } from '../_shared/agent-knowledge/branch-facts.ts'
 import { classifyAnthropicError } from '../_shared/anthropic-errors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -273,12 +283,12 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'get_legal_document',
-    description: 'Vrátí PŘESNÉ aktuální znění oficiálních smluvních a právních dokumentů půjčovny ze šablon a webu: Všeobecné obchodní podmínky (VOP), nájemní/zápůjční smlouvu, předávací protokol, GDPR / zpracování osobních údajů a další dokumenty zveřejněné na webu. POUŽIJ VŽDY, když se zákazník ptá na konkrétní smluvní/právní detail, který není v get_policies/get_faq — např. jak se vyčísluje škoda a spoluúčast, odpovědnost za poškození, reklamace, zpracování osobních údajů, storno ujednání ve smlouvě, sankce. Bez parametru `document` vrátí seznam dostupných dokumentů (klíče + názvy); s `document` vrátí plné znění; s `query` vrátí relevantní úryvky. Cituj a parafrázuj VÝHRADNĚ to, co tool vrátí — nikdy si smluvní detail nedomýšlej. Když tool dokument/odpověď nenajde, přiznej to a odkaž na kontakt.',
+    description: 'Vrátí ZÁVAZNÉ ČESKÉ znění (pole `text`) oficiálních smluvních a právních dokumentů půjčovny ze šablon a webu + odkaz `url` v jazyce zákazníka (ověřený aktuální překlad jen v poli `translation`, je-li). Částky, odpovědnost, lhůty a čísla článků ber jen z českého `text`, zákazníkovi odpověz v jeho jazyce a řekni, že závazná je česká verze. Dokumenty: Všeobecné obchodní podmínky (VOP), nájemní/zápůjční smlouvu, předávací protokol, GDPR / zpracování osobních údajů a další dokumenty zveřejněné na webu. POUŽIJ VŽDY, když se zákazník ptá na konkrétní smluvní/právní detail, který není v get_policies/get_faq — např. jak se vyčísluje škoda a spoluúčast, odpovědnost za poškození, reklamace, zpracování osobních údajů, storno ujednání ve smlouvě, sankce. Bez parametru `document` vrátí seznam dostupných dokumentů (klíče + názvy); s `document` vrátí plné znění; s `query` vrátí relevantní úryvky. Cituj a parafrázuj VÝHRADNĚ to, co tool vrátí — nikdy si smluvní detail nedomýšlej. Když tool dokument/odpověď nenajde, přiznej to a odkaž na kontakt.',
     input_schema: {
       type: 'object',
       properties: {
         document: { type: 'string', description: 'Klíč dokumentu — `vop`, `rental_contract`, `handover_protocol`, `gdpr`, nebo slug webového dokumentu. Vynech pro seznam dostupných dokumentů.' },
-        query: { type: 'string', description: 'Volitelně klíčová slova (např. "vyčíslení škody spoluúčast") — tool vrátí jen relevantní úseky textu místo celého dokumentu.' },
+        query: { type: 'string', description: 'Volitelně ČESKÁ klíčová slova (dokument je česky, např. "vyčíslení škody spoluúčast") — tool vrátí jen relevantní úseky textu místo celého dokumentu.' },
       },
     },
   },
@@ -301,7 +311,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'get_branches',
-    description: 'Vrátí seznam poboček MotoGo24 s adresou, GPS a otevíracími hodinami.',
+    description: 'Vrátí seznam poboček MotoGo24 s adresou, GPS, typem/režimem výdeje (`mode`) a provozní dobou (`opening_hours_text`; obě pobočky fungují NONSTOP).',
     input_schema: { type: 'object', properties: {} },
   },
   {
@@ -333,6 +343,7 @@ const PUBLIC_TOOLS = [
         payment_method: { type: 'string', enum: ['card', 'qr'], description: 'Zvolená platební metoda: "card" = online kartou (Stripe, okamžité potvrzení; default když neuvedeno), "qr" = QR kód / bankovní převod (číslo účtu + VS, splatnost 4 h, potvrzení ruční). Zeptej se zákazníka PŘED voláním, kterou preferuje.' },
         password: { type: 'string', description: 'POVINNÉ — Heslo (min. 8 znaků) pro správu rezervace a přihlášení do appky MotoGo24.' },
         date_of_birth: { type: 'string', description: 'POVINNÉ — Datum narození zákazníka ve formátu YYYY-MM-DD. Web ho vyžaduje; nájemce (držitel smlouvy) musí být 18+.' },
+        customer_language: { type: 'string', enum: ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl', 'uk'], description: 'POVINNÉ — jazyk, kterým zákazník v chatu PÍŠE (ne jazyk webu). Podle něj půjde smlouva, VOP, e-maily, SMS i platební stránka. Ruština/jiný jazyk → ten z 8, kterému zákazník rozumí (u cyrilice uk, jinak en).' },
         consent_vop: { type: 'boolean', description: 'POVINNÉ — nastav true JEN když zákazník v chatu VÝSLOVNĚ potvrdil souhlas s Všeobecnými obchodními podmínkami (VOP) a nájemní smlouvou. Jinak tool nevol a souhlas si nejdřív vyžádej.' },
         consent_gdpr: { type: 'boolean', description: 'POVINNÉ — nastav true JEN když zákazník VÝSLOVNĚ potvrdil souhlas se zpracováním osobních údajů (GDPR). Jinak tool nevol.' },
         marketing_consent: { type: 'boolean', description: 'VOLITELNÉ — souhlas s marketingem (newsletter/akce). true jen když zákazník souhlasil, jinak false. Nevynucuj.' },
@@ -365,7 +376,7 @@ const PUBLIC_TOOLS = [
       },
       required: ['moto_id', 'start_date', 'end_date', 'name', 'email', 'phone',
                  'street', 'city', 'zip', 'date_of_birth', 'password',
-                 'consent_vop', 'consent_gdpr'],
+                 'consent_vop', 'consent_gdpr', 'customer_language'],
     },
   },
   {
@@ -479,6 +490,7 @@ const PUBLIC_TOOLS = [
         moto_id: { type: 'string' },
         start_date: { type: 'string' },
         end_date: { type: 'string' },
+        customer_language: { type: 'string', enum: ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl', 'uk'], description: 'Jazyk, kterým zákazník píše — formulář se otevře v něm.' },
       },
       required: ['moto_id'],
     },
@@ -507,7 +519,7 @@ async function resolveBookingRef(raw: unknown): Promise<{ id?: string; error?: s
 // (2026-10-01: přistavení/odvoz se nacení jen s trasou z mapy, čas vyzvednutí
 // chat nemění — obojí web /upravit-rezervaci nebo appka → Upravit rezervaci).
 const EDIT_ERROR_HINTS: Record<string, string> = {
-  location_requires_route: 'Přistavení / odvoz (přidání nebo jiná adresa) se nacení jen podle trasy vybrané na mapě — v chatu to nejde. Pošli zákazníka do aplikace MotoGo24 (Rezervace → Upravit rezervaci) nebo na motogo24.cz/upravit-rezervaci; tam místo zvolí a případný rozdíl doplatí.',
+  location_requires_route: 'Přistavení / odvoz (přidání nebo jiná adresa) se nacení jen podle trasy vybrané na mapě — v chatu to nejde. Pošli zákazníka do aplikace MotoGo24 (Rezervace → Upravit rezervaci) nebo na web Upravit rezervaci (odkaz v jeho jazyce ze sekce ODKAZY NA WEB); tam místo zvolí a případný rozdíl doplatí.',
   active_pickup_locked: 'Motorka už byla vyzvednuta — místo vyzvednutí už nelze změnit. Změnit jde jen konec a místo vrácení (web nebo appka → Upravit rezervaci).',
   active_pickup_time_locked: 'Motorka už byla vyzvednuta — čas vyzvednutí už nelze změnit.',
 }
@@ -518,6 +530,7 @@ function withEditHint(data: unknown): unknown {
     : data
 }
 
+// `lang` = jazyk ZÁKAZNÍKA (customerLanguage) — odkazy, FAQ, jazyk rezervace.
 async function execPublicTool(name: string, args: Record<string, unknown>, lang: string = 'cs'): Promise<unknown> {
   switch (name) {
     case 'search_motorcycles': {
@@ -712,7 +725,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
             features: m.features,
             suitable_for: typeof m.suitable_for === 'string' ? String(m.suitable_for).slice(0, 500) : null,
             image_url: m.image_url,
-            url: `https://www.motogo24.cz/katalog/${m.id}`,
+            url: siteUrl(lang, `/katalog/${m.id}`),
           }
           if (licGroup === 'B' && m.license_required === 'A1') {
             base.license_note = 'Stroj skupiny A1 s automatickou převodovkou — v ČR ho smí řídit i držitel ŘP B (dle zákonných podmínek délky držení ŘP). Zákazníkovi to výslovně řekni a podmínky ať si ověří dle svého ŘP.'
@@ -944,126 +957,9 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       }
     }
     case 'get_legal_document': {
-      // Skutečné znění smluvních/právních dokumentů ze šablon (document_templates: vop, rental_contract,
-      // handover_protocol, gdpr) + webových dokumentů (custom_documents). sb běží pod service_role → čteme
-      // bez ohledu na RLS. Agent z toho VÝHRADNĚ cituje/parafrázuje, nic si nedomýšlí. Pro cizí jazyk
-      // bere přeloženou verzi (content_translations / translations[lang]), jinak český originál.
-      try {
-        const want = typeof args.document === 'string' ? String(args.document).trim().toLowerCase() : ''
-        const query = typeof args.query === 'string' ? String(args.query).trim() : ''
-        const L = (lang || 'cs').slice(0, 2)
-        const MAX = 12000
-
-        const stripHtml = (html: string): string => String(html || '')
-          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-          .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-          .replace(/<\/(p|div|li|tr|h[1-6])>/gi, '\n')
-          .replace(/<br\s*\/?>/gi, '\n')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#3[49];/g, "'")
-          .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
-
-        const { data: tpls } = await sb.from('document_templates')
-          .select('type, name, content_html, content_translations, name_translations')
-          .eq('active', true).order('version', { ascending: false })
-        const { data: customs } = await sb.from('custom_documents')
-          .select('slug, title, content_html, kind, pdf_path, translations')
-          .eq('active', true).eq('show_on_web', true).order('sort_order', { ascending: true })
-
-        type Doc = { key: string; title: string; text: string; kind: string; url?: string }
-        const docs: Doc[] = []
-        const seen = new Set<string>()
-        for (const t of (tpls || []) as Record<string, unknown>[]) {
-          const key = String(t.type || '')
-          if (!key || seen.has(key)) continue // jen nejvyšší aktivní verze (order desc)
-          seen.add(key)
-          const ct = (t.content_translations as Record<string, string> | null)?.[L]
-          const nt = (t.name_translations as Record<string, string> | null)?.[L]
-          const html = (L !== 'cs' && ct) ? ct : String(t.content_html || '')
-          docs.push({ key, title: String((L !== 'cs' && nt) || t.name || key), text: stripHtml(html), kind: 'html' })
-        }
-        for (const c of (customs || []) as Record<string, unknown>[]) {
-          const key = String(c.slug || '')
-          if (!key || seen.has(key)) continue
-          seen.add(key)
-          const tr = (c.translations as Record<string, { title?: string; content_html?: string }> | null)?.[L] || {}
-          const html = (L !== 'cs' && tr.content_html) ? tr.content_html : String(c.content_html || '')
-          docs.push({
-            key,
-            title: String((L !== 'cs' && tr.title) || c.title || key),
-            text: stripHtml(html),
-            kind: String(c.kind || 'html'),
-            url: (c.pdf_path as string) || `https://www.motogo24.cz/dokumenty/${key}`,
-          })
-        }
-
-        if (docs.length === 0) {
-          return {
-            source: 'empty', documents: [],
-            notice: 'V systému nejsou publikované žádné smluvní dokumenty. NEPŘEBÍREJ smluvní detaily z hlavy — řekni, že přesné znění zákazník dostane ve smlouvě/VOP před vyzvednutím, nebo odkaž na kontakt firmy (telefon/e-mail viz sekce KONTAKTY v promptu).',
-          }
-        }
-
-        if (!want) {
-          return {
-            source: 'documents',
-            available: docs.map((d) => ({ key: d.key, title: d.title, kind: d.kind, has_text: d.text.length > 0, url: d.url })),
-            hint: 'Zavolej znovu s parametrem `document` = jeden z těchto `key` (a volitelně `query`), ať dostaneš znění. Cituj jen to, co tool vrátí.',
-          }
-        }
-
-        const match = docs.find((d) => d.key.toLowerCase() === want)
-          || docs.find((d) => d.key.toLowerCase().includes(want) || d.title.toLowerCase().includes(want))
-        if (!match) {
-          return { source: 'documents', error: `Dokument "${want}" nenalezen.`, available: docs.map((d) => ({ key: d.key, title: d.title })) }
-        }
-        if (!match.text) {
-          return {
-            source: 'documents', key: match.key, title: match.title, kind: match.kind, url: match.url,
-            notice: 'Tento dokument je na webu jen jako PDF — strojový text k citaci nemám. Odkaž zákazníka na uvedenou URL nebo na kontakt.',
-          }
-        }
-
-        if (query) {
-          const text = match.text
-          const lc = text.toLowerCase()
-          const terms = query.toLowerCase().split(/\s+/).filter((w) => w.length >= 3)
-          const hits: number[] = []
-          for (const term of terms) {
-            let from = 0
-            for (;;) {
-              const i = lc.indexOf(term, from)
-              if (i < 0 || hits.length > 40) break
-              hits.push(i); from = i + term.length
-            }
-          }
-          if (hits.length > 0) {
-            hits.sort((a, b) => a - b)
-            const win: Array<[number, number]> = []
-            for (const i of hits) {
-              const s = Math.max(0, i - 400), e = Math.min(text.length, i + 400)
-              const last = win[win.length - 1]
-              if (last && s <= last[1]) last[1] = Math.max(last[1], e)
-              else win.push([s, e])
-            }
-            let excerpt = win.map(([s, e]) => (s > 0 ? '…' : '') + text.slice(s, e).trim() + (e < text.length ? '…' : '')).join('\n\n———\n\n')
-            if (excerpt.length > MAX) excerpt = excerpt.slice(0, MAX) + '…'
-            return {
-              source: 'documents', key: match.key, title: match.title, mode: 'excerpts', query, text: excerpt,
-              instruction: 'Odpověz výhradně z tohoto znění. Pokud konkrétní odpověď v úryvcích NENÍ, přiznej to a odkaž zákazníka na plný text dokumentu / kontakt — nedomýšlej.',
-            }
-          }
-          // query nic nenašlo → vrať plný (zkrácený) text, ať rozhodne model
-        }
-        const full = match.text.length > MAX ? match.text.slice(0, MAX) + '\n…[zkráceno — plné znění na webu]' : match.text
-        return {
-          source: 'documents', key: match.key, title: match.title, kind: match.kind, url: match.url, mode: 'full', text: full,
-          instruction: 'Cituj a parafrázuj VÝHRADNĚ z tohoto znění. Co tu výslovně není, si nedomýšlej — přiznej, že to dokument neuvádí, a odkaž na kontakt.',
-        }
-      } catch (e) {
-        return { error: `Nepodařilo se načíst dokumenty: ${(e as Error).message}` }
-      }
+      // Sdílená implementace (_shared/agent-knowledge/legal-docs.ts, 2026-10-11): ČESKÝ master =
+      // zdroj pravdy; překlad jen čerstvý (sha1 otisk translation_src); url v jazyce zákazníka.
+      return await getLegalDocument(sb, args, lang)
     }
     case 'get_motorcycle_manual': {
       // Přečte návod konkrétní motorky. PDF (manual_url, public bucket `media`) má přednost před
@@ -1085,7 +981,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       if (!sourceUrl) {
         return {
           found: false, model: mName,
-          notice: `K motorce ${mName} není v systému nahraný návod ani externí odkaz. NEVYMÝŠLEJ si technické údaje — řekni, že návod k téhle motorce k dispozici nemáš, a odkaž na detail motorky (https://www.motogo24.cz/katalog/${motoId}) nebo na kontakt firmy.`,
+          notice: `K motorce ${mName} není v systému nahraný návod ani externí odkaz. NEVYMÝŠLEJ si technické údaje — řekni, že návod k téhle motorce k dispozici nemáš, a odkaž na detail motorky (${siteUrl(lang, `/katalog/${motoId}`)}) nebo na kontakt firmy.`,
         }
       }
 
@@ -1093,7 +989,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       // retry, PDF magic bytes, PDF odkazy z rozcestníku, oba zdroje) — viz komentář tam.
       return await readManual({
         modelName: mName, pdfUrl, extUrl, query, instruction: MANUAL_INSTRUCTION,
-        contactHint: `detail motorky (https://www.motogo24.cz/katalog/${motoId}) nebo kontakt firmy`,
+        contactHint: `detail motorky (${siteUrl(lang, `/katalog/${motoId}`)}) nebo kontakt firmy`,
         cachedText: await getBundledManualText(motoId) || undefined,
       })
     }
@@ -1122,49 +1018,9 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       }
     }
     case 'get_branches': {
-      // select('*') SCHVÁLNĚ — dřívější výčet obsahoval sloupce, které v DB `branches`
-      // neexistují (zip, lat, lng, email, opening_hours) → PostgREST 42703, chyba se
-      // tiše zahodila a tool vrátil prázdný seznam („pobočky nemáme"). Incident 2026-08-05.
-      const { data, error } = await sb.from('branches').select('*').order('name')
-      // is_open === false = trvale zavřená pobočka: nenabízet (zákazník tam nic
-      // nezarezervuje). Když tím seznam vyjde prázdný, projde se fallback níž —
-      // agent NIKDY netvrdí „pobočky nemáme" (incident 2026-08-05).
-      const rows = ((data || []) as Array<Record<string, unknown>>)
-        .filter((b) => b.active !== false && b.is_open !== false)
-      // has_gate = vjezdová brána se schránkou na klíč (RPC branch_has_gate — jen příznak, NIKDY kód)
-      await markGateBranches(sb, rows)
-      if (error || rows.length === 0) {
-        const { data: ci } = await sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
-        const c = (ci?.value || {}) as Record<string, unknown>
-        return {
-          branches: [],
-          ...(error ? { error: `Načtení poboček selhalo: ${error.message}` } : {}),
-          fallback_contact: {
-            name: c.name || 'MotoGo24',
-            address: c.address || 'Mezná 9, 393 01 Pelhřimov',
-            phone: c.phone || '+420 774 256 271',
-            email: c.email || 'info@motogo24.cz',
-          },
-          notice: 'Seznam poboček se teď nepodařilo načíst — TECHNICKÁ chyba, NE stav reality. NIKDY zákazníkovi netvrď, že žádné pobočky nemáme nebo že je seznam v databázi prázdný. Vyzvednutí motorky probíhá na naší pobočce — pošli zákazníka na adresu ve `fallback_contact` (hlavní výdejní místo) a nabídni telefon/e-mail pro potvrzení detailů.',
-        }
-      }
-      return {
-        branches: rows.map((b) => {
-          const lat = b.lat ?? b.gps_lat ?? null
-          const lng = b.lng ?? b.gps_lng ?? null
-          return {
-            id: b.id, name: b.name,
-            address: [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', '),
-            lat, lng,
-            maps_url: (lat != null && lng != null) ? `https://mapy.cz/zakladni?q=${lat},${lng}` : null,
-            phone: b.phone ?? null, email: b.email ?? null,
-            opening_hours: b.opening_hours || null,
-            is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
-            has_gate: b.has_gate === true,
-          }
-        }),
-        notice: 'REŽIM výdeje/vrácení urči VÝHRADNĚ z pole `type` konkrétní pobočky: "samoobslužná" = výdej i vrácení 24/7 přístupovým kódem; "obslužná" = motorku předává a přebírá OBSLUHA osobně (řiď se `opening_hours` / domluvou). Přístupové kódy chodí e-mailem u OBOU typů — u obslužné pobočky neotvírají dveře, slouží jako IDENTIFIKACE: zákazník je řekne obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), doporučuje se ale (urychlí odbavení, zvlášť při více odjezdech najednou). NIKDY netvrď paušálně, že výdej je samoobslužný a nonstop, ani že u obslužné pobočky kódy nechodí. Rezervaci lze VYTVOŘIT 24/7 u obou typů — u OBSLUŽNÉ pobočky proběhne výdej vždy až 1–6 hodin PO vytvoření a zaplacení rezervace (příprava stroje), tam neslibuj okamžité vyzvednutí. U SAMOOBSLUŽNÉ pobočky se volí jen čas VYZVEDNUTÍ (hodina předem potřeba není, rezervovat lze i na dnešek) — čas vrácení ne (vrací se kdykoli poslední den do 24:00). Vyzvednutí od 12:00 při výpůjčce 2+ dny = sleva 50 % na 1. den, ale kiosk takovou rezervaci (motorku i šatnu) vydá až od 12:00 v den začátku; kdo ji potřebuje dřív, změní v Upravit rezervaci (web/appka) čas vyzvednutí na dřívější — sleva zanikne, rozdíl doplatí a kód platí hned. U přistavení platí čas min. aktuální + 6 h.' + (rows.some((b) => b.has_gate === true) ? GATE_BRANCHES_NOTICE_CS : ''),
-      }
+      // Sdílená implementace (_shared/agent-knowledge/branch-facts.ts, 2026-10-11): čitelná provozní
+      // doba (dřív syrový jsonb + is_open_nonstop), režim pobočky, NONSTOP fakta majitele.
+      return await getBranchesTool(sb)
     }
     case 'validate_promo_or_voucher': {
       const code = String(args.code || '').trim()
@@ -1221,6 +1077,9 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       }
       const ax = args as Record<string, unknown>
       const extrasArr = Array.isArray(ax.extras) ? (ax.extras as Array<Record<string, unknown>>) : []
+      // Jazyk rezervace = jazyk, kterým zákazník PÍŠE (model ho předá v customer_language; jinak
+      // serverový odhad z jeho zpráv). Řídí smlouvu, VOP, e-maily, SMS i platební stránku.
+      const bookLang = normLang(ax.customer_language, normLang(lang))
       // Parita s webovým formulářem: VOP + GDPR jsou na webu povinné checkboxy. Tady je nahrazuje
       // výslovný souhlas zákazníka v chatu — bez obou rezervaci nevytvoříme (jinak by se do profilu
       // uložil defaultní „true" bez reálného souhlasu, viz mig. 20260523_create_web_booking_consents).
@@ -1291,16 +1150,19 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       try {
         if (bookingId) {
           await sb.from('bookings').update({ created_via_ai: true }).eq('id', bookingId)
-          // i18n: ulož jazyk konverzace do bookings.language → maily/SMS/push
-          // pro tohoto zákazníka půjdou v jazyce v jakém s agentem mluvil.
+          // i18n: ulož jazyk zákazníka do bookings.language → smlouva, VOP, maily/SMS/push
+          // půjdou v jazyce, kterým s agentem mluvil (vč. 'uk'). RPC set_booking_language
+          // obnovuje migrace 20261011_i18n_customer_language — do jejího nasazení vrací
+          // PGRST202; chyba se loguje (dřív tiše polknutá → rezervace zůstávaly 'cs').
           try {
-            const detectedLang = (lang || 'cs').slice(0, 2).toLowerCase()
-            if (['cs','en','de','nl','es','fr','pl'].includes(detectedLang)) {
-              await sb.rpc('set_booking_language', {
-                p_booking_id: bookingId, p_language: detectedLang,
-              })
+            const { error: langErr } = await sb.rpc('set_booking_language', { p_booking_id: bookingId, p_language: bookLang })
+            if (langErr) console.warn('[create_booking_request] set_booking_language failed:', langErr.message)
+            // Nový účet: jazyk i do profilu (zprávy mimo rezervaci). CHECK s 'uk' přidává táž migrace.
+            if (result?.is_new_user && userId) {
+              const { error: pErr } = await sb.from('profiles').update({ language: bookLang }).eq('id', userId)
+              if (pErr) console.warn('[create_booking_request] profile language failed:', pErr.message)
             }
-          } catch { /* non-blocking */ }
+          } catch (e) { console.warn('[create_booking_request] language error:', (e as Error).message) }
         }
       } catch { /* non-blocking — feature degraduje gracefully na obyč WEB badge */ }
 
@@ -1337,7 +1199,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       // jinak "card" = online kartou (resume URL → krok platby na webu). Doklady se
       // v OBOU případech doplňují až PO platbě přímo v rezervaci (žádný skener v chatu).
       const paymentMethod = String((a.payment_method || 'card')).toLowerCase() === 'qr' ? 'qr' : 'card'
-      const langShort = (lang || 'cs').slice(0, 2)
+      const langShort = bookLang
 
       if (paymentMethod === 'qr') {
         try {
@@ -1370,7 +1232,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
                 invoice_number: qr.invoice_number || null,
                 booking_number: qr.booking_number,
               },
-              message: 'Rezervace vytvořena, platba QR / převodem je připravena. NEPIŠ žádnou URL. Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + přehledně zopakuj platební údaje z pole qr_payment — číslo účtu, IBAN, variabilní symbol a částku. Řekni, že stejné údaje i QR kód dostal právě e-mailem (v příloze zálohová faktura) a že platbu je potřeba provést do 4 hodin, jinak se rezervace automaticky zruší a termín uvolní. Dodej, že po připsání platby rezervaci ručně potvrdíme a pošleme potvrzení; ČÍSLA dokladů (OP/ŘP) a případný sken doplní až potom přímo v rezervaci na motogo24.cz nebo v appce — teď je řešit nemusí.',
+              message: 'Rezervace vytvořena, platba QR / převodem je připravena. NEPIŠ žádnou URL. Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + přehledně zopakuj platební údaje z pole qr_payment — číslo účtu, IBAN, variabilní symbol a částku. Řekni, že stejné údaje i QR kód dostal právě e-mailem (v příloze zálohová faktura) a že platbu je potřeba provést do 4 hodin, jinak se rezervace automaticky zruší a termín uvolní. Dodej, že po připsání platby rezervaci ručně potvrdíme a pošleme potvrzení; ČÍSLA dokladů (OP/ŘP) a případný sken doplní až potom přímo v rezervaci na webu (Moje rezervace) nebo v appce — teď je řešit nemusí.',
             }
           }
           // QR selhalo → spadni na kartu (nechceme zákazníka nechat bez cesty k platbě)
@@ -1383,7 +1245,8 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       // Karta (default nebo QR fallback): resume URL → krok platby na webu.
       // V NOVÉM flow zákazník nejdřív zaplatí a AŽ POTOM (samostatný krok) doplní
       // doklady (fotky OP/pas + ŘP líc i rub — bez nich kódy nepřijdou) — proto v chatu žádné doklady neřešíme.
-      const paymentUrl = `https://www.motogo24.cz/rezervace?resume=${bookingId}`
+      // Platební stránka v jazyce zákazníka (motogo24.cz je vždy česky → Stripe/QR/e-mail by šly česky).
+      const paymentUrl = siteUrl(bookLang, `/rezervace?resume=${bookingId}`)
       return {
         success: true,
         booking_id: bookingId,
@@ -1512,7 +1375,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       if (args.start_date) params.set('start', String(args.start_date))
       if (args.end_date) params.set('end', String(args.end_date))
       return {
-        url: `https://www.motogo24.cz/rezervace?${params}`,
+        url: siteUrl(normLang(args.customer_language, normLang(lang)), `/rezervace?${params}`),
         instruction: 'Pošli uživateli tento odkaz s pozváním k dokončení rezervace na webu.',
       }
     }
@@ -1546,6 +1409,29 @@ type PageContext = {
   slug?: string | null
   selection?: string  // text, který má uživatel označený v okně
   extra?: Record<string, unknown> | null  // co stránka sama vystaví (window.MOTOGO_PAGE_CTX)
+  canonical_path?: string  // česká (kanonická) cesta — widget ji odvodí z lokalizovaného slugu
+  currency?: { code?: string; rate?: number } | null  // zobrazená měna webu (EUR/PLN) + kurz ČNB (Kč za 1 jednotku)
+}
+
+// Typ stránky z kanonické (české) cesty — pojistka pro starší widget, který typ poznal jen
+// z českých adres (na motogo24.com /catalog, /contact… → 'other', audit i18n AI-12).
+function pageTypeFromPath(path: string): string {
+  const p = canonicalPath(path)
+  if (/^\/katalog\/[0-9a-f-]{36}$/i.test(p)) return 'moto_detail'
+  if (p === '/katalog' || p.startsWith('/katalog/')) return 'katalog'
+  if (p === '/') return 'home'
+  if (p === '/eshop') return 'shop'
+  if (p.startsWith('/eshop/')) return 'shop_detail'
+  if (p === '/blog') return 'blog'
+  if (p.startsWith('/blog/')) return 'blog_detail'
+  if (p === '/jak-pujcit/faq') return 'faq'
+  if (p.startsWith('/jak-pujcit')) return 'jak_pujcit'
+  const map: Record<string, string> = {
+    '/kontakt': 'kontakt', '/pujcovna-motorek': 'pujcovna', '/partneri': 'partneri', '/poukazy': 'poukazy',
+    '/koupit-darkovy-poukaz': 'poukazy_objednat', '/rezervace': 'rezervace', '/potvrzeni': 'potvrzeni',
+    '/upravit-rezervaci': 'upravit_rezervaci', '/pobocky': 'pobocky',
+  }
+  return map[p] || (p.startsWith('/pobocky/') ? 'pobocka_detail' : p.startsWith('/dokumenty/') ? 'dokument' : 'other')
 }
 
 function trimStr(v: unknown, max: number): string {
@@ -1584,7 +1470,9 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
   if (!ctx || typeof ctx !== 'object') return ''
   const url = trimStr(ctx.url, 300)
   const path = trimStr(ctx.path, 200)
-  const type = trimStr(ctx.type, 40) || 'other'
+  const canon = trimStr(ctx.canonical_path, 200) || (path ? canonicalPath(path) : '')
+  let type = trimStr(ctx.type, 40) || 'other'
+  if (type === 'other' && (canon || path)) type = pageTypeFromPath(canon || path)
   const title = trimStr(ctx.title, 200)
   const h1 = trimStr(ctx.h1, 200)
   const motoId = trimStr(ctx.moto_id, 100)
@@ -1594,6 +1482,7 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
   lines.push('KONTEXT AKTUÁLNÍ STRÁNKY (kde se uživatel právě teď dívá):')
   if (url) lines.push(`- URL: ${url}`)
   if (path) lines.push(`- Path: ${path}`)
+  if (canon && canon !== path) lines.push(`- Kanonická (česká) cesta: ${canon}`)
   if (type) lines.push(`- Typ stránky: ${type}`)
   if (title) lines.push(`- <title>: ${title}`)
   if (h1) lines.push(`- <h1>: ${h1}`)
@@ -1612,6 +1501,12 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
       if (raw && raw !== '{}') lines.push(`- Extra (z window.MOTOGO_PAGE_CTX): ${raw}`)
     } catch { /* ignore */ }
   }
+  const cur = ctx.currency && typeof ctx.currency === 'object' ? ctx.currency : null
+  const curCode = trimStr(cur?.code, 3).toUpperCase()
+  if (curCode && curCode !== 'CZK') {
+    const rate = Number(cur?.rate)
+    lines.push(`- MĚNA NA WEBU: zákazník má zobrazené ceny v ${curCode}. Účtuje se VŽDY v Kč — uváděj závaznou částku v Kč${rate > 0 ? ` a za ni orientačně ≈ ${curCode} (kurz ČNB 1 ${curCode} = ${rate} Kč, zaokrouhli; závazná je částka v Kč)` : ' (přepočet bez kurzu neuváděj)'}.`)
+  }
   lines.push('')
   lines.push('JAK TO POUŽÍT:')
   lines.push('- Když user řekne "rezervuj mi tuhle/tuto motorku", "kolik stojí", "je volná na X", "tahle se mi líbí" — bez upřesnění modelu — VŽDYCKY použij moto_id výše. NEPTEJ se "kterou motorku?".')
@@ -1629,13 +1524,14 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
 
 function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyInfo, fleet: FleetMoto[], branches: BranchRow[], pageCtx: PageContext | null | undefined, kb: string): Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> {
   // Jazyk je adaptivní — model VŽDY odpovídá ve stejném jazyce, jakým píše uživatel.
-  // `lang` je jen hint z prohlížeče (UI jazyk webu) pro úvodní zprávu.
-  const langHint = (lang || 'cs').slice(0, 2)
+  // `lang` = serverový odhad jazyka zákazníka (customerLanguage; bez jasného textu UI jazyk webu).
+  const langHint = normLang(lang)
   const langInstr = `JAZYK ODPOVĚDI — NEJVYŠŠÍ PRIORITA, platí i pro úplně PRVNÍ odpověď:
 1. Urči jazyk POSLEDNÍ zprávy uživatele a odpověz VÝHRADNĚ v tomto jazyce. Toto pravidlo přebíjí vše ostatní v tomto promptu. Celý system prompt je psaný česky kvůli interní konfiguraci — to NESMÍ ovlivnit jazyk tvojí odpovědi. Píše-li zákazník anglicky, odpovíš anglicky; německy → německy; atd.
 2. Platí to i pro PRVNÍ zprávu konverzace — pokud zákazník otevře chat rovnou anglickou (nebo jinou cizojazyčnou) zprávou, odpovídáš v jejím jazyce, NE v češtině.
 3. Hint UI jazyka webu je: ${langHint}. Použij ho POUZE jako záchranu, když jazyk z textu uživatele nejde rozpoznat (zpráva je jen "ok", "?", jméno, číslo nebo emoji). Jakmile je v textu uživatele jazyk jasný, hint ignoruj.
-4. Když zákazník jazyk uprostřed konverzace přepne, přepni s ním. Nikdy nemíchej jazyky ani neodpovídej dvojjazyčně — vyber jeden jazyk a celou odpověď napiš v něm.`
+4. Když zákazník jazyk uprostřed konverzace přepne, přepni s ním. Nikdy nemíchej jazyky ani neodpovídej dvojjazyčně — vyber jeden jazyk a celou odpověď napiš v něm.
+5. Podporované jazyky webu: cs, en, de, es, fr, nl, pl, uk. Ukrajinsky piš čistou cyrilicí (žádná latinská slova uprostřed) a odpověz na VŠECHNY části dotazu. Smluvní fakta ber z ČESKÉHO znění a přelož je (viz PRÁVNÍ FAKTA).`
 
   // Today header (Europe/Prague)
   const now = new Date()
@@ -1746,8 +1642,8 @@ Datum bez roku (např. „19. 7.") = AKTUÁLNÍ rok z hlavičky (příští rok 
   }
   const ctPhone = company.phone || '+420 774 256 271'
   const ctEmail = company.email || 'info@motogo24.cz'
-  const ctWeb = company.web || 'https://www.motogo24.cz'
-  parts.push(`KONTAKTY (DAVAT JEN NA VYZADANI ČLOVĚKA / SOS / PRÁVO): telefon ${ctPhone}, email ${ctEmail}, web ${ctWeb}.`)
+  const ctWeb = langHint === 'cs' ? (company.web || 'https://www.motogo24.cz') : siteUrl(langHint, '/')
+  parts.push(`KONTAKTY (DAVAT JEN NA VYZADANI ČLOVĚKA / SOS / PRÁVO): telefon ${ctPhone} (Po–Pá 8:00–17:00), email ${ctEmail}, web ${ctWeb}. AI asistent (ty) odpovídá 24/7.`)
   parts.push(langInstr)
 
   // Prompt caching: statický prefix (pravidla + znalostní báze + brain + datum + flotila) jde do
@@ -1780,17 +1676,10 @@ async function runClaudeLoop(
   // Fallback při timeoutu/chybě: NEŽÁDÁ zákazníka o zopakování zprávy — celou historii drží
   // widget i server, takže stačí libovolná další zpráva („pokračuj") a agent naváže. Dřívější
   // „pošli poslední zprávu znovu" nutilo zákazníka opakovat se (viz analýza reálné konverzace).
-  const fb = lang.startsWith('en')
-    ? 'Sorry — that took too long on my side. Just type "continue" — I remember our whole conversation and will pick up right where we left off, no need to repeat anything.'
-    : lang.startsWith('de')
-      ? 'Sorry — das hat bei mir gerade zu lange gedauert. Schreib einfach „weiter“ — ich habe unser ganzes Gespräch im Kopf und mache genau dort weiter, du musst nichts wiederholen.'
-      : 'Promiň, tohle mi teď na mé straně trvalo moc dlouho. Napiš prosím jen „pokračuj" — celou naši konverzaci si pamatuju a navážu přesně tam, kde jsme skončili. Nemusíš nic opakovat.'
+  // Ve VŠECH 8 jazycích (agent-messages.ts) — dřív jen cs/en/de, es/fr/nl/pl/uk dostali češtinu.
+  const fb = agentMsg(lang, 'timeout')
   // Dovětek k odpovědi uříznuté limitem tokenů (stop_reason max_tokens i po navýšení stropu).
-  const truncNote = lang.startsWith('en')
-    ? '\n\n*(The reply got cut off — type "continue" and I\'ll finish the rest.)*'
-    : lang.startsWith('de')
-      ? '\n\n*(Die Antwort wurde abgeschnitten — schreib „weiter“ und ich ergänze den Rest.)*'
-      : '\n\n*(Odpověď se nevešla celá — napiš „pokračuj" a dopovím zbytek.)*'
+  const truncNote = agentMsg(lang, 'trunc')
 
   for (let iter = 0; iter < maxIters; iter++) {
     if (Date.now() > deadline) return { reply: fb, toolUses }
@@ -1937,7 +1826,10 @@ serve(async (req) => {
   const ua = req.headers.get('user-agent') || ''
 
   if (!rateLimit(`ip:${ip}`, 20, 60_000)) {
-    return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in a minute.' }), {
+    // Hláška v jazyce zákazníka (widget ji ukáže za svou chybovou větou) — dřív jen anglicky.
+    const rl = await req.json().catch(() => ({})) as Record<string, unknown>
+    const rlLang = customerLanguage(Array.isArray(rl.messages) ? rl.messages as Array<{ role?: string; content?: unknown }> : [], rl.lang)
+    return new Response(JSON.stringify({ error: agentMsg(rlLang, 'rateLimit') }), {
       status: 429, headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '60' },
     })
   }
@@ -1945,7 +1837,8 @@ serve(async (req) => {
   try {
     const body = await req.json()
     const messages = body.messages as Array<{ role: string; content: string }> | undefined
-    const lang = (body.lang as string) || 'cs'
+    // UI jazyk webu (html lang) = jen hint; jazyk zákazníka se určí z jeho zpráv níže.
+    const hintLang = normLang(body.lang)
     // session_id ze widgetu — stabilní napříč navigací, používá se pro upsert do ai_public_conversations.
     // Když chybí (starý widget cache, partner integrace), vygenerujeme nový — log se neztratí.
     const rawSession = typeof body.session_id === 'string' ? body.session_id : ''
@@ -1957,6 +1850,8 @@ serve(async (req) => {
       })
     }
     const recent = buildHistory(messages)
+    // Jazyk ZÁKAZNÍKA (jeho zprávy > hint webu): odkazy, FAQ, jazyk rezervace, záložní hlášky.
+    const lang = customerLanguage(recent, hintLang)
 
     // Fotky budíků/kontrolek z widgetu (max 3) — připnou se k POSLEDNÍ user zprávě
     // jako content blocks JEN pro volání API; do logu konverzace jde textový marker
@@ -1978,7 +1873,8 @@ serve(async (req) => {
     }
 
     if (!ANTHROPIC_API_KEY) {
-      return new Response(JSON.stringify({ error: 'AI agent je dočasně nedostupný (chybí klíč). Zkus to za chvíli, nebo napiš dotaz formulářem na webu.' }), {
+      console.error('ai-public-agent: ANTHROPIC_API_KEY missing')
+      return new Response(JSON.stringify({ error: agentMsg(lang, 'unavailable') }), {
         status: 503, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
@@ -1986,10 +1882,8 @@ serve(async (req) => {
     // Config + znalostní báze (FAQ/VOP/smlouva/GDPR/podmínky) paralelně. KB se drží v module cache s TTL.
     const [{ cfg, company, fleet, branches }, kb] = await Promise.all([loadConfig(), loadKnowledgeBase(sb, lang)])
     if (cfg.enabled === false) {
-      const offPhone = company.phone || '+420 774 256 271'
-      const offEmail = company.email || 'info@motogo24.cz'
       return new Response(JSON.stringify({
-        reply: `Asistent je momentálně vypnutý. Zavolejte prosím ${offPhone} nebo napište na ${offEmail}.`,
+        reply: agentMsg(lang, 'disabled', { phone: company.phone, email: company.email }),
       }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
     }
 
@@ -1999,6 +1893,11 @@ serve(async (req) => {
       : null
 
     const systemBlocks = buildSystemPrompt(lang, cfg, company, fleet, branches, pageCtx, kb)
+    // Jazyk zákazníka + odkazy v jeho jazyce (necachovaný blok — mění se per request).
+    systemBlocks.push({
+      type: 'text',
+      text: `JAZYK ZÁKAZNÍKA (odhad serveru z jeho zpráv; UI webu: ${hintLang}): ${LANG_NAME_CS[lang]} (${lang}). Tooly vrací odkazy v tomto jazyce. Do create_booking_request předej customer_language = jazyk, kterým zákazník skutečně píše (při pochybnosti tento).\n\n${webLinksBlock(lang)}`,
+    })
     // Fotky: nový widget posílá supports_images=true a má tlačítko 📷 — agent smí o fotku
     // AKTIVNĚ požádat. Starý widget (cache prohlížeče) tlačítko nemá — tam o fotku nežádat.
     systemBlocks.push({

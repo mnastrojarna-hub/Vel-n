@@ -14,6 +14,7 @@ import { DOC_ICONS, INV_TYPE_MAP } from './bookingDocConstants'
 import BookingCustomerDocsStatus from './BookingCustomerDocsStatus'
 import ElectronicProtocolModal from './ElectronicProtocolModal'
 import { sendProtocolEmail } from './protocolEmail'
+import { fetchBookingDocLang, generateBookingDoc } from '../../lib/docLanguage'
 
 export default function BookingDocumentsTab({ bookingId, userId }) {
   const [docs, setDocs] = useState([])
@@ -77,7 +78,9 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   async function handleGenerate(templateSlug) {
     setGenerating(templateSlug); setError(null)
     try {
-      const { error: err } = await debugAction('functions.generate-document', 'BookingDocumentsTab', () => supabase.functions.invoke('generate-document', { body: { template_slug: templateSlug, booking_id: bookingId } }))
+      // Jazyk zákazníka (rezervace → profil → cs) — bez něj by edge vyrobila českou verzi a zákaznickou smazala
+      const language = await fetchBookingDocLang(bookingId)
+      const { error: err } = await debugAction('functions.generate-document', 'BookingDocumentsTab', () => generateBookingDoc(templateSlug, bookingId, language), { templateSlug, language })
       if (err) throw err; await loadAll()
     } catch {
       try { await generateClientSide(templateSlug); await loadAll() }

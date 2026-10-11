@@ -76,7 +76,7 @@ class InvoicesScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
         error: (e, st) {
           debugPrint('[INVOICES] Provider error: $e\n$st');
-          return Center(child: Text('Chyba: $e', style: const TextStyle(color: MotoGoColors.red, fontSize: 12)));
+          return Center(child: Text(t(context).tr('loadingError'), style: const TextStyle(color: MotoGoColors.red, fontSize: 12)));
         },
       ),
     );
@@ -109,7 +109,7 @@ class InvoiceTile extends StatelessWidget {
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(invoice.number ?? invoice.typeLabel,
+              Text(invoice.number ?? t(context).tr(invoice.typeKey),
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: isCN ? MotoGoColors.red : MotoGoColors.black)),
               Text(date, style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
             ],
@@ -189,7 +189,7 @@ class InvoiceTile extends StatelessWidget {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => DocWebViewScreen(
         htmlContent: html,
-        title: invoice.number ?? invoice.typeLabel,
+        title: invoice.number ?? t(context).tr(invoice.typeKey),
       ),
     ));
   }

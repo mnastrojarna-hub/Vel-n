@@ -1,9 +1,9 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { renderEmail, normalizeLang, helpCardLabels, type Lang } from './i18n.ts'
+import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
@@ -11,11 +11,6 @@ const REPLY_TO = 'info@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
-
-const FOLLOW_US_LABEL: Record<string, string> = {
-  cs: 'SLEDUJTE NÁS', en: 'FOLLOW US', de: 'FOLGEN SIE UNS', nl: 'VOLG ONS',
-  es: 'SÍGUENOS', fr: 'SUIVEZ-NOUS', pl: 'OBSERWUJ NAS',
-}
 
 // ── i18n: doména zákazníka dle jazyka (cs → .cz, ostatní → .com) ────────────
 const DOMAIN_INTL = 'https://motogo24.com'
@@ -27,73 +22,10 @@ function localizeBodyLinks(html: string, lang: string): string {
   return html.replace(/https?:\/\/(?:www\.)?motogo24\.cz/gi, DOMAIN_INTL)
 }
 
-// ── i18n: dynamický překlad CZ mailové šablony přes Anthropic API ────────────
-// Velín edituje jen CZ; pro non-cz se šablona přeloží přes Claude a zacachuje
-// zpět do email_templates.{subject,body}_translations[lang] + __src_<lang> hash.
-const TRANSLATE_MODEL = 'claude-haiku-4-5-20251001'
-const LANG_NAMES: Record<string, string> = {
-  en: 'English', de: 'German (Deutsch)', es: 'Spanish (Español)',
-  fr: 'French (Français)', nl: 'Dutch (Nederlands)', pl: 'Polish (Polski)',
-}
-async function sha1Hex(s: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s))
-  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('')
-}
-async function translateEmailTemplate(subjectCz: string, bodyCz: string, lang: string): Promise<{ subject: string; body: string } | null> {
-  if (!ANTHROPIC_API_KEY) return null
-  const langName = LANG_NAMES[lang] || lang
-  const system = [
-    `You are a professional Czech-to-${langName} translator for MotoGo24 — a Czech motorcycle rental company.`,
-    'Translate the provided JSON object with keys "subject" and "body". Output STRICTLY a valid JSON object with the same two keys and translated values.',
-    'STRICT RULES:',
-    `- Output language: ${langName} (${lang}). Natural, native, fluent.`,
-    '- Preserve ALL HTML tags, attributes, inline styles and structure EXACTLY.',
-    '- DO NOT translate or change: URLs, email addresses, phone numbers, prices, IČO, DIČ, brand names. Keep "MotoGo24" and currency "Kč" unchanged.',
-    '- Keep ALL template placeholders like {{var}} EXACTLY unchanged (e.g. {{booking_number}}, {{refund_amount}}, {{site_url}}).',
-    '- Do NOT add commentary or markdown fences. Output ONLY the raw JSON object.',
-  ].join('\n')
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: TRANSLATE_MODEL, max_tokens: 4096, system, messages: [{ role: 'user', content: JSON.stringify({ subject: subjectCz, body: bodyCz }) }] }),
-    })
-    if (!res.ok) { console.warn('[translateEmailTemplate] anthropic', res.status); return null }
-    const data = await res.json()
-    const text = (data?.content?.[0]?.text || '').trim()
-    let parsed: { subject?: unknown; body?: unknown }
-    try { parsed = JSON.parse(text) } catch {
-      const s = text.indexOf('{'), e = text.lastIndexOf('}')
-      if (s < 0 || e <= s) return null
-      parsed = JSON.parse(text.slice(s, e + 1))
-    }
-    return {
-      subject: typeof parsed.subject === 'string' ? parsed.subject : subjectCz,
-      body: typeof parsed.body === 'string' ? parsed.body : bodyCz,
-    }
-  } catch (e) { console.warn('[translateEmailTemplate]', (e as Error).message); return null }
-}
-async function resolveTemplateForLang(
-  supabase: any,
-  tpl: { slug: string; subject: string | null; body_html: string; subject_translations: any; body_translations: any },
-  lang: string,
-): Promise<{ subject: string; body: string }> {
-  const subjCz = tpl.subject || ''
-  const bodyCz = tpl.body_html
-  if (lang === 'cs') return { subject: subjCz, body: bodyCz }
-  const subjT = (tpl.subject_translations as Record<string, string>) || {}
-  const bodyT = (tpl.body_translations as Record<string, string>) || {}
-  const srcHash = await sha1Hex(`${subjCz} ${bodyCz}`)
-  const fresh = bodyT['__src_' + lang] === srcHash && typeof bodyT[lang] === 'string' && !!bodyT[lang]
-  if (fresh) return { subject: (typeof subjT[lang] === 'string' && subjT[lang]) ? subjT[lang] : subjCz, body: bodyT[lang] }
-  const tr = await translateEmailTemplate(subjCz, bodyCz, lang)
-  if (!tr) return { subject: subjCz, body: bodyCz }
-  try {
-    const newSubjT = { ...subjT, [lang]: tr.subject, ['__src_' + lang]: srcHash }
-    const newBodyT = { ...bodyT, [lang]: tr.body, ['__src_' + lang]: srcHash }
-    await supabase.from('email_templates').update({ subject_translations: newSubjT, body_translations: newBodyT }).eq('slug', tpl.slug)
-  } catch { /* ignore */ }
-  return tr
+// ── i18n: dynamický překlad CZ mailové šablony — sdílený modul _shared/email-translate.ts
+// deno-lint-ignore no-explicit-any
+function resolveTemplateForLang(supabase: any, tpl: any, lang: string): Promise<{ subject: string; body: string }> {
+  return resolveTemplateShared(supabase, tpl, lang, 'send-cancellation-email')
 }
 
 /** Send email with exponential backoff retry (max 3 attempts) */
@@ -144,7 +76,7 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
   const header = `<div style="background:#000000;padding:36px 24px;text-align:center">
     <img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
     <div style="color:#ffffff;font-size:32px;font-weight:900;letter-spacing:3px;line-height:1">MOTO GO 24</div>
-    <div style="color:#ffffff;font-size:11px;font-weight:400;letter-spacing:6px;margin-top:8px">P\u016eJ\u010cOVNA MOTOREK</div>
+    <div style="color:#ffffff;font-size:11px;font-weight:400;letter-spacing:6px;margin-top:8px">${pickLang(BRAND_TAGLINE, lang)}</div>
   </div>`
   const helpCard = `<div style="margin:24px 32px 0;background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px">
     <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">${hc.title}</div>
@@ -170,7 +102,7 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
       </td>
     </tr></table>
     <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
-      <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">${FOLLOW_US_LABEL[lang] || FOLLOW_US_LABEL.cs}</div>
+      <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">${pickLang(FOLLOW_US_LABELS, lang)}</div>
       <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0"/></a>
       <a href="${IG_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/instagram-footer.svg" alt="Instagram" width="32" height="32" style="display:inline-block;border:0"/></a>
     </div>

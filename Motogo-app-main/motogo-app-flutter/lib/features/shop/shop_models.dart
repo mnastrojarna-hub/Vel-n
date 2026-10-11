@@ -13,6 +13,10 @@ class Product {
   final int stockQuantity;
   final bool isActive;
 
+  /// `products.translations` = {lang: {name, description, color, material}}
+  /// (plní Velín). Do objednávky/faktury jde dál český název.
+  final Map<String, dynamic> translations;
+
   const Product({
     required this.id,
     required this.name,
@@ -26,6 +30,7 @@ class Product {
     this.sizes = const [],
     this.stockQuantity = 0,
     this.isActive = true,
+    this.translations = const {},
   });
 
   factory Product.fromJson(Map<String, dynamic> json) => Product(
@@ -41,7 +46,27 @@ class Product {
     sizes: (json['sizes'] as List?)?.map((e) => e.toString()).toList() ?? [],
     stockQuantity: json['stock_quantity'] as int? ?? 0,
     isActive: json['is_active'] as bool? ?? true,
+    translations: json['translations'] is Map
+        ? Map<String, dynamic>.from(json['translations'] as Map)
+        : const {},
   );
+
+  /// Přeložené pole [field] pro jazyk [lang]: překlad → (cizí jazyk) angličtina
+  /// → český originál [fallback].
+  String? _tr(String lang, String field, String? fallback) {
+    if (lang == 'cs') return fallback;
+    for (final l in [lang, 'en']) {
+      final m = translations[l];
+      final v = m is Map ? m[field] : null;
+      if (v is String && v.trim().isNotEmpty) return v;
+    }
+    return fallback;
+  }
+
+  String nameFor(String lang) => _tr(lang, 'name', name) ?? name;
+  String? descriptionFor(String lang) => _tr(lang, 'description', description);
+  String? colorFor(String lang) => _tr(lang, 'color', color);
+  String? materialFor(String lang) => _tr(lang, 'material', material);
 
   String get displayImage => images.isNotEmpty ? images.first : '';
   bool get inStock => stockQuantity > 0;

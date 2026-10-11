@@ -7,7 +7,8 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import RichTextEditor, { buildPreviewHtml } from '../../components/ui/RichTextEditor'
 import CustomDocumentsSection from './CustomDocumentsSection'
-import { translateDocument, TRANSLATE_TARGET_LANGS } from '../../lib/autoTranslate'
+import { TR_LANGS, useSourceHashes, pickLangs, runDocTranslation, translateAllRows, bulkResultText } from './docTranslations'
+import TranslationStatusChips from './TranslationStatusChips'
 import { convertPdfToHtml } from '../../lib/pdfImport'
 
 const CONTRACT_TYPES = [
@@ -98,64 +99,40 @@ export default function ContractTermsTab() {
     })
   }
 
-  // Přeloží naráz všechny smluvní šablony do všech 6 jazyků — přeskočí to, co
-  // už je hotové, každý jazyk 3× zkusí. Pro jednorázové „dožeň všechno".
-  async function handleTranslateAll() {
+  // Přeloží naráz všechny smluvní šablony do všech 7 jazyků. Bez force jen chybějící
+  // a ZASTARALÉ překlady (česká verze se od překladu změnila), s force úplně vše znovu.
+  async function handleTranslateAll({ force = false } = {}) {
+    if (force && !window.confirm(`Přeložit znovu všechny smluvní texty do ${TR_LANGS.length} jazyků (${TR_LANGS.join(', ')}) — i ty aktuální? Trvá to desítky minut, nechte stránku otevřenou.`)) return
     setBulk({ text: 'Načítám šablony…' })
+    // select('*') — snese i DB bez sloupce translation_src (pak je vše zastaralé)
     const { data: rows, error: err } = await supabase
       .from('document_templates')
-      .select('id,type,name,content_translations')
+      .select('*')
       .in('type', CONTRACT_TYPES.map(c => c.type))
       .order('type')
     if (err) { setBulk({ text: 'Chyba: ' + err.message, done: true }); return }
-    const list = rows || []
-    let totalDone = 0, totalFail = 0
-    for (let i = 0; i < list.length; i++) {
-      const row = list[i]
-      const label = CONTRACT_TYPES.find(c => c.type === row.type)?.label || row.type
-      const already = Object.keys(row.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k))
-      const todo = TRANSLATE_TARGET_LANGS.filter(l => !already.includes(l))
-      for (const lang of todo) {
-        setBulk({ text: `(${i + 1}/${list.length}) ${label} → ${lang} …  [hotovo ${totalDone}, selhalo ${totalFail}]` })
-        let ok = false
-        for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
-          if (attempt > 1) await new Promise(r => setTimeout(r, 2500))
-          const res = await translateDocument({ table: 'document_templates', id: row.id, target_langs: [lang] })
-          if (res?.success && res.translations?.[lang]) ok = true
-        }
-        if (ok) totalDone++; else totalFail++
-      }
-    }
-    setBulk({ text: totalFail ? `Hotovo s chybami — přeloženo ${totalDone}, selhalo ${totalFail}. Klikni znovu „Přeložit vše" pro dokončení.` : `Hotovo — všechny smluvní texty přeloženy do 6 jazyků (${totalDone} překladů).`, done: true })
+    const res = await translateAllRows('document_templates', rows || [], {
+      force,
+      labelOf: r => CONTRACT_TYPES.find(c => c.type === r.type)?.label || r.type,
+      onText: text => setBulk({ text }),
+    })
+    setBulk({ text: bulkResultText(res, 'Smluvní texty'), done: true })
     load()
   }
 
-  async function handleTranslate(tpl, { force = false } = {}) {
+  // Jeden dokument: bez voleb chybějící + zastaralé jazyky, { force } všechny, { langs } jen zadané.
+  async function handleTranslate(tpl, opts = {}) {
     if (!tpl?.id) return
+    const setMsg = v => setTrMsg(m => ({ ...m, [tpl.type]: v }))
     setTranslatingType(tpl.type)
-    const already = force ? [] : Object.keys(tpl.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k))
-    const todo = TRANSLATE_TARGET_LANGS.filter(l => !already.includes(l))
+    const todo = await pickLangs('document_templates', tpl, opts)
     if (todo.length === 0) {
       setTranslatingType(null)
-      setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: `Vše už přeloženo (${already.join(', ')}). Pro nové přeložení použij „Přeložit znovu vše".` } }))
+      setMsg({ ok: true, text: 'Všechny překlady jsou aktuální. Pro nové přeložení použij „Přeložit znovu vše".' })
       return
     }
-    const done = [...already]
-    const failed = []
-    // Po jednom jazyce, s opakováním (transientní rate-limit / limit edge fn).
-    for (const lang of todo) {
-      setTrMsg(m => ({ ...m, [tpl.type]: { ok: true, text: `Překládám… ${lang} · hotovo: ${done.join(', ') || '–'}${failed.length ? ` · selhalo: ${failed.map(f => f.split(':')[0]).join(', ')}` : ''}` } }))
-      let ok = false, lastErr = ''
-      for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
-        if (attempt > 1) await new Promise(r => setTimeout(r, 2500))
-        const res = await translateDocument({ table: 'document_templates', id: tpl.id, target_langs: [lang] })
-        if (res?.success && res.translations?.[lang]) ok = true
-        else lastErr = (res?.errors && Object.values(res.errors)[0]) || (res?.details && Object.values(res.details)[0]) || res?.error || 'neznámá chyba'
-      }
-      if (ok) done.push(lang); else failed.push(`${lang}: ${lastErr}`)
-    }
+    await runDocTranslation('document_templates', tpl, todo, setMsg)
     setTranslatingType(null)
-    setTrMsg(m => ({ ...m, [tpl.type]: { ok: failed.length === 0, text: failed.length ? `Přeloženo: ${done.join(', ') || '–'} · selhalo — ${failed.join('; ')} (klikni „Přeložit" znovu pro dokončení)` : `Hotovo — přeloženo do: ${done.join(', ')}` } }))
     load()
   }
 
@@ -177,13 +154,25 @@ export default function ContractTermsTab() {
     return templates.find(t => t.type === type)
   }
 
+  const srcHashes = useSourceHashes('document_templates', templates)
+  // Sloupec translation_src ještě v DB není (migrace 20261011) → aktuálnost nejde ověřit
+  const srcMissing = templates.length > 0 && !templates.some(t => 'translation_src' in t)
+
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
 
   return (
     <div className="space-y-4">
       <div className="p-3 rounded-card" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 12, color: '#166534' }}>
         Smluvní texty se automaticky zobrazují v zákaznické aplikaci a používají se při generování dokumentů k rezervacím. Změny se projeví okamžitě.
+        {' '}Závazná je česká verze. Překlad platí jen pro české znění, ze kterého vznikl — po úpravě češtiny je <strong>ZASTARALÝ</strong> a web, aplikace,
+        PDF ani AI ho nepoužijí (ukážou češtinu), dokud ho znovu nepřeložíte.
       </div>
+
+      {srcMissing && (
+        <div className="p-3 rounded-card" style={{ background: '#fef3c7', border: '1px solid #fde68a', fontSize: 12, color: '#92400e' }}>
+          Evidence aktuálnosti překladů (sloupec <code>translation_src</code>) ještě není v databázi — všechny existující překlady se proto zobrazují jako zastaralé.
+        </div>
+      )}
 
       {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
@@ -196,8 +185,11 @@ export default function ContractTermsTab() {
       />
 
       <div className="flex items-center gap-3 flex-wrap">
-        <Button green onClick={handleTranslateAll} disabled={!!bulk && !bulk.done}>
-          {bulk && !bulk.done ? 'Překládám…' : '🌍 Přeložit všechny smluvní texty do 6 jazyků'}
+        <Button green onClick={() => handleTranslateAll()} disabled={!!bulk && !bulk.done}>
+          {bulk && !bulk.done ? 'Překládám…' : `🌍 Přeložit chybějící a zastaralé (${TR_LANGS.length} jazyků)`}
+        </Button>
+        <Button onClick={() => handleTranslateAll({ force: true })} disabled={!!bulk && !bulk.done}>
+          Přeložit znovu vše (force)
         </Button>
         {bulk && <span className="text-sm" style={{ color: bulk.done ? '#15803d' : '#6b7a72' }}>{bulk.text}</span>}
       </div>
@@ -228,10 +220,12 @@ export default function ContractTermsTab() {
                             Proměnné: {vars.length}
                           </span>
                         )}
-                        <span className="text-sm" style={{ color: '#1a2e22' }}>
-                          {(() => { const ks = Object.keys(tpl.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)); return ks.length ? `🌍 přeloženo: ${ks.join(', ')}` : '🌍 jen česky' })()}
-                        </span>
                       </div>
+                    )}
+                    {tpl && (
+                      <TranslationStatusChips table="document_templates" row={tpl} srcHash={srcHashes[tpl.id]}
+                        busy={translatingType === ct.type || (!!bulk && !bulk.done)}
+                        onTranslateLang={lang => handleTranslate(tpl, { langs: [lang] })} />
                     )}
                     {tpl && trMsg[ct.type] && <p className="text-sm mt-1" style={{ color: trMsg[ct.type].ok ? '#15803d' : '#dc2626' }}>{trMsg[ct.type].text}</p>}
                   </div>
@@ -243,12 +237,12 @@ export default function ContractTermsTab() {
                     </Button>
                   )}
                   {tpl && (
-                    <Button onClick={() => handleTranslate(tpl)} disabled={translatingType === ct.type}>
+                    <Button onClick={() => handleTranslate(tpl)} disabled={translatingType === ct.type || (!!bulk && !bulk.done)}>
                       {translatingType === ct.type ? 'Překládám…' : '🌍 Přeložit'}
                     </Button>
                   )}
-                  {tpl && translatingType !== ct.type && Object.keys(tpl.content_translations || {}).filter(k => TRANSLATE_TARGET_LANGS.includes(k)).length > 0 && (
-                    <Button onClick={() => handleTranslate(tpl, { force: true })}>Přeložit znovu vše</Button>
+                  {tpl && translatingType !== ct.type && Object.keys(tpl.content_translations || {}).some(k => TR_LANGS.includes(k)) && (
+                    <Button onClick={() => handleTranslate(tpl, { force: true })} disabled={!!bulk && !bulk.done}>Přeložit znovu vše</Button>
                   )}
                   <Button onClick={() => handlePdfPick(ct.type)} disabled={importingType === ct.type}>
                     {importingType === ct.type ? 'Převádím PDF…' : '📄 Nahrát PDF'}
@@ -336,6 +330,7 @@ function EditContractModal({ template, onClose, onSaved }) {
           name,
           content_html: content,
           version: newVersion,
+          updated_at: new Date().toISOString(), // tabulka nemá trigger updated_at (STATE_4)
           ...(updatedBy ? { updated_by: updatedBy } : {}),
         }
         // Bez .select() — vyhneme se PostgREST RETURNING přes RLS, které občas

@@ -105,6 +105,11 @@ return [
     'footer.contract' => 'Smlouva o pronájmu',
     'footer.partners' => 'Pro partnery',
     'footer.partnersTitle' => 'Partneři',
+    // Patička — alt texty log partnerů
+    'footer.partner.kudyznudyAlt' => 'Kudyznudy.cz – nejlepší začátek výletu',
+    'footer.partner.atlasAlt' => 'Atlas Česka',
+    'footer.partner.bikeangelAlt' => 'bikeAngel – GPS tracker a alarm pro motorky',
+    'footer.partner.vysocinaAlt' => 'Vysočina – oficiální destinační značka',
     'footer.toTop' => 'NAHORU',
     'footer.iconPhone' => 'Telefon',
     'footer.iconEmail' => 'E-mail',
@@ -132,6 +137,13 @@ return [
     'faq.tabAll' => 'Vše ({count})',
     'faq.empty' => 'Pro tuto kategorii zatím nejsou žádné otázky.',
 
+    // FAQ záložky podle faq_items.category_key (DB category_label je jen česky)
+    'faq.cat.borrowing' => 'Výpůjčka a vrácení',
+    'faq.cat.conditions' => 'Výbava a podmínky',
+    'faq.cat.delivery' => 'Přistavení',
+    'faq.cat.reservations' => 'Rezervace',
+    'faq.cat.travel' => 'Cesty do zahraničí',
+    'faq.cat.vouchers' => 'Poukazy',
     // ===== Common UI =====
     'common.bookButton' => 'REZERVOVAT MOTORKU',
     'common.detailButton' => 'DETAIL MOTORKY',
@@ -171,6 +183,20 @@ return [
     'doc.notPublished' => 'Tento dokument zatím nebyl publikován.',
     'doc.cardView' => 'Dokument · zobrazit',
 
+    // Jazyk smluvního dokumentu (dokumenty-detail.php): závazná je vždy česká verze
+    'doc.h1Suffix' => '| MotoGo24 půjčovna motorek',
+    'doc.metaDesc' => '{title} u půjčovny motorek MotoGo24 Pelhřimov — vzor pro půjčení motocyklu. Bez kauce, výbava v ceně, nonstop provoz na Vysočině.',
+    'doc.czechBinding' => 'Závazná je česká verze; překlad připravujeme.',
+    'doc.translationNote' => 'Překlad má informativní povahu, závazná je česká verze.',
+    'doc.czechVersionLink' => 'Česká verze',
+    // Kontakt (pages/kontakt.php): mapa, fotky provozovny, typ pobočky v JSON-LD
+    'contact.mapAria' => 'Mapa kde nás najdete',
+    'contact.photoAlt.1' => 'Showroom půjčovny motorek MotoGo24 v Pelhřimově',
+    'contact.photoAlt.2' => 'Provozovna MotoGo24 — motorky připravené k zapůjčení',
+    'contact.photoAlt.3' => 'Adventure motorky v půjčovně MotoGo24',
+    'contact.photoAlt.4' => 'Sklad výbavy — helmy a oblečení v ceně zápůjčky',
+    'contact.branchType.staffed' => 'obslužná',
+    'contact.branchType.self' => 'samoobslužná',
     // ===== Breadcrumby (statické labely) =====
     'breadcrumb.home' => 'Domů',
     'breadcrumb.catalog' => 'Katalog motorek',
@@ -333,6 +359,10 @@ return [
     // ===== SEO meta defaults (per-jazyk) =====
     'seo.default.description' => 'Motopůjčovna a půjčovna motorek na Vysočině – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.',
     'seo.default.keywords' => 'motopůjčovna, půjčovna motorek, půjčovna motorek Vysočina, půjčovna motorek Pelhřimov, pronájem motorky, půjčit motorku, půjčení motocyklu, motorka na pronájem, půjčovna motocyklů, motorka bez kauce, nonstop půjčovna motorek, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro motorky, dětské motorky, motorkářská výbava, motorkářské doplňky, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
+    // Strukturovaná data (layout.php JSON-LD)
+    'seo.org.description' => 'Motopůjčovna a půjčovna motorek na Vysočině — silniční, naked, supermoto, enduro i dětské motorky. Bez kauce, výbava v ceně, nonstop provoz.',
+    'seo.org.slogan' => 'Půjč si motorku bez kauce. Nonstop. Online.',
+    'seo.service.description' => 'Motopůjčovna na Vysočině. Krátkodobý i dlouhodobý pronájem motocyklů v Česku. Cestovní, naked, supermoto, enduro, sportovní i dětské motorky. Bez kauce, motorkářská výbava v ceně, online rezervace s platbou kartou, nonstop dostupnost převzetí. Možnost přistavení mimo pobočku, sjezd do EU povolen, zelená karta v ceně.',
     'seo.home.description' => 'Motopůjčovna na Vysočině – půjčte si motorku bez kauce, s výbavou v ceně a nonstop provozem. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
     'seo.home.keywords' => 'motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, půjčit motorku, pronájem motorky, půjčovna motocyklů, motorka bez kauce, nonstop motopůjčovna, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka na víkend, motorkářská výbava v ceně, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
 

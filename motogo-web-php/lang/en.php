@@ -103,6 +103,11 @@ return [
     'footer.contract' => 'Rental agreement',
     'footer.partners' => 'For partners',
     'footer.partnersTitle' => 'Partners',
+    // Patička — alt texty log partnerů
+    'footer.partner.kudyznudyAlt' => 'Kudyznudy.cz – the best start to a trip',
+    'footer.partner.atlasAlt' => 'Atlas Česka – travel guide to Czechia',
+    'footer.partner.bikeangelAlt' => 'bikeAngel – GPS tracker and alarm for motorcycles',
+    'footer.partner.vysocinaAlt' => 'Vysočina – official destination brand',
     'footer.toTop' => 'TO TOP',
     'footer.iconPhone' => 'Phone',
     'footer.iconEmail' => 'E-mail',
@@ -168,6 +173,20 @@ return [
     'doc.notPublished' => 'This document has not been published yet.',
     'doc.cardView' => 'Document · view',
 
+    // Jazyk smluvního dokumentu (dokumenty-detail.php): závazná je vždy česká verze
+    'doc.h1Suffix' => '| MotoGo24 motorcycle rental',
+    'doc.metaDesc' => '{title} — MotoGo24 motorcycle rental in Pelhřimov, Vysočina (Czech Republic). No deposit, gear included, open 24/7.',
+    'doc.czechBinding' => 'The Czech version is legally binding; the translation is in preparation.',
+    'doc.translationNote' => 'This translation is for information only; the Czech version is legally binding.',
+    'doc.czechVersionLink' => 'Czech version',
+    // Kontakt (pages/kontakt.php): mapa, fotky provozovny, typ pobočky v JSON-LD
+    'contact.mapAria' => 'Map: where to find us',
+    'contact.photoAlt.1' => 'MotoGo24 motorcycle rental showroom in Pelhřimov',
+    'contact.photoAlt.2' => 'MotoGo24 branch — motorcycles ready to rent',
+    'contact.photoAlt.3' => 'Adventure motorcycles at MotoGo24',
+    'contact.photoAlt.4' => 'Gear room — helmets and riding clothes included in the rental',
+    'contact.branchType.staffed' => 'staffed branch',
+    'contact.branchType.self' => 'self-service branch',
     // ===== Breadcrumbs (static labels) =====
     'breadcrumb.home' => 'Home',
     'breadcrumb.catalog' => 'Motorcycle catalogue',
@@ -233,6 +252,10 @@ return [
     // ===== SEO meta defaults (per language) =====
     'seo.default.description' => 'Motorcycle rental in the Vysočina region, Czech Republic — touring, sport, enduro and kids\' motorcycles. 24/7 rental, no deposit, gear included, online booking.',
     'seo.default.keywords' => 'motorcycle rental Czech Republic',
+    // Strukturovaná data (layout.php JSON-LD)
+    'seo.org.description' => 'Motorcycle rental in the Vysočina region, Czech Republic — road, naked, supermoto, enduro and kids\' motorcycles. No deposit, gear included, open 24/7.',
+    'seo.org.slogan' => 'Rent a motorcycle with no deposit. 24/7. Online.',
+    'seo.service.description' => 'Motorcycle rental in the Vysočina region. Short- and long-term motorcycle rental in the Czech Republic. Touring, naked, supermoto, enduro, sport and kids\' motorcycles. No deposit, rider gear included, online booking with card payment, pick-up available 24/7. Delivery outside the branch possible, travel within the EU allowed, green card included.',
     'seo.home.description' => 'Rent a motorcycle in the Vysočina region. No deposit, gear included, 24/7 service. Touring, sport, enduro and kids\' bikes. Book online.',
     'seo.home.keywords' => 'motorcycle rental Czech Republic',
 
@@ -1163,6 +1186,13 @@ return [
     // ===== E-shop / breadcrumb / faq / gallery additions =====
     'breadcrumb.shop' => 'Shop',
     'faq.empty' => 'There are no questions in this category yet.',
+    // FAQ záložky podle faq_items.category_key (DB category_label je jen česky)
+    'faq.cat.borrowing' => 'Rental & return',
+    'faq.cat.conditions' => 'Gear & conditions',
+    'faq.cat.delivery' => 'Delivery',
+    'faq.cat.reservations' => 'Bookings',
+    'faq.cat.travel' => 'Trips abroad',
+    'faq.cat.vouchers' => 'Vouchers',
     'gallery.counter' => '{current} / {total}',
 
     // ===== E-shop =====

@@ -1,11 +1,11 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { renderEmail, normalizeLang, helpCardLabels, renderDoorCodesReleasedBlock, renderDocsRequiredBlock, type Lang } from './i18n.ts'
+import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
 import { GATE_MAIL_TYPES, loadBranchGate, loadNeedsLocker, renderGateProcedureBlock, type BranchGate } from './branch-gate.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
@@ -44,93 +44,11 @@ function localizeBodyLinks(html: string, lang: string): string {
   return html.replace(/https?:\/\/(?:www\.)?motogo24\.cz/gi, DOMAIN_INTL)
 }
 
-// ── i18n: dynamický překlad CZ mailové šablony přes Anthropic API ────────────
-// Velín edituje jen CZ (subject + body_html). Pro non-cz zákazníka se CZ šablona
-// přeloží přes Claude (haiku) a výsledek se zacachuje zpět do
-// email_templates.{subject,body}_translations[lang] + per-lang hash zdroje
-// (__src_<lang>) pro invalidaci, když admin CZ text změní. Zachová HTML i {{vary}}.
-const TRANSLATE_MODEL = 'claude-haiku-4-5-20251001'
-const LANG_NAMES: Record<string, string> = {
-  en: 'English', de: 'German (Deutsch)', es: 'Spanish (Español)',
-  fr: 'French (Français)', nl: 'Dutch (Nederlands)', pl: 'Polish (Polski)',
-}
-
-/** SHA-1 hex zdroje (detekce změny CZ šablony → invalidace cache). */
-async function sha1Hex(s: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s))
-  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('')
-}
-
-/** Přeloží subject+body RAW mailové šablony z CZ do cílového jazyka přes Anthropic.
- *  Překládá PŘED substitucí proměnných → cache je nezávislá na konkrétní rezervaci.
- *  Vrací {subject, body} nebo null při chybě (caller pak nechá CZ — mail aspoň odejde). */
-async function translateEmailTemplate(subjectCz: string, bodyCz: string, lang: string): Promise<{ subject: string; body: string } | null> {
-  if (!ANTHROPIC_API_KEY) return null
-  const langName = LANG_NAMES[lang] || lang
-  const system = [
-    `You are a professional Czech-to-${langName} translator for MotoGo24 — a Czech motorcycle rental company.`,
-    'Translate the provided JSON object with keys "subject" and "body". Output STRICTLY a valid JSON object with the same two keys and translated values.',
-    'STRICT RULES:',
-    `- Output language: ${langName} (${lang}). Natural, native, fluent.`,
-    '- Preserve ALL HTML tags, attributes, inline styles and structure EXACTLY.',
-    '- DO NOT translate or change: URLs, email addresses, phone numbers, prices, IČO, DIČ, brand names. Keep the company name "MotoGo24" unchanged. Keep currency "Kč" as is.',
-    '- Keep ALL template placeholders like {{var}} EXACTLY unchanged (e.g. {{booking_number}}, {{customer_name}}, {{door_codes_block}}, {{site_url}}, {{total_price}}).',
-    '- Do NOT add commentary, do NOT add markdown fences. Output ONLY the raw JSON object.',
-  ].join('\n')
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: TRANSLATE_MODEL, max_tokens: 4096, system, messages: [{ role: 'user', content: JSON.stringify({ subject: subjectCz, body: bodyCz }) }] }),
-    })
-    if (!res.ok) { console.warn('[translateEmailTemplate] anthropic', res.status); return null }
-    const data = await res.json()
-    const text = (data?.content?.[0]?.text || '').trim()
-    let parsed: { subject?: unknown; body?: unknown }
-    try { parsed = JSON.parse(text) } catch {
-      const s = text.indexOf('{'), e = text.lastIndexOf('}')
-      if (s < 0 || e <= s) return null
-      parsed = JSON.parse(text.slice(s, e + 1))
-    }
-    return {
-      subject: typeof parsed.subject === 'string' ? parsed.subject : subjectCz,
-      body: typeof parsed.body === 'string' ? parsed.body : bodyCz,
-    }
-  } catch (e) { console.warn('[translateEmailTemplate]', (e as Error).message); return null }
-}
-
-/** Vyřeší subject+body DB šablony pro daný jazyk: cs → CZ originál; non-cz →
- *  čerstvý cache překlad, jinak přeloží přes API a zacachuje. Při selhání API
- *  vrátí CZ (mail vždy odejde). */
-async function resolveTemplateForLang(
-  supabase: any,
-  tpl: { slug: string; subject: string | null; body_html: string; subject_translations: any; body_translations: any },
-  lang: string,
-): Promise<{ subject: string; body: string }> {
-  const subjCz = tpl.subject || ''
-  const bodyCz = tpl.body_html
-  if (lang === 'cs') return { subject: subjCz, body: bodyCz }
-  const subjT = (tpl.subject_translations as Record<string, string>) || {}
-  const bodyT = (tpl.body_translations as Record<string, string>) || {}
-  const srcHash = await sha1Hex(`${subjCz} ${bodyCz}`)
-  const fresh = bodyT['__src_' + lang] === srcHash && typeof bodyT[lang] === 'string' && !!bodyT[lang]
-  if (fresh) {
-    return { subject: (typeof subjT[lang] === 'string' && subjT[lang]) ? subjT[lang] : subjCz, body: bodyT[lang] }
-  }
-  const tr = await translateEmailTemplate(subjCz, bodyCz, lang)
-  if (!tr) return { subject: subjCz, body: bodyCz } // API selhalo → CZ fallback
-  // cache zpět do DB (best-effort, merge přes ostatní jazyky)
-  try {
-    const newSubjT = { ...subjT, [lang]: tr.subject, ['__src_' + lang]: srcHash }
-    const newBodyT = { ...bodyT, [lang]: tr.body, ['__src_' + lang]: srcHash }
-    await supabase.from('email_templates').update({ subject_translations: newSubjT, body_translations: newBodyT }).eq('slug', tpl.slug)
-  } catch { /* ignore */ }
-  return tr
-}
-
-const FOLLOW_US_LABEL: Record<string, string> = {
-  cs: 'SLEDUJTE NÁS', en: 'FOLLOW US', de: 'FOLGEN SIE UNS', nl: 'VOLG ONS',
-  es: 'SÍGUENOS', fr: 'SUIVEZ-NOUS', pl: 'OBSERWUJ NAS',
+// ── i18n: dynamický překlad CZ mailové šablony — sdílený modul _shared/email-translate.ts
+// (cache email_templates.{subject,body}_translations[lang] + __src_<lang> s verzí promptu; uk).
+// deno-lint-ignore no-explicit-any
+function resolveTemplateForLang(supabase: any, tpl: any, lang: string): Promise<{ subject: string; body: string }> {
+  return resolveTemplateShared(supabase, tpl, lang, 'send-booking-email')
 }
 
 const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: string }> = {
@@ -141,6 +59,7 @@ const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: st
   es: { title: 'Tu reseña nos ayudaría mucho', body: 'Si quedaste satisfecho, déjanos una reseña en Google — ayudas a otros moteros.', cta: '⭐ Reseña en Google' },
   fr: { title: 'Votre avis nous aiderait', body: 'Si vous étiez satisfait, laissez-nous un avis sur Google — vous aidez d\'autres motards.', cta: '⭐ Avis sur Google' },
   pl: { title: 'Twoja recenzja by nam pomogła', body: 'Jeśli byłeś zadowolony, zostaw nam recenzję w Google — pomożesz innym motocyklistom.', cta: '⭐ Oceń w Google' },
+  uk: { title: 'Ваш відгук нам дуже допоможе', body: 'Якщо ви були задоволені, залиште нам, будь ласка, відгук у Google — ви допоможете іншим мотоциклістам.', cta: '⭐ Оцінити в Google' },
 }
 
 // Opraví odkazy na recenze v poděkovacím mailu. Šablona ve Velíně má odkazy
@@ -243,7 +162,7 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
   const header = `<div style="background:#000000;padding:36px 24px;text-align:center">
     <img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
     <div style="color:#ffffff;font-size:32px;font-weight:900;letter-spacing:3px;line-height:1">MOTO GO 24</div>
-    <div style="color:#ffffff;font-size:11px;font-weight:400;letter-spacing:6px;margin-top:8px">P\u016eJ\u010cOVNA MOTOREK</div>
+    <div style="color:#ffffff;font-size:11px;font-weight:400;letter-spacing:6px;margin-top:8px">${pickLang(BRAND_TAGLINE, lang)}</div>
   </div>`
   const helpCard = `<div style="margin:24px 32px 0;background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px">
     <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">${hc.title}</div>
@@ -270,7 +189,7 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
       </td>
     </tr></table>
     <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
-      <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">${FOLLOW_US_LABEL[lang] || FOLLOW_US_LABEL.cs}</div>
+      <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">${pickLang(FOLLOW_US_LABELS, lang)}</div>
       <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0"/></a>
       <a href="${IG_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/instagram-footer.svg" alt="Instagram" width="32" height="32" style="display:inline-block;border:0"/></a>
     </div>
@@ -452,6 +371,35 @@ async function uploadB64ToStorage(supabase: any, b64: string, path: string, cont
  *  je nutné storage_path odstranit (Resend SDK přijímá pouze content+filename). */
 type SentAttachment = { content: string; filename: string; storage_path?: string }
 
+/** Smlouva / VOP k rezervaci přes generate-document v jazyce zákazníka. generate-document použije
+ *  jen ČERSTVÝ překlad, jinak závazný český text s upozorněním (audit EDGE-DOC-01/08). 2 pokusy;
+ *  selhání → debug_log `doc_attachment_failed` (dřív tiché catch {} — mail odešel bez smlouvy/VOP). */
+async function generateDocAttachment(supabase: any, slug: 'rental_contract' | 'vop', booking_id: string, lang: string, fileBase: string): Promise<SentAttachment | null> {
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+  let lastErr = ''
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
+        method: 'POST', headers, body: JSON.stringify({ template_slug: slug, booking_id, language: lang }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (data.success && data.path) {
+        const b64 = await downloadAsBase64(supabase, data.path)
+        if (b64) return { content: b64, filename: `${fileBase}-${booking_id.slice(-8).toUpperCase()}.${fileExt(data.path)}`, storage_path: data.path }
+        lastErr = 'download_failed: ' + data.path
+      } else {
+        lastErr = `HTTP ${res.status}: ${String(data.error || '').slice(0, 200)}`
+      }
+    } catch (e) { lastErr = (e as Error).message }
+    if (attempt === 1) await new Promise((r) => setTimeout(r, 1500))
+  }
+  try {
+    await supabase.from('debug_log').insert({ source: 'send-booking-email', action: 'doc_attachment_failed', component: 'edge-function',
+      status: 'error', error_message: lastErr, request_data: { booking_id, template_slug: slug, language: lang } })
+  } catch { /* jen log */ }
+  return null
+}
+
 /** Auto-generate attachments based on email type */
 async function autoGenerateAttachments(
   type: string,
@@ -538,32 +486,14 @@ async function autoGenerateAttachments(
   // rental_contract / vop / credit_note se generují přes generate-document
   // (smlouva, VOP) nebo fetchují z invoices (dobropis).
   if (type === 'rental_contract' && booking_id) {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'rental_contract', booking_id, language: docLang }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (data.success && data.path) {
-        const b64 = await downloadAsBase64(supabase, data.path)
-        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.${fileExt(data.path)}`, storage_path: data.path })
-      }
-    } catch { /* ignore */ }
+    const att = await generateDocAttachment(supabase, 'rental_contract', booking_id, docLang, 'Najemni-smlouva')
+    if (att) atts.push(att)
     return atts
   }
 
   if (type === 'vop' && booking_id) {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'vop', booking_id, language: docLang }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (data.success && data.path) {
-        const b64 = await downloadAsBase64(supabase, data.path)
-        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.${fileExt(data.path)}`, storage_path: data.path })
-      }
-    } catch { /* ignore */ }
+    const att = await generateDocAttachment(supabase, 'vop', booking_id, docLang, 'VOP')
+    if (att) atts.push(att)
     return atts
   }
 
@@ -849,31 +779,11 @@ async function autoGenerateAttachments(
     }
     // priceDifference === 0 → žádná nová faktura, jen aktualizovaná smlouva/VOP níže
 
-    // 3. Updated rental contract
-    try {
-      const cRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'rental_contract', booking_id, language: docLang }),
-      })
-      const cData = await cRes.json().catch(() => ({}))
-      if (cData.success && cData.path) {
-        const b64 = await downloadAsBase64(supabase, cData.path)
-        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.${fileExt(cData.path)}`, storage_path: cData.path })
-      }
-    } catch { /* ignore */ }
-
-    // 4. VOP
-    try {
-      const vRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ template_slug: 'vop', booking_id, language: docLang }),
-      })
-      const vData = await vRes.json().catch(() => ({}))
-      if (vData.success && vData.path) {
-        const b64 = await downloadAsBase64(supabase, vData.path)
-        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.${fileExt(vData.path)}`, storage_path: vData.path })
-      }
-    } catch { /* ignore */ }
+    // 3. Updated rental contract + 4. VOP (jazyk zákazníka; čerstvý překlad, jinak závazná čeština)
+    const cAtt = await generateDocAttachment(supabase, 'rental_contract', booking_id, docLang, 'Najemni-smlouva')
+    if (cAtt) atts.push(cAtt)
+    const vAtt = await generateDocAttachment(supabase, 'vop', booking_id, docLang, 'VOP')
+    if (vAtt) atts.push(vAtt)
   }
 
   return atts

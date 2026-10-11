@@ -5,6 +5,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../../../core/debug_logger.dart';
 import '../../../core/theme.dart';
+import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import 'apple_pay_failure.dart';
 
@@ -464,7 +465,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
                           strokeWidth: 2, color: Colors.white),
                     )
                   : Text(
-                      '${tt.tr('payBtn')} ${widget.amount.toStringAsFixed(0)} Kč →'),
+                      '${tt.tr('payBtn')} ${Money.czk(widget.amount)} →'),
             ),
             const SizedBox(height: 10),
             Text(

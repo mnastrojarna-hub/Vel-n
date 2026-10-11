@@ -1,5 +1,10 @@
 import 'package:flutter_stripe/flutter_stripe.dart';
 
+import 'payment_error_strings_a.dart';
+import 'payment_error_strings_b.dart';
+import 'payment_error_strings_c.dart';
+import 'stripe_service.dart' show PaymentErrorCode;
+
 /// Strukturovaný výsledek mapování platební chyby.
 /// Zákazník nikdy nesmí zůstat v nejistotě — pro každý známý problém vrací
 /// konkrétní titulek, vysvětlení příčiny a návod, jak ho napravit.
@@ -120,6 +125,16 @@ class PaymentErrorMapper {
 
   static PaymentErrorInfo generic(String lang) => _generic(lang);
 
+  /// Chyba vrácená [StripeService] (kód, ne text — text služby je jen
+  /// technický log a zákazníkovi se neukazuje): přihlášení vypršelo /
+  /// síť nebo timeout / ostatní.
+  static PaymentErrorInfo serviceError(String lang, PaymentErrorCode? code) =>
+      switch (code) {
+        PaymentErrorCode.authExpired => authExpired(lang),
+        PaymentErrorCode.timeout || PaymentErrorCode.networkError => network(lang),
+        _ => _generic(lang),
+      };
+
   /// Odmítnutí doplatkové změny serverem PŘED platbou (process-payment 409/403,
   /// pole `code`). Vrací přeloženou hlášku, pro neznámý kód null → volající
   /// ukáže text serveru. Kódy: viz `dryMsgs` v process-payment/index.ts.
@@ -230,12 +245,17 @@ class PaymentErrorMapper {
         message: _t(lang, 'genericBody'),
       );
 
-  // Vlastní lokalizace (cs/en/de + fallback na cs). Záměrně self-contained,
-  // ať mapper nezávisí na velkých i18n souborech a chyby jsou vždy přeložené.
+  // Vlastní lokalizace (cs/en/de zde, es/fr/nl/pl/uk v payment_error_strings_*.dart).
+  // Záměrně self-contained, ať mapper nezávisí na velkých i18n souborech a
+  // chyby jsou vždy přeložené. Neznámý cizí jazyk → angličtina (ne čeština).
   static String _t(String lang, String key) {
     final l = (lang.isEmpty ? 'cs' : lang.substring(0, lang.length.clamp(0, 2)));
-    final m = _strings[l] ?? _strings['cs']!;
-    return m[key] ?? _strings['cs']![key] ?? key;
+    final m = _strings[l] ??
+        paymentErrorStringsA[l] ??
+        paymentErrorStringsB[l] ??
+        paymentErrorStringsC[l] ??
+        _strings['en']!;
+    return m[key] ?? _strings['en']![key] ?? key;
   }
 
   static const Map<String, Map<String, String>> _strings = {

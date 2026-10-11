@@ -99,6 +99,11 @@ return [
     'footer.contract' => 'Huurovereenkomst',
     'footer.partners' => 'Voor partners',
     'footer.partnersTitle' => 'Partners',
+    // Patička — alt texty log partnerů
+    'footer.partner.kudyznudyAlt' => 'Kudyznudy.cz – het beste begin van je uitje',
+    'footer.partner.atlasAlt' => 'Atlas Česka – reisgids voor Tsjechië',
+    'footer.partner.bikeangelAlt' => 'bikeAngel – gps-tracker en alarm voor motoren',
+    'footer.partner.vysocinaAlt' => 'Vysočina – officieel bestemmingsmerk',
     'footer.toTop' => 'NAAR BOVEN',
     'footer.iconPhone' => 'Telefoon',
     'footer.iconEmail' => 'E-mail',
@@ -161,6 +166,20 @@ return [
     'doc.notPublished' => 'Dit document is nog niet gepubliceerd.',
     'doc.cardView' => 'Document · bekijken',
 
+    // Jazyk smluvního dokumentu (dokumenty-detail.php): závazná je vždy česká verze
+    'doc.h1Suffix' => '| MotoGo24 motorverhuur',
+    'doc.metaDesc' => '{title} — MotoGo24 motorverhuur in Pelhřimov, Vysočina (Tsjechië). Geen borg, uitrusting inbegrepen, 24/7 open.',
+    'doc.czechBinding' => 'De Tsjechische versie is bindend; aan de vertaling wordt gewerkt.',
+    'doc.translationNote' => 'Deze vertaling is alleen ter informatie; de Tsjechische versie is bindend.',
+    'doc.czechVersionLink' => 'Tsjechische versie',
+    // Kontakt (pages/kontakt.php): mapa, fotky provozovny, typ pobočky v JSON-LD
+    'contact.mapAria' => 'Kaart: waar je ons vindt',
+    'contact.photoAlt.1' => 'Showroom van motorverhuur MotoGo24 in Pelhřimov',
+    'contact.photoAlt.2' => 'Vestiging MotoGo24 — motoren klaar voor verhuur',
+    'contact.photoAlt.3' => 'Adventure-motoren bij MotoGo24',
+    'contact.photoAlt.4' => 'Uitrustingsruimte — helmen en kleding inbegrepen bij de huur',
+    'contact.branchType.staffed' => 'filiaal met personeel',
+    'contact.branchType.self' => 'selfservicefiliaal',
     'breadcrumb.home' => 'Home',
     'breadcrumb.catalog' => 'Motorcatalogus',
     'breadcrumb.howto' => 'Hoe huren',
@@ -221,6 +240,10 @@ return [
     // ===== SEO meta defaults (per taal) =====
     'seo.default.description' => 'Motorverhuur in de regio Vysočina, Tsjechië — toer-, sport-, enduro- en kindermotoren. 24/7 verhuur, zonder borg, uitrusting inbegrepen, online reserveren.',
     'seo.default.keywords' => 'motorverhuur Tsjechië',
+    // Strukturovaná data (layout.php JSON-LD)
+    'seo.org.description' => 'Motorverhuur in de regio Vysočina, Tsjechië — straat-, naked-, supermoto-, enduro- en kindermotoren. Geen borg, uitrusting inbegrepen, 24/7 open.',
+    'seo.org.slogan' => 'Huur een motor zonder borg. 24/7. Online.',
+    'seo.service.description' => 'Motorverhuur in de regio Vysočina. Korte- en langetermijnverhuur van motoren in Tsjechië. Toer-, naked-, supermoto-, enduro-, sport- en kindermotoren. Geen borg, motoruitrusting inbegrepen, online reserveren met kaartbetaling, ophalen 24/7 mogelijk. Bezorging buiten het filiaal mogelijk, rijden binnen de EU toegestaan, groene kaart inbegrepen.',
     'seo.home.description' => 'Huur een motor in de regio Vysočina. Zonder borg, uitrusting inbegrepen, 24/7 service. Toer-, sport-, enduro- en kindermotoren. Online reserveren.',
     'seo.home.keywords' => 'motorverhuur Tsjechië',
 
@@ -816,6 +839,13 @@ return [
     // ===== Breadcrumb / FAQ / Galerij =====
     'breadcrumb.shop' => 'Shop',
     'faq.empty' => 'Er zijn nog geen vragen in deze categorie.',
+    // FAQ záložky podle faq_items.category_key (DB category_label je jen česky)
+    'faq.cat.borrowing' => 'Huren en inleveren',
+    'faq.cat.conditions' => 'Uitrusting en voorwaarden',
+    'faq.cat.delivery' => 'Bezorging',
+    'faq.cat.reservations' => 'Reserveringen',
+    'faq.cat.travel' => 'Reizen naar het buitenland',
+    'faq.cat.vouchers' => 'Cadeaubonnen',
     'gallery.openImage' => 'Foto in galerij openen',
     'gallery.prev' => 'Vorige foto',
     'gallery.next' => 'Volgende foto',

@@ -154,4 +154,20 @@ class CurrencyNotifier extends StateNotifier<String> {
     await Money.refreshRates();
     if (mounted) state = newCode; // kurz se mohl změnit → další rebuild ne(š)kodí
   }
+
+  /// Výchozí měna podle jazyka (uvítací výběr jazyka) — jen když si zákazník
+  /// měnu nikdy ručně nezvolil. Nic neukládá, ruční volba má vždy přednost.
+  Future<void> followLanguage(String lang) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString(Money._prefCode) != null) return;
+    } catch (_) {
+      return;
+    }
+    final c = defaultCurrencyForLang(lang);
+    if (c == Money.code) return;
+    Money.code = c;
+    if (mounted) state = c;
+    await Money.refreshRates();
+  }
 }
