@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { purgeWebCache } from '../lib/webCache'
 import { debugAction } from '../lib/debugLog'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import { branchOrFilter } from '../lib/bookingBranch'
 import { Spinner, EmptyState } from './BranchHelpers'
 
 // Zavírací období pobočky (od–do, inkluzivně). V termínu nelze rezervovat
@@ -56,18 +58,23 @@ export function TabClosures({ branch }) {
 
   // Rezervace, které už v zavíraném termínu na této pobočce existují.
   // Období se kvůli nim NEblokuje — obsluha je musí vyřešit ručně (přesun/storno).
+  // Pobočka = pobočka REZERVACE (bookings.branch_id; nevyzvednutá jde s motorkou), u NULL záloha přes
+  // aktuální motorky pobočky. Dřív embed `motorcycles!inner` bez FK (bookings má 2 FK → PGRST201) tiše padal.
   async function countConflicts(f, t) {
     try {
-      const { data, error } = await supabase
+      const { data: bm, error: bmErr } = await supabase.from('motorcycles').select('id').eq('branch_id', branchId)
+      if (bmErr) throw bmErr
+      const { count, error } = await supabase
         .from('bookings')
-        .select('id, motorcycles!inner(branch_id)')
-        .eq('motorcycles.branch_id', branchId)
+        .select('id', { count: 'exact', head: true })
+        .or(branchOrFilter(branchId, (bm || []).map(m => m.id)))
         .in('status', ['pending', 'reserved', 'active'])
         .lte('start_date', `${t}T23:59:59`)
         .gte('end_date', `${f}T00:00:00`)
       if (error) throw error
-      return (data || []).length
-    } catch {
+      return count || 0
+    } catch (e) {
+      console.error('countConflicts', e)
       return null
     }
   }
@@ -98,8 +105,11 @@ export function TabClosures({ branch }) {
       const conflicts = await countConflicts(from, to)
       if (conflicts > 0) {
         setConflictNote(`Pozor: v tomto termínu už je na pobočce ${conflicts} živých rezervací. Období je uložené, ale stávající rezervace se samy neruší — přesuňte je, nebo stornujte.`)
+      } else if (conflicts === null) {
+        setConflictNote('Období je uložené, ale kontrola stávajících rezervací v termínu selhala — ověřte je ručně v Rezervacích.')
       }
       setFrom(''); setTo(''); setReason('')
+      purgeWebCache() // dostupnost na webu hned
       load()
     } catch (e) {
       setErr(`Uložení selhalo: ${e.message}`)
@@ -119,6 +129,7 @@ export function TabClosures({ branch }) {
         action: 'branch_closure_deleted',
         new_data: { branch: branch.name, from: row.closed_from, to: row.closed_to },
       })
+      purgeWebCache() // dostupnost na webu hned
       load()
     } catch (e) {
       setErr(`Smazání selhalo: ${e.message}`)

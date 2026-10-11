@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { isRevenueEntry } from '../../lib/revenueUtils'
+import { fetchAllRows } from '../../lib/branchFleet'
 
 import Card from '../../components/ui/Card'
 
@@ -23,10 +24,12 @@ export default function RevenueChart() {
       })
     }
 
-    const { data: entries } = await supabase
-      .from('accounting_entries')
-      .select('type, amount, date, category, description')
-      .gte('date', months[0].start)
+    // stránkovaně — PostgREST vrací max. 1000 řádků (12 měsíců záznamů to snadno přesáhne)
+    let entries = []
+    try {
+      entries = await fetchAllRows(() => supabase.from('accounting_entries')
+        .select('type, amount, date, category, description').gte('date', months[0].start).order('id'))
+    } catch (e) { console.error('RevenueChart', e) }
 
     const chart = months.map(m => {
       const mEntries = (entries || []).filter(e => e.date >= m.start && e.date <= m.end)

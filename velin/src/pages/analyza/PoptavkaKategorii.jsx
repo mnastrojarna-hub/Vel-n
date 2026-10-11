@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { fetchAllResult } from '../../lib/branchFleet'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
@@ -33,7 +34,7 @@ export default function PoptavkaKategorii() {
     try {
       const [mRes, bRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status'),
-        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
+        fetchAllResult(() => supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at, payment_status, is_test').order('id')),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error

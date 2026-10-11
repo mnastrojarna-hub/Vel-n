@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { FLEET_CALC, calcLocationEconomics } from '../../lib/fleetCalc'
-import TimePeriodSelector, { filterByPeriod, diffDays } from './TimePeriodSelector'
+import TimePeriodSelector, { filterByPeriod } from './TimePeriodSelector'
 import { isRealizedBooking } from '../../lib/revenueUtils'
 import { effBranchId } from '../../lib/bookingBranch'
+import { fetchAllRows, loadMotoMoves, periodWindow, buildFleetTimeline, summarizeByBranch, profitPerMotoYear, MIN_EXPOSURE_DAYS } from '../../lib/branchFleet'
 import { useTableSort, sortRows, SortableHeaderRow } from '../../components/sortableTable'
 
 const FLEET_COLUMNS = [
@@ -46,15 +47,24 @@ export default function DoporuceniLokaci() {
   async function loadData() {
     setLoading(true); setError(null)
     try {
-      const [lRes, bRes, mRes] = await Promise.all([
+      const [lRes, bookings, mRes, moves] = await Promise.all([
         supabase.from('branches').select('id, name, city, location, type'),
-        supabase.from('bookings').select('id, moto_id, branch_id, start_date, end_date, total_price, status, created_at, payment_status, is_test'),
-        supabase.from('motorcycles').select('id, branch_id, category, model, purchase_price, status'),
+        fetchAllRows(() => supabase.from('bookings').select('id, moto_id, trailer_moto_id, branch_id, start_date, end_date, total_price, status, created_at, payment_status, is_test').not('is_test', 'is', true).order('id')),
+        supabase.from('motorcycles').select('id, branch_id, category, model, purchase_price, status, acquired_at, created_at, is_trailer'),
+        loadMotoMoves(),
       ])
-      if (lRes.error) throw lRes.error; if (bRes.error) throw bRes.error; if (mRes.error) throw mRes.error
-      setRaw({ locations: lRes.data || [], bookings: bRes.data || [], motorcycles: mRes.data || [] })
+      if (lRes.error) throw lRes.error; if (mRes.error) throw mRes.error
+      setRaw({ locations: lRes.data || [], bookings, motorcycles: mRes.data || [], moves })
     } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
+
+  // Flotila pobočky v čase (moto-dny, lib/branchFleet.js) — ne aktuální flotila
+  const fleet = useMemo(() => {
+    if (!raw) return null
+    const win = periodWindow(period, raw.bookings)
+    const tl = buildFleetTimeline({ motorcycles: raw.motorcycles, bookings: raw.bookings, moves: raw.moves, fromDay: win.fromDay, toDay: win.toDay })
+    return { win, byBranch: summarizeByBranch(tl, m => (m.category || '').toLowerCase()) }
+  }, [raw, period])
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2" style={{ borderColor: '#74FB71' }} /></div>
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
@@ -62,42 +72,63 @@ export default function DoporuceniLokaci() {
 
   const { locations, bookings, motorcycles } = raw
   const completed = filterByPeriod(bookings.filter(isRealizedBooking), period, 'created_at')
-  // Rezervace pobočky = bookings.branch_id (kde zákazník převzal), u NULL pobočka motorky;
-  // ekonomika dál po motorkách aktuální flotily pobočky (jen jejich rezervace NA té pobočce).
+  // JEDNO přiřazení: rezervace/obrat = pobočka rezervace (bookings.branch_id, u NULL pobočka motorky);
+  // flotila, obsazenost a fixní náklady = moto-dny motorek, které na pobočce v období reálně stály.
   const motoBranchMap = Object.fromEntries(motorcycles.map(m => [m.id, m.branch_id]))
+  const motosById = Object.fromEntries(motorcycles.map(m => [m.id, m]))
   const completedAt = locId => completed.filter(b => effBranchId(b, motoBranchMap) === locId)
+  const { win, byBranch } = fleet
 
-  // Build real utilization map by branchType × category
+  // Build real utilization map by branchType × category (dny pronájmu / moto-dny kategorie na pobočce)
   const realUtilByType = {}
   const typeSourceNames = {} // track which branch name provides real data per type
   for (const loc of locations) {
     const bt = loc.location || 'turistická'
-    const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
     const locCompleted = completedAt(loc.id)
     if (locCompleted.length === 0) continue
     if (!realUtilByType[bt]) { realUtilByType[bt] = {}; typeSourceNames[bt] = loc.name }
     for (const cat of Object.keys(FLEET_CALC.categoryParams)) {
-      const catMotos = locMotos.filter(m => (m.category || '').toLowerCase() === cat)
-      if (catMotos.length === 0) continue
-      let totalRented = 0
-      for (const m of catMotos) totalRented += locCompleted.filter(b => b.moto_id === m.id).reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
-      const realUtil = totalRented / (catMotos.length * 365)
+      const c = byBranch[loc.id]?.cats[cat]
+      if (!c || c.motoDays < MIN_EXPOSURE_DAYS) continue
+      const realUtil = c.rentedDays / c.motoDays
       const existing = realUtilByType[bt][cat]
       realUtilByType[bt][cat] = existing !== undefined ? (existing + realUtil) / 2 : realUtil
     }
   }
 
-  // Per-branch economics using calcLocationEconomics.
+  // Reálná ekonomika pobočky z moto-dnů (stejně jako Výkon poboček). Zisk = roční projekce na motorku × průměrná flotila.
+  function branchEconomics(locId) {
+    const st = byBranch[locId], locCompleted = completedAt(locId)
+    if (!st || st.motoDays === 0 || locCompleted.length === 0 || win.days === 0) return { hasRealData: false }
+    const avgFleet = st.motoDays / win.days
+    const totalRevenue = locCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
+    const perYear = profitPerMotoYear(st, motosById)
+    const totalProfit = perYear != null ? perYear * avgFleet : null
+    let totalInvestment = 0
+    for (const [id, d] of Object.entries(st.perMoto)) {
+      const m = motosById[id] || {}, cat = (m.category || 'naked').toLowerCase()
+      const pp = Number(m.purchase_price) > 0 ? Number(m.purchase_price) : (FLEET_CALC.categoryParams[cat] ?? FLEET_CALC.categoryParams.naked).avgPurchasePrice
+      totalInvestment += pp * FLEET_CALC.purchasePriceMarkup * d / win.days
+    }
+    return {
+      dataSource: 'real', hasRealData: true, lowExposure: st.motoDays < MIN_EXPOSURE_DAYS, avgFleet,
+      totalRevenue, totalProfit, totalInvestment, revenuePerSlot: totalRevenue / avgFleet,
+      paybackMonths: totalProfit > 0 ? (totalInvestment / totalProfit) * 12 : null,
+      avgUtilization: st.rentedDays / st.motoDays, breakdown: [],
+    }
+  }
+
+  // Per-branch economics z moto-dnů (branchEconomics); calcLocationEconomics jen pro Kalkulátor.
   // Pobočka BEZ realizovaných rezervací (nikdy neotevřená / nová) se v přehledu
   // NEodhaduje z benchmarků — odhad by se tvářil jako obrat a hodnocení
   // (viz Velké Němčice: 233 600 Kč, 40 %, „Výkonná" bez jediného pronájmu).
   // Benchmark zůstává jen v Kalkulátoru nové pobočky níže.
   const NO_DATA = { totalRevenue: 0, totalProfit: 0, totalInvestment: 0, revenuePerSlot: 0, paybackMonths: null, avgUtilization: 0, breakdown: [] }
   const locStats = locations.map(loc => {
-    const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
-    const bt = loc.location || 'turistická'
-    const econ = calcLocationEconomics(locMotos, completedAt(loc.id), bt, null, realUtilByType)
-    return { ...loc, ...(econ.hasRealData ? econ : { ...econ, ...NO_DATA }), motoCount: locMotos.length }
+    const econ = branchEconomics(loc.id)
+    // Karta „N motorek“: s daty průměrná flotila v období, bez dat aktuální počet motorek (bez vozíků)
+    const curCount = motorcycles.filter(m => m.branch_id === loc.id && !m.is_trailer).length
+    return { ...loc, ...(econ.hasRealData ? econ : { ...econ, ...NO_DATA }), motoCount: econ.hasRealData ? econ.avgFleet : curCount }
   }).sort((a, b) => b.totalRevenue - a.totalRevenue)
 
   const rated = locStats.filter(l => l.hasRealData)
@@ -108,7 +139,7 @@ export default function DoporuceniLokaci() {
   const avgRevPerSlot = totalMotos > 0 ? totalRevenue / totalMotos : 0
 
   for (const l of rated) {
-    if (avgRevPerSlot === 0) { l.stars = 3; continue }
+    if (avgRevPerSlot === 0 || l.lowExposure) { l.stars = 3; continue } // < MIN moto-dní = bez hodnocení
     const r = l.revenuePerSlot / avgRevPerSlot
     l.stars = r >= 1.5 ? 5 : r >= 1.2 ? 4 : r >= 0.8 ? 3 : r >= 0.5 ? 2 : 1
   }
@@ -147,13 +178,13 @@ export default function DoporuceniLokaci() {
                 ) : (
                   <>
                     <div className="text-xl font-extrabold mb-1" style={{ color: '#166534' }}>{Math.round(l.totalRevenue).toLocaleString('cs-CZ')} Kč</div>
-                    <div className="text-xs mb-1" style={{ color: '#854d0e' }}>Zisk / motorku: {Math.round(l.totalProfit / l.motoCount).toLocaleString('cs-CZ')} Kč/rok</div>
+                    <div className="text-xs mb-1" style={{ color: '#854d0e' }}>Zisk / motorku: {l.totalProfit != null && l.motoCount > 0 ? `${Math.round(l.totalProfit / l.motoCount).toLocaleString('cs-CZ')} Kč/rok` : '—'}</div>
                     <div className="flex items-center gap-2 mb-2">
                       <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#e5e7eb' }}><div style={{ width: `${Math.min(l.avgUtilization * 100, 100)}%`, height: '100%', borderRadius: 4, background: '#74FB71' }} /></div>
                       <span className="text-xs font-bold" style={{ minWidth: 40 }}>{(l.avgUtilization * 100).toFixed(1)}%</span>
                     </div>
                     <div className="flex items-center justify-between text-xs" style={{ color: '#888' }}>
-                      <span>{l.motoCount} motorek</span>
+                      <span title="Průměrný počet motorek, které na pobočce v období reálně stály (moto-dny ÷ dny období)">{Number(l.motoCount.toFixed(1)).toLocaleString('cs-CZ')} motorek</span>
                       <DataSourceBadge source={l.dataSource} />
                       <span>{status.icon} {status.text}</span>
                     </div>
