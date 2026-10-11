@@ -96,6 +96,6 @@ return ['pages' => ['landing_katalog' => [
     'f_mode_calc_sub' => 'Días libres y precio',
     'f_type' => 'Tipo de moto',
     'f_dates_ph' => 'Elige fechas',
-    'f_filters_hint' => 'Carné, sede…',
+    'f_filters_hint' => 'Carnet, sucursal…',
     'f_go' => 'Mostrar',
 ]]];

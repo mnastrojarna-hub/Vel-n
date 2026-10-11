@@ -218,7 +218,7 @@
     if (o.start && o.end && o.start >= today && o.end >= o.start) {
       S.start = o.start; S.end = o.end; S.y = +o.start.slice(0, 4); S.mo = +o.start.slice(5, 7) - 1;
     }
-    setMoto(o.moto || '');
+    setMoto(o.keepMoto ? S.moto : (o.moto || ''));
   };
 
   // Start: předvybraná pobočka (filtr ?pobocka=) / motorka (detail)

@@ -59,7 +59,7 @@ html:not(.kf-js) .km-top{display:none}
 @media(max-width:599px){.km .kf-bar.is-float .km-field .kf-btn-l{font-size:.78rem}}
 .km .kf-bar.is-float .km-n{width:24px;height:24px}
 .km .kf-bar.is-float .kf-bar-in{grid-template-columns:1fr 1fr auto}
-.km .kf-bar.is-float [data-kf-calc]{display:inline-flex!important;min-height:46px;min-width:46px;border-color:#0e2a1c;background:radial-gradient(120% 140% at 100% 0,#24563b 0,#0e2a1c 60%);color:#fff}
+.km .kf-bar.is-float [data-kf-calc]:not([hidden]){display:inline-flex!important;min-height:46px;min-width:46px;border-color:#0e2a1c;background:radial-gradient(120% 140% at 100% 0,#24563b 0,#0e2a1c 60%);color:#fff}
 .km .kf-bar.is-float [data-kf-calc] .lp-ico{color:#74fb71}
 /* Patička filtru: živý počet + skok na motorky + aktivní filtry */
 .km .kf-res{margin:.8rem -.75rem 0;padding:.55rem .75rem .6rem;border-top:1px solid #e6f0eb;border-radius:0 0 21px 21px;background:#f4fbf7}
@@ -82,7 +82,8 @@ html:not(.kf-js) .km-top{display:none}
 html:not(.kf-js) .km .kf-res{border-radius:0}
 .kf-js .km[data-mode=find] .km-calc,.kf-js .km[data-mode=calc] .km-find{display:none}
 .km-pane{animation:kmIn .25s ease}
-@keyframes kmIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* jen opacity — transform by z panelu udělal containing block pro fixed lištu/sheety */
+@keyframes kmIn{from{opacity:0}to{opacity:1}}
 
 @media(max-width:380px){.km-tt small{display:none}.km-tab{min-height:50px}}
 /* Užší telefony: menší písmo hodnot, v přilepené liště (a pod 375 px všude) pole bez ikony,
@@ -116,6 +117,8 @@ html:not(.kf-js) .km .kf-res{border-radius:0}
   .km .kf-cats{margin:0;padding:.1rem 0 0;flex-wrap:wrap}
   /* Rozbalovací panel filtrů / popover termínu se kotví na .km-find, v přilepené liště na ní */
   .km .kf-bar:not(.is-float){position:static}
+  /* přepínač nad průhledným scrimem otevřeného panelu (1. klik přepne režim, ne jen zavře panel) */
+  .km-top{z-index:2}
   .km .kf-bar-in{grid-template-columns:240px 270px}
   .km .kf-bar.is-float .kf-bar-in{grid-template-columns:240px 270px auto}
   .kf-js .km .kf-bar.is-float .kf-panel{left:max(.75rem,calc((100vw - 1160px)/2));width:min(1160px,calc(100% - 1.5rem))}
