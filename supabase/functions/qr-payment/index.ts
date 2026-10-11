@@ -14,6 +14,7 @@
 // text sedí na doplatek). Potvrzení pak ve Velíně přes „Potvrdit doplatek"
 // (RPC confirm_booking_surcharge → teprve pak odejde booking_modified mail).
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -49,6 +50,11 @@ serve(async (req) => {
   try {
     const { booking_id, locale, surcharge } = await req.json().catch(() => ({}))
     if (!booking_id) return json({ success: false, error: 'missing_booking_id' }, 400)
+    // BEZPEČNOST 2026-10-11: surcharge (doplatek po úpravě ve Velíně) jen důvěryhodný
+    // volající (aktivní admin / service klíč). Základní režim volá web anonymně —
+    // proti spamu viz `quiet` níže (admin / service = vždy plné odeslání).
+    const trusted = await isTrustedCaller(req)
+    if (surcharge && !trusted) return forbidden(CORS, 'trusted_caller_only')
     const sb = createClient(SUPABASE_URL, SERVICE_KEY)
 
     // 1) Rezervace. Základní režim = jen web + nezaplacená (celá platba rezervace).
@@ -57,13 +63,18 @@ serve(async (req) => {
     //    tu záměrně NEselectují (guard + částka jde z RPC) — select tak nespadne,
     //    dokud migrace 20260727 neproběhne, a základní web flow zůstane netknutý.
     const { data: bk } = await sb.from('bookings')
-      .select('id, booking_source, payment_status, total_price, profiles(full_name, email)')
+      .select('id, booking_source, payment_status, total_price, payment_vs, pay_channel, profiles(full_name, email)')
       .eq('id', booking_id).maybeSingle()
     if (!bk) return json({ success: false, error: 'not_found' }, 404)
     if (!surcharge) {
       if (bk.booking_source !== 'web') return json({ success: false, error: 'not_web_booking' }, 400)
       if (bk.payment_status === 'paid') return json({ success: false, error: 'already_paid' }, 400)
     }
+    // Anti-spam (2026-10-11): QR už zvolené (VS přidělený, kanál qr) a volá anon /
+    // zákazník → vrať stejné údaje (VS se nemění), ale BEZ nové ZF a bez mailů
+    // zákazníkovi i na info@ (dřív každé volání = 2 maily). Velín „Znovu poslat“
+    // (admin) a service volající posílají vždy.
+    const quiet = !surcharge && !trusted && !!(bk as any).payment_vs && (bk as any).pay_channel === 'qr'
 
     // 2) Přiděl VS (idempotentní). Surcharge má vlastní VS (mod_surcharge_vs) a RPC
     //    hlídá i guard `no_surcharge_pending`; základní režim značí kanál
@@ -107,7 +118,7 @@ serve(async (req) => {
       if (existing?.[0]?.pdf_path) {
         invoiceNumber = existing[0].number
         invoicePath = existing[0].pdf_path
-      } else {
+      } else if (!quiet) {
         const gi = await fetch(SUPABASE_URL + '/functions/v1/generate-invoice', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SERVICE_KEY, apikey: SERVICE_KEY },
@@ -129,7 +140,7 @@ serve(async (req) => {
     //    chyběla nebo byla deaktivovaná.
     const custEmail = (bk as any).profiles?.email || null
     const custName = (bk as any).profiles?.full_name || ''
-    if (custEmail) {
+    if (custEmail && !quiet) {
       const attachment_paths = invoicePath
         ? [{ filename: (invoiceNumber || 'zalohova-faktura') + '.pdf', path: invoicePath }]
         : []
@@ -189,7 +200,7 @@ serve(async (req) => {
     }
 
     // 6) Upozornění na info@motogo24.cz
-    try {
+    if (!quiet) try {
       await fetch(SUPABASE_URL + '/functions/v1/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SERVICE_KEY, apikey: SERVICE_KEY },

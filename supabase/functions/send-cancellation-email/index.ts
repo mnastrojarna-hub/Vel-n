@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { renderEmail, normalizeLang, helpCardLabels, type Lang } from './i18n.ts'
 
@@ -205,6 +206,11 @@ async function downloadAsBase64(supabase: any, path: string): Promise<string | n
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  // BEZPEČNOST 2026-10-11: jen důvěryhodný volající — service klíč (env: webhook /
+  // process-refund…, app_settings: DB cancel_booking_tracked / auto_cancel_expired_pending)
+  // nebo aktivní admin (Velín). Dřív kdokoli bez přihlášení spustil reálný Stripe
+  // refund libovolné zaplacené rezervace a poslal storno mail (s dobropisem) kamkoli.
+  if (!(await isTrustedCaller(req))) return forbidden(CORS, 'trusted_caller_only')
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 

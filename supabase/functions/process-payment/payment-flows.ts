@@ -264,12 +264,19 @@ export async function handleSosPaymentLink(
 
   const { data: booking, error: bErr } = await supabaseAdmin
     .from('bookings')
-    .select('id, payment_status, user_id, profiles:user_id(full_name, email, stripe_customer_id)')
+    .select('id, payment_status, user_id, sos_replacement, profiles:user_id(full_name, email, stripe_customer_id)')
     .eq('id', bookingId)
     .single()
   if (bErr || !booking) {
     return new Response(JSON.stringify({ success: false, error: 'Booking not found' }), {
       status: 404, headers: { ...CORS, 'Content-Type': 'application/json' }
+    })
+  }
+  // Odkaz type 'sos' (webhook → paid + active + picked_up_at) JEN pro náhradní
+  // rezervaci ze SOS výměny (sos_swap_bookings), ne pro libovolnou nezaplacenou.
+  if ((booking as { sos_replacement?: boolean | null }).sos_replacement !== true) {
+    return new Response(JSON.stringify({ success: false, error: 'Rezervace není SOS náhradou.', code: 'not_sos_replacement' }), {
+      status: 409, headers: { ...CORS, 'Content-Type': 'application/json' }
     })
   }
   if (booking.payment_status === 'paid') {
@@ -486,7 +493,12 @@ export async function handleWebShopCheckout(
 
   // Větvení: produkty z e-shopu (mají order_id z create_web_shop_order, nemají voucher_amount)
   // vs. dárkový poukaz (existující flow).
-  if (webBody.kind === 'products' || (body.order_id && webBody.voucher_amount == null)) {
+  // BEZPEČNOST 2026-10-11: KAŽDÝ požadavek s order_id jde do produktové větve (cena
+  // z DB). Voucher větev dřív existující order_id převzala a session za klientem
+  // zvolenou `voucher_amount` k ní připnula → zaplacením 15 Kč šlo potvrdit
+  // libovolnou čekající objednávku. Web poukaz (poukazy-objednat.php) order_id
+  // neposílá — voucher větev tak vždy zakládá VLASTNÍ novou objednávku.
+  if (webBody.kind === 'products' || body.order_id) {
     return await handleWebProductCheckout(body, webBody)
   }
 

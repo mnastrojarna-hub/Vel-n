@@ -571,12 +571,134 @@ ${vsOut ? `<vs>${vsOut}</vs>\n` : ''}<date>${today}</date>
   }
 }
 
+// ── Strop ZÁKAZNICKÉ vratky (2026-10-11) ─────────────────────────────────────
+// Zákazník (appka) smí dostat zpět jen PŘEPLATEK: co rezervace reálně zaplatila,
+// minus co se už vrátilo, minus její AKTUÁLNÍ total_price (appka nižší cenu zapíše
+// dřív, než refund zavolá — reservation_edit_screen). Zaplaceno se bere ze Stripe
+// / fio_transactions, ne z řádku rezervace (ten si zákazník umí přepsat).
+const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Stripe: Σ(přijato − vráceno) přes VŠECHNY PaymentIntenty rezervace (původní platba,
+ *  doplatky…) bez přibalené e-shop objednávky, minus total_price; haléře. null = nelze ověřit. */
+async function customerStripeCapHaleru(
+  supabase: any, bookingId: string, currentPi: string | null, totalPrice: number,
+): Promise<number | null> {
+  if (!UUID_RX.test(bookingId)) return null
+  try {
+    const ids = new Set<string>()
+    if (currentPi) ids.add(currentPi)
+    try {
+      const found = await stripe.paymentIntents.search({ query: `metadata['booking_id']:'${bookingId}'`, limit: 100 })
+      for (const pi of found.data) if (pi.status === 'succeeded') ids.add(pi.id)
+    } catch (e) { console.warn('[process-refund] PI search failed:', (e as Error).message) }
+    let net = 0
+    for (const id of ids) {
+      const pi = await stripe.paymentIntents.retrieve(id)
+      const received = pi.amount_received || 0
+      if (!received) continue
+      let refunded = 0
+      const rl = await stripe.refunds.list({ payment_intent: id, limit: 100 })
+      for (const r of rl.data) if (r.status === 'succeeded' || r.status === 'pending') refunded += r.amount
+      // Web rezervace s přibaleným e-shopem (metadata.shop_order_id): zboží není přeplatek.
+      let shopPart = 0
+      const shopId = (pi.metadata || {}).shop_order_id
+      if (shopId) {
+        const { data: so } = await supabase.from('shop_orders').select('total').eq('id', shopId).maybeSingle()
+        shopPart = Math.round((Number(so?.total) || 0) * 100)
+      }
+      net += Math.max(0, received - refunded - shopPart)
+    }
+    return Math.max(0, net - Math.round((Number(totalPrice) || 0) * 100))
+  } catch (e) {
+    console.warn('[process-refund] customer cap (stripe) failed:', (e as Error).message)
+    return null
+  }
+}
+
+/** Převod / QR: příchozí platby rezervace (fio_transactions dle booking_id nebo VS)
+ *  − ruční dobropisy − total_price; Kč. Chyba = 0 (fail closed → vyřídí obsluha). */
+async function customerManualCapCzk(supabase: any, bookingId: string, totalPrice: number): Promise<number> {
+  try {
+    const { data: bk } = await supabase.from('bookings')
+      .select('payment_vs, mod_surcharge_vs').eq('id', bookingId).maybeSingle()
+    const rows = new Map<string, number>()
+    const { data: byId, error: e1 } = await supabase.from('fio_transactions')
+      .select('fio_id, amount').eq('booking_id', bookingId).gt('amount', 0)
+    if (e1) return 0
+    for (const r of byId || []) rows.set(String(r.fio_id), Number(r.amount) || 0)
+    const vses = [bk?.payment_vs, bk?.mod_surcharge_vs].filter(Boolean).map(String)
+    if (vses.length) {
+      const { data: byVs } = await supabase.from('fio_transactions')
+        .select('fio_id, amount').in('vs', vses).gt('amount', 0)
+      for (const r of byVs || []) rows.set(String(r.fio_id), Number(r.amount) || 0)
+    }
+    const paid = [...rows.values()].reduce((s, v) => s + v, 0)
+    const { data: cns, error: e2 } = await supabase.from('invoices').select('total')
+      .eq('booking_id', bookingId).eq('type', 'credit_note').neq('status', 'cancelled')
+      .is('stripe_refund_id', null)
+    if (e2) return 0
+    const refunded = (cns || []).reduce((s: number, c: any) => s + Math.abs(Number(c.total) || 0), 0)
+    return Math.max(0, Math.round((paid - refunded - (Number(totalPrice) || 0)) * 100) / 100)
+  } catch { return 0 }
+}
+
+/** Spodní věrohodná mez ceny rezervace (Kč) ze serverového ceníku; null = nelze ověřit. */
+async function customerPriceFloorCzk(supabase: any, bookingId: string): Promise<number | null> {
+  try {
+    const { data: bk } = await supabase.from('bookings')
+      .select('moto_id, start_date, end_date').eq('id', bookingId).maybeSingle()
+    if (!bk?.moto_id || !bk?.start_date || !bk?.end_date) return null
+    const s = String(bk.start_date).slice(0, 10), e = String(bk.end_date).slice(0, 10)
+    const { data: sum, error } = await supabase.rpc('_moto_dayprice_sum', { p_moto_id: bk.moto_id, p_start: s, p_end: e })
+    if (error) return null
+    const { data: m } = await supabase.from('motorcycles')
+      .select('price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun').eq('id', bk.moto_id).maybeSingle()
+    const maxDay = Math.max(0, ...Object.values(m || {}).map((v) => Number(v) || 0))
+    const { data: disc } = await supabase.from('booking_discounts').select('amount').eq('booking_id', bookingId)
+    const discounts = (disc || []).reduce((t: number, d: any) => t + Math.max(0, Number(d.amount) || 0), 0)
+    return Math.max(0, Math.floor(0.8 * (Number(sum) || 0) - 0.5 * maxDay - discounts))
+  } catch { return null }
+}
+
+/** Zákaznická vratka bez ověřeného přeplatku → nic se nevrací, stav se nemění,
+ *  obsluha dostane mail (max 1× za 10 min na rezervaci). HTTP 200 + success:false,
+ *  aby appka (functions.invoke hází na ne-2xx) ukázala srozumitelný text. */
+async function customerRefundNeedsStaff(
+  supabase: any, bookingId: string, amount: unknown, reason: string | undefined,
+  dlog: (action: string, status: string, extra?: Record<string, unknown>) => unknown,
+): Promise<Response> {
+  let recent = false
+  try {
+    const { data: prev } = await supabase.from('debug_log').select('id')
+      .eq('source', 'process-refund').eq('action', 'customer_refund_needs_staff')
+      .eq('request_data->>booking_id', bookingId)
+      .gte('created_at', new Date(Date.now() - 10 * 60_000).toISOString()).limit(1)
+    recent = !!prev?.length
+  } catch { /* bez dedupu */ }
+  await dlog('customer_refund_needs_staff', 'info', { requested: amount ?? null })
+  if (!recent) {
+    const num = String(bookingId).slice(-8).toUpperCase()
+    const amt = (Number(amount) || 0).toLocaleString('cs-CZ')
+    await sendOpsMail(
+      `⚠️ Vratku za úpravu rezervace #${num} vyřiďte ručně`,
+      `<p>Zákazník v aplikaci upravil rezervaci <strong>#${num}</strong> (${reasonTextFor(reason)}) a požádal o vrácení <strong>${amt} Kč</strong>.</p>`
+      + '<p>Automatická vratka NEPROBĚHLA — k rezervaci se nenašel ověřený přeplatek (platby Stripe / Fio − vrácené − aktuální cena). '
+      + 'Zkontrolujte platby a případně vraťte ručně z detailu rezervace ve Velíně.</p>',
+    )
+  }
+  return new Response(
+    JSON.stringify({ success: false, code: 'refund_needs_staff', error: 'Změna je uložená. Vrácení peněz za ni vyřídí obsluha ručně — ozveme se vám.' }),
+    { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+  )
+}
+
 async function manualBookingRefund(
   supabase: any,
   booking_id: string,
   amount: number | undefined,
   reason: string | undefined,
   dlog: (action: string, status: string, extra?: Record<string, unknown>) => unknown,
+  customerCap = false,
 ): Promise<Response> {
   const { data: bkFull } = await supabase.from('bookings')
     .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
@@ -584,6 +706,20 @@ async function manualBookingRefund(
   const totalPrice = Number(bkFull?.total_price || 0)
   let manAmount = Number(amount) > 0 ? Number(amount) : totalPrice
   if (totalPrice > 0 && manAmount > totalPrice) manAmount = totalPrice
+  // Zákazník (appka): jen ověřený přeplatek z příchozích plateb (strop výše).
+  // Souběžný duplicitní dispatch TÉŽE částky (čerstvý ruční dobropis ≤15 min)
+  // strop přeskočí — vyřeší ho dedup níže (žádná druhá vratka).
+  if (customerCap && manAmount > 0) {
+    const { data: dupCn } = await supabase.from('invoices').select('id')
+      .eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled')
+      .is('stripe_refund_id', null).eq('total', -manAmount)
+      .gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString()).limit(1)
+    if (!dupCn?.length) {
+      const capCzk = await customerManualCapCzk(supabase, booking_id, totalPrice)
+      if (manAmount > capCzk) manAmount = capCzk
+      if (!(manAmount > 0)) return await customerRefundNeedsStaff(supabase, booking_id, amount, reason, dlog)
+    }
+  }
 
   if (manAmount <= 0) {
     await dlog('manual_refund_noop_zero', 'info', { manual: true })
@@ -696,7 +832,8 @@ async function manualBookingRefund(
   // partial_refund — stejně jako Stripe refund) a ruční banner se nezobrazí.
   const fio = await tryFioRefund(supabase, booking_id, cnId, cnNumber, manAmount, reasonText, dlog)
   if (fio.sent) {
-    const newStatus = refundPercent >= 100 ? 'refunded' : 'partial_refund'
+    // Zákaznická vratka = jen přeplatek → rezervace s nenulovou cenou zůstává zaplacená.
+    const newStatus = refundPercent >= 100 && !(customerCap && totalPrice > 0) ? 'refunded' : 'partial_refund'
     await supabase.from('bookings').update({ payment_status: newStatus }).eq('id', booking_id)
     try {
       if (cnId) {
@@ -766,6 +903,25 @@ Deno.serve(async (req: Request) => {
       }).then(() => {}, () => {})
     await dlog('request_received', 'info')
 
+    // ── ZÁKAZNÍK (2026-10-11) ────────────────────────────────────────────────
+    // Dřív smí přihlášený zákazník vrátit si LIBOVOLNOU částku z vlastní zaplacené
+    // rezervace/objednávky bez jakékoli změny (zaplatit, vrátit peníze, jet dál).
+    // Jediný zákaznický volající = appka po zkrácení / levnější motorce
+    // (reservation_edit_screen: nejdřív zapíše nižší total_price, pak refund s
+    // reason edit_shortening | moto_swap). Proto jen rezervace, jen tyto důvody,
+    // jen živá rezervace a částka max. ověřený PŘEPLATEK (customer*Cap* výše).
+    // service_role (DB triggery / jiné edge fn) a admin (Velín) beze změny.
+    const isCustomer = caller.kind === 'user'
+    if (isCustomer && !booking_id) {
+      await dlog('customer_order_refund_denied', 'error')
+      return forbidden(CORS, 'customer_booking_only')
+    }
+    if (isCustomer && reason !== 'edit_shortening' && reason !== 'moto_swap') {
+      await dlog('customer_reason_denied', 'error')
+      return forbidden(CORS, 'reason_not_allowed')
+    }
+    let bookingTotalPrice = 0
+
     if (!booking_id && !order_id) {
       await dlog('missing_identifier', 'error')
       return new Response(
@@ -782,7 +938,7 @@ Deno.serve(async (req: Request) => {
 
     if (booking_id) {
       const { data } = await supabase.from('bookings')
-        .select('user_id, stripe_payment_intent_id, stripe_session_id, total_price, payment_status, payment_method, pay_channel, stripe_refund_id, card_brand, card_last4')
+        .select('user_id, status, stripe_payment_intent_id, stripe_session_id, total_price, payment_status, payment_method, pay_channel, stripe_refund_id, card_brand, card_last4')
         .eq('id', booking_id)
         .single()
 
@@ -797,6 +953,26 @@ Deno.serve(async (req: Request) => {
       if (caller.kind === 'user' && data.user_id !== caller.userId) {
         await dlog('ownership_denied', 'error')
         return forbidden(CORS, 'not_owner')
+      }
+      // Zákazník: jen živá rezervace (úprava v appce), ne storno/ukončená.
+      if (isCustomer && data.status !== 'reserved' && data.status !== 'active') {
+        await dlog('customer_wrong_status', 'error', { status: data.status })
+        return new Response(
+          JSON.stringify({ success: false, error: 'Rezervaci v tomto stavu nelze upravit s vrácením peněz.', code: 'wrong_status' }),
+          { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+      bookingTotalPrice = Number(data.total_price) || 0
+      // Zákazník si total_price zapisuje sám (appka při úpravě) — nesmí být
+      // nesmyslně nízká vůči ceníku (jinak by strop „zaplaceno − cena“ vrátil
+      // skoro vše). Spodní mez: 80 % denních cen termínu (věrnostní sleva ≤ 20 %)
+      // − ½ nejdražšího dne (sleva za vyzvednutí od 12:00) − uplatněné slevy.
+      if (isCustomer) {
+        const floor = await customerPriceFloorCzk(supabase, booking_id)
+        if (floor == null || bookingTotalPrice + 1 < floor) {
+          await dlog('customer_price_below_floor', 'error', { total_price: bookingTotalPrice, floor })
+          return await customerRefundNeedsStaff(supabase, booking_id, amount, reason, dlog)
+        }
       }
 
       // RECOVERY-ONLY dispatche (reason '…_retry' z attach smyček
@@ -926,7 +1102,7 @@ Deno.serve(async (req: Request) => {
       const payMethod = String((data as any).payment_method || '').toLowerCase().trim()
       if (MANUAL_PAY_METHODS.includes(payMethod) || (!payMethod && (data as any).pay_channel === 'qr')) {
         await dlog('manual_method_direct', 'info', { payment_method: payMethod, pay_channel: (data as any).pay_channel })
-        return await manualBookingRefund(supabase, booking_id, amount, reason, dlog)
+        return await manualBookingRefund(supabase, booking_id, amount, reason, dlog, isCustomer)
       }
 
       stripePaymentIntentId = data.stripe_payment_intent_id
@@ -1009,7 +1185,7 @@ Deno.serve(async (req: Request) => {
       // manuální dobropis + refund_pending, viz manualBookingRefund.
       // Shop objednávky se chovají jako dřív (400 — řeší se ručně).
       if (booking_id) {
-        return await manualBookingRefund(supabase, booking_id, amount, reason, dlog)
+        return await manualBookingRefund(supabase, booking_id, amount, reason, dlog, isCustomer)
       }
       return new Response(
         JSON.stringify({
@@ -1059,7 +1235,7 @@ Deno.serve(async (req: Request) => {
     // (peníze by se nikdy nevrátily a nevznikl by ani dobropis).
     if (booking_id && chargedHaleru === 0) {
       await dlog('pi_never_charged_manual_fallback', 'info', { payment_intent_id: stripePaymentIntentId })
-      return await manualBookingRefund(supabase, booking_id, amount, reason, dlog)
+      return await manualBookingRefund(supabase, booking_id, amount, reason, dlog, isCustomer)
     }
 
     // Decide effective amount (in haléře). Null = full refund.
@@ -1072,6 +1248,19 @@ Deno.serve(async (req: Request) => {
       }
     } else if (refundableHaleru != null) {
       effectiveAmountHaleru = refundableHaleru
+    }
+
+    // Zákazník: max. ověřený přeplatek přes všechny platby rezervace (strop výše).
+    // Neověřitelné / nulové → nic se nevrací ani nemění (žádné no_op → 'refunded'),
+    // vyřídí obsluha.
+    if (isCustomer && booking_id) {
+      const capH = refundableHaleru == null ? null
+        : await customerStripeCapHaleru(supabase, booking_id, stripePaymentIntentId, bookingTotalPrice)
+      await dlog('customer_refund_cap', 'info', { cap_haleru: capH, requested_haleru: effectiveAmountHaleru, refundable_haleru: refundableHaleru })
+      if (capH == null || effectiveAmountHaleru == null || Math.min(effectiveAmountHaleru, capH) <= 0) {
+        return await customerRefundNeedsStaff(supabase, booking_id, amount, reason, dlog)
+      }
+      effectiveAmountHaleru = Math.min(effectiveAmountHaleru, capH)
     }
 
     // Nothing left to refund (e.g. fully discounted booking that paid 0 Kč,
@@ -1161,7 +1350,10 @@ Deno.serve(async (req: Request) => {
       //    Finální stav dorazí webhookem charge.refunded / refund.updated.
       //  - částečné vrácení (zadaná `amount` menší než zbývající k vrácení) → 'partial_refund'.
       //  - jinak (plné vrácení / succeeded) → 'refunded'.
-      const isPartial = !!amount && refundableHaleru != null && effectiveAmountHaleru != null && effectiveAmountHaleru < refundableHaleru
+      // Zákaznická vratka = jen přeplatek → rezervace s nenulovou cenou zůstává zaplacená
+      // (i když se tím vyčerpá aktuální PI, např. doplatkový).
+      const isPartial = (isCustomer && bookingTotalPrice > 0) ||
+        (!!amount && refundableHaleru != null && effectiveAmountHaleru != null && effectiveAmountHaleru < refundableHaleru)
       const newStatus = refund.status === 'pending' ? 'refund_pending' : (isPartial ? 'partial_refund' : 'refunded')
       const bkPatch: Record<string, any> = { payment_status: newStatus, stripe_refund_id: refund.id }
       if (cardBrand) bkPatch.card_brand = cardBrand

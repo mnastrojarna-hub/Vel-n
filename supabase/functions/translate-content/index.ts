@@ -18,12 +18,14 @@
  * Odpověď:
  *   { success: true, translations: { en: {...}, de: {...}, ... } }
  *
- * Bezpečnost: vyžaduje JWT (any authenticated user — admin volá z Velínu).
+ * Bezpečnost (2026-10-11): service klíč (env / app_settings — cms-save, backfilly,
+ * pg_net) nebo AKTIVNÍ účet Velína (is_admin). Dřív stačil JWT libovolného
+ * zákazníka → vlastní text (HTML) v překladech veřejného webu a appky.
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-import { isServiceRole } from '../_shared/auth.ts'
+import { isTrustedCaller } from '../_shared/auth.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -157,23 +159,11 @@ serve(async (req: Request): Promise<Response> => {
     if (!authHeader.startsWith('Bearer ')) return jsonResponse({ error: 'Unauthorized' }, 401)
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    let token = authHeader.replace(/^Bearer\s+/i, '').trim()
-    if (token.length > 1 && token.startsWith('"') && token.endsWith('"')) token = token.slice(1, -1)
 
-    // Tolerantní service-role auth (jako backfill fce): env klíč / JWT s claim
-    // service_role / app_settings.service_role_key. U nového formátu klíčů
-    // (sb_secret_…) se app_settings klíč NEROVNÁ env klíči → striktní shoda
-    // dávala 401 při přímém volání z pg_net (dopřeklad okolí). Fallback = user
-    // JWT (Velín admin volá s admin user tokenem).
-    let authOk = token === SUPABASE_SERVICE_KEY || await isServiceRole(token)
-    if (!authOk) {
-      const { data: row } = await supabaseAdmin.from('app_settings').select('value').eq('key', 'service_role_key').maybeSingle()
-      if (row?.value && token === String(row.value).replace(/^"|"$/g, '').trim()) authOk = true
-    }
-    if (!authOk) {
-      const { data: { user }, error: userErr } = await supabaseAdmin.auth.getUser(token)
-      if (userErr || !user) return jsonResponse({ error: 'Unauthorized: invalid token' }, 401)
-    }
+    // Tolerantní service-role auth (env klíč / app_settings.service_role_key — sb_secret_…
+    // se env klíči NEROVNÁ — / service JWT uznaný Auth API) řeší sdílený helper; user JWT
+    // projde jen u AKTIVNÍHO účtu Velína (2026-10-11, dřív libovolný zákazník).
+    if (!(await isTrustedCaller(req))) return jsonResponse({ error: 'Forbidden: Velín account required' }, 403)
 
     const body = await req.json().catch(() => null)
     if (!body) return jsonResponse({ error: 'Invalid JSON body' }, 400)
