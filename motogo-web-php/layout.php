@@ -104,9 +104,10 @@ function renderHeader($currentPath = '/') {
                     '<span class="header-auth-email" data-mg-auth-email></span>' .
                     '<button type="button" class="header-auth-logout" data-mg-auth-logout>' . te('menu.logout') . '</button>' .
                 '</div>' .
-                '<a class="header-edit-rez" href="' . BASE_URL . '/upravit-rezervaci" aria-label="' . te('menu.editReservation.aria') . '" title="' . te('menu.editReservation') . '">' .
-                    '<svg class="header-edit-rez-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>' .
-                    '<span class="header-edit-rez-label">' . te('menu.editReservation') . '</span>' .
+                // „Upravit rezervaci" — kalendář + tužka, popisek na všech šířkách (styly: css/header-editrez.css).
+                '<a class="header-editrez" href="' . BASE_URL . '/upravit-rezervaci" aria-label="' . te('menu.editReservation.aria') . '" title="' . te('menu.editReservation') . '">' .
+                    '<span class="header-editrez-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 21H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3"/><path d="M7 3v4M15 3v4M3 10h16"/><path class="header-editrez-pen" d="M18.4 12.6a1.98 1.98 0 0 1 2.8 2.8L15 21.6l-3.6.9.9-3.6z"/></svg></span>' .
+                    '<span class="header-editrez-text"><span class="header-editrez-label">' . te('menu.editReservation') . '</span><span class="header-editrez-sub">' . te('menu.editReservation.sub') . '</span></span>' .
                 '</a>' .
                 // Košík jen při zapnutém e-shopu (flag `eshop_visible`).
                 (webShopVisible() ? '<a class="header-cart" href="' . BASE_URL . '/kosik" aria-label="' . te('cart.iconLabel') . '" title="' . te('cart.iconLabel') . '">' .
@@ -692,7 +693,8 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
 .banner>picture,.banner>picture>img,.banner>img{width:100%;height:380px;object-fit:cover;display:block}
 @media(min-width:769px){.banner{min-height:480px}.banner>picture,.banner>picture>img,.banner>img{height:480px}}
   </style>
-  <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">';
+  <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">
+  <link rel="stylesheet" href="' . assetUrl('/css/header-editrez.css') . '">';
     // Page-specific styly/skripty (např. landing v2 — css/landing.css, js/landing.js)
     foreach ((array)($meta['styles'] ?? []) as $st) {
         echo '

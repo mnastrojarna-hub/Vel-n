@@ -38,6 +38,7 @@ return ['pages' => ['pobocky' => ['v2' => [
         ['label' => 'Tailles d\'équipement', 'i' => 'tag', 'v' => [['t' => 'Veste et pantalon jusqu\'au 6XL'], ['t' => 'Casque S–3XL ; veste, pantalon et gants jusqu\'au 4XL']]],
         ['label' => 'Tenue de pluie et équipement complémentaire', 'i' => 'rain', 'v' => [['ok' => 1, 't' => 'Oui'], ['ok' => 0, 't' => 'Non, seulement à Mezná']]],
         ['label' => 'Livraison à ton adresse', 'i' => 'truck', 'v' => [['ok' => 1, 't' => 'Oui, avec supplément'], ['ok' => 0, 't' => 'Non : retrait et retour uniquement à l\'agence']]],
+        ['label' => 'Retour de la moto', 'i' => 'moto', 'v' => [['t' => 'Sans lavage ni plein'], ['t' => 'Lavée, voyant de réserve éteint ; plein pas nécessaire']]],
         ['label' => 'Documents', 'i' => 'doc', 'v' => [['t' => 'Téléverse-les en ligne ou on les vérifie sur place'], ['t' => 'À téléverser et faire vérifier en ligne à l\'avance']]],
         ['label' => 'Commodités', 'i' => 'kiosk', 'v' => [['t' => 'Wifi, WC, cabine d\'essayage et casiers verrouillables'], ['t' => 'Vestiaire (porte n° 8), écran tactile et box des motos']]],
         ['label' => 'Parking gratuit', 'i' => 'parking', 'v' => [['ok' => 1, 't' => 'Oui, pendant toute la location'], ['ok' => 1, 't' => 'Oui, pendant toute la location']]],

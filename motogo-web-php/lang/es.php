@@ -69,8 +69,9 @@ return [
     'menu.areas.jihomoravsky' => 'Región de Moravia del Sur',
     'menu.areas.jihocesky' => 'Región de Bohemia del Sur',
     'menu.reservation' => 'RESERVAR',
-    'menu.editReservation' => 'Gestionar reserva',
-    'menu.editReservation.aria' => 'Editar o cancelar reserva',
+    'menu.editReservation' => 'Editar reserva',
+    'menu.editReservation.aria' => 'Editar reserva – cambiar fechas, lugar, moto o tallas del equipo, ampliar, acortar o cancelar',
+    'menu.editReservation.sub' => 'fechas · moto · cancelación',
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Alquiler de motos',
@@ -1479,7 +1480,7 @@ return [
     'rez.map.title' => 'Elige un lugar en el mapa (Mapy.cz)',
     'rez.map.confirm' => 'Confirmar',
     'rez.return.stateTitle' => '¿En qué estado hay que devolver la moto?',
-    'rez.return.stateText' => 'Basta con devolver la moto con combustible por encima de la reserva (el testigo de reserva apagado). No te preocupes por lavarla ni limpiarla: eso es cosa nuestra.',
+    'rez.return.stateText' => 'En la sucursal con personal de Mezná y si la devuelves en otro lugar, no tienes que repostar ni lavar la moto. En la sucursal de autoservicio, devuélvela lavada y sin el testigo de reserva encendido; no hace falta el depósito lleno.',
     'rez.alert.emailExists' => 'Ya tenemos este correo registrado. Inicia sesión para continuar o restablece tu contraseña.',
     'rez.alert.emailMismatch' => 'La cuenta con la que has iniciado sesión no coincide con el correo introducido. Cierra sesión e inténtalo de nuevo.',
     'rez.alert.minRentalDays' => 'El alquiler mínimo de esta moto es de {count} días. Elige un periodo más largo.',

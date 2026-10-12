@@ -51,7 +51,7 @@ $defaults = [
         'steps' => [
             ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Vyber', 'text' => 'Vyberte si svou ideální motorku z naší nabídky motorek na pronájem.'],
             ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Rezervuj', 'text' => 'Zarezervujte si půjčení motorky přes náš jednoduchý online systém.'],
-            ['icon' => 'gfx/predani-motorky.svg', 'title' => '3. Převzetí', 'text' => 'Vyzvedněte si motorku v naší půjčovně motorek v Pelhřimově.'],
+            ['icon' => 'gfx/predani-motorky.svg', 'title' => '3. Převzetí', 'text' => 'Převezměte si motorku osobně v Mezné u Pelhřimova (odtud ji můžeme i přistavit kamkoli v ČR), nebo si ji vyzvedněte sami na samoobslužné pobočce ve Velkých Němčicích u Brna.'],
             ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '4. Užij jízdu', 'text' => 'Užijte si svobodu a objevte Česko na motorkách k zapůjčení.'],
         ],
     ],

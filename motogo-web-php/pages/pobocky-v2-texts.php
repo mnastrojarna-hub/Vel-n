@@ -39,6 +39,7 @@ return [
         ['label' => 'Velikosti výbavy', 'i' => 'tag', 'v' => [['t' => 'Bundy a kalhoty až 6XL'], ['t' => 'Helmy S–3XL, bundy, kalhoty a rukavice do 4XL']]],
         ['label' => 'Nepromoky a doplňková výbava', 'i' => 'rain', 'v' => [['ok' => 1, 't' => 'Ano'], ['ok' => 0, 't' => 'Ne — jen v Mezné']]],
         ['label' => 'Přistavení na adresu', 'i' => 'truck', 'v' => [['ok' => 1, 't' => 'Ano, za příplatek'], ['ok' => 0, 't' => 'Ne — převzetí i vrácení jen na pobočce']]],
+        ['label' => 'Vrácení motorky', 'i' => 'moto', 'v' => [['t' => 'Bez mytí i tankování'], ['t' => 'Umytá a bez svítící rezervy, plná nádrž není potřeba']]],
         ['label' => 'Doklady', 'i' => 'doc', 'v' => [['t' => 'Nahraješ online, jinak je zkontrolujeme na místě'], ['t' => 'Nutné nahrát a ověřit online předem']]],
         ['label' => 'Zázemí', 'i' => 'kiosk', 'v' => [['t' => 'Wi-Fi, WC, převlékací kabinka a uzamykatelné skříňky'], ['t' => 'Šatna (dveře č. 8), dotykový displej a kóje s motorkami']]],
         ['label' => 'Parkování zdarma', 'i' => 'parking', 'v' => [['ok' => 1, 't' => 'Ano, po celou dobu výpůjčky'], ['ok' => 1, 't' => 'Ano, po celou dobu výpůjčky']]],

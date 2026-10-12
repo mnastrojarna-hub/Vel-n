@@ -1,0 +1,91 @@
+/* ===== Header: tlačítko „Upravit rezervaci" (→ /upravit-rezervaci) =====
+   Markup: layout.php renderHeader() — <a class="header-editrez">.
+   Nová třída (ne .header-edit-rez), takže staré pravidla v main.css
+   (sbalení na samotnou ikonu na mobilu / po přihlášení) se na něj neuplatní.
+   Text je vidět na KAŽDÉ šířce; na úzkém mobilu se zalomí do 2 řádků.
+   Animace: jednorázové „pop" + každých 7 s jemný lesk, prstenec a pohyb tužky;
+   prefers-reduced-motion = bez pohybu (statický, ale stále výrazný). */
+.header-editrez{
+  position:relative;isolation:isolate;overflow:hidden;
+  display:inline-flex;align-items:center;gap:.5rem;flex:0 0 auto;
+  min-height:44px;padding:.25rem .95rem .25rem .3rem;border-radius:22px;
+  background:linear-gradient(135deg,#fff 0%,#e9fde9 45%,#c6f6cb 100%);
+  border:2px solid #74fb71;color:#0e2a1c;
+  font-family:inherit;font-weight:800;line-height:1.15;text-align:left;
+  text-decoration:none;white-space:nowrap;
+  box-shadow:0 2px 10px rgba(0,0,0,.28);
+  transition:transform .18s ease,background .18s ease,border-color .18s ease;
+  animation:herPop .55s cubic-bezier(.2,.9,.3,1.35) .2s backwards,herRing 7s ease-out 1.6s infinite;
+}
+.header-editrez:hover{color:#0e2a1c;background:linear-gradient(135deg,#fff 0%,#dcfcdc 45%,#a8f3ae 100%);border-color:#4fe04c;transform:translateY(-1px)}
+.header-editrez:active{transform:translateY(0) scale(.98)}
+.header-editrez:focus-visible{outline:3px solid #fff;outline-offset:3px}
+/* lesk (pod textem díky isolation + z-index:-1) */
+.header-editrez::after{
+  content:"";position:absolute;top:0;bottom:0;left:0;width:45%;z-index:-1;pointer-events:none;
+  background:linear-gradient(110deg,transparent 0%,rgba(116,251,113,.55) 40%,rgba(255,255,255,.95) 50%,rgba(116,251,113,.55) 60%,transparent 100%);
+  transform:translateX(-130%) skewX(-20deg);
+  animation:herShine 7s ease-in-out 1.6s infinite;
+}
+.header-editrez-ico{
+  flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:50%;background:#0e2a1c;color:#74fb71;
+  box-shadow:inset 0 0 0 1.5px rgba(116,251,113,.4);
+  transition:transform .25s cubic-bezier(.2,.9,.3,1.4);
+}
+.header-editrez-ico svg{display:block;width:20px;height:20px;max-width:none;overflow:visible}
+.header-editrez-pen{transform-box:fill-box;transform-origin:15% 85%;animation:herPen 7s ease-in-out 1.6s infinite}
+.header-editrez:hover .header-editrez-ico{transform:rotate(-10deg) scale(1.08)}
+.header-editrez-text{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+.header-editrez-label{font-size:.88rem;font-weight:800;letter-spacing:.005em;line-height:1.15}
+.header-editrez-sub{display:none;margin-top:1px;font-size:.66rem;font-weight:600;letter-spacing:.01em;line-height:1.2;color:#245a37}
+
+@keyframes herPop{0%{transform:scale(.86)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes herShine{0%{transform:translateX(-130%) skewX(-20deg)}16%,100%{transform:translateX(260%) skewX(-20deg)}}
+@keyframes herRing{
+  0%{box-shadow:0 2px 10px rgba(0,0,0,.28),0 0 0 0 rgba(116,251,113,.7)}
+  18%,100%{box-shadow:0 2px 10px rgba(0,0,0,.28),0 0 0 10px rgba(116,251,113,0)}
+}
+@keyframes herPen{0%,16%,100%{transform:none}4%{transform:rotate(-14deg)}8%{transform:rotate(10deg)}12%{transform:rotate(-5deg)}}
+
+/* Lišta nástrojů se smí zalomit (místo přetečení), když se vedle
+   telefonu nevejde přihlášený e-mail + tlačítko + apka + jazyky. */
+.header-tools{flex-wrap:wrap;justify-content:flex-end}
+
+/* Desktop: podtitulek „termín · motorka · storno" */
+@media (min-width:1025px){.header-editrez-sub{display:block}}
+/* Přihlášený uživatel: nejdřív se zkrátí e-mail (a na užším desktopu/tabletu
+   schová podtitulek) — popisek tlačítka zůstává vždy čitelný. */
+.header-tools:has(.header-auth:not([hidden])) .header-auth-email{max-width:120px}
+@media (max-width:1279px){
+  .header-tools:has(.header-auth:not([hidden])) .header-editrez-sub{display:none}
+}
+
+/* Telefon: tlačítko vyplní řádek vedle měny/jazyka, text max. 2 řádky. */
+@media (max-width:560px){
+  /* min-width:min-content = nejdelší slovo → nikdy se nezalomí uprostřed slova
+     (uk „бронювання“; auto by kvůli overflow:hidden spadlo na 0) */
+  .header-editrez{flex:1 1 8.5rem;min-width:min-content;padding:.2rem .7rem .2rem .25rem;white-space:normal;gap:.45rem}
+  .header-editrez-ico{width:32px;height:32px}
+  .header-editrez-ico svg{width:19px;height:19px}
+  .header-editrez-label{font-size:.86rem;line-height:1.12;overflow-wrap:break-word}
+  /* přihlášený: e-mail až za tlačítko apky (to má 100 % řádku → zalomení je
+     deterministické, chip nikdy nezúží tlačítko na řádku s měnou/jazykem) */
+  .header-tools .header-auth{order:11}
+  /* dlouhý popisek apky (uk) se zalomí místo přetečení řádku s tlačítkem/jazyky */
+  .header-app{min-width:0}
+  .header-app-btn{min-width:0;white-space:normal;line-height:1.15;text-align:center}
+}
+@media (max-width:340px){
+  .header-editrez{padding-right:.55rem;gap:.4rem}
+  .header-editrez-label{font-size:.8rem}
+}
+
+/* Bez pohybu: žádná animace, výraznost drží statický neonový prstenec. */
+@media (prefers-reduced-motion:reduce){
+  .header-editrez,.header-editrez::after,.header-editrez-pen{animation:none!important}
+  .header-editrez::after{display:none}
+  .header-editrez{transition:none;box-shadow:0 2px 10px rgba(0,0,0,.28),0 0 0 3px rgba(116,251,113,.4)}
+  .header-editrez:hover,.header-editrez:active,.header-editrez:hover .header-editrez-ico{transform:none}
+  .header-editrez-ico{transition:none}
+}
