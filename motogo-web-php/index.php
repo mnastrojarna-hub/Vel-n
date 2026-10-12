@@ -297,6 +297,13 @@ if ($path === '/api/cms-cache-purge') {
     exit;
 }
 
+// /api/engage — beacon z js/engage.js: návštěva ≥5 s / použitá kalkulačka
+// (jen lidé) → web_engagement pro Velín → Analýza → Web funnel.
+if ($path === '/api/engage') {
+    require __DIR__ . '/engage.php';
+    exit;
+}
+
 // llms-full.txt — sloučený plný obsah pro LLM (statické stránky + DB).
 // AI agent dostane kompletní kontext webu v jednom requestu (~80 kB markdown).
 if ($path === '/llms-full.txt') {

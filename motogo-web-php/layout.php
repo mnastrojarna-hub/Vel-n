@@ -763,7 +763,8 @@ window.MG_I18N = Object.assign(window.MG_I18N || {}, ' . $cartI18n . ');
 </script>
 <script src="' . assetUrl('/js/cart.js') . '" defer></script>
 <script src="' . assetUrl('/js/header-auth.js') . '" defer></script>
-<script src="' . assetUrl('/js/header-app.js') . '" defer></script>';
+<script src="' . assetUrl('/js/header-app.js') . '" defer></script>
+<script src="' . assetUrl('/js/engage.js') . '" defer></script>';
     foreach ((array)($meta['scripts'] ?? []) as $sc) {
         echo '
 <script src="' . assetUrl($sc) . '" defer></script>';

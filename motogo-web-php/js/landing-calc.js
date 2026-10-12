@@ -135,6 +135,7 @@
     var tv = E.sum.querySelector('[data-kc-total]');
     S.shown = tv ? +tv.getAttribute('data-kc-total') : 0;
     if (tv && prevTotal !== S.shown && !rm) count(tv, prevTotal, S.shown);
+    if (tv && window.MGEngage) MGEngage.track('calc'); // Velín → Web funnel: použil kalkulačku
     sticky();
   }
   function count(el, from, to) {
