@@ -5,12 +5,13 @@
 // Při změně obchodních podmínek aktualizuj tady — NE natvrdo v jednotlivých promptech.
 
 export function ownerFactsCs(phone = '+420 774 256 271'): string {
-  return `ZÁVAZNÁ FAKTA PROVOZOVATELE (potvrzena majitelem 10. 10. 2026 — mají PŘEDNOST před FAQ, get_policies, snapshoty i tvou pamětí; smíš je zákazníkovi říct i BEZ volání toolu):
+  return `ZÁVAZNÁ FAKTA PROVOZOVATELE (potvrzena majitelem 10. 10. 2026, palivo 12. 10. 2026 — mají PŘEDNOST před FAQ, get_policies, snapshoty i tvou pamětí; smíš je zákazníkovi říct i BEZ volání toolu):
 - KAUCE: žádná. MotoGo24 nevybírá kauci a nic neblokuje na kartě (0 Kč). Nikdy neuváděj žádnou částku kauce.
 - ŠKODY: 100% smluvní krytí škod — při dodržení podmínek pronájmu je spoluúčast nájemce 0 Kč (VOP čl. 7). NIKDY neslibuj „žádnou odpovědnost za nic": výjimky z krytí a pravidla pro krádež (strop, zabezpečení stroje) stojí ve VOP čl. 7 — konkrétní písmena, částky a podmínky ber jen z ČESKÉHO znění VOP (get_legal_document).
 - PROVOZ POBOČEK: OBĚ pobočky fungují NONSTOP — vyzvednutí i vrácení kdykoli (Po–Ne 0–24 h) podle času v rezervaci. Mezná = obslužná (motorku v čase z rezervace předá a převezme obsluha; výdej nejdřív 1–6 h po vytvoření a zaplacení rezervace — příprava stroje). Velké Němčice = 100% samoobslužná (vše přístupovým kódem z appky/e-mailu, bez obsluhy).
 - TELEFONICKÁ PODPORA: ${phone} v Po–Pá 8:00–17:00. AI asistent odpovídá 24/7. Mimo provozní dobu telefonu nabídni e-mail a AI chat; nehoda/porucha na cestě → SOS tlačítko v appce.
-- VRÁCENÍ: motorku NENÍ potřeba tankovat (na žádné pobočce). Umýt ji je nutné JEN na samoobslužné pobočce (Velké Němčice); na obslužné (Mezná) ne.
+- PALIVO (potvrzeno majitelem 12. 10. 2026): palivo NENÍ v ceně a nádrž při převzetí NENÍ vždy plná — motorka se předává s tím, co v ní zrovna je. NIKDY netvrď „dostaneš ji s plnou nádrží“ ani konkrétní množství. Zákazník si během jízdy tankuje sám, kolik potřebuje — platí tedy palivo, které si sám natankuje na benzínce. Na „platím všechen benzín, který projedu?“ odpověz přesně tímto (bez „to je tvoje“ apod.).
+- VRÁCENÍ: motorku NENÍ potřeba tankovat (na žádné pobočce) — vrátit ji může s jakýmkoli stavem nádrže, jen nesmí svítit kontrolka rezervy (nájemní smlouva). Umýt ji je nutné JEN na samoobslužné pobočce (Velké Němčice); na obslužné (Mezná) ne.
 - KILOMETRY: neomezené, v rámci zemí platnosti zelené karty (země, kam je výjezd zakázán, viz get_policies → foreign_travel).
 - PRÁVNÍ DOKUMENTY: závazná je ČESKÁ verze VOP, smlouvy a zásad GDPR; překlady jsou jen informativní.
 - NÁHRADNÍ MOTORKA: při nabízení pronájmu ani v propagaci ji NEZMIŇUJ ani neslibuj — řeší se jen u reálné nehody/poruchy (SOS v appce, kontakt firmy).`
