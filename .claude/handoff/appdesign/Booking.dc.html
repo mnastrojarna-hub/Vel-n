@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<title>Rezervace – jeden formulář se živou cenou</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&amp;display=swap">
+<style>
+body{margin:0}
+sc-if,sc-for{display:contents}
+.mg{font-family:Montserrat,'Segoe UI',sans-serif;color:#1A2E22;-webkit-font-smoothing:antialiased;line-height:1.3}
+.mg *{box-sizing:border-box}
+.mg button{font:inherit;border:0;background:none;padding:0;margin:0;color:inherit;cursor:pointer;text-align:inherit;-webkit-tap-highlight-color:transparent}
+.mg button:focus-visible,.mg input:focus-visible{outline:3px solid #37CF63;outline-offset:2px}
+.mg h1,.mg h2,.mg p{margin:0}
+.tn{font-variant-numeric:tabular-nums}
+.ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.pg{scrollbar-width:none}.pg::-webkit-scrollbar{display:none}
+.ab{position:sticky;top:0;z-index:6;padding:12px 16px 10px;background:rgba(245,250,247,.92);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid #E1EFE9}
+.bk{width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid #E1EFE9;display:flex;align-items:center;justify-content:center;flex:none}
+.sp{display:flex;align-items:center;margin-top:12px}
+.sn{display:flex;align-items:center;gap:6px;flex:none;font:800 12px/1 Montserrat;color:#4A6B5A}
+.sc{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#E6F2ED;color:#4A6B5A;font:900 12px/1 Montserrat;flex:none}
+.sn.dn .sc{background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F}
+.sn.cu .sc{background:#1A2E22;color:#74FB71;box-shadow:0 0 0 4px rgba(55,207,99,.25)}
+.sn.cu{color:#1A2E22}
+.sl{flex:1;height:3px;margin:0 6px;border-radius:2px;background:#D4E8E0;overflow:hidden}
+.sl i{display:block;height:100%;background:linear-gradient(90deg,#0D6E0D,#37CF63);transform-origin:left;animation:grow .45s ease both}
+.rc{position:relative;height:200px;overflow:hidden;background:#0A1F14}
+.rcb{position:absolute;inset:-40px;width:calc(100% + 80px);height:calc(100% + 80px);object-fit:cover;filter:blur(26px) brightness(.6) saturate(1.2)}
+.rcf{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;animation:kb 14s ease-in-out infinite alternate}
+.rcg{position:absolute;inset:0;background:linear-gradient(to top,rgba(10,31,20,.9),rgba(10,31,20,0) 55%)}
+.rct{position:absolute;left:16px;right:16px;bottom:12px;color:#fff}
+.card{margin:12px 12px 0;padding:16px;border-radius:20px;background:#fff;border:1px solid #E1EFE9;box-shadow:0 6px 18px -8px rgba(26,46,34,.35)}
+.card.cur{border:2px solid #37CF63;box-shadow:0 0 0 4px rgba(55,207,99,.14),0 10px 26px -10px rgba(26,46,34,.45)}
+.card.fut .kc{background:#E6F2ED;color:#4A6B5A}
+.kh{display:flex;align-items:center;gap:10px}
+.kc{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#1A2E22;color:#74FB71;font:900 12px/1 Montserrat;flex:none}
+.kc.ok{background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F;animation:pop .35s ease both}
+.kt{flex:1;font:800 12px/1 Montserrat;letter-spacing:.06em;color:#0D6E0D}
+.lk{min-height:44px;display:inline-flex;align-items:center;gap:4px;color:#0D6E0D;font:800 13px/1 Montserrat}
+.v1{margin-top:6px;font:700 14px/1.35 Montserrat}.v2{margin-top:2px;font:600 12.5px/1.4 Montserrat;color:#4A6B5A}
+.lb{margin-top:16px;font:800 11.5px/1 Montserrat;letter-spacing:.06em;color:#4A6B5A}
+.hr{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.ch{position:relative;height:40px;padding:0 14px;border-radius:12px;background:#FBFDFC;border:1.5px solid #CFE3DA;font:700 13px/37px Montserrat;color:#1A2E22;transition:all .18s}
+.ch.on{background:#E8FCE8;border-color:#37CF63;font-weight:800}
+.ch .hf{position:absolute;top:-8px;right:-6px;width:20px;height:20px;border-radius:50%;background:#74FB71;color:#08230F;font:900 11px/20px Montserrat;text-align:center}
+.ofr{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 12px;border-radius:12px;background:#E8FCE8;color:#0D4F1C;font:700 12.5px/1.3 Montserrat;animation:rin .3s ease both}
+.fg{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.fgc{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 10px;border-radius:999px;background:#E8FCE8;color:#0D4F1C;font:700 12px/1 Montserrat}
+.sw{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;margin-top:12px;padding:8px 12px;border-radius:14px;background:#F7FCF9;border:1px solid #E3EFE9}
+.tg{width:46px;height:28px;border-radius:999px;background:#CFE3DA;position:relative;flex:none;transition:background .2s}
+.tg::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2);transition:left .2s}
+.tg.on{background:#37CF63}.tg.on::after{left:21px}
+.szg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.sz{display:flex;flex-direction:column;justify-content:center;gap:3px;height:52px;padding:0 12px;border-radius:14px;background:#FBFDFC;border:1.5px solid #CFE3DA;text-align:left}
+.sz b{font:800 15px/1 Montserrat}.sz span{font:700 11.5px/1 Montserrat;color:#4A6B5A}
+.sz.fl{animation:pop .35s ease both;border-color:#37CF63;background:#E8FCE8}
+.xr{margin-top:8px;padding:12px;border-radius:16px;background:linear-gradient(160deg,#F6FCF9,#EBF6F0);border:1px solid #D4E8E0}
+.xr.on{border-color:#9FDCB0;background:linear-gradient(160deg,#F1FFF1,#E3F8E7)}
+.xh{display:flex;align-items:center;gap:10px;width:100%;min-height:44px}
+.cb{width:24px;height:24px;border-radius:6px;border:2px solid #9FB8AC;background:#fff;display:flex;align-items:center;justify-content:center;flex:none;color:#08230F}
+.cb.on{border:0;background:linear-gradient(135deg,#8DFF86,#37CF63);animation:pop .3s ease both}
+.xn{flex:1;font:800 14px/1.25 Montserrat}.xn small{display:block;font:600 12px/1.3 Montserrat;color:#4A6B5A}
+.xp{text-align:right;white-space:nowrap}.xp s{display:block;font:600 11.5px/1 Montserrat;color:#8FA89B}.xp b{font:800 14px/1.2 Montserrat;color:#0D6E0D}
+.xs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding-left:34px}
+.xc{height:36px;padding:0 12px;border-radius:10px;background:#fff;border:1.5px solid #CFE3DA;font:700 12.5px/33px Montserrat}
+.xc.miss{background:#FFF4E0;border-color:#E9B44C;color:#8A4B00;font-weight:800;animation:wig 2.4s ease-in-out infinite}
+.xc.fl{animation:pop .35s ease both;border-color:#37CF63}
+.rkb{height:24px;padding:0 10px;border-radius:999px;background:#1A2E22;color:#74FB71;font:800 11px/24px Montserrat}
+.in{display:flex;gap:8px;margin-top:8px}
+.in input{flex:1;min-width:0;height:52px;padding:0 14px;border-radius:14px;border:1.5px solid #CFE3DA;background:#FBFDFC;font:700 15px Montserrat;color:#1A2E22;text-transform:uppercase}
+.in input.err{border-color:#E5484D;box-shadow:0 0 0 3px rgba(229,72,77,.12)}
+.sdk{height:52px;padding:0 16px;border-radius:12px;background:#1A2E22;color:#74FB71;font:800 13.5px/52px Montserrat;text-transform:uppercase}
+.er{margin-top:6px;font:700 12.5px/1.3 Montserrat;color:#E5484D;animation:rin .25s ease both}
+.okr{display:flex;justify-content:space-between;margin-top:8px;padding:10px 12px;border-radius:12px;background:#E8FCE8;color:#0D4F1C;font:800 13px/1.2 Montserrat;animation:rin .3s ease both}
+.cn{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;border-bottom:1px solid #E3EFE9;font:700 13.5px/1.35 Montserrat}
+.cn u{color:#0D6E0D;text-decoration-thickness:1.5px;text-underline-offset:3px}
+.cn.fl .cb{box-shadow:0 0 0 4px rgba(233,180,76,.45);animation:pop .4s ease both}
+.pm{display:flex;align-items:center;gap:12px;width:100%;height:56px;margin-top:8px;padding:0 14px;border-radius:14px;background:#F7FCF9;border:1px solid #E3EFE9;font:800 14px/1 Montserrat}
+.nt{margin-top:8px;font:600 12px/1.4 Montserrat;color:#4A6B5A}
+.sum{position:absolute;left:0;right:0;bottom:0;z-index:15;padding:12px 16px 26px;background:radial-gradient(120% 140% at 100% 0,#24563B 0,#0E2A1C 55%,#0A1F14 100%);border-radius:22px 22px 0 0;box-shadow:0 -10px 28px rgba(0,0,0,.28);color:#fff}
+.sum .r1{display:flex;justify-content:space-between;align-items:center;font:700 12.5px/1 Montserrat;color:#CFE7DA}
+.tot{display:flex;align-items:center;gap:10px;margin-top:6px}
+.tot b{font:900 32px/1 Montserrat;color:#74FB71;text-shadow:0 0 18px rgba(116,251,113,.35)}
+.tot b.bA{animation:bmA .45s ease}.tot b.bB{animation:bmB .45s ease}
+.dch{height:24px;padding:0 9px;border-radius:999px;font:800 12px/24px Montserrat;animation:rin .3s ease both}
+.dch.dn{background:rgba(116,251,113,.18);color:#A8FF9F}.dch.up{background:rgba(255,200,87,.16);color:#FFD36B}
+.r3{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.bl{display:flex;align-items:center;gap:8px;font:800 13px/1.3 Montserrat;color:#FFD36B}
+.bl.ok{color:#A8FF9F}
+.gh{height:48px;padding:0 16px;border-radius:12px;border:1.5px solid rgba(255,211,107,.8);color:#FFD36B;font:800 13px/45px Montserrat;white-space:nowrap}
+.cta{position:relative;overflow:hidden;height:52px;padding:0 18px;border-radius:14px;background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F;font:800 14px/52px Montserrat;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;animation:glow 2.2s ease-in-out infinite}
+.cta::after{content:"";position:absolute;top:0;bottom:0;left:0;width:50%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);transform:translateX(-160%) skewX(-22deg);animation:shine 3.2s linear infinite}
+.cta.ld{background:rgba(255,255,255,.12);color:#CFE7DA;animation:none}.cta.ld::after{display:none}
+.spn{display:inline-block;width:18px;height:18px;margin-right:8px;vertical-align:-3px;border-radius:50%;border:2.5px solid rgba(255,255,255,.25);border-top-color:#74FB71;animation:rot .8s linear infinite}
+.scrim{position:absolute;inset:0;z-index:20;background:rgba(10,31,20,.45);animation:fd .2s ease both}
+.sh{position:absolute;left:0;right:0;z-index:21;padding:10px 16px 20px;border-radius:22px;background:#fff;box-shadow:0 -12px 32px rgba(0,0,0,.25);animation:shUp .32s cubic-bezier(.2,.8,.3,1) both}
+.sh.dk{background:radial-gradient(120% 140% at 100% 0,#24563B 0,#0E2A1C 55%,#0A1F14 100%);color:#fff}
+.grb{width:40px;height:5px;margin:0 auto 10px;border-radius:3px;background:#CFE3DA}
+.szl{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
+.szo{height:48px;border-radius:12px;background:#FBFDFC;border:1.5px solid #CFE3DA;font:800 15px/45px Montserrat;text-align:center}
+.szo.on{background:linear-gradient(135deg,#8DFF86,#37CF63);border-color:#37CF63;color:#08230F}
+.rw{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px dashed rgba(116,251,113,.22);font:700 13.5px/1.3 Montserrat;color:#CFE7DA}
+.rw b{color:#fff;font-weight:800;white-space:nowrap}.rw.m b{color:#A8FF9F}
+.rw small{display:block;font:600 11.5px/1.3 Montserrat;color:#8FB3A1}
+.tb{margin-top:12px;padding:14px;border-radius:14px;background:radial-gradient(120% 160% at 50% 0,#2A6A45 0,#0E2A1C 60%,#0A1F14 100%);border:1px solid rgba(116,251,113,.3);display:flex;justify-content:space-between;align-items:center}
+.ok2{position:absolute;left:0;right:0;top:0;height:900px;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;background:radial-gradient(120% 90% at 50% 0,#24563B 0,#0E2A1C 55%,#0A1F14 100%);color:#fff;text-align:center;animation:fd .3s ease both}
+.bigck{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F;display:flex;align-items:center;justify-content:center;animation:pop .6s cubic-bezier(.2,1.6,.4,1) both;box-shadow:0 0 0 0 rgba(116,251,113,.6);}
+.bigck svg path{stroke-dasharray:30;stroke-dashoffset:30;animation:draw .5s .35s ease forwards}
+.toast{position:absolute;left:50%;transform:translateX(-50%);z-index:40;width:max-content;max-width:350px;padding:12px 16px;border-radius:14px;background:rgba(10,31,20,.95);border:1px solid rgba(116,251,113,.3);color:#fff;font-size:13px;font-weight:700;line-height:1.35;text-align:center;pointer-events:none}
+.tA{animation:tA 2.8s ease forwards}.tB{animation:tB 2.8s ease forwards}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.06)}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes pop{0%{transform:scale(.7)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes rin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes wig{0%,84%,100%{transform:none}88%{transform:translateX(-3px)}92%{transform:translateX(3px)}96%{transform:translateX(-2px)}}
+@keyframes bmA{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}@keyframes bmB{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes glow{0%,100%{box-shadow:0 8px 22px -8px rgba(116,251,113,.55)}50%{box-shadow:0 8px 30px -4px rgba(116,251,113,.95)}}
+@keyframes shine{0%,55%{transform:translateX(-160%) skewX(-22deg)}100%{transform:translateX(260%) skewX(-22deg)}}
+@keyframes rot{to{transform:rotate(360deg)}}
+@keyframes fd{from{opacity:0}}
+@keyframes shUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes tA{0%{opacity:0;transform:translate(-50%,12px)}10%,86%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;visibility:hidden}}
+@keyframes tB{0%{opacity:0;transform:translate(-50%,12px)}10%,86%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;visibility:hidden}}
+@keyframes tO{0%,86%{opacity:1}100%{opacity:0;visibility:hidden}}
+.rm *,.rm *::before,.rm *::after{animation:none!important;transition:none!important}
+.rm .tA,.rm .tB{animation:tO 2.8s linear forwards!important}.rm .bigck svg path{stroke-dashoffset:0}
+@media (prefers-reduced-motion: reduce){.mg *,.mg *::before,.mg *::after{animation:none!important;transition:none!important}.mg .tA,.mg .tB{animation:tO 2.8s linear forwards!important}.mg .bigck svg path{stroke-dashoffset:0}}
+</style>
+</helmet>
+<div class="{{ rootCls }}" style="width:390px;height:2100px;position:relative;overflow:hidden;background:linear-gradient(#EAF6EF,#F5FAF7 380px)">
+<div class="pg" style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding-bottom:190px">
+
+<div class="ab">
+<div style="display:flex;align-items:center;gap:12px">
+<button class="bk" onClick="{{ goBack }}" aria-label="Zpět na detail motorky"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button>
+<div style="flex:1;min-width:0"><h1 style="font:800 22px/1.15 Montserrat">Rezervace</h1><div style="font:700 12.5px/1.3 Montserrat;color:#4A6B5A">BMW R 1200 GS Adventure</div></div>
+</div>
+<div class="sp" aria-label="{{ stepAria }}">
+<sc-for list="{{ steps }}" as="s" hint-placeholder-count="3"><div class="{{ s.cls }}"><span class="sc"><sc-if value="{{ s.done }}" hint-placeholder-val="{{ true }}"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="stroke-width:3"><path d="M5 12l5 5 9-10"></path></svg></sc-if><sc-if value="{{ s.num }}" hint-placeholder-val="{{ false }}">{{ s.n }}</sc-if></span><sc-if value="{{ s.showL }}" hint-placeholder-val="{{ true }}"><span>{{ s.l }}</span></sc-if></div><sc-if value="{{ s.line }}" hint-placeholder-val="{{ true }}"><span class="sl"><sc-if value="{{ s.lineOn }}" hint-placeholder-val="{{ true }}"><i></i></sc-if></span></sc-if></sc-for>
+</div>
+</div>
+
+<div class="rc">
+<img class="rcb" src="https://vnwnqteskbykeucanlhk.supabase.co/storage/v1/object/public/media/motos/a0000001-0000-0000-0000-000000000001/moj0fnd41cr5-20260427-182831.jpg" alt="" aria-hidden="true">
+<img class="rcf" src="https://vnwnqteskbykeucanlhk.supabase.co/storage/v1/object/public/media/motos/a0000001-0000-0000-0000-000000000001/moj0fnd41cr5-20260427-182831.jpg" alt="Motorka BMW R 1200 GS Adventure">
+<div class="rcg" aria-hidden="true"></div>
+<div class="rct"><div style="font:800 20px/1.1 Montserrat">BMW R 1200 GS Adventure</div><div style="margin-top:4px;font:700 12.5px/1.3 Montserrat;color:#CFE7DA">MotoGo24 Mezná · pá 23. 10. → ne 25. 10.</div></div>
+</div>
+
+<section class="card" aria-label="Krok 1 Termín a předání">
+<div class="kh"><span class="kc ok"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="stroke-width:3"><path d="M5 12l5 5 9-10"></path></svg></span><span class="kt">TERMÍN A PŘEDÁNÍ</span><button class="lk" onClick="{{ t1.toggle }}" aria-expanded="{{ t1.exp }}">{{ t1.link }}</button></div>
+<p class="v1 tn">{{ t1.line }}</p>
+<p class="v2">Vyzvednutí i vrácení na pobočce Mezná</p>
+<sc-if value="{{ t1.open }}" hint-placeholder-val="{{ false }}">
+<div class="lb">ČAS VYZVEDNUTÍ</div>
+<div class="hr"><sc-for list="{{ pTimes }}" as="t" hint-placeholder-count="5"><button class="{{ t.cls }}" onClick="{{ t.pick }}" aria-pressed="{{ t.on }}">{{ t.l }}<sc-if value="{{ t.half }}" hint-placeholder-val="{{ false }}"><span class="hf" aria-hidden="true">½</span></sc-if></button></sc-for></div>
+<sc-if value="{{ t1.late }}" hint-placeholder-val="{{ true }}"><div class="ofr"><b style="font-weight:900">½</b><span style="flex:1">1. den za polovinu</span><span class="tn" style="font-weight:800">{{ t1.lateAmt }}</span></div></sc-if>
+<div class="lb">ČAS VRÁCENÍ</div>
+<div class="hr"><sc-for list="{{ rTimes }}" as="t" hint-placeholder-count="3"><button class="{{ t.cls }}" onClick="{{ t.pick }}" aria-pressed="{{ t.on }}">{{ t.l }}</button></sc-for></div>
+</sc-if>
+</section>
+
+<section class="card cur" aria-label="Krok 2 Výbava a velikosti">
+<div class="kh"><span class="kc">2</span><span class="kt">VÝBAVA A VELIKOSTI</span></div>
+<div class="fg"><sc-for list="{{ freeGear }}" as="g" hint-placeholder-count="5"><span class="fgc"><svg class="ic" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" style="stroke-width:3"><path d="M5 12l5 5 9-10"></path></svg>{{ g.l }}</span></sc-for></div>
+<button class="sw" role="switch" aria-checked="{{ own.on }}" onClick="{{ own.toggle }}"><span style="flex:1;text-align:left"><span style="display:block;font:800 14px/1.25 Montserrat">Mám vlastní výbavu</span><span style="display:block;font:600 12px/1.3 Montserrat;color:#4A6B5A">Velikosti pak nevybíráš</span></span><span class="{{ own.cls }}" aria-hidden="true"></span></button>
+<sc-if value="{{ own.off }}" hint-placeholder-val="{{ true }}">
+<div class="lb">TVOJE VELIKOSTI · Z PROFILU</div>
+<div class="szg"><sc-for list="{{ riderSizes }}" as="z" hint-placeholder-count="4"><button class="{{ z.cls }}" onClick="{{ z.pick }}" aria-label="{{ z.aria }}"><span>{{ z.l }}</span><b>{{ z.v }}</b></button></sc-for></div>
+</sc-if>
+<sc-if value="{{ own.isOn }}" hint-placeholder-val="{{ false }}"><div class="ofr">Vlastní výbava – velikosti nepotřebujeme</div></sc-if>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px"><span class="lb" style="margin:0">VÝBAVA NAVÍC</span><span class="rkb">{{ rankBadge }}</span></div>
+<sc-for list="{{ extras }}" as="x" hint-placeholder-count="4">
+<div class="{{ x.cls }}">
+<button class="xh" role="checkbox" aria-checked="{{ x.on }}" onClick="{{ x.toggle }}"><span class="{{ x.cbCls }}" aria-hidden="true"><sc-if value="{{ x.checked }}" hint-placeholder-val="{{ true }}"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" style="stroke-width:3"><path d="M5 12l5 5 9-10"></path></svg></sc-if></span><span class="xn">{{ x.l }}<small>{{ x.sub }}</small></span><span class="xp tn"><sc-if value="{{ x.showList }}" hint-placeholder-val="{{ true }}"><s>{{ x.list }}</s></sc-if><b>{{ x.val }}</b></span></button>
+<sc-if value="{{ x.showSizes }}" hint-placeholder-val="{{ true }}"><div class="xs"><sc-for list="{{ x.sizes }}" as="z" hint-placeholder-count="2"><button class="{{ z.cls }}" onClick="{{ z.pick }}" aria-label="{{ z.aria }}">{{ z.t }}</button></sc-for></div></sc-if>
+</div>
+</sc-for>
+</section>
+
+<section class="card fut" aria-label="Krok 3 Kontrola a platba">
+<div class="kh"><span class="kc">3</span><span class="kt" style="color:#4A6B5A">KONTROLA A PLATBA</span></div>
+<div class="lb">SLEVOVÝ KÓD NEBO POUKAZ</div>
+<div class="in"><input class="{{ code.inCls }}" placeholder="Zadej kód" aria-label="Slevový kód nebo poukaz" onInput="{{ code.input }}"><button class="sdk" onClick="{{ code.apply }}">Použít</button></div>
+<sc-if value="{{ code.err }}" hint-placeholder-val="{{ false }}"><p class="er">{{ code.errText }}</p></sc-if>
+<sc-if value="{{ code.ok }}" hint-placeholder-val="{{ false }}"><div class="okr"><span>{{ code.okText }}</span><span class="tn">{{ code.okAmt }}</span></div></sc-if>
+<p class="nt">Ukázka: kód <b>DEMO</b> odečte 500 Kč, jiný kód ukáže chybu.</p>
+<button class="lk" onClick="{{ noteToggle }}" style="margin-top:4px">{{ noteLabel }}</button>
+<sc-if value="{{ noteOpen }}" hint-placeholder-val="{{ false }}"><textarea aria-label="Poznámka k rezervaci" placeholder="Např. přijedu dřív" style="width:100%;height:84px;margin-top:4px;padding:12px;border-radius:14px;border:1.5px solid #CFE3DA;background:#FBFDFC;font:600 14px Montserrat;resize:none;animation:rin .3s ease both"></textarea></sc-if>
+<div style="margin-top:8px">
+<sc-for list="{{ consents }}" as="c" hint-placeholder-count="2"><button class="{{ c.cls }}" role="checkbox" aria-checked="{{ c.on }}" onClick="{{ c.toggle }}"><span class="{{ c.cbCls }}" aria-hidden="true"><sc-if value="{{ c.checked }}" hint-placeholder-val="{{ false }}"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" style="stroke-width:3"><path d="M5 12l5 5 9-10"></path></svg></sc-if></span><span style="flex:1;text-align:left">{{ c.pre }}<u>{{ c.link }}</u></span></button></sc-for>
+</div>
+<div class="lb">PLATBA</div>
+<button class="pm" onClick="{{ payMethod }}"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="color:#0D6E0D"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="M3 10h18M7 15h4"></path></svg><span style="flex:1;text-align:left">Uložená karta •••• [XXXX]</span><span style="color:#0D6E0D;font-size:13px">Změnit ›</span></button>
+<p class="nt" style="display:flex;align-items:center;gap:6px"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>Platba přes Stripe · PCI DSS Level 1</p>
+<p class="nt" style="color:#6C8A7B">Po klepnutí na Zaplatit máš 30 minut na dokončení platby.</p>
+</section>
+</div>
+
+<div class="sum">
+<div class="r1"><span>{{ sum.label }}</span><button class="lk" style="min-height:32px;color:#A8FF9F" onClick="{{ openRozpis }}">Rozpis ▴</button></div>
+<div class="tot"><b class="{{ sum.totCls }}">{{ sum.total }}</b><sc-if value="{{ sum.hasDelta }}" hint-placeholder-val="{{ false }}"><span class="{{ sum.dCls }}">{{ sum.delta }}</span></sc-if></div>
+<div class="r3">
+<span class="{{ sum.blCls }}">{{ sum.blText }}</span>
+<sc-if value="{{ sum.blocked }}" hint-placeholder-val="{{ true }}"><button class="gh" onClick="{{ sum.fix }}">DOPLNIT ↓</button></sc-if>
+<sc-if value="{{ sum.ready }}" hint-placeholder-val="{{ false }}"><button class="{{ sum.payCls }}" onClick="{{ sum.pay }}"><sc-if value="{{ sum.paying }}" hint-placeholder-val="{{ false }}"><span class="spn" aria-hidden="true"></span></sc-if>{{ sum.payLabel }}</button></sc-if>
+</div>
+</div>
+
+<sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}"><button class="scrim" onClick="{{ closeSheet }}" aria-label="Zavřít"></button></sc-if>
+<sc-if value="{{ sz.open }}" hint-placeholder-val="{{ false }}">
+<div class="sh" role="dialog" aria-modal="true" aria-label="{{ sz.title }}" style="{{ sz.st }}">
+<div class="grb" aria-hidden="true"></div>
+<h2 style="font:800 17px/1.25 Montserrat">{{ sz.title }}</h2>
+<p class="nt">{{ sz.note }}</p>
+<div class="szl"><sc-for list="{{ sz.opts }}" as="o" hint-placeholder-count="10"><button class="{{ o.cls }}" onClick="{{ o.pick }}" aria-pressed="{{ o.on }}">{{ o.l }}</button></sc-for></div>
+</div>
+</sc-if>
+<sc-if value="{{ rz.open }}" hint-placeholder-val="{{ false }}">
+<div class="sh dk" role="dialog" aria-modal="true" aria-label="Rozpis ceny" style="bottom:0">
+<div class="grb" aria-hidden="true" style="background:rgba(255,255,255,.25)"></div>
+<h2 style="font:800 17px/1.25 Montserrat">Rozpis ceny</h2>
+<sc-for list="{{ rz.rows }}" as="r" hint-placeholder-count="5"><div class="{{ r.cls }}"><span>{{ r.l }}<small>{{ r.s }}</small></span><b class="tn">{{ r.v }}</b></div></sc-for>
+<div class="tb"><span style="font:800 12px/1 Montserrat;letter-spacing:.08em;color:#A8FF9F">TVOJE CENA</span><b class="tn" style="font:900 28px/1 Montserrat;color:#74FB71">{{ sum.total }}</b></div>
+<p style="margin-top:10px;font:700 12.5px/1.4 Montserrat;color:#A8FF9F">{{ rz.saved }}</p>
+<p style="margin-top:2px;font:600 11.5px/1.4 Montserrat;color:#8FB3A1">Bez kauce · konečná cena · nejsme plátci DPH</p>
+</div>
+</sc-if>
+<sc-if value="{{ done.show }}" hint-placeholder-val="{{ false }}">
+<div class="ok2" role="dialog" aria-label="Rezervace potvrzena">
+<span class="bigck"><svg class="ic" viewBox="0 0 24 24" width="48" height="48" aria-hidden="true" style="stroke-width:3"><path d="M5 12l5 5 9-10"></path></svg></span>
+<h2 style="font:900 26px/1.15 Montserrat">Rezervace potvrzena!</h2>
+<p style="font:700 14px/1.4 Montserrat;color:#CFE7DA">pá 23. 10. 12:00 · Mezná<br>Zaplaceno <span class="tn" style="color:#74FB71">{{ sum.total }}</span></p>
+<button class="cta" style="margin-top:8px;padding:0 24px" onClick="{{ done.res }}">MOJE REZERVACE</button>
+<button class="lk" style="color:#A8FF9F" onClick="{{ done.back }}">Zpět do formuláře (ukázka)</button>
+</div>
+</sc-if>
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}"><div class="{{ toastCls }}" role="status" style="{{ toastSt }}">{{ toast }}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2100},"rank":{"editor":"int","min":1,"max":20,"default":3,"section":"Zákazník"},"reducedMotion":{"editor":"boolean","default":false,"section":"Pohyb"}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { pt: '12:00', rt: '19:00', t1: false, own: false, r: { helma: 'M', rukavice: 'L', bunda: 'L', kalhoty: 'M' }, p: { helma: 'L', rukavice: 'M', bunda: 'L', kalhoty: 'L' }, bR: null, bP: '40', ex: { pg: true, br: true, bp: true, tr: false }, cons: [false, false], code: '', codeSt: '', promo: 0, note: false, sheet: '', szK: '', fl: '', flN: 0, last: null, delta: 0, bk: 0, paying: false, done: false, toast: '', tN: 0, tY: 600 };
+    this._code = '';
+  }
+  calc(s, L) {
+    const P = [3514, 4882, 3865], rent = 12261, late = s.pt >= '12:00' ? Math.round(P[0] / 2) : 0;
+    const list = (s.ex.pg ? 690 : 0) + (s.ex.br ? 290 : 0) + (s.ex.bp ? 290 : 0), free = L >= 3, extras = free ? 0 : list;
+    const loy = Math.round((rent - late + extras) * L / 100), total = Math.max(0, rent - late + extras - loy - s.promo);
+    return { rent, late, list, extras, free, loy, total, noRank: rent - late + list };
+  }
+  renderVals() {
+    const self = this, S = this.state, Pp = this.props || {};
+    const L = Math.max(1, Math.min(20, parseInt(Pp.rank, 10) || 3));
+    const RN = ['Startér', 'Jezdec', 'Motorkář', 'Stálý jezdec', 'Věrný zákazník', 'Bronzový jezdec', 'Stříbrný jezdec', 'Zlatý jezdec', 'Platinový jezdec', 'Diamantový jezdec', 'Prémiový zákazník', 'Mistr silnic', 'Šampion', 'Veterán MotoGo', 'Elitní jezdec', 'Ambasador', 'VIP', 'VIP Gold', 'VIP Platinum', 'Legenda MotoGo'];
+    const f = (n) => String(Math.round(Math.abs(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' Kč';
+    const q = this.calc(S, L);
+    const say = (m, y, o) => self.setState(Object.assign({ toast: m, tN: S.tN + 1, tY: y || 600 }, o || {}));
+    const upd = (ch) => { const nq = self.calc(Object.assign({}, S, ch), L); const d = nq.total - q.total; self.setState(Object.assign({}, ch, d ? { delta: d, bk: S.bk + 1 } : {})); };
+    const flash = (k) => ({ fl: k, flN: S.flN + 1 });
+    // blockers
+    let blk = null;
+    if (S.ex.br && !S.bR) blk = { t: 'Chybí: velikost bot řidiče', a: () => self.setState(Object.assign({ sheet: 'size', szK: 'bR' }, flash('bR'))) };
+    else if (S.ex.bp && !S.bP) blk = { t: 'Chybí: velikost bot spolujezdce', a: () => self.setState(Object.assign({ sheet: 'size', szK: 'bP' }, flash('bP'))) };
+    else if (!S.cons[0] || !S.cons[1]) blk = { t: 'Potvrď souhlasy', a: () => say('Posunu tě k souhlasům ↓', 1500, flash('cons')) };
+    const step2done = !blk || blk.t.indexOf('Potvrď') === 0;
+    const steps = [['Termín a předání', true], ['Výbava a velikosti', step2done], ['Kontrola a platba', false]].map(([l, dn], i, arr) => {
+      const cur = !dn && (i === 0 || arr[i - 1][1]);
+      return { l, n: String(i + 1), done: dn, num: !dn, cls: 'sn' + (dn ? ' dn' : '') + (cur ? ' cu' : ''), showL: cur, line: i < 2, lineOn: dn };
+    });
+    const SZ = { helma: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'], rukavice: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'], bunda: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'], kalhoty: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'], boty: ['39', '40', '41', '42', '43', '44', '45', '46', '47', '48'] };
+    const NM = { helma: 'Helma', rukavice: 'Rukavice', bunda: 'Bunda', kalhoty: 'Kalhoty' };
+    const riderSizes = Object.keys(NM).map((k) => ({ l: NM[k], v: S.r[k], cls: 'sz' + (S.fl === 'r.' + k && S.flN % 2 >= 0 ? ' fl' : ''), aria: NM[k] + ' velikost ' + S.r[k] + ', změnit', pick: () => self.setState({ sheet: 'size', szK: 'r.' + k }) }));
+    const sizeChip = (key, label, val) => ({ t: label + ' · ' + (val || 'Vyber'), cls: 'xc' + (!val ? ' miss' : '') + (S.fl === key && val ? ' fl' : ''), aria: label + (val ? ' velikost ' + val : ' – vyber velikost'), pick: () => self.setState({ sheet: 'size', szK: key }) });
+    const X = [
+      ['pg', 'Výbava spolujezdce', 'helma, rukavice, bunda, kalhoty', 690, Object.keys(NM).map((k) => sizeChip('p.' + k, NM[k], S.p[k]))],
+      ['br', 'Boty řidiče', 'velikost 39–48', 290, [sizeChip('bR', 'Velikost', S.bR)]],
+      ['bp', 'Boty spolujezdce', 'velikost 39–48', 290, [sizeChip('bP', 'Velikost', S.bP)]]
+    ];
+    const extras = X.map(([k, l, sub, price, sizes]) => {
+      const on = !!S.ex[k];
+      return { l, sub, on: on ? 'true' : 'false', checked: on, cls: 'xr' + (on ? ' on' : ''), cbCls: 'cb' + (on ? ' on' : ''), showList: q.free, list: f(price), val: q.free ? '0 Kč' : f(price), showSizes: on, sizes,
+        toggle: () => { const ex = Object.assign({}, S.ex); ex[k] = !on; upd({ ex }); } };
+    });
+    const trOn = !!S.ex.tr;
+    extras.push({ l: 'Vozík (přívěs)', sub: 'Mezná · podle dostupnosti', on: trOn ? 'true' : 'false', checked: trOn, cls: 'xr' + (trOn ? ' on' : ''), cbCls: 'cb' + (trOn ? ' on' : ''), showList: false, list: '', val: 'zdarma', showSizes: false, sizes: [], toggle: () => self.setState({ ex: Object.assign({}, S.ex, { tr: !trOn }) }) });
+    // size sheet
+    let sz = { open: S.sheet === 'size', title: '', note: '', opts: [], st: '' };
+    if (sz.open) {
+      const k = S.szK, isB = k === 'bR' || k === 'bP', part = isB ? 'boty' : k.split('.')[1];
+      const cur = isB ? S[k] : S[k[0]][part];
+      const who = k[0] === 'p' || k === 'bP' ? 'spolujezdce' : 'řidiče';
+      const top = { r: 600, p: 860, b: 1060 }[k === 'bR' || k === 'bP' ? 'b' : k[0]];
+      sz = { open: true, title: (isB ? 'Boty ' : NM[part] + ' ') + who + ' · velikost', note: isB ? 'Boty se nikdy nepředvyplňují — vyber pokaždé.' : 'Uložíme ti ji i do profilu.', st: 'top:' + top + 'px',
+        opts: SZ[part].map((v) => ({ l: v, on: v === cur ? 'true' : 'false', cls: 'szo' + (v === cur ? ' on' : ''), pick: () => {
+          if (isB) { const o = { sheet: '' }; o[k] = v; self.setState(Object.assign(o, flash(k))); }
+          else { const o = Object.assign({}, S[k[0]]); o[part] = v; const ch = { sheet: '' }; ch[k[0]] = o; self.setState(Object.assign(ch, flash(k))); }
+        } })) };
+    }
+    // rozpis
+    const rows = [
+      { l: 'Pronájem · 3 dny', s: 'pá 3 514 · so 4 882 · ne 3 865', v: f(q.rent), cls: 'rw' },
+      q.late ? { l: 'Vyzvednutí od 12:00', s: '1. den za polovinu', v: '−' + f(q.late), cls: 'rw m' } : null,
+      { l: 'Výbava navíc', s: q.free ? 'zdarma pro ' + RN[L - 1] + ' (ceník ' + f(q.list) + ')' : '', v: f(q.extras), cls: 'rw' + (q.free ? ' m' : '') },
+      { l: 'Věrnostní sleva · ' + RN[L - 1] + ' ' + L + ' %', s: '', v: '−' + f(q.loy), cls: 'rw m' },
+      S.promo ? { l: 'Slevový kód DEMO', s: '', v: '−' + f(S.promo), cls: 'rw m' } : null
+    ].filter(Boolean);
+    const saved = q.noRank - (q.total + S.promo);
+    const ready = !blk;
+    const pTimes = ['09:00', '10:00', '12:00', '14:00', '16:00'].map((t) => ({ l: t, half: t >= '12:00', on: S.pt === t ? 'true' : 'false', cls: 'ch' + (S.pt === t ? ' on' : ''), pick: () => upd({ pt: t }) }));
+    const rTimes = ['17:00', '19:00', '20:00'].map((t) => ({ l: t, on: S.rt === t ? 'true' : 'false', cls: 'ch' + (S.rt === t ? ' on' : ''), pick: () => self.setState({ rt: t }) }));
+    return {
+      rootCls: 'mg' + (Pp.reducedMotion ? ' rm' : ''),
+      stepAria: 'Krok ' + (step2done ? 3 : 2) + ' ze 3',
+      steps, goBack: () => say('Zpět na detail — termín, časy i výbava zůstávají', 80),
+      t1: { open: S.t1, exp: S.t1 ? 'true' : 'false', link: S.t1 ? 'Hotovo' : 'Změnit', toggle: () => self.setState({ t1: !S.t1 }), line: 'pá 23. 10. ' + S.pt + ' → ne 25. 10. ' + S.rt + ' · 3 dny', late: q.late > 0, lateAmt: '−' + f(q.late) },
+      pTimes, rTimes,
+      freeGear: ['helma', 'rukavice', 'bunda', 'kalhoty', 'kukla'].map((l) => ({ l })),
+      own: { on: S.own ? 'true' : 'false', isOn: S.own, off: !S.own, cls: 'tg' + (S.own ? ' on' : ''), toggle: () => self.setState({ own: !S.own }) },
+      riderSizes, extras, rankBadge: q.free ? RN[L - 1] + ': zdarma' : 'Zdarma od ranku 3',
+      code: { inCls: S.codeSt === 'err' ? 'err' : '', input: (e) => { self._code = ((e && e.target && e.target.value) || '').trim().toUpperCase(); },
+        apply: () => { const c = self._code; if (c === 'DEMO') upd({ promo: 500, codeSt: 'ok' }); else self.setState({ codeSt: 'err', promo: 0 }); },
+        err: S.codeSt === 'err', errText: 'Tenhle kód neznáme', ok: S.codeSt === 'ok', okText: 'Slevový kód DEMO', okAmt: '−500 Kč' },
+      noteOpen: S.note, noteLabel: S.note ? '− Poznámka k rezervaci' : '+ Poznámka k rezervaci (nepovinné)', noteToggle: () => self.setState({ note: !S.note }),
+      consents: [['Souhlasím s ', 'obchodními podmínkami (VOP)'], ['Souhlasím se ', 'zpracováním osobních údajů']].map(([pre, link], i) => ({ pre, link, checked: S.cons[i], on: S.cons[i] ? 'true' : 'false', cbCls: 'cb' + (S.cons[i] ? ' on' : ''), cls: 'cn' + (S.fl === 'cons' && !S.cons[i] ? ' fl' : ''), toggle: () => { const c = S.cons.slice(); c[i] = !c[i]; self.setState({ cons: c }); } })),
+      payMethod: () => say('Android: Google Pay i karta · iOS: Apple Pay (bez ručního zadání karty)', 1560),
+      sum: { label: 'Tvoje cena · 3 dny', total: f(q.total), totCls: S.bk ? (S.bk % 2 ? 'tn bA' : 'tn bB') : 'tn', hasDelta: !!S.delta, delta: (S.delta > 0 ? '+' : '−') + f(S.delta), dCls: 'dch ' + (S.delta > 0 ? 'up' : 'dn'),
+        blocked: !!blk, blText: blk ? blk.t : 'Vše připraveno', blCls: 'bl' + (blk ? '' : ' ok'), fix: blk ? blk.a : () => {},
+        ready, paying: S.paying, payCls: 'cta' + (S.paying ? ' ld' : ''), payLabel: S.paying ? 'Platím…' : 'Zaplatit ' + f(q.total),
+        pay: () => { if (S.paying) return; self.setState({ paying: true }); setTimeout(() => self.setState({ paying: false, done: true }), 1300); } },
+      openRozpis: () => self.setState({ sheet: 'rozpis' }), closeSheet: () => self.setState({ sheet: '' }), sheetOpen: !!S.sheet,
+      rz: { open: S.sheet === 'rozpis', rows, saved: 'Díky ranku ' + RN[L - 1] + ' ušetříš ' + f(saved) + ' (bez něj ' + f(q.noRank) + ')' },
+      sz,
+      done: { show: S.done, res: () => say('Otevře se Správa rezervace (obrazovka 5)', 700), back: () => self.setState({ done: false }) },
+      hasToast: !!S.toast, toast: S.toast, toastCls: 'toast ' + (S.tN % 2 ? 'tA' : 'tB'), toastSt: 'top:' + S.tY + 'px'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -153,7 +153,7 @@ return [
                     ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => '9. Confirmación por e-mail', 'text' => 'Al completar la reserva recibirás un e-mail con la confirmación de la reserva, el justificante de pago, el contrato de alquiler y las instrucciones básicas para recoger la moto.'],
                     ['icon' => 'gfx/predani-motorky.svg', 'title' => '10. Recogida de la moto', 'text' => 'En la entrega comprobamos tus documentos (si aún no están verificados), firmamos el acta de entrega y recoges tu equipamiento. ¡Y ya solo queda arrancar!'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '11. Disfruta de la ruta', 'text' => 'Sal a la carretera: <strong>sin fianza, sin estrés</strong>. Lo demás es solo asfalto y libertad.'],
-                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Devolución de la moto', 'text' => 'Devuelve la moto a tiempo: en persona en nuestra sucursal de Pelhřimov o en el lugar acordado previamente. No tienes que repostar ni lavarla.'],
+                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Devolución de la moto', 'text' => 'Devuelve la moto a tiempo: en persona en nuestra sucursal de Pelhřimov o en el lugar acordado previamente; no tienes que repostar ni lavarla. En la sucursal de autoservicio de Velké Němčice, devuélvela lavada y sin el testigo de reserva encendido.'],
                 ],
             ],
             'gallery' => [
@@ -331,7 +331,7 @@ return [
                 'title' => 'Preguntas frecuentes sobre la devolución en la sucursal',
                 'items' => [
                     ['q' => '¿Hasta cuándo tengo que devolver la moto?', 'a' => 'Lo ideal es devolverla a la hora acordada. Si la devuelves en la sucursal, puedes venir, previo aviso, en cualquier momento del último día del alquiler, como muy tarde a medianoche y sin ninguna penalización. Si la devuelves en otro lugar, la hora acordada es vinculante.'],
-                    ['q' => '¿Tengo que devolverla con el depósito lleno y limpia?', 'a' => 'No. No tienes que repostar y, en nuestra sucursal de Pelhřimov, tampoco lavarla (solo en la sucursal de autoservicio, cerca de Brno, hay que devolver la moto lavada). Solo procura que no esté encendido el testigo de reserva.&nbsp;'],
+                    ['q' => '¿Tengo que devolverla con el depósito lleno y limpia?', 'a' => 'No. En Mezná no tienes que repostar ni lavarla. En la sucursal de autoservicio de Velké Němčice tampoco hace falta el depósito lleno: solo devuelve la moto lavada y procura que no esté encendido el testigo de reserva.&nbsp;'],
                     ['q' => '¿Puedo devolver la moto en la sucursal antes de lo acordado?', 'a' => 'Sí, puedes devolverla en cualquier momento del último día del alquiler. Solo avísanos de que llegarás antes. No cobramos ningún recargo por devolverla antes.'],
                     ['q' => '¿Qué pasa si no llego a devolver la moto en la sucursal antes de la medianoche del último día?&nbsp;', 'a' => 'Si sabes que no vas a llegar, avísanos cuanto antes y buscaremos una solución. Una devolución tardía sin avisar se rige por las condiciones del contrato de alquiler.'],
                     ['q' => '¿Tengo que firmar algo al devolver la moto en la sucursal?&nbsp;', 'a' => 'Si todo está en orden, la devolución es rápida y sin papeleo innecesario. La confirmación del fin del alquiler y la factura final te llegan por e-mail.'],
@@ -514,7 +514,7 @@ return [
                 'rows' => [
                     ['<strong>Pago del alquiler</strong>', 'Online, por adelantado.'],
                     ['<strong>Cancelación de la reserva</strong>', 'Gratuita hasta el plazo acordado (indicado en los términos y condiciones).'],
-                    ['<strong>Combustible y limpieza</strong>', 'No tienes que repostar ni lavar la moto (solo en la sucursal de autoservicio, cerca de Brno, hay que devolverla lavada). La suciedad excesiva se resuelve de forma individual.'],
+                    ['<strong>Combustible y limpieza</strong>', 'En Mezná y si la devuelves en otro lugar, no tienes que repostar ni lavar la moto. En la sucursal de autoservicio, cerca de Brno, devuélvela lavada y sin el testigo de reserva encendido (no hace falta el depósito lleno). La suciedad excesiva se resuelve de forma individual.'],
                     ['<strong>Entrega / recogida</strong>', 'Según la tarifa de entrega. Te la confirmamos al reservar.'],
                     ['<strong>Devolución tardía</strong>', 'Te pedimos que devuelvas la moto a tiempo el último día del alquiler o que alargues el alquiler oficialmente.'],
                 ],
@@ -538,9 +538,9 @@ return [
             'handover' => [
                 'title' => 'Entrega y devolución',
                 'items' => [
-                    'La&nbsp;<strong>recogida</strong>&nbsp;es en Pelhřimov (Mezná 9), o puedes pedir la&nbsp;<a href="/jak-pujcit/pristaveni">entrega de la moto</a>.',
+                    'La&nbsp;<strong>recogida</strong>&nbsp;es en Pelhřimov (Mezná 9) o en la sucursal de autoservicio de Velké Němčice, cerca de Brno; desde Mezná también puedes pedir la&nbsp;<a href="/jak-pujcit/pristaveni">entrega de la moto</a>.',
                     'En la entrega recibes&nbsp;<strong>las llaves y el equipamiento; los documentos te llegan por e-mail</strong>.',
-                    '<strong>Devolución</strong>&nbsp;en cualquier momento del último día del alquiler (incluso a medianoche). No tienes que repostar ni lavar la moto (solo en la sucursal de autoservicio, cerca de Brno, hay que devolverla lavada).',
+                    '<strong>Devolución</strong>&nbsp;en cualquier momento del último día del alquiler (incluso a medianoche). En Mezná no tienes que repostar ni lavar la moto; en la sucursal de autoservicio, cerca de Brno, devuélvela lavada y sin el testigo de reserva encendido.',
                 ],
             ],
             'privacy' => [
@@ -706,7 +706,7 @@ return [
                 'title' => 'Preguntas frecuentes sobre la devolución de la moto en otro lugar',
                 'items' => [
                     ['q' => '¿Hasta cuándo tengo que devolver la moto?', 'a' => 'Lo ideal es devolverla a la hora acordada. Si la devuelves en la sucursal, puedes venir, previo aviso, en cualquier momento del último día del alquiler, como muy tarde a medianoche y sin ninguna penalización. Si la devuelves en otro lugar, la hora acordada es vinculante.'],
-                    ['q' => '¿Tengo que devolverla con el depósito lleno y limpia?', 'a' => 'No. No tienes que repostar ni lavar la moto. Solo procura que no esté encendido el testigo de reserva.&nbsp;'],
+                    ['q' => '¿Tengo que devolverla con el depósito lleno y limpia?', 'a' => 'No. Si la devuelves en otro lugar, no tienes que repostar ni lavarla.&nbsp;'],
                     ['q' => 'Si la devuelvo en otro lugar, ¿puedo entregarla antes de lo acordado?&nbsp;', 'a' => 'Salimos de Pelhřimov hacia el lugar acordado según la hora fijada, así que, por desgracia, no es posible devolverla antes. Si cambian tus planes, avísanos: intentaremos ajustar la hora, aunque depende de nuestra carga de trabajo en ese momento.'],
                     ['q' => '¿De verdad puedo devolver la moto en cualquier lugar de la República Checa?&nbsp;', 'a' => 'Sí, vamos a buscar la moto a cualquier lugar de la República Checa. El lugar de devolución lo indicas al reservar: un hotel, un aparcamiento, una estación o cualquier otra dirección.'],
                     ['q' => '¿Con cuánta antelación tengo que avisar de una devolución en otro lugar?&nbsp;', 'a' => 'El lugar y la hora de devolución los indicas ya en el formulario de reserva.&nbsp;'],
@@ -777,7 +777,7 @@ return [
                 'steps' => [
                     ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Elige', 'text' => 'Elige la moto que te encaje entre nuestras motos de alquiler.'],
                     ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Reserva', 'text' => 'Reserva tu moto con nuestro sencillo sistema online.'],
-                    ['icon' => 'gfx/predani-motorky.svg', 'title' => '3. Recógela', 'text' => 'Recoge la moto en nuestro alquiler de Pelhřimov o pide que te la llevemos a cualquier lugar de la República Checa.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => '3. Recógela', 'text' => 'Recoge la moto en persona en Mezná, cerca de Pelhřimov (desde allí también te la llevamos a cualquier lugar de la República Checa), o tú mismo en la sucursal de autoservicio de Velké Němčice, cerca de Brno.'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '4. Disfruta de la ruta', 'text' => 'Disfruta de la libertad y descubre la República Checa, y también el extranjero, en una moto de alquiler.'],
                 ],
             ],
@@ -854,7 +854,7 @@ return [
                 'title' => 'Preguntas frecuentes',
                 'more_link' => '/jak-pujcit/faq',
                 'items' => [
-                    ['q' => '¿Cómo puedo reservar una moto?', 'a' => 'Puedes reservar una moto con nuestro sistema de reserva online, aquí mismo en la web, o desde la app MotoGo24 (Google Play y App Store). Si lo prefieres, escríbenos por e-mail, llámanos o contáctanos por redes sociales.'],
+                    ['q' => '¿Cómo puedo reservar una moto?', 'a' => 'Puedes reservar una moto con nuestro sistema de reserva online, aquí mismo en la web, o desde la app MotoGo24, gratis en Google Play (Android) y en el App Store (iPhone). Si lo prefieres, escríbenos por e-mail, llámanos o contáctanos por redes sociales.'],
                     ['q' => '¿Puedo alquilar una moto sin reserva previa?', 'a' => 'Por desgracia, sin reserva no es posible. Todas las motos deben reservarse con antelación.'],
                     ['q' => '¿Tengo que dejar fianza?', 'a' => '¡No! Con nosotros <strong>no pagas ninguna fianza</strong>. En eso nos diferenciamos claramente de la mayoría de los alquileres.'],
                     ['q' => '¿Puedo viajar al extranjero con la moto?', 'a' => 'Sí, puedes salir al extranjero con la moto sin problema. No limitamos los viajes fuera de la República Checa; solo tienes que respetar la validez territorial del seguro (carta verde).'],

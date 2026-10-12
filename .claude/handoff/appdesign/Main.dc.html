@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<title>Domů – zákaznický hub</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" />
+<style>
+body{margin:0}
+sc-if,sc-for{display:contents}
+.mg{font-family:Montserrat,'Segoe UI',sans-serif;color:#1A2E22;-webkit-font-smoothing:antialiased;line-height:1.3}
+.mg *{box-sizing:border-box}
+.mg button{font:inherit;border:0;background:none;padding:0;margin:0;color:inherit;cursor:pointer;text-align:inherit;-webkit-tap-highlight-color:transparent}
+.mg button:focus-visible,.mg input:focus-visible{outline:3px solid #37CF63;outline-offset:3px}
+.dk button:focus-visible{outline-color:#74FB71}
+.mg h2,.mg h3,.mg p{margin:0}
+.tn{font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pg,.hs{scrollbar-width:none}.pg::-webkit-scrollbar,.hs::-webkit-scrollbar{display:none}
+.pr{transition:transform .15s ease}.pr:active{transform:scale(.97)}
+.rv{animation:rv .55s ease both}
+.tk0{animation:tkA .35s ease both}.tk1{animation:tkB .35s ease both}
+.cta{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:56px;padding:0 16px;border-radius:14px;background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F;font-size:14.5px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;text-align:center;animation:glow 2.2s ease-in-out infinite}
+.cta:active{background:linear-gradient(135deg,#A8FF9F,#5EDC5A)}
+.cta::after{content:"";position:absolute;top:0;bottom:0;left:0;width:50%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);transform:translateX(-160%) skewX(-22deg);animation:shine 3.2s linear infinite;pointer-events:none}
+.cta.off{background:rgba(255,255,255,.10);color:#8FB3A1;animation:none;cursor:default}.cta.off::after{display:none}
+.paused .cta,.paused .cta::after,.paused .ld,.paused .scan::before{animation-play-state:paused}
+.gd{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:4px 8px;border-radius:12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(116,251,113,.6);color:#fff;font-size:13px;font-weight:800;line-height:1.15;text-align:center}
+.gd.sos{border-color:rgba(255,120,120,.75);color:#FFB3B3}
+.sdk{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:12px;background:#1A2E22;color:#74FB71;font-size:13.5px;font-weight:800;text-transform:uppercase}
+.eb{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:rgba(10,31,20,.8);border:1px solid rgba(116,251,113,.4);color:#A8FF9F;font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.eb.fl{background:rgba(116,251,113,.12)}
+.eb.sos{border-color:rgba(255,120,120,.6);color:#FFB3B3}
+.ld{width:7px;height:7px;border-radius:50%;background:#74FB71;animation:ping 1.8s ease-out infinite}
+.ld.r{background:#FF7878;animation-name:pingR}
+.sp{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:999px;background:rgba(10,31,20,.8);color:#fff;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.sp.ok{color:#A8FF9F}.sp.w{background:#FFF4E0;color:#8A4B00}
+.scan{position:absolute;top:0;left:0;right:0;height:3px;overflow:hidden;z-index:3;pointer-events:none}
+.scan::before{content:"";position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(90deg,transparent,#74FB71,transparent);transform:translateX(-100%);animation:scan 3.6s linear infinite}
+.nd{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;flex:none}
+.nd.d{background:linear-gradient(135deg,#8DFF86,#37CF63)}
+.nd.c{border:2px solid #74FB71;background:#0E2A1C}.nd.c::before{content:"";width:10px;height:10px;border-radius:50%;background:#74FB71}
+.nd.w{background:#E9B44C;color:#08230F;font-size:12px;font-weight:900}
+.nd.u{background:#173826;border:1px solid #2A5A3E}
+.nd.pp{animation:pop .3s ease both .25s}
+.lD{color:#E8F5EE}.lU{color:#9FC4B1}.lW{color:#FFD36B}
+.tc{position:absolute;top:10px;left:calc(50% + 14px);right:calc(-50% + 14px);height:2px;border-radius:2px;transform-origin:left center}
+.tc.d{background:linear-gradient(90deg,#37CF63,#74FB71)}
+.tc.u{background:repeating-linear-gradient(90deg,#2A5A3E 0 4px,transparent 4px 7px)}
+.tc.g{animation:grow .7s ease both}
+.cd.bl{filter:blur(6px)}.cd.un{animation:unb .4s ease both}
+.stOn{color:#FFB400;animation:pop .3s ease both}.stOff{color:rgba(255,255,255,.3)}
+.chd{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:56px;padding:6px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(116,251,113,.22);color:#E8F5EE;text-align:center;transition:background .18s ease,border-color .18s ease}
+.chd.on{background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F;box-shadow:0 0 0 2px rgba(116,251,113,.35),0 6px 16px -6px rgba(116,251,113,.7);animation:pop .3s ease both}
+.chd.on .s2{color:#0B3B1A}
+.mc{transition:transform .2s ease,box-shadow .2s ease}
+.mc:hover{transform:translateY(-3px);box-shadow:0 12px 26px -10px rgba(26,46,34,.45)}
+.b0{animation:bA .45s ease both}.b1{animation:bB .45s ease both}
+.rbar{display:block;height:8px;border-radius:4px;background:linear-gradient(90deg,#0D6E0D,#37CF63);animation:fillw .7s cubic-bezier(.215,.61,.355,1) .2s both}
+.arc{animation:arc .7s cubic-bezier(.215,.61,.355,1) .2s both}
+.draw{stroke-dasharray:1;stroke-dashoffset:0;animation:draw .9s ease-in-out both}
+.pin{transform-box:fill-box;transform-origin:center;animation:pinp .35s ease both}
+.mq{animation:mq 16s linear infinite}
+.nav{position:absolute;left:0;right:0;bottom:0;height:98px;background:#fff;border-top:1px solid #E1EFE9;box-shadow:0 -6px 20px -10px rgba(26,46,34,.25);z-index:10}
+.npill{position:absolute;top:8px;width:52px;height:30px;border-radius:999px;background:linear-gradient(135deg,#8DFF86,#37CF63);box-shadow:0 6px 14px -6px rgba(116,251,113,.6);transition:left .25s cubic-bezier(.215,.61,.355,1)}
+.ni{display:flex;flex-direction:column;align-items:center;gap:4px;height:64px;padding-top:8px;color:#4A6B5A;font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;position:relative;z-index:1}
+.ni.on{color:#1A2E22;font-weight:800}.ni.on .nico{color:#08230F}
+.toast{position:absolute;left:50%;bottom:118px;transform:translateX(-50%);z-index:40;width:max-content;max-width:350px;padding:12px 16px;border-radius:14px;background:rgba(10,31,20,.95);border:1px solid rgba(116,251,113,.3);color:#fff;font-size:13px;font-weight:700;line-height:1.35;text-align:center;box-shadow:0 -8px 24px rgba(0,0,0,.25);pointer-events:none}
+.tA{animation:tA 2.8s ease forwards}.tB{animation:tB 2.8s ease forwards}
+.scrim{position:absolute;inset:0;width:100%;background:rgba(10,31,20,.55);animation:fade .25s ease both}
+.shL,.shD{position:absolute;left:0;right:0;bottom:0;border-radius:22px 22px 0 0;padding:10px 16px 42px;display:flex;flex-direction:column;gap:14px;animation:up .3s ease both}
+.shL{background:#fff;box-shadow:0 -14px 40px rgba(10,31,20,.35)}
+.shD{background:radial-gradient(120% 140% at 100% 0,#24563B 0,#0E2A1C 55%,#0A1F14 100%);color:#fff;box-shadow:0 -14px 40px rgba(10,31,20,.35)}
+.grab{align-self:center;width:42px;height:5px;border-radius:5px;background:#CFE3DA}
+.shD .grab{background:rgba(255,255,255,.25)}
+.dtile{display:flex;flex-direction:column;justify-content:center;gap:2px;min-height:56px;padding:0 12px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(116,251,113,.22);transition:border-color .18s ease}
+.dtile.on{border-color:#74FB71;box-shadow:0 0 0 1px #74FB71}
+.dc{position:relative;height:48px;border-radius:11px;background:rgba(255,255,255,.08);color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;transition:background .18s ease}
+.dc.dw{background:rgba(116,251,113,.10)}
+.dc.dp{background:none;color:rgba(255,255,255,.22);cursor:default}
+.dc.dr{background:rgba(116,251,113,.24);border-radius:6px;animation:rf .25s ease both}
+.dc.ds{background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F;box-shadow:0 0 0 2px rgba(116,251,113,.35),0 6px 16px -6px rgba(116,251,113,.9);animation:pop .3s ease both;z-index:1}
+.dc.dt::after{content:"";position:absolute;bottom:6px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#74FB71}
+.dc.ds.dt::after{background:#08230F}
+.cnav{width:44px;height:44px;border-radius:50%;border:1px solid rgba(116,251,113,.5);background:rgba(116,251,113,.08);color:#74FB71;display:flex;align-items:center;justify-content:center}
+.cnav.x{opacity:.35;cursor:default}
+.R0{animation:mR .25s ease both}.R1{animation:mR2 .25s ease both}.L0{animation:mL .25s ease both}.L1{animation:mL2 .25s ease both}
+.bar{display:block;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#37CF63,#0D6E0D);transform-origin:bottom;animation:bar .5s cubic-bezier(.2,.9,.3,1.2) both}
+.bar.we{background:linear-gradient(180deg,#A8FF9F,#37CF63)}
+.et{display:flex;flex-direction:column;justify-content:space-between;gap:6px;min-height:96px;padding:12px;border-radius:16px;background:linear-gradient(160deg,#F3FBF7,#E6F5EE);border:1px solid #D4E8E0;text-align:left}
+.et.x{background:#F3F6F4;border-style:dashed;cursor:default}
+.et .ei{width:32px;height:32px;border-radius:10px;background:#fff;color:#0D6E0D;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px -6px rgba(26,46,34,.35)}
+.et.x .ei{color:#5D7B6B;box-shadow:none}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 4px;border-bottom:1px solid #E3EFE9;text-align:left;width:100%}
+.inp{height:52px;width:100%;border-radius:14px;border:1.5px solid #CFE3DA;background:#FBFDFC;padding:0 14px;font:inherit;font-size:15px;font-weight:700;color:#1A2E22}
+.inp::placeholder{color:#5D7B6B;font-weight:600}
+.inp:focus{outline:none;border-color:#37CF63;box-shadow:0 0 0 4px rgba(116,251,113,.28)}
+@keyframes rv{from{opacity:0;transform:translateY(16px)}}
+@keyframes tkA{from{opacity:0;transform:translateY(12px)}}
+@keyframes tkB{from{opacity:0;transform:translateY(12px)}}
+@keyframes glow{0%{box-shadow:0 8px 22px -8px rgba(116,251,113,.6),0 0 0 0 rgba(116,251,113,.45)}100%{box-shadow:0 8px 22px -8px rgba(116,251,113,.6),0 0 0 7px rgba(116,251,113,0)}}
+@keyframes shine{0%,60%{transform:translateX(-160%) skewX(-22deg)}100%{transform:translateX(320%) skewX(-22deg)}}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(116,251,113,.7)}100%{box-shadow:0 0 0 7px rgba(116,251,113,0)}}
+@keyframes pingR{0%{box-shadow:0 0 0 0 rgba(255,120,120,.7)}100%{box-shadow:0 0 0 7px rgba(255,120,120,0)}}
+@keyframes scan{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+@keyframes pop{0%{transform:scale(.85)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes grow{from{transform:scaleX(0)}}
+@keyframes unb{0%{filter:blur(6px);transform:scale(.85)}60%{filter:blur(0);transform:scale(1.08)}100%{filter:none;transform:none}}
+@keyframes bA{40%{transform:scale(1.12)}}
+@keyframes bB{40%{transform:scale(1.12)}}
+@keyframes fillw{from{width:var(--f)}}
+@keyframes arc{from{stroke-dashoffset:var(--af)}}
+@keyframes draw{from{stroke-dashoffset:1}}
+@keyframes pinp{0%{transform:scale(.6);opacity:0}1%{opacity:1}55%{transform:scale(1.3)}100%{transform:scale(1)}}
+@keyframes mq{to{transform:translateX(-50%)}}
+@keyframes up{from{transform:translateY(105%)}}
+@keyframes fade{from{opacity:0}}
+@keyframes rf{from{background-color:rgba(255,255,255,.08)}}
+@keyframes mR{from{opacity:0;transform:translateX(16px)}}
+@keyframes mR2{from{opacity:0;transform:translateX(16px)}}
+@keyframes mL{from{opacity:0;transform:translateX(-16px)}}
+@keyframes mL2{from{opacity:0;transform:translateX(-16px)}}
+@keyframes bar{from{transform:scaleY(0)}}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.07)}}
+@keyframes tA{0%{opacity:0;transform:translate(-50%,12px)}10%,86%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0);visibility:hidden}}
+@keyframes tB{0%{opacity:0;transform:translate(-50%,12px)}10%,86%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0);visibility:hidden}}
+@keyframes tOA{0%,86%{opacity:1}100%{opacity:0;visibility:hidden}}
+@keyframes tOB{0%,86%{opacity:1}100%{opacity:0;visibility:hidden}}
+.rm *,.rm *::before,.rm *::after{animation:none!important;transition:none!important}
+.rm .tA{animation:tOA 2.8s linear forwards!important}.rm .tB{animation:tOB 2.8s linear forwards!important}
+@media (prefers-reduced-motion: reduce){
+.mg *,.mg *::before,.mg *::after{animation:none!important;transition:none!important}
+.mg .tA{animation:tOA 2.8s linear forwards!important}.mg .tB{animation:tOB 2.8s linear forwards!important}
+}
+</style>
+</helmet>
+<div class="{{ rootCls }}" style="width:390px;height:1900px;position:relative;overflow:hidden;background:#DFF0EC">
+<div class="{{ pageCls }}" style="position:absolute;top:0;left:0;right:0;bottom:98px;overflow-y:auto;overflow-x:hidden;padding-bottom:16px">
+
+<header class="dk rv" style="background:radial-gradient(120% 140% at 100% 0,#24563B 0,#0E2A1C 55%,#0A1F14 100%);border-radius:0 0 24px 24px;padding:20px 16px 16px;display:flex;flex-direction:column;gap:12px;color:#fff">
+<div style="display:flex;align-items:center;gap:10px">
+<button class="pr" onClick="{{ goLoyalty }}" aria-label="{{ logoAria }}" style="width:48px;height:48px;flex:none">
+<svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="3"></circle><circle class="arc" cx="24" cy="24" r="21" fill="none" stroke="#74FB71" stroke-width="3" stroke-linecap="round" stroke-dasharray="131.95" transform="rotate(-90 24 24)" style="{{ ringSt }}"></circle><circle cx="24" cy="24" r="16" fill="#0A1F14"></circle><text x="24" y="28.5" text-anchor="middle" font-size="13" font-weight="900" fill="#74FB71" font-family="Montserrat,sans-serif">MG</text></svg>
+</button>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column">
+<button class="pr" onClick="{{ openNick }}" aria-label="{{ greetAria }}" style="min-height:44px;font-size:20px;font-weight:800;line-height:1.2;color:#fff;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ greeting }}</button>
+<button class="pr" onClick="{{ goLoyalty }}" style="min-height:44px;display:flex;align-items:center;align-self:flex-start">
+<span style="display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 11px 0 9px;border-radius:999px;background:rgba(116,251,113,.16);border:1px solid rgba(116,251,113,.6);font-size:12px;font-weight:800;color:#fff"><span style="width:8px;height:8px;border-radius:50%;background:#74FB71"></span><span>{{ rankChip }}</span></span>
+</button>
+</div>
+<button class="pr" onClick="{{ goAi }}" aria-label="AI asistent" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(116,251,113,.22);color:#74FB71;display:flex;align-items:center;justify-content:center;flex:none">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2zM12 4v4M9 14h.01M15 14h.01"></path></svg>
+</button>
+<button class="pr" onClick="{{ goMsg }}" aria-label="Zprávy, 2 nepřečtené" style="position:relative;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(116,251,113,.22);color:#74FB71;display:flex;align-items:center;justify-content:center;flex:none">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 17v-6a6 6 0 0 1 12 0v6l2 2H4zM10 21h4"></path></svg>
+<span style="position:absolute;top:-4px;right:-6px;min-width:22px;height:18px;padding:0 4px;border-radius:999px;background:#D92D20;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #0E2A1C">2</span>
+</button>
+</div>
+<div style="display:flex;gap:8px;align-items:center">
+<button class="pr" onClick="{{ openDates }}" aria-label="{{ pillAria }}" style="flex:1;min-width:0;min-height:48px;border-radius:999px;background:rgba(255,255,255,.08);border:1.5px solid rgba(116,251,113,.4);display:flex;align-items:center;gap:8px;padding:0 14px 0 16px;color:#fff">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#74FB71" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v16H4zM4 10h16M8 3v4M16 3v4"></path></svg>
+<span style="font-size:14px;font-weight:800;white-space:nowrap">{{ pill1 }}</span>
+<span style="flex:1;font-size:13px;font-weight:600;color:#A8FF9F;white-space:nowrap">{{ pill2 }}</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#74FB71" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+<sc-if value="{{ hasDates }}" hint-placeholder-val="{{ true }}">
+<button class="pr" onClick="{{ clearDates }}" aria-label="Zrušit vybraný termín" style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.08);border:1.5px solid rgba(116,251,113,.4);color:#fff;display:flex;align-items:center;justify-content:center;flex:none">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+</sc-if>
+</div>
+</header>
+
+<div class="rv" role="note" aria-label="Oznámení: V zimním období od 1.11.2026 do 25.3.2027 zavřeno." style="margin:12px 16px 0;height:32px;border-radius:999px;background:#0E2A1C;overflow:hidden;display:flex;align-items:center;animation-delay:70ms">
+<div class="mq" aria-hidden="true" style="display:flex;gap:40px;padding-left:16px;white-space:nowrap;color:#74FB71;font-size:12.5px;font-weight:700">
+<span>» V zimním období od 1.11.2026 do 25.3.2027 zavřeno.</span><span>» V zimním období od 1.11.2026 do 25.3.2027 zavřeno.</span><span>» V zimním období od 1.11.2026 do 25.3.2027 zavřeno.</span><span>» V zimním období od 1.11.2026 do 25.3.2027 zavřeno.</span>
+</div>
+</div>
+
+<section class="rv dk" aria-label="Tvoje rezervace" style="margin:16px 16px 0;animation-delay:140ms;position:relative;border-radius:20px;overflow:hidden;background:radial-gradient(120% 140% at 100% 0,#24563B 0,#0E2A1C 55%,#0A1F14 100%);border:1px solid rgba(116,251,113,.25);box-shadow:0 18px 40px -14px rgba(10,31,20,.6);color:#fff">
+<sc-if value="{{ tk.scan }}" hint-placeholder-val="{{ true }}"><div class="scan" aria-hidden="true"></div></sc-if>
+<div class="{{ tkCls }}">
+<sc-if value="{{ tk.photo }}" hint-placeholder-val="{{ true }}">
+<div style="position:relative;height:150px;background:#E6F2ED">
+<img src="{{ tk.img }}" alt="Husqvarna 701 SM" style="width:100%;height:100%;object-fit:cover;display:block" />
+<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,31,20,.35),transparent 45%,rgba(10,31,20,.5))"></div>
+<div style="position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+<span class="{{ tk.ebCls }}"><sc-if value="{{ tk.live }}" hint-placeholder-val="{{ false }}"><span class="{{ tk.dotCls }}" aria-hidden="true"></span></sc-if><span>{{ tk.eb }}</span></span>
+<sc-if value="{{ tk.hasSt }}" hint-placeholder-val="{{ true }}"><span class="{{ tk.stCls }}"><sc-if value="{{ tk.stChk }}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if><span>{{ tk.st }}</span></span></sc-if>
+</div>
+</div>
+</sc-if>
+<div style="padding:16px 16px 18px;display:flex;flex-direction:column;gap:12px">
+<sc-if value="{{ tk.noPhoto }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;align-items:flex-start;gap:10px"><span class="{{ tk.ebCls }}">{{ tk.eb }}</span><h2 style="font-size:20px;font-weight:800;line-height:1.2">{{ tk.head }}</h2></div>
+</sc-if>
+<sc-if value="{{ tk.photo }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:12px;align-items:flex-start">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+<h2 style="font-size:20px;font-weight:800;line-height:1.2">{{ tk.title }}</h2>
+<span style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#CFE7DA"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#74FB71" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM9.5 9.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0"></path></svg><span>{{ tk.meta }}</span></span>
+<span class="tn" style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#74FB71" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v16H4zM4 10h16M8 3v4M16 3v4"></path></svg><span>{{ tk.when }}</span></span>
+</div>
+<sc-if value="{{ tk.sos }}" hint-placeholder-val="{{ false }}"><button class="pr" onClick="{{ tk.sosA }}" aria-label="SOS – nehoda, porucha, krádež" style="width:48px;height:48px;border-radius:50%;background:#D92D20;color:#fff;font-size:13px;font-weight:900;flex:none;box-shadow:0 6px 16px -6px rgba(239,68,68,.8)">SOS</button></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ tk.hasTl }}" hint-placeholder-val="{{ true }}">
+<ol aria-label="Stav rezervace" style="list-style:none;margin:0;padding:2px 0 0;display:flex">
+<sc-for list="{{ tk.tl }}" as="n" hint-placeholder-count="4">
+<li style="flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center">
+<sc-if value="{{ n.conn }}" hint-placeholder-val="{{ true }}"><span class="{{ n.cCls }}" style="{{ n.cSt }}" aria-hidden="true"></span></sc-if>
+<span class="{{ n.cls }}" aria-hidden="true"><sc-if value="{{ n.done }}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#08230F" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if><sc-if value="{{ n.warn }}" hint-placeholder-val="{{ false }}"><span>!</span></sc-if></span>
+<span class="{{ n.lCls }}" aria-hidden="true" style="font-size:11px;font-weight:700;line-height:1.2">{{ n.l }}</span>
+<sc-if value="{{ n.hasSub }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="font-size:11px;font-weight:600;color:#A8FF9F;margin-top:-3px">{{ n.sub }}</span></sc-if>
+<span class="sr">{{ n.sr }}</span>
+</li>
+</sc-for>
+</ol>
+</sc-if>
+<sc-if value="{{ tk.cd }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:14px">
+<div style="position:relative;width:64px;height:64px;flex:none"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="5"></circle><circle cx="32" cy="32" r="28" fill="none" stroke="#74FB71" stroke-width="5" stroke-linecap="round" stroke-dasharray="175.9" stroke-dashoffset="52" transform="rotate(-90 32 32)"></circle></svg><span class="tn" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900">[mm:ss]</span></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:14px;font-weight:800">Zbývá na zaplacení</span><span style="font-size:12.5px;font-weight:600;color:#B8D4C6">Platební okno je 30 minut.</span></div>
+</div>
+</sc-if>
+<sc-if value="{{ tk.day }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:14px">
+<div style="position:relative;width:64px;height:64px;flex:none"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="5"></circle><circle class="arc" cx="32" cy="32" r="28" fill="none" stroke="#74FB71" stroke-width="5" stroke-linecap="round" stroke-dasharray="175.9" transform="rotate(-90 32 32)" style="stroke-dashoffset:58.6;--af:175.9"></circle></svg><span class="tn" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px;font-weight:900;line-height:1">2/3<span style="font-size:11px;font-weight:700;color:#A8FF9F;margin-top:2px">den</span></span></div>
+<div style="display:flex;flex-direction:column;gap:5px"><span class="tn" style="font-size:14px;font-weight:800">Vrať do ne 18. 10. 23:59</span><span style="font-size:12.5px;font-weight:600;color:#CFE7DA">MotoGo24 Velké Němčice</span><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#A8FF9F"><span style="width:7px;height:7px;border-radius:50%;background:#74FB71"></span>Nahrávám jízdu · [km] km</span></div>
+</div>
+</sc-if>
+<sc-if value="{{ tk.codes }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ codes }}" as="c" hint-placeholder-count="3">
+<button class="pr" onClick="{{ c.tap }}" aria-label="{{ c.aria }}" style="display:flex;align-items:center;gap:10px;min-height:64px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(116,251,113,.22);color:#fff;text-align:left">
+<span style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex:none">{{ c.n }}</span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;font-weight:800;color:#E8F5EE">{{ c.l }}</span><span style="font-size:11.5px;font-weight:600;color:#9FC4B1">{{ c.s }}</span></span>
+<span class="{{ c.dCls }}" aria-hidden="true" style="font-size:22px;font-weight:900;letter-spacing:.12em;font-variant-numeric:tabular-nums;white-space:nowrap">{{ c.d }}</span>
+<span aria-hidden="true" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#74FB71;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zM5 15H4.5a.5.5 0 0 1-.5-.5V5a1 1 0 0 1 1-1h9.5a.5.5 0 0 1 .5.5V5"></path></svg></span>
+</button>
+</sc-for>
+<button class="gd pr" onClick="{{ toggleCodes }}">{{ codesBtn }}</button>
+</div>
+</sc-if>
+<sc-if value="{{ tk.hasPresets }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+<sc-for list="{{ tk.presets }}" as="p" hint-placeholder-count="3">
+<button class="chd pr" onClick="{{ p.a }}"><span style="font-size:12px;font-weight:800;line-height:1.2">{{ p.l1 }}</span><span class="s2 tn" style="font-size:11.5px;font-weight:700;color:#A8FF9F">{{ p.l2 }}</span></button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ tk.stars }}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="Hodnocení jízdy" style="display:flex;gap:2px;margin:-4px 0">
+<sc-for list="{{ stars }}" as="s" hint-placeholder-count="5">
+<button class="pr" onClick="{{ s.a }}" aria-label="{{ s.aria }}" aria-pressed="{{ s.on }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><svg class="{{ s.cls }}" width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg></button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ tk.hasText }}" hint-placeholder-val="{{ false }}"><p style="font-size:13px;font-weight:600;line-height:1.45;color:#CFE7DA">{{ tk.text }}</p></sc-if>
+<sc-if value="{{ tk.hasC19 }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.05)">
+<span aria-hidden="true" style="width:28px;height:28px;border-radius:50%;background:#74FB71;color:#08230F;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;flex:none">½</span>
+<span style="font-size:12.5px;font-weight:700;color:#fff">{{ tk.c19 }}</span>
+</div>
+</sc-if>
+<button class="cta pr" onClick="{{ tk.pa }}"><span>{{ tk.pl }}</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+<sc-if value="{{ tk.hasSecs }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:8px">
+<sc-for list="{{ tk.secs }}" as="b" hint-placeholder-count="3">
+<button class="{{ b.cls }}" onClick="{{ b.a }}" style="flex:1;min-width:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="{{ b.i }}"></path></svg><span>{{ b.l }}</span></button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ tk.hasLink }}" hint-placeholder-val="{{ false }}"><button class="pr" onClick="{{ tk.linkA }}" style="min-height:44px;align-self:center;color:#A8FF9F;font-size:13px;font-weight:700">{{ tk.link }}</button></sc-if>
+</div>
+</div>
+</section>
+
+<button class="rv pr" onClick="{{ goLoyalty }}" aria-label="{{ rankAria }}" style="margin:20px 16px 0;width:358px;animation-delay:210ms;background:#fff;border-radius:16px;border:1px solid #E1EFE9;box-shadow:0 6px 18px -8px rgba(26,46,34,.35);padding:14px 16px;display:flex;flex-direction:column;gap:9px;text-align:left">
+<span style="display:flex;align-items:center;gap:12px;width:100%">
+<svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true" style="flex:none"><circle cx="22" cy="22" r="19" fill="none" stroke="#E6F2ED" stroke-width="3"></circle><circle class="arc" cx="22" cy="22" r="19" fill="none" stroke="#37CF63" stroke-width="3" stroke-linecap="round" stroke-dasharray="119.38" transform="rotate(-90 22 22)" style="{{ ring2St }}"></circle><circle cx="22" cy="22" r="14" fill="#0E2A1C"></circle><text x="22" y="26" text-anchor="middle" font-size="11" font-weight="900" fill="#74FB71" font-family="Montserrat,sans-serif">MG</text></svg>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:800">{{ rank }}</span><span style="font-size:12px;font-weight:700;color:#4A6B5A">{{ rankSub }}</span></span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D6E0D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M9 6l6 6-6 6"></path></svg>
+</span>
+<sc-if value="{{ freeGear }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#2C4A3A"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0D6E0D" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Výbava spolujezdce a boty máš zdarma</span></sc-if>
+<span style="display:block;width:100%;height:8px;border-radius:4px;background:#E6F2ED;overflow:hidden"><span class="rbar" style="{{ barSt }}"></span></span>
+<span style="font-size:12px;font-weight:700;color:#0D6E0D">{{ nextLine }}</span>
+</button>
+
+<section class="rv" aria-labelledby="h-motos" style="margin-top:20px;animation-delay:280ms">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:28px"><h2 id="h-motos" style="font-size:17px;font-weight:800">Motorky pro tebe</h2><button class="pr" onClick="{{ goMotorky }}" style="min-height:44px;margin:-8px 0;color:#0D6E0D;font-size:13px;font-weight:700">Všechny ›</button></div>
+<div class="hs" style="display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-left:16px;padding:8px 16px 14px">
+<sc-for list="{{ motos }}" as="m" hint-placeholder-count="3">
+<article class="mc" style="flex:0 0 296px;scroll-snap-align:start;position:relative;background:#fff;border-radius:16px;border:1px solid #E1EFE9;box-shadow:0 6px 18px -8px rgba(26,46,34,.35);overflow:hidden">
+<button class="pr" onClick="{{ m.open }}" aria-label="{{ m.aria }}" style="display:block;width:100%;text-align:left">
+<span style="display:block;position:relative;height:197px;background:#E6F2ED"><img src="{{ m.img }}" alt="{{ m.n }}" style="width:100%;height:100%;object-fit:cover;display:block" /><span style="position:absolute;right:10px;bottom:10px;padding:3px 7px;border-radius:6px;background:#74FB71;color:#08230F;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase">{{ m.tag }}</span></span>
+<span style="display:flex;flex-direction:column;gap:6px;padding:12px 14px 14px">
+<span style="font-size:16px;font-weight:800;line-height:1.25">{{ m.n }}</span>
+<span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#4A6B5A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0D6E0D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM9.5 9.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0"></path></svg>{{ m.br }}</span>
+<span style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ m.pills }}" as="q" hint-placeholder-count="3"><span style="height:24px;padding:0 9px;border-radius:999px;background:#EEF7F2;color:#2C4A3A;font-size:11px;font-weight:700;display:inline-flex;align-items:center">{{ q }}</span></sc-for></span>
+<sc-if value="{{ m.noD }}" hint-placeholder-val="{{ true }}">
+<span class="tn" style="display:flex;align-items:baseline;gap:5px;margin-top:2px"><span style="font-size:12.5px;font-weight:600;color:#4A6B5A">od</span><span style="font-size:17px;font-weight:800;color:#0D6E0D">{{ m.from }}</span><span style="font-size:12.5px;font-weight:600;color:#4A6B5A">/den</span><s style="font-size:12px;font-weight:600;color:#5D7B6B">{{ m.list }}</s></span>
+<span class="tn" style="font-size:12px;font-weight:700;color:#2C4A3A">{{ m.wk }}</span>
+</sc-if>
+<sc-if value="{{ m.withD }}" hint-placeholder-val="{{ false }}">
+<span class="tn" style="display:flex;align-items:baseline;gap:6px;margin-top:2px;padding-right:52px"><span style="font-size:12.5px;font-weight:700;color:#2C4A3A">{{ m.dl }}</span><span class="{{ m.bCls }}" style="display:inline-block;font-size:17px;font-weight:800;color:#0D6E0D">{{ m.tot }}</span><s style="font-size:12px;font-weight:600;color:#5D7B6B">{{ m.listT }}</s></span>
+<span style="font-size:12px;font-weight:600;color:#4A6B5A">Tvoje cena · jen motorka · vyzvednutí 09:00</span>
+</sc-if>
+<sc-if value="{{ m.over }}" hint-placeholder-val="{{ false }}"><span style="margin-top:2px;padding:6px 10px;border-radius:10px;background:#FFF4E0;color:#8A4B00;font-size:12.5px;font-weight:700">{{ m.overMsg }}</span></sc-if>
+</span>
+</button>
+<sc-if value="{{ m.withD }}" hint-placeholder-val="{{ false }}"><button class="pr" onClick="{{ m.rozpis }}" aria-label="{{ m.rzAria }}" style="position:absolute;right:12px;bottom:12px;width:44px;height:44px;border-radius:12px;background:#1A2E22;color:#74FB71;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3"></path></svg></button></sc-if>
+</article>
+</sc-for>
+</div>
+</section>
+
+<section class="rv" aria-labelledby="h-routes" style="margin-top:8px;animation-delay:350ms">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 16px;height:28px"><h2 id="h-routes" style="font-size:17px;font-weight:800;white-space:nowrap">Trasy z pobočky Velké Němčice</h2><button class="pr" onClick="{{ goRoutes }}" style="min-height:44px;margin:-8px 0;color:#0D6E0D;font-size:13px;font-weight:700;white-space:nowrap">Všechny ›</button></div>
+<div class="hs" style="display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-left:16px;padding:8px 16px 14px">
+<sc-for list="{{ routes }}" as="r" hint-placeholder-count="3">
+<button class="mc pr" onClick="{{ r.a }}" aria-label="{{ r.aria }}" style="flex:0 0 296px;scroll-snap-align:start;background:#fff;border-radius:16px;border:1px solid #E1EFE9;box-shadow:0 6px 18px -8px rgba(26,46,34,.35);overflow:hidden;text-align:left;display:block">
+<span style="display:block;position:relative;height:160px;background:#0A1F14;overflow:hidden"><img src="{{ r.img }}" alt="" style="display:block;width:100%;height:100%;object-fit:cover;animation:kb 14s ease-in-out infinite alternate"><span style="position:absolute;inset:0;background:linear-gradient(to top,rgba(10,31,20,.5),rgba(10,31,20,0) 55%)"></span></span>
+<span style="display:flex;flex-direction:column;gap:8px;padding:12px 14px 14px">
+<span style="font-size:15px;font-weight:800">{{ r.n }}</span>
+<span style="display:flex;gap:6px;flex-wrap:wrap"><span style="height:24px;padding:0 9px;border-radius:999px;background:#EEF7F2;color:#2C4A3A;font-size:11px;font-weight:700;display:inline-flex;align-items:center">{{ r.km }}</span><span style="height:24px;padding:0 9px;border-radius:999px;background:#EEF7F2;color:#2C4A3A;font-size:11px;font-weight:700;display:inline-flex;align-items:center">[čas]</span><span style="height:24px;padding:0 9px;border-radius:999px;background:#E8FCE8;color:#0D6E0D;font-size:11px;font-weight:700;display:inline-flex;align-items:center">{{ r.d }}</span></span>
+</span>
+</button>
+</sc-for>
+</div>
+</section>
+
+<section class="rv" aria-labelledby="h-branches" style="margin-top:8px;padding:0 16px;animation-delay:350ms">
+<h2 id="h-branches" style="font-size:17px;font-weight:800;height:28px;display:flex;align-items:center">Pobočky</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px">
+<sc-for list="{{ branches }}" as="b" hint-placeholder-count="2">
+<button class="mc pr" onClick="{{ b.a }}" aria-label="{{ b.aria }}" style="background:#fff;border-radius:16px;border:1px solid #E1EFE9;box-shadow:0 6px 18px -8px rgba(26,46,34,.35);overflow:hidden;text-align:left;display:flex;flex-direction:column">
+<span style="height:76px;width:100%;background:linear-gradient(160deg,#E8F5EE,#D4E8E0);display:flex;align-items:center;justify-content:center;color:#4A6B5A;font-size:11px;font-weight:700">[fotka pobočky]</span>
+<span style="display:flex;flex-direction:column;gap:5px;padding:10px 12px 12px">
+<span style="font-size:13.5px;font-weight:800;line-height:1.25">{{ b.n }}</span>
+<span style="font-size:11.5px;font-weight:600;color:#4A6B5A;line-height:1.35">{{ b.ad }}</span>
+<span style="align-self:flex-start;padding:4px 8px;border-radius:999px;background:#E8FCE8;color:#0D6E0D;font-size:11px;font-weight:700;line-height:1.25">{{ b.c }}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</section>
+</div>
+
+<nav aria-label="Hlavní navigace" class="nav">
+<span class="npill" aria-hidden="true" style="{{ navPillSt }}"></span>
+<div style="display:grid;grid-template-columns:repeat(5,1fr);height:64px;position:relative">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+<button class="{{ t.cls }}" onClick="{{ t.a }}" aria-current="{{ t.cur }}" aria-label="{{ t.aria }}">
+<span class="nico" style="position:relative;height:30px;display:flex;align-items:center;justify-content:center">
+<sc-if value="{{ t.ic }}" hint-placeholder-val="{{ true }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ t.i }}"></path></svg></sc-if>
+<sc-if value="{{ t.prof }}" hint-placeholder-val="{{ false }}"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11.5" fill="#fff" stroke="#CFE3DA" stroke-width="2.5"></circle><circle cx="13" cy="13" r="11.5" fill="none" stroke="#37CF63" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="72.26" transform="rotate(-90 13 13)" style="{{ avSt }}"></circle><circle cx="13" cy="10.5" r="3" fill="none" stroke="#1A2E22" stroke-width="1.8"></circle><path d="M7.8 18.6c1-2.4 2.9-3.5 5.2-3.5s4.2 1.1 5.2 3.5" fill="none" stroke="#1A2E22" stroke-width="1.8" stroke-linecap="round"></path></svg></sc-if>
+<sc-if value="{{ t.dot }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:2px;right:-3px;width:12px;height:12px;border-radius:50%;background:#EF4444;border:2px solid #fff"></span></sc-if>
+<sc-if value="{{ t.cnt }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-1px;left:16px;min-width:20px;height:16px;padding:0 3px;border-radius:999px;background:#D92D20;border:1.5px solid #fff;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1">2</span></sc-if>
+</span>
+<span>{{ t.l }}</span>
+</button>
+</sc-for>
+</div>
+</nav>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}"><div class="{{ toastCls }}" role="status" aria-live="polite">{{ toast }}</div></sc-if>
+
+<sc-if value="{{ anySheet }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;z-index:20">
+<button class="scrim" onClick="{{ closeSheet }}" aria-label="Zavřít"></button>
+
+<sc-if value="{{ sh.date }}" hint-placeholder-val="{{ true }}">
+<div class="shD dk" role="dialog" aria-modal="true" aria-label="Výběr termínu">
+<span class="grab" aria-hidden="true"></span>
+<div style="display:flex;align-items:center;justify-content:space-between"><h2 style="font-size:20px;font-weight:800">Kdy jedeš?</h2><button class="pr" onClick="{{ closeSheet }}" aria-label="Zavřít" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.05);border:1.5px solid rgba(116,251,113,.6);color:#fff;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<div class="{{ cal.t1Cls }}"><span style="font-size:11px;font-weight:800;color:#A8FF9F;letter-spacing:.06em">VYZVEDNUTÍ</span><span class="tn" style="font-size:15px;font-weight:800">{{ cal.t1 }}</span></div>
+<div class="{{ cal.t2Cls }}"><span style="font-size:11px;font-weight:800;color:#A8FF9F;letter-spacing:.06em">VRÁCENÍ</span><span class="tn" style="font-size:15px;font-weight:800">{{ cal.t2 }}</span></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<sc-for list="{{ cal.presets }}" as="p" hint-placeholder-count="2">
+<button class="{{ p.cls }}" onClick="{{ p.a }}" aria-pressed="{{ p.on }}"><span style="font-size:13px;font-weight:800">{{ p.l1 }}</span><span class="s2 tn" style="font-size:12px;font-weight:700;color:#A8FF9F">{{ p.l2 }}</span></button>
+</sc-for>
+</div>
+<p aria-live="polite" style="font-size:12.5px;font-weight:600;color:#A8FF9F">{{ cal.hint }}</p>
+<div style="display:flex;align-items:center;justify-content:space-between">
+<button class="{{ cal.prevCls }}" onClick="{{ cal.prev }}" aria-label="Předchozí měsíc" aria-disabled="{{ cal.prevDis }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<h3 style="font-size:13px;font-weight:800;letter-spacing:.08em">{{ cal.month }}</h3>
+<button class="{{ cal.nextCls }}" onClick="{{ cal.next }}" aria-label="Další měsíc" aria-disabled="{{ cal.nextDis }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<div class="{{ cal.gCls }}" style="display:flex;flex-direction:column;gap:6px">
+<div aria-hidden="true" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;font-weight:700;color:#8FB3A1"><span>po</span><span>út</span><span>st</span><span>čt</span><span>pá</span><span>so</span><span>ne</span></div>
+<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+<sc-for list="{{ cal.cells }}" as="c" hint-placeholder-count="31">
+<sc-if value="{{ c.e }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true"></span></sc-if>
+<sc-if value="{{ c.d }}" hint-placeholder-val="{{ true }}"><button class="{{ c.cls }}" style="{{ c.st }}" onClick="{{ c.a }}" aria-label="{{ c.aria }}" aria-disabled="{{ c.dis }}" aria-pressed="{{ c.sel }}">{{ c.n }}</button></sc-if>
+</sc-for>
+</div>
+</div>
+<div aria-hidden="true" style="display:flex;gap:14px;font-size:11.5px;font-weight:700;color:#B8D4C6">
+<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:4px;background:rgba(255,255,255,.18)"></span>Volné</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:4px;background:repeating-linear-gradient(45deg,rgba(255,255,255,.25) 0 2px,transparent 2px 4px);border:1px solid rgba(255,255,255,.2)"></span>Obsazené</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:4px;background:linear-gradient(135deg,#8DFF86,#37CF63)"></span>Tvůj termín</span>
+</div>
+<p style="font-size:11.5px;font-weight:600;color:#8FB3A1">1 den = kalendářní den (0:01–24:00), ne 24 h od převzetí.</p>
+<button class="{{ cal.cCls }}" onClick="{{ cal.confirm }}" aria-disabled="{{ cal.cDis }}"><span>{{ cal.cLbl }}</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+</div>
+</sc-if>
+
+<sc-if value="{{ sh.rozpis }}" hint-placeholder-val="{{ false }}">
+<div class="shD dk" role="dialog" aria-modal="true" aria-label="Rozpis ceny">
+<span class="grab" aria-hidden="true"></span>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div style="display:flex;flex-direction:column;gap:2px"><h2 style="font-size:17px;font-weight:800">Rozpis ceny</h2><span style="font-size:12.5px;font-weight:600;color:#B8D4C6">{{ rz.name }}</span></div><button class="pr" onClick="{{ closeSheet }}" aria-label="Zavřít" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.05);border:1.5px solid rgba(116,251,113,.6);color:#fff;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="position:relative;margin-top:6px;background:#fff;color:#1A2E22;border-radius:18px;box-shadow:0 14px 30px -14px rgba(0,0,0,.55);padding:18px 14px 14px;display:flex;flex-direction:column;gap:10px">
+<span aria-hidden="true" style="position:absolute;top:-5px;left:14px;right:14px;height:10px;background:radial-gradient(circle at 8px 5px,#0E2A1C 5px,transparent 5.5px) 0 0/16px 10px repeat-x"></span>
+<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:11.5px;font-weight:800;color:#0D6E0D;letter-spacing:.07em">TVOJE CENA</span><span style="padding:3px 10px;border-radius:999px;background:#0E2A1C;color:#74FB71;font-size:11.5px;font-weight:800">{{ rz.days }}</span></div>
+<span class="tn" style="font-size:12.5px;font-weight:600;color:#4A6B5A">{{ rz.dates }}</span>
+<div style="{{ rz.barsSt }}">
+<sc-for list="{{ rz.bars }}" as="b" hint-placeholder-count="3">
+<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><span style="height:78px;display:flex;align-items:flex-end"><span class="{{ b.cls }}" style="{{ b.st }}"></span></span><span style="font-size:11px;font-weight:700;color:#4A6B5A">{{ b.w }}</span><sc-if value="{{ b.showP }}" hint-placeholder-val="{{ true }}"><span class="tn" style="font-size:11px;font-weight:800">{{ b.p }}</span></sc-if></div>
+</sc-for>
+</div>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ rz.rows }}" as="r" hint-placeholder-count="2">
+<div style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px dashed #D4E8E0"><span style="font-size:13.5px;font-weight:600;color:#2C4A3A">{{ r.l }}</span><span class="tn" style="{{ r.vSt }}">{{ r.v }}</span></div>
+</sc-for>
+</div>
+<div style="border-radius:14px;padding:14px 16px;background:radial-gradient(120% 140% at 50% 0,#2A6A45 0,#0E2A1C 60%,#0A1F14 100%);display:flex;align-items:center;justify-content:space-between"><span style="font-size:12px;font-weight:800;color:#A8FF9F;letter-spacing:.06em">TVOJE CENA</span><span class="tn" style="font-size:32px;font-weight:900;line-height:1;color:#74FB71;text-shadow:0 0 18px rgba(116,251,113,.35)">{{ rz.total }}</span></div>
+<span style="font-size:12.5px;font-weight:700;color:#0D6E0D">{{ rz.save }}</span>
+<span style="font-size:11.5px;font-weight:600;color:#5D7B6B">Bez kauce · konečná cena · nejsme plátci DPH</span>
+</div>
+<button class="gd pr" onClick="{{ rz.open }}" style="width:100%">OTEVŘÍT DETAIL A KALKULAČKU</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ sh.edit }}" hint-placeholder-val="{{ false }}">
+<div class="shL" role="dialog" aria-modal="true" aria-label="Co chceš změnit?">
+<span class="grab" aria-hidden="true"></span>
+<div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;flex-direction:column;gap:2px"><h2 style="font-size:17px;font-weight:800">Co chceš změnit?</h2><span class="tn" style="font-size:12.5px;font-weight:600;color:#4A6B5A">Husqvarna 701 SM · pá 16. 10. → ne 18. 10.</span></div><button class="pr" onClick="{{ closeSheet }}" aria-label="Zavřít" style="width:44px;height:44px;border-radius:50%;border:1.5px solid #CFE3DA;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+<sc-for list="{{ edits }}" as="e" hint-placeholder-count="7">
+<button class="{{ e.cls }}" style="{{ e.st }}" onClick="{{ e.a }}" aria-disabled="{{ e.dis }}">
+<span class="ei" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ e.i }}"></path></svg></span>
+<span style="display:flex;flex-direction:column;gap:2px"><span style="{{ e.tSt }}">{{ e.t }}</span><sc-if value="{{ e.hasS }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;font-weight:600;color:#4A6B5A;line-height:1.3">{{ e.s }}</span></sc-if></span>
+</button>
+</sc-for>
+</div>
+<p style="font-size:12px;font-weight:600;color:#4A6B5A">Posunout termín: po posunu už storno nikdy nebude 100 %.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{ sh.more }}" hint-placeholder-val="{{ false }}">
+<div class="shL" role="dialog" aria-modal="true" aria-label="Další možnosti">
+<span class="grab" aria-hidden="true"></span>
+<h2 style="font-size:17px;font-weight:800">Husqvarna 701 SM</h2>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ moreRows }}" as="r" hint-placeholder-count="3">
+<button class="row pr" onClick="{{ r.a }}"><span style="{{ r.icSt }}" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ r.i }}"></path></svg></span><span style="{{ r.tSt }}">{{ r.t }}</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A6B5A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sh.nick }}" hint-placeholder-val="{{ false }}">
+<div class="shL" role="dialog" aria-modal="true" aria-label="Tvoje přezdívka">
+<span class="grab" aria-hidden="true"></span>
+<div style="display:flex;align-items:center;justify-content:space-between"><h2 style="font-size:17px;font-weight:800">Tvoje přezdívka</h2><button class="pr" onClick="{{ closeSheet }}" aria-label="Zavřít" style="width:44px;height:44px;border-radius:50%;border:1.5px solid #CFE3DA;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<label for="mg-nick" style="font-size:12px;font-weight:800;color:#4A6B5A;letter-spacing:.04em">PŘEZDÍVKA</label>
+<input id="mg-nick" class="inp" type="text" maxlength="24" autocomplete="nickname" placeholder="Napiš přezdívku" onInput="{{ nickIn }}" />
+<button class="sdk pr" onClick="{{ nickSave }}" style="min-height:52px">Uložit</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1900},"ticketState":{"editor":"enum","options":["S0", "S1", "S2", "S3", "S6", "S7", "S8", "S9"],"default":"S6","section":"Stav"},"rank":{"editor":"int","min":1,"max":20,"default":3,"section":"Stav"},"reducedMotion":{"editor":"boolean","default":false,"section":"Pohyb"}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sheet: '', tmpS: null, tmpE: null, dS: null, dE: null, dN: 0, mo: 0, mN: 0, mDir: 'R', tk: '', tkFrom: '', tkN: 0, verified: false, rev: false, stars: 0, nick: '', toast: '', tN: 0, tab: 0, rz: 0 };
+    this._nick = '';
+  }
+  renderVals() {
+    const P = this.props || {};
+    const S = this.state || {};
+    const set = (o) => this.setState(o);
+    const say = (m, o) => this.setState(Object.assign({ toast: m, tN: ((this.state && this.state.tN) || 0) + 1 }, o || {}));
+    const rm = P.reducedMotion === true || P.reducedMotion === 'true';
+    const L = Math.max(1, Math.min(20, parseInt(P.rank, 10) || 3));
+    const RN = ['Startér', 'Jezdec', 'Motorkář', 'Stálý jezdec', 'Věrný zákazník', 'Bronzový jezdec', 'Stříbrný jezdec', 'Zlatý jezdec', 'Platinový jezdec', 'Diamantový jezdec', 'Prémiový zákazník', 'Mistr silnic', 'Šampion', 'Veterán MotoGo', 'Elitní jezdec', 'Ambasador', 'VIP', 'VIP Gold', 'VIP Platinum', 'Legenda MotoGo'];
+    const rank = RN[L - 1];
+    const f = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    const DW = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
+    const wd = (dn) => new Date(dn * 864e5).getUTCDay();
+    const dm = (dn) => { const x = new Date(dn * 864e5); return x.getUTCDate() + '. ' + (x.getUTCMonth() + 1) + '.'; };
+    const lab = (dn) => DW[wd(dn)] + ' ' + dm(dn);
+    const pl = (n) => (n === 1 ? 'den' : (n >= 2 && n <= 4 ? 'dny' : 'dní'));
+    const T = Date.UTC(2026, 9, 11) / 864e5;
+    const I = {
+      home: 'M3 11l9-7 9 7M5 10v10h14V10M10 20v-6h4v6',
+      moto: 'M2 16.5a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M15 16.5a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M5.5 16.5L9 10h5.5l4 6.5M14 10l-1.5-3.5H16',
+      cal: 'M4 5h16v16H4zM4 10h16M8 3v4M16 3v4',
+      calchk: 'M4 5h16v16H4zM4 10h16M8 3v4M16 3v4M9 15.5l2 2 4-4',
+      route: 'M4 19a2 2 0 1 0 4 0a2 2 0 1 0-4 0M16 5a2 2 0 1 0 4 0a2 2 0 1 0-4 0M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16',
+      nav: 'M3 11l18-8-8 18-2-8z',
+      edit: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
+      more: 'M4 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0M10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0M17 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0',
+      plus: 'M12 5v14M5 12h14',
+      shrink: 'M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4',
+      key: 'M3 14a4 4 0 1 0 8 0a4 4 0 1 0-8 0M10 11l9-9M15 6l3 3M17 4l2 2',
+      full: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+      shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM12 8v5M12 16h.01',
+      star: 'M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z',
+      x: 'M6 6l12 12M18 6L6 18',
+      doc: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
+      clock: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 7v5l3 2',
+      swap: 'M4 8h14l-3-3M20 16H6l3 3',
+      helmet: 'M4 16a8 8 0 0 1 16 0v3H4zM12 8v4h8',
+      pin: 'M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM9.5 9.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0'
+    };
+    const U = 'https://vnwnqteskbykeucanlhk.supabase.co/storage/v1/object/public/media/motos/';
+    const M = [
+      { n: 'BMW R 1200 GS Adventure', tag: 'Cestovní', br: 'MotoGo24 Mezná', ss: false, kw: '92 kW', lic: 'ŘP A', p: [3865, 3514, 2811, 2811, 3163, 3514, 4882], max: 180, img: U + 'a0000001-0000-0000-0000-000000000001/moj0fnd41cr5-20260427-182831.jpg' },
+      { n: 'Royal Enfield Shotgun 650', tag: 'Chopper', br: 'MotoGo24 Mezná', ss: false, kw: '34,6 kW', lic: 'ŘP A2', p: [2521, 2292, 1833, 1833, 2063, 2292, 2750], max: 30, img: U + 'c9617cbe-c6d9-441d-9433-1a11e66fa357/msism7zmrm2a-img-0788.jpg' },
+      { n: 'Husqvarna 701 SM', tag: 'Supermoto', br: 'MotoGo24 Velké Němčice', ss: true, kw: '55 kW', lic: 'ŘP A', p: [4871, 4429, 3543, 3543, 3986, 4429, 5314], max: 180, img: U + 'b850929a-37da-4b87-86a8-9b2fba7b3316/mq22a7zapb2x-1000003421.jpg' }
+    ];
+
+    // --- draft dates (single draft for the whole app) ---
+    const hasD = S.dS != null && S.dE != null;
+    const days = hasD ? S.dE - S.dS + 1 : 0;
+    const motos = M.map((m, i) => {
+      const minP = Math.min.apply(null, m.p);
+      const wk = m.p[5] + m.p[6] + m.p[0];
+      let rent = 0;
+      if (hasD) { for (let d = S.dS; d <= S.dE; d++) rent += m.p[wd(d)]; }
+      const loy = Math.round(rent * L / 100);
+      const over = hasD && days > m.max;
+      return {
+        n: m.n, img: m.img, tag: m.tag, br: m.br, pills: [m.kw, m.lic, m.tag],
+        aria: 'Detail motorky ' + m.n,
+        from: f(Math.round(minP * (100 - L) / 100)) + ' Kč', list: f(minP),
+        wk: 'pá–ne ' + f(wk - Math.round(wk * L / 100)) + ' Kč',
+        noD: !hasD, withD: hasD && !over, over: over, overMsg: 'Tuhle motorku půjčujeme nejdéle na ' + m.max + ' dní',
+        dl: days + ' ' + pl(days) + ' ·', tot: f(rent - loy) + ' Kč', listT: f(rent),
+        bCls: 'b' + (S.dN % 2),
+        open: () => say('Otevírám detail s kalkulačkou · ' + m.n),
+        rozpis: () => set({ sheet: 'rozpis', rz: i }),
+        rzAria: 'Rozpis ceny – ' + m.n
+      };
+    });
+
+    // --- loyalty rank ---
+    const pts = 2 * L - 1;
+    const frac = L >= 20 ? 1 : pts / (2 * L);
+    const fracPrev = L >= 20 ? 1 : (pts - 1) / (2 * L);
+    const ringOff = (c, fr) => (c * (1 - fr)).toFixed(2);
+
+    // --- R1 (existing booking, Husqvarna, pickup 12:00 → late-pickup discount) ---
+    const R1base = 14614 - 2215;
+    const R1tot = R1base - Math.round(R1base * L / 100);
+    const nav = { l: 'Navigovat', i: I.nav, cls: 'gd pr', a: () => say('Navigace · Boudky, 691 63 Brno - Velké Němčice') };
+    const edit = { l: 'Upravit', i: I.edit, cls: 'gd pr', a: () => set({ sheet: 'edit' }) };
+    const more = { l: 'Více', i: I.more, cls: 'gd pr', a: () => set({ sheet: 'more' }) };
+    const kody = { l: 'Kódy', i: I.key, cls: 'gd pr', a: () => say('Otevírám kódy · detail rezervace, CO TEĎ') };
+    const N = (l, k, sub, sr, pp) => ({ l: l, sub: sub || '', hasSub: !!sub, done: k === 'd', warn: k === 'w', k: k, cls: 'nd ' + k + (pp ? ' pp' : ''), lCls: k === 'u' ? 'lU' : (k === 'w' ? 'lW' : 'lD'), sr: l + ': ' + sr });
+    const mkTl = (arr) => arr.map((n, i) => {
+      const nx = arr[i + 1];
+      return Object.assign(n, { conn: !!nx, cCls: 'tc ' + (nx && nx.k !== 'u' ? 'd g' : 'u'), cSt: 'animation-delay:' + (i * 90 + 200) + 'ms' });
+    });
+    const vf = !!S.verified;
+    const PR = [{ l1: 'Nejbližší víkend', s: T + 5, e: T + 7 }, { l1: 'Další víkend', s: T + 12, e: T + 14 }];
+    const prl = (p) => new Date(p.s * 864e5).getUTCDate() + '.–' + dm(p.e);
+    const pKey = P.ticketState || 'S6';
+    const TS = {
+      S0: { photo: false, ebCls: 'eb fl', eb: 'Kam vyrazíš příště?', head: 'Naplánuj další jízdu',
+        presets: PR.map((p) => ({ l1: p.l1, l2: prl(p), a: () => set({ sheet: 'date', tmpS: p.s, tmpE: p.e, mo: 0 }) })).concat([{ l1: 'Jiný termín', l2: 'kalendář', a: () => set({ sheet: 'date', tmpS: null, tmpE: null, mo: 0 }) }]),
+        pl: 'Vybrat motorku', pa: () => say('Otevírám Motorky'), link: 'Znovu: Husqvarna 701 SM', linkA: () => say('Otevírám detail · Husqvarna 701 SM') },
+      S1: { eb: 'SOS · rozpracováno', ebCls: 'eb sos', live: true, dotCls: 'ld r', text: 'Hlášení poruchy · krok 2 ze 4', pl: 'Dokončit hlášení', pa: () => say('Otevírám rozpracované SOS hlášení') },
+      S2: { eb: 'Dokonči platbu', live: true, st: 'Čeká na platbu', stCls: 'sp w', cd: true, pl: 'Zaplatit ' + f(R1tot) + ' Kč', pa: () => say('Otevírám platbu · ' + f(R1tot) + ' Kč'),
+        secs: [{ l: 'Zrušit', i: I.x, cls: 'gd pr', a: () => say('Otevírám: zrušit nedokončenou rezervaci') }] },
+      S3: { eb: 'Za 5 dní · pá 16. 10.', st: 'Chybí doklady', stCls: 'sp w',
+        tl: mkTl([N('Zaplaceno', 'd', '', 'hotovo'), N('Doklady', 'w', '', 'chybí'), N('Kódy', 'u', '', 'čeká'), N('Výdej', 'u', 'pá 12:00', 'čeká')]),
+        text: 'Bez ověřených dokladů ti kódy neuvolníme.', pl: 'Nahrát doklady',
+        pa: () => say('Ukázka: doklady ověřené, kódy jsou uvolněné', { tk: 'S6', tkFrom: pKey, verified: true, tkN: (S.tkN || 0) + 1 }), secs: [nav, edit, more] },
+      S6: { eb: 'Za 5 dní', st: 'Připraveno', stCls: 'sp ok', stChk: true,
+        tl: mkTl([N('Zaplaceno', 'd', '', 'hotovo'), N('Doklady', 'd', '', 'hotovo', vf), N('Kódy', 'd', '', 'hotovo', vf), N('Výdej', 'c', 'pá 12:00', 'další krok')]),
+        c19: 'Kiosk ti motorku vydá v pá od 12:00', pl: 'Kódy a postup na pobočce', pa: () => say('Otevírám detail rezervace · CO TEĎ'), secs: [nav, edit, more] },
+      S7: { eb: 'Dnes · výdej od 12:00', live: true, st: 'Připraveno', stCls: 'sp ok', stChk: true, codes: true, scan: true, pl: 'Postup na pobočce', pa: () => say('Otevírám postup na pobočce Velké Němčice'),
+        secs: [nav, { l: 'Kódy na celou obrazovku', i: I.full, cls: 'gd pr', a: () => say('Otevírám kódy na celou obrazovku') }] },
+      S8: { eb: 'Jedeš · den 2 ze 3', live: true, st: 'Probíhá', stCls: 'sp', day: true, sos: true, scan: true, pl: 'Detail a vrácení', pa: () => say('Otevírám detail a vrácení'),
+        secs: [{ l: 'Prodloužit', i: I.plus, cls: 'gd pr', a: () => say('Otevírám: Prodloužit') }, nav, kody] },
+      S9: { eb: 'Dnes vracíš · do 23:59', live: true, text: 'Vrácení na kiosku tvoji rezervaci dokončí samo.', pl: 'Navigovat na pobočku', pa: () => say('Navigace · Boudky, 691 63 Brno - Velké Němčice'),
+        secs: [kody, { l: 'SOS', i: I.shield, cls: 'gd pr sos', a: () => say('Otevírám SOS') }] },
+      S10: { eb: 'Jak se jelo?', st: 'Dokončeno', stCls: 'sp ok', stChk: true, stars: true, pl: 'Znovu rezervovat', pa: () => say('Otevírám detail · Husqvarna 701 SM, termín vybereš v kalendáři'),
+        secs: [{ l: 'Ohodnotit na Google', i: I.star, cls: 'gd pr', a: () => say('Otevírám hodnocení na Google') }] }
+    };
+    let key = (S.tk && S.tkFrom === pKey) ? S.tk : pKey;
+    if (!TS[key]) key = 'S6';
+    const tk = Object.assign({ photo: true, img: M[2].img, title: 'Husqvarna 701 SM', meta: 'MotoGo24 Velké Němčice · samoobsluha', when: 'pá 16. 10. 12:00 → ne 18. 10. 23:59 · 3 dny', ebCls: 'eb', live: false, dotCls: 'ld', st: '', stCls: 'sp', stChk: false, tl: [], c19: '', text: '', codes: false, presets: [], stars: false, cd: false, day: false, sos: false, scan: false, secs: [], link: '', head: '' }, TS[key]);
+    tk.noPhoto = !tk.photo; tk.hasSt = !!tk.st; tk.hasTl = tk.tl.length > 0; tk.hasC19 = !!tk.c19; tk.hasText = !!tk.text;
+    tk.hasPresets = tk.presets.length > 0; tk.hasSecs = tk.secs.length > 0; tk.hasLink = !!tk.link;
+    tk.sosA = () => say('Otevírám SOS · nehoda, porucha, krádež');
+    const needsAction = key === 'S2' || key === 'S3';
+    const rev = !!S.rev;
+    const codes = [['1', 'Brána', 'horní schránka, pravý sloupek'], ['2', 'Šatna', 'dveře č. 8'], ['3', 'Motorka', 'kóje se otevře po podpisu protokolu']].map((c) => ({
+      n: c[0], l: c[1], s: c[2], d: rev ? '[kód]' : '• • • •', dCls: rev ? 'cd un' : 'cd bl',
+      aria: rev ? 'Kód ' + c[1].toLowerCase() + ' – zkopírovat' : 'Kód ' + c[1].toLowerCase() + ' je skrytý – klepni pro zobrazení',
+      tap: () => (rev ? say('Zkopírováno') : set({ rev: true }))
+    }));
+    const stars = [1, 2, 3, 4, 5].map((i) => ({ cls: i <= (S.stars || 0) ? 'stOn' : 'stOff', on: i <= (S.stars || 0) ? 'true' : 'false', aria: 'Hodnotit ' + i + ' z 5', a: () => say('Díky! Hodnocení ' + i + ' z 5 je uložené', { stars: i }) }));
+
+    // --- date sheet (TripCalendar, no bike context) ---
+    const MN = ['ŘÍJEN 2026', 'LISTOPAD 2026', 'PROSINEC 2026', 'LEDEN 2027', 'ÚNOR 2027', 'BŘEZEN 2027'];
+    const mo = S.mo || 0;
+    const y = 2026 + Math.floor((9 + mo) / 12), mm = (9 + mo) % 12;
+    const first = Date.UTC(y, mm, 1) / 864e5;
+    const nd = new Date(Date.UTC(y, mm + 1, 0)).getUTCDate();
+    const a = S.tmpS, b = S.tmpE;
+    const cells = [];
+    for (let i = 0; i < (wd(first) + 6) % 7; i++) cells.push({ e: true, d: false });
+    let ri = 0;
+    for (let i = 0; i < nd; i++) {
+      const dn = first + i, w = wd(dn), past = dn < T;
+      const isS = dn === a, isE = b != null && dn === b, inR = a != null && b != null && dn > a && dn < b;
+      let cls = 'dc';
+      if (past) cls += ' dp'; else if (isS || isE) cls += ' ds'; else if (inR) cls += ' dr'; else if (w === 0 || w === 6) cls += ' dw';
+      if (dn === T) cls += ' dt';
+      cells.push({
+        e: false, d: true, n: String(i + 1), cls: cls,
+        st: inR ? 'animation-delay:' + Math.min((ri++) * 12, 250) + 'ms' : '',
+        aria: lab(dn) + (isS ? ', vyzvednutí' : '') + (isE ? ', vrácení' : '') + (past ? ', nelze vybrat' : ''),
+        dis: past ? 'true' : 'false', sel: (isS || isE) ? 'true' : 'false',
+        a: () => {
+          if (past) return;
+          const s = this.state;
+          if (s.tmpS == null || s.tmpE != null) set({ tmpS: dn, tmpE: null });
+          else if (dn < s.tmpS) set({ tmpS: dn });
+          else set({ tmpE: dn });
+        }
+      });
+    }
+    const tn = b != null ? b - a + 1 : 0;
+    const cal = {
+      month: MN[mo], cells: cells,
+      t1: a != null ? lab(a) : 'Vyber', t2: b != null ? lab(b) : 'Vyber',
+      t1Cls: 'dtile' + (a == null || b != null ? ' on' : ''), t2Cls: 'dtile' + (a != null && b == null ? ' on' : ''),
+      hint: a == null ? 'Klepni na den vyzvednutí' : (b == null ? 'Teď den vrácení (může být i stejný den)' : tn + ' ' + pl(tn) + ' · klepnutím na den začneš znovu'),
+      presets: PR.map((p) => ({ l1: p.l1, l2: prl(p), cls: 'chd pr' + (a === p.s && b === p.e ? ' on' : ''), on: (a === p.s && b === p.e) ? 'true' : 'false', a: () => set({ tmpS: p.s, tmpE: p.e, mo: 0 }) })),
+      prevCls: 'cnav pr' + (mo === 0 ? ' x' : ''), nextCls: 'cnav pr' + (mo === 5 ? ' x' : ''),
+      prevDis: mo === 0 ? 'true' : 'false', nextDis: mo === 5 ? 'true' : 'false',
+      prev: () => { if (mo > 0) set({ mo: mo - 1, mN: (S.mN || 0) + 1, mDir: 'L' }); },
+      next: () => { if (mo < 5) set({ mo: mo + 1, mN: (S.mN || 0) + 1, mDir: 'R' }); },
+      gCls: S.mN ? S.mDir + (S.mN % 2) : '',
+      cCls: 'cta pr' + (b == null ? ' off' : ''), cDis: b == null ? 'true' : 'false',
+      cLbl: b == null ? 'Vyber termín' : 'Potvrdit · ' + tn + ' ' + pl(tn),
+      confirm: () => {
+        if (b == null) return;
+        say('Termín ' + lab(a) + ' → ' + lab(b) + ' · teď ukážeme motorky volné v termínu', { dS: a, dE: b, dN: (S.dN || 0) + 1, sheet: '' });
+      }
+    };
+    const monthOf = (dn) => { const x = new Date(dn * 864e5); return Math.max(0, Math.min(5, (x.getUTCFullYear() - 2026) * 12 + x.getUTCMonth() - 9)); };
+
+    // --- receipt sheet (C6) ---
+    let rz = { name: '', days: '', dates: '', bars: [], rows: [], total: '', save: '', barsSt: '', open: () => {} };
+    if (S.sheet === 'rozpis' && hasD) {
+      const m = M[S.rz || 0];
+      let ps = [];
+      for (let d = S.dS; d <= S.dE; d++) { const w = wd(d); ps.push({ p: m.p[w], w: DW[w], we: w === 0 || w === 6 }); }
+      let rent = 0; ps.forEach((x) => { rent += x.p; });
+      if (ps.length > 14) {
+        const wk = [];
+        for (let i = 0; i < ps.length; i += 7) { let s = 0; ps.slice(i, i + 7).forEach((x) => { s += x.p; }); wk.push({ p: s, w: 'T' + (wk.length + 1), we: false }); }
+        ps = wk;
+      }
+      const mx = Math.max.apply(null, ps.map((x) => x.p));
+      const n = ps.length, gap = n > 7 ? 6 : 10;
+      const bw = Math.max(10, Math.min(34, Math.floor((296 - (n - 1) * gap) / n)));
+      const loy = Math.round(rent * L / 100);
+      rz = {
+        name: m.n + ' · jen motorka', days: days + ' ' + pl(days),
+        dates: lab(S.dS) + ' 09:00 → ' + lab(S.dE) + (m.ss ? ' do 23:59' : ' 19:00'),
+        barsSt: 'display:flex;align-items:flex-end;gap:' + gap + 'px',
+        bars: ps.map((x, i) => ({ cls: 'bar' + (x.we ? ' we' : ''), st: 'width:' + bw + 'px;height:' + Math.max(6, Math.round(78 * x.p / mx)) + 'px;animation-delay:' + (i * 45) + 'ms', w: x.w, p: f(x.p), showP: n <= 7 })),
+        rows: [
+          { l: 'Pronájem · ' + days + ' ' + pl(days), v: f(rent) + ' Kč', vSt: 'font-size:14px;font-weight:800;color:#1A2E22;white-space:nowrap' },
+          { l: 'Věrnostní sleva · ' + rank + ' ' + L + ' %', v: '−' + f(loy) + ' Kč', vSt: 'font-size:14px;font-weight:800;color:#0D6E0D;white-space:nowrap' }
+        ],
+        total: f(rent - loy) + ' Kč', save: 'Díky ranku ' + rank + ' ušetříš ' + f(loy) + ' Kč',
+        open: () => say('Otevírám detail s kalkulačkou · ' + m.n, { sheet: '' })
+      };
+    }
+
+    const ET = [['Prodloužit', 'doplatíš rozdíl', I.plus, true], ['Zkrátit', 'vrátíme podle storna', I.shrink, true], ['Posunout termín', 'zdarma, cena se nemění', I.cal, true], ['Čas vyzvednutí', 'i sleva od 12:00', I.clock, true], ['Místo předání', 'Samoobslužná pobočka — jen osobně', I.pin, false], ['Vyměnit motorku', 'doplatek nebo vratka', I.swap, true], ['Výbava a velikosti', '', I.helmet, true]];
+    const edits = ET.map((e, i) => ({
+      t: e[0], s: e[1], hasS: !!e[1], i: e[2], cls: 'et pr' + (e[3] ? ' rv' : ' x rv'), dis: e[3] ? 'false' : 'true',
+      st: 'animation-delay:' + Math.min(i, 5) * 70 + 'ms',
+      tSt: 'font-size:14px;font-weight:800;color:' + (e[3] ? '#1A2E22' : '#4A6B5A'),
+      a: () => { if (e[3]) say('Otevírám: ' + e[0], { sheet: '' }); }
+    }));
+    const moreRows = [['Detail rezervace', I.doc, false], ['Dokumenty', I.doc, false], ['Zrušit rezervaci', I.x, true]].map((r) => ({
+      t: r[0], i: r[1],
+      icSt: 'width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;background:' + (r[2] ? '#FDECEC;color:#B42318' : '#EEF7F2;color:#0D6E0D'),
+      tSt: 'flex:1;font-size:14px;font-weight:800;color:' + (r[2] ? '#B42318' : '#1A2E22'),
+      a: () => say('Otevírám: ' + r[0], { sheet: '' })
+    }));
+
+    const TB = [['Domů', I.home], ['Motorky', I.moto], ['Rezervace', I.calchk], ['Trasy', I.route], ['Profil', '']];
+    const tab = S.tab || 0;
+    const tabs = TB.map((t, i) => ({
+      l: t[0], i: t[1], ic: i !== 4, prof: i === 4, dot: i === 2 && needsAction, cnt: i === 4,
+      cls: 'ni pr' + (i === tab ? ' on' : ''), cur: i === tab ? 'page' : 'false',
+      aria: t[0] + (i === 2 && needsAction ? ', rezervace čeká na tvoji akci' : '') + (i === 4 ? ', 2 nepřečtené zprávy' : ''),
+      a: () => (i === tab ? say(i === 0 ? 'Jsi na Domů · opakované klepnutí posune stránku nahoru' : 'Už jsi tady') : say(i === 0 ? 'Domů' : 'Ukázka: tady se otevře karta ' + t[0].toUpperCase(), { tab: i }))
+    }));
+
+    const RM = 'https://vnwnqteskbykeucanlhk.supabase.co/storage/v1/object/public/media/routes-mirror/';
+    const routes = [['To nejlepší v okolí: Zámek Mikulov', 75, 'Lehká', '0eb437da70441e0a7fb6d6c49d34f32daa662774'], ['Mikulčice a soutok Moravy', 70, 'Lehká', '28bffdf82bbc3eb7f960a115320c86e17dea74c5'], ['Za historií: Znojmo a okolí', 213, 'Střední', 'b32bd8ff435ec5a70d36202cfcf2c81d3e1df5ae']].map((r, i) => ({ n: r[0], km: r[1] + ' km', d: r[2], img: RM + r[3] + '.jpg', aria: 'Detail trasy ' + r[0], dSt: 'animation-delay:' + (450 + i * 150) + 'ms', pSt: 'animation-delay:' + (1300 + i * 150) + 'ms', a: () => say('Otevírám detail trasy · ' + r[0]) }));
+    const branches = [['MotoGo24 Mezná', 'Mezná 9, 393 01 Pelhřimov', 'S obsluhou · nonstop'], ['MotoGo24 Velké Němčice', 'Boudky, 691 63 Brno - Velké Němčice', 'Samoobsluha · kód z appky']].map((b) => ({ n: b[0], ad: b[1], c: b[2], aria: 'Pobočka ' + b[0], a: () => say('Otevírám pobočku · ' + b[0]) }));
+
+    const goLoyalty = () => say('Otevírám Věrnostní program');
+    return {
+      rootCls: 'mg' + (rm ? ' rm' : ''),
+      pageCls: 'pg' + (S.sheet ? ' paused' : ''),
+      greeting: 'Ahoj, ' + (S.nick || '[přezdívka]'),
+      greetAria: 'Ahoj, ' + (S.nick || '[přezdívka]') + ' – změnit přezdívku',
+      logoAria: 'Věrnostní program – ' + rank,
+      rankChip: rank + ' · sleva ' + L + ' %', rank: rank,
+      rankSub: 'Level ' + L + ' z 20 · sleva ' + L + ' % na každou jízdu v appce',
+      rankAria: 'Věrnostní rank ' + rank + ', level ' + L + ' z 20. Otevřít věrnostní program',
+      freeGear: L >= 3,
+      nextLine: L >= 20 ? 'Máš nejvyšší rank · ' + rank : 'Ještě 1 b. → ' + RN[L] + ' (' + (L + 1) + ' %)',
+      barSt: 'width:' + (frac * 100).toFixed(1) + '%;--f:' + (fracPrev * 100).toFixed(1) + '%',
+      ringSt: 'stroke-dashoffset:' + ringOff(131.95, frac) + ';--af:' + ringOff(131.95, fracPrev),
+      ring2St: 'stroke-dashoffset:' + ringOff(119.38, frac) + ';--af:' + ringOff(119.38, fracPrev),
+      avSt: 'stroke-dashoffset:' + ringOff(72.26, frac),
+      goLoyalty: goLoyalty,
+      goAi: () => say('Otevírám AI asistenta'),
+      goMsg: () => say('Otevírám Zprávy'),
+      goMotorky: () => say('Otevírám Motorky'),
+      goRoutes: () => say('Otevírám Trasy · segment Trasy'),
+      openNick: () => { this._nick = S.nick || ''; set({ sheet: 'nick' }); },
+      nickIn: (ev) => { this._nick = (ev && ev.target && ev.target.value) || ''; },
+      nickSave: () => { const v = (this._nick || '').trim(); say(v ? 'Přezdívka uložená' : 'Přezdívka zůstává prázdná', { nick: v, sheet: '' }); },
+      hasDates: hasD,
+      pill1: hasD ? lab(S.dS) + ' → ' + lab(S.dE) : 'Kdy jedeš příště?',
+      pill2: hasD ? '· ' + days + ' ' + pl(days) : 'Vyber termín',
+      pillAria: hasD ? 'Termín ' + lab(S.dS) + ' až ' + lab(S.dE) + ', ' + days + ' ' + pl(days) + '. Změnit termín' : 'Kdy jedeš příště? Vyber termín',
+      openDates: () => set({ sheet: 'date', tmpS: S.dS, tmpE: S.dE, mo: hasD ? monthOf(S.dS) : 0 }),
+      clearDates: () => say('Termín zrušený', { dS: null, dE: null }),
+      tk: tk, tkCls: S.tkN ? 'tk' + (S.tkN % 2) : '',
+      codes: codes, codesBtn: rev ? 'Skrýt kódy' : 'Zobrazit kódy',
+      toggleCodes: () => set({ rev: !rev }),
+      stars: stars,
+      motos: motos, routes: routes, branches: branches,
+      navPillSt: 'left:' + (13 + tab * 78) + 'px',
+      tabs: tabs,
+      hasToast: !!S.toast, toast: S.toast || '', toastCls: 'toast ' + ((S.tN || 0) % 2 ? 'tA' : 'tB'),
+      anySheet: !!S.sheet,
+      sh: { date: S.sheet === 'date', rozpis: S.sheet === 'rozpis' && hasD, edit: S.sheet === 'edit', more: S.sheet === 'more', nick: S.sheet === 'nick' },
+      closeSheet: () => set({ sheet: '' }),
+      cal: cal, rz: rz, edits: edits, moreRows: moreRows
+    };
+  }
+}
+</script>
+</body>
+</html>

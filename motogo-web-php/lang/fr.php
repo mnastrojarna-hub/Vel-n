@@ -68,8 +68,9 @@ return [
     'menu.areas.jihomoravsky' => 'Région de Moravie-du-Sud',
     'menu.areas.jihocesky' => 'Région de Bohême-du-Sud',
     'menu.reservation' => 'RÉSERVATION',
-    'menu.editReservation' => 'Gérer ma réservation',
-    'menu.editReservation.aria' => 'Modifier ou annuler la réservation',
+    'menu.editReservation' => 'Modifier la réservation',
+    'menu.editReservation.aria' => 'Modifier la réservation – changer les dates, le lieu, la moto ou les tailles d\'équipement, prolonger, raccourcir ou annuler',
+    'menu.editReservation.sub' => 'dates · moto · annulation',
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Location de motos',
@@ -1478,7 +1479,7 @@ return [
     'rez.map.title' => 'Choisissez un lieu sur la carte (Mapy.cz)',
     'rez.map.confirm' => 'Confirmer',
     'rez.return.stateTitle' => 'Dans quel état rendre la moto ?',
-    'rez.return.stateText' => 'Il suffit de rendre la moto avec du carburant au-dessus de la réserve (le voyant de réserve éteint). Ne vous souciez pas du lavage ni du nettoyage — c\'est notre travail.',
+    'rez.return.stateText' => 'À l\'agence avec personnel de Mezná et en cas de restitution ailleurs, vous n\'avez ni à faire le plein ni à laver la moto. À l\'agence en libre-service, rendez-la lavée et sans voyant de réserve allumé ; le plein n\'est pas nécessaire.',
     'rez.alert.emailExists' => 'Cet e-mail est déjà enregistré chez nous. Connectez-vous pour continuer ou réinitialisez votre mot de passe.',
     'rez.alert.emailMismatch' => 'Le compte connecté ne correspond pas à l\'e-mail saisi. Déconnectez-vous et réessayez.',
     'rez.alert.minRentalDays' => 'La durée minimale de location de cette moto est de {count} jours. Veuillez choisir une période plus longue.',

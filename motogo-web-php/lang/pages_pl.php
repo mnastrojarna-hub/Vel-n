@@ -204,7 +204,7 @@ return [
                     ],
                     [
                         '<strong>Paliwo i czyszczenie</strong>',
-                        'Zwrot bez obowiązku tankowania i mycia. Nadmierne zabrudzenie rozpatrujemy indywidualnie.',
+                        'W oddziale Mezná i przy zwrocie w innym miejscu bez obowiązku tankowania i mycia. W oddziale samoobsługowym oddaj motocykl umyty i bez świecącej kontrolki rezerwy (pełny bak nie jest potrzebny). Nadmierne zabrudzenie rozpatrujemy indywidualnie.',
                     ],
                     [
                         '<strong>Podstawienie / odbiór</strong>',
@@ -235,9 +235,9 @@ return [
             'handover' => [
                 'title' => 'Przekazanie i zwrot',
                 'items' => [
-                    '<strong>Odbiór</strong>&nbsp;odbywa się w Pelhřimovie (Mezná 9) lub skorzystaj z&nbsp;<a href="/jak-pujcit/pristaveni">podstawienia</a>.',
+                    '<strong>Odbiór</strong>&nbsp;odbywa się w Pelhřimovie (Mezná 9) lub w samoobsługowym oddziale Velké Němčice koło Brna; z oddziału Mezná możesz też skorzystać z&nbsp;<a href="/jak-pujcit/pristaveni">podstawienia</a>.',
                     'Przy przekazaniu otrzymujesz&nbsp;<strong>kluczyki, wyposażenie i dokumenty</strong>&nbsp;(dowód rejestracyjny, zielona karta, formularz wypadkowy).',
-                    '<strong>Zwrot</strong>&nbsp;o dowolnej porze w ostatnim dniu wynajmu (nawet o północy). Nie trzeba myć ani tankować.',
+                    '<strong>Zwrot</strong>&nbsp;o dowolnej porze w ostatnim dniu wynajmu (nawet o północy). W oddziale Mezná nie trzeba myć ani tankować; w oddziale samoobsługowym oddaj motocykl umyty i bez świecącej kontrolki rezerwy.',
                 ],
             ],
             'privacy' => [
@@ -554,7 +554,7 @@ return [
                     ],
                     [
                         'q' => 'Czy muszę zwrócić z pełnym bakiem i czysty?',
-                        'a' => 'Nie. U nas nie tankujesz ani nie myjesz. Tylko pilnuj, żeby nie świeciła kontrolka rezerwy.&nbsp;',
+                        'a' => 'Nie. Przy zwrocie w innym miejscu nie tankujesz ani nie myjesz.&nbsp;',
                     ],
                     [
                         'q' => 'Czy przy zwrocie w innym miejscu mogę zwrócić motocykl wcześniej, niż się umówiliśmy?&nbsp;',
@@ -709,7 +709,7 @@ return [
                     [
                         'icon' => 'gfx/predani-motorky.svg',
                         'title' => '3. Odbierz',
-                        'text' => 'Odbierz motocykl w naszej wypożyczalni w Pelhřimovie.',
+                        'text' => 'Odbierz motocykl osobiście w oddziale Mezná koło Pelhřimova (stamtąd dowieziemy go też w dowolne miejsce w Czechach) albo sam w samoobsługowym oddziale Velké Němčice koło Brna.',
                     ],
                     [
                         'icon' => 'gfx/uzij-si-jizdu.svg',
@@ -889,7 +889,7 @@ return [
                 'items' => [
                     [
                         'q' => 'Jak mogę zarezerwować motocykl?',
-                        'a' => 'Motocykl możesz zarezerwować przez nasz system rezerwacji online bezpośrednio na stronie. Lub skontaktuj się z nami e-mailem, telefonicznie lub przez media społecznościowe.',
+                        'a' => 'Motocykl możesz zarezerwować przez nasz system rezerwacji online bezpośrednio na stronie albo w aplikacji MotoGo24 – za darmo w Google Play (Android) i w App Store (iPhone). Lub skontaktuj się z nami e-mailem, telefonicznie lub przez media społecznościowe.',
                     ],
                     [
                         'q' => 'Czy mogę wypożyczyć motocykl bez wcześniejszej rezerwacji?',
@@ -1119,7 +1119,7 @@ return [
                     [
                         'icon' => 'gfx/vrat-motorku-vcas.svg',
                         'title' => '12. Zwróć motocykl',
-                        'text' => 'Zwróć motocykl na czas – osobiście do wypożyczalni w Pelhřimovie albo na umówione miejsce. Nie trzeba tankować ani myć.',
+                        'text' => 'Zwróć motocykl na czas – osobiście do wypożyczalni w Pelhřimovie albo na umówione miejsce; nie trzeba tankować ani myć. W samoobsługowym oddziale Velké Němčice oddaj motocykl umyty i bez świecącej kontrolki rezerwy.',
                     ],
                 ],
             ],
@@ -1432,7 +1432,7 @@ return [
                     ],
                     [
                         'q' => 'Czy muszę zwrócić z pełnym bakiem i czysty?',
-                        'a' => 'Nie. U nas nie tankujesz ani nie myjesz. Tylko pilnuj, żeby nie świeciła kontrolka rezerwy.&nbsp;',
+                        'a' => 'Nie. W oddziale Mezná nie tankujesz ani nie myjesz. W samoobsługowym oddziale Velké Němčice pełny bak też nie jest potrzebny – oddaj tylko motocykl umyty i pilnuj, żeby nie świeciła kontrolka rezerwy.&nbsp;',
                     ],
                     [
                         'q' => 'Czy mogę zwrócić motocykl do wypożyczalni wcześniej, niż się umówiliśmy?',

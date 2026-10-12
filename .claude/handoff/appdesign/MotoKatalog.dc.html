@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<title>Motorky – fotka přes celý displej</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+sc-if,sc-for{display:contents}
+.mg{font-family:Montserrat,'Segoe UI',sans-serif;color:#1A2E22;-webkit-font-smoothing:antialiased;line-height:1.3}
+.mg *{box-sizing:border-box}
+.mg button{font:inherit;border:0;background:none;padding:0;margin:0;color:inherit;cursor:pointer;text-align:inherit;-webkit-tap-highlight-color:transparent}
+.mg button:focus-visible{outline:3px solid #74FB71;outline-offset:2px}
+.mg h1,.mg h2,.mg p{margin:0}
+.tn{font-variant-numeric:tabular-nums}
+.ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.pg{scrollbar-width:none}.pg::-webkit-scrollbar,.hs::-webkit-scrollbar{display:none}
+.hd{position:sticky;top:0;z-index:6;padding:14px 0 10px;background:rgba(10,31,20,.88);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid rgba(116,251,113,.18);color:#fff}
+.hrow{display:flex;align-items:center;gap:10px;padding:0 16px}
+.ttl{font:800 24px/1 Montserrat;letter-spacing:-.3px}
+.cnt{height:24px;padding:0 9px;border-radius:999px;background:rgba(116,251,113,.16);color:#A8FF9F;font:800 12px/24px Montserrat}
+.vt{margin-left:auto;display:flex;padding:3px;border-radius:12px;background:rgba(255,255,255,.08)}
+.vb{width:44px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#9FC4B1;transition:background .2s,color .2s}
+.vb.on{background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F}
+.dp{flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:12px;background:rgba(255,255,255,.06);border:1.5px solid rgba(116,251,113,.55);color:#fff;font:800 13px/1.15 Montserrat;white-space:nowrap;overflow:hidden}
+.dp span{overflow:hidden;text-overflow:ellipsis}
+.dp.no{border-style:dashed;color:#CFE7DA}
+.rkc{display:flex;align-items:center;gap:6px;height:44px;padding:0 12px;border-radius:12px;background:rgba(116,251,113,.14);color:#A8FF9F;font:800 12.5px/1 Montserrat;white-space:nowrap}
+.rdt{width:8px;height:8px;border-radius:50%;background:#74FB71;box-shadow:0 0 0 0 rgba(116,251,113,.7);animation:pls 2s ease-out infinite}
+.hs{display:flex;gap:8px;overflow-x:auto;padding:0 16px;scrollbar-width:none}
+.fc{flex:none;display:flex;align-items:center;gap:6px;height:36px;padding:0 13px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#CFE7DA;font:700 12.5px/1 Montserrat;white-space:nowrap;transition:background .2s,color .2s,border-color .2s}
+.fc.on{background:#74FB71;border-color:#74FB71;color:#08230F;font-weight:800}
+.fc .n{opacity:.7;font-weight:700}
+.kc{position:relative;height:600px;overflow:hidden;background:#0A1F14;margin-bottom:6px}
+.lst.gA .kc{animation:cinA .55s cubic-bezier(.2,.7,.3,1) both}.lst.gB .kc{animation:cinB .55s cubic-bezier(.2,.7,.3,1) both}
+.kbg{position:absolute;inset:-40px;width:calc(100% + 80px);height:calc(100% + 80px);object-fit:cover;filter:blur(30px) saturate(1.25) brightness(.6);transform:scale(1.08)}
+.kfg{position:absolute;inset:0;width:100%;height:100%;display:block;transform-origin:50% 55%;animation:kb 16s ease-in-out infinite alternate}
+.kfg.ct{object-fit:contain}.kfg.cv{object-fit:cover}
+.kfg.fA{animation:phA .45s ease both,kb 16s ease-in-out .45s infinite alternate}.kfg.fB{animation:phB .45s ease both,kb 16s ease-in-out .45s infinite alternate}
+.kgr{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(10,31,20,.55),rgba(10,31,20,0) 15%),linear-gradient(to top,rgba(10,31,20,.94),rgba(10,31,20,.5) 24%,rgba(10,31,20,0) 44%)}
+.kop{position:absolute;left:0;right:0;top:64px;bottom:200px;z-index:1}
+.htz{position:absolute;top:64px;bottom:200px;width:30%;z-index:2}
+.psg{position:absolute;top:8px;left:12px;right:12px;z-index:3;display:flex;gap:4px}
+.psg i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.35)}
+.psg i.on{background:#fff}
+.ktop{position:absolute;top:18px;left:12px;right:8px;z-index:3;display:flex;align-items:center;justify-content:space-between}
+.av{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:999px;background:rgba(10,31,20,.78);color:#fff;font:700 12px/1 Montserrat;white-space:nowrap}
+.av.w{background:#FFF4E0;color:#8A4B00}
+.pd{position:relative;width:7px;height:7px;border-radius:50%;background:#74FB71;flex:none}
+.pd::after{content:'';position:absolute;inset:0;border-radius:50%;animation:ping 1.8s ease-out infinite}
+.hb{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(10,31,20,.55);color:#fff}
+.hb.on{color:#FF5A5F}.hb.on svg{fill:#FF5A5F;animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
+.kov{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:0 16px 18px;display:flex;flex-direction:column;gap:8px;color:#fff;pointer-events:none}
+.kov button{pointer-events:auto}
+.chs{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ctag{padding:4px 8px;border-radius:6px;background:#74FB71;color:#08230F;font:800 11px/1.2 Montserrat;letter-spacing:.04em;text-transform:uppercase}
+.lc{padding:4px 8px;border-radius:6px;background:rgba(255,255,255,.16);color:#fff;font:800 11px/1.2 Montserrat}
+.bc{display:inline-flex;align-items:center;gap:4px;color:rgba(255,255,255,.9);font:700 12px/1.2 Montserrat}
+.knm{font:800 28px/1.06 Montserrat;letter-spacing:-.4px;text-shadow:0 2px 18px rgba(0,0,0,.45)}
+.prw{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-top:2px}
+.pl{font:800 10.5px/1 Montserrat;letter-spacing:.08em;color:#A8FF9F;text-transform:uppercase}
+.pv{margin-top:5px;display:flex;align-items:baseline;gap:6px;white-space:nowrap}
+.pv b{font:800 26px/1 Montserrat;color:#74FB71;letter-spacing:-.3px}
+.pv i{font:700 13px/1 Montserrat;font-style:normal;color:#CFE7DA}
+.pv s{font:600 12px/1 Montserrat;color:rgba(255,255,255,.55)}
+.psub{margin-top:5px;font:600 12px/1.2 Montserrat;color:#CFE7DA}
+.go{position:relative;overflow:hidden;width:58px;height:58px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F;box-shadow:0 10px 26px -8px rgba(116,251,113,.7);animation:glow 2.4s ease-in-out infinite}
+.go::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.7),transparent);transform:translateX(-120%) skewX(-20deg);animation:shine 3.2s linear infinite}
+.grd{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px}
+.grd.gA .gt{animation:cinA .5s cubic-bezier(.2,.7,.3,1) both}.grd.gB .gt{animation:cinB .5s cubic-bezier(.2,.7,.3,1) both}
+.gt{position:relative;height:290px;border-radius:14px;overflow:hidden;background:#0A1F14;text-align:left}
+.gt img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.gt:active img{transform:scale(1.04)}
+.gt .gg{position:absolute;inset:0;background:linear-gradient(to top,rgba(10,31,20,.92),rgba(10,31,20,0) 50%)}
+.gt .gi{position:absolute;left:10px;right:10px;bottom:10px;display:flex;flex-direction:column;gap:4px;color:#fff}
+.gn{font:800 14px/1.15 Montserrat}
+.gp{font:800 13.5px/1 Montserrat;color:#74FB71}
+.gw{position:absolute;top:8px;left:8px;height:24px;padding:0 8px;border-radius:999px;background:#FFF4E0;color:#8A4B00;font:800 10.5px/24px Montserrat}
+.emp{margin:40px 16px;padding:24px 16px;border-radius:18px;border:1.5px dashed rgba(116,251,113,.45);color:#CFE7DA;text-align:center;font:700 14px/1.45 Montserrat}
+.pnl{position:absolute;left:12px;right:12px;top:118px;z-index:20;padding:8px;border-radius:18px;background:#0E2A1C;border:1px solid rgba(116,251,113,.35);box-shadow:0 18px 40px -12px rgba(0,0,0,.6);animation:dropIn .28s cubic-bezier(.2,.8,.3,1) both}
+.po{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:52px;padding:8px 12px;border-radius:12px;color:#fff;font:700 14px/1.25 Montserrat}
+.po.on{background:rgba(116,251,113,.14);color:#A8FF9F}
+.po small{display:block;font:600 12px/1.3 Montserrat;color:#9FC4B1}
+.scr{position:absolute;inset:0;z-index:19;background:rgba(0,0,0,.35)}
+.nav{position:absolute;left:0;right:0;bottom:0;height:98px;background:#fff;border-top:1px solid #E1EFE9;box-shadow:0 -6px 20px -10px rgba(26,46,34,.25);z-index:10}
+.npill{position:absolute;top:8px;left:91px;width:52px;height:30px;border-radius:999px;background:linear-gradient(135deg,#8DFF86,#37CF63);box-shadow:0 6px 14px -6px rgba(116,251,113,.6)}
+.ni{display:flex;flex-direction:column;align-items:center;gap:4px;height:64px;padding-top:8px;color:#4A6B5A;font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;position:relative;z-index:1}
+.ni.on{color:#1A2E22;font-weight:800}
+.nico{position:relative;height:30px;display:flex;align-items:center;justify-content:center}
+.toast{position:absolute;left:50%;transform:translateX(-50%);z-index:40;width:max-content;max-width:350px;padding:12px 16px;border-radius:14px;background:rgba(10,31,20,.95);border:1px solid rgba(116,251,113,.3);color:#fff;font-size:13px;font-weight:700;line-height:1.35;text-align:center;box-shadow:0 -8px 24px rgba(0,0,0,.25);pointer-events:none}
+.tA{animation:tA 2.8s ease forwards}.tB{animation:tB 2.8s ease forwards}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.07)}}
+@keyframes phA{from{opacity:.2}to{opacity:1}}@keyframes phB{from{opacity:.2}to{opacity:1}}
+@keyframes cinA{from{opacity:0;transform:translateY(28px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes cinB{from{opacity:0;transform:translateY(28px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(116,251,113,.8)}100%{box-shadow:0 0 0 9px rgba(116,251,113,0)}}
+@keyframes pls{0%{box-shadow:0 0 0 0 rgba(116,251,113,.7)}100%{box-shadow:0 0 0 8px rgba(116,251,113,0)}}
+@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.3)}100%{transform:scale(1)}}
+@keyframes glow{0%,100%{box-shadow:0 10px 26px -8px rgba(116,251,113,.55)}50%{box-shadow:0 10px 32px -4px rgba(116,251,113,.95)}}
+@keyframes shine{0%,55%{transform:translateX(-120%) skewX(-20deg)}100%{transform:translateX(220%) skewX(-20deg)}}
+@keyframes dropIn{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes tA{0%{opacity:0;transform:translate(-50%,12px)}10%,86%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0);visibility:hidden}}
+@keyframes tB{0%{opacity:0;transform:translate(-50%,12px)}10%,86%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0);visibility:hidden}}
+@keyframes tOA{0%,86%{opacity:1}100%{opacity:0;visibility:hidden}}
+@keyframes tOB{0%,86%{opacity:1}100%{opacity:0;visibility:hidden}}
+.rm *,.rm *::before,.rm *::after{animation:none!important;transition:none!important}
+.rm .tA{animation:tOA 2.8s linear forwards!important}.rm .tB{animation:tOB 2.8s linear forwards!important}
+@media (prefers-reduced-motion: reduce){
+.mg *,.mg *::before,.mg *::after{animation:none!important;transition:none!important}
+.mg .tA{animation:tOA 2.8s linear forwards!important}.mg .tB{animation:tOB 2.8s linear forwards!important}
+}
+</style>
+</helmet>
+<div class="{{ rootCls }}" style="width:390px;height:2300px;position:relative;overflow:hidden;background:#0A1F14">
+<div class="pg" style="position:absolute;top:0;left:0;right:0;bottom:98px;overflow-y:auto;overflow-x:hidden">
+
+<header class="hd">
+<div class="hrow">
+<h1 class="ttl">Motorky</h1><span class="cnt tn">{{ countLabel }}</span>
+<div class="vt" role="group" aria-label="Zobrazení">
+<button class="{{ vFull.cls }}" onClick="{{ vFull.a }}" aria-pressed="{{ vFull.on }}" aria-label="Velké fotky"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"></rect></svg></button>
+<button class="{{ vGrid.cls }}" onClick="{{ vGrid.a }}" aria-pressed="{{ vGrid.on }}" aria-label="Mřížka"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"></rect><rect x="13" y="4" width="7" height="7" rx="2"></rect><rect x="4" y="13" width="7" height="7" rx="2"></rect><rect x="13" y="13" width="7" height="7" rx="2"></rect></svg></button>
+</div>
+</div>
+<div class="hrow" style="margin-top:10px">
+<button class="{{ dateCls }}" onClick="{{ openDates }}" aria-label="{{ dateAria }}"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="color:#74FB71"><path d="M4 5h16v16H4zM4 10h16M8 3v4M16 3v4"></path></svg><span>{{ dateLabel }}</span></button>
+<button class="rkc" onClick="{{ rankInfo }}" aria-label="{{ rankAria }}"><span class="rdt" aria-hidden="true"></span>{{ rankLabel }}</button>
+</div>
+<div class="hs" style="margin-top:10px">
+<sc-for list="{{ chips }}" as="f" hint-placeholder-count="8"><button class="{{ f.cls }}" onClick="{{ f.a }}" aria-pressed="{{ f.on }}">{{ f.l }}<sc-if value="{{ f.hasN }}" hint-placeholder-val="{{ true }}"><span class="n tn">{{ f.n }}</span></sc-if></button></sc-for>
+</div>
+</header>
+
+<sc-if value="{{ isFull }}" hint-placeholder-val="{{ true }}">
+<div class="{{ listCls }}">
+<sc-for list="{{ cards }}" as="c" hint-placeholder-count="4">
+<article class="kc" style="{{ c.st }}" aria-label="{{ c.name }}">
+<img class="kbg" src="{{ c.img }}" alt="" aria-hidden="true">
+<img class="{{ c.fgCls }}" src="{{ c.img }}" alt="{{ c.alt }}">
+<div class="kgr" aria-hidden="true"></div>
+<button class="kop" onClick="{{ c.open }}" aria-label="{{ c.openAria }}"></button>
+<sc-if value="{{ c.multi }}" hint-placeholder-val="{{ true }}"><div class="psg" aria-hidden="true"><sc-for list="{{ c.segs }}" as="d" hint-placeholder-count="4"><i class="{{ d.cls }}"></i></sc-for></div><button class="htz" style="left:0" onClick="{{ c.prev }}" aria-label="Předchozí fotka"></button><button class="htz" style="right:0" onClick="{{ c.next }}" aria-label="Další fotka"></button></sc-if>
+<div class="ktop">
+<span class="{{ c.avCls }}"><sc-if value="{{ c.free }}" hint-placeholder-val="{{ true }}"><span class="pd" aria-hidden="true"></span></sc-if>{{ c.avText }}</span>
+<button class="{{ c.favCls }}" onClick="{{ c.fav }}" aria-pressed="{{ c.favOn }}" aria-label="{{ c.favAria }}"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"></path></svg></button>
+</div>
+<div class="kov">
+<div class="chs"><span class="ctag">{{ c.cat }}</span><span class="lc">{{ c.lic }}</span><span class="bc"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="color:#74FB71"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"></path><circle cx="12" cy="11" r="2.2"></circle></svg>{{ c.branch }}</span></div>
+<h2 class="knm">{{ c.name }}</h2>
+<div class="prw">
+<div>
+<div class="pl">{{ c.pLabel }}</div>
+<div class="pv tn"><b>{{ c.pMain }}</b><i>{{ c.pUnit }}</i><sc-if value="{{ c.hasList }}" hint-placeholder-val="{{ true }}"><s>{{ c.pList }}</s></sc-if></div>
+<div class="psub tn">{{ c.pSub }}</div>
+</div>
+<button class="go" onClick="{{ c.open }}" aria-label="{{ c.openAria }}"><svg class="ic" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="position:relative;z-index:1"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+</div>
+</div>
+</article>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isGrid }}" hint-placeholder-val="{{ false }}">
+<div class="{{ gridCls }}">
+<sc-for list="{{ cards }}" as="c" hint-placeholder-count="6">
+<button class="gt" style="{{ c.gst }}" onClick="{{ c.open }}" aria-label="{{ c.openAria }}">
+<img src="{{ c.img0 }}" alt="{{ c.alt }}">
+<span class="gg" aria-hidden="true"></span>
+<sc-if value="{{ c.busy }}" hint-placeholder-val="{{ false }}"><span class="gw">Obsazená</span></sc-if>
+<span class="gi"><span class="gn">{{ c.name }}</span><span class="gp tn">{{ c.gPrice }}</span></span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+<div class="emp">V tomhle termínu je všechno z výběru obsazené.<br><button onClick="{{ showAll }}" style="margin-top:12px;min-height:44px;color:#74FB71;font-weight:800">Ukázat i obsazené</button></div>
+</sc-if>
+</div>
+
+<sc-if value="{{ panel }}" hint-placeholder-val="{{ false }}">
+<button class="scr" onClick="{{ closePanel }}" aria-label="Zavřít výběr termínu"></button>
+<div class="pnl" role="dialog" aria-label="Termín">
+<sc-for list="{{ presets }}" as="p" hint-placeholder-count="4"><button class="{{ p.cls }}" onClick="{{ p.a }}" aria-pressed="{{ p.on }}"><span>{{ p.l }}<small>{{ p.s }}</small></span><sc-if value="{{ p.isOn }}" hint-placeholder-val="{{ false }}"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if></button></sc-for>
+</div>
+</sc-if>
+
+<nav aria-label="Hlavní navigace" class="nav">
+<span class="npill" aria-hidden="true"></span>
+<div style="display:grid;grid-template-columns:repeat(5,1fr);height:64px;position:relative">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><button class="{{ t.cls }}" onClick="{{ t.a }}" aria-current="{{ t.cur }}"><span class="nico"><svg class="ic" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="{{ t.i }}"></path></svg></span><span>{{ t.l }}</span></button></sc-for>
+</div>
+</nav>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}"><div class="{{ toastCls }}" role="status" style="{{ toastSt }}">{{ toast }}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2300},"dates":{"editor":"enum","options":["Pá 23. – Ne 25. 10.","Pá 16. – Ne 18. 10.","Bez termínu"],"default":"Pá 23. – Ne 25. 10.","section":"Stav"},"rank":{"editor":"int","min":1,"max":20,"default":3,"section":"Stav"},"view":{"editor":"enum","options":["Velké fotky","Mřížka"],"default":"Velké fotky","section":"Stav"},"photoFit":{"editor":"enum","options":["Celá motorka + rozmazané pozadí","Ořez na celou obrazovku"],"default":"Celá motorka + rozmazané pozadí","section":"Fotka"},"reducedMotion":{"editor":"boolean","default":false,"section":"Pohyb"}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { dates: null, view: null, cat: 'all', free: true, br: 'all', fav: {}, ph: {}, pk: 0, g: 0, panel: false, toast: '', tN: 0, tY: 300 };
+  }
+  renderVals() {
+    const P = this.props || {}, S = this.state || {};
+    const set = (o) => this.setState(o);
+    const say = (m, y, o) => this.setState(Object.assign({ toast: m, tN: (S.tN || 0) + 1, tY: y || 300 }, o || {}));
+    const F = [["BMW R 1200 GS Adventure","cestovni","ŘP A",0,[3514,2811,2811,3163,3514,4882,3865],["a0000001-0000-0000-0000-000000000001/moj0fnd41cr5-20260427-182831.jpg","a0000001-0000-0000-0000-000000000001/moj0eutnhxcg-20260427-182656.jpg","a0000001-0000-0000-0000-000000000001/moj0ezihurwq-20260427-182720.jpg","a0000001-0000-0000-0000-000000000001/moj0f3zorj8r-20260427-182727.jpg"]],["Husqvarna 701 SM","supermoto","ŘP A",1,[4429,3543,3543,3986,4429,5314,4871],["b850929a-37da-4b87-86a8-9b2fba7b3316/mq22a7zapb2x-1000003421.jpg","b850929a-37da-4b87-86a8-9b2fba7b3316/mq22a9di8nxm-1000003427.jpg","b850929a-37da-4b87-86a8-9b2fba7b3316/mq22aae4y7iy-1000003422.jpg","b850929a-37da-4b87-86a8-9b2fba7b3316/mq22abd999j2-1000003423.jpg"]],["Royal Enfield Shotgun 650","chopper","ŘP A2",0,[2292,1833,1833,2063,2292,2750,2521],["c9617cbe-c6d9-441d-9433-1a11e66fa357/msism7zmrm2a-img-0788.jpg","c9617cbe-c6d9-441d-9433-1a11e66fa357/msaja3mesicf-168c4e19-b006-486b-95f1-a8de75966eff.jpeg","c9617cbe-c6d9-441d-9433-1a11e66fa357/msism6szykog-img-0789.jpg"]],["Aprilia SR GT 125","scootery","ŘP A1 / B",1,[1431,1144,1144,1288,1431,1717,1574],["edabe801-841f-457e-9fc8-944370ec4002/mqv5jqvfkov2-1000004060.jpg"]],["Benelli TRK 502 X","cestovni","ŘP A2",1,[2014,1611,1611,1813,2014,2417,1961],["8468ca34-efec-486a-ab6f-deea0ad50946/moj0r7ulh1t0-20260427-180625.jpg"]],["Benelli TRK 702 X","cestovni","ŘP A",0,[2951,2422,2422,2725,2892,3541,3331],["a0000001-0000-0000-0000-000000000003/moj0dpka6mcq-20260427-173718.jpg"]],["Ducati Multistrada 1260 s","cestovni","ŘP A",0,[3792,3033,3033,3413,3792,4550,4171],["a0000001-0000-0000-0000-000000000010/mtt0frg9h9x6-0cd65eb6-f2e7-4c13-abdd-6e4ea01e4a26.jpg"]],["Honda CRF 1000 Africa Twin","cestovni","ŘP A",1,[3403,2722,2722,3063,3403,4083,3743],["e3123fff-5ecc-486b-9481-fb5eebc11fdf/msylyn4mox5q-img-0809.jpg"]],["Honda VTX 1800","chopper","ŘP A",0,[2472,1978,1978,2225,2472,2967,2719],["6027e245-07db-44f9-9ed2-0841e1ac6e9c/ms0mh55wcmfx-img-0756.jpg"]],["Husqvarna TC 65","detske","Bez ŘP",0,[2438,1950,1950,2194,2438,2925,2681],["780e13b3-f07c-4da4-98ab-878e7b6f4775/msneeri4cvt1-1000005001.jpg"]],["Jawa RVM 500 Adventure","cestovni","ŘP A2",1,[1986,1589,1589,1788,1986,2383,2185],["a0000001-0000-0000-0000-000000000002/mqi9vy2p5dfs-1000003754.jpg"]],["Linhai ADV Buck 125 E5+","scootery","ŘP A1 / B",0,[1431,1144,1144,1288,1431,1717,1574],["18fe5633-86cd-48d6-a0d4-8b8cc8d3badb/mssrhyn4371q-img-0800.jpg"]],["Suzuki DL 650 V-strom","cestovni","ŘP A",1,[2194,1756,1756,1974,2194,2633,2414],["8f554a38-c3b3-4337-9d6a-899ea8e54b37/mq235t8vke2o-1000003433.jpg"]],["Triumph Tiger 1200 Explorer","cestovni","ŘP A",0,[4208,3367,3367,3788,4208,4980,4760],["a0000001-0000-0000-0000-000000000014/mqi6dwiku3c6-img-0666.jpg"]],["Voge 500 DSX","cestovni","ŘP A2",0,[1911,1529,1529,1720,1911,2293,2102],["f772c7f5-6be7-4395-b97b-007552c6e6c4/mrm18a47bs3t-1000004612.jpg"]],["Yamaha MT-09 Street Rally","naked","ŘP A",0,[3097,2478,2478,2788,3097,3717,3407],["a0000001-0000-0000-0000-000000000008/moyhfvvi1f0c-20260509-145755.jpg"]],["Yamaha PW 50","detske","Bez ŘP",0,[1333,1067,1067,1200,1333,1600,1467],["a0000001-0000-0000-0000-000000000012/mqnudp9vf169-1000003963.jpg"]],["Yamaha XT660 X","supermoto","ŘP A2",0,[1986,1589,1589,1788,1986,2383,2186],["a0000001-0000-0000-0000-000000000006/moyhc8dq9m82-20260509-152016.jpg"]],["Yamaha XTZ 1200 Super Ténéré","cestovni","ŘP A",0,[4417,3533,3533,3975,4417,5300,4858],["a0000001-0000-0000-0000-000000000009/muo8o1p6dy8g-1000005494.jpg"]]];
+    const IMG = 'https://vnwnqteskbykeucanlhk.supabase.co/storage/v1/object/public/media/motos/';
+    const CAT = { cestovni: 'Cestovní', naked: 'Naked', supermoto: 'Supermoto', chopper: 'Chopper', scootery: 'Skútr', detske: 'Dětská' };
+    const RN = ['Startér', 'Jezdec', 'Motorkář', 'Stálý jezdec', 'Věrný zákazník', 'Bronzový jezdec', 'Stříbrný jezdec', 'Zlatý jezdec', 'Platinový jezdec', 'Diamantový jezdec', 'Prémiový zákazník', 'Mistr silnic', 'Šampion', 'Veterán MotoGo', 'Elitní jezdec', 'Ambasador', 'VIP', 'VIP Gold', 'VIP Platinum', 'Legenda MotoGo'];
+    const L = Math.max(1, Math.min(20, parseInt(P.rank, 10) || 3));
+    const f = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    const D = (m, d) => Date.UTC(2026, m, d) / 864e5;
+    const RANGES = {
+      w1: { s: D(9, 16), e: D(9, 18), l: 'pá 16. 10. → ne 18. 10.', t: 'Tento víkend', busy: ['Husqvarna 701 SM', 'Triumph Tiger 1200 Explorer'] },
+      w2: { s: D(9, 23), e: D(9, 25), l: 'pá 23. 10. → ne 25. 10.', t: 'Příští víkend', busy: ['Ducati Multistrada 1260 s', 'Honda CRF 1000 Africa Twin'] }
+    };
+    const propKey = String(P.dates || '').indexOf('16.') >= 0 ? 'w1' : (String(P.dates || '').indexOf('Bez') === 0 ? 'none' : 'w2');
+    const dk = S.dates || propKey;
+    const R = RANGES[dk] || null;
+    const days = R ? R.e - R.s + 1 : 0;
+    const view = S.view || (String(P.view || '').indexOf('Mř') === 0 ? 'grid' : 'full');
+    const cover = String(P.photoFit || '').indexOf('Ořez') === 0;
+    const rm = P.reducedMotion === true || P.reducedMotion === 'true';
+    const dayP = (p, d) => p[(new Date(d * 864e5).getUTCDay() + 6) % 7];
+    const quote = (p) => {
+      if (!R) return null;
+      let rent = 0; for (let d = R.s; d <= R.e; d++) rent += dayP(p, d);
+      const late = days >= 2 ? Math.round(dayP(p, R.s) / 2) : 0;
+      const loy = Math.round((rent - late) * L / 100);
+      return { total: rent - late - loy, list: rent - late };
+    };
+    const all = F.map((b, i) => {
+      const min = Math.min.apply(null, b[4]);
+      return { i, name: b[0], cat: b[1], lic: b[2], br: b[3], p: b[4], imgs: b[5], min, mine: Math.round(min * (100 - L) / 100), busy: !!(R && R.busy.indexOf(b[0]) >= 0) };
+    });
+    const inCat = (b) => S.cat === 'all' || b.cat === S.cat;
+    const inBr = (b) => S.br === 'all' || String(b.br) === S.br;
+    let list = all.filter((b) => inCat(b) && inBr(b));
+    const busyN = list.filter((b) => b.busy).length;
+    if (S.free && R) list = list.filter((b) => !b.busy);
+    else list = list.filter((b) => !b.busy).concat(list.filter((b) => b.busy));
+    const freeN = all.filter((b) => !b.busy).length;
+    const yOf = (k) => view === 'grid' ? 260 + Math.floor(k / 2) * 294 : 300 + k * 606;
+    const cards = list.map((b, k) => {
+      const pi = Math.min(S.ph[b.name] || 0, b.imgs.length - 1), q = quote(b.p), fav = !!S.fav[b.name];
+      const flip = (dlt) => () => { const ph = Object.assign({}, S.ph); ph[b.name] = (pi + dlt + b.imgs.length) % b.imgs.length; set({ ph, pk: S.pk + 1 }); };
+      const open = () => say('Otevírám detail · ' + b.name + ' — fotka přes celý displej', yOf(k));
+      return {
+        name: b.name, cat: CAT[b.cat] || b.cat, lic: b.lic, branch: b.br ? 'V. Němčice · 24/7' : 'Mezná',
+        img: IMG + b.imgs[pi], img0: IMG + b.imgs[0], alt: 'Motorka ' + b.name,
+        fgCls: 'kfg ' + (cover ? 'cv' : 'ct') + (S.pk ? (S.pk % 2 ? ' fA' : ' fB') : ''),
+        st: 'animation-delay:' + (Math.min(k, 3) * 90) + 'ms', gst: 'animation-delay:' + (Math.min(k, 6) * 50) + 'ms',
+        multi: b.imgs.length > 1, segs: b.imgs.map((u, j) => ({ cls: j === pi ? 'on' : '' })), prev: flip(-1), next: flip(1),
+        free: !b.busy, busy: b.busy, avCls: 'av' + (b.busy ? ' w' : ''), avText: b.busy ? 'Obsazená v termínu' : (R ? 'Volná v termínu' : 'Dnes volná'),
+        fav: () => { const fv = Object.assign({}, S.fav); fv[b.name] = !fav; say(fav ? 'Odebráno z oblíbených' : 'Uloženo do oblíbených ♥', yOf(k) - 200, { fav: fv }); },
+        favOn: fav ? 'true' : 'false', favCls: 'hb' + (fav ? ' on' : ''), favAria: fav ? 'Odebrat z oblíbených' : 'Přidat do oblíbených',
+        open, openAria: 'Detail motorky ' + b.name,
+        pLabel: q ? (b.busy ? 'Obsazená · vyber jiný termín' : 'Tvoje cena za ' + days + ' dny od') : 'Tvoje cena od',
+        pMain: q ? f(q.total) : f(b.mine), pUnit: q ? 'Kč' : 'Kč/den',
+        hasList: L > 0 && !b.busy, pList: q ? f(q.list) + ' Kč' : f(b.min) + ' Kč',
+        pSub: q ? '≈ ' + f(q.total / days) + ' Kč/den' + (L >= 3 ? ' · výbava zdarma' : '') : 'Vyber termín a uvidíš cenu za celou jízdu',
+        gPrice: q ? (b.busy ? 'obsazená' : f(q.total) + ' Kč / ' + days + ' dny') : 'od ' + f(b.mine) + ' Kč/den'
+      };
+    });
+    const CH = [['all', 'Vše'], ['cestovni', 'Cestovní'], ['naked', 'Naked'], ['supermoto', 'Supermoto'], ['chopper', 'Chopper'], ['scootery', 'Skútry'], ['detske', 'Dětské']];
+    const chips = [];
+    if (R) chips.push({ l: 'Jen volné', cls: 'fc' + (S.free ? ' on' : ''), on: S.free ? 'true' : 'false', hasN: false, n: '', a: () => set({ free: !S.free, g: S.g + 1 }) });
+    CH.forEach(([k, l]) => { const n = all.filter((b) => (k === 'all' || b.cat === k) && inBr(b) && !(S.free && b.busy)).length; if (k !== 'all' && !n) return; chips.push({ l, cls: 'fc' + (S.cat === k ? ' on' : ''), on: S.cat === k ? 'true' : 'false', hasN: true, n: String(n), a: () => set({ cat: k, g: S.g + 1 }) }); });
+    [['0', 'Mezná'], ['1', 'V. Němčice']].forEach(([k, l]) => chips.push({ l, cls: 'fc' + (S.br === k ? ' on' : ''), on: S.br === k ? 'true' : 'false', hasN: false, n: '', a: () => set({ br: S.br === k ? 'all' : k, g: S.g + 1 }) }));
+    const presets = [['w1', 'Tento víkend', RANGES.w1.l], ['w2', 'Příští víkend', RANGES.w2.l], ['none', 'Bez termínu', 'Ceny od · za den'], ['cal', 'Vlastní termín…', 'Otevře kalendář']].map(([k, l, s]) => ({
+      l, s, isOn: dk === k, on: dk === k ? 'true' : 'false', cls: 'po' + (dk === k ? ' on' : ''),
+      a: () => (k === 'cal' ? say('Otevře se kalendář (stejný jako na Domů)', 320, { panel: false }) : set({ dates: k, panel: false, g: S.g + 1 }))
+    }));
+    const I = { home: 'M3 11l9-7 9 7M5 10v10h14V10M10 20v-6h4v6', moto: 'M2 16.5a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M15 16.5a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M5.5 16.5L9 10h5.5l4 6.5M14 10l-1.5-3.5H16', cal: 'M4 5h16v16H4zM4 10h16M8 3v4M16 3v4M9 15.5l2 2 4-4', route: 'M4 19a2 2 0 1 0 4 0a2 2 0 1 0-4 0M16 5a2 2 0 1 0 4 0a2 2 0 1 0-4 0M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16', user: 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6' };
+    const tabs = [['Domů', I.home], ['Motorky', I.moto], ['Rezervace', I.cal], ['Trasy', I.route], ['Profil', I.user]].map((t, i) => ({ l: t[0], i: t[1], cls: 'ni' + (i === 1 ? ' on' : ''), cur: i === 1 ? 'page' : 'false', a: () => say(i === 1 ? 'Už jsi v Motorkách' : 'Ukázka: otevře se karta ' + t[0].toUpperCase(), 2050) }));
+    const gc = S.g % 2 ? 'gA' : 'gB';
+    return {
+      rootCls: 'mg' + (rm ? ' rm' : ''),
+      countLabel: R ? (S.free ? freeN + ' volných' : all.length + ' motorek') : all.length + ' motorek',
+      vFull: { cls: 'vb' + (view === 'full' ? ' on' : ''), on: view === 'full' ? 'true' : 'false', a: () => set({ view: 'full', g: S.g + 1 }) },
+      vGrid: { cls: 'vb' + (view === 'grid' ? ' on' : ''), on: view === 'grid' ? 'true' : 'false', a: () => set({ view: 'grid', g: S.g + 1 }) },
+      dateCls: 'dp' + (R ? '' : ' no'), dateLabel: R ? R.l + ' · ' + days + ' dny' : 'Kdy jedeš? Vyber termín',
+      dateAria: R ? 'Termín ' + R.l + ', změnit' : 'Vybrat termín',
+      openDates: () => set({ panel: !S.panel }), closePanel: () => set({ panel: false }), panel: !!S.panel, presets,
+      rankLabel: '−' + L + ' % · ' + RN[L - 1], rankAria: 'Tvoje věrnostní sleva ' + L + ' procent, úroveň ' + RN[L - 1],
+      rankInfo: () => say('Všechny ceny už obsahují tvoji slevu −' + L + ' % (' + RN[L - 1] + ')' + (L >= 3 ? ' a výbavu zdarma' : ''), 240),
+      chips, cards, isFull: view === 'full' && cards.length > 0, isGrid: view === 'grid' && cards.length > 0, isEmpty: cards.length === 0 && busyN > 0,
+      showAll: () => set({ free: false, g: S.g + 1 }),
+      listCls: 'lst ' + gc, gridCls: 'grd ' + gc, tabs,
+      hasToast: !!S.toast, toast: S.toast || '', toastCls: 'toast ' + ((S.tN || 0) % 2 ? 'tA' : 'tB'), toastSt: 'top:' + Math.max(170, Math.min(2120, S.tY || 300)) + 'px'
+    };
+  }
+}
+</script>
+</body>
+</html>
