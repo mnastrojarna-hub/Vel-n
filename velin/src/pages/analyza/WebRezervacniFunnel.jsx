@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { fetchAllResult } from '../../lib/branchFleet'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -8,6 +8,7 @@ import { computeDocVerification } from '../../lib/docVerification'
 import { useTableSort, sortRows } from '../../components/sortableTable'
 import { useMediaQuery } from '../../hooks/useIsMobile'
 import { WrapTick, PHONE_QUERY, sideLegend } from './AnalyzaWrapTick'
+import WebFunnelVisits from './WebFunnelVisits'
 
 // ───────────────────────────────────────────────────────────────────────────
 // Web rezervační funnel — kde zákazníci na webu (motogo24.cz) odpadávají.
@@ -111,6 +112,12 @@ export default function WebRezervacniFunnel() {
   const [flowPhase, setFlowPhase] = useState('all') // 'all' | 'before' | 'after' — starý/nový web flow
   const stageSort = useTableSort(STAGE_DEVICE_COLUMNS)
   const isPhone = useMediaQuery(PHONE_QUERY)
+  // Přepínač starý/nový flow dle data (bez data → počítej jako starý flow)
+  const inPhase = useCallback((t) => {
+    if (flowPhase === 'all') return true
+    if (!t || isNaN(t)) return flowPhase === 'before'
+    return flowPhase === 'before' ? t < FLOW_CHANGE_AT : t >= FLOW_CHANGE_AT
+  }, [flowPhase])
 
   useEffect(() => { loadData() }, [])
 
@@ -156,11 +163,7 @@ export default function WebRezervacniFunnel() {
 
     const periodFiltered = filterByPeriod(raw.bookings, period, 'created_at')
     // Přepínač starý/nový flow dle data založení rezervace (created_at vs. datum změny)
-    const filtered = flowPhase === 'all' ? periodFiltered : periodFiltered.filter(b => {
-      const t = b.created_at ? new Date(b.created_at) : null
-      if (!t || isNaN(t)) return flowPhase === 'before' // bez data → počítej jako starý flow
-      return flowPhase === 'before' ? t < FLOW_CHANGE_AT : t >= FLOW_CHANGE_AT
-    })
+    const filtered = periodFiltered.filter(b => inPhase(b.created_at ? new Date(b.created_at) : null))
 
     const classified = filtered.map(b => {
       const moto = motoById.get(b.moto_id)
@@ -203,10 +206,10 @@ export default function WebRezervacniFunnel() {
     const unfinished = total - paid
 
     return {
-      total, byStage, paid, reachedGateway, unfinished,
+      filtered, total, byStage, paid, reachedGateway, unfinished,
       docsDoneCount, paidWithoutDocs, unfinishedByDevice, stageDevice,
     }
-  }, [raw, period, flowPhase])
+  }, [raw, period, inPhase])
 
   if (loading) return <div className="text-sm" style={{ color: '#888' }}>Načítám…</div>
   if (error) return <div className="text-sm" style={{ color: '#dc2626' }}>Chyba: {error}</div>
@@ -219,6 +222,7 @@ export default function WebRezervacniFunnel() {
       <div>
         <TimePeriodSelector value={period} onChange={setPeriod} />
         <FlowPhaseToggle value={flowPhase} onChange={setFlowPhase} />
+        <WebFunnelVisits period={period} inPhase={inPhase} bookings={model.filtered} />
         <div className="text-sm" style={{ ...cardStyle, color: '#888' }}>
           Žádné webové rezervace v období „{getTimePeriodLabel(period)}"
           {flowPhase !== 'all' && ` (${FLOW_PHASES.find(p => p.key === flowPhase)?.label})`}.
@@ -273,6 +277,8 @@ export default function WebRezervacniFunnel() {
           </div>
         ))}
       </div>
+
+      <WebFunnelVisits period={period} inPhase={inPhase} bookings={model.filtered} />
 
       {/* Lineární funnel */}
       <div style={{ ...cardStyle, marginBottom: 24 }}>

@@ -278,6 +278,9 @@
 ### service_provider_profiles (NEW 2026-10-08)
 - admin_id PK FK→admin_users CASCADE, company_name, ico, dic, address, email, phone, bank_account, supplier_id FK→suppliers SET NULL, updated_at
 
+### web_engagement (NEW 2026-10-12 — `20261012_web_engagement.sql`)
+- id bigint identity PK, created_at timestamptz DEFAULT now(), **day** date DEFAULT dnešek `Europe/Prague`, **source** text DEFAULT 'web' CHECK (web/app), **event** text CHECK (visit/calc), **visitor_hash** text NOT NULL CHECK 64 hex (= `visitorDailyHash()` z `motogo-web-php/visitor_traffic.php`: sha256(IP|UA|UTC den|salt), stejný jako `visitor_log.visitor_hash`), host (≤100), path (≤300), device (desktop/mobile/tablet), lang (≤10). UNIQUE (day, source, event, visitor_hash).
+
 ### sent_emails
 - id, template_slug, recipient_email, booking_id, sent_at, created_at
 - subject, body_html, status (queued/sent/failed/bounced), error_message, provider_id
