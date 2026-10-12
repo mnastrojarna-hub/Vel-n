@@ -3,6 +3,7 @@
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { BRANCH_GATE_TITLE, GATE_BRANCH_NOTE_CS } from '../_shared/agent-knowledge/branch-gate.ts'
+import { bookingBranchName } from './customer-branch.ts'
 
 export const FALLBACK_SYSTEM_PROMPT = `Jsi AI servisní technik MotoGo24 — půjčovny motorek.
 
@@ -367,7 +368,7 @@ export function pickupLine(b: Record<string, unknown>, m: Record<string, unknown
     : `${pickupTimeLabel(b)} (orientační — samoobsluha vydává kódem 24/7 celý první den)`
 }
 
-export function formatBranchLines(m: Record<string, unknown> | null): string {
+export function formatBranchLines(m: Record<string, unknown> | null, withBox = true): string {
   const br = (m?.branches as Record<string, unknown> | null) || null
   if (!br) return '- Pobočka: nepodařilo se načíst (použij get_branches a zeptej se, odkud si motorku bere)'
   const addr = [br.address, br.city].filter(Boolean).join(', ')
@@ -385,7 +386,10 @@ export function formatBranchLines(m: Record<string, unknown> | null): string {
   if (br.notes) lines.push(`- Poznámka k pobočce: ${br.notes}`)
   // has_gate doplňuje markBookingsGate (RPC branch_has_gate — jen příznak, nikdy kód).
   if (br.has_gate === true) lines.push(`- ${GATE_BRANCH_NOTE_CS}.`)
-  if (br.type === 'samoobslužná') {
+  // Vrácení dle REŽIMU pobočky (pravidlo majitele 11. 10. 2026, palivo 12. 10. 2026) — agent ho řekne rovnou.
+  if (br.type === 'samoobslužná') lines.push('- Vrácení na této pobočce: motorka MUSÍ být UMYTÁ a NESMÍ svítit kontrolka rezervy paliva; tankovat ani vracet s plnou nádrží netřeba.')
+  else if (br.type === 'obslužná') lines.push('- Vrácení na této pobočce: mýt ani tankovat netřeba (jen ať nesvítí rezerva); převzetí potvrdí obsluha.')
+  if (withBox && br.type === 'samoobslužná') {
     lines.push(m?.box_number
       ? `- KÓJE motorky: ${m.box_number} (na dveřích kóje je toto číslo; kód k motorce otevře právě ji, kód šatny otevře ŠATNU). Tohle zákazníkovi říct SMÍŠ — je to jeho rezervace.`
       : `- KÓJE motorky: v datech není vyplněná (motorcycles.box_number je prázdné) — číslo kóje NEHÁDEJ, řekni, že ho uvidí na displeji jednotky hned po zadání kódu.`)
@@ -436,7 +440,7 @@ DŮLEŽITÉ: Zákazník má AKTIVNÍ motorku "${m.brand} ${m.model}". Veškeré 
     ctx += `\n\nZákazník má také nadcházející rezervace:`
     for (const ob of otherBookings) {
       const om = ob.motorcycles as Record<string, unknown> | null
-      ctx += `\n- #${(ob.id as string).slice(-8).toUpperCase()}: ${om ? (om.brand + ' ' + om.model) : '?'} (${ob.status}, ${ob.start_date} – ${ob.end_date})`
+      ctx += `\n- #${(ob.id as string).slice(-8).toUpperCase()}: ${om ? (om.brand + ' ' + om.model) : '?'} (${ob.status}, ${ob.start_date} – ${ob.end_date}) — pobočka ${bookingBranchName(ob)}`
     }
     ctx += `\nAle tyto rezervace NEJSOU aktivní — odpovídej pouze o aktuálně aktivní motorce.`
   }
@@ -449,7 +453,12 @@ export function formatMultipleBookingsContext(bookings: Array<Record<string, unk
 Zákazník má více rezervací, žádná zatím nemá stav "active". MUSÍŠ se nejdříve ZEPTAT, o kterou motorku/rezervaci jde:\n`
   for (const b of bookings) {
     const m = b.motorcycles as Record<string, unknown> | null
-    ctx += `- #${(b.id as string).slice(-8).toUpperCase()}: ${m ? (m.brand + ' ' + m.model) : '?'} (${b.status}, ${b.start_date} – ${b.end_date})\n`
+    ctx += `- #${(b.id as string).slice(-8).toUpperCase()}: ${m ? (m.brand + ' ' + m.model) : '?'} (${b.status}, ${b.start_date} – ${b.end_date}) — pobočka ${bookingBranchName(b)}\n`
+  }
+  // Všechny na jedné pobočce → obecné dotazy k pobočce (adresa, výdej, vrácení) bez doptávání.
+  const ids = new Set(bookings.map(b => ((b.motorcycles as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.id).filter(Boolean))
+  if (ids.size === 1) {
+    ctx += `\nVŠECHNY tyto rezervace jsou na STEJNÉ pobočce — na dotazy k pobočce (kde je, výdej, vrácení, mytí, tankování) odpovídej rovnou pro ni, neptej se, o kterou rezervaci jde:\n${formatBranchLines(bookings[0].motorcycles as Record<string, unknown> | null, false)}\n`
   }
   ctx += `\nDŮLEŽITÉ: NIKDY nepředpokládej, o kterou motorku jde. Vždy se ZEPTEJ: "Vidím, že máte více rezervací: [seznam]. O kterou motorku se jedná?"`
   return ctx

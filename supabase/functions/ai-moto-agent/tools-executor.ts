@@ -4,6 +4,7 @@
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { execPublicReadTool, PUBLIC_READ_TOOL_NAMES } from './public-tools.ts'
 import { kioskReleaseNote, pickupTimeLabel, pragueDateLabel, ssTime } from './booking-context.ts'
+import { BOOKING_BRANCH_SELECT, preferBookingBranch } from './customer-branch.ts'
 import { branchHasGate, markBookingsGate } from '../_shared/agent-knowledge/branch-gate.ts'
 import { readManual } from '../_shared/manual-reader.ts'
 import { getBundledManualText } from '../_shared/manual-texts/index.ts'
@@ -87,7 +88,8 @@ export async function executeTool(
             ideal_usage, category, fuel_tank_l, seat_height_mm, color, mileage,
             year, license_required, image_url, box_number, branch_id,
             branches!branch_id(id, name, address, city, phone, type, is_open, notes, gps_lat, gps_lng)
-          )
+          ),
+          ${BOOKING_BRANCH_SELECT}
         `)
         .eq('user_id', userId)
         .in('status', ['active', 'reserved'])
@@ -96,6 +98,8 @@ export async function executeTool(
 
       if (error) return { error: error.message }
       if (!data || data.length === 0) return { message: 'Zákazník nemá žádnou aktivní ani nadcházející rezervaci.' }
+      // Pobočka REZERVACE (bookings.branch_id) má přednost před aktuální pobočkou motorky.
+      preferBookingBranch(data as Array<Record<string, unknown>>)
       // motorcycles.branches.has_gate = vjezdová brána (Velké Němčice) — jen příznak, NIKDY kód
       await markBookingsGate(supabaseAdmin, data as Array<Record<string, unknown>>)
       // Samoobsluha: uložené 23:59 vrácení = konec dne a 00:01 vyzvednutí = starší

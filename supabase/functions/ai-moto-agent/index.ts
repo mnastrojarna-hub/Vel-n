@@ -9,6 +9,7 @@ import { customerLanguage, replyLanguageRule } from '../_shared/agent-knowledge/
 import { agentMsg } from '../_shared/agent-knowledge/agent-messages.ts'
 import { LEGAL_SOURCE_RULES_CS, ownerFactsCs } from '../_shared/agent-knowledge/owner-facts.ts'
 import { branchModeCs } from '../_shared/agent-knowledge/branch-facts.ts'
+import { BOOKING_BRANCH_SELECT, customerBranchFallback, preferBookingBranch } from './customer-branch.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -134,7 +135,8 @@ serve(async (req) => {
           ideal_usage, category, fuel_tank_l, seat_height_mm, color, mileage,
           year, license_required, image_url, box_number, branch_id,
           branches!branch_id(id, name, address, city, phone, type, is_open, notes, gps_lat, gps_lng)
-        )
+        ),
+        ${BOOKING_BRANCH_SELECT}
       `
 
       if (booking_id) {
@@ -153,6 +155,7 @@ serve(async (req) => {
         ])
         const pinned = (!pinnedRes.error && pinnedRes.data?.[0]) || null
         const list = (!listRes.error && listRes.data) || []
+        preferBookingBranch([pinned, ...list] as Array<Record<string, unknown> | null>)
         // Pobočka s bránou (Velké Němčice): příznak has_gate do kontextu — nikdy kód.
         await markBookingsGate(supabaseAdmin, [pinned, ...list] as Array<Record<string, unknown> | null>)
         const active = list.find(b => b.status === 'active') || (pinned?.status === 'active' ? pinned : null)
@@ -172,6 +175,7 @@ serve(async (req) => {
           .limit(10)
 
         if (!allErr && allBookings && allBookings.length > 0) {
+          preferBookingBranch(allBookings as Array<Record<string, unknown>>)
           await markBookingsGate(supabaseAdmin, allBookings as Array<Record<string, unknown>>)
           const activeBooking = allBookings.find(b => b.status === 'active')
           const otherBookings = allBookings.filter(b => b.status !== 'active')
@@ -187,7 +191,9 @@ serve(async (req) => {
       }
 
       if (!bookingContext) {
-        bookingContext = `\n\n## KONTEXT REZERVACE:
+        // Bez zaplacené aktivní/nadcházející rezervace: pobočka z rozpracované / poslední dokončené.
+        const fallback = await customerBranchFallback(supabaseAdmin, user.id).catch(() => '')
+        bookingContext = fallback + `\n\n## KONTEXT REZERVACE:
 Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dotazech na konkrétní motorku použij nástroj get_active_booking. NIKDY si nevymýšlej, jakou motorku má zákazník. Na dotaz, kde si motorku vyzvedne / kde je pobočka („kde jste", „kde je filiálka"), odpověz podle sekce POBOČKY níže (detaily přes get_branches) a pošli ho na pobočku — NIKDY netvrď, že informace o pobočkách není dostupná.`
       }
     } catch (prefetchErr) {
