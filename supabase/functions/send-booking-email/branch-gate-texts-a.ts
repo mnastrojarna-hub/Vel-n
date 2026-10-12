@@ -1,10 +1,7 @@
 // Pobočka s bránou — texty e-mailů (cs, en, de, es). Generováno z kanonických textů
 // zadání 2026-10-04 (copy_i18n) DOSLOVNĚ + validGear/validMoto/pageLink.
 // {gate} = kód schránky (jen tělo mailu majiteli rezervace), {n} = č. dveří šatny.
-import type { Lang } from './i18n.ts'
-import type { GateTexts } from './branch-gate.ts'
-
-export const GATE_TEXTS_A: Partial<Record<Lang, GateTexts>> = {
+export const GATE_TEXTS_A = {
   cs: {
     gateLabel: "Kód schránky s klíčem od brány",
     gateHint: "Horní schránka na pravém sloupku vrat — potřebujete ho jen, když je brána zavřená.",
@@ -19,7 +16,7 @@ export const GATE_TEXTS_A: Partial<Record<Lang, GateTexts>> = {
     step3Gear: "Zadejte kód motorky, vezměte motorku a zavřete dveře kóje.",
     step2NoGear: "Na displeji zadejte kód motorky, podepište předávací protokol, vezměte motorku a zavřete dveře kóje.",
     stepImportant: "DŮLEŽITÉ: Byla-li brána zavřená, po odjezdu ji zase zavřete, zamkněte visacím zámkem, klíč vraťte do horní schránky a přetočte číselník, aby kód nezůstal nastavený. Otevřenou bránu nechte otevřenou. Stejně postupujte i při vrácení motorky.",
-    pageLink: "Fotky pobočky a parkoviště (místa 1–7) najdete na stránce pobočky →",
+    pageLink: "Fotky pobočky a parkoviště (místa 1–7) najdete na stránce pobočky →"
   },
   en: {
     gateLabel: "Code for the gate key lockbox",
@@ -35,7 +32,7 @@ export const GATE_TEXTS_A: Partial<Record<Lang, GateTexts>> = {
     step3Gear: "Enter the motorcycle code, take the motorcycle and close the bay door.",
     step2NoGear: "On the display, enter the motorcycle code, sign the handover protocol, take the motorcycle and close the bay door.",
     stepImportant: "IMPORTANT: If the gate was closed, close it again after you leave, lock it with the padlock, return the key to the upper lockbox and scramble the combination dials so the code is not left showing. If the gate was open, leave it open. Follow the same steps when returning the motorcycle.",
-    pageLink: "Photos of the branch and the parking area (spots 1–7) are on the branch page →",
+    pageLink: "Photos of the branch and the parking area (spots 1–7) are on the branch page →"
   },
   de: {
     gateLabel: "Code der Schlüsselbox mit dem Torschlüssel",
@@ -51,7 +48,7 @@ export const GATE_TEXTS_A: Partial<Record<Lang, GateTexts>> = {
     step3Gear: "Geben Sie den Motorrad-Code ein, nehmen Sie das Motorrad und schließen Sie die Tür der Box.",
     step2NoGear: "Geben Sie am Display den Motorrad-Code ein, unterschreiben Sie das Übergabeprotokoll, nehmen Sie das Motorrad und schließen Sie die Tür der Box.",
     stepImportant: "WICHTIG: War das Tor geschlossen, schließen Sie es nach der Abfahrt wieder, sichern Sie es mit dem Vorhängeschloss, legen Sie den Schlüssel zurück in die obere Schlüsselbox und verstellen Sie die Zahlenräder, damit der Code nicht eingestellt bleibt. Ein offenes Tor lassen Sie bitte offen. Gehen Sie bei der Rückgabe des Motorrads genauso vor.",
-    pageLink: "Fotos der Filiale und des Parkplatzes (Stellplätze 1–7) finden Sie auf der Seite der Filiale →",
+    pageLink: "Fotos der Filiale und des Parkplatzes (Stellplätze 1–7) finden Sie auf der Seite der Filiale →"
   },
   es: {
     gateLabel: "Código de la caja con la llave del portón",
@@ -67,6 +64,6 @@ export const GATE_TEXTS_A: Partial<Record<Lang, GateTexts>> = {
     step3Gear: "Introduzca el código de la moto, saque la moto y cierre la puerta del box.",
     step2NoGear: "Introduzca en la pantalla el código de la moto, firme el protocolo de entrega, saque la moto y cierre la puerta del box.",
     stepImportant: "IMPORTANTE: Si el portón estaba cerrado, al salir vuelva a cerrarlo, échele el candado, devuelva la llave a la caja superior y gire los números de la combinación para que el código no quede marcado. Si el portón estaba abierto, déjelo abierto. Proceda de la misma manera al devolver la moto.",
-    pageLink: "Fotos de la sucursal y del aparcamiento (plazas 1–7) en la página de la sucursal →",
-  },
-}
+    pageLink: "Fotos de la sucursal y del aparcamiento (plazas 1–7) en la página de la sucursal →"
+  }
+};

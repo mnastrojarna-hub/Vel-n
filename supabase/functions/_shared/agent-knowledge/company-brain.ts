@@ -2,21 +2,18 @@
 // Přesunuto z ai-public-agent/index.ts (2026-09-25) — sdílí ho veřejný agent (web) i agent
 // zákaznických zpráv ve Velínu (ai-customer-messages-suggest). 2026-10-11: + závazná fakta
 // provozovatele a pravidlo „právní fakta jen z českého znění“ (owner-facts.ts).
-
-import type { CompanyInfo } from './snapshots.ts'
-import { LEGAL_SOURCE_RULES_CS, ownerFactsCs } from './owner-facts.ts'
-
-export function buildCompanyBrain(company: CompanyInfo): string {
+import { LEGAL_SOURCE_RULES_CS, ownerFactsCs } from './owner-facts.ts';
+export function buildCompanyBrain(company) {
   // Minimální orientační znalost. Všechna business pravidla (storno, kauce, ceny přistavení,
   // foreign-travel pojištění, tankování-policy, co je v ceně) jsou výhradně v CMS přes get_policies
   // a get_faq. Statické zde zůstává jen: identita firmy (z app_settings.company_info), technický
   // stav systému (jak funguje platba a doklady) a obecná zákonná fakta (skupiny ŘP).
-  const addr = company.address || 'Mezná 9, 393 01 Pelhřimov'
-  const phone = company.phone || '+420 774 256 271'
-  const email = company.email || 'info@motogo24.cz'
-  const web = company.web || 'https://www.motogo24.cz'
-  const ico = company.ico ? `, IČO ${company.ico}` : ''
-  const name = company.name || 'MotoGo24'
+  const addr = company.address || 'Mezná 9, 393 01 Pelhřimov';
+  const phone = company.phone || '+420 774 256 271';
+  const email = company.email || 'info@motogo24.cz';
+  const web = company.web || 'https://www.motogo24.cz';
+  const ico = company.ico ? `, IČO ${company.ico}` : '';
+  const name = company.name || 'MotoGo24';
   return `
 ORIENTAČNÍ ZNALOST O FIRMĚ (všechna ostatní fakta výhradně z tools — motorcycles, branches, extras_catalog, get_faq, get_policies):
 
@@ -65,9 +62,8 @@ ORIENTAČNÍ ZNALOST O FIRMĚ (všechna ostatní fakta výhradně z tools — mo
 ${ownerFactsCs(phone)}
 
 ${LEGAL_SOURCE_RULES_CS}
-`
+`;
 }
-
 export const MOTO_KNOWLEDGE_TIPS = `
 JAK MLUVÍ MOTORKÁŘI (používej slang přirozeně, když ti zákazník tyká a je v pohodě):
 - "káva" = café racer, "céra" = sportovní litr, "naháč" = naked, "endo" = enduro, "supec" = supermoto, "tourák" = sport-tourer / cestovka.
@@ -81,4 +77,4 @@ POZOR — OBECNÉ ZNALOSTI O MOTORKÁCH ANO, NÁZVY MODELŮ JEN Z LIVE DAT:
 - ALE konkrétní značku + model („Kawasaki Z 900", „BMW S 1000 R", „Honda CB650R") jako naši nabídku zmiňuješ POUZE pokud je v injektovaném snapshotu „KOMPLETNÍ FLOTILA" výše, nebo právě teď vrácen z \`search_motorcycles\`. Žádné „mohli bychom mít", „typicky půjčujeme", „třeba".
 - Když se user zeptá „co máte za naked / cestovku / na A2 / do hor / pro začátečníka" → ZAVOLEJ \`search_motorcycles\` s vhodnými filtry (category, license_group, kw_max, available_on…) a nabídni pouze to, co tool vrátil. Když tool vrátí prázdno, řekni to upřímně a doptej se na flexibilitu (jiný termín, jiná kategorie, jiná skupina ŘP) — NEDOPLŇUJ z hlavy.
 - Když user zmíní konkrétní model jménem („máte Hondu CBR?") → podívej se nejdřív do injektovaného snapshotu výše. Pokud tam je, potvrď a zavolej \`search_motorcycles\` s \`brand\`/\`model_query\` + \`available_on\` pro detail dostupnosti. Pokud tam není, řekni rovně „tuhle nemáme" a nabídni alternativu ze snapshotu.
-`
+`;
