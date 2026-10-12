@@ -5,13 +5,14 @@
  * Zdroj: app_settings.header_banner (edituje Velín → Dashboard → „Banner“):
  *   { enabled: bool, text: string (CZ), bg: "#rrggbb", color: "#rrggbb",
  *     translations?: { en: string, de: …, uk: … },   // auto-překlad z Velínu
- *     translations_src?: "fnv1a32:xxxxxxxx" }         // otisk CZ textu, ze kterého
+ *     translations_src?: "<sha1 hex>" }               // otisk CZ textu, ze kterého
  *                                                     // překlady vznikly
  * Překlad se použije jen když je ČERSTVÝ (translations_src == otisk aktuálního
  * `text`) — po změně CZ textu, dokud Velín nedopřeloží, se ukáže čeština.
- * Otisk = FNV-1a 32 bit nad UTF-8 bajty `text` přesně jak je uložen, zápis
- * "fnv1a32:" + 8 hex číslic malými písmeny. Stejně ho počítá Velín
- * (src/pages/bannerI18n.js) i appka (lib/core/banner_provider.dart).
+ * Otisk = SHA-1 (40 hex, malá písmena) nad UTF-8 bajty `text` přesně tak, jak
+ * je uložen (bez ořezu) — stejná konvence jako `translation_src` smluv.
+ * Stejně ho počítá Velín (src/pages/bannerI18n.js) i appka
+ * (lib/core/banner_provider.dart).
  *
  * Data přes SupabaseClient->fetchSetting() (file-cache 30 min, Velín po uložení
  * volá purgeWebCache). Styly jsou inline atributy → validní HTML, žádný
@@ -23,16 +24,9 @@
 const MG_TOPBANNER_DEFAULT_BG = '#1a2e22';
 const MG_TOPBANNER_DEFAULT_FG = '#74fb71';
 
-/** Otisk CZ textu banneru (FNV-1a 32 bit nad UTF-8 bajty). */
+/** Otisk CZ textu banneru (SHA-1 hex nad UTF-8 bajty, bez ořezu). */
 function mgBannerFingerprint($text) {
-    $s = (string)$text;
-    $h = 0x811c9dc5;
-    $n = strlen($s);
-    for ($i = 0; $i < $n; $i++) {
-        $h ^= ord($s[$i]);
-        $h = ($h * 0x01000193) & 0xFFFFFFFF;
-    }
-    return 'fnv1a32:' . sprintf('%08x', $h);
+    return sha1((string)$text);
 }
 
 /**
@@ -41,11 +35,13 @@ function mgBannerFingerprint($text) {
  */
 function mgBannerLocalizedText(array $b, $lang, &$isCs = null) {
     $isCs = true;
-    $cs = trim((string)($b['text'] ?? ''));
+    $raw = isset($b['text']) && is_string($b['text']) ? $b['text'] : '';
+    $cs = trim($raw);
     if ($lang === 'cs' || $cs === '') return $cs;
     $tr = $b['translations'] ?? null;
     if (!is_array($tr) || !isset($tr[$lang]) || !is_string($tr[$lang])) return $cs;
-    if (($b['translations_src'] ?? '') !== mgBannerFingerprint((string)($b['text'] ?? ''))) return $cs;
+    $src = $b['translations_src'] ?? '';
+    if (!is_string($src) || strtolower($src) !== mgBannerFingerprint($raw)) return $cs;
     $t = trim($tr[$lang]);
     if ($t === '') return $cs;
     $isCs = false;
@@ -81,7 +77,8 @@ function mgBannerContrast($a, $b) {
 /**
  * Barvy z Velínu s garancí čitelnosti: pokud kontrast textu vůči pozadí
  * klesne pod 4.5:1 (WCAG AA), použije se bílá nebo tmavě zelená — ta, která
- * má vůči pozadí vyšší kontrast.
+ * má vůči pozadí vyšší kontrast. U středně šedých pozadí (jas ~0.18–0.22),
+ * kde 4.5:1 nesplní ani jedna, se použije černá (ta ho splní vždy).
  * @return array [bg, fg]
  */
 function mgBannerColors(array $b) {
@@ -89,6 +86,7 @@ function mgBannerColors(array $b) {
     $fg = mgBannerHex($b['color'] ?? null) ?: MG_TOPBANNER_DEFAULT_FG;
     if (mgBannerContrast($bg, $fg) < 4.5) {
         $fg = mgBannerContrast($bg, '#ffffff') >= mgBannerContrast($bg, '#0f1a14') ? '#ffffff' : '#0f1a14';
+        if (mgBannerContrast($bg, $fg) < 4.5) $fg = '#000000';
     }
     return [$bg, $fg];
 }
@@ -129,7 +127,7 @@ function renderTopBanner($banner = null) {
         . 'font-size:clamp(.75rem,.68rem + .4vw,.875rem);line-height:1.35;letter-spacing:.01em;'
         . 'text-align:center;padding:.42rem max(1rem,env(safe-area-inset-right)) .42rem max(1rem,env(safe-area-inset-left));'
         . 'border-bottom:1px solid rgba(128,128,128,.28)">'
-        . '<p style="margin:0 auto;max-width:1200px;overflow-wrap:anywhere"'
+        . '<p style="margin:0 auto;max-width:1200px;word-wrap:break-word;overflow-wrap:anywhere"'
         . ($isCsFallback ? ' lang="cs"' : '') . '>' . $esc($text) . '</p>'
         . '</div>';
 }

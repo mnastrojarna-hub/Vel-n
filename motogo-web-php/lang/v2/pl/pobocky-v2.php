@@ -39,6 +39,7 @@ return ['pages' => ['pobocky' => ['v2' => [
         ['label' => 'Rozmiary wyposażenia', 'i' => 'tag', 'v' => [['t' => 'Kurtka i spodnie do 6XL'], ['t' => 'Kask S–3XL; kurtka, spodnie i rękawice do 4XL']]],
         ['label' => 'Odzież przeciwdeszczowa i dodatkowe wyposażenie', 'i' => 'rain', 'v' => [['ok' => 1, 't' => 'Tak'], ['ok' => 0, 't' => 'Nie, tylko w oddziale Mezná']]],
         ['label' => 'Dostawa pod adres', 'i' => 'truck', 'v' => [['ok' => 1, 't' => 'Tak, za dopłatą'], ['ok' => 0, 't' => 'Nie: odbiór i zwrot tylko w oddziale']]],
+        ['label' => 'Zwrot motocykla', 'i' => 'moto', 'v' => [['t' => 'Bez mycia i tankowania'], ['t' => 'Umyty, bez świecącej kontrolki rezerwy; pełny bak niepotrzebny']]],
         ['label' => 'Dokumenty', 'i' => 'doc', 'v' => [['t' => 'Prześlij je online albo sprawdzimy je na miejscu'], ['t' => 'Trzeba je wcześniej przesłać i zweryfikować online']]],
         ['label' => 'Zaplecze', 'i' => 'kiosk', 'v' => [['t' => 'Wi-fi, WC, przebieralnia i zamykane szafki'], ['t' => 'Szatnia (drzwi nr 8), ekran dotykowy i boksy z motocyklami']]],
         ['label' => 'Bezpłatny parking', 'i' => 'parking', 'v' => [['ok' => 1, 't' => 'Tak, przez cały czas wynajmu'], ['ok' => 1, 't' => 'Tak, przez cały czas wynajmu']]],

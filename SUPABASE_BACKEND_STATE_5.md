@@ -302,9 +302,16 @@ Důsledek: tlačítko „Stáhnout" v `motogo24.cz/upravit-rezervaci?` (Doklady 
   "enabled": true,
   "text": "Letní akce -20% na všechny motorky!",
   "bg": "#1a2e22",
-  "color": "#74FB71"
+  "color": "#74FB71",
+  "translations": { "en": "Summer sale -20% on all motorcycles!", "de": "…", "es": "…", "fr": "…", "nl": "…", "pl": "…", "uk": "…" },
+  "translations_src": "<sha1 hex CZ textu>"
 }
 ```
+**UPDATE 2026-10-11 (E) — banner i na webu + překlady (bez SQL; jen nové klíče v jsonb hodnotě, `enabled/text/bg/color` beze změny → starší verze appky fungují dál):**
+- **`translations`** = `{ "<lang>": "<text>" }` (en/de/es/fr/nl/pl/uk) — jen úspěšně přeložené jazyky. **`translations_src`** = SHA-1 (40 hex, malá písmena) nad UTF-8 bajty CZ `text` přesně tak, jak je uložen (bez ořezu) — stejná konvence jako `translation_src` u dokumentů. Překlad je platný („čerstvý“) JEN když `translations_src == sha1(text)`; po změně CZ textu, než Velín dopřeloží, ukazují web i appka češtinu.
+- **Velín** (Dashboard → „📢 Banner v aplikaci a na webu“, `velin/src/pages/DashboardBannerEditor.jsx`): „Uložit banner“ zapíše CZ hned (+ jen dosud čerstvé překlady, nový `translations_src`) a zavolá `purgeWebCache()`; překlad uložení nikdy neblokuje. Chybějící jazyky dopřeloží `velin/src/pages/bannerI18n.js`: upsert nosného řádku **`cms_variables` key `app.header_banner.text`** (category `general`, mimo prefix `web.` → web, appka ani CMS „Texty webu“ ho nečtou) → edge **`translate-content`** (`autoTranslate`, tabulka `cms_variables`) → přečte `translations[lang].value` → zapíše `translations` + `translations_src` zpět do `header_banner` (jen když se CZ text mezitím nezměnil; nepřeložené/nezměněné jazyky = „Nepřeloženo: …“, opakuje se dalším uložením). Nosný řádek smí zapsat jen **superadmin/manager** (RLS `Admins can manage CMS variables`); ostatní admini (`app_settings` = `is_admin()`) uloží banner **jen česky**. Náhled v editoru: stav každého jazyka aktuální / zastaralý → čeština / chybí → čeština.
+- **Web** (`motogo-web-php/layout-banner.php`, `renderTopBanner()` volá `layout.php` hned za `<body>`): pruh nahoře na KAŽDÉ stránce ve všech jazycích, statický (bez position/z-index, nepřekrývá sticky hlavičku). Text = čerstvý překlad pro jazyk stránky, jinak CZ (s `lang="cs"`); barvy z Velína s **garancí kontrastu** WCAG AA 4,5 : 1 (jinak bílá / tmavě zelená, krajně černá). Data `fetchSetting('header_banner')` (file-cache 30 min, Velín po uložení purguje). Vypnutý nebo prázdný banner → nic.
+- **Appka** (`lib/core/banner_provider.dart`, oba stromy shodně): `bannerProvider` vybírá text podle jazyka appky (`localeProvider`), čerstvost ověřuje vlastní SHA-1 (`bannerFingerprint`); realtime kanál `header-banner-changes` + polling 30 s beze změny.
 
 ### google_review_url (app_settings key)
 ```

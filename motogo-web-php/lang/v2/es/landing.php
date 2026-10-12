@@ -46,7 +46,7 @@ return ['pages' => ['landing' => [
             ['icon' => 'shield', 'title' => 'Daños cubiertos al 100 %', 'text' => 'Cobertura contractual: si tienes un accidente, tu franquicia es 0 €.*'],
             ['icon' => 'helmet', 'title' => 'Equipo incluido', 'text' => 'Ropa de moto, chaleco, botiquín y candado de disco. En Mezná, también ropa de lluvia.'],
             ['icon' => 'infinity', 'title' => 'Km ilimitados y viajes al extranjero', 'text' => 'Ve donde quieras y tan lejos como quieras (dentro de la Carta Verde).'],
-            ['icon' => 'fuel', 'title' => 'Devuélvela a tu manera', 'text' => 'No hace falta el depósito lleno. En Mezná ni siquiera hay que lavarla; en autoservicio, devuélvela limpia.'],
+            ['icon' => 'fuel', 'title' => 'Devuélvela a tu manera', 'text' => 'En Mezná, sin lavar ni repostar. En autoservicio: lavada y sin la reserva encendida; no hace falta el depósito lleno.'],
             ['icon' => 'calendar', 'title' => 'Reserva y pago online', 'text' => 'Listo en pocos minutos, incluso un domingo por la noche.'],
             ['icon' => 'app', 'title' => 'App propia', 'text' => 'Cambios en tu reserva, SOS, programa de fidelidad y rutas, todo en un sitio.'],
             ['icon' => 'coffee', 'title' => 'Instalaciones gratis', 'text' => 'En Mezná: café, agua, WC, wifi, probador y taquillas. Parking para tu coche en ambas sucursales.'],

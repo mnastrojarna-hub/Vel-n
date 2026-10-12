@@ -69,8 +69,9 @@ return [
     'menu.areas.jihomoravsky' => 'Jihomoravský kraj',
     'menu.areas.jihocesky' => 'Jihočeský kraj',
     'menu.reservation' => 'REZERVACE',
-    'menu.editReservation' => 'Správa rezervace',
-    'menu.editReservation.aria' => 'Upravit nebo zrušit rezervaci',
+    'menu.editReservation' => 'Upravit rezervaci',
+    'menu.editReservation.aria' => 'Upravit rezervaci – změna termínu, místa, motorky či velikostí výbavy, prodloužení, zkrácení nebo storno',
+    'menu.editReservation.sub' => 'termín · motorka · storno',
     'menu.logout' => 'Odhlásit',
 
     // ===== Footer =====
@@ -462,7 +463,7 @@ return [
     'rez.return.expectedTitle' => 'Předpokládaný čas návratu',
     'rez.return.expectedSub' => 'V kolik hodin přibližně vrátíte motorku? Nejpozději o půlnoci posledního dne.',
     'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
-    'rez.return.stateText' => 'Motorku stačí vrátit s palivem nad rezervou (kontrolka rezervy nesvítí). Mytí ani úklid neřeš.',
+    'rez.return.stateText' => 'Na obslužné pobočce v Mezné i při vrácení jinde motorku nemusíš tankovat ani mýt. Na samoobslužné pobočce ji vrať umytou a bez svítící rezervy – plná nádrž není potřeba.',
 
     // ===== Rezervace — výbava =====
     'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže.',

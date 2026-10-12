@@ -38,6 +38,7 @@ return ['pages' => ['pobocky' => ['v2' => [
         ['label' => 'Ausrüstungsgrößen', 'i' => 'tag', 'v' => [['t' => 'Jacke und Hose bis 6XL'], ['t' => 'Helm S–3XL; Jacke, Hose und Handschuhe bis 4XL']]],
         ['label' => 'Regenkombis und Zusatzausrüstung', 'i' => 'rain', 'v' => [['ok' => 1, 't' => 'Ja'], ['ok' => 0, 't' => 'Nein, nur in Mezná']]],
         ['label' => 'Lieferung an deine Adresse', 'i' => 'truck', 'v' => [['ok' => 1, 't' => 'Ja, gegen Aufpreis'], ['ok' => 0, 't' => 'Nein: Übernahme und Rückgabe nur in der Filiale']]],
+        ['label' => 'Rückgabe des Motorrads', 'i' => 'moto', 'v' => [['t' => 'Ohne Waschen und Tanken'], ['t' => 'Gewaschen, Reserveleuchte aus; Volltanken nicht nötig']]],
         ['label' => 'Dokumente', 'i' => 'doc', 'v' => [['t' => 'Online hochladen, sonst prüfen wir sie vor Ort'], ['t' => 'Vorab online hochladen und verifizieren lassen']]],
         ['label' => 'Ausstattung', 'i' => 'kiosk', 'v' => [['t' => 'WLAN, WC, Umkleidekabine und abschließbare Spinde'], ['t' => 'Umkleide (Tür Nr. 8), Touchscreen und Boxen mit den Motorrädern']]],
         ['label' => 'Kostenloses Parken', 'i' => 'parking', 'v' => [['ok' => 1, 't' => 'Ja, während der gesamten Miete'], ['ok' => 1, 't' => 'Ja, während der gesamten Miete']]],

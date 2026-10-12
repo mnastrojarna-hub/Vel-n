@@ -5,8 +5,9 @@
 // na Google profilu, VOP, data/pobocky.php, appka loyalty). POZOR na rozdíly poboček:
 // vrácení bez mytí, doplňková výbava a zázemí (káva, WC, wifi…) = JEN Mezná;
 // samoobsluha Velké Němčice = výbava řidiče + vesta/lékárnička/zámek, šatna, parkování. Vrácení (majitel
-// 2026-10-10): tankovat se nemusí nikde, mýt jen na samoobslužné pobočce — POZOR: VOP čl. 5 l) zatím
-// říká „bez mytí“ pro obě pobočky. Obě pobočky nonstop; telefon Po–Pá 8–17, AI 24/7.
+// 2026-10-11): obslužná Mezná (i přistavení/vrácení jinde) = bez mytí i tankování; samoobslužné Velké
+// Němčice = tankovat netřeba (plná nádrž ne), ale motorka MUSÍ být umytá a NESMÍ svítit rezerva — POZOR:
+// VOP čl. 5 l) zatím říká „bez mytí“ pro obě pobočky. Obě pobočky nonstop; telefon Po–Pá 8–17, AI 24/7.
 // Vzdálenosti: OSRM 2026-10-10 (Praha→Mezná 92 min, Brno→VN 28 min, letiště Brno→VN 36 min, Vídeň→VN 100 min).
 
 function lpTrustDefaults() {
@@ -20,7 +21,7 @@ function lpTrustDefaults() {
             ['icon' => 'shield', 'title' => '100% smluvní krytí škod', 'text' => 'Při nehodě je tvoje spoluúčast 0 Kč.*'],
             ['icon' => 'helmet', 'title' => 'Výbava v ceně', 'text' => 'Motooblečení, vesta, lékárnička a kotoučový zámek. V Mezné i nepromoky.'],
             ['icon' => 'infinity', 'title' => 'Neomezené km a cesty do zahraničí', 'text' => 'Jeď, kam a jak daleko chceš (v rámci zelené karty).'],
-            ['icon' => 'fuel', 'title' => 'Vracíš, jak ti to vyhovuje', 'text' => 'Nemusí mít plnou nádrž. V Mezné ani nemusí být umytá; na samoobslužné pobočce ji vrať umytou.'],
+            ['icon' => 'fuel', 'title' => 'Vracíš, jak ti to vyhovuje', 'text' => 'V Mezné bez mytí i tankování. Na samoobslužné pobočce ji vrať umytou a bez svítící rezervy, plná nádrž není potřeba.'],
             ['icon' => 'calendar', 'title' => 'Rezervace i platba online', 'text' => 'Vyřídíš za pár minut, klidně v neděli večer.'],
             ['icon' => 'app', 'title' => 'Vlastní aplikace', 'text' => 'Úprava tvojí rezervace, SOS, věrnostní program i tipy na trasy na jednom místě.'],
             ['icon' => 'coffee', 'title' => 'Zázemí zdarma', 'text' => 'V Mezné káva, voda, WC, wifi, převlékací kabinka a skříňky. Parkování pro tvoje auto na obou pobočkách.'],
