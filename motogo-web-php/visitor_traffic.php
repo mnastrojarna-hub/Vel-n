@@ -125,16 +125,30 @@ function visitorTrafficMaybeLog($path, $lang) {
     });
 }
 
+/** IP klienta (první z X-Forwarded-For, jinak REMOTE_ADDR). */
+function visitorClientIp() {
+    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+    if (strpos($ip, ',') !== false) $ip = trim(explode(',', $ip)[0]);
+    return $ip;
+}
+
+/**
+ * Denně rotující hash → unikátní návštěvník v rámci dne (cookieless).
+ * Sdílí visitor_log i web_engagement (engage.php), ať se dají porovnat.
+ */
+function visitorDailyHash($ua) {
+    $ip = visitorClientIp();
+    return $ip !== '' ? hash('sha256', $ip . '|' . $ua . '|' . gmdate('Y-m-d') . '|motogo24') : null;
+}
+
 /** Vlastní fire-and-forget insert do visitor_log. */
 function visitorTrafficSend($path, $lang, $ua) {
     if (!function_exists('curl_init')) return;
 
     $salt = '|motogo24';
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
-    if (strpos($ip, ',') !== false) $ip = trim(explode(',', $ip)[0]);
+    $ip = visitorClientIp();
     $ipHash = $ip !== '' ? hash('sha256', $ip . $salt) : null;
-    // Denně rotující hash → unikátní návštěvník v rámci dne (cookieless).
-    $visitorHash = $ip !== '' ? hash('sha256', $ip . '|' . $ua . '|' . gmdate('Y-m-d') . $salt) : null;
+    $visitorHash = visitorDailyHash($ua);
 
     $selfHost = strtolower(preg_replace('/^www\./', '', $_SERVER['HTTP_HOST'] ?? ''));
     [$refDomain, $refType] = visitorReferrerInfo($_SERVER['HTTP_REFERER'] ?? '', $selfHost);
