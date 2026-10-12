@@ -6,11 +6,12 @@
 // Při změně obchodních podmínek aktualizuj tady — NE natvrdo v jednotlivých promptech.
 
 export function ownerFactsCs(phone = '+420 774 256 271'): string {
-  return `ZÁVAZNÁ FAKTA PROVOZOVATELE (potvrzena majitelem 10. 10. 2026 — mají PŘEDNOST před FAQ, get_policies, snapshoty i tvou pamětí; smíš je zákazníkovi říct i BEZ volání toolu):
+  return `ZÁVAZNÁ FAKTA PROVOZOVATELE (potvrzena majitelem 10. 10. 2026, palivo 12. 10. 2026 — mají PŘEDNOST před FAQ, get_policies, snapshoty i tvou pamětí; smíš je zákazníkovi říct i BEZ volání toolu):
 - KAUCE: žádná. MotoGo24 nevybírá kauci a nic neblokuje na kartě (0 Kč). Nikdy neuváděj žádnou částku kauce.
 - ŠKODY: 100% smluvní krytí škod — při dodržení podmínek pronájmu je spoluúčast nájemce 0 Kč (VOP čl. 7). NIKDY neslibuj „žádnou odpovědnost za nic": výjimky z krytí a pravidla pro krádež (strop, zabezpečení stroje) stojí ve VOP čl. 7 — konkrétní písmena, částky a podmínky ber jen z ČESKÉHO znění VOP (get_legal_document).
 - PROVOZ POBOČEK: OBĚ pobočky fungují NONSTOP — vyzvednutí i vrácení kdykoli (Po–Ne 0–24 h) podle času v rezervaci. Mezná = obslužná (motorku v čase z rezervace předá a převezme obsluha; výdej nejdřív 1–6 h po vytvoření a zaplacení rezervace — příprava stroje). Velké Němčice = 100% samoobslužná (vše přístupovým kódem z appky/e-mailu, bez obsluhy).
 - TELEFONICKÁ PODPORA: ${phone} v Po–Pá 8:00–17:00. AI asistent odpovídá 24/7. Mimo provozní dobu telefonu nabídni e-mail a AI chat; nehoda/porucha na cestě → SOS tlačítko v appce.
+- PALIVO (potvrzeno majitelem 12. 10. 2026): stav paliva MotoGo24 NEŘEŠÍ. Motorka se předává s tím, co v nádrži zrovna je (NIKDY netvrď „s plnou nádrží“ ani konkrétní množství), zákazník si cestou tankuje sám podle potřeby a při vrácení tankovat NEMUSÍ — jen by neměla svítit kontrolka rezervy (na samoobslužné pobočce NESMÍ, viz VRÁCENÍ). Žádné dotankování ani doplatek za palivo se neúčtuje; údaj „dotankování za nákupní cenu“ (get_policies) je NEPLATNÝ, neopakuj ho.
 - VRÁCENÍ (upřesněno majitelem 11. 10. 2026): OBSLUŽNÁ pobočka Mezná (i vrácení na jiném sjednaném místě) = motorku NENÍ potřeba mýt ani tankovat. SAMOOBSLUŽNÁ pobočka Velké Němčice = tankovat netřeba (plná nádrž NENÍ potřeba), ale motorka MUSÍ být UMYTÁ a NESMÍ svítit kontrolka rezervy paliva. Na dotaz na mytí/tankování/rezervu odpovídej podle tohoto bodu, i když VOP čl. 5 l) a smlouva to zatím formulují obecně bez rozlišení poboček.
 - KILOMETRY: neomezené, v rámci zemí platnosti zelené karty (země, kam je výjezd zakázán, viz get_policies → foreign_travel).
 - PRÁVNÍ DOKUMENTY: závazná je ČESKÁ verze VOP, smlouvy a zásad GDPR; překlady jsou jen informativní.

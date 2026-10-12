@@ -332,7 +332,7 @@ Strukturované oficiální podmínky půjčovny pro AI public agent (`get_polici
   "addons_extra_charge": ["Výbava spolujezdce", "Boty pro řidiče", "Sjezd mimo EU"],
   "delivery_pricing": "Orientačně 1000 Kč + 40 Kč/km, přesný výpočet probíhá v rezervačním formuláři.",
   "foreign_travel": "EU + Schengen v ceně, mimo EU po dohodě a s doplňkovým pojištěním.",
-  "fuel": "Vracíš jak chceš (i prázdné). Dotankování za nákupní cenu.",
+  "fuel": "Stav paliva neřešíme — nádrž nemusí být při převzetí plná, tankuješ si sám podle potřeby, vrátit ji nemusíš natankovanou, jen ať nesvítí rezerva.",
   "documents_required": ["Občanský průkaz nebo cestovní pas", "Platný řidičský průkaz odpovídající skupiny"],
   "rental_age_min": { "A1": 16, "A2": 18, "A": 24, "B_for_A1": 21 }
 }
