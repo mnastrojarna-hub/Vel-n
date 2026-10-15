@@ -82,6 +82,12 @@
   .header-topbar .container{flex-wrap:wrap}
   .header-tools{flex:1 1 100%}
 }
+/* Popisek apky nejvýš na 2 řádky: pevné minimum (nezávislé na písmu; přihlášený pl 768 px dřív 3 řádky)
+   a uk (nejdelší popisek, azbuka v záložním písmu) o chlup menší písmo. */
+@media (min-width:561px) and (max-width:1024px){
+  .header-app{min-width:11.5rem}
+  .header-app-btn:lang(uk){font-size:.82rem;padding-left:.75rem;padding-right:.75rem}
+}
 
 /* Desktop: podtitulek „termín · motorka · storno" */
 @media (min-width:1025px){.header-editrez-sub{display:block}}
