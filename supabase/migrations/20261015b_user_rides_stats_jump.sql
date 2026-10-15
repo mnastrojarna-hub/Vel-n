@@ -4,14 +4,13 @@
 -- Navazuje na 20261015_user_rides_finalize_no_gap_km.sql.
 --
 -- 1) _ride_stats: úsek s dt = 0 (oba body v téže zaokrouhlené sekundě) se
---    do km počítal vždy — 20260922 to povolilo kvůli dvěma fixům 30 m od
---    sebe při 100 km/h. Jenže appka do 4.1.3 razítkovala bod časem PŘÍJMU,
---    ne časem fixu: když systém appku na pozadí uspal a po probuzení doručil
---    nastřádané fixy najednou, dostaly všechny tutéž sekundu a kilometry
---    mezi nimi se přičetly bez času (čas jízdy 0, Ø přes 200 km/h). Časy
---    jsou zaokrouhlené na sekundy → skutečné dt < 1 s → dolní odhad
---    rychlosti = posun za 1 s. Nad 300 km/h (> 83 m) je to GPS skok jako
---    každý jiný a do km nejde. Jinak beze změny (20260922b).
+--    do km počítal vždy — i „teleport" o kilometry (poloha z cache + čerstvý
+--    fix doručené najednou; appka do 4.1.3 razítkovala bod časem PŘÍJMU, ne
+--    fixu). Nově: dt = 0 s posunem od 500 m je GPS skok a do km nejde.
+--    Práh je nad největší rozestup skutečných fixů: nový klient má v téže
+--    sekundě nejvýš desítky metrů, starý klient při „dávce po probuzení"
+--    (fixy po 5 s se stejným časem příjmu) až ~420 m při 300 km/h — ty se
+--    počítají dál jako dřív (jen bez času). Jinak beze změny (20260922b).
 -- 2) Oprava dat: uzavřené automatické jízdy se stopou s časy, které mají
 --    kilometry, ale NULOVÝ čas jízdy (moving_sec = 0) — tj. km vznikly jen
 --    pojistkou z finalize (vzdušná čára přes mezeru) nebo skoky s dt = 0.
@@ -30,6 +29,7 @@ declare
   c_move_kmh  constant double precision := 3;     -- pod tím se počítá STÁNÍ
   c_inst_sec  constant double precision := 60;    -- jen z tak krátkého úseku věříme dopočtené rychlosti
   c_gain_m    constant double precision := 5;     -- menší změna výšky je šum GPS
+  c_jump0_km  constant double precision := 0.5;   -- dt = 0 a posun od 500 m = skok, ne jízda
 
   v_pt jsonb;
   v_lat double precision; v_lng double precision;
@@ -79,12 +79,12 @@ begin
       -- MEZERA: dlouhá pauza, po které se motorkář objevil jinde.
       v_is_gap := v_dt is not null and v_dt > c_gap_sec and v_dseg > c_still_km;
 
-      -- GPS skok: rychlost přes 300 km/h. U dt = 0 (téže zaokrouhlená
-      -- sekunda, skutečně < 1 s) je posun za 1 s DOLNÍ odhad rychlosti —
-      -- dva fixy 30 m od sebe projdou, „teleport" o kilometry ne.
+      -- GPS skok: rychlost přes 300 km/h, nebo dt = 0 s posunem od 500 m
+      -- (víc nedají ani fixy po 5 s se stejným časem příjmu ze starého
+      -- klienta; „teleport" o kilometry ano).
       -- (coalesce: bod bez času má dt NULL a o skok nejde — km se počítají.)
       v_jump := coalesce(v_v >= c_max_kmh, false)
-             or coalesce(v_dt = 0 and v_dseg * 3600 >= c_max_kmh, false);
+             or coalesce(v_dt = 0 and v_dseg >= c_jump0_km, false);
 
       if v_bad_time then
         null;   -- nic nepřičítáme: ani km, ani čas
@@ -150,8 +150,11 @@ begin
        and coalesce(r.moving_sec, 0) = 0 and coalesce(r.distance_km, 0) > 0
        and jsonb_typeof(r.track) = 'array'
        and exists (select 1 from jsonb_array_elements(r.track) e
-                    where jsonb_typeof(e) = 'array' and jsonb_array_length(e) > 2
-                      and (e->>2) ~ '^[0-9]+(\.[0-9]+)?$')
+                    -- CASE: plánovač by jinak volal jsonb_array_length i na
+                    -- prvku, který není pole (chyba → migrace by spadla)
+                    where case when jsonb_typeof(e) <> 'array' then false
+                               when jsonb_array_length(e) < 3 then false
+                               else (e->>2) ~ '^[0-9]+(\.[0-9]+)?$' end)
   loop
     v_st := _ride_stats(v_r.track);
     v_km := (v_st->>'dist_km')::numeric;

@@ -231,7 +231,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
             ))}
           </div>
           {/* Proč ve stopě chybí úsek: verze appky, popředí/pozadí, GPS. */}
-          {ride.source !== 'manual' && ride.user_id && <TrasyJizdaDiag ride={ride} />}
+          {ride.source !== 'manual' && ride.user_id && <TrasyJizdaDiag ride={ride} track={track} />}
           {ride.booking_id && (
             <a href={`/rezervace/${ride.booking_id}`} className="text-sm font-extrabold max-lg:flex max-lg:items-center max-lg:min-h-[36px]"
               style={{ color: '#1a8a18' }}>🔗 Otevřít rezervaci této výpůjčky</a>

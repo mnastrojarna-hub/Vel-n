@@ -46,6 +46,7 @@ export function describeDiagRow(r) {
     case 'ride_closed_by_server': return { icon: '⏹️', text: 'Server jízdu uzavřel (úklid) — navazuje se novou', tone: 'info' }
     case 'ride_continue_no_booking': return { icon: '⏹️', text: 'Výpůjčka už neběží — záznam ukončen', tone: 'info' }
     case 'ride_stop': return { icon: '⏹️', text: d.kept === false ? 'Záznam ukončen (jízda pod 1 km zahozena)' : 'Záznam ukončen', tone: 'info' }
+    case 'engine_reattached': return { icon: '🔁', text: 'Appka znovu otevřena — navázáno na běžící záznam', tone: 'ok' }
     case 'keep_alive_failed': return { icon: '⚠️', text: `Udržení appky naživu selhalo: ${r.detail || '?'}`, tone: 'bad' }
     default: return { icon: '•', text: `${r.action}${r.detail ? `: ${r.detail}` : ''}`, tone: 'info' }
   }
@@ -77,14 +78,15 @@ export function diagTimeline(rows) {
  * Shrnutí pro operátora — jen jednoznačné případy, nic nedomýšlí.
  * @returns {string[]} věty
  */
-export function diagVerdict(ride, rows) {
+export function diagVerdict(ride, rows, fromMs, toMs) {
   const list = rows || []
   if (!list.length) {
     return ['Appka v době jízdy neposlala žádné logy — byla vypnutá, bez internetu, nebo zákazník jezdil s jiným telefonem.']
   }
   const out = []
-  const from = new Date(ride?.started_at || 0).getTime()
-  const to = new Date(ride?.ended_at || ride?.last_fix_at || Date.now()).getTime()
+  // Okno jízdy (TrasyJizdaDiag ho počítá i z bodů stopy), jinak ze serveru.
+  const from = Number.isFinite(fromMs) ? fromMs : new Date(ride?.started_at || 0).getTime()
+  const to = Number.isFinite(toMs) ? toMs : new Date(ride?.ended_at || ride?.last_fix_at || Date.now()).getTime()
   const inRide = (r) => { const t = new Date(r.created_at).getTime(); return t >= from && t <= to }
   if (list.some(r => r.category === 'lifecycle' && r.action === 'detached' && inRide(r))) {
     out.push('Během jízdy se okno appky zavřelo (odsunutí z posledních aplikací nebo ukončení systémem). '

@@ -67,6 +67,19 @@ void main() {
     expect(ridePointFromFix(stale, last, now: now), isNull);
   });
 
+  test('první fix z cache starší než připojení streamu se nebere (iOS)', () {
+    final attached = now.subtract(const Duration(seconds: 5));
+    final cached = _fix(49.59, 15.30, now.subtract(const Duration(minutes: 20)));
+    expect(ridePointFromFix(cached, null, now: now,
+        notBefore: attached.subtract(const Duration(seconds: 30))), isNull);
+    final fresh = _fix(49.5454, 15.3442, now.subtract(const Duration(seconds: 10)));
+    expect(ridePointFromFix(fresh, null, now: now,
+        notBefore: attached.subtract(const Duration(seconds: 30))), isNotNull);
+    // Rozbité hodiny fixu → čas příjmu, ten nikdy není „před záznamem".
+    final broken = _fix(49.5, 15.3, now.subtract(const Duration(days: 7168)));
+    expect(ridePointFromFix(broken, null, now: now, notBefore: attached), isNotNull);
+  });
+
   test('posun pod 20 m se nebere (stream sdílený s navigací)', () {
     final last = ridePointFromFix(_fix(49.5, 15.3, now), null, now: now)!;
     final t2 = now.add(const Duration(seconds: 1));

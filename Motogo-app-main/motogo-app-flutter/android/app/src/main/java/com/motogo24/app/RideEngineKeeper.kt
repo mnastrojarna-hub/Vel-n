@@ -1,5 +1,6 @@
 package com.motogo24.app
 
+import android.app.ActivityManager
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -73,14 +74,32 @@ internal object RideEngineKeeper {
     }
 
     /** Okno se zavírá: engine s běžícím záznamem zaparkovat, jinak zničit. */
-    fun release(engine: FlutterEngine) {
+    fun release(engine: FlutterEngine, context: Context) {
         if (engine in destroyed) return
-        if (engine in keepAlive && parked == null) {
+        if (engine in keepAlive && parked == null && gpsServiceInForeground(context)) {
             parked = engine
             return
         }
         engine.destroy()
     }
+
+    /**
+     * Běží GPS služba geolocatoru na popředí? Jen ta po zavření okna přežije
+     * (stream bez ní — třeba převzatý od navigace — geolocator s oknem
+     * odpojí natrvalo) a jen ta drží proces naživu. Bez ní by zaparkovaný
+     * engine už nikdy polohu nedostal, tak ho radši zničíme jako dřív.
+     */
+    @Suppress("DEPRECATION") // vlastní služby appky API pořád vrací
+    private fun gpsServiceInForeground(context: Context): Boolean = try {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        am.getRunningServices(Int.MAX_VALUE).any {
+            it.foreground && it.service.className == GEOLOCATOR_SERVICE
+        }
+    } catch (e: Exception) {
+        false
+    }
+
+    private const val GEOLOCATOR_SERVICE = "com.baseflow.geolocator.GeolocatorLocationService"
 
     private fun destroyLaterIfIdle(engine: FlutterEngine) {
         main.postDelayed({

@@ -55,11 +55,24 @@ class MainActivity : FlutterFragmentActivity() {
         super.onStart() // tady se připojí fragment → provideFlutterEngine
         if (engineReused) {
             engineReused = false
+            val e = engine ?: return
+            // Zpět: Dart je třeba na otevřené podstránce (navigace jízdy),
+            // ale nový fragment začíná s tím, že Zpět řeší systém → gesto by
+            // appku zavřelo místo návratu. Flutter to rozhodne sám (na kořeni
+            // předá systému jako dřív) a další navigace stav zase upřesní.
+            supportFragmentManager.fragments
+                .filterIsInstance<FlutterFragment>()
+                .firstOrNull()
+                ?.setFrameworkHandlesBack(true)
+            // Pluginy vázané na okno (Stripe) se právě vytvořily znovu → Dart
+            // je dovybaví (RideKeepAlive._onNative).
+            MethodChannel(e.dartExecutor.binaryMessenger, "cz.motogo24/ride")
+                .invokeMethod("reattached", null)
             // Deep link, kterým se okno otevřelo, převzatý engine jako
             // počáteční trasu nedostane (Dart už běží) → jako u onNewIntent.
             val link = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.data
             if (link != null && shouldHandleDeeplinking()) {
-                engine?.navigationChannel?.pushRouteInformation(link.toString())
+                e.navigationChannel.pushRouteInformation(link.toString())
             }
         }
     }
@@ -101,7 +114,7 @@ class MainActivity : FlutterFragmentActivity() {
         super.onDestroy() // tady se odpojí fragment (engine nechá být)
         // Bez běžícího záznamu jízdy zničí engine jako dřív Flutter sám;
         // během jízdy ho zaparkuje, ať GPS služba a odesílání bodů běží dál.
-        engine?.let { RideEngineKeeper.release(it) }
+        engine?.let { RideEngineKeeper.release(it, this) }
         engine = null
     }
 

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_stripe/flutter_stripe.dart' show Stripe;
 import 'package:geolocator/geolocator.dart';
 
 import '../../core/debug_logger.dart';
@@ -78,7 +79,11 @@ LocationSettings rideLocationSettings(String lang) {
 /// kilometry „za 0 s" (Velín pak ukázal 2,3 km v Ø 97 km/h a čas jízdy —).
 /// Rozbité hodiny fixu (budoucnost, roky zpět) se nahradí časem příjmu,
 /// hodiny staré fixy z cache a fixy starší než poslední bod se zahodí.
-List<double>? ridePointFromFix(Position pos, List<double>? last, {DateTime? now}) {
+/// [notBefore]: první bod (bez [last]) nesmí být starší — iOS po spuštění
+/// streamu pošle nejdřív polohu z cache (klidně 20 min starou, jinde) a ta
+/// by se stala začátkem jízdy s falešnou mezerou.
+List<double>? ridePointFromFix(Position pos, List<double>? last,
+    {DateTime? now, DateTime? notBefore}) {
   var kmh = pos.speed * 3.6;
   if (!kmh.isFinite || kmh < 0) kmh = 0;
   // Nepřesný fix zahazujeme JEN při stání (drift v kavárně = vymyšlené
@@ -98,6 +103,8 @@ List<double>? ridePointFromFix(Position pos, List<double>? last, {DateTime? now}
     t = at; // hodiny přijímače mimo realitu → čas příjmu
   } else if (age > kRideFixStale) {
     return null; // stará poloha z cache, ne bod téhle jízdy
+  } else if (last == null && notBefore != null && t.isBefore(notBefore)) {
+    return null; // poloha z cache z doby před záznamem
   }
   final ts = (t.millisecondsSinceEpoch / 1000).roundToDouble();
   final lat = double.parse(pos.latitude.toStringAsFixed(5));
@@ -140,9 +147,15 @@ double rideDistanceM(double lat1, double lng1, double lat2, double lng2) {
 class RideKeepAlive {
   static const _ch = MethodChannel('cz.motogo24/ride');
   static bool? _sent;
+  static bool _listening = false;
 
   static Future<void> set(bool on) async {
-    if (defaultTargetPlatform != TargetPlatform.android || _sent == on) return;
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    if (!_listening) {
+      _listening = true;
+      _ch.setMethodCallHandler(_onNative);
+    }
+    if (_sent == on) return;
     _sent = on;
     try {
       await _ch.invokeMethod<void>('keepAlive', {'on': on});
@@ -150,6 +163,17 @@ class RideKeepAlive {
       _sent = null; // zkusí se příště znovu
       rideLog('keep_alive_failed', detail: '$e');
     }
+  }
+
+  /// Nové okno převzalo zaparkovaný engine (`MainActivity.onStart`). Dart
+  /// běží dál, ale pluginy vázané na okno si nativní moduly vytvořily znovu
+  /// prázdné — Stripe bez nové inicializace neumí přidat kartu ani zaplatit.
+  static Future<dynamic> _onNative(MethodCall call) async {
+    if (call.method == 'reattached') {
+      Stripe.instance.markNeedsSettings();
+      rideLog('engine_reattached');
+    }
+    return null;
   }
 }
 

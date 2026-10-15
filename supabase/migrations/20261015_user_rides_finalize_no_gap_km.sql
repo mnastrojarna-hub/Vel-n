@@ -51,11 +51,15 @@ begin
   -- s časy má km z přírůstkových statistik — 0 je u ní skutečná hodnota
   -- (všechno, co „ujela", byly mezery bez signálu) a délka celé stopy by
   -- sečetla právě ty vzdušné čáry, které `_ride_stats` záměrně vynechává.
+  -- CASE, ne AND: plánovač podmínky ve WHERE přehazuje a jsonb_array_length
+  -- na prvku, který není pole, by shodil celé uzavření (stejně jako
+  -- v append_ride_track).
   if v_km = 0 and not exists (
        select 1 from jsonb_array_elements(
          case when jsonb_typeof(v_r.track) = 'array' then v_r.track else '[]'::jsonb end) e
-        where jsonb_typeof(e) = 'array' and jsonb_array_length(e) > 2
-          and (e->>2) ~ '^[0-9]+(\.[0-9]+)?$') then
+        where case when jsonb_typeof(e) <> 'array' then false
+                   when jsonb_array_length(e) < 3 then false
+                   else (e->>2) ~ '^[0-9]+(\.[0-9]+)?$' end) then
     v_km := _ride_track_km(v_r.track);
   end if;
 
