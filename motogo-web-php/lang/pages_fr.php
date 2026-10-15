@@ -137,7 +137,7 @@ return [
             'h1' => 'Déroulement de la location',
             'intro_p1' => 'Chez <strong>MotoGo24 – location de motos dans la région de Vysočina</strong>, louer une moto est simple, rapide et équitable.&nbsp;<strong>Sans caution, avec l\'équipement du pilote inclus, retrait et retour 24h/24</strong>. Vois par toi-même comme c\'est facile.',
             'intro_h2' => 'Comment louer une moto – MotoGo24 – Vysočina',
-            'intro_p2' => 'Dans notre <strong>location de motos</strong>, tu fais tout en ligne : tu choisis la moto, tu fixes tes dates et tu remplis le formulaire de réservation – équipement et mode de remise compris. Récupère la moto à Pelhřimov ou fais-la livrer n\'importe où en Tchéquie. Tu paies en ligne en finalisant la réservation.',
+            'intro_p2' => 'Dans notre <strong>location de motos</strong>, tu fais tout en ligne : tu choisis la moto, tu fixes tes dates et tu remplis le formulaire de réservation – équipement et mode de remise compris. Récupère la moto à Mezná, près de Pelhřimov (d\'où nous pouvons aussi te la livrer n\'importe où en Tchéquie), ou en libre-service à Velké Němčice, près de Brno. Tu paies en ligne en finalisant la réservation.',
             'process' => [
                 'title' => 'La location étape par étape',
                 'grid' => 'gr4',
@@ -146,14 +146,14 @@ return [
                     ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Choisis tes dates', 'text' => 'Dans le calendrier, choisis le jour où tu veux partir. Tu vois tout de suite quelles motos sont libres.'],
                     ['icon' => 'gfx/kontaktni-udaje.svg', 'title' => '3. Coordonnées', 'text' => 'Indique ton nom, ton adresse, ton e-mail et ton numéro de téléphone.'],
                     ['icon' => 'gfx/cas-prevzeti-motorky.svg', 'title' => '4. Heure de prise en charge', 'text' => 'Choisis quand tu viens chercher la moto ou quand nous devons te la livrer.'],
-                    ['icon' => 'gfx/vyzvednuti-vraceni-motorky.svg', 'title' => '5. Choisis la remise', 'text' => 'Choisis comment tu récupères la moto – en personne à Pelhřimov ou par livraison n\'importe où en Tchéquie.&nbsp;'],
+                    ['icon' => 'gfx/vyzvednuti-vraceni-motorky.svg', 'title' => '5. Choisis la remise', 'text' => 'Choisis comment tu récupères la moto – en personne à Mezná, près de Pelhřimov, en libre-service à Velké Němčice, près de Brno, ou par livraison depuis Mezná n\'importe où en Tchéquie.&nbsp;'],
                     ['icon' => 'gfx/prevezmi-motorku.svg', 'title' => '6. Choisis la restitution', 'text' => 'Choisis si tu rends la moto à notre agence ou à un autre endroit.'],
                     ['icon' => 'gfx/vyber-vybavu.svg', 'title' => '7. Équipement', 'text' => 'L\'équipement de base du pilote est inclus. Tu veux un équipement pour ton passager, louer des bottes moto ou tu roules avec ton propre équipement ? Coche-le simplement lors de la réservation.'],
                     ['icon' => 'gfx/zaplat.svg', 'title' => '8. Récapitulatif et paiement', 'text' => 'Vérifie le récapitulatif de la commande, accepte les conditions et paie en ligne – par carte, QR code ou virement bancaire.'],
                     ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => '9. Confirmation par e-mail', 'text' => 'Une fois la réservation terminée, tu reçois un e-mail avec la confirmation de la réservation et du paiement, le justificatif de paiement, le contrat de location pré-rempli et les infos essentielles pour récupérer la moto.'],
                     ['icon' => 'gfx/predani-motorky.svg', 'title' => '10. Prise en charge de la moto', 'text' => 'À la remise, nous vérifions tes documents, complétons le contrat et signons le procès-verbal de remise. Tu essaies l\'équipement pour que tout soit à ta taille – et il ne reste plus qu\'à démarrer !'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '11. Profite de la balade', 'text' => 'Prends la route – <strong>sans caution, sans stress</strong>. Le reste, c\'est juste l\'asphalte et la liberté.'],
-                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Restitution de la moto', 'text' => 'Rends la moto à l\'heure – en personne à notre agence de Pelhřimov ou à un endroit convenu à l\'avance. Pas besoin de faire le plein – veille seulement à ce que le voyant de réserve ne soit pas allumé. Tu ne dois la rendre lavée qu\'à l\'agence en libre-service de Velké Němčice.'],
+                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Restitution de la moto', 'text' => 'Rends la moto à l\'heure – en personne à l\'agence où tu l\'as louée (Mezná, près de Pelhřimov, ou l\'agence en libre-service de Velké Němčice, près de Brno) ou, pour les motos de Mezná, à un endroit convenu à l\'avance. Pas besoin de faire le plein – veille seulement à ce que le voyant de réserve ne soit pas allumé. Tu ne dois la rendre lavée qu\'à l\'agence en libre-service de Velké Němčice.'],
                 ],
             ],
             'gallery' => [
@@ -194,7 +194,7 @@ return [
                 'items' => [
                     ['q' => 'Faut-il verser une caution ?', 'a' => 'Non.&nbsp;<strong>Nous louons sans caution</strong>&nbsp;– de façon équitable et sans obstacles inutiles.'],
                     ['q' => 'L\'équipement est-il inclus dans le prix ?', 'a' => 'Oui. Chaque pilote reçoit&nbsp;<strong>casque, blouson, pantalon et gants gratuitement</strong>.'],
-                    ['q' => 'Où puis-je récupérer la moto ?', 'a' => 'La prise en charge se fait à Pelhřimov – ou nous te&nbsp;<strong>livrons la moto</strong>&nbsp;à l\'endroit de ton choix.'],
+                    ['q' => 'Où puis-je récupérer la moto ?', 'a' => 'À notre agence avec personnel de Mezná, près de Pelhřimov (d\'où nous pouvons aussi te&nbsp;<strong>livrer la moto</strong>&nbsp;à l\'endroit de ton choix), ou à l\'agence en libre-service de Velké Němčice, près de Brno.'],
                     ['q' => 'Jusqu\'à quand dois-je rendre la moto ?', 'a' => 'Tu peux rendre la moto à n\'importe quelle heure le dernier jour de la location – même à minuit.'],
                 ],
                 'more_link' => [
@@ -218,7 +218,7 @@ return [
                 'keywords' => 'récupérer une moto de location, location de motos Pelhřimov, location de motos Vysočina, louer une moto, MotoGo24',
             ],
             'h1' => 'Prise en charge à l\'agence – rapide, simple et 24h/24',
-            'intro' => 'Chez <strong>MotoGo24 – location de motos dans la région de Vysočina</strong>,&nbsp;la prise en charge de la moto ne prend que quelques minutes. Nous louons <strong>sans caution, avec l\'équipement du pilote inclus, et le retrait comme le retour se font 24h/24</strong>. Viens nous voir à Pelhřimov et en route !',
+            'intro' => 'Chez <strong>MotoGo24 – location de motos dans la région de Vysočina</strong>,&nbsp;la prise en charge de la moto ne prend que quelques minutes. Nous louons <strong>sans caution, avec l\'équipement du pilote inclus, et le retrait comme le retour se font 24h/24</strong>. Viens nous voir à Mezná, près de Pelhřimov, et en route ! À l\'agence en libre-service de Velké Němčice, près de Brno, tu récupères la moto toi-même avec un code d\'accès reçu dans l\'appli ou par e-mail.',
             'top_cta' => [
                 'label' => 'RÉSERVER EN LIGNE',
                 'href' => '/rezervace',
@@ -303,7 +303,7 @@ return [
                 'keywords' => 'rendre une moto de location, location de motos Pelhřimov, location de motos Vysočina, MotoGo24',
             ],
             'h1' => 'Restitution à l\'agence – rapide et sans complications',
-            'intro' => 'Ta location se termine aussi simplement qu\'elle a commencé. Viens à l\'heure de restitution convenue à notre adresse de Pelhřimov, nous vérifions ensemble la moto et l\'équipement – et c\'est terminé. Pas besoin de laver la moto ni de faire le plein – veille seulement à ce que le voyant de réserve ne soit pas allumé.&nbsp;',
+            'intro' => 'Ta location se termine aussi simplement qu\'elle a commencé. Viens à l\'heure de restitution convenue à notre adresse à Mezná, près de Pelhřimov. Rends la moto et l\'équipement loué – et c\'est terminé. Avant la restitution, pas besoin de laver la moto ni de faire le plein – veille seulement à ce que le voyant de réserve ne soit pas allumé.&nbsp;',
             'process' => [
                 'grid' => 'gr4',
                 'steps' => [
@@ -340,7 +340,7 @@ return [
             ],
             'cta' => [
                 'title' => 'Restitution à l\'agence – MotoGo24, Pelhřimov (Vysočina)',
-                'text' => 'MotoGo24 est une location de motos dans la région de Vysočina qui fonctionne 24h/24, avec une restitution simple à toute heure le jour de ta location. À notre agence de Pelhřimov : pas de caution, pas de lavage, pas de plein. Choisis une moto de tourisme, supermoto, naked ou pour enfants et réserve en ligne.',
+                'text' => 'MotoGo24 est une location de motos dans la région de Vysočina qui fonctionne 24h/24, avec une restitution simple à toute heure le jour de ta location. Pas de caution, pas de plein à faire (veille seulement à ce que le voyant de réserve ne soit pas allumé) et, à Mezná, pas de lavage non plus. Choisis parmi notre large gamme de motos (et de scooters) et réserve en ligne depuis chez toi.',
                 'buttons' => [
                     ['label' => 'CONTACTE-NOUS', 'href' => '/kontakt', 'cls' => 'btndark', 'aria' => 'Contacte-nous'],
                 ],
@@ -576,7 +576,7 @@ return [
                 'keywords' => 'livraison moto, location moto avec livraison, location de motos Vysočina, louer une moto Tchéquie, MotoGo24',
             ],
             'h1' => 'Livraison de la moto – directement chez toi',
-            'intro' => 'Tu veux partir sans passer d\'abord par l\'agence ? Nous organisons la <strong>livraison de la moto à l\'endroit convenu</strong> – chez toi, à l\'hôtel, à la gare ou au point de départ de ta balade. Nous livrons partout en Tchéquie – directement depuis notre agence de Pelhřimov.',
+            'intro' => 'Tu veux partir sans passer d\'abord par l\'agence ? Nous organisons la <strong>livraison de la moto à l\'endroit convenu</strong> – chez toi, à l\'hôtel, à la gare ou au point de départ de ta balade. Nous livrons partout en Tchéquie – directement depuis notre agence de Mezná, près de Pelhřimov. La livraison est proposée pour les motos de notre agence avec personnel de Mezná ; les motos de l\'agence en libre-service de Velké Němčice se récupèrent uniquement sur place.',
             'when' => [
                 'title' => 'Quand la livraison est pratique',
                 'items' => [
@@ -648,7 +648,7 @@ return [
                 'keywords' => 'rendre la moto ailleurs, location moto aller simple, récupération de moto, location de motos Vysočina, MotoGo24',
             ],
             'h1' => 'Restitution où tu veux – nous venons à toi',
-            'intro' => 'Tu ne veux pas revenir à notre agence de Pelhřimov ? Aucun problème. Nous venons chercher la moto partout en Tchéquie – à l\'heure que tu as choisie dans le formulaire de réservation. Tu nous la remets, nous la chargeons. Simple et sans complications.',
+            'intro' => 'Tu ne veux pas revenir à notre agence de Pelhřimov ? Aucun problème. Nous venons chercher la moto partout en Tchéquie – à l\'heure que tu as choisie dans le formulaire de réservation. Tu nous la remets, nous la chargeons. Simple et sans complications. L\'enlèvement est proposé pour les motos de notre agence avec personnel de Mezná ; les motos de l\'agence en libre-service de Velké Němčice se rendent uniquement sur place.',
             'when' => [
                 'title' => 'Quand la restitution ailleurs est pratique',
                 'items' => [
@@ -760,7 +760,7 @@ return [
                 ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Catalogue de motos', 'text' => 'Découvre nos motos à louer – des sportives aux routières.', 'btn' => 'CATALOGUE DE MOTOS', 'href' => '/katalog'],
                 ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => 'Comment louer une moto', 'text' => 'C\'est simple : choisis une moto, réserve et pars.', 'btn' => 'COMMENT LOUER UNE MOTO', 'href' => '/jak-pujcit'],
                 ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Réservation en ligne', 'text' => 'Réserve ta moto de location via notre système en ligne simple.', 'btn' => 'RÉSERVER UNE MOTO', 'href' => '/rezervace'],
-                ['icon' => 'gfx/kontakt.svg', 'title' => 'Contact et plan d\'accès', 'text' => 'Rends visite à notre location de motos à Pelhřimov ou contacte-nous.', 'btn' => 'CONTACT', 'href' => '/kontakt'],
+                ['icon' => 'gfx/kontakt.svg', 'title' => 'Contact et plan d\'accès', 'text' => 'Rends-nous visite à Mezná, près de Pelhřimov, ou à l\'agence en libre-service de Velké Němčice, près de Brno – ou contacte-nous.', 'btn' => 'CONTACT', 'href' => '/kontakt'],
                 ['icon' => 'gfx/faq.svg', 'title' => 'Questions fréquentes', 'text' => 'Les questions les plus fréquentes sur la location de motos, réunies au même endroit.', 'btn' => 'FAQ', 'href' => '/jak-pujcit/faq'],
                 ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Balades à moto', 'text' => 'Découvre de beaux itinéraires à moto en Tchéquie – pour les visiteurs comme pour les gens du coin.', 'btn' => 'ITINÉRAIRES MOTO', 'href' => '/blog'],
             ],

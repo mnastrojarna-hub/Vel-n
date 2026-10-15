@@ -18,7 +18,7 @@ export const GATE_TEXTS_B: Partial<Record<Lang, GateTexts>> = {
     step2Gear: "Sur l'écran, saisissez le code du vestiaire, prenez votre équipement, changez-vous et refermez la porte du vestiaire. Ensuite, sur l'écran, ajustez les tailles dans le protocole de remise, puis signez-le.",
     step3Gear: "Saisissez le code moto, prenez la moto et refermez la porte du box.",
     step2NoGear: "Sur l'écran, saisissez le code moto, signez le protocole de remise, prenez la moto et refermez la porte du box.",
-    stepImportant: "IMPORTANT : si le portail était fermé, refermez-le en partant et verrouillez-le avec le cadenas, puis remettez la clé dans la boîte du haut et tournez les molettes pour que le code ne reste pas affiché. Si le portail était ouvert, laissez-le ouvert. Procédez de la même manière lors du retour de la moto.",
+    stepImportant: "IMPORTANT : si le portail était fermé, refermez-le en partant et verrouillez-le avec le cadenas, puis remettez la clé dans la boîte du haut et tournez les molettes pour que le code ne reste pas affiché. Si le portail était ouvert, laissez-le ouvert. Procédez de la même manière lors du retour de la moto. Rendez la moto lavée et sans voyant de réserve allumé (inutile de faire le plein).",
     pageLink: "Photos de l'agence et du parking (places 1–7) sur la page de l'agence →",
   },
   nl: {
@@ -34,7 +34,7 @@ export const GATE_TEXTS_B: Partial<Record<Lang, GateTexts>> = {
     step2Gear: "Voer op het display de kleedkamercode in, pak uw uitrusting, kleed u om en sluit de deur van de kleedkamer. Pas vervolgens op het display de maten in het overdrachtsprotocol aan en onderteken het protocol.",
     step3Gear: "Voer de motorcode in, neem de motor mee en sluit de deur van de box.",
     step2NoGear: "Voer op het display de motorcode in, onderteken het overdrachtsprotocol, neem de motor mee en sluit de deur van de box.",
-    stepImportant: "BELANGRIJK: Was de poort gesloten, sluit hem dan na vertrek weer, vergrendel hem met het hangslot, leg de sleutel terug in het bovenste kastje en verdraai de cijferwieltjes, zodat de code niet blijft staan. Stond de poort open, laat hem dan open. Ga bij het terugbrengen van de motor op dezelfde manier te werk.",
+    stepImportant: "BELANGRIJK: Was de poort gesloten, sluit hem dan na vertrek weer, vergrendel hem met het hangslot, leg de sleutel terug in het bovenste kastje en verdraai de cijferwieltjes, zodat de code niet blijft staan. Stond de poort open, laat hem dan open. Ga bij het terugbrengen van de motor op dezelfde manier te werk. Lever de motor gewassen in en zonder brandend reservelampje (voltanken is niet nodig).",
     pageLink: "Foto's van de vestiging en de parkeerplaats (plekken 1–7) vindt u op de pagina van de vestiging →",
   },
   pl: {
@@ -50,7 +50,7 @@ export const GATE_TEXTS_B: Partial<Record<Lang, GateTexts>> = {
     step2Gear: "Proszę wpisać na wyświetlaczu kod do szatni, wziąć wyposażenie, przebrać się i zamknąć drzwi szatni. Następnie proszę na wyświetlaczu dopasować rozmiary w protokole przekazania i podpisać protokół.",
     step3Gear: "Proszę wpisać kod do motocykla, wyprowadzić go i zamknąć drzwi boksu.",
     step2NoGear: "Proszę wpisać na wyświetlaczu kod do motocykla, podpisać protokół przekazania, wyprowadzić motocykl i zamknąć drzwi boksu.",
-    stepImportant: "WAŻNE: Jeśli brama była zamknięta, po wyjeździe proszę ją ponownie zamknąć, zabezpieczyć kłódką, odłożyć klucz z powrotem do górnej skrytki i przekręcić pokrętła szyfru, aby kod nie pozostał ustawiony. Otwartą bramę proszę pozostawić otwartą. Tak samo należy postąpić przy zwrocie motocykla.",
+    stepImportant: "WAŻNE: Jeśli brama była zamknięta, po wyjeździe proszę ją ponownie zamknąć, zabezpieczyć kłódką, odłożyć klucz z powrotem do górnej skrytki i przekręcić pokrętła szyfru, aby kod nie pozostał ustawiony. Otwartą bramę proszę pozostawić otwartą. Tak samo należy postąpić przy zwrocie motocykla. Motocykl proszę zwrócić umyty i bez świecącej kontrolki rezerwy (nie trzeba tankować do pełna).",
     pageLink: "Zdjęcia oddziału i parkingu (miejsca 1–7) znajdą Państwo na stronie oddziału →",
   },
   uk: {
@@ -66,7 +66,7 @@ export const GATE_TEXTS_B: Partial<Record<Lang, GateTexts>> = {
     step2Gear: "На дисплеї введіть код роздягальні, візьміть екіпірування, перевдягніться та зачиніть двері роздягальні. Потім на дисплеї в протоколі передачі відкоригуйте розміри та підпишіть протокол.",
     step3Gear: "Введіть код мотоцикла, заберіть мотоцикл і зачиніть двері боксу.",
     step2NoGear: "На дисплеї введіть код мотоцикла, підпишіть протокол передачі, заберіть мотоцикл і зачиніть двері боксу.",
-    stepImportant: "ВАЖЛИВО: Якщо ворота були зачинені, після відʼїзду знову зачиніть їх, замкніть навісним замком, поверніть ключ у верхню скриньку й прокрутіть коліщата з цифрами, щоб код не залишився набраним. Відчинені ворота залиште відчиненими. Дійте так само й під час повернення мотоцикла.",
+    stepImportant: "ВАЖЛИВО: Якщо ворота були зачинені, після відʼїзду знову зачиніть їх, замкніть навісним замком, поверніть ключ у верхню скриньку й прокрутіть коліщата з цифрами, щоб код не залишився набраним. Відчинені ворота залиште відчиненими. Дійте так само й під час повернення мотоцикла. Поверніть мотоцикл вимитим і так, щоб не світився індикатор резерву палива (заправляти до повного не потрібно).",
     pageLink: "Фото філії та парковки (місця 1–7) — на сторінці філії →",
   },
 }

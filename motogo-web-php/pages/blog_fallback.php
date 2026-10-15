@@ -44,7 +44,7 @@ function getBlogFallbackPosts() {
                 . '<h2>2. Zarezervujte termín</h2>'
                 . '<p>V rezervačním systému vyberete data vyzvednutí a vrácení. Online kalendář hned ukáže, kdy je motorka volná. Platba kartou proběhne okamžitě (Visa/Mastercard, Apple/Google Pay).</p>'
                 . '<h2>3. Vyzvednutí</h2>'
-                . '<p>Adresa: <strong>Mezná 9, 393 01 Pelhřimov</strong>. Provoz je <strong>nonstop</strong> – vyzvednete si kdykoli, i večer. Nabízíme také <a href="/jak-pujcit/pristaveni">přistavení</a> na hotel nebo vlakové nádraží.</p>'
+                . '<p>Vyzvednout si ji můžete na obslužné pobočce <strong>Mezná 9, 393 01 Pelhřimov</strong>, nebo samoobslužně přístupovým kódem z aplikace či e-mailu ve <strong>Velkých Němčicích u Brna</strong>. Obě pobočky fungují <strong>nonstop</strong> – vyzvednete si kdykoli podle rezervace, i večer. Z Mezné nabízíme také <a href="/jak-pujcit/pristaveni">přistavení</a> na hotel nebo vlakové nádraží.</p>'
                 . '<h2>4. Co si vzít</h2>'
                 . '<ul><li>Občanský průkaz nebo pas</li><li>Řidičský průkaz (skupina A, A2 nebo A1 podle motorky)</li><li>Vhodnou obuv (moto boty půjčíme jako nadstandard)</li></ul>'
                 . '<p>Helma, bunda, kalhoty a rukavice jsou v ceně – prostě si je u nás vyzvednete.</p>'

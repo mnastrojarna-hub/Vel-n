@@ -796,7 +796,7 @@ return [
     'confirm.success.pickupTitle' => 'Miejsce odbioru',
     'confirm.success.openMap' => 'Otwórz na mapie',
     'confirm.success.gateNoticeTitle' => 'Przyjazd do oddziału Velké Němčice',
-    'confirm.success.gateNotice' => 'Velké Němčice: Jeśli brama wjazdowa jest zamknięta, klucz do kłódki znajduje się w górnej skrytce na prawym słupku bramy — jej kod zostanie przesłany razem z kodami do szatni i motocykla (kolejność użycia: brama → szatnia → motocykl). Proszę zaparkować na dowolnym z miejsc 1–7 po prawej stronie przy ogrodzeniu. Jeśli brama była zamknięta, po wyjeździe proszę ją ponownie zamknąć na kłódkę, odłożyć klucz z powrotem do górnej skrytki i przekręcić pokrętła szyfru. Otwartą bramę proszę pozostawić otwartą.',
+    'confirm.success.gateNotice' => 'Velké Němčice: Jeśli brama wjazdowa jest zamknięta, klucz do kłódki znajduje się w górnej skrytce na prawym słupku bramy — jej kod zostanie przesłany razem z kodami do szatni i motocykla (kolejność użycia: brama → szatnia → motocykl). Proszę zaparkować na dowolnym z miejsc 1–7 po prawej stronie przy ogrodzeniu. Jeśli brama była zamknięta, po wyjeździe proszę ją ponownie zamknąć na kłódkę, odłożyć klucz z powrotem do górnej skrytki i przekręcić pokrętła szyfru. Otwartą bramę proszę pozostawić otwartą. Motocykl proszę zwrócić umyty i bez świecącej kontrolki rezerwy (nie trzeba tankować do pełna).',
     'confirm.success.nextOrderShip' => 'Jeśli wybrałeś dostawę, paczka dotrze w ciągu 1–3 dni roboczych.',
     'confirm.success.nextVoucherEmail' => 'Kod bonu znajdziesz w e-mailu — wykorzystaj go przy rezerwacji na motogo24.cz / .com lub w aplikacji.',
     'confirm.success.nextVoucherPrint' => 'Jeśli zamówiłeś bon drukowany, dotrze pocztą w ciągu 2–3 dni roboczych.',

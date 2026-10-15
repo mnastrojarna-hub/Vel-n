@@ -137,7 +137,7 @@ return [
             'h1' => 'Proceso de alquiler de una moto',
             'intro_p1' => 'En <strong>MotoGo24 – alquiler de motos en la región de Vysočina</strong>, alquilar es sencillo, rápido y justo.&nbsp;<strong>Sin fianza, con el equipamiento del piloto incluido y con recogida y devolución 24/7</strong>. Compruébalo tú mismo: verás qué fácil es.',
             'intro_h2' => 'Cómo alquilar una moto – MotoGo24 – Vysočina',
-            'intro_p2' => 'En nuestro <strong>alquiler de motos</strong> lo haces todo online: eliges la moto, escoges las fechas y rellenas el formulario de reserva, incluido el equipamiento y la forma de entrega. Recoge la moto en Pelhřimov o pide que te la llevemos a cualquier lugar de la República Checa. Pagas online al completar la reserva.',
+            'intro_p2' => 'En nuestro <strong>alquiler de motos</strong> lo haces todo online: eliges la moto, escoges las fechas y rellenas el formulario de reserva, incluido el equipamiento y la forma de entrega. Recoge la moto en Mezná, cerca de Pelhřimov (desde allí también te la llevamos a cualquier lugar de la República Checa), o en el autoservicio de Velké Němčice, cerca de Brno. Pagas online al completar la reserva.',
             'process' => [
                 'title' => 'Cómo funciona el alquiler, paso a paso',
                 'grid' => 'gr4',
@@ -146,14 +146,14 @@ return [
                     ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Elige las fechas', 'text' => 'En el calendario elige el día en que quieres salir. Verás qué motos están libres.'],
                     ['icon' => 'gfx/kontaktni-udaje.svg', 'title' => '3. Datos de contacto', 'text' => 'Rellena tu nombre, dirección, e-mail y teléfono.'],
                     ['icon' => 'gfx/cas-prevzeti-motorky.svg', 'title' => '4. Hora de recogida', 'text' => 'Elige cuándo recogerás la moto o cuándo te la llevamos.'],
-                    ['icon' => 'gfx/vyzvednuti-vraceni-motorky.svg', 'title' => '5. Lugar de recogida', 'text' => 'Elige dónde recibes la moto: en persona en nuestra sucursal de Pelhřimov o con entrega en cualquier lugar de la República Checa.&nbsp;'],
+                    ['icon' => 'gfx/vyzvednuti-vraceni-motorky.svg', 'title' => '5. Lugar de recogida', 'text' => 'Elige dónde recibes la moto: en persona en nuestra sucursal de Mezná, cerca de Pelhřimov; en el autoservicio de Velké Němčice, cerca de Brno; o con entrega desde Mezná en cualquier lugar de la República Checa.&nbsp;'],
                     ['icon' => 'gfx/prevezmi-motorku.svg', 'title' => '6. Lugar y hora de devolución', 'text' => 'Elige si devolverás la moto en la dirección de la sucursal o en otro lugar, y cuándo.'],
                     ['icon' => 'gfx/vyber-vybavu.svg', 'title' => '7. Equipamiento', 'text' => 'El equipamiento básico del piloto está incluido. ¿Quieres equipamiento para el pasajero, alquilar botas o prefieres ir con tu propio equipamiento? Lo marcas al reservar.'],
                     ['icon' => 'gfx/zaplat.svg', 'title' => '8. Resumen del pedido y pago', 'text' => 'Revisa el resumen del pedido, acepta las condiciones y paga online con tarjeta, con código QR o por transferencia bancaria.'],
                     ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => '9. Confirmación por e-mail', 'text' => 'Al completar la reserva recibirás un e-mail con la confirmación de la reserva, el justificante de pago, el contrato de alquiler y las instrucciones básicas para recoger la moto.'],
                     ['icon' => 'gfx/predani-motorky.svg', 'title' => '10. Recogida de la moto', 'text' => 'En la entrega comprobamos tus documentos (si aún no están verificados), firmamos el acta de entrega y recoges tu equipamiento. ¡Y ya solo queda arrancar!'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '11. Disfruta de la ruta', 'text' => 'Sal a la carretera: <strong>sin fianza, sin estrés</strong>. Lo demás es solo asfalto y libertad.'],
-                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Devolución de la moto', 'text' => 'Devuelve la moto a tiempo: en persona en nuestra sucursal de Pelhřimov o en el lugar acordado previamente. No tienes que repostar; solo procura que no esté encendido el testigo de reserva. Lavada solo tienes que devolverla en la sucursal de autoservicio de Velké Němčice.'],
+                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Devolución de la moto', 'text' => 'Devuelve la moto a tiempo: en persona en la sucursal donde la alquilaste (Mezná, cerca de Pelhřimov, o el autoservicio de Velké Němčice, cerca de Brno) o, si es de Mezná, también en el lugar acordado previamente. No tienes que repostar; solo procura que no esté encendido el testigo de reserva. Lavada solo tienes que devolverla en la sucursal de autoservicio de Velké Němčice.'],
                 ],
             ],
             'gallery' => [
@@ -194,7 +194,7 @@ return [
                 'items' => [
                     ['q' => '¿Hace falta dejar fianza para alquilar?', 'a' => 'No.&nbsp;<strong>Alquilamos sin fianza</strong>, de forma justa y sin trabas innecesarias.'],
                     ['q' => '¿El equipamiento está incluido en el precio del alquiler?', 'a' => 'Sí. Cada piloto recibe&nbsp;<strong>casco, pasamontañas, chaqueta, pantalones y guantes sin coste adicional</strong>.'],
-                    ['q' => '¿Dónde puedo recoger la moto?', 'a' => 'La recogida es en Pelhřimov; también podemos&nbsp;<strong>llevarte la moto</strong>&nbsp;al lugar que elijas.'],
+                    ['q' => '¿Dónde puedo recoger la moto?', 'a' => 'En nuestra sucursal con personal de Mezná, cerca de Pelhřimov (desde allí también podemos&nbsp;<strong>llevarte la moto</strong>&nbsp;al lugar que elijas), o en la sucursal de autoservicio de Velké Němčice, cerca de Brno.'],
                     ['q' => '¿Hasta cuándo tengo que devolver la moto?', 'a' => 'Puedes devolver la moto en cualquier momento del último día del alquiler, incluso a medianoche.'],
                 ],
                 'more_link' => [
@@ -218,7 +218,7 @@ return [
                 'keywords' => 'recogida de moto, alquiler de motos Pelhřimov, alquiler de motos Vysočina, alquilar moto, MotoGo24',
             ],
             'h1' => 'Recogida en la sucursal: rápida, sencilla y 24/7',
-            'intro' => 'En <strong>MotoGo24 – alquiler de motos en la región de Vysočina</strong>&nbsp;recoger la moto es cuestión de pocos minutos. Alquilamos <strong>sin fianza, con el equipamiento del piloto incluido y con recogida y devolución 24/7</strong>. ¡Ven en persona a Pelhřimov y sal a la carretera!',
+            'intro' => 'En <strong>MotoGo24 – alquiler de motos en la región de Vysočina</strong>&nbsp;recoger la moto es cuestión de pocos minutos. Alquilamos <strong>sin fianza, con el equipamiento del piloto incluido y con recogida y devolución 24/7</strong>. ¡Ven en persona a Mezná, cerca de Pelhřimov, y sal a la carretera! En la sucursal de autoservicio de Velké Němčice, cerca de Brno, recoges la moto tú mismo con un código de acceso de la app o del e-mail.',
             'top_cta' => [
                 'label' => 'RESERVAR ONLINE',
                 'href' => '/rezervace',
@@ -303,7 +303,7 @@ return [
                 'keywords' => 'devolución de moto, alquiler de motos Pelhřimov, alquiler de motos Vysočina, MotoGo24',
             ],
             'h1' => 'Devolución de la moto en la sucursal: rápida y sin complicaciones',
-            'intro' => 'El alquiler termina tan fácil como empezó. Ven a la hora de devolución acordada a nuestra dirección en Mezná, cerca de Pelhřimov, revisamos juntos la moto y el equipamiento, y listo. No tienes que lavarla ni repostar; solo procura que no esté encendido el testigo de reserva.&nbsp;',
+            'intro' => 'El alquiler termina tan fácil como empezó. Ven a la hora de devolución acordada a nuestra dirección en Mezná, cerca de Pelhřimov. Devuelve la moto y el equipamiento alquilado, y listo. Antes de devolverla no tienes que lavarla ni repostar; solo procura que no esté encendido el testigo de reserva.&nbsp;',
             'process' => [
                 'grid' => 'gr4',
                 'steps' => [
@@ -340,7 +340,7 @@ return [
             ],
             'cta' => [
                 'title' => 'Devolución de la moto en la sucursal – MotoGo24, Pelhřimov (Vysočina)',
-                'text' => 'MotoGo24 es un alquiler de motos en la región de Vysočina que funciona 24/7, con una devolución sencilla en cualquier momento del día del alquiler. En nuestra sucursal de Pelhřimov: sin fianza, sin lavar y sin repostar. Elige una moto de turismo, naked, supermoto, chopper, scooter o infantil y reserva online.',
+                'text' => 'MotoGo24 es un alquiler de motos en la región de Vysočina que funciona 24/7, con una devolución sencilla en cualquier momento del día del alquiler. Sin fianza, sin repostar (solo procura que no esté encendido el testigo de reserva) y, en Mezná, también sin lavar. Elige entre nuestra amplia oferta de motos (y scooters) y reserva online desde la comodidad de tu casa.',
                 'buttons' => [
                     ['label' => 'CONTACTO', 'href' => '/kontakt', 'cls' => 'btndark', 'aria' => 'Contáctanos'],
                 ],
@@ -576,7 +576,7 @@ return [
                 'keywords' => 'entrega de moto, alquiler de motos con entrega, alquiler de motos Vysočina, alquiler de motos República Checa, MotoGo24',
             ],
             'h1' => 'Entrega de la moto: te la llevamos',
-            'intro' => '¿Quieres salir sin tener que desplazarte hasta el alquiler? Te <strong>llevamos la moto al lugar acordado</strong>: a casa, al hotel, a la estación o al punto de salida de tu excursión. Te la llevamos a cualquier lugar de la República Checa, directamente desde nuestra sucursal de Mezná, cerca de Pelhřimov.',
+            'intro' => '¿Quieres salir sin tener que desplazarte hasta el alquiler? Te <strong>llevamos la moto al lugar acordado</strong>: a casa, al hotel, a la estación o al punto de salida de tu excursión. Te la llevamos a cualquier lugar de la República Checa, directamente desde nuestra sucursal de Mezná, cerca de Pelhřimov. La entrega está disponible para las motos de nuestra sucursal con personal de Mezná; las motos de la sucursal de autoservicio de Velké Němčice solo se recogen en esa sucursal.',
             'when' => [
                 'title' => 'Cuándo te viene bien la entrega',
                 'items' => [
@@ -648,7 +648,7 @@ return [
                 'keywords' => 'devolver moto en otro lugar, alquiler de moto solo ida, recogida de moto, alquiler de motos Vysočina, MotoGo24',
             ],
             'h1' => 'Devuelve la moto donde quieras: vamos a buscarla',
-            'intro' => '¿No quieres volver a nuestra sucursal de Pelhřimov? Ningún problema. Vamos a recoger la moto a cualquier lugar de la República Checa, a la hora que elegiste en el formulario de reserva. Tú nos la entregas y nosotros la cargamos. Así de fácil y sin complicaciones.',
+            'intro' => '¿No quieres volver a nuestra sucursal de Pelhřimov? Ningún problema. Vamos a recoger la moto a cualquier lugar de la República Checa, a la hora que elegiste en el formulario de reserva. Tú nos la entregas y nosotros la cargamos. Así de fácil y sin complicaciones. La recogida está disponible para las motos de nuestra sucursal con personal de Mezná; las motos de la sucursal de autoservicio de Velké Němčice solo se devuelven en esa sucursal.',
             'when' => [
                 'title' => 'Cuándo te viene bien devolverla en otro lugar',
                 'items' => [
@@ -760,7 +760,7 @@ return [
                 ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Catálogo de motos', 'text' => 'Echa un vistazo a nuestras motos de alquiler: de turismo, naked, supermoto, choppers, scooters e infantiles.', 'btn' => 'CATÁLOGO DE MOTOS', 'href' => '/katalog'],
                 ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => 'Cómo alquilar una moto', 'text' => 'Un proceso sencillo: elige una moto, resérvala y sal a la carretera.', 'btn' => 'CÓMO ALQUILAR UNA MOTO', 'href' => '/jak-pujcit'],
                 ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Reserva de moto online', 'text' => 'Reserva tu moto con nuestro sencillo sistema online.', 'btn' => 'RESERVAR MOTO', 'href' => '/rezervace'],
-                ['icon' => 'gfx/kontakt.svg', 'title' => 'Contacto y mapa', 'text' => 'Visita nuestro alquiler de motos en Pelhřimov o ponte en contacto con nosotros.', 'btn' => 'CONTACTO', 'href' => '/kontakt'],
+                ['icon' => 'gfx/kontakt.svg', 'title' => 'Contacto y mapa', 'text' => 'Visítanos en Mezná, cerca de Pelhřimov, o en la sucursal de autoservicio de Velké Němčice, cerca de Brno, o ponte en contacto con nosotros.', 'btn' => 'CONTACTO', 'href' => '/kontakt'],
                 ['icon' => 'gfx/faq.svg', 'title' => 'Preguntas frecuentes', 'text' => 'Las preguntas más habituales sobre el alquiler de motos, todas en un mismo sitio.', 'btn' => 'PREGUNTAS FRECUENTES', 'href' => '/jak-pujcit/faq'],
                 ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Rutas en moto', 'text' => 'Descubre rutas en moto por la República Checa que merecen la pena, tanto si estás de visita como si vives aquí.', 'btn' => 'RUTAS EN MOTO', 'href' => '/blog'],
             ],

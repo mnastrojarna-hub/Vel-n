@@ -16,7 +16,7 @@ return [
             ],
             [
                 'q' => 'Kde si mohu motorku převzít?',
-                'a' => 'Vyzvednutí probíhá v Pelhřimově, případně nabízíme&nbsp;<strong>přistavení motorky</strong>&nbsp;na tebou zvolené místo.',
+                'a' => 'Na obslužné pobočce v Mezné u Pelhřimova (odtud nabízíme i&nbsp;<strong>přistavení motorky</strong>&nbsp;na tebou zvolené místo), nebo samoobslužně na pobočce ve Velkých Němčicích u Brna.',
             ],
             [
                 'q' => 'Do kdy musím motorku vrátit?',

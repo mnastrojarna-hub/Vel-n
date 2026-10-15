@@ -463,7 +463,7 @@ return [
     'rez.return.expectedTitle' => 'Předpokládaný čas návratu',
     'rez.return.expectedSub' => 'V kolik hodin přibližně vrátíte motorku? Nejpozději o půlnoci posledního dne.',
     'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
-    'rez.return.stateText' => 'Tankovat při vrácení nemusíš (plná nádrž není potřeba) – jen ať nesvítí rezerva. Umytou ji vracej jen na samoobslužné pobočce ve Velkých Němčicích; v Mezné ani při vrácení jinde ji mýt nemusíš.',
+    'rez.return.stateText' => 'Tankovat při vrácení nemusíte (plná nádrž není potřeba) – jen ať nesvítí rezerva. Umytou ji vracejte jen na samoobslužné pobočce ve Velkých Němčicích; v Mezné ani při vrácení jinde ji mýt nemusíte.',
 
     // ===== Rezervace — výbava =====
     'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže.',
@@ -1587,7 +1587,7 @@ return [
     'confirm.success.pickupTitle' => 'K vyzvednutí',
     'confirm.success.openMap' => 'Otevřít v mapě',
     'confirm.success.gateNoticeTitle' => 'Příjezd na pobočku Velké Němčice',
-    'confirm.success.gateNotice' => 'Velké Němčice: Je-li vjezdová brána zavřená, klíč od visacího zámku najdete v horní schránce na pravém sloupku vrat — její kód vám přijde spolu s kódy šatny a motorky (pořadí zadávání: brána → šatna → motorka). Zaparkujte na kterémkoli parkovacím místě 1–7 vpravo u plotu. Byla-li brána zavřená, po odjezdu ji zase zamkněte, klíč vraťte do horní schránky a přetočte číselník. Otevřenou bránu nechte otevřenou.',
+    'confirm.success.gateNotice' => 'Velké Němčice: Je-li vjezdová brána zavřená, klíč od visacího zámku najdete v horní schránce na pravém sloupku vrat — její kód vám přijde spolu s kódy šatny a motorky (pořadí zadávání: brána → šatna → motorka). Zaparkujte na kterémkoli parkovacím místě 1–7 vpravo u plotu. Byla-li brána zavřená, po odjezdu ji zase zamkněte, klíč vraťte do horní schránky a přetočte číselník. Otevřenou bránu nechte otevřenou. Motorku vracejte umytou a tak, aby nesvítila kontrolka rezervy (tankovat do plna nemusíte).',
     'confirm.success.nextOrderShip' => 'Pokud jste zvolili doručení, balíček dorazí během 1–3 pracovních dnů.',
     'confirm.success.nextVoucherEmail' => 'Kód poukazu najdete v e-mailu — uplatníte ho při rezervaci na motogo24.cz / .com nebo v aplikaci.',
     'confirm.success.nextVoucherPrint' => 'Pokud jste zvolili tištěný poukaz, dorazí poštou během 2–3 pracovních dnů.',

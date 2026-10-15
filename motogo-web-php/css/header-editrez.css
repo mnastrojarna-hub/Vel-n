@@ -51,6 +51,34 @@
 /* Lišta nástrojů se smí zalomit (místo přetečení), když se vedle
    telefonu nevejde přihlášený e-mail + tlačítko + apka + jazyky. */
 .header-tools{flex-wrap:wrap;justify-content:flex-end}
+/* Horní lišta nikdy nerozšíří stránku do strany: pulz/„wiggle" tlačítka apky
+   (scale 1.08 přes celou šířku mobilu) přesahoval o 1–2 px. clip (ne hidden)
+   = nevzniká scroll kontejner, rozbalovací menu dolů zůstávají vidět. */
+.header-topbar{overflow-x:clip}
+/* Lesk tlačítka apky přes transform místo animace `left` (ta každé 3 s
+   hlásila layout shift v CLS); dráha stejná: -80 % → 170 % šířky tlačítka. */
+.header-app-btn::after{left:0;transform:translateX(-145%) skewX(-22deg);animation-name:herAppShine}
+@keyframes herAppShine{0%,55%{transform:translateX(-145%) skewX(-22deg)}100%{transform:translateX(309%) skewX(-22deg)}}
+
+/* Tablet + desktop (≥561 px): rozložení lišty NEZÁVISÍ na šířce písma.
+   Dřív lišta podle šířky textu přeskakovala pod telefon a po načtení
+   webfontu (Montserrat je širší než záložní písmo) poskočila stránka o ~35 px
+   (např. 768 px cs/en). Teď: ≥720 px vždy jedna řada telefon | nástroje,
+   561–719 px nástroje vždy na vlastním řádku; když je místa málo, zalomí se
+   popisek tlačítka na 2 řádky (nejdřív „Upravit rezervaci", apka má přednost). */
+@media (min-width:561px){
+  .header-topbar .container{flex-wrap:nowrap}
+  .header-phone{flex:0 0 auto}
+  .header-tools{flex:1 1 auto;min-width:0}
+  .header-editrez{flex:1 1 0;min-width:min-content;max-width:max-content;white-space:normal}
+  .header-app{flex:4 1 0;min-width:min-content;max-width:max-content}
+  .header-app-btn{white-space:normal;text-align:center}
+  .header-lang{flex:0 0 auto}
+}
+@media (min-width:561px) and (max-width:719px){
+  .header-topbar .container{flex-wrap:wrap}
+  .header-tools{flex:1 1 100%}
+}
 
 /* Desktop: podtitulek „termín · motorka · storno" */
 @media (min-width:1025px){.header-editrez-sub{display:block}}

@@ -135,7 +135,7 @@ return [
             'h1' => 'How renting a motorcycle works',
             'intro_p1' => 'At <strong>MotoGo24 – motorcycle rental in the Vysočina region</strong>, renting is simple, quick and fair.&nbsp;<strong>No deposit, rider gear included and 24/7 pick-up and return</strong>. See for yourself how easy it is.',
             'intro_h2' => 'How to rent a motorcycle – MotoGo24 rental – Vysočina',
-            'intro_p2' => 'At our <strong>motorcycle rental</strong> you do everything online: choose a bike, pick your dates and fill in the booking form – including gear and how you want to receive the bike. Pick it up in Pelhřimov, or have it delivered anywhere in the Czech Republic. You pay online when you complete your booking.',
+            'intro_p2' => 'At our <strong>motorcycle rental</strong> you do everything online: choose a bike, pick your dates and fill in the booking form – including gear and how you want to receive the bike. Pick it up in Mezná near Pelhřimov (from there we can also deliver it anywhere in the Czech Republic) or at the self-service branch in Velké Němčice near Brno. You pay online when you complete your booking.',
             'process' => [
                 'title' => 'How the rental works, step by step',
                 'grid' => 'gr4',
@@ -144,14 +144,14 @@ return [
                     ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Pick your dates', 'text' => 'Choose the day you want to ride in the calendar. You\'ll see which bikes are available.'],
                     ['icon' => 'gfx/kontaktni-udaje.svg', 'title' => '3. Contact details', 'text' => 'Fill in your name, address, e-mail and phone number.'],
                     ['icon' => 'gfx/cas-prevzeti-motorky.svg', 'title' => '4. Pick-up time', 'text' => 'Choose when you\'ll pick up the bike, or when we should deliver it.'],
-                    ['icon' => 'gfx/vyzvednuti-vraceni-motorky.svg', 'title' => '5. Choose how to get the bike', 'text' => 'Choose how you get the bike – in person in Pelhřimov, or delivered anywhere in the Czech Republic.&nbsp;'],
+                    ['icon' => 'gfx/vyzvednuti-vraceni-motorky.svg', 'title' => '5. Choose how to get the bike', 'text' => 'Choose how you get the bike – in person in Mezná near Pelhřimov, self-service in Velké Němčice near Brno, or delivered from Mezná anywhere in the Czech Republic.&nbsp;'],
                     ['icon' => 'gfx/prevezmi-motorku.svg', 'title' => '6. Choose how to return it', 'text' => 'Choose whether you\'ll return the bike at our branch or somewhere else.'],
                     ['icon' => 'gfx/vyber-vybavu.svg', 'title' => '7. Gear', 'text' => 'Basic rider gear is included. Want gear for a passenger, rental boots, or riding in your own gear? Just tick it when you book.'],
                     ['icon' => 'gfx/zaplat.svg', 'title' => '8. Order summary and payment', 'text' => 'Check the order summary, accept the terms and pay online.'],
                     ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => '9. Confirmation by e-mail', 'text' => 'Once your booking is complete, you\'ll get an e-mail with the booking and payment confirmation, a payment receipt, the pre-filled rental contract and basic instructions for picking up the bike.'],
                     ['icon' => 'gfx/predani-motorky.svg', 'title' => '10. Picking up the bike', 'text' => 'At the handover we check your documents, complete the contract and sign the handover protocol. We make sure your gear fits – and then it\'s just a matter of starting the engine!'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '11. Enjoy the ride', 'text' => 'Hit the road – <strong>no deposit, no stress</strong>. The rest is just asphalt and freedom.'],
-                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Returning the bike', 'text' => 'Return the bike on time – in person at our branch in Pelhřimov, or at a place agreed in advance. No need to refuel – just make sure the reserve light isn\'t on. It only needs to be returned washed at the self-service branch in Velké Němčice.'],
+                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Returning the bike', 'text' => 'Return the bike on time – in person at the branch you rented it from (Mezná near Pelhřimov or the self-service branch in Velké Němčice near Brno), or, for bikes from Mezná, at a place agreed in advance. No need to refuel – just make sure the reserve light isn\'t on. It only needs to be returned washed at the self-service branch in Velké Němčice.'],
                 ],
             ],
             'gallery' => [
@@ -192,7 +192,7 @@ return [
                 'items' => [
                     ['q' => 'Do I need to pay a deposit?', 'a' => 'No.&nbsp;<strong>We rent with no deposit</strong>&nbsp;– fair and without unnecessary hurdles.'],
                     ['q' => 'Is gear included in the rental price?', 'a' => 'Yes. Every rider gets a&nbsp;<strong>helmet, jacket, trousers and gloves free of charge</strong>.'],
-                    ['q' => 'Where can I pick up the bike?', 'a' => 'Pick-up is in Pelhřimov, or we can&nbsp;<strong>deliver the bike</strong>&nbsp;to a place of your choice.'],
+                    ['q' => 'Where can I pick up the bike?', 'a' => 'At our staffed branch in Mezná near Pelhřimov (from there we can also&nbsp;<strong>deliver the bike</strong>&nbsp;to a place of your choice) or at the self-service branch in Velké Němčice near Brno.'],
                     ['q' => 'By when do I have to return the bike?', 'a' => 'You can return the bike any time on the last day of your rental – even at midnight.'],
                 ],
                 'more_link' => [
@@ -216,7 +216,7 @@ return [
                 'keywords' => 'motorcycle pick-up, motorcycle rental Pelhřimov, motorcycle rental Vysočina, rent a motorcycle, MotoGo24',
             ],
             'h1' => 'Pick-up at the branch – quick, easy and 24/7',
-            'intro' => 'At <strong>MotoGo24 – motorcycle rental in the Vysočina region</strong>&nbsp;picking up a bike takes just a few minutes. We rent with <strong>no deposit, rider gear included and 24/7 pick-up and return</strong>. Come to Pelhřimov in person and hit the road!',
+            'intro' => 'At <strong>MotoGo24 – motorcycle rental in the Vysočina region</strong>&nbsp;picking up a bike takes just a few minutes. We rent with <strong>no deposit, rider gear included and 24/7 pick-up and return</strong>. Come to Mezná near Pelhřimov in person and hit the road! At the self-service branch in Velké Němčice near Brno you pick up the bike yourself with an access code from the app or e-mail.',
             'top_cta' => [
                 'label' => 'BOOK ONLINE',
                 'href' => '/rezervace',
@@ -301,7 +301,7 @@ return [
                 'keywords' => 'motorcycle return, motorcycle rental Pelhřimov, motorcycle rental Vysočina, MotoGo24',
             ],
             'h1' => 'Returning the bike at the branch – quick and hassle-free',
-            'intro' => 'Your rental ends just as easily as it began. Come to our address in Pelhřimov at the agreed return time, we check the bike and gear together and you\'re done. No need to wash or refuel it – just make sure the reserve light isn\'t on.&nbsp;',
+            'intro' => 'Your rental ends just as easily as it began. Come to our address in Mezná near Pelhřimov at the agreed return time. Return the bike and the rented gear and you\'re done. Before returning, you don\'t need to wash or refuel it – just make sure the reserve light isn\'t on.&nbsp;',
             'process' => [
                 'grid' => 'gr4',
                 'steps' => [
@@ -338,7 +338,7 @@ return [
             ],
             'cta' => [
                 'title' => 'Returning the bike at the branch – MotoGo24, Pelhřimov (Vysočina)',
-                'text' => 'MotoGo24 is a motorcycle rental in the Vysočina region that runs 24/7, with an easy return any time on your rental day. At our Pelhřimov branch: no deposit, no washing, no refuelling. Choose a touring, supermoto, naked or kids\' motorcycle and book online.',
+                'text' => 'MotoGo24 is a motorcycle rental in the Vysočina region that runs 24/7, with an easy return any time on your rental day. No deposit, no refuelling (just keep the reserve light off) and, in Mezná, no washing either. Choose from our wide range of motorcycles (and scooters) and book online from the comfort of your home.',
                 'buttons' => [
                     ['label' => 'CONTACT US', 'href' => '/kontakt', 'cls' => 'btndark', 'aria' => 'Contact us'],
                 ],
@@ -574,7 +574,7 @@ return [
                 'keywords' => 'motorcycle delivery, motorcycle rental with delivery, motorcycle rental Vysočina, motorbike hire Czech Republic, MotoGo24',
             ],
             'h1' => 'Motorcycle delivery – brought right to you',
-            'intro' => 'Want to set off without travelling to the rental first? We\'ll arrange <strong>delivery of the bike to an agreed place</strong> – your home, a hotel, a train station or the start of your trip. We deliver anywhere in the Czech Republic – straight from our branch in Pelhřimov.',
+            'intro' => 'Want to set off without travelling to the rental first? We\'ll arrange <strong>delivery of the bike to an agreed place</strong> – your home, a hotel, a train station or the start of your trip. We deliver anywhere in the Czech Republic – straight from our branch in Mezná near Pelhřimov. Delivery is available for bikes from our staffed branch in Mezná; bikes from the self-service branch in Velké Němčice are picked up only at that branch.',
             'when' => [
                 'title' => 'When delivery comes in handy',
                 'items' => [
@@ -646,7 +646,7 @@ return [
                 'keywords' => 'motorcycle return elsewhere, one-way motorcycle rental, motorcycle collection, motorcycle rental Vysočina, MotoGo24',
             ],
             'h1' => 'Return the bike anywhere – we\'ll come to you',
-            'intro' => 'Don\'t want to come back to our branch in Pelhřimov? No problem. We\'ll collect the bike anywhere in the Czech Republic – at the time you chose in the booking form. You hand it over, we load it up. Simple and hassle-free.',
+            'intro' => 'Don\'t want to come back to our branch in Pelhřimov? No problem. We\'ll collect the bike anywhere in the Czech Republic – at the time you chose in the booking form. You hand it over, we load it up. Simple and hassle-free. Collection is available for bikes from our staffed branch in Mezná; bikes from the self-service branch in Velké Němčice are returned only at that branch.',
             'when' => [
                 'title' => 'When returning elsewhere comes in handy',
                 'items' => [
@@ -758,7 +758,7 @@ return [
                 ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Motorcycle catalogue', 'text' => 'Browse our motorcycles for rent – from sport to touring models.', 'btn' => 'MOTORCYCLE CATALOGUE', 'href' => '/katalog'],
                 ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => 'How to rent a motorcycle', 'text' => 'A simple process: choose a bike, book it and ride off.', 'btn' => 'HOW TO RENT A MOTORCYCLE', 'href' => '/jak-pujcit'],
                 ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Online motorcycle booking', 'text' => 'Book a motorcycle through our easy online system.', 'btn' => 'BOOK A MOTORCYCLE', 'href' => '/rezervace'],
-                ['icon' => 'gfx/kontakt.svg', 'title' => 'Contact and map', 'text' => 'Visit our motorcycle rental in Pelhřimov or get in touch.', 'btn' => 'CONTACT', 'href' => '/kontakt'],
+                ['icon' => 'gfx/kontakt.svg', 'title' => 'Contact and map', 'text' => 'Visit us in Mezná near Pelhřimov or at the self-service branch in Velké Němčice near Brno – or get in touch.', 'btn' => 'CONTACT', 'href' => '/kontakt'],
                 ['icon' => 'gfx/faq.svg', 'title' => 'Frequently asked questions', 'text' => 'The most common questions about renting a motorcycle, all in one place.', 'btn' => 'FAQ', 'href' => '/jak-pujcit/faq'],
                 ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Motorcycle trips', 'text' => 'Discover great motorcycle routes in the Czech Republic for visitors and locals alike.', 'btn' => 'MOTORCYCLE ROUTES', 'href' => '/blog'],
             ],

@@ -136,7 +136,7 @@ return [
             'h1' => 'So läuft die Motorradmiete ab',
             'intro_p1' => 'Bei <strong>MotoGo24 – Motorradverleih in der Region Vysočina</strong> ist Mieten einfach, schnell und fair.&nbsp;<strong>Ohne Kaution, Fahrerausrüstung inklusive, Abholung und Rückgabe rund um die Uhr</strong>. Überzeug dich selbst, wie einfach es geht.',
             'intro_h2' => 'Motorrad mieten – Motorradverleih MotoGo24 – Vysočina',
-            'intro_p2' => 'In unserem <strong>Motorradverleih</strong> erledigst du alles online: Motorrad wählen, Termin festlegen und Buchungsformular ausfüllen – inklusive Ausrüstung und Art der Übergabe. Hol das Motorrad in Pelhřimov ab oder lass es dir überallhin in Tschechien liefern. Bezahlt wird online beim Abschluss der Buchung.',
+            'intro_p2' => 'In unserem <strong>Motorradverleih</strong> erledigst du alles online: Motorrad wählen, Termin festlegen und Buchungsformular ausfüllen – inklusive Ausrüstung und Art der Übergabe. Hol das Motorrad in Mezná bei Pelhřimov ab (von dort liefern wir es dir auch überallhin in Tschechien) oder per Selbstbedienung in Velké Němčice bei Brno. Bezahlt wird online beim Abschluss der Buchung.',
             'process' => [
                 'title' => 'Die Miete Schritt für Schritt',
                 'grid' => 'gr4',
@@ -145,14 +145,14 @@ return [
                     ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Termin wählen', 'text' => 'Wähle im Kalender den Tag, an dem du losfahren willst. Du siehst sofort, welche Motorräder frei sind.'],
                     ['icon' => 'gfx/kontaktni-udaje.svg', 'title' => '3. Kontaktdaten', 'text' => 'Gib deinen Namen, deine Adresse, deine E-Mail und deine Telefonnummer an.'],
                     ['icon' => 'gfx/cas-prevzeti-motorky.svg', 'title' => '4. Abholzeit', 'text' => 'Wähle, wann du das Motorrad abholst oder wann wir es dir liefern sollen.'],
-                    ['icon' => 'gfx/vyzvednuti-vraceni-motorky.svg', 'title' => '5. Übergabe wählen', 'text' => 'Wähle, wie du das Motorrad bekommst – persönlich in Pelhřimov oder per Lieferung überallhin in Tschechien.&nbsp;'],
+                    ['icon' => 'gfx/vyzvednuti-vraceni-motorky.svg', 'title' => '5. Übergabe wählen', 'text' => 'Wähle, wie du das Motorrad bekommst – persönlich in Mezná bei Pelhřimov, per Selbstbedienung in Velké Němčice bei Brno oder per Lieferung ab Mezná überallhin in Tschechien.&nbsp;'],
                     ['icon' => 'gfx/prevezmi-motorku.svg', 'title' => '6. Rückgabe wählen', 'text' => 'Wähle, ob du das Motorrad in unserer Filiale oder an einem anderen Ort zurückgibst.'],
                     ['icon' => 'gfx/vyber-vybavu.svg', 'title' => '7. Ausrüstung', 'text' => 'Die Grundausrüstung für den Fahrer ist inklusive. Du brauchst Ausrüstung für deinen Sozius, willst Motorradstiefel leihen oder fährst in eigener Ausrüstung? Das kreuzt du einfach bei der Buchung an.'],
                     ['icon' => 'gfx/zaplat.svg', 'title' => '8. Übersicht und Bezahlung', 'text' => 'Prüfe die Bestellübersicht, akzeptiere die Bedingungen und bezahle online.'],
                     ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => '9. Bestätigung per E-Mail', 'text' => 'Nach Abschluss der Buchung bekommst du eine E-Mail mit der Buchungs- und Zahlungsbestätigung, dem Zahlungsbeleg, dem vorausgefüllten Mietvertrag und den wichtigsten Infos zur Abholung des Motorrads.'],
                     ['icon' => 'gfx/predani-motorky.svg', 'title' => '10. Abholung des Motorrads', 'text' => 'Bei der Übergabe prüfen wir deine Dokumente, ergänzen den Vertrag und unterschreiben das Übergabeprotokoll. Du probierst die Ausrüstung an, damit alles passt – und dann heißt es nur noch: Motor an!'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '11. Genieß die Fahrt', 'text' => 'Ab auf die Straße – <strong>ohne Kaution, ohne Stress</strong>. Der Rest ist nur noch Asphalt und Freiheit.'],
-                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Rückgabe des Motorrads', 'text' => 'Bring das Motorrad pünktlich zurück – persönlich in unsere Filiale in Pelhřimov oder an einen vorher vereinbarten Ort. Tanken musst du nicht – nur die Reserveleuchte sollte nicht leuchten. Gewaschen zurückbringen musst du es nur an der Selbstbedienungsfiliale in Velké Němčice.'],
+                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Rückgabe des Motorrads', 'text' => 'Bring das Motorrad pünktlich zurück – persönlich in die Filiale, in der du es gemietet hast (Mezná bei Pelhřimov oder die Selbstbedienungsfiliale in Velké Němčice bei Brno), Motorräder aus Mezná auch an einen vorher vereinbarten Ort. Tanken musst du nicht – nur die Reserveleuchte sollte nicht leuchten. Gewaschen zurückbringen musst du es nur an der Selbstbedienungsfiliale in Velké Němčice.'],
                 ],
             ],
             'gallery' => [
@@ -193,7 +193,7 @@ return [
                 'items' => [
                     ['q' => 'Muss ich eine Kaution zahlen?', 'a' => 'Nein.&nbsp;<strong>Wir vermieten ohne Kaution</strong>&nbsp;– fair und ohne unnötige Hürden.'],
                     ['q' => 'Ist die Ausrüstung im Mietpreis inbegriffen?', 'a' => 'Ja. Jeder Fahrer bekommt&nbsp;<strong>Helm, Jacke, Hose und Handschuhe kostenlos</strong>.'],
-                    ['q' => 'Wo kann ich das Motorrad abholen?', 'a' => 'Die Abholung ist in Pelhřimov – oder wir&nbsp;<strong>liefern dir das Motorrad</strong>&nbsp;an einen Ort deiner Wahl.'],
+                    ['q' => 'Wo kann ich das Motorrad abholen?', 'a' => 'In unserer Filiale mit Personal in Mezná bei Pelhřimov (von dort&nbsp;<strong>liefern wir dir das Motorrad</strong>&nbsp;auch an einen Ort deiner Wahl) oder an der Selbstbedienungsfiliale in Velké Němčice bei Brno.'],
                     ['q' => 'Bis wann muss ich das Motorrad zurückgeben?', 'a' => 'Du kannst das Motorrad jederzeit am letzten Miettag zurückgeben – auch noch um Mitternacht.'],
                 ],
                 'more_link' => [
@@ -217,7 +217,7 @@ return [
                 'keywords' => 'Motorrad abholen, Motorradverleih Pelhřimov, Motorradverleih Vysočina, Motorrad mieten, MotoGo24',
             ],
             'h1' => 'Abholung in der Filiale – schnell, einfach und rund um die Uhr',
-            'intro' => 'Bei <strong>MotoGo24 – Motorradverleih in der Region Vysočina</strong>&nbsp;dauert die Abholung nur wenige Minuten. Wir vermieten <strong>ohne Kaution, mit Fahrerausrüstung inklusive und mit Abholung und Rückgabe rund um die Uhr</strong>. Komm persönlich nach Pelhřimov und ab auf die Straße!',
+            'intro' => 'Bei <strong>MotoGo24 – Motorradverleih in der Region Vysočina</strong>&nbsp;dauert die Abholung nur wenige Minuten. Wir vermieten <strong>ohne Kaution, mit Fahrerausrüstung inklusive und mit Abholung und Rückgabe rund um die Uhr</strong>. Komm persönlich nach Mezná bei Pelhřimov und ab auf die Straße! In der Selbstbedienungsfiliale in Velké Němčice bei Brno holst du das Motorrad selbst mit einem Zugangscode aus der App oder der E-Mail ab.',
             'top_cta' => [
                 'label' => 'ONLINE BUCHEN',
                 'href' => '/rezervace',
@@ -302,7 +302,7 @@ return [
                 'keywords' => 'Motorrad zurückgeben, Motorradverleih Pelhřimov, Motorradverleih Vysočina, MotoGo24',
             ],
             'h1' => 'Rückgabe in der Filiale – schnell und unkompliziert',
-            'intro' => 'Deine Miete endet genauso einfach, wie sie begonnen hat. Komm zur vereinbarten Rückgabezeit an unsere Adresse in Pelhřimov, wir prüfen gemeinsam Motorrad und Ausrüstung – fertig. Waschen und tanken musst du nicht – nur die Reserveleuchte sollte nicht leuchten.&nbsp;',
+            'intro' => 'Deine Miete endet genauso einfach, wie sie begonnen hat. Komm zur vereinbarten Rückgabezeit an unsere Adresse in Mezná bei Pelhřimov. Gib das Motorrad und die geliehene Ausrüstung zurück – fertig. Vor der Rückgabe musst du es weder waschen noch tanken – nur die Reserveleuchte sollte nicht leuchten.&nbsp;',
             'process' => [
                 'grid' => 'gr4',
                 'steps' => [
@@ -339,7 +339,7 @@ return [
             ],
             'cta' => [
                 'title' => 'Rückgabe in der Filiale – MotoGo24, Pelhřimov (Vysočina)',
-                'text' => 'MotoGo24 ist ein Motorradverleih in der Region Vysočina mit Nonstop-Betrieb und einfacher Rückgabe jederzeit an deinem Miettag. In unserer Filiale in Pelhřimov gilt: keine Kaution, kein Waschen, kein Tanken. Wähle ein Reise-, Supermoto-, Naked- oder Kindermotorrad und buche online.',
+                'text' => 'MotoGo24 ist ein Motorradverleih in der Region Vysočina mit Nonstop-Betrieb und einfacher Rückgabe jederzeit an deinem Miettag. Keine Kaution, kein Tanken (nur die Reserveleuchte sollte nicht leuchten) und in Mezná auch kein Waschen. Wähle aus unserem großen Angebot an Motorrädern (und Rollern) und buche bequem online von zu Hause aus.',
                 'buttons' => [
                     ['label' => 'KONTAKTIERE UNS', 'href' => '/kontakt', 'cls' => 'btndark', 'aria' => 'Kontaktiere uns'],
                 ],
@@ -575,7 +575,7 @@ return [
                 'keywords' => 'Motorrad Lieferung, Motorradverleih mit Lieferung, Motorradverleih Vysočina, Motorrad mieten Tschechien, MotoGo24',
             ],
             'h1' => 'Lieferung des Motorrads – direkt zu dir',
-            'intro' => 'Du willst losfahren, ohne erst zum Verleih zu fahren? Wir organisieren die <strong>Lieferung des Motorrads an einen vereinbarten Ort</strong> – nach Hause, ins Hotel, zum Bahnhof oder an den Start deiner Tour. Wir liefern überallhin in Tschechien – direkt aus unserer Filiale in Pelhřimov.',
+            'intro' => 'Du willst losfahren, ohne erst zum Verleih zu fahren? Wir organisieren die <strong>Lieferung des Motorrads an einen vereinbarten Ort</strong> – nach Hause, ins Hotel, zum Bahnhof oder an den Start deiner Tour. Wir liefern überallhin in Tschechien – direkt aus unserer Filiale in Mezná bei Pelhřimov. Die Lieferung gibt es für Motorräder aus unserer Filiale mit Personal in Mezná; Motorräder der Selbstbedienungsfiliale in Velké Němčice holst du nur direkt dort ab.',
             'when' => [
                 'title' => 'Wann sich die Lieferung lohnt',
                 'items' => [
@@ -647,7 +647,7 @@ return [
                 'keywords' => 'Motorrad an anderem Ort zurückgeben, Einweg-Motorradmiete, Rückholung Motorrad, Motorradverleih Vysočina, MotoGo24',
             ],
             'h1' => 'Rückgabe, wo du willst – wir kommen zu dir',
-            'intro' => 'Du willst nicht zurück in unsere Filiale nach Pelhřimov? Kein Problem. Wir holen das Motorrad überall in Tschechien ab – zu der Zeit, die du im Buchungsformular gewählt hast. Du übergibst, wir laden auf. Einfach und unkompliziert.',
+            'intro' => 'Du willst nicht zurück in unsere Filiale nach Pelhřimov? Kein Problem. Wir holen das Motorrad überall in Tschechien ab – zu der Zeit, die du im Buchungsformular gewählt hast. Du übergibst, wir laden auf. Einfach und unkompliziert. Die Abholung gibt es für Motorräder aus unserer Filiale mit Personal in Mezná; Motorräder der Selbstbedienungsfiliale in Velké Němčice gibst du nur direkt dort zurück.',
             'when' => [
                 'title' => 'Wann sich die Rückgabe an einem anderen Ort lohnt',
                 'items' => [
@@ -759,7 +759,7 @@ return [
                 ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Motorradkatalog', 'text' => 'Sieh dir unsere Mietmotorräder an – von Sport- bis zu Reisemodellen.', 'btn' => 'MOTORRADKATALOG', 'href' => '/katalog'],
                 ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => 'So mietest du ein Motorrad', 'text' => 'Ganz einfach: Motorrad wählen, buchen und losfahren.', 'btn' => 'SO MIETEST DU EIN MOTORRAD', 'href' => '/jak-pujcit'],
                 ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Online-Buchung', 'text' => 'Buche dein Mietmotorrad über unser einfaches Online-System.', 'btn' => 'MOTORRAD BUCHEN', 'href' => '/rezervace'],
-                ['icon' => 'gfx/kontakt.svg', 'title' => 'Kontakt und Karte', 'text' => 'Besuche unseren Motorradverleih in Pelhřimov oder kontaktiere uns.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
+                ['icon' => 'gfx/kontakt.svg', 'title' => 'Kontakt und Karte', 'text' => 'Besuche uns in Mezná bei Pelhřimov oder an der Selbstbedienungsfiliale in Velké Němčice bei Brno – oder kontaktiere uns.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
                 ['icon' => 'gfx/faq.svg', 'title' => 'Häufige Fragen', 'text' => 'Die häufigsten Fragen zur Motorradmiete übersichtlich an einem Ort.', 'btn' => 'FAQ', 'href' => '/jak-pujcit/faq'],
                 ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Motorradtouren', 'text' => 'Entdecke schöne Motorradrouten in Tschechien – für Gäste und Einheimische.', 'btn' => 'MOTORRADROUTEN', 'href' => '/blog'],
             ],

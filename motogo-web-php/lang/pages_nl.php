@@ -292,7 +292,7 @@ return [
                 'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Motorbezorging – tot aan je deur',
-            'intro' => 'Wil je vertrekken zonder naar de verhuur te moeten gaan? We zorgen voor <strong>motorbezorging</strong> op een <strong>afgesproken locatie</strong>.',
+            'intro' => 'Wil je vertrekken zonder eerst naar de verhuur te gaan? We zorgen voor <strong>bezorging van de motor op een afgesproken plek</strong> – thuis, bij je hotel, op het station of bij het startpunt van je tocht. We bezorgen overal in Tsjechië – rechtstreeks vanuit onze vestiging in Mezná bij Pelhřimov. Bezorging is mogelijk voor motoren van onze bemande vestiging in Mezná; motoren van de zelfbedieningsvestiging in Velké Němčice haal je alleen daar op.',
             'top_cta' => [
                 'label' => 'RESERVEREN MET BEZORGING',
                 'href' => '/rezervace?delivery=1',
@@ -447,7 +447,7 @@ return [
                 'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Motor inleveren elders – ophalen tot bij jou',
-            'intro' => 'Je hoeft niet terug naar de verhuur. <strong>MotoGo24</strong> biedt <strong>motor ophalen</strong> vanaf de plek die jou uitkomt – hotel, station, eigen adres.',
+            'intro' => 'Wil je niet terug naar onze vestiging in Pelhřimov? Geen probleem. We halen de motor overal in Tsjechië op – op het tijdstip dat je in het reserveringsformulier hebt gekozen. Jij geeft hem af, wij laden hem in. Eenvoudig en zonder gedoe. Ophalen is mogelijk voor motoren van onze bemande vestiging in Mezná; motoren van de zelfbedieningsvestiging in Velké Němčice lever je alleen daar in.',
             'top_cta' => [
                 'label' => 'RESERVEREN MET OPHALEN',
                 'href' => '/rezervace?return_delivery=1',
@@ -666,7 +666,7 @@ return [
                 [
                     'icon' => 'gfx/kontakt.svg',
                     'title' => 'Contact en kaart',
-                    'text' => 'Bezoek onze motorverhuur in Pelhřimov of neem contact op.',
+                    'text' => 'Bezoek ons in Mezná bij Pelhřimov of bij de zelfbedieningsvestiging in Velké Němčice bij Brno – of neem contact op.',
                     'btn' => 'CONTACT',
                     'href' => '/kontakt',
                 ],
@@ -1056,7 +1056,7 @@ return [
             'h1' => 'Huurproces motor',
             'intro_p1' => 'Bij <strong>Motogo24 – motorverhuur in Vysočina</strong> is huren eenvoudig, snel en eerlijk.&nbsp;<strong>Zonder borg, met rijdersuitrusting inbegrepen en 24/7 service voor het ophalen en terugbrengen van de motor</strong>. Overtuig jezelf hoe makkelijk het werkt.',
             'intro_h2' => 'Hoe een motor huren – verhuur Motogo24 – Vysočina',
-            'intro_p2' => 'Bij onze <strong>motorverhuur</strong> doe je alles online: kies een motor, kies een datum en vul het reserveringsformulier in – inclusief uitrusting en overdrachtsmethode. Haal de motor op in Pelhřimov of bestel bezorging overal in Tsjechië. Je betaalt online bij het voltooien van de reservering.',
+            'intro_p2' => 'Bij onze <strong>motorverhuur</strong> doe je alles online: kies een motor, kies een datum en vul het reserveringsformulier in – inclusief uitrusting en overdrachtsmethode. Haal de motor op in Mezná bij Pelhřimov (vanaf daar bezorgen we ook overal in Tsjechië) of via zelfbediening in Velké Němčice bij Brno. Je betaalt online bij het voltooien van de reservering.',
             'process' => [
                 'title' => 'Hoe de huur stap voor stap werkt',
                 'grid' => 'gr4',
@@ -1084,7 +1084,7 @@ return [
                     [
                         'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
                         'title' => '5. Kies de overdracht',
-                        'text' => 'Selecteer de ophaalmethode – persoonlijk in Pelhřimov, of bezorging overal in Tsjechië.&nbsp;',
+                        'text' => 'Selecteer de ophaalmethode – persoonlijk in Mezná bij Pelhřimov, via zelfbediening in Velké Němčice bij Brno, of bezorging vanuit Mezná overal in Tsjechië.&nbsp;',
                     ],
                     [
                         'icon' => 'gfx/prevezmi-motorku.svg',
@@ -1119,7 +1119,7 @@ return [
                     [
                         'icon' => 'gfx/vrat-motorku-vcas.svg',
                         'title' => '12. Breng de motor terug',
-                        'text' => 'Breng de motor op tijd terug – persoonlijk bij de verhuur in Pelhřimov, of op de afgesproken plek. Tanken is niet nodig – zorg alleen dat het reservelampje niet brandt. Alleen bij de zelfbedieningsvestiging in Velké Němčice lever je hem gewassen in.',
+                        'text' => 'Breng de motor op tijd terug – persoonlijk naar de vestiging waar je hem huurde (Mezná bij Pelhřimov of de zelfbedieningsvestiging in Velké Němčice bij Brno), motoren uit Mezná ook op de afgesproken plek. Tanken is niet nodig – zorg alleen dat het reservelampje niet brandt. Alleen bij de zelfbedieningsvestiging in Velké Němčice lever je hem gewassen in.',
                     ],
                 ],
             ],
@@ -1217,7 +1217,7 @@ return [
                     ],
                     [
                         'q' => 'Waar kan ik de motor ophalen?',
-                        'a' => 'Het ophalen gebeurt in Pelhřimov, of we bieden&nbsp;<strong>motorbezorging</strong>&nbsp;naar een plek van jouw keuze.',
+                        'a' => 'Bij de bemande vestiging in Mezná bij Pelhřimov (van daaruit bieden we ook&nbsp;<strong>motorbezorging</strong>&nbsp;naar een plek van jouw keuze) of bij de zelfbedieningsvestiging in Velké Němčice bij Brno.',
                     ],
                     [
                         'q' => 'Wanneer moet ik de motor uiterlijk terugbrengen?',
@@ -1383,7 +1383,7 @@ return [
                 'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Motor inleveren bij verhuur',
-            'intro' => 'Lever de motor gemakkelijk in bij <strong>Motogo24 – motorverhuur in Vysočina</strong>. <strong>24/7 service</strong>, zonder stress.',
+            'intro' => 'Je huur eindigt net zo eenvoudig als hij begon. Kom op de afgesproken inlevertijd naar ons adres in Mezná bij Pelhřimov. Lever de motor en de gehuurde uitrusting in en klaar. Voor het inleveren hoef je de motor niet te wassen of te tanken – zorg alleen dat het reservelampje niet brandt.&nbsp;',
             'process' => [
                 'grid' => 'gr4',
                 'steps' => [
@@ -1454,7 +1454,7 @@ return [
             ],
             'cta' => [
                 'title' => 'Motor inleveren bij verhuur – Motogo24 Pelhřimov',
-                'text' => 'Lever de motor direct bij ons in Pelhřimov in – <strong>24/7, zonder borg, zonder stress</strong>.',
+                'text' => 'MotoGo24 is een motorverhuur in de regio Vysočina die 24/7 werkt, met eenvoudig inleveren op elk moment van je huurdag. Geen borg, niet tanken (zorg alleen dat het reservelampje niet brandt) en in Mezná ook niet wassen. Kies uit ons ruime aanbod aan motoren (en scooters) en reserveer online vanuit je luie stoel.',
                 'buttons' => [
                     [
                         'label' => 'ONLINE RESERVEREN',

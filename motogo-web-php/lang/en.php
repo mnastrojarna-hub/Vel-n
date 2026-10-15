@@ -1143,7 +1143,7 @@ return [
     'confirm.success.pickupTitle' => 'Pickup location',
     'confirm.success.openMap' => 'Open in map',
     'confirm.success.gateNoticeTitle' => 'Arriving at the Velké Němčice branch',
-    'confirm.success.gateNotice' => 'Velké Němčice: If the entrance gate is closed, you will find the padlock key in the upper lockbox on the right gate pillar — the lockbox code will be sent to you together with the locker room and motorcycle codes (use them in this order: gate → locker room → motorcycle). Park in any of spots 1–7 on the right along the fence. If the gate was closed, lock it again after you leave, return the key to the upper lockbox and scramble the dials. If the gate was open, leave it open.',
+    'confirm.success.gateNotice' => 'Velké Němčice: If the entrance gate is closed, you will find the padlock key in the upper lockbox on the right gate pillar — the lockbox code will be sent to you together with the locker room and motorcycle codes (use them in this order: gate → locker room → motorcycle). Park in any of spots 1–7 on the right along the fence. If the gate was closed, lock it again after you leave, return the key to the upper lockbox and scramble the dials. If the gate was open, leave it open. Return the motorcycle washed and with the fuel reserve light off (no need to fill the tank).',
     'confirm.success.nextOrderShip' => 'If you chose delivery, your parcel will arrive within 1–3 business days.',
     'confirm.success.nextVoucherEmail' => 'You will find the voucher code in your email — redeem it when booking on motogo24.cz / .com or in the app.',
     'confirm.success.nextVoucherPrint' => 'If you ordered a printed voucher, it will arrive by post within 2–3 business days.',

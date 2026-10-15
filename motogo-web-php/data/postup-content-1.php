@@ -1,16 +1,16 @@
 <?php
 // ===== MotoGo24 — Postup pujceni motorky 1/2 (intro + proces 12x) =====
 // 1:1 prepis z https://www.motogo24.cz/cz/jak-si-pujcit-motorku/postup-pujceni-motorky
-// POZN: V originale jsou drobne preklepy ("pujcove" misto "pujcovne",
-//       dvojite ".." na konci paragraphu). Zachovavame 1:1.
+// POZN: V originale je drobny preklep ("pujcove" misto "pujcovne"). Zachovavame 1:1.
+// 2026-10-15: intro_p2, krok 5, krok 12 a FAQ (data 2/2) — mista prevzeti dle majitele
+//       (Mezna u Pelhrimova + samoobsluzna pobocka Velke Nemcice); ".." opraveno.
 
 return [
     'h1' => 'Postup půjčení motorky',
     // POZOR: V originalu je preklep "pujcove" - zachovavame 1:1
     'intro_p1' => 'V <strong>Motogo24 – půjčově motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové.&nbsp;<strong>Bez kauce, s výbavou pro řidiče v ceně a nonstop provozem pro půjčení a vrácení motorky</strong>. Přesvědč se, jak snadno to funguje.',
     'intro_h2' => 'Jak si půjčit motorku – půjčovna Motogo24 – Vysočina',
-    // POZOR: V originalu je dvojita tecka ".." na konci - zachovavame 1:1
-    'intro_p2' => 'V naší <strong>motopůjčovně </strong>zvládneš vše online: vyber motorku, zvol termín a vyplň rezervační formulář – včetně výbavy a způsobu předání. Motorku si vyzvedni v Pelhřimově, nebo si objednej přistavení kamkoliv v ČR. Platbu provedeš online při dokončení rezervace..',
+    'intro_p2' => 'V naší <strong>motopůjčovně </strong>zvládneš vše online: vyber motorku, zvol termín a vyplň rezervační formulář – včetně výbavy a způsobu předání. Motorku si vyzvedni v Mezné u Pelhřimova (odtud ti ji můžeme i přistavit kamkoliv v ČR), nebo samoobslužně ve Velkých Němčicích u Brna. Platbu provedeš online při dokončení rezervace.',
     'process' => [
         'title' => 'Jak probíhá pronájem krok za krokem',
         'grid' => 'gr4',
@@ -38,7 +38,7 @@ return [
             [
                 'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
                 'title' => '5. Zvol si předání',
-                'text' => 'Vyber způsob převzetí – osobně v Pelhřimově, nebo přistavení kamkoliv v ČR.&nbsp;',
+                'text' => 'Vyber místo převzetí – osobně v Mezné u Pelhřimova, samoobslužně ve Velkých Němčicích u Brna, nebo přistavení z Mezné kamkoliv v ČR.&nbsp;',
             ],
             [
                 'icon' => 'gfx/prevezmi-motorku.svg',
@@ -73,7 +73,7 @@ return [
             [
                 'icon' => 'gfx/vrat-motorku-vcas.svg',
                 'title' => '12. Vrácení motorky',
-                'text' => 'Motorku vrať včas – osobně do půjčovny v Pelhřimově, nebo na předem sjednané místo. Tankovat nemusíš – jen ať nesvítí rezerva. Umytou ji vracej jen na samoobslužné pobočce ve Velkých Němčicích.',
+                'text' => 'Motorku vrať včas – osobně na pobočku, kde sis ji půjčil (Mezná u Pelhřimova, nebo samoobslužné Velké Němčice u Brna), u motorek z Mezné i na předem sjednané místo. Tankovat nemusíš – jen ať nesvítí rezerva. Umytou ji vracej jen na samoobslužné pobočce ve Velkých Němčicích.',
             ],
         ],
     ],

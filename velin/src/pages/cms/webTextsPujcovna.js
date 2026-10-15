@@ -63,7 +63,7 @@ export const PAGE_PUJCOVNA = {
       fields: [
         { key: 'web.pujcovna.faq.title', label: 'Nadpis sekce', default: 'Často kladené otázky' },
         { key: 'web.pujcovna.faq.items.0.q', label: 'Otázka 1', default: 'Jak si mohu rezervovat motorku?' },
-        { key: 'web.pujcovna.faq.items.0.a', label: 'Odpověď 1', type: 'textarea', default: 'Motorku si můžeš rezervovat přes náš online rezervační systém přímo tady na webu. Případně se nám můžeš ozvat e-mailem, telefonicky nebo přes naše sociální sítě.' },
+        { key: 'web.pujcovna.faq.items.0.a', label: 'Odpověď 1', type: 'textarea', default: 'Motorku si můžeš rezervovat přes náš online rezervační systém přímo tady na webu nebo v aplikaci MotoGo24, která je zdarma na Google Play (Android) i v App Store (iPhone). Případně se nám můžeš ozvat e-mailem, telefonicky nebo přes naše sociální sítě.' },
         { key: 'web.pujcovna.faq.items.1.q', label: 'Otázka 2', default: 'Můžu si motorku půjčit i bez předchozí rezervace?' },
         { key: 'web.pujcovna.faq.items.1.a', label: 'Odpověď 2', type: 'textarea', default: 'Bez rezervace to bohužel nejde. Každou motorku je nutné předem zamluvit.' },
         { key: 'web.pujcovna.faq.items.2.q', label: 'Otázka 3', default: 'Musím složit kauci?' },

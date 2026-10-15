@@ -44,7 +44,7 @@ return [
     ],
     'cta' => [
         'title' => 'Vrácení motorky v půjčovně – MotoGo24, Pelhřimov (Vysočina)',
-        'text' => 'MotoGo24 je půjčovna motorek na Vysočině s nonstop provozem a jednoduchým vrácením motorky kdykoliv v den výpůjčky. Bez kauce, bez tankování, v Mezné i bez mytí. Vyber si cestovní, supermoto, naked nebo dětskou motorku a rezervuj online.',
+        'text' => 'MotoGo24 je půjčovna motorek na Vysočině s nonstop provozem a jednoduchým vrácením motorky kdykoliv v den výpůjčky. Bez kauce, bez tankování (jen ať nesvítí rezerva), v Mezné i bez mytí. Vyber si z naší široké nabídky motorek (a skútrů) a rezervuj online z pohodlí domova.',
         'buttons' => [
             [
                 'label' => 'KONTAKT',
