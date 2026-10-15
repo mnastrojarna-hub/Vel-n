@@ -272,24 +272,32 @@ export default function AdminDocUploadModal({ userId, bookingId, onClose, onUplo
   // Zapíše OCR do profilu, ale RUČNĚ vyplněné údaje mají přednost před Mindee:
   // už vyplněné id_number / license_number / license_expiry se NIKDY nepřepíšou,
   // doplní se jen prázdná pole. verified_at se nastaví vždy (reálný sken proběhl),
-  // takže doklad je ověřený i když si necháme ručně zadané číslo.
+  // takže doklad je ověřený i když si necháme ručně zadané číslo. Platnost OP / pasu
+  // (id_verified_until / passport_verified_until, jen záznam do smlouvy) se doplní do
+  // prázdné nebo posune na pozdější (nový doklad platí déle) — nikdy nezkrátí.
   async function applyOcrToProfile(scanType, fields) {
     if (!fields) return
     const empty = (v) => !(v != null && String(v).trim() !== '')
-    let cur = {}
+    const exp = /^\d{4}-\d{2}-\d{2}$/.test(String(fields.expiryDate || '')) ? fields.expiryDate : null
+    const later = (v) => !!exp && (empty(v) || exp > String(v).slice(0, 10))
+    let cur
     try {
       const { data } = await supabase.from('profiles')
-        .select('id_number, license_number, license_expiry').eq('id', userId).single()
-      cur = data || {}
-    } catch { /* když se profil nenačte, raději nic nepřepisujeme */ cur = { id_number: 'x', license_number: 'x', license_expiry: 'x' } }
+        .select('id_number, license_number, license_expiry, id_verified_until, passport_verified_until').eq('id', userId).single()
+      cur = data
+    } catch { cur = null }
+    // když se profil nenačte, raději nic nepřepisujeme
+    if (!cur) cur = { id_number: 'x', license_number: 'x', license_expiry: 'x', id_verified_until: '9999-12-31', passport_verified_until: '9999-12-31' }
     const upd = {}
     const now = new Date().toISOString()
     if (scanType === 'id') {
       if (fields.idNumber && empty(cur.id_number)) upd.id_number = fields.idNumber
+      if (later(cur.id_verified_until)) upd.id_verified_until = exp
       upd.id_verified_at = now
     }
     if (scanType === 'passport') {
       if (fields.idNumber && empty(cur.id_number)) upd.id_number = fields.idNumber
+      if (later(cur.passport_verified_until)) upd.passport_verified_until = exp
       upd.passport_verified_at = now
     }
     if (scanType === 'dl') {

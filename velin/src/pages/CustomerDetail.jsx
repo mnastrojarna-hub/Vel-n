@@ -16,6 +16,7 @@ import CustomerComplaintsTab from './customer/CustomerComplaintsTab'
 import ProfileTab from './CustomerProfileTab'
 import { CustomerBookings, CustomerReviews } from './CustomerSubTabs'
 import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
+import { profileChanges } from '../lib/customerProfileSave'
 
 const TABS = ['Profil', 'Skóre', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS', 'Reklamace']
 
@@ -24,6 +25,8 @@ export default function CustomerDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [customer, setCustomer] = useState(null)
+  // Profil z načtení / posledního uložení — „Uložit změny“ posílá jen rozdíl (lib/customerProfileSave)
+  const [original, setOriginal] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -41,6 +44,12 @@ export default function CustomerDetail() {
 
   useEffect(() => { loadCustomer() }, [id])
 
+  // Návrat na Profil (např. po nahrání dokladů v záložce Dokumenty): bez neuložených
+  // úprav se profil načte znovu, ať karta dokladů ukáže čísla a platnosti z OCR
+  useEffect(() => {
+    if (tab === 'Profil' && original && Object.keys(profileChanges(customer, original)).length === 0) loadCustomer()
+  }, [tab])
+
   useEffect(() => {
     if (!id) { setAppInstall(null); return }
     loadAppInstalls(supabase, [id]).then(m => setAppInstall(m[id] || null), () => setAppInstall(null))
@@ -53,7 +62,7 @@ export default function CustomerDetail() {
         supabase.from('profiles').select('*').eq('id', id).single()
       , { customer_id: id })
       if (result?.error) setError(result.error.message)
-      else setCustomer(result?.data)
+      else { setCustomer(result?.data); setOriginal(result?.data) }
     } catch (e) {
       setError(e.message)
     }
@@ -63,30 +72,23 @@ export default function CustomerDetail() {
   async function handleSave() {
     setSaving(true)
     setError(null)
-    const {
-      full_name, phone, street, city, zip, country,
-      ico, dic, company_name, company_address,
-      date_of_birth, license_group, marketing_consent,
-      id_number, license_number, license_expiry,
-      reliability_score, is_blocked, blocked_at, blocked_reason,
-      consent_gdpr, consent_vop, consent_email, consent_sms,
-      consent_push, consent_data_processing, consent_photo,
-      consent_whatsapp, consent_contract,
-    } = customer
-    const updateData = { full_name, phone, street, city, zip, country,
-      ico, dic, company_name, company_address,
-      date_of_birth, license_group, marketing_consent,
-      id_number, license_number, license_expiry,
-      reliability_score, is_blocked, blocked_at, blocked_reason,
-      consent_gdpr, consent_vop, consent_email, consent_sms,
-      consent_push, consent_data_processing, consent_photo,
-      consent_whatsapp, consent_contract }
+    const updateData = profileChanges(customer, original)
+    if (Object.keys(updateData).length === 0) { setSaving(false); return }
     const result = await debugAction('customer.save', 'CustomerDetail', () =>
       supabase.from('profiles').update(updateData).eq('id', id)
     , updateData)
     if (result?.error) setError(result.error.message)
-    else await logAudit('customer_updated', { customer_id: id })
+    else {
+      setOriginal(o => ({ ...o, ...updateData }))
+      await logAudit('customer_updated', { customer_id: id, fields: Object.keys(updateData) })
+    }
     setSaving(false)
+  }
+
+  // Změna profilu uložená mimo „Uložit změny“ (blokace, odebrání dokladu) — do stavu i do originálu
+  function applySaved(patch) {
+    setCustomer(c => ({ ...c, ...patch }))
+    setOriginal(o => ({ ...o, ...patch }))
   }
 
   async function handleDelete() {
@@ -216,7 +218,7 @@ export default function CustomerDetail() {
       supabase.from('profiles').update(updateData).eq('id', id)
     , updateData)
     if (result?.error) { setError(result.error.message); setConfirmBlock(false); return }
-    setCustomer(c => ({ ...c, ...updateData }))
+    applySaved(updateData)
     await logAudit(isBlocking ? 'customer_blocked' : 'customer_unblocked', { customer_id: id, reason: blockReason })
     setConfirmBlock(false)
     setBlockReason('')
@@ -303,6 +305,7 @@ export default function CustomerDetail() {
           onSave={handleSave}
           onDelete={() => setConfirmDelete(true)}
           onBlock={() => { setConfirmBlock(true); setBlockReason('') }}
+          onDocsPatched={applySaved}
         />
       )}
       {tab === 'Skóre' && <CustomerScoreWidget userId={id} />}
