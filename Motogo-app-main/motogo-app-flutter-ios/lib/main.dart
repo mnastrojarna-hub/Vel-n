@@ -16,6 +16,7 @@ import 'core/currency.dart';
 import 'core/crash_report_service.dart';
 import 'core/debug_logger.dart';
 import 'core/installation_service.dart';
+import 'core/engagement_service.dart';
 import 'core/offline_guard.dart';
 import 'core/push/push_service.dart';
 import 'core/push/notification_handler.dart';
@@ -189,6 +190,7 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    EngagementService.start(); // Velín → App funnel (návštěvy)
     _checkOnboarding();
     _listenAuthExpiration();
     _initPush();
@@ -248,6 +250,8 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Log every lifecycle change
     AppDebugLogger.instance.lifecycle(state.name);
+    // Velín → App funnel: návštěva = ≥5 s v popředí + dotyk (engagement_service).
+    EngagementService.onLifecycle(state);
 
     if (state == AppLifecycleState.detached ||
         state == AppLifecycleState.paused) {
@@ -376,7 +380,10 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
           // nemění layout, takže UX/UI/flow zůstává beze změny.
           child: Listener(
             behavior: HitTestBehavior.translucent,
-            onPointerDown: (_) => maybeRefreshLoyalty(ref),
+            onPointerDown: (_) {
+              maybeRefreshLoyalty(ref);
+              EngagementService.onUserPointer(); // Velín → App funnel (návštěva)
+            },
             child: Stack(
               children: [
                 child!,
