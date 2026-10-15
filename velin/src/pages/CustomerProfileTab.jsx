@@ -2,19 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import Badge from '../components/ui/Badge'
-
-const C = {
-  dark: '#1a2e22', text: '#0f1a14', muted: '#6b7280', faint: '#b6c2bb',
-  g100: '#f1faf7', g200: '#d4e8e0', green: '#74FB71', gdk: '#1a8a18', red: '#dc2626',
-}
-
-function fmtDate(d) {
-  if (!d) return null
-  const x = new Date(d)
-  if (isNaN(x.getTime())) return null
-  return x.toLocaleDateString('cs-CZ')
-}
+import { C, fmtDate, SectionTitle, Field } from './customer/profileUi'
+import CustomerProfileDocs from './customer/CustomerProfileDocs'
 
 function czAge(dob) {
   if (!dob) return null
@@ -29,40 +18,6 @@ function czAge(dob) {
   return `${age} ${unit}`
 }
 
-function SectionTitle({ children, right }) {
-  return (
-    <div className="flex items-center justify-between mb-3.5">
-      <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest" style={{ color: C.dark }}>
-        <span style={{ width: 3, height: 14, borderRadius: 2, background: C.green, display: 'inline-block' }} />
-        {children}
-      </h3>
-      {right}
-    </div>
-  )
-}
-
-function Field({ label, value, onChange, type = 'text', disabled = false }) {
-  return (
-    <label className="block">
-      <span className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: C.muted }}>{label}</span>
-      <input
-        type={type} value={value || ''} onChange={e => onChange?.(e.target.value)} disabled={disabled}
-        className="w-full rounded-lg text-sm outline-none transition focus:border-[#86e3a3]"
-        style={{ padding: '8px 11px', background: disabled ? '#f7faf9' : '#fff', border: `1px solid ${C.g200}`, color: disabled ? C.muted : C.text }}
-      />
-    </label>
-  )
-}
-
-function Info({ label, value }) {
-  return (
-    <div>
-      <div className="text-[11px] font-bold uppercase tracking-wide mb-0.5" style={{ color: C.muted }}>{label}</div>
-      <div className="text-sm font-semibold" style={{ color: value ? C.text : C.faint }}>{value || '—'}</div>
-    </div>
-  )
-}
-
 function Chip({ label, value, tone }) {
   const map = {
     green: { bg: '#dcfce7', col: '#16a34a' },
@@ -75,21 +30,6 @@ function Chip({ label, value, tone }) {
       <div className="text-[10px] font-bold uppercase tracking-wide truncate" style={{ color: t.col, opacity: 0.65 }}>{label}</div>
       <div className="text-sm font-extrabold truncate" style={{ color: t.col }}>{value}</div>
     </div>
-  )
-}
-
-function VerifyBadge({ verified, date }) {
-  if (verified) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full text-[11px] font-bold whitespace-nowrap" style={{ padding: '2px 9px', background: '#dcfce7', color: C.gdk }}>
-        {'✓'} Ověřeno{date ? ` · ${date}` : ''}
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full text-[11px] font-bold whitespace-nowrap" style={{ padding: '2px 9px', background: '#f3f4f6', color: '#9ca3af' }}>
-      {'✕'} Neověřeno
-    </span>
   )
 }
 
@@ -114,18 +54,6 @@ function ConsentRow({ label, desc, checked, onChange, required = false, readOnly
       ) : (
         <button type="button" onClick={() => onChange(!checked)} className="text-xs font-extrabold rounded-full px-3 py-1 cursor-pointer whitespace-nowrap transition max-lg:min-h-[36px] max-lg:min-w-[56px] max-lg:px-4 max-lg:shrink-0" style={{ background: bg, color: col, border: `1.5px solid ${border}` }}>{stateLabel}</button>
       )}
-    </div>
-  )
-}
-
-function DocBox({ title, badge, children }) {
-  return (
-    <div className="rounded-xl p-3.5" style={{ background: C.g100, border: `1px solid ${C.g200}` }}>
-      <div className="flex items-center justify-between gap-2 mb-2.5">
-        <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: C.dark }}>{title}</span>
-        {badge}
-      </div>
-      <div className="space-y-2.5">{children}</div>
     </div>
   )
 }
@@ -234,9 +162,8 @@ function LoyaltyChip({ userId }) {
   )
 }
 
-export default function ProfileTab({ customer, set, error, saving, onSave, onDelete, onBlock }) {
+export default function ProfileTab({ customer, set, error, saving, onSave, onDelete, onBlock, onDocsPatched }) {
   const age = czAge(customer.date_of_birth)
-  const groups = customer.license_group || []
   // NULL/undefined souhlas = zákazník ho nikdy explicitně nenastavil (stará
   // verze appky / řádek před sjednocením defaultů). Zbytek systému (app, web)
   // bere NULL jako zapnuto, proto ho nezobrazujeme jako červené „NE", ale jako
@@ -293,32 +220,8 @@ export default function ProfileTab({ customer, set, error, saving, onSave, onDel
           </div>
         </Card>
 
-        {/* Doklady a oprávnění */}
-        <Card className="lg:col-span-2">
-          <SectionTitle>Doklady a oprávnění</SectionTitle>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
-            <DocBox title="Doklad totožnosti" badge={<VerifyBadge verified={!!customer.id_verified_at} date={fmtDate(customer.id_verified_at)} />}>
-              <Field label="Číslo dokladu" value={customer.id_number} onChange={v => set('id_number', v)} />
-              <Info label="Platnost do" value={fmtDate(customer.id_verified_until)} />
-            </DocBox>
-
-            <DocBox title="Řidičský průkaz" badge={<VerifyBadge verified={!!customer.license_verified_at} date={fmtDate(customer.license_verified_at)} />}>
-              <Field label="Číslo ŘP" value={customer.license_number} onChange={v => set('license_number', v)} />
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: C.muted }}>Skupiny</div>
-                <div className="flex flex-wrap gap-1">
-                  {groups.length > 0 ? groups.map(g => <Badge key={g} label={g} color={C.gdk} bg="#dcfce7" />) : <span className="text-sm" style={{ color: C.faint }}>{'—'}</span>}
-                </div>
-              </div>
-              <Field label="Platnost ŘP do" value={customer.license_expiry} onChange={v => set('license_expiry', v)} type="date" />
-            </DocBox>
-
-            <DocBox title="Cestovní pas" badge={<VerifyBadge verified={!!customer.passport_verified_at} date={fmtDate(customer.passport_verified_at)} />}>
-              <Info label="Ověřeno" value={fmtDate(customer.passport_verified_at)} />
-              <Info label="Platnost do" value={fmtDate(customer.passport_verified_until)} />
-            </DocBox>
-          </div>
-        </Card>
+        {/* Doklady a oprávnění — úprava platnosti a odebrání dokladu (customer/CustomerProfileDocs) */}
+        <CustomerProfileDocs customer={customer} set={set} onPatched={onDocsPatched} />
 
         {/* Výbava */}
         <Card>
