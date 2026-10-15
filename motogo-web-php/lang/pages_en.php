@@ -338,7 +338,7 @@ return [
             ],
             'cta' => [
                 'title' => 'Returning the bike at the branch – MotoGo24, Pelhřimov (Vysočina)',
-                'text' => 'MotoGo24 is a motorcycle rental in the Vysočina region that runs 24/7, with an easy return any time on your rental day. No deposit, no refuelling (just keep the reserve light off) and, in Mezná, no washing either. Choose from our wide range of motorcycles (and scooters) and book online from the comfort of your home.',
+                'text' => 'MotoGo24 is a motorcycle rental in the Vysočina region that runs 24/7, with an easy return any time on your rental day. No deposit, no refuelling (just make sure the reserve light isn\'t on) and, in Mezná, no washing either. Choose from our wide range of motorcycles (and scooters) and book online from the comfort of your home.',
                 'buttons' => [
                     ['label' => 'CONTACT US', 'href' => '/kontakt', 'cls' => 'btndark', 'aria' => 'Contact us'],
                 ],
@@ -775,7 +775,7 @@ return [
                 'steps' => [
                     ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Choose', 'text' => 'Pick your ideal bike from our motorcycles for rent.'],
                     ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Book', 'text' => 'Book your motorcycle rental through our simple online system.'],
-                    ['icon' => 'gfx/predani-motorky.svg', 'title' => '3. Pick up', 'text' => 'Pick up the bike in person in Mezná near Pelhřimov (we can also deliver it anywhere in Czechia from there), or collect it yourself at the self-service branch in Velké Němčice near Brno.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => '3. Pick up', 'text' => 'Pick up the bike in person in Mezná near Pelhřimov (we can also deliver it anywhere in the Czech Republic from there), or collect it yourself at the self-service branch in Velké Němčice near Brno.'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '4. Enjoy the ride', 'text' => 'Enjoy the freedom and discover the Czech Republic on a rental motorcycle.'],
                 ],
             ],

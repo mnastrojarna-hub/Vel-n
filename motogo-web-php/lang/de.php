@@ -74,7 +74,7 @@ return [
 
     // Footer
     'footer.aboutTitle' => 'Motorradvermietung',
-    'footer.aboutText' => 'Willkommen bei MotoGo24, deiner&nbsp;<strong>Motorradvermietung in Pelhřimov</strong>! Wir bieten <strong>Motorradverleih</strong> für Einheimische und Touristen. Wähle aus unserem großen Angebot an Motorrädern und reserviere online in drei Schritten. Entdecke mit uns Motorradstrecken in Tschechien und im Ausland!',
+    'footer.aboutText' => 'Willkommen bei MotoGo24, deiner&nbsp;<strong>Motorradvermietung in Pelhřimov und bei Brno</strong>! Wir bieten <strong>Motorradverleih</strong> für Einheimische und Touristen. Wähle aus unserem großen Angebot an Motorrädern und reserviere online in drei Schritten. Entdecke mit uns Motorradstrecken in Tschechien und im Ausland!',
     'footer.socialTitle' => 'Motorradvermietung in sozialen Netzwerken',
     'footer.helpTitle' => 'Brauchen Sie Beratung?',
     'footer.callUs' => 'RUFEN SIE UNS AN',
@@ -967,7 +967,7 @@ return [
     'confirm.success.nextBookingDocs' => 'Laden Sie Fotos Ihres Ausweises/Reisepasses und Führerscheins hoch — ohne Verifizierung können keine Zugangscodes ausgegeben werden.',
     'confirm.success.nextBookingCodes' => 'Nach der Verifizierung erhalten Sie einen 6-stelligen Zugangscode für das Motorrad und – falls Sie Ausrüstung leihen – einen Code für die Umkleide (per E-Mail, SMS und WhatsApp).',
     'confirm.success.nextBookingCodesDone' => 'Den 6-stelligen Zugangscode für das Motorrad und – falls Sie Ausrüstung leihen – den Code für die Umkleide senden wir Ihnen vor Beginn der Reservierung per E-Mail, SMS und WhatsApp.',
-    'confirm.success.nextBookingPickup' => 'Am Abholtag kommen Sie zur Filiale — die Codes öffnen die Tür, Motorrad und Ausrüstung sind bereit.',
+    'confirm.success.nextBookingPickup' => 'Am Abholtag kommen Sie zur Filiale. In der Selbstbedienungsfiliale in Velké Němčice öffnen die Codes die Türen zu Ausrüstung und Motorrad, in Mezná übergibt Ihnen unser Personal Motorrad und Ausrüstung. Haben Sie eine Lieferung bestellt, warten Sie an der gewählten Adresse.',
     'confirm.success.pickupTitle' => 'Abholort',
     'confirm.success.openMap' => 'In Karte öffnen',
     'confirm.success.gateNoticeTitle' => 'Anfahrt zur Filiale Velké Němčice',
@@ -1370,7 +1370,7 @@ return [
     'editRez.loc.headReturn' => '📤 Motorrad-Rückgabe',
     'editRez.loc.atRentalTitle' => 'In der Vermietung Mezná',
     'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — betreute Filiale, 24/7 geöffnet. <strong>0 CZK.</strong>',
-    'editRez.loc.atRentalDescReturn' => 'Rückgabe in der autonomen Filiale. <strong>0 CZK.</strong>',
+    'editRez.loc.atRentalDescReturn' => 'Rückgabe direkt in der Filiale. <strong>0 CZK.</strong>',
     'editRez.loc.deliveryTitle' => 'Lieferung an Adresse',
     'editRez.loc.deliveryReturnTitle' => 'Wir holen es bei Ihnen ab',
     'editRez.loc.deliveryDescPickup' => '<strong>1 000 CZK + 40 CZK/km</strong> ab Mezná. Der Preis wird automatisch aus der Strecke berechnet.',

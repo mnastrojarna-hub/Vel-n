@@ -75,7 +75,7 @@ return [
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Alquiler de motos',
-    'footer.aboutText' => '¡Bienvenido a MotoGo24, tu&nbsp;<strong>alquiler de motos en Pelhřimov</strong>! Ofrecemos <strong>alquiler de motos</strong> para residentes y turistas. Elige entre nuestra amplia oferta de motos y reserva online en tres pasos. ¡Descubre con nosotros rutas en moto por la República Checa y el extranjero!',
+    'footer.aboutText' => '¡Bienvenido a MotoGo24, tu&nbsp;<strong>alquiler de motos en Pelhřimov y cerca de Brno</strong>! Ofrecemos <strong>alquiler de motos</strong> para residentes y turistas. Elige entre nuestra amplia oferta de motos y reserva online en tres pasos. ¡Descubre con nosotros rutas en moto por la República Checa y el extranjero!',
     'footer.socialTitle' => 'Alquiler de motos en redes sociales',
     'footer.helpTitle' => '¿Necesitas ayuda?',
     'footer.callUs' => 'LLÁMANOS',
@@ -814,7 +814,7 @@ return [
     'confirm.success.nextBookingDocs' => 'Sube fotos de tu DNI/pasaporte y permiso de conducir — sin verificación no podemos liberar los códigos de acceso.',
     'confirm.success.nextBookingCodes' => 'Una vez verificados los documentos, recibirás un código de acceso de 6 dígitos para la moto y – si alquilas equipo – el código del vestuario (por correo, SMS y WhatsApp).',
     'confirm.success.nextBookingCodesDone' => 'Te enviaremos el código de acceso de 6 dígitos para la moto y – si alquilas equipo – el código del vestuario por correo, SMS y WhatsApp antes del inicio de la reserva.',
-    'confirm.success.nextBookingPickup' => 'El día de la recogida, ven a la sucursal — los códigos abren la puerta y la moto y el equipo están listos.',
+    'confirm.success.nextBookingPickup' => 'El día de la recogida, ven a la sucursal. En la sucursal de autoservicio de Velké Němčice los códigos abren las puertas del equipo y de la moto; en Mezná nuestro personal te entrega la moto y el equipo. Si pediste la entrega, espera en la dirección elegida.',
     'confirm.success.pickupTitle' => 'Lugar de recogida',
     'confirm.success.openMap' => 'Abrir en el mapa',
     'confirm.success.gateNoticeTitle' => 'Llegada a la sucursal de Velké Němčice',
@@ -1357,7 +1357,7 @@ return [
     'editRez.loc.headReturn' => '📤 Devolución de la moto',
     'editRez.loc.atRentalTitle' => 'En la tienda Mezná',
     'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — sucursal atendida, abierta 24/7. <strong>0 CZK.</strong>',
-    'editRez.loc.atRentalDescReturn' => 'Devolución en la sucursal autónoma. <strong>0 CZK.</strong>',
+    'editRez.loc.atRentalDescReturn' => 'Devolución directamente en la sucursal. <strong>0 CZK.</strong>',
     'editRez.loc.deliveryTitle' => 'Entrega en dirección',
     'editRez.loc.deliveryReturnTitle' => 'La recogemos donde estés',
     'editRez.loc.deliveryDescPickup' => '<strong>1 000 CZK + 40 CZK/km</strong> desde Mezná. El precio se calcula automáticamente según la ruta.',

@@ -74,7 +74,7 @@ return [
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Motorcycle rental',
-    'footer.aboutText' => 'Welcome to MotoGo24, your&nbsp;<strong>motorcycle rental in Pelhřimov</strong>! We offer <strong>motorcycle rental</strong> for locals and tourists. Choose from our wide selection of motorcycles and book online in three simple steps. Discover motorcycle routes in the Czech Republic and abroad with us!',
+    'footer.aboutText' => 'Welcome to MotoGo24, your&nbsp;<strong>motorcycle rental in Pelhřimov and near Brno</strong>! We offer <strong>motorcycle rental</strong> for locals and tourists. Choose from our wide selection of motorcycles and book online in three simple steps. Discover motorcycle routes in the Czech Republic and abroad with us!',
     'footer.socialTitle' => 'Motorcycle rental on social media',
     'footer.helpTitle' => 'Need advice?',
     'footer.callUs' => 'CALL US',
@@ -1139,7 +1139,7 @@ return [
     'confirm.success.nextBookingDocs' => 'Upload photos of your ID card/passport and driver\'s licence — without verification we cannot release access codes.',
     'confirm.success.nextBookingCodes' => 'Once your documents are verified, you will receive a 6-digit access code for the motorcycle and – if you are renting gear – a locker room code (by email, SMS and WhatsApp).',
     'confirm.success.nextBookingCodesDone' => 'We will send you a 6-digit access code for the motorcycle and – if you are renting gear – a locker room code by email, SMS and WhatsApp before your reservation starts.',
-    'confirm.success.nextBookingPickup' => 'On the pickup day, come to the branch — the codes unlock the door, your motorcycle and gear are ready.',
+    'confirm.success.nextBookingPickup' => 'On pick-up day, come to the branch. At the self-service branch in Velké Němčice the codes open the doors to your gear and bike; in Mezná our staff hand over the bike and gear. If you ordered delivery, wait at the chosen address.',
     'confirm.success.pickupTitle' => 'Pickup location',
     'confirm.success.openMap' => 'Open in map',
     'confirm.success.gateNoticeTitle' => 'Arriving at the Velké Němčice branch',
@@ -1381,7 +1381,7 @@ return [
     'editRez.loc.headReturn' => '📤 Motorcycle return',
     'editRez.loc.atRentalTitle' => 'At rental Mezná',
     'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — staffed branch, open 24/7. <strong>Free.</strong>',
-    'editRez.loc.atRentalDescReturn' => 'Return at the autonomous branch. <strong>Free.</strong>',
+    'editRez.loc.atRentalDescReturn' => 'Return directly at the branch. <strong>Free.</strong>',
     'editRez.loc.deliveryTitle' => 'Delivery to address',
     'editRez.loc.deliveryReturnTitle' => 'We pick it up from you',
     'editRez.loc.deliveryDescPickup' => '<strong>1 000 CZK + 40 CZK/km</strong> from Mezná. The price is calculated automatically from the route.',

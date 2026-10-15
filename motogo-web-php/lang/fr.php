@@ -74,7 +74,7 @@ return [
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Location de motos',
-    'footer.aboutText' => 'Bienvenue chez MotoGo24, ta&nbsp;<strong>location de motos à Pelhřimov</strong> ! Nous proposons la <strong>location de motos</strong> aux habitants comme aux touristes. Choisis parmi notre large gamme de motos et réserve en ligne en trois étapes. Découvre avec nous des itinéraires à moto en République tchèque et à l\'étranger !',
+    'footer.aboutText' => 'Bienvenue chez MotoGo24, ta&nbsp;<strong>location de motos à Pelhřimov et près de Brno</strong> ! Nous proposons la <strong>location de motos</strong> aux habitants comme aux touristes. Choisis parmi notre large gamme de motos et réserve en ligne en trois étapes. Découvre avec nous des itinéraires à moto en République tchèque et à l\'étranger !',
     'footer.socialTitle' => 'Location de motos sur les réseaux sociaux',
     'footer.helpTitle' => 'Besoin de conseils ?',
     'footer.callUs' => 'APPELEZ-NOUS',
@@ -813,7 +813,7 @@ return [
     'confirm.success.nextBookingDocs' => 'Téléchargez les photos de votre carte d\'identité/passeport et de votre permis — sans vérification, les codes d\'accès ne peuvent pas être délivrés.',
     'confirm.success.nextBookingCodes' => 'Une fois les documents vérifiés, vous recevrez un code d\'accès à 6 chiffres pour la moto et – si vous louez de l\'équipement – le code du vestiaire (par e-mail, SMS et WhatsApp).',
     'confirm.success.nextBookingCodesDone' => 'Nous vous enverrons le code d\'accès à 6 chiffres pour la moto et – si vous louez de l\'équipement – le code du vestiaire par e-mail, SMS et WhatsApp avant le début de la réservation.',
-    'confirm.success.nextBookingPickup' => 'Le jour du retrait, rendez-vous à l\'agence — les codes ouvrent la porte, moto et équipement sont prêts.',
+    'confirm.success.nextBookingPickup' => 'Le jour du retrait, rendez-vous à l\'agence. À l\'agence en libre-service de Velké Němčice, les codes ouvrent les portes de l\'équipement et de la moto ; à Mezná, notre personnel vous remet la moto et l\'équipement. Si vous avez commandé la livraison, attendez à l\'adresse choisie.',
     'confirm.success.pickupTitle' => 'Lieu de retrait',
     'confirm.success.openMap' => 'Ouvrir dans la carte',
     'confirm.success.gateNoticeTitle' => 'Arrivée à l\'agence de Velké Němčice',
@@ -1356,7 +1356,7 @@ return [
     'editRez.loc.headReturn' => '📤 Retour de la moto',
     'editRez.loc.atRentalTitle' => 'À l\'agence Mezná',
     'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — agence avec personnel, ouverte 24/7. <strong>0 CZK.</strong>',
-    'editRez.loc.atRentalDescReturn' => 'Retour à l\'agence autonome. <strong>0 CZK.</strong>',
+    'editRez.loc.atRentalDescReturn' => 'Retour directement à l\'agence. <strong>0 CZK.</strong>',
     'editRez.loc.deliveryTitle' => 'Livraison à l\'adresse',
     'editRez.loc.deliveryReturnTitle' => 'Nous venons la récupérer chez vous',
     'editRez.loc.deliveryDescPickup' => '<strong>1 000 CZK + 40 CZK/km</strong> depuis Mezná. Le prix est calculé automatiquement à partir de l\'itinéraire.',

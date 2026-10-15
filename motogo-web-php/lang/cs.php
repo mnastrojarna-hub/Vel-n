@@ -76,7 +76,7 @@ return [
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Půjčovna motorek',
-    'footer.aboutText' => 'Vítej u Motogo24, tvojí&nbsp;<strong>půjčovny motorek v Pelhřimově</strong>! Nabízíme <strong>pronájem motorek</strong> pro místní i turisty. Vyber si z naší široké nabídky motorek a rezervuj online ve třech krocích. Objevuj s námi motorkářské trasy v ČR i v zahraničí!',
+    'footer.aboutText' => 'Vítej u Motogo24, tvojí&nbsp;<strong>půjčovny motorek v Pelhřimově a u Brna</strong>! Nabízíme <strong>pronájem motorek</strong> pro místní i turisty. Vyber si z naší široké nabídky motorek a rezervuj online ve třech krocích. Objevuj s námi motorkářské trasy v ČR i v zahraničí!',
     'footer.socialTitle' => 'Půjčovna motorek na sítích',
     'footer.helpTitle' => 'Potřebujete poradit?',
     'footer.callUs' => 'ZAVOLEJTE NÁM',
@@ -463,7 +463,7 @@ return [
     'rez.return.expectedTitle' => 'Předpokládaný čas návratu',
     'rez.return.expectedSub' => 'V kolik hodin přibližně vrátíte motorku? Nejpozději o půlnoci posledního dne.',
     'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
-    'rez.return.stateText' => 'Tankovat při vrácení nemusíte (plná nádrž není potřeba) – jen ať nesvítí rezerva. Umytou ji vracejte jen na samoobslužné pobočce ve Velkých Němčicích; v Mezné ani při vrácení jinde ji mýt nemusíte.',
+    'rez.return.stateText' => 'Tankovat při vrácení nemusíte (plná nádrž není potřeba) – jen ať nesvítí rezerva. Umytou motorku vracejte jen na samoobslužné pobočce ve Velkých Němčicích; v Mezné ani při vrácení jinde ji mýt nemusíte.',
 
     // ===== Rezervace — výbava =====
     'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže.',
@@ -1235,7 +1235,7 @@ return [
     'editRez.loc.headReturn' => '📤 Vrácení motorky',
     'editRez.loc.atRentalTitle' => 'V půjčovně Mezná',
     'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — obslužná pobočka, otevřeno nonstop. <strong>0 Kč.</strong>',
-    'editRez.loc.atRentalDescReturn' => 'Vrátíte v autonomní pobočce. <strong>0 Kč.</strong>',
+    'editRez.loc.atRentalDescReturn' => 'Vrátíte přímo na pobočce. <strong>0 Kč.</strong>',
     'editRez.loc.deliveryTitle' => 'Přistavení na adresu',
     'editRez.loc.deliveryReturnTitle' => 'Vyzvedneme od vás',
     'editRez.loc.deliveryDescPickup' => '<strong>1 000 Kč + 40 Kč/km</strong> z Mezné. Cena se vypočte automaticky z trasy.',
@@ -1583,7 +1583,7 @@ return [
     'confirm.success.editReservation' => 'Upravit / zrušit rezervaci',
     'confirm.success.nextBookingCodes' => 'Po ověření dokladů obdržíte 6místný přístupový kód k motorce a – máte-li zapůjčenou výbavu – kód šatny (e-mailem, SMS a WhatsAppem).',
     'confirm.success.nextBookingCodesDone' => '6místný přístupový kód k motorce a – máte-li zapůjčenou výbavu – kód šatny vám pošleme e-mailem, SMS a WhatsAppem před začátkem rezervace.',
-    'confirm.success.nextBookingPickup' => 'V den vyzvednutí přijeďte na pobočku — kódy odemknou dveře, motorka i výbava jsou připravené.',
+    'confirm.success.nextBookingPickup' => 'V den vyzvednutí přijeďte na pobočku. Na samoobslužné pobočce ve Velkých Němčicích vám kódy odemknou dveře k výbavě i motorce, v Mezné vám motorku i výbavu předá obsluha. Máte-li objednané přistavení, čekejte na zvolené adrese.',
     'confirm.success.pickupTitle' => 'K vyzvednutí',
     'confirm.success.openMap' => 'Otevřít v mapě',
     'confirm.success.gateNoticeTitle' => 'Příjezd na pobočku Velké Němčice',

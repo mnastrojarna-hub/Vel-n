@@ -47,7 +47,7 @@ return ['pages' => ['landing' => [
             ['icon' => 'shield', 'title' => 'Szkody pokryte w 100%', 'text' => 'Ochrona z umowy: przy wypadku twój udział własny wynosi 0 zł.*'],
             ['icon' => 'helmet', 'title' => 'Wyposażenie w cenie', 'text' => 'Odzież motocyklowa, kamizelka, apteczka i blokada tarczy. W oddziale Mezná także odzież przeciwdeszczowa.'],
             ['icon' => 'infinity', 'title' => 'Bez limitu km i wyjazdy za granicę', 'text' => 'Jedź, dokąd chcesz i jak daleko chcesz (w strefie Zielonej Karty).'],
-            ['icon' => 'fuel', 'title' => 'Oddajesz, jak ci wygodnie', 'text' => 'Nie musisz tankować – byle nie świeciła się rezerwa. Umyty oddajesz tylko w samoobsługowym oddziale w Velké Němčice.'],
+            ['icon' => 'fuel', 'title' => 'Oddajesz, jak ci wygodnie', 'text' => 'Nie musisz tankować – byle nie świeciła się kontrolka rezerwy. Umyty motocykl oddajesz tylko w samoobsługowym oddziale w Velké Němčice.'],
             ['icon' => 'calendar', 'title' => 'Rezerwacja i płatność online', 'text' => 'Załatwisz w kilka minut, nawet w niedzielę wieczorem.'],
             ['icon' => 'app', 'title' => 'Własna aplikacja', 'text' => 'Zmiany w rezerwacji, SOS, program lojalnościowy i trasy w jednym miejscu.'],
             ['icon' => 'coffee', 'title' => 'Darmowe udogodnienia', 'text' => 'W oddziale Mezná: kawa, woda, WC, wi-fi, przebieralnia i szafki. Parking dla twojego auta w obu oddziałach.'],
