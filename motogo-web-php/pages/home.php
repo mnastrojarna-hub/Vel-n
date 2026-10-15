@@ -34,7 +34,7 @@ $defaults = [
         ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Katalog motorek', 'text' => 'Prohlédněte si naši nabídku motorek na pronájem – od sportovních po cestovní modely.', 'btn' => 'KATALOG MOTOREK', 'href' => '/katalog'],
         ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => 'Jak si půjčit motorku', 'text' => 'Jednoduchý proces: vyberte motorku k zapůjčení, rezervujte a vyjeďte.', 'btn' => 'JAK SI PŮJČIT MOTORKU', 'href' => '/jak-pujcit'],
         ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Online rezervace motorky', 'text' => 'Zarezervujte si motorku na pronájem přes snadný online systém.', 'btn' => 'REZERVOVAT MOTORKU', 'href' => '/rezervace'],
-        ['icon' => 'gfx/kontakt.svg', 'title' => 'Kontakty a mapa', 'text' => 'Navštivte naši půjčovnu motorek v Pelhřimově nebo nás kontaktujte.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
+        ['icon' => 'gfx/kontakt.svg', 'title' => 'Kontakty a mapa', 'text' => 'Navštivte nás v Mezné u Pelhřimova nebo na samoobslužné pobočce ve Velkých Němčicích u Brna – případně nás kontaktujte.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
         ['icon' => 'gfx/faq.svg', 'title' => 'Často kladené dotazy', 'text' => 'Nejčastější dotazy k půjčení motorky přehledně na jednom místě.', 'btn' => 'ČASTÉ DOTAZY', 'href' => '/jak-pujcit/faq'],
         ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Motocyklové výlety', 'text' => 'Objevte nejlepší motocyklové trasy v Česku pro turisty i místní.', 'btn' => 'MOTOCYKLOVÉ TRASY', 'href' => '/blog'],
     ],
@@ -441,7 +441,7 @@ if (!$lpV2 && !empty($C['process']['steps']) && is_array($C['process']['steps'])
 }
 $howToSchema = '';
 if (!empty($howToSteps)) {
-    $howToSchema = '<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Jak si půjčit motorku v MotoGo24","description":"Snadný 4krokový postup — výběr motorky, online rezervace, převzetí na pobočce v Pelhřimově, jízda.","totalTime":"PT10M","estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"' . ldPriceLow() . '"},"supply":[{"@type":"HowToSupply","name":' . json_encode(ldLicenseSupply(), JSON_UNESCAPED_UNICODE) . '},{"@type":"HowToSupply","name":"Občanský průkaz nebo pas"},{"@type":"HowToSupply","name":"Platební karta (Visa/Mastercard, Apple/Google Pay)"}],"tool":[{"@type":"HowToTool","name":"Online rezervační formulář"}],"step":[' . implode(',', $howToSteps) . ']}</script>';
+    $howToSchema = '<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Jak si půjčit motorku v MotoGo24","description":"Snadný 4krokový postup — výběr motorky, online rezervace, převzetí v Mezné u Pelhřimova nebo na samoobslužné pobočce ve Velkých Němčicích u Brna, jízda.","totalTime":"PT10M","estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"' . ldPriceLow() . '"},"supply":[{"@type":"HowToSupply","name":' . json_encode(ldLicenseSupply(), JSON_UNESCAPED_UNICODE) . '},{"@type":"HowToSupply","name":"Občanský průkaz nebo pas"},{"@type":"HowToSupply","name":"Platební karta (Visa/Mastercard, Apple/Google Pay)"}],"tool":[{"@type":"HowToTool","name":"Online rezervační formulář"}],"step":[' . implode(',', $howToSteps) . ']}</script>';
 }
 
 // AggregateRating z reálných reviews — pokud máme aspoň 1 recenzi s ratingem.

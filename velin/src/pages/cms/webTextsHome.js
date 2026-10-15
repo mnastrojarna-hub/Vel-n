@@ -45,7 +45,7 @@ export const PAGE_HOME = {
         { key: 'web.home.signposts.2.text', label: 'Karta 3 — text', type: 'textarea', default: 'Zarezervujte si motorku na pronájem přes snadný online systém.' },
         { key: 'web.home.signposts.2.btn', label: 'Karta 3 — tlačítko', default: 'REZERVOVAT MOTORKU' },
         { key: 'web.home.signposts.3.title', label: 'Karta 4 — nadpis', default: 'Kontakty a mapa' },
-        { key: 'web.home.signposts.3.text', label: 'Karta 4 — text', type: 'textarea', default: 'Navštivte naši půjčovnu motorek v Pelhřimově nebo nás kontaktujte.' },
+        { key: 'web.home.signposts.3.text', label: 'Karta 4 — text', type: 'textarea', default: 'Navštivte nás v Mezné u Pelhřimova nebo na samoobslužné pobočce ve Velkých Němčicích u Brna – případně nás kontaktujte.' },
         { key: 'web.home.signposts.3.btn', label: 'Karta 4 — tlačítko', default: 'KONTAKT' },
         { key: 'web.home.signposts.4.title', label: 'Karta 5 — nadpis', default: 'Často kladené dotazy' },
         { key: 'web.home.signposts.4.text', label: 'Karta 5 — text', type: 'textarea', default: 'Nejčastější dotazy k půjčení motorky přehledně na jednom místě.' },
@@ -73,7 +73,7 @@ export const PAGE_HOME = {
         { key: 'web.home.process.steps.1.title', label: 'Krok 2 — nadpis', default: '2. Rezervuj' },
         { key: 'web.home.process.steps.1.text', label: 'Krok 2 — text', type: 'textarea', default: 'Zarezervujte si půjčení motorky přes náš jednoduchý online systém.' },
         { key: 'web.home.process.steps.2.title', label: 'Krok 3 — nadpis', default: '3. Převzetí' },
-        { key: 'web.home.process.steps.2.text', label: 'Krok 3 — text', type: 'textarea', default: 'Vyzvedněte si motorku v naší půjčovně motorek v Pelhřimově.' },
+        { key: 'web.home.process.steps.2.text', label: 'Krok 3 — text', type: 'textarea', default: 'Převezměte si motorku osobně v Mezné u Pelhřimova (odtud ji můžeme i přistavit kamkoli v ČR), nebo si ji vyzvedněte sami na samoobslužné pobočce ve Velkých Němčicích u Brna.' },
         { key: 'web.home.process.steps.3.title', label: 'Krok 4 — nadpis', default: '4. Užij jízdu' },
         { key: 'web.home.process.steps.3.text', label: 'Krok 4 — text', type: 'textarea', default: 'Užijte si svobodu a objevte Česko na motorkách k zapůjčení.' },
       ]

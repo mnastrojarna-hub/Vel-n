@@ -4,7 +4,7 @@
 
 return [
     'h1' => 'Převzetí v půjčovně – rychle, jednoduše a nonstop',
-    'intro' => 'V <strong>Motogo24 – půjčovně motorek na Vysočině</strong>&nbsp;převzetí motorky otázkou pár minut. Půjčujeme bez <strong>kauce, s výbavou pro řidiče v ceně a nonstop provozem</strong>. Přijď osobně do Pelhřimova a vyraz na cestu!',
+    'intro' => 'V <strong>Motogo24 – půjčovně motorek na Vysočině</strong>&nbsp;je převzetí motorky otázkou pár minut. Půjčujeme bez <strong>kauce, s výbavou pro řidiče v ceně a nonstop provozem</strong>. Přijď osobně do Mezné u Pelhřimova a vyraz na cestu! Na samoobslužné pobočce ve Velkých Němčicích u Brna si motorku vyzvedneš sám přístupovým kódem z aplikace nebo e-mailu.',
     'top_cta' => [
         'label' => 'REZERVOVAT ONLINE',
         'href' => '/rezervace',

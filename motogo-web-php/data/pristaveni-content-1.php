@@ -4,7 +4,7 @@
 
 return [
     'h1' => 'Přistavení motocyklu – doručení až k tobě',
-    'intro' => 'Chceš vyrazit bez zbytečného přesunu do půjčovny? Zajistíme <strong>přistavení motorky na domluvené místo</strong> – domů, do hotelu, k nádraží nebo na start tvého výletu. Motorku přivezeme kamkoliv v České republice – přímo z naší provozovny v Pelhřimově.',
+    'intro' => 'Chceš vyrazit bez zbytečného přesunu do půjčovny? Zajistíme <strong>přistavení motorky na domluvené místo</strong> – domů, do hotelu, k nádraží nebo na start tvého výletu. Motorku přivezeme kamkoliv v České republice – přímo z naší provozovny v Mezné u Pelhřimova. Přistavení nabízíme u motorek z obslužné pobočky v Mezné; motorky ze samoobslužné pobočky ve Velkých Němčicích se přebírají jen přímo na pobočce.',
     'when' => [
         'title' => 'Kdy se přistavení hodí',
         'items' => [

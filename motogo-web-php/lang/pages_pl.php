@@ -204,7 +204,7 @@ return [
                     ],
                     [
                         '<strong>Paliwo i czyszczenie</strong>',
-                        'W oddziale Mezná i przy zwrocie w innym miejscu bez obowiązku tankowania i mycia. W oddziale samoobsługowym oddaj motocykl umyty i bez świecącej kontrolki rezerwy (pełny bak nie jest potrzebny). Nadmierne zabrudzenie rozpatrujemy indywidualnie.',
+                        'Zwrot bez obowiązku tankowania – byle nie świeciła się kontrolka rezerwy. Umyty motocykl trzeba oddać tylko w samoobsługowym oddziale Velké Němčice. Nadmierne zabrudzenie rozpatrujemy indywidualnie.',
                     ],
                     [
                         '<strong>Podstawienie / odbiór</strong>',
@@ -237,7 +237,7 @@ return [
                 'items' => [
                     '<strong>Odbiór</strong>&nbsp;odbywa się w Pelhřimovie (Mezná 9) lub w samoobsługowym oddziale Velké Němčice koło Brna; z oddziału Mezná możesz też skorzystać z&nbsp;<a href="/jak-pujcit/pristaveni">podstawienia</a>.',
                     'Przy przekazaniu otrzymujesz&nbsp;<strong>kluczyki, wyposażenie i dokumenty</strong>&nbsp;(dowód rejestracyjny, zielona karta, formularz wypadkowy).',
-                    '<strong>Zwrot</strong>&nbsp;o dowolnej porze w ostatnim dniu wynajmu (nawet o północy). W oddziale Mezná nie trzeba myć ani tankować; w oddziale samoobsługowym oddaj motocykl umyty i bez świecącej kontrolki rezerwy.',
+                    '<strong>Zwrot</strong>&nbsp;o dowolnej porze w ostatnim dniu wynajmu (nawet o północy). Tankować nie trzeba – byle nie świeciła się kontrolka rezerwy; umyty motocykl trzeba oddać tylko w samoobsługowym oddziale Velké Němčice.',
                 ],
             ],
             'privacy' => [
@@ -292,7 +292,7 @@ return [
                 'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Dostawa motocykla – prosto do ciebie',
-            'intro' => 'Chcesz wyruszyć bez konieczności jazdy do wypożyczalni? Zorganizujemy <strong>dostawę motocykla</strong> w <strong>uzgodnione miejsce</strong>.',
+            'intro' => 'Chcesz wyruszyć bez jazdy do wypożyczalni? Zorganizujemy <strong>dostawę motocykla w umówione miejsce</strong> – do domu, do hotelu, na dworzec albo na start twojej wycieczki. Dowieziemy go w dowolne miejsce w Czechach – prosto z naszego oddziału w Mezná koło Pelhřimova. Dostawę oferujemy dla motocykli z oddziału z obsługą w Mezná; motocykle z samoobsługowego oddziału Velké Němčice odbiera się tylko bezpośrednio w tym oddziale.',
             'top_cta' => [
                 'label' => 'REZERWUJ Z DOSTAWĄ',
                 'href' => '/rezervace?delivery=1',
@@ -389,7 +389,7 @@ return [
                     [
                         'icon' => 'gfx/predani-motorky.svg',
                         'title' => 'Zwróć motocykl',
-                        'text' => 'Zwróć motocykl na czas w umówionym miejscu. Nie trzeba tankować ani myć.',
+                        'text' => 'Zwróć motocykl na czas w umówionym miejscu. Nie trzeba go myć ani tankować – byle nie świeciła się kontrolka rezerwy.',
                     ],
                 ],
             ],
@@ -447,7 +447,7 @@ return [
                 'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Zwrot motocykla w innym miejscu – odbiór do ciebie',
-            'intro' => 'Nie musisz wracać do wypożyczalni. <strong>MotoGo24</strong> oferuje <strong>odbiór motocykla</strong> z miejsca, które ci pasuje – hotel, dworzec, własny adres.',
+            'intro' => 'Nie chcesz wracać do naszego oddziału w Pelhřimovie? Żaden problem. Przyjedziemy po motocykl w dowolne miejsce w Czechach – o godzinie, którą wybrałeś w formularzu rezerwacji. Ty przekazujesz, my ładujemy. Prosto i bez komplikacji. Odbiór spod adresu oferujemy dla motocykli z oddziału z obsługą w Mezná; motocykle z samoobsługowego oddziału Velké Němčice zwraca się tylko bezpośrednio w tym oddziale.',
             'top_cta' => [
                 'label' => 'REZERWUJ Z ODBIOREM',
                 'href' => '/rezervace?return_delivery=1',
@@ -554,7 +554,7 @@ return [
                     ],
                     [
                         'q' => 'Czy muszę zwrócić z pełnym bakiem i czysty?',
-                        'a' => 'Nie. Przy zwrocie w innym miejscu nie tankujesz ani nie myjesz.&nbsp;',
+                        'a' => 'Nie. Przy zwrocie w innym miejscu nie musisz go myć ani tankować – byle nie świeciła się kontrolka rezerwy.&nbsp;',
                     ],
                     [
                         'q' => 'Czy przy zwrocie w innym miejscu mogę zwrócić motocykl wcześniej, niż się umówiliśmy?&nbsp;',
@@ -666,7 +666,7 @@ return [
                 [
                     'icon' => 'gfx/kontakt.svg',
                     'title' => 'Kontakt i mapa',
-                    'text' => 'Odwiedź naszą wypożyczalnię w Pelhřimovie lub skontaktuj się z nami.',
+                    'text' => 'Odwiedź nas w oddziale Mezná koło Pelhřimova lub w samoobsługowym oddziale Velké Němčice koło Brna – albo skontaktuj się z nami.',
                     'btn' => 'KONTAKT',
                     'href' => '/kontakt',
                 ],
@@ -1056,7 +1056,7 @@ return [
             'h1' => 'Proces wypożyczenia motocykla',
             'intro_p1' => 'W <strong>Motogo24 – wypożyczalni motocykli w Vysočinie</strong> wypożyczanie jest proste, szybkie i uczciwe.&nbsp;<strong>Bez kaucji, z wyposażeniem kierowcy w cenie i obsługą całodobową przy odbiorze i zwrocie motocykla</strong>. Przekonaj się, jak łatwo to działa.',
             'intro_h2' => 'Jak wypożyczyć motocykl – wypożyczalnia Motogo24 – Vysočina',
-            'intro_p2' => 'W naszej <strong>wypożyczalni motocykli</strong> wszystko załatwisz online: wybierz motocykl, wybierz termin i wypełnij formularz rezerwacji – wraz z wyposażeniem i sposobem przekazania. Odbierz motocykl w Pelhřimovie albo zamów podstawienie w dowolnym punkcie Czech. Płacisz online przy finalizacji rezerwacji.',
+            'intro_p2' => 'W naszej <strong>wypożyczalni motocykli</strong> wszystko załatwisz online: wybierz motocykl, wybierz termin i wypełnij formularz rezerwacji – wraz z wyposażeniem i sposobem przekazania. Odbierz motocykl w oddziale Mezná koło Pelhřimova (stamtąd możemy go też podstawić w dowolne miejsce w Czechach) albo samoobsługowo w Velké Němčice koło Brna. Płacisz online przy finalizacji rezerwacji.',
             'process' => [
                 'title' => 'Jak przebiega wynajem krok po kroku',
                 'grid' => 'gr4',
@@ -1084,7 +1084,7 @@ return [
                     [
                         'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
                         'title' => '5. Wybierz przekazanie',
-                        'text' => 'Wybierz sposób odbioru – osobiście w Pelhřimovie albo podstawienie w dowolnym punkcie Czech.&nbsp;',
+                        'text' => 'Wybierz sposób odbioru – osobiście w oddziale Mezná koło Pelhřimova, samoobsługowo w Velké Němčice koło Brna albo podstawienie z oddziału Mezná w dowolne miejsce w Czechach.&nbsp;',
                     ],
                     [
                         'icon' => 'gfx/prevezmi-motorku.svg',
@@ -1119,7 +1119,7 @@ return [
                     [
                         'icon' => 'gfx/vrat-motorku-vcas.svg',
                         'title' => '12. Zwróć motocykl',
-                        'text' => 'Zwróć motocykl na czas – osobiście do wypożyczalni w Pelhřimovie albo na umówione miejsce; nie trzeba tankować ani myć. W samoobsługowym oddziale Velké Němčice oddaj motocykl umyty i bez świecącej kontrolki rezerwy.',
+                        'text' => 'Zwróć motocykl na czas – osobiście w oddziale, w którym go wypożyczyłeś (Mezná koło Pelhřimova albo samoobsługowy oddział Velké Němčice koło Brna), a motocykle z oddziału Mezná także w umówionym miejscu. Tankować nie musisz – byle nie świeciła się kontrolka rezerwy. Umyty oddajesz go tylko w samoobsługowym oddziale Velké Němčice.',
                     ],
                 ],
             ],
@@ -1217,7 +1217,7 @@ return [
                     ],
                     [
                         'q' => 'Gdzie mogę odebrać motocykl?',
-                        'a' => 'Odbiór odbywa się w Pelhřimovie, albo oferujemy&nbsp;<strong>podstawienie motocykla</strong>&nbsp;w wybrane przez ciebie miejsce.',
+                        'a' => 'W oddziale z obsługą Mezná koło Pelhřimova (stamtąd oferujemy też&nbsp;<strong>podstawienie motocykla</strong>&nbsp;w wybrane przez ciebie miejsce) albo w samoobsługowym oddziale Velké Němčice koło Brna.',
                     ],
                     [
                         'q' => 'Do kiedy muszę zwrócić motocykl?',
@@ -1383,7 +1383,7 @@ return [
                 'keywords' => 'wypożyczalnia motocykli Czechy',
             ],
             'h1' => 'Zwrot motocykla w wypożyczalni',
-            'intro' => 'Motocykl wracasz wygodnie bezpośrednio w <strong>Motogo24 – wypożyczalni motocykli w Vysočina</strong>. <strong>Obsługa całodobowa</strong>, bez stresu.',
+            'intro' => 'Wypożyczenie kończy się tak samo prosto, jak się zaczęło. Przyjedź o umówionej godzinie zwrotu pod nasz adres w Mezná koło Pelhřimova. Oddaj motocykl i wypożyczony sprzęt – i gotowe. Przed zwrotem nie musisz go myć ani tankować – byle nie świeciła się kontrolka rezerwy.&nbsp;',
             'process' => [
                 'grid' => 'gr4',
                 'steps' => [
@@ -1432,7 +1432,7 @@ return [
                     ],
                     [
                         'q' => 'Czy muszę zwrócić z pełnym bakiem i czysty?',
-                        'a' => 'Nie. W oddziale Mezná nie tankujesz ani nie myjesz. W samoobsługowym oddziale Velké Němčice pełny bak też nie jest potrzebny – oddaj tylko motocykl umyty i pilnuj, żeby nie świeciła kontrolka rezerwy.&nbsp;',
+                        'a' => 'Nie. Przy zwrocie nie musisz tankować – byle nie świeciła się kontrolka rezerwy. Umyty motocykl oddajesz tylko w samoobsługowym oddziale Velké Němčice.&nbsp;',
                     ],
                     [
                         'q' => 'Czy mogę zwrócić motocykl do wypożyczalni wcześniej, niż się umówiliśmy?',
@@ -1454,7 +1454,7 @@ return [
             ],
             'cta' => [
                 'title' => 'Zwrot motocykla w wypożyczalni – Motogo24 Pelhřimov',
-                'text' => 'Wróć motocyklem bezpośrednio do nas w Pelhřimov – <strong>całodobowo, bez kaucji, bez stresu</strong>.',
+                'text' => 'MotoGo24 to wypożyczalnia motocykli w regionie Vysočina działająca całodobowo, z prostym zwrotem o dowolnej porze w dniu wynajmu. Bez kaucji, bez tankowania (byle nie świeciła się kontrolka rezerwy), a w oddziale Mezná także bez mycia. Wybierz z naszej szerokiej oferty motocykli (i skuterów) i zarezerwuj online w zaciszu domu.',
                 'buttons' => [
                     [
                         'label' => 'REZERWUJ ONLINE',

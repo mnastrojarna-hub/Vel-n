@@ -4,7 +4,7 @@
 
 return [
     'h1' => 'Vrácení motocyklu v půjčovně – rychle a bez komplikací',
-    'intro' => 'Výpůjčka končí stejně jednoduše jako začala. Přijeď v domluvený čas vrácení na naši adresu v Pelhřimově, společně zkontrolujeme motorku a výbavu a je hotovo. Nemusíš tankovat ani mýt – to nech na nás.&nbsp;',
+    'intro' => 'Výpůjčka končí stejně jednoduše jako začala. Přijeď v domluvený čas vrácení na naši adresu v Mezné u Pelhřimova. Vrať motorku a zapůjčenou výbavu a je hotovo. Před vrácením nemusíš mýt ani tankovat – jen ať nesvítí rezerva.&nbsp;',
     'process' => [
         // Pozn: V originalu maji wbox jen titulky bez popisu. Zachovavame 1:1.
         'grid' => 'gr4',

@@ -31,8 +31,9 @@ const PAYMENT_METHODS = [
   { value: 'voucher', label: 'Dárkový poukaz' },
 ]
 
+// Bez „Tankování": poplatek za palivo/dotankování se neúčtuje (majitel 12. 10. 2026).
 const REASON_PRESETS = [
-  'Oprava poškození', 'Pozdní vrácení', 'Tankování', 'Mytí motorky',
+  'Oprava poškození', 'Pozdní vrácení', 'Mytí motorky',
   'Spoluúčast na pojistné události', 'Ztráta klíčů', 'Nadměrný nájezd km',
   'Pronájem motooblečení', 'Pronájem helmy', 'Pronájem bundy', 'Pronájem kalhot',
   'Pronájem bot', 'Pronájem rukavic', 'Pronájem kukly',

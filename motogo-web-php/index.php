@@ -643,11 +643,15 @@ switch (true) {
         require __DIR__ . '/pages/partneri.php';
         break;
 
-    // Aplikace je veřejně v Google Play — původní testovací onboarding (skupina
-    // + opt-in) je zrušený. Staré odkazy/QR na /testovani přesměrujeme přímo
-    // na Obchod Play, ať vždy vedou na živou appku.
+    // Aplikace je veřejně v Google Play (Android) i v App Store (iPhone) — původní
+    // testovací onboarding (skupina + opt-in) je zrušený. Staré odkazy/QR na
+    // /testovani vedou na živou appku v obchodě podle zařízení (iPhone/iPad →
+    // App Store, jinak Google Play). 302 + Vary, ať se cíl necachuje napříč platformami.
     case $path === '/testovani':
-        header('Location: ' . PLAY_STORE_LIVE_URL, true, 301);
+        $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        header('Vary: User-Agent');
+        header('Cache-Control: no-store');
+        header('Location: ' . (preg_match('/iPhone|iPad|iPod/i', $ua) ? APP_STORE_LIVE_URL : PLAY_STORE_LIVE_URL), true, 302);
         exit;
 
     // Rezervace

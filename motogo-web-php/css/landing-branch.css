@@ -11,6 +11,11 @@
 /* --- Odznak pobočky --- */
 .pb-badge{display:inline-flex;align-items:center;gap:.35rem;align-self:flex-start;padding:.32rem .7rem .32rem .5rem;border-radius:999px;background:rgba(10,31,20,.84);border:1px solid rgba(116,251,113,.45);color:#fff;font-size:.7rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;line-height:1.2;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .pb-badge .pb-ico{width:15px;height:15px;color:#74fb71}
+/* dlouhé jednoslovné popisky (de „SELBSTBEDIENUNGSFILIALE", uk, nl) se v úzkém sloupci zalomí místo přetečení stránky
+   (dělení slov jen de/nl — jinde by hyphens:auto měnilo zalomení i tam, kde se text vejde) */
+.pb-badge{max-width:100%}
+.pb-badge>span{min-width:0;overflow-wrap:anywhere}
+.pb-badge>span:lang(de),.pb-badge>span:lang(nl){-webkit-hyphens:auto;hyphens:auto}
 .pb-badge--self{background:#74fb71;border-color:#74fb71;color:#08230f;box-shadow:0 0 0 0 rgba(116,251,113,.6);animation:lpDot 2.4s infinite}
 .pb-badge--self .pb-ico{color:#08230f}
 

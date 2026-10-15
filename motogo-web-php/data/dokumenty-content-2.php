@@ -17,9 +17,9 @@ return [
     'handover' => [
         'title' => 'Předání a vrácení',
         'items' => [
-            '<strong>Převzetí</strong>&nbsp;probíhá v Pelhřimově (Mezná 9) nebo na samoobslužné pobočce ve Velkých Němčicích u Brna; z Mezné můžete využít i&nbsp;<a href="/jak-pujcit/pristaveni">přistavení</a>.',
+            '<strong>Převzetí</strong>&nbsp;probíhá v Pelhřimově (Mezná 9) nebo na samoobslužné pobočce ve Velkých Němčicích u Brna; z Mezné je možné i&nbsp;<a href="/jak-pujcit/pristaveni">přistavení</a>.',
             'Při předání obdržíte&nbsp;<strong>klíče, výbavu a dokumenty</strong>&nbsp;(malý TP, zelená karta, formulář nehody).',
-            '<strong>Vrácení</strong>&nbsp;kdykoli během posledního dne výpůjčky (i o půlnoci). V Mezné není nutné mýt ani tankovat; na samoobslužné pobočce vraťte motorku umytou a bez svítící rezervy.',
+            '<strong>Vrácení</strong>&nbsp;kdykoli během posledního dne výpůjčky (i o půlnoci). Tankovat není nutné – jen ať nesvítí rezerva; umytou je potřeba motorku vrátit jen na samoobslužné pobočce ve Velkých Němčicích.',
         ],
     ],
     'privacy' => [
