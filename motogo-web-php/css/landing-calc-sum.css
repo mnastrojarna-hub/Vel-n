@@ -83,17 +83,21 @@
 @media(min-width:900px){.kc-sticky{display:none}}
 
 /* Desktop: výběr | kalendář | souhrn */
-@media(min-width:640px) and (max-width:899px){.kc-grid{grid-template-columns:1fr 1fr}.kc-pick{grid-column:1/-1}.kc-pick{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.kc-branch{margin:0}}
+/* 3 sloupce až od 990 px: minima 240+330+290 px + mezery se do karty vejdou až při ~982 px (dřív 900–981 px uříznutý souhrn a CTA) */
+@media(min-width:640px) and (max-width:989px){.kc-grid{grid-template-columns:1fr 1fr}.kc-pick{grid-column:1/-1}.kc-pick{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.kc-branch{margin:0}}
 @media(min-width:900px){
   .kc-card{padding:1.8rem 1.8rem 1.6rem}
   .kc-head{display:grid;grid-template-columns:1fr auto;align-items:end;gap:.3rem 2rem}
   .kc-eyebrow,.kc-head h2,.kc-lead{grid-column:1}
   .kc-steps{grid-column:2;grid-row:1/4;margin:0;align-self:center}
   .kc-steps li{flex:0 0 auto;padding:.45rem .8rem}
-  .kc-grid{grid-template-columns:minmax(240px,.85fr) minmax(330px,1.15fr) minmax(290px,1fr);align-items:start;gap:1.4rem;margin-top:1.4rem}
+  .kc-grid{align-items:start;gap:1.4rem;margin-top:1.4rem}
+  .kc-day{min-height:50px}
+}
+@media(min-width:990px){
+  .kc-grid{grid-template-columns:minmax(240px,.85fr) minmax(330px,1.15fr) minmax(290px,1fr)}
   .kc-seg{grid-template-columns:1fr}
   .kc-opt-in{min-height:0;flex-direction:row;align-items:center;justify-content:space-between;padding:.6rem .8rem}
-  .kc-day{min-height:50px}
 }
 
 @keyframes kcIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}

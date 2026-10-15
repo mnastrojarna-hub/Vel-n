@@ -91,7 +91,7 @@ body.lp-cta-visible #motogo-ai-bubble{opacity:0;transform:scale(.6);pointer-even
 .lp-cat.is-on .lp-cat-p{color:#74fb71}
 .lp-track-wrap{position:relative}
 .lp-track{display:grid;grid-auto-flow:column;grid-auto-columns:76%;gap:.8rem;margin:0;padding:.5rem var(--lp-g) 1rem;list-style:none;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 var(--lp-g);scrollbar-width:none;overscroll-behavior-x:contain}
-.lp-moto{position:relative;scroll-snap-align:start;min-width:0}
+.lp-moto{position:relative;scroll-snap-align:start;min-width:0;container-type:inline-size}
 .lp-moto-link,.lp-moto--all>a{display:flex;flex-direction:column;height:100%;overflow:hidden;border-radius:16px;background:#fff;border:1px solid #e1efe9;color:#1a2e22;box-shadow:0 6px 18px -8px rgba(26,46,34,.35);transition:transform .2s,box-shadow .2s}
 .lp-moto-link:hover{color:#1a2e22;transform:translateY(-3px);box-shadow:0 12px 26px -10px rgba(26,46,34,.45)}
 .lp-moto-book{position:absolute;right:.75rem;bottom:.8rem;display:inline-flex;align-items:center;gap:.25rem;min-height:40px;padding:.4rem .75rem;border-radius:999px;background:#1a2e22;color:#74fb71;font-size:.78rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
@@ -113,6 +113,9 @@ body.lp-cta-visible #motogo-ai-bubble{opacity:0;transform:scale(.6);pointer-even
 .lp-moto-pd{font-size:.78rem;color:#4a6b5a}
 /* ≤400 px: cena a „Rezervovat" se vedle sebe nevejdou → tlačítko přes šířku pod cenou */
 @media(max-width:400px){.lp-moto-price{padding-right:0}.lp-moto-body{padding-bottom:calc(1.3rem + 40px)}.lp-moto-book{left:.85rem;right:.85rem;bottom:.85rem;justify-content:center}}
+/* totéž podle šířky KARTY (i tablet 561–680 px, karta 44 % ≈ 234–280 px: tlačítko dřív zakrylo „/ den");
+   desktopová karta 290 px zůstává s tlačítkem vedle ceny. Media výše = záloha pro prohlížeče bez container queries. */
+@container (max-width:288px){.lp-moto-price{padding-right:0}.lp-moto-body{padding-bottom:calc(1.3rem + 40px)}.lp-moto-book{left:.85rem;right:.85rem;bottom:.85rem;justify-content:center}}
 .lp-moto--all>a{align-items:center;justify-content:center;gap:.9rem;padding:1.5rem;background:linear-gradient(160deg,#1a3a2a,#0a1f14);color:#fff;font-size:1.05rem;font-weight:800;text-align:center}
 .lp-moto--all>a:hover{color:#fff}
 .lp-moto--all .lp-ico{width:46px;height:46px;padding:11px;border-radius:50%;background:#74fb71;color:#08230f}

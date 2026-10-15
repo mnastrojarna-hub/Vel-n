@@ -14,6 +14,9 @@
 .lp-reason-ico .lp-ico2{width:22px;height:22px}
 .lp-reason-t{font-size:.9rem;font-weight:800;line-height:1.18;color:#fff;-webkit-hyphens:auto;hyphens:auto;overflow-wrap:break-word;text-wrap:balance}
 .lp-reason-s{position:relative;grid-column:1/-1;font-size:.76rem;line-height:1.38;color:#b9d6c6;-webkit-hyphens:auto;hyphens:auto;overflow-wrap:break-word}
+/* dlouhé slovo smí jako dřív zasáhnout do pravého paddingu karty (pl „Wyposażenie" celé); zalomí se až na okraji,
+   kde ho dřív overflow:hidden uřízl */
+.lp-reason-t,.lp-reason-s{justify-self:start;max-width:calc(100% + .7rem)}
 .lp-reason-s b,.lp-reason-s strong{color:#74fb71;font-weight:700}
 .lp-reason--wide{grid-column:1/-1}
 .lp-js .lp-reason--extra{display:none}
@@ -31,9 +34,19 @@
   .lp-reason:hover{transform:translateY(-4px);box-shadow:inset 0 0 0 1px rgba(116,251,113,.6),0 14px 30px -14px rgba(116,251,113,.45)}
   .lp-reason-t{font-size:1.05rem}
   .lp-reason-s{font-size:.86rem}
+  .lp-reason-t,.lp-reason-s{max-width:calc(100% + 1rem)}
   .lp-reason-ico{width:48px;height:48px;border-radius:12px}
   .lp-reason-ico .lp-ico2{width:26px;height:26px}
   .lp-reasons-more{width:auto;margin:1.4rem auto 0;padding:.6rem 1.6rem}
+}
+/* Tablet / malý desktop (4–5 úzkých sloupců): menší ikona a titulek, aby se celá slova vešla
+   (dřív při 820 px uříznuté „Neomezené", „začátečníky", pl „udogodnienia") */
+@media(min-width:769px) and (max-width:1199px){
+  .lp-reason{grid-template-columns:38px minmax(0,1fr);column-gap:.55rem;padding-left:.9rem;padding-right:.9rem}
+  .lp-reason-ico{width:38px;height:38px;border-radius:11px}
+  .lp-reason-ico .lp-ico2{width:23px;height:23px}
+  .lp-reason-t{font-size:.95rem}
+  .lp-reason-t,.lp-reason-s{max-width:calc(100% + .9rem)}
 }
 
 /* --- Recenze: odznaky zdrojů + karusel karet --- */

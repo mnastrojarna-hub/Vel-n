@@ -8,8 +8,9 @@
 .lp-rt-stats li{display:flex;flex-direction:column;align-items:center;padding:.55rem .3rem;border-radius:14px;background:#fff;text-align:center;box-shadow:0 6px 14px -12px rgba(26,46,34,.6)}
 .lp-rt-stats b{color:#0e2a1c;font-size:1.2rem;font-weight:900;line-height:1.1}
 .lp-rt-stats span{color:#4a6b5a;font-size:.7rem;line-height:1.25}
-/* dlouhá slova (nl „bezienswaardigheden") nesmí roztáhnout dlaždici přes okraj karty */
-.lp-rt-stats li>*{max-width:100%;overflow-wrap:break-word}
+/* dlouhá slova (nl „bezienswaardigheden") nesmí roztáhnout dlaždici přes okraj karty;
+   slovo smí využít boční padding dlaždice (uk „безкоштовний" celé), zalomí se až na jejím okraji */
+.lp-rt-stats li>*{max-width:calc(100% + .6rem);overflow-wrap:break-word}
 .lp-rt-stats li>:lang(de),.lp-rt-stats li>:lang(nl){-webkit-hyphens:auto;hyphens:auto}
 .lp-rt-list{display:grid;gap:.55rem;margin:0 0 1rem;padding:0;list-style:none}
 .lp-rt-item{display:grid;grid-template-columns:40px minmax(0,1fr);gap:.65rem;align-items:start}
