@@ -8,6 +8,7 @@ import { computeDocVerification } from '../../lib/docVerification'
 import { useTableSort, sortRows } from '../../components/sortableTable'
 import { useMediaQuery } from '../../hooks/useIsMobile'
 import { WrapTick, PHONE_QUERY, sideLegend } from './AnalyzaWrapTick'
+import WebFunnelVisits from './WebFunnelVisits'
 
 // ───────────────────────────────────────────────────────────────────────────
 // App rezervační funnel — kde zákazníci v mobilní appce (booking_source='app')
@@ -164,7 +165,7 @@ export default function AppRezervacniFunnel() {
     const unfinished = total - paid
 
     return {
-      total, byStage, paid, unfinished,
+      filtered, total, byStage, paid, unfinished,
       docsDoneCount, paidWithoutDocs, unfinishedByPlatform, stagePlatform,
     }
   }, [raw, period])
@@ -179,6 +180,7 @@ export default function AppRezervacniFunnel() {
     return (
       <div>
         <TimePeriodSelector value={period} onChange={setPeriod} />
+        <WebFunnelVisits source="app" period={period} bookings={model.filtered} />
         <div className="text-sm" style={{ ...cardStyle, color: '#888' }}>
           Žádné appkové rezervace v období „{getTimePeriodLabel(period)}".
         </div>
@@ -213,6 +215,7 @@ export default function AppRezervacniFunnel() {
   return (
     <div>
       <TimePeriodSelector value={period} onChange={setPeriod} />
+      <WebFunnelVisits source="app" period={period} bookings={model.filtered} />
 
       {/* KPI */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

@@ -21,6 +21,7 @@ import '../features/catalog/catalog_provider.dart';
 import '../features/catalog/moto_model.dart';
 import '../features/catalog/widgets/availability_calendar.dart';
 import 'currency.dart';
+import 'engagement_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 // INLINE BOOKING FORM — everything in ONE file, per-section try-catch
@@ -356,6 +357,10 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
 
     final draft = ref.watch(bookingDraftProvider);
     final bd = ref.watch(priceBreakdownProvider);
+    // Velín → App funnel: „spočítal cenu“ (motorka + termín) — max 1× za den.
+    if (draft.startDate != null && draft.endDate != null && bd.total > 0) {
+      EngagementService.trackCalc();
+    }
     // Doplňky s cenami dle ranku — od [loyaltyFreeGearLevel] je gear zdarma.
     final pricedExtras = ref.watch(effectiveExtrasProvider);
     final err = ref.watch(bookingValidationErrorProvider);
