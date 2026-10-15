@@ -3,13 +3,15 @@ import { supabase } from '../../lib/supabase'
 import { filterByPeriod } from './TimePeriodSelector'
 
 // ───────────────────────────────────────────────────────────────────────────
-// Web funnel — Návštěvy vs. Zahájeno + Použili kalkulačku.
-// Zdroj: RPC `get_web_engagement_daily` (tabulka `web_engagement`, zapisuje
-// web /api/engage z js/engage.js). Návštěva = člověk byl na libovolné stránce
-// ≥5 s s viditelnou kartou a interagoval s ní (myš/dotyk/klávesa); boti,
-// automatizace a ne-prohlížeče se nezapočítají. 1 člověk = 1 návštěva za den
-// (cookieless denní hash, stejně jako unikátní návštěvníci v Návštěvnosti).
-// Zahájené rezervace se srovnávají jen za dny, kdy už se návštěvy měřily.
+// Web / App funnel — Návštěvy vs. Zahájeno + Použili kalkulačku.
+// Zdroj: RPC `get_web_engagement_daily` (tabulka `web_engagement`):
+//  • web  — /api/engage z js/engage.js: člověk byl na libovolné stránce ≥5 s
+//    s viditelnou kartou a interagoval (myš/dotyk/klávesa); boti, automatizace
+//    a ne-prohlížeče se nezapočítají; „calc“ = kalkulačka ceny v katalogu.
+//  • app  — core/engagement_service.dart: appka ≥5 s v popředí + dotyk displeje
+//    (debug buildy ne); „calc“ = rezervační formulář spočítal cenu.
+// 1 člověk = 1 návštěva za den. Zahájené rezervace se srovnávají jen za dny,
+// kdy už se návštěvy měřily.
 // ───────────────────────────────────────────────────────────────────────────
 
 const cardStyle = { background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }
@@ -23,19 +25,34 @@ const localDay = (ts) => {
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
 }
 
-export default function WebFunnelVisits({ period, inPhase, bookings }) {
+const ALL = () => true
+const TEXT = {
+  web: {
+    calc: 'Použili kalkulačku', started: 'Zahájeno (krok 1)',
+    visit: 'Návštěva = člověk byl na libovolné stránce aspoň 5 s a reagoval (myš/dotyk/klávesa); 1 člověk = 1 návštěva za den.',
+    sub: 'lidé za den, bez botů',
+  },
+  app: {
+    calc: 'Spočítali cenu (formulář)', started: 'Zahájeno (krok platby)',
+    visit: 'Návštěva = appka aspoň 5 s v popředí a dotyk displeje; „Spočítali cenu“ = rezervační formulář ukázal cenu za vybraný termín (appka nemá samostatnou kalkulačku); 1 člověk = 1 návštěva za den.',
+    sub: 'lidé za den (Android + iOS)',
+  },
+}
+
+export default function WebFunnelVisits({ source = 'web', period, inPhase = ALL, bookings }) {
+  const L = TEXT[source] || TEXT.web
   const [days, setDays] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     let alive = true
-    supabase.rpc('get_web_engagement_daily', { p_source: 'web' }).then(({ data, error: e }) => {
+    supabase.rpc('get_web_engagement_daily', { p_source: source }).then(({ data, error: e }) => {
       if (!alive) return
       if (e) setError(e.message)
       else setDays((data || []).map(r => ({ ...r, at: `${r.day}T12:00:00` })))
     })
     return () => { alive = false }
-  }, [])
+  }, [source])
 
   const m = useMemo(() => {
     if (!days) return null
@@ -52,14 +69,14 @@ export default function WebFunnelVisits({ period, inPhase, bookings }) {
 
   const bars = [
     { label: 'Návštěvy (≥ 5 s, jen lidé)', value: m.visits, color: '#4285f4' },
-    { label: 'Použili kalkulačku', value: m.calc, color: '#0ea5e9' },
-    { label: 'Zahájeno (krok 1)', value: m.started, color: '#1a2e22' },
+    { label: L.calc, value: m.calc, color: '#0ea5e9' },
+    { label: L.started, value: m.started, color: '#1a2e22' },
   ]
   const max = Math.max(1, ...bars.map(b => b.value))
   const tiles = [
-    { label: 'Návštěvy (≥ 5 s)', value: m.visits, sub: 'lidé za den, bez botů' },
-    { label: 'Použili kalkulačku', value: m.calc, sub: `${fmtPct(m.calc, m.visits)} z návštěv` },
-    { label: 'Zahájeno (krok 1)', value: m.started, sub: 'za stejné dny jako návštěvy' },
+    { label: 'Návštěvy (≥ 5 s)', value: m.visits, sub: L.sub },
+    { label: L.calc, value: m.calc, sub: `${fmtPct(m.calc, m.visits)} z návštěv` },
+    { label: L.started, value: m.started, sub: 'za stejné dny jako návštěvy' },
     { label: 'Konverze návštěva → zahájeno', value: fmtPct(m.started, m.visits), sub: `${m.started} z ${m.visits} návštěv` },
   ]
 
@@ -67,8 +84,8 @@ export default function WebFunnelVisits({ period, inPhase, bookings }) {
     <div style={{ ...cardStyle, marginBottom: 24 }}>
       <div className="text-sm font-extrabold mb-1" style={{ color: '#1a2e22' }}>Návštěvy vs. zahájeno</div>
       <div className="text-xs mb-3" style={{ color: '#888' }}>
-        {m.firstDay ? `Měří se od ${fmtDay(m.firstDay)}.` : 'Zatím žádná data — měření běží od nasazení webu.'}
-        {' '}Návštěva = člověk byl na libovolné stránce aspoň 5 s a reagoval (myš/dotyk/klávesa); 1 člověk = 1 návštěva za den.
+        {m.firstDay ? `Měří se od ${fmtDay(m.firstDay)}.` : `Zatím žádná data — měření běží od nasazení ${source === 'app' ? 'nové verze appky' : 'webu'}.`}
+        {' '}{L.visit}
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         {tiles.map(k => (
