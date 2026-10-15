@@ -1504,7 +1504,7 @@ return [
     'rez.map.title' => 'Pick a location on the map (Mapy.cz)',
     'rez.map.confirm' => 'Confirm',
     'rez.return.stateTitle' => 'What condition should the motorcycle be returned in?',
-    'rez.return.stateText' => 'At the staffed branch in Mezná and when returning elsewhere, you don\'t need to refuel or wash the motorcycle. At the self-service branch, return it washed and with the reserve light off — a full tank isn\'t needed.',
+    'rez.return.stateText' => 'You don\'t need to refuel when returning (a full tank isn\'t needed) — just make sure the reserve light is off. Only at the self-service branch in Velké Němčice does it have to be returned washed; in Mezná and when returning elsewhere, you don\'t need to wash it.',
     'rez.alert.emailExists' => 'We already have this e-mail on file. Please log in to continue, or reset your password.',
     'rez.alert.emailMismatch' => 'The logged-in account does not match the e-mail you entered. Please log out and try again.',
     'rez.alert.minRentalDays' => 'The minimum rental for this motorbike is {count} days. Please choose a longer period.',

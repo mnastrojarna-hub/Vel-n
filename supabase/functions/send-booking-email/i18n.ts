@@ -435,7 +435,7 @@ ${v.door_codes_block || ''}
 <ul><li>platný doklad totožnosti (který jste uvedli v rezervačním formuláři),</li><li>platný řidičský průkaz.</li></ul>
 <p>Doklady (občanský průkaz nebo cestovní pas a řidičský průkaz) prosím nahrajte předem v aplikaci nebo na webu — přístupové kódy vám pošleme až po jejich ověření. Na samoobslužné pobočce je nahrání dokladů předem nezbytné: bez ověřených dokladů kódy nevydáme a na pobočku se nedostanete; motorku i výbavu si převezmete sami pomocí kódů a Předávací protokol podepíšete na dotykovém displeji. Na obslužné pobočce vás o nahrání dokladů předem také žádáme — pokud je nenahrajete, zkontrolujeme je při převzetí na místě, kde vám předáme motorku i výbavu a společně podepíšeme Předávací protokol.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Vrácení motorky</h3>
-<p>Na obslužné pobočce v Mezné (i při vrácení na jiném sjednaném místě) motorku nemusíte tankovat ani mýt — to je naše práce. Na samoobslužné pobočce ve Velkých Němčicích ji prosím vraťte umytou a tak, aby nesvítila kontrolka rezervy; plná nádrž není potřeba.</p>
+<p>Tankovat při vrácení nemusíte (plná nádrž není potřeba) — jen ať nesvítí kontrolka rezervy. Umytou motorku vracejte jen na samoobslužné pobočce ve Velkých Němčicích; na obslužné pobočce v Mezné (i při vrácení na jiném sjednaném místě) ji mýt nemusíte.</p>
 <div style="background:#f0faf5;border:1px solid #d4e8e0;border-left:4px solid #74fb71;border-radius:8px;padding:14px 16px;margin:18px 0">
 <p style="margin:0 0 8px;font-weight:700;color:#0d6e0d">Potřebujete změnit termín, motorku nebo místo přistavení?</p>
 <p style="margin:0 0 10px;font-size:13px;color:#1a2e22">Rezervaci si můžete kdykoliv upravit nebo zrušit on-line — výpočet doplatku/refundu uvidíte hned.</p>
@@ -452,7 +452,7 @@ ${v.door_codes_block || ''}
 <ul><li>a valid ID document (the one you provided in the booking form),</li><li>a valid driver's license.</li></ul>
 <p>Please upload your documents (ID card or passport and driving licence) in advance in the app or on the website — we will send you the access codes only after they have been verified. At the self-service branch, uploading the documents in advance is essential: without verified documents we will not issue the codes and you will not be able to get into the branch; you take over the motorcycle and gear yourself using the codes and sign the Handover Protocol on the touch display. At the staffed branch we also ask you to upload the documents in advance — if you don't, we will check them at handover on site, where we hand over the motorcycle and gear and sign the Handover Protocol together.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Returning the motorcycle</h3>
-<p>At the staffed branch in Mezná (and when returning at another agreed place) you don't need to refuel or wash the motorcycle — that's our job. At the self-service branch in Velké Němčice, please return it washed and with the fuel reserve light off; a full tank is not needed.</p>
+<p>You don't need to refuel when returning the motorcycle (a full tank is not needed) — just make sure the fuel reserve light is off. It only has to be returned washed at the self-service branch in Velké Němčice; at the staffed branch in Mezná (and when returning at another agreed place) you don't need to wash it.</p>
 <p>${SIGN.en}</p>`,
     de: v => `<p>${HELLO.de}</p>
 <p>vielen Dank für Ihr Vertrauen und Ihre Buchung Nr. <strong>${v.booking_number}</strong> bei MOTO GO 24.</p>
@@ -464,7 +464,7 @@ ${v.door_codes_block || ''}
 <ul><li>einen gültigen Personalausweis (den Sie im Buchungsformular angegeben haben),</li><li>einen gültigen Führerschein.</li></ul>
 <p>Bitte laden Sie Ihre Dokumente (Personalausweis oder Reisepass und Führerschein) vorab in der App oder auf der Website hoch — die Zugangscodes senden wir Ihnen erst nach deren Prüfung. In der Selbstbedienungsfiliale ist das vorherige Hochladen der Dokumente unbedingt erforderlich: Ohne geprüfte Dokumente geben wir keine Codes aus und Sie erhalten keinen Zutritt zur Filiale; Motorrad und Ausrüstung übernehmen Sie selbst mithilfe der Codes und unterschreiben das Übergabeprotokoll am Touch-Display. In der bedienten Filiale bitten wir Sie ebenfalls, die Dokumente vorab hochzuladen — falls Sie das nicht tun, prüfen wir sie bei der Übergabe vor Ort, wo wir Ihnen Motorrad und Ausrüstung übergeben und gemeinsam das Übergabeprotokoll unterschreiben.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Rückgabe des Motorrads</h3>
-<p>In der Filiale Mezná mit Personal (und bei Rückgabe an einem anderen vereinbarten Ort) müssen Sie das Motorrad weder tanken noch waschen — das übernehmen wir. In der Selbstbedienungsfiliale Velké Němčice geben Sie es bitte gewaschen zurück, ohne dass die Reserveleuchte leuchtet; Volltanken ist nicht nötig.</p>
+<p>Tanken müssen Sie das Motorrad bei der Rückgabe nicht (Volltanken ist nicht nötig) — achten Sie nur darauf, dass die Reserveleuchte nicht leuchtet. Gewaschen zurückgeben müssen Sie es nur in der Selbstbedienungsfiliale Velké Němčice; in der Filiale Mezná mit Personal (und bei Rückgabe an einem anderen vereinbarten Ort) müssen Sie es nicht waschen.</p>
 <p>${SIGN.de}</p>`,
     nl: v => `<p>${HELLO.nl}</p>
 <p>bedankt voor je vertrouwen en je boeking nr. <strong>${v.booking_number}</strong> bij MOTO GO 24.</p>
@@ -476,7 +476,7 @@ ${v.door_codes_block || ''}
 <ul><li>een geldig identiteitsbewijs (dat je in het boekingsformulier hebt opgegeven),</li><li>een geldig rijbewijs.</li></ul>
 <p>Upload je documenten (identiteitskaart of paspoort en rijbewijs) alsjeblieft vooraf in de app of op de website — de toegangscodes sturen we je pas na controle ervan. Bij de zelfbedieningsvestiging is het vooraf uploaden van de documenten noodzakelijk: zonder gecontroleerde documenten geven we geen codes uit en kom je de vestiging niet binnen; de motor en de uitrusting neem je zelf over met behulp van de codes en het Overdrachtsprotocol onderteken je op het touchscreen. Bij de bemande vestiging vragen we je ook om de documenten vooraf te uploaden — doe je dat niet, dan controleren we ze bij de overdracht ter plaatse, waar we je de motor en de uitrusting overhandigen en samen het Overdrachtsprotocol ondertekenen.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Motor terugbrengen</h3>
-<p>Bij de bemande vestiging in Mezná (en bij teruggave op een andere afgesproken plek) hoef je de motor niet te tanken of te wassen — dat doen wij. Bij de zelfbedieningsvestiging in Velké Němčice lever je hem gewassen in en zonder brandend reservelampje; een volle tank is niet nodig.</p>
+<p>Tanken bij het terugbrengen hoeft niet (een volle tank is niet nodig) — zorg alleen dat het reservelampje niet brandt. Gewassen inleveren hoeft alleen bij de zelfbedieningsvestiging in Velké Němčice; bij de bemande vestiging in Mezná (en bij teruggave op een andere afgesproken plek) hoef je de motor niet te wassen.</p>
 <p>${SIGN.nl}</p>`,
     es: v => `<p>${HELLO.es}</p>
 <p>gracias por tu confianza y por tu reserva nº <strong>${v.booking_number}</strong> en MOTO GO 24.</p>
@@ -488,7 +488,7 @@ ${v.door_codes_block || ''}
 <ul><li>un documento de identidad válido (el que indicaste en el formulario),</li><li>un permiso de conducir válido.</li></ul>
 <p>Por favor, sube los documentos (DNI o pasaporte y permiso de conducir) por adelantado en la aplicación o en la web — los códigos de acceso te los enviaremos solo después de verificarlos. En la sucursal de autoservicio subir los documentos por adelantado es imprescindible: sin documentos verificados no emitiremos los códigos y no podrás entrar en la sucursal; recogerás tú mismo la moto y el equipo con los códigos y firmarás el Acta de Entrega en la pantalla táctil. En la sucursal con personal también te pedimos que subas los documentos por adelantado — si no los subes, los comprobaremos en el lugar en el momento de la entrega, donde te entregaremos la moto y el equipo y firmaremos juntos el Acta de Entrega.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Devolución de la moto</h3>
-<p>En la sucursal con personal de Mezná (y si la devuelves en otro lugar acordado) no tienes que repostar ni lavar la moto — de eso nos encargamos nosotros. En la sucursal de autoservicio de Velké Němčice, devuélvela lavada y sin el testigo de reserva encendido; no hace falta el depósito lleno.</p>
+<p>Al devolver la moto no tienes que repostar (no hace falta el depósito lleno); solo procura que no esté encendido el testigo de reserva. Lavada solo hay que devolverla en la sucursal de autoservicio de Velké Němčice; en la sucursal con personal de Mezná (y si la devuelves en otro lugar acordado) no tienes que lavarla.</p>
 <p>${SIGN.es}</p>`,
     fr: v => `<p>${HELLO.fr}</p>
 <p>merci de votre confiance et de votre réservation n° <strong>${v.booking_number}</strong> chez MOTO GO 24.</p>
@@ -500,7 +500,7 @@ ${v.door_codes_block || ''}
 <ul><li>une pièce d'identité valide (celle indiquée dans le formulaire),</li><li>un permis de conduire valide.</li></ul>
 <p>Veuillez téléverser vos documents (carte d'identité ou passeport et permis de conduire) à l'avance dans l'application ou sur le site web — nous vous enverrons les codes d'accès uniquement après leur vérification. À l'agence en libre-service, le téléversement préalable des documents est indispensable : sans documents vérifiés, nous ne délivrerons pas les codes et vous ne pourrez pas entrer dans l'agence ; vous prendrez en charge la moto et l'équipement vous-même à l'aide des codes et signerez le procès-verbal de remise sur l'écran tactile. À l'agence avec personnel, nous vous demandons également de téléverser les documents à l'avance — si vous ne le faites pas, nous les vérifierons sur place lors de la remise, où nous vous remettrons la moto et l'équipement et signerons ensemble le procès-verbal de remise.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Restitution de la moto</h3>
-<p>À l'agence avec personnel de Mezná (et en cas de restitution dans un autre lieu convenu), vous n'avez ni à faire le plein ni à laver la moto — c'est notre travail. À l'agence en libre-service de Velké Němčice, rendez-la lavée et sans voyant de réserve allumé ; le plein n'est pas nécessaire.</p>
+<p>Au retour, vous n'avez pas à faire le plein (un réservoir plein n'est pas nécessaire) — veillez seulement à ce que le voyant de réserve ne soit pas allumé. La moto ne doit être rendue lavée qu'à l'agence en libre-service de Velké Němčice ; à l'agence avec personnel de Mezná (et en cas de restitution dans un autre lieu convenu), vous n'avez pas à la laver.</p>
 <p>${SIGN.fr}</p>`,
     pl: v => `<p>${HELLO.pl}</p>
 <p>dziękujemy za zaufanie i rezerwację nr <strong>${v.booking_number}</strong> w MOTO GO 24.</p>
@@ -512,7 +512,7 @@ ${v.door_codes_block || ''}
 <ul><li>ważny dokument tożsamości (wskazany w formularzu rezerwacji),</li><li>ważne prawo jazdy.</li></ul>
 <p>Dokumenty (dowód osobisty lub paszport oraz prawo jazdy) prześlij proszę z wyprzedzeniem w aplikacji lub na stronie internetowej — kody dostępu wyślemy ci dopiero po ich weryfikacji. W oddziale samoobsługowym przesłanie dokumentów z wyprzedzeniem jest niezbędne: bez zweryfikowanych dokumentów nie wydamy kodów i nie dostaniesz się do oddziału; motocykl i wyposażenie odbierzesz samodzielnie za pomocą kodów, a protokół zdawczo-odbiorczy podpiszesz na ekranie dotykowym. W oddziale z obsługą również prosimy o przesłanie dokumentów z wyprzedzeniem — jeśli ich nie prześlesz, sprawdzimy je przy odbiorze na miejscu, gdzie przekażemy ci motocykl i wyposażenie oraz wspólnie podpiszemy protokół zdawczo-odbiorczy.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Zwrot motocykla</h3>
-<p>W oddziale z obsługą Mezná (i przy zwrocie w innym uzgodnionym miejscu) nie musisz tankować ani myć motocykla — to nasza praca. W oddziale samoobsługowym Velké Němčice oddaj motocykl umyty i bez świecącej kontrolki rezerwy; pełny bak nie jest potrzebny.</p>
+<p>Przy zwrocie nie musisz tankować (pełny bak nie jest potrzebny) — zadbaj tylko o to, żeby nie świeciła się kontrolka rezerwy. Umyty motocykl oddajesz tylko w oddziale samoobsługowym Velké Němčice; w oddziale z obsługą Mezná (i przy zwrocie w innym uzgodnionym miejscu) nie musisz go myć.</p>
 <p>${SIGN.pl}</p>`,
     uk: v => `<p>${HELLO.uk}</p>
 <p>дякуємо за довіру та бронювання № <strong>${v.booking_number}</strong> у MOTO GO 24.</p>
@@ -524,7 +524,7 @@ ${v.door_codes_block || ''}
 <ul><li>чинний документ, що посвідчує особу (той, який ви вказали у формі бронювання),</li><li>чинне посвідчення водія.</li></ul>
 <p>Документи (ID-картку або паспорт та посвідчення водія) завантажте, будь ласка, заздалегідь у додатку або на сайті — коди доступу ми надішлемо вам лише після їх перевірки. У філії самообслуговування завантажити документи заздалегідь необхідно: без перевірених документів ми не видамо коди, і ви не потрапите до філії; мотоцикл і спорядження ви отримаєте самостійно за допомогою кодів, а акт приймання-передачі підпишете на сенсорному дисплеї. У філії з персоналом ми також просимо вас завантажити документи заздалегідь — якщо ви їх не завантажите, ми перевіримо їх під час видачі на місці, де передамо вам мотоцикл і спорядження та разом підпишемо акт приймання-передачі.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Повернення мотоцикла</h3>
-<p>У філії з персоналом у Mezná (і при поверненні в іншому погодженому місці) мотоцикл не потрібно заправляти чи мити — це наша робота. У філії самообслуговування у Velké Němčice поверніть його, будь ласка, вимитим і так, щоб не світився індикатор резерву палива; повний бак не потрібен.</p>
+<p>Заправляти мотоцикл при поверненні не потрібно (повний бак не потрібен) — лише стежте, щоб не світився індикатор резерву палива. Вимитим його потрібно повернути лише у філії самообслуговування у Velké Němčice; у філії з персоналом у Mezná (і при поверненні в іншому погодженому місці) мити його не потрібно.</p>
 <p>${SIGN.uk}</p>`,
   },
 

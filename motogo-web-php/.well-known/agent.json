@@ -97,8 +97,8 @@
       "N": "dětské motorky bez ŘP"
     },
     "abroad": "Sjezd do zahraničí povolen, zelená karta v ceně.",
-    "fuel": "Obslužná pobočka Mezná (i vrácení na jiném sjednaném místě): bez povinnosti tankovat. Samoobslužná pobočka Velké Němčice: plná nádrž není potřeba, ale při vrácení nesmí svítit kontrolka rezervy paliva.",
-    "cleaning": "Obslužná pobočka Mezná (i vrácení na jiném sjednaném místě): bez povinnosti mýt, nadměrné znečištění individuálně. Samoobslužná pobočka Velké Němčice: motorku je nutné vrátit umytou."
+    "fuel": "Stav paliva MotoGo24 neřeší: motorka se předává s tím, co je v nádrži (plnou nádrž neslibujeme), zákazník si cestou tankuje sám podle potřeby. Při vrácení tankovat netřeba (plná nádrž není potřeba), jen ať nesvítí kontrolka rezervy paliva — platí na obou pobočkách i při vrácení jinde (na samoobslužné pobočce Velké Němčice svítit nesmí). Žádný poplatek za palivo ani dotankování.",
+    "cleaning": "Umytou je nutné motorku vrátit jen na samoobslužné pobočce Velké Němčice. Obslužná pobočka Mezná (i vrácení na jiném sjednaném místě): bez povinnosti mýt, nadměrné znečištění individuálně."
   },
   "contact": {
     "primary": {
@@ -135,7 +135,7 @@
       "Motorkářská výbava (helma, bunda, kalhoty, rukavice) v ceně.",
       "Nonstop provoz — převzetí 24/7 přes přístupové kódy.",
       "Sjezd do EU povolen, zelená karta zdarma.",
-      "Vrácení v Mezné (i na jiném sjednaném místě) bez tankování i mytí; na samoobslužné pobočce Velké Němčice plná nádrž netřeba, jen umytá a bez svítící rezervy.",
+      "Vrácení bez tankování (jen ať nesvítí kontrolka rezervy); umytá jen na samoobslužné pobočce Velké Němčice — v Mezné (i na jiném sjednaném místě) bez mytí.",
       "Online platba kartou (Stripe), Apple/Google Pay.",
       "Cancellation 7+ dní zdarma.",
       "Multi-language: cs, en, de, es, fr, nl, pl.",

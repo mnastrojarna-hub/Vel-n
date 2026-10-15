@@ -1479,7 +1479,7 @@ return [
     'rez.map.title' => 'Choisissez un lieu sur la carte (Mapy.cz)',
     'rez.map.confirm' => 'Confirmer',
     'rez.return.stateTitle' => 'Dans quel état rendre la moto ?',
-    'rez.return.stateText' => 'À l\'agence avec personnel de Mezná et en cas de restitution ailleurs, vous n\'avez ni à faire le plein ni à laver la moto. À l\'agence en libre-service, rendez-la lavée et sans voyant de réserve allumé ; le plein n\'est pas nécessaire.',
+    'rez.return.stateText' => 'Pas besoin de faire le plein au retour (un réservoir plein n\'est pas nécessaire) — veillez seulement à ce que le voyant de réserve ne soit pas allumé. La moto ne doit être rendue lavée qu\'à l\'agence en libre-service de Velké Němčice ; à Mezná et en cas de restitution ailleurs, inutile de la laver.',
     'rez.alert.emailExists' => 'Cet e-mail est déjà enregistré chez nous. Connectez-vous pour continuer ou réinitialisez votre mot de passe.',
     'rez.alert.emailMismatch' => 'Le compte connecté ne correspond pas à l\'e-mail saisi. Déconnectez-vous et réessayez.',
     'rez.alert.minRentalDays' => 'La durée minimale de location de cette moto est de {count} jours. Veuillez choisir une période plus longue.',

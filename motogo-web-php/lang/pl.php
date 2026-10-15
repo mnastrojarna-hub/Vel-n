@@ -1458,7 +1458,7 @@ return [
     'rez.map.title' => 'Wybierz miejsce na mapie (Mapy.cz)',
     'rez.map.confirm' => 'Potwierdź',
     'rez.return.stateTitle' => 'W jakim stanie należy zwrócić motocykl?',
-    'rez.return.stateText' => 'W obsługiwanym oddziale Mezná i przy zwrocie w innym miejscu nie musisz tankować ani myć motocykla. W oddziale samoobsługowym oddaj motocykl umyty i bez świecącej kontrolki rezerwy — pełny bak nie jest potrzebny.',
+    'rez.return.stateText' => 'Przy zwrocie nie musisz tankować (pełny bak nie jest potrzebny) — byle nie świeciła się kontrolka rezerwy. Umyty motocykl oddajesz tylko w oddziale samoobsługowym w Velké Němčice; w Mezná i przy zwrocie w innym miejscu nie musisz go myć.',
     'rez.alert.emailExists' => 'Ten adres e-mail jest już u nas zarejestrowany. Zaloguj się, aby kontynuować, lub zresetuj hasło.',
     'rez.alert.emailMismatch' => 'Zalogowane konto nie zgadza się z podanym adresem e-mail. Wyloguj się i spróbuj ponownie.',
     'rez.alert.minRentalDays' => 'Minimalny okres wynajmu tego motocykla to {count} dni. Wybierz dłuższy termin.',

@@ -1480,7 +1480,7 @@ return [
     'rez.map.title' => 'Elige un lugar en el mapa (Mapy.cz)',
     'rez.map.confirm' => 'Confirmar',
     'rez.return.stateTitle' => '¿En qué estado hay que devolver la moto?',
-    'rez.return.stateText' => 'En la sucursal con personal de Mezná y si la devuelves en otro lugar, no tienes que repostar ni lavar la moto. En la sucursal de autoservicio, devuélvela lavada y sin el testigo de reserva encendido; no hace falta el depósito lleno.',
+    'rez.return.stateText' => 'Al devolverla no tienes que repostar (no hace falta el depósito lleno); solo procura que no esté encendido el testigo de reserva. Lavada solo hay que devolverla en la sucursal de autoservicio de Velké Němčice; en Mezná y si la devuelves en otro lugar no hace falta lavarla.',
     'rez.alert.emailExists' => 'Ya tenemos este correo registrado. Inicia sesión para continuar o restablece tu contraseña.',
     'rez.alert.emailMismatch' => 'La cuenta con la que has iniciado sesión no coincide con el correo introducido. Cierra sesión e inténtalo de nuevo.',
     'rez.alert.minRentalDays' => 'El alquiler mínimo de esta moto es de {count} días. Elige un periodo más largo.',

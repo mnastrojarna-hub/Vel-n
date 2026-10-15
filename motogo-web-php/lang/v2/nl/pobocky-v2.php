@@ -39,7 +39,7 @@ return ['pages' => ['pobocky' => ['v2' => [
         ['label' => 'Maten uitrusting', 'i' => 'tag', 'v' => [['t' => 'Jas en broek tot 6XL'], ['t' => 'Helm S–3XL; jas, broek en handschoenen tot 4XL']]],
         ['label' => 'Regenkleding en extra uitrusting', 'i' => 'rain', 'v' => [['ok' => 1, 't' => 'Ja'], ['ok' => 0, 't' => 'Nee, alleen in Mezná']]],
         ['label' => 'Bezorging op je adres', 'i' => 'truck', 'v' => [['ok' => 1, 't' => 'Ja, tegen meerprijs'], ['ok' => 0, 't' => 'Nee: ophalen en inleveren alleen bij de vestiging']]],
-        ['label' => 'Motor inleveren', 'i' => 'moto', 'v' => [['t' => 'Zonder wassen en tanken'], ['t' => 'Gewassen, reservelampje uit; volle tank niet nodig']]],
+        ['label' => 'Motor inleveren', 'i' => 'moto', 'v' => [['t' => 'Zonder wassen en tanken; reservelampje uit'], ['t' => 'Gewassen, reservelampje uit; volle tank niet nodig']]],
         ['label' => 'Documenten', 'i' => 'doc', 'v' => [['t' => 'Upload ze online of we controleren ze ter plaatse'], ['t' => 'Vooraf online uploaden en laten verifiëren']]],
         ['label' => 'Voorzieningen', 'i' => 'kiosk', 'v' => [['t' => 'Wifi, wc, paskamer en afsluitbare kluisjes'], ['t' => 'Kleedkamer (deur nr. 8), touchscreen en boxen met de motoren']]],
         ['label' => 'Gratis parkeren', 'i' => 'parking', 'v' => [['ok' => 1, 't' => 'Ja, de hele huurperiode'], ['ok' => 1, 't' => 'Ja, de hele huurperiode']]],

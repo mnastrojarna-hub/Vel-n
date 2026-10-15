@@ -18,7 +18,7 @@ const Map<String, String> branchesInfoDefaults = {
   'branches.0.text': 'Naše hlavní pobočka na Vysočině. Motorku vám <strong>předáme osobně</strong> — vše vysvětlíme, pomůžeme s nastavením a výběrem výbavy a společně projdeme předávací protokol. Výbava pro řidiče je v ceně. Odtud nabízíme i <strong>přistavení motorky</strong> na vámi zvolenou adresu.',
   'branches.0.gear': 'Výbava pro řidiče v ceně — bundy a kalhoty ve velikostech až do <strong>6XL</strong>. Jen tady si můžete zapůjčit i <strong>nepromoky</strong> a další doplňkovou výbavu.',
   'branches.0.steps_title': 'Jak to probíhá',
-  'branches.0.steps': '1. Rezervujete a zaplatíte online (web nebo aplikace) a nahrajete doklady (OP/pas + ŘP) — žádáme o to i na obslužné pobočce; pokud je nenahrajete, zkontrolujeme je při převzetí na místě.<br>2. Ve zvolený čas přijedete na pobočku, kde vás čekáme.<br>3. Předáme motorku i výbavu a podepíšeme předávací protokol.<br>4. Po jízdě motorku vrátíte na pobočku (nebo si ji vyzvedneme na domluvené adrese) — mýt ani tankovat ji nemusíte.',
+  'branches.0.steps': '1. Rezervujete a zaplatíte online (web nebo aplikace) a nahrajete doklady (OP/pas + ŘP) — žádáme o to i na obslužné pobočce; pokud je nenahrajete, zkontrolujeme je při převzetí na místě.<br>2. Ve zvolený čas přijedete na pobočku, kde vás čekáme.<br>3. Předáme motorku i výbavu a podepíšeme předávací protokol.<br>4. Po jízdě motorku vrátíte na pobočku (nebo si ji vyzvedneme na domluvené adrese) — mýt ani tankovat ji nemusíte, jen ať nesvítí rezerva.',
   'branches.0.video': '',
   'branches.0.video_title': 'Video: jak to na pobočce probíhá',
   'branches.1.badge': 'Samoobslužná pobočka',

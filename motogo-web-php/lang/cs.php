@@ -463,7 +463,7 @@ return [
     'rez.return.expectedTitle' => 'Předpokládaný čas návratu',
     'rez.return.expectedSub' => 'V kolik hodin přibližně vrátíte motorku? Nejpozději o půlnoci posledního dne.',
     'rez.return.stateTitle' => 'V jakém stavu motorku vrátit?',
-    'rez.return.stateText' => 'Na obslužné pobočce v Mezné i při vrácení jinde motorku nemusíš tankovat ani mýt. Na samoobslužné pobočce ji vrať umytou a bez svítící rezervy – plná nádrž není potřeba.',
+    'rez.return.stateText' => 'Tankovat při vrácení nemusíš (plná nádrž není potřeba) – jen ať nesvítí rezerva. Umytou ji vracej jen na samoobslužné pobočce ve Velkých Němčicích; v Mezné ani při vrácení jinde ji mýt nemusíš.',
 
     // ===== Rezervace — výbava =====
     'rez.gear.intro' => 'Vyberte velikosti kliknutím na čtverečky níže.',

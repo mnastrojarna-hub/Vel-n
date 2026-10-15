@@ -1458,7 +1458,7 @@ return [
     'rez.map.title' => 'Kies een locatie op de kaart (Mapy.cz)',
     'rez.map.confirm' => 'Bevestigen',
     'rez.return.stateTitle' => 'In welke staat moet de motor worden teruggebracht?',
-    'rez.return.stateText' => 'Bij de bemande vestiging in Mezná en bij teruggave op een andere plek hoef je niet te tanken of te wassen. Bij de zelfbedieningsvestiging lever je de motor gewassen in en zonder brandend reservelampje — een volle tank is niet nodig.',
+    'rez.return.stateText' => 'Tanken bij het inleveren hoeft niet (een volle tank is niet nodig) — zorg alleen dat het reservelampje niet brandt. Alleen bij de zelfbedieningsvestiging in Velké Němčice lever je de motor gewassen in; in Mezná en bij teruggave op een andere plek hoef je niet te wassen.',
     'rez.alert.emailExists' => 'Dit e-mailadres is bij ons al bekend. Log in om door te gaan of stel je wachtwoord opnieuw in.',
     'rez.alert.emailMismatch' => 'Het ingelogde account komt niet overeen met het ingevoerde e-mailadres. Log uit en probeer het opnieuw.',
     'rez.alert.minRentalDays' => 'De minimale huurperiode voor deze motor is {count} dagen. Kies een langere periode.',

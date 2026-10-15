@@ -1493,7 +1493,7 @@ return [
     'rez.map.title' => 'Wählen Sie einen Ort auf der Karte (Mapy.cz)',
     'rez.map.confirm' => 'Bestätigen',
     'rez.return.stateTitle' => 'In welchem Zustand muss das Motorrad zurückgegeben werden?',
-    'rez.return.stateText' => 'In der Filiale Mezná mit Personal und bei Rückgabe an einem anderen Ort müssen Sie das Motorrad weder tanken noch waschen. An der Selbstbedienungsfiliale geben Sie es bitte gewaschen zurück, ohne dass die Reserveleuchte leuchtet — Volltanken ist nicht nötig.',
+    'rez.return.stateText' => 'Tanken müssen Sie bei der Rückgabe nicht (Volltanken ist nicht nötig) — die Reserveleuchte sollte nur nicht leuchten. Gewaschen zurückgeben müssen Sie das Motorrad nur an der Selbstbedienungsfiliale in Velké Němčice; in Mezná und bei Rückgabe an einem anderen Ort ist Waschen nicht nötig.',
     'rez.alert.emailExists' => 'Diese E-Mail ist bei uns bereits hinterlegt. Bitte melden Sie sich an, um fortzufahren, oder setzen Sie Ihr Passwort zurück.',
     'rez.alert.emailMismatch' => 'Das angemeldete Konto stimmt nicht mit der eingegebenen E-Mail überein. Bitte melden Sie sich ab und versuchen Sie es erneut.',
     'rez.alert.minRentalDays' => 'Die Mindestmietdauer für dieses Motorrad beträgt {count} Tage. Bitte wählen Sie einen längeren Zeitraum.',

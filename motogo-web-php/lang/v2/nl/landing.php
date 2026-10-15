@@ -47,7 +47,7 @@ return ['pages' => ['landing' => [
             ['icon' => 'shield', 'title' => 'Schade 100% gedekt', 'text' => 'Contractuele dekking: bij een ongeval is je eigen risico € 0.*'],
             ['icon' => 'helmet', 'title' => 'Uitrusting inbegrepen', 'text' => 'Motorkleding, veiligheidshesje, EHBO-set en schijfremslot. In Mezná ook regenkleding.'],
             ['icon' => 'infinity', 'title' => 'Onbeperkt km en ritten naar het buitenland', 'text' => 'Rij waarheen je wilt en zo ver je wilt (in de landen van de groene kaart).'],
-            ['icon' => 'fuel', 'title' => 'Inleveren zoals het jou uitkomt', 'text' => 'In Mezná niet wassen of tanken. Bij zelfbediening: gewassen en zonder brandend reservelampje; volle tank hoeft niet.'],
+            ['icon' => 'fuel', 'title' => 'Inleveren zoals het jou uitkomt', 'text' => 'Tanken hoeft niet – zorg alleen dat het reservelampje niet brandt. Alleen bij de zelfbediening in Velké Němčice lever je hem gewassen in.'],
             ['icon' => 'calendar', 'title' => 'Online reserveren en betalen', 'text' => 'Geregeld in een paar minuten, ook op zondagavond.'],
             ['icon' => 'app', 'title' => 'Eigen app', 'text' => 'Je reservering aanpassen, SOS, loyaliteitsprogramma en routes, alles op één plek.'],
             ['icon' => 'coffee', 'title' => 'Gratis voorzieningen', 'text' => 'In Mezná: koffie, water, wc, wifi, paskamer en kluisjes. Parkeerplek voor je auto bij beide vestigingen.'],

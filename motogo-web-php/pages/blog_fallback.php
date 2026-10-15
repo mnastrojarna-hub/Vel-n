@@ -49,7 +49,7 @@ function getBlogFallbackPosts() {
                 . '<ul><li>Občanský průkaz nebo pas</li><li>Řidičský průkaz (skupina A, A2 nebo A1 podle motorky)</li><li>Vhodnou obuv (moto boty půjčíme jako nadstandard)</li></ul>'
                 . '<p>Helma, bunda, kalhoty a rukavice jsou v ceně – prostě si je u nás vyzvednete.</p>'
                 . '<h2>5. Vrácení</h2>'
-                . '<p>Kdykoli během posledního dne výpůjčky. Na obslužné pobočce v Mezné (i při vrácení na jiném domluveném místě) nemusíte tankovat ani mýt — podepíšeme předávací protokol a máte hotovo. Na samoobslužné pobočce ve Velkých Němčicích plnou nádrž nepotřebujete, motorku ale vraťte umytou a bez svítící rezervy.</p>'
+                . '<p>Kdykoli během posledního dne výpůjčky. Tankovat nemusíte (plná nádrž není potřeba) — jen ať nesvítí rezerva. Na obslužné pobočce v Mezné (i při vrácení na jiném domluveném místě) motorku nemusíte ani mýt — podepíšeme předávací protokol a máte hotovo. Na samoobslužné pobočce ve Velkých Němčicích ji vraťte umytou.</p>'
                 . '<p><strong>A co kauce?</strong> U nás <strong>žádná</strong>. Férové podmínky, žádné skryté poplatky.</p>',
         ],
         [
