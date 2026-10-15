@@ -54,6 +54,7 @@ import 'translations_ext_33_docscan_a.dart';
 import 'translations_ext_33_docscan_b.dart';
 import 'translations_ext_34_sos_timeline.dart';
 import 'translations_ext_35_loyalty_ranks.dart';
+import 'translations_ext_36_ride_feedback.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -108,6 +109,7 @@ final translations = _mergeAll([
   translationsExt33DocScanB,
   translationsExt34SosTimeline,
   translationsExt35LoyaltyRanks,
+  translationsExt36RideFeedback,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

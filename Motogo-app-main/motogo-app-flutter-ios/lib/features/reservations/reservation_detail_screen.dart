@@ -36,7 +36,6 @@ class ReservationDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _DetailState extends ConsumerState<ReservationDetailScreen> {
-  int _rating = 0;
   String _activeTab = 'detail'; // 'detail' or 'card'
   Timer? _refreshTimer;
   // Předávací protokol samoobslužné pobočky se od 2026-10-10 vyplňuje
@@ -116,7 +115,6 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
 
   Widget _buildDetail(BuildContext context, Reservation res, AsyncValue<List<DoorCode>> doorCodesAsync) {
     final st = res.displayStatus;
-    _rating = res.rating ?? 0;
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -223,7 +221,6 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
             // ===== DETAIL TAB BODY =====
             ResDetailTabContent(
               res: res,
-              rating: _rating,
               doorCodesAsync: doorCodesAsync,
               statusColor: _statusColor(st),
               statusTitle: _statusTitle(st),
@@ -232,7 +229,6 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
               onOpenFinalInvoice: _openFinalInvoice,
               onOpenContract: _openContract,
               onRestoreBooking: _restoreBooking,
-              onRatingChanged: (v) => setState(() => _rating = v),
             ),
           ],
 

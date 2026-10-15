@@ -671,7 +671,8 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   </script>' . $breadcrumbSchema . $speakableSchema . ($extraSchema ? "\n" . $extraSchema : '') . '
 
   <link rel="preconnect" href="' . SUPABASE_URL . '" crossorigin>
-  <link rel="preload" href="' . assetUrl('/gfx/fonts/montserrat-vf-latin-ext.woff2') . '" as="font" type="font/woff2" crossorigin>';
+  <link rel="preload" href="' . BASE_URL . '/gfx/fonts/montserrat-vf-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="' . BASE_URL . '/gfx/fonts/montserrat-vf-latin-ext.woff2" as="font" type="font/woff2" crossorigin>';
 
     foreach ($preload as $p) {
         $attrs = '';

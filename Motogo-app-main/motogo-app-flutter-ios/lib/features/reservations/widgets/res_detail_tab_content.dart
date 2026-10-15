@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/router.dart';
@@ -22,13 +21,13 @@ import 'res_location_row.dart';
 import 'res_modification_history.dart';
 import 'res_access_codes_card.dart';
 import 'res_pickup_procedure.dart';
+import 'res_rating_card.dart';
 import '../../../core/currency.dart';
 import '../../../core/booking_rules.dart';
 
 /// Sliver list content for the "Podrobnosti" tab in reservation detail.
 class ResDetailTabContent extends ConsumerWidget {
   final Reservation res;
-  final int rating;
   final AsyncValue<List<DoorCode>> doorCodesAsync;
   final Color statusColor;
   final String statusTitle;
@@ -37,12 +36,10 @@ class ResDetailTabContent extends ConsumerWidget {
   final Future<void> Function(BuildContext, String) onOpenFinalInvoice;
   final Future<void> Function(BuildContext, String) onOpenContract;
   final Future<void> Function(BuildContext, Reservation) onRestoreBooking;
-  final ValueChanged<int> onRatingChanged;
 
   const ResDetailTabContent({
     super.key,
     required this.res,
-    required this.rating,
     required this.doorCodesAsync,
     required this.statusColor,
     required this.statusTitle,
@@ -51,7 +48,6 @@ class ResDetailTabContent extends ConsumerWidget {
     required this.onOpenFinalInvoice,
     required this.onOpenContract,
     required this.onRestoreBooking,
-    required this.onRatingChanged,
   });
 
   /// Otevře reálný dokument rezervace 1:1 (podepsaný protokol / smlouva).
@@ -82,7 +78,6 @@ class ResDetailTabContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final st = res.displayStatus;
-    ref.watch(googleReviewUrlProvider); // přednačti odkaz na recenze
     final sosAsync = ref.watch(sosIncidentsProvider(res.id));
     final sosIncidents = sosAsync.valueOrNull ?? <SosIncident>[];
 
@@ -97,21 +92,37 @@ class ResDetailTabContent extends ConsumerWidget {
             Text('#${res.shortId}', style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
             const SizedBox(height: 10),
 
-            // Status badge
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(50),
-                  border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+            // Status badge (+ trvale viditelné hodnocení jízdy, je-li)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(50),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    statusTitle,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: statusColor),
+                  ),
                 ),
-                child: Text(
-                  statusTitle,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: statusColor),
-                ),
-              ),
+                if ((res.rating ?? 0) > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: MotoGoColors.amberBg,
+                      borderRadius: BorderRadius.circular(50),
+                      border: Border.all(color: MotoGoColors.amberBorder),
+                    ),
+                    child: Text(
+                      '★ ${res.rating}/5',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFB45309)),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 12),
 
@@ -219,68 +230,9 @@ class ResDetailTabContent extends ConsumerWidget {
           // ===== POSTUP PŘI VYZVEDNUTÍ (samoobsluha, výchozí zabalený) =====
           ResPickupProcedure(res: res, codes: doorCodesAsync.valueOrNull),
 
-          // ===== RATING (Completed only) =====
+          // ===== HODNOCENÍ JÍZDY (Completed only) — hvězdy + 2 rovnocenné volby =====
           if (st == ResStatus.dokoncene) ...[
-            ResDetailCard(children: [
-              Row(
-                children: [
-                  const Text('⭐', style: TextStyle(fontSize: 16)),
-                  const SizedBox(width: 6),
-                  Text(t(context).tr('ratingTitle'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (i) {
-                  final star = i + 1;
-                  final selected = star <= rating;
-                  return GestureDetector(
-                    onTap: () async {
-                      onRatingChanged(star);
-                      final err = await rateBooking(res.id, star);
-                      if (!context.mounted) return;
-                      if (err != null) {
-                        showMotoGoToast(context, icon: '⚠️', title: t(context).tr('error'), message: t(context).tr('ratingFailed'));
-                      } else {
-                        showMotoGoToast(context, icon: '⭐', title: t(context).tr('thanks'), message: t(context).tr('starsCount').replaceAll('{n}', '$star'));
-                      }
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: AnimatedScale(
-                        scale: selected ? 1.25 : 1.0,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOutBack,
-                        child: Icon(
-                          Icons.star_rounded,
-                          size: 36,
-                          color: selected ? const Color(0xFFF59E0B) : const Color(0xFFD1D5DB),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-              if (rating == 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    t(context).tr('tapToRate'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: MotoGoColors.g400),
-                  ),
-                ),
-              if (rating > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    t(context).tr('starsCount').replaceAll('{n}', '$rating'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker),
-                  ),
-                ),
-            ]),
+            ResRatingCard(res: res),
             const SizedBox(height: 12),
 
             // Action buttons for completed — documents section
@@ -302,21 +254,9 @@ class ResDetailTabContent extends ConsumerWidget {
             const SizedBox(height: 8),
             // Historické protokoly (předávací / o poškození) — 1:1 podepsaný dokument
             ..._bookingDocButtons(context, ref),
+            // Google recenze je v kartě hodnocení výše (spolu s „Napiš nám
+            // přímo, co máme zlepšit“) — dřívější samostatné tlačítko zrušeno.
             const SizedBox(height: 4),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(t(context).tr('ratingSection'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
-            ),
-            ResDetailButton.primary(
-              emoji: '⭐',
-              label: t(context).tr('reviewOnGoogle'),
-              onTap: () {
-                final url = ref.read(googleReviewUrlProvider).valueOrNull
-                    ?? 'https://g.page/MotoGo24/review';
-                launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-              },
-            ),
-            const SizedBox(height: 12),
             ResDetailButton.primary(
               emoji: '🔁',
               label: t(context).tr('bookAgain'),

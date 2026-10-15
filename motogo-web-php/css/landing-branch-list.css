@@ -73,6 +73,7 @@
   .pb-cmp-t thead th a{font-size:.86rem}
   .pb-cmp-t thead .pb-badge{padding:.3rem .55rem;font-size:.55rem;letter-spacing:.01em}
   .pb-cmp-t thead .pb-badge .pb-ico{display:none}
+  .pb-cmp-t thead .pb-badge>span:lang(uk){-webkit-hyphens:auto;hyphens:auto}
 }
 
 @media(min-width:769px){
