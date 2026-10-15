@@ -1,9 +1,7 @@
 <?php
 // ===== MotoGo24 Web PHP — /llms-full.txt =====
-// Sloučený markdown obsah všech statických stránek pro LLM v jednom payloadu.
-// AI agenti tak mají kompletní kontext bez crawlování 30+ URL.
-// Generuje se dynamicky podle aktuálního jazyka přes data/*-content-*.php +
-// jazykové overlay z lang/pages_<lang>.php (viz siteContent()).
+// Všechny statické stránky jako jeden markdown pro AI agenty (bez crawlování 30+ URL);
+// dynamicky dle jazyka: data/*-content-*.php + overlay lang/pages_<lang>.php (siteContent()).
 
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../i18n.php';
@@ -16,12 +14,11 @@ header('Cache-Control: public, max-age=3600');
 header('X-Robots-Tag: noindex, follow');
 
 $lang = i18nDetectLanguage();
-// Origin podle aktualne servirovane domény / jazyka (www variant pro .cz).
+// Origin dle domény/jazyka (www u .cz).
 $base = i18nOriginForLang($lang);
 $sb = new SupabaseClient();
 
-// Lokalizovaná absolutní URL — na cizojazyčné doméně odkazy míří na přeložený
-// slug (/how-to-rent/process, /catalogue, …), ne na český (ten by 301-oval).
+// Lokalizovaná absolutní URL (přeložený slug, ne český s 301).
 $lu = function ($p) use ($base, $lang) { return $base . i18nLocalizePath($p, $lang); };
 
 // ------------------------------------------------------------------
@@ -202,13 +199,12 @@ echo "**Plátce DPH:** ne  \n\n";
 echo "## Klíčové vlastnosti půjčovny\n\n";
 echo "- **Bez kauce** — žádná blokace peněz na kartě.\n";
 echo "- **Výbava v ceně** — helma, bunda, kalhoty, rukavice pro řidiče.\n";
-echo "- **Nonstop provoz** — obě pobočky 0–24 h: Mezná u Pelhřimova (předání obsluhou v čase z rezervace), Velké Němčice u Brna (100% samoobsluha přístupovým kódem z aplikace nebo e-mailu).\n";
+echo "- **Nonstop provoz** — obě pobočky 0–24 h: Mezná u Pelhřimova (předá obsluha), Velké Němčice u Brna (samoobsluha, kód z aplikace/e-mailu).\n";
 echo "- **Pojištění v ceně** — povinné ručení; havarijní dle modelu.\n";
 echo "- **Online rezervace** — web nebo mobilní aplikace (iPhone: App Store, Android: Google Play); platba předem přes Stripe.\n";
 echo "- **Mobilní aplikace** — iOS " . APP_STORE_LIVE_URL . " · Android " . PLAY_STORE_LIVE_URL . "\n";
-echo "- **Přistavení kamkoliv v ČR** — volitelná služba za příplatek (jen u motorek z pobočky Mezná).\n";
-echo "- **Vrácení mimo provozovnu** — volitelná služba za příplatek (jen u motorek z pobočky Mezná).\n";
-echo "- **Palivo a vrácení** — motorka se předává s tím, co je v nádrži (plnou nádrž neslibujeme); při vrácení tankovat netřeba, jen ať nesvítí kontrolka rezervy; umytou je potřeba ji vrátit jen na samoobslužné pobočce Velké Němčice.\n";
+echo "- **Přistavení a vrácení mimo provozovnu** — kamkoliv v ČR za příplatek (jen motorky z pobočky Mezná).\n";
+echo "- **Palivo a mytí** — předání s tím, co je v nádrži (plnou neslibujeme); vrácení bez tankování, jen ať nesvítí rezerva; umytou jen na samoobsluze Velké Němčice.\n";
 echo "- **Sjezd do zahraničí** — povolen, zelená karta v ceně.\n";
 echo "- **Slevový kód 200 Kč** — automaticky po vrácení motorky.\n";
 echo "- **8 jazyků** — cs, en, de, es, fr, nl, pl, uk.\n";

@@ -8,12 +8,12 @@
 .lp-reasons h2 em,.lp-reasons h2 strong{font-style:normal;color:#74fb71}
 .lp-reasons-lead{margin:0 0 1.1rem;color:#cfe7da;font-size:.92rem;line-height:1.45}
 .lp-reasons-list{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:0;padding:0;list-style:none;counter-reset:none}
-.lp-reason{position:relative;display:grid;grid-template-columns:36px 1fr;align-items:center;gap:.45rem .55rem;min-width:0;overflow:hidden;padding:.7rem .7rem .75rem;border-radius:16px;background:linear-gradient(160deg,rgba(116,251,113,.1),rgba(255,255,255,.03) 60%);box-shadow:inset 0 0 0 1px rgba(116,251,113,.22);transition:transform .2s,box-shadow .2s}
+.lp-reason{position:relative;display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:.45rem .55rem;min-width:0;overflow:hidden;padding:.7rem .7rem .75rem;border-radius:16px;background:linear-gradient(160deg,rgba(116,251,113,.1),rgba(255,255,255,.03) 60%);box-shadow:inset 0 0 0 1px rgba(116,251,113,.22);transition:transform .2s,box-shadow .2s}
 .lp-reason-n{position:absolute;right:.35rem;bottom:-.3rem;font-size:2.6rem;font-weight:900;line-height:1;color:transparent;-webkit-text-stroke:1px rgba(116,251,113,.2);pointer-events:none}
 .lp-reason-ico{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;color:#08230f;background:linear-gradient(135deg,#8dff86,#37cf63);box-shadow:0 6px 16px -8px rgba(116,251,113,.8)}
 .lp-reason-ico .lp-ico2{width:22px;height:22px}
-.lp-reason-t{font-size:.9rem;font-weight:800;line-height:1.18;color:#fff;hyphens:auto;text-wrap:balance}
-.lp-reason-s{position:relative;grid-column:1/-1;font-size:.76rem;line-height:1.38;color:#b9d6c6;hyphens:auto}
+.lp-reason-t{font-size:.9rem;font-weight:800;line-height:1.18;color:#fff;-webkit-hyphens:auto;hyphens:auto;overflow-wrap:break-word;text-wrap:balance}
+.lp-reason-s{position:relative;grid-column:1/-1;font-size:.76rem;line-height:1.38;color:#b9d6c6;-webkit-hyphens:auto;hyphens:auto;overflow-wrap:break-word}
 .lp-reason-s b,.lp-reason-s strong{color:#74fb71;font-weight:700}
 .lp-reason--wide{grid-column:1/-1}
 .lp-js .lp-reason--extra{display:none}
@@ -27,7 +27,7 @@
 @media(min-width:769px){
   .lp-reasons{padding:3rem 0 2.6rem}
   .lp-reasons-list{grid-template-columns:repeat(4,1fr);gap:1rem}
-  .lp-reason{grid-template-columns:48px 1fr;gap:.6rem .75rem;padding:1.1rem 1rem 1.15rem}
+  .lp-reason{grid-template-columns:48px minmax(0,1fr);gap:.6rem .75rem;padding:1.1rem 1rem 1.15rem}
   .lp-reason:hover{transform:translateY(-4px);box-shadow:inset 0 0 0 1px rgba(116,251,113,.6),0 14px 30px -14px rgba(116,251,113,.45)}
   .lp-reason-t{font-size:1.05rem}
   .lp-reason-s{font-size:.86rem}
@@ -64,11 +64,13 @@ a.lp-rbadge:hover{box-shadow:0 0 0 2px #37cf63,0 6px 14px -10px rgba(26,46,34,.5
 /* --- „Jen u MotoGo24“ — tmavá karta, animované vizuály --- */
 .lp-hls-card{position:relative;overflow:hidden;padding:1.4rem 1rem 1rem;border-radius:22px;color:#e8f5ee;background:radial-gradient(120% 90% at 0 0,#24563b 0,#0e2a1c 50%,#0a1f14 100%);box-shadow:0 18px 40px -16px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.22)}
 .lp-main .lp-hls h2{color:#fff;font-size:clamp(1.3rem,5.4vw,1.9rem);line-height:1.2;text-wrap:balance}
-.lp-hls-grid{display:grid;gap:.7rem;margin:0;padding:0;list-style:none}
-.lp-hl{display:grid;grid-template-columns:84px 1fr;grid-template-rows:auto 1fr auto;column-gap:.85rem;align-items:start;padding:.85rem;border-radius:16px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(116,251,113,.16)}
+.lp-hls-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:.7rem;margin:0;padding:0;list-style:none}
+.lp-hl{display:grid;grid-template-columns:84px minmax(0,1fr);grid-template-rows:auto 1fr auto;column-gap:.85rem;align-items:start;padding:.85rem;border-radius:16px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(116,251,113,.16)}
 .lp-hl-vis{grid-row:1/4;display:grid;place-items:center;width:84px;height:84px;border-radius:18px;background:rgba(116,251,113,.08);color:#74fb71;position:relative;overflow:hidden}
 .lp-main .lp-hl h3{margin:0 0 .25rem;color:#fff;font-size:1rem;line-height:1.25}
 .lp-hl p{margin:0;color:#b9d6c6;font-size:.84rem;line-height:1.45}
+.lp-main .lp-hl h3,.lp-hl p{overflow-wrap:break-word}
+.lp-main .lp-hl h3:lang(de),.lp-main .lp-hl h3:lang(nl){-webkit-hyphens:auto;hyphens:auto}
 .lp-hl-link{display:inline-flex;align-items:center;gap:.3rem;margin-top:.45rem;color:#74fb71;font-weight:800;font-size:.84rem;text-decoration:none}
 .lp-hl-link .lp-ico{width:16px;height:16px}
 .lp-hl-link:hover{color:#a8ff9f}
@@ -86,13 +88,13 @@ a.lp-rbadge:hover{box-shadow:0 0 0 2px #37cf63,0 6px 14px -10px rgba(26,46,34,.5
 .lp-hls :focus-visible{outline:3px solid #74fb71;outline-offset:3px}
 @media(min-width:769px){
   .lp-hls-card{padding:2.2rem 2rem 2rem}
-  .lp-hls-grid{grid-template-columns:repeat(2,1fr);gap:1rem}
-  .lp-hl{grid-template-columns:96px 1fr;padding:1.1rem}
+  .lp-hls-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+  .lp-hl{grid-template-columns:96px minmax(0,1fr);padding:1.1rem}
   .lp-hl-vis{width:96px;height:96px}
 }
 @media(min-width:1100px){
-  .lp-hls-grid{grid-template-columns:repeat(4,1fr)}
-  .lp-hl{grid-template-columns:1fr;grid-template-rows:auto;align-content:start;row-gap:.35rem}
+  .lp-hls-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .lp-hl{grid-template-columns:minmax(0,1fr);grid-template-rows:auto;align-content:start;row-gap:.35rem}
   .lp-hl-vis{grid-row:auto;margin-bottom:.45rem}
   .lp-reasons-list{grid-template-columns:repeat(5,1fr)}
 }

@@ -80,8 +80,9 @@ p>.btn:last-child{margin-bottom:0}
 .btngreen,.btngreen-small{box-shadow:0 6px 18px rgba(116,251,113,.35)}
 .btngreen:hover,.btngreen-small:hover{box-shadow:0 12px 28px rgba(116,251,113,.6);filter:brightness(1.04)}
 .btndark:hover{box-shadow:0 10px 24px rgba(26,46,34,.45)}
-.btngreen::after,.btngreen-small::after,.btndark::after{content:"";position:absolute;top:0;left:-65%;width:45%;height:100%;background:linear-gradient(120deg,transparent 0,rgba(255,255,255,.55) 50%,transparent 100%);transform:skewX(-20deg);animation:mgShine 3.4s ease-in-out infinite;pointer-events:none}
-@keyframes mgShine{0%{left:-65%}55%{left:140%}100%{left:140%}}
+/* lesk přes transform (ne `left`): animace `left` hlásila každé 3,4 s layout shift (CLS); dráha stejná -65 % → 140 % šířky tlačítka */
+.btngreen::after,.btngreen-small::after,.btndark::after{content:"";position:absolute;top:0;left:0;width:45%;height:100%;background:linear-gradient(120deg,transparent 0,rgba(255,255,255,.55) 50%,transparent 100%);transform:translateX(-144%) skewX(-20deg);animation:mgShine 3.4s ease-in-out infinite;pointer-events:none}
+@keyframes mgShine{0%{transform:translateX(-144%) skewX(-20deg)}55%,100%{transform:translateX(311%) skewX(-20deg)}}
 @media (prefers-reduced-motion:reduce){.btn,.btngreen,.btngreen-small,.btndark{transition:none}.btngreen::after,.btngreen-small::after,.btndark::after{display:none;animation:none}}
 /* ===== Header app-download popover (QR + Google Play + věrnostní info) ===== */
 .header-app{position:relative;display:flex;align-items:center}
@@ -167,6 +168,6 @@ body.menu-open .header{z-index:1002}
    nesmí roztáhnout mřížku přes okraj stránky (dřív +130 px při 768 px, +1–7 px při 320 px). */
 .gbox{min-width:0}
 .gbox .gr2{grid-template-columns:56px minmax(0,1fr)}
-.gbox h3,.gbox .btn{overflow-wrap:anywhere}
+.gbox h3,.gbox .btn{overflow-wrap:break-word}
 .gbox h3:lang(de),.gbox h3:lang(nl),.gbox .btn:lang(de),.gbox .btn:lang(nl){-webkit-hyphens:auto;hyphens:auto}
 .gbox .btn{max-width:100%}

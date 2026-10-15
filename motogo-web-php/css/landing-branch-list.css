@@ -66,6 +66,14 @@
   .pb-cmp-t td>.pb-yes,.pb-cmp-t td>.pb-no{margin-right:.3rem;vertical-align:-6px}
   .pb-cmp-t td.pb-cmp-big{text-align:center}
 }
+/* Úzký mobil: odznak v hlavičce srovnání bez ikony a s menším prostrkáním, aby se celá slova
+   (cs SAMOOBSLUŽNÁ, pl SAMOOBSŁUGOWY, uk САМООБСЛУГОВУВАННЯ) vešla do poloviny šířky */
+@media(max-width:400px){
+  .pb-cmp-t thead th{padding:.6rem .25rem}
+  .pb-cmp-t thead th a{font-size:.86rem}
+  .pb-cmp-t thead .pb-badge{padding:.3rem .55rem;font-size:.55rem;letter-spacing:.01em}
+  .pb-cmp-t thead .pb-badge .pb-ico{display:none}
+}
 
 @media(min-width:769px){
   .pb-cards-grid{grid-template-columns:1fr 1fr;gap:1.25rem}
