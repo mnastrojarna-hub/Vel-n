@@ -16,11 +16,16 @@ const kGoogleReviewFallbackUrl = 'https://g.page/r/CUmeYvk-sNf6EBM/review';
 
 /// Recenze z appky vedou VÝHRADNĚ na Google (zadání majitele 2026-10-15) —
 /// hodnota z DB mimo doménu Googlu se ignoruje a použije se [kGoogleReviewFallbackUrl].
+/// Pravidlo shodné s edge `_shared/review-links.ts` (`isGoogleReviewUrl`).
 bool isGoogleReviewUrl(String url) {
-  final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
-  // g.page/r/…, maps.app.goo.gl/…, (search|www|maps).google.<tld>/…
-  return host == 'g.page' || host == 'goo.gl' || host.endsWith('.goo.gl') ||
-      RegExp(r'(^|\.)google\.[a-z.]+$').hasMatch(host);
+  final u = Uri.tryParse(url.trim());
+  final host = u?.host.toLowerCase() ?? '';
+  // Zrušené vlastní krátké názvy (g.page/<jméno>/review) Google neobsluhuje —
+  // platné jsou jen g.page/r/<id>.
+  if (host == 'g.page') return u!.path.startsWith('/r/');
+  // maps.app.goo.gl/…, (search|www|maps).google.<tld>[.<cc>]/…
+  return host == 'goo.gl' || host.endsWith('.goo.gl') ||
+      RegExp(r'(^|\.)google\.[a-z]{2,3}(\.[a-z]{2})?$').hasMatch(host);
 }
 
 /// Odkaz na Google recenze — čte se ze stejného zdroje jako e-mailové šablony
@@ -263,7 +268,8 @@ Future<String?> rateBooking(String bookingId, int rating) async {
   try {
     await MotoGoSupabase.client.from('bookings').update({
       'rating': rating,
-      'rated_at': DateTime.now().toIso8601String(),
+      // UTC s označením zóny — bez něj by Postgres místní čas uložil jako UTC (+1–2 h).
+      'rated_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', bookingId);
     return null;
   } catch (e) {

@@ -42,16 +42,23 @@ export async function loadGoogleReviewUrl(supabase: any, provided?: unknown): Pr
 }
 
 // ── Úprava těla poděkovacího mailu (DB šablona z Velína i její AI překlad) ──────────
-// Odkazy s textem „Google…“ → správný Google odkaz. Odkazy na jiné recenzní weby
-// (text Facebook/Instagram/Firmy.cz/Mapy.cz/Tripadvisor/Seznam nebo recenzní URL těchto
-// webů) se odstraní i se spojkou mezi odkazy („, “, „ nebo na “, „ or “…), takže
-// „recenzi na Google, Facebook nebo Instagram.“ → „recenzi na Google.“ v každém jazyce.
+// Odkazy s textem „Google…“ → správný Google odkaz. Jiné recenzní weby se řeší podle kontextu,
+// aby se nerozbily běžné odkazy („Sledujte nás na Facebooku“ zůstává):
+//  • ve VÝČTU s Google odkazem („Google, Facebook nebo Instagram“ — odkazy spojené krátkou
+//    spojkou) se odstraní i se spojkou → „recenzi na Google.“ v každém jazyce,
+//  • jinde se změní na Google odkaz, jen když jde o recenzní URL (Firmy.cz, Tripadvisor,
+//    …/reviews) nebo věta mluví o recenzi/hodnocení — věta tak zůstane celá.
 // Ikony „Sledujte nás“ (obrázek bez textu, odkaz na profil) zůstávají. Idempotentní.
 
 const ANCHOR_RE = /<a\b[^>]*>[\s\S]*?<\/a>/gi
-const OTHER_REVIEW_TEXT_RE = /^(?:facebook\w*|instagram\w*|firmy(?:\.cz)?|mapy(?:\.cz|\.com)?|tripadvisor\w*|seznam\w*)$/i
-const OTHER_REVIEW_HREF_RE = /firmy\.cz|mapy\.(?:cz|com)|tripadvisor\.|sk=reviews|facebook\.com\/[^"']*reviews/i
+// Názvy platforem (i skloňované „na Facebooku“); obecná slova („mapy“, „seznam“) jen s doménou.
+const OTHER_REVIEW_TEXT_RE = /^(?:facebook\w*|instagram\w*|firmy(?:\.cz)?|mapy\.(?:cz|com)|tripadvisor\w*|seznam\.cz)$/i
+const OTHER_REVIEW_HREF_RE = /firmy\.cz|tripadvisor\.|sk=reviews|facebook\.com\/[^"']*reviews/i
 const GOOGLE_TEXT_RE = /^googl\w*$/i
+// Věta o recenzi/hodnocení (8 jazyků webu/appky).
+const REVIEW_WORD_RE = /recenz|hodno[tcť]|review|bewert|rezension|avis|rese[ñn]|valora|opini|beoordel|oce[nń]|відгук|оцін|рецензі/i
+// Konec věty / blok — hranice „věty“ kolem odkazu.
+const BREAK_RE = /<\/?(?:p|div|li|ul|ol|tr|td|th|table|tbody|h[1-6]|blockquote|section)\b[^>]*>|<br\s*\/?>|[.!?](?=\s|<|&nbsp;|$)/gi
 
 function anchorText(a: string): string {
   return a.replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').trim()
@@ -59,13 +66,20 @@ function anchorText(a: string): string {
 function anchorHref(a: string): string {
   return (a.match(/\bhref\s*=\s*["']([^"']*)["']/i) || [])[1] || ''
 }
-function isOtherReviewAnchor(a: string): boolean {
-  return OTHER_REVIEW_TEXT_RE.test(anchorText(a)) || OTHER_REVIEW_HREF_RE.test(anchorHref(a))
-}
-/** Krátká spojka mezi dvěma odkazy (bez tagů a konce věty): „, “ „ nebo na “ „ or “ „ oder auf “ … */
+/** Krátká spojka mezi dvěma odkazy (bez tagů a konce věty): „, “ „ nebo na “ „ or “ „ | “ … */
 function isConnector(t: string): boolean {
   const s = t.replace(/&nbsp;/gi, ' ')
-  return s.length <= 24 && !/[<>.!?:]/.test(s) && /^[\s,;/&+–—-]*(?:[\p{L}]+[\s,]*){0,3}$/u.test(s)
+  return s.length <= 24 && !/[<>.!?:]/.test(s) && /^[\s,;/&+|·•–—-]*(?:[\p{L}]+[\s,|·•]*){0,3}$/u.test(s)
+}
+/** Prostý text věty (bloku), ve které leží odkaz parts[i]. */
+function sentenceAround(parts: string[], i: number): string {
+  const before = parts.slice(0, i).join('')
+  const after = parts.slice(i + 1).join('')
+  let start = 0
+  for (const m of before.matchAll(BREAK_RE)) start = (m.index ?? 0) + m[0].length
+  const end = after.search(BREAK_RE)
+  const s = before.slice(start) + parts[i] + (end < 0 ? after : after.slice(0, end))
+  return s.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ')
 }
 
 const HREF_RE = /\bhref\s*=\s*["'][^"']*["']/i
@@ -73,8 +87,9 @@ function setHref(a: string, url: string): string {
   return HREF_RE.test(a) ? a.replace(HREF_RE, `href="${url}"`) : a.replace(/^<a\b/i, `<a href="${url}"`)
 }
 /** Odkaz na Google recenze: text „Google…“ nebo recenzní URL Googlu (g.page, writereview). */
-function isGoogleReviewAnchor(a: string): boolean {
-  return GOOGLE_TEXT_RE.test(anchorText(a)) || /writereview|g\.page\//i.test(anchorHref(a))
+function isGoogleReviewAnchor(a: string, url: string): boolean {
+  const h = anchorHref(a)
+  return GOOGLE_TEXT_RE.test(anchorText(a)) || h === url || /writereview|g\.page\//i.test(h)
 }
 
 export function googleOnlyReviewLinks(html: string, googleUrl: string): string {
@@ -88,24 +103,37 @@ export function googleOnlyReviewLinks(html: string, googleUrl: string): string {
     last = (m.index ?? 0) + m[0].length
   }
   parts.push(html.slice(last))
-  let hasGoogle = false
-  for (let i = 1; i < parts.length; i += 2) {
-    if (isGoogleReviewAnchor(parts[i])) { parts[i] = setHref(parts[i], url); hasGoogle = true }
+  // Výčet = po sobě jdoucí odkazy spojené krátkou spojkou.
+  const group: number[] = []
+  for (let i = 1, g = 0; i < parts.length; i += 2) {
+    if (i > 1 && !isConnector(parts[i - 1])) g++
+    group[i] = g
   }
+  const google = new Set<number>()
+  const googleGroups = new Set<number>()
+  for (let i = 1; i < parts.length; i += 2) {
+    if (isGoogleReviewAnchor(parts[i], url)) { parts[i] = setHref(parts[i], url); google.add(i); googleGroups.add(group[i]) }
+  }
+  const textHit = (i: number) => OTHER_REVIEW_TEXT_RE.test(anchorText(parts[i]))
+  const hrefHit = (i: number) => OTHER_REVIEW_HREF_RE.test(anchorHref(parts[i]))
+  // 1) Recenzní odkaz mimo výčet s Googlem → Google odkaz (věta zůstane celá).
+  for (let i = 1; i < parts.length; i += 2) {
+    if (google.has(i) || googleGroups.has(group[i])) continue
+    const t = textHit(i)
+    if (!hrefHit(i) && !(t && REVIEW_WORD_RE.test(sentenceAround(parts, i)))) continue
+    parts[i] = setHref(parts[i], url)
+    if (t) parts[i] = parts[i].replace(/^(<a\b[^>]*>)[\s\S]*(<\/a>)$/i, '$1Google$2')
+    google.add(i); googleGroups.add(group[i])
+  }
+  // 2) Ostatní recenzní weby ve výčtu s Googlem → pryč i se spojkou.
   const removed = new Set<number>()
   for (let i = 1; i < parts.length; i += 2) {
-    if (!isOtherReviewAnchor(parts[i])) continue
-    if (!hasGoogle) {
-      // Šablona Google odkaz nemá — první recenzní odkaz se stane odkazem na Google.
-      parts[i] = setHref(parts[i], url).replace(/^(<a\b[^>]*>)[\s\S]*(<\/a>)$/i, '$1Google$2')
-      hasGoogle = true
-      continue
-    }
+    if (google.has(i) || !googleGroups.has(group[i]) || !(textHit(i) || hrefHit(i))) continue
     let p = i - 2
     while (p >= 1 && removed.has(p)) p -= 2
-    if (p >= 1 && isConnector(parts.slice(p + 1, i).join(''))) {
+    if (p >= 1 && group[p] === group[i]) {
       for (let k = p + 1; k < i; k++) parts[k] = ''
-    } else if (i + 2 < parts.length && isConnector(parts[i + 1])) {
+    } else if (i + 2 < parts.length && group[i + 2] === group[i]) {
       parts[i + 1] = ''
     }
     parts[i] = ''

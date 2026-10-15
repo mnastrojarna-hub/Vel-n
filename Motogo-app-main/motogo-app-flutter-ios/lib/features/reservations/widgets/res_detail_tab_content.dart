@@ -89,7 +89,7 @@ class ResDetailTabContent extends ConsumerWidget {
             // Motorcycle name + ID
             Text(res.motoName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
             const SizedBox(height: 2),
-            Text('#${res.shortId}', style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
+            Text(res.shortId, style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
             const SizedBox(height: 10),
 
             // Status badge (+ trvale viditelné hodnocení jízdy, je-li)

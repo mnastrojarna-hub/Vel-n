@@ -43,6 +43,14 @@ export function manualHandledValid(entry, booking) {
   return ms(entry.rated_at_seen) === ms(booking.rated_at)
 }
 
+// Okamžik aktuálního hodnocení. rated_at posílá zařízení zákazníka (starší appka bez zóny →
+// o 1–2 h dopředu); bookings.updated_at je čas serveru POSLEDNÍ změny řádku (trigger
+// bookings_updated_at), takže hodnocení nemohlo vzniknout později → bere se menší z obou.
+export function ratingTimeMs(b) {
+  const r = ms(b?.rated_at), u = ms(b?.updated_at)
+  return Number.isFinite(r) && Number.isFinite(u) ? Math.min(r, u) : r
+}
+
 /**
  * Spojí hodnocené rezervace s vlákny zpětné vazby a stavem „vyřízeno“.
  * threads: message_threads s vnořenými messages (jen vlákna s „#“ v předmětu).
@@ -51,7 +59,8 @@ export function manualHandledValid(entry, booking) {
 export function buildRatingRows(bookings, threads, handled) {
   const byCustomer = {}
   for (const t of threads || []) {
-    if (!t.customer_id) continue
+    // Prázdné vlákno (appce selhalo odeslání zprávy po založení vlákna) nic nenese → skrýt.
+    if (!t.customer_id || !(t.messages || []).length) continue
     ;(byCustomer[t.customer_id] ||= []).push(t)
   }
   return (bookings || []).filter(b => b.rating >= 1).map(b => {
@@ -65,13 +74,17 @@ export function buildRatingRows(bookings, threads, handled) {
       .sort((a, z) => ms(a.created_at) - ms(z.created_at))
     const comments = msgs.filter(m => m.direction === 'customer' && ms(m.created_at) >= startMs && (m.content || '').trim())
     const unread = comments.filter(m => !m.read_at)
-    const ratedMs = ms(b.rated_at)
-    const firstCommentMs = comments.length ? ms(comments[0].created_at) : NaN
-    const since = Math.min(...[ratedMs, firstCommentMs].filter(Number.isFinite), Infinity)
+    const ratedMs = ratingTimeMs(b)
+    const lastComment = comments.length ? comments[comments.length - 1] : null
+    // Vyřízení se váže k AKTUÁLNÍMU hodnocení: odpověď (i uzavření vlákna) před poslední změnou
+    // hvězdiček se nepočítá — zákazník, který po odpovědi snížil na 1 ★, zase svítí.
+    const since = Number.isFinite(ratedMs) ? ratedMs : (lastComment ? ms(comments[0].created_at) : NaN)
     const reply = Number.isFinite(since) ? msgs.filter(m => isAdminDir(m.direction) && ms(m.created_at) >= since).pop() : null
-    // Uzavřené/vyřešené musí být vlákno s POSLEDNÍ zpětnou vazbou (appka po uzavření zakládá nové).
-    const lastThread = comments.length ? own.find(t => t.id === comments[comments.length - 1].thread_id) : null
+    // Uzavřené/vyřešené musí být vlákno s POSLEDNÍ zpětnou vazbou (appka po uzavření zakládá nové),
+    // a ta zpětná vazba musí být k aktuálnímu hodnocení (napsaná po něm).
+    const lastThread = lastComment ? own.find(t => t.id === lastComment.thread_id) : null
     const closedThread = !!lastThread && unread.length === 0 && (lastThread.status === 'resolved' || lastThread.status === 'closed')
+      && (!Number.isFinite(ratedMs) || ms(lastComment.created_at) >= ratedMs)
     const manual = manualHandledValid(handled?.[b.id], b) ? handled[b.id] : null
     let handledBy = null
     if (manual) handledBy = { kind: 'manual', at: manual.handled_at }
@@ -79,16 +92,16 @@ export function buildRatingRows(bookings, threads, handled) {
     else if (closedThread) handledBy = { kind: 'closed', at: null }
     const low = b.rating <= LOW_MAX
     // Vlákno pro „Odpovědět“: to s nejnovější zpětnou vazbou, jinak nejnověji aktivní.
-    const latestThreadId = comments.length ? comments[comments.length - 1].thread_id : null
-    const thread = own.find(t => t.id === latestThreadId)
+    const thread = (lastComment && own.find(t => t.id === lastComment.thread_id))
       || [...own].sort((a, z) => ms(z.last_message_at || z.created_at) - ms(a.last_message_at || a.created_at))[0] || null
     return {
       id: b.id, short, booking: b, rating: b.rating, low,
+      ratedAt: Number.isFinite(ratedMs) ? new Date(ratedMs).toISOString() : null,
       comments, unread, thread, threads: own,
       handled: handledBy, manual: !!manual,
       attention: (low && !handledBy) || unread.length > 0,
     }
-  }).sort((a, z) => (ms(z.booking.rated_at) || ms(z.booking.end_date) || 0) - (ms(a.booking.rated_at) || ms(a.booking.end_date) || 0))
+  }).sort((a, z) => (ms(z.ratedAt) || ms(z.booking.end_date) || 0) - (ms(a.ratedAt) || ms(a.booking.end_date) || 0))
 }
 
 export const RATING_FILTERS = [

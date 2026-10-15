@@ -109,7 +109,7 @@ export default function RatingsTab({ ratings, onOpenThread }) {
                 <TRow key={r.id}>
                   <TD style={{ ...cell, borderLeft: r.low ? `4px solid ${hot ? LOW_BORDER : '#fca5a5'}` : '4px solid transparent', whiteSpace: 'nowrap' }}>
                     <div className="flex items-center" style={{ gap: 6 }}><Stars value={r.rating} />{r.low && <LowBadge />}</div>
-                    <div style={{ fontSize: 12, color: '#1a2e22', marginTop: 4 }}>{fmtDateTime(b.rated_at)}</div>
+                    <div style={{ fontSize: 12, color: '#1a2e22', marginTop: 4 }}>{fmtDateTime(r.ratedAt)}</div>
                   </TD>
                   <TD style={cell}>
                     <CustomerLink booking={b} />

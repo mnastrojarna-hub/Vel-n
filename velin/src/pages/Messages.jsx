@@ -215,6 +215,18 @@ export default function Messages() {
     setChannel(key); if (key !== 'chat') setSubTab('log')
   }
 
+  // Odkaz ze zvonku: /zpravy?channel=ratings otevře přímo záložku (parametr se pak z URL odebere,
+  // aby další klik na stejný odkaz zase zafungoval a „zpět“ nepřepínalo kanál).
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search)
+    const c = sp.get('channel')
+    if (!c) return
+    if (CHANNELS.some(ch => ch.key === c)) selectChannel(c)
+    sp.delete('channel')
+    const q = sp.toString()
+    navigate(location.pathname + (q ? `?${q}` : ''), { replace: true, state: location.state })
+  }, [location.search])
+
   return (
     <div className="mg-msgs">
       {/* DIAGNOSTIKA */}

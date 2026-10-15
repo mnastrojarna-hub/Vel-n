@@ -4,23 +4,14 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugError } from '../../lib/debugLog'
 import { BOOKING_BRANCH_EMBED } from '../../lib/bookingBranch'
+import { refreshRatingAlerts } from '../../lib/ratingAlerts'
 import { buildRatingRows, ratingsSummary, readLocalHandled, writeLocalHandled, feedbackSubject } from './ratingsData'
+import { fetchFeedbackThreads, fetchHandledMap, probe, HANDLED_TABLE } from './ratingsFetch'
 
 const LIMIT = 1000
-const BOOKING_SELECT = `id, user_id, moto_id, branch_id, rating, rated_at, start_date, end_date, status,
+const BOOKING_SELECT = `id, user_id, moto_id, branch_id, rating, rated_at, updated_at, start_date, end_date, status,
   profiles(id, full_name, email, phone, language),
   motorcycles!moto_id(model, spz, branch_id, branches(name)), ${BOOKING_BRANCH_EMBED}`
-const THREAD_SELECT = 'id, customer_id, subject, status, channel, created_at, last_message_at, messages(id, direction, content, created_at, read_at)'
-
-// Sdílený stav „vyřízeno“ = admin-only tabulka z návrhu SQL (scratchpad reviews/sql). Dokud v DB
-// není, platí localStorage tohoto prohlížeče. Zjišťuje se jednou za 10 min, BEZ debugAction
-// (chybějící tabulka by jinak při každém načtení zapsala chybu do debug_log).
-const HANDLED_TABLE = 'booking_rating_reviews'
-const probe = { mode: null, at: 0 }
-function isMissingTable(err) {
-  const m = `${err?.code || ''} ${err?.message || ''}`
-  return /42P01|PGRST205|does not exist|Could not find the table/i.test(m)
-}
 
 export function useRatings() {
   const [bookings, setBookings] = useState([])
@@ -32,21 +23,19 @@ export function useRatings() {
   const [busy, setBusy] = useState(false)
   const timer = useRef(null)
   const alive = useRef(true)
+  // Vlákna / zprávy zpětné vazby v aktuálních datech — realtime reaguje jen na ně.
+  const known = useRef({ threads: new Set(), messages: new Set() })
 
-  async function loadHandled() {
-    const fresh = probe.mode && Date.now() - probe.at < 600000
-    if (fresh && probe.mode === 'local') { setMode('local'); setHandled(readLocalHandled()); return }
-    const { data, error: err } = await supabase.from(HANDLED_TABLE).select('booking_id, handled_at, handled_by, rated_at_seen')
-    if (err) {
-      if (isMissingTable(err)) { probe.mode = 'local'; probe.at = Date.now(); setMode('local'); setHandled(readLocalHandled()) }
-      return // jiná chyba (síť) → ponech poslední stav
-    }
-    probe.mode = 'db'; probe.at = Date.now()
-    const map = {}
-    for (const r of data || []) map[r.booking_id] = r
+  // bookingIds = načtené rezervace s hodnocením: lokální značky ke smazaným rezervacím se do DB
+  // nepřevádí (FK booking_id by shodil celou dávku a převod by se opakoval při každém načtení).
+  async function loadHandled(bookingIds) {
+    const res = await fetchHandledMap()
+    if (!res) return // jiná chyba (síť) → ponech poslední stav
+    if (res.mode === 'local') { setMode('local'); setHandled(res.map); return }
+    const map = res.map
     // Jednorázový převod lokálních značek do DB (vznikly před nasazením migrace).
     const local = readLocalHandled()
-    const pending = Object.entries(local).filter(([id]) => !map[id])
+    const pending = Object.entries(local).filter(([id]) => !map[id] && bookingIds.has(id))
       .map(([booking_id, e]) => ({ booking_id, handled_at: e.handled_at, rated_at_seen: e.rated_at_seen || null }))
     if (pending.length) {
       const { error: upErr } = await supabase.from(HANDLED_TABLE).upsert(pending, { onConflict: 'booking_id', ignoreDuplicates: true })
@@ -57,17 +46,21 @@ export function useRatings() {
 
   async function load() {
     try {
-      const [bRes, tRes] = await Promise.all([
-        debugAction('ratings.bookings', 'RatingsTab', () => supabase.from('bookings').select(BOOKING_SELECT)
-          .not('rating', 'is', null).order('rated_at', { ascending: false, nullsFirst: false }).limit(LIMIT)),
-        debugAction('ratings.threads', 'RatingsTab', () => supabase.from('message_threads').select(THREAD_SELECT)
-          .ilike('subject', '%#%').order('created_at', { ascending: false }).limit(LIMIT)),
-        loadHandled(),
-      ])
+      const bRes = await debugAction('ratings.bookings', 'RatingsTab', () => supabase.from('bookings').select(BOOKING_SELECT)
+        .not('rating', 'is', null).order('rated_at', { ascending: false, nullsFirst: false }).limit(LIMIT))
       if (bRes.error) throw bRes.error
-      if (tRes.error) throw tRes.error
+      const list = bRes.data || []
+      const [tRes] = await Promise.all([
+        debugAction('ratings.threads', 'RatingsTab', async () => ({ data: await fetchFeedbackThreads(list.map(b => b.user_id)) })),
+        loadHandled(new Set(list.map(b => b.id))),
+      ])
+      const threadList = tRes.data
       if (!alive.current) return
-      setBookings(bRes.data || []); setThreads(tRes.data || []); setError(null)
+      known.current = {
+        threads: new Set(threadList.map(t => t.id)),
+        messages: new Set(threadList.flatMap(t => (t.messages || []).map(m => m.id))),
+      }
+      setBookings(list); setThreads(threadList); setError(null)
     } catch (e) {
       debugError('RatingsTab', 'load', e)
       if (alive.current) setError(e.message || String(e))
@@ -79,14 +72,26 @@ export function useRatings() {
     timer.current = setTimeout(load, 700) // dávka událostí (AI návrhy, označení přečtení) = 1 načtení
   }
 
+  // Hook běží na celé stránce Zprávy → reagovat jen na změny, které záložku mění (ne na každou SMS).
+  function onThreadEvent(p) {
+    const k = known.current
+    if (!(p.new?.subject || '').includes('#') && !k.threads.has(p.old?.id)) return
+    if (p.new?.id) k.threads.add(p.new.id) // první zpráva nového vlákna může přijít dřív než načtení
+    scheduleLoad()
+  }
+  function onMessageEvent(p) {
+    const k = known.current
+    if (k.threads.has(p.new?.thread_id || p.old?.thread_id) || k.messages.has(p.old?.id)) scheduleLoad()
+  }
+
   useEffect(() => {
     alive.current = true
     load()
     const ch = supabase.channel('velin-ratings')
       // jen řádky s hodnocením (nové i změněné hvězdičky); ostatní změny rezervací tab nezajímají
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings', filter: 'rating=gte.1' }, scheduleLoad)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_threads' }, scheduleLoad)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, scheduleLoad)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_threads' }, onThreadEvent)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, onMessageEvent)
       .subscribe()
     return () => { alive.current = false; clearTimeout(timer.current); supabase.removeChannel(ch) }
   }, [])
@@ -128,7 +133,7 @@ export function useRatings() {
       }
       setHandled(h => { const n = { ...h }; entries.forEach(e => { n[e.booking_id] = e }); return n })
       await markRead(list)
-      scheduleLoad()
+      scheduleLoad(); refreshRatingAlerts()
     } catch (e) {
       debugError('RatingsTab', 'markHandled', e)
       window.alert('Uložení „vyřízeno“ selhalo: ' + (e.message || e))
@@ -148,6 +153,7 @@ export function useRatings() {
         writeLocalHandled(map)
       }
       setHandled(h => { const n = { ...h }; delete n[row.id]; return n })
+      refreshRatingAlerts()
     } catch (e) {
       debugError('RatingsTab', 'unmarkHandled', e)
       window.alert('Změna selhala: ' + (e.message || e))
@@ -177,7 +183,8 @@ export function useRatings() {
       supabase.from('messages').insert({ thread_id: thread.id, direction: 'admin', sender_name: 'Admin', content: text.trim(), read_at: now }),
       { thread_id: thread.id })
     if (mErr) throw mErr
-    scheduleLoad()
+    known.current.threads.add(thread.id)
+    scheduleLoad(); refreshRatingAlerts()
     return thread
   }
 

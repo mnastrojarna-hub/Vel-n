@@ -20,7 +20,7 @@ export default function RatingsCards({ rows, busy, opening, onReply, onHandled, 
               {r.low && <LowBadge />}
               <span style={{ marginLeft: 'auto' }}><StatusPill row={r} /></span>
             </div>
-            <MobileField label="Hodnoceno">{fmtDateTime(b.rated_at)}</MobileField>
+            <MobileField label="Hodnoceno">{fmtDateTime(r.ratedAt)}</MobileField>
             <MobileField label="Zákazník"><CustomerLink booking={b} /></MobileField>
             <MobileField label="Rezervace"><BookingLink row={r} /> · {fmtRange(b.start_date, b.end_date)}</MobileField>
             <MobileField label="Motorka">{[b.motorcycles?.model, b.motorcycles?.spz].filter(Boolean).join(' · ') || '—'}</MobileField>
