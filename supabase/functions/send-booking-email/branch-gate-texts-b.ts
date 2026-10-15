@@ -1,10 +1,7 @@
 // Pobočka s bránou — texty e-mailů (fr, nl, pl, uk). Generováno z kanonických textů
 // zadání 2026-10-04 (copy_i18n) DOSLOVNĚ + validGear/validMoto/pageLink.
 // {gate} = kód schránky (jen tělo mailu majiteli rezervace), {n} = č. dveří šatny.
-import type { Lang } from './i18n.ts'
-import type { GateTexts } from './branch-gate.ts'
-
-export const GATE_TEXTS_B: Partial<Record<Lang, GateTexts>> = {
+export const GATE_TEXTS_B = {
   fr: {
     gateLabel: "Code de la boîte à clés du portail",
     gateHint: "Boîte du haut, sur le pilier droit du portail — vous n'en avez besoin que si le portail est fermé.",
@@ -19,7 +16,7 @@ export const GATE_TEXTS_B: Partial<Record<Lang, GateTexts>> = {
     step3Gear: "Saisissez le code moto, prenez la moto et refermez la porte du box.",
     step2NoGear: "Sur l'écran, saisissez le code moto, signez le protocole de remise, prenez la moto et refermez la porte du box.",
     stepImportant: "IMPORTANT : si le portail était fermé, refermez-le en partant et verrouillez-le avec le cadenas, puis remettez la clé dans la boîte du haut et tournez les molettes pour que le code ne reste pas affiché. Si le portail était ouvert, laissez-le ouvert. Procédez de la même manière lors du retour de la moto.",
-    pageLink: "Photos de l'agence et du parking (places 1–7) sur la page de l'agence →",
+    pageLink: "Photos de l'agence et du parking (places 1–7) sur la page de l'agence →"
   },
   nl: {
     gateLabel: "Code van het sleutelkastje met de poortsleutel",
@@ -35,7 +32,7 @@ export const GATE_TEXTS_B: Partial<Record<Lang, GateTexts>> = {
     step3Gear: "Voer de motorcode in, neem de motor mee en sluit de deur van de box.",
     step2NoGear: "Voer op het display de motorcode in, onderteken het overdrachtsprotocol, neem de motor mee en sluit de deur van de box.",
     stepImportant: "BELANGRIJK: Was de poort gesloten, sluit hem dan na vertrek weer, vergrendel hem met het hangslot, leg de sleutel terug in het bovenste kastje en verdraai de cijferwieltjes, zodat de code niet blijft staan. Stond de poort open, laat hem dan open. Ga bij het terugbrengen van de motor op dezelfde manier te werk.",
-    pageLink: "Foto's van de vestiging en de parkeerplaats (plekken 1–7) vindt u op de pagina van de vestiging →",
+    pageLink: "Foto's van de vestiging en de parkeerplaats (plekken 1–7) vindt u op de pagina van de vestiging →"
   },
   pl: {
     gateLabel: "Kod do skrytki z kluczem do bramy",
@@ -51,7 +48,7 @@ export const GATE_TEXTS_B: Partial<Record<Lang, GateTexts>> = {
     step3Gear: "Proszę wpisać kod do motocykla, wyprowadzić go i zamknąć drzwi boksu.",
     step2NoGear: "Proszę wpisać na wyświetlaczu kod do motocykla, podpisać protokół przekazania, wyprowadzić motocykl i zamknąć drzwi boksu.",
     stepImportant: "WAŻNE: Jeśli brama była zamknięta, po wyjeździe proszę ją ponownie zamknąć, zabezpieczyć kłódką, odłożyć klucz z powrotem do górnej skrytki i przekręcić pokrętła szyfru, aby kod nie pozostał ustawiony. Otwartą bramę proszę pozostawić otwartą. Tak samo należy postąpić przy zwrocie motocykla.",
-    pageLink: "Zdjęcia oddziału i parkingu (miejsca 1–7) znajdą Państwo na stronie oddziału →",
+    pageLink: "Zdjęcia oddziału i parkingu (miejsca 1–7) znajdą Państwo na stronie oddziału →"
   },
   uk: {
     gateLabel: "Код скриньки з ключем від воріт",
@@ -67,6 +64,6 @@ export const GATE_TEXTS_B: Partial<Record<Lang, GateTexts>> = {
     step3Gear: "Введіть код мотоцикла, заберіть мотоцикл і зачиніть двері боксу.",
     step2NoGear: "На дисплеї введіть код мотоцикла, підпишіть протокол передачі, заберіть мотоцикл і зачиніть двері боксу.",
     stepImportant: "ВАЖЛИВО: Якщо ворота були зачинені, після відʼїзду знову зачиніть їх, замкніть навісним замком, поверніть ключ у верхню скриньку й прокрутіть коліщата з цифрами, щоб код не залишився набраним. Відчинені ворота залиште відчиненими. Дійте так само й під час повернення мотоцикла.",
-    pageLink: "Фото філії та парковки (місця 1–7) — на сторінці філії →",
-  },
-}
+    pageLink: "Фото філії та парковки (місця 1–7) — на сторінці філії →"
+  }
+};
