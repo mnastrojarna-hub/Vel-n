@@ -81,7 +81,7 @@ export const PAGE_POBOCKA_MEZNA = branchPage(0, 'pobocka-mezna', 'Pobočka Mezn�
       video_title: 'Video: jak to na pobočce probíhá',
       seo_title: 'Pobočka Mezná u Pelhřimova | MotoGo24 – obslužná půjčovna motorek',
       seo_description: 'Obslužná pobočka půjčovny motorek MotoGo24 v Mezné u Pelhřimova (Vysočina): osobní předání motorky nonstop, výbava v ceně, přistavení na adresu.',
-      steps: '1. Rezervujete a zaplatíte online (web nebo aplikace) a nahrajete doklady (OP/pas + ŘP) — žádáme o to i na obslužné pobočce; pokud je nenahrajete, zkontrolujeme je při převzetí na místě.<br>2. Ve zvolený čas přijedete na pobočku, kde vás čekáme.<br>3. Předáme motorku i výbavu a podepíšeme předávací protokol.<br>4. Po jízdě motorku vrátíte na pobočku (nebo si ji vyzvedneme na domluvené adrese) — mýt ani tankovat ji nemusíte.',
+      steps: '1. Rezervujete a zaplatíte online (web nebo aplikace) a nahrajete doklady (OP/pas + ŘP) — žádáme o to i na obslužné pobočce; pokud je nenahrajete, zkontrolujeme je při převzetí na místě.<br>2. Ve zvolený čas přijedete na pobočku, kde vás čekáme.<br>3. Předáme motorku i výbavu a podepíšeme předávací protokol.<br>4. Po jízdě motorku vrátíte na pobočku (nebo si ji vyzvedneme na domluvené adrese) — mýt ani tankovat ji nemusíte, jen ať nesvítí rezerva.',
 })
 export const PAGE_POBOCKA_NEMCICE = branchPage(1, 'pobocka-velke-nemcice', 'Pobočka Velké Němčice', '/pobocky/velke-nemcice', {
       badge: 'Samoobslužná pobočka',

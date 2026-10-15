@@ -46,7 +46,7 @@ return ['pages' => ['landing' => [
             ['icon' => 'shield', 'title' => '100% damage cover', 'text' => 'Contractual cover: if you have an accident, your excess is €0.*'],
             ['icon' => 'helmet', 'title' => 'Gear included', 'text' => 'Riding gear, vest, first-aid kit and disc lock. In Mezná, rain gear too.'],
             ['icon' => 'infinity', 'title' => 'Unlimited km & trips abroad', 'text' => 'Ride wherever and as far as you like (within the Green Card).'],
-            ['icon' => 'fuel', 'title' => 'Return it your way', 'text' => 'In Mezná, no washing or refuelling. At self-service: washed, reserve light off, no full tank needed.'],
+            ['icon' => 'fuel', 'title' => 'Return it your way', 'text' => 'No refuelling needed — just keep the reserve light off. Washed only at the self-service branch in Velké Němčice.'],
             ['icon' => 'calendar', 'title' => 'Book & pay online', 'text' => 'Done in a few minutes, even on a Sunday evening.'],
             ['icon' => 'app', 'title' => 'Our own app', 'text' => 'Booking changes, SOS, loyalty programme and route tips, all in one place.'],
             ['icon' => 'coffee', 'title' => 'Free facilities', 'text' => 'In Mezná: coffee, water, WC, Wi-Fi, changing room and lockers. Parking for your car at both branches.'],

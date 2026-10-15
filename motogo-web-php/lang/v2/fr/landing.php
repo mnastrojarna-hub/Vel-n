@@ -46,7 +46,7 @@ return ['pages' => ['landing' => [
             ['icon' => 'shield', 'title' => 'Dommages couverts à 100 %', 'text' => 'Couverture contractuelle : en cas d\'accident, ta franchise est de 0 €.*'],
             ['icon' => 'helmet', 'title' => 'Équipement inclus', 'text' => 'Tenue moto, gilet réfléchissant, trousse de secours et bloque-disque. À Mezná, aussi des tenues de pluie.'],
             ['icon' => 'infinity', 'title' => 'Km illimités et voyages à l\'étranger', 'text' => 'Va où tu veux, aussi loin que tu veux (dans la zone de la carte verte).'],
-            ['icon' => 'fuel', 'title' => 'Retour à ta façon', 'text' => 'À Mezná, ni lavage ni plein. En libre-service : lavée, voyant de réserve éteint, pas besoin du plein.'],
+            ['icon' => 'fuel', 'title' => 'Retour à ta façon', 'text' => 'Pas besoin de faire le plein, juste le voyant de réserve éteint. Lavée seulement en libre-service à Velké Němčice.'],
             ['icon' => 'calendar', 'title' => 'Réservation et paiement en ligne', 'text' => 'C\'est réglé en quelques minutes, même un dimanche soir.'],
             ['icon' => 'app', 'title' => 'Notre propre appli', 'text' => 'Modifs de ta réservation, SOS, programme de fidélité et itinéraires, tout au même endroit.'],
             ['icon' => 'coffee', 'title' => 'Commodités gratuites', 'text' => 'À Mezná : café, eau, WC, wifi, cabine d\'essayage et casiers. Parking pour ta voiture dans les deux agences.'],

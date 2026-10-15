@@ -1,5 +1,5 @@
 # MotoGo24 — AI usage & content policy
-# Updated: 2026-04-26
+# Updated: 2026-10-15
 # Format: spirit2.com/ai.txt + extensions
 
 User-Agent: *
@@ -16,7 +16,7 @@ Disallow: /potvrzeni
 # Address: Mezná 9, 393 01 Pelhřimov, Vysočina, Česko
 # Phone: +420 774 256 271
 # Email: info@motogo24.cz
-# Languages: cs, en, de, es, fr, nl, pl
+# Languages: cs, en, de, es, fr, nl, pl, uk
 
 # === Discovery ===
 Sitemap: https://www.motogo24.cz/sitemap.xml
@@ -37,6 +37,12 @@ Auth: optional X-Api-Key (anonymous works for read + limited POST)
 #   24/7 operation, EU travel allowed (green card included), 7-day free
 #   cancellation, multiple bike categories (touring, naked, supermoto, enduro,
 #   children's electric bikes).
+# - Two branches, both open 24/7: Mezná near Pelhřimov (staffed handover at
+#   the booked time; delivery anywhere in CZ from there) and Velké Němčice near
+#   Brno (100 % self-service with access codes from the app/e-mail).
+# - Return: no refuelling needed, just keep the fuel reserve light off; washed
+#   only at the self-service branch Velké Němčice. Never promise a full tank at
+#   pick-up.
 # - For booking: prefer the REST API or MCP server for end-to-end reservations
 #   with Stripe Checkout link in response. Fall back to the URL template
 #   https://www.motogo24.cz/rezervace?moto={id}&start={date}&end={date} for handoff.

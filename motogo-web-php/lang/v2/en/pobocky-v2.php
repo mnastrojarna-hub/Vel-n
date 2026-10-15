@@ -38,7 +38,7 @@ return ['pages' => ['pobocky' => ['v2' => [
         ['label' => 'Gear sizes', 'i' => 'tag', 'v' => [['t' => 'Jackets and trousers up to 6XL'], ['t' => 'Helmets S–3XL; jackets, trousers and gloves up to 4XL']]],
         ['label' => 'Rain gear & extra equipment', 'i' => 'rain', 'v' => [['ok' => 1, 't' => 'Yes'], ['ok' => 0, 't' => 'No, Mezná only']]],
         ['label' => 'Delivery to your address', 'i' => 'truck', 'v' => [['ok' => 1, 't' => 'Yes, for a surcharge'], ['ok' => 0, 't' => 'No: pick-up and return at the branch only']]],
-        ['label' => 'Returning the bike', 'i' => 'moto', 'v' => [['t' => 'No washing, no refuelling'], ['t' => 'Washed, reserve light off; no full tank needed']]],
+        ['label' => 'Returning the bike', 'i' => 'moto', 'v' => [['t' => 'No washing or refuelling; reserve light off'], ['t' => 'Washed, reserve light off; no full tank needed']]],
         ['label' => 'Documents', 'i' => 'doc', 'v' => [['t' => 'Upload them online, or we check them on the spot'], ['t' => 'Must be uploaded and verified online in advance']]],
         ['label' => 'Facilities', 'i' => 'kiosk', 'v' => [['t' => 'Wi-Fi, WC, changing room and lockers'], ['t' => 'Locker room (door no. 8), touchscreen and bike bays']]],
         ['label' => 'Free parking', 'i' => 'parking', 'v' => [['ok' => 1, 't' => 'Yes, for the whole rental'], ['ok' => 1, 't' => 'Yes, for the whole rental']]],

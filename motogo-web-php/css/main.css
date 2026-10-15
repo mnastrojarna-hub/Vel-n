@@ -162,3 +162,11 @@ body.menu-open .header{z-index:1002}
 
 /* 2026-10-11: vyprodaná velikost (products.size_stock = 0) */
 .shop-size-chip[disabled]{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+
+/* 2026-10-15: rozcestník .gbox (homepage ?landing=v1) — dlouhé složeniny (de „Online-Motorradreservierung")
+   nesmí roztáhnout mřížku přes okraj stránky (dřív +130 px při 768 px, +1–7 px při 320 px). */
+.gbox{min-width:0}
+.gbox .gr2{grid-template-columns:56px minmax(0,1fr)}
+.gbox h3,.gbox .btn{overflow-wrap:anywhere}
+.gbox h3:lang(de),.gbox h3:lang(nl),.gbox .btn:lang(de),.gbox .btn:lang(nl){-webkit-hyphens:auto;hyphens:auto}
+.gbox .btn{max-width:100%}

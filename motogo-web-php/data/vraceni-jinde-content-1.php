@@ -4,7 +4,7 @@
 
 return [
     'h1' => 'Vrácení motorky kdekoliv – přijedeme za tebou',
-    'intro' => 'Nechceš se vracet do půjčovny v Pelhřimově? Žádný problém. Přijedeme si pro motorku kamkoliv v České republice – v čas, který sis zvolil v rezervačním formuláři. Ty předáš, my naložíme. Jednoduše a bez komplikací.',
+    'intro' => 'Nechceš se vracet do půjčovny v Pelhřimově? Žádný problém. Přijedeme si pro motorku kamkoliv v České republice – v čas, který sis zvolil v rezervačním formuláři. Ty předáš, my naložíme. Jednoduše a bez komplikací. Odvoz z adresy nabízíme u motorek z obslužné pobočky v Mezné; motorky ze samoobslužné pobočky ve Velkých Němčicích se vracejí jen přímo na pobočce.',
     'when' => [
         'title' => 'Kdy se vrácení jinde hodí',
         'items' => [

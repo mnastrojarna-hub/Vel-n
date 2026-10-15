@@ -46,7 +46,7 @@ return ['pages' => ['landing' => [
             ['icon' => 'shield', 'title' => 'Schäden zu 100 % gedeckt', 'text' => 'Vertragliche Deckung: Bei einem Unfall beträgt deine Selbstbeteiligung 0 €.*'],
             ['icon' => 'helmet', 'title' => 'Ausrüstung inklusive', 'text' => 'Motorradbekleidung, Warnweste, Verbandskasten und Bremsscheibenschloss. In Mezná auch Regenkombis.'],
             ['icon' => 'infinity', 'title' => 'Unbegrenzte km und Auslandsfahrten', 'text' => 'Fahr, wohin und so weit du willst (im Rahmen der Grünen Karte).'],
-            ['icon' => 'fuel', 'title' => 'Rückgabe, wie es dir passt', 'text' => 'In Mezná weder waschen noch tanken. In der Selbstbedienung: gewaschen, Reserveleuchte aus, Volltanken nicht nötig.'],
+            ['icon' => 'fuel', 'title' => 'Rückgabe, wie es dir passt', 'text' => 'Tanken musst du nicht – nur die Reserveleuchte sollte aus sein. Gewaschen nur in der Selbstbedienung Velké Němčice.'],
             ['icon' => 'calendar', 'title' => 'Online buchen und bezahlen', 'text' => 'In wenigen Minuten erledigt, auch am Sonntagabend.'],
             ['icon' => 'app', 'title' => 'Eigene App', 'text' => 'Buchung ändern, SOS, Treueprogramm und Routentipps an einem Ort.'],
             ['icon' => 'coffee', 'title' => 'Gratis-Komfort vor Ort', 'text' => 'In Mezná: Kaffee, Wasser, WC, WLAN, Umkleidekabine und Spinde. Parkplatz für dein Auto an beiden Filialen.'],

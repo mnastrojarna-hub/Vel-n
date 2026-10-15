@@ -44,12 +44,12 @@ function getBlogFallbackPosts() {
                 . '<h2>2. Zarezervujte termín</h2>'
                 . '<p>V rezervačním systému vyberete data vyzvednutí a vrácení. Online kalendář hned ukáže, kdy je motorka volná. Platba kartou proběhne okamžitě (Visa/Mastercard, Apple/Google Pay).</p>'
                 . '<h2>3. Vyzvednutí</h2>'
-                . '<p>Adresa: <strong>Mezná 9, 393 01 Pelhřimov</strong>. Provoz je <strong>nonstop</strong> – vyzvednete si kdykoli, i večer. Nabízíme také <a href="/jak-pujcit/pristaveni">přistavení</a> na hotel nebo vlakové nádraží.</p>'
+                . '<p>Vyzvednout si ji můžete na obslužné pobočce <strong>Mezná 9, 393 01 Pelhřimov</strong>, nebo samoobslužně přístupovým kódem z aplikace či e-mailu ve <strong>Velkých Němčicích u Brna</strong>. Obě pobočky fungují <strong>nonstop</strong> – vyzvednete si kdykoli podle rezervace, i večer. Z Mezné nabízíme také <a href="/jak-pujcit/pristaveni">přistavení</a> na hotel nebo vlakové nádraží.</p>'
                 . '<h2>4. Co si vzít</h2>'
                 . '<ul><li>Občanský průkaz nebo pas</li><li>Řidičský průkaz (skupina A, A2 nebo A1 podle motorky)</li><li>Vhodnou obuv (moto boty půjčíme jako nadstandard)</li></ul>'
                 . '<p>Helma, bunda, kalhoty a rukavice jsou v ceně – prostě si je u nás vyzvednete.</p>'
                 . '<h2>5. Vrácení</h2>'
-                . '<p>Kdykoli během posledního dne výpůjčky. Na obslužné pobočce v Mezné (i při vrácení na jiném domluveném místě) nemusíte tankovat ani mýt — podepíšeme předávací protokol a máte hotovo. Na samoobslužné pobočce ve Velkých Němčicích plnou nádrž nepotřebujete, motorku ale vraťte umytou a bez svítící rezervy.</p>'
+                . '<p>Kdykoli během posledního dne výpůjčky. Tankovat nemusíte (plná nádrž není potřeba) — jen ať nesvítí rezerva. Na obslužné pobočce v Mezné (i při vrácení na jiném domluveném místě) motorku nemusíte ani mýt — podepíšeme předávací protokol a máte hotovo. Na samoobslužné pobočce ve Velkých Němčicích ji vraťte umytou.</p>'
                 . '<p><strong>A co kauce?</strong> U nás <strong>žádná</strong>. Férové podmínky, žádné skryté poplatky.</p>',
         ],
         [

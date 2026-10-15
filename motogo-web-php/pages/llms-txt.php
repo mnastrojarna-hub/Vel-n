@@ -57,10 +57,10 @@ $titles = [
         'rentingFeatures' => [
             'Bez kauce — žádná blokace na kartě.',
             'Motorkářská výbava (helma, bunda, kalhoty, rukavice) v ceně pronájmu.',
-            'Nonstop provoz — vyzvednutí 24/7 přes přístupové kódy.',
+            'Nonstop provoz na obou pobočkách — v Mezné u Pelhřimova předá motorku obsluha v čase z rezervace, ve Velkých Němčicích u Brna 100% samoobsluha 24/7 přístupovým kódem z aplikace nebo e-mailu.',
             'Online rezervace na webu nebo v mobilní aplikaci MotoGo24 (iPhone – App Store, Android – Google Play); platba předem kartou, Apple Pay / Google Pay, na webu i QR / bankovním převodem.',
-            'Vyzvednutí v Mezné u Pelhřimova nebo přistavení kamkoliv v ČR.',
-            'Vrácení v půjčovně nebo na jiném místě po domluvě.',
+            'Vyzvednutí na obslužné pobočce Mezná u Pelhřimova (odtud i přistavení kamkoliv v ČR) nebo na samoobslužné pobočce Velké Němčice u Brna.',
+            'Vrácení na pobočce (u motorek z Mezné i na jiném sjednaném místě) — tankovat netřeba, jen ať nesvítí kontrolka rezervy; umytou je potřeba motorku vrátit jen na samoobslužné pobočce Velké Němčice. Motorka se předává s tím, co je v nádrži (plnou nádrž neslibujeme).',
             'Sjezd do zahraničí povolen (zelená karta v ceně).',
             'Dětské motorky bez ŘP — pro nejmenší jezdce.',
         ],
@@ -90,10 +90,10 @@ $titles = [
         'rentingFeatures' => [
             'No deposit — no hold on your card.',
             'Riding gear (helmet, jacket, pants, gloves) included in price.',
-            '24/7 nonstop operation — pickup via access codes any time.',
+            'Both branches open 24/7 — staffed handover at the booked time in Mezná near Pelhřimov, 100 % self-service with an access code (app or e-mail) in Velké Němčice near Brno.',
             'Online booking on the web or in the MotoGo24 app (iPhone – App Store, Android – Google Play); prepaid by card, Apple Pay / Google Pay, on the web also QR / bank transfer.',
-            'Pickup in Mezná near Pelhřimov or delivery anywhere in Czechia.',
-            'Return at the rental or at a different location upon agreement.',
+            'Pickup at the staffed branch in Mezná near Pelhřimov (delivery anywhere in Czechia from there) or at the self-service branch in Velké Němčice near Brno.',
+            'Return at the branch (bikes from Mezná also at another agreed place) — no refuelling needed, just keep the fuel reserve light off; washed only at the self-service branch Velké Němčice. The bike is handed over with whatever fuel is in the tank (no full tank promised).',
             'Travel abroad allowed (green card included).',
             'Kids motorcycles without driver\'s license — for the youngest riders.',
         ],
@@ -108,7 +108,7 @@ if ($lang === 'cs') $T = $titles['cs'];
 // ===== Output =====
 echo "# {$T['h1']}\n\n";
 echo "> {$T['intro']}\n\n";
-echo "**{$T['languages']}:** cs, en, de, es, fr, nl, pl  \n";
+echo "**{$T['languages']}:** cs, en, de, es, fr, nl, pl, uk  \n";
 echo "**{$T['currencies']}:** CZK, EUR, USD a další (auto-konverze ČNB)  \n";
 echo "**{$T['payment']}:** Stripe (Visa, Mastercard, Amex, Apple Pay, Google Pay) + na webu QR / bankovní převod; platba předem online, bez hotovosti  \n";
 echo "**App:** iOS " . APP_STORE_LIVE_URL . " · Android " . PLAY_STORE_LIVE_URL . "  \n";

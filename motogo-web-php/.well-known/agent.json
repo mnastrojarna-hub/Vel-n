@@ -3,7 +3,7 @@
   "schemaVersion": "1.0",
   "name": "MotoGo24",
   "displayName": "MotoGo24 — Půjčovna motorek Vysočina",
-  "description": "Česká půjčovna motorek se sídlem v Mezné u Pelhřimova. Půjčujeme silniční, naked, supermoto, enduro a dětské motorky bez kauce, s motorkářskou výbavou v ceně, v nonstop provozu. Tento manifest popisuje, co nabízíme AI agentům pro čtení obsahu i programové rezervace. Doménová identita: motogo24.cz (česky) + motogo24.com (mezinárodně) — obě domény servírují identický obsah s i18n přepínačem (cs, en, de, es, fr, nl, pl).",
+  "description": "Česká půjčovna motorek se sídlem v Mezné u Pelhřimova. Půjčujeme silniční, naked, supermoto, enduro a dětské motorky bez kauce, s motorkářskou výbavou v ceně, v nonstop provozu. Tento manifest popisuje, co nabízíme AI agentům pro čtení obsahu i programové rezervace. Doménová identita: motogo24.cz (česky) + motogo24.com (mezinárodně) — obě domény servírují identický obsah s i18n přepínačem (cs, en, de, es, fr, nl, pl, uk).",
   "version": "0.2.0",
   "publisher": {
     "name": "Bc. Petra Semorádová",
@@ -23,7 +23,7 @@
   "termsOfService": "https://www.motogo24.cz/dokumenty/obchodni-podminky",
   "privacyPolicy": "https://www.motogo24.cz/dokumenty/zasady-ochrany-osobnich-udaju",
   "securityContact": "https://www.motogo24.cz/.well-known/security.txt",
-  "languages": ["cs", "en", "de", "es", "fr", "nl", "pl"],
+  "languages": ["cs", "en", "de", "es", "fr", "nl", "pl", "uk"],
   "currencies": ["CZK", "EUR", "USD"],
   "regions": ["CZ", "SK", "AT", "DE", "PL"],
   "discovery": {
@@ -97,14 +97,15 @@
       "N": "dětské motorky bez ŘP"
     },
     "abroad": "Sjezd do zahraničí povolen, zelená karta v ceně.",
-    "fuel": "Obslužná pobočka Mezná (i vrácení na jiném sjednaném místě): bez povinnosti tankovat. Samoobslužná pobočka Velké Němčice: plná nádrž není potřeba, ale při vrácení nesmí svítit kontrolka rezervy paliva.",
-    "cleaning": "Obslužná pobočka Mezná (i vrácení na jiném sjednaném místě): bez povinnosti mýt, nadměrné znečištění individuálně. Samoobslužná pobočka Velké Němčice: motorku je nutné vrátit umytou."
+    "pickup": "Obě pobočky nonstop (0–24 h podle rezervace): Mezná u Pelhřimova — obslužná, motorku předá a převezme obsluha v čase rezervace; odtud i placené přistavení / odvoz kamkoliv v ČR. Velké Němčice u Brna — 100% samoobslužná, výdej i vrácení přístupovým kódem z aplikace / e-mailu; motorky této pobočky se vyzvedávají a vracejí jen na ní (bez přistavení).",
+    "fuel": "Stav paliva MotoGo24 neřeší: motorka se předává s tím, co je v nádrži (plnou nádrž neslibujeme), zákazník si cestou tankuje sám podle potřeby. Při vrácení tankovat netřeba (plná nádrž není potřeba), jen ať nesvítí kontrolka rezervy paliva — platí na obou pobočkách i při vrácení jinde (na samoobslužné pobočce Velké Němčice svítit nesmí). Žádný poplatek za palivo ani dotankování.",
+    "cleaning": "Umytou je nutné motorku vrátit jen na samoobslužné pobočce Velké Němčice. Obslužná pobočka Mezná (i vrácení na jiném sjednaném místě): bez povinnosti mýt, nadměrné znečištění individuálně."
   },
   "contact": {
     "primary": {
       "type": "phone",
       "value": "+420 774 256 271",
-      "availability": "24/7"
+      "availability": "Po–Pá 8:00–17:00 (AI asistent na webu a v aplikaci 24/7)"
     },
     "email": "info@motogo24.cz",
     "messaging": ["whatsapp:+420774256271", "sms:+420774256271"],
@@ -133,15 +134,15 @@
     "uniqueSellingPoints": [
       "Žádná kauce — netypické na trhu.",
       "Motorkářská výbava (helma, bunda, kalhoty, rukavice) v ceně.",
-      "Nonstop provoz — převzetí 24/7 přes přístupové kódy.",
+      "Obě pobočky nonstop: Mezná u Pelhřimova (předání obsluhou v čase rezervace, odtud i přistavení kamkoliv v ČR) a Velké Němčice u Brna (100% samoobsluha přístupovým kódem z aplikace / e-mailu).",
       "Sjezd do EU povolen, zelená karta zdarma.",
-      "Vrácení v Mezné (i na jiném sjednaném místě) bez tankování i mytí; na samoobslužné pobočce Velké Němčice plná nádrž netřeba, jen umytá a bez svítící rezervy.",
+      "Vrácení bez tankování (jen ať nesvítí kontrolka rezervy); umytá jen na samoobslužné pobočce Velké Němčice — v Mezné (i na jiném sjednaném místě) bez mytí.",
       "Online platba kartou (Stripe), Apple/Google Pay.",
       "Cancellation 7+ dní zdarma.",
-      "Multi-language: cs, en, de, es, fr, nl, pl.",
+      "Multi-language: cs, en, de, es, fr, nl, pl, uk.",
       "REST API + MCP server pro AI agenty — programové rezervace s real Stripe Checkout URL."
     ],
     "preferredFlow": "(1) search_motorcycles → (2) get_availability → (3) calculate_price/quote → (4) create_booking_request → (5) předat user Stripe Checkout URL z odpovědi. Vždy dodat: telefon půjčovny +420 774 256 271 a info@motogo24.cz pro lidskou podporu."
   },
-  "lastUpdated": "2026-10-11"
+  "lastUpdated": "2026-10-15"
 }

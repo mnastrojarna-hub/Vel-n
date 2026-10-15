@@ -18,7 +18,7 @@ export const GATE_TEXTS_A: Partial<Record<Lang, GateTexts>> = {
     step2Gear: "Na displeji zadejte kód šatny, vezměte si výbavu, převlékněte se a zavřete dveře šatny. Poté na displeji v předávacím protokolu upravte velikosti a protokol podepište.",
     step3Gear: "Zadejte kód motorky, vezměte motorku a zavřete dveře kóje.",
     step2NoGear: "Na displeji zadejte kód motorky, podepište předávací protokol, vezměte motorku a zavřete dveře kóje.",
-    stepImportant: "DŮLEŽITÉ: Byla-li brána zavřená, po odjezdu ji zase zavřete, zamkněte visacím zámkem, klíč vraťte do horní schránky a přetočte číselník, aby kód nezůstal nastavený. Otevřenou bránu nechte otevřenou. Stejně postupujte i při vrácení motorky.",
+    stepImportant: "DŮLEŽITÉ: Byla-li brána zavřená, po odjezdu ji zase zavřete, zamkněte visacím zámkem, klíč vraťte do horní schránky a přetočte číselník, aby kód nezůstal nastavený. Otevřenou bránu nechte otevřenou. Stejně postupujte i při vrácení motorky. Motorku vracejte umytou a tak, aby nesvítila kontrolka rezervy (tankovat do plna nemusíte).",
     pageLink: "Fotky pobočky a parkoviště (místa 1–7) najdete na stránce pobočky →",
   },
   en: {
@@ -34,7 +34,7 @@ export const GATE_TEXTS_A: Partial<Record<Lang, GateTexts>> = {
     step2Gear: "On the display, enter the locker room code, take your gear, get changed and close the locker room door. Then, on the display, adjust the sizes in the handover protocol and sign it.",
     step3Gear: "Enter the motorcycle code, take the motorcycle and close the bay door.",
     step2NoGear: "On the display, enter the motorcycle code, sign the handover protocol, take the motorcycle and close the bay door.",
-    stepImportant: "IMPORTANT: If the gate was closed, close it again after you leave, lock it with the padlock, return the key to the upper lockbox and scramble the combination dials so the code is not left showing. If the gate was open, leave it open. Follow the same steps when returning the motorcycle.",
+    stepImportant: "IMPORTANT: If the gate was closed, close it again after you leave, lock it with the padlock, return the key to the upper lockbox and scramble the combination dials so the code is not left showing. If the gate was open, leave it open. Follow the same steps when returning the motorcycle. Return the motorcycle washed and with the fuel reserve light off (no need to fill the tank).",
     pageLink: "Photos of the branch and the parking area (spots 1–7) are on the branch page →",
   },
   de: {
@@ -50,7 +50,7 @@ export const GATE_TEXTS_A: Partial<Record<Lang, GateTexts>> = {
     step2Gear: "Geben Sie am Display den Umkleide-Code ein, nehmen Sie Ihre Ausrüstung, ziehen Sie sich um und schließen Sie die Tür der Umkleide. Passen Sie anschließend am Display im Übergabeprotokoll die Größen an und unterschreiben Sie das Protokoll.",
     step3Gear: "Geben Sie den Motorrad-Code ein, nehmen Sie das Motorrad und schließen Sie die Tür der Box.",
     step2NoGear: "Geben Sie am Display den Motorrad-Code ein, unterschreiben Sie das Übergabeprotokoll, nehmen Sie das Motorrad und schließen Sie die Tür der Box.",
-    stepImportant: "WICHTIG: War das Tor geschlossen, schließen Sie es nach der Abfahrt wieder, sichern Sie es mit dem Vorhängeschloss, legen Sie den Schlüssel zurück in die obere Schlüsselbox und verstellen Sie die Zahlenräder, damit der Code nicht eingestellt bleibt. Ein offenes Tor lassen Sie bitte offen. Gehen Sie bei der Rückgabe des Motorrads genauso vor.",
+    stepImportant: "WICHTIG: War das Tor geschlossen, schließen Sie es nach der Abfahrt wieder, sichern Sie es mit dem Vorhängeschloss, legen Sie den Schlüssel zurück in die obere Schlüsselbox und verstellen Sie die Zahlenräder, damit der Code nicht eingestellt bleibt. Ein offenes Tor lassen Sie bitte offen. Gehen Sie bei der Rückgabe des Motorrads genauso vor. Geben Sie das Motorrad gewaschen zurück; die Reserveleuchte darf dabei nicht leuchten (Volltanken ist nicht nötig).",
     pageLink: "Fotos der Filiale und des Parkplatzes (Stellplätze 1–7) finden Sie auf der Seite der Filiale →",
   },
   es: {
@@ -66,7 +66,7 @@ export const GATE_TEXTS_A: Partial<Record<Lang, GateTexts>> = {
     step2Gear: "Introduzca en la pantalla el código del vestuario, recoja su equipo, cámbiese y cierre la puerta del vestuario. A continuación, ajuste las tallas en el protocolo de entrega que aparece en la pantalla y fírmelo.",
     step3Gear: "Introduzca el código de la moto, saque la moto y cierre la puerta del box.",
     step2NoGear: "Introduzca en la pantalla el código de la moto, firme el protocolo de entrega, saque la moto y cierre la puerta del box.",
-    stepImportant: "IMPORTANTE: Si el portón estaba cerrado, al salir vuelva a cerrarlo, échele el candado, devuelva la llave a la caja superior y gire los números de la combinación para que el código no quede marcado. Si el portón estaba abierto, déjelo abierto. Proceda de la misma manera al devolver la moto.",
+    stepImportant: "IMPORTANTE: Si el portón estaba cerrado, al salir vuelva a cerrarlo, échele el candado, devuelva la llave a la caja superior y gire los números de la combinación para que el código no quede marcado. Si el portón estaba abierto, déjelo abierto. Proceda de la misma manera al devolver la moto. Devuelva la moto lavada y sin el testigo de reserva encendido (no hace falta llenar el depósito).",
     pageLink: "Fotos de la sucursal y del aparcamiento (plazas 1–7) en la página de la sucursal →",
   },
 }

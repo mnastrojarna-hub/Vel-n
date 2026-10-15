@@ -1275,6 +1275,8 @@ ${vars.door_codes_block}
 <ul><li>platn\u00fd doklad toto\u017enosti (kter\u00fd jste uvedli v rezerva\u010dn\u00edm formul\u00e1\u0159i),</li><li>platn\u00fd \u0159idi\u010dsk\u00fd pr\u016fkaz.</li></ul>
 <p>Doklady (občanský průkaz nebo cestovní pas a řidičský průkaz) prosím nahrajte předem v aplikaci nebo na webu — přístupové kódy vám pošleme až po jejich ověření. Na samoobslužné pobočce je nahrání dokladů předem nezbytné: bez ověřených dokladů kódy nevydáme a na pobočku se nedostanete; motorku i výbavu si převezmete sami pomocí kódů a Předávací protokol podepíšete na dotykovém displeji. Na obslužné pobočce vás o nahrání dokladů předem také žádáme — pokud je nenahrajete, zkontrolujeme je při převzetí na místě, kde vám předáme motorku i výbavu a společně podepíšeme Předávací protokol.</p>
 <p>Osobní věci, které nechcete brát na cestu, si na obslužné pobočce v Mezné můžete zdarma uložit do uzamykatelné skříňky.</p>
+<h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Vrácení motorky</h3>
+<p>Tankovat při vrácení nemusíte (plná nádrž není potřeba) — jen ať nesvítí kontrolka rezervy. Umytou motorku vracejte jen na samoobslužné pobočce ve Velkých Němčicích; na obslužné pobočce v Mezné (i při vrácení na jiném sjednaném místě) ji mýt nemusíte.</p>
 <p>Doporu\u010dujeme, abyste se p\u0159ed j\u00edzdou sezn\u00e1mili s u\u017eivatelsk\u00fdmi informacemi k motocyklu, kter\u00e9 najdete v odkazu na na\u0161ich webov\u00fdch str\u00e1nk\u00e1ch <a href="https://www.motogo24.cz" style="color:#2563eb">motogo24.cz</a>.</p>
 <p>Pokud budete m\u00edt jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</p>
 <p>T\u011b\u0161\u00edme se na v\u00e1s a p\u0159ejeme kr\u00e1sn\u00fd z\u00e1\u017eitek z j\u00edzdy.</p>
