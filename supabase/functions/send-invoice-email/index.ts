@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { isTrustedCaller } from '../_shared/auth.ts'
+import { googleReviewBlock, loadGoogleReviewUrl } from '../_shared/review-links.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normalizeLang, helpCardLabels, invoiceEmailSnippets, type Lang } from './i18n.ts'
 import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
@@ -12,7 +13,6 @@ const REPLY_TO = 'info@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
-const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/MotoGo24/review'
 
 // ── i18n: doména zákazníka dle jazyka (cs → .cz, ostatní → .com) ────────────
 const DOMAIN_INTL = 'https://motogo24.com'
@@ -30,26 +30,8 @@ function resolveTemplateForLang(supabase: any, tpl: any, lang: string): Promise<
   return resolveTemplateShared(supabase, tpl, lang, 'send-invoice-email')
 }
 
-const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: string }> = {
-  cs: { title: 'Pomohlo by nám vaše hodnocení', body: 'Pokud jste byli spokojeni, prosíme zanechte nám recenzi na Googlu — pomáháte tím dalším motorkářům.', cta: '⭐ Ohodnotit na Google' },
-  en: { title: 'Your review would help us', body: 'If you were happy with our service, please leave us a review on Google — it helps fellow riders.', cta: '⭐ Review on Google' },
-  de: { title: 'Ihre Bewertung würde uns helfen', body: 'Wenn Sie zufrieden waren, hinterlassen Sie uns bitte eine Google-Bewertung — Sie helfen damit anderen Bikern.', cta: '⭐ Auf Google bewerten' },
-  nl: { title: 'Je review helpt ons enorm', body: 'Was je tevreden? Laat dan een review achter op Google — je helpt andere motorrijders.', cta: '⭐ Beoordeel op Google' },
-  es: { title: 'Tu reseña nos ayudaría mucho', body: 'Si quedaste satisfecho, déjanos una reseña en Google — ayudas a otros moteros.', cta: '⭐ Reseña en Google' },
-  fr: { title: 'Votre avis nous aiderait', body: 'Si vous étiez satisfait, laissez-nous un avis sur Google — vous aidez d\'autres motards.', cta: '⭐ Avis sur Google' },
-  pl: { title: 'Twoja recenzja by nam pomogła', body: 'Jeśli byłeś zadowolony, zostaw nam recenzję w Google — pomożesz innym motocyklistom.', cta: '⭐ Oceń w Google' },
-  uk: { title: 'Ваш відгук нам дуже допоможе', body: 'Якщо ви були задоволені, залиште нам, будь ласка, відгук у Google — ви допоможете іншим мотоциклістам.', cta: '⭐ Оцінити в Google' },
-}
-
-function googleReviewBlock(lang: string, url?: string): string {
-  const l = REVIEW_BLOCK_LABELS[lang] || REVIEW_BLOCK_LABELS.cs
-  const href = url || GOOGLE_REVIEW_URL_DEFAULT
-  return `<div style="background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px;margin:24px 0;text-align:center">
-  <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">${l.title}</div>
-  <div style="color:#ffffff;font-size:13px;margin:0 0 16px">${l.body}</div>
-  <a href="${href}" target="_blank" rel="noopener" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">${l.cta}</a>
-</div>`
-}
+// Google review CTA (googleReviewBlock) — sdílené v _shared/review-links.ts; odkaz vždy Google
+// z app_settings.google_review_url (stejný zdroj jako appka a poděkovací mail).
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -327,8 +309,9 @@ serve(async (req) => {
       } catch { /* log nesmí shodit odeslání */ }
     }
     // Pro KF z e-shopu (shop_final) přidej Google review CTA tlačítko
+    const reviewUrl = invoice.type === 'shop_final' ? await loadGoogleReviewUrl(supabase) : ''
     if (invoice.type === 'shop_final') {
-      templateHtml = templateHtml + googleReviewBlock(custLang)
+      templateHtml = templateHtml + googleReviewBlock(custLang, reviewUrl)
     }
     if (!html) html = wrapInBrandedLayout(localizeBodyLinks(templateHtml, custLang), custLang)
 
@@ -349,7 +332,7 @@ serve(async (req) => {
 </div>
 <p>${csSnip.outro}</p>
 <p>${csSnip.closing}</p>`
-      const csBodyWithReview = invoice.type === 'shop_final' ? csBody + googleReviewBlock('cs') : csBody
+      const csBodyWithReview = invoice.type === 'shop_final' ? csBody + googleReviewBlock('cs', reviewUrl) : csBody
       adminHtml = wrapInBrandedLayout(csBodyWithReview, 'cs')
       adminSubject = csSnip.subject
     }

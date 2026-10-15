@@ -1,7 +1,7 @@
 // Zprávy → Hodnocení: sdílené prvky pro desktop (RatingsTab) i mobil (RatingsCards).
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { RATING_FILTERS, fmtDateTime } from './ratingsData'
+import { RATING_FILTERS, fmtDateTime, splitFeedback } from './ratingsData'
 
 export const LOW_BG = '#fef2f2'
 export const LOW_BORDER = '#dc2626'
@@ -42,19 +42,21 @@ export function Comments({ row, clamp = 3 }) {
   const hidden = row.comments.length - list.length
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-      {list.map(m => (
+      {list.map(m => { const fb = splitFeedback(m.content); return (
         <div key={m.id} style={{ fontSize: 13, color: '#0f1a14', minWidth: 0 }}>
           <div style={{
             whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontWeight: m.read_at ? 500 : 700,
             ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: clamp, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
           }}>
             {!m.read_at && <span title="Nepřečteno" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: '#74FB71', marginRight: 6, verticalAlign: 'middle' }} />}
-            {m.content}
+            {fb.text}
           </div>
-          <div style={{ fontSize: 11, color: '#6b7a72', marginTop: 2 }}>{fmtDateTime(m.created_at)}</div>
+          <div style={{ fontSize: 11, color: '#6b7a72', marginTop: 2 }}>
+            {fmtDateTime(m.created_at)}{fb.stars && fb.stars !== row.rating ? ` · při odeslání ${fb.stars}/5 ★` : ''}
+          </div>
         </div>
-      ))}
-      {(hidden > 0 || open || (row.comments[row.comments.length - 1]?.content || '').length > 160) && (
+      ) })}
+      {(hidden > 0 || open || splitFeedback(row.comments[row.comments.length - 1]?.content).text.length > 160) && (
         <button type="button" onClick={() => setOpen(o => !o)} className="cursor-pointer text-left"
           style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', fontSize: 12, fontWeight: 700 }}>
           {open ? 'Sbalit' : hidden > 0 ? `Zobrazit vše (${row.comments.length})` : 'Zobrazit celé'}

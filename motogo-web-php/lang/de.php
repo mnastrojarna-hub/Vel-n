@@ -1369,7 +1369,7 @@ return [
     'editRez.loc.headPickup' => '📥 Motorrad-Abholung',
     'editRez.loc.headReturn' => '📤 Motorrad-Rückgabe',
     'editRez.loc.atRentalTitle' => 'In der Vermietung Mezná',
-    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — betreute Filiale, 24/7 geöffnet. <strong>0 CZK.</strong>',
+    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — Filiale mit Personal, 24/7 geöffnet. <strong>0 CZK.</strong>',
     'editRez.loc.atRentalDescReturn' => 'Rückgabe direkt in der Filiale. <strong>0 CZK.</strong>',
     'editRez.loc.deliveryTitle' => 'Lieferung an Adresse',
     'editRez.loc.deliveryReturnTitle' => 'Wir holen es bei Ihnen ab',

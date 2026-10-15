@@ -92,7 +92,10 @@ function renderLpReviews($R, $T) {
             : (isset($a['recommend']) ? '<span class="lp-rbadge-r">' . he(str_replace('{p}', (string)(int)$a['recommend'], lpS($T['reviews_recommend_pct'] ?? '{p} %'))) . '</span><span class="lp-rec">' . he(lpS($T['reviews_recommends'] ?? '')) . '</span>' : '');
         $inner = '<span class="lp-rbadge-src">' . $label . '</span>' . $score .
             (isset($a['count']) ? '<span class="lp-rbadge-c">' . he(str_replace('{n}', (string)(int)$a['count'], lpS($T['reviews_count'] ?? '{n}'))) . '</span>' : '');
-        $badges .= !empty($a['url']) ? '<a class="lp-rbadge" href="' . he($a['url']) . '" target="_blank" rel="noopener">' . $inner . '</a>' : '<span class="lp-rbadge">' . $inner . '</span>';
+        // Odkaz na recenze = vždy jen Google (majitel 2026-10-15); ostatní zdroje jen skóre bez odkazu.
+        $url = lpS($a['url'] ?? '');
+        $badges .= ($url !== '' && preg_match('~^https://(?:[a-z0-9-]+\.)*(?:google\.[a-z.]+|g\.page|goo\.gl)(?:[/?#]|$)~i', $url))
+            ? '<a class="lp-rbadge" href="' . he($url) . '" target="_blank" rel="noopener">' . $inner . '</a>' : '<span class="lp-rbadge">' . $inner . '</span>';
     }
     $cards = '';
     foreach ($items as $x) {

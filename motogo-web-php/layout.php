@@ -214,7 +214,7 @@ function renderFooter() {
         '<a class="footer-partner" href="https://www.atlasceska.cz" target="_blank" rel="noopener" aria-label="Atlas Česka"><img src="' . BASE_URL . '/gfx/atlasceska.png" alt="' . te('footer.partner.atlasAlt') . '" loading="lazy" width="265" height="55"></a>' .
         '<a class="footer-partner" href="https://bikeangel.eu/" target="_blank" rel="noopener" aria-label="bikeAngel"><img src="' . BASE_URL . '/gfx/bikeangel.svg" alt="' . te('footer.partner.bikeangelAlt') . '" loading="lazy" width="1566" height="429"></a>' .
         $vysocinaHtml .
-        '<div class="footer-partner footer-partner-ta"><div id="TA_rated863" class="TA_rated"><ul id="AKTO3nY" class="TA_links ewSpz5"><li id="gRjuuxDtbpg" class="JzvG62adkG6"><a target="_blank" href="https://www.tripadvisor.com.au/Attraction_Review-g1600819-d34461468-Reviews-MotoGo24-Pelhrimov_Vysocina_Region_Moravia.html"><img src="https://www.tripadvisor.com.au/img/cdsi/img2/badges/ollie-11424-2.gif" alt="TripAdvisor"/></a></li></ul></div><script async src="https://www.jscache.com/wejs?wtype=rated&amp;uniq=863&amp;locationId=34461468&amp;lang=en_AU&amp;display_version=2" data-loadtrk onload="this.loadtrk=true"></script></div>' .
+        // Recenzní odznak Tripadvisor odstraněn 2026-10-15 — odkaz na recenze je vždy jen Google (majitel).
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
         '<p>' . tc('footer.copyright') . '</p>' .

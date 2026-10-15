@@ -9,6 +9,7 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import { useDebugMode } from '../../hooks/useDebugMode'
 import { Stars, LowBadge, StatusPill, Comments, BookingLink, CustomerLink, FilterChips, SummaryBar, LOW_BG, LOW_BORDER } from './RatingsParts'
 import RatingsCards from './RatingsCards'
+import { breakable } from './MobileCard'
 import RatingReplyModal from './RatingReplyModal'
 import { filterRows, filterCounts, branchName, fmtDateTime, fmtRange } from './ratingsData'
 
@@ -60,7 +61,7 @@ export default function RatingsTab({ ratings, onOpenThread }) {
   const toolbar = (
     <div className={isMobile ? 'flex flex-col mb-3' : 'flex flex-wrap items-center mb-4'} style={{ gap: isMobile ? 8 : 12 }}>
       <SearchInput value={filters.search} onChange={v => setFilters(f => ({ ...f, search: v }))}
-        placeholder="Hledat zákazníka, #ID, SPZ, text…" fullWidth={isMobile} />
+        placeholder="Jméno, #ID, SPZ, text…" fullWidth={isMobile} />
       <FilterChips value={filters.filter} counts={counts} onChange={v => setFilters(f => ({ ...f, filter: v }))} mobile={isMobile} />
       {filters.filter === 'open' && openRows.length > 1 && (
         <button type="button" onClick={markAll} disabled={busy}
@@ -112,7 +113,7 @@ export default function RatingsTab({ ratings, onOpenThread }) {
                   </TD>
                   <TD style={cell}>
                     <CustomerLink booking={b} />
-                    <div style={{ fontSize: 12, color: '#1a2e22', overflowWrap: 'anywhere' }}>{b.profiles?.email || ''}</div>
+                    <div style={{ fontSize: 12, color: '#1a2e22', overflowWrap: 'anywhere' }}>{breakable(b.profiles?.email || '')}</div>
                     {b.profiles?.phone && <div style={{ fontSize: 12, color: '#1a2e22' }}>{b.profiles.phone}</div>}
                   </TD>
                   <TD style={{ ...cell, whiteSpace: 'nowrap' }}>

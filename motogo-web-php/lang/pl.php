@@ -1334,7 +1334,7 @@ return [
     'editRez.loc.headPickup' => '📥 Odbiór motocykla',
     'editRez.loc.headReturn' => '📤 Zwrot motocykla',
     'editRez.loc.atRentalTitle' => 'W wypożyczalni Mezná',
-    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — obsługiwany oddział, czynny 24/7. <strong>0 CZK.</strong>',
+    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — oddział z obsługą, czynny 24/7. <strong>0 CZK.</strong>',
     'editRez.loc.atRentalDescReturn' => 'Zwrot bezpośrednio w oddziale. <strong>0 CZK.</strong>',
     'editRez.loc.deliveryTitle' => 'Dostawa pod adres',
     'editRez.loc.deliveryReturnTitle' => 'Odbierzemy od Ciebie',

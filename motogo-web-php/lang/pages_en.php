@@ -216,7 +216,7 @@ return [
                 'keywords' => 'motorcycle pick-up, motorcycle rental Pelhřimov, motorcycle rental Vysočina, rent a motorcycle, MotoGo24',
             ],
             'h1' => 'Pick-up at the branch – quick, easy and 24/7',
-            'intro' => 'At <strong>MotoGo24 – motorcycle rental in the Vysočina region</strong>&nbsp;picking up a bike takes just a few minutes. We rent with <strong>no deposit, rider gear included and 24/7 pick-up and return</strong>. Come to Mezná near Pelhřimov in person and hit the road! At the self-service branch in Velké Němčice near Brno you pick up the bike yourself with an access code from the app or e-mail.',
+            'intro' => 'At <strong>MotoGo24 – motorcycle rental in the Vysočina region</strong>,&nbsp;picking up a bike takes just a few minutes. We rent with <strong>no deposit, rider gear included and 24/7 pick-up and return</strong>. Come to Mezná near Pelhřimov in person and hit the road! At the self-service branch in Velké Němčice near Brno you pick up the bike yourself with an access code from the app or e-mail.',
             'top_cta' => [
                 'label' => 'BOOK ONLINE',
                 'href' => '/rezervace',

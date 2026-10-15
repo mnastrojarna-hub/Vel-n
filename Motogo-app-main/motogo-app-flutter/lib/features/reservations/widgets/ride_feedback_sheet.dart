@@ -7,6 +7,7 @@ import '../../../core/widgets/moto_fx.dart';
 import '../../auth/widgets/toast_helper.dart';
 import '../reservation_models.dart';
 import '../ride_feedback.dart';
+import 'res_rating_widgets.dart' show RatingMiniStars;
 
 /// Otevře sheet „Napiš nám přímo, co máme zlepšit“. Vrací id konverzace,
 /// do které zpráva odešla (null = zavřeno bez odeslání).
@@ -109,9 +110,7 @@ class _RideFeedbackSheetState extends State<_RideFeedbackSheet> {
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: MotoGoColors.g400)),
                   ]),
                 ),
-                if (widget.rating > 0)
-                  Text(rideFeedbackStars(widget.rating).split(' ').first,
-                      style: const TextStyle(fontSize: 13, color: Color(0xFFF59E0B), letterSpacing: 1)),
+                if (widget.rating > 0) RatingMiniStars(rating: widget.rating, size: 13),
               ]),
               const SizedBox(height: 14),
               Container(
@@ -170,8 +169,12 @@ class _RideFeedbackSheetState extends State<_RideFeedbackSheet> {
                   child: _sending
                       ? const SizedBox(width: 20, height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2.4, color: MotoGoColors.black))
-                      : Text('${tr.tr('send')}  ➤',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
+                      : Row(mainAxisSize: MainAxisSize.min, children: [
+                          Text(tr.tr('send'),
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.send_rounded, size: 18, color: MotoGoColors.black),
+                        ]),
                 ),
               ),
             ],

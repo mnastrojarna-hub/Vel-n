@@ -13,10 +13,20 @@ export function shortBookingId(id) {
 
 // Předmět vlákna, které Velín založí sám („Napsat zákazníkovi“, zákazník ještě nepsal).
 // Zákazník předmět vidí v appce → v jeho jazyce (profiles.language), značka #ID vždy beze změny.
+// Texty = appka `rfThreadSubject` (translations_ext_36_ride_feedback.dart) — appka pak do
+// tohoto (neuzavřeného) vlákna pošle i svou zpětnou vazbu (hledá ho podle značky).
 const SUBJECT_PREFIX = {
-  cs: 'Hodnocení jízdy', en: 'Your ride rating', de: 'Bewertung deiner Fahrt', es: 'Valoración de tu viaje',
-  fr: 'Avis sur ta location', nl: 'Beoordeling van je rit', pl: 'Ocena Twojej jazdy', uk: 'Оцінка твоєї поїздки',
+  cs: 'Zpětná vazba k jízdě', en: 'Ride feedback', de: 'Feedback zur Fahrt', es: 'Comentarios sobre el viaje',
+  fr: 'Retour sur le trajet', nl: 'Feedback over de rit', pl: 'Opinia o jeździe', uk: 'Відгук про поїздку',
 }
+
+// Appka začíná zprávu řádkem „★★☆☆☆ 2/5“ (hodnocení v okamžiku odeslání) → Velín ho
+// zobrazí zvlášť a jen když se liší od aktuálních hvězdiček.
+export function splitFeedback(content) {
+  const m = /^\s*[★☆]{5}\s+([1-5])\/5\s*(?:\r?\n)+/.exec(content || '')
+  return m ? { stars: Number(m[1]), text: content.slice(m[0].length) } : { stars: null, text: content || '' }
+}
+
 export function feedbackSubject(lang, bookingId) {
   return `${SUBJECT_PREFIX[lang] || SUBJECT_PREFIX.cs} #${shortBookingId(bookingId)}`
 }
@@ -59,7 +69,9 @@ export function buildRatingRows(bookings, threads, handled) {
     const firstCommentMs = comments.length ? ms(comments[0].created_at) : NaN
     const since = Math.min(...[ratedMs, firstCommentMs].filter(Number.isFinite), Infinity)
     const reply = Number.isFinite(since) ? msgs.filter(m => isAdminDir(m.direction) && ms(m.created_at) >= since).pop() : null
-    const closedThread = comments.length > 0 && unread.length === 0 && own.some(t => t.status === 'resolved' || t.status === 'closed')
+    // Uzavřené/vyřešené musí být vlákno s POSLEDNÍ zpětnou vazbou (appka po uzavření zakládá nové).
+    const lastThread = comments.length ? own.find(t => t.id === comments[comments.length - 1].thread_id) : null
+    const closedThread = !!lastThread && unread.length === 0 && (lastThread.status === 'resolved' || lastThread.status === 'closed')
     const manual = manualHandledValid(handled?.[b.id], b) ? handled[b.id] : null
     let handledBy = null
     if (manual) handledBy = { kind: 'manual', at: manual.handled_at }

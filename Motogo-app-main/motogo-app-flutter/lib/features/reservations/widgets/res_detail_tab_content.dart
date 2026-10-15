@@ -117,10 +117,14 @@ class ResDetailTabContent extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(50),
                       border: Border.all(color: MotoGoColors.amberBorder),
                     ),
-                    child: Text(
-                      '★ ${res.rating}/5',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFB45309)),
-                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.star_rounded, size: 13, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${res.rating}/5',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFB45309)),
+                      ),
+                    ]),
                   ),
               ],
             ),

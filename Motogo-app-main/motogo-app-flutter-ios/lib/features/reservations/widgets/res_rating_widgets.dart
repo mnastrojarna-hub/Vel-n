@@ -101,7 +101,8 @@ class RatingFollowUpTile extends StatelessWidget {
       pressedScale: 0.96,
       onTap: onTap,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 66),
+        // Pevná min. výška → obě volby stejně velké i když se popisek zalomí.
+        constraints: const BoxConstraints(minHeight: 84),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.08),
@@ -129,6 +130,52 @@ class RatingFollowUpTile extends StatelessWidget {
           const Icon(Icons.chevron_right_rounded, color: MotoGoColors.green, size: 22),
         ]),
       ),
+    );
+  }
+}
+
+/// Řádek malých hvězdiček (ikony — nezávislé na fontu zařízení).
+class RatingMiniStars extends StatelessWidget {
+  final int rating;
+  final double size;
+  const RatingMiniStars({super.key, required this.rating, this.size = 14});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      for (var i = 0; i < 5; i++)
+        Icon(Icons.star_rounded, size: size, color: i < rating ? kRatingStarColor : MotoGoColors.g200),
+    ]);
+  }
+}
+
+/// Zlatý odznak v hlavičce karty (jemně „dýchá“, dokud není ohodnoceno).
+class RatingHeaderBadge extends StatelessWidget {
+  final bool pulse;
+  const RatingHeaderBadge({super.key, required this.pulse});
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = Container(
+      width: 38, height: 38,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFCD34D), kRatingStarColor],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: const Icon(Icons.star_rounded, color: MotoGoColors.dark, size: 22),
+    );
+    if (!pulse) return badge;
+    return GlowPulse(
+      color: kRatingStarColor,
+      borderRadius: BorderRadius.circular(19),
+      minBlur: 2,
+      maxBlur: 12,
+      child: badge,
     );
   }
 }

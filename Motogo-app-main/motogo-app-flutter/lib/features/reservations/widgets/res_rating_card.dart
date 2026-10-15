@@ -112,18 +112,7 @@ class _ResRatingCardState extends ConsumerState<ResRatingCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(children: [
-            GlowPulse(
-              color: kRatingStarColor,
-              borderRadius: BorderRadius.circular(19),
-              minBlur: 4,
-              maxBlur: rating == 0 ? 16 : 8,
-              child: Container(
-                width: 38, height: 38,
-                decoration: const BoxDecoration(color: Color(0x33F59E0B), shape: BoxShape.circle),
-                alignment: Alignment.center,
-                child: const Icon(Icons.star_rounded, color: kRatingStarColor, size: 24),
-              ),
-            ),
+            RatingHeaderBadge(pulse: rating == 0),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

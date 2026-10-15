@@ -1233,7 +1233,7 @@ return [
     'editRez.loc.headPickup' => '📥 Отримання мотоцикла',
     'editRez.loc.headReturn' => '📤 Повернення мотоцикла',
     'editRez.loc.atRentalTitle' => 'У прокаті Mezná',
-    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — філія з обслуговуванням, відкрито цілодобово. <strong>0 Kč.</strong>',
+    'editRez.loc.atRentalDescPickup' => 'Mezná 9, 393 01 Pelhřimov — філія з персоналом, відкрито цілодобово. <strong>0 Kč.</strong>',
     'editRez.loc.atRentalDescReturn' => 'Повернете безпосередньо у філії. <strong>0 Kč.</strong>',
     'editRez.loc.deliveryTitle' => 'Доставка на адресу',
     'editRez.loc.deliveryReturnTitle' => 'Заберемо у вас',
