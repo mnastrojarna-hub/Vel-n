@@ -65,7 +65,7 @@ return [
             ],
             [
                 'q' => 'Musím vracet s plnou nádrží a čistou?',
-                'a' => 'Ne. Při vrácení jinde netankuješ ani nemyješ.&nbsp;',
+                'a' => 'Ne. Při vrácení jinde ji mýt ani tankovat nemusíš – jen ať nesvítí rezerva.&nbsp;',
             ],
             [
                 'q' => 'Můžu motorku při vrácení na jiném místě vrátit dřív, než jsme se domluvili?&nbsp;',

@@ -205,7 +205,7 @@ return [
                     ],
                     [
                         '<strong>Palivo &amp; čištění</strong>',
-                        'V Mezné a při vrácení jinde bez povinnosti dotankovat a mýt. Na samoobslužné pobočce vraťte motorku umytou a bez svítící rezervy (plná nádrž není nutná). Případné nadměrné znečištění řešíme individuálně.',
+                        'Vrácení bez povinnosti tankovat – jen ať nesvítí rezerva. Umytou je potřeba motorku vrátit jen na samoobslužné pobočce ve Velkých Němčicích. Případné nadměrné znečištění řešíme individuálně.',
                     ],
                     [
                         '<strong>Přistavení / svoz</strong>',
@@ -238,7 +238,7 @@ return [
                 'items' => [
                     '<strong>Převzetí</strong>&nbsp;probíhá v Pelhřimově (Mezná 9) nebo na samoobslužné pobočce ve Velkých Němčicích u Brna; z Mezné můžete využít i&nbsp;<a href="/jak-pujcit/pristaveni">přistavení</a>.',
                     'Při předání obdržíte&nbsp;<strong>klíče, výbavu a dokumenty</strong>&nbsp;(malý TP, zelená karta, formulář nehody).',
-                    '<strong>Vrácení</strong>&nbsp;kdykoli během posledního dne výpůjčky (i o půlnoci). V Mezné není nutné mýt ani tankovat; na samoobslužné pobočce vraťte motorku umytou a bez svítící rezervy.',
+                    '<strong>Vrácení</strong>&nbsp;kdykoli během posledního dne výpůjčky (i o půlnoci). Tankovat není nutné – jen ať nesvítí rezerva; umytou je potřeba motorku vrátit jen na samoobslužné pobočce ve Velkých Němčicích.',
                 ],
             ],
             'privacy' => [
@@ -387,7 +387,7 @@ return [
                     [
                         'icon' => 'gfx/predani-motorky.svg',
                         'title' => 'Vrácení motorky',
-                        'text' => 'Motorku vrať včas na předem sjednané místo. Nemusíš tankovat ani mýt.',
+                        'text' => 'Motorku vrať včas na předem sjednané místo. Mýt ani tankovat ji nemusíš – jen ať nesvítí rezerva.',
                     ],
                 ],
             ],
@@ -549,7 +549,7 @@ return [
                     ],
                     [
                         'q' => 'Musím vracet s plnou nádrží a čistou?',
-                        'a' => 'Ne. Při vrácení jinde netankuješ ani nemyješ.&nbsp;',
+                        'a' => 'Ne. Při vrácení jinde ji mýt ani tankovat nemusíš – jen ať nesvítí rezerva.&nbsp;',
                     ],
                     [
                         'q' => 'Můžu motorku při vrácení na jiném místě vrátit dřív, než jsme se domluvili?&nbsp;',
@@ -670,7 +670,7 @@ return [
                     [
                         'icon' => 'gfx/vrat-motorku-vcas.svg',
                         'title' => '12. Vrácení motorky',
-                        'text' => 'Motorku vrať včas – osobně do půjčovny v Pelhřimově, nebo na předem sjednané místo; tankovat ani mýt ji nemusíš. Na samoobslužné pobočce ve Velkých Němčicích ji vrať umytou a bez svítící rezervy.',
+                        'text' => 'Motorku vrať včas – osobně do půjčovny v Pelhřimově, nebo na předem sjednané místo. Tankovat nemusíš – jen ať nesvítí rezerva. Umytou ji vracej jen na samoobslužné pobočce ve Velkých Němčicích.',
                     ],
                 ],
             ],
@@ -935,7 +935,7 @@ return [
         ],
         'jak_pujcit_vraceni_pujcovna' => [
             'h1' => 'Vrácení motocyklu v půjčovně – rychle a bez komplikací',
-            'intro' => 'Výpůjčka končí stejně jednoduše jako začala. Přijeď v domluvený čas vrácení na naši adresu v Pelhřimově, společně zkontrolujeme motorku a výbavu a je hotovo. Nemusíš tankovat ani mýt – to nech na nás.&nbsp;',
+            'intro' => 'Výpůjčka končí stejně jednoduše jako začala. Přijeď v domluvený čas vrácení na naši adresu v Pelhřimově, společně zkontrolujeme motorku a výbavu a je hotovo. Mýt ani tankovat nemusíš – jen ať nesvítí rezerva.&nbsp;',
             'process' => [
                 'grid' => 'gr4',
                 'steps' => [
@@ -984,7 +984,7 @@ return [
                     ],
                     [
                         'q' => 'Musím vracet s plnou nádrží a čistou?',
-                        'a' => 'Ne. V Mezné netankuješ ani nemyješ. Na samoobslužné pobočce ve Velkých Němčicích plnou nádrž taky nepotřebuješ – jen motorku vrať umytou a hlídej, aby nesvítila rezerva.&nbsp;',
+                        'a' => 'Ne. Tankovat při vrácení nemusíš – jen ať nesvítí rezerva. Umytou ji vracej jen na samoobslužné pobočce ve Velkých Němčicích.&nbsp;',
                     ],
                     [
                         'q' => 'Můžu motorku vrátit do půjčovny dřív, než jsme se domluvili?',

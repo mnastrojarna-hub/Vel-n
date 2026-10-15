@@ -73,7 +73,7 @@ return [
             [
                 'icon' => 'gfx/vrat-motorku-vcas.svg',
                 'title' => '12. Vrácení motorky',
-                'text' => 'Motorku vrať včas – osobně do půjčovny v Pelhřimově, nebo na předem sjednané místo; tankovat ani mýt ji nemusíš. Na samoobslužné pobočce ve Velkých Němčicích ji vrať umytou a bez svítící rezervy.',
+                'text' => 'Motorku vrať včas – osobně do půjčovny v Pelhřimově, nebo na předem sjednané místo. Tankovat nemusíš – jen ať nesvítí rezerva. Umytou ji vracej jen na samoobslužné pobočce ve Velkých Němčicích.',
             ],
         ],
     ],

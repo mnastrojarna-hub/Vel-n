@@ -204,7 +204,7 @@ return [
                     ],
                     [
                         '<strong>Brandstof &amp; reiniging</strong>',
-                        'In Mezná en bij teruggave op een andere plek hoef je niet te tanken of te wassen. Bij de zelfbedieningsvestiging lever je de motor gewassen in en zonder brandend reservelampje (een volle tank is niet nodig). Overmatig vuil wordt individueel afgehandeld.',
+                        'Terugbrengen zonder tankplicht – zorg alleen dat het reservelampje niet brandt. Alleen bij de zelfbedieningsvestiging in Velké Němčice moet de motor gewassen worden ingeleverd. Overmatig vuil wordt individueel afgehandeld.',
                     ],
                     [
                         '<strong>Bezorging / ophalen</strong>',
@@ -237,7 +237,7 @@ return [
                 'items' => [
                     'Het&nbsp;<strong>ophalen</strong>&nbsp;gebeurt in Pelhřimov (Mezná 9) of bij de zelfbedieningsvestiging in Velké Němčice bij Brno; vanuit Mezná kun je ook&nbsp;<a href="/jak-pujcit/pristaveni">bezorging</a> gebruiken.',
                     'Bij de overdracht ontvang je&nbsp;<strong>sleutels, uitrusting en documenten</strong>&nbsp;(kentekenbewijs, groene kaart, ongevalsformulier).',
-                    '<strong>Teruggave</strong>&nbsp;op elk moment van de laatste huurdag (ook om middernacht). In Mezná is wassen of tanken niet nodig; bij de zelfbedieningsvestiging lever je de motor gewassen in en zonder brandend reservelampje.',
+                    '<strong>Teruggave</strong>&nbsp;op elk moment van de laatste huurdag (ook om middernacht). Tanken is niet nodig – zorg alleen dat het reservelampje niet brandt; alleen bij de zelfbedieningsvestiging in Velké Němčice moet de motor gewassen worden ingeleverd.',
                 ],
             ],
             'privacy' => [
@@ -389,7 +389,7 @@ return [
                     [
                         'icon' => 'gfx/predani-motorky.svg',
                         'title' => 'Breng de motor terug',
-                        'text' => 'Breng de motor op tijd terug op de afgesproken plek. Tanken of wassen is niet nodig.',
+                        'text' => 'Breng de motor op tijd terug op de afgesproken plek. Wassen of tanken is niet nodig – zorg alleen dat het reservelampje niet brandt.',
                     ],
                 ],
             ],
@@ -554,7 +554,7 @@ return [
                     ],
                     [
                         'q' => 'Moet ik hem met een volle tank en schoon terugbrengen?',
-                        'a' => 'Nee. Bij teruggave op een andere plek hoef je niet te tanken of te wassen.&nbsp;',
+                        'a' => 'Nee. Bij teruggave op een andere plek hoef je niet te wassen of te tanken – zorg alleen dat het reservelampje niet brandt.&nbsp;',
                     ],
                     [
                         'q' => 'Kan ik de motor bij teruggave op een andere locatie eerder terugbrengen dan afgesproken?&nbsp;',
@@ -1119,7 +1119,7 @@ return [
                     [
                         'icon' => 'gfx/vrat-motorku-vcas.svg',
                         'title' => '12. Breng de motor terug',
-                        'text' => 'Breng de motor op tijd terug – persoonlijk bij de verhuur in Pelhřimov, of op de afgesproken plek; tanken of wassen is niet nodig. Bij de zelfbedieningsvestiging in Velké Němčice lever je hem gewassen in en zonder brandend reservelampje.',
+                        'text' => 'Breng de motor op tijd terug – persoonlijk bij de verhuur in Pelhřimov, of op de afgesproken plek. Tanken is niet nodig – zorg alleen dat het reservelampje niet brandt. Alleen bij de zelfbedieningsvestiging in Velké Němčice lever je hem gewassen in.',
                     ],
                 ],
             ],
@@ -1432,7 +1432,7 @@ return [
                     ],
                     [
                         'q' => 'Moet ik hem met een volle tank en schoon terugbrengen?',
-                        'a' => 'Nee. In Mezná hoef je niet te tanken of te wassen. Bij de zelfbedieningsvestiging in Velké Němčice hoeft de tank ook niet vol – lever de motor alleen gewassen in en let erop dat het reservelampje niet brandt.&nbsp;',
+                        'a' => 'Nee. Tanken bij het terugbrengen is niet nodig – zorg alleen dat het reservelampje niet brandt. Alleen bij de zelfbedieningsvestiging in Velké Němčice lever je de motor gewassen in.&nbsp;',
                     ],
                     [
                         'q' => 'Kan ik de motor eerder bij de verhuur terugbrengen dan afgesproken?',

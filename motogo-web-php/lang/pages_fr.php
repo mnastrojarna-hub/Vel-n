@@ -153,7 +153,7 @@ return [
                     ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => '9. Confirmation par e-mail', 'text' => 'Une fois la réservation terminée, tu reçois un e-mail avec la confirmation de la réservation et du paiement, le justificatif de paiement, le contrat de location pré-rempli et les infos essentielles pour récupérer la moto.'],
                     ['icon' => 'gfx/predani-motorky.svg', 'title' => '10. Prise en charge de la moto', 'text' => 'À la remise, nous vérifions tes documents, complétons le contrat et signons le procès-verbal de remise. Tu essaies l\'équipement pour que tout soit à ta taille – et il ne reste plus qu\'à démarrer !'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '11. Profite de la balade', 'text' => 'Prends la route – <strong>sans caution, sans stress</strong>. Le reste, c\'est juste l\'asphalte et la liberté.'],
-                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Restitution de la moto', 'text' => 'Rends la moto à l\'heure – en personne à notre agence de Pelhřimov ou à un endroit convenu à l\'avance ; pas besoin de faire le plein ni de la laver. À l\'agence en libre-service de Velké Němčice, rends-la lavée et sans voyant de réserve allumé.'],
+                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Restitution de la moto', 'text' => 'Rends la moto à l\'heure – en personne à notre agence de Pelhřimov ou à un endroit convenu à l\'avance. Pas besoin de faire le plein – veille seulement à ce que le voyant de réserve ne soit pas allumé. Tu ne dois la rendre lavée qu\'à l\'agence en libre-service de Velké Němčice.'],
                 ],
             ],
             'gallery' => [
@@ -303,7 +303,7 @@ return [
                 'keywords' => 'rendre une moto de location, location de motos Pelhřimov, location de motos Vysočina, MotoGo24',
             ],
             'h1' => 'Restitution à l\'agence – rapide et sans complications',
-            'intro' => 'Ta location se termine aussi simplement qu\'elle a commencé. Viens à l\'heure de restitution convenue à notre adresse de Pelhřimov, nous vérifions ensemble la moto et l\'équipement – et c\'est terminé. Pas besoin de faire le plein ni de laver la moto, on s\'en occupe.&nbsp;',
+            'intro' => 'Ta location se termine aussi simplement qu\'elle a commencé. Viens à l\'heure de restitution convenue à notre adresse de Pelhřimov, nous vérifions ensemble la moto et l\'équipement – et c\'est terminé. Pas besoin de laver la moto ni de faire le plein – veille seulement à ce que le voyant de réserve ne soit pas allumé.&nbsp;',
             'process' => [
                 'grid' => 'gr4',
                 'steps' => [
@@ -331,7 +331,7 @@ return [
                 'title' => 'Questions fréquentes sur la restitution à l\'agence',
                 'items' => [
                     ['q' => 'Jusqu\'à quand dois-je rendre la moto ?', 'a' => 'Idéalement à l\'heure convenue. Si tu la rends à l\'agence, tu peux venir, après accord, à n\'importe quelle heure le dernier jour de la location – au plus tard à minuit, sans aucune pénalité. Si tu la rends à un autre endroit, l\'heure convenue est impérative.'],
-                    ['q' => 'Dois-je rendre la moto avec le plein et propre ?', 'a' => 'Non. À Mezná, tu n\'as ni à faire le plein ni à laver la moto. À l\'agence en libre-service de Velké Němčice, le plein n\'est pas nécessaire non plus : rends simplement la moto lavée et veille à ce que le voyant de réserve ne soit pas allumé.&nbsp;'],
+                    ['q' => 'Dois-je rendre la moto avec le plein et propre ?', 'a' => 'Non. Au retour, pas besoin de faire le plein – veille seulement à ce que le voyant de réserve ne soit pas allumé. Tu ne dois rendre la moto lavée qu\'à l\'agence en libre-service de Velké Němčice.&nbsp;'],
                     ['q' => 'Puis-je rendre la moto à l\'agence plus tôt que prévu ?', 'a' => 'Oui, tu peux rendre la moto à n\'importe quelle heure le dernier jour de la location. Préviens-nous simplement que tu arrives plus tôt. Nous ne facturons aucun supplément pour une restitution anticipée.'],
                     ['q' => 'Que se passe-t-il si je ne peux pas rendre la moto à l\'agence avant minuit le dernier jour ?&nbsp;', 'a' => 'Si tu sais que tu n\'y arriveras pas, contacte-nous le plus tôt possible – nous trouverons une solution ensemble. Un retard non signalé est traité selon les conditions du contrat de location.'],
                     ['q' => 'Dois-je signer quelque chose lors de la restitution à l\'agence ?&nbsp;', 'a' => 'Si tout est en ordre, la restitution est rapide et sans paperasse inutile. Tu reçois la confirmation de fin de location et la facture finale par e-mail.'],
@@ -514,7 +514,7 @@ return [
                 'rows' => [
                     ['<strong>Paiement de la location</strong>', 'En ligne, à l\'avance.'],
                     ['<strong>Annulation</strong>', 'Gratuite jusqu\'à un délai convenu à l\'avance (indiqué dans la confirmation de réservation). Ensuite, selon accord individuel.'],
-                    ['<strong>Carburant &amp; nettoyage</strong>', 'À Mezná et en cas de restitution ailleurs, tu n\'as ni à faire le plein ni à laver la moto. À l\'agence en libre-service, rends-la lavée et sans voyant de réserve allumé (le plein n\'est pas nécessaire). Une saleté excessive est réglée au cas par cas.'],
+                    ['<strong>Carburant &amp; nettoyage</strong>', 'Restitution sans obligation de faire le plein – veille seulement à ce que le voyant de réserve ne soit pas allumé. La moto ne doit être rendue lavée qu\'à l\'agence en libre-service de Velké Němčice. Une saleté excessive est réglée au cas par cas.'],
                     ['<strong>Livraison / récupération</strong>', 'Selon le tarif de livraison. Nous le confirmons lors de la réservation.'],
                     ['<strong>Restitution tardive</strong>', 'Merci de rendre la moto à l\'heure le dernier jour de la location ; en cas de retard, nous facturons selon accord (d\'autres clients attendent peut-être déjà la moto).'],
                 ],
@@ -540,7 +540,7 @@ return [
                 'items' => [
                     'La <strong>prise en charge</strong>&nbsp;se fait à Pelhřimov (Mezná 9) ou à l\'agence en libre-service de Velké Němčice, près de Brno – depuis Mezná, profite aussi de notre&nbsp;<a href="/jak-pujcit/pristaveni">livraison</a>.',
                     'À la remise, tu reçois&nbsp;<strong>les clés, l\'équipement et les documents</strong>&nbsp;(certificat d\'immatriculation, carte verte, constat d\'accident).',
-                    'La <strong>restitution</strong>&nbsp;est possible à toute heure le dernier jour de la location (même à minuit). À Mezná, pas besoin de faire le plein ni de laver la moto ; à l\'agence en libre-service, rends-la lavée et sans voyant de réserve allumé.',
+                    'La <strong>restitution</strong>&nbsp;est possible à toute heure le dernier jour de la location (même à minuit). Pas besoin de faire le plein – veille seulement à ce que le voyant de réserve ne soit pas allumé ; la moto ne doit être rendue lavée qu\'à l\'agence en libre-service de Velké Němčice.',
                 ],
             ],
             'privacy' => [
@@ -610,7 +610,7 @@ return [
                     ['icon' => 'gfx/zaplat.svg', 'title' => 'Confirmation et paiement', 'text' => 'Vérifie le récapitulatif de la commande, accepte les conditions et paie en ligne.'],
                     ['icon' => 'gfx/podpis-dokumentu.svg', 'title' => 'Remise sur place', 'text' => 'À la remise, nous vérifions tes documents, complétons le contrat et signons le procès-verbal de remise.'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Profite de la balade', 'text' => 'Prends la route – sans caution, sans stress. Le reste, c\'est juste l\'asphalte et la liberté.'],
-                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Restitution de la moto', 'text' => 'Rends la moto à l\'heure, à l\'endroit convenu à l\'avance. Pas besoin de faire le plein ni de la laver.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Restitution de la moto', 'text' => 'Rends la moto à l\'heure, à l\'endroit convenu à l\'avance. Pas besoin de la laver ni de faire le plein – veille seulement à ce que le voyant de réserve ne soit pas allumé.'],
                 ],
             ],
             'pricing' => [
@@ -706,7 +706,7 @@ return [
                 'title' => 'Questions fréquentes sur la restitution ailleurs',
                 'items' => [
                     ['q' => 'Jusqu\'à quand dois-je rendre la moto ?', 'a' => 'Idéalement à l\'heure convenue. Si tu la rends à l\'agence, tu peux venir, après accord, à n\'importe quelle heure le dernier jour de la location – au plus tard à minuit, sans aucune pénalité. Si tu la rends à un autre endroit, l\'heure convenue est impérative.'],
-                    ['q' => 'Dois-je rendre la moto avec le plein et propre ?', 'a' => 'Non. Si tu la rends ailleurs, tu n\'as ni à faire le plein ni à laver la moto.&nbsp;'],
+                    ['q' => 'Dois-je rendre la moto avec le plein et propre ?', 'a' => 'Non. Si tu la rends ailleurs, tu n\'as ni à la laver ni à faire le plein – veille seulement à ce que le voyant de réserve ne soit pas allumé.&nbsp;'],
                     ['q' => 'Lors d\'une restitution ailleurs, puis-je rendre la moto plus tôt que prévu ?&nbsp;', 'a' => 'Nous partons de Pelhřimov vers le lieu convenu en fonction de l\'heure fixée, donc une restitution anticipée n\'est malheureusement pas possible. Si tes plans changent, contacte-nous – nous essaierons d\'adapter l\'heure, mais cela dépend de notre planning du moment.'],
                     ['q' => 'Puis-je vraiment rendre la moto n\'importe où en Tchéquie ?&nbsp;', 'a' => 'Oui, nous venons chercher la moto partout en Tchéquie. Tu indiques le lieu de restitution lors de la réservation – hôtel, parking, gare ou toute autre adresse.'],
                     ['q' => 'Combien de temps à l\'avance dois-je signaler une restitution ailleurs ?&nbsp;', 'a' => 'Tu indiques le lieu et l\'heure de restitution directement dans le formulaire de réservation.&nbsp;'],

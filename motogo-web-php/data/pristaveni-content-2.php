@@ -55,7 +55,7 @@ return [
             [
                 'icon' => 'gfx/predani-motorky.svg',
                 'title' => 'Vrácení motorky',
-                'text' => 'Motorku vrať včas na předem sjednané místo. Nemusíš tankovat ani mýt.',
+                'text' => 'Motorku vrať včas na předem sjednané místo. Mýt ani tankovat ji nemusíš – jen ať nesvítí rezerva.',
             ],
         ],
     ],

@@ -22,7 +22,7 @@ return [
             ],
             [
                 'q' => 'Musím vracet s plnou nádrží a čistou?',
-                'a' => 'Ne. V Mezné netankuješ ani nemyješ. Na samoobslužné pobočce ve Velkých Němčicích plnou nádrž taky nepotřebuješ – jen motorku vrať umytou a hlídej, aby nesvítila rezerva.&nbsp;',
+                'a' => 'Ne. Tankovat při vrácení nemusíš – jen ať nesvítí rezerva. Umytou ji vracej jen na samoobslužné pobočce ve Velkých Němčicích.&nbsp;',
             ],
             [
                 'q' => 'Můžu motorku vrátit do půjčovny dřív, než jsme se domluvili?',

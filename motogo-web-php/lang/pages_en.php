@@ -151,7 +151,7 @@ return [
                     ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => '9. Confirmation by e-mail', 'text' => 'Once your booking is complete, you\'ll get an e-mail with the booking and payment confirmation, a payment receipt, the pre-filled rental contract and basic instructions for picking up the bike.'],
                     ['icon' => 'gfx/predani-motorky.svg', 'title' => '10. Picking up the bike', 'text' => 'At the handover we check your documents, complete the contract and sign the handover protocol. We make sure your gear fits – and then it\'s just a matter of starting the engine!'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '11. Enjoy the ride', 'text' => 'Hit the road – <strong>no deposit, no stress</strong>. The rest is just asphalt and freedom.'],
-                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Returning the bike', 'text' => 'Return the bike on time – in person at our branch in Pelhřimov, or at a place agreed in advance; no need to refuel or wash it. At the self-service branch in Velké Němčice, return it washed and with the reserve light off.'],
+                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Returning the bike', 'text' => 'Return the bike on time – in person at our branch in Pelhřimov, or at a place agreed in advance. No need to refuel – just make sure the reserve light isn\'t on. It only needs to be returned washed at the self-service branch in Velké Němčice.'],
                 ],
             ],
             'gallery' => [
@@ -301,7 +301,7 @@ return [
                 'keywords' => 'motorcycle return, motorcycle rental Pelhřimov, motorcycle rental Vysočina, MotoGo24',
             ],
             'h1' => 'Returning the bike at the branch – quick and hassle-free',
-            'intro' => 'Your rental ends just as easily as it began. Come to our address in Pelhřimov at the agreed return time, we check the bike and gear together and you\'re done. No need to refuel or wash it – leave that to us.&nbsp;',
+            'intro' => 'Your rental ends just as easily as it began. Come to our address in Pelhřimov at the agreed return time, we check the bike and gear together and you\'re done. No need to wash or refuel it – just make sure the reserve light isn\'t on.&nbsp;',
             'process' => [
                 'grid' => 'gr4',
                 'steps' => [
@@ -329,7 +329,7 @@ return [
                 'title' => 'Frequently asked questions about returning at the branch',
                 'items' => [
                     ['q' => 'By when do I have to return the bike?', 'a' => 'Ideally at the agreed time. If you\'re returning at the branch, you can come by arrangement any time on the last day of your rental – by midnight at the latest, with no penalty. If you\'re returning somewhere else, the agreed time is binding.'],
-                    ['q' => 'Do I have to return it with a full tank and clean?', 'a' => 'No. In Mezná you don\'t refuel or wash the bike. At the self-service branch in Velké Němčice you don\'t need a full tank either – just return the bike washed and make sure the reserve light isn\'t on.&nbsp;'],
+                    ['q' => 'Do I have to return it with a full tank and clean?', 'a' => 'No. You don\'t need to refuel when returning the bike – just make sure the reserve light isn\'t on. It only needs to be returned washed at the self-service branch in Velké Němčice.&nbsp;'],
                     ['q' => 'Can I return the bike at the branch earlier than agreed?', 'a' => 'Yes, you can return the bike any time on the last day of your rental. Just let us know you\'ll be early. We don\'t charge anything extra for an early return.'],
                     ['q' => 'What happens if I can\'t return the bike to the branch by midnight on the last day?&nbsp;', 'a' => 'If you know you won\'t make it, get in touch as soon as possible and we\'ll find a solution. An unannounced late return is handled according to the rental contract.'],
                     ['q' => 'Do I have to sign anything when returning at the branch?&nbsp;', 'a' => 'If everything is in order, the return is quick and without unnecessary paperwork. You\'ll get the confirmation of the end of your rental and the final invoice by e-mail.'],
@@ -512,7 +512,7 @@ return [
                 'rows' => [
                     ['<strong>Rent payment</strong>', 'Online, in advance.'],
                     ['<strong>Booking cancellation</strong>', 'Free of charge up to a time agreed in advance (stated in your booking confirmation). After that by individual agreement.'],
-                    ['<strong>Fuel &amp; cleaning</strong>', 'In Mezná and when returning elsewhere, no need to refuel or wash the bike. At the self-service branch, return it washed and with the reserve light off (no full tank needed). Excessive dirt is dealt with individually.'],
+                    ['<strong>Fuel &amp; cleaning</strong>', 'Return without having to refuel – just make sure the reserve light isn\'t on. The bike only needs to be returned washed at the self-service branch in Velké Němčice. Excessive dirt is dealt with individually.'],
                     ['<strong>Delivery / collection</strong>', 'According to the delivery price list. Confirmed when you book.'],
                     ['<strong>Late return</strong>', 'Please return the bike on time on the last day of your rental; if you\'re late, we charge as agreed (other customers may be waiting for the bike).'],
                 ],
@@ -538,7 +538,7 @@ return [
                 'items' => [
                     '<strong>Pick-up</strong>&nbsp;is in Pelhřimov (Mezná 9) or at the self-service branch in Velké Němčice near Brno; from Mezná you can also use&nbsp;<a href="/jak-pujcit/pristaveni">delivery</a>.',
                     'At the handover you get the&nbsp;<strong>keys, gear and documents</strong>&nbsp;(registration certificate, green card, accident report form).',
-                    '<strong>Return</strong>&nbsp;any time on the last day of your rental (even at midnight). In Mezná there\'s no need to refuel or wash the bike; at the self-service branch, return it washed and with the reserve light off.',
+                    '<strong>Return</strong>&nbsp;any time on the last day of your rental (even at midnight). No need to refuel – just make sure the reserve light isn\'t on; the bike only needs to be returned washed at the self-service branch in Velké Němčice.',
                 ],
             ],
             'privacy' => [
@@ -608,7 +608,7 @@ return [
                     ['icon' => 'gfx/zaplat.svg', 'title' => 'Confirmation and payment', 'text' => 'Check the order summary, accept the terms and pay online.'],
                     ['icon' => 'gfx/podpis-dokumentu.svg', 'title' => 'Handover on the spot', 'text' => 'At the handover we check your documents, complete the contract and sign the handover protocol.'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Enjoy the ride', 'text' => 'Hit the road – no deposit, no stress. The rest is just asphalt and freedom.'],
-                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Returning the bike', 'text' => 'Return the bike on time at the place agreed in advance. No need to refuel or wash it.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Returning the bike', 'text' => 'Return the bike on time at the place agreed in advance. No need to wash or refuel it – just make sure the reserve light isn\'t on.'],
                 ],
             ],
             'pricing' => [
@@ -704,7 +704,7 @@ return [
                 'title' => 'Frequently asked questions about returning the bike elsewhere',
                 'items' => [
                     ['q' => 'By when do I have to return the bike?', 'a' => 'Ideally at the agreed time. If you\'re returning at the branch, you can come by arrangement any time on the last day of your rental – by midnight at the latest, with no penalty. If you\'re returning somewhere else, the agreed time is binding.'],
-                    ['q' => 'Do I have to return it with a full tank and clean?', 'a' => 'No. When you return the bike elsewhere, you don\'t refuel or wash it.&nbsp;'],
+                    ['q' => 'Do I have to return it with a full tank and clean?', 'a' => 'No. When you return the bike elsewhere, you don\'t need to wash or refuel it – just make sure the reserve light isn\'t on.&nbsp;'],
                     ['q' => 'When returning elsewhere, can I hand the bike over earlier than agreed?&nbsp;', 'a' => 'We set off from Pelhřimov to the agreed place exactly according to the agreed time, so an earlier return isn\'t possible, unfortunately. If your plans change, get in touch – we\'ll try to adjust the time, but it depends on how busy we are.'],
                     ['q' => 'Can I really return the bike anywhere in the Czech Republic?&nbsp;', 'a' => 'Yes, we\'ll come and collect the bike anywhere in the Czech Republic. You enter the return place when you book – a hotel, a car park, a station or any other address.'],
                     ['q' => 'How far in advance do I need to arrange a return elsewhere?&nbsp;', 'a' => 'You enter the return place and time right in the booking form.&nbsp;'],

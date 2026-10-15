@@ -152,7 +152,7 @@ return [
                     ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => '9. Bestätigung per E-Mail', 'text' => 'Nach Abschluss der Buchung bekommst du eine E-Mail mit der Buchungs- und Zahlungsbestätigung, dem Zahlungsbeleg, dem vorausgefüllten Mietvertrag und den wichtigsten Infos zur Abholung des Motorrads.'],
                     ['icon' => 'gfx/predani-motorky.svg', 'title' => '10. Abholung des Motorrads', 'text' => 'Bei der Übergabe prüfen wir deine Dokumente, ergänzen den Vertrag und unterschreiben das Übergabeprotokoll. Du probierst die Ausrüstung an, damit alles passt – und dann heißt es nur noch: Motor an!'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '11. Genieß die Fahrt', 'text' => 'Ab auf die Straße – <strong>ohne Kaution, ohne Stress</strong>. Der Rest ist nur noch Asphalt und Freiheit.'],
-                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Rückgabe des Motorrads', 'text' => 'Bring das Motorrad pünktlich zurück – persönlich in unsere Filiale in Pelhřimov oder an einen vorher vereinbarten Ort; tanken und waschen musst du nicht. An der Selbstbedienungsfiliale in Velké Němčice bring es gewaschen zurück, ohne dass die Reserveleuchte leuchtet.'],
+                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Rückgabe des Motorrads', 'text' => 'Bring das Motorrad pünktlich zurück – persönlich in unsere Filiale in Pelhřimov oder an einen vorher vereinbarten Ort. Tanken musst du nicht – nur die Reserveleuchte sollte nicht leuchten. Gewaschen zurückbringen musst du es nur an der Selbstbedienungsfiliale in Velké Němčice.'],
                 ],
             ],
             'gallery' => [
@@ -302,7 +302,7 @@ return [
                 'keywords' => 'Motorrad zurückgeben, Motorradverleih Pelhřimov, Motorradverleih Vysočina, MotoGo24',
             ],
             'h1' => 'Rückgabe in der Filiale – schnell und unkompliziert',
-            'intro' => 'Deine Miete endet genauso einfach, wie sie begonnen hat. Komm zur vereinbarten Rückgabezeit an unsere Adresse in Pelhřimov, wir prüfen gemeinsam Motorrad und Ausrüstung – fertig. Tanken und Waschen musst du nicht, das übernehmen wir.&nbsp;',
+            'intro' => 'Deine Miete endet genauso einfach, wie sie begonnen hat. Komm zur vereinbarten Rückgabezeit an unsere Adresse in Pelhřimov, wir prüfen gemeinsam Motorrad und Ausrüstung – fertig. Waschen und tanken musst du nicht – nur die Reserveleuchte sollte nicht leuchten.&nbsp;',
             'process' => [
                 'grid' => 'gr4',
                 'steps' => [
@@ -330,7 +330,7 @@ return [
                 'title' => 'Häufige Fragen zur Rückgabe in der Filiale',
                 'items' => [
                     ['q' => 'Bis wann muss ich das Motorrad zurückgeben?', 'a' => 'Am besten zur vereinbarten Zeit. Gibst du es in der Filiale zurück, kannst du nach Absprache jederzeit am letzten Miettag kommen – spätestens bis Mitternacht und ohne jede Strafgebühr. Gibst du es an einem anderen Ort zurück, ist die vereinbarte Zeit verbindlich.'],
-                    ['q' => 'Muss ich das Motorrad vollgetankt und sauber zurückgeben?', 'a' => 'Nein. In Mezná musst du weder tanken noch waschen. An der Selbstbedienungsfiliale in Velké Němčice musst du auch nicht volltanken – bring das Motorrad nur gewaschen zurück und achte darauf, dass die Reserveleuchte nicht leuchtet.&nbsp;'],
+                    ['q' => 'Muss ich das Motorrad vollgetankt und sauber zurückgeben?', 'a' => 'Nein. Tanken musst du bei der Rückgabe nicht – nur die Reserveleuchte sollte nicht leuchten. Gewaschen zurückbringen musst du das Motorrad nur an der Selbstbedienungsfiliale in Velké Němčice.&nbsp;'],
                     ['q' => 'Kann ich das Motorrad früher als vereinbart in der Filiale zurückgeben?', 'a' => 'Ja, du kannst das Motorrad jederzeit am letzten Miettag zurückgeben. Sag uns einfach Bescheid, dass du früher kommst. Für eine frühere Rückgabe berechnen wir nichts extra.'],
                     ['q' => 'Was passiert, wenn ich das Motorrad nicht bis Mitternacht des letzten Miettags in die Filiale bringen kann?&nbsp;', 'a' => 'Wenn du weißt, dass du es nicht schaffst, melde dich so früh wie möglich – wir finden gemeinsam eine Lösung. Eine nicht angekündigte verspätete Rückgabe wird nach dem Mietvertrag behandelt.'],
                     ['q' => 'Muss ich bei der Rückgabe in der Filiale etwas unterschreiben?&nbsp;', 'a' => 'Ist alles in Ordnung, geht die Rückgabe schnell und ohne unnötigen Papierkram. Die Bestätigung des Mietendes und die Schlussrechnung bekommst du per E-Mail.'],
@@ -513,7 +513,7 @@ return [
                 'rows' => [
                     ['<strong>Zahlung der Miete</strong>', 'Online, im Voraus.'],
                     ['<strong>Stornierung</strong>', 'Kostenlos bis zu einem vorab vereinbarten Zeitpunkt (steht in deiner Buchungsbestätigung). Danach nach individueller Absprache.'],
-                    ['<strong>Tanken &amp; Reinigung</strong>', 'In Mezná und bei Rückgabe an einem anderen Ort musst du das Motorrad weder tanken noch waschen. An der Selbstbedienungsfiliale bring es gewaschen zurück, ohne dass die Reserveleuchte leuchtet (volltanken musst du nicht). Starke Verschmutzung klären wir individuell.'],
+                    ['<strong>Tanken &amp; Reinigung</strong>', 'Rückgabe ohne Tankpflicht – nur die Reserveleuchte sollte nicht leuchten. Gewaschen zurückgeben musst du das Motorrad nur an der Selbstbedienungsfiliale in Velké Němčice. Starke Verschmutzung klären wir individuell.'],
                     ['<strong>Lieferung / Rückholung</strong>', 'Gemäß der Preisliste für die Lieferung. Wir bestätigen sie bei der Buchung.'],
                     ['<strong>Verspätete Rückgabe</strong>', 'Bitte bring das Motorrad am letzten Miettag pünktlich zurück; bei Verspätung berechnen wir nach Absprache (eventuell warten schon andere Kunden auf das Motorrad).'],
                 ],
@@ -539,7 +539,7 @@ return [
                 'items' => [
                     'Die <strong>Abholung</strong>&nbsp;ist in Pelhřimov (Mezná 9) oder an der Selbstbedienungsfiliale in Velké Němčice bei Brno – von Mezná aus kannst du auch unsere&nbsp;<a href="/jak-pujcit/pristaveni">Lieferung</a> nutzen.',
                     'Bei der Übergabe bekommst du&nbsp;<strong>Schlüssel, Ausrüstung und Dokumente</strong>&nbsp;(Fahrzeugschein, Grüne Karte, Unfallbericht).',
-                    'Die <strong>Rückgabe</strong>&nbsp;ist jederzeit am letzten Miettag möglich (auch um Mitternacht). In Mezná musst du weder tanken noch waschen; an der Selbstbedienungsfiliale bring das Motorrad gewaschen zurück, ohne dass die Reserveleuchte leuchtet.',
+                    'Die <strong>Rückgabe</strong>&nbsp;ist jederzeit am letzten Miettag möglich (auch um Mitternacht). Tanken musst du nicht – nur die Reserveleuchte sollte nicht leuchten; gewaschen zurückgeben musst du das Motorrad nur an der Selbstbedienungsfiliale in Velké Němčice.',
                 ],
             ],
             'privacy' => [
@@ -609,7 +609,7 @@ return [
                     ['icon' => 'gfx/zaplat.svg', 'title' => 'Bestätigung und Bezahlung', 'text' => 'Prüfe die Bestellübersicht, akzeptiere die Bedingungen und bezahle online.'],
                     ['icon' => 'gfx/podpis-dokumentu.svg', 'title' => 'Übergabe vor Ort', 'text' => 'Bei der Übergabe prüfen wir deine Dokumente, ergänzen den Vertrag und unterschreiben das Übergabeprotokoll.'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Genieß die Fahrt', 'text' => 'Ab auf die Straße – ohne Kaution, ohne Stress. Der Rest ist nur noch Asphalt und Freiheit.'],
-                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Rückgabe des Motorrads', 'text' => 'Gib das Motorrad pünktlich am vorab vereinbarten Ort zurück. Tanken und Waschen musst du nicht.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Rückgabe des Motorrads', 'text' => 'Gib das Motorrad pünktlich am vorab vereinbarten Ort zurück. Waschen und tanken musst du nicht – nur die Reserveleuchte sollte nicht leuchten.'],
                 ],
             ],
             'pricing' => [
@@ -705,7 +705,7 @@ return [
                 'title' => 'Häufige Fragen zur Rückgabe an einem anderen Ort',
                 'items' => [
                     ['q' => 'Bis wann muss ich das Motorrad zurückgeben?', 'a' => 'Am besten zur vereinbarten Zeit. Gibst du es in der Filiale zurück, kannst du nach Absprache jederzeit am letzten Miettag kommen – spätestens bis Mitternacht und ohne jede Strafgebühr. Gibst du es an einem anderen Ort zurück, ist die vereinbarte Zeit verbindlich.'],
-                    ['q' => 'Muss ich das Motorrad vollgetankt und sauber zurückgeben?', 'a' => 'Nein. Bei der Rückgabe an einem anderen Ort musst du weder tanken noch waschen.&nbsp;'],
+                    ['q' => 'Muss ich das Motorrad vollgetankt und sauber zurückgeben?', 'a' => 'Nein. Bei der Rückgabe an einem anderen Ort musst du weder waschen noch tanken – nur die Reserveleuchte sollte nicht leuchten.&nbsp;'],
                     ['q' => 'Kann ich das Motorrad bei der Rückgabe an einem anderen Ort früher als vereinbart übergeben?&nbsp;', 'a' => 'Wir fahren genau zur vereinbarten Zeit aus Pelhřimov zum vereinbarten Ort los, deshalb ist eine frühere Rückgabe leider nicht möglich. Ändern sich deine Pläne, melde dich – wir versuchen, die Zeit anzupassen, das hängt aber von unserer Auslastung ab.'],
                     ['q' => 'Kann ich das Motorrad wirklich überall in Tschechien zurückgeben?&nbsp;', 'a' => 'Ja, wir holen das Motorrad überall in Tschechien ab. Den Rückgabeort gibst du bei der Buchung an – Hotel, Parkplatz, Bahnhof oder jede andere Adresse.'],
                     ['q' => 'Wie lange im Voraus muss ich die Rückgabe an einem anderen Ort vereinbaren?&nbsp;', 'a' => 'Rückgabeort und -zeit gibst du direkt im Buchungsformular an.&nbsp;'],

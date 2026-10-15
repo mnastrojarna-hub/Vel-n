@@ -204,7 +204,7 @@ return [
                     ],
                     [
                         '<strong>Paliwo i czyszczenie</strong>',
-                        'W oddziale Mezná i przy zwrocie w innym miejscu bez obowiązku tankowania i mycia. W oddziale samoobsługowym oddaj motocykl umyty i bez świecącej kontrolki rezerwy (pełny bak nie jest potrzebny). Nadmierne zabrudzenie rozpatrujemy indywidualnie.',
+                        'Zwrot bez obowiązku tankowania – byle nie świeciła się kontrolka rezerwy. Umyty motocykl trzeba oddać tylko w samoobsługowym oddziale Velké Němčice. Nadmierne zabrudzenie rozpatrujemy indywidualnie.',
                     ],
                     [
                         '<strong>Podstawienie / odbiór</strong>',
@@ -237,7 +237,7 @@ return [
                 'items' => [
                     '<strong>Odbiór</strong>&nbsp;odbywa się w Pelhřimovie (Mezná 9) lub w samoobsługowym oddziale Velké Němčice koło Brna; z oddziału Mezná możesz też skorzystać z&nbsp;<a href="/jak-pujcit/pristaveni">podstawienia</a>.',
                     'Przy przekazaniu otrzymujesz&nbsp;<strong>kluczyki, wyposażenie i dokumenty</strong>&nbsp;(dowód rejestracyjny, zielona karta, formularz wypadkowy).',
-                    '<strong>Zwrot</strong>&nbsp;o dowolnej porze w ostatnim dniu wynajmu (nawet o północy). W oddziale Mezná nie trzeba myć ani tankować; w oddziale samoobsługowym oddaj motocykl umyty i bez świecącej kontrolki rezerwy.',
+                    '<strong>Zwrot</strong>&nbsp;o dowolnej porze w ostatnim dniu wynajmu (nawet o północy). Tankować nie trzeba – byle nie świeciła się kontrolka rezerwy; umyty motocykl trzeba oddać tylko w samoobsługowym oddziale Velké Němčice.',
                 ],
             ],
             'privacy' => [
@@ -389,7 +389,7 @@ return [
                     [
                         'icon' => 'gfx/predani-motorky.svg',
                         'title' => 'Zwróć motocykl',
-                        'text' => 'Zwróć motocykl na czas w umówionym miejscu. Nie trzeba tankować ani myć.',
+                        'text' => 'Zwróć motocykl na czas w umówionym miejscu. Nie trzeba go myć ani tankować – byle nie świeciła się kontrolka rezerwy.',
                     ],
                 ],
             ],
@@ -554,7 +554,7 @@ return [
                     ],
                     [
                         'q' => 'Czy muszę zwrócić z pełnym bakiem i czysty?',
-                        'a' => 'Nie. Przy zwrocie w innym miejscu nie tankujesz ani nie myjesz.&nbsp;',
+                        'a' => 'Nie. Przy zwrocie w innym miejscu nie musisz go myć ani tankować – byle nie świeciła się kontrolka rezerwy.&nbsp;',
                     ],
                     [
                         'q' => 'Czy przy zwrocie w innym miejscu mogę zwrócić motocykl wcześniej, niż się umówiliśmy?&nbsp;',
@@ -1119,7 +1119,7 @@ return [
                     [
                         'icon' => 'gfx/vrat-motorku-vcas.svg',
                         'title' => '12. Zwróć motocykl',
-                        'text' => 'Zwróć motocykl na czas – osobiście do wypożyczalni w Pelhřimovie albo na umówione miejsce; nie trzeba tankować ani myć. W samoobsługowym oddziale Velké Němčice oddaj motocykl umyty i bez świecącej kontrolki rezerwy.',
+                        'text' => 'Zwróć motocykl na czas – osobiście do wypożyczalni w Pelhřimovie albo na umówione miejsce. Tankować nie musisz – byle nie świeciła się kontrolka rezerwy. Umyty oddajesz go tylko w samoobsługowym oddziale Velké Němčice.',
                     ],
                 ],
             ],
@@ -1432,7 +1432,7 @@ return [
                     ],
                     [
                         'q' => 'Czy muszę zwrócić z pełnym bakiem i czysty?',
-                        'a' => 'Nie. W oddziale Mezná nie tankujesz ani nie myjesz. W samoobsługowym oddziale Velké Němčice pełny bak też nie jest potrzebny – oddaj tylko motocykl umyty i pilnuj, żeby nie świeciła kontrolka rezerwy.&nbsp;',
+                        'a' => 'Nie. Przy zwrocie nie musisz tankować – byle nie świeciła się kontrolka rezerwy. Umyty motocykl oddajesz tylko w samoobsługowym oddziale Velké Němčice.&nbsp;',
                     ],
                     [
                         'q' => 'Czy mogę zwrócić motocykl do wypożyczalni wcześniej, niż się umówiliśmy?',

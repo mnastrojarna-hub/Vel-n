@@ -62,7 +62,7 @@ return [
         'rows' => [
             ['<strong>Platba nájemného</strong>', 'Online předem.'],
             ['<strong>Storno rezervace</strong>', 'Lze bezplatně do předem domluveného času (uvedeno v potvrzení rezervace). Později dle individuální dohody.'],
-            ['<strong>Palivo &amp; čištění</strong>', 'V Mezné a při vrácení jinde bez povinnosti dotankovat a mýt. Na samoobslužné pobočce vraťte motorku umytou a bez svítící rezervy (plná nádrž není nutná). Případné nadměrné znečištění řešíme individuálně.'],
+            ['<strong>Palivo &amp; čištění</strong>', 'Vrácení bez povinnosti tankovat – jen ať nesvítí rezerva. Umytou je potřeba motorku vrátit jen na samoobslužné pobočce ve Velkých Němčicích. Případné nadměrné znečištění řešíme individuálně.'],
             ['<strong>Přistavení / svoz</strong>', 'Dle ceníku přistavení (Vysočina / okolí). Potvrzujeme při rezervaci.'],
             ['<strong>Pozdní vrácení</strong>', 'Prosíme o včasné vrácení v poslední den výpůjčky; při zpoždění účtujeme dle domluvy (ohled na další rezervace).'],
         ],
