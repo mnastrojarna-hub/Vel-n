@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { SmallBtn } from './BranchHelpers'
 import TrasyJizdaMapa from './TrasyJizdaMapa'
+import TrasyJizdaDiag from './TrasyJizdaDiag'
 import { trackQuality, fmtGap } from '../lib/rideTrack'
 
 // Detail projeté jízdy zákazníka — mapa se stopou, statistiky a EDITACE:
@@ -181,7 +182,8 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
               {ride.gap_sec > 0 && ` (celkem ${fmtGap(ride.gap_sec)} bez signálu)`}.
               Šedé přerušované úseky na mapě jsou místa, kde appka polohu
               neposílala — tudy zákazník jet nemusel a nepočítají se ani do
-              kilometrů. Typicky starší verze appky bez záznamu na pozadí.
+              kilometrů. Nejčastěji appka zavřená nebo uspaná systémem na
+              pozadí — proč přesně, ukáže Diagnostika záznamu níže.
             </p>
           )}
 
@@ -228,6 +230,8 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
               </div>
             ))}
           </div>
+          {/* Proč ve stopě chybí úsek: verze appky, popředí/pozadí, GPS. */}
+          {ride.source !== 'manual' && ride.user_id && <TrasyJizdaDiag ride={ride} />}
           {ride.booking_id && (
             <a href={`/rezervace/${ride.booking_id}`} className="text-sm font-extrabold max-lg:flex max-lg:items-center max-lg:min-h-[36px]"
               style={{ color: '#1a8a18' }}>🔗 Otevřít rezervaci této výpůjčky</a>
