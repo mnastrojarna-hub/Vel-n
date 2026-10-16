@@ -10,6 +10,7 @@ import '../../../core/v2/rank/rank_hero.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../loyalty/loyalty_provider.dart';
 
 /// Compact dark rank header of the Rezervace tab (V22 `.ls-h`): logo in the
@@ -48,7 +49,10 @@ class ResListHeaderV2 extends ConsumerWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Semantics(
                 header: true,
-                child: Text(tr.tr('myReservations'), style: MgType.h2.copyWith(color: MgColors.onDark)),
+                child: MgWordFit(
+                  minScale: 0.75,
+                  child: Text(tr.tr('myReservations'), style: MgType.h2.copyWith(color: MgColors.onDark)),
+                ),
               ),
               const SizedBox(height: 2),
               Text(tr.tr('resOverview'), style: MgType.small.copyWith(color: MgColors.onDarkSecondary)),

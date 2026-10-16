@@ -11,6 +11,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/widgets/error_feedback.dart' show callMotoGo, kMotoGoPhoneLabel;
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import 'home_reveal.dart';
 
 /// "Tvoje linka MotoGo24" (V22 §2.4 #13): Zavolat (existing `callMotoGo`)
@@ -53,27 +54,32 @@ class HomeLineCardV2 extends ConsumerWidget {
               ),
             ]),
             const SizedBox(height: 16),
-            IntrinsicHeight(
-              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Expanded(
-                  child: _Ghost(
-                    icon: MgIcons.phone,
-                    title: tr.tr('v2StCall'),
-                    sub: kMotoGoPhoneLabel.replaceAll(' ', '\u00A0'),
-                    onTap: callMotoGo,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _Ghost(
-                    icon: MgIcons.chat,
-                    title: tr.tr('v2StWrite'),
-                    sub: tr.tr('v2HomeLineWriteSub'),
-                    onTap: () => mgPushOrGo(context, Routes.messages),
-                  ),
-                ),
-              ]),
-            ),
+            // Vedle sebe jen když se oba popisky i číslo vejdou celé; na
+            // telefonu pod sebou na celou šířku (číslo nikdy nerozdělené).
+            LayoutBuilder(builder: (context, c) {
+              final call = _Ghost(
+                icon: MgIcons.phone,
+                title: tr.tr('v2StCall'),
+                sub: kMotoGoPhoneLabel.replaceAll(' ', '\u00A0'),
+                onTap: callMotoGo,
+              );
+              final write = _Ghost(
+                icon: MgIcons.chat,
+                title: tr.tr('v2StWrite'),
+                sub: tr.tr('v2HomeLineWriteSub'),
+                onTap: () => mgPushOrGo(context, Routes.messages),
+              );
+              if (c.maxWidth < 420) {
+                return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [call, const SizedBox(height: 8), write]);
+              }
+              return IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Expanded(child: call),
+                  const SizedBox(width: 8),
+                  Expanded(child: write),
+                ]),
+              );
+            }),
             const SizedBox(height: 12),
             Text(tr.tr('v2HomeLineSos'), style: MgType.small.copyWith(color: MgColors.lead)),
           ]),
@@ -110,8 +116,19 @@ class _Ghost extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(title, style: MgType.body.copyWith(fontWeight: FontWeight.w800, height: 1.25, color: MgColors.link)),
-                  Text(sub, style: MgType.tab(MgType.meta.copyWith(color: MgColors.lead))),
+                  // Nikdy „Подзвони|ти" ani číslo rozdělené na dva řádky: zmenšit.
+                  MgWordFit(
+                    minScale: 0.75,
+                    child: Text(title,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: MgType.body.copyWith(fontWeight: FontWeight.w800, height: 1.25, color: MgColors.link)),
+                  ),
+                  MgWordFit(
+                    minScale: 0.7,
+                    child: Text(sub, maxLines: 2, style: MgType.tab(MgType.meta.copyWith(color: MgColors.lead))),
+                  ),
                 ]),
               ),
             ]),

@@ -9,6 +9,10 @@ import 'package:flutter/widgets.dart';
 /// wraps — and a label over its `maxLines` shrinks a little more. Wrapping
 /// at spaces still works; only the "Bearbeit|en" kind of split is gone.
 ///
+/// [fitLines] = a preferred line count: the label first scales down (to
+/// [minScale]) to fit that many lines (a title on one line instead of
+/// two); when even [minScale] is not enough it lays out normally.
+///
 /// Unlike `FittedBox` the child keeps a bounded width (it still wraps), and
 /// unlike `LayoutBuilder` it answers intrinsic sizes, so it is safe inside
 /// `IntrinsicHeight` rows. The child stays a normal `Text` (semantics,
@@ -20,10 +24,14 @@ class MgWordFit extends SingleChildRenderObjectWidget {
   /// Where the (scaled) child sits when it is smaller than this box.
   final AlignmentGeometry alignment;
 
+  /// Preferred number of lines (see the class doc); null = only the word rule.
+  final int? fitLines;
+
   const MgWordFit({
     super.key,
     this.minScale = 0.8,
     this.alignment = AlignmentDirectional.centerStart,
+    this.fitLines,
     required Widget super.child,
   });
 
@@ -31,21 +39,59 @@ class MgWordFit extends SingleChildRenderObjectWidget {
   RenderMgWordFit createRenderObject(BuildContext context) => RenderMgWordFit(
         minScale: minScale,
         alignment: alignment.resolve(Directionality.maybeOf(context) ?? TextDirection.ltr),
+        fitLines: fitLines,
       );
 
   @override
   void updateRenderObject(BuildContext context, RenderMgWordFit renderObject) {
     renderObject
       ..minScale = minScale
-      ..alignment = alignment.resolve(Directionality.maybeOf(context) ?? TextDirection.ltr);
+      ..alignment = alignment.resolve(Directionality.maybeOf(context) ?? TextDirection.ltr)
+      ..fitLines = fitLines;
   }
 }
 
 /// Render object of [MgWordFit].
 class RenderMgWordFit extends RenderProxyBox {
-  RenderMgWordFit({required double minScale, required Alignment alignment})
+  RenderMgWordFit({required double minScale, required Alignment alignment, int? fitLines})
       : _minScale = minScale,
-        _alignment = alignment;
+        _alignment = alignment,
+        _fitLines = fitLines;
+
+  int? _fitLines;
+  int? get fitLines => _fitLines;
+  set fitLines(int? v) {
+    if (v == _fitLines) return;
+    _fitLines = v;
+    markNeedsLayout();
+  }
+
+  /// Largest scale in [minScale, s] at which the paragraph fits [fitLines]
+  /// lines in [w]; null when even [minScale] does not.
+  double? _scaleForLines(RenderParagraph p, double w, double s) {
+    final lines = _fitLines;
+    if (lines == null || !w.isFinite) return null;
+    final tp = TextPainter(
+      text: p.text,
+      textAlign: p.textAlign,
+      textDirection: p.textDirection,
+      textScaler: p.textScaler,
+      maxLines: lines,
+      locale: p.locale,
+      strutStyle: p.strutStyle,
+      textWidthBasis: p.textWidthBasis,
+      textHeightBehavior: p.textHeightBehavior,
+    );
+    try {
+      for (var x = s; x >= _minScale - 0.001; x -= 0.05) {
+        tp.layout(maxWidth: w / x);
+        if (!tp.didExceedMaxLines) return x;
+      }
+      return null;
+    } finally {
+      tp.dispose();
+    }
+  }
 
   double _minScale;
   double get minScale => _minScale;
@@ -92,6 +138,8 @@ class RenderMgWordFit extends RenderProxyBox {
       return;
     }
     var s = _initialScale(child, c.maxWidth);
+    final p0 = child;
+    if (p0 is RenderParagraph) s = _scaleForLines(p0, c.maxWidth, s) ?? s;
     while (true) {
       child.layout(_childConstraints(c, s), parentUsesSize: true);
       final p = child;

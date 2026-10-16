@@ -52,7 +52,7 @@ class HomeHeaderV2 extends ConsumerWidget {
     return MgRankHero(
       rank: rank,
       ambientKey: 'home',
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         LayoutBuilder(builder: (context, c) {
           final narrow = c.maxWidth < 356;
@@ -73,38 +73,55 @@ class HomeHeaderV2 extends ConsumerWidget {
           ]);
         }),
         const SizedBox(height: 12),
-        // Pozdrav na JEDEN řádek (zmenší se, nikdy se nezalomí); když se
-        // s rankem nevejde, rank čip sjede pod pozdrav (V22 §2.4 #1).
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Semantics(
-              button: true,
-              hint: tr.tr('editNickname'),
-              child: MgPress(
-                onTap: () => showNicknameDialog(context, ref, fullName: fullName),
-                child: MgEnter(
-                  child: MgWordFit(
-                    minScale: 0.7,
-                    child: Text(homeGreeting(tr, nick, DateTime.now()),
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.ellipsis,
-                        style: MgType.h3.copyWith(color: MgColors.onDark, height: 1.2)),
-                  ),
+        // Pozdrav na JEDEN řádek (zmenší se, nikdy se nezalomí) a rank čip
+        // vedle něj; když by se pozdrav musel zmenšit pod 75 %, čip sjede
+        // pod pozdrav (V22 §2.4 #1 — kompaktní hlavička).
+        LayoutBuilder(builder: (context, c) {
+          final greeting = homeGreeting(tr, nick, DateTime.now());
+          final gStyle = MgType.h3.copyWith(color: MgColors.onDark, height: 1.2);
+          final chipLabel = status == null ? null : RankCopy.chip(tr, rankName, pct);
+          double width(String text, TextStyle style) {
+            final tp = TextPainter(
+              text: TextSpan(text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+              textDirection: Directionality.of(context),
+              textScaler: MediaQuery.textScalerOf(context),
+              maxLines: 1,
+            )..layout();
+            final w = tp.width;
+            tp.dispose();
+            return w;
+          }
+
+          final chipW = chipLabel == null ? 0.0 : width(chipLabel, MgType.meta.copyWith(fontWeight: FontWeight.w800, height: 1)) + 40;
+          final inline = chipLabel == null || width(greeting, gStyle) * 0.75 + 8 + chipW <= c.maxWidth;
+          final g = Semantics(
+            button: true,
+            hint: tr.tr('editNickname'),
+            child: MgPress(
+              onTap: () => showNicknameDialog(context, ref, fullName: fullName),
+              child: MgEnter(
+                child: MgWordFit(
+                  minScale: 0.7,
+                  child: Text(greeting, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: gStyle),
                 ),
               ),
             ),
-            if (status != null)
-              MgRankChip(
-                label: RankCopy.chip(tr, rankName, pct),
-                semanticLabel: RankCopy.aria(tr, rank.level, rankName, pct),
-                onTap: () => openLoyaltyRanks(context),
-              ),
-          ],
-        ),
+          );
+          final chip = chipLabel == null
+              ? null
+              : MgRankChip(
+                  label: chipLabel,
+                  semanticLabel: RankCopy.aria(tr, rank.level, rankName, pct),
+                  onTap: () => openLoyaltyRanks(context),
+                );
+          if (inline) {
+            return Row(children: [
+              Flexible(child: g),
+              if (chip != null) ...[const SizedBox(width: 8), chip],
+            ]);
+          }
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [g, const SizedBox(height: 4), chip!]);
+        }),
         if (motto.isNotEmpty) ...[
           const SizedBox(height: 6),
           Semantics(

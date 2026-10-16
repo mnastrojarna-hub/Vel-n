@@ -38,8 +38,12 @@ String resPayStatusLabel(AppTranslations tr, Reservation r) => switch (r.payment
 String resDays(AppTranslations tr, int n) => '$n ${tr.daysWord(n)}';
 
 /// "pá 16. 10. – ne 18. 10." (short, language-aware).
-String resRangeShort(AppTranslations tr, Reservation r) =>
-    '${tripShortDate(tr, r.startDate)} – ${tripShortDate(tr, r.endDate)}';
+String resRangeShort(AppTranslations tr, Reservation r) {
+  // Datum se nikdy nerozdělí („čt 22." / „10."): mezery uvnitř data
+  // nezlomitelné, zalomit jde jen za pomlčkou.
+  String nb(String x) => x.replaceAll(' ', '\u00A0');
+  return '${nb(tripShortDate(tr, r.startDate))}\u00A0– ${nb(tripShortDate(tr, r.endDate))}';
+}
 
 /// The unpaid / verifying state of THIS booking, from the same provider the
 /// shell strip uses (`pendingBookingFabProvider`).

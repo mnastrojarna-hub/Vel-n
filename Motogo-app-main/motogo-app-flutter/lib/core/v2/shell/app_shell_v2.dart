@@ -107,8 +107,9 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
       ref.read(v2TabReselectProvider.notifier).state = (i, prev.$2 + 1);
       return;
     }
-    // Switching tabs ends a cross-tab jump (its back chip goes away).
-    ref.read(v2TabOriginProvider.notifier).state = null;
+    // A real tab switch ends a cross-tab jump: `_onRoute` drops the back
+    // chip once the location leaves its tab (a cancelled payment confirm
+    // keeps it).
     await onShellTabTap(context, ref, route: route, isActive: false, isHome: i == 0, location: location);
     if (mounted) ref.read(appV2UiProvider.notifier).applyPendingIfSafe(route);
   }

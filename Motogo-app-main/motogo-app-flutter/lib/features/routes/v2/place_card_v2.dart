@@ -7,6 +7,7 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../route_image.dart';
 import '../routes_model.dart';
 import 'poi_cat_icon_v2.dart';
@@ -153,10 +154,13 @@ class PlaceCardV2 extends StatelessWidget {
                           subIcon,
                           const SizedBox(width: 5),
                           Flexible(
-                            child: Text(subtitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.link)),
+                            child: MgWordFit(
+                              minScale: 0.8,
+                              child: Text(subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.link)),
+                            ),
                           ),
                         ]),
                         if (rated || dist != null) ...[

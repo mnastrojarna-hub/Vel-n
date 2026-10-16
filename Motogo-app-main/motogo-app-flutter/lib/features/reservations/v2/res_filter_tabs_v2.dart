@@ -37,19 +37,52 @@ class ResFilterTabsV2 extends StatefulWidget {
 
 class _ResFilterTabsV2State extends State<ResFilterTabsV2> {
   final _keys = {for (final k in kResFilterKeys) k: GlobalKey()};
+  final _scroll = ScrollController();
+
+  /// Edge fades: a tab cut by the track edge reads as "more this way", not
+  /// as a layout bug (V22 `.ls-seg`).
+  bool _fadeStart = false, _fadeEnd = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_edges);
+    // The selected filter (e.g. after a swipe on another visit) is visible.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(animate: false));
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _edges() {
+    if (!_scroll.hasClients || !mounted) return;
+    final p = _scroll.position;
+    final s = p.pixels > 1, e = p.pixels < p.maxScrollExtent - 1;
+    if (s == _fadeStart && e == _fadeEnd) return;
+    setState(() {
+      _fadeStart = s;
+      _fadeEnd = e;
+    });
+  }
+
+  void _reveal({bool animate = true}) {
+    final c = _keys[widget.value]?.currentContext;
+    if (c == null || !mounted) return;
+    Scrollable.ensureVisible(c,
+        alignment: 0.5,
+        duration: animate ? MgMotion.of(context, MgMotion.tab) : Duration.zero,
+        curve: MgMotion.out);
+    _edges();
+  }
 
   @override
   void didUpdateWidget(ResFilterTabsV2 old) {
     super.didUpdateWidget(old);
     if (old.value != widget.value) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final c = _keys[widget.value]?.currentContext;
-        if (c == null || !mounted) return;
-        Scrollable.ensureVisible(c,
-            alignment: 0.5,
-            duration: MgMotion.of(context, MgMotion.tab),
-            curve: MgMotion.out);
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
     }
   }
 
@@ -65,7 +98,24 @@ class _ResFilterTabsV2State extends State<ResFilterTabsV2> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: MgColors.line),
         ),
-        child: SingleChildScrollView(
+        child: NotificationListener<ScrollMetricsNotification>(
+          onNotification: (_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _edges());
+            return false;
+          },
+          child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (r) => LinearGradient(
+            colors: [
+              _fadeStart ? const Color(0x00000000) : const Color(0xFF000000),
+              const Color(0xFF000000),
+              const Color(0xFF000000),
+              _fadeEnd ? const Color(0x00000000) : const Color(0xFF000000),
+            ],
+            stops: const [0, 0.08, 0.92, 1],
+          ).createShader(r),
+          child: SingleChildScrollView(
+          controller: _scroll,
           scrollDirection: Axis.horizontal,
           child: Row(children: [
             for (var i = 0; i < kResFilterKeys.length; i++)
@@ -77,6 +127,8 @@ class _ResFilterTabsV2State extends State<ResFilterTabsV2> {
                 onTap: () => widget.onSelect(kResFilterKeys[i]),
               ),
           ]),
+          ),
+          ),
         ),
       ),
       SizedBox(

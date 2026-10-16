@@ -13,6 +13,7 @@ import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
 import 'res_status_v2.dart';
 
@@ -81,7 +82,12 @@ class ReservationCardV2 extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             decoration: BoxDecoration(gradient: MgGradients.hero(rank.aura)),
-            child: Row(children: _actions(context, tr, st)),
+            // Úzký telefon (320 dp): tlačítka pod sebou na celou šířku, ať se
+            // „Wiederherstellen" / „Редагувати" nikdy nedělí uprostřed slova.
+            child: LayoutBuilder(builder: (context, c) {
+              if (c.maxWidth >= 300) return Row(children: _actions(context, tr, st));
+              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _stacked(context, tr, st));
+            }),
           ),
         ]),
       ),
@@ -166,10 +172,13 @@ class ReservationCardV2 extends ConsumerWidget {
   Widget _info(String label, String value, {bool price = false}) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: MgType.micro.copyWith(letterSpacing: 0.4, color: MgColors.meta)),
+          MgWordFit(
+            minScale: 0.7,
+            child: Text(label.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: MgType.micro.copyWith(letterSpacing: 0.4, color: MgColors.meta)),
+          ),
           const SizedBox(height: 4),
           Text(value,
               maxLines: 2,
@@ -208,6 +217,32 @@ class ReservationCardV2 extends ConsumerWidget {
           cta(tr.detail),
           if (onEdit != null) ...[gap, ghost(tr.edit, onEdit!)],
         ];
+      case ResStatus.dokoncene:
+        return [cta(tr.tr('rideDetail')), gap, ghost(tr.tr('rateBtn'), onTap)];
+      case ResStatus.cancelled:
+        return [cta(tr.detail), gap, ghost(tr.tr('restoreBtn'), onRestore ?? onTap)];
+    }
+  }
+}
+
+extension on ReservationCardV2 {
+  /// The same actions as [_actions], one per row (narrow phones).
+  List<Widget> _stacked(BuildContext context, AppTranslations tr, ResStatus st) {
+    final r = reservation;
+    Widget cta(String label) => MgCta(label: label, onTap: onTap, size: MgCtaSize.sm48, showMarks: false);
+    Widget ghost(String label, VoidCallback onPressed) => MgBtnGhostDark(label: label, onTap: onPressed, height: 48);
+    const gap = SizedBox(height: 8);
+    switch (st) {
+      case ResStatus.aktivni:
+        return [
+          if (r.sosAllowed)
+            Row(children: [Expanded(child: cta(tr.detail)), const SizedBox(width: 8), _SosButton(label: tr.tr('breakdownBtn'))])
+          else
+            cta(tr.detail),
+          if (onEdit != null) ...[gap, ghost(tr.edit, onEdit!)],
+        ];
+      case ResStatus.nadchazejici:
+        return [cta(tr.detail), if (onEdit != null) ...[gap, ghost(tr.edit, onEdit!)]];
       case ResStatus.dokoncene:
         return [cta(tr.tr('rideDetail')), gap, ghost(tr.tr('rateBtn'), onTap)];
       case ResStatus.cancelled:

@@ -10,6 +10,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../routes/my_experiences_provider.dart';
 import '../../routes/ride_model.dart';
 import '../../routes/ride_provider.dart';
@@ -181,7 +182,10 @@ class _Tile extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w800, height: 1.3, color: MgColors.ink)),
+                  child: MgWordFit(
+                    minScale: 0.75,
+                    child: Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w800, height: 1.3, color: MgColors.ink)),
+                  ),
                 ),
               ]),
               const SizedBox(height: 8),

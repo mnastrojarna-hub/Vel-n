@@ -108,11 +108,23 @@ void main() {
 
   testWidgets('dock: manual recording shows "Ukončit"', (tester) async {
     await pumpV2(tester, placesCases()['list']!.$1(),
+        size: const Size(412, 915),
         overrides: routesOverrides(recorder: const RideRecorderState(recording: true, manual: true, rideId: 'x')));
     await _settleClean(tester);
     expect(find.text('Ukončit'), findsOneWidget);
     expect(find.text('ZAZNAMENAT JÍZDU'), findsNothing);
     await rtEnd(tester);
+  });
+  testWidgets('dock: narrow phone keeps the stop as a 44 px icon (label in semantics)', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pumpV2(tester, placesCases()['list']!.$1(),
+        overrides: routesOverrides(recorder: const RideRecorderState(recording: true, manual: true, rideId: 'x')));
+    await _settleClean(tester);
+    expect(find.text('Ukončit'), findsNothing);
+    expect(find.bySemanticsLabel('Ukončit záznam jízdy'), findsWidgets);
+    expect(find.text('ZAZNAMENAT JÍZDU'), findsNothing);
+    await rtEnd(tester);
+    handle.dispose();
   });
   testWidgets('dock: automatic (rental) recording has no stop', (tester) async {
     await pumpV2(tester, placesCases()['list']!.$1(),

@@ -6,6 +6,7 @@ import '../../../core/v2/rank/rank_hero.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
 import 'res_status_v2.dart';
 
@@ -75,8 +76,11 @@ class ResEditHeaderV2 extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(resRangeShort(tr, booking),
-                    style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkBody))),
+                MgWordFit(
+                  minScale: 0.8,
+                  child: Text(resRangeShort(tr, booking),
+                      style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkBody))),
+                ),
                 Text('${isActive ? tr.active : tr.upcoming} · $days',
                     style: MgType.meta.copyWith(color: MgColors.onDarkMeta)),
               ]),

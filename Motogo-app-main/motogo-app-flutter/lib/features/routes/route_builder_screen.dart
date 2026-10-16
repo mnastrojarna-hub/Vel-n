@@ -216,7 +216,12 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
   void _fit() {
     if (!_mapReady) return;
     final pts = _geometry.length >= 2 ? _geometry : _stops.map((s) => s.point).toList();
-    fitMapSafe(_ctrl, pts, padding: const EdgeInsets.all(40));
+    // v2: průsvitná hlavička nahoře a nápověda dole leží přes mapu → trasa
+    // se vejde mezi ně (body nekreslí přes titulek).
+    final v2 = MgV2.peek(context);
+    final top = MediaQuery.paddingOf(context).top;
+    fitMapSafe(_ctrl, pts,
+        padding: v2 ? EdgeInsets.fromLTRB(32, top + 84, 32, 64) : const EdgeInsets.all(40));
   }
 
   void _navigate() {

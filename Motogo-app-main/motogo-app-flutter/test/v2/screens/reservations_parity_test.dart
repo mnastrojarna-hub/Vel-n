@@ -86,6 +86,7 @@ void main() {
     'days24': days,
     'days5': days,
     'existingLabel': 'old legend → TripLegend (v2CalLeg*)',
+    'searchSingleDayHint': 'replaced by v2BkSingleDayHint (tykání; one single-day hint for every v2 calendar)',
     'freeLabel': 'old legend → TripLegend (v2CalLeg*)',
     'moveLegendNew': 'old legend → TripLegend (v2CalLeg*)',
     'occupiedLabel': 'old legend → TripLegend (v2CalLeg*)',

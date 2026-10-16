@@ -48,6 +48,24 @@ void main() {
     expect(t.getSize(find.byType(MgWordFit)).width, lessThanOrEqualTo(150));
   });
 
+  testWidgets('fitLines: a little smaller on one line instead of two', (t) async {
+    await t.pumpWidget(_host(const SizedBox(
+      width: 160,
+      child: MgWordFit(minScale: 0.8, fitLines: 1, child: Text('abcd efgh ij', style: _style, maxLines: 2)),
+    )));
+    // 192 px of text in 160 px: 0.8 is enough → one line (12.8 px tall).
+    expect(t.getSize(find.byType(MgWordFit)).height, closeTo(12.8, 0.01));
+  });
+
+  testWidgets('fitLines: too long even at minScale → wraps normally', (t) async {
+    await t.pumpWidget(_host(const SizedBox(
+      width: 100,
+      child: MgWordFit(minScale: 0.9, fitLines: 1, child: Text('abcd efgh', style: _style, maxLines: 2)),
+    )));
+    // 144 px would need 0.69 → two lines at full size.
+    expect(t.getSize(find.byType(MgWordFit)).height, 32);
+  });
+
   testWidgets('works inside IntrinsicHeight and stays tappable', (t) async {
     var taps = 0;
     await t.pumpWidget(_host(SizedBox(

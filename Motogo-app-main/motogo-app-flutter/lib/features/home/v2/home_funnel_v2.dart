@@ -12,6 +12,7 @@ import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../auth/auth_provider.dart';
 import '../../booking/booking_entry.dart';
 import '../../booking/booking_quote.dart';
@@ -186,8 +187,14 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
               MgEnter(
                 child: Semantics(
                   header: true,
-                  child: Text(tr.trArgs('v2HomeFnTitle', {'nick': nick}),
-                      style: MgType.h2.copyWith(color: MgColors.onDark)),
+                  // Raději o kousek menší na jednom řádku než na dvou (REZERVOVAT
+                  // zůstane nad lištou); dlouhé jméno se zalomí v mezeře.
+                  child: MgWordFit(
+                    minScale: 0.85,
+                    fitLines: 1,
+                    child: Text(tr.trArgs('v2HomeFnTitle', {'nick': nick}),
+                        maxLines: 2, style: MgType.h2.copyWith(color: MgColors.onDark)),
+                  ),
                 ),
               ),
               FunnelSubLine(
@@ -197,13 +204,13 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
               ),
               if (sel.preset == 2)
                 FunnelDateLine(range: range, onClear: () => _select(const FunnelSelection(0))),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               FunnelPresets(
                 selection: sel,
                 onPreset: (i) => _select(FunnelSelection(i)),
                 onCalendar: () => _pickDates(range),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               action,
             ]),
           ),

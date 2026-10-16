@@ -168,8 +168,8 @@ class _MgPageState extends ConsumerState<MgPage> {
   }
 }
 
-/// The pinned back disc of [MgPage] (fades in / out with the scroll, no
-/// hit or semantics while hidden; reduced motion = instant).
+/// The pinned back disc of [MgPage] (fades in / out with the scroll; not in
+/// the tree while hidden; reduced motion = instant).
 class _PinnedBack extends StatelessWidget {
   final ScrollController controller;
   final double after;
@@ -185,16 +185,13 @@ class _PinnedBack extends StatelessWidget {
       builder: (context, _) {
         final px = controller.hasClients && controller.positions.length == 1 ? controller.position.pixels : 0.0;
         final on = px > after;
-        return IgnorePointer(
-          ignoring: !on,
-          child: ExcludeSemantics(
-            excluding: !on,
-            child: AnimatedOpacity(
-              opacity: on ? 1 : 0,
-              duration: d,
-              child: MgV2Back(onTap: onTap, close: close, style: MgBackStyle.photo),
-            ),
-          ),
+        // Only in the tree while shown (no hidden duplicate for semantics /
+        // finders); fades in and out (instant under reduced motion).
+        return AnimatedSwitcher(
+          duration: d,
+          child: on
+              ? MgV2Back(key: const ValueKey('mg-pinned-back'), onTap: onTap, close: close, style: MgBackStyle.photo)
+              : const SizedBox.shrink(),
         );
       },
     );
