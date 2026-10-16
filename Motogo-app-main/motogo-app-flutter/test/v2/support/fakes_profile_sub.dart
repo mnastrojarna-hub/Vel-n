@@ -12,6 +12,7 @@ import 'package:motogo_app/features/documents/document_models.dart';
 import 'package:motogo_app/features/documents/document_provider.dart';
 import 'package:motogo_app/features/loyalty/loyalty_levels_provider.dart';
 import 'package:motogo_app/features/loyalty/loyalty_provider.dart';
+import 'package:motogo_app/features/loyalty/rank_names.dart';
 import 'package:motogo_app/features/messages/messages_provider.dart';
 
 import 'fakes_home.dart' show day, kMotos;
@@ -126,7 +127,7 @@ const _gateOk = DocsGateChecklist(
 /// The 20 levels as today's DB seeds them (old colours → the ramp maps them).
 List<LoyaltyLevel> levels() => [
       for (var l = 1; l <= 20; l++)
-        LoyaltyLevel(level: l, percent: l, minBookingOrder: l, name: '', colorHex: '#9CA3AF'),
+        LoyaltyLevel(level: l, percent: l, minBookingOrder: l, name: loyaltyDefaultRankNamesCs[l]!, colorHex: '#9CA3AF'),
     ];
 
 List<Override> loyaltyOverrides({LoyaltyStatus? status, bool loading = false, bool error = false}) => [

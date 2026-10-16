@@ -207,6 +207,7 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
                 what: t(context).tr('fxReservationsLoadFail'),
                 onRetry: retry,
                 onBack: () => context.go(Routes.home),
+                contact: false,
               ),
             ),
           ),

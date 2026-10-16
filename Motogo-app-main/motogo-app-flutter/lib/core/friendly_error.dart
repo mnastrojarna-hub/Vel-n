@@ -195,20 +195,22 @@ class FriendlyError {
   /// Titulek — CO se stalo („Nejsi připojený k internetu").
   String title(AppTranslations tr) => tr.tr('eo${_k}Title');
 
-  /// Tělo — PROČ a JAK to opravit (celé věty).
-  String body(AppTranslations tr) => kind == FriendlyKind.permission
+  /// Tělo — PROČ a JAK to opravit (celé věty). [contact] = false: bez e-mailu
+  /// a telefonu (platby, rezervace — D5); u chyby serveru / neznámé pak text
+  /// jen vysvětlí, že nic není ztracené, a vyzve zkusit to znovu.
+  String body(AppTranslations tr, {bool contact = true}) => kind == FriendlyKind.permission
       ? tr.tr('eoPermBody$_p')
-      : tr.tr('eo${_k}Body');
+      : tr.tr('eo$_k${!contact && suggestContact ? 'BodyNc' : 'Body'}');
 
   /// Krátký důvod do věty „X se nepodařilo – {důvod}." (malým písmenem).
   String reason(AppTranslations tr) => kind == FriendlyKind.permission
       ? tr.tr('eoPermReason$_p')
       : tr.tr('eo${_k}Reason');
 
-  /// Krátká rada, co udělat (jedna věta).
-  String hint(AppTranslations tr) => kind == FriendlyKind.permission
+  /// Krátká rada, co udělat (jedna věta); [contact] jako u [body].
+  String hint(AppTranslations tr, {bool contact = true}) => kind == FriendlyKind.permission
       ? tr.tr('eoPermHint')
-      : tr.tr('eo${_k}Hint');
+      : tr.tr('eo$_k${!contact && suggestContact ? 'HintNc' : 'Hint'}');
 
   /// „{co se nepovedlo} – {důvod}. {rada}" — jedna hláška pro toast / kartu.
   String compose(AppTranslations tr, String what) =>

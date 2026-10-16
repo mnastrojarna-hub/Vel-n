@@ -377,19 +377,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     return out.isEmpty ? null : out;
   }
 
-  double get _amount {
-    // Cena ověřená serverem má přednost (zákazník ji výslovně potvrdil).
+  /// Částka za REZERVACI / doplatek podle serveru (bez doprodeje z e-shopu).
+  /// Cena ověřená serverem má přednost (zákazník ji výslovně potvrdil).
+  double get _bookingDue {
     final server = _serverAmount;
     if (server != null) return server;
-    final base = _ctx != null
-        ? _ctx!.amount
-        : ref.read(priceBreakdownProvider).total;
-    double total = base;
-    if (_isNewBooking) {
-      total += ref.read(bookingUpsellProvider.notifier).total;
-    }
-    return total;
+    return _ctx != null ? _ctx!.amount : ref.read(priceBreakdownProvider).total;
   }
+
+  /// Doprodej z e-shopu se k platbě nové rezervace přibalí, jen když rezervace
+  /// sama minimum karty splňuje (≥ 15 Kč): server ho bere jako částku NAVÍC nad
+  /// cenou rezervace a minimum posuzuje jen na rezervaci. Zdarma / do 1 Kč /
+  /// pod 15 Kč by se odpuštění či dorovnání rezervace smíchalo s doprodejem
+  /// (strhlo by se jiné, než ukazují doklady) → doprodej se nepřibalí ani
+  /// neobjedná (D1; doprodej je zatím vypnutý, D7).
+  bool get _upsellBundled =>
+      _isNewBooking &&
+      ref.read(bookingUpsellProvider).isNotEmpty &&
+      cardCharge(_bookingDue).kind == CardChargeKind.normal;
+
+  /// Celkem k zaplacení: rezervace + přibalený doprodej.
+  double get _amount =>
+      _bookingDue + (_upsellBundled ? ref.read(bookingUpsellProvider.notifier).total : 0);
 
   String get _displayLabel {
     if (_ctx != null) return _ctx!.label;
@@ -1326,10 +1335,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             _pendingBookingId!, ref.read(priceBreakdownProvider).total);
         InvoiceService.generateBookingDocs(_pendingBookingId!);
       }
-      // Create shop order for upsell items (fire-and-forget)
+      // Create shop order for upsell items (fire-and-forget) — jen když byl
+      // doprodej v platbě opravdu přibalený (viz _upsellBundled).
       final upsellItems = ref.read(bookingUpsellProvider);
       if (upsellItems.isNotEmpty) {
-        createBookingUpsellOrder(upsellItems);
+        if (_upsellBundled) createBookingUpsellOrder(upsellItems);
         ref.read(bookingUpsellProvider.notifier).clear();
       }
       showMotoGoToast(context,
@@ -1440,6 +1450,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     final moto = ref.watch(bookingMotoProvider);
     final breakdown = ref.watch(priceBreakdownProvider);
     final defaultCard = ref.watch(defaultCardProvider);
+    final upsellItems = ref.watch(bookingUpsellProvider);
     final amount = _amount;
     final isFree = amount <= 0;
     // Minimum karty (D1): kolik se opravdu strhne — 15 Kč / nic do 1 Kč.
@@ -1498,7 +1509,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                       PriceSummaryCard(
                         breakdown: breakdown,
                         extras: ref.watch(effectiveExtrasProvider),
-                        upsellItems: ref.watch(bookingUpsellProvider),
+                        upsellItems: _upsellBundled ? upsellItems : const [],
                       ),
                     // Cena ověřená serverem (po „Cena se změnila") — platí se ta.
                     if (_isNewBooking && _serverAmount != null)
@@ -1528,7 +1539,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                     // Upsell section (new booking only)
                     if (_isNewBooking && moto != null)
                       UpsellSection(
-                        showProducts: ref.watch(reservationUpsellEnabledProvider).maybeWhen(data: (v) => v, orElse: () => false),
+                        // Doprodej jen k rezervaci, která minimum karty splňuje sama.
+                        showProducts: cardCharge(_bookingDue).kind == CardChargeKind.normal &&
+                            ref.watch(reservationUpsellEnabledProvider).maybeWhen(data: (v) => v, orElse: () => false),
                       ),
                     if (_isNewBooking && moto != null)
                       const SizedBox(height: 12),

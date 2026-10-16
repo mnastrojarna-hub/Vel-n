@@ -111,7 +111,7 @@ class _LevelRow extends StatelessWidget {
       ),
     );
     return Semantics(
-      label: '${level.nameFor(tr)}, ${level.percent} %${isCurrent ? ', ${tr.tr('loyaltyYouChip')}' : ''}',
+      label: '${RankCopy.name(tr, level.level, level.name)}, ${level.percent} %${isCurrent ? ', ${tr.tr('loyaltyYouChip')}' : ''}',
       excludeSemantics: true,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
@@ -127,7 +127,7 @@ class _LevelRow extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(level.nameFor(tr),
+              Text(RankCopy.name(tr, level.level, level.name),
                   style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: locked ? MgColors.onDarkLead : MgColors.onDark)),
               Text(tr.tr('loyaltyFromBooking').replaceAll('{n}', '${2 * level.level - 2}'),
                   style: MgType.tab(MgType.micro.copyWith(fontWeight: FontWeight.w600, color: MgColors.onDarkMeta))),

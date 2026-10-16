@@ -25,6 +25,17 @@ import 'route_poi_sheet.dart';
 import 'routes_quick_links.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/chrome/mg_page.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import 'v2/place_card_v2.dart';
+import 'v2/places_filters_v2.dart';
+import 'v2/places_parts_v2.dart';
+import 'v2/poi_cat_icon_v2.dart';
+import 'v2/record_dock_v2.dart';
+import 'v2/rt_v2_text.dart';
+import 'v2/trasy_hub_header_v2.dart';
 
 
 /// Katalog VŠECH bodů zájmu napříč trasami. Trasa je jen doporučení — tady si
@@ -465,6 +476,92 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
     // Země přítomné v datech (z tras, ke kterým body patří) — pro filtr země.
     final availableCountries = _countriesIn(all);
 
+    // v2 (PLAN §2.6): stejná data a akce, nový vzhled — hlavička hubu Trasy,
+    // jeden bílý pás filtrů, dok se záznamem jízdy / výběrem.
+    if (MgV2.on(context)) {
+      final hub = widget.asTab && !widget.pickMode;
+      final n = _selected.length;
+      final sel = n == 0
+          ? null
+          : TrasySelection(
+              count: n,
+              pick: widget.pickMode,
+              onContinue: () => _navigate(context, all),
+              onClear: _clearSel,
+            );
+      return MgPage(
+        controller: _scroll,
+        tabIndex: hub ? 3 : null,
+        overlapHero: false,
+        header: TrasyHubHeaderV2(
+          seg: TrasySeg.places,
+          onSegment: hub ? (s) => trasyGoSegment(context, TrasySeg.places, s) : null,
+          search: _searchField(context),
+          onMap: hub ? () => context.push(Routes.placesMap) : null,
+          onAdd: hub ? () => showCommunityAddMenu(context) : null,
+          onBack: hub
+              ? null
+              : widget.pickMode
+                  ? () => Navigator.of(context).pop()
+                  : () => context.backOr(Routes.routes),
+          title: hub ? null : t(context).tr('poiBrowseAll'),
+        ),
+        slivers: [
+          if (hub) SliverToBoxAdapter(child: TrasyLeadV2(t(context).tr('poiBrowseSub'))),
+          if (!sourcesLoading &&
+              ((catalogAsync.hasError && catalogPois.isEmpty) || userAsync.hasError))
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: MgErrorView(
+                  compact: true,
+                  error: catalogAsync.hasError ? catalogAsync.error : userAsync.error,
+                  what: t(context).tr('eoPlacesLoadFail'),
+                  onRetry: () {
+                    ref.invalidate(catalogPoisProvider);
+                    ref.invalidate(userPoisProvider);
+                  },
+                ),
+              ),
+            ),
+          if (sourcesLoading)
+            const SliverToBoxAdapter(child: PlacesLoadingV2())
+          else ...[
+            if (hub && me == null) SliverToBoxAdapter(child: _locationPrompt(context)),
+            if (hub) SliverToBoxAdapter(child: _mapPreview(context, lang, list, me)),
+            SliverToBoxAdapter(
+              child: _filters(context, lang, routesWithPois.values.toList(), all, base,
+                  sourceFiltered, me != null, selRouteAnchor != null, availableCountries, nearbyAnchor),
+            ),
+            if (q.isNotEmpty && routeHits > 0)
+              SliverToBoxAdapter(
+                child: PlacesRoutesBannerV2(count: routeHits, onTap: () => context.push(Routes.routesList)),
+              ),
+            if (list.isEmpty)
+              SliverToBoxAdapter(child: _empty(context))
+            else ...[
+              SliverToBoxAdapter(
+                child: TrasyListHeaderV2(
+                  count: rtPlural(t(context), 'v2RtPlaces', list.length),
+                  sort: _sortLabel(context, _f.sort),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList.builder(
+                  itemCount: list.length,
+                  itemBuilder: (context, i) => _poiCard(context, list[i], lang, me, list),
+                ),
+              ),
+            ],
+          ],
+        ],
+        dock: hub
+            ? TrasyRecordDockV2(selection: sel)
+            : (sel == null ? null : TrasyRecordDockV2(selection: sel, showRecord: false)),
+      );
+    }
+
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: SafeArea(
@@ -643,11 +740,13 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   /// Výzva k povolení polohy — výchozí řazení „od mé polohy" jinak tiše
   /// spadne na náhodné pořadí a uživatel neví proč.
   Widget _locationPrompt(BuildContext context) {
+    void enable() => ensureLocation(ref, context: context);
+    if (MgV2.on(context)) return PlacesLocationPromptV2(onTap: enable);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
       child: PressableScale(
         pressedScale: 0.98,
-        onTap: () => ensureLocation(ref, context: context),
+        onTap: enable,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
@@ -716,6 +815,35 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   // ── Mapa míst nad seznamem ──
   Widget _mapPreview(
       BuildContext context, String lang, List<PoiEntry> list, LatLng? me) {
+    final map = PlacesMapView(
+      showAttribution: false,
+      places: list,
+      lang: lang,
+      selected: _selected,
+      routeLines: _selectionLines(),
+      me: me,
+      initialCenter: me,
+      initialZoom: me == null ? 7.2 : 10.5,
+      // Uvnitř scrollovaného seznamu se mapou neposouvá — jinak
+      // by si vzala svislý drag a seznamem by přes ni nešlo
+      // scrollovat. Posun a přiblížení až po rozbalení.
+      allowDrag: false,
+      // Klepnutí do mapy (mimo místo) ji otevře přes celou
+      // obrazovku — dřív to uměla jen malá ikonka v rohu.
+      onMapTap: () => context.push(Routes.placesMap),
+      onPlaceTap: (e) => _toggleSel(e.key),
+      // Podržení / dvojklik na místě = jeho detail.
+      onPlaceLongPress: (e) => _openPoiDetail(context, e, lang, list),
+      onLongPress: (p) async {
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => PoiSubmitScreen(initialPoint: p)));
+        if (mounted) ref.invalidate(userPoisProvider);
+      },
+    );
+    void openMap() => context.push(Routes.placesMap);
+    if (MgV2.on(context)) {
+      return PlacesMapCardV2(map: map, onExpand: openMap, hint: t(context).tr('placesMapOpenHint'));
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -728,31 +856,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
           child: Stack(
             children: [
               Positioned.fill(
-                child: PlacesMapView(
-                  showAttribution: false,
-                  places: list,
-                  lang: lang,
-                  selected: _selected,
-                  routeLines: _selectionLines(),
-                  me: me,
-                  initialCenter: me,
-                  initialZoom: me == null ? 7.2 : 10.5,
-                  // Uvnitř scrollovaného seznamu se mapou neposouvá — jinak
-                  // by si vzala svislý drag a seznamem by přes ni nešlo
-                  // scrollovat. Posun a přiblížení až po rozbalení.
-                  allowDrag: false,
-                  // Klepnutí do mapy (mimo místo) ji otevře přes celou
-                  // obrazovku — dřív to uměla jen malá ikonka v rohu.
-                  onMapTap: () => context.push(Routes.placesMap),
-                  onPlaceTap: (e) => _toggleSel(e.key),
-                  // Podržení / dvojklik na místě = jeho detail.
-                  onPlaceLongPress: (e) => _openPoiDetail(context, e, lang, list),
-                  onLongPress: (p) async {
-                    await Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => PoiSubmitScreen(initialPoint: p)));
-                    if (mounted) ref.invalidate(userPoisProvider);
-                  },
-                ),
+                child: map,
               ),
               // Rozbalení na celou obrazovku.
               Positioned(
@@ -760,7 +864,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                 top: 8,
                 child: PressableScale(
                   pressedScale: 0.92,
-                  onTap: () => context.push(Routes.placesMap),
+                  onTap: openMap,
                   child: Container(
                     width: 36,
                     height: 36,
@@ -823,6 +927,34 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
 
   // ── Pole hledání (v hlavičce) ──
   Widget _searchField(BuildContext context) {
+    void onChanged(String v) {
+      _searchDebounce?.cancel();
+      _searchDebounce = Timer(
+        const Duration(milliseconds: 280),
+        () {
+          if (!mounted) return;
+          _setFilter((f) => f.copyWith(query: v));
+          ref.read(placesSearchProvider.notifier).state = v;
+        },
+      );
+    }
+
+    void onClear() {
+      _searchDebounce?.cancel();
+      _searchCtl.clear();
+      _setFilter((f) => f.copyWith(query: ''));
+      ref.read(placesSearchProvider.notifier).state = '';
+    }
+
+    if (MgV2.on(context)) {
+      return TrasySearchV2(
+        controller: _searchCtl,
+        hint: t(context).tr('poiSearch'),
+        onChanged: onChanged,
+        onClear: onClear,
+        showClear: _f.query.isNotEmpty || _searchCtl.text.isNotEmpty,
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -836,17 +968,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
           Expanded(
             child: TextField(
               controller: _searchCtl,
-              onChanged: (v) {
-                _searchDebounce?.cancel();
-                _searchDebounce = Timer(
-                  const Duration(milliseconds: 280),
-                  () {
-                    if (!mounted) return;
-                    _setFilter((f) => f.copyWith(query: v));
-                    ref.read(placesSearchProvider.notifier).state = v;
-                  },
-                );
-              },
+              onChanged: onChanged,
               decoration: InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
@@ -862,12 +984,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
           if (_f.query.isNotEmpty || _searchCtl.text.isNotEmpty)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () {
-                _searchDebounce?.cancel();
-                _searchCtl.clear();
-                _setFilter((f) => f.copyWith(query: ''));
-                ref.read(placesSearchProvider.notifier).state = '';
-              },
+              onTap: onClear,
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
                 child: Icon(Icons.close, size: 18, color: MotoGoColors.g400),
@@ -905,6 +1022,47 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
       }
     }
     final active = _allFilterCount;
+
+    Future<void> toggleNearby() async {
+      if (!_f.nearbyOn && !meAvail && _selected.isEmpty) {
+        final ok = await ensureLocation(ref, context: context);
+        if (!ok || !mounted) return;
+      }
+      _setFilter((f) => f.copyWith(nearbyOn: !f.nearbyOn));
+    }
+
+    if (MgV2.on(context)) {
+      final tr = t(context);
+      return PlacesFiltersV2(
+        key: _filtersKey,
+        activeCount: active,
+        onTools: () => _openPoiToolsSheet(context, meAvail,
+            routeAvail, availableCountries, base, nearAnchor),
+        nearbyOn: _f.nearbyOn,
+        nearbyKm: _f.nearbyKm,
+        kmOptions: _nearbyKmOptions,
+        onNearby: toggleNearby,
+        onKm: (km) => _setFilter((f) => f.copyWith(nearbyKm: km)),
+        routeLabel: selRoute != null ? selRoute.nameFor(lang) : tr.tr('poiRoutePick'),
+        routeActive: selRoute != null,
+        routeCount: selRoute != null ? _routePoiCounts(all)[selRoute.id] : null,
+        onRoute: () => _openRoutePicker(context, lang, routes, all),
+        onClear: clearAllFilters,
+        cats: [
+          for (final c in kPoiCats)
+            if ((catCounts[c.key] ?? 0) > 0 || _f.cats.contains(c.key))
+              PlacesCatV2(
+                key: c.key,
+                label: tr.tr(c.i18nKey),
+                count: catCounts[c.key] ?? 0,
+                selected: _f.cats.contains(c.key),
+                icon: PoiCatIconV2(c.key, color: MgColors.link),
+              ),
+        ],
+        onCat: (k) => _setFilter((f) => f.copyWith(cats: {...f.cats}..toggleKey(k))),
+        sourceCount: sourceFiltered.length,
+      );
+    }
 
     return Column(
       key: _filtersKey,
@@ -975,13 +1133,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                             Icons.radar,
                             _f.nearbyOn,
                             null,
-                            () async {
-                              if (!_f.nearbyOn && !meAvail && _selected.isEmpty) {
-                                final ok = await ensureLocation(ref, context: context);
-                                if (!ok || !mounted) return;
-                              }
-                              _setFilter((f) => f.copyWith(nearbyOn: !f.nearbyOn));
-                            },
+                            toggleNearby,
                           ),
                           if (_f.nearbyOn)
                             for (final km in _nearbyKmOptions)
@@ -1745,6 +1897,22 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
         if (min >= 1) distTxt = '$distTxt · ${_fmtMin(min)}';
       }
     }
+    if (MgV2.on(context)) {
+      return PlaceCardV2(
+        poi: e.poi,
+        name: e.poi.nameFor(lang),
+        subtitle: e.route?.nameFor(lang) ??
+            (e.catalog ? _catLabel(context, e.poi) : t(context).tr('poiCommunityPoint')),
+        subKind: e.route != null
+            ? PlaceSubKind.route
+            : (e.catalog ? PlaceSubKind.category : PlaceSubKind.community),
+        dist: distTxt,
+        selected: selected,
+        order: selected ? _selected.toList().indexOf(e.key) + 1 : null,
+        onTap: () => _openPoiDetail(context, e, lang, siblings),
+        onToggle: () => _toggleSel(e.key),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       // Podržení karty = přidat/odebrat z vyjížďky (druhá cesta k témuž,
@@ -2005,6 +2173,14 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
   }
 
   Widget _empty(BuildContext context) {
+    if (MgV2.on(context)) {
+      return TrasyEmptyV2(
+        icon: MgIcons.map,
+        title: t(context).tr('poiEmpty'),
+        actionLabel: _allFilterCount > 0 ? t(context).tr('routesFilterClear') : null,
+        onAction: clearAllFilters,
+      );
+    }
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,

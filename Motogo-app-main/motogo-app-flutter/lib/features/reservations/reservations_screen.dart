@@ -10,6 +10,7 @@ import '../../core/offline_guard.dart';
 import '../../core/widgets/state_views.dart';
 import 'reservation_models.dart';
 import 'reservation_provider.dart';
+import 'booking_restore.dart' show restoreAndPay;
 import 'widgets/reservation_card.dart';
 import 'widgets/cancel_result_dialog.dart';
 
@@ -188,6 +189,8 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
                         onTap: () => context.push('/reservations/${res.id}'),
                         onEdit: () => context.push('/reservations/${res.id}/edit'),
                         onCancel: () => _showCancelDialog(context, ref, res),
+                        // „Obnovit" = obnovit a zaplatit (D3), ne nový výběr motorky.
+                        onRestore: () => restoreAndPay(context, ref, res),
                       ),
                     );
                   },
@@ -207,6 +210,7 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
                 what: t(context).tr('fxReservationsLoadFail'),
                 onRetry: retry,
                 onBack: () => context.go(Routes.home),
+                contact: false,
               ),
             ),
           ),

@@ -11,6 +11,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
+import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_inputs.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import 'profile_v2_parts.dart';
@@ -116,25 +117,46 @@ class PermissionsViewV2 extends StatelessWidget {
   Widget _row(BuildContext context, PermissionInfo p, bool required) {
     final tr = t(context);
     final attention = required && !p.granted;
-    return PfRow(
-      icon: iconFor(p.key),
-      title: tr.tr(p.title),
-      value: tr.tr(p.desc),
-      onTap: onOpenSettings,
-      trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-        MgMeaningChip(
-          label: p.granted ? tr.tr('allowedLabel') : tr.tr('deniedLabel'),
-          tone: p.granted ? MgTone.ok : MgTone.err,
-        ),
-        if (required) ...[
-          const SizedBox(height: 4),
-          MgMeaningChip(
-            label: tr.tr('requiredLabel'),
-            tone: attention ? MgTone.warn : MgTone.info,
-            icon: MgIcons.lock,
+    return MgFabAvoid(
+      kind: MgAvoidKind.tap,
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          onTap: onOpenSettings,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              MgIconTileLight(iconFor(p.key)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(tr.tr(p.title), style: MgType.title.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink)),
+                  const SizedBox(height: 2),
+                  Text(tr.tr(p.desc), style: MgType.small.copyWith(color: MgColors.lead)),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    MgMeaningChip(
+                      label: p.granted ? tr.tr('allowedLabel') : tr.tr('deniedLabel'),
+                      tone: p.granted ? MgTone.ok : MgTone.err,
+                    ),
+                    if (required)
+                      MgMeaningChip(
+                        label: tr.tr('requiredLabel'),
+                        tone: attention ? MgTone.warn : MgTone.info,
+                        icon: MgIcons.lock,
+                      ),
+                  ]),
+                ]),
+              ),
+              const SizedBox(width: 8),
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.meta),
+              ),
+            ]),
           ),
-        ],
-      ]),
+        ),
+      ),
     );
   }
 }

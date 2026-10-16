@@ -1128,6 +1128,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           if (mounted) setState(() => _saving = false);
           return;
         }
+        // Předchozí ZAPLACENÁ úprava / výměna téže rezervace se ještě
+        // dokončuje (webhook / fronta) → teď nic nezapisovat, jinak by ji
+        // dokončení přepsalo (nebo ona tuhle změnu).
+        if (!mounted || await blockIfSurchargePending(context, widget.bookingId)) {
+          if (mounted) setState(() => _saving = false);
+          return;
+        }
         try {
           await MotoGoSupabase.client
               .from('bookings')

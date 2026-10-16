@@ -10,7 +10,7 @@ import '../../../core/v2/rank/rank_copy.dart';
 import '../../../core/v2/rank/rank_frame.dart';
 import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
-import '../../../core/v2/tokens/mg_shadows.dart';
+import '../../../core/v2/tokens/mg_shadows.dart' show MgGradients;
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
@@ -68,13 +68,11 @@ class LoyaltyScreenV2 extends ConsumerWidget {
       error: (e, _) => [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-          child: MgCard(
-            child: MgErrorView(
-              compact: true,
-              error: e,
-              what: tr.tr('eoLoyaltyLoadFail'),
-              onRetry: () => ref.invalidate(loyaltyLevelsProvider),
-            ),
+          child: MgErrorView(
+            compact: true,
+            error: e,
+            what: tr.tr('eoLoyaltyLoadFail'),
+            onRetry: () => ref.invalidate(loyaltyLevelsProvider),
           ),
         ),
       ],
@@ -132,7 +130,7 @@ class _Hero extends ConsumerWidget {
     final tr = t(context);
     final s = status;
     final rank = ref.watch(rankTokensProvider);
-    final name = s?.rankNameFor(tr) ?? RankCopy.name(tr, 1);
+    final name = s == null ? RankCopy.name(tr, 1) : RankCopy.name(tr, s.level, s.rankName);
     return MgEnter(
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -141,7 +139,6 @@ class _Hero extends ConsumerWidget {
           color: MgColors.white(0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: MgColors.neonA(0.2)),
-          boxShadow: MgShadows.dark,
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [

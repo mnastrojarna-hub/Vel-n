@@ -290,6 +290,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                   what: t(context).tr('fxBookedDatesFail'),
                   onRetry: () => ref.invalidate(bookedDatesProvider(motoKey)),
                   compact: true,
+                  contact: false,
                 );
               }
               return AvailabilityCalendar(

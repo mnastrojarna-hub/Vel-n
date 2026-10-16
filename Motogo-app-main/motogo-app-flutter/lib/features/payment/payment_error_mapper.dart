@@ -275,10 +275,15 @@ class PaymentErrorMapper {
       case 'new_account_information_available':
       case 'testmode_decline':
       case 'invalid_amount':
-      case 'incorrect_zip':
         return _info(lang, 'bankBlockTitle', 'bankBlockBody');
-      case 'generic_decline':
+      case 'incorrect_zip':
+      case 'postal_code_invalid':
+        // PSČ adresy karty nesouhlasí — oprava je v zadání, ne v bance.
+        return _info(lang, 'pdZipTitle', 'pdZipBody');
       case 'do_not_try_again':
+        // Banka opakování výslovně nedovolí → jen jiná karta.
+        return _info(lang, 'cardDeclinedTitle', 'pdDoNotRetryBody', cause: 'do_not_try_again');
+      case 'generic_decline':
       case 'card_declined':
         return _info(lang, 'cardDeclinedTitle', 'bankBlockBody');
     }
@@ -307,9 +312,14 @@ class PaymentErrorMapper {
       case 'setup_intent_authentication_failure':
         return _info(lang, 'authTitle', 'authBody');
       case 'processing_error':
+        return _info(lang, 'processingTitle', 'processingBody');
       case 'rate_limit':
       case 'api_connection_error':
-        return _info(lang, 'processingTitle', 'processingBody');
+        // Platební brána / spojení s ní, ne banka.
+        return _info(lang, 'pdGatewayTitle', 'pdGatewayBody');
+      case 'payment_method_provider_timeout':
+        // Peněženka (Google Pay / Apple Pay) nestihla odpovědět → kartou.
+        return walletFailed(lang, rawCode: c);
       case 'amount_too_small':
         return _info(lang, 'pdBelowMinTitle', 'pdBelowMinGeneric',
             cause: 'amount_too_small');
@@ -324,6 +334,7 @@ class PaymentErrorMapper {
         return _generic(lang);
       case 'incorrect_zip':
       case 'postal_code_invalid':
+        return _info(lang, 'pdZipTitle', 'pdZipBody');
       case 'invalid_amount':
       case 'testmode_decline':
         return _info(lang, 'cardDeclinedTitle', 'bankBlockBody');

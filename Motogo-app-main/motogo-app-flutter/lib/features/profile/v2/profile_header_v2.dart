@@ -46,7 +46,7 @@ class ProfileHeaderV2 extends ConsumerWidget {
       size: 64,
       circle: true,
       rank: rank,
-      semanticLabel: status == null ? null : RankCopy.aria(tr, status.level, status.rankNameFor(tr), status.percent),
+      semanticLabel: status == null ? null : RankCopy.aria(tr, status.level, RankCopy.name(tr, status.level, status.rankName), status.percent),
       child: const ColoredBox(
         color: MgColors.panel,
         child: Center(child: MgIcon(MgIcons.person, size: 30, color: MgColors.neon)),
@@ -145,7 +145,7 @@ class _RankStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final rankName = status.rankNameFor(tr);
+    final rankName = RankCopy.name(tr, status.level, status.rankName);
     return MgReveal(
       index: 2,
       sessionKey: 'pf-strip',

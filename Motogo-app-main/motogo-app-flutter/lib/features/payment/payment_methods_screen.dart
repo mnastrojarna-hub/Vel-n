@@ -61,6 +61,7 @@ class PaymentMethodsScreen extends ConsumerWidget {
           error: e,
           what: t(context).tr('fxCardsLoadFail'),
           onRetry: () => ref.invalidate(paymentMethodsProvider),
+          contact: false,
         ),
       ),
     );

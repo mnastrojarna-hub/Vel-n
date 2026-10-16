@@ -119,6 +119,7 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
           what: t(context).tr('eoReservationLoadFail'),
           onRetry: retry,
           onBack: back,
+          contact: false,
         ),
       ),
     );

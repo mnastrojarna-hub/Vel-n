@@ -108,16 +108,36 @@ class PaymentRefusals {
       _t(lang, 'pdServerTitle'), _t(lang, 'pdUnknownBody'), PayAction.retry,
       countsAsAttempt: counts);
 
-  /// Kódy dry-runu výměny motorky → texty sekce výměny.
+  /// Kódy výměny motorky (dry-run / zápis `split_booking_moto_swap`) → přesné
+  /// texty (co se stalo, že se nic nestrhlo, co udělat) — sdílí je i sekce
+  /// výměny v úpravě rezervace.
   static const swapCodes = <String, String>{
-    'not_found': 'swap.err.notFound',
-    'not_paid': 'swap.err.notPaid',
-    'invalid_new_moto': 'swap.err.invalidMoto',
-    'swap_date_out_of_range': 'swap.err.dateRange',
-    'already_split': 'swap.err.alreadySplit',
-    'license_insufficient': 'swap.err.licenseInsufficient',
-    'new_moto_unavailable': 'swap.err.unavailable',
+    'not_found': 'pdSwapNotFound',
+    'not_paid': 'pdSwapNotPaid',
+    'invalid_new_moto': 'pdSwapInvalidMoto',
+    'swap_date_out_of_range': 'pdSwapDateRange',
+    'already_split': 'pdSwapAlreadySplit',
+    'license_insufficient': 'pdSwapLicense',
+    'new_moto_unavailable': 'pdSwapUnavailable',
+    'forbidden': 'pdSwapForbidden',
+    'wrong_status': 'pdSwapWrongStatus',
   };
+
+  /// Server vrátil jinou cenu ([total]) — s pravidlem minima karty (D1): pod
+  /// 15 Kč „Zaplatit 15 Kč" s vysvětlením dorovnání, do 1 Kč „Potvrdit bez
+  /// platby" (nic se nestrhne), jinak „Zaplatit {cena}".
+  static PayProblem _newPrice(String lang, String title, String body, double total) {
+    final cc = cardCharge(total);
+    if (cc.isRound) return belowMinimum(lang, total);
+    if (cc.isWaive) {
+      return PayProblem(title, _t(lang, 'pdWaiveNote').replaceAll('{amount}', kcExact(total)),
+          PayAction.priceChanged,
+          serverTotal: total);
+    }
+    return PayProblem(title, _t(lang, body).replaceAll('{amount}', Money.czk(total)),
+        PayAction.priceChanged,
+        serverTotal: total);
+  }
 
   /// Hlavní rozhodnutí: co ukázat po neúspěšném `createPaymentIntent`.
   /// [amount] = serverová částka k zaplacení, ze které appka vycházela.
@@ -137,9 +157,10 @@ class PaymentRefusals {
             PayAction.signIn);
       case PaymentErrorCode.timeout:
       case PaymentErrorCode.networkError:
+        // Bez spojení se nic neodeslalo → nejde o pokus kartou (rada „zkus
+        // jinou kartu" po třetím výpadku by byla špatně).
         final n = PaymentErrorMapper.network(lang);
-        return PayProblem(n.title, n.message, PayAction.retry,
-            countsAsAttempt: true);
+        return PayProblem(n.title, n.message, PayAction.retry);
       case PaymentErrorCode.serverUnavailable:
         final s = PaymentErrorMapper.serverUnavailable(lang);
         return PayProblem(s.title, s.message, PayAction.retry);
@@ -161,6 +182,12 @@ class PaymentRefusals {
         return PayProblem(title, _t(lang, flow == PayFlow.shop ? 'psOrderAlreadyPaid' : 'psAlreadyPaid'),
             PayAction.success);
       case 'payment_in_progress':
+        // U úpravy jde vždy o PŘEDCHOZÍ doplatek (appka každé „Zaplatit"
+        // posílá s novým attempt_id) — tahle nová úprava se nezaplatila.
+        if (edit) {
+          return PayProblem(_t(lang, 'pdPrevChangeTitle'), _t(lang, 'pdPrevChangeBody'),
+              PayAction.reloadEdit);
+        }
         return PayProblem(
             _t(lang, 'psPendingTitle'),
             _t(lang, edit ? 'psPendingBodyEdit' : flow == PayFlow.shop ? 'psPendingBodyShop' : 'psPendingBody'),
@@ -201,20 +228,12 @@ class PaymentRefusals {
               PayAction.reloadEdit);
         }
         if (total != null && total > 0) {
-          return PayProblem(
-              _t(lang, 'psPriceChangedTitle'),
-              _t(lang, 'psPriceChangedBody').replaceAll('{amount}', Money.czk(total)),
-              PayAction.priceChanged,
-              serverTotal: total);
+          return _newPrice(lang, _t(lang, 'psPriceChangedTitle'), 'psPriceChangedBody', total);
         }
         return _server(lang);
       case 'free_mismatch':
         if (total != null && total > 0) {
-          return PayProblem(
-              _t(lang, 'psFreeRemainderTitle'),
-              _t(lang, 'psFreeRemainderBody').replaceAll('{amount}', Money.czk(total)),
-              PayAction.priceChanged,
-              serverTotal: total);
+          return _newPrice(lang, _t(lang, 'psFreeRemainderTitle'), 'psFreeRemainderBody', total);
         }
         return PayProblem(_t(lang, 'psFreeRemainderTitle'),
             _t(lang, 'pdFreeCheckFailedBody'), PayAction.editBooking);
@@ -238,7 +257,8 @@ class PaymentRefusals {
             title,
             switch (flow) {
               PayFlow.shop => _t(lang, 'psRefForbiddenShop'),
-              PayFlow.edit || PayFlow.swap => _t(lang, 'refForbidden'),
+              PayFlow.swap => _t(lang, 'pdSwapForbidden'),
+              PayFlow.edit => _t(lang, 'refForbidden'),
               _ => _t(lang, 'psRefForbiddenBooking'),
             },
             PayAction.signIn);
@@ -248,12 +268,19 @@ class PaymentRefusals {
         if (flow == PayFlow.shop) {
           return PayProblem(title, _t(lang, 'psRefOrderGone'), PayAction.toCart);
         }
-        return PayProblem(title, _t(lang, 'refWrongStatus'),
+        return PayProblem(title, _t(lang, flow == PayFlow.swap ? 'pdSwapWrongStatus' : 'refWrongStatus'),
             edit ? PayAction.reloadEdit : PayAction.reservations);
       case 'booking_not_found':
         return PayProblem(title, edit ? _t(lang, 'refNotFound') : _t(lang, 'psRefBookingGone'),
             PayAction.reservations);
       case 'stale_booking':
+        // Rezervaci změnila PŘEDCHOZÍ zaplacená úprava zákazníka (právě se
+        // dopsala) — ne „jiné zařízení nebo web".
+        if (r.previousChange) {
+          return PayProblem(title, _t(lang, 'pdPrevAppliedBody'), PayAction.reloadEdit);
+        }
+        return PayProblem(title, PaymentErrorMapper.serverRefusal(lang, code)!,
+            PayAction.reloadEdit);
       case 'moto_unavailable':
       case 'active_pickup_time_locked':
       case 'trailer_staffed_only':
@@ -262,6 +289,11 @@ class PaymentRefusals {
             PayAction.reloadEdit);
       case 'validation_unavailable':
       case 'trailer_check_unavailable':
+        if (!edit) {
+          // Platba rezervace / SOS: server ji teď nedokázal ověřit (ne „změna").
+          final s = PaymentErrorMapper.serverUnavailable(lang);
+          return PayProblem(s.title, s.message, PayAction.retry);
+        }
         return PayProblem(title, PaymentErrorMapper.serverRefusal(lang, code)!,
             PayAction.retry);
       case 'server_error':
@@ -273,8 +305,10 @@ class PaymentRefusals {
     }
     final swapKey = swapCodes[code];
     if (swapKey != null) return PayProblem(title, _t(lang, swapKey), PayAction.reloadEdit);
-    // Neznámý kód / chyba bez kódu (starší server, 500) — nic se nestrhlo
-    // (bez payment_method_id se jen zakládá PaymentIntent).
-    return _server(lang, counts: true);
+    // Neznámý kód / chyba bez kódu (starší server) — nic se nestrhlo (bez
+    // payment_method_id se jen zakládá PaymentIntent). Chyba serveru (5xx)
+    // není neúspěšný pokus kartou.
+    final status = r.httpStatus;
+    return _server(lang, counts: status == null || status < 500);
   }
 }

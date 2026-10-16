@@ -200,8 +200,11 @@ class MgErrorView extends StatelessWidget {
     final tr = t(context);
     final fe = FriendlyError.of(error, perm: perm);
     final title = what ?? fe.title(tr);
+    // Bez kontaktu (contact: false) i v textu, ne jen bez tlačítka „Zavolat".
     final body = message ??
-        (what != null ? '${_cap(fe.reason(tr))}. ${fe.body(tr)}' : fe.body(tr));
+        (what != null
+            ? '${_cap(fe.reason(tr))}. ${fe.body(tr, contact: contact)}'
+            : fe.body(tr, contact: contact));
     if (MgV2.on(context)) {
       return v2ErrorViewLook(context,
           fe: fe,

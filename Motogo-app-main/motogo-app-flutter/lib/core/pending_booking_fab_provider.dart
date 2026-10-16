@@ -173,12 +173,14 @@ final paidAfterRestartProvider =
     await sub.cancel();
   }
   if (done.isNotEmpty) {
-    // Dokončeno teď → jednou oznámit („Doplatek proběhl a úprava rezervace
-    // je uložená" — platí i pro výměnu motorky).
+    // Dokončeno teď → jednou oznámit (výměna motorky vlastním textem, ne
+    // „úprava rezervace je uložená").
     for (final e in done) {
       await PaymentPendingMarker.clear(e.bookingId);
     }
-    return PaidAfterRestart(done.first.bookingId, PaymentMarkerKind.edit);
+    final first = done.first;
+    return PaidAfterRestart(
+        first.bookingId, first.isSwap ? PaymentMarkerKind.swap : PaymentMarkerKind.edit);
   }
   for (final m in markers) {
     try {

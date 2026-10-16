@@ -21,6 +21,17 @@ import 'animated_route_icon.dart';
 import 'collapsing_header.dart';
 import 'routes_quick_links.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/chrome/mg_page.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/motion/mg_anim.dart';
+import '../../core/widgets/state_views.dart';
+import 'v2/places_parts_v2.dart';
+import 'v2/record_dock_v2.dart';
+import 'v2/route_card_v2.dart';
+import 'v2/routes_list_parts_v2.dart';
+import 'v2/rt_v2_text.dart';
+import 'v2/trasy_hub_header_v2.dart';
 
 /// Řazení seznamu tras.
 enum _RouteSort { random, length, duration, nearMe, nearRoute }
@@ -254,6 +265,16 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     final lang = ref.watch(localeProvider).languageCode;
     final dataAsync = ref.watch(routesDataProvider);
 
+    if (MgV2.on(context)) {
+      return dataAsync.when(
+        data: (data) => _body(context, data, lang),
+        loading: () => RoutesStatePageV2(
+            header: RoutesHubHeaderV2(search: _searchField(context)), loading: true),
+        error: (e, _) => RoutesStatePageV2(
+            header: RoutesHubHeaderV2(search: _searchField(context)), child: _errorState(context, e)),
+      );
+    }
+
     return Material(
       color: MotoGoColors.bg,
       child: SafeArea(
@@ -341,6 +362,34 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
 
   /// Pole hloubkového hledání — název, popis, města na cestě i body zájmu.
   Widget _searchField(BuildContext context) {
+    void onChanged(String v) {
+      _searchDebounce?.cancel();
+      _searchDebounce = Timer(
+        const Duration(milliseconds: 280),
+        () {
+          if (!mounted) return;
+          setState(() => _query = v);
+          ref.read(placesSearchProvider.notifier).state = v;
+        },
+      );
+    }
+
+    void onClear() {
+      _searchDebounce?.cancel();
+      _searchCtl.clear();
+      setState(() => _query = '');
+      ref.read(placesSearchProvider.notifier).state = '';
+    }
+
+    if (MgV2.on(context)) {
+      return TrasySearchV2(
+        controller: _searchCtl,
+        hint: t(context).tr('routesSearch'),
+        onChanged: onChanged,
+        onClear: onClear,
+        showClear: _query.isNotEmpty || _searchCtl.text.isNotEmpty,
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -356,17 +405,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
               controller: _searchCtl,
               // Debounce: bez něj se při psaní přefiltrovávalo přes
               // 1 300 tras na každé písmeno.
-              onChanged: (v) {
-                _searchDebounce?.cancel();
-                _searchDebounce = Timer(
-                  const Duration(milliseconds: 280),
-                  () {
-                    if (!mounted) return;
-                    setState(() => _query = v);
-                    ref.read(placesSearchProvider.notifier).state = v;
-                  },
-                );
-              },
+              onChanged: onChanged,
               decoration: InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
@@ -381,12 +420,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
           if (_query.isNotEmpty || _searchCtl.text.isNotEmpty)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () {
-                _searchDebounce?.cancel();
-                _searchCtl.clear();
-                setState(() => _query = '');
-                ref.read(placesSearchProvider.notifier).state = '';
-              },
+              onTap: onClear,
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
                 child: Icon(Icons.close, size: 18, color: MotoGoColors.g400),
@@ -399,6 +433,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
 
   Widget _body(BuildContext context, RoutesData data, String lang) {
     if (data.routes.isEmpty) {
+      if (MgV2.on(context)) {
+        return RoutesStatePageV2(
+            header: RoutesHubHeaderV2(search: _searchField(context)), child: _emptyState(context));
+      }
       return Column(
         children: [
           _headerDelegate(context, data.routes.length,
@@ -434,6 +472,67 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     }
     _sortRoutes(routes, me, selAnchor);
     _precacheCovers(context, routes);
+
+    void openRoute(RouteItem r) {
+      // Zapamatuj zvolenou trasu pro řazení „od zvolené trasy".
+      ref.read(lastOpenedRouteProvider.notifier).state = r.id;
+      // Sousedi pro listování swipem = právě vyfiltrovaný
+      // seznam v tom pořadí, v jakém ho uživatel vidí.
+      context.push('/routes/${r.id}',
+          extra: [for (final x in routes) x.id]);
+    }
+
+    if (MgV2.on(context)) {
+      return MgPage(
+        controller: _scroll,
+        overlapHero: false,
+        onRefresh: () async => ref.invalidate(routesDataProvider),
+        header: RoutesHubHeaderV2(search: _searchField(context)),
+        slivers: [
+          SliverToBoxAdapter(
+            child: RoutesBandV2(
+              routes: _fmtCount(data.routes.length, 1370, 10),
+              pois: _fmtCount(ref.watch(catalogPoisProvider).valueOrNull?.length, 37000, 1000),
+              toolbar: _filterBar(context, data, me, selAnchor != null),
+            ),
+          ),
+          if (routes.isEmpty)
+            SliverToBoxAdapter(child: _filterEmpty(context))
+          else ...[
+            SliverToBoxAdapter(
+              child: TrasyListHeaderV2(
+                count: rtPlural(t(context), 'v2RtRoutes', routes.length),
+                sort: _sortLabel(context, _sort),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList.builder(
+                itemCount: routes.length,
+                itemBuilder: (context, i) {
+                  final r = routes[i];
+                  return MgReveal(
+                    index: i < 6 ? i : 0,
+                    sessionKey: 'routes-${r.id}',
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _RouteCard(
+                        route: r,
+                        branch: r.branchId != null ? data.branches[r.branchId] : null,
+                        lang: lang,
+                        approach: me == null ? null : approachEstimate(me, r),
+                        onTap: () => openRoute(r),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+        dock: const TrasyRecordDockV2(),
+      );
+    }
 
     return RefreshIndicator(
       color: MotoGoColors.greenDark,
@@ -506,14 +605,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                         // Dojezd od aktuální polohy (odhad) — původní délka/čas
                         // trasy na kartě zůstávají, tohle se jen přidává.
                         approach: me == null ? null : approachEstimate(me, r),
-                        onTap: () {
-                          // Zapamatuj zvolenou trasu pro řazení „od zvolené trasy".
-                          ref.read(lastOpenedRouteProvider.notifier).state = r.id;
-                          // Sousedi pro listování swipem = právě vyfiltrovaný
-                          // seznam v tom pořadí, v jakém ho uživatel vidí.
-                          context.push('/routes/${r.id}',
-                              extra: [for (final x in routes) x.id]);
-                        },
+                        onTap: () => openRoute(r),
                       ),
                     ),
                   );
@@ -640,6 +732,17 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   Widget _filterBar(BuildContext context, RoutesData data, LatLng? me, bool routeAvail) {
     final n = _activeFilterCount;
     final active = n > 0;
+    if (MgV2.on(context)) {
+      return RoutesToolbarV2(
+        activeCount: n,
+        sortLabel: '${t(context).tr('sortTitle')}: ${_sortLabel(context, _sort)}',
+        sortOn: _sort != _RouteSort.nearMe,
+        onFilter: () => _openFilterSheet(context, data, me),
+        onSort: () => _openSortSheet(context, me != null, routeAvail),
+        onMap: () => context.push(Routes.routesMap),
+        onClear: _clearFilters,
+      );
+    }
 
     Widget pill({
       required IconData icon,
@@ -771,6 +874,15 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   }
 
   Widget _filterEmpty(BuildContext context) {
+    if (MgV2.on(context)) {
+      return TrasyEmptyV2(
+        icon: MgIcons.search,
+        title: t(context).tr('routesFilterEmpty'),
+        actionLabel: t(context).tr('routesFilterClear'),
+        onAction: _clearFilters,
+        actionInk: true,
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
       child: Column(
@@ -1213,6 +1325,13 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   }
 
   Widget _emptyState(BuildContext context) {
+    if (MgV2.on(context)) {
+      return TrasyEmptyV2(
+        icon: MgIcons.route,
+        title: t(context).tr('routesEmptyTitle'),
+        body: t(context).tr('routesEmptySub'),
+      );
+    }
     return ListView(
       children: [
         const SizedBox(height: 80),
@@ -1247,6 +1366,16 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   }
 
   Widget _errorState(BuildContext context, Object e) {
+    if (MgV2.on(context)) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: MgErrorView(
+          error: e,
+          what: t(context).tr('routesError'),
+          onRetry: () => ref.invalidate(routesDataProvider),
+        ),
+      );
+    }
     return ListView(
       children: [
         const SizedBox(height: 80),
@@ -1309,6 +1438,17 @@ class _RouteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return RouteCardV2(
+        route: route,
+        branch: branch,
+        lang: lang,
+        approach: approach,
+        onTap: onTap,
+        onReviews: () => showRouteReviewsSheet(context,
+            routeId: route.id, routeName: route.nameFor(lang)),
+      );
+    }
     final cover = route.cover;
     return PressableScale(
       pressedScale: 0.97,
