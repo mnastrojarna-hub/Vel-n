@@ -14,6 +14,7 @@ import '../../../core/v2/widgets/mg_chips.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_inputs.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import 'profile_v2_parts.dart';
 
 /// "Oprávnění aplikace" in the v2 look (PLAN §2.5.2, seam view of
@@ -130,9 +131,12 @@ class PermissionsViewV2 extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(tr.tr(p.title), style: MgType.title.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink)),
+                  MgWordFit(
+                    minScale: 0.8,
+                    child: Text(tr.tr(p.title), style: MgType.title.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink)),
+                  ),
                   const SizedBox(height: 2),
-                  Text(tr.tr(p.desc), style: MgType.small.copyWith(color: MgColors.lead)),
+                  MgWordFit(minScale: 0.85, child: Text(tr.tr(p.desc), style: MgType.small.copyWith(color: MgColors.lead))),
                   const SizedBox(height: 8),
                   Wrap(spacing: 6, runSpacing: 6, children: [
                     MgMeaningChip(

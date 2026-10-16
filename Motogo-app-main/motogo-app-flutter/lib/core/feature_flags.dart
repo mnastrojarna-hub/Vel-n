@@ -120,6 +120,10 @@ class AppV2UiNotifier extends StateNotifier<bool> {
   /// Hodnota z DB, která čeká na bezpečný okamžik (null = nic nečeká).
   bool? pending;
 
+  /// Dokončení úvodního načtení při studeném startu (MgV2Gate po něm hned
+  /// zkusí bezpečný okamžik — vypnutí se tak projeví i bez klepnutí na lištu).
+  late final Future<void> ready;
+
   AppV2UiNotifier({
     Future<bool?> Function()? fetch,
     bool Function()? paymentRunning,
@@ -128,7 +132,8 @@ class AppV2UiNotifier extends StateNotifier<bool> {
   })  : _fetch = fetch ?? fetchAppV2UiFlag,
         _paymentRunning = paymentRunning ?? (() => false),
         super(initial ?? bootValue) {
-    if (autoRefresh) unawaited(refresh());
+    ready = autoRefresh ? refresh() : Future<void>.value();
+    unawaited(ready);
   }
 
   /// Načte flag z DB; neznámý výsledek (offline) nic nemění.

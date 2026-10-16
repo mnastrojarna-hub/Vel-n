@@ -14,6 +14,7 @@ import '../../../core/v2/tokens/mg_shadows.dart' show MgGradients;
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/widgets/state_views.dart';
 import '../loyalty_leaderboard_section.dart';
 import '../loyalty_levels_provider.dart';
@@ -86,7 +87,7 @@ class LoyaltyScreenV2 extends ConsumerWidget {
           child: MgCard(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text(tr.tr('loyaltyInfoTitle'), style: MgType.section.copyWith(color: MgColors.ink)),
+              MgWordFit(minScale: 0.75, child: Text(tr.tr('loyaltyInfoTitle'), style: MgType.section.copyWith(color: MgColors.ink))),
               const SizedBox(height: 8),
               LoyaltyRulesList(rules: [
                 for (final k in const [
@@ -143,8 +144,11 @@ class _Hero extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             Expanded(
-              child: Text((s == null ? tr.tr('loyaltyInfoTitle') : tr.tr('loyaltyMyRank')).toUpperCase(),
-                  style: MgType.eyebrow.copyWith(color: MgColors.onDarkSecondary)),
+              child: MgWordFit(
+                minScale: 0.7,
+                child: Text((s == null ? tr.tr('loyaltyInfoTitle') : tr.tr('loyaltyMyRank')).toUpperCase(),
+                    style: MgType.eyebrow.copyWith(color: MgColors.onDarkSecondary)),
+              ),
             ),
             Semantics(
               button: true,
@@ -178,7 +182,10 @@ class _Hero extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(name, style: MgType.h2.copyWith(color: rank.isBrand ? MgColors.onDark : rank.accentOnDark)),
+                MgWordFit(
+                  minScale: 0.7,
+                  child: Text(name, style: MgType.h2.copyWith(color: rank.isBrand ? MgColors.onDark : rank.accentOnDark)),
+                ),
                 const SizedBox(height: 4),
                 Text('${s?.percent ?? 0} %', style: MgType.tab(MgType.display.copyWith(color: MgColors.onDark))),
               ]),

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_svg_path.dart';
+import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../booking/booking_quote.dart';
 import '../../loyalty/loyalty_provider.dart';
@@ -131,6 +132,5 @@ class _PathPainter extends CustomPainter {
 
 /// `AnimatedSize` 300 ms — or the plain child under reduced motion (a
 /// zero-duration AnimatedSize re-dirties itself during layout).
-Widget catAnimatedSize(BuildContext context, Widget child) => MgMotion.reduced(context)
-    ? child
-    : AnimatedSize(duration: MgMotion.sheet, alignment: Alignment.topCenter, child: child);
+Widget catAnimatedSize(BuildContext context, Widget child) =>
+    MgAnimatedSize(duration: MgMotion.sheet, alignment: Alignment.topCenter, child: child);

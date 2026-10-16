@@ -4,6 +4,7 @@ import '../icons/mg_icon.dart';
 import '../motion/mg_motion.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_type.dart';
+import 'mg_word_fit.dart';
 
 /// T5 toast — ONLY for non-blocking confirmations raised by v2 views
 /// (Uloženo, Zkopírováno). Night glass r14, icon 20, 13.5/700, 2.8 s; with
@@ -35,8 +36,11 @@ void showMgToast(
         MgIcon(icon, size: 20, color: MgColors.neon),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(message,
-              style: MgType.small.copyWith(fontSize: 13.5, fontWeight: FontWeight.w700, color: MgColors.onDark)),
+          child: MgWordFit(
+            minScale: 0.85,
+            child: Text(message,
+                style: MgType.small.copyWith(fontSize: 13.5, fontWeight: FontWeight.w700, color: MgColors.onDark)),
+          ),
         ),
       ]),
       action: actionLabel == null

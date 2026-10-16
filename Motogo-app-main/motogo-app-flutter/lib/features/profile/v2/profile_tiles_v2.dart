@@ -11,6 +11,7 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../catalog/catalog_provider.dart' show branchesProvider, motorcyclesProvider;
 import '../../documents/docs_gate_provider.dart';
 import '../../messages/messages_provider.dart' show adminUnreadCountProvider;
 import 'profile_v2_parts.dart';
@@ -30,6 +31,14 @@ class ProfileTilesV2 extends ConsumerWidget {
     final unread = ref.watch(adminUnreadCountProvider);
     final docs = ref.watch(docsFabStatusProvider).valueOrNull;
     final eshop = ref.watch(eshopVisibleProvider).valueOrNull ?? false;
+    // Pobočky z DB (už načtený katalog — nic se kvůli dlaždici nestahuje);
+    // statický text jen než / když se katalog nenačte.
+    final branchNames = ref.exists(motorcyclesProvider)
+        ? [
+            for (final b in ref.watch(branchesProvider))
+              if ((b['name'] as String?)?.trim().isNotEmpty ?? false) (b['name'] as String).trim(),
+          ]
+        : const <String>[];
 
     String? docsSub;
     var docsTone = _Tone.meta;
@@ -86,7 +95,7 @@ class ProfileTilesV2 extends ConsumerWidget {
       _Tile(
         icon: MgIcons.pin,
         label: tr.tr('branchesLabel'),
-        sub: tr.tr('v2PfTileBranchesSub'),
+        sub: branchNames.isEmpty ? tr.tr('v2PfTileBranchesSub') : branchNames.join(' · '),
         onTap: () => context.push(Routes.branchesInfo),
       ),
     ];

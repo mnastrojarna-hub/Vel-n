@@ -16,6 +16,7 @@ import '../branch_photos_section.dart';
 import '../branches_info_provider.dart';
 import '../branches_widgets.dart' show BranchVideo, plainText, richText;
 import 'branches_v2_parts.dart';
+import 'branch_texts_v2.dart';
 
 /// Pobočka in the v2 look (PLAN §2.5.2, seam view of `BranchDetailScreen`):
 /// dark hero (badge, title, address, hours, Navigovat), "O pobočce" card
@@ -49,8 +50,11 @@ class BranchDetailViewV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    // Popisky z CMS; v cizím jazyce bez překladu (offline) appové texty.
+    final tx = v2BranchTexts(tr, this.tx);
     String? v(String k) => tx['branches.$index.$k'];
     return MgPage(
+      pinnedBack: onBack,
       header: MgAppBar(title: plainText(v('title') ?? ''), onBack: onBack),
       overlapHero: false,
       sections: [

@@ -1053,6 +1053,21 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                       padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
                       child: Row(
                         children: [
+                          // v2: titulek zabere zbytek řádku a zalomí se, „Zrušit
+                          // filtry" zůstane celé (de / fr / uk přetékalo).
+                          if (MgV2.on(sheetCtx))
+                            Expanded(
+                              child: Text(
+                                t(sheetCtx).tr('routesFilterTitle'),
+                                style: const TextStyle(
+                                  fontSize: MotoGoTypo.sizeH2,
+                                  fontWeight: MotoGoTypo.w900,
+                                  color: MotoGoColors.black,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                            )
+                          else ...[
                           Text(
                             t(sheetCtx).tr('routesFilterTitle'),
                             style: const TextStyle(
@@ -1063,6 +1078,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                             ),
                           ),
                           const Spacer(),
+                          ],
                           // Reset teď filtry i APLIKUJE a sheet zavře. Dřív
                           // vynuloval jen pracovní kopie, takže po zavření
                           // gestem zůstaly filtry beze změny a vypadalo to,

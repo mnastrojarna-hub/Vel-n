@@ -4,6 +4,7 @@ import '../tokens/mg_colors.dart';
 import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
 import 'mg_buttons.dart';
+import 'mg_word_fit.dart';
 
 /// T6 confirmation of an irreversible step (storno, end recording, delete):
 /// r22, title 20/800, body 14/600, SAFE button left (ghost), ACTION right
@@ -87,7 +88,8 @@ class MgDialogFrame extends StatelessWidget {
     return Dialog(
       backgroundColor: MgColors.surface,
       surfaceTintColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      // Úzký telefon (< 360 dp): víc místa pro titulek a text.
+      insetPadding: EdgeInsets.symmetric(horizontal: MediaQuery.sizeOf(context).width < 360 ? 16 : 24, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(MgRadius.sheet)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
@@ -116,11 +118,12 @@ class MgDialogFrame extends StatelessWidget {
                 if (title != null)
                   Semantics(
                     header: true,
-                    child: Text(title!, style: MgType.h3.copyWith(color: MgColors.ink)),
+                    // Titulek: nejdřív zmenšit, nikdy nedělit slovo.
+                    child: MgWordFit(minScale: 0.75, child: Text(title!, style: MgType.h3.copyWith(color: MgColors.ink))),
                   ),
                 if (body != null) ...[
                   const SizedBox(height: 10),
-                  Text(body!, style: MgType.body.copyWith(color: MgColors.body2)),
+                  MgWordFit(minScale: 0.85, child: Text(body!, style: MgType.body.copyWith(color: MgColors.body2))),
                 ],
                 if (content != null) ...[const SizedBox(height: 10), content!],
                 if (buttons.isNotEmpty) ...[const SizedBox(height: 20), ...buttons],

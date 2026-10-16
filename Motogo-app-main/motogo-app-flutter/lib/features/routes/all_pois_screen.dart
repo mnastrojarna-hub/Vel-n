@@ -1307,6 +1307,21 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                       padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
                       child: Row(
                         children: [
+                          // v2: titulek zabere zbytek řádku a zalomí se, „Zrušit
+                          // filtry" zůstane celé (de / fr / uk přetékalo).
+                          if (MgV2.on(sheetCtx))
+                            Expanded(
+                              child: Text(
+                                t(sheetCtx).tr('poiToolsTitle'),
+                                style: const TextStyle(
+                                  fontSize: MotoGoTypo.sizeH2,
+                                  fontWeight: MotoGoTypo.w900,
+                                  color: MotoGoColors.black,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                            )
+                          else ...[
                           Text(
                             t(sheetCtx).tr('poiToolsTitle'),
                             style: const TextStyle(
@@ -1317,6 +1332,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                             ),
                           ),
                           const Spacer(),
+                          ],
                           PressableScale(
                             pressedScale: 0.94,
                             onTap: () {

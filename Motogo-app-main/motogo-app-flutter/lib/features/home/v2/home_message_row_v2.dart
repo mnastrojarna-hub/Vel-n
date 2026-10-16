@@ -10,6 +10,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../messages/messages_provider.dart';
 import '../../reservations/reservation_models.dart';
 import 'home_reveal.dart';
@@ -39,7 +40,7 @@ class HomeMessageRowV2 extends ConsumerWidget {
       child: HomeReveal(
         index: 2,
         sessionKey: 'home-msg',
-        child: MgCard(
+        child: MgFabAvoid(kind: MgAvoidKind.tap, child: MgCard(
           padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
           onTap: () => mgPushOrGo(context, '${Routes.messages}?n=${msg.id}'),
           semanticLabel: '${tr.tr('v2HomeMsgPrefix')} $title',
@@ -82,7 +83,7 @@ class HomeMessageRowV2 extends ConsumerWidget {
             const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.lead),
           ]),
         ),
-      ),
+      )),
     );
   }
 }
@@ -100,7 +101,7 @@ class HomeMoreBookingsRowV2 extends StatelessWidget {
     final tr = t(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: MgCard(
+      child: MgFabAvoid(kind: MgAvoidKind.tap, child: MgCard(
         padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
         onTap: () => GoRouter.maybeOf(context)?.go(Routes.reservations),
         semanticLabel: tr.trArgs('v2HomeMore', {'n': count}),
@@ -142,7 +143,7 @@ class HomeMoreBookingsRowV2 extends StatelessWidget {
           const SizedBox(width: 4),
           const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.lead),
         ]),
-      ),
+      )),
     );
   }
 }

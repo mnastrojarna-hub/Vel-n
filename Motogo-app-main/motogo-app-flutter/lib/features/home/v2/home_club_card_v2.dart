@@ -35,7 +35,7 @@ class HomeClubCardV2 extends ConsumerWidget {
     if (status == null) return const SizedBox.shrink();
     final tr = t(context);
     final rank = ref.watch(rankTokensProvider);
-    final name = status.rankNameFor(tr);
+    final name = RankCopy.name(tr, status.level, status.rankName);
     final tier = rank.tierIndex;
     final from = _tierStartPts[tier];
     final to = tier < 4 ? _tierStartPts[tier + 1] : from + 1;
@@ -119,7 +119,7 @@ class HomeClubCardV2 extends ConsumerWidget {
                   !status.isMax && status.nextRankName != null && status.bookingsToNext != null
                       ? tr.tr('loyaltyNextRank')
                           .replaceAll('{n}', '${status.bookingsToNext}')
-                          .replaceAll('{next}', status.nextRankNameFor(tr)!)
+                          .replaceAll('{next}', RankCopy.name(tr, status.level + 1, status.nextRankName))
                           .replaceAll('{pct}', '${status.nextPercent ?? ''}')
                       : tr.tr('loyaltyMaxRank'),
                   style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink),

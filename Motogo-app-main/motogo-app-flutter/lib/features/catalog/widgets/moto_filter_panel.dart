@@ -7,6 +7,7 @@ import '../../home/widgets/license_chip.dart';
 import '../catalog_provider.dart';
 import 'availability_calendar.dart';
 import 'filter_branch_chip.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 
 /// Filtr motorek — JEDEN panel sdílený obrazovkami Domů a Rezervovat.
 ///
@@ -245,7 +246,8 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
           Flexible(
             child: Text(
               t(context).tr('homeFilterShowAvailableToday'),
-              maxLines: 1,
+              // v2 (pod sebou, celá šířka): smí na 2 řádky, ne „…".
+              maxLines: widget.embedded ? 2 : 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 12,
@@ -281,11 +283,13 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
             ])
               DropdownMenuItem(
                   value: o.$1,
-                  child: Text(
-                    t(context).tr(o.$2),
-                    maxLines: widget.embedded ? 1 : null,
-                    overflow: widget.embedded ? TextOverflow.ellipsis : null,
-                  )),
+                  child: widget.embedded
+                      // v2: dlouhé popisky řazení (uk / fr) se zmenší, ne useknou.
+                      ? MgWordFit(
+                          minScale: 0.7,
+                          child: Text(t(context).tr(o.$2), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        )
+                      : Text(t(context).tr(o.$2))),
           ],
           onChanged: (v) => ref.read(catalogSortProvider.notifier).state =
               v ?? 'default',
@@ -493,27 +497,34 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
   /// místo přetečení řádku (es/fr/pl/uk); starý vzhled beze změny.
   Widget _fit(Text text) => widget.embedded
       ? Flexible(
-          child: Text(
-            text.data ?? '',
-            style: text.style,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          // v2: nejdřív zmenšit (do 70 %), „…" až úplně nakonec.
+          child: MgWordFit(
+            minScale: 0.7,
+            child: Text(
+              text.data ?? '',
+              style: text.style,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         )
       : text;
 
-  Widget _label(BuildContext context, String key, {String? value}) => Row(
+  Widget _label(BuildContext context, String key, {String? value}) {
+    final title = Text(
+      t(context).tr(key),
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: MotoGoColors.g400,
+        letterSpacing: 0.5,
+      ),
+    );
+    return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            t(context).tr(key),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: MotoGoColors.g400,
-              letterSpacing: 0.5,
-            ),
-          ),
+          // v2: název smí na 2 řádky, hodnota zůstane celá (pl přetékal).
+          if (widget.embedded) Flexible(child: title) else title,
           if (value != null)
             Text(
               value,
@@ -525,6 +536,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
             ),
         ],
       );
+  }
 
   /// Posuvník od–do. Krajní polohy = BEZ omezení (null), takže motorky
   /// s nevyplněným údajem zůstávají ve výpisu.

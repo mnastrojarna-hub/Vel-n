@@ -16,6 +16,7 @@ import '../../../core/widgets/net_image.dart';
 import '../branches_info_provider.dart';
 import '../branches_widgets.dart' show plainText, richText;
 import 'branches_v2_parts.dart';
+import 'branch_texts_v2.dart';
 
 /// Pobočky in the v2 look (PLAN §2.5.2, seam view of `BranchesInfoScreen`):
 /// the same CMS texts (h1, intro, per-branch badge / title / address /
@@ -43,6 +44,8 @@ class BranchesViewV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    // Popisky z CMS; v cizím jazyce bez překladu (offline) appové texty.
+    final tx = v2BranchTexts(tr, this.tx);
     return MgPage(
       header: MgAppBar(title: tr.tr('branchesLabel'), onBack: onBack),
       overlapHero: false,

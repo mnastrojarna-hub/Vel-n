@@ -12,6 +12,7 @@ import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_sheet.dart';
 import '../../../../core/widgets/net_image.dart';
 import '../../../loyalty/loyalty_provider.dart';
+import '../../catalog_provider.dart' show filteredMotoIdsProvider;
 import '../../moto_model.dart';
 import '../catalog_text.dart';
 import 'calc_state.dart';
@@ -60,7 +61,7 @@ class CalcStepMotoV2 extends ConsumerWidget {
       ),
       if (m != null) ...[
         const SizedBox(height: 12),
-        MgEnter(trigger: m.id, child: _SelectedMoto(moto: m, pct: pct)),
+        MgEnter(trigger: m.id, child: _SelectedMoto(moto: m, pct: pct, siblings: [for (final o in offered) o.id])),
       ],
     ]);
   }
@@ -74,13 +75,17 @@ class CalcStepMotoV2 extends ConsumerWidget {
   }
 }
 
-class _SelectedMoto extends StatelessWidget {
+class _SelectedMoto extends ConsumerWidget {
   final Motorcycle moto;
   final int pct;
-  const _SelectedMoto({required this.moto, required this.pct});
+
+  /// The calculator's bikes — the detail pager swipes through them (like
+  /// every other entry sets its shown list first).
+  final List<String> siblings;
+  const _SelectedMoto({required this.moto, required this.pct, required this.siblings});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final st = calcStatus(tr, moto);
     return Container(
@@ -112,7 +117,11 @@ class _SelectedMoto extends StatelessWidget {
             ],
             MgBtnText(
               label: '${tr.tr('v2CalcDetail')} ›',
-              onTap: () => context.push('/moto/${moto.id}'),
+              onTap: () {
+                ref.read(filteredMotoIdsProvider.notifier).state =
+                    siblings.contains(moto.id) ? siblings : [moto.id];
+                context.push('/moto/${moto.id}');
+              },
             ),
           ]),
         ),

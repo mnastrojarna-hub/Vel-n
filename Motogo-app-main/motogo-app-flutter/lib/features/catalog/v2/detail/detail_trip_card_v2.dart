@@ -170,7 +170,7 @@ class _DetailTripCardV2State extends ConsumerState<DetailTripCardV2> {
                         onRetry: () => ref.invalidate(bookedDatesProvider(w.moto.id)),
                       ),
                     ),
-                  Text(tr.tr('v2CatSingleDayHint'), style: MgType.small.copyWith(color: MgColors.lead)),
+                  Text(tr.tr('v2BkSingleDayHint'), style: MgType.small.copyWith(color: MgColors.lead)),
                   const SizedBox(height: 8),
                   AvailabilityCalendar(
                     bookedDates: b.valueOrNull ?? [],

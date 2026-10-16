@@ -84,7 +84,7 @@ class _CatalogDateBody extends ConsumerWidget {
         TripSummaryRow(start: f.startDate!, end: f.endDate, days: catDayCount(f.startDate!, f.endDate!)),
         const SizedBox(height: 12),
       ],
-      Text(tr.tr('v2CatSingleDayHint'), style: MgType.small.copyWith(color: MgColors.lead)),
+      Text(tr.tr('v2BkSingleDayHint'), style: MgType.small.copyWith(color: MgColors.lead)),
       const SizedBox(height: 8),
       Container(
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),

@@ -25,6 +25,10 @@ class ReservationCardV2 extends ConsumerWidget {
   final Reservation reservation;
   final VoidCallback onTap;
   final VoidCallback? onEdit;
+
+  /// Zrušená rezervace → „Obnovit" = obnovit a zaplatit (D3, jako
+  /// `ReservationCard.onRestore`); bez něj otevře detail.
+  final VoidCallback? onRestore;
   final ResPayFlag payFlag;
 
   const ReservationCardV2({
@@ -32,6 +36,7 @@ class ReservationCardV2 extends ConsumerWidget {
     required this.reservation,
     required this.onTap,
     this.onEdit,
+    this.onRestore,
     this.payFlag = ResPayFlag.none,
   });
 
@@ -206,7 +211,7 @@ class ReservationCardV2 extends ConsumerWidget {
       case ResStatus.dokoncene:
         return [cta(tr.tr('rideDetail')), gap, ghost(tr.tr('rateBtn'), onTap)];
       case ResStatus.cancelled:
-        return [cta(tr.detail), gap, ghost(tr.tr('restoreBtn'), () => context.go(Routes.search))];
+        return [cta(tr.detail), gap, ghost(tr.tr('restoreBtn'), onRestore ?? onTap)];
     }
   }
 }

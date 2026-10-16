@@ -13,6 +13,7 @@ import '../rank/rank_provider.dart';
 import '../rank/rank_tokens.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_type.dart';
+import 'mg_word_fit.dart';
 
 /// Size of the primary CTA: 60 (sticky Detail / Booking), 56 (hero),
 /// 48 (card action), 44 (compact).
@@ -116,7 +117,8 @@ class MgCta extends ConsumerWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (glyph != null) ...[MgIcon(glyph, size: 18, color: labelColor), const SizedBox(width: 8)],
-        Flexible(child: text),
+        // Slovo se nikdy nezalomí uprostřed: nejdřív zmenšit, pak zalomit v mezeře.
+        Flexible(child: MgWordFit(alignment: Alignment.center, child: text)),
         if (arrow) ...[const SizedBox(width: 8), MgIcon(MgIcons.arrowRight, size: 18, color: labelColor)],
       ],
     );

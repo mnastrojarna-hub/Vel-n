@@ -468,7 +468,9 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
                 // téma v2 mění jen tvary snackbarů, dialogů, sheetů a
                 // indikátorů). Hlídač level-upu i onboarding overlaye níže
                 // stojí mimo bránu a zůstávají beze změny.
-                MgV2Gate(child: child!),
+                // Router = bezpečný okamžik přepnutí (kořen záložky, návrat
+                // do appky, po úvodním načtení) v obou vzhledech.
+                MgV2Gate(router: router, child: child!),
                 // Věrnostní ranky — neviditelný hlídač postupu na vyšší level.
                 // Sedí NAD celou navigací, takže celoobrazovkovou oslavu
                 // (postup o 1 = standard, o 2+ = turbo „MEGA POSTUP") zobrazí

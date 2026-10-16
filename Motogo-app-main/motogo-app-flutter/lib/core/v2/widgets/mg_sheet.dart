@@ -5,6 +5,7 @@ import '../tokens/mg_shadows.dart';
 import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
 import 'mg_back_v2.dart';
+import 'mg_word_fit.dart';
 
 /// Opens a v2 bottom sheet (light by default, V22 R5.10): grabber 42×5,
 /// ✕ 44 top-right, r22 top, swipe-down + scrim tap close it, content
@@ -120,7 +121,7 @@ class MgSheetFrame extends StatelessWidget {
                               ? const SizedBox(height: 44)
                               : Semantics(
                                   header: true,
-                                  child: Text(title!, style: MgType.h3.copyWith(color: fg)),
+                                  child: MgWordFit(minScale: 0.75, child: Text(title!, style: MgType.h3.copyWith(color: fg))),
                                 ),
                         ),
                         if (showClose) ...[

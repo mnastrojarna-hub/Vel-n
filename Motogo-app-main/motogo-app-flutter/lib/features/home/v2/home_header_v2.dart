@@ -5,6 +5,7 @@ import '../../../core/banner_provider.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/v2/chrome/mg_nav_helpers.dart';
+import '../../../core/v2/chrome/mg_top_banner.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/rank/rank_copy.dart';
@@ -16,6 +17,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../auth/auth_provider.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../../loyalty/loyalty_ranks_screen.dart';
@@ -71,30 +73,38 @@ class HomeHeaderV2 extends ConsumerWidget {
           ]);
         }),
         const SizedBox(height: 12),
-        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          Expanded(
-            child: Semantics(
+        // Pozdrav na JEDEN řádek (zmenší se, nikdy se nezalomí); když se
+        // s rankem nevejde, rank čip sjede pod pozdrav (V22 §2.4 #1).
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Semantics(
               button: true,
               hint: tr.tr('editNickname'),
               child: MgPress(
                 onTap: () => showNicknameDialog(context, ref, fullName: fullName),
                 child: MgEnter(
-                  child: Text(homeGreeting(tr, nick, DateTime.now()),
-                      maxLines: 2,
-                      style: MgType.h3.copyWith(color: MgColors.onDark, height: 1.2)),
+                  child: MgWordFit(
+                    minScale: 0.7,
+                    child: Text(homeGreeting(tr, nick, DateTime.now()),
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: MgType.h3.copyWith(color: MgColors.onDark, height: 1.2)),
+                  ),
                 ),
               ),
             ),
-          ),
-          if (status != null) ...[
-            const SizedBox(width: 8),
-            MgRankChip(
-              label: RankCopy.chip(tr, rankName, pct),
-              semanticLabel: RankCopy.aria(tr, rank.level, rankName, pct),
-              onTap: () => openLoyaltyRanks(context),
-            ),
+            if (status != null)
+              MgRankChip(
+                label: RankCopy.chip(tr, rankName, pct),
+                semanticLabel: RankCopy.aria(tr, rank.level, rankName, pct),
+                onTap: () => openLoyaltyRanks(context),
+              ),
           ],
-        ]),
+        ),
         if (motto.isNotEmpty) ...[
           const SizedBox(height: 6),
           Semantics(
@@ -116,20 +126,11 @@ class HomeHeaderV2 extends ConsumerWidget {
           ),
         ],
         HomeHeaderNote(snap: snap, nick: nick),
+        // Velín banner = poslední JEDEN řádek hlavičky: marquee, při omezení
+        // pohybu statický s „…"; klepnutí ukáže celý text (V22 §2.4 #2).
         if (banner != null && banner.enabled && banner.text.trim().isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Padding(
-              padding: EdgeInsets.only(top: 1),
-              child: MgIcon(MgIcons.info, size: 16, color: MgColors.neon),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(banner.text.trim(),
-                  maxLines: 3,
-                  style: MgType.meta.copyWith(color: MgColors.neon, height: 1.4)),
-            ),
-          ]),
+          const SizedBox(height: 6),
+          MgTopBanner(text: banner.text.trim()),
         ],
       ]),
     );
@@ -162,7 +163,7 @@ class _LogoRow extends ConsumerWidget {
       size: 56,
       semanticLabel: status == null
           ? null
-          : RankCopy.aria(tr, status.level, status.rankNameFor(tr), status.percent),
+          : RankCopy.aria(tr, status.level, RankCopy.name(tr, status.level, status.rankName), status.percent),
       child: Image.asset(
         'assets/logo.webp',
         fit: BoxFit.cover,

@@ -105,7 +105,7 @@ class RankStatusLinesV2 extends StatelessWidget {
         ? tr
             .tr('loyaltyNextRank')
             .replaceAll('{n}', '${s.bookingsToNext}')
-            .replaceAll('{next}', s.nextRankNameFor(tr)!)
+            .replaceAll('{next}', RankCopy.name(tr, s.level + 1, s.nextRankName))
             .replaceAll('{pct}', '${s.nextPercent ?? ''}')
         : tr.tr('loyaltyMaxRank');
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -73,12 +73,7 @@ class ClubTierBar extends StatelessWidget {
             Expanded(
               child: Container(
                 height: 8,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  color: i < lit
-                      ? rank.uiLight
-                      : (i == filled && !full ? rank.uiLight.withValues(alpha: 0.35) : MgColors.inkA(0.12)),
-                ),
+                decoration: clubTierSegment(rank, lit: i < lit, next: i == filled && !full),
               ),
             ),
           ],
@@ -87,6 +82,16 @@ class ClubTierBar extends StatelessWidget {
     );
   }
 }
+
+/// One segment of [ClubTierBar]: lit = the rank colour; the NEXT point =
+/// neutral fill with a 1.5 px rank outline — never an alpha blend of the
+/// rank colour on the light well (VIP 17 crimson turned salmon pink, V22
+/// §1.2 "reds are never lightened"); the rest = neutral.
+BoxDecoration clubTierSegment(RankTokens rank, {required bool lit, required bool next}) => BoxDecoration(
+      borderRadius: BorderRadius.circular(4),
+      color: lit ? rank.uiLight : (next ? MgColors.inkA(0.18) : MgColors.inkA(0.12)),
+      border: next && !lit ? Border.all(color: rank.uiLight, width: 1.5) : null,
+    );
 
 /// Privilege tile on the well (big value or icon + label).
 class ClubPerk extends StatelessWidget {

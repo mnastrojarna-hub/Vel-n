@@ -77,6 +77,7 @@ class MotoDetailV2View extends ConsumerWidget {
     final heroH = (MediaQuery.sizeOf(context).height * 0.6).clamp(340.0, 560.0);
     return MgPage(
       background: MgColors.surface,
+      pinnedBack: onBack,
       header: DetailHeroV2(
         moto: moto,
         images: images,

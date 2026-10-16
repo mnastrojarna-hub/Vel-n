@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
@@ -193,16 +194,13 @@ String? pfDate(dynamic iso) {
   return '${d.day}. ${d.month}. ${d.year}';
 }
 
-/// AnimatedSize that is skipped under reduced motion (a zero-duration
-/// AnimatedSize re-dirties itself during layout when its child changes).
+/// = [MgAnimatedSize] at the top (one place for the reduced-motion rule).
 class PfAnimatedSize extends StatelessWidget {
   final Widget child;
   final Duration duration;
   const PfAnimatedSize({super.key, required this.child, this.duration = const Duration(milliseconds: 300)});
 
   @override
-  Widget build(BuildContext context) {
-    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return child;
-    return AnimatedSize(duration: duration, alignment: Alignment.topCenter, child: child);
-  }
+  Widget build(BuildContext context) =>
+      MgAnimatedSize(duration: duration, alignment: Alignment.topCenter, child: child);
 }

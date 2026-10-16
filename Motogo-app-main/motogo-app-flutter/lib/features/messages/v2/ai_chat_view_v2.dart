@@ -186,7 +186,7 @@ class AiChatViewV2 extends ConsumerWidget {
                     cursorColor: MgColors.neon,
                     style: MgType.body.copyWith(color: MgColors.onDark),
                     decoration: InputDecoration(
-                      hintText: tr.tr('aiDescribeProblemHint'),
+                      hintText: tr.tr('v2AiDescribeHint'),
                       hintStyle: MgType.body.copyWith(color: MgColors.onDarkMeta),
                       filled: true,
                       fillColor: MgColors.white(0.06),

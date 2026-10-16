@@ -110,7 +110,7 @@ void main() {
   }
 
   // Rank drives the look: header, funnel CTA, club card for key levels.
-  for (final level in [0, 1, 6, 10, 15, 17, 19, 20]) {
+  for (final level in [0, 1, 6, 10, 13, 14, 15, 16, 17, 18, 19, 20]) {
     testWidgets('home rank $level', (tester) async {
       final key = GlobalKey();
       await _pump(tester, 's0', homeOverrides(funnel: kMotos.take(2).toList(), loyalty: level == 0 ? null : loyaltyAt(level)),

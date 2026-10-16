@@ -143,6 +143,7 @@ class ResDetailV2View extends ConsumerWidget {
     // hlavičkou — první sliver je navrchu.)
     return MgPage(
       overlapHero: false,
+      pinnedBack: onBack,
       sections: [
         ResDetailHeroV2(res: res, onBack: onBack),
         Transform.translate(offset: const Offset(0, -24), child: sheet),

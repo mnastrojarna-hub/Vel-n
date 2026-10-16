@@ -17,6 +17,7 @@ import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/widgets/state_views.dart';
 import '../reservation_models.dart';
+import '../booking_restore.dart' show restoreAndPay;
 import '../reservation_provider.dart';
 import 'res_filter_tabs_v2.dart';
 import 'res_list_header_v2.dart';
@@ -95,17 +96,19 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
             itemCount: reservations.length,
             itemBuilder: (context, index) {
               final res = reservations[index];
+              final card = ReservationCardV2(
+                reservation: res,
+                payFlag: resPayFlag(res, pending),
+                onTap: () => context.push('/reservations/${res.id}'),
+                onEdit: () => context.push('/reservations/${res.id}/edit'),
+                // „Obnovit" = obnovit a zaplatit (D3), stejně jako starý seznam.
+                onRestore: () => restoreAndPay(context, ref, res),
+              );
+              // Lazy list: only the first screenful reveals, once per app
+              // session — a card scrolled back into view never blinks again.
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: MgReveal(
-                  index: index,
-                  child: ReservationCardV2(
-                    reservation: res,
-                    payFlag: resPayFlag(res, pending),
-                    onTap: () => context.push('/reservations/${res.id}'),
-                    onEdit: () => context.push('/reservations/${res.id}/edit'),
-                  ),
-                ),
+                child: index < 6 ? MgReveal(index: index, sessionKey: 'res-list', child: card) : card,
               );
             },
           ),
@@ -119,6 +122,7 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
           what: tr.tr('fxReservationsLoadFail'),
           onRetry: retry,
           onBack: () => context.go(Routes.home),
+          contact: false,
         ),
       ),
     );

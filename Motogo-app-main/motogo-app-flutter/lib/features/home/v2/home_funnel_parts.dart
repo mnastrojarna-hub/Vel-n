@@ -10,6 +10,7 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../loyalty/loyalty_provider.dart';
 import 'funnel_provider.dart';
 
@@ -83,7 +84,10 @@ class _PagerBtn extends StatelessWidget {
   const _PagerBtn({required this.icon, required this.label, this.onTap});
 
   @override
-  Widget build(BuildContext context) => Semantics(
+  // Tap zóna pro AI tlačítko (V2 §4.2): nad šipkou jen nakoukne, nesedí.
+  Widget build(BuildContext context) => MgFabAvoid(
+        kind: MgAvoidKind.tap,
+        child: Semantics(
         button: true,
         enabled: onTap != null,
         label: label,
@@ -110,6 +114,7 @@ class _PagerBtn extends StatelessWidget {
               ),
             ),
           ),
+        ),
         ),
       );
 }
@@ -281,7 +286,10 @@ class FunnelPresets extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(child: chip(1, l2, p.$2, labelStyle)),
         const SizedBox(width: 8),
-        Semantics(
+        // Vlastní termín (vpravo dole, pod AI tlačítkem) = tap zóna.
+        MgFabAvoid(
+          kind: MgAvoidKind.tap,
+          child: Semantics(
           button: true,
           selected: calOn,
           label: tr.tr('v2HomeFnOther'),
@@ -298,6 +306,7 @@ class FunnelPresets extends StatelessWidget {
               child: const Center(child: MgIcon(MgIcons.calendarCheck, size: 24, color: MgColors.neon)),
             ),
           ),
+        ),
         ),
       ]),
     );

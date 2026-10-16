@@ -4,6 +4,7 @@ import '../icons/mg_icon.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_shadows.dart';
 import '../tokens/mg_type.dart';
+import 'mg_word_fit.dart';
 
 /// Section-leading feature icon on light: 40 px (rows 36) r12 `#0E2A1C`
 /// tile with a neon icon (11.55 : 1).
@@ -60,9 +61,13 @@ class MgEyebrowDark extends StatelessWidget {
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (icon != null) ...[MgIcon(icon!, size: 14, color: MgColors.neon), const SizedBox(width: 6)],
+          // Krátký štítek: jeden řádek, raději menší než rozdělený („CHOISIS…").
           Flexible(
-            child: Text(text.toUpperCase(),
-                style: MgType.eyebrow.copyWith(color: MgColors.neon)),
+            child: MgWordFit(
+              minScale: 0.7,
+              child: Text(text.toUpperCase(),
+                  maxLines: 2, style: MgType.eyebrow.copyWith(color: MgColors.neon)),
+            ),
           ),
         ]),
       );
@@ -75,8 +80,11 @@ class MgEyebrow extends StatelessWidget {
   const MgEyebrow(this.text, {super.key, this.dark = true});
 
   @override
-  Widget build(BuildContext context) => Text(
-        text.toUpperCase(),
-        style: MgType.eyebrow.copyWith(color: dark ? MgColors.neonText : MgColors.link),
+  Widget build(BuildContext context) => MgWordFit(
+        minScale: 0.7,
+        child: Text(
+          text.toUpperCase(),
+          style: MgType.eyebrow.copyWith(color: dark ? MgColors.neonText : MgColors.link),
+        ),
       );
 }

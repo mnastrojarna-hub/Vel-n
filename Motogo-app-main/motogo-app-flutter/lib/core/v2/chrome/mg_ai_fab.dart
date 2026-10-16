@@ -164,8 +164,10 @@ class _MgAiFabState extends State<MgAiFab> {
     final c = MgChromeScope.chromeOf(context);
     if (c != _chrome) {
       _chrome?.removeListener(_schedule);
+      _chrome?.scrollTick.removeListener(_schedule);
       _chrome = c;
       _chrome?.addListener(_schedule);
+      _chrome?.scrollTick.addListener(_schedule);
     }
     _schedule();
   }
@@ -179,6 +181,7 @@ class _MgAiFabState extends State<MgAiFab> {
   @override
   void dispose() {
     _chrome?.removeListener(_schedule);
+    _chrome?.scrollTick.removeListener(_schedule);
     super.dispose();
   }
 

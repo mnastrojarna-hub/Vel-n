@@ -95,14 +95,16 @@ class MessagesViewV2 extends ConsumerWidget {
             sliver: SliverList.separated(
               itemCount: msgs.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) => MgReveal(
-                index: i,
-                child: MsgNoteCardV2(
+              // Lazy list: only the first screenful reveals, once per app
+              // session — a card scrolled back into view never blinks again.
+              itemBuilder: (_, i) {
+                final card = MsgNoteCardV2(
                   m: msgs[i],
                   expanded: expanded.contains(msgs[i].id),
                   onTap: () => onToggleNote(msgs[i]),
-                ),
-              ),
+                );
+                return i < 6 ? MgReveal(index: i, sessionKey: 'msg-notes', child: card) : card;
+              },
             ),
           ),
         ];

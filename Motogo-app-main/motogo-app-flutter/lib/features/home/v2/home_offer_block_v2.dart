@@ -9,6 +9,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../booking/booking_quote.dart';
 import '../../loyalty/loyalty_provider.dart';
 import 'funnel_provider.dart';
@@ -103,7 +104,8 @@ class HomeLinkRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
+    // Řádek s šipkou vpravo = tap zóna pro AI tlačítko.
+    return MgFabAvoid(kind: MgAvoidKind.tap, child: Semantics(
       button: true,
       label: sub == null ? title : '$title, $sub',
       excludeSemantics: true,
@@ -131,6 +133,6 @@ class HomeLinkRow extends StatelessWidget {
           ]),
         ),
       ),
-    );
+    ));
   }
 }

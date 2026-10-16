@@ -9,6 +9,7 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_dialog.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../routes/ride_actions.dart';
 import '../../routes/ride_recorder.dart';
 import '../../routes/v2/rides/recorder_screen_v2.dart' show openRideRecorderV2;
@@ -79,13 +80,20 @@ class HomeRecordRowV2 extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title,
-                    style: MgType.title.copyWith(color: live ? MgColors.err : MgColors.ink)),
+                MgWordFit(
+                  minScale: 0.75,
+                  child: Text(title,
+                      style: MgType.title.copyWith(color: live ? MgColors.err : MgColors.ink)),
+                ),
                 const SizedBox(height: 3),
-                Text(sub,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: MgType.small.copyWith(color: rec.gpsLost && live ? MgColors.warn : MgColors.meta)),
+                // Celý popis (bez „…"): smí na 4 řádky, slova se nedělí.
+                MgWordFit(
+                  minScale: 0.85,
+                  child: Text(sub,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: MgType.small.copyWith(color: rec.gpsLost && live ? MgColors.warn : MgColors.meta)),
+                ),
               ]),
             ),
             if (!manual) ...[

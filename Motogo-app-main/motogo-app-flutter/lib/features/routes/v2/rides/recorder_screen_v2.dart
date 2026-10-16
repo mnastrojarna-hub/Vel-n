@@ -14,6 +14,7 @@ import '../../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_cta.dart';
 import '../../../../core/v2/widgets/mg_inputs.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/widgets/error_feedback.dart' show openFixSettings;
 import '../../ride_actions.dart';
 import '../../ride_recorder.dart';
@@ -97,8 +98,11 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
                 Expanded(
                   child: Semantics(
                     header: true,
-                    child: Text(tr.tr('rideRecordTitle'),
-                        maxLines: 2, style: MgType.section.copyWith(color: MgColors.onDark)),
+                    child: MgWordFit(
+                      minScale: 0.75,
+                      child: Text(tr.tr('rideRecordTitle'),
+                          maxLines: 2, style: MgType.section.copyWith(color: MgColors.onDark)),
+                    ),
                   ),
                 ),
                 MgIconButton(

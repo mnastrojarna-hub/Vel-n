@@ -70,7 +70,7 @@ class AvailabilityCalendarV2View extends StatelessWidget {
                 ? tr.tr('calSelectPickup')
                 : (end != null && tripSameDay(start!, end!)
                     ? tr.tr('calClickToReset')
-                    : tr.tr('calClickToChange')))
+                    : tr.tr('v2CalTapToChange')))
             : tr.tr('calSelectReturn'));
     return TripCalendar(
       month: DateTime(year, month),

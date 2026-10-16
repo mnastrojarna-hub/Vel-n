@@ -91,7 +91,7 @@ List<RenderCase> profileRenderCases() => [
       _p('branches', 'list', () => const BranchesInfoScreen(), branchesOverrides),
       _p('branch', 'mezna', () => const BranchDetailScreen(index: 0), branchesOverrides),
       _p('branch', 'vn_open', () => const BranchDetailScreen(index: 1), branchesOverrides, after: _expandAll, level: 15),
-      for (final l in const [1, 6, 10, 17, 20])
+      for (final l in const [1, 6, 10, 13, 14, 16, 17, 18, 20])
         _p('loyalty', 'rank$l', () => const LoyaltyScreenV2(), () => loyaltyOverrides(status: loyaltyAt(l)), level: l),
       _p('loyalty', 'guest', () => const LoyaltyScreenV2(), () => loyaltyOverrides(), level: 0),
       _p('loyalty', 'loading', () => const LoyaltyScreenV2(), () => loyaltyOverrides(status: kLoyalty3, loading: true), loading: true),

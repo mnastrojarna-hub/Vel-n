@@ -14,6 +14,7 @@ import '../../active_ride_provider.dart' show ActiveRide;
 import '../../ride_model.dart';
 import 'moje_cards_v2.dart';
 import 'moje_tabs_v2.dart';
+import 'moje_tracks_v2.dart';
 import 'moje_view_v2.dart' show MojeViewV2;
 import 'ride_card_v2.dart';
 
@@ -130,9 +131,13 @@ class MojeListsV2 extends StatelessWidget {
         const SizedBox(height: 12),
         if (shown.isEmpty)
           MojeEmptyV2(icon: MgIcons.filter, title: tr.tr('v2RideEmptyFilter'))
-        else
+        else ...[
+          // Tmavý hrdina segmentu: všechny jízdy filtru na jedné mapě.
+          MojeTracksV2(rides: shown, siblingIds: ids),
+          const SizedBox(height: 12),
           for (var i = 0; i < shown.length; i++)
             _reveal(i, 'ride-${shown[i].id}', RideCardV2(ride: shown[i], siblingIds: ids)),
+        ],
       ],
     ];
   }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../motion/mg_motion.dart';
 import '../shell/shell_nav_map.dart';
 import '../tokens/mg_colors.dart';
+import '../widgets/mg_back_v2.dart';
 import 'mg_chrome_metrics.dart';
 
 /// Page scaffold of every v2 screen (PLAN §1.9): [header] (MgRankHero /
@@ -13,7 +14,9 @@ import 'mg_chrome_metrics.dart';
 /// and bottom padding that keeps everything above the strips / AI button.
 /// [tabIndex] = the tab this page is the root of: re-tapping the tab
 /// scrolls to the top. [onRefresh] = pull-to-refresh with the caller's
-/// EXISTING refresh action.
+/// EXISTING refresh action. [pinnedBack] = the screen's back action: once
+/// the header (with its back disc) scrolls away, a 44 px back disc stays
+/// pinned top-left, so a long page always shows a way back (owner rule R6).
 class MgPage extends ConsumerStatefulWidget {
   final Widget? header;
   final List<Widget> sections;
@@ -26,6 +29,10 @@ class MgPage extends ConsumerStatefulWidget {
   final ScrollController? controller;
   final int? tabIndex;
   final EdgeInsetsGeometry sectionPadding;
+  final VoidCallback? pinnedBack;
+
+  /// [pinnedBack] as ✕ (result / modal pages).
+  final bool pinnedClose;
 
   const MgPage({
     super.key,
@@ -40,6 +47,8 @@ class MgPage extends ConsumerStatefulWidget {
     this.controller,
     this.tabIndex,
     this.sectionPadding = EdgeInsets.zero,
+    this.pinnedBack,
+    this.pinnedClose = false,
   });
 
   @override
@@ -49,6 +58,7 @@ class MgPage extends ConsumerStatefulWidget {
 class _MgPageState extends ConsumerState<MgPage> {
   ScrollController? _own;
   double _dockH = 0;
+  double _headerH = 0;
 
   ScrollController get _ctrl => widget.controller ?? (_own ??= ScrollController());
 
@@ -83,6 +93,15 @@ class _MgPageState extends ConsumerState<MgPage> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: widget.sections),
           ),
         );
+    Widget? header = widget.header;
+    if (header != null && widget.pinnedBack != null) {
+      header = MgSizeReporter(
+        onSize: (s) {
+          if (mounted && (s.height - _headerH).abs() > 0.5) setState(() => _headerH = s.height);
+        },
+        child: header,
+      );
+    }
     final content = <Widget>[
       // A viewport paints EARLIER slivers on top of later ones, so a sheet
       // overlapping the header must share one box with it (in a Column the
@@ -92,11 +111,11 @@ class _MgPageState extends ConsumerState<MgPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [widget.header!, sections()],
+            children: [header!, sections()],
           ),
         )
       else ...[
-        if (widget.header != null) SliverToBoxAdapter(child: widget.header),
+        if (header != null) SliverToBoxAdapter(child: header),
         if (widget.sections.isNotEmpty) SliverToBoxAdapter(child: sections()),
       ],
       ...widget.slivers,
@@ -131,7 +150,53 @@ class _MgPageState extends ConsumerState<MgPage> {
               child: widget.dock!,
             ),
           ),
+        if (widget.pinnedBack != null)
+          Positioned(
+            left: 12,
+            top: MediaQuery.paddingOf(context).top + 8,
+            child: _PinnedBack(
+              controller: _ctrl,
+              // The header's own disc sits in its top ~70 px: show the
+              // pinned one just before that part leaves the screen.
+              after: _headerH > 0 ? (_headerH - 72).clamp(24.0, double.infinity) : 64,
+              close: widget.pinnedClose,
+              onTap: widget.pinnedBack!,
+            ),
+          ),
       ]),
+    );
+  }
+}
+
+/// The pinned back disc of [MgPage] (fades in / out with the scroll, no
+/// hit or semantics while hidden; reduced motion = instant).
+class _PinnedBack extends StatelessWidget {
+  final ScrollController controller;
+  final double after;
+  final bool close;
+  final VoidCallback onTap;
+  const _PinnedBack({required this.controller, required this.after, required this.close, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final d = MgMotion.of(context, MgMotion.color);
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final px = controller.hasClients && controller.positions.length == 1 ? controller.position.pixels : 0.0;
+        final on = px > after;
+        return IgnorePointer(
+          ignoring: !on,
+          child: ExcludeSemantics(
+            excluding: !on,
+            child: AnimatedOpacity(
+              opacity: on ? 1 : 0,
+              duration: d,
+              child: MgV2Back(onTap: onTap, close: close, style: MgBackStyle.photo),
+            ),
+          ),
+        );
+      },
     );
   }
 }

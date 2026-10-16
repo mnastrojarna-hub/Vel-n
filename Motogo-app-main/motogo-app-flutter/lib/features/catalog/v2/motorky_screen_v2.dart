@@ -39,6 +39,28 @@ class MotorkyScreenV2 extends ConsumerStatefulWidget {
 class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
   bool _grid = false;
 
+  /// Mode of THIS mount: the calculator only on an explicit request (Home
+  /// funnel), otherwise the bike list — a once-used calculator must not
+  /// hijack later "find a bike" entries (Pobočka, empty Rezervace…).
+  late CatalogMode _mode;
+
+  @override
+  void initState() {
+    super.initState();
+    _mode = ref.read(catalogCalcRequestProvider) ? CatalogMode.calc : CatalogMode.find;
+    // Consume the request and align the shared mode (never during build).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(catalogCalcRequestProvider.notifier).state = false;
+      if (ref.read(catalogModeProvider) != _mode) ref.read(catalogModeProvider.notifier).state = _mode;
+    });
+  }
+
+  void _setMode(CatalogMode m) {
+    if (m != _mode) setState(() => _mode = m);
+    if (ref.read(catalogModeProvider) != m) ref.read(catalogModeProvider.notifier).state = m;
+  }
+
   /// Načíst katalog znovu (zdroj i odvozený filtrovaný seznam) — jako dřív.
   void _reloadMotos() {
     ref.invalidate(motorcyclesProvider);
@@ -61,7 +83,12 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final mode = ref.watch(catalogModeProvider);
+    // Switches from inside the tab (calculator "show free") write the
+    // shared mode — follow them.
+    ref.listen<CatalogMode>(catalogModeProvider, (_, next) {
+      if (next != _mode) setState(() => _mode = next);
+    });
+    final mode = _mode;
     final motosAsync = ref.watch(filteredMotorcyclesProvider);
     final filter = ref.watch(catalogFilterProvider);
     final sort = ref.watch(catalogSortProvider);
@@ -70,7 +97,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
 
     final header = MotorkyHeaderV2(
       mode: mode,
-      onMode: (m) => ref.read(catalogModeProvider.notifier).state = m,
+      onMode: _setMode,
       count: mode == CatalogMode.find ? count : null,
       grid: _grid,
       onGrid: (g) => setState(() => _grid = g),

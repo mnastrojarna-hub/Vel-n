@@ -10,6 +10,7 @@ import '../tokens/mg_colors.dart';
 import '../tokens/mg_shadows.dart';
 import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
+import 'mg_word_fit.dart';
 
 /// One option of [MgSegmented].
 class MgSegment<T> {
@@ -103,12 +104,18 @@ class MgSegmented<T> extends ConsumerWidget {
     final fg = dark
         ? (selected ? MgColors.onNeon : MgColors.onDarkSecondary)
         : (selected ? MgColors.ink : MgColors.lead);
-    final label = Text(
-      s.label,
-      textAlign: TextAlign.center,
-      maxLines: 2,
-      softWrap: true,
-      style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: fg, height: 1.2),
+    // Jednoslovný popisek se nikdy nerozdělí („Doporuč|ené"): nejdřív se
+    // zmenší (do 75 %), až potom zalomí v mezeře — opraví všechny segmenty.
+    final label = MgWordFit(
+      minScale: 0.75,
+      alignment: Alignment.center,
+      child: Text(
+        s.label,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        softWrap: true,
+        style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: fg, height: 1.2),
+      ),
     );
     final child = iconAbove
         ? Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [

@@ -5,6 +5,7 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/chrome/mg_fab_avoid.dart';
 
 /// `MgReveal` that decides ONCE per element whether it is the first build
 /// of [sessionKey] in this app session — the widget tree keeps its shape
@@ -40,7 +41,8 @@ class HomeTextLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = dark ? MgColors.neonText : MgColors.link;
-    return Semantics(
+    // „Vše ›" bývá vpravo — tap zóna, AI tlačítko nad ním jen nakoukne.
+    return MgFabAvoid(kind: MgAvoidKind.tap, child: Semantics(
       button: true,
       label: label,
       excludeSemantics: true,
@@ -58,6 +60,6 @@ class HomeTextLink extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }

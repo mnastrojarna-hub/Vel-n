@@ -232,6 +232,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     ];
     return MgPage(
       overlapHero: false,
+      pinnedBack: w.onBack,
       sections: [
         // Hlavička a pod ní obsah vytažený o 24 px nahoru — kreslený PO
         // hlavičce, takže rekapitulace leží na jejím zaobleném okraji.

@@ -95,6 +95,8 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
       return Money.czk(l);
     }
 
+    final emptyOrError = (async.hasError && !async.hasValue) || (async.hasValue && list.isEmpty);
+    final photoH = MediaQuery.sizeOf(context).height < 800 && !emptyOrError ? 150.0 : 200.0;
     final Widget slot = async.when(
       skipLoadingOnReload: true,
       loading: () => const FunnelSkeleton(),
@@ -167,7 +169,9 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           ClipRRect(
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-            child: SizedBox(height: 200, child: slot),
+            // Nižší telefon (< 800 dp): fotka 150, ať je REZERVOVAT nad
+            // spodní lištou (V22 §2.4 #4). Prázdný / chybový stav potřebuje 200.
+            child: SizedBox(height: photoH, child: slot),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),

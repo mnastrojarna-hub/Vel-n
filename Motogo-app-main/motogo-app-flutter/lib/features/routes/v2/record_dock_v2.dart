@@ -14,6 +14,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_dialog.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../ride_actions.dart';
 import '../ride_recorder.dart';
 
@@ -172,6 +173,8 @@ class _LiveBar extends StatelessWidget {
     final tr = t(context);
     final mode = tr.tr(rec.gpsLost ? 'v2RtRecGps' : (rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto'));
     final edge = rec.gpsLost ? MgColors.warnDark.withValues(alpha: 0.6) : MgColors.sosDot.withValues(alpha: 0.55);
+    return LayoutBuilder(builder: (context, c) {
+    final narrow = c.maxWidth < 300;
     return Container(
       constraints: const BoxConstraints(minHeight: 56),
       decoration: BoxDecoration(
@@ -195,15 +198,27 @@ class _LiveBar extends StatelessWidget {
                   _Dot(gpsLost: rec.gpsLost),
                   const SizedBox(width: 8),
                   Expanded(
+                    // Titul vždy na jeden řádek a celý („NAH|RÁV|ÁM" ne):
+                    // zmenší se, režim smí na 2 řádky bez dělení slov.
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                      Text(tr.tr('rideRecording').toUpperCase(),
-                          style: MgType.ctaCompact.copyWith(color: MgColors.onDark, letterSpacing: 0.5)),
+                      MgWordFit(
+                        minScale: 0.65,
+                        child: Text(tr.tr('rideRecording').toUpperCase(),
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                            style: MgType.ctaCompact.copyWith(color: MgColors.onDark, letterSpacing: 0.5)),
+                      ),
                       const SizedBox(height: 2),
-                      Text(mode,
-                          maxLines: 2,
-                          style: MgType.small.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: rec.gpsLost ? MgColors.warnDark : MgColors.onDarkLead)),
+                      MgWordFit(
+                        minScale: 0.8,
+                        child: Text(mode,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: MgType.small.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: rec.gpsLost ? MgColors.warnDark : MgColors.onDarkLead)),
+                      ),
                     ]),
                   ),
                 ]),
@@ -211,16 +226,22 @@ class _LiveBar extends StatelessWidget {
             ),
           ),
         ),
-        if (rec.manual) Padding(padding: const EdgeInsets.only(right: 6), child: _StopButton(onTap: onStop)),
+        // Úzká lišta (< 300 dp): „Ukončit" jako 44px ikona (popisek zůstává
+        // v sémantice), ať má text záznamu dost místa.
+        if (rec.manual) Padding(padding: const EdgeInsets.only(right: 6), child: _StopButton(onTap: onStop, iconOnly: narrow)),
       ]),
     );
+    });
   }
 }
 
 class _StopButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool compact;
-  const _StopButton({required this.onTap, this.compact = false});
+
+  /// Just the ■ (44 × 44) — the label stays in semantics / tooltip.
+  final bool iconOnly;
+  const _StopButton({required this.onTap, this.compact = false, this.iconOnly = false});
 
   @override
   Widget build(BuildContext context) {
@@ -233,17 +254,19 @@ class _StopButton extends StatelessWidget {
         onTap: onTap,
         child: Container(
           constraints: BoxConstraints(minHeight: compact ? 36 : 44, minWidth: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : 12),
           decoration: BoxDecoration(
             color: MgColors.surface,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [BoxShadow(color: MgColors.black(0.4), blurRadius: 14, offset: const Offset(0, 6), spreadRadius: -8)],
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const MgIcon(MgIcons.stopFilled, size: 14, color: MgColors.err),
-            const SizedBox(width: 6),
-            Text(tr.tr('v2RtRecStop'), style: MgType.ctaCompact.copyWith(color: MgColors.err, letterSpacing: 0)),
-          ]),
+          child: iconOnly
+              ? const SizedBox(width: 44, height: 44, child: Center(child: MgIcon(MgIcons.stopFilled, size: 16, color: MgColors.err)))
+              : Row(mainAxisSize: MainAxisSize.min, children: [
+                  const MgIcon(MgIcons.stopFilled, size: 14, color: MgColors.err),
+                  const SizedBox(width: 6),
+                  Text(tr.tr('v2RtRecStop'), style: MgType.ctaCompact.copyWith(color: MgColors.err, letterSpacing: 0)),
+                ]),
         ),
       ),
     );

@@ -41,7 +41,7 @@ void showCommunityAddMenu(BuildContext context) {
           // Automatický záznam (běžící výpůjčka) si jezdec neřídí — jízda se
           // nahrává sama, takže tlačítko v menu nemá co nabídnout.
           final auto = rec.recording && !rec.manual;
-          return Column(
+          final menu = Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(height: 4),
@@ -86,6 +86,9 @@ void showCommunityAddMenu(BuildContext context) {
               const SizedBox(height: 12),
             ],
           );
+          // v2 (o položku víc — plánovač): na nízkém telefonu se menu posouvá
+          // místo přetečení spodního okraje.
+          return MgV2.on(c) ? SingleChildScrollView(child: menu) : menu;
         },
       ),
     ),

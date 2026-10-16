@@ -240,7 +240,7 @@ class _RankRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final name = status.rankNameFor(tr);
+    final name = RankCopy.name(tr, status.level, status.rankName);
     return Semantics(
       button: true,
       label: RankCopy.aria(tr, status.level, name, status.percent),

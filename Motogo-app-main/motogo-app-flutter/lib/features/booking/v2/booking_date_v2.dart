@@ -71,6 +71,7 @@ class BookingDateCardV2 extends StatelessWidget {
                 what: tr.tr('fxBookedDatesFail'),
                 onRetry: onRetryBooked,
                 compact: true,
+                contact: false,
               )
             else ...[
               if (b != null && b.isLoading && !b.hasValue)

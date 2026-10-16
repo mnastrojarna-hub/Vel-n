@@ -211,6 +211,7 @@ class _RouteDescV2State extends State<RouteDescV2> {
           textScaler: MediaQuery.textScalerOf(context),
         )..layout(maxWidth: c.maxWidth);
         final long = tp.didExceedMaxLines;
+        tp.dispose();
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           MgAnimatedSize(
             duration: MgMotion.sheet,

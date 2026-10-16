@@ -8,6 +8,7 @@ import '../tokens/mg_colors.dart';
 import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
 import '../widgets/mg_buttons.dart';
+import '../widgets/mg_word_fit.dart';
 import 'trip_day_state.dart';
 
 /// Month title 17/800 with ‹ › 44 px discs.
@@ -122,8 +123,9 @@ class TripLegend extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: border, width: 1.5),
         ),
+        // Ikona, ne text: '+' v písmu přetékal 14px čtvereček při větším písmu.
         child: k == TripLegendKind.added
-            ? Center(child: Text('+', style: MgType.micro.copyWith(fontSize: 10, height: 1, color: MgColors.onNeon)))
+            ? const Center(child: MgIcon(MgIcons.plus, size: 10, color: MgColors.onNeon, stroke: 2.6))
             : null,
       );
     }
@@ -133,7 +135,9 @@ class TripLegend extends StatelessWidget {
         Row(mainAxisSize: MainAxisSize.min, children: [
           swatch(k),
           const SizedBox(width: 6),
-          Text(label(k), style: MgType.small.copyWith(color: dark ? MgColors.onDarkLead : MgColors.lead)),
+          Flexible(
+            child: Text(label(k), style: MgType.small.copyWith(color: dark ? MgColors.onDarkLead : MgColors.lead)),
+          ),
         ]),
     ]);
   }
@@ -241,8 +245,15 @@ class TripAvailabilityBanner extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2, color: dark ? MgColors.neon : MgColors.link),
               ),
               const SizedBox(width: 8),
-              Text(tr.tr('v2CalLoading'),
-                  style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: dark ? MgColors.onDark : MgColors.ink)),
+              // Smí na 2 řádky (de / fr / nl…) — nikdy nepřetéct pilulku.
+              Flexible(
+                child: MgWordFit(
+                  minScale: 0.85,
+                  child: Text(tr.tr('v2CalLoading'),
+                      maxLines: 2,
+                      style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: dark ? MgColors.onDark : MgColors.ink)),
+                ),
+              ),
             ]),
           ),
         ),
@@ -262,8 +273,11 @@ class TripAvailabilityBanner extends StatelessWidget {
           MgIcon(MgIcons.xCircle, size: 20, color: dark ? MgColors.errDark : MgColors.err),
           const SizedBox(width: MgSpace.s8),
           Expanded(
-            child: Text(tr.tr('v2CalError'),
-                style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: dark ? MgColors.onDark : MgColors.ink)),
+            child: MgWordFit(
+              minScale: 0.85,
+              child: Text(tr.tr('v2CalError'),
+                  style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: dark ? MgColors.onDark : MgColors.ink)),
+            ),
           ),
           if (onRetry != null) MgBtnText(label: tr.tr('retry'), onTap: onRetry, dark: dark),
         ]),

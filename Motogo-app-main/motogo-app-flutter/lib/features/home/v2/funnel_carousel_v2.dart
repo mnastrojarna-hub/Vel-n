@@ -8,6 +8,7 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../catalog/moto_model.dart';
 import 'funnel_provider.dart';
 import 'home_ticket_parts.dart';
@@ -96,12 +97,16 @@ class FunnelBikeCard extends StatelessWidget {
                   alignment: Alignment.centerRight,
                   child: badge == null ? const SizedBox.shrink() : _GlassPill(
                     border: again ? MgColors.neonA(0.42) : MgColors.white(0.25),
-                    child: Text(badge!,
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.fade,
-                        style: MgType.micro.copyWith(
-                            fontWeight: FontWeight.w800, color: again ? MgColors.neonText : MgColors.onDark)),
+                    // Celý štítek i se skupinou ŘP („A2") — raději menší než useknutý.
+                    child: MgWordFit(
+                      minScale: 0.7,
+                      child: Text(badge!,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.fade,
+                          style: MgType.micro.copyWith(
+                              fontWeight: FontWeight.w800, color: again ? MgColors.neonText : MgColors.onDark)),
+                    ),
                   ),
                 ),
               ),

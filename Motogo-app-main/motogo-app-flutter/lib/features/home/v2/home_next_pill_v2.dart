@@ -8,6 +8,7 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../catalog/catalog_provider.dart';
 import 'funnel_provider.dart';
 import 'home_date_sheet_v2.dart';
@@ -42,7 +43,10 @@ class HomeNextPillV2 extends ConsumerWidget {
         : tr.tr('v2HomePillTitle');
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Row(children: [
+      // Pilulka i kalkulačka = tap zóny (AI tlačítko nad nimi jen nakoukne).
+      child: MgFabAvoid(
+        kind: MgAvoidKind.tap,
+        child: Row(children: [
         Expanded(
           child: Semantics(
             button: true,
@@ -113,6 +117,7 @@ class HomeNextPillV2 extends ConsumerWidget {
           ),
         ),
       ]),
+      ),
     );
   }
 }

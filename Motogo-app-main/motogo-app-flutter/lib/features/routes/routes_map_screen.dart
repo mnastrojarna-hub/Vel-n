@@ -371,6 +371,37 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
               ],
             ),
             const SizedBox(height: 6),
+            // v2: tlačítka a nápověda se zalomí na další řádek místo
+            // přetečení vpravo (14–30 px v de / fr / uk).
+            if (MgV2.on(context))
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (onNext != null)
+                    _miniBtn(Icons.alt_route, t(context).tr('routesMapNextRoute'), onNext),
+                  _miniBtn(
+                    _withOtherPlaces ? Icons.layers_clear : Icons.layers,
+                    t(context).tr(_withOtherPlaces ? 'routesMapOnlyRoutes' : 'routesMapShowOther'),
+                    () => setState(() {
+                      _withOtherPlaces = !_withOtherPlaces;
+                      _cache = null;
+                    }),
+                  ),
+                  Text(
+                    t(context).tr('routesMapTapHint'),
+                    maxLines: 2,
+                    style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeSm,
+                      fontWeight: MotoGoTypo.w600,
+                      color: Color(0xFF8AAB99),
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              )
+            else
             Row(
               children: [
                 // Další trasa vybraného bodu — rychlé přepínání nahoře

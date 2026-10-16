@@ -80,7 +80,7 @@ void main() {
     PfCase('branches', 'list', () => const BranchesInfoScreen(), branchesOverrides),
     PfCase('branch', 'mezna', () => const BranchDetailScreen(index: 0), branchesOverrides),
     PfCase('branch', 'vn_open', () => const BranchDetailScreen(index: 1), branchesOverrides, after: _expandAll, level: 15),
-    for (final l in const [1, 6, 10, 17, 20])
+    for (final l in const [1, 6, 10, 13, 14, 16, 17, 18, 20])
       PfCase('loyalty', 'rank$l', () => const LoyaltyScreenV2(), () => loyaltyOverrides(status: l == 3 ? kLoyalty3 : loyaltyAt(l)), level: l),
     PfCase('loyalty', 'guest', () => const LoyaltyScreenV2(), () => loyaltyOverrides(), level: 0),
     PfCase('loyalty', 'loading', () => const LoyaltyScreenV2(), () => loyaltyOverrides(status: kLoyalty3, loading: true), settle: false),

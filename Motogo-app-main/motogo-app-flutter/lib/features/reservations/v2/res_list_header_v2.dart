@@ -27,7 +27,7 @@ class ResListHeaderV2 extends ConsumerWidget {
     final frame = RankFrame(
       size: 44,
       showMarks: false,
-      semanticLabel: status == null ? null : RankCopy.aria(tr, status.level, status.rankNameFor(tr), status.percent),
+      semanticLabel: status == null ? null : RankCopy.aria(tr, status.level, RankCopy.name(tr, status.level, status.rankName), status.percent),
       child: Image.asset(
         'assets/logo.webp',
         fit: BoxFit.cover,
@@ -60,8 +60,8 @@ class ResListHeaderV2 extends ConsumerWidget {
         if (status != null) ...[
           const SizedBox(height: 12),
           MgRankChip(
-            label: RankCopy.chip(tr, status.rankNameFor(tr), status.percent),
-            semanticLabel: RankCopy.aria(tr, status.level, status.rankNameFor(tr), status.percent),
+            label: RankCopy.chip(tr, RankCopy.name(tr, status.level, status.rankName), status.percent),
+            semanticLabel: RankCopy.aria(tr, status.level, RankCopy.name(tr, status.level, status.rankName), status.percent),
           ),
         ],
       ]),

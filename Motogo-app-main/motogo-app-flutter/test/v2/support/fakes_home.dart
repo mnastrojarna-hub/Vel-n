@@ -24,6 +24,7 @@ import 'package:motogo_app/features/documents/docs_gate_provider.dart';
 import 'package:motogo_app/features/documents/document_provider.dart';
 import 'package:motogo_app/features/home/v2/funnel_provider.dart';
 import 'package:motogo_app/features/loyalty/loyalty_provider.dart';
+import 'package:motogo_app/features/loyalty/rank_names.dart' show loyaltyDefaultRankNamesCs;
 import 'package:motogo_app/features/messages/messages_provider.dart';
 import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
@@ -125,13 +126,15 @@ const kLoyalty3 = LoyaltyStatus(
   bookingsToNext: 1,
 );
 
+/// Status at [level] with the REAL seeded rank names (the club card / header
+/// show them — an empty name hid the R5.7 "rank name in ink" check).
 LoyaltyStatus loyaltyAt(int level) => LoyaltyStatus(
       level: level,
       percent: level,
-      rankName: '',
+      rankName: loyaltyDefaultRankNamesCs[level] ?? '',
       colorHex: '#000000',
       qualifyingCount: 2 * level - 1,
-      nextRankName: level < 20 ? 'Další' : null,
+      nextRankName: level < 20 ? loyaltyDefaultRankNamesCs[level + 1] : null,
       nextPercent: level < 20 ? level + 1 : null,
       bookingsToNext: level < 20 ? 1 : null,
     );

@@ -14,6 +14,7 @@ import '../../branches/branches_info_provider.dart';
 import '../../branches/branches_widgets.dart' show plainText;
 import 'home_ticket_parts.dart';
 import 'home_reveal.dart';
+import '../../branches/v2/branch_texts_v2.dart';
 
 /// Pobočky (V22 §2.4 #12, web P5): Mezná = white card, Velké Němčice =
 /// dark card (the lower page's one dark block). Texts = the same CMS keys as
@@ -25,7 +26,8 @@ class HomeBranchesV2 extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final lang = tr.lang;
-    final tx = ref.watch(branchesInfoProvider(lang)).valueOrNull ?? branchesInfoDefaults;
+    // Popisky z CMS; v cizím jazyce bez překladu (offline) appové texty.
+    final tx = v2BranchTexts(tr, ref.watch(branchesInfoProvider(lang)).valueOrNull ?? branchesInfoDefaults);
     String v(String k) => plainText(tx[k] ?? branchesInfoDefaults[k] ?? '');
     final detail = v('detail_button');
     return Padding(

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' show NumberFormat;
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
+import '../../../core/v2/shell/shell_nav_map.dart' show V2TabOrigin, v2SetTabOrigin;
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
@@ -48,7 +50,11 @@ class HomeRoutesV2 extends ConsumerWidget {
           eyebrow: tr.tr('v2HomeRoutesEyebrow'),
           title: tr.tr(origin == null ? 'v2HomeRoutesPopular' : 'v2HomeRoutesNear'),
           trailingLabel: tr.tr('v2HomeRoutesAll'),
-          onTrailing: () => GoRouter.maybeOf(context)?.push(Routes.routesList),
+          onTrailing: () {
+            // Trasy ukážou „‹ Domů" (V22 §6.2).
+            v2SetTabOrigin(ref, const V2TabOrigin(tab: 3, route: Routes.home, labelKey: 'v2TabHome'));
+            GoRouter.maybeOf(context)?.push(Routes.routesList);
+          },
         ),
         if (async.hasError && !async.hasValue)
           Padding(
@@ -150,7 +156,7 @@ class _RouteCard extends StatelessWidget {
                       decoration: BoxDecoration(color: MgColors.nightA(0.8), borderRadius: BorderRadius.circular(999)),
                       child: Center(
                         widthFactor: 1,
-                        child: Text(tr.trArgs('v2HomeRouteDist', {'km': km!.toStringAsFixed(km! < 10 ? 1 : 0).replaceAll('.', ',')}),
+                        child: Text(tr.trArgs('v2HomeRouteDist', {'km': NumberFormat(km! < 10 ? '0.0' : '0', tr.lang).format(km)}),
                             style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.neonText)),
                       ),
                     ),

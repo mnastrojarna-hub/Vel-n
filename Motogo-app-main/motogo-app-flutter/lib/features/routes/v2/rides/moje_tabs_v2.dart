@@ -13,6 +13,7 @@ import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_chips.dart';
 import '../../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/widgets/error_feedback.dart' show openFixSettings;
 import '../../ride_recorder.dart' show RideRecorderState;
 
@@ -88,73 +89,80 @@ class MojeRecordRowV2 extends StatelessWidget {
     final sub = rec.recording
         ? tr.tr(rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto')
         : tr.tr(rec.enabled ? 'v2RideAutoOn' : 'v2RideAutoOff');
+    final tile = Semantics(
+      button: true,
+      label: '${tr.tr('rideRecordTitle')}, $sub',
+      hint: tr.tr('v2RideRecOpenA11y'),
+      excludeSemantics: true,
+      child: MgPress(
+        scale: 0.98,
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Row(children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: MgColors.panel, borderRadius: BorderRadius.circular(12)),
+              child: Center(
+                child: rec.recording
+                    ? MgPing(size: 10, color: MgColors.sosDot, active: !MgMotion.reduced(context))
+                    : const MgIcon(MgIcons.recordDot, size: 22, color: MgColors.neon),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Wrap(spacing: 6, runSpacing: 2, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                  MgWordFit(minScale: 0.75, child: Text(tr.tr('rideRecordTitle'), style: MgType.title.copyWith(color: MgColors.ink))),
+                  if (rec.recording)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(color: MgColors.errBg, borderRadius: BorderRadius.circular(999)),
+                      child: Text(tr.tr('rideRecording'),
+                          style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.err)),
+                    ),
+                ]),
+                MgWordFit(minScale: 0.85, child: Text(sub, style: MgType.small.copyWith(color: MgColors.meta))),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+    final controls = <Widget>[
+      MgIconButton(
+        icon: MgIcons.info,
+        style: MgIconButtonStyle.light,
+        iconColor: MgColors.link,
+        semanticLabel: tr.tr('v2RideRecInfoA11y'),
+        onTap: onHint,
+      ),
+      Semantics(
+        label: tr.tr('v2RideAutoTitle'),
+        child: Switch(
+          value: rec.enabled,
+          onChanged: onEnabled,
+          activeThumbColor: MgColors.onNeon,
+          activeTrackColor: MgColors.neon,
+          inactiveThumbColor: MgColors.meta,
+          inactiveTrackColor: MgColors.well,
+          trackOutlineColor: const WidgetStatePropertyAll(MgColors.lineInput),
+        ),
+      ),
+    ];
     return MgCard(
       padding: const EdgeInsets.fromLTRB(6, 6, 4, 6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Expanded(
-            child: Semantics(
-              button: true,
-              label: '${tr.tr('rideRecordTitle')}, $sub',
-              hint: tr.tr('v2RideRecOpenA11y'),
-              excludeSemantics: true,
-              child: MgPress(
-                scale: 0.98,
-                onTap: onOpen,
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Row(children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(color: MgColors.panel, borderRadius: BorderRadius.circular(12)),
-                      child: Center(
-                        child: rec.recording
-                            ? MgPing(size: 10, color: MgColors.sosDot, active: !MgMotion.reduced(context))
-                            : const MgIcon(MgIcons.recordDot, size: 22, color: MgColors.neon),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Wrap(spacing: 6, runSpacing: 2, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                          Text(tr.tr('rideRecordTitle'), style: MgType.title.copyWith(color: MgColors.ink)),
-                          if (rec.recording)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(color: MgColors.errBg, borderRadius: BorderRadius.circular(999)),
-                              child: Text(tr.tr('rideRecording'),
-                                  style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.err)),
-                            ),
-                        ]),
-                        Text(sub, style: MgType.small.copyWith(color: MgColors.meta)),
-                      ]),
-                    ),
-                  ]),
-                ),
-              ),
-            ),
-          ),
-          MgIconButton(
-            icon: MgIcons.info,
-            style: MgIconButtonStyle.light,
-            iconColor: MgColors.link,
-            semanticLabel: tr.tr('v2RideRecInfoA11y'),
-            onTap: onHint,
-          ),
-          Semantics(
-            label: tr.tr('v2RideAutoTitle'),
-            child: Switch(
-              value: rec.enabled,
-              onChanged: onEnabled,
-              activeThumbColor: MgColors.onNeon,
-              activeTrackColor: MgColors.neon,
-              inactiveThumbColor: MgColors.meta,
-              inactiveTrackColor: MgColors.well,
-              trackOutlineColor: const WidgetStatePropertyAll(MgColors.lineInput),
-            ),
-          ),
-        ]),
+        // Úzký telefon: ⓘ a přepínač na druhý řádek, ať má název a stav
+        // celou šířku (de „Fahrtaufzeichnung" se jinak lámal uprostřed).
+        LayoutBuilder(builder: (context, c) {
+          if (c.maxWidth >= 340) return Row(children: [Expanded(child: tile), ...controls]);
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            tile,
+            Row(mainAxisAlignment: MainAxisAlignment.end, children: controls),
+          ]);
+        }),
         MgAnimatedSize(
           duration: const Duration(milliseconds: 220),
           curve: MgMotion.out,

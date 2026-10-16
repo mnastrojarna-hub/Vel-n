@@ -6,6 +6,7 @@ import '../motion/mg_anim.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_shadows.dart';
 import '../tokens/mg_type.dart';
+import '../widgets/mg_word_fit.dart';
 
 /// What a status strip is about (icon disc colour; meaning, never rank).
 enum MgStripKind { sos, pay, verifying, docs, route, cart }
@@ -53,6 +54,7 @@ class MgStatusStrip extends StatelessWidget {
       ),
       child: Center(child: MgIcon(icon, size: 20, color: fg)),
     );
+    final lines = kind == MgStripKind.sos ? 3 : 2;
     final main = Semantics(
       button: true,
       label: sub == null ? title : '$title, $sub',
@@ -63,21 +65,29 @@ class MgStatusStrip extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 48),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             child: Row(children: [
               disc,
               const SizedBox(width: 12),
               Expanded(
                 child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: MgType.body.copyWith(fontWeight: FontWeight.w800, height: 1.25, color: MgColors.onDark)),
-                  if (sub != null)
-                    Text(sub!,
-                        maxLines: 1,
+                  // Nikdy „…" uprostřed výzvy (SOS!): text se nejdřív zmenší,
+                  // pak smí na 2 řádky (SOS na 3) a pruh se zvýší.
+                  MgWordFit(
+                    minScale: 0.85,
+                    child: Text(title,
+                        maxLines: lines,
                         overflow: TextOverflow.ellipsis,
-                        style: MgType.tab(MgType.small.copyWith(height: 1.25, color: MgColors.onDarkSecondary))),
+                        style: MgType.body.copyWith(fontWeight: FontWeight.w800, height: 1.25, color: MgColors.onDark)),
+                  ),
+                  if (sub != null)
+                    MgWordFit(
+                      minScale: 0.85,
+                      child: Text(sub!,
+                          maxLines: lines,
+                          overflow: TextOverflow.ellipsis,
+                          style: MgType.tab(MgType.small.copyWith(height: 1.25, color: MgColors.onDarkSecondary))),
+                    ),
                 ]),
               ),
               const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.neonText),

@@ -53,7 +53,7 @@ List<RenderCase> catalogRenderCases() {
   final (ws, we) = futureWeekend();
   final dated = CatalogFilter(startDate: ws, endDate: we);
   final available = [kBmw, kHusq, kKids];
-  final calcMode = catalogModeProvider.overrideWith((ref) => CatalogMode.calc);
+  final calcMode = catalogCalcRequestProvider.overrideWith((ref) => true); // Home funnel request → calculator
   const banner = BannerData(
       enabled: true, text: 'V zimním období od 1. 11. 2026 do 25. 3. 2027 zavřeno.', bg: Color(0xFF74FB71), color: Color(0xFF000000));
   Widget motorky() => const MotorkyScreenV2();

@@ -188,7 +188,7 @@ void main() {
         screen: (_) => const MotorkyScreenV2(),
         overrides: [
           ...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: we, pickupTime: '12:00'), profile: _profile),
-          catalogModeProvider.overrideWith((ref) => CatalogMode.calc),
+          catalogCalcRequestProvider.overrideWith((ref) => true),
         ]);
     final cta = find.byType(MgCta).last;
     await t.ensureVisible(cta);

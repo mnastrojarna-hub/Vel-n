@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../banner_provider.dart';
 import '../../feature_flags.dart' show appV2UiProvider;
 import '../../pending_booking_fab_provider.dart';
-import '../../shell_banner.dart';
 import '../../shell_fab_layer.dart';
 import '../../shell_paid_listener.dart';
 import '../../shell_tab_action.dart';
@@ -18,6 +15,7 @@ import '../../../features/reservations/reservation_models.dart';
 import '../../../features/reservations/reservation_provider.dart';
 import '../chrome/mg_ai_fab.dart';
 import '../chrome/mg_chrome_metrics.dart';
+import '../chrome/mg_top_banner.dart';
 import '../chrome/v2_nav_bar.dart';
 import '../tokens/mg_colors.dart';
 import 'shell_nav_map.dart';
@@ -37,17 +35,10 @@ class AppShellV2 extends ConsumerStatefulWidget {
   ConsumerState<AppShellV2> createState() => _AppShellV2State();
 }
 
-class _AppShellV2State extends ConsumerState<AppShellV2> with WidgetsBindingObserver {
+class _AppShellV2State extends ConsumerState<AppShellV2> {
   final MgShellChrome _chrome = MgShellChrome();
   GoRouter? _router;
   String _location = '/';
-  Timer? _idle;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
 
   @override
   void didChangeDependencies() {
@@ -79,31 +70,31 @@ class _AppShellV2State extends ConsumerState<AppShellV2> with WidgetsBindingObse
     if (!mounted) return;
     final loc = _readLocation();
     if (loc != _location) setState(() => _location = loc);
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) return;
-    final n = ref.read(appV2UiProvider.notifier);
-    n.refresh().then((_) {
-      if (mounted) n.applyPendingIfSafe(_location);
-    });
+    // The cross-tab back chip lives only while its tab is on screen.
+    final origin = ref.read(v2TabOriginProvider);
+    if (origin != null && v2TabIndexFor(loc) != origin.tab) {
+      Future.microtask(() {
+        if (mounted && ref.read(v2TabOriginProvider) == origin) {
+          ref.read(v2TabOriginProvider.notifier).state = null;
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
-    _idle?.cancel();
     _router?.routerDelegate.removeListener(_onRoute);
-    WidgetsBinding.instance.removeObserver(this);
-    _chrome.dispose();
+    // Docks / avoid zones unregister in post-frame callbacks scheduled by the
+    // children (disposed first) → dispose the chrome after them.
+    final c = _chrome;
+    WidgetsBinding.instance.addPostFrameCallback((_) => c.dispose());
     super.dispose();
   }
 
-  bool _onScroll(ScrollNotification n) {
-    _idle?.cancel();
-    _idle = Timer(const Duration(milliseconds: 120), () {
-      if (mounted) _chrome.scrollIdle();
-    });
+  /// One tick per finished scroll (not per frame): only the AI button
+  /// re-checks its slot (`MgShellChrome.scrollTick`).
+  bool _onScroll(ScrollEndNotification n) {
+    _chrome.scrollIdle();
     return false;
   }
 
@@ -116,6 +107,8 @@ class _AppShellV2State extends ConsumerState<AppShellV2> with WidgetsBindingObse
       ref.read(v2TabReselectProvider.notifier).state = (i, prev.$2 + 1);
       return;
     }
+    // Switching tabs ends a cross-tab jump (its back chip goes away).
+    ref.read(v2TabOriginProvider.notifier).state = null;
     await onShellTabTap(context, ref, route: route, isActive: false, isHome: i == 0, location: location);
     if (mounted) ref.read(appV2UiProvider.notifier).applyPendingIfSafe(route);
   }
@@ -127,7 +120,7 @@ class _AppShellV2State extends ConsumerState<AppShellV2> with WidgetsBindingObse
     final banner = ref.watch(bannerProvider);
     final bannerVisible = banner.valueOrNull != null && banner.valueOrNull!.enabled;
     // `/` a `/search` mají banner jako poslední řádek své v2 hlavičky.
-    final topBanner = bannerVisible && path != '/' && path != '/search';
+    final topBanner = bannerVisible && banner.valueOrNull!.text.trim().isNotEmpty && path != '/' && path != '/search';
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final navHidden = keyboardOpen || v2NavHiddenFor(path);
     final fabHidden = keyboardOpen || v2FabHiddenFor(path) || ref.watch(paymentScreenActiveProvider);
@@ -145,6 +138,12 @@ class _AppShellV2State extends ConsumerState<AppShellV2> with WidgetsBindingObse
         false;
     final docsComplete = ref.watch(docsFabStatusProvider).valueOrNull?.isComplete ?? true;
     final needsAction = unpaid || (hasActiveBooking && !docsComplete);
+    // Same dot on the v2 nav drawn outside the shell (Moje zážitky).
+    if (ref.read(v2BookingsNeedActionProvider) != needsAction) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(v2BookingsNeedActionProvider.notifier).state = needsAction;
+      });
+    }
 
     return ShellPaidListener(
       child: Scaffold(
@@ -156,17 +155,14 @@ class _AppShellV2State extends ConsumerState<AppShellV2> with WidgetsBindingObse
           fabVisible: !fabHidden,
           child: Stack(children: [
             Column(children: [
-              if (topBanner)
-                ShellHeaderBanner(
-                  text: banner.valueOrNull!.text,
-                  bg: banner.valueOrNull!.bg,
-                  color: banner.valueOrNull!.color,
-                ),
+              // v2 jednořádkový banner (marquee; při omezení pohybu statický
+              // řádek, klepnutí = celý text) — stejný jako v hlavičce Domů.
+              if (topBanner) MgTopBanner(text: banner.valueOrNull!.text, band: true),
               Expanded(
                 child: MediaQuery.removePadding(
                   context: context,
                   removeTop: topBanner,
-                  child: NotificationListener<ScrollNotification>(
+                  child: NotificationListener<ScrollEndNotification>(
                     onNotification: _onScroll,
                     child: MgBackGuard(shell: true, child: widget.child),
                   ),
@@ -186,9 +182,10 @@ class _AppShellV2State extends ConsumerState<AppShellV2> with WidgetsBindingObse
             ),
             ListenableBuilder(
               listenable: _chrome,
+              // Above a visible dock AND the strips (strips sit on the dock).
               builder: (_, __) => Positioned(
                 right: 16,
-                bottom: 12 + _chrome.stripsHeight,
+                bottom: 12 + _chrome.dockHeight + _chrome.stripsHeight,
                 child: MgAiFab(hidden: fabHidden),
               ),
             ),

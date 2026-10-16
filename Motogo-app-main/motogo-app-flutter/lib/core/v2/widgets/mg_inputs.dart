@@ -5,6 +5,7 @@ import '../motion/mg_anim.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
+import 'mg_word_fit.dart';
 
 /// v2 text-field decoration (light): white fill, 1.5 px `#7C958A` border
 /// (3.22 : 1), focus 2 px `#0D6E0D`, error `#B42318` + message. Use with the
@@ -24,8 +25,16 @@ InputDecoration mgInputDecoration(
         borderSide: BorderSide(color: c, width: w),
       );
   return InputDecoration(
-    labelText: label,
+    // Dlouhý popisek (de / fr „Nouveau mot de passe (min. 8 caractères)") se
+    // zmenší, nezkrátí; nápověda smí na 2 řádky.
+    label: label == null
+        ? null
+        : MgWordFit(
+            minScale: 0.75,
+            child: Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis),
+          ),
     hintText: hint,
+    hintMaxLines: 2,
     errorText: error,
     helperText: helper,
     prefixIcon: prefixIcon,
@@ -78,9 +87,15 @@ class MgSwitchRow extends StatelessWidget {
             child: Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(title, style: MgType.title.copyWith(color: dark ? MgColors.onDark : MgColors.ink)),
+                  MgWordFit(
+                    minScale: 0.8,
+                    child: Text(title, style: MgType.title.copyWith(color: dark ? MgColors.onDark : MgColors.ink)),
+                  ),
                   if (sub != null)
-                    Text(sub!, style: MgType.small.copyWith(color: dark ? MgColors.onDarkMeta : MgColors.meta)),
+                    MgWordFit(
+                      minScale: 0.85,
+                      child: Text(sub!, style: MgType.small.copyWith(color: dark ? MgColors.onDarkMeta : MgColors.meta)),
+                    ),
                 ]),
               ),
               const SizedBox(width: 12),

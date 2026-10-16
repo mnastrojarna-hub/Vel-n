@@ -13,6 +13,7 @@ import 'branch_photos_section.dart';
 import 'branches_info_provider.dart';
 import 'branches_widgets.dart';
 import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/shell/shell_nav_map.dart' show V2TabOrigin, v2SetTabOrigin;
 import 'v2/branch_detail_view_v2.dart';
 
 /// Detail pobočky (`/pobocky/<index>`) — obdoba webu /pobocky/<slug>: texty
@@ -50,7 +51,11 @@ class BranchDetailScreen extends ConsumerWidget {
         branchId: branchId,
         onBack: () => branchesBack(context),
         onNavigate: onNavigate,
-        onBook: () => _bookHere(context, ref, i),
+        onBook: () {
+          // Motorky ukáže „‹ Pobočka" zpět sem (V22 §6.2).
+          v2SetTabOrigin(ref, V2TabOrigin(tab: 1, route: '/pobocky/$i', labelKey: 'v2OriginBranch'));
+          _bookHere(context, ref, i);
+        },
       );
     }
 

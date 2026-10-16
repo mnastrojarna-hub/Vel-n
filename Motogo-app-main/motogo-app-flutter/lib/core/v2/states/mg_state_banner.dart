@@ -5,6 +5,7 @@ import '../tokens/mg_colors.dart';
 import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
 import 'mg_tone.dart';
+import '../widgets/mg_word_fit.dart';
 
 /// T3 banner inside a screen (form blocks, calendar, docs, codes, stale
 /// data): white or tone-tinted card r16, 32 px disc + icon 20, title 14/800,
@@ -81,10 +82,13 @@ class MgStateBanner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-              Text(title, style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: titleColor, height: 1.3)),
+              MgWordFit(
+                minScale: 0.8,
+                child: Text(title, style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: titleColor, height: 1.3)),
+              ),
               if (text != null) ...[
                 const SizedBox(height: 2),
-                Text(text!, style: MgType.small.copyWith(color: textColor)),
+                MgWordFit(minScale: 0.85, child: Text(text!, style: MgType.small.copyWith(color: textColor))),
               ],
               if (actions.isNotEmpty) ...[
                 const SizedBox(height: MgSpace.s8),

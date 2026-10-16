@@ -7,6 +7,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/rank/rank_copy.dart';
 import '../../../core/v2/rank/rank_hero.dart';
+import '../../../core/v2/shell/mg_origin_chip.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
@@ -62,6 +63,8 @@ class MotorkyHeaderV2 extends ConsumerWidget {
       ambientKey: 'motorky',
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // „‹ Domů / Pobočka" po skoku z jiné záložky (V22 §6.2).
+        const MgOriginChip(tab: 1),
         Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

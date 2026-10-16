@@ -6,9 +6,11 @@ import '../tokens/mg_colors.dart';
 import '../tokens/mg_shadows.dart';
 import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
+import 'mg_word_fit.dart';
 
-/// Shared body of the non-rank buttons: label never ellipsizes (wraps to a
-/// second line and the button grows), busy = spinner inside, disabled =
+/// Shared body of the non-rank buttons: label never ellipsizes and never
+/// splits a word (scales down to 80 %, then wraps at a space and the button
+/// grows), busy = spinner inside, disabled =
 /// 45 % opacity, press = .97 + haptic, `Semantics(button)`.
 class _MgButton extends StatelessWidget {
   final String label;
@@ -44,10 +46,15 @@ class _MgButton extends StatelessWidget {
       children: [
         if (icon != null) ...[MgIcon(icon!, size: 20, color: fg), const SizedBox(width: 8)],
         Flexible(
-          child: Text(label,
-              textAlign: TextAlign.center,
-              softWrap: true,
-              style: style.copyWith(color: fg)),
+          // Nikdy nezalomit uprostřed slova („Bearbeit|en"): nejdřív zmenšit
+          // (do 80 %), teprve pak zalomit v mezeře.
+          child: MgWordFit(
+            alignment: Alignment.center,
+            child: Text(label,
+                textAlign: TextAlign.center,
+                softWrap: true,
+                style: style.copyWith(color: fg)),
+          ),
         ),
       ],
     );

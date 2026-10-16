@@ -5,11 +5,13 @@ import '../../../core/router.dart' show MotoGoBackNav, Routes;
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/rank/rank_hero.dart';
+import '../../../core/v2/shell/mg_origin_chip.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_segmented.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../animated_route_icon.dart';
 
 /// The three faces of the Trasy tab (one hub, routing unchanged).
@@ -66,27 +68,48 @@ class TrasyHubHeaderV2 extends StatelessWidget {
       ambientKey: 'trasy',
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // „‹ Domů" po skoku z Domů („Všechny trasy", V22 §6.2).
+        if (onBack == null) const MgOriginChip(tab: 3),
         Row(children: [
           if (onBack != null) ...[
             MgV2Back(onTap: onBack, style: MgBackStyle.dark),
             const SizedBox(width: 10),
           ],
           Expanded(
-            child: Row(children: [
-              Flexible(
-                child: Semantics(
-                  header: true,
-                  child: Text(title ?? tr.tr('routesTitle'),
-                      style: MgType.h2.copyWith(color: MgColors.onDark, height: 1.1)),
+            // Titul na jeden řádek, nikdy rozdělený uprostřed slova („Route|s"):
+            // když se s ozdobnou ikonou nevejde, ikona ustoupí a titul se
+            // případně mírně zmenší.
+            child: LayoutBuilder(builder: (context, c) {
+              final text = title ?? tr.tr('routesTitle');
+              final style = MgType.h2.copyWith(color: MgColors.onDark, height: 1.1);
+              final tp = TextPainter(
+                text: TextSpan(text: text, style: style),
+                textDirection: Directionality.of(context),
+                textScaler: MediaQuery.textScalerOf(context),
+                maxLines: 1,
+              )..layout();
+              final showIcon = tp.width + 38 <= c.maxWidth;
+              tp.dispose();
+              return Row(children: [
+                Flexible(
+                  child: Semantics(
+                    header: true,
+                    child: MgWordFit(
+                      minScale: 0.7,
+                      child: Text(text, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: style),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              ExcludeSemantics(
-                child: reduced
-                    ? const MgIcon(MgIcons.route, size: 24, color: MgColors.neon)
-                    : const RepaintBoundary(child: AnimatedRouteIcon(size: 28)),
-              ),
-            ]),
+                if (showIcon) ...[
+                  const SizedBox(width: 10),
+                  ExcludeSemantics(
+                    child: reduced
+                        ? const MgIcon(MgIcons.route, size: 24, color: MgColors.neon)
+                        : const RepaintBoundary(child: AnimatedRouteIcon(size: 28)),
+                  ),
+                ],
+              ]);
+            }),
           ),
           if (onMap != null)
             MgIconButton(
@@ -169,9 +192,11 @@ class TrasySearchV2 extends StatelessWidget {
             textInputAction: TextInputAction.search,
             cursorColor: MgColors.neon,
             style: MgType.body.copyWith(color: MgColors.onDark),
+            // Dlouhá nápověda (fr / uk) na 2 řádky místo „…".
             decoration: InputDecoration.collapsed(
               hintText: hint,
-              hintStyle: MgType.body.copyWith(color: MgColors.onDarkMeta),
+              hintMaxLines: 2,
+              hintStyle: MgType.body.copyWith(color: MgColors.onDarkMeta, height: 1.25),
             ),
           ),
         ),

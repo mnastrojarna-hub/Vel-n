@@ -11,7 +11,7 @@ import '../../auth/auth_provider.dart';
 import '../../messages/messages_provider.dart';
 import 'home_state.dart';
 
-/// Concierge note under the motto (max 2 lines, never ellipsized mid-word):
+/// Concierge note under the motto (one line — compact header, V22 §2.4 #1):
 /// birthday → state note (S3 / S6 / S7 / S8 / S9 / S0) → newest unread
 /// message title. Nothing to say → nothing drawn.
 class HomeHeaderNote extends ConsumerWidget {
@@ -77,8 +77,9 @@ class HomeHeaderNote extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
+            // Jeden řádek (kompaktní hlavička, V22 §2.4 #1).
             child: Text(text,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: MgType.body.copyWith(height: 1.4, color: MgColors.onDarkLead)),
           ),

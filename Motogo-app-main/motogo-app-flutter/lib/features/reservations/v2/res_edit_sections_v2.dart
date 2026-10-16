@@ -161,7 +161,7 @@ class EditCalendarSectionV2 extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(instruction, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.body2)),
                 if (tab == 'extend')
-                  Text(tr.tr('searchSingleDayHint'), style: MgType.meta.copyWith(color: MgColors.meta)),
+                  Text(tr.tr('v2BkSingleDayHint'), style: MgType.meta.copyWith(color: MgColors.meta)),
               ]),
             ),
           ]),

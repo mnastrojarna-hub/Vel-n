@@ -42,15 +42,38 @@ class MgDock extends StatefulWidget {
 
 class _MgDockState extends State<MgDock> {
   MgShellChrome? _chrome;
+  ModalRoute<dynamic>? _route;
+  bool _covered = false;
+
+  /// A dock under a pushed page is invisible: it must not lift the strips
+  /// or the AI button (`MgShellChrome.dockHeight` skips it).
+  bool _visible() => mounted && !_covered;
+
+  void _onCover(AnimationStatus status) {
+    final covered = status == AnimationStatus.forward || status == AnimationStatus.completed;
+    if (covered == _covered) return;
+    _covered = covered;
+    final c = _chrome;
+    WidgetsBinding.instance.addPostFrameCallback((_) => c?.dockVisibilityChanged());
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _chrome = MgChromeScope.chromeOf(context);
+    final r = ModalRoute.of(context);
+    if (r != _route) {
+      _route?.secondaryAnimation?.removeStatusListener(_onCover);
+      _route = r;
+      final a = r?.secondaryAnimation;
+      a?.addStatusListener(_onCover);
+      _covered = a != null && (a.status == AnimationStatus.forward || a.status == AnimationStatus.completed);
+    }
   }
 
   @override
   void dispose() {
+    _route?.secondaryAnimation?.removeStatusListener(_onCover);
     final c = _chrome;
     WidgetsBinding.instance.addPostFrameCallback((_) => c?.removeDock(this));
     super.dispose();
@@ -112,7 +135,7 @@ class _MgDockState extends State<MgDock> {
       ]),
     );
     return MgSizeReporter(
-      onSize: (s) => _chrome?.reportDock(this, s.height),
+      onSize: (s) => _chrome?.reportDock(this, s.height, visible: _visible),
       child: dock,
     );
   }

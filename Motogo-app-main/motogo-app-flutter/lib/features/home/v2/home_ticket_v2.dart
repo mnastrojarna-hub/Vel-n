@@ -17,6 +17,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/widgets/pickup_location_link.dart';
+import '../../booking/price_calculator.dart' show branchLat, branchLng;
 import '../../documents/docs_gate_provider.dart';
 import '../../reservations/reservation_models.dart';
 import '../../sos/sos_provider.dart';
@@ -189,7 +190,16 @@ class HomeTicketV2 extends ConsumerWidget {
 
     void navigate() {
       if (r == null) return;
-      openPickupMap(PickupInfo(name: r.branchName, address: r.branchAddress, lat: r.branchLat, lng: r.branchLng));
+      // Stejné vstupy jako detail rezervace (ResWhenWhereV2): GPS pobočky
+      // s náhradní polohou a celá adresa — samotné „Mezná 9" by mapy poslalo
+      // do jiné Mezné.
+      final full = [r.branchAddress, r.branchCity].where((p) => p != null && p.isNotEmpty).join(', ');
+      openPickupMap(PickupInfo(
+        name: r.branchName,
+        address: full.isEmpty ? r.branchName : full,
+        lat: r.branchLat ?? branchLat,
+        lng: r.branchLng ?? branchLng,
+      ));
     }
 
     Widget cta(String key, VoidCallback onTap, {String? price}) => MgFabAvoid(

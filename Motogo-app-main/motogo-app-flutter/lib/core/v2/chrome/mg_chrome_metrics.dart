@@ -11,37 +11,66 @@ enum MgAvoidKind { cta, sos, tap }
 /// none (all zero).
 class MgShellChrome extends ChangeNotifier {
   double _strips = 0;
-  final Map<Object, double> _docks = {};
+  final Map<Object, (double, bool Function())> _docks = {};
   final Map<Object, (RenderBox? Function(), MgAvoidKind)> _zones = {};
-  int _scrollSeq = 0;
+  bool _disposed = false;
+
+  /// Scroll went idle (sequence). A separate listenable: only the AI button
+  /// re-checks its slot — layout dependents of the chrome (pages, strips)
+  /// do not rebuild after every scroll gesture.
+  final ValueNotifier<int> scrollTick = ValueNotifier<int>(0);
 
   double get stripsHeight => _strips;
-  double get dockHeight => _docks.values.fold(0.0, (a, b) => a > b ? a : b);
-  int get scrollSeq => _scrollSeq;
 
-  void reportStrips(double h) {
-    if ((h - _strips).abs() < 0.5) return;
-    _strips = h;
-    notifyListeners();
+  /// Tallest dock on a route that is not covered by another page (a dock
+  /// under a pushed screen is invisible and must not lift the strips).
+  double get dockHeight {
+    var h = 0.0;
+    for (final d in _docks.values) {
+      if (d.$1 > h && d.$2()) h = d.$1;
+    }
+    return h;
   }
 
-  void reportDock(Object owner, double h) {
-    if ((_docks[owner] ?? -1) == h) return;
-    _docks[owner] = h;
-    notifyListeners();
+  int get scrollSeq => scrollTick.value;
+
+  /// Children unregister in post-frame callbacks and may outlive the shell
+  /// by a frame (logout, a route outside the shell, the kill-switch) — then
+  /// every call is a no-op instead of "used after being disposed".
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  void reportStrips(double h) {
+    if (_disposed || (h - _strips).abs() < 0.5) return;
+    _strips = h;
+    _notify();
+  }
+
+  void reportDock(Object owner, double h, {bool Function()? visible}) {
+    if (_disposed) return;
+    final old = _docks[owner];
+    _docks[owner] = (h, visible ?? old?.$2 ?? () => true);
+    if (old?.$1 != h) _notify();
   }
 
   void removeDock(Object owner) {
-    if (_docks.remove(owner) != null) notifyListeners();
+    if (_disposed) return;
+    if (_docks.remove(owner) != null) _notify();
   }
 
+  /// A dock's route got covered / uncovered → strips and AI button re-place.
+  void dockVisibilityChanged() => _notify();
+
   void registerZone(Object owner, RenderBox? Function() box, MgAvoidKind kind) {
+    if (_disposed) return;
     _zones[owner] = (box, kind);
-    notifyListeners();
+    _notify();
   }
 
   void removeZone(Object owner) {
-    if (_zones.remove(owner) != null) notifyListeners();
+    if (_disposed) return;
+    if (_zones.remove(owner) != null) _notify();
   }
 
   /// Avoid zones in global coordinates (detached boxes are skipped).
@@ -58,8 +87,16 @@ class MgShellChrome extends ChangeNotifier {
 
   /// Scroll went idle → re-evaluate the AI button placement.
   void scrollIdle() {
-    _scrollSeq++;
-    notifyListeners();
+    if (_disposed) return;
+    scrollTick.value++;
+  }
+
+  @override
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    scrollTick.dispose();
+    super.dispose();
   }
 }
 

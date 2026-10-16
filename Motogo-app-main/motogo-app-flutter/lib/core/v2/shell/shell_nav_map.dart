@@ -55,6 +55,10 @@ bool v2FabHiddenFor(String location) {
   final p = _path(location);
   return v2NavHiddenFor(p) ||
       p.startsWith('/sos') ||
+      // E-shop / dárkový poukaz: staré obrazovky s tlačítky přes celou šířku
+      // dole („Přidat do košíku", koupě poukazu) — AI tlačítko by je krylo.
+      p.startsWith('/shop') ||
+      p == '/voucher' ||
       p == '/cart' ||
       p == '/routes' ||
       p == '/routes-list' ||
@@ -65,3 +69,30 @@ bool v2FabHiddenFor(String location) {
 
 /// Re-tap of the active tab: (tab index, sequence) — `MgPage` scrolls to top.
 final v2TabReselectProvider = StateProvider<(int, int)>((_) => (-1, 0));
+
+/// A booking needs action (unpaid draft, or documents missing for a paid
+/// active / upcoming booking) — the Rezervace dot. Written by `AppShellV2`
+/// (post-frame) from the providers it already watches, read by the v2 nav
+/// drawn outside the shell (Moje zážitky) without starting any polling.
+final v2BookingsNeedActionProvider = StateProvider<bool>((_) => false);
+
+/// Where a cross-tab jump with context came from (DESIGN_V22 §6.2
+/// exception): the target tab shows a "‹ {label}" chip that goes back to
+/// [route] until the customer switches tabs.
+class V2TabOrigin {
+  /// Tab index the jump opened (1 Motorky, 3 Trasy…).
+  final int tab;
+
+  /// Where the chip goes back to (`context.go`).
+  final String route;
+
+  /// i18n key of the chip label ("Domů", "Pobočka", "Pobočky").
+  final String labelKey;
+
+  const V2TabOrigin({required this.tab, required this.route, required this.labelKey});
+}
+
+final v2TabOriginProvider = StateProvider<V2TabOrigin?>((_) => null);
+
+/// Remembers a cross-tab jump right before the `go` / `push` that does it.
+void v2SetTabOrigin(WidgetRef ref, V2TabOrigin origin) => ref.read(v2TabOriginProvider.notifier).state = origin;

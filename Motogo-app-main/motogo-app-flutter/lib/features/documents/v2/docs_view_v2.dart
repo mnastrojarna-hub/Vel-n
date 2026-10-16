@@ -66,7 +66,7 @@ class DocsViewV2 extends StatelessWidget {
           margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (v != null && !v.isComplete) ...[
-              Text(tr.tr('docsRequiredInfo'), style: MgType.small.copyWith(color: MgColors.onDarkLead)),
+              Text(tr.tr('v2DocsRequiredInfo'), style: MgType.small.copyWith(color: MgColors.onDarkLead)),
               const SizedBox(height: 12),
             ],
             if (loading)

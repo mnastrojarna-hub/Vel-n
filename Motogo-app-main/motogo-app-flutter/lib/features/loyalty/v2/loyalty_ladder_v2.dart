@@ -9,6 +9,7 @@ import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/rank/rank_tokens.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../booking/booking_models.dart' show loyaltyFreeGearLevel;
 import '../loyalty_levels_provider.dart';
 import 'loyalty_status_parts_v2.dart';
@@ -122,27 +123,20 @@ class _LevelRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: isCurrent ? MgColors.neonA(0.55) : MgColors.white(0.06), width: isCurrent ? 1.5 : 1),
         ),
-        child: Row(children: [
+        // Benefit (výbava zdarma) pod celým řádkem — na plnou šířku, ne vedle
+        // odznaků (nl „Passagiersuitrusting" se jinak lámal uprostřed slova).
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+         Row(children: [
           frame,
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(RankCopy.name(tr, level.level, level.name),
-                  style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: locked ? MgColors.onDarkLead : MgColors.onDark)),
+              MgWordFit(
+                child: Text(RankCopy.name(tr, level.level, level.name),
+                    style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: locked ? MgColors.onDarkLead : MgColors.onDark)),
+              ),
               Text(tr.tr('loyaltyFromBooking').replaceAll('{n}', '${2 * level.level - 2}'),
                   style: MgType.tab(MgType.micro.copyWith(fontWeight: FontWeight.w600, color: MgColors.onDarkMeta))),
-              if (level.level >= loyaltyFreeGearLevel)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    MgIcon(MgIcons.vest, size: 14, color: locked ? MgColors.neonText.withValues(alpha: 0.6) : MgColors.neonText),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(tr.tr('loyaltyGearBenefit'),
-                          style: MgType.micro.copyWith(color: locked ? MgColors.neonText.withValues(alpha: 0.6) : MgColors.neonText)),
-                    ),
-                  ]),
-                ),
             ]),
           ),
           const SizedBox(width: 8),
@@ -176,6 +170,22 @@ class _LevelRow extends StatelessWidget {
             const SizedBox(width: 6),
             const MgIcon(MgIcons.lock, size: 16, color: MgColors.onDarkFloor),
           ],
+         ]),
+          if (level.level >= loyaltyFreeGearLevel)
+            Padding(
+              padding: const EdgeInsets.only(left: 52, top: 4),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                MgIcon(MgIcons.vest, size: 14, color: locked ? MgColors.neonText.withValues(alpha: 0.6) : MgColors.neonText),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: MgWordFit(
+                    minScale: 0.85,
+                    child: Text(tr.tr('loyaltyGearBenefit'),
+                        style: MgType.micro.copyWith(color: locked ? MgColors.neonText.withValues(alpha: 0.6) : MgColors.neonText)),
+                  ),
+                ),
+              ]),
+            ),
         ]),
       ),
     );

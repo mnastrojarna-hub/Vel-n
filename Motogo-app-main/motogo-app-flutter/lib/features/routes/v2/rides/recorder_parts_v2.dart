@@ -8,6 +8,7 @@ import '../../../../core/v2/motion/mg_motion.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../ride_recorder.dart' show RideRecorderState;
 
 /// The recorder's live card (DESIGN_V22 §4.2 D, dark): what the recorder
@@ -56,9 +57,15 @@ class RecorderLiveCardV2 extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Text(live ? status.toUpperCase() : status,
-              textAlign: TextAlign.center,
-              style: MgType.h2.copyWith(color: MgColors.onDark, letterSpacing: live ? 1 : 0)),
+          // Stav celý, nikdy „ENREGISTREME|NT": nejdřív zmenšit.
+          MgWordFit(
+            minScale: 0.65,
+            alignment: Alignment.center,
+            child: Text(live ? status.toUpperCase() : status,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: MgType.h2.copyWith(color: MgColors.onDark, letterSpacing: live ? 1 : 0)),
+          ),
           const SizedBox(height: 10),
           if (live)
             Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6, children: [

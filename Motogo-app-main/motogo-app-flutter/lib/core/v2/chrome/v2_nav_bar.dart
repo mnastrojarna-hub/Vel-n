@@ -74,11 +74,11 @@ class V2NavBar extends ConsumerWidget {
           child: LayoutBuilder(builder: (context, c) {
             final width = c.maxWidth;
             final col = width / 5;
-            final fit = v2NavFit(
+            final fit = v2NavFitCached(
               full: full,
               short: short,
               width: width,
-              measure: v2NavMeasure(base),
+              base: base,
               scale: MediaQuery.textScalerOf(context).scale(11) / 11,
             );
             final index = activeIndex.clamp(0, 4);

@@ -10,6 +10,7 @@ import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/documents/docs_gate_provider.dart';
 import 'package:motogo_app/features/documents/document_models.dart';
 import 'package:motogo_app/features/documents/document_provider.dart';
+import 'package:motogo_app/core/v2/rank/rank_palette.dart' show kRankOldSeedHex;
 import 'package:motogo_app/features/loyalty/loyalty_levels_provider.dart';
 import 'package:motogo_app/features/loyalty/loyalty_provider.dart';
 import 'package:motogo_app/features/loyalty/rank_names.dart';
@@ -124,10 +125,11 @@ const _gateOk = DocsGateChecklist(
   identityOk: true, licenseOk: true, hasDob: true, ageOk: true, expiryOk: true, groupsOk: true,
 );
 
-/// The 20 levels as today's DB seeds them (old colours → the ramp maps them).
+/// The 20 levels as today's DB seeds them (each level's OWN old seed colour
+/// → the ramp maps them; one grey for all hid look-alike VIP badges).
 List<LoyaltyLevel> levels() => [
       for (var l = 1; l <= 20; l++)
-        LoyaltyLevel(level: l, percent: l, minBookingOrder: l, name: loyaltyDefaultRankNamesCs[l]!, colorHex: '#9CA3AF'),
+        LoyaltyLevel(level: l, percent: l, minBookingOrder: l, name: loyaltyDefaultRankNamesCs[l]!, colorHex: kRankOldSeedHex[l - 1]),
     ];
 
 List<Override> loyaltyOverrides({LoyaltyStatus? status, bool loading = false, bool error = false}) => [

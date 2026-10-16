@@ -5,6 +5,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_day_state.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
@@ -27,14 +28,8 @@ String bkRange(AppTranslations tr, DateTime s, DateTime e) => tripSameDay(s, e)
 /// Height change animated (sheet tempo); under reduced motion the child
 /// is placed directly (a zero-length AnimatedSize may re-dirty itself
 /// during layout).
-Widget bkAnimatedSize(BuildContext context, Widget child) => MgMotion.reduced(context)
-    ? child
-    : AnimatedSize(
-        duration: MgMotion.sheet,
-        curve: MgMotion.out,
-        alignment: Alignment.topCenter,
-        child: child,
-      );
+Widget bkAnimatedSize(BuildContext context, Widget child) =>
+    MgAnimatedSize(duration: MgMotion.sheet, curve: MgMotion.out, alignment: Alignment.topCenter, child: child);
 
 /// Money in the chosen currency (the existing formatter).
 String bkMoney(num czk) => Money.czk(czk);

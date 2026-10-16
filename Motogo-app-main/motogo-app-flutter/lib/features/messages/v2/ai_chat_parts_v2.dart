@@ -145,7 +145,7 @@ class AiSosCardV2 extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(tr.tr('reportSosIncident'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.err)),
-                Text(tr.tr('clickToReportProblem'), style: MgType.small.copyWith(color: MgColors.err)),
+                Text(tr.tr('v2TapToReport'), style: MgType.small.copyWith(color: MgColors.err)),
               ]),
             ),
             const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.err),

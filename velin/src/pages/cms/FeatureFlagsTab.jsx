@@ -37,6 +37,12 @@ const KNOWN_FLAGS = {
     on: 'Položka „E-shop" je v menu webu i appky vidět (vedle „Pobočky").',
     off: 'Výchozí stav (zadání majitele 2026-10-01): e-shop se v menu NEZOBRAZUJE — místo něj je záložka „Pobočky". Stránky e-shopu dál fungují na přímý odkaz. Web změnu ukáže hned (Velín vyčistí cache webu), appka po znovuotevření menu.',
   },
+  app_v2_ui: {
+    title: 'Nový vzhled mobilní aplikace (v2) — nouzový vypínač',
+    controls: 'Mobilní aplikace pro Android od verze 4.2.0 (iOS zatím jen starý vzhled). Mění JEN vzhled — rezervace, platby, doklady i všechna data fungují v obou vzhledech stejně. Řádek flagu vzniká SQL migrací.',
+    on: 'Výchozí stav (i když řádek chybí): zákazníci vidí nový vzhled appky (v2).',
+    off: 'Okamžitý návrat ke STARÉMU vzhledu bez vydání nové verze. Appka změnu převezme na kořeni záložky (Domů, Motorky, Rezervace, Trasy, Profil), po návratu do appky nebo po dalším spuštění — nikdy uprostřed rezervace, úpravy nebo platby.',
+  },
   debug_mode: {
     title: 'Debug režim Velínu',
     controls: 'Tento administrační panel (Velín).',

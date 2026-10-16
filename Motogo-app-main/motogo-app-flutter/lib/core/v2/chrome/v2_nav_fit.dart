@@ -108,17 +108,56 @@ V2NavFit v2NavFit({
 }
 
 /// TextPainter measure for [v2NavFit] with the style the nav really draws
-/// (w800 — the active weight, the widest).
+/// (w800 — the active weight, the widest). Widths are cached app-wide per
+/// (style, label, px): the shell rebuilds on every route change and poll, so
+/// the nav must not re-lay-out up to 15 TextPainters each time.
 double Function(String, double) v2NavMeasure(TextStyle base) {
-  final cache = <String, double>{};
-  return (label, px) => cache.putIfAbsent('$label@$px', () {
-        final tp = TextPainter(
-          text: TextSpan(text: label, style: base.copyWith(fontSize: px, fontWeight: FontWeight.w800)),
-          textDirection: TextDirection.ltr,
-          maxLines: 1,
-        )..layout();
-        final w = tp.width;
-        tp.dispose();
-        return w;
-      });
+  _watchFonts();
+  final style = base.copyWith(fontWeight: FontWeight.w800);
+  return (label, px) {
+    final key = (style, label, px);
+    final hit = _measureCache[key];
+    if (hit != null) return hit;
+    if (_measureCache.length > 400) _measureCache.clear();
+    final tp = TextPainter(
+      text: TextSpan(text: label, style: style.copyWith(fontSize: px)),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final w = tp.width;
+    tp.dispose();
+    return _measureCache[key] = w;
+  };
+}
+
+final Map<(TextStyle, String, double), double> _measureCache = {};
+final Map<(String, String, double, double, TextStyle), V2NavFit> _fitCache = {};
+bool _fontsWatched = false;
+
+/// A font loaded later (Montserrat from the network / assets) changes the
+/// widths → forget every cached measurement.
+void _watchFonts() {
+  if (_fontsWatched) return;
+  _fontsWatched = true;
+  try {
+    PaintingBinding.instance.systemFonts.addListener(() {
+      _measureCache.clear();
+      _fitCache.clear();
+    });
+  } catch (_) {}
+}
+
+/// [v2NavFit] memoised on its inputs (labels, width, scale, style).
+V2NavFit v2NavFitCached({
+  required List<String> full,
+  required List<String?> short,
+  required double width,
+  required TextStyle base,
+  double scale = 1,
+}) {
+  final key = (full.join('\u0001'), short.join('\u0001'), width, scale, base);
+  final hit = _fitCache[key];
+  if (hit != null) return hit;
+  if (_fitCache.length > 64) _fitCache.clear();
+  return _fitCache[key] = v2NavFit(full: full, short: short, width: width, measure: v2NavMeasure(base), scale: scale);
 }

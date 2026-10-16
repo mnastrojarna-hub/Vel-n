@@ -46,7 +46,7 @@ String? normalizeRankHex(String? hex) {
 /// Colour the v2 UI draws for [level] when the DB says [dbHex]:
 /// * level 0 (or out of range) → brand neon;
 /// * null / invalid / old seed / unapplied v2.1 draft / the ramp colour itself
-///   → the ramp colour;
+///   / the fromJson default grey `#9CA3AF` (on any level) → the ramp colour;
 /// * anything else = a manual Velín edit → kept (the solver keeps it
 ///   contrast-safe).
 String resolveRankHex(int level, String? dbHex) {
@@ -57,5 +57,12 @@ String resolveRankHex(int level, String? dbHex) {
   if (h == ramp) return ramp;
   if (h == kRankOldSeedHex[level - 1]) return ramp;
   if (kRankV21DraftHex[level] == h) return ramp;
+  // `LoyaltyLevel.fromJson` fills a missing color_hex with this grey — it
+  // means "unset" on every level, never a Velín choice (VIP 17–19 would
+  // otherwise all turn the same silver).
+  if (h == kRankUnsetHex) return ramp;
   return h;
 }
+
+/// The `color_hex` default of `LoyaltyLevel.fromJson` (= old seed of L1).
+const String kRankUnsetHex = '#9CA3AF';

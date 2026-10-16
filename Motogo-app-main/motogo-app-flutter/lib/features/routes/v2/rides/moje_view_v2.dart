@@ -9,7 +9,7 @@ import '../../../../core/shell_tab_action.dart';
 import '../../../../core/v2/chrome/mg_chrome_metrics.dart';
 import '../../../../core/v2/chrome/mg_page.dart';
 import '../../../../core/v2/chrome/v2_nav_bar.dart';
-import '../../../../core/v2/shell/shell_nav_map.dart' show kV2TabRoutes;
+import '../../../../core/v2/shell/shell_nav_map.dart' show kV2TabRoutes, v2BookingsNeedActionProvider, v2TabOriginProvider;
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/widgets/mg_back.dart' show mgIsTopmost;
 import '../../active_ride_provider.dart' show ActiveRide;
@@ -30,6 +30,7 @@ import 'recorder_screen_v2.dart';
 Future<void> mojeNavTab(BuildContext context, WidgetRef ref, int i) async {
   final route = kV2TabRoutes[i];
   final flag = ref.read(appV2UiProvider.notifier);
+  ref.read(v2TabOriginProvider.notifier).state = null; // a tab switch ends a cross-tab jump
   await onShellTabTap(context, ref, route: route, isActive: false, isHome: i == 0, location: '/my-experiences');
   flag.applyPendingIfSafe(route);
 }
@@ -226,7 +227,15 @@ class _MojeViewV2State extends State<MojeViewV2> {
           child: page,
         ),
       ),
-      bottomNavigationBar: V2NavBar(activeIndex: 3, onTap: w.onNavTab, profileBadge: w.unread),
+      // Rezervace dot = the value the shell last computed (no polling here).
+      bottomNavigationBar: Consumer(
+        builder: (_, ref, __) => V2NavBar(
+          activeIndex: 3,
+          onTap: w.onNavTab,
+          profileBadge: w.unread,
+          bookingsNeedAction: ref.watch(v2BookingsNeedActionProvider),
+        ),
+      ),
     );
   }
 }

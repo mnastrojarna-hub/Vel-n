@@ -9,6 +9,7 @@ import 'branches_info_provider.dart';
 import 'branches_widgets.dart';
 import '../../core/router.dart';
 import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/shell/shell_nav_map.dart' show V2TabOrigin, v2SetTabOrigin;
 import 'v2/branches_view_v2.dart';
 
 /// Pobočky — přehled (Profil → Pobočky, na místě dočasně skrytého e-shopu).
@@ -30,7 +31,10 @@ class BranchesInfoScreen extends ConsumerWidget {
         onBack: () => branchesBack(context),
         onRefresh: () => ref.refresh(branchesInfoProvider(lang).future),
         onOpen: (i) => context.push('/pobocky/$i'),
-        onBook: () => context.go(Routes.search),
+        onBook: () {
+          v2SetTabOrigin(ref, const V2TabOrigin(tab: 1, route: Routes.branchesInfo, labelKey: 'branchesLabel'));
+          context.go(Routes.search);
+        },
         onMotosSheet: () => showBranchesSheet(context),
       );
     }

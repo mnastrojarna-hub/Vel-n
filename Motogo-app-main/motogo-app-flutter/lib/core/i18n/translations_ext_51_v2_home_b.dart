@@ -69,7 +69,7 @@ const Map<String, Map<String, String>> translationsExt51V2HomeB = {
     'v2HomeFnPreset2': 'Nächstes Wochenende',
     'v2HomeFnOther': 'Anderer Termin',
     'v2HomeFnFree': 'Frei im Zeitraum',
-    'v2HomeFnLicense': 'Für deinen Führerschein {groups}',
+    'v2HomeFnLicense': 'Für Klasse {groups}',
     'v2HomeFnAgain': 'Nochmal',
     'v2HomeFnPriceFor': 'Dein Preis · {days}',
     'v2HomeFnPrev': 'Vorheriges Motorrad',
