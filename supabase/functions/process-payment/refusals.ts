@@ -97,6 +97,7 @@ export const CS: Record<string, string> = {
   not_extension: 'Tahle platba nepatří k úpravě rezervace.',
   payment_not_paid: 'Platba úpravy neproběhla – nic jsme nestrhli. Otevři rezervaci a zkus to znovu.',
   payment_processing: 'Banka platbu ještě zpracovává. Úpravu dokončíme hned, jak ji potvrdí – nemusíš nic dělat.',
+  payment_unconfirmed: 'Platba ještě čeká na ověření u banky (3D Secure). Jakmile ho dokončíš, úpravu zapíšeme sami – nic dalšího neplať.',
   apply_failed: 'Doplatek je zaplacený a úpravu teď zapisujeme. Dokončí se sama během pár minut – neplať prosím znovu.',
   change_failed: 'Zaplacenou úpravu nešlo zapsat, protože se rezervace mezitím změnila. Doplatek ti automaticky vracíme na kartu.',
   change_failed_staff: 'Zaplacenou úpravu nešlo zapsat automaticky. Obsluha ji zkontroluje a doplatek případně vrátí do 2 pracovních dnů – nemusíš nic dělat.',

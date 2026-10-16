@@ -182,9 +182,9 @@ class PaymentRefusals {
         return PayProblem(title, _t(lang, flow == PayFlow.shop ? 'psOrderAlreadyPaid' : 'psAlreadyPaid'),
             PayAction.success);
       case 'payment_in_progress':
-        // U úpravy jde vždy o PŘEDCHOZÍ doplatek (appka každé „Zaplatit"
-        // posílá s novým attempt_id) — tahle nová úprava se nezaplatila.
-        if (edit) {
+        // Doplatek PŘEDCHOZÍ úpravy se ještě zpracovává / zapisuje — tahle
+        // nová úprava se nezaplatila (nečekat na ni, zkusit ji za chvíli).
+        if (edit && r.previousChange) {
           return PayProblem(_t(lang, 'pdPrevChangeTitle'), _t(lang, 'pdPrevChangeBody'),
               PayAction.reloadEdit);
         }

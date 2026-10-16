@@ -7,6 +7,7 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
+import '../../profile/v2/profile_v2_parts.dart' show PfAnimatedSize;
 
 /// Document card in the dark docs hero (board `.dcard`): illustration,
 /// title, Ověřeno / Neověřeno chip and the action (Smazat / Skenovat) —
@@ -164,9 +165,7 @@ class _DocTipsV2State extends State<DocTipsV2> {
           ),
         ),
       ),
-      AnimatedSize(
-        duration: MgMotion.of(context, MgMotion.sheet),
-        alignment: Alignment.topCenter,
+      PfAnimatedSize(
         child: _open
             ? Padding(
                 padding: const EdgeInsets.only(bottom: 8),

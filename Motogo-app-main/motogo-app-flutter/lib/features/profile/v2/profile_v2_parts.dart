@@ -192,3 +192,17 @@ String? pfDate(dynamic iso) {
   if (d == null) return null;
   return '${d.day}. ${d.month}. ${d.year}';
 }
+
+/// AnimatedSize that is skipped under reduced motion (a zero-duration
+/// AnimatedSize re-dirties itself during layout when its child changes).
+class PfAnimatedSize extends StatelessWidget {
+  final Widget child;
+  final Duration duration;
+  const PfAnimatedSize({super.key, required this.child, this.duration = const Duration(milliseconds: 300)});
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return child;
+    return AnimatedSize(duration: duration, alignment: Alignment.topCenter, child: child);
+  }
+}

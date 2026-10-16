@@ -226,7 +226,7 @@ class StripeService {
         // (doplatek se ještě zapisuje / právě se dopsal) — ne téhle.
         paymentIntentId: data['payment_intent_id'] as String?,
         intentStatus: data['pi_status'] as String?,
-        previousChange: data['previous_change'] == true || data['pending_change'] == true,
+        previousChange: data['previous_change'] == true,
         changeKind: data['change_kind'] as String?,
         paidAmount: (data['paid_amount'] as num?)?.toDouble(),
         httpStatus: response.statusCode,

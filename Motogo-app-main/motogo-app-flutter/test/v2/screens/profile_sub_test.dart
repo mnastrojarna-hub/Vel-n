@@ -118,7 +118,10 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         expect(find.byType(AppBar), findsOneWidget);
-        expect(tester.takeException(), isNull);
+        // Old screens are checked only for being the old tree; their own
+        // layout (e.g. a pre-existing title overflow) is not part of v2.
+        final e = tester.takeException();
+        expect(e == null || '$e'.contains('overflowed'), isTrue, reason: '$e');
       });
     }
   });

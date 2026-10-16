@@ -47,7 +47,7 @@ extension _PaymentProblems on _PaymentScreenState {
     final bid = _pendingBookingId;
     if (pi == null || bid == null || !pi.startsWith('pi_')) return;
     if (_flow != PayFlow.edit && _flow != PayFlow.swap) return;
-    if (PaymentRefusals.codeOf(r) != 'payment_in_progress') return;
+    if (!r.previousChange || PaymentRefusals.codeOf(r) != 'payment_in_progress') return;
     unawaited(PaidChangeQueue.enqueue(PaidChangeEntry(
       key: pi,
       bookingId: bid,

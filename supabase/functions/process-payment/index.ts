@@ -916,7 +916,8 @@ Deno.serve(async (req: Request) => {
         const { data: spi } = await supabase.from('bookings').select('stripe_payment_intent_id').eq('id', booking_id).maybeSingle()
         const g = await guardStoredIntent(stripe, { storedPiId: spi?.stripe_payment_intent_id, type: 'extension', refKey: 'booking_id',
           refId: booking_id, sheet: false, chargeCents: 0, chg: null, liveOnly: true })
-        if (g.action === 'refuse') return refuse(409, 'payment_in_progress', { payment_intent_id: g.piId, pi_status: g.status })
+        // previous_change: platba PŘEDCHOZÍ úpravy (appka: „tuhle novou jsme nezaplatili").
+        if (g.action === 'refuse') return refuse(409, 'payment_in_progress', { payment_intent_id: g.piId, pi_status: g.status, previous_change: true })
         if (g.action === 'paid_extension') {
           // Znovuodeslaný TENTÝŽ pokus (nejistý výsledek) → zaplaceno: appka ověří a dokončí (fronta).
           if (sameAttempt(g.pi, attemptId)) {
@@ -931,9 +932,13 @@ Deno.serve(async (req: Request) => {
               paidCzk: paidPrev, payRef: g.pi.id, rounding: Number(pmd.card_rounding || 0) || 0,
               since: new Date(g.pi.created * 1000).toISOString() })
             if (prev.state === 'applied' || prev.state === 'already_applied') await markApplied(stripe, g.pi.id)
-            if (prev.state === 'applied') return refuse(409, 'stale_booking', {}, CS.previous_change_applied)
+            if (prev.state === 'applied') return refuse(409, 'stale_booking', { previous_change: true }, CS.previous_change_applied)
             if (prev.state === 'retry') {
-              return refuse(409, 'payment_in_progress', { payment_intent_id: g.pi.id, pi_status: 'succeeded', pending_change: true })
+              // Předchozí zaplacenou úpravu teď nejde dopsat → dokončí ji webhook / fronta v appce
+              // (change_kind + paid_amount jí řeknou, co dokončuje); tahle nová se nezaplatila.
+              return refuse(409, 'payment_in_progress', { payment_intent_id: g.pi.id, pi_status: 'succeeded', pending_change: true,
+                previous_change: true, change_kind: (chgFromMetadata(pmd) || '').includes('"_swap"') ? 'swap' : 'edit',
+                paid_amount: paidPrev })
             }
             if (prev.state === 'failed') {
               await handlePaidChangeFailure(supabase, { bookingId: booking_id, payRef: g.pi.id, paidCzk: paidPrev, code: prev.code,
@@ -1103,7 +1108,10 @@ Deno.serve(async (req: Request) => {
         sheet: !payment_method_id, chargeCents: amountCents, chg, attemptId,
         matchMeta: { due: metadata.due, card_rounding: metadata.card_rounding },
       })
-      if (guard.action === 'refuse') return refuse(409, 'payment_in_progress', { payment_intent_id: guard.piId, pi_status: guard.status })
+      if (guard.action === 'refuse') {
+        return refuse(409, 'payment_in_progress', { payment_intent_id: guard.piId, pi_status: guard.status,
+          ...(paymentType === 'extension' ? { previous_change: true } : {}) })
+      }
       // Zaplacený doplatek: předchozí úpravu dokončila kontrola výše; jen TENTÝŽ pokus = čekat.
       if (guard.action === 'paid_extension' && sameAttempt(guard.pi, attemptId)) {
         return refuse(409, 'payment_in_progress', { payment_intent_id: guard.pi.id, pi_status: guard.pi.status })

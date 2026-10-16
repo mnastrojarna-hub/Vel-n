@@ -9,7 +9,9 @@
 // Odpovědi (HTTP 200, není-li uvedeno jinak):
 //   {success:true,  state:'applied'|'already_applied', booking_id, new_booking_id?, total_price?}
 //   {success:true,  state:'client_apply'}                 změna se do metadat nevešla (stará cesta)
-//   {success:false, state:'pending',  code:'payment_processing'}            HTTP 202
+//   {success:false, state:'pending',  code:'payment_processing' | 'payment_unconfirmed'}  HTTP 202
+//     (unconfirmed = requires_action / requires_confirmation: 3D Secure ještě běží —
+//      appka položku fronty NEmaže, dokud platba neskončí zaplacením nebo zrušením)
 //   {success:false, state:'retry',    code:'apply_failed' | 'rounding_unavailable'}  HTTP 503
 //   {success:false, state:'failed',   code:'change_failed', reason, refund:'auto'|'staff', amount}
 //   {success:false, state:'failed',   code:'stale_payment', reason:'refunded'|'stale_payment', refund}  HTTP 409
@@ -52,6 +54,12 @@ export async function handleCompleteExtension(req: Request, body: Record<string,
   if (pi.status === 'processing' || pi.status === 'requires_capture') {
     return respond(202, { success: false, state: 'pending', code: 'payment_processing', error: CS.payment_processing, booking_id: bookingId })
   }
+  if (pi.status === 'requires_action' || pi.status === 'requires_confirmation') {
+    // Ověření u banky (3D Secure) ještě běží — „nezaplaceno" by appce smazalo pojistku
+    // ve frontě přesně ve chvíli, kdy ji potřebuje (zabití appky během 3DS).
+    return respond(202, { success: false, state: 'pending', code: 'payment_unconfirmed', error: CS.payment_unconfirmed, booking_id: bookingId })
+  }
+  // requires_payment_method (zamítnuto / opuštěno) | canceled → nezaplaceno.
   if (pi.status !== 'succeeded') {
     return respond(200, { success: false, state: 'not_paid', code: 'not_paid', error: CS.payment_not_paid, booking_id: bookingId })
   }

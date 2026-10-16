@@ -10,6 +10,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../messages_provider.dart';
+import '../../profile/v2/profile_v2_parts.dart' show PfAnimatedSize;
 
 /// "d. m. H:MM" — today's date format of the message lists.
 String msgDate(DateTime d) => '${d.day}. ${d.month}. ${d.hour}:${d.minute.toString().padLeft(2, '0')}';
@@ -202,9 +203,7 @@ class MsgNoteCardV2 extends StatelessWidget {
                           ]),
                           if (body != null) ...[
                             const SizedBox(height: 4),
-                            AnimatedSize(
-                              duration: MgMotion.of(context, MgMotion.pop),
-                              alignment: Alignment.topCenter,
+                            PfAnimatedSize(
                               child: Text(body,
                                   maxLines: expanded ? null : 3,
                                   overflow: expanded ? null : TextOverflow.ellipsis,

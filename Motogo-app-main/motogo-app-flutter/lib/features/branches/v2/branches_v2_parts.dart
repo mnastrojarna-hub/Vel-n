@@ -8,6 +8,7 @@ import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../branches_widgets.dart' show plainText, richText;
+import '../../profile/v2/profile_v2_parts.dart' show PfAnimatedSize;
 
 /// Branch badge (OBSLUŽNÁ / SAMOOBSLUŽNÁ POBOČKA) — dark pill, neon text on
 /// light; glass on dark.
@@ -116,9 +117,7 @@ class _BranchCollapsibleV2State extends State<BranchCollapsibleV2> {
               ),
             ),
           ),
-          AnimatedSize(
-            duration: MgMotion.of(context, MgMotion.sheet),
-            alignment: Alignment.topCenter,
+          PfAnimatedSize(
             child: _open
                 ? MgEnter(
                     child: Padding(

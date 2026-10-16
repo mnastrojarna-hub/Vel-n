@@ -36,6 +36,7 @@ void main() {
       return extrasOk;
     };
     PaidChangeApply.clientApply = (_) async => true;
+    PaidChangeApply.applyGear = (_, __) async => true;
   });
 
   test('enqueue is idempotent and survives a "restart" (persisted)', () async {
@@ -142,10 +143,23 @@ void main() {
     expect((await PaidChangeQueue.forBooking('b-pi_10')).single.key, 'pi_10');
   });
 
-  test('entries older than 7 days expire', () async {
-    await PaidChangeQueue.enqueue(_e('pi_11'));
-    now = now.add(const Duration(days: 8));
-    expect(await PaidChangeQueue.all(), isEmpty);
+  test('unpaid safety entry expires after 24 h; a paid one never silently', () async {
+    await PaidChangeQueue.enqueue(_e('pi_11', paid: false));
+    await PaidChangeQueue.enqueue(_e('pi_11b'));
+    now = now.add(const Duration(hours: 25));
+    expect((await PaidChangeQueue.all()).map((e) => e.key), ['pi_11b']);
+    // Po týdnu: offline → dál „dokončuje se"; online a server pořád „retry" →
+    // jednou „kontroluje obsluha" (ne tiché zmizení).
+    now = now.add(const Duration(days: 7));
+    answers.add(const CompleteResponse(CompleteState.retry, offline: true));
+    await PaidChangeQueue.drain(reason: 'test', force: true);
+    expect((await PaidChangeQueue.get('pi_11b'))!.isFailed, isFalse);
+    answers.add(const CompleteResponse(CompleteState.retry));
+    final r = await PaidChangeQueue.completeNow('pi_11b');
+    expect(r.status, PaidChangeStatus.failed);
+    expect(r.reason, 'expired');
+    expect(r.refund, 'staff');
+    expect((await PaidChangeQueue.get('pi_11b'))!.failure?['reason'], 'expired');
   });
 
   test('client_apply (payload not in metadata) → legacy client write, then done', () async {

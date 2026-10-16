@@ -80,6 +80,7 @@ import 'translations_ext_41_refix2.dart';
 import 'translations_ext_42_refix3_a.dart';
 import 'translations_ext_42_refix3_b.dart';
 import 'translations_ext_43_payments.dart';
+import 'translations_ext_44_payfix.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -160,6 +161,7 @@ final translations = _mergeAll([
   translationsExt42Refix3A,
   translationsExt42Refix3B,
   translationsExt43Payments,
+  translationsExt44Payfix,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
-import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
@@ -90,9 +89,7 @@ class ProfilePersonalV2 extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 12),
-        AnimatedSize(
-          duration: MgMotion.of(context, MgMotion.sheet),
-          alignment: Alignment.topCenter,
+        PfAnimatedSize(
           child: open
               ? MgEnter(child: ProfilePersonalFormV2(data: form))
               : (profile == null ? const _SummarySkeleton() : _Summary(profile: profile!, form: form)),
