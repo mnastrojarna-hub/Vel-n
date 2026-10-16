@@ -90,7 +90,7 @@ class HomeRecordRowV2 extends ConsumerWidget {
                 MgWordFit(
                   minScale: 0.85,
                   child: Text(sub,
-                      maxLines: 4,
+                      maxLines: 5,
                       overflow: TextOverflow.ellipsis,
                       style: MgType.small.copyWith(color: rec.gpsLost && live ? MgColors.warn : MgColors.meta)),
                 ),
@@ -119,32 +119,39 @@ class HomeRecordRowV2 extends ConsumerWidget {
           border: Border.all(color: live ? MgColors.err : MgColors.line, width: live ? 1.5 : 1),
           boxShadow: live ? [BoxShadow(color: MgColors.err.withValues(alpha: 0.1), spreadRadius: 3)] : null,
         ),
-        child: Row(children: [
-          Expanded(child: main),
-          if (manual)
-            Semantics(
-              button: true,
-              label: tr.tr('rideManualStop'),
-              excludeSemantics: true,
-              child: MgPress(
-                onTap: stop,
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: MgColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: MgColors.err, width: 1.5),
+        // Úzký telefon: „Ukončit" jen jako 44px ikona (popisek v sémantice),
+        // ať má stav záznamu místo a slova se nedělí.
+        child: LayoutBuilder(builder: (context, c) {
+          final iconOnly = c.maxWidth < 330;
+          return Row(children: [
+            Expanded(child: main),
+            if (manual)
+              Semantics(
+                button: true,
+                label: tr.tr('rideManualStop'),
+                excludeSemantics: true,
+                child: MgPress(
+                  onTap: stop,
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                    padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : 14),
+                    decoration: BoxDecoration(
+                      color: MgColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: MgColors.err, width: 1.5),
+                    ),
+                    child: iconOnly
+                        ? const Center(widthFactor: 1, child: MgIcon(MgIcons.stopFilled, size: 16, color: MgColors.err))
+                        : Row(mainAxisSize: MainAxisSize.min, children: [
+                            const MgIcon(MgIcons.stopFilled, size: 16, color: MgColors.err),
+                            const SizedBox(width: 6),
+                            Text(tr.tr('v2HomeRecStop'), style: MgType.ctaCompact.copyWith(letterSpacing: 0, color: MgColors.err)),
+                          ]),
                   ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const MgIcon(MgIcons.stopFilled, size: 16, color: MgColors.err),
-                    const SizedBox(width: 6),
-                    Text(tr.tr('v2HomeRecStop'), style: MgType.ctaCompact.copyWith(letterSpacing: 0, color: MgColors.err)),
-                  ]),
                 ),
               ),
-            ),
-        ]),
+          ]);
+        }),
       ),
     );
   }

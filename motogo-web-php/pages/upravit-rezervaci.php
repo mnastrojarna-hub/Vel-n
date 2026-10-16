@@ -72,6 +72,11 @@ $keys = [
     'editRez.moto.noOptions','editRez.moto.confirm','editRez.moto.branchLabel','editRez.moto.branchAll',
     'editRez.change.success','editRez.change.successWithRefund','editRez.err.activeMotoLocked',
     'editRez.postStripe.applying','editRez.postStripe.error','editRez.postStripe.finishing',
+    // odpověď majitele 2026-10-16: výsledek zaplacené změny ze serveru + minimální platba kartou
+    'editRez.paid.takenTitle','editRez.paid.takenBody','editRez.paid.takenBodyStaff','editRez.paid.pickOther',
+    'editRez.paid.keepCurrent','editRez.paid.close','editRez.paid.failedTitle','editRez.paid.failedBody',
+    'editRez.paid.failedBodyStaff','editRez.paid.notPaid',
+    'editRez.card.round','editRez.card.waive','editRez.card.roundShort','editRez.card.waiveShort',
     'editRez.loc.pickup','editRez.loc.return','editRez.loc.atRental','editRez.loc.delivery','editRez.loc.deliveryReturn',
     'editRez.loc.addrPlaceholder','editRez.loc.mapBtn','editRez.loc.routing','editRez.loc.geocodeFail',
     'editRez.loc.noPriceChange','editRez.loc.cta','editRez.loc.confirm','editRez.loc.pickOnMap','editRez.loc.pickConfirm',
@@ -258,10 +263,12 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-rezervace-camera.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci.js') . '"></script>
+<script src="' . assetUrl('/js/card-rounding.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-move.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-swap.js') . '"></script>
 <script src="' . assetUrl('/js/gear-ss-cap.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-gear.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-paid.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-resume.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-guard.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-gate.js') . '"></script>

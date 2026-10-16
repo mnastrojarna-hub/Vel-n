@@ -7,7 +7,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
 import { authClassify, forbidden } from '../_shared/auth.ts'
-import { refundRemainder, otherRefundableIntents, type ExtraRefund, type OtherIntentsStripe } from './other-intents.ts'
+import { refundRemainder, pickMainIntent, refundedStatus, type ExtraRefund, type OtherIntentsStripe } from './other-intents.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -1236,16 +1236,17 @@ Deno.serve(async (req: Request) => {
     // původní platba rezervace), zbytek níže z ostatních. Dřív: no_op → 'refunded' bez vrácení
     // peněz, resp. ruční vratka převodem, i když peníze leží na kartě. Jen storno / vratka
     // obsluhy s částkou (zákaznická vratka z appky jde dál jen z uložené platby).
-    if (booking_id && !isCustomer && amount && amount > 0 && (chargedHaleru === 0 || refundableHaleru === 0)) {
+    if (booking_id && (chargedHaleru === 0 || refundableHaleru === 0)) {
       try {
-        const cands = (await otherRefundableIntents(stripe as unknown as OtherIntentsStripe, supabase, booking_id, stripePaymentIntentId))
-          .filter((c) => c.refundableHaleru > 0)
-        if (cands.length) {
-          await dlog('main_pi_retargeted', 'info', { stored_payment_intent_id: stripePaymentIntentId, payment_intent_id: cands[0].id,
-            stored_charged_haleru: chargedHaleru, refundable_haleru: cands[0].refundableHaleru })
-          stripePaymentIntentId = cands[0].id
-          chargedHaleru = cands[0].refundableHaleru
-          refundableHaleru = cands[0].refundableHaleru
+        const main = await pickMainIntent(stripe as unknown as OtherIntentsStripe, supabase, {
+          bookingId: booking_id, storedPi: stripePaymentIntentId, chargedHaleru, refundableHaleru, isCustomer, amount,
+        })
+        if (main) {
+          await dlog('main_pi_retargeted', 'info', { stored_payment_intent_id: stripePaymentIntentId, payment_intent_id: main.piId,
+            stored_charged_haleru: chargedHaleru, refundable_haleru: main.refundableHaleru })
+          stripePaymentIntentId = main.piId
+          chargedHaleru = main.refundableHaleru
+          refundableHaleru = main.refundableHaleru
           refundableCZK = refundableHaleru / 100
         }
       } catch (e) {
@@ -1402,10 +1403,8 @@ Deno.serve(async (req: Request) => {
       //  - jinak (plné vrácení / succeeded) → 'refunded'.
       // Zákaznická vratka = jen přeplatek → rezervace s nenulovou cenou zůstává zaplacená
       // (i když se tím vyčerpá aktuální PI, např. doplatkový).
-      const isPartial = (isCustomer && bookingTotalPrice > 0) ||
-        (!!amount && refundableHaleru != null && effectiveAmountHaleru != null && effectiveAmountHaleru < refundableHaleru) ||
-        extra.leftHaleru > 0
-      const newStatus = refund.status === 'pending' ? 'refund_pending' : (isPartial ? 'partial_refund' : 'refunded')
+      const newStatus = refundedStatus({ refundStatus: refund.status, isCustomer, bookingTotalPrice, amount,
+        refundableHaleru, effectiveAmountHaleru, leftHaleru: extra.leftHaleru })
       const bkPatch: Record<string, any> = { payment_status: newStatus, stripe_refund_id: refund.id }
       if (cardBrand) bkPatch.card_brand = cardBrand
       if (cardLast4) bkPatch.card_last4 = cardLast4

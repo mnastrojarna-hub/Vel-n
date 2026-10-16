@@ -105,9 +105,9 @@ class MgSegmented<T> extends ConsumerWidget {
         ? (selected ? MgColors.onNeon : MgColors.onDarkSecondary)
         : (selected ? MgColors.ink : MgColors.lead);
     // Jednoslovný popisek se nikdy nerozdělí („Doporuč|ené"): nejdřív se
-    // zmenší (do 75 %), až potom zalomí v mezeře — opraví všechny segmenty.
+    // zmenší (do 65 %), až potom zalomí v mezeře — opraví všechny segmenty.
     final label = MgWordFit(
-      minScale: 0.75,
+      minScale: 0.65,
       alignment: Alignment.center,
       child: Text(
         s.label,

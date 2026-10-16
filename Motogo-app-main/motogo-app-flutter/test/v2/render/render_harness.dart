@@ -93,11 +93,11 @@ Future<void> loadRenderFonts() async {
   await loader.load();
 }
 
-Widget _app(RenderCase c, String lang, GlobalKey key) {
+Widget _app(RenderCase c, String lang, GlobalKey key, {double? scale}) {
   Widget builder(BuildContext context, Widget? child) => MgV2Scope(
         enabled: true,
         child: MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(renderScale), disableAnimations: true),
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale ?? renderScale), disableAnimations: true),
           child: child!,
         ),
       );
@@ -270,6 +270,28 @@ RFinding _fromError((FlutterErrorDetails, String) e) {
 /// The matrix is heavy (~6 700 tests) → opt-in: MG_VERIFY_RENDER=1.
 bool get renderEnabled => _env('MG_VERIFY_RENDER') != null;
 
+/// Always-on smoke subset (runs in the default `flutter test` too): key
+/// screens at the narrowest phone in cs / de / uk at the app's text scale
+/// (main.dart forces no system scaling) — a render regression there fails
+/// CI without the opt-in matrix. The full matrix stays the 4.2.0 release
+/// gate: `MG_VERIFY_RENDER=1 flutter test test/v2/render/` (+ MG_VERIFY_SCALE=1.0).
+const kRenderSmokeCases = {
+  'reservations__list__all',
+  'shell__tab__routes',
+  'rides__moje__rides',
+  'profile__loyalty__rank17',
+};
+const kRenderSmokeLangs = ['cs', 'de', 'uk'];
+
+/// Real Montserrat metrics are needed (MG_FONTS_DIR or the pub-cache
+/// gallery fonts); with the test font every word is wider → skip, not fail.
+bool get _renderFontsAvailable {
+  final dir = _env('MG_FONTS_DIR');
+  if (dir != null && Directory(dir).existsSync()) return true;
+  final home = Platform.environment['PUB_CACHE'] ?? '${Platform.environment['HOME'] ?? ''}/.pub-cache';
+  return Directory('$home/hosted/pub.dev/flutter_gallery_assets-1.0.2/lib/fonts/google_fonts').existsSync();
+}
+
 /// One test per case × language × size; reduced motion + large text.
 void renderMatrix(List<RenderCase> cases, {Future<void> Function()? setUpAllExtra}) {
   setUpAll(() async {
@@ -284,44 +306,53 @@ void renderMatrix(List<RenderCase> cases, {Future<void> Function()? setUpAllExtr
     for (final lang in renderLangs) {
       for (final size in renderSizes) {
         final w = size.width.toInt(), h = size.height.toInt();
-        testWidgets('${c.id} $lang ${w}x$h', skip: !renderEnabled, (tester) async {
-          tester.view.physicalSize = size * 2;
-          tester.view.devicePixelRatio = 2;
-          addTearDown(tester.view.reset);
-          final key = GlobalKey();
-          final errors = <(FlutterErrorDetails, String)>[];
-          final orig = FlutterError.onError;
-          FlutterError.onError = (d) => errors.add((d, d.toString()));
-          final fs = <RFinding>[];
-          try {
-            await tester.pumpWidget(_app(c, lang, key));
-            await tester.pump();
-            await tester.pump(const Duration(milliseconds: 50));
-            if (c.after != null) await c.after!(tester);
-            final settled = await _settle(tester);
-            if (!settled && !c.loading) fs.add(const RFinding('no-settle', false, 'reduced motion: frame never settles'));
-            await tester.pump(const Duration(milliseconds: 400));
-            fs.addAll(_inspect(tester, lang, size, first: true));
-            await _shot(tester, key, '${c.id}__${lang}__${w}x$h');
-            fs.addAll(await _scrollInspect(tester, lang, size, key, '${c.id}__${lang}__${w}x$h'));
-            await tester.pump(const Duration(seconds: 3));
-            if (c.end != null) await c.end!(tester);
-          } finally {
-            FlutterError.onError = orig;
-          }
-          fs.addAll(errors.map(_fromError));
-          final full = _env('MG_VERIFY_FULLERR');
-          if (full != null && errors.isNotEmpty) {
-            Directory(full).createSync(recursive: true);
-            File('$full/${c.id}__${lang}__${w}x$h.txt').writeAsStringSync(errors.map((e) => e.$2).join('\n\n======\n\n'));
-          }
-          final seen = <String>{};
-          final uniq = [for (final f in fs) if (seen.add(f.key)) f];
-          _report(c, lang, size, uniq);
-          final fails = uniq.where((f) => f.fail).map((f) => '${f.kind}: ${f.text} (${f.detail})').toList();
-          expect(fails, isEmpty, reason: '${c.id} $lang ${w}x$h');
-        });
+        testWidgets('${c.id} $lang ${w}x$h', skip: !renderEnabled, (tester) => _runCase(tester, c, lang, size));
+      }
+    }
+    if (!renderEnabled && kRenderSmokeCases.contains(c.id)) {
+      for (final lang in kRenderSmokeLangs) {
+        testWidgets('smoke ${c.id} $lang 320x690', skip: !_renderFontsAvailable,
+            (tester) => _runCase(tester, c, lang, const Size(320, 690), scale: 1.0));
       }
     }
   }
+}
+
+Future<void> _runCase(WidgetTester tester, RenderCase c, String lang, Size size, {double? scale}) async {
+  final w = size.width.toInt(), h = size.height.toInt();
+  tester.view.physicalSize = size * 2;
+  tester.view.devicePixelRatio = 2;
+  addTearDown(tester.view.reset);
+  final key = GlobalKey();
+  final errors = <(FlutterErrorDetails, String)>[];
+  final orig = FlutterError.onError;
+  FlutterError.onError = (d) => errors.add((d, d.toString()));
+  final fs = <RFinding>[];
+  try {
+    await tester.pumpWidget(_app(c, lang, key, scale: scale));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    if (c.after != null) await c.after!(tester);
+    final settled = await _settle(tester);
+    if (!settled && !c.loading) fs.add(const RFinding('no-settle', false, 'reduced motion: frame never settles'));
+    await tester.pump(const Duration(milliseconds: 400));
+    fs.addAll(_inspect(tester, lang, size, first: true));
+    await _shot(tester, key, '${c.id}__${lang}__${w}x$h');
+    fs.addAll(await _scrollInspect(tester, lang, size, key, '${c.id}__${lang}__${w}x$h'));
+    await tester.pump(const Duration(seconds: 3));
+    if (c.end != null) await c.end!(tester);
+  } finally {
+    FlutterError.onError = orig;
+  }
+  fs.addAll(errors.map(_fromError));
+  final full = _env('MG_VERIFY_FULLERR');
+  if (full != null && errors.isNotEmpty) {
+    Directory(full).createSync(recursive: true);
+    File('$full/${c.id}__${lang}__${w}x$h.txt').writeAsStringSync(errors.map((e) => e.$2).join('\n\n======\n\n'));
+  }
+  final seen = <String>{};
+  final uniq = [for (final f in fs) if (seen.add(f.key)) f];
+  _report(c, lang, size, uniq);
+  final fails = uniq.where((f) => f.fail).map((f) => '${f.kind}: ${f.text} (${f.detail})').toList();
+  expect(fails, isEmpty, reason: '${c.id} $lang ${w}x$h');
 }

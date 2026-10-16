@@ -9,6 +9,7 @@ import { waiveBooking } from './card-minimum.ts'
 import { waiveShopFlow } from './pp-waiver.ts'
 import { floorCheck, freeVerifiedByFloor } from './floor-check.ts'
 import { settleStoredSession, type StripeCheckoutLike } from './checkout-guard.ts'
+import { roundingLabel } from './checkout-labels.ts'
 
 // D1/D2 (2026-10-16): web (hosted Checkout) — zbytek rezervace / objednávky do 1 Kč se
 // neúčtuje (rezervace jde přes ověření karty bez platby, objednávka se potvrdí), 1–15 Kč
@@ -20,7 +21,7 @@ const CARD_MIN = 15
 const r2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100
 const belowMin = (amountCzk: number, text: string) =>
   refuse(400, 'below_minimum', { due: r2(amountCzk), min: CARD_MIN, charge: CARD_MIN, update_required: false }, text)
-const ROUNDING_LINE = 'Dorovnání na minimální platbu kartou (15 Kč)'
+// Položka dorovnání na Stripe stránce v jazyce webu (checkout-labels.ts).
 
 /** Handle web anonymous booking checkout (no auth required) */
 export async function handleWebBookingCheckout(
@@ -242,7 +243,7 @@ export async function handleWebBookingCheckout(
     quantity: 1
   }]
   if (rounding) {
-    lineItems.push({ price_data: { currency, unit_amount: Math.round(rounding.r * 100), product_data: { name: ROUNDING_LINE } }, quantity: 1 })
+    lineItems.push({ price_data: { currency, unit_amount: Math.round(rounding.r * 100), product_data: { name: roundingLabel(body.locale) } }, quantity: 1 })
   }
   const sessionMetadata: Record<string, string> = { booking_id: body.booking_id!, type: 'booking', source: 'web',
     ...(rounding ? { due: String(rounding.due), card_rounding: String(rounding.r) } : {}) }
@@ -340,7 +341,9 @@ export async function handleWebBookingCheckout(
     })
   } catch (e) { console.warn('[WebBookingCheckout] ZF generation failed:', e) }
 
-  return new Response(JSON.stringify({ checkout_url: session.url, session_id: session.id }), {
+  // due / card_rounding / charge: web (i jiný klient) vidí, že Stripe stránka ukáže dorovnání (D1).
+  return new Response(JSON.stringify({ checkout_url: session.url, session_id: session.id,
+    ...(rounding ? { due: rounding.due, card_rounding: rounding.r, charge: CARD_MIN } : {}) }), {
     headers: { ...CORS, 'Content-Type': 'application/json' }
   })
 }
@@ -567,7 +570,7 @@ async function handleWebProductCheckout(
   }
 
   if (shopRounding) {
-    lineItems.push({ price_data: { currency, unit_amount: Math.round(shopRounding.r * 100), product_data: { name: ROUNDING_LINE } }, quantity: 1 })
+    lineItems.push({ price_data: { currency, unit_amount: Math.round(shopRounding.r * 100), product_data: { name: roundingLabel(body.locale) } }, quantity: 1 })
   }
 
   const returnOrigin = resolveReturnOrigin(body.origin, body.locale)
@@ -613,7 +616,8 @@ async function handleWebProductCheckout(
     url: session.url,           // alias pro web (kompatibilita s checkout.js)
     checkout_url: session.url,
     session_id: session.id,
-    order_id: orderId
+    order_id: orderId,
+    ...(shopRounding ? { due: shopRounding.due, card_rounding: shopRounding.r, charge: CARD_MIN } : {}),
   }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
 }
 

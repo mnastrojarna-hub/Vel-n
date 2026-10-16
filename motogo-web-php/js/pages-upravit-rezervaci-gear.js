@@ -188,6 +188,9 @@
         msg.textContent = net > 0 ? MG.t('editRez.gear.surcharge', { amount: MG.formatPrice(net) })
           : net < 0 ? MG.t('editRez.gear.refund', { amount: MG.formatPrice(-net) })
           : MG.t('editRez.gear.noCharge');
+        // D1 na webu: doplatek 1–15 Kč se platí kartou 15 Kč, do 1 Kč se neúčtuje.
+        var cardNote = net > 0 && MG.cardNoteEdit ? MG.cardNoteEdit(net) : '';
+        if (cardNote) msg.textContent += ' ' + cardNote;
       } catch (e) { /* náhled je best-effort */ }
     }, 250);
   };
@@ -225,7 +228,8 @@
           body: JSON.stringify({
             type: 'extension', mode: 'checkout', booking_id: b.id, amount: net,
             change: { _gear: { sizes: sizes }, new_total: dry.data.new_total },
-            success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
+            // session_id → výsledek po návratu říká server (complete_extension, pages-upravit-rezervaci-paid.js)
+            success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id + '&session_id={CHECKOUT_SESSION_ID}',
             cancel_url: window.location.origin + '/upravit-rezervaci?edit_booking=' + b.id + '&edit_tab=gear',
           }),
         });

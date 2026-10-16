@@ -10,6 +10,7 @@ import '../states/mg_tone.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
+import 'mg_word_fit.dart';
 
 export '../states/mg_tone.dart' show MgTone;
 
@@ -63,7 +64,7 @@ class MgChoiceChip extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: fg)),
+                  MgWordFit(minScale: 0.8, child: Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: fg))),
                   if (sub != null)
                     Text(sub!,
                         style: MgType.meta.copyWith(
@@ -228,7 +229,7 @@ class MgMeaningChip extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         MgIcon(icon ?? ic, size: 14, color: fg),
         const SizedBox(width: 6),
-        Flexible(child: Text(label, style: MgType.meta.copyWith(fontWeight: FontWeight.w800, color: fg))),
+        Flexible(child: MgWordFit(minScale: 0.8, child: Text(label, style: MgType.meta.copyWith(fontWeight: FontWeight.w800, color: fg)))),
       ]),
     );
   }

@@ -132,6 +132,15 @@ foreach (['validationUnavailable','amountMismatch','authRequired','forbidden','n
     $v = t('editRez.pay.' . $k);
     if (is_string($v)) $rezI18n['editRez.pay.' . $k] = $v;
 }
+// below_minimum u NOVÉ rezervace (do nasazení SQL 20261016p1): text pro rezervaci, ne pro úpravu
+// (scan.js mapuje kód na editRez.pay.belowMinimum — na této stránce ho nahradí rez.pay.belowMinimum).
+$v = t('rez.pay.belowMinimum');
+if (is_string($v)) $rezI18n['editRez.pay.belowMinimum'] = $v;
+// Minimální platba kartou (odpověď majitele 2026-10-16, „i web") — js/card-rounding.js.
+foreach (['pay.card.round', 'pay.card.roundNote', 'rez.card.waive'] as $k) {
+    $v = t($k);
+    if (is_string($v)) $rezI18n[$k] = $v;
+}
 // Krátké názvy dnů — použité v denním rozpisu ceny (calcPriceBreakdown v api.js).
 foreach (['0','1','2','3','4','5','6'] as $dow) {
     $dk = 'dow.short.' . $dow;
@@ -173,6 +182,7 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 <script src="' . assetUrl('/js/pages-rezervace-steps.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-camera.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
+<script src="' . assetUrl('/js/card-rounding.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
 <script src="' . assetUrl('/js/gear-ss-cap.js') . '"></script>
 <script>

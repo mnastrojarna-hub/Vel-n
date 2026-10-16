@@ -4,13 +4,15 @@
 //     zrušenou rezervaci „oživil" (status reserved/active + paid): zákazník, který
 //     zaplatil otevřený list úpravy až po zrušení (i po vrácení peněz), dostal
 //     rezervaci zpět za cenu doplatku. Teď: PaymentIntent se jen uloží (když rezervace
-//     žádný nemá), živé rezervaci po dřívější vratce se vrátí stav 'paid' (jako dřív)
-//     a zrušená / ukončená rezervace se nemění — změnu odmítne zápis
+//     žádný nemá), živé rezervaci po dřívější vratce se vrátí stav 'paid' AŽ PO zapsání
+//     změny (markPaidAfterChange — nezapsaná změna se vrací a rezervace zůstává přesně
+//     v původním stavu, i s 'partial_refund') a zrušená / ukončená rezervace se nemění — změnu odmítne zápis
 //     (extension-apply: booking_cancelled / wrong_status) a doplatek se vrátí.
 //  2) Druhá platba za rezervaci / SOS / objednávku, která už zaplacená je →
 //     _shared/duplicate-payment.ts (ponechá nejdřívější stržení, ostatní vrátí).
 import type { Sb } from '../_shared/extension-apply-types.ts'
 import { findDuplicateCharges, refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
+export { markPaidAfterChange } from '../_shared/paid-change-guard.ts'
 
 export type ExtPrep = 'ok' | 'closed' | 'retry'
 
@@ -29,11 +31,6 @@ export async function prepareExtensionPayment(sb: Sb, bookingId: string, piId: s
     if (piId && !bk.stripe_payment_intent_id && !closed) {
       await sb.from('bookings').update({ stripe_payment_intent_id: piId, ...(sessionId ? { stripe_session_id: sessionId } : {}) })
         .eq('id', bookingId).is('stripe_payment_intent_id', null)
-    }
-    // Dřív confirm_payment: živá rezervace po dřívější vratce (partial_refund) → 'paid'.
-    if (!closed && bk.payment_status === 'partial_refund') {
-      await sb.from('bookings').update({ payment_status: 'paid', payment_method: 'card' })
-        .eq('id', bookingId).eq('payment_status', 'partial_refund').in('status', ['reserved', 'active'])
     }
   } catch { /* best-effort — zápis změny níže rozhoduje */ }
   try {

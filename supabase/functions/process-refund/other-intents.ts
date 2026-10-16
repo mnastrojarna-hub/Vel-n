@@ -58,3 +58,29 @@ export async function refundRemainder(stripe: OtherIntentsStripe, sb: Sb, a: {
   }
   return { refunds, refundedHaleru: refunds.reduce((s, x) => s + x.amountHaleru, 0) + alreadyDone, leftHaleru: left }
 }
+
+/** Uložená platba rezervace nemá z čeho vracet (nikdy nezaplacená / už celá vrácená) →
+ *  hlavní vratka z nejstarší jiné úspěšné platby TÉŽE rezervace (typicky původní platba).
+ *  Jen storno / vratka obsluhy s částkou; null = žádná jiná platba (→ ruční vratka / no_op). */
+export async function pickMainIntent(stripe: OtherIntentsStripe, sb: Sb, a: {
+  bookingId: string; storedPi: string | null; chargedHaleru: number | null; refundableHaleru: number | null
+  isCustomer: boolean; amount: number | null | undefined
+}): Promise<{ piId: string; refundableHaleru: number } | null> {
+  if (a.isCustomer || !(Number(a.amount) > 0)) return null
+  if (!(a.chargedHaleru === 0 || a.refundableHaleru === 0)) return null
+  const cands = (await otherRefundableIntents(stripe, sb, a.bookingId, a.storedPi)).filter((c) => c.refundableHaleru > 0)
+  return cands.length ? { piId: cands[0].id, refundableHaleru: cands[0].refundableHaleru } : null
+}
+
+/** payment_status rezervace po vratce: Stripe ještě nepotvrdil → refund_pending; zákaznická
+ *  vratka (jen přeplatek), menší než zbývá na hlavní platbě, nebo na ostatních platbách
+ *  ještě něco zůstalo → partial_refund; jinak refunded. */
+export function refundedStatus(a: {
+  refundStatus: string | null | undefined; isCustomer: boolean; bookingTotalPrice: number; amount: number | null | undefined
+  refundableHaleru: number | null; effectiveAmountHaleru: number | null; leftHaleru: number
+}): 'refund_pending' | 'partial_refund' | 'refunded' {
+  const isPartial = (a.isCustomer && a.bookingTotalPrice > 0) ||
+    (!!a.amount && a.refundableHaleru != null && a.effectiveAmountHaleru != null && a.effectiveAmountHaleru < a.refundableHaleru) ||
+    a.leftHaleru > 0
+  return a.refundStatus === 'pending' ? 'refund_pending' : (isPartial ? 'partial_refund' : 'refunded')
+}

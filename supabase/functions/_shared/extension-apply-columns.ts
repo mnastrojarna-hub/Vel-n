@@ -213,7 +213,7 @@ export async function applyColumnChange(sb: Sb, a: Row, args: ApplyArgs, srv: Sr
       // Motorku v novém termínu mezitím obsadila jiná rezervace (trg_check_booking_overlap,
       // P0001 „Překrývající se rezervace pro moto_id…" / výluka 23P01) → nová rezervace má
       // přednost: stejný důvod jako u výměny (texty „motorka je mezitím obsazená").
-      const taken = error.code === '23P01' || /Překrývající se rezervace pro moto_id|Booking overlap/i.test(String(error.message || ''))
+      const taken = error.code === '23P01' || /Překrývající se rezervace|Booking overlap/i.test(String(error.message || ''))
       return permanent ? { state: 'failed', code: 'change_failed', reason: taken ? 'moto_unavailable' : 'db_refused', detail: error.message }
         : { state: 'retry', code: 'apply_failed', detail: error.message }
     }

@@ -19,6 +19,7 @@ import { sanitizeAttemptId, chgHash, idempotencyKey, guardStoredIntent, storeInt
 import { waiveBookingFlow, waiveShopFlow, waiveExtensionFlow, voucherProblem, waiveRef, restoreRefusal } from './pp-waiver.ts'
 import { priceAppChange } from './app-change-price.ts'
 import { handleCompleteExtension } from './complete-extension.ts'
+import { roundingLabel, editLineLabel } from './checkout-labels.ts'
 import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
 import { settleMatchingSessions, type StripeCheckoutLike } from './checkout-guard.ts'
 import { floorCheck, freeVerifiedByFloor } from './floor-check.ts'
@@ -36,10 +37,38 @@ async function extensionSettled(sb: any, bookingId: string, piId: string | null,
   return false
 }
 
-/** Návratová adresa webu po odpuštěném doplatku (stejná validace jako success_url Checkoutu). */
+/** Doprodej v rezervaci (feature flag reservation_upsell, Velín) — zapnutý? Nenačtený = zapnutý
+ *  (přebytek nad cenou se pak jako dosud nepovažuje za chybu — raději neodmítnout platbu). */
+// deno-lint-ignore no-explicit-any
+async function upsellEnabled(sb: any): Promise<boolean> {
+  try {
+    const { data, error } = await sb.from('feature_flags').select('enabled').eq('key', 'reservation_upsell').maybeSingle()
+    if (error) return true
+    return !!data && data.enabled === true
+  } catch { return true }
+}
+
+/** Návratová adresa webu po odpuštěném doplatku (stejná validace jako success_url Checkoutu).
+ *  Bez Stripe se zástupný `{CHECKOUT_SESSION_ID}` nedosadí → parametr session_id se vynechá. */
 function safeRedirect(u: string | undefined | null): string | null {
   if (!u) return null
-  try { const p = new URL(u); return p.protocol === 'https:' || p.protocol === 'http:' ? u : null } catch { return null }
+  try {
+    const p = new URL(u)
+    if (p.protocol !== 'https:' && p.protocol !== 'http:') return null
+    if (/CHECKOUT_SESSION_ID/.test(p.searchParams.get('session_id') || '')) {
+      p.searchParams.delete('session_id')
+      return p.toString()
+    }
+    return u
+  } catch { return null }
+}
+
+/** Web úprava rezervace (hosted Checkout): návrat ze Stripe nese id Checkout Session, aby se web
+ *  zeptal serveru na výsledek (`complete_extension` se session_id) — i u jádra webu, které
+ *  success_url skládá samo bez session_id. */
+function withSessionParam(u: string): string {
+  if (u.includes('{CHECKOUT_SESSION_ID}')) return u
+  return u + (u.includes('?') ? '&' : '?') + 'session_id={CHECKOUT_SESSION_ID}'
 }
 
 Deno.serve(async (req: Request) => {
@@ -407,6 +436,12 @@ Deno.serve(async (req: Request) => {
           if (!('card_rounding' in bkc)) return refuse(409, 'rounding_unavailable')
           chargeRounding = { due, r: dueClass.rounding }
         } else if (amt > 0 && Math.round(amt) < Math.round(payDue) - 1) {
+          return refuse(409, 'amount_mismatch', { server_total: Math.round(payDue) })
+        } else if (amt > 0 && !order_id && Math.round(amt) > Math.round(payDue) + 1 && !(await upsellEnabled(sbChk))) {
+          // Víc, než je cena, se smí strhnout jen s přibaleným doprodejem (appka ho přičítá
+          // k platbě a objednávku zakládá až po ní) — doprodej je vypnutý (D7), takže přebytek
+          // by nikde nebyl zapsaný (doklady = cena rezervace). Dorovnání na 15 Kč má vlastní
+          // cestu (card_min → 'round', zapisuje se do ceny).
           return refuse(409, 'amount_mismatch', { server_total: Math.round(payDue) })
         } else if (amt > 0 && 'card_rounding' in bkc) {
           // Platba v celých Kč u ceny s haléři (15,40 → 15) — rozdíl jako zaokrouhlení na dokladu.
@@ -1201,14 +1236,14 @@ Deno.serve(async (req: Request) => {
     }
     // Jazyk stránky Stripe: z requestu (locale), jinak jazyk rezervace/objednávky — dřív
     // natvrdo 'cs' (web „upravit rezervaci“ locale neposílá).
-    const checkoutLocale = async (): Promise<string> => {
-      if (body.locale) return resolveStripeLocale(body.locale)
+    const checkoutLang = async (): Promise<string> => {
+      if (body.locale) return body.locale
       try {
         const sb = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
         const { data } = paymentType === 'shop'
           ? await sb.from('shop_orders').select('language').eq('id', order_id!).maybeSingle()
           : await sb.from('bookings').select('language').eq('id', booking_id!).maybeSingle()
-        return resolveStripeLocale((data as { language?: string } | null)?.language || 'cs')
+        return (data as { language?: string } | null)?.language || 'cs'
       } catch { return 'cs' }
     }
     let successPath: string
@@ -1236,18 +1271,25 @@ Deno.serve(async (req: Request) => {
       if (!u) return false
       try { const p = new URL(u); return p.protocol === 'https:' || p.protocol === 'http:' } catch { return false }
     }
-    const finalSuccessUrl = isValidHttpsUrl(explicitSuccessUrl) ? explicitSuccessUrl! : SITE_URL + successPath
+    const finalSuccessUrl = isValidHttpsUrl(explicitSuccessUrl)
+      ? (paymentType === 'extension' ? withSessionParam(explicitSuccessUrl!) : explicitSuccessUrl!)
+      : SITE_URL + successPath
     const finalCancelUrl  = isValidHttpsUrl(explicitCancelUrl)  ? explicitCancelUrl!  : SITE_URL + cancelPath
 
+    // Položky v jazyce zákazníka: jazyk webu (locale), jinak jazyk rezervace. Doplatek úpravy
+    // podle druhu změny (výměna / výbava / úprava) — dřív vždy „Prodloužení rezervace".
+    const siteLang = await checkoutLang()
+    const stripeLocale = resolveStripeLocale(siteLang)
+    const lineName = paymentType === 'extension' ? editLineLabel(change, siteLang) : productName
     const sessionParams: Record<string, unknown> = {
       line_items: checkoutRounding ? [
-        { price_data: { currency: currency || 'czk', product_data: { name: productName }, unit_amount: Math.round(checkoutRounding.due * 100) }, quantity: 1 },
-        { price_data: { currency: currency || 'czk', product_data: { name: 'Dorovnání na minimální platbu kartou (15 Kč)' },
+        { price_data: { currency: currency || 'czk', product_data: { name: lineName }, unit_amount: Math.round(checkoutRounding.due * 100) }, quantity: 1 },
+        { price_data: { currency: currency || 'czk', product_data: { name: roundingLabel(siteLang) },
           unit_amount: Math.round(checkoutRounding.r * 100) }, quantity: 1 },
       ] : [{
         price_data: {
           currency: currency || 'czk',
-          product_data: { name: productName },
+          product_data: { name: lineName },
           unit_amount: Math.round(amount * 100),
         },
         quantity: 1,
@@ -1261,7 +1303,7 @@ Deno.serve(async (req: Request) => {
       success_url: finalSuccessUrl,
       cancel_url: finalCancelUrl,
       metadata,
-      locale: await checkoutLocale(),
+      locale: stripeLocale,
     }
 
     if (customerId) {

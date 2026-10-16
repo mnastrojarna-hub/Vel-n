@@ -28,7 +28,7 @@ import { stripe as stripeLive } from './stripe-customer.ts'
 import { authClassify } from '../_shared/auth.ts'
 import { applyPaidExtension, chgFromMetadata } from '../_shared/extension-apply.ts'
 import { handlePaidChangeFailure, TAKEN_REASONS } from '../_shared/paid-change-failure.ts'
-import { paidChangeEligibility, markApplied, QUEUE_MAX_AGE_H, PREVIOUS_MAX_AGE_H } from '../_shared/paid-change-guard.ts'
+import { paidChangeEligibility, markApplied, markPaidAfterChange, QUEUE_MAX_AGE_H, PREVIOUS_MAX_AGE_H } from '../_shared/paid-change-guard.ts'
 import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
 import { CS, refuse, respond } from './refusals.ts'
 
@@ -159,6 +159,7 @@ export async function handleCompleteExtension(req: Request, body: Record<string,
   }
   if (r.state === 'applied' || r.state === 'already_applied') {
     await markApplied(stripe, pi.id)
+    await markPaidAfterChange(sb, bookingId)
     return respond(200, { success: true, state: r.state, booking_id: bookingId, new_booking_id: r.newBookingId ?? null, total_price: r.totalPrice ?? null })
   }
   if (r.state === 'no_payload') return respond(200, { success: true, state: 'client_apply', booking_id: bookingId })

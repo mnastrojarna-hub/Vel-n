@@ -154,10 +154,11 @@ class PlaceCardV2 extends StatelessWidget {
                           subIcon,
                           const SizedBox(width: 5),
                           Flexible(
+                            // Typ místa celý (zmenší se, smí na 2 řádky), ne „…".
                             child: MgWordFit(
                               minScale: 0.8,
                               child: Text(subtitle,
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.link)),
                             ),

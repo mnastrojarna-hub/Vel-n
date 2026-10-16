@@ -269,17 +269,25 @@ class TripAvailabilityBanner extends StatelessWidget {
           borderRadius: BorderRadius.circular(MgRadius.action),
           border: Border.all(color: dark ? MgColors.errDark : MgColors.errBorder),
         ),
-        child: Row(children: [
-          MgIcon(MgIcons.xCircle, size: 20, color: dark ? MgColors.errDark : MgColors.err),
-          const SizedBox(width: MgSpace.s8),
-          Expanded(
-            child: MgWordFit(
-              minScale: 0.85,
-              child: Text(tr.tr('v2CalError'),
-                  style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: dark ? MgColors.onDark : MgColors.ink)),
-            ),
+        // Text na celou šířku (de „Verfügbarkeit…" se v řádku s tlačítkem
+        // lámal uprostřed slova), „Zkusit znovu" pod ním vpravo.
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 6, right: 6),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              MgIcon(MgIcons.xCircle, size: 20, color: dark ? MgColors.errDark : MgColors.err),
+              const SizedBox(width: MgSpace.s8),
+              Expanded(
+                child: MgWordFit(
+                  minScale: 0.85,
+                  child: Text(tr.tr('v2CalError'),
+                      style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: dark ? MgColors.onDark : MgColors.ink)),
+                ),
+              ),
+            ]),
           ),
-          if (onRetry != null) MgBtnText(label: tr.tr('retry'), onTap: onRetry, dark: dark),
+          if (onRetry != null)
+            Align(alignment: AlignmentDirectional.centerEnd, child: MgBtnText(label: tr.tr('retry'), onTap: onRetry, dark: dark)),
         ]),
       ),
     );

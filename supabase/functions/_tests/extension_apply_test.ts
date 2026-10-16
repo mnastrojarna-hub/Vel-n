@@ -91,8 +91,12 @@ Deno.test('apply: souběh (webhook ↔ complete_extension) — prohraný zámek 
   eq(r.state, 'already_applied'); eq(row(d).total_price, 4000); eq(hist(d).length, 1)
 })
 Deno.test('apply: odmítnutí triggerem (P0001 překryv) → failed; výpadek → retry', async () => {
-  const d1 = db(); d1.failUpdate = () => ({ code: 'P0001', message: 'Překrývající se rezervace' })
-  eq((await applyPaidExtension(d1, args(extend(4000)))).state, 'failed')
+  const d1 = db(); d1.failUpdate = () => ({ code: 'P0001', message: 'Překrývající se rezervace pro moto_id m1 (2026-11-10 – 2026-11-13)' })
+  const r1 = await applyPaidExtension(d1, args(extend(4000)))
+  // motorku v novém termínu mezitím obsadila jiná rezervace → stejný důvod jako u výměny („obsazená")
+  eq(r1.state, 'failed'); eq((r1 as { reason: string }).reason, 'moto_unavailable')
+  const d3 = db(); d3.failUpdate = () => ({ code: 'P0001', message: 'Zákazník má překrývající se rezervaci v tomto období' })
+  eq(((await applyPaidExtension(d3, args(extend(4000)))) as { reason: string }).reason, 'db_refused')
   const d2 = db(); d2.failUpdate = () => ({ message: 'fetch failed' })
   eq((await applyPaidExtension(d2, args(extend(4000)))).state, 'retry')
 })
@@ -208,8 +212,21 @@ Deno.test('swap odpuštění: stejné klepnutí (značka waive:) → already_app
 // (výbava s dorovnáním → gear_rounding_test.ts)
 
 // ── trvalé selhání: vratka jen jednou ─────────────────────────────────────────
+// Oprava 2026-10-16: doplatek se vrací PŘÍMO ze Stripe z PaymentIntentu této platby
+// (klíč mg-pcf-<pi>), ne přes process-refund (ten přepisoval uložený PI rezervace a stav).
+function pcfStripe() {
+  const created: Array<{ p: Row; o: Row }> = []
+  const stripe = {
+    refunds: {
+      create: (p: Row, o: Row) => { created.push({ p, o }); return Promise.resolve({ id: 're_' + created.length }) },
+      list: () => Promise.resolve({ data: [] }),
+    },
+    checkout: { sessions: { retrieve: (id: string) => Promise.resolve({ id, payment_intent: 'pi_web', metadata: { booking_id: 'b1' } }) } },
+  }
+  return { created, stripe }
+}
 Deno.test('paid change failure: automatická vratka + upozornění jen jednou na platbu', async () => {
-  const d = new FakeDb({ bookings: [booking()], debug_log: [] })
+  const d = new FakeDb({ bookings: [booking({ stripe_payment_intent_id: 'pi_orig' })], debug_log: [] })
   const sent: string[] = []
   const orig = globalThis.fetch
   globalThis.fetch = ((url: string) => {
@@ -217,13 +234,41 @@ Deno.test('paid change failure: automatická vratka + upozornění jen jednou na
     return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200 }))
   }) as typeof fetch
   try {
-    const a = { bookingId: 'b1', payRef: 'pi_x', paidCzk: 15, code: 'change_failed', reason: 'new_moto_unavailable', via: 'test' }
-    eq(await handlePaidChangeFailure(d, a), 'auto')
-    eq(await handlePaidChangeFailure(d, a), 'auto') // druhý dokončovatel: jen převezme výsledek
-    eq(sent.filter((s) => s === 'process-refund').length, 1)
+    const f = pcfStripe()
+    const a = { bookingId: 'b1', payRef: 'pi_x', paidCzk: 15, code: 'change_failed', reason: 'new_moto_unavailable', via: 'test', stripe: f.stripe }
+    const before = JSON.stringify(row(d))
+    eq(await handlePaidChangeFailure(d, a as never), 'auto')
+    eq(await handlePaidChangeFailure(d, a as never), 'auto') // druhý dokončovatel: jen převezme výsledek
+    eq(f.created.length, 1)
+    eq(f.created[0].p.payment_intent, 'pi_x'); eq(f.created[0].p.amount, 1500); eq(f.created[0].o.idempotencyKey, 'mg-pcf-pi_x')
+    eq((f.created[0].p.metadata as Row).mg_source, 'unapplied_change')
+    eq(sent.filter((s) => s === 'process-refund').length, 0)
     eq(sent.filter((s) => s === 'send-email').length, 1)
-    eq(row(d).stripe_payment_intent_id, 'pi_x') // vratka z TÉTO platby
+    eq(JSON.stringify(row(d)), before) // rezervace beze změny (uložený PI, stav platby, cena)
     eq(d.rows('debug_log').filter((r) => r.action === 'paid_change_failed').length, 1)
+    eq((d.rows('debug_log').find((r) => r.action === 'paid_change_failed')!.request_data as Row).expect_refund, 'auto')
   } finally { globalThis.fetch = orig }
 })
-
+Deno.test('paid change failure: web platba (cs_ Checkout Session) → vratka z jejího PaymentIntentu', async () => {
+  const d = new FakeDb({ bookings: [booking()], debug_log: [] })
+  const orig = globalThis.fetch
+  globalThis.fetch = (() => Promise.resolve(new Response('{}'))) as typeof fetch
+  try {
+    const f = pcfStripe()
+    eq(await handlePaidChangeFailure(d, { bookingId: 'b1', payRef: 'cs_test_1', paidCzk: 120, code: 'change_failed',
+      reason: 'new_moto_unavailable', via: 'test', stripe: f.stripe } as never), 'auto')
+    eq(f.created.length, 1); eq(f.created[0].p.payment_intent, 'pi_web'); eq(f.created[0].o.idempotencyKey, 'mg-pcf-pi_web')
+    eq(f.created[0].p.amount, 12000)
+  } finally { globalThis.fetch = orig }
+})
+Deno.test('paid change failure: bez Stripe klienta / s přibalenou objednávkou → obsluha (staff), nic se nevrací', async () => {
+  const d = new FakeDb({ bookings: [booking()], debug_log: [] })
+  const orig = globalThis.fetch
+  globalThis.fetch = (() => Promise.resolve(new Response('{}'))) as typeof fetch
+  try {
+    const f = pcfStripe()
+    eq(await handlePaidChangeFailure(d, { bookingId: 'b1', payRef: 'pi_y', paidCzk: 200, code: 'change_failed',
+      reason: 'new_moto_unavailable', via: 'test', autoRefund: false, stripe: f.stripe } as never), 'staff')
+    eq(f.created.length, 0)
+  } finally { globalThis.fetch = orig }
+})

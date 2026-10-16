@@ -3,7 +3,7 @@
 // (complete_extension bez rev.12 nezapisuje), zrušená rezervace se doplatkem neoživí.
 import { applyPaidExtension, chgDigest } from '../_shared/extension-apply.ts'
 import { findDuplicateCharges, refundDuplicatePayment } from '../_shared/duplicate-payment.ts'
-import { paidChangeEligibility } from '../_shared/paid-change-guard.ts'
+import { paidChangeEligibility, markPaidAfterChange } from '../_shared/paid-change-guard.ts'
 import { handlePaidChangeFailure } from '../_shared/paid-change-failure.ts'
 import { prepareExtensionPayment } from '../webhook-receiver/extension-payment.ts'
 import { FakeDb } from './fake-supabase.ts'
@@ -131,13 +131,18 @@ Deno.test('refundDuplicatePayment: celá vratka jednou (klíč mg-dup), uložen�
 })
 
 // ── doplatek u zrušené rezervace: žádné oživení, vratka přímo ze Stripe ───────
-Deno.test('prepareExtensionPayment: zrušená → closed beze změny; živá po vratce → paid; PI jen když chybí', async () => {
+Deno.test('prepareExtensionPayment: zrušená → closed beze změny; živá po vratce zůstane, dokud se změna nezapíše; PI jen když chybí', async () => {
   const c = db({ status: 'cancelled', payment_status: 'refunded' })
   eq(await prepareExtensionPayment(c, 'b1', 'pi_e', null), 'closed')
   eq(row(c).status, 'cancelled'); eq(row(c).payment_status, 'refunded'); eq(row(c).stripe_payment_intent_id, null)
   const l = db({ payment_status: 'partial_refund', stripe_payment_intent_id: 'pi_orig' })
   eq(await prepareExtensionPayment(l, 'b1', 'pi_e', 'cs_1'), 'ok')
-  eq(row(l).payment_status, 'paid'); eq(row(l).stripe_payment_intent_id, 'pi_orig')
+  // změna se může ještě nezapsat (motorka obsazená → vratka) → původní stav beze změny
+  eq(row(l).payment_status, 'partial_refund'); eq(row(l).stripe_payment_intent_id, 'pi_orig')
+  await markPaidAfterChange(l, 'b1') // až po zapsání změny (finishPaidChange / complete_extension)
+  eq(row(l).payment_status, 'paid')
+  const z = db({ status: 'cancelled', payment_status: 'partial_refund' })
+  await markPaidAfterChange(z, 'b1'); eq(row(z).payment_status, 'partial_refund')
 })
 Deno.test('handlePaidChangeFailure: zrušená rezervace → vratka přímo ze Stripe (mg-pcf), ne přes process-refund', async () => {
   const sent: string[] = []

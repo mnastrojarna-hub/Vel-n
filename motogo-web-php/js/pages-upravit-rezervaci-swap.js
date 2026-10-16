@@ -228,6 +228,10 @@
                 : net < -0.5
                   ? MG.t('editRez.swap.net.refund', { amount: MG.formatPrice(-net) })
                   : MG.t('editRez.swap.net.same');
+              // D1 na webu (odpověď majitele 2026-10-16): doplatek 1–15 Kč se platí kartou 15 Kč,
+              // do 1 Kč se neúčtuje — zákazník to vidí UŽ tady, ne až na stránce Stripe.
+              var cardNote = net > 0.5 && MG.cardNoteEdit ? MG.cardNoteEdit(net) : '';
+              if (cardNote) netLine += '<br><span class="erez-card-note">' + String(cardNote).replace(/</g, '&lt;') + '</span>';
             } catch (e) {
               console.error('[editRez] swap dry-run err', e);
               ER._showError(MG.t('editRez.err.generic'));
@@ -355,7 +359,9 @@
             // Klientský commit v _applyPendingAfterPayment zůstává (rychlejší UX);
             // souběh řeší idempotence (already_split / invalid_new_moto = OK).
             change: { _swap: { m: newMotoId, d: swapDate, t: swapTime || null } },
-            success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
+            // session_id → po návratu se web zeptá serveru na výsledek (complete_extension):
+            // zapsáno / „motorka je mezitím obsazená" (doplatek se vrací) — pages-upravit-rezervaci-paid.js.
+            success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id + '&session_id={CHECKOUT_SESSION_ID}',
             cancel_url: window.location.origin + '/upravit-rezervaci?edit_booking=' + b.id + '&edit_tab=' + TAB
           })
         });

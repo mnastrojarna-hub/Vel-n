@@ -81,8 +81,11 @@ class ResEditHeaderV2 extends StatelessWidget {
                   child: Text(resRangeShort(tr, booking),
                       style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkBody))),
                 ),
-                Text('${isActive ? tr.active : tr.upcoming} · $days',
-                    style: MgType.meta.copyWith(color: MgColors.onDarkMeta)),
+                MgWordFit(
+                  minScale: 0.75,
+                  child: Text('${isActive ? tr.active : tr.upcoming} · $days',
+                      style: MgType.meta.copyWith(color: MgColors.onDarkMeta)),
+                ),
               ]),
             ),
             const SizedBox(width: 8),

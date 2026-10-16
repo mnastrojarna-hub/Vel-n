@@ -14,7 +14,7 @@ import { paidChangeEligibility, markApplied, type PiLike } from '../_shared/paid
 import { applyChargeRounding } from '../_shared/charge-rounding.ts'
 import { refundLatePaymentOnCancelled } from './late-payment.ts'
 import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
-import { prepareExtensionPayment, refundDuplicateCharges } from './extension-payment.ts'
+import { prepareExtensionPayment, refundDuplicateCharges, markPaidAfterChange } from './extension-payment.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -68,7 +68,12 @@ async function finishPaidChange(
   } catch (e) {
     res = { state: 'retry', code: 'apply_exception', detail: (e as Error).message }
   }
-  if (res.state === 'applied' || res.state === 'already_applied') await markApplied(stripe, a.pi?.id || a.payRef)
+  if (res.state === 'applied' || res.state === 'already_applied') {
+    await markApplied(stripe, a.pi?.id || a.payRef)
+    await markPaidAfterChange(supabase, a.bookingId)
+  }
+  // Změna se do metadat nevešla → zapíše ji klient; platba prošla (jako dřív → 'paid').
+  if (res.state === 'no_payload' && !a.closed) await markPaidAfterChange(supabase, a.bookingId)
   if (res.state === 'no_payload' && a.closed) {
     // Změna se do metadat nevešla (zapsal by ji klient) a rezervace je zrušená / ukončená →
     // zapsat ji nelze ani klientsky → doplatek vrátit.

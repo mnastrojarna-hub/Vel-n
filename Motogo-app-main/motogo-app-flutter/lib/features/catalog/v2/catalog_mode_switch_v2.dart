@@ -9,6 +9,7 @@ import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/rank/rank_tokens.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import 'catalog_mode.dart';
 
 /// "Najít motorku · Filtr nabídky" | "Spočítat cenu · Volné dny a cena"
@@ -130,10 +131,13 @@ class _Tab extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title,
-                      maxLines: 2,
-                      softWrap: true,
-                      style: MgType.ctaCompact.copyWith(color: fg, letterSpacing: -0.1, height: 1.15)),
+                  MgWordFit(
+                    minScale: 0.75,
+                    child: Text(title,
+                        maxLines: 2,
+                        softWrap: true,
+                        style: MgType.ctaCompact.copyWith(color: fg, letterSpacing: -0.1, height: 1.15)),
+                  ),
                   const SizedBox(height: 2),
                   Text(sub,
                       maxLines: 2,

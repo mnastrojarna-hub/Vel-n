@@ -106,3 +106,13 @@ export async function markApplied(stripe: StripeLike | null | undefined, piId: s
   if (!stripe?.paymentIntents || !piId || !piId.startsWith('pi_')) return
   try { await stripe.paymentIntents.update(piId, { metadata: { applied_at: new Date().toISOString() } }) } catch { /* ignore */ }
 }
+
+/** Dřív confirm_payment při přijetí doplatku: živá rezervace po dřívější vratce
+ *  (partial_refund) → 'paid'. Teď až PO zapsání zaplacené změny (applied / already_applied /
+ *  změnu zapisuje klient) — nezapsaná změna se vrací a rezervace zůstane i se svým stavem. */
+export async function markPaidAfterChange(sb: Sb, bookingId: string): Promise<void> {
+  try {
+    await sb.from('bookings').update({ payment_status: 'paid', payment_method: 'card' })
+      .eq('id', bookingId).eq('payment_status', 'partial_refund').in('status', ['reserved', 'active'])
+  } catch { /* best-effort */ }
+}
