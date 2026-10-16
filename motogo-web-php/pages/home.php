@@ -100,7 +100,8 @@ foreach ($C['signposts'] as $i => $s) {
     $btnText = trim(strip_tags($s['btn'] ?? ''));
     if ($titleText === '' && $btnText !== '') $titleText = $btnText;
     $kBase = 'web.home.signposts.' . $i;
-    $signHtml .= '<a class="gbox" href="' . BASE_URL . $s['href'] . '">' .
+    $sHref = ($s['href'] ?? '') === '/jak-pujcit' ? '/jak-pujcit/postup' : ($s['href'] ?? '/'); // bez 301 hopu
+    $signHtml .= '<a class="gbox" href="' . BASE_URL . $sHref . '">' .
         '<div class="gr2"><div class="gbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="" aria-hidden="true" loading="lazy" width="36" height="36"></div><div>' .
         renderHeading(3, $titleText, ['cmsKey'=>$kBase.'.title', 'fallback'=>$btnText, 'allowHtml'=>true]) .
         '<p data-cms-key="' . $kBase . '.text">' . sanitizeHtml($s['text']) . '</p>' .
@@ -436,12 +437,12 @@ if (!$lpV2 && !empty($C['process']['steps']) && is_array($C['process']['steps'])
         $name = trim(strip_tags($s['title'] ?? ''));
         $text = trim(strip_tags($s['text'] ?? ''));
         if ($name === '' || $text === '') continue;
-        $howToSteps[] = '{"@type":"HowToStep","position":' . ($i + 1) . ',"name":' . json_encode($name, JSON_UNESCAPED_UNICODE) . ',"text":' . json_encode($text, JSON_UNESCAPED_UNICODE) . ',"url":' . json_encode(siteCanonicalUrl('/jak-pujcit#krok-' . ($i + 1)), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '}';
+        $howToSteps[] = '{"@type":"HowToStep","position":' . ($i + 1) . ',"name":' . json_encode($name, JSON_UNESCAPED_UNICODE) . ',"text":' . json_encode($text, JSON_UNESCAPED_UNICODE) . ',"url":' . json_encode(siteCanonicalUrl('/jak-pujcit/postup') . '#step-' . ($i + 1), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '}';
     }
 }
 $howToSchema = '';
 if (!empty($howToSteps)) {
-    $howToSchema = '<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Jak si půjčit motorku v MotoGo24","description":"Snadný 4krokový postup — výběr motorky, online rezervace, převzetí v Mezné u Pelhřimova nebo na samoobslužné pobočce ve Velkých Němčicích u Brna, jízda.","totalTime":"PT10M","estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"' . ldPriceLow() . '"},"supply":[{"@type":"HowToSupply","name":' . json_encode(ldLicenseSupply(), JSON_UNESCAPED_UNICODE) . '},{"@type":"HowToSupply","name":"Občanský průkaz nebo pas"},{"@type":"HowToSupply","name":"Platební karta (Visa/Mastercard, Apple/Google Pay)"}],"tool":[{"@type":"HowToTool","name":"Online rezervační formulář"}],"step":[' . implode(',', $howToSteps) . ']}</script>';
+    $howToSchema = '<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":' . json_encode(t('ld.howtoName'), JSON_UNESCAPED_UNICODE) . ',"description":' . json_encode(t('ld.howtoDesc'), JSON_UNESCAPED_UNICODE) . ',"totalTime":"PT10M","estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"' . ldPriceLow() . '"},"supply":[{"@type":"HowToSupply","name":' . json_encode(ldLicenseSupply(), JSON_UNESCAPED_UNICODE) . '},{"@type":"HowToSupply","name":' . json_encode(t('ld.supplyId'), JSON_UNESCAPED_UNICODE) . '},{"@type":"HowToSupply","name":' . json_encode(t('ld.supplyCardShort'), JSON_UNESCAPED_UNICODE) . '}],"tool":[{"@type":"HowToTool","name":' . json_encode(t('ld.channelForm'), JSON_UNESCAPED_UNICODE) . '}],"step":[' . implode(',', $howToSteps) . ']}</script>';
 }
 
 // AggregateRating z reálných reviews — pokud máme aspoň 1 recenzi s ratingem.

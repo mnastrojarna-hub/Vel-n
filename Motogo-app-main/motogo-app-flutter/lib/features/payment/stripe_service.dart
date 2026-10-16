@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException, Session;
 
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
@@ -18,11 +18,41 @@ import '../../core/supabase_client.dart';
 class StripeService {
   StripeService._();
 
+  /// Jeden dotaz na stav platby v DB nesmí viset (slabé LTE) — po limitu se
+  /// bere jako „zatím nevíme" a polling pokračuje dalším pokusem.
+  static const _queryTimeout = Duration(seconds: 8);
+
+  /// Platný přístupový token: prošlý se nejdřív obnoví (dřív appka poslala
+  /// prošlý token → 401 → odhlášení uprostřed platby). null = obnova selhala.
+  static Future<Session?> _validSession() async {
+    final s = MotoGoSupabase.currentSession;
+    if (s == null) return null;
+    if (!s.isExpired) return s;
+    return _refreshSession();
+  }
+
+  static Future<Session?> _refreshSession() async {
+    try {
+      final r = await MotoGoSupabase.client.auth
+          .refreshSession()
+          .timeout(const Duration(seconds: 15));
+      return r.session;
+    } catch (e) {
+      debugPrint('[Stripe] refreshSession failed: $e');
+      return null;
+    }
+  }
+
   /// Create PaymentIntent via process-payment edge function (mode: intent).
   /// Returns client_secret + customer data for Stripe Payment Sheet.
   /// Když je předán [paymentMethodId], edge fn provede off-session charge a
   /// místo Payment Sheetu se vrátí buď `succeeded`, nebo `requires_action` s
   /// client_secret pro SCA (klient pak volá `handleNextAction`).
+  ///
+  /// POZOR (peníze): s [paymentMethodId] server kartu rovnou STRHÁVÁ. Když se
+  /// odpověď ztratí (timeout, výpadek sítě, 502 bez JSON), platba mohla projít
+  /// → výsledek nese `uncertain: true` a volající NESMÍ tvrdit „nic nebylo
+  /// strženo" ani nabízet novou platbu, dokud stav neověří v DB.
   static Future<PaymentResult> createPaymentIntent({
     String? bookingId,
     required int amount,
@@ -33,15 +63,16 @@ class StripeService {
     String? paymentMethodId,
     Map<String, dynamic>? change,
   }) async {
+    final charges = paymentMethodId != null;
     try {
-      final session = MotoGoSupabase.currentSession;
+      final session = await _validSession();
       if (session == null) {
-        // Text je jen technický log — UI hlášku skládá z kódu
-        // (PaymentErrorMapper.serviceError) v jazyce zákazníka.
-        return PaymentResult.error(
-          'session expired',
-          code: PaymentErrorCode.authExpired,
-        );
+        // Bez platného přihlášení server nic nestrhne — UI hlášku skládá z kódu.
+        if (MotoGoSupabase.currentSession != null) {
+          await handleAuthError(AuthException('session refresh failed'));
+        }
+        return PaymentResult.error('session expired',
+            code: PaymentErrorCode.authExpired);
       }
 
       final body = <String, dynamic>{
@@ -59,27 +90,44 @@ class StripeService {
       // webhook-receiver změnu aplikuje server-side i bez návratu do appky.
       if (change != null && change.isNotEmpty) body['change'] = change;
 
-      final response = await http.post(
-        Uri.parse('${MotoGoSupabase.url}/functions/v1/process-payment'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${session.accessToken}',
-          'apikey': MotoGoSupabase.anonKey,
-        },
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 30));
+      Future<http.Response> send(String token) => http
+          .post(
+            Uri.parse('${MotoGoSupabase.url}/functions/v1/process-payment'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+              'apikey': MotoGoSupabase.anonKey,
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
 
+      var response = await send(session.accessToken);
+      // 401 vrací server PŘED jakoukoli platbou (ověření vlastníka) → jedna
+      // obnova tokenu + jeden nový pokus je bezpečný. Odhlásit až když ani
+      // obnova nepomůže (dřív odhlášení hned → ztracený flow i úprava).
       if (response.statusCode == 401) {
-        await handleAuthError(AuthException('401 from process-payment'));
-        // Text je jen technický log — UI hlášku skládá z kódu
-        // (PaymentErrorMapper.serviceError) v jazyce zákazníka.
-        return PaymentResult.error(
-          'session expired',
-          code: PaymentErrorCode.authExpired,
-        );
+        final refreshed = await _refreshSession();
+        if (refreshed != null) response = await send(refreshed.accessToken);
+        if (response.statusCode == 401) {
+          await handleAuthError(AuthException('401 from process-payment'));
+          return PaymentResult.error('session expired',
+              code: PaymentErrorCode.authExpired, httpStatus: 401);
+        }
       }
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        // 502/504 HTML brány apod. — server neodpověděl smysluplně. U stržení
+        // uložené karty nevíme, jestli charge proběhl.
+        debugPrint('[Stripe] non-JSON response ${response.statusCode}');
+        return PaymentResult.error('server unavailable',
+            code: PaymentErrorCode.serverUnavailable,
+            httpStatus: response.statusCode,
+            uncertain: charges);
+      }
 
       // Off-session: backend buď strhl rovnou (succeeded), nebo vyžaduje SCA
       // (requires_action s client_secret). Klient v PaymentScreen dotáhne SCA
@@ -100,14 +148,14 @@ class StripeService {
             bookingId: bookingId,
           );
         }
-        // Off-session selhal (typicky declined / expired / authentication denied).
-        // Vracíme strukturovanou chybu, aby PaymentScreen mohl spadnout do
-        // Payment Sheetu se sdělením „Karta selhala, zkuste znovu".
+        // Off-session selhal (typicky declined / expired / authentication denied),
+        // nebo PI skončil v neočekávaném stavu (processing → ověřit, ne chyba).
         final msg = (data['message'] as String?) ?? '';
         return PaymentResult.offSessionFailed(
           message: msg,
           errorCode: data['error_code'] as String?,
           declineCode: data['decline_code'] as String?,
+          intentStatus: data['status'] as String?,
         );
       }
 
@@ -125,27 +173,27 @@ class StripeService {
         );
       }
 
-      // Text serveru (česky) appka ukáže jen české appce; jinak lokalizovaná
-      // hláška z kódu (PaymentErrorMapper.serviceError).
-      final serverMsg = data['error'] as String?;
+      // Odmítnutí serverem (4xx/5xx s JSON). Text serveru je česky a jen do
+      // logu / pro odvození kódu — UI hlášku skládá PaymentRefusals z kódu.
+      final serverMsg = data['error'] as String? ?? '';
+      final total = (data['server_total'] as num?) ?? (data['expected'] as num?);
       return PaymentResult.error(
-        serverMsg ?? '',
+        serverMsg,
         code: PaymentErrorCode.serverError,
-        // Stabilní kód odmítnutí (409/403 u doplatkové změny: trailer_staffed_only,
-        // trailer_unavailable, stale_booking, forbidden…) → klient překládá.
         serverCode: data['code'] as String?,
+        serverTotal: total?.toDouble(),
+        httpStatus: response.statusCode,
+        // 5xx z vnějšího catch (Stripe výjimka) — u stržení uložené karty
+        // raději ověřit stav, než tvrdit „nic nebylo strženo".
+        uncertain: charges && response.statusCode >= 500,
       );
     } on TimeoutException {
-      return PaymentResult.error(
-        'timeout',
-        code: PaymentErrorCode.timeout,
-      );
+      return PaymentResult.error('timeout',
+          code: PaymentErrorCode.timeout, uncertain: charges);
     } catch (e) {
       debugPrint('[Stripe] createPaymentIntent failed: $e');
-      return PaymentResult.error(
-        'network error',
-        code: PaymentErrorCode.networkError,
-      );
+      return PaymentResult.error('network error',
+          code: PaymentErrorCode.networkError, uncertain: charges);
     }
   }
 
@@ -157,22 +205,12 @@ class StripeService {
     String? ephemeralKey,
   }) async {
     debugPrint('[Stripe] presentPaymentSheet START');
-    debugPrint('[Stripe] publishableKey set: ${Stripe.publishableKey.isNotEmpty}');
-    debugPrint('[Stripe] urlScheme: "${Stripe.urlScheme}"');
-    debugPrint('[Stripe] clientSecret length: ${clientSecret.length}');
-    debugPrint('[Stripe] clientSecret prefix: ${clientSecret.substring(0, clientSecret.length.clamp(0, 12))}...');
-    debugPrint('[Stripe] customerId: $customerId');
-    debugPrint('[Stripe] ephemeralKey: ${ephemeralKey != null ? "${ephemeralKey!.substring(0, ephemeralKey!.length.clamp(0, 8))}..." : "null"}');
-
-    // Step 1: applySettings
-    debugPrint('[Stripe] Step 1: applySettings...');
     bool sdkReady = false;
     String? applyError;
     for (var i = 0; i < 2 && !sdkReady; i++) {
       try {
         await Stripe.instance.applySettings();
         sdkReady = true;
-        debugPrint('[Stripe] applySettings OK (attempt ${i + 1})');
       } catch (e) {
         applyError = '$e';
         debugPrint('[Stripe] applySettings FAILED (attempt ${i + 1}): $e');
@@ -182,17 +220,11 @@ class StripeService {
       }
     }
     if (!sdkReady) {
-      final msg = 'applySettings selhalo: $applyError';
-      debugPrint('[Stripe] ABORT: $msg');
-      throw Exception(msg);
+      throw Exception('applySettings selhalo: $applyError');
     }
 
     // Only pass customer data when BOTH customerId and ephemeralKey exist
     final useCustomer = customerId != null && ephemeralKey != null;
-    debugPrint('[Stripe] useCustomer (saved cards): $useCustomer');
-
-    // Step 2: initPaymentSheet
-    debugPrint('[Stripe] Step 2: initPaymentSheet...');
     final params = SetupPaymentSheetParameters(
       paymentIntentClientSecret: clientSecret,
       merchantDisplayName: 'MotoGo24',
@@ -221,32 +253,17 @@ class StripeService {
     );
 
     try {
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: params,
-      );
-      debugPrint('[Stripe] initPaymentSheet OK');
-    } catch (e, stack) {
+      await Stripe.instance.initPaymentSheet(paymentSheetParameters: params);
+    } catch (e) {
       debugPrint('[Stripe] initPaymentSheet FAILED: $e');
-      debugPrint('[Stripe] initPaymentSheet stack: $stack');
       throw Exception('initPaymentSheet: $e');
     }
 
-    // Step 3: presentPaymentSheet
-    debugPrint('[Stripe] Step 3: presentPaymentSheet...');
     try {
       await Stripe.instance.presentPaymentSheet();
-      debugPrint('[Stripe] presentPaymentSheet OK — payment completed');
       return true;
     } on StripeException catch (e) {
-      debugPrint('[Stripe] presentPaymentSheet StripeException: ${e.error.code} / ${e.error.message}');
-      if (e.error.code == FailureCode.Canceled) {
-        debugPrint('[Stripe] User cancelled');
-        return false;
-      }
-      rethrow;
-    } catch (e, stack) {
-      debugPrint('[Stripe] presentPaymentSheet FAILED: $e');
-      debugPrint('[Stripe] presentPaymentSheet stack: $stack');
+      if (e.error.code == FailureCode.Canceled) return false;
       rethrow;
     }
   }
@@ -254,30 +271,67 @@ class StripeService {
   /// Dokončí SCA (3DS) pro off-session PaymentIntent, který backend založil
   /// s `requires_action`. Volá se z PaymentScreen po PaymentResult.offSessionRequiresAction.
   ///
-  /// Vrací true, pokud se intent po SCA dostal na `succeeded` (případně už byl),
-  /// false pokud uživatel SCA zrušil nebo selhal.
-  static Future<bool> handleNextAction(String clientSecret) async {
-    debugPrint('[Stripe] handleNextAction START');
+  /// Rozlišuje: zaplaceno / banka ještě zpracovává / zákazník ověření
+  /// nedokončil / banka ověření zamítla / nevíme (výpadek sítě — ověřit v DB).
+  static Future<NextActionOutcome> handleNextAction(String clientSecret) async {
     try {
       await Stripe.instance.applySettings();
     } catch (e) {
-      debugPrint('[Stripe] handleNextAction applySettings failed: $e');
       // pokračujeme — handleNextAction často projde i bez explicitního applySettings
+      debugPrint('[Stripe] handleNextAction applySettings failed: $e');
     }
     try {
       final result = await Stripe.instance.handleNextAction(clientSecret);
-      final status = result.status;
-      debugPrint('[Stripe] handleNextAction status: $status');
-      // succeeded i requiresCapture (manual capture flow) považujeme za OK
-      return status == PaymentIntentsStatus.Succeeded ||
-          status == PaymentIntentsStatus.RequiresCapture;
+      return outcomeForStatus(result.status);
     } on StripeException catch (e) {
-      debugPrint('[Stripe] handleNextAction StripeException: ${e.error.code} / ${e.error.message}');
-      return false;
+      debugPrint('[Stripe] handleNextAction StripeException: ${e.error.code} / ${e.error.stripeErrorCode}');
+      if (e.error.code == FailureCode.Canceled) return NextActionOutcome.notCompleted;
+      // Bez Stripe kódu = typicky výpadek spojení po odeslání → stav nevíme.
+      if ((e.error.stripeErrorCode ?? '').isEmpty &&
+          (e.error.declineCode ?? '').isEmpty) {
+        return NextActionOutcome.unknown;
+      }
+      return NextActionOutcome.failed;
     } catch (e) {
       debugPrint('[Stripe] handleNextAction FAILED: $e');
-      return false;
+      return NextActionOutcome.unknown;
     }
+  }
+
+  /// Stav PaymentIntentu → výsledek (sdílí 3DS i ověření po chybě).
+  static NextActionOutcome outcomeForStatus(PaymentIntentsStatus? s) {
+    switch (s) {
+      case PaymentIntentsStatus.Succeeded:
+      case PaymentIntentsStatus.RequiresCapture:
+        return NextActionOutcome.succeeded;
+      case PaymentIntentsStatus.Processing:
+        return NextActionOutcome.processing;
+      case PaymentIntentsStatus.RequiresAction:
+      case PaymentIntentsStatus.RequiresConfirmation:
+        return NextActionOutcome.notCompleted;
+      case PaymentIntentsStatus.RequiresPaymentMethod:
+      case PaymentIntentsStatus.Canceled:
+        return NextActionOutcome.failed;
+      default:
+        return NextActionOutcome.unknown;
+    }
+  }
+
+  /// Skutečný stav PaymentIntentu po nejasné chybě (výpadek sítě během
+  /// potvrzení, neznámá výjimka pluginu). Až 3 pokusy s timeoutem — bez sítě
+  /// by jeden pokus visel až 60 s. null = stav nejde zjistit.
+  static Future<PaymentIntentsStatus?> fetchIntentStatus(String clientSecret) async {
+    for (var i = 0; i < 3; i++) {
+      try {
+        final pi = await Stripe.instance
+            .retrievePaymentIntent(clientSecret)
+            .timeout(const Duration(seconds: 8));
+        return pi.status;
+      } catch (_) {
+        if (i < 2) await Future.delayed(Duration(milliseconds: 700 * (i + 1)));
+      }
+    }
+    return null;
   }
 
   /// Poll booking payment status after payment.
@@ -292,7 +346,8 @@ class StripeService {
             .from('bookings')
             .select('status, payment_status')
             .eq('id', bookingId)
-            .single();
+            .single()
+            .timeout(_queryTimeout);
 
         if (res['payment_status'] == 'paid') return true;
         if (res['status'] == 'cancelled') return false;
@@ -317,7 +372,8 @@ class StripeService {
             .from('shop_orders')
             .select('payment_status')
             .eq('id', orderId)
-            .single();
+            .single()
+            .timeout(_queryTimeout);
 
         if (res['payment_status'] == 'paid') return true;
       } catch (_) {}
@@ -325,6 +381,30 @@ class StripeService {
       if (i < maxAttempts - 1) {
         await Future.delayed(interval);
       }
+    }
+    return false;
+  }
+
+  /// Poll doplatku úpravy: změna se promítla, když `bookings.total_price`
+  /// dosáhl očekávané nové ceny (booking je `paid` už z původní platby).
+  static Future<bool> pollBookingTotal(
+    String bookingId,
+    double expected, {
+    int maxAttempts = 5,
+    Duration interval = const Duration(seconds: 2),
+  }) async {
+    for (var i = 0; i < maxAttempts; i++) {
+      try {
+        final row = await MotoGoSupabase.client
+            .from('bookings')
+            .select('total_price')
+            .eq('id', bookingId)
+            .maybeSingle()
+            .timeout(_queryTimeout);
+        final cur = (row?['total_price'] as num?)?.toDouble();
+        if (cur != null && (cur - expected).abs() < 0.5) return true;
+      } catch (_) {}
+      if (i < maxAttempts - 1) await Future.delayed(interval);
     }
     return false;
   }
@@ -340,6 +420,20 @@ class StripeService {
   }
 }
 
+/// Výsledek dokončení 3DS / ověření stavu PaymentIntentu.
+enum NextActionOutcome {
+  /// Zaplaceno (Succeeded / RequiresCapture).
+  succeeded,
+  /// Banka platbu ještě zpracovává — čekat na server (webhook).
+  processing,
+  /// Zákazník ověření u banky nedokončil (zavřel / zrušil) — nic nestrženo.
+  notCompleted,
+  /// Banka ověření nebo platbu zamítla — nic nestrženo.
+  failed,
+  /// Stav nejde zjistit (výpadek sítě) — ověřit v DB, nikdy netvrdit „nestrženo".
+  unknown,
+}
+
 /// Payment operation result.
 class PaymentResult {
   final PaymentResultType type;
@@ -351,8 +445,19 @@ class PaymentResult {
   final String? bookingId;
   final PaymentErrorCode? errorCode;
   final String? declineCode;
-  /// `code` z odpovědi process-payment (odmítnutí změny před platbou).
+  /// `code` z odpovědi process-payment (odmítnutí serverem před platbou).
   final String? serverCode;
+  /// Stripe `error_code` při selhání stržení uložené karty (expired_card,
+  /// resource_missing, amount_too_small…) — dřív se zahazoval.
+  final String? stripeCode;
+  /// Cena podle serveru (`server_total` / `expected`) u `amount_mismatch`.
+  final double? serverTotal;
+  final int? httpStatus;
+  /// Stav PI u off-session odpovědi bez úspěchu (např. `processing`).
+  final String? intentStatus;
+  /// true = požadavek nesl `payment_method_id` a odpověď se ztratila —
+  /// platba MOHLA proběhnout. Nikdy netvrdit „nic nebylo strženo".
+  final bool uncertain;
 
   const PaymentResult._({
     required this.type,
@@ -365,6 +470,11 @@ class PaymentResult {
     this.errorCode,
     this.declineCode,
     this.serverCode,
+    this.stripeCode,
+    this.serverTotal,
+    this.httpStatus,
+    this.intentStatus,
+    this.uncertain = false,
   });
 
   factory PaymentResult.intent({
@@ -387,12 +497,19 @@ class PaymentResult {
       PaymentResult._(type: PaymentResultType.free, bookingId: bookingId);
 
   factory PaymentResult.error(String message,
-          {PaymentErrorCode? code, String? serverCode}) =>
+          {PaymentErrorCode? code,
+          String? serverCode,
+          double? serverTotal,
+          int? httpStatus,
+          bool uncertain = false}) =>
       PaymentResult._(
         type: PaymentResultType.error,
         errorMessage: message,
         errorCode: code,
         serverCode: serverCode,
+        serverTotal: serverTotal,
+        httpStatus: httpStatus,
+        uncertain: uncertain,
       );
 
   /// Off-session charge proběhl, Stripe vrátil status='succeeded'.
@@ -420,17 +537,19 @@ class PaymentResult {
         bookingId: bookingId,
       );
 
-  /// Off-session selhal (karta declined, expired, ...). Klient může spadnout
-  /// do klasického Payment Sheetu.
+  /// Off-session selhal (karta declined, expired, ...).
   factory PaymentResult.offSessionFailed({
     required String message,
     String? errorCode,
     String? declineCode,
+    String? intentStatus,
   }) =>
       PaymentResult._(
         type: PaymentResultType.offSessionFailed,
         errorMessage: message,
         declineCode: declineCode,
+        stripeCode: errorCode,
+        intentStatus: intentStatus,
       );
 
   bool get isSuccess =>
@@ -449,4 +568,4 @@ enum PaymentResultType {
 }
 
 /// Categorized error codes for specific UI guidance.
-enum PaymentErrorCode { authExpired, timeout, networkError, serverError }
+enum PaymentErrorCode { authExpired, timeout, networkError, serverError, serverUnavailable }

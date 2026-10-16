@@ -217,7 +217,7 @@ Future<String?> sendMessage(String threadId, String content) async {
     });
     // Update thread last_message_at
     await MotoGoSupabase.client.from('message_threads').update({
-      'last_message_at': DateTime.now().toIso8601String(),
+      'last_message_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', threadId);
     return null;
   } catch (e) {
@@ -231,7 +231,7 @@ Future<void> markThreadRead(String threadId) async {
   try {
     await MotoGoSupabase.client
         .from('messages')
-        .update({'read_at': DateTime.now().toIso8601String()})
+        .update({'read_at': DateTime.now().toUtc().toIso8601String()})
         .eq('thread_id', threadId)
         .eq('direction', 'admin')
         .isFilter('read_at', null);
@@ -272,7 +272,8 @@ Future<String?> createThread(String subject) async {
     'channel': 'app',
     'status': 'open',
     'subject': subject,
-    'last_message_at': DateTime.now().toIso8601String(),
+    // UTC s označením zóny (místní čas bez zóny by Postgres uložil o 1–2 h dopředu).
+    'last_message_at': DateTime.now().toUtc().toIso8601String(),
   }).select('id').single();
   return res['id'] as String;
 }

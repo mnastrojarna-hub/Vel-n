@@ -10,7 +10,9 @@ $resetToken = $_GET['reset'] ?? '';
 
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent pcontent">' .
-    '<div id="edit-rez-app"><div class="loading-overlay"><span class="spinner"></span> ' . te('editRez.loading') . '</div></div>' .
+    // Lokalizovaný <h1> už v shellu (JS ho po načtení nahradí stejným nadpisem) — jinak by components.php
+    // doplnil český záložní „MotoGo24 — půjčovna motorek" nad drobečkovou navigaci ve všech jazycích.
+    '<div id="edit-rez-app"><h1>' . tc('editRez.h1') . '</h1><div class="loading-overlay"><span class="spinner"></span> ' . te('editRez.loading') . '</div></div>' .
     '</div></div></main>';
 
 // i18n payload pro JS — všechny editRez.* + rez.alert.* + storno klíče.

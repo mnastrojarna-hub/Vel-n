@@ -7,6 +7,7 @@ import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
 import RichTextEditor from '../../components/ui/RichTextEditor'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
+import { GOOGLE_REVIEW_URL_DEFAULT, googleOnlyReviewLinks } from '../../lib/reviewLinks'
 
 const SAMPLE_VARS = {
   // Booking email vars
@@ -16,7 +17,9 @@ const SAMPLE_VARS = {
   resume_link: 'https://www.motogo24.cz/#/rezervace?resume=abc123',
   voucher_code: 'MGABC123 (3 000 Kč)', voucher_amount: '3 000', voucher_value: '3 000',
   voucher_expiry: '15. 6. 2029', order_number: 'OBJ-2026-01001', discount_code: 'DIKY200',
-  google_review_url: 'https://g.page/r/CUmeYvk-sNf6EBM/review', facebook_review_url: 'https://www.facebook.com/people/MotoGo24/61581614672839/?sk=reviews', instagram_review_url: 'https://www.instagram.com/moto.go24/',
+  // Recenze jen na Googlu — edge send-booking-email posílá i FB/IG proměnné jako Google odkaz.
+  google_review_url: GOOGLE_REVIEW_URL_DEFAULT, facebook_review_url: GOOGLE_REVIEW_URL_DEFAULT, instagram_review_url: GOOGLE_REVIEW_URL_DEFAULT,
+  google_review_link: GOOGLE_REVIEW_URL_DEFAULT, facebook_review_link: GOOGLE_REVIEW_URL_DEFAULT,
   site_url: 'https://www.motogo24.cz', price_difference: '-1 200',
   // Invoice email vars
   invoice_number: 'ZF-2026-0001', invoice_type: 'Zálohová faktura',
@@ -59,41 +62,6 @@ const SAMPLE_VARS = {
   // Door codes blok (renderuje send-booking-email dynamicky; mock pro náhled). Pořadí jako u pobočky s bránou:
   // brána → šatna → motorka (řádek brány jen u pobočky s bránou; ukázkové číslice, NE skutečný kód)
   door_codes_block: '<div style="background:#eaf7ea;border:1px solid #74FB71;border-radius:12px;padding:16px;margin:16px 0"><strong>Přístupové kódy</strong><br>Brána (horní schránka, jen pobočka s bránou): <strong>135</strong> · Šatna: <strong>5678</strong> · Motorka: <strong>1234</strong></div>',
-}
-
-const GOOGLE_REVIEW_URL = 'https://g.page/r/CUmeYvk-sNf6EBM/review'
-const FACEBOOK_REVIEW_URL = 'https://www.facebook.com/people/MotoGo24/61581614672839/?sk=reviews'
-const FIRMY_REVIEW_URL = 'https://www.firmy.cz/detail/14009052-motogo24-mezna.html'
-
-/**
- * Opraví odkazy na recenze v poděkovacím mailu (náhled i test). Šablona má odkazy
- * natvrdo (Google nevyplněný `writereview?placeid=PLACE_ID` → 404, starý Facebook).
- * Přepíše href podle viditelného textu (Google / Facebook) na správné URL a za
- * Facebook doplní stejně stylovaný odkaz na Firmy.cz. Idempotentní (Firmy.cz jen jednou).
- */
-function fixReviewLinks(html) {
-  if (!html) return html
-  let out = html
-  out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Google\s*<\/a>)/gi, `$1${GOOGLE_REVIEW_URL}$2`)
-  out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Facebook\s*<\/a>)/gi, `$1${FACEBOOK_REVIEW_URL}$2`)
-  // Instagram v textu review-mailu → Firmy.cz (recenze Instagram neumí). Patičky se netýká.
-  out = out.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, (a) =>
-    (/instagram\.com/i.test(a) || /<a\b[^>]*>\s*Instagram\s*<\/a>/i.test(a))
-      ? a.replace(/href="[^"]*"/i, `href="${FIRMY_REVIEW_URL}"`).replace(/>[\s\S]*?<\/a>/i, '>Firmy.cz</a>')
-      : a,
-  )
-  if (!/firmy\.cz/i.test(out)) {
-    out = out.replace(
-      /<a\b[^>]*\bhref="[^"]*facebook\.com[^"]*"[^>]*>\s*Facebook\s*<\/a>/i,
-      (fbAnchor) => {
-        const firmyAnchor = fbAnchor
-          .replace(/href="[^"]*"/i, `href="${FIRMY_REVIEW_URL}"`)
-          .replace(/>\s*Facebook\s*<\/a>/i, '>Firmy.cz</a>')
-        return `${fbAnchor}, ${firmyAnchor}`
-      },
-    )
-  }
-  return out
 }
 
 const EMAIL_STATUS = {
@@ -574,7 +542,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
   function getPreviewHtml() {
     let html = bodyHtml
     if (template.slug === 'booking_completed' || template.slug === 'web_booking_completed') {
-      html = fixReviewLinks(html)
+      html = googleOnlyReviewLinks(html, SAMPLE_VARS.google_review_url)
     }
     for (const [k, v] of Object.entries(SAMPLE_VARS)) html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v)
     return html

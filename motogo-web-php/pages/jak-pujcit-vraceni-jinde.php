@@ -8,7 +8,7 @@ $defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_vraceni_jinde', $defaults);
 
-$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.returnElsewhere')]);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit/postup'], t('menu.howto.returnElsewhere')]);
 $kp = 'web.jak_pujcit_vraceni_jinde';
 
 // --- Section 1: title + intro + "Kdy se vrácení jinde hodí" ---
@@ -151,7 +151,7 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/vraceni-jinde', $lpiMeta +
     'schema' => $faqSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
-        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit/postup')],
         ['name' => t('menu.howto.returnElsewhere'), 'url' => siteCanonicalUrl('/jak-pujcit/vraceni-jinde')],
     ],
 ]);

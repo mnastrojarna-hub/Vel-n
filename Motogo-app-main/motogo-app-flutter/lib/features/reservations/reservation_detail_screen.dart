@@ -10,14 +10,13 @@ import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../auth/widgets/toast_helper.dart';
-import '../catalog/catalog_provider.dart';
 import '../documents/booking_doc_viewer.dart';
 import '../documents/document_models.dart';
 import '../documents/doc_webview_screen.dart';
 import '../documents/invoice_html_builder.dart';
-import '../payment/payment_provider.dart';
 import 'reservation_models.dart';
 import 'reservation_provider.dart';
+import 'booking_restore.dart';
 import 'widgets/res_detail_tab_btn.dart';
 import 'widgets/res_detail_tab_content.dart';
 import 'widgets/res_payment_details_tab.dart';
@@ -36,7 +35,6 @@ class ReservationDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _DetailState extends ConsumerState<ReservationDetailScreen> {
-  int _rating = 0;
   String _activeTab = 'detail'; // 'detail' or 'card'
   Timer? _refreshTimer;
   // Předávací protokol samoobslužné pobočky se od 2026-10-10 vyplňuje
@@ -116,7 +114,6 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
 
   Widget _buildDetail(BuildContext context, Reservation res, AsyncValue<List<DoorCode>> doorCodesAsync) {
     final st = res.displayStatus;
-    _rating = res.rating ?? 0;
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -223,7 +220,6 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
             // ===== DETAIL TAB BODY =====
             ResDetailTabContent(
               res: res,
-              rating: _rating,
               doorCodesAsync: doorCodesAsync,
               statusColor: _statusColor(st),
               statusTitle: _statusTitle(st),
@@ -232,7 +228,6 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
               onOpenFinalInvoice: _openFinalInvoice,
               onOpenContract: _openContract,
               onRestoreBooking: _restoreBooking,
-              onRatingChanged: (v) => setState(() => _rating = v),
             ),
           ],
 
@@ -254,60 +249,11 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     });
   }
 
-  /// Restore cancelled booking — check moto availability first.
-  /// If original dates are in the future and moto is free → restore to pending + payment.
-  /// Otherwise → redirect to search.
-  Future<void> _restoreBooking(BuildContext context, Reservation res) async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final startDay = DateTime(res.startDate.year, res.startDate.month, res.startDate.day);
-
-    // Check if dates are still in the future
-    if (!startDay.isAfter(today)) {
-      if (!mounted) return;
-      showMotoGoToast(context, icon: '📅', title: t(context).tr('cannotRestore'), message: t(context).tr('restoreDatePassed'));
-      context.go(Routes.search);
-      return;
-    }
-
-    // Check if moto is available for original dates
-    if (res.motoId != null) {
-      final available = await checkMotoAvailability(
-        res.motoId!, res.startDate, res.endDate,
-        excludeBookingId: res.id,
-      );
-      if (available) {
-        // Moto is free + dates in future → restore booking
-        try {
-          await MotoGoSupabase.client.from('bookings').update({
-            'status': 'pending',
-            'payment_status': 'unpaid',
-            'cancelled_at': null,
-            'cancellation_reason': null,
-          }).eq('id', res.id);
-
-          if (!mounted) return;
-          ref.invalidate(reservationsProvider);
-          ref.invalidate(reservationByIdProvider(res.id));
-          ref.read(paymentContextProvider.notifier).state = PaymentContext(
-            flowType: PaymentFlowType.booking,
-            bookingId: res.id,
-            amount: res.totalPrice,
-            label: t(context).tr('restorePaymentLabel'),
-          );
-          context.push(Routes.payment);
-          return;
-        } catch (e) {
-          debugPrint('[RESTORE] Error restoring booking: $e');
-        }
-      }
-    }
-
-    // Moto occupied or no motoId → redirect to search
-    if (!mounted) return;
-    showMotoGoToast(context, icon: '🏍️', title: t(context).tr('motoOccupiedTitle'), message: t(context).tr('restoreMotoOccupied'));
-    context.go(Routes.search);
-  }
+  /// Restore cancelled booking — check moto availability first (tri-state:
+  /// výpadek spojení ≠ obsazená motorka), pak obnova + platba. Logika v
+  /// `booking_restore.dart`.
+  Future<void> _restoreBooking(BuildContext context, Reservation res) =>
+      restoreAndPay(context, ref, res);
 
   /// Open rental contract for this specific booking — reálný dokument 1:1
   /// (podepsané HTML z generated_documents / soubor z bucketu documents).

@@ -109,14 +109,14 @@ export function buildDocVars(booking, customer, bookingId) {
     rental_period: `${fmtDate(booking.start_date)} \u2014 ${fmtDate(booking.end_date)} (${days} dni)`,
     total_price_words: '',
     // místo převzetí/vrácení na pobočce = pobočka rezervace (Brno Velké Němčice ≠ Mezná)
-    pickup_location: booking.pickup_address || brAddr || 'Mezna 9, 393 01 Mezna',
-    return_location: booking.return_address || brAddr || 'Mezna 9, 393 01 Mezna',
+    pickup_location: booking.pickup_address || brAddr || 'Mezn\u00e1 9, 393 01 Pelh\u0159imov',
+    return_location: booking.return_address || brAddr || 'Mezn\u00e1 9, 393 01 Pelh\u0159imov',
     mileage: String(booking.mileage_start || ''),
     technical_state: '',
     accessories_block: accessories.html,
     accessories: accessories.text,
     today_time: new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
-    company_name: 'Bc. Petra Semoradova', company_address: 'Mezna 9, 393 01 Mezna',
+    company_name: 'Bc. Petra Semor\u00e1dov\u00e1', company_address: 'Mezn\u00e1 9, 393 01 Pelh\u0159imov',
     company_ico: '21874263', company_dic: '',
   }
 }

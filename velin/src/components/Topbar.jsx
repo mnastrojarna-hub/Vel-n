@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import AiNotificationBell from './ai/AiNotificationBell'
+import { subscribeRatingAlerts } from '../lib/ratingAlerts'
 
 
 const ROUTE_LABELS = {
@@ -33,6 +34,9 @@ export default function Topbar() {
   const [time, setTime] = useState(new Date())
   const [notifs, setNotifs] = useState({ messages: 0, sos: 0, lowStock: 0, stkSoon: 0, kiosk: 0, service: 0 })
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  // Nízká hodnocení jízd (1–3 ★) k vyřízení (sdílený výpočet se Sidebarem, realtime).
+  const [lowRatings, setLowRatings] = useState(0)
+  useEffect(() => subscribeRatingAlerts(setLowRatings), [])
   const location = useLocation()
   const navigate = useNavigate()
   const dropdownRef = useRef(null)
@@ -81,13 +85,14 @@ export default function Topbar() {
     }
   }
 
-  const totalNotifs = notifs.messages + notifs.sos + notifs.lowStock + notifs.stkSoon + notifs.kiosk + notifs.service
+  const totalNotifs = notifs.messages + notifs.sos + notifs.lowStock + notifs.stkSoon + notifs.kiosk + notifs.service + lowRatings
   const label = ROUTE_LABELS[location.pathname] || (location.pathname.startsWith('/servis/motorka/') ? 'Servisní knížka' : 'Velín')
 
   const notifItems = [
     notifs.kiosk > 0 && { icon: '🚨', text: `${notifs.kiosk}× dveře otevřeny bez kódu (samoobsluha)`, path: '/', color: '#dc2626' },
     notifs.sos > 0 && { icon: '🚨', text: `${notifs.sos} aktivních SOS`, path: '/sos', color: '#dc2626' },
     notifs.messages > 0 && { icon: '💬', text: `${notifs.messages} nepřečtených zpráv`, path: '/zpravy', color: '#8b5cf6' },
+    lowRatings > 0 && { icon: '⭐', text: `${lowRatings}× nízké hodnocení jízdy (1–3 ★) k vyřízení`, path: '/zpravy?channel=ratings', color: '#dc2626' },
     notifs.lowStock > 0 && { icon: '📦', text: `${notifs.lowStock} pod minimem`, path: '/logistika?tab=stock', color: '#b45309' },
     notifs.stkSoon > 0 && { icon: '🔧', text: `${notifs.stkSoon} STK brzy vyprší`, path: '/servis?tab=stk', color: '#b45309' },
     notifs.service > 0 && { icon: '🛠', text: `${notifs.service} motorek má servis po termínu`, path: '/servis?tab=planovane', color: '#dc2626' },

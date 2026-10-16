@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { visibleSections } from '../lib/velinSections'
+import { subscribeRatingAlerts } from '../lib/ratingAlerts'
 
 // Položky menu = VELIN_SECTIONS (lib/velinSections.js) filtrované podle oprávnění
 // účtu (admin_users.permissions.sections); superadmin vidí vše.
@@ -32,6 +33,9 @@ export default function Sidebar({ admin, onSignOut }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [badges, setBadges] = useState({ messages: 0, sos: 0, gear: 0, kiosk: 0, service: 0 })
+  // Nízká hodnocení jízd (1–3 ★) k vyřízení — přičtou se k odznaku Zprávy a obarví ho červeně.
+  const [lowRatings, setLowRatings] = useState(0)
+  useEffect(() => subscribeRatingAlerts(setLowRatings), [])
   const location = useLocation()
   const navigate = useNavigate()
   const NAV = visibleSections(admin)
@@ -65,6 +69,9 @@ export default function Sidebar({ admin, onSignOut }) {
       setBadges({ messages: 0, sos: 0, gear: 0, kiosk: 0, service: 0 })
     }
   }
+
+  const badgeValue = (key) => (key === 'messages' ? badges.messages + lowRatings : badges[key])
+  const badgeRed = (key) => key === 'sos' || key === 'gear' || key === 'kiosk' || (key === 'messages' && lowRatings > 0)
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/'
@@ -130,15 +137,17 @@ export default function Sidebar({ admin, onSignOut }) {
             >
               <span className="text-base shrink-0">{item.icon}</span>
               {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
-              {!collapsed && item.badgeKey && badges[item.badgeKey] > 0 && (
+              {!collapsed && item.badgeKey && badgeValue(item.badgeKey) > 0 && (
                 <span className="flex items-center justify-center shrink-0"
+                  title={item.badgeKey === 'messages' && lowRatings > 0
+                    ? `${badges.messages} nepřečtených zpráv · ${lowRatings} nízkých hodnocení jízd k vyřízení` : undefined}
                   style={{
                     minWidth: 18, height: 18, borderRadius: 9,
-                    background: (item.badgeKey === 'sos' || item.badgeKey === 'gear' || item.badgeKey === 'kiosk') ? '#dc2626' : '#74FB71',
-                    color: (item.badgeKey === 'sos' || item.badgeKey === 'gear' || item.badgeKey === 'kiosk') ? '#fff' : '#1a2e22',
+                    background: badgeRed(item.badgeKey) ? '#dc2626' : '#74FB71',
+                    color: badgeRed(item.badgeKey) ? '#fff' : '#1a2e22',
                     fontSize: 9, fontWeight: 800, padding: '0 5px',
                   }}>
-                  {badges[item.badgeKey]}
+                  {badgeValue(item.badgeKey)}
                 </span>
               )}
             </button>

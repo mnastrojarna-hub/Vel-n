@@ -443,8 +443,8 @@ return [
                 'services' => [
                     'title' => 'Zusätzliche Leistungen (gegen Aufpreis)',
                     'items' => [
-                        'Lieferung des Motorrads an einen vereinbarten Ort überall in Tschechien',
-                        'Rückgabe des Motorrads an einem anderen Ort als der Filiale',
+                        'Lieferung des Motorrads an einen vereinbarten Ort überall in Tschechien (Motorräder der Filiale mit Personal in Mezná)',
+                        'Rückgabe des Motorrads an einem anderen Ort als der Filiale (Motorräder aus Mezná)',
                     ],
                 ],
             ],

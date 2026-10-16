@@ -10,6 +10,10 @@ class PaymentErrorSheet {
   PaymentErrorSheet._();
 
   /// Show error bottom sheet. Returns when user dismisses it.
+  ///
+  /// [dismissible] = false pro terminální stavy (vypršel čas, vyčerpané
+  /// pokusy): sheet nejde stáhnout ani zavřít mimo tlačítka — jinak by
+  /// zákazník zůstal na mrtvé obrazovce s aktivním „Zaplatit".
   static Future<void> show(
     BuildContext context, {
     required String title,
@@ -18,20 +22,24 @@ class PaymentErrorSheet {
     VoidCallback? onButton,
     String? secondaryLabel,
     VoidCallback? onSecondary,
+    bool dismissible = true,
   }) {
     HapticFeedback.mediumImpact();
     return showModalBottomSheet<void>(
       context: context,
-      isDismissible: true,
-      enableDrag: true,
+      isDismissible: dismissible,
+      enableDrag: dismissible,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ErrorSheetContent(
-        title: title,
-        message: message,
-        buttonLabel: buttonLabel,
-        onButton: onButton,
-        secondaryLabel: secondaryLabel,
-        onSecondary: onSecondary,
+      builder: (_) => PopScope(
+        canPop: dismissible,
+        child: _ErrorSheetContent(
+          title: title,
+          message: message,
+          buttonLabel: buttonLabel,
+          onButton: onButton,
+          secondaryLabel: secondaryLabel,
+          onSecondary: onSecondary,
+        ),
       ),
     );
   }
@@ -165,7 +173,7 @@ class _ErrorSheetContent extends StatelessWidget {
             // Support contact
             const SizedBox(height: 16),
             Text(
-              t(context).tr('paymentHelpLine'),
+              t(context).tr('psHelpLine'),
               style: const TextStyle(
                 fontSize: MotoGoTypo.sizeSm,
                 fontWeight: MotoGoTypo.w500,

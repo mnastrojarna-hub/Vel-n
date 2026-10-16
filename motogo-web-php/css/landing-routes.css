@@ -1,15 +1,19 @@
 /* ===== MotoGo24 — Landing v2: sekce „Trasy a záznam jízdy“ (landing-routes.php) ===== */
 .lp-rt{margin:2rem 0}
-.lp-rt-box{position:relative;overflow:hidden;display:grid;gap:1.2rem;padding:1.4rem 1.05rem 1.3rem;border-radius:22px;background:linear-gradient(160deg,#eafbf0 0,#d9f5e4 55%,#c7efd6 100%);box-shadow:0 0 0 1px #cde9da,0 18px 36px -24px rgba(26,46,34,.55)}
+.lp-rt-box{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);gap:1.2rem;padding:1.4rem 1.05rem 1.3rem;border-radius:22px;background:linear-gradient(160deg,#eafbf0 0,#d9f5e4 55%,#c7efd6 100%);box-shadow:0 0 0 1px #cde9da,0 18px 36px -24px rgba(26,46,34,.55)}
 .lp-rt-eyebrow{display:inline-flex;margin:0 0 .5rem;padding:.25rem .65rem;border-radius:999px;background:#0e2a1c;color:#74fb71;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
 .lp-main .lp-rt h2{margin:0 0 .45rem;color:#0e2a1c;font-size:clamp(1.4rem,5.8vw,2.1rem);line-height:1.15;text-wrap:balance}
 .lp-rt-lead{margin:0 0 .9rem;color:#2c4a3a;font-size:.93rem;line-height:1.5}
-.lp-rt-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;margin:0 0 .9rem;padding:0;list-style:none}
+.lp-rt-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.45rem;margin:0 0 .9rem;padding:0;list-style:none}
 .lp-rt-stats li{display:flex;flex-direction:column;align-items:center;padding:.55rem .3rem;border-radius:14px;background:#fff;text-align:center;box-shadow:0 6px 14px -12px rgba(26,46,34,.6)}
 .lp-rt-stats b{color:#0e2a1c;font-size:1.2rem;font-weight:900;line-height:1.1}
 .lp-rt-stats span{color:#4a6b5a;font-size:.7rem;line-height:1.25}
+/* dlouhá slova (nl „bezienswaardigheden") nesmí roztáhnout dlaždici přes okraj karty;
+   slovo smí využít boční padding dlaždice (uk „безкоштовний" celé), zalomí se až na jejím okraji */
+.lp-rt-stats li>*{max-width:calc(100% + .6rem);overflow-wrap:break-word}
+.lp-rt-stats li>:lang(de),.lp-rt-stats li>:lang(nl){-webkit-hyphens:auto;hyphens:auto}
 .lp-rt-list{display:grid;gap:.55rem;margin:0 0 1rem;padding:0;list-style:none}
-.lp-rt-item{display:grid;grid-template-columns:40px 1fr;gap:.65rem;align-items:start}
+.lp-rt-item{display:grid;grid-template-columns:40px minmax(0,1fr);gap:.65rem;align-items:start}
 .lp-rt-ico{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#0e2a1c;color:#74fb71}
 .lp-rt-ico .lp-ico2{width:22px;height:22px}
 .lp-rt-item b{display:block;color:#0e2a1c;font-size:.95rem;line-height:1.25}

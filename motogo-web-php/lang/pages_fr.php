@@ -444,8 +444,8 @@ return [
                 'services' => [
                     'title' => 'Services supplémentaires (en option, payants)',
                     'items' => [
-                        'livraison de la moto à un endroit convenu, partout en Tchéquie',
-                        'restitution de la moto ailleurs qu\'à l\'agence',
+                        'livraison de la moto à un endroit convenu, partout en Tchéquie (motos de l\'agence avec personnel de Mezná)',
+                        'restitution de la moto ailleurs qu\'à l\'agence (motos de Mezná)',
                     ],
                 ],
             ],

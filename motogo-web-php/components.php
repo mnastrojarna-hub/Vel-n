@@ -97,15 +97,17 @@ function seoEnhanceHtml($content) {
         $content
     );
     // Prazdny H1 -> doplnime fallback content (jinak crawler hlasi 'no H1').
+    // Lokalizovany (dřív česky natvrdo i na cizojazyčných stránkách).
+    $h1Fallback = function_exists('te') ? te('common.fallbackH1') : 'MotoGo24 — půjčovna motorek';
     $content = preg_replace_callback(
         '#<h1([^>]*)>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h1\s*>#i',
-        function ($m) { return '<h1' . $m[1] . '>MotoGo24 — půjčovna motorek</h1>'; },
+        function ($m) use ($h1Fallback) { return '<h1' . $m[1] . '>' . $h1Fallback . '</h1>'; },
         $content
     );
 
     // 1b) Pokud na strance neni vubec zadny <h1>, injectneme fallback nahoru.
     if (!preg_match('#<h1\b#i', $content)) {
-        $h1Plain = '<h1>MotoGo24 — půjčovna motorek</h1>';
+        $h1Plain = '<h1>' . $h1Fallback . '</h1>';
         $h1Wrapped = '<div class="container">' . $h1Plain . '</div>';
         // Preferred: vlozit DOVNITR prvni <div class="container"> hned za <main id="content">,
         // aby byl H1 zarovnany s ostatnim obsahem (jinak by visel u leveho okraje viewportu).
@@ -159,10 +161,10 @@ function seoEnhanceHtml($content) {
                 $filename = trim(preg_replace('#\s+#', ' ', preg_replace('#[-_]+#', ' ', preg_replace('#[0-9]+x[0-9]+#', '', $base))));
             }
 
-            $brand = 'MotoGo24 — půjčovna motorek Vysočina';
+            $brand = function_exists('t') ? t('ld.orgName') : 'MotoGo24 — půjčovna motorek Vysočina';
             if ($isIcon) {
                 // Dekorativni ikona — popis vazany na stranku, ne nazev ikony.
-                $altGuess = ($pageH1 !== '' ? $pageH1 . ' — ' : '') . 'ikona MotoGo24';
+                $altGuess = ($pageH1 !== '' ? $pageH1 . ' — ' : '') . (function_exists('t') ? t('seo.altIcon') : 'ikona MotoGo24');
             } elseif ($isUuid) {
                 // UUID/hash filename (typicky CMS upload) — pouzij H1 + brand.
                 $altGuess = ($pageH1 !== '' ? $pageH1 . ' — ' : '') . $brand;
@@ -671,6 +673,19 @@ function renderMotoCard($m) {
 }
 
 /**
+ * Popisek štítku článku v jazyce stránky. Štítky jsou ve Velínu česky (cms_pages.tags); odkaz ?tag= zůstává český.
+ */
+function blogTagLabel(string $tag): string {
+    static $labels = [
+        'O nás'       => ['en' => 'About us', 'de' => 'Über uns', 'es' => 'Sobre nosotros', 'fr' => 'À propos de nous', 'nl' => 'Over ons', 'pl' => 'O nas', 'uk' => 'Про нас'],
+        'Rady a tipy' => ['en' => 'Tips & advice', 'de' => 'Tipps & Ratschläge', 'es' => 'Consejos', 'fr' => 'Conseils et astuces', 'nl' => 'Tips en advies', 'pl' => 'Porady i wskazówki', 'uk' => 'Поради'],
+        'Aplikace'    => ['en' => 'App', 'de' => 'App', 'es' => 'App', 'fr' => 'Application', 'nl' => 'App', 'pl' => 'Aplikacja', 'uk' => 'Застосунок'],
+    ];
+    $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+    return $labels[$tag][$lang] ?? $tag;
+}
+
+/**
  * HTML karta blogu — odpovídá MG.renderBlogCard() v components.js.
  * Podporuje i relativní cesty začínající /gfx/ (lokální obrázky).
  */
@@ -687,7 +702,7 @@ function renderBlogCard($post) {
         $img = imgUrlSized($img, 600);
     }
     $tags = $post['tags'] ?? [];
-    $tag = !empty($tags) ? $tags[0] : '';
+    $tag = !empty($tags) ? blogTagLabel((string)$tags[0]) : '';
     // Auto-překlady z `translations` JSONB sloupce s CZ fallbackem
     $excerpt = localized($post, 'excerpt');
     if ($excerpt === '') $excerpt = $post['description'] ?? '';

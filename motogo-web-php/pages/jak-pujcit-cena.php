@@ -8,7 +8,7 @@ $defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_cena', $defaults);
 
-$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.price')]);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit/postup'], t('menu.howto.price')]);
 $kp = 'web.jak_pujcit_cena';
 
 // --- Section 1: title + intro + 2-col (basic / extra + services) ---
@@ -108,7 +108,7 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/co-v-cene', $lpiMeta + [
     'keywords' => $C['seo']['keywords'],
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
-        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit/postup')],
         ['name' => t('menu.howto.price'), 'url' => siteCanonicalUrl('/jak-pujcit/co-v-cene')],
     ],
 ]);

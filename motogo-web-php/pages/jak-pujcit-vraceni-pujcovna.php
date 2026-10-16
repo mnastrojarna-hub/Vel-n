@@ -8,7 +8,7 @@ $defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_vraceni_pujcovna', $defaults);
 
-$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.returnHome')]);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit/postup'], t('menu.howto.returnHome')]);
 $kp = 'web.jak_pujcit_vraceni_pujcovna';
 
 // --- Section 1: title + intro ---
@@ -114,7 +114,7 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/vraceni-pujcovna', $lpiMet
     'schema' => $faqSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
-        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit/postup')],
         ['name' => t('menu.howto.returnHome'), 'url' => siteCanonicalUrl('/jak-pujcit/vraceni-pujcovna')],
     ],
 ]);

@@ -14,6 +14,14 @@ if (!$post) {
     }
 }
 
+// Přejmenované slugy článků (starý → nový): 301 jen když starý slug už v DB není (tj. až po přejmenování
+// ve Velínu / SQL), do té doby se článek dál zobrazuje pod starou adresou.
+$legacySlugs = ['p' => 'proc-je-motogo24-nejlepsi-motopujcovna-v-cr'];
+if (!$post && isset($legacySlugs[$slug]) && $sb->fetchCmsPage($legacySlugs[$slug])) {
+    header('Location: ' . BASE_URL . (function_exists('i18nLocalizePath') ? i18nLocalizePath('/blog/' . $legacySlugs[$slug]) : '/blog/' . $legacySlugs[$slug]), true, 301);
+    exit;
+}
+
 if (!$post) {
     http_response_code(404);
     $content = '<main id="content"><div class="container">' .
@@ -31,6 +39,11 @@ $excerptRaw = localized($post, 'excerpt');
 if ($excerptRaw === '') $excerptRaw = $post['description'] ?? '';
 $contentRaw = localized($post, 'content');
 if ($contentRaw === '') $contentRaw = $post['description'] ?? '';
+// Článek bez překladu do jazyka stránky se zobrazí česky → označit lang="cs" (čtečky, vyhledávače).
+$blogLang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+$csAttr = function (string $field, string $val) use ($post, $blogLang): string {
+    return ($blogLang !== 'cs' && $val !== '' && $val === (string)($post[$field] ?? '')) ? ' lang="cs"' : '';
+};
 
 $title = htmlspecialchars($titleRaw);
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.blog'), 'href' => '/blog'], $title]);
@@ -41,6 +54,15 @@ $openLabel = htmlspecialchars(t('gallery.openImage'), ENT_QUOTES, 'UTF-8');
 // SEO: per-image alt z `image_alts[i]` (paralelní pole, plní admin ve Velíně
 // BlogWizard). Pokud prázdný → fallback na titulek článku (původní chování).
 $postImageAlts = is_array($post['image_alts'] ?? null) ? $post['image_alts'] : [];
+// Popisky fotek píše admin česky a auto-překlad Velínu je nepřekládá (jen title/excerpt/content) →
+// v přeloženém článku jen přeložené popisky (translations.<jazyk>.image_alts), jinak samotný přeložený titulek
+// (žádná čeština v alt). Nepřeložený článek (celý česky, lang="cs") si české popisky nechá.
+$trAll = $post['translations'] ?? null;
+if (is_string($trAll)) $trAll = json_decode($trAll, true);
+$trPost = ($blogLang !== 'cs' && is_array($trAll) && is_array($trAll[$blogLang] ?? null)) ? $trAll[$blogLang] : null;
+if ($trPost !== null && (string)($trPost['title'] ?? '') !== '') {
+    $postImageAlts = is_array($trPost['image_alts'] ?? null) ? $trPost['image_alts'] : [];
+}
 $composeBlogAlt = function (string $desc) use ($titleRaw) {
     $desc = trim($desc);
     if ($desc === '') return htmlspecialchars($titleRaw, ENT_QUOTES, 'UTF-8');
@@ -69,9 +91,9 @@ $excerpt = $excerptRaw;
 
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent blog-detail">' .
-    '<section><h1>' . $title . '</h1>' .
-    '<p>' . htmlspecialchars($excerpt) . '</p></section>' .
-    ($postContent ? '<section><div class="blog-content">' . $postContent . '</div></section>' : '') .
+    '<section><h1' . $csAttr('title', $titleRaw) . '>' . $title . '</h1>' .
+    '<p' . $csAttr('excerpt', $excerptRaw) . '>' . htmlspecialchars($excerpt) . '</p></section>' .
+    ($postContent ? '<section><div class="blog-content"' . $csAttr('content', $contentRaw) . '>' . $postContent . '</div></section>' : '') .
     $galleryHtml .
     '</div></div></main>';
 

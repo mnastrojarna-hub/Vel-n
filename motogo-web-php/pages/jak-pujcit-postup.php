@@ -11,7 +11,7 @@ $defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_postup', $defaults);
 
-$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.process')]);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit/postup'], t('menu.howto.process')]);
 
 // --- Section 1: title (h1 + intro p1 + h2 + intro p2) ---
 $titleSection = '<section>' .
@@ -100,9 +100,9 @@ foreach ($C['process']['steps'] as $s) {
     $stepText = trim(strip_tags($s['text'] ?? ''));
     if ($stepName === '' && $stepText === '') continue;
     $howToSteps[] = '{"@type":"HowToStep","position":' . $stepPos
-        . ',"name":' . json_encode($stepName !== '' ? $stepName : ('Krok ' . $stepPos), JSON_UNESCAPED_UNICODE)
+        . ',"name":' . json_encode($stepName !== '' ? $stepName : t('ld.step', ['n' => $stepPos]), JSON_UNESCAPED_UNICODE)
         . ',"text":' . json_encode($stepText, JSON_UNESCAPED_UNICODE)
-        . ',"url":"https://www.motogo24.cz/jak-pujcit/postup#step-' . $stepPos . '"'
+        . ',"url":' . json_encode(siteCanonicalUrl('/jak-pujcit/postup') . '#step-' . $stepPos, JSON_UNESCAPED_SLASHES)
         . '}';
 }
 $howToSchema = '';
@@ -113,11 +113,11 @@ if (!empty($howToSteps)) {
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"HowTo","name":' . json_encode($howToName, JSON_UNESCAPED_UNICODE)
         . ',"description":' . json_encode($howToDesc, JSON_UNESCAPED_UNICODE)
-        . ',"image":"https://www.motogo24.cz/gfx/hero-banner.jpg"'
+        . ',"image":"' . siteOrigin() . '/gfx/hero-banner.jpg"'
         . ',"totalTime":"PT15M"'
         . ',"estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"' . ldPriceLow() . '"}'
-        . ',"supply":[{"@type":"HowToSupply","name":"Občanský průkaz nebo cestovní pas"},{"@type":"HowToSupply","name":' . json_encode(ldLicenseSupply(), JSON_UNESCAPED_UNICODE) . '},{"@type":"HowToSupply","name":"Platební karta (Visa/Mastercard, Apple Pay, Google Pay) nebo QR platba / bankovní převod"}]'
-        . ',"tool":[{"@type":"HowToTool","name":"Mobilní telefon nebo počítač s internetem"}]'
+        . ',"supply":[{"@type":"HowToSupply","name":' . json_encode(t('ld.supplyId'), JSON_UNESCAPED_UNICODE) . '},{"@type":"HowToSupply","name":' . json_encode(ldLicenseSupply(), JSON_UNESCAPED_UNICODE) . '},{"@type":"HowToSupply","name":' . json_encode(t('ld.supplyCard'), JSON_UNESCAPED_UNICODE) . '}]'
+        . ',"tool":[{"@type":"HowToTool","name":' . json_encode(t('ld.tool'), JSON_UNESCAPED_UNICODE) . '}]'
         . ',"step":[' . implode(',', $howToSteps) . ']'
         . '}
   </script>';
@@ -135,7 +135,7 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/postup', $lpiMeta + [
     'schema' => $combinedSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
-        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit/postup')],
         ['name' => t('menu.howto.process'), 'url' => siteCanonicalUrl('/jak-pujcit/postup')],
     ],
 ]);

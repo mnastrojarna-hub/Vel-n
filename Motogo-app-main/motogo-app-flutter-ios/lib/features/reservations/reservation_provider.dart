@@ -9,11 +9,28 @@ import 'reservation_models.dart';
 const _bookingSelect =
     '*, motorcycles!moto_id(*, branches(name, address, city, gps_lat, gps_lng, type))';
 
+/// Funkční odkaz „napsat recenzi na Googlu“ (shodný s `app_settings.google_review_url`
+/// a s výchozí hodnotou edge fn `send-booking-email`). Starý krátký tvar
+/// `g.page/MotoGo24/review` Google zrušil — nepoužívat.
+const kGoogleReviewFallbackUrl = 'https://g.page/r/CUmeYvk-sNf6EBM/review';
+
+/// Recenze z appky vedou VÝHRADNĚ na Google (zadání majitele 2026-10-15) —
+/// hodnota z DB mimo doménu Googlu se ignoruje a použije se [kGoogleReviewFallbackUrl].
+/// Pravidlo shodné s edge `_shared/review-links.ts` (`isGoogleReviewUrl`).
+bool isGoogleReviewUrl(String url) {
+  final u = Uri.tryParse(url.trim());
+  final host = u?.host.toLowerCase() ?? '';
+  // Zrušené vlastní krátké názvy (g.page/<jméno>/review) Google neobsluhuje —
+  // platné jsou jen g.page/r/<id>.
+  if (host == 'g.page') return u!.path.startsWith('/r/');
+  // maps.app.goo.gl/…, (search|www|maps).google.<tld>[.<cc>]/…
+  return host == 'goo.gl' || host.endsWith('.goo.gl') ||
+      RegExp(r'(^|\.)google\.[a-z]{2,3}(\.[a-z]{2})?$').hasMatch(host);
+}
+
 /// Odkaz na Google recenze — čte se ze stejného zdroje jako e-mailové šablony
 /// (`app_settings.google_review_url`), aby appka i mail vedly na FUNKČNÍ odkaz.
-/// Fallback shodný s edge fn `send-invoice-email`.
 final googleReviewUrlProvider = FutureProvider<String>((ref) async {
-  const fallback = 'https://g.page/MotoGo24/review';
   try {
     final res = await MotoGoSupabase.client
         .from('app_settings')
@@ -21,12 +38,12 @@ final googleReviewUrlProvider = FutureProvider<String>((ref) async {
         .eq('key', 'google_review_url')
         .maybeSingle();
     final v = res?['value'];
-    final url = v is String
+    final url = (v is String
         ? v
-        : (v is Map ? (v['url'] as String?) : null);
-    if (url != null && url.trim().startsWith('http')) return url.trim();
+        : (v is Map ? (v['url'] as String?) : null))?.trim();
+    if (url != null && url.startsWith('https://') && isGoogleReviewUrl(url)) return url;
   } catch (_) {/* fallback */}
-  return fallback;
+  return kGoogleReviewFallbackUrl;
 });
 
 /// Fetches all user bookings with realtime subscription.
@@ -251,7 +268,8 @@ Future<String?> rateBooking(String bookingId, int rating) async {
   try {
     await MotoGoSupabase.client.from('bookings').update({
       'rating': rating,
-      'rated_at': DateTime.now().toIso8601String(),
+      // UTC s označením zóny — bez něj by Postgres místní čas uložil jako UTC (+1–2 h).
+      'rated_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', bookingId);
     return null;
   } catch (e) {

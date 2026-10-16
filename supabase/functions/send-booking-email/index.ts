@@ -4,6 +4,7 @@ import { renderEmail, normalizeLang, helpCardLabels, renderDoorCodesReleasedBloc
 import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
 import { GATE_MAIL_TYPES, loadBranchGate, loadNeedsLocker, renderGateProcedureBlock, type BranchGate } from './branch-gate.ts'
 import { isTrustedCaller } from '../_shared/auth.ts'
+import { googleOnlyReviewLinks, googleReviewBlock, loadGoogleReviewUrl } from '../_shared/review-links.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
@@ -15,13 +16,8 @@ const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 const PUBLIC_QR_TARGET = 'https://www.motogo24.cz'
 const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
-// Funkční odkazy na recenze/profily používané v mailech (Google / Facebook / Instagram).
-// Slouží jako fallback, když nejsou nastavené v app_settings.
-// Google: oficiální odkaz na formulář recenze z Google Business Profile (Požádat o recenzi).
-const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/r/CUmeYvk-sNf6EBM/review'
-const FACEBOOK_REVIEW_URL_DEFAULT = 'https://www.facebook.com/people/MotoGo24/61581614672839/?sk=reviews'
-const INSTAGRAM_REVIEW_URL_DEFAULT = 'https://www.instagram.com/moto.go24/'
-const FIRMY_REVIEW_URL_DEFAULT = 'https://www.firmy.cz/detail/14009052-motogo24-mezna.html'
+// Odkaz na recenze = VŽDY Google (app_settings.google_review_url, záloha v
+// _shared/review-links.ts). Jiné recenzní weby se v mailech neodkazují (majitel 2026-10-15).
 
 // ── i18n: doména zákazníka dle jazyka ───────────────────────────────────────
 // Stejný vzor jako process-payment/stripe-customer.ts a generate-document:
@@ -52,57 +48,8 @@ function resolveTemplateForLang(supabase: any, tpl: any, lang: string): Promise<
   return resolveTemplateShared(supabase, tpl, lang, 'send-booking-email')
 }
 
-const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: string }> = {
-  cs: { title: 'Pomohlo by nám vaše hodnocení', body: 'Pokud jste byli spokojeni, prosíme zanechte nám recenzi na Googlu — pomáháte tím dalším motorkářům.', cta: '⭐ Ohodnotit na Google' },
-  en: { title: 'Your review would help us', body: 'If you were happy with our service, please leave us a review on Google — it helps fellow riders.', cta: '⭐ Review on Google' },
-  de: { title: 'Ihre Bewertung würde uns helfen', body: 'Wenn Sie zufrieden waren, hinterlassen Sie uns bitte eine Google-Bewertung — Sie helfen damit anderen Bikern.', cta: '⭐ Auf Google bewerten' },
-  nl: { title: 'Je review helpt ons enorm', body: 'Was je tevreden? Laat dan een review achter op Google — je helpt andere motorrijders.', cta: '⭐ Beoordeel op Google' },
-  es: { title: 'Tu reseña nos ayudaría mucho', body: 'Si quedaste satisfecho, déjanos una reseña en Google — ayudas a otros moteros.', cta: '⭐ Reseña en Google' },
-  fr: { title: 'Votre avis nous aiderait', body: 'Si vous étiez satisfait, laissez-nous un avis sur Google — vous aidez d\'autres motards.', cta: '⭐ Avis sur Google' },
-  pl: { title: 'Twoja recenzja by nam pomogła', body: 'Jeśli byłeś zadowolony, zostaw nam recenzję w Google — pomożesz innym motocyklistom.', cta: '⭐ Oceń w Google' },
-  uk: { title: 'Ваш відгук нам дуже допоможе', body: 'Якщо ви були задоволені, залиште нам, будь ласка, відгук у Google — ви допоможете іншим мотоциклістам.', cta: '⭐ Оцінити в Google' },
-}
-
-// Opraví odkazy na recenze v poděkovacím mailu. Šablona ve Velíně má odkazy
-// natvrdo (Google nevyplněný `writereview?placeid=PLACE_ID` → 404, starý Facebook).
-// Přepíšeme href podle viditelného textu odkazu (Google / Facebook) na správné URL
-// a za Facebook doplníme stejně stylovaný odkaz na Firmy.cz. Nezávisí na {{proměnných}}.
-// Idempotentní (Firmy.cz se nepřidá podruhé).
-function fixReviewLinks(html: string): string {
-  if (!html) return html
-  let out = html
-  out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Google\s*<\/a>)/gi, `$1${GOOGLE_REVIEW_URL_DEFAULT}$2`)
-  out = out.replace(/(<a\b[^>]*\bhref=")[^"]*("[^>]*>\s*Facebook\s*<\/a>)/gi, `$1${FACEBOOK_REVIEW_URL_DEFAULT}$2`)
-  // Pokud má šablona odkaz na Instagram přímo v textu (recenze Instagram neumí),
-  // převeď ho na Firmy.cz. Týká se jen těla review-mailu, ne patičky „Sledujte nás“.
-  out = out.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, (a) =>
-    (/instagram\.com/i.test(a) || /<a\b[^>]*>\s*Instagram\s*<\/a>/i.test(a))
-      ? a.replace(/href="[^"]*"/i, `href="${FIRMY_REVIEW_URL_DEFAULT}"`).replace(/>[\s\S]*?<\/a>/i, '>Firmy.cz</a>')
-      : a,
-  )
-  if (!/firmy\.cz/i.test(out)) {
-    out = out.replace(
-      /<a\b[^>]*\bhref="[^"]*facebook\.com[^"]*"[^>]*>\s*Facebook\s*<\/a>/i,
-      (fbAnchor) => {
-        const firmyAnchor = fbAnchor
-          .replace(/href="[^"]*"/i, `href="${FIRMY_REVIEW_URL_DEFAULT}"`)
-          .replace(/>\s*Facebook\s*<\/a>/i, '>Firmy.cz</a>')
-        return `${fbAnchor}, ${firmyAnchor}`
-      },
-    )
-  }
-  return out
-}
-
-function googleReviewBlock(lang: string, url: string): string {
-  const l = REVIEW_BLOCK_LABELS[lang] || REVIEW_BLOCK_LABELS.cs
-  const href = url || GOOGLE_REVIEW_URL_DEFAULT
-  return `<div style="background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px;margin:24px 0;text-align:center">
-  <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">${l.title}</div>
-  <div style="color:#ffffff;font-size:13px;margin:0 0 16px">${l.body}</div>
-  <a href="${href}" target="_blank" rel="noopener" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">${l.cta}</a>
-</div>`
-}
+// Blok „Pomohlo by nám vaše hodnocení“ (googleReviewBlock) a úprava odkazů na recenze
+// v poděkovacím mailu (googleOnlyReviewLinks) — sdílené v _shared/review-links.ts.
 
 /** Send email with exponential backoff retry (max 3 attempts) */
 async function sendWithRetry(emailData: Record<string, unknown>, maxRetries = 3): Promise<{ success: boolean; provider_id?: string; error?: string }> {
@@ -829,7 +776,6 @@ serve(async (req) => {
       docs_url,
       discount_code,
       google_review_url,
-      facebook_review_url,
       manual_url,
       // legacy `attachments` v body se ignoruje — Velín DB šablona je etalon (viz níže)
       // i18n — language zákazníka (cs/en/de/nl/es/fr/pl), default 'cs'
@@ -873,6 +819,7 @@ serve(async (req) => {
     // SQL fn `send_door_codes_email` teď volá tuhle edge fn přes pg_net.
 
 
+    const googleReviewUrl = await loadGoogleReviewUrl(supabase, google_review_url)
     const vars: Record<string, string> = {
       customer_name: customer_name || '',
       booking_id: booking_id || '',
@@ -916,9 +863,14 @@ serve(async (req) => {
       return_time:            return_time || '',
       original_pickup_time:   original_pickup_time || '',
       original_return_time:   original_return_time || '',
-      google_review_url: google_review_url || GOOGLE_REVIEW_URL_DEFAULT,
-      facebook_review_url: facebook_review_url || FACEBOOK_REVIEW_URL_DEFAULT,
-      instagram_review_url: INSTAGRAM_REVIEW_URL_DEFAULT,
+      // Recenze jen na Googlu: případné {{facebook_review_url}} / {{instagram_review_url}} /
+      // {{*_review_link}} (seed 20260305) ve starší šabloně vedou také na Google
+      // (payload `facebook_review_url` z DB triggerů se ignoruje).
+      google_review_url: googleReviewUrl,
+      facebook_review_url: googleReviewUrl,
+      instagram_review_url: googleReviewUrl,
+      google_review_link: googleReviewUrl,
+      facebook_review_link: googleReviewUrl,
       manual_url: manual_url || '',
       door_code_moto: '',
       door_code_gear: '',
@@ -1174,9 +1126,9 @@ serve(async (req) => {
         // (cache v {subject,body}_translations[lang] + __src_<lang> hash).
         // cs \u2192 CZ origin\u00e1l 1:1 beze zm\u011bny.
         const resolved = await resolveTemplateForLang(supabase, tpl as any, custLang)
-        // U poděkovacího mailu (booking_completed / web_booking_completed) opravíme
-        // odkazy na recenze (Google/Facebook) a doplníme Instagram.
-        const bodySrc = trySlug.includes('completed') ? fixReviewLinks(resolved.body) : resolved.body
+        // U poděkovacího mailu (booking_completed / web_booking_completed): odkaz na recenze
+        // jen Google — ostatní recenzní weby (Facebook/Instagram/Firmy.cz…) se odstraní.
+        const bodySrc = trySlug.includes('completed') ? googleOnlyReviewLinks(resolved.body, vars.google_review_url) : resolved.body
         // gate_codes_block patří jen vestavěné šabloně booking_modified — DB šablona by s oběma
         // placeholdery vykreslila blok dvakrát.
         templateHtml = renderTemplate(bodySrc, { ...vars, gate_codes_block: '' })
@@ -1274,6 +1226,7 @@ ${vars.door_codes_block}
 <p>Pros\u00edme, pro bezprobl\u00e9mov\u00e9 p\u0159evzet\u00ed si p\u0159ipravte:</p>
 <ul><li>platn\u00fd doklad toto\u017enosti (kter\u00fd jste uvedli v rezerva\u010dn\u00edm formul\u00e1\u0159i),</li><li>platn\u00fd \u0159idi\u010dsk\u00fd pr\u016fkaz.</li></ul>
 <p>Doklady (občanský průkaz nebo cestovní pas a řidičský průkaz) prosím nahrajte předem v aplikaci nebo na webu — přístupové kódy vám pošleme až po jejich ověření. Na samoobslužné pobočce je nahrání dokladů předem nezbytné: bez ověřených dokladů kódy nevydáme a na pobočku se nedostanete; motorku i výbavu si převezmete sami pomocí kódů a Předávací protokol podepíšete na dotykovém displeji. Na obslužné pobočce vás o nahrání dokladů předem také žádáme — pokud je nenahrajete, zkontrolujeme je při převzetí na místě, kde vám předáme motorku i výbavu a společně podepíšeme Předávací protokol.</p>
+<p>Aplikaci MotoGo24 stáhnete zdarma pro Android na <a href="https://play.google.com/store/apps/details?id=com.motogo24.app" style="color:#2563eb">Google Play</a> i pro iPhone v <a href="https://apps.apple.com/cz/app/id6806045151" style="color:#2563eb">App Store</a>.</p>
 <p>Osobní věci, které nechcete brát na cestu, si na obslužné pobočce v Mezné můžete zdarma uložit do uzamykatelné skříňky.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Vrácení motorky</h3>
 <p>Tankovat při vrácení nemusíte (plná nádrž není potřeba) — jen ať nesvítí kontrolka rezervy. Umytou motorku vracejte jen na samoobslužné pobočce ve Velkých Němčicích; na obslužné pobočce v Mezné (i při vrácení na jiném sjednaném místě) ji mýt nemusíte.</p>
@@ -1284,7 +1237,7 @@ ${vars.door_codes_block}
       } else if (type === 'booking_completed') {
         templateHtml = `<p>Dobr\u00fd den,</p>
 <p>d\u011bkujeme, \u017ee jste vyu\u017eili slu\u017eeb MotoGo24.</p>
-<p>Proto\u017ee je pro n\u00e1s zp\u011btn\u00e1 vazba velmi d\u016fle\u017eit\u00e1, budeme r\u00e1di, pokud n\u00e1m zanech\u00e1te recenzi na <a href="${vars.google_review_url || GOOGLE_REVIEW_URL_DEFAULT}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Google</a> nebo na <a href="${vars.facebook_review_url || FB_URL}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Facebook</a>.</p>
+<p>Proto\u017ee je pro n\u00e1s zp\u011btn\u00e1 vazba velmi d\u016fle\u017eit\u00e1, budeme r\u00e1di, pokud n\u00e1m zanech\u00e1te recenzi na <a href="${vars.google_review_url}" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:12px;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:14px;margin:0 4px">Google</a>.</p>
 <p>Pokud m\u00e1te n\u011bjak\u00e9 zaj\u00edmav\u00e9 fotografie nebo videa z va\u0161\u00ed cesty, kter\u00e9 byste s n\u00e1mi cht\u011bli sd\u00edlet, za\u0161lete n\u00e1m je, pros\u00edm, na e-mail: <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>. R\u00e1di je p\u0159\u00edpadn\u011b zve\u0159ejn\u00edme na na\u0161em webu nebo soci\u00e1ln\u00edch s\u00edt\u00edch.</p>
 ${vars.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">Jako mal\u00e9 pod\u011bkov\u00e1n\u00ed za poskytnutou d\u016fv\u011bru p\u0159ikl\u00e1d\u00e1me slevov\u00fd k\u00f3d <strong>200 K\u010d</strong> na va\u0161i p\u0159\u00ed\u0161t\u00ed rezervaci: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${vars.discount_code}</strong></p></div>` : ''}
 <p>V p\u0159\u00edloze naleznete kone\u010dnou fakturu za va\u0161i rezervaci.</p>
@@ -1410,8 +1363,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
     }
 
     // Google review CTA button — appended jen pro shop expedici. Pro booking_completed
-    // jsou odkazy na recenze (Google/Facebook/Instagram) už přímo v šabloně, aby se
-    // Google neopakoval 2×.
+    // je odkaz na recenzi Google už přímo v šabloně, aby se Google neopakoval 2×.
     if (type === 'shop_order_shipped') {
       templateHtml = templateHtml + googleReviewBlock(custLang, vars.google_review_url)
     }
@@ -1454,7 +1406,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
           .eq('active', true)
           .maybeSingle()
         if (tpl?.body_html) {
-          const csBodySrc = trySlug.includes('completed') ? fixReviewLinks(tpl.body_html) : tpl.body_html
+          const csBodySrc = trySlug.includes('completed') ? googleOnlyReviewLinks(tpl.body_html, vars.google_review_url) : tpl.body_html
           csTemplateHtml = renderTemplate(csBodySrc, { ...varsCs, gate_codes_block: '' })
           csSubject = renderTemplate(tpl.subject || '', subjectVars(varsCs))
           break

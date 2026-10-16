@@ -238,13 +238,13 @@ if (is_array($branches)) {
             : '';
 
         $branchSchemas[] = '{"@type":["LocalBusiness","AutomotiveBusiness"]'
-            . ',"@id":"https://www.motogo24.cz/kontakt#branch-' . htmlspecialchars($br['id']) . '"'
+            . ',"@id":' . json_encode(siteCanonicalUrl('/kontakt') . '#branch-' . $br['id'], JSON_UNESCAPED_SLASHES)
             . ',"name":' . json_encode('MotoGo24 — ' . $brName, JSON_UNESCAPED_UNICODE)
-            . ',"branchOf":{"@id":"https://www.motogo24.cz/#organization"}'
-            . ',"parentOrganization":{"@id":"https://www.motogo24.cz/#organization"}'
+            . ',"branchOf":{"@id":' . json_encode(siteOrigin() . '/#organization', JSON_UNESCAPED_SLASHES) . '}'
+            . ',"parentOrganization":{"@id":' . json_encode(siteOrigin() . '/#organization', JSON_UNESCAPED_SLASHES) . '}'
             . ',"telephone":' . json_encode($brPhone)
             . ',"email":' . json_encode($brEmail)
-            . ',"url":"https://www.motogo24.cz/kontakt"'
+            . ',"url":' . json_encode(siteCanonicalUrl('/kontakt'), JSON_UNESCAPED_SLASHES)
             . ',"address":{"@type":"PostalAddress","streetAddress":' . json_encode($brAddr, JSON_UNESCAPED_UNICODE)
                 . ',"addressLocality":' . json_encode($brCity, JSON_UNESCAPED_UNICODE)
                 . ',"postalCode":' . json_encode($brZip)
@@ -252,7 +252,7 @@ if (is_array($branches)) {
             . $geo
             . ',' . $hours
             . ($brType !== '' ? ',"description":' . json_encode($brType . ($brNotes !== '' ? ' — ' . $brNotes : ''), JSON_UNESCAPED_UNICODE) : ($brNotes !== '' ? ',"description":' . json_encode($brNotes, JSON_UNESCAPED_UNICODE) : ''))
-            . ',"priceRange":"' . number_format(ldPriceLow(), 0, ',', ' ') . ' – ' . number_format(ldPriceHigh(), 0, ',', ' ') . ' Kč/den"'
+            . ',"priceRange":"' . number_format(ldPriceLow(), 0, ',', ' ') . ' – ' . number_format(ldPriceHigh(), 0, ',', ' ') . ' ' . t('ld.priceUnit') . '"'
             . '}';
     }
 }

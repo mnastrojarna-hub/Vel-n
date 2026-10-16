@@ -39,7 +39,7 @@ export const PAGE_LAYOUT = {
       id: 'footer', label: 'Footer (patička)', location: 'Dolní část webu na každé stránce',
       fields: [
         { key: 'web.layout.footer.aboutTitle', label: 'Nadpis "O nás"', default: 'Půjčovna motorek' },
-        { key: 'web.layout.footer.aboutText', label: 'Úvodní text patičky (HTML povolen)', type: 'textarea', default: 'Vítejte u Motogo24, vaší <strong>půjčovny motorek v Pelhřimově</strong>! Nabízíme <strong>pronájem motorek</strong> pro místní i turisty. Vyberte si z nabídky sportovních nebo enduro motorek a rezervujte online ve třech krocích.' },
+        { key: 'web.layout.footer.aboutText', label: 'Úvodní text patičky (HTML povolen)', type: 'textarea', default: 'Vítej u Motogo24, tvojí&nbsp;<strong>půjčovny motorek v Pelhřimově a u Brna</strong>! Nabízíme <strong>pronájem motorek</strong> pro místní i turisty. Vyber si z naší široké nabídky motorek a rezervuj online ve třech krocích. Objevuj s námi motorkářské trasy v ČR i v zahraničí!' },
         { key: 'web.layout.footer.socialTitle', label: 'Nadpis sociální sítě', default: 'Půjčovna motorek na sítích' },
         { key: 'web.layout.footer.helpTitle', label: 'Nadpis pomoc', default: 'Potřebujete poradit?' },
         { key: 'web.layout.footer.callUs', label: 'Label "ZAVOLEJTE NÁM"', default: 'ZAVOLEJTE NÁM' },

@@ -437,6 +437,13 @@ switch (true) {
         require __DIR__ . '/pages/katalog.php';
         break;
 
+    // Legacy odkaz /motorky (článek blogu „12 hlavních výhod MotoGo24“ ve všech jazycích)
+    // — 301 na katalog (na cizí doméně lokalizovaný), místo 404.
+    case $path === '/motorky':
+        $qs = (string)($_SERVER['QUERY_STRING'] ?? '');
+        header('Location: ' . BASE_URL . i18nLocalizePath('/katalog') . ($qs !== '' ? '?' . $qs : ''), true, 301);
+        exit;
+
     case $path === '/katalog/cestovni':
         require __DIR__ . '/pages/katalog.php';
         break;

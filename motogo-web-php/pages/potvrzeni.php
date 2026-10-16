@@ -12,8 +12,11 @@ $isShop = !empty($orderId);
 $bcLabel = $isShop ? t('breadcrumb.confirmationOrder') : t('breadcrumb.confirmation');
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], $bcLabel]);
 
+// Lokalizovaný <h1> už v shellu (JS obsah #confirm-content po ověření platby nahradí vlastním nadpisem) —
+// jinak components.php doplnil záložní H1 nad drobečkovou navigaci a po JS byly na stránce dva H1.
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent"><div id="confirm-content">' .
+    '<h1>' . htmlspecialchars($bcLabel, ENT_QUOTES, 'UTF-8') . '</h1>' .
     '<div class="loading-overlay"><span class="spinner"></span> ' . te('confirm.verifying') . '</div>' .
     '</div></div></div></main>';
 

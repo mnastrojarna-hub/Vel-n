@@ -14,7 +14,7 @@ return ['pages' => ['landing_info' => [
     'chips' => [
         'postup' => ['Sans caution', 'Équipement pilote inclus', 'Réservation en ligne en quelques minutes'],
         'prevzeti' => ['Retrait à ton heure', 'Parking gratuit', 'Sans caution'],
-        'vraceni_pujcovna' => ['Retour le dernier jour jusqu\'à minuit', 'Pas besoin de faire le plein', 'Sans caution'],
+        'vraceni_pujcovna' => ['Retour le dernier jour jusqu\'à minuit', 'Pas de plein – voyant de réserve éteint', 'Sans caution'],
         'vraceni_jinde' => ['Partout en Tchéquie', 'Tarif clair au km', 'Sans caution'],
         'cena' => ['0 € de caution', 'Équipement pilote inclus', 'Sans frais cachés'],
         'pristaveni' => ['Chez toi, à l\'hôtel ou à la gare', 'Partout en Tchéquie', 'Sans caution'],

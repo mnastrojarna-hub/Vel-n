@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'payment_pending_marker.dart';
 import 'supabase_client.dart';
 
 /// True while the PaymentScreen is on screen. Driven by PaymentScreen's
@@ -13,6 +14,11 @@ import 'supabase_client.dart';
 /// funguje bez ohledu na routovací kvírky. AppShell ho čte a skryje všechny
 /// plovoucí FAB panely, aby nepřekrývaly tlačítko „Zaplatit".
 final paymentScreenActiveProvider = StateProvider<bool>((ref) => false);
+
+/// True, dokud PaymentScreen čeká na výsledek platby (stržení karty, 3DS,
+/// potvrzení serverem). AppShell pak záložkou spodní lišty neodvede zákazníka
+/// pryč bez potvrzení — ztracený výsledek vedl k opakované (dvojí) platbě.
+final paymentProcessingProvider = StateProvider<bool>((ref) => false);
 
 /// True dokud je na obrazovce některý z APP-LEVEL overlayů (jazyk, oprávnění,
 /// intro). Ty sedí ve `Stack`u v `MaterialApp.builder` AŽ ZA `child!`, takže
@@ -28,11 +34,15 @@ class PendingBooking {
   final String id;
   final double totalPrice;
   final DateTime createdAt;
+  /// Platba už byla odeslána a čeká se na potvrzení (lokální značka) — FAB
+  /// pak NEnabízí další platbu, jen „Platba se ověřuje".
+  final bool verifying;
 
   const PendingBooking({
     required this.id,
     required this.totalPrice,
     required this.createdAt,
+    this.verifying = false,
   });
 
   /// Remaining milliseconds before expiry (30 min from created_at) —
@@ -67,16 +77,48 @@ Future<PendingBooking?> _fetchPendingBooking(String userId) async {
       .eq('user_id', userId)
       .inFilter('status', ['reserved', 'pending'])
       .eq('payment_status', 'unpaid')
+      // Jen app rezervace: webová čeká na bankovní převod (QR) — nabídnout
+      // k ní platbu kartou by vedlo k dvojí platbě.
+      .eq('booking_source', 'app')
       .order('created_at', ascending: false)
       .limit(1)
-      .maybeSingle();
+      .maybeSingle()
+      .timeout(const Duration(seconds: 10));
   if (res == null) return null;
+  final id = res['id'] as String;
   return PendingBooking(
-    id: res['id'] as String,
+    id: id,
     totalPrice: (res['total_price'] as num?)?.toDouble() ?? 0,
     createdAt: DateTime.parse(res['created_at'] as String),
+    verifying: await PaymentPendingMarker.isPending(id),
   );
 }
+
+/// Po startu appky: platba odeslaná před zabitím / pádem appky (lokální
+/// značka) — výsledek z DB. Vrací id rezervace, která je mezitím zaplacená
+/// (AppShell to zákazníkovi jednou oznámí), jinak null. Zrušené / neznámé
+/// značky uklidí.
+final paidAfterRestartProvider = FutureProvider.autoDispose<String?>((ref) async {
+  if (MotoGoSupabase.currentUser == null) return null;
+  final ids = await PaymentPendingMarker.pendingIds();
+  for (final id in ids) {
+    try {
+      final row = await MotoGoSupabase.client
+          .from('bookings')
+          .select('status, payment_status')
+          .eq('id', id)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
+      if (row == null) continue; // objednávka e-shopu / cizí id — nechat doběhnout
+      if (row['payment_status'] == 'paid') {
+        await PaymentPendingMarker.clear(id);
+        return id;
+      }
+      if (row['status'] == 'cancelled') await PaymentPendingMarker.clear(id);
+    } catch (_) {/* offline — zkusí se při dalším startu */}
+  }
+  return null;
+});
 
 /// Streams the current pending booking (if any) with a 1-second tick
 /// for the countdown timer. Mirrors _checkAndShowBookingFab +
@@ -136,11 +178,14 @@ final pendingBookingFabProvider =
 
 /// Cancel a pending booking — mirrors dismissBookingFab() from
 /// reservations-ui.js: sets status=cancelled in DB.
-Future<void> cancelPendingBooking(String bookingId) async {
+/// [reason] = interní důvod pro Velín (vypršení času / nový pokus o platbu).
+Future<void> cancelPendingBooking(String bookingId,
+    {String reason = 'Zákazník si to rozmyslel'}) async {
   await MotoGoSupabase.client.from('bookings').update({
     'status': 'cancelled',
     'cancelled_by_source': 'customer',
-    'cancellation_reason': 'Zákazník si to rozmyslel',
+    'cancellation_reason': reason,
     'cancelled_at': DateTime.now().toIso8601String(),
-  }).eq('id', bookingId).eq('payment_status', 'unpaid');
+  }).eq('id', bookingId).eq('payment_status', 'unpaid')
+      .timeout(const Duration(seconds: 15));
 }

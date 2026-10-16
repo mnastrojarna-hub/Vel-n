@@ -153,7 +153,7 @@ return [
                     ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => '9. Confirmación por e-mail', 'text' => 'Al completar la reserva recibirás un e-mail con la confirmación de la reserva, el justificante de pago, el contrato de alquiler y las instrucciones básicas para recoger la moto.'],
                     ['icon' => 'gfx/predani-motorky.svg', 'title' => '10. Recogida de la moto', 'text' => 'En la entrega comprobamos tus documentos (si aún no están verificados), firmamos el acta de entrega y recoges tu equipamiento. ¡Y ya solo queda arrancar!'],
                     ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '11. Disfruta de la ruta', 'text' => 'Sal a la carretera: <strong>sin fianza, sin estrés</strong>. Lo demás es solo asfalto y libertad.'],
-                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Devolución de la moto', 'text' => 'Devuelve la moto a tiempo: en persona en la sucursal donde la alquilaste (Mezná, cerca de Pelhřimov, o el autoservicio de Velké Němčice, cerca de Brno) o, si es de Mezná, también en el lugar acordado previamente. No tienes que repostar; solo procura que no esté encendido el testigo de reserva. Lavada solo tienes que devolverla en la sucursal de autoservicio de Velké Němčice.'],
+                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '12. Devolución de la moto', 'text' => 'Devuelve la moto a tiempo: en persona en la sucursal donde la alquilaste (Mezná, cerca de Pelhřimov, o el autoservicio de Velké Němčice, cerca de Brno) o, si es de Mezná, también en el lugar acordado previamente. No tienes que repostar; solo procura que no esté encendido el testigo de reserva. Solo en la sucursal de autoservicio de Velké Němčice hay que devolverla lavada.'],
                 ],
             ],
             'gallery' => [
@@ -218,7 +218,7 @@ return [
                 'keywords' => 'recogida de moto, alquiler de motos Pelhřimov, alquiler de motos Vysočina, alquilar moto, MotoGo24',
             ],
             'h1' => 'Recogida en la sucursal: rápida, sencilla y 24/7',
-            'intro' => 'En <strong>MotoGo24 – alquiler de motos en la región de Vysočina</strong>&nbsp;recoger la moto es cuestión de pocos minutos. Alquilamos <strong>sin fianza, con el equipamiento del piloto incluido y con recogida y devolución 24/7</strong>. ¡Ven en persona a Mezná, cerca de Pelhřimov, y sal a la carretera! En la sucursal de autoservicio de Velké Němčice, cerca de Brno, recoges la moto tú mismo con un código de acceso de la app o del e-mail.',
+            'intro' => 'En <strong>MotoGo24 – alquiler de motos en la región de Vysočina</strong>,&nbsp;recoger la moto es cuestión de pocos minutos. Alquilamos <strong>sin fianza, con el equipamiento del piloto incluido y con recogida y devolución 24/7</strong>. ¡Ven en persona a Mezná, cerca de Pelhřimov, y sal a la carretera! En la sucursal de autoservicio de Velké Němčice, cerca de Brno, recoges la moto tú mismo con un código de acceso de la app o del e-mail.',
             'top_cta' => [
                 'label' => 'RESERVAR ONLINE',
                 'href' => '/rezervace',
@@ -331,7 +331,7 @@ return [
                 'title' => 'Preguntas frecuentes sobre la devolución en la sucursal',
                 'items' => [
                     ['q' => '¿Hasta cuándo tengo que devolver la moto?', 'a' => 'Lo ideal es devolverla a la hora acordada. Si la devuelves en la sucursal, puedes venir, previo aviso, en cualquier momento del último día del alquiler, como muy tarde a medianoche y sin ninguna penalización. Si la devuelves en otro lugar, la hora acordada es vinculante.'],
-                    ['q' => '¿Tengo que devolverla con el depósito lleno y limpia?', 'a' => 'No. Al devolverla no tienes que repostar; solo procura que no esté encendido el testigo de reserva. Lavada solo tienes que devolverla en la sucursal de autoservicio de Velké Němčice.&nbsp;'],
+                    ['q' => '¿Tengo que devolverla con el depósito lleno y limpia?', 'a' => 'No. Al devolverla no tienes que repostar; solo procura que no esté encendido el testigo de reserva. Solo en la sucursal de autoservicio de Velké Němčice hay que devolverla lavada.&nbsp;'],
                     ['q' => '¿Puedo devolver la moto en la sucursal antes de lo acordado?', 'a' => 'Sí, puedes devolverla en cualquier momento del último día del alquiler. Solo avísanos de que llegarás antes. No cobramos ningún recargo por devolverla antes.'],
                     ['q' => '¿Qué pasa si no llego a devolver la moto en la sucursal antes de la medianoche del último día?&nbsp;', 'a' => 'Si sabes que no vas a llegar, avísanos cuanto antes y buscaremos una solución. Una devolución tardía sin avisar se rige por las condiciones del contrato de alquiler.'],
                     ['q' => '¿Tengo que firmar algo al devolver la moto en la sucursal?&nbsp;', 'a' => 'Si todo está en orden, la devolución es rápida y sin papeleo innecesario. La confirmación del fin del alquiler y la factura final te llegan por e-mail.'],
@@ -444,8 +444,8 @@ return [
                 'services' => [
                     'title' => 'Servicios extra (con suplemento)',
                     'items' => [
-                        'entrega de la moto en el lugar acordado, en cualquier punto de la República Checa',
-                        'devolución de la moto en un lugar distinto de la dirección de la sucursal',
+                        'entrega de la moto en el lugar acordado, en cualquier punto de la República Checa (motos de la sucursal con personal de Mezná)',
+                        'devolución de la moto en un lugar distinto de la sucursal (motos de Mezná)',
                     ],
                 ],
             ],
@@ -760,7 +760,7 @@ return [
                 ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Catálogo de motos', 'text' => 'Echa un vistazo a nuestras motos de alquiler: de turismo, naked, supermoto, choppers, scooters e infantiles.', 'btn' => 'CATÁLOGO DE MOTOS', 'href' => '/katalog'],
                 ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => 'Cómo alquilar una moto', 'text' => 'Un proceso sencillo: elige una moto, resérvala y sal a la carretera.', 'btn' => 'CÓMO ALQUILAR UNA MOTO', 'href' => '/jak-pujcit'],
                 ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Reserva de moto online', 'text' => 'Reserva tu moto con nuestro sencillo sistema online.', 'btn' => 'RESERVAR MOTO', 'href' => '/rezervace'],
-                ['icon' => 'gfx/kontakt.svg', 'title' => 'Contacto y mapa', 'text' => 'Visítanos en Mezná, cerca de Pelhřimov, o en la sucursal de autoservicio de Velké Němčice, cerca de Brno, o ponte en contacto con nosotros.', 'btn' => 'CONTACTO', 'href' => '/kontakt'],
+                ['icon' => 'gfx/kontakt.svg', 'title' => 'Contacto y mapa', 'text' => 'Visítanos en Mezná, cerca de Pelhřimov, o en la sucursal de autoservicio de Velké Němčice, cerca de Brno – o ponte en contacto con nosotros.', 'btn' => 'CONTACTO', 'href' => '/kontakt'],
                 ['icon' => 'gfx/faq.svg', 'title' => 'Preguntas frecuentes', 'text' => 'Las preguntas más habituales sobre el alquiler de motos, todas en un mismo sitio.', 'btn' => 'PREGUNTAS FRECUENTES', 'href' => '/jak-pujcit/faq'],
                 ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Rutas en moto', 'text' => 'Descubre rutas en moto por la República Checa que merecen la pena, tanto si estás de visita como si vives aquí.', 'btn' => 'RUTAS EN MOTO', 'href' => '/blog'],
             ],

@@ -79,8 +79,8 @@ return [
                 'services' => [
                     'title' => 'Extra diensten tegen meerprijs',
                     'items' => [
-                        'bezorging van de motor op een afgesproken plek overal in Tsjechië',
-                        'de motor elders terugbrengen dan op het verhuuradres',
+                        'bezorging van de motor op een afgesproken plek overal in Tsjechië (motoren van de bemande vestiging in Mezná)',
+                        'de motor elders terugbrengen dan bij de vestiging (motoren uit Mezná)',
                     ],
                 ],
             ],
@@ -1250,7 +1250,7 @@ return [
                 'keywords' => 'motorverhuur Tsjechië',
             ],
             'h1' => 'Ophalen van de motor bij verhuur – snel, eenvoudig en 24/7',
-            'intro' => 'Bij <strong>Motogo24 – motorverhuur Vysočina</strong> is het <strong>ophalen van de motor</strong> in een paar minuten geregeld.',
+            'intro' => 'Bij <strong>MotoGo24 – motorverhuur in de regio Vysočina</strong> is het ophalen van de motor in een paar minuten geregeld. We verhuren <strong>zonder borg, met rijuitrusting inbegrepen en met ophalen en inleveren 24/7</strong>. Kom persoonlijk naar Mezná bij Pelhřimov en ga op pad! Bij de zelfbedieningsvestiging in Velké Němčice bij Brno haal je de motor zelf op met een toegangscode uit de app of de e-mail.',
             'top_cta' => [
                 'aria' => 'Naar de online reservering van een motor bij de Motogo24-verhuur',
                 'label' => 'ONLINE RESERVEREN',

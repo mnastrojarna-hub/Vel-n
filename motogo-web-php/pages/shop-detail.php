@@ -38,6 +38,15 @@ if (empty($images) && !empty($product['image_url'])) $images = [$product['image_
 // fallback na t('shop.productAlt') = "Tričko MotoGo24" (původní chování).
 // Admin ve Velíně ProductsTab vyplňuje krátký popisek (např. „zepředu").
 $productImageAlts = is_array($product['image_alts'] ?? null) ? $product['image_alts'] : [];
+// Popisky fotek píše admin česky a DB je nepřekládá (translations.<jazyk> nemá image_alts) → v cizím jazyce
+// přeložené popisky, jinak záložní t('shop.productAlt') s přeloženým názvem (žádná čeština v alt).
+$shopAltLang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+if ($shopAltLang !== 'cs') {
+    $trAll = $product['translations'] ?? null;
+    if (is_string($trAll)) $trAll = json_decode($trAll, true);
+    $trAlts = is_array($trAll) ? ($trAll[$shopAltLang]['image_alts'] ?? null) : null;
+    $productImageAlts = is_array($trAlts) ? $trAlts : [];
+}
 $shopAltFallback = t('shop.productAlt', ['name' => $nameRaw]);
 $composeShopAlt = function (string $desc) use ($nameRaw, $shopAltFallback) {
     $desc = trim($desc);
@@ -234,9 +243,9 @@ if (is_array($globalReviews) && count($globalReviews) >= 3) {
 }
 
 $additionalProps = [];
-if ($colorRaw !== '')  $additionalProps[] = '{"@type":"PropertyValue","name":"Barva","value":' . json_encode($colorRaw, JSON_UNESCAPED_UNICODE) . '}';
-if ($matRaw !== '')    $additionalProps[] = '{"@type":"PropertyValue","name":"Materiál","value":' . json_encode($matRaw, JSON_UNESCAPED_UNICODE) . '}';
-if (!empty($sizes))    $additionalProps[] = '{"@type":"PropertyValue","name":"Dostupné velikosti","value":' . json_encode(implode(', ', $sizes), JSON_UNESCAPED_UNICODE) . '}';
+if ($colorRaw !== '')  $additionalProps[] = '{"@type":"PropertyValue","name":' . json_encode(t('ld.color'), JSON_UNESCAPED_UNICODE) . ',"value":' . json_encode($colorRaw, JSON_UNESCAPED_UNICODE) . '}';
+if ($matRaw !== '')    $additionalProps[] = '{"@type":"PropertyValue","name":' . json_encode(t('ld.material'), JSON_UNESCAPED_UNICODE) . ',"value":' . json_encode($matRaw, JSON_UNESCAPED_UNICODE) . '}';
+if (!empty($sizes))    $additionalProps[] = '{"@type":"PropertyValue","name":' . json_encode(t('ld.sizes'), JSON_UNESCAPED_UNICODE) . ',"value":' . json_encode(implode(', ', $sizes), JSON_UNESCAPED_UNICODE) . '}';
 
 $category = trim((string)($product['category'] ?? ''));
 
@@ -256,7 +265,7 @@ $productSchema = '
     ',"availability":' . json_encode($stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock') .
     ',"itemCondition":"https://schema.org/NewCondition"' .
     ',"priceValidUntil":' . json_encode(date('Y-m-d', strtotime('+1 year'))) .
-    ',"seller":{"@type":"Organization","name":"MotoGo24","url":"https://www.motogo24.cz"}' .
+    ',"seller":{"@type":"Organization","name":"MotoGo24","url":' . json_encode(siteOrigin(), JSON_UNESCAPED_SLASHES) . '}' .
     ',"url":' . json_encode($productUrl) . '}' : '') .
   $reviewAgg .
   '}

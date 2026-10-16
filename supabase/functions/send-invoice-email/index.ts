@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { isTrustedCaller } from '../_shared/auth.ts'
+import { googleReviewBlock, loadGoogleReviewUrl } from '../_shared/review-links.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normalizeLang, helpCardLabels, invoiceEmailSnippets, type Lang } from './i18n.ts'
 import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
@@ -12,7 +13,6 @@ const REPLY_TO = 'info@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
 const IG_URL = 'https://www.instagram.com/moto.go24/'
-const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/MotoGo24/review'
 
 // ── i18n: doména zákazníka dle jazyka (cs → .cz, ostatní → .com) ────────────
 const DOMAIN_INTL = 'https://motogo24.com'
@@ -30,26 +30,8 @@ function resolveTemplateForLang(supabase: any, tpl: any, lang: string): Promise<
   return resolveTemplateShared(supabase, tpl, lang, 'send-invoice-email')
 }
 
-const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: string }> = {
-  cs: { title: 'Pomohlo by nám vaše hodnocení', body: 'Pokud jste byli spokojeni, prosíme zanechte nám recenzi na Googlu — pomáháte tím dalším motorkářům.', cta: '⭐ Ohodnotit na Google' },
-  en: { title: 'Your review would help us', body: 'If you were happy with our service, please leave us a review on Google — it helps fellow riders.', cta: '⭐ Review on Google' },
-  de: { title: 'Ihre Bewertung würde uns helfen', body: 'Wenn Sie zufrieden waren, hinterlassen Sie uns bitte eine Google-Bewertung — Sie helfen damit anderen Bikern.', cta: '⭐ Auf Google bewerten' },
-  nl: { title: 'Je review helpt ons enorm', body: 'Was je tevreden? Laat dan een review achter op Google — je helpt andere motorrijders.', cta: '⭐ Beoordeel op Google' },
-  es: { title: 'Tu reseña nos ayudaría mucho', body: 'Si quedaste satisfecho, déjanos una reseña en Google — ayudas a otros moteros.', cta: '⭐ Reseña en Google' },
-  fr: { title: 'Votre avis nous aiderait', body: 'Si vous étiez satisfait, laissez-nous un avis sur Google — vous aidez d\'autres motards.', cta: '⭐ Avis sur Google' },
-  pl: { title: 'Twoja recenzja by nam pomogła', body: 'Jeśli byłeś zadowolony, zostaw nam recenzję w Google — pomożesz innym motocyklistom.', cta: '⭐ Oceń w Google' },
-  uk: { title: 'Ваш відгук нам дуже допоможе', body: 'Якщо ви були задоволені, залиште нам, будь ласка, відгук у Google — ви допоможете іншим мотоциклістам.', cta: '⭐ Оцінити в Google' },
-}
-
-function googleReviewBlock(lang: string, url?: string): string {
-  const l = REVIEW_BLOCK_LABELS[lang] || REVIEW_BLOCK_LABELS.cs
-  const href = url || GOOGLE_REVIEW_URL_DEFAULT
-  return `<div style="background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px;margin:24px 0;text-align:center">
-  <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">${l.title}</div>
-  <div style="color:#ffffff;font-size:13px;margin:0 0 16px">${l.body}</div>
-  <a href="${href}" target="_blank" rel="noopener" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">${l.cta}</a>
-</div>`
-}
+// Google review CTA (googleReviewBlock) — sdílené v _shared/review-links.ts; odkaz vždy Google
+// z app_settings.google_review_url (stejný zdroj jako appka a poděkovací mail).
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -59,6 +41,21 @@ const CORS = {
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
+}
+
+/** Jazyk zákazníka: explicitní `language` z volajícího > detect_customer_language
+ *  (rezervace → objednávka e-shopu → profil) > 'cs'. Velín (Faktury, Nová faktura,
+ *  náhled dokladu) jazyk neposílá — dřív proto šly faktury cizincům vždy česky. */
+// deno-lint-ignore no-explicit-any
+async function resolveCustomerLang(supabase: any, explicit: unknown, inv: { customer_id?: string | null; booking_id?: string | null; order_id?: string | null } | null): Promise<Lang> {
+  if (explicit) return normalizeLang(String(explicit))
+  if (!inv || !(inv.customer_id || inv.booking_id || inv.order_id)) return 'cs'
+  try {
+    const { data } = await supabase.rpc('detect_customer_language', {
+      p_user_id: inv.customer_id || null, p_booking_id: inv.booking_id || null, p_order_id: inv.order_id || null,
+    })
+    return normalizeLang(typeof data === 'string' ? data : null)
+  } catch { return 'cs' }
 }
 
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
@@ -97,7 +94,7 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
         <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
           <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
           <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semor\u00e1dov\u00e1</div>
-          <div style="color:#9ca3af">Mezn\u00e1 9, 393 01 Mezn\u00e1</div>
+          <div style="color:#9ca3af">Mezn\u00e1 9, 393 01 Pelh\u0159imov</div>
           <div style="color:#9ca3af">I\u010cO: 21874263</div>
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
@@ -176,12 +173,15 @@ serve(async (req) => {
 
   try {
     const { invoice_id, html_content, customer_email, customer_name, invoice_number, language } = await req.json()
-    const custLang: Lang = normalizeLang(language)
-
     if (!invoice_id) return jsonResponse({ success: false, error: 'Missing invoice_id' }, 400)
 
     // If InvoicePreviewModal passed html_content directly, use it as-is when it's a full invoice document
     if (html_content && customer_email) {
+      let langRef = null
+      if (!language) {
+        try { langRef = (await supabase.from('invoices').select('customer_id, booking_id, order_id').eq('id', invoice_id).maybeSingle()).data } catch { /* → cs */ }
+      }
+      const custLang = await resolveCustomerLang(supabase, language, langRef)
       const snip = invoiceEmailSnippets('issued', custLang, { invoice_number: invoice_number || '\u2014' })
       const subject = snip.subject
       const isFullDoc = /^\s*<!DOCTYPE/i.test(html_content) || /<html[\s>]/i.test(html_content)
@@ -197,10 +197,11 @@ serve(async (req) => {
     // Load invoice from DB
     const { data: invoice, error: invErr } = await supabase
       .from('invoices')
-      .select('id, number, type, total, issue_date, due_date, status, variable_symbol, customer_id, booking_id, pdf_path, profiles(full_name, email)')
+      .select('id, number, type, total, issue_date, due_date, status, variable_symbol, customer_id, booking_id, order_id, pdf_path, profiles(full_name, email)')
       .eq('id', invoice_id).maybeSingle()
 
     if (invErr || !invoice) return jsonResponse({ success: false, error: 'Invoice not found' }, 404)
+    const custLang = await resolveCustomerLang(supabase, language, invoice)
 
     const profile = invoice.profiles as { full_name?: string; email?: string } | null
     const recipientEmail = customer_email || profile?.email
@@ -327,8 +328,9 @@ serve(async (req) => {
       } catch { /* log nesmí shodit odeslání */ }
     }
     // Pro KF z e-shopu (shop_final) přidej Google review CTA tlačítko
+    const reviewUrl = invoice.type === 'shop_final' ? await loadGoogleReviewUrl(supabase) : ''
     if (invoice.type === 'shop_final') {
-      templateHtml = templateHtml + googleReviewBlock(custLang)
+      templateHtml = templateHtml + googleReviewBlock(custLang, reviewUrl)
     }
     if (!html) html = wrapInBrandedLayout(localizeBodyLinks(templateHtml, custLang), custLang)
 
@@ -349,7 +351,7 @@ serve(async (req) => {
 </div>
 <p>${csSnip.outro}</p>
 <p>${csSnip.closing}</p>`
-      const csBodyWithReview = invoice.type === 'shop_final' ? csBody + googleReviewBlock('cs') : csBody
+      const csBodyWithReview = invoice.type === 'shop_final' ? csBody + googleReviewBlock('cs', reviewUrl) : csBody
       adminHtml = wrapInBrandedLayout(csBodyWithReview, 'cs')
       adminSubject = csSnip.subject
     }

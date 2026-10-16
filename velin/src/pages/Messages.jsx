@@ -11,6 +11,8 @@ import ManualSendTab from './messages/ManualSendTab'
 import CampaignsTab from './messages/CampaignsTab'
 import MessageTemplatesTab from './messages/MessageTemplatesTab'
 import AutoMessagesTab from './messages/AutoMessagesTab'
+import RatingsTab from './messages/RatingsTab'
+import { useRatings } from './messages/useRatings'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
@@ -21,7 +23,10 @@ const CHANNELS = [
   { key: 'email', label: 'E-mail', icon: '📧' },
   { key: 'whatsapp', label: 'WhatsApp', icon: '💬' },
   { key: 'chat', label: 'Chat', icon: '🗨️' },
+  { key: 'ratings', label: 'Hodnocení', icon: '⭐' },
 ]
+// Kanály bez pod-záložek Log/Automatické/Ruční/Kampaně/Šablony
+const NO_SUB_TABS = ['chat', 'ratings']
 
 const SUB_TABS = [
   { key: 'log', label: 'Log zpráv' },
@@ -50,6 +55,9 @@ export default function Messages() {
   const navigate = useNavigate()
   const [channel, setChannel] = useState('sms')
   const [subTab, setSubTab] = useState('log')
+  // Hodnocení jízd: data běží na celé stránce, aby odznak záložky (nízká nevyřízená + nepřečtené komentáře) byl vidět všude
+  const ratings = useRatings()
+  const channelBadges = { ratings: ratings.summary.badge }
 
   // Chat state (preserved from original)
   const [selected, setSelected] = useState(null)
@@ -174,6 +182,12 @@ export default function Messages() {
     setCreating(false)
   }
 
+  // Hodnocení → „Odpovědět“: přepne na Chat a otevře konverzaci zákazníka (mobil i se záznamem v historii).
+  function openThreadFromRatings(thread) {
+    setChannel('chat')
+    openThread(thread)
+  }
+
   function handleThreadUpdate(updated) {
     if (threadCache.current[updated.id]) threadCache.current[updated.id] = updated
     setSelected(updated)
@@ -201,6 +215,18 @@ export default function Messages() {
     setChannel(key); if (key !== 'chat') setSubTab('log')
   }
 
+  // Odkaz ze zvonku: /zpravy?channel=ratings otevře přímo záložku (parametr se pak z URL odebere,
+  // aby další klik na stejný odkaz zase zafungoval a „zpět“ nepřepínalo kanál).
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search)
+    const c = sp.get('channel')
+    if (!c) return
+    if (CHANNELS.some(ch => ch.key === c)) selectChannel(c)
+    sp.delete('channel')
+    const q = sp.toString()
+    navigate(location.pathname + (q ? `?${q}` : ''), { replace: true, state: location.state })
+  }, [location.search])
+
   return (
     <div className="mg-msgs">
       {/* DIAGNOSTIKA */}
@@ -214,7 +240,7 @@ export default function Messages() {
 
       {/* Hlavní tabs */}
       {isMobile ? (
-        <ChatMobileChannelTabs channels={CHANNELS} active={channel} onSelect={selectChannel} />
+        <ChatMobileChannelTabs channels={CHANNELS} active={channel} onSelect={selectChannel} badges={channelBadges} />
       ) : (
       <div className="flex gap-2 mb-4 flex-wrap">
         {CHANNELS.map(ch => (
@@ -232,16 +258,21 @@ export default function Messages() {
           >
             <span style={{ marginRight: 6 }}>{ch.icon}</span>
             {ch.label}
+            {channelBadges[ch.key] > 0 && (
+              <span title="Nízká hodnocení k vyřízení + nepřečtené komentáře" style={{ marginLeft: 8, display: 'inline-block', minWidth: 20, padding: '1px 6px', borderRadius: 10, background: '#dc2626', color: '#fff', fontSize: 11, lineHeight: '18px', textAlign: 'center' }}>
+                {channelBadges[ch.key]}
+              </span>
+            )}
           </button>
         ))}
       </div>
       )}
 
       {/* Pod-tabs (jen pro SMS / Email / WhatsApp) */}
-      {channel !== 'chat' && isMobile && (
+      {!NO_SUB_TABS.includes(channel) && isMobile && (
         <ChatMobileSubTabs tabs={SUB_TABS} active={subTab} onSelect={setSubTab} />
       )}
-      {channel !== 'chat' && !isMobile && (
+      {!NO_SUB_TABS.includes(channel) && !isMobile && (
         <div className="flex gap-1.5 mb-4">
           {SUB_TABS.map(st => (
             <button
@@ -355,6 +386,8 @@ export default function Messages() {
             </div>
           </Modal>
         </>
+      ) : channel === 'ratings' ? (
+        <RatingsTab ratings={ratings} onOpenThread={openThreadFromRatings} />
       ) : (
         renderSubTab()
       )}

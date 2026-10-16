@@ -8,7 +8,7 @@ $defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_dokumenty', $defaults);
 
-$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.documents')]);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit/postup'], t('menu.howto.documents')]);
 $kp = 'web.jak_pujcit_dokumenty';
 
 // --- Section 1: title + intro + top CTA ---
@@ -62,7 +62,8 @@ $paymentsBlock = '<h2 data-cms-key="' . $kp . '.payments.title">' . ($C['payment
 
 // 2-col usage / handover
 $linkFix = function ($html) {
-    return preg_replace_callback('/href="(\/[^"]+)"/', function ($m) { return 'href="' . BASE_URL . $m[1] . '"'; }, $html);
+    // Staré /cms/<slug> (CMS texty) rovnou na /dokumenty/<slug> — bez 301 hopu.
+    return preg_replace_callback('/href="(\/[^"]+)"/', function ($m) { return 'href="' . BASE_URL . preg_replace('#^/cms/([a-z0-9\-]+)$#', '/dokumenty/$1', $m[1]) . '"'; }, $html);
 };
 $useLis = '';
 foreach ((is_array($C['usage']['items'] ?? null) ? $C['usage']['items'] : []) as $i => $item) {
@@ -193,7 +194,7 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/dokumenty', $lpiMeta + [
     'keywords' => $C['seo']['keywords'],
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
-        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit/postup')],
         ['name' => t('menu.howto.documents'), 'url' => siteCanonicalUrl('/jak-pujcit/dokumenty')],
     ],
 ]);

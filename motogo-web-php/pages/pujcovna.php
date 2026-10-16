@@ -150,16 +150,16 @@ foreach ((is_array($C['benefits']['items'] ?? null) ? $C['benefits']['items'] : 
 $serviceSchema = '
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"Service"'
-    . ',"@id":"https://www.motogo24.cz/pujcovna-motorek#service"'
+    . ',"@id":' . json_encode(siteCanonicalUrl('/pujcovna-motorek') . '#service', JSON_UNESCAPED_SLASHES)
     . ',"serviceType":"Motorcycle rental"'
-    . ',"name":"Pronájem motorek MotoGo24 — Vysočina"'
+    . ',"name":' . json_encode(t('ld.rentalName'), JSON_UNESCAPED_UNICODE)
     . ',"description":' . json_encode(strip_tags($C['intro']['body'] ?? 'Půjčovna motorek na Vysočině — bez kauce, výbava v ceně, nonstop provoz.'), JSON_UNESCAPED_UNICODE)
-    . ',"url":"https://www.motogo24.cz/pujcovna-motorek"'
-    . ',"provider":{"@id":"https://www.motogo24.cz/#organization"}'
-    . ',"areaServed":[{"@type":"Country","name":"Česko"},{"@type":"AdministrativeArea","name":"Kraj Vysočina"},{"@type":"Country","name":"Slovensko"},{"@type":"Country","name":"Rakousko"},{"@type":"Country","name":"Polsko"}]'
-    . ',"availableChannel":{"@type":"ServiceChannel","serviceUrl":"https://www.motogo24.cz/rezervace","availableLanguage":["cs","en","de","es","fr","nl","pl","uk"]}'
+    . ',"url":' . json_encode(siteCanonicalUrl('/pujcovna-motorek'), JSON_UNESCAPED_SLASHES)
+    . ',"provider":{"@id":' . json_encode(siteOrigin() . '/#organization', JSON_UNESCAPED_SLASHES) . '}'
+    . ',"areaServed":' . json_encode([['@type' => 'Country', 'name' => t('ld.country.CZ')], ['@type' => 'AdministrativeArea', 'name' => t('ld.region')], ['@type' => 'Country', 'name' => t('ld.country.SK')], ['@type' => 'Country', 'name' => t('ld.country.AT')], ['@type' => 'Country', 'name' => t('ld.country.PL')]], JSON_UNESCAPED_UNICODE)
+    . ',"availableChannel":{"@type":"ServiceChannel","serviceUrl":' . json_encode(siteCanonicalUrl('/rezervace'), JSON_UNESCAPED_SLASHES) . ',"availableLanguage":["cs","en","de","es","fr","nl","pl","uk"]}'
     . ',"hoursAvailable":{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"00:00","closes":"23:59"}'
-    . ',"offers":{"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"' . ldPriceLow() . '","highPrice":"' . ldPriceHigh() . '","offerCount":' . ldOfferCount() . ',"url":"https://www.motogo24.cz/katalog"}'
+    . ',"offers":{"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"' . ldPriceLow() . '","highPrice":"' . ldPriceHigh() . '","offerCount":' . ldOfferCount() . ',"url":' . json_encode(siteCanonicalUrl('/katalog'), JSON_UNESCAPED_SLASHES) . '}'
     . ',"category":"Vehicle rental"'
     . (!empty($benefitFeatures) ? ',"additionalProperty":[' . implode(',', $benefitFeatures) . ']' : '')
     . '}

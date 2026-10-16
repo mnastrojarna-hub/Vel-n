@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button'
 import RichTextEditor from '../../components/ui/RichTextEditor'
 import { sanitizeHtml } from '../../lib/sanitize'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { GOOGLE_REVIEW_URL_DEFAULT } from '../../lib/reviewLinks'
 
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
 
@@ -26,7 +27,7 @@ const SAMPLE_VARS = {
   door_code_gear: '613284',
   gate_code: '135',   // kód schránky s klíčem od brány (jen pobočka s bránou) — ukázka, NE skutečný kód
   voucher_code: 'GIFT-ABC123',
-  review_link: 'https://www.motogo24.cz/review',
+  review_link: GOOGLE_REVIEW_URL_DEFAULT, // živě = app_settings.google_review_url (vždy Google)
   link: 'https://www.motogo24.cz',
   discount: '20%',
   price: '2 500 Kč',

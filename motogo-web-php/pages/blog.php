@@ -33,6 +33,7 @@ foreach ($allPosts as $p) {
     }
 }
 
+// Štítky článků jsou ve Velínu česky (cms_pages.tags) — popisek přeloží blogTagLabel() (components.php), odkaz ?tag= zůstává český.
 $tagHtml = '';
 if (!empty($tagCounts)) {
     $isAllActive = !$activeTag ? ' class="active"' : '';
@@ -40,7 +41,7 @@ if (!empty($tagCounts)) {
         . '<li' . $isAllActive . '><a href="' . BASE_URL . '/blog">' . htmlspecialchars(t('blog.tagAll', ['count' => count($allPosts)])) . '</a></li>';
     foreach ($tagCounts as $tag => $count) {
         $isActive = ($activeTag === $tag) ? ' class="active"' : '';
-        $tagHtml .= '<li' . $isActive . '><a href="' . BASE_URL . '/blog?tag=' . urlencode($tag) . '">' . htmlspecialchars($tag) . ' (' . $count . ')</a></li>';
+        $tagHtml .= '<li' . $isActive . '><a href="' . BASE_URL . '/blog?tag=' . urlencode($tag) . '">' . htmlspecialchars(blogTagLabel((string)$tag)) . ' (' . $count . ')</a></li>';
     }
     $tagHtml .= '</ul>';
 }

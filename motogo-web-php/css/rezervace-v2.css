@@ -151,6 +151,9 @@
 .rz-step.is-cur .rz-step-n{background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f;box-shadow:0 0 0 3px rgba(116,251,113,.3)}
 .rz-step.is-cur .rz-step-t{max-width:100%;opacity:1}
 .rz-step:hover .rz-step-n{transform:scale(1.08)}
+/* Úzký mobil: menší kolečka ostatních kroků a název aktuálního kroku na 2 řádky (dřív „Vyber …") */
+@media(max-width:420px){.rz-steps ol{gap:2px}.rz-steps li,.rz-step{min-width:28px}.rz-step:not(.is-cur) .rz-step-n{width:28px;height:28px;font-size:.76rem}.rz-step.is-cur{gap:.3rem;padding-right:.5rem}.rz-step.is-cur .rz-step-t{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;white-space:normal;font-size:.7rem;line-height:1.1;overflow-wrap:break-word}.rz-step-t:lang(de),.rz-step-t:lang(nl){-webkit-hyphens:auto;hyphens:auto}}
+@media(max-width:340px){.rz-steps li,.rz-step{min-width:26px}.rz-step:not(.is-cur) .rz-step-n{width:26px;height:26px}}
 .rz-sum{position:fixed;left:.6rem;right:.6rem;bottom:.6rem;z-index:80;display:flex;align-items:center;gap:.75rem;max-width:640px;margin:0 auto;padding:.6rem .6rem .6rem 1rem;border-radius:18px;background:var(--rz-dark);color:#fff;box-shadow:0 18px 40px -10px rgba(10,31,20,.7),inset 0 0 0 1px rgba(116,251,113,.3);transition:transform .35s ease,opacity .3s ease,visibility 0s}
 .rz-sum.is-empty,.rz-side.rz-near .rz-sum,.rz-side.rz-kb .rz-sum,.rz-side.rz-cookie .rz-sum{transform:translateY(130%);opacity:0;pointer-events:none;visibility:hidden;transition:transform .35s ease,opacity .3s ease,visibility 0s .35s}
 .rz-sum-rows{display:none}

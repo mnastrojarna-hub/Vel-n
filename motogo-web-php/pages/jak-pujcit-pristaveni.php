@@ -11,7 +11,7 @@ $defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_pristaveni', $defaults);
 
-$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.delivery')]);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit/postup'], t('menu.howto.delivery')]);
 
 // --- Section 1: title + intro + "Kdy se přistavení hodí" ---
 $whenLis = '';
@@ -138,7 +138,7 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/pristaveni', $lpiMeta + [
     'schema' => $faqSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
-        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit/postup')],
         ['name' => t('menu.howto.delivery'), 'url' => siteCanonicalUrl('/jak-pujcit/pristaveni')],
     ],
 ]);

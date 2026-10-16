@@ -14,7 +14,7 @@ return ['pages' => ['landing_info' => [
     'chips' => [
         'postup' => ['Zonder borg', 'Rijuitrusting inbegrepen', 'Online reserveren in minuten'],
         'prevzeti' => ['Ophalen op jouw tijd', 'Gratis parkeren', 'Zonder borg'],
-        'vraceni_pujcovna' => ['Laatste dag tot 24:00', 'Tanken hoeft niet', 'Zonder borg'],
+        'vraceni_pujcovna' => ['Laatste dag tot 24:00', 'Niet tanken – reservelampje uit', 'Zonder borg'],
         'vraceni_jinde' => ['Overal in Tsjechië', 'Duidelijke prijs per km', 'Zonder borg'],
         'cena' => ['€ 0 borg', 'Rijuitrusting inbegrepen', 'Geen verborgen kosten'],
         'pristaveni' => ['Naar je huis, hotel of station', 'In heel Tsjechië', 'Zonder borg'],

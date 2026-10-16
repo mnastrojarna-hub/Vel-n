@@ -229,6 +229,11 @@ function siteCanonicalUrl($path = '') {
     return i18nUrlForLang(i18nDetectLanguage(), $path);
 }
 
+/** Origin (https://www.motogo24.<tld>) aktuálního jazyka — pro JSON-LD @id (`/#organization`), stejný jako $siteOrigin v layout.php. */
+function siteOrigin() {
+    return i18nOriginForLang(i18nDetectLanguage());
+}
+
 /**
  * Detekuje a (případně) uloží jazyk pro aktuální request.
  * Volat co nejdřív v hlavním entry pointu (index.php, sitemap.php).
@@ -245,7 +250,7 @@ function i18nDetectLanguage() {
     if ($cached !== null) return $cached;
 
     // 1) ?lang=xx — explicitní volba (uloží do cookie a zruší query string)
-    $fromQuery = isset($_GET['lang']) ? strtolower(substr((string)$_GET['lang'], 0, 2)) : '';
+    $fromQuery = (isset($_GET['lang']) && is_string($_GET['lang'])) ? strtolower(substr($_GET['lang'], 0, 2)) : '';
     if ($fromQuery && in_array($fromQuery, I18N_SUPPORTED, true)) {
         // Uložit cookie (365 dní, /, secure pokud HTTPS)
         $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')

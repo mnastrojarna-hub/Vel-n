@@ -9,11 +9,28 @@ import 'reservation_models.dart';
 const _bookingSelect =
     '*, motorcycles!moto_id(*, branches(name, address, city, gps_lat, gps_lng, type))';
 
+/// Funkční odkaz „napsat recenzi na Googlu“ (shodný s `app_settings.google_review_url`
+/// a s výchozí hodnotou edge fn `send-booking-email`). Starý krátký tvar
+/// `g.page/MotoGo24/review` Google zrušil — nepoužívat.
+const kGoogleReviewFallbackUrl = 'https://g.page/r/CUmeYvk-sNf6EBM/review';
+
+/// Recenze z appky vedou VÝHRADNĚ na Google (zadání majitele 2026-10-15) —
+/// hodnota z DB mimo doménu Googlu se ignoruje a použije se [kGoogleReviewFallbackUrl].
+/// Pravidlo shodné s edge `_shared/review-links.ts` (`isGoogleReviewUrl`).
+bool isGoogleReviewUrl(String url) {
+  final u = Uri.tryParse(url.trim());
+  final host = u?.host.toLowerCase() ?? '';
+  // Zrušené vlastní krátké názvy (g.page/<jméno>/review) Google neobsluhuje —
+  // platné jsou jen g.page/r/<id>.
+  if (host == 'g.page') return u!.path.startsWith('/r/');
+  // maps.app.goo.gl/…, (search|www|maps).google.<tld>[.<cc>]/…
+  return host == 'goo.gl' || host.endsWith('.goo.gl') ||
+      RegExp(r'(^|\.)google\.[a-z]{2,3}(\.[a-z]{2})?$').hasMatch(host);
+}
+
 /// Odkaz na Google recenze — čte se ze stejného zdroje jako e-mailové šablony
 /// (`app_settings.google_review_url`), aby appka i mail vedly na FUNKČNÍ odkaz.
-/// Fallback shodný s edge fn `send-invoice-email`.
 final googleReviewUrlProvider = FutureProvider<String>((ref) async {
-  const fallback = 'https://g.page/MotoGo24/review';
   try {
     final res = await MotoGoSupabase.client
         .from('app_settings')
@@ -21,12 +38,12 @@ final googleReviewUrlProvider = FutureProvider<String>((ref) async {
         .eq('key', 'google_review_url')
         .maybeSingle();
     final v = res?['value'];
-    final url = v is String
+    final url = (v is String
         ? v
-        : (v is Map ? (v['url'] as String?) : null);
-    if (url != null && url.trim().startsWith('http')) return url.trim();
+        : (v is Map ? (v['url'] as String?) : null))?.trim();
+    if (url != null && url.startsWith('https://') && isGoogleReviewUrl(url)) return url;
   } catch (_) {/* fallback */}
-  return fallback;
+  return kGoogleReviewFallbackUrl;
 });
 
 /// Fetches all user bookings with realtime subscription.
@@ -232,16 +249,47 @@ final filteredReservationsProvider =
   });
 });
 
-/// Cancel booking via RPC — mirrors apiCancelBooking.
-Future<String?> cancelBooking(String bookingId, String reason) async {
+/// Výsledek storna (`cancel_booking_tracked`).
+class CancelResult {
+  final bool ok;
+  final int refundPercent;
+  final double refundAmount;
+  /// Proč storno neprošlo: already | forbidden | not_found | network | failed.
+  final String? error;
+  const CancelResult.success(this.refundPercent, this.refundAmount)
+      : ok = true,
+        error = null;
+  const CancelResult.failure(this.error)
+      : ok = false,
+        refundPercent = 0,
+        refundAmount = 0;
+}
+
+/// Cancel booking via RPC — mirrors apiCancelBooking. RPC chyby NEhází, vrací
+/// `{error:'…'}` (česky) — dřív je appka ignorovala a hlásila úspěch.
+Future<CancelResult> cancelBooking(String bookingId, String reason) async {
   try {
-    await MotoGoSupabase.client.rpc('cancel_booking_tracked', params: {
+    final r = await MotoGoSupabase.client.rpc('cancel_booking_tracked', params: {
       'p_booking_id': bookingId,
       'p_reason': reason,
-    });
-    return null; // success
+    }).timeout(const Duration(seconds: 20));
+    if (r is Map && r['success'] == true) {
+      return CancelResult.success((r['refund_percent'] as num?)?.toInt() ?? 0,
+          (r['refund_amount'] as num?)?.toDouble() ?? 0);
+    }
+    final err = r is Map ? '${r['error'] ?? ''}' : '';
+    if (err.contains('stornována')) return const CancelResult.failure('already');
+    if (err.contains('oprávnění')) return const CancelResult.failure('forbidden');
+    if (err.contains('nenalezena')) return const CancelResult.failure('not_found');
+    return const CancelResult.failure('failed');
   } catch (e) {
-    return 'Chyba storna: $e';
+    final m = e.toString().toLowerCase();
+    final network = e is TimeoutException ||
+        m.contains('socketexception') ||
+        m.contains('clientexception') ||
+        m.contains('failed host lookup') ||
+        m.contains('connection');
+    return CancelResult.failure(network ? 'network' : 'failed');
   }
 }
 
@@ -251,7 +299,8 @@ Future<String?> rateBooking(String bookingId, int rating) async {
   try {
     await MotoGoSupabase.client.from('bookings').update({
       'rating': rating,
-      'rated_at': DateTime.now().toIso8601String(),
+      // UTC s označením zóny — bez něj by Postgres místní čas uložil jako UTC (+1–2 h).
+      'rated_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', bookingId);
     return null;
   } catch (e) {
