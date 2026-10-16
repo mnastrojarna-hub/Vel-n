@@ -47,8 +47,10 @@ List<UserRide> _parseRides(dynamic res) {
 }
 
 /// Výsledek startu záznamu: id jízdy + jestli server pokračuje v už rozjeté
-/// nahrávce (`resumed`), nebo založil novou.
-typedef RideStart = ({String id, bool resumed});
+/// nahrávce (`resumed`), nebo založil novou. [bookingId] = rezervace, ke které
+/// server NOVOU jízdu přiřadil (null = žádná běžící výpůjčka); u obnovené
+/// jízdy ho server neposílá.
+typedef RideStart = ({String id, bool resumed, String? bookingId});
 
 /// Zahájí (nebo obnoví po restartu appky) záznam jízdy. Rezervaci a motorku
 /// si dohledá server podle běžící výpůjčky. Vrací null, když start selhal.
@@ -62,7 +64,11 @@ Future<RideStart?> startUserRide({String? bookingId, double? lat, double? lng}) 
     if (res is Map && res['success'] == true) {
       final id = res['id']?.toString();
       if (id != null && id.isNotEmpty) {
-        return (id: id, resumed: res['resumed'] == true);
+        return (
+          id: id,
+          resumed: res['resumed'] == true,
+          bookingId: res['booking_id']?.toString(),
+        );
       }
     }
   } catch (e) {

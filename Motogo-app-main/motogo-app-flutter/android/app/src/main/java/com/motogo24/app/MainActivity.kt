@@ -3,6 +3,8 @@ package com.motogo24.app
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
@@ -11,7 +13,10 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelFileDescriptor
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import io.flutter.embedding.android.FlutterActivityLaunchConfigs
+import io.flutter.embedding.android.FlutterFragment
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -21,18 +26,102 @@ import java.util.concurrent.Executors
 
 class MainActivity : FlutterFragmentActivity() {
     private val pdfExecutor = Executors.newSingleThreadExecutor()
+    /** Engine tohoto okna — o jeho zničení rozhoduje [onDestroy] (viz RideEngineKeeper). */
+    private var engine: FlutterEngine? = null
+    /** Engine převzatý z okna zavřeného během záznamu jízdy (Dart už běží). */
+    private var engineReused = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Android 15 (SDK 35): zpětně kompatibilní edge-to-edge.
         // Google Play doporučení — zajistí korektní zobrazení bez okrajů
         // (transparentní systémové lišty) i na Androidu < 15 a vyhne se
         // zastaralým Window.set*BarColor API. Volat PŘED super.onCreate().
-        enableEdgeToEdge()
+        if (RideEngineKeeper.hasParked()) {
+            // Okno převezme engine zaparkovaný během záznamu jízdy. Dart už
+            // běží a lišty i orientaci nastavil starému oknu — novému je
+            // zopakujeme (stejné hodnoty jako main.dart).
+            enableEdgeToEdge(
+                statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+                navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            )
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            enableEdgeToEdge()
+        }
         super.onCreate(savedInstanceState)
+    }
+
+    override fun onStart() {
+        super.onStart() // tady se připojí fragment → provideFlutterEngine
+        if (engineReused) {
+            engineReused = false
+            val e = engine ?: return
+            // Zpět: Dart je třeba na otevřené podstránce (navigace jízdy),
+            // ale nový fragment začíná s tím, že Zpět řeší systém → gesto by
+            // appku zavřelo místo návratu. Flutter to rozhodne sám (na kořeni
+            // předá systému jako dřív) a další navigace stav zase upřesní.
+            supportFragmentManager.fragments
+                .filterIsInstance<FlutterFragment>()
+                .firstOrNull()
+                ?.setFrameworkHandlesBack(true)
+            // Pluginy vázané na okno (Stripe) se právě vytvořily znovu → Dart
+            // je dovybaví (RideKeepAlive._onNative).
+            MethodChannel(e.dartExecutor.binaryMessenger, "cz.motogo24/ride")
+                .invokeMethod("reattached", null)
+            // Deep link, kterým se okno otevřelo, převzatý engine jako
+            // počáteční trasu nedostane (Dart už běží) → jako u onNewIntent.
+            val link = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.data
+            if (link != null && shouldHandleDeeplinking()) {
+                e.navigationChannel.pushRouteInformation(link.toString())
+            }
+        }
+    }
+
+    /** Engine dodává okno samo: nový, nebo zaparkovaný z okna zavřeného během jízdy. */
+    override fun provideFlutterEngine(context: Context): FlutterEngine {
+        engine?.let { return it }
+        val (e, reused) = RideEngineKeeper.obtain(context)
+        engine = e
+        engineReused = reused
+        return e
+    }
+
+    /** Stejný fragment jako výchozí, jen engine při zavření okna sám neničí. */
+    override fun createFlutterFragment(): FlutterFragment =
+        KeepEngineFlutterFragment.create(
+            dartEntrypointFunctionName,
+            dartEntrypointLibraryUri,
+            dartEntrypointArgs,
+            initialRoute,
+            appBundlePath,
+            shouldHandleDeeplinking(),
+            renderMode,
+            backgroundMode == FlutterActivityLaunchConfigs.BackgroundMode.opaque,
+            shouldAttachEngineToActivity(),
+        )
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        super.cleanUpFlutterEngine(flutterEngine)
+        // Zaparkovaný engine (záznam jízdy) nesmí držet zavřené okno; další
+        // okno si kanály v configureFlutterEngine zaregistruje znovu.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "cz.motogo24/notifications")
+            .setMethodCallHandler(null)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "cz.motogo24/pdf")
+            .setMethodCallHandler(null)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy() // tady se odpojí fragment (engine nechá být)
+        // Bez běžícího záznamu jízdy zničí engine jako dřív Flutter sám;
+        // během jízdy ho zaparkuje, ať GPS služba a odesílání bodů běží dál.
+        engine?.let { RideEngineKeeper.release(it, this) }
+        engine = null
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine) // registrace pluginů — povinné
+        // Dart: RideKeepAlive — záznam jízdy běží → engine při zavření okna nerušit.
+        RideEngineKeeper.register(flutterEngine)
         // Dart: PushService.clearDelivered() — otevření appky = zákazník upozornění viděl.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "cz.motogo24/notifications")
             .setMethodCallHandler { call, result ->

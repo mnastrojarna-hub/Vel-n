@@ -21,6 +21,7 @@ import 'route_poi_sheet.dart';
 import 'route_nav_widgets.dart';
 import 'route_reviews.dart';
 import 'my_experiences_provider.dart';
+import 'ride_location.dart' show RideForeignStreams;
 
 /// Navigace trasy PŘÍMO v aplikaci — plnohodnotný navigátor: fullscreen mapa
 /// Mapy.com, živá poloha jezdce, sledování (follow) s otáčením mapy po směru
@@ -206,6 +207,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
   // Persistence rozjeté jízdy (přežije zavření appky; ruší se jen křížkem).
   bool _rideSynced = false;
+  // Vlastní GPS stream se hlásí záznamu jízdy (geolocator má jeden na appku).
+  bool _streamCounted = false;
 
   @override
   void initState() {
@@ -230,6 +233,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
           distanceFilter: 4,
         ),
       ).listen(_onPosition);
+      RideForeignStreams.opened();
+      _streamCounted = true;
     } catch (_) {
       // bez streamu zkus aspoň jednorázovou polohu
       final p = await GpsService.getCurrentPosition();
@@ -1185,6 +1190,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   void dispose() {
     WakelockPlus.disable();
     _sub?.cancel();
+    // AŽ po zrušení vlastního odběru: záznam jízdy, který se připojil
+    // k navigačnímu streamu (bez služby na popředí), se připojí znovu.
+    if (_streamCounted) RideForeignStreams.closed();
     _ticker?.dispose();
     super.dispose();
   }
