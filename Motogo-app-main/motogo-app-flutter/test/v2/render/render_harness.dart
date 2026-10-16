@@ -27,6 +27,10 @@ import 'package:motogo_app/core/v2/flag/v2_scope.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
+import 'package:motogo_app/core/v2/widgets/mg_back_v2.dart';
+import 'package:motogo_app/core/widgets/mg_nav_controls.dart';
+import 'package:motogo_app/core/widgets/state_views.dart' show MgBackArrow;
+import 'package:motogo_app/features/routes/v2/route_nav_skin_v2.dart' show NavCircleV2;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/v2_harness.dart' show kV2Langs, loadMontserrat, v2TestTheme;
@@ -61,6 +65,15 @@ class RenderCase {
   const RenderCase(this.area, this.screen, this.state, this.build, this.overrides,
       {this.after, this.end, this.level = 3, this.scaffold = true, this.loading = false, this.router});
   String get id => '${area}__${screen}__$state';
+}
+
+/// The app language also lives in Riverpod (`localeProvider`): providers
+/// that build texts outside the widget tree (booking validation, branch
+/// info) must see the same language as `MaterialApp.locale`.
+class _FixedLocale extends LocaleNotifier {
+  _FixedLocale(String lang) {
+    state = Locale(lang);
+  }
 }
 
 bool _fonts = false;
@@ -109,6 +122,7 @@ Widget _app(RenderCase c, String lang, GlobalKey key) {
         );
   return ProviderScope(
     overrides: [
+      localeProvider.overrideWith((ref) => _FixedLocale(lang)),
       rankTokensProvider.overrideWithValue(RankTokens.forLevel(c.level)),
       rankArcPctProvider.overrideWithValue(50),
       ...c.overrides(),
@@ -152,11 +166,24 @@ Rect? _rectOf(WidgetTester t, Element e) {
   return (fab, zones);
 }
 
-List<RFinding> _inspect(WidgetTester t, String lang, Size size) {
+List<RFinding> _inspect(WidgetTester t, String lang, Size size, {bool first = false}) {
   final (fab, zones) = _fabZones(t);
   // Map markers at the map edge are clipped by design.
   final maps = find.byType(FlutterMap).evaluate().map((e) => e.renderObject).whereType<RenderObject>().toSet();
-  final out = inspectFrame(t.binding.renderViews.first, lang, size, fab: fab, avoid: zones, ignore: maps);
+  final navs = find.byType(V2NavBar).evaluate().map((e) => e.renderObject).whereType<RenderObject>().toSet();
+  final out = inspectFrame(t.binding.renderViews.first, lang, size, fab: fab, avoid: zones, ignore: maps, nav: navs);
+  if (first && _env('MG_VERIFY_BACKCHECK') != null) {
+    // Every screen / sheet needs a visible back or close control (tab roots
+    // are filtered out when the report is read).
+    var any = false;
+    for (final ty in [MgV2Back, MgBackTap, MgSheetClose, MgBackArrow, BackButton, CloseButton, NavCircleV2]) {
+      for (final e in find.byType(ty).evaluate()) {
+        final r = _rectOf(t, e);
+        if (r != null && r.width > 8 && r.height > 8 && r.overlaps(Offset.zero & size)) any = true;
+      }
+    }
+    if (!any) out.add(const RFinding('no-back', false, 'no visible back / close control'));
+  }
   if (fab != null) {
     for (final z in zones) {
       if (z.overlaps(fab.deflate(4))) out.add(RFinding('fab-covers', true, 'zone [${z.left.round()},${z.top.round()} ${z.width.round()}x${z.height.round()}]'));
@@ -166,7 +193,7 @@ List<RFinding> _inspect(WidgetTester t, String lang, Size size) {
 }
 
 /// Steps every vertical scrollable through its extent, inspecting each stop.
-Future<List<RFinding>> _scrollInspect(WidgetTester t, String lang, Size size) async {
+Future<List<RFinding>> _scrollInspect(WidgetTester t, String lang, Size size, [GlobalKey? key, String? name]) async {
   final out = <RFinding>[];
   var budget = 16;
   final states = find.byType(Scrollable).evaluate().map((e) => (e as StatefulElement).state).whereType<ScrollableState>().toList();
@@ -180,7 +207,12 @@ Future<List<RFinding>> _scrollInspect(WidgetTester t, String lang, Size size) as
       p.jumpTo(target);
       await t.pump();
       await t.pump(const Duration(milliseconds: 250));
+      // Scroll idle (120 ms) re-evaluates the AI button in a post-frame
+      // callback → one more frame shows its settled place.
+      await t.pump(const Duration(milliseconds: 16));
+      await t.pump(const Duration(milliseconds: 300));
       out.addAll(_inspect(t, lang, size));
+      if (key != null && name != null && _env('MG_VERIFY_SCROLLSHOTS') != null) await _shot(t, key, '${name}__s${16 - budget}');
       budget--;
       if (target >= p.maxScrollExtent || !s.mounted) break;
     }
@@ -222,14 +254,17 @@ void _report(RenderCase c, String lang, Size size, List<RFinding> fs) {
 
 final _loc = RegExp(r'(package:motogo_app/[^\s:)]+:\d+:\d+|file://[^\s)]+/lib/[^\s:)]+:\d+:\d+)');
 
-RFinding _fromError(FlutterErrorDetails d) {
+/// [all] = the details rendered WHEN reported (the render object is still
+/// attached then, so the creator chain of a lazily built row is known).
+RFinding _fromError((FlutterErrorDetails, String) e) {
+  final (d, all) = e;
   final first = d.exceptionAsString().split('\n').first.trim();
-  final all = d.toString();
   final locs = _loc.allMatches(all).map((m) => m.group(0)!.replaceAll(RegExp(r'^.*?/lib/'), 'lib/')).toSet().take(3).join(' ; ');
   final kind = first.contains('overflowed') ? 'overflow' : 'exception';
   final creator = RegExp(r'creator: ([^\n]+)').firstMatch(all)?.group(1) ?? '';
   final chain = creator.length > 260 ? '${creator.substring(0, 260)}…' : creator;
-  return RFinding(kind, true, first, [locs, chain].where((x) => x.isNotEmpty).join(' | '));
+  final cause = RegExp(r'error-causing widget was:\s*\n\s*([^\n]+)').firstMatch(all)?.group(1)?.trim() ?? '';
+  return RFinding(kind, true, first, [locs, if (locs.isEmpty) cause, chain].where((x) => x.isNotEmpty).join(' | '));
 }
 
 /// The matrix is heavy (~6 700 tests) → opt-in: MG_VERIFY_RENDER=1.
@@ -254,9 +289,9 @@ void renderMatrix(List<RenderCase> cases, {Future<void> Function()? setUpAllExtr
           tester.view.devicePixelRatio = 2;
           addTearDown(tester.view.reset);
           final key = GlobalKey();
-          final errors = <FlutterErrorDetails>[];
+          final errors = <(FlutterErrorDetails, String)>[];
           final orig = FlutterError.onError;
-          FlutterError.onError = errors.add;
+          FlutterError.onError = (d) => errors.add((d, d.toString()));
           final fs = <RFinding>[];
           try {
             await tester.pumpWidget(_app(c, lang, key));
@@ -266,15 +301,20 @@ void renderMatrix(List<RenderCase> cases, {Future<void> Function()? setUpAllExtr
             final settled = await _settle(tester);
             if (!settled && !c.loading) fs.add(const RFinding('no-settle', false, 'reduced motion: frame never settles'));
             await tester.pump(const Duration(milliseconds: 400));
-            fs.addAll(_inspect(tester, lang, size));
+            fs.addAll(_inspect(tester, lang, size, first: true));
             await _shot(tester, key, '${c.id}__${lang}__${w}x$h');
-            fs.addAll(await _scrollInspect(tester, lang, size));
+            fs.addAll(await _scrollInspect(tester, lang, size, key, '${c.id}__${lang}__${w}x$h'));
             await tester.pump(const Duration(seconds: 3));
             if (c.end != null) await c.end!(tester);
           } finally {
             FlutterError.onError = orig;
           }
           fs.addAll(errors.map(_fromError));
+          final full = _env('MG_VERIFY_FULLERR');
+          if (full != null && errors.isNotEmpty) {
+            Directory(full).createSync(recursive: true);
+            File('$full/${c.id}__${lang}__${w}x$h.txt').writeAsStringSync(errors.map((e) => e.$2).join('\n\n======\n\n'));
+          }
           final seen = <String>{};
           final uniq = [for (final f in fs) if (seen.add(f.key)) f];
           _report(c, lang, size, uniq);

@@ -1123,6 +1123,8 @@ return [
     'editRez.moto.confirm' => '¿Cambiar a la moto seleccionada?',
     'editRez.postStripe.applying' => 'Pago confirmado, finalizando el cambio de la reserva…',
     'editRez.postStripe.error' => 'El pago se realizó, pero no se pudo completar el cambio. Por favor, contacta con nosotros.',
+    // D1/D6 (2026-10-16): zaplacená změna s dorovnáním — zapisuje ji server (webhook), web jen čeká
+    'editRez.postStripe.finishing' => 'El pago se ha realizado correctamente. Estamos completando el cambio de su reserva: lo verá en el detalle de la reserva en unos minutos. No pague nada más.',
     'editRez.change.success' => 'Cambio guardado.',
     'editRez.change.successWithRefund' => 'Cambio guardado. Se ha iniciado el reembolso de {amount} — el dinero suele llegar a tu tarjeta original en 5–7 días hábiles.',
     'editRez.err.activeMotoLocked' => 'No se puede cambiar la moto durante un alquiler en curso.',

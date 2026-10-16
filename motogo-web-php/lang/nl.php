@@ -1101,6 +1101,8 @@ return [
     'editRez.moto.confirm' => 'Wisselen naar de geselecteerde motor?',
     'editRez.postStripe.applying' => 'Betaling bevestigd, reserveringswijziging wordt afgerond…',
     'editRez.postStripe.error' => 'Betaling is gelukt, maar de wijziging kon niet worden afgerond. Neem contact met ons op.',
+    // D1/D6 (2026-10-16): zaplacená změna s dorovnáním — zapisuje ji server (webhook), web jen čeká
+    'editRez.postStripe.finishing' => 'De betaling is gelukt. We ronden de wijziging van uw reservering nu af – binnen enkele minuten ziet u die in de reserveringsdetails. Betaal niets extra.',
     'editRez.change.success' => 'Wijziging is opgeslagen.',
     'editRez.change.successWithRefund' => 'Wijziging is opgeslagen. De terugbetaling van {amount} is gestart — het geld staat doorgaans binnen 5–7 werkdagen op je oorspronkelijke kaart.',
     'editRez.err.activeMotoLocked' => 'Tijdens een lopende verhuur kan de motor niet worden gewisseld.',

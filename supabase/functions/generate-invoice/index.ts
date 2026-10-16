@@ -462,6 +462,14 @@ serve(async (req) => {
             error: 'Edit price_diff <= 0 — use process-refund for shortening'
           }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
         }
+        // D1 (2026-10-16): změna ceny o 1 Kč a méně se neúčtuje (odpuštěno, nic se nestrhlo) —
+        // samostatný DP by vznikl za platbu, která neproběhla (dřív 0,60 Kč → DP na 1 Kč).
+        if (Number.isFinite(explicitDiff) && explicitDiff > 0 && explicitDiff <= 1) {
+          return new Response(JSON.stringify({
+            success: false, skipped: true,
+            error: 'Edit price_diff <= 1 Kč — neúčtuje se (D1)'
+          }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
 
         // Idempotence: stejný rozdílový doklad mohl už vystavit souběžný dispatch
         // (hardcoded mail + dispatch_email_event, retry, dvojitý Stripe event).
@@ -505,7 +513,11 @@ serve(async (req) => {
         const hmS = (v: unknown) => (v == null ? '' : String(v).slice(0, 5))
         const fromT = hmS(last?.from_pickup_time), toT = hmS(last?.to_pickup_time)
 
-        if (lastFresh && (datesChanged || lateChanged)) {
+        if (Math.abs(itemDiff) < 0.01 && Math.abs(editRounding) >= 0.01) {
+          // D1 (oprava 2026-10-16): samostatně zapsané dorovnání na minimální platbu kartou
+          // (změnu zapsal web sám, dorovnání dopsal webhook) — doklad nese jen řádek dorovnání.
+          editLabel = 'ÚPRAVA — dorovnání na minimální platbu kartou'
+        } else if (lastFresh && (datesChanged || lateChanged)) {
           // Compute delta days (to_end - from_end for prodloužení)
           const fromEnd = last.from_end ? new Date(last.from_end).getTime() : 0
           const toEnd = last.to_end ? new Date(last.to_end).getTime() : 0

@@ -4,6 +4,7 @@
 // a CTA / bar. Walks the render tree like semantics does (offstage,
 // invisible and non-current overlay entries are skipped).
 import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart' show DebugCreator, debugTransformDebugCreator;
 import 'package:motogo_app/core/i18n/translations.dart';
 
 class RFinding {
@@ -82,6 +83,8 @@ class _Para {
   final Rect rect;
   Rect visible;
   RenderObject? layer;
+  RenderObject? viewport;
+  bool nav = false;
   _Para(this.p, this.text, this.rect, this.visible);
 }
 
@@ -105,6 +108,19 @@ AxisDirection? _axisOf(RenderObject o) {
 
 Rect _global(RenderObject o, Rect r) => MatrixUtils.transformRect(o.getTransformTo(null), r);
 
+/// Painted children of [o]: like the semantics walk (skips offstage,
+/// opacity 0, non-current overlay entries, hidden IndexedStack children)
+/// but ALSO descends into ExcludeSemantics / Semantics(excludeSemantics:)
+/// — v2 rows and buttons wrap their labels in them, and those labels are
+/// painted, so they must be inspected too.
+void visitPainted(RenderObject o, RenderObjectVisitor visit) {
+  if (o is RenderExcludeSemantics || o is RenderSemanticsAnnotations) {
+    o.visitChildren(visit);
+  } else {
+    o.visitChildrenForSemantics(visit);
+  }
+}
+
 /// Global rect of [o] when it is actually painted (reached by the
 /// semantics-style walk: not offstage, not at opacity 0), else null.
 Rect? paintedRect(RenderObject root, RenderObject o) {
@@ -115,17 +131,17 @@ Rect? paintedRect(RenderObject root, RenderObject o) {
       found = true;
       return;
     }
-    x.visitChildrenForSemantics(visit);
+    visitPainted(x, visit);
   }
 
-  root.visitChildrenForSemantics(visit);
+  visitPainted(root, visit);
   if (!found || o is! RenderBox || !o.hasSize) return null;
   return _global(o, Offset.zero & o.size);
 }
 
 /// Inspects the current frame. [screen] = logical screen size.
 List<RFinding> inspectFrame(RenderObject root, String lang, Size screen,
-    {Rect? fab, List<Rect> avoid = const [], Set<RenderObject> ignore = const {}}) {
+    {Rect? fab, List<Rect> avoid = const [], Set<RenderObject> ignore = const {}, Set<RenderObject> nav = const {}}) {
   final out = <RFinding>[];
   final paras = <_Para>[];
   void visit(RenderObject o) {
@@ -136,10 +152,10 @@ List<RFinding> inspectFrame(RenderObject root, String lang, Size screen,
         paras.add(_Para(o, text, rect, rect));
       }
     }
-    o.visitChildrenForSemantics(visit);
+    visitPainted(o, visit);
   }
 
-  root.visitChildrenForSemantics(visit);
+  visitPainted(root, visit);
   final t = _tablesFor(lang);
   for (final para in paras) {
     final p = para.p, text = para.text;
@@ -158,11 +174,24 @@ List<RFinding> inspectFrame(RenderObject root, String lang, Size screen,
       }
       if (ignored) continue;
     }
+    for (RenderObject? x = p; x != null && nav.isNotEmpty; x = x.parent) {
+      if (nav.contains(x)) {
+        para.nav = true;
+        break;
+      }
+    }
     RenderObject child = p;
     var parent = p.parent;
     while (parent != null) {
       final clip = parent.describeApproximatePaintClip(child);
       final isViewport = parent is RenderAbstractViewport;
+      if (clip == null && isViewport) {
+        // Unclipped scroll view (e.g. a horizontal chip rail, Clip.none):
+        // content past its edge is reachable by scrolling — stop here.
+        inViewport = true;
+        para.viewport = parent;
+        break;
+      }
       if (clip != null) {
         final g = _global(parent, clip);
         final inter = visible.intersect(g);
@@ -178,14 +207,15 @@ List<RFinding> inspectFrame(RenderObject root, String lang, Size screen,
               ? (visible.top < g.top - 1 || visible.bottom > g.bottom + 1)
               : (visible.left < g.left - 1 || visible.right > g.right + 1);
           if (crossCut) {
-            out.add(RFinding('clipped', true, short, 'cross-axis of ${parent.runtimeType} ${_r(visible)} vs ${_r(g)}'));
+            out.add(RFinding('clipped', true, short, 'cross-axis of ${parent.runtimeType} ${_r(visible)} vs ${_r(g)} @ ${creatorLoc(p)}'));
           }
           visible = inter;
           inViewport = true;
+          para.viewport = parent;
           break;
         }
         if (visible.left < g.left - 1 || visible.right > g.right + 1 || visible.top < g.top - 1 || visible.bottom > g.bottom + 1) {
-          out.add(RFinding('clipped', true, short, 'by ${parent.runtimeType} ${_r(visible)} vs ${_r(g)}'));
+          out.add(RFinding('clipped', true, short, 'by ${parent.runtimeType} ${_r(visible)} vs ${_r(g)} @ ${creatorLoc(p)}'));
         }
         visible = inter;
       }
@@ -197,20 +227,30 @@ List<RFinding> inspectFrame(RenderObject root, String lang, Size screen,
     if (visible == Rect.zero) continue;
     // 2) Off the screen sideways (no scroll viewport in between).
     if (!inViewport && (para.rect.left < -1 || para.rect.right > screen.width + 1)) {
-      out.add(RFinding('offscreen', true, short, _r(para.rect)));
+      out.add(RFinding('offscreen', true, short, '${_r(para.rect)} @ ${creatorLoc(p)}'));
     }
     // 3) Truncated / bleeding text.
     final ui = isUiCopy(lang, text);
     if (p.didExceedMaxLines) {
-      out.add(RFinding(ui ? 'truncated-ui' : 'truncated-data', ui, short,
-          'maxLines=${p.maxLines} overflow=${p.overflow.name} box=${_s(p.size)}'));
+      // A cut price / amount is never OK (data or not).
+      final money = _money.hasMatch(text);
+      out.add(RFinding(ui ? 'truncated-ui' : (money ? 'truncated-price' : 'truncated-data'), ui || money, short,
+          'maxLines=${p.maxLines} overflow=${p.overflow.name} box=${_s(p.size)} @ ${creatorLoc(p)}'));
     } else {
       final ts = p.textSize;
       if (ts.width > p.size.width + 1 || ts.height > p.size.height + 1) {
-        out.add(RFinding('text-box-overflow', true, short,
-            'text ${_s(ts)} > box ${_s(p.size)} overflow=${p.overflow.name}'));
+        // Bottom-nav labels are centred in 5 columns and may be wider than
+        // their column by design (v2NavFit keeps 6 px to the neighbours —
+        // checked below as nav-overlap), so only the visible gap counts.
+        final navWide = para.nav && p.overflow == TextOverflow.visible;
+        out.add(RFinding(navWide ? 'nav-label-wide' : 'text-box-overflow', !navWide, short,
+            'text ${_s(ts)} > box ${_s(p.size)} overflow=${p.overflow.name} @ ${creatorLoc(p)}'));
       }
     }
+    // 3b) A word split across two lines (char-wrap of a word that does not
+    //     fit the box, e.g. "NAH|RÁV|ÁM") — reads as broken text.
+    final wb = midWordBreak(p);
+    if (wb != null) out.add(RFinding(ui ? 'word-break-ui' : 'word-break-data', ui, short, 'split "$wb" @ ${creatorLoc(p)}'));
     // 4) Translation problems.
     for (final m in _rawKey.allMatches(text)) {
       final tok = m.group(0)!;
@@ -244,7 +284,15 @@ List<RFinding> inspectFrame(RenderObject root, String lang, Size screen,
   for (var i = 0; i < vis.length; i++) {
     for (var j = i + 1; j < vis.length; j++) {
       final a = vis[i], b = vis[j];
-      if (a.text == b.text || !identical(a.layer, b.layer)) continue;
+      // Same route layer AND same scroll viewport: page text scrolling
+      // under an opaque dock / bar is not an overlap.
+      if (a.text == b.text || !identical(a.layer, b.layer) || !identical(a.viewport, b.viewport)) continue;
+      if (a.nav && b.nav) {
+        // Nav labels: drawn text extents (not the column boxes) must keep apart.
+        final ta = _inkRect(a), tb = _inkRect(b);
+        if (ta.overlaps(tb.inflate(2))) out.add(RFinding('nav-overlap', true, '${a.text} ⟂ ${b.text}', '${_r(ta)} ${_r(tb)}'));
+        continue;
+      }
       final r = a.visible.intersect(b.visible);
       if (r.width <= 1 || r.height <= 1) continue;
       final small = a.visible.width * a.visible.height < b.visible.width * b.visible.height ? a.visible : b.visible;
@@ -254,6 +302,59 @@ List<RFinding> inspectFrame(RenderObject root, String lang, Size screen,
     }
   }
   return out;
+}
+
+final _word = RegExp('[^\\s\\-\u2010\u2011\u2013\u2014/\u00AD\u200B\uFFFC\u00B7,;:.!?()\\[\\]{}«»„“”"]{2,}');
+
+/// "…ab|cd…" when a soft line break of [p] falls inside a word (the word's
+/// glyph boxes sit on two lines), else null.
+String? midWordBreak(RenderParagraph p) {
+  final text = p.text.toPlainText(includeSemanticsLabels: false);
+  if (text.length < 4) return null;
+  int lines(int a, int b) =>
+      p.getBoxesForSelection(TextSelection(baseOffset: a, extentOffset: b)).map((x) => x.top.round()).toSet().length;
+  if (lines(0, text.length) < 2) return null;
+  for (final m in _word.allMatches(text)) {
+    final w = m.group(0)!;
+    if (w.codeUnits.any((c) => c >= 0xD800 && c <= 0xDFFF)) continue;
+    if (lines(m.start, m.end) > 1) {
+      // Find the split point for the report.
+      for (var i = m.start + 1; i < m.end; i++) {
+        if (lines(m.start, i) == 1 && lines(m.start, i + 1) > 1) {
+          return '${text.substring(m.start, i)}|${text.substring(i, m.end)}';
+        }
+      }
+      return w;
+    }
+  }
+  return null;
+}
+
+/// Global rect of the glyphs of [x] (centred text wider than its box).
+Rect _inkRect(_Para x) {
+  final ts = x.p.textSize;
+  final dx = (ts.width - x.p.size.width) / 2;
+  return Rect.fromLTWH(x.rect.left - (dx > 0 ? dx : 0), x.rect.top, ts.width > x.rect.width ? ts.width : x.rect.width, x.rect.height);
+}
+
+final _money = RegExp(r'\d[\d\s\u00A0.,]*\s?(Kč|CZK|€|EUR|zł|PLN|₴|UAH)');
+
+final _locRe = RegExp(r'lib/[^\s:]+\.dart:\d+:\d+');
+
+/// Source location (lib/…:line:col) of the widget that created [o] —
+/// the nearest widget created in app code (track-widget-creation is on
+/// in `flutter test`).
+String creatorLoc(RenderObject o) {
+  try {
+    final c = o.debugCreator;
+    if (c is! DebugCreator) return '';
+    final nodes = debugTransformDebugCreator([DiagnosticsDebugCreator(c)]);
+    for (final n in nodes) {
+      final m = _locRe.firstMatch(n.toStringDeep());
+      if (m != null) return m.group(0)!;
+    }
+  } catch (_) {}
+  return '';
 }
 
 String _cut(String s) => s.length > 40 ? '${s.substring(0, 40)}…' : s;

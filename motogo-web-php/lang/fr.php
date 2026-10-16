@@ -1122,6 +1122,8 @@ return [
     'editRez.moto.confirm' => 'Passer à la moto sélectionnée ?',
     'editRez.postStripe.applying' => 'Paiement confirmé, finalisation du changement de réservation…',
     'editRez.postStripe.error' => 'Le paiement a réussi, mais la finalisation du changement a échoué. Veuillez nous contacter.',
+    // D1/D6 (2026-10-16): zaplacená změna s dorovnáním — zapisuje ji server (webhook), web jen čeká
+    'editRez.postStripe.finishing' => 'Le paiement a réussi. Nous finalisons en ce moment la modification de votre réservation – vous la verrez dans le détail de la réservation d’ici quelques minutes. Ne payez rien de plus.',
     'editRez.change.success' => 'Le changement a été enregistré.',
     'editRez.change.successWithRefund' => 'Le changement a été enregistré. Le remboursement de {amount} a été lancé — les fonds arrivent généralement sur votre carte d\'origine sous 5 à 7 jours ouvrés.',
     'editRez.err.activeMotoLocked' => 'Impossible de changer de moto pendant une location en cours.',

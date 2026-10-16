@@ -163,6 +163,7 @@ String restoreRefusalText(AppTranslations tr, RestoreRefused e) {
     'restore_limit' => 'pdRestoreLimit',
     'voucher_unavailable' => 'pdRestoreVoucher',
     'promo_unavailable' => 'pdRestorePromo',
+    'price_changed' => 'pdRestorePriceChanged',
     'moto_unavailable' => switch (e.reason) {
         'own_overlap' => 'pdRestoreOwnOverlap',
         'branch_closed' => 'pdRestoreBranchClosed',
@@ -211,8 +212,9 @@ void _showRefusal(BuildContext context, WidgetRef ref, Reservation res, RestoreR
     case 'restore_limit':
     case 'voucher_unavailable':
     case 'promo_unavailable':
-      // Obnova nejde (termín uplynul, zrušila obsluha, limit, sleva) → nová
-      // rezervace téže motorky (výběr termínu), nebo jiná motorka.
+    case 'price_changed':
+      // Obnova nejde (termín uplynul, zrušila obsluha, limit, sleva, změněný
+      // ceník) → nová rezervace téže motorky (výběr termínu), nebo jiná motorka.
       label = tr.tr('psPickAgain');
       onTap = () => context.go(motoRoute);
       second = tr.tr('psOtherMoto');

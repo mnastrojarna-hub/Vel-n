@@ -60,6 +60,7 @@ export const CS: Record<string, string> = {
   booking_cancelled_limit: 'Rezervaci jsi obnovil(a) už třikrát – další obnovení nejde, aby motorka nezůstávala blokovaná. ' + NOTHING + ' ' + NEW_BOOKING,
   booking_cancelled_voucher: 'Rezervace je zrušená a poukaz {voucher_code} z ní mezitím vypršel nebo byl použitý jinde, proto ji obnovit nejde. ' + NOTHING + ' Vytvoř si prosím novou rezervaci – bez poukazu, nebo s jiným.',
   booking_cancelled_promo: 'Rezervace je zrušená a slevový kód {voucher_code} už neplatí (vypršel nebo je vyčerpaný), proto ji obnovit nejde. ' + NOTHING + ' ' + NEW_BOOKING,
+  booking_cancelled_price: 'Rezervace je zrušená a ceník se od jejího vytvoření změnil, proto ji za původní cenu obnovit nejde. ' + NOTHING + ' Vytvoř si prosím novou rezervaci – cenu spočítáme podle aktuálního ceníku.',
   booking_cancelled_other: 'Rezervace je zrušená a v tomhle stavu ji obnovit ani zaplatit nejde. ' + NOTHING + ' ' + NEW_BOOKING,
   voucher_unavailable: 'Poukaz {voucher_code} mezitím vypršel nebo byl použitý jinde, takže rezervaci s ním zaplatit nejde. Nic jsme nestrhli. Vytvoř si prosím rezervaci znovu – bez poukazu, nebo s jiným.',
   below_minimum: 'Zbývá zaplatit {due} Kč, ale kartou jde zaplatit nejméně 15 Kč. Tahle verze aplikace drobnou částku neumí dorovnat – aktualizuj prosím aplikaci MotoGo24 a zkus to znovu. Nic jsme nestrhli.',
@@ -121,6 +122,7 @@ export function cancelledReasonKey(reason: string | null | undefined): string {
     case 'restore_limit': return 'booking_cancelled_limit'
     case 'voucher_unavailable': return 'booking_cancelled_voucher'
     case 'promo_unavailable': return 'booking_cancelled_promo'
+    case 'price_changed': return 'booking_cancelled_price'
     case 'not_restorable': case 'forbidden': return 'booking_cancelled_other'
     default: return 'booking_cancelled'
   }

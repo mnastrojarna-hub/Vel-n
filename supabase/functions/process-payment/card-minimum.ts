@@ -80,3 +80,15 @@ export async function bookingRoundingAvailable(sb: Sb, id: string): Promise<bool
     return !error
   } catch { return false }
 }
+
+/** Placená výbava s dorovnáním / odpuštěním: je nasazená apply_paid_gear_change rev.2
+ *  (SQL 20261016p4 — dorovnání v TÉMŽE zápisu jako změna výbavy → jeden mail a DP na
+ *  zaplacenou částku)? Sonda s nulovým id nic nemění (rev.2 vrátí not_found). */
+export async function gearRoundingAvailable(sb: Sb): Promise<boolean> {
+  try {
+    const { error } = await sb.rpc('apply_paid_gear_change', {
+      p_booking_id: '00000000-0000-0000-0000-000000000000', p_sizes: {}, p_paid: 0, p_payment_ref: null,
+    })
+    return !error
+  } catch { return false }
+}

@@ -205,16 +205,7 @@ Deno.test('swap odpuštění: stejné klepnutí (značka waive:) → already_app
   eq(called, 1)
 })
 
-// ── výbava (web) s dorovnáním ───────────────────────────────────────────────
-Deno.test('gear D1: doplatek výbavy 7 Kč zaplacený 15 Kč → cena +8 navíc, card_rounding 8, jednou', async () => {
-  const d = db()
-  d.rpcs.apply_paid_gear_change = () => { Object.assign(row(d), { total_price: Number(row(d).total_price) + 7 }); return { data: { success: true }, error: null } }
-  const a = { bookingId: 'b1', chg: JSON.stringify({ _gear: { sizes: { helmet: 'L' } } }), paidCzk: 15, payRef: 'pi_g', rounding: 8 } as never
-  eq((await applyPaidExtension(d, a)).state, 'applied')
-  eq(row(d).total_price, 3015); eq(row(d).card_rounding, 8); eq(hist(d).at(-1)?.payment_ref, 'pi_g')
-  d.rpcs.apply_paid_gear_change = () => ({ data: { success: true }, error: null }) // idempotentní RPC (net 0)
-  eq((await applyPaidExtension(d, a)).state, 'applied'); eq(row(d).total_price, 3015); eq(row(d).card_rounding, 8)
-})
+// (výbava s dorovnáním → gear_rounding_test.ts)
 
 // ── trvalé selhání: vratka jen jednou ─────────────────────────────────────────
 Deno.test('paid change failure: automatická vratka + upozornění jen jednou na platbu', async () => {
@@ -235,3 +226,4 @@ Deno.test('paid change failure: automatická vratka + upozornění jen jednou na
     eq(d.rows('debug_log').filter((r) => r.action === 'paid_change_failed').length, 1)
   } finally { globalThis.fetch = orig }
 })
+

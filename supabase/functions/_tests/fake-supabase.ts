@@ -51,11 +51,12 @@ class Query implements PromiseLike<Res> {
   private patch: Row | Row[] | null = null
   private mode: 'many' | 'one' | 'maybe' = 'many'
   private wantReturn = false
+  private retCols = 'id'
   private lim: number | null = null
   private orders: Array<[string, boolean]> = []
   constructor(private db: FakeDb, private table: string) {}
 
-  select(cols = '*') { if (this.op === 'select') this.cols = cols; else this.wantReturn = true; return this }
+  select(cols = '*') { if (this.op === 'select') this.cols = cols; else { this.wantReturn = true; this.retCols = cols } return this }
   update(p: Row) { this.op = 'update'; this.patch = p; return this }
   insert(p: Row | Row[]) { this.op = 'insert'; this.patch = p; return this }
   delete() { this.op = 'delete'; return this }
@@ -133,7 +134,7 @@ class Query implements PromiseLike<Res> {
     if (fail) return { data: null, error: fail }
     for (const r of rows) Object.assign(r, patch, 'updated_at' in r ? { updated_at: this.db.tick() } : {})
     this.db.calls.push({ op: 'update', table: this.table, data: patch })
-    return { data: this.wantReturn ? rows.map((r) => ({ id: r.id })) : null, error: null }
+    return { data: this.wantReturn ? rows.map((r) => this.shape([r], this.retCols === '*' ? 'id' : this.retCols)[0]) : null, error: null }
   }
   private finish(rows: Row[]): Res {
     if (this.mode === 'many') return { data: rows, error: null }

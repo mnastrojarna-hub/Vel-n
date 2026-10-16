@@ -9,6 +9,8 @@
 import type { ApplyArgs, ApplyResult, Sb } from './extension-apply-types.ts'
 import { chgDigest, isMissingFunction, logDebug, otherPaymentEntry, round2 } from './extension-apply-types.ts'
 import { applyColumnChange } from './extension-apply-columns.ts'
+import { applyGear } from './extension-apply-gear.ts'
+import { roundingFixup } from './extension-apply-rounding.ts'
 
 export type { ApplyArgs, ApplyResult, Sb } from './extension-apply-types.ts'
 export { chgDigest, chgFromMetadata, placeFingerprint, round2 } from './extension-apply-types.ts'
@@ -157,75 +159,4 @@ async function settleEvidence(sb: Sb, args: ApplyArgs, swap: { m: string; d: str
   }
   await logDebug(sb, 'swap_commit_applied', 'ok', { booking_id: bookingId, swap, payment_ref: args.payRef, state: 'already_applied', evidence: phase })
   return { state: 'already_applied', bookingId, newBookingId }
-}
-
-/** Placená změna výbavy (web) — apply_paid_gear_change je idempotentní (net vůči aktuálnímu
- *  stavu). D1: dorovnání / odpuštění (r) se zapíše hned po ní do ceny i card_rounding se
- *  záznamem v historii (payment_ref = deduplikace opakování, chg_hash = pozná se tatáž
- *  změna zaplacená JINOU platbou → duplicate, dorovnání se nepřičte podruhé). */
-async function applyGear(sb: Sb, args: ApplyArgs, sizes: Record<string, unknown>, hash: string | null): Promise<ApplyResult> {
-  const bookingId = args.bookingId
-  let data: Record<string, unknown> | null = null
-  let error: { code?: string; message?: string } | null = null
-  try {
-    const res = await sb.rpc('apply_paid_gear_change', { p_booking_id: bookingId, p_sizes: sizes })
-    data = (res.data || null) as Record<string, unknown> | null
-    error = res.error || null
-  } catch (e) { error = { message: (e as Error).message } }
-  const failed = !error && data && data.success === false
-  await logDebug(sb, error || failed ? 'gear_change_apply_failed' : 'gear_change_applied', error || failed ? 'error' : 'ok',
-    { booking_id: bookingId, rpc_result: data }, error?.message || (failed ? String(data?.error || '') : null))
-  if (error) return isMissingFunction(error) ? { state: 'no_payload' } : { state: 'retry', code: 'apply_failed', detail: error.message }
-  if (failed) return { state: 'failed', code: 'change_failed', reason: String(data?.error || 'gear_failed') }
-  const r = round2(Number(args.rounding || 0))
-  if (r !== 0) {
-    // RPC nic nezměnila (net 0) a tutéž změnu (chg_hash) od vytvoření platby zaplatila JINÁ platba → duplicita.
-    if (hash && Number(data?.net_diff ?? NaN) === 0) {
-      const other = await otherRefWithHash(sb, bookingId, hash, args)
-      if (other) {
-        await logDebug(sb, 'gear_change_duplicate', 'error', { booking_id: bookingId, payment_ref: args.payRef, other_ref: other })
-        return { state: 'duplicate', bookingId, otherRef: other }
-      }
-    }
-    const rr = await roundingFixup(sb, bookingId, r, args, hash)
-    if (rr) return rr
-  }
-  return { state: 'applied', bookingId }
-}
-
-async function otherRefWithHash(sb: Sb, bookingId: string, hash: string, args: ApplyArgs): Promise<string | null> {
-  try {
-    const { data } = await sb.from('bookings').select('modification_history').eq('id', bookingId).maybeSingle()
-    const hist = Array.isArray(data?.modification_history) ? (data.modification_history as Array<Record<string, unknown> | null>) : []
-    const sinceMs = args.since ? Date.parse(args.since) : NaN
-    const e = hist.find((h) => !!h && h.chg_hash === hash && otherPaymentEntry(h, args.payRef, Number.isFinite(sinceMs) ? sinceMs : null))
-    return e ? String(e.payment_ref) : null
-  } catch { return null }
-}
-
-/** Dorovnání (r) do ceny a card_rounding rezervace `targetId` + záznam s payment_ref v její
- *  historii (deduplikace opakování) — u placené výbavy a u výměny, kterou provedl klient
- *  bez dorovnání. null = hotovo (nebo už dřív), jinak výsledek k vrácení (retry). */
-async function roundingFixup(sb: Sb, targetId: string, r: number, args: ApplyArgs, hash: string | null): Promise<ApplyResult | null> {
-  const bookingId = targetId
-  for (let pass = 0; pass < 2; pass++) {
-    const { data: cur, error } = await sb.from('bookings').select('*').eq('id', bookingId).maybeSingle()
-    if (error || !cur) return { state: 'retry', code: 'read_failed', detail: error?.message }
-    const hist = Array.isArray(cur.modification_history) ? [...(cur.modification_history as Array<Record<string, unknown> | null>)] : []
-    if (args.payRef && hist.some((h) => !!h && h.payment_ref === args.payRef)) return null
-    if (!('card_rounding' in cur)) {
-      if (args.paidCzk != null && args.paidCzk > 0 && Math.abs(r) < 1) return null
-      return { state: 'retry', code: 'rounding_unavailable' }
-    }
-    hist.push({ at: new Date().toISOString(), type: 'card_rounding', source: 'stripe_webhook', card_rounding: r,
-      ...(args.paidCzk != null ? { price_diff: Math.round(args.paidCzk) } : {}), ...(args.payRef ? { payment_ref: args.payRef } : {}),
-      ...(hash ? { chg_hash: hash } : {}) })
-    let q = sb.from('bookings').update({ total_price: round2(Number(cur.total_price || 0) + r),
-      card_rounding: round2(Number(cur.card_rounding || 0) + r), modification_history: hist }).eq('id', bookingId)
-    if (cur.updated_at) q = q.eq('updated_at', cur.updated_at)
-    const { data: upd, error: uErr } = await q.select('id')
-    if (uErr) return { state: 'retry', code: 'apply_failed', detail: uErr.message }
-    if (Array.isArray(upd) && upd.length === 1) return null
-  }
-  return { state: 'retry', code: 'concurrent_update' }
 }

@@ -21,6 +21,37 @@
 
   var TAB = 'swap';
 
+  // D1/D6 (2026-10-16): zaplacenou změnu s dorovnáním zapisuje server (webhook) — web na ni
+  // po návratu ze Stripe počká (max. ~40 s); když ještě zapsaná není, ukáže „Platba proběhla,
+  // změnu dokončujeme" místo chyby (bez kontaktů, nic dalšího neplatit). Sdílí swap.js a gear.js.
+  if (!ER._waitServerChange) {
+    ER._waitServerChange = async function (check) {
+      for (var i = 0; i < 20; i++) {
+        if (await check()) return true;
+        await new Promise(function (r) { setTimeout(r, 2000); });
+      }
+      ER._paidFinishing = true;
+      if (!ER._paidPickupFinWrap) {
+        ER._paidPickupFinWrap = true;
+        var orig = ER._paidPickup;
+        ER._paidPickup = function () {
+          if (!ER._paidFinishing) return orig ? orig.apply(this, arguments) : undefined;
+          ER._paidFinishing = false;
+          var c = document.getElementById('edit-rez-content');
+          if (!c) return;
+          var sec = document.createElement('section');
+          sec.className = 'edit-rez-card';
+          sec.id = 'edit-rez-paid-finishing';
+          var p = document.createElement('p');
+          p.textContent = MG.t('editRez.postStripe.finishing');
+          sec.appendChild(p);
+          c.insertBefore(sec, c.firstChild);
+        };
+      }
+      return false;
+    };
+  }
+
   // Styl řádku cenového rozdílu v potvrzovacím dialogu (jádro styly injektuje
   // vlastním <style> blokem, sem patří jen to, co používá tento soubor).
   try {
@@ -337,6 +368,12 @@
           ER._showError(ER._payErr ? ER._payErr(pj) : (pj && pj.error ? pj.error : MG.t('editRez.err.generic')));
           return;
         }
+        // D1 (2026-10-16): doplatek 1–15 Kč se platí 15 Kč — dorovnání (card_rounding z odpovědi)
+        // zapíše výměnu SERVER (webhook) i s dorovnáním v jednom zápisu. Po návratu ze Stripe
+        // proto web výměnu NEzapisuje sám (zapsal by ji bez dorovnání a doklad by nesedl
+        // se zaplacenou částkou), jen počká, až ji server zapíše.
+        var _cr = Number((pj && pj.card_rounding) || 0);
+        if (_cr) { try { localStorage.setItem(SWAP_KEY + b.id, JSON.stringify({ base: base, swapDate: swapDate, ts: Date.now(), r: _cr })); } catch (e) {} }
         window.location.href = checkout;
         return;
       }
@@ -376,6 +413,12 @@
       // Ať jádro nezkusí na tuto rezervaci aplikovat bookings.update z extend/edit pendingu.
       try { localStorage.removeItem('editRez_pending_' + id); } catch (e) {}
       if (!pend || !pend.base) return false;
+      if (pend.r && ER._waitServerChange) {
+        // Platba s dorovnáním → výměnu zapisuje server; počkat na ni (nebo oznámit „dokončujeme").
+        var newMoto = pend.base.p_new_moto_id;
+        if (await ER._waitServerChange(function () { return swapWritten(id, newMoto); })) ER._lastSwapMoto = newMoto || null;
+        return true;
+      }
       try {
         var done = await window.sb.rpc('split_booking_moto_swap', Object.assign({ p_dry_run: false }, pend.base));
         // `already_split` (split už vznikl) / `invalid_new_moto` (replace už
@@ -397,6 +440,17 @@
     }
     return _origApply ? _origApply.apply(this, arguments) : false;
   };
+
+  // Zapsal už server zaplacenou výměnu? REPLACE = rezervace jezdí na nové motorce,
+  // SPLIT = navazující rezervace na nové motorce.
+  async function swapWritten(id, moto) {
+    try {
+      var a = await window.sb.from('bookings').select('moto_id').eq('id', id).maybeSingle();
+      if (a && a.data && moto && a.data.moto_id === moto) return true;
+      var n = await window.sb.from('bookings').select('id').eq('continues_booking_id', id).eq('moto_id', moto).limit(1);
+      return !!(n && n.data && n.data.length);
+    } catch (e) { return false; }
+  }
 
   // ---- Vložení záložky do tab baru (bez zásahu do minifikovaného jádra) ----
   // Výměna má smysl u nadcházející, zaplacené rezervace (reserved + paid) — stejná podmínka

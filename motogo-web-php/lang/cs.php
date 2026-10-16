@@ -972,6 +972,8 @@ return [
     'editRez.moto.confirm' => 'Změnit na vybranou motorku?',
     'editRez.postStripe.applying' => 'Platba potvrzena, dokončuji změnu rezervace…',
     'editRez.postStripe.error' => 'Platba proběhla, ale změnu rezervace se nepodařilo dokončit. Kontaktujte nás prosím.',
+    // D1/D6 (2026-10-16): zaplacená změna s dorovnáním — zapisuje ji server (webhook), web jen čeká
+    'editRez.postStripe.finishing' => 'Platba proběhla v pořádku. Změnu rezervace právě dokončujeme – za pár minut ji uvidíte v detailu rezervace. Nic dalšího neplaťte.',
     'editRez.change.success' => 'Změna byla uložena.',
     'editRez.change.successWithRefund' => 'Změna byla uložena. Vrácení {amount} jsme zahájili — peníze obvykle dorazí na původní kartu do 5–7 pracovních dnů.',
     'editRez.err.activeMotoLocked' => 'U probíhající rezervace nelze změnit motorku.',

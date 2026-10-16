@@ -11,6 +11,9 @@ import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
 import 'card_minimum.dart' show newAttemptId;
 import 'net_error.dart' show authRefreshNetworkFailure, requestNeverSent;
+import 'next_action.dart';
+
+export 'next_action.dart';
 
 /// Stripe payment service — native Payment Sheet (in-app, no redirect).
 ///
@@ -304,7 +307,14 @@ class StripeService {
   ///
   /// Rozlišuje: zaplaceno / banka ještě zpracovává / zákazník ověření
   /// nedokončil / banka ověření zamítla / nevíme (výpadek sítě — ověřit v DB).
-  static Future<NextActionOutcome> handleNextAction(String clientSecret) async {
+  /// Jen výsledek bez kódu chyby — pro přesnou hlášku [handleNextActionDetailed].
+  static Future<NextActionOutcome> handleNextAction(String clientSecret) async =>
+      (await handleNextActionDetailed(clientSecret)).outcome;
+
+  /// Jako [handleNextAction], navíc vrací výjimku Stripe s kódem zamítnutí:
+  /// banka může platbu zamítnout i PO úspěšném 3D Secure (nedostatek
+  /// prostředků, propadlá karta…) — zákazník musí slyšet pravý důvod (D5).
+  static Future<NextActionResult> handleNextActionDetailed(String clientSecret) async {
     try {
       await Stripe.instance.applySettings();
     } catch (e) {
@@ -313,19 +323,14 @@ class StripeService {
     }
     try {
       final result = await Stripe.instance.handleNextAction(clientSecret);
-      return outcomeForStatus(result.status);
+      return NextActionResult(outcomeForStatus(result.status));
     } on StripeException catch (e) {
-      debugPrint('[Stripe] handleNextAction StripeException: ${e.error.code} / ${e.error.stripeErrorCode}');
-      if (e.error.code == FailureCode.Canceled) return NextActionOutcome.notCompleted;
-      // Bez Stripe kódu = typicky výpadek spojení po odeslání → stav nevíme.
-      if ((e.error.stripeErrorCode ?? '').isEmpty &&
-          (e.error.declineCode ?? '').isEmpty) {
-        return NextActionOutcome.unknown;
-      }
-      return NextActionOutcome.failed;
+      debugPrint('[Stripe] handleNextAction StripeException: ${e.error.code} / '
+          '${e.error.stripeErrorCode} / ${e.error.declineCode}');
+      return NextActionResult.fromException(e);
     } catch (e) {
       debugPrint('[Stripe] handleNextAction FAILED: $e');
-      return NextActionOutcome.unknown;
+      return const NextActionResult(NextActionOutcome.unknown);
     }
   }
 
@@ -464,20 +469,6 @@ class _SessionCheck {
   /// samo je v pořádku; NIKDY kvůli tomu neodhlašovat.
   final bool network;
   const _SessionCheck(this.session, {this.network = false});
-}
-
-/// Výsledek dokončení 3DS / ověření stavu PaymentIntentu.
-enum NextActionOutcome {
-  /// Zaplaceno (Succeeded / RequiresCapture).
-  succeeded,
-  /// Banka platbu ještě zpracovává — čekat na server (webhook).
-  processing,
-  /// Zákazník ověření u banky nedokončil (zavřel / zrušil) — nic nestrženo.
-  notCompleted,
-  /// Banka ověření nebo platbu zamítla — nic nestrženo.
-  failed,
-  /// Stav nejde zjistit (výpadek sítě) — ověřit v DB, nikdy netvrdit „nestrženo".
-  unknown,
 }
 
 /// Payment operation result.

@@ -17,6 +17,37 @@
   if (!ER) return;
 
   var TYPES = ['helmet', 'jacket', 'pants', 'boots', 'gloves'];
+
+  // D1/D6 (2026-10-16): zaplacenou změnu s dorovnáním zapisuje server (webhook) — web na ni
+  // po návratu ze Stripe počká (max. ~40 s); když ještě zapsaná není, ukáže „Platba proběhla,
+  // změnu dokončujeme" místo chyby (bez kontaktů, nic dalšího neplatit). Sdílí swap.js a gear.js.
+  if (!ER._waitServerChange) {
+    ER._waitServerChange = async function (check) {
+      for (var i = 0; i < 20; i++) {
+        if (await check()) return true;
+        await new Promise(function (r) { setTimeout(r, 2000); });
+      }
+      ER._paidFinishing = true;
+      if (!ER._paidPickupFinWrap) {
+        ER._paidPickupFinWrap = true;
+        var orig = ER._paidPickup;
+        ER._paidPickup = function () {
+          if (!ER._paidFinishing) return orig ? orig.apply(this, arguments) : undefined;
+          ER._paidFinishing = false;
+          var c = document.getElementById('edit-rez-content');
+          if (!c) return;
+          var sec = document.createElement('section');
+          sec.className = 'edit-rez-card';
+          sec.id = 'edit-rez-paid-finishing';
+          var p = document.createElement('p');
+          p.textContent = MG.t('editRez.postStripe.finishing');
+          sec.appendChild(p);
+          c.insertBefore(sec, c.firstChild);
+        };
+      }
+      return false;
+    };
+  }
   // Fallback velikosti, když se accessory_types nepodaří načíst
   var FALLBACK_SIZES = {
     helmet: ['XS', 'S', 'M', 'L', 'XL', '2XL'],
@@ -206,6 +237,11 @@
           // `code` → přeložená hláška (jádro `_payErr`, editRez.pay.*), jinak text serveru.
           return void ER._showError(ER._payErr ? ER._payErr(pay) : (pay && pay.error ? pay.error : MG.t('editRez.err.generic')));
         }
+        // D1 (2026-10-16): doplatek 1–15 Kč se platí 15 Kč — změnu i s dorovnáním zapíše
+        // v jednom zápisu server (webhook); web ji po návratu NEzapisuje sám (bez dorovnání
+        // by doklad nesedl se zaplacenou částkou), jen počká.
+        var _cr = Number((pay && pay.card_rounding) || 0);
+        if (_cr) { try { localStorage.setItem('editRez_pending_' + b.id, JSON.stringify({ payload: { _gear_sizes: sizes }, ts: Date.now(), r: _cr })); } catch (e) {} }
         window.location.href = url;
         return;
       }
@@ -263,6 +299,22 @@
     try { pending = raw && JSON.parse(raw); } catch (e) {}
     if (!(pending && pending.payload && pending.payload._gear_sizes)) {
       return _origApply.apply(this, arguments);
+    }
+    if (pending.r) {
+      // Platba s dorovnáním → změnu zapisuje server; počkat, až velikosti v rezervaci sedí.
+      try { localStorage.removeItem('editRez_pending_' + id); } catch (e) {}
+      var want = pending.payload._gear_sizes;
+      await ER._waitServerChange(async function () {
+        try {
+          var cols = [];
+          TYPES.forEach(function (tp) { cols.push(tp + '_size', 'passenger_' + tp + '_size'); });
+          var row = await window.sb.from('bookings').select(cols.join(',')).eq('id', id).maybeSingle();
+          if (!row || !row.data) return false;
+          var have = sizesFromBooking(row.data);
+          return Object.keys(have).every(function (k) { return String(have[k] || '') === String(want[k] || ''); });
+        } catch (e) { return false; }
+      });
+      return true;
     }
     var paid = false;
     for (var n = 0; n < 15; n++) {

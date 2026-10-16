@@ -222,7 +222,7 @@ void main() {
         RestoreRefused('moto_unavailable', reason: 'own_overlap'),
         RestoreRefused('moto_unavailable', reason: 'branch_closed'),
         RestoreRefused('moto_unavailable', reason: 'trailer'), RestoreRefused(restoreUpdatingCode),
-        RestoreRefused('boom'),
+        RestoreRefused('price_changed'), RestoreRefused('boom'),
       ];
       for (final lang in _langs) {
         final tr = AppTranslations(lang);

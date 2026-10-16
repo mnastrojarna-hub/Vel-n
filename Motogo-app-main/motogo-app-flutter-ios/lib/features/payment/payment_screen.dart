@@ -1020,9 +1020,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         final cs = result.clientSecret!;
         _activeClientSecret = cs;
         await _setMarker(clientSecret: cs);
-        final outcome = await StripeService.handleNextAction(cs);
+        final na = await StripeService.handleNextActionDetailed(cs);
         if (!mounted) return;
-        switch (outcome) {
+        switch (na.outcome) {
           case NextActionOutcome.succeeded:
             await _verifyAndComplete();
           case NextActionOutcome.processing:
@@ -1031,14 +1031,29 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             await _verifyUncertain();
           case NextActionOutcome.notCompleted:
           case NextActionOutcome.failed:
-            // Ověření kartou (3DS) neproběhlo — nic nestrženo, „Zkusit znovu".
+            // Banka platbu zamítla i po ověření (nedostatek prostředků,
+            // propadlá / blokovaná karta, limit…) → pravý důvod (D5), ne
+            // „dokonči 3D Secure" (zákazník by ověřoval znovu a znovu).
+            final decline = na.declineError;
+            final declined = decline == null
+                ? null
+                : PaymentErrorMapper.fromStripeException(decline, t(context).lang);
+            if (declined != null && declined.needsVerification) {
+              await _verifyUncertain();
+              return;
+            }
+            // Ověření (3DS) neproběhlo / banka zamítla — nic nestrženo.
             await PaymentPendingMarker.clear(_markerId);
             if (!mounted) return;
             _setProcessing(false);
+            if (declined != null) {
+              _handleSavedCardFailure(result, declined: declined);
+              return;
+            }
             _attempts++;
             _handleSavedCardFailure(result,
-                authNotDone: outcome == NextActionOutcome.notCompleted,
-                authFailed: outcome == NextActionOutcome.failed);
+                authNotDone: na.outcome == NextActionOutcome.notCompleted,
+                authFailed: na.outcome == NextActionOutcome.failed);
         }
         return;
 
@@ -1359,8 +1374,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       context.go(Routes.success);
     } else {
       final tr = t(context);
-      // Co se opravdu strhlo (minimum karty 15 Kč, D1).
-      final amountStr = Money.czk(_cardFor(_ctx!.amount).charge);
+      // Co se opravdu strhlo (minimum karty 15 Kč, D1) — z částky potvrzené
+      // serverem (po „Cena se změnila" už není ta z kontextu) + řádek dorovnání.
+      final paidCc = _cardFor(_amount);
+      final amountStr = Money.czk(paidCc.charge);
+      final roundLine = roundingLine(tr, paidCc);
       void goResult(PaymentOutcome outcome) {
         ref.read(paymentOutcomeProvider.notifier).state = outcome;
         context.go(Routes.paymentResult);
@@ -1378,7 +1396,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             PaymentOutcome(
               title: tr.tr('paid'),
               subtitle: tr.tr('replacementMotoOrdered'),
-              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr')],
+              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr'), if (roundLine != null) roundLine],
               nextStepNote: tr.tr('successEmailSent'),
               ctaLabel: tr.tr('successCta'),
               ctaRoute: Routes.sosDone,
@@ -1389,7 +1407,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             PaymentOutcome(
               title: tr.tr('paid'),
               subtitle: tr.tr('orderConfirmed'),
-              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr')],
+              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr'), if (roundLine != null) roundLine],
               nextStepNote: tr.tr('successEmailSent'),
               ctaLabel: tr.tr('successCta'),
               ctaRoute: Routes.shop,
@@ -1420,7 +1438,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             PaymentOutcome(
               title: tr.tr('paid'),
               subtitle: tr.tr('paymentCompleted'),
-              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr')],
+              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr'), if (roundLine != null) roundLine],
               nextStepNote: tr.tr('successEmailSent'),
               ctaLabel: tr.tr('successCta'),
               ctaRoute: Routes.reservations,
@@ -1435,9 +1453,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   /// z appky by mohla předběhnout webhook, zachytit cenu bez dorovnání a
   /// dedup by ji držel navždy (ZF 10 Kč vedle DP 15 Kč). S dorovnáním ji
   /// proto vystaví jen server; jinak až po ověřeném `paid` (cena je finální).
+  /// Totéž u ceny s haléři (strhly se celé Kč, rozdíl zapisuje server) a bez
+  /// platby (doklad na 0 Kč se nevystavuje).
   void _advanceInvoiceBackup(String bookingId) {
     final due = _bookingDue;
-    if (_cardFor(due).rounding != 0) return;
+    final cc = _cardFor(due);
+    if (cc.rounding != 0 || cc.noCharge || cc.charge != cc.due) return;
     () async {
       if (await StripeService.pollBookingPaymentStatus(bookingId, maxAttempts: 3)) {
         await InvoiceService.generateAdvanceInvoice(bookingId, due);

@@ -1101,6 +1101,8 @@ return [
     'editRez.moto.confirm' => 'Zmienić na wybrany motocykl?',
     'editRez.postStripe.applying' => 'Płatność potwierdzona, finalizowanie zmiany rezerwacji…',
     'editRez.postStripe.error' => 'Płatność przeszła, ale zmiany nie udało się zakończyć. Skontaktuj się z nami.',
+    // D1/D6 (2026-10-16): zaplacená změna s dorovnáním — zapisuje ji server (webhook), web jen čeká
+    'editRez.postStripe.finishing' => 'Płatność przeszła pomyślnie. Właśnie kończymy zmianę rezerwacji – za kilka minut zobaczysz ją w szczegółach rezerwacji. Nie płać niczego więcej.',
     'editRez.change.success' => 'Zmiana została zapisana.',
     'editRez.change.successWithRefund' => 'Zmiana została zapisana. Zwrot {amount} został zainicjowany — pieniądze zwykle docierają na pierwotną kartę w ciągu 5–7 dni roboczych.',
     'editRez.err.activeMotoLocked' => 'Podczas trwającej rezerwacji nie można zmienić motocykla.',

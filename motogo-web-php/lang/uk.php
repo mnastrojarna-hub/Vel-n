@@ -971,6 +971,8 @@ return [
     'editRez.moto.confirm' => 'Змінити на обраний мотоцикл?',
     'editRez.postStripe.applying' => 'Платіж підтверджено, завершую зміну бронювання…',
     'editRez.postStripe.error' => 'Платіж пройшов, але зміну бронювання не вдалося завершити. Будь ласка, зв’яжіться з нами.',
+    // D1/D6 (2026-10-16): zaplacená změna s dorovnáním — zapisuje ji server (webhook), web jen čeká
+    'editRez.postStripe.finishing' => 'Платіж пройшов успішно. Ми саме завершуємо зміну бронювання – за кілька хвилин побачите її в деталях бронювання. Більше нічого не сплачуйте.',
     'editRez.change.success' => 'Зміну збережено.',
     'editRez.change.successWithRefund' => 'Зміну збережено. Повернення {amount} ми розпочали — кошти зазвичай надходять на початкову картку протягом 5–7 робочих днів.',
     'editRez.err.activeMotoLocked' => 'У бронюванні, що триває, неможливо змінити мотоцикл.',

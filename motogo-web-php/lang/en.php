@@ -746,6 +746,8 @@ return [
     'editRez.moto.confirm' => 'Switch to selected motorcycle?',
     'editRez.postStripe.applying' => 'Payment confirmed, finishing your booking change…',
     'editRez.postStripe.error' => 'Payment was successful, but finishing the change failed. Please contact us.',
+    // D1/D6 (2026-10-16): zaplacená změna s dorovnáním — zapisuje ji server (webhook), web jen čeká
+    'editRez.postStripe.finishing' => 'Payment was successful. We are finishing the change to your booking right now – you will see it in the booking details within a few minutes. Please do not pay again.',
     'editRez.change.success' => 'Change has been saved.',
     'editRez.change.successWithRefund' => 'Change has been saved. A refund of {amount} has been initiated — funds usually arrive on your original card within 5–7 business days.',
     'editRez.err.activeMotoLocked' => 'Cannot change motorcycle during an active rental.',

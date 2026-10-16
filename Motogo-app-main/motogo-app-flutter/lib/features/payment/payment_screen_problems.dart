@@ -143,8 +143,12 @@ extension _PaymentProblems on _PaymentScreenState {
   /// „Zkusit znovu" znovu strhne ULOŽENOU kartu — nikdy samo neotevře
   /// zadávání karty; „Zaplatit jinou kartou" je výslovná volba zákazníka.
   /// [notCharged] = server kartu prokazatelně nestrhával (nepotvrzený intent).
+  /// [declined] = banka zamítla až po 3D Secure, příčina z kódu Stripe.
   void _handleSavedCardFailure(PaymentResult result,
-      {bool authNotDone = false, bool authFailed = false, bool notCharged = false}) {
+      {bool authNotDone = false,
+      bool authFailed = false,
+      bool notCharged = false,
+      PaymentErrorInfo? declined}) {
     final lang = t(context).lang;
     final tr = t(context);
     PaymentErrorInfo info;
@@ -160,11 +164,12 @@ extension _PaymentProblems on _PaymentScreenState {
       info = PaymentErrorMapper.generic(lang);
       _attempts++;
     } else {
-      info = PaymentErrorMapper.fromEdge(
-          errorCode: result.stripeCode,
-          declineCode: result.declineCode,
-          intentStatus: result.intentStatus,
-          lang: lang);
+      info = declined ??
+          PaymentErrorMapper.fromEdge(
+              errorCode: result.stripeCode,
+              declineCode: result.declineCode,
+              intentStatus: result.intentStatus,
+              lang: lang);
       if (info.needsVerification) {
         _verifyUncertain();
         return;

@@ -4,6 +4,9 @@
 //  • odpuštění do 1 Kč / dorovnání na 15 Kč u rezervace → VYNUCENO (beze změny),
 //  • běžná platba rezervace / SOS → zatím jen záznam do debug_log (`booking_price_below_floor`)
 //    ke kalibraci; PP_FLOOR_ENFORCE=1 vynutí i tu (jen typ booking — SOS cenu určuje obsluha),
+//  • rezervace OBNOVENÁ zákazníkem v appce (restored_by_source 'app', SQL 20261016p2) → VYNUCENO
+//    vždy (pojistka k _customer_restore_check: draft za mimosezónní cenu nejde nechat propadnout,
+//    v sezóně obnovit a zaplatit za starou cenu),
 //  • nesoulad = `outdated` → odmítnutí `price_outdated` (NEnabízí jinou částku: zaplaceno
 //    by se lišilo od ceny na dokladech).
 //  • zdarma (cena 0): slevy / odpuštění musí pokrýt doloženou spodní mez (do 1 Kč, u dřív
@@ -19,14 +22,15 @@ export type FloorResult = 'ok' | 'outdated' | 'unavailable'
 export async function floorCheck(sb: Sb, b: Record<string, unknown>, a: { due: number; kind: DueKind; type: string }): Promise<FloorResult> {
   if (a.kind === 'free' || a.kind === 'below') return 'ok'
   const d1 = a.type === 'booking' && (a.kind === 'waive' || a.kind === 'round')
-  const enforce = d1 || (a.type === 'booking' && Deno.env.get('PP_FLOOR_ENFORCE') === '1')
+  const restored = a.type === 'booking' && b.restored_by_source === 'app'
+  const enforce = d1 || restored || (a.type === 'booking' && Deno.env.get('PP_FLOOR_ENFORCE') === '1')
   const f = await verifiedBookingFloors(sb, b)
   if (f == null) return enforce ? 'unavailable' : 'ok'
   if (f.floor <= a.due + 1) {
     if (f.full > a.due + 1) await log(sb, 'booking_price_below_full_floor', 'info', b, a, f, false)
     return 'ok'
   }
-  await log(sb, d1 ? 'card_minimum_price_unverified' : 'booking_price_below_floor', 'warning', b, a, f, enforce)
+  await log(sb, d1 ? 'card_minimum_price_unverified' : restored ? 'restored_price_below_floor' : 'booking_price_below_floor', 'warning', b, a, f, enforce)
   return enforce ? 'outdated' : 'ok'
 }
 

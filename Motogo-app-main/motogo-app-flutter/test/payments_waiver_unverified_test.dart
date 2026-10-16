@@ -148,4 +148,30 @@ void main() {
       expect(calls, greaterThan(0));
     });
   });
+
+  group('ZF from the app never races the card rounding (D1)', () {
+    test('only the guarded backup generates the ZF, and only after paid', () {
+      final src = File('lib/features/payment/payment_screen.dart').readAsStringSync();
+      expect('InvoiceService.generateAdvanceInvoice('.allMatches(src).length, 1);
+      final start = src.indexOf('void _advanceInvoiceBackup(');
+      expect(start, greaterThan(0));
+      final body = src.substring(start, src.indexOf('\n  }\n', start));
+      expect(body.contains('rounding != 0'), isTrue);
+      final paid = body.indexOf('pollBookingPaymentStatus');
+      expect(paid, greaterThan(0));
+      expect(body.indexOf('generateAdvanceInvoice'), greaterThan(paid));
+    });
+
+    test('rounded / waived / haléře amounts are left to the server', () {
+      bool backup(num due) {
+        final cc = cardCharge(due);
+        return !(cc.rounding != 0 || cc.noCharge || cc.charge != cc.due);
+      }
+      expect(backup(10), isFalse); // 15 Kč s dorovnáním 5 Kč
+      expect(backup(0.6), isFalse); // odpuštěno
+      expect(backup(0), isFalse); // zdarma
+      expect(backup(15.4), isFalse); // strhne se 15 Kč, rozdíl zapíše server
+      expect(backup(1500), isTrue);
+    });
+  });
 }
