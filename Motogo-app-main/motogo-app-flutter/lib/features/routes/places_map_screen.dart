@@ -76,9 +76,10 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
   @override
   void initState() {
     super.initState();
-    // Mapa je celá o poloze — vyžádat si ji hned po otevření je očekávané.
+    // Mapa je celá o poloze — vyžádat si ji hned po otevření je očekávané,
+    // ale NIKDY nevytahovat do Nastavení (to až na tlačítku „moje poloha").
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ensureLocation(ref);
+      if (mounted) requestLocationQuietly(ref);
     });
   }
 
@@ -189,7 +190,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
               children: [
                 _round(Icons.my_location, () async {
                   if (me == null) {
-                    final ok = await ensureLocation(ref);
+                    final ok = await ensureLocation(ref, context: context);
                     if (!ok || !mounted) return;
                   }
                   _mapKey.currentState?.centerOnMe();

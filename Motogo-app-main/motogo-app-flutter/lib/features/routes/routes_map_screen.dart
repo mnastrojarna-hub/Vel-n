@@ -87,8 +87,10 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
   @override
   void initState() {
     super.initState();
+    // Poloha při otevření jen nenápadně (bez Nastavení) — vysvětlení a
+    // „Otevřít nastavení" nabídne až tlačítko „moje poloha".
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ensureLocation(ref);
+      if (mounted) requestLocationQuietly(ref);
     });
   }
 
@@ -230,7 +232,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
               children: [
                 _round(Icons.my_location, () async {
                   if (me == null) {
-                    final ok = await ensureLocation(ref);
+                    final ok = await ensureLocation(ref, context: context);
                     if (!ok || !mounted) return;
                   }
                   _mapKey.currentState?.centerOnMe();

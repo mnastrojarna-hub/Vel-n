@@ -72,10 +72,17 @@ class PaymentErrorMapper {
 
   /// Z odpovědi edge fn (stržení uložené karty selhalo). [rawMessage] se
   /// zákazníkovi neukazuje (anglický text Stripe) — zůstal kvůli kompatibilitě.
+  /// [intentStatus] = stav PaymentIntentu, pokud ho server zná.
+  ///
+  /// Bez kódu Stripe A bez stavu, který stržení vylučuje: process-payment
+  /// vrací `off_session_charge_failed` bez kódu i při výpadku spojení se
+  /// Stripe / chybě API — požadavek mohl kartu strhnout → [uncertain]
+  /// (ověřit), nikdy „nic jsme nestrhli" (+ „Zkusit znovu" = dvojí platba).
   static PaymentErrorInfo fromEdge({
     String? errorCode,
     String? declineCode,
     String? rawMessage,
+    String? intentStatus,
     required String lang,
   }) {
     final mapped = _fromCodes(
@@ -90,7 +97,12 @@ class PaymentErrorMapper {
           message: _t(lang, 'bankBlockBody'),
           cause: 'card_declined');
     }
-    return _generic(lang);
+    // Jen stav PI, ve kterém peníze prokazatelně neodešly, smí říct
+    // „nic jsme nestrhli".
+    if (intentStatus == 'requires_payment_method' || intentStatus == 'canceled') {
+      return _generic(lang);
+    }
+    return uncertain(lang);
   }
 
   /// Google Pay / Apple Pay selhání (např. OR_BIBED_11) — typicky nedostupná

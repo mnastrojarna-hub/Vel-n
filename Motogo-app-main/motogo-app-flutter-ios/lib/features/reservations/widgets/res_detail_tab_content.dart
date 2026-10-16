@@ -1,3 +1,5 @@
+import 'dart:io' show SocketException;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,8 @@ import '../../booking/booking_models.dart';
 import '../../booking/price_calculator.dart' show branchLat, branchLng;
 import '../../catalog/catalog_provider.dart';
 import '../../documents/booking_doc_viewer.dart';
+import '../../documents/doc_open_runner.dart';
+import '../../../core/offline_guard.dart';
 import '../../routes/ride_booking_section.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
@@ -50,12 +54,22 @@ class ResDetailTabContent extends ConsumerWidget {
     required this.onRestoreBooking,
   });
 
-  /// Otevře reálný dokument rezervace 1:1 (podepsaný protokol / smlouva).
-  Future<void> _openBookingDoc(BuildContext context, String type, String title) async {
-    final opened = await openBookingDocument(context, bookingId: res.id, type: type, title: title);
-    if (!opened && context.mounted) {
-      showMotoGoToast(context, icon: '📄', title: title, message: t(context).tr('loadingError'));
-    }
+  /// Otevře reálný dokument rezervace 1:1 (podepsaný protokol / smlouva) —
+  /// průběh (po 15 s „Zrušit"), pojistka proti dvojímu klepnutí; offline
+  /// skutečný důvod + „Zkusit znovu", jinak „zatím není k dispozici".
+  Future<void> _openBookingDoc(BuildContext context, String type, String title) {
+    final tr = t(context);
+    return runDocOpen(context,
+        what: tr.tr('eoDocLoadFail'),
+        where: 'res_doc_open',
+        op: (wanted) async {
+          final opened = await openBookingDocument(context,
+              bookingId: res.id, type: type, title: title, wanted: wanted);
+          if (opened) return;
+          if (!await OfflineGuard.pingSupabase()) throw const SocketException('offline');
+          if (!context.mounted || !wanted()) return;
+          showMotoGoToast(context, icon: '📄', title: title, message: tr.tr('docNotAvailableYet'));
+        });
   }
 
   /// Tlačítka na existující dokumenty rezervace (protokoly, příp. smlouva) —

@@ -397,7 +397,7 @@ class StopReachedCard extends StatelessWidget {
                   ],
                 ),
               ),
-              MgBackTap(close: true, 
+              MgBackTap(close: true,
                 onTap: onClose,
                 child: const Padding(
                   padding: EdgeInsets.all(6),
@@ -582,7 +582,7 @@ class RouteDoneCard extends StatelessWidget {
                       decoration: TextDecoration.none),
                 ),
               ),
-              MgBackTap(close: true, 
+              MgBackTap(close: true,
                 onTap: onClose,
                 child: const Padding(
                   padding: EdgeInsets.all(6),
@@ -646,13 +646,7 @@ void showNavStopsSheet(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 6),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
-            ),
+            const MgSheetHandle(margin: EdgeInsets.fromLTRB(12, 4, 12, 0)),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 6, 20, 2),
               child: Row(

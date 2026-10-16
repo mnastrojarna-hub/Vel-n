@@ -308,7 +308,8 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
         for (final x in siblings)
           if (x.routeId != null && x.routeId!.isNotEmpty) x.routeId!
       ];
-      context.push('/routes/$id', extra: ids);
+      // /routes/:id je v AppShellu, Moje zážitky ne → push by zdvojil shell.
+      context.pushOrGo('/routes/$id', extra: ids);
       return;
     }
     final item = r.customRouteItem();
@@ -836,7 +837,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(dc, false),
-              child: Text(t(dc).tr('routesFilterClear'))),
+              child: Text(t(dc).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD93636),

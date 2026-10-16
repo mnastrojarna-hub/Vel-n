@@ -63,7 +63,9 @@ class ResAccessCodesCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // `st` je do podpisu protokolu „Nadcházející“, kódy ale zákazník
     // potřebuje právě v den vyzvednutí → kalendářní `inRentalTerm`.
+    // skipError: kódy načtené dřív zůstanou vidět i offline (neúspěšná obnova).
     return doorCodesAsync.when(
+      skipError: true,
       data: (codes) {
         if (codes.isEmpty || !res.inRentalTerm) return const SizedBox.shrink();
         final gate = ref.watch(bookingGateInfoProvider(res.id)).valueOrNull ?? BookingGateInfo.none;

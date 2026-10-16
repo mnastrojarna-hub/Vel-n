@@ -8,6 +8,7 @@ import 'supabase_client.dart';
 import 'theme.dart';
 import 'i18n/i18n_provider.dart';
 import 'widgets/error_feedback.dart' show call112, callMotoGo;
+import 'widgets/map_tile_errors.dart' show MapTileErrors;
 
 /// Offline guard — mirrors OfflineGuard from offline-guard.js.
 /// Checks internet connectivity and shows overlay when offline.
@@ -25,6 +26,15 @@ class OfflineGuard {
   /// Připojení je zpět → znovu načíst data, která zůstala v chybě
   /// (nastavuje main.dart → `recoverFailedProviders`).
   static void Function()? onBackOnline;
+
+  /// true = přes celou obrazovku je překryv „Nejsi připojený". Obrazovky s
+  /// vlastním `BackButtonListener`em pak systémové zpět nepřebírají — patří
+  /// překryvu (jinak by se pod ním potichu navigovalo / otevřel dialog).
+  static bool get overlayVisible => _overlayEntry != null;
+
+  /// Poslední známý stav připojení (pravidelné obnovování dat se offline
+  /// nespouští — načtené údaje zůstanou vidět).
+  static bool offlineNow = false;
 
   /// connectivity_plus 6+ vrací List<ConnectivityResult> (zařízení může mít
   /// víc aktivních spojení najednou) — offline = seznam obsahuje jen `none`.
@@ -54,6 +64,7 @@ class OfflineGuard {
   static void startWatching(BuildContext context) {
     _subscription?.cancel();
     _subscription = _connectivity.onConnectivityChanged.listen((result) {
+      offlineNow = _isNone(result);
       if (_isNone(result)) {
         _showOverlay();
       } else {
@@ -64,6 +75,7 @@ class OfflineGuard {
     });
     // Start appky bez připojení → stream nemusí nic vyslat.
     isOnline().then((online) {
+      offlineNow = !online;
       if (!online) {
         _showOverlay();
       } else {
@@ -156,6 +168,9 @@ class OfflineGuard {
         _pingTimer?.cancel();
         try {
           onBackOnline?.call();
+          // Mapové podklady, které offline nešly, zkusit hned znovu (štítek
+          // „Mapa se nenačetla" by jinak zůstal do konce relace).
+          if (MapTileErrors.failingSince.value != null) MapTileErrors.retry();
         } catch (_) {}
         return;
       }
@@ -201,6 +216,28 @@ class _OfflineOverlay extends StatefulWidget {
 class _OfflineOverlayState extends State<_OfflineOverlay> {
   bool _checking = false;
   bool _stillOffline = false;
+  Timer? _claimBack;
+
+  @override
+  void initState() {
+    super.initState();
+    // Android 14+ (prediktivní zpět): překryv není trasa, takže by „zpět"
+    // na Domů převzal systém a appku zavřel. Řekneme frameworku, že zpět
+    // obsluhuje Flutter — a opakovaně, protože změna trasy pod překryvem to
+    // přepíše. Po zavření překryvu se stav obnoví s další změnou trasy
+    // (do té doby zpět bez kam couvnout appku zavře jako dřív).
+    void claim() {
+      if (mounted) const NavigationNotification(canHandlePop: true).dispatch(context);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => claim());
+    _claimBack = Timer.periodic(const Duration(seconds: 1), (_) => claim());
+  }
+
+  @override
+  void dispose() {
+    _claimBack?.cancel();
+    super.dispose();
+  }
 
   Future<void> _retry() async {
     setState(() {

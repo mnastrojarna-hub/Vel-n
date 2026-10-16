@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import '../offline_guard.dart';
 
 /// Rodič obrazovky pro systémové „zpět", když není kam popnout (obrazovka
 /// otevřená přes `context.go`, záložku, push notifikaci nebo deep link).
@@ -123,6 +127,8 @@ class _MgBackGuardState extends State<MgBackGuard> {
   // shellu nepřebere prioritu obrazovkám s vlastním BackButtonListenerem.
   Future<bool> _onBack() async {
     if (!mounted) return false;
+    // Zpět patří překryvu „Nejsi připojený" (zavře ho), ne skryté obrazovce.
+    if (OfflineGuard.overlayVisible) return false;
     final GoRouter router;
     try {
       router = GoRouter.of(context);
@@ -173,6 +179,8 @@ class _MgBackGuardState extends State<MgBackGuard> {
 /// true = obrazovka s [context] je nahoře (nad ní není jiná trasa ani dialog
 /// / sheet). Jen pak smí vlastní `BackButtonListener` převzít systémové zpět.
 bool mgIsTopmost(BuildContext context) {
+  // Překryv „Nejsi připojený" leží nad vším (není to trasa) → zpět je jeho.
+  if (OfflineGuard.overlayVisible) return false;
   if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
   var popupOnTop = false;
   Navigator.of(context, rootNavigator: true).popUntil((r) {
@@ -180,4 +188,47 @@ bool mgIsTopmost(BuildContext context) {
     return true; // jen nahlédnout na vrchol, nic nezavírat
   });
   return !popupOnTop;
+}
+
+/// Systémové „zpět" pro celoobrazovkovou vrstvu MIMO router (onboarding v
+/// `MaterialApp.builder`): `BackButtonListener` tam nejde (nad vrstvou není
+/// Router). Vrstva poslouchá `didPopRoute` (router pod ní má přednost jen
+/// tehdy, když má co zavřít — na úvodní obrazovce nemá) a na Androidu 14+
+/// (prediktivní zpět) si zpět opakovaně vyžádá pro Flutter, jinak by systém
+/// appku rovnou zavřel. [onBack] → true = zpět obslouženo.
+class MgOverlayBack extends StatefulWidget {
+  final Widget child;
+  final bool Function() onBack;
+  const MgOverlayBack({super.key, required this.child, required this.onBack});
+
+  @override
+  State<MgOverlayBack> createState() => _MgOverlayBackState();
+}
+
+class _MgOverlayBackState extends State<MgOverlayBack> with WidgetsBindingObserver {
+  Timer? _claim;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    void claim() {
+      if (mounted) const NavigationNotification(canHandlePop: true).dispatch(context);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => claim());
+    _claim = Timer.periodic(const Duration(seconds: 1), (_) => claim());
+  }
+
+  @override
+  void dispose() {
+    _claim?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Future<bool> didPopRoute() async => mounted && widget.onBack();
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

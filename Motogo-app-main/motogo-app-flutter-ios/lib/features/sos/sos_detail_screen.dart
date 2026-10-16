@@ -12,6 +12,7 @@ import 'sos_timeline_i18n.dart';
 import 'sos_provider.dart';
 import '../../core/currency.dart';
 import '../auth/widgets/toast_helper.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// SOS detail / done screen — mirrors s-sos-done from templates-res-sos3.js.
 /// Shows contextual done view based on SosDoneType, or full detail with timeline.
@@ -294,7 +295,7 @@ class SosDetailScreen extends ConsumerWidget {
             children: [
               // Header
               Row(children: [
-                GestureDetector(
+                MgBackTap(
                   onTap: () => context.backOr(Routes.reservations),
                   child: Container(width: 36, height: 36,
                     decoration: BoxDecoration(color: MotoGoColors.green,

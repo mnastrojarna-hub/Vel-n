@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/friendly_error.dart';
 import '../../core/supabase_client.dart';
 import 'doc_webview_screen.dart';
 import 'pdf_pages_screen.dart';
@@ -29,6 +30,20 @@ const _typeMap = <String, String>{
   'vop': 'vop',
 };
 
+/// Výpadek spojení / serveru se NESMÍ tvářit jako „dokument zatím není" —
+/// výjimku pustíme dál a volající řekne skutečný důvod (nejsi připojený /
+/// server neodpovídá) + „Zkusit znovu". Ostatní chyby (RLS, chybějící
+/// soubor) = dokument není k dispozici.
+void _rethrowTransient(Object e, StackTrace st) {
+  final k = FriendlyError.kindOf(e);
+  if (k == FriendlyKind.offline || k == FriendlyKind.timeout || k == FriendlyKind.server) {
+    Error.throwWithStackTrace(e, st);
+  }
+}
+
+/// Je výsledek otevření ještě žádaný? (Zákazník mohl průběh zrušit.)
+typedef DocWanted = bool Function();
+
 /// Reálný dokument daného typu: podepsané HTML nebo soubor v bucketu.
 class BookingDocSource {
   final String? signedHtml;
@@ -37,7 +52,8 @@ class BookingDocSource {
 }
 
 /// Nejnovější reálný dokument rezervace pro každý typ (contract, protocol,
-/// protocol_damage, vop).
+/// protocol_damage, vop). Výpadek spojení / serveru vyhodí výjimku (ne
+/// prázdný výsledek), ať volající rozliší „offline" od „zatím není".
 Future<Map<String, BookingDocSource>> resolveBookingDocs(String bookingId) async {
   final out = <String, BookingDocSource>{};
   // soubor generovaného dokumentu → (typ, reálný?) — hlídá fallback na documents
@@ -63,8 +79,9 @@ Future<Map<String, BookingDocSource>> resolveBookingDocs(String bookingId) async
       final html = fd['_signed_html'];
       out[type] = BookingDocSource(signedHtml: html is String && html.isNotEmpty ? html : null, path: path);
     }
-  } catch (e) {
+  } catch (e, st) {
     debugPrint('[BOOKING_DOC] generated_documents fetch failed: $e');
+    _rethrowTransient(e, st);
   }
   try {
     final docs = await MotoGoSupabase.client
@@ -82,8 +99,9 @@ Future<Map<String, BookingDocSource>> resolveBookingDocs(String bookingId) async
       if (gen != null && (gen.$1 != type || !gen.$2)) continue; // VOP pod „contract“ / šablona protokolu
       out[type] = BookingDocSource(path: path);
     }
-  } catch (e) {
+  } catch (e, st) {
     debugPrint('[BOOKING_DOC] documents fetch failed: $e');
+    _rethrowTransient(e, st);
   }
   return out;
 }
@@ -98,27 +116,31 @@ final bookingDocsProvider =
 });
 
 /// Otevře AKTUÁLNÍ reálný dokument rezervace daného typu. Vrací false, když
-/// neexistuje — volající zobrazí hlášku.
+/// neexistuje — volající zobrazí hlášku; výpadek spojení vyhodí výjimku.
+/// [wanted] = false → zákazník čekání zrušil, nic se neotevře.
 Future<bool> openBookingDocument(
   BuildContext context, {
   required String bookingId,
   required String type,
   required String title,
+  DocWanted? wanted,
 }) async {
   final src = (await resolveBookingDocs(bookingId))[type];
   if (src == null || !context.mounted) return false;
+  if (!(wanted?.call() ?? true)) return true;
   if (src.signedHtml != null) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => DocWebViewScreen(htmlContent: src.signedHtml!, title: title),
     ));
     return true;
   }
-  return _openStoragePath(context, src.path, title);
+  return _openStoragePath(context, src.path, title, wanted);
 }
 
 /// Konkrétní soubor z bucketu `documents` (řádek historie bez generated dvojčete).
-Future<bool> openStorageDocument(BuildContext context, String? filePath, String title) =>
-    _openStoragePath(context, filePath, title);
+Future<bool> openStorageDocument(BuildContext context, String? filePath, String title,
+        {DocWanted? wanted}) =>
+    _openStoragePath(context, filePath, title, wanted);
 
 /// `template_id` → `document_templates.type` (rental_contract, vop, …) druhým
 /// dotazem, stejně jako `contractsProvider` (RLS: jen aktivní šablony).
@@ -131,8 +153,9 @@ Future<Map<String, String>> _templateTypes(List<Map<String, dynamic>> rows) asyn
       for (final t in (tpls as List).cast<Map<String, dynamic>>())
         if (t['type'] is String) t['id'] as String: t['type'] as String,
     };
-  } catch (e) {
+  } catch (e, st) {
     debugPrint('[BOOKING_DOC] templates fetch failed: $e');
+    _rethrowTransient(e, st);
     return const {};
   }
 }
@@ -143,6 +166,7 @@ Future<bool> openGeneratedDocument(
   BuildContext context, {
   required String generatedDocId,
   required String title,
+  DocWanted? wanted,
 }) async {
   try {
     final row = await MotoGoSupabase.client
@@ -155,14 +179,16 @@ Future<bool> openGeneratedDocument(
     final html = fd is Map ? fd['_signed_html'] as String? : null;
     if (html != null && html.isNotEmpty) {
       if (!context.mounted) return false;
+      if (!(wanted?.call() ?? true)) return true;
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => DocWebViewScreen(htmlContent: html, title: title),
       ));
       return true;
     }
-    return await _openStoragePath(context, row['pdf_path'] as String?, title);
-  } catch (e) {
+    return await _openStoragePath(context, row['pdf_path'] as String?, title, wanted);
+  } catch (e, st) {
     debugPrint('[BOOKING_DOC] generated doc open failed ($generatedDocId): $e');
+    _rethrowTransient(e, st);
     return false;
   }
 }
@@ -171,7 +197,8 @@ Future<bool> openGeneratedDocument(
 /// Androidu v appce přes nativní PdfRenderer (`PdfPagesScreen`; WebView tam PDF
 /// nevyrenderuje a externí prohlížeč zákazník bral jako „odkaz na web“), iOS
 /// WKWebView PDF zobrazí sám.
-Future<bool> _openStoragePath(BuildContext context, String? filePath, String title) async {
+Future<bool> _openStoragePath(BuildContext context, String? filePath, String title,
+    [DocWanted? wanted]) async {
   // marker řádky (mindee_verified/...) nejsou reálné soubory
   if (filePath == null || filePath.isEmpty || filePath.startsWith('mindee_verified/')) {
     return false;
@@ -182,6 +209,7 @@ Future<bool> _openStoragePath(BuildContext context, String? filePath, String tit
         MotoGoSupabase.client.storage.from('documents').createSignedUrl(filePath, 600);
     final url = await sign();
     if (!context.mounted) return false;
+    if (!(wanted?.call() ?? true)) return true;
     final isPdf = filePath.toLowerCase().endsWith('.pdf');
     // „Zkusit znovu" si vyžádá novou podepsanou URL (stará platí 10 min).
     if (isPdf && defaultTargetPlatform == TargetPlatform.android) {
@@ -194,8 +222,9 @@ Future<bool> _openStoragePath(BuildContext context, String? filePath, String tit
       ));
     }
     return true;
-  } catch (e) {
+  } catch (e, st) {
     debugPrint('[BOOKING_DOC] signed URL failed ($filePath): $e');
+    _rethrowTransient(e, st);
     return false;
   }
 }

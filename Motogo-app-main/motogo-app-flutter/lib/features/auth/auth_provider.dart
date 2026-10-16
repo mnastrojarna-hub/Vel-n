@@ -152,7 +152,12 @@ class AuthService {
       );
     } catch (e) {
       final info = AuthErrorMapper.signIn(e, lang);
-      AppDebugLogger.instance.auth('signin_failed', data: {'reason': info.code});
+      // Neznámá chyba: syrový text jen do `app_debug_logs` (zákazník vidí
+      // obecný návod + kontakt).
+      AppDebugLogger.instance.auth('signin_failed', data: {
+        'reason': info.code,
+        if (info.code == 'unknown') 'detail': e.toString(),
+      });
       return info;
     }
   }

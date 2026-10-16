@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'payment_pending_marker.dart';
 import 'supabase_client.dart';
+import '../features/payment/payment_verify.dart' show verifyPayment, VerifyState;
+import '../features/payment/stripe_service.dart'
+    show StripeService, NextActionOutcome;
 
 /// True while the PaymentScreen is on screen. Driven by PaymentScreen's
 /// widget lifecycle (initState/dispose), NOT by go_router's matchedLocation.
@@ -19,6 +22,11 @@ final paymentScreenActiveProvider = StateProvider<bool>((ref) => false);
 /// potvrzení serverem). AppShell pak záložkou spodní lišty neodvede zákazníka
 /// pryč bez potvrzení — ztracený výsledek vedl k opakované (dvojí) platbě.
 final paymentProcessingProvider = StateProvider<bool>((ref) => false);
+
+/// Co udělat, když zákazník z běžící platby přesto odejde záložkou (po
+/// potvrzení). E-shop: „Platba se ověřuje" místo plného košíku — jinak by
+/// nová objednávka vedla k druhé platbě. null = jen přejít na záložku.
+final paymentLeaveActionProvider = StateProvider<void Function()?>((ref) => null);
 
 /// True dokud je na obrazovce některý z APP-LEVEL overlayů (jazyk, oprávnění,
 /// intro). Ty sedí ve `Stack`u v `MaterialApp.builder` AŽ ZA `child!`, takže
@@ -90,31 +98,79 @@ Future<PendingBooking?> _fetchPendingBooking(String userId) async {
     id: id,
     totalPrice: (res['total_price'] as num?)?.toDouble() ?? 0,
     createdAt: DateTime.parse(res['created_at'] as String),
-    verifying: await PaymentPendingMarker.isPending(id),
+    verifying: await PaymentPendingMarker.isPending(id) ||
+        await _expiredIntentStillRunning(id),
   );
 }
 
+/// Značka „platba odeslána" vypršela (15 min), ale PaymentIntent posledního
+/// pokusu známe → zeptat se Stripe, než FAB nabídne DALŠÍ platbu. Prošla /
+/// banka ji ještě zpracovává / stav nejde zjistit → „Platba se ověřuje"
+/// (značku obnovíme, ať se Stripe neptáme každých 5 s); zamítnutá /
+/// nedokončená → značku smazat a platbu nabídnout.
+Future<bool> _expiredIntentStillRunning(String id) async {
+  final cs = await PaymentPendingMarker.expiredIntent(id);
+  if (cs == null) return false;
+  final o = StripeService.outcomeForStatus(await StripeService.fetchIntentStatus(cs));
+  if (o == NextActionOutcome.failed || o == NextActionOutcome.notCompleted) {
+    await PaymentPendingMarker.clear(id);
+    return false;
+  }
+  await PaymentPendingMarker.set(id);
+  return true;
+}
+
+/// Platba odeslaná před zabitím / pádem appky, která se mezitím potvrdila.
+class PaidAfterRestart {
+  final String bookingId;
+  /// [PaymentMarkerKind] — určuje text oznámení (rezervace ≠ doplatek úpravy).
+  final String kind;
+  const PaidAfterRestart(this.bookingId, this.kind);
+}
+
 /// Po startu appky: platba odeslaná před zabitím / pádem appky (lokální
-/// značka) — výsledek z DB. Vrací id rezervace, která je mezitím zaplacená
-/// (AppShell to zákazníkovi jednou oznámí), jinak null. Zrušené / neznámé
-/// značky uklidí.
-final paidAfterRestartProvider = FutureProvider.autoDispose<String?>((ref) async {
+/// značka) — výsledek ověřený podle DRUHU platby. Vrací rezervaci, jejíž
+/// platba je mezitím prokazatelně zaplacená (AppShell to jednou oznámí),
+/// jinak null. Zrušené / neznámé značky uklidí.
+///
+/// Doplatek úpravy / výměny motorky běží nad UŽ ZAPLACENOU rezervací
+/// (`payment_status` = 'paid' z původní platby) → rozhoduje nová cena
+/// (úprava) nebo stav PaymentIntentu (výměna, SOS). Dokud výsledek neznáme,
+/// značka zůstává (žádné falešné „zaplaceno", žádný druhý doplatek).
+final paidAfterRestartProvider =
+    FutureProvider.autoDispose<PaidAfterRestart?>((ref) async {
   if (MotoGoSupabase.currentUser == null) return null;
-  final ids = await PaymentPendingMarker.pendingIds();
-  for (final id in ids) {
+  final markers = await PaymentPendingMarker.pendingMarkers();
+  for (final m in markers) {
     try {
-      final row = await MotoGoSupabase.client
-          .from('bookings')
-          .select('status, payment_status')
-          .eq('id', id)
-          .maybeSingle()
-          .timeout(const Duration(seconds: 10));
-      if (row == null) continue; // objednávka e-shopu / cizí id — nechat doběhnout
-      if (row['payment_status'] == 'paid') {
-        await PaymentPendingMarker.clear(id);
-        return id;
+      switch (m.kind) {
+        case PaymentMarkerKind.order:
+          continue; // objednávku e-shopu ověřuje košík / „Platba se ověřuje"
+        case PaymentMarkerKind.edit:
+        case PaymentMarkerKind.swap:
+        case PaymentMarkerKind.sos:
+          final byTotal = m.kind == PaymentMarkerKind.edit && m.expectedTotal != null;
+          final st = await verifyPayment(
+            bookingId: m.id,
+            expectedTotal: byTotal ? m.expectedTotal : null,
+            intentOnly: !byTotal,
+          );
+          if (st == VerifyState.paid) return PaidAfterRestart(m.id, m.kind);
+          continue;
+        default:
+          final row = await MotoGoSupabase.client
+              .from('bookings')
+              .select('status, payment_status')
+              .eq('id', m.id)
+              .maybeSingle()
+              .timeout(const Duration(seconds: 10));
+          if (row == null) continue; // cizí id — nechat doběhnout
+          if (row['payment_status'] == 'paid') {
+            await PaymentPendingMarker.clear(m.id);
+            return PaidAfterRestart(m.id, PaymentMarkerKind.booking);
+          }
+          if (row['status'] == 'cancelled') await PaymentPendingMarker.clear(m.id);
       }
-      if (row['status'] == 'cancelled') await PaymentPendingMarker.clear(id);
     } catch (_) {/* offline — zkusí se při dalším startu */}
   }
   return null;

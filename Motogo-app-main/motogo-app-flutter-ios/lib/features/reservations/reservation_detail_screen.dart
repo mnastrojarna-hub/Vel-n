@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io' show SocketException;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,11 +12,11 @@ import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/offline_guard.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../documents/booking_doc_viewer.dart';
 import '../documents/document_models.dart';
-import '../documents/doc_webview_screen.dart';
-import '../documents/invoice_html_builder.dart';
+import '../documents/doc_open_runner.dart';
 import 'reservation_models.dart';
 import 'reservation_provider.dart';
 import 'booking_restore.dart';
@@ -22,6 +24,7 @@ import 'widgets/res_detail_tab_btn.dart';
 import 'widgets/res_detail_tab_content.dart';
 import 'widgets/res_payment_details_tab.dart';
 import 'widgets/res_cancel_dialog.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Reservation detail — mirrors s-res-detail from templates-res.js.
 /// Shows image header, status badge, dates, pricing, actions.
@@ -46,6 +49,8 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
   void initState() {
     super.initState();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      // Offline obnova jen selže — načtené údaje (i kódy) necháme být.
+      if (OfflineGuard.offlineNow) return;
       ref.invalidate(reservationByIdProvider(widget.bookingId));
       ref.invalidate(doorCodesProvider(widget.bookingId));
       // podpis na kiosku / ve Velíně → tlačítko podepsaného protokolu bez restartu
@@ -74,8 +79,16 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     // Načítání i chyba mají šipku zpět, důvod a „Zkusit znovu" (cíl push
     // notifikací — dřív holý spinner bez zpět a syrová výjimka „Chyba: …").
     void back() => context.backOr(Routes.reservations);
-    void retry() => ref.invalidate(reservationByIdProvider(widget.bookingId));
+    void retry() {
+      ref.invalidate(reservationByIdProvider(widget.bookingId));
+      ref.invalidate(doorCodesProvider(widget.bookingId));
+    }
+    // skipError: neúspěšná obnova (offline, slabé LTE na samoobslužné
+    // pobočce) NESMÍ schovat už načtenou rezervaci ani kódy — jen pruh.
+    final stale = (resAsync.hasError && resAsync.hasValue) ||
+        (doorCodesAsync.hasError && doorCodesAsync.hasValue);
     return resAsync.when(
+      skipError: true,
       data: (res) {
         if (res == null) {
           return MgStateScaffold(
@@ -90,7 +103,8 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
             ),
           );
         }
-        return _buildDetail(context, res, doorCodesAsync);
+        return _buildDetail(context, res, doorCodesAsync,
+            stale: stale ? retry : null);
       },
       loading: () => MgStateScaffold(
         title: t(context).tr('detail'),
@@ -136,7 +150,8 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     return parts.isNotEmpty ? parts.join(', ') : res.branchName;
   }
 
-  Widget _buildDetail(BuildContext context, Reservation res, AsyncValue<List<DoorCode>> doorCodesAsync) {
+  Widget _buildDetail(BuildContext context, Reservation res,
+      AsyncValue<List<DoorCode>> doorCodesAsync, {VoidCallback? stale}) {
     final st = res.displayStatus;
 
     return Scaffold(
@@ -156,7 +171,7 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
                 children: [
                   Row(
                     children: [
-                      GestureDetector(
+                      MgBackTap(
                         onTap: () => context.backOr(Routes.reservations),
                         child: Container(
                           width: 36,
@@ -199,6 +214,8 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
               ),
             ),
           ),
+
+          if (stale != null) SliverToBoxAdapter(child: MgStaleNote(onRetry: stale)),
 
           if (_activeTab == 'detail') ...[
             // ===== MOTORCYCLE IMAGE =====
@@ -281,95 +298,47 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
 
   /// Open rental contract for this specific booking — reálný dokument 1:1
   /// (podepsané HTML z generated_documents / soubor z bucketu documents).
-  Future<void> _openContract(BuildContext context, String bookingId) async {
-    try {
-      final opened = await openBookingDocument(context,
-          bookingId: bookingId, type: 'contract', title: t(context).tr('rentalContract'));
-      if (opened || !mounted) return;
-      showMotoGoToast(context, icon: '📄', title: t(context).tr('contractLabel'), message: t(context).tr('contractNotReady'));
-    } catch (e) {
-      debugPrint('[CONTRACT] Error opening contract: $e');
-      if (!mounted) return;
-      showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: t(context).tr('contractLoadError'));
-    }
+  /// Průběh (po 15 s „Zrušit"), pojistka proti dvojímu klepnutí; bez
+  /// spojení skutečný důvod + „Zkusit znovu" (ne „Smlouva zatím není").
+  Future<void> _openContract(BuildContext context, String bookingId) {
+    final tr = t(context);
+    return runDocOpen(context,
+        what: tr.tr('eoDocLoadFail'),
+        where: 'res_contract_open',
+        op: (wanted) async {
+          final opened = await openBookingDocument(context,
+              bookingId: bookingId, type: 'contract', title: tr.tr('rentalContract'), wanted: wanted);
+          if (opened) return;
+          if (!await OfflineGuard.pingSupabase()) throw const SocketException('offline');
+          if (!context.mounted || !wanted()) return;
+          showMotoGoToast(context, icon: '📄', title: tr.tr('contractLabel'), message: tr.tr('contractNotReady'));
+        });
   }
 
-  /// Open final invoice directly for this booking — mirrors showInvoice(bookingId, 'final').
-  Future<void> _openFinalInvoice(BuildContext context, String bookingId) async {
-    try {
-      final res = await MotoGoSupabase.client
-          .from('invoices')
-          .select()
-          .eq('booking_id', bookingId)
-          .inFilter('type', ['final', 'issued'])
-          .order('created_at', ascending: false)
-          .limit(1);
-
-      final invoices = (res as List);
-      if (invoices.isEmpty) {
-        if (!mounted) return;
-        showMotoGoToast(context, icon: '📄', title: t(context).tr('invoiceLabel'), message: t(context).tr('invoiceNotReady'));
-        return;
-      }
-
-      final invoice = UserInvoice.fromJson(invoices.first as Map<String, dynamic>);
-
-      String? customerName;
-      String? customerAddress;
-      String? customerEmail;
-      String? customerPhone;
-      String? customerCompany;
-      String? customerCompanyAddress;
-      String? customerIco;
-      String? customerDic;
-      final user = MotoGoSupabase.currentUser;
-      if (user != null) {
-        try {
-          final profile = await MotoGoSupabase.client
-              .from('profiles')
-              .select('full_name, email, phone, street, city, zip, country, ico, dic, company_name, company_address')
-              .eq('id', user.id)
-              .maybeSingle();
-          if (profile != null) {
-            customerName = profile['full_name'] as String?;
-            customerEmail = profile['email'] as String?;
-            customerPhone = profile['phone'] as String?;
-            customerCompany = profile['company_name'] as String?;
-            customerCompanyAddress = profile['company_address'] as String?;
-            customerIco = profile['ico'] as String?;
-            customerDic = profile['dic'] as String?;
-            final parts = [profile['street'], profile['city'], profile['zip'], profile['country']]
-                .where((s) => s != null && (s as String).isNotEmpty)
-                .join(', ');
-            if (parts.isNotEmpty) customerAddress = parts;
+  /// Konečná faktura rezervace. Bez profilu (výpadek spojení) se NEvykreslí
+  /// bez odběratele — důvod + „Zkusit znovu" (sdílené `openInvoiceDocument`).
+  Future<void> _openFinalInvoice(BuildContext context, String bookingId) {
+    final tr = t(context);
+    return runDocOpen(context,
+        what: tr.tr('eoInvoiceOpenFail'),
+        where: 'res_invoice_open',
+        op: (wanted) async {
+          final res = await MotoGoSupabase.client
+              .from('invoices')
+              .select()
+              .eq('booking_id', bookingId)
+              .inFilter('type', ['final', 'issued'])
+              .order('created_at', ascending: false)
+              .limit(1);
+          final invoices = (res as List);
+          if (invoices.isEmpty) {
+            if (!context.mounted || !wanted()) return;
+            showMotoGoToast(context, icon: '📄', title: tr.tr('invoiceLabel'), message: tr.tr('invoiceNotReady'));
+            return;
           }
-        } catch (e) {
-          debugPrint('[INVOICE] Profile fetch error: $e');
-        }
-      }
-
-      final html = InvoiceHtmlBuilder.build(
-        invoice,
-        customerName: customerName,
-        customerAddress: customerAddress,
-        customerEmail: customerEmail,
-        customerPhone: customerPhone,
-        customerCompany: customerCompany,
-        customerCompanyAddress: customerCompanyAddress,
-        customerIco: customerIco,
-        customerDic: customerDic,
-      );
-      if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => DocWebViewScreen(
-          htmlContent: html,
-          title: invoice.number ?? t(context).tr(invoice.typeKey),
-        ),
-      ));
-    } catch (e) {
-      debugPrint('[INVOICE] Error opening final invoice: $e');
-      if (!mounted) return;
-      showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: t(context).tr('invoiceLoadError'));
-    }
+          final invoice = UserInvoice.fromJson(invoices.first as Map<String, dynamic>);
+          if (!context.mounted) return;
+          await openInvoiceDocument(context, invoice, wanted: wanted);
+        });
   }
 }

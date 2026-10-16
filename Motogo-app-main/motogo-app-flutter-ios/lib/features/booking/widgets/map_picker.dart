@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/widgets/map_tile_errors.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
 
 /// Fullscreen map picker — mirrors openMapPicker() from cart-address-geo.js.
 /// Uses flutter_map + OpenStreetMap tiles + CARTO Voyager (no API key).
@@ -259,7 +260,7 @@ class _MapPickerState extends State<MapPickerScreen> {
               ),
               child: Row(
                 children: [
-                  GestureDetector(
+                  MgBackTap(
                     onTap: () => Navigator.of(context).pop(),
                     child: Container(
                       width: 36,

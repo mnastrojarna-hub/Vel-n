@@ -71,6 +71,14 @@ import 'translations_ext_38_paystate_fr.dart';
 import 'translations_ext_38_paystate_nl.dart';
 import 'translations_ext_38_paystate_pl.dart';
 import 'translations_ext_38_paystate_uk.dart';
+import 'translations_ext_39_nav.dart';
+import 'translations_ext_40_refix_a.dart';
+import 'translations_ext_40_refix_b.dart';
+import 'translations_ext_40_refix_c.dart';
+import 'translations_ext_40_refix_d.dart';
+import 'translations_ext_41_refix2.dart';
+import 'translations_ext_42_refix3_a.dart';
+import 'translations_ext_42_refix3_b.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -142,6 +150,14 @@ final translations = _mergeAll([
   translationsExt38PayStateNl,
   translationsExt38PayStatePl,
   translationsExt38PayStateUk,
+  translationsExt39Nav,
+  translationsExt40RefixA,
+  translationsExt40RefixB,
+  translationsExt40RefixC,
+  translationsExt40RefixD,
+  translationsExt41Refix2,
+  translationsExt42Refix3A,
+  translationsExt42Refix3B,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

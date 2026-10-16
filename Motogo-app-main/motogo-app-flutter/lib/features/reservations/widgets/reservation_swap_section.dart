@@ -15,7 +15,7 @@ import '../../booking/booking_validator.dart';
 import '../../payment/payment_provider.dart';
 import '../../payment/net_error.dart';
 import '../../payment/payment_refusals.dart' show PayFlow, belowCardMinimum;
-import 'reservation_edit_states.dart' show showBelowMinimum;
+import 'reservation_edit_states.dart' show showBelowMinimum, blockIfSurchargePending;
 import '../reservation_models.dart';
 import 'reservation_edit_widgets.dart';
 import '../../../core/date_days.dart';
@@ -185,6 +185,21 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
 
   bool _rpcOk(dynamic res) => res is Map && res['success'] == true;
 
+  /// Po ztracené odpovědi COMMITu: true = výměna je zapsaná (dry-run hlásí
+  /// `already_split` / `invalid_new_moto`, stejně jako PaymentScreen), false =
+  /// prokazatelně nezapsaná, null = nejde ověřit (pořád bez spojení).
+  Future<bool?> _swapCommittedAfterNetError(Map<String, dynamic> params) async {
+    try {
+      final res = await MotoGoSupabase.client.rpc('split_booking_moto_swap',
+          params: {...params, 'p_dry_run': true}).timeout(const Duration(seconds: 15));
+      final code = res is Map ? res['error']?.toString() : null;
+      if (code == 'already_split' || code == 'invalid_new_moto') return true;
+      return _rpcOk(res) ? false : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Hláška DB pojistky „vozík jen na obslužné pobočce" (ERRCODE 23514,
   /// `trg_check_trailer_overlap`, 20260921g). Do klienta nechodí jako kód, jen
   /// jako text. Tentýž trigger hlásí ještě obsazenost kusu vozíku —
@@ -211,7 +226,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
           'license_insufficient': t(context).tr('swap.err.licenseInsufficient'),
           // 20260921d: rezervace s vozíkem nesmí přejet na samoobslužnou
           // pobočku — RPC to vrátí už v dry-runu, tedy PŘED platbou.
-          'trailer_staffed_only': t(context).tr('swap.trailerStaffedOnly'),
+          'trailer_staffed_only': t(context).tr('fxTrailerStaffedOnly'),
         }[code] ??
         // RPC vrací jen KÓDY; texty triggeru (trg_check_trailer_overlap) chodí
         // jako PostgrestException a mapuje je vnější catch přes
@@ -262,6 +277,9 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
           showBelowMinimum(context, PayFlow.swap, net);
           return;
         }
+        // Předchozí doplatek této rezervace se ještě ověřuje → žádný druhý.
+        if (await blockIfSurchargePending(context, widget.booking.id)) return;
+        if (!mounted) return;
         final motos = ref.read(motorcyclesProvider).valueOrNull ?? const [];
         final newMoto = motos.where((m) => m.id == motoId).firstOrNull;
         ref.read(paymentContextProvider.notifier).state = PaymentContext(
@@ -286,11 +304,31 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
       }
 
       // 2b+3) net<=0 → rovnou COMMIT; vratku dispatchne server po úspěšném zápisu.
-      final commit = await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {
-        ...swapParams,
-        'p_dry_run': false,
-        'p_settle_refund': true,
-      }).timeout(const Duration(seconds: 20));
+      dynamic commit;
+      try {
+        commit = await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {
+          ...swapParams,
+          'p_dry_run': false,
+          'p_settle_refund': true,
+        }).timeout(const Duration(seconds: 20));
+      } catch (e) {
+        if (!isNetworkError(e)) rethrow;
+        // Odpověď se ztratila — výměna (i s vratkou) mohla na serveru proběhnout.
+        // Než řekneme „nic se nezměnilo", ověříme to dry-runem.
+        final done = await _swapCommittedAfterNetError(swapParams);
+        if (done == false) rethrow; // prokazatelně nezapsáno → psEditNet
+        if (done == null) {
+          if (mounted) {
+            showMotoGoToast(context,
+                icon: '⏳',
+                title: t(context).tr('psUncertainTitle'),
+                message: t(context).tr('fxEditUncertain'),
+                duration: const Duration(seconds: 8));
+          }
+          return;
+        }
+        commit = const {'success': true};
+      }
       if (!_rpcOk(commit)) {
         _showSwapError(commit);
         return;
@@ -310,7 +348,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
             icon: '✗',
             title: t(context).error,
             message: _isTrailerBranchError(raw)
-                ? t(context).tr('swap.trailerStaffedOnly')
+                ? t(context).tr('fxTrailerStaffedOnly')
                 : _isTrailerOccupiedError(raw)
                     ? t(context).tr('swap.trailerOccupied')
                     : isNetworkError(e)

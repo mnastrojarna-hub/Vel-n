@@ -15,6 +15,7 @@ import 'submit_common.dart';
 import 'ride_start_feedback.dart';
 import '../../core/widgets/map_tile_errors.dart';
 import '../../core/widgets/error_feedback.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Menu „Přidat" (z FAB v Trasách) — jezdec si zaznamená vlastní jízdu,
 /// navrhne trasu (odkaz z Mapy.com) nebo přidá místo. Návrhy jdou do moderace
@@ -35,8 +36,8 @@ void showCommunityAddMenu(BuildContext context) {
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 12),
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 4),
+              const MgSheetHandle(margin: EdgeInsets.symmetric(horizontal: 12)),
               const SizedBox(height: 12),
               if (!auto)
                 _menuItem(
@@ -154,8 +155,15 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
   }
 
   Future<void> _initLocation() async {
-    final p = await GpsService.getCurrentPosition();
-    if (!mounted || p == null) return;
+    // Bez vytahování do Nastavení: proč poloha chybí + „Otevřít nastavení"
+    // v toastu; špendlík jde vždy posunout ručně na mapě.
+    final loc = await GpsService.locate();
+    if (!mounted) return;
+    final p = loc.pos;
+    if (p == null) {
+      await explainLocation(context, loc.status, snack: true);
+      return;
+    }
     setState(() {
       _point = LatLng(p.latitude, p.longitude);
       _located = true;

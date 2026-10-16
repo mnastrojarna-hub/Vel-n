@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Sbalitelná hlavička obrazovky: nadpis (s ikonou a volitelným tlačítkem
 /// zpět) zůstane připnutý nahoře, podtitulek s polem hledání se při scrollu
@@ -83,8 +84,7 @@ class CollapsingSearchHeader extends SliverPersistentHeaderDelegate {
             child: Row(
               children: [
                 if (onBack != null) ...[
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+                  MgBackTap(
                     onTap: onBack,
                     child: const Padding(
                       padding: EdgeInsets.all(6),

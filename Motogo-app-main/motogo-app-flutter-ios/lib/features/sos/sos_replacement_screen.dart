@@ -14,6 +14,7 @@ import '../../core/friendly_error.dart';
 import '../../core/widgets/state_views.dart';
 import 'sos_feedback.dart';
 import 'sos_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// SOS replacement motorcycle selection.
 ///
@@ -136,7 +137,7 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    GestureDetector(
+                    MgBackTap(
                       onTap: () => context.backOr(Routes.home),
                       child: Container(width: 36, height: 36,
                         decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),

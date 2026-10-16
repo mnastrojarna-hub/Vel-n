@@ -11,6 +11,7 @@ import '../../core/friendly_error.dart';
 import '../../core/widgets/state_views.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'messages_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Thread chat detail — mirrors s-messages-thread from templates-done-pages.js
 /// + renderThreadChat() from messages-ui.js.
@@ -145,7 +146,7 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
             return Scaffold(
               backgroundColor: MotoGoColors.bg,
               appBar: AppBar(
-                leading: GestureDetector(
+                leading: MgBackTap(
                   onTap: _back,
                   child: Center(
                     child: Container(

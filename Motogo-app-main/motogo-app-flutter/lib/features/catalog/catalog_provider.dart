@@ -82,8 +82,11 @@ final motorcyclesProvider = StreamProvider<List<Motorcycle>>((ref) async* {
 /// čerstvá dostupnost (vč. nových rezervací/storn/servisních bloků).
 final bookedDatesProvider =
     FutureProvider.autoDispose.family<List<BookedDateRange>, String>((ref, motoId) async {
+  // Timeout: na zaseklém LTE by kalendář jinak „načítal" donekonečna a
+  // ukazoval všechny dny jako volné; chyba → hláška + Zkusit znovu.
   final res = await MotoGoSupabase.client
-      .rpc('get_moto_booked_dates', params: {'p_moto_id': motoId});
+      .rpc('get_moto_booked_dates', params: {'p_moto_id': motoId})
+      .timeout(const Duration(seconds: 15));
 
   return (res as List)
       .map((e) => BookedDateRange.fromJson(e as Map<String, dynamic>))

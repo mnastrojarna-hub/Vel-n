@@ -6,12 +6,12 @@ import 'package:go_router/go_router.dart';
 ///
 /// Návrat ze Stripe ověření (3D Secure) přichází jako `motogo24://payment…`.
 /// Flutter ho (deep linking je zapnutý kvůli App Links
-/// `https://motogo24.cz/app/…`) předá routeru a go_router 13 na něm spadne
-/// (`Uri.origin` umí jen http/https): za tepla by se do logu sypaly chyby,
-/// za studena (systém appku mezitím ukončil) by appka zůstala bez obrazovky.
-/// Takový odkaz žádnou stránku neotevírá — platbu dořeší Stripe SDK:
-/// * appka běží → zůstane aktuální obrazovka (rozdělaná platba se nepřeruší),
-/// * studený start → úvod (`/`; nepřihlášeného přesměruje na přihlášení).
+/// `https://motogo24.cz/app/…`) předá běžící appce a go_router 13 na něm
+/// spadne (`Uri.origin` umí jen http/https → StateError při každém návratu
+/// z banky; ověřeno testem). Takový odkaz žádnou stránku neotevírá — platbu
+/// dořeší Stripe SDK, takže zůstane aktuální obrazovka (rozdělaná platba se
+/// nepřeruší). Studený start z odkazu řeší go_router sám (úvod `/`); pojistka
+/// níže pro případ, že by cizí odkaz přišel dřív než první obrazovka.
 RouterConfig<RouteMatchList> mgSafeRouterConfig(GoRouter router) =>
     _cache[router] ??= RouterConfig<RouteMatchList>(
       routeInformationProvider: router.routeInformationProvider,

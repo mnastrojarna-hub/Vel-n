@@ -245,3 +245,38 @@ class MgErrorView extends StatelessWidget {
   static String _cap(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
+
+/// Pruh „Zobrazujeme naposledy načtené údaje" — obnova dat selhala (offline,
+/// slabý signál), ale už načtené údaje (rezervace, kódy) zůstávají vidět.
+class MgStaleNote extends StatelessWidget {
+  final VoidCallback onRetry;
+  final EdgeInsetsGeometry margin;
+  const MgStaleNote(
+      {super.key, required this.onRetry, this.margin = const EdgeInsets.fromLTRB(16, 12, 16, 0)});
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    return Container(
+      margin: margin,
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: MotoGoColors.amberBg,
+        borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
+        border: Border.all(color: MotoGoColors.amberBorder),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Text('📡 ${tr.tr('fxStaleData')}',
+              style: const TextStyle(
+                  fontSize: 12, height: 1.35, fontWeight: FontWeight.w600, color: MotoGoColors.black)),
+        ),
+        TextButton(
+          onPressed: onRetry,
+          child: Text(tr.tr('eoRetry'),
+              style: const TextStyle(fontWeight: FontWeight.w800, color: MotoGoColors.greenDarker)),
+        ),
+      ]),
+    );
+  }
+}

@@ -5,6 +5,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/currency.dart';
 import '../../booking/booking_models.dart';
 import 'reservation_edit_widgets.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
 
 /// Extras + gear size section for reservation edit.
 ///
@@ -93,8 +94,7 @@ class EditExtrasSection extends StatelessWidget {
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(ctx).padding.bottom + 16),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 40, height: 4,
-            decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2))),
+          const MgSheetHandle(),
           const SizedBox(height: 14),
           Text('${t(ctx).tr('selectSizeTitle')} – $title',
             textAlign: TextAlign.center,
@@ -138,8 +138,7 @@ class EditExtrasSection extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(16, 16, 16,
             MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom + 16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: Container(width: 40, height: 4,
-              decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)))),
+            const MgSheetHandle(),
             const SizedBox(height: 14),
             Text('${t(ctx).tr('passengerGearLabel')} – ${t(ctx).tr('sizesLabel')}',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: MotoGoColors.black)),

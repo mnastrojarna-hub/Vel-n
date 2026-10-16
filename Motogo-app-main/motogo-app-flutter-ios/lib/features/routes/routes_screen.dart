@@ -20,6 +20,7 @@ import 'community_submit.dart';
 import 'animated_route_icon.dart';
 import 'collapsing_header.dart';
 import 'routes_quick_links.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Řazení seznamu tras.
 enum _RouteSort { random, length, duration, nearMe, nearRoute }
@@ -331,9 +332,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
       title: t(context).tr('routesTitle'),
       subtitle: subtitle,
       search: _searchField(context),
-      onBack: Navigator.of(context).canPop()
-          ? () => context.backOr(Routes.routes)
-          : null,
+      // Šipka vždy — i když se sem přišlo bez historie (pak vede na Místa).
+      onBack: () => context.backOr(Routes.routes),
       onSearchTap: _scrollToTop,
       padding: const EdgeInsets.fromLTRB(16, 12, 20, 12),
     );
@@ -617,12 +617,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 4),
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                    color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
-              ),
+              const MgSheetHandle(margin: EdgeInsets.fromLTRB(12, 4, 12, 0)),
               opt(_RouteSort.random, Icons.shuffle, true),
               opt(_RouteSort.length, Icons.straighten, true),
               opt(_RouteSort.duration, Icons.schedule, true),
@@ -940,14 +935,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      margin: const EdgeInsets.only(top: 10, bottom: 6),
-                      width: 40, height: 4,
-                      decoration: BoxDecoration(
-                        color: MotoGoColors.g200,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+                    const MgSheetHandle(margin: EdgeInsets.fromLTRB(12, 4, 12, 0)),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
                       child: Row(
@@ -1085,7 +1073,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                                   // na odpojené obrazovce už `ref` nesmí nikdo
                                   // použít (sheet ji přežije).
                                   if (!mounted) return;
-                                  final ok = await ensureLocation(ref);
+                                  final ok = await ensureLocation(ref, context: sheetCtx);
                                   if (!ok || !sheetCtx.mounted) return;
                                 }
                                 setSheet(() {

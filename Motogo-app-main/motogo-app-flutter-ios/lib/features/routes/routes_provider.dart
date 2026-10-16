@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io' show SocketException;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show BuildContext;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
@@ -14,6 +15,7 @@ import 'routes_cache.dart';
 import 'routes_model.dart';
 import '../../core/friendly_error.dart';
 import '../../core/offline_guard.dart';
+import '../../core/widgets/error_feedback.dart' show explainLocation;
 
 const String mapyApiKey = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
 const _mapyHeaders = <String, String>{
@@ -570,17 +572,27 @@ class RouteDisplay {
 /// nebo řazení „nejblíž mně". Dřív si o polohu nikdo neřekl, takže na
 /// čerstvé instalaci byly obě funkce trvale mrtvé.
 /// Vrací true, když je poloha po volání k dispozici.
-Future<bool> ensureLocation(WidgetRef ref) async {
+///
+/// Nastavení telefonu NIKDY neotevírá samo (dřív bez vysvětlení) — s
+/// [context] ukáže proč poloha není (vypnutá / bez oprávnění / bez signálu)
+/// a „Otevřít nastavení" až na klepnutí zákazníka.
+Future<bool> ensureLocation(WidgetRef ref, {BuildContext? context}) async {
   final already = ref.read(currentLocationProvider).valueOrNull;
   if (already != null) return true;
-  final ok = await GpsService.ensurePermission();
-  if (!ok) return false;
-  ref.invalidate(currentLocationProvider);
-  try {
-    return await ref.read(currentLocationProvider.future) != null;
-  } catch (_) {
+  final st = await GpsService.status();
+  if (st != GpsStatus.ok) {
+    if (context != null && context.mounted) await explainLocation(context, st);
     return false;
   }
+  ref.invalidate(currentLocationProvider);
+  LatLng? pos;
+  try {
+    pos = await ref.read(currentLocationProvider.future);
+  } catch (_) {}
+  if (pos == null && context != null && context.mounted) {
+    await explainLocation(context, GpsStatus.noFix);
+  }
+  return pos != null;
 }
 
 /// Nenápadné vyžádání polohy při otevření obrazovky, která na ní stojí

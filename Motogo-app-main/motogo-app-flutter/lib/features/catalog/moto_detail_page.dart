@@ -83,21 +83,47 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
       data: (motos) {
         final moto = motos.where((m) => m.id == widget.motoId).firstOrNull;
         if (moto == null) {
-          return Center(child: Text(t(context).tr('detailNotFoundMessage')));
+          // Motorka už není v nabídce (vyřazená / stažená, starý odkaz
+          // z rezervace) → proč + cesta dál, ne holý text bez akce.
+          final tr = t(context);
+          return _stateFrame(MgErrorView(
+            what: tr.tr('r3MotoGoneTitle'),
+            message: tr.tr('r3MotoGoneBody'),
+            contact: false,
+            extra: [
+              ElevatedButton(
+                onPressed: () => context.go(Routes.search),
+                child: Text(tr.tr('r3PickOtherMoto')),
+              ),
+            ],
+          ));
         }
         return _buildDetail(context, moto, bookedAsync);
       },
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: MotoGoColors.green),
-      ),
-      // Důvod + Zkusit znovu, nikdy syrová výjimka.
-      error: (e, _) => MgErrorView(
+      // Po 15 s „trvá to déle" + Zkusit znovu / Zpět (nikdy holý spinner).
+      loading: () => _stateFrame(MgLoadingView(
+        onRetry: () => ref.invalidate(motorcyclesProvider),
+        onBack: _back,
+      )),
+      // Důvod + Zkusit znovu / Zpět, nikdy syrová výjimka.
+      error: (e, _) => _stateFrame(MgErrorView(
         error: e,
         what: t(context).tr('eoMotosLoadFail'),
         onRetry: () => ref.invalidate(motorcyclesProvider),
-      ),
+        onBack: _back,
+      )),
     );
   }
+
+  /// Zpět ze samostatného detailu (rezervace, pobočka, `context.go` po
+  /// vypršené platbě) — bez historie do katalogu.
+  void _back() => context.backOr(Routes.search);
+
+  /// Stav bez dat: v samostatném režimu s hlavičkou a šipkou zpět (šipka
+  /// detailu se kreslí až s daty); v pageru ji kreslí MotoDetailScreen.
+  Widget _stateFrame(Widget child) => widget.showBackButton
+      ? MgStateScaffold(onBack: _back, child: child)
+      : child;
 
   Widget _buildDetail(
     BuildContext ctx,
@@ -376,7 +402,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
               // Detail lze otevřít i deep-linkem/notifikací → v zásobníku není
               // co popnout a `pop()` by hodil „GoError: nothing to pop". Fallback
               // na katalog.
-              onTap: () => ctx.canPop() ? ctx.pop() : ctx.go('/search'),
+              onTap: _back,
               child: Container(
                 width: 38,
                 height: 38,

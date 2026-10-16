@@ -9,6 +9,7 @@ import '../auth/widgets/toast_helper.dart';
 import 'sos_feedback.dart';
 import 'sos_location.dart';
 import 'sos_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// "Motorka nepojízdná" screen for accidents — mirrors s-sos-nepojizda.
 /// Shows fault decision (zaviněná/nezaviněná) + action cards.
@@ -218,7 +219,7 @@ class _SosImmobileState extends ConsumerState<SosImmobileScreen> {
           Text(t(context).tr('motoImmobile'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
           Text(t(context).tr('cannotContinueRide'), style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
         ])),
-        GestureDetector(
+        MgBackTap(
           onTap: () => context.backOr(Routes.sos),
           child: Container(
             width: 36, height: 36,

@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthException, Sess
 
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
+import 'net_error.dart' show authRefreshNetworkFailure, requestNeverSent;
 
 /// Stripe payment service — native Payment Sheet (in-app, no redirect).
 ///
@@ -23,23 +24,28 @@ class StripeService {
   static const _queryTimeout = Duration(seconds: 8);
 
   /// Platný přístupový token: prošlý se nejdřív obnoví (dřív appka poslala
-  /// prošlý token → 401 → odhlášení uprostřed platby). null = obnova selhala.
-  static Future<Session?> _validSession() async {
+  /// prošlý token → 401 → odhlášení uprostřed platby). Bez session řekne,
+  /// jestli obnovu shodila SÍŤ (→ „zkontroluj připojení", nikdy odhlášení).
+  static Future<_SessionCheck> _validSession() async {
     final s = MotoGoSupabase.currentSession;
-    if (s == null) return null;
-    if (!s.isExpired) return s;
+    if (s == null) return const _SessionCheck(null);
+    if (!s.isExpired) return _SessionCheck(s);
     return _refreshSession();
   }
 
-  static Future<Session?> _refreshSession() async {
+  static Future<_SessionCheck> _refreshSession() async {
     try {
       final r = await MotoGoSupabase.client.auth
           .refreshSession()
-          .timeout(const Duration(seconds: 15));
-      return r.session;
+          .timeout(const Duration(seconds: 20));
+      return _SessionCheck(r.session ?? MotoGoSupabase.currentSession);
     } catch (e) {
       debugPrint('[Stripe] refreshSession failed: $e');
-      return null;
+      // Slabé LTE / offline / timeout: přihlášení je pořád uložené (Supabase
+      // ho maže jen při skutečném odmítnutí) → chyba spojení, ne odhlášení.
+      final network = authRefreshNetworkFailure(e) &&
+          MotoGoSupabase.currentSession != null;
+      return _SessionCheck(null, network: network);
     }
   }
 
@@ -65,8 +71,15 @@ class StripeService {
   }) async {
     final charges = paymentMethodId != null;
     try {
-      final session = await _validSession();
+      final check = await _validSession();
+      final session = check.session;
       if (session == null) {
+        // Přihlášení nešlo obnovit kvůli spojení — požadavek vůbec neodešel,
+        // nic se nestrhlo → „zkontroluj připojení a zkus znovu".
+        if (check.network) {
+          return PaymentResult.error('network',
+              code: PaymentErrorCode.networkError);
+        }
         // Bez platného přihlášení server nic nestrhne — UI hlášku skládá z kódu.
         if (MotoGoSupabase.currentSession != null) {
           await handleAuthError(AuthException('session refresh failed'));
@@ -107,7 +120,14 @@ class StripeService {
       // obnova tokenu + jeden nový pokus je bezpečný. Odhlásit až když ani
       // obnova nepomůže (dřív odhlášení hned → ztracený flow i úprava).
       if (response.statusCode == 401) {
-        final refreshed = await _refreshSession();
+        final again = await _refreshSession();
+        final refreshed = again.session;
+        if (refreshed == null && again.network) {
+          // 401 přišel PŘED platbou a obnovu přihlášení shodila síť → nic
+          // nestrženo, chyba spojení (dřív odhlášení a ztracená úprava).
+          return PaymentResult.error('network',
+              code: PaymentErrorCode.networkError, httpStatus: 401);
+        }
         if (refreshed != null) response = await send(refreshed.accessToken);
         if (response.statusCode == 401) {
           await handleAuthError(AuthException('401 from process-payment'));
@@ -192,8 +212,13 @@ class StripeService {
           code: PaymentErrorCode.timeout, uncertain: charges);
     } catch (e) {
       debugPrint('[Stripe] createPaymentIntent failed: $e');
+      // Požadavek prokazatelně neodešel (DNS, síť nedostupná, odmítnuté
+      // spojení) → nic nestrženo, „zkus znovu" (dřív 15 min „Platba se
+      // ověřuje" za platbu, která nikdy neopustila telefon). Jinak (spojení
+      // spadlo po odeslání) u stržení uložené karty ověřit.
       return PaymentResult.error('network error',
-          code: PaymentErrorCode.networkError, uncertain: charges);
+          code: PaymentErrorCode.networkError,
+          uncertain: charges && !requestNeverSent(e));
     }
   }
 
@@ -418,6 +443,15 @@ class StripeService {
       type: 'booking',
     );
   }
+}
+
+/// Platné přihlášení pro platbu, nebo proč chybí.
+class _SessionCheck {
+  final Session? session;
+  /// Obnovu přihlášení shodila síť (offline / timeout / výpadek) — přihlášení
+  /// samo je v pořádku; NIKDY kvůli tomu neodhlašovat.
+  final bool network;
+  const _SessionCheck(this.session, {this.network = false});
 }
 
 /// Výsledek dokončení 3DS / ověření stavu PaymentIntentu.

@@ -36,6 +36,7 @@ import 'widgets/payment_header_widgets.dart';
 import 'widgets/payment_error_sheet.dart';
 import 'widgets/card_payment_sheet.dart';
 import '../../core/payment_pending_marker.dart';
+import '../../core/offline_guard.dart' show OfflineGuard;
 import 'net_error.dart';
 import 'payment_refusals.dart';
 import 'payment_ui_helpers.dart';
@@ -63,8 +64,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   bool _expired = false;
   /// Částka potvrzená serverem („Cena se změnila" / zbytek po slevě).
   double? _serverAmount;
-  /// PaymentIntent právě běžící platby (ověření stavu po nejasné chybě).
+  /// PaymentIntent právě běžícího POKUSU (ověření stavu po nejasné chybě).
+  /// Každý pokus ho nuluje — intent opuštěného pokusu nesmí rozhodovat.
   String? _activeClientSecret;
+  /// Platba mohla odejít bance (stržení uložené karty, odeslaný kartový
+  /// sheet, ověřování nejistého výsledku). Jen pak „zpět" nastaví značku a
+  /// vede na „Platba se ověřuje"; dokud se zakládá koncept / intent, odchod
+  /// nic nestrhne.
+  bool _submitted = false;
+  /// Ověřuje se výsledek platby → tlačítko říká „Ověřujeme platbu…".
+  bool _verifying = false;
+  /// Během ověřování selhalo spojení → „Platba se ověřuje" řekne pravý
+  /// důvod (spojení), ne „banka potvrzuje".
+  bool _netTrouble = false;
   String? _pendingBookingId;
   String? _pendingOrderId;
   int _attempts = 0;
@@ -92,8 +104,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
   /// Běží platba → zamkne tlačítko i odchod (šipka, záložky AppShellu).
   void _setProcessing(bool v) {
-    _set(() => _processing = v);
-    _processingNotifier?.state = v;
+    _set(() {
+      _processing = v;
+      if (!v) {
+        _submitted = false;
+        _verifying = false;
+      }
+    });
+    // Záložky AppShellu se ptají jen tehdy, když platba mohla odejít (nebo
+    // se dopisuje zaplacená změna) — zakládání konceptu nic nestrhne.
+    _processingNotifier?.state = v && (_submitted || _completed);
+  }
+
+  /// Platba mohla odejít bance → odchod jen s potvrzením (šipka i záložky).
+  void _markSubmitted() {
+    _submitted = true;
+    if (_processing) _processingNotifier?.state = true;
+  }
+
+  /// Výsledek platby se ověřuje (tlačítko + trvalý řádek „neplať znovu").
+  void _markVerifying() {
+    _markSubmitted();
+    _set(() => _verifying = true);
   }
 
   @override
@@ -228,6 +260,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
   /// Id pro lokální značku „platba odeslána" (objednávka / rezervace).
   String? get _markerId => _pendingOrderId ?? _pendingBookingId;
+
+  /// Druh platby pro značku: doplatek úpravy / výměny běží nad UŽ zaplacenou
+  /// rezervací → po restartu appky se nesmí ověřit podle `payment_status`.
+  String get _markerKind {
+    if (_pendingOrderId != null) return PaymentMarkerKind.order;
+    switch (_ctx?.flowType) {
+      case PaymentFlowType.extension:
+        return _flow == PayFlow.swap ? PaymentMarkerKind.swap : PaymentMarkerKind.edit;
+      case PaymentFlowType.sos:
+        return PaymentMarkerKind.sos;
+      default:
+        return PaymentMarkerKind.booking;
+    }
+  }
+
+  /// Značka „platba odeslána" i s druhem platby a (u úpravy) novou cenou.
+  Future<void> _setMarker({String? clientSecret, bool fresh = false}) =>
+      PaymentPendingMarker.set(_markerId,
+          clientSecret: clientSecret,
+          fresh: fresh,
+          kind: _markerKind,
+          expectedTotal: _expectedEditTotal);
 
   /// Nová cena rezervace po zaplaceném doplatku úpravy (důkaz zaplacení).
   double? get _expectedEditTotal =>
@@ -364,6 +418,27 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     _draftKind = _DraftKind.unknown;
     final id = await _createDraftBooking();
     if (id != null || !mounted) return id;
+    if (_draftKind == _DraftKind.auth && MotoGoSupabase.currentUser != null) {
+      // Prošlý přístupový token: zkus přihlášení obnovit a zápis jednou
+      // zopakovat — zákazník nemusí kvůli tomu nic dělat.
+      try {
+        await MotoGoSupabase.client.auth
+            .refreshSession()
+            .timeout(const Duration(seconds: 20));
+      } catch (e) {
+        // Obnovu shodila síť (slabé LTE, offline) → „zkontroluj připojení",
+        // ne „Přihlásit" (to by zákazníka zbytečně odhlásilo).
+        if (authRefreshNetworkFailure(e) &&
+            MotoGoSupabase.currentSession != null) {
+          _draftKind = _DraftKind.network;
+        }
+        return null;
+      }
+      if (!mounted) return null;
+      _draftError = null;
+      _draftKind = _DraftKind.unknown;
+      return _createDraftBooking();
+    }
     if (_draftKind != _DraftKind.motoTaken && _draftKind != _DraftKind.trailerTaken) {
       return null;
     }
@@ -688,6 +763,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       //   appka je pak při příští rezervaci předvyplní. Slučujeme s existujícími,
       //   ať se dřív uložené velikosti nepřepíšou prázdnem.
       // Fire-and-forget — nesmí blokovat ani shodit potvrzení rezervace.
+      // Zákazník mezitím odešel (zpět během zakládání nic nestrhne) → bez
+      // `ref` (po dispose hází); koncept už stojí a FAB ho najde sám.
+      if (!mounted) return bookingId;
       final existingGear =
           (ref.read(profileProvider).valueOrNull?['gear_sizes'] as Map?) ?? const {};
       final riderGear = Map<String, dynamic>.from((existingGear['rider'] as Map?) ?? const {});
@@ -750,7 +828,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         // trg_check_trailer_overlap (23514): vozík k motorce ze samoobslužné
         // pobočky — sem dojde jen starý build bez `p_moto_id` nebo závod
         // (přesun motorky mezi výběrem a zápisem).
-        _draftError = mounted ? t(context).tr('swap.trailerStaffedOnly') : null;
+        _draftError = mounted ? t(context).tr('fxTrailerStaffedOnly') : null;
         _draftKind = _DraftKind.input;
       } else if (msg.contains('trailer_unavailable')) {
         // trg_check_trailer_overlap (23505): kus vozíku mezitím obsadil jiný.
@@ -847,9 +925,25 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   /// se NEpřechází na Payment Sheet — ukáže se chybová hláška se „Zkusit znovu".
   Future<void> _chargeSavedCard(double amount, SavedCard card) async {
     debugPrint('[Payment] saved-card charge: amount=${amount.round()}');
+    // Telefon je offline → požadavek by vůbec neodešel. Bez značky a bez
+    // „ověřování" rovnou řekni proč a nabídni „Zkusit znovu" (dřív 15 minut
+    // „Platba se ověřuje" za platbu, která nikdy neopustila telefon).
+    if (!await _deviceOnline()) {
+      if (!mounted) return;
+      _setProcessing(false);
+      final n = PaymentErrorMapper.network(t(context).lang);
+      _showProblem(PayProblem(n.title, n.message, PayAction.retry));
+      return;
+    }
+    if (!mounted) return;
+    // NOVÝ pokus: intent z dřívějšího (opuštěného) pokusu sem nepatří —
+    // ověření by podle něj tvrdilo „nic nestrženo" (dvojí platba).
+    _activeClientSecret = null;
+    _netTrouble = false;
     // Server kartu strhne hned — kdyby appka během čekání spadla / ztratila
     // spojení, značka zabrání další platbě, dokud se výsledek neověří.
-    await PaymentPendingMarker.set(_markerId);
+    _markSubmitted();
+    await _setMarker(fresh: true);
     final result = await StripeService.createPaymentIntent(
       bookingId: _pendingBookingId,
       amount: amount.round(),
@@ -872,7 +966,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         // SCA (3DS) prompt — Stripe SDK ukáže overlay přímo v appce.
         final cs = result.clientSecret!;
         _activeClientSecret = cs;
-        await PaymentPendingMarker.set(_markerId, clientSecret: cs);
+        await _setMarker(clientSecret: cs);
         final outcome = await StripeService.handleNextAction(cs);
         if (!mounted) return;
         switch (outcome) {
@@ -903,6 +997,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           await _awaitProcessingConfirmation();
           return;
         }
+        // Bez kódu Stripe a bez stavu PI (výpadek spojení server↔Stripe,
+        // chyba API) mohla karta být stržena → značku NEmazat, ověřit
+        // (zaplaceno / „Platba se ověřuje"), nikdy „nic nestrženo" + znovu.
+        if (PaymentErrorMapper.fromEdge(
+                errorCode: result.stripeCode,
+                declineCode: result.declineCode,
+                intentStatus: result.intentStatus,
+                lang: t(context).lang)
+            .needsVerification) {
+          await _verifyUncertain();
+          return;
+        }
         await PaymentPendingMarker.clear(_markerId);
         if (!mounted) return;
         _setProcessing(false);
@@ -923,14 +1029,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         await PaymentPendingMarker.clear(_markerId);
         if (!mounted) return;
         _setProcessing(false);
-        _handleSavedCardFailure(result);
+        // Server kartu nestrhával (vrátil nepotvrzený intent) → „nic nestrženo".
+        _handleSavedCardFailure(result, notCharged: true);
         return;
+    }
+  }
+
+  /// Má telefon vůbec síť? (Wi-Fi / data zapnutá.) Chyba pluginu = nevíme
+  /// → poslední známý stav, platba pak rozhodne sama.
+  Future<bool> _deviceOnline() async {
+    try {
+      return await OfflineGuard.isOnline().timeout(const Duration(seconds: 3));
+    } catch (_) {
+      return !OfflineGuard.offlineNow;
     }
   }
 
   /// Klasický flow s Payment Sheetem (zachová původní chování).
   Future<void> _runPaymentSheetFlow(double amount) async {
     _setProcessing(true);
+    // Nový pokus — intent předchozího pokusu už nerozhoduje.
+    _activeClientSecret = null;
+    _netTrouble = false;
 
     debugPrint('[Payment] createPaymentIntent: amount=${amount.round()}, type=$_stripeType');
     final result = await StripeService.createPaymentIntent(
@@ -959,7 +1079,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         amount: amount,
         // Platba odeslána bance → značka proti dvojí platbě (pád appky,
         // ztracený výsledek). Smaže se, jakmile je výsledek známý.
-        onSubmitting: () => PaymentPendingMarker.set(_markerId, clientSecret: cs),
+        onSubmitting: () {
+          _markSubmitted();
+          return _setMarker(clientSecret: cs, fresh: true);
+        },
       );
 
       if (!mounted) return;
@@ -993,6 +1116,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   }
 
   Future<void> _verifyAndComplete() async {
+    _markVerifying();
     showMotoGoToast(context,
         icon: '⌛', title: t(context).tr('verifyingPayment'), message: t(context).tr('waitingConfirmation'));
 
@@ -1044,7 +1168,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   /// nedorazí v okně, ukaž obrazovku „Platba se ověřuje" (sama se přepne, až
   /// potvrzení dorazí) BEZ vystavení dokladu / aplikace úpravy.
   Future<void> _awaitProcessingConfirmation() async {
-    await PaymentPendingMarker.set(_markerId, clientSecret: _activeClientSecret);
+    _markVerifying();
+    await _setMarker(clientSecret: _activeClientSecret);
     if (!mounted) return;
     showMotoGoToast(context,
         icon: '⌛',
@@ -1091,6 +1216,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       return;
     }
 
+    // Od teď se rezervace potvrzuje — odchod už jen s potvrzením.
+    _markSubmitted();
     final result = await StripeService.confirmFreeBooking(bookingId);
     if (!mounted) return;
 
@@ -1110,6 +1237,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         title: t(context).tr('confirmed'),
         message: t(context).tr('discountCoversAll'));
     await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
     _onPaymentSuccess();
   }
 
@@ -1153,10 +1281,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   }
 
   Future<void> _onPaymentSuccess() async {
-    if (_completed) return;
+    if (_completed || !mounted) return;
     _completed = true;
     _countdownTimer?.cancel();
-    _processingNotifier?.state = false;
+    // Až do přechodu na výsledek „běží platba" (zápis výměny / úpravy může
+    // trvat desítky sekund) — záložky i šipka se zeptají; vypne se v dispose.
+    _setProcessing(true);
     ref.read(paymentContextProvider.notifier).state = null;
     // Výsledek je známý → značka „platba odeslána" už nepatří (FAB, restart).
     PaymentPendingMarker.clear(_pendingBookingId);
@@ -1197,6 +1327,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       // Děkovací stránka si načte stav dokladů + typ motorky podle tohoto ID.
       ref.read(lastConfirmedBookingProvider.notifier).state = _pendingBookingId;
       ref.read(lastConfirmedRestoreProvider.notifier).state = false;
+      ref.read(lastConfirmedFromDraftProvider.notifier).state = true;
       context.go(Routes.success);
     } else {
       final tr = t(context);
@@ -1215,6 +1346,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           final swapCommit = _ctx!.pendingEditChanges?['_swap_commit'];
           if (swapCommit is Map) {
             final committed = await _commitSwap(swapCommit);
+            // Zákazník mohl mezitím odejít (záložka / zpět s potvrzením) —
+            // `ref` po dispose hází výjimku; výměnu dopíše i webhook.
+            if (!mounted) return;
             ref.invalidate(reservationsProvider);
             if (_pendingBookingId != null) {
               ref.invalidate(reservationByIdProvider(_pendingBookingId!));
@@ -1222,7 +1356,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             if (!committed) {
               // Zaplaceno, ale výměna není zapsaná (ani webhookem) — žádný
               // falešný „hotovo": obsluha ji dokončí, zákazník nic nedělá.
-              if (!mounted) return;
               goResult(_staffOutcome(tr, swap: true, amountStr: amountStr));
               return;
             }
@@ -1341,6 +1474,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                 _pendingBookingId;
             ref.read(lastConfirmedRestoreProvider.notifier).state =
                 _ctx!.isRestore;
+            ref.read(lastConfirmedFromDraftProvider.notifier).state = false;
             context.go(Routes.success);
             return;
           }
@@ -1508,6 +1642,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
               processing: _processing,
               expired: _expired,
               onPay: _doPayment,
+              statusLabel: _verifying ? t(context).tr('fxVerifyingBtn') : null,
+              statusNote: _verifying ? t(context).tr('fxVerifyingNote') : null,
             ),
           ],
         ),

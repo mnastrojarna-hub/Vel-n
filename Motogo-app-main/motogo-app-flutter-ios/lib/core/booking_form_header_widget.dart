@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../features/booking/booking_models.dart';
 import '../features/catalog/moto_model.dart';
 import 'i18n/i18n_provider.dart';
+import 'widgets/mg_nav_controls.dart';
 
 /// Top header bar for the booking form screen.
 class BookingFormHeader extends StatelessWidget {
@@ -26,7 +27,7 @@ class BookingFormHeader extends StatelessWidget {
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
       ),
       child: Row(children: [
-        GestureDetector(
+        MgBackTap(
           onTap: () {
             if (context.canPop()) {
               context.pop();

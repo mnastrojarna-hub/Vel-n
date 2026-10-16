@@ -16,6 +16,7 @@ import 'route_export.dart';
 import 'route_poi_sheet.dart';
 import 'route_reviews.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 class RouteDetailScreen extends ConsumerStatefulWidget {
   final String routeId;
@@ -200,18 +201,21 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                 Positioned(
                   top: 10,
                   left: 12,
-                  child: PressableScale(
-                    pressedScale: 0.9,
+                  child: MgBackTap(
                     onTap: () => context.backOr('/routes'),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(MotoGoRadius.lg),
-                        boxShadow: MotoGoShadows.cardSmall,
+                    child: PressableScale(
+                      pressedScale: 0.9,
+                      onTap: () => context.backOr('/routes'),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(MotoGoRadius.lg),
+                          boxShadow: MotoGoShadows.cardSmall,
+                        ),
+                        child: const Icon(Icons.arrow_back, size: 20, color: MotoGoColors.black),
                       ),
-                      child: const Icon(Icons.arrow_back, size: 20, color: MotoGoColors.black),
                     ),
                   ),
                 ),
@@ -642,7 +646,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
             Positioned(
               top: MediaQuery.of(ctx).padding.top + 10,
               left: 12,
-              child: GestureDetector(
+              child: MgBackTap(close: true,
                 onTap: () => Navigator.of(ctx).pop(),
                 child: Container(
                   width: 42, height: 42,
@@ -685,14 +689,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: MotoGoColors.g200,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const MgSheetHandle(),
             const SizedBox(height: 14),
             Align(
               alignment: Alignment.centerLeft,

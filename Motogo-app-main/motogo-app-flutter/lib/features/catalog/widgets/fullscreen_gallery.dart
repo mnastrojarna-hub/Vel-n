@@ -121,7 +121,7 @@ class _FullscreenGalleryState extends State<FullscreenGallery> {
           Positioned(
             top: topPad + 8,
             right: 12,
-            child: MgBackTap(close: true, 
+            child: MgBackTap(close: true,
               onTap: () => Navigator.of(context).pop(),
               child: Container(
                 width: 38,

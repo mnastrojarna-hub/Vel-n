@@ -203,6 +203,7 @@ class _AiAgentState extends State<AiAgentScreen> {
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const MgSheetHandle(margin: EdgeInsets.fromLTRB(12, 4, 12, 0)),
           ListTile(
             leading: const Icon(Icons.photo_camera_outlined),
             title: Text(t(ctx).tr('aiTakePhoto')),

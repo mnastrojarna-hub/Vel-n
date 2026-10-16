@@ -59,7 +59,11 @@ class DocsGateChecklist {
 Future<DocsGateChecklist?> fetchDocsGateChecklist() async {
   if (MotoGoSupabase.currentUser == null) return null;
   try {
-    final res = await MotoGoSupabase.client.rpc('get_docs_gate_checklist');
+    // Časový limit — bez odpovědi se nikde netočí kolečko donekonečna
+    // (volající mají zálohu pro null).
+    final res = await MotoGoSupabase.client
+        .rpc('get_docs_gate_checklist')
+        .timeout(const Duration(seconds: 15));
     if (res is! Map || res['error'] != null || res['ok'] is! bool) return null;
     return DocsGateChecklist.fromJson(Map<String, dynamic>.from(res));
   } catch (e) {

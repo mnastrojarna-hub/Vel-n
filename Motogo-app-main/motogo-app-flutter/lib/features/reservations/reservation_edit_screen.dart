@@ -17,6 +17,7 @@ import '../catalog/moto_model.dart';
 import '../catalog/catalog_provider.dart';
 import '../loyalty/loyalty_provider.dart';
 import '../payment/payment_provider.dart';
+import '../payment/net_error.dart' show isNetworkError;
 import 'reservation_models.dart';
 import 'booking_extras_sync.dart';
 import 'reservation_edit_price_calc.dart';
@@ -641,26 +642,108 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         if (mounted) showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: msg);
         return;
       }
-      if (mounted) {
-        ref.invalidate(reservationsProvider);
-        ref.invalidate(reservationByIdProvider(widget.bookingId));
-        ref.invalidate(doorCodesProvider(widget.bookingId));
-        ref.invalidate(bookingGateInfoProvider(widget.bookingId));
-        // Nový stav rezervace do obrazovky — další úprava (čas vyzvednutí,
-        // prodloužení) se musí naceňovat proti posunutému termínu.
-        await _loadBooking();
-        _showConfirmation(
-          title: t(context).tr('moveConfirmedTitle'),
-          message: t(context).tr('moveConfirmed')
-              .replaceAll('{start}', _fmt(_newStart))
-              .replaceAll('{end}', _fmt(_newEnd)),
-        );
-      }
+      await _onMoveSaved();
     } catch (e) {
+      if (!mounted) return;
+      if (isNetworkError(e)) {
+        // Odpověď se ztratila — posun mohl na serveru proběhnout. Ověřit,
+        // než řekneme „nic se nezměnilo" (opakování by pak selhalo).
+        final moved = await _moveAppliedAfterNetError();
+        if (!mounted) return;
+        if (moved == true) {
+          await _onMoveSaved();
+          return;
+        }
+        if (moved == null) {
+          showEditUncertain(context, onReload: () {
+            ref.invalidate(reservationByIdProvider(widget.bookingId));
+            _loadBooking();
+          });
+          return;
+        }
+      }
       // Nikdy syrová výjimka — příčina (síť / jiná) + „Zkusit znovu".
-      if (mounted) showEditFailure(context, e, onRetry: _saveMove, move: true);
+      showEditFailure(context, e, onRetry: _saveMove, move: true);
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Posun je uložený → obnovit data a potvrdit zákazníkovi.
+  Future<void> _onMoveSaved() async {
+    if (!mounted) return;
+    ref.invalidate(reservationsProvider);
+    ref.invalidate(reservationByIdProvider(widget.bookingId));
+    ref.invalidate(doorCodesProvider(widget.bookingId));
+    ref.invalidate(bookingGateInfoProvider(widget.bookingId));
+    final start = _newStart, end = _newEnd;
+    // Nový stav rezervace do obrazovky — další úprava (čas vyzvednutí,
+    // prodloužení) se musí naceňovat proti posunutému termínu.
+    await _loadBooking();
+    if (!mounted) return;
+    _showConfirmation(
+      title: t(context).tr('moveConfirmedTitle'),
+      message: t(context).tr('moveConfirmed')
+          .replaceAll('{start}', _fmt(start))
+          .replaceAll('{end}', _fmt(end)),
+    );
+  }
+
+  /// Po ztracené odpovědi uložení úpravy: true = rezervace už nese nové
+  /// údaje (termín + cena), false = prokazatelně původní, null = nejde ověřit.
+  Future<bool?> _editAppliedAfterNetError(Map<String, dynamic> changes) async {
+    try {
+      final row = await MotoGoSupabase.client
+          .from('bookings')
+          .select('start_date, end_date, total_price')
+          .eq('id', widget.bookingId)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
+      final orig = _booking;
+      if (row == null || orig == null) return null;
+      String d(Object? v) => '${v ?? ''}'.length >= 10 ? '$v'.substring(0, 10) : '$v';
+      // Rozhodují jen údaje, které se úpravou opravdu mění (jinak by
+      // „sedí" platilo i pro neuloženou změnu).
+      var distinguishing = 0;
+      final origDates = {
+        'start_date': orig.startDate.toIso8601String().substring(0, 10),
+        'end_date': orig.endDate.toIso8601String().substring(0, 10),
+      };
+      for (final k in const ['start_date', 'end_date']) {
+        if (!changes.containsKey(k) || d(changes[k]) == origDates[k]) continue;
+        distinguishing++;
+        if (d(row[k]) != d(changes[k])) return false;
+      }
+      final want = (changes['total_price'] as num?)?.toDouble();
+      final have = (row['total_price'] as num?)?.toDouble();
+      if (want != null && (want - orig.totalPrice).abs() > 0.5) {
+        distinguishing++;
+        if (have == null || (have - want).abs() > 0.5) return false;
+      }
+      return distinguishing > 0 ? true : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Po ztracené odpovědi posunu: true = rezervace už má nový termín, false =
+  /// prokazatelně původní (nic se nezměnilo), null = nejde ověřit.
+  Future<bool?> _moveAppliedAfterNetError() async {
+    final ns = _newStart, ne = _newEnd;
+    if (ns == null || ne == null) return null;
+    try {
+      final row = await MotoGoSupabase.client
+          .from('bookings')
+          .select('start_date, end_date')
+          .eq('id', widget.bookingId)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
+      if (row == null) return null;
+      String d(Object? v) => '${v ?? ''}'.length >= 10 ? '$v'.substring(0, 10) : '';
+      return d(row['start_date']) == ns.toIso8601String().substring(0, 10) &&
+          d(row['end_date']) == ne.toIso8601String().substring(0, 10);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -709,7 +792,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       if (!mounted) return;
       if (avail == MotoAvailability.busy) {
         setState(() => _saving = false);
-        showMotoGoToast(context, icon: '⚠️', title: t(context).tr('occupiedTitle'), message: t(context).tr('motoOccupied'));
+        showMotoGoToast(context, icon: '⚠️', title: t(context).tr('occupiedTitle'), message: t(context).tr('fxMotoOccupied'));
         return;
       }
       if (avail == MotoAvailability.unknown) {
@@ -994,6 +1077,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           if (mounted) setState(() => _saving = false);
           return;
         }
+        // Předchozí doplatek se ještě ověřuje → žádný druhý.
+        if (!mounted || await blockIfSurchargePending(context, widget.bookingId)) {
+          if (mounted) setState(() => _saving = false);
+          return;
+        }
         if (mounted) {
           ref.read(paymentContextProvider.notifier).state = PaymentContext(
             flowType: PaymentFlowType.extension,
@@ -1039,11 +1127,29 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           if (mounted) setState(() => _saving = false);
           return;
         }
-        await MotoGoSupabase.client
-            .from('bookings')
-            .update(changes)
-            .eq('id', widget.bookingId)
-            .timeout(const Duration(seconds: 20));
+        try {
+          await MotoGoSupabase.client
+              .from('bookings')
+              .update(changes)
+              .eq('id', widget.bookingId)
+              .timeout(const Duration(seconds: 20));
+        } catch (e) {
+          if (!isNetworkError(e)) rethrow;
+          // Odpověď se ztratila — úprava se mohla uložit. Ověřit, než řekneme
+          // „nic se nezměnilo" (a než se vynechá vratka za zkrácení).
+          final applied = await _editAppliedAfterNetError(changes);
+          if (applied == false) rethrow; // prokazatelně neuloženo → psEditNet
+          if (applied == null) {
+            if (mounted) {
+              setState(() => _saving = false);
+              showEditUncertain(context, onReload: () {
+                ref.invalidate(reservationByIdProvider(widget.bookingId));
+                _loadBooking();
+              });
+            }
+            return;
+          }
+        }
         var refundOk = true;
         if (effDiff < 0) {
           refundOk = false;

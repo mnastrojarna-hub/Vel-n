@@ -11,6 +11,7 @@ import 'auth_provider.dart';
 import 'widgets/toast_helper.dart';
 import '../../core/widgets/mg_back.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/widgets/error_feedback.dart' show confirmDiscard;
 
 /// 3-step registration — mirrors auth-register.js (regStep 1/2/3).
 class RegisterScreen extends StatefulWidget {
@@ -51,6 +52,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // Zákazník je smí kdykoli odvolat v Nastavení; nová rezervace si je vyžádá znovu.
   bool _consentVop = false;
   bool _consentGdpr = false;
+
+  /// Krok 1 má vyplněné údaje → odchod z registrace jen po potvrzení
+  /// (systémové zpět / swipe / šipka by je jinak potichu zahodily).
+  bool get _dirty =>
+      _step > 1 ||
+      [_fnameCtrl, _lnameCtrl, _emailCtrl, _passCtrl, _passConfirmCtrl, _dobCtrl]
+          .any((c) => c.text.trim().isNotEmpty) ||
+      _phoneCtrl.text.replaceAll(' ', '') != '+420';
+  bool _wasDirty = false;
+
+  void _onFieldChanged() {
+    final d = _dirty;
+    if (d != _wasDirty && mounted) setState(() => _wasDirty = d);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    for (final c in [_fnameCtrl, _lnameCtrl, _emailCtrl, _phoneCtrl, _passCtrl, _passConfirmCtrl, _dobCtrl]) {
+      c.addListener(_onFieldChanged);
+    }
+  }
 
   Future<void> _next() async {
     if (_step == 1) {
@@ -118,14 +141,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  void _back() {
+  Future<void> _back() async {
     if (_step > 1) {
       setState(() {
         _goingForward = false;
         _step--;
       });
     } else {
-      context.backOr(Routes.login);
+      if (_dirty && !await confirmDiscard(context)) return;
+      if (mounted) context.backOr(Routes.login);
     }
   }
 
@@ -361,7 +385,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return true;
       },
       child: PopScope(
-        canPop: _step == 1,
+        canPop: _step == 1 && !_dirty,
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) _back();
         },

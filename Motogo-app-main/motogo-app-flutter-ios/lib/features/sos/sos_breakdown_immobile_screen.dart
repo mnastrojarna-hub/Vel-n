@@ -9,6 +9,7 @@ import '../auth/widgets/toast_helper.dart';
 import 'sos_feedback.dart';
 import 'sos_location.dart';
 import 'sos_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// "Nepojízdná – porucha" screen — mirrors s-sos-nepojizda-porucha.
 /// Always free (breakdown = not customer fault).
@@ -158,7 +159,7 @@ class _SosBreakdownImmobileState
                             style:
                                 const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
                       ])),
-                  GestureDetector(
+                  MgBackTap(
                     onTap: () => context.backOr(Routes.sos),
                     child: Container(
                       width: 36,

@@ -207,6 +207,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 // Back button
                 MgBackTap(
                   onTap: _onBack,
+                  // Čtečka přečte totéž, co je vidět vedle šipky.
+                  label: t(context).tr('backToLogin'),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

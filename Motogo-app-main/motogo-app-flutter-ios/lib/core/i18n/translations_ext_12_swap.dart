@@ -32,7 +32,7 @@ const translationsExt12Swap = <String, Map<String, String>>{
     'swap.err.wrongStatus': 'Výměnu lze provést jen u nadcházející nebo probíhající rezervace.',
     'swap.err.notPaid': 'Rezervace není zaplacená.',
     'swap.err.invalidMoto': 'Zvolenou motorku nelze použít.',
-    'swap.err.alreadySplit': 'Výměna už na této rezervaci proběhla — druhou najdete v přehledu rezervací.',
+    'swap.err.alreadySplit': 'Výměna už na této rezervaci proběhla — druhou najdeš v přehledu rezervací.',
   },
   'en': {
     'swap.net.title': 'Price difference',

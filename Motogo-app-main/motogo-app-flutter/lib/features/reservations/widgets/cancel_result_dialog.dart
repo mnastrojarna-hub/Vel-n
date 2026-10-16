@@ -17,9 +17,15 @@ AlertDialog cancelResultDialog(
   required VoidCallback onRetry,
 }) {
   final tr = t(context);
-  if (r.ok) {
-    final body = !wasPaid
+  // „Už je zrušená" (typicky opakování po ztracené odpovědi — storno prošlo
+  // napoprvé) je výsledek, ne chyba → potvrzení, ne „nepodařilo se".
+  if (r.ok || r.error == 'already') {
+    final body = r.error == 'already'
+        ? tr.tr('psCancelAlready')
+        : !wasPaid
         ? tr.tr('psCancelUnpaid')
+        : !r.refundKnown
+        ? tr.tr('fxCancelDoneRefundLater')
         : r.refundAmount > 0
             ? tr
                 .tr('psCancelRefund')
@@ -40,11 +46,13 @@ AlertDialog cancelResultDialog(
     'forbidden' => 'psCancelForbidden',
     'not_found' => 'psCancelNotFound',
     'network' => 'psCancelNet',
+    'uncertain' => 'fxCancelUncertain',
     _ => 'psCancelFail',
   };
-  final canRetry = r.error == 'network' || r.error == 'failed';
+  final canRetry =
+      r.error == 'network' || r.error == 'failed' || r.error == 'uncertain';
   return AlertDialog(
-    title: Text(tr.tr('psCancelFailTitle'),
+    title: Text(tr.tr(r.error == 'uncertain' ? 'psUncertainTitle' : 'psCancelFailTitle'),
         style: const TextStyle(fontWeight: FontWeight.w800, color: MotoGoColors.red)),
     content: Text(tr.tr(key)),
     actions: [

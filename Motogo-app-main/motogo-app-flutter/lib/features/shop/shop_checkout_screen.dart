@@ -21,6 +21,8 @@ import '../payment/widgets/card_payment_sheet.dart';
 import '../payment/payment_refusals.dart';
 import '../payment/payment_ui_helpers.dart';
 import '../../core/payment_pending_marker.dart';
+import '../../core/pending_booking_fab_provider.dart'
+    show paymentProcessingProvider, paymentLeaveActionProvider;
 import 'shop_models.dart';
 import 'shop_provider.dart';
 import 'widgets/checkout_payment_card.dart';
@@ -56,11 +58,51 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
   double? _orderTotal;
   String? _orderSig;
   String? _clientSecret;
+  /// Platba mohla odejít bance (odeslaný kartový sheet) — jen pak „zpět" /
+  /// záložka vede na „Platba se ověřuje". Při zakládání objednávky / intentu
+  /// se odchází normálně a košík zůstává.
+  bool _submitted = false;
+  // Zachycené v initState — v dispose se `ref` použít nesmí.
+  StateController<bool>? _processingNotifier;
+  StateController<void Function()?>? _leaveNotifier;
 
   @override
   void initState() {
     super.initState();
+    _processingNotifier = ref.read(paymentProcessingProvider.notifier);
+    _leaveNotifier = ref.read(paymentLeaveActionProvider.notifier);
     _autofill();
+  }
+
+  /// Běží platba → zamkne tlačítko i odchod; záložky AppShellu se zeptají
+  /// (a po „Odejít" ukážou „Platba se ověřuje"), jen když platba mohla odejít.
+  void _setProcessing(bool v) {
+    _processing = v;
+    if (!v) _submitted = false;
+    if (mounted) setState(() {});
+    _syncGuard();
+  }
+
+  void _markSubmitted() {
+    _submitted = true;
+    _syncGuard();
+  }
+
+  void _syncGuard() {
+    final guard = _processing && _submitted;
+    _processingNotifier?.state = guard;
+    _leaveNotifier?.state = guard ? _leaveToPending : null;
+  }
+
+  /// Odchod záložkou během odeslané platby → „Platba se ověřuje" (košík
+  /// pryč, ať nevznikne druhá objednávka a druhá platba).
+  void _leaveToPending() {
+    final id = _orderId;
+    if (id != null && mounted) {
+      _goPending(id);
+    } else if (mounted) {
+      context.go(Routes.shop);
+    }
   }
 
   Future<void> _autofill() async {
@@ -81,6 +123,12 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     _zipCtrl.dispose();
     _cityCtrl.dispose();
     _promoCtrl.dispose();
+    final processingNotifier = _processingNotifier;
+    final leaveNotifier = _leaveNotifier;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      processingNotifier?.state = false;
+      leaveNotifier?.state = null;
+    });
     super.dispose();
   }
 
@@ -253,14 +301,46 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
         'a': address,
       });
 
-  void _showOrderError(String message) {
+  /// Chyba založení objednávky — akce podle příčiny: opakování by u zboží,
+  /// které není skladem, nebo u neplatného kódu selhalo stejně.
+  void _showOrderError(ShopOrderResult o) {
+    final tr = t(context);
+    String label;
+    VoidCallback onTap;
+    switch (o.error) {
+      case 'out_of_stock':
+      case 'product_not_found':
+      case 'bad_size':
+        label = tr.tr('psEditCart');
+        onTap = () => context.backOr(Routes.cart);
+      case 'code_invalid':
+      case 'voucher_not_allowed':
+      case 'code_not_allowed_for_voucher':
+      case 'multiple_percent':
+        label = tr.tr('psRemoveCode');
+        onTap = () {
+          final bad = o.code;
+          final codes = List.of(ref.read(shopAppliedCodesProvider));
+          final hit = bad != null && codes.any((c) => c.code == bad);
+          for (final c in codes) {
+            if (!hit || c.code == bad) _removeCode(c.code);
+          }
+        };
+      case 'bad_shipping':
+        // Doprava se volí přímo na téhle obrazovce → zavřít a vybrat jinou.
+        label = tr.tr('close');
+        onTap = () {};
+      default:
+        label = tr.tr('retry');
+        onTap = _finalize;
+    }
     PaymentErrorSheet.show(
       context,
-      title: t(context).tr('psOrderFailTitle'),
-      message: message,
-      buttonLabel: t(context).tr('retry'),
-      onButton: _finalize,
-      secondaryLabel: t(context).tr('psWriteUs'),
+      title: tr.tr('psOrderFailTitle'),
+      message: _orderErrorText(o),
+      buttonLabel: label,
+      onButton: onTap,
+      secondaryLabel: tr.tr('psWriteUs'),
       onSecondary: () => openContactUs(context),
     );
   }
@@ -268,7 +348,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
   /// Platba se ověřuje (banka ji zatím nepotvrdila) — košík pryč, aby
   /// zákazník nezaplatil podruhé; výsledek ověří obrazovka „Platba se ověřuje".
   Future<void> _goPending(String orderId) async {
-    await PaymentPendingMarker.set(orderId, clientSecret: _clientSecret);
+    await PaymentPendingMarker.set(orderId, kind: PaymentMarkerKind.order, clientSecret: _clientSecret);
     if (!mounted) return;
     final tr = t(context);
     final verified = PaymentOutcome(
@@ -354,7 +434,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       return;
     }
 
-    setState(() => _processing = true);
+    _setProcessing(true);
 
     final address = digitalOnly
         ? null
@@ -389,8 +469,8 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       if (!mounted) return;
       final id = order.orderId;
       if (id == null) {
-        setState(() => _processing = false);
-        _showOrderError(_orderErrorText(order));
+        _setProcessing(false);
+        _showOrderError(order);
         return;
       }
       orderId = id;
@@ -398,7 +478,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       // objednávku za 0 Kč server rovnou potvrdil.
       total = order.total ?? clientTotal;
       if (order.autoConfirmed || total <= 0) {
-        setState(() => _processing = false);
+        _setProcessing(false);
         _onSuccess(orderId, free: true);
         return;
       }
@@ -408,11 +488,13 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     }
 
     if (belowCardMinimum(total)) {
-      setState(() => _processing = false);
+      _setProcessing(false);
       _showBelowMinimum(total);
       return;
     }
 
+    // Nový pokus — intent předchozího pokusu už o ničem nerozhoduje.
+    _clientSecret = null;
     final result = await StripeService.createPaymentIntent(
       amount: total.round(),
       type: 'shop',
@@ -431,7 +513,10 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
         context,
         clientSecret: cs,
         amount: total,
-        onSubmitting: () => PaymentPendingMarker.set(orderId, clientSecret: cs),
+        onSubmitting: () {
+          _markSubmitted();
+          return PaymentPendingMarker.set(orderId, kind: PaymentMarkerKind.order, clientSecret: cs, fresh: true);
+        },
       );
       if (!mounted) return;
       switch (sheetResult.status) {
@@ -493,7 +578,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     } else {
       // Odmítnutí serverem / síť — přeložená hláška s akcí, nikdy text serveru.
       final p = PaymentRefusals.resolve(lang, result, PayFlow.shop, amount: total);
-      setState(() => _processing = false);
+      _setProcessing(false);
       switch (p.action) {
         case PayAction.success:
           _onSuccess(orderId);
@@ -518,14 +603,14 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
                       ? t(context).tr('psSendAgain')
                       : t(context).tr('retry'),
               onButton: p.action == PayAction.signIn
-                  ? () => context.go(Routes.login)
+                  ? () => signInAgain(context)
                   : _finalize,
               secondaryLabel: p.contact ? t(context).tr('psWriteUs') : null,
               onSecondary: p.contact ? () => openContactUs(context) : null);
       }
     }
 
-    if (mounted) setState(() => _processing = false);
+    if (mounted) _setProcessing(false);
   }
 
   /// Objednávka pod minimem karty (1–14 Kč) — co s tím (D2).
@@ -552,7 +637,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
 
   /// Zpět: během platby jen po potvrzení; bez historie → košík (ne zavření appky).
   Future<void> _onBack() async {
-    if (_processing) {
+    if (_processing && _submitted) {
       if (!await confirmLeaveRunningPayment(context)) return;
       if (!mounted) return;
       final id = _orderId;
@@ -563,6 +648,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
         return;
       }
     }
+    // Nic ještě neodešlo (zakládá se objednávka / platba) → zpět s košíkem.
     if (mounted) context.backOr(Routes.cart);
   }
 

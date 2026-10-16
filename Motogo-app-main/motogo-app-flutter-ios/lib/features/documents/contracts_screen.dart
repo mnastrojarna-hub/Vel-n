@@ -13,15 +13,16 @@ import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/offline_guard.dart';
-import '../../core/widgets/error_feedback.dart';
 import '../../core/widgets/state_views.dart';
 import 'legal_doc_loader.dart';
 import 'booking_doc_viewer.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
+import 'doc_open_runner.dart';
 import '../../core/date_days.dart';
 import '../../core/booking_rules.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Company constant — mirrors COMPANY from documents.js.
 const _company = (
@@ -43,7 +44,7 @@ class ContractsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () {
             if (context.canPop()) {
               context.pop();
@@ -163,28 +164,15 @@ class ContractsScreen extends ConsumerWidget {
   /// svou verzi. Když neexistuje: smlouva/VOP fallback na render šablony +
   /// dat rezervace; protokol NIKDY (šablona není vyplněný protokol — zadání
   /// majitele 2026-09-29) → hláška.
-  static bool _opening = false;
+  /// Otevření s průběhem (po 15 s „Zrušit"), pojistkou proti dvojímu
+  /// klepnutí a „Zkusit znovu" (`runDocOpen`); bez internetu řekne „nejsi
+  /// připojený" (dřív mylně „Dokument zatím není k dispozici").
+  Future<void> _openDoc(BuildContext context, UserDocument doc) => runDocOpen(context,
+      what: t(context).tr('eoDocLoadFail'),
+      where: 'contract_open',
+      op: (wanted) => _openDocInner(context, doc, wanted));
 
-  /// Otevření s průběhem a pojistkou proti dvojímu klepnutí; bez internetu
-  /// řekne „nejsi připojený" (dřív mylně „Dokument zatím není k dispozici").
-  Future<void> _openDoc(BuildContext context, UserDocument doc) async {
-    if (_opening) return;
-    _opening = true;
-    final progress = MgProgress.show(context, t(context).tr('eoOpeningDoc'));
-    try {
-      await _openDocInner(context, doc);
-    } catch (e) {
-      progress.close();
-      if (context.mounted) {
-        showErrorSnack(context, t(context).tr('eoDocLoadFail'), e, where: 'contract_open');
-      }
-    } finally {
-      progress.close();
-      _opening = false;
-    }
-  }
-
-  Future<void> _openDocInner(BuildContext context, UserDocument doc) async {
+  Future<void> _openDocInner(BuildContext context, UserDocument doc, DocWanted wanted) async {
     final tr = t(context);
     final title = docDisplayTitle(tr, doc);
     debugPrint('[CONTRACTS] Opening doc: id=${doc.id}, type=${doc.type}, bookingId=${doc.bookingId}');
@@ -193,26 +181,26 @@ class ContractsScreen extends ConsumerWidget {
     // dokument (ne poslední daného typu).
     if (doc.generatedDocId != null) {
       final opened = await openGeneratedDocument(context,
-          generatedDocId: doc.generatedDocId!, title: title);
+          generatedDocId: doc.generatedDocId!, title: title, wanted: wanted);
       if (opened) return;
       if (!context.mounted) return;
     } else if (doc.filePath != null) {
       // Řádek `documents` bez generated dvojčete (např. nahraný sken) → jeho soubor.
-      final opened = await openStorageDocument(context, doc.filePath, title);
+      final opened = await openStorageDocument(context, doc.filePath, title, wanted: wanted);
       if (opened) return;
       if (!context.mounted) return;
     }
 
     if (doc.bookingId != null) {
       final opened = await openBookingDocument(context,
-          bookingId: doc.bookingId!, type: doc.type, title: title);
+          bookingId: doc.bookingId!, type: doc.type, title: title, wanted: wanted);
       if (opened) return;
       if (!context.mounted) return;
     }
 
     if (doc.type == 'protocol' || doc.type == 'protocol_damage') {
       if (!await OfflineGuard.pingSupabase()) throw const SocketException('offline');
-      if (!context.mounted) return;
+      if (!context.mounted || !wanted()) return;
       showMotoGoToast(context, icon: '📄', title: title, message: t(context).tr('docNotAvailableYet'));
       return;
     }
@@ -249,7 +237,8 @@ class ContractsScreen extends ConsumerWidget {
         ? legalMessageHtml(tr.tr('docNotAvailableYet'))
         : legalNoticeHtml(tr, tpl.kind) + _replacePlaceholders(tpl.html, vars);
 
-    if (!context.mounted) return;
+    // Zákazník čekání zrušil → pozdní výsledek neotevírat.
+    if (!context.mounted || !wanted()) return;
 
     // Render HTML in WebView via data URI
     final html = wrapDocHtml(title, bodyHtml);

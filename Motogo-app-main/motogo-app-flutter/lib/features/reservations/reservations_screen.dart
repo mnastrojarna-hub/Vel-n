@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/offline_guard.dart';
+import '../../core/widgets/state_views.dart';
 import 'reservation_models.dart';
 import 'reservation_provider.dart';
 import 'widgets/reservation_card.dart';
@@ -36,6 +38,8 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
   void initState() {
     super.initState();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      // Offline obnova jen selže — načtený seznam necháme být.
+      if (OfflineGuard.offlineNow) return;
       ref.invalidate(reservationsProvider);
     });
   }
@@ -60,6 +64,10 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
   Widget build(BuildContext context) {
     final filter = ref.watch(resFilterProvider);
     final reservationsAsync = ref.watch(filteredReservationsProvider);
+    // Obnova selhala, ale seznam je načtený z dřívějška → jen pruh nahoře.
+    final src = ref.watch(reservationsProvider);
+    final stale = src.hasError && src.hasValue;
+    void retry() => ref.invalidate(reservationsProvider);
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -85,6 +93,9 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
+                    // Vždy viditelné zpět (požadavek majitele) — kořen záložky → Domů.
+                    MgBackArrow(onTap: () => context.go(Routes.home)),
+                    const SizedBox(width: 4),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.asset('assets/logo.webp', width: 28, height: 28, fit: BoxFit.cover,
@@ -93,7 +104,7 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
                           child: const Icon(Icons.motorcycle, size: 16, color: Colors.black))),
                     ),
                     const SizedBox(width: 8),
-                    Text(t(context).tr('myReservations'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white)),
+                    Expanded(child: Text(t(context).tr('myReservations'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white))),
                   ]),
                   const SizedBox(height: 4),
                   Text(t(context).tr('resOverview'), style: const TextStyle(fontSize: 12, color: Colors.white54)),
@@ -133,6 +144,8 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
               ),
             ),
           ),
+
+          if (stale) SliverToBoxAdapter(child: MgStaleNote(onRetry: retry)),
 
           // List — swipeable to switch filters
           reservationsAsync.when(
@@ -181,25 +194,19 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
                 ),
               );
             },
-            loading: () => const SliverFillRemaining(
-              child: Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
+            // Nikdy holý spinner: po 15 s „trvá to déle" + Zkusit znovu.
+            loading: () => SliverFillRemaining(
+              hasScrollBody: false,
+              child: MgLoadingView(onRetry: retry),
             ),
-            error: (_, __) => SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('⚠️', style: TextStyle(fontSize: 36)),
-                    const SizedBox(height: 12),
-                    Text(t(context).tr('loadingError'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: MotoGoColors.red)),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: () => ref.invalidate(reservationsProvider),
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: Text(t(context).tr('retry')),
-                    ),
-                  ],
-                ),
+            // Co se stalo, proč a jak to opravit (offline / server…) + akce.
+            error: (e, _) => SliverFillRemaining(
+              hasScrollBody: false,
+              child: MgErrorView(
+                error: e,
+                what: t(context).tr('fxReservationsLoadFail'),
+                onRetry: retry,
+                onBack: () => context.go(Routes.home),
               ),
             ),
           ),

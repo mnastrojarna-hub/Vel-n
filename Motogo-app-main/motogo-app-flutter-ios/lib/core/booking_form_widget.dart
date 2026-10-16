@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'booking_form_header_widget.dart';
 import 'widgets/moto_fx.dart';
+import 'widgets/state_views.dart';
 import 'booking_form_moto_card.dart';
 import 'booking_form_time_section.dart';
 import 'booking_form_pickup_section.dart';
@@ -258,8 +259,18 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
             ),
             const SizedBox(height: 8),
             Consumer(builder: (context, ref, _) {
-              final booked =
-                  ref.watch(bookedDatesProvider(draft.motoId ?? ''));
+              final motoKey = draft.motoId ?? '';
+              final booked = ref.watch(bookedDatesProvider(motoKey));
+              // Obsazenost se nenačetla (offline, slabé LTE, server) —
+              // kalendář by ukázal všechny dny jako volné, což není pravda.
+              if (booked.hasError && !booked.hasValue) {
+                return MgErrorView(
+                  error: booked.error,
+                  what: t(context).tr('fxBookedDatesFail'),
+                  onRetry: () => ref.invalidate(bookedDatesProvider(motoKey)),
+                  compact: true,
+                );
+              }
               return AvailabilityCalendar(
                 bookedDates: booked.valueOrNull ?? [],
                 selectedStart: draft.startDate,
@@ -327,30 +338,40 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
       return Container(
         color: const Color(0xFFDFF0EC),
         child: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.motorcycle,
-                    size: 48, color: Color(0xFF8AAB99)),
-                const SizedBox(height: 12),
-                Text(
-                  t(context).tr('selectMotoFirst'),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F1A14),
-                    decoration: TextDecoration.none,
+          child: Stack(children: [
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.motorcycle,
+                      size: 48, color: Color(0xFF8AAB99)),
+                  const SizedBox(height: 12),
+                  Text(
+                    t(context).tr('selectMotoFirst'),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F1A14),
+                      decoration: TextDecoration.none,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => GoRouter.of(context).go('/search'),
-                  child: Text(t(context).tr('selectMotoBtn')),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => GoRouter.of(context).go('/search'),
+                    child: Text(t(context).tr('selectMotoBtn')),
+                  ),
+                ],
+              ),
             ),
-          ),
+            // Viditelná šipka zpět i bez vybrané motorky (dřív jen tlačítko).
+            Positioned(
+              top: 8,
+              left: 8,
+              child: MgBackArrow(
+                onTap: () => context.canPop() ? context.pop() : context.go('/search'),
+              ),
+            ),
+          ]),
         ),
       );
     }
@@ -716,6 +737,34 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                       ),
                     ),
                   ),
+                // Obsazenost motorky se nenačetla → proč je CTA zamčené + oprava.
+                Builder(builder: (context) {
+                  final motoKey = draft.motoId ?? '';
+                  if (motoKey.isEmpty) return const SizedBox.shrink();
+                  final b = ref.watch(bookedDatesProvider(motoKey));
+                  if (!b.hasError || b.hasValue) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: Row(children: [
+                      Expanded(
+                        child: Text(
+                          t(context).tr('fxBookedDatesWait'),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFA02020),
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            ref.invalidate(bookedDatesProvider(motoKey)),
+                        child: Text(t(context).tr('eoRetry')),
+                      ),
+                    ]),
+                  );
+                }),
                 // CTA — disabled when sizes are missing (přistavení), there is
                 // a validation error (err), profile is incomplete (profileErr)
                 // or mandatory consents are not ticked.
@@ -727,12 +776,21 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                     final consentsOk = draft.consentVop &&
                         draft.consentGdpr &&
                         (!isKids || draft.consentKids);
+                    // Bez známé obsazenosti motorky se dál nejde — jinak by
+                    // zákazník platil za termín, který může být obsazený.
+                    final motoKey = draft.motoId ?? '';
+                    final bookedAsync = motoKey.isEmpty
+                        ? null
+                        : ref.watch(bookedDatesProvider(motoKey));
+                    final datesKnown =
+                        bookedAsync == null || bookedAsync.hasValue;
                     final canProceed = draft.startDate != null &&
                         draft.endDate != null &&
                         missingSizes.isEmpty &&
                         err == null &&
                         profileErr == null &&
-                        consentsOk;
+                        consentsOk &&
+                        datesKnown;
                     return PressableScale(
                     enabled: canProceed,
                     child: ElevatedButton(

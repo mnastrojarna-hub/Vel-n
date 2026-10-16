@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
 
 /// Persistent bottom sheet for payment errors — stays visible until
 /// the user taps the action button. Each error scenario gets a specific
@@ -30,8 +31,15 @@ class PaymentErrorSheet {
       isDismissible: dismissible,
       enableDrag: dismissible,
       backgroundColor: Colors.transparent,
-      builder: (_) => PopScope(
+      builder: (ctx) => PopScope(
         canPop: dismissible,
+        // Terminální stav: systémové zpět nesmí potichu nic neudělat —
+        // provede hlavní krok (do rezervace / vybrat znovu), jako tlačítko.
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          Navigator.of(ctx).pop();
+          onButton?.call();
+        },
         child: _ErrorSheetContent(
           title: title,
           message: message,
@@ -39,6 +47,7 @@ class PaymentErrorSheet {
           onButton: onButton,
           secondaryLabel: secondaryLabel,
           onSecondary: onSecondary,
+          dismissible: dismissible,
         ),
       ),
     );
@@ -52,6 +61,7 @@ class _ErrorSheetContent extends StatelessWidget {
   final VoidCallback? onButton;
   final String? secondaryLabel;
   final VoidCallback? onSecondary;
+  final bool dismissible;
 
   const _ErrorSheetContent({
     required this.title,
@@ -60,13 +70,14 @@ class _ErrorSheetContent extends StatelessWidget {
     this.onButton,
     this.secondaryLabel,
     this.onSecondary,
+    this.dismissible = true,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(
-          24, 28, 24, MediaQuery.of(context).padding.bottom + 24),
+          24, 12, 24, MediaQuery.of(context).padding.bottom + 24),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -78,15 +89,17 @@ class _ErrorSheetContent extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: MotoGoColors.g300,
-                borderRadius: BorderRadius.circular(2),
-              ),
+            // Úchyt + vždy viditelný křížek (požadavek majitele: z každého
+            // sheetu jde odejít). Terminální stav: křížek = hlavní krok.
+            MgSheetHandle(
+              barColor: MotoGoColors.g300,
+              margin: const EdgeInsets.only(bottom: 8),
+              onClose: dismissible
+                  ? null
+                  : () {
+                      Navigator.of(context).pop();
+                      onButton?.call();
+                    },
             ),
 
             // Red error icon

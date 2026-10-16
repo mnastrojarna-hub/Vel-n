@@ -202,7 +202,7 @@ class SosReportScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(t(context).tr('accidentType'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+              MgSheetTitleRow(title: Text(t(context).tr('accidentType'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
               const SizedBox(height: 16),
               _PickerItem(icon: '🎯', label: t(context).tr('minorAccidentContinue'),
                   onTap: () { Navigator.pop(ctx); _report(context, ref, SosType.accidentMinor, t(context).tr('accidentMinorLabel')); }),
@@ -226,7 +226,7 @@ class SosReportScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(t(context).tr('breakdownType'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+              MgSheetTitleRow(title: Text(t(context).tr('breakdownType'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
               const SizedBox(height: 16),
               _PickerItem(icon: '🔩', label: t(context).tr('minorDefectContinue'),
                   onTap: () { Navigator.pop(ctx); _report(context, ref, SosType.breakdownMinor, t(context).tr('breakdownMinorLabel')); }),
@@ -297,7 +297,10 @@ class SosReportScreen extends ConsumerWidget {
     if (photos.isNotEmpty) {
       progress.update(tr.tr('eoSosSendingPhotos'));
       try {
-        await uploadSosPhotos(incId, photos);
+        // Celkový strop ~40 s (uvnitř) — incident už je nahlášený, zákazník
+        // nesmí čekat minuty; co nedojde, pošle ve Zprávách.
+        final sent = await uploadSosPhotos(incId, photos);
+        photosFailed = sent.length < photos.length;
       } catch (e) {
         FriendlyError.log('sos_photo_upload', e);
         photosFailed = true;

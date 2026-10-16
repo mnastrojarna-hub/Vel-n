@@ -9,6 +9,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/mg_back.dart';
 import 'auth_provider.dart';
 import 'widgets/toast_helper.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// 3-step password reset flow — mirrors auth-session.js showForgotPassword().
 /// Step 1: Enter email → sends OTP code
@@ -204,8 +205,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Back button
-                GestureDetector(
+                MgBackTap(
                   onTap: _onBack,
+                  // Čtečka přečte totéž, co je vidět vedle šipky.
+                  label: t(context).tr('backToLogin'),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

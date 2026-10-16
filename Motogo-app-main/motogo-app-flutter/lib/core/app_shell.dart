@@ -6,6 +6,7 @@ import 'theme.dart';
 import 'router.dart';
 import 'i18n/i18n_provider.dart';
 import 'banner_provider.dart';
+import 'payment_pending_marker.dart' show PaymentMarkerKind;
 import 'pending_booking_fab_provider.dart';
 import 'pending_sos_fab_provider.dart';
 import '../features/booking/booking_provider.dart';
@@ -15,6 +16,7 @@ import '../features/documents/docs_gate_provider.dart';
 import '../features/messages/messages_provider.dart';
 import '../features/payment/payment_provider.dart';
 import '../features/payment/payment_ui_helpers.dart';
+import 'widgets/error_feedback.dart' show showErrorSnack;
 import 'widgets/mg_back.dart';
 import 'widgets/moto_fx.dart';
 import '../features/reservations/reservation_models.dart';
@@ -58,12 +60,21 @@ class AppShell extends ConsumerWidget {
 
     // Platba odeslaná před zabitím appky se mezitím potvrdila → jednou
     // oznámit (jinak by zákazník nevěděl, jestli zaplatil).
-    ref.listen<AsyncValue<String?>>(paidAfterRestartProvider, (_, next) {
-      final id = next.valueOrNull;
-      if (id == null) return;
+    ref.listen<AsyncValue<PaidAfterRestart?>>(paidAfterRestartProvider, (_, next) {
+      final paid = next.valueOrNull;
+      if (paid == null) return;
+      final id = paid.bookingId;
       final tr = t(context);
+      // Doplatek úpravy / výměny ≠ „rezervace je potvrzená" (ta byla
+      // zaplacená už dřív) — text podle druhu platby.
+      final notice = switch (paid.kind) {
+        PaymentMarkerKind.edit => 'fxEditPaidNotice',
+        PaymentMarkerKind.swap => 'fxSwapPaidNotice',
+        PaymentMarkerKind.sos => 'fxSosPaidNotice',
+        _ => 'psPaidNotice',
+      };
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(tr.tr('psPaidNotice')),
+        content: Text(tr.tr(notice)),
         duration: const Duration(seconds: 8),
         action: SnackBarAction(
           label: tr.tr('psShow'),
@@ -325,9 +336,14 @@ class AppShell extends ConsumerWidget {
                     onTap: () async {
                       // Běží platba → odchod záložkou jen po potvrzení (výsledek
                       // by se ztratil a zákazník by mohl zaplatit podruhé).
-                      if (ref.read(paymentProcessingProvider) &&
-                          !await confirmLeaveRunningPayment(context)) {
-                        return;
+                      if (ref.read(paymentProcessingProvider)) {
+                        if (!await confirmLeaveRunningPayment(context)) return;
+                        if (!context.mounted) return;
+                        final leave = ref.read(paymentLeaveActionProvider);
+                        if (leave != null) {
+                          leave();
+                          return;
+                        }
                       }
                       if (!context.mounted) return;
                       // Obrazovky mimo záložky (profil/menu, zprávy, obchod,
@@ -639,16 +655,20 @@ class _BookingFab extends ConsumerWidget {
                 ) ??
                 false;
             if (!ok || !context.mounted) return;
-            try {
-              await cancelPendingBooking(booking.id);
-              ref.invalidate(pendingBookingFabProvider);
-            } catch (_) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(t(context).tr('cancelError'))),
-                );
+            // Selhání (offline / timeout) → CO, PROČ a JAK + „Zkusit znovu"
+            // (dřív holé „Chyba storna").
+            Future<void> doCancel() async {
+              try {
+                await cancelPendingBooking(booking.id);
+                ref.invalidate(pendingBookingFabProvider);
+              } catch (e) {
+                if (context.mounted) {
+                  showErrorSnack(context, t(context).tr('psCancelFailTitle'), e,
+                      where: 'fab_cancel_pending', onRetry: doCancel);
+                }
               }
             }
+            await doCancel();
           },
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),

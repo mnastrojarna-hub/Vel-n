@@ -218,7 +218,10 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
         child: SafeArea(child: SingleChildScrollView(child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(t(context).tr('newConversation'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+            // Vždy viditelný křížek (požadavek majitele: ze sheetu jde odejít).
+            MgSheetTitleRow(
+                title: Text(t(context).tr('newConversation'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
             const SizedBox(height: 16),
             TextField(
               controller: controller,

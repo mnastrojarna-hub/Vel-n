@@ -12,6 +12,7 @@ import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/pickup_location_link.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../reservations/reservation_provider.dart' show reservationsProvider;
+import 'booking_upsell_provider.dart';
 import 'payment_provider.dart';
 import 'payment_ui_helpers.dart';
 import 'payment_verify.dart';
@@ -87,6 +88,16 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
         ref.invalidate(reservationsProvider);
         if (o.verifiedRoute != null) {
           ref.read(lastConfirmedBookingProvider.notifier).state = o.verifyBookingId;
+          // Děkovačka nesmí převzít „znovu potvrzená" z dřívější obnovy.
+          ref.read(lastConfirmedRestoreProvider.notifier).state = o.verifiedRestore;
+          ref.read(lastConfirmedFromDraftProvider.notifier).state = false;
+          // Doprodej zaplacený s rezervací → objednávka až teď, po ověření
+          // (stejně jako přímý úspěch na platební obrazovce; viz D7).
+          if (o.verifiedUpsell.isNotEmpty) {
+            createBookingUpsellOrder(o.verifiedUpsell,
+                language: ref.read(localeProvider).languageCode);
+            ref.read(bookingUpsellProvider.notifier).clear();
+          }
           _goNext(o.verifiedRoute!);
         } else if (o.verifiedOutcome != null) {
           ref.read(paymentOutcomeProvider.notifier).state = o.verifiedOutcome;

@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/payment_pending_marker.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
 import '../../payment/net_error.dart';
@@ -94,10 +96,10 @@ class EditStateScaffold extends StatelessWidget {
 String editFailureText(BuildContext context, Object e, {bool move = false}) {
   final tr = t(context);
   final raw = '$e';
-  if (raw.contains('obslužné pobočky')) return tr.tr('swap.trailerStaffedOnly');
+  if (raw.contains('obslužné pobočky')) return tr.tr('fxTrailerStaffedOnly');
   if (raw.contains('trailer_unavailable')) return tr.tr('swap.trailerOccupied');
   if (raw.contains('Překrývající se rezervace') || raw.contains('přiřazen jako vozík')) {
-    return tr.tr('motoOccupied');
+    return tr.tr('fxMotoOccupied');
   }
   if (isNetworkError(e) || e is TimeoutException) return tr.tr('psEditNet');
   return tr.tr(move ? 'psMoveFail' : 'psEditFail');
@@ -116,6 +118,41 @@ void showEditFailure(BuildContext context, Object e,
     secondaryLabel: tr.tr('psWriteUs'),
     onSecondary: () => openContactUs(context),
   );
+}
+
+/// Odpověď na uložení se ztratila a stav nejde ověřit (pořád bez spojení) —
+/// změna se možná uložila. Žádné „nic se nezměnilo" ani slepé opakování:
+/// nejdřív načíst aktuální stav rezervace ([onReload]).
+void showEditUncertain(BuildContext context, {required VoidCallback onReload}) {
+  final tr = t(context);
+  PaymentErrorSheet.show(
+    context,
+    title: tr.tr('psUncertainTitle'),
+    message: tr.tr('fxEditUncertain'),
+    buttonLabel: tr.tr('psReload'),
+    onButton: onReload,
+    secondaryLabel: tr.tr('psWriteUs'),
+    onSecondary: () => openContactUs(context),
+  );
+}
+
+/// Předchozí doplatek této rezervace se ještě ověřuje (značka „platba
+/// odeslána") → DRUHÝ doplatek nenabízet (dvojí platba; server `stale_booking`
+/// chrání až po zápisu první změny). true = zablokováno, hláška ukázaná.
+Future<bool> blockIfSurchargePending(BuildContext context, String bookingId) async {
+  if (!await PaymentPendingMarker.isPending(bookingId)) return false;
+  if (!context.mounted) return true;
+  final tr = t(context);
+  PaymentErrorSheet.show(
+    context,
+    title: tr.tr('psPendingTitle'),
+    message: tr.tr('fxEditPendingBody'),
+    buttonLabel: tr.tr('psOpenReservation'),
+    onButton: () => context.go('/reservations/$bookingId'),
+    secondaryLabel: tr.tr('psWriteUs'),
+    onSecondary: () => openContactUs(context),
+  );
+  return true;
 }
 
 /// Doplatek pod minimem karty (1–14 Kč) — PŘED platbou: co dál (D1).

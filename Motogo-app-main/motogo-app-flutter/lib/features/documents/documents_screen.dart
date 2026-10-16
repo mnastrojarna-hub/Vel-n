@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io' show SocketException;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,10 +10,12 @@ import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/offline_guard.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../../core/friendly_error.dart';
 import '../../core/widgets/error_feedback.dart';
 import '../../core/widgets/state_views.dart';
+import 'document_models.dart' show ScanDocType;
 import 'document_provider.dart';
 import 'docs_gate_provider.dart';
 import 'docs_gate_widgets.dart';
@@ -318,37 +323,102 @@ class DocumentsScreen extends ConsumerWidget {
     }
     if (photo == null) return;
     if (!context.mounted) return;
-    final progress = MgProgress.show(context, t(context).tr('processingDoc'));
-    DocUploadResult upload;
-    try {
-      final result = await scanDocument(photo, docType);
-      upload = await uploadDocPhoto(photo, docType, mindeeOk: result != null, docSide: docSide);
-      if (result != null) {
-        await saveOcrToProfile(result, docType: docType, stepKey: stepKey);
+    await _processGalleryPhoto(context, ref, photo, docType, docSide, stepKey);
+  }
+
+  /// Zpracování vybrané fotky: bez sítě hned důvod (dřív minuty v modálu),
+  /// průběh s „pokus n/3" a po 20 s „Zrušit", celkový limit. „Zkusit znovu"
+  /// zpracuje STEJNOU fotku (bez nového výběru).
+  Future<void> _processGalleryPhoto(BuildContext context, WidgetRef ref, XFile photo,
+      ScanDocType docType, String? docSide, String stepKey) async {
+    final tr = t(context);
+    void retry() => _processGalleryPhoto(context, ref, photo, docType, docSide, stepKey);
+    if (!await _deviceOnline()) {
+      if (context.mounted) {
+        showErrorSnack(context, tr.tr('eoDocUploadWhat'), const SocketException('offline'),
+            where: 'docs_gallery_offline', onRetry: retry);
       }
+      return;
+    }
+    if (!context.mounted) return;
+    final progress = MgProgress.show(context, tr.tr('processingDoc'),
+        cancelAfter: const Duration(seconds: 20));
+    final op = _scanAndSave(photo, docType, docSide, stepKey, progress, tr);
+    DocUploadResult upload;
+    var abandoned = false;
+    try {
+      upload = await progress.guard(op).timeout(const Duration(seconds: 150));
+    } on MgCancelled {
+      abandoned = true;
+      upload = const DocUploadResult(errorDetail: 'cancelled');
     } catch (e) {
+      abandoned = e is TimeoutException;
       upload = DocUploadResult(errorDetail: '$e', cause: e);
     } finally {
       progress.close();
     }
+    if (abandoned) {
+      // Nahrání mohlo na pozadí doběhnout → pak obnov seznam dokladů.
+      unawaited(op.then((_) {
+        if (context.mounted) _refreshDocs(ref);
+      }, onError: (_) {}));
+    }
     if (!context.mounted) return;
-    ref.invalidate(docsVerifiedProvider);
-    ref.invalidate(docsGateChecklistProvider);
+    _refreshDocs(ref);
     final fe = FriendlyError.of(upload.cause);
-    if (upload.ok) {
+    if (progress.cancelled) {
+      showMotoGoToast(context, icon: 'ℹ️',
+          title: tr.tr('r3UploadStoppedTitle'), message: tr.tr('r3UploadStoppedBody'));
+    } else if (upload.ok) {
       // Fotka uložená → strana dokladu je nahraná (kódy dle brány dokladů).
-      showMotoGoToast(context, icon: '✅', title: t(context).tr('uploaded'), message: t(context).tr('docProcessed'));
+      showMotoGoToast(context, icon: '✅', title: tr.tr('uploaded'), message: tr.tr('docProcessed'));
     } else if (upload.cause != null && (fe.isNetwork || fe.kind == FriendlyKind.server)) {
       // Síť / server: skutečný důvod (dřív mylně „naskenuj doklad kamerou").
-      showErrorSnack(context, t(context).tr('eoDocUploadWhat'), upload.cause,
-          where: 'docs_gallery_upload', onRetry: () => _uploadFromGallery(context, ref));
+      showErrorSnack(context, tr.tr('eoDocUploadWhat'), upload.cause,
+          where: 'docs_gallery_upload', onRetry: retry);
     } else {
       // Upload nebo OCR selhaly — doveď uživatele na skener s kamerou,
       // kde má full retry + contact fallback flow.
       showMotoGoToast(context, icon: '⚠️',
-          title: t(context).tr('scanFailed'),
-          message: t(context).tr('scanUseCamera'));
+          title: tr.tr('scanFailed'),
+          message: tr.tr('scanUseCamera'));
     }
+  }
+
+  void _refreshDocs(WidgetRef ref) {
+    ref.invalidate(docsVerifiedProvider);
+    ref.invalidate(docsGateChecklistProvider);
+  }
+
+  /// Zapnutá Wi-Fi / data? Chyba pluginu = nevíme → zkusit (rozhodne server).
+  static Future<bool> _deviceOnline() async {
+    try {
+      return await OfflineGuard.isOnline().timeout(const Duration(seconds: 3));
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// OCR + uložení fotky. Výpadek spojení při OCR → rovnou důvod (fotka by
+  /// se na stejném signálu neuložila); jinak se fotka uloží VŽDY, i když OCR
+  /// selhalo (zákazník o ni nepřijde).
+  static Future<DocUploadResult> _scanAndSave(XFile photo, ScanDocType docType,
+      String? docSide, String stepKey, MgProgress progress, AppTranslations tr) async {
+    final base = tr.tr('processingDoc');
+    final scan = await scanDocumentWithRetry(photo, docType, retryOnNetwork: false,
+        onAttempt: (n, max) {
+      if (n > 1) progress.update('$base · ${tr.tr('attempt')} $n/$max');
+    });
+    if (scan.errorCode == 'network') {
+      return DocUploadResult(
+          errorDetail: scan.errorDetail ?? 'network', cause: const SocketException('offline'));
+    }
+    progress.update(tr.tr('r3SavingDocPhoto'));
+    final upload = await uploadDocPhoto(photo, docType, mindeeOk: scan.ok, docSide: docSide);
+    if (scan.data != null) {
+      await saveOcrToProfile(scan.data!, docType: docType, stepKey: stepKey);
+    }
+    return upload;
   }
 }
 

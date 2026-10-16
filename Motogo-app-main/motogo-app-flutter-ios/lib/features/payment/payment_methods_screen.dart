@@ -8,6 +8,8 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'payment_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/widgets/state_views.dart';
 
 /// Payment methods management — mirrors profile → Platební metody
 /// from profile-ui-2.js + api-payment-methods.js.
@@ -21,8 +23,7 @@ class PaymentMethodsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
-          behavior: HitTestBehavior.opaque,
+        leading: MgBackTap(
           // Bez historie by holé pop() zavřelo appku → Profil.
           onTap: () async {
             final popped = await Navigator.of(context).maybePop();
@@ -41,24 +42,14 @@ class PaymentMethodsScreen extends ConsumerWidget {
       ),
       body: cardsAsync.when(
         data: (cards) => _buildCardsList(context, ref, cards),
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: MotoGoColors.green),
-        ),
-        error: (_, __) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(t(context).tr('cardsLoadError'),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: MotoGoColors.red)),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () => ref.invalidate(paymentMethodsProvider),
-                icon: const Icon(Icons.refresh, size: 16),
-                label: Text(t(context).tr('retry')),
-              ),
-            ]),
-          ),
+        // Nikdy holý spinner: po 15 s „trvá to déle" + Zkusit znovu.
+        loading: () =>
+            MgLoadingView(onRetry: () => ref.invalidate(paymentMethodsProvider)),
+        // Co se stalo, proč a jak to opravit (offline / server…) + akce.
+        error: (e, _) => MgErrorView(
+          error: e,
+          what: t(context).tr('fxCardsLoadFail'),
+          onRetry: () => ref.invalidate(paymentMethodsProvider),
         ),
       ),
     );

@@ -10,6 +10,7 @@ import '../../core/widgets/state_views.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 import '../auth/widgets/toast_helper.dart';
 import 'messages_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Messages screen — mirrors s-messages from templates-done-pages.js.
 /// Two tabs: Oznámení (admin_messages) + Konverzace (threads).
@@ -44,7 +45,7 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () => context.backOr(Routes.profile),
           child: Center(
             child: Container(
@@ -217,7 +218,10 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
         child: SafeArea(child: SingleChildScrollView(child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(t(context).tr('newConversation'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+            // Vždy viditelný křížek (požadavek majitele: ze sheetu jde odejít).
+            MgSheetTitleRow(
+                title: Text(t(context).tr('newConversation'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
             const SizedBox(height: 16),
             TextField(
               controller: controller,

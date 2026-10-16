@@ -14,6 +14,7 @@ import '../../core/native/gps_service.dart';
 import '../../core/supabase_client.dart';
 import '../../core/friendly_error.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 import 'active_ride_provider.dart';
 import 'route_nav_status.dart';
 import 'routes_model.dart';
@@ -226,10 +227,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     // Během navigace se displej NIKDY nesmí vypnout (Android i iOS).
     WakelockPlus.enable();
     WidgetsBinding.instance.addObserver(this);
-    _start();
+    _start(request: true);
   }
 
   /// Návrat z Nastavení (povolená poloha) → znovu zkusit bez restartu navigace.
+  /// BEZ žádosti o oprávnění: zavření systémového dialogu („Nepovolit") samo
+  /// vyvolá `resumed` — žádost by zákazníkovi hned vyskočila podruhé.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _denied) _start();
@@ -237,8 +240,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
   /// Kontrola polohy BEZ vytahování do Nastavení (dřív to navigace udělala
   /// sama a bez vysvětlení); nápravu nabídne banner.
-  Future<void> _start() async {
-    final st = await GpsService.status();
+  Future<void> _start({bool request = false}) async {
+    final st = await GpsService.status(request: request);
     if (!mounted) return;
     if (st != GpsStatus.ok) {
       setState(() { _locating = false; _denied = true; _gpsStatus = st; });
@@ -1117,7 +1120,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(dc, false),
-              child: Text(t(dc).tr('routesFilterClear'))),
+              child: Text(t(dc).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFB91C1C),
@@ -1188,7 +1191,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(dc, false),
-              child: Text(t(dc).tr('routesFilterClear'))),
+              child: Text(t(dc).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: MotoGoColors.green,
@@ -1345,16 +1348,24 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: dataAsync.when(
-        loading: () => MgLoadingView(
-            color: MotoGoColors.greenDark,
-            onRetry: () => ref.invalidate(routesDataProvider),
-            onBack: () => context.backOr('/routes')),
-        // Chyba načtení ≠ „Trasa nenalezena": důvod + Zkusit znovu + Zpět.
-        error: (e, _) => MgErrorView(
-          error: e,
-          what: t(context).tr('eoRouteLoadFail'),
-          onRetry: () => ref.invalidate(routesDataProvider),
+        // Načítání i chyba mají hlavičku se šipkou zpět (navigace je přes
+        // celou obrazovku, bez spodní lišty).
+        loading: () => MgStateScaffold(
           onBack: () => context.backOr('/routes'),
+          child: MgLoadingView(
+              color: MotoGoColors.greenDark,
+              onRetry: () => ref.invalidate(routesDataProvider),
+              onBack: () => context.backOr('/routes')),
+        ),
+        // Chyba načtení ≠ „Trasa nenalezena": důvod + Zkusit znovu + Zpět.
+        error: (e, _) => MgStateScaffold(
+          onBack: () => context.backOr('/routes'),
+          child: MgErrorView(
+            error: e,
+            what: t(context).tr('eoRouteLoadFail'),
+            onRetry: () => ref.invalidate(routesDataProvider),
+            onBack: () => context.backOr('/routes'),
+          ),
         ),
         data: (data) {
           final listRoute = data.routes.firstWhere(
@@ -1653,7 +1664,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
             left: 16, right: 16, bottom: bottomInset + 134,
             child: NavStatusBanner(
               status: NavStatusBanner.fromGps(_gpsStatus) ?? NavStatus.denied,
-              onRequest: _gpsStatus == GpsStatus.denied ? _start : null,
+              onRequest: _gpsStatus == GpsStatus.denied
+                  ? () => _start(request: true)
+                  : null,
             ),
           ),
         // Ztráta GPS / slabý signál / trasa bez silnic (offline) — nahoře.
@@ -1784,9 +1797,12 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     return t(context).tr('routeNavTitle');
   }
 
+  // Zpět / ukončit jízdu: dotyková plocha 48 px + popisek pro čtečku.
   Widget _circleBtn(IconData icon, VoidCallback onTap, {Color? color}) =>
-      GestureDetector(
+      MgBackTap(
         onTap: onTap,
+        close: icon == Icons.close,
+        label: icon == Icons.close ? t(context).tr('routeEndBtn') : null,
         child: Container(
           width: 40, height: 40,
           decoration: BoxDecoration(
@@ -1812,11 +1828,14 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
       );
 
   /// Trasa v datech není (smazaná / zastaralý odkaz) — srozumitelně + Zpět.
-  Widget _exit(BuildContext context) => MgErrorView(
-        what: t(context).tr('routeNotFound'),
-        message: t(context).tr('eoRouteGoneBody'),
-        contact: false,
+  Widget _exit(BuildContext context) => MgStateScaffold(
         onBack: () => context.backOr('/routes'),
+        child: MgErrorView(
+          what: t(context).tr('routeNotFound'),
+          message: t(context).tr('eoRouteGoneBody'),
+          contact: false,
+          onBack: () => context.backOr('/routes'),
+        ),
       );
 }
 

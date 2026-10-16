@@ -8,7 +8,7 @@ const Map<String, Map<String, String>> translationsExt22Eshop = {
     'shopCodeNotForVoucher': 'Slevový kód nelze uplatnit na nákup dárkového poukazu.',
     'shopCodeInvalid': 'Kód {code} nelze v e-shopu uplatnit. Platí jen slevové (promo) kódy — dárkové poukazy a poukazy ze Slevomatu jen na půjčení motorky.',
     'shopOutOfStock': 'Některé zboží v košíku už není skladem v požadovaném množství.',
-    'shopProductUnavailable': 'Některé zboží v košíku už není v nabídce. Upravte prosím košík.',
+    'shopProductUnavailable': 'Některé zboží v košíku už není v nabídce. Uprav prosím košík.',
   },
   'en': {
     'shopVoucherNotAllowed': 'Gift vouchers and Slevomat vouchers cannot be used in the e-shop — they are only valid for motorcycle rental.',

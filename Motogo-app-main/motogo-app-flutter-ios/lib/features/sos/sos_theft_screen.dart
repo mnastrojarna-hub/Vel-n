@@ -10,6 +10,7 @@ import '../auth/widgets/toast_helper.dart';
 import 'sos_feedback.dart';
 import 'sos_location.dart';
 import 'sos_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Theft screen — mirrors s-sos-kradez from templates-res-sos.js.
 /// 4-step instructions + secured/unsecured decision + report + replacement.
@@ -215,7 +216,7 @@ class _SosTheftState extends ConsumerState<SosTheftScreen> {
           Text(t(context).tr('theftTitle'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
           Text(t(context).tr('followStepsBelow'), style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
         ])),
-        GestureDetector(
+        MgBackTap(
           onTap: () => context.backOr(Routes.sos),
           child: Container(
             width: 36, height: 36,

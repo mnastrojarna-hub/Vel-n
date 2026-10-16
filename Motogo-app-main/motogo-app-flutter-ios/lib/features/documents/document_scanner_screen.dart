@@ -15,6 +15,7 @@ import 'document_models.dart';
 import 'document_provider.dart';
 import 'docs_gate_provider.dart';
 import '../auth/auth_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 // Kontakt z CLAUDE.md — firma Bc. Petra Semorádová.
 const String _kSupportPhone = '+420 774 256 271';
@@ -627,7 +628,16 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
               : '${t(context).tr('docsScanIncomplete')}\n'
                   '${t(context).tr('missing')}: ${missing.join(', ')}',
           duration: const Duration(seconds: 6));
-    } else if (gate != null && !gate.ok) {
+    } else if (gate == null) {
+      // Bránu dokladů se nepodařilo zeptat (výpadek / časový limit) — fotky
+      // máme, ale „ověřeno" by nebyla pravda. Výsledek je v Mých dokladech.
+      showMotoGoToast(context,
+          icon: '⏳', title: t(context).tr('scanComplete'),
+          message: t(context).tr('navDocsVerifyPending'),
+          duration: const Duration(seconds: 7));
+      context.go(Routes.docs);
+      return;
+    } else if (!gate.ok) {
       // Strany jsou, ale brána dál drží kódy (datum narození / 18+ /
       // platnost či skupina ŘP) — žádné „nahrány a ověřeny“.
       final rest = docsGateMissingLabels(context, gate);
@@ -807,7 +817,21 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
           CustomPaint(painter: DocumentFramePainter(
               isPassport: step.docType == ScanDocType.passport)),
 
-        // Top header + progress
+        // Processing overlay
+        if (_scanning)
+          Container(
+            color: Colors.black.withValues(alpha: 0.6),
+            child: Center(child: Column(
+                mainAxisSize: MainAxisSize.min, children: [
+              const CircularProgressIndicator(color: MotoGoColors.green),
+              const SizedBox(height: 12),
+              Text(_progressText ?? t(context).tr('processing'), style: const TextStyle(
+                  fontSize: 14, color: Colors.white)),
+            ])),
+          ),
+
+        // Top header + progress — NAD překryvem zpracování, ať je šipka zpět
+        // vidět a funguje i během nahrávání (systémové zpět funguje vždy).
         Positioned(
           top: mq.padding.top + 8, left: 16, right: 16,
           child: Column(children: [
@@ -830,19 +854,6 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
             _progressDots(),
           ]),
         ),
-
-        // Processing overlay
-        if (_scanning)
-          Container(
-            color: Colors.black.withValues(alpha: 0.6),
-            child: Center(child: Column(
-                mainAxisSize: MainAxisSize.min, children: [
-              const CircularProgressIndicator(color: MotoGoColors.green),
-              const SizedBox(height: 12),
-              Text(_progressText ?? t(context).tr('processing'), style: const TextStyle(
-                  fontSize: 14, color: Colors.white)),
-            ])),
-          ),
 
         // Guide text
         if (!_scanning && _resultKind == _ResultKind.none)
@@ -1105,7 +1116,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     )),
   );
 
-  Widget _backBtn(VoidCallback onTap) => GestureDetector(
+  Widget _backBtn(VoidCallback onTap) => MgBackTap(
     onTap: onTap,
     child: Container(width: 36, height: 36,
         decoration: BoxDecoration(
@@ -1122,18 +1133,22 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     return t(context).tr('placeIdInFrame');
   }
 
+  // Šipka zpět i během ověřování (ověření doběhne na serveru i tak).
   Widget _doneScreen() => Scaffold(
     backgroundColor: MotoGoColors.dark,
-    body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Text('✅', style: TextStyle(fontSize: 48)),
-      const SizedBox(height: 16),
-      Text(t(context).tr('scanComplete'), style: const TextStyle(fontSize: 20,
-          fontWeight: FontWeight.w900, color: Colors.white)),
-      const SizedBox(height: 8),
-      Text(t(context).tr('verifyingDocs'), style: const TextStyle(fontSize: 13,
-          color: Colors.white54)),
-      SizedBox(height: 24),
-      CircularProgressIndicator(color: MotoGoColors.green),
+    body: SafeArea(child: Column(children: [
+      _headerRow(),
+      Expanded(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('✅', style: TextStyle(fontSize: 48)),
+        const SizedBox(height: 16),
+        Text(t(context).tr('scanComplete'), style: const TextStyle(fontSize: 20,
+            fontWeight: FontWeight.w900, color: Colors.white)),
+        const SizedBox(height: 8),
+        Text(t(context).tr('verifyingDocs'), style: const TextStyle(fontSize: 13,
+            color: Colors.white54)),
+        SizedBox(height: 24),
+        CircularProgressIndicator(color: MotoGoColors.green),
+      ]))),
     ])),
   );
 

@@ -12,6 +12,7 @@ import 'shop_models.dart';
 import 'shop_provider.dart';
 import '../../core/currency.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Product detail — mirrors s-merch-detail from templates-shop-detail.js.
 class ProductDetailScreen extends ConsumerStatefulWidget {
@@ -90,7 +91,7 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                   ),
                 ),
                 Positioned(top: MediaQuery.of(context).padding.top + 8, left: 12,
-                  child: GestureDetector(
+                  child: MgBackTap(
                     onTap: () => context.backOr(Routes.shop),
                     child: Container(width: 36, height: 36,
                       decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(10)),

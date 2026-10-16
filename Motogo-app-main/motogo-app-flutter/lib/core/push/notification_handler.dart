@@ -106,7 +106,9 @@ class NotificationHandler {
     } catch (_) {}
     final ctx = _navKey?.currentContext;
     if (ctx == null || !ctx.mounted) return;
-    ctx.push(container.read(hasActiveRentalProvider) ? Routes.sos : Routes.messages);
+    // Cíl je v AppShellu — nad obrazovkou mimo shell (navigace, doklady…)
+    // by push zdvojil shell → `pushOrGo`.
+    ctx.pushOrGo(container.read(hasActiveRentalProvider) ? Routes.sos : Routes.messages);
   }
 
   /// Klepnutí na notifikaci při studeném startu přijde dřív, než router
@@ -144,17 +146,17 @@ class NotificationHandler {
 
     switch (type) {
       case 'booking':
-        if (id != null) context.push('/reservations/$id');
+        if (id != null) context.pushOrGo('/reservations/$id');
         break;
       case 'handover_protocol':
         // Předávací protokol (samoobslužná) → detail rezervace; vyplňuje se
         // jen na displeji pobočky, podepsané PDF je v dokumentech rezervace.
-        if (id != null) context.push('/reservations/$id');
+        if (id != null) context.pushOrGo('/reservations/$id');
         break;
       case 'door_codes':
         // Door codes notification → go to messages to see the codes
         // (`id` = admin_messages.id → zprávu rozbalit a označit přečtenou)
-        context.push(id != null ? '${Routes.messages}?n=$id' : Routes.messages);
+        context.pushOrGo(id != null ? '${Routes.messages}?n=$id' : Routes.messages);
         break;
       case 'sos':
         _openSos(context);
@@ -162,13 +164,13 @@ class NotificationHandler {
       case 'message':
         // `id` je admin_messages.id (trg_push_on_admin_message), NE id konverzace —
         // dřív se otevřel prázdný „chat“ a zpráva zůstala nepřečtená.
-        context.push(id != null ? '${Routes.messages}?n=$id' : Routes.messages);
+        context.pushOrGo(id != null ? '${Routes.messages}?n=$id' : Routes.messages);
         break;
       case 'shop_order':
-        context.push(Routes.shop);
+        context.pushOrGo(Routes.shop);
         break;
       default:
-        context.push(Routes.messages);
+        context.pushOrGo(Routes.messages);
     }
   }
 }

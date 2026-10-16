@@ -9,38 +9,12 @@ import 'package:http/http.dart' as http;
 class GpsService {
   GpsService._();
 
-  /// Check & request location permission if needed.
-  /// If denied → requests via system dialog.
-  static Future<bool> ensurePermission() async {
-    debugPrint('[GPS_SVC] ensurePermission()');
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    debugPrint('[GPS_SVC] locationServiceEnabled: $serviceEnabled');
-    if (!serviceEnabled) {
-      debugPrint('[GPS_SVC] ✗ location service OFF → opening settings');
-      await Geolocator.openLocationSettings();
-      return false;
-    }
-
-    var perm = await Geolocator.checkPermission();
-    debugPrint('[GPS_SVC] checkPermission: $perm');
-
-    if (perm == LocationPermission.denied) {
-      debugPrint('[GPS_SVC] permission denied → requesting...');
-      perm = await Geolocator.requestPermission();
-      debugPrint('[GPS_SVC] requestPermission result: $perm');
-    }
-
-    if (perm == LocationPermission.deniedForever) {
-      debugPrint('[GPS_SVC] ✗ deniedForever → need app settings');
-      await Geolocator.openAppSettings();
-      return false;
-    }
-
-    final ok = perm == LocationPermission.whileInUse ||
-        perm == LocationPermission.always;
-    debugPrint('[GPS_SVC] permission result: $ok ($perm)');
-    return ok;
-  }
+  /// Je poloha k dispozici? Nepovolené oprávnění si jednou vyžádá
+  /// systémovým dialogem. NIKDY sama neotevře Nastavení (dřív to dělala bez
+  /// jediného slova — mapa Míst/Tras zákazníka hned po otevření „vyhodila"
+  /// do Nastavení). Důvod a „Otevřít nastavení" ukáže volající přes
+  /// [status] / [locate] + `explainLocation`.
+  static Future<bool> ensurePermission() async => await status() == GpsStatus.ok;
 
   /// Stav polohy BEZ vytahování zákazníka do Nastavení (2026-10-16): SOS a
   /// navigace dřív uprostřed hlášení / jízdy tiše otevřely systémové
@@ -75,7 +49,7 @@ class GpsService {
   /// 2. Low accuracy fallback (30s timeout)
   static Future<Position?> getCurrentPosition() async {
     debugPrint('[GPS_SVC] getCurrentPosition() start');
-    final hasPermission = await ensurePermission();
+    final hasPermission = await status() == GpsStatus.ok;
     if (!hasPermission) {
       debugPrint('[GPS_SVC] ✗ no permission → trying lastKnown');
       return _getLastKnown();

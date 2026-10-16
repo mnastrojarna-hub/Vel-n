@@ -27,6 +27,7 @@ import 'core/push/notification_handler.dart';
 import 'core/native/permission_service.dart';
 import 'core/supabase_client.dart';
 import 'core/router.dart';
+import 'core/safe_router_config.dart';
 import 'core/theme.dart';
 import 'core/i18n/i18n_provider.dart';
 import 'core/overlays/onboarding_overlays.dart';
@@ -398,7 +399,9 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
       title: 'MotoGo24',
       debugShowCheckedModeBanner: false,
       theme: MotoGoTheme.dark,
-      routerConfig: router,
+      // GoRouter + ochrana před odkazy s vlastním schématem (návrat ze
+      // Stripe 3DS `motogo24://payment`) — viz safe_router_config.dart.
+      routerConfig: mgSafeRouterConfig(router),
       locale: locale,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

@@ -94,6 +94,8 @@ class PaymentRefusals {
       PayFlow.edit => 'psBelowMinEdit',
       PayFlow.swap => 'psBelowMinSwap',
       PayFlow.shop => 'psBelowMinShop',
+      // Dokončovaná / obnovená rezervace: doplněk už přidat nejde (D1).
+      PayFlow.resume => 'fxBelowMinResume',
       _ => 'psBelowMinBooking',
     };
     return _t(lang, key).replaceAll('{amount}', Money.czk(amount));

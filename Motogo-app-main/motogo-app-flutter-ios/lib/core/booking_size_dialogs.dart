@@ -5,6 +5,7 @@ import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
 import '../features/loyalty/loyalty_provider.dart';
 import 'i18n/i18n_provider.dart';
+import 'widgets/mg_nav_controls.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 // BOOKING SIZE / GEAR PICKER DIALOGS
@@ -41,9 +42,7 @@ void showPassengerGearSheet(
           padding: EdgeInsets.fromLTRB(20, 16, 20,
             MediaQuery.of(c).padding.bottom + 16),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(
-              color: const Color(0xFFD4E8E0),
-              borderRadius: BorderRadius.circular(2))),
+            const MgSheetHandle(),
             const SizedBox(height: 14),
             Text('${t(ctx).tr('sizesLabel')} – ${item.name}',
               style: const TextStyle(fontSize: 15,
@@ -156,9 +155,7 @@ void showSizeDialog(
       padding: EdgeInsets.fromLTRB(20, 16, 20,
         MediaQuery.of(c).padding.bottom + 16),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 40, height: 4, decoration: BoxDecoration(
-          color: const Color(0xFFD4E8E0),
-          borderRadius: BorderRadius.circular(2))),
+        const MgSheetHandle(),
         const SizedBox(height: 14),
         Text('${t(c).tr('selectSizeTitle')} – ${extraLabel(t(c).tr, item.id, item.name)}',
           style: const TextStyle(fontSize: 15,

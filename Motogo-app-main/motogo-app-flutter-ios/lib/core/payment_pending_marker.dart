@@ -16,11 +16,44 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// platbu shodit — značka je jen pojistka, každá operace je v try/catch.
 const paymentMarkerTtl = Duration(minutes: 15);
 
+/// Jak dlouho po vypršení [paymentMarkerTtl] ještě pamatovat PaymentIntent
+/// posledního pokusu: banka může platbu potvrzovat déle než 15 minut — FAB
+/// pak před nabídkou další platby ověří stav u Stripe (dvojí platba).
+const paymentIntentKeep = Duration(hours: 2);
+
+/// Co se platí — rozhoduje, čím se po restartu appky ověří výsledek.
+/// Doplatek úpravy / výměny běží nad UŽ ZAPLACENOU rezervací (`payment_status`
+/// = 'paid' z původní platby) → „zaplaceno" podle DB by byl falešný úspěch.
+class PaymentMarkerKind {
+  PaymentMarkerKind._();
+  /// Nová / dokončovaná / obnovená rezervace — důkaz = `payment_status`.
+  static const booking = 'booking';
+  /// Doplatek úpravy rezervace — důkaz = nová `total_price` ([PaymentMarker.expectedTotal]).
+  static const edit = 'edit';
+  /// Doplatek výměny motorky — důkaz jen stav PaymentIntentu u Stripe.
+  static const swap = 'swap';
+  /// Platba SOS nad existující rezervací — důkaz jen stav PaymentIntentu.
+  static const sos = 'sos';
+  /// Objednávka e-shopu (ověřuje si ji košík sám).
+  static const order = 'order';
+}
+
 class PaymentMarker {
   final String id;
   final DateTime at;
   final String? clientSecret;
-  const PaymentMarker(this.id, this.at, this.clientSecret);
+  /// [clientSecret] patří k POSLEDNÍMU pokusu o platbu (zapsal ho právě ten
+  /// pokus). Jen takový PaymentIntent smí rozhodnout „nezaplaceno" — starý,
+  /// opuštěný intent z dřívějšího pokusu by lhal (dvojí platba).
+  final bool clientSecretCurrent;
+  /// [PaymentMarkerKind] — bez údaje (starší zápis) = rezervace.
+  final String kind;
+  /// Doplatek úpravy: nová cena rezervace po zaplacení (důkaz v DB).
+  final double? expectedTotal;
+  const PaymentMarker(this.id, this.at, this.clientSecret,
+      {this.clientSecretCurrent = false,
+      this.kind = PaymentMarkerKind.booking,
+      this.expectedTotal});
 }
 
 class PaymentPendingMarker {
@@ -37,25 +70,58 @@ class PaymentPendingMarker {
         if (v is Map) m[k.toString()] = Map<String, dynamic>.from(v);
       });
       final now = DateTime.now().millisecondsSinceEpoch;
-      m.removeWhere((_, v) =>
-          now - ((v['at'] as num?)?.toInt() ?? 0) > paymentMarkerTtl.inMilliseconds);
+      m.removeWhere((_, v) {
+        final age = now - ((v['at'] as num?)?.toInt() ?? 0);
+        return age > (_hasCurrentCs(v) ? paymentIntentKeep : paymentMarkerTtl).inMilliseconds;
+      });
       return m;
     } catch (_) {
       return {};
     }
   }
 
+  static bool _hasCurrentCs(Map<String, dynamic> v) {
+    final att = (v['att'] as num?)?.toInt();
+    return v['cs'] != null && att != null && (v['csAtt'] as num?)?.toInt() == att;
+  }
+
+  static bool _fresh(Map<String, dynamic> v) =>
+      DateTime.now().millisecondsSinceEpoch - ((v['at'] as num?)?.toInt() ?? 0) <=
+      paymentMarkerTtl.inMilliseconds;
+
   /// Platba pro [id] byla odeslána (nebo její výsledek je nejistý).
-  /// [clientSecret] = PaymentIntent, je-li znám (ověření stavu u Stripe).
-  static Future<void> set(String? id, {String? clientSecret}) async {
+  /// [clientSecret] = PaymentIntent TOHOTO pokusu, je-li znám (ověření stavu
+  /// u Stripe). [fresh] = začíná nový pokus o platbu: PaymentIntent z
+  /// dřívějšího pokusu se NEDĚDÍ (opuštěný nezaplacený intent by jinak při
+  /// ověření tvrdil „nic nestrženo", i když právě stržená uložená karta prošla).
+  /// [kind] = [PaymentMarkerKind] (doplatek úpravy / výměny se po restartu
+  /// NESMÍ ověřovat podle `payment_status`), [expectedTotal] = nová cena
+  /// rezervace po doplatku úpravy.
+  static Future<void> set(String? id,
+      {String? clientSecret,
+      bool fresh = false,
+      String? kind,
+      double? expectedTotal}) async {
     if (id == null || id.isEmpty) return;
     try {
       final p = await SharedPreferences.getInstance();
       final m = _load(p);
-      final prev = m[id];
+      final old = m[id];
+      final prev = fresh ? null : old;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      // Číslo pokusu (čas jeho začátku) — nový pokus = nové číslo.
+      final att = (prev?['att'] as num?)?.toInt() ?? now;
+      final cs = clientSecret ?? prev?['cs'];
+      final csAtt = clientSecret != null ? att : prev?['csAtt'];
+      final k = kind ?? old?['k'];
+      final exp = expectedTotal ?? prev?['exp'];
       m[id] = {
-        'at': DateTime.now().millisecondsSinceEpoch,
-        if ((clientSecret ?? prev?['cs']) != null) 'cs': clientSecret ?? prev?['cs'],
+        'at': now,
+        'att': att,
+        if (cs != null) 'cs': cs,
+        if (cs != null && csAtt != null) 'csAtt': csAtt,
+        if (k != null) 'k': k,
+        if (exp != null) 'exp': exp,
       };
       await p.setString(_key, jsonEncode(m));
     } catch (_) {}
@@ -77,26 +143,57 @@ class PaymentPendingMarker {
     try {
       final p = await SharedPreferences.getInstance();
       final v = _load(p)[id];
-      if (v == null) return null;
-      return PaymentMarker(
-          id,
-          DateTime.fromMillisecondsSinceEpoch((v['at'] as num).toInt()),
-          v['cs'] as String?);
+      if (v == null || !_fresh(v)) return null;
+      return _marker(id, v);
     } catch (_) {
       return null;
     }
   }
 
+  static PaymentMarker _marker(String id, Map<String, dynamic> v) {
+    final att = (v['att'] as num?)?.toInt();
+    return PaymentMarker(
+        id,
+        DateTime.fromMillisecondsSinceEpoch((v['at'] as num).toInt()),
+        v['cs'] as String?,
+        clientSecretCurrent: att != null && (v['csAtt'] as num?)?.toInt() == att,
+        kind: (v['k'] as String?) ?? PaymentMarkerKind.booking,
+        expectedTotal: (v['exp'] as num?)?.toDouble());
+  }
+
   /// true = platba pro [id] byla odeslána před méně než [paymentMarkerTtl].
   static Future<bool> isPending(String? id) async => (await get(id)) != null;
 
-  /// Všechna čerstvá id (kontrola výsledku po restartu appky).
-  static Future<List<String>> pendingIds() async {
+  /// Všechny čerstvé značky (kontrola výsledku po restartu appky).
+  static Future<List<PaymentMarker>> pendingMarkers() async {
     try {
       final p = await SharedPreferences.getInstance();
-      return _load(p).keys.toList();
+      return _load(p)
+          .entries
+          .where((e) => _fresh(e.value))
+          .map((e) => _marker(e.key, e.value))
+          .toList();
     } catch (_) {
       return const [];
+    }
+  }
+
+  /// Id všech čerstvých značek.
+  static Future<List<String>> pendingIds() async =>
+      [for (final m in await pendingMarkers()) m.id];
+
+  /// PaymentIntent posledního pokusu, jehož značka už vypršela (> 15 min),
+  /// ale intent si pamatujeme ([paymentIntentKeep]) — před nabídkou další
+  /// platby ověřit jeho stav u Stripe. null = nic takového.
+  static Future<String?> expiredIntent(String? id) async {
+    if (id == null || id.isEmpty) return null;
+    try {
+      final p = await SharedPreferences.getInstance();
+      final v = _load(p)[id];
+      if (v == null || _fresh(v) || !_hasCurrentCs(v)) return null;
+      return v['cs'] as String?;
+    } catch (_) {
+      return null;
     }
   }
 }

@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 import '../../auth/auth_provider.dart';
 import '../../auth/widgets/toast_helper.dart';
 import '../../reservations/reservation_provider.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
 
 /// Bottom sheet for managing notification and privacy consents.
 class ConsentSheet extends ConsumerStatefulWidget {
@@ -153,14 +154,14 @@ class _ConsentSheetState extends ConsumerState<ConsentSheet> {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(
+          MgSheetTitleRow(title: Text(
             widget.section == 'notif' ? t(context).tr('notificationsSection') : t(context).tr('privacySection'),
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w900,
               color: MotoGoColors.black,
             ),
-          ),
+          )),
           const SizedBox(height: 16),
           if (_locked) ...[
             Container(

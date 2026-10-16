@@ -11,6 +11,7 @@ import '../../auth/biometric_service.dart';
 import '../../auth/widgets/toast_helper.dart';
 import 'perm_result.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
 
 /// Shows a bottom sheet for changing password.
 ///
@@ -29,8 +30,8 @@ void showChangePasswordSheet(BuildContext context) {
       builder: (ctx, setSheet) => Padding(
         padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(t(context).tr('changePassword'),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+          MgSheetTitleRow(title: Text(t(context).tr('changePassword'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black))),
           const SizedBox(height: 16),
           TextField(
               controller: passCtrl,
@@ -115,8 +116,8 @@ void showLanguagePickerSheet(BuildContext context) {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(t(ctx).tr('language'),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+          MgSheetTitleRow(title: Text(t(ctx).tr('language'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black))),
           const SizedBox(height: 16),
           ...langs.map((l) => ListTile(
             title: Text(l.$2, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
@@ -150,8 +151,8 @@ void showCurrencyPickerSheet(BuildContext context) {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(t(ctx).tr('currency'),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+          MgSheetTitleRow(title: Text(t(ctx).tr('currency'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black))),
           const SizedBox(height: 6),
           Text(t(ctx).tr('currencyNote'),
               textAlign: TextAlign.center,
@@ -247,11 +248,11 @@ class _PermissionsSheetState extends State<_PermissionsSheet>
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(t(context).tr('permissions'),
+          MgSheetTitleRow(title: Text(t(context).tr('permissions'),
               style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  color: MotoGoColors.black)),
+                  color: MotoGoColors.black))),
           const SizedBox(height: 6),
           Text(
             '${t(context).tr('permsGrantedFirstRun')}\n'

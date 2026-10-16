@@ -20,6 +20,7 @@ class MapTileErrors {
 
   static DateTime? _windowStart;
   static int _count = 0;
+  static Timer? _autoRetry;
 
   /// Pro `TileLayer(errorTileCallback:)`. Jedna vadná dlaždice nic nehlásí,
   /// až 3 chyby za 30 s.
@@ -32,9 +33,17 @@ class MapTileErrors {
     }
     _count++;
     if (_count >= 3 && failingSince.value == null) failingSince.value = now;
+    if (failingSince.value != null) {
+      // Spojení se mohlo vrátit (i bez změny sítě) — 30 s po poslední chybě
+      // podklady tiše zkusit znovu: štítek zmizí, a když chyba trvá, vrátí se.
+      _autoRetry?.cancel();
+      _autoRetry = Timer(const Duration(seconds: 30), retry);
+    }
   }
 
   static void retry() {
+    _autoRetry?.cancel();
+    _autoRetry = null;
     failingSince.value = null;
     _windowStart = null;
     _count = 0;

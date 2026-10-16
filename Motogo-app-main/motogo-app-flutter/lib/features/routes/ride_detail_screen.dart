@@ -199,7 +199,7 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
-              child: Text(t(c).tr('routesFilterClear'))),
+              child: Text(t(c).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: MotoGoColors.green,
@@ -229,7 +229,7 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
-              child: Text(t(c).tr('routesFilterClear'))),
+              child: Text(t(c).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD93636),

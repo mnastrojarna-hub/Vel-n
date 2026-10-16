@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/supabase_client.dart';
 import '../../core/booking_rules.dart';
 import '../../core/widgets/pickup_location_link.dart';
+import 'booking_upsell_provider.dart' show BookingUpsellItem;
 import 'net_error.dart';
 export '../../core/booking_rules.dart' show paymentTimeoutDuration;
 
@@ -128,7 +129,28 @@ Future<bool> attachPaymentMethod(String pmId) async {
     final data = res.data as Map<String, dynamic>?;
     return data?['success'] == true;
   } catch (e) {
-    if (isNetworkError(e)) rethrow;
+    if (isNetworkError(e)) {
+      // Odpověď se ztratila — karta se mohla uložit. Ověřit dřív, než ji
+      // zákazník „zkusí znovu" a uloží podruhé.
+      if (await _cardAttached(pmId)) return true;
+      rethrow;
+    }
+    return false;
+  }
+}
+
+/// Je karta (Stripe payment method) už v `payment_methods` zákazníka?
+Future<bool> _cardAttached(String pmId) async {
+  try {
+    final row = await MotoGoSupabase.client
+        .from('payment_methods')
+        .select('id')
+        .eq('stripe_payment_method_id', pmId)
+        .limit(1)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 8));
+    return row != null;
+  } catch (_) {
     return false;
   }
 }
@@ -231,6 +253,12 @@ final lastConfirmedBookingProvider = StateProvider<String?>((ref) => null);
 /// true = poslední potvrzená rezervace byla OBNOVENÁ (zrušená → zaplacená).
 final lastConfirmedRestoreProvider = StateProvider<bool>((ref) => false);
 
+/// true = poslední potvrzená rezervace vznikla z rezervačního formuláře v
+/// TÉTO relaci (draft v paměti je její). Jinak (FAB „Dokončit", obnova,
+/// ověření po „Platba se ověřuje") děkovačka draft NESMÍ použít — byla by
+/// to jiná motorka / termín.
+final lastConfirmedFromDraftProvider = StateProvider<bool>((ref) => false);
+
 /// Jeden řádek detailu na univerzální výsledkové obrazovce (ikona + text).
 class PaymentOutcomeLine {
   final String icon;
@@ -269,6 +297,10 @@ class PaymentOutcome {
   final String? verifiedRoute;
   /// … nebo ukázat tenhle výsledek (úprava, e-shop).
   final PaymentOutcome? verifiedOutcome;
+  /// Ověřeně zaplacená rezervace byla OBNOVENÁ (děkovačka „znovu potvrzená").
+  final bool verifiedRestore;
+  /// Doprodej zaplacený spolu s novou rezervací → objednat po ověření.
+  final List<BookingUpsellItem> verifiedUpsell;
   /// Prokazatelně nezaplaceno → co zákazníkovi říct (a že může platit znovu).
   final String? notPaidMessage;
 
@@ -287,6 +319,8 @@ class PaymentOutcome {
     this.verifyIntentOnly = false,
     this.verifiedRoute,
     this.verifiedOutcome,
+    this.verifiedRestore = false,
+    this.verifiedUpsell = const [],
     this.notPaidMessage,
   });
 }

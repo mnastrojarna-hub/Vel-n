@@ -12,6 +12,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'sos_location.dart';
 import 'sos_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Service self-repair screen — mirrors s-sos-servis from templates-res-sos2.js.
 /// 4-step instructions + invoice upload. Creates breakdown_minor incident.
@@ -125,7 +126,7 @@ class _SosServiceState extends ConsumerState<SosServiceScreen> {
                     Text(t(context).tr('selfServiceTitle'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
                     Text(t(context).tr('selfServiceSubtitle'), style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
                   ])),
-                  GestureDetector(
+                  MgBackTap(
                     onTap: () => context.backOr(Routes.sos),
                     child: Container(
                       width: 36, height: 36,

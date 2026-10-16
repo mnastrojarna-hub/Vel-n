@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../friendly_error.dart';
+import '../native/gps_service.dart' show GpsStatus;
 import '../i18n/i18n_provider.dart';
 import '../theme.dart';
 
@@ -46,10 +49,11 @@ void showErrorSnack(
   VoidCallback? onRetry,
   DevicePerm? perm,
   String? where,
+  FriendlyError? friendly,
 }) {
-  FriendlyError.log(where ?? 'ui_error', error);
+  if (error != null) FriendlyError.log(where ?? 'ui_error', error);
   final tr = t(context);
-  final fe = FriendlyError.of(error, perm: perm);
+  final fe = friendly ?? FriendlyError.of(error, perm: perm);
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
   SnackBarAction? action;
@@ -106,15 +110,56 @@ Future<String?> showErrorDialog(
   );
 }
 
+/// Poloha není k dispozici (vypnutá / bez oprávnění / bez GPS signálu) →
+/// PROČ a JAK to opravit. Nastavení se otevře JEN na klepnutí „Otevřít
+/// nastavení" (dřív ho appka otevírala sama a beze slova). [snack] = jen
+/// nenápadný toast (poloha se zjišťuje sama při otevření obrazovky), jinak
+/// dialog (zákazník si o polohu právě řekl — i nad bottom sheetem).
+Future<void> explainLocation(BuildContext context, GpsStatus st,
+    {bool snack = false}) async {
+  if (st == GpsStatus.ok || !context.mounted) return;
+  final tr = t(context);
+  final fe = switch (st) {
+    GpsStatus.serviceOff => const FriendlyError(FriendlyKind.locationOff),
+    GpsStatus.denied || GpsStatus.deniedForever =>
+      const FriendlyError(FriendlyKind.permission, perm: DevicePerm.location),
+    _ => null,
+  };
+  if (snack) {
+    if (fe != null) {
+      showErrorSnack(context, tr.tr('fxLocUnavailable'), null, friendly: fe);
+      return;
+    }
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+          content: Text(tr.tr('fxLocNoFixBody')),
+          duration: const Duration(seconds: 7)));
+    return;
+  }
+  if (fe == null) {
+    await showErrorDialog(context,
+        title: tr.tr('fxLocNoFixTitle'), body: tr.tr('fxLocNoFixBody'));
+    return;
+  }
+  final r = await showErrorDialog(context,
+      title: fe.title(tr),
+      body: fe.body(tr),
+      actions: [('settings', tr.tr('eoOpenSettings'))]);
+  if (r == 'settings') await openFixSettings(fe);
+}
+
 /// Dotaz před zahozením rozpracovaných údajů (zpět / ✕). true = zahodit.
-Future<bool> confirmDiscard(BuildContext context) async {
+/// [title] / [body] = vlastní texty (např. úpravy trasy), jinak obecné.
+Future<bool> confirmDiscard(BuildContext context,
+    {String? title, String? body}) async {
   final tr = t(context);
   final r = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(tr.tr('eoDiscardTitle'),
+      title: Text(title ?? tr.tr('eoDiscardTitle'),
           style: const TextStyle(fontWeight: FontWeight.w800)),
-      content: Text(tr.tr('eoDiscardBody')),
+      content: Text(body ?? tr.tr('eoDiscardBody')),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, true),
@@ -131,44 +176,137 @@ Future<bool> confirmDiscard(BuildContext context) async {
   return r == true;
 }
 
-/// Neblokovatelný průběh (spinner + text) přes celou obrazovku — akce, která
-/// chvíli trvá, nejde spustit dvakrát ani omylem zavřít. [close] vždy uklidí.
+/// Zákazník klepl u průběhu na „Zrušit" — volající pozdní výsledek zahodí.
+class MgCancelled implements Exception {
+  const MgCancelled();
+}
+
+/// Průběh (spinner + text) přes celou obrazovku — akce, která chvíli trvá,
+/// nejde spustit dvakrát ani omylem zavřít. [close] vždy uklidí.
+/// [cancelAfter] = po této době (slabý signál) se ukáže „trvá to déle"
+/// + „Zrušit"; systémové Zpět ruší kdykoli — zákazník nikdy neuvízne v modálu;
+/// operaci obalenou [guard] pak zruší ([MgCancelled]) a pozdní výsledek
+/// se zahodí ([cancelled]).
 class MgProgress {
-  MgProgress._(this._route, this.text);
+  MgProgress._(this._route, this.text, this._cancel);
   final Route<void> _route;
   final ValueNotifier<String> text;
+  final Completer<void> _cancel;
 
-  static MgProgress show(BuildContext context, String initial) {
+  /// Zákazník průběh zrušil.
+  bool get cancelled => _cancel.isCompleted;
+
+  static MgProgress show(BuildContext context, String initial,
+      {Duration? cancelAfter}) {
     final text = ValueNotifier(initial);
-    final route = DialogRoute<void>(
+    final cancel = Completer<void>();
+    late final DialogRoute<void> route;
+    void doCancel() {
+      if (!cancel.isCompleted) cancel.complete();
+      final nav = route.navigator;
+      if (nav != null && route.isActive) nav.removeRoute(route);
+    }
+
+    route = DialogRoute<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          content: Row(children: [
+      builder: (_) => _MgProgressDialog(
+          text: text, cancelAfter: cancelAfter, onCancel: doCancel),
+    );
+    Navigator.of(context, rootNavigator: true).push(route);
+    return MgProgress._(route, text, cancel);
+  }
+
+  void update(String s) => text.value = s;
+
+  /// Počká na [op]; klepne-li zákazník mezitím na „Zrušit", skončí hned
+  /// výjimkou [MgCancelled] (výsledek [op] se zahodí).
+  Future<T> guard<T>(Future<T> op) {
+    if (cancelled) return Future<T>.error(const MgCancelled());
+    return Future.any<T>([
+      op,
+      _cancel.future.then<T>((_) => throw const MgCancelled()),
+    ]);
+  }
+
+  void close() {
+    final nav = _route.navigator;
+    if (nav != null && _route.isActive) nav.removeRoute(_route);
+  }
+}
+
+class _MgProgressDialog extends StatefulWidget {
+  final ValueNotifier<String> text;
+  final Duration? cancelAfter;
+  final VoidCallback onCancel;
+  const _MgProgressDialog(
+      {required this.text, required this.cancelAfter, required this.onCancel});
+
+  @override
+  State<_MgProgressDialog> createState() => _MgProgressDialogState();
+}
+
+class _MgProgressDialogState extends State<_MgProgressDialog> {
+  Timer? _timer;
+  bool _canCancel = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.cancelAfter;
+    if (d != null) {
+      _timer = Timer(d, () {
+        if (mounted) setState(() => _canCancel = true);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    return PopScope(
+      canPop: false,
+      // Systémové Zpět / gesto u zrušitelného průběhu = „Zrušit" (kdykoli,
+      // tlačítko se ukáže až po limitu); nezrušitelný (SOS) drží.
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && widget.cancelAfter != null) widget.onCancel();
+      },
+      child: AlertDialog(
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
             const SizedBox(
                 width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
             const SizedBox(width: 16),
             Expanded(
               child: ValueListenableBuilder<String>(
-                valueListenable: text,
+                valueListenable: widget.text,
                 builder: (_, v, __) => Text(v,
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
               ),
             ),
           ]),
-        ),
+          if (_canCancel) ...[
+            const SizedBox(height: 12),
+            Text(tr.tr('r3SlowHint'),
+                style: const TextStyle(fontSize: 12, color: MotoGoColors.g600, height: 1.35)),
+          ],
+        ]),
+        actions: _canCancel
+            ? [
+                TextButton(
+                  onPressed: widget.onCancel,
+                  child: Text(tr.cancel,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ]
+            : null,
       ),
     );
-    Navigator.of(context, rootNavigator: true).push(route);
-    return MgProgress._(route, text);
-  }
-
-  void update(String s) => text.value = s;
-
-  void close() {
-    final nav = _route.navigator;
-    if (nav != null && _route.isActive) nav.removeRoute(_route);
   }
 }

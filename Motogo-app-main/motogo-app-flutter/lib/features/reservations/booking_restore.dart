@@ -27,10 +27,13 @@ class _RestoreRefused implements Exception {
 /// nezměnilo) ≠ obsazená motorka ≠ jiná chyba — dřív se KAŽDÁ chyba hlásila
 /// jako „motorka je obsazená" a zákazník skončil ve vyhledávání.
 ///
-/// Obnova jde přes RPC `customer_restore_booking` (nové 30min okno na
+/// Obnova jde JEN přes RPC `customer_restore_booking` (nové 30min okno na
 /// zaplacení, návrh SQL D3 čeká na schválení majitele). Dokud RPC v DB není,
-/// použije se dosavadní přímý zápis (cron pak může rezervaci zrušit dřív, viz
-/// D3 v reportu — platba ji ale znovu oživí).
+/// appka rezervaci sama NEOBNOVUJE: dřívější přímý zápis (bez `restored_at`)
+/// nechal cron `auto_cancel_expired_pending()` rezervaci do 2 minut znovu
+/// zrušit (+ storno e-mail), zatímco platba odpočítávala 30 minut — a platba
+/// za mezitím obsazenou motorku skončila stržením bez rezervace. Zákazník
+/// místo toho dostane „Napiš nám" (obnovu udělá obsluha ve Velíně).
 Future<void> restoreAndPay(
     BuildContext context, WidgetRef ref, Reservation res) async {
   final tr = t(context);
@@ -45,6 +48,19 @@ Future<void> restoreAndPay(
         title: tr.tr('motoOccupiedTitle'),
         message: tr.tr('restoreMotoOccupied'));
     context.go(Routes.search);
+  }
+
+  // Obnova v appce teď nejde (RPC chybí) → nic se nezměnilo, „Napsat nám".
+  void byStaff() {
+    PaymentErrorSheet.show(
+      context,
+      title: tr.tr('cannotRestore'),
+      message: tr.tr('fxRestoreByStaff'),
+      buttonLabel: tr.tr('psWriteUs'),
+      onButton: () {
+        if (context.mounted) openContactUs(context);
+      },
+    );
   }
 
   void failed({required bool network}) {
@@ -94,6 +110,8 @@ Future<void> restoreAndPay(
     if (!context.mounted) return;
     if (e.code == 'moto_unavailable') {
       occupied();
+    } else if (e.code == _restoreUnavailable) {
+      byStaff();
     } else if (e.code == 'date_passed') {
       showMotoGoToast(context,
           icon: '📅',
@@ -131,8 +149,12 @@ Future<void> restoreAndPay(
   context.push(Routes.payment);
 }
 
-/// Obnova přes RPC (když je nasazená), jinak přímým zápisem. Vrací začátek
-/// nového okna na zaplacení (z RPC), jinak null.
+/// Kód „obnova v appce teď nejde" (RPC v DB chybí).
+const _restoreUnavailable = 'restore_unavailable';
+
+/// Obnova přes RPC. Vrací začátek nového okna na zaplacení (z RPC), jinak
+/// null. RPC v DB není → [_RestoreRefused] `restore_unavailable` (žádný
+/// přímý zápis, viz [restoreAndPay]).
 Future<DateTime?> _restore(String bookingId) async {
   try {
     final r = await MotoGoSupabase.client.rpc('customer_restore_booking',
@@ -143,17 +165,11 @@ Future<DateTime?> _restore(String bookingId) async {
     if (r is Map && r['error'] != null) throw _RestoreRefused('${r['error']}');
     return null;
   } on PostgrestException catch (e) {
-    // RPC v DB zatím není (D3) → dosavadní přímý zápis.
+    // RPC v DB zatím není (D3) → obnovu udělá obsluha (žádný přímý zápis).
     final missing = e.code == 'PGRST202' ||
         e.code == '42883' ||
         e.message.contains('customer_restore_booking');
     if (!missing) rethrow;
+    throw const _RestoreRefused(_restoreUnavailable);
   }
-  await MotoGoSupabase.client.from('bookings').update({
-    'status': 'pending',
-    'payment_status': 'unpaid',
-    'cancelled_at': null,
-    'cancellation_reason': null,
-  }).eq('id', bookingId).timeout(const Duration(seconds: 15));
-  return null;
 }

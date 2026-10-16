@@ -5,6 +5,7 @@ import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/widgets/pickup_location_link.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
 
 /// Confirmation page shown after successful edit save.
 class EditConfirmPage extends StatelessWidget {
@@ -17,7 +18,8 @@ class EditConfirmPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
-      body: Center(child: Padding(
+      body: Stack(children: [
+        Center(child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 72, height: 72,
@@ -50,7 +52,14 @@ class EditConfirmPage extends StatelessWidget {
                 const SizedBox(width: 6), const Icon(Icons.arrow_forward, size: 16),
               ]))),
         ]),
-      )),
+        )),
+        // Viditelné zavření (stejný cíl jako tlačítko dole).
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          right: 12,
+          child: MgSheetClose(onTap: () => context.go(Routes.reservations)),
+        ),
+      ]),
     );
   }
 }

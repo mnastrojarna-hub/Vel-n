@@ -37,14 +37,16 @@ class MgBackTap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    return Semantics(
-      button: true,
-      enabled: onTap != null,
-      label: label ?? (close ? tr.tr('close') : tr.back),
-      onTap: onTap,
-      excludeSemantics: true,
-      child: MgHitSlop(
-        minSize: minSize,
+    // MgHitSlop MUSÍ být vně: každý obal mezi ním a rodičem (i Semantics)
+    // testuje jen vlastní hranice a zásah v přesahu by zahodil.
+    return MgHitSlop(
+      minSize: minSize,
+      child: Semantics(
+        button: true,
+        enabled: onTap != null,
+        label: label ?? (close ? tr.tr('close') : tr.back),
+        onTap: onTap,
+        excludeSemantics: true,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
@@ -64,16 +66,17 @@ class MgHitSlop extends SingleChildRenderObjectWidget {
   const MgHitSlop({super.key, this.minSize = 48, super.child});
 
   @override
-  RenderObject createRenderObject(BuildContext context) => _RenderHitSlop(minSize);
+  RenderObject createRenderObject(BuildContext context) => RenderMgHitSlop(minSize);
 
   @override
-  void updateRenderObject(BuildContext context, _RenderHitSlop renderObject) {
+  void updateRenderObject(BuildContext context, RenderMgHitSlop renderObject) {
     renderObject.minSize = minSize;
   }
 }
 
-class _RenderHitSlop extends RenderProxyBox {
-  _RenderHitSlop(this.minSize);
+/// Render objekt [MgHitSlop] — viz tam.
+class RenderMgHitSlop extends RenderProxyBox {
+  RenderMgHitSlop(this.minSize);
   double minSize;
 
   @override
@@ -111,11 +114,17 @@ class MgSheetClose extends StatelessWidget {
 
   /// Tmavé pozadí sheetu → světlý křížek.
   final bool dark;
+
+  /// Křížek přes fotku / proměnlivé pozadí → tmavý kruh s bílým křížkem
+  /// (vidět na světlé fotce i na bílém podkladu).
+  final bool overlay;
   final double size;
-  const MgSheetClose({super.key, this.onTap, this.dark = false, this.size = 32});
+  const MgSheetClose(
+      {super.key, this.onTap, this.dark = false, this.overlay = false, this.size = 32});
 
   @override
   Widget build(BuildContext context) {
+    final light = dark || overlay;
     return MgBackTap(
       close: true,
       onTap: onTap ?? () => Navigator.of(context).maybePop(),
@@ -123,11 +132,13 @@ class MgSheetClose extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: dark ? Colors.white.withValues(alpha: 0.16) : MotoGoColors.g200,
+          color: overlay
+              ? Colors.black.withValues(alpha: 0.55)
+              : (dark ? Colors.white.withValues(alpha: 0.16) : MotoGoColors.g200),
           shape: BoxShape.circle,
         ),
         child: Icon(Icons.close,
-            size: size * 0.56, color: dark ? Colors.white : MotoGoColors.black),
+            size: size * 0.56, color: light ? Colors.white : MotoGoColors.black),
       ),
     );
   }

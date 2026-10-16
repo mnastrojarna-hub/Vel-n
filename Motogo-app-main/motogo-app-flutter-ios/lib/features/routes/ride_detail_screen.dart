@@ -16,6 +16,7 @@ import 'ride_share.dart';
 import 'route_image.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/error_feedback.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Detail projeté jízdy — mapa se stopou, statistiky, zastávky s fotkami
 /// a popisky (přidat / upravit / smazat), přepínač sdílení a export na
@@ -198,7 +199,7 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
-              child: Text(t(c).tr('routesFilterClear'))),
+              child: Text(t(c).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: MotoGoColors.green,
@@ -228,7 +229,7 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
-              child: Text(t(c).tr('routesFilterClear'))),
+              child: Text(t(c).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD93636),
@@ -319,7 +320,7 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
         ),
         child: Row(
           children: [
-            GestureDetector(
+            MgBackTap(
               onTap: () => context.backOr('/my-experiences'),
               child: Container(
                 width: 40,

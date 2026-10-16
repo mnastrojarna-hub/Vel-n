@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
 import 'loyalty_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Karta věrnostního ranku v profilu — název, % slevy, progress do dalšího
 /// levelu. Zobrazí se jen když backend vrátí rank (jinak nic nerendruje).
@@ -224,14 +225,14 @@ class LoyaltyRankCard extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              MgSheetTitleRow(center: false, title: Text(
                 '🏅 $title',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                   color: MotoGoColors.black,
                 ),
-              ),
+              )),
               const SizedBox(height: 12),
               for (final rule in rules)
                 Padding(

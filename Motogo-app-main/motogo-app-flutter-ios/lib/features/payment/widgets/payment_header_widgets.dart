@@ -238,6 +238,11 @@ class PaymentPayButton extends StatelessWidget {
   /// Vypršel čas na zaplacení → tlačítko zamčené s popiskem „Čas vypršel".
   final bool expired;
   final VoidCallback? onPay;
+  /// Během ověřování výsledku: popisek tlačítka („Ověřujeme platbu…")
+  /// místo obecného „Načítám…" …
+  final String? statusLabel;
+  /// … a trvalý řádek pod tlačítkem (proč se čeká, neplatit znovu).
+  final String? statusNote;
 
   const PaymentPayButton({
     super.key,
@@ -246,6 +251,8 @@ class PaymentPayButton extends StatelessWidget {
     required this.processing,
     this.expired = false,
     required this.onPay,
+    this.statusLabel,
+    this.statusNote,
   });
 
   @override
@@ -257,7 +264,8 @@ class PaymentPayButton extends StatelessWidget {
         color: Colors.white,
         boxShadow: MotoGoShadows.stickyBar,
       ),
-      child: PressableScale(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+      PressableScale(
         enabled: !processing && !expired,
         child: ShimmerSweep(
         borderRadius: BorderRadius.circular(50),
@@ -275,7 +283,10 @@ class PaymentPayButton extends StatelessWidget {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white)),
                   const SizedBox(width: 10),
-                  Text(t(context).loading),
+                  Flexible(
+                    child: Text(statusLabel ?? t(context).loading,
+                        overflow: TextOverflow.ellipsis),
+                  ),
                 ],
               )
             : expired
@@ -294,6 +305,18 @@ class PaymentPayButton extends StatelessWidget {
         ),
         ),
       ),
+      if (processing && statusNote != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text('⏳ $statusNote',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.35,
+                  fontWeight: FontWeight.w600,
+                  color: MotoGoColors.g600)),
+        ),
+      ]),
     );
   }
 }

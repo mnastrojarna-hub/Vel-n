@@ -646,7 +646,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
             Positioned(
               top: MediaQuery.of(ctx).padding.top + 10,
               left: 12,
-              child: MgBackTap(close: true, 
+              child: MgBackTap(close: true,
                 onTap: () => Navigator.of(ctx).pop(),
                 child: Container(
                   width: 42, height: 42,
@@ -689,14 +689,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: MotoGoColors.g200,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const MgSheetHandle(),
             const SizedBox(height: 14),
             Align(
               alignment: Alignment.centerLeft,

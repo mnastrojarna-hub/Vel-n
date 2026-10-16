@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
+import '../../core/widgets/state_views.dart';
 import 'catalog_provider.dart';
 import 'widgets/availability_calendar.dart';
 import 'widgets/date_tabs_section.dart';
@@ -46,6 +47,12 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
     return calendarDaysInclusive(s, e);
   }
 
+  /// Načíst katalog znovu (zdroj i odvozený filtrovaný seznam).
+  void _reloadMotos() {
+    ref.invalidate(motorcyclesProvider);
+    ref.invalidate(filteredMotorcyclesProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     final motosAsync = ref.watch(filteredMotorcyclesProvider);
@@ -74,16 +81,21 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title + hamburger menu
+                // Zpět + title + hamburger menu
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      t(context).tr('searchTitle'),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
+                    // Vždy viditelné zpět (požadavek majitele) — kořen záložky → Domů.
+                    MgBackArrow(onTap: () => context.go(Routes.home)),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        t(context).tr('searchTitle'),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     GestureDetector(
@@ -283,36 +295,18 @@ class _MotoSearchScreenState extends ConsumerState<MotoSearchScreen> {
                   ),
                 );
           },
-          loading: () => const SliverFillRemaining(
-            child: Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
+          // Nikdy holý spinner: po 15 s „trvá to déle" + Zkusit znovu.
+          loading: () => SliverFillRemaining(
+            hasScrollBody: false,
+            child: MgLoadingView(onRetry: _reloadMotos),
           ),
+          // Co se stalo, proč a jak to opravit (offline / server…) + akce.
           error: (e, __) => SliverFillRemaining(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('⚠️', style: TextStyle(fontSize: 36)),
-                    const SizedBox(height: 12),
-                    Text(
-                      t(context).tr('loadingError'),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: MotoGoColors.red,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: () => ref.invalidate(filteredMotorcyclesProvider),
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: Text(t(context).tr('retry')),
-                    ),
-                  ],
-                ),
-              ),
+            hasScrollBody: false,
+            child: MgErrorView(
+              error: e,
+              what: t(context).tr('fxMotosLoadFail'),
+              onRetry: _reloadMotos,
             ),
           ),
         ),

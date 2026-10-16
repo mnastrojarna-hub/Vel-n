@@ -296,19 +296,40 @@ Future<String?> _findMotoId(String bookingId) async {
 }
 
 /// Upload SOS photos — mirrors uploadSOSPhotos from sos-photo.js.
-Future<List<String>> uploadSosPhotos(String incidentId, List<XFile> photos) async {
+/// Nahraje fotky k incidentu. Zákazníka v nouzi NIKDY nedrží déle než
+/// [budget] (slabé LTE: dřív až minuty pod nezavíratelným „Nahrávám
+/// fotky…"). Každá fotka má vlastní pokus — úspěšné se k incidentu uloží,
+/// i když jiné selžou. Vrací adresy fotek, které jsou opravdu u incidentu;
+/// méně než [photos] = zbytek ať zákazník pošle ve Zprávách.
+Future<List<String>> uploadSosPhotos(String incidentId, List<XFile> photos,
+    {Duration budget = const Duration(seconds: 40)}) async {
+  final deadline = DateTime.now().add(budget);
   final urls = <String>[];
   for (var i = 0; i < photos.length; i++) {
-    final bytes = await photos[i].readAsBytes();
-    final path = '$incidentId/${DateTime.now().millisecondsSinceEpoch}-$i.jpg';
-    await MotoGoSupabase.client.storage.from('sos-photos').uploadBinary(path, bytes);
-    final url = MotoGoSupabase.client.storage.from('sos-photos').getPublicUrl(path);
-    urls.add(url);
+    final left = deadline.difference(DateTime.now());
+    if (left < const Duration(seconds: 2)) break;
+    try {
+      final bytes = await photos[i].readAsBytes();
+      final path = '$incidentId/${DateTime.now().millisecondsSinceEpoch}-$i.jpg';
+      await MotoGoSupabase.client.storage
+          .from('sos-photos')
+          .uploadBinary(path, bytes)
+          .timeout(left);
+      urls.add(MotoGoSupabase.client.storage.from('sos-photos').getPublicUrl(path));
+    } catch (_) {/* další fotka; chybějící pošle zákazník ve Zprávách */}
   }
-  if (urls.isNotEmpty) {
-    await MotoGoSupabase.client.from('sos_incidents').update({'photos': urls}).eq('id', incidentId);
+  if (urls.isEmpty) return urls;
+  try {
+    await MotoGoSupabase.client
+        .from('sos_incidents')
+        .update({'photos': urls})
+        .eq('id', incidentId)
+        .timeout(const Duration(seconds: 10));
+    return urls;
+  } catch (_) {
+    // Fotky jsou nahrané, ale incident o nich neví → pro zákazníka neodeslané.
+    return const [];
   }
-  return urls;
 }
 
 /// End ride + request tow — mirrors sosEndRide() from ui-sos-core.js.

@@ -3,6 +3,8 @@ import 'dart:io' show SocketException;
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/i18n/translations.dart';
+
 /// Výsledek mapování chyby registrace / přihlášení.
 /// Zákazník nesmí zůstat u holého „Chyba registrace" — pro každý známý problém
 /// vracíme konkrétní titulek (CO je špatně) a tělo (KDE to je a co s tím).
@@ -74,7 +76,8 @@ class AuthErrorMapper {
         msg.contains('timed out')) {
       return AuthErrorInfo(
         title: _t(lang, 'networkTitle'),
-        message: _t(lang, 'networkBody'),
+        // Přihlášení: účet existuje → ne „Účet zatím nevznikl".
+        message: _t(lang, isSignUp ? 'networkBody' : 'r3AuthNetBodyIn'),
         code: 'network',
       );
     }
@@ -123,7 +126,7 @@ class AuthErrorMapper {
         (error is AuthException && error.statusCode == '429')) {
       return AuthErrorInfo(
         title: _t(lang, 'rateLimitTitle'),
-        message: _t(lang, 'rateLimitBody'),
+        message: _t(lang, isSignUp ? 'rateLimitBody' : 'r3AuthRateBodyIn'),
         code: 'rate_limit',
       );
     }
@@ -145,7 +148,7 @@ class AuthErrorMapper {
         (error is AuthException && error.statusCode == '500')) {
       return AuthErrorInfo(
         title: _t(lang, 'serverTitle'),
-        message: _t(lang, 'serverBody'),
+        message: _t(lang, isSignUp ? 'serverBody' : 'r3AuthServerBodyIn'),
         code: 'server_error',
       );
     }
@@ -167,28 +170,26 @@ class AuthErrorMapper {
       );
     }
 
-    // ── Neznámá chyba — ukaž aspoň původní text, ať víme, KDE to vázne ───
-    final detail = _shorten(error is AuthException ? error.message : raw);
+    // ── Neznámá chyba — obecný návod + kontakt. Syrový text výjimky se
+    // zákazníkovi NEukazuje (anglicky / technicky), volající ho posílá do
+    // `app_debug_logs` (AppDebugLogger), kde je vidět, KDE to vázne.
     return AuthErrorInfo(
       title: _t(lang, isSignUp ? 'genericSignUpTitle' : 'genericSignInTitle'),
-      message: detail.isEmpty
-          ? _t(lang, 'genericBody')
-          : '${_t(lang, 'genericBody')}\n$detail',
+      message: _t(lang, 'genericBody'),
       code: 'unknown',
     );
   }
 
-  /// Ořízne technický text na délku, která se ještě vejde do toastu.
-  static String _shorten(String s) {
-    final clean = s.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (clean.isEmpty) return '';
-    return clean.length <= 160 ? clean : '${clean.substring(0, 157)}…';
-  }
-
+  /// Text z vlastní tabulky; novější klíče (`r3Auth*` — varianty pro
+  /// přihlášení) jsou ve sdílených překladech (translations_ext_42_refix3).
   static String _t(String lang, String key) {
     final l = lang.isEmpty ? 'cs' : lang.substring(0, lang.length.clamp(0, 2));
     final m = _strings[l] ?? _strings['cs']!;
-    return m[key] ?? _strings['cs']![key] ?? key;
+    return m[key] ??
+        translations[l]?[key] ??
+        _strings['cs']![key] ??
+        translations['cs']?[key] ??
+        key;
   }
 
   static const _contactCs = 'info@motogo24.cz / +420 774 256 271';
@@ -197,35 +198,35 @@ class AuthErrorMapper {
     'cs': {
       'emailTakenTitle': 'Tento e-mail už u nás účet má',
       'emailTakenBody':
-          'Na tuto adresu už je účet založený — často vznikne automaticky při rezervaci na webu. Přihlaste se stejným e-mailem; heslo si můžete nechat poslat přes „Zapomenuté heslo".',
+          'Na tuhle adresu už je účet založený — často vznikne automaticky při rezervaci na webu. Přihlas se stejným e-mailem; heslo si můžeš nechat poslat přes „Zapomenuté heslo".',
       'weakPasswordTitle': 'Heslo je příliš slabé',
       'weakPasswordBody':
-          'Zvolte prosím heslo alespoň o 8 znacích, ideálně kombinaci písmen a číslic.',
+          'Zvol prosím heslo alespoň o 8 znacích, ideálně kombinaci písmen a číslic.',
       'invalidEmailTitle': 'E-mail není ve správném tvaru',
       'invalidEmailBody':
-          'Zkontrolujte adresu — nejčastěji je v ní mezera, překlep v doméně (např. @gmial.com) nebo chybí tečka.',
+          'Zkontroluj adresu — nejčastěji je v ní mezera, překlep v doméně (např. @gmial.com) nebo chybí tečka.',
       'rateLimitTitle': 'Příliš mnoho pokusů po sobě',
       'rateLimitBody':
-          'Registraci jste zkoušeli několikrát rychle za sebou. Počkejte prosím pár minut a zkuste to znovu.',
+          'Pokusů o registraci bylo v krátké době moc, proto je server na chvíli pozastavil. Počkej pár minut a zkus to znovu.',
       'networkTitle': 'Nepodařilo se spojit se serverem',
       'networkBody':
-          'Zkontrolujte připojení k internetu (Wi-Fi nebo mobilní data) a zkuste to znovu. Máte-li zapnutou VPN nebo jste na firemní síti, vypněte ji. Účet zatím nevznikl.',
+          'Zkontroluj připojení k internetu (Wi-Fi nebo mobilní data) a zkus to znovu. Máš-li zapnutou VPN nebo jsi na firemní síti, vypni ji. Účet zatím nevznikl.',
       'serverTitle': 'Chyba na naší straně',
       'serverBody':
-          'Účet se nepodařilo založit kvůli chybě serveru. Zkuste to prosím za chvíli znovu — pokud to nepomůže, ozvěte se nám na $_contactCs.',
+          'Účet se nepodařilo založit kvůli chybě serveru — není to tvoje chyba. Zkus to za chvíli znovu; když to nepomůže, ozvi se nám na $_contactCs.',
       'disabledTitle': 'Registrace je dočasně vypnutá',
       'disabledBody':
-          'Nové účty teď nejde zakládat. Zkuste to prosím později, nebo nám napište na $_contactCs.',
+          'Nové účty teď nejde zakládat. Zkus to prosím později, nebo nám napiš na $_contactCs.',
       'credentialsTitle': 'Nesprávný e-mail nebo heslo',
       'credentialsBody':
-          'Zkontrolujte překlepy a velká písmena. Nové heslo si můžete nechat poslat přes „Zapomenuté heslo".',
+          'Zkontroluj překlepy a velká písmena. Nové heslo si můžeš nechat poslat přes „Zapomenuté heslo".',
       'unconfirmedTitle': 'E-mail zatím není potvrzený',
       'unconfirmedBody':
-          'Otevřete e-mail od MotoGo24 a klepněte na potvrzovací odkaz. Podívejte se i do složky Spam / Hromadné.',
+          'Otevři e-mail od MotoGo24 a klepni na potvrzovací odkaz. Podívej se i do složky Spam / Hromadné.',
       'genericSignUpTitle': 'Registraci se nepodařilo dokončit',
       'genericSignInTitle': 'Přihlášení se nezdařilo',
       'genericBody':
-          'Zkuste to prosím znovu. Pokud chyba trvá, ozvěte se nám na $_contactCs a přepošlete nám tento text:',
+          'Zkus to prosím znovu. Když to nepůjde, ozvi se nám na $_contactCs — pomůžeme ti.',
     },
     'en': {
       'emailTakenTitle': 'This e-mail already has an account',
@@ -258,7 +259,7 @@ class AuthErrorMapper {
       'genericSignUpTitle': 'Registration could not be completed',
       'genericSignInTitle': 'Sign-in failed',
       'genericBody':
-          'Please try again. If the error persists, contact us at $_contactCs and forward this text:',
+          'Please try again. If it keeps failing, contact us at $_contactCs — we will help you.',
     },
     'de': {
       'emailTakenTitle': 'Für diese E-Mail gibt es bereits ein Konto',
@@ -291,7 +292,7 @@ class AuthErrorMapper {
       'genericSignUpTitle': 'Registrierung konnte nicht abgeschlossen werden',
       'genericSignInTitle': 'Anmeldung fehlgeschlagen',
       'genericBody':
-          'Bitte versuchen Sie es erneut. Bleibt der Fehler, schreiben Sie uns an $_contactCs und leiten Sie diesen Text weiter:',
+          'Bitte versuchen Sie es erneut. Bleibt der Fehler, schreiben Sie uns an $_contactCs — wir helfen Ihnen weiter.',
     },
     'pl': {
       'emailTakenTitle': 'Ten e-mail ma już konto',
@@ -324,7 +325,7 @@ class AuthErrorMapper {
       'genericSignUpTitle': 'Nie udało się dokończyć rejestracji',
       'genericSignInTitle': 'Logowanie nie powiodło się',
       'genericBody':
-          'Spróbuj ponownie. Jeśli błąd się powtarza, napisz na $_contactCs i prześlij nam ten tekst:',
+          'Spróbuj ponownie. Jeśli błąd się powtarza, napisz na $_contactCs — pomożemy.',
     },
     'uk': {
       'emailTakenTitle': 'Для цієї пошти вже є обліковий запис',
@@ -357,7 +358,7 @@ class AuthErrorMapper {
       'genericSignUpTitle': 'Не вдалося завершити реєстрацію',
       'genericSignInTitle': 'Не вдалося увійти',
       'genericBody':
-          'Спробуйте ще раз. Якщо помилка триває, напишіть на $_contactCs і перешліть цей текст:',
+          'Спробуйте ще раз. Якщо помилка не зникає, напишіть на $_contactCs — ми допоможемо.',
     },
     'es': {
       'emailTakenTitle': 'Este correo ya tiene una cuenta',
@@ -390,7 +391,7 @@ class AuthErrorMapper {
       'genericSignUpTitle': 'No se ha podido completar el registro',
       'genericSignInTitle': 'No se ha podido iniciar sesión',
       'genericBody':
-          'Inténtalo de nuevo. Si el error persiste, escríbenos a $_contactCs y reenvíanos este texto:',
+          'Inténtalo de nuevo. Si el error persiste, escríbenos a $_contactCs y te ayudaremos.',
     },
     'fr': {
       'emailTakenTitle': 'Cet e-mail a déjà un compte',
@@ -423,7 +424,7 @@ class AuthErrorMapper {
       'genericSignUpTitle': 'L’inscription n’a pas pu être terminée',
       'genericSignInTitle': 'La connexion a échoué',
       'genericBody':
-          'Réessayez. Si l’erreur persiste, écrivez-nous à $_contactCs en nous transmettant ce texte :',
+          'Réessayez. Si l’erreur persiste, écrivez-nous à $_contactCs — nous vous aiderons.',
     },
     'nl': {
       'emailTakenTitle': 'Dit e-mailadres heeft al een account',
@@ -456,7 +457,7 @@ class AuthErrorMapper {
       'genericSignUpTitle': 'Registratie kon niet worden voltooid',
       'genericSignInTitle': 'Inloggen is mislukt',
       'genericBody':
-          'Probeer het opnieuw. Blijft de fout, mail ons dan op $_contactCs en stuur deze tekst mee:',
+          'Probeer het opnieuw. Blijft de fout, mail ons dan op $_contactCs — we helpen u verder.',
     },
   };
 }

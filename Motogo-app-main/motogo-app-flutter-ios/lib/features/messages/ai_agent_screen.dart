@@ -15,6 +15,7 @@ import '../../core/friendly_error.dart';
 import '../../core/widgets/error_feedback.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../sos/sos_provider.dart' show hasActiveRentalProvider;
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// AI Moto Agent chat — mirrors s-ai-agent from ai-agent-ui.js + ai-agent-send.js.
 /// Calls ai-moto-agent edge function with booking context.
@@ -202,6 +203,7 @@ class _AiAgentState extends State<AiAgentScreen> {
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const MgSheetHandle(margin: EdgeInsets.fromLTRB(12, 4, 12, 0)),
           ListTile(
             leading: const Icon(Icons.photo_camera_outlined),
             title: Text(t(ctx).tr('aiTakePhoto')),
@@ -258,7 +260,7 @@ class _AiAgentState extends State<AiAgentScreen> {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () => context.backOr(Routes.home),
           child: Center(
             child: Container(
