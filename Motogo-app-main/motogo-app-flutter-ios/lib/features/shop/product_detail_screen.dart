@@ -11,6 +11,7 @@ import '../auth/widgets/toast_helper.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
 import '../../core/currency.dart';
+import '../../core/widgets/state_views.dart';
 
 /// Product detail — mirrors s-merch-detail from templates-shop-detail.js.
 class ProductDetailScreen extends ConsumerStatefulWidget {
@@ -30,14 +31,41 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
   Widget build(BuildContext context) {
     final productsAsync = ref.watch(productsProvider);
 
+    // Šipka zpět ve všech stavech; chyba s důvodem a „Zkusit znovu", chybějící
+    // produkt srozumitelně (dřív holé „Chyba" a bez zpět).
+    void back() => context.backOr(Routes.shop);
     return productsAsync.when(
       data: (products) {
         final product = products.where((p) => p.id == widget.productId).firstOrNull;
-        if (product == null) return Scaffold(appBar: AppBar(title: Text(t(context).tr('shop'))), body: Center(child: Text(t(context).tr('error'))));
+        if (product == null) {
+          return MgStateScaffold(
+            title: t(context).tr('shop'),
+            onBack: back,
+            child: MgErrorView(
+              what: t(context).tr('eoProductGoneTitle'),
+              message: t(context).tr('eoProductGoneBody'),
+              contact: false,
+              onBack: back,
+            ),
+          );
+        }
         return _build(context, product);
       },
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator(color: MotoGoColors.green))),
-      error: (_, __) => Scaffold(body: Center(child: Text(t(context).tr('error')))),
+      loading: () => MgStateScaffold(
+        title: t(context).tr('shop'),
+        onBack: back,
+        child: MgLoadingView(onRetry: () => ref.invalidate(productsProvider), onBack: back),
+      ),
+      error: (e, _) => MgStateScaffold(
+        title: t(context).tr('shop'),
+        onBack: back,
+        child: MgErrorView(
+          error: e,
+          what: t(context).tr('eoProductsLoadFail'),
+          onRetry: () => ref.invalidate(productsProvider),
+          onBack: back,
+        ),
+      ),
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
 import '../../payment/net_error.dart';
 import '../../payment/payment_refusals.dart';
 import '../../payment/payment_ui_helpers.dart';
@@ -32,20 +33,15 @@ class EditStateScaffold extends StatelessWidget {
               color: MotoGoColors.dark,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(24))),
           child: Row(children: [
-            Semantics(
-              button: true,
-              label: tr.back,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onBack,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                      color: MotoGoColors.green,
-                      borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.arrow_back, size: 18, color: Colors.black),
-                ),
+            MgBackTap(
+              onTap: onBack,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                    color: MotoGoColors.green,
+                    borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.arrow_back, size: 18, color: Colors.black),
               ),
             ),
             const SizedBox(width: 12),

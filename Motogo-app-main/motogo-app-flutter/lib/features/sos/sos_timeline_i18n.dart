@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/friendly_error.dart';
 
 /// Záznamy `sos_timeline.action` píše appka, DB i Velín ČESKY (operátor je
 /// vždy česky). Zákazníkovi v cizojazyčné appce známé texty přeložíme;
@@ -68,5 +69,8 @@ const _typeKeys = <String, String>{
 /// „Nepřihlášen — přihlaste se znovu“ ve všech jazycích).
 String sosErrorMessage(AppTranslations tr, Object e) {
   debugPrint('[SOS] action failed: $e');
-  return e.toString().contains('Nepřihlášen') ? tr.tr('notLoggedIn') : tr.tr('errUnknown');
+  // Proč + co dělat (nonstop linka / 112) — nikdy holé „neočekávaná chyba".
+  final fe = FriendlyError.of(e);
+  final why = fe.reason(tr);
+  return '${why[0].toUpperCase()}${why.substring(1)}. ${tr.tr('eoSosCallUs')}';
 }

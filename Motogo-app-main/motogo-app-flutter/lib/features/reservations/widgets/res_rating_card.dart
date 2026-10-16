@@ -13,6 +13,7 @@ import '../reservation_provider.dart';
 import '../ride_feedback.dart';
 import 'res_rating_widgets.dart';
 import 'ride_feedback_sheet.dart';
+import '../../../core/friendly_error.dart';
 
 /// Karta „Hodnocení jízdy“ (dokončená rezervace). Hvězdy 1–5 se ukládají do
 /// `bookings.rating/rated_at` a lze je kdykoli změnit. Po ohodnocení KAŽDÝ
@@ -60,7 +61,12 @@ class _ResRatingCardState extends ConsumerState<ResRatingCard> {
       final tr = t(context);
       if (err != null) {
         if (seq == _seq) setState(() => _pending = null);
-        showMotoGoToast(context, icon: '⚠️', title: tr.tr('error'), message: tr.tr('ratingFailed'));
+        // Důvod + rada (dřív jen „Hodnocení se nepodařilo uložit").
+        showMotoGoToast(context,
+            icon: '⚠️',
+            title: tr.tr('ratingFailed'),
+            message: FriendlyError.of(err).compose(tr, tr.tr('ratingFailed')),
+            duration: const Duration(seconds: 6));
         return;
       }
       ref.invalidate(reservationByIdProvider(widget.res.id));

@@ -13,6 +13,7 @@ import 'places_map.dart';
 import 'route_poi_sheet.dart';
 import 'routes_map_provider.dart';
 import 'routes_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Celoobrazovková mapa MÍST — trasy z katalogu se sem NEKRESLÍ.
 ///
@@ -279,7 +280,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
         ),
         child: Row(
           children: [
-            GestureDetector(
+            MgBackTap(
               onTap: () => context.backOr(Routes.routes),
               child: const Padding(
                 padding: EdgeInsets.all(4),

@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/error_feedback.dart';
 
 /// Sdílené kousky pro komunitní návrhy (trasa / bod zájmu):
 /// info banner o moderaci, výběr fotek s náhledy, upload a success sheet.
@@ -64,16 +66,24 @@ class SubmitPhotosSection extends StatelessWidget {
 
   Future<void> _add(BuildContext context) async {
     final picker = ImagePicker();
-    if (max == 1) {
-      final x = await picker.pickImage(
-          source: ImageSource.gallery, imageQuality: 78, maxWidth: 1600);
-      if (x != null) onChanged([x]);
-      return;
+    try {
+      if (max == 1) {
+        final x = await picker.pickImage(
+            source: ImageSource.gallery, imageQuality: 78, maxWidth: 1600);
+        if (x != null) onChanged([x]);
+        return;
+      }
+      final xs = await picker.pickMultiImage(imageQuality: 78, maxWidth: 1600);
+      if (xs.isEmpty) return;
+      final next = [...photos, ...xs];
+      onChanged(next.length > max ? next.sublist(0, max) : next);
+    } catch (e) {
+      // Bez přístupu k fotkám → proč + Otevřít nastavení (dřív potichu).
+      if (context.mounted) {
+        showErrorSnack(context, t(context).tr('eoPhotoPickFail'), e,
+            where: 'submit_photo_pick', perm: DevicePerm.photos);
+      }
     }
-    final xs = await picker.pickMultiImage(imageQuality: 78, maxWidth: 1600);
-    if (xs.isEmpty) return;
-    final next = [...photos, ...xs];
-    onChanged(next.length > max ? next.sublist(0, max) : next);
   }
 
   @override

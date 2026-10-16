@@ -9,6 +9,8 @@ import '../../core/widgets/date_dropdown_field.dart';
 import 'auth_error_mapper.dart';
 import 'auth_provider.dart';
 import 'widgets/toast_helper.dart';
+import '../../core/widgets/mg_back.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// 3-step registration — mirrors auth-register.js (regStep 1/2/3).
 class RegisterScreen extends StatefulWidget {
@@ -350,6 +352,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Systémové zpět / iOS swipe: o krok zpět jako šipka (dřív zavřelo celou
+    // registraci a vyplněné údaje se ztratily); z 1. kroku na přihlášení.
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        if (!mgIsTopmost(context)) return false;
+        _back();
+        return true;
+      },
+      child: PopScope(
+        canPop: _step == 1,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _back();
+        },
+        child: _buildScaffold(context),
+      ),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: SafeArea(
@@ -360,26 +381,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
                 children: [
-                  PressableScale(
-                    pressedScale: 0.88,
+                  MgBackTap(
                     onTap: _back,
-                    child: Container(
-                      width: 36, height: 36,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [MotoGoColors.green, MotoGoColors.greenDark],
+                    child: PressableScale(
+                      pressedScale: 0.88,
+                      onTap: _back,
+                      child: Container(
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [MotoGoColors.green, MotoGoColors.greenDark],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: MotoGoColors.green.withValues(alpha: 0.4),
+                              blurRadius: 8, offset: const Offset(0, 2)),
+                          ],
                         ),
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: MotoGoColors.green.withValues(alpha: 0.4),
-                            blurRadius: 8, offset: const Offset(0, 2)),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Text('←', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black)),
+                        child: const Center(
+                          child: Text('←', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black)),
+                        ),
                       ),
                     ),
                   ),

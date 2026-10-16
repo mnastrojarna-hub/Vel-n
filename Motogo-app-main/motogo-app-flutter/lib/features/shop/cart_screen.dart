@@ -11,6 +11,7 @@ import '../booking/booking_provider.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
 import '../../core/currency.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Cart screen — mirrors s-cart from cart-engine.js renderCart().
 class CartScreen extends ConsumerWidget {
@@ -38,7 +39,7 @@ class CartScreen extends ConsumerWidget {
           ],
         ),
         backgroundColor: MotoGoColors.dark,
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () => context.backOr(Routes.shop),
           child: Center(
             child: Container(

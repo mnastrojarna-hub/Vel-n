@@ -14,6 +14,7 @@ import '../reservations/reservation_provider.dart';
 import '../routes/routes_provider.dart';
 import 'widgets/home_header.dart';
 import 'widgets/home_reservations_section.dart';
+import '../../core/widgets/state_views.dart';
 
 /// Home screen — 1:1 replica of Capacitor MotoGo24 home page.
 /// Shows header, search bar, active reservations, filters, and motorcycle listing.
@@ -164,12 +165,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: CircularProgressIndicator(color: MotoGoColors.green),
                   ),
                 ),
+                // Důvod + Zkusit znovu, nikdy syrová výjimka.
                 error: (e, _) => SliverFillRemaining(
-                  child: Center(
-                    child: Text(
-                      '${t(context).tr('homeErrorPrefix')}$e',
-                      style: const TextStyle(color: MotoGoColors.red),
-                    ),
+                  hasScrollBody: false,
+                  child: MgErrorView(
+                    error: e,
+                    what: t(context).tr('eoMotosLoadFail'),
+                    onRetry: () => ref.invalidate(motorcyclesProvider),
                   ),
                 ),
               ),

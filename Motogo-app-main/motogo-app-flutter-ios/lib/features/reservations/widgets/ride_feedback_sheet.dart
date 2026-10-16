@@ -8,6 +8,7 @@ import '../../auth/widgets/toast_helper.dart';
 import '../reservation_models.dart';
 import '../ride_feedback.dart';
 import 'res_rating_widgets.dart' show RatingMiniStars;
+import '../../../core/friendly_error.dart';
 
 /// Otevře sheet „Napiš nám přímo, co máme zlepšit“. Vrací id konverzace,
 /// do které zpráva odešla (null = zavřeno bez odeslání).
@@ -89,7 +90,12 @@ class _RideFeedbackSheetState extends State<_RideFeedbackSheet> {
       Navigator.of(context).pop(result.threadId);
     } else {
       setState(() => _sending = false);
-      showMotoGoToast(context, icon: '⚠️', title: tr.error, message: tr.tr('rfSendFailed'));
+      // Důvod + rada; text zůstává v políčku.
+      showMotoGoToast(context,
+          icon: '⚠️',
+          title: tr.tr('eoMessageSendWhat'),
+          message: '${FriendlyError.of(result.cause).compose(tr, tr.tr('eoMessageSendWhat'))} ${tr.tr('eoTextKept')}',
+          duration: const Duration(seconds: 7));
     }
   }
 

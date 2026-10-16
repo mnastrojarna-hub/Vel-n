@@ -11,6 +11,8 @@ import 'routes_provider.dart' show mapyApiKey, fetchMapyRoute, reverseGeocode;
 import 'map_fit.dart';
 import 'map_link.dart';
 import 'submit_common.dart';
+import '../../core/widgets/map_tile_errors.dart';
+import '../../core/widgets/error_feedback.dart';
 
 /// Jedna zastávka navrhované trasy.
 class _Stop {
@@ -151,6 +153,7 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
     setState(() { _busy = true; _uploading = _photos.isNotEmpty; });
     try {
       final urls = await uploadSubmitPhotos(uid, _photos);
+      final dropped = _photos.length - urls.length;
       if (mounted) setState(() => _uploading = false);
       final waypoints = <Map<String, dynamic>>[];
       for (var i = 0; i < _stops.length; i++) {
@@ -175,18 +178,47 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
         'is_active': false,
       });
       if (!mounted) return;
+      _sent = true;
+      final messenger = ScaffoldMessenger.of(context);
+      final droppedMsg = t(context).trArgs('eoSubmitPhotosDropped', {'n': dropped});
       await showSubmitSuccess(context);
       if (mounted) Navigator.of(context).pop();
-    } catch (_) {
+      // Nenahrané fotky se řeknou (dřív se tiše zahodily).
+      if (dropped > 0) messenger.showSnackBar(SnackBar(content: Text(droppedMsg)));
+    } catch (e) {
       if (mounted) {
         setState(() { _busy = false; _uploading = false; });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiSubmitErr'))));
+        // Proč + Zkusit znovu; vyplněné údaje i fotky zůstávají.
+        showErrorSnack(context, t(context).tr('poiSubmitErr'), e,
+            where: 'community_submit', onRetry: _submit);
       }
+    }
+  }
+
+  bool _sent = false;
+
+  bool get _dirty => !_sent && (_nameCtrl.text.trim().isNotEmpty || _descCtrl.text.trim().isNotEmpty || _photos.isNotEmpty || _stops.isNotEmpty);
+
+  /// Zpět s rozpracovaným návrhem → potvrdit (jinak se údaje i fotky ztratí).
+  Future<void> _confirmLeave() async {
+    if (await confirmDiscard(context) && mounted) {
+      _sent = true; // nic dalšího nehlídat
+      Navigator.of(context).pop();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmLeave();
+      },
+      child: _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
@@ -360,7 +392,10 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
               urlTemplate: 'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
               userAgentPackageName: 'com.motogo24.app',
               maxZoom: 19,
+              errorTileCallback: MapTileErrors.report,
+              reset: MapTileErrors.reset,
             ),
+            const MapTileErrorChip(),
             if (_geometry.length >= 2)
               PolylineLayer(polylines: [
                 Polyline(points: _geometry, strokeWidth: 5, color: MotoGoColors.greenDark),

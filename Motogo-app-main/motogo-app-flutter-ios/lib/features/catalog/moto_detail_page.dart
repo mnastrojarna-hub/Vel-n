@@ -21,6 +21,7 @@ import 'widgets/pricing_table.dart';
 import 'widgets/specs_section.dart';
 import 'widgets/validation_banner.dart';
 import '../../core/date_days.dart';
+import '../../core/widgets/state_views.dart';
 
 /// Detail content for a single motorcycle.
 /// Used inside the pager (MotoDetailScreen) — one page per motorcycle.
@@ -88,8 +89,11 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
       loading: () => const Center(
         child: CircularProgressIndicator(color: MotoGoColors.green),
       ),
-      error: (e, _) => Center(
-        child: Text('${t(context).tr('catalogErrorPrefix')}$e'),
+      // Důvod + Zkusit znovu, nikdy syrová výjimka.
+      error: (e, _) => MgErrorView(
+        error: e,
+        what: t(context).tr('eoMotosLoadFail'),
+        onRetry: () => ref.invalidate(motorcyclesProvider),
       ),
     );
   }

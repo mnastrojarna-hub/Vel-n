@@ -5,8 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/error_feedback.dart';
+import '../../core/widgets/state_views.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 import '../auth/widgets/toast_helper.dart';
 import 'messages_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Messages screen — mirrors s-messages from templates-done-pages.js.
 /// Two tabs: Oznámení (admin_messages) + Konverzace (threads).
@@ -41,7 +45,7 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () => context.backOr(Routes.profile),
           child: Center(
             child: Container(
@@ -139,8 +143,13 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
-      error: (_, __) => Center(child: Text(t(context).error, style: const TextStyle(color: MotoGoColors.red))),
+      loading: () => MgLoadingView(onRetry: () => ref.invalidate(adminMessagesProvider)),
+      // Co, proč a jak dál + Zkusit znovu (dřív holé „Chyba" na celou session).
+      error: (e, _) => MgErrorView(
+        error: e,
+        what: t(context).tr('eoMessagesLoadFail'),
+        onRetry: () => ref.invalidate(adminMessagesProvider),
+      ),
     );
   }
 
@@ -172,9 +181,31 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
           ],
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
-      error: (_, __) => Center(child: Text(t(context).error)),
+      loading: () => MgLoadingView(onRetry: () => ref.invalidate(threadsProvider)),
+      error: (e, _) => MgErrorView(
+        error: e,
+        what: t(context).tr('eoMessagesLoadFail'),
+        onRetry: () => ref.invalidate(threadsProvider),
+      ),
     );
+  }
+
+  /// Založí konverzaci a otevře ji. Chyba → důvod + Zkusit znovu se stejným
+  /// předmětem (dřív výjimka spadla potichu, sheet už byl zavřený).
+  Future<void> _createAndOpen(BuildContext context, String subject) async {
+    try {
+      final id = await createThread(subject);
+      if (!context.mounted) return;
+      if (id != null) {
+        context.push('/messages/$id');
+        return;
+      }
+      throw const AuthException('not_authenticated', statusCode: '401');
+    } catch (e) {
+      if (!context.mounted) return;
+      showErrorSnack(context, t(context).tr('eoThreadCreateFail'), e,
+          where: 'thread_create', onRetry: () => _createAndOpen(context, subject));
+    }
   }
 
   void _newThread(BuildContext context) {
@@ -209,14 +240,7 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
                   return;
                 }
                 Navigator.pop(ctx);
-                final id = await createThread(subject);
-                if (!context.mounted) return;
-                if (id != null) {
-                  context.push('/messages/$id');
-                } else {
-                  showMotoGoToast(context, icon: '✗',
-                      title: t(context).error, message: t(context).tr('tryAgainPlease'));
-                }
+                await _createAndOpen(context, subject);
               },
             ),
             const SizedBox(height: 12),
@@ -232,14 +256,7 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
                     return;
                   }
                   Navigator.pop(ctx);
-                  final id = await createThread(subject);
-                  if (!context.mounted) return;
-                  if (id != null) {
-                    context.push('/messages/$id');
-                  } else {
-                    showMotoGoToast(context, icon: '✗',
-                        title: t(context).error, message: t(context).tr('tryAgainPlease'));
-                  }
+                  await _createAndOpen(context, subject);
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 14),

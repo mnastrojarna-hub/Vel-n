@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -107,10 +109,35 @@ class NotificationHandler {
     ctx.push(container.read(hasActiveRentalProvider) ? Routes.sos : Routes.messages);
   }
 
+  /// Klepnutí na notifikaci při studeném startu přijde dřív, než router
+  /// projde přihlášením (start na /login → přesměrování na Domů). Počkáme, až
+  /// je zákazník uvnitř appky — jinak by se otevřel jen úvod (max. 2 min).
+  static Future<void> _deliverWhenReady(Map<String, dynamic> data) async {
+    for (var i = 0; i < 240; i++) {
+      final ctx = _navKey?.currentContext;
+      if (ctx != null && ctx.mounted) {
+        String loc = Routes.login;
+        try {
+          loc = GoRouter.of(ctx).routerDelegate.currentConfiguration.uri.path;
+        } catch (_) {}
+        final onAuth = loc == Routes.login ||
+            loc == Routes.register ||
+            loc == Routes.resetPassword;
+        if (!onAuth) {
+          _route(ctx, data);
+          return;
+        }
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+  }
+
   /// Mirrors deep link routing from native-bridge.js.
   static void _handleDeepLink(Map<String, dynamic> data) {
-    final context = _navKey?.currentContext;
-    if (context == null) return;
+    unawaited(_deliverWhenReady(data));
+  }
+
+  static void _route(BuildContext context, Map<String, dynamic> data) {
 
     final type = data['type'] as String?;
     final id = data['id'] as String?;

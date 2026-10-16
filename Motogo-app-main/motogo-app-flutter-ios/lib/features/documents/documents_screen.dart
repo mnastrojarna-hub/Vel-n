@@ -8,6 +8,9 @@ import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/error_feedback.dart';
+import '../../core/widgets/state_views.dart';
 import 'document_provider.dart';
 import 'docs_gate_provider.dart';
 import 'docs_gate_widgets.dart';
@@ -254,7 +257,12 @@ class DocumentsScreen extends ConsumerWidget {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
-              error: (_, __) => Text(t(context).tr('loadingError'), style: const TextStyle(color: MotoGoColors.red)),
+              error: (e, _) => MgErrorView(
+                compact: true,
+                error: e,
+                what: t(context).tr('eoDocsStatusFail'),
+                onRetry: () => ref.invalidate(docsScreenStatusProvider),
+              ),
             ),
           ],
         ),
@@ -296,21 +304,43 @@ class DocumentsScreen extends ConsumerWidget {
     if (kind == null || !context.mounted) return;
     final (docType, docSide, stepKey) = kind;
     final picker = ImagePicker();
-    final photo = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1800);
+    final XFile? photo;
+    try {
+      photo = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1800);
+    } catch (e) {
+      // Bez přístupu k fotkám: proč + Otevřít nastavení (dřív výjimka potichu).
+      if (context.mounted) {
+        showErrorSnack(context, t(context).tr('eoGalleryOpenFail'), e,
+            where: 'docs_gallery_pick', perm: DevicePerm.photos);
+      }
+      return;
+    }
     if (photo == null) return;
     if (!context.mounted) return;
-    showMotoGoToast(context, icon: '⏳', title: t(context).tr('uploading'), message: t(context).tr('processingDoc'));
-    final result = await scanDocument(photo, docType);
-    final upload = await uploadDocPhoto(photo, docType, mindeeOk: result != null, docSide: docSide);
-    if (result != null) {
-      await saveOcrToProfile(result, docType: docType, stepKey: stepKey);
+    final progress = MgProgress.show(context, t(context).tr('processingDoc'));
+    DocUploadResult upload;
+    try {
+      final result = await scanDocument(photo, docType);
+      upload = await uploadDocPhoto(photo, docType, mindeeOk: result != null, docSide: docSide);
+      if (result != null) {
+        await saveOcrToProfile(result, docType: docType, stepKey: stepKey);
+      }
+    } catch (e) {
+      upload = DocUploadResult(errorDetail: '$e', cause: e);
+    } finally {
+      progress.close();
     }
     if (!context.mounted) return;
     ref.invalidate(docsVerifiedProvider);
     ref.invalidate(docsGateChecklistProvider);
+    final fe = FriendlyError.of(upload.cause);
     if (upload.ok) {
       // Fotka uložená → strana dokladu je nahraná (kódy dle brány dokladů).
       showMotoGoToast(context, icon: '✅', title: t(context).tr('uploaded'), message: t(context).tr('docProcessed'));
+    } else if (upload.cause != null && (fe.isNetwork || fe.kind == FriendlyKind.server)) {
+      // Síť / server: skutečný důvod (dřív mylně „naskenuj doklad kamerou").
+      showErrorSnack(context, t(context).tr('eoDocUploadWhat'), upload.cause,
+          where: 'docs_gallery_upload', onRetry: () => _uploadFromGallery(context, ref));
     } else {
       // Upload nebo OCR selhaly — doveď uživatele na skener s kamerou,
       // kde má full retry + contact fallback flow.

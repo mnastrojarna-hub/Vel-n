@@ -18,6 +18,7 @@ import 'routes_provider.dart';
 import 'submit_common.dart';
 import 'all_pois_screen.dart';
 import 'my_experiences_provider.dart';
+import '../../core/widgets/map_tile_errors.dart';
 
 /// Jedna zastávka editoru trasy.
 class _Stop {
@@ -263,7 +264,10 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
                       'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
                   userAgentPackageName: 'com.motogo24.app',
                   maxZoom: 19,
+                  errorTileCallback: MapTileErrors.report,
+                  reset: MapTileErrors.reset,
                 ),
+                const MapTileErrorChip(),
                 if (_geometry.length >= 2)
                   PolylineLayer(polylines: [
                     Polyline(points: _geometry, strokeWidth: 7, color: MotoGoColors.dark.withValues(alpha: 0.25)),

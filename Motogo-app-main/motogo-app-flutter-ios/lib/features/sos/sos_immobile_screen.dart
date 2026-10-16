@@ -4,10 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart';
-import '../../core/native/gps_service.dart';
 import '../../core/i18n/i18n_provider.dart';
-import 'sos_timeline_i18n.dart';
 import '../auth/widgets/toast_helper.dart';
+import 'sos_feedback.dart';
+import 'sos_location.dart';
 import 'sos_provider.dart';
 
 /// "Motorka nepojízdná" screen for accidents — mirrors s-sos-nepojizda.
@@ -22,22 +22,23 @@ class SosImmobileScreen extends ConsumerStatefulWidget {
 class _SosImmobileState extends ConsumerState<SosImmobileScreen> {
   bool? _fault; // null = not selected, true = at-fault, false = not-at-fault
   bool _submitting = false;
+  bool _sentWithoutLocation = false;
 
   /// Creates or re-uses an active SOS incident. Throws on error.
   Future<String> _ensureIncident() async {
     final active = ref.read(activeSosProvider).valueOrNull;
     if (active != null && active.isActive) return active.id;
 
-    double? lat, lng;
-    try {
-      final pos = await GpsService.getCurrentPosition();
-      lat = pos?.latitude;
-      lng = pos?.longitude;
-    } catch (_) {}
+    final description = t(context).tr('accidentMajorTitle');
+    // Poloha max 20 s a bez vytahování do Nastavení; bez ní hlášení odejde
+    // stejně a zákazník se dozví, že má polohu říct po telefonu.
+    final loc = await sosLocate();
+    final lat = loc.pos?.latitude, lng = loc.pos?.longitude;
+    _sentWithoutLocation = loc.pos == null;
 
     return createSosIncident(
       type: SosType.accidentMajor,
-      description: t(context).tr('accidentMajorTitle'),
+      description: description,
       lat: lat, lng: lng,
       isFault: _fault,
     );
@@ -51,45 +52,62 @@ class _SosImmobileState extends ConsumerState<SosImmobileScreen> {
       await _ensureIncident();
       ref.invalidate(activeSosProvider);
       if (mounted) context.push(Routes.sosReplacement);
+      if (mounted && _sentWithoutLocation) showSosSentWithoutLocation(context);
     } catch (e) {
-      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: sosErrorMessage(t(context), e));
+      if (mounted) setState(() => _submitting = false);
+      if (!mounted) return;
+      final retry = await showSosActionFailed(context,
+          title: t(context).tr('eoSosReportFailTitle'), error: e);
+      if (retry && mounted) await _requestReplacement();
+      return;
     }
-    setState(() => _submitting = false);
+    if (mounted) setState(() => _submitting = false);
   }
 
   Future<void> _endRide() async {
     if (_fault == null || _submitting) return;
     setState(() => _submitting = true);
 
-    String incId;
+    // Odtah se hlásí jako objednaný JEN když se žádost opravdu uložila —
+    // jinak důvod + volání (odtah zařídíme po telefonu) / Zkusit znovu.
     try {
-      incId = await _ensureIncident();
+      final incId = await _ensureIncident();
+      await sosEndRide(incId, isFault: _fault!);
     } catch (e) {
-      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: sosErrorMessage(t(context), e));
-      setState(() => _submitting = false);
+      if (mounted) setState(() => _submitting = false);
+      if (!mounted) return;
+      final retry = await showSosActionFailed(context,
+          title: t(context).tr('eoSosTowFailTitle'),
+          error: e,
+          extra: t(context).tr('eoSosTowByPhone'));
+      if (retry && mounted) await _endRide();
       return;
     }
-
-    await sosEndRide(incId, isFault: _fault!);
     ref.invalidate(activeSosProvider);
 
     if (mounted) {
       ref.read(sosDoneTypeProvider.notifier).state =
           _fault! ? SosDoneType.towOrdered : SosDoneType.towFree;
       showMotoGoToast(context, icon: '✅', title: t(context).tr('towOrdered'), message: t(context).tr('towOrderedMsg'));
+      if (_sentWithoutLocation) showSosSentWithoutLocation(context);
       context.go(Routes.sosDone);
     }
-    setState(() => _submitting = false);
+    if (mounted) setState(() => _submitting = false);
   }
 
+  /// Úspěch jen když poloha opravdu dorazila (dřív vždy „Poloha sdílena",
+  /// i bez aktivního incidentu, oprávnění nebo internetu).
   Future<void> _shareLocation() async {
-    showMotoGoToast(context, icon: '📍', title: t(context).tr('sharingLocation'), message: '');
+    final progress = SosProgress.show(context, t(context).tr('sharingLocation'));
     final active = ref.read(activeSosProvider).valueOrNull;
-    if (active != null) {
-      await shareLocation(active.id);
-    }
-    if (mounted) showMotoGoToast(context, icon: '📍', title: t(context).tr('locationShared'), message: t(context).tr('locationSharedMsg'));
+    final r = await shareLocationNow(active?.isActive == true ? active!.id : null);
+    progress.close();
+    if (!mounted) return;
+    ref.invalidate(activeSosProvider);
+    final retry = await showSosLocationResult(context, r);
+    if (retry && mounted) await _shareLocation();
   }
+
 
   @override
   Widget build(BuildContext context) {

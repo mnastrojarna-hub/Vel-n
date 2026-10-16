@@ -34,6 +34,7 @@ import '../../core/currency.dart';
 import '../../core/booking_rules.dart';
 import '../../core/feature_flags.dart';
 import '../../core/widgets/pickup_location_link.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
 /// Calendar supports both extend and shorten in one view.
@@ -1277,7 +1278,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             decoration: const BoxDecoration(color: MotoGoColors.dark, borderRadius: BorderRadius.vertical(bottom: Radius.circular(24))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                GestureDetector(onTap: () => context.backOr(Routes.reservations),
+                MgBackTap(onTap: () => context.backOr(Routes.reservations),
                   child: Container(width: 36, height: 36,
                     decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(10)),
                     child: const Icon(Icons.arrow_back, size: 18, color: Colors.black))),

@@ -21,6 +21,8 @@ import 'widgets/pricing_table.dart';
 import 'widgets/specs_section.dart';
 import 'widgets/validation_banner.dart';
 import '../../core/date_days.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Detail content for a single motorcycle.
 /// Used inside the pager (MotoDetailScreen) — one page per motorcycle.
@@ -88,8 +90,11 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
       loading: () => const Center(
         child: CircularProgressIndicator(color: MotoGoColors.green),
       ),
-      error: (e, _) => Center(
-        child: Text('${t(context).tr('catalogErrorPrefix')}$e'),
+      // Důvod + Zkusit znovu, nikdy syrová výjimka.
+      error: (e, _) => MgErrorView(
+        error: e,
+        what: t(context).tr('eoMotosLoadFail'),
+        onRetry: () => ref.invalidate(motorcyclesProvider),
       ),
     );
   }
@@ -367,7 +372,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
           Positioned(
             top: MediaQuery.of(ctx).padding.top + 8,
             left: 12,
-            child: GestureDetector(
+            child: MgBackTap(
               // Detail lze otevřít i deep-linkem/notifikací → v zásobníku není
               // co popnout a `pop()` by hodil „GoError: nothing to pop". Fallback
               // na katalog.

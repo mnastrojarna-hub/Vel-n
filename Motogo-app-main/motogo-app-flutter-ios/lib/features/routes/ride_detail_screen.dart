@@ -14,6 +14,8 @@ import 'ride_point_sheet.dart';
 import 'ride_provider.dart';
 import 'ride_share.dart';
 import 'route_image.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/error_feedback.dart';
 
 /// Detail projeté jízdy — mapa se stopou, statistiky, zastávky s fotkami
 /// a popisky (přidat / upravit / smazat), přepínač sdílení a export na
@@ -64,11 +66,23 @@ class _RideDetailScreenState extends ConsumerState<RideDetailScreen> {
               _swipe((v.abs() >= 140 ? v < 0 : _dx < 0) ? 1 : -1);
             },
       child: rides.when(
-      loading: () => const Scaffold(
-        backgroundColor: MotoGoColors.bg,
-        body: Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
+      loading: () => MgStateScaffold(
+        onBack: () => context.backOr('/my-experiences'),
+        child: MgLoadingView(
+            color: MotoGoColors.greenDark,
+            onRetry: () => ref.invalidate(myRidesProvider),
+            onBack: () => context.backOr('/my-experiences')),
       ),
-      error: (_, __) => _missing(context),
+      // Chyba načtení ≠ „Jízda nenalezena": důvod + Zkusit znovu + Zpět.
+      error: (e, _) => MgStateScaffold(
+        onBack: () => context.backOr('/my-experiences'),
+        child: MgErrorView(
+          error: e,
+          what: t(context).tr('eoRideLoadFail'),
+          onRetry: () => ref.invalidate(myRidesProvider),
+          onBack: () => context.backOr('/my-experiences'),
+        ),
+      ),
       data: (list) {
         UserRide? ride;
         for (final r in list) {
@@ -143,10 +157,17 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
   Future<void> _toggleVisibility(bool public) async {
     if (_busy) return;
     setState(() => _busy = true);
-    await updateUserRide(ride.id, visibility: public ? 'public' : 'private');
+    final ok = await updateUserRide(ride.id, visibility: public ? 'public' : 'private');
     if (!mounted) return;
     setState(() => _busy = false);
+    if (!ok) _saveFailed(() => _toggleVisibility(public));
     await _reload();
+  }
+
+  /// Uložení / smazání se nepovedlo — dřív se výsledek ignoroval.
+  void _saveFailed(VoidCallback retry, {bool delete = false}) {
+    showErrorSnack(context, t(context).tr(delete ? 'eoRideDeleteFail' : 'eoRideSaveFail'),
+        null, where: 'ride_detail_save', onRetry: retry);
   }
 
   Future<void> _editTexts() async {
@@ -189,8 +210,9 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
       ),
     );
     if (ok != true) return;
-    await updateUserRide(ride.id,
+    final saved = await updateUserRide(ride.id,
         name: name.text.trim(), description: desc.text.trim());
+    if (!saved && mounted) _saveFailed(_editTexts);
     await _reload();
   }
 
@@ -218,7 +240,12 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
       ),
     );
     if (ok != true) return;
-    await deleteUserRide(ride.id);
+    final deleted = await deleteUserRide(ride.id);
+    if (!deleted) {
+      // Nesmazáno → zůstat na detailu a říct to (dřív odešel jako smazané).
+      if (mounted) _saveFailed(_delete, delete: true);
+      return;
+    }
     await _reload();
     if (mounted) context.backOr('/my-experiences');
   }

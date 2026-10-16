@@ -2,12 +2,14 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/net_image.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
+import '../../core/widgets/state_views.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../documents/booking_doc_viewer.dart';
 import '../documents/document_models.dart';
@@ -69,21 +71,44 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
     final resAsync = ref.watch(reservationByIdProvider(widget.bookingId));
     final doorCodesAsync = ref.watch(doorCodesProvider(widget.bookingId));
 
+    // Načítání i chyba mají šipku zpět, důvod a „Zkusit znovu" (cíl push
+    // notifikací — dřív holý spinner bez zpět a syrová výjimka „Chyba: …").
+    void back() => context.backOr(Routes.reservations);
+    void retry() => ref.invalidate(reservationByIdProvider(widget.bookingId));
     return resAsync.when(
       data: (res) {
-        if (res == null) return _error(t(context).tr('reservationNotFound'));
+        if (res == null) {
+          return MgStateScaffold(
+            title: t(context).tr('detail'),
+            onBack: back,
+            child: MgErrorView(
+              what: t(context).tr('reservationNotFound'),
+              message: t(context).tr('eoReservationGoneBody'),
+              contact: false,
+              onBack: () => context.go(Routes.reservations),
+              backLabel: t(context).tr('myReservations'),
+            ),
+          );
+        }
         return _buildDetail(context, res, doorCodesAsync);
       },
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator(color: MotoGoColors.green))),
-      error: (e, _) => _error('${t(context).error}: $e'),
+      loading: () => MgStateScaffold(
+        title: t(context).tr('detail'),
+        onBack: back,
+        child: MgLoadingView(onRetry: retry, onBack: back),
+      ),
+      error: (e, _) => MgStateScaffold(
+        title: t(context).tr('detail'),
+        onBack: back,
+        child: MgErrorView(
+          error: e,
+          what: t(context).tr('eoReservationLoadFail'),
+          onRetry: retry,
+          onBack: back,
+        ),
+      ),
     );
   }
-
-  Widget _error(String msg) => Scaffold(
-    backgroundColor: MotoGoColors.bg,
-    appBar: AppBar(title: const Text('Detail')),
-    body: Center(child: Text(msg)),
-  );
 
   String _statusTitle(ResStatus st) {
     switch (st) {

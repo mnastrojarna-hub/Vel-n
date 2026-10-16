@@ -62,6 +62,10 @@ class RideRecorderState {
   /// tlačítkem v „Mých zážitcích" a ukončí ho zase jen on.
   final bool manual;
 
+  /// Poloha se během záznamu ztratila (vypnutá poloha / odebrané oprávnění) —
+  /// záznam stojí; UI to řekne (dřív se tiše přestalo nahrávat).
+  final bool gpsLost;
+
   const RideRecorderState({
     this.enabled = true,
     this.recording = false,
@@ -69,6 +73,7 @@ class RideRecorderState {
     this.bookingId,
     this.points = 0,
     this.manual = false,
+    this.gpsLost = false,
   });
 
   RideRecorderState copyWith({
@@ -78,6 +83,7 @@ class RideRecorderState {
     String? bookingId,
     int? points,
     bool? manual,
+    bool? gpsLost,
     bool clearRide = false,
   }) =>
       RideRecorderState(
@@ -87,8 +93,13 @@ class RideRecorderState {
         bookingId: clearRide ? null : (bookingId ?? this.bookingId),
         points: points ?? this.points,
         manual: clearRide ? false : (manual ?? this.manual),
+        gpsLost: clearRide ? false : (gpsLost ?? this.gpsLost),
       );
 }
+
+/// Proč se ruční záznam nerozjel — každý důvod má vlastní hlášku a nápravu
+/// (dřív jedna věta „přihlas se a povol polohu" pro všechno).
+enum RideStartResult { ok, notSignedIn, locationOff, noPermission, imprecise, failed }
 
 class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   RideRecorderNotifier(this._ref) : super(const RideRecorderState()) {
@@ -157,16 +168,27 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// Na rozdíl od automatického startu si o polohu sám řekne — jezdec tuhle
   /// funkci vyvolal klepnutím, takže je systémový dialog očekávaný.
   /// Vrací false, když se záznam nepodařilo rozjet (nepřihlášený / bez polohy).
-  Future<bool> startManual() async {
-    if (state.recording) return true;
-    if (MotoGoSupabase.currentUser == null) return false;
+  Future<bool> startManual() async =>
+      await startManualResult() == RideStartResult.ok;
+
+  /// Jako [startManual], ale s důvodem neúspěchu. Do Nastavení NEodvádí —
+  /// nápravu („Otevřít nastavení") nabídne UI.
+  Future<RideStartResult> startManualResult() async {
+    if (state.recording) return RideStartResult.ok;
+    if (MotoGoSupabase.currentUser == null) return RideStartResult.notSignedIn;
     if (!await hasLocationPermission()) {
-      if (!await GpsService.ensurePermission()) return false;
-      if (!await hasLocationPermission()) return false;
+      final st = await GpsService.status();
+      if (st == GpsStatus.serviceOff) return RideStartResult.locationOff;
+      if (st != GpsStatus.ok) return RideStartResult.noPermission;
+      if (!await hasLocationPermission()) return RideStartResult.noPermission;
     }
+    _startFail = null;
     await _start(null, manual: true);
-    return state.recording;
+    if (state.recording) return RideStartResult.ok;
+    return _startFail ?? RideStartResult.failed;
   }
+
+  RideStartResult? _startFail;
 
   /// Má zákazník polohu povolenou? (NEŽÁDÁ o ni — jen se ptá systému.)
   static Future<bool> hasLocationPermission() async {
@@ -195,7 +217,10 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
     try {
       // Bez přesné polohy se nerozjíždí ani serverová jízda — neměla by
       // co dostat. (Ruční start pak vrátí false → hláška v UI.)
-      if (!await _ensurePreciseOnIos()) return;
+      if (!await _ensurePreciseOnIos()) {
+        _startFail = RideStartResult.imprecise;
+        return;
+      }
       // Startovní bod bereme z poslední známé polohy — ale JEN když je
       // čerstvá. Systém tu drží i polohu z včerejška z jiného města; ta by
       // se stala začátkem stopy a vyrobila první „úsek" přes půl republiky.
@@ -212,7 +237,10 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
         lat: first?.latitude,
         lng: first?.longitude,
       );
-      if (started == null) return;
+      if (started == null) {
+        _startFail = RideStartResult.failed; // offline / server
+        return;
+      }
       final id = started.id;
 
       // Server založil NOVOU jízdu (tu starou mezitím uzavřel úklid, nebo
@@ -333,13 +361,36 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
 
   /// Připojí GPS stream + časovač odesílání dávek.
   void _attachStream() {
-    _sub?.cancel();
-    _sub = Geolocator.getPositionStream(
-      locationSettings: _locationSettings(),
-    ).listen(_onPosition, onError: (_) {});
+    _attachPositions();
+    // Vypnutí polohy uprostřed jízdy → stav „GPS ztracen" (a po zapnutí
+    // znovu připojit stream polohy, který chybou skončil).
+    _svcSub?.cancel();
+    try {
+      _svcSub = Geolocator.getServiceStatusStream().listen((st) {
+        if (!mounted || !state.recording) return;
+        final lost = st == ServiceStatus.disabled;
+        if (lost != state.gpsLost) state = state.copyWith(gpsLost: lost);
+        if (!lost) _attachPositions();
+      }, onError: (_) {});
+    } catch (_) {/* platforma stav služby nehlásí */}
     _timer?.cancel();
     _timer = Timer.periodic(_kFlushEvery, (_) => flush());
   }
+
+  void _attachPositions() {
+    _sub?.cancel();
+    _sub = Geolocator.getPositionStream(
+      locationSettings: _locationSettings(),
+    ).listen(_onPosition, onError: (Object e) {
+      // Odebrané oprávnění / vypnutá poloha — dřív `onError: (_) {}` a záznam
+      // tiše stál.
+      if (mounted && state.recording && !state.gpsLost) {
+        state = state.copyWith(gpsLost: true);
+      }
+    });
+  }
+
+  StreamSubscription<ServiceStatus>? _svcSub;
 
   /// Bod stopy = `[lat, lng, čas (epoch s), rychlost km/h, výška m]`.
   /// Čas a rychlost potřebuje server na statistiky (čas jízdy vs. čas stání,
@@ -347,6 +398,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// nula = přijímač výšku nemá a falešně by nafoukla stoupání.
   void _onPosition(Position pos) {
     if (!state.recording) return;
+    if (state.gpsLost) state = state.copyWith(gpsLost: false);
     // Nepřesný fix (uvnitř budovy, tunel, městský kaňon) do stopy nepatří:
     // při stání v kavárně GPS „skáče" o desítky metrů a každý skok by se
     // počítal jako pár metrů jízdy — po hodině je z toho kilometr, který se
@@ -389,6 +441,8 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   Future<void> _forgetRide({bool keepBuffer = false}) async {
     await _sub?.cancel();
     _sub = null;
+    await _svcSub?.cancel();
+    _svcSub = null;
     _timer?.cancel();
     _timer = null;
     if (!keepBuffer) _buffer.clear();
@@ -481,6 +535,8 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       }
       await _sub?.cancel();
       _sub = null;
+      await _svcSub?.cancel();
+      _svcSub = null;
       _timer?.cancel();
       _timer = null;
       // Rozjeté odeslání dávky necháme doběhnout DŘÍV, než dávku převezme
@@ -536,6 +592,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   @override
   void dispose() {
     _sub?.cancel();
+    _svcSub?.cancel();
     _timer?.cancel();
     super.dispose();
   }

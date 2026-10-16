@@ -9,6 +9,7 @@ import 'poi_categories.dart';
 import 'poi_rating.dart';
 import 'poi_reviews.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Nadpis sekce v detailu bodu zájmu — výrazný, prominentní.
 Widget _poiSectionTitle(String s) => Padding(
@@ -597,7 +598,7 @@ void openPoiImageViewer(BuildContext context, List<String> imgs, int start, Stri
           Positioned(
             top: MediaQuery.of(dctx).padding.top + 8,
             right: 12,
-            child: GestureDetector(
+            child: MgBackTap(close: true, 
               onTap: () => Navigator.of(dctx).pop(),
               child: Container(
                 padding: const EdgeInsets.all(8),

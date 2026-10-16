@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/widgets/net_image.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
 
 /// Fullscreen zoomable image gallery.
 /// Supports swipe between images, pinch-to-zoom, close via X or swipe down.
@@ -120,7 +121,7 @@ class _FullscreenGalleryState extends State<FullscreenGallery> {
           Positioned(
             top: topPad + 8,
             right: 12,
-            child: GestureDetector(
+            child: MgBackTap(close: true, 
               onTap: () => Navigator.of(context).pop(),
               child: Container(
                 width: 38,

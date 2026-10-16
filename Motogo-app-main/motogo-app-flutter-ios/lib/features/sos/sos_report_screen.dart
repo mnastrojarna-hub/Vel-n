@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,11 +7,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
-import '../../core/native/gps_service.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/state_views.dart';
 import '../../core/i18n/i18n_provider.dart';
-import 'sos_timeline_i18n.dart';
 import '../auth/widgets/toast_helper.dart';
+import 'sos_feedback.dart';
+import 'sos_location.dart';
 import 'sos_provider.dart';
+import 'sos_report_sheet.dart';
 
 /// SOS main screen — mirrors s-sos from templates-res-sos.js.
 /// Shows incident type selection, active incident banner, contact info.
@@ -67,7 +68,19 @@ class SosReportScreen extends ConsumerWidget {
                   );
                 },
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                // Stav se nenačetl (výpadek) → říct to, ne tiše schovat.
+                error: (e, _) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: MgErrorView(
+                    compact: true,
+                    error: e,
+                    what: t(context).tr('eoSosStatusFail'),
+                    message: t(context).tr('eoSosStatusFailBody'),
+                    onRetry: () => ref.invalidate(activeSosProvider),
+                    contact: false,
+                    extra: const [SosCallButton()],
+                  ),
+                ),
               ),
 
               // AI Agent card
@@ -228,25 +241,31 @@ class SosReportScreen extends ConsumerWidget {
   }
 
   Future<void> _report(BuildContext context, WidgetRef ref, String type, String typeLabel) async {
-    // 0. POVINNÝ popis + fotodokumentace — bez nich incident nelze nahlásit.
-    //    Velín tak u KAŽDÉHO SOS vidí popis i fotky.
-    final collected = await _collectReport(context, typeLabel);
+    // 0. POVINNÝ popis + fotodokumentace — bez nich incident nelze nahlásit
+    //    (fotka jen když ji telefon umí pořídit). Velín tak u KAŽDÉHO SOS
+    //    vidí popis i fotky.
+    final collected = await collectSosReport(context, typeLabel);
     if (collected == null || !context.mounted) return;
 
     final userDesc = collected.description;
     final photos = collected.photos;
     // Sloučíme kategorii + popis zákazníka, ať Velín vidí oboje.
-    final fullDesc = '$typeLabel — $userDesc';
+    final fullDesc = '$typeLabel — $userDesc'
+        '${collected.cameraProblem ? ' [bez fotek – kamera nedostupná]' : ''}';
+    await _submitReport(context, ref, type, fullDesc, photos);
+  }
 
-    showMotoGoToast(context, icon: '⚠️', title: t(context).tr('reportingIncident'), message: t(context).tr('sendingToCentral'));
+  /// Odeslání hlášení s průběhem (nejde zavřít ani odeslat dvakrát) a s
+  /// chybou, která řekne proč a nabídne volání / opakování.
+  Future<void> _submitReport(BuildContext context, WidgetRef ref, String type,
+      String fullDesc, List<XFile> photos) async {
+    final tr = t(context);
+    final progress = SosProgress.show(context, tr.tr('eoSosSendingGps'));
 
-    // 1. Capture GPS position
-    double? lat, lng;
-    try {
-      final pos = await GpsService.getCurrentPosition();
-      lat = pos?.latitude;
-      lng = pos?.longitude;
-    } catch (_) {}
+    // 1. Capture GPS position (max 20 s, nic neotevírá)
+    final loc = await sosLocate();
+    final lat = loc.pos?.latitude, lng = loc.pos?.longitude;
+    progress.update(tr.tr('eoSosSending'));
 
     // 2. Determine fault (major accident = ask, breakdown = not at fault)
     final bool isFault = type == SosType.accidentMajor || type == SosType.theft;
@@ -260,23 +279,42 @@ class SosReportScreen extends ConsumerWidget {
         lat: lat,
         lng: lng,
         isFault: isFault,
-      );
+      ).timeout(const Duration(seconds: 45));
     } catch (e) {
-      if (context.mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: sosErrorMessage(t(context), e));
+      progress.close();
+      if (!context.mounted) return;
+      final retry = await showSosActionFailed(context,
+          title: tr.tr('eoSosReportFailTitle'), error: e);
+      if (retry && context.mounted) {
+        await _submitReport(context, ref, type, fullDesc, photos);
+      }
       return;
     }
 
     // 4. Upload povinné fotodokumentace
-    try {
-      await uploadSosPhotos(incId, photos);
-    } catch (_) {
-      if (context.mounted) {
-        showMotoGoToast(context, icon: '⚠️', title: t(context).tr('photoUploadFailed'), message: t(context).tr('incidentCreatedNoPhoto'));
+    var photosFailed = false;
+    if (photos.isNotEmpty) {
+      progress.update(tr.tr('eoSosSendingPhotos'));
+      try {
+        await uploadSosPhotos(incId, photos);
+      } catch (e) {
+        FriendlyError.log('sos_photo_upload', e);
+        photosFailed = true;
       }
     }
+    progress.close();
 
     if (!context.mounted) return;
     ref.invalidate(activeSosProvider);
+    if (photosFailed) {
+      showMotoGoToast(context,
+          icon: '⚠️',
+          title: tr.tr('photoUploadFailed'),
+          message: tr.tr('eoSosPhotosLater'),
+          duration: const Duration(seconds: 8));
+    } else if (loc.pos == null) {
+      showSosSentWithoutLocation(context);
+    }
 
     // 5. Set done type based on incident type
     if (type == SosType.accidentMinor) {
@@ -287,165 +325,24 @@ class SosReportScreen extends ConsumerWidget {
       ref.read(sosDoneTypeProvider.notifier).state = SosDoneType.generic;
     }
 
-    showMotoGoToast(context, icon: '✅', title: t(context).tr('incidentReported'), message: t(context).tr('motoGoInformed'));
+    if (!photosFailed && loc.pos != null) {
+      showMotoGoToast(context, icon: '✅', title: tr.tr('incidentReported'), message: tr.tr('motoGoInformed'));
+    }
     context.push(Routes.sosDone);
   }
 
-  /// Povinný sběr popisu + fotodokumentace před nahlášením incidentu.
-  /// Vrací `null` při zrušení; jinak popis (neprázdný) + min. 1 fotku.
-  Future<({String description, List<XFile> photos})?> _collectReport(
-      BuildContext context, String typeLabel) {
-    return showModalBottomSheet<({String description, List<XFile> photos})>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        final descCtrl = TextEditingController();
-        final photos = <XFile>[];
-        return StatefulBuilder(
-          builder: (ctx, setSheet) {
-            final canSubmit = descCtrl.text.trim().length >= 3 && photos.isNotEmpty;
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                  20, 16, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40, height: 4,
-                      decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text('🆘 $typeLabel', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
-                  const SizedBox(height: 4),
-                  Text(t(context).tr('sosReportRequiredHint'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
-                  const SizedBox(height: 16),
-
-                  // Popis (povinný)
-                  Text('${t(context).tr('sosDescriptionLabel')} *',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: descCtrl,
-                    maxLines: 3,
-                    onChanged: (_) => setSheet(() {}),
-                    decoration: InputDecoration(
-                      hintText: t(context).tr('sosDescriptionHint'),
-                      hintStyle: const TextStyle(fontSize: 12, color: MotoGoColors.g400),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: MotoGoColors.g200)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: MotoGoColors.g200)),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Fotodokumentace (povinná)
-                  Text('${t(context).tr('photoDocumentation')} *',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
-                  const SizedBox(height: 6),
-                  if (photos.isNotEmpty)
-                    SizedBox(
-                      height: 64,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: photos.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 6),
-                        itemBuilder: (_, i) => ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(File(photos[i].path), width: 64, height: 64, fit: BoxFit.cover),
-                        ),
-                      ),
-                    ),
-                  if (photos.isNotEmpty) const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final shot = await _capturePhoto(ctx);
-                      if (shot != null) setSheet(() => photos.add(shot));
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: MotoGoColors.greenDarker,
-                      side: const BorderSide(color: MotoGoColors.greenDark),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    icon: const Icon(Icons.camera_alt, size: 18),
-                    label: Text(photos.isEmpty ? t(context).tr('takePhoto') : t(context).tr('addAnotherPhoto'),
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Odeslat
-                  ElevatedButton(
-                    onPressed: canSubmit
-                        ? () => Navigator.pop(ctx, (description: descCtrl.text.trim(), photos: photos))
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: MotoGoColors.red,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: MotoGoColors.g200,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-                    ),
-                    child: Text(t(context).tr('yesReport'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, null),
-                    style: TextButton.styleFrom(foregroundColor: MotoGoColors.g400),
-                    child: Text(t(context).cancel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  /// Vyfotí jednu fotku (kamera; při selhání nabídne galerii).
-  Future<XFile?> _capturePhoto(BuildContext context) async {
-    final picker = ImagePicker();
-    try {
-      return await picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 2048);
-    } catch (_) {
-      try {
-        return await picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 2048);
-      } catch (_) {
-        if (context.mounted) {
-          showMotoGoToast(context, icon: '⚠️', title: t(context).tr('photoCaptureFailed'), message: t(context).tr('tryAgainOrSkip'));
-        }
-        return null;
-      }
-    }
-  }
-
+  /// „Sdílet polohu" — úspěch JEN když poloha opravdu dorazila; jinak důvod
+  /// a volání / nastavení / zkusit znovu.
   Future<void> _shareLocation(BuildContext context, WidgetRef ref) async {
-    showMotoGoToast(context, icon: '📍', title: t(context).tr('sharingLocation'), message: '');
+    final tr = t(context);
+    final progress = SosProgress.show(context, tr.tr('sharingLocation'));
     final active = ref.read(activeSosProvider).valueOrNull;
-    if (active != null) {
-      await shareLocation(active.id);
-      if (context.mounted) showMotoGoToast(context, icon: '📍', title: t(context).tr('locationShared'), message: t(context).tr('locationSharedMsg'));
-    } else {
-      // Get GPS before creating incident so coords are attached from start
-      double? lat, lng;
-      try {
-        final pos = await GpsService.getCurrentPosition();
-        lat = pos?.latitude;
-        lng = pos?.longitude;
-      } catch (_) {}
-      try {
-        final incId = await createSosIncident(type: SosType.locationShare, description: 'Sdílení polohy', lat: lat, lng: lng);
-        await shareLocation(incId);
-      } catch (_) {}
-      if (context.mounted) showMotoGoToast(context, icon: '📍', title: t(context).tr('locationShared'), message: '');
-    }
+    final r = await shareLocationNow(active?.isActive == true ? active!.id : null);
+    progress.close();
+    if (!context.mounted) return;
+    ref.invalidate(activeSosProvider);
+    final retry = await showSosLocationResult(context, r);
+    if (retry && context.mounted) await _shareLocation(context, ref);
   }
 }
 

@@ -6,8 +6,10 @@ import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/mg_back.dart';
 import 'auth_provider.dart';
 import 'widgets/toast_helper.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// 3-step password reset flow — mirrors auth-session.js showForgotPassword().
 /// Step 1: Enter email → sends OTP code
@@ -46,6 +48,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   void dispose() {
+    AuthService.recoveryInProgress = false;
     _emailCtrl.dispose();
     _codeCtrl.dispose();
     _pass1Ctrl.dispose();
@@ -77,7 +80,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     setState(() => _loading = false);
 
     if (error != null) {
-      showMotoGoToast(context, icon: '✗', title: t(context).error, message: error);
+      showMotoGoToast(context,
+          icon: '✗',
+          title: t(context).tr('eoCodeSendFail'),
+          message: error,
+          duration: const Duration(seconds: 7));
       return;
     }
 
@@ -102,7 +109,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     setState(() => _loading = false);
 
     if (error != null) {
-      showMotoGoToast(context, icon: '✗', title: t(context).error, message: error);
+      showMotoGoToast(context,
+          icon: '✗',
+          title: t(context).tr('eoOtpVerifyFail'),
+          message: error,
+          duration: const Duration(seconds: 8));
       return;
     }
 
@@ -133,12 +144,17 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     setState(() => _loading = false);
 
     if (error != null) {
-      showMotoGoToast(context, icon: '✗', title: t(context).error, message: error);
+      showMotoGoToast(context,
+          icon: '✗',
+          title: t(context).tr('eoPwSaveFail'),
+          message: error,
+          duration: const Duration(seconds: 8));
       return;
     }
 
     // Sign out recovery session — user logs in with new password
     await AuthService.signOut();
+    AuthService.recoveryInProgress = false;
     if (!mounted) return;
 
     showMotoGoToast(context,
@@ -150,6 +166,25 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Systémové zpět / iOS swipe: o krok zpět (zadaný e-mail a kód se
+    // neztratí), z 1. kroku na přihlášení — nikdy zavření appky.
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        if (!mgIsTopmost(context)) return false;
+        _onBack();
+        return true;
+      },
+      child: PopScope(
+        canPop: _step == 1 && Navigator.of(context).canPop(),
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _onBack();
+        },
+        child: _buildScaffold(context),
+      ),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -170,7 +205,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Back button
-                GestureDetector(
+                MgBackTap(
                   onTap: _onBack,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

@@ -7,10 +7,13 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
+import '../../core/widgets/error_feedback.dart';
+import '../../core/widgets/state_views.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
 import 'doc_webview_screen.dart';
 import 'invoice_html_builder.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Invoices list — mirrors s-invoices from templates-done-pages.js.
 class InvoicesScreen extends ConsumerWidget {
@@ -23,7 +26,7 @@ class InvoicesScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () {
             if (context.canPop()) {
               context.pop();
@@ -73,10 +76,18 @@ class InvoicesScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
+        loading: () => MgLoadingView(
+            onRetry: () => ref.invalidate(invoicesProvider),
+            onBack: () => context.backOr(Routes.profile)),
         error: (e, st) {
           debugPrint('[INVOICES] Provider error: $e\n$st');
-          return Center(child: Text(t(context).tr('loadingError'), style: const TextStyle(color: MotoGoColors.red, fontSize: 12)));
+          // Co, proč a jak dál + Zkusit znovu (dřív holé „Chyba načítání").
+          return MgErrorView(
+            error: e,
+            what: t(context).tr('eoInvoicesLoadFail'),
+            onRetry: () => ref.invalidate(invoicesProvider),
+            onBack: () => context.backOr(Routes.profile),
+          );
         },
       ),
     );
@@ -134,7 +145,29 @@ class InvoiceTile extends StatelessWidget {
     _ => '📄',
   };
 
+  static bool _opening = false;
+
+  /// Bez profilu (offline) by se doklad vykreslil bez odběratele — raději
+  /// řekni proč a nabídni Zkusit znovu. Průběh + pojistka proti dvojímu klepnutí.
   Future<void> _openInvoice(BuildContext context) async {
+    if (_opening) return;
+    _opening = true;
+    final progress = MgProgress.show(context, t(context).tr('eoOpeningDoc'));
+    try {
+      await _openInvoiceInner(context);
+    } catch (e) {
+      progress.close();
+      if (context.mounted) {
+        showErrorSnack(context, t(context).tr('eoInvoiceOpenFail'), e,
+            where: 'invoice_open', onRetry: () => _openInvoice(context));
+      }
+    } finally {
+      progress.close();
+      _opening = false;
+    }
+  }
+
+  Future<void> _openInvoiceInner(BuildContext context) async {
     debugPrint('[INVOICES] Opening: id=${invoice.id}, type=${invoice.type}, number=${invoice.number}');
 
     // Fetch customer profile for invoice header
@@ -170,6 +203,7 @@ class InvoiceTile extends StatelessWidget {
       }
     } catch (e) {
       debugPrint('[INVOICES] Profile fetch error: $e');
+      rethrow;
     }
 
     // Build HTML from invoice data

@@ -5,10 +5,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart';
-import '../../core/native/gps_service.dart';
 import '../../core/i18n/i18n_provider.dart';
-import 'sos_timeline_i18n.dart';
 import '../auth/widgets/toast_helper.dart';
+import 'sos_feedback.dart';
+import 'sos_location.dart';
 import 'sos_provider.dart';
 
 /// Theft screen — mirrors s-sos-kradez from templates-res-sos.js.
@@ -30,27 +30,31 @@ class _SosTheftState extends ConsumerState<SosTheftScreen> {
     if (_submitting) return;
     setState(() => _submitting = true);
 
-    double? lat, lng;
-    try {
-      final pos = await GpsService.getCurrentPosition();
-      lat = pos?.latitude;
-      lng = pos?.longitude;
-    } catch (_) {}
+    // Poloha max 20 s, nic neotevírá (bez ní se to zákazník dozví).
+    final loc = await sosLocate();
 
     try {
       final incId = await createSosIncident(
         type: SosType.theft,
         description: 'Krádež motorky',
-        lat: lat, lng: lng,
+        lat: loc.pos?.latitude, lng: loc.pos?.longitude,
         isFault: _secured == false, // unsecured = customer fault
       );
       _incidentId = incId;
       ref.invalidate(activeSosProvider);
+      if (!mounted) return;
       setState(() { _reported = true; _submitting = false; });
-      if (mounted) showMotoGoToast(context, icon: '✅', title: t(context).tr('theftReported'), message: t(context).tr('motoGoInformed'));
+      if (loc.pos == null) {
+        showSosSentWithoutLocation(context);
+      } else {
+        showMotoGoToast(context, icon: '✅', title: t(context).tr('theftReported'), message: t(context).tr('motoGoInformed'));
+      }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _submitting = false);
-      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: sosErrorMessage(t(context), e));
+      final retry = await showSosActionFailed(context,
+          title: t(context).tr('eoSosReportFailTitle'), error: e);
+      if (retry && mounted) await _reportTheft();
     }
   }
 

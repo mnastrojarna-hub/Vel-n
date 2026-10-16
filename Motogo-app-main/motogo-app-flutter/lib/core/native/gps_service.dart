@@ -42,6 +42,33 @@ class GpsService {
     return ok;
   }
 
+  /// Stav polohy BEZ vytahování zákazníka do Nastavení (2026-10-16): SOS a
+  /// navigace dřív uprostřed hlášení / jízdy tiše otevřely systémové
+  /// nastavení. Nepovolené oprávnění si jednou vyžádá systémovým dialogem.
+  static Future<GpsStatus> status({bool request = true}) async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return GpsStatus.serviceOff;
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied && request) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.deniedForever) return GpsStatus.deniedForever;
+      if (perm == LocationPermission.denied) return GpsStatus.denied;
+      return GpsStatus.ok;
+    } catch (_) {
+      return GpsStatus.denied;
+    }
+  }
+
+  /// Poloha + důvod, proč není (vypnutá poloha / bez oprávnění / bez GPS
+  /// signálu). Nic neotevírá — vysvětlení a „Otevřít nastavení" řeší UI.
+  static Future<({Position? pos, GpsStatus status})> locate() async {
+    final st = await status();
+    if (st != GpsStatus.ok) return (pos: null, status: st);
+    final pos = await _acquire();
+    return (pos: pos, status: pos == null ? GpsStatus.noFix : GpsStatus.ok);
+  }
+
   /// Get current position with fallback.
   /// Mirrors _cordovaGetPosition from native-fingerprint.js:
   /// 1. High accuracy (30s timeout)
@@ -53,7 +80,10 @@ class GpsService {
       debugPrint('[GPS_SVC] ✗ no permission → trying lastKnown');
       return _getLastKnown();
     }
+    return _acquire();
+  }
 
+  static Future<Position?> _acquire() async {
     try {
       debugPrint('[GPS_SVC] trying HIGH accuracy (15s timeout)...');
       final pos = await Geolocator.getCurrentPosition(
@@ -154,3 +184,6 @@ class GeoAddress {
     required this.lng,
   });
 }
+
+/// Proč poloha není k dispozici.
+enum GpsStatus { ok, serviceOff, denied, deniedForever, noFix }

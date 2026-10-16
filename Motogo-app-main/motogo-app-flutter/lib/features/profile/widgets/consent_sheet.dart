@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme.dart';
 import '../../../core/supabase_client.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/friendly_error.dart';
+import '../../../core/widgets/state_views.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 import '../../auth/auth_provider.dart';
 import '../../auth/widgets/toast_helper.dart';
 import '../../reservations/reservation_provider.dart';
@@ -46,9 +49,37 @@ class _ConsentSheetState extends ConsumerState<ConsentSheet> {
     _load();
   }
 
+  Object? _loadError;
+  bool _saving = false;
+  String? _saveError;
+
+  /// Načtení s chybovým stavem — dřív offline / bez profilu točilo navždy.
   Future<void> _load() async {
-    final profile = await ref.read(profileProvider.future);
-    if (profile == null) return;
+    if (mounted && (_loadError != null || !_loading)) {
+      setState(() {
+        _loadError = null;
+        _loading = true;
+      });
+    }
+    try {
+      await _loadInner();
+    } catch (e) {
+      FriendlyError.log('consent_load', e);
+      if (mounted) {
+        setState(() {
+          _loadError = e;
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadInner() async {
+    final profile = await ref.read(profileProvider.future)
+        .timeout(const Duration(seconds: 25));
+    if (profile == null) {
+      throw const AuthException('not_authenticated', statusCode: '401');
+    }
     final keys = widget.section == 'notif' ? _notifKeys : _privKeys;
     final locked = ref.read(hasActiveReservationProvider);
     // Při aktivní rezervaci jsou souhlasy povinné — vynutíme zapnuto a pokud
@@ -79,14 +110,36 @@ class _ConsentSheetState extends ConsumerState<ConsentSheet> {
     });
   }
 
+  /// Uložení: chyba → důvod, sheet zůstane otevřený se zvolenými souhlasy
+  /// (dřív výjimka spadla potichu a nic se nestalo).
   Future<void> _save() async {
+    if (_saving) return;
     final user = MotoGoSupabase.currentUser;
-    if (user == null) return;
-    await MotoGoSupabase.client
-        .from('profiles')
-        .update(_consents)
-        .eq('id', user.id);
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      if (user == null) {
+        throw const AuthException('not_authenticated', statusCode: '401');
+      }
+      await MotoGoSupabase.client
+          .from('profiles')
+          .update(_consents)
+          .eq('id', user.id);
+    } catch (e) {
+      // Chyba přímo v sheetu (toast by byl pod ním schovaný); volby zůstávají.
+      FriendlyError.log('consent_save', e);
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _saveError = FriendlyError.of(e).compose(t(context), t(context).tr('eoSettingsSaveFail'));
+        });
+      }
+      return;
+    }
     if (mounted) {
+      setState(() => _saving = false);
       showMotoGoToast(context, icon: '✓', title: t(context).tr('saved'), message: t(context).tr('settingsSaved'));
       ref.invalidate(profileProvider);
       Navigator.pop(context);
@@ -133,6 +186,15 @@ class _ConsentSheetState extends ConsumerState<ConsentSheet> {
           ],
           if (_loading)
             const CircularProgressIndicator(color: MotoGoColors.green)
+          else if (_loadError != null)
+            MgErrorView(
+              compact: true,
+              error: _loadError,
+              what: t(context).tr('eoSettingsLoadFail'),
+              onRetry: _load,
+              onBack: () => Navigator.pop(context),
+              backLabel: t(context).tr('eoClose'),
+            )
           else
             ...keys.entries.map((e) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
@@ -177,12 +239,21 @@ class _ConsentSheetState extends ConsumerState<ConsentSheet> {
                   ),
                 )),
           const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: _save,
-            style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
-            icon: const Icon(Icons.save, size: 16),
-            label: Text(t(context).tr('save')),
-          ),
+          if (_saveError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(_saveError!,
+                  style: const TextStyle(fontSize: 12, color: MotoGoColors.red, height: 1.35)),
+            ),
+          if (_loadError == null)
+            ElevatedButton.icon(
+              onPressed: _loading || _saving ? null : _save,
+              style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+              icon: _saving
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.save, size: 16),
+              label: Text(t(context).tr('save')),
+            ),
         ]),
       ),
     );

@@ -14,6 +14,7 @@ import 'routes_map_picker.dart';
 import 'routes_map_provider.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// MAPA TRAS — na rozdíl od mapy míst ukazuje jen body, které leží na nějaké
 /// trase, a po klepnutí na bod dokreslí JEHO trasy, a to PO SILNICI.
@@ -289,8 +290,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
           children: [
             Row(
               children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+                MgBackTap(
                   onTap: () => context.backOr(Routes.routesList),
                   child: const Padding(
                     padding: EdgeInsets.all(4),

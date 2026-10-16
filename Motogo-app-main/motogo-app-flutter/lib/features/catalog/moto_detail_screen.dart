@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import 'catalog_provider.dart';
 import 'moto_detail_page.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Moto detail pager — wraps [MotoDetailPage] instances in a horizontal
 /// PageView so the user can swipe left/right between filtered motorcycles.
@@ -88,7 +89,7 @@ class _MotoDetailScreenState extends ConsumerState<MotoDetailScreen> {
             Positioned(
               top: topPad + 8,
               left: 12,
-              child: GestureDetector(
+              child: MgBackTap(
                 onTap: () => context.backOr(Routes.search),
                 child: Container(
                   width: 38,

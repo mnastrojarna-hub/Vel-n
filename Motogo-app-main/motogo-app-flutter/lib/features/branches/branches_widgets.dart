@@ -5,11 +5,12 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Sdílené prvky obrazovek Pobočky (přehled + detail pobočky).
 
 AppBar branchesAppBar(BuildContext context, String title) => AppBar(
-      leading: GestureDetector(
+      leading: MgBackTap(
         onTap: () => context.canPop() ? context.pop() : context.go(Routes.profile),
         child: Center(
           child: Container(

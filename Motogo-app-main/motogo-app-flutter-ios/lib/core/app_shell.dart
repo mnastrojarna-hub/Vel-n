@@ -15,6 +15,7 @@ import '../features/documents/docs_gate_provider.dart';
 import '../features/messages/messages_provider.dart';
 import '../features/payment/payment_provider.dart';
 import '../features/payment/payment_ui_helpers.dart';
+import 'widgets/mg_back.dart';
 import 'widgets/moto_fx.dart';
 import '../features/reservations/reservation_models.dart';
 import '../features/reservations/reservation_provider.dart';
@@ -183,7 +184,9 @@ class AppShell extends ConsumerWidget {
                 child: MediaQuery.removePadding(
                   context: context,
                   removeTop: bannerVisible,
-                  child: child,
+                  // Systémové zpět bez historie (go / záložka / deep link) →
+                  // rodič obrazovky (Domů, Menu…), ne zavření appky.
+                  child: MgBackGuard(shell: true, child: child),
                 ),
               ),
             ],

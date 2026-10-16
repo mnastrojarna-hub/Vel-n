@@ -8,6 +8,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/auth_guard.dart';
@@ -16,8 +18,10 @@ import 'core/currency.dart';
 import 'core/crash_report_service.dart';
 import 'core/debug_logger.dart';
 import 'core/installation_service.dart';
+import 'core/net/timeout_client.dart';
 import 'core/engagement_service.dart';
 import 'core/offline_guard.dart';
+import 'core/provider_recovery.dart';
 import 'core/push/push_service.dart';
 import 'core/push/notification_handler.dart';
 import 'core/native/permission_service.dart';
@@ -77,7 +81,8 @@ Future<void> _initAndRun() async {
     return true; // Handled
   };
 
-  // Show friendly error widget instead of red screen
+  // Show friendly error widget instead of red screen — s akcí Zpět / Domů
+  // (dřív jen „Restartujte aplikaci" bez cesty ven).
   ErrorWidget.builder = (FlutterErrorDetails details) {
     // Report build error
     CrashReportService.instance.reportFlutterError(details);
@@ -86,19 +91,37 @@ Future<void> _initAndRun() async {
     return Material(
       color: const Color(0xFFDFF0EC), // MotoGoColors.bg
       child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text('🔄', style: TextStyle(fontSize: 36)),
               const SizedBox(height: 12),
-              Text(tr.tr('restartApp'),
+              Text(tr.tr('eoCrashTitle'),
+                  textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
                       color: Color(0xFF1A2E22))),
               const SizedBox(height: 6),
-              Text(tr.tr('sorryInconvenience'),
+              Text(tr.tr('eoCrashBody'),
+                  textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 12, color: Color(0xFF6B8F7B))),
+              const SizedBox(height: 12),
+              Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
+                OutlinedButton(
+                  onPressed: () => rootNavigatorKey.currentState?.maybePop(),
+                  child: Text(tr.tr('eoBack')),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: MotoGoColors.green, foregroundColor: Colors.black),
+                  onPressed: () {
+                    final ctx = rootNavigatorKey.currentContext;
+                    if (ctx != null) GoRouter.of(ctx).go('/');
+                  },
+                  child: Text(tr.tr('eoHome')),
+                ),
+              ]),
             ],
           ),
         ),
@@ -157,6 +180,9 @@ Future<void> _initAndRun() async {
     url: MotoGoSupabase.url,
     anonKey: MotoGoSupabase.anonKey,
     realtimeClientOptions: const RealtimeClientOptions(eventsPerSecond: 10),
+    // Časový limit na každý požadavek — žádné nekonečné točení na zaseklém
+    // signálu (viz core/net/timeout_client.dart).
+    httpClient: TimeoutClient(http.Client()),
   );
 
   // Initialize crash reporting + debug logging — must be after Supabase init
@@ -206,6 +232,10 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
     _initPush();
     _initOfflineGuard();
     _resumeActiveRide();
+    // Připojení zpět → data, která zůstala v chybě, se načtou znovu sama.
+    OfflineGuard.onBackOnline = () {
+      if (mounted) recoverFailedProviders(ref);
+    };
   }
 
   /// Rozjetá trasa (nezavřená křížkem) → po startu appky se otevře zpět
@@ -222,8 +252,10 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
     // (PŘED initialize — ta bez oprávnění k notifikacím končí dřív).
     PushService.clearDelivered();
     try {
-      await PushService.initialize();
+      // Handlery PŘED initialize — klepnutí na notifikaci při studeném startu
+      // (getInitialMessage) se jinak ztratilo a appka otevřela jen Domů.
       NotificationHandler.initialize(rootNavigatorKey);
+      await PushService.initialize();
       // Mirror OS permission grants to the profile (Velín customer detail).
       await PermissionService.reportToProfile();
       // Record this installation for accurate app analytics (independent of
@@ -273,6 +305,11 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
       // Refresh installation heartbeat on resume (throttled internally).
       InstallationService.beat();
       PushService.clearDelivered(); // návrat do appky = upozornění viděno
+      // Oznámení mohl zákazník mezitím povolit v Nastavení → zaregistrovat
+      // token (idempotentní, bez změny nic nezapisuje).
+      unawaited(PushService.initialize().catchError((_) {}));
+      // Chyby z doby na pozadí (bez signálu) → načíst znovu.
+      recoverFailedProviders(ref);
       // Re-run the forced-update gate + Play in-app update on resume —
       // an app kept open for days must not survive below min_app_version.
       // Both checks throttle themselves internally.
@@ -293,18 +330,28 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
       final event = data.event;
       final session = data.session;
 
-      if (event == AuthChangeEvent.signedOut) return; // already handled
+      if (event == AuthChangeEvent.signedOut) {
+        // Obnova přihlášení selhala (neplatný / zneplatněný token) → přihlašovací
+        // obrazovka jednou vysvětlí, proč zákazník musí znovu přihlásit.
+        if (data.signOutReason == SignOutReason.sessionExpired) {
+          ForcedSignOut.pending = true;
+        }
+        return; // already handled
+      }
 
       // Right after sign-in we have a user → record the installation so a
       // freshly logged-in device shows up in app analytics immediately.
       if (event == AuthChangeEvent.signedIn) {
         InstallationService.beat();
+        // Token notifikací patří k uživateli — bez přihlášení se nezapsal.
+        unawaited(PushService.initialize().catchError((_) {}));
       }
 
       // Token refresh attempt produced no session → refresh token is invalid
       // or revoked. This is the one case where we must force sign-out so the
       // router can redirect to login.
       if (event == AuthChangeEvent.tokenRefreshed && session == null) {
+        ForcedSignOut.pending = true;
         MotoGoSupabase.client.auth.signOut();
       }
     });
@@ -344,6 +391,11 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('mg_perms_shown', true);
     setState(() => _showPermOverlay = false);
+    // Oprávnění k oznámením se udělilo až teď (po startu) → push zapnout hned,
+    // ne až po restartu appky.
+    unawaited(PushService.initialize()
+        .then((_) => PermissionService.reportToProfile())
+        .catchError((_) {}));
   }
 
   @override

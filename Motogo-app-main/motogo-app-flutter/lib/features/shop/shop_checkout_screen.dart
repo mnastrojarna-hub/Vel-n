@@ -27,6 +27,7 @@ import 'widgets/checkout_payment_card.dart';
 import 'widgets/checkout_shipping_section.dart';
 import 'widgets/checkout_summary_section.dart';
 import '../../core/currency.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Shop checkout — mirrors s-checkout from cart-checkout.js.
 /// Address, shipping method, promo code, stock validation, payment.
@@ -610,8 +611,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
           ],
         ),
         backgroundColor: MotoGoColors.dark,
-        leading: GestureDetector(
-          behavior: HitTestBehavior.opaque,
+        leading: MgBackTap(
           onTap: _onBack,
           child: Center(
             child: Container(

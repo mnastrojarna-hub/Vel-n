@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show SocketException;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -11,6 +12,8 @@ import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
 import 'routes_cache.dart';
 import 'routes_model.dart';
+import '../../core/friendly_error.dart';
+import '../../core/offline_guard.dart';
 
 const String mapyApiKey = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
 const _mapyHeaders = <String, String>{
@@ -287,8 +290,16 @@ class CatalogPoisNotifier extends AsyncNotifier<List<RoutePoi>> {
       }
     }
     final list = await fetchCatalogPoisRemote();
+    if (list == null) {
+      // Bez cache a bez sítě → chybový stav s důvodem a „Zkusit znovu"
+      // (dřív tiše prázdný seznam i mapa a síť se do restartu nezkusila).
+      if (!await OfflineGuard.pingSupabase()) {
+        throw const SocketException('catalog_pois_offline');
+      }
+      throw Exception('catalog_pois_unavailable');
+    }
     _catalogNetworkDone = true;
-    return list ?? const [];
+    return list;
   }
 
   Future<void> _refreshInBackground() async {
@@ -330,8 +341,10 @@ final userPoisProvider = FutureProvider<List<RoutePoi>>((ref) async {
         .map((e) => RoutePoi.fromUserJson(Map<String, dynamic>.from(e)))
         .where((p) => p.latLng != null)
         .toList();
-  } catch (_) {
-    return const [];
+  } catch (e) {
+    // Chyba → stav chyby (Místa ukážou důvod + Zkusit znovu), ne tiché [].
+    FriendlyError.log('user_pois', e);
+    rethrow;
   }
 });
 

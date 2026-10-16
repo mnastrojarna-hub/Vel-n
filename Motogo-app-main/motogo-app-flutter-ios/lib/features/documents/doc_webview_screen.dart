@@ -1,8 +1,13 @@
+import 'dart:async';
+import 'dart:io' show SocketException;
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../core/friendly_error.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/state_views.dart';
 
 /// In-app WebView screen for displaying invoices, contracts, and other
 /// HTML documents. Supports loading from URL or raw HTML string.
@@ -15,7 +20,12 @@ class DocWebViewScreen extends StatefulWidget {
 
   final String title;
 
-  const DocWebViewScreen({super.key, this.url, this.htmlContent, required this.title})
+  /// Nová podepsaná URL pro „Zkusit znovu" — stará platí jen 10 minut, takže
+  /// opakování po delší době by jinak selhalo znovu.
+  final Future<String?> Function()? refreshUrl;
+
+  const DocWebViewScreen(
+      {super.key, this.url, this.htmlContent, required this.title, this.refreshUrl})
       : assert(url != null || htmlContent != null, 'Provide url or htmlContent');
 
   @override
@@ -25,7 +35,26 @@ class DocWebViewScreen extends StatefulWidget {
 class _DocWebViewScreenState extends State<DocWebViewScreen> {
   late final WebViewController _controller;
   bool _isLoading = true;
-  String? _error;
+  Object? _error;
+  late String? _url = widget.url;
+
+  /// Chyba WebView → výjimka, ze které `FriendlyError` řekne důvod (dřív se
+  /// ukazoval syrový text typu „net::ERR_INTERNET_DISCONNECTED").
+  static Object _asError(WebResourceError e) {
+    switch (e.errorType) {
+      case WebResourceErrorType.hostLookup:
+      case WebResourceErrorType.connect:
+        return const SocketException('webview');
+      case WebResourceErrorType.timeout:
+        return TimeoutException('webview');
+      default:
+        final d = e.description.toLowerCase();
+        if (d.contains('offline') || d.contains('internet') || d.contains('network')) {
+          return const SocketException('webview');
+        }
+        return Exception('webview ${e.errorCode} ${e.description}');
+    }
+  }
 
   @override
   void initState() {
@@ -40,10 +69,16 @@ class _DocWebViewScreenState extends State<DocWebViewScreen> {
           if (mounted) setState(() => _isLoading = false);
         },
         onWebResourceError: (error) {
-          if (mounted) setState(() { _isLoading = false; _error = error.description; });
+          // Chyba obrázku / písma uvnitř dokumentu nesmí schovat celý dokument.
+          if (error.isForMainFrame == false) return;
+          FriendlyError.log('doc_webview', '${error.errorType} ${error.description}');
+          if (mounted) setState(() { _isLoading = false; _error = _asError(error); });
         },
       ));
+    _loadContent();
+  }
 
+  void _loadContent() {
     if (widget.htmlContent != null) {
       // baseUrl is required on Android so the WebView honors the document's
       // `<meta viewport width=device-width>` — without it the page is laid out
@@ -51,8 +86,23 @@ class _DocWebViewScreenState extends State<DocWebViewScreen> {
       // empty (grey) space on the sides instead of filling the screen width.
       _controller.loadHtmlString(widget.htmlContent!, baseUrl: 'https://motogo24.cz/');
     } else {
-      _controller.loadRequest(Uri.parse(widget.url!));
+      _controller.loadRequest(Uri.parse(_url!));
     }
+  }
+
+  Future<void> _retry() async {
+    setState(() { _error = null; _isLoading = true; });
+    final refresh = widget.refreshUrl;
+    if (refresh != null && widget.htmlContent == null) {
+      try {
+        final fresh = await refresh();
+        if (fresh != null) _url = fresh;
+      } catch (e) {
+        if (mounted) setState(() { _isLoading = false; _error = e; });
+        return;
+      }
+    }
+    if (mounted) _loadContent();
   }
 
   @override
@@ -60,15 +110,11 @@ class _DocWebViewScreenState extends State<DocWebViewScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Center(
-            child: Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(10)),
-              child: const Center(child: Text('←', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black))),
-            ),
-          ),
+        automaticallyImplyLeading: false,
+        leadingWidth: 56,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: MgBackArrow(onTap: () => Navigator.of(context).maybePop()),
         ),
         title: Text(widget.title, style: const TextStyle(fontSize: 15)),
         backgroundColor: MotoGoColors.dark,
@@ -76,35 +122,16 @@ class _DocWebViewScreenState extends State<DocWebViewScreen> {
       body: Stack(
         children: [
           if (_error != null)
-            Center(child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.error_outline, size: 48, color: MotoGoColors.red),
-                const SizedBox(height: 12),
-                Text(t(context).tr('loadingError'),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text(_error!, style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
-                const SizedBox(height: 16),
-                // Bez retry byl error stav slepá ulička (zvlášť po výpadku sítě)
-                OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() { _error = null; _isLoading = true; });
-                    if (widget.htmlContent != null) {
-                      _controller.loadHtmlString(widget.htmlContent!, baseUrl: 'https://motogo24.cz/');
-                    } else {
-                      _controller.loadRequest(Uri.parse(widget.url!));
-                    }
-                  },
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: Text(t(context).tr('retry')),
-                ),
-              ]),
-            ))
+            MgErrorView(
+              error: _error,
+              what: t(context).tr('eoDocLoadFail'),
+              onRetry: _retry,
+              onBack: () => Navigator.of(context).maybePop(),
+            )
           else
             WebViewWidget(controller: _controller),
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
+          if (_isLoading && _error == null)
+            MgLoadingView(onRetry: _retry, onBack: () => Navigator.of(context).maybePop()),
         ],
       ),
     );

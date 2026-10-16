@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth_guard.dart';
+import '../../core/realtime_resilience.dart';
 import '../../core/supabase_client.dart';
 import '../auth/auth_provider.dart';
 
@@ -120,17 +121,14 @@ final threadsProvider = StreamProvider<List<MessageThread>>((ref) async* {
 
   yield await _fetchThreads(user.id);
 
-  try {
-    await for (final _ in MotoGoSupabase.client
+  // Výpadek spojení provider neshodí na celou session (viz resilientRealtime).
+  yield* resilientRealtime(
+    () => MotoGoSupabase.client
         .from('message_threads')
         .stream(primaryKey: ['id'])
-        .eq('customer_id', user.id)) {
-      yield await _fetchThreads(user.id);
-    }
-  } catch (e) {
-    if (await handleAuthError(e)) return;
-    rethrow;
-  }
+        .eq('customer_id', user.id),
+    () => _fetchThreads(user.id),
+  );
 });
 
 Future<List<MessageThread>> _fetchThreads(String userId) async {
@@ -158,21 +156,18 @@ final adminMessagesProvider = StreamProvider<List<AdminMessage>>((ref) async* {
 
   yield await _fetchAdminMessages(user.id);
 
-  try {
-    // Realtime stream nese při každé změně celý seznam řádků uživatele →
-    // bez dalšího dotazu (hromadné „přečteno“ = N událostí, ne N dotazů).
-    await for (final rows in MotoGoSupabase.client
+  // Realtime stream nese při každé změně celý seznam řádků uživatele →
+  // bez dalšího dotazu (hromadné „přečteno“ = N událostí, ne N dotazů).
+  // Výpadek spojení provider neshodí (odznak by spadl na 0 na celou session).
+  yield* resilientRealtime(
+    () => MotoGoSupabase.client
         .from('admin_messages')
         .stream(primaryKey: ['id'])
-        .eq('user_id', user.id)) {
-      final list = rows.map((e) => AdminMessage.fromJson(e)).toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      yield list;
-    }
-  } catch (e) {
-    if (await handleAuthError(e)) return;
-    rethrow;
-  }
+        .eq('user_id', user.id),
+    () => _fetchAdminMessages(user.id),
+    map: (rows) => rows.map((e) => AdminMessage.fromJson(e)).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+  );
 });
 
 Future<List<AdminMessage>> _fetchAdminMessages(String userId) async {
@@ -207,8 +202,8 @@ final unreadCountProvider = FutureProvider<int>((ref) async {
 });
 
 /// Send customer message — INSERT into messages with direction='customer'.
-/// Returns null on success or error message on failure.
-Future<String?> sendMessage(String threadId, String content) async {
+/// Returns null on success or the error (pro `FriendlyError`) on failure.
+Future<Object?> sendMessage(String threadId, String content) async {
   try {
     await MotoGoSupabase.client.from('messages').insert({
       'thread_id': threadId,
@@ -221,7 +216,7 @@ Future<String?> sendMessage(String threadId, String content) async {
     }).eq('id', threadId);
     return null;
   } catch (e) {
-    return e.toString();
+    return e;
   }
 }
 
@@ -264,6 +259,7 @@ Future<void> markAllAdminMessagesRead() async {
 }
 
 /// Create new thread — mirrors _createNewThreadWithSubject.
+/// Chybu HÁZE — volající ji ukáže (dřív spadla potichu do zóny).
 Future<String?> createThread(String subject) async {
   final user = MotoGoSupabase.currentUser;
   if (user == null) return null;

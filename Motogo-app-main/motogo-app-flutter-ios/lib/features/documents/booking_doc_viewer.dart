@@ -178,18 +178,19 @@ Future<bool> _openStoragePath(BuildContext context, String? filePath, String tit
   }
 
   try {
-    final url = await MotoGoSupabase.client.storage
-        .from('documents')
-        .createSignedUrl(filePath, 600);
+    Future<String> sign() =>
+        MotoGoSupabase.client.storage.from('documents').createSignedUrl(filePath, 600);
+    final url = await sign();
     if (!context.mounted) return false;
     final isPdf = filePath.toLowerCase().endsWith('.pdf');
+    // „Zkusit znovu" si vyžádá novou podepsanou URL (stará platí 10 min).
     if (isPdf && defaultTargetPlatform == TargetPlatform.android) {
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => PdfPagesScreen(url: url, title: title),
+        builder: (_) => PdfPagesScreen(url: url, title: title, refreshUrl: sign),
       ));
     } else {
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => DocWebViewScreen(url: url, title: title),
+        builder: (_) => DocWebViewScreen(url: url, title: title, refreshUrl: sign),
       ));
     }
     return true;

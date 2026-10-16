@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../main.dart' show rootNavigatorKey;
 import 'app_shell.dart';
 import 'booking_form_widget.dart';
+import 'widgets/mg_back.dart';
 import 'widgets/moto_fx.dart';
 import 'widgets/net_image.dart';
+import 'widgets/route_error_page.dart';
 import 'supabase_client.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
@@ -187,15 +189,32 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: Routes.login,
     debugLogDiagnostics: false,
     refreshListenable: authNotifier,
+    // Neznámý / zastaralý odkaz → srozumitelná stránka s cestou Domů (dřív
+    // anglická stránka go_routeru se syrovou výjimkou a bez zpět).
+    errorBuilder: (context, state) => RouteErrorPage(state: state),
     redirect: (context, state) {
+      // App Link https://motogo24.cz/app/… → stejná obrazovka bez prefixu.
+      final p = state.uri.path;
+      if (p == '/app' || p.startsWith('/app/')) {
+        final rest = p.substring(4);
+        final q = state.uri.hasQuery ? '?${state.uri.query}' : '';
+        return '${rest.isEmpty ? Routes.home : rest}$q';
+      }
       // Use synchronous session check — avoids null during stream transitions
       final isLoggedIn = MotoGoSupabase.currentSession != null;
       final isAuthRoute = state.matchedLocation == Routes.login ||
           state.matchedLocation == Routes.register ||
           state.matchedLocation == Routes.resetPassword;
 
-      // Logged in user trying to access login → redirect to home
-      if (isLoggedIn && isAuthRoute) return Routes.home;
+      // Logged in user trying to access login → redirect to home.
+      // Výjimka: obnova hesla — ověřený kód zákazníka přihlásí („recovery"
+      // session), ale krok 3 (nové heslo) musí ještě proběhnout.
+      if (isLoggedIn &&
+          isAuthRoute &&
+          !(state.matchedLocation == Routes.resetPassword &&
+              AuthService.recoveryInProgress)) {
+        return Routes.home;
+      }
 
       // Not logged in trying to access protected route → redirect to login
       final isProtected = _authRequired.any((r) {
@@ -215,39 +234,42 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.register,
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) => const MgBackGuard(child: RegisterScreen()),
       ),
       GoRoute(
         path: Routes.resetPassword,
         builder: (context, state) {
           final email = state.uri.queryParameters['email'];
-          return ResetPasswordScreen(initialEmail: email);
+          return MgBackGuard(child: ResetPasswordScreen(initialEmail: email));
         },
       ),
       GoRoute(
         path: Routes.success,
-        builder: (context, state) => const PaymentConfirmationScreen(),
+        builder: (context, state) =>
+            const MgBackGuard(child: PaymentConfirmationScreen()),
       ),
       GoRoute(
         path: Routes.paymentResult,
-        builder: (context, state) => const PaymentResultScreen(),
+        builder: (context, state) => const MgBackGuard(child: PaymentResultScreen()),
       ),
       GoRoute(
         path: Routes.docs,
-        builder: (context, state) => const DocumentsScreen(),
+        builder: (context, state) => const MgBackGuard(child: DocumentsScreen()),
       ),
       GoRoute(
         path: Routes.docScan,
-        builder: (context, state) => DocumentScannerScreen(
-          scanMode: state.uri.queryParameters['mode'],
+        builder: (context, state) => MgBackGuard(
+          child: DocumentScannerScreen(
+            scanMode: state.uri.queryParameters['mode'],
+          ),
         ),
       ),
 
       // Navigace trasy — fullscreen, BEZ spodní lišty
       GoRoute(
         path: '/route-nav/:id',
-        builder: (context, state) =>
-            RouteNavigationScreen(routeId: state.pathParameters['id']!),
+        builder: (context, state) => MgBackGuard(
+            child: RouteNavigationScreen(routeId: state.pathParameters['id']!)),
       ),
 
       // Katalog všech bodů zájmu napříč trasami — vlastní vyjížďka
@@ -255,7 +277,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/pois',
         builder: (context, state) {
           final ids = state.extra is Set<String> ? state.extra as Set<String> : null;
-          return AllPoisScreen(initialSelected: ids);
+          return MgBackGuard(child: AllPoisScreen(initialSelected: ids));
         },
       ),
 
@@ -266,27 +288,31 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/route-build',
         builder: (context, state) {
           final e = state.extra;
+          // Bez extra (obnova procesu / deep link) → Místa, ne pád na cast.
           if (e is RouteBuilderArgs) {
-            return RouteBuilderScreen(route: e.route, initialStops: e.stops);
+            return MgBackGuard(
+                child: RouteBuilderScreen(route: e.route, initialStops: e.stops));
           }
-          return RouteBuilderScreen(route: e as RouteItem);
+          if (e is! RouteItem) return RouteErrorPage(state: state);
+          return MgBackGuard(child: RouteBuilderScreen(route: e));
         },
       ),
 
       // Moje zážitky — uložené trasy + objevená místa (osobní deník jezdce)
       GoRoute(
         path: '/my-experiences',
-        builder: (context, state) => const MyExperiencesScreen(),
+        builder: (context, state) => const MgBackGuard(child: MyExperiencesScreen()),
       ),
 
       // Detail projeté jízdy (stopa na mapě, zastávky s fotkami, sdílení)
       GoRoute(
         path: '/ride/:id',
-        builder: (context, state) =>
-            RideDetailScreen(
-          rideId: state.pathParameters['id'] ?? '',
-          siblingIds:
-              state.extra is List<String> ? state.extra as List<String> : const [],
+        builder: (context, state) => MgBackGuard(
+          child: RideDetailScreen(
+            rideId: state.pathParameters['id'] ?? '',
+            siblingIds:
+                state.extra is List<String> ? state.extra as List<String> : const [],
+          ),
         ),
       ),
 
@@ -296,9 +322,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final e = state.extra;
           if (e is CustomNavArgs) {
-            return RouteNavigationScreen.custom(route: e.route, profile: e.profile);
+            return MgBackGuard(
+                child: RouteNavigationScreen.custom(route: e.route, profile: e.profile));
           }
-          return RouteNavigationScreen.custom(route: e as RouteItem);
+          if (e is! RouteItem) return RouteErrorPage(state: state);
+          return MgBackGuard(child: RouteNavigationScreen.custom(route: e));
         },
       ),
 

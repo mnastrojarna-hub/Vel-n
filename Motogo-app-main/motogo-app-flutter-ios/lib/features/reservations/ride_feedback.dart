@@ -24,8 +24,11 @@ const int kRideFeedbackMaxLen = 2000;
 class RideFeedbackResult {
   final String? threadId;
   final String? error;
-  const RideFeedbackResult.ok(String this.threadId) : error = null;
-  const RideFeedbackResult.fail(String this.error) : threadId = null;
+
+  /// Původní výjimka — UI z ní řekne důvod (síť / limit / server).
+  final Object? cause;
+  const RideFeedbackResult.ok(String this.threadId) : error = null, cause = null;
+  const RideFeedbackResult.fail(String this.error, [this.cause]) : threadId = null;
   bool get ok => threadId != null;
 }
 
@@ -68,11 +71,11 @@ Future<RideFeedbackResult> sendRideFeedback({
     if (threadId == null) return const RideFeedbackResult.fail('thread');
     final content = rating > 0 ? '${rideFeedbackStars(rating)}\n\n$body' : body;
     final err = await sendMessage(threadId, content);
-    if (err != null) return RideFeedbackResult.fail(err);
+    if (err != null) return RideFeedbackResult.fail(err.toString(), err);
     return RideFeedbackResult.ok(threadId);
   } catch (e) {
-    if (await handleAuthError(e)) return const RideFeedbackResult.fail('auth');
-    return RideFeedbackResult.fail(e.toString());
+    if (await handleAuthError(e)) return RideFeedbackResult.fail('auth', e);
+    return RideFeedbackResult.fail(e.toString(), e);
   }
 }
 

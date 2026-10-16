@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../../core/widgets/state_views.dart';
 import '../booking/booking_models.dart' show loyaltyFreeGearLevel;
 import 'loyalty_provider.dart';
 import 'loyalty_levels_provider.dart';
@@ -52,11 +53,29 @@ class LoyaltyRanksScreen extends ConsumerWidget {
             ),
           ),
           SafeArea(
+            // Šipka zpět i při načítání a chybě (dřív prázdná obrazovka bez
+            // cesty zpět); chyba s důvodem a „Zkusit znovu".
             child: levelsAsync.when(
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: MotoGoColors.green),
-              ),
-              error: (_, __) => const SizedBox.shrink(),
+              loading: () => CustomScrollView(slivers: [
+                _topBar(context, tr),
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: CircularProgressIndicator(color: MotoGoColors.green),
+                  ),
+                ),
+              ]),
+              error: (e, _) => CustomScrollView(slivers: [
+                _topBar(context, tr),
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: MgErrorView(
+                    error: e,
+                    what: tr('eoLoyaltyLoadFail'),
+                    onRetry: () => ref.invalidate(loyaltyLevelsProvider),
+                  ),
+                ),
+              ]),
               data: (levels) => CustomScrollView(
                 slivers: [
                   _topBar(context, tr),

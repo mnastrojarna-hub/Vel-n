@@ -7,6 +7,8 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/state_views.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'messages_provider.dart';
 
@@ -33,6 +35,24 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
     markThreadRead(widget.threadId);
   }
 
+  Future<Map<String, dynamic>?>? _future;
+  int _futureKey = -1;
+  Map<String, dynamic>? _last;
+
+  Future<Map<String, dynamic>?> _load() async {
+    final res = await MotoGoSupabase.client
+        .from('message_threads')
+        .select('*, messages(*)')
+        .eq('id', widget.threadId)
+        .maybeSingle();
+    _last = res;
+    return res;
+  }
+
+  void _retry() => setState(() => _future = _load());
+
+  void _back() => context.backOr(Routes.messages);
+
   @override
   void dispose() {
     _replyCtrl.dispose();
@@ -54,7 +74,12 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
       if (err != null) {
         // Restore text on failure so user doesn't lose their message
         _replyCtrl.text = text;
-        showMotoGoToast(context, icon: '⚠️', title: t(context).tr('error'), message: t(context).tr('messageSendFailed'));
+        final tr = t(context);
+        showMotoGoToast(context,
+            icon: '⚠️',
+            title: tr.tr('messageSendFailed'),
+            message: '${FriendlyError.of(err).compose(tr, tr.tr('eoMessageSendWhat'))} ${tr.tr('eoTextKept')}',
+            duration: const Duration(seconds: 7));
       } else {
         // Scroll to bottom after successful send
         Future.delayed(const Duration(milliseconds: 300), () {
@@ -81,19 +106,37 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
         if (snapshot.hasError) {
           handleAuthError(snapshot.error!);
         }
-        // Use stream snapshot to force FutureBuilder key change → re-fetch
+        // Use stream snapshot to force re-fetch — future se drží ve stavu
+        // (dřív vznikal při každém buildu → zbytečné dotazy a blikání).
         final streamKey = snapshot.data?.length ?? 0;
+        if (_future == null || streamKey != _futureKey) {
+          _futureKey = streamKey;
+          _future = _load();
+        }
         return FutureBuilder<Map<String, dynamic>?>(
-          key: ValueKey('thread_$streamKey'),
-          future: MotoGoSupabase.client
-              .from('message_threads')
-              .select('*, messages(*)')
-              .eq('id', widget.threadId)
-              .maybeSingle(),
+          future: _future,
           builder: (context, threadSnap) {
-            final thread = threadSnap.data != null
-                ? MessageThread.fromJson(threadSnap.data!)
-                : null;
+            final loading = threadSnap.connectionState != ConnectionState.done;
+            final data = threadSnap.data ?? (loading || threadSnap.hasError ? _last : null);
+            final thread = data != null ? MessageThread.fromJson(data) : null;
+            // Načítání / chyba / konverzace neexistuje — dřív se ve všech
+            // případech tvářilo jako „Napište první zprávu" s aktivním polem.
+            final Widget? state = thread != null
+                ? null
+                : loading
+                    ? MgLoadingView(onRetry: _retry, onBack: _back)
+                    : threadSnap.hasError
+                        ? MgErrorView(
+                            error: threadSnap.error,
+                            what: t(context).tr('eoThreadLoadFail'),
+                            onRetry: _retry,
+                            onBack: _back)
+                        : MgErrorView(
+                            what: t(context).tr('eoThreadGoneTitle'),
+                            message: t(context).tr('eoThreadGoneBody'),
+                            contact: false,
+                            onBack: _back,
+                            backLabel: t(context).tr('eoBackToMessages'));
             // Mark new messages as read on each refresh
             if (thread != null && thread.messages.any((m) => m.direction == 'admin' && m.readAt == null)) {
               markThreadRead(widget.threadId);
@@ -103,7 +146,7 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
               backgroundColor: MotoGoColors.bg,
               appBar: AppBar(
                 leading: GestureDetector(
-                  onTap: () => context.backOr(Routes.messages),
+                  onTap: _back,
                   child: Center(
                     child: Container(
                       width: 36, height: 36,
@@ -126,7 +169,7 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
                   ),
                 ) : null,
               ),
-              body: Column(
+              body: state ?? Column(
                 children: [
                   // Messages list
                   Expanded(

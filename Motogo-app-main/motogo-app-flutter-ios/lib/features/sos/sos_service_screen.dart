@@ -6,9 +6,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart';
-import '../../core/native/gps_service.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/error_feedback.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
+import 'sos_location.dart';
 import 'sos_provider.dart';
 
 /// Service self-repair screen — mirrors s-sos-servis from templates-res-sos2.js.
@@ -25,8 +27,10 @@ class _SosServiceState extends ConsumerState<SosServiceScreen> {
   bool _uploaded = false;
   String? _incidentId;
 
-  Future<String?> _ensureIncident() async {
-    if (_incidentId != null) return _incidentId;
+  /// Založí / převezme incident. Chybu HÁZE (dřív se `null` nikdy nevrátil
+  /// a výjimka skončila potichu — zákazník neviděl nic).
+  Future<String> _ensureIncident() async {
+    if (_incidentId != null) return _incidentId!;
 
     final active = ref.read(activeSosProvider).valueOrNull;
     if (active != null && active.isActive) {
@@ -34,17 +38,11 @@ class _SosServiceState extends ConsumerState<SosServiceScreen> {
       return active.id;
     }
 
-    double? lat, lng;
-    try {
-      final pos = await GpsService.getCurrentPosition();
-      lat = pos?.latitude;
-      lng = pos?.longitude;
-    } catch (_) {}
-
+    final loc = await sosLocate();
     final id = await createSosIncident(
       type: SosType.breakdownMinor,
       description: 'Servis na vlastní pěst',
-      lat: lat, lng: lng,
+      lat: loc.pos?.latitude, lng: loc.pos?.longitude,
       isFault: false,
     );
     _incidentId = id;
@@ -54,28 +52,52 @@ class _SosServiceState extends ConsumerState<SosServiceScreen> {
 
   Future<void> _uploadInvoice() async {
     if (_uploading) return;
-
-    final incId = await _ensureIncident();
-    if (incId == null) {
-      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: t(context).tr('incidentCreateFailed'));
+    final tr = t(context);
+    setState(() => _uploading = true);
+    Object? error;
+    var permProblem = false;
+    try {
+      final incId = await _ensureIncident();
+      final XFile? photo;
+      try {
+        photo = await ImagePicker()
+            .pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 2048);
+      } catch (e) {
+        permProblem = true;
+        rethrow;
+      }
+      if (photo == null) {
+        if (mounted) setState(() => _uploading = false);
+        return;
+      }
+      await uploadServiceInvoice(incId, photo);
+    } catch (e) {
+      error = e;
+    }
+    if (!mounted) return;
+    setState(() {
+      _uploading = false;
+      _uploaded = error == null;
+    });
+    if (error == null) {
+      showMotoGoToast(context, icon: '✅', title: tr.tr('invoiceUploaded'), message: tr.tr('reimbursement7days'));
       return;
     }
-
-    final picker = ImagePicker();
-    final photo = await picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 2048);
-    if (photo == null) return;
-
-    setState(() => _uploading = true);
-    final url = await uploadServiceInvoice(incId, photo);
-
-    if (mounted) {
-      setState(() { _uploading = false; _uploaded = url != null; });
-      if (url != null) {
-        showMotoGoToast(context, icon: '✅', title: t(context).tr('invoiceUploaded'), message: t(context).tr('reimbursement7days'));
-      } else {
-        showMotoGoToast(context, icon: '✗', title: t(context).error, message: t(context).tr('invoiceUploadFailed'));
-      }
-    }
+    // Co, proč a jak dál — fakturu jde poslat i ve Zprávách.
+    FriendlyError.log('sos_invoice_upload', error);
+    final fe = FriendlyError.of(error, perm: permProblem ? DevicePerm.camera : null);
+    final choice = await showErrorDialog(context,
+        title: tr.tr('invoiceUploadFailed'),
+        body: '${fe.compose(tr, tr.tr('eoInvoiceUploadWhat'))} ${tr.tr('eoInvoiceViaMessages')}',
+        actions: [
+          if (fe.needsSettings) ('settings', tr.tr('eoOpenSettings')),
+          ('messages', tr.tr('messagesFromMotoGo')),
+          ('retry', tr.tr('eoRetry')),
+        ]);
+    if (!mounted) return;
+    if (choice == 'settings') await openFixSettings(fe);
+    if (choice == 'messages' && mounted) context.push(Routes.messages);
+    if (choice == 'retry' && mounted) await _uploadInvoice();
   }
 
   @override

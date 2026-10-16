@@ -12,6 +12,9 @@ import 'routes_provider.dart' show mapyApiKey, reverseGeocode;
 import 'ride_recorder.dart';
 import 'route_submit_screen.dart';
 import 'submit_common.dart';
+import 'ride_start_feedback.dart';
+import '../../core/widgets/map_tile_errors.dart';
+import '../../core/widgets/error_feedback.dart';
 
 /// Menu „Přidat" (z FAB v Trasách) — jezdec si zaznamená vlastní jízdu,
 /// navrhne trasu (odkaz z Mapy.com) nebo přidá místo. Návrhy jdou do moderace
@@ -86,8 +89,7 @@ Future<void> _toggleManualRide(BuildContext context, WidgetRef ref, bool running
         : (kept ? 'rideManualSaved' : 'rideManualTooShort')))));
     return;
   }
-  final ok = await n.startManual();
-  msg.showSnackBar(SnackBar(content: Text(tr.tr(ok ? 'rideManualStarted' : 'rideManualFailed'))));
+  showRideStartResult(msg, tr, await n.startManualResult());
 }
 
 Widget _menuItem(BuildContext c, IconData icon, String label, VoidCallback onTap,
@@ -177,6 +179,7 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
     setState(() { _busy = true; _uploading = _photos.isNotEmpty; });
     try {
       final urls = await uploadSubmitPhotos(uid, _photos);
+      final dropped = _photos.length - urls.length;
       if (mounted) setState(() => _uploading = false);
       await MotoGoSupabase.client.from('user_pois').insert({
         'user_id': uid,
@@ -188,18 +191,47 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
         'status': 'pending',
       });
       if (!mounted) return;
+      _sent = true;
+      final messenger = ScaffoldMessenger.of(context);
+      final droppedMsg = t(context).trArgs('eoSubmitPhotosDropped', {'n': dropped});
       await showSubmitSuccess(context);
       if (mounted) Navigator.of(context).pop();
-    } catch (_) {
+      // Nenahrané fotky se řeknou (dřív se tiše zahodily).
+      if (dropped > 0) messenger.showSnackBar(SnackBar(content: Text(droppedMsg)));
+    } catch (e) {
       if (mounted) {
         setState(() { _busy = false; _uploading = false; });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiSubmitErr'))));
+        // Proč + Zkusit znovu; vyplněné údaje i fotky zůstávají.
+        showErrorSnack(context, t(context).tr('poiSubmitErr'), e,
+            where: 'community_submit', onRetry: _submit);
       }
+    }
+  }
+
+  bool _sent = false;
+
+  bool get _dirty => !_sent && (_nameCtrl.text.trim().isNotEmpty || _descCtrl.text.trim().isNotEmpty || _photos.isNotEmpty);
+
+  /// Zpět s rozpracovaným návrhem → potvrdit (jinak se údaje i fotky ztratí).
+  Future<void> _confirmLeave() async {
+    if (await confirmDiscard(context) && mounted) {
+      _sent = true; // nic dalšího nehlídat
+      Navigator.of(context).pop();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmLeave();
+      },
+      child: _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
@@ -230,7 +262,10 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
                     urlTemplate: 'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
                     userAgentPackageName: 'com.motogo24.rental',
                     maxZoom: 19,
+                    errorTileCallback: MapTileErrors.report,
+                    reset: MapTileErrors.reset,
                   ),
+                  const MapTileErrorChip(),
                   MarkerLayer(markers: [
                     Marker(
                       point: _point,

@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import 'map_fit.dart';
 import 'poi_categories.dart';
 import 'routes_provider.dart' show PoiEntry, mapyApiKey;
+import '../../core/widgets/map_tile_errors.dart';
 
 /// Jedna čára trasy k vykreslení na mapě míst / mapě tras.
 ///
@@ -329,7 +330,10 @@ class PlacesMapViewState extends State<PlacesMapView> {
               'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
           userAgentPackageName: 'com.motogo24.app',
           maxZoom: 19,
+          errorTileCallback: MapTileErrors.report,
+          reset: MapTileErrors.reset,
         ),
+        const MapTileErrorChip(),
         // Trasy pod markery, ať body zůstanou čitelné. Zvýrazněná čára jde
         // až za ostatními (= navrch) a má tmavý podklad jako v detailu trasy.
         if (widget.routeLines.isNotEmpty)

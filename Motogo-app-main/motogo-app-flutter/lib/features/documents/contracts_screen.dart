@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show SocketException;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,9 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
+import '../../core/offline_guard.dart';
+import '../../core/widgets/error_feedback.dart';
+import '../../core/widgets/state_views.dart';
 import 'legal_doc_loader.dart';
 import 'booking_doc_viewer.dart';
 import '../auth/widgets/toast_helper.dart';
@@ -18,6 +22,7 @@ import 'document_models.dart';
 import 'document_provider.dart';
 import '../../core/date_days.dart';
 import '../../core/booking_rules.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Company constant — mirrors COMPANY from documents.js.
 const _company = (
@@ -39,7 +44,7 @@ class ContractsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () {
             if (context.canPop()) {
               context.pop();
@@ -56,55 +61,71 @@ class ContractsScreen extends ConsumerWidget {
           ),
         ),
         title: Row(children: [ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.asset('assets/logo.webp', width: 24, height: 24, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 24, height: 24, decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.motorcycle, size: 14, color: Colors.black)))), const SizedBox(width: 8), Text(t(context).tr('documentsAndContracts'))]), backgroundColor: MotoGoColors.dark),
-      body: docsAsync.when(
-        data: (docs) {
-          final contracts = docs.where((d) => ['contract', 'protocol', 'protocol_damage', 'vop'].contains(d.type)).toList();
-          debugPrint('[CONTRACTS_SCREEN] Total docs: ${docs.length}, filtered contracts: ${contracts.length}');
-
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _DocTile(
-                icon: '📋',
-                title: t(context).tr('termsOfService'),
-                subtitle: t(context).tr('vopSubtitle'),
-                onTap: () => _showVop(context),
+      // Statické dokumenty (VOP, GDPR, vzor protokolu) nepotřebují načtený
+      // seznam → jsou vidět vždy, i při chybě (dřív holé „Chyba načítání").
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _DocTile(
+            icon: '📋',
+            title: t(context).tr('termsOfService'),
+            subtitle: t(context).tr('vopSubtitle'),
+            onTap: () => _showVop(context),
+          ),
+          _DocTile(
+            icon: '🔒',
+            title: t(context).tr('dataProcessing'),
+            subtitle: t(context).tr('gdprSubtitle'),
+            onTap: () => _showGdpr(context),
+          ),
+          // Vzor protokolu o poškození (přeložená šablona z document_templates).
+          // Nevyplněný vzor PŘEDÁVACÍHO protokolu je pryč (zadání majitele
+          // 2026-09-29): předávací protokol je vždy elektronický (kiosk /
+          // Velín / appka) a v seznamu níž je jen ten reálně podepsaný.
+          _DocTile(
+            icon: '⚠️',
+            title: t(context).tr('damageProtocol'),
+            subtitle: t(context).tr('damageProtocolSubtitle'),
+            onTap: () => _showTemplateSample(context, 'damage_protocol', t(context).tr('damageProtocol')),
+          ),
+          ...docsAsync.when(
+            data: (docs) {
+              final contracts = docs.where((d) => ['contract', 'protocol', 'protocol_damage', 'vop'].contains(d.type)).toList();
+              debugPrint('[CONTRACTS_SCREEN] Total docs: ${docs.length}, filtered contracts: ${contracts.length}');
+              return [
+                if (contracts.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 30),
+                    child: Center(child: Text(t(context).tr('noOtherDocs'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400))),
+                  ),
+                ...contracts.map((d) => _DocTile(
+                  icon: switch (d.type) { 'contract' => '📄', 'protocol_damage' => '⚠️', _ => '📝' },
+                  title: docDisplayTitle(t(context), d),
+                  subtitle: '${d.createdAt.day}. ${d.createdAt.month}. ${d.createdAt.year}',
+                  onTap: () => _openDoc(context, d),
+                )),
+              ];
+            },
+            loading: () => [
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
               ),
-              _DocTile(
-                icon: '🔒',
-                title: t(context).tr('dataProcessing'),
-                subtitle: t(context).tr('gdprSubtitle'),
-                onTap: () => _showGdpr(context),
-              ),
-              // Vzor protokolu o poškození (přeložená šablona z document_templates).
-              // Nevyplněný vzor PŘEDÁVACÍHO protokolu je pryč (zadání majitele
-              // 2026-09-29): předávací protokol je vždy elektronický (kiosk /
-              // Velín / appka) a v seznamu níž je jen ten reálně podepsaný.
-              _DocTile(
-                icon: '⚠️',
-                title: t(context).tr('damageProtocol'),
-                subtitle: t(context).tr('damageProtocolSubtitle'),
-                onTap: () => _showTemplateSample(context, 'damage_protocol', t(context).tr('damageProtocol')),
-              ),
-              if (contracts.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 30),
-                  child: Center(child: Text(t(context).tr('noOtherDocs'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400))),
-                ),
-              ...contracts.map((d) => _DocTile(
-                icon: switch (d.type) { 'contract' => '📄', 'protocol_damage' => '⚠️', _ => '📝' },
-                title: docDisplayTitle(t(context), d),
-                subtitle: '${d.createdAt.day}. ${d.createdAt.month}. ${d.createdAt.year}',
-                onTap: () => _openDoc(context, d),
-              )),
             ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
-        error: (e, st) {
-          debugPrint('[CONTRACTS_SCREEN] Provider error: $e\n$st');
-          return Center(child: Text(t(context).tr('loadingError'), style: const TextStyle(color: MotoGoColors.red, fontSize: 12)));
-        },
+            error: (e, st) {
+              debugPrint('[CONTRACTS_SCREEN] Provider error: $e\n$st');
+              return [
+                const SizedBox(height: 8),
+                MgErrorView(
+                  compact: true,
+                  error: e,
+                  what: t(context).tr('eoContractsLoadFail'),
+                  onRetry: () => ref.invalidate(contractsProvider),
+                ),
+              ];
+            },
+          ),
+        ],
       ),
     );
   }
@@ -143,7 +164,28 @@ class ContractsScreen extends ConsumerWidget {
   /// svou verzi. Když neexistuje: smlouva/VOP fallback na render šablony +
   /// dat rezervace; protokol NIKDY (šablona není vyplněný protokol — zadání
   /// majitele 2026-09-29) → hláška.
+  static bool _opening = false;
+
+  /// Otevření s průběhem a pojistkou proti dvojímu klepnutí; bez internetu
+  /// řekne „nejsi připojený" (dřív mylně „Dokument zatím není k dispozici").
   Future<void> _openDoc(BuildContext context, UserDocument doc) async {
+    if (_opening) return;
+    _opening = true;
+    final progress = MgProgress.show(context, t(context).tr('eoOpeningDoc'));
+    try {
+      await _openDocInner(context, doc);
+    } catch (e) {
+      progress.close();
+      if (context.mounted) {
+        showErrorSnack(context, t(context).tr('eoDocLoadFail'), e, where: 'contract_open');
+      }
+    } finally {
+      progress.close();
+      _opening = false;
+    }
+  }
+
+  Future<void> _openDocInner(BuildContext context, UserDocument doc) async {
     final tr = t(context);
     final title = docDisplayTitle(tr, doc);
     debugPrint('[CONTRACTS] Opening doc: id=${doc.id}, type=${doc.type}, bookingId=${doc.bookingId}');
@@ -170,7 +212,9 @@ class ContractsScreen extends ConsumerWidget {
     }
 
     if (doc.type == 'protocol' || doc.type == 'protocol_damage') {
-      showMotoGoToast(context, icon: '📄', title: title, message: t(context).tr('loadingError'));
+      if (!await OfflineGuard.pingSupabase()) throw const SocketException('offline');
+      if (!context.mounted) return;
+      showMotoGoToast(context, icon: '📄', title: title, message: t(context).tr('docNotAvailableYet'));
       return;
     }
 
@@ -196,7 +240,11 @@ class ContractsScreen extends ConsumerWidget {
       }
     }
 
-    // Bez šablony (offline / chyba) žádná improvizovaná česká smlouva —
+    // Bez šablony kvůli síti → důvod (nejsi připojený / server neodpovídá).
+    if (tpl == null && !await OfflineGuard.pingSupabase()) {
+      throw const SocketException('offline');
+    }
+    // Bez šablony (chyba) žádná improvizovaná česká smlouva —
     // lokalizovaná hláška, že dokument zatím není k dispozici.
     final bodyHtml = tpl == null
         ? legalMessageHtml(tr.tr('docNotAvailableYet'))

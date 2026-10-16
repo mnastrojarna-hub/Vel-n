@@ -11,6 +11,7 @@ import '../auth/widgets/toast_helper.dart';
 import 'net_error.dart';
 import 'payment_error_mapper.dart';
 import 'payment_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Payment methods management — mirrors profile → Platební metody
 /// from profile-ui-2.js + api-payment-methods.js.
@@ -32,8 +33,7 @@ class PaymentMethodsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
-          behavior: HitTestBehavior.opaque,
+        leading: MgBackTap(
           // Bez historie by holé pop() zavřelo appku → Profil.
           onTap: () async {
             final popped = await Navigator.of(context).maybePop();

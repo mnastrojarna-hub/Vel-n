@@ -18,6 +18,9 @@ import 'routes_provider.dart' show CustomNavArgs;
 import 'route_image.dart';
 import 'my_experiences_provider.dart';
 import 'route_poi_sheet.dart';
+import 'ride_start_feedback.dart';
+import '../../core/widgets/error_feedback.dart';
+import '../../core/widgets/state_views.dart';
 
 /// „Moje zážitky" — osobní cestovní deník jezdce: vlastní vytvořené trasy
 /// (Vytvořené trasy), místa objevená navigací (Moje místa) a projeté jízdy
@@ -442,12 +445,18 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     final rides = ref.watch(myRidesProvider).valueOrNull ?? const <UserRide>[];
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
-      error: (_, __) => ListView(
+      // Chyba ≠ „nic tu není": důvod + Zkusit znovu (dřív prázdný stav).
+      error: (e, _) => ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
         children: [
           _createRouteCard(context),
           ..._ridesSection(context, rides),
-          ..._emptyChildren(context, '🗺️', 'myExpEmptyRoutes', 'myExpEmptyRoutesSub'),
+          MgErrorView(
+            compact: true,
+            error: e,
+            what: t(context).tr('eoSavedRoutesFail'),
+            onRetry: () => ref.invalidate(mySavedRoutesProvider),
+          ),
         ],
       ),
       data: (routes) => ListView(
@@ -472,6 +481,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
   List<Widget> _ridesSection(BuildContext context, List<UserRide> rides) {
     final rec = ref.watch(rideRecorderProvider);
     return [
+      if (rec.recording && rec.gpsLost) const RideGpsLostBanner(),
       Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Container(
@@ -634,11 +644,10 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
       ));
       return;
     }
-    final ok = await n.startManual();
+    final tr = t(context);
+    final r = await n.startManualResult();
     if (!mounted) return;
-    msg.showSnackBar(SnackBar(
-      content: Text(t(context).tr(ok ? 'rideManualStarted' : 'rideManualFailed')),
-    ));
+    showRideStartResult(msg, tr, r);
   }
 
   /// Výrazné tlačítko „Vytvořit novou trasu" → otevře editor s prázdnou
@@ -838,15 +847,24 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
       ),
     );
     if (ok != true) return;
-    await deleteUserRoute(r.id);
+    final deleted = await deleteUserRoute(r.id);
     ref.invalidate(mySavedRoutesProvider);
+    if (!deleted && context.mounted) {
+      // Dřív se nepovedené smazání nehlásilo vůbec.
+      showErrorSnack(context, t(context).tr('eoRouteDeleteFail'), null,
+          where: 'route_delete');
+    }
   }
 
   // ── Moje místa ──
   Widget _placesList(BuildContext context, AsyncValue<List<VisitedPlace>> async) {
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
-      error: (_, __) => _empty(context, '📍', 'myExpEmptyPlaces', 'myExpEmptyPlacesSub'),
+      error: (e, _) => MgErrorView(
+        error: e,
+        what: t(context).tr('eoMyPlacesFail'),
+        onRetry: () => ref.invalidate(myPlacesProvider),
+      ),
       data: (places) {
         if (places.isEmpty) {
           return _empty(context, '📍', 'myExpEmptyPlaces', 'myExpEmptyPlacesSub');

@@ -55,6 +55,14 @@ import 'translations_ext_33_docscan_b.dart';
 import 'translations_ext_34_sos_timeline.dart';
 import 'translations_ext_35_loyalty_ranks.dart';
 import 'translations_ext_36_ride_feedback.dart';
+import 'translations_ext_37_errother_cs.dart';
+import 'translations_ext_37_errother_en.dart';
+import 'translations_ext_37_errother_de.dart';
+import 'translations_ext_37_errother_es.dart';
+import 'translations_ext_37_errother_fr.dart';
+import 'translations_ext_37_errother_nl.dart';
+import 'translations_ext_37_errother_pl.dart';
+import 'translations_ext_37_errother_uk.dart';
 import 'translations_ext_38_paystate_cs.dart';
 import 'translations_ext_38_paystate_en.dart';
 import 'translations_ext_38_paystate_de.dart';
@@ -118,6 +126,14 @@ final translations = _mergeAll([
   translationsExt34SosTimeline,
   translationsExt35LoyaltyRanks,
   translationsExt36RideFeedback,
+  translationsExt37ErrOtherCs,
+  translationsExt37ErrOtherEn,
+  translationsExt37ErrOtherDe,
+  translationsExt37ErrOtherEs,
+  translationsExt37ErrOtherFr,
+  translationsExt37ErrOtherNl,
+  translationsExt37ErrOtherPl,
+  translationsExt37ErrOtherUk,
   translationsExt38PayStateCs,
   translationsExt38PayStateEn,
   translationsExt38PayStateDe,

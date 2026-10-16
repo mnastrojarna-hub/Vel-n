@@ -23,6 +23,7 @@ import 'routes_provider.dart';
 import 'route_image.dart';
 import 'route_poi_sheet.dart';
 import 'routes_quick_links.dart';
+import '../../core/widgets/state_views.dart';
 
 
 /// Katalog VŠECH bodů zájmu napříč trasami. Trasa je jen doporučení — tady si
@@ -517,6 +518,24 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                       onTap: () => context.push('/my-experiences'),
                     ),
                   ],
+                ),
+              ),
+            // Místa se nenačetla (offline bez cache / chyba) → důvod + Zkusit
+            // znovu; dřív tiše prázdný seznam i mapa.
+            if (!sourcesLoading &&
+                ((catalogAsync.hasError && catalogPois.isEmpty) || userAsync.hasError))
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: MgErrorView(
+                    compact: true,
+                    error: catalogAsync.hasError ? catalogAsync.error : userAsync.error,
+                    what: t(context).tr('eoPlacesLoadFail'),
+                    onRetry: () {
+                      ref.invalidate(catalogPoisProvider);
+                      ref.invalidate(userPoisProvider);
+                    },
+                  ),
                 ),
               ),
             if (sourcesLoading)

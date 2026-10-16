@@ -304,7 +304,8 @@ ScanResult _classifyException(Object e, int attempt) {
 /// Mirrors scanOCR from doc-scanner-ocr.js (Mindee v2 enqueue+poll).
 /// Retries up to 3 times with exponential backoff (matching Capacitor).
 /// Image is resized to max 1600px / 80% JPEG before sending.
-Future<ScanResult> scanDocumentWithRetry(XFile photo, ScanDocType docType) async {
+Future<ScanResult> scanDocumentWithRetry(XFile photo, ScanDocType docType,
+    {void Function(int attempt, int max)? onAttempt}) async {
   const maxAttempts = 3;
   Uint8List? resizedBytes;
 
@@ -323,6 +324,7 @@ Future<ScanResult> scanDocumentWithRetry(XFile photo, ScanDocType docType) async
   ScanResult? lastFailure;
 
   for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+    onAttempt?.call(attempt, maxAttempts);
     try {
       debugPrint('[DocScan] ── Attempt $attempt/$maxAttempts ──'
           ' type=${docType.apiType}, user=${user?.id ?? "anon"},'
@@ -454,7 +456,10 @@ Future<OcrResult?> scanDocument(XFile photo, ScanDocType docType) async {
 class DocUploadResult {
   final String? markerPath;
   final String? errorDetail;
-  const DocUploadResult({this.markerPath, this.errorDetail});
+
+  /// Původní výjimka (síť / limit / server) — UI z ní řekne důvod.
+  final Object? cause;
+  const DocUploadResult({this.markerPath, this.errorDetail, this.cause});
   bool get ok => markerPath != null && errorDetail == null;
 }
 
@@ -511,7 +516,7 @@ Future<DocUploadResult> uploadDocPhoto(
     return DocUploadResult(errorDetail: err ?? 'upload_failed');
   } catch (e) {
     debugPrint('[DocUpload] ✗ edge fn selhala: $e');
-    return DocUploadResult(errorDetail: '$e');
+    return DocUploadResult(errorDetail: '$e', cause: e);
   }
 }
 
