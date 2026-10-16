@@ -69,7 +69,19 @@ extension _PaymentChanges on _PaymentScreenState {
     final key = _activePiId;
     final cc = cardCharge(_amount);
     if (_waivedApplied) {
-      // Server změnu zapsal bez platby — doplnit jen doplňky (nejsou v metadatech).
+      // Server změnu zapsal bez platby — doplnit jen výbavu a doplňky (nejsou
+      // v metadatech změny).
+      final pending = _ctx?.pendingEditChanges;
+      final gear = pending?['_swap_commit'] is Map
+          ? null
+          : gearColumnsOf({for (final e in (pending ?? const <String, dynamic>{}).entries) e.key: e.value});
+      if (gear != null && bid != null) {
+        try {
+          await applyGearOnce(bid, gear);
+        } catch (e) {
+          debugPrint('[Payment] waived gear: $e');
+        }
+      }
       final x = _waivedExtras();
       if (x != null && bid != null) {
         try {

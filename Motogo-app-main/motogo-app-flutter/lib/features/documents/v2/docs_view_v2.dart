@@ -127,8 +127,8 @@ class DocsViewV2 extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: MgStateBanner(
-            tone: MgTone.warn,
-            title: tr.tr('docsNotVerified'),
+            tone: MgTone.info,
+            title: tr.tr('docsStatus'),
             text: [
               tr.tr('docsNotVerifiedDesc'),
               if (missing.isNotEmpty) '${tr.tr('missing')}: ${missing.join(', ')}',

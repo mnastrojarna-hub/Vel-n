@@ -63,8 +63,8 @@ class MsgSegmentsV2 extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: AnimatedDefaultTextStyle(
                       duration: MgMotion.of(context, MgMotion.color),
-                      style: MgType.ctaCompact.copyWith(
-                          letterSpacing: 0, color: on ? rank.ctaLabel : MgColors.onDarkLead),
+                      style: DefaultTextStyle.of(context).style.merge(MgType.ctaCompact.copyWith(
+                          letterSpacing: 0, color: on ? rank.ctaLabel : MgColors.onDarkLead)),
                       child: Text(label, textAlign: TextAlign.center, maxLines: 2),
                     ),
                   ),
@@ -286,7 +286,7 @@ class MsgThreadCardV2 extends StatelessWidget {
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(thread.subject ?? tr.tr('conversation'),
-                              maxLines: 2, style: MgType.title.copyWith(color: MgColors.ink)),
+                              maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
                           if (preview.isNotEmpty)
                             Text(preview.length > 60 ? '${preview.substring(0, 60)}...' : preview,
                                 maxLines: 1,

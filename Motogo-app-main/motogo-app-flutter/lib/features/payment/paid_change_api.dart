@@ -62,7 +62,7 @@ class CompleteResponse {
     // platbu nebo rezervaci už nejde dohledat / nejde o doplatek změny.
     // Jen s kódem process-payment (holá 404 brány = funkce se nasazuje → znovu).
     if (status == 403 && code == 'forbidden') {
-      return const CompleteResponse(CompleteState.failed, reason: 'forbidden', refund: 'none');
+      return const CompleteResponse(CompleteState.failed, reason: 'other_account', refund: 'none');
     }
     if ((status == 404 && code == 'not_found') || (status == 409 && code == 'not_extension')) {
       return const CompleteResponse(CompleteState.failed, reason: 'gone', refund: 'none');

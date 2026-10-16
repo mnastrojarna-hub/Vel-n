@@ -222,6 +222,13 @@ class StripeService {
         serverTotal: total?.toDouble(),
         serverDue: (data['due'] as num?)?.toDouble(),
         detail: (data['voucher_code'] ?? data['reason'])?.toString(),
+        // `payment_in_progress` / `stale_booking`: platba PŘEDCHOZÍ změny
+        // (doplatek se ještě zapisuje / právě se dopsal) — ne téhle.
+        paymentIntentId: data['payment_intent_id'] as String?,
+        intentStatus: data['pi_status'] as String?,
+        previousChange: data['previous_change'] == true || data['pending_change'] == true,
+        changeKind: data['change_kind'] as String?,
+        paidAmount: (data['paid_amount'] as num?)?.toDouble(),
         httpStatus: response.statusCode,
         // 5xx z vnějšího catch (Stripe výjimka) — u stržení uložené karty
         // raději ověřit stav, než tvrdit „nic nebylo strženo".
@@ -528,6 +535,12 @@ class PaymentResult {
   /// Doplňující údaj odmítnutí (kód poukazu u `voucher_unavailable`, důvod u
   /// `change_not_applicable`) — jen do textu / logu.
   final String? detail;
+  /// Odmítnutí kvůli PŘEDCHOZÍ zaplacené změně rezervace (`pending_change` /
+  /// `previous_change`) — nová úprava se nezaplatila.
+  final bool previousChange;
+  /// Druh předchozí změny ('swap' / 'edit') a její zaplacená částka (Kč).
+  final String? changeKind;
+  final double? paidAmount;
 
   const PaymentResult._({
     required this.type,
@@ -551,6 +564,9 @@ class PaymentResult {
     this.cardRounding,
     this.serverDue,
     this.detail,
+    this.previousChange = false,
+    this.changeKind,
+    this.paidAmount,
   });
 
   factory PaymentResult.intent({
@@ -589,6 +605,11 @@ class PaymentResult {
           double? serverTotal,
           double? serverDue,
           String? detail,
+          String? paymentIntentId,
+          String? intentStatus,
+          bool previousChange = false,
+          String? changeKind,
+          double? paidAmount,
           int? httpStatus,
           bool uncertain = false}) =>
       PaymentResult._(
@@ -599,6 +620,11 @@ class PaymentResult {
         serverTotal: serverTotal,
         serverDue: serverDue,
         detail: detail,
+        paymentIntentId: paymentIntentId,
+        intentStatus: intentStatus,
+        previousChange: previousChange,
+        changeKind: changeKind,
+        paidAmount: paidAmount,
         httpStatus: httpStatus,
         uncertain: uncertain,
       );

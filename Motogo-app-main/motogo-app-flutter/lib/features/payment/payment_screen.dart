@@ -36,7 +36,7 @@ import 'widgets/payment_error_sheet.dart';
 import 'widgets/card_payment_sheet.dart';
 import '../../core/payment_pending_marker.dart';
 import '../../core/paid_change_queue.dart';
-import '../../core/paid_change_apply.dart' show applyExtrasOnce;
+import '../../core/paid_change_apply.dart' show applyExtrasOnce, applyGearOnce, gearColumnsOf;
 import '../../core/offline_guard.dart' show OfflineGuard;
 import 'card_minimum.dart';
 import 'net_error.dart';
