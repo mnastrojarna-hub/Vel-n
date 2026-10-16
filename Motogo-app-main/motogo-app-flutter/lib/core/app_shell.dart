@@ -14,6 +14,7 @@ import '../features/catalog/catalog_provider.dart';
 import '../features/documents/docs_gate_provider.dart';
 import '../features/messages/messages_provider.dart';
 import '../features/payment/payment_provider.dart';
+import '../features/payment/payment_ui_helpers.dart';
 import 'widgets/moto_fx.dart';
 import '../features/reservations/reservation_models.dart';
 import '../features/reservations/reservation_provider.dart';
@@ -53,6 +54,22 @@ class AppShell extends ConsumerWidget {
     final location = GoRouterState.of(context).matchedLocation;
     final index = _currentIndex(location);
     final banner = ref.watch(bannerProvider);
+
+    // Platba odeslaná před zabitím appky se mezitím potvrdila → jednou
+    // oznámit (jinak by zákazník nevěděl, jestli zaplatil).
+    ref.listen<AsyncValue<String?>>(paidAfterRestartProvider, (_, next) {
+      final id = next.valueOrNull;
+      if (id == null) return;
+      final tr = t(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr.tr('psPaidNotice')),
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(
+          label: tr.tr('psShow'),
+          onPressed: () => GoRouter.of(context).go('/reservations/$id'),
+        ),
+      ));
+    });
 
     // Na platební obrazovce (rezervace i SOS) nesmí překážet žádný plovoucí
     // panel — jen by zakrýval tlačítko „Zaplatit". FAB se vrátí, až zákazník
@@ -302,7 +319,14 @@ class AppShell extends ConsumerWidget {
                 return Expanded(
                   child: PressableScale(
                     pressedScale: 0.9,
-                    onTap: () {
+                    onTap: () async {
+                      // Běží platba → odchod záložkou jen po potvrzení (výsledek
+                      // by se ztratil a zákazník by mohl zaplatit podruhé).
+                      if (ref.read(paymentProcessingProvider) &&
+                          !await confirmLeaveRunningPayment(context)) {
+                        return;
+                      }
+                      if (!context.mounted) return;
                       // Obrazovky mimo záložky (profil/menu, zprávy, obchod,
                       // faktury…) mají zvýrazněný tab Domů, ale poloha není '/'.
                       // Klik na Domů tam musí fungovat, ne až přes Rezervace.
@@ -539,6 +563,7 @@ class _BookingFab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (booking.verifying) return _VerifyingFab(booking: booking);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -644,6 +669,47 @@ class _BookingFab extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// FAB rezervace, jejíž platba už byla odeslána a čeká na potvrzení banky /
+/// serveru: NEnabízí další platbu (dvojí platba), jen otevře „Platba se ověřuje".
+class _VerifyingFab extends ConsumerWidget {
+  final PendingBooking booking;
+  const _VerifyingFab({required this.booking});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = t(context);
+    return Center(
+      child: PressableScale(
+        pressedScale: 0.93,
+        onTap: () {
+          ref.read(paymentOutcomeProvider.notifier).state = pendingBookingOutcome(
+            tr,
+            bookingId: booking.id,
+            verifiedRoute: Routes.success,
+          );
+          context.push(Routes.paymentResult);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+          decoration: const BoxDecoration(
+            color: Color(0xFFFDE68A),
+            borderRadius: BorderRadius.all(Radius.circular(MotoGoRadius.pill)),
+            boxShadow: _fabShadow,
+          ),
+          child: Text(
+            '⏳ ${tr.tr('psFabVerifying')}',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: MotoGoTypo.w800,
+              color: MotoGoColors.black,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

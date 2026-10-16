@@ -11,22 +11,22 @@ final paymentMethodsProvider =
   final user = MotoGoSupabase.currentUser;
   if (user == null) return [];
 
-  try {
-    final res = await MotoGoSupabase.client
-        .from('payment_methods')
-        .select(
-          'id, stripe_payment_method_id, brand, last4, '
-          'exp_month, exp_year, holder_name, is_default',
-        )
-        .eq('user_id', user.id)
-        .order('is_default', ascending: false);
+  // Chyba se NEPOLYKÁ (dřív → prázdný seznam = „žádné karty" místo hlášky
+  // s „Zkusit znovu"). Platba si s chybou poradí sama: defaultCardProvider
+  // pak vrátí null a platí se kartou v platebním sheetu.
+  final res = await MotoGoSupabase.client
+      .from('payment_methods')
+      .select(
+        'id, stripe_payment_method_id, brand, last4, '
+        'exp_month, exp_year, holder_name, is_default',
+      )
+      .eq('user_id', user.id)
+      .order('is_default', ascending: false)
+      .timeout(const Duration(seconds: 15));
 
-    return (res as List)
-        .map((e) => SavedCard.fromJson(e as Map<String, dynamic>))
-        .toList();
-  } catch (_) {
-    return [];
-  }
+  return (res as List)
+      .map((e) => SavedCard.fromJson(e as Map<String, dynamic>))
+      .toList();
 });
 
 /// Default saved card (first with is_default=true).
@@ -193,6 +193,10 @@ class PaymentContext {
   /// Když je null, jde o novou rezervaci a odpočet běží od otevření obrazovky.
   final DateTime? bookingCreatedAt;
 
+  /// Platba obnovené (dříve zrušené) rezervace — děkovací stránka pak říká
+  /// „Rezervace je znovu potvrzená".
+  final bool isRestore;
+
   const PaymentContext({
     required this.flowType,
     this.bookingId,
@@ -204,6 +208,7 @@ class PaymentContext {
     this.sosDepositNote,
     this.pendingEditChanges,
     this.bookingCreatedAt,
+    this.isRestore = false,
   });
 }
 
@@ -218,6 +223,9 @@ final paymentContextProvider = StateProvider<PaymentContext?>((ref) => null);
 /// dialogy s webovou /potvrzeni stránkou.
 final lastConfirmedBookingProvider = StateProvider<String?>((ref) => null);
 
+/// true = poslední potvrzená rezervace byla OBNOVENÁ (zrušená → zaplacená).
+final lastConfirmedRestoreProvider = StateProvider<bool>((ref) => false);
+
 /// Jeden řádek detailu na univerzální výsledkové obrazovce (ikona + text).
 class PaymentOutcomeLine {
   final String icon;
@@ -229,7 +237,11 @@ class PaymentOutcomeLine {
 /// ji flow, které nemají vlastní bohatou děkovací stránku jako nová rezervace
 /// (prodloužení/úprava, SOS, e-shop). Zajišťuje, že zákazník po KAŽDÉ platbě
 /// uvidí jednoznačné potvrzení „zaplaceno", ne jen mizící toast.
+/// Druh výsledku: úspěch / platba se ověřuje / zaplaceno, ale dokončí obsluha.
+enum PaymentOutcomeKind { success, pending, attention }
+
 class PaymentOutcome {
+  final PaymentOutcomeKind kind;
   final String title;
   final String subtitle;
   final List<PaymentOutcomeLine> lines;
@@ -241,7 +253,22 @@ class PaymentOutcome {
   /// „K vyzvednutí“ po zaplacené úpravě / výměně motorky (null = nezobrazovat).
   final PickupInfo? pickup;
 
+  // ── jen pro [PaymentOutcomeKind.pending] — „Ověřit znovu" ──
+  final String? verifyBookingId;
+  final String? verifyOrderId;
+  /// Doplatek úpravy: důkazem zaplacení je nová cena rezervace.
+  final double? verifyExpectedTotal;
+  /// Doplatek výměny motorky: v DB není důkaz → rozhoduje stav PaymentIntentu.
+  final bool verifyIntentOnly;
+  /// Ověřeno zaplaceno → přejít sem (nová rezervace → `/success`) …
+  final String? verifiedRoute;
+  /// … nebo ukázat tenhle výsledek (úprava, e-shop).
+  final PaymentOutcome? verifiedOutcome;
+  /// Prokazatelně nezaplaceno → co zákazníkovi říct (a že může platit znovu).
+  final String? notPaidMessage;
+
   const PaymentOutcome({
+    this.kind = PaymentOutcomeKind.success,
     required this.title,
     required this.subtitle,
     this.lines = const [],
@@ -249,6 +276,13 @@ class PaymentOutcome {
     required this.ctaLabel,
     required this.ctaRoute,
     this.pickup,
+    this.verifyBookingId,
+    this.verifyOrderId,
+    this.verifyExpectedTotal,
+    this.verifyIntentOnly = false,
+    this.verifiedRoute,
+    this.verifiedOutcome,
+    this.notPaidMessage,
   });
 }
 

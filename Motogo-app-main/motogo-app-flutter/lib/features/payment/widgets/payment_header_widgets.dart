@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/router.dart';
@@ -10,7 +9,9 @@ import '../../../core/currency.dart';
 
 /// Top header bar for the payment screen.
 class PaymentHeader extends StatelessWidget {
-  const PaymentHeader({super.key});
+  /// Zpět řídí PaymentScreen (potvrzení během platby, cíl podle druhu platby).
+  final VoidCallback? onBack;
+  const PaymentHeader({super.key, this.onBack});
 
   @override
   Widget build(BuildContext context) {
@@ -22,17 +23,15 @@ class PaymentHeader extends StatelessWidget {
             BorderRadius.vertical(bottom: Radius.circular(24)),
       ),
       child: Row(children: [
-        GestureDetector(
-          onTap: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(Routes.booking);
-            }
-          },
+        Semantics(
+          button: true,
+          label: t(context).back,
+          child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onBack ?? () => context.backOr(Routes.booking),
           child: Container(
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: MotoGoColors.green,
               borderRadius: BorderRadius.circular(10),
@@ -45,6 +44,7 @@ class PaymentHeader extends StatelessWidget {
                       color: Colors.black)),
             ),
           ),
+        ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -235,6 +235,8 @@ class PaymentPayButton extends StatelessWidget {
   final double amount;
   final bool isFree;
   final bool processing;
+  /// Vypršel čas na zaplacení → tlačítko zamčené s popiskem „Čas vypršel".
+  final bool expired;
   final VoidCallback? onPay;
 
   const PaymentPayButton({
@@ -242,6 +244,7 @@ class PaymentPayButton extends StatelessWidget {
     required this.amount,
     required this.isFree,
     required this.processing,
+    this.expired = false,
     required this.onPay,
   });
 
@@ -255,11 +258,11 @@ class PaymentPayButton extends StatelessWidget {
         boxShadow: MotoGoShadows.stickyBar,
       ),
       child: PressableScale(
-        enabled: !processing,
+        enabled: !processing && !expired,
         child: ShimmerSweep(
         borderRadius: BorderRadius.circular(50),
         child: ElevatedButton(
-        onPressed: processing ? null : onPay,
+        onPressed: (processing || expired) ? null : onPay,
         style: ElevatedButton.styleFrom(
             minimumSize: const Size.fromHeight(52)),
         child: processing
@@ -275,6 +278,8 @@ class PaymentPayButton extends StatelessWidget {
                   Text(t(context).loading),
                 ],
               )
+            : expired
+            ? Text('⏱ ${t(context).tr('timeExpired')}')
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
