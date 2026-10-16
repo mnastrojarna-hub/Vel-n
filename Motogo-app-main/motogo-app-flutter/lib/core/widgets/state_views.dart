@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import '../friendly_error.dart';
 import '../i18n/i18n_provider.dart';
 import '../theme.dart';
+import '../v2/flag/v2_scope.dart';
+import '../v2/states/legacy_state_looks.dart';
+import '../v2/widgets/mg_back_v2.dart';
 import 'error_feedback.dart';
 
 /// Viditelná šipka zpět v barvách appky (zelený čtverec „←"), dotyková plocha
@@ -16,6 +19,14 @@ class MgBackArrow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): stejný onTap i popisek.
+    if (MgV2.on(context)) {
+      return MgV2Back(
+        onTap: onTap,
+        label: t(context).tr('eoBack'),
+        style: dark ? MgBackStyle.light : MgBackStyle.dark,
+      );
+    }
     return Semantics(
       button: true,
       label: t(context).tr('eoBack'),
@@ -59,6 +70,9 @@ class MgStateScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return v2StateScaffoldLook(context, title: title, onBack: onBack, child: child);
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
@@ -113,6 +127,9 @@ class _MgLoadingViewState extends State<MgLoadingView> {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return v2LoadingLook(context, slow: _slow, onRetry: widget.onRetry, onBack: widget.onBack);
+    }
     final tr = t(context);
     return Center(
       child: Padding(
@@ -185,6 +202,18 @@ class MgErrorView extends StatelessWidget {
     final title = what ?? fe.title(tr);
     final body = message ??
         (what != null ? '${_cap(fe.reason(tr))}. ${fe.body(tr)}' : fe.body(tr));
+    if (MgV2.on(context)) {
+      return v2ErrorViewLook(context,
+          fe: fe,
+          title: title,
+          body: body,
+          onRetry: onRetry,
+          onBack: onBack,
+          backLabel: backLabel,
+          contact: contact,
+          extra: extra,
+          compact: compact);
+    }
     final card = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -256,6 +285,7 @@ class MgStaleNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) return v2StaleNoteLook(context, onRetry: onRetry, margin: margin);
     final tr = t(context);
     return Container(
       margin: margin,

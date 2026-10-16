@@ -3,6 +3,8 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
 import '../moto_model.dart';
 import '../../../core/date_days.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/availability_calendar_v2.dart';
 
 /// Interactive availability calendar — mirrors genCal() + pickS/pickD
 /// from booking-search-cal.js and router.js.
@@ -164,6 +166,26 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): stejný stav i obsluha klepnutí
+    // (_onDayTap, _prevMonth, _nextMonth) — jen jednotný pás termínu.
+    if (MgV2.on(context)) {
+      return AvailabilityCalendarV2View(
+        year: _year,
+        month: _month,
+        start: _start,
+        end: _end,
+        step: _step,
+        readOnly: widget.readOnly,
+        showLegend: widget.showLegend,
+        isPast: _isPast,
+        isOccupied: _isOccupied,
+        isUnconfirmed: _isUnconfirmed,
+        isToday: _isToday,
+        onDayTap: _onDayTap,
+        onPrevMonth: _prevMonth,
+        onNextMonth: _nextMonth,
+      );
+    }
     final daysInMonth = DateTime(_year, _month + 1, 0).day;
     final firstWeekday = DateTime(_year, _month, 1).weekday; // 1=Mon
     final offset = firstWeekday - 1;

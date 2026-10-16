@@ -9,6 +9,8 @@ import '../friendly_error.dart';
 import '../native/gps_service.dart' show GpsStatus;
 import '../i18n/i18n_provider.dart';
 import '../theme.dart';
+import '../v2/flag/v2_scope.dart';
+import '../v2/states/legacy_dialog_looks.dart';
 
 /// Nonstop linka MotoGo24 (volání funguje i bez mobilních dat).
 const String kMotoGoPhone = '+420774256271';
@@ -90,7 +92,9 @@ Future<String?> showErrorDialog(
   final tr = t(context);
   return showDialog<String>(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (ctx) => MgV2.on(ctx)
+        ? v2ErrorDialogLook(ctx, title: title, body: body, actions: actions, showClose: showClose)
+        : AlertDialog(
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
       content: SingleChildScrollView(child: Text(body)),
       actions: [
@@ -156,7 +160,9 @@ Future<bool> confirmDiscard(BuildContext context,
   final tr = t(context);
   final r = await showDialog<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (ctx) => MgV2.on(ctx)
+        ? v2DiscardDialogLook(ctx, title: title ?? tr.tr('eoDiscardTitle'), body: body ?? tr.tr('eoDiscardBody'))
+        : AlertDialog(
       title: Text(title ?? tr.tr('eoDiscardTitle'),
           style: const TextStyle(fontWeight: FontWeight.w800)),
       content: Text(body ?? tr.tr('eoDiscardBody')),
@@ -277,7 +283,10 @@ class _MgProgressDialogState extends State<_MgProgressDialog> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && widget.cancelAfter != null) widget.onCancel();
       },
-      child: AlertDialog(
+      child: MgV2.on(context)
+          ? v2ProgressDialogLook(context,
+              text: widget.text, slow: _canCancel, onCancel: _canCancel ? widget.onCancel : null)
+          : AlertDialog(
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
             const SizedBox(
