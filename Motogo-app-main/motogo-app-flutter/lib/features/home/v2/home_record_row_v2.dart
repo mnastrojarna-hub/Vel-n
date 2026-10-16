@@ -86,13 +86,10 @@ class HomeRecordRowV2 extends ConsumerWidget {
                       style: MgType.title.copyWith(color: live ? MgColors.err : MgColors.ink)),
                 ),
                 const SizedBox(height: 3),
-                // Celý popis (bez „…"): smí na 4 řádky, slova se nedělí.
+                // Celý popis vždy (bez „…" a bez limitu řádků), slova se nedělí.
                 MgWordFit(
                   minScale: 0.85,
-                  child: Text(sub,
-                      maxLines: 5,
-                      overflow: TextOverflow.ellipsis,
-                      style: MgType.small.copyWith(color: rec.gpsLost && live ? MgColors.warn : MgColors.meta)),
+                  child: Text(sub, style: MgType.small.copyWith(color: rec.gpsLost && live ? MgColors.warn : MgColors.meta)),
                 ),
               ]),
             ),

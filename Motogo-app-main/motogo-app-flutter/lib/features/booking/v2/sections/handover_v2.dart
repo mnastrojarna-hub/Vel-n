@@ -7,6 +7,7 @@ import '../../../../core/v2/motion/mg_motion.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_space.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../booking_v2_parts.dart';
 
 /// Address row of a delivery choice (data of the old `bookingAddrTile`).
@@ -207,9 +208,12 @@ class BookingLockedOptionV2View extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(label, style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta, height: 1.3)),
+                    MgWordFit(
+                      child: Text(label,
+                          style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta, height: 1.3)),
+                    ),
                     const SizedBox(height: 2),
-                    Text(shortReason, style: MgType.small.copyWith(color: MgColors.meta)),
+                    MgWordFit(child: Text(shortReason, style: MgType.small.copyWith(color: MgColors.meta))),
                   ]),
                 ),
                 AnimatedRotation(

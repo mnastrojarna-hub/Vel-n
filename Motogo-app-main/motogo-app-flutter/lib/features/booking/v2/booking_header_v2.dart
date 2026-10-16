@@ -8,6 +8,7 @@ import '../../../core/v2/rank/rank_hero.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 
 /// Compact dark rank header of the v2 booking form (board `.rk-hero.bh`):
 /// back (dark style, the form's EXISTING back action), title "Rezervace",
@@ -59,7 +60,9 @@ class BookingHeaderV2 extends StatelessWidget {
 }
 
 /// The 3-step bar: done = ✓ disc, current = neon disc + label pill,
-/// future = number disc; the connector fills up to the current step.
+/// future = number disc; the connector fills up to the current step. The
+/// pill label is never cut: it shrinks a little to stay on one line, else
+/// wraps to two lines (the pill and the bar grow).
 class BookingStepsV2 extends StatelessWidget {
   final int current;
   const BookingStepsV2({super.key, required this.current});
@@ -74,7 +77,7 @@ class BookingStepsV2 extends StatelessWidget {
       container: true,
       label: tr.trArgs('v2BkStepAria', {'n': cur + 1, 'step': labels[cur]}),
       child: Container(
-        height: 44,
+        constraints: const BoxConstraints(minHeight: 44),
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: MgColors.nightA(0.42),
@@ -82,24 +85,32 @@ class BookingStepsV2 extends StatelessWidget {
           border: Border.all(color: MgColors.neonA(0.22)),
         ),
         child: Stack(children: [
+          // Connector through the disc centres (the bar grows when the
+          // current label needs two lines).
           Positioned(
             left: 18,
             right: 18,
-            top: 17,
-            height: 2,
-            child: LayoutBuilder(builder: (context, c) {
-              return Stack(children: [
-                Container(color: MgColors.white(0.14)),
-                AnimatedContainer(
-                  duration: dur,
-                  curve: MgMotion.emphasized,
-                  width: c.maxWidth * cur / 2,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(colors: [MgColors.neonLo, MgColors.neon]),
-                  ),
-                ),
-              ]);
-            }),
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: SizedBox(
+                height: 2,
+                width: double.infinity,
+                child: LayoutBuilder(builder: (context, c) {
+                  return Stack(children: [
+                    Container(color: MgColors.white(0.14)),
+                    AnimatedContainer(
+                      duration: dur,
+                      curve: MgMotion.emphasized,
+                      width: c.maxWidth * cur / 2,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(colors: [MgColors.neonLo, MgColors.neon]),
+                      ),
+                    ),
+                  ]);
+                }),
+              ),
+            ),
           ),
           Row(children: [
             for (var i = 0; i < 3; i++) ...[
@@ -156,7 +167,7 @@ class _StepPill extends StatelessWidget {
         child: MgEnter(
           trigger: n,
           child: Container(
-            height: 36,
+            constraints: const BoxConstraints(minHeight: 36),
             padding: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
               color: Color.alphaBlend(MgColors.neonA(0.16), MgColors.panel),
@@ -177,11 +188,15 @@ class _StepPill extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.fade,
-                    softWrap: false,
-                    style: MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: MgWordFit(
+                    minScale: 0.85,
+                    fitLines: 1,
+                    child: Text(label,
+                        maxLines: 2, style: MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
+                  ),
+                ),
               ),
             ]),
           ),

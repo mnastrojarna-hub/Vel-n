@@ -8,6 +8,7 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../catalog/moto_model.dart';
 import '../../catalog/widgets/availability_calendar.dart';
@@ -134,7 +135,12 @@ class BookingDateCardV2 extends StatelessWidget {
             MgIcon(MgIcons.calendarCheck, size: 20, color: MgColors.link),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(range, style: MgType.tab(MgType.title.copyWith(color: MgColors.ink))),
+              // Each date stays whole ("23/10" never splits at the slash);
+              // a date wider than the column shrinks a little instead.
+              child: MgWordFit(
+                child: Text(range.replaceAll('/', '/\u2060'),
+                    style: MgType.tab(MgType.title.copyWith(color: MgColors.ink))),
+              ),
             ),
             const SizedBox(width: 8),
             MgIcon(MgIcons.edit, size: 16, color: MgColors.link),

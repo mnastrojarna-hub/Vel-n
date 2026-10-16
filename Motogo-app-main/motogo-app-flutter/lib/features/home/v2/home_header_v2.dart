@@ -100,9 +100,13 @@ class HomeHeaderV2 extends ConsumerWidget {
             child: MgPress(
               onTap: () => showNicknameDialog(context, ref, fullName: fullName),
               child: MgEnter(
+                // Nejdřív zmenšit na jeden řádek (do 70 %); když ani to nestačí
+                // (dlouhá přezdívka, velké písmo), zalomit v mezeře — nikdy
+                // uprostřed slova a bez useknutí.
                 child: MgWordFit(
                   minScale: 0.7,
-                  child: Text(greeting, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: gStyle),
+                  fitLines: 1,
+                  child: Text(greeting, maxLines: 3, overflow: TextOverflow.ellipsis, style: gStyle),
                 ),
               ),
             ),
@@ -134,10 +138,14 @@ class HomeHeaderV2 extends ConsumerWidget {
                 dimColor: rank.accentOnDark.withValues(alpha: 0.3),
               ),
               const SizedBox(width: 8),
+              // Celé motto („Další ranga: …"): nejdřív zmenšit na 2 řádky,
+              // jinak víc řádků — nikdy useknuté.
               Expanded(
-                child: Text(motto,
-                    maxLines: 2,
-                    style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: rank.accentOnDark)),
+                child: MgWordFit(
+                  minScale: 0.85,
+                  fitLines: 2,
+                  child: Text(motto, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: rank.accentOnDark)),
+                ),
               ),
             ]),
           ),
@@ -196,20 +204,28 @@ class _LogoRow extends ConsumerWidget {
       const SizedBox(width: 6),
       Flexible(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text('MOTO GO 24',
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.fade,
-              style: TextStyle(
-                  fontSize: narrow ? 17 : 21,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.4,
-                  height: 1.1,
-                  color: MgColors.onDark)),
+          // Značka se vždy vejde celá (zmenší se, nikdy se neusekne).
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text('MOTO GO 24',
+                maxLines: 1,
+                softWrap: false,
+                style: TextStyle(
+                    fontSize: narrow ? 17 : 21,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                    height: 1.1,
+                    color: MgColors.onDark)),
+          ),
           const SizedBox(height: 2),
-          Text(tr.tr('logoSubtitle'),
-              maxLines: 2,
-              style: MgType.micro.copyWith(letterSpacing: 0.8, color: MgColors.onDarkMeta)),
+          MgWordFit(
+            minScale: 0.6,
+            child: Text(tr.tr('logoSubtitle'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: MgType.micro.copyWith(letterSpacing: 0.8, color: MgColors.onDarkMeta)),
+          ),
         ]),
       ),
     ]);

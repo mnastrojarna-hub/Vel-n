@@ -8,6 +8,8 @@ import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/rank/rank_tokens.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
+import 'home_fit.dart';
 
 /// Tier icon of a rank (emblem / rail).
 String clubTierIcon(RankTier t) => switch (t) {
@@ -117,9 +119,42 @@ class ClubPerk extends StatelessWidget {
         else if (icon != null)
           MgIcon(icon!, size: 22, color: locked ? MgColors.lead : MgColors.link),
         const SizedBox(height: 4),
-        Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w800, height: 1.3, color: MgColors.ink)),
+        MgWordFit(
+          minScale: 0.8,
+          child: Text(label, style: _perkLabel),
+        ),
       ]),
     );
+  }
+}
+
+const _perkLabel = TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, height: 1.3, color: MgColors.ink);
+
+/// The two privilege tiles: side by side when every word of both labels
+/// fits half the width (at the current text size), else stacked full width
+/// — "Passagiersuitrusting" never splits on a narrow phone / large text.
+class ClubPerkPair extends StatelessWidget {
+  final ClubPerk first;
+  final ClubPerk second;
+  const ClubPerkPair({super.key, required this.first, required this.second});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, c) {
+      final half = (c.maxWidth - 10) / 2 - 24 - 2;
+      bool fits(String text) => homeWordsFitIn(context, text, _perkLabel, half);
+
+      if (c.maxWidth >= 300 && fits(first.label) && fits(second.label)) {
+        return IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(child: first),
+            const SizedBox(width: 10),
+            Expanded(child: second),
+          ]),
+        );
+      }
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [first, const SizedBox(height: 10), second]);
+    });
   }
 }
 

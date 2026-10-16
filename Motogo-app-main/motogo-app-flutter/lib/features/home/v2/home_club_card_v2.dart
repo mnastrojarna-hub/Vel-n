@@ -12,6 +12,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_sheet.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../../loyalty/loyalty_ranks_screen.dart';
 import '../../reservations/reservation_models.dart';
@@ -59,7 +60,8 @@ class HomeClubCardV2 extends ConsumerWidget {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(tr.tr('v2HomeClubKicker').toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.meta)),
-                  Text(name, style: MgType.h3.copyWith(color: MgColors.ink)),
+                  // „Ambassadeur", „Діамантовий райдер": zmenšit, nikdy nedělit slovo.
+                  MgWordFit(minScale: 0.7, child: Text(name, style: MgType.h3.copyWith(color: MgColors.ink))),
                   Text(RankCopy.levelLine(tr, status.level, status.percent),
                       style: MgType.small.copyWith(color: MgColors.lead)),
                 ]),
@@ -83,17 +85,17 @@ class HomeClubCardV2 extends ConsumerWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 ClubTierBar(rank: rank, segments: to - from, filled: inTier, full: status.isMax),
                 const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(
-                    child: Text(
-                      tr.trArgs('v2HomeClubTierPts', {
-                        'tier': RankCopy.tierName(tr, rank.tier),
-                        'x': inTier,
-                        'y': to - from,
-                        'points': RankCopy.points(tr, to - from),
-                      }),
-                      style: MgType.tab(MgType.meta.copyWith(color: MgColors.lead)),
-                    ),
+                // Postup v lize + další liga: vedle sebe, když se vejdou celé,
+                // jinak pod sebou (žádný pevný řádek, nic se nedělí).
+                Wrap(alignment: WrapAlignment.spaceBetween, spacing: 12, runSpacing: 2, children: [
+                  Text(
+                    tr.trArgs('v2HomeClubTierPts', {
+                      'tier': RankCopy.tierName(tr, rank.tier),
+                      'x': inTier,
+                      'y': to - from,
+                      'points': RankCopy.points(tr, to - from),
+                    }),
+                    style: MgType.tab(MgType.meta.copyWith(color: MgColors.lead)),
                   ),
                   if (tier < 4)
                     Text(
@@ -133,23 +135,16 @@ class HomeClubCardV2 extends ConsumerWidget {
               style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta)),
             ),
             const SizedBox(height: 12),
-            IntrinsicHeight(
-              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Expanded(
-                  child: ClubPerk(
-                    big: '−${status.percent} %',
-                    label: tr.tr('v2HomeClubPerkPct'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ClubPerk(
-                    icon: status.level >= 3 ? MgIcons.helmet : MgIcons.lock,
-                    label: RankCopy.gearLine(tr, status.level),
-                    locked: status.level < 3,
-                  ),
-                ),
-              ]),
+            ClubPerkPair(
+              first: ClubPerk(
+                big: '−${status.percent} %',
+                label: tr.tr('v2HomeClubPerkPct'),
+              ),
+              second: ClubPerk(
+                icon: status.level >= 3 ? MgIcons.helmet : MgIcons.lock,
+                label: RankCopy.gearLine(tr, status.level),
+                locked: status.level < 3,
+              ),
             ),
             if (saved > 0) ...[
               const SizedBox(height: 10),

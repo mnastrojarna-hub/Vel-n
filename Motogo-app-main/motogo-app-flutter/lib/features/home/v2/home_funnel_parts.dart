@@ -11,8 +11,10 @@ import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../loyalty/loyalty_provider.dart';
 import 'funnel_provider.dart';
+import 'home_fit.dart';
 
 /// Bike detail from Home (the same `/moto/:id` push the old list used).
 void homePushMoto(BuildContext context, String id) => mgPushOrGo(context, '/moto/$id');
@@ -45,12 +47,16 @@ class FunnelTopRow extends ConsumerWidget {
         MgIcon(MgIcons.route, size: 16, color: rank.accentOnDark),
         if (!pager) ...[
           const SizedBox(width: 6),
+          // „TWÓJ NASTĘPNY PRZEJAZD" celé — raději menší než useknuté.
           Flexible(
-            child: Text(label.toUpperCase(),
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.fade,
-                style: MgType.eyebrow.copyWith(height: 1, color: rank.accentOnDark)),
+            child: MgWordFit(
+              minScale: 0.7,
+              child: Text(label.toUpperCase(),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.fade,
+                  style: MgType.eyebrow.copyWith(height: 1, color: rank.accentOnDark)),
+            ),
           ),
         ],
       ]),
@@ -242,7 +248,7 @@ class FunnelPresets extends StatelessWidget {
             ),
             child: Stack(clipBehavior: Clip.none, children: [
               Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text(label, style: labelStyle),
+                MgWordFit(minScale: 0.85, child: Text(label, style: labelStyle)),
                 const SizedBox(height: 2),
                 Text(dates, style: MgType.tab(MgType.meta.copyWith(color: MgColors.neonText))),
               ]),
@@ -272,58 +278,84 @@ class FunnelPresets extends StatelessWidget {
 
     final calOn = selection.preset == 2;
     final l1 = tr.tr('v2HomeFnPreset1'), l2 = tr.tr('v2HomeFnPreset2');
-    return LayoutBuilder(builder: (context, c) {
-      // Never break a word: when a label word is wider than the chip text
-      // box (de "Wochenende" at 360 dp) both labels step down to 11 px.
-      final textW = (c.maxWidth - 8 - 8 - 52) / 2 - 16 - 3;
-      final base = MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark);
-      final probe = DefaultTextStyle.of(context).style.merge(base);
-      final fits = homeWordsFit(l1, probe, textW) && homeWordsFit(l2, probe, textW);
-      final labelStyle = fits ? base : base.copyWith(fontSize: 11);
-      return IntrinsicHeight(
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Expanded(child: chip(0, l1, p.$1, labelStyle)),
-        const SizedBox(width: 8),
-        Expanded(child: chip(1, l2, p.$2, labelStyle)),
-        const SizedBox(width: 8),
-        // Vlastní termín (vpravo dole, pod AI tlačítkem) = tap zóna.
-        MgFabAvoid(
+    Widget cal({required bool wide}) => MgFabAvoid(
+          // Vlastní termín (vpravo dole, pod AI tlačítkem) = tap zóna.
           kind: MgAvoidKind.tap,
           child: Semantics(
-          button: true,
-          selected: calOn,
-          label: tr.tr('v2HomeFnOther'),
-          excludeSemantics: true,
-          child: MgPress(
-            onTap: onCalendar,
-            child: Container(
-              width: 52,
-              decoration: BoxDecoration(
-                color: calOn ? MgColors.neonA(0.16) : MgColors.white(0.07),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: calOn ? MgColors.neon : MgColors.white(0.18), width: 1.5),
+            button: true,
+            selected: calOn,
+            label: tr.tr('v2HomeFnOther'),
+            excludeSemantics: true,
+            child: MgPress(
+              onTap: onCalendar,
+              child: Container(
+                width: wide ? null : 52,
+                constraints: BoxConstraints(minHeight: wide ? 48 : 0),
+                padding: wide ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8) : null,
+                decoration: BoxDecoration(
+                  color: calOn ? MgColors.neonA(0.16) : MgColors.white(0.07),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: calOn ? MgColors.neon : MgColors.white(0.18), width: 1.5),
+                ),
+                child: wide
+                    ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        const MgIcon(MgIcons.calendarCheck, size: 20, color: MgColors.neon),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(tr.tr('v2HomeFnOther'),
+                              style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
+                        ),
+                      ])
+                    : const Center(child: MgIcon(MgIcons.calendarCheck, size: 24, color: MgColors.neon)),
               ),
-              child: const Center(child: MgIcon(MgIcons.calendarCheck, size: 24, color: MgColors.neon)),
             ),
           ),
-        ),
-        ),
-      ]),
-    );
+        );
+    return LayoutBuilder(builder: (context, c) {
+      // Slovo se NIKDY nedělí („Wochen|ende"): 3 vedle sebe (předvolby +
+      // 52px kalendář) → menší písmo → 2 předvolby na celou šířku a „Jiný
+      // termín" pod nimi → předvolby pod sebou. Měří se při skutečné
+      // velikosti písma (textScaler), ne jen při 100 %.
+      final scaler = MediaQuery.textScalerOf(context);
+      final base = MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark);
+      final small = base.copyWith(fontSize: 11);
+      final probe = DefaultTextStyle.of(context).style;
+      bool fit(TextStyle s, double w) =>
+          homeWordsFit(l1, probe.merge(s), w, scaler) && homeWordsFit(l2, probe.merge(s), w, scaler);
+      final w3 = (c.maxWidth - 8 - 8 - 52) / 2 - 16 - 3;
+      final w2 = (c.maxWidth - 8) / 2 - 16 - 3;
+      Widget pair(TextStyle s) => IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Expanded(child: chip(0, l1, p.$1, s)),
+              const SizedBox(width: 8),
+              Expanded(child: chip(1, l2, p.$2, s)),
+            ]),
+          );
+      for (final s in [base, small]) {
+        if (fit(s, w3)) {
+          return IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Expanded(child: chip(0, l1, p.$1, s)),
+              const SizedBox(width: 8),
+              Expanded(child: chip(1, l2, p.$2, s)),
+              const SizedBox(width: 8),
+              cal(wide: false),
+            ]),
+          );
+        }
+      }
+      for (final s in [base, small]) {
+        if (fit(s, w2)) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [pair(s), const SizedBox(height: 8), cal(wide: true)]);
+        }
+      }
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        chip(0, l1, p.$1, base),
+        const SizedBox(height: 8),
+        chip(1, l2, p.$2, base),
+        const SizedBox(height: 8),
+        cal(wide: true),
+      ]);
     });
   }
-}
-
-/// true when every word of [text] fits [maxWidth] in [style] (so wrapping
-/// never has to cut a word).
-bool homeWordsFit(String text, TextStyle style, double maxWidth) {
-  for (final w in text.split(RegExp(r'\s+'))) {
-    if (w.isEmpty) continue;
-    final tp = TextPainter(text: TextSpan(text: w, style: style), textDirection: TextDirection.ltr, maxLines: 1)
-      ..layout();
-    final width = tp.width;
-    tp.dispose();
-    if (width > maxWidth) return false;
-  }
-  return true;
 }

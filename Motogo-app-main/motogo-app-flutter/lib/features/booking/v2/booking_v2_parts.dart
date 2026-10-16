@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/currency.dart';
@@ -12,6 +14,7 @@ import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 
 /// "3 dny" in the app language.
 String bkDays(AppTranslations tr, int n) => '$n ${tr.daysWord(n)}';
@@ -24,6 +27,39 @@ String bkNb(String text) => text.replaceAll(' ', '\u00A0');
 String bkRange(AppTranslations tr, DateTime s, DateTime e) => tripSameDay(s, e)
     ? bkNb(tripShortDate(tr, s))
     : '${bkNb(tripShortDate(tr, s))} – ${bkNb(tripShortDate(tr, e))}';
+
+/// Amounts in [text] never split ("1 000 CZK", "40 Kč/km"): no-break
+/// spaces between digit groups and before the currency, a word joiner
+/// after the "/" of a per-km rate.
+String bkNbAmounts(String text) => text
+    .replaceAllMapped(RegExp(r'(\d) (?=\d|Kč|CZK|€|EUR|zł|PLN|грн)'), (m) => '${m[1]}\u00A0')
+    .replaceAll(RegExp(r'/(?=km|км)'), '/\u2060');
+
+TextPainter _bkPainter(BuildContext context, String text, TextStyle style) => TextPainter(
+      text: TextSpan(text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+
+/// Width of the longest unbreakable run of [text] as this context draws
+/// it (font, text scale): a column narrower than this splits a word.
+double bkWordWidth(BuildContext context, String text, TextStyle style) {
+  final tp = _bkPainter(context, text, style);
+  final w = tp.minIntrinsicWidth;
+  tp.dispose();
+  return w;
+}
+
+/// One-line width of [text] as this context draws it.
+double bkLineWidth(BuildContext context, String text, TextStyle style) {
+  final tp = _bkPainter(context, text, style);
+  final w = tp.maxIntrinsicWidth;
+  tp.dispose();
+  return w;
+}
+
+/// Large text (system scale over 1.15): rows stack their side columns.
+bool bkLargeText(BuildContext context) => MediaQuery.textScalerOf(context).scale(100) > 115;
 
 /// Height change animated (sheet tempo); under reduced motion the child
 /// is placed directly (a zero-length AnimatedSize may re-dirty itself
@@ -133,7 +169,10 @@ class BkHalfDisc extends StatelessWidget {
 
 /// Radio option row on light (handover choices): 44+ tall, ring → ink disc
 /// with a neon ✓ when selected (never colour-only), title + sub + trailing
-/// price. [onTap] = the section's EXISTING option closure.
+/// price. The price sits on the right only while the text column keeps
+/// at least 140 dp and its longest word (and the price at most 35 % of the
+/// row); on a narrow row or with large text it moves under the sub line.
+/// [onTap] = the section's EXISTING option closure.
 class BkOptionRow extends StatelessWidget {
   final String title;
   final String sub;
@@ -153,6 +192,12 @@ class BkOptionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dur = MgMotion.of(context, MgMotion.color);
+    final titleStyle = MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink, height: 1.3);
+    final subStyle = MgType.small.copyWith(color: MgColors.lead);
+    final priceStyle =
+        MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: selected ? MgColors.link : MgColors.meta));
+    final subText = bkNbAmounts(sub);
+    final priceText = bkNbAmounts(trailing);
     return Semantics(
       button: true,
       inMutuallyExclusiveGroup: true,
@@ -171,34 +216,48 @@ class BkOptionRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(MgRadius.button),
             border: Border.all(color: selected ? MgColors.ink : MgColors.line, width: selected ? 1.5 : 1),
           ),
-          child: Row(children: [
-            AnimatedContainer(
-              duration: dur,
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: selected ? MgColors.ink : MgColors.surface,
-                border: Border.all(color: selected ? MgColors.ink : MgColors.lineInput, width: 1.5),
+          child: LayoutBuilder(builder: (context, c) {
+            final row = c.maxWidth;
+            final priceMax = row * 0.35;
+            final need = math.max(
+                140.0, math.max(bkWordWidth(context, title, titleStyle), bkWordWidth(context, subText, subStyle)));
+            final side = row >= 300 &&
+                !bkLargeText(context) &&
+                bkWordWidth(context, priceText, priceStyle) <= priceMax &&
+                row - 36 - 8 - math.min(bkLineWidth(context, priceText, priceStyle), priceMax) >= need;
+            final price = MgWordFit(
+              alignment: side ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart,
+              child: Text(priceText, maxLines: 2, textAlign: side ? TextAlign.end : TextAlign.start, style: priceStyle),
+            );
+            return Row(children: [
+              AnimatedContainer(
+                duration: dur,
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? MgColors.ink : MgColors.surface,
+                  border: Border.all(color: selected ? MgColors.ink : MgColors.lineInput, width: 1.5),
+                ),
+                child: selected
+                    ? MgPop(trigger: selected, child: Center(child: MgIcon(MgIcons.check, size: 15, color: MgColors.neon, stroke: 2.6)))
+                    : null,
               ),
-              child: selected
-                  ? MgPop(trigger: selected, child: Center(child: MgIcon(MgIcons.check, size: 15, color: MgColors.neon, stroke: 2.6)))
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink, height: 1.3)),
-                const SizedBox(height: 2),
-                Text(sub, style: MgType.small.copyWith(color: MgColors.lead)),
-              ]),
-            ),
-            const SizedBox(width: 8),
-            Text(trailing,
-                textAlign: TextAlign.end,
-                style: MgType.tab(MgType.small.copyWith(
-                    fontWeight: FontWeight.w800, color: selected ? MgColors.link : MgColors.meta))),
-          ]),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  MgWordFit(child: Text(title, style: titleStyle)),
+                  const SizedBox(height: 2),
+                  MgWordFit(child: Text(subText, style: subStyle)),
+                  if (!side) ...[const SizedBox(height: 4), price],
+                ]),
+              ),
+              if (side) ...[
+                const SizedBox(width: 8),
+                ConstrainedBox(constraints: BoxConstraints(maxWidth: priceMax), child: price),
+              ],
+            ]);
+          }),
         ),
       ),
     );

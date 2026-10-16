@@ -171,8 +171,9 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
           ClipRRect(
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
             // Nižší telefon (< 800 dp): fotka 150, ať je REZERVOVAT nad
-            // spodní lištou (V22 §2.4 #4). Prázdný / chybový stav potřebuje 200.
-            child: SizedBox(height: photoH, child: slot),
+            // spodní lištou (V22 §2.4 #4). Prázdný / chybový stav má min. 200
+            // a roste podle textu (velké písmo) — vysvětlení se neusekne.
+            child: slot is FunnelEmptySlot ? slot : SizedBox(height: photoH, child: slot),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -188,12 +189,11 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 child: Semantics(
                   header: true,
                   // Raději o kousek menší na jednom řádku než na dvou (REZERVOVAT
-                  // zůstane nad lištou); dlouhé jméno se zalomí v mezeře.
+                  // zůstane nad lištou); dlouhé jméno se zalomí v mezeře — celé.
                   child: MgWordFit(
                     minScale: 0.85,
                     fitLines: 1,
-                    child: Text(tr.trArgs('v2HomeFnTitle', {'nick': nick}),
-                        maxLines: 2, style: MgType.h2.copyWith(color: MgColors.onDark)),
+                    child: Text(tr.trArgs('v2HomeFnTitle', {'nick': nick}), style: MgType.h2.copyWith(color: MgColors.onDark)),
                   ),
                 ),
               ),

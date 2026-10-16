@@ -10,6 +10,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../messages/messages_provider.dart';
 import '../../reservations/reservation_models.dart';
@@ -130,8 +131,12 @@ class HomeMoreBookingsRowV2 extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr.trArgs('v2HomeMore', {'n': count}),
-                  style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+              // „Kolejne rezerwacje (1)" vedle „Zobacz wszystkie": zmenšit, nedělit.
+              MgWordFit(
+                minScale: 0.75,
+                child: Text(tr.trArgs('v2HomeMore', {'n': count}),
+                    style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+              ),
               Text(
                   next == null
                       ? tr.tr('homeActiveReservations')

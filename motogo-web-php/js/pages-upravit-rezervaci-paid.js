@@ -10,7 +10,10 @@
  * Klientský zápis (swap.js / gear.js / jádro) zůstává jen jako záloha: změna se nevešla do
  * metadat (state client_apply) nebo server akci ještě nezná (starší nasazení). Když ani záloha
  * výsledek nezná, ukáže se „platba proběhla, změnu dokončujeme" — nikdy chyba s kontaktem.
- * Načítá se ZA swap.js a gear.js → obaluje jejich _applyPendingAfterPayment (je nejvíc venku).
+ * Načítá se ZA swap.js a gear.js → obaluje jejich _applyPendingAfterPayment. Nejvíc venku je
+ * guard.js (načtený až po resume.js): klientský dopis času vyzvednutí a late slevy dělá jen tehdy,
+ * když výsledek NEŘEKL server — ER._paidOutcome (selhání / obsazeno / nezaplaceno / dokončujeme)
+ * a ER._paidByServer (zapsal server) proto nastavujeme při každém volání znovu.
  */
 (function () {
   var MG = window.MG;
@@ -58,8 +61,11 @@
   }
 
   ER._paidOutcome = null;
+  ER._paidByServer = false;
   var inner = ER._applyPendingAfterPayment;
   ER._applyPendingAfterPayment = async function (id) {
+    ER._paidOutcome = null;
+    ER._paidByServer = false;
     var sid = sessionIdFromUrl();
     var sw = swapPending(id);
     if (sid) {
@@ -75,6 +81,8 @@
       var swapFallback = r && r.state === 'retry' && sw && sw.base && !sw.r;
       if (r && r.state !== 'client_apply' && !swapFallback) {
         if (r.state === 'applied' || r.state === 'already_applied') {
+          // Čas vyzvednutí i late slevu zapsal server (extension-apply) — guard.js je nepřepisuje.
+          ER._paidByServer = true;
           // „K vyzvednutí" po výměně = pobočka NOVÉ motorky (stejně jako swap.js).
           if (sw && sw.base && sw.base.p_new_moto_id) ER._lastSwapMoto = sw.base.p_new_moto_id;
           clearPending(id);

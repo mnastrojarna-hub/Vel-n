@@ -82,35 +82,14 @@ class FunnelBikeCard extends StatelessWidget {
             left: 12,
             top: 12,
             right: 12,
-            child: Row(children: [
-              _GlassPill(
-                border: MgColors.neonA(0.42),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  MgPing(size: 7, color: MgColors.neon, active: center),
-                  const SizedBox(width: 6),
-                  Text(tr.tr('v2HomeFnFree'), style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
-                ]),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: badge == null ? const SizedBox.shrink() : _GlassPill(
-                    border: again ? MgColors.neonA(0.42) : MgColors.white(0.25),
-                    // Celý štítek i se skupinou ŘP („A2") — raději menší než useknutý.
-                    child: MgWordFit(
-                      minScale: 0.7,
-                      child: Text(badge!,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.fade,
-                          style: MgType.micro.copyWith(
-                              fontWeight: FontWeight.w800, color: again ? MgColors.neonText : MgColors.onDark)),
-                    ),
-                  ),
-                ),
-              ),
-            ]),
+            // „Volná v termínu" + štítek ŘP: když se oba nevejdou, dostanou místo
+            // podle délky a zmenší se (štítek smí na 2 řádky) — nic se neusekne.
+            child: _TopPills(
+              free: tr.tr('v2HomeFnFree'),
+              center: center,
+              badge: badge,
+              again: again,
+            ),
           ),
           Positioned(
             left: 14,
@@ -166,6 +145,79 @@ class FunnelBikeCard extends StatelessWidget {
   }
 }
 
+class _TopPills extends StatelessWidget {
+  final String free;
+  final bool center;
+  final String? badge;
+  final bool again;
+  const _TopPills({required this.free, required this.center, required this.badge, required this.again});
+
+  static final _freeStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark);
+  static final _badgeStyle = MgType.micro.copyWith(height: 1.15, fontWeight: FontWeight.w800);
+
+  @override
+  Widget build(BuildContext context) {
+    final b = badge;
+    final freePill = _GlassPill(
+      border: MgColors.neonA(0.42),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        MgPing(size: 7, color: MgColors.neon, active: center),
+        const SizedBox(width: 6),
+        Flexible(
+          child: MgWordFit(
+            minScale: 0.7,
+            child: Text(free, maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: _freeStyle),
+          ),
+        ),
+      ]),
+    );
+    if (b == null) return Row(children: [Flexible(child: freePill)]);
+    final badgePill = _GlassPill(
+      border: again ? MgColors.neonA(0.42) : MgColors.white(0.25),
+      // Celý štítek i se skupinou ŘP („A2"): nejdřív menší na jednom
+      // řádku, jinak na dva řádky v mezeře — nikdy useknutý.
+      child: MgWordFit(
+        minScale: 0.8,
+        fitLines: 1,
+        alignment: AlignmentDirectional.centerEnd,
+        child: Text(b,
+            maxLines: 2,
+            textAlign: TextAlign.end,
+            style: _badgeStyle.copyWith(color: again ? MgColors.neonText : MgColors.onDark)),
+      ),
+    );
+    final scaler = MediaQuery.textScalerOf(context);
+    final base = DefaultTextStyle.of(context).style;
+    double w(String text, TextStyle st) {
+      final tp = TextPainter(text: TextSpan(text: text, style: base.merge(st)), textDirection: TextDirection.ltr, textScaler: scaler, maxLines: 1)
+        ..layout();
+      final v = tp.width;
+      tp.dispose();
+      return v;
+    }
+
+    final wFree = w(free, _freeStyle) + 7 + 6 + 22;
+    final wOne = w(b, _badgeStyle) + 22;
+    // Štítek smí na 2 řádky → v nouzi mu stačí zhruba půlka (aspoň
+    // nejdelší slovo), zbytek místa dostane „Volná v termínu".
+    var longest = 0.0;
+    for (final x in b.split(' ')) {
+      if (x.isNotEmpty) longest = longest > w(x, _badgeStyle) ? longest : w(x, _badgeStyle);
+    }
+    final wTwo = (longest > (wOne - 22) * 0.55 ? longest : (wOne - 22) * 0.55) + 22;
+    // Místo úměrné potřebné šířce: když se oba vejdou, má každý aspoň svou
+    // šířku (vzhled beze změny), jinak štítek na 2 řádky a oba se zmenší.
+    return LayoutBuilder(builder: (context, c) {
+      final wBadge = wFree + 8 + wOne <= c.maxWidth ? wOne : wTwo;
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Flexible(flex: wFree.round(), child: Align(alignment: Alignment.centerLeft, child: freePill)),
+        const SizedBox(width: 8),
+        Flexible(flex: wBadge.round(), child: Align(alignment: Alignment.centerRight, child: badgePill)),
+      ]);
+    });
+  }
+}
+
 class _GlassPill extends StatelessWidget {
   final Widget child;
   final Color border;
@@ -173,8 +225,8 @@ class _GlassPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        height: 26,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        constraints: const BoxConstraints(minHeight: 26),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
         decoration: BoxDecoration(
           color: MgColors.nightA(0.8),
           borderRadius: BorderRadius.circular(999),
@@ -238,22 +290,23 @@ class FunnelEmptySlot extends StatelessWidget {
           colors: [MgColors.panel, MgColors.night],
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      // Výška podle obsahu (min. 200 v HomeFunnelV2): celé vysvětlení
+      // i při velkém písmu, nic se neusekne.
+      constraints: const BoxConstraints(minHeight: 200),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Semantics(
         liveRegion: true,
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
           MgToneDisc(tone: error ? MgTone.err : MgTone.info, size: 48, dark: true, icon: error ? null : MgIcons.calendarX),
           const SizedBox(height: 8),
-          Text(title,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: MgType.title.copyWith(color: MgColors.onDark)),
+          MgWordFit(
+            minScale: 0.8,
+            alignment: Alignment.center,
+            child: Text(title, textAlign: TextAlign.center, style: MgType.title.copyWith(color: MgColors.onDark)),
+          ),
           const SizedBox(height: 4),
-          Text(text,
-              textAlign: TextAlign.center,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: MgType.small.copyWith(color: MgColors.onDarkLead)),
+          Text(text, textAlign: TextAlign.center, style: MgType.small.copyWith(color: MgColors.onDarkLead)),
         ]),
       ),
     );

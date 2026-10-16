@@ -8,6 +8,7 @@ import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_chips.dart';
 import '../../../../core/v2/widgets/mg_price.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../loyalty/loyalty_provider.dart';
 import '../../../loyalty/rank_names.dart';
 import '../../booking_models.dart';
@@ -44,9 +45,11 @@ class BookingPriceV2 extends ConsumerWidget {
               const SizedBox(width: 6),
             ],
             Expanded(
-              child: Text(label,
-                  style: MgType.small.copyWith(
-                      fontWeight: subtle ? FontWeight.w600 : FontWeight.w700, color: subtle ? MgColors.meta : MgColors.body2)),
+              child: MgWordFit(
+                child: Text(label,
+                    style: MgType.small.copyWith(
+                        fontWeight: subtle ? FontWeight.w600 : FontWeight.w700, color: subtle ? MgColors.meta : MgColors.body2)),
+              ),
             ),
             const SizedBox(width: 10),
             Text(value,
@@ -79,11 +82,17 @@ class BookingPriceV2 extends ConsumerWidget {
         row(tr.tr('depositNotCharged'), bkMoney(0), subtle: true, icon: MgIcons.checkCircle),
         if (loyalty.hasError && !loyalty.isLoading) ...[
           const SizedBox(height: 6),
-          Row(children: [
-            MgIcon(MgIcons.info, size: 16, color: MgColors.warn),
+          // Retry under the message: beside it the text column got too
+          // narrow for its words in long languages.
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(padding: const EdgeInsets.only(top: 1), child: MgIcon(MgIcons.info, size: 16, color: MgColors.warn)),
             const SizedBox(width: 6),
-            Expanded(child: Text(tr.tr('v2BkLoyaltyFail'), style: MgType.small.copyWith(color: MgColors.warn))),
-            MgBtnText(label: tr.tr('eoRetry'), onTap: () => ref.invalidate(loyaltyStatusProvider)),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                MgWordFit(child: Text(tr.tr('v2BkLoyaltyFail'), style: MgType.small.copyWith(color: MgColors.warn))),
+                MgBtnText(label: tr.tr('eoRetry'), onTap: () => ref.invalidate(loyaltyStatusProvider)),
+              ]),
+            ),
           ]),
         ],
         const SizedBox(height: 12),

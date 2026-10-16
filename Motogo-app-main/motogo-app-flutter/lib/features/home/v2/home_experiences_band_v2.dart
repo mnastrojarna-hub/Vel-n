@@ -172,23 +172,21 @@ class _Tile extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: MgColors.line),
             ),
+            // Ikona NAD popiskem (ne vedle): popisek má celou šířku dlaždice,
+            // takže se „Places discovere|d" na úzkém telefonu nikdy nerozdělí.
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(color: MgColors.panel, borderRadius: BorderRadius.circular(10)),
-                  child: Center(child: MgIcon(icon, size: 20, color: MgColors.neon)),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: MgWordFit(
-                    minScale: 0.75,
-                    child: Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w800, height: 1.3, color: MgColors.ink)),
-                  ),
-                ),
-              ]),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(color: MgColors.panel, borderRadius: BorderRadius.circular(10)),
+                child: Center(child: MgIcon(icon, size: 20, color: MgColors.neon)),
+              ),
               const SizedBox(height: 8),
+              MgWordFit(
+                minScale: 0.75,
+                child: Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w800, height: 1.3, color: MgColors.ink)),
+              ),
+              const SizedBox(height: 4),
               if (value == null)
                 const MgSkeleton(width: 60, height: 22, radius: 6)
               else

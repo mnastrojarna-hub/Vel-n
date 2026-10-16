@@ -73,8 +73,13 @@ class HomeTicketV2 extends ConsumerWidget {
             label: '$title. $meta',
             child: MgPress(
               onTap: r == null ? null : openDetail,
-              child: SizedBox(
-                height: 128,
+              // Eyebrow + stav se nevejdou ani zmenšené → pod sebe a fotka o
+              // řádek vyšší (francouzsky / velké písmo na úzkém telefonu).
+              child: LayoutBuilder(builder: (context, box) {
+                final left = _eyebrow(tr, now), right = _status(tr, docsOk);
+                final stacked = tkPillsStack(context, box.maxWidth - 24, left, right);
+                return SizedBox(
+                height: stacked ? 158 : 128,
                 child: Stack(fit: StackFit.expand, children: [
                   HomePhoto(url: r?.motoImage),
                   DecoratedBox(
@@ -91,7 +96,7 @@ class HomeTicketV2 extends ConsumerWidget {
                     left: 12,
                     right: 12,
                     top: 10,
-                    child: _PillRow(left: _eyebrow(tr, now), right: _status(tr, docsOk)),
+                    child: _PillRow(left: left, right: right, stacked: stacked),
                   ),
                   Positioned(
                     left: 16,
@@ -112,7 +117,8 @@ class HomeTicketV2 extends ConsumerWidget {
                     ]),
                   ),
                 ]),
-              ),
+              );
+              }),
             ),
           ),
           Padding(
@@ -202,8 +208,8 @@ class HomeTicketV2 extends ConsumerWidget {
       ));
     }
 
-    Widget cta(String key, VoidCallback onTap, {String? price}) => MgFabAvoid(
-          child: MgCta(label: tr.tr(key), price: price, loop: true, onTap: onTap, arrow: price == null),
+    Widget cta(String key, VoidCallback onTap, {String? price, bool arrow = true}) => MgFabAvoid(
+          child: MgCta(label: tr.tr(key), price: price, loop: true, onTap: onTap, arrow: arrow && price == null),
         );
 
     switch (snap.ticket) {
@@ -226,16 +232,20 @@ class HomeTicketV2 extends ConsumerWidget {
         return cta('v2HomeCtaCodes', detail);
       case HomeTicket.s8:
       case HomeTicket.s9:
-        final main = snap.ticket == HomeTicket.s9 && !_ctaIsDetail
-            ? cta('v2HomeCtaNavigate', navigate)
-            : cta('v2HomeCtaDetail', detail);
-        if (!sosAllowed) return main;
+        Widget main({bool arrow = true}) => snap.ticket == HomeTicket.s9 && !_ctaIsDetail
+            ? cta('v2HomeCtaNavigate', navigate, arrow: arrow)
+            : cta('v2HomeCtaDetail', detail, arrow: arrow);
+        if (!sosAllowed) return main();
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Expanded(child: main),
-            const SizedBox(width: 12),
-            TkSosCircle(label: '${tr.tr('homeSosTitle')} · ${tr.tr('homeSosSubtitle')}'),
-          ]),
+          // Vedle SOS kruhu na úzkém telefonu bez šipky, ať se popisek
+          // („BUCHUNGSDETAILS") vejde celý.
+          LayoutBuilder(
+            builder: (context, c) => Row(children: [
+              Expanded(child: main(arrow: c.maxWidth >= 300)),
+              const SizedBox(width: 12),
+              TkSosCircle(label: '${tr.tr('homeSosTitle')} · ${tr.tr('homeSosSubtitle')}'),
+            ]),
+          ),
           const SizedBox(height: 8),
           // Today's red SOS bar text (what SOS covers), now next to the circle.
           Text('SOS: ${tr.tr('homeSosTitle')} · ${tr.tr('homeSosSubtitle')}',
@@ -248,20 +258,29 @@ class HomeTicketV2 extends ConsumerWidget {
 }
 
 /// Eyebrow left, status right; when both do not fit, each shrinks in
-/// proportion to its text (never one pill squeezed to nothing).
+/// proportion to its natural width (never one pill squeezed to nothing);
+/// [stacked] = one under the other (see [tkPillsStack]).
 class _PillRow extends StatelessWidget {
   final TkPill left;
   final TkPill? right;
-  const _PillRow({required this.left, this.right});
+  final bool stacked;
+  const _PillRow({required this.left, this.right, this.stacked = false});
 
   @override
   Widget build(BuildContext context) {
     final r = right;
     if (r == null) return Row(children: [Flexible(child: left)]);
-    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Flexible(flex: left.text.length + 4, child: left),
+    if (stacked) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        left,
+        const SizedBox(height: 4),
+        r,
+      ]);
+    }
+    return Row(children: [
+      Flexible(flex: tkPillWidth(context, left).round(), child: Align(alignment: Alignment.centerLeft, child: left)),
       const SizedBox(width: 8),
-      Flexible(flex: r.text.length + 6, child: r),
+      Flexible(flex: tkPillWidth(context, r).round(), child: Align(alignment: Alignment.centerRight, child: r)),
     ]);
   }
 }

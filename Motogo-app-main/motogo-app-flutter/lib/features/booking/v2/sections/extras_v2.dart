@@ -7,6 +7,7 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_space.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_inputs.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../booking_v2_parts.dart';
 import 'extras_rows_v2.dart';
 
@@ -53,9 +54,11 @@ class BookingExtrasV2 extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr.tr('basicGearFree'),
-                    style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.onTintOk, height: 1.3)),
-                Text(tr.tr('basicGearList'), style: MgType.small.copyWith(color: MgColors.onTintOk)),
+                MgWordFit(
+                  child: Text(tr.tr('basicGearFree'),
+                      style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.onTintOk, height: 1.3)),
+                ),
+                MgWordFit(child: Text(tr.tr('basicGearList'), style: MgType.small.copyWith(color: MgColors.onTintOk))),
               ]),
             ),
             const SizedBox(width: 8),

@@ -10,8 +10,10 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_section.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../branches/branches_info_provider.dart';
 import '../../branches/branches_widgets.dart' show plainText;
+import 'home_fit.dart';
 import 'home_ticket_parts.dart';
 import 'home_reveal.dart';
 import '../../branches/v2/branch_texts_v2.dart';
@@ -40,33 +42,57 @@ class HomeBranchesV2 extends ConsumerWidget {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: IntrinsicHeight(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              for (var i = 0; i < 2; i++) ...[
-                if (i > 0) const SizedBox(width: 10),
-                Expanded(
-                  child: HomeReveal(
-                    index: i,
-                    sessionKey: 'home-branches',
-                    child: _BranchCard(
-                      dark: i == 1,
-                      badge: v('branches.$i.badge'),
-                      title: v('branches.$i.title'),
-                      address: v('branches.$i.address'),
-                      detail: detail,
-                      photo: branchesInfoGallery[i].isEmpty ? null : branchesInfoGallery[i].first.thumbUrl,
-                      onTap: () => mgPushOrGo(context, '/pobocky/$i'),
-                    ),
+          // Vedle sebe, jen když se každé slovo názvu, štítku i tlačítka vejde
+          // do půlky („Selbstbedienungsfiliale", „Vestigingsdetails"); jinak
+          // karty pod sebou na celou šířku — slovo se nikdy nedělí.
+          child: LayoutBuilder(builder: (context, c) {
+            Widget card(int i) => HomeReveal(
+                  index: i,
+                  sessionKey: 'home-branches',
+                  child: _BranchCard(
+                    dark: i == 1,
+                    badge: v('branches.$i.badge'),
+                    title: v('branches.$i.title'),
+                    address: v('branches.$i.address'),
+                    detail: detail,
+                    photo: branchesInfoGallery[i].isEmpty ? null : branchesInfoGallery[i].first.thumbUrl,
+                    onTap: () => mgPushOrGo(context, '/pobocky/$i'),
                   ),
-                ),
+                );
+            final inner = (c.maxWidth - 10) / 2 - 24 - 2;
+            final side = [
+              for (var i = 0; i < 2; i++) ...[
+                (v('branches.$i.title'), _bcTitle, inner),
+                (v('branches.$i.badge'), _bcBadge, inner - 16),
+                (v('branches.$i.address'), _bcAddress, inner),
               ],
-            ]),
-          ),
+              (detail, _bcDetail, inner - 16 - 20),
+            ].every((x) => homeWordsFitIn(context, x.$1, x.$2, x.$3));
+            if (!side) {
+              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                IntrinsicHeight(child: card(0)),
+                const SizedBox(height: 10),
+                IntrinsicHeight(child: card(1)),
+              ]);
+            }
+            return IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Expanded(child: card(0)),
+                const SizedBox(width: 10),
+                Expanded(child: card(1)),
+              ]),
+            );
+          }),
         ),
       ]),
     );
   }
 }
+
+final _bcTitle = MgType.body.copyWith(fontWeight: FontWeight.w800, height: 1.3);
+const _bcAddress = MgType.meta;
+const _bcBadge = MgType.micro;
+final _bcDetail = MgType.small.copyWith(fontWeight: FontWeight.w800);
 
 class _BranchCard extends StatelessWidget {
   final bool dark;
@@ -148,9 +174,9 @@ class _BranchCard extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, style: MgType.body.copyWith(fontWeight: FontWeight.w800, height: 1.3, color: dark ? MgColors.onDark : MgColors.ink)),
+                  MgWordFit(minScale: 0.8, child: Text(title, style: _bcTitle.copyWith(color: dark ? MgColors.onDark : MgColors.ink))),
                   const SizedBox(height: 4),
-                  Text(address, style: MgType.meta.copyWith(color: dark ? MgColors.onDarkLead : MgColors.meta)),
+                  MgWordFit(minScale: 0.85, child: Text(address, style: _bcAddress.copyWith(color: dark ? MgColors.onDarkLead : MgColors.meta))),
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -158,7 +184,7 @@ class _BranchCard extends StatelessWidget {
                       color: dark ? MgColors.neonA(0.12) : MgColors.tintOk,
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(badge, style: MgType.micro.copyWith(color: dark ? MgColors.neonText : MgColors.link)),
+                    child: MgWordFit(minScale: 0.85, child: Text(badge, style: _bcBadge.copyWith(color: dark ? MgColors.neonText : MgColors.link))),
                   ),
                   const Spacer(),
                   const SizedBox(height: 10),
@@ -172,9 +198,11 @@ class _BranchCard extends StatelessWidget {
                     ),
                     child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                       Flexible(
-                        child: Text(detail,
-                            textAlign: TextAlign.center,
-                            style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
+                        child: MgWordFit(
+                          minScale: 0.8,
+                          alignment: Alignment.center,
+                          child: Text(detail, textAlign: TextAlign.center, style: _bcDetail.copyWith(color: MgColors.onDark)),
+                        ),
                       ),
                       const SizedBox(width: 4),
                       const MgIcon(MgIcons.chevronRight, size: 16, color: MgColors.neon),

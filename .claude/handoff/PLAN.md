@@ -1,146 +1,53 @@
-# Handoff 2026-10-11 → pokračování po resetu týdenního limitu
+# Handoff 2026-10-16 → navázání po resetu týdenního limitu (čt 22. 10. 15:00)
 
 > Pracovní podklady Clauda pro větev `claude/moto-go-mobile-conversion-gqg5qo`.
 > **Celou složku `.claude/handoff/` smazat před mergem do `main`.**
-> **Větev do té doby NEMERGOVAT.** Commity `e8b63003…00df3f5d` jsou WIP a nejsou ověřené.
+> **Větev NEMERGOVAT, dokud nejsou hotové kroky B–E.** Commity „WIP … nemergovat“ nejsou ověřené.
 
-## Stav k 11. 10. 2026 večer
+## Proč pauza
+Týdenní limit účtu byl ~97 %, dokupování je vypnuté. Úlohy byly zastaveny ručně a vše rozpracované je uložené (STAV níže).
 
-**Už je v `main` a živě** (PR #2199, mergnul majitel):
-- SQL M1 `20261011_i18n_customer_language.sql` (deploy-sql run #147 zelený)
-- edge funkce (run #248 zelený)
-- první WIP verze banneru na webu (`layout-banner.php`)
-- PHP web se nasazuje ručně ZIPem, takže na webu zatím není.
+## STAV (doplněno při zastavení)
+<!--STAV-->
 
-**Na větvi navíc (WIP, neověřeno):**
+## Kde co je
+| Co | Kde |
+|---|---|
+| SQL texty majitele (32 souborů + PREHLED) | `sql-final/` |
+| SQL z QA brány (b..m, w1, w2; **g jen se souhlasem majitele, a vynechat**) | `sql-qa/` |
+| SQL recenze (velin_rating_handled, booking_rating_guard, messages_bump_thread, OPTIONAL d) | `sql-reviews/` |
+| SQL platby p1–p4 (+ případné další z follow-upu), DESIGN.md, understand.md | `sql-paydec/` |
+| Barvy ranků (rampa, nahrazuje 20261015_no_purple) | `appdesign-v22/sql/20261016_loyalty_colors_ramp.sql` |
+| Specifikace návrhu v2.2 + v2/v2.1 + appdesign_spec | `appdesign-v22/*.md` |
+| Plochy návrhu (.dc.html, canvas.json) | `appdesign-v22/project-boards.tgz` |
+| Sdílené snippety, research (rank_ramp, states, balance, profil, trasy) | `appdesign-v22/shared`, `appdesign-v22/research` |
+| Skripty workflow | `workflows/` |
+| Výsledky agentů (issues, reporty oprav) | `reports/{impl,design-v22,payments-followup}.json` |
+| Náhled appky (plátno) | https://claude.ai/artifact/MgsmxxUXfJkqW3M4xM1GuA |
 
-Odpovědi majitele:
-- banner z Velínu nahoře na webu (+ překlady, Velín editor, appka)
-- pravidlo vracení na webu, v AI, v e-mailu a v appce
-- FAQ zmiňuje App Store
-- krok 3 Domů obsahuje obě pobočky
-
-Tlačítko „Správa rezervace“ v hlavičce webu.
-
-Dílčí opravy z přerušeného workflow `owner-answers-finish`, výstup v `reports/repo-fixes.md`:
-- `webTextsPobocky.js`, `.well-known/agent.json`, `blog_fallback.php`, `branch-facts.ts`
-- STATE_5 + STATE_6 (E)
-- `handover.items.0` „Převzetí…“ doplněno o Velké Němčice v `lang/pages_*.php` + `dokumenty-content-2.php` + `master_cs.ts`
-
-**Pravidlo majitele** (doslova): „Mytí ani tankování není třeba na obslužné pobočce. Na samoobsluze není potřeba tankovat. To důležité je pouze, aby motorka byla umytá a nesvítila rezerva.“
-- Mezná (i vrácení jinde): bez mytí, bez tankování.
-- Velké Němčice: plná nádrž netřeba, ale musí být umytá a nesmí svítit rezerva.
-
-**Návrh appky (plátno):** https://claude.ai/artifact/MgsmxxUXfJkqW3M4xM1GuA
-- Obsahuje verzi 1: Domů, Motorky (fotka přes celý displej), Detail + kalkulačka, Rezervace, Správa rezervace.
-- Kopie ploch je v `appdesign/`.
-- Majitel je s v1 spokojen. Zpětná vazba pro v2 je v `workflows/app-design-v2-rank.js`, konstanta `OWNER`:
-  1. rank řídí záři a vzhled tlačítek a Domů
-  2. AI jako plovoucí tlačítko vpravo dole
-  3. záložka PROFIL, popisky v 8 jazycích bez překrývání
-  4. Domů ve stylu „Sultán“: SOS + moje jízdy (s MotoGo i soukromé), trasy, zážitky
-  5. katalog nechat
-  6. detail zpřehlednit
-  7. zbytek nechat
-  8. tlačítko REZERVOVAT v detailu výraznější
+## Obnova prostředí (nový kontejner)
+1. `S` = scratchpad nové session. Rozbal/zkopíruj: `appdesign-v22/*` → `S/appdesign/` (+ `appdesign_spec.md` → `S/`), `tar xzf project-boards.tgz -C S/appdesign`, SQL složky → `S/sql/final`, `S/qa-final/sql`, `S/reviews/sql`, `S/paydec/sql`.
+2. Ve skriptech `workflows/*.js` přepiš `const S = '…'` na nový scratchpad.
+3. Nástroje: Flutter SDK → `S/sdk/flutter` (verze dle `codemagic.yaml`), Deno → `S/denobin` (`DENO_DIR=S/denocache`), PG16 clustery jen pod `/var/tmp`, Playwright Chromium předinstalovaný. Lint plátna: `dclint/` → `S/dclint/` (`lint.py`, `fuzz.js`, `canvas_sync.py` = výšky/pořadí desek v canvas.json). Publikace plátna: Artifact publish, `url` výše, `root` = snapshot složka s `project/`, `file_path` = `project/canvas.json`.
+4. Disk: allowance ~39 GB; pracovní složky dokončených úloh průběžně mazat (16. 10. se disk zaplnil a shodil agenty).
+5. Začátek session dle CLAUDE.md: STATE_1–6, issues `sql-deploy-failed`/`backup-failed`, `git fetch && git merge origin/main`.
+6. Limit: sonda (workflow s 1 agentem „Reply ok“), pak hlídat `rate_limit_event` (claude-code-remote `list_events`).
 
 ## Co zbývá (pořadí)
+**A. Dokončit rozpracované úlohy.** Pokud journály `subagents/workflows/<run>/journal.jsonl` ještě existují (stejná session), stačí `Workflow({scriptPath, resumeFromRunId})`. Jinak **NEspouštět `app-v2-android-impl.js` od začátku** (přepsal by hotové obrazovky) — napiš pokračovací skript: jen smyčka Verify→Fix (parity, render 8 jazyků, code, design) nad současným kódem, vstup = poslední issues z `reports/impl.json`. Stejně design v2.2 (jen Verify→Fix ploch) a platby (jen Verify money+ux → Fix).
+**B. `app-v2-sales-copy.js`** (prodejní texty „dezert“, 8 jazyků).
+**C. `app-v2-ux-review.js`** (6 skupin scénářů zákazníka vč. tras, VOP/smluv, poboček, filtrů, děkovacích stránek; pravidlo rozbalení: klíčové info a klíčová nabídka rozbalené, doplňky zabalené).
+**D. `functional-diff-audit.js`** — POVINNÁ pojistka: každá funkční změna vs. vydaná 4.1.3 musí mít požadavek majitele, jinak revert; pak všechny testy.
+Pravidlo majitele (16. 10., doslova): „ale pozor jinak nic co se týká funkčnosti nic neměň, to bylo celkem odladěný, tak ne že to rozbiješ“ → v B–D jen vzhled/texty/rozbalení; funkční chyby hlásit, neopravovat.
+**E. Vydání Android 4.2.0** (iOS čeká na schválení majitele): ne-WIP commit, publikovat plochy, návod majiteli: Codemagic „MotoGo24 Android Build“ (debug APK + QR) → test → „MotoGo24 Android Release“; `min_app_version` NEnastavovat; nouzově `feature_flags.app_v2_ui = false` (návrat ke starému vzhledu bez vydání).
+**F. SQL balík ke schválení** (jako text, CLAUDE.md pravidlo 3): `sql-final` + `sql-qa` (bez a; g jen se souhlasem) + `sql-reviews` + `sql-paydec` p1–p4 (+ follow-up) + barvy ranků. Po schválení → `supabase/migrations/` (názvy musí řadit za nejnovější soubor v main) + STATE_1–6 ve stejném PR. Platby: zaokrouhlení na 15 Kč se projeví až po p1 (kód to detekuje).
+**G. Před mergem:** smazat `.claude/handoff/`, ZIP webu `git archive <merge> motogo-web-php`.
 
-### A. Dokončit odpovědi majitele (workflow `workflows/owner-answers-finish.js`)
-Přerušeno ve fázi Build. Hotové je jen `repo-fixes`.
+## Otevřené otázky majitele
+1. VOP čl. 5 l) + smlouva podle pravidla vracení (soubor `sql-qa/…g…`) — závazné dokumenty, souhlas nutný.
+2. Barvy ranků (rampa zelená → modrá → kovy → ohnivá zlatá 20) — schválit SQL.
+3. Z PREHLED.md: vrácení na domluveném místě; poplatek za špinavou motorku / svítící rezervu na samoobsluze; helmy VN; ceny přistavení; názvy měsíců v banneru.
+4. BMW R 1200 GS Adventure: nádrž 32 l vs. 30 l v popisu (sjednotit ve Velínu).
 
-Workflow udělá:
-1. finální SQL migrace do `S/sql/final/` (NE do repa)
-2. opravy v repu
-3. přetékání mobilního webu na 320 px (uk/de hlavička se `header-editrez`, `.lp-cat`, tabulka poboček, v1 `.gbox`)
-4. 3× kontrolu úplnosti
-5. ověření a opravy
-
-Vstupy:
-- `sql/*.sql` (drafty)
-- `notes/owner-dbsql.md` (popis, VOP návrhy, otevřené otázky)
-- `dbsql-tools/` (generátor: `spec.py`, `gen.py`, `template.sql`, `leafdiff.py`)
-
-Známé mezery v SQL:
-- overlay pl krok 11 „oddaj go umytego“
-- typo „stažein“?
-- `web.pobocky.branches.*.steps` (draft `owner_return_rule_pobocky_steps.sql`)
-- e-mailové šablony (draft `owner_return_rule_email_templates.sql`)
-- `handover.items.0` v CMS + overlay (PHP už hotové)
-
-Potom:
-- SQL dát majiteli **jako text** ke schválení (CLAUDE.md pravidlo 3)
-- po schválení commitnout do `supabase/migrations/` (názvy `20261011g…` a dál, musí řadit za nejnovější soubor)
-- aktualizovat STATE_6
-
-### B. Návrh appky v2 (workflow `workflows/app-design-v2-rank.js`)
-Fáze:
-1. Understand (rank / osobní data / navigace + měření popisků v 8 jazycích)
-2. 3 koncepty Domů + 2 porotci + syntéza `DESIGN_V2.md` a sdílené snippety
-3. build ploch: Main, MotoDetail, ostatní, nová RankStyly
-4. ověření a opravy
-
-Potom publikovat na plátno:
-- Volání: `Artifact publish`, `url` = odkaz výše, `root` = `S/appdesign`, `file_path` = `project/canvas.json`, `files` = `project/*.dc.html`.
-- Do `canvas.json` přidat desku `RankStyly.dc.html` (x=2350) a upravit výšky.
-- Formát `.dc.html` je popsaný v `DCRULES` ve skriptu.
-- Kontrola: `dclint/lint.py` + `dclint/fuzz.js`.
-
-### C. Závěr
-- Ne-WIP commit (zprávy bez „nemergovat“), push.
-- ZIP webu pro ruční nasazení.
-- Shrnutí majiteli.
-- Smazat `.claude/handoff/`.
-- Vytvořit PR, jen pokud o to majitel požádá.
-
-## Jak obnovit prostředí (nová session / nový kontejner)
-
-1. `S` = scratchpad nové session. Zkopíruj z handoffu:
-
-   | Z handoffu | Kam |
-   |---|---|
-   | `sql/*` | `S/sql/` |
-   | `notes/*` | `S/notes/` |
-   | `dbsql-tools/*` | `S/dbsql/tools/` |
-   | `appdesign/appdesign_spec.md` | `S/appdesign_spec.md` |
-   | `appdesign/*.dc.html` + `canvas.json` | `S/appdesign/project/` |
-   | `dclint/*` | `S/dclint/` |
-
-2. Ve skriptech `workflows/*.js` přepiš konstantu `const S = '…'` na novou cestu scratchpadu.
-3. Pomocné nástroje, které agenti očekávají:
-   - `S/q.sh` (anon REST čtení: `curl "$URL/rest/v1/$1" -H "apikey: $K" -H "Authorization: Bearer $K"`; anon klíč je v konfiguraci webu `motogo-web-php`, necommitovat jinam)
-   - `S/anon.key`
-   - `S/router.php` (PHP dev router s `$root` = `/home/user/Vel-n/motogo-web-php`)
-   - Flutter SDK do `S/sdk/flutter`
-   - Deno do `S/denobin` (`DENO_DIR=S/denocache`)
-   - kopie Velínu pro build do `S/velin-build` (`npm ci`)
-   - Postgres 16: clustery jen pod `/var/tmp/...`
-   - Playwright Chromium je předinstalovaný.
-4. Spuštění: `Workflow({scriptPath: "<cesta ke zkopírovanému skriptu>"})`.
-   - Nejdřív A, potom B. Mohou běžet i souběžně, sahají na jiné soubory.
-   - Před spuštěním ověř limit sondou: workflow s jedním agentem „Reply ok“.
-5. Na začátku session podle CLAUDE.md:
-   - přečíst STATE_1–6
-   - zkontrolovat issues `sql-deploy-failed` / `backup-failed`
-   - `git fetch` a `git merge origin/main`
-
-## Otevřené otázky pro majitele
-1. Mezná: nevadí ani svítící rezerva? (VOP čl. 5 l) a smlouva dnes rezervu vyžadují všude.)
-2. Změnit VOP čl. 5 l) a smlouvu podle pravidla? Návrhy textu jsou v `notes/owner-dbsql.md`.
-   - Jde o závazné dokumenty.
-   - Změna zneplatní překlady, dokud se ve Velínu znovu nepřeloží.
-3. Poplatek, když se na samoobsluze motorka vrátí špinavá nebo se svítící rezervou?
-4. Nosná řádka banneru `cms_variables` `app.header_banner.text`: ponechat? Banner na webu přilepit při scrollu?
-5. Návrh appky:
-   - fotka s rozmazaným pozadím vs. ořez
-   - tykání v celé appce
-   - vozík v appce zdarma vs. na webu 400 Kč/den
-   - velikosti bot 36–46 vs. 39–48
-   - obsah výbavy spolujezdce (vesta vs. bunda + kalhoty)
-   - zavedení za přepínačem `app_v2_ui`
-6. BMW R 1200 GS Adventure: nádrž v parametrech 32 l vs. v popisu 30 l (sjednotit ve Velínu).
-
-## Akce majitele (mimo kód)
-- Velín → „Přeložit chybějící a zastaralé“ (po M1, překlady smluv).
-- Velín → „Uložit banner“ jednou, aby vznikly překlady banneru (pokud je nedoplní SQL z bodu A).
-- Právní kontrola, rollout kiosku 1.2.12, buildy appek.
+## Akce majitele po nasazení
+Velín → „Přeložit chybějící a zastaralé“; znovu uložit blogové články; zkontrolovat e-mailové šablony; Velín → „Uložit banner“.

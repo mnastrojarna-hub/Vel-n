@@ -78,15 +78,13 @@ class HomeHeaderNote extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            // Kompaktní hlavička (V22 §2.4 #1): JEDEN řádek, text se nejdřív
-            // zmenší (do 75 %); celý vzkaz je i v řádku „Máš od nás vzkaz"
-            // pod hlavičkou a ve Zprávách.
+            // Kompaktní hlavička (V22 §2.4 #1): nejdřív JEDEN řádek (text se
+            // zmenší do 75 %); delší vzkaz se zalomí v mezeře — celý, nikdy
+            // useknutý „…" (verify:render).
             child: MgWordFit(
               minScale: 0.75,
-              child: Text(text,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: MgType.small.copyWith(height: 1.3, color: MgColors.onDarkLead)),
+              fitLines: 1,
+              child: Text(text, style: MgType.small.copyWith(height: 1.3, color: MgColors.onDarkLead)),
             ),
           ),
         ]),

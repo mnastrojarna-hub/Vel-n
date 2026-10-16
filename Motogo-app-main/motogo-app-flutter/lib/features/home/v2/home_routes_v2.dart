@@ -68,7 +68,8 @@ class HomeRoutesV2 extends ConsumerWidget {
           )
         else
           SizedBox(
-            height: 272,
+            // Karta: foto 120 + název (2 řádky) + štítky; roste s písmem.
+            height: 272 + (homeRouteTitleH(context) - 40) + (homeRouteChipH(context) - 24) * 2,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -91,6 +92,16 @@ class HomeRoutesV2 extends ConsumerWidget {
     );
   }
 }
+
+/// Height of the 2-line route title at the current text size.
+double homeRouteTitleH(BuildContext context) =>
+    (MediaQuery.textScalerOf(context).scale(MgType.title.fontSize!) * 1.3 * 2).ceilToDouble().clamp(40.0, 200.0);
+
+/// Height of a route chip (24 at 100 % text).
+double homeRouteChipH(BuildContext context) =>
+    (24 + (MediaQuery.textScalerOf(context).scale(MgType.micro.fontSize!) - MgType.micro.fontSize!) * 1.3)
+        .ceilToDouble()
+        .clamp(24.0, 80.0);
 
 String homeDuration(int min) {
   final h = min ~/ 60, m = min % 60;
@@ -166,8 +177,10 @@ class _RouteCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // 2 řádky názvu při SKUTEČNÉ velikosti písma (dřív pevných 40 px
+                // → při zvětšeném písmu půlka 2. řádku uříznutá).
                 SizedBox(
-                  height: 40,
+                  height: homeRouteTitleH(context),
                   child: Text(name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -177,7 +190,7 @@ class _RouteCard extends StatelessWidget {
                 Wrap(spacing: 6, runSpacing: 6, children: [
                   for (final c in chips)
                     Container(
-                      height: 24,
+                      height: homeRouteChipH(context),
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
                         color: c.$2,

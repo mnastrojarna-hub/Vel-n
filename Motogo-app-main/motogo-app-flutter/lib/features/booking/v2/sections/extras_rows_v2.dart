@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
@@ -7,6 +9,7 @@ import '../../../../core/v2/motion/mg_motion.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_space.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../booking_models.dart';
 import '../booking_v2_parts.dart';
 
@@ -66,6 +69,11 @@ class BookingGearRowV2 extends StatelessWidget {
 /// (size / "Vyber velikost" / description), price or "Zdarma" (+ struck
 /// list price when the rank made it free). [onTap] = the section's EXISTING
 /// tap closure (remove, passenger sheet, size dialog or add).
+///
+/// Layout never squeezes the text column under its longest word: the
+/// price column sits on the right only when the text keeps that width;
+/// otherwise it moves under the text (rank badge, struck, price in one
+/// wrap). A narrow row (< 300 dp) or large text also drops the icon.
 class BookingExtraRowV2 extends StatelessWidget {
   final String icon;
   final String title;
@@ -94,13 +102,32 @@ class BookingExtraRowV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final dur = MgMotion.of(context, MgMotion.color);
-    final subText = sub;
+    final subText = sub == null || sub!.isEmpty ? null : sub!;
+    final titleStyle = MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink, height: 1.3);
+    final subStyle = MgType.small
+        .copyWith(fontWeight: needSize ? FontWeight.w800 : FontWeight.w600, color: needSize ? MgColors.warn : MgColors.lead);
+    final badgeText = tr.tr('v2BkFreeWithRank');
+    final badgeStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.onTintOk);
+    final struckStyle = MgType.tab(
+        MgType.meta.copyWith(color: MgColors.meta, decoration: TextDecoration.lineThrough, decorationColor: MgColors.meta));
+    final priceStyle = MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.price));
+    final struckText = struck == null ? null : bkNbAmounts(struck!);
+    final priceText = bkNbAmounts(price);
+    final badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: MgColors.tintOk,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: MgColors.tintOkBorder),
+      ),
+      child: MgWordFit(fitLines: 1, child: Text(badgeText, style: badgeStyle)),
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Semantics(
         button: true,
         checked: selected,
-        label: [title, if (subText != null && subText.isNotEmpty) subText, price].join(', '),
+        label: [title, if (subText != null) subText, price].join(', '),
         excludeSemantics: true,
         onTap: onTap,
         child: MgPress(
@@ -117,62 +144,61 @@ class BookingExtraRowV2 extends StatelessWidget {
                 width: selected || needSize ? 1.5 : 1,
               ),
             ),
-            child: Row(children: [
-              AnimatedContainer(
-                duration: dur,
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: selected ? MgColors.neon : MgColors.surface,
-                  borderRadius: BorderRadius.circular(MgRadius.tag),
-                  border: Border.all(color: selected ? MgColors.neonLo : MgColors.lineInput, width: 1.5),
+            child: LayoutBuilder(builder: (context, c) {
+              final row = c.maxWidth;
+              final compact = row < 300 || bkLargeText(context);
+              var need = math.max(120.0, bkWordWidth(context, title, titleStyle));
+              if (subText != null) need = math.max(need, bkWordWidth(context, subText, subStyle) + (needSize ? 18 : 0));
+              if (freeWithRank) need = math.max(need, bkWordWidth(context, badgeText, badgeStyle) + 18);
+              final priceW = math.max(bkLineWidth(context, priceText, priceStyle),
+                  struckText == null ? 0.0 : bkLineWidth(context, struckText, struckStyle));
+              final side = !compact && row - 34 - 30 - 8 - priceW >= need;
+              return Row(children: [
+                AnimatedContainer(
+                  duration: dur,
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: selected ? MgColors.neon : MgColors.surface,
+                    borderRadius: BorderRadius.circular(MgRadius.tag),
+                    border: Border.all(color: selected ? MgColors.neonLo : MgColors.lineInput, width: 1.5),
+                  ),
+                  child: selected
+                      ? MgPop(trigger: selected, child: Center(child: MgIcon(MgIcons.check, size: 15, color: MgColors.onNeon, stroke: 2.6)))
+                      : null,
                 ),
-                child: selected
-                    ? MgPop(trigger: selected, child: Center(child: MgIcon(MgIcons.check, size: 15, color: MgColors.onNeon, stroke: 2.6)))
-                    : null,
-              ),
-              const SizedBox(width: 10),
-              MgIcon(icon, size: 20, color: MgColors.link),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink, height: 1.3)),
-                  if (subText != null && subText.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Row(children: [
-                      if (needSize) ...[MgIcon(MgIcons.warn, size: 14, color: MgColors.warn), const SizedBox(width: 4)],
-                      Flexible(
-                        child: Text(subText,
-                            style: MgType.small.copyWith(
-                                fontWeight: needSize ? FontWeight.w800 : FontWeight.w600,
-                                color: needSize ? MgColors.warn : MgColors.lead)),
-                      ),
-                    ]),
-                  ],
-                  if (freeWithRank) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: MgColors.tintOk,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: MgColors.tintOkBorder),
-                      ),
-                      child: Text(tr.tr('v2BkFreeWithRank'),
-                          style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.onTintOk)),
-                    ),
-                  ],
-                ]),
-              ),
-              const SizedBox(width: 8),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                if (struck != null)
-                  Text(struck!,
-                      style: MgType.tab(MgType.meta.copyWith(
-                          color: MgColors.meta, decoration: TextDecoration.lineThrough, decorationColor: MgColors.meta))),
-                Text(price, style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.price))),
-              ]),
-            ]),
+                const SizedBox(width: 10),
+                if (!compact) ...[MgIcon(icon, size: 20, color: MgColors.link), const SizedBox(width: 10)],
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    MgWordFit(child: Text(title, style: titleStyle)),
+                    if (subText != null) ...[
+                      const SizedBox(height: 2),
+                      Row(children: [
+                        if (needSize) ...[MgIcon(MgIcons.warn, size: 14, color: MgColors.warn), const SizedBox(width: 4)],
+                        Flexible(child: MgWordFit(child: Text(subText, style: subStyle))),
+                      ]),
+                    ],
+                    if (side && freeWithRank) ...[const SizedBox(height: 4), badge],
+                    if (!side) ...[
+                      const SizedBox(height: 4),
+                      Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                        if (freeWithRank) badge,
+                        if (struckText != null) Text(struckText, style: struckStyle),
+                        Text(priceText, style: priceStyle),
+                      ]),
+                    ],
+                  ]),
+                ),
+                if (side) ...[
+                  const SizedBox(width: 8),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    if (struckText != null) Text(struckText, style: struckStyle),
+                    Text(priceText, style: priceStyle),
+                  ]),
+                ],
+              ]);
+            }),
           ),
         ),
       ),

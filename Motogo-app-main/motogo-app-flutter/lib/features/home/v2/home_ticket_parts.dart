@@ -8,6 +8,7 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/widgets/net_image.dart';
 
 /// Bike photo (cover) or a dark placeholder with the bike glyph — never
@@ -60,9 +61,11 @@ class TkPill extends StatelessWidget {
       TkPillTone.warn => (MgColors.warnBg, MgColors.warnBorder, MgColors.warn),
       TkPillTone.plain => (MgColors.nightA(0.8), MgColors.white(0.16), MgColors.onDark),
     };
+    // Výška podle písma (min. 26) a celý text: „BEVORSTEHEND" se raději
+    // zmenší, než aby se uťal.
     return Container(
-      height: 26,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      constraints: const BoxConstraints(minHeight: 26),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(999),
@@ -71,15 +74,38 @@ class TkPill extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (icon != null) ...[MgIcon(icon!, size: 12, color: fg, stroke: 3), const SizedBox(width: 6)],
         Flexible(
-          child: Text(text.toUpperCase(),
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.fade,
-              style: MgType.eyebrow.copyWith(height: 1, color: fg)),
+          child: MgWordFit(
+            minScale: 0.6,
+            child: Text(text.toUpperCase(),
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.fade,
+                style: MgType.eyebrow.copyWith(height: 1, color: fg)),
+          ),
         ),
       ]),
     );
   }
+}
+
+/// Natural width of [p] at the current text size (padding + icon incl.).
+double tkPillWidth(BuildContext context, TkPill p) {
+  final tp = TextPainter(
+    text: TextSpan(text: p.text.toUpperCase(), style: DefaultTextStyle.of(context).style.merge(MgType.eyebrow.copyWith(height: 1))),
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+  final w = tp.width;
+  tp.dispose();
+  return w + 24 + 2 + (p.icon == null ? 0 : 18);
+}
+
+/// true when eyebrow + status do not fit one row even at 80 % — then the
+/// ticket photo stacks them (and grows), nothing is cut or tiny.
+bool tkPillsStack(BuildContext context, double maxWidth, TkPill left, TkPill? right) {
+  if (right == null) return false;
+  return (tkPillWidth(context, left) + tkPillWidth(context, right)) * 0.8 + 8 > maxWidth;
 }
 
 /// Node of the "Tým pro tebe" checklist.
@@ -206,9 +232,9 @@ class TkPendingBlock extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: MgType.title.copyWith(color: MgColors.warnDark)),
+              MgWordFit(minScale: 0.8, child: Text(title, style: MgType.title.copyWith(color: MgColors.warnDark))),
               const SizedBox(height: 4),
-              Text(text, style: MgType.small.copyWith(color: MgColors.onDarkBody)),
+              MgWordFit(minScale: 0.85, child: Text(text, style: MgType.small.copyWith(color: MgColors.onDarkBody))),
             ]),
           ),
         ]),

@@ -68,12 +68,11 @@ class HomeNextPillV2 extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      // Celé texty (bez limitu řádků — nic se neusekne).
                       Text(title,
-                          maxLines: 2,
                           style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, height: 1.25, color: MgColors.ink))),
                       if (!has)
-                        Text(tr.tr('v2HomePillSub'),
-                            maxLines: 2, style: MgType.small.copyWith(height: 1.25, color: MgColors.lead)),
+                        Text(tr.tr('v2HomePillSub'), style: MgType.small.copyWith(height: 1.25, color: MgColors.lead)),
                     ]),
                   ),
                   if (has)
