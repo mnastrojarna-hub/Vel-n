@@ -12,6 +12,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../reservations/reservation_models.dart';
 import '../../reservations/widgets/res_rating_widgets.dart' show GoogleGBadge;
 
@@ -102,7 +103,11 @@ class HomeReviewLightView extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Semantics(
                     header: true,
-                    child: Text(tr.tr('ratingTitle'), style: MgType.title.copyWith(color: MgColors.ink)),
+                    // „Fahrtbewertung" vedle hvězdy a ✕ na úzkém telefonu: zmenšit, nedělit.
+                    child: MgWordFit(
+                      minScale: 0.75,
+                      child: Text(tr.tr('ratingTitle'), style: MgType.title.copyWith(color: MgColors.ink)),
+                    ),
                   ),
                   Text('${res.motoName} · $dates', style: MgType.meta.copyWith(color: MgColors.lead)),
                 ]),

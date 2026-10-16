@@ -208,8 +208,8 @@ class HomeTicketV2 extends ConsumerWidget {
       ));
     }
 
-    Widget cta(String key, VoidCallback onTap, {String? price, bool arrow = true}) => MgFabAvoid(
-          child: MgCta(label: tr.tr(key), price: price, loop: true, onTap: onTap, arrow: arrow && price == null),
+    Widget cta(String key, VoidCallback onTap, {String? price}) => MgFabAvoid(
+          child: MgCta(label: tr.tr(key), price: price, loop: true, onTap: onTap, arrow: price == null),
         );
 
     switch (snap.ticket) {
@@ -232,25 +232,36 @@ class HomeTicketV2 extends ConsumerWidget {
         return cta('v2HomeCtaCodes', detail);
       case HomeTicket.s8:
       case HomeTicket.s9:
-        Widget main({bool arrow = true}) => snap.ticket == HomeTicket.s9 && !_ctaIsDetail
-            ? cta('v2HomeCtaNavigate', navigate, arrow: arrow)
-            : cta('v2HomeCtaDetail', detail, arrow: arrow);
-        if (!sosAllowed) return main();
-        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          // Vedle SOS kruhu na úzkém telefonu bez šipky, ať se popisek
-          // („BUCHUNGSDETAILS") vejde celý.
-          LayoutBuilder(
-            builder: (context, c) => Row(children: [
-              Expanded(child: main(arrow: c.maxWidth >= 300)),
+        final main = snap.ticket == HomeTicket.s9 && !_ctaIsDetail
+            ? cta('v2HomeCtaNavigate', navigate)
+            : cta('v2HomeCtaDetail', detail);
+        if (!sosAllowed) return main;
+        final sosLabel = '${tr.tr('homeSosTitle')} · ${tr.tr('homeSosSubtitle')}';
+        // Úzký telefon: CTA na celou šířku („BUCHUNGSDETAILS" celé) a SOS
+        // kruh pod ním vedle svého vysvětlení; jinak kruh vedle CTA.
+        return LayoutBuilder(builder: (context, c) {
+          if (c.maxWidth < 300) {
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              main,
+              const SizedBox(height: 10),
+              Row(children: [
+                TkSosCircle(label: sosLabel),
+                const SizedBox(width: 12),
+                Expanded(child: Text('SOS: $sosLabel', style: MgType.meta.copyWith(color: MgColors.errDark))),
+              ]),
+            ]);
+          }
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              Expanded(child: main),
               const SizedBox(width: 12),
-              TkSosCircle(label: '${tr.tr('homeSosTitle')} · ${tr.tr('homeSosSubtitle')}'),
+              TkSosCircle(label: sosLabel),
             ]),
-          ),
-          const SizedBox(height: 8),
-          // Today's red SOS bar text (what SOS covers), now next to the circle.
-          Text('SOS: ${tr.tr('homeSosTitle')} · ${tr.tr('homeSosSubtitle')}',
-              textAlign: TextAlign.end, style: MgType.meta.copyWith(color: MgColors.errDark)),
-        ]);
+            const SizedBox(height: 8),
+            // Today's red SOS bar text (what SOS covers), now next to the circle.
+            Text('SOS: $sosLabel', textAlign: TextAlign.end, style: MgType.meta.copyWith(color: MgColors.errDark)),
+          ]);
+        });
       default:
         return cta('v2HomeCtaDetail', detail);
     }

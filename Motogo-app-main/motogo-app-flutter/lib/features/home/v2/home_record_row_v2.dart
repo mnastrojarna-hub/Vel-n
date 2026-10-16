@@ -48,59 +48,72 @@ class HomeRecordRowV2 extends ConsumerWidget {
         ? tr.tr('eoRideGpsLost')
         : (manual ? tr.tr('rideManualRunning') : (auto ? tr.tr('rideRecordHint') : tr.tr('v2HomeRecSub')));
 
-    final icon = Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: MgColors.panel,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: MgColors.neonA(0.18)),
-      ),
-      child: Center(
-        child: live
-            ? const MgPing(size: 12, color: MgColors.sosDot)
-            : const MgIcon(MgIcons.recordDot, size: 24, color: MgColors.neon),
-      ),
+    Widget icon(double size) => Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: MgColors.panel,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: MgColors.neonA(0.18)),
+          ),
+          child: Center(
+            child: live
+                ? const MgPing(size: 12, color: MgColors.sosDot)
+                : MgIcon(MgIcons.recordDot, size: size >= 44 ? 24 : 20, color: MgColors.neon),
+          ),
+        );
+
+    final titleW = MgWordFit(
+      minScale: 0.7,
+      child: Text(title, style: MgType.title.copyWith(color: live ? MgColors.err : MgColors.ink)),
     );
+    // Celý popis vždy (bez „…" a bez limitu řádků), slova se nedělí.
+    final subW = MgWordFit(
+      minScale: 0.85,
+      child: Text(sub, style: MgType.small.copyWith(color: rec.gpsLost && live ? MgColors.warn : MgColors.meta)),
+    );
+    final chevron = manual ? null : const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.lead);
 
     // Idle = start; během záznamu otevře obrazovku záznamu (stav, GPS,
     // ukončení) — stejná, jakou otevírá lišta v Trasách / Mých zážitcích.
-    final main = Semantics(
-      button: true,
-      label: '$title. $sub',
-      excludeSemantics: true,
-      child: MgPress(
-        scale: 0.98,
-        onTap: live ? () => openRideRecorderV2(context) : () => toggleManualRide(context, ref, running: false),
-        child: Container(
-          color: Colors.transparent,
-          padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-          child: Row(children: [
-            icon,
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                MgWordFit(
-                  minScale: 0.75,
-                  child: Text(title,
-                      style: MgType.title.copyWith(color: live ? MgColors.err : MgColors.ink)),
-                ),
-                const SizedBox(height: 3),
-                // Celý popis vždy (bez „…" a bez limitu řádků), slova se nedělí.
-                MgWordFit(
-                  minScale: 0.85,
-                  child: Text(sub, style: MgType.small.copyWith(color: rec.gpsLost && live ? MgColors.warn : MgColors.meta)),
-                ),
-              ]),
+    // Úzký telefon: menší ikona a popis pod ní přes celou šířku řádku,
+    // ať se „Fahrtaufzeichnung" ani „місцезнаходження" nikdy nerozdělí.
+    Widget main(bool narrow) => Semantics(
+          button: true,
+          label: '$title. $sub',
+          excludeSemantics: true,
+          child: MgPress(
+            scale: 0.98,
+            onTap: live ? () => openRideRecorderV2(context) : () => toggleManualRide(context, ref, running: false),
+            child: Container(
+              color: Colors.transparent,
+              padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+              child: narrow
+                  ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Row(children: [
+                        icon(36),
+                        const SizedBox(width: 10),
+                        Expanded(child: titleW),
+                        if (chevron != null) ...[const SizedBox(width: 4), chevron],
+                      ]),
+                      const SizedBox(height: 6),
+                      subW,
+                    ])
+                  : Row(children: [
+                      icon(44),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          titleW,
+                          const SizedBox(height: 3),
+                          subW,
+                        ]),
+                      ),
+                      if (chevron != null) ...[const SizedBox(width: 8), chevron],
+                    ]),
             ),
-            if (!manual) ...[
-              const SizedBox(width: 8),
-              const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.lead),
-            ],
-          ]),
-        ),
-      ),
-    );
+          ),
+        );
 
     return HomeReveal(
       index: 1,
@@ -121,7 +134,7 @@ class HomeRecordRowV2 extends ConsumerWidget {
         child: LayoutBuilder(builder: (context, c) {
           final iconOnly = c.maxWidth < 330;
           return Row(children: [
-            Expanded(child: main),
+            Expanded(child: main(c.maxWidth < 300)),
             if (manual)
               Semantics(
                 button: true,
