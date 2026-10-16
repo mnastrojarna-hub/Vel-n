@@ -43,8 +43,8 @@ class HomeBranchesV2 extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           // Vedle sebe, jen když se každé slovo názvu, štítku i tlačítka vejde
-          // do půlky („Selbstbedienungsfiliale", „Vestigingsdetails"); jinak
-          // karty pod sebou na celou šířku — slovo se nikdy nedělí.
+          // do půlky („Selbstbedienungsfiliale", „Vestigingsdetails") a
+          // tlačítko má nejvýš 2 řádky; jinak karty pod sebou na celou šířku.
           child: LayoutBuilder(builder: (context, c) {
             Widget card(int i) => HomeReveal(
                   index: i,
@@ -67,7 +67,9 @@ class HomeBranchesV2 extends ConsumerWidget {
                 (v('branches.$i.address'), _bcAddress, inner),
               ],
               (detail, _bcDetail, inner - 16 - 20),
-            ].every((x) => homeWordsFitIn(context, x.$1, x.$2, x.$3));
+            ].every((x) => homeWordsFitIn(context, x.$1, x.$2, x.$3)) &&
+                // Tlačítko nejvýš na 2 řádky (ne „Détails / de / l'agence").
+                homeLinesFitIn(context, detail, _bcDetail, inner - 16 - 20, 2);
             if (!side) {
               return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 IntrinsicHeight(child: card(0)),

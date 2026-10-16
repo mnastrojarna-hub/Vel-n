@@ -10,6 +10,7 @@ import '../../../core/v2/rank/rank_tokens.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import 'catalog_fit.dart';
 import 'catalog_mode.dart';
 
 /// "Najít motorku · Filtr nabídky" | "Spočítat cenu · Volné dny a cena"
@@ -37,6 +38,18 @@ class CatalogModeSwitchV2 extends ConsumerWidget {
         ),
         child: LayoutBuilder(builder: (context, c) {
           final w = (c.maxWidth - 4) / 2;
+          // Narrow tab (320 dp, large text, long words like "Розрахувати"):
+          // the icon goes above the texts so the title gets the full tab
+          // width — a word is never split, the sub never cut.
+          final base = DefaultTextStyle.of(context).style;
+          final side = w - 16 - 38;
+          final titleW = [tr.tr('v2CatModeFind'), tr.tr('v2CatModeCalc')]
+              .map((x) => catWordWidth(context, x, base.merge(_Tab.titleStyle)))
+              .reduce((a, b) => a > b ? a : b);
+          final subW = [tr.tr('v2CatModeFindSub'), tr.tr('v2CatModeCalcSub')]
+              .map((x) => catWordWidth(context, x, base.merge(_Tab.subStyle)))
+              .reduce((a, b) => a > b ? a : b);
+          final stacked = titleW * 0.9 > side || subW > side;
           return Stack(children: [
             AnimatedPositioned(
               duration: MgMotion.of(context, MgMotion.thumb),
@@ -62,6 +75,7 @@ class CatalogModeSwitchV2 extends ConsumerWidget {
                     title: tr.tr('v2CatModeFind'),
                     sub: tr.tr('v2CatModeFindSub'),
                     selected: !calc,
+                    stacked: stacked,
                     rank: r,
                     onTap: () => onChanged(CatalogMode.find),
                   ),
@@ -73,6 +87,7 @@ class CatalogModeSwitchV2 extends ConsumerWidget {
                     title: tr.tr('v2CatModeCalc'),
                     sub: tr.tr('v2CatModeCalcSub'),
                     selected: calc,
+                    stacked: stacked,
                     rank: r,
                     onTap: () => onChanged(CatalogMode.calc),
                   ),
@@ -91,6 +106,7 @@ class _Tab extends StatelessWidget {
   final String title;
   final String sub;
   final bool selected;
+  final bool stacked;
   final RankTokens rank;
   final VoidCallback onTap;
   const _Tab({
@@ -98,14 +114,39 @@ class _Tab extends StatelessWidget {
     required this.title,
     required this.sub,
     required this.selected,
+    required this.stacked,
     required this.rank,
     required this.onTap,
   });
+
+  static final titleStyle = MgType.ctaCompact.copyWith(letterSpacing: -0.1, height: 1.15);
+  static final subStyle = MgType.micro.copyWith(fontWeight: FontWeight.w600);
 
   @override
   Widget build(BuildContext context) {
     final fg = selected ? rank.ctaLabel : MgColors.onDark;
     final subFg = selected ? rank.ctaLabel.withValues(alpha: 0.78) : MgColors.onDarkMeta;
+    final box = stacked ? 26.0 : 30.0;
+    final iconBox = Container(
+      width: box,
+      height: box,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? rank.ctaLabel.withValues(alpha: 0.14) : MgColors.neonA(0.14),
+      ),
+      child: Center(child: MgIcon(icon, size: stacked ? 14 : 16, color: selected ? fg : MgColors.neon)),
+    );
+    final texts = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      MgWordFit(
+        minScale: 0.75,
+        child: Text(title, maxLines: 2, softWrap: true, style: titleStyle.copyWith(color: fg)),
+      ),
+      const SizedBox(height: 2),
+      MgWordFit(
+        minScale: 0.85,
+        child: Text(sub, maxLines: 2, softWrap: true, style: subStyle.copyWith(color: subFg)),
+      ),
+    ]);
     return Semantics(
       button: true,
       selected: selected,
@@ -118,34 +159,13 @@ class _Tab extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 54),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-            child: Row(children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? rank.ctaLabel.withValues(alpha: 0.14) : MgColors.neonA(0.14),
-                ),
-                child: Center(child: MgIcon(icon, size: 16, color: selected ? fg : MgColors.neon)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  MgWordFit(
-                    minScale: 0.75,
-                    child: Text(title,
-                        maxLines: 2,
-                        softWrap: true,
-                        style: MgType.ctaCompact.copyWith(color: fg, letterSpacing: -0.1, height: 1.15)),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(sub,
-                      maxLines: 2,
-                      softWrap: true,
-                      style: MgType.micro.copyWith(fontWeight: FontWeight.w600, color: subFg)),
-                ]),
-              ),
-            ]),
+            child: stacked
+                ? Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    iconBox,
+                    const SizedBox(height: 6),
+                    texts,
+                  ])
+                : Row(children: [iconBox, const SizedBox(width: 8), Expanded(child: texts)]),
           ),
         ),
       ),

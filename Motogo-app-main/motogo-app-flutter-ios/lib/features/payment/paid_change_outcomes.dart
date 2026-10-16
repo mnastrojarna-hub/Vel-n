@@ -1,5 +1,10 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/paid_after_restart.dart' show PaidAfterRestart;
 import '../../core/paid_change_queue.dart';
+import '../../core/payment_pending_marker.dart' show PaymentMarkerKind;
 import '../../core/router.dart';
 import 'card_minimum.dart';
 import 'payment_provider.dart';
@@ -106,4 +111,43 @@ PaymentOutcomeLine? roundingLine(AppTranslations tr, CardCharge cc) {
   }
   if (cc.isWaive) return PaymentOutcomeLine('ℹ️', tr.tr('pdWaivedSub'));
   return null;
+}
+
+/// Jednorázové oznámení po restartu appky (AppShell): platba odeslaná před
+/// zabitím appky má mezitím výsledek. Zaplacenou výměnu, kterou zmařila jiná
+/// rezervace, oznámí „Motorka je mezitím obsazená" + vratka doplatku; detail
+/// rezervace pak nabídne „Vybrat jinou motorku" / „Ponechat současnou".
+SnackBar paidAfterRestartSnackBar(BuildContext context, PaidAfterRestart paid) {
+  final tr = t(context);
+  final swap = paid.kind == PaymentMarkerKind.swap;
+  final Widget content;
+  if (paid.failed) {
+    content = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(paidChangeFailureTitle(tr, swap: swap, reason: paid.reason),
+          style: const TextStyle(fontWeight: FontWeight.w800)),
+      const SizedBox(height: 2),
+      Text(paidChangeFailureText(tr, reason: paid.reason, refund: paid.refund, amount: paid.amount)),
+    ]);
+  } else {
+    // Doplatek úpravy / výměny ≠ „rezervace je potvrzená" (ta byla zaplacená
+    // už dřív) — text podle druhu platby; nedokončený zápis = „dokončuje se".
+    final notice = paid.completing
+        ? (swap ? 'pdSwapCompletingShort' : 'pdEditCompletingShort')
+        : switch (paid.kind) {
+            PaymentMarkerKind.edit => 'fxEditPaidNotice',
+            PaymentMarkerKind.swap => 'fxSwapPaidNotice',
+            PaymentMarkerKind.sos => 'fxSosPaidNotice',
+            _ => 'psPaidNotice',
+          };
+    content = Text(tr.tr(notice));
+  }
+  final id = paid.bookingId;
+  return SnackBar(
+    content: content,
+    duration: Duration(seconds: paid.failed ? 12 : 8),
+    action: SnackBarAction(
+      label: tr.tr('psShow'),
+      onPressed: () => GoRouter.of(context).go('/reservations/$id'),
+    ),
+  );
 }

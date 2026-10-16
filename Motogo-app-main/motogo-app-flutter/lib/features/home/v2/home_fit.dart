@@ -19,3 +19,17 @@ bool homeWordsFit(String text, TextStyle style, double maxWidth, [TextScaler sca
 /// family + the current text size).
 bool homeWordsFitIn(BuildContext context, String text, TextStyle style, double maxWidth) =>
     homeWordsFit(text, DefaultTextStyle.of(context).style.merge(style), maxWidth, MediaQuery.textScalerOf(context));
+
+/// true when [text] (as painted in [context]) takes at most [lines] lines
+/// at [maxWidth].
+bool homeLinesFitIn(BuildContext context, String text, TextStyle style, double maxWidth, int lines) {
+  final tp = TextPainter(
+    text: TextSpan(text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: lines,
+  )..layout(maxWidth: maxWidth < 1 ? 1 : maxWidth);
+  final ok = !tp.didExceedMaxLines;
+  tp.dispose();
+  return ok;
+}

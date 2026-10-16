@@ -13,6 +13,7 @@ import '../../../../core/v2/widgets/mg_chips.dart';
 import '../../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../../core/v2/widgets/mg_price.dart';
 import '../../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../booking/booking_models.dart';
 import '../../../loyalty/loyalty_provider.dart';
 import '../../catalog_provider.dart';
@@ -102,11 +103,23 @@ class _DetailTripCardV2State extends ConsumerState<DetailTripCardV2> {
                     width: w.calendarExpanded ? 2 : 1.5,
                   ),
                 ),
+                // Caps eyebrow ("TERUGBRENGEN", "ПОВЕРНЕННЯ") stays on one
+                // line and scales down; the value never splits a word.
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(label, style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta, letterSpacing: 0.5)),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(label,
+                        maxLines: 1,
+                        style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta, letterSpacing: 0.5)),
+                  ),
                   const SizedBox(height: 4),
-                  Text(d == null ? tr.tr('v2DetPickDate') : tripShortDate(tr, d),
-                      style: MgType.tab(MgType.title.copyWith(color: d == null ? MgColors.link : MgColors.ink))),
+                  MgWordFit(
+                    minScale: 0.75,
+                    fitLines: 1,
+                    child: Text(d == null ? tr.tr('v2DetPickDate') : tripShortDate(tr, d),
+                        style: MgType.tab(MgType.title.copyWith(color: d == null ? MgColors.link : MgColors.ink))),
+                  ),
                 ]),
               ),
             ),
@@ -200,11 +213,23 @@ class _DetailTripCardV2State extends ConsumerState<DetailTripCardV2> {
         if (loyaltyAsync.hasError && !loyaltyAsync.isLoading)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Row(children: [
-              MgIcon(MgIcons.info, size: 16, color: MgColors.warn),
-              const SizedBox(width: 6),
-              Expanded(child: Text(tr.tr('v2DetLoyaltyFail'), style: MgType.small.copyWith(color: MgColors.warn))),
-              MgBtnText(label: tr.tr('retry'), onTap: () => ref.invalidate(loyaltyStatusProvider)),
+            // The note gets the full row; "Zkusit znovu" sits under it (a
+            // side button squeezed "Treuerabatt" into a broken word).
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: MgIcon(MgIcons.info, size: 16, color: MgColors.warn),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: MgWordFit(child: Text(tr.tr('v2DetLoyaltyFail'), style: MgType.small.copyWith(color: MgColors.warn))),
+                ),
+              ]),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: MgBtnText(label: tr.tr('retry'), onTap: () => ref.invalidate(loyaltyStatusProvider)),
+              ),
             ]),
           ),
         if (w.hasDates && q != null && q.total > 0)

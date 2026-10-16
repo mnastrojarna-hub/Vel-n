@@ -7,6 +7,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/widgets/net_image.dart';
 import '../moto_model.dart';
 import 'catalog_price.dart';
@@ -81,18 +82,29 @@ class MotoCardGridV2 extends StatelessWidget {
                     ),
                   ),
                 ),
+                // Badge bounded by the card (left + right): a long label
+                // ("Frei in deinem Zeitraum") wraps to 2 lines, never clips.
                 if (availability != null)
                   Positioned(
                     top: 8,
                     left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: MgColors.nightA(0.8), borderRadius: BorderRadius.circular(999)),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Container(width: 6, height: 6, decoration: const BoxDecoration(color: MgColors.neon, shape: BoxShape.circle)),
-                        const SizedBox(width: 6),
-                        Text(availability!, style: MgType.micro.copyWith(color: MgColors.onDark)),
-                      ]),
+                    right: 8,
+                    child: Align(
+                      alignment: AlignmentDirectional.topStart,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: MgColors.nightA(0.8), borderRadius: BorderRadius.circular(999)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Container(width: 6, height: 6, decoration: const BoxDecoration(color: MgColors.neon, shape: BoxShape.circle)),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: MgWordFit(
+                              minScale: 0.8,
+                              child: Text(availability!, maxLines: 2, style: MgType.micro.copyWith(color: MgColors.onDark, height: 1.2)),
+                            ),
+                          ),
+                        ]),
+                      ),
                     ),
                   ),
               ]),

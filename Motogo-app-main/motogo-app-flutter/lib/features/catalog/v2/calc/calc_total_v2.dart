@@ -8,6 +8,7 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_cta.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../booking/booking_models.dart';
 import '../catalog_text.dart';
@@ -101,12 +102,12 @@ class CalcTotalV2 extends StatelessWidget {
         ],
         if (loyaltyFailed) ...[
           const SizedBox(height: 10),
-          Row(children: [
-            Expanded(
-              child: Text(tr.tr('v2DetLoyaltyFail'), style: MgType.small.copyWith(color: MgColors.warnDark)),
-            ),
-            MgBtnText(label: tr.tr('retry'), onTap: onRetryLoyalty, dark: true),
-          ]),
+          // Full-width note, retry under it (never "loy|aliteitskorting").
+          MgWordFit(child: Text(tr.tr('v2DetLoyaltyFail'), style: MgType.small.copyWith(color: MgColors.warnDark))),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: MgBtnText(label: tr.tr('retry'), onTap: onRetryLoyalty, dark: true),
+          ),
         ],
         if (q.days >= 2 && save12 > 0) ...[
           const SizedBox(height: 12),

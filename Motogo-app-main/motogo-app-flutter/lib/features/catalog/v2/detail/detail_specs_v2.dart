@@ -5,7 +5,9 @@ import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../moto_model.dart';
+import '../catalog_fit.dart';
 
 /// Up to 4 key spec tiles (board `.sg4`): value 17/800 ink + unit + label
 /// from the bike's existing fields (power, engine, weight, seat height,
@@ -28,6 +30,7 @@ class DetailKeyTilesV2 extends StatelessWidget {
       if (m.fuelTankL != null) (MgIcons.fuel, n(m.fuelTankL!), 'l', tr.tr('specFuelTank')),
     ].take(4).toList();
     if (tiles.isEmpty) return const SizedBox.shrink();
+    final unitStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta);
     Widget tile(int i) => MgReveal(
           index: i,
           child: Semantics(
@@ -43,6 +46,8 @@ class DetailKeyTilesV2 extends StatelessWidget {
                 border: Border.all(color: MgColors.line),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // Icon + unit never overflow a narrow tile: the unit takes
+                // the rest of the row and scales down instead.
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Container(
                     width: 28,
@@ -50,8 +55,13 @@ class DetailKeyTilesV2 extends StatelessWidget {
                     decoration: BoxDecoration(color: MgColors.panel, borderRadius: BorderRadius.circular(8)),
                     child: Center(child: MgIcon(tiles[i].$1, size: 16, color: MgColors.neon)),
                   ),
-                  const Spacer(),
-                  Text(tiles[i].$3, style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.topEnd,
+                      child: FittedBox(fit: BoxFit.scaleDown, child: Text(tiles[i].$3, maxLines: 1, style: unitStyle)),
+                    ),
+                  ),
                 ]),
                 const SizedBox(height: 6),
                 FittedBox(
@@ -60,27 +70,22 @@ class DetailKeyTilesV2 extends StatelessWidget {
                   child: Text(tiles[i].$2, style: MgType.tab(MgType.section.copyWith(color: MgColors.ink, height: 1.1))),
                 ),
                 const SizedBox(height: 2),
-                Text(tiles[i].$4, style: MgType.micro.copyWith(color: MgColors.meta)),
+                MgWordFit(minScale: 0.75, child: Text(tiles[i].$4, style: MgType.micro.copyWith(color: MgColors.meta))),
               ]),
             ),
           ),
         );
     return LayoutBuilder(builder: (context, c) {
-      // 4 in a row only when every label word fits a tile (never a word
-      // broken in half — "Hmotnost", "Потужність"); otherwise 2 × 2.
-      final inner = (c.maxWidth - 24) / 4 - 16;
+      // 4 in a row only when every label word and "icon + unit" fit a tile
+      // (never a word broken in half — "Hmotnost", "Потужність" — nor an
+      // overflowing unit); otherwise 2 × 2. Inner = tile − padding − border.
+      final inner = (c.maxWidth - 24) / 4 - 18;
       final base = DefaultTextStyle.of(context).style.merge(MgType.micro);
-      var fits = true;
+      var fits = inner >= 48;
       for (final tl in tiles) {
-        for (final w in tl.$4.split(RegExp(r'\s+'))) {
-          final tp = TextPainter(
-            text: TextSpan(text: w, style: base),
-            textDirection: Directionality.of(context),
-            textScaler: MediaQuery.textScalerOf(context),
-          )..layout();
-          if (tp.width > inner) fits = false;
-          tp.dispose();
-        }
+        if (!fits) break;
+        if (32 + catWordWidth(context, tl.$3, base.merge(unitStyle)) > inner) fits = false;
+        if (catWordWidth(context, tl.$4, base) > inner) fits = false;
       }
       final cols = fits ? 4 : 2;
       final rows = <Widget>[];
@@ -109,10 +114,19 @@ class DetailAllParamsV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
         final w = (c.maxWidth - 8) / 2;
+        final base = DefaultTextStyle.of(context).style;
+        final keyStyle = MgType.micro.copyWith(color: MgColors.meta, letterSpacing: 0.3);
+        final valStyle = MgType.tab(MgType.title.copyWith(color: MgColors.ink));
+        // A tile whose longest word (a caps label like "RIJBEWIJSCATEGORIE"
+        // or a long value) does not fit half the width spans the full row —
+        // never a word broken in half; MgWordFit is the last safety net.
+        bool wide(MapEntry<String, String> s) =>
+            catWordWidth(context, s.key.toUpperCase(), base.merge(keyStyle)) > w - 22 ||
+            catWordWidth(context, s.value, base.merge(valStyle)) > w - 22;
         return Wrap(spacing: 8, runSpacing: 8, children: [
           for (final s in specs)
             Container(
-              width: w,
+              width: wide(s) ? c.maxWidth : w,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: MgColors.well,
@@ -120,9 +134,9 @@ class DetailAllParamsV2 extends StatelessWidget {
                 border: Border.all(color: MgColors.line),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(s.key.toUpperCase(), style: MgType.micro.copyWith(color: MgColors.meta, letterSpacing: 0.3)),
+                MgWordFit(minScale: 0.7, child: Text(s.key.toUpperCase(), style: keyStyle)),
                 const SizedBox(height: 2),
-                Text(s.value, style: MgType.tab(MgType.title.copyWith(color: MgColors.ink))),
+                MgWordFit(minScale: 0.75, child: Text(s.value, style: valStyle)),
               ]),
             ),
         ]);
