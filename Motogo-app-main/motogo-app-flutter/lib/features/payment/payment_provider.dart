@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/supabase_client.dart';
 import '../../core/booking_rules.dart';
 import '../../core/widgets/pickup_location_link.dart';
+import 'net_error.dart';
 export '../../core/booking_rules.dart' show paymentTimeoutDuration;
 
 /// Payment methods from Supabase payment_methods table.
@@ -115,15 +116,19 @@ Future<bool> setDefaultPaymentMethod(String pmId) async {
 /// CardField → createPaymentMethod) to the customer and sync it into the
 /// payment_methods table. Používá obrazovka „Platební metody" pro nativní
 /// přidání karty — číslo karty/CVV jdou POUZE do Stripe, k nám jen pm id.
+///
+/// Výpadek spojení / timeout se NEpolyká (hází výjimku) — sheet pak řekne
+/// „zkontroluj připojení" místo obecného „kartu se nepodařilo uložit".
 Future<bool> attachPaymentMethod(String pmId) async {
   try {
     final res = await MotoGoSupabase.client.functions.invoke(
       'manage-payment-methods',
       body: {'action': 'attach', 'payment_method_id': pmId},
-    );
+    ).timeout(const Duration(seconds: 20));
     final data = res.data as Map<String, dynamic>?;
     return data?['success'] == true;
-  } catch (_) {
+  } catch (e) {
+    if (isNetworkError(e)) rethrow;
     return false;
   }
 }

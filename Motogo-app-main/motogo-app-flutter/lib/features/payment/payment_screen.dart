@@ -363,7 +363,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     _draftError = null;
     _draftKind = _DraftKind.unknown;
     final id = await _createDraftBooking();
-    if (id != null) return id;
+    if (id != null || !mounted) return id;
     if (_draftKind != _DraftKind.motoTaken && _draftKind != _DraftKind.trailerTaken) {
       return null;
     }
@@ -676,7 +676,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                       'amount': d.calculatedAmount,
                     })
                 .toList(),
-          );
+          ).timeout(const Duration(seconds: 15));
         } catch (e) {
           debugPrint('[Payment] booking_discounts insert failed: $e');
         }
@@ -824,6 +824,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         if (!_completed) _showDraftFailure();
         return;
       }
+      if (!mounted) return;
     }
 
     // -- Saved card auto-charge (off-session) --
@@ -1273,7 +1274,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                   origRowIds: deleteIds,
                   origExtraIds: origExtras,
                   rows: extrasRows is List ? extrasRows : const [],
-                );
+                ).timeout(const Duration(seconds: 20));
               }
             } catch (e) {
               debugPrint('[Payment] Edit apply err: $e');
@@ -1402,7 +1403,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       // deep link) na rozumného rodiče místo zavření appky. Nad obrazovkou
       // otevřený sheet / dialog / jiná trasa → ať se zavře ten.
       onBackButtonPressed: () async {
-        if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
+        if (!isTopmostRoute(context)) return false;
         if (_processing || !GoRouter.of(context).canPop()) {
           _onBack();
           return true;

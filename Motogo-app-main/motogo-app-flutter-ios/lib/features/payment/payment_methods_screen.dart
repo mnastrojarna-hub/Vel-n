@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../core/router.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
@@ -20,7 +22,12 @@ class PaymentMethodsScreen extends ConsumerWidget {
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
+          behavior: HitTestBehavior.opaque,
+          // Bez historie by holé pop() zavřelo appku → Profil.
+          onTap: () async {
+            final popped = await Navigator.of(context).maybePop();
+            if (!popped && context.mounted) context.go(Routes.profile);
+          },
           child: Center(
             child: Container(
               width: 36, height: 36,
@@ -38,8 +45,20 @@ class PaymentMethodsScreen extends ConsumerWidget {
           child: CircularProgressIndicator(color: MotoGoColors.green),
         ),
         error: (_, __) => Center(
-          child: Text(t(context).tr('cardsLoadError'),
-              style: const TextStyle(color: MotoGoColors.red)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(t(context).tr('cardsLoadError'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: MotoGoColors.red)),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => ref.invalidate(paymentMethodsProvider),
+                icon: const Icon(Icons.refresh, size: 16),
+                label: Text(t(context).tr('retry')),
+              ),
+            ]),
+          ),
         ),
       ),
     );

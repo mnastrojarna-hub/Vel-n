@@ -292,7 +292,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         origRowIds: _origModeledRowIds,
         origExtraIds: _origExtras,
         rows: rows ?? const [],
-      );
+      ).timeout(const Duration(seconds: 20));
     } catch (e) {
       debugPrint('[Edit] extras replace failed: $e');
       return false;
@@ -416,7 +416,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     Reservation? fresh;
     try {
       ref.invalidate(reservationByIdProvider(widget.bookingId));
-      fresh = await ref.read(reservationByIdProvider(widget.bookingId).future);
+      fresh = await ref
+          .read(reservationByIdProvider(widget.bookingId).future)
+          .timeout(const Duration(seconds: 15));
     } catch (_) {
       return true;
     }

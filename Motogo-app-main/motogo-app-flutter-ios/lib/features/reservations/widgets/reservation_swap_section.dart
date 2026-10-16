@@ -13,6 +13,9 @@ import '../../catalog/moto_model.dart';
 import '../../catalog/catalog_provider.dart';
 import '../../booking/booking_validator.dart';
 import '../../payment/payment_provider.dart';
+import '../../payment/net_error.dart';
+import '../../payment/payment_refusals.dart' show PayFlow, belowCardMinimum;
+import 'reservation_edit_states.dart' show showBelowMinimum;
 import '../reservation_models.dart';
 import 'reservation_edit_widgets.dart';
 import '../../../core/date_days.dart';
@@ -212,8 +215,9 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
         }[code] ??
         // RPC vrací jen KÓDY; texty triggeru (trg_check_trailer_overlap) chodí
         // jako PostgrestException a mapuje je vnější catch přes
-        // _isTrailerBranchError / _isTrailerOccupiedError.
-        t(context).error;
+        // _isTrailerBranchError / _isTrailerOccupiedError. Neznámý kód →
+        // srozumitelná rada místo holého „Chyba".
+        t(context).tr('psSwapUnknown');
     showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: msg);
   }
 
@@ -242,7 +246,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
       final dry = await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {
         ...swapParams,
         'p_dry_run': true,
-      });
+      }).timeout(const Duration(seconds: 15));
       if (!_rpcOk(dry)) {
         _showSwapError(dry);
         return;
@@ -253,6 +257,11 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
       // payment_screen po úspěšné platbě (klíč `_swap_commit`), NIKDY před ní.
       if (net > 0.5) {
         if (!mounted) return;
+        // Doplatek pod minimem karty (15 Kč) zaplatit nejde — řekni to hned (D1).
+        if (belowCardMinimum(net)) {
+          showBelowMinimum(context, PayFlow.swap, net);
+          return;
+        }
         final motos = ref.read(motorcyclesProvider).valueOrNull ?? const [];
         final newMoto = motos.where((m) => m.id == motoId).firstOrNull;
         ref.read(paymentContextProvider.notifier).state = PaymentContext(
@@ -281,7 +290,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
         ...swapParams,
         'p_dry_run': false,
         'p_settle_refund': true,
-      });
+      }).timeout(const Duration(seconds: 20));
       if (!_rpcOk(commit)) {
         _showSwapError(commit);
         return;
@@ -296,6 +305,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
         // Výjimka z DB pojistky chodí jako PostgrestException s českým textem —
         // bez tohohle by se do toastu vypsala syrová včetně UUID motorky.
         final raw = '$e';
+        debugPrint('[Swap] confirm failed: $e');
         showMotoGoToast(context,
             icon: '✗',
             title: t(context).error,
@@ -303,7 +313,9 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
                 ? t(context).tr('swap.trailerStaffedOnly')
                 : _isTrailerOccupiedError(raw)
                     ? t(context).tr('swap.trailerOccupied')
-                    : raw);
+                    : isNetworkError(e)
+                        ? t(context).tr('psEditNet')
+                        : t(context).tr('psSwapUnknown'));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

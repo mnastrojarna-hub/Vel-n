@@ -9,6 +9,7 @@ import '../../core/i18n/i18n_provider.dart';
 import 'reservation_models.dart';
 import 'reservation_provider.dart';
 import 'widgets/reservation_card.dart';
+import 'widgets/cancel_result_dialog.dart';
 
 /// Reservations list — mirrors s-res from templates-res.js + reservations-ui.js.
 /// Tabs: All, Active, Upcoming, Completed, Cancelled.
@@ -230,13 +231,25 @@ class _CancelDialog extends StatefulWidget {
 class _CancelDialogState extends State<_CancelDialog> {
   bool _loading = false;
   String _reason = '';
+  CancelResult? _result;
 
   @override
   Widget build(BuildContext context) {
     final pct = StornoCalc.effectiveRefundPercent(widget.reservation.startDate, widget.reservation);
     final refund = StornoCalc.effectiveRefundAmount(widget.reservation.totalPrice, widget.reservation.startDate, widget.reservation);
 
-    return AlertDialog(
+    // Po odeslání: výsledek (vratka) nebo chyba s nápravou — ve stejném dialogu.
+    if (_result != null) {
+      return cancelResultDialog(context, _result!,
+          wasPaid: widget.reservation.paymentStatus == 'paid',
+          onClose: () => Navigator.pop(context),
+          onRetry: _doCancel);
+    }
+
+    // Během storna dialog nejde zavřít (výsledek by se ztratil).
+    return PopScope(
+      canPop: !_loading,
+      child: AlertDialog(
       title: Text(t(context).tr('cancelReservationTitle'), style: const TextStyle(fontWeight: FontWeight.w800)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -284,7 +297,7 @@ class _CancelDialogState extends State<_CancelDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _loading ? null : () => Navigator.pop(context),
           child: Text(t(context).back),
         ),
         TextButton(
@@ -294,16 +307,20 @@ class _CancelDialogState extends State<_CancelDialog> {
               : Text(t(context).tr('cancelReservationBtn'), style: const TextStyle(color: MotoGoColors.red)),
         ),
       ],
+    ),
     );
   }
 
   Future<void> _doCancel() async {
-    setState(() => _loading = true);
-    final err = await cancelBooking(widget.reservation.id, _reason.isNotEmpty ? _reason : t(context).tr('customerCancelled'));
+    setState(() {
+      _loading = true;
+      _result = null;
+    });
+    final r = await cancelBooking(widget.reservation.id, _reason.isNotEmpty ? _reason : t(context).tr('customerCancelled'));
     if (!mounted) return;
-    Navigator.pop(context);
-    if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
-    }
+    setState(() {
+      _loading = false;
+      _result = r;
+    });
   }
 }

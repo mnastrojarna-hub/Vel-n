@@ -13,6 +13,7 @@ import '../../core/widgets/pickup_location_link.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../reservations/reservation_provider.dart' show reservationsProvider;
 import 'payment_provider.dart';
+import 'payment_ui_helpers.dart';
 import 'payment_verify.dart';
 
 /// Univerzální výsledková obrazovka pro platební flow, která nemají vlastní
@@ -130,7 +131,7 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
       // Android by appku zavřel).
       onBackButtonPressed: () async {
         // Nad obrazovkou je jiná trasa (dialog, Zprávy) → ať se zavře ona.
-        if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
+        if (!isTopmostRoute(context)) return false;
         _goNext(ctaRoute);
         return true;
       },

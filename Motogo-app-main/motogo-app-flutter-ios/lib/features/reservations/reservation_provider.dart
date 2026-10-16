@@ -249,16 +249,47 @@ final filteredReservationsProvider =
   });
 });
 
-/// Cancel booking via RPC — mirrors apiCancelBooking.
-Future<String?> cancelBooking(String bookingId, String reason) async {
+/// Výsledek storna (`cancel_booking_tracked`).
+class CancelResult {
+  final bool ok;
+  final int refundPercent;
+  final double refundAmount;
+  /// Proč storno neprošlo: already | forbidden | not_found | network | failed.
+  final String? error;
+  const CancelResult.success(this.refundPercent, this.refundAmount)
+      : ok = true,
+        error = null;
+  const CancelResult.failure(this.error)
+      : ok = false,
+        refundPercent = 0,
+        refundAmount = 0;
+}
+
+/// Cancel booking via RPC — mirrors apiCancelBooking. RPC chyby NEhází, vrací
+/// `{error:'…'}` (česky) — dřív je appka ignorovala a hlásila úspěch.
+Future<CancelResult> cancelBooking(String bookingId, String reason) async {
   try {
-    await MotoGoSupabase.client.rpc('cancel_booking_tracked', params: {
+    final r = await MotoGoSupabase.client.rpc('cancel_booking_tracked', params: {
       'p_booking_id': bookingId,
       'p_reason': reason,
-    });
-    return null; // success
+    }).timeout(const Duration(seconds: 20));
+    if (r is Map && r['success'] == true) {
+      return CancelResult.success((r['refund_percent'] as num?)?.toInt() ?? 0,
+          (r['refund_amount'] as num?)?.toDouble() ?? 0);
+    }
+    final err = r is Map ? '${r['error'] ?? ''}' : '';
+    if (err.contains('stornována')) return const CancelResult.failure('already');
+    if (err.contains('oprávnění')) return const CancelResult.failure('forbidden');
+    if (err.contains('nenalezena')) return const CancelResult.failure('not_found');
+    return const CancelResult.failure('failed');
   } catch (e) {
-    return 'Chyba storna: $e';
+    final m = e.toString().toLowerCase();
+    final network = e is TimeoutException ||
+        m.contains('socketexception') ||
+        m.contains('clientexception') ||
+        m.contains('failed host lookup') ||
+        m.contains('connection');
+    return CancelResult.failure(network ? 'network' : 'failed');
   }
 }
 

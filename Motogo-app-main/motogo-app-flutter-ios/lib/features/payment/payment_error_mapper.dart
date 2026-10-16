@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter_stripe/flutter_stripe.dart';
 
+import '../../core/i18n/translations.dart';
 import 'payment_error_strings_a.dart';
 import 'payment_error_strings_b.dart';
 import 'payment_error_strings_c.dart';
@@ -18,54 +19,61 @@ class PaymentErrorInfo {
   final bool retryable;
   /// true = uživatel jen zrušil platbu (Payment Sheet zavřel) → není to chyba.
   final bool userCancelled;
+  /// true = z chyby nejde poznat, jestli platba prošla (výpadek spojení po
+  /// odeslání, `payment_intent_unexpected_state`) → volající MUSÍ ověřit stav
+  /// platby a nesmí tvrdit „nic nebylo strženo".
+  final bool needsVerification;
+  /// Normalizovaná příčina pro volbu akce (`card_gone`, `amount_too_small`…).
+  final String? cause;
 
   const PaymentErrorInfo({
     required this.title,
     required this.message,
     this.retryable = true,
     this.userCancelled = false,
+    this.needsVerification = false,
+    this.cause,
   });
 }
 
 /// Mapuje technické platební chyby (Stripe decline kódy, error kódy z edge funkce,
 /// Google Pay chyby) na srozumitelné hlášky s konkrétní příčinou a nápravou.
 ///
-/// Pokrývá tři vstupy:
-///  - [stripeException]  — z nativního Payment Sheetu (`StripeException`)
-///  - [edgeErrorCode] / [declineCode] — z odpovědi edge fn `process-payment`
-///    (off-session charge: `error_code` = Stripe error code, `decline_code` = bankovní důvod)
-///  - [rawMessage]       — fallback text serveru/Stripe, když kód neznáme
+/// Syrový text Stripe/serveru se zákazníkovi NIKDY neukazuje (byl anglicky
+/// nebo v jazyce telefonu, ne appky) — neznámé zamítnutí karty dostane
+/// obecnou hlášku banky, neznámá ne-karetní chyba se ověřuje (needsVerification).
 class PaymentErrorMapper {
   PaymentErrorMapper._();
 
-  static PaymentErrorInfo fromStripeException(StripeException e, String lang) {
-    final code = e.error.code;
-    if (code == FailureCode.Canceled) {
+  /// [wallet] = platilo se přes Google Pay / Apple Pay → rada nesmí znovu
+  /// posílat do peněženky (smyčka), ale ke kartě.
+  static PaymentErrorInfo fromStripeException(StripeException e, String lang,
+      {bool wallet = false}) {
+    final err = e.error;
+    if (err.code == FailureCode.Canceled) {
       return _cancelled(lang);
     }
-    // `stripeErrorCode` nese technické kódy karty (expired_card, incorrect_cvc,
-    // card_declined, authentication_required, processing_error…). Bankovní
-    // decline_code Stripe SDK na klientu spolehlivě neplní (chodí ze serveru
-    // přes off-session větev — viz `fromEdge`), proto zde mapujeme jen errorCode.
-    final stripeCode = e.error.stripeErrorCode;
     final mapped = _fromCodes(
-      declineCode: null,
-      errorCode: stripeCode,
+      declineCode: err.declineCode,
+      errorCode: err.stripeErrorCode,
       lang: lang,
+      wallet: wallet,
     );
     if (mapped != null) return mapped;
-    // Neznámý kód — použij lokalizovaný text od Stripe, jinak generický.
-    final loc = e.error.localizedMessage;
-    if (loc != null && loc.trim().isNotEmpty) {
+    if (err.type == 'card_error' || (err.declineCode ?? '').isNotEmpty ||
+        (err.stripeErrorCode ?? '').isNotEmpty) {
+      // Skutečné zamítnutí s kódem, který neznáme → obecná hláška banky.
       return PaymentErrorInfo(
-        title: _t(lang, 'cardDeclinedTitle'),
-        message: '$loc\n\n${_t(lang, 'genericFix')}',
-      );
+          title: _t(lang, 'cardDeclinedTitle'),
+          message: _t(lang, 'bankBlockBody'),
+          cause: 'card_declined');
     }
-    return _generic(lang);
+    // Bez kódu karty (výpadek sítě po odeslání, chyba pluginu) — nevíme.
+    return uncertain(lang);
   }
 
-  /// Z odpovědi edge fn (off-session charge selhal).
+  /// Z odpovědi edge fn (stržení uložené karty selhalo). [rawMessage] se
+  /// zákazníkovi neukazuje (anglický text Stripe) — zůstal kvůli kompatibilitě.
   static PaymentErrorInfo fromEdge({
     String? errorCode,
     String? declineCode,
@@ -78,11 +86,11 @@ class PaymentErrorMapper {
       lang: lang,
     );
     if (mapped != null) return mapped;
-    if (rawMessage != null && rawMessage.trim().isNotEmpty) {
+    if ((errorCode ?? '').isNotEmpty || (declineCode ?? '').isNotEmpty) {
       return PaymentErrorInfo(
-        title: _t(lang, 'cardDeclinedTitle'),
-        message: '$rawMessage\n\n${_t(lang, 'genericFix')}',
-      );
+          title: _t(lang, 'cardDeclinedTitle'),
+          message: _t(lang, 'bankBlockBody'),
+          cause: 'card_declined');
     }
     return _generic(lang);
   }
@@ -114,9 +122,22 @@ class PaymentErrorMapper {
     );
   }
 
+  /// Bez spojení se serverem, platba se NEodeslala → „nic nestrženo" platí.
   static PaymentErrorInfo network(String lang) => PaymentErrorInfo(
         title: _t(lang, 'networkTitle'),
         message: _t(lang, 'networkBody'),
+      );
+
+  /// Spojení se přerušilo PO odeslání platby — nevíme, jestli prošla.
+  static PaymentErrorInfo uncertain(String lang) => PaymentErrorInfo(
+        title: _t(lang, 'psUncertainTitle'),
+        message: _t(lang, 'psUncertainBody'),
+        needsVerification: true,
+      );
+
+  static PaymentErrorInfo serverUnavailable(String lang) => PaymentErrorInfo(
+        title: _t(lang, 'psServerDownTitle'),
+        message: _t(lang, 'psServerDownBody'),
       );
 
   static PaymentErrorInfo authExpired(String lang) => PaymentErrorInfo(
@@ -129,17 +150,18 @@ class PaymentErrorMapper {
 
   /// Chyba vrácená [StripeService] (kód, ne text — text služby je jen
   /// technický log a zákazníkovi se neukazuje): přihlášení vypršelo /
-  /// síť nebo timeout / ostatní.
+  /// síť nebo timeout / server neodpovídá / ostatní.
   static PaymentErrorInfo serviceError(String lang, PaymentErrorCode? code) =>
       switch (code) {
         PaymentErrorCode.authExpired => authExpired(lang),
         PaymentErrorCode.timeout || PaymentErrorCode.networkError => network(lang),
+        PaymentErrorCode.serverUnavailable => serverUnavailable(lang),
         _ => _generic(lang),
       };
 
   /// Odmítnutí doplatkové změny serverem PŘED platbou (process-payment 409/403,
-  /// pole `code`). Vrací přeloženou hlášku, pro neznámý kód null → volající
-  /// ukáže text serveru. Kódy: viz `dryMsgs` v process-payment/index.ts.
+  /// pole `code`). Vrací přeloženou hlášku, pro neznámý kód null.
+  /// Kódy: viz `dryMsgs` v process-payment/index.ts.
   static String? serverRefusal(String lang, String? code) {
     const keys = <String, String>{
       'trailer_staffed_only': 'refTrailerStaffedOnly',
@@ -153,84 +175,133 @@ class PaymentErrorMapper {
       'moto_unavailable': 'refMotoUnavailable',
       'wrong_status': 'refWrongStatus',
       'active_pickup_time_locked': 'refActivePickupTimeLocked',
+      'delivery_fee_guard': 'psRefDelivery',
+      'location_requires_route': 'psRefDelivery',
     };
     final k = keys[code ?? ''];
     return k == null ? null : _t(lang, k);
   }
 
+  /// Text podle klíče v jazyce [lang] (s iOS náhradou peněženky) — pro
+  /// sdílené platební hlášky mimo mapper (PaymentRefusals).
+  static String text(String lang, String key) => _t(lang, key);
+
   // ── interní ──────────────────────────────────────────────────────────────
+
+  static PaymentErrorInfo _info(String lang, String title, String body,
+          {String? cause}) =>
+      PaymentErrorInfo(
+          title: _t(lang, title), message: _t(lang, body), cause: cause);
 
   static PaymentErrorInfo? _fromCodes({
     String? declineCode,
     String? errorCode,
     required String lang,
+    bool wallet = false,
   }) {
     final d = (declineCode ?? '').toLowerCase();
     final c = (errorCode ?? '').toLowerCase();
+    final funds = wallet ? 'psFundsBodyCard' : 'fundsBody';
 
     // Nejdřív konkrétní bankovní decline kódy (nejpřesnější příčina).
     switch (d) {
       case 'insufficient_funds':
-        return PaymentErrorInfo(
-            title: _t(lang, 'fundsTitle'), message: _t(lang, 'fundsBody'));
+        return _info(lang, 'fundsTitle', funds);
       case 'lost_card':
       case 'stolen_card':
       case 'pickup_card':
-        return PaymentErrorInfo(
-            title: _t(lang, 'blockedTitle'), message: _t(lang, 'blockedBody'));
+        return _info(lang, 'blockedTitle', 'blockedBody');
       case 'card_velocity_exceeded':
       case 'withdrawal_count_limit_exceeded':
-        return PaymentErrorInfo(
-            title: _t(lang, 'limitTitle'), message: _t(lang, 'limitBody'));
+        return _info(lang, 'limitTitle', 'limitBody');
+      case 'card_decline_rate_limit_exceeded':
+        return _info(lang, 'psRateLimitTitle', 'psRateLimitBody');
       case 'expired_card':
-        return PaymentErrorInfo(
-            title: _t(lang, 'expiredTitle'), message: _t(lang, 'expiredBody'));
+        return _info(lang, 'expiredTitle', 'expiredBody');
       case 'incorrect_cvc':
       case 'invalid_cvc':
-        return PaymentErrorInfo(
-            title: _t(lang, 'cvcTitle'), message: _t(lang, 'cvcBody'));
+        return _info(lang, 'cvcTitle', 'cvcBody');
       case 'incorrect_number':
       case 'invalid_number':
-        return PaymentErrorInfo(
-            title: _t(lang, 'numberTitle'), message: _t(lang, 'numberBody'));
+        return _info(lang, 'numberTitle', 'numberBody');
+      case 'invalid_expiry_month':
+      case 'invalid_expiry_year':
+        return _info(lang, 'psExpiryTitle', 'psExpiryBody');
+      case 'card_not_supported':
+        return _info(lang, 'psNotSupportedTitle', 'psNotSupportedBody');
+      case 'incorrect_pin':
+      case 'invalid_pin':
+      case 'pin_try_exceeded':
+      case 'offline_pin_required':
+      case 'online_or_offline_pin_required':
+        return _info(lang, 'psPinTitle', 'psPinBody');
+      case 'issuer_not_available':
+      case 'try_again_later':
+      case 'reenter_transaction':
+      case 'processing_error':
+        return _info(lang, 'processingTitle', 'processingBody');
+      case 'authentication_required':
+        return _info(lang, 'authTitle', 'authBody');
       case 'do_not_honor':
       case 'transaction_not_allowed':
       case 'service_not_allowed':
       case 'currency_not_supported':
-        return PaymentErrorInfo(
-            title: _t(lang, 'bankBlockTitle'),
-            message: _t(lang, 'bankBlockBody'));
+      case 'fraudulent':
+      case 'restricted_card':
+      case 'security_violation':
+      case 'not_permitted':
+      case 'call_issuer':
+      case 'approve_with_id':
+      case 'merchant_blacklist':
+      case 'no_action_taken':
+      case 'revocation_of_authorization':
+      case 'revocation_of_all_authorizations':
+      case 'stop_payment_order':
+      case 'invalid_account':
+      case 'new_account_information_available':
+        return _info(lang, 'bankBlockTitle', 'bankBlockBody');
       case 'generic_decline':
       case 'do_not_try_again':
-        return PaymentErrorInfo(
-            title: _t(lang, 'cardDeclinedTitle'),
-            message: _t(lang, 'bankBlockBody'));
+        return _info(lang, 'cardDeclinedTitle', 'bankBlockBody');
     }
 
     // Pak Stripe error kódy.
     switch (c) {
+      case 'insufficient_funds':
+        return _info(lang, 'fundsTitle', funds);
       case 'expired_card':
-        return PaymentErrorInfo(
-            title: _t(lang, 'expiredTitle'), message: _t(lang, 'expiredBody'));
+        return _info(lang, 'expiredTitle', 'expiredBody');
       case 'incorrect_cvc':
       case 'invalid_cvc':
-        return PaymentErrorInfo(
-            title: _t(lang, 'cvcTitle'), message: _t(lang, 'cvcBody'));
+        return _info(lang, 'cvcTitle', 'cvcBody');
       case 'incorrect_number':
       case 'invalid_number':
-        return PaymentErrorInfo(
-            title: _t(lang, 'numberTitle'), message: _t(lang, 'numberBody'));
+        return _info(lang, 'numberTitle', 'numberBody');
+      case 'invalid_expiry_month':
+      case 'invalid_expiry_year':
+        return _info(lang, 'psExpiryTitle', 'psExpiryBody');
       case 'card_declined':
-        return PaymentErrorInfo(
-            title: _t(lang, 'cardDeclinedTitle'),
-            message: _t(lang, 'bankBlockBody'));
+        return _info(lang, 'cardDeclinedTitle', 'bankBlockBody');
+      case 'card_decline_rate_limit_exceeded':
+        return _info(lang, 'psRateLimitTitle', 'psRateLimitBody');
       case 'authentication_required':
-        return PaymentErrorInfo(
-            title: _t(lang, 'authTitle'), message: _t(lang, 'authBody'));
+      case 'payment_intent_authentication_failure':
+      case 'setup_intent_authentication_failure':
+        return _info(lang, 'authTitle', 'authBody');
       case 'processing_error':
-        return PaymentErrorInfo(
-            title: _t(lang, 'processingTitle'),
-            message: _t(lang, 'processingBody'));
+        return _info(lang, 'processingTitle', 'processingBody');
+      case 'amount_too_small':
+        return _info(lang, 'psBelowMinTitle', 'psBelowMinGeneric',
+            cause: 'amount_too_small');
+      case 'resource_missing':
+      case 'payment_method_unactivated':
+      case 'payment_method_not_available':
+      case 'payment_method_customer_decline':
+        return _info(lang, 'psCardGoneTitle', 'psCardGoneBody',
+            cause: 'card_gone');
+      case 'payment_intent_unexpected_state':
+        // PI je v jiném stavu (např. už zaplacený) — výsledek ověřit.
+        return uncertain(lang);
     }
     return null;
   }
@@ -247,12 +318,9 @@ class PaymentErrorMapper {
         message: _t(lang, 'genericBody'),
       );
 
-  // Vlastní lokalizace (cs/en/de zde, es/fr/nl/pl/uk v payment_error_strings_*.dart).
-  // Záměrně self-contained, ať mapper nezávisí na velkých i18n souborech a
-  // chyby jsou vždy přeložené. Neznámý cizí jazyk → angličtina (ne čeština).
-  // Texty jsou psané pro Google Pay (Android master); na iOS se peněženka
-  // jmenuje Apple Pay — substituce drží všechny jazyky konzistentní bez
-  // duplikace celé tabulky.
+  // Vlastní lokalizace (cs/en/de zde, es/fr/nl/pl/uk v payment_error_strings_*.dart);
+  // novější klíče (`ps*`) jsou ve sdílených i18n souborech (translations_ext_38_*).
+  // Neznámý cizí jazyk → angličtina (ne čeština).
   static String _t(String lang, String key) {
     final l = (lang.isEmpty ? 'cs' : lang.substring(0, lang.length.clamp(0, 2)));
     final m = _strings[l] ??
@@ -260,7 +328,14 @@ class PaymentErrorMapper {
         paymentErrorStringsB[l] ??
         paymentErrorStringsC[l] ??
         _strings['en']!;
-    final s = m[key] ?? _strings['en']![key] ?? key;
+    final s = m[key] ??
+        translations[l]?[key] ??
+        _strings['en']![key] ??
+        translations['en']?[key] ??
+        key;
+    // Texty jsou psané pro Google Pay (Android master); na iOS se peněženka
+    // jmenuje Apple Pay — substituce drží všechny jazyky konzistentní bez
+    // duplikace celé tabulky.
     if (Platform.isIOS) {
       return s
           .replaceAll('Google Pay', 'Apple Pay')
@@ -273,75 +348,75 @@ class PaymentErrorMapper {
     'cs': {
       // Odmítnutí doplatkové změny serverem před platbou (serverRefusal).
       'refMotoUnavailable':
-          'Motorka je v novém termínu už obsazená, nebo je pobočka zavřená — platba doplatku zrušena. Zvolte jiný termín nebo motorku.',
+          'Motorka je v novém termínu už obsazená, nebo je pobočka zavřená — doplatek jsme nestrhli. Vyber si prosím jiný termín nebo motorku.',
       'refWrongStatus':
-          'Rezervaci v tomto stavu už nelze upravit (stornovaná nebo ukončená) — platba doplatku zrušena.',
+          'Rezervaci v tomhle stavu už nejde upravit (je zrušená nebo ukončená) — doplatek jsme nestrhli.',
       'refTrailerStaffedOnly':
-          'Vozík lze půjčit jen k motorce z obslužné pobočky — samoobslužná ho nevydává. Vyberte motorku z obslužné pobočky, nebo z rezervace odeberte vozík. Platba doplatku zrušena.',
+          'Vozík jde půjčit jen k motorce z obslužné pobočky — samoobslužná ho nevydává. Vyber si motorku z obslužné pobočky, nebo vozík z rezervace odeber. Doplatek jsme nestrhli.',
       'refTrailerOccupied':
-          'Vozík je v novém termínu už obsazený jinou rezervací. Zvolte jiný termín, nebo z rezervace odeberte vozík. Platba doplatku zrušena.',
+          'Vozík je v novém termínu už obsazený jinou rezervací. Vyber si jiný termín, nebo vozík z rezervace odeber. Doplatek jsme nestrhli.',
       'refCheckUnavailable':
-          'Nepodařilo se ověřit vozík u rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
+          'Vozík u rezervace se nepodařilo ověřit — doplatek jsme nestrhli. Zkus to prosím za chvíli znovu.',
       'refValidationUnavailable':
-          'Nepodařilo se ověřit změnu rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
+          'Změnu rezervace se nepodařilo ověřit — doplatek jsme nestrhli. Zkus to prosím za chvíli znovu.',
       'refNotFound':
-          'Rezervace nebyla nalezena — platba doplatku zrušena. Načtěte rezervaci znovu a zkuste to znovu.',
+          'Rezervaci jsme nenašli — doplatek jsme nestrhli. Načti rezervaci znovu a zkus to ještě jednou.',
       'refForbidden':
-          'Tuto rezervaci nelze upravit z tohoto účtu. Přihlaste se prosím účtem, kterým byla vytvořena.',
+          'Tuhle rezervaci nejde upravit z tohoto účtu. Přihlas se prosím účtem, kterým jsi ji vytvořil(a).',
       'refStale':
-          'Rezervace se mezitím změnila (jiné zařízení nebo web). Načtěte ji prosím znovu a úpravu zopakujte.',
+          'Rezervace se mezitím změnila (jiné zařízení nebo web). Načti ji prosím znovu a úpravu zopakuj.',
       'refActivePickupTimeLocked':
-          'Motorka už byla vyzvednuta — čas vyzvednutí už nelze změnit.',
+          'Motorku už máš vyzvednutou — čas vyzvednutí už nejde změnit.',
       'refAmountMismatch':
-          'Částka doplatku neodpovídá výpočtu serveru. Načtěte rezervaci znovu a zkuste to znovu.',
+          'Částka doplatku neodpovídá výpočtu serveru. Načti rezervaci znovu a zkus to ještě jednou.',
       'cardDeclinedTitle': 'Platba kartou zamítnuta',
-      'fundsTitle': 'Nedostatek prostředků',
+      'fundsTitle': 'Nedostatek peněz na kartě',
       'fundsBody':
-          'Na kartě není dostatek peněz pro tuto platbu. Dobijte prosím účet, zvolte jinou kartu, nebo zaplaťte přes Google Pay.',
+          'Na kartě není dost peněz na tuhle platbu. Dobij si účet, zvol jinou kartu, nebo zaplať přes Google Pay.',
       'blockedTitle': 'Karta je zablokovaná',
       'blockedBody':
-          'Vaše banka tuto kartu zablokovala (nahlášena jako ztracená/odcizená). Použijte prosím jinou kartu nebo kontaktujte svou banku.',
-      'limitTitle': 'Překročen limit karty',
+          'Tvoje banka tuhle kartu zablokovala (je nahlášená jako ztracená nebo odcizená). Použij prosím jinou kartu, nebo kontaktuj svou banku.',
+      'limitTitle': 'Překročený limit karty',
       'limitBody':
-          'Byl překročen denní limit nebo počet plateb. Zvyšte limit v aplikaci své banky, zkuste to později, nebo použijte jinou kartu.',
+          'Překročil(a) jsi denní limit nebo počet plateb. Zvyš si limit v aplikaci své banky, zkus to později, nebo použij jinou kartu.',
       'expiredTitle': 'Platnost karty vypršela',
       'expiredBody':
-          'Karta už není platná. Použijte prosím jinou, platnou kartu.',
+          'Karta už není platná. Použij prosím jinou, platnou kartu.',
       'cvcTitle': 'Chybný bezpečnostní kód (CVC)',
       'cvcBody':
-          'Zadaný kód CVC (3 čísla na zadní straně karty) je nesprávný. Zkuste platbu znovu a zadejte ho pečlivě.',
+          'Kód CVC (3 čísla na zadní straně karty) není správný. Zkus platbu znovu a zadej ho pečlivě.',
       'numberTitle': 'Chybné číslo karty',
       'numberBody':
-          'Zadané číslo karty není správné. Zkontrolujte ho a zkuste platbu znovu.',
+          'Číslo karty není správné. Zkontroluj ho a zkus platbu znovu.',
       'bankBlockTitle': 'Platbu zamítla banka',
       'bankBlockBody':
-          'Vaše banka tuto platbu neschválila. Kartu obvykle odblokujete přímo v aplikaci své banky (často kvůli ochraně proti podvodu). Pak zkuste platbu znovu, nebo použijte jinou kartu.',
+          'Tvoje banka tuhle platbu neschválila. Kartu obvykle odblokuješ přímo v aplikaci své banky (často jde o ochranu proti podvodu). Pak zkus platbu znovu, nebo použij jinou kartu.',
       'authTitle': 'Potvrzení u banky se nezdařilo',
       'authBody':
-          'Banka vyžadovala potvrzení platby (3D Secure), které se nepodařilo dokončit. Zkuste platbu znovu a potvrďte ji v aplikaci své banky.',
+          'Banka chtěla platbu potvrdit (3D Secure), ale potvrzení se nedokončilo — nic jsme nestrhli. Zkus platbu znovu a potvrď ji v aplikaci své banky.',
       'processingTitle': 'Dočasná chyba při zpracování',
       'processingBody':
-          'Platbu se teď nepodařilo zpracovat. Chvíli počkejte a zkuste to prosím znovu.',
-      'walletTitle': 'Google Pay teď nelze použít',
+          'Banka teď platbu nezpracovala — nic jsme nestrhli. Chvíli počkej a zkus to prosím znovu.',
+      'walletTitle': 'Google Pay teď nejde použít',
       'walletBody':
-          'Platbu přes Google Pay se nepodařilo dokončit. Zkontrolujte, že máte v Google Pay přidanou platnou kartu, nebo zaplaťte přímo kartou — funguje vždy.',
+          'Platbu přes Google Pay se nepodařilo dokončit. Zkontroluj, že máš v Google Pay přidanou platnou kartu, nebo zaplať přímo kartou — to funguje vždy.',
       'walletFailedTitle': 'Platba přes Google Pay neprošla',
       'walletFailedBody':
-          'Platbu přes Google Pay se nepodařilo zpracovat — nic nebylo strženo. Zaplaťte prosím kartou tady níže, nebo to zkuste později znovu.',
+          'Platbu přes Google Pay se nepodařilo zpracovat — nic jsme nestrhli. Zaplať prosím kartou tady níž, nebo to zkus později znovu.',
       'networkTitle': 'Bez připojení k internetu',
       'networkBody':
-          'Nepodařilo se spojit s platebním serverem. Zkontrolujte připojení k internetu a zkuste platbu znovu — žádné peníze zatím nebyly strženy.',
+          'Nepodařilo se spojit s platebním serverem. Zkontroluj připojení k internetu a zkus platbu znovu — nic jsme zatím nestrhli.',
       'authExpiredTitle': 'Přihlášení vypršelo',
       'authExpiredBody':
-          'Pro dokončení platby se prosím znovu přihlaste. Vaše rezervace zůstává uložená.',
+          'Pro dokončení platby se prosím znovu přihlas. Nic jsme nestrhli a rezervace zůstává uložená.',
       'cancelledTitle': 'Platba zrušena',
       'cancelledBody':
-          'Platbu jste zrušili — nic nebylo strženo. Až budete chtít, můžete ji kdykoli dokončit.',
+          'Platbu jsi zrušil(a) — nic jsme nestrhli. Dokončit ji můžeš, kdykoli budeš chtít.',
       'genericTitle': 'Platba se nezdařila',
       'genericBody':
-          'Platbu se nepodařilo dokončit a žádné peníze nebyly strženy. Zkuste to prosím znovu, nebo použijte jinou platební metodu.',
+          'Platbu se nepodařilo dokončit a nic jsme nestrhli. Zkus to prosím znovu, nebo použij jinou kartu.',
       'genericFix':
-          'Zkuste platbu znovu, použijte jinou kartu, nebo zaplaťte přes Google Pay.',
+          'Zkus platbu znovu, použij jinou kartu, nebo zaplať přes Google Pay.',
     },
     'en': {
       // Odmítnutí doplatkové změny serverem před platbou (serverRefusal).
@@ -390,10 +465,10 @@ class PaymentErrorMapper {
           'Your bank did not approve this payment. You can usually unblock the card in your bank app (often anti-fraud protection), then try again or use another card.',
       'authTitle': 'Bank confirmation failed',
       'authBody':
-          'Your bank required confirmation (3D Secure) that could not be completed. Try again and confirm it in your bank app.',
+          'Your bank asked you to confirm the payment (3D Secure), but it was not completed — nothing was charged. Try again and confirm it in your bank app.',
       'processingTitle': 'Temporary processing error',
       'processingBody':
-          'The payment could not be processed right now. Please wait a moment and try again.',
+          'The bank did not process the payment right now — nothing was charged. Please wait a moment and try again.',
       'walletTitle': 'Google Pay unavailable',
       'walletBody':
           'The Google Pay payment could not be completed. Make sure you have a valid card in Google Pay, or pay by card directly — that always works.',
@@ -405,88 +480,88 @@ class PaymentErrorMapper {
           'Could not reach the payment server. Check your connection and try again — no money has been charged yet.',
       'authExpiredTitle': 'Session expired',
       'authExpiredBody':
-          'Please sign in again to finish the payment. Your reservation is saved.',
+          'Please sign in again to finish the payment. Nothing was charged and your reservation is saved.',
       'cancelledTitle': 'Payment cancelled',
       'cancelledBody':
           'You cancelled the payment — nothing was charged. You can finish it anytime.',
       'genericTitle': 'Payment failed',
       'genericBody':
-          'The payment could not be completed and no money was charged. Please try again or use another payment method.',
+          'The payment could not be completed and no money was charged. Please try again or use another card.',
       'genericFix':
           'Try again, use another card, or pay with Google Pay.',
     },
     'de': {
       // Odmítnutí doplatkové změny serverem před platbou (serverRefusal).
       'refMotoUnavailable':
-          'Das Motorrad ist im neuen Zeitraum bereits gebucht oder die Filiale ist geschlossen — die Nachzahlung wurde abgebrochen. Wählen Sie einen anderen Zeitraum oder ein anderes Motorrad.',
+          'Das Motorrad ist im neuen Zeitraum schon gebucht oder die Filiale ist geschlossen — die Nachzahlung wurde nicht abgebucht. Wähl bitte einen anderen Zeitraum oder ein anderes Motorrad.',
       'refWrongStatus':
-          'Eine Buchung in diesem Status kann nicht mehr geändert werden (storniert oder abgeschlossen) — die Nachzahlung wurde abgebrochen.',
+          'Eine Buchung in diesem Status lässt sich nicht mehr ändern (storniert oder abgeschlossen) — die Nachzahlung wurde nicht abgebucht.',
       'refTrailerStaffedOnly':
-          'Der Anhänger ist nur zu einem Motorrad einer Filiale mit Personal erhältlich — die Selbstbedienungsfiliale gibt ihn nicht aus. Wählen Sie ein Motorrad aus einer Filiale mit Personal oder entfernen Sie den Anhänger aus der Buchung. Die Nachzahlung wurde abgebrochen.',
+          'Den Anhänger gibt es nur zu einem Motorrad aus einer Filiale mit Personal — die Selbstbedienungsfiliale gibt ihn nicht aus. Wähl ein Motorrad aus einer Filiale mit Personal oder entferne den Anhänger aus der Buchung. Die Nachzahlung wurde nicht abgebucht.',
       'refTrailerOccupied':
-          'Der Anhänger ist im neuen Zeitraum bereits durch eine andere Buchung belegt. Wählen Sie einen anderen Zeitraum oder entfernen Sie den Anhänger aus der Buchung. Die Nachzahlung wurde abgebrochen.',
+          'Der Anhänger ist im neuen Zeitraum schon durch eine andere Buchung belegt. Wähl einen anderen Zeitraum oder entferne den Anhänger aus der Buchung. Die Nachzahlung wurde nicht abgebucht.',
       'refCheckUnavailable':
-          'Der Anhänger dieser Buchung konnte nicht überprüft werden — die Nachzahlung wurde abgebrochen, bitte versuchen Sie es gleich noch einmal.',
+          'Der Anhänger dieser Buchung konnte nicht geprüft werden — die Nachzahlung wurde nicht abgebucht. Versuch es bitte gleich noch einmal.',
       'refValidationUnavailable':
-          'Die Buchungsänderung konnte nicht überprüft werden — die Nachzahlung wurde abgebrochen, bitte versuchen Sie es gleich noch einmal.',
+          'Die Buchungsänderung konnte nicht geprüft werden — die Nachzahlung wurde nicht abgebucht. Versuch es bitte gleich noch einmal.',
       'refNotFound':
-          'Die Buchung wurde nicht gefunden — die Nachzahlung wurde abgebrochen. Laden Sie die Buchung neu und versuchen Sie es erneut.',
+          'Die Buchung wurde nicht gefunden — die Nachzahlung wurde nicht abgebucht. Lade die Buchung neu und versuch es noch einmal.',
       'refForbidden':
-          'Diese Buchung kann mit diesem Konto nicht bearbeitet werden. Bitte melden Sie sich mit dem Konto an, mit dem sie erstellt wurde.',
+          'Diese Buchung lässt sich mit diesem Konto nicht bearbeiten. Melde dich bitte mit dem Konto an, mit dem du sie erstellt hast.',
       'refStale':
-          'Die Buchung hat sich inzwischen geändert (anderes Gerät oder Website). Bitte laden Sie sie neu und wiederholen Sie die Änderung.',
+          'Die Buchung hat sich inzwischen geändert (anderes Gerät oder Website). Lade sie bitte neu und wiederhole die Änderung.',
       'refActivePickupTimeLocked':
-          'Das Motorrad wurde bereits abgeholt — die Abholzeit kann nicht mehr geändert werden.',
+          'Du hast das Motorrad schon abgeholt — die Abholzeit lässt sich nicht mehr ändern.',
       'refAmountMismatch':
-          'Der Nachzahlungsbetrag stimmt nicht mit der Serverberechnung überein. Laden Sie die Buchung neu und versuchen Sie es erneut.',
+          'Der Nachzahlungsbetrag stimmt nicht mit der Serverberechnung überein. Lade die Buchung neu und versuch es noch einmal.',
       'cardDeclinedTitle': 'Kartenzahlung abgelehnt',
-      'fundsTitle': 'Nicht genügend Guthaben',
+      'fundsTitle': 'Nicht genug Guthaben',
       'fundsBody':
-          'Auf der Karte ist nicht genug Guthaben für diese Zahlung. Laden Sie Ihr Konto auf, wählen Sie eine andere Karte oder zahlen Sie mit Google Pay.',
+          'Auf der Karte ist nicht genug Geld für diese Zahlung. Lade dein Konto auf, wähl eine andere Karte oder zahl mit Google Pay.',
       'blockedTitle': 'Karte ist gesperrt',
       'blockedBody':
-          'Ihre Bank hat diese Karte gesperrt (als verloren/gestohlen gemeldet). Bitte verwenden Sie eine andere Karte oder kontaktieren Sie Ihre Bank.',
+          'Deine Bank hat diese Karte gesperrt (als verloren/gestohlen gemeldet). Nimm bitte eine andere Karte oder wende dich an deine Bank.',
       'limitTitle': 'Kartenlimit überschritten',
       'limitBody':
-          'Das Tageslimit oder die Anzahl der Zahlungen wurde überschritten. Erhöhen Sie das Limit in Ihrer Bank-App, versuchen Sie es später oder nutzen Sie eine andere Karte.',
+          'Das Tageslimit oder die Anzahl der Zahlungen ist überschritten. Erhöh das Limit in deiner Banking-App, versuch es später oder nimm eine andere Karte.',
       'expiredTitle': 'Karte abgelaufen',
       'expiredBody':
-          'Die Karte ist nicht mehr gültig. Bitte verwenden Sie eine gültige Karte.',
+          'Die Karte ist nicht mehr gültig. Nimm bitte eine gültige Karte.',
       'cvcTitle': 'Falscher Sicherheitscode (CVC)',
       'cvcBody':
-          'Der CVC-Code (3 Ziffern auf der Kartenrückseite) ist falsch. Versuchen Sie es erneut und geben Sie ihn sorgfältig ein.',
+          'Der CVC-Code (3 Ziffern auf der Kartenrückseite) ist falsch. Versuch es noch einmal und gib ihn sorgfältig ein.',
       'numberTitle': 'Falsche Kartennummer',
       'numberBody':
-          'Die Kartennummer ist falsch. Bitte überprüfen Sie sie und versuchen Sie es erneut.',
-      'bankBlockTitle': 'Zahlung von Bank abgelehnt',
+          'Die Kartennummer stimmt nicht. Prüf sie bitte und versuch es noch einmal.',
+      'bankBlockTitle': 'Zahlung von der Bank abgelehnt',
       'bankBlockBody':
-          'Ihre Bank hat diese Zahlung nicht genehmigt. Sie können die Karte meist in Ihrer Bank-App entsperren (oft Betrugsschutz) und es dann erneut versuchen oder eine andere Karte nutzen.',
+          'Deine Bank hat diese Zahlung nicht genehmigt. Meist kannst du die Karte direkt in deiner Banking-App freigeben (oft Betrugsschutz). Versuch es dann noch einmal oder nimm eine andere Karte.',
       'authTitle': 'Bankbestätigung fehlgeschlagen',
       'authBody':
-          'Ihre Bank verlangte eine Bestätigung (3D Secure), die nicht abgeschlossen wurde. Versuchen Sie es erneut und bestätigen Sie in Ihrer Bank-App.',
+          'Deine Bank wollte die Zahlung bestätigen lassen (3D Secure), die Bestätigung wurde aber nicht abgeschlossen — es wurde nichts abgebucht. Versuch es noch einmal und bestätige sie in deiner Banking-App.',
       'processingTitle': 'Vorübergehender Verarbeitungsfehler',
       'processingBody':
-          'Die Zahlung konnte gerade nicht verarbeitet werden. Bitte warten Sie kurz und versuchen Sie es erneut.',
+          'Die Bank hat die Zahlung gerade nicht verarbeitet — es wurde nichts abgebucht. Warte kurz und versuch es bitte noch einmal.',
       'walletTitle': 'Google Pay nicht verfügbar',
       'walletBody':
-          'Die Google-Pay-Zahlung konnte nicht abgeschlossen werden. Stellen Sie sicher, dass Sie eine gültige Karte in Google Pay haben, oder zahlen Sie direkt mit Karte — das funktioniert immer.',
+          'Die Google-Pay-Zahlung konnte nicht abgeschlossen werden. Prüf, ob du eine gültige Karte in Google Pay hast, oder zahl direkt mit Karte — das klappt immer.',
       'walletFailedTitle': 'Google-Pay-Zahlung fehlgeschlagen',
       'walletFailedBody':
-          'Die Google-Pay-Zahlung konnte nicht verarbeitet werden — es wurde nichts abgebucht. Bitte zahlen Sie unten mit Karte oder versuchen Sie es später erneut.',
+          'Die Google-Pay-Zahlung konnte nicht verarbeitet werden — es wurde nichts abgebucht. Zahl bitte unten mit Karte oder versuch es später noch einmal.',
       'networkTitle': 'Keine Internetverbindung',
       'networkBody':
-          'Der Zahlungsserver war nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut — es wurde noch nichts abgebucht.',
+          'Der Zahlungsserver war nicht erreichbar. Prüf deine Verbindung und versuch es noch einmal — es wurde noch nichts abgebucht.',
       'authExpiredTitle': 'Sitzung abgelaufen',
       'authExpiredBody':
-          'Bitte melden Sie sich erneut an, um die Zahlung abzuschließen. Ihre Reservierung bleibt gespeichert.',
+          'Melde dich bitte erneut an, um die Zahlung abzuschließen. Es wurde nichts abgebucht und deine Reservierung bleibt gespeichert.',
       'cancelledTitle': 'Zahlung abgebrochen',
       'cancelledBody':
-          'Sie haben die Zahlung abgebrochen — es wurde nichts abgebucht. Sie können sie jederzeit abschließen.',
+          'Du hast die Zahlung abgebrochen — es wurde nichts abgebucht. Du kannst sie jederzeit abschließen.',
       'genericTitle': 'Zahlung fehlgeschlagen',
       'genericBody':
-          'Die Zahlung konnte nicht abgeschlossen werden und es wurde nichts abgebucht. Bitte versuchen Sie es erneut oder nutzen Sie eine andere Zahlungsmethode.',
+          'Die Zahlung konnte nicht abgeschlossen werden und es wurde nichts abgebucht. Versuch es bitte noch einmal oder nimm eine andere Karte.',
       'genericFix':
-          'Versuchen Sie es erneut, nutzen Sie eine andere Karte oder zahlen Sie mit Google Pay.',
+          'Versuch es noch einmal, nimm eine andere Karte oder zahl mit Google Pay.',
     },
   };
 }

@@ -144,6 +144,12 @@ class PaymentRefusals {
     switch (code) {
       case 'already_paid':
       case 'no_payment_needed':
+        // U doplatku úpravy „zaplaceno" znamená původní platbu, ne doplatek →
+        // nikdy nedokončovat úpravu jako zaplacenou.
+        if (edit) {
+          return PayProblem(title, _t(lang, 'psRefusalUnknown'), PayAction.reloadEdit,
+              contact: true);
+        }
         return PayProblem(title, _t(lang, flow == PayFlow.shop ? 'psOrderAlreadyPaid' : 'psAlreadyPaid'),
             PayAction.success);
       case 'payment_in_progress':

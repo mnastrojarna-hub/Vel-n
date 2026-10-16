@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +18,9 @@ import '../payment/payment_provider.dart';
 import '../payment/payment_error_mapper.dart';
 import '../payment/widgets/payment_error_sheet.dart';
 import '../payment/widgets/card_payment_sheet.dart';
+import '../payment/payment_refusals.dart';
+import '../payment/payment_ui_helpers.dart';
+import '../../core/payment_pending_marker.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
 import 'widgets/checkout_payment_card.dart';
@@ -43,6 +48,13 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
   bool _promoLoading = false;
   String? _promoMsg;
   bool? _promoOk;
+  // Založená, zatím nezaplacená objednávka — další pokus o platbu ji použije
+  // znovu, dokud se košík / kódy / doprava nezmění (dřív každý pokus = nová
+  // čekající objednávka).
+  String? _orderId;
+  double? _orderTotal;
+  String? _orderSig;
+  String? _clientSecret;
 
   @override
   void initState() {
@@ -97,13 +109,15 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
 
     setState(() { _promoLoading = true; _promoMsg = null; });
 
-    final d = await validateShopPromoCode(code);
+    final check = await validateShopPromoCode(code);
     if (!mounted) return;
     setState(() => _promoLoading = false);
 
+    final d = check.discount;
     if (d == null) {
+      // Konkrétní důvod (vypršel / vyčerpaný / bez internetu…), ne jen „neplatný".
       setState(() {
-        _promoMsg = t(context).tr('shopCodeInvalid').replaceAll('{code}', code);
+        _promoMsg = t(context).tr(check.reasonKey).replaceAll('{code}', code);
         _promoOk = false;
       });
       return;
@@ -142,8 +156,14 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       case 'product_not_found':
       case 'bad_size':
         return tr.tr('shopProductUnavailable');
+      case 'bad_shipping':
+        return tr.tr('psOrderBadShipping');
+      case 'multiple_percent':
+        return tr.tr('promoNoCombinePercent');
+      case 'network':
+        return tr.tr('psOrderNet');
     }
-    return tr.tr('error');
+    return tr.tr('psOrderFail');
   }
 
   /// Remove an applied code.
@@ -171,10 +191,19 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     ref.read(shopDiscountProvider.notifier).state = total;
   }
 
-  Future<void> _onSuccess(String orderId) async {
+  /// Košík a kódy pryč, objednávka hotová (nebo se platba ověřuje).
+  void _clearCheckout() {
     ref.read(cartProvider.notifier).clear();
     ref.read(shopAppliedCodesProvider.notifier).state = [];
     ref.read(shopDiscountProvider.notifier).state = 0;
+    _orderId = null;
+    _orderSig = null;
+    _orderTotal = null;
+  }
+
+  Future<void> _onSuccess(String orderId, {bool free = false}) async {
+    PaymentPendingMarker.clear(orderId);
+    _clearCheckout();
 
     // Potvrzení odráží reálný stav objednávky z DB (číslo, stav platby, částka),
     // ne jen obecný toast. Při chybě fetche fallback na původní toast.
@@ -197,8 +226,11 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     final paid = order != null && order['payment_status'] == 'paid';
 
     ref.read(paymentOutcomeProvider.notifier).state = PaymentOutcome(
-      title: tr.tr('paid'),
-      subtitle: paid ? tr.tr('orderConfirmed') : tr.tr('paymentProcessed'),
+      // Objednávka za 0 Kč (sleva pokryla vše) — nic se neplatilo.
+      title: free ? tr.tr('psOrderFreeTitle') : tr.tr('paid'),
+      subtitle: free
+          ? tr.tr('psOrderFreeSub')
+          : (paid ? tr.tr('orderConfirmed') : tr.tr('paymentProcessed')),
       lines: [
         if (orderNumber != null) PaymentOutcomeLine('🧾', '#$orderNumber'),
         if (total > 0)
@@ -211,11 +243,83 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     context.go(Routes.paymentResult);
   }
 
+  /// Otisk košíku + kódů + dopravy + adresy: dokud se nezmění, další pokus
+  /// o platbu použije už založenou objednávku.
+  String _signature(Map<String, String>? address, ShipMode ship) => jsonEncode({
+        'c': ref.read(cartProvider).map((i) => '${i.id}x${i.qty}').toList(),
+        'p': ref.read(shopAppliedCodesProvider).map((d) => d.code).toList(),
+        's': ship.name,
+        'a': address,
+      });
+
+  void _showOrderError(String message) {
+    PaymentErrorSheet.show(
+      context,
+      title: t(context).tr('psOrderFailTitle'),
+      message: message,
+      buttonLabel: t(context).tr('retry'),
+      onButton: _finalize,
+      secondaryLabel: t(context).tr('psWriteUs'),
+      onSecondary: () => openContactUs(context),
+    );
+  }
+
+  /// Platba se ověřuje (banka ji zatím nepotvrdila) — košík pryč, aby
+  /// zákazník nezaplatil podruhé; výsledek ověří obrazovka „Platba se ověřuje".
+  Future<void> _goPending(String orderId) async {
+    await PaymentPendingMarker.set(orderId, clientSecret: _clientSecret);
+    if (!mounted) return;
+    final tr = t(context);
+    final verified = PaymentOutcome(
+      title: tr.tr('paid'),
+      subtitle: tr.tr('orderConfirmed'),
+      nextStepNote: tr.tr('confirmOnEmail'),
+      ctaLabel: tr.tr('close'),
+      ctaRoute: Routes.shop,
+    );
+    _clearCheckout();
+    ref.read(paymentOutcomeProvider.notifier).state =
+        pendingOrderOutcome(tr, orderId: orderId, verified: verified);
+    context.go(Routes.paymentResult);
+  }
+
+  /// Nejasná chyba po odeslání platby — rozhodne stav PaymentIntentu.
+  Future<void> _resolveUnclear(String orderId, Object error,
+      {bool wallet = false}) async {
+    final cs = _clientSecret;
+    final st = cs == null ? null : await StripeService.fetchIntentStatus(cs);
+    if (!mounted) return;
+    switch (StripeService.outcomeForStatus(st)) {
+      case NextActionOutcome.succeeded:
+        await StripeService.pollOrderPaymentStatus(orderId,
+            maxAttempts: 8, interval: const Duration(seconds: 1));
+        if (mounted) _onSuccess(orderId);
+      case NextActionOutcome.processing:
+      case NextActionOutcome.unknown:
+        await _goPending(orderId);
+      case NextActionOutcome.notCompleted:
+      case NextActionOutcome.failed:
+        await PaymentPendingMarker.clear(orderId);
+        if (!mounted) return;
+        final lang = t(context).lang;
+        final info = wallet
+            ? PaymentErrorMapper.walletFailed(lang)
+            : PaymentErrorMapper.generic(lang);
+        PaymentErrorSheet.show(context,
+            title: info.title,
+            message: info.message,
+            buttonLabel: t(context).tr('retry'),
+            onButton: _finalize);
+    }
+  }
+
   Future<void> _finalize() async {
+    if (_processing) return;
     final cart = ref.read(cartProvider);
     final shipMode = ref.read(shipModeProvider);
     final discount = ref.read(shopDiscountProvider);
     final digitalOnly = isCartDigitalOnly(cart);
+    final lang = t(context).lang;
 
     if (cart.isEmpty) {
       showMotoGoToast(context,
@@ -238,6 +342,17 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       }
     }
 
+    // Kartou jde zaplatit nejméně 15 Kč — řekni to PŘED založením objednávky.
+    final subtotal = ref.read(cartProvider.notifier).subtotal;
+    final shipping =
+        digitalOnly ? 0.0 : (shipMode == ShipMode.post ? shippingCost : 0.0);
+    final clientTotal =
+        (subtotal + shipping - discount).clamp(0.0, double.infinity);
+    if (belowCardMinimum(clientTotal)) {
+      _showBelowMinimum(clientTotal);
+      return;
+    }
+
     setState(() => _processing = true);
 
     final address = digitalOnly
@@ -248,42 +363,52 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
             'zip': _zipCtrl.text.trim(),
             'city': _cityCtrl.text.trim(),
           };
+    final ship = digitalOnly ? ShipMode.digital : shipMode;
+    final sig = _signature(address, ship);
 
-    final order = await createShopOrder(
-      items: cart,
-      shipping: digitalOnly ? ShipMode.digital : shipMode,
-      address: address,
-      promoCode: ref.read(shopAppliedCodesProvider).isNotEmpty
-          ? ref
-              .read(shopAppliedCodesProvider)
-              .map((d) => d.code)
-              .join(',')
-          : null,
-      language: ref.read(localeProvider).languageCode,
-    );
-
-    final orderId = order.orderId;
-    if (orderId == null) {
-      if (mounted) {
-        showMotoGoToast(context,
-            icon: '✗',
-            title: t(context).tr('error'),
-            message: _orderErrorText(order));
+    String orderId;
+    double total;
+    if (_orderId != null && _orderSig == sig) {
+      // Stejný obsah jako minulý pokus → stejná objednávka (žádné duplicity).
+      orderId = _orderId!;
+      total = _orderTotal ?? clientTotal;
+    } else {
+      final order = await createShopOrder(
+        items: cart,
+        shipping: ship,
+        address: address,
+        promoCode: ref.read(shopAppliedCodesProvider).isNotEmpty
+            ? ref
+                .read(shopAppliedCodesProvider)
+                .map((d) => d.code)
+                .join(',')
+            : null,
+        language: ref.read(localeProvider).languageCode,
+      );
+      if (!mounted) return;
+      final id = order.orderId;
+      if (id == null) {
+        setState(() => _processing = false);
+        _showOrderError(_orderErrorText(order));
+        return;
       }
-      setState(() => _processing = false);
-      return;
+      orderId = id;
+      // Cenu počítá SERVER (create_shop_order v2) — platí se jeho částka;
+      // objednávku za 0 Kč server rovnou potvrdil.
+      total = order.total ?? clientTotal;
+      if (order.autoConfirmed || total <= 0) {
+        setState(() => _processing = false);
+        _onSuccess(orderId, free: true);
+        return;
+      }
+      _orderId = orderId;
+      _orderTotal = total;
+      _orderSig = sig;
     }
 
-    // Cenu počítá SERVER (create_shop_order v2) — platí se jeho částka;
-    // objednávku za 0 Kč server rovnou potvrdil.
-    final subtotal = ref.read(cartProvider.notifier).subtotal;
-    final shipping =
-        digitalOnly ? 0.0 : (shipMode == ShipMode.post ? shippingCost : 0.0);
-    final total = order.total ??
-        (subtotal + shipping - discount).clamp(0.0, double.infinity);
-
-    if (order.autoConfirmed || total <= 0) {
-      _onSuccess(orderId);
+    if (belowCardMinimum(total)) {
+      setState(() => _processing = false);
+      _showBelowMinimum(total);
       return;
     }
 
@@ -297,12 +422,15 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
 
     if (result.type == PaymentResultType.intent &&
         result.clientSecret != null) {
+      final cs = result.clientSecret!;
+      _clientSecret = cs;
       // Vlastní in-app sheet (CardField + Google Pay) místo nativního Payment
       // Sheetu — celé pole karty klikací + vkládání ze schránky.
       final sheetResult = await CardPaymentSheet.show(
         context,
-        clientSecret: result.clientSecret!,
+        clientSecret: cs,
         amount: total,
+        onSubmitting: () => PaymentPendingMarker.set(orderId, clientSecret: cs),
       );
       if (!mounted) return;
       switch (sheetResult.status) {
@@ -316,65 +444,125 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
               maxAttempts: 8, interval: const Duration(seconds: 1));
           if (!mounted) break;
           _onSuccess(orderId);
-          break;
         case CardSheetStatus.processing:
           // Stripe platbu zatím NEPOTVRDIL (PaymentIntent = Processing).
           // Nepotvrzuj objednávku optimisticky — počkej na serverové potvrzení
-          // (webhook). Když nedorazí v okně, ukaž průběžný stav (potvrzení dorazí
-          // e-mailem) místo falešného úspěchu.
-          {
-            final ok = await StripeService.pollOrderPaymentStatus(orderId,
-                maxAttempts: 10, interval: const Duration(seconds: 1));
-            if (!mounted) break;
-            if (ok) {
-              _onSuccess(orderId);
-            } else {
-              setState(() => _processing = false);
-              showMotoGoToast(context,
-                  icon: '⏳',
-                  title: t(context).tr('verifyingPayment'),
-                  message:
-                      '${t(context).tr('waitingConfirmation')} ${t(context).tr('successEmailSent')}');
-            }
+          // (webhook). Když nedorazí v okně, obrazovka „Platba se ověřuje"
+          // (košík pryč — žádná druhá platba).
+          final ok = await StripeService.pollOrderPaymentStatus(orderId,
+              maxAttempts: 10, interval: const Duration(seconds: 1));
+          if (!mounted) break;
+          if (ok) {
+            _onSuccess(orderId);
+          } else {
+            await _goPending(orderId);
           }
-          break;
         case CardSheetStatus.cancelled:
-          setState(() => _processing = false);
-          break;
+          await PaymentPendingMarker.clear(orderId);
         case CardSheetStatus.failed:
-          setState(() => _processing = false);
-          final lang = t(context).lang;
-          final info = sheetResult.stripeError != null
-              ? PaymentErrorMapper.fromStripeException(
-                  sheetResult.stripeError!, lang)
-              : PaymentErrorMapper.generic(lang);
-          if (info.userCancelled) break; // jen zavřel sheet — není chyba
+          final e = sheetResult.stripeError;
+          final info = e != null
+              ? PaymentErrorMapper.fromStripeException(e, lang,
+                  wallet: sheetResult.wallet)
+              : null;
+          if (info != null && info.userCancelled) {
+            await PaymentPendingMarker.clear(orderId);
+            break; // jen zavřel sheet — není chyba
+          }
+          if (info == null || info.needsVerification) {
+            // Bez kódu karty — nevíme, jestli platba prošla → ověřit.
+            await _resolveUnclear(orderId, e ?? sheetResult.otherError ?? 'failed',
+                wallet: sheetResult.wallet);
+            break;
+          }
+          await PaymentPendingMarker.clear(orderId);
+          if (!mounted) break;
+          if (info.cause == 'amount_too_small') {
+            _showBelowMinimum(total);
+            break;
+          }
           PaymentErrorSheet.show(context,
               title: info.title,
               message: info.message,
-              buttonLabel: t(context).tr('retry'));
-          break;
+              buttonLabel: t(context).tr('retry'),
+              onButton: _finalize);
       }
     } else if (result.type == PaymentResultType.free) {
       _onSuccess(orderId);
     } else {
-      if (!mounted) return;
-      // Kód chyby → lokalizovaná hláška (technický text služby se neukazuje;
-      // text serveru jen české appce).
-      final lang = t(context).lang;
-      final serverText = result.errorMessage ?? '';
-      final info = lang == 'cs' &&
-              result.errorCode == PaymentErrorCode.serverError &&
-              serverText.isNotEmpty
-          ? PaymentErrorMapper.fromEdge(rawMessage: serverText, lang: lang)
-          : PaymentErrorMapper.serviceError(lang, result.errorCode);
-      PaymentErrorSheet.show(context,
-          title: info.title,
-          message: info.message,
-          buttonLabel: t(context).tr('retry'));
+      // Odmítnutí serverem / síť — přeložená hláška s akcí, nikdy text serveru.
+      final p = PaymentRefusals.resolve(lang, result, PayFlow.shop, amount: total);
+      setState(() => _processing = false);
+      switch (p.action) {
+        case PayAction.success:
+          _onSuccess(orderId);
+        case PayAction.pending:
+        case PayAction.verify:
+          await _goPending(orderId);
+        case PayAction.belowMinimum:
+          _showBelowMinimum(total);
+        default:
+          final toCart = p.action == PayAction.toCart;
+          if (toCart) {
+            // Objednávka už neplatí / cena se změnila → příště založit novou.
+            _orderId = null;
+            _orderSig = null;
+          }
+          PaymentErrorSheet.show(context,
+              title: p.title,
+              message: p.message,
+              buttonLabel: p.action == PayAction.signIn
+                  ? t(context).tr('login')
+                  : toCart
+                      ? t(context).tr('psSendAgain')
+                      : t(context).tr('retry'),
+              onButton: p.action == PayAction.signIn
+                  ? () => context.go(Routes.login)
+                  : _finalize,
+              secondaryLabel: p.contact ? t(context).tr('psWriteUs') : null,
+              onSecondary: p.contact ? () => openContactUs(context) : null);
+      }
     }
 
     if (mounted) setState(() => _processing = false);
+  }
+
+  /// Objednávka pod minimem karty (1–14 Kč) — co s tím (D2).
+  void _showBelowMinimum(double total) {
+    final tr = t(context);
+    final p = PaymentRefusals.belowMinimum(tr.lang, PayFlow.shop, total);
+    final hasCodes = ref.read(shopAppliedCodesProvider).isNotEmpty;
+    PaymentErrorSheet.show(
+      context,
+      title: p.title,
+      message: p.message,
+      buttonLabel: tr.tr('psEditCart'),
+      onButton: () => context.backOr(Routes.cart),
+      secondaryLabel: hasCodes ? tr.tr('psRemoveCode') : tr.tr('psWriteUs'),
+      onSecondary: hasCodes
+          ? () {
+              for (final c in List.of(ref.read(shopAppliedCodesProvider))) {
+                _removeCode(c.code);
+              }
+            }
+          : () => openContactUs(context),
+    );
+  }
+
+  /// Zpět: během platby jen po potvrzení; bez historie → košík (ne zavření appky).
+  Future<void> _onBack() async {
+    if (_processing) {
+      if (!await confirmLeaveRunningPayment(context)) return;
+      if (!mounted) return;
+      final id = _orderId;
+      if (id != null) {
+        // Platba mohla odejít → „Platba se ověřuje" (košík pryč, aby nevznikla
+        // druhá objednávka a druhá platba).
+        await _goPending(id);
+        return;
+      }
+    }
+    if (mounted) context.backOr(Routes.cart);
   }
 
   @override
@@ -389,7 +577,22 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
         digitalOnly ? 0.0 : (shipMode == ShipMode.post ? shippingCost : 0.0);
     final total = (subtotal + shipping - discount).clamp(0.0, double.infinity);
 
-    return Scaffold(
+    return BackButtonListener(
+      // Bez historie (deep link) → košík; během platby jen s potvrzením.
+      onBackButtonPressed: () async {
+        if (!isTopmostRoute(context)) return false;
+        if (_processing || !GoRouter.of(context).canPop()) {
+          _onBack();
+          return true;
+        }
+        return false;
+      },
+      child: PopScope(
+      canPop: !_processing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _onBack();
+      },
+      child: Scaffold(
       backgroundColor: MotoGoColors.bg,
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
@@ -408,7 +611,8 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
         ),
         backgroundColor: MotoGoColors.dark,
         leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
+          behavior: HitTestBehavior.opaque,
+          onTap: _onBack,
           child: Center(
             child: Container(
               width: 36, height: 36,
@@ -503,6 +707,8 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
             ),
           ),
         ],
+      ),
+    ),
       ),
     );
   }

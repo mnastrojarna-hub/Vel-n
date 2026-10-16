@@ -9,6 +9,8 @@ import '../reservations/reservation_provider.dart';
 import 'booking_models.dart';
 import 'booking_validator.dart';
 import 'price_calculator.dart';
+import 'promo_reasons.dart';
+import '../payment/net_error.dart';
 import '../../core/currency.dart';
 import '../../core/date_days.dart';
 
@@ -69,16 +71,24 @@ final priceBreakdownProvider = Provider<PriceBreakdown>((ref) {
 
 /// Validate and apply promo code or voucher.
 /// Mirrors applyDiscount() from cart-booking-discount.js.
+///
+/// Neúspěch vrací KONKRÉTNÍ důvod (2026-10-16): vypršel / ještě neplatí /
+/// vyčerpaný / poukaz už uplatněný / Slevomat neověřil / bez internetu —
+/// dřív vše „Neplatný kód" a výpadky sítě se tiše spolkly.
 Future<DiscountResult> validateAndApplyCode(String code) async {
   final upperCode = code.trim().toUpperCase();
   if (upperCode.isEmpty) {
     return DiscountResult(success: false, messageKey: 'enterCodeHint');
   }
+  String? reason; // první konkrétní důvod (kód existuje, ale neplatí)
+  var networkFail = false;
+  const limit = Duration(seconds: 15);
 
   // 1. Try promo code via RPC
   try {
     final promoRes = await MotoGoSupabase.client
-        .rpc('validate_promo_code', params: {'p_code': upperCode});
+        .rpc('validate_promo_code', params: {'p_code': upperCode})
+        .timeout(limit);
 
     if (promoRes != null && promoRes['valid'] == true) {
       final type = promoRes['type'] as String? ?? 'percent';
@@ -95,16 +105,20 @@ Future<DiscountResult> validateAndApplyCode(String code) async {
         ),
         messageKey: 'discountApplied',
         messageArgs: {
-          'value': type == 'percent' ? '$value%' : '${Money.czk(value)}',
+          'value': type == 'percent' ? '$value%' : Money.czk(value),
         },
       );
     }
-  } catch (_) {}
+    reason ??= promoReasonKey(promoRes is Map ? promoRes : null);
+  } catch (e) {
+    if (isNetworkError(e)) networkFail = true;
+  }
 
   // 2. Try voucher code via RPC
   try {
     final voucherRes = await MotoGoSupabase.client
-        .rpc('validate_voucher_code', params: {'p_code': upperCode});
+        .rpc('validate_voucher_code', params: {'p_code': upperCode})
+        .timeout(limit);
 
     if (voucherRes != null && voucherRes['valid'] == true) {
       final value = (voucherRes['value'] as num?)?.toDouble() ?? 0;
@@ -121,38 +135,51 @@ Future<DiscountResult> validateAndApplyCode(String code) async {
           isVoucher: true,
         ),
         messageKey: 'voucherApplied',
-        messageArgs: {'value': '${Money.czk(value)}'},
+        messageArgs: {'value': Money.czk(value)},
       );
     }
-  } catch (_) {}
+    reason ??= promoReasonKey(voucherRes is Map ? voucherRes : null);
+  } catch (e) {
+    if (isNetworkError(e)) networkFail = true;
+  }
 
   // 3. Slevomat voucher přes edge fn — ověří u Slevomatu + založí voucher.
-  try {
-    final sl = await MotoGoSupabase.client.functions.invoke(
-      'slevomat-voucher',
-      body: {'action': 'check', 'code': upperCode},
-    );
-    final d = sl.data;
-    if (d is Map && d['valid'] == true && d['voucher_id'] != null) {
-      final value = (d['amount'] as num?)?.toDouble() ?? 0;
-      return DiscountResult(
-        success: true,
-        discount: AppliedDiscount(
-          code: upperCode,
-          promoId: d['voucher_id'] as String?,
-          type: DiscountType.fixed,
-          value: value,
-          isVoucher: true,
-        ),
-        messageKey: 'voucherApplied',
-        messageArgs: {'value': '${Money.czk(value)}'},
-      );
+  if (reason == null) {
+    try {
+      final sl = await MotoGoSupabase.client.functions.invoke(
+        'slevomat-voucher',
+        body: {'action': 'check', 'code': upperCode},
+      ).timeout(const Duration(seconds: 25));
+      final d = sl.data;
+      if (d is Map && d['valid'] == true && d['voucher_id'] != null) {
+        final value = (d['amount'] as num?)?.toDouble() ?? 0;
+        return DiscountResult(
+          success: true,
+          discount: AppliedDiscount(
+            code: upperCode,
+            promoId: d['voucher_id'] as String?,
+            type: DiscountType.fixed,
+            value: value,
+            isVoucher: true,
+          ),
+          messageKey: 'voucherApplied',
+          messageArgs: {'value': Money.czk(value)},
+        );
+      }
+      reason ??= slevomatReasonKey(d is Map ? d : null);
+    } catch (e) {
+      if (isNetworkError(e)) {
+        networkFail = true;
+      } else {
+        // Edge odpověděla chybou (Slevomat / DB nedostupné) — neověřeno.
+        reason ??= 'psSlevomatUnverified';
+      }
     }
-  } catch (_) {}
+  }
 
   return DiscountResult(
     success: false,
-    messageKey: 'invalidCode',
+    messageKey: reason ?? (networkFail ? 'psCodeNet' : 'psCodeNotFound'),
     messageArgs: {'code': upperCode},
   );
 }

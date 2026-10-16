@@ -33,6 +33,20 @@ Future<bool> confirmLeaveRunningPayment(BuildContext context) async {
   return leave == true;
 }
 
+/// true = obrazovka s [context] je nahoře: nad ní není jiná trasa ve vlastním
+/// navigátoru (sheet, Zprávy) ani dialog / sheet v kořenovém navigátoru (ten
+/// leží nad celým shellem). Jen pak smí `BackButtonListener` obrazovky
+/// převzít systémové „zpět" — jinak ho musí dostat horní dialog / sheet.
+bool isTopmostRoute(BuildContext context) {
+  if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
+  var popupOnTop = false;
+  Navigator.of(context, rootNavigator: true).popUntil((r) {
+    popupOnTop = r is PopupRoute;
+    return true; // jen nahlédnout na vrchol, nic nezavírat
+  });
+  return !popupOnTop;
+}
+
 /// „Napsat nám" — zprávy v appce (odpověď přijde tamtéž), kontakt e-mailem a
 /// telefonem je v patičce chybových hlášek.
 void openContactUs(BuildContext context) {

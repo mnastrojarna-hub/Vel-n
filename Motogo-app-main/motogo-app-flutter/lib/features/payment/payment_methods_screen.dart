@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/router.dart';
 import '../auth/widgets/toast_helper.dart';
+import 'net_error.dart';
+import 'payment_error_mapper.dart';
 import 'payment_provider.dart';
 
 /// Payment methods management — mirrors profile → Platební metody
@@ -29,7 +33,12 @@ class PaymentMethodsScreen extends ConsumerWidget {
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
         leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
+          behavior: HitTestBehavior.opaque,
+          // Bez historie by holé pop() zavřelo appku → Profil.
+          onTap: () async {
+            final popped = await Navigator.of(context).maybePop();
+            if (!popped && context.mounted) context.go(Routes.profile);
+          },
           child: Center(
             child: Container(
               width: 36, height: 36,
@@ -47,8 +56,20 @@ class PaymentMethodsScreen extends ConsumerWidget {
           child: CircularProgressIndicator(color: MotoGoColors.green),
         ),
         error: (_, __) => Center(
-          child: Text(t(context).tr('cardsLoadError'),
-              style: const TextStyle(color: MotoGoColors.red)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(t(context).tr('cardsLoadError'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: MotoGoColors.red)),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => ref.invalidate(paymentMethodsProvider),
+                icon: const Icon(Icons.refresh, size: 16),
+                label: Text(t(context).tr('retry')),
+              ),
+            ]),
+          ),
         ),
       ),
     );
@@ -210,6 +231,8 @@ class _AddCardSheetBody extends StatefulWidget {
 class _AddCardSheetBodyState extends State<_AddCardSheetBody> {
   bool _cardComplete = false;
   bool _processing = false;
+  /// Důvod neúspěchu pod tlačítkem (zamítnutá karta, bez internetu…).
+  String? _error;
 
   // Plugin drží zadané údaje v nativním view, které přežívá zavření sheetu —
   // při otevření čistíme, aby tu nestrašila karta z předchozího zadávání
@@ -238,7 +261,10 @@ class _AddCardSheetBodyState extends State<_AddCardSheetBody> {
 
   Future<void> _save() async {
     if (_processing || !_cardComplete) return;
-    setState(() => _processing = true);
+    setState(() {
+      _processing = true;
+      _error = null;
+    });
     FocusManager.instance.primaryFocus?.unfocus();
     try {
       // Karta jde POUZE do Stripe (SDK → payment method), k nám jen pm id.
@@ -250,12 +276,27 @@ class _AddCardSheetBodyState extends State<_AddCardSheetBody> {
       final ok = await attachPaymentMethod(pm.id);
       if (!mounted) return;
       Navigator.of(context).pop(ok);
-    } on StripeException {
-      // Nevalidní karta / zrušeno — zůstaň v sheetu, ať může opravit.
+    } on StripeException catch (e) {
+      // Nevalidní / zamítnutá karta — zůstaň v sheetu a řekni proč.
       if (!mounted) return;
-      setState(() => _processing = false);
-    } catch (_) {
+      final info = PaymentErrorMapper.fromStripeException(e, t(context).lang);
+      setState(() {
+        _processing = false;
+        _error = info.userCancelled
+            ? null
+            : (info.needsVerification
+                ? t(context).tr('psCardSaveNet')
+                : '${info.title}: ${info.message}');
+      });
+    } catch (e) {
       if (!mounted) return;
+      if (isNetworkError(e)) {
+        setState(() {
+          _processing = false;
+          _error = t(context).tr('psCardSaveNet');
+        });
+        return;
+      }
       Navigator.of(context).pop(false);
     }
   }
@@ -263,7 +304,10 @@ class _AddCardSheetBodyState extends State<_AddCardSheetBody> {
   @override
   Widget build(BuildContext context) {
     final tt = t(context);
-    return SafeArea(
+    // Během ukládání nejde sheet zavřít „zpět" / klepnutím vedle.
+    return PopScope(
+      canPop: !_processing,
+      child: SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -284,15 +328,25 @@ class _AddCardSheetBodyState extends State<_AddCardSheetBody> {
               ),
             ),
 
-            Text(
-              tt.tr('addPaymentCard'),
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: MotoGoColors.black,
+            Row(children: [
+              Expanded(
+                child: Text(
+                  tt.tr('addPaymentCard'),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: MotoGoColors.black,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              // Viditelné zavření (během ukládání zamčené).
+              IconButton(
+                onPressed: _processing ? null : () => Navigator.of(context).maybePop(),
+                tooltip: tt.tr('close'),
+                icon: const Icon(Icons.close),
+              ),
+            ]),
+            const SizedBox(height: 8),
 
             // Nativní pole karty — celý rámeček klikací, vkládání ze schránky OK
             Container(
@@ -340,6 +394,15 @@ class _AddCardSheetBodyState extends State<_AddCardSheetBody> {
                     )
                   : Text(tt.tr('saveCard')),
             )),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFB45309))),
+            ],
             const SizedBox(height: 10),
             Text(
               '🔒 ${tt.tr('encryptedPayment')} · Stripe PCI DSS Level 1',
@@ -349,6 +412,7 @@ class _AddCardSheetBodyState extends State<_AddCardSheetBody> {
           ],
         ),
       ),
+    ),
     );
   }
 }

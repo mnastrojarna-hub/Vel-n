@@ -15,6 +15,7 @@ import '../booking/booking_provider.dart';
 import '../catalog/catalog_provider.dart';
 import '../reservations/reservation_provider.dart';
 import 'payment_provider.dart';
+import 'payment_ui_helpers.dart';
 
 /// Stav dokladů na děkovací stránce — parita s webovou `/potvrzeni`:
 /// - `verified` = doklady OK (nebo dětská motorka, kde se nevyžadují) → zelený badge
@@ -268,7 +269,7 @@ class _PaymentConfirmationScreenState
       // zásobníku (sem se chodí přes `go`; PopScope by se nezavolal a Android
       // by appku zavřel). Nad stránkou jiná trasa (Doklady) → ať se zavře ona.
       onBackButtonPressed: () async {
-        if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
+        if (!isTopmostRoute(context)) return false;
         close();
         return true;
       },

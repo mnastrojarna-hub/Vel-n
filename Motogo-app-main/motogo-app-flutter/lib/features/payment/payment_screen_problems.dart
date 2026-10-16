@@ -202,6 +202,7 @@ extension _PaymentProblems on _PaymentScreenState {
       return;
     }
     await PaymentPendingMarker.clear(_markerId);
+    if (!mounted) return;
     _setProcessing(false);
     if (info.cause == 'amount_too_small') {
       _showProblem(PaymentRefusals.belowMinimum(lang, _flow, _amount));
@@ -378,7 +379,7 @@ extension _PaymentProblems on _PaymentScreenState {
         await cancelPendingBooking(bid,
             reason: 'Čas na zaplacení v appce vypršel');
       } catch (_) {/* cron rezervaci zruší sám */}
-      ref.invalidate(pendingBookingFabProvider);
+      if (mounted) ref.invalidate(pendingBookingFabProvider);
     }
     if (!mounted) return;
     final moto = ref.read(bookingMotoProvider);

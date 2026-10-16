@@ -4,6 +4,8 @@ import '../../core/auth_guard.dart';
 import '../../core/i18n/app_lang.dart';
 import '../../core/supabase_client.dart';
 import '../booking/booking_models.dart';
+import '../booking/promo_reasons.dart';
+import '../payment/net_error.dart';
 import 'shop_models.dart';
 
 /// Active products from Supabase.
@@ -122,7 +124,7 @@ Future<ShopOrderResult> createShopOrder({
       'p_shipping_address': address,
       'p_payment_method': 'card',
       'p_promo_code': promoCode,
-    });
+    }).timeout(const Duration(seconds: 20));
     if (res is Map && res['order_id'] != null) {
       final orderId = res['order_id'] as String;
       // i18n: ulož jazyk zákazníka do shop_orders.language (pro maily/SMS/push).
@@ -145,30 +147,44 @@ Future<ShopOrderResult> createShopOrder({
       return ShopOrderResult(
           error: res['error']?.toString(), code: res['code']?.toString());
     }
-    return const ShopOrderResult();
+    return const ShopOrderResult(error: 'failed');
   } catch (e) {
-    return const ShopOrderResult();
+    // Výpadek spojení ≠ chyba serveru — jiná hláška (a „nic nestrženo").
+    debugPrint('[Shop] create_shop_order failed: $e');
+    return ShopOrderResult(error: isNetworkError(e) ? 'network' : 'failed');
   }
+}
+
+/// Výsledek ověření promo kódu v e-shopu: sleva, nebo i18n klíč důvodu.
+class ShopPromoCheck {
+  final AppliedDiscount? discount;
+  final String reasonKey;
+  const ShopPromoCheck.ok(AppliedDiscount this.discount) : reasonKey = '';
+  const ShopPromoCheck.fail(this.reasonKey) : discount = null;
 }
 
 /// E-shop: platí JEN promo kódy (rozhodnutí provozovatele 2026-09-24) —
 /// dárkový poukaz ani poukaz ze Slevomatu v e-shopu neplatí, server
 /// (create_shop_order) je odmítne. Záměrně NEvolá slevomat-voucher (ta při
 /// kontrole rovnou zakládá voucher v DB).
-Future<AppliedDiscount?> validateShopPromoCode(String code) async {
+Future<ShopPromoCheck> validateShopPromoCode(String code) async {
   try {
     final r = await MotoGoSupabase.client
-        .rpc('validate_promo_code', params: {'p_code': code});
+        .rpc('validate_promo_code', params: {'p_code': code})
+        .timeout(const Duration(seconds: 15));
     if (r is Map && r['valid'] == true) {
-      return AppliedDiscount(
+      return ShopPromoCheck.ok(AppliedDiscount(
         code: code,
         promoId: r['id'] as String?,
         type: r['type'] == 'percent' ? DiscountType.percent : DiscountType.fixed,
         value: (r['value'] as num?)?.toDouble() ?? 0,
-      );
+      ));
     }
-  } catch (_) {}
-  return null;
+    return ShopPromoCheck.fail(
+        promoReasonKey(r is Map ? r : null) ?? 'psCodeNotFound');
+  } catch (e) {
+    return ShopPromoCheck.fail(isNetworkError(e) ? 'psCodeNet' : 'psCodeNotFound');
+  }
 }
 
 // Pozn.: klientské potvrzení platby (confirmShopPayment → rpc
