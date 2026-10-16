@@ -36,6 +36,8 @@ const I18N_SLUG_ROUTES = [
     '/katalog/supermoto' => ['en' => '/catalog/supermoto', 'de' => '/katalog/supermoto', 'es' => '/catalogo/supermoto', 'fr' => '/catalogue/supermoto', 'nl' => '/catalogus/supermoto', 'pl' => '/katalog/supermoto', 'uk' => '/catalog/supermoto'],
     '/katalog/chopper' => ['en' => '/catalog/chopper', 'de' => '/katalog/chopper', 'es' => '/catalogo/chopper', 'fr' => '/catalogue/chopper', 'nl' => '/catalogus/chopper', 'pl' => '/katalog/chopper', 'uk' => '/catalog/chopper'],
     '/katalog/detske' => ['en' => '/catalog/kids', 'de' => '/katalog/kinder', 'es' => '/catalogo/infantiles', 'fr' => '/catalogue/enfants', 'nl' => '/catalogus/kinder', 'pl' => '/katalog/dzieciece', 'uk' => '/catalog/kids'],
+    '/katalog/scootery' => ['en' => '/catalog/scooters', 'de' => '/katalog/roller', 'es' => '/catalogo/scooters', 'fr' => '/catalogue/scooters', 'nl' => '/catalogus/scooters', 'pl' => '/katalog/skutery', 'uk' => '/catalog/scooters'],
+    '/katalog/ostatni' => ['en' => '/catalog/other', 'de' => '/katalog/sonstiges', 'es' => '/catalogo/otros', 'fr' => '/catalogue/autres', 'nl' => '/catalogus/overig', 'pl' => '/katalog/inne', 'uk' => '/catalog/other'],
     '/pujcovna-motorek' => ['en' => '/motorcycle-rental', 'de' => '/motorradverleih', 'es' => '/alquiler-de-motos', 'fr' => '/location-de-motos', 'nl' => '/motorverhuur', 'pl' => '/wypozyczalnia-motocykli', 'uk' => '/motorcycle-rental'],
     // Oblasti (rozcestník krajů). Slugy krajů (/oblasti/vysocina…) jsou vlastní
     // jména — překládá se jen prefix (viz I18N_SLUG_PREFIXES níže).

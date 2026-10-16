@@ -12,7 +12,7 @@ $C = $sb->siteContent('jak_pujcit_vyzvednuti', $defaults);
 // na (lokalizovaný) /jak-pujcit/prevzeti, sem už nedoteče.
 $pagePath = '/jak-pujcit/prevzeti';
 
-$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.pickup')]);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit/postup'], t('menu.howto.pickup')]);
 $kp = 'web.jak_pujcit_vyzvednuti';
 
 // --- Section 1: title + intro + top CTA ---
@@ -152,11 +152,10 @@ require_once __DIR__ . '/../landing-info.php';
 renderPage($C['seo']['title'], $content, $pagePath, $lpiMeta + [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
-    'canonical' => 'https://www.motogo24.cz/jak-pujcit/prevzeti',
     'schema' => $faqSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
-        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit/postup')],
         ['name' => t('menu.howto.pickup'), 'url' => siteCanonicalUrl('/jak-pujcit/prevzeti')],
     ],
 ]);

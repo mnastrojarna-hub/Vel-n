@@ -226,6 +226,8 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
                 onTap: () async {
                   final subject = controller.text.trim();
                   if (subject.isEmpty) {
+                    // Zavři klávesnici (jako Enter) — jinak toast zůstane pod ní.
+                    FocusScope.of(ctx).unfocus();
                     showMotoGoToast(context, icon: '⚠️', title: t(context).tr('newConversation'), message: t(context).tr('enterSubject'));
                     return;
                   }

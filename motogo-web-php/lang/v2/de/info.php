@@ -14,7 +14,7 @@ return ['pages' => ['landing_info' => [
     'chips' => [
         'postup' => ['Keine Kaution', 'Fahrerausrüstung inklusive', 'In Minuten online gebucht'],
         'prevzeti' => ['Abholung zu deiner Wunschzeit', 'Kostenloser Parkplatz', 'Keine Kaution'],
-        'vraceni_pujcovna' => ['Am letzten Tag bis 24:00 Uhr', 'Ohne Volltanken', 'Keine Kaution'],
+        'vraceni_pujcovna' => ['Am letzten Tag bis 24:00 Uhr', 'Kein Tanken – Reserveleuchte aus', 'Keine Kaution'],
         'vraceni_jinde' => ['Überall in Tschechien', 'Klarer Preis pro km', 'Keine Kaution'],
         'cena' => ['0 € Kaution', 'Fahrerausrüstung inklusive', 'Keine versteckten Gebühren'],
         'pristaveni' => ['Nach Hause, ins Hotel oder zum Bahnhof', 'In ganz Tschechien', 'Keine Kaution'],

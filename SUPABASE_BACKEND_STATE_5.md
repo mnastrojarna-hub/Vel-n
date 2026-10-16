@@ -33,8 +33,8 @@ Detailní politiky:
 - **motorcycles:** public SELECT, admin ALL
 - **sos_incidents:** admin ALL, customer SELECT/INSERT/UPDATE (user_id=uid)
 - **sos_timeline:** admin ALL, customer SELECT/INSERT (own incident)
-- **messages:** admin ALL, customer SELECT (own thread), customer INSERT (direction='customer' + own thread)
-- **message_threads:** admin ALL, customer SELECT/UPDATE/INSERT (customer_id=uid)
+- **messages:** admin ALL (`messages_admin`), customer SELECT (own thread), customer INSERT (`messages_customer_insert`: direction='customer' + own thread). **Ověřeno snapshotem 2026-10-15:** živě existuje i starší INSERT politika `Users and admins can send messages` (vlastník vlákna NEBO admin_users) **bez podmínky na `direction`** → zákazník může do svého vlákna vložit i `direction='admin'` (Velín → Zprávy → Hodnocení by ji bral jako odpověď). Oprava = DROP té politiky (návrh SQL ke schválení, appka i Velín vkládají jen přes zbylé dvě politiky).
+- **message_threads:** admin ALL, customer SELECT/INSERT (customer_id=uid). **Customer UPDATE politika živě NEEXISTUJE** (ověřeno snapshotem 2026-10-15) — `update last_message_at` z appky po odeslání zprávy tiše nic nezmění; řeší až návrh triggeru AFTER INSERT na `messages` (bump `last_message_at`, ke schválení).
 - **admin_messages:** admin ALL + INSERT, user SELECT (user_id=uid OR is_admin), user UPDATE (own)
 - **vouchers:** admin ALL, user SELECT (buyer_id OR redeemed_by = uid)
 - **reviews:** admin ALL, customer SELECT (own OR visible=true), customer INSERT (own)

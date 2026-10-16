@@ -33,6 +33,13 @@ foreach ($allPosts as $p) {
     }
 }
 
+// Štítky článků jsou ve Velínu česky (cms_pages.tags) — popisek se přeloží, odkaz ?tag= zůstává český.
+$blogTagLabels = [
+    'O nás'       => ['en' => 'About us', 'de' => 'Über uns', 'es' => 'Sobre nosotros', 'fr' => 'À propos de nous', 'nl' => 'Over ons', 'pl' => 'O nas', 'uk' => 'Про нас'],
+    'Rady a tipy' => ['en' => 'Tips & advice', 'de' => 'Tipps & Ratschläge', 'es' => 'Consejos', 'fr' => 'Conseils et astuces', 'nl' => 'Tips en advies', 'pl' => 'Porady i wskazówki', 'uk' => 'Поради'],
+    'Aplikace'    => ['en' => 'App', 'de' => 'App', 'es' => 'App', 'fr' => 'Application', 'nl' => 'App', 'pl' => 'Aplikacja', 'uk' => 'Застосунок'],
+];
+$blogTagLang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 $tagHtml = '';
 if (!empty($tagCounts)) {
     $isAllActive = !$activeTag ? ' class="active"' : '';
@@ -40,7 +47,7 @@ if (!empty($tagCounts)) {
         . '<li' . $isAllActive . '><a href="' . BASE_URL . '/blog">' . htmlspecialchars(t('blog.tagAll', ['count' => count($allPosts)])) . '</a></li>';
     foreach ($tagCounts as $tag => $count) {
         $isActive = ($activeTag === $tag) ? ' class="active"' : '';
-        $tagHtml .= '<li' . $isActive . '><a href="' . BASE_URL . '/blog?tag=' . urlencode($tag) . '">' . htmlspecialchars($tag) . ' (' . $count . ')</a></li>';
+        $tagHtml .= '<li' . $isActive . '><a href="' . BASE_URL . '/blog?tag=' . urlencode($tag) . '">' . htmlspecialchars($blogTagLabels[$tag][$blogTagLang] ?? $tag) . ' (' . $count . ')</a></li>';
     }
     $tagHtml .= '</ul>';
 }

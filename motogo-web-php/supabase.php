@@ -256,8 +256,11 @@ class SupabaseClient {
 
     // ===== MOTORKY =====
     public function fetchMotos() {
+        // Technické údaje (barva, motor, převodovka, palivo, brzdy, popisky fotek) jsou ve Velínu
+        // jen česky → na cizojazyčné stránce je přeloží i18n_moto_specs.php (cache drží češtinu).
+        require_once __DIR__ . '/i18n_moto_specs.php';
         $cached = $this->cacheGet('motos');
-        if ($cached !== null) return $cached;
+        if ($cached !== null) return mgLocalizeMotos($cached);
         // active + maintenance: motorka v servisu zůstává v katalogu — servisní
         // dny blokuje kalendář detailu/rezervace (get_moto_booked_dates vrací
         // status='service'), ostatní volné dny jdou rezervovat. unavailable /
@@ -313,7 +316,7 @@ class SupabaseClient {
         }
 
         $this->cacheSet('motos', $data);
-        return $data;
+        return mgLocalizeMotos($data);
     }
 
     // ===== DENNÍ CENY =====
@@ -682,7 +685,18 @@ class SupabaseClient {
         $srcText = (string)($row['content_html'] ?? '') . '|' . (string)($row['pdf_path'] ?? '');
         $fresh = [];
         foreach ($tr as $lng => $v) {
-            if (self::docTranslationFresh($row['translation_src'] ?? null, (string)$lng, $srcText)) $fresh[$lng] = $v;
+            if (self::docTranslationFresh($row['translation_src'] ?? null, (string)$lng, $srcText)) {
+                $fresh[$lng] = $v;
+            } elseif (is_array($v)) {
+                // Zastaralý překlad: obsah ne (závazná je čeština), ale název a popis dokumentu ano —
+                // nejsou závazné a jinak by výpis i nadpis cizí stránky zůstaly česky.
+                $meta = [];
+                foreach (['title', 'description'] as $f) {
+                    $t = self::docNameTranslation($v[$f] ?? null, (string)($row[$f] ?? ''));
+                    if ($t !== '') $meta[$f] = $t;
+                }
+                if ($meta) $fresh[$lng] = $meta;
+            }
         }
         $row['translations'] = $fresh;
         return $row;

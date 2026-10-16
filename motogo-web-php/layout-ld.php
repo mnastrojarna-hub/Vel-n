@@ -48,12 +48,12 @@ function ldBusinessJson($siteOrigin) {
     $out = [
         'legalName' => $j($f['legalName']), 'email' => $j($f['email']), 'phone' => $j($f['phone']), 'taxID' => $j($f['taxID']),
         'vat' => $f['vatID'] !== '' ? ',"vatID":' . $j($f['vatID']) : '',
-        'priceRange' => $f['low'] > 0 && $f['high'] > 0 ? ',"priceRange":' . $j($kc($f['low']) . ' – ' . $kc($f['high']) . ' Kč/den') : '',
+        'priceRange' => $f['low'] > 0 && $f['high'] > 0 ? ',"priceRange":' . $j($kc($f['low']) . ' – ' . $kc($f['high']) . ' ' . t('ld.priceUnit')) : '',
         'offers' => $f['low'] > 0 && $f['high'] > 0
             ? ',"offers":' . $j(['@type' => 'AggregateOffer', 'priceCurrency' => 'CZK', 'lowPrice' => (string)round($f['low']), 'highPrice' => (string)round($f['high']),
                 'offerCount' => $f['count'], 'availability' => 'https://schema.org/InStock', 'seller' => ['@id' => $siteOrigin . '/#organization']])
             : '',
-        'channels' => ',' . $j(['@type' => 'ServiceChannel', 'servicePhone' => $f['phone'], 'name' => 'Telefon (Po–Pá 8:00–17:00)'])
+        'channels' => ',' . $j(['@type' => 'ServiceChannel', 'servicePhone' => $f['phone'], 'name' => t('ld.channelPhone')])
             . ($f['whatsapp'] ? ',' . $j(['@type' => 'ServiceChannel', 'serviceUrl' => 'https://wa.me/' . preg_replace('/\D+/', '', $f['phone']), 'name' => 'WhatsApp']) : ''),
         'department' => '',
     ];
@@ -95,7 +95,7 @@ function ldLicenseSupply() {
     $order = ['AM' => 0, 'A1' => 1, 'A2' => 2, 'A' => 3, 'B' => 4];
     $g = array_keys($g);
     usort($g, function ($a, $b) use ($order) { return ($order[$a] ?? 9) <=> ($order[$b] ?? 9); });
-    if (!$g) return $t = 'Řidičský průkaz odpovídající skupiny';
+    if (!$g) return $t = t('ld.licenseAny');
     $last = array_pop($g);
-    return $t = 'Řidičský průkaz (skupina ' . ($g ? implode(', ', $g) . ' nebo ' : '') . $last . ($kids ? '; dětské motorky bez ŘP' : '') . ')';
+    return $t = t('ld.license', ['groups' => ($g ? implode(', ', $g) . t('ld.licenseOr') : '') . $last . ($kids ? t('ld.licenseKids') : '')]);
 }

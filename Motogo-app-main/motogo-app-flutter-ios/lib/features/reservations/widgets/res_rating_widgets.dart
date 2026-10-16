@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/widgets/moto_fx.dart';
 
 /// Stavební prvky karty hodnocení jízdy (`res_rating_card.dart`).
@@ -66,7 +67,7 @@ class _RatingStarState extends State<RatingStar> with SingleTickerProviderStateM
     return Semantics(
       button: true,
       selected: widget.selected,
-      label: '★ ${widget.index + 1}/5',
+      label: t(context).tr('starsCount').replaceAll('{n}', '${widget.index + 1}'),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,

@@ -79,8 +79,8 @@ return [
                 'services' => [
                     'title' => 'Usługi dodatkowe za dopłatą',
                     'items' => [
-                        'podstawienie motocykla w umówione miejsce w dowolnym punkcie Czech',
-                        'zwrot motocykla w innym miejscu niż adres wypożyczalni',
+                        'podstawienie motocykla w umówione miejsce w dowolnym punkcie Czech (motocykle z oddziału z obsługą w Mezná)',
+                        'zwrot motocykla w innym miejscu niż oddział (motocykle z Mezná)',
                     ],
                 ],
             ],

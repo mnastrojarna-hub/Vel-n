@@ -14,7 +14,7 @@ return ['pages' => ['landing_info' => [
     'chips' => [
         'postup' => ['No deposit', 'Rider gear included', 'Book online in minutes'],
         'prevzeti' => ['Pick-up at your booked time', 'Free parking', 'No deposit'],
-        'vraceni_pujcovna' => ['Return by 24:00 on the last day', 'No need to refuel', 'No deposit'],
+        'vraceni_pujcovna' => ['Return by 24:00 on the last day', 'No refuelling – reserve light off', 'No deposit'],
         'vraceni_jinde' => ['Anywhere in Czechia', 'Clear per-km pricing', 'No deposit'],
         'cena' => ['€0 deposit', 'Rider gear included', 'No hidden fees'],
         'pristaveni' => ['To your home, hotel or train station', 'Across Czechia', 'No deposit'],

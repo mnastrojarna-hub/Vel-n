@@ -22,19 +22,25 @@ const isGoogleReviewAnchor = (a, url) => {
   const h = anchorHref(a)
   return GOOGLE_TEXT_RE.test(anchorText(a)) || h === url || /writereview|g\.page\//i.test(h)
 }
+// Slova, která smí stát mezi odkazy výčtu: spojky a předložky (8 jazyků). Sloveso („a sledujte“,
+// „and follow“) výčet ukončí — odkaz za ním není recenzní a zůstává.
+const CONNECTOR_WORD_RE = /^(?:a|i|e|o|u|y|nebo|anebo|či|na|ve?|přes|and|or|on|at|via|und|oder|auf|bei|bzw|sowie|en|of|op|bij|ni|et|ou|sur|lub|albo|oraz|czy|w|й|і|у|в|та|або|чи|на)$/iu
 /** Krátká spojka mezi odkazy („, “, „ nebo na “, „ or “, „ | “…) — bez tagů a konce věty. */
 function isConnector(t) {
   const s = t.replace(/&nbsp;/gi, ' ')
-  return s.length <= 24 && !/[<>.!?:]/.test(s) && /^[\s,;/&+|·•–—-]*(?:[\p{L}]+[\s,|·•]*){0,3}$/u.test(s)
+  if (s.length > 24 || /[<>.!?:]/.test(s) || !/^[\s,;/&+|·•–—-]*(?:[\p{L}]+[\s,|·•]*){0,3}$/u.test(s)) return false
+  return (s.match(/\p{L}+/gu) || []).every((w) => CONNECTOR_WORD_RE.test(w))
 }
-/** Prostý text věty (bloku), ve které leží odkaz parts[i]. */
-function sentenceAround(parts, i) {
-  const before = parts.slice(0, i).join('')
-  const after = parts.slice(i + 1).join('')
+/** Prostý text úseku věty, ke kterému patří odkaz parts[i]: text od předchozího odkazu (nebo od
+ *  začátku věty) k odkazu; je-li odkaz ve větě poslední, i text za ním do konce věty. */
+function clauseAround(parts, i) {
+  const prev = parts[i - 1] ?? ''
   let start = 0
-  for (const m of before.matchAll(BREAK_RE)) start = m.index + m[0].length
-  const end = after.search(BREAK_RE)
-  const s = before.slice(start) + parts[i] + (end < 0 ? after : after.slice(0, end))
+  for (const m of prev.matchAll(BREAK_RE)) start = m.index + m[0].length
+  const next = parts[i + 1] ?? ''
+  const end = next.search(BREAK_RE)
+  const lastInSentence = end >= 0 || i + 2 >= parts.length
+  const s = prev.slice(start) + ' ' + (lastInSentence ? (end < 0 ? next : next.slice(0, end)) : '')
   return s.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ')
 }
 
@@ -68,14 +74,23 @@ export function googleOnlyReviewLinks(html, googleUrl = GOOGLE_REVIEW_URL_DEFAUL
   }
   const textHit = (i) => OTHER_REVIEW_TEXT_RE.test(anchorText(parts[i]))
   const hrefHit = (i) => OTHER_REVIEW_HREF_RE.test(anchorHref(parts[i]))
-  // 1) Recenzní odkaz mimo výčet s Googlem → Google odkaz (věta zůstane celá).
-  for (let i = 1; i < parts.length; i += 2) {
-    if (google.has(i) || googleGroups.has(group[i])) continue
-    const t = textHit(i)
-    if (!hrefHit(i) && !(t && REVIEW_WORD_RE.test(sentenceAround(parts, i)))) continue
-    parts[i] = setHref(parts[i], url)
-    if (t) parts[i] = parts[i].replace(/^(<a\b[^>]*>)[\s\S]*(<\/a>)$/i, '$1Google$2')
-    google.add(i); googleGroups.add(group[i])
+  // 1) Recenzní odkaz mimo výčet s Googlem → Google odkaz (věta zůstane celá). Nejdřív recenzní
+  //    URL, pak název platformy v úseku věty o recenzi — ten jen, když věta ještě Google odkaz nemá
+  //    („Hodnoťte nás na Facebooku a sledujte Instagram“ → Instagram zůstává).
+  const sentence = []
+  for (let i = 1, n = 0; i < parts.length; i += 2) {
+    n += (parts[i - 1].match(BREAK_RE) || []).length
+    sentence[i] = n
+  }
+  for (const byHref of [true, false]) {
+    for (let i = 1; i < parts.length; i += 2) {
+      if (google.has(i) || googleGroups.has(group[i])) continue
+      const t = textHit(i)
+      if (byHref ? !hrefHit(i) : !(t && REVIEW_WORD_RE.test(clauseAround(parts, i)) && ![...google].some((j) => sentence[j] === sentence[i]))) continue
+      parts[i] = setHref(parts[i], url)
+      if (t) parts[i] = parts[i].replace(/^(<a\b[^>]*>)[\s\S]*(<\/a>)$/i, '$1Google$2')
+      google.add(i); googleGroups.add(group[i])
+    }
   }
   // 2) Ostatní recenzní weby ve výčtu s Googlem → pryč i se spojkou.
   const removed = new Set()

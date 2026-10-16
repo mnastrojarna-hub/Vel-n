@@ -444,8 +444,8 @@ return [
                 'services' => [
                     'title' => 'Servicios extra (con suplemento)',
                     'items' => [
-                        'entrega de la moto en el lugar acordado, en cualquier punto de la República Checa',
-                        'devolución de la moto en un lugar distinto de la dirección de la sucursal',
+                        'entrega de la moto en el lugar acordado, en cualquier punto de la República Checa (motos de la sucursal con personal de Mezná)',
+                        'devolución de la moto en un lugar distinto de la sucursal (motos de Mezná)',
                     ],
                 ],
             ],

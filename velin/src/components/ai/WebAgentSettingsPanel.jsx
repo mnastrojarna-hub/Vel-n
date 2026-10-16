@@ -126,7 +126,7 @@ export default function WebAgentSettingsPanel() {
         value={config.knowledge_extra}
         onChange={v => updateField('knowledge_extra', v)}
         helpText={<>Cokoliv napíšeš sem, agent zná OKAMŽITĚ při příští otázce zákazníka — bez deploye edge funkce. Použij na: probíhající slevy, dočasně nedostupné motorky, nové modely co ještě nejsou v katalogu, otevírací hodiny pobočky o svátcích, info pro VIP zákazníky atd.<br/>Tato znalost má <strong>vyšší prioritu než COMPANY_BRAIN</strong> v edge funkci, pokud se jedna informace s druhou tluče.</>}
-        placeholder="Např.: Akce duben 2026 — naked motorky -20 %.&#10;Yamaha MT-09 #2 (SPZ 1AB 2345) je do 3.5. v servisu, nenabízej.&#10;Pobočka Mezná je 1.5. zavřená, vyzvednutí přes self-service kód funguje normálně."
+        placeholder="Např.: Akce duben 2026 — naked motorky -20 %.&#10;Yamaha MT-09 #2 (SPZ 1AB 2345) je do 3.5. v servisu, nenabízej.&#10;Pobočka Mezná je 1.5. zavřená (obslužná – výdej ten den nenabízej); samoobslužná pobočka Velké Němčice funguje normálně 24/7."
       />
 
       <InfoBox color="blue">

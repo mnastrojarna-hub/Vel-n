@@ -108,10 +108,16 @@ function pobockyGalleryHtml($b, $key) {
     if (!$items) return '';
     $dir = BASE_URL . '/gfx/pobocky/' . rawurlencode((string)$b['slug']) . '/';
     $open = htmlspecialchars(t('gallery.openImage'));
+    // Cizí jazyky: popisky fotek z textů v2 (lang/v2/<jazyk>/pobocky-v2.php, branches[<index>].gallery — stejné pořadí)
+    $tr = [];
+    if (function_exists('i18nDetectLanguage') && i18nDetectLanguage() !== 'cs' && preg_match('/\.(\d+)$/', (string)$key, $km)) {
+        $v2b = t('pages.pobocky.v2.branches');
+        if (is_array($v2b) && is_array($v2b[(int)$km[1]]['gallery'] ?? null)) $tr = array_values($v2b[(int)$km[1]]['gallery']);
+    }
     $h = '';
     foreach (array_values($items) as $i => $it) {
         $f = rawurlencode((string)($it[0] ?? ''));
-        $alt = htmlspecialchars((string)($it[1] ?? ''));
+        $alt = htmlspecialchars(is_string($tr[$i] ?? null) && $tr[$i] !== '' ? strip_tags($tr[$i]) : (string)($it[1] ?? ''));
         $h .= '<a href="' . $dir . $f . '.webp" data-gallery="branch" data-index="' . $i . '" aria-label="' . $open . '">'
             . '<img src="' . $dir . $f . '-640.webp" alt="' . $alt . '" loading="lazy" decoding="async"></a>';
     }

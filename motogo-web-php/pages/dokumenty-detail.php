@@ -51,6 +51,22 @@ function mgDocBodyHtml($html) {
     return trim((string)$html);
 }
 
+// Veřejný náhled smluvní šablony (smlouva, předávací/škodní protokol) nemá rezervaci — místo
+// surových proměnných {{booking_number}}, {{customer_name}}… vykreslí prázdné místo k vyplnění
+// („……………“); firemní údaje ({{company_name}} / _ico / _address) doplní z config.php.
+function mgDocPublicBlanks($html) {
+    if (!is_string($html) || $html === '' || strpos($html, '{{') === false) return (string)$html;
+    $company = [
+        'company_name'    => defined('COMPANY_NAME') ? COMPANY_NAME : '',
+        'company_ico'     => defined('COMPANY_ICO') ? COMPANY_ICO : '',
+        'company_address' => defined('COMPANY_ADDRESS') ? COMPANY_ADDRESS : '',
+    ];
+    return preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/i', function ($m) use ($company) {
+        $k = strtolower($m[1]);
+        return ($company[$k] ?? '') !== '' ? htmlspecialchars($company[$k]) : '……………';
+    }, $html);
+}
+
 // Mapa veřejných slug → ['type' => document_templates.type, 'title' => přeložený název].
 // Kanonický seznam je v components.php::mgPublicDocuments(). `gdpr` má i zkrácený alias.
 $DOC_MAP = [];
@@ -99,7 +115,7 @@ if ($entry) {
             }
         }
         $tpl = [
-            'content_html' => mgDocBodyHtml($rawHtml),
+            'content_html' => mgDocPublicBlanks(mgDocBodyHtml($rawHtml)),
             'version'      => $row['version'] ?? 1,
             'updated_at'   => $row['updated_at'] ?? null,
         ];

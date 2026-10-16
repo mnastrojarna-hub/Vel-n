@@ -11,19 +11,33 @@ import 'res_rating_widgets.dart' show RatingMiniStars;
 
 /// Otevře sheet „Napiš nám přímo, co máme zlepšit“. Vrací id konverzace,
 /// do které zpráva odešla (null = zavřeno bez odeslání).
-Future<String?> showRideFeedbackSheet(BuildContext context, {required Reservation res, required int rating}) {
-  return showModalBottomSheet<String>(
+Future<String?> showRideFeedbackSheet(BuildContext context, {required Reservation res, required int rating}) async {
+  Future<RideFeedbackResult>? sending;
+  final id = await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _RideFeedbackSheet(res: res, rating: rating),
+    builder: (_) => _RideFeedbackSheet(res: res, rating: rating, onSending: (f) => sending = f),
   );
+  final pending = sending;
+  if (id != null || pending == null) return id;
+  // Sheet zavřený (stažení / klepnutí mimo / zpět) BĚHEM odesílání: zpráva
+  // dál odchází → počkej na výsledek, ať karta potvrdí odeslání (jinak by
+  // zákazník psal znovu) nebo aspoň oznámí chybu.
+  final result = await pending;
+  if (!result.ok && context.mounted) {
+    final tr = t(context);
+    showMotoGoToast(context, icon: '⚠️', title: tr.error, message: tr.tr('rfSendFailed'));
+  }
+  return result.threadId;
 }
 
 class _RideFeedbackSheet extends StatefulWidget {
   final Reservation res;
   final int rating;
-  const _RideFeedbackSheet({required this.res, required this.rating});
+  /// Probíhající odeslání (null = nic neodchází) — pro [showRideFeedbackSheet].
+  final ValueChanged<Future<RideFeedbackResult>?> onSending;
+  const _RideFeedbackSheet({required this.res, required this.rating, required this.onSending});
 
   @override
   State<_RideFeedbackSheet> createState() => _RideFeedbackSheetState();
@@ -32,6 +46,9 @@ class _RideFeedbackSheet extends StatefulWidget {
 class _RideFeedbackSheetState extends State<_RideFeedbackSheet> {
   final _ctrl = TextEditingController();
   bool _sending = false;
+  /// Klepnuto na Odeslat s prázdným textem → hláška přímo pod polem
+  /// (toast by zůstal schovaný pod klávesnicí — AppShell nemění výšku).
+  bool _emptyTried = false;
 
   @override
   void initState() {
@@ -49,17 +66,24 @@ class _RideFeedbackSheetState extends State<_RideFeedbackSheet> {
     if (_sending) return;
     final tr = t(context);
     if (_ctrl.text.trim().isEmpty) {
-      showMotoGoToast(context, icon: '✍️', title: tr.tr('rfImproveBtn'), message: tr.tr('rfEmpty'));
+      HapticFeedback.lightImpact();
+      setState(() => _emptyTried = true);
       return;
     }
+    final route = ModalRoute.of(context);
     setState(() => _sending = true);
-    final result = await sendRideFeedback(
+    final pending = sendRideFeedback(
       shortId: widget.res.shortId,
       subjectPrefix: tr.tr('rfThreadSubject'),
       rating: widget.rating,
       text: _ctrl.text,
     );
-    if (!mounted) return;
+    widget.onSending(pending);
+    final result = await pending;
+    // Sheet mezitím zavřený → výsledek převzal showRideFeedbackSheet (a pop
+    // by teď zavřel obrazovku POD sheetem).
+    if (!mounted || !(route?.isActive ?? false)) return;
+    widget.onSending(null);
     if (result.ok) {
       HapticFeedback.mediumImpact();
       Navigator.of(context).pop(result.threadId);
@@ -148,10 +172,19 @@ class _RideFeedbackSheetState extends State<_RideFeedbackSheet> {
                       borderRadius: BorderRadius.circular(MotoGoRadius.xl),
                       borderSide: const BorderSide(color: MotoGoColors.greenDark, width: 1.5)),
                   contentPadding: const EdgeInsets.all(14),
+                  errorText: _emptyTried && _ctrl.text.trim().isEmpty ? tr.tr('rfEmpty') : null,
+                  errorMaxLines: 2,
+                  errorStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: MotoGoColors.red),
+                  errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(MotoGoRadius.xl),
+                      borderSide: const BorderSide(color: MotoGoColors.red)),
+                  focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(MotoGoRadius.xl),
+                      borderSide: const BorderSide(color: MotoGoColors.red, width: 1.5)),
                 ),
               ),
               const SizedBox(height: 8),
-              // Prázdný text → tlačítko šedé, klepnutí vysvětlí proč (toast).
+              // Prázdný text → tlačítko šedé, klepnutí vysvětlí proč (hláška pod polem).
               PressableScale(
                 enabled: !_sending,
                 onTap: _send,

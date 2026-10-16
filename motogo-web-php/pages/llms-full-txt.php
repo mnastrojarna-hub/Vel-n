@@ -27,6 +27,7 @@ $lu = function ($p) use ($base, $lang) { return $base . i18nLocalizePath($p, $la
 
 /** Vyčistí HTML, zachová prosté entity, normalizuje whitespace. */
 function llmStrip($s) {
+    if (is_int($s) || is_float($s)) $s = (string)$s;   // rok výroby, ceny… (dřív prázdná buňka)
     if (!is_string($s)) return '';
     $s = preg_replace('/\s+/', ' ', $s);
     $s = strip_tags($s);
@@ -199,12 +200,12 @@ echo "**Plátce DPH:** ne  \n\n";
 echo "## Klíčové vlastnosti půjčovny\n\n";
 echo "- **Bez kauce** — žádná blokace peněz na kartě.\n";
 echo "- **Výbava v ceně** — helma, bunda, kalhoty, rukavice pro řidiče.\n";
-echo "- **Nonstop provoz** — obě pobočky 0–24 h: Mezná u Pelhřimova (předá obsluha), Velké Němčice u Brna (samoobsluha, kód z aplikace/e-mailu).\n";
+echo "- **Nonstop provoz** — obě pobočky 0–24 h: Mezná u Pelhřimova (předání obsluhou v čase z rezervace), Velké Němčice u Brna (100% samoobsluha přístupovým kódem z aplikace nebo e-mailu).\n";
 echo "- **Pojištění v ceně** — povinné ručení; havarijní dle modelu.\n";
 echo "- **Online rezervace** — web nebo mobilní aplikace (iPhone: App Store, Android: Google Play); platba předem přes Stripe.\n";
 echo "- **Mobilní aplikace** — iOS " . APP_STORE_LIVE_URL . " · Android " . PLAY_STORE_LIVE_URL . "\n";
 echo "- **Přistavení a vrácení mimo provozovnu** — kamkoliv v ČR za příplatek (jen motorky z pobočky Mezná).\n";
-echo "- **Palivo a mytí** — předání s tím, co je v nádrži (plnou neslibujeme); vrácení bez tankování, jen ať nesvítí rezerva; umytou jen na samoobsluze Velké Němčice.\n";
+echo "- **Palivo a vrácení** — motorka se předává s tím, co je v nádrži (plnou nádrž neslibujeme); při vrácení tankovat netřeba, jen ať nesvítí kontrolka rezervy; umytou je potřeba ji vrátit jen na samoobslužné pobočce Velké Němčice.\n";
 echo "- **Sjezd do zahraničí** — povolen, zelená karta v ceně.\n";
 echo "- **Slevový kód 200 Kč** — automaticky po vrácení motorky.\n";
 echo "- **8 jazyků** — cs, en, de, es, fr, nl, pl, uk.\n";
@@ -273,6 +274,16 @@ echo "---\n\n";
 echo "# Katalog motorek\n\n";
 echo "*Zdroj:* " . $lu('/katalog') . " · *Aktuální stav z DB*\n\n";
 
+$llmCs = ['days' => ['mon' => 'Po', 'tue' => 'Út', 'wed' => 'St', 'thu' => 'Čt', 'fri' => 'Pá', 'sat' => 'So', 'sun' => 'Ne'],
+    'priceTitle' => 'Ceník (Kč/den):', 'day' => 'Den', 'price' => 'Cena', 'specsTitle' => 'Technické specifikace:', 'param' => 'Parametr', 'value' => 'Hodnota',
+    'cat' => 'Kategorie', 'cc' => 'Objem motoru', 'power' => 'Výkon', 'hp' => 'k', 'torque' => 'Točivý moment', 'engine' => 'Typ motoru', 'weight' => 'Hmotnost',
+    'seat' => 'Výška sedla', 'tank' => 'Objem nádrže', 'yes' => 'ano', 'lic' => 'Řidičské oprávnění', 'licNone' => 'nepotřebuje (dětská motorka)', 'licGroup' => 'skupina',
+    'minDays' => 'Min. délka pronájmu', 'maxDays' => 'Max. délka pronájmu', 'days_u' => 'dní', 'color' => 'Barva', 'year' => 'Rok výroby', 'pickup' => 'Vyzvednutí:'];
+$llmEn = ['days' => ['mon' => 'Mon', 'tue' => 'Tue', 'wed' => 'Wed', 'thu' => 'Thu', 'fri' => 'Fri', 'sat' => 'Sat', 'sun' => 'Sun'],
+    'priceTitle' => 'Price list (CZK/day):', 'day' => 'Day', 'price' => 'Price', 'specsTitle' => 'Technical specifications:', 'param' => 'Parameter', 'value' => 'Value',
+    'cat' => 'Category', 'cc' => 'Engine displacement', 'power' => 'Power', 'hp' => 'hp', 'torque' => 'Torque', 'engine' => 'Engine type', 'weight' => 'Weight',
+    'seat' => 'Seat height', 'tank' => 'Fuel tank', 'yes' => 'yes', 'lic' => 'Driving licence', 'licNone' => 'not required (kids\' motorcycle)', 'licGroup' => 'category',
+    'minDays' => 'Min. rental length', 'maxDays' => 'Max. rental length', 'days_u' => 'days', 'color' => 'Colour', 'year' => 'Year of manufacture', 'pickup' => 'Pick-up:'];
 $motos = $sb->fetchMotos();
 if (is_array($motos) && !empty($motos)) {
     foreach ($motos as $m) {
@@ -287,44 +298,46 @@ if (is_array($motos) && !empty($motos)) {
             echo llmStrip($desc) . "\n\n";
         }
 
-        // Ceník per den
-        $days = ['mon' => 'Po', 'tue' => 'Út', 'wed' => 'St', 'thu' => 'Čt', 'fri' => 'Pá', 'sat' => 'So', 'sun' => 'Ne'];
+        // Ceník per den (popisky: čeština na .cz, jinak angličtina — jen pro AI, ne pro zákazníky)
+        $L = $lang === 'cs' ? $llmCs : $llmEn;
         $priceRows = [];
-        foreach ($days as $k => $label) {
+        foreach ($L['days'] as $k => $label) {
             $p = (float)($m['price_' . $k] ?? 0);
             if ($p > 0) $priceRows[] = [$label, number_format($p, 0, ',', ' ') . ' Kč'];
         }
         if ($priceRows) {
-            echo "**Ceník (Kč/den):**\n\n";
-            echo llmTable(['Den', 'Cena'], $priceRows);
+            echo "**" . $L['priceTitle'] . "**\n\n";
+            echo llmTable([$L['day'], $L['price']], $priceRows);
         }
 
         // Specs
         $specs = [];
-        if (!empty($m['category']))         $specs[] = ['Kategorie', $m['category']];
-        if (!empty($m['engine_cc']))        $specs[] = ['Objem motoru', $m['engine_cc'] . ' ccm'];
-        if (!empty($m['power_kw']))         $specs[] = ['Výkon', $m['power_kw'] . ' kW' . (!empty($m['power_hp']) ? ' (' . $m['power_hp'] . ' k)' : '')];
-        if (!empty($m['torque_nm']))        $specs[] = ['Točivý moment', $m['torque_nm'] . ' Nm'];
-        if (!empty($m['engine_type']))      $specs[] = ['Typ motoru', $m['engine_type']];
-        if (!empty($m['weight_kg']))        $specs[] = ['Hmotnost', $m['weight_kg'] . ' kg'];
-        if (!empty($m['seat_height_mm']))   $specs[] = ['Výška sedla', $m['seat_height_mm'] . ' mm'];
-        if (!empty($m['fuel_tank_l']))      $specs[] = ['Objem nádrže', $m['fuel_tank_l'] . ' l'];
-        if (!empty($m['has_abs']))          $specs[] = ['ABS', 'ano'];
-        if (!empty($m['license_required'])) $specs[] = ['Řidičské oprávnění', $m['license_required'] === 'N' ? 'nepotřebuje (dětská motorka)' : 'skupina ' . $m['license_required']];
-        if (!empty($m['min_rental_days']))  $specs[] = ['Min. délka pronájmu', $m['min_rental_days'] . ' dní'];
-        if (!empty($m['max_rental_days']))  $specs[] = ['Max. délka pronájmu', $m['max_rental_days'] . ' dní'];
-        if (!empty($m['color']))            $specs[] = ['Barva', $m['color']];
-        if (!empty($m['year']))             $specs[] = ['Rok výroby', $m['year']];
+        $catKey = 'category.' . strtolower((string)($m['category'] ?? ''));
+        $catLabel = !empty($m['category']) && is_string(t($catKey)) && t($catKey) !== $catKey ? t($catKey) : ($m['category'] ?? '');
+        if (!empty($m['category']))         $specs[] = [$L['cat'], $catLabel];
+        if (!empty($m['engine_cc']))        $specs[] = [$L['cc'], $m['engine_cc'] . ' ccm'];
+        if (!empty($m['power_kw']))         $specs[] = [$L['power'], $m['power_kw'] . ' kW' . (!empty($m['power_hp']) ? ' (' . $m['power_hp'] . ' ' . $L['hp'] . ')' : '')];
+        if (!empty($m['torque_nm']))        $specs[] = [$L['torque'], $m['torque_nm'] . ' Nm'];
+        if (!empty($m['engine_type']))      $specs[] = [$L['engine'], $m['engine_type']];
+        if (!empty($m['weight_kg']))        $specs[] = [$L['weight'], $m['weight_kg'] . ' kg'];
+        if (!empty($m['seat_height_mm']))   $specs[] = [$L['seat'], $m['seat_height_mm'] . ' mm'];
+        if (!empty($m['fuel_tank_l']))      $specs[] = [$L['tank'], $m['fuel_tank_l'] . ' l'];
+        if (!empty($m['has_abs']))          $specs[] = ['ABS', $L['yes']];
+        if (!empty($m['license_required'])) $specs[] = [$L['lic'], $m['license_required'] === 'N' ? $L['licNone'] : $L['licGroup'] . ' ' . $m['license_required']];
+        if (!empty($m['min_rental_days']))  $specs[] = [$L['minDays'], $m['min_rental_days'] . ' ' . $L['days_u']];
+        if (!empty($m['max_rental_days']))  $specs[] = [$L['maxDays'], $m['max_rental_days'] . ' ' . $L['days_u']];
+        if (!empty($m['color']))            $specs[] = [$L['color'], localized($m, 'color') ?: $m['color']];
+        if (!empty($m['year']))             $specs[] = [$L['year'], $m['year']];
         if ($specs) {
-            echo "**Technické specifikace:**\n\n";
-            echo llmTable(['Parametr', 'Hodnota'], $specs);
+            echo "**" . $L['specsTitle'] . "**\n\n";
+            echo llmTable([$L['param'], $L['value']], $specs);
         }
 
         // Branch
         if (!empty($m['branches']) && is_array($m['branches'])) {
             $br = $m['branches'];
             $brAddr = trim(($br['address'] ?? '') . ', ' . ($br['city'] ?? ''), ', ');
-            echo "**Vyzvednutí:** " . llmStrip($br['name'] ?? '') . ($brAddr ? " ($brAddr)" : '') . "\n\n";
+            echo "**" . $L['pickup'] . "** " . llmStrip($br['name'] ?? '') . ($brAddr ? " ($brAddr)" : '') . "\n\n";
         }
 
         echo "---\n\n";

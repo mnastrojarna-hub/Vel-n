@@ -97,15 +97,17 @@ function seoEnhanceHtml($content) {
         $content
     );
     // Prazdny H1 -> doplnime fallback content (jinak crawler hlasi 'no H1').
+    // Lokalizovany (dřív česky natvrdo i na cizojazyčných stránkách).
+    $h1Fallback = function_exists('te') ? te('common.fallbackH1') : 'MotoGo24 — půjčovna motorek';
     $content = preg_replace_callback(
         '#<h1([^>]*)>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</h1\s*>#i',
-        function ($m) { return '<h1' . $m[1] . '>MotoGo24 — půjčovna motorek</h1>'; },
+        function ($m) use ($h1Fallback) { return '<h1' . $m[1] . '>' . $h1Fallback . '</h1>'; },
         $content
     );
 
     // 1b) Pokud na strance neni vubec zadny <h1>, injectneme fallback nahoru.
     if (!preg_match('#<h1\b#i', $content)) {
-        $h1Plain = '<h1>MotoGo24 — půjčovna motorek</h1>';
+        $h1Plain = '<h1>' . $h1Fallback . '</h1>';
         $h1Wrapped = '<div class="container">' . $h1Plain . '</div>';
         // Preferred: vlozit DOVNITR prvni <div class="container"> hned za <main id="content">,
         // aby byl H1 zarovnany s ostatnim obsahem (jinak by visel u leveho okraje viewportu).
@@ -159,10 +161,10 @@ function seoEnhanceHtml($content) {
                 $filename = trim(preg_replace('#\s+#', ' ', preg_replace('#[-_]+#', ' ', preg_replace('#[0-9]+x[0-9]+#', '', $base))));
             }
 
-            $brand = 'MotoGo24 — půjčovna motorek Vysočina';
+            $brand = function_exists('t') ? t('ld.orgName') : 'MotoGo24 — půjčovna motorek Vysočina';
             if ($isIcon) {
                 // Dekorativni ikona — popis vazany na stranku, ne nazev ikony.
-                $altGuess = ($pageH1 !== '' ? $pageH1 . ' — ' : '') . 'ikona MotoGo24';
+                $altGuess = ($pageH1 !== '' ? $pageH1 . ' — ' : '') . (function_exists('t') ? t('seo.altIcon') : 'ikona MotoGo24');
             } elseif ($isUuid) {
                 // UUID/hash filename (typicky CMS upload) — pouzij H1 + brand.
                 $altGuess = ($pageH1 !== '' ? $pageH1 . ' — ' : '') . $brand;

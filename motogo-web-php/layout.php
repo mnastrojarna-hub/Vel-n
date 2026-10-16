@@ -241,7 +241,7 @@ function renderInlineJs() {
  * lokální SEO v Seznam.cz.
  */
 function buildSameAs() {
-    $list = [FB_URL, IG_URL, TIKTOK_URL, YT_URL, 'https://www.tripadvisor.com/Attraction_Review-g1600819-d34461468-Reviews-MotoGo24-Pelhrimov_Vysocina_Region_Moravia.html', 'https://www.motogo24.cz', 'https://www.motogo24.com', 'https://www.motogo24.at', 'https://www.motogo24.es', 'https://www.motogo24.pl', 'https://www.motogo24.fr', 'https://www.motogo24.nl'];
+    $list = [FB_URL, IG_URL, TIKTOK_URL, YT_URL, 'https://www.motogo24.cz', 'https://www.motogo24.com', 'https://www.motogo24.at', 'https://www.motogo24.es', 'https://www.motogo24.pl', 'https://www.motogo24.fr', 'https://www.motogo24.nl'];
     $extras = [
         defined('SAMEAS_FIRMY_CZ') ? SAMEAS_FIRMY_CZ : '',
         defined('SAMEAS_MAPY_CZ')  ? SAMEAS_MAPY_CZ  : '',
@@ -445,6 +445,15 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     $lp = function ($p) { return function_exists('i18nLocalizePath') ? i18nLocalizePath($p) : $p; };
     // JSON string pro přeložené texty v JSON-LD (description/slogan dle jazyka stránky).
     $ldStr = function ($s) { return json_encode((string)$s, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); };
+    // areaServed — názvy zemí v jazyce stránky (dřív česky i na .com/.at/…)
+    $ldCountries = function ($withRegion) {
+        $out = [];
+        foreach (['CZ', 'SK', 'AT', 'DE', 'PL', 'FR', 'BE', 'NL', 'ES'] as $i => $cc) {
+            $out[] = ['@type' => 'Country', 'name' => t('ld.country.' . $cc)];
+            if ($withRegion && $i === 0) $out[] = ['@type' => 'AdministrativeArea', 'name' => t('ld.region')];
+        }
+        return json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    };
 
     // Default description per-jazyk (cs/en/de/fr/es/nl/pl) — bez tohoto fallbacku
     // by Google na .com indexoval cizojazycne stranky s ceskym defaultnim popiskem.
@@ -548,7 +557,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta property="og:type" content="' . htmlspecialchars($ogType) . '">
   <meta property="og:locale" content="' . htmlspecialchars($ogLocale) . '">
   <meta property="og:title" content="' . htmlspecialchars($title) . '">
-  <meta property="og:site_name" content="Půjčovna motorek Vysočina MotoGo24">
+  <meta property="og:site_name" content="' . te('ld.siteName') . '">
   <meta property="og:description" content="' . htmlspecialchars($description) . '">
   <meta property="og:image" content="' . htmlspecialchars($ogImage) . '">
   <meta property="og:image:width" content="1920">
@@ -588,7 +597,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
       {
         "@type": ["LocalBusiness", "AutomotiveBusiness", "Organization"],
         "@id": "' . $siteOrigin . '/#organization",
-        "name": "MotoGo24 — půjčovna motorek Vysočina",
+        "name": ' . $ldStr(t('ld.orgName')) . ',
         "alternateName": ["MotoGo24","Motogo24 Pelhřimov","Motopůjčovna MotoGo24","Motopůjčovna Vysočina","Motopůjčovna Pelhřimov","Půjčovna motorek Vysočina","MotoGo24 motorcycle rental"],
         "legalName": ' . $ld['legalName'] . ',
         "description": ' . $ldStr(t('seo.org.description')) . ',
@@ -604,40 +613,29 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "currenciesAccepted": "CZK",
         "paymentAccepted": "Credit Card, Debit Card, Apple Pay, Google Pay, Bank Transfer",
         "knowsLanguage": ["cs","en","de","es","fr","nl","pl","uk"],
-        "keywords": "motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, pronájem motorek, půjčovna motocyklů, motorka bez kauce, MotoGo24",
+        "keywords": ' . ($lang === 'cs' ? '"motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, pronájem motorek, půjčovna motocyklů, motorka bez kauce, MotoGo24"' : $ldStr(t('seo.default.keywords') . ', MotoGo24')) . ',
         "address": {"@type":"PostalAddress","streetAddress":"Mezná 9","addressLocality":"Pelhřimov","postalCode":"393 01","addressRegion":"Vysočina","addressCountry":"CZ"},
         "geo": {"@type":"GeoCoordinates","latitude":49.3464,"longitude":15.2119}' . $ld['department'] . ',
         "hasMap": "https://mapy.cz/zakladni?q=Mezn%C3%A1%209%20Pelh%C5%99imov",
         "openingHoursSpecification": {"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"00:00","closes":"23:59"},
-        "areaServed": [
-          {"@type":"Country","name":"Česko"},
-          {"@type":"AdministrativeArea","name":"Kraj Vysočina"},
-          {"@type":"Country","name":"Slovensko"},
-          {"@type":"Country","name":"Rakousko"},
-          {"@type":"Country","name":"Německo"},
-          {"@type":"Country","name":"Polsko"},
-          {"@type":"Country","name":"Francie"},
-          {"@type":"Country","name":"Belgie"},
-          {"@type":"Country","name":"Nizozemsko"},
-          {"@type":"Country","name":"Španělsko"}
-        ],
+        "areaServed": ' . $ldCountries(true) . ',
         "contactPoint": [
-          {"@type":"ContactPoint","telephone":' . $ld['phone'] . ',"email":' . $ld['email'] . ',"contactType":"customer service","hoursAvailable":{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday"],"opens":"08:00","closes":"17:00"},"areaServed":["CZ","SK","AT","DE","PL","FR","BE","NL","ES"],"availableLanguage":["cs","en","de","pl","sk","fr","nl","es"]}
+          {"@type":"ContactPoint","telephone":' . $ld['phone'] . ',"email":' . $ld['email'] . ',"contactType":"customer service","hoursAvailable":{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday"],"opens":"08:00","closes":"17:00"},"areaServed":["CZ","SK","AT","DE","PL","FR","BE","NL","ES"],"availableLanguage":["cs","en","de","pl","sk","fr","nl","es","uk"]}
         ],
         "hasOfferCatalog": {
           "@type":"OfferCatalog",
-          "name":"Katalog motorek k pronájmu",
+          "name":' . $ldStr(t('ld.catalogName')) . ',
           "url":"' . $siteOrigin . $lp('/katalog') . '",
           "itemListElement":[
-            {"@type":"OfferCatalog","name":"Cestovní motorky","url":"' . $siteOrigin . $lp('/katalog/cestovni') . '"},
-            {"@type":"OfferCatalog","name":"Naked motorky","url":"' . $siteOrigin . $lp('/katalog/naked') . '"},
-            {"@type":"OfferCatalog","name":"Supermoto","url":"' . $siteOrigin . $lp('/katalog/supermoto') . '"},
-            {"@type":"OfferCatalog","name":"Dětské motorky","url":"' . $siteOrigin . $lp('/katalog/detske') . '"}
+            {"@type":"OfferCatalog","name":' . $ldStr(t('menu.catalog.touring')) . ',"url":"' . $siteOrigin . $lp('/katalog/cestovni') . '"},
+            {"@type":"OfferCatalog","name":' . $ldStr(t('menu.catalog.naked')) . ',"url":"' . $siteOrigin . $lp('/katalog/naked') . '"},
+            {"@type":"OfferCatalog","name":' . $ldStr(t('menu.catalog.supermoto')) . ',"url":"' . $siteOrigin . $lp('/katalog/supermoto') . '"},
+            {"@type":"OfferCatalog","name":' . $ldStr(t('menu.catalog.kids')) . ',"url":"' . $siteOrigin . $lp('/katalog/detske') . '"}
           ]
         },
         "potentialAction": [
           {"@type":"ReserveAction","target":{"@type":"EntryPoint","urlTemplate":"' . $siteOrigin . $lp('/rezervace') . '?moto={moto_id}&start={start_date}&end={end_date}","actionPlatform":["http://schema.org/DesktopWebPlatform","http://schema.org/MobileWebPlatform","http://schema.org/IOSPlatform","http://schema.org/AndroidPlatform"]},"result":{"@type":"Reservation","name":"Rezervace motorky"}},
-          {"@type":"OrderAction","target":"' . $siteOrigin . $lp('/eshop') . '","name":"Nákup výbavy a poukazů"}
+          {"@type":"OrderAction","target":"' . $siteOrigin . $lp('/eshop') . '","name":' . $ldStr(t('ld.orderAction')) . '}
         ],
         "sameAs": ' . json_encode(buildSameAs(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . $aggregateRatingFragment . '
       },
@@ -645,7 +643,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "@type": "WebSite",
         "@id": "' . $siteOrigin . '/#website",
         "url": "' . $siteOrigin . '",
-        "name": "MotoGo24 — půjčovna motorek Vysočina",
+        "name": ' . $ldStr(t('ld.orgName')) . ',
         "inLanguage": "' . htmlspecialchars($htmlLang) . '",
         "publisher": {"@id":"' . $siteOrigin . '/#organization"},
         "potentialAction": {"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"' . $siteOrigin . $lp('/katalog') . '?q={search_term_string}"},"query-input":"required name=search_term_string"}
@@ -653,15 +651,15 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
       {
         "@type": "Service",
         "@id": "' . $siteOrigin . '/#service-rental",
-        "serviceType": "Pronájem motocyklů (motorcycle rental)",
-        "name": "Motopůjčovna MotoGo24 — půjčovna motorek Vysočina",
+        "serviceType": ' . $ldStr(t('ld.serviceType')) . ',
+        "name": ' . $ldStr(t('ld.serviceName')) . ',
         "description": ' . $ldStr(t('seo.service.description')) . ',
         "provider": {"@id":"' . $siteOrigin . '/#organization"},
-        "areaServed": [{"@type":"Country","name":"Česko"},{"@type":"Country","name":"Slovensko"},{"@type":"Country","name":"Rakousko"},{"@type":"Country","name":"Německo"},{"@type":"Country","name":"Polsko"},{"@type":"Country","name":"Francie"},{"@type":"Country","name":"Belgie"},{"@type":"Country","name":"Nizozemsko"},{"@type":"Country","name":"Španělsko"}],
-        "audience": {"@type":"PeopleAudience","audienceType":"Motorkáři, turisté, firmy, dárky pro blízké"},
+        "areaServed": ' . $ldCountries(false) . ',
+        "audience": {"@type":"PeopleAudience","audienceType":' . $ldStr(t('ld.audience')) . '},
         "availableChannel": [
-          {"@type":"ServiceChannel","serviceUrl":"' . $siteOrigin . $lp('/rezervace') . '","name":"Online rezervační formulář"},
-          {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api","name":"Veřejné REST API pro AI agenty a partnery"},
+          {"@type":"ServiceChannel","serviceUrl":"' . $siteOrigin . $lp('/rezervace') . '","name":' . $ldStr(t('ld.channelForm')) . '},
+          {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api","name":' . $ldStr(t('ld.channelApi')) . '},
           {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server","name":"MCP server (Model Context Protocol)"}' . $ld['channels'] . '
         ],
         "termsOfService": "' . $siteOrigin . $lp('/dokumenty/obchodni-podminky') . '"' . $ld['offers'] . '

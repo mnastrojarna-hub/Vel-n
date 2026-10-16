@@ -93,7 +93,7 @@ $badgeHtml = $isAvailableToday
 // limit 120 px. Přidáváme suffix "— půjčovna motorek MotoGo24" aby H1 mělo
 // reálnou informační hodnotu a SEO klíčovku. Krátký label modelu zůstává
 // vizuálně dominantní díky <span class="moto-h1-suffix">.
-$h1Suffix = ' <span class="moto-h1-suffix">— půjčovna motorek MotoGo24</span>';
+$h1Suffix = ' <span class="moto-h1-suffix">' . te('detail.h1Suffix') . '</span>';
 $headerHtml = '<div class="moto-detail-header"><div>'
     . ($badgeHtml ? '<div>' . $badgeHtml . '</div>' : '')
     . '<h1>' . $model . $h1Suffix . '</h1>'
@@ -610,7 +610,7 @@ $content = '<main id="content"><div class="container">' . $bc .
 // brand, fotky, kategorie ŘP. Schema.org Motorcycle dědí z Vehicle.
 $minPrice = getMinPrice($moto);
 $availability = $isAvailableToday ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder';
-$motoUrl = 'https://www.motogo24.cz/katalog/' . $motoId;
+$motoUrl = siteCanonicalUrl('/katalog/' . $motoId);
 
 // Sbírej všechny obrázky (ne jen mainImg)
 $schemaImages = [];
@@ -621,7 +621,7 @@ if (!empty($moto['images']) && is_array($moto['images'])) {
         if ($u && !in_array($u, $schemaImages, true)) $schemaImages[] = $u;
     }
 }
-if (empty($schemaImages)) $schemaImages[] = 'https://www.motogo24.cz/gfx/logo.svg';
+if (empty($schemaImages)) $schemaImages[] = siteOrigin() . '/gfx/logo.svg';
 
 // Per-day pricing → UnitPriceSpecification[]
 $dayMap = ['mon' => 'Monday', 'tue' => 'Tuesday', 'wed' => 'Wednesday', 'thu' => 'Thursday', 'fri' => 'Friday', 'sat' => 'Saturday', 'sun' => 'Sunday'];
@@ -629,7 +629,7 @@ $priceSpecs = [];
 foreach ($dayMap as $short => $long) {
     $p = (float)($moto['price_' . $short] ?? 0);
     if ($p > 0) {
-        $priceSpecs[] = '{"@type":"UnitPriceSpecification","price":' . $p . ',"priceCurrency":"CZK","unitCode":"DAY","name":"Cena ' . $long . '","validFrom":null,"eligibleQuantity":{"@type":"QuantitativeValue","unitCode":"DAY","value":1}}';
+        $priceSpecs[] = '{"@type":"UnitPriceSpecification","price":' . $p . ',"priceCurrency":"CZK","unitCode":"DAY","name":' . json_encode(t('ld.priceDay', ['day' => $long]), JSON_UNESCAPED_UNICODE) . ',"validFrom":null,"eligibleQuantity":{"@type":"QuantitativeValue","unitCode":"DAY","value":1}}';
     }
 }
 
@@ -640,7 +640,7 @@ if (!empty($moto['year']))           $vehicleProps[] = '"vehicleModelDate":' . j
 if (!empty($moto['mileage']))        $vehicleProps[] = '"mileageFromOdometer":{"@type":"QuantitativeValue","value":' . (int)$moto['mileage'] . ',"unitCode":"KMT"}';
 if (!empty($moto['weight_kg']))      $vehicleProps[] = '"weight":{"@type":"QuantitativeValue","value":' . (float)$moto['weight_kg'] . ',"unitCode":"KGM"}';
 if (!empty($moto['fuel_tank_l']))    $vehicleProps[] = '"fuelCapacity":{"@type":"QuantitativeValue","value":' . (float)$moto['fuel_tank_l'] . ',"unitCode":"LTR"}';
-if (!empty($moto['seat_height_mm'])) $vehicleProps[] = '"height":{"@type":"QuantitativeValue","value":' . (float)$moto['seat_height_mm'] . ',"unitCode":"MMT","name":"Výška sedla"}';
+if (!empty($moto['seat_height_mm'])) $vehicleProps[] = '"height":{"@type":"QuantitativeValue","value":' . (float)$moto['seat_height_mm'] . ',"unitCode":"MMT","name":' . json_encode(t('ld.seatHeight'), JSON_UNESCAPED_UNICODE) . '}';
 if (!empty($moto['vin']))            $vehicleProps[] = '"vehicleIdentificationNumber":' . json_encode((string)$moto['vin']);
 
 // Engine — kombinace výkon + zdvih
@@ -777,7 +777,7 @@ if ($kcV2) {
     array_push($mdMeta['scripts'], '/js/landing.js', '/js/moto-detail-v2.js');
     $mdMeta['body_class'] = trim(($mdMeta['body_class'] ?? '') . ' md-v2');
 }
-renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, $mdMeta + [
+renderPage($model . ' ' . t('detail.titleSuffix'), $content, '/katalog/' . $motoId, $mdMeta + [
     'description' => $metaDescBuilt,   // escapuje renderPage (dřív dvakrát → &amp;#039;)
     'keywords' => t('detail.descKeywords', ['model' => $moto['model'] ?? '']),
     // SEO: og:image MAX 1200px / quality 85 (Facebook/Twitter optimal). Predtim

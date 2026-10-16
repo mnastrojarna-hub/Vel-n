@@ -79,8 +79,8 @@ return [
                 'services' => [
                     'title' => 'Extra diensten tegen meerprijs',
                     'items' => [
-                        'bezorging van de motor op een afgesproken plek overal in Tsjechië',
-                        'de motor elders terugbrengen dan op het verhuuradres',
+                        'bezorging van de motor op een afgesproken plek overal in Tsjechië (motoren van de bemande vestiging in Mezná)',
+                        'de motor elders terugbrengen dan bij de vestiging (motoren uit Mezná)',
                     ],
                 ],
             ],

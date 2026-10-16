@@ -18,6 +18,9 @@ $smIntro = $SMC['intro'] ?? $smDefaults['intro'];
 $smOutroT = $SMC['outro']['title'] ?? $smDefaults['outro']['title'];
 $smOutroB1 = $SMC['outro']['body1'] ?? $smDefaults['outro']['body1'];
 $smOutroB2 = $SMC['outro']['body2'] ?? $smDefaults['outro']['body2'];
+// /jak-pujcit je jen 301 na /jak-pujcit/postup — odkaz rovnou na cíl (i v textech z CMS / překladů)
+$smOutroB1 = str_replace('href="/jak-pujcit"', 'href="/jak-pujcit/postup"', (string)$smOutroB1);
+$smOutroB2 = str_replace('href="/jak-pujcit"', 'href="/jak-pujcit/postup"', (string)$smOutroB2);
 
 $links = [
     ['href' => '/', 'label' => t('sitemap.links.home')],
@@ -27,6 +30,10 @@ $links = [
     ['href' => '/katalog/naked', 'label' => t('sitemap.links.naked')],
     ['href' => '/katalog/supermoto', 'label' => t('sitemap.links.supermoto')],
     ['href' => '/katalog/detske', 'label' => t('sitemap.links.kids')],
+    ['href' => '/katalog/sportovni', 'label' => '  ' . t('menu.catalog.sport')],
+    ['href' => '/katalog/chopper', 'label' => '  ' . t('menu.catalog.chopper')],
+    ['href' => '/katalog/scootery', 'label' => '  ' . t('menu.catalog.scooters')],
+    ['href' => '/katalog/ostatni', 'label' => '  ' . t('menu.catalog.other')],
     // /jak-pujcit zrušena (301 → /jak-pujcit/postup), v mapě stránek ji
     // proto nelinkujeme — uživatel jde rovnou na konkrétní podstránky.
     ['href' => '/jak-pujcit/postup', 'label' => t('sitemap.links.process')],
@@ -40,6 +47,8 @@ $links = [
     ['href' => '/poukazy', 'label' => t('sitemap.links.vouchers')],
     ['href' => '/blog', 'label' => t('sitemap.links.blog')],
     ['href' => '/kontakt', 'label' => t('sitemap.links.contact')],
+    ['href' => '/pobocky', 'label' => t('menu.branches')],
+    ['href' => '/oblasti', 'label' => t('menu.areas')],
     ['href' => '/rezervace', 'label' => t('sitemap.links.reservation')],
     // SEO: linkujeme primo na cilove /dokumenty/<slug> URL aby crawler nemusel
     // sledovat 301 redirect (Seobility hlasil 'Internal redirects' z mapa-stranek).
@@ -47,6 +56,8 @@ $links = [
     ['href' => '/dokumenty/zasady-ochrany-osobnich-udaju', 'label' => t('sitemap.links.gdpr')],
     ['href' => '/dokumenty/smlouva-o-pronajmu', 'label' => t('sitemap.links.contract')],
 ];
+if (function_exists('webShopVisible') && webShopVisible()) $links[] = ['href' => '/eshop', 'label' => t('menu.shop')];
+$links[] = ['href' => '/partneri', 'label' => t('footer.partners')];
 
 $html = '<ul>';
 foreach ($links as $l) {
@@ -69,5 +80,5 @@ $content = '<main id="content"><div class="container">' . $bc .
 
 renderPage(t('sitemap.title'), $content, '/mapa-stranek', [
     // Kratsi description (puvodne 180 znaku → 1156 px nad limit 1000 px).
-    'description' => 'Mapa stránek MotoGo24 — přehled celého webu půjčovny motorek na Vysočině: katalog, postup půjčení, FAQ, dokumenty a kontakty.',
+    'description' => t('sitemap.description'),
 ]);

@@ -200,6 +200,16 @@ const SUBJECTS: Record<string, Record<Lang, SubjectFn>> = {
     pl: v => `Prześlij dokumenty do rezerwacji nr ${v.booking_number} — MOTO GO 24`,
     uk: v => `Надішліть документи до бронювання № ${v.booking_number} — MOTO GO 24`,
   },
+  invoice_payment_receipt: {
+    cs: v => `Platba přijata — rezervace č. ${v.booking_number}, nahrajte doklady — MotoGo24`,
+    en: v => `Payment received — booking #${v.booking_number}, please upload your documents — MOTO GO 24`,
+    de: v => `Zahlung erhalten — Buchung Nr. ${v.booking_number}, bitte Dokumente hochladen — MOTO GO 24`,
+    nl: v => `Betaling ontvangen — boeking nr. ${v.booking_number}, upload je documenten — MOTO GO 24`,
+    es: v => `Pago recibido — reserva nº ${v.booking_number}, sube tus documentos — MOTO GO 24`,
+    fr: v => `Paiement reçu — réservation n° ${v.booking_number}, téléchargez vos documents — MOTO GO 24`,
+    pl: v => `Płatność otrzymana — rezerwacja nr ${v.booking_number}, prześlij dokumenty — MOTO GO 24`,
+    uk: v => `Оплату отримано — бронювання № ${v.booking_number}, завантажте документи — MOTO GO 24`,
+  },
   voucher_purchased: {
     cs: () => 'Váš dárkový poukaz od MotoGo24',
     en: () => 'Your gift voucher from MOTO GO 24',
@@ -422,6 +432,28 @@ function renderDiffRow(label: string, oldVal: string, newVal: string): string {
   </tr>`
 }
 
+// Blok „Upravit / zrušit rezervaci“ v potvrzení rezervace (booking_reserved) — všechny jazyky.
+// Odkaz na motogo24.cz přepíše index.ts (localizeBodyLinks) pro cizí jazyky na motogo24.com.
+const MANAGE_BOOKING: Record<Lang, { title: string; text: string; cta: string }> = {
+  cs: { title: 'Potřebujete změnit termín, motorku nebo místo přistavení?', text: 'Rezervaci si můžete kdykoliv upravit nebo zrušit on-line — výpočet doplatku/refundu uvidíte hned.', cta: 'Upravit / zrušit rezervaci →' },
+  en: { title: 'Need to change the dates, the motorcycle or the delivery place?', text: 'You can change or cancel your booking online at any time — you will see any extra payment or refund straight away.', cta: 'Change / cancel booking →' },
+  de: { title: 'Möchten Sie Termin, Motorrad oder Lieferort ändern?', text: 'Sie können Ihre Buchung jederzeit online ändern oder stornieren — eine Nachzahlung bzw. Erstattung sehen Sie sofort.', cta: 'Buchung ändern / stornieren →' },
+  nl: { title: 'Wil je de datum, de motor of de afleverplek wijzigen?', text: 'Je kunt je boeking op elk moment online wijzigen of annuleren — een bijbetaling of terugbetaling zie je meteen.', cta: 'Boeking wijzigen / annuleren →' },
+  es: { title: '¿Necesitas cambiar las fechas, la moto o el lugar de entrega?', text: 'Puedes modificar o cancelar tu reserva online en cualquier momento; verás al instante el pago adicional o el reembolso.', cta: 'Modificar / cancelar reserva →' },
+  fr: { title: 'Besoin de changer les dates, la moto ou le lieu de livraison ?', text: 'Vous pouvez modifier ou annuler votre réservation en ligne à tout moment — le supplément ou le remboursement s\'affiche immédiatement.', cta: 'Modifier / annuler la réservation →' },
+  pl: { title: 'Chcesz zmienić termin, motocykl lub miejsce podstawienia?', text: 'Rezerwację możesz w każdej chwili zmienić lub anulować online — dopłatę lub zwrot zobaczysz od razu.', cta: 'Zmień / anuluj rezerwację →' },
+  uk: { title: 'Потрібно змінити дати, мотоцикл або місце доставки?', text: 'Бронювання можна будь-коли змінити або скасувати онлайн — доплату чи повернення коштів побачите одразу.', cta: 'Змінити / скасувати бронювання →' },
+}
+function manageBookingBlock(lang: Lang, v: Vars): string {
+  const t = MANAGE_BOOKING[lang]
+  return `<div style="background:#f0faf5;border:1px solid #d4e8e0;border-left:4px solid #74fb71;border-radius:8px;padding:14px 16px;margin:18px 0">
+<p style="margin:0 0 8px;font-weight:700;color:#0d6e0d">${t.title}</p>
+<p style="margin:0 0 10px;font-size:13px;color:#1a2e22">${t.text}</p>
+<a href="https://motogo24.cz/upravit-rezervaci?id=${v.booking_id || ''}" style="display:inline-block;background:#74FB71;color:#0b0b0b;font-weight:700;text-decoration:none;padding:10px 22px;border-radius:22px;font-size:13px">${t.cta}</a>
+</div>
+`
+}
+
 const BODIES: Record<string, Record<Lang, (v: Vars) => string>> = {
   // -------- booking_reserved --------
   booking_reserved: {
@@ -437,12 +469,7 @@ ${v.door_codes_block || ''}
 <p>Aplikaci MotoGo24 stáhnete zdarma pro Android na <a href="https://play.google.com/store/apps/details?id=com.motogo24.app" style="color:#2563eb">Google Play</a> i pro iPhone v <a href="https://apps.apple.com/cz/app/id6806045151" style="color:#2563eb">App Store</a>.</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Vrácení motorky</h3>
 <p>Tankovat při vrácení nemusíte (plná nádrž není potřeba) — jen ať nesvítí kontrolka rezervy. Umytou motorku vracejte jen na samoobslužné pobočce ve Velkých Němčicích; na obslužné pobočce v Mezné (i při vrácení na jiném sjednaném místě) ji mýt nemusíte.</p>
-<div style="background:#f0faf5;border:1px solid #d4e8e0;border-left:4px solid #74fb71;border-radius:8px;padding:14px 16px;margin:18px 0">
-<p style="margin:0 0 8px;font-weight:700;color:#0d6e0d">Potřebujete změnit termín, motorku nebo místo přistavení?</p>
-<p style="margin:0 0 10px;font-size:13px;color:#1a2e22">Rezervaci si můžete kdykoliv upravit nebo zrušit on-line — výpočet doplatku/refundu uvidíte hned.</p>
-<a href="https://motogo24.cz/upravit-rezervaci?id=${v.booking_id || ''}" style="display:inline-block;background:#74FB71;color:#0b0b0b;font-weight:700;text-decoration:none;padding:10px 22px;border-radius:22px;font-size:13px">Upravit / zrušit rezervaci →</a>
-</div>
-<p>${SIGN.cs}</p>`,
+${manageBookingBlock('cs', v)}<p>${SIGN.cs}</p>`,
     en: v => `<p>${HELLO.en}</p>
 <p>thank you for your trust and your booking <strong>#${v.booking_number}</strong> at MOTO GO 24.</p>
 <p>Your booking has been successfully received and paid.</p>
@@ -455,7 +482,7 @@ ${v.door_codes_block || ''}
 <p>Get the free MotoGo24 app on <a href="https://play.google.com/store/apps/details?id=com.motogo24.app" style="color:#2563eb">Google Play</a> (Android) or the <a href="https://apps.apple.com/cz/app/id6806045151" style="color:#2563eb">App Store</a> (iPhone).</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Returning the motorcycle</h3>
 <p>You don't need to refuel when returning the motorcycle (a full tank is not needed) — just make sure the fuel reserve light is off. It only has to be returned washed at the self-service branch in Velké Němčice; at the staffed branch in Mezná (and when returning at another agreed place) you don't need to wash it.</p>
-<p>${SIGN.en}</p>`,
+${manageBookingBlock('en', v)}<p>${SIGN.en}</p>`,
     de: v => `<p>${HELLO.de}</p>
 <p>vielen Dank für Ihr Vertrauen und Ihre Buchung Nr. <strong>${v.booking_number}</strong> bei MOTO GO 24.</p>
 <p>Ihre Buchung wurde erfolgreich angenommen und bezahlt.</p>
@@ -468,7 +495,7 @@ ${v.door_codes_block || ''}
 <p>Die kostenlose MotoGo24-App erhalten Sie bei <a href="https://play.google.com/store/apps/details?id=com.motogo24.app" style="color:#2563eb">Google Play</a> (Android) und im <a href="https://apps.apple.com/cz/app/id6806045151" style="color:#2563eb">App Store</a> (iPhone).</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Rückgabe des Motorrads</h3>
 <p>Sie müssen das Motorrad bei der Rückgabe nicht betanken (Volltanken ist nicht nötig) — achten Sie nur darauf, dass die Reserveleuchte nicht leuchtet. Gewaschen zurückgeben müssen Sie es nur in der Selbstbedienungsfiliale Velké Němčice; in der Filiale mit Personal in Mezná (und bei Rückgabe an einem anderen vereinbarten Ort) müssen Sie es nicht waschen.</p>
-<p>${SIGN.de}</p>`,
+${manageBookingBlock('de', v)}<p>${SIGN.de}</p>`,
     nl: v => `<p>${HELLO.nl}</p>
 <p>bedankt voor je vertrouwen en je boeking nr. <strong>${v.booking_number}</strong> bij MOTO GO 24.</p>
 <p>Je boeking is succesvol ontvangen en betaald.</p>
@@ -481,7 +508,7 @@ ${v.door_codes_block || ''}
 <p>De gratis MotoGo24-app download je via <a href="https://play.google.com/store/apps/details?id=com.motogo24.app" style="color:#2563eb">Google Play</a> (Android) en de <a href="https://apps.apple.com/cz/app/id6806045151" style="color:#2563eb">App Store</a> (iPhone).</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Motor terugbrengen</h3>
 <p>Tanken bij het terugbrengen hoeft niet (een volle tank is niet nodig) — zorg alleen dat het reservelampje niet brandt. Gewassen inleveren hoeft alleen bij de zelfbedieningsvestiging in Velké Němčice; bij de bemande vestiging in Mezná (en bij teruggave op een andere afgesproken plek) hoef je de motor niet te wassen.</p>
-<p>${SIGN.nl}</p>`,
+${manageBookingBlock('nl', v)}<p>${SIGN.nl}</p>`,
     es: v => `<p>${HELLO.es}</p>
 <p>gracias por tu confianza y por tu reserva nº <strong>${v.booking_number}</strong> en MOTO GO 24.</p>
 <p>Tu reserva ha sido recibida y pagada con éxito.</p>
@@ -494,7 +521,7 @@ ${v.door_codes_block || ''}
 <p>Descarga gratis la app MotoGo24 en <a href="https://play.google.com/store/apps/details?id=com.motogo24.app" style="color:#2563eb">Google Play</a> (Android) o en el <a href="https://apps.apple.com/cz/app/id6806045151" style="color:#2563eb">App Store</a> (iPhone).</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Devolución de la moto</h3>
 <p>Al devolver la moto no tienes que repostar (no hace falta el depósito de combustible lleno); solo procura que no esté encendido el testigo de reserva. Solo en la sucursal de autoservicio de Velké Němčice hay que devolverla lavada; en la sucursal con personal de Mezná (y si la devuelves en otro lugar acordado) no tienes que lavarla.</p>
-<p>${SIGN.es}</p>`,
+${manageBookingBlock('es', v)}<p>${SIGN.es}</p>`,
     fr: v => `<p>${HELLO.fr}</p>
 <p>merci de votre confiance et de votre réservation n° <strong>${v.booking_number}</strong> chez MOTO GO 24.</p>
 <p>Votre réservation a bien été reçue et payée.</p>
@@ -507,7 +534,7 @@ ${v.door_codes_block || ''}
 <p>Téléchargez gratuitement l'appli MotoGo24 sur <a href="https://play.google.com/store/apps/details?id=com.motogo24.app" style="color:#2563eb">Google Play</a> (Android) ou sur l'<a href="https://apps.apple.com/cz/app/id6806045151" style="color:#2563eb">App Store</a> (iPhone).</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Restitution de la moto</h3>
 <p>Au retour, vous n'avez pas à faire le plein (un réservoir plein n'est pas nécessaire) — veillez seulement à ce que le voyant de réserve ne soit pas allumé. La moto ne doit être rendue lavée qu'à l'agence en libre-service de Velké Němčice ; à l'agence avec personnel de Mezná (et en cas de restitution dans un autre lieu convenu), vous n'avez pas à la laver.</p>
-<p>${SIGN.fr}</p>`,
+${manageBookingBlock('fr', v)}<p>${SIGN.fr}</p>`,
     pl: v => `<p>${HELLO.pl}</p>
 <p>dziękujemy za zaufanie i rezerwację nr <strong>${v.booking_number}</strong> w MOTO GO 24.</p>
 <p>Twoja rezerwacja została pomyślnie przyjęta i opłacona.</p>
@@ -520,7 +547,7 @@ ${v.door_codes_block || ''}
 <p>Aplikację MotoGo24 pobierzesz bezpłatnie z <a href="https://play.google.com/store/apps/details?id=com.motogo24.app" style="color:#2563eb">Google Play</a> (Android) i z <a href="https://apps.apple.com/cz/app/id6806045151" style="color:#2563eb">App Store</a> (iPhone).</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Zwrot motocykla</h3>
 <p>Przy zwrocie nie musisz tankować (pełny bak nie jest potrzebny) — zadbaj tylko o to, żeby nie świeciła się kontrolka rezerwy. Umyty motocykl oddajesz tylko w oddziale samoobsługowym Velké Němčice; w oddziale z obsługą Mezná (i przy zwrocie w innym uzgodnionym miejscu) nie musisz go myć.</p>
-<p>${SIGN.pl}</p>`,
+${manageBookingBlock('pl', v)}<p>${SIGN.pl}</p>`,
     uk: v => `<p>${HELLO.uk}</p>
 <p>дякуємо за довіру та бронювання № <strong>${v.booking_number}</strong> у MOTO GO 24.</p>
 <p>Ваше бронювання успішно прийнято й оплачено.</p>
@@ -533,7 +560,7 @@ ${v.door_codes_block || ''}
 <p>Безкоштовний застосунок MotoGo24 завантажте з <a href="https://play.google.com/store/apps/details?id=com.motogo24.app" style="color:#2563eb">Google Play</a> (Android) або з <a href="https://apps.apple.com/cz/app/id6806045151" style="color:#2563eb">App Store</a> (iPhone).</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Повернення мотоцикла</h3>
 <p>Заправляти мотоцикл при поверненні не потрібно (повний бак не потрібен) — лише стежте, щоб не світився індикатор резерву палива. Вимитим його потрібно повернути лише у філії самообслуговування у Velké Němčice; у філії з персоналом у Mezná (і при поверненні в іншому погодженому місці) мити його не потрібно.</p>
-<p>${SIGN.uk}</p>`,
+${manageBookingBlock('uk', v)}<p>${SIGN.uk}</p>`,
   },
 
   // -------- booking_completed (poděkování + slevový kód) --------
@@ -698,6 +725,15 @@ ${v.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${v.res
     fr: v => renderMissingDocsBody('fr', v),
     pl: v => renderMissingDocsBody('pl', v),
     uk: v => renderMissingDocsBody('uk', v),
+  },
+
+  // -------- invoice_payment_receipt (platba přijata, doklady ještě chybí) --------
+  // Fallback, když chybí DB šablona (web_)invoice_payment_receipt — dřív jen česky v index.ts.
+  invoice_payment_receipt: {
+    cs: v => renderPaymentReceiptBody('cs', v), en: v => renderPaymentReceiptBody('en', v),
+    de: v => renderPaymentReceiptBody('de', v), nl: v => renderPaymentReceiptBody('nl', v),
+    es: v => renderPaymentReceiptBody('es', v), fr: v => renderPaymentReceiptBody('fr', v),
+    pl: v => renderPaymentReceiptBody('pl', v), uk: v => renderPaymentReceiptBody('uk', v),
   },
 
   // -------- voucher_purchased (dárkový poukaz) --------
@@ -983,6 +1019,53 @@ ${v.docs_url ? `<div style="text-align:center;margin:24px 0"><a href="${v.docs_u
 <p>${SIGN[lang]}</p>`
 }
 
+function renderPaymentReceiptBody(lang: Lang, v: Vars): string {
+  const term = `<strong>${v.start_date} – ${v.end_date}</strong>`
+  const T: Record<Lang, { paid: string; attached: string; next: string; cta: string }> = {
+    cs: { paid: `vaše platba za rezervaci č. <strong>${v.booking_number}</strong> motocyklu <strong>${v.motorcycle}</strong> na ${term} byla úspěšně přijata — děkujeme!`,
+          attached: `V příloze najdete <strong>zálohovou fakturu</strong> a <strong>doklad o přijaté platbě</strong> (celkem ${v.total_price}).`,
+          next: 'Ještě jeden krok: doplňte prosím doklady (fotky občanky líc + rub nebo pasu a řidičáku líc + rub) — teprve pak vám pošleme <strong>nájemní smlouvu a přístupové kódy</strong> k pobočce (motorka, případně šatna).',
+          cta: 'Doplnit údaje' },
+    en: { paid: `your payment for booking <strong>#${v.booking_number}</strong> of the motorcycle <strong>${v.motorcycle}</strong> for ${term} has been received — thank you!`,
+          attached: `Attached you will find the <strong>proforma invoice</strong> and the <strong>payment receipt</strong> (total ${v.total_price}).`,
+          next: 'One more step: please add your documents (photos of the front and back of your ID card or passport and of your driving licence) — only then will we send you the <strong>rental agreement and the access codes</strong> for the branch (motorcycle and, if applicable, locker room).',
+          cta: 'Add details' },
+    de: { paid: `Ihre Zahlung für die Buchung Nr. <strong>${v.booking_number}</strong> des Motorrads <strong>${v.motorcycle}</strong> für ${term} ist erfolgreich eingegangen — vielen Dank!`,
+          attached: `Im Anhang finden Sie die <strong>Vorausrechnung</strong> und den <strong>Zahlungsbeleg</strong> (insgesamt ${v.total_price}).`,
+          next: 'Noch ein Schritt: Bitte ergänzen Sie Ihre Dokumente (Fotos der Vorder- und Rückseite von Personalausweis oder Reisepass und Führerschein) — erst dann senden wir Ihnen den <strong>Mietvertrag und die Zugangscodes</strong> zur Filiale (Motorrad, ggf. Umkleide).',
+          cta: 'Angaben ergänzen' },
+    nl: { paid: `je betaling voor boeking nr. <strong>${v.booking_number}</strong> van de motor <strong>${v.motorcycle}</strong> voor ${term} is ontvangen — bedankt!`,
+          attached: `In de bijlage vind je de <strong>proforma factuur</strong> en het <strong>betalingsbewijs</strong> (totaal ${v.total_price}).`,
+          next: 'Nog één stap: vul je documenten aan (foto\'s van de voor- en achterkant van je identiteitskaart of paspoort en van je rijbewijs) — pas daarna sturen we je de <strong>huurovereenkomst en de toegangscodes</strong> voor de vestiging (motor en eventueel kleedkamer).',
+          cta: 'Gegevens aanvullen' },
+    es: { paid: `hemos recibido tu pago de la reserva nº <strong>${v.booking_number}</strong> de la moto <strong>${v.motorcycle}</strong> para ${term}. ¡Gracias!`,
+          attached: `Adjuntamos la <strong>factura proforma</strong> y el <strong>recibo de pago</strong> (total ${v.total_price}).`,
+          next: 'Un paso más: completa tus documentos (fotos del anverso y reverso del DNI o pasaporte y del permiso de conducir); solo entonces te enviaremos el <strong>contrato de alquiler y los códigos de acceso</strong> a la sucursal (moto y, en su caso, vestuario).',
+          cta: 'Completar datos' },
+    fr: { paid: `votre paiement pour la réservation n° <strong>${v.booking_number}</strong> de la moto <strong>${v.motorcycle}</strong> pour ${term} a bien été reçu — merci !`,
+          attached: `Vous trouverez en pièce jointe la <strong>facture proforma</strong> et le <strong>reçu de paiement</strong> (total ${v.total_price}).`,
+          next: 'Encore une étape : complétez vos documents (photos recto verso de votre carte d\'identité ou passeport et de votre permis de conduire) — ce n\'est qu\'ensuite que nous vous enverrons le <strong>contrat de location et les codes d\'accès</strong> à la succursale (moto et, le cas échéant, vestiaire).',
+          cta: 'Compléter les données' },
+    pl: { paid: `Twoja płatność za rezerwację nr <strong>${v.booking_number}</strong> motocykla <strong>${v.motorcycle}</strong> na ${term} została przyjęta — dziękujemy!`,
+          attached: `W załączniku znajdziesz <strong>fakturę proforma</strong> i <strong>potwierdzenie płatności</strong> (razem ${v.total_price}).`,
+          next: 'Jeszcze jeden krok: uzupełnij proszę dokumenty (zdjęcia przodu i tyłu dowodu osobistego lub paszportu oraz prawa jazdy) — dopiero wtedy wyślemy ci <strong>umowę najmu i kody dostępu</strong> do oddziału (motocykl, ewentualnie szatnia).',
+          cta: 'Uzupełnij dane' },
+    uk: { paid: `вашу оплату за бронювання № <strong>${v.booking_number}</strong> мотоцикла <strong>${v.motorcycle}</strong> на ${term} успішно отримано — дякуємо!`,
+          attached: `У вкладенні знайдете <strong>рахунок-проформу</strong> та <strong>підтвердження оплати</strong> (разом ${v.total_price}).`,
+          next: 'Ще один крок: додайте, будь ласка, документи (фото лицьового та зворотного боку ID-картки або паспорта та посвідчення водія) — лише тоді ми надішлемо вам <strong>договір оренди та коди доступу</strong> до філії (мотоцикл, за потреби роздягальня).',
+          cta: 'Доповнити дані' },
+  }
+  const t = T[lang]
+  const cta = v.docs_url
+    ? `<div style="text-align:center;margin:24px 0"><a href="${v.docs_url}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px">${t.cta}</a></div>\n`
+    : ''
+  return `<p>${HELLO[lang]}</p>
+<p>${t.paid}</p>
+<p>${t.attached}</p>
+<p>${t.next}</p>
+${cta}<p>${SIGN[lang]}</p>`
+}
+
 function renderVoucherBody(lang: Lang, v: Vars): string {
   const T: Record<Lang, { intro: string; received: string; attached: string[]; printed: string; usageH: string; usage: string[]; close: string }> = {
     cs: { intro: 'děkujeme, že jste si pro svůj dárek vybrali právě MotoGo24.',
@@ -1097,11 +1180,16 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
     codesBlock = `<div style="margin:20px 0">${cards}</div>`
   }
 
+  const attachedH: Record<Lang, string> = {
+    cs: 'V příloze tohoto e-mailu najdete:', en: 'You will find attached:', de: 'Im Anhang finden Sie:',
+    nl: 'In de bijlage vind je:', es: 'Adjunto encontrarás:', fr: 'Vous trouverez en pièce jointe :',
+    pl: 'W załączniku znajdziesz:', uk: 'У вкладенні ви знайдете:',
+  }
   return `<p>${HELLO[lang]}</p>
 <p>${t.intro}</p>
 <p>${t.received}</p>
 ${codesBlock}
-<p>V příloze tohoto e-mailu najdete:</p>
+<p>${attachedH[lang]}</p>
 <ul>${t.attached.map(a => `<li>${a}</li>`).join('')}</ul>
 <p>${t.printed}</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">${t.usageH}</h3>

@@ -175,7 +175,7 @@ $serviceSchema = '
     . ',"name":' . json_encode($h1, JSON_UNESCAPED_UNICODE)
     . ',"description":' . json_encode(strip_tags($subst($D['intro'] ?? '')), JSON_UNESCAPED_UNICODE)
     . ',"url":' . json_encode($canonical, JSON_UNESCAPED_UNICODE)
-    . ',"provider":{"@id":"https://www.motogo24.cz/#organization"}'
+    . ',"provider":{"@id":' . json_encode(siteOrigin() . '/#organization', JSON_UNESCAPED_SLASHES) . '}'
     . ',"areaServed":[' . implode(',', $areaServed) . ']'
     . ',"availableChannel":{"@type":"ServiceChannel","serviceUrl":' . json_encode(siteCanonicalUrl('/rezervace'), JSON_UNESCAPED_UNICODE) . ',"availableLanguage":["cs","en","de","es","fr","nl","pl","uk"]}'
     . ',"offers":{"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"' . ldPriceLow() . '","highPrice":"' . ldPriceHigh() . '","offerCount":' . ldOfferCount() . ',"availability":"https://schema.org/InStock"}'

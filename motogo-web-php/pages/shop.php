@@ -62,7 +62,7 @@ $itemListSchema = '';
 if (!empty($listItems)) {
     $itemListSchema = '
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"ItemList","name":"E-shop motorkářské výbavy MotoGo24","numberOfItems":' . count($products) . ',"itemListElement":[' . implode(',', $listItems) . ']}
+  {"@context":"https://schema.org","@type":"ItemList","name":' . json_encode(t('shop.title'), JSON_UNESCAPED_UNICODE) . ',"numberOfItems":' . count($products) . ',"itemListElement":[' . implode(',', $listItems) . ']}
   </script>';
 }
 

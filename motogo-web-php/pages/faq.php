@@ -73,7 +73,7 @@ foreach ($categories as $id => $cat) {
 
 $bc = renderBreadcrumb([
     ['label' => t('breadcrumb.home'), 'href' => '/'],
-    ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'],
+    ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit/postup'],
     t('menu.howto.faq'),
 ]);
 
@@ -144,7 +144,7 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/faq', $lpiMeta + [
     'schema' => $faqSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
-        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit/postup')],
         ['name' => t('menu.howto.faq'), 'url' => siteCanonicalUrl('/jak-pujcit/faq')],
     ],
 ]);

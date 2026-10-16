@@ -442,8 +442,8 @@ return [
                 'services' => [
                     'title' => 'Extra services (surcharge)',
                     'items' => [
-                        'delivery of the bike to an agreed place anywhere in the Czech Republic',
-                        'returning the bike somewhere other than the branch address',
+                        'delivery of the bike to an agreed place anywhere in the Czech Republic (bikes from the staffed branch in Mezná)',
+                        'returning the bike somewhere other than the branch (bikes from Mezná)',
                     ],
                 ],
             ],

@@ -80,8 +80,8 @@ return [
                 'services' => [
                     'title' => 'Nadstandardní služby za příplatek',
                     'items' => [
-                        'přistavení motorky na domluvené místo kamkoliv v ČR',
-                        'vrácení motorky jinam než na adresu půjčovny',
+                        'přistavení motorky na domluvené místo kamkoliv v ČR (u motorek z obslužné pobočky v Mezné)',
+                        'vrácení motorky jinam než na pobočku (u motorek z Mezné)',
                     ],
                 ],
             ],

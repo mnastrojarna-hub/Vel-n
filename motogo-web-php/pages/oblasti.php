@@ -97,7 +97,7 @@ foreach ($regions as $i => $r) {
 }
 $itemListSchema = '
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"ItemList","name":"Motopůjčovna podle krajů","itemListElement":[' . implode(',', $itemListEls) . ']}
+  {"@context":"https://schema.org","@type":"ItemList","name":' . json_encode(trim(strip_tags((string)($C['hero']['h1'] ?? ''))) ?: 'MotoGo24', JSON_UNESCAPED_UNICODE) . ',"itemListElement":[' . implode(',', $itemListEls) . ']}
   </script>';
 
 renderPage($C['seo']['title'], $content, '/oblasti', [

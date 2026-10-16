@@ -893,10 +893,15 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
           close: 'Дякуємо за довіру й бажаємо обдарованому чудових вражень!' },
   }
   const t = T[lang]
+  const attachedH: Record<Lang, string> = {
+    cs: 'V příloze tohoto e-mailu najdete:', en: 'You will find attached:', de: 'Im Anhang finden Sie:',
+    nl: 'In de bijlage vind je:', es: 'Adjunto encontrarás:', fr: 'Vous trouverez en pièce jointe :',
+    pl: 'W załączniku znajdziesz:', uk: 'У вкладенні ви знайдете:',
+  }
   return `<p>${HELLO[lang]}</p>
 <p>${t.intro}</p>
 <p>${t.received}</p>
-<p>V příloze tohoto e-mailu najdete:</p>
+<p>${attachedH[lang]}</p>
 <ul>${t.attached.map(a => `<li>${a}</li>`).join('')}</ul>
 <p>${t.printed}</p>
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">${t.usageH}</h3>

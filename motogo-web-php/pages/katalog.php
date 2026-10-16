@@ -152,6 +152,13 @@ $displayIntro = $C['intro'] ?? t('filters.catalogLead');
 $outroTitle = $C['outro']['title'] ?? $katalogDefaults['outro']['title'];
 $outroBody1 = $C['outro']['body1'] ?? $katalogDefaults['outro']['body1'];
 $outroBody2 = $C['outro']['body2'] ?? $katalogDefaults['outro']['body2'];
+// Cizí jazyky (lang/v2/<jazyk>/katalog-kategorie.php): věta s modely aktuální flotily ({models}) se připojí k body1
+// jen u kategorie s motorkami, jinak 'nomodels' — stejně jako česká $categoryOutros výše.
+if ($category && isset($C['outro']['models']) && is_string($C['outro']['models'])) {
+    $kfMm = $kfModels($category);
+    $kfExtra = $kfMm !== '' ? str_replace('{models}', $kfMm, $C['outro']['models']) : (string)($C['outro']['nomodels'] ?? '');
+    if (trim($kfExtra) !== '') $outroBody1 = rtrim((string)$outroBody1) . ' ' . $kfExtra;
+}
 
 // Dynamické hranice slideru výkonu z dat
 $kwValues = [];
@@ -516,7 +523,7 @@ $listItems = [];
 foreach (array_slice($filtered, 0, 50) as $i => $m) {
     if (empty($m['id'])) continue;
     $listItems[] = '{"@type":"ListItem","position":' . ($i + 1)
-        . ',"url":"https://www.motogo24.cz/katalog/' . htmlspecialchars($m['id']) . '"'
+        . ',"url":' . json_encode(siteCanonicalUrl('/katalog/' . $m['id']), JSON_UNESCAPED_SLASHES)
         . ',"name":' . json_encode($m['model'] ?? '', JSON_UNESCAPED_UNICODE)
         . '}';
 }
@@ -546,6 +553,7 @@ $catDescriptions = [
     'ostatni'   => 'Půjčovna přívěsů na motorky a dalšího vybavení na Vysočině. Přívěs na ŘP B. Bez kauce, online rezervace.',
 ];
 $catDesc = $category && isset($catDescriptions[$category]) ? $catDescriptions[$category] : t('katalog.seo.description');
+if ($category && !empty($C['description']) && is_string($C['description'])) $catDesc = $C['description']; // překlad (cizí jazyky)
 
 renderPage($title . ' | MotoGo24', $content, $path, ($kcV2 ? kfPageMeta() : []) + [
     'description' => $catDesc,

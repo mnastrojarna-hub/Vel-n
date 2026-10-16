@@ -14,7 +14,7 @@ return ['pages' => ['landing_info' => [
     'chips' => [
         'postup' => ['Bez kaucji', 'Wyposażenie kierowcy w cenie', 'Rezerwacja online w kilka minut'],
         'prevzeti' => ['Odbiór o wybranej godzinie', 'Bezpłatny parking', 'Bez kaucji'],
-        'vraceni_pujcovna' => ['Ostatni dzień do 24:00', 'Bez tankowania', 'Bez kaucji'],
+        'vraceni_pujcovna' => ['Ostatni dzień do 24:00', 'Bez tankowania (rezerwa nie świeci)', 'Bez kaucji'],
         'vraceni_jinde' => ['W całych Czechach', 'Jasny cennik za km', 'Bez kaucji'],
         'cena' => ['0 zł kaucji', 'Wyposażenie kierowcy w cenie', 'Bez ukrytych opłat'],
         'pristaveni' => ['Do domu, hotelu lub na dworzec', 'W całych Czechach', 'Bez kaucji'],
