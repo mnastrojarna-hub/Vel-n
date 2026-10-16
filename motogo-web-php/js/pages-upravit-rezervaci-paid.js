@@ -69,7 +69,11 @@
         if (!r || (r.state !== 'pending' && r.state !== 'retry')) break;
         await sleep(POLL_MS);
       }
-      if (r && r.state !== 'client_apply') {
+      // Výměna bez dorovnání, kterou server ani po ~40 s nezapsal (retry — např. před nasazením
+      // SQL 20261016p3 ji smí zapsat jen webhook): záloha = klientský zápis jako dřív (RPC je
+      // idempotentní; obsazenou motorku vyhodnotí a doplatek vrátí webhook).
+      var swapFallback = r && r.state === 'retry' && sw && sw.base && !sw.r;
+      if (r && r.state !== 'client_apply' && !swapFallback) {
         if (r.state === 'applied' || r.state === 'already_applied') {
           // „K vyzvednutí" po výměně = pobočka NOVÉ motorky (stejně jako swap.js).
           if (sw && sw.base && sw.base.p_new_moto_id) ER._lastSwapMoto = sw.base.p_new_moto_id;

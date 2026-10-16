@@ -109,7 +109,22 @@
       : (rez.bookingAmount != null ? Number(rez.bookingAmount) + (typeof MG._rezShopTotal === 'function' ? Number(MG._rezShopTotal()) || 0 : 0) : NaN);
     var m = document.querySelector('input[name="rez-pay-method"]:checked');
     var online = !m || m.value === 'online'; // QR platba převodem minimum karty nemá
-    place(amt.parentNode, 'mg-card-round-rez', online && isFinite(due) ? MG.cardNoteLines(due, 'rez') : '');
+    var html = online && isFinite(due) ? MG.cardNoteLines(due, 'rez') : '';
+    place(amt.parentNode, 'mg-card-round-rez', html);
+    payAmount(amt, html && MG.cardCharge(due).kind === 'round' ? fp(MIN) : null, isFinite(due) ? fp(due) : null);
+  }
+
+  /** Částka u tlačítka „Zaplatit": s dorovnáním 15 Kč (stejně jako na stránce Stripe);
+   *  bez dorovnání se vrátí původní částka (jen když ji změnil tenhle soubor). */
+  function payAmount(el, roundText, normalText) {
+    if (!el) return;
+    if (roundText) {
+      el.setAttribute('data-mg-card', '1');
+      if (el.textContent !== roundText) el.textContent = roundText;
+    } else if (el.getAttribute('data-mg-card')) {
+      el.removeAttribute('data-mg-card');
+      if (normalText != null && el.textContent !== normalText) el.textContent = normalText;
+    }
   }
 
   // ── Háček 2: pokladna e-shopu — celkem z [data-checkout-total] (checkout.js: „1 234 Kč") ──
@@ -118,7 +133,9 @@
     if (!tot) return;
     var due = Number(String(tot.textContent || '').replace(/[^\d]/g, ''));
     var dl = tot.closest ? tot.closest('dl') : null;
-    place(dl || tot, 'mg-card-round-shop', due > 0 ? MG.cardNoteLines(due, 'shop') : '');
+    var html = due > 0 ? MG.cardNoteLines(due, 'shop') : '';
+    place(dl || tot, 'mg-card-round-shop', html);
+    payAmount(document.querySelector('[data-checkout-pay]'), html && MG.cardCharge(due).kind === 'round' ? fp(MIN) : null, tot.textContent);
   }
 
   var pending = false;
