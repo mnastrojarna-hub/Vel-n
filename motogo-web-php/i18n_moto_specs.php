@@ -30,15 +30,17 @@ function mgPhotoKey(string $s): string {
 function mgSpecDict(): array {
     static $dict = null;
     if ($dict !== null) return $dict;
-    $dict = [];
+    $dict = ['spec' => [], 'photo' => [], 'photoN' => []];
+    // Chybějící slovník (neúplný upload) = hodnoty zůstanou česky, ne fatal error.
+    $load = function ($f) { $p = __DIR__ . '/lang/moto-specs/' . $f . '.php'; return is_file($p) ? (require $p) : []; };
     foreach (['specs', 'engines', 'brakes'] as $f) {
-        foreach ((require __DIR__ . '/lang/moto-specs/' . $f . '.php') as $k => $v) $dict['spec'][mgSpecKey($k)] = $v;
+        foreach ($load($f) as $k => $v) $dict['spec'][mgSpecKey($k)] = $v;
     }
-    $ph = require __DIR__ . '/lang/moto-specs/photos.php';
-    foreach ($ph['captions'] as $concept => $keys) {
+    $ph = $load('photos');
+    foreach (($ph['captions'] ?? []) as $concept => $keys) {
         foreach ($keys as $k) $dict['photo'][mgPhotoKey($k)] = $ph['concepts'][$concept];
     }
-    $dict['photoN'] = $ph['photoN'];
+    $dict['photoN'] = $ph['photoN'] ?? [];
     return $dict;
 }
 
@@ -65,7 +67,7 @@ function mgLocalizeMotoSpecs(array $m, string $lang): array {
         $seen = [];
         foreach ($m['image_alts'] as $n => $alt) {
             if (!is_string($alt) || trim($alt) === '') continue;
-            $t = $d['photo'][mgPhotoKey($alt)][$i] ?? str_replace('{n}', (string)($n + 1), $d['photoN'][$i]);
+            $t = $d['photo'][mgPhotoKey($alt)][$i] ?? (isset($d['photoN'][$i]) ? str_replace('{n}', (string)($n + 1), $d['photoN'][$i]) : $alt);
             if (isset($seen[$t])) $t .= ' (' . ($n + 1) . ')';
             $seen[$t] = true;
             $m['image_alts'][$n] = $t;

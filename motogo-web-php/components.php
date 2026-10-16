@@ -673,6 +673,19 @@ function renderMotoCard($m) {
 }
 
 /**
+ * Popisek štítku článku v jazyce stránky. Štítky jsou ve Velínu česky (cms_pages.tags); odkaz ?tag= zůstává český.
+ */
+function blogTagLabel(string $tag): string {
+    static $labels = [
+        'O nás'       => ['en' => 'About us', 'de' => 'Über uns', 'es' => 'Sobre nosotros', 'fr' => 'À propos de nous', 'nl' => 'Over ons', 'pl' => 'O nas', 'uk' => 'Про нас'],
+        'Rady a tipy' => ['en' => 'Tips & advice', 'de' => 'Tipps & Ratschläge', 'es' => 'Consejos', 'fr' => 'Conseils et astuces', 'nl' => 'Tips en advies', 'pl' => 'Porady i wskazówki', 'uk' => 'Поради'],
+        'Aplikace'    => ['en' => 'App', 'de' => 'App', 'es' => 'App', 'fr' => 'Application', 'nl' => 'App', 'pl' => 'Aplikacja', 'uk' => 'Застосунок'],
+    ];
+    $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+    return $labels[$tag][$lang] ?? $tag;
+}
+
+/**
  * HTML karta blogu — odpovídá MG.renderBlogCard() v components.js.
  * Podporuje i relativní cesty začínající /gfx/ (lokální obrázky).
  */
@@ -689,7 +702,7 @@ function renderBlogCard($post) {
         $img = imgUrlSized($img, 600);
     }
     $tags = $post['tags'] ?? [];
-    $tag = !empty($tags) ? $tags[0] : '';
+    $tag = !empty($tags) ? blogTagLabel((string)$tags[0]) : '';
     // Auto-překlady z `translations` JSONB sloupce s CZ fallbackem
     $excerpt = localized($post, 'excerpt');
     if ($excerpt === '') $excerpt = $post['description'] ?? '';

@@ -54,6 +54,15 @@ $openLabel = htmlspecialchars(t('gallery.openImage'), ENT_QUOTES, 'UTF-8');
 // SEO: per-image alt z `image_alts[i]` (paralelní pole, plní admin ve Velíně
 // BlogWizard). Pokud prázdný → fallback na titulek článku (původní chování).
 $postImageAlts = is_array($post['image_alts'] ?? null) ? $post['image_alts'] : [];
+// Popisky fotek píše admin česky a auto-překlad Velínu je nepřekládá (jen title/excerpt/content) →
+// v přeloženém článku jen přeložené popisky (translations.<jazyk>.image_alts), jinak samotný přeložený titulek
+// (žádná čeština v alt). Nepřeložený článek (celý česky, lang="cs") si české popisky nechá.
+$trAll = $post['translations'] ?? null;
+if (is_string($trAll)) $trAll = json_decode($trAll, true);
+$trPost = ($blogLang !== 'cs' && is_array($trAll) && is_array($trAll[$blogLang] ?? null)) ? $trAll[$blogLang] : null;
+if ($trPost !== null && (string)($trPost['title'] ?? '') !== '') {
+    $postImageAlts = is_array($trPost['image_alts'] ?? null) ? $trPost['image_alts'] : [];
+}
 $composeBlogAlt = function (string $desc) use ($titleRaw) {
     $desc = trim($desc);
     if ($desc === '') return htmlspecialchars($titleRaw, ENT_QUOTES, 'UTF-8');

@@ -43,6 +43,21 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
 }
 
+/** Jazyk zákazníka: explicitní `language` z volajícího > detect_customer_language
+ *  (rezervace → objednávka e-shopu → profil) > 'cs'. Velín (Faktury, Nová faktura,
+ *  náhled dokladu) jazyk neposílá — dřív proto šly faktury cizincům vždy česky. */
+// deno-lint-ignore no-explicit-any
+async function resolveCustomerLang(supabase: any, explicit: unknown, inv: { customer_id?: string | null; booking_id?: string | null; order_id?: string | null } | null): Promise<Lang> {
+  if (explicit) return normalizeLang(String(explicit))
+  if (!inv || !(inv.customer_id || inv.booking_id || inv.order_id)) return 'cs'
+  try {
+    const { data } = await supabase.rpc('detect_customer_language', {
+      p_user_id: inv.customer_id || null, p_booking_id: inv.booking_id || null, p_order_id: inv.order_id || null,
+    })
+    return normalizeLang(typeof data === 'string' ? data : null)
+  } catch { return 'cs' }
+}
+
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
 const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 0 })
 
@@ -158,12 +173,15 @@ serve(async (req) => {
 
   try {
     const { invoice_id, html_content, customer_email, customer_name, invoice_number, language } = await req.json()
-    const custLang: Lang = normalizeLang(language)
-
     if (!invoice_id) return jsonResponse({ success: false, error: 'Missing invoice_id' }, 400)
 
     // If InvoicePreviewModal passed html_content directly, use it as-is when it's a full invoice document
     if (html_content && customer_email) {
+      let langRef = null
+      if (!language) {
+        try { langRef = (await supabase.from('invoices').select('customer_id, booking_id, order_id').eq('id', invoice_id).maybeSingle()).data } catch { /* → cs */ }
+      }
+      const custLang = await resolveCustomerLang(supabase, language, langRef)
       const snip = invoiceEmailSnippets('issued', custLang, { invoice_number: invoice_number || '\u2014' })
       const subject = snip.subject
       const isFullDoc = /^\s*<!DOCTYPE/i.test(html_content) || /<html[\s>]/i.test(html_content)
@@ -179,10 +197,11 @@ serve(async (req) => {
     // Load invoice from DB
     const { data: invoice, error: invErr } = await supabase
       .from('invoices')
-      .select('id, number, type, total, issue_date, due_date, status, variable_symbol, customer_id, booking_id, pdf_path, profiles(full_name, email)')
+      .select('id, number, type, total, issue_date, due_date, status, variable_symbol, customer_id, booking_id, order_id, pdf_path, profiles(full_name, email)')
       .eq('id', invoice_id).maybeSingle()
 
     if (invErr || !invoice) return jsonResponse({ success: false, error: 'Invoice not found' }, 404)
+    const custLang = await resolveCustomerLang(supabase, language, invoice)
 
     const profile = invoice.profiles as { full_name?: string; email?: string } | null
     const recipientEmail = customer_email || profile?.email

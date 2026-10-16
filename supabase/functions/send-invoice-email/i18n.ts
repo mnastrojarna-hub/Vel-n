@@ -1173,7 +1173,8 @@ export function invoiceEmailSnippets(invType: string, lang: Lang, vars: Vars): {
   const INTRO: Record<Lang, string> = {
     cs: `${HELLO.cs}\nzasíláme Vám ${label.toLowerCase()} č. <strong>${vars.invoice_number}</strong>.`,
     en: `${HELLO.en}\nplease find attached your ${label.toLowerCase()} <strong>#${vars.invoice_number}</strong>.`,
-    de: `${HELLO.de}\nanbei senden wir Ihnen die ${label.toLowerCase()} Nr. <strong>${vars.invoice_number}</strong>.`,
+    // de: Substantive groß (nicht toLowerCase), Artikel nach Genus (der Zahlungsbeleg)
+    de: `${HELLO.de}\nanbei senden wir Ihnen ${invType === 'payment_receipt' ? 'den' : 'die'} ${label} Nr. <strong>${vars.invoice_number}</strong>.`,
     nl: `${HELLO.nl}\nin de bijlage vind je je ${label.toLowerCase()} nr. <strong>${vars.invoice_number}</strong>.`,
     es: `${HELLO.es}\nadjuntamos tu ${label.toLowerCase()} nº <strong>${vars.invoice_number}</strong>.`,
     fr: `${HELLO.fr}\nveuillez trouver ci-jointe votre ${label.toLowerCase()} n° <strong>${vars.invoice_number}</strong>.`,

@@ -258,9 +258,11 @@ class SupabaseClient {
     public function fetchMotos() {
         // Technické údaje (barva, motor, převodovka, palivo, brzdy, popisky fotek) jsou ve Velínu
         // jen česky → na cizojazyčné stránce je přeloží i18n_moto_specs.php (cache drží češtinu).
-        require_once __DIR__ . '/i18n_moto_specs.php';
+        // Chybí-li soubor (neúplný upload), motorky se ukážou s českými údaji — nikdy fatal error.
+        if (is_file(__DIR__ . '/i18n_moto_specs.php')) require_once __DIR__ . '/i18n_moto_specs.php';
+        $loc = function ($m) { return function_exists('mgLocalizeMotos') ? mgLocalizeMotos($m) : $m; };
         $cached = $this->cacheGet('motos');
-        if ($cached !== null) return mgLocalizeMotos($cached);
+        if ($cached !== null) return $loc($cached);
         // active + maintenance: motorka v servisu zůstává v katalogu — servisní
         // dny blokuje kalendář detailu/rezervace (get_moto_booked_dates vrací
         // status='service'), ostatní volné dny jdou rezervovat. unavailable /
@@ -316,7 +318,7 @@ class SupabaseClient {
         }
 
         $this->cacheSet('motos', $data);
-        return mgLocalizeMotos($data);
+        return $loc($data);
     }
 
     // ===== DENNÍ CENY =====
