@@ -7,7 +7,8 @@ import 'mg_ai_fab.dart';
 import 'mg_chrome_metrics.dart';
 
 /// Bottom action dock (REZERVOVAT, ZAPLATIT, NAVIGOVAT, ZAZNAMENAT JÍZDU…):
-/// night .96 + sticky shadow, r20 top, neon hairline, 10 / 16 / safe-area
+/// solid night (no backdrop blur in Flutter → a translucent fill let the
+/// page text show through) + sticky shadow, r20 top, neon hairline, 10 / 16 / safe-area
 /// padding (V22 `dock`). [contextLine] = one line above the action (dates,
 /// amber blocker), [trailing] = e.g. "Rozpis ▴", [aiDisc] docks the 44 px
 /// AI disc into the context row (screens where the floating button is
@@ -63,7 +64,7 @@ class _MgDockState extends State<MgDock> {
     final dock = Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottom),
       decoration: BoxDecoration(
-        color: widget.light ? MgColors.surface : MgColors.night.withValues(alpha: 0.96),
+        color: widget.light ? MgColors.surface : MgColors.night,
         borderRadius: widget.light ? null : const BorderRadius.vertical(top: Radius.circular(20)),
         border: widget.light ? const Border(top: BorderSide(color: MgColors.line)) : null,
         boxShadow: widget.light ? null : MgShadows.sticky,

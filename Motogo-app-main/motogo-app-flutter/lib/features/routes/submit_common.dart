@@ -8,6 +8,8 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/friendly_error.dart';
 import '../../core/widgets/error_feedback.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/submit_form_v2.dart';
 
 /// Sdílené kousky pro komunitní návrhy (trasa / bod zájmu):
 /// info banner o moderaci, výběr fotek s náhledy, upload a success sheet.
@@ -18,6 +20,7 @@ class SubmitIntroBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) return SubmitNoteV2(t(context).tr('submitModerationNote'));
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(

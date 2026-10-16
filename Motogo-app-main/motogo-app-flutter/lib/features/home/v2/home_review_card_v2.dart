@@ -6,6 +6,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_day_state.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
@@ -140,8 +141,8 @@ class HomeReviewLightView extends StatelessWidget {
               ),
           ]),
           Text(tr.tr(rating == 0 ? 'rfTapToRate' : 'rfChangeHint'), style: MgType.meta.copyWith(color: MgColors.meta)),
-          AnimatedSize(
-            duration: MgMotion.of(context, const Duration(milliseconds: 380)),
+          MgAnimatedSize(
+            duration: const Duration(milliseconds: 380),
             curve: MgMotion.out,
             alignment: Alignment.topCenter,
             child: rating == 0 ? const SizedBox(width: double.infinity) : _followUp(context, tr),

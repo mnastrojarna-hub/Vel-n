@@ -46,10 +46,13 @@ class CardCharge {
 double _r2(num v) => (v * 100).roundToDouble() / 100;
 
 /// Zařazení částky [due] podle pravidla minimální platby kartou.
-CardCharge cardCharge(num due) {
+/// [forceMin] = server zbytek do 1 Kč odpustit nemůže (`below_minimum` s
+/// `waiver_unverified`: SOS náhrada, úprava místa / doplňků / slevy) → platí
+/// se 15 Kč s dorovnáním, jinak by se odpuštění (0 Kč) posílalo dokola.
+CardCharge cardCharge(num due, {bool forceMin = false}) {
   final d = _r2(due);
   if (d <= 0) return const CardCharge(0, 0, 0, CardChargeKind.free);
-  if (d <= cardWaiveMaxCzk) return CardCharge(d, 0, _r2(-d), CardChargeKind.waive);
+  if (d <= cardWaiveMaxCzk && !forceMin) return CardCharge(d, 0, _r2(-d), CardChargeKind.waive);
   if (d < cardMinCzk) return CardCharge(d, cardMinCzk, _r2(cardMinCzk - d), CardChargeKind.round);
   return CardCharge(d, d.round(), 0, CardChargeKind.normal);
 }

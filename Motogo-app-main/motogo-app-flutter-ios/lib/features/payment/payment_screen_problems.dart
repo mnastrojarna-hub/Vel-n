@@ -34,8 +34,9 @@ extension _PaymentProblems on _PaymentScreenState {
 
   /// Odmítnutí / chyba z `createPaymentIntent` (server, síť, přihlášení).
   void _handleIntentError(PaymentResult result) {
+    _rememberPreviousChange(result);
     _showProblem(PaymentRefusals.resolve(t(context).lang, result, _flow,
-        amount: _amount));
+        amount: _bookingDue));
   }
 
   /// Zobrazí [p] s akcí, která opravdu něco dělá (žádné „Zkusit znovu",
@@ -69,23 +70,37 @@ extension _PaymentProblems on _PaymentScreenState {
     VoidCallback? onTap;
     String? second;
     VoidCallback? onSecond;
+    var message = p.countsAsAttempt ? p.message + _counter : p.message;
     switch (p.action) {
       case PayAction.priceChanged:
+        // Nová cena rezervace podle serveru — tlačítko říká, kolik se OPRAVDU
+        // strhne (minimum karty 15 Kč / do 1 Kč nic, D1).
         final total = p.serverTotal ?? 0;
-        label = tr.tr('psPayAmount').replaceAll('{amount}', Money.czk(total));
+        final cc = _cardFor(total);
+        label = cc.isWaive
+            ? tr.tr('pdConfirmFree')
+            : tr.tr('psPayAmount').replaceAll('{amount}', Money.czk(cc.charge));
+        if (cc.isRound) {
+          message = '$message\n\n${tr.tr('pdRoundNote').replaceAll('{rounding}', kcExact(cc.rounding))}';
+        }
         onTap = () {
-          // K nové rezervaci se platí i upsell z e-shopu (server ho povoluje navíc).
-          final upsell = _isNewBooking ? ref.read(bookingUpsellProvider.notifier).total : 0.0;
-          _set(() => _serverAmount = total + upsell);
+          // Cena rezervace (doprodej z e-shopu přičítá `_amount` sám).
+          _set(() => _serverAmount = total);
           _doPayment();
         };
         second = tr.back;
       case PayAction.payMin:
         // Zbývá méně než 15 Kč → zaplatit 15 Kč (dorovnání zapíše server, D1).
+        // Zbytek do 1 Kč, který server neodpustil, se platí také 15 Kč — jinak
+        // by se odpuštění (0 Kč) poslalo znovu a odmítnutí opakovalo dokola.
         final due = p.serverTotal;
+        final force = p.forceMinCharge;
         label = tr.tr('pdPayMin');
         onTap = () {
-          if (due != null && due > 0) _set(() => _serverAmount = due);
+          _set(() {
+            if (due != null && due > 0) _serverAmount = due;
+            if (force) _forceMinCharge = true;
+          });
           _doPayment();
         };
         second = tr.tr(edit ? 'psEditChange' : 'psMyReservations');
@@ -116,7 +131,7 @@ extension _PaymentProblems on _PaymentScreenState {
     }
     _showError(
       title: p.title,
-      message: p.countsAsAttempt ? p.message + _counter : p.message,
+      message: message,
       buttonLabel: label,
       onButton: onTap,
       secondaryLabel: second,
@@ -155,7 +170,7 @@ extension _PaymentProblems on _PaymentScreenState {
         return;
       }
       if (info.cause == 'amount_too_small') {
-        _showProblem(PaymentRefusals.belowMinimum(lang, _amount));
+        _showProblem(PaymentRefusals.belowMinimum(lang, _bookingDue));
         return;
       }
       _attempts++;
@@ -164,9 +179,9 @@ extension _PaymentProblems on _PaymentScreenState {
       _handleMaxAttempts();
       return;
     }
-    // Uložená karta už neexistuje / nejde použít → jediná smysluplná akce
-    // je jiná karta (opakování by selhalo stejně).
-    if (info.cause == 'card_gone') {
+    // Uložená karta už neexistuje / nejde použít, nebo banka opakování výslovně
+    // nedovolí → jediná smysluplná akce je jiná karta (opakování by selhalo).
+    if (info.cause == 'card_gone' || info.cause == 'do_not_try_again') {
       _showError(
         title: info.title,
         message: info.message,
@@ -219,7 +234,7 @@ extension _PaymentProblems on _PaymentScreenState {
     if (!mounted) return;
     _setProcessing(false);
     if (info.cause == 'amount_too_small') {
-      _showProblem(PaymentRefusals.belowMinimum(lang, _amount));
+      _showProblem(PaymentRefusals.belowMinimum(lang, _bookingDue));
       return;
     }
     _attempts++;
@@ -389,7 +404,7 @@ extension _PaymentProblems on _PaymentScreenState {
             // Obnovená rezervace → děkovačka „znovu potvrzená"; nová rezervace
             // s doprodejem → objednávka doplňků až po ověřeném zaplacení.
             restore: _ctx?.isRestore ?? false,
-            upsell: _isNewBooking ? ref.read(bookingUpsellProvider) : const []);
+            upsell: _upsellBundled ? ref.read(bookingUpsellProvider) : const []);
     ref.read(paymentOutcomeProvider.notifier).state = outcome;
     context.go(Routes.paymentResult);
   }

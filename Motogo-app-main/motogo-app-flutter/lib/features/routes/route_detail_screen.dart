@@ -17,6 +17,9 @@ import 'route_poi_sheet.dart';
 import 'route_reviews.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/states/mg_state_screen.dart';
+import 'v2/route_detail_view_v2.dart';
 
 class RouteDetailScreen extends ConsumerStatefulWidget {
   final String routeId;
@@ -166,6 +169,45 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
       if (ll != null) poiMarkers.add((point: ll, index: i));
     }
 
+    void openPoi(int i) {
+      setState(() => _activePoi = i);
+      showRoutePoiSheet(context, pois[i], lang,
+          index: i,
+          siblings: pois,
+          onIndexChanged: (n) =>
+              setState(() => _activePoi = n));
+    }
+
+    if (MgV2.on(context)) {
+      final ids = widget.siblingIds;
+      final at = ids.indexOf(_id);
+      return RouteDetailViewV2(
+        route: route,
+        branch: branch,
+        startNear: branch != null && startIsNearRoute(route, branch.latLng),
+        lang: lang,
+        geometry: geometry,
+        start: mapStart,
+        poiMarkers: poiMarkers,
+        pois: pois,
+        activePoi: _activePoi,
+        computing: displayAsync.isLoading && preview,
+        realKm: ref.watch(routeRealLengthKmProvider(route.id)).valueOrNull,
+        approach: ref.watch(routeApproachProvider(route.id)).valueOrNull,
+        sibling: ids.length > 1 && at >= 0 ? (at + 1, ids.length) : null,
+        onBack: () => context.backOr('/routes'),
+        onPoiTap: openPoi,
+        onFullMap: () => _openFullMap(context, geometry, mapStart, poiMarkers, pois, lang),
+        onPrev: () => _swipe(-1),
+        onNext: () => _swipe(1),
+        onNavigate: () => context.push('/route-nav/${route.id}'),
+        onCustomize: route.pois.isNotEmpty || route.waypoints.isNotEmpty
+            ? () => context.push('/route-build', extra: route)
+            : null,
+        onExternal: () => _openExportSheet(context, route, branch),
+      );
+    }
+
     return SafeArea(
       bottom: false,
       child: Column(
@@ -181,14 +223,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                     start: mapStart,
                     pois: poiMarkers,
                     activePoi: _activePoi,
-                    onPoiTap: (i) {
-                      setState(() => _activePoi = i);
-                      showRoutePoiSheet(context, pois[i], lang,
-                          index: i,
-                          siblings: pois,
-                          onIndexChanged: (n) =>
-                              setState(() => _activePoi = n));
-                    },
+                    onPoiTap: openPoi,
                   ),
                 ),
                 if (displayAsync.isLoading && preview)
@@ -791,7 +826,16 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         ),
       );
 
-  Widget _missing(BuildContext context) => Center(
+  Widget _missing(BuildContext context) => MgV2.on(context)
+      ? MgStateScreen(
+          tone: MgTone.warn,
+          title: t(context).tr('routeNotFound'),
+          why: t(context).tr('eoRouteGoneBody'),
+          onClose: () => context.backOr('/routes'),
+          closeIsBack: true,
+          primary: MgStateAction(t(context).tr('eoBack'), () => context.backOr('/routes')),
+        )
+      : Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

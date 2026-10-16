@@ -77,6 +77,9 @@ export const CS: Record<string, string> = {
   amount_mismatch_shop: 'Cena objednávky se přepočítala na {server_total} Kč. Vrať se prosím do košíku a objednávku odešli znovu – nic jsme nestrhli.',
   free_mismatch: 'Sleva nepokrývá celou cenu (zbývá {server_total} Kč). Vrať se prosím k rezervaci a zaplať zbytek – nic jsme nestrhli.',
   free_unverified: 'Slevu se nepodařilo ověřit na celou cenu, takže rezervaci zdarma potvrdit nejde. Nic jsme nestrhli – vrať se k rezervaci a zkontroluj slevový kód.',
+  // cena rezervace neodpovídá ceníku a platným slevám (např. kód / poukaz mezitím přestal platit) —
+  // jinou částku nenabízíme: zaplaceno by se lišilo od ceny na dokladech
+  price_outdated: 'Cena rezervace už neodpovídá aktuálnímu ceníku nebo slevám (slevový kód nebo poukaz mezitím mohl přestat platit). Nic jsme nestrhli. Vytvoř si prosím rezervaci znovu – cenu spočítáme podle aktuálního stavu.',
   previous_change_applied: 'Předchozí zaplacená úprava se právě dopsala do rezervace. Načti ji prosím znovu a novou úpravu zopakuj – nic jsme nestrhli.',
   free_confirm_failed: 'Rezervaci se nepodařilo potvrdit kvůli chybě na serveru. Nic jsme nestrhli – zkus to prosím za minutu znovu.',
   payment_in_progress: 'Platba za tohle už proběhla nebo se právě ověřuje. Neplať prosím znovu – výsledek uvidíš za pár minut v Rezervacích.',

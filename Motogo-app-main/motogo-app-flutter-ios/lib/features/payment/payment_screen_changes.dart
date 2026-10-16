@@ -18,7 +18,7 @@ extension _PaymentChanges on _PaymentScreenState {
     if (key == null || bid == null || ctx?.flowType != PaymentFlowType.extension) return null;
     final pending = ctx!.pendingEditChanges ?? const <String, dynamic>{};
     final swap = pending['_swap_commit'];
-    final cc = cardCharge(_amount);
+    final cc = _cardFor(_amount);
     Map<String, dynamic>? cols;
     if (swap is! Map) {
       cols = {for (final e in pending.entries) if (!e.key.startsWith('_')) e.key: e.value};
@@ -56,6 +56,24 @@ extension _PaymentChanges on _PaymentScreenState {
     if (e != null) await PaidChangeQueue.enqueue(e, delay: delay);
   }
 
+  /// Úpravu odmítl server, protože PŘEDCHOZÍ zaplacený doplatek této
+  /// rezervace se ještě dokončuje → ten předá trvalé frontě (D6): dokončí se
+  /// sám a detail rezervace ukáže „dokončuje se". Nová úprava se nezaplatila.
+  void _rememberPreviousChange(PaymentResult r) {
+    final pi = r.paymentIntentId;
+    final bid = _pendingBookingId;
+    if (pi == null || bid == null || !pi.startsWith('pi_')) return;
+    if (_flow != PayFlow.edit && _flow != PayFlow.swap) return;
+    if (!r.previousChange || PaymentRefusals.codeOf(r) != 'payment_in_progress') return;
+    unawaited(PaidChangeQueue.enqueue(PaidChangeEntry(
+      key: pi,
+      bookingId: bid,
+      kind: r.changeKind == 'swap' ? 'swap' : 'edit',
+      charge: r.paidAmount ?? 0,
+      paid: r.intentStatus == 'succeeded',
+    )));
+  }
+
   void _goResult(PaymentOutcome outcome) {
     if (!mounted) return;
     ref.read(paymentOutcomeProvider.notifier).state = outcome;
@@ -67,9 +85,21 @@ extension _PaymentChanges on _PaymentScreenState {
     final tr = t(context);
     final bid = _pendingBookingId;
     final key = _activePiId;
-    final cc = cardCharge(_amount);
+    final cc = _cardFor(_amount);
     if (_waivedApplied) {
-      // Server změnu zapsal bez platby — doplnit jen doplňky (nejsou v metadatech).
+      // Server změnu zapsal bez platby — doplnit jen výbavu a doplňky (nejsou
+      // v metadatech změny).
+      final pending = _ctx?.pendingEditChanges;
+      final gear = pending?['_swap_commit'] is Map
+          ? null
+          : gearColumnsOf({for (final e in (pending ?? const <String, dynamic>{}).entries) e.key: e.value});
+      if (gear != null && bid != null) {
+        try {
+          await applyGearOnce(bid, gear);
+        } catch (e) {
+          debugPrint('[Payment] waived gear: $e');
+        }
+      }
       final x = _waivedExtras();
       if (x != null && bid != null) {
         try {
@@ -142,7 +172,7 @@ extension _PaymentChanges on _PaymentScreenState {
     if (bid != null && !_isSwap && !_waivedApplied) {
       // Úprava (ne výměna — tu rozesílá RPC sama): e-mail + doklady.
       EmailService.sendBookingModified(bid);
-      InvoiceService.generateAdvanceInvoice(bid, cardCharge(_amount).charge.toDouble());
+      InvoiceService.generateAdvanceInvoice(bid, _cardFor(_amount).charge.toDouble());
       InvoiceService.generateBookingDocs(bid);
     }
     final pickup = _isSwap

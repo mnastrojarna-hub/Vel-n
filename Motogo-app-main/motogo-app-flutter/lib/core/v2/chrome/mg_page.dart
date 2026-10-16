@@ -76,18 +76,29 @@ class _MgPageState extends ConsumerState<MgPage> {
     }
     final overlap = widget.overlapHero && widget.header != null && widget.sections.isNotEmpty ? widget.overlap : 0.0;
     final bottomPad = (widget.dock != null ? _dockH + 12 : MgChrome.bottomObstruction(context)) - overlap;
-    final content = <Widget>[
-      if (widget.header != null) SliverToBoxAdapter(child: widget.header),
-      if (widget.sections.isNotEmpty)
-        SliverToBoxAdapter(
-          child: Transform.translate(
-            offset: Offset(0, -overlap),
-            child: Padding(
-              padding: widget.sectionPadding,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: widget.sections),
-            ),
+    Widget sections() => Transform.translate(
+          offset: Offset(0, -overlap),
+          child: Padding(
+            padding: widget.sectionPadding,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: widget.sections),
           ),
-        ),
+        );
+    final content = <Widget>[
+      // A viewport paints EARLIER slivers on top of later ones, so a sheet
+      // overlapping the header must share one box with it (in a Column the
+      // later child paints — and takes taps — above the header).
+      if (overlap > 0)
+        SliverToBoxAdapter(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [widget.header!, sections()],
+          ),
+        )
+      else ...[
+        if (widget.header != null) SliverToBoxAdapter(child: widget.header),
+        if (widget.sections.isNotEmpty) SliverToBoxAdapter(child: sections()),
+      ],
       ...widget.slivers,
       SliverToBoxAdapter(child: SizedBox(height: bottomPad < 0 ? 0 : bottomPad)),
     ];

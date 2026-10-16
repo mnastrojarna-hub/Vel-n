@@ -17,9 +17,23 @@ import { CS, refuse, respond, declineMessageCs, SWAP_DRY_CODES, cancelledReasonK
 import { mapStripeError, isUncertainStripeError } from './stripe-errors.ts'
 import { sanitizeAttemptId, chgHash, idempotencyKey, guardStoredIntent, storeIntentId, markCheckoutStarted, sameAttempt, findRecentLiveIntent } from './intent-guard.ts'
 import { waiveBookingFlow, waiveShopFlow, waiveExtensionFlow, voucherProblem, waiveRef, restoreRefusal } from './pp-waiver.ts'
-import { verifiedBookingFloor } from './due-verify.ts'
 import { priceAppChange } from './app-change-price.ts'
 import { handleCompleteExtension } from './complete-extension.ts'
+import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
+import { settleMatchingSessions, type StripeCheckoutLike } from './checkout-guard.ts'
+import { floorCheck, freeVerifiedByFloor } from './floor-check.ts'
+import { duplicateRow } from '../_shared/duplicate-payment.ts'
+import { failureRow } from '../_shared/paid-change-guard.ts'
+
+/** Dokončená web session doplatku už zpracovaná (zapsaná / vyhodnocená / vrácená) → další úpravu neblokuje. */
+// deno-lint-ignore no-explicit-any
+async function extensionSettled(sb: any, bookingId: string, piId: string | null, md: Record<string, string>, sessionId: string): Promise<boolean> {
+  if (md.applied_at || md.duplicate_of) return true
+  for (const ref of [piId, sessionId]) {
+    if (ref && (await historyHasRef(sb, bookingId, ref) || await failureRow(sb, ref) || await duplicateRow(sb, ref))) return true
+  }
+  return false
+}
 
 /** Návratová adresa webu po odpuštěném doplatku (stejná validace jako success_url Checkoutu). */
 function safeRedirect(u: string | undefined | null): string | null {
@@ -538,17 +552,13 @@ Deno.serve(async (req: Request) => {
               CS.waiver_unverified)
           }
         }
-        if ((dueClass.kind === 'waive' || dueClass.kind === 'round') && paymentType === 'booking') {
-          // Cenu rezervace zapisuje klient → odpustit / dorovnat jen zbytek, který server doloží.
-          const floor = await verifiedBookingFloor(sbChk, bkc)
-          if (floor == null) return refuse(503, 'validation_unavailable')
-          if (floor > due + 1) {
-            try {
-              await sbChk.from('debug_log').insert({ source: 'process-payment', action: 'card_minimum_price_unverified',
-                component: 'card_minimum', status: 'warning', request_data: { booking_id, due, floor, kind: dueClass.kind } })
-            } catch { /* ignore */ }
-            return refuse(409, 'amount_mismatch', { server_total: Math.ceil(floor) })
-          }
+        // Cenu rezervace zapisuje klient → odpustit / dorovnat jen zbytek, který server doloží
+        // (D1, vynuceno); u běžné platby zatím jen záznam do debug_log (PP_FLOOR_ENFORCE=1 vynutí).
+        // Nesoulad = `price_outdated`: nabídnout jinou částku nejde (zaplaceno ≠ doklady).
+        if (paymentType === 'booking' || paymentType === 'sos') {
+          const fc = await floorCheck(sbChk, bkc, { due, kind: dueClass.kind, type: paymentType })
+          if (fc === 'unavailable') return refuse(503, 'validation_unavailable')
+          if (fc === 'outdated') return refuse(409, 'price_outdated', { booking_id })
         }
         if (dueClass.kind === 'waive') {
           const g = await guardStoredIntent(stripe, { storedPiId: bkc.stripe_payment_intent_id, type: paymentType, refKey: 'booking_id',
@@ -930,8 +940,13 @@ Deno.serve(async (req: Request) => {
             const paidPrev = (g.pi.amount_received || g.pi.amount || 0) / 100
             const prev = await applyPaidExtension(supabase, { bookingId: booking_id, chg: chgFromMetadata(pmd), srv: pmd.srv || null,
               paidCzk: paidPrev, payRef: g.pi.id, rounding: Number(pmd.card_rounding || 0) || 0,
-              since: new Date(g.pi.created * 1000).toISOString() })
+              since: new Date(g.pi.created * 1000).toISOString(), via: 'process-payment' })
             if (prev.state === 'applied' || prev.state === 'already_applied') await markApplied(stripe, g.pi.id)
+            if (prev.state === 'duplicate') {
+              // Předchozí platba byla druhá platba za už zapsanou změnu → vrátit ji, nová úprava pokračuje.
+              await refundDuplicatePayment(supabase, stripe as unknown as StripeDupLike, { piId: g.pi.id, table: 'bookings', refId: booking_id,
+                keepRef: prev.otherRef, amountCzk: paidPrev, via: 'process-payment', autoRefund: !pmd.shop_order_id })
+            }
             if (prev.state === 'applied') return refuse(409, 'stale_booking', { previous_change: true }, CS.previous_change_applied)
             if (prev.state === 'retry') {
               // Předchozí zaplacenou úpravu teď nejde dopsat → dokončí ji webhook / fronta v appce
@@ -942,7 +957,7 @@ Deno.serve(async (req: Request) => {
             }
             if (prev.state === 'failed') {
               await handlePaidChangeFailure(supabase, { bookingId: booking_id, payRef: g.pi.id, paidCzk: paidPrev, code: prev.code,
-                reason: prev.reason, via: 'process-payment', review: prev.manual === true })
+                reason: prev.reason, via: 'process-payment', review: prev.manual === true, autoRefund: !pmd.shop_order_id, stripe })
             }
           }
         }
@@ -984,6 +999,13 @@ Deno.serve(async (req: Request) => {
           return dueClass.kind === 'waive' ? refuse(409, 'rounding_unavailable', { waiver: true }, CS.rounding_unavailable_waiver) : refuse(409, 'rounding_unavailable')
         }
         if (dueClass.kind === 'waive') {
+          if (webCheckout) {
+            // Starší otevřená session téže úpravy nesmí zůstat zaplatitelná vedle odpuštění (D4).
+            const pg = await settleMatchingSessions(stripe as unknown as StripeCheckoutLike, { customerId: null,
+              refKey: 'booking_id', refId: booking_id, type: 'extension',
+              settled: (piId, md, sid) => extensionSettled(supabase, booking_id, piId, md, sid) })
+            if (pg.action === 'refuse') return refuse(409, 'payment_in_progress', { session_id: pg.sessionId, previous_change: true })
+          }
           return await waiveExtensionFlow(supabase, { bookingId: booking_id, change: c, srv: waiveSrv,
             due: dueClass.due, saved: savedCardReq, attemptId,
             redirect: webCheckout ? (safeRedirect(explicitSuccessUrl) || `${SITE_URL}/upravit-rezervaci?paid_booking=${booking_id}`) : null })
@@ -1046,9 +1068,10 @@ Deno.serve(async (req: Request) => {
           isTrue100 = true
         }
       }
-      // D1: zbytek do 1 Kč už odpuštěný (card_rounding −0,01…−1) a potvrzení minule selhalo.
-      const waivedCr = Number((dbBooking as Record<string, unknown> | null)?.card_rounding ?? 0)
-      if (!isTrue100 && waivedCr < 0 && waivedCr >= -1) isTrue100 = true
+      // D1 (oprava 2026-10-16): zdarma i když slevy (víc poukazů / kódů v booking_discounts) nebo
+      // odpuštění do 1 Kč pokryjí cenu, kterou server DOLOŽÍ (spodní mez z ceníku). Dřív stačilo
+      // uložené card_rounding < 0 — zastaralé po změně motorky / termínu přímo z klienta.
+      if (dbBooking) isTrue100 = await freeVerifiedByFloor(supabase, dbBooking as Record<string, unknown>, isTrue100)
 
       if (!isTrue100) {
         console.error('Free booking rejected — discount is not truly 100%:', {
@@ -1409,6 +1432,15 @@ Deno.serve(async (req: Request) => {
 
     if (customerId) {
       sessionParams.customer = customerId
+    }
+
+    // D4 (oprava 2026-10-16): nejvýš jedna zaplatitelná session na rezervaci / objednávku / doplatek —
+    // starší otevřenou zrušit, čerstvě zaplacenou (webhook ještě běží) = neplatit znovu.
+    const prevSess = await settleMatchingSessions(stripe as unknown as StripeCheckoutLike, { customerId: customerId || null,
+      refKey: paymentType === 'shop' ? 'order_id' : 'booking_id', refId: referenceId, type: paymentType,
+      settled: paymentType === 'extension' ? (piId, md, sid) => extensionSettled(supabase, referenceId, piId, md, sid) : undefined })
+    if (prevSess.action === 'refuse') {
+      return refuse(409, 'payment_in_progress', { session_id: prevSess.sessionId, ...(paymentType === 'extension' ? { previous_change: true } : {}) })
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams as Stripe.Checkout.SessionCreateParams)

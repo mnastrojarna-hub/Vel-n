@@ -1380,6 +1380,7 @@ return [
     'editRez.pay.serverError' => 'The payment cannot be completed right now because of an error on our server. Nothing was charged – please try again in a minute.',
     'editRez.pay.cancelled' => 'The booking is cancelled, so it can no longer be changed or paid. Nothing was charged – please create a new booking.',
     'editRez.pay.voucherUnavailable' => 'Voucher {code} has expired or been used elsewhere in the meantime. Nothing was charged – please create the booking again without the voucher, or with another one.',
+    'editRez.pay.priceOutdated' => 'The booking price no longer matches the current price list or discounts (a discount code or voucher may have stopped being valid in the meantime). Nothing was charged – please create the booking again and we will calculate the price from the current state.',
     'editRez.pay.notApplicable' => 'The booking has changed its state in the meantime. Nothing was charged – please reload it and repeat the change.',
     'editRez.pay.tooLarge' => 'This change is too large for a single payment. Nothing was charged – please split it into two smaller ones (e.g. dates first, then the place).',
     'editRez.pay.deliveryFee' => 'The delivery/collection fee does not match the change of place (missing address or route price). Nothing was charged – enter the address and try again.',

@@ -1230,6 +1230,7 @@ return [
     'editRez.pay.serverError' => 'Platbu teď nelze dokončit kvůli chybě na našem serveru. Nic jsme nestrhli – zkuste to prosím za minutu znovu.',
     'editRez.pay.cancelled' => 'Rezervace je zrušená, proto ji už nelze upravit ani zaplatit. Nic jsme nestrhli – vytvořte si prosím novou rezervaci.',
     'editRez.pay.voucherUnavailable' => 'Poukaz {code} mezitím vypršel nebo byl použit jinde. Nic jsme nestrhli – vytvořte si prosím rezervaci znovu bez poukazu, nebo s jiným.',
+    'editRez.pay.priceOutdated' => 'Cena rezervace už neodpovídá aktuálnímu ceníku nebo slevám (slevový kód nebo poukaz mezitím mohl přestat platit). Nic jsme nestrhli – vytvořte si prosím rezervaci znovu, cenu spočítáme podle aktuálního stavu.',
     'editRez.pay.notApplicable' => 'Rezervace je mezitím v jiném stavu. Nic jsme nestrhli – načtěte ji prosím znovu a úpravu zopakujte.',
     'editRez.pay.tooLarge' => 'Tato úprava je na jednu platbu příliš rozsáhlá. Nic jsme nestrhli – rozdělte ji prosím na dvě menší (např. nejdřív termín, potom místo).',
     'editRez.pay.deliveryFee' => 'Poplatek za přistavení/odvoz neodpovídá změně místa (chybí adresa nebo cena trasy). Nic jsme nestrhli – zadejte adresu a zkuste to znovu.',

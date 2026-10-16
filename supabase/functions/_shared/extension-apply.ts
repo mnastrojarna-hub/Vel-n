@@ -7,11 +7,11 @@
 // rev.12, SQL 20261016p3) a důkaz provedení OD vytvoření platby (záznam výměny /
 // navazující rezervace B), NIKDY jen podle aktuální motorky rezervace.
 import type { ApplyArgs, ApplyResult, Sb } from './extension-apply-types.ts'
-import { isMissingFunction, logDebug, round2 } from './extension-apply-types.ts'
+import { chgDigest, isMissingFunction, logDebug, otherPaymentEntry, round2 } from './extension-apply-types.ts'
 import { applyColumnChange } from './extension-apply-columns.ts'
 
 export type { ApplyArgs, ApplyResult, Sb } from './extension-apply-types.ts'
-export { chgFromMetadata, placeFingerprint, round2 } from './extension-apply-types.ts'
+export { chgDigest, chgFromMetadata, placeFingerprint, round2 } from './extension-apply-types.ts'
 
 /** Kódy split_booking_moto_swap, které znamenají, že výměnu už nejde provést. */
 const SWAP_PERMANENT = new Set(['new_moto_unavailable', 'wrong_status', 'not_paid', 'swap_date_out_of_range',
@@ -32,9 +32,10 @@ export async function applyPaidExtension(sb: Sb, args: ApplyArgs): Promise<Apply
   if (swap && typeof swap === 'object' && swap.m && swap.d) {
     return await commitSwap(sb, args, { m: swap.m, d: swap.d, t: swap.t })
   }
+  const hash = await chgDigest(args.chg)
   const gear = a._gear as { sizes?: Record<string, unknown> } | undefined
-  if (gear && typeof gear === 'object') return await applyGear(sb, args, gear.sizes || {})
-  return await applyColumnChange(sb, a, args, srv)
+  if (gear && typeof gear === 'object') return await applyGear(sb, args, gear.sizes || {}, hash)
+  return await applyColumnChange(sb, a, args, srv, hash)
 }
 
 /** Je TATO výměna už provedená? Důkaz: (1) záznam s payment_ref této platby v historii
@@ -47,9 +48,11 @@ export async function swapDone(sb: Sb, bookingId: string, swap: { m: string; d: 
 }
 
 /** Jako swapDone + `own` = výměnu zapsala TATO platba (značka payment_ref, rev.12 —
- *  dorovnání je v ní), jinak ji provedl někdo jiný od vytvoření platby (klient). */
+ *  dorovnání je v ní); `other` = zapsala ji JINÁ platba od vytvoření této (značka jiné
+ *  platby → tahle je navíc, duplicita); jinak ji provedl klient bez značky (web po
+ *  návratu ze Stripe / appka ≤ 4.1.3). */
 async function swapEvidence(sb: Sb, bookingId: string, swap: { m: string; d: string },
-  payRef: string | null | undefined, since: string | null | undefined): Promise<{ id: string; own: boolean } | null> {
+  payRef: string | null | undefined, since: string | null | undefined): Promise<{ id: string; own: boolean; other?: string } | null> {
   try {
     const { data: bk } = await sb.from('bookings').select('id, modification_history').eq('id', bookingId).maybeSingle()
     const hist = Array.isArray(bk?.modification_history) ? (bk.modification_history as Array<Record<string, unknown> | null>) : []
@@ -66,10 +69,15 @@ async function swapEvidence(sb: Sb, bookingId: string, swap: { m: string; d: str
     if (own) return { id: own.type === 'moto_swap_shorten' ? ((await nextB(null)) || bookingId) : bookingId, own: true }
     if (!since || !ms(since)) return null
     const s = ms(since) - 60_000 // rezerva na rozdíl hodin Stripe ↔ DB
+    // Záznam výměny na TUTÉŽ motorku od vytvoření platby; nese-li značku jiné platby → duplicita.
+    const otherRef = (type: string) => {
+      const e = hist.find((h) => !!h && h.type === type && h.new_moto_id === swap.m && otherPaymentEntry(h, payRef, ms(since)))
+      return e ? String(e.payment_ref) : undefined
+    }
     const rep = hist.find((h) => !!h && h.type === 'moto_swap_replace' && h.new_moto_id === swap.m && ms(h.at) >= s)
-    if (rep) return { id: bookingId, own: false }
+    if (rep) return { id: bookingId, own: false, other: otherRef('moto_swap_replace') }
     const b = await nextB(s)
-    return b ? { id: b, own: false } : null
+    return b ? { id: b, own: false, other: otherRef('moto_swap_shorten') } : null
   } catch { return null }
 }
 
@@ -77,17 +85,7 @@ async function commitSwap(sb: Sb, args: ApplyArgs, swap: { m: string; d: string;
   const bookingId = args.bookingId
   const r = round2(Number(args.rounding || 0))
   const ev0 = await swapEvidence(sb, bookingId, swap, args.payRef, args.since)
-  const done0 = ev0?.id ?? null
-  if (ev0 && done0) {
-    // Výměnu provedl dřív klient (web po návratu ze Stripe) bez dorovnání → dopsat ho
-    // k rezervaci, které výměna patří (REPLACE = A, SPLIT = navazující B), jednou.
-    if (r !== 0 && !ev0.own) {
-      const fx = await roundingFixup(sb, done0, r, args)
-      if (fx) return fx
-    }
-    await logDebug(sb, 'swap_commit_applied', 'ok', { booking_id: bookingId, swap, payment_ref: args.payRef, state: 'already_applied', evidence: 'pre' })
-    return { state: 'already_applied', bookingId, newBookingId: done0 !== bookingId ? done0 : undefined }
-  }
+  if (ev0) return await settleEvidence(sb, args, swap, ev0, r, 'pre')
   const base: Record<string, unknown> = {
     p_booking_id: bookingId, p_new_moto_id: swap.m, p_swap_date: swap.d,
     p_swap_time: swap.t || null, p_dry_run: false,
@@ -106,6 +104,13 @@ async function commitSwap(sb: Sb, args: ApplyArgs, swap: { m: string; d: string;
   let { data, error } = await call(full)
   let legacy = false
   if (error && isMissingFunction(error) && r === 0) {
+    if ((args.via || 'webhook') !== 'webhook') {
+      // rev.12 ještě nenasazená: 6parametrová verze nemá značku platby ani zámek řádku —
+      // webhook a appka by tutéž výměnu zapsaly současně dvakrát (cena + doplatek 2×).
+      // Zapisuje ji proto JEN webhook; appka (fronta) / process-payment to zkusí později.
+      await logDebug(sb, 'swap_commit_deferred', 'info', { booking_id: bookingId, swap, payment_ref: args.payRef, via: args.via })
+      return { state: 'retry', code: 'swap_webhook_only', detail: 'split_booking_moto_swap rev.12 not deployed' }
+    }
     // rev.12 ještě nenasazená a není co dorovnat → 6parametrová verze (bez značky platby;
     // opakování hlídá důkaz výše).
     legacy = true
@@ -122,23 +127,43 @@ async function commitSwap(sb: Sb, args: ApplyArgs, swap: { m: string; d: string;
       newBookingId: data.new_booking_id && String(data.new_booking_id) !== bookingId ? String(data.new_booking_id) : undefined }
   } else {
     const code = String(data?.error || 'unknown')
-    const done = await swapDone(sb, bookingId, swap, args.payRef, args.since)
-    if (done) out = { state: 'already_applied', bookingId, newBookingId: done !== bookingId ? done : undefined }
+    const ev = await swapEvidence(sb, bookingId, swap, args.payRef, args.since)
+    if (ev) out = await settleEvidence(sb, args, swap, ev, r, 'post')
     else if (SWAP_AMBIGUOUS.has(code)) out = { state: 'failed', code: 'change_failed', reason: code, manual: true }
     else if (SWAP_PERMANENT.has(code)) out = { state: 'failed', code: 'change_failed', reason: code }
     else out = { state: 'retry', code: 'apply_failed', detail: code }
   }
-  const ok = out.state === 'applied' || out.state === 'already_applied'
+  const ok = out.state === 'applied' || out.state === 'already_applied' || out.state === 'duplicate'
   await logDebug(sb, ok ? 'swap_commit_applied' : 'swap_commit_failed', ok ? 'ok' : 'error',
     { booking_id: bookingId, swap, card_rounding: r, paid_czk: args.paidCzk, payment_ref: args.payRef, legacy, state: out.state, rpc_result: data },
     error?.message || (data && data.success !== true ? String(data.error || '') : null))
   return out
 }
 
+/** Výměna už je provedená (důkaz) → výsledek: TATO platba = already_applied; JINÁ platba
+ *  (značka jiné platby) = duplicate (bez dorovnání — to patří té první platbě); klient bez
+ *  značky (web po návratu ze Stripe) = dopsat dorovnání této platby jednou + already_applied. */
+async function settleEvidence(sb: Sb, args: ApplyArgs, swap: { m: string; d: string },
+  ev: { id: string; own: boolean; other?: string }, r: number, phase: string): Promise<ApplyResult> {
+  const bookingId = args.bookingId
+  const newBookingId = ev.id !== bookingId ? ev.id : undefined
+  if (!ev.own && ev.other) {
+    await logDebug(sb, 'swap_commit_duplicate', 'error', { booking_id: bookingId, swap, payment_ref: args.payRef, other_ref: ev.other, phase })
+    return { state: 'duplicate', bookingId, otherRef: ev.other, newBookingId }
+  }
+  if (r !== 0 && !ev.own) {
+    const fx = await roundingFixup(sb, ev.id, r, args, null)
+    if (fx) return fx
+  }
+  await logDebug(sb, 'swap_commit_applied', 'ok', { booking_id: bookingId, swap, payment_ref: args.payRef, state: 'already_applied', evidence: phase })
+  return { state: 'already_applied', bookingId, newBookingId }
+}
+
 /** Placená změna výbavy (web) — apply_paid_gear_change je idempotentní (net vůči aktuálnímu
  *  stavu). D1: dorovnání / odpuštění (r) se zapíše hned po ní do ceny i card_rounding se
- *  záznamem v historii (payment_ref = deduplikace opakování). */
-async function applyGear(sb: Sb, args: ApplyArgs, sizes: Record<string, unknown>): Promise<ApplyResult> {
+ *  záznamem v historii (payment_ref = deduplikace opakování, chg_hash = pozná se tatáž
+ *  změna zaplacená JINOU platbou → duplicate, dorovnání se nepřičte podruhé). */
+async function applyGear(sb: Sb, args: ApplyArgs, sizes: Record<string, unknown>, hash: string | null): Promise<ApplyResult> {
   const bookingId = args.bookingId
   let data: Record<string, unknown> | null = null
   let error: { code?: string; message?: string } | null = null
@@ -154,16 +179,34 @@ async function applyGear(sb: Sb, args: ApplyArgs, sizes: Record<string, unknown>
   if (failed) return { state: 'failed', code: 'change_failed', reason: String(data?.error || 'gear_failed') }
   const r = round2(Number(args.rounding || 0))
   if (r !== 0) {
-    const rr = await roundingFixup(sb, bookingId, r, args)
+    // RPC nic nezměnila (net 0) a tutéž změnu (chg_hash) od vytvoření platby zaplatila JINÁ platba → duplicita.
+    if (hash && Number(data?.net_diff ?? NaN) === 0) {
+      const other = await otherRefWithHash(sb, bookingId, hash, args)
+      if (other) {
+        await logDebug(sb, 'gear_change_duplicate', 'error', { booking_id: bookingId, payment_ref: args.payRef, other_ref: other })
+        return { state: 'duplicate', bookingId, otherRef: other }
+      }
+    }
+    const rr = await roundingFixup(sb, bookingId, r, args, hash)
     if (rr) return rr
   }
   return { state: 'applied', bookingId }
 }
 
+async function otherRefWithHash(sb: Sb, bookingId: string, hash: string, args: ApplyArgs): Promise<string | null> {
+  try {
+    const { data } = await sb.from('bookings').select('modification_history').eq('id', bookingId).maybeSingle()
+    const hist = Array.isArray(data?.modification_history) ? (data.modification_history as Array<Record<string, unknown> | null>) : []
+    const sinceMs = args.since ? Date.parse(args.since) : NaN
+    const e = hist.find((h) => !!h && h.chg_hash === hash && otherPaymentEntry(h, args.payRef, Number.isFinite(sinceMs) ? sinceMs : null))
+    return e ? String(e.payment_ref) : null
+  } catch { return null }
+}
+
 /** Dorovnání (r) do ceny a card_rounding rezervace `targetId` + záznam s payment_ref v její
  *  historii (deduplikace opakování) — u placené výbavy a u výměny, kterou provedl klient
  *  bez dorovnání. null = hotovo (nebo už dřív), jinak výsledek k vrácení (retry). */
-async function roundingFixup(sb: Sb, targetId: string, r: number, args: ApplyArgs): Promise<ApplyResult | null> {
+async function roundingFixup(sb: Sb, targetId: string, r: number, args: ApplyArgs, hash: string | null): Promise<ApplyResult | null> {
   const bookingId = targetId
   for (let pass = 0; pass < 2; pass++) {
     const { data: cur, error } = await sb.from('bookings').select('*').eq('id', bookingId).maybeSingle()
@@ -175,7 +218,8 @@ async function roundingFixup(sb: Sb, targetId: string, r: number, args: ApplyArg
       return { state: 'retry', code: 'rounding_unavailable' }
     }
     hist.push({ at: new Date().toISOString(), type: 'card_rounding', source: 'stripe_webhook', card_rounding: r,
-      ...(args.paidCzk != null ? { price_diff: Math.round(args.paidCzk) } : {}), ...(args.payRef ? { payment_ref: args.payRef } : {}) })
+      ...(args.paidCzk != null ? { price_diff: Math.round(args.paidCzk) } : {}), ...(args.payRef ? { payment_ref: args.payRef } : {}),
+      ...(hash ? { chg_hash: hash } : {}) })
     let q = sb.from('bookings').update({ total_price: round2(Number(cur.total_price || 0) + r),
       card_rounding: round2(Number(cur.card_rounding || 0) + r), modification_history: hist }).eq('id', bookingId)
     if (cur.updated_at) q = q.eq('updated_at', cur.updated_at)

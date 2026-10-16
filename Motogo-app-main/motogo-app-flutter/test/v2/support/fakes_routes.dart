@@ -3,11 +3,14 @@
 // trasy_inventory §4), every Supabase / GPS backed provider faked.
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:motogo_app/core/i18n/translations.dart';
 import 'package:motogo_app/core/i18n/translations_ext_56_v2_routes_a.dart';
 import 'package:motogo_app/core/i18n/translations_ext_56_v2_routes_b.dart';
+import 'package:motogo_app/core/widgets/map_tile_errors.dart';
 import 'package:motogo_app/features/routes/my_experiences_provider.dart';
 import 'package:motogo_app/features/routes/places_filter.dart';
 import 'package:motogo_app/features/routes/ride_provider.dart';
@@ -22,6 +25,14 @@ void registerRoutesStrings() {
   for (final part in [translationsExt56V2RoutesA, translationsExt56V2RoutesB]) {
     part.forEach((lang, map) => translations.putIfAbsent(lang, () => {}).addAll(map));
   }
+}
+
+/// Ends a test that showed a map: unmount, then cancel the tile auto-retry
+/// timer (tiles fail with HTTP 400 in tests → `MapTileErrors` arms a 30 s
+/// retry that would outlive the test).
+Future<void> rtEnd(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox());
+  MapTileErrors.retry();
 }
 
 const kMe = LatLng(48.9918, 16.6705);

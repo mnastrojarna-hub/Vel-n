@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../main.dart' show rootNavigatorKey;
 import 'app_shell.dart';
+import 'v2/flag/v2_scope.dart' show V2Switch;
+import 'v2/shell/app_shell_v2.dart';
 import 'booking_form_widget.dart';
 import 'widgets/mg_back.dart';
 import 'widgets/route_error_page.dart';
@@ -15,11 +17,14 @@ import '../features/auth/register_screen.dart';
 import '../features/auth/reset_password_screen.dart';
 import '../features/catalog/moto_detail_screen.dart';
 import '../features/catalog/moto_search_screen.dart';
+import '../features/catalog/v2/motorky_screen_v2.dart';
 import '../features/home/home_screen.dart';
+import '../features/home/v2/home_screen_v2.dart';
 import '../features/payment/payment_screen.dart';
 import '../features/payment/payment_confirmation_screen.dart';
 import '../features/payment/payment_result_screen.dart';
 import '../features/reservations/reservations_screen.dart';
+import '../features/reservations/v2/reservations_screen_v2.dart';
 import '../features/reservations/reservation_detail_screen.dart';
 import '../features/documents/documents_screen.dart';
 import '../features/documents/document_scanner_screen.dart';
@@ -46,6 +51,7 @@ import '../features/sos/sos_theft_screen.dart';
 import '../features/sos/sos_breakdown_immobile_screen.dart';
 import '../features/sos/sos_service_screen.dart';
 import '../features/loyalty/loyalty_ranks_screen.dart';
+import '../features/loyalty/v2/loyalty_screen_v2.dart';
 import '../features/routes/routes_screen.dart';
 import '../features/routes/route_detail_screen.dart';
 import '../features/routes/route_navigation_screen.dart';
@@ -346,25 +352,30 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // Main app with bottom nav shell
+      // Main app with bottom nav shell. Kill-switch `app_v2_ui`
+      // (appV2UiProvider → MgV2Scope v main.dart): ZAPNUTO = v2 shell (5 tabů
+      // vč. Profilu, AI tlačítko), VYPNUTO = původní AppShell. Cesty, deep
+      // linky i zpět jsou v obou režimech stejné; přepíná se jen vzhled.
       ShellRoute(
-        builder: (context, state, child) => AppShell(child: child),
+        builder: (context, state, child) =>
+            V2Switch(v1: AppShell(child: child), v2: AppShellV2(child: child)),
         routes: [
           GoRoute(
             path: Routes.home,
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: HomeScreen()),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: V2Switch(v1: HomeScreen(), v2: HomeScreenV2()),
+            ),
           ),
           GoRoute(
             path: Routes.search,
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: MotoSearchScreen(),
+              child: V2Switch(v1: MotoSearchScreen(), v2: MotorkyScreenV2()),
             ),
           ),
           GoRoute(
             path: Routes.reservations,
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: ReservationsScreen(),
+              child: V2Switch(v1: ReservationsScreen(), v2: ReservationsScreenV2()),
             ),
           ),
           GoRoute(
@@ -492,7 +503,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.loyalty,
-            builder: (context, state) => const LoyaltyRanksScreen(),
+            builder: (context, state) =>
+                const V2Switch(v1: LoyaltyRanksScreen(), v2: LoyaltyScreenV2()),
           ),
           // PROHOZENO 2026-09-16 (zadání uživatele): tab v hlavním menu
           // otevírá MÍSTA jako primární obsah; seznam tras se přesunul na

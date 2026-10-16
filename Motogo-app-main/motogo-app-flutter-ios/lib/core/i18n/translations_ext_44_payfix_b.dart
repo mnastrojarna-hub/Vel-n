@@ -25,6 +25,9 @@ const Map<String, String> ext44PayfixDe = {
   'pdFailGone': 'Die Buchung oder Zahlung zu dieser Änderung ist nicht mehr auffindbar (sie wurde inzwischen entfernt), deshalb wurde die Änderung nicht eingetragen, und die App versucht es nicht weiter. Öffne deine Buchungen und prüfe, wie die Buchung jetzt aussieht.',
   'pdFailStale': 'Diese bezahlte Änderung lässt sich nicht mehr automatisch eintragen (seit der Zahlung ist zu viel Zeit vergangen). Unser Team prüft sie und erstattet dir die Zuzahlung innerhalb von 2 Werktagen, falls die Änderung nicht in der Buchung ist – du musst nichts tun und nicht noch einmal zahlen.',
   'pdFailRefunded': 'Die Zuzahlung für diese Änderung haben wir dir bereits erstattet, deshalb tragen wir sie nicht in die Buchung ein. Die Buchung bleibt, wie sie war – du musst nichts tun.',
+  // cena rezervace neodpovídá ceníku / slevám (process-payment price_outdated) — nic se nestrhlo
+  'pdPriceOutdatedTitle': 'Der Buchungspreis ist nicht mehr aktuell',
+  'pdPriceOutdatedBody': 'Der Preis der Buchung entspricht nicht mehr der aktuellen Preisliste oder den Rabatten – ein Rabattcode oder Gutschein ist inzwischen eventuell nicht mehr gültig. Es wurde nichts abgebucht. Bitte erstelle die Buchung neu, dann berechnen wir den Preis nach dem aktuellen Stand.',
 };
 
 const Map<String, String> ext44PayfixEs = {
@@ -52,4 +55,7 @@ const Map<String, String> ext44PayfixEs = {
   'pdFailGone': 'La reserva o el pago de este cambio ya no se pueden encontrar (se han eliminado entretanto), así que el cambio no se ha anotado y la app no lo volverá a intentar. Abre Reservas y comprueba cómo está la reserva ahora.',
   'pdFailStale': 'Este cambio pagado ya no se puede anotar automáticamente (ha pasado demasiado tiempo desde el pago). Nuestro equipo lo revisará y, si el cambio no está en la reserva, te devolverá el pago adicional en un plazo de 2 días laborables; no tienes que hacer nada ni volver a pagar.',
   'pdFailRefunded': 'Ya te hemos devuelto el pago adicional de este cambio, por eso no lo anotamos en la reserva. La reserva queda como estaba: no tienes que hacer nada.',
+  // cena rezervace neodpovídá ceníku / slevám (process-payment price_outdated) — nic se nestrhlo
+  'pdPriceOutdatedTitle': 'El precio de la reserva ya no es válido',
+  'pdPriceOutdatedBody': 'El precio de la reserva ya no coincide con la tarifa actual ni con los descuentos: es posible que un código de descuento o un bono haya dejado de ser válido. No se ha cargado nada. Vuelve a crear la reserva y calcularemos el precio según el estado actual.',
 };

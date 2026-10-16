@@ -1369,6 +1369,7 @@ return [
     'editRez.pay.serverError' => 'Die Zahlung kann wegen eines Fehlers auf unserem Server gerade nicht abgeschlossen werden. Es wurde nichts abgebucht – bitte versuchen Sie es in einer Minute erneut.',
     'editRez.pay.cancelled' => 'Die Reservierung ist storniert und kann daher nicht mehr geändert oder bezahlt werden. Es wurde nichts abgebucht – bitte erstellen Sie eine neue Reservierung.',
     'editRez.pay.voucherUnavailable' => 'Der Gutschein {code} ist inzwischen abgelaufen oder wurde anderweitig eingelöst. Es wurde nichts abgebucht – bitte erstellen Sie die Reservierung erneut ohne Gutschein oder mit einem anderen.',
+    'editRez.pay.priceOutdated' => 'Der Preis der Reservierung entspricht nicht mehr der aktuellen Preisliste oder den Rabatten (ein Rabattcode oder Gutschein ist inzwischen eventuell nicht mehr gültig). Es wurde nichts abgebucht – bitte erstellen Sie die Reservierung erneut, wir berechnen den Preis nach dem aktuellen Stand.',
     'editRez.pay.notApplicable' => 'Die Reservierung hat sich inzwischen geändert. Es wurde nichts abgebucht – bitte laden Sie sie neu und wiederholen Sie die Änderung.',
     'editRez.pay.tooLarge' => 'Diese Änderung ist für eine einzelne Zahlung zu umfangreich. Es wurde nichts abgebucht – bitte teilen Sie sie in zwei kleinere auf (z. B. zuerst den Termin, dann den Ort).',
     'editRez.pay.deliveryFee' => 'Die Liefer-/Abholgebühr passt nicht zur Ortsänderung (Adresse oder Routenpreis fehlt). Es wurde nichts abgebucht – geben Sie die Adresse ein und versuchen Sie es erneut.',

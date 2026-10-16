@@ -11,6 +11,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_dialog.dart';
 import '../../routes/ride_actions.dart';
 import '../../routes/ride_recorder.dart';
+import '../../routes/v2/rides/recorder_screen_v2.dart' show openRideRecorderV2;
 import 'home_reveal.dart';
 
 /// "Zaznamenat jízdu" — row 1 of the Moje zážitky band (DESIGN_V22 §4.2 B).
@@ -61,13 +62,15 @@ class HomeRecordRowV2 extends ConsumerWidget {
       ),
     );
 
+    // Idle = start; během záznamu otevře obrazovku záznamu (stav, GPS,
+    // ukončení) — stejná, jakou otevírá lišta v Trasách / Mých zážitcích.
     final main = Semantics(
-      button: !live,
+      button: true,
       label: '$title. $sub',
       excludeSemantics: true,
       child: MgPress(
         scale: 0.98,
-        onTap: live ? null : () => toggleManualRide(context, ref, running: false),
+        onTap: live ? () => openRideRecorderV2(context) : () => toggleManualRide(context, ref, running: false),
         child: Container(
           color: Colors.transparent,
           padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
@@ -85,7 +88,7 @@ class HomeRecordRowV2 extends ConsumerWidget {
                     style: MgType.small.copyWith(color: rec.gpsLost && live ? MgColors.warn : MgColors.meta)),
               ]),
             ),
-            if (!live) ...[
+            if (!manual) ...[
               const SizedBox(width: 8),
               const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.lead),
             ],

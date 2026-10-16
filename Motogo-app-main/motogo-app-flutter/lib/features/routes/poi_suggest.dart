@@ -11,6 +11,9 @@ import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_image.dart';
 import 'route_poi_sheet.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import '../../core/v2/tokens/mg_shadows.dart';
 
 /// Návrhy bodů zájmu v okolí právě skládané trasy (editor trasy).
 /// Jakmile má trasa aspoň jednu zastávku, nabídne další body do X km
@@ -97,8 +100,19 @@ class _NearbyPoiPanelState extends ConsumerState<NearbyPoiPanel> {
     final cards =
         filtered.length > _maxCards ? filtered.sublist(0, _maxCards) : filtered;
 
+    final v2 = MgV2.on(context);
     return Container(
-      color: Colors.white,
+      color: v2 ? null : Colors.white,
+      margin: v2 ? const EdgeInsets.fromLTRB(16, 12, 16, 0) : null,
+      decoration: v2
+          ? BoxDecoration(
+              color: MgColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: MgColors.line),
+              boxShadow: MgShadows.card,
+            )
+          : null,
+      clipBehavior: v2 ? Clip.antiAlias : Clip.none,
       padding: const EdgeInsets.only(top: 2, bottom: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

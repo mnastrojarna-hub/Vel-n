@@ -36,7 +36,7 @@ import 'widgets/payment_error_sheet.dart';
 import 'widgets/card_payment_sheet.dart';
 import '../../core/payment_pending_marker.dart';
 import '../../core/paid_change_queue.dart';
-import '../../core/paid_change_apply.dart' show applyExtrasOnce;
+import '../../core/paid_change_apply.dart' show applyExtrasOnce, applyGearOnce, gearColumnsOf;
 import '../../core/offline_guard.dart' show OfflineGuard;
 import 'card_minimum.dart';
 import 'net_error.dart';
@@ -77,6 +77,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   String? _activePiId;
   /// Doplatek do 1 Kč: server změnu zapsal bez platby (D1).
   bool _waivedApplied = false;
+  /// Zbytek do 1 Kč server odpustit nemůže (`waiver_unverified`) → platí se
+  /// 15 Kč s dorovnáním (D1); zákazník to potvrdil tlačítkem „Zaplatit 15 Kč".
+  bool _forceMinCharge = false;
   /// Platba mohla odejít bance (stržení uložené karty, odeslaný kartový
   /// sheet, ověřování nejistého výsledku). Jen pak „zpět" nastaví značku a
   /// vede na „Platba se ověřuje"; dokud se zakládá koncept / intent, odchod
@@ -229,7 +232,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       // NEPROBĚHL → žádný úspěch.
       // Doplatek do 1 Kč se neplatí (nová cena = stará) → podle ceny nic nepoznáš.
       final expected = _expectedEditTotal;
-      if (expected != null && bookingId != null && !cardCharge(_ctx!.amount).isWaive) {
+      if (expected != null && bookingId != null && !_cardFor(_ctx!.amount).isWaive) {
         paid = await StripeService.pollBookingTotal(bookingId, expected,
             maxAttempts: 1);
       }
@@ -299,11 +302,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   double? get _expectedEditTotal {
     final t = (_ctx?.pendingEditChanges?['total_price'] as num?)?.toDouble();
     if (t == null) return null;
-    return t + cardCharge(_ctx?.amount ?? 0).rounding;
+    return t + _cardFor(_ctx?.amount ?? 0).rounding;
   }
 
+  /// Minimum karty pro tuhle platbu (D1) — i s vynucenými 15 Kč u zbytku do
+  /// 1 Kč, který server odpustit nemůže ([_forceMinCharge]).
+  CardCharge _cardFor(num due) => cardCharge(due, forceMin: _forceMinCharge);
+
   /// Kolik se strhne kartou (minimum 15 Kč, do 1 Kč nic — D1).
-  double get _charge => cardCharge(_amount).charge.toDouble();
+  double get _charge => _cardFor(_amount).charge.toDouble();
 
   /// Úprava rezervace (návrat „Načíst znovu" / „Upravit adresu").
   String get _editRoute => _pendingBookingId != null
@@ -377,19 +384,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     return out.isEmpty ? null : out;
   }
 
-  double get _amount {
-    // Cena ověřená serverem má přednost (zákazník ji výslovně potvrdil).
+  /// Částka za REZERVACI / doplatek podle serveru (bez doprodeje z e-shopu).
+  /// Cena ověřená serverem má přednost (zákazník ji výslovně potvrdil).
+  double get _bookingDue {
     final server = _serverAmount;
     if (server != null) return server;
-    final base = _ctx != null
-        ? _ctx!.amount
-        : ref.read(priceBreakdownProvider).total;
-    double total = base;
-    if (_isNewBooking) {
-      total += ref.read(bookingUpsellProvider.notifier).total;
-    }
-    return total;
+    return _ctx != null ? _ctx!.amount : ref.read(priceBreakdownProvider).total;
   }
+
+  /// Doprodej z e-shopu se k platbě nové rezervace přibalí, jen když rezervace
+  /// sama minimum karty splňuje (≥ 15 Kč): server ho bere jako částku NAVÍC nad
+  /// cenou rezervace a minimum posuzuje jen na rezervaci. Zdarma / do 1 Kč /
+  /// pod 15 Kč by se odpuštění či dorovnání rezervace smíchalo s doprodejem
+  /// (strhlo by se jiné, než ukazují doklady) → doprodej se nepřibalí ani
+  /// neobjedná (D1; doprodej je zatím vypnutý, D7).
+  bool get _upsellBundled =>
+      _isNewBooking &&
+      ref.read(bookingUpsellProvider).isNotEmpty &&
+      cardCharge(_bookingDue).kind == CardChargeKind.normal;
+
+  /// Celkem k zaplacení: rezervace + přibalený doprodej.
+  double get _amount =>
+      _bookingDue + (_upsellBundled ? ref.read(bookingUpsellProvider.notifier).total : 0);
 
   String get _displayLabel {
     if (_ctx != null) return _ctx!.label;
@@ -896,7 +912,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
     // D1 (2026-10-16): do 1 Kč se neúčtuje (potvrdí se bez platby), 1–15 Kč
     // se platí 15 Kč (dorovnání zapíše server, na dokladu samostatný řádek).
-    final cc = cardCharge(_amount);
+    final cc = _cardFor(_amount);
     if (cc.kind == CardChargeKind.free) {
       await _confirmFree();
       return;
@@ -1267,7 +1283,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
     // Od teď se rezervace potvrzuje — odchod už jen s potvrzením.
     _markSubmitted();
-    final result = await StripeService.confirmFreeBooking(bookingId);
+    // SOS náhrada jako SOS (server ji neodpouští podle ceníku rezervace).
+    final result = await StripeService.confirmFreeBooking(bookingId,
+        type: _ctx?.flowType == PaymentFlowType.sos ? 'sos' : 'booking');
     if (!mounted) return;
 
     // Fallback poll pokrývá i případ „již zaplaceno" (409 z duplicate guardu).
@@ -1322,14 +1340,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     if (_isNewBooking) {
       if (_pendingBookingId != null) {
         EmailService.sendBookingReserved(_pendingBookingId!);
-        InvoiceService.generateAdvanceInvoice(
-            _pendingBookingId!, ref.read(priceBreakdownProvider).total);
+        _advanceInvoiceBackup(_pendingBookingId!);
         InvoiceService.generateBookingDocs(_pendingBookingId!);
       }
-      // Create shop order for upsell items (fire-and-forget)
+      // Create shop order for upsell items (fire-and-forget) — jen když byl
+      // doprodej v platbě opravdu přibalený (viz _upsellBundled).
       final upsellItems = ref.read(bookingUpsellProvider);
       if (upsellItems.isNotEmpty) {
-        createBookingUpsellOrder(upsellItems);
+        if (_upsellBundled) createBookingUpsellOrder(upsellItems);
         ref.read(bookingUpsellProvider.notifier).clear();
       }
       showMotoGoToast(context,
@@ -1342,7 +1360,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     } else {
       final tr = t(context);
       // Co se opravdu strhlo (minimum karty 15 Kč, D1).
-      final amountStr = Money.czk(cardCharge(_ctx!.amount).charge);
+      final amountStr = Money.czk(_cardFor(_ctx!.amount).charge);
       void goResult(PaymentOutcome outcome) {
         ref.read(paymentOutcomeProvider.notifier).state = outcome;
         context.go(Routes.paymentResult);
@@ -1384,8 +1402,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           // /success (ta si údaje načte z DB podle ID, ne z draftu v paměti).
           if (_pendingBookingId != null) {
             EmailService.sendBookingReserved(_pendingBookingId!);
-            InvoiceService.generateAdvanceInvoice(
-                _pendingBookingId!, _ctx!.amount);
+            _advanceInvoiceBackup(_pendingBookingId!);
             InvoiceService.generateBookingDocs(_pendingBookingId!);
             showMotoGoToast(context,
                 icon: '✓',
@@ -1413,10 +1430,25 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     }
   }
 
+  /// Záložní ZF z appky (primárně ji vystaví `send-booking-email`). Dorovnání
+  /// na 15 Kč / odpuštění do 1 Kč (D1) zapisuje server až s platbou — ZF
+  /// z appky by mohla předběhnout webhook, zachytit cenu bez dorovnání a
+  /// dedup by ji držel navždy (ZF 10 Kč vedle DP 15 Kč). S dorovnáním ji
+  /// proto vystaví jen server; jinak až po ověřeném `paid` (cena je finální).
+  void _advanceInvoiceBackup(String bookingId) {
+    final due = _bookingDue;
+    if (_cardFor(due).rounding != 0) return;
+    () async {
+      if (await StripeService.pollBookingPaymentStatus(bookingId, maxAttempts: 3)) {
+        await InvoiceService.generateAdvanceInvoice(bookingId, due);
+      }
+    }();
+  }
+
   /// Úspěch zaplacené úpravy / výměny (i po „Platba se ověřuje" / „dokončuje
   /// se" → ověřeno). Řádek s tím, co se strhlo, a s dorovnáním (D1).
   PaymentOutcome _editSuccessOutcome(AppTranslations tr, {PickupInfo? pickup}) {
-    final cc = cardCharge(_ctx?.amount ?? 0);
+    final cc = _cardFor(_ctx?.amount ?? 0);
     final extra = roundingLine(tr, cc);
     return PaymentOutcome(
       pickup: pickup,
@@ -1440,10 +1472,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     final moto = ref.watch(bookingMotoProvider);
     final breakdown = ref.watch(priceBreakdownProvider);
     final defaultCard = ref.watch(defaultCardProvider);
+    final upsellItems = ref.watch(bookingUpsellProvider);
     final amount = _amount;
     final isFree = amount <= 0;
     // Minimum karty (D1): kolik se opravdu strhne — 15 Kč / nic do 1 Kč.
-    final charge = cardCharge(amount);
+    final charge = _cardFor(amount);
 
     return BackButtonListener(
       // Systémové „zpět": během platby jen s potvrzením; bez historie (FAB,
@@ -1498,7 +1531,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                       PriceSummaryCard(
                         breakdown: breakdown,
                         extras: ref.watch(effectiveExtrasProvider),
-                        upsellItems: ref.watch(bookingUpsellProvider),
+                        upsellItems: _upsellBundled ? upsellItems : const [],
                       ),
                     // Cena ověřená serverem (po „Cena se změnila") — platí se ta.
                     if (_isNewBooking && _serverAmount != null)
@@ -1522,13 +1555,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                       ),
                     // „Minimální platba kartou je 15 Kč – zaplatíš 15 Kč" /
                     // „Částky do 1 Kč neúčtujeme" — PŘED platbou (D1).
-                    CardRoundingNote(due: amount),
+                    CardRoundingNote(due: amount, forceMin: _forceMinCharge),
                     const SizedBox(height: 12),
 
                     // Upsell section (new booking only)
                     if (_isNewBooking && moto != null)
                       UpsellSection(
-                        showProducts: ref.watch(reservationUpsellEnabledProvider).maybeWhen(data: (v) => v, orElse: () => false),
+                        // Doprodej jen k rezervaci, která minimum karty splňuje sama.
+                        showProducts: cardCharge(_bookingDue).kind == CardChargeKind.normal &&
+                            ref.watch(reservationUpsellEnabledProvider).maybeWhen(data: (v) => v, orElse: () => false),
                       ),
                     if (_isNewBooking && moto != null)
                       const SizedBox(height: 12),

@@ -9,9 +9,10 @@
 //  • optimistický zámek (updated_at) proti souběhu webhook ↔ complete_extension,
 //  • výsledek ApplyResult (applied / already_applied / retry / failed).
 import type { ApplyArgs, ApplyResult, Sb } from './extension-apply-types.ts'
-import { placeFingerprint, round2, isPermanentDbError, logDebug } from './extension-apply-types.ts'
+import { placeFingerprint, round2, isPermanentDbError, logDebug, otherPaymentEntry } from './extension-apply-types.ts'
+import { addHistory } from './extension-apply-history.ts'
 
-type Srv = { t?: number | null; df?: number | null; pf?: number | null; rf?: number | null; x?: boolean; l?: number | null; f?: string }
+export type Srv = { t?: number | null; df?: number | null; pf?: number | null; rf?: number | null; x?: boolean; l?: number | null; f?: string }
 type Row = Record<string, unknown>
 
 const fin = (v: unknown) => v != null && Number.isFinite(Number(v))
@@ -85,7 +86,7 @@ function alreadyWritten(d: Row, cur: Row, target: number | null, r: number): boo
   return t === Math.round(target) || t === Math.round(target + r)
 }
 
-export async function applyColumnChange(sb: Sb, a: Row, args: ApplyArgs, srv: Srv): Promise<ApplyResult> {
+export async function applyColumnChange(sb: Sb, a: Row, args: ApplyArgs, srv: Srv, hash: string | null = null): Promise<ApplyResult> {
   const { bookingId, paidCzk, payRef } = args
   let r = round2(Number(args.rounding || 0))
   const target = targetTotal(a, srv)
@@ -113,6 +114,11 @@ export async function applyColumnChange(sb: Sb, a: Row, args: ApplyArgs, srv: Sr
     if (payRef && hist0.some((h) => !!h && h.payment_ref === payRef)) {
       await logDebug(sb, 'extension_change_duplicate_skipped', 'info', { booking_id: bookingId, payment_ref: payRef })
       return { state: 'already_applied', bookingId, totalPrice: Number(cur.total_price || 0) }
+    }
+    // Zrušená / ukončená rezervace se zaplacenou změnou nemění (dřív ji webhook „oživil"
+    // přes confirm_payment a změnu zapsal) → trvalé selhání = vrácení doplatku.
+    if (['cancelled', 'completed'].includes(String(cur.status || ''))) {
+      return { state: 'failed', code: 'change_failed', reason: cur.status === 'completed' ? 'booking_completed' : 'booking_cancelled' }
     }
 
     // Aktivní rezervace: vyzvednutí už proběhlo → místo ani čas vyzvednutí se nemění.
@@ -157,6 +163,16 @@ export async function applyColumnChange(sb: Sb, a: Row, args: ApplyArgs, srv: Sr
         current: { start_date: cur.start_date, end_date: cur.end_date, pickup_time: cur.pickup_time, total_price: cur.total_price },
       }, 'Změna naceněna proti jinému stavu rezervace než je v DB — zapsána delta (aktuální cena + zaplaceno)')
     }
+    if (written && hash) {
+      // TUTÉŽ změnu (chg_hash) zapsala od vytvoření této platby JINÁ platba (druhá záložka,
+      // starší Checkout Session) → tahle platba je navíc: nic nepsat, vrátit ji (webhook).
+      const sinceMs = args.since ? Date.parse(args.since) : NaN
+      const other = hist0.find((h) => !!h && h.chg_hash === hash && otherPaymentEntry(h, payRef, Number.isFinite(sinceMs) ? sinceMs : null))
+      if (other) {
+        await logDebug(sb, 'extension_change_duplicate_payment', 'error', { booking_id: bookingId, payment_ref: payRef, other_ref: other.payment_ref })
+        return { state: 'duplicate', bookingId, otherRef: String(other.payment_ref) }
+      }
+    }
     if (written) {
       await logDebug(sb, 'extension_change_already_written', 'info', { booking_id: bookingId, payment_ref: payRef, total_price: cur.total_price })
     }
@@ -186,7 +202,7 @@ export async function applyColumnChange(sb: Sb, a: Row, args: ApplyArgs, srv: Sr
     }
     if (Object.keys(d).length === 0) return { state: 'already_applied', bookingId, totalPrice: Number(cur.total_price || 0) }
 
-    addHistory(d, cur, base, srv, { paidCzk, payRef, stale, r })
+    addHistory(d, cur, base, srv, { paidCzk, payRef, stale, r, hash })
 
     let q = sb.from('bookings').update(d).eq('id', bookingId)
     if (cur.updated_at) q = q.eq('updated_at', cur.updated_at)
@@ -202,57 +218,4 @@ export async function applyColumnChange(sb: Sb, a: Row, args: ApplyArgs, srv: Sr
     return { state: 'applied', bookingId, totalPrice: Number(d.total_price ?? cur.total_price ?? 0) }
   }
   return { state: 'retry', code: 'concurrent_update' }
-}
-
-function addHistory(d: Row, cur: Row, base: { s?: string; e?: string; t?: string | null; l?: number } | undefined, srv: Srv,
-  o: { paidCzk: number | null; payRef: string | null; stale: boolean; r: number }) {
-  try {
-    const fromS = day((base && base.s) || cur.start_date), fromE = day((base && base.e) || cur.end_date)
-    const toS = d.start_date ? day(d.start_date) : day(cur.start_date)
-    const toE = d.end_date ? day(d.end_date) : day(cur.end_date)
-    const fromT = hm(base && base.t !== undefined ? base.t : cur.pickup_time)
-    const toT = d.pickup_time !== undefined ? hm(d.pickup_time) : hm(cur.pickup_time)
-    const fromL = Math.round(Number((base && base.l != null) ? base.l : (cur.late_pickup_discount_amount ?? 0)))
-    const toL = Math.round(Number(d.late_pickup_discount_amount ?? cur.late_pickup_discount_amount ?? 0))
-    const datesChanged = toS !== fromS || toE !== fromE
-    const motoChanged = !!d.moto_id && String(d.moto_id) !== String(cur.moto_id || '')
-    const chgd = (k: string) => d[k] !== undefined && String(d[k] ?? '') !== String(cur[k] ?? '')
-    const placeChanged = chgd('pickup_method') || chgd('pickup_address') || chgd('return_method') || chgd('return_address')
-      || (d.delivery_fee !== undefined && Math.round(Number(d.delivery_fee)) !== Math.round(Number(cur.delivery_fee || 0)))
-    const returnTimeChanged = d.return_time !== undefined && hm(d.return_time) !== hm(cur.return_time)
-    // Vždy zapsat záznam s payment_ref (dedup opakování); dřív jen při viditelné změně.
-    const meaningful = datesChanged || motoChanged || placeChanged || returnTimeChanged || toT !== fromT || fromL !== toL
-      || o.r !== 0 || !!o.payRef
-    if (!meaningful) return
-    const hist = Array.isArray(cur.modification_history) ? [...(cur.modification_history as unknown[])] : []
-    const priceDiff = (o.paidCzk != null && Number.isFinite(o.paidCzk)) ? Math.round(o.paidCzk)
-      : (d.total_price != null ? Math.round(Number(d.total_price) - Number(cur.total_price || 0)) : null)
-    hist.push({
-      at: new Date().toISOString(),
-      from_start: fromS, from_end: fromE, to_start: toS, to_end: toE,
-      from_pickup_time: fromT || null, to_pickup_time: toT || null,
-      from_late_pickup: fromL, to_late_pickup: toL,
-      ...(motoChanged ? { from_moto_id: cur.moto_id, to_moto_id: d.moto_id } : {}),
-      ...(returnTimeChanged ? { from_return_time: hm(cur.return_time) || null, to_return_time: hm(d.return_time) || null } : {}),
-      ...(placeChanged ? {
-        from_pickup_method: cur.pickup_method ?? null, to_pickup_method: (d.pickup_method ?? cur.pickup_method) ?? null,
-        from_pickup_address: cur.pickup_address ?? null, to_pickup_address: (d.pickup_address !== undefined ? d.pickup_address : cur.pickup_address) ?? null,
-        from_return_method: cur.return_method ?? null, to_return_method: (d.return_method ?? cur.return_method) ?? null,
-        from_return_address: cur.return_address ?? null, to_return_address: (d.return_address !== undefined ? d.return_address : cur.return_address) ?? null,
-        from_delivery_fee: cur.delivery_fee ?? null, to_delivery_fee: (d.delivery_fee ?? cur.delivery_fee) ?? null,
-        ...(fin(srv.pf) && fin(srv.rf) && d.delivery_fee !== undefined && Math.round(Number(srv.pf) + Number(srv.rf)) === Math.round(Number(d.delivery_fee))
-          ? { pickup_fee_to: Number(srv.pf), return_fee_to: Number(srv.rf), fee_split_exact: srv.x === true } : {}),
-      } : {}),
-      ...(priceDiff != null ? { price_diff: priceDiff } : {}),
-      ...(o.r !== 0 ? { card_rounding: o.r } : {}),
-      source: 'stripe_webhook',
-      ...(o.payRef ? { payment_ref: o.payRef } : {}),
-      ...(o.stale ? { stale_baseline: true } : {}),
-    })
-    d.modification_history = hist
-    if (datesChanged && !cur.original_start_date) {
-      d.original_start_date = fromS
-      d.original_end_date = fromE
-    }
-  } catch { /* historie je best-effort */ }
 }

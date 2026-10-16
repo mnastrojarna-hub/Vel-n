@@ -300,6 +300,7 @@ void main() {
         'lib/features/shop/shop_checkout_screen.dart',
         'lib/core/shell_paid_listener.dart',
         'lib/core/app_shell.dart',
+        'lib/core/shell_fabs.dart',
       ];
       final keys = <String>{};
       final lit = RegExp(r"'([A-Za-z][A-Za-z0-9_.]{3,})'");

@@ -4,6 +4,7 @@ import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
@@ -80,8 +81,8 @@ class _ResMoneyV2State extends State<ResMoneyV2> {
             ),
           ),
         ),
-        AnimatedSize(
-          duration: MgMotion.of(context, MgMotion.pop),
+        MgAnimatedSize(
+          duration: MgMotion.pop,
           curve: MgMotion.out,
           alignment: Alignment.topCenter,
           child: _open ? ResPaymentDetailsTab(res: res) : const SizedBox(width: double.infinity),

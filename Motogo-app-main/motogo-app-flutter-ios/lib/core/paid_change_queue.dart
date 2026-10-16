@@ -23,7 +23,15 @@ class PaidChangeQueue {
   PaidChangeQueue._();
 
   static const storeKey = 'mg_paid_change_queue_v1';
+  /// Zaplacená změna, kterou server ani po téhle době nepotvrdil (a appka je
+  /// online), se zákazníkovi jednou ukáže jako „kontroluje obsluha" (server
+  /// webhook ji po ~70 h předává obsluze sám) — nikdy tiché zmizení.
   static const maxAge = Duration(days: 7);
+  /// Pojistka zapsaná při odeslání platby (nezaplaceno) — po téhle době platba
+  /// prokazatelně nedoběhla (3D Secure nedokončené / opuštěné) → smazat.
+  static const unpaidMaxAge = Duration(hours: 24);
+  /// Úplná horní mez (offline měsíc, chyba bez potvrzení zákazníkem).
+  static const hardMaxAge = Duration(days: 45);
   /// Prodleva po n-tém neúspěšném pokusu.
   static const backoff = [
     Duration(seconds: 10), Duration(seconds: 30), Duration(minutes: 1),
@@ -54,15 +62,22 @@ class PaidChangeQueue {
       final raw = p.getString(storeKey);
       if (raw == null || raw.isEmpty) return {};
       final out = <String, PaidChangeEntry>{};
-      final cutoff = _now - maxAge.inMilliseconds;
       (jsonDecode(raw) as Map).forEach((k, v) {
         final e = PaidChangeEntry.fromJson(v);
-        if (e != null && e.createdAt >= cutoff) out[e.key] = e;
+        if (e != null && !_expired(e)) out[e.key] = e;
       });
       return out;
     } catch (_) {
       return {};
     }
+  }
+
+  /// Nezaplacená pojistka po 24 h, cokoli po 45 dnech. Zaplacená změna se
+  /// NEmaže po 7 dnech potichu — dál se ověřuje, dokud server neřekne výsledek.
+  static bool _expired(PaidChangeEntry e) {
+    final age = _now - e.createdAt;
+    if (age > hardMaxAge.inMilliseconds) return true;
+    return !e.paid && age > unpaidMaxAge.inMilliseconds;
   }
 
   static Future<void> _save(Map<String, PaidChangeEntry> m) async {
@@ -153,9 +168,12 @@ class PaidChangeQueue {
   }
 
   static Future<void> _drainImpl(String reason, bool force) async {
+    // [force] (start / připojení / popředí) přeskočí prodlevu jen ZAPLACENÝM
+    // položkám — nezaplacená pojistka čeká na svůj čas (návrat z banky po
+    // 3D Secure je „popředí"; dotaz uprostřed ověření by ji smazal).
     final due = [
       for (final e in (await _load()).values)
-        if (!e.isFailed && (force || e.nextAt <= _now)) e,
+        if (!e.isFailed && ((force && e.paid) || e.nextAt <= _now)) e,
     ];
     if (due.isNotEmpty) debugPrint('[PaidChange] drain ($reason): ${due.length}');
     for (final e in due) {
@@ -168,16 +186,17 @@ class PaidChangeQueue {
   static Future<PaidChangeResult> _attemptKey(PaidChangeEntry e, Duration timeout) {
     return _inflight[e.key] ??= () async {
       try {
-        final r = await PaidChangeApply.attempt(e, timeout: timeout);
-        await _record(e, r);
-        return r;
+        return await _record(e, await PaidChangeApply.attempt(e, timeout: timeout));
       } finally {
         _inflight.remove(e.key);
       }
     }();
   }
 
-  static Future<void> _record(PaidChangeEntry e, PaidChangeResult r) async {
+  /// Zapíše výsledek pokusu a vrátí ten, který opravdu platí (např. po
+  /// týdnu bez potvrzení se „dokončuje se" mění na „kontroluje obsluha").
+  static Future<PaidChangeResult> _record(PaidChangeEntry e, PaidChangeResult r) async {
+    var out = r;
     final stored = await _mutate<PaidChangeEntry?>((m) {
       final cur = m[e.key];
       if (cur == null) return null;
@@ -187,12 +206,29 @@ class PaidChangeQueue {
           m.remove(e.key);
           return cur;
         case PaidChangeStatus.failed:
-          return m[e.key] = cur.copyWith(state: 'failed', failure: {
+          // Platbu jiného účtu / nedohledatelnou u nepotvrzené pojistky
+          // zákazníkovi neukazovat (nevíme, že se něco strhlo) → smazat.
+          if (!cur.paid && (r.reason == 'other_account' || r.reason == 'gone')) {
+            m.remove(e.key);
+            return cur;
+          }
+          return m[e.key] = cur.copyWith(paid: true, state: 'failed', failure: {
             'reason': r.reason,
             'refund': r.refund,
             'amount': r.amount ?? cur.charge,
           });
         case PaidChangeStatus.completing:
+          // Zaplacené a ani po týdnu (online) nepotvrzené → jednou ukázat, že
+          // platbu kontroluje obsluha (server ji po ~70 h předává obsluze sám).
+          if (cur.paid && !r.offline && _now - cur.createdAt > maxAge.inMilliseconds) {
+            out = PaidChangeResult(PaidChangeStatus.failed,
+                reason: 'expired', refund: 'staff', amount: cur.charge);
+            return m[e.key] = cur.copyWith(state: 'failed', failure: {
+              'reason': 'expired',
+              'refund': 'staff',
+              'amount': cur.charge,
+            });
+          }
           final n = cur.attempts + 1;
           return m[e.key] = cur.copyWith(
               attempts: n,
@@ -200,7 +236,8 @@ class PaidChangeQueue {
               state: r.reason == 'extras' ? 'extras' : cur.state);
       }
     });
-    if (stored != null) _events.add(PaidChangeEvent(stored, r));
+    if (stored != null) _events.add(PaidChangeEvent(stored, out));
+    return out;
   }
 
   /// Jeden časovač na nejbližší pokus (dokud appka běží).

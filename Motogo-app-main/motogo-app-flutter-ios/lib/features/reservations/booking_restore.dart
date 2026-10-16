@@ -40,8 +40,11 @@ Future<void> restoreAndPay(
   final today = DateTime(now.year, now.month, now.day);
   final startDay =
       DateTime(res.startDate.year, res.startDate.month, res.startDate.day);
+  // Rezervace začínající dnes má vlastní text (obnovit jde jen od zítřka).
+  final startsToday = startDay == today;
   if (!startDay.isAfter(today)) {
-    _showRefusal(context, ref, res, const RestoreRefused('date_passed'));
+    _showRefusal(context, ref, res,
+        RestoreRefused('date_passed', reason: startsToday ? 'today' : null));
     return;
   }
 
@@ -49,7 +52,18 @@ Future<void> restoreAndPay(
   try {
     r = await restoreBookingRpc(res.id);
   } on RestoreRefused catch (e) {
-    if (context.mounted) _showRefusal(context, ref, res, e);
+    if (!context.mounted) return;
+    if (e.code == 'not_cancelled') {
+      // Obnova už proběhla (odpověď předchozího pokusu se ztratila po
+      // timeoutu) a rezervace čeká na platbu → rovnou k platbě.
+      final again = await restoredAwaitingPayment(res.id);
+      if (!context.mounted) return;
+      if (again != null) {
+        _goPay(context, ref, res, again);
+        return;
+      }
+    }
+    _showRefusal(context, ref, res, e);
     return;
   } catch (e) {
     debugPrint('[RESTORE] Error restoring booking: $e');
@@ -69,6 +83,11 @@ Future<void> restoreAndPay(
   }
 
   if (!context.mounted) return;
+  _goPay(context, ref, res, r);
+}
+
+/// Obnovená rezervace → platba (okno na zaplacení běží od obnovy).
+void _goPay(BuildContext context, WidgetRef ref, Reservation res, Map<String, dynamic> r) {
   ref.invalidate(reservationsProvider);
   ref.invalidate(reservationByIdProvider(res.id));
   ref.read(paymentContextProvider.notifier).state = PaymentContext(
@@ -82,6 +101,33 @@ Future<void> restoreAndPay(
     isRestore: true,
   );
   context.push(Routes.payment);
+}
+
+/// Rezervace je už obnovená v appce a čeká na zaplacení (v okně 30 min od
+/// obnovy) → `{restored_at, total_price}`, jinak null. Pro „obnovu" po ztracené
+/// odpovědi: server pak hlásí `not_cancelled`, ale zákazník chce zaplatit.
+Future<Map<String, dynamic>?> restoredAwaitingPayment(String bookingId) async {
+  try {
+    final row = await MotoGoSupabase.client
+        .from('bookings')
+        .select('status, payment_status, total_price, restored_at, restored_by_source')
+        .eq('id', bookingId)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 10));
+    if (row == null) return null;
+    final at = DateTime.tryParse('${row['restored_at'] ?? ''}');
+    if (row['status'] != 'pending' ||
+        row['payment_status'] != 'unpaid' ||
+        row['restored_by_source'] != 'app' ||
+        at == null ||
+        DateTime.now().difference(at.toLocal()) >= paymentTimeoutDuration) {
+      return null;
+    }
+    return {'restored_at': row['restored_at'], 'total_price': row['total_price']};
+  } catch (e) {
+    debugPrint('[RESTORE] re-read failed: $e');
+    return null;
+  }
 }
 
 /// Obnova přes RPC → `{success, restored_at, total_price, …}`, jinak
@@ -113,7 +159,7 @@ String restoreRefusalText(AppTranslations tr, RestoreRefused e) {
     'not_cancelled' => 'pdRestoreNotCancelled',
     'not_restorable' => 'pdRestoreNotRestorable',
     'cancelled_by_staff' => 'pdRestoreByStaffCancel',
-    'date_passed' => 'restoreDatePassed',
+    'date_passed' => e.reason == 'today' ? 'pdRestoreStartsToday' : 'restoreDatePassed',
     'restore_limit' => 'pdRestoreLimit',
     'voucher_unavailable' => 'pdRestoreVoucher',
     'promo_unavailable' => 'pdRestorePromo',
@@ -159,17 +205,23 @@ void _showRefusal(BuildContext context, WidgetRef ref, Reservation res, RestoreR
       onTap = () => context.go(motoRoute);
       second = tr.tr('psOtherMoto');
       onSecond = () => context.go(Routes.search);
-    case restoreUpdatingCode:
-    case 'unknown':
-      label = tr.tr('retry');
-      onTap = () => restoreAndPay(context, ref, res);
-    default:
+    case 'not_restorable':
+    case 'cancelled_by_staff':
+    case 'date_passed':
+    case 'restore_limit':
+    case 'voucher_unavailable':
+    case 'promo_unavailable':
       // Obnova nejde (termín uplynul, zrušila obsluha, limit, sleva) → nová
       // rezervace téže motorky (výběr termínu), nebo jiná motorka.
       label = tr.tr('psPickAgain');
       onTap = () => context.go(motoRoute);
       second = tr.tr('psOtherMoto');
       onSecond = () => context.go(Routes.search);
+    default:
+      // Aktualizace serveru / neznámý kód (chyba serveru) → nic se
+      // nezměnilo, „Zkusit znovu".
+      label = tr.tr('retry');
+      onTap = () => restoreAndPay(context, ref, res);
   }
   PaymentErrorSheet.show(
     context,

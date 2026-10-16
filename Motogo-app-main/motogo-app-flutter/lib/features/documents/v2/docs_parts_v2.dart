@@ -43,23 +43,19 @@ class DocCardV2 extends StatelessWidget {
         Text(title, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
         const SizedBox(height: 6),
         Container(
-          height: 22,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: verified ? MgColors.neonA(0.18) : MgColors.warnDark.withValues(alpha: 0.18),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
+          child: Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             MgIcon(verified ? MgIcons.check : MgIcons.warn,
                 size: 14, color: verified ? MgColors.neonText : MgColors.warnDark),
             const SizedBox(width: 4),
             Flexible(
               child: Text(verified ? tr.tr('verified') : tr.tr('notVerified'),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.fade,
                   style: MgType.micro.copyWith(
-                      fontWeight: FontWeight.w800, height: 1, color: verified ? MgColors.neonText : MgColors.warnDark)),
+                      fontWeight: FontWeight.w800, color: verified ? MgColors.neonText : MgColors.warnDark)),
             ),
           ]),
         ),

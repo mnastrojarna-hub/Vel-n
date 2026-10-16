@@ -20,6 +20,7 @@ import 'core/debug_logger.dart';
 import 'core/installation_service.dart';
 import 'core/net/timeout_client.dart';
 import 'core/engagement_service.dart';
+import 'core/feature_flags.dart' show AppV2UiNotifier;
 import 'core/offline_guard.dart';
 import 'core/paid_change_queue.dart';
 import 'core/provider_recovery.dart';
@@ -30,6 +31,7 @@ import 'core/supabase_client.dart';
 import 'core/router.dart';
 import 'core/safe_router_config.dart';
 import 'core/theme.dart';
+import 'core/v2/flag/v2_gate.dart';
 import 'core/i18n/i18n_provider.dart';
 import 'core/overlays/onboarding_overlays.dart';
 import 'core/widgets/moto_fx.dart';
@@ -203,6 +205,11 @@ Future<void> _initAndRun() async {
   await Money.init(
       defaultLang: langPrefs.getString('mg_language') ?? langPrefs.getString('mg_locale'));
   unawaited(Money.refreshRates());
+
+  // Kill-switch nového vzhledu (`app_v2_ui`): poslední známá hodnota z prefu
+  // platí od prvního snímku (chybí → zapnuto); čerstvou hodnotu z DB dotáhne
+  // appV2UiProvider na pozadí a použije ji jen v bezpečný okamžik.
+  await AppV2UiNotifier.preload();
 
   runApp(const ProviderScope(child: MotoGoApp()));
 }
@@ -456,7 +463,12 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
             },
             child: Stack(
               children: [
-                child!,
+                // Nový vzhled (v2) zapnutý/vypnutý kill-switchem `app_v2_ui`
+                // (MgV2Gate → MgV2Scope: obrazovky MgV2.on, router V2Switch;
+                // téma v2 mění jen tvary snackbarů, dialogů, sheetů a
+                // indikátorů). Hlídač level-upu i onboarding overlaye níže
+                // stojí mimo bránu a zůstávají beze změny.
+                MgV2Gate(child: child!),
                 // Věrnostní ranky — neviditelný hlídač postupu na vyšší level.
                 // Sedí NAD celou navigací, takže celoobrazovkovou oslavu
                 // (postup o 1 = standard, o 2+ = turbo „MEGA POSTUP") zobrazí

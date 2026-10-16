@@ -27,6 +27,9 @@ const Map<String, String> ext44PayfixCs = {
   'pdFailGone': 'Rezervaci nebo platbu k téhle změně už nejde dohledat (byla mezitím odstraněna), proto se změna nezapsala a appka ji už zkoušet nebude. Otevři Rezervace a zkontroluj, jak rezervace vypadá teď.',
   'pdFailStale': 'Tuhle zaplacenou změnu už nejde zapsat automaticky (od platby uběhlo moc času). Obsluha ji zkontroluje, a pokud změna v rezervaci není, doplatek ti vrátí do 2 pracovních dnů – nemusíš nic dělat ani platit znovu.',
   'pdFailRefunded': 'Doplatek za tuhle změnu už jsme ti vrátili, proto ji do rezervace nezapisujeme. Rezervace platí v původní podobě – nemusíš nic dělat.',
+  // cena rezervace neodpovídá ceníku / slevám (process-payment price_outdated) — nic se nestrhlo
+  'pdPriceOutdatedTitle': 'Cena rezervace už neplatí',
+  'pdPriceOutdatedBody': 'Cena rezervace už neodpovídá aktuálnímu ceníku nebo slevám – slevový kód nebo poukaz mezitím mohl přestat platit. Nic jsme nestrhli. Vytvoř si prosím rezervaci znovu, cenu spočítáme podle aktuálního stavu.',
 };
 
 const Map<String, String> ext44PayfixEn = {
@@ -54,4 +57,7 @@ const Map<String, String> ext44PayfixEn = {
   'pdFailGone': 'The booking or payment for this change can no longer be found (it has been removed in the meantime), so the change was not written and the app will not try again. Open My bookings and check how the booking looks now.',
   'pdFailStale': 'This paid change can no longer be written automatically (too much time has passed since the payment). Our staff will check it and, if the change is not in the booking, refund the extra payment within 2 working days – you do not need to do anything or pay again.',
   'pdFailRefunded': 'We have already refunded the extra payment for this change, so it is not being written into the booking. The booking stays as it was – you do not need to do anything.',
+  // cena rezervace neodpovídá ceníku / slevám (process-payment price_outdated) — nic se nestrhlo
+  'pdPriceOutdatedTitle': 'The booking price is out of date',
+  'pdPriceOutdatedBody': 'The booking price no longer matches the current price list or discounts – a discount code or voucher may have stopped being valid in the meantime. Nothing was charged. Please create the booking again and we will calculate the price from the current state.',
 };

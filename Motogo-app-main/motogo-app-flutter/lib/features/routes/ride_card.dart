@@ -6,6 +6,8 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
 import 'ride_model.dart';
 import 'ride_map.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/rides/ride_card_v2.dart';
 
 /// Karta jedné projeté jízdy v seznamu („Moje zážitky" i detail výpůjčky):
 /// náhled stopy na mapě + název, datum, motorka, km / čas / zastávky a odznak
@@ -25,6 +27,10 @@ class RideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // v2: stejná data i klepnutí, nový vzhled (PLAN §2.7).
+    if (MgV2.on(context)) {
+      return RideCardV2(ride: ride, onTap: onTap, siblingIds: siblingIds);
+    }
     final hasMap = ride.mapPoints.length >= 2;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),

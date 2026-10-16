@@ -9,9 +9,11 @@
 //               záznam s payment_ref = id platby v historii rezervace → hotovo,
 //  • failed   — platbu už jednou vyhodnotil paid_change_failed (vratka/obsluha),
 //  • refunded — z platby se už něco vrátilo → nic nezapisovat,
+//  • duplicate — druhá platba za změnu, kterou zapsala jiná platba (vrací se celá),
 //  • stale    — platba z doby před nasazením (bez attempt_id / chg_hash) nebo
 //               starší než lhůta → zapisovat automaticky nelze (jen obsluha).
 import type { Sb } from './extension-apply-types.ts'
+import { duplicateRow } from './duplicate-payment.ts'
 
 export type PiLike = {
   id: string
@@ -25,6 +27,8 @@ export type Eligibility =
   | { ok: false; kind: 'applied' }
   | { ok: false; kind: 'failed'; reason: string; refund: string }
   | { ok: false; kind: 'refunded' }
+  /** druhá platba za změnu, kterou už zapsala jiná platba — vrácená / k vrácení (duplicate-payment) */
+  | { ok: false; kind: 'duplicate' }
   | { ok: false; kind: 'stale'; why: 'legacy' | 'too_old' }
 
 type StripeLike = {
@@ -47,6 +51,7 @@ export async function paidChangeEligibility(sb: Sb, pi: PiLike, o: {
   if (await historyHasRef(sb, o.bookingId, pi.id)) return { ok: false, kind: 'applied' }
   const fail = await failureRow(sb, pi.id)
   if (fail) return { ok: false, kind: 'failed', reason: fail.reason, refund: fail.refund }
+  if (md.duplicate_of || await duplicateRow(sb, pi.id)) return { ok: false, kind: 'duplicate' }
   if ((await refundedAmount(pi, o.stripe)) > 0) return { ok: false, kind: 'refunded' }
   if (o.requireNewCode && !isNewCodePi(md)) return { ok: false, kind: 'stale', why: 'legacy' }
   if (o.maxAgeH != null && pi.created) {

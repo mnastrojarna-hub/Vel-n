@@ -45,9 +45,18 @@ class PayProblem {
   /// Počítat jako neúspěšný pokus o platbu (karta/síť) — serverová odmítnutí
   /// (cena, minimum, stav) pokusy nespotřebovávají.
   final bool countsAsAttempt;
+  /// Zbytek do 1 Kč server odpustit nemůže (`waiver_unverified`) → „Zaplatit
+  /// 15 Kč" musí opravdu strhnout 15 Kč, ne znovu poslat odpuštění (D1).
+  final bool forceMin;
 
   const PayProblem(this.title, this.message, this.action,
-      {this.serverTotal, this.countsAsAttempt = false});
+      {this.serverTotal, this.countsAsAttempt = false, this.forceMin = false});
+
+  /// „Zaplatit 15 Kč" u zbytku do 1 Kč = platba 15 Kč (dorovnání), nikdy 0 Kč
+  /// — odpuštění server právě odmítl, poslat ho znovu by skončilo stejně.
+  bool get forceMinCharge =>
+      action == PayAction.payMin &&
+      (forceMin || ((serverTotal ?? 0) > 0 && serverTotal! <= cardWaiveMaxCzk));
 }
 
 /// Odmítnutí / chyby `process-payment` → srozumitelná hláška + akce podle flow.
@@ -85,16 +94,19 @@ class PaymentRefusals {
   }
 
   /// Zbývá méně než 15 Kč (server `below_minimum` / Stripe `amount_too_small`)
-  /// → zaplatit 15 Kč, rozdíl je na dokladu jako dorovnání (D1).
-  static PayProblem belowMinimum(String lang, num due) {
-    final cc = cardCharge(due);
+  /// → zaplatit 15 Kč, rozdíl je na dokladu jako dorovnání (D1). Zbytek do
+  /// 1 Kč, který server nedokázal ověřit k odpuštění ([unverified]), se platí
+  /// také 15 Kč — text řekne proč se tentokrát neodpouští.
+  static PayProblem belowMinimum(String lang, num due, {bool unverified = false}) {
+    final waivable = due > 0 && due <= cardWaiveMaxCzk;
+    final cc = cardCharge(due, forceMin: unverified || waivable);
     final body = due > 0 && cc.isRound
-        ? _t(lang, 'pdBelowMinBody')
+        ? _t(lang, waivable ? 'pdWaiverUnverifiedBody' : 'pdBelowMinBody')
             .replaceAll('{amount}', kcExact(due))
             .replaceAll('{rounding}', kcExact(cc.rounding))
         : _t(lang, 'pdBelowMinGeneric');
     return PayProblem(_t(lang, 'pdBelowMinTitle'), body, PayAction.payMin,
-        serverTotal: due > 0 ? due.toDouble() : null);
+        serverTotal: due > 0 ? due.toDouble() : null, forceMin: unverified);
   }
 
   static String _authText(String lang, PayFlow flow) => switch (flow) {
@@ -196,7 +208,7 @@ class PaymentRefusals {
         final u = PaymentErrorMapper.uncertain(lang);
         return PayProblem(u.title, u.message, PayAction.verify);
       case 'below_minimum':
-        return belowMinimum(lang, r.serverDue ?? amount);
+        return belowMinimum(lang, r.serverDue ?? amount, unverified: r.waiverUnverified);
       case 'rounding_unavailable':
         return PayProblem(_t(lang, 'pdRoundUnavTitle'), _t(lang, 'pdRoundUnavBody'),
             PayAction.retry);
@@ -237,6 +249,12 @@ class PaymentRefusals {
         }
         return PayProblem(_t(lang, 'psFreeRemainderTitle'),
             _t(lang, 'pdFreeCheckFailedBody'), PayAction.editBooking);
+      case 'price_outdated':
+        // Cena rezervace neodpovídá ceníku / slevám (kód nebo poukaz mezitím
+        // přestal platit) — jinou částku server nenabízí (zaplaceno by se
+        // lišilo od dokladů). Nic se nestrhlo → rezervaci vytvořit znovu.
+        return PayProblem(_t(lang, 'pdPriceOutdatedTitle'), _t(lang, 'pdPriceOutdatedBody'),
+            flow == PayFlow.booking ? PayAction.editBooking : PayAction.reservations);
       case 'free_confirm_failed':
         return PayProblem(_t(lang, 'psFreeFailedTitle'),
             _t(lang, 'psFreeFailedBody'), PayAction.retry);

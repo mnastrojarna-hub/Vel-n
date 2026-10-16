@@ -211,29 +211,8 @@ class StripeService {
         );
       }
 
-      // Odmítnutí serverem (4xx/5xx s JSON). Text serveru je česky a jen do
-      // logu / pro odvození kódu — UI hlášku skládá PaymentRefusals z kódu.
-      final serverMsg = data['error'] as String? ?? '';
-      final total = (data['server_total'] as num?) ?? (data['expected'] as num?);
-      return PaymentResult.error(
-        serverMsg,
-        code: PaymentErrorCode.serverError,
-        serverCode: data['code'] as String?,
-        serverTotal: total?.toDouble(),
-        serverDue: (data['due'] as num?)?.toDouble(),
-        detail: (data['voucher_code'] ?? data['reason'])?.toString(),
-        // `payment_in_progress` / `stale_booking`: platba PŘEDCHOZÍ změny
-        // (doplatek se ještě zapisuje / právě se dopsal) — ne téhle.
-        paymentIntentId: data['payment_intent_id'] as String?,
-        intentStatus: data['pi_status'] as String?,
-        previousChange: data['previous_change'] == true,
-        changeKind: data['change_kind'] as String?,
-        paidAmount: (data['paid_amount'] as num?)?.toDouble(),
-        httpStatus: response.statusCode,
-        // 5xx z vnějšího catch (Stripe výjimka) — u stržení uložené karty
-        // raději ověřit stav, než tvrdit „nic nebylo strženo".
-        uncertain: charges && response.statusCode >= 500,
-      );
+      return PaymentResult.refusal(data,
+          httpStatus: response.statusCode, charges: charges);
     } on TimeoutException {
       return PaymentResult.error('timeout',
           code: PaymentErrorCode.timeout, uncertain: charges);
@@ -463,13 +442,16 @@ class StripeService {
 
   /// Confirm free booking (100% discount).
   /// Zbytek do 1 Kč ([cardWaiveMaxCzk]) server se `card_min` neúčtuje a
-  /// rezervaci potvrdí stejně jako 100% slevu (D1).
-  static Future<PaymentResult> confirmFreeBooking(String bookingId) async {
+  /// rezervaci potvrdí stejně jako 100% slevu (D1). [type] = druh platby
+  /// (`sos` u náhradní motorky — server ji pak posoudí jako SOS, ne jako
+  /// rezervaci podle ceníku, a do 1 Kč požádá o 15 Kč).
+  static Future<PaymentResult> confirmFreeBooking(String bookingId,
+      {String type = 'booking'}) async {
     return createPaymentIntent(
       bookingId: bookingId,
       amount: 0,
       method: 'free',
-      type: 'booking',
+      type: type,
       attemptId: newAttemptId(),
     );
   }
@@ -541,6 +523,10 @@ class PaymentResult {
   /// Druh předchozí změny ('swap' / 'edit') a její zaplacená částka (Kč).
   final String? changeKind;
   final double? paidAmount;
+  /// `below_minimum` s `waiver_unverified`: zbytek do 1 Kč server teď nedokáže
+  /// ověřit k odpuštění (SOS, objednávka, úprava místa / doplňků / slevy) →
+  /// přijme jen platbu 15 Kč (D1). Bez toho by appka posílala 0 Kč dokola.
+  final bool waiverUnverified;
 
   const PaymentResult._({
     required this.type,
@@ -567,7 +553,37 @@ class PaymentResult {
     this.previousChange = false,
     this.changeKind,
     this.paidAmount,
+    this.waiverUnverified = false,
   });
+
+  /// Odmítnutí serverem (4xx/5xx s JSON). Text serveru je česky a jen do
+  /// logu / pro odvození kódu — UI hlášku skládá PaymentRefusals z kódu.
+  /// [charges] = požadavek nesl uloženou kartu (server ji mohl strhnout).
+  factory PaymentResult.refusal(Map<String, dynamic> data,
+      {int? httpStatus, bool charges = false}) {
+    final total = (data['server_total'] as num?) ?? (data['expected'] as num?);
+    return PaymentResult._(
+      type: PaymentResultType.error,
+      errorMessage: data['error'] as String? ?? '',
+      errorCode: PaymentErrorCode.serverError,
+      serverCode: data['code'] as String?,
+      serverTotal: total?.toDouble(),
+      serverDue: (data['due'] as num?)?.toDouble(),
+      detail: (data['voucher_code'] ?? data['reason'])?.toString(),
+      // `payment_in_progress` / `stale_booking`: platba PŘEDCHOZÍ změny
+      // (doplatek se ještě zapisuje / právě se dopsal) — ne téhle.
+      paymentIntentId: data['payment_intent_id'] as String?,
+      intentStatus: data['pi_status'] as String?,
+      previousChange: data['previous_change'] == true,
+      changeKind: data['change_kind'] as String?,
+      paidAmount: (data['paid_amount'] as num?)?.toDouble(),
+      waiverUnverified: data['waiver_unverified'] == true,
+      httpStatus: httpStatus,
+      // 5xx z vnějšího catch (Stripe výjimka) — u stržení uložené karty
+      // raději ověřit stav, než tvrdit „nic nebylo strženo".
+      uncertain: charges && (httpStatus ?? 0) >= 500,
+    );
+  }
 
   factory PaymentResult.intent({
     required String clientSecret,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
@@ -88,7 +89,7 @@ class _OneShotState extends State<_OneShot> with SingleTickerProviderStateMixin 
   late final AnimationController _c = AnimationController(
       vsync: this, duration: widget.duration, value: widget.playOnMount ? 0 : 1);
   bool _reduced = false;
-  int _gen = 0;
+  Timer? _delay;
 
   @override
   void didChangeDependencies() {
@@ -111,14 +112,15 @@ class _OneShotState extends State<_OneShot> with SingleTickerProviderStateMixin 
       _c.value = 1;
       return;
     }
-    final gen = ++_gen;
+    _delay?.cancel();
     if (widget.delay == Duration.zero) {
       _c.forward(from: 0);
       return;
     }
     _c.value = 0;
-    Future<void>.delayed(widget.delay, () {
-      if (mounted && gen == _gen && !_reduced) _c.forward(from: 0);
+    // Cancellable (a replay or dispose drops the pending start).
+    _delay = Timer(widget.delay, () {
+      if (mounted && !_reduced) _c.forward(from: 0);
     });
   }
 
@@ -130,7 +132,7 @@ class _OneShotState extends State<_OneShot> with SingleTickerProviderStateMixin 
 
   @override
   void dispose() {
-    _gen++;
+    _delay?.cancel();
     _c.dispose();
     super.dispose();
   }
@@ -181,26 +183,32 @@ class MgEnter extends _OneShot {
 
 /// List reveal: Y 16 → 0 + fade, 550 ms, stagger 70 ms (capped at index 5).
 /// With [sessionKey] it plays only on the first build in this app session.
-class MgReveal extends StatelessWidget {
+/// "First time" is decided once per mounted element, and the widget keeps
+/// the same shape afterwards (rebuilds never remount [child]).
+class MgReveal extends StatefulWidget {
   final Widget child;
   final int index;
   final String? sessionKey;
   const MgReveal({super.key, required this.child, this.index = 0, this.sessionKey});
 
   @override
-  Widget build(BuildContext context) {
-    if (sessionKey != null && !MgMotion.firstTime('reveal:$sessionKey:$index')) {
-      return child;
-    }
-    return _Reveal(
-      delay: MgMotion.revealStagger * math.min(index, 5),
-      child: child,
-    );
-  }
+  State<MgReveal> createState() => _MgRevealState();
+}
+
+class _MgRevealState extends State<MgReveal> {
+  late final bool _play =
+      widget.sessionKey == null || MgMotion.firstTime('reveal:${widget.sessionKey}:${widget.index}');
+
+  @override
+  Widget build(BuildContext context) => _Reveal(
+        delay: MgMotion.revealStagger * math.min(widget.index, 5),
+        playOnMount: _play,
+        child: widget.child,
+      );
 }
 
 class _Reveal extends _OneShot {
-  const _Reveal({required super.child, super.delay});
+  const _Reveal({required super.child, super.delay, super.playOnMount});
 
   @override
   Duration get duration => MgMotion.reveal;

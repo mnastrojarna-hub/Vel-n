@@ -16,6 +16,9 @@ class CardRoundingNote extends StatelessWidget {
   final String waiveKey;
   /// Ukázat i řádek „Dorovnání na minimální platbu kartou +X".
   final bool showLine;
+  /// Zbytek do 1 Kč se tentokrát neodpouští (server ho nedokázal ověřit) —
+  /// platí se 15 Kč s dorovnáním (viz [cardCharge]).
+  final bool forceMin;
 
   const CardRoundingNote({
     super.key,
@@ -23,11 +26,12 @@ class CardRoundingNote extends StatelessWidget {
     this.roundKey = 'pdRoundNote',
     this.waiveKey = 'pdWaiveNote',
     this.showLine = true,
+    this.forceMin = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cc = cardCharge(due);
+    final cc = cardCharge(due, forceMin: forceMin);
     if (!cc.isRound && !cc.isWaive) return const SizedBox.shrink();
     final tr = t(context);
     String fill(String s) => s

@@ -1355,6 +1355,7 @@ return [
     'editRez.pay.serverError' => 'Le paiement ne peut pas être finalisé pour le moment en raison d’une erreur sur notre serveur. Rien n’a été débité – réessayez dans une minute.',
     'editRez.pay.cancelled' => 'La réservation est annulée, elle ne peut donc plus être modifiée ni payée. Rien n’a été débité – veuillez créer une nouvelle réservation.',
     'editRez.pay.voucherUnavailable' => 'Le bon {code} a expiré ou a été utilisé ailleurs entre-temps. Rien n’a été débité – recréez la réservation sans bon ou avec un autre.',
+    'editRez.pay.priceOutdated' => 'Le prix de la réservation ne correspond plus aux tarifs ni aux réductions actuels (un code promo ou un bon a peut-être cessé d’être valable entre-temps). Rien n’a été débité – recréez la réservation, nous calculerons le prix selon la situation actuelle.',
     'editRez.pay.notApplicable' => 'L’état de la réservation a changé entre-temps. Rien n’a été débité – rechargez-la et répétez la modification.',
     'editRez.pay.tooLarge' => 'Cette modification est trop importante pour un seul paiement. Rien n’a été débité – divisez-la en deux plus petites (p. ex. d’abord les dates, puis le lieu).',
     'editRez.pay.deliveryFee' => 'Les frais de livraison/reprise ne correspondent pas au changement de lieu (adresse ou prix de l’itinéraire manquant). Rien n’a été débité – saisissez l’adresse et réessayez.',

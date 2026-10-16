@@ -28,6 +28,7 @@ import '../../core/v2/motion/mg_anim.dart';
 import '../../core/widgets/state_views.dart';
 import 'v2/places_parts_v2.dart';
 import 'v2/record_dock_v2.dart';
+import 'v2/rides/recorder_screen_v2.dart' show openRideRecorderV2;
 import 'v2/route_card_v2.dart';
 import 'v2/routes_list_parts_v2.dart';
 import 'v2/rt_v2_text.dart';
@@ -530,7 +531,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
             ),
           ],
         ],
-        dock: const TrasyRecordDockV2(),
+        dock: TrasyRecordDockV2(onOpenRecorder: () => openRideRecorderV2(context)),
       );
     }
 

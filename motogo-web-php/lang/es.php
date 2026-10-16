@@ -1356,6 +1356,7 @@ return [
     'editRez.pay.serverError' => 'El pago no se puede completar ahora por un error en nuestro servidor. No se ha cobrado nada; inténtelo de nuevo dentro de un minuto.',
     'editRez.pay.cancelled' => 'La reserva está cancelada, por lo que ya no se puede modificar ni pagar. No se ha cobrado nada: cree una nueva reserva.',
     'editRez.pay.voucherUnavailable' => 'El bono {code} ha caducado o se ha utilizado en otra reserva. No se ha cobrado nada: vuelva a crear la reserva sin el bono o con otro.',
+    'editRez.pay.priceOutdated' => 'El precio de la reserva ya no coincide con la tarifa actual ni con los descuentos (es posible que un código de descuento o un bono haya dejado de ser válido). No se ha cobrado nada: vuelva a crear la reserva y calcularemos el precio según el estado actual.',
     'editRez.pay.notApplicable' => 'La reserva ha cambiado de estado mientras tanto. No se ha cobrado nada: vuelva a cargarla y repita el cambio.',
     'editRez.pay.tooLarge' => 'Este cambio es demasiado grande para un solo pago. No se ha cobrado nada: divídalo en dos más pequeños (p. ej., primero las fechas y después el lugar).',
     'editRez.pay.deliveryFee' => 'La tarifa de entrega/recogida no corresponde al cambio de lugar (falta la dirección o el precio de la ruta). No se ha cobrado nada: introduzca la dirección e inténtelo de nuevo.',

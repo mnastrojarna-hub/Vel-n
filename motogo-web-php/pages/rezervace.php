@@ -128,7 +128,7 @@ foreach ($rezKeys as $k) {
 // (sdílené s úpravou rezervace — editRez.pay.*; mapování v pages-rezervace-scan.js).
 foreach (['validationUnavailable','amountMismatch','authRequired','forbidden','notFound','wrongStatus',
           'belowMinimum','roundingUnavailable','inProgress','duplicate','gatewayDown','serverError','cancelled',
-          'voucherUnavailable'] as $k) {
+          'voucherUnavailable','priceOutdated'] as $k) {
     $v = t('editRez.pay.' . $k);
     if (is_string($v)) $rezI18n['editRez.pay.' . $k] = $v;
 }

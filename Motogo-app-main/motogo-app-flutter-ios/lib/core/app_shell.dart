@@ -664,7 +664,7 @@ class _BookingFab extends ConsumerWidget {
               } catch (e) {
                 if (context.mounted) {
                   showErrorSnack(context, t(context).tr('psCancelFailTitle'), e,
-                      where: 'fab_cancel_pending', onRetry: doCancel);
+                      where: 'fab_cancel_pending', onRetry: doCancel, contact: false);
                 }
               }
             }

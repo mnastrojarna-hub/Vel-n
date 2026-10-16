@@ -16,6 +16,9 @@ export type ApplyResult =
   | { state: 'no_payload' }
   | { state: 'retry'; code: string; detail?: string }
   | { state: 'failed'; code: string; reason: string; detail?: string; manual?: boolean }
+  /** Tutéž změnu už od vytvoření této platby zapsala JINÁ platba (druhá záložka / starší
+   *  Checkout Session) → změna je hotová, tahle platba je navíc → vrátit celou (duplicate-payment). */
+  | { state: 'duplicate'; bookingId: string; otherRef: string; newBookingId?: string }
 
 export type ApplyArgs = {
   bookingId: string
@@ -31,6 +34,9 @@ export type ApplyArgs = {
   rounding?: number
   /** čas vytvoření platby (ISO) — výměna provedená OD té doby (klientem, souběžně) = hotovo */
   since?: string | null
+  /** kdo dokončuje: 6parametrovou výměnu (rev.12 nenasazená — bez značky platby a bez
+   *  zámku řádku) smí zapsat JEN webhook; appka / process-payment dostanou retry. */
+  via?: 'webhook' | 'complete_extension' | 'process-payment'
 }
 
 export const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100
@@ -45,6 +51,26 @@ export function placeFingerprint(r: Record<string, unknown> | null): string {
   let h = 2166136261
   for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0 }
   return h.toString(16)
+}
+
+/** Otisk payloadu změny (prvních 16 hex SHA-256) — shodný s metadata.chg_hash z process-payment
+ *  (hash z JSON.stringify(change) = spojené chg…chg_8). Do historie úprav → pozná se, že TUTÉŽ
+ *  změnu zapsala jiná platba (duplicita), ne jiná úprava se stejným výsledkem. */
+export async function chgDigest(chg: string | null | undefined): Promise<string | null> {
+  if (!chg) return null
+  try {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(chg))
+    return Array.from(new Uint8Array(buf)).slice(0, 8).map((b) => b.toString(16).padStart(2, '0')).join('')
+  } catch { return null }
+}
+
+/** Záznam historie od vytvoření platby (`since`, rezerva 60 s) se značkou JINÉ platby. */
+export function otherPaymentEntry(h: Record<string, unknown> | null | undefined, payRef: string | null | undefined,
+  sinceMs: number | null): boolean {
+  if (!h || typeof h.payment_ref !== 'string' || !h.payment_ref || h.payment_ref === payRef) return false
+  if (sinceMs == null) return false
+  const t = Date.parse(String(h.at || ''))
+  return Number.isFinite(t) && t >= sinceMs - 60_000
 }
 
 /** Payload změny je v metadatech rozdělený po 500 znacích: chg, chg_2 … chg_8. */

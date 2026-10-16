@@ -13,18 +13,27 @@ String paidChangeReasonText(AppTranslations tr, String? reason) {
     'new_moto_unavailable' || 'moto_unavailable' => 'pdFailTaken',
     'wrong_status' || 'not_found' || 'not_paid' => 'pdFailStatus',
     'swap_date_out_of_range' => 'pdFailDate',
+    'other_account' => 'pdFailForeign',
+    'gone' => 'pdFailGone',
+    'refunded' => 'pdFailRefunded',
+    'stale_payment' || 'expired' => 'pdFailStale',
     _ => 'pdFailOther',
   };
   return tr.tr(key);
 }
 
+/// Důvody, jejichž text sám říká, co se děje s penězi (bez věty o vratce).
+const _selfContained = {'other_account', 'gone', 'refunded', 'stale_payment', 'expired'};
+
 /// Celý text selhání: příčina + co se děje s doplatkem.
 String paidChangeFailureText(AppTranslations tr,
     {String? reason, String refund = 'auto', required double amount}) {
+  final why = paidChangeReasonText(tr, reason).replaceAll('{amount}', kcExact(amount));
+  if (_selfContained.contains(reason) || refund == 'none') return why;
   final money = tr
       .tr(refund == 'staff' ? 'pdRefundStaff' : 'pdRefundAuto')
       .replaceAll('{amount}', kcExact(amount));
-  return '${paidChangeReasonText(tr, reason)} $money';
+  return '$why $money';
 }
 
 /// „Výměna se dokončuje" / „Úprava se dokončuje" — platba prošla, zápis do

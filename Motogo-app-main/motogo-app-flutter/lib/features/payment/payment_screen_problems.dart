@@ -39,24 +39,6 @@ extension _PaymentProblems on _PaymentScreenState {
         amount: _bookingDue));
   }
 
-  /// Úpravu odmítl server, protože PŘEDCHOZÍ zaplacený doplatek této
-  /// rezervace se ještě dokončuje → ten předá trvalé frontě (D6): dokončí se
-  /// sám a detail rezervace ukáže „dokončuje se". Nová úprava se nezaplatila.
-  void _rememberPreviousChange(PaymentResult r) {
-    final pi = r.paymentIntentId;
-    final bid = _pendingBookingId;
-    if (pi == null || bid == null || !pi.startsWith('pi_')) return;
-    if (_flow != PayFlow.edit && _flow != PayFlow.swap) return;
-    if (!r.previousChange || PaymentRefusals.codeOf(r) != 'payment_in_progress') return;
-    unawaited(PaidChangeQueue.enqueue(PaidChangeEntry(
-      key: pi,
-      bookingId: bid,
-      kind: r.changeKind == 'swap' ? 'swap' : 'edit',
-      charge: r.paidAmount ?? 0,
-      paid: r.intentStatus == 'succeeded',
-    )));
-  }
-
   /// Zobrazí [p] s akcí, která opravdu něco dělá (žádné „Zkusit znovu",
   /// které jen zavře sheet).
   void _showProblem(PayProblem p) {
@@ -94,7 +76,7 @@ extension _PaymentProblems on _PaymentScreenState {
         // Nová cena rezervace podle serveru — tlačítko říká, kolik se OPRAVDU
         // strhne (minimum karty 15 Kč / do 1 Kč nic, D1).
         final total = p.serverTotal ?? 0;
-        final cc = cardCharge(total);
+        final cc = _cardFor(total);
         label = cc.isWaive
             ? tr.tr('pdConfirmFree')
             : tr.tr('psPayAmount').replaceAll('{amount}', Money.czk(cc.charge));
@@ -109,10 +91,16 @@ extension _PaymentProblems on _PaymentScreenState {
         second = tr.back;
       case PayAction.payMin:
         // Zbývá méně než 15 Kč → zaplatit 15 Kč (dorovnání zapíše server, D1).
+        // Zbytek do 1 Kč, který server neodpustil, se platí také 15 Kč — jinak
+        // by se odpuštění (0 Kč) poslalo znovu a odmítnutí opakovalo dokola.
         final due = p.serverTotal;
+        final force = p.forceMinCharge;
         label = tr.tr('pdPayMin');
         onTap = () {
-          if (due != null && due > 0) _set(() => _serverAmount = due);
+          _set(() {
+            if (due != null && due > 0) _serverAmount = due;
+            if (force) _forceMinCharge = true;
+          });
           _doPayment();
         };
         second = tr.tr(edit ? 'psEditChange' : 'psMyReservations');

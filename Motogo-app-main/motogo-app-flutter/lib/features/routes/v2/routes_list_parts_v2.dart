@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/router.dart' show Routes;
+import '../../../core/router.dart' show MotoGoBackNav, Routes;
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -11,16 +11,19 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../community_submit.dart';
 import 'places_parts_v2.dart';
 import 'record_dock_v2.dart';
+import 'rides/recorder_screen_v2.dart' show openRideRecorderV2;
 import 'trasy_hub_header_v2.dart';
 
 /// Hub header on the Trasy segment: map = Mapa tras (the old "Mapa tras"
-/// pill / quick link), "+" = the existing add menu.
+/// pill / quick link), "+" = the existing add menu. The list is a pushed
+/// screen, so it keeps the old visible back (`backOr(Routes.routes)`).
 class RoutesHubHeaderV2 extends StatelessWidget {
   final Widget search;
   const RoutesHubHeaderV2({super.key, required this.search});
 
   @override
   Widget build(BuildContext context) => TrasyHubHeaderV2(
+        onBack: () => context.backOr(Routes.routes),
         seg: TrasySeg.routes,
         onSegment: (s) => trasyGoSegment(context, TrasySeg.routes, s),
         search: search,
@@ -45,7 +48,7 @@ class RoutesStatePageV2 extends StatelessWidget {
         slivers: [
           SliverToBoxAdapter(child: loading ? const PlacesLoadingV2() : child),
         ],
-        dock: const TrasyRecordDockV2(),
+        dock: TrasyRecordDockV2(onOpenRecorder: () => openRideRecorderV2(context)),
       );
 }
 

@@ -34,6 +34,7 @@ import 'v2/places_filters_v2.dart';
 import 'v2/places_parts_v2.dart';
 import 'v2/poi_cat_icon_v2.dart';
 import 'v2/record_dock_v2.dart';
+import 'v2/rides/recorder_screen_v2.dart' show openRideRecorderV2;
 import 'v2/rt_v2_text.dart';
 import 'v2/trasy_hub_header_v2.dart';
 
@@ -557,7 +558,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
           ],
         ],
         dock: hub
-            ? TrasyRecordDockV2(selection: sel)
+            ? TrasyRecordDockV2(selection: sel, onOpenRecorder: () => openRideRecorderV2(context))
             : (sel == null ? null : TrasyRecordDockV2(selection: sel, showRecord: false)),
       );
     }

@@ -81,9 +81,28 @@ import 'translations_ext_42_refix3_a.dart';
 import 'translations_ext_42_refix3_b.dart';
 import 'translations_ext_43_payments.dart';
 import 'translations_ext_44_payfix.dart';
+import 'translations_ext_45_payments.dart';
 import 'translations_ext_50_v2_core_a.dart';
 import 'translations_ext_50_v2_core_b.dart';
 import 'translations_ext_50_v2_core_c.dart';
+import 'translations_ext_51_v2_home_a.dart';
+import 'translations_ext_51_v2_home_b.dart';
+import 'translations_ext_51_v2_home_c.dart';
+import 'translations_ext_51_v2_home_d.dart';
+import 'translations_ext_52_v2_catalog_a.dart';
+import 'translations_ext_52_v2_catalog_b.dart';
+import 'translations_ext_52_v2_catalog_c.dart';
+import 'translations_ext_52_v2_catalog_d.dart';
+import 'translations_ext_53_v2_booking_a.dart';
+import 'translations_ext_53_v2_booking_b.dart';
+import 'translations_ext_54_v2_reservations_a.dart';
+import 'translations_ext_54_v2_reservations_b.dart';
+import 'translations_ext_55_v2_profile_a.dart';
+import 'translations_ext_55_v2_profile_b.dart';
+import 'translations_ext_56_v2_routes_a.dart';
+import 'translations_ext_56_v2_routes_b.dart';
+import 'translations_ext_57_v2_rides_a.dart';
+import 'translations_ext_57_v2_rides_b.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -165,10 +184,29 @@ final translations = _mergeAll([
   translationsExt42Refix3B,
   translationsExt43Payments,
   translationsExt44Payfix,
+  translationsExt45Payments,
   // v2 vzhled (klíče jen s prefixem `v2`, staré texty nepřepisují).
   translationsExt50V2CoreA,
   translationsExt50V2CoreB,
   translationsExt50V2CoreC,
+  translationsExt51V2HomeA,
+  translationsExt51V2HomeB,
+  translationsExt51V2HomeC,
+  translationsExt51V2HomeD,
+  translationsExt52V2CatalogA,
+  translationsExt52V2CatalogB,
+  translationsExt52V2CatalogC,
+  translationsExt52V2CatalogD,
+  translationsExt53V2BookingA,
+  translationsExt53V2BookingB,
+  translationsExt54V2ReservationsA,
+  translationsExt54V2ReservationsB,
+  translationsExt55V2ProfileA,
+  translationsExt55V2ProfileB,
+  translationsExt56V2RoutesA,
+  translationsExt56V2RoutesB,
+  translationsExt57V2RidesA,
+  translationsExt57V2RidesB,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

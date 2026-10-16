@@ -13,6 +13,8 @@ import { handlePaidChangeFailure } from '../_shared/paid-change-failure.ts'
 import { paidChangeEligibility, markApplied, type PiLike } from '../_shared/paid-change-guard.ts'
 import { applyChargeRounding } from '../_shared/charge-rounding.ts'
 import { refundLatePaymentOnCancelled } from './late-payment.ts'
+import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
+import { prepareExtensionPayment, refundDuplicateCharges } from './extension-payment.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -45,7 +47,7 @@ const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
 async function finishPaidChange(
   supabase: ReturnType<typeof createClient>,
   a: { bookingId: string; chg: string | null; srv: string | null | undefined; paidCzk: number | null; payRef: string; rounding: number;
-       eventCreated: number; autoRefund: boolean; failCzk?: number; pi: PiLike | null; since: string | null },
+       eventCreated: number; autoRefund: boolean; failCzk?: number; pi: PiLike | null; since: string | null; closed?: boolean },
 ): Promise<boolean> {
   if (a.pi) {
     const el = await paidChangeEligibility(supabase, a.pi, { bookingId: a.bookingId, requireNewCode: false, maxAgeH: null, stripe })
@@ -62,11 +64,23 @@ async function finishPaidChange(
   let res: ApplyResult
   try {
     res = await applyPaidExtension(supabase, { bookingId: a.bookingId, chg: a.chg, srv: a.srv ?? null, paidCzk: a.paidCzk, payRef: a.payRef,
-      rounding: a.rounding, since: a.since })
+      rounding: a.rounding, since: a.since, via: 'webhook' })
   } catch (e) {
     res = { state: 'retry', code: 'apply_exception', detail: (e as Error).message }
   }
   if (res.state === 'applied' || res.state === 'already_applied') await markApplied(stripe, a.pi?.id || a.payRef)
+  if (res.state === 'no_payload' && a.closed) {
+    // Změna se do metadat nevešla (zapsal by ji klient) a rezervace je zrušená / ukončená →
+    // zapsat ji nelze ani klientsky → doplatek vrátit.
+    res = { state: 'failed', code: 'change_failed', reason: 'booking_cancelled' }
+  }
+  if (res.state === 'duplicate') {
+    // Tutéž změnu už zapsala jiná platba → tahle je navíc: vrátit celou (s přibalenou
+    // e-shop objednávkou jen obsluha — zboží je z téže platby).
+    await refundDuplicatePayment(supabase, stripe as unknown as StripeDupLike, { piId: a.pi?.id || a.payRef, table: 'bookings',
+      refId: a.bookingId, keepRef: res.otherRef, amountCzk: a.failCzk ?? a.paidCzk ?? 0, via: 'webhook', autoRefund: a.autoRefund })
+    return false
+  }
   if (res.state === 'retry') {
     const ageH = (Date.now() / 1000 - (a.eventCreated || 0)) / 3600
     if (a.eventCreated && ageH > 70) {
@@ -86,7 +100,7 @@ async function finishPaidChange(
   }
   if (res.state === 'failed') {
     await handlePaidChangeFailure(supabase, { bookingId: a.bookingId, payRef: a.payRef, paidCzk: a.failCzk ?? a.paidCzk ?? 0,
-      code: res.code, reason: res.reason, via: 'webhook', autoRefund: a.autoRefund, review: res.manual === true })
+      code: res.code, reason: res.reason, via: 'webhook', autoRefund: a.autoRefund, review: res.manual === true, stripe })
   }
   return false
 }
@@ -99,6 +113,16 @@ async function chargeRoundingNeedsRetry(supabase: any, table: 'bookings' | 'shop
   try {
     return (await applyChargeRounding(supabase, { table, id, md, payRef })) === 'error'
   } catch { return true }
+}
+
+/** Byl řádek zaplacený už PŘED touto událostí? (pak jde o druhou událost téže platby,
+ *  nebo o druhou platbu — refundDuplicateCharges rozliší podle Stripe). */
+// deno-lint-ignore no-explicit-any
+async function rowPaid(supabase: any, table: 'bookings' | 'shop_orders', id: string): Promise<boolean> {
+  try {
+    const { data } = await supabase.from(table).select('payment_status').eq('id', id).maybeSingle()
+    return (data as { payment_status?: string } | null)?.payment_status === 'paid'
+  } catch { return false }
 }
 
 Deno.serve(async (req: Request) => {
@@ -234,12 +258,21 @@ Deno.serve(async (req: Request) => {
         }
       } else if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
         if (paymentType === 'booking' && await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, stripePaymentIntentId || session.id)) retryNeeded = true
-        // extension = doplatek za úpravu → potvrdit platbu, ale bez booking_reserved
-        // mailu (mail úpravy pošle trigger po aplikaci změny níže)
-        const cb = await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId, paymentType === 'extension')
+        // D4 (oprava 2026-10-16): doplatek úpravy rezervaci NEpotvrzuje přes confirm_payment
+        // (ten zrušenou rezervaci „oživil" — zákazník by ji dostal zpět za cenu doplatku).
+        // Zrušená / ukončená rezervace → změna se nezapíše a doplatek se vrátí.
+        const ext = paymentType === 'extension'
+          ? await prepareExtensionPayment(supabase, resolvedBookingId, stripePaymentIntentId, session.id) : null
+        const cb = ext ? null : await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
         if (cb === 'revive_failed' && stripePaymentIntentId) await refundLatePaymentOnCancelled(supabase, stripe, resolvedBookingId, stripePaymentIntentId)
+        // Druhá platba za tutéž rezervaci (dvě záložky / starší Checkout Session) → vrátit.
+        if (cb === 'duplicate' && stripePaymentIntentId) {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: stripePaymentIntentId,
+            customer: typeof session.customer === 'string' ? session.customer : null, table: 'bookings', refId: resolvedBookingId, type: 'booking' })
+        }
+        if (ext === 'retry') retryNeeded = true
         // Doplatková změna rezervace — aplikuj server-side (spustí web_booking_modified)
-        if (paymentType === 'extension') {
+        if (paymentType === 'extension' && ext !== 'retry') {
           const bundled = !!metadata.shop_order_id
           let piObj: PiLike | null = null
           if (stripePaymentIntentId) {
@@ -253,7 +286,7 @@ Deno.serve(async (req: Request) => {
             eventCreated: event.created, autoRefund: !bundled,
             // s přibalenou e-shop objednávkou částka změny z platby nejde oddělit → vratku řeší obsluha
             failCzk: session.amount_total != null ? session.amount_total / 100 : 0,
-            pi: piObj, since: new Date((session.created || event.created) * 1000).toISOString(),
+            pi: piObj, since: new Date((session.created || event.created) * 1000).toISOString(), closed: ext === 'closed',
           })) retryNeeded = true
         }
         // Bundled e-shop upsell paid in the same session — confirm shop side too (separate invoice + email)
@@ -267,13 +300,23 @@ Deno.serve(async (req: Request) => {
         }
       } else if (paymentType === 'shop' && resolvedOrderId) {
         if (await chargeRoundingNeedsRetry(supabase, 'shop_orders', resolvedOrderId, metadata, stripePaymentIntentId || session.id)) retryNeeded = true
+        const wasPaid = await rowPaid(supabase, 'shop_orders', resolvedOrderId)
         await confirmShopPayment(supabase, resolvedOrderId, session.id, stripePaymentIntentId)
+        if (wasPaid && stripePaymentIntentId) {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: stripePaymentIntentId,
+            customer: typeof session.customer === 'string' ? session.customer : null, table: 'shop_orders', refId: resolvedOrderId, type: 'shop' })
+        }
         if (session.customer) {
           await syncCardsForCustomer(supabase, session.customer as string)
         }
       } else if (paymentType === 'sos' && resolvedBookingId) {
         if (await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, stripePaymentIntentId || session.id)) retryNeeded = true
+        const wasPaid = await rowPaid(supabase, 'bookings', resolvedBookingId)
         await confirmSosPayment(supabase, resolvedBookingId, metadata.incident_id, session.id, stripePaymentIntentId)
+        if (wasPaid && stripePaymentIntentId) {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: stripePaymentIntentId,
+            customer: typeof session.customer === 'string' ? session.customer : null, table: 'bookings', refId: resolvedBookingId, type: 'sos' })
+        }
         if (session.customer) {
           await syncCardsForCustomer(supabase, session.customer as string)
         }
@@ -308,17 +351,27 @@ Deno.serve(async (req: Request) => {
         } catch (e) { console.warn('[webhook] PI fallback lookup failed:', e) }
       }
 
+      const piCustomer = typeof paymentIntent.customer === 'string' ? paymentIntent.customer
+        : ((paymentIntent.customer as { id?: string } | null)?.id || null)
       if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
         if (paymentType === 'booking' && await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, paymentIntent.id)) retryNeeded = true
-        const cb = await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id, null, paymentType === 'extension')
+        // D4: doplatek úpravy NEpotvrzuje rezervaci přes confirm_payment (viz checkout.session.completed).
+        const ext = paymentType === 'extension'
+          ? await prepareExtensionPayment(supabase, resolvedBookingId, paymentIntent.id, null) : null
+        const cb = ext ? null : await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id, null)
         if (cb === 'revive_failed') await refundLatePaymentOnCancelled(supabase, stripe, resolvedBookingId, paymentIntent.id)
-        if (paymentType === 'extension') {
+        if (cb === 'duplicate') {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: paymentIntent.id, customer: piCustomer,
+            table: 'bookings', refId: resolvedBookingId, type: 'booking' })
+        }
+        if (ext === 'retry') retryNeeded = true
+        if (paymentType === 'extension' && ext !== 'retry') {
           if (await finishPaidChange(supabase, {
             bookingId: resolvedBookingId, chg: chgFromMetadata(metadata), srv: metadata.srv,
             paidCzk: Number.isFinite(paymentIntent.amount) ? paymentIntent.amount / 100 : null,
             payRef: paymentIntent.id, rounding: Number(metadata.card_rounding || 0) || 0,
             eventCreated: event.created, autoRefund: true,
-            pi: paymentIntent as unknown as PiLike, since: new Date(paymentIntent.created * 1000).toISOString(),
+            pi: paymentIntent as unknown as PiLike, since: new Date(paymentIntent.created * 1000).toISOString(), closed: ext === 'closed',
           })) retryNeeded = true
         }
         if (metadata.shop_order_id) {
@@ -327,10 +380,20 @@ Deno.serve(async (req: Request) => {
         }
       } else if (paymentType === 'shop' && resolvedOrderId) {
         if (await chargeRoundingNeedsRetry(supabase, 'shop_orders', resolvedOrderId, metadata, paymentIntent.id)) retryNeeded = true
+        const wasPaid = await rowPaid(supabase, 'shop_orders', resolvedOrderId)
         await confirmShopPayment(supabase, resolvedOrderId, paymentIntent.id)
+        if (wasPaid) {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: paymentIntent.id, customer: piCustomer,
+            table: 'shop_orders', refId: resolvedOrderId, type: 'shop' })
+        }
       } else if (paymentType === 'sos' && resolvedBookingId) {
         if (await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, paymentIntent.id)) retryNeeded = true
+        const wasPaid = await rowPaid(supabase, 'bookings', resolvedBookingId)
         await confirmSosPayment(supabase, resolvedBookingId, metadata.incident_id, paymentIntent.id)
+        if (wasPaid) {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: paymentIntent.id, customer: piCustomer,
+            table: 'bookings', refId: resolvedBookingId, type: 'sos' })
+        }
       }
 
       // Capture card brand + last4 from the underlying Charge so Velín booking detail
@@ -505,7 +568,17 @@ Deno.serve(async (req: Request) => {
       //    → zacancelovat + dohrát dobropis + mail (původní scénář 1).
       // C) EXTERNÍ ČÁSTEČNÝ refund: nikdy nerušit rezervaci — jen payment_status
       //    + debug_log warning k ručnímu prověření (dobropis vystaví admin).
-      if (linkedBooking) {
+      // D4: vratka DVOJÍ platby (duplicate-payment) se do stavu rezervace nepromítá —
+      // rezervaci platí ponechaná platba; jen finanční událost výše.
+      // Totéž u vratky doplatku, který se do zrušené / ukončené rezervace nezapsal (unapplied_change).
+      const dupRefund = ['duplicate_payment', 'unapplied_change'].includes(((latestRefund?.metadata || {}) as Record<string, string>).mg_source || '')
+      if (linkedBooking && dupRefund) {
+        try {
+          await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'charge_refunded_duplicate', component: 'stripe',
+            status: 'info', request_data: { booking_id: linkedBooking.id, refund_id: latestRefund?.id || null } })
+        } catch { /* ignore */ }
+      }
+      if (linkedBooking && !dupRefund) {
         try {
           const refundCzk = charge.amount_refunded / 100
           const total = Number(linkedBooking.total_price || 0)

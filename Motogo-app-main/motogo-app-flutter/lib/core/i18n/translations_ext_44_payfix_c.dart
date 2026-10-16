@@ -25,6 +25,9 @@ const Map<String, String> ext44PayfixFr = {
   'pdFailGone': 'La réservation ou le paiement de cette modification est introuvable (supprimé entre-temps), la modification n\'a donc pas été inscrite et l\'appli ne réessaiera plus. Ouvre Réservations et vérifie l\'état actuel de la réservation.',
   'pdFailStale': 'Cette modification payée ne peut plus être inscrite automatiquement (trop de temps s\'est écoulé depuis le paiement). Notre équipe va la vérifier et, si la modification n\'est pas dans la réservation, te rembourser le supplément sous 2 jours ouvrés – tu n\'as rien à faire ni à repayer.',
   'pdFailRefunded': 'Nous t\'avons déjà remboursé le supplément de cette modification, nous ne l\'inscrivons donc pas dans la réservation. La réservation reste telle qu\'elle était – tu n\'as rien à faire.',
+  // cena rezervace neodpovídá ceníku / slevám (process-payment price_outdated) — nic se nestrhlo
+  'pdPriceOutdatedTitle': 'Le prix de la réservation n\'est plus à jour',
+  'pdPriceOutdatedBody': 'Le prix de la réservation ne correspond plus aux tarifs ni aux réductions actuels – un code promo ou un bon a peut-être cessé d\'être valable entre-temps. Rien n\'a été débité. Crée la réservation à nouveau, nous calculerons le prix selon la situation actuelle.',
 };
 
 const Map<String, String> ext44PayfixNl = {
@@ -52,4 +55,7 @@ const Map<String, String> ext44PayfixNl = {
   'pdFailGone': 'De reservering of betaling voor deze wijziging is niet meer te vinden (inmiddels verwijderd), daarom is de wijziging niet doorgevoerd en probeert de app het niet opnieuw. Open Reserveringen en controleer hoe de reservering er nu uitziet.',
   'pdFailStale': 'Deze betaalde wijziging kan niet meer automatisch worden doorgevoerd (sinds de betaling is te veel tijd verstreken). Ons team controleert hem en betaalt de bijbetaling binnen 2 werkdagen terug als de wijziging niet in de reservering staat – je hoeft niets te doen of opnieuw te betalen.',
   'pdFailRefunded': 'De bijbetaling voor deze wijziging hebben we je al terugbetaald, daarom zetten we hem niet in de reservering. De reservering blijft zoals hij was – je hoeft niets te doen.',
+  // cena rezervace neodpovídá ceníku / slevám (process-payment price_outdated) — nic se nestrhlo
+  'pdPriceOutdatedTitle': 'De prijs van de reservering is niet meer actueel',
+  'pdPriceOutdatedBody': 'De prijs van de reservering komt niet meer overeen met de actuele prijslijst of kortingen – een kortingscode of voucher is intussen misschien niet meer geldig. Er is niets afgeschreven. Maak de reservering opnieuw aan, dan berekenen we de prijs volgens de huidige stand.',
 };

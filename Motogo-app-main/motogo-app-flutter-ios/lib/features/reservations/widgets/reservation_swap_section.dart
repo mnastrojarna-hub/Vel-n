@@ -14,6 +14,7 @@ import '../../catalog/catalog_provider.dart';
 import '../../booking/booking_validator.dart';
 import '../../payment/payment_provider.dart';
 import '../../payment/net_error.dart';
+import '../../payment/payment_refusals.dart' show PaymentRefusals;
 import '../../payment/widgets/card_rounding_note.dart';
 import 'reservation_edit_states.dart' show blockIfSurchargePending;
 import '../reservation_models.dart';
@@ -214,16 +215,11 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
   void _showSwapError(dynamic res) {
     if (!mounted) return;
     final code = (res is Map ? res['error']?.toString() : null) ?? '';
-    final msg = <String, String>{
-          'not_found': t(context).tr('swap.err.notFound'),
-          'forbidden': t(context).tr('swap.err.forbidden'),
-          'wrong_status': t(context).tr('swap.err.wrongStatus'),
-          'not_paid': t(context).tr('swap.err.notPaid'),
-          'invalid_new_moto': t(context).tr('swap.err.invalidMoto'),
-          'swap_date_out_of_range': t(context).tr('swap.err.dateRange'),
-          'already_split': t(context).tr('swap.err.alreadySplit'),
-          'new_moto_unavailable': t(context).tr('swap.err.unavailable'),
-          'license_insufficient': t(context).tr('swap.err.licenseInsufficient'),
+    // Stejné přesné texty jako odmítnutí platby (co se stalo, že se nic
+    // nestrhlo, co udělat — D5), viz PaymentRefusals.swapCodes.
+    final key = PaymentRefusals.swapCodes[code];
+    final msg = (key != null ? t(context).tr(key) : null) ??
+        <String, String>{
           // 20260921d: rezervace s vozíkem nesmí přejet na samoobslužnou
           // pobočku — RPC to vrátí už v dry-runu, tedy PŘED platbou.
           'trailer_staffed_only': t(context).tr('fxTrailerStaffedOnly'),
@@ -301,6 +297,10 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
       }
 
       // 2b+3) net<=0 → rovnou COMMIT; vratku dispatchne server po úspěšném zápisu.
+      // Předchozí ZAPLACENÁ výměna / úprava téže rezervace se ještě dokončuje
+      // (webhook / fronta) → teď nic nezapisovat, jinak by ji dokončení přepsalo.
+      if (!mounted) return;
+      if (await blockIfSurchargePending(context, widget.booking.id)) return;
       dynamic commit;
       try {
         commit = await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {

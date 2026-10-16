@@ -9,7 +9,16 @@
 // `review` = nejednoznačný stav (stará platba mimo lhůtu / z doby před nasazením,
 // rezervace už jezdí na nové motorce bez záznamu této platby) → žádná automatická
 // vratka, obsluha zkontroluje, jestli je změna zapsaná, a případně vrátí ručně.
+// Rezervace zrušená / ukončená (oprava 2026-10-16): process-refund u zrušené a už
+// vrácené rezervace nic nevrátí (větev already_refunded) → doplatek se vrací PŘÍMO
+// ze Stripe (celý PaymentIntent doplatku, klíč mg-pcf-<pi>, mg_source=unapplied_change;
+// charge.refunded ho do stavu rezervace nepromítá — k doplatku nevznikl doklad).
 import type { Sb } from './extension-apply-types.ts'
+
+type StripeRefundLike = { refunds: { create: (p: Record<string, unknown>, o?: Record<string, unknown>) => Promise<{ id: string }> } }
+
+/** Důvody, kdy rezervace už neběží (zrušená / ukončená / vrácená) → vratka přímo ze Stripe. */
+export const CLOSED_BOOKING_REASONS = new Set(['booking_cancelled', 'booking_completed', 'wrong_status', 'not_paid', 'not_found'])
 
 export type FailureMode = 'auto' | 'staff' | 'none' | 'duplicate'
 
@@ -17,6 +26,8 @@ const OPS_EMAIL = 'info@motogo24.cz'
 
 export async function handlePaidChangeFailure(sb: Sb, a: {
   bookingId: string; payRef: string; paidCzk: number; code: string; reason: string; via: string; autoRefund?: boolean; review?: boolean
+  /** Stripe klient — u zrušené / ukončené rezervace se doplatek vrací přímo z PaymentIntentu */
+  stripe?: StripeRefundLike | null
 }): Promise<FailureMode> {
   const url = Deno.env.get('SUPABASE_URL') ?? ''
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -44,7 +55,14 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
   let mode: FailureMode = 'none'
   if (a.paidCzk > 0) {
     mode = 'staff'
-    if (a.autoRefund !== false && !a.review) {
+    const direct = !!a.stripe && a.payRef.startsWith('pi_') && CLOSED_BOOKING_REASONS.has(a.reason)
+    if (a.autoRefund !== false && !a.review && direct) {
+      try {
+        await a.stripe!.refunds.create({ payment_intent: a.payRef, amount: Math.round(a.paidCzk * 100), reason: 'requested_by_customer',
+          metadata: { mg_source: 'unapplied_change', booking_id: a.bookingId } }, { idempotencyKey: `mg-pcf-${a.payRef}` })
+        mode = 'auto'
+      } catch { /* zůstává 'staff' */ }
+    } else if (a.autoRefund !== false && !a.review) {
       // process-refund vrací z bookings.stripe_payment_intent_id — ať je to TATO platba
       // (mezitím mohl vzniknout novější, nezaplacený PaymentIntent dalšího pokusu).
       if (a.payRef.startsWith('pi_')) {
@@ -70,6 +88,8 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
     const num = a.bookingId.slice(-8).toUpperCase()
     const what = a.review && mode === 'staff'
       ? `Platbu ${a.paidCzk} Kč nešlo zapsat automaticky (${a.reason}). Zkontrolujte prosím, jestli je změna v rezervaci zapsaná; pokud ne, doplatek vraťte ručně (Velín → rezervace → vratka).`
+      : mode === 'auto' && CLOSED_BOOKING_REASONS.has(a.reason) && !!a.stripe
+        ? `Doplatek ${a.paidCzk} Kč byl zákazníkovi automaticky vrácen přímo na kartu (rezervace už neběží; změna se nezapsala, doklad k doplatku nevznikl).`
       : mode === 'auto' ? `Doplatek ${a.paidCzk} Kč byl zákazníkovi automaticky vrácen (dobropis).`
       : mode === 'staff' ? `Doplatek ${a.paidCzk} Kč se NEPODAŘILO vrátit automaticky — vraťte ho prosím ručně (Velín → rezervace → vratka).`
       : 'Nic se nestrhlo (doplatek do 1 Kč se neúčtuje).'

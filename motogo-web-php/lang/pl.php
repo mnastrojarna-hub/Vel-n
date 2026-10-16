@@ -1334,6 +1334,7 @@ return [
     'editRez.pay.serverError' => 'Płatności nie można teraz dokończyć z powodu błędu na naszym serwerze. Nic nie zostało pobrane – spróbuj ponownie za minutę.',
     'editRez.pay.cancelled' => 'Rezerwacja jest anulowana, więc nie można jej już zmienić ani opłacić. Nic nie zostało pobrane – utwórz nową rezerwację.',
     'editRez.pay.voucherUnavailable' => 'Bon {code} w międzyczasie wygasł lub został wykorzystany gdzie indziej. Nic nie zostało pobrane – utwórz rezerwację ponownie bez bonu lub z innym.',
+    'editRez.pay.priceOutdated' => 'Cena rezerwacji nie odpowiada już aktualnemu cennikowi ani rabatom (kod rabatowy lub bon mógł w międzyczasie stracić ważność). Nic nie zostało pobrane – utwórz rezerwację ponownie, a cenę obliczymy według aktualnego stanu.',
     'editRez.pay.notApplicable' => 'Stan rezerwacji w międzyczasie się zmienił. Nic nie zostało pobrane – wczytaj ją ponownie i powtórz zmianę.',
     'editRez.pay.tooLarge' => 'Ta zmiana jest zbyt duża na jedną płatność. Nic nie zostało pobrane – podziel ją na dwie mniejsze (np. najpierw termin, potem miejsce).',
     'editRez.pay.deliveryFee' => 'Opłata za dostawę/odbiór nie odpowiada zmianie miejsca (brak adresu lub ceny trasy). Nic nie zostało pobrane – wpisz adres i spróbuj ponownie.',

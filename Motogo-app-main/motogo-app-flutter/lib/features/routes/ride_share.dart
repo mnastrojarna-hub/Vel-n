@@ -9,6 +9,8 @@ import 'ride_card.dart' show rideDate, rideDuration;
 import 'ride_model.dart';
 import 'route_export.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/rides/ride_share_v2.dart';
 
 /// Sdílení projeté jízdy na sociální sítě.
 ///
@@ -95,6 +97,9 @@ Future<void> showRideShareSheet(BuildContext context, UserRide ride) {
   final pts = rideShareWaypoints(ride);
   final link = pts.length >= 2 ? RouteExport.mapy(pts).toString() : '';
 
+  // v2: světlý panel se stejnými cíli a stejnou akcí (`rideShareTap`).
+  if (MgV2.on(context)) return showRideShareSheetV2(context, text: text, link: link);
+
   return showModalBottomSheet(
     context: context,
     backgroundColor: Colors.white,
@@ -145,28 +150,7 @@ Widget _tile(BuildContext context, RideShareTarget target, String text, String l
   final label =
       target == RideShareTarget.copy ? t(context).tr('rideShareCopy') : target.label;
   return GestureDetector(
-    onTap: () async {
-      final messenger = ScaffoldMessenger.of(context);
-      final copied = t(context).tr('rideShareCopied');
-      final failed = t(context).tr('rideShareFailed');
-      Navigator.of(context).pop();
-      if (target == RideShareTarget.copy) {
-        await Clipboard.setData(ClipboardData(text: text));
-        messenger.showSnackBar(SnackBar(content: Text(copied)));
-        return;
-      }
-      final uri = _shareUri(target, text, link);
-      if (uri == null) {
-        messenger.showSnackBar(SnackBar(content: Text(failed)));
-        return;
-      }
-      try {
-        final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        if (!ok) messenger.showSnackBar(SnackBar(content: Text(failed)));
-      } catch (_) {
-        messenger.showSnackBar(SnackBar(content: Text(failed)));
-      }
-    },
+    onTap: () => rideShareTap(context, target, text, link),
     child: Container(
       width: 92,
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -193,4 +177,29 @@ Widget _tile(BuildContext context, RideShareTarget target, String text, String l
       ),
     ),
   );
+}
+
+/// Klepnutí na cíl sdílení (zavře panel, kopie / odkaz; sdílí stará i v2
+/// dlaždice). [context] = kontext panelu.
+Future<void> rideShareTap(BuildContext context, RideShareTarget target, String text, String link) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final copied = t(context).tr('rideShareCopied');
+  final failed = t(context).tr('rideShareFailed');
+  Navigator.of(context).pop();
+  if (target == RideShareTarget.copy) {
+    await Clipboard.setData(ClipboardData(text: text));
+    messenger.showSnackBar(SnackBar(content: Text(copied)));
+    return;
+  }
+  final uri = _shareUri(target, text, link);
+  if (uri == null) {
+    messenger.showSnackBar(SnackBar(content: Text(failed)));
+    return;
+  }
+  try {
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok) messenger.showSnackBar(SnackBar(content: Text(failed)));
+  } catch (_) {
+    messenger.showSnackBar(SnackBar(content: Text(failed)));
+  }
 }

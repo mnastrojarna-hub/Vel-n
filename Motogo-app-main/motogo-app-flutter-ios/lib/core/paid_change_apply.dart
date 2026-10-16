@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import 'paid_change_entry.dart';
 import 'supabase_client.dart';
@@ -23,8 +24,13 @@ class PaidChangeApply {
   /// Stará klientská cesta (změna se nevešla do metadat) — v testech nahraditelné.
   static Future<bool> Function(PaidChangeEntry e) clientApply = _clientApply;
 
+  /// Výbava po zápisu změny serverem — v testech nahraditelné. true = hotovo.
+  static Future<bool> Function(String bookingId, Map<String, dynamic> gear) applyGear =
+      applyGearOnce;
+
   static Future<PaidChangeResult> attempt(PaidChangeEntry e, {Duration timeout = const Duration(seconds: 20)}) async {
     var serverDone = e.state == 'extras';
+    var clientWrote = false;
     String? newBookingId;
     if (!serverDone) {
       final r = await complete(e.key, timeout);
@@ -37,6 +43,7 @@ class PaidChangeApply {
             return const PaidChangeResult(PaidChangeStatus.completing);
           }
           serverDone = true;
+          clientWrote = true;
         case CompleteState.failed:
           return PaidChangeResult(PaidChangeStatus.failed,
               reason: r.reason, refund: r.refund, amount: r.amount ?? e.charge);
@@ -46,6 +53,12 @@ class PaidChangeApply {
         case CompleteState.retry:
           return PaidChangeResult(PaidChangeStatus.completing, offline: r.offline);
       }
+    }
+    // Velikosti výbavy a „vlastní výbava" server ze Stripe metadat nezapisuje
+    // (nejsou v nich) → dopíše je appka (idempotentně, jen rozdíl).
+    final gear = clientWrote ? null : gearColumnsOf(e.columns);
+    if (serverDone && gear != null && !await _safe(() => applyGear(e.bookingId, gear))) {
+      return const PaidChangeResult(PaidChangeStatus.completing, reason: 'extras');
     }
     final x = e.extras;
     if (serverDone && x != null && !await _safe(() => applyExtras(e.bookingId, x))) {
@@ -83,6 +96,52 @@ class PaidChangeApply {
         .eq('id', e.bookingId)
         .timeout(const Duration(seconds: 20));
     return true;
+  }
+}
+
+/// Sloupce úpravy, které server po zaplacení NEzapisuje (nejsou ve Stripe
+/// metadatech změny): velikosti výbavy řidiče a spolujezdce + vlastní výbava.
+/// Bez nich by kiosk (šatna, předávací protokol) i Velín ukazovaly starou výbavu.
+const paidChangeGearColumns = {
+  'helmet_size', 'jacket_size', 'pants_size', 'boots_size', 'gloves_size',
+  'passenger_helmet_size', 'passenger_jacket_size', 'passenger_pants_size',
+  'passenger_boots_size', 'passenger_gloves_size', 'own_gear',
+};
+
+/// Výbava ze sloupců změny (null = úprava výbavu nemění).
+Map<String, dynamic>? gearColumnsOf(Map<String, dynamic>? cols) {
+  if (cols == null) return null;
+  final g = {for (final e in cols.entries) if (paidChangeGearColumns.contains(e.key)) e.key: e.value};
+  return g.isEmpty ? null : g;
+}
+
+/// Idempotentní dopsání výbavy: zapíše jen sloupce, které se v rezervaci ještě
+/// liší (opakování po pádu appky nic nezdvojí ani nepřidá záznam do historie).
+Future<bool> applyGearOnce(String bookingId, Map<String, dynamic> gear) async {
+  final want = Map<String, dynamic>.from(gear);
+  try {
+    final cur = await MotoGoSupabase.client
+        .from('bookings')
+        .select(want.keys.join(','))
+        .eq('id', bookingId)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 15));
+    if (cur == null) return true; // rezervace není vidět → není co dopsat
+    final diff = {for (final e in want.entries) if (cur[e.key] != e.value) e.key: e.value};
+    if (diff.isEmpty) return true;
+    await MotoGoSupabase.client
+        .from('bookings')
+        .update(diff)
+        .eq('id', bookingId)
+        .timeout(const Duration(seconds: 15));
+    return true;
+  } on PostgrestException catch (e) {
+    // Sloupec own_gear na DB ještě není (starší schéma) → bez něj.
+    if (want.containsKey('own_gear') && e.message.contains('own_gear')) {
+      want.remove('own_gear');
+      return want.isEmpty ? true : applyGearOnce(bookingId, want);
+    }
+    rethrow;
   }
 }
 

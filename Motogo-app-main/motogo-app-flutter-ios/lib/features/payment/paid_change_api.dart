@@ -30,7 +30,8 @@ class CompleteResponse {
   final bool offline;
   /// `failed`: kód důvodu (new_moto_unavailable, wrong_status, swap_date_out_of_range…).
   final String? reason;
-  /// `failed`: 'auto' = vratka odeslaná automaticky, 'staff' = vrátí obsluha.
+  /// `failed`: 'auto' = vratka odeslaná automaticky, 'staff' = vrátí obsluha,
+  /// 'none' = o vratce se nemluví (platba jiného účtu / nedohledatelná).
   final String refund;
   /// `failed`: zaplacená částka (Kč).
   final double? amount;
@@ -50,12 +51,22 @@ class CompleteResponse {
     }
     if (st == 'failed') {
       return CompleteResponse(CompleteState.failed,
-          reason: d?['reason']?.toString(),
+          reason: d?['reason']?.toString() ?? code,
           refund: d?['refund'] == 'staff' ? 'staff' : 'auto',
           amount: (d?['amount'] as num?)?.toDouble());
     }
     if (st == 'not_paid' || code == 'not_paid') return const CompleteResponse(CompleteState.notPaid);
     if (st == 'pending' || status == 202) return const CompleteResponse(CompleteState.pending);
+    // Trvalé odmítnutí — opakování nic nezmění, zákazník jednou uvidí proč:
+    // 403 = platba patří jinému účtu (dokončí ji server tam), 404 / 409 =
+    // platbu nebo rezervaci už nejde dohledat / nejde o doplatek změny.
+    // Jen s kódem process-payment (holá 404 brány = funkce se nasazuje → znovu).
+    if (status == 403 && code == 'forbidden') {
+      return const CompleteResponse(CompleteState.failed, reason: 'other_account', refund: 'none');
+    }
+    if ((status == 404 && code == 'not_found') || (status == 409 && code == 'not_extension')) {
+      return const CompleteResponse(CompleteState.failed, reason: 'gone', refund: 'none');
+    }
     // retry / 5xx / 401 / neznámé → zkusit znovu (server je idempotentní).
     return const CompleteResponse(CompleteState.retry);
   }

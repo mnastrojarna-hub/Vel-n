@@ -22,8 +22,14 @@ const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
 
 /** Spodní mez ceny rezervace, kterou server doloží (Kč), nebo null = ověření teď neproběhlo. */
 export async function verifiedBookingFloor(sb: Sb, b: Record<string, unknown>): Promise<number | null> {
+  return (await verifiedBookingFloors(sb, b))?.floor ?? null
+}
+
+/** `floor` = pronájem − slevy (vynucuje se); `full` = totéž VČETNĚ uložené výbavy a dopravy
+ *  (jen do debug_log ke kalibraci — pravidla výbavy zdarma apod. server zatím nepočítá). */
+export async function verifiedBookingFloors(sb: Sb, b: Record<string, unknown>): Promise<{ floor: number; full: number } | null> {
   try {
-    if (!b.moto_id || !b.start_date || !b.end_date) return 0
+    if (!b.moto_id || !b.start_date || !b.end_date) return { floor: 0, full: 0 }
     const { data: rent, error: rErr } = await sb.rpc('_moto_dayprice_sum', {
       p_moto_id: b.moto_id, p_start: day(b.start_date), p_end: day(b.end_date),
     })
@@ -98,6 +104,8 @@ export async function verifiedBookingFloor(sb: Sb, b: Record<string, unknown>): 
       if (lErr || lmax == null) return null
       late = Math.min(late, Math.max(num(lmax), 0))
     }
-    return Math.max(0, Math.round((rental - vouchers - promos - loyalty - late) * 100) / 100)
+    const r2 = (n: number) => Math.max(0, Math.round(n * 100) / 100)
+    const disc = vouchers + promos + loyalty + late
+    return { floor: r2(rental - disc), full: r2(gross - disc) }
   } catch { return null }
 }

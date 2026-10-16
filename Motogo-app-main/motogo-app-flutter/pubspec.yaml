@@ -13,7 +13,7 @@ publish_to: 'none'
 # Build number (+111) je jen výchozí pro lokální buildy — v CI ho přepisuje
 # codemagic.yaml (Android: nejvyšší versionCode v Google Play + 1, iOS: max
 # z TestFlightu/App Store + 1). Verze 4.1.3 je JEDINÝ zdroj pravdy pro versionName.
-version: 4.1.3+116
+version: 4.2.0+117
 
 environment:
   sdk: '>=3.6.0 <4.0.0'

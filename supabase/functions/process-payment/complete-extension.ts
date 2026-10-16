@@ -8,6 +8,8 @@
 // změnu, za kterou se peníze už vrátily.
 // Odpovědi (HTTP 200, není-li uvedeno jinak):
 //   {success:true,  state:'applied'|'already_applied', booking_id, new_booking_id?, total_price?}
+//   {success:true,  state:'already_applied', duplicate_refunded:true}  tutéž změnu zaplatila a zapsala
+//     JINÁ platba → změna platí, tahle druhá platba se vrací celá (duplicate-payment)
 //   {success:true,  state:'client_apply'}                 změna se do metadat nevešla (stará cesta)
 //   {success:false, state:'pending',  code:'payment_processing' | 'payment_unconfirmed'}  HTTP 202
 //     (unconfirmed = requires_action / requires_confirmation: 3D Secure ještě běží —
@@ -22,6 +24,7 @@ import { authClassify } from '../_shared/auth.ts'
 import { applyPaidExtension, chgFromMetadata } from '../_shared/extension-apply.ts'
 import { handlePaidChangeFailure } from '../_shared/paid-change-failure.ts'
 import { paidChangeEligibility, markApplied, QUEUE_MAX_AGE_H } from '../_shared/paid-change-guard.ts'
+import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
 import { CS, refuse, respond } from './refusals.ts'
 
 // deno-lint-ignore no-explicit-any
@@ -70,6 +73,9 @@ export async function handleCompleteExtension(req: Request, body: Record<string,
     if (el.kind === 'applied') {
       return respond(200, { success: true, state: 'already_applied', booking_id: bookingId, new_booking_id: null, total_price: null })
     }
+    if (el.kind === 'duplicate') {
+      return respond(200, { success: true, state: 'already_applied', duplicate_refunded: true, booking_id: bookingId, new_booking_id: null, total_price: null })
+    }
     if (el.kind === 'failed') {
       const staff = el.refund === 'staff' || el.refund === 'none'
       return respond(200, {
@@ -90,8 +96,15 @@ export async function handleCompleteExtension(req: Request, body: Record<string,
 
   const r = await applyPaidExtension(sb, {
     bookingId, chg: chgFromMetadata(md), srv: md.srv || null, paidCzk, payRef: pi.id,
-    rounding: Number(md.card_rounding || 0) || 0, since: new Date(pi.created * 1000).toISOString(),
+    rounding: Number(md.card_rounding || 0) || 0, since: new Date(pi.created * 1000).toISOString(), via: 'complete_extension',
   })
+  if (r.state === 'duplicate') {
+    // Tutéž změnu už zapsala jiná platba → změna platí; tahle platba se vrací celá.
+    await refundDuplicatePayment(sb, stripe as unknown as StripeDupLike, { piId: pi.id, table: 'bookings', refId: bookingId,
+      keepRef: r.otherRef, amountCzk: paidCzk, via: 'complete_extension', autoRefund: !md.shop_order_id })
+    return respond(200, { success: true, state: 'already_applied', duplicate_refunded: true, booking_id: bookingId,
+      new_booking_id: r.newBookingId ?? null, total_price: null })
+  }
   if (r.state === 'applied' || r.state === 'already_applied') {
     await markApplied(stripe, pi.id)
     return respond(200, { success: true, state: r.state, booking_id: bookingId, new_booking_id: r.newBookingId ?? null, total_price: r.totalPrice ?? null })
@@ -103,6 +116,7 @@ export async function handleCompleteExtension(req: Request, body: Record<string,
   }
   const mode = await handlePaidChangeFailure(sb, {
     bookingId, payRef: pi.id, paidCzk, code: r.code, reason: r.reason, via: 'complete_extension', review: r.manual === true,
+    autoRefund: !md.shop_order_id, stripe,
   })
   const staff = mode === 'staff' || mode === 'none'
   return respond(200, {

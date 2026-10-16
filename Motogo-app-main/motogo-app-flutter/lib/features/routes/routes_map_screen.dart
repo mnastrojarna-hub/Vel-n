@@ -15,6 +15,10 @@ import 'routes_map_provider.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_back_v2.dart';
+import 'v2/map_controls_v2.dart';
+import 'v2/record_dock_v2.dart';
 
 /// MAPA TRAS — na rozdíl od mapy míst ukazuje jen body, které leží na nějaké
 /// trase, a po klepnutí na bod dokreslí JEHO trasy, a to PO SILNICI.
@@ -156,7 +160,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
         final isActive = r.id == active?.id;
         lines.add(MapRouteLine(
           pts,
-          color: routesMapColor(i),
+          color: routesMapColor(i, v2: MgV2.on(context)),
           width: isActive ? 5 : 4,
           emphasized: isActive,
           // Štítek s názvem přímo na čáře — výběr trasy je vidět na mapě.
@@ -292,6 +296,9 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
           children: [
             Row(
               children: [
+                if (MgV2.on(context))
+                  MgV2Back(onTap: () => context.backOr(Routes.routesList))
+                else
                 MgBackTap(
                   onTap: () => context.backOr(Routes.routesList),
                   child: const Padding(
@@ -300,6 +307,9 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                   ),
                 ),
                 const SizedBox(width: 6),
+                if (MgV2.on(context))
+                  const MapTitleGlyphV2(routes: true)
+                else
                 const Text('🗺️', style: TextStyle(fontSize: 18)),
                 const SizedBox(width: 8),
                 Expanded(
@@ -471,6 +481,31 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
 
   Widget _selectionBar(BuildContext context) {
     final n = ref.watch(placesSelectionProvider).length;
+    void cont() {
+      final pois = resolveSelected(
+        ref.read(dedupedPlacesProvider),
+        ref.read(allPlacesProvider),
+        ref.read(placesSelectionProvider),
+      );
+      if (pois.isEmpty) return;
+      ref.read(placesSelectionProvider.notifier).clear();
+      // Pořadí zastávek = pořadí klikání (čísla na špendlících),
+      // stejně jako na mapě míst a v seznamu; přehodit jde v editoru.
+      final route = buildCustomRoute(pois,
+          name: t(context).tr('poiCustomRouteTitle'));
+      context.push('/route-build', extra: route);
+    }
+
+    if (MgV2.on(context)) {
+      return TrasyRecordDockV2(
+        showRecord: false,
+        selection: TrasySelection(
+          count: n,
+          onContinue: cont,
+          onClear: ref.read(placesSelectionProvider.notifier).clear,
+        ),
+      );
+    }
     return Container(
       padding: EdgeInsets.fromLTRB(
           16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
@@ -497,20 +532,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
           Expanded(
             child: PressableScale(
               pressedScale: 0.97,
-              onTap: () {
-                final pois = resolveSelected(
-                  ref.read(dedupedPlacesProvider),
-                  ref.read(allPlacesProvider),
-                  ref.read(placesSelectionProvider),
-                );
-                if (pois.isEmpty) return;
-                ref.read(placesSelectionProvider.notifier).clear();
-                // Pořadí zastávek = pořadí klikání (čísla na špendlících),
-                // stejně jako na mapě míst a v seznamu; přehodit jde v editoru.
-                final route = buildCustomRoute(pois,
-                    name: t(context).tr('poiCustomRouteTitle'));
-                context.push('/route-build', extra: route);
-              },
+              onTap: cont,
               child: Container(
                 height: 50,
                 decoration: BoxDecoration(
@@ -537,6 +559,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
   }
 
   Widget _round(IconData icon, VoidCallback onTap) {
+    if (MgV2.on(context)) return MapRoundV2(icon: icon, onTap: onTap);
     return PressableScale(
       pressedScale: 0.92,
       onTap: onTap,

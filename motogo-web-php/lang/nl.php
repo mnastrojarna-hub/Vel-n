@@ -1334,6 +1334,7 @@ return [
     'editRez.pay.serverError' => 'De betaling kan nu niet worden voltooid door een fout op onze server. Er is niets afgeschreven – probeer het over een minuut opnieuw.',
     'editRez.pay.cancelled' => 'De reservering is geannuleerd en kan dus niet meer worden gewijzigd of betaald. Er is niets afgeschreven – maak een nieuwe reservering.',
     'editRez.pay.voucherUnavailable' => 'Tegoedbon {code} is inmiddels verlopen of elders gebruikt. Er is niets afgeschreven – maak de reservering opnieuw zonder tegoedbon of met een andere.',
+    'editRez.pay.priceOutdated' => 'De prijs van de reservering komt niet meer overeen met de actuele prijslijst of kortingen (een kortingscode of tegoedbon is intussen misschien niet meer geldig). Er is niets afgeschreven – maak de reservering opnieuw, dan berekenen we de prijs volgens de huidige stand.',
     'editRez.pay.notApplicable' => 'De status van de reservering is inmiddels gewijzigd. Er is niets afgeschreven – laad de reservering opnieuw en herhaal de wijziging.',
     'editRez.pay.tooLarge' => 'Deze wijziging is te groot voor één betaling. Er is niets afgeschreven – splits ze in twee kleinere (bijv. eerst de data, daarna de plaats).',
     'editRez.pay.deliveryFee' => 'De bezorg-/ophaalkosten passen niet bij de gewijzigde plaats (adres of routeprijs ontbreekt). Er is niets afgeschreven – vul het adres in en probeer het opnieuw.',

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../i18n/i18n_provider.dart';
 import '../icons/mg_icon.dart';
 import '../motion/mg_anim.dart';
+import '../motion/mg_animated_size.dart';
 import '../motion/mg_motion.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_shadows.dart';
@@ -154,8 +155,8 @@ class MgTotalBox extends StatelessWidget {
           ]),
         ],
         if (breakdown != null)
-          AnimatedSize(
-            duration: MgMotion.of(context, MgMotion.sheet),
+          MgAnimatedSize(
+            duration: MgMotion.sheet,
             alignment: Alignment.topCenter,
             child: breakdownOpen
                 ? Padding(padding: const EdgeInsets.only(top: 10), child: breakdown)

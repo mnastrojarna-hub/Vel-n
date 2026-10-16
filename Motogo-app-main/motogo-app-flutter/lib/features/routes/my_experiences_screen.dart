@@ -19,9 +19,14 @@ import 'route_image.dart';
 import 'my_experiences_provider.dart';
 import 'route_poi_sheet.dart';
 import 'ride_start_feedback.dart';
+import 'ride_actions.dart';
 import '../../core/widgets/error_feedback.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../messages/messages_provider.dart' show adminUnreadCountProvider;
+import 'v2/rides/moje_view_v2.dart';
+import 'v2/rides/ride_dialogs_v2.dart';
 
 /// „Moje zážitky" — osobní cestovní deník jezdce: vlastní vytvořené trasy
 /// (Vytvořené trasy), místa objevená navigací (Moje místa) a projeté jízdy
@@ -61,6 +66,40 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     final routes = ref.watch(mySavedRoutesProvider);
     final places = ref.watch(myPlacesProvider);
 
+    // v2 (PLAN §2.7): stejná data a akce, nový vzhled — hlavička hubu Trasy,
+    // bílý souhrn, pod-záložky, dok se záznamem jízdy a v2 lišta.
+    if (MgV2.on(context)) {
+      final st = ref.watch(activeRideProvider);
+      return MojeViewV2(
+        loggedIn: loggedIn,
+        tab: _tab,
+        onTab: _goTab,
+        rides: ref.watch(myRidesProvider),
+        routes: routes,
+        places: places,
+        active: st.active,
+        history: st.history,
+        rec: ref.watch(rideRecorderProvider),
+        unread: ref.watch(adminUnreadCountProvider),
+        onBack: () => context.backOr('/routes'),
+        onRefresh: _refresh,
+        onNavTab: (i) => mojeNavTab(context, ref, i),
+        onCreateRoute: () => _createRoute(context),
+        onLogin: () => context.push('/login'),
+        onAutoRecord: _setAutoRecord,
+        onOpenSaved: (r) => _openSavedRoute(context, r),
+        onNavSaved: (r) => _navSavedRoute(context, r),
+        onDeleteSaved: (r) => _confirmDelete(context, r),
+        onRetrySaved: () => ref.invalidate(mySavedRoutesProvider),
+        onOpenPlace: (p, all) => _openPlace(context, p, all, ref.read(localeProvider).languageCode),
+        onNavPlace: (p) => _navigateToPlace(context, p),
+        onRetryPlaces: () => ref.invalidate(myPlacesProvider),
+        onOpenHistory: (r, all) => _openRideDetail(context, r, all),
+        onHistoryGo: (r, isActive) => _historyGo(context, r, isActive),
+        onHistoryDelete: _historyDelete,
+      );
+    }
+
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: SafeArea(
@@ -94,13 +133,16 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     if (!loggedIn) return _loginPrompt(context);
     return RefreshIndicator(
       color: MotoGoColors.greenDark,
-      onRefresh: () async {
-        ref.invalidate(mySavedRoutesProvider);
-        ref.invalidate(myPlacesProvider);
-        ref.invalidate(myRidesProvider);
-      },
+      onRefresh: _refresh,
       child: child,
     );
+  }
+
+  /// Obnovení tažením dolů (sdílí stará i v2 obrazovka).
+  Future<void> _refresh() async {
+    ref.invalidate(mySavedRoutesProvider);
+    ref.invalidate(myPlacesProvider);
+    ref.invalidate(myRidesProvider);
   }
 
   Widget _header(BuildContext context, int? routeCount, int? placeCount) {
@@ -395,14 +437,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
                   ),
                 ),
               GestureDetector(
-                onTap: () {
-                  final n = ref.read(activeRideProvider.notifier);
-                  if (isActive) {
-                    n.endRide(); // aktivní → ukončit (spadne do historie)
-                  } else {
-                    n.removeFromHistory(r.id);
-                  }
-                },
+                onTap: () => _historyDelete(r, isActive),
                 behavior: HitTestBehavior.opaque,
                 child: const Padding(
                   padding: EdgeInsets.all(4),
@@ -429,17 +464,30 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
             t(context).tr(
                 r.done && !isActive ? 'myExpRideAgain' : 'myExpContinueRoute'),
             primary: true,
-            onTap: () {
-              final n = ref.read(activeRideProvider.notifier);
-              // „Jet znovu" = nová jízda od začátku; jinak pokračování.
-              if (!isActive) n.resume(r, fresh: r.done);
-              openRide(context, r);
-            },
+            onTap: () => _historyGo(context, r, isActive),
           ),
         ],
       ),
       ),
     );
+  }
+
+  /// Koš u jízdy z historie (sdílí stará i v2 karta).
+  void _historyDelete(ActiveRide r, bool isActive) {
+    final n = ref.read(activeRideProvider.notifier);
+    if (isActive) {
+      n.endRide(); // aktivní → ukončit (spadne do historie)
+    } else {
+      n.removeFromHistory(r.id);
+    }
+  }
+
+  /// „Pokračovat v trase" / „Jet znovu" (sdílí stará i v2 karta).
+  void _historyGo(BuildContext context, ActiveRide r, bool isActive) {
+    final n = ref.read(activeRideProvider.notifier);
+    // „Jet znovu" = nová jízda od začátku; jinak pokračování.
+    if (!isActive) n.resume(r, fresh: r.done);
+    openRide(context, r);
   }
 
   // ── Moje trasy ──
@@ -547,8 +595,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
               Switch(
                 value: rec.enabled,
                 activeColor: MotoGoColors.greenDark,
-                onChanged: (v) =>
-                    ref.read(rideRecorderProvider.notifier).setEnabled(v),
+                onChanged: _setAutoRecord,
               ),
             ],
           ),
@@ -559,6 +606,10 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
         RideCard(ride: r, siblingIds: [for (final x in rides) x.id]),
     ];
   }
+
+  /// Přepínač automatického záznamu (sdílí stará i v2 obrazovka).
+  void _setAutoRecord(bool v) =>
+      ref.read(rideRecorderProvider.notifier).setEnabled(v);
 
   /// Ruční záznam jízdy — pro vlastní motorku, BEZ výpůjčky. Automatika se
   /// rozjede jen při běžící rezervaci, takže bez tohoto tlačítka si jezdec
@@ -572,7 +623,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: PressableScale(
         pressedScale: 0.97,
-        onTap: () => _toggleManualRide(context, running),
+        onTap: () => toggleManualRide(context, ref, running: running),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
@@ -631,26 +682,11 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     );
   }
 
-  Future<void> _toggleManualRide(BuildContext context, bool running) async {
-    final n = ref.read(rideRecorderProvider.notifier);
-    final msg = ScaffoldMessenger.of(context);
-    if (running) {
-      final kept = await n.stop();
-      if (!mounted) return;
-      // null = server jízdu nevzal (offline) → zkusí se to znovu, NENÍ
-      // to „příliš krátká".
-      msg.showSnackBar(SnackBar(
-        content: Text(t(context).tr(kept == null
-            ? 'rideManualStopFailed'
-            : (kept ? 'rideManualSaved' : 'rideManualTooShort'))),
-      ));
-      return;
-    }
-    final tr = t(context);
-    final r = await n.startManualResult();
-    if (!mounted) return;
-    showRideStartResult(msg, tr, r);
-  }
+  /// Prázdný editor nové trasy (sdílí stará karta i v2 tlačítko).
+  void _createRoute(BuildContext context) => context.push(
+        '/route-build',
+        extra: const RouteItem(id: 'custom', name: '', routeType: 'poi'),
+      );
 
   /// Výrazné tlačítko „Vytvořit novou trasu" → otevře editor s prázdnou
   /// trasou (klikáním do mapy / přidáním bodů zájmu si jezdec trasu poskládá
@@ -660,10 +696,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: PressableScale(
         pressedScale: 0.97,
-        onTap: () => context.push(
-          '/route-build',
-          extra: const RouteItem(id: 'custom', name: '', routeType: 'poi'),
-        ),
+        onTap: () => _createRoute(context),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
@@ -725,10 +758,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     // Tap na kartu = detail trasy (náhled v editoru s mapou a zastávkami).
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => context.push(
-        '/route-build',
-        extra: RouteBuilderArgs(r.toRouteItem(), savedRouteStops(r), savedRouteId: r.id),
-      ),
+      onTap: () => _openSavedRoute(context, r),
       child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -798,10 +828,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
                   Icons.navigation,
                   t(context).tr('myExpNavigate'),
                   primary: true,
-                  onTap: () => context.push(
-                    '/route-nav-custom',
-                    extra: CustomNavArgs(r.toRouteItem(), r.profile),
-                  ),
+                  onTap: () => _navSavedRoute(context, r),
                 ),
               ),
               const SizedBox(width: 8),
@@ -810,11 +837,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
                   context,
                   Icons.edit_location_alt,
                   t(context).tr('myExpEdit'),
-                  onTap: () => context.push(
-                    '/route-build',
-                    extra: RouteBuilderArgs(r.toRouteItem(), savedRouteStops(r),
-                        savedRouteId: r.id),
-                  ),
+                  onTap: () => _openSavedRoute(context, r),
                 ),
               ),
             ],
@@ -825,10 +848,24 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     );
   }
 
+  /// Detail / úprava uložené trasy v editoru (sdílí stará i v2 karta).
+  void _openSavedRoute(BuildContext context, SavedRoute r) => context.push(
+        '/route-build',
+        extra: RouteBuilderArgs(r.toRouteItem(), savedRouteStops(r), savedRouteId: r.id),
+      );
+
+  /// Navigace po uložené trase (sdílí stará i v2 karta).
+  void _navSavedRoute(BuildContext context, SavedRoute r) => context.push(
+        '/route-nav-custom',
+        extra: CustomNavArgs(r.toRouteItem(), r.profile),
+      );
+
   Future<void> _confirmDelete(BuildContext context, SavedRoute r) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (dc) => AlertDialog(
+      builder: (dc) => MgV2.on(dc)
+          ? rideConfirmDeleteV2(dc, title: t(dc).tr('myExpDeleteConfirm'), body: r.name)
+          : AlertDialog(
         backgroundColor: Colors.white,
         title: Text(t(dc).tr('myExpDeleteConfirm'),
             style: const TextStyle(
@@ -897,8 +934,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     // Tap na kartu = detail místa (popis, fotky, hodnocení a komentáře).
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => showRoutePoiSheet(context, _placePoi(p), lang,
-          siblings: [for (final x in siblings) _placePoi(x)]),
+      onTap: () => _openPlace(context, p, siblings, lang),
       child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -993,6 +1029,12 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
       ),
     );
   }
+
+  /// Detail místa (sdílí stará i v2 karta).
+  void _openPlace(BuildContext context, VisitedPlace p,
+          List<VisitedPlace> siblings, String lang) =>
+      showRoutePoiSheet(context, _placePoi(p), lang,
+          siblings: [for (final x in siblings) _placePoi(x)]);
 
   void _navigateToPlace(BuildContext context, VisitedPlace p) {
     final ll = p.latLng;

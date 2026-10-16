@@ -108,11 +108,13 @@ void main() {
       expect(p.message, isNot(contains('nestrhli')));
     });
 
-    test('plain network error (nothing sent) → retry, counts as attempt', () {
+    test('plain network error (nothing sent) → retry, NOT a card attempt', () {
+      // Bez spojení se nic neodeslalo — po třetím výpadku nesmí přijít rada
+      // „zkus jinou kartu" (oprava 2026-10-16).
       final r = PaymentResult.error('network', code: PaymentErrorCode.networkError);
       final p = PaymentRefusals.resolve('en', r, PayFlow.booking, amount: 1500);
       expect(p.action, PayAction.retry);
-      expect(p.countsAsAttempt, isTrue);
+      expect(p.countsAsAttempt, isFalse);
     });
 
     test('"already paid" without code (live server text) → success for a booking', () {

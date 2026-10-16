@@ -13,6 +13,12 @@ import 'map_link.dart';
 import 'submit_common.dart';
 import '../../core/widgets/map_tile_errors.dart';
 import '../../core/widgets/error_feedback.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import '../../core/v2/tokens/mg_type.dart';
+import '../../core/v2/widgets/mg_inputs.dart';
+import 'v2/builder_parts_v2.dart';
+import 'v2/submit_form_v2.dart';
 
 /// Jedna zastávka navrhované trasy.
 class _Stop {
@@ -219,6 +225,42 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
   }
 
   Widget _buildScaffold(BuildContext context) {
+    if (MgV2.on(context)) {
+      final tr = t(context);
+      return SubmitScaffoldV2(
+        title: tr.tr('routeSubmitTitle'),
+        busy: _busy,
+        busyLabel: tr.tr(_uploading ? 'submitUploading' : 'submitSending'),
+        onSubmit: _submit,
+        children: [
+          const SubmitIntroBanner(),
+          const SizedBox(height: 14),
+          TextField(controller: _nameCtrl, decoration: mgInputDecoration(context, label: tr.tr('poiSubmitName'))),
+          const SizedBox(height: 14),
+          _linkRow(context),
+          const SizedBox(height: 14),
+          _mapBox(context),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+            child: Text(tr.tr('routeSubmitOnMapHint'), style: MgType.meta.copyWith(color: MgColors.meta)),
+          ),
+          _stopsList(context),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _descCtrl,
+            maxLines: 3,
+            decoration: mgInputDecoration(context, label: tr.tr('routeSubmitDescLabel')),
+          ),
+          const SizedBox(height: 16),
+          SubmitPhotosSection(
+            photos: _photos,
+            max: 6,
+            hint: tr.tr('submitPhotosHint'),
+            onChanged: (v) => setState(() => _photos = v),
+          ),
+        ],
+      );
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
@@ -292,6 +334,25 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
   }
 
   Widget _linkRow(BuildContext context) {
+    if (MgV2.on(context)) {
+      final tr = t(context);
+      return SubmitLinkV2(
+        label: tr.tr('routeSubmitLinkLabel'),
+        showHelp: _showHelp,
+        onToggleHelp: () => setState(() => _showHelp = !_showHelp),
+        helpTitle: tr.tr('routeSubmitLinkHelpTitle'),
+        helpLines: [tr.tr('routeSubmitLinkHelpMapy'), tr.tr('routeSubmitLinkHelpGoogle')],
+        input: TextField(
+          controller: _linkCtrl,
+          decoration: mgInputDecoration(context, hint: tr.tr('routeSubmitLinkHint')),
+        ),
+        decoding: _decoding,
+        loadLabel: _decoding ? tr.tr('routeSubmitLoading') : tr.tr('routeSubmitLoad'),
+        onLoad: _decoding ? null : _loadLink,
+        okLine: _linkMsg,
+        errLine: _linkErr,
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -375,35 +436,37 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
       markers.add(Marker(point: _stops[i].point, width: 28, height: 28, child: _numPin(i + 1)));
     }
     final center = _stops.isNotEmpty ? _stops.first.point : const LatLng(49.8175, 15.4730);
+    final map = FlutterMap(
+      mapController: _ctrl,
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom: _stops.isEmpty ? 7 : 11,
+        onMapReady: () { _mapReady = true; _fit(); },
+        onTap: (_, p) => _addPoint(p),
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
+          userAgentPackageName: 'com.motogo24.app',
+          maxZoom: 19,
+          errorTileCallback: MapTileErrors.report,
+          reset: MapTileErrors.reset,
+        ),
+        const MapTileErrorChip(),
+        if (_geometry.length >= 2)
+          PolylineLayer(polylines: [
+            Polyline(points: _geometry, strokeWidth: 5, color: MotoGoColors.greenDark),
+          ]),
+        MarkerLayer(markers: markers),
+        RichAttributionWidget(attributions: const [TextSourceAttribution('Mapy.com')]),
+      ],
+    );
+    if (MgV2.on(context)) return SubmitMapCardV2(map: map);
     return SizedBox(
       height: 240,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(MotoGoRadius.card),
-        child: FlutterMap(
-          mapController: _ctrl,
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom: _stops.isEmpty ? 7 : 11,
-            onMapReady: () { _mapReady = true; _fit(); },
-            onTap: (_, p) => _addPoint(p),
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
-              userAgentPackageName: 'com.motogo24.app',
-              maxZoom: 19,
-              errorTileCallback: MapTileErrors.report,
-              reset: MapTileErrors.reset,
-            ),
-            const MapTileErrorChip(),
-            if (_geometry.length >= 2)
-              PolylineLayer(polylines: [
-                Polyline(points: _geometry, strokeWidth: 5, color: MotoGoColors.greenDark),
-              ]),
-            MarkerLayer(markers: markers),
-            RichAttributionWidget(attributions: const [TextSourceAttribution('Mapy.com')]),
-          ],
-        ),
+        child: map,
       ),
     );
   }
@@ -418,6 +481,16 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
       itemBuilder: (context, i) {
         final s = _stops[i];
         final label = s.name ?? '${t(context).tr('routeBuilderStop')} ${i + 1}';
+        if (MgV2.on(context)) {
+          return BuilderStopTileV2(
+            key: ValueKey(s),
+            number: i + 1,
+            label: label,
+            sub: null,
+            onRemove: () => _removeAt(i),
+            wrapHandle: (h) => ReorderableDragStartListener(index: i, child: h),
+          );
+        }
         return Container(
           key: ValueKey(s),
           margin: const EdgeInsets.only(bottom: 8),
@@ -462,7 +535,7 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
     );
   }
 
-  Widget _numPin(int n) => Container(
+  Widget _numPin(int n) => MgV2.on(context) ? BuilderPinV2(n, size: 26) : Container(
         width: 26,
         height: 26,
         decoration: BoxDecoration(

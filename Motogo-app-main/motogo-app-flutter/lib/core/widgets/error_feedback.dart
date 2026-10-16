@@ -44,6 +44,8 @@ Future<void> openFixSettings(FriendlyError fe) async {
 
 /// Toast „{co} – {proč}. {jak}" + akce (Zkusit znovu / Otevřít nastavení).
 /// Delší zobrazení, ať se dá dočíst. Technický detail jde jen do logu.
+/// [contact] = false: bez e-mailu, telefonu i akce „Zavolat" (platby,
+/// rezervace — D5); rada pak jen řekne, co zkusit.
 void showErrorSnack(
   BuildContext context,
   String what,
@@ -52,6 +54,7 @@ void showErrorSnack(
   DevicePerm? perm,
   String? where,
   FriendlyError? friendly,
+  bool contact = true,
 }) {
   if (error != null) FriendlyError.log(where ?? 'ui_error', error);
   final tr = t(context);
@@ -67,14 +70,14 @@ void showErrorSnack(
   } else if (onRetry != null) {
     action = SnackBarAction(
         label: tr.tr('eoRetry'), textColor: MotoGoColors.green, onPressed: onRetry);
-  } else if (fe.suggestContact) {
+  } else if (contact && fe.suggestContact) {
     action = SnackBarAction(
         label: tr.tr('eoCall'), textColor: MotoGoColors.green, onPressed: callMotoGo);
   }
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(
-      content: Text(fe.compose(tr, what)),
+      content: Text(fe.compose(tr, what, contact: contact)),
       duration: const Duration(seconds: 7),
       action: action,
     ));

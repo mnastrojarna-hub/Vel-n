@@ -213,8 +213,9 @@ class FriendlyError {
       : tr.tr('eo$_k${!contact && suggestContact ? 'HintNc' : 'Hint'}');
 
   /// „{co se nepovedlo} – {důvod}. {rada}" — jedna hláška pro toast / kartu.
-  String compose(AppTranslations tr, String what) =>
-      '$what – ${reason(tr)}. ${hint(tr)}';
+  /// [contact] = false: rada bez e-mailu a telefonu (platby, rezervace — D5).
+  String compose(AppTranslations tr, String what, {bool contact = true}) =>
+      '$what – ${reason(tr)}. ${hint(tr, contact: contact)}';
 
   /// Zaloguje technický detail (do Velínu), zákazník ho nikdy nevidí.
   static void log(String where, Object? e, [StackTrace? st]) {

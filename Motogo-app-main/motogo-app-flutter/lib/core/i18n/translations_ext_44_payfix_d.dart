@@ -25,6 +25,9 @@ const Map<String, String> ext44PayfixPl = {
   'pdFailGone': 'Rezerwacji lub płatności do tej zmiany nie da się już odnaleźć (w międzyczasie została usunięta), dlatego zmiana nie została zapisana, a aplikacja nie będzie już próbować. Otwórz Rezerwacje i sprawdź, jak rezerwacja wygląda teraz.',
   'pdFailStale': 'Tej opłaconej zmiany nie da się już zapisać automatycznie (od płatności minęło zbyt dużo czasu). Obsługa ją sprawdzi i jeśli zmiany nie ma w rezerwacji, zwróci ci dopłatę w ciągu 2 dni roboczych – nie musisz nic robić ani płacić ponownie.',
   'pdFailRefunded': 'Dopłatę za tę zmianę już ci zwróciliśmy, dlatego nie zapisujemy jej w rezerwacji. Rezerwacja pozostaje bez zmian – nie musisz nic robić.',
+  // cena rezervace neodpovídá ceníku / slevám (process-payment price_outdated) — nic se nestrhlo
+  'pdPriceOutdatedTitle': 'Cena rezerwacji jest nieaktualna',
+  'pdPriceOutdatedBody': 'Cena rezerwacji nie odpowiada już aktualnemu cennikowi ani rabatom – kod rabatowy lub voucher mógł w międzyczasie stracić ważność. Nic nie pobraliśmy. Utwórz rezerwację ponownie, a cenę obliczymy według aktualnego stanu.',
 };
 
 const Map<String, String> ext44PayfixUk = {
@@ -52,4 +55,7 @@ const Map<String, String> ext44PayfixUk = {
   'pdFailGone': 'Бронювання або платіж для цієї зміни вже не можна знайти (тим часом їх видалено), тому зміну не записано, і застосунок більше не намагатиметься. Відкрий розділ «Бронювання» і перевір, як бронювання виглядає зараз.',
   'pdFailStale': 'Цю оплачену зміну вже не можна записати автоматично (від оплати минуло забагато часу). Наша команда її перевірить і, якщо зміни в бронюванні немає, поверне тобі доплату протягом 2 робочих днів – тобі нічого не треба робити й платити знову.',
   'pdFailRefunded': 'Доплату за цю зміну ми тобі вже повернули, тому в бронювання її не записуємо. Бронювання залишається як було – тобі нічого не треба робити.',
+  // cena rezervace neodpovídá ceníku / slevám (process-payment price_outdated) — nic se nestrhlo
+  'pdPriceOutdatedTitle': 'Ціна бронювання вже неактуальна',
+  'pdPriceOutdatedBody': 'Ціна бронювання вже не відповідає актуальному ціннику чи знижкам – промокод або ваучер тим часом міг стати недійсним. Ми нічого не списали. Створи бронювання ще раз, і ми розрахуємо ціну за поточним станом.',
 };
