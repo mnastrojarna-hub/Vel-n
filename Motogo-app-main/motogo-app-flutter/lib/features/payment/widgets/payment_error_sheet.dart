@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme.dart';
-import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
 
 /// Persistent bottom sheet for payment errors — stays visible until
@@ -183,17 +182,8 @@ class _ErrorSheetContent extends StatelessWidget {
               ),
             ],
 
-            // Support contact
-            const SizedBox(height: 16),
-            Text(
-              t(context).tr('psHelpLine'),
-              style: const TextStyle(
-                fontSize: MotoGoTypo.sizeSm,
-                fontWeight: MotoGoTypo.w500,
-                color: MotoGoColors.g400,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            // D5 (2026-10-16): bez kontaktní patičky — každá hláška sama říká,
+            // co se stalo a jak to napravit.
           ],
         ),
       ),

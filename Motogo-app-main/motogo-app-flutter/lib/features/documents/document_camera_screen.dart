@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 import 'document_models.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_back_v2.dart';
 
 /// Custom camera screen with document frame overlay for OP / ŘP scanning.
 /// Returns the captured [XFile] or null if cancelled.
@@ -166,6 +168,10 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
             right: 16,
             child: Row(
               children: [
+                if (MgV2.on(context))
+                  // v2 vzhled zpět nad kamerou (kill-switch) — stejná akce.
+                  MgV2Back(onTap: () => Navigator.of(context).pop(null), style: MgBackStyle.photo)
+                else
                 GestureDetector(
                   onTap: () => Navigator.of(context).pop(null),
                   child: Container(

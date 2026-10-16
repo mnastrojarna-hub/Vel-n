@@ -7,6 +7,9 @@ import '../../core/widgets/net_image.dart';
 import '../catalog/widgets/fullscreen_gallery.dart';
 import 'branches_info_provider.dart';
 import 'branches_widgets.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import 'v2/branches_v2_parts.dart';
 
 /// „Fotky pobočky“ v detailu pobočky (výchozí zabalené): náhledy 2 vedle sebe
 /// s přeloženým popiskem, klepnutí otevře fotku v plné velikosti (zoom,
@@ -29,6 +32,10 @@ class BranchPhotosSection extends StatelessWidget {
           Expanded(child: i + 1 < photos.length ? _tile(context, i + 1, full) : const SizedBox.shrink()),
         ]),
       ));
+    }
+    // v2 vzhled (kill-switch app_v2_ui): stejné náhledy a galerie, jiná karta.
+    if (MgV2.on(context)) {
+      return BranchCollapsibleV2(icon: MgIcons.image, title: t(context).tr('branchPhotos'), children: rows);
     }
     return CollapsibleSection(
       emoji: '📷',

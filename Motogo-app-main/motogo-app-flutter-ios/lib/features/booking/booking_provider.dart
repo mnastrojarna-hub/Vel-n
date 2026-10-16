@@ -172,7 +172,7 @@ Future<DiscountResult> validateAndApplyCode(String code) async {
         networkFail = true;
       } else {
         // Edge odpověděla chybou (Slevomat / DB nedostupné) — neověřeno.
-        reason ??= 'psSlevomatUnverified';
+        reason ??= 'pdSlevomatUnverified';
       }
     }
   }

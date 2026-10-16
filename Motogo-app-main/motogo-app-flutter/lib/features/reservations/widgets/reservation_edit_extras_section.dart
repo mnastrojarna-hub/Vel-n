@@ -6,6 +6,8 @@ import '../../../core/currency.dart';
 import '../../booking/booking_models.dart';
 import 'reservation_edit_widgets.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_sections_v2.dart';
 
 /// Extras + gear size section for reservation edit.
 ///
@@ -324,6 +326,16 @@ class EditExtrasSection extends StatelessWidget {
       const Divider(height: 18),
 
       // === Výbava řidiče — zdarma, vždy rozbalená + „mám vlastní výbavu" ===
+      // v2 vzhled (kill-switch app_v2_ui): stejné přepnutí, řádek se zalomí.
+      if (MgV2.on(context))
+        EditRiderHeaderV2(
+          rider: t(context).tr('rider'),
+          free: t(context).tr('gearFree').toLowerCase(),
+          ownGearLabel: t(context).tr('ownGear'),
+          ownGear: ownGear,
+          onToggle: () => onOwnGearChanged(!ownGear),
+        )
+      else
       Row(children: [
         Text(t(context).tr('rider'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.greenDarker)),
         const SizedBox(width: 6),

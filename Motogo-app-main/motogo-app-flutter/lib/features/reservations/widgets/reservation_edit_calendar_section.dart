@@ -5,6 +5,8 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../catalog/moto_model.dart';
 import 'edit_reservation_calendar.dart';
 import 'reservation_edit_widgets.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_sections_v2.dart';
 
 /// Calendar + date-range card for the reservation edit screen.
 class EditCalendarSection extends StatelessWidget {
@@ -48,6 +50,33 @@ class EditCalendarSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final calendar = EditReservationCalendar(
+      bookedDates: bookedDates,
+      origStart: origStart,
+      origEnd: origEnd,
+      newStart: newStart,
+      newEnd: newEnd,
+      isActive: isActive,
+      mode: tab,
+      shortenDir: shortenDir,
+      onDatesChanged: onDatesChanged,
+      onError: onError,
+    );
+    // v2 vzhled (kill-switch app_v2_ui): tytéž údaje, volby i kalendář.
+    if (MgV2.on(context)) {
+      return EditCalendarSectionV2(
+        tab: tab,
+        isActive: isActive,
+        newStart: newStart,
+        newEnd: newEnd,
+        diffDays: diffDays,
+        shortenDir: shortenDir,
+        instruction: calendarInstruction,
+        calendar: calendar,
+        onShortenStart: onShortenStart,
+        onShortenEnd: onShortenEnd,
+      );
+    }
     return EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         const Icon(Icons.calendar_month, size: 16, color: MotoGoColors.dark),
@@ -149,18 +178,7 @@ class EditCalendarSection extends StatelessWidget {
         ]),
       ],
       const SizedBox(height: 4),
-      EditReservationCalendar(
-        bookedDates: bookedDates,
-        origStart: origStart,
-        origEnd: origEnd,
-        newStart: newStart,
-        newEnd: newEnd,
-        isActive: isActive,
-        mode: tab,
-        shortenDir: shortenDir,
-        onDatesChanged: onDatesChanged,
-        onError: onError,
-      ),
+      calendar,
       const SizedBox(height: 6),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         if (tab == 'shorten') ...[

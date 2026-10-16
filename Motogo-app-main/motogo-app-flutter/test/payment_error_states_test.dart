@@ -153,13 +153,14 @@ void main() {
       expect(p.serverTotal, 240);
     });
 
-    test('Stripe minimum (500 from the server) → below-minimum message, no raw English', () {
+    test('Stripe minimum (500 from the server) → pay 15 Kč (D1), no raw English', () {
       final p = PaymentRefusals.resolve(
           'cs',
           _refused('Payment processing failed: Amount must be at least 15.00 czk', status: 500),
           PayFlow.edit,
           amount: 9);
-      expect(p.action, PayAction.belowMinimum);
+      expect(p.action, PayAction.payMin);
+      expect(p.serverTotal, 9);
       expect(p.message, isNot(contains('Amount must')));
       expect(p.message, contains('15'));
     });
@@ -171,19 +172,12 @@ void main() {
       expect(p.action, PayAction.toCart);
     });
 
-    test('unknown refusal → retry + contact, translated, no server text', () {
+    test('unknown refusal → retry, translated, no server text, no contact (D5)', () {
       final p = PaymentRefusals.resolve('uk', _refused('Neznámá chyba XYZ', code: 'weird'),
           PayFlow.booking, amount: 100);
       expect(p.action, PayAction.retry);
-      expect(p.contact, isTrue);
       expect(p.message, isNot(contains('XYZ')));
-    });
-
-    test('belowCardMinimum', () {
-      expect(belowCardMinimum(0), isFalse);
-      expect(belowCardMinimum(1), isTrue);
-      expect(belowCardMinimum(14.4), isTrue);
-      expect(belowCardMinimum(15), isFalse);
+      expect(p.message, isNot(contains('@')));
     });
   });
 
@@ -201,7 +195,7 @@ void main() {
       expect(slevomatReasonKey({'valid': false, 'status': 'cancelled'}), 'psVoucherCancelled');
       expect(slevomatReasonKey({'valid': false, 'slevomat_error_code': 1103}), isNull);
       expect(slevomatReasonKey({'valid': false, 'error': 'Voucher se nepodařilo ověřit'}),
-          'psSlevomatUnverified');
+          'pdSlevomatUnverified');
     });
   });
 

@@ -1,5 +1,3 @@
-import 'dart:io' show SocketException;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,17 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
 import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
-import '../../auth/widgets/toast_helper.dart';
-import '../../booking/booking_provider.dart';
-import '../../booking/booking_models.dart';
 import '../../booking/price_calculator.dart' show branchLat, branchLng;
-import '../../catalog/catalog_provider.dart';
 import '../../documents/booking_doc_viewer.dart';
-import '../../documents/doc_open_runner.dart';
-import '../../../core/offline_guard.dart';
 import '../../routes/ride_booking_section.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
+import '../res_actions.dart';
 import 'res_detail_card.dart';
 import 'res_detail_row.dart';
 import 'res_detail_button.dart';
@@ -26,6 +19,7 @@ import 'res_modification_history.dart';
 import 'res_access_codes_card.dart';
 import 'res_pickup_procedure.dart';
 import 'res_rating_card.dart';
+import 'paid_change_banner.dart';
 import '../../../core/currency.dart';
 import '../../../core/booking_rules.dart';
 
@@ -57,20 +51,8 @@ class ResDetailTabContent extends ConsumerWidget {
   /// Otevře reálný dokument rezervace 1:1 (podepsaný protokol / smlouva) —
   /// průběh (po 15 s „Zrušit"), pojistka proti dvojímu klepnutí; offline
   /// skutečný důvod + „Zkusit znovu", jinak „zatím není k dispozici".
-  Future<void> _openBookingDoc(BuildContext context, String type, String title) {
-    final tr = t(context);
-    return runDocOpen(context,
-        what: tr.tr('eoDocLoadFail'),
-        where: 'res_doc_open',
-        op: (wanted) async {
-          final opened = await openBookingDocument(context,
-              bookingId: res.id, type: type, title: title, wanted: wanted);
-          if (opened) return;
-          if (!await OfflineGuard.pingSupabase()) throw const SocketException('offline');
-          if (!context.mounted || !wanted()) return;
-          showMotoGoToast(context, icon: '📄', title: title, message: tr.tr('docNotAvailableYet'));
-        });
-  }
+  Future<void> _openBookingDoc(BuildContext context, String type, String title) =>
+      openBookingDoc(context, res, type, title);
 
   /// Tlačítka na existující dokumenty rezervace (protokoly, příp. smlouva) —
   /// jen REÁLNÉ (aktuální verze; protokol jen podepsaný elektronicky / sken,
@@ -99,6 +81,8 @@ class ResDetailTabContent extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       sliver: SliverList.list(
         children: [
+          // Zaplacená výměna / úprava se ještě zapisuje (D6).
+          PaidChangeBanner(bookingId: res.id),
           ResDetailCard(children: [
             // Motorcycle name + ID
             Text(res.motoName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
@@ -278,18 +262,7 @@ class ResDetailTabContent extends ConsumerWidget {
             ResDetailButton.primary(
               emoji: '🔁',
               label: t(context).tr('bookAgain'),
-              onTap: () {
-                ref.read(bookingDraftProvider.notifier).state = BookingDraft();
-                ref.read(bookingMotoProvider.notifier).state = null;
-                ref.read(catalogFilterProvider.notifier).state = const CatalogFilter();
-                if (res.motoId != null) {
-                  context.push('/moto/${res.motoId}');
-                  showMotoGoToast(context, icon: '🏍️', title: t(context).reservations, message: t(context).tr('selectDateSameMoto'));
-                } else {
-                  context.go(Routes.home);
-                  showMotoGoToast(context, icon: '🏍️', title: t(context).reservations, message: t(context).tr('selectMotorcycle'));
-                }
-              },
+              onTap: () => rebookSameMoto(context, ref, res),
             ),
           ],
 

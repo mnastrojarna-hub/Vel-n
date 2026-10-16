@@ -264,6 +264,12 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         total_price: chargeCustomer ? newTotalPrice : origPaidPrice,
         notes: notes || null,
       }
+      // D1 (2026-10-16): přeceněná NEZAPLACENÁ rezervace — dřívější dorovnání / odpuštění
+      // platby kartou (card_rounding) už neplatí (DB to pojistí i triggerem, SQL 20261016p1).
+      if (booking.payment_status === 'unpaid' && 'card_rounding' in booking && Number(booking.card_rounding || 0) !== 0
+          && Number(saveData.total_price) !== Number(booking.total_price || 0)) {
+        saveData.card_rounding = 0
+      }
       // Doručovací pole se přepisují JEN při reálné změně doručení — DB drží
       // historické hodnoty metod ('rental'/'store'/…) a poplatek může být v
       // booking_extras; bezdůvodný přepis by trigger booking_modified vyhodnotil

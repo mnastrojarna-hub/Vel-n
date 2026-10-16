@@ -80,18 +80,16 @@ extension _PaymentProblems on _PaymentScreenState {
           _doPayment();
         };
         second = tr.back;
-      case PayAction.belowMinimum:
-        if (_flow == PayFlow.resume) {
-          // Dokončovaná / obnovená rezervace: nezaplacenou rezervaci v
-          // Rezervacích upravit nejde (D1) → hlavní krok je „Napsat nám".
-          label = tr.tr('psWriteUs');
-          onTap = () => openContactUs(context);
-          second = tr.tr('psMyReservations');
-          onSecond = () => context.go(Routes.reservations);
-        } else {
-          label = tr.tr(edit ? 'psEditChange' : 'psEditBooking');
-          onTap = () => context.backOr(_backFallback);
-        }
+      case PayAction.payMin:
+        // Zbývá méně než 15 Kč → zaplatit 15 Kč (dorovnání zapíše server, D1).
+        final due = p.serverTotal;
+        label = tr.tr('pdPayMin');
+        onTap = () {
+          if (due != null && due > 0) _set(() => _serverAmount = due);
+          _doPayment();
+        };
+        second = tr.tr(edit ? 'psEditChange' : 'psMyReservations');
+        onSecond = () => edit ? context.backOr(_backFallback) : context.go(Routes.reservations);
       case PayAction.reloadEdit:
         label = tr.tr('psReload');
         onTap = () => context.go(_editRoute);
@@ -115,10 +113,6 @@ extension _PaymentProblems on _PaymentScreenState {
       default:
         label = tr.tr('retry');
         onTap = _doPayment;
-    }
-    if (p.contact && second == null) {
-      second = tr.tr('psWriteUs');
-      onSecond = () => openContactUs(context);
     }
     _showError(
       title: p.title,
@@ -161,7 +155,7 @@ extension _PaymentProblems on _PaymentScreenState {
         return;
       }
       if (info.cause == 'amount_too_small') {
-        _showProblem(PaymentRefusals.belowMinimum(lang, _flow, _amount));
+        _showProblem(PaymentRefusals.belowMinimum(lang, _amount));
         return;
       }
       _attempts++;
@@ -177,7 +171,7 @@ extension _PaymentProblems on _PaymentScreenState {
         title: info.title,
         message: info.message,
         buttonLabel: tr.tr('payWithAnotherCard'),
-        onButton: () => _runPaymentSheetFlow(_amount),
+        onButton: () => _runPaymentSheetFlow(_charge),
       );
       return;
     }
@@ -191,15 +185,15 @@ extension _PaymentProblems on _PaymentScreenState {
         if (!mounted) return;
         if (card != null && card.stripeId.isNotEmpty) {
           _setProcessing(true);
-          _chargeSavedCard(_amount, card);
+          _chargeSavedCard(_charge, card);
         } else {
           // Uložená karta zmizela (smazaná v profilu) → klasický flow.
-          _runPaymentSheetFlow(_amount);
+          _runPaymentSheetFlow(_charge);
         }
       },
       secondaryLabel: tr.tr('payWithAnotherCard'),
       onSecondary: () {
-        if (mounted) _runPaymentSheetFlow(_amount);
+        if (mounted) _runPaymentSheetFlow(_charge);
       },
     );
   }
@@ -211,6 +205,7 @@ extension _PaymentProblems on _PaymentScreenState {
     // Uživatel jen zavřel Payment Sheet — není to chyba, jen reset.
     if (info.userCancelled) {
       await PaymentPendingMarker.clear(_markerId);
+      await PaidChangeQueue.discard(_activePiId);
       _setProcessing(false);
       return;
     }
@@ -220,10 +215,11 @@ extension _PaymentProblems on _PaymentScreenState {
       return;
     }
     await PaymentPendingMarker.clear(_markerId);
+    await PaidChangeQueue.discard(_activePiId);
     if (!mounted) return;
     _setProcessing(false);
     if (info.cause == 'amount_too_small') {
-      _showProblem(PaymentRefusals.belowMinimum(lang, _flow, _amount));
+      _showProblem(PaymentRefusals.belowMinimum(lang, _amount));
       return;
     }
     _attempts++;
@@ -238,7 +234,7 @@ extension _PaymentProblems on _PaymentScreenState {
       onButton: () {
         // Rovnou znovu otevři kartový sheet — pole se při otevření čistí
         // (viz CardPaymentSheet), takže špatně zadané číslo jde hned opravit.
-        if (mounted) _runPaymentSheetFlow(_amount);
+        if (mounted) _runPaymentSheetFlow(_charge);
       },
     );
   }
@@ -263,6 +259,7 @@ extension _PaymentProblems on _PaymentScreenState {
       case NextActionOutcome.notCompleted:
       case NextActionOutcome.failed:
         await PaymentPendingMarker.clear(_markerId);
+        await PaidChangeQueue.discard(_activePiId);
         _setProcessing(false);
         _handleGatewayError(error, wallet: wallet);
     }
@@ -297,7 +294,7 @@ extension _PaymentProblems on _PaymentScreenState {
       onButton: () {
         // Sheet obsahuje kartu i platformní peněženku — po chybě ho rovnou
         // znovu otevři (s čistým polem), ať má zákazník kde pokračovat.
-        if (mounted) _runPaymentSheetFlow(_amount);
+        if (mounted) _runPaymentSheetFlow(_charge);
       },
     );
   }
@@ -307,7 +304,7 @@ extension _PaymentProblems on _PaymentScreenState {
     final edit = _flow == PayFlow.edit || _flow == PayFlow.swap;
     _showError(
       title: tr.tr('paymentFailed'),
-      message: tr.tr(edit ? 'psMaxEditBody' : 'psMaxBookingBody'),
+      message: tr.tr(edit ? 'pdMaxEditBody' : 'pdMaxBookingBody'),
       buttonLabel: tr.tr(edit ? 'psBackToReservation' : 'goToReservations'),
       onButton: () {
         if (!mounted) return;
@@ -315,8 +312,6 @@ extension _PaymentProblems on _PaymentScreenState {
             ? '/reservations/$_pendingBookingId'
             : Routes.reservations);
       },
-      secondaryLabel: tr.tr('psWriteUs'),
-      onSecondary: () => openContactUs(context),
       dismissible: false,
     );
   }
@@ -370,6 +365,8 @@ extension _PaymentProblems on _PaymentScreenState {
     _completed = true;
     _countdownTimer?.cancel();
     await _setMarker(clientSecret: _activeClientSecret);
+    // Doplatek změny: fronta ho dokončí, jakmile platba projde (D6).
+    await _enqueuePaidChange(paid: false);
     if (!mounted) return;
     _processingNotifier?.state = false;
     ref.read(paymentContextProvider.notifier).state = null;
@@ -384,7 +381,8 @@ extension _PaymentProblems on _PaymentScreenState {
             expectedTotal: _expectedEditTotal,
             intentOnly: _flow == PayFlow.swap,
             netTrouble: _netTrouble,
-            verified: _editSuccessOutcome(tr, Money.czk(_ctx?.amount ?? 0)))
+            completeKey: _activePiId,
+            verified: _editSuccessOutcome(tr))
         : pendingBookingOutcome(tr,
             bookingId: id,
             netTrouble: _netTrouble,
@@ -496,18 +494,16 @@ extension _PaymentProblems on _PaymentScreenState {
         // Chybí termín / motorka / údaje profilu — oprava je ve formuláři.
         _showError(
           title: tr.tr('bookingCreateFailed'),
-          message: _draftError ?? tr.tr('psDraftUnknownBody'),
+          message: _draftError ?? tr.tr('pdDraftServerBody'),
           buttonLabel: tr.tr('psEditBooking'),
           onButton: () => context.backOr(Routes.booking),
         );
       case _DraftKind.unknown:
         _showError(
           title: tr.tr('bookingCreateFailed'),
-          message: _draftError ?? tr.tr('psDraftUnknownBody'),
+          message: _draftError ?? tr.tr('pdDraftServerBody'),
           buttonLabel: tr.tr('retry'),
           onButton: _doPayment,
-          secondaryLabel: tr.tr('psWriteUs'),
-          onSecondary: () => openContactUs(context),
         );
     }
   }

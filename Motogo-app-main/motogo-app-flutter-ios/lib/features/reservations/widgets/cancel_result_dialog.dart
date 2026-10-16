@@ -43,11 +43,11 @@ AlertDialog cancelResultDialog(
   }
   final key = switch (r.error) {
     'already' => 'psCancelAlready',
-    'forbidden' => 'psCancelForbidden',
+    'forbidden' => 'pdCancelForbidden',
     'not_found' => 'psCancelNotFound',
     'network' => 'psCancelNet',
     'uncertain' => 'fxCancelUncertain',
-    _ => 'psCancelFail',
+    _ => 'pdCancelFail',
   };
   final canRetry =
       r.error == 'network' || r.error == 'failed' || r.error == 'uncertain';

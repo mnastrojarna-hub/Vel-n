@@ -31,6 +31,11 @@ import 'widgets/profile_section_title.dart';
 import 'widgets/profile_menu_item.dart';
 import 'widgets/consent_sheet.dart';
 import 'widgets/settings_sheets.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/profile_hub_v2.dart';
+import 'v2/profile_personal_v2.dart' show PfFormData;
+import 'v2/profile_groups_v2.dart' show PfGroupActions;
+import 'v2/sheets/profile_dialogs_v2.dart';
 
 /// Profile screen — mirrors s-profile from templates-done-pages.js.
 /// Personal info, docs, invoices, messages, consents, settings, logout.
@@ -201,6 +206,79 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget _buildProfile(BuildContext context, Map<String, dynamic>? profile,
       {bool loading = false, Object? error}) {
     final ready = !loading && error == null && _loaded;
+    // Akce sdílené starým i v2 stromem (kill-switch app_v2_ui) — těla beze změny.
+    void onPersonal() {
+                // Bez načteného profilu by formulář byl prázdný a uložení by
+                // údaje smazalo → nejdřív načíst.
+                if (!ready) {
+                  if (error != null) {
+                    showErrorSnack(context, t(context).tr('eoProfileLoadFail'), error,
+                        onRetry: () => ref.invalidate(profileProvider));
+                  } else {
+                    showMotoGoToast(context,
+                        icon: '⏳', title: t(context).tr('eoProfileStillLoading'));
+                  }
+                  return;
+                }
+                setState(() => _personalExpanded = !_personalExpanded);
+              }
+    void onPaymentMethods() {
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => const PaymentMethodsScreen(),
+                ));
+              }
+    void onFaq() => launchUrl(Uri.parse(WebLinks.faq(ref.read(localeProvider).languageCode)), mode: LaunchMode.externalApplication);
+
+    // v2 vzhled (PLAN §2.5.1): stejný stav, stejné ovladače a akce.
+    if (MgV2.on(context)) {
+      return ProfileHubV2View(
+        profile: profile,
+        loading: loading,
+        error: error,
+        ready: ready,
+        personalExpanded: _personalExpanded,
+        onRetry: () => ref.invalidate(profileProvider),
+        onTogglePersonal: onPersonal,
+        onPaymentMethods: onPaymentMethods,
+        version: appVersion,
+        form: PfFormData(
+          name: _nameCtrl, email: _emailCtrl, phone: _phoneCtrl, city: _cityCtrl, zip: _zipCtrl,
+          street: _streetCtrl, country: _countryCtrl, idNum: _idNumCtrl, licNum: _licNumCtrl,
+          dob: _dob,
+          licExp: _licExp,
+          dobFirstYear: DateTime.now().year - 100,
+          dobLastYear: (_dob != null && _dob!.year > DateTime.now().year - 18)
+              ? _dob!.year
+              : DateTime.now().year - 18,
+          licFirstYear: DateTime.now().year,
+          licLastYear: DateTime.now().year + 20,
+          licCategories: _licCategories,
+          licOptions: _licCategoryOptions,
+          onDob: (d) => setState(() => _dob = d),
+          onLicExp: (d) => setState(() => _licExp = d),
+          onToggleCategory: (cat) => setState(() {
+            if (_licCategories.contains(cat)) {
+              _licCategories.remove(cat);
+            } else {
+              _licCategories.add(cat);
+            }
+          }),
+          onSave: _save,
+        ),
+        actions: PfGroupActions(
+          onPermissions: () => _showPermissions(context),
+          onNotif: () => _showConsentSheet(context, 'notif'),
+          onPrivacy: () => _showConsentSheet(context, 'priv'),
+          onPassword: () => _showChangePassword(context),
+          onLanguage: () => _showLanguagePicker(context),
+          onCurrency: () => _showCurrencyPicker(context),
+          onFaq: onFaq,
+          onLogout: _logout,
+          onDelete: () => _showDeleteAccountDialog(context),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: CustomScrollView(
@@ -275,31 +353,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 12),
               // Section: Můj účet
               ProfileSectionTitle(title: t(context).tr('myAccount')),
-              ProfileMenuItem(icon: '👤', label: t(context).tr('personalInfo'), onTap: () {
-                // Bez načteného profilu by formulář byl prázdný a uložení by
-                // údaje smazalo → nejdřív načíst.
-                if (!ready) {
-                  if (error != null) {
-                    showErrorSnack(context, t(context).tr('eoProfileLoadFail'), error,
-                        onRetry: () => ref.invalidate(profileProvider));
-                  } else {
-                    showMotoGoToast(context,
-                        icon: '⏳', title: t(context).tr('eoProfileStillLoading'));
-                  }
-                  return;
-                }
-                setState(() => _personalExpanded = !_personalExpanded);
-              }),
+              ProfileMenuItem(icon: '👤', label: t(context).tr('personalInfo'), onTap: onPersonal),
               if (_personalExpanded && ready) _buildPersonalForm(),
               ProfileMenuItem(icon: '📩', label: t(context).tr('messages'), badge: ref.watch(adminUnreadCountProvider), onTap: () => context.push(Routes.messages)),
               ProfileMenuItem(icon: '📋', label: t(context).tr('documents'), onTap: () => context.push(Routes.docs)),
               ProfileMenuItem(icon: '🧾', label: t(context).tr('invoices'), onTap: () => context.push(Routes.invoices)),
               ProfileMenuItem(icon: '📄', label: t(context).tr('contracts'), onTap: () => context.push(Routes.contracts)),
-              ProfileMenuItem(icon: '💳', label: t(context).tr('paymentMethods'), onTap: () {
-                Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => const PaymentMethodsScreen(),
-                ));
-              }),
+              ProfileMenuItem(icon: '💳', label: t(context).tr('paymentMethods'), onTap: onPaymentMethods),
 
               const SizedBox(height: 12),
               ProfileSectionTitle(title: t(context).tr('settings')),
@@ -314,7 +374,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ProfileSectionTitle(title: t(context).tr('helpAndSupport')),
               if (ref.watch(hasActiveRentalProvider))
                 ProfileMenuItem(icon: '🆘', label: t(context).sosTitle, onTap: () => context.push(Routes.sos), bgColor: MotoGoColors.redBg),
-              ProfileMenuItem(icon: '❓', label: t(context).tr('helpFaq'), onTap: () => launchUrl(Uri.parse(WebLinks.faq(ref.read(localeProvider).languageCode)), mode: LaunchMode.externalApplication)),
+              ProfileMenuItem(icon: '❓', label: t(context).tr('helpFaq'), onTap: onFaq),
 
               const SizedBox(height: 12),
               ProfileSectionTitle(title: t(context).tr('otherSection')),
@@ -426,13 +486,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _showDeleteAccountDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(t(context).tr('deleteAccountTitle'), style: const TextStyle(fontWeight: FontWeight.w800)),
-        content: Text(t(context).tr('deleteAccountDesc')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(t(context).cancel)),
-          TextButton(
-            onPressed: () async {
+      builder: (ctx) {
+        Future<void> onDelete() async {
               Navigator.pop(ctx);
               final user = MotoGoSupabase.currentUser;
               if (user == null) return;
@@ -468,16 +523,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       where: 'delete_account');
                 }
               }
-            },
+        }
+        // v2 vzhled dialogu (T6): stejné texty, Zrušit = zavřít, akce = onDelete.
+        if (MgV2.on(ctx)) {
+          return DestructiveDialogV2(
+            title: t(context).tr('deleteAccountTitle'),
+            body: t(context).tr('deleteAccountDesc'),
+            cancelLabel: t(context).cancel,
+            deleteLabel: t(context).tr('deleteAccountBtn'),
+            onCancel: () => Navigator.pop(ctx),
+            onDelete: onDelete,
+          );
+        }
+        return AlertDialog(
+        title: Text(t(context).tr('deleteAccountTitle'), style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(t(context).tr('deleteAccountDesc')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(t(context).cancel)),
+          TextButton(
+            onPressed: onDelete,
             child: Text(t(context).tr('deleteAccountBtn'), style: const TextStyle(color: MotoGoColors.red)),
           ),
         ],
-      ),
+      );
+      },
     );
   }
 
   void _showConsentSheet(BuildContext context, String section) {
-    showModalBottomSheet(context: context, builder: (_) => ConsentSheet(section: section));
+    showModalBottomSheet(context: context, isScrollControlled: MgV2.peek(context), builder: (_) => ConsentSheet(section: section));
   }
 
   void _showLanguagePicker(BuildContext context) => showLanguagePickerSheet(context);

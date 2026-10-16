@@ -7,12 +7,14 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/paid_change_queue.dart';
 import '../../core/pending_booking_fab_provider.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/pickup_location_link.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../reservations/reservation_provider.dart' show reservationsProvider;
 import 'booking_upsell_provider.dart';
+import 'paid_change_outcomes.dart';
 import 'payment_provider.dart';
 import 'payment_ui_helpers.dart';
 import 'payment_verify.dart';
@@ -39,10 +41,18 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
   bool _verifying = false;
   /// Ověření prokázalo, že platba neproběhla.
   bool _notPaid = false;
+  /// Zaplacená změna se dokončuje (D6) — výsledek z fronty i bez klepnutí.
+  StreamSubscription<PaidChangeEvent>? _queueSub;
 
   @override
   void initState() {
     super.initState();
+    final key = ref.read(paymentOutcomeProvider)?.completeKey;
+    if (key != null) {
+      _queueSub = PaidChangeQueue.events.listen((ev) {
+        if (ev.entry.key == key && mounted) _applyQueueResult(ev.result);
+      });
+    }
     // „Platba se ověřuje": každých 10 s se zeptej DB (max 3 min) — jakmile
     // webhook platbu potvrdí, obrazovka se sama přepne na úspěch.
     final o = ref.read(paymentOutcomeProvider);
@@ -60,7 +70,43 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
   @override
   void dispose() {
     _autoVerify?.cancel();
+    _queueSub?.cancel();
     super.dispose();
+  }
+
+  /// Výsledek dokončení zaplacené změny (fronta / „Ověřit znovu").
+  void _applyQueueResult(PaidChangeResult r, {bool silent = true}) {
+    final o = ref.read(paymentOutcomeProvider);
+    if (o == null || o.kind != PaymentOutcomeKind.pending) return;
+    switch (r.status) {
+      case PaidChangeStatus.done:
+        _autoVerify?.cancel();
+        ref.invalidate(reservationsProvider);
+        if (o.verifiedOutcome != null) {
+          ref.read(paymentOutcomeProvider.notifier).state = o.verifiedOutcome;
+        }
+      case PaidChangeStatus.failed:
+        _autoVerify?.cancel();
+        ref.invalidate(reservationsProvider);
+        final key = o.completeKey;
+        if (key != null) PaidChangeQueue.acknowledge(key);
+        ref.read(paymentOutcomeProvider.notifier).state = changeFailedOutcome(t(context),
+            // výměna = ověřuje se jen stavem platby (verifyIntentOnly)
+            swap: o.verifyIntentOnly,
+            bookingId: o.verifyBookingId ?? '',
+            r: r,
+            charge: r.amount ?? 0);
+      case PaidChangeStatus.notPaid:
+        _autoVerify?.cancel();
+        setState(() => _notPaid = true);
+      case PaidChangeStatus.completing:
+        if (!silent) {
+          showMotoGoToast(context,
+              icon: '⏳',
+              title: o.title,
+              message: t(context).tr(r.offline ? 'pdCompletingOffline' : 'psVerifyStillPending'));
+        }
+    }
   }
 
   void _goNext(String route) {
@@ -73,6 +119,15 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
     final o = ref.read(paymentOutcomeProvider);
     if (o == null || o.kind != PaymentOutcomeKind.pending || _verifying) return;
     setState(() => _verifying = true);
+    final key = o.completeKey;
+    if (key != null) {
+      // Zaplacená výměna / úprava: ověření = rovnou dokončení na serveru (D6).
+      final r = await PaidChangeQueue.completeNow(key);
+      if (!mounted) return;
+      setState(() => _verifying = false);
+      _applyQueueResult(r, silent: silent);
+      return;
+    }
     final state = await verifyPayment(
       bookingId: o.verifyBookingId,
       orderId: o.verifyOrderId,
@@ -167,6 +222,8 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
                         const _StatusBadge(icon: '!', color: MotoGoColors.red)
                       else if (pending)
                         const _StatusBadge(icon: '⏳', color: Color(0xFFF59E0B))
+                      else if (kind == PaymentOutcomeKind.failed)
+                        const _StatusBadge(icon: '!', color: MotoGoColors.red)
                       else if (kind == PaymentOutcomeKind.attention)
                         const _StatusBadge(icon: '✓', color: Color(0xFFF59E0B))
                       else

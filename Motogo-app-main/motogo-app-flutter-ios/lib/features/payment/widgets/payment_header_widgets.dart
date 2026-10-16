@@ -6,6 +6,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/widgets/moto_fx.dart';
 import '../payment_provider.dart';
 import '../../../core/currency.dart';
+import '../card_minimum.dart' show cardMinCzk, kcExact;
 
 /// Top header bar for the payment screen.
 class PaymentHeader extends StatelessWidget {
@@ -198,7 +199,11 @@ class PaymentContextCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('${Money.czk(amount)}',
+                  // Haléřová částka pod minimem karty (např. 0,60 Kč) přesně —
+                  // zaokrouhlené „1 Kč" by neodpovídalo poznámce o minimu (D1).
+                  Text(Money.code == 'CZK' && amount < cardMinCzk && amount != amount.roundToDouble()
+                          ? kcExact(amount)
+                          : '${Money.czk(amount)}',
                       style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w900,
@@ -243,6 +248,8 @@ class PaymentPayButton extends StatelessWidget {
   final String? statusLabel;
   /// … a trvalý řádek pod tlačítkem (proč se čeká, neplatit znovu).
   final String? statusNote;
+  /// Popisek tlačítka bez platby (zbytek do 1 Kč: „Potvrdit bez platby").
+  final String? freeLabel;
 
   const PaymentPayButton({
     super.key,
@@ -253,6 +260,7 @@ class PaymentPayButton extends StatelessWidget {
     required this.onPay,
     this.statusLabel,
     this.statusNote,
+    this.freeLabel,
   });
 
   @override
@@ -298,7 +306,7 @@ class PaymentPayButton extends StatelessWidget {
                       size: 18),
                   const SizedBox(width: 8),
                   Text(isFree
-                      ? '${t(context).tr('confirmOrderFree')} →'
+                      ? '${freeLabel ?? t(context).tr('confirmOrderFree')} →'
                       : '${t(context).tr('payBtn')} ${Money.czk(amount)} →'),
                 ],
               ),

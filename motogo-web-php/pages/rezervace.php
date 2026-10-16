@@ -124,6 +124,14 @@ foreach ($rezKeys as $k) {
     $v = t('rez.' . $k);
     if (is_string($v)) $rezI18n['rez.' . $k] = $v;
 }
+// D1–D6 (2026-10-16): přeložené kódy odmítnutí process-payment u platby rezervace
+// (sdílené s úpravou rezervace — editRez.pay.*; mapování v pages-rezervace-scan.js).
+foreach (['validationUnavailable','amountMismatch','authRequired','forbidden','notFound','wrongStatus',
+          'belowMinimum','roundingUnavailable','inProgress','duplicate','gatewayDown','serverError','cancelled',
+          'voucherUnavailable'] as $k) {
+    $v = t('editRez.pay.' . $k);
+    if (is_string($v)) $rezI18n['editRez.pay.' . $k] = $v;
+}
 // Krátké názvy dnů — použité v denním rozpisu ceny (calcPriceBreakdown v api.js).
 foreach (['0','1','2','3','4','5','6'] as $dow) {
     $dk = 'dow.short.' . $dow;

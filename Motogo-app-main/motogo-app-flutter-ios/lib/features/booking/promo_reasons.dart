@@ -33,9 +33,9 @@ String? slevomatReasonKey(Map? d) {
     // 0 bez kódu = buď „neexistuje", nebo nenamapovaná hodnota / výpadek.
     final err = '${d['error'] ?? ''}';
     if (code == 0 && err.isNotEmpty && !err.contains('neexistuje')) {
-      return 'psSlevomatUnverified';
+      return 'pdSlevomatUnverified';
     }
     return null;
   }
-  return 'psSlevomatUnverified';
+  return 'pdSlevomatUnverified';
 }

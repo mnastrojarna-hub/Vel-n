@@ -7,6 +7,8 @@ import '../../catalog/catalog_provider.dart';
 import '../../../core/widgets/moto_fx.dart';
 import '../../booking/booking_models.dart';
 import '../../../core/currency.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_sections_v2.dart';
 
 // ignore_for_file: library_private_types_in_public_api
 
@@ -16,7 +18,7 @@ class EditCard extends StatelessWidget {
   final Widget child;
   const EditCard({super.key, required this.child});
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => MgV2.on(context) ? EditCardV2(child: child) : Padding(
     padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
     child: Container(padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18),
@@ -109,6 +111,16 @@ class EditTimePicker extends StatelessWidget {
     final parts = value.split(':');
     final hour = parts.isNotEmpty ? parts[0] : '09';
     final minute = parts.length > 1 ? parts[1] : '00';
+    // v2 vzhled (kill-switch app_v2_ui): tytéž volby i skládání času.
+    if (MgV2.on(context)) {
+      return EditTimePickerV2(
+        label: label,
+        hour: hour,
+        minute: _nearestQuarter(minute),
+        onHour: (v) => onChanged('${v ?? hour}:$minute'),
+        onMinute: (v) => onChanged('$hour:${v ?? minute}'),
+      );
+    }
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),

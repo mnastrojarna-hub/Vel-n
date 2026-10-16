@@ -4,6 +4,8 @@ import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
 import 'i18n/i18n_provider.dart';
 import 'currency.dart';
+import 'v2/flag/v2_scope.dart';
+import '../features/booking/v2/sections/promo_v2.dart';
 
 /// Promo/discount-code entry section inside the booking form.
 /// NO TextField in main tree — uses showDialog (AlertDialog has own Material).
@@ -129,8 +131,23 @@ class BookingFormPromoSection extends StatelessWidget {
     );
   }
 
+  /// Odebrání uplatněného kódu (sdílí starý i v2 vzhled; tělo beze změny).
+  void _removeCode(AppliedDiscount d) => onUpd((dr) => dr.copyWith(
+        discounts: dr.discounts
+            .where((x) => x.code != d.code)
+            .toList(),
+      ));
+
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): stejný dialog i odebrání kódu.
+    if (MgV2.on(context)) {
+      return BookingPromoV2(
+        discounts: draft.discounts,
+        onOpen: () => _openPromoDialog(context),
+        onRemove: _removeCode,
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Container(
@@ -219,11 +236,7 @@ class BookingFormPromoSection extends StatelessWidget {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () => onUpd((dr) => dr.copyWith(
-                              discounts: dr.discounts
-                                  .where((x) => x.code != d.code)
-                                  .toList(),
-                            )),
+                        onTap: () => _removeCode(d),
                         child: const Icon(Icons.close,
                             size: 16, color: Color(0xFF8AAB99)),
                       ),

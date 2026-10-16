@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/paid_change_queue.dart';
 import '../../../core/payment_pending_marker.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
 import '../../payment/net_error.dart';
-import '../../payment/payment_refusals.dart';
-import '../../payment/payment_ui_helpers.dart';
 import '../../payment/widgets/payment_error_sheet.dart';
 
 /// Načítání / chyba úpravy rezervace — VŽDY s hlavičkou a šipkou zpět
@@ -102,7 +101,7 @@ String editFailureText(BuildContext context, Object e, {bool move = false}) {
     return tr.tr('fxMotoOccupied');
   }
   if (isNetworkError(e) || e is TimeoutException) return tr.tr('psEditNet');
-  return tr.tr(move ? 'psMoveFail' : 'psEditFail');
+  return tr.tr(move ? 'pdMoveFail' : 'pdEditFail');
 }
 
 /// Chyba uložení úpravy v sheetu s nápravou ([onRetry] zkusí znovu).
@@ -115,8 +114,6 @@ void showEditFailure(BuildContext context, Object e,
     message: editFailureText(context, e, move: move),
     buttonLabel: tr.tr('retry'),
     onButton: onRetry,
-    secondaryLabel: tr.tr('psWriteUs'),
-    onSecondary: () => openContactUs(context),
   );
 }
 
@@ -131,40 +128,31 @@ void showEditUncertain(BuildContext context, {required VoidCallback onReload}) {
     message: tr.tr('fxEditUncertain'),
     buttonLabel: tr.tr('psReload'),
     onButton: onReload,
-    secondaryLabel: tr.tr('psWriteUs'),
-    onSecondary: () => openContactUs(context),
   );
 }
 
 /// Předchozí doplatek této rezervace se ještě ověřuje (značka „platba
-/// odeslána") → DRUHÝ doplatek nenabízet (dvojí platba; server `stale_booking`
-/// chrání až po zápisu první změny). true = zablokováno, hláška ukázaná.
+/// odeslána") nebo se zaplacená změna ještě zapisuje (fronta D6) → DRUHÝ
+/// doplatek nenabízet (dvojí platba; server `payment_in_progress` /
+/// `stale_booking` chrání taky). true = zablokováno, hláška ukázaná.
 Future<bool> blockIfSurchargePending(BuildContext context, String bookingId) async {
-  if (!await PaymentPendingMarker.isPending(bookingId)) return false;
+  final completing = (await PaidChangeQueue.forBooking(bookingId))
+      .where((e) => !e.isFailed)
+      .toList();
+  if (completing.isEmpty && !await PaymentPendingMarker.isPending(bookingId)) return false;
   if (!context.mounted) return true;
   final tr = t(context);
+  final swap = completing.isNotEmpty && completing.first.isSwap;
   PaymentErrorSheet.show(
     context,
-    title: tr.tr('psPendingTitle'),
-    message: tr.tr('fxEditPendingBody'),
+    title: tr.tr(completing.isEmpty
+        ? 'psPendingTitle'
+        : swap ? 'pdSwapCompletingTitle' : 'pdEditCompletingTitle'),
+    message: tr.tr(completing.isEmpty
+        ? 'fxEditPendingBody'
+        : swap ? 'pdSwapCompletingShort' : 'pdEditCompletingShort'),
     buttonLabel: tr.tr('psOpenReservation'),
     onButton: () => context.go('/reservations/$bookingId'),
-    secondaryLabel: tr.tr('psWriteUs'),
-    onSecondary: () => openContactUs(context),
   );
   return true;
-}
-
-/// Doplatek pod minimem karty (1–14 Kč) — PŘED platbou: co dál (D1).
-void showBelowMinimum(BuildContext context, PayFlow flow, num amount) {
-  final tr = t(context);
-  final p = PaymentRefusals.belowMinimum(tr.lang, flow, amount);
-  PaymentErrorSheet.show(
-    context,
-    title: p.title,
-    message: p.message,
-    buttonLabel: tr.tr('psEditChange'),
-    secondaryLabel: tr.tr('psWriteUs'),
-    onSecondary: () => openContactUs(context),
-  );
 }

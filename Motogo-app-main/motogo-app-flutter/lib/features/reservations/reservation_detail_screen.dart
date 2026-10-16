@@ -25,6 +25,8 @@ import 'widgets/res_detail_tab_content.dart';
 import 'widgets/res_payment_details_tab.dart';
 import 'widgets/res_cancel_dialog.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/res_detail_view_v2.dart';
 
 /// Reservation detail — mirrors s-res-detail from templates-res.js.
 /// Shows image header, status badge, dates, pricing, actions.
@@ -153,6 +155,22 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
   Widget _buildDetail(BuildContext context, Reservation res,
       AsyncValue<List<DoorCode>> doorCodesAsync, {VoidCallback? stale}) {
     final st = res.displayStatus;
+
+    // v2 vzhled (kill-switch app_v2_ui, PLAN §2.4.2): stejný stav, obnova,
+    // realtime i akce — jen jiný strom (obě záložky jako sekce).
+    if (MgV2.on(context)) {
+      return ResDetailV2View(
+        res: res,
+        doorCodesAsync: doorCodesAsync,
+        branchFullAddress: _branchFullAddress(res),
+        onStaleRetry: stale,
+        onBack: () => context.backOr(Routes.reservations),
+        onShowCancelDialog: () => _showCancelDialog(context, res),
+        onOpenFinalInvoice: _openFinalInvoice,
+        onOpenContract: _openContract,
+        onRestoreBooking: _restoreBooking,
+      );
+    }
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,

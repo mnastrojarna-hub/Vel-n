@@ -182,6 +182,14 @@ async function loadPaymentCardInfo(supabase: any, booking: any): Promise<{ brand
   return { brand: 'card', last4: '****' }
 }
 
+// D1/D2 (2026-10-16): řádek dorovnání na minimální platbu kartou 15 Kč (+ ≥ 1 Kč), zaokrouhlení
+// platby kartou na celé Kč (+ do 1 Kč) / odpuštěné částky do 1 Kč (−). Stejně KF (SQL 20261016p1) i Velín.
+function cardRoundingLabel(r: number): string {
+  return r >= 1 ? 'Dorovnání na minimální platbu kartou (15 Kč)'
+    : r > 0 ? 'Zaokrouhlení platby kartou na celé koruny'
+    : 'Zaokrouhlení – částka do 1 Kč se neúčtuje'
+}
+
 // Build label for an extra row (name + size if applicable)
 function extraLabel(name: string, booking: any): string {
   const size = matchExtraSize(name, booking)
@@ -392,6 +400,10 @@ serve(async (req) => {
       }
       if (order.shipping_cost > 0) items.push({ description: 'Doprava', qty: 1, unit_price: Number(order.shipping_cost) })
       if (order.discount > 0) items.push({ description: 'Sleva', qty: 1, unit_price: -Number(order.discount) })
+      // D2 (2026-10-16): dorovnání na minimální platbu kartou 15 Kč (+) / odpuštěno do 1 Kč (−);
+      // je zahrnuté v shop_orders.total (sloupec od SQL 20261016p1, dřív undefined → 0).
+      const shopRounding = Math.round(Number(order.card_rounding || 0) * 100) / 100
+      if (Math.abs(shopRounding) >= 0.01) items.push({ description: cardRoundingLabel(shopRounding), qty: 1, unit_price: shopRounding })
 
       // Kódy poukazů jen na ZAPLACENÝ doklad (DP/konečná) — NIKDY na ZF (shop_proforma):
       // zálohová faktura nemusí být uhrazená a zveřejnění kódů by je „uvolnilo" před platbou.
@@ -475,6 +487,12 @@ serve(async (req) => {
         // (placená výbava, doplatek aplikovaný webhookem) a rozpis by lhal.
         const lastAt = last?.at ? new Date(last.at).getTime() : 0
         const lastFresh = lastAt > 0 && (Date.now() - lastAt) < 15 * 60_000
+        // D1 (2026-10-16): doplatek pod 15 Kč zaplacený jako 15 Kč — čerstvý záznam úpravy
+        // nese card_rounding (price_diff = zaplaceno vč. dorovnání). Rozpis = doplatek bez
+        // dorovnání, dorovnání = samostatný řádek → součet = stržená částka.
+        const editRounding = (lastFresh && last && Math.round(Number(last.price_diff || 0)) === priceDiff)
+          ? Math.round(Number(last.card_rounding || 0) * 100) / 100 : 0
+        const itemDiff = Math.round((priceDiff - editRounding) * 100) / 100
         const dayS = (v: unknown) => String(v || '').slice(0, 10)
         const datesChanged = !!last && (dayS(last.from_start) !== dayS(last.to_start) || dayS(last.from_end) !== dayS(last.to_end))
         // Změna slevy 50 % na 1. den (pozdní vyzvednutí) — klíče píší RPC core,
@@ -541,12 +559,12 @@ serve(async (req) => {
           }
           if (itemized === 0) {
             // Fallback: nemáme detailní rozpis (např. prázdné denní ceny) — jediný řádek.
-            items.push({ description: `Doplatek za úpravu rezervace`, qty: 1, unit_price: priceDiff })
-          } else if (Math.round(itemsSum) !== priceDiff) {
-            // Bezpečné: pokud se rozpis nesejde s priceDiff (storno % u odebraných
+            items.push({ description: `Doplatek za úpravu rezervace`, qty: 1, unit_price: itemDiff })
+          } else if (Math.round(itemsSum) !== Math.round(itemDiff)) {
+            // Bezpečné: pokud se rozpis nesejde s doplatkem (storno % u odebraných
             // dnů, věrnostní sleva, ruční override), korekční řádek srovná součet
             // 1:1 s tím, co zákazník platí.
-            items.push({ description: `Korekce ceny úpravy`, qty: 1, unit_price: priceDiff - Math.round(itemsSum) })
+            items.push({ description: `Korekce ceny úpravy`, qty: 1, unit_price: Math.round((itemDiff - Math.round(itemsSum)) * 100) / 100 })
           }
         } else {
           // Generický doplatek — změna motorky / placená výbava / doplatek z webhooku.
@@ -554,9 +572,10 @@ serve(async (req) => {
           items.push({
             description: `Doplatek za úpravu rezervace ${motoLabel} — ${fmtD(booking.start_date)} – ${fmtD(booking.end_date)}`,
             qty: 1,
-            unit_price: priceDiff,
+            unit_price: itemDiff,
           })
         }
+        if (Math.abs(editRounding) >= 0.01) items.push({ description: cardRoundingLabel(editRounding), qty: 1, unit_price: editRounding })
 
         // Booking-level ref in title; exposed via bookingNumber below
       } else {
@@ -570,7 +589,10 @@ serve(async (req) => {
         // Sleva 50 % na 1. den (pozdní vyzvednutí >=12:00, rezervace >=2 dny) je
         // uložená odděleně — pro brutto pronájmu se přičítá zpět jako discount_amount.
         const latePickupDiscount = Number(booking.late_pickup_discount_amount || 0)
-        const baseRental = (booking.total_price || 0) - extrasTotal - (booking.delivery_fee || 0) + (booking.discount_amount || 0) + loyaltyDiscount + latePickupDiscount
+        // D1 (2026-10-16): dorovnání na minimální platbu kartou (+) / odpuštěno do 1 Kč (−) je
+        // v total_price — pronájem se počítá bez něj a dorovnání má vlastní řádek (níže).
+        const cardRounding = Math.round(Number(booking.card_rounding || 0) * 100) / 100
+        const baseRental = (booking.total_price || 0) - extrasTotal - (booking.delivery_fee || 0) + (booking.discount_amount || 0) + loyaltyDiscount + latePickupDiscount - cardRounding
         const motoLabelStd = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`
         const bd = calcPriceBreakdown(booking.motorcycles, booking.start_date, booking.end_date)
 
@@ -651,6 +673,7 @@ serve(async (req) => {
         if (latePickupDiscount > 0) {
           items.push({ description: `Sleva 50 % na 1. den (pozdní vyzvednutí)`, qty: 1, unit_price: -latePickupDiscount })
         }
+        if (Math.abs(cardRounding) >= 0.01) items.push({ description: cardRoundingLabel(cardRounding), qty: 1, unit_price: cardRounding })
       }
 
       if (isPaymentReceipt) {

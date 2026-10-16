@@ -7,6 +7,9 @@ import '../features/booking/booking_ui_helpers.dart';
 import '../features/booking/map_launcher.dart';
 import 'booking_form_locked_option.dart';
 import 'i18n/i18n_provider.dart';
+import 'v2/flag/v2_scope.dart';
+import 'v2/icons/mg_icon.dart';
+import '../features/booking/v2/sections/handover_v2.dart';
 
 /// Pickup-method selector section inside the booking form.
 class BookingFormPickupSection extends ConsumerWidget {
@@ -34,6 +37,54 @@ class BookingFormPickupSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Obsluha sdílená starým i v2 vzhledem (těla beze změny, jen vytažená
+    // z inline closur).
+    void toStore() => onUpd((d) => d.copyWith(pickupMethod: 'store'));
+    void toDelivery() => onUpd((d) => d.copyWith(pickupMethod: 'delivery'));
+    void openAddress() => showAddrBottomSheet(
+        context,
+        t(context).tr('pickupAddressLabel'),
+        draft.pickupCity,
+        draft.pickupAddress,
+        (city, addr) => onUpd((d) => d.copyWith(
+              pickupCity: () => city,
+              pickupAddress: () => addr,
+            )),
+        onDistCalc: (km, fee) {
+          ref.read(pickupDelivFeeProvider.notifier).state = fee;
+          ref.read(pickupDistKmProvider.notifier).state = km;
+        },
+        onMapTap: (ctx) => launchMapPicker(ctx),
+      );
+    // v2 vzhled (kill-switch app_v2_ui): stejné volby, zámek i adresa.
+    if (MgV2.on(context)) {
+      return BookingHandoverV2(
+        title: t(context).tr('v2BkPickupTitle'),
+        icon: MgIcons.moto,
+        branchSub: branchLabel ?? 'Mezná 9, Pelhřimov',
+        storeSelected: draft.pickupMethod == 'store',
+        deliverySelected: draft.pickupMethod == 'delivery',
+        deliveryTitle: t(context).tr('v2BkDeliveryTo'),
+        onStore: toStore,
+        onDelivery: toDelivery,
+        locked: deliveryBlocked
+            ? BookingLockedOptionTile(
+                label: t(context).tr('v2BkDeliveryTo'),
+                shortReason: t(context).tr('ssNoDeliveryShort'),
+                info: t(context).tr('ssNoDeliveryInfo'),
+              )
+            : null,
+        address: !deliveryBlocked && draft.pickupMethod == 'delivery'
+            ? BkAddress(
+                city: draft.pickupCity,
+                address: draft.pickupAddress,
+                onTap: openAddress,
+                distKm: ref.watch(pickupDistKmProvider),
+                delivFee: ref.watch(pickupDelivFeeProvider),
+              )
+            : null,
+      );
+    }
     return bookingCard(
       4,
       t(context).tr('pickupMotorcycle'),
@@ -45,7 +96,7 @@ class BookingFormPickupSection extends ConsumerWidget {
             branchLabel ?? 'Mezná 9, Pelhřimov',
             t(context).free,
             draft.pickupMethod == 'store',
-            () => onUpd((d) => d.copyWith(pickupMethod: 'store')),
+            toStore,
           ),
           const SizedBox(height: 6),
           if (deliveryBlocked)
@@ -60,28 +111,14 @@ class BookingFormPickupSection extends ConsumerWidget {
               t(context).tr('deliveryPriceInfo'),
               t(context).tr('deliveryFrom'),
               draft.pickupMethod == 'delivery',
-              () => onUpd((d) => d.copyWith(pickupMethod: 'delivery')),
+              toDelivery,
             ),
           if (!deliveryBlocked && draft.pickupMethod == 'delivery') ...[
             const SizedBox(height: 10),
             bookingAddrTile(
               draft.pickupCity,
               draft.pickupAddress,
-              () => showAddrBottomSheet(
-                context,
-                t(context).tr('pickupAddressLabel'),
-                draft.pickupCity,
-                draft.pickupAddress,
-                (city, addr) => onUpd((d) => d.copyWith(
-                      pickupCity: () => city,
-                      pickupAddress: () => addr,
-                    )),
-                onDistCalc: (km, fee) {
-                  ref.read(pickupDelivFeeProvider.notifier).state = fee;
-                  ref.read(pickupDistKmProvider.notifier).state = km;
-                },
-                onMapTap: (ctx) => launchMapPicker(ctx),
-              ),
+              openAddress,
               distKm: ref.watch(pickupDistKmProvider),
               delivFee: ref.watch(pickupDelivFeeProvider),
               context: context,

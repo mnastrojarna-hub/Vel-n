@@ -30,12 +30,15 @@ import 'widgets/reservation_edit_extras_section.dart';
 import 'widgets/reservation_edit_calendar_section.dart';
 import 'widgets/reservation_swap_section.dart';
 import 'widgets/reservation_edit_states.dart';
-import '../payment/payment_refusals.dart' show PayFlow, belowCardMinimum;
+import '../payment/card_minimum.dart';
+import '../payment/widgets/card_rounding_note.dart';
 import '../../core/currency.dart';
 import '../../core/booking_rules.dart';
 import '../../core/feature_flags.dart';
 import '../../core/widgets/pickup_location_link.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/res_edit_view_v2.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
 /// Calendar supports both extend and shorten in one view.
@@ -638,7 +641,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           'customer_overlap': t(context).tr('moveErrCustomerOverlap'),
           'length_mismatch': t(context).tr('moveErrLength'),
           'past_date': t(context).tr('cannotSelectPast'),
-        }[code] ?? t(context).tr('psMoveFail');
+        }[code] ?? t(context).tr('pdMoveFail');
         if (mounted) showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: msg);
         return;
       }
@@ -1057,15 +1060,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
 
       // Účtuje/vrací se rozdíl PO slevě (varianta B) — effectivePriceDiff.
       final effDiff = calc.effectivePriceDiff;
-      // Doplatek 1–14 Kč kartou zaplatit nejde (minimum Stripe) — řekni to
-      // hned, ne až po marném pokusu o platbu (rozhodnutí majitele D1).
-      if (belowCardMinimum(effDiff)) {
-        if (mounted) {
-          setState(() => _saving = false);
-          showBelowMinimum(context, PayFlow.edit, effDiff);
-        }
-        return;
-      }
+      // D1 (2026-10-16): doplatek do 1 Kč se neúčtuje (server změnu zapíše bez
+      // platby), 1–15 Kč se platí 15 Kč (dorovnání zapíše server). Platební
+      // obrazovka to zákazníkovi ukáže PŘED platbou.
+      final cc = cardCharge(effDiff);
       if (effDiff > 0) {
         // Needs extra payment — do NOT update booking yet.
         // Store pending changes; apply only after Stripe confirms payment.
@@ -1090,6 +1088,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             label: t(context).tr('extensionSurcharge'),
             pendingEditChanges: {
               ...changes,
+              // Interní (do metadat nejde): dorovnání na 15 Kč (+) / odpuštěno (−).
+              // `total_price` zůstává BEZ dorovnání — přičítá ho server.
+              if (cc.rounding != 0) '_card_rounding': cc.rounding,
               // Výchozí stav pro server: process-payment odmítne platbu nad
               // zastaralým stavem (409 stale_booking), webhook z něj zapíše
               // historii úpravy pro rozdílový doklad.
@@ -1170,11 +1171,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           // Realita > optimismus: změna JE uložená; když vratka selhala,
           // řekneme to na rovinu (vyřídí obsluha ručně) a NEslibujeme
           // automatické vrácení. Text serveru (anglicky / technický) se
-          // zákazníkovi neukazuje — vždy přeložené `refundSettleManual`.
+          // zákazníkovi neukazuje — vždy přeložené `pdRefundManual`.
           if (!refundOk && mounted) {
             showMotoGoToast(context, icon: '⚠️',
               title: t(context).tr('psRefundPendingTitle'),
-              message: t(context).tr('refundSettleManual'),
+              message: t(context).tr('pdRefundManual'),
               duration: const Duration(seconds: 6));
           }
         }
@@ -1200,7 +1201,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             message: effDiff < 0
                 ? (refundOk
                     ? '${t(context).tr('reservationShortened')}\n${t(context).tr('refundAmount').replaceAll('{amount}', '${(-effDiff).toStringAsFixed(0)}').replaceAll('{percent}', '${calc.stornoPercent}')}\n${t(context).tr('refundToOriginalMethod')}'
-                    : '${t(context).tr('reservationShortened')}\n${t(context).tr('refundSettleManual')}')
+                    : '${t(context).tr('reservationShortened')}\n${t(context).tr('pdRefundManual')}')
                 : '${t(context).tr('changesSaved')}\n${t(context).tr('reservationRange').replaceAll('{start}', _fmt(_newStart)).replaceAll('{end}', _fmt(_newEnd))}',
             isRefund: effDiff < 0 && refundOk,
           );
@@ -1373,6 +1374,165 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         .where((e) => e.isNotEmpty)
         .toList();
 
+    // ── v2 (PLAN §2.4.3): tytéž sekce, zavření i akce vytažené beze změny
+    // (hoist), ať je starý i nový strom použijí stejně. ──
+    final canMove = _booking!.status == 'reserved' &&
+        _booking!.paymentStatus == 'paid' &&
+        !_booking!.startDateInPast;
+    final canSwap = (_booking!.status == 'reserved' || _booking!.status == 'active') &&
+        _booking!.paymentStatus == 'paid';
+    void selectExtend() => setState(() { _tab = 'extend'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; });
+    void selectShorten() => setState(() { _tab = 'shorten'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; });
+    void selectMove() => setState(() { _tab = 'move'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; });
+    void selectSwap() => setState(() { _tab = 'swap'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; });
+    final swapSection = SwapMotoSection(
+              booking: _booking!,
+              userLicenseGroups: userLicenseGroups,
+              onSwapped: (swapDate, swapTime, newMotoName, newMotoId) {
+                ref.invalidate(reservationsProvider);
+                ref.invalidate(reservationByIdProvider(widget.bookingId));
+                ref.invalidate(doorCodesProvider(widget.bookingId));
+                ref.invalidate(bookingGateInfoProvider(widget.bookingId));
+                ref.invalidate(bookedDatesProvider(_booking!.motoId ?? ''));
+                _showConfirmation(
+                  title: t(context).tr('swap.successTitle'),
+                  message: t(context).tr('swap.success')
+                      .replaceAll('{date}', _fmt(swapDate))
+                      .replaceAll('{time}', swapTime)
+                      .replaceAll('{moto}', newMotoName),
+                  pickupMotoId: newMotoId,
+                );
+              },
+            );
+    final calendarSection = EditCalendarSection(
+            tab: _tab,
+            isActive: _isActive,
+            origStart: _booking!.startDate,
+            origEnd: _booking!.endDate,
+            newStart: _newStart,
+            newEnd: _newEnd,
+            diffDays: calc.diffDays,
+            shortenDir: _shortenDir,
+            calendarInstruction: _getCalendarInstruction(),
+            motoName: _booking!.motoName,
+            shortId: _booking!.shortId,
+            bookedDates: bookedAsync.valueOrNull ?? <BookedDateRange>[],
+            onDatesChanged: (s, e) => setState(() { _newStart = s; _newEnd = e; }),
+            onError: (msg) => ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg), duration: const Duration(seconds: 2))),
+            onShortenStart: () => setState(() { _shortenDir = 'start'; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; }),
+            onShortenEnd: () => setState(() { _shortenDir = 'end'; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; }),
+          );
+    final pickupPlace = AddressPickerWidget(label: t(context).pickup, isPickup: true, method: _pickupMethod,
+                branchLabel: _effBranchLabel,
+                deliveryBlocked: pickupBlocked,
+                onMethodChanged: (m) => setState(() => _pickupMethod = m),
+                onAddressChanged: (a) => setState(() => _pickupAddrNew = _addrText(a)),
+                onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f));
+    final pickupTimePicker = EditTimePicker(
+                label: t(context).tr(effPickup == 'delivery' ? 'pickupTimeEdit' : 'pickupTimeLabel'),
+                value: legacyPickup ? '09:00' : _pickupTime,
+                onChanged: (v) => setState(() {
+                  _pickupTime = v;
+                  _pickupTouched = true;
+                }));
+    final returnPlace = AddressPickerWidget(label: t(context).returnLabel, isPickup: false, method: _returnMethod,
+              branchLabel: _effBranchLabel,
+              deliveryBlocked: returnBlocked,
+              onMethodChanged: (m) => setState(() => _returnMethod = m),
+              onAddressChanged: (a) => setState(() => _returnAddrNew = _addrText(a)),
+              onDeliveryFeeChanged: (f) => setState(() => _returnDelivFee = f));
+    final returnTimePicker = EditTimePicker(label: t(context).tr('returnTimeEdit'), value: _returnTime,
+                onChanged: (v) => setState(() => _returnTime = v));
+    final motoSection = EditMotoChangeSection(
+              bookingId: widget.bookingId,
+              rangeStart: _newStart ?? _booking!.startDate,
+              rangeEnd: _newEnd ?? _booking!.endDate,
+              currentMotoName: _booking!.motoName,
+              currentMotoId: _booking!.motoId,
+              newMotoId: _newMotoId,
+              expanded: _motoExpanded,
+              userLicenseGroups: userLicenseGroups,
+              // S vozíkem nelze přejet na motorku ze samoobslužné pobočky.
+              hasTrailer: _booking!.trailerMotoId != null,
+              onMotoSelected: (id) => setState(() => _newMotoId = id),
+              onToggleExpanded: () => setState(() => _motoExpanded = !_motoExpanded),
+            );
+    final extrasSection = EditExtrasSection(
+              selectedExtras: _selectedExtras,
+              pickupMethod: _pickupMethod,
+              returnMethod: _returnMethod,
+              isKids: _booking!.motoLicenseRequired == 'N',
+              selfService: _effBranchType == selfServiceBranchType,
+              ownGear: _ownGear,
+              loyaltyLevel: _appOnlyLevel(
+                  ref.watch(loyaltyStatusProvider).valueOrNull?.level ?? 0),
+              helmetSize: _helmetSize, jacketSize: _jacketSize, pantsSize: _pantsSize,
+              bootsSize: _bootsSize, glovesSize: _glovesSize,
+              passengerHelmetSize: _passengerHelmetSize,
+              passengerJacketSize: _passengerJacketSize,
+              passengerPantsSize: _passengerPantsSize,
+              passengerBootsSize: _passengerBootsSize,
+              onExtrasChanged: (extras) => setState(() { _selectedExtras.clear(); _selectedExtras.addAll(extras); }),
+              onOwnGearChanged: (v) => setState(() => _ownGear = v),
+              onHelmetSize: (s) => setState(() => _helmetSize = s),
+              onJacketSize: (s) => setState(() => _jacketSize = s),
+              onPantsSize: (s) => setState(() => _pantsSize = s),
+              onBootsSize: (s) => setState(() => _bootsSize = s),
+              onGlovesSize: (s) => setState(() => _glovesSize = s),
+              onPassengerHelmetSize: (s) => setState(() => _passengerHelmetSize = s),
+              onPassengerJacketSize: (s) => setState(() => _passengerJacketSize = s),
+              onPassengerPantsSize: (s) => setState(() => _passengerPantsSize = s),
+              onPassengerBootsSize: (s) => setState(() => _passengerBootsSize = s),
+              onPassengerGlovesSize: (s) => setState(() => _passengerGlovesSize = s),
+            );
+    final VoidCallback? saveAction = _tab == 'move'
+                  ? ((!_saving && _moveChanged) ? _saveMove : null)
+                  : ((!_saving && (calc.hasChanges || _ownGearChanged) && _missingGearSizes().isEmpty) ? _save : null);
+    final String saveLabel = _tab == 'move'
+                          ? t(context).tr('moveSaveBtn')
+                          : (calc.effectivePriceDiff > 0
+                              ? (cardCharge(calc.effectivePriceDiff).isWaive
+                                  ? t(context).tr('pdSaveFree')
+                                  : '${t(context).tr('proceedToPayment')} (+${Money.czk(cardCharge(calc.effectivePriceDiff).charge)})')
+                              : t(context).tr('saveChangesBtn'));
+    if (MgV2.on(context)) {
+      final datesOrSwap = _tab == 'move' || _tab == 'swap';
+      return ResEditV2View(
+        booking: _booking!,
+        tab: _tab,
+        isActive: _isActive,
+        canMove: canMove,
+        canSwap: canSwap,
+        returnTimeAvailable: !hideReturnTime,
+        calc: calc,
+        sections: ResEditV2Sections(
+          swap: _tab == 'swap' ? swapSection : null,
+          calendar: _tab != 'swap' ? calendarSection : null,
+          pickupPlace: !_isActive && !datesOrSwap ? pickupPlace : null,
+          pickupTime: !_isActive && !datesOrSwap ? pickupTimePicker : null,
+          pickupLegacyLine: legacyPickup && effPickup != 'delivery',
+          pickupSelfServiceHint: pickupAtSelfService,
+          returnPlace: !datesOrSwap ? returnPlace : null,
+          returnTime: !datesOrSwap && !hideReturnTime ? returnTimePicker : null,
+          moto: !_isActive && !datesOrSwap ? motoSection : null,
+          extras: !_isActive && !datesOrSwap ? extrasSection : null,
+        ),
+        stornoPct: _tab == 'shorten' && calc.diffDays < 0
+            ? StornoCalc.effectiveRefundPercent(_newStart ?? _booking!.startDate, _booking!)
+            : null,
+        missingSizes: !datesOrSwap ? _missingGearSizes() : const [],
+        saveLabel: _tab == 'swap' ? null : saveLabel,
+        onSave: saveAction,
+        saving: _saving,
+        onBack: () => context.backOr(Routes.reservations),
+        onSelectExtend: selectExtend,
+        onSelectShorten: selectShorten,
+        onSelectMove: selectMove,
+        onSelectSwap: selectSwap,
+      );
+    }
+
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: ListView(
@@ -1412,72 +1572,33 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
             child: Row(children: [
               EditTabBtn(label: t(context).tr('extendChangePlace'), active: _tab == 'extend',
-                onTap: () => setState(() { _tab = 'extend'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),
+                onTap: selectExtend),
               const SizedBox(width: 6),
               EditTabBtn(label: t(context).tr('shortenChangePlace'), active: _tab == 'shorten',
-                onTap: () => setState(() { _tab = 'shorten'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),
+                onTap: selectShorten),
               // Posun termínu zdarma — dokud motorka NENÍ převzatá (status 'reserved')
               // a nejpozději v den začátku termínu; parita se serverem
               // (reschedule_booking_free) i s webem.
-              if (_booking!.status == 'reserved' &&
-                  _booking!.paymentStatus == 'paid' &&
-                  !_booking!.startDateInPast) ...[
+              if (canMove) ...[
                 const SizedBox(width: 6),
                 EditTabBtn(label: t(context).tr('moveChangePlace'), active: _tab == 'move',
-                  onTap: () => setState(() { _tab = 'move'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),
+                  onTap: selectMove),
               ],
               // Výměna motorky uprostřed rezervace — reserved/active + zaplaceno.
-              if ((_booking!.status == 'reserved' || _booking!.status == 'active') &&
-                  _booking!.paymentStatus == 'paid') ...[
+              if (canSwap) ...[
                 const SizedBox(width: 6),
                 EditTabBtn(label: t(context).tr('swap.tab'), active: _tab == 'swap',
-                  onTap: () => setState(() { _tab = 'swap'; _shortenDir = null; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; })),
+                  onTap: selectSwap),
               ],
             ])),
 
           // === VÝMĚNA MOTORKY UPROSTŘED REZERVACE ===
           if (_tab == 'swap')
-            SwapMotoSection(
-              booking: _booking!,
-              userLicenseGroups: userLicenseGroups,
-              onSwapped: (swapDate, swapTime, newMotoName, newMotoId) {
-                ref.invalidate(reservationsProvider);
-                ref.invalidate(reservationByIdProvider(widget.bookingId));
-                ref.invalidate(doorCodesProvider(widget.bookingId));
-                ref.invalidate(bookingGateInfoProvider(widget.bookingId));
-                ref.invalidate(bookedDatesProvider(_booking!.motoId ?? ''));
-                _showConfirmation(
-                  title: t(context).tr('swap.successTitle'),
-                  message: t(context).tr('swap.success')
-                      .replaceAll('{date}', _fmt(swapDate))
-                      .replaceAll('{time}', swapTime)
-                      .replaceAll('{moto}', newMotoName),
-                  pickupMotoId: newMotoId,
-                );
-              },
-            ),
+            swapSection,
 
           // === TERMÍN ===
           if (_tab != 'swap')
-          EditCalendarSection(
-            tab: _tab,
-            isActive: _isActive,
-            origStart: _booking!.startDate,
-            origEnd: _booking!.endDate,
-            newStart: _newStart,
-            newEnd: _newEnd,
-            diffDays: calc.diffDays,
-            shortenDir: _shortenDir,
-            calendarInstruction: _getCalendarInstruction(),
-            motoName: _booking!.motoName,
-            shortId: _booking!.shortId,
-            bookedDates: bookedAsync.valueOrNull ?? <BookedDateRange>[],
-            onDatesChanged: (s, e) => setState(() { _newStart = s; _newEnd = e; }),
-            onError: (msg) => ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(msg), duration: const Duration(seconds: 2))),
-            onShortenStart: () => setState(() { _shortenDir = 'start'; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; }),
-            onShortenEnd: () => setState(() { _shortenDir = 'end'; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; }),
-          ),
+          calendarSection,
 
           // === POSUN ZDARMA — info banner ===
           if (_tab == 'move')
@@ -1503,12 +1624,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 Text(t(context).tr('pickupMotorcycle'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
               ]),
               const SizedBox(height: 8),
-              AddressPickerWidget(label: t(context).pickup, isPickup: true, method: _pickupMethod,
-                branchLabel: _effBranchLabel,
-                deliveryBlocked: pickupBlocked,
-                onMethodChanged: (m) => setState(() => _pickupMethod = m),
-                onAddressChanged: (a) => setState(() => _pickupAddrNew = _addrText(a)),
-                onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f)),
+              pickupPlace,
               const SizedBox(height: 8),
               // Stará rezervace „bez času“ — stav do první změny výběru.
               if (legacyPickup && effPickup != 'delivery') ...[
@@ -1517,13 +1633,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 const SizedBox(height: 6),
               ],
               // Na pobočce „ČAS VYZVEDNUTÍ“, u přistavení „ČAS PŘISTAVENÍ“.
-              EditTimePicker(
-                label: t(context).tr(effPickup == 'delivery' ? 'pickupTimeEdit' : 'pickupTimeLabel'),
-                value: legacyPickup ? '09:00' : _pickupTime,
-                onChanged: (v) => setState(() {
-                  _pickupTime = v;
-                  _pickupTouched = true;
-                })),
+              pickupTimePicker,
               // Samoobsluha: vrácení bez času + sleva / výdej kiosku od 12:00.
               if (pickupAtSelfService) ...[
                 const SizedBox(height: 6),
@@ -1541,66 +1651,20 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               Text(t(context).tr('returnMotorcycle'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
             ]),
             const SizedBox(height: 8),
-            AddressPickerWidget(label: t(context).returnLabel, isPickup: false, method: _returnMethod,
-              branchLabel: _effBranchLabel,
-              deliveryBlocked: returnBlocked,
-              onMethodChanged: (m) => setState(() => _returnMethod = m),
-              onAddressChanged: (a) => setState(() => _returnAddrNew = _addrText(a)),
-              onDeliveryFeeChanged: (f) => setState(() => _returnDelivFee = f)),
+            returnPlace,
             if (!hideReturnTime) ...[
               const SizedBox(height: 8),
-              EditTimePicker(label: t(context).tr('returnTimeEdit'), value: _returnTime,
-                onChanged: (v) => setState(() => _returnTime = v)),
+              returnTimePicker,
             ],
           ])),
 
           // === ZMĚNA MOTORKY (collapsible, only for upcoming) ===
           if (!_isActive && _tab != 'move' && _tab != 'swap')
-            EditMotoChangeSection(
-              bookingId: widget.bookingId,
-              rangeStart: _newStart ?? _booking!.startDate,
-              rangeEnd: _newEnd ?? _booking!.endDate,
-              currentMotoName: _booking!.motoName,
-              currentMotoId: _booking!.motoId,
-              newMotoId: _newMotoId,
-              expanded: _motoExpanded,
-              userLicenseGroups: userLicenseGroups,
-              // S vozíkem nelze přejet na motorku ze samoobslužné pobočky.
-              hasTrailer: _booking!.trailerMotoId != null,
-              onMotoSelected: (id) => setState(() => _newMotoId = id),
-              onToggleExpanded: () => setState(() => _motoExpanded = !_motoExpanded),
-            ),
+            motoSection,
 
           // === DOPLŇKY (only for upcoming) ===
           if (!_isActive && _tab != 'move' && _tab != 'swap')
-            EditExtrasSection(
-              selectedExtras: _selectedExtras,
-              pickupMethod: _pickupMethod,
-              returnMethod: _returnMethod,
-              isKids: _booking!.motoLicenseRequired == 'N',
-              selfService: _effBranchType == selfServiceBranchType,
-              ownGear: _ownGear,
-              loyaltyLevel: _appOnlyLevel(
-                  ref.watch(loyaltyStatusProvider).valueOrNull?.level ?? 0),
-              helmetSize: _helmetSize, jacketSize: _jacketSize, pantsSize: _pantsSize,
-              bootsSize: _bootsSize, glovesSize: _glovesSize,
-              passengerHelmetSize: _passengerHelmetSize,
-              passengerJacketSize: _passengerJacketSize,
-              passengerPantsSize: _passengerPantsSize,
-              passengerBootsSize: _passengerBootsSize,
-              onExtrasChanged: (extras) => setState(() { _selectedExtras.clear(); _selectedExtras.addAll(extras); }),
-              onOwnGearChanged: (v) => setState(() => _ownGear = v),
-              onHelmetSize: (s) => setState(() => _helmetSize = s),
-              onJacketSize: (s) => setState(() => _jacketSize = s),
-              onPantsSize: (s) => setState(() => _pantsSize = s),
-              onBootsSize: (s) => setState(() => _bootsSize = s),
-              onGlovesSize: (s) => setState(() => _glovesSize = s),
-              onPassengerHelmetSize: (s) => setState(() => _passengerHelmetSize = s),
-              onPassengerJacketSize: (s) => setState(() => _passengerJacketSize = s),
-              onPassengerPantsSize: (s) => setState(() => _passengerPantsSize = s),
-              onPassengerBootsSize: (s) => setState(() => _passengerBootsSize = s),
-              onPassengerGlovesSize: (s) => setState(() => _passengerGlovesSize = s),
-            ),
+            extrasSection,
 
           // === STORNO NOTE (shorten tab) ===
           if (_tab == 'shorten') ...[
@@ -1646,6 +1710,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900,
                     color: calc.effectivePriceDiff > 0 ? MotoGoColors.red : calc.effectivePriceDiff < 0 ? MotoGoColors.greenDarker : MotoGoColors.black)),
               ]),
+              // Minimum karty (D1): doplatek 1–15 Kč → kartou 15 Kč; do 1 Kč bez platby.
+              if (calc.effectivePriceDiff > 0)
+                CardRoundingNote(
+                    due: calc.effectivePriceDiff,
+                    roundKey: 'pdRoundEditHint',
+                    waiveKey: 'pdWaiveEditHint',
+                    showLine: false),
               // i při 0 Kč: pozdější čas ve stornu → sleva přiznaná jen z části
               if (calc.datesDiffRaw < 0 && (calc.effectivePriceDiff < 0 || calc.stornoPercent < 100))
                 Padding(padding: const EdgeInsets.only(top: 4),
@@ -1679,9 +1750,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             child: SizedBox(height: 52, child: PressableScale(
               enabled: !_saving,
               child: ElevatedButton(
-              onPressed: _tab == 'move'
-                  ? ((!_saving && _moveChanged) ? _saveMove : null)
-                  : ((!_saving && (calc.hasChanges || _ownGearChanged) && _missingGearSizes().isEmpty) ? _save : null),
+              onPressed: saveAction,
               style: ElevatedButton.styleFrom(
                 backgroundColor: MotoGoColors.green, foregroundColor: Colors.black,
                 disabledBackgroundColor: MotoGoColors.g200,
@@ -1689,11 +1758,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               child: _saving
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
                   : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Text(_tab == 'move'
-                          ? t(context).tr('moveSaveBtn')
-                          : (calc.effectivePriceDiff > 0
-                              ? '${t(context).tr('proceedToPayment')} (+${Money.czk(calc.effectivePriceDiff)})'
-                              : t(context).tr('saveChangesBtn')),
+                      Text(saveLabel,
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
                       const SizedBox(width: 6), const Icon(Icons.arrow_forward, size: 16),
                     ]),

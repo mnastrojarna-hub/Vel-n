@@ -9,6 +9,7 @@ import '../../../core/theme.dart';
 import '../../auth/widgets/toast_helper.dart';
 import '../../documents/document_models.dart';
 import '../../documents/invoices_screen.dart' show InvoiceTile;
+import '../../payment/card_minimum.dart' show kcExact;
 import '../reservation_models.dart';
 import 'res_detail_card.dart';
 import 'res_detail_row.dart';
@@ -98,6 +99,13 @@ class ResPaymentDetailsTab extends ConsumerWidget {
               valueColor: res.paymentStatus == 'paid' ? MotoGoColors.greenDarker : null,
             ),
             ResDetailRow(label: tr('totalAmount'), value: Money.czk(res.totalPrice), bold: true),
+            // Dorovnání na minimální platbu kartou (+) / neúčtovaný zbytek do 1 Kč (−),
+            // je součástí celkové ceny a na dokladu má vlastní řádek (D1).
+            if (d != null && d.n('card_rounding') != 0)
+              ResDetailRow(
+                label: tr(d.n('card_rounding') > 0 ? 'pdMinCardLine' : 'pdWaiveLine'),
+                value: '${d.n('card_rounding') > 0 ? '+' : ''}${kcExact(d.n('card_rounding'))}',
+              ),
             if (refunded > 0)
               ResDetailRow(label: tr('payRefunded'), value: Money.czk(refunded), valueColor: MotoGoColors.greenDarker),
             if (surcharge > 0)

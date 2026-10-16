@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'paid_change_queue.dart';
 import 'payment_pending_marker.dart';
 import 'supabase_client.dart';
+import '../features/payment/paid_change_api.dart' show piIdFromClientSecret;
 import '../features/payment/payment_verify.dart' show verifyPayment, VerifyState;
 import '../features/payment/stripe_service.dart'
     show StripeService, NextActionOutcome;
@@ -72,6 +74,13 @@ class PendingBooking {
   }
 }
 
+/// Začátek okna na zaplacení: pozdější z vytvoření a obnovení rezervace.
+DateTime pendingWindowStart(String createdAt, String? restoredAt) {
+  final c = DateTime.parse(createdAt);
+  final r = restoredAt == null ? null : DateTime.tryParse(restoredAt);
+  return r != null && r.isAfter(c) ? r : c;
+}
+
 /// Jak často se DB ptáme, jestli rezervace (ještě) čeká na platbu — sekundy.
 /// Platí jak pro hledání nové rezervace, tak pro ověřování té zobrazené.
 const _recheckSeconds = 5;
@@ -81,7 +90,7 @@ const _recheckSeconds = 5;
 Future<PendingBooking?> _fetchPendingBooking(String userId) async {
   final res = await MotoGoSupabase.client
       .from('bookings')
-      .select('id, status, payment_status, total_price, created_at')
+      .select('id, status, payment_status, total_price, created_at, restored_at')
       .eq('user_id', userId)
       .inFilter('status', ['reserved', 'pending'])
       .eq('payment_status', 'unpaid')
@@ -97,7 +106,9 @@ Future<PendingBooking?> _fetchPendingBooking(String userId) async {
   return PendingBooking(
     id: id,
     totalPrice: (res['total_price'] as num?)?.toDouble() ?? 0,
-    createdAt: DateTime.parse(res['created_at'] as String),
+    // Obnovená rezervace (D3) má nové 30min okno od obnovy (server
+    // auto_cancel_expired_pending počítá od restored_at).
+    createdAt: pendingWindowStart(res['created_at'] as String, res['restored_at'] as String?),
     verifying: await PaymentPendingMarker.isPending(id) ||
         await _expiredIntentStillRunning(id),
   );
@@ -141,6 +152,34 @@ final paidAfterRestartProvider =
     FutureProvider.autoDispose<PaidAfterRestart?>((ref) async {
   if (MotoGoSupabase.currentUser == null) return null;
   final markers = await PaymentPendingMarker.pendingMarkers();
+  // D6: zaplacený doplatek výměny / úpravy, jehož zápis appka nestihla (zabití
+  // appky, výpadek sítě) → do trvalé fronty a dokončit přes server.
+  for (final m in markers) {
+    if (m.kind != PaymentMarkerKind.edit && m.kind != PaymentMarkerKind.swap) continue;
+    final pi = piIdFromClientSecret(m.clientSecretCurrent ? m.clientSecret : null);
+    if (pi == null || await PaidChangeQueue.get(pi) != null) continue;
+    await PaidChangeQueue.enqueue(PaidChangeEntry(
+        key: pi, bookingId: m.id, kind: m.kind == PaymentMarkerKind.swap ? 'swap' : 'edit',
+        charge: 0, paid: false));
+  }
+  final done = <PaidChangeEntry>[];
+  final sub = PaidChangeQueue.events.listen((ev) {
+    if (ev.result.status == PaidChangeStatus.done) done.add(ev.entry);
+  });
+  try {
+    await PaidChangeQueue.drain(reason: 'start', force: true);
+    await Future<void>.delayed(Duration.zero); // doručit události z běhu
+  } finally {
+    await sub.cancel();
+  }
+  if (done.isNotEmpty) {
+    // Dokončeno teď → jednou oznámit („Doplatek proběhl a úprava rezervace
+    // je uložená" — platí i pro výměnu motorky).
+    for (final e in done) {
+      await PaymentPendingMarker.clear(e.bookingId);
+    }
+    return PaidAfterRestart(done.first.bookingId, PaymentMarkerKind.edit);
+  }
   for (final m in markers) {
     try {
       switch (m.kind) {

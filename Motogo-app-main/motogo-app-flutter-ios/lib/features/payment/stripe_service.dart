@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthException, Sess
 
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
+import 'card_minimum.dart' show newAttemptId;
 import 'net_error.dart' show authRefreshNetworkFailure, requestNeverSent;
 
 /// Stripe payment service — native Payment Sheet (in-app, no redirect).
@@ -68,6 +69,8 @@ class StripeService {
     String? incidentId,
     String? paymentMethodId,
     Map<String, dynamic>? change,
+    bool cardMin = true,
+    String? attemptId,
   }) async {
     final charges = paymentMethodId != null;
     try {
@@ -102,6 +105,11 @@ class StripeService {
       // process-payment ho uloží do Stripe metadata.chg (limit 500 znaků) a
       // webhook-receiver změnu aplikuje server-side i bez návratu do appky.
       if (change != null && change.isNotEmpty) body['change'] = change;
+      // D1/D4 (2026-10-16): appka umí minimum karty (dorovnání na 15 Kč /
+      // odpuštění do 1 Kč — server dorovná JEN na výslovnou žádost) a každé
+      // klepnutí „Zaplatit" nese vlastní attempt_id (idempotence Stripe).
+      if (cardMin) body['card_min'] = true;
+      if (attemptId != null) body['attempt_id'] = attemptId;
 
       Future<http.Response> send(String token) => http
           .post(
@@ -149,6 +157,18 @@ class StripeService {
             uncertain: charges);
       }
 
+      // Bez platby: 100% sleva nebo zbytek do 1 Kč (server ho odpustil) —
+      // i u požadavku s uloženou kartou (server pak přidá i tvar off-session).
+      if (data['success'] == true && data['free'] == true) {
+        return PaymentResult.free(
+          bookingId: bookingId,
+          waived: data['waived'] == true,
+          applied: data['applied'] == true,
+          newBookingId: data['new_booking_id'] as String?,
+          cardRounding: (data['card_rounding'] as num?)?.toDouble(),
+        );
+      }
+
       // Off-session: backend buď strhl rovnou (succeeded), nebo vyžaduje SCA
       // (requires_action s client_secret). Klient v PaymentScreen dotáhne SCA
       // přes Stripe.instance.handleNextAction(clientSecret).
@@ -157,6 +177,8 @@ class StripeService {
           return PaymentResult.offSessionSucceeded(
             paymentIntentId: data['payment_intent_id'] as String?,
             bookingId: bookingId,
+            // Server ho vrací od D4 — ověření stavu PI po restartu appky.
+            clientSecret: data['client_secret'] as String?,
           );
         }
         if (data['success'] == true &&
@@ -179,10 +201,6 @@ class StripeService {
         );
       }
 
-      if (data['success'] == true && data['free'] == true) {
-        return PaymentResult.free(bookingId: bookingId);
-      }
-
       if (data['success'] == true && data['client_secret'] != null) {
         return PaymentResult.intent(
           clientSecret: data['client_secret'] as String,
@@ -202,6 +220,8 @@ class StripeService {
         code: PaymentErrorCode.serverError,
         serverCode: data['code'] as String?,
         serverTotal: total?.toDouble(),
+        serverDue: (data['due'] as num?)?.toDouble(),
+        detail: (data['voucher_code'] ?? data['reason'])?.toString(),
         httpStatus: response.statusCode,
         // 5xx z vnějšího catch (Stripe výjimka) — u stržení uložené karty
         // raději ověřit stav, než tvrdit „nic nebylo strženo".
@@ -435,12 +455,15 @@ class StripeService {
   }
 
   /// Confirm free booking (100% discount).
+  /// Zbytek do 1 Kč ([cardWaiveMaxCzk]) server se `card_min` neúčtuje a
+  /// rezervaci potvrdí stejně jako 100% slevu (D1).
   static Future<PaymentResult> confirmFreeBooking(String bookingId) async {
     return createPaymentIntent(
       bookingId: bookingId,
       amount: 0,
       method: 'free',
       type: 'booking',
+      attemptId: newAttemptId(),
     );
   }
 }
@@ -492,6 +515,19 @@ class PaymentResult {
   /// true = požadavek nesl `payment_method_id` a odpověď se ztratila —
   /// platba MOHLA proběhnout. Nikdy netvrdit „nic nebylo strženo".
   final bool uncertain;
+  /// Zbytek do 1 Kč server neúčtoval (D1).
+  final bool waived;
+  /// Doplatek do 1 Kč: změnu server rovnou zapsal (bez platby).
+  final bool applied;
+  /// Výměna motorky rozdělená na novou rezervaci (id nové).
+  final String? newBookingId;
+  /// Dorovnání / odpuštěná částka podle serveru (Kč).
+  final double? cardRounding;
+  /// `due` z odmítnutí `below_minimum` (serverová částka k zaplacení).
+  final double? serverDue;
+  /// Doplňující údaj odmítnutí (kód poukazu u `voucher_unavailable`, důvod u
+  /// `change_not_applicable`) — jen do textu / logu.
+  final String? detail;
 
   const PaymentResult._({
     required this.type,
@@ -509,6 +545,12 @@ class PaymentResult {
     this.httpStatus,
     this.intentStatus,
     this.uncertain = false,
+    this.waived = false,
+    this.applied = false,
+    this.newBookingId,
+    this.cardRounding,
+    this.serverDue,
+    this.detail,
   });
 
   factory PaymentResult.intent({
@@ -527,13 +569,26 @@ class PaymentResult {
         bookingId: bookingId,
       );
 
-  factory PaymentResult.free({String? bookingId}) =>
-      PaymentResult._(type: PaymentResultType.free, bookingId: bookingId);
+  factory PaymentResult.free(
+          {String? bookingId,
+          bool waived = false,
+          bool applied = false,
+          String? newBookingId,
+          double? cardRounding}) =>
+      PaymentResult._(
+          type: PaymentResultType.free,
+          bookingId: bookingId,
+          waived: waived,
+          applied: applied,
+          newBookingId: newBookingId,
+          cardRounding: cardRounding);
 
   factory PaymentResult.error(String message,
           {PaymentErrorCode? code,
           String? serverCode,
           double? serverTotal,
+          double? serverDue,
+          String? detail,
           int? httpStatus,
           bool uncertain = false}) =>
       PaymentResult._(
@@ -542,6 +597,8 @@ class PaymentResult {
         errorCode: code,
         serverCode: serverCode,
         serverTotal: serverTotal,
+        serverDue: serverDue,
+        detail: detail,
         httpStatus: httpStatus,
         uncertain: uncertain,
       );
@@ -551,11 +608,13 @@ class PaymentResult {
   factory PaymentResult.offSessionSucceeded({
     String? paymentIntentId,
     String? bookingId,
+    String? clientSecret,
   }) =>
       PaymentResult._(
         type: PaymentResultType.offSessionSucceeded,
         paymentIntentId: paymentIntentId,
         bookingId: bookingId,
+        clientSecret: clientSecret,
       );
 
   /// Off-session vyžaduje SCA (3DS) — klient pokračuje přes Stripe.handleNextAction.

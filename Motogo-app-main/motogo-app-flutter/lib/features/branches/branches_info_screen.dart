@@ -7,6 +7,9 @@ import '../../core/i18n/i18n_provider.dart';
 import '../profile/widgets/branches_sheet.dart';
 import 'branches_info_provider.dart';
 import 'branches_widgets.dart';
+import '../../core/router.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/branches_view_v2.dart';
 
 /// Pobočky — přehled (Profil → Pobočky, na místě dočasně skrytého e-shopu).
 /// Každá karta vede na vlastní obrazovku pobočky (`/pobocky/<index>`,
@@ -19,6 +22,18 @@ class BranchesInfoScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final lang = ref.watch(localeProvider).languageCode;
     final tx = ref.watch(branchesInfoProvider(lang)).valueOrNull ?? branchesInfoDefaults;
+
+    // v2 vzhled (kill-switch app_v2_ui, PLAN §2.5.2): stejné texty i akce.
+    if (MgV2.on(context)) {
+      return BranchesViewV2(
+        tx: tx,
+        onBack: () => branchesBack(context),
+        onRefresh: () => ref.refresh(branchesInfoProvider(lang).future),
+        onOpen: (i) => context.push('/pobocky/$i'),
+        onBook: () => context.go(Routes.search),
+        onMotosSheet: () => showBranchesSheet(context),
+      );
+    }
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,

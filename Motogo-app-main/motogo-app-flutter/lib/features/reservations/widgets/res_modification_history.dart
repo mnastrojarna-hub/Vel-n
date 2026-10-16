@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/tokens/mg_colors.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'res_detail_card.dart';
@@ -201,7 +203,8 @@ class ResModificationHistory extends StatelessWidget {
     if (!mod.hasDateChange) {
       if (mod.hasMotoChange) {
         typeLabel = t(context).tr('histMotoChange');
-        typeColor = const Color(0xFF7C3AED);
+        // v2: fialová (rankové barvy ji nesmí mít) → petrolejová (V22 §1).
+        typeColor = MgV2.on(context) ? MgColors.petrol : const Color(0xFF7C3AED);
       } else if (mod.hasPickupTimeChange || mod.hasReturnTimeChange) {
         typeLabel = t(context).tr('histTimeChange');
         typeColor = const Color(0xFFD97706);
@@ -261,7 +264,7 @@ class ResModificationHistory extends StatelessWidget {
         mod.fromMoto!,
         mod.toMoto!,
         null,
-        const Color(0xFF7C3AED),
+        MgV2.on(context) ? MgColors.petrol : const Color(0xFF7C3AED),
       ));
     }
 

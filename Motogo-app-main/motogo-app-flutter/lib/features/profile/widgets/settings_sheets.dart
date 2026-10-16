@@ -12,6 +12,9 @@ import '../../auth/widgets/toast_helper.dart';
 import 'perm_result.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/profile_groups_v2.dart' show kPfLanguageNames;
+import '../v2/sheets/settings_sheets_v2.dart';
 
 /// Shows a bottom sheet for changing password.
 ///
@@ -27,31 +30,9 @@ void showChangePasswordSheet(BuildContext context) {
     context: context,
     isScrollControlled: true,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setSheet) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          MgSheetTitleRow(title: Text(t(context).tr('changePassword'),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black))),
-          const SizedBox(height: 16),
-          TextField(
-              controller: passCtrl,
-              obscureText: true,
-              decoration: InputDecoration(labelText: t(context).tr('newPasswordHint'))),
-          const SizedBox(height: 10),
-          TextField(
-              controller: confirmCtrl,
-              obscureText: true,
-              decoration: InputDecoration(labelText: t(context).tr('confirmPasswordLabel'))),
-          if (error != null) ...[
-            const SizedBox(height: 10),
-            Text(error!,
-                style: const TextStyle(fontSize: 12, color: MotoGoColors.red, height: 1.4)),
-          ],
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: busy
-                ? null
-                : () async {
+      builder: (ctx, setSheet) {
+        // Odeslání sdílené starým i v2 vzhledem (kill-switch) — tělo beze změny.
+        Future<void> submit() async {
                     if (passCtrl.text.length < 8) {
                       setSheet(() => error = t(context).tr('min8chars'));
                       return;
@@ -77,7 +58,42 @@ void showChangePasswordSheet(BuildContext context) {
                     // Po awaitu ověř, že vnější obrazovka je stále v tree.
                     if (!context.mounted) return;
                     showMotoGoToast(context, icon: '✓', title: t(context).tr('success'), message: t(context).tr('passwordChanged'));
-                  },
+        }
+        if (MgV2.on(ctx)) {
+          return PasswordSheetV2View(
+            pass: passCtrl,
+            confirm: confirmCtrl,
+            busy: busy,
+            error: error,
+            onSubmit: submit,
+            onClose: () => Navigator.pop(ctx),
+          );
+        }
+        return Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          MgSheetTitleRow(title: Text(t(context).tr('changePassword'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black))),
+          const SizedBox(height: 16),
+          TextField(
+              controller: passCtrl,
+              obscureText: true,
+              decoration: InputDecoration(labelText: t(context).tr('newPasswordHint'))),
+          const SizedBox(height: 10),
+          TextField(
+              controller: confirmCtrl,
+              obscureText: true,
+              decoration: InputDecoration(labelText: t(context).tr('confirmPasswordLabel'))),
+          if (error != null) ...[
+            const SizedBox(height: 10),
+            Text(error!,
+                style: const TextStyle(fontSize: 12, color: MotoGoColors.red, height: 1.4)),
+          ],
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: busy
+                ? null
+                : submit,
             style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               if (busy)
@@ -89,7 +105,8 @@ void showChangePasswordSheet(BuildContext context) {
             ]),
           ),
         ]),
-      ),
+      );
+      },
     ),
   );
 }
@@ -112,7 +129,27 @@ void showLanguagePickerSheet(BuildContext context) {
     // Consumer: sheet má vlastní ref žijící v jeho stromu. Ref z obrazovky
     // pod ním může být po resume/redirectu odpojený a jeho čtení shodí appku
     // („Bad state: No ProviderScope found").
-    builder: (ctx) => Consumer(builder: (ctx, sheetRef, _) => SafeArea(
+    builder: (ctx) => Consumer(builder: (ctx, sheetRef, _) {
+      // Volba jazyka sdílená starým i v2 vzhledem — tělo beze změny.
+      Future<void> pick((String, String) l) async {
+              await sheetRef.read(localeProvider.notifier).setLocale(Locale(l.$1));
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) {
+                showMotoGoToast(context, icon: '🌐', title: t(context).tr('languageChanged'), message: l.$2);
+                // Force full app rebuild by navigating to home
+                context.go(Routes.home);
+              }
+      }
+      if (MgV2.on(ctx)) {
+        return ChoiceSheetV2View(
+          title: t(ctx).tr('language'),
+          items: [for (final l in langs) PfChoice(l.$1, kPfLanguageNames[l.$1] ?? l.$2)],
+          current: sheetRef.read(localeProvider).languageCode,
+          onPick: (i) => pick(langs[i]),
+          onClose: () => Navigator.pop(ctx),
+        );
+      }
+      return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -124,19 +161,12 @@ void showLanguagePickerSheet(BuildContext context) {
             trailing: sheetRef.read(localeProvider).languageCode == l.$1
                 ? const Icon(Icons.check, color: MotoGoColors.greenDark)
                 : null,
-            onTap: () async {
-              await sheetRef.read(localeProvider.notifier).setLocale(Locale(l.$1));
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (context.mounted) {
-                showMotoGoToast(context, icon: '🌐', title: t(context).tr('languageChanged'), message: l.$2);
-                // Force full app rebuild by navigating to home
-                context.go(Routes.home);
-              }
-            },
+            onTap: () => pick(l),
           )),
         ]),
       ),
-    )),
+    );
+    }),
   );
 }
 
@@ -147,7 +177,40 @@ void showCurrencyPickerSheet(BuildContext context) {
     context: context,
     isScrollControlled: true,
     // Consumer: vlastní ref sheetu — viz komentář u language pickeru.
-    builder: (ctx) => Consumer(builder: (ctx, sheetRef, _) => SafeArea(
+    builder: (ctx) => Consumer(builder: (ctx, sheetRef, _) {
+      // Volba měny sdílená starým i v2 vzhledem — tělo beze změny.
+      Future<void> pick(AppCurrency c) async {
+              await sheetRef.read(currencyProvider.notifier).setCurrency(c.code);
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) {
+                showMotoGoToast(context, icon: '💱',
+                    title: t(context).tr('currencyChanged'),
+                    message: '${c.flag} ${c.code}');
+                // Force full app rebuild by navigating to home (jako u jazyka)
+                context.go(Routes.home);
+              }
+      }
+      if (MgV2.on(ctx)) {
+        return ChoiceSheetV2View(
+          title: t(ctx).tr('currency'),
+          note: t(ctx).tr('currencyNote'),
+          items: [
+            for (final c in supportedCurrencies)
+              PfChoice(
+                c.code,
+                '${c.code} — ${c.symbol}',
+                c.code == 'CZK'
+                    ? null
+                    : '1 ${c.code} ≈ ${(Money.rates[c.code] ?? 0).toStringAsFixed(2)} '
+                        '${t(ctx).lang == 'cs' ? 'Kč (ČNB)' : 'CZK (CNB)'}',
+              ),
+          ],
+          current: sheetRef.read(currencyProvider),
+          onPick: (i) => pick(supportedCurrencies[i]),
+          onClose: () => Navigator.pop(ctx),
+        );
+      }
+      return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -170,21 +233,12 @@ void showCurrencyPickerSheet(BuildContext context) {
             trailing: sheetRef.read(currencyProvider) == c.code
                 ? const Icon(Icons.check, color: MotoGoColors.greenDark)
                 : null,
-            onTap: () async {
-              await sheetRef.read(currencyProvider.notifier).setCurrency(c.code);
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (context.mounted) {
-                showMotoGoToast(context, icon: '💱',
-                    title: t(context).tr('currencyChanged'),
-                    message: '${c.flag} ${c.code}');
-                // Force full app rebuild by navigating to home (jako u jazyka)
-                context.go(Routes.home);
-              }
-            },
+            onTap: () => pick(c),
           )),
         ]),
       ),
-    )),
+    );
+    }),
   );
 }
 

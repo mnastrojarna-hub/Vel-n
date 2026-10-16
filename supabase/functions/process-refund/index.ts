@@ -50,6 +50,7 @@ function reasonTextFor(reason: string | undefined | null): string {
     case 'booking_modified_retry':
     case 'edit': return 'Úprava rezervace'
     case 'duplicate': return 'Duplicitní platba'
+    case 'paid_change_failed': return 'Vrácení doplatku – úpravu rezervace nešlo zapsat'
     default: return 'Vrácení platby zákazníkovi'
   }
 }

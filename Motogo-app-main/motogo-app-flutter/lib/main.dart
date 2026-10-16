@@ -21,6 +21,7 @@ import 'core/installation_service.dart';
 import 'core/net/timeout_client.dart';
 import 'core/engagement_service.dart';
 import 'core/offline_guard.dart';
+import 'core/paid_change_queue.dart';
 import 'core/provider_recovery.dart';
 import 'core/push/push_service.dart';
 import 'core/push/notification_handler.dart';
@@ -236,6 +237,8 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
     // Připojení zpět → data, která zůstala v chybě, se načtou znovu sama.
     OfflineGuard.onBackOnline = () {
       if (mounted) recoverFailedProviders(ref);
+      // Zaplacená výměna / úprava čekající na zápis (D6) → dokončit hned.
+      unawaited(PaidChangeQueue.drain(reason: 'online', force: true));
     };
   }
 
@@ -311,6 +314,8 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
       unawaited(PushService.initialize().catchError((_) {}));
       // Chyby z doby na pozadí (bez signálu) → načíst znovu.
       recoverFailedProviders(ref);
+      // Zaplacená výměna / úprava čekající na zápis (D6) → zkusit znovu.
+      unawaited(PaidChangeQueue.drain(reason: 'resume', force: true));
       // Re-run the forced-update gate + Play in-app update on resume —
       // an app kept open for days must not survive below min_app_version.
       // Both checks throttle themselves internally.

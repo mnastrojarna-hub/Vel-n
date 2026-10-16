@@ -26,6 +26,7 @@ import 'res_modification_history.dart';
 import 'res_access_codes_card.dart';
 import 'res_pickup_procedure.dart';
 import 'res_rating_card.dart';
+import 'paid_change_banner.dart';
 import '../../../core/currency.dart';
 import '../../../core/booking_rules.dart';
 
@@ -99,6 +100,8 @@ class ResDetailTabContent extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       sliver: SliverList.list(
         children: [
+          // Zaplacená výměna / úprava se ještě zapisuje (D6).
+          PaidChangeBanner(bookingId: res.id),
           ResDetailCard(children: [
             // Motorcycle name + ID
             Text(res.motoName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),

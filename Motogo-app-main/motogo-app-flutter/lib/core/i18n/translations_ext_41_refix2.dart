@@ -5,7 +5,7 @@
 const Map<String, Map<String, String>> translationsExt41Refix2 = {
   'cs': {
     'fxEditPaidNotice': 'Doplatek proběhl a úprava rezervace je uložená.',
-    'fxSwapPaidNotice': 'Doplatek za výměnu motorky proběhl. Výměnu dokončujeme – v detailu rezervace ji uvidíš do pár minut, případně se ti ozveme.',
+    'fxSwapPaidNotice': 'Doplatek za výměnu motorky proběhl. Výměnu dokončujeme automaticky – hotovou ji uvidíš v detailu rezervace během pár minut. Nemusíš nic dělat ani platit znovu.',
     'fxSosPaidNotice': 'Platba k SOS hlášení proběhla.',
     'fxLocUnavailable': 'Polohu se nepodařilo zjistit',
     'fxLocNoFixTitle': 'Polohu se nepodařilo zjistit',
@@ -15,7 +15,7 @@ const Map<String, Map<String, String>> translationsExt41Refix2 = {
   },
   'en': {
     'fxEditPaidNotice': 'Your additional payment went through and the booking change is saved.',
-    'fxSwapPaidNotice': 'Your additional payment for the motorcycle swap went through. We’re finishing the swap – you’ll see it in the booking details within a few minutes, or we’ll get in touch.',
+    'fxSwapPaidNotice': 'Your additional payment for the motorcycle swap went through. We’re completing the swap automatically – you’ll see it done in the booking details within a few minutes. You don’t need to do anything or pay again.',
     'fxSosPaidNotice': 'Your SOS payment went through.',
     'fxLocUnavailable': 'We couldn’t get your location',
     'fxLocNoFixTitle': 'We couldn’t get your location',
@@ -25,7 +25,7 @@ const Map<String, Map<String, String>> translationsExt41Refix2 = {
   },
   'de': {
     'fxEditPaidNotice': 'Die Zuzahlung ist durch, die Buchungsänderung ist gespeichert.',
-    'fxSwapPaidNotice': 'Die Zuzahlung für den Motorradtausch ist durch. Wir schließen den Tausch ab – in den Buchungsdetails siehst du ihn in ein paar Minuten, sonst melden wir uns bei dir.',
+    'fxSwapPaidNotice': 'Die Zuzahlung für den Motorradtausch ist durch. Wir schließen den Tausch automatisch ab – in den Buchungsdetails siehst du ihn in ein paar Minuten fertig. Du musst nichts tun und nicht noch einmal zahlen.',
     'fxSosPaidNotice': 'Deine SOS-Zahlung ist durch.',
     'fxLocUnavailable': 'Dein Standort konnte nicht ermittelt werden',
     'fxLocNoFixTitle': 'Dein Standort konnte nicht ermittelt werden',
@@ -35,7 +35,7 @@ const Map<String, Map<String, String>> translationsExt41Refix2 = {
   },
   'es': {
     'fxEditPaidNotice': 'El pago adicional se ha realizado y el cambio de la reserva está guardado.',
-    'fxSwapPaidNotice': 'El pago adicional por el cambio de moto se ha realizado. Estamos completando el cambio: lo verás en el detalle de la reserva en unos minutos o te contactaremos.',
+    'fxSwapPaidNotice': 'El pago adicional por el cambio de moto se ha realizado. Completamos el cambio automáticamente: lo verás terminado en el detalle de la reserva en unos minutos. No tienes que hacer nada ni volver a pagar.',
     'fxSosPaidNotice': 'Tu pago SOS se ha realizado.',
     'fxLocUnavailable': 'No se ha podido obtener tu ubicación',
     'fxLocNoFixTitle': 'No se ha podido obtener tu ubicación',
@@ -45,7 +45,7 @@ const Map<String, Map<String, String>> translationsExt41Refix2 = {
   },
   'fr': {
     'fxEditPaidNotice': 'Le supplément est payé et la modification de ta réservation est enregistrée.',
-    'fxSwapPaidNotice': 'Le supplément pour l’échange de moto est payé. Nous finalisons l’échange : tu le verras dans le détail de la réservation d’ici quelques minutes, sinon nous te contacterons.',
+    'fxSwapPaidNotice': 'Le supplément pour l’échange de moto est payé. Nous finalisons l’échange automatiquement : tu le verras terminé dans le détail de la réservation d’ici quelques minutes. Tu n’as rien à faire ni à repayer.',
     'fxSosPaidNotice': 'Ton paiement SOS est passé.',
     'fxLocUnavailable': 'Impossible de déterminer ta position',
     'fxLocNoFixTitle': 'Impossible de déterminer ta position',
@@ -55,7 +55,7 @@ const Map<String, Map<String, String>> translationsExt41Refix2 = {
   },
   'nl': {
     'fxEditPaidNotice': 'De bijbetaling is gelukt en de wijziging van je reservering is opgeslagen.',
-    'fxSwapPaidNotice': 'De bijbetaling voor de motorruil is gelukt. We ronden de ruil af – binnen een paar minuten zie je hem in de reserveringsdetails, anders nemen we contact met je op.',
+    'fxSwapPaidNotice': 'De bijbetaling voor de motorruil is gelukt. We ronden de ruil automatisch af – binnen een paar minuten zie je hem klaar in de reserveringsdetails. Je hoeft niets te doen of opnieuw te betalen.',
     'fxSosPaidNotice': 'Je SOS-betaling is gelukt.',
     'fxLocUnavailable': 'Je locatie kon niet worden bepaald',
     'fxLocNoFixTitle': 'Je locatie kon niet worden bepaald',
@@ -65,7 +65,7 @@ const Map<String, Map<String, String>> translationsExt41Refix2 = {
   },
   'pl': {
     'fxEditPaidNotice': 'Dopłata przeszła, a zmiana rezerwacji jest zapisana.',
-    'fxSwapPaidNotice': 'Dopłata za wymianę motocykla przeszła. Kończymy wymianę – w szczegółach rezerwacji zobaczysz ją w ciągu kilku minut, a w razie potrzeby odezwiemy się do ciebie.',
+    'fxSwapPaidNotice': 'Dopłata za wymianę motocykla przeszła. Wymianę kończymy automatycznie – gotową zobaczysz w szczegółach rezerwacji w ciągu kilku minut. Nie musisz nic robić ani płacić ponownie.',
     'fxSosPaidNotice': 'Twoja płatność SOS przeszła.',
     'fxLocUnavailable': 'Nie udało się ustalić twojej lokalizacji',
     'fxLocNoFixTitle': 'Nie udało się ustalić twojej lokalizacji',
@@ -75,7 +75,7 @@ const Map<String, Map<String, String>> translationsExt41Refix2 = {
   },
   'uk': {
     'fxEditPaidNotice': 'Доплата пройшла, зміну бронювання збережено.',
-    'fxSwapPaidNotice': 'Доплата за заміну мотоцикла пройшла. Завершуємо заміну – у деталях бронювання побачиш її за кілька хвилин, або ми з тобою зв’яжемося.',
+    'fxSwapPaidNotice': 'Доплата за заміну мотоцикла пройшла. Заміну завершуємо автоматично – готову побачиш у деталях бронювання за кілька хвилин. Тобі нічого не треба робити й платити знову.',
     'fxSosPaidNotice': 'Твоя оплата SOS пройшла.',
     'fxLocUnavailable': 'Не вдалося визначити твоє місцезнаходження',
     'fxLocNoFixTitle': 'Не вдалося визначити твоє місцезнаходження',

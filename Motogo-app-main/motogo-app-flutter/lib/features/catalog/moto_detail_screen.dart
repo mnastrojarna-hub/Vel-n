@@ -7,6 +7,8 @@ import '../../core/router.dart';
 import 'catalog_provider.dart';
 import 'moto_detail_page.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/detail/detail_pager_v2.dart';
 
 /// Moto detail pager — wraps [MotoDetailPage] instances in a horizontal
 /// PageView so the user can swipe left/right between filtered motorcycles.
@@ -54,10 +56,30 @@ class _MotoDetailScreenState extends ConsumerState<MotoDetailScreen> {
     super.dispose();
   }
 
+  // Sdílené starým i v2 vzhledem (těla beze změny, vytažená z closur).
+  void _onPageChanged(int i) =>
+      setState(() => _currentIndex = i % _motoIds.length);
+
+  void _back() => context.backOr(Routes.search);
+
   @override
   Widget build(BuildContext context) {
     final hasPager = _motoIds.length > 1;
     final topPad = MediaQuery.of(context).padding.top;
+
+    // v2 vzhled (kill-switch app_v2_ui): stejný pager, jen ovládání nad ním.
+    if (MgV2.on(context)) {
+      return MotoDetailPagerV2View(
+        hasPager: hasPager,
+        controller: _pagerCtrl,
+        ids: _motoIds,
+        itemCount: _motoIds.length * _loopMultiplier,
+        motoId: widget.motoId,
+        currentIndex: _currentIndex,
+        onPageChanged: _onPageChanged,
+        onBack: _back,
+      );
+    }
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -68,8 +90,7 @@ class _MotoDetailScreenState extends ConsumerState<MotoDetailScreen> {
             PageView.builder(
               controller: _pagerCtrl,
               itemCount: _motoIds.length * _loopMultiplier,
-              onPageChanged: (i) =>
-                  setState(() => _currentIndex = i % _motoIds.length),
+              onPageChanged: _onPageChanged,
               itemBuilder: (_, i) {
                 final idx = i % _motoIds.length;
                 return MotoDetailPage(
@@ -90,7 +111,7 @@ class _MotoDetailScreenState extends ConsumerState<MotoDetailScreen> {
               top: topPad + 8,
               left: 12,
               child: MgBackTap(
-                onTap: () => context.backOr(Routes.search),
+                onTap: _back,
                 child: Container(
                   width: 38,
                   height: 38,

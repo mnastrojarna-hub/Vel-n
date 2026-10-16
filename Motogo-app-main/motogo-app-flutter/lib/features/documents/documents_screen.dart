@@ -20,6 +20,9 @@ import 'document_provider.dart';
 import 'docs_gate_provider.dart';
 import 'docs_gate_widgets.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../profile/v2/sheets/profile_dialogs_v2.dart' show DestructiveDialogV2;
+import 'v2/docs_view_v2.dart';
 
 /// Moje doklady — matches Capacitor original s-docs screen.
 /// Shows: info banners, scan button (camera), upload button (gallery),
@@ -35,19 +38,34 @@ class DocumentsScreen extends ConsumerWidget {
     // neprobliká (jako dřív u přímo invalidovaného docsVerifiedProvider).
     final verifiedAsync = ref.watch(docsScreenStatusProvider);
 
-    return Scaffold(
-      backgroundColor: MotoGoColors.bg,
-      appBar: AppBar(
-        leading: MgBackTap(
-          // Na /docs se chodí i přes context.go (děkovací stránka, FAB) —
-          // pak není v zásobníku co popnout a šipka dřív nedělala nic.
-          onTap: () {
+    // Na /docs se chodí i přes context.go (děkovací stránka, FAB) —
+    // pak není v zásobníku co popnout a šipka dřív nedělala nic.
+    void onBack() {
             if (context.canPop()) {
               context.pop();
             } else {
               context.go(Routes.profile);
             }
-          },
+          }
+
+    // v2 vzhled (kill-switch app_v2_ui, PLAN §2.5.2): stejné akce a stav.
+    if (MgV2.on(context)) {
+      return DocsViewV2(
+        verifiedAsync: verifiedAsync,
+        onBack: onBack,
+        onScan: () => context.push(Routes.docScan),
+        onScanDl: () => context.push('${Routes.docScan}?mode=dl_only'),
+        onUpload: () => _uploadFromGallery(context, ref),
+        onReset: (docType) => _resetDoc(context, ref, docType),
+        onRetry: () => ref.invalidate(docsScreenStatusProvider),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: MotoGoColors.bg,
+      appBar: AppBar(
+        leading: MgBackTap(
+          onTap: onBack,
           child: Center(
             child: Container(
               width: 36, height: 36,
@@ -279,7 +297,17 @@ class DocumentsScreen extends ConsumerWidget {
   Future<void> _resetDoc(BuildContext context, WidgetRef ref, String docType) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => MgV2.on(ctx)
+          // v2 vzhled (T6) — stejné texty a návratové hodnoty.
+          ? DestructiveDialogV2(
+              title: t(context).tr('deleteDocTitle'),
+              body: t(context).tr('deleteDocDesc'),
+              cancelLabel: t(context).cancel,
+              deleteLabel: t(context).tr('deleteDoc'),
+              onCancel: () => Navigator.pop(ctx, false),
+              onDelete: () => Navigator.pop(ctx, true),
+            )
+          : AlertDialog(
         title: Text(t(context).tr('deleteDocTitle'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
         content: Text(t(context).tr('deleteDocDesc'), style: const TextStyle(fontSize: 13)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

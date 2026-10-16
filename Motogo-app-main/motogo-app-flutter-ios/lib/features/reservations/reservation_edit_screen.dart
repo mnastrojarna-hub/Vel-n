@@ -30,7 +30,8 @@ import 'widgets/reservation_edit_extras_section.dart';
 import 'widgets/reservation_edit_calendar_section.dart';
 import 'widgets/reservation_swap_section.dart';
 import 'widgets/reservation_edit_states.dart';
-import '../payment/payment_refusals.dart' show PayFlow, belowCardMinimum;
+import '../payment/card_minimum.dart';
+import '../payment/widgets/card_rounding_note.dart';
 import '../../core/currency.dart';
 import '../../core/booking_rules.dart';
 import '../../core/feature_flags.dart';
@@ -638,7 +639,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           'customer_overlap': t(context).tr('moveErrCustomerOverlap'),
           'length_mismatch': t(context).tr('moveErrLength'),
           'past_date': t(context).tr('cannotSelectPast'),
-        }[code] ?? t(context).tr('psMoveFail');
+        }[code] ?? t(context).tr('pdMoveFail');
         if (mounted) showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: msg);
         return;
       }
@@ -1057,15 +1058,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
 
       // Účtuje/vrací se rozdíl PO slevě (varianta B) — effectivePriceDiff.
       final effDiff = calc.effectivePriceDiff;
-      // Doplatek 1–14 Kč kartou zaplatit nejde (minimum Stripe) — řekni to
-      // hned, ne až po marném pokusu o platbu (rozhodnutí majitele D1).
-      if (belowCardMinimum(effDiff)) {
-        if (mounted) {
-          setState(() => _saving = false);
-          showBelowMinimum(context, PayFlow.edit, effDiff);
-        }
-        return;
-      }
+      // D1 (2026-10-16): doplatek do 1 Kč se neúčtuje (server změnu zapíše bez
+      // platby), 1–15 Kč se platí 15 Kč (dorovnání zapíše server). Platební
+      // obrazovka to zákazníkovi ukáže PŘED platbou.
+      final cc = cardCharge(effDiff);
       if (effDiff > 0) {
         // Needs extra payment — do NOT update booking yet.
         // Store pending changes; apply only after Stripe confirms payment.
@@ -1090,6 +1086,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             label: t(context).tr('extensionSurcharge'),
             pendingEditChanges: {
               ...changes,
+              // Interní (do metadat nejde): dorovnání na 15 Kč (+) / odpuštěno (−).
+              // `total_price` zůstává BEZ dorovnání — přičítá ho server.
+              if (cc.rounding != 0) '_card_rounding': cc.rounding,
               // Výchozí stav pro server: process-payment odmítne platbu nad
               // zastaralým stavem (409 stale_booking), webhook z něj zapíše
               // historii úpravy pro rozdílový doklad.
@@ -1170,11 +1169,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           // Realita > optimismus: změna JE uložená; když vratka selhala,
           // řekneme to na rovinu (vyřídí obsluha ručně) a NEslibujeme
           // automatické vrácení. Text serveru (anglicky / technický) se
-          // zákazníkovi neukazuje — vždy přeložené `refundSettleManual`.
+          // zákazníkovi neukazuje — vždy přeložené `pdRefundManual`.
           if (!refundOk && mounted) {
             showMotoGoToast(context, icon: '⚠️',
               title: t(context).tr('psRefundPendingTitle'),
-              message: t(context).tr('refundSettleManual'),
+              message: t(context).tr('pdRefundManual'),
               duration: const Duration(seconds: 6));
           }
         }
@@ -1200,7 +1199,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             message: effDiff < 0
                 ? (refundOk
                     ? '${t(context).tr('reservationShortened')}\n${t(context).tr('refundAmount').replaceAll('{amount}', '${(-effDiff).toStringAsFixed(0)}').replaceAll('{percent}', '${calc.stornoPercent}')}\n${t(context).tr('refundToOriginalMethod')}'
-                    : '${t(context).tr('reservationShortened')}\n${t(context).tr('refundSettleManual')}')
+                    : '${t(context).tr('reservationShortened')}\n${t(context).tr('pdRefundManual')}')
                 : '${t(context).tr('changesSaved')}\n${t(context).tr('reservationRange').replaceAll('{start}', _fmt(_newStart)).replaceAll('{end}', _fmt(_newEnd))}',
             isRefund: effDiff < 0 && refundOk,
           );
@@ -1646,6 +1645,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900,
                     color: calc.effectivePriceDiff > 0 ? MotoGoColors.red : calc.effectivePriceDiff < 0 ? MotoGoColors.greenDarker : MotoGoColors.black)),
               ]),
+              // Minimum karty (D1): doplatek 1–15 Kč → kartou 15 Kč; do 1 Kč bez platby.
+              if (calc.effectivePriceDiff > 0)
+                CardRoundingNote(
+                    due: calc.effectivePriceDiff,
+                    roundKey: 'pdRoundEditHint',
+                    waiveKey: 'pdWaiveEditHint',
+                    showLine: false),
               // i při 0 Kč: pozdější čas ve stornu → sleva přiznaná jen z části
               if (calc.datesDiffRaw < 0 && (calc.effectivePriceDiff < 0 || calc.stornoPercent < 100))
                 Padding(padding: const EdgeInsets.only(top: 4),
@@ -1692,7 +1698,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                       Text(_tab == 'move'
                           ? t(context).tr('moveSaveBtn')
                           : (calc.effectivePriceDiff > 0
-                              ? '${t(context).tr('proceedToPayment')} (+${Money.czk(calc.effectivePriceDiff)})'
+                              ? (cardCharge(calc.effectivePriceDiff).isWaive
+                                  ? t(context).tr('pdSaveFree')
+                                  : '${t(context).tr('proceedToPayment')} (+${Money.czk(cardCharge(calc.effectivePriceDiff).charge)})')
                               : t(context).tr('saveChangesBtn')),
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
                       const SizedBox(width: 6), const Icon(Icons.arrow_forward, size: 16),

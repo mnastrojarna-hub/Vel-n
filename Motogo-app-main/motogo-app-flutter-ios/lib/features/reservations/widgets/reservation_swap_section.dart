@@ -14,8 +14,8 @@ import '../../catalog/catalog_provider.dart';
 import '../../booking/booking_validator.dart';
 import '../../payment/payment_provider.dart';
 import '../../payment/net_error.dart';
-import '../../payment/payment_refusals.dart' show PayFlow, belowCardMinimum;
-import 'reservation_edit_states.dart' show showBelowMinimum, blockIfSurchargePending;
+import '../../payment/widgets/card_rounding_note.dart';
+import 'reservation_edit_states.dart' show blockIfSurchargePending;
 import '../reservation_models.dart';
 import 'reservation_edit_widgets.dart';
 import '../../../core/date_days.dart';
@@ -232,7 +232,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
         // jako PostgrestException a mapuje je vnější catch přes
         // _isTrailerBranchError / _isTrailerOccupiedError. Neznámý kód →
         // srozumitelná rada místo holého „Chyba".
-        t(context).tr('psSwapUnknown');
+        t(context).tr('pdSwapUnknown');
     showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: msg);
   }
 
@@ -269,14 +269,11 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
       final net = (dry is Map ? (dry['net'] as num?)?.toDouble() : null) ?? 0;
 
       // 2a) DOPLATEK (net>0) — přes stávající edit-platbu (extension). COMMIT provede
-      // payment_screen po úspěšné platbě (klíč `_swap_commit`), NIKDY před ní.
-      if (net > 0.5) {
+      // server po úspěšné platbě (webhook / complete_extension), NIKDY před ní.
+      // D1: doplatek do 1 Kč se neúčtuje (server výměnu zapíše bez platby),
+      // 1–15 Kč se platí 15 Kč — platební obrazovka to ukáže předem.
+      if (net > 0) {
         if (!mounted) return;
-        // Doplatek pod minimem karty (15 Kč) zaplatit nejde — řekni to hned (D1).
-        if (belowCardMinimum(net)) {
-          showBelowMinimum(context, PayFlow.swap, net);
-          return;
-        }
         // Předchozí doplatek této rezervace se ještě ověřuje → žádný druhý.
         if (await blockIfSurchargePending(context, widget.booking.id)) return;
         if (!mounted) return;
@@ -353,7 +350,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
                     ? t(context).tr('swap.trailerOccupied')
                     : isNetworkError(e)
                         ? t(context).tr('psEditNet')
-                        : t(context).tr('psSwapUnknown'));
+                        : t(context).tr('pdSwapUnknown'));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -635,6 +632,13 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
                 ),
             ]),
           ),
+        ),
+      // Minimum karty (D1): doplatek 1–15 Kč → kartou 15 Kč; do 1 Kč bez platby.
+      if (_newMotoId != null && !_netLoading && (_net ?? 0) > 0)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: CardRoundingNote(
+              due: _net!, roundKey: 'pdRoundSwapHint', waiveKey: 'pdWaiveSwapHint', showLine: false),
         ),
 
       // === POTVRDIT ===

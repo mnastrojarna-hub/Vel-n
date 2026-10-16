@@ -18,8 +18,10 @@ import '../payment/payment_provider.dart';
 import '../payment/payment_error_mapper.dart';
 import '../payment/widgets/payment_error_sheet.dart';
 import '../payment/widgets/card_payment_sheet.dart';
+import '../payment/card_minimum.dart';
 import '../payment/payment_refusals.dart';
 import '../payment/payment_ui_helpers.dart';
+import '../payment/widgets/card_rounding_note.dart';
 import '../../core/payment_pending_marker.dart';
 import '../../core/pending_booking_fab_provider.dart'
     show paymentProcessingProvider, paymentLeaveActionProvider;
@@ -212,7 +214,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       case 'network':
         return tr.tr('psOrderNet');
     }
-    return tr.tr('psOrderFail');
+    return tr.tr('pdOrderFail');
   }
 
   /// Remove an applied code.
@@ -250,7 +252,8 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     _orderTotal = null;
   }
 
-  Future<void> _onSuccess(String orderId, {bool free = false}) async {
+  /// [free] = nic se neplatilo (sleva / zbytek do 1 Kč — [waived], D2).
+  Future<void> _onSuccess(String orderId, {bool free = false, bool waived = false}) async {
     PaymentPendingMarker.clear(orderId);
     _clearCheckout();
 
@@ -258,9 +261,10 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     // ne jen obecný toast. Při chybě fetche fallback na původní toast.
     Map<String, dynamic>? order;
     try {
+      // `*`: card_rounding (dorovnání na 15 Kč) existuje až po SQL 20261016p1.
       order = await MotoGoSupabase.client
           .from('shop_orders')
-          .select('order_number, total, payment_status')
+          .select()
           .eq('id', orderId)
           .maybeSingle();
     } catch (_) {/* fallback níže */}
@@ -273,17 +277,26 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     final orderNumber = order?['order_number']?.toString();
     final total = (order?['total'] as num?)?.toDouble() ?? 0;
     final paid = order != null && order['payment_status'] == 'paid';
+    final rounding = (order?['card_rounding'] as num?)?.toDouble() ?? 0;
 
     ref.read(paymentOutcomeProvider.notifier).state = PaymentOutcome(
       // Objednávka za 0 Kč (sleva pokryla vše) — nic se neplatilo.
       title: free ? tr.tr('psOrderFreeTitle') : tr.tr('paid'),
       subtitle: free
-          ? tr.tr('psOrderFreeSub')
+          ? tr.tr(waived ? 'pdWaivedSub' : 'psOrderFreeSub')
           : (paid ? tr.tr('orderConfirmed') : tr.tr('paymentProcessed')),
       lines: [
         if (orderNumber != null) PaymentOutcomeLine('🧾', '#$orderNumber'),
         if (total > 0)
           PaymentOutcomeLine('💳', '${tr.tr('totalPrice')}: ${Money.czk(total)}'),
+        // Dorovnání na minimální platbu kartou (D2) — stejně jako na dokladu.
+        if (rounding > 0 && total > 0)
+          PaymentOutcomeLine(
+              'ℹ️',
+              tr
+                  .tr('pdPaidWithRounding')
+                  .replaceAll('{charge}', kcExact(total))
+                  .replaceAll('{rounding}', kcExact(rounding))),
       ],
       nextStepNote: tr.tr('confirmOnEmail'),
       ctaLabel: tr.tr('close'),
@@ -340,8 +353,6 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       message: _orderErrorText(o),
       buttonLabel: label,
       onButton: onTap,
-      secondaryLabel: tr.tr('psWriteUs'),
-      onSecondary: () => openContactUs(context),
     );
   }
 
@@ -423,16 +434,11 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       }
     }
 
-    // Kartou jde zaplatit nejméně 15 Kč — řekni to PŘED založením objednávky.
     final subtotal = ref.read(cartProvider.notifier).subtotal;
     final shipping =
         digitalOnly ? 0.0 : (shipMode == ShipMode.post ? shippingCost : 0.0);
     final clientTotal =
         (subtotal + shipping - discount).clamp(0.0, double.infinity);
-    if (belowCardMinimum(clientTotal)) {
-      _showBelowMinimum(clientTotal);
-      return;
-    }
 
     _setProcessing(true);
 
@@ -487,18 +493,17 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       _orderSig = sig;
     }
 
-    if (belowCardMinimum(total)) {
-      _setProcessing(false);
-      _showBelowMinimum(total);
-      return;
-    }
+    // D2 (2026-10-16): do 1 Kč se neúčtuje (server objednávku potvrdí bez
+    // platby), 1–15 Kč se platí 15 Kč (dorovnání zapíše server, je na dokladu).
+    final cc = cardCharge(total);
 
     // Nový pokus — intent předchozího pokusu už o ničem nerozhoduje.
     _clientSecret = null;
     final result = await StripeService.createPaymentIntent(
-      amount: total.round(),
+      amount: cc.charge,
       type: 'shop',
       orderId: orderId,
+      attemptId: newAttemptId(),
     );
 
     if (!mounted) return;
@@ -512,7 +517,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       final sheetResult = await CardPaymentSheet.show(
         context,
         clientSecret: cs,
-        amount: total,
+        amount: cc.charge.toDouble(),
         onSubmitting: () {
           _markSubmitted();
           return PaymentPendingMarker.set(orderId, kind: PaymentMarkerKind.order, clientSecret: cs, fresh: true);
@@ -564,7 +569,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
           await PaymentPendingMarker.clear(orderId);
           if (!mounted) break;
           if (info.cause == 'amount_too_small') {
-            _showBelowMinimum(total);
+            _showPayMin(total);
             break;
           }
           PaymentErrorSheet.show(context,
@@ -574,7 +579,8 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
               onButton: _finalize);
       }
     } else if (result.type == PaymentResultType.free) {
-      _onSuccess(orderId);
+      // Zbytek do 1 Kč server neúčtoval a objednávku potvrdil (D2).
+      _onSuccess(orderId, free: true, waived: result.waived);
     } else {
       // Odmítnutí serverem / síť — přeložená hláška s akcí, nikdy text serveru.
       final p = PaymentRefusals.resolve(lang, result, PayFlow.shop, amount: total);
@@ -585,8 +591,8 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
         case PayAction.pending:
         case PayAction.verify:
           await _goPending(orderId);
-        case PayAction.belowMinimum:
-          _showBelowMinimum(total);
+        case PayAction.payMin:
+          _showPayMin(p.serverTotal ?? total);
         default:
           final toCart = p.action == PayAction.toCart;
           if (toCart) {
@@ -604,34 +610,29 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
                       : t(context).tr('retry'),
               onButton: p.action == PayAction.signIn
                   ? () => signInAgain(context)
-                  : _finalize,
-              secondaryLabel: p.contact ? t(context).tr('psWriteUs') : null,
-              onSecondary: p.contact ? () => openContactUs(context) : null);
+                  : _finalize);
       }
     }
 
     if (mounted) _setProcessing(false);
   }
 
-  /// Objednávka pod minimem karty (1–14 Kč) — co s tím (D2).
-  void _showBelowMinimum(double total) {
+  /// Server hlásí méně než 15 Kč k zaplacení (`below_minimum`) → zaplatit
+  /// 15 Kč, rozdíl je na dokladu jako dorovnání (D2). [due] = serverová částka.
+  void _showPayMin(double due) {
     final tr = t(context);
-    final p = PaymentRefusals.belowMinimum(tr.lang, PayFlow.shop, total);
-    final hasCodes = ref.read(shopAppliedCodesProvider).isNotEmpty;
+    final p = PaymentRefusals.belowMinimum(tr.lang, due);
     PaymentErrorSheet.show(
       context,
       title: p.title,
       message: p.message,
-      buttonLabel: tr.tr('psEditCart'),
-      onButton: () => context.backOr(Routes.cart),
-      secondaryLabel: hasCodes ? tr.tr('psRemoveCode') : tr.tr('psWriteUs'),
-      onSecondary: hasCodes
-          ? () {
-              for (final c in List.of(ref.read(shopAppliedCodesProvider))) {
-                _removeCode(c.code);
-              }
-            }
-          : () => openContactUs(context),
+      buttonLabel: tr.tr('pdPayMin'),
+      onButton: () {
+        if (due > 0) _orderTotal = due;
+        _finalize();
+      },
+      secondaryLabel: tr.tr('psEditCart'),
+      onSecondary: () => context.backOr(Routes.cart),
     );
   }
 
@@ -740,6 +741,9 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
                       discount: discount,
                       total: total,
                     ),
+                    // Minimum karty (D2): 1–15 Kč → kartou 15 Kč; do 1 Kč bez platby.
+                    CardRoundingNote(
+                        due: total, roundKey: 'pdRoundShopHint', waiveKey: 'pdWaiveShopHint'),
 
                     const SizedBox(height: 80),
                   ]),
@@ -783,7 +787,9 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
                       : Text(
                           total <= 0
                               ? '✅ ${t(context).tr('confirmOrderFree')}'
-                              : '✅ ${t(context).tr('confirm')} & ${t(context).tr('payBtn')} →',
+                              : cardCharge(total).isWaive
+                                  ? '✅ ${t(context).tr('pdConfirmFree')} →'
+                                  : '✅ ${t(context).tr('confirm')} & ${t(context).tr('payBtn')} →',
                           style: const TextStyle(
                               fontSize: 14, fontWeight: FontWeight.w700),
                         ),

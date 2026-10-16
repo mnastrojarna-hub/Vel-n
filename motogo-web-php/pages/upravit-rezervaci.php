@@ -142,6 +142,8 @@ $keys = [
     'editRez.moto.samePrice','editRez.moto.diffRefund','editRez.moto.reasonLicense','editRez.moto.reasonOccupied','editRez.moto.reasonTrailerBranch','editRez.moto.trailerOccupied',
     'editRez.pay.trailerStaffedOnly','editRez.pay.trailerOccupied','editRez.pay.checkUnavailable','editRez.pay.validationUnavailable',
     'editRez.pay.notFound','editRez.pay.forbidden','editRez.pay.stale','editRez.pay.amountMismatch','editRez.pay.motoUnavailable','editRez.pay.wrongStatus','editRez.pay.authRequired',
+    // D1–D6 (2026-10-16): další kódy odmítnutí process-payment
+    'editRez.pay.belowMinimum','editRez.pay.roundingUnavailable','editRez.pay.inProgress','editRez.pay.duplicate','editRez.pay.gatewayDown','editRez.pay.serverError','editRez.pay.cancelled','editRez.pay.voucherUnavailable','editRez.pay.notApplicable','editRez.pay.tooLarge','editRez.pay.deliveryFee','editRez.pay.pickupLocked','editRez.pay.needsRoute','editRez.pay.notPaid','editRez.pay.invalidMoto','editRez.pay.swapDate','editRez.pay.alreadySplit','editRez.pay.license','editRez.pay.motoTaken',
     // Cenový rozdíl v potvrzovacím dialogu výměny + poznámka o ruční vratce
     // (pages-upravit-rezervaci-swap.js je používá, ve whitelistu chyběly →
     // MG.t() vypisovalo syrový název klíče).

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'v2/flag/v2_scope.dart';
+import '../features/booking/v2/sections/handover_v2.dart';
+
 /// Zabalená (nedostupná) volba převzetí/vrácení — samoobslužná pobočka bez
 /// přistavení a odvozu na adresu (2026-09-28). Vypadá jako radio dlaždice
 /// (`bookingRadio`), ale nejde vybrat: šedý zámek, krátký důvod a po klepnutí
@@ -29,12 +32,24 @@ class BookingLockedOptionTile extends StatefulWidget {
 class _BookingLockedOptionTileState extends State<BookingLockedOptionTile> {
   bool _open = false;
 
+  void _toggle() => setState(() => _open = !_open);
+
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): stejné texty, stejné rozbalení.
+    if (MgV2.on(context)) {
+      return BookingLockedOptionV2View(
+        label: widget.label,
+        shortReason: widget.shortReason,
+        info: widget.info,
+        open: _open,
+        onToggle: _toggle,
+      );
+    }
     const noDec = TextDecoration.none;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => _open = !_open),
+      onTap: _toggle,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(

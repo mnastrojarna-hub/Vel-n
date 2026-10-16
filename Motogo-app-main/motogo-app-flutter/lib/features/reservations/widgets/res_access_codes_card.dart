@@ -14,6 +14,8 @@ import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'res_detail_card.dart';
 import 'res_detail_row.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_codes_v2.dart';
 
 /// Karta „Přístupové kódy“ v detailu rezervace (po celý termín — i PŘED
 /// vydáním motorky). Pořadí = pořadí zadávání na pobočce: kód schránky
@@ -81,6 +83,25 @@ class ResAccessCodesCard extends ConsumerWidget {
         final lockerLabel = gate.lockerDoor != null
             ? t(context).tr('lockerCodeDoor').replaceAll('{n}', '${gate.lockerDoor}')
             : t(context).tr('lockerCode');
+        // v2 vzhled (kill-switch app_v2_ui): tytéž kódy, pořadí i uvolnění.
+        if (MgV2.on(context)) {
+          return ResCodesV2(
+            gateCode: gate.gateCode,
+            codes: [
+              for (final c in sorted)
+                ResCodeV2Item(
+                  label: c.codeType == 'motorcycle' ? t(context).tr('motoCode') : lockerLabel,
+                  value: c.sentToCustomer
+                      ? c.doorCode
+                      : (localizeServerReason(t(context), c.withheldReason) ?? t(context).tr('awaitingDocs')),
+                  sent: c.sentToCustomer,
+                  protocolNote: c.codeType == 'motorcycle' && c.sentToCustomer && res.isSelfService && !res.protocolSigned,
+                ),
+            ],
+            ownGearNoLocker: res.ownGearEffective && !codes.any((c) => c.codeType == 'accessories'),
+            onRelease: hasWithheld ? () => _handleReleaseCodes(context, ref) : null,
+          );
+        }
         return Column(
           children: [
             ResDetailCard(children: [
@@ -143,7 +164,9 @@ class ResAccessCodesCard extends ConsumerWidget {
         );
       },
       loading: () => res.inRentalTerm
-          ? Padding(
+          ? MgV2.on(context)
+              ? const ResCodesV2.loading()
+              : Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: ResDetailCard(children: [
                 _title(context,
@@ -154,7 +177,15 @@ class ResAccessCodesCard extends ConsumerWidget {
       // Proč + Zkusit znovu / Zavolat / Zprávy (kódy chodí i do Zpráv) —
       // dřív jen „nepodařilo se načíst, zkuste později".
       error: (e, _) => res.inRentalTerm
-          ? Padding(
+          ? MgV2.on(context)
+              ? ResCodesV2.error(
+                  errorText:
+                      '${FriendlyError.of(e).compose(t(context), t(context).tr('eoDoorCodesWhat'))} ${t(context).tr('eoDoorCodesInMessages')}',
+                  onRetry: () => ref.invalidate(doorCodesProvider(res.id)),
+                  onMessages: () => context.push(Routes.messages),
+                  onCall: callMotoGo,
+                )
+              : Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: ResDetailCard(children: [
                 Row(children: [

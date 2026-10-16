@@ -5,6 +5,8 @@ import '../features/booking/booking_ui_helpers.dart';
 import 'i18n/i18n_provider.dart';
 import '../features/loyalty/rank_names.dart';
 import 'currency.dart';
+import 'v2/flag/v2_scope.dart';
+import '../features/booking/v2/sections/price_v2.dart';
 
 /// Price breakdown summary card inside the booking form.
 class BookingFormPriceSection extends StatelessWidget {
@@ -27,6 +29,10 @@ class BookingFormPriceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): stejné řádky a součet.
+    if (MgV2.on(context)) {
+      return BookingPriceV2(draft: draft, bd: bd, dayCount: dayCount, pricedExtras: pricedExtras);
+    }
     final dc = dayCount;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),

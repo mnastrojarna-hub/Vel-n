@@ -6,131 +6,65 @@ import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/router.dart';
 import '../../core/supabase_client.dart';
-import '../auth/widgets/toast_helper.dart';
-import '../catalog/catalog_provider.dart';
 import '../payment/net_error.dart';
 import '../payment/payment_provider.dart';
-import '../payment/payment_ui_helpers.dart';
+import '../payment/payment_ui_helpers.dart' show signInAgain;
 import '../payment/widgets/payment_error_sheet.dart';
 import 'reservation_models.dart';
 import 'reservation_provider.dart';
 
 /// Server obnovu odmítl (RPC `customer_restore_booking`, kód chyby).
-class _RestoreRefused implements Exception {
+class RestoreRefused implements Exception {
   final String code;
-  const _RestoreRefused(this.code);
+  /// `moto_unavailable`: moto_overlap | own_overlap | branch_closed | trailer.
+  final String? reason;
+  /// `voucher_unavailable` / `promo_unavailable`: kód slevy.
+  final String? discountCode;
+  const RestoreRefused(this.code, {this.reason, this.discountCode});
 }
 
-/// „Obnovit a zaplatit" zrušenou rezervaci (2026-10-16).
+/// Kód „obnova se na serveru právě nasazuje" (RPC v DB zatím není).
+const restoreUpdatingCode = 'restore_unavailable';
+
+/// „Obnovit a zaplatit" zrušenou rezervaci (D3, rozhodnutí majitele 2026-10-16:
+/// „obnovit a zaplatit by mělo být jako možnost").
 ///
-/// Rozlišuje skutečné příčiny: výpadek spojení („zkus znovu", nic se
-/// nezměnilo) ≠ obsazená motorka ≠ jiná chyba — dřív se KAŽDÁ chyba hlásila
-/// jako „motorka je obsazená" a zákazník skončil ve vyhledávání.
-///
-/// Obnova jde JEN přes RPC `customer_restore_booking` (nové 30min okno na
-/// zaplacení, návrh SQL D3 čeká na schválení majitele). Dokud RPC v DB není,
-/// appka rezervaci sama NEOBNOVUJE: dřívější přímý zápis (bez `restored_at`)
-/// nechal cron `auto_cancel_expired_pending()` rezervaci do 2 minut znovu
-/// zrušit (+ storno e-mail), zatímco platba odpočítávala 30 minut — a platba
-/// za mezitím obsazenou motorku skončila stržením bez rezervace. Zákazník
-/// místo toho dostane „Napiš nám" (obnovu udělá obsluha ve Velíně).
+/// Obnova jde přes RPC `customer_restore_booking` (SQL 20261016p2): ověří
+/// vlastníka, stav, termín, volnou motorku a platnost slev, znovu uplatní
+/// poukazy (nesmí se použít dvakrát) a založí nové 30min okno na zaplacení,
+/// během kterého ani běžící platbu nezruší cron. Každé odmítnutí má přesnou
+/// hlášku s krokem, který opravdu něco dělá — bez kontaktů (D5).
 Future<void> restoreAndPay(
     BuildContext context, WidgetRef ref, Reservation res) async {
-  final tr = t(context);
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final startDay =
       DateTime(res.startDate.year, res.startDate.month, res.startDate.day);
-
-  void occupied() {
-    showMotoGoToast(context,
-        icon: '🏍️',
-        title: tr.tr('motoOccupiedTitle'),
-        message: tr.tr('restoreMotoOccupied'));
-    context.go(Routes.search);
-  }
-
-  // Obnova v appce teď nejde (RPC chybí) → nic se nezměnilo, „Napsat nám".
-  void byStaff() {
-    PaymentErrorSheet.show(
-      context,
-      title: tr.tr('cannotRestore'),
-      message: tr.tr('fxRestoreByStaff'),
-      buttonLabel: tr.tr('psWriteUs'),
-      onButton: () {
-        if (context.mounted) openContactUs(context);
-      },
-    );
-  }
-
-  void failed({required bool network}) {
-    PaymentErrorSheet.show(
-      context,
-      title: tr.tr('cannotRestore'),
-      message: tr.tr(network ? 'psRestoreNet' : 'psRestoreFail'),
-      buttonLabel: tr.tr('retry'),
-      onButton: () {
-        if (context.mounted) restoreAndPay(context, ref, res);
-      },
-      secondaryLabel: network ? null : tr.tr('psWriteUs'),
-      onSecondary: network ? null : () => openContactUs(context),
-    );
-  }
-
   if (!startDay.isAfter(today)) {
-    showMotoGoToast(context,
-        icon: '📅',
-        title: tr.tr('cannotRestore'),
-        message: tr.tr('restoreDatePassed'));
-    context.go(Routes.search);
-    return;
-  }
-  if (res.motoId == null) {
-    occupied();
+    _showRefusal(context, ref, res, const RestoreRefused('date_passed'));
     return;
   }
 
-  final avail = await checkMotoAvailabilityTri(
-      res.motoId!, res.startDate, res.endDate,
-      excludeBookingId: res.id);
-  if (!context.mounted) return;
-  if (avail == MotoAvailability.unknown) {
-    failed(network: true);
-    return;
-  }
-  if (avail == MotoAvailability.busy) {
-    occupied();
-    return;
-  }
-
-  DateTime? windowStart;
+  Map<String, dynamic> r;
   try {
-    windowStart = await _restore(res.id);
-  } on _RestoreRefused catch (e) {
-    if (!context.mounted) return;
-    if (e.code == 'moto_unavailable') {
-      occupied();
-    } else if (e.code == _restoreUnavailable) {
-      byStaff();
-    } else if (e.code == 'date_passed') {
-      showMotoGoToast(context,
-          icon: '📅',
-          title: tr.tr('cannotRestore'),
-          message: tr.tr('restoreDatePassed'));
-    } else {
-      failed(network: false);
-    }
+    r = await restoreBookingRpc(res.id);
+  } on RestoreRefused catch (e) {
+    if (context.mounted) _showRefusal(context, ref, res, e);
     return;
   } catch (e) {
     debugPrint('[RESTORE] Error restoring booking: $e');
     if (!context.mounted) return;
-    final raw = '$e';
-    if (raw.contains('Překrývající se rezervace') ||
-        raw.contains('přiřazen jako vozík')) {
-      occupied();
-    } else {
-      failed(network: isNetworkError(e));
-    }
+    final tr = t(context);
+    final network = isNetworkError(e);
+    PaymentErrorSheet.show(
+      context,
+      title: tr.tr('cannotRestore'),
+      message: tr.tr(network ? 'psRestoreNet' : 'pdRestoreServer'),
+      buttonLabel: tr.tr('retry'),
+      onButton: () {
+        if (context.mounted) restoreAndPay(context, ref, res);
+      },
+    );
     return;
   }
 
@@ -140,36 +74,116 @@ Future<void> restoreAndPay(
   ref.read(paymentContextProvider.notifier).state = PaymentContext(
     flowType: PaymentFlowType.booking,
     bookingId: res.id,
-    amount: res.totalPrice,
-    label: tr.tr('restorePaymentLabel'),
-    // Okno na zaplacení od okamžiku obnovy (RPC) — jinak od otevření platby.
-    bookingCreatedAt: windowStart,
+    // Částka k zaplacení podle SERVERU (po obnově, i s případným dorovnáním).
+    amount: (r['total_price'] as num?)?.toDouble() ?? res.totalPrice,
+    label: t(context).tr('restorePaymentLabel'),
+    // Nové okno na zaplacení běží od obnovy (stejně jako na serveru).
+    bookingCreatedAt: DateTime.tryParse('${r['restored_at'] ?? ''}')?.toLocal(),
     isRestore: true,
   );
   context.push(Routes.payment);
 }
 
-/// Kód „obnova v appce teď nejde" (RPC v DB chybí).
-const _restoreUnavailable = 'restore_unavailable';
-
-/// Obnova přes RPC. Vrací začátek nového okna na zaplacení (z RPC), jinak
-/// null. RPC v DB není → [_RestoreRefused] `restore_unavailable` (žádný
-/// přímý zápis, viz [restoreAndPay]).
-Future<DateTime?> _restore(String bookingId) async {
+/// Obnova přes RPC → `{success, restored_at, total_price, …}`, jinak
+/// [RestoreRefused]. RPC v DB ještě není → [restoreUpdatingCode].
+Future<Map<String, dynamic>> restoreBookingRpc(String bookingId) async {
   try {
     final r = await MotoGoSupabase.client.rpc('customer_restore_booking',
         params: {'p_booking_id': bookingId}).timeout(const Duration(seconds: 15));
-    if (r is Map && r['success'] == true) {
-      return DateTime.tryParse('${r['restored_at'] ?? ''}')?.toLocal();
+    if (r is Map && r['success'] == true) return Map<String, dynamic>.from(r);
+    if (r is Map && r['error'] != null) {
+      throw RestoreRefused('${r['error']}',
+          reason: r['reason']?.toString(), discountCode: r['code']?.toString());
     }
-    if (r is Map && r['error'] != null) throw _RestoreRefused('${r['error']}');
-    return null;
+    throw const RestoreRefused('unknown');
   } on PostgrestException catch (e) {
-    // RPC v DB zatím není (D3) → obnovu udělá obsluha (žádný přímý zápis).
     final missing = e.code == 'PGRST202' ||
         e.code == '42883' ||
         e.message.contains('customer_restore_booking');
     if (!missing) rethrow;
-    throw const _RestoreRefused(_restoreUnavailable);
+    throw const RestoreRefused(restoreUpdatingCode);
   }
+}
+
+/// Text odmítnutí obnovy (čistá funkce kvůli testům): klíč + dosazení kódu.
+String restoreRefusalText(AppTranslations tr, RestoreRefused e) {
+  final key = switch (e.code) {
+    'forbidden' => 'pdRestoreForbidden',
+    'not_found' => 'pdRestoreNotFound',
+    'not_cancelled' => 'pdRestoreNotCancelled',
+    'not_restorable' => 'pdRestoreNotRestorable',
+    'cancelled_by_staff' => 'pdRestoreByStaffCancel',
+    'date_passed' => 'restoreDatePassed',
+    'restore_limit' => 'pdRestoreLimit',
+    'voucher_unavailable' => 'pdRestoreVoucher',
+    'promo_unavailable' => 'pdRestorePromo',
+    'moto_unavailable' => switch (e.reason) {
+        'own_overlap' => 'pdRestoreOwnOverlap',
+        'branch_closed' => 'pdRestoreBranchClosed',
+        'trailer' => 'pdRestoreTrailer',
+        _ => 'restoreMotoOccupied',
+      },
+    restoreUpdatingCode => 'pdRestoreUpdating',
+    _ => 'pdRestoreServer',
+  };
+  return tr.tr(key).replaceAll('{code}', e.discountCode ?? '');
+}
+
+void _showRefusal(BuildContext context, WidgetRef ref, Reservation res, RestoreRefused e) {
+  final tr = t(context);
+  final motoRoute = res.motoId != null ? '/moto/${res.motoId}' : Routes.search;
+  String title = tr.tr('cannotRestore');
+  String label;
+  VoidCallback onTap;
+  String? second;
+  VoidCallback? onSecond;
+  switch (e.code) {
+    case 'forbidden':
+      label = tr.tr('login');
+      onTap = () => signInAgain(context);
+    case 'not_found':
+      label = tr.tr('psMyReservations');
+      onTap = () {
+        ref.invalidate(reservationsProvider);
+        context.go(Routes.reservations);
+      };
+    case 'not_cancelled':
+      label = tr.tr('psOpenReservation');
+      onTap = () {
+        ref.invalidate(reservationByIdProvider(res.id));
+        context.go('/reservations/${res.id}');
+      };
+    case 'moto_unavailable':
+      title = tr.tr('motoOccupiedTitle');
+      label = tr.tr('psChangeDates');
+      onTap = () => context.go(motoRoute);
+      second = tr.tr('psOtherMoto');
+      onSecond = () => context.go(Routes.search);
+    case restoreUpdatingCode:
+    case 'unknown':
+      label = tr.tr('retry');
+      onTap = () => restoreAndPay(context, ref, res);
+    default:
+      // Obnova nejde (termín uplynul, zrušila obsluha, limit, sleva) → nová
+      // rezervace téže motorky (výběr termínu), nebo jiná motorka.
+      label = tr.tr('psPickAgain');
+      onTap = () => context.go(motoRoute);
+      second = tr.tr('psOtherMoto');
+      onSecond = () => context.go(Routes.search);
+  }
+  PaymentErrorSheet.show(
+    context,
+    title: title,
+    message: restoreRefusalText(tr, e),
+    buttonLabel: label,
+    onButton: () {
+      if (context.mounted) onTap();
+    },
+    secondaryLabel: second,
+    onSecondary: onSecond == null
+        ? null
+        : () {
+            if (context.mounted) onSecond!();
+          },
+  );
 }

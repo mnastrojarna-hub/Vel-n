@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../../core/i18n/translations.dart';
@@ -110,12 +111,11 @@ class PaymentErrorMapper {
   /// Google Pay / Apple Pay selhání (např. OR_BIBED_11) — typicky nedostupná
   /// peněženka na zařízení/účtu. Navádíme na zaplacení kartou.
   static PaymentErrorInfo wallet(String lang, {String? rawCode}) {
-    final extra = (rawCode != null && rawCode.trim().isNotEmpty)
-        ? '\n\n(${rawCode.trim()})'
-        : '';
+    // Technický kód peněženky jen do logu — zákazníkovi nic neříká (D5).
+    if (rawCode != null && rawCode.trim().isNotEmpty) debugPrint('[Pay] wallet: $rawCode');
     return PaymentErrorInfo(
       title: _t(lang, 'walletTitle'),
-      message: _t(lang, 'walletBody') + extra,
+      message: _t(lang, 'walletBody'),
     );
   }
 
@@ -125,12 +125,10 @@ class PaymentErrorMapper {
   /// hlášku NIKDY nedostane). Na rozdíl od [wallet] zákazníka neposílá
   /// kontrolovat kartu v peněžence (ta je v pořádku), ale rovnou ke kartě.
   static PaymentErrorInfo walletFailed(String lang, {String? rawCode}) {
-    final extra = (rawCode != null && rawCode.trim().isNotEmpty)
-        ? '\n\n(${rawCode.trim()})'
-        : '';
+    if (rawCode != null && rawCode.trim().isNotEmpty) debugPrint('[Pay] wallet failed: $rawCode');
     return PaymentErrorInfo(
       title: _t(lang, 'walletFailedTitle'),
-      message: _t(lang, 'walletFailedBody') + extra,
+      message: _t(lang, 'walletFailedBody'),
     );
   }
 
@@ -216,13 +214,20 @@ class PaymentErrorMapper {
     final funds = wallet ? 'psFundsBodyCard' : 'fundsBody';
 
     // Nejdřív konkrétní bankovní decline kódy (nejpřesnější příčina).
+    // D5: ztracená / odcizená / zadržená karta = obecné bezpečné znění banky
+    // (neprozrazovat důvod — karta může být v cizích rukou).
     switch (d) {
       case 'insufficient_funds':
         return _info(lang, 'fundsTitle', funds);
       case 'lost_card':
       case 'stolen_card':
       case 'pickup_card':
-        return _info(lang, 'blockedTitle', 'blockedBody');
+        return _info(lang, 'bankBlockTitle', 'bankBlockBody', cause: 'card_declined');
+      case 'currency_not_supported':
+        return _info(lang, 'pdCurrencyTitle', 'pdCurrencyBody');
+      case 'duplicate_transaction':
+        // Banka hlásí stejnou platbu před chvílí → ověřit, neplatit znovu.
+        return uncertain(lang);
       case 'card_velocity_exceeded':
       case 'withdrawal_count_limit_exceeded':
         return _info(lang, 'limitTitle', 'limitBody');
@@ -257,7 +262,6 @@ class PaymentErrorMapper {
       case 'do_not_honor':
       case 'transaction_not_allowed':
       case 'service_not_allowed':
-      case 'currency_not_supported':
       case 'fraudulent':
       case 'restricted_card':
       case 'security_violation':
@@ -271,9 +275,13 @@ class PaymentErrorMapper {
       case 'stop_payment_order':
       case 'invalid_account':
       case 'new_account_information_available':
+      case 'testmode_decline':
+      case 'invalid_amount':
+      case 'incorrect_zip':
         return _info(lang, 'bankBlockTitle', 'bankBlockBody');
       case 'generic_decline':
       case 'do_not_try_again':
+      case 'card_declined':
         return _info(lang, 'cardDeclinedTitle', 'bankBlockBody');
     }
 
@@ -301,10 +309,28 @@ class PaymentErrorMapper {
       case 'setup_intent_authentication_failure':
         return _info(lang, 'authTitle', 'authBody');
       case 'processing_error':
+      case 'rate_limit':
+      case 'api_connection_error':
         return _info(lang, 'processingTitle', 'processingBody');
       case 'amount_too_small':
-        return _info(lang, 'psBelowMinTitle', 'psBelowMinGeneric',
+        return _info(lang, 'pdBelowMinTitle', 'pdBelowMinGeneric',
             cause: 'amount_too_small');
+      case 'currency_not_supported':
+        return _info(lang, 'pdCurrencyTitle', 'pdCurrencyBody');
+      case 'payment_method_provider_decline':
+        return _info(lang, 'pdWalletDeclinedTitle', 'pdWalletDeclinedBody');
+      case 'payment_intent_payment_attempt_expired':
+        return _info(lang, 'pdAttemptExpiredTitle', 'pdAttemptExpiredBody');
+      case 'payment_intent_payment_attempt_failed':
+      case 'amount_too_large':
+        return _generic(lang);
+      case 'incorrect_zip':
+      case 'postal_code_invalid':
+      case 'invalid_amount':
+      case 'testmode_decline':
+        return _info(lang, 'cardDeclinedTitle', 'bankBlockBody');
+      case 'duplicate_transaction':
+        return uncertain(lang);
       case 'resource_missing':
       case 'payment_method_unactivated':
       case 'payment_method_not_available':

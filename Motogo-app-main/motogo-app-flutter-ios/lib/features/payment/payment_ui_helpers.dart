@@ -52,14 +52,6 @@ bool isTopmostRoute(BuildContext context) {
   return !popupOnTop;
 }
 
-/// „Napsat nám" — zprávy v appce (odpověď přijde tamtéž), kontakt e-mailem a
-/// telefonem je v patičce chybových hlášek.
-void openContactUs(BuildContext context) {
-  // Zprávy jsou v AppShellu; z obrazovky mimo shell (děkovačka, výsledek
-  // platby) by push zdvojil shell → `pushOrGo`.
-  context.pushOrGo(Routes.messages);
-}
-
 /// „Přihlásit" z chybové hlášky (jiný účet, odmítnuté přihlášení): dokud
 /// přihlášení v appce trvá, router by z /login hned vrátil Domů a nic by se
 /// nestalo → nejdřív odhlásit, pak přihlašovací obrazovka.
@@ -96,13 +88,15 @@ PaymentOutcome pendingBookingOutcome(
       notPaidMessage: tr.tr('psNotPaidBooking'),
     );
 
-/// „Platba se ověřuje" pro doplatek úpravy / výměny motorky.
+/// „Platba se ověřuje" pro doplatek úpravy / výměny motorky. [completeKey] =
+/// id PaymentIntentu ve frontě zaplacených změn — ověření ji rovnou dokončí (D6).
 PaymentOutcome pendingEditOutcome(
   AppTranslations tr, {
   required String bookingId,
   double? expectedTotal,
   bool intentOnly = false,
   bool netTrouble = false,
+  String? completeKey,
   required PaymentOutcome verified,
 }) =>
     PaymentOutcome(
@@ -117,6 +111,7 @@ PaymentOutcome pendingEditOutcome(
       verifyIntentOnly: intentOnly,
       verifiedOutcome: verified,
       notPaidMessage: tr.tr('psNotPaidEdit'),
+      completeKey: completeKey,
     );
 
 /// „Platba se ověřuje" pro objednávku z e-shopu.

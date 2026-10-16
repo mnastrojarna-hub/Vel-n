@@ -270,8 +270,9 @@ class PaymentOutcomeLine {
 /// ji flow, které nemají vlastní bohatou děkovací stránku jako nová rezervace
 /// (prodloužení/úprava, SOS, e-shop). Zajišťuje, že zákazník po KAŽDÉ platbě
 /// uvidí jednoznačné potvrzení „zaplaceno", ne jen mizící toast.
-/// Druh výsledku: úspěch / platba se ověřuje / zaplaceno, ale dokončí obsluha.
-enum PaymentOutcomeKind { success, pending, attention }
+/// Druh výsledku: úspěch / platba se ověřuje (nebo zaplacená změna se
+/// dokončuje) / zaplaceno, ale něco zbývá / změnu nešlo zapsat (doplatek se vrací).
+enum PaymentOutcomeKind { success, pending, attention, failed }
 
 class PaymentOutcome {
   final PaymentOutcomeKind kind;
@@ -303,6 +304,9 @@ class PaymentOutcome {
   final List<BookingUpsellItem> verifiedUpsell;
   /// Prokazatelně nezaplaceno → co zákazníkovi říct (a že může platit znovu).
   final String? notPaidMessage;
+  /// Zaplacená výměna / úprava se dokončuje (D6): klíč položky
+  /// `PaidChangeQueue` (id PaymentIntentu) — „Ověřit znovu" ji dokončuje.
+  final String? completeKey;
 
   const PaymentOutcome({
     this.kind = PaymentOutcomeKind.success,
@@ -322,6 +326,7 @@ class PaymentOutcome {
     this.verifiedRestore = false,
     this.verifiedUpsell = const [],
     this.notPaidMessage,
+    this.completeKey,
   });
 }
 

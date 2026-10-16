@@ -1,0 +1,104 @@
+// ===== process-payment/complete-extension.ts =====
+// D6 (2026-10-16): `action: 'complete_extension'` — appka (trvalá fronta
+// PaidChangeQueue) po zaplacení výměny / úpravy požádá server, ať změnu dokončí.
+// Stejná idempotentní logika jako webhook (payment_ref v historii, značka platby
+// u výměny), takže webhook i appka mohou dokončovat současně bez dvojího zápisu.
+// Starou / vrácenou / už vyhodnocenou platbu NEzapisuje (paid-change-guard):
+// jinak by šlo přehrát výměnu po bezplatné výměně zpět (motorka zdarma) nebo zapsat
+// změnu, za kterou se peníze už vrátily.
+// Odpovědi (HTTP 200, není-li uvedeno jinak):
+//   {success:true,  state:'applied'|'already_applied', booking_id, new_booking_id?, total_price?}
+//   {success:true,  state:'client_apply'}                 změna se do metadat nevešla (stará cesta)
+//   {success:false, state:'pending',  code:'payment_processing'}            HTTP 202
+//   {success:false, state:'retry',    code:'apply_failed' | 'rounding_unavailable'}  HTTP 503
+//   {success:false, state:'failed',   code:'change_failed', reason, refund:'auto'|'staff', amount}
+//   {success:false, state:'failed',   code:'stale_payment', reason:'refunded'|'stale_payment', refund}  HTTP 409
+//   {success:false, state:'not_paid', code:'not_paid'}
+//   chyby: 401 auth_required · 403 forbidden · 404 not_found · 409 not_extension · 503 stripe_unavailable
+import { stripe } from './stripe-customer.ts'
+import { authClassify } from '../_shared/auth.ts'
+import { applyPaidExtension, chgFromMetadata } from '../_shared/extension-apply.ts'
+import { handlePaidChangeFailure } from '../_shared/paid-change-failure.ts'
+import { paidChangeEligibility, markApplied, QUEUE_MAX_AGE_H } from '../_shared/paid-change-guard.ts'
+import { CS, refuse, respond } from './refusals.ts'
+
+// deno-lint-ignore no-explicit-any
+type Sb = any
+
+export async function handleCompleteExtension(req: Request, body: Record<string, unknown>, sb: Sb): Promise<Response> {
+  const who = await authClassify(req)
+  if (who.kind === 'none') return refuse(401, 'auth_required')
+  const piId = String(body.payment_intent_id || '')
+  if (!/^pi_[A-Za-z0-9_]+$/.test(piId)) return refuse(404, 'not_found', {}, CS.payment_not_found)
+
+  let pi
+  try {
+    pi = await stripe.paymentIntents.retrieve(piId, { expand: ['latest_charge'] })
+  } catch (e) {
+    const err = e as { code?: string; statusCode?: number }
+    if (err.code === 'resource_missing' || err.statusCode === 404) return refuse(404, 'not_found', {}, CS.payment_not_found)
+    return refuse(503, 'stripe_unavailable')
+  }
+  const md = (pi.metadata || {}) as Record<string, string>
+  const bookingId = md.booking_id
+  if (md.type !== 'extension' || !bookingId) return refuse(409, 'not_extension')
+
+  const { data: bk, error: bkErr } = await sb.from('bookings').select('user_id').eq('id', bookingId).maybeSingle()
+  if (bkErr) return refuse(503, 'server_error')
+  if (!bk) return refuse(404, 'not_found', {}, CS.not_found)
+  const owner = who.kind === 'service' || who.kind === 'admin' || (who.kind === 'user' && !!who.userId && who.userId === bk.user_id)
+  if (!owner) return refuse(403, 'forbidden', {}, CS.forbidden_edit)
+
+  if (pi.status === 'processing' || pi.status === 'requires_capture') {
+    return respond(202, { success: false, state: 'pending', code: 'payment_processing', error: CS.payment_processing, booking_id: bookingId })
+  }
+  if (pi.status !== 'succeeded') {
+    return respond(200, { success: false, state: 'not_paid', code: 'not_paid', error: CS.payment_not_paid, booking_id: bookingId })
+  }
+
+  const paidCzk = (pi.amount_received || pi.amount || 0) / 100
+  const el = await paidChangeEligibility(sb, pi, { bookingId, requireNewCode: true, maxAgeH: QUEUE_MAX_AGE_H, stripe })
+  if (!el.ok) {
+    if (el.kind === 'applied') {
+      return respond(200, { success: true, state: 'already_applied', booking_id: bookingId, new_booking_id: null, total_price: null })
+    }
+    if (el.kind === 'failed') {
+      const staff = el.refund === 'staff' || el.refund === 'none'
+      return respond(200, {
+        success: false, state: 'failed', code: 'change_failed', reason: el.reason,
+        error: staff ? CS.change_failed_staff : CS.change_failed, refund: staff ? 'staff' : 'auto', amount: paidCzk, booking_id: bookingId,
+      })
+    }
+    if (el.kind === 'refunded') {
+      return respond(409, { success: false, state: 'failed', code: 'stale_payment', reason: 'refunded', error: CS.stale_payment_refunded,
+        refund: 'auto', amount: paidCzk, booking_id: bookingId })
+    }
+    // Platba z doby před nasazením nebo mimo lhůtu fronty → nic automaticky, obsluha zkontroluje.
+    await handlePaidChangeFailure(sb, { bookingId, payRef: pi.id, paidCzk, code: 'stale_payment', reason: `stale_payment:${el.why}`,
+      via: 'complete_extension', review: true })
+    return respond(409, { success: false, state: 'failed', code: 'stale_payment', reason: 'stale_payment', error: CS.stale_payment,
+      refund: 'staff', amount: paidCzk, booking_id: bookingId })
+  }
+
+  const r = await applyPaidExtension(sb, {
+    bookingId, chg: chgFromMetadata(md), srv: md.srv || null, paidCzk, payRef: pi.id,
+    rounding: Number(md.card_rounding || 0) || 0, since: new Date(pi.created * 1000).toISOString(),
+  })
+  if (r.state === 'applied' || r.state === 'already_applied') {
+    await markApplied(stripe, pi.id)
+    return respond(200, { success: true, state: r.state, booking_id: bookingId, new_booking_id: r.newBookingId ?? null, total_price: r.totalPrice ?? null })
+  }
+  if (r.state === 'no_payload') return respond(200, { success: true, state: 'client_apply', booking_id: bookingId })
+  if (r.state === 'retry') {
+    const code = r.code === 'rounding_unavailable' ? 'rounding_unavailable' : 'apply_failed'
+    return respond(503, { success: false, state: 'retry', code, error: CS.apply_failed, booking_id: bookingId })
+  }
+  const mode = await handlePaidChangeFailure(sb, {
+    bookingId, payRef: pi.id, paidCzk, code: r.code, reason: r.reason, via: 'complete_extension', review: r.manual === true,
+  })
+  const staff = mode === 'staff' || mode === 'none'
+  return respond(200, {
+    success: false, state: 'failed', code: 'change_failed', reason: r.reason, error: staff ? CS.change_failed_staff : CS.change_failed,
+    refund: staff ? 'staff' : 'auto', amount: paidCzk, booking_id: bookingId,
+  })
+}
